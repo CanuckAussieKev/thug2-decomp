@@ -198,10 +198,17 @@ keep a check carry a `NOLINT` with their reason:
     guard; any other is constructed in place in static storage (the function-local static's guard). Its address is
     stable, so members may be registered elsewhere. Static storage, as the globals were: the game's heaps don't change.
   - A record is a plain struct (data members only, `name_`), its comment naming the original's addresses where known.
-    What one file uses is that file's record in its unnamed namespace; what several files of a subsystem share is the
-    subsystem's record in its own internal header (`sound/sound_state.h`), included only by the subsystem. Other
-    subsystems get functions (`sound::get_audio_mixer()`), never the record. The state of the original's start-up
-    initialisers (`sys::run_startup_initialisers`) is still built there, in that order, over its record.
+    What one file uses is that file's record in its unnamed namespace (one record per run of definitions, named for
+    what it holds); what several files of a folder share is a record in the folder's own header (`sound/sound_state.h`,
+    `audio/audio_state.h`, `render/collision_state.h`, or `<folder>/shared_state.h` with one record per defining file),
+    included only by that folder. Other subsystems get functions (`sound::get_audio_mixer()`,
+    `game_config::frame_rate()`), never the record. A file's single global is its accessor's function-local static
+    (`core::NoDestroy` when the type has a destructor). The state of the original's start-up initialisers
+    (`sys::run_startup_initialisers`) is still built there, in that order, over its record.
+  - A manager's owner (`std::unique_ptr` / `memory::HeapUnique`) is a member of its record; the record's file defines
+    the getter the other files call (`pad_input::get_input_manager()`, `assets::get_main_loop_manager()`). Raw owners
+    become `std::unique_ptr` members: freed with `memory::destroy_then_clear` where the original deleted them, given up
+    with `memory::let_go` where the original left them.
   - Hot paths take the reference once (`auto& voices = voice_state();`) rather than calling the accessor per element.
   - Tables that never change are `constexpr` / `const` (`k` names), not state; a cache of a pure result is a
     function-local static of its one function.
