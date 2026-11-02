@@ -4,19 +4,12 @@
 #include "frontend/screen_element_manager.h"
 
 #include <cstdint>
-#include <cstring>
-
-#include "engine/core/mem.h"
 #include "engine/objects/signal.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/contest.h"
-#include "platform/code_address.h"
 #include "engine/objects/entity.h"
-#include "engine/core/stubs.h"
 #include "frontend/screen_element.h"
-#include "frontend/screen_constants.h"
-
 namespace frontend {
 
 namespace {

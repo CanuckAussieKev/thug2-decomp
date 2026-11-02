@@ -64,8 +64,6 @@ namespace frontend::automation {
 namespace {
 
 #include "frontend/automation_tables.inc"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

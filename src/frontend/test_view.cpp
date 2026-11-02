@@ -17,7 +17,6 @@
 #include "game/rider/rider.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace frontend::test_view {

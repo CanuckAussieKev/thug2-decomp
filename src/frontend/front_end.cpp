@@ -29,7 +29,6 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/rider.h"
 #include "platform/game_clock.h"
-#include "engine/sys/game_module.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/assets/resource_registry.h"

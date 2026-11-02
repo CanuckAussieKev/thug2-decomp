@@ -3,7 +3,6 @@
 #include "frontend/new_frontend_game.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <array>
 #include <string>
 
@@ -22,7 +21,6 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/pad_input/device.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 

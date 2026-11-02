@@ -4,13 +4,11 @@
 
 #include <new>
 
-#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <array>
 #include <memory>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/objects/signal.h"
 #include "frontend/new_frontend.h"
@@ -21,8 +19,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
-#include "platform/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"

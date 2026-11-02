@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
 
 #include <SDL2/SDL.h>

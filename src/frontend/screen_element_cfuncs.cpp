@@ -28,7 +28,6 @@
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/gfx/engine_geom.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <utility>

@@ -6,12 +6,10 @@
 
 #include <bit>
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <array>
 
-#include "engine/core/mem.h"
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
 #include "engine/objects/tracker.h"
@@ -19,9 +17,7 @@
 #include "engine/script/math_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "platform/code_address.h"
 #include "engine/objects/entity.h"
-#include "engine/core/stubs.h"
 #include "frontend/screen_constants.h"
 #include "engine/gfx/weather.h"
 #include "engine/core/checked_index.h"

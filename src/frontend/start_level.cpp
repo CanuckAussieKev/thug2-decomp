@@ -4,7 +4,6 @@
 
 #include <windows.h>
 
-#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>

@@ -20,7 +20,6 @@
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 

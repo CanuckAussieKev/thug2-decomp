@@ -1,20 +1,16 @@
 // The scrolling menus: see scrolling_menu.h.
 
-#include <cstddef>
 #include <cstdint>
 #include <new>
 
 #include "frontend/scrolling_menu.h"
 
 #include "engine/core/checksums.h"
-#include "engine/core/mem.h"
 #include "frontend/menu_element.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
 #include "engine/objects/entity.h"
-#include "engine/core/stubs.h"
 #include "frontend/screen_element.h"
 #include "engine/core/down_cast.h"
 

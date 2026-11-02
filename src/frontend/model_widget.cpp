@@ -11,7 +11,6 @@
 #include <array>
 #include <span>
 
-#include "engine/core/manager.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/screen.h"
@@ -25,15 +24,11 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/contest.h"
 #include "platform/stopwatch.h"
-#include "platform/code_address.h"
-#include "platform/run_log.h"
-#include "engine/core/stubs.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_constants.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/core/checked_index.h"

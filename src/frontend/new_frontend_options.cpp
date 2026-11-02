@@ -4,7 +4,6 @@
 #include "frontend/new_frontend_text.h"
 #include "engine/core/checked_index.h"
 
-#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <string>

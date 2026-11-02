@@ -16,7 +16,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <functional>
 #include <initializer_list>
 #include <map>
 #include <set>
@@ -53,7 +52,6 @@
 #include "engine/gfx/font.h"
 #include "engine/gfx/glyphs.h"
 #include "engine/gfx/hd_ui.h"
-#include "engine/net/online_identity.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
