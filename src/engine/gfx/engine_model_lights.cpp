@@ -44,7 +44,7 @@ float get_scaled(float brightness, float dark, float bright)
 
 // 0x0048E5B0
 ModelLights::ModelLights()
-    : dynamic_radius_(0), intensities_(static_cast<float*>(memory::alloc(light_count() * 4))), place_ref_(nullptr)
+    : intensities_(static_cast<float*>(memory::alloc(light_count() * 4)))
 {
     std::ranges::fill(intensities(), 1.0f);
 }
