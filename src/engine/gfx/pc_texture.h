@@ -95,9 +95,9 @@ public:
     // 0x004CA8E0 (slot 41): another (PC) texture's level 0 drawn over the edit's pixels by its alpha. False.
     bool get_overlay(BitmapTexture* over, int unused) override;
     // 0x004C9F90: a rectangle of the edit's pixels read out (a palettized texture's whole image instead).
-    void read_rect(uint32_t* out, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+    void read_rect(std::span<uint32_t> out, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
     // 0x004CA0D0: a rectangle written in (a palettized texture's by nearest palette entry).
-    void write_rect(const uint32_t* in, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+    void write_rect(std::span<const uint32_t> in, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
     // 0x004C7FB0 / 0x004C7FE0 (slots 33 / 34): the image's width and height (0 without a texture).
     [[nodiscard]] uint16_t fetch_breadth() const override;
     [[nodiscard]] uint16_t fetch_tallness() const override;
@@ -168,13 +168,14 @@ gsl::owner<PcTexDict*> create_tex_dict(uint32_t checksum);
 // The texture editing's image helpers, on 32-bit pixels (every caller's; the original took the bits a pixel and also
 // copied 8- and 4-bit images and resized 8-bit ones by nearest - nothing asked for those).
 // 0x004C80B0: an image's rows copied into another's at (x, y), clipped to it.
-void copy_sub_image(uint32_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
-                    const uint32_t* from, uint16_t from_width, uint16_t from_height);
+void copy_sub_image(std::span<uint32_t> into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
+                    std::span<const uint32_t> from, uint16_t from_width, uint16_t from_height);
 // 0x004C9200: an image resized, bilinear in 1024ths.
-void resize_image(const uint32_t* from, uint16_t from_width, uint16_t from_height, uint32_t* into, uint16_t into_width,
-                  uint16_t into_height);
+void resize_image(std::span<const uint32_t> from, uint16_t from_width, uint16_t from_height, std::span<uint32_t> into,
+                  uint16_t into_width, uint16_t into_height);
 // 0x004C9520: an image zoomed about its centre (bilinear, clamped to the edges).
-void zoom_image(const uint32_t* from, uint16_t width, uint16_t height, uint32_t* into, float x_zoom, float y_zoom);
+void zoom_image(std::span<const uint32_t> from, uint16_t width, uint16_t height, std::span<uint32_t> into, float x_zoom,
+                float y_zoom);
 // 0x004C8180: RGB (0-1) to hue (degrees; -1 when black), saturation and value.
 void rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v);
 // 0x004C82D0: and back.

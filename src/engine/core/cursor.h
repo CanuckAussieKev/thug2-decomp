@@ -71,9 +71,19 @@ public:
         return *this += static_cast<std::ptrdiff_t>(count);
     }
     template <std::unsigned_integral U>
+    Cursor& operator-=(U count)
+    {
+        return *this -= static_cast<std::ptrdiff_t>(count);
+    }
+    template <std::unsigned_integral U>
     [[nodiscard]] Cursor operator+(U count) const
     {
         return *this + static_cast<std::ptrdiff_t>(count);
+    }
+    template <std::unsigned_integral U>
+    [[nodiscard]] Cursor operator-(U count) const
+    {
+        return *this - static_cast<std::ptrdiff_t>(count);
     }
     [[nodiscard]] std::ptrdiff_t operator-(const Cursor& other) const { return position_ - other.position_; }
     [[nodiscard]] bool operator==(const Cursor& other) const { return position_ == other.position_; }
