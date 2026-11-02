@@ -52,14 +52,6 @@ constexpr uint32_t kVelX = 0x6187906D, kVelY = 0x1680A0FB, kVelZ = 0x8F89F141; /
 online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 using PlayerSearch = online::PlayerSearch;
 using NewPlayerSearch = online::NewPlayerSearch;
-PlayerRecord* start_roster_sweep(online::Hub* manager, PlayerSearch* search, bool observers)
-{
-    return static_cast<PlayerRecord*>(manager->begin_player_walk(search, observers));
-}
-PlayerRecord* step_roster_sweep(online::Hub* manager, PlayerSearch* search, bool observers)
-{
-    return static_cast<PlayerRecord*>(manager->step_player_walk(search, observers));
-}
 
 // 0x005535F0: a team game.
 bool is_squad_match() { return static_cast<goals::MatchRules*>(get_game_mode())->is_squad_match() != 0; }
@@ -109,8 +101,8 @@ void prepare_eliminated(net::NetMessageInfo* desc, uint32_t* data)
 void send_to_players(online::Hub* manager, net::NetMessageInfo* desc, bool observers)
 {
     PlayerSearch search;
-    for (PlayerRecord* player = start_roster_sweep(manager, &search, observers); player;
-         player = step_roster_sweep(manager, &search, observers))
+    for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, observers)); player;
+         player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, observers)))
         manager->host_->put_on_outbox(player->get_link_handle(), desc);
 }
 
@@ -178,8 +170,8 @@ bool cfunc_accumulate_scores(script::Struct*, script::Script*)
     PlayerSearch search;
     const PlayerSearch unused; // (made and dropped by the original)
     (void)unused;
-    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-         player = step_roster_sweep(manager, &search, false))
+    for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+         player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false)))
         player->add_to_accumulated_score(total_score(get_score_of(player->skater_)));
     return true;
 }
@@ -195,8 +187,8 @@ bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
     int lowest = -1;
     int highest = 0;
     int in_game = 0;
-    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-         player = step_roster_sweep(manager, &search, false)) {
+    for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+         player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
         if (player->is_eliminated())
             continue;
         ++in_game;
@@ -217,8 +209,8 @@ bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
         send_to_players(manager, &desc, false);
         return true;
     }
-    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-         player = step_roster_sweep(manager, &search, false)) {
+    for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+         player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
         if (player->is_eliminated() || total_score(get_score_of(player->skater_)) != lowest)
             continue;
         desc = net::NetMessageInfo();
@@ -238,8 +230,8 @@ bool cfunc_only_one_player_left(script::Struct*, script::Script* script)
     PlayerSearch search;
     if (is_squad_match()) {
         std::array<int, 4> teams = {{0, 0, 0, 0}};
-        for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-             player = step_roster_sweep(manager, &search, false)) {
+        for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+             player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
             if (!player->is_eliminated())
                 ++core::at(teams, player->team_);
         }
@@ -249,8 +241,8 @@ bool cfunc_only_one_player_left(script::Struct*, script::Script* script)
         return with_players <= 1;
     }
     int players = 0;
-    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-         player = step_roster_sweep(manager, &search, false)) {
+    for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+         player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
         if (!player->is_eliminated())
             ++players;
     }
@@ -269,8 +261,8 @@ bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Scrip
     const int target = integer_or_zero(params);
     if (is_squad_match()) {
         std::array<int, 4> teams = {{0, 0, 0, 0}};
-        for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-             player = step_roster_sweep(manager, &search, false)) {
+        for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+             player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
             modules::PointTally* score = get_score_of(player->skater_);
             core::at(teams, player->team_) += total_score(score);
         }
@@ -280,8 +272,8 @@ bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Scrip
         }
         return false;
     }
-    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-         player = step_roster_sweep(manager, &search, false)) {
+    for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+         player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
         if (player->skater_ && total_score(get_score_of(player->skater_)) >= target)
             return true;
     }
@@ -299,8 +291,8 @@ bool cfunc_only_one_skater_left(script::Struct*, script::Script*)
     int scored = 0;
     if (is_squad_match()) {
         std::array<int, 4> teams = {{0, 0, 0, 0}};
-        for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-             player = step_roster_sweep(manager, &search, false)) {
+        for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+             player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
             modules::PointTally* score = get_score_of(player->skater_);
             core::at(teams, player->team_) += total_score(score);
         }
@@ -310,8 +302,8 @@ bool cfunc_only_one_skater_left(script::Struct*, script::Script*)
             return false;
     } else {
         int skaters = 0;
-        for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-             player = step_roster_sweep(manager, &search, false)) {
+        for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+             player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
             if (!player->skater_)
                 continue;
             ++skaters;
@@ -399,8 +391,8 @@ bool cfunc_in_first_place(script::Struct*, script::Script* script)
         return false;
     const int mine = total_score(component_score_of(local->skater_));
     int in_game = 0;
-    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-         player = step_roster_sweep(manager, &search, false)) {
+    for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+         player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
         if (player->is_eliminated())
             continue;
         ++in_game;
@@ -429,8 +421,8 @@ bool cfunc_in_last_place(script::Struct*, script::Script* script)
         return false;
     const int mine = total_score(component_score_of(local->skater_));
     int in_game = 0;
-    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-         player = step_roster_sweep(manager, &search, false)) {
+    for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+         player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
         if (player->is_eliminated())
             continue;
         ++in_game;
@@ -464,8 +456,8 @@ bool cfunc_in_second_to_last_place(script::Struct*, script::Script* script)
         return false;
     const int mine = total_score(component_score_of(local->skater_));
     int in_game = 0;
-    for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
-         player = step_roster_sweep(manager, &search, false)) {
+    for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
+         player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
         if (player->is_eliminated())
             continue;
         ++in_game;

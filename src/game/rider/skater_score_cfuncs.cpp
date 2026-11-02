@@ -35,11 +35,7 @@ constexpr uint32_t kPlayer = 0x67E6859A;       // "player"
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
 objects::Rider* get_skater_at(int index) { return core::down_cast<objects::Rider>(get_skate()->get_rider_at(index)); }
-bool is_host_local(objects::Rider* skater) { return skater->is_local_skater_ != 0; }
 
-// The skater's score (the SkaterScore component's object): 0x00564A10 resets it, 0x00561B40 / 0x00561A80 get and set
-// its total, 0x00564860 resets its pot (bail style or not). None has source yet.
-void* get_score_of(objects::Rider* skater) { return skater->get_points_total(); }
 
 // The game mode's name (0x005532A0, no source yet).
 uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
@@ -52,7 +48,7 @@ bool cfunc_initialize_skaters(script::Struct*, script::Script*)
 {
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (is_host_local(skater)) {
+        if (skater->is_local_skater_ != 0) {
             skater->reset_input();
         }
         get_skate()->conceal_skater(skater, false);
@@ -80,9 +76,9 @@ bool cfunc_reset_score(script::Struct* params, script::Script*)
     const bool all = params->has_entry_named(kResetAll);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (!is_host_local(skater) && !all)
+        if (!(skater->is_local_skater_ != 0) && !all)
             continue;
-        static_cast<modules::PointTally*>(get_score_of(skater))->get_reset();
+        static_cast<modules::PointTally*>(skater->get_points_total())->get_reset();
         if (active_ruleset_label() == kNetKing || active_ruleset_label() == kKing)
             frontend::set_score_text("0:00", skater->get_skater_number()); // "0:00"
         else
@@ -96,9 +92,9 @@ bool cfunc_update_score(script::Struct*, script::Script*)
 {
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (!is_host_local(skater))
+        if (!(skater->is_local_skater_ != 0))
             continue;
-        void* score = get_score_of(skater);
+        void* score = skater->get_points_total();
         static_cast<modules::PointTally*>(score)->set_grand_total(
             static_cast<modules::PointTally*>(score)->get_total_score());
     }
@@ -112,8 +108,8 @@ bool cfunc_reset_score_pot(script::Struct* params, script::Script*)
     const bool bail_style = params->has_bare_flag(kUseBailStyle);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (is_host_local(skater))
-            static_cast<modules::PointTally*>(get_score_of(skater))->get_bail(!bail_style);
+        if (skater->is_local_skater_ != 0)
+            static_cast<modules::PointTally*>(skater->get_points_total())->get_bail(!bail_style);
     }
     return true;
 }

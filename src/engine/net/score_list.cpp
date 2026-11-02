@@ -79,8 +79,6 @@ void* get_score_of(PlayerRecord* player)
 }
 int points_of(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
 
-PlayerRecord* get_first(Hub* manager, PlayerSearch* search) { return start_roster_sweep(manager, search, false); }
-PlayerRecord* get_next(Hub* manager, PlayerSearch* search) { return step_roster_sweep(manager, search, false); }
 
 // A player that gets a score line: fully in (or local), not eliminated, and in netfirefight not out of lives.
 bool has_score_line(PlayerRecord* p)
@@ -123,7 +121,7 @@ int Hub::get_squad_points(int team)
     int total = 0;
     const PlayerRecord* local = find_own_player_record(this);
     const bool goal_attack = get_game_type() == kNetGoalAttack;
-    for (PlayerRecord* p = get_first(this, &search); p; p = get_next(this, &search)) {
+    for (PlayerRecord* p = start_roster_sweep(this, &search, false); p; p = step_roster_sweep(this, &search, false)) {
         if (!(p->flag_bits_ & (kPlayerFullyIn | kPlayerLocal)) || p->team_ != team)
             continue;
         if (goal_attack && !(local->flag_bits_ & kPlayerObserver))
@@ -186,7 +184,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             entry->shade_ = team + 2;
             entry->team_score_ = manager->get_squad_points(team);
         }
-        for (PlayerRecord* p = get_first(manager, &search); p; p = get_next(manager, &search)) {
+        for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
             if (!has_score_line(p))
                 continue;
             if (p->flag_bits_ & kPlayerLocal) {
@@ -212,7 +210,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         }
     } else {
         // A line per player.
-        for (PlayerRecord* p = get_first(manager, &search); p; p = get_next(manager, &search)) {
+        for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
             if (!has_score_line(p))
                 continue;
             ScoreEntry* entry = new_entry();

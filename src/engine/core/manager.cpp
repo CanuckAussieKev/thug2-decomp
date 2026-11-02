@@ -29,7 +29,6 @@ void* heap_allocate(MemSource* heap, uint32_t size, int halt_if_exhausted)
 
 void delete_region(std::unique_ptr<Zone>& region) { memory::destroy_then_clear(region); }
 
-MemSource* current_heap(Hub* manager) { return *manager->ongoing_; }
 
 // NOT ORIGINAL grouping - the memory manager, whether it is set up, the static storage it and its main region and heaps
 // are made in, the block the main region is in and the program's segments. Made on first use, never destroyed
@@ -65,7 +64,7 @@ Hub* Hub::get_pull() { return manager_state().memory_manager_; }
 void* Hub::carve(uint32_t size, int halt_if_exhausted, MemSource* heap)
 {
     if (!heap)
-        heap = current_heap(this);
+        heap = *ongoing_;
     void* block = heap_allocate(heap, size, halt_if_exhausted);
     if (block)
         mark_block_in_use(block);
@@ -76,7 +75,7 @@ void* Hub::carve(uint32_t size, int halt_if_exhausted, MemSource* heap)
 void* Hub::allocate_zeroed(uint32_t size, int halt_if_exhausted, MemSource* heap)
 {
     if (!heap)
-        heap = current_heap(this);
+        heap = *ongoing_;
     void* block = heap_allocate(heap, size, halt_if_exhausted);
     if (block) {
         mark_block_in_use(block);
@@ -89,7 +88,7 @@ void* Hub::allocate_zeroed(uint32_t size, int halt_if_exhausted, MemSource* heap
 void* Hub::extend_block_upward(uint32_t size, void* block, MemSource* heap)
 {
     if (!heap)
-        heap = current_heap(this);
+        heap = *ongoing_;
     void* result = heap->extend_block_upward(size, block);
     if (result)
         mark_block_in_use(result);
@@ -100,7 +99,7 @@ void* Hub::extend_block_upward(uint32_t size, void* block, MemSource* heap)
 void* Hub::trim_block_end(uint32_t size, void* block, MemSource* heap)
 {
     if (!heap)
-        heap = current_heap(this);
+        heap = *ongoing_;
     void* result = heap->trim_block_end(size, block);
     if (result)
         mark_block_in_use(result);
@@ -115,7 +114,7 @@ void Hub::dealloc(void* block)
 }
 
 // 0x005BB050
-uint32_t Hub::obtainable() { return current_heap(this)->largest_free(); }
+uint32_t Hub::obtainable() { return (*ongoing_)->largest_free(); }
 
 // 0x005BB0E0
 void Hub::enter_heap_scope(MemSource* heap)
@@ -134,7 +133,7 @@ void Hub::leave_heap_scope()
 }
 
 // 0x005BB150
-const char* Hub::current_heap_name() { return current_heap(this)->label_; }
+const char* Hub::current_heap_name() { return (*ongoing_)->label_; }
 
 // 0x005BAC10
 MemSource* Hub::first_zone() { return heap_count_ ? core::at(heaps_, 0) : nullptr; }
@@ -427,7 +426,7 @@ uint32_t malloc_available() { return Hub::get_pull()->obtainable(); }
 // 0x005BBB30
 void* trim_block_end(unsigned int size, void* memory)
 {
-    void* result = current_heap(Hub::get_pull())->trim_block_end(size, memory);
+    void* result = (*Hub::get_pull()->ongoing_)->trim_block_end(size, memory);
     if (result)
         mark_block_in_use(result);
     return result;
@@ -449,7 +448,7 @@ void* regrow(void* memory, unsigned int size)
 {
     void* block = nullptr;
     if (size) {
-        block = heap_allocate(current_heap(Hub::get_pull()), size, 1);
+        block = heap_allocate(*Hub::get_pull()->ongoing_, size, 1);
         if (block)
             mark_block_in_use(block);
     }

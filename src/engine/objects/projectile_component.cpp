@@ -36,8 +36,6 @@ constexpr float kStep = 0.8975979f; // 0x00646968 (2pi / 7)
 constexpr int kFeelers = 8;
 constexpr int kRestFrames = 10;
 
-// (a seat of -1 - no slot named for the object - reaches before the slots, as the original)
-bool& slot_taken(Rider* skater, int slot) { return core::at(skater->projectiles_, slot).active; }
 
 // One feeler's end x / z: the cosine of the angle as computed (in double), the sine of it rounded to float; z adds
 // (sin + float(cos)) * 12 rounded to float first.
@@ -60,7 +58,7 @@ gsl::owner<ObjectModule*> ProjectileComponent::fabricate() { return new Projecti
 ProjectileComponent::ProjectileComponent() { kind_tag_ = kType; }
 
 // 0x004F37B0 (0x004F37D0 the deleting one)
-ProjectileComponent::~ProjectileComponent() { slot_taken(rider_ref_, seat_) = false; }
+ProjectileComponent::~ProjectileComponent() { core::at(rider_ref_->projectiles_, seat_).active = false; }
 
 // 0x004F3800
 void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
@@ -75,7 +73,7 @@ void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
             break;
         }
     }
-    slot_taken(skater, seat_) = true;
+    core::at(skater->projectiles_, seat_).active = true;
 }
 
 // 0x004F3860

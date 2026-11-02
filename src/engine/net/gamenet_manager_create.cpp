@@ -42,10 +42,6 @@ constexpr uint32_t kTauntSettingsKey = 0x878CB88F;
 constexpr int kGameSpyGameId = 1003;
 constexpr int kChallengeLength = 8;
 
-std::unique_ptr<tasks::SchedulerTask> new_task(Hub* manager, tasks::Task<Hub>::Code code, int priority)
-{
-    return std::make_unique<tasks::Task<Hub>>(code, manager, priority);
-}
 
 // A list head (lists::Foremost<T>; 0x14 bytes at its offset): empty.
 void setup_list_sentinel(memory::ListNode* head) { head->make_head(); }
@@ -86,21 +82,21 @@ Hub::Hub()
     next_service_state_ = 2;
     net_options_.read_in(kNetSettingsKey);
     taunt_options_.read_in(kTauntSettingsKey);
-    connection_job_ = new_task(this, &Hub::connection_task, -2000);
-    metrics_job_ = new_task(this, &net_metrics_task, 0);
-    server_list_job_ = new_task(this, &online::server_list_task, 0);
-    auto_serve_job_ = new_task(this, &Hub::auto_serve_task, 0);
-    score_broadcast_job_ = new_task(this, &online::score_broadcast_tick, 0);
-    guest_admit_job_ = new_task(this, &Hub::guest_player_intake_tick, -2000);
-    host_admit_job_ = new_task(this, &Hub::host_player_intake_tick, -2000);
-    keyboard_job_ = new_task(this, &keyboard_task, 0);
-    dialup_job_ = new_task(this, &dialup_progress_tick, 0);
-    join_expiry_job_ = new_task(this, &join_deadline_tick, 0);
-    service_job_ = new_task(this, &net::service_task, 0);
-    join_phase_job_ = new_task(this, &Hub::join_progress_tick, 0);
-    start_game_job_ = new_task(this, &Hub::start_game_task, 0);
-    level_change_job_ = new_task(this, &level_change_task, 0);
-    flag_carry_job_ = new_task(this, &carried_flags_task, 0);
+    connection_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::connection_task), this, -2000);
+    metrics_job_ = std::make_unique<tasks::Task<Hub>>(&net_metrics_task, this, 0);
+    server_list_job_ = std::make_unique<tasks::Task<Hub>>((&online::server_list_task), this, 0);
+    auto_serve_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::auto_serve_task), this, 0);
+    score_broadcast_job_ = std::make_unique<tasks::Task<Hub>>((&online::score_broadcast_tick), this, 0);
+    guest_admit_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::guest_player_intake_tick), this, -2000);
+    host_admit_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::host_player_intake_tick), this, -2000);
+    keyboard_job_ = std::make_unique<tasks::Task<Hub>>(&keyboard_task, this, 0);
+    dialup_job_ = std::make_unique<tasks::Task<Hub>>(&dialup_progress_tick, this, 0);
+    join_expiry_job_ = std::make_unique<tasks::Task<Hub>>(&join_deadline_tick, this, 0);
+    service_job_ = std::make_unique<tasks::Task<Hub>>((&net::service_task), this, 0);
+    join_phase_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::join_progress_tick), this, 0);
+    start_game_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::start_game_task), this, 0);
+    level_change_job_ = std::make_unique<tasks::Task<Hub>>(&level_change_task, this, 0);
+    flag_carry_job_ = std::make_unique<tasks::Task<Hub>>(&carried_flags_task, this, 0);
     tasks->queue_job(connection_job_.get());
     modem_state_shown_ = 5;  // the modem state shown last
     created_goals_size_ = 0; // the created goals' message

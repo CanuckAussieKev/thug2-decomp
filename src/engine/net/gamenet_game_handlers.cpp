@@ -91,11 +91,6 @@ constexpr uint8_t kMsgRequestGoals = 0x8A;
 
 constexpr int kPanelTime = 2000;
 
-// 0x005376F0: a panel message (broadcast, text, string 1, string 2, object, properties, important, time).
-void panel_message(Hub* manager, uint32_t text, const char* string1, objects::Entity* object)
-{
-    manager->build_net_notice(false, text, string1, nullptr, object, nullptr, false, kPanelTime);
-}
 
 // The rail editor (0x004F4970); the goal editor is ObjectiveAuthoring::get_pull (0x004E8470).
 void* get_rail_editor() { return park_editing::RailAuthoring::sole(); }
@@ -174,15 +169,15 @@ int handle_crown_spawn(net::InboundMsgCtx* context)
         king->give_crown(false); // no longer the king
     }
     if (king && is_own_player(king)) {
-        panel_message(manager, kDroppedCrownYou, nullptr, player_skater(king));
+        manager->build_net_notice(false, kDroppedCrownYou, nullptr, nullptr, player_skater(king), nullptr, false, kPanelTime);
     } else if (manager->in_net_game()) {
-        panel_message(manager, kDroppedCrownOther, nullptr, nullptr);
+        manager->build_net_notice(false, kDroppedCrownOther, nullptr, nullptr, nullptr, nullptr, false, kPanelTime);
     } else if (king && player_skater(king)) {
         // the other local player (id 1 if this one's is 0, else 0)
         const PlayerRecord* other =
             find_player_slot_by_obj(manager, static_cast<uint16_t>(get_skater_id(player_skater(king)) == 0));
         if (other)
-            panel_message(manager, kDroppedCrownOther, nullptr, player_skater(other));
+            manager->build_net_notice(false, kDroppedCrownOther, nullptr, nullptr, player_skater(other), nullptr, false, kPanelTime);
     }
     auto* crown = static_cast<objects::CrownObject*>(manager->get_crown_holder());
     if (!crown)

@@ -71,7 +71,6 @@ constexpr uint8_t kMsgPlayerFullyIn = 0x5E;
 constexpr uint32_t kJoinSettleTime = 1000; // ms
 constexpr uint32_t kJustJoinedTime = 5000; // ms
 
-PlayerRecord* get_local(Hub* manager) { return find_own_player_record(manager); }
 uint32_t flag_of(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & 31); }
 
 // "team_<team + 1>_name" (the original's sprintf).
@@ -150,7 +149,7 @@ void PlayerRecord::score_flag_capture(int team)
 {
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
-    const PlayerRecord* local = get_local(net_game_state().the_manager());
+    const PlayerRecord* local = find_own_player_record(net_game_state().the_manager());
     const script::StructPtr params = script::make_struct();
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
@@ -177,7 +176,7 @@ void PlayerRecord::note_flag_steal(int team)
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
     script::StructPtr params = script::make_struct();
-    PlayerRecord* local = get_local(manager);
+    PlayerRecord* local = find_own_player_record(manager);
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
         get_run(kStoleFlagYou, params.get());
@@ -199,7 +198,7 @@ void PlayerRecord::note_flag_pickup(int team)
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
     script::StructPtr params = script::make_struct();
-    const PlayerRecord* local = get_local(manager);
+    const PlayerRecord* local = find_own_player_record(manager);
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
         get_run(kTookFlagYou, params.get());
@@ -232,7 +231,7 @@ void PlayerRecord::note_flag_returned()
         get_run(kHideCtfArrow);
         get_run(kRetrievedFlagYou, params);
     } else {
-        const PlayerRecord* local = get_local(manager);
+        const PlayerRecord* local = find_own_player_record(manager);
         if (local && !(local->flag_bits_ & kPlayerObserver) && local->team_ == team_)
             get_run(kHideCtfArrow);
         params->append_word(kString0, script::kQbvalString, label_.data());

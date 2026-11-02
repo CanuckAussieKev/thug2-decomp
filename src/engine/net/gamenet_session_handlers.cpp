@@ -125,7 +125,6 @@ void copy_name(char* dest, const char* source)
     std::memset(std::span<char>(dest, kNameSize).subspan(length).data(), 0, kNameSize - length);
 }
 
-prefs::Preferences* net_game_options(Hub* manager) { return manager->get_online_settings(); }
 
 // A goal running (the original's vtable +0xC).
 bool goal_running(goals::Objective* goal) { return goal->is_operative(); }
@@ -228,7 +227,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         if (!read_start_request(reader, &request))
             return kDone;
         // The game's options, each a preference: its text and checksum.
-        prefs::Preferences* prefs = net_game_options(manager);
+        prefs::Preferences* prefs = manager->get_online_settings();
         auto set = [&](uint32_t preference, uint32_t list, uint32_t value, bool fireball = false) {
             const script::StructPtr params = script::make_struct();
             const char* text = option_text(list, value);
@@ -350,7 +349,7 @@ int handle_host_options(net::InboundMsgCtx* context)
             params->append_word(kUiString, core::at(kTexts, teams));
             params->put_name_key(kChecksum, core::at(kTeams, teams));
         }
-        net_game_options(manager)->change_setting(kTeamMode, params.get());
+        manager->get_online_settings()->change_setting(kTeamMode, params.get());
         params.reset();
         cfunc_set_num_teams(count.get(), nullptr);
         count.reset();

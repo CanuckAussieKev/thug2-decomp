@@ -129,7 +129,6 @@ constexpr uint32_t kLimitsTimeDefault = 0x551184E7;     // (float bits: about 1e
 constexpr uint32_t kLimitsFrictionDefault = 0x360637BD; // (float bits: about 2e-6)
 
 int get_is(uint8_t value) { return value ? 1 : 0; }
-script::Struct* results_of(script::Script* script) { return script->args_.get(); }
 
 // The skater's facing, made unit (the x and y products left unrounded as the original keeps them on the x87 stack),
 // as the end of a feeler from `start` `distance` long.
@@ -596,7 +595,7 @@ int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 {
     const uint32_t time = time_aloft();
     auto seconds = static_cast<float>(static_cast<double>(time) * kSecondsPerMillisecond);
-    results_of(script)->push_float(kAirtime, seconds);
+    script->args_.get()->push_float(kAirtime, seconds);
     return 1;
 }
 
@@ -781,40 +780,40 @@ int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Sc
 // 0x004FD580
 int SkaterPhysicsModule::get_matrix_normal(script::Struct*, script::Script* script)
 {
-    results_of(script)->push_float(kX, core::at(entity_->basis_frame_.row, 1).x);
-    results_of(script)->push_float(kY, core::at(entity_->basis_frame_.row, 1).y);
-    results_of(script)->push_float(kZ, core::at(entity_->basis_frame_.row, 1).z);
+    script->args_.get()->push_float(kX, core::at(entity_->basis_frame_.row, 1).x);
+    script->args_.get()->push_float(kY, core::at(entity_->basis_frame_.row, 1).y);
+    script->args_.get()->push_float(kZ, core::at(entity_->basis_frame_.row, 1).z);
     return 1;
 }
 // 0x004FD5E0
 int SkaterPhysicsModule::get_last_ground_pos(script::Struct*, script::Script* script)
 {
     const maths::Vec4& position = last_ground_pos_;
-    results_of(script)->put_vec3(kPos, position.x, position.y, position.z);
+    script->args_.get()->put_vec3(kPos, position.x, position.y, position.z);
     return 1;
 }
 // 0x004FD610
 int SkaterPhysicsModule::get_last_ground_heading(script::Struct*, script::Script* script)
 {
-    results_of(script)->push_float(kLastHeading, last_heading_);
+    script->args_.get()->push_float(kLastHeading, last_heading_);
     return 1;
 }
 // 0x004FDC30
 int SkaterPhysicsModule::get_ammo(script::Struct*, script::Script* script)
 {
-    results_of(script)->put_int(kAmmo, ammo_);
+    script->args_.get()->put_int(kAmmo, ammo_);
     return 1;
 }
 // 0x004FDC50
 int SkaterPhysicsModule::get_ammo_type(script::Struct*, script::Script* script)
 {
-    results_of(script)->put_name_key(kAmmoType, ammo_type_);
+    script->args_.get()->put_name_key(kAmmoType, ammo_type_);
     return 1;
 }
 // 0x004FDC70
 int SkaterPhysicsModule::get_pitch_bail_dir(script::Struct*, script::Script* script)
 {
-    results_of(script)->put_name_key(kPitchBailDir, nearest_wall_side_);
+    script->args_.get()->put_name_key(kPitchBailDir, nearest_wall_side_);
     return 1;
 }
 
@@ -870,7 +869,7 @@ int SkaterPhysicsModule::get_focus_time_left(script::Struct*, script::Script* sc
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
         return 0;
-    results_of(script)->push_float(kFocusTime, score->focus_time_limit());
+    script->args_.get()->push_float(kFocusTime, score->focus_time_limit());
     return 1;
 }
 // 0x004FDCF0
@@ -879,7 +878,7 @@ int SkaterPhysicsModule::get_focus_times_allowed(script::Struct*, script::Script
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
         return 0;
-    results_of(script)->put_int(kFocusAllowed, score->focus_max_times());
+    script->args_.get()->put_int(kFocusAllowed, score->focus_max_times());
     return 1;
 }
 // 0x004FDD20

@@ -51,10 +51,6 @@ constexpr uint32_t kText = 0x4942CF80; // "text"
 const auto kNewsThread = &online::news_thread;
 const auto kMotdThread = &online::motd_thread;
 
-void change_phase(online::Hub* manager, int state) { manager->set_service_state(state); }
-// Take this task out of the task list (tasks::SchedulerTask::drop_out).
-void remove_service_task(online::Hub* manager) { manager->service_job_->drop_out(); }
-online::RoomManager* lobby_list(online::Hub* manager) { return manager->lobby_service_.get(); }
 
 void push_internet_heap()
 {
@@ -102,7 +98,7 @@ void show_no_servers()
 void get_finish(online::Hub* manager)
 {
     manager->service_state_ = 2;
-    remove_service_task(manager);
+    manager->service_job_->drop_out();
 }
 
 } // namespace
@@ -114,7 +110,7 @@ void service_task(tasks::Task<online::Hub>* task)
     switch (manager->service_state_) {
     case 0: // waiting
         if (manager->service_wake_at_ != 0 && frame_clock::get_time() > manager->service_wake_at_)
-            change_phase(manager, manager->next_service_state_);
+            manager->set_service_state((manager->next_service_state_));
         break;
     case 3: // start: a script, then the availability check a moment later
         push_internet_heap();
@@ -215,15 +211,15 @@ void service_task(tasks::Task<online::Hub>* task)
         break;
     case 0xD:
         launch_script(0xF68F8A86);
-        lobby_list(manager)->clear_lobbies();
-        lobby_list(manager)->start_listing_games();
+        manager->lobby_service_.get()->clear_lobbies();
+        manager->lobby_service_.get()->start_listing_games();
         break;
     case 0xE:
         manager->service_state_ = 0;
         manager->service_wake_at_ = 0;
         break;
     case 0xF: // the lobby list: empty or not
-        if (!lobby_list(manager)->get_lobby(0)) {
+        if (!manager->lobby_service_.get()->get_lobby(0)) {
             show_no_servers();
             get_finish(manager);
         } else {
@@ -232,12 +228,12 @@ void service_task(tasks::Task<online::Hub>* task)
         freeze_stream(0);
         break;
     case 0x10:
-        lobby_list(manager)->clear_lobbies();
+        manager->lobby_service_.get()->clear_lobbies();
         show_no_servers();
         get_finish(manager);
         break;
     case 0x11:
-        lobby_list(manager)->populate_room_list();
+        manager->lobby_service_.get()->populate_room_list();
         get_finish(manager);
         break;
     default: // 1, 2: nothing to do

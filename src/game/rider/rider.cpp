@@ -353,7 +353,7 @@ float Rider::fetch_tally(int index)
     // Online: the server's rules for this player.
     if (net_link()->in_net_game()) {
         auto* player =
-            (net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_)));
+            net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_));
         if (!player)
             // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
             stat = 10.0f;
@@ -365,7 +365,7 @@ float Rider::fetch_tally(int index)
             stat = 10.0f;
     } else if (rule_5a_1180()) {
         auto* player =
-            (net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_)));
+            net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_));
         if (player && player->holds_crown())
             stat = 1.0f;
     }
@@ -1368,20 +1368,10 @@ void Rider::relaunch(uint32_t a, uint32_t b)
     core::down_cast<RiderSessionEnd>(fetch_module(0xB1D5A3E1))->clear_forced();
 }
 
-namespace {
-
-// The restart: skipped to the restart node `node`, walking or not.
-void skip_to_restart_virtual(Rider* skater, uint32_t node, uint32_t walking) { skater->jump_to_spawn(node, walking); }
-
-// What the script gives back (its +0x14).
-script::Struct* script_results(script::Script* script) { return script->args_.get(); }
-
-} // namespace
-
 // The custom restart's position and orientation put back (SkipToCustomRestart, and SetCustomRestart Set).
 void Rider::skip_to_custom_restart()
 {
-    skip_to_restart_virtual(this, 0, custom_restart_walking_);
+    jump_to_spawn(0, custom_restart_walking_);
     at_point_ = custom_restart_pos_;
     basis_frame_ = custom_restart_matrix_;
     core_physics_->safe_pos() = at_point_;
@@ -1409,12 +1399,12 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
             prefix = checksums::hash_from_text(text);
         if (prefix) {
             script::Struct* node = level_nodes::find_closest_node_with_prefix(prefix, &at_point_);
-            skip_to_restart_virtual(this, level_nodes::get_node_name(node), walking);
+            jump_to_spawn((level_nodes::get_node_name(node)), walking);
             return true;
         }
         uint32_t node = 0;
         if (params->read_hash_value(0x7A8017BA, &node, 0)) { // node
-            skip_to_restart_virtual(this, node, walking);
+            jump_to_spawn(node, walking);
             return true;
         }
         // The first restart linked from the script's node; none: the skate module's (unless in the park editor).
@@ -1424,7 +1414,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         for (; i < count; ++i) {
             const uint32_t link = level_nodes::fetch_link(from, i);
             if (is_restart_node(link)) {
-                skip_to_restart_virtual(this, link, walking);
+                jump_to_spawn(link, walking);
                 break;
             }
         }
@@ -1485,19 +1475,19 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         set_rigid_body_pusher_reach(this, 0.0f);
         return true;
     case 0x97C8285A: // GetCameraId
-        script_results(script)->put_name_key(0x7A039889, view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0);
+        script->args_.get()->put_name_key(0x7A039889, view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0);
         return true;
     case 0x7915AA31: { // fetch_tally
         int stat = 0;
         params->fetch_int_value(0xDF4700DE, &stat, 1);
-        script::Struct* results = script_results(script);
+        script::Struct* results = script->args_.get();
         results->push_float(0x8EAF7ADD, fetch_tally(stat)); // stat_value
         return true;
     }
     case 0x9ABE8A21: { // GetScriptedStat
         script::Struct* stat = nullptr;
         params->read_sub_struct(0u, &stat, 1);
-        script::Struct* results = script_results(script);
+        script::Struct* results = script->args_.get();
         results->push_float(0x8EAF7ADD, get_scaled_value(stat));
         return true;
     }
@@ -1534,7 +1524,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
     case 0xC6870028: // die
         return true;
     case 0xF4C52F72:                                             // GetSkaterNumber
-        script_results(script)->put_int(0xF3CF5755, view_slot_); // skaternumber
+        script->args_.get()->put_int(0xF3CF5755, view_slot_); // skaternumber
         return true;
     default:
         return GameEntity::invoke_method_by_name(name, params, script);

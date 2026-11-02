@@ -90,8 +90,6 @@ void update_metrics(void* metrics, uint32_t time)
 {
     static_cast<Gauges*>(metrics)->calculate_usage(static_cast<int>(time));
 }
-// The app's manager: the bandwidth allowed over all connections.
-int total_bandwidth(Hub* manager) { return manager->fetch_throughput(); }
 // 1 = a modem: a slow connection.
 int connection_type(void* manager) { return static_cast<Hub*>(manager)->get_net_link_kind(); }
 
@@ -260,7 +258,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         // To ready connections only (to a single connection, also message 9).
         auto ready = [&](Conn* conn) {
             return get_standing(conn) == kConnReady ||
-                   (handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) && desc->ident_ == kMsgUnreadyOk);
+                   handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) && desc->ident_ == kMsgUnreadyOk;
         };
         for_each_target(ready, [&](Conn* conn) {
             if (desc->singular_)
@@ -482,7 +480,7 @@ int AppHost::fetch_traffic_spent()
 // remote connections that aren't foreign).
 bool AppHost::over_bandwidth_budget(Conn* conn)
 {
-    if (fetch_traffic_spent() >= total_bandwidth(supervisor_))
+    if (fetch_traffic_spent() >= supervisor_->fetch_throughput())
         return true;
     const int limit = bandwidth_limit(conn);
     if (get_bytes_per_second(out_metrics(conn)) >= limit)
@@ -495,7 +493,7 @@ bool AppHost::over_bandwidth_budget(Conn* conn)
     }
     if (sharing == 0)
         sharing = 1;
-    const int share = total_bandwidth(supervisor_) / sharing;
+    const int share = supervisor_->fetch_throughput() / sharing;
     return get_bytes_per_second(out_metrics(conn)) > share;
 }
 

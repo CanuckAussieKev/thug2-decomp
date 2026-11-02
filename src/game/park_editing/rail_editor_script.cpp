@@ -85,8 +85,6 @@ const Vec4& viewer_location(objects::ObjectModule* camera) { return editor_view(
 float camera_heading(objects::ObjectModule* camera) { return editor_view(camera)->heading_; }
 float camera_height(objects::ObjectModule* camera) { return editor_view(camera)->level_y_; }
 
-// The structure a script's member function writes its results to (CScript +0x14).
-script::Struct* get_results(script::Script* script) { return script->args_.get(); }
 
 } // namespace
 
@@ -289,7 +287,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         return 0;
     }
     case kGetEditingMode:
-        get_results(script)->put_name_key(kMode, mode_sel_);
+        script->args_.get()->put_name_key(kMode, mode_sel_);
         return 1;
     case kDeleteRailPoint: {
         uint32_t id = 0;
@@ -336,7 +334,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
     case kGetCursorPosition: {
         const Vec4& target = viewer_location(view_camera_);
         auto y = static_cast<float>(static_cast<double>(target.y) + camera_height(view_camera_));
-        script::Struct* results = get_results(script);
+        script::Struct* results = script->args_.get();
         results->put_vec3(kPos, target.x, y, target.z);
         results->push_float(kAngle,
                             static_cast<float>(static_cast<double>(camera_heading(view_camera_)) * kAngleScaleToDeg));
@@ -378,8 +376,8 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
             rail = active_node_;
         if (!rail)
             return 0;
-        get_results(script)->put_name_key(kRailId, rail->ident_);
-        get_results(script)->put_int(kNumPoints, rail->rail_point_total());
+        script->args_.get()->put_name_key(kRailId, rail->ident_);
+        script->args_.get()->put_int(kNumPoints, rail->rail_point_total());
         return 1;
     }
     default:

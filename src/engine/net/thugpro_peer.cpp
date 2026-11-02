@@ -452,8 +452,6 @@ HostOptions& host()
 
 Hub* net_session_slot() { return net_game_state().fetch_hub(); }
 
-bool is_client_of_net_game(Hub* manager) { return manager && manager->in_net_game() && !manager->get_on_server(); }
-bool is_host_of_net_game(Hub* manager) { return manager && manager->in_net_game() && manager->get_on_server(); }
 
 bool level_up() { return session().settle >= kSettleFrames; }
 
@@ -497,7 +495,7 @@ void send_server_info(net::AppHost* app, int handle)
 void get_broadcast(uint8_t id, uint32_t value)
 {
     Hub* manager = net_session_slot();
-    if (!is_host_of_net_game(manager) || !manager->host_)
+    if (!(manager && manager->in_net_game() && manager->get_on_server()) || !manager->host_)
         return;
     net::NetMessageInfo desc;
     desc.ident_ = id;
@@ -517,7 +515,7 @@ bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
     if (!peer_mode())
         return false;
     Hub* manager = net_session_slot();
-    if (!is_host_of_net_game(manager) || app != manager->host_)
+    if (!(manager && manager->in_net_game() && manager->get_on_server()) || app != manager->host_)
         return false;
     if (desc->ident_ == kMsgLobbyDetails) {
         send_server_info(app, handle);
@@ -585,7 +583,7 @@ void add_client_handlers(net::AppHost* client, void* skate)
 int handle_server_info(net::InboundMsgCtx* context)
 {
     HostListing info;
-    if (!peer_mode() || !is_client_of_net_game(net_session_slot()) ||
+    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) ||
         !decode_server_info(context->body_, context->body_size_, &info))
         return 1;
     session().have = true;
@@ -598,7 +596,7 @@ int handle_server_info(net::InboundMsgCtx* context)
 
 int handle_update_time_of_day(net::InboundMsgCtx* context)
 {
-    if (!peer_mode() || !is_client_of_net_game(net_session_slot()) || context->body_size_ < 4)
+    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size_ < 4)
         return 1;
     session().have = true;
     session().info.time_of_day_ = get_word(context);
@@ -611,7 +609,7 @@ int handle_update_time_of_day(net::InboundMsgCtx* context)
 
 int handle_update_weather(net::InboundMsgCtx* context)
 {
-    if (!peer_mode() || !is_client_of_net_game(net_session_slot()) || context->body_size_ < 4)
+    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size_ < 4)
         return 1;
     session().have = true;
     session().info.weather = get_word(context);
@@ -629,7 +627,7 @@ int handle_mods_allowed(net::InboundMsgCtx* context)
 {
     // THUGPRO's client leaves when the host allows no modified scripts and its own are modified. Ours aren't
     // THUGPRO's at all - so a host that allows none is left, as the server removing us (THUG2's dialog).
-    if (!peer_mode() || !is_client_of_net_game(net_session_slot()) || context->body_size_ < 4 || get_word(context) == 1)
+    if (!peer_mode() || !(net_session_slot() && net_session_slot()->in_net_game() && !net_session_slot()->get_on_server()) || context->body_size_ < 4 || get_word(context) == 1)
         return 1;
     get_log("thugpro: the host allows no modified scripts (message 159) - leaving");
     net::InboundMsgCtx removed = *context;
@@ -640,7 +638,7 @@ int handle_mods_allowed(net::InboundMsgCtx* context)
 void tick_frame()
 {
     Hub* manager = net_session_slot();
-    if (!peer_mode() || !is_client_of_net_game(manager)) {
+    if (!peer_mode() || !(manager && manager->in_net_game() && !manager->get_on_server())) {
         if (session().have)
             get_log("thugpro: network game over - the host's options dropped");
         session() = Session();
@@ -720,7 +718,7 @@ bool handle_chat_command(const char* text)
     if (words < 1)
         return false;
     Hub* manager = net_session_slot();
-    const bool client = is_client_of_net_game(manager);
+    const bool client = manager && manager->in_net_game() && !manager->get_on_server();
     std::array<char, 160> line{};
     if (_stricmp(command.data(), "thugpro") == 0) {
         const HostListing& info = session().info;
@@ -763,7 +761,7 @@ bool handle_chat_command(const char* text)
             get_broadcast(kMsgUpdateWeather, state);
         }
         text::format_to(line, "\\c4thugpro:\\c0 %s %s%s", command.data(), first.data(),
-                        is_host_of_net_game(manager) ? " (sent to the players)" : "");
+                        (manager && manager->in_net_game() && manager->get_on_server()) ? " (sent to the players)" : "");
         get_say(line.data());
         return true;
     }

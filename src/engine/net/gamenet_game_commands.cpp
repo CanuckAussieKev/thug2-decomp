@@ -120,13 +120,12 @@ uint32_t& last_team_request()
 bool is_head(const memory::ListNode* node) { return node->is_head(); }
 memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
 PlayerRecord* data_of(const memory::ListNode* node) { return node ? static_cast<PlayerRecord*>(node->data) : nullptr; }
-memory::ListNode* first_player_node(Hub* manager) { return get_next_node(&manager->players_); }
 
 enum class Recipients : uint8_t { kAll, kRemote, kObservers };
 // `desc` through the server to the players (all, those not local, the observers).
 void send_to_players(Hub* manager, net::AppHost* server, net::NetMessageInfo* desc, Recipients recipients)
 {
-    for (const memory::ListNode* node = first_player_node(manager); PlayerRecord* player = data_of(node);
+    for (const memory::ListNode* node = get_next_node(&manager->players_); PlayerRecord* player = data_of(node);
          node = get_next_node(node)) {
         if (recipients == Recipients::kRemote && is_own_player(player))
             continue;
@@ -160,9 +159,6 @@ void report_game_state(Hub* manager, bool on)
         game_spy::qr2_send_state_changed(nullptr);
 }
 
-// The GameSpy presence (+0x18): logged in (its flag at +0x10, through the getter folded at 0x005480B0), `profile` a
-// buddy (0x00549CB0).
-bool mark_friend_online(Hub* manager) { return manager->presence_service_->authenticated_; }
 bool is_buddy(Hub* manager, int profile) { return manager->presence_service_->is_buddy(profile); }
 
 } // namespace
@@ -419,10 +415,10 @@ bool cfunc_is_host(Struct*, Script*)
 // 0x00538DC0: AllPlayersAreReady - on the server, every player's connection is ready (+0x60 bit 0); true elsewhere.
 bool cfunc_all_players_are_ready(Struct*, Script*)
 {
-    Hub* manager = net_game_state().net_link();
+    const Hub* manager = net_game_state().net_link();
     if (!(manager->flag_bits_ & kFlagsServer))
         return true;
-    for (const memory::ListNode* node = first_player_node(manager); const PlayerRecord* player = data_of(node);
+    for (const memory::ListNode* node = get_next_node(&manager->players_); const PlayerRecord* player = data_of(node);
          node = get_next_node(node)) {
         if (!(static_cast<uint8_t>(player->conn_->cur_standing_) & 1))
             return false;
@@ -440,7 +436,7 @@ bool cfunc_create_player_options(Struct* params, Script*)
     const char* name = nullptr;
     params->fetch_int_value(kIndex, &index, 0);
     params->fetch_text(kName, &name, 0);
-    const memory::ListNode* node = first_player_node(manager);
+    const memory::ListNode* node = get_next_node(&manager->players_);
     PlayerRecord* player = data_of(node);
     if (!player)
         return true;
@@ -456,7 +452,7 @@ bool cfunc_create_player_options(Struct* params, Script*)
     player->flag_bits_ |= kRemoveMark;
     script::StructPtr dialog = script::make_struct();
     const int profile = player->profile_id_;
-    if ((manager->flag_bits_ & kFlagsInternet) && profile && mark_friend_online(manager)) {
+    if ((manager->flag_bits_ & kFlagsInternet) && profile && manager->presence_service_->authenticated_) {
         dialog->put_int(kProfile, player->profile_id_);
         dialog->append_word(kNick, player_name(player));
         dialog->put_name_key(0u, is_buddy(manager, player->profile_id_) ? kAllowRemoveHomie : kAllowAddHomie);
@@ -477,7 +473,7 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap_);
     int index = 0;
-    for (const memory::ListNode* node = first_player_node(manager); PlayerRecord* player = data_of(node);
+    for (const memory::ListNode* node = get_next_node(&manager->players_); PlayerRecord* player = data_of(node);
          node = get_next_node(node)) {
         if (is_own_player(player)) {
             ++index;
@@ -490,7 +486,7 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
         rgba->configure_size_kind(4, script::kQbvalInteger);
         uint32_t blue = 0;
         const int profile = player->profile_id_;
-        if (profile && mark_friend_online(manager)) {
+        if (profile && manager->presence_service_->authenticated_) {
             if (is_buddy(manager, player->profile_id_)) {
                 rgba->set_element(0, 0x80);
                 rgba->set_element(1, 0x80);

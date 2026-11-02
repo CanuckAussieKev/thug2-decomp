@@ -44,10 +44,6 @@ constexpr uint32_t kNetFirefight = 0xBFF33600; // netfirefight
 
 constexpr uint32_t kHitWindow = 5000; // ms
 
-objects::ObjectModule* skater_component(objects::Rider* skater, uint32_t type)
-{
-    return skater->fetch_module(type);
-}
 
 // A new skater profile on the skater info heap (null if out of memory).
 gsl::owner<objects::RiderIdentity*> new_profile()
@@ -190,7 +186,7 @@ void PlayerRecord::set_custom_tag(bool custom)
 {
     if (!skater_)
         return;
-    if (objects::ObjectModule* tagging = skater_component(rider(), kTagging))
+    if (objects::ObjectModule* tagging = rider()->fetch_module(kTagging))
         core::down_cast<objects::TaggingComponent>(tagging)->custom_tag_ = custom; // (0x004E4000, a setter folded there)
 }
 
@@ -199,7 +195,7 @@ bool PlayerRecord::has_custom_tag()
 {
     if (!skater_)
         return false;
-    objects::ObjectModule* tagging = skater_component(rider(), kTagging);
+    objects::ObjectModule* tagging = rider()->fetch_module(kTagging);
     return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->custom_tag_ : false; // (0x0051D850)
 }
 
@@ -208,7 +204,7 @@ void* PlayerRecord::get_graffiti_texture()
 {
     if (!skater_)
         return nullptr;
-    objects::ObjectModule* tagging = skater_component(rider(), kTagging);
+    objects::ObjectModule* tagging = rider()->fetch_module(kTagging);
     return tagging ? core::down_cast<objects::TaggingComponent>(tagging)->graffiti_
                    : nullptr; // (0x00553E90, a getter folded there)
 }
@@ -290,7 +286,7 @@ bool PlayerRecord::is_eliminated()
         return true;
     if (get_game_type() != kNetFirefight || !skater_)
         return false;
-    objects::ObjectModule* score = skater_component(rider(), kSkaterScore);
+    objects::ObjectModule* score = rider()->fetch_module(kSkaterScore);
     return score && static_cast<modules::PointTally*>(core::down_cast<objects::RiderPointKeeper>(score)->points_held_)
                             ->get_total_score() == 0; // (its score's lives)
 }

@@ -145,7 +145,6 @@ void fail_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(mana
 // The skate module (0x007CE478): the local skater, its score (modules::PointTally), the tricks the score has seen.
 
 objects::Rider* local_skater() { return modules::Skate::sole()->get_home_rider(); }
-modules::PointTally* get_score_of(objects::Rider* skater) { return skater->get_points_total(); }
 int total_score(modules::PointTally* score) { return score->get_total_score(); }
 // The points of the trick in progress: the combo's base points times its multiplier (as a whole number).
 int pending_points(modules::PointTally* score)
@@ -327,7 +326,7 @@ void FallingTricksGoal::update_alphas()
 {
     int check = 0; // (only read when given)
     const bool check_given = args_->fetch_int_value(kNoAlphaCheck, &check, 0);
-    modules::PointTally* score = get_score_of(local_skater());
+    modules::PointTally* score = local_skater()->get_points_total();
     void* manager = frontend::UiTree::sole();
     const float faded = script::fetch_float(kFadedAlpha);
     const float unfaded = script::fetch_float(kUnfadedAlpha);
@@ -341,7 +340,7 @@ void FallingTricksGoal::update_alphas()
                 done = key_combo_count(score, t.key_combo_, t.spin, t.perfect, t.taps) > 0;
             else if (t.trick)
                 done = get_trick_count(score, t.trick, t.spin, t.perfect, 1) > 0 ||
-                       (t.trick2 && get_trick_count(score, t.trick2, t.spin, t.perfect, 1) > 0);
+                       t.trick2 && get_trick_count(score, t.trick2, t.spin, t.perfect, 1) > 0;
         }
         change_opacity(element, done ? faded : unfaded);
     }
@@ -649,7 +648,7 @@ void FallingTricksGoal::add_tricks(int count)
 // 0x00570A70
 void FallingTricksGoal::check_combos()
 {
-    modules::PointTally* score = get_score_of(local_skater());
+    modules::PointTally* score = local_skater()->get_points_total();
     int combo_size = 0;
     args_->fetch_int_value(kChainLength, &combo_size, 1);
     for (int group = 0; group < kMaxTricks; ++group) {
@@ -775,7 +774,7 @@ void FallingTricksGoal::check_tricks()
         args_->put_int(kNoAlphaCheck, 0);
     }
     const bool combo = integer_or_flag(args_.get(), kSingleCombo) || is_combo();
-    modules::PointTally* score = get_score_of(local_skater());
+    modules::PointTally* score = local_skater()->get_points_total();
     if (combo) {
         check_combos();
         return;
@@ -788,7 +787,7 @@ void FallingTricksGoal::check_tricks()
         bool done = false;
         if (t.trick)
             done = get_trick_count(score, t.trick, t.spin, t.perfect, 1) != 0 ||
-                   (t.trick2 && get_trick_count(score, t.trick2, t.spin, t.perfect, 1) != 0);
+                   t.trick2 && get_trick_count(score, t.trick2, t.spin, t.perfect, 1) != 0;
         else
             done = t.key_combo_ && key_combo_count(score, t.key_combo_, t.spin, t.perfect, t.taps) != 0;
         if (!done)
@@ -1281,7 +1280,7 @@ void TrickObjectsGoal::evaluate_points()
     objects::Rider* skater = local_skater();
     if (!skater)
         return;
-    modules::PointTally* score = get_score_of(skater);
+    modules::PointTally* score = skater->get_points_total();
     // The points of the trick in progress (+0x14, times the multiplier +0x60) count too.
     const int pending = pending_points(score);
     if (total_score(score) + pending < required)

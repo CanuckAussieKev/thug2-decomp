@@ -100,7 +100,6 @@ constexpr uint32_t kNewsBufferSize = 0x6400; // bytes
 
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
-RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_.get(); }
 
 // NOT ORIGINAL grouping - server_list.cpp's state (the original's globals). Made on first use, never destroyed
 // (server_list_state()).
@@ -318,7 +317,7 @@ void Hub::update_hosting_status()
         const char* server_name = nullptr;
         get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
         std::array<char, 1024> location{};
-        RoomManager* lobby = current_lobby(this);
+        RoomManager* lobby = lobby_service_.get();
         if (lobby->remote_) {
             const uint32_t private_ip = game_spy::peer_get_private_ip(lobby->remote_); // (the peer's private address)
             text::format_to(location, "10thug211:%d:%d:%d:%s (%s)", net->get_local_address(), private_ip, kPort,
@@ -354,8 +353,8 @@ void Hub::stop_server_list()
 {
     if (in_internet_mode()) {
         ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
-        if (current_lobby(this)->remote_)
-            game_spy::peer_stop_listing_games(current_lobby(this)->remote_); // (the browsing stopped)
+        if (lobby_service_.get()->remote_)
+            game_spy::peer_stop_listing_games(lobby_service_.get()->remote_); // (the browsing stopped)
         ram_stats()->leave_heap_scope();
         return;
     }
@@ -493,7 +492,7 @@ void Hub::refresh_server_list(bool force)
     std::array<uint8_t, 4> keys = {{8, 10, 4, 6}}; // (in the original: over its argument's slot)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     manager->lobby_service_->clear_lost_connection();
-    game_spy::peer_start_listing_games(current_lobby(this)->remote_, keys.data(), 4, nullptr,
+    game_spy::peer_start_listing_games(lobby_service_.get()->remote_, keys.data(), 4, nullptr,
                                        code_address(listing_games_callback),
                                        this); // (the games listed)
     ram_stats()->leave_heap_scope();
@@ -603,7 +602,7 @@ bool cfunc_post_game(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     Hub* manager = net_game_state().the_manager();
-    if (!current_lobby(manager)->hosting_)
+    if (!manager->lobby_service_.get()->hosting_)
         manager->update_hosting_status();
     return true;
 }

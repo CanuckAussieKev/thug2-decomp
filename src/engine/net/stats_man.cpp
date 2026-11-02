@@ -121,11 +121,6 @@ char* gcd_game_name() { return game_spy::stats_game_name(); }
 char* get_gcd_secret_key() { return game_spy::stats_secret_key(); }
 const char* stats_key() { return net::game_key(); } // (OnlineGameKey or the game's own)
 
-// The manager's calls.
-const char* active_ruleset_label(Hub* manager) { return manager->get_game_type_name(); }
-uint32_t level_key_hash(Hub* manager) { return manager->fetch_stage(); }
-uint32_t game_mode_checksum(Hub* manager) { return manager->get_game_type_preference(); }
-int player_points(Hub* manager, int id) { return manager->get_entrant_points(static_cast<uint32_t>(id)); }
 
 void get_append(memory::ListNode* head, memory::ListNode* node)
 {
@@ -459,9 +454,9 @@ void RankingsManager::start_game()
     const int frag_limit = prefs->get_setting_value(0x71CD53A2, 0xCD66C8AE);
     set_game_string(game_, "hostname", host_name);
     set_game_string(game_, "mapname", manager->get_map_name(true));
-    set_game_string(game_, "gametype", active_ruleset_label(manager));
-    set_game_int(game_, "mapcrc", static_cast<int>(level_key_hash(manager)));
-    set_game_int(game_, "gametypecrc", static_cast<int>(game_mode_checksum(manager)));
+    set_game_string(game_, "gametype", manager->get_game_type_name());
+    set_game_int(game_, "mapcrc", static_cast<int>(manager->fetch_stage()));
+    set_game_int(game_, "gametypecrc", static_cast<int>(manager->get_game_type_preference()));
     set_game_int(game_, "maxplayers", manager->get_player_limit());
     set_game_int(game_, "timelimit", time_limit);
     set_game_int(game_, "fraglimit", frag_limit);
@@ -503,7 +498,7 @@ void RankingsManager::raise_tallies(bool final)
         auto* skater = core::down_cast<objects::GameEntity>(detail::player_skater(player));
         skater->fetch_module(0xD262802F); // (unused)
         const int id = static_cast<int>(detail::get_skater_id(skater));
-        set_player_int(game_, "score", player_points(manager, id), id);
+        set_player_int(game_, "score", manager->get_entrant_points(static_cast<uint32_t>(id)), id);
         set_player_int(game_, "combo", player->best_combo_, id);
     }
     set_game_int(game_, "highscore", manager->cheating_noted() | net_game_state().cheat_flag());

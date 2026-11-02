@@ -94,7 +94,6 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // The input manager (0x00696D40): its controller servers (the device, the handler list, the data), and a player's
 // controller (0x0044E630).
 pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
-tasks::PileUp* server_handlers(pad_input::Hub* manager, int server) { return &core::at(manager->hosts_, server).handlers_; }
 void place_handler(PadInputModule::Responder* handler, pad_input::Hub* manager, int server)
 {
     handler->control_data_ = &core::at(manager->hosts_, server).content_;
@@ -165,23 +164,23 @@ void PadInputModule::link_to_pad(int controller)
         memory->enter_heap_scope(memory->skater_info_heap_);
         handler_ = new_handler(0, handler_code, this);
         pad_input::Hub* manager = input_manager();
-        server_handlers(manager, handler_->ordinal_)->queue_job(handler_);
+        core::at(manager->hosts_, (handler_->ordinal_)).handlers_.queue_job(handler_);
         place_handler(handler_, manager, handler_->ordinal_);
         handler2_ = new_handler(1, handler_code2, this);
         manager = input_manager();
-        server_handlers(manager, handler2_->ordinal_)->queue_job(handler2_);
+        core::at(manager->hosts_, (handler2_->ordinal_)).handlers_.queue_job(handler2_);
         place_handler(handler2_, manager, handler2_->ordinal_);
         memory::Hub::get_pull()->leave_heap_scope();
     }
     Responder* handler = handler_;
     pad_input::Hub* manager = input_manager();
     handler->drop_out();
-    server_handlers(manager, controller)->queue_job(handler);
+    core::at(manager->hosts_, controller).handlers_.queue_job(handler);
     place_handler(handler, manager, controller);
     Responder* handler2 = handler2_;
     manager = input_manager();
     handler2->drop_out();
-    server_handlers(manager, 1)->queue_job(handler2);
+    core::at(manager->hosts_, 1).handlers_.queue_job(handler2);
     place_handler(handler2, manager, 1);
     if (ObjectModule* vibration = entity_->fetch_module(kVibration))
         core::down_cast<PadRumbleModule>(vibration)->change_gadget(handler_->dev_);

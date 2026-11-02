@@ -92,7 +92,6 @@ constexpr int kListingRemove = 2;
 constexpr int kListingClear = 3;
 
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_.get(); }
 
 void get_append(memory::ListNode* head, memory::ListNode* node)
 {
@@ -291,7 +290,7 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
     if (server->detailed_)
         return true;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
-    game_spy::peer_update_game(current_lobby(manager)->remote_, server->sb_server_, 1); // (the game's details updated)
+    game_spy::peer_update_game(manager->lobby_service_.get()->remote_, server->sb_server_, 1); // (the game's details updated)
     ram_stats()->leave_heap_scope();
     return false;
 }

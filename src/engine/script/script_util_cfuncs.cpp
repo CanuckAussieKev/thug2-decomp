@@ -69,8 +69,6 @@ constexpr uint32_t kArrayName = 0x8F61D602;       // "ArrayName"
 constexpr uint32_t kNewValue = 0x4B40630D;        // "NewValue"
 // add_component_of_type's type for a structure handed over by pointer.
 
-// The calling script's object (null: not an object's script).
-objects::Entity* script_object(Script* script) { return script->entity_.get_pull(); }
 
 // The game's sprintf (its C runtime; 0x006234FE).
 template <typename... Args>
@@ -273,7 +271,7 @@ bool cfunc_goto(Struct* params, Script* script)
     params->read_hash_value(0u, &name, 0);
     Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
-    script->bind_script(name, script_params, script_object(script));
+    script->bind_script(name, script_params, script->entity_.get_pull());
     return true;
 }
 
@@ -284,7 +282,7 @@ bool cfunc_goto_random_script(Struct* params, Script* script)
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
     if (array && array->extent_ && array->kind_tag_ == script::kQbvalName) {
-        objects::Entity* object = script_object(script);
+        objects::Entity* object = script->entity_.get_pull();
         const uint32_t name = array->fetch_part(maths::rnd(static_cast<int>(array->extent_)));
         script->bind_script(name, nullptr, object);
     }
@@ -381,7 +379,7 @@ bool cfunc_append_suffix(Struct* params, Script* script)
 }
 
 // 0x0044C120: IsObjectScript: whether the script runs on an object.
-bool cfunc_is_object_script(Struct*, Script* script) { return script_object(script) != nullptr; }
+bool cfunc_is_object_script(Struct*, Script* script) { return script->entity_.get_pull() != nullptr; }
 
 // 0x0044C290: ForEachIn <array> do=<script> [params={...}]: the script run (now, on this script's object) for each
 // element of the array - with params, on a structure made of the element (a structure; none for null) and those
@@ -404,7 +402,7 @@ bool cfunc_for_each_in(Struct* params, Script* script)
                 element_params->merge_structure(element);
             if (extra)
                 element_params->merge_structure(extra);
-            script::launch_script(each, element_params, script_object(script), false, nullptr);
+            script::launch_script(each, element_params, script->entity_.get_pull(), false, nullptr);
         }
         if (element_params) {
             element_params->get_clear();
@@ -413,7 +411,7 @@ bool cfunc_for_each_in(Struct* params, Script* script)
         return true;
     }
     for (uint32_t i = 0; i < array->extent_; ++i) {
-        objects::Entity* object = script_object(script);
+        objects::Entity* object = script->entity_.get_pull();
         script::launch_script(each, array->struct_at(i), object, false, nullptr);
     }
     return true;
@@ -513,7 +511,7 @@ bool cfunc_goto_preserve_params(Struct* params, Script* script)
     Struct* extra = nullptr;
     params->read_sub_struct(kParams, &extra, 0);
     script_params->append_structure_if_any(extra);
-    script->bind_script(name, script_params, script_object(script));
+    script->bind_script(name, script_params, script->entity_.get_pull());
     if (script_params) {
         script_params->get_clear();
         script::delete_struct(script_params);

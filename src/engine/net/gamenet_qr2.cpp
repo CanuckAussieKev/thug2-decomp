@@ -76,7 +76,6 @@ constexpr int kQueryPort = 0x1423;           // 5155 (qr2's own)
 void buffer_add(void* buffer, const char* text) { game_spy::call_qr2_buffer_add(buffer, text); }
 void buffer_add_int(void* buffer, int value) { game_spy::get_qr2_buffer_add_int(buffer, value); }
 
-prefs::Preferences* net_game_options(Hub* m) { return &m->net_options_; }
 
 // The level's name for qr2's mapname when the level select has none (0x0067F0A0, "Boston" until set up).
 std::array<char, 128>& fallback_map_name()
@@ -107,7 +106,7 @@ void server_key_callback(int key, void* buffer, void*)
     switch (key) {
     case kKeyHostname: {
         const char* text = nullptr;
-        net_game_options(manager)->fetch_setting(kServerName)->fetch_text("ui_string", &text, 0);
+        manager->net_options_.fetch_setting(kServerName)->fetch_text("ui_string", &text, 0);
         buffer_add(buffer, text);
         return;
     }
@@ -209,7 +208,7 @@ void start_query_reporting(bool keep_map_name)
 {
     if (!keep_map_name) { // the level's name, for mapname when the level select has none
         const char* text = nullptr;
-        net_game_options(net_game_state().net_session_slot())->fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
+        net_game_state().net_session_slot()->net_options_.fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
         std::strcpy(fallback_map_name().data(), text);
     }
     if (net_game_state().query_reporting())

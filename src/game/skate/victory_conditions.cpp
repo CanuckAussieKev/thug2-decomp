@@ -54,11 +54,6 @@ objects::Rider* get_rider_at(modules::Skate* skate, uint32_t index)
 {
     return core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(index)));
 }
-// A skater's score object (modules::PointTally) and its total.
-modules::PointTally* get_score_of(objects::Rider* skater)
-{
-    return skater->get_points_total();
-}
 int total_score(modules::PointTally* score) { return score->get_total_score(); }
 
 // The game mode (0x007CE470).
@@ -88,8 +83,8 @@ bool WinRule::is_highest_score(uint32_t player)
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
         if (i == player)
             continue;
-        auto* mine = get_score_of(get_rider_at(skate, player));
-        auto* theirs = get_score_of(get_rider_at(skate, i));
+        auto* mine = get_rider_at(skate, player)->get_points_total();
+        auto* theirs = get_rider_at(skate, i)->get_points_total();
         const int their_score = total_score(theirs);
         if (total_score(mine) < their_score)
             return false;
@@ -105,7 +100,7 @@ bool ScoreReachedVictoryCondition::rule_satisfied()
         std::array<int, 4> totals = {};
         PlayerSearch search;
         for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
-            modules::PointTally* score = get_score_of(player->rider());
+            modules::PointTally* score = player->rider()->get_points_total();
             const int team = player->team_;
             core::at(totals, team) += total_score(score);
         }
@@ -116,7 +111,7 @@ bool ScoreReachedVictoryCondition::rule_satisfied()
         return false;
     }
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
-        if (total_score(get_score_of(get_rider_at(skate, i))) >= points_held_)
+        if (total_score(get_rider_at(skate, i)->get_points_total()) >= points_held_)
             return true;
     }
     return false;
@@ -179,7 +174,7 @@ bool SoleSurvivorWin::rule_satisfied()
     PlayerRecord* player = find_own_player_record();
     if (player) {
         objects::Rider* skater = player->rider();
-        if (skater && total_score(get_score_of(skater)) <= 0)
+        if (skater && total_score(skater->get_points_total()) <= 0)
             return true;
     }
     return false;
@@ -188,7 +183,7 @@ bool SoleSurvivorWin::rule_satisfied()
 // 0x005766B0
 bool SoleSurvivorWin::has_won_match(uint32_t player)
 {
-    auto* score = get_score_of(get_rider_at(modules::Skate::sole(), player));
+    auto* score = get_rider_at(modules::Skate::sole(), player)->get_points_total();
     return score && total_score(score) > 0;
 }
 
@@ -220,7 +215,7 @@ bool CollectAllObjectsVictoryCondition::rule_satisfied()
     if (!total)
         return false;
     for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
-        if (total_score(get_score_of(player->rider())) == total)
+        if (total_score(player->rider()->get_points_total()) == total)
             return true;
     }
     return false;

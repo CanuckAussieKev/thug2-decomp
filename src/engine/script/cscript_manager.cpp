@@ -54,7 +54,6 @@ void halt(Script* script)
     script->reset_script_state();
     script->report_stopped();
 }
-ScriptOutcome get_update_script(Script* script) { return script->tick_frame(); }
 bool call_member_function_of(const MemberFunctionEntry* entry, Struct* params, objects::Entity* object, Script* script)
 {
     return invoke_method_by_name(entry, params, object, script);
@@ -93,7 +92,6 @@ int emit_into_buffer(Struct* params, uint8_t* buffer, int size)
 constexpr uint8_t kNetopSpawnScript = 0x48;
 constexpr uint8_t kMsgIdSpawnScript = 0x49;
 
-bool is_spawned(const Script* script) { return (script->spawn_flags_ & kScriptFlagSpawned) != 0; }
 // Whether `object` is the object of `script` at any level (null matches levels with no object).
 bool uses_object(const Script* script, objects::Entity* object)
 {
@@ -115,13 +113,13 @@ void tick_child_scripts()
     one_per_frame_released() = false;
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following_;
-        while (next && !is_spawned(next))
+        while (next && !((next->spawn_flags_ & kScriptFlagSpawned) != 0))
             next = next->following_;
         const uint8_t flags = script->spawn_flags_;
         bool run = (flags & kScriptFlagSpawned) && !((flags & kScriptFlagPaused) && script->pc_);
         if (run && (flags & kScriptFlagPauseWithObject) && script->entity_.get_pull())
             run = object_runs_scripts(script->entity_.get_pull());
-        if (run && get_update_script(script) == kScriptOutcomeFinished) {
+        if (run && script->tick_frame() == kScriptOutcomeFinished) {
             if (script->on_finish_script_)
                 launch_script(script->on_finish_script_, script->callback_params_.get(), script->entity_.get_pull(), false,
                               nullptr);
@@ -145,7 +143,7 @@ void kill_all_child_scripts()
     }
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following_;
-        if (is_spawned(script) && !(script->spawn_flags_ & kScriptFlagNotSessionSpecific))
+        if (((script->spawn_flags_ & kScriptFlagSpawned) != 0) && !(script->spawn_flags_ & kScriptFlagNotSessionSpecific))
             Script::destroy(script);
         script = next;
     }
@@ -198,7 +196,7 @@ Script* spawn_script(const char* name, Struct* params, uint32_t callback, Struct
 // 0x004756C0
 void kill_spawned_script(Script* script)
 {
-    if (script && is_spawned(script))
+    if (script && ((script->spawn_flags_ & kScriptFlagSpawned) != 0))
         Script::destroy(script);
 }
 
@@ -210,7 +208,7 @@ void delete_finished_scripts()
 {
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following_;
-        if (!script->pc_ && !is_spawned(script) && !script->signal_routes_)
+        if (!script->pc_ && !((script->spawn_flags_ & kScriptFlagSpawned) != 0) && !script->signal_routes_)
             Script::destroy(script);
         script = next;
     }
@@ -244,7 +242,7 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
         bind_script(script, name, nullptr, params, object);
         memory::Hub::get_pull()->leave_heap_scope();
         // To the end now: waits on frames or time just spin; a script that blocks never returns (original).
-        while (get_update_script(script) != kScriptOutcomeFinished) {
+        while (script->tick_frame() != kScriptOutcomeFinished) {
         }
         Script::destroy(script);
         return;
@@ -263,7 +261,7 @@ void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Str
 {
     Script* script = Script::create();
     bind_script(script, name, nullptr, params, object);
-    get_update_script(script);
+    script->tick_frame();
     if (script->args_)
         results->merge_structure(script->args_.get()); // (no check that there are results)
     Script::destroy(script);
@@ -324,7 +322,7 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
 void pause_spawned_scripts(bool pause)
 {
     for (Script* script = script_list_head(); script; script = script->following_) {
-        if (is_spawned(script))
+        if ((script->spawn_flags_ & kScriptFlagSpawned) != 0)
             script->spawn_flags_ =
                 static_cast<uint8_t>((script->spawn_flags_ & ~kScriptFlagPaused) | (pause ? kScriptFlagPaused : 0));
     }
@@ -333,7 +331,7 @@ void pause_spawned_scripts(bool pause)
 // 0x00472DC0
 void resume_child_script(Script* script)
 {
-    if (script && is_spawned(script))
+    if (script && ((script->spawn_flags_ & kScriptFlagSpawned) != 0))
         script->spawn_flags_ &= ~kScriptFlagPaused;
 }
 
@@ -345,13 +343,13 @@ bool script_exists(uint32_t name)
 }
 
 // 0x00472E00
-uint32_t get_spawn_id(Script* script) { return script && is_spawned(script) ? script->spawn_id_ : 0; }
+uint32_t get_spawn_id(Script* script) { return script && ((script->spawn_flags_ & kScriptFlagSpawned) != 0) ? script->spawn_id_ : 0; }
 
 // 0x00472E20
 Script* look_up_spawned_script(uint32_t id)
 {
     for (Script* script = script_list_head(); script; script = script->following_) {
-        if (is_spawned(script) && script->spawn_id_ == id)
+        if (((script->spawn_flags_ & kScriptFlagSpawned) != 0) && script->spawn_id_ == id)
             return script;
     }
     return nullptr;
@@ -364,7 +362,7 @@ void stop_scripts_targeting(uint32_t name)
 {
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following_;
-        if (is_spawned(script) && script_refers_to(script, name))
+        if (((script->spawn_flags_ & kScriptFlagSpawned) != 0) && script_refers_to(script, name))
             halt(script);
         script = next;
     }
@@ -377,7 +375,7 @@ void stop_scripts_by_tag(uint32_t id)
 {
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following_;
-        if (is_spawned(script) && (script->spawn_id_ == id || script->unique_id_ == id || script->spawner_file_ == id))
+        if (((script->spawn_flags_ & kScriptFlagSpawned) != 0) && (script->spawn_id_ == id || script->unique_id_ == id || script->spawner_file_ == id))
             halt(script);
         script = next;
     }
@@ -388,7 +386,7 @@ void stop_scripts_of_object_and_tag(objects::Entity* object, uint32_t id, Script
 {
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following_;
-        if (is_spawned(script) && script != except && uses_object(script, object) && script->spawn_id_ == id)
+        if (((script->spawn_flags_ & kScriptFlagSpawned) != 0) && script != except && uses_object(script, object) && script->spawn_id_ == id)
             halt(script);
         script = next;
     }
@@ -399,7 +397,7 @@ void end_child_scripts_of_entity_by_name(objects::Entity* object, uint32_t name,
 {
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following_;
-        if (is_spawned(script) && script != except && uses_object(script, object) && script->script_title_ == name)
+        if (((script->spawn_flags_ & kScriptFlagSpawned) != 0) && script != except && uses_object(script, object) && script->script_title_ == name)
             halt(script);
         script = next;
     }

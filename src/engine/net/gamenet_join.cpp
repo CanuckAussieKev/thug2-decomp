@@ -162,45 +162,23 @@ tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->log
 int milli_seconds() { return static_cast<int>(frame_clock::get_time()); }
 uint32_t current_local_address() { return crt::get_inet_addr(net_session_slot()->fetch_own_address()); }
 
-// The manager's methods.
-int num_observers(Hub* m) { return m->count_observers(); }
-int max_observers(Hub* m) { return m->get_spectator_limit(); }
-int num_players(Hub* m) { return m->count_players(); }
-int get_max_players(Hub* m) { return m->get_player_limit(); }
-int rank_limit(Hub* m) { return m->get_rank_limit(); }
-int rank_test(Hub* m) { return m->get_rank_test(); }
-const char* get_password(Hub* m) { return m->fetch_secret(); }
-void late_player_arrival(Hub* m, JoinerRecord* player, int frames) { m->add_joining_player(player, frames); }
 void set_ready_state(Hub* m, bool ready) { m->set_ready_state(ready); }
-void shuffle_spawn_slots(Hub* m) { m->choose_start_points(); }
-void cancel_join_server(Hub* m) { m->cancel_join(); }
 uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
 void set_maximum_players(int count) { goals::game_mode()->set_rider_ceiling(count); }
-int8_t current_rank(Hub* m) { return static_cast<int8_t>(m->rating_service_->get_rank()); }
 int32_t get_rating(Hub* m)
 {
     // (the original reads the stats' first word, the rating, through the folded getter 0x00469490 -
     // single::PointerMember::get_pull)
     return m->rating_service_->get_personal_stats()->skill_points_;
 }
-bool match_underway(Hub* m) { return active_ruleset_label() != kNetLobby && !m->match_ended_; }
 
-prefs::Preferences* net_game_options(Hub* m) { return &m->net_options_; }
 const char* preference_text(Hub* m, uint32_t name)
 {
     const char* text = nullptr;
-    net_game_options(m)->fetch_setting(name)->fetch_text(kUiString, &text, 1);
+    m->net_options_.fetch_setting(name)->fetch_text(kUiString, &text, 1);
     return text;
 }
 
-// The presence (GameSpy) and the lobby (not source yet).
-bool presence_logged_in(Hub* m) { return m->presence_service_->authenticated_; }
-void set_presence(Hub* m, int status, const char* text, const char* location)
-{
-    m->presence_service_->change_standing(status, text, location);
-}
-char* lobby_server_name(Hub* m) { return m->lobby_service_->server_name_.data(); }
-char* lobby_peer_name(Hub* m) { return m->lobby_service_->room_name_.data(); }
 
 // GameSpy's CD-key SDK (gcd) and THUG2's key.
 void compute_cd_key_response(const char* key, const char* challenge, char* response)
@@ -362,11 +340,11 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
         return false;
     }
     if (msg->observer) {
-        if (num_observers(this) >= max_observers(this)) {
+        if (count_observers() >= get_spectator_limit()) {
             reason = kRefusedFullObservers;
             return false;
         }
-    } else if (num_players(this) >= get_max_players(this)) {
+    } else if (count_players() >= get_player_limit()) {
         reason = kRefusedFull;
         return false;
     }
@@ -375,8 +353,8 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
         return false;
     }
     if (conn->is_off_machine()) {
-        const int limit = rank_limit(this);
-        const int test = rank_test(this);
+        const int limit = get_rank_limit();
+        const int test = get_rank_test();
         if (test == kRankTestGreater) {
             if (msg->rank <= limit) {
                 reason = kRefusedRankLow;
@@ -387,12 +365,12 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
             return false;
         }
     }
-    if (!msg->can_queue_up_ && !msg->observer && match_underway(this)) {
+    if (!msg->can_queue_up_ && !msg->observer && (active_ruleset_label() != kNetLobby && !match_ended_)) {
         reason = kRefusedInProgress;
         return false;
     }
     if (check_password) {
-        const char* password = get_password(this);
+        const char* password = fetch_secret();
         if (*password && std::strcmp(password, msg->password.data()) != 0) {
             reason = kRefusedPassword;
             return false;
@@ -432,7 +410,7 @@ void Hub::join_server(uint32_t ip, uint16_t port, int index)
         get_logic_tasks()->queue_job(join_phase_job_.get());
         join_port_ = port;
         join_ip_ = ip;
-        info.rank = current_rank(this);
+        info.rank = static_cast<int8_t>(rating_service_->get_rank());
     }
     info.observer = join_mode_ == kJoinModeObserve;
     info.version = kVersion;
@@ -472,7 +450,7 @@ void Hub::retry_entry(AppHost* client)
     core::at(info.password, 0) = '\0';
     info.broadband = net_session_slot()->get_net_link_kind() != kConnectionTypeModem;
     if (in_internet_mode())
-        info.rank = current_rank(this);
+        info.rank = static_cast<int8_t>(rating_service_->get_rank());
     thugpro::ConnectRequest request{};
     send_connection_request(as_client(client), info, &request);
     client->transmit(false);
@@ -489,7 +467,7 @@ void Hub::retry_entry_with_key(const char* password)
     (void)name;
     ConnectInfo info{};
     std::memset(&info, 0, sizeof(info));
-    info.rank = current_rank(this);
+    info.rank = static_cast<int8_t>(rating_service_->get_rank());
     info.observer = join_mode_ == kJoinModeObserve;
     info.version = kVersion;
     info.can_queue_up_ = true;
@@ -560,7 +538,7 @@ AppHost* Hub::start_host_session(bool local, bool secure)
         add_handlers(host_, this, kServerHandlers);
         score_synced_at_ = 0;
         awaiting_start_ = false;
-        shuffle_spawn_slots(this);
+        choose_start_points();
         spectator_pad_listener_ = nullptr;
     }
     return host_;
@@ -576,7 +554,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         NetMessageInfo desc = new_desc();
         ProceedInfo proceed{};
         std::memset(&proceed, 0, sizeof(proceed));
-        proceed.max_players_ = static_cast<int8_t>(get_max_players(manager));
+        proceed.max_players_ = static_cast<int8_t>(manager->get_player_limit());
         std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
         util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
         write_proceed_info(writer, proceed);
@@ -631,7 +609,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
     }
     ProceedInfo proceed{};
     std::memset(&proceed, 0, sizeof(proceed)); // (the original leaves the addresses as its stack had them on a LAN)
-    proceed.max_players_ = static_cast<int8_t>(get_max_players(manager));
+    proceed.max_players_ = static_cast<int8_t>(manager->get_player_limit());
     proceed.broadband = net->get_net_link_kind() != kConnectionTypeModem;
     if (manager->in_internet_mode()) {
         proceed.port = manager->join_port_;
@@ -663,7 +641,7 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         Hub* manager = instance->manager;
         ProceedInfo proceed{};
         std::memset(&proceed, 0, sizeof(proceed));
-        proceed.max_players_ = static_cast<int8_t>(get_max_players(manager));
+        proceed.max_players_ = static_cast<int8_t>(manager->get_player_limit());
         proceed.broadband = true;
         if (manager->in_internet_mode()) {
             proceed.port = manager->join_port_;
@@ -719,7 +697,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     player->score_ = 0;
     if (msg->observer)
         player->flag_bits_ = kPlayerObserver;
-    else if (match_underway(manager))
+    else if (active_ruleset_label() != kNetLobby && !manager->match_ended_)
         player->flag_bits_ |= kPlayerPending | kPlayerObserver;
     if (context->sender_conn_->is_host_local()) {
         // The host's own player: its profile copied through a buffer.
@@ -732,7 +710,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         player->account_->decode_from_bytes(buffer, kAppearanceSize);
         memory::Hub::get_pull()->dealloc(buffer);
         player->flag_bits_ = kPlayerLocal;
-        late_player_arrival(manager, player, 0);
+        manager->add_joining_player(player, 0);
         player->~JoinerRecord();
         memory::Hub::get_pull()->dealloc(player);
         // On the internet the host checks its own CD key too: an answer nobody reads (no instance). NOT ORIGINAL:
@@ -757,7 +735,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         reader.bytes(appearance.data(), size);
         player->account_->decode_from_bytes(appearance.data(), sizeof(appearance));
     }
-    late_player_arrival(manager, player, kDeferredJoinFrames);
+    manager->add_joining_player(player, kDeferredJoinFrames);
     player->~JoinerRecord();
     memory::Hub::get_pull()->dealloc(player);
     // Busy until it's in: no game messages meanwhile.
@@ -783,13 +761,13 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
         manager->join_ip_ = proceed->public_ip_;
         manager->join_private_ip_ = proceed->private_ip_;
         manager->join_port_ = proceed->port;
-        if (presence_logged_in(manager)) {
-            std::strcpy(lobby_server_name(manager), proceed->server_name_.data());
+        if (manager->presence_service_->authenticated_) {
+            std::strcpy(manager->lobby_service_->server_name_.data(), proceed->server_name_.data());
             std::array<char, 0x1000> location{};
             get_sprintf(location.data(), kPresenceLocationFormat.data(), manager->join_ip_, manager->join_private_ip_,
-                        manager->join_port_, lobby_server_name(manager), lobby_peer_name(manager));
+                        manager->join_port_, manager->lobby_service_->server_name_.data(), manager->lobby_service_->room_name_.data());
             const char* status = script::fetch_text(manager->join_mode_ == 0 ? kStatusPlaying : kStatusObserving);
-            set_presence(manager, 2, status, location.data());
+            manager->presence_service_->change_standing(2, status, location.data());
         }
     }
     set_maximum_players(proceed->max_players_);
@@ -873,8 +851,8 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         std::memset(&info, 0, sizeof(info));
         std::strcpy(info.cd_key_response_.data(), response.data());
         const char* name = nullptr; // (not used)
-        net_game_options(manager)->fetch_setting(kNetworkId)->fetch_text(kUiStringText.data(), &name, 1);
-        info.rank = current_rank(manager);
+        manager->net_options_.fetch_setting(kNetworkId)->fetch_text(kUiStringText.data(), &name, 1);
+        info.rank = static_cast<int8_t>(manager->rating_service_->get_rank());
         info.observer = manager->join_mode_ == kJoinModeObserve;
         info.version = kVersion;
         info.can_queue_up_ = true;
@@ -914,7 +892,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
             manager->refused_reason_ = kReasonDefault;
         break;
     }
-    cancel_join_server(manager);
+    manager->cancel_join();
     manager->join_phase_ = kJoinStateRefused;
     return net::kResultMsgFreed;
 }

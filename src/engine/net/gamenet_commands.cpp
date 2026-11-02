@@ -100,12 +100,7 @@ uint32_t& last_flag_base_warning()
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 
-// The lobby (online's GameSpy peer side): its peer, whether it's in a group room; the lobby's state (the manager's
-// set_service_state, 0x005453E0) and services state (set_next_service_state, 0x005451B0).
-void* lobby_peer(Hub* manager) { return manager->lobby_service_->get_lobby_handle(); }
 bool in_group_room(Hub* manager) { return manager->lobby_service_->in_group_room(); }
-void set_lobby_state(Hub* manager, int state) { manager->set_service_state(state); }
-void set_services_state(Hub* manager, int state) { manager->set_next_service_state(state); }
 
 // A message for the server through client 0, sequenced in the game's group.
 void send_request(Hub* manager, uint8_t id, void* data, uint16_t length)
@@ -175,7 +170,7 @@ bool cfunc_get_num_teams(Struct*, Script* script)
 // 0x00535EB0: ConnectedToPeer - the lobby has a GameSpy peer, connected (peerIsConnected).
 bool cfunc_connected_to_peer(Struct*, Script*)
 {
-    void* peer = lobby_peer(net_game_state().net_link());
+    void* peer = net_game_state().net_link()->lobby_service_->get_lobby_handle();
     return peer && game_spy::peer_is_connected(peer);
 }
 
@@ -204,7 +199,7 @@ bool cfunc_cancel_motd_download(Struct*, Script*)
 // 0x00535F40: DownloadMotd - the lobby's state 6.
 bool cfunc_download_motd(Struct*, Script*)
 {
-    set_lobby_state(net_game_state().net_link(), 6);
+    net_game_state().net_link()->set_service_state(6);
     return true;
 }
 
@@ -215,13 +210,13 @@ bool cfunc_services_are_available(Struct*, Script*)
     Hub* manager = net_game_state().net_link();
     if (manager->services_available_ == 1) {
         if (!manager->motd_received_) {
-            set_services_state(manager, 0);
-            set_lobby_state(manager, 1);
+            manager->set_next_service_state(0);
+            manager->set_service_state(1);
         }
         return true;
     }
-    set_services_state(manager, 3);
-    set_lobby_state(manager, 1);
+    manager->set_next_service_state(3);
+    manager->set_service_state(1);
     return false;
 }
 

@@ -58,17 +58,10 @@ constexpr uint8_t kServerColor = 7;
 using ::net::NetMessageInfo;
 void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
 
-// The local player (online::PlayerRecord): its name, whether it observes, its colour (its skater's object id).
-PlayerRecord* find_own_player_record(Hub* manager) { return manager->get_own_player(); }
 const char* player_name(PlayerRecord* player) { return player->label_.data(); }
 bool is_observer(PlayerRecord* player) { return (player->flag_bits_ >> 2) & 1; }
 uint8_t team_color(PlayerRecord* player) { return static_cast<uint8_t>(player->skater_->ident_); }
 
-// The manager's client connection (+0x08) queues a message for the server.
-void send_to_server(Hub* manager, NetMessageInfo* desc)
-{
-    core::down_cast<net::Guest>(manager->client_app_)->send_to_host(desc);
-}
 
 // Scripts::CStruct (8 bytes, from the current script struct pool when there is one).
 using ParamBag = script::Struct;
@@ -144,7 +137,7 @@ void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
         desc.content_ = thugpro_bytes.data();
         core::at(packet.text, thugpro::kChatMessageTextSize - 1) = '\0'; // (what was sent, shown below)
     }
-    send_to_server(manager, &desc);
+    core::down_cast<net::Guest>(manager->client_app_)->send_to_host(&desc);
 
     // The server doesn't send our own line back to us, so show it here.
     std::array<char, 256> line{};
@@ -214,7 +207,7 @@ void send_chat_message(Hub* manager, const char* text)
 {
     if (*text == '\0')
         return;
-    PlayerRecord* player = find_own_player_record(manager);
+    PlayerRecord* player = manager->get_own_player();
     const uint8_t color = is_observer(player) ? kObserverColor : team_color(player);
     post_out(manager, player_name(player), color, text);
 }

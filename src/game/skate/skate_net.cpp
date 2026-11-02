@@ -154,9 +154,6 @@ PlayerRecord* find_player_slot_by_obj(uint32_t id)
     return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 bool is_own_player(PlayerRecord* player) { return player->is_own_player() != 0; }
-// 0x005430D0 on the network manager: its last leading team set - the getter 0x005331A0's field. (The address is
-// folded with PlayerRecord::set_ready_query_owed, a setter of the same offset.)
-void set_last_leading_team(online::Hub* net, int team) { net->last_leading_team_ = team; }
 objects::Entity* player_skater(const PlayerRecord* player) { return player->skater_; }
 
 // A goal by name (the goal manager's 0x00557F90) and two of its virtuals: +0xC is it active, +0x14 its update.
@@ -575,7 +572,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
             params->append_word(kString0, kSymbolString, script::fetch_text(text.data()));
             get_run(kLeaderOtherTeam, params.get(), player_skater(local));
         }
-        set_last_leading_team(net, best);
+        net->last_leading_team_ = best;
         return 1;
     }
     // The leading player (none on a tie).
