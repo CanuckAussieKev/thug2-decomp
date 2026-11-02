@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -69,12 +70,12 @@ constexpr float kRadiansPerDegree = 0.0174532924f;     // 0x00645464
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The model's skeleton description (0x00493040, no source yet).
-const render::HierarchyNode* model_bones(void* model)
+std::span<const render::HierarchyNode> model_bones(void* model)
 {
-    return static_cast<render::RenderModel*>(model)->get_asset_hierarchy();
+    return static_cast<render::RenderModel*>(model)->asset_hierarchy_run();
 }
 // A skeleton's bone matrices (+0x04) and bone count (+0x14) - the folded getters 0x005480C0 / 0x004A2BA0.
-maths::Mat4* rig_matrix_block(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->matrix_array_; }
+std::span<maths::Mat4> rig_matrix_block(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->matrices(); }
 int skeleton_bone_count(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->bone_total_; }
 
 // The motion component's speed (+0x30) and path follower (0x00423510).
@@ -132,11 +133,11 @@ void AutomobileDynamicsModule::seal()
         return;
     mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity_->fetch_module(kModel))->mesh_instance_.get();
     bone_rig_ = core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_;
-    const render::HierarchyNode* bones = model_bones(mesh_instance_);
-    maths::Mat4 a = bones[2].matrix;
-    matrix_multiply(&a, &a, &bones[0].matrix);
-    maths::Mat4 b = bones[4].matrix;
-    matrix_multiply(&b, &b, &bones[0].matrix);
+    const std::span<const render::HierarchyNode> bones = model_bones(mesh_instance_);
+    maths::Mat4 a = core::at(bones, 2).matrix;
+    matrix_multiply(&a, &a, &core::at(bones, 0).matrix);
+    maths::Mat4 b = core::at(bones, 4).matrix;
+    matrix_multiply(&b, &b, &core::at(bones, 0).matrix);
     const double dx = static_cast<double>(core::at(a.row, 3).x) - core::at(b.row, 3).x;
     const double dy = static_cast<double>(core::at(a.row, 3).y) - core::at(b.row, 3).y;
     const double dz = static_cast<double>(core::at(a.row, 3).z) - core::at(b.row, 3).z;
@@ -219,14 +220,14 @@ void AutomobileDynamicsModule::update_angles()
 // 0x0041BF00
 void AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, float tilt, float spin, float steer)
 {
-    const render::HierarchyNode* bones = model_bones(model);
-    maths::Mat4* matrices = rig_matrix_block(skeleton);
+    const std::span<const render::HierarchyNode> bones = model_bones(model);
+    const std::span<maths::Mat4> matrices = rig_matrix_block(skeleton);
     const float tilt_radians = tilt * kRadiansPerDegree;
     const float steer_radians = steer * kRadiansPerDegree;
     const float spin_radians = spin * kRadiansPerDegree;
     for (int i = 0; i < skeleton_bone_count(skeleton); ++i) {
-        const render::HierarchyNode& bone = bones[i];
-        maths::Mat4* matrix = &matrices[static_cast<int8_t>(bone.bone_slot_)];
+        const render::HierarchyNode& bone = core::at(bones, i);
+        maths::Mat4* matrix = &core::at(matrices, static_cast<int8_t>(bone.bone_slot_));
         *matrix = bone.matrix;
         maths::Mat4 rotation{};
         switch (bone.checksum) {
@@ -248,7 +249,7 @@ void AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, flo
             break;
         }
         if (i != 0)
-            matrix_multiply(matrix, matrix, &matrices[static_cast<int16_t>(bone.parent_index_)]);
+            matrix_multiply(matrix, matrix, &core::at(matrices, static_cast<int16_t>(bone.parent_index_)));
     }
 }
 
@@ -262,7 +263,7 @@ void AutomobileDynamicsModule::update_bones()
     collapsed.reset_to_identity();
     const maths::Vec4 nothing = {0.0f, 0.0f, 0.0f, 1.0f};
     collapsed.scale_tool(nothing);
-    rig_matrix_block(bone_rig_)[0] = collapsed;
+    core::at(rig_matrix_block(bone_rig_), 0) = collapsed;
 }
 
 // 0x0041C1B0

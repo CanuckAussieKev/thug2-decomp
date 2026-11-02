@@ -355,10 +355,10 @@ void SkaterPhysicsModule::check_for_ground()
                         update_ground_normal();
                     start_riding_hit_object();
                     if (floor_feeler_.hit_.object != feeler_.hit_.object) {
-                        trigger_of(this)->probe_touches_zone(kKickEvents.data(), &floor_feeler_);
+                        trigger_of(this)->probe_touches_zone(kKickEvents, &floor_feeler_);
                         if (physics_control_->flag26_)
                             return;
-                        trigger_of(this)->probe_touches_zone(kSkaterEvents0064bBb0.data(), &feeler_);
+                        trigger_of(this)->probe_touches_zone(kSkaterEvents0064bBb0, &feeler_);
                         if (physics_control_->flag26_)
                             return;
                     }
@@ -409,7 +409,7 @@ void SkaterPhysicsModule::check_for_ground()
         if (find_acid_drop(true, &o->at_point_, &o->old_pos_, &o->vel_, &drop))
             start_acid_drop(&drop);
     }
-    trigger_of(this)->probe_touches_zone(kOtherFeelerLeaveEvents.data(), &floor_feeler_);
+    trigger_of(this)->probe_touches_zone(kOtherFeelerLeaveEvents, &floor_feeler_);
 }
 
 // Not original (THAW's BMX, phase 3 - THAW 0x005DF3E0..0x005DF7B5): the bike on the ground under its wheels
@@ -427,10 +427,10 @@ void SkaterPhysicsModule::ground_under_wheels(bool hit)
     sound_->surface_type_ = surface;
     start_riding_hit_object();
     if (floor_feeler_.hit_.object != feeler_.hit_.object) {
-        trigger_of(this)->probe_touches_zone(kKickEvents.data(), &floor_feeler_);
+        trigger_of(this)->probe_touches_zone(kKickEvents, &floor_feeler_);
         if (physics_control_->flag26_)
             return;
-        trigger_of(this)->probe_touches_zone(kSkaterEvents0064bBb0.data(), &feeler_);
+        trigger_of(this)->probe_touches_zone(kSkaterEvents0064bBb0, &feeler_);
         if (physics_control_->flag26_)
             return;
     }
@@ -768,7 +768,7 @@ void SkaterPhysicsModule::land_from_air()
     if (!skater->trick_objects_on_)
         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
     remember_floor_probe(&feeler_);
-    trigger_of(this)->probe_touches_zone(kSkaterEvents0064bB98.data(), &floor_feeler_);
+    trigger_of(this)->probe_touches_zone(kSkaterEvents0064bB98, &floor_feeler_);
     if (!physics_control_->flag26_) {
         const maths::Vec4& normal = feeler_.surface_dir_;
         maths::Vec4& velocity = entity_->vel_;

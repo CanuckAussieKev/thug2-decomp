@@ -4,6 +4,7 @@
 // core_collision.cpp, core_grind.cpp, core_states.cpp): its layout is only partly known, so fields are reached by
 // offset; the helpers here name the common ones and the small game calls everything uses.
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 
@@ -103,7 +104,7 @@ inline int physics_integer(uint32_t name, void* object)
 }
 
 // 0x00434BF0: the trigger component told the feeler `feeler` hit something, for the three `events` (const int[3]).
-inline void trigger_feeler(SkaterPhysicsModule* component, const int* events, render::ProbeRay* feeler)
+inline void trigger_feeler(SkaterPhysicsModule* component, const std::array<int, 3>& events, render::ProbeRay* feeler)
 {
     component->trigger_->probe_touches_zone(events, feeler);
 }

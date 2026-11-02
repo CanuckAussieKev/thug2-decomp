@@ -181,7 +181,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     }
     if (!done) {
         set_flag(this, PoseFlag::kNoAcidDrop, 1);
-        trigger_feeler(this, kBonkEvents.data(), &feeler_);
+        trigger_feeler(this, kBonkEvents, &feeler_);
         done = trigger_took_over(this);
     }
     if (!done) {
@@ -323,7 +323,7 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
         destroy_feeler(&feeler);
         return false;
     }
-    trigger_feeler(this, kBonkEvents.data(), &feeler_);
+    trigger_feeler(this, kBonkEvents, &feeler_);
     if (trigger_took_over(this)) {
         destroy_feeler(&feeler);
         return false;

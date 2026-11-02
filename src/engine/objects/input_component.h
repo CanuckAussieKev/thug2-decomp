@@ -8,6 +8,7 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
+#include <span>
 
 namespace script {
 class Script;
@@ -66,11 +67,11 @@ public:
     // outside network games.
     bool is_input_blocked();
     // 0x0041ECA0: the last frame's events kept; this frame's from the 17 buttons (read_button_state).
-    void update_events(const uint8_t* data);
+    void update_events(std::span<const uint8_t> data);
     // 0x0041EBF0: a button's event: while it's locked (its lock time not yet reached: frame_clock::GetTime, unsigned) nothing;
     // down (its pressure in `data`) - its `down` event to the object (when it wasn't down last frame, input events are
     // on and input isn't disabled) and its bit set; up - its `up` event (when it was down last frame).
-    void read_button_state(const uint8_t* data, int index, uint32_t bit, uint32_t down, uint32_t up,
+    void read_button_state(std::span<const uint8_t> data, int index, uint32_t bit, uint32_t down, uint32_t up,
                            ControlButton* button);
     // 0x0041E7E0: `name`'s button (none: a crash, as the original) locked for `seconds` (its lock time: frame_clock::GetTime +
     // seconds * 1000, truncated, as a float); with `release`, also released and its events taken.

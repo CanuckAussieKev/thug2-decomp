@@ -80,7 +80,7 @@ void play_jump_sound(SkaterPhysicsModule* component, uint8_t terrain)
 } // namespace
 
 // 0x005092E0
-void SkaterPhysicsModule::trigger_rail_script(const int* events)
+void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
 {
     auto* node = rail_node_;
     if (!node)
@@ -130,7 +130,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     const bool sound = !params->has_bare_flag(kNoSound);
     switch (state_of(this)) {
     case kGround:
-        trigger_feeler(this, kJumpTriggerEvents.data(), &floor_feeler_);
+        trigger_feeler(this, kJumpTriggerEvents, &floor_feeler_);
         if (trigger_took_over(this))
             return;
         std::memcpy(&last_ground_pos_, &entity_->at_point_, 16); // (where it jumped)
@@ -205,7 +205,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     if (state == kRail || (state == kAir && old_state_ == kRail))
         turn_for_rail_jump();
     if (point_rail_spin_)
-        trigger_rail_script(kJumpEvents.data());
+        trigger_rail_script(kJumpEvents);
     if (bike)
         thaw_bmx::jump_pitch(this);
     set_physics_state(kAir);
@@ -265,7 +265,7 @@ void SkaterPhysicsModule::step_wallplant()
         start += entity_->at_point_;
         end += entity_->at_point_;
         if (get_feel(this, 0x10, 0))
-            trigger_feeler(this, kWallplantEvents.data(), &feeler_);
+            trigger_feeler(this, kWallplantEvents, &feeler_);
         return;
     }
     // Still on the wall: no rail; carried along by what the skater rides on (its turn too, when it turned).
@@ -315,7 +315,7 @@ int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script*)
     uint32_t state = 0;
     params->read_hash_value(0u, &state, 0);
     if (state_of(this) == kLip && state != kLipName)
-        trigger_rail_script(kOffLipEvents.data());
+        trigger_rail_script(kOffLipEvents);
     if (state_of(this) != kLip && state == kLipName)
         rail_node_ = nullptr;
     if (state_of(this) == kWallRide) {
@@ -342,7 +342,7 @@ int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script*)
 // 0x00509B70
 int SkaterPhysicsModule::trigger_grind_off(script::Struct*, script::Script*)
 {
-    trigger_rail_script(kGrindOffEvents.data());
+    trigger_rail_script(kGrindOffEvents);
     return 1;
 }
 

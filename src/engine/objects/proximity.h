@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
@@ -94,7 +95,7 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
 bool is_restart_node(uint32_t name);
 // 0x0046B6C0: the names of the restart nodes (class Restart) of `type` (any if 0: those whose restart_types
 // include it) into `out`, from `start`'s node (after it, when given) on; returns how many.
-int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start);
+int get_restart_nodes(uint32_t type, std::span<uint32_t> out, uint32_t start);
 // 0x0046B790: restart node `index` (wrapped round the count once it's past it) of `type` - 0 if there's none.
 uint32_t get_spawn_node(uint32_t type, int index, uint32_t start);
 

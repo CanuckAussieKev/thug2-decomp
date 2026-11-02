@@ -3,6 +3,7 @@
 // What the Vehicle component's source files share (vehicle_component.cpp, vehicle_physics.cpp,
 // vehicle_collision.cpp): the game's strings and constants, and calls into code not rewritten yet.
 
+#include <array>
 #include <bit>
 #include <cstdint>
 
@@ -26,11 +27,11 @@ inline const char* const kDebugFile = "omponents\\vehiclecomponent.cpp"; // "omp
 
 // The trigger component's 0x00434BF0 / 0x00434CE0: a feeler / a rect feeler reported for
 // `events` (const int[3]).
-inline void trigger_feeler(ObjectModule* trigger, const int* events, render::ProbeRay* feeler)
+inline void trigger_feeler(ObjectModule* trigger, const std::array<int, 3>& events, render::ProbeRay* feeler)
 {
     core::down_cast<ActivationZoneModule>(trigger)->probe_touches_zone(events, feeler);
 }
-inline void trigger_rect(ObjectModule* trigger, const int* events, render::BoxProbe* feeler)
+inline void trigger_rect(ObjectModule* trigger, const std::array<int, 3>& events, render::BoxProbe* feeler)
 {
     core::down_cast<ActivationZoneModule>(trigger)->trigger_hits(events, feeler);
 }

@@ -437,7 +437,7 @@ bool TaggingControlComponent::try_tagging()
             core::at(hits, i) = feeler.contact_pos_;
             core::at(distances, i) = std::fabs(feeler.reach_);
             found = true;
-            core::down_cast<ActivationZoneModule>(trigger_)->probe_touches_zone(kTaggingEvents.data(), &feeler);
+            core::down_cast<ActivationZoneModule>(trigger_)->probe_touches_zone(kTaggingEvents, &feeler);
         } else {
             core::at(distances, i) = 1000.0f;
         }

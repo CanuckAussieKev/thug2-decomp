@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <span>
 
 #include "engine/gfx/debug_lines.h"
 #include "engine/maths/maths.h"
@@ -55,7 +56,7 @@ void quat_to_matrix(const maths::QuatRotation* quat, maths::Mat4* matrix) { quat
 void flag_as_dead(GameEntity* object) { object->flag_as_dead(); }
 
 // The matrix's element at row `r`, column `c`.
-double get_at(const maths::Mat4& m, int r, int c) { return (core::at(m.row, r)).data()[c]; }
+double get_at(const maths::Mat4& m, int r, int c) { return core::at(m.row, r)[c]; }
 
 } // namespace
 
@@ -326,7 +327,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
 // 0x00430140
 void BodyDynamicsModule::resolve_contacts()
 {
-    Contact* contacts = get_contacts();
+    const std::span<Contact> contacts = get_contacts();
     // The velocities before the impulses (friction works from these).
     maths::Vec4 vel0 = vel_, first_turn = rot_vel_;
     float fastest = 0.0f; // the fastest approach
@@ -335,7 +336,7 @@ void BodyDynamicsModule::resolve_contacts()
     for (int round = 0;;) {
         bool done = true;
         for (int i = int{contacts_hit_}; i != 0;) {
-            Contact& c = contacts[--i];
+            Contact& c = core::at(contacts, --i);
             if (!c.active)
                 continue;
             const maths::Vec4& r = c.offset;
@@ -389,7 +390,7 @@ void BodyDynamicsModule::resolve_contacts()
     // Friction: across the normal (along the directed friction where there is one), at most the normal impulse
     // times the friction.
     for (int i = int{contacts_hit_}; i != 0;) {
-        const Contact& c = contacts[--i];
+        const Contact& c = core::at(contacts, --i);
         if (!c.active)
             continue;
         const maths::Vec4& r = c.offset;
@@ -405,8 +406,13 @@ void BodyDynamicsModule::resolve_contacts()
                               get_narrow(get_wide(get_narrow(back * n.z)) + vz),
                               get_narrow(get_wide(get_narrow(back * n.w)) + vel0.w)};
         if (steer_friction_) {
-            const DirectedFriction& friction = steer_friction_[c.friction];
-            if (friction.active) {
+            // (the original read the friction of a sphere's number past the shape's points, the words after the
+            // table: here those spheres have none)
+            const std::span<const DirectedFriction> frictions = steer_friction_run();
+            const DirectedFriction* directed =
+                static_cast<std::size_t>(c.friction) < frictions.size() ? &core::at(frictions, c.friction) : nullptr;
+            if (directed && directed->active) {
+                const DirectedFriction& friction = *directed;
                 maths::Vec4 d{};
                 basis_frame_.rotate_vector(d, friction.direction);
                 const double dn = (get_wide(d.x) * n.x + get_wide(d.z) * n.z) + get_wide(d.y) * n.y;
@@ -454,7 +460,7 @@ void BodyDynamicsModule::resolve_contacts()
     // Pushed out of the world by each contact's depth.
     const float dt = get_narrow(frame_clock::get_slomo_frame_seconds());
     for (int i = int{contacts_hit_}; i != 0;) {
-        const Contact& c = contacts[--i];
+        const Contact& c = core::at(contacts, --i);
         if (!c.active)
             continue;
         const maths::Vec4& r = c.offset;
@@ -479,7 +485,7 @@ void BodyDynamicsModule::resolve_contacts()
 
     // The bounce, at the last active contact.
     for (int i = int{contacts_hit_}; i != 0;) {
-        const Contact& c = contacts[--i];
+        const Contact& c = core::at(contacts, --i);
         if (c.active) {
             const maths::Vec4 point = {append_one(c.offset.x, at_point_.x), append_one(c.offset.y, at_point_.y),
                                        append_one(c.offset.z, at_point_.z), append_one(c.offset.w, at_point_.w)};

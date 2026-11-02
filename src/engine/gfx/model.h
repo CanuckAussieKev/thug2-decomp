@@ -9,6 +9,7 @@
 #include "engine/lists/pointer_ring.h"
 #include <gsl/pointers>
 #include <memory>
+#include <span>
 
 namespace script {
 class Struct;
@@ -127,6 +128,8 @@ public:
     // (0x00490AB0) - the bone count and the hierarchy; 0 otherwise.
     uint32_t get_asset_bone_count();
     HierarchyNode* get_asset_hierarchy();
+    // NOT ORIGINAL: that hierarchy as a run of get_asset_bone_count() nodes.
+    [[nodiscard]] std::span<HierarchyNode> asset_hierarchy_run();
     // 0x00493090: each geom made active (the model's display mode 0, active and the geom visible) and given the
     // display matrix (scaled when scaling is on) - with the skeleton's bones in mode 0 unless there's no skeleton or
     // `no_bones`; mode 1 draws the skeleton (0x004A31E0), mode 5 / above 6 a debug box (compiled out). Always true.

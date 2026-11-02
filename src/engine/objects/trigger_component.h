@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -58,16 +59,16 @@ public:
     // the parameters structure 0x5180A4DB of the node named by `other` +0x14 when there is one), the events recorded
     // (+0x28: a bit for each of the three in `events` that isn't 0). False when there's no node (ours - see the .cpp),
     // no TriggerScript, or the skate module skips the node (0x00565BB0).
-    bool get_trigger_node(const int* events, uint32_t name, script::Array* nodes, const Entity* other);
+    bool get_trigger_node(const std::array<int, 3>& events, uint32_t name, script::Array* nodes, const Entity* other);
     // 0x00434BF0: the face `feeler` hit, if it's a trigger face (flag 0x40) with a collision object name: its
     // trigger (get_trigger_node) - while a movable object is being tested, or the hit object is still alive, through
     // that object's node array (its 0xC472ECC5 component's slot 13; none: the node manager) and with that object as
     // `other`. False if it's no trigger face, or the hit object is gone.
-    bool probe_touches_zone(const int* events, render::ProbeRay* feeler);
+    bool probe_touches_zone(const std::array<int, 3>& events, render::ProbeRay* feeler);
     // 0x00434CE0: each of the trigger faces in `hits` (from the last; +0xC30 the count, 0x60 bytes each from +0x88:
     // +0 the name, +4 whether it's a trigger) whose name isn't met again later in the list: its trigger
     // (get_trigger_node, no node array or other object).
-    void trigger_hits(const int* events, const render::BoxProbe* feeler);
+    void trigger_hits(const std::array<int, 3>& events, const render::BoxProbe* feeler);
     // 0x00434D70 (not a Ghidra function; cdecl): the feeler's callback during Update: probe_touches_zone with no events
     // (0x0064663C) on the component it carries (+0xA8).
     static bool feeler_hit(render::ProbeRay* feeler);

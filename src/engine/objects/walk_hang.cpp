@@ -3,6 +3,7 @@
 
 #include "engine/objects/walk_hang.h"
 
+#include <array>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -214,7 +215,7 @@ void tell_physics_rail(objects::FootMovement* walk)
     if (objects::GrindRailHub* rails = get_rails_of(walk))
         physics_of(walk)->rail_manager_ = rails;
 }
-void trigger_rail_script(objects::FootMovement* walk, const int* events)
+void trigger_rail_script(objects::FootMovement* walk, const std::array<int, 3>& events)
 {
     physics_of(walk)->trigger_rail_script(events);
 }
@@ -232,7 +233,7 @@ void set_hang_offset(objects::FootMovement* walk)
 }
 
 // The trigger component told a feeler hit something (for `events`), and the movable contact the feeler's hit.
-void trigger_feeler(objects::FootMovement* walk, const int* events, render::ProbeRay* feeler)
+void trigger_feeler(objects::FootMovement* walk, const std::array<int, 3>& events, render::ProbeRay* feeler)
 {
     walk->trigger_->probe_touches_zone(events, feeler);
 }
@@ -347,10 +348,10 @@ void objects::FootMovement::end_pull_up()
 {
     change_phase(0);
     object_of(this)->post_own_event(kSkaterExitHang, nullptr);
-    trigger_rail_script(this, kExitHangEvents.data());
+    trigger_rail_script(this, kExitHangEvents);
     if (feeler_hit_) {
         auto* feeler = &feeler_;
-        trigger_feeler(this, kPullUpEvents.data(), feeler);
+        trigger_feeler(this, kPullUpEvents, feeler);
         contact_feeler(this, feeler);
     }
     critical_point_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -362,7 +363,7 @@ void objects::FootMovement::end_drop_from_hang()
 {
     change_phase(1);
     object_of(this)->post_own_event(kSkaterExitHang, nullptr);
-    trigger_rail_script(this, kExitHangEvents.data());
+    trigger_rail_script(this, kExitHangEvents);
     leap_heading_ = facing_;
     leave_ride(&vel_, &up_speed_);
     model_lift_ = transition_display_offset_;
@@ -374,12 +375,12 @@ void objects::FootMovement::end_drop_to_hang()
     set_hang_offset(this);
     change_phase(2);
     tell_physics_rail(this);
-    trigger_rail_script(this, kHangEvents.data());
+    trigger_rail_script(this, kHangEvents);
     core::down_cast<objects::TaggingControlComponent>(object_of(this)->fetch_module(kTaggingControl))->blocked_ = false;
 }
 
 // 0x0043DDD0
-bool objects::FootMovement::side_clear(render::ProbeRay* feeler, const maths::Vec4* hang, const maths::Vec4* side)
+bool objects::FootMovement::side_clear(render::ProbeRay* feeler, const RailHit& hang, const maths::Vec4* side)
 {
     const float side_length = get_param(kHangObstructionFeelerSide);
     const float sx = side_length * side->x;
@@ -387,8 +388,8 @@ bool objects::FootMovement::side_clear(render::ProbeRay* feeler, const maths::Ve
     const float sz = side_length * side->z;
     const float sw = side_length * side->w;
     const float horiz = get_param(kHangCriticalPointHorizOffset);
-    const maths::Vec4& point = hang[0];
-    const maths::Vec4& out = hang[1];
+    const maths::Vec4& point = hang.point;
+    const maths::Vec4& out = hang.facing;
     // the critical point (the y left unrounded, as the original keeps it on the x87 stack), moved along the side
     auto cx = static_cast<float>(static_cast<double>(horiz) * out.x + point.x);
     const double cy = static_cast<double>(horiz) * out.y + point.y;
@@ -680,7 +681,7 @@ bool objects::FootMovement::grab_rail(maths::Vec4 start, maths::Vec4 end)
     model_lift_ = static_cast<float>(hang_height_offset());
     change_phase(2);
     tell_physics_rail(this);
-    trigger_rail_script(this, kHangEvents.data());
+    trigger_rail_script(this, kHangEvents);
     anim_state_ = kAnimHang;
     set_physics_flag_a0(this);
     return true;
@@ -850,10 +851,10 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
     const maths::Vec4 segment = {node_pos->x - next_pos->x, node_pos->y - next_pos->y, node_pos->z - next_pos->z,
                                  node_pos->w - next_pos->w};
     // room at both sides
-    if (!side_clear(feeler, &rail->point, &side))
+    if (!side_clear(feeler, *rail, &side))
         return false;
     const maths::Vec4 other_side = {-side.x, 0.0f, -side.z, -1.0f};
-    if (!side_clear(feeler, &rail->point, &other_side))
+    if (!side_clear(feeler, *rail, &other_side))
         return false;
     // the hang point: below the rail and out from it; room to shimmy either way from there
     rail->point.y = rail->point.y - get_param(kHangVertOriginOffset);
@@ -1101,7 +1102,7 @@ void objects::FootMovement::update_hang()
             // turned round: let go
             change_phase(1);
             object_of(this)->post_own_event(kSkaterExitHang, nullptr);
-            trigger_rail_script(this, kExitHangEvents.data());
+            trigger_rail_script(this, kExitHangEvents);
             leap_heading_ = facing;
             leave_ride(&vel_, &up_speed_);
             anim_state_ = kAnimAir;
@@ -1139,10 +1140,10 @@ void objects::FootMovement::update_hang()
 void objects::FootMovement::end_ladder_off_bottom()
 {
     change_phase(0);
-    trigger_rail_script(this, kExitLadderEvents.data());
+    trigger_rail_script(this, kExitLadderEvents);
     if (feeler_hit_) {
         auto* feeler = &feeler_;
-        trigger_feeler(this, kLadderOffBottomEvents.data(), feeler);
+        trigger_feeler(this, kLadderOffBottomEvents, feeler);
         contact_feeler(this, feeler);
     }
 }
@@ -1151,10 +1152,10 @@ void objects::FootMovement::end_ladder_off_bottom()
 void objects::FootMovement::end_ladder_off_top()
 {
     change_phase(0);
-    trigger_rail_script(this, kExitLadderEvents.data());
+    trigger_rail_script(this, kExitLadderEvents);
     if (feeler_hit_) {
         auto* feeler = &feeler_;
-        trigger_feeler(this, kLadderOffTopEvents.data(), feeler);
+        trigger_feeler(this, kLadderOffTopEvents, feeler);
         contact_feeler(this, feeler);
     }
 }
@@ -1163,7 +1164,7 @@ void objects::FootMovement::end_ladder_off_top()
 void objects::FootMovement::end_ladder_off_top_to_air()
 {
     change_phase(1);
-    trigger_rail_script(this, kExitLadderEvents.data());
+    trigger_rail_script(this, kExitLadderEvents);
     leap_heading_ = facing_;
     leave_ride(&vel_, &up_speed_);
 }
@@ -1526,7 +1527,7 @@ void objects::FootMovement::update_ladder()
 {
     // the ladder's rail script for the first 25 ticks
     if (static_cast<uint32_t>(get_now()) - static_cast<uint32_t>(state_time_) < 25)
-        trigger_rail_script(this, kOntoLadderEvents.data());
+        trigger_rail_script(this, kOntoLadderEvents);
     jump_unsteered_ = false;
     // the control within ladder_control_tolerance of up or down: climbing
     const objects::PadInputModule* input = input_;

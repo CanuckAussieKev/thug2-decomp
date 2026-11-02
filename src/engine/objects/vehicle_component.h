@@ -11,6 +11,7 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
+#include <span>
 #include <vector>
 
 namespace script {
@@ -121,7 +122,7 @@ public:
         std::array<uint8_t, 3> pad29;
     };
     // The contacts (one array for every vehicle; contact_count_ of them this step).
-    static Contact* get_contacts();
+    static std::span<Contact> get_contacts();
 
     // --- the component ---
     // 0x0043AA30 (registered with the composite object manager): a new one (0 if out of memory).

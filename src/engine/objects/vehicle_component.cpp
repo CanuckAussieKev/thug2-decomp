@@ -17,6 +17,7 @@
 #include <initializer_list>
 #include <gsl/pointers>
 #include <array>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -53,7 +54,7 @@ namespace {
 // 0x00696878: 132 of them.
 std::array<DrivableModule::Contact, 132> g_vehicle_contacts;
 } // namespace
-DrivableModule::Contact* DrivableModule::get_contacts() { return g_vehicle_contacts.data(); }
+std::span<DrivableModule::Contact> DrivableModule::get_contacts() { return g_vehicle_contacts; }
 
 using namespace vehicle;
 
@@ -410,14 +411,14 @@ GameEntity* local_skater() { return static_cast<GameEntity*>(modules::Skate::sol
 uint32_t skate_restart(int index) { return modules::Skate::sole()->warp_to_restart(static_cast<uint32_t>(index)); }
 // The model's geometry (0x00493040 on the model's +0x208): its matrix at +0x60, the wheels' places (z up) at +0xE0 +
 // 0x50 each.
-const render::HierarchyNode* model_geometry(ObjectModule* model)
+std::span<const render::HierarchyNode> model_geometry(ObjectModule* model)
 {
-    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_->get_asset_hierarchy();
+    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_->asset_hierarchy_run();
 }
 // Wheel `i`'s place: hierarchy node 2 + i's translation.
-const maths::Vec4& wheel_place(const render::HierarchyNode* geometry, int i)
+const maths::Vec4& wheel_place(std::span<const render::HierarchyNode> geometry, int i)
 {
-    return core::at(geometry[2 + i].matrix.row, 3);
+    return core::at(core::at(geometry, 2 + i).matrix.row, 3);
 }
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
 void* skeleton_of(ObjectModule* skeleton) { return core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_; }
@@ -654,13 +655,13 @@ void DrivableModule::seal()
 {
     input_ptr_ = core::down_cast<PadInputModule>(entity_->fetch_module(kInput));
     mesh_instance_ = entity_->fetch_module(kModel);
-    const render::HierarchyNode* geometry = model_geometry(entity_->fetch_module(kModel));
+    const std::span<const render::HierarchyNode> geometry = model_geometry(entity_->fetch_module(kModel));
     // The wheels' places from the model (z up there; always four).
     for (int i = 3; i >= 0; --i) {
         const maths::Vec4& place = wheel_place(geometry, i);
         core::at(wheels_, i).offset = {-place.x, place.z, -place.y, 1.0f};
     }
-    const maths::Mat4 bone = geometry[1].matrix;
+    const maths::Mat4 bone = core::at(geometry, 1).matrix;
     skater_bone_ = {-core::at(bone.row, 3).x, core::at(bone.row, 3).z, -core::at(bone.row, 3).y, 1.0f};
     // The wheelbase (a left wheel to a fixed one) and the track (left to right), from the lowest-numbered wheel of
     // each kind (-1 when there's none - read before the first, as the original).
@@ -837,12 +838,12 @@ void DrivableModule::refresh_bone_rig()
     if (render::g_suppress_draw) // (rendering off)
         return;
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
-    maths::Mat4* bones = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->matrix_array_;
+    const std::span<maths::Mat4> bones = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->matrices();
     const int count = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->get_num_bones();
     // Bone 0 the body (left as nothing), 1 the skater's place, 2 on the wheels: steered and rolled, at their place
     // with the suspension's extension, but no lower than max_drawn_y_. In debug mode 2 all of them nothing.
     for (int b = count - 1; b >= 0; --b) {
-        maths::Mat4& bone = bones[b];
+        maths::Mat4& bone = core::at(bones, b);
         std::memset(&bone, 0, sizeof(bone));
         if (debug_mode_ == 2)
             continue;

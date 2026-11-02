@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -134,14 +135,13 @@ int nearly_equal4(float a, float b, float c, float d, float tolerance)
 // 0x0057C3F0
 void GrindRailHub::move_node(uint32_t name, const maths::Vec4* pos)
 {
-    int index = 0;
-    GrindPoint* node = nodes_;
-    for (; index < num_; ++index, ++node) {
-        if (node->label_ == name)
-            break;
-    }
-    if (index >= num_)
+    const std::span<GrindPoint> run = node_run();
+    std::size_t index = 0;
+    while (index < run.size() && core::at(run, index).label_ != name)
+        ++index;
+    if (index >= run.size())
         return;
+    GrindPoint* node = &core::at(run, index);
     node->at_point_ = *pos;
     if (const GrindPoint* next = node->succ_) {
         const maths::Vec4 here = node->at_point_;
@@ -554,14 +554,13 @@ void GrindRailHub::remove_overlaps_if_not_park()
 // 0x0057D7C0
 void GrindRailHub::change_live(uint32_t name, int active, bool entire_rail)
 {
-    int index = 0;
-    GrindPoint* node = nodes_;
-    for (; index < num_; ++index, ++node) {
-        if (node->label_ == name)
-            break;
-    }
-    if (index >= num_)
+    const std::span<GrindPoint> run = node_run();
+    std::size_t index = 0;
+    while (index < run.size() && core::at(run, index).label_ != name)
+        ++index;
+    if (index >= run.size())
         return;
+    GrindPoint* node = &core::at(run, index);
     if (entire_rail) {
         // This node and every one after it.
         for (; node; node = node->succ_) {
@@ -829,9 +828,9 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
     void* table_memory = memory::alloc_block(big ? slots * 4 : 0x8000);
     memory::Hub::get_pull()->leave_heap_scope();
     std::memset(table_memory, 0xFF, big ? slots * 4 : 0x8000);
-    auto* small = static_cast<int16_t*>(table_memory);
-    auto* wide = static_cast<int32_t*>(table_memory);
-    auto entry = [&](uint32_t slot) { return big ? wide[slot] : small[slot]; };
+    const std::span<int16_t> small(static_cast<int16_t*>(table_memory), big ? 0 : 0x4000);
+    const std::span<int32_t> wide(static_cast<int32_t*>(table_memory), big ? slots : 0);
+    auto entry = [&](uint32_t slot) { return big ? core::at(wide, slot) : core::at(small, slot); };
     adding_ = 0;
     const bool all_trick_objects = script::fetch_int_value(kAllRailsTrickObjects) != 0;
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
@@ -844,9 +843,9 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
         while (entry(slot) != -1)
             slot = (slot + 1) & mask;
         if (big)
-            wide[slot] = adding_;
+            core::at(wide, slot) = adding_;
         else
-            small[slot] = static_cast<int16_t>(adding_);
+            core::at(small, slot) = static_cast<int16_t>(adding_);
         const bool trick_object = node->has_entry_named(kTrickObject);
         if (all_trick_objects || trick_object) {
             // A trick object of its cluster (the park / trick object manager 0x007CE500).

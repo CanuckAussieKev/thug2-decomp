@@ -57,7 +57,7 @@ enum StatusIndex : uint8_t {
 int horse_restarts()
 {
     std::array<uint32_t, 0x80> restarts{};
-    return objects::get_restart_nodes(kHorse, restarts.data(), 0);
+    return objects::get_restart_nodes(kHorse, restarts, 0);
 }
 
 objects::Rider* get_skater(uint32_t id) { return core::down_cast<objects::Rider>(skate_calls::get_rider_by_number(id)); }

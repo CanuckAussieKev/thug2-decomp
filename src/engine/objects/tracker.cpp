@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <new>
+#include <span>
 #include <array>
 
 #include "engine/core/checksums.h"
@@ -63,7 +64,7 @@ uint32_t& current_object_id(Entity* object) { return object->ident_; }
 bool has_aliases(const Entity* object) { return static_cast<int>(object->alias_count_) > 0; }
 bool has_position(const Entity* object) { return (object->object_flags_ & kObjectFlagHasPosition) != 0; }
 // The position: GameEntity's at_point_ (+0x4C, just after Entity's; read on any object).
-const float* get_position(Entity* object) { return &core::down_cast<GameEntity>(object)->at_point_.x; }
+const maths::Vec4& get_position(Entity* object) { return core::down_cast<GameEntity>(object)->at_point_; }
 // Take the properties in `params` (SetObjectProps); an event targeted at it.
 void change_traits(Entity* object, script::Struct* params) { object->change_traits(params); }
 void forward_trigger(Entity* object, Signal* event) { object->pass_event_to_script(event); }
@@ -81,15 +82,6 @@ bool get_object_id(script::Struct* params, uint32_t name, uint32_t* id)
 
 // 0x004A1090: give an event listener the event (the subclass's filter).
 void listener_receive(SignalReceiver* listener, Signal* event) { listener->receive(event); }
-
-// 0x0041A820: the squared distance between two points (x87: (dx*dx + dz*dz) + dy*dy, not rounded to float).
-double get_distance_squared(const float* a, const float* b)
-{
-    const double dx = static_cast<double>(a[0]) - b[0];
-    const double dy = static_cast<double>(a[1]) - b[1];
-    const double dz = static_cast<double>(a[2]) - b[2];
-    return dx * dx + dz * dz + dy * dy;
-}
 
 // A new hash table of 2^bits buckets (null if there's no memory).
 gsl::owner<lists::KeyMap*> new_hash_table(int bits)
@@ -500,10 +492,9 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
         // Every script listening for the type, in the order they started listening; with a radius (>= 0), only
         // those whose object is nearer the source than that (scripts without an object, or whose object has no
         // position, always get it).
-        std::array<float, 4> source_position{};
+        maths::Vec4 source_position{};
         if (radius >= 0.0f) {
-            const float* position = get_position(find_object_by_id(source)); // (not checked for null)
-            std::memcpy(source_position.data(), position, sizeof(source_position));
+            source_position = get_position(find_object_by_id(source)); // (not checked for null)
         }
         auto in_range = [&](script::Script* script) {
             if (!(radius >= 0.0f))
@@ -511,7 +502,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             Entity* object = script->entity_.get_pull();
             if (!object || !has_position(object))
                 return true;
-            const double distance = get_distance_squared(source_position.data(), get_position(object));
+            const double distance = maths::get_distance_squared(source_position, get_position(object));
             return static_cast<double>(radius) * radius > distance;
         };
         int count = 0;
@@ -532,31 +523,31 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             // Several (or none): first a smart pointer to each, so that one deleted by an earlier one's handler
             // is skipped.
             using Pointer = SharedRef<SharedBase>;
-            auto* scripts = static_cast<script::Script**>(memory::alloc(static_cast<unsigned int>(count) * 4));
+            auto* scripts_block = static_cast<script::Script**>(memory::alloc(static_cast<unsigned int>(count) * 4));
+            const std::span<script::Script*> scripts(scripts_block, static_cast<std::size_t>(count));
             // (the original's new[]: its count before them - here the count is the local one)
-            auto* pointers = static_cast<Pointer*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer)));
-            if (pointers) {
-                for (int i = 0; i < count; ++i)
-                    memory::construct_in<Pointer>(&pointers[i]);
-            }
+            auto* pointers_block = static_cast<Pointer*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer)));
+            const std::span<Pointer> pointers(pointers_block, pointers_block ? static_cast<std::size_t>(count) : 0);
+            for (Pointer& pointer : pointers)
+                memory::construct_in<Pointer>(&pointer);
             const ScriptNode* node = list->following_->is_head() ? nullptr : list->following_;
             for (int i = 0; node; ++i) {
-                scripts[i] = node->payload_;
-                pointers[i].assign_value(&node->payload_->shared_base_);
+                core::at(scripts, i) = node->payload_;
+                core::at(pointers, i).assign_value(&node->payload_->shared_base_);
                 node = node->following_;
                 if (node->is_head())
                     break;
             }
             for (int i = 0; i < count; ++i) {
-                if (pointers[i] && in_range(scripts[i]))
-                    scripts[i]->receive_event(&event);
+                if (core::at(pointers, i) && in_range(core::at(scripts, i)))
+                    core::at(scripts, i)->receive_event(&event);
             }
-            if (pointers) {
+            if (pointers_block) {
                 for (int i = count - 1; i >= 0; --i)
-                    pointers[i].get_release(); // (the destructors, last first)
-                memory::dealloc(pointers);
+                    core::at(pointers, i).get_release(); // (the destructors, last first)
+                memory::dealloc(pointers_block);
             }
-            memory::dealloc(static_cast<void*>(scripts));
+            memory::dealloc(static_cast<void*>(scripts_block));
         }
     }
 

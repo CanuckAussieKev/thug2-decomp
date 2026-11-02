@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <span>
 
 #include "engine/maths/shape_tests.h"
 #include "engine/render/coll_cache.h"
@@ -49,7 +50,7 @@ bool BodyDynamicsModule::find_contacts()
         feeler.hit_cache_ = body_cache();
         for (int i = contact_count_ - 1; i >= 0; --i) {
             const maths::Vec4& point = core::at(world_contact_points(), i);
-            Contact& contact = get_contacts()[contacts_hit_];
+            Contact& contact = core::at(get_contacts(), contacts_hit_);
             feeler.line_.start = at_point_;
             feeler.line_.end = {
                 get_narrow(get_wide(at_point_.x) + point.x), get_narrow(get_wide(at_point_.y) + point.y),
@@ -90,7 +91,7 @@ bool BodyDynamicsModule::find_contacts()
             continue;
         for (int k = feeler.hits_.count - 1; k >= 0; --k) {
             const render::SphereHit& hit = core::at(feeler.hits_.hits, k);
-            Contact& contact = get_contacts()[contacts_hit_];
+            Contact& contact = core::at(get_contacts(), contacts_hit_);
             const maths::Vec4& c = feeler.bound_ball_.centre;
             const double ox = get_wide(hit.point.x) - at_point_.x;
             const double oy = get_wide(hit.point.y) - at_point_.y;

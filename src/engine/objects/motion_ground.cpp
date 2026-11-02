@@ -45,14 +45,14 @@ maths::Vec4 vertex_position3(render::HitMesh* object, int vertex) { return objec
 } // namespace
 
 // 0x00425CB0
-bool get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::Vec4* start, maths::Vec4* out)
+bool get_ground_hit(std::array<maths::Vec4, 3>& triangle, const maths::Vec4* end, const maths::Vec4* start, maths::Vec4* out)
 {
     const maths::Vec4 along = {static_cast<float>(static_cast<double>(end->x) - start->x),
                                static_cast<float>(static_cast<double>(end->y) - start->y),
                                static_cast<float>(static_cast<double>(end->z) - start->z),
                                static_cast<float>(static_cast<double>(end->w) - start->w)};
     float t = 0.0f;
-    if (render::ray_hits_triangle(*start, along, triangle[0], triangle[1], triangle[2], &t)) {
+    if (render::ray_hits_triangle(*start, along, std::get<0>(triangle), std::get<1>(triangle), std::get<2>(triangle), &t)) {
         // (x through the unrounded product, the others rounded first)
         const double x = static_cast<double>(along.x) * t;
         auto y = static_cast<float>(static_cast<double>(along.y) * t);
@@ -73,7 +73,7 @@ bool get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::
     const int face = static_cast<int>(feeler.hit_.face);
     for (int corner = 0; corner < 3; ++corner) {
         const auto vertex = static_cast<int>(geometry->face_vertex(face, corner));
-        triangle[corner] = vertex_position3(object, vertex);
+        core::at(triangle, corner) = vertex_position3(object, vertex);
     }
     *out = feeler.contact_pos_;
     return true;
@@ -142,7 +142,7 @@ bool KinematicsModule::stick_to_ground()
         const maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(above) + pos.y), pos.z, w};
         const maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(below) + pos.y), pos.z, w};
         maths::Vec4 hit;
-        if (!get_ground_hit(ground_triangle_.data(), &end, &start, &hit))
+        if (!get_ground_hit(ground_triangle_, &end, &start, &hit))
             return false;
         ground_offset_ = static_cast<float>(static_cast<double>(hit.y) - pos.y);
         return true;
@@ -169,10 +169,10 @@ bool KinematicsModule::stick_to_ground()
                            static_cast<float>(static_cast<double>(right.y) * 30.0f),
                            static_cast<float>(static_cast<double>(right.z) * 30.0f),
                            static_cast<float>(static_cast<double>(right.w) * 30.0f)}};
-    auto move = [&pos](const float* by, double scale) {
+    auto move = [&pos](const std::array<float, 4>& by, double scale) {
         auto& p = pos;
         for (int i = 0; i < 4; ++i)
-            p[i] = static_cast<float>(static_cast<double>(p[i]) + by[i] * scale);
+            p[i] = static_cast<float>(static_cast<double>(p[i]) + core::at(by, i) * scale);
     };
     // (a feeler from DistAbove over the position to DistBelow under it, feet; the products unrounded)
     auto line = [&](maths::Vec4* start, maths::Vec4* end) {
@@ -184,14 +184,14 @@ bool KinematicsModule::stick_to_ground()
         *end = {x, static_cast<float>(static_cast<double>(y) - static_cast<double>(ground_below_) * 12.0f), z, w};
     };
     maths::Vec4 start, end, back_right, back_left, front;
-    move(ahead.data(), -1.0);
-    move(side.data(), 1.0);
+    move(ahead, -1.0);
+    move(side, 1.0);
     line(&start, &end);
-    const bool hit_right = get_ground_hit(core::at(ground_triangles_, 0).data(), &end, &start, &back_right);
-    move(side.data(), -2.0);
+    const bool hit_right = get_ground_hit(core::at(ground_triangles_, 0), &end, &start, &back_right);
+    move(side, -2.0);
     line(&start, &end);
     bool hit_left = false;
-    if (get_ground_hit(core::at(ground_triangles_, 1).data(), &end, &start, &back_left)) {
+    if (get_ground_hit(core::at(ground_triangles_, 1), &end, &start, &back_left)) {
         hit_left = true;
         if (hit_right) {
             right = {static_cast<float>(static_cast<double>(back_right.x) - back_left.x),
@@ -201,11 +201,11 @@ bool KinematicsModule::stick_to_ground()
             right.make_unit();
         }
     }
-    move(ahead.data(), 2.0);
-    move(side.data(), 1.0);
+    move(ahead, 2.0);
+    move(side, 1.0);
     line(&start, &end);
-    move(ahead.data(), -1.0); // (back where it was)
-    if (!get_ground_hit(core::at(ground_triangles_, 2).data(), &end, &start, &front) || !hit_left || !hit_right)
+    move(ahead, -1.0); // (back where it was)
+    if (!get_ground_hit(core::at(ground_triangles_, 2), &end, &start, &front) || !hit_left || !hit_right)
         return false;
     // The height: half way between the back's middle and the front; at: towards the front from the back's
     // middle, half way from the old at; up: at x right.

@@ -303,7 +303,7 @@ public:
     // 0x0043DDD0: whether a hanging skater's side is clear: `feeler` from the critical point (`hang`: the point and
     // the direction out from the wall, +0x10) moved out along `side` (hang_obstruction_feeler_side), then up by
     // hang_obstruction_feeler_up - and back the other way. True if neither hits.
-    bool side_clear(render::ProbeRay* feeler, const maths::Vec4* hang, const maths::Vec4* side);
+    bool side_clear(render::ProbeRay* feeler, const RailHit& hang, const maths::Vec4* side);
     // 0x0043DFC0: hanging on the rail +0x1764 / +0x1768 `distance` from its start (`fromEnd`: its end), facing away
     // from it - the side `direction` says; turning round more than 60 degrees flushes the walk camera (+0x1760). The hang
     // offset (+0x71C) from the new facing.

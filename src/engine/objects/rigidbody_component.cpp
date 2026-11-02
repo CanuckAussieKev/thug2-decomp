@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <new>
+#include <span>
 #include <utility>
 #include <gsl/pointers>
 #include <array>
@@ -42,7 +43,7 @@ std::array<SharedRef<GameEntity>, 8> g_rigid_body_pushers;
 std::array<maths::Vec4, 24>& BodyDynamicsModule::world_contact_points() { return g_rigid_body_world_contact_points; }
 std::array<maths::Vec4, 24>& BodyDynamicsModule::world_sphere_centers() { return g_rigid_body_world_sphere_centers; }
 std::array<maths::Vec4, 2>& BodyDynamicsModule::world_spring_points() { return g_rigid_body_world_spring_points; }
-BodyDynamicsModule::Contact* BodyDynamicsModule::get_contacts() { return g_rigid_body_contacts.data(); }
+std::span<BodyDynamicsModule::Contact> BodyDynamicsModule::get_contacts() { return g_rigid_body_contacts; }
 float g_rigid_body_pusher_height;
 
 namespace {
@@ -397,14 +398,16 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         script::Array* friction = nullptr;
         params->fetch_list(0xC35CAC0D, &friction, 0);
         steer_friction_ = reallocate(steer_friction_, contact_count_ * sizeof(DirectedFriction));
+        const std::span<DirectedFriction> frictions(steer_friction_, contact_count_);
         for (int i = contact_count_; i != 0;) {
             --i;
             script::Struct* settings = friction->struct_at(static_cast<uint32_t>(i));
+            DirectedFriction& directed = core::at(frictions, i);
             if (settings->has_entry_named(0x806FFF30)) { // none
-                steer_friction_[i].active = false;
+                directed.active = false;
             } else {
-                steer_friction_[i].active = true;
-                settings->fetch_vec(0u, &steer_friction_[i].direction, 1);
+                directed.active = true;
+                settings->fetch_vec(0u, &directed.direction, 1);
             }
         }
     }
@@ -414,7 +417,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         level_nodes::read_turn_angles(params, &angles);
         maths::Mat4 turn;
         turn.init_from_angles(angles);
-        auto m = [&turn](int r, int c) { return static_cast<double>((core::at(turn.row, r)).data()[c]); };
+        auto m = [&turn](int r, int c) { return static_cast<double>(core::at(turn.row, r)[c]); };
         for (int i = contact_count_; i != 0;) {
             maths::Vec4& p = core::at(contact_run(), --i);
             const double x = p.x;
@@ -520,7 +523,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 
     // The position is the centre of mass: moved by the (turned) model offset.
     auto r = [this](int row, int c) {
-        return static_cast<double>((core::at(basis_frame_.row, row)).data()[c]);
+        return static_cast<double>(core::at(basis_frame_.row, row)[c]);
     };
     const double ox = model_offset_.x, oy = model_offset_.y, oz = model_offset_.z;
     const double tx = (r(2, 0) * oz + r(1, 0) * oy) + ox * r(0, 0);

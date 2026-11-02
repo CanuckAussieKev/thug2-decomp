@@ -27,6 +27,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include <gsl/pointers>
 #include <array>
+#include <span>
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -197,7 +198,7 @@ void PadInputModule::update_pad(const pad_input::Payload* data)
 {
     if (entity_->composite_flags_ & kCompositeFlagPaused)
         return;
-    update_events(data->incident_.data());
+    update_events(data->incident_);
     const bool blocked = is_input_blocked();
     if (!disabled_ && !net_disabled_ && !blocked) {
         pad_primary_.tick_frame(data);
@@ -248,7 +249,7 @@ bool PadInputModule::is_input_blocked()
 }
 
 // 0x0041ECA0
-void PadInputModule::update_events(const uint8_t* data)
+void PadInputModule::update_events(std::span<const uint8_t> data)
 {
     last_events_ = events_;
     events_ = 0;
@@ -262,7 +263,7 @@ void PadInputModule::update_events(const uint8_t* data)
 }
 
 // 0x0041EBF0
-void PadInputModule::read_button_state(const uint8_t* data, int index, uint32_t bit, uint32_t down, uint32_t up,
+void PadInputModule::read_button_state(std::span<const uint8_t> data, int index, uint32_t bit, uint32_t down, uint32_t up,
                                        ControlButton* button)
 {
     if (button) {
@@ -271,7 +272,7 @@ void PadInputModule::read_button_state(const uint8_t* data, int index, uint32_t 
             return;
     }
     const bool events_on = input_events_ && !disabled_ && !net_disabled_;
-    if (data[index]) {
+    if (core::at(data, index)) {
         if (!(last_events_ & bit) && events_on)
             entity_->post_own_event(down, nullptr);
         events_ |= bit;

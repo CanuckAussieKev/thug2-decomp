@@ -384,6 +384,6 @@ public:
 
 // 0x00425CB0: the line from `start` to `end` against the cached triangle (three corners) - hit: the point. Else a feeler along
 // it: hit, the face it hit becomes the cached triangle and the point is the feeler's. Whether anything was hit.
-bool get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::Vec4* start, maths::Vec4* out);
+bool get_ground_hit(std::array<maths::Vec4, 3>& triangle, const maths::Vec4* end, const maths::Vec4* start, maths::Vec4* out);
 
 } // namespace objects

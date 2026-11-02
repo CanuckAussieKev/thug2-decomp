@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -66,11 +67,11 @@ using ParticleParams = render::SparkleConfig;
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // An array's first three integers' low bytes into `rgb`; `last` the third.
-void get_rgb(script::Array* array, uint8_t* rgb, uint32_t* last)
+void get_rgb(script::Array* array, std::span<uint8_t> rgb, uint32_t* last)
 {
     for (uint32_t i = 0; i < 3; ++i) {
         *last = array->fetch_part(i);
-        rgb[i] = static_cast<uint8_t>(*last);
+        core::at(rgb, i) = static_cast<uint8_t>(*last);
     }
 }
 
@@ -351,16 +352,16 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     params->fetch_float(0x520682C6u, &p.mid_percent_, 0);
 
     // The positions and boxes: scaled, then turned by the orientation.
-    auto scale_and_turn = [&](maths::Vec4* v) {
-        for (int i = 0; i < 3; ++i) {
-            v[i] = {static_cast<float>(static_cast<double>(v[i].x) * scale),
-                    static_cast<float>(static_cast<double>(v[i].y) * scale),
-                    static_cast<float>(static_cast<double>(v[i].z) * scale),
-                    static_cast<float>(static_cast<double>(v[i].w) * scale)};
+    auto scale_and_turn = [&](std::span<maths::Vec4, 3> v) {
+        for (maths::Vec4& element : v) {
+            element = {static_cast<float>(static_cast<double>(element.x) * scale),
+                       static_cast<float>(static_cast<double>(element.y) * scale),
+                       static_cast<float>(static_cast<double>(element.z) * scale),
+                       static_cast<float>(static_cast<double>(element.w) * scale)};
         }
-        for (int i = 0; i < 3; ++i) {
+        for (maths::Vec4& element : v) {
             maths::Vec4 turned{};
-            v[i] = orient.xform(turned, v[i]);
+            element = orient.xform(turned, element);
         }
     };
     auto vector = [&](uint32_t name, maths::Vec4* out) {
@@ -369,11 +370,11 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     vector(params->has_bare_flag(0x64F194EDu) ? 0x3D5EA6A4u : 0x7F261953u, &core::at(p.at_point_, 0));
     vector(0x004B51A2u, &core::at(p.at_point_, 1));
     vector(0x5854AB9Eu, &core::at(p.at_point_, 2));
-    scale_and_turn(p.at_point_.data());
+    scale_and_turn(p.at_point_);
     vector(0x9656F775u, &core::at(p.box_, 0));
     vector(0xC3CD20A2u, &core::at(p.box_, 1));
     vector(0x829FE7DDu, &core::at(p.box_, 2));
-    scale_and_turn(p.box_.data());
+    scale_and_turn(p.box_);
     p.colour_use_mid_ = params->has_bare_flag(0x454962EFu);
     params->fetch_float(0x59463C93u, &p.mid_percent_, 0);
 
@@ -383,7 +384,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     static const std::array<uint32_t, 3> kColours = {{0xDAB75B6Cu, 0x0444769Au, 0x5A3728E7u}};
     for (int i = 0; i < 3; ++i)
         if (params->fetch_list(core::at(kColours, i), &array, 0))
-            get_rgb(array, core::at(p.shade_, i).data(), &value);
+            get_rgb(array, core::at(p.shade_, i), &value);
     static const std::array<uint32_t, 3> kAlphas = {{0x4D83DB4Cu, 0x4ABA1FF1u, 0x5CF83ACAu}};
     for (int i = 0; i < 3; ++i) {
         if (params->fetch_int_value(core::at(kAlphas, i), &value, 0)) {
@@ -460,9 +461,9 @@ void EffectsEmitterModule::tick_frame()
     if (!args.local_positions_)
         return;
     for (int i = 0; i < 3; ++i) {
-        const float* local = &core::at(args.offset_pos_, i).x;
+        const maths::Vec4& local = core::at(args.offset_pos_, i);
         const maths::Vec4& at = entity_->at_point_;
-        const maths::Vec4 pos = {local[0] + at.x, local[1] + at.y, local[2] + at.z, local[3] + at.w};
+        const maths::Vec4 pos = {local.x + at.x, local.y + at.y, local.z + at.z, local.w + at.w};
         effect_handle_->change_place(i, &pos);
         if (args.orient_with_object_) {
             maths::Mat4 orientation{};
@@ -484,9 +485,9 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, 
         // doubled (1 without a hit).
         float value = 1.0f;
         render::ProbeRay feeler;
-        const float* at = &core::at(effect_handle_->args_.at_point_, 0).x;
-        feeler.line_.start = {at[0], static_cast<float>(at[1] + 1.0f), at[2], at[3]};
-        feeler.line_.end = {at[0], static_cast<float>(static_cast<double>(at[1]) - 4800.0), at[2], at[3]};
+        const maths::Vec4& at = core::at(effect_handle_->args_.at_point_, 0);
+        feeler.line_.start = {at.x, static_cast<float>(at.y + 1.0f), at.z, at.w};
+        feeler.line_.end = {at.x, static_cast<float>(static_cast<double>(at.y) - 4800.0), at.z, at.w};
         if (feeler.get_hit_shape(true, false))
             value = static_cast<float>(feeler.get_hit_vertex_value() * 2.0);
         if (effect_handle_)

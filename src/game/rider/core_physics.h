@@ -101,7 +101,7 @@ public:
     // along last_value_, stopping at a loop) that has one - run for the three `events` (const int[3]); its name kept
     // (+0x240 / +0x244), the flag +0xC8 telling whether it's a different node than last time. Nothing without a
     // rail node, its script node or a TriggerScript.
-    void trigger_rail_script(const int* events);
+    void trigger_rail_script(const std::array<int, 3>& events);
     // 0x00509450: jump, by the state: from the ground (the trigger check first: a trigger's script may take over),
     // from the air or a rail - the jump sound unless `params` has no_sound. The speed from the physics values
     // (boneless or not, from vert or not) between their min and max by how long the jump was held (+0x378, up to

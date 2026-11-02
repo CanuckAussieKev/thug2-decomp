@@ -78,7 +78,7 @@ objects::GameEntity* skater_object(SkaterPhysicsModule* component)
     return static_cast<objects::GameEntity*>(object_of(component));
 }
 
-void check_triggers(SkaterPhysicsModule* component, const int* kind, render::ProbeRay* feeler)
+void check_triggers(SkaterPhysicsModule* component, const std::array<int, 3>& kind, render::ProbeRay* feeler)
 {
     component->trigger_->probe_touches_zone(kind, feeler);
 }
@@ -254,7 +254,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     if (!thaw_bmx::live_now(this))
         static_cast<objects::TaggingControlComponent*>(tagging_component_)->slap_sticker(false, walking, late);
     entity_->vel_.y = 0.0f;
-    check_triggers(this, kSkaterEvents0064bBec.data(), &feeler_);
+    check_triggers(this, kSkaterEvents0064bBec, &feeler_);
     if (trigger_took_over(this))
         return true;
 
@@ -371,7 +371,7 @@ bool SkaterPhysicsModule::start_wall_ride()
     if (!skater->trick_objects_on_)
         static_cast<objects::MoveExecutor*>(skater)->set_trick_objects(false);
     remember_floor_probe(&feeler_);
-    check_triggers(this, kSkaterEvents0064bB98.data(), &floor_feeler_);
+    check_triggers(this, kSkaterEvents0064bB98, &floor_feeler_);
     if (trigger_took_over(this))
         return false;
     // Nothing in the way along the move (turned along the wall, three times as far).

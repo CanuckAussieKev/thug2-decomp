@@ -22,6 +22,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <span>
 
 namespace objects {
 
@@ -392,7 +393,7 @@ bool is_restart_node(uint32_t name)
 }
 
 // 0x0046B6C0
-int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start)
+int get_restart_nodes(uint32_t type, std::span<uint32_t> out, uint32_t start)
 {
     int count = 0;
     level_nodes::start_node_walk(start);
@@ -405,7 +406,7 @@ int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start)
         if (node_class != kRestart)
             continue;
         if (type == 0) {
-            out[count++] = name;
+            core::at(out, count++) = name;
             continue;
         }
         script::Array* types = nullptr;
@@ -413,7 +414,7 @@ int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start)
             continue;
         for (int i = 0; i < ints::as_signed(types->extent_); ++i) {
             if (types->fetch_part(i) == type)
-                out[count++] = name;
+                core::at(out, count++) = name;
         }
     }
     level_nodes::end_node_walk();
@@ -424,7 +425,7 @@ int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start)
 uint32_t get_spawn_node(uint32_t type, int index, uint32_t start)
 {
     std::array<uint32_t, 256> names{};
-    const int count = get_restart_nodes(type, names.data(), start);
+    const int count = get_restart_nodes(type, names, start);
     if (count <= 0)
         return 0;
     // (a negative index reads before the list, as the original)

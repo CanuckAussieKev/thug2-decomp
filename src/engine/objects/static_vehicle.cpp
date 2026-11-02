@@ -6,6 +6,7 @@
 #include <cstring>
 #include <gsl/pointers>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -37,9 +38,9 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 
 // The model component's model (+0x208) and that model's hierarchy (0x00493040, not rewritten yet): objects of 0x50
 // bytes from +0x50, each with its matrix at +0x10.
-const render::HierarchyNode* hierarchy_of(ObjectModule* model)
+std::span<const render::HierarchyNode> hierarchy_of(ObjectModule* model)
 {
-    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_->get_asset_hierarchy();
+    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_->asset_hierarchy_run();
 }
 
 // The skeleton component's skeleton.
@@ -66,18 +67,18 @@ ParkedVehicleModule::~ParkedVehicleModule() = default;
 // 0x004336F0
 void ParkedVehicleModule::seal()
 {
-    const render::HierarchyNode* hierarchy = hierarchy_of(entity_->fetch_module(kModel));
+    const std::span<const render::HierarchyNode> hierarchy = hierarchy_of(entity_->fetch_module(kModel));
     // The wheels: the hierarchy's nodes 2-5 (their matrices' translations).
     std::array<maths::Vec4, 4> wheels{};
     for (int k = 0; k < 4; ++k)
-        core::at(wheels, k) = from_model(hierarchy[2 + k]);
+        core::at(wheels, k) = from_model(core::at(hierarchy, 2 + k));
     // The body: node 1's translation.
-    const maths::Vec4 body = from_model(hierarchy[1]);
+    const maths::Vec4 body = from_model(core::at(hierarchy, 1));
 
     ObjectModule* skeleton_component = entity_->fetch_module(kSkeleton);
-    maths::Mat4* bones = skeleton_of(skeleton_component)->matrix_array_;
+    const std::span<maths::Mat4> bones = skeleton_of(skeleton_component)->matrices();
     for (int i = 0; i < skeleton_of(skeleton_component)->get_num_bones(); ++i) {
-        maths::Mat4& bone = bones[i];
+        maths::Mat4& bone = core::at(bones, i);
         std::memset(&bone, 0, sizeof(bone));
         if (i == 0)
             continue;

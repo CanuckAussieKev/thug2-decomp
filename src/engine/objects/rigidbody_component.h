@@ -164,7 +164,7 @@ public:
     static std::array<maths::Vec4, 24>& world_contact_points();
     static std::array<maths::Vec4, 24>& world_sphere_centers();
     static std::array<maths::Vec4, 2>& world_spring_points();
-    static Contact* get_contacts();
+    static std::span<Contact> get_contacts();
 
     // 0x00430E20 (vtable slot 1): disabled: nothing. The push cooldown counted down, else the pushers felt
     // (0x0042C140); the die timer (dead when it runs out). Asleep: only the display matrix set. Awake: the world
@@ -233,6 +233,7 @@ public:
     [[nodiscard]] std::span<Sphere> sphere_run() const { return {spheres_, sphere_count_}; }
     [[nodiscard]] std::span<Spring> spring_run() const { return {springs_, spring_count_}; }
     maths::Capsule capsule_;           // +0x64
+    [[nodiscard]] std::span<const DirectedFriction> steer_friction_run() const { return {steer_friction_, contact_count_}; }
     DirectedFriction* steer_friction_{}; // +0x88 one per contact (directed_friction=)
     uint16_t contact_count_{};           // +0x8C
     uint16_t pad8e_{};

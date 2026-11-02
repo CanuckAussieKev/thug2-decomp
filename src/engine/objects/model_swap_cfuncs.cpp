@@ -45,7 +45,7 @@ const char* const kPedShadow = "Ped_Shadow";        // "Ped_Shadow"
 
 // The swaps made (0x007CEDE0, five entries - profile_cfuncs.cpp owns them): each object's id (key) and the id of the
 // object whose model it wears now (value).
-commands::SwapSlot* get_swaps() { return commands::g_swap_table.data(); }
+std::array<commands::SwapSlot, 5>& get_swaps() { return commands::g_swap_table; }
 constexpr int kSwapCount = 5;
 
 // 0x005AA930 (commands::swap_mapping, profile_cfuncs.cpp): the swap of the objects `a` and `b` recorded in the table.
@@ -158,8 +158,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
         follow_position(model_b->mesh_instance_.get(), &b->at_point_);
         bool found = false;
         for (int i = 0; i < kSwapCount; ++i) {
-            if (get_swaps()[i].used && get_swaps()[i].value == 0) {
-                skater->unknown31c_ = get_swaps()[i].key;
+            if (core::at(get_swaps(), i).used && core::at(get_swaps(), i).value == 0) {
+                skater->unknown31c_ = core::at(get_swaps(), i).key;
                 found = true;
             }
         }
@@ -178,14 +178,14 @@ bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* sc
 {
     int remaining = 0;
     for (int i = 0; i < kSwapCount; ++i)
-        if (get_swaps()[i].used)
+        if (core::at(get_swaps(), i).used)
             ++remaining;
     if (!remaining)
         return true;
     for (;;) {
         bool any = false;
         for (int i = 0; i < kSwapCount; ++i) {
-            const commands::SwapSlot& entry = get_swaps()[i];
+            const commands::SwapSlot& entry = core::at(get_swaps(), i);
             if (!entry.used)
                 continue;
             any = true;

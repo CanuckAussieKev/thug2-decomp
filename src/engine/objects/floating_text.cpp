@@ -3,12 +3,15 @@
 
 #include "engine/objects/floating_text.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <gsl/pointers>
 #include <array>
+#include <span>
+#include <string_view>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -55,13 +58,12 @@ constexpr uint32_t kIdBase = 0x1525E9DF;       // (subtracted from the object's 
 constexpr float kMinusMilliseconds = -1000.0f; // 0x0064604C
 
 // strncpy: at most `size` characters, the rest of `out` zeroed (not terminated when `in` is that long or longer).
-void copy_text(char* out, const char* in, size_t size)
+void copy_text(std::span<char> out, const char* in)
 {
-    size_t i = 0;
-    for (; i < size && in[i]; ++i)
-        out[i] = in[i];
-    for (; i < size; ++i)
-        out[i] = 0;
+    const std::string_view source(in);
+    const std::size_t length = std::min(source.size(), out.size());
+    std::ranges::copy(source.substr(0, length), out.begin());
+    std::ranges::fill(out.subspan(length), '\0');
 }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
@@ -103,10 +105,10 @@ void FloatingTextComponent::configure_from_data(script::Struct* params)
         ident_ = entity_->ident_ - kIdBase;
     const char* text = nullptr;
     if (params->fetch_text(kString, &text, 0)) {
-        if (!text[0]) {
+        if (!*text) {
             end_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
         } else {
-            copy_text(text_.data(), text, sizeof(text_)); // (the original: the game's strncpy, 0x006239E0)
+            copy_text(text_, text); // (the original: the game's strncpy, 0x006239E0)
             end_time_ = 0;
         }
     }

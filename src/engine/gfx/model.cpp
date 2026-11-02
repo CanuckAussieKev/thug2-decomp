@@ -9,9 +9,11 @@
 #include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/model_internal.h"
 #include "engine/gfx/pc_lights.h"
+#include "engine/gfx/scene_load.h"
 #include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/bone_volumes.h"
 #include <gsl/pointers>
+#include <span>
 #include "engine/core/mem.h"
 
 namespace render {
@@ -153,6 +155,11 @@ HierarchyNode* RenderModel::get_asset_hierarchy()
     if (num_asset_geoms_ != 1)
         return nullptr;
     return scene_b4(assets::asset_manager()->get_asset_data(first_entry(this)->asset_name_, 1));
+}
+
+std::span<HierarchyNode> RenderModel::asset_hierarchy_run()
+{
+    return {get_asset_hierarchy(), static_cast<std::size_t>(get_asset_bone_count())};
 }
 
 // 0x00493410

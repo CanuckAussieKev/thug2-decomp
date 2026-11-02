@@ -303,15 +303,15 @@ void SkaterPhysicsModule::step_wall_ride()
             change_state(this, kAir);
             static_cast<objects::Entity*>(object_of(this))->announce(kOffEdge, nullptr, 0.0f);
             static_cast<objects::Entity*>(object_of(this))->post_own_event(kGroundGone, nullptr);
-            trigger_feeler(this, kOtherFeelerLeaveEvents.data(), &floor_feeler_);
+            trigger_feeler(this, kOtherFeelerLeaveEvents, &floor_feeler_);
             if (trigger_took_over(this))
                 return;
         } else {
             if (feeler_.hit_.object != floor_feeler_.hit_.object) {
-                trigger_feeler(this, kOtherFeelerLeaveEvents.data(), &floor_feeler_);
+                trigger_feeler(this, kOtherFeelerLeaveEvents, &floor_feeler_);
                 if (trigger_took_over(this))
                     return;
-                trigger_feeler(this, kSkaterEvents0064bBb0.data(), &floor_feeler_);
+                trigger_feeler(this, kSkaterEvents0064bBb0, &floor_feeler_);
                 if (trigger_took_over(this))
                     return;
             }
@@ -323,7 +323,7 @@ void SkaterPhysicsModule::step_wall_ride()
         }
     } else {
         off_wall_edge(true);
-        trigger_feeler(this, kOtherFeelerLeaveEvents.data(), &floor_feeler_);
+        trigger_feeler(this, kOtherFeelerLeaveEvents, &floor_feeler_);
         if (trigger_took_over(this))
             return;
     }
@@ -333,7 +333,7 @@ void SkaterPhysicsModule::step_wall_ride()
     // Jumping off: out from the wall and up, upright.
     if (jump_released()) {
         set_flag(this, PoseFlag::kJumped, 1);
-        trigger_feeler(this, kJumpTriggerEvents.data(), &floor_feeler_);
+        trigger_feeler(this, kJumpTriggerEvents, &floor_feeler_);
         if (trigger_took_over(this))
             return;
         const float out = script::fetch_float(kJumpOutSpeed);

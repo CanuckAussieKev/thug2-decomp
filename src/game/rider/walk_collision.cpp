@@ -444,7 +444,7 @@ void FootMovement::try_wallplant()
     }
     plan_jump_over_obstruction();
     // The trigger told (events 0x0064C63C); a trigger's script may take over.
-    trigger_->probe_touches_zone(kWalkEvents0064c63c.data(), &feeler);
+    trigger_->probe_touches_zone(kWalkEvents0064c63c, &feeler);
     if (static_cast<bool>(physics_control_->flag26_))
         return;
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.

@@ -604,15 +604,15 @@ void DrivableModule::update_wheel_contacts()
         feeler.set_excluded(0x10, 0);
         if (feeler.get_hit_shape(false, false)) {
             if (wheel.state == kWheelInAir) {
-                trigger_feeler(trigger_ptr_, kWheelLandsEvents.data(), &feeler);
+                trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
                 if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
                     return; // (the feeler's destructor lets go of its object)
             } else if (feeler.hit_.object != wheel.feeler.hit_.object) {
                 // Onto another collision object: off the old, onto the new.
-                trigger_feeler(trigger_ptr_, kWheelLeavesEvents.data(), &wheel.feeler);
+                trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
                 if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
                     return;
-                trigger_feeler(trigger_ptr_, kWheelLandsEvents.data(), &feeler);
+                trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
                 if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
                     return;
             }
@@ -626,7 +626,7 @@ void DrivableModule::update_wheel_contacts()
             feeler.line_.end = feeler.contact_pos_;
         } else {
             if (wheel.state != kWheelInAir) {
-                trigger_feeler(trigger_ptr_, kWheelLeavesEvents.data(), &wheel.feeler);
+                trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
                 if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
                     return;
             }
@@ -637,7 +637,7 @@ void DrivableModule::update_wheel_contacts()
         if (park_editing::g_park_editor->cur_phase_ != kParkEditorOff) {
             feeler.set_excluded(0, 0x50);
             if (feeler.get_hit_shape(false, false)) {
-                trigger_feeler(trigger_ptr_, kCrossingEvents.data(), &feeler);
+                trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
                 if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
                     return;
             }

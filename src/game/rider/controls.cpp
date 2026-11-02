@@ -107,7 +107,7 @@ bool try_acid_drop(objects::FootMovement* walk)
     if (!find_acid_drop(walk, &velocity))
         return false;
     if (walk->feeler_hit_) {
-        walk->trigger_->probe_touches_zone(kWalkEvents0064c63c.data(), &walk->feeler_);
+        walk->trigger_->probe_touches_zone(kWalkEvents0064c63c, &walk->feeler_);
         if (walk->physics_control_->flag26_)
             return true;
     }

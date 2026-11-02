@@ -81,7 +81,7 @@ objects::GameEntity* skater_object(SkaterPhysicsModule* component)
 }
 
 // 0x00434BF0 (GameObjects::ActivationZoneModule::probe_touches_zone): the triggers of what the feeler hit, for `kind`.
-void check_triggers(SkaterPhysicsModule* component, const int* kind)
+void check_triggers(SkaterPhysicsModule* component, const std::array<int, 3>& kind)
 {
     static_cast<objects::ActivationZoneModule*>(component->trigger_)->probe_touches_zone(kind, &component->feeler_);
 }
@@ -141,7 +141,7 @@ bool SkaterPhysicsModule::vert_wallplant()
         return false;
     if (!static_cast<objects::TaggingControlComponent*>(tagging_component_)->slap_sticker(true, false, false))
         return false;
-    check_triggers(this, kJumpTriggerEvents.data());
+    check_triggers(this, kJumpTriggerEvents);
     if (trigger_took_over(this))
         return true;
     object = object_of(this);
@@ -369,7 +369,7 @@ void SkaterPhysicsModule::check_wall_ahead()
             return;
         }
     }
-    check_triggers(this, kBonkEvents.data());
+    check_triggers(this, kBonkEvents);
     if (!trigger_took_over(this))
         bounce_off_wall_ahead(&normal);
 }

@@ -153,7 +153,7 @@ int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* p
 }
 
 // 0x00434A60
-bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, script::Array* nodes, const Entity* other)
+bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, uint32_t name, script::Array* nodes, const Entity* other)
 {
     script::Struct* node = nullptr;
     if (!nodes) {
@@ -192,12 +192,10 @@ bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, sc
         return false;
     uint32_t& recorded = events_;
     recorded = 0;
-    if (events[0])
-        recorded = 1u << (events[0] & 31);
-    if (events[1])
-        recorded += 1u << (events[1] & 31);
-    if (events[2])
-        recorded += 1u << (events[2] & 31);
+    for (const int event : events) { // (the mask of the events, up to three)
+        if (event)
+            recorded += 1u << (event & 31);
+    }
     Entity* object = entity_;
     const bool permanent = node->has_bare_flag(kPermanent);
     const bool replicate_flag = node->has_bare_flag(kOnlineFlag);
@@ -206,7 +204,7 @@ bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, sc
 }
 
 // 0x00434BF0
-bool ActivationZoneModule::probe_touches_zone(const int* events, render::ProbeRay* feeler)
+bool ActivationZoneModule::probe_touches_zone(const std::array<int, 3>& events, render::ProbeRay* feeler)
 {
     if (!feeler->hit_.face_flag40_ || !feeler->hit_.object_checksum_)
         return false;
@@ -227,7 +225,7 @@ bool ActivationZoneModule::probe_touches_zone(const int* events, render::ProbeRa
 }
 
 // 0x00434CE0
-void ActivationZoneModule::trigger_hits(const int* events, const render::BoxProbe* feeler)
+void ActivationZoneModule::trigger_hits(const std::array<int, 3>& events, const render::BoxProbe* feeler)
 {
     const render::RectHits& hits = feeler->hits_;
     const int count = hits.count;
@@ -249,7 +247,7 @@ void ActivationZoneModule::trigger_hits(const int* events, const render::BoxProb
 bool ActivationZoneModule::feeler_hit(render::ProbeRay* feeler)
 {
     auto* component = static_cast<ActivationZoneModule*>(feeler->user_data_);
-    return component->probe_touches_zone(kNoEvents.data(), feeler);
+    return component->probe_touches_zone(kNoEvents, feeler);
 }
 
 } // namespace objects
