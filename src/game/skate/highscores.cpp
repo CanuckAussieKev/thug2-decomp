@@ -21,10 +21,22 @@
 #include "platform/run_log.h"
 #include <gsl/pointers>
 #include "engine/core/ints.h"
+#include "engine/core/no_destroy.h"
 
 namespace highscores {
 
-memory::HeapUnique<highscores::BestResults> g_game_records;
+namespace {
+
+memory::HeapUnique<highscores::BestResults>& stored_game_records()
+{
+    static core::NoDestroy<memory::HeapUnique<highscores::BestResults>> game_records;
+    return game_records.get();
+}
+
+} // namespace
+
+highscores::BestResults* game_records() { return stored_game_records().get(); }
+
 namespace {
 
 // Names.
@@ -43,7 +55,6 @@ constexpr uint32_t kGameRecordsArray = 0xE764EDF2;    // (the game records' arra
 constexpr uint32_t kDefaultInitialsName = 0x24EB19A8; // (the default initials, as written)
 // The type the records' structures are added with (11: not one of Scripts::QbValueKind's named ones).
 
-memory::HeapUnique<highscores::BestResults>& sole() { return g_game_records; }
 uint32_t& ref_tally()
 {
     static uint32_t records_references{};
@@ -360,12 +371,12 @@ void BestResults::write_to_structure(script::Struct* params)
 // 0x0057EED0
 BestResults* BestResults::fabricate(bool create)
 {
-    if (!sole() && create) {
+    if (!stored_game_records() && create) {
         void* memory = memory::alloc_zeroed(sizeof(BestResults), nullptr, 1);
-        sole() = memory::HeapUnique<BestResults>(memory ? memory::construct_in<BestResults>(memory) : nullptr);
+        stored_game_records() = memory::HeapUnique<BestResults>(memory ? memory::construct_in<BestResults>(memory) : nullptr);
     }
     ++ref_tally();
-    return sole().get();
+    return stored_game_records().get();
 }
 
 // 0x0057FDB0
@@ -375,7 +386,7 @@ void BestResults::get_release()
         --ref_tally();
         return;
     }
-    if (BestResults* records = sole().release()) { // (no destructor: its blocks given back)
+    if (BestResults* records = stored_game_records().release()) { // (no destructor: its blocks given back)
         if (StageBests* levels = records->levels_) {
             const std::span<StageBests> stages = records->levels();
             for (size_t i = stages.size(); i-- > 0;) // (as delete[]: the last first)
@@ -414,7 +425,7 @@ bool cfunc_update_arcade_scores(script::Struct* params, script::Script*)
     int level = 0; // (uninitialised in the original; always set below)
     if (!params->fetch_int_value("level", &level, 0))
         level = skate_calls::get_career()->fetch_stage();
-    sole()->get_level_records(level)->arcade_scores_->decode_from_struct(params);
+    stored_game_records()->get_level_records(level)->arcade_scores_->decode_from_struct(params);
     return true;
 }
 
@@ -422,7 +433,7 @@ bool cfunc_update_arcade_scores(script::Struct* params, script::Script*)
 bool cfunc_update_initials(script::Struct*, script::Script*)
 {
     const int level = skate_calls::get_career()->fetch_stage();
-    BestResults* records = sole().get();
+    BestResults* records = stored_game_records().get();
     records->get_level_records(level)->update_initials(records->default_initials_);
     return true;
 }

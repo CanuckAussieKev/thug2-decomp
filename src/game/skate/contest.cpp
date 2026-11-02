@@ -71,7 +71,6 @@ int truncate(double value) { return static_cast<int>(value); }
 // A score rounded to the nearest (the original adds 0.499999 and truncates).
 int current_round(float value) { return truncate(static_cast<double>(value) + nearly_half()); }
 
-objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 // The profile manager's template at `index` (0x00557FB0) and its count (0x00469490: the table's).
 objects::RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 {
@@ -211,7 +210,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
     bail_penalty_ = bail_penalty;
     ended_ = false;
 
-    objects::ProfileRoster* manager = roster_handle();
+    objects::ProfileRoster* manager = objects::profile_roster();
     core::at(leaders_, 0).label_ = manager->fetch_active_account()->fetch_shown_name();
 
     // The pros that can compete: not hidden (0xF3149AC5) and not the player, in a random order.

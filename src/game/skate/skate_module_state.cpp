@@ -99,7 +99,7 @@ constexpr uint8_t kMsgReadyQuery = 0x25;   // are you ready (a time stamp)
 constexpr uint8_t kGroupGame = 8;
 
 online::Hub* net_session_slot() { return online::online_hub(); }
-objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
+
 int& get_refs() { return skate_module_state_state().skate_module_references_; }
 float& next_beep() { return skate_module_state_state().next_beep_; }
 
@@ -224,7 +224,7 @@ void Skate::start_callback()
     script::launch_script(kLoadPermanentAssets, nullptr, nullptr, false, nullptr);
     memory::pop_mem_profile();
     memory::leave_heap_scope();
-    roster_handle()->prepare_all();
+    objects::profile_roster()->prepare_all();
     checksums_->get_fill();
     script::launch_script(kInitEnvironment, nullptr, nullptr, false, nullptr);
     script::launch_script(kDefaultSystemStartup, nullptr, nullptr, false, nullptr);
@@ -253,12 +253,12 @@ objects::RiderIdentity* Skate::fetch_account(script::Struct* params)
 {
     int skater = 0;
     if (params && params->fetch_int_value(kSkater, &skater, 0))
-        return roster_handle()->fetch_account(skater);
-    return roster_handle()->fetch_active_account();
+        return objects::profile_roster()->fetch_account(skater);
+    return objects::profile_roster()->fetch_active_account();
 }
 
 // 0x00564FC0
-objects::RiderIdentity* Skate::fetch_account(int index) { return roster_handle()->fetch_account(index); }
+objects::RiderIdentity* Skate::fetch_account(int index) { return objects::profile_roster()->fetch_account(index); }
 
 // 0x00564FD0
 void Skate::set_current_game_type()

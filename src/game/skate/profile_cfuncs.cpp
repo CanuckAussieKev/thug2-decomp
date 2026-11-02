@@ -35,8 +35,6 @@ using script::Struct;
 
 constexpr int kSwapSlots = 5;
 
-
-objects::ProfileRoster* get_profiles() { return objects::g_profile_roster.get(); }
 objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
 Struct* result_params(Script* script) { return script->args_.get(); }
 
@@ -179,19 +177,19 @@ bool cfunc_set_current_skater_profile(Struct* params, Script*)
 {
     int index = 0;
     params->fetch_int_value(0u, &index, 0);
-    get_profiles()->set_current_index(index);
+    objects::profile_roster()->set_current_index(index);
     return true;
 }
 
 // 0x005AADA0
-bool cfunc_add_skater_profile(Struct* params, Script*) { return get_profiles()->add_template(params); }
+bool cfunc_add_skater_profile(Struct* params, Script*) { return objects::profile_roster()->add_template(params); }
 
 // 0x005AADC0
 bool cfunc_add_temporary_profile(Struct* params, Script*)
 {
     uint32_t name = 0;
     params->read_hash_value(0xA1DC81F9u, &name, 1); // name (asserted: used as it is)
-    return get_profiles()->add_extra_profile(name);
+    return objects::profile_roster()->add_extra_profile(name);
 }
 
 // 0x005AADF0
@@ -200,7 +198,7 @@ bool cfunc_remember_temporary_appearance(Struct* params, Script*)
     uint32_t name = 0;
     params->read_hash_value(0xA1DC81F9u, &name, 1); // name
     gfx::ModelLook appearance;                      // (destroyed at the end)
-    objects::ProfileRoster* profiles = get_profiles();
+    objects::ProfileRoster* profiles = objects::profile_roster();
     gfx::ModelLook* source = nullptr;
     Struct* structure = nullptr;
     if (params->read_sub_struct(0xEFC8944Cu, &structure, 0)) { // appearance_structure

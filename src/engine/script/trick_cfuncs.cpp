@@ -90,7 +90,7 @@ constexpr uint32_t kTrickName = 0xEF6FB249;           // "trick_name"
 constexpr uint32_t kKeyCombo = 0xACFDB27A;            // "key_combo"
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
-objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
+
 pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 
 // The skate module's local skater (0x00566520, no source yet; null if there's none).
@@ -166,7 +166,7 @@ bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Script*)
     if (params->has_entry_named(kProfile)) {
         uint32_t name = 0;
         params->read_hash_value(kProfile, &name, 1);
-        profile = roster_handle()->get_template(name);
+        profile = objects::profile_roster()->get_template(name);
     } else {
         profile = profile_for(nullptr);
     }
@@ -204,7 +204,7 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
     if (params->has_entry_named(kProfile)) {
         uint32_t name = 0;
         params->read_hash_value(kProfile, &name, 1);
-        profile = roster_handle()->get_template(name);
+        profile = objects::profile_roster()->get_template(name);
     } else {
         profile = profile_for(nullptr);
     }
@@ -258,7 +258,7 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
 bool cfunc_update_trick_mappings(script::Struct* params, script::Script*)
 {
     modules::Skate* skate = get_skate();
-    objects::ProfileRoster* manager = roster_handle();
+    objects::ProfileRoster* manager = objects::profile_roster();
     objects::GameEntity* skater = nullptr;
     RiderIdentity* profile = nullptr;
     if (online::online_hub()->in_net_game()) {
@@ -352,7 +352,7 @@ bool cfunc_trick_is_locked(script::Struct* params, script::Script*)
     uint32_t skater = 0;
     if (!trick_params->read_hash_value(kSkater, &skater, 0))
         return false;
-    objects::ProfileRoster* manager = roster_handle();
+    objects::ProfileRoster* manager = objects::profile_roster();
     if (trick_params->has_bare_flag(kLockedForOthers))
         return manager->fetch_active_account()->fetch_title() != skater;
     const int count = template_count(manager);
@@ -465,7 +465,7 @@ bool cfunc_get_level_records(script::Struct* params, script::Script* script)
     int level = 0;
     if (!params->fetch_int_value(kLevel, &level, 0))
         level = skate->career_->fetch_stage();
-    highscores::g_game_records->get_level_records(level)->write_to_structure(script->args_.get());
+    highscores::game_records()->get_level_records(level)->write_to_structure(script->args_.get());
     return true;
 }
 
@@ -636,7 +636,7 @@ bool cfunc_lock_current_skater_profile_index(script::Struct* params, script::Scr
 {
     int lock = 1;
     params->fetch_int_value(0u, &lock, 1);
-    roster_handle()->set_locked(lock != 0);
+    objects::profile_roster()->set_locked(lock != 0);
     return true;
 }
 
@@ -650,7 +650,7 @@ bool cfunc_set_special_trick_info(script::Struct* params, script::Script*)
     params->read_hash_value(kTrickName, &name, 1);
     uint32_t keys = 0;
     params->read_hash_value(kKeyCombo, &keys, 1);
-    RiderIdentity* profile = roster_handle()->fetch_active_account();
+    RiderIdentity* profile = objects::profile_roster()->fetch_active_account();
     if (!profile)
         return false;
     RiderIdentity::SpecialTrick trick;

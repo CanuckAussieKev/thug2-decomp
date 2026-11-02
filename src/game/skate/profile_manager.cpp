@@ -14,10 +14,22 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
-memory::HeapUnique<objects::ProfileRoster> g_profile_roster;
+namespace {
+
+memory::HeapUnique<objects::ProfileRoster>& stored_profile_roster()
+{
+    static core::NoDestroy<memory::HeapUnique<objects::ProfileRoster>> profile_roster;
+    return profile_roster.get();
+}
+
+} // namespace
+
+objects::ProfileRoster* profile_roster() { return stored_profile_roster().get(); }
+
 namespace {
 
 // Names.
@@ -48,7 +60,6 @@ constexpr auto kStats = std::to_array<uint32_t>({
 
 memory::Arena* profile_heap() { return memory::Hub::get_pull()->skater_info_heap_; }
 
-memory::HeapUnique<objects::ProfileRoster>& sole() { return g_profile_roster; }
 uint32_t& ref_tally()
 {
     static uint32_t profile_manager_references{};
@@ -311,12 +322,12 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
 // 0x0057C0D0
 ProfileRoster* ProfileRoster::fabricate(bool create)
 {
-    if (!sole() && create) {
+    if (!stored_profile_roster() && create) {
         void* memory = memory::alloc_zeroed(sizeof(ProfileRoster), nullptr, 1);
-        sole() = memory::HeapUnique<ProfileRoster>(memory ? memory::construct_in<ProfileRoster>(memory) : nullptr);
+        stored_profile_roster() = memory::HeapUnique<ProfileRoster>(memory ? memory::construct_in<ProfileRoster>(memory) : nullptr);
     }
     ++ref_tally();
-    return sole().get();
+    return stored_profile_roster().get();
 }
 
 // 0x0057C120
@@ -326,7 +337,7 @@ void ProfileRoster::get_release()
         --ref_tally();
         return;
     }
-    memory::destroy_then_clear(sole()); // (its destructor, then its block given back)
+    memory::destroy_then_clear(stored_profile_roster()); // (its destructor, then its block given back)
     ref_tally() = 0;
 }
 

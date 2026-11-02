@@ -180,7 +180,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     }
 
     copy_string(first_name.data(), skater->given_name_.data()); // (copied and not used)
-    objects::RiderIdentity* profile = objects::g_profile_roster->get_template(skater->label_);
+    objects::RiderIdentity* profile = objects::profile_roster()->get_template(skater->label_);
     if (skater->pro_) {
         const char* last_name = nullptr;
         profile->details_params()->fetch_text(kLastName, &last_name, 1);

@@ -379,7 +379,7 @@ bool PedestrianBrainModule::get_bail()
 // 0x004EE2C0
 const char* profile_voice()
 {
-    RiderIdentity* profile = g_profile_roster->fetch_active_account();
+    RiderIdentity* profile = profile_roster()->fetch_active_account();
     auto* info = profile->details_params();
     uint32_t voice = 0;
     if (!info->read_hash_value(kVoice, &voice, 0)) {

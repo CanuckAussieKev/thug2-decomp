@@ -173,6 +173,6 @@ public:
     std::array<RiderIdentity*, 3> extra_profiles_{}; // +0x34
 };
 
-extern memory::HeapUnique<objects::ProfileRoster> g_profile_roster;
+objects::ProfileRoster* profile_roster();
 
 } // namespace objects

@@ -72,8 +72,8 @@ constexpr uint32_t kGoalEditor = 0x81F01058;             // "GoalEditor": the ob
 constexpr int kControllers = 8;
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
-objects::ProfileRoster* get_profiles() { return objects::g_profile_roster.get(); }
-highscores::BestResults* game_records() { return highscores::g_game_records.get(); }
+
+
 online::Hub* online_hub_handle() { return online::online_hub(); }
 objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
 int os_layer() { return game_config::hardware(); }
@@ -142,9 +142,9 @@ void write_global_info(Struct* global)
     global->append_struct_ref(kOptions, options);
 
     get_career()->write_to_structure(global);
-    game_records()->write_to_structure(global);
+    highscores::game_records()->write_to_structure(global);
     gsl::owner<Struct*> pros = script::new_struct();
-    get_profiles()->write_pros(pros);
+    objects::profile_roster()->write_pros(pros);
     global->append_struct_ref(kPros, pros);
 }
 
@@ -206,10 +206,10 @@ void read_save_header(Struct* global, Script* script)
             skate->set_turn_tap_count(i, controller->has_bare_flag(kSpinTapsOn));
         }
     }
-    game_records()->decode_from_struct(global);
+    highscores::game_records()->decode_from_struct(global);
     Struct* pros = nullptr;
     global->read_sub_struct(kPros, &pros, 1);
-    get_profiles()->read_pros(pros);
+    objects::profile_roster()->read_pros(pros);
     get_career()->decode_from_struct(global);
 
     constexpr uint32_t kLastLevelLoadScript = 0xE3335D2F, kLastGameMode = 0x2CC06F5E;
@@ -274,7 +274,7 @@ void write_save_contents(Struct* contents, uint32_t type)
         skater->write_chapter_info(story_skater);
         contents->append_struct_ref(kStorySkater, story_skater);
         gsl::owner<Struct*> custom_skater = script::new_struct();
-        get_profiles()->write_custom_skaters(custom_skater);
+        objects::profile_roster()->write_custom_skaters(custom_skater);
         contents->append_struct_ref(kCustomSkater, custom_skater);
         // (on into CreatedGraphic's layer_infos, as the original does)
         contents->append_array_value(kLayerInfos, script::fetch_list(0x8EAD7D43u)); // edit_graphic_layer_infos
@@ -347,7 +347,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
             debug::printf("APPLY_CUSTOM_SKATER\n"); // "APPLY_CUSTOM_SKATER\n"
             Struct* custom_skater = nullptr;
             contents->read_sub_struct(kCustomSkater, &custom_skater, 1);
-            objects::ProfileRoster* profiles = get_profiles();
+            objects::ProfileRoster* profiles = objects::profile_roster();
             // the stats kept unless the current skater is the first (the manager's +0x1C, 0x00553E90)
             const bool keep = profiles->cursor_pos_ != 0;
             profiles->read_custom_skater(custom_skater, keep);

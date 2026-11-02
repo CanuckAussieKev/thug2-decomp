@@ -258,7 +258,7 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
 {
     online::Hub* net = net_session_slot();
     if (local) {
-        objects::RiderIdentity* source = objects::g_profile_roster->fetch_account(
+        objects::RiderIdentity* source = objects::profile_roster()->fetch_account(
             static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) ? viewport : 0);
         profile->appearance()->copy_from(source->appearance());
         script::launch_script(kShowPanelStuff, nullptr, nullptr, false, nullptr);
@@ -688,7 +688,7 @@ bool Skate::cfunc_reset_level(script::Struct*, script::Script* script)
 void Skate::update_records()
 {
     new_record_ = false;
-    highscores::StageBests* records = highscores::g_game_records->get_level_records(career_->fetch_stage());
+    highscores::StageBests* records = highscores::game_records()->get_level_records(career_->fetch_stage());
     objects::Rider* skater = sole()->get_home_rider();
     if (!skater)
         return;
@@ -992,7 +992,7 @@ Skate::Skate()
     riders_.list_link_.make_head();
     update_job_ = std::make_unique<tasks::Task<Skate>>(&front_end_tick, this, 0);
     SkateNet::create_network_tasks(this);
-    objects::g_profile_roster->reset_templates();
+    objects::profile_roster()->reset_templates();
     game_flow_ = std::make_unique<goals::MatchFlow>();
     goal_manager_ = memory::make_zeroed<goals::GoalManager>();
     render::engine::change_entity_hub(static_cast<void*>(objects::object_hub_slot().get()));
@@ -1010,7 +1010,7 @@ Skate::Skate()
     horse_ = memory::make_zeroed<LetterMatch>();
     movies_ = std::make_unique<objects::VideoHub>();
     object_movies_ = std::make_unique<objects::VideoHub>();
-    highscores::g_game_records->init_levels(0x15);
+    highscores::game_records()->init_levels(0x15);
     for (uint32_t i = 0; i < 8; ++i) {
         core::at(participants_, i).unknown0_ = static_cast<int>(i); // (its index)
         core::at(participants_, i).vibration_ = true;

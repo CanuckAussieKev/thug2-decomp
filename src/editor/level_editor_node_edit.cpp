@@ -192,7 +192,7 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
         if (objects::ProximNode* proxim = objects::proxim_get_node(name))
             proxim->at_point_ = pos;
     }
-    if (family == nodes::Family::kSound && objects::g_emitter_table) {
+    if (family == nodes::Family::kSound && objects::emitter_table()) {
         if (objects::EmitterNode* emitter = objects::emitter_get_node(name))
             emitter->at_point_ = pos;
     }

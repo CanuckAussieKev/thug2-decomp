@@ -25,7 +25,6 @@
 
 namespace commands {
 
-memory::HeapUnique<modules::Hub> g_module_manager;
 namespace {
 
 using script::Script;
@@ -109,7 +108,7 @@ bool cfunc_launch_viewer(Struct*, Script*)
 {
     if (viewer_launched())
         return true;
-    modules::Hub* modules = g_module_manager.get();
+    modules::Hub* modules = modules::get_module_manager();
     auto viewer = memory::make_owned<modules::Viewer>();
     modules->enrol_unit(viewer);
     modules->launch_module(viewer);

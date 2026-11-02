@@ -68,7 +68,7 @@ constexpr uint32_t kLoadPremadeCat = 0x466576C8;          // load_premade_cat
 constexpr int kLabelPoints = 0x200; // the texts' buffer
 
 // An array a structure has copied, or a temporary one: its contents and itself freed.
-RiderIdentity* current_profile() { return objects::g_profile_roster->fetch_active_account(); }
+RiderIdentity* current_profile() { return objects::profile_roster()->fetch_active_account(); }
 
 } // namespace
 

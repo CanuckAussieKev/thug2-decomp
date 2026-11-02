@@ -65,5 +65,4 @@ bool cfunc_set_screen_effects_dof_params(script::Struct* params, script::Script*
 // 0x005A5950: IsPal: whether the game's region / language setting (0x007CEFA0) isn't 2.
 bool cfunc_is_pal(script::Struct* params, script::Script* script);
 
-extern memory::HeapUnique<modules::Hub> g_module_manager;
 } // namespace commands

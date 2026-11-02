@@ -552,7 +552,7 @@ bool cfunc_get_skater_sex(script::Struct* params, script::Script* script)
 {
     int player = 0; // (uninitialised in the original, as is_male)
     params->fetch_int_value(kPlayer, &player, 1);
-    objects::RiderIdentity* profile = objects::g_profile_roster->fetch_account(player);
+    objects::RiderIdentity* profile = objects::profile_roster()->fetch_account(player);
     int male = 0;
     profile->details_params()->fetch_int_value(kIsMale, &male, 1);
     script->args_->put_int(kIsMale, male);

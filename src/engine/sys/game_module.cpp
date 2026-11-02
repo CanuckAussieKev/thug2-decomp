@@ -10,13 +10,18 @@
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "engine/lists/list_walk.h"
-#include "engine/script/world_cfuncs.h"
+#include "engine/core/no_destroy.h"
 
 namespace modules {
 
 namespace {
 
-memory::HeapUnique<modules::Hub>& sole() { return commands::g_module_manager; }
+// The module manager, made by create_manager.
+memory::HeapUnique<Hub>& sole()
+{
+    static core::NoDestroy<memory::HeapUnique<Hub>> manager;
+    return manager.get();
+}
 
 unsigned int& ref_tally()
 {
@@ -135,6 +140,8 @@ void Hub::tick_modules(tasks::Task<Hub>* task)
         }
     }
 }
+
+Hub* get_module_manager() { return sole().get(); }
 
 // 0x0044F6F0
 Hub* create_manager(bool create)

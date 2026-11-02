@@ -1024,13 +1024,12 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
     }
 }
 
-objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 
 // The skater select's stats for the template `name`: stat_names' short_string (else string) and the template's value.
 std::vector<std::pair<std::string, int>> skater_stats(uint32_t name)
 {
     std::vector<std::pair<std::string, int>> stats;
-    objects::ProfileRoster* manager = roster_handle();
+    objects::ProfileRoster* manager = objects::profile_roster();
     objects::RiderIdentity* profile = manager ? manager->get_template(name) : nullptr;
     script::Array* names = script::fetch_list(name_hash("stat_names"));
     if (!profile || !names || names->kind_tag_ != script::kQbvalStruct)
@@ -1080,7 +1079,7 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
                 read_value_sprites(first, &item, &value_budget);
         }
         if (skaters) {
-            objects::ProfileRoster* manager = roster_handle();
+            objects::ProfileRoster* manager = objects::profile_roster();
             objects::RiderIdentity* profile = manager ? manager->get_template(item.id) : nullptr;
             const char* name = profile ? profile->fetch_shown_name() : nullptr;
             item.display = name ? name : "";

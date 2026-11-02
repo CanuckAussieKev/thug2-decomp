@@ -135,6 +135,6 @@ bool cfunc_update_initials(script::Struct* params, script::Script* script);
 // 0x005AFB30: NewRecord - whether the last UpdateRecords set a record (the skate module's +0x384).
 bool cfunc_new_record(script::Struct* params, script::Script* script);
 
-extern memory::HeapUnique<highscores::BestResults> g_game_records;
+highscores::BestResults* game_records();
 
 } // namespace highscores

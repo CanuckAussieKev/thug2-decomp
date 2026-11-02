@@ -21,7 +21,17 @@
 
 namespace objects {
 
-lists::KeyMap* g_emitter_table;
+namespace {
+
+lists::KeyMap*& stored_emitter_table()
+{
+    static lists::KeyMap* emitter_table{};
+    return emitter_table;
+}
+
+} // namespace
+
+lists::KeyMap* emitter_table() { return stored_emitter_table(); }
 
 namespace {
 
@@ -30,7 +40,6 @@ constexpr uint32_t kShape = 0x7321A8D6;  // (the shape's parameter; the proximit
 constexpr uint32_t kRadius = 0xC48391A5; // radius
 constexpr uint32_t kScript = 0x2CA8A299; // (the node's script)
 
-lists::KeyMap*& get_table() { return g_emitter_table; }
 
 // The level sector named `name` (null if none) and its bounding box (not rewritten yet).
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
@@ -55,7 +64,7 @@ constexpr float kFacingWeight = 10.0f;          // 0x00646710
 } // namespace
 
 // 0x004680E0
-EmitterNode* emitter_get_node(uint32_t name) { return static_cast<EmitterNode*>(get_table()->fetch_entry(name)); }
+EmitterNode* emitter_get_node(uint32_t name) { return static_cast<EmitterNode*>(stored_emitter_table()->fetch_entry(name)); }
 
 // 0x00468120
 bool EmitterNode::is_within(const maths::Vec4* point)
@@ -110,15 +119,15 @@ maths::Vec4* EmitterNode::nearest_point_on(maths::Vec4* out, const maths::Vec4* 
 // 0x004682B0
 void emitter_cleanup()
 {
-    lists::KeyMap* table = get_table();
+    lists::KeyMap* table = stored_emitter_table();
     if (!table)
         return;
     start_iteration(table);
-    for (EmitterNode* node = step_iterator(get_table()); node;) {
-        EmitterNode* next = step_iterator(get_table());
+    for (EmitterNode* node = step_iterator(stored_emitter_table()); node;) {
+        EmitterNode* next = step_iterator(stored_emitter_table());
         const uint32_t name = node->label_;
         memory::Hub::get_pull()->dealloc(node);
-        get_table()->erase_entry(name);
+        stored_emitter_table()->erase_entry(name);
         node = next;
     }
 }
@@ -127,8 +136,8 @@ void emitter_cleanup()
 void emitter_set_active(uint32_t name, int active)
 {
     // (no table: a null write, as the original)
-    start_iteration(get_table());
-    for (EmitterNode* node = step_iterator(get_table()); node; node = step_iterator(get_table())) {
+    start_iteration(stored_emitter_table());
+    for (EmitterNode* node = step_iterator(stored_emitter_table()); node; node = step_iterator(stored_emitter_table())) {
         if (node->label_ == name) {
             node->active_ = active != 0;
             return;
@@ -139,12 +148,12 @@ void emitter_set_active(uint32_t name, int active)
 // 0x004683B0
 void emitter_init()
 {
-    if (get_table()) {
+    if (stored_emitter_table()) {
         emitter_cleanup();
         return;
     }
     void* memory = memory::alloc(sizeof(lists::KeyMap));
-    get_table() = memory ? memory::construct_in<lists::KeyMap>(memory, 4) : nullptr;
+    stored_emitter_table() = memory ? memory::construct_in<lists::KeyMap>(memory, 4) : nullptr;
 }
 
 // 0x00468450
@@ -159,7 +168,7 @@ void emitter_add_node(uint32_t name, bool active)
     node->form_ = kEmitterShapeSphere;
     script::Struct* params = level_nodes::fetch_vertex(name, true);
     params->read_hash_value(kName, &node->label_, 0);
-    get_table()->store_entry(node->label_, node);
+    stored_emitter_table()->store_entry(node->label_, node);
     uint32_t shape = 0;
     if (params->read_hash_value(kShape, &shape, 0)) {
         if (shape == 0x03F1E5A7)

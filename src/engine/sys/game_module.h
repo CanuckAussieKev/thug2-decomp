@@ -78,6 +78,8 @@ struct Hub {
 // The singleton (0x00696D78, references 0x00696D7C). 0x0044F6F0: the first call with `create` makes it, every call
 // takes a reference and returns it (null if there is none).
 Hub* create_manager(bool create);
+// The manager create_manager made (null before / after).
+Hub* get_module_manager();
 // 0x0044F740: drops a reference; the last one destroys and frees the manager.
 void release_manager();
 

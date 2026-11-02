@@ -75,7 +75,7 @@ constexpr uint32_t kRewardPoints = 0xBAFFB052;       // reward_points
 constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of its chain) started
 
 online::Hub* net_session_slot() { return online::online_hub(); }
-objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
+
 
 uint32_t get_goal_name(script::Struct* params)
 {
@@ -110,7 +110,7 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
     if (params->has_entry_named(kProfile)) {
         uint32_t name = 0;
         params->read_hash_value(kProfile, &name, 1);
-        profile = roster_handle()->get_template(name);
+        profile = objects::profile_roster()->get_template(name);
     } else {
         profile = skate_calls::get_profile_from_params(nullptr);
     }

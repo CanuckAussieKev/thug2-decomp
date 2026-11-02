@@ -640,7 +640,7 @@ void* nearest_camera(const maths::Vec4* position, float* distance)
 const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
 objects::EmitterNode* get_emitter(uint32_t name)
 {
-    return objects::g_emitter_table ? objects::emitter_get_node(name) : nullptr;
+    return objects::emitter_table() ? objects::emitter_get_node(name) : nullptr;
 }
 
 void stop_playing(Playing* p)

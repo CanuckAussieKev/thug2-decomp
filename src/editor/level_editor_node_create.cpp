@@ -552,7 +552,7 @@ level_nodes::NodeManager* hub() { return level_nodes::node_manager_instance().ge
 
 // The game's managers made at the level's load (null outside a level).
 bool have_proxim() { return objects::proximity_hub() != nullptr; }
-bool have_emitters() { return objects::g_emitter_table != nullptr; }
+bool have_emitters() { return objects::emitter_table() != nullptr; }
 
 void add_light(script::Struct* node) { render::create_light_from_node(node); }
 void remove_light(uint32_t name) { render::delete_scene_light(name); }

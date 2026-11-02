@@ -75,7 +75,6 @@ bool set_option(script::Struct* params, Option option, bool on)
     return true;
 }
 
-objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 
 constexpr uint32_t kMasterSkaterList = 0xF31E8FF8; // master_skater_list
 constexpr uint32_t kStatNames = 0x61EB6BA9;        // stat_names
@@ -94,11 +93,11 @@ constexpr uint32_t kOff = 0xD443A2BC;              // off
 constexpr uint32_t kNoFaceTexture = 0x3AF36E6D;    // NoFaceTexture
 
 // The profile manager's templates (its table, 0x00557FB0 by index) and each one's info structure.
-uint32_t template_count() { return roster_handle()->templates_.num_; }
+uint32_t template_count() { return objects::profile_roster()->templates_.num_; }
 objects::RiderIdentity* template_at(uint32_t index)
 {
     // (0x00557FB0: the lookup table's by-index code, shared with the goal manager's)
-    return roster_handle()->get_template_at(static_cast<int>(index));
+    return objects::profile_roster()->get_template_at(static_cast<int>(index));
 }
 // The template named `name` (by its info's name), or null.
 objects::RiderIdentity* find_template(uint32_t name)
@@ -130,7 +129,7 @@ bool cfunc_restore_temporary_appearance(script::Struct* params, script::Script*)
     params->read_hash_value(kName, &name, 1);
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 1);
-    objects::ProfileRoster* manager = roster_handle();
+    objects::ProfileRoster* manager = objects::profile_roster();
     objects::RiderIdentity* profile = manager->fetch_account(player);
     objects::RiderIdentity* remembered = manager->get_extra_profile(name);
     if (params->has_bare_flag(kNoFaceTexture)) {
@@ -147,7 +146,7 @@ bool cfunc_restore_temporary_appearance(script::Struct* params, script::Script*)
 // 0x005AAF90: SyncPlayer2Profile - the second player's profile copied again from its template.
 bool cfunc_sync_player2_profile(script::Struct*, script::Script*)
 {
-    roster_handle()->reset_second_profile();
+    objects::profile_roster()->reset_second_profile();
     return true;
 }
 
@@ -200,7 +199,7 @@ bool cfunc_reset_to_default_profile(script::Struct* params, script::Script*)
         entry->read_hash_value(kName, &entry_name, 1);
         if (entry_name != name)
             continue;
-        objects::RiderIdentity* profile = roster_handle()->get_template(name);
+        objects::RiderIdentity* profile = objects::profile_roster()->get_template(name);
         uint32_t partial = 0;
         if (params->read_hash_value(kPartial, &partial, 0)) {
             if (partial == kStatsAndTricks)
@@ -222,7 +221,7 @@ bool cfunc_reset_all_to_default_profile(script::Struct*, script::Script*)
         script::Struct* entry = table_row(list, i);
         uint32_t name = 0;
         entry->read_hash_value(kName, &name, 1);
-        roster_handle()->get_template(name)->get_reset(entry);
+        objects::profile_roster()->get_template(name)->get_reset(entry);
     }
     return true;
 }
@@ -339,7 +338,7 @@ bool cfunc_set_skater_profile_info(script::Struct* params, script::Script*)
     params->fetch_int_value(kPlayer, &player, 1);
     script::Struct* values = nullptr;
     params->read_sub_struct(kParams, &values, 1);
-    roster_handle()->fetch_account(player)->details_params()->append_structure_if_any(values);
+    objects::profile_roster()->fetch_account(player)->details_params()->append_structure_if_any(values);
     return true;
 }
 
@@ -347,7 +346,7 @@ bool cfunc_get_skater_profile_info(script::Struct* params, script::Script* scrip
 {
     int player = 0; // (uninitialised in the original when missing)
     params->fetch_int_value(kPlayer, &player, 1);
-    script->args_->append_structure_if_any(roster_handle()->fetch_account(player)->details_params());
+    script->args_->append_structure_if_any(objects::profile_roster()->fetch_account(player)->details_params());
     return true;
 }
 
@@ -361,7 +360,7 @@ bool cfunc_set_skater_profile_property(script::Struct* params, script::Script*)
     params->read_hash_value(0u, &stat, 0);
     int value = 0;
     params->fetch_int_value(0u, &value, 0);
-    return roster_handle()->fetch_account(player)->set_ability_level(stat, value);
+    return objects::profile_roster()->fetch_account(player)->set_ability_level(stat, value);
 }
 
 // 0x005AC520: SetClassicStat <stat> <value> - the career's info value (classic mode's stats).
@@ -422,7 +421,7 @@ bool cfunc_select_current_skater(script::Struct* params, script::Script*)
     uint32_t name = 0; // (uninitialised in the original when missing)
     if (!params->read_hash_value(kName, &name, 0))
         params->read_hash_value(0u, &name, 1);
-    objects::ProfileRoster* manager = roster_handle();
+    objects::ProfileRoster* manager = objects::profile_roster();
     if (get_profile_from_params(nullptr)->fetch_title() == name)
         return false;
     manager->set_current_skater(name);
@@ -456,7 +455,7 @@ bool cfunc_award_stat_point(script::Struct* params, script::Script*)
 // named one, or the current profile.
 bool cfunc_award_special_trick_slot(script::Struct* params, script::Script*)
 {
-    objects::ProfileRoster* manager = roster_handle();
+    objects::ProfileRoster* manager = objects::profile_roster();
     if (params->has_bare_flag(kAll)) {
         const int count = static_cast<int>(manager->templates_.num_);
         for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
@@ -467,7 +466,7 @@ bool cfunc_award_special_trick_slot(script::Struct* params, script::Script*)
     if (params->has_entry_named(kProfile)) {
         uint32_t name = 0; // (uninitialised in the original when not a checksum)
         params->read_hash_value(kProfile, &name, 1);
-        roster_handle()->get_template(name)->add_max_specials(1);
+        objects::profile_roster()->get_template(name)->add_max_specials(1);
         return true;
     }
     get_profile_from_params(nullptr)->add_max_specials(1);
@@ -487,14 +486,14 @@ bool cfunc_update_skater_stats(script::Struct* params, script::Script*)
 // 0x005AFFE0: GetCurrentSkaterProfileIndex - the profile manager's current index as currentSkaterProfileIndex.
 bool cfunc_get_current_skater_profile_index(script::Struct*, script::Script* script)
 {
-    script->args_->put_int(kCurrentSkaterProfileIndex, roster_handle()->cursor_pos_);
+    script->args_->put_int(kCurrentSkaterProfileIndex, objects::profile_roster()->cursor_pos_);
     return true;
 }
 
 // 0x005B0000: GetCustomSkaterName - the custom skater's display name as display_name.
 bool cfunc_get_custom_skater_name(script::Struct*, script::Script* script)
 {
-    script->args_->append_word(kDisplayName, roster_handle()->get_template(kCustom)->fetch_shown_name());
+    script->args_->append_word(kDisplayName, objects::profile_roster()->get_template(kCustom)->fetch_shown_name());
     return true;
 }
 
@@ -528,7 +527,7 @@ bool cfunc_get_stat_value(script::Struct* params, script::Script* script)
     if (game_mode_is_true(kIsClassic)) {
         value = get_career()->get_info_integer(stat);
     } else {
-        objects::ProfileRoster* manager = roster_handle();
+        objects::ProfileRoster* manager = objects::profile_roster();
         uint32_t name = 0;
         objects::RiderIdentity* profile =
             params->read_hash_value(kSkater, &name, 0) ? manager->get_template(name) : manager->fetch_active_account();
@@ -543,7 +542,7 @@ bool cfunc_get_num_stat_points_available(script::Struct* params, script::Script*
 {
     int player = 0; // (uninitialised in the original when missing)
     params->fetch_int_value(kPlayer, &player, 1);
-    const int points = roster_handle()->fetch_account(player)->get_info_471f_c_4d_d();
+    const int points = objects::profile_roster()->fetch_account(player)->get_info_471f_c_4d_d();
     script->args_->put_int("points_available", points);
     return true;
 }
@@ -553,7 +552,7 @@ bool cfunc_unlock_skater(script::Struct* params, script::Script*)
 {
     uint32_t name = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kName, &name, 1);
-    script::Struct* info = roster_handle()->get_template(name)->details_params();
+    script::Struct* info = objects::profile_roster()->get_template(name)->details_params();
     int hidden = 1;
     info->fetch_int_value(kIsHidden, &hidden, 1);
     if (hidden)
