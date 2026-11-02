@@ -406,7 +406,8 @@ void snapshots_window()
 std::array<char, 48> g_group_name;
 std::array<char, 48> g_label_text;
 uint32_t g_label_for;
-bool g_label_asked, g_group_asked;
+bool g_label_asked;
+bool g_group_asked;
 int g_rename_group = -1;
 std::array<char, 48> g_rename_text;
 bool g_rename_asked;

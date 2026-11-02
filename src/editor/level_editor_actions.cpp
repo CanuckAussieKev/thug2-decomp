@@ -620,8 +620,10 @@ std::vector<ActStep>& get_registry()
 
 // The keymap's frame: the keys down last frame, the actions fired this frame, those triggered for the next.
 std::array<uint8_t, SDL_NUM_SCANCODES> g_was;
-std::vector<bool> g_fired, g_triggered;
-int g_capture = -1, g_capture_slot = 0;
+std::vector<bool> g_fired;
+std::vector<bool> g_triggered;
+int g_capture = -1;
+int g_capture_slot = 0;
 
 std::string ini_path() { return game_folder_path("thug2-decomp.ini"); }
 

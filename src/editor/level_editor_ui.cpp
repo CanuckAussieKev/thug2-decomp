@@ -71,9 +71,12 @@ bool g_scale_locked = true; // (the Inspector's Scale: Uniform - one field chang
 // The routing (level_editor_ui_layout.h): the last frame's layout and ImGui's wishes, the mouse, and which mouse
 // buttons a press gave to the UI / to the editor (their release goes the same way).
 ui_layout::Layout g_layout;
-bool g_want_mouse, g_want_keys;
-float g_mouse_x = -1.0f, g_mouse_y = -1.0f;
-uint32_t g_ui_buttons, g_editor_buttons;
+bool g_want_mouse;
+bool g_want_keys;
+float g_mouse_x = -1.0f;
+float g_mouse_y = -1.0f;
+uint32_t g_ui_buttons;
+uint32_t g_editor_buttons;
 
 std::vector<Request> g_requests;
 bool g_offer_closed;

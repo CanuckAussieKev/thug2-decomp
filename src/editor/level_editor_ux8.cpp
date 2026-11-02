@@ -48,7 +48,8 @@ nav::Follower g_follower;
 bool g_walking;
 nav::Walker g_walker;
 uint32_t g_last_empty_click;
-float g_last_empty_x, g_last_empty_y;
+float g_last_empty_x;
+float g_last_empty_y;
 bool g_have_empty_click;
 struct GlideState {
     bool on = false;
@@ -57,7 +58,8 @@ struct GlideState {
 } g_glide;
 
 pie::State g_pie;
-float g_view_x, g_view_y;
+float g_view_x;
+float g_view_y;
 bool g_have_view_centre;
 
 std::string ini_path() { return game_folder_path("thug2-decomp.ini"); }

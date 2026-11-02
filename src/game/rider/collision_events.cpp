@@ -84,9 +84,11 @@ struct PathRecord {
 
 void* g_component = nullptr;
 std::array<Sample, kHistory> g_samples;
-int g_sample_total = 0, g_next = 0; // (a ring: g_next the slot for the next sample)
+int g_sample_total = 0; // (a ring: g_next the slot for the next sample)
+int g_next = 0;
 std::array<PathRecord, kPathRecords> g_paths;
-int g_path_count = 0, g_path_next = 0;
+int g_path_count = 0;
+int g_path_next = 0;
 int g_events = 0;
 std::string& col_file_stamp()
 {
@@ -108,7 +110,8 @@ struct Mark {
     Ray ray; // (the core's feeler's line there)
 };
 std::array<Mark, kMarks> g_marks;
-int g_marker_total = 0, g_mark_next = 0;
+int g_marker_total = 0;
+int g_mark_next = 0;
 
 struct Spot {
     std::array<float, 3> at;

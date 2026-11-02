@@ -340,7 +340,8 @@ double g_last_seconds = 0.0; // (how long the last check took)
 bool g_open = false;
 int g_tab = kProblemsTab;
 bool g_tab_pending = false;
-bool g_show_own = false, g_show_ignored = false;
+bool g_show_own = false;
+bool g_show_ignored = false;
 std::vector<std::function<void()>> g_queue;
 
 double get_seconds() { return static_cast<double>(SDL_GetTicks()) / 1000.0; }

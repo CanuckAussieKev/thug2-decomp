@@ -105,7 +105,8 @@ constexpr uint32_t kCluster = 0x1A3A966Bu;    // "Cluster" (a node's TrickObject
 constexpr uint32_t kClass = 0x12B4E660u;      // Class
 constexpr uint32_t kPedestrian = 0xA0DFAC98u; // Pedestrian
 
-bool g_setting_read, g_enabled = true;
+bool g_setting_read;
+bool g_enabled = true;
 
 struct Carried {
     std::vector<uint32_t> objects; // (ids)

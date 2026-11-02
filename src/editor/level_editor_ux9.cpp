@@ -33,7 +33,9 @@ namespace frontend::level_editor::ux9 {
 
 namespace {
 
-int g_gap_action = -1, g_skate_action = -1, g_ground_action = -1;
+int g_gap_action = -1;
+int g_skate_action = -1;
+int g_ground_action = -1;
 
 // --- the Ground tool ---
 
@@ -43,7 +45,8 @@ bool g_editing; // (the form edits a piece that is there - g_draft.name)
 ground::Spec g_draft;
 float g_grid = 50.0f;
 bool g_have_hover;
-V3 g_hover, g_first;
+V3 g_hover;
+V3 g_first;
 uint32_t g_floor; // (the piece the first corner was clicked on: the material by default)
 std::string g_form_message;
 std::vector<std::function<void()>> g_queue;

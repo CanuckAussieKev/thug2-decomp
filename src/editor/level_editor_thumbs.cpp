@@ -186,8 +186,10 @@ std::unordered_map<uint64_t, uint64_t>& failed_state()
     return value;
 }
 std::string g_level;                             // (the lists' level)
-std::vector<std::string> g_recent, g_favourites;
-bool g_grid_read, g_grid = true;
+std::vector<std::string> g_recent;
+std::vector<std::string> g_favourites;
+bool g_grid_read;
+bool g_grid = true;
 int g_list_mode; // (0 all, 1 recent, 2 favourites)
 
 std::string get_ini() { return game_folder_path("thug2-decomp.ini"); }

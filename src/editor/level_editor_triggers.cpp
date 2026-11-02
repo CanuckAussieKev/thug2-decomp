@@ -1013,8 +1013,10 @@ bool g_has_undo;
 State g_undo_before;
 int g_select = -1;
 std::vector<std::function<void()>> g_actions;
-bool g_shown, g_setting_read;
-V3 g_camera = {}, g_forward = {.x = 0.0f, .y = 0.0f, .z = 1.0f};
+bool g_shown;
+bool g_setting_read;
+V3 g_camera = {};
+V3 g_forward = {.x = 0.0f, .y = 0.0f, .z = 1.0f};
 float g_yaw;
 
 uint32_t hash_of_name(const std::string& name) { return node_create::name_hash(name); }

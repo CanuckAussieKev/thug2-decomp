@@ -169,7 +169,8 @@ struct Glyph {
 std::array<Glyph, 128> g_glyphs;
 float g_advance = 0.0f;     // the font's one advance (monospace)
 float g_line_height = 0.0f; // pixels
-float g_white_u = 0.0f, g_white_v = 0.0f;
+float g_white_u = 0.0f;
+float g_white_v = 0.0f;
 IDirect3DTexture9* g_texture = nullptr;
 bool g_font_tried = false;
 

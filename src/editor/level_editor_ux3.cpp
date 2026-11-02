@@ -32,7 +32,8 @@ namespace {
 
 std::vector<std::function<void()>> g_tasks;
 std::array<bool, kWindowCount> g_open;
-bool g_similar_menu, g_group_name;
+bool g_similar_menu;
+bool g_group_name;
 Settings g_settings;
 
 std::vector<ChangeRow> g_changes;

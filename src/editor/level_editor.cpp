@@ -351,7 +351,8 @@ maths::Vec4 g_saved_pos;
 maths::Mat4 g_saved_matrix;
 // Our pose.
 V3 g_pos;
-float g_yaw, g_pitch;
+float g_yaw;
+float g_pitch;
 float g_speed = 800.0f; // units a second (Shift: 4x)
 // With something selected: the camera's distance from it, and whether the keys are moving it.
 float g_orbit_distance = 300.0f;
@@ -370,7 +371,8 @@ bool g_unsaved; // (changes since the layout was last saved)
 // The autosave (level_editor_layout.h): which level load the unsaved changes belong to, a count of changes (the
 // snapshot made again when it moves), when it was last written, and the offer of an older one.
 int g_unsaved_load = -1;
-int g_changes, g_snapshot_changes;
+int g_changes;
+int g_snapshot_changes;
 uint32_t g_last_autosave;
 bool g_offer_show;    // (shown on the first frame the HUD is up)
 bool g_offer_pending; // (Ctrl+R / Ctrl+Shift+R)
@@ -441,41 +443,58 @@ std::vector<Picked> g_objects;
 uint32_t g_hover_sector;
 
 // Dragging: free (the plane / the view's terms) or along one axis (an arrow).
-bool g_dragging, g_drag_vertical;
+bool g_dragging;
+bool g_drag_vertical;
 int g_axis = -1;         // (0 / 1 / 2: dragging along x / y / z; -1: free)
 int g_hover_axis = -1;   // (the arrow under the cursor)
 int g_hover_handle = -1; // (a selected trigger volume's resize handle under the cursor - level_editor_triggers.h)
 bool g_cancel_requested; // (Escape: a drag put back, the browser or the help closed - before leaving)
 V3 g_drag_start;         // where the selection was when the drag started
-V3 g_drag_offset, g_drag_plane_normal, g_drag_plane_offset;
-float g_press_x, g_press_y;
+V3 g_drag_offset;
+V3 g_drag_plane_normal;
+V3 g_drag_plane_offset;
+float g_press_x;
+float g_press_y;
 bool g_drag_moved;
 float g_drag_reach;
 bool g_drag_screen;
-V3 g_drag_from, g_drag_right, g_drag_forward;
-float g_drag_mouse_x, g_drag_mouse_y, g_drag_units, g_drag_push, g_axis_t0;
+V3 g_drag_from;
+V3 g_drag_right;
+V3 g_drag_forward;
+float g_drag_mouse_x;
+float g_drag_mouse_y;
+float g_drag_units;
+float g_drag_push;
+float g_axis_t0;
 // The transform tools (level_editor_transform.h): what the drag does (Move unless it started on a Rotate / Scale handle
 // or as Alt+G's modal transform - no button held: a click or Enter applies it), what's typed, whether a turn or a scale
 // was made (an undo step even when the position stayed), the turn and scale so far, where the cursor is (back buffer
 // pixels), vertex snapping's corner, and the camera let go of the selection (wasd_flies=0: flying with RMB - F frames
 // it again).
 xform::Mode g_drag_mode = xform::Mode::kShiftBy;
-bool g_modal, g_typed_apply, g_pending_forced;
+bool g_modal;
+bool g_typed_apply;
+bool g_pending_forced;
 xform::Typed g_typed;
 V3 g_transform_pivot;
-float g_rot_total, g_rot_applied, g_rot_last, g_rot_sign = 1.0f;
+float g_rot_total;
+float g_rot_applied;
+float g_rot_last;
+float g_rot_sign = 1.0f;
 bool g_rot_by_plane;
 int g_quarters_applied;
 float g_scale_s0;
 V3 g_scale_start = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
-float g_cursor_x, g_cursor_y;
+float g_cursor_x;
+float g_cursor_y;
 bool g_vertex_have;
 V3 g_vertex_corner;
 bool g_free_camera;
 
 // The ground marker: the selection's base and the ground below it.
 bool g_have_mark;
-V3 g_mark_base, g_mark_ground;
+V3 g_mark_base;
+V3 g_mark_ground;
 
 // The help panel (F1) and the browser (B).
 bool g_help;
@@ -977,7 +996,8 @@ struct UndoStep {
     // (the undo history panel - level_editor_ux3.h: a short label given where the step is made, and what was selected)
     std::string label, detail;
 };
-std::vector<UndoStep> g_undo, g_redo;
+std::vector<UndoStep> g_undo;
+std::vector<UndoStep> g_redo;
 uint64_t g_undo_serial;
 UndoStep g_pending;
 bool g_has_pending;

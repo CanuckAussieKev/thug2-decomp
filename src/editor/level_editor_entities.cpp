@@ -448,7 +448,8 @@ bool deleted_copy(const nodes::Elem& node)
 }
 
 // The state the layout keeps, the baked fields' (read when a level loads; not saved), the undo step under way.
-State g_state, g_baked;
+State g_state;
+State g_baked;
 State g_undo_before;
 bool g_have_undo;
 bool g_ui_active; // (one of the Inspector's fields is being dragged: the undo step waits)

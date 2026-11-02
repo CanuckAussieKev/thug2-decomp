@@ -84,7 +84,8 @@ struct Baked {
 std::array<Baked, kBakeCount> g_baked;
 float g_scale = 0.0f;
 ImFontAtlas* g_atlas = nullptr; // (the atlas the fonts are in: another context's means none built here)
-float g_condense = 1.0f, g_bold = 0.0f;
+float g_condense = 1.0f;
+float g_bold = 0.0f;
 
 // The display face's glyphs: upper case (the design sets it in capitals), figures, punctuation, the em dash. The
 // mono and body faces: ASCII, the em dash, the middle dot, the apostrophe.

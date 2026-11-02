@@ -981,7 +981,8 @@ struct Segment {
     bool ledge;
 };
 std::vector<Segment> g_segments;
-uint32_t g_segments_nodes = ~0u, g_segments_rails = ~0u;
+uint32_t g_segments_nodes = ~0u;
+uint32_t g_segments_rails = ~0u;
 
 const std::vector<Segment>& current_segments()
 {
@@ -1048,7 +1049,10 @@ bool selection_box(const edit::Selected& selection, Aabb* box, V3* size)
 namespace {
 
 // The registry's entries (level_editor_actions.h): their indices, once registered.
-int g_act_window = -1, g_act_adjust = -1, g_act_edge_rail = -1, g_act_linked = -1;
+int g_act_window = -1;
+int g_act_adjust = -1;
+int g_act_edge_rail = -1;
+int g_act_linked = -1;
 
 int add_action(const char* id, const char* name, const char* category, const char* tip,
                std::vector<actions::Chord> keys, std::function<void()> run, std::function<int()> checked = nullptr)

@@ -269,7 +269,8 @@ bool s_root_hidden = false;  // the original's screen elements hidden under our 
 uint32_t s_launch_level = 0; // the level up when a launch started (in a level: done when it changes)
 
 Catalogue s_catalogue;
-bool s_catalogue_tried = false, s_catalogue_ok = false;
+bool s_catalogue_tried = false;
+bool s_catalogue_ok = false;
 Menu& menu_state()
 {
     static Menu value;
@@ -291,7 +292,8 @@ struct Repeat {
     float wait = 0.0f;
 };
 Repeat s_repeat;
-int s_stick_x = 0, s_stick_y = 0;
+int s_stick_x = 0;
+int s_stick_y = 0;
 constexpr float kRepeatDelay = 0.35f, kRepeatEvery = 0.09f;
 
 std::chrono::steady_clock::time_point s_last_tick;
@@ -302,7 +304,8 @@ bool s_ticked = false;
 enum class Edit : uint8_t { kDisengaged, kWaitLevel, kWaitPause };
 Edit s_edit = Edit::kDisengaged;
 float s_edit_time = 0.0f;
-int s_edit_frames = 0, s_edit_presses = 0;
+int s_edit_frames = 0;
+int s_edit_presses = 0;
 
 // The options' state: what the ini said at start-up (a Restart option changed since is "pending").
 std::vector<std::string> s_start_values;

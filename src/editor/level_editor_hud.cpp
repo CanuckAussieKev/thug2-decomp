@@ -40,7 +40,9 @@ std::string g_message;
 uint32_t g_message_until;
 bool g_panel;
 bool g_elements = true; // (false while the UI shows the editor)
-float g_panel_x, g_panel_y, g_panel_width;
+float g_panel_x;
+float g_panel_y;
+float g_panel_width;
 size_t g_panel_lines;
 
 void change_caption(const std::string& id, const std::string& full)

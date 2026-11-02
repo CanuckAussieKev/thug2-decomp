@@ -207,7 +207,8 @@ struct ArraySignature {
     bool operator==(const ArraySignature&) const = default;
 };
 std::vector<ArraySignature> g_signature;
-int g_walked_crowns, g_walked_spawns;
+int g_walked_crowns;
+int g_walked_spawns;
 uint32_t g_generation;
 
 std::vector<ArraySignature> get_signature()

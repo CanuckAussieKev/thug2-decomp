@@ -85,7 +85,8 @@ Kind g_kind = Kind::kNone;
 uint32_t g_id;
 Orbit g_orbit;
 bool g_have_time;
-std::chrono::steady_clock::time_point g_last_frame, g_last_drag;
+std::chrono::steady_clock::time_point g_last_frame;
+std::chrono::steady_clock::time_point g_last_drag;
 bool g_failed_logged;
 
 // The renderer's calls (not rewritten yet; thiscall / cdecl).

@@ -66,8 +66,10 @@ namespace {
 
 bool g_armed;
 int g_ends; // (0, 1 or 2 ends placed)
-V3 g_a, g_b;
-bool g_have_hover, g_hover_snapped;
+V3 g_a;
+V3 g_b;
+bool g_have_hover;
+bool g_hover_snapped;
 V3 g_hover;
 
 // The game's collision ray (a ProbeRay as level_editor_arcs.cpp's): the point hit and the collision object's checksum.
