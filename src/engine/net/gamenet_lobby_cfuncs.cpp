@@ -12,7 +12,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
 #include "engine/net/buddy_man.h"
-#include "engine/net/gamenet_handler_util.h"
+#include "engine/net/gamenet_handler_util.h" // IWYU pragma: keep - the detail namespace (using-directive)
 #include "engine/net/gamenet_lobby.h"
 #include "platform/gamespy.h"
 #include "engine/net/gamenet_manager.h"

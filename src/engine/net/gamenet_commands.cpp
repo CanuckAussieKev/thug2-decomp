@@ -4,8 +4,6 @@
 
 #include <cstdint>
 #include <array>
-#include "platform/code_address.h"
-
 #include "engine/core/arena_alloc.h"
 #include "platform/gamespy.h"
 #include "engine/core/task_list.h"
@@ -38,7 +36,6 @@
 #include "engine/sys/mlp.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 
 namespace online {

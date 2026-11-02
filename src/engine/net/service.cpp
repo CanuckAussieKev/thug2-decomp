@@ -7,7 +7,6 @@
 #include <windows.h>
 
 #include <cstdint>
-#include <cstdio>
 #include <array>
 
 #include "engine/core/manager.h"
@@ -23,7 +22,6 @@
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
-#include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"

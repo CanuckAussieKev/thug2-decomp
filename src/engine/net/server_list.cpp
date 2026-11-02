@@ -31,7 +31,6 @@
 #include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/texture_cfuncs.h"
-#include "engine/net/gamenet_lists.h"
 #include "engine/core/stubs.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"

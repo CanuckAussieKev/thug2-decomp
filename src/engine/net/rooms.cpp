@@ -8,8 +8,6 @@
 #include <windows.h>
 
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <memory>
 
@@ -46,8 +44,6 @@
 #include "platform/compiler.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy, kept)

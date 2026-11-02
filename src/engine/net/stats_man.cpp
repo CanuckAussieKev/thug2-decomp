@@ -6,8 +6,6 @@
 #include <windows.h>
 
 #include <cstdint>
-#include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <array>
 #include <memory>
@@ -35,7 +33,6 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"

@@ -4,7 +4,6 @@
 #include "engine/net/hunt_cfuncs.h"
 
 #include <cstdint>
-#include <cstring>
 #include <array>
 
 #include "engine/net/gamenet_handler_util.h"

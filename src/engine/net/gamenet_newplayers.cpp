@@ -3,14 +3,12 @@
 // same (host_player_intake_tick) with the messages telling everyone about it (0x0053D9D0-0x0053EB70). See
 // gamenet_manager.h.
 
-#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <array>
 
 #include "engine/core/manager.h"
 #include "platform/gamespy.h"
-#include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -29,15 +27,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/game_cfuncs.h"
 #include "game/park_editing/rail_editor.h"
-#include "platform/code_address.h"
-#include "game/goals/objective.h"
-#include "game/goals/goal_manager.h"
-#include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
-#include "game/skate/game_mode.h"
-#include "engine/gfx/face_texture.h"
-#include "engine/gfx/rig.h"
-#include "game/park_editing/goal_editor.h"
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
@@ -47,7 +37,6 @@
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
 

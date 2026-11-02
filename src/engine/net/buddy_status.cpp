@@ -5,22 +5,19 @@
 #include "platform/gamespy.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <array>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "engine/net/buddy_man.h"
-#include "engine/net/gamenet_handler_util.h"
+#include "engine/net/gamenet_handler_util.h" // IWYU pragma: keep - the detail namespace (using-directive)
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/gamenet_lobby.h"
 #include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "platform/winmain.h"
-#include "platform/code_address.h"
-#include "platform/compiler.h"
 #include "engine/core/format.h"
 
 

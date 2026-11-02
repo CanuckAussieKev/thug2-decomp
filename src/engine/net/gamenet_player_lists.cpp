@@ -2,8 +2,6 @@
 // lists - walking, finding and removing them.
 
 #include <cstdint>
-#include <initializer_list>
-#include "platform/code_address.h"
 #include "engine/gfx/engine_texture.h"
 #include "platform/d3dx.h"
 #include "platform/compiler.h"
@@ -16,6 +14,7 @@
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copies into its fixed buffers)
 
 #include "engine/core/checksums.h"
+#include "engine/pad_input/input_hub.h" // IWYU pragma: keep - the complete InputHandler type (deleted here)
 #include "platform/gamespy.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -28,7 +27,6 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/net/net_lists.h"
 #include "engine/net/net_manager.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/entity_hub.h"
 #include "game/skate/profile_manager.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
@@ -36,7 +34,6 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_lists.h"
 #include "engine/net/gamenet_manager.h"
-#include "engine/pad_input/input_hub.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "game/skate/cas_options.h"

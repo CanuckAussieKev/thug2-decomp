@@ -26,7 +26,6 @@
 #include "game/skate/skate_net.h"
 #include "platform/platform_config.h"
 #include "platform/stopwatch.h"
-#include "platform/code_address.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_glue.h"
 #include "game/skate/skate_module.h"
@@ -47,8 +46,6 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/parse_number.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"

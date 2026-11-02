@@ -2,13 +2,13 @@
 // and the manager's tasks for the observer, auto-serve, the join's state and the server's start of a game
 // (0x0053AF90, 0x0053B0D0, 0x0053BED0-0x0053C320, 0x0053C6E0). See gamenet_manager.h.
 
-#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <array>
 
 #include "engine/core/stubs.h"
 #include "engine/core/task_list.h"
+#include "engine/net/gamenet_observer.h" // IWYU pragma: keep - the observer templates instantiated here need pad_input::Responder
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/maths/random.h"
@@ -19,16 +19,13 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/net/gamenet_lobby.h"
-#include "engine/net/gamenet_observer.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_lists.h"
 #include "engine/net/stats_man.h"
-#include "engine/objects/smtptr.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"

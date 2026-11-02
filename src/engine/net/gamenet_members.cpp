@@ -5,10 +5,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <memory>
-#include "platform/code_address.h"
 #include "engine/gfx/engine_texture.h"
-#include "platform/compiler.h"
-#include <cstdio>
 #include <array>
 
 
@@ -16,12 +13,10 @@
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
 #include "platform/gamespy.h"
-#include "engine/core/manager.h"
 #include "engine/core/task_list.h"
 #include "engine/maths/random.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_handler_util.h"
-#include "engine/net/gamenet_lists.h"
 #include "engine/net/gamenet_lobby.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
@@ -55,7 +50,6 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/ints.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"

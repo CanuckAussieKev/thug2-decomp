@@ -11,7 +11,6 @@
 #include <iterator>
 #include <span>
 #include <string_view>
-#include <initializer_list>
 #include <utility>
 
 #include "engine/core/checksums.h"

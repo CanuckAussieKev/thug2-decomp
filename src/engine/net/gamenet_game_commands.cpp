@@ -2,7 +2,6 @@
 // starting and ending a network game, teams, the host, readiness, and the player list menu with its options dialog.
 
 #include <cstdint>
-#include "platform/code_address.h"
 #include <cstring>
 #include <array>
 #include <span>
@@ -45,7 +44,6 @@
 #include "engine/net/score_list.h"
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

@@ -8,11 +8,8 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/net/net_access_c.h"
 #include "engine/net/net_app_view.h"
 #include "engine/net/net_compress.h"
-#include "engine/core/raw_view.h"
-
 namespace net {
 
 namespace {

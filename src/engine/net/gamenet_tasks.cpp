@@ -3,9 +3,6 @@
 
 #include <cstdint>
 #include <initializer_list>
-#include "platform/code_address.h"
-#include <cstdio>
-#include <cstring>
 #include <array>
 
 #include "engine/core/dbg.h"
@@ -19,14 +16,12 @@
 #include "engine/net/net_lists.h"
 #include "engine/net/net_manager.h"
 #include "engine/net/net_metrics.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
-#include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
@@ -36,7 +31,6 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
-#include "platform/compiler.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
 

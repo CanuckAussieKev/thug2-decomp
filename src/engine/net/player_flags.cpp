@@ -1,7 +1,6 @@
 // The network game's announcements about a player: fully in, capture the flag, king of the hill (see player_info.h).
 
 #include <cstdint>
-#include <cstdio>
 #include <array>
 
 #include "engine/net/gamenet_handler_util.h"
@@ -11,16 +10,13 @@
 #include "engine/net/player_info.h"
 #include "engine/objects/game_objects.h"
 #include "engine/objects/entity.h"
-#include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
 #include "platform/stopwatch.h"
-#include "platform/code_address.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
-#include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
@@ -32,8 +28,6 @@
 #include "engine/net/stats_man.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/state_history.h"
-#include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
 #include "platform/crt.h"

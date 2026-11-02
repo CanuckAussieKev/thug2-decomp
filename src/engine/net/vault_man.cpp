@@ -19,7 +19,6 @@
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "engine/net/buddy_man.h"
-#include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/online_text.h"
 #include "engine/script/cscript.h"

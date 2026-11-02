@@ -15,7 +15,6 @@
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app.h"
-#include "engine/net/net_app_messages.h"
 #include "engine/net/net_guards.h"
 #include "engine/net/net_manager.h"
 #include "formats/byte_stream.h"

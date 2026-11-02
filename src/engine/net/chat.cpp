@@ -34,7 +34,6 @@
 #include "engine/gfx/draw_frame.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"

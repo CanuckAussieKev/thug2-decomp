@@ -1,7 +1,6 @@
 // The network manager's small members (online::Hub, 0x00532AA0-0x005333F0): its flags and saved values, the
 // network preferences it reads, and the few messages it sends on its own.
 
-#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <array>
@@ -15,8 +14,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "game/park_editing/goal_editor.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

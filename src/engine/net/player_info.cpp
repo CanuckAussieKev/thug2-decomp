@@ -4,9 +4,7 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
-#include <iterator>
 #include <span>
 
 #include "engine/core/arena_alloc.h"
@@ -18,26 +16,13 @@
 #include "engine/objects/entity.h"
 #include "game/skate/profile_manager.h"
 #include "platform/stopwatch.h"
-#include "platform/code_address.h"
-#include "engine/net/gamenet_lists.h"
-#include "game/goals/objective.h"
-#include "game/goals/goal_manager.h"
-#include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
-#include "engine/gfx/face_texture.h"
-#include "engine/gfx/rig.h"
-#include "game/park_editing/goal_editor.h"
-#include "game/park_editing/rail_editor.h"
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
-#include "engine/net/buddy_man.h"
-#include "engine/net/stats_man.h"
 #include "game/rider/skater_score.h"
 #include "game/rider/tagging.h"
-#include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "game/rider/rider.h"

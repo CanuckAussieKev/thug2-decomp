@@ -5,7 +5,6 @@
 #include <winsock2.h>
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <memory>
 #include <array>

@@ -2,16 +2,13 @@
 // messages, SendMessage, the group room list; and the lobby's destructors (0x005407B0-0x00541690). See gamenet_lobby.h.
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
-#include <initializer_list>
 #include <array>
 
 #include "engine/core/checksums.h"
 #include "platform/gamespy.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/core/task_list.h"
 #include "engine/lists/chain_start.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -19,10 +16,8 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/stats_man.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
 #include "engine/gfx/loading_bar.h"
 #include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"

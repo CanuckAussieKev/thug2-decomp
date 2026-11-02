@@ -3,7 +3,6 @@
 // and connecting to / disconnecting from the internet.
 
 #include <cstdint>
-#include "platform/code_address.h"
 #include "platform/compiler.h"
 #include <cstring>
 #include <array>
@@ -17,7 +16,6 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_manager.h"
-#include "engine/script/cscript.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
@@ -25,7 +23,6 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
-#include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
@@ -38,7 +35,6 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace online {

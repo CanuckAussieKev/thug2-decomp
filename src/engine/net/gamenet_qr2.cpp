@@ -26,7 +26,6 @@
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
 #include "game/skate/point_tally.h"
-#include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/face_texture.h"
 #include "engine/gfx/rig.h"
@@ -37,8 +36,6 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "platform/compiler.h"
-#include "engine/core/raw_view.h"
-
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the level's name)
 
 namespace online {

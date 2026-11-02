@@ -7,7 +7,6 @@
 #include "engine/net/online_hosts.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>

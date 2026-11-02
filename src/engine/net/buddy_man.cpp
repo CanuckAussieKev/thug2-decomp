@@ -55,7 +55,6 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"

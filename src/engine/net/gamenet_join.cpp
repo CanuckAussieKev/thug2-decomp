@@ -13,10 +13,10 @@
 
 #include "engine/core/checksums.h"
 #include "engine/core/format.h"
+#include "engine/net/net_server.h" // IWYU pragma: keep - the complete HostEnd type (converted to AppHost* here)
 #include "platform/gamespy.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/core/single_instance.h"
 #include "engine/core/task_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/chat.h"
@@ -29,7 +29,6 @@
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_lists.h"
 #include "engine/net/net_manager.h"
-#include "engine/net/net_server.h"
 #include "engine/net/player_info.h"
 #include "engine/net/server_list.h"
 #include "engine/net/stats_man.h"
@@ -58,7 +57,6 @@
 #include "engine/net/score_list.h"
 #include "platform/crt.h"
 #include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "wire/gamenet_messages.h"

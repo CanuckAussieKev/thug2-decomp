@@ -3,11 +3,9 @@
 #include "engine/net/score_list.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <array>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "frontend/screen_element.h"
 #include "engine/lists/chain_start.h"
@@ -18,7 +16,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "platform/code_address.h"
 #include "frontend/screen_element_manager.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"

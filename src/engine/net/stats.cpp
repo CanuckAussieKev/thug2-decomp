@@ -4,10 +4,6 @@
 #include "engine/net/stats.h"
 #include "platform/code_address.h"
 
-#include <cstdint>
-#include <cstdio>
-#include <cstring>
-
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/online_hosts.h"
 #include "engine/net/vault_man.h"
