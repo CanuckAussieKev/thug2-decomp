@@ -143,7 +143,7 @@ void RiderChaseView::tick_frame()
     // The orientation to look along: the skater's (its display matrix), or on a wall ride and while +0x2EC holds
     // it, the last one; a wall ride notes how far the wall's facing turned.
     maths::Mat4 orient{};
-    if (physics_state != 2 && (!core || !core->point_rail_spin_)) {
+    if (physics_state != 2 && (!core || !core->point_rail_spin())) {
         wall_ride_frames_ = 0;
         skater = rider_ref_;
         orient = skater->is_local_skater_ ? *skater_display_matrix(skater) : skater->display_matrix_;
@@ -266,7 +266,7 @@ void RiderChaseView::tick_frame()
     }
     if (rider_ref_->is_local_skater_ && state_ref_->flag(PoseFlag::kFromAcidDrop).on) {
         auto* physics = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
-        orient = physics->drop_matrix_;
+        orient = physics->drop_matrix();
     }
 
     // The tilt in the air: up to 20 degrees, back to level after.
@@ -499,7 +499,7 @@ void RiderChaseView::tick_frame()
     bool avoid = true;
     if (rider_ref_->is_local_skater_) {
         auto* physics = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
-        if (physics->ride_->ride_ && physics_state == 3)
+        if (physics->ride()->ride_ && physics_state == 3)
             avoid = false;
     }
     if (avoid) {

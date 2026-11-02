@@ -392,7 +392,7 @@ bool TaggingControlComponent::try_tagging()
         return false;
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
     ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
-    uint32_t bone = core->state_->flag(PoseFlag::kFlipped).on ? 0x82B37CBCu : 0x78BC41DFu;
+    uint32_t bone = core->state()->flag(PoseFlag::kFlipped).on ? 0x82B37CBCu : 0x78BC41DFu;
     if (core::down_cast<Rider>(entity_)->label_ == 0xFC3A8D7F)
         bone = 0xDDEC28AF;
     auto* button = &core::down_cast<PadInputModule>(input_)->pad_primary_.button_wedge_;

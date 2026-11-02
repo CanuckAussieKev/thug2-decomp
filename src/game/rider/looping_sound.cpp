@@ -260,7 +260,7 @@ void RiderRollingAudio::tick_frame()
     } else {
         // By the speed (half when the core physics' +0x2EC is set).
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
-        if (core && core->point_rail_spin_)
+        if (core && core->point_rail_spin())
             speed_ratio_ = kCapsizedFraction;
         if (speed_ratio_ > 0.0f) {
             auto percent = static_cast<float>(static_cast<double>(volume_mult_) * speed_ratio_ * kPercent);

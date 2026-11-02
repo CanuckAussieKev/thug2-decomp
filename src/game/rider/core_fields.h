@@ -65,7 +65,7 @@ constexpr uint32_t kVelocity = 0xAC;
 
 inline objects::GameEntity* object_of(const SkaterPhysicsModule* component) { return component->entity_; }
 using objects::PoseFlag;
-inline int state_of(const SkaterPhysicsModule* component) { return component->state_->cur_phase_; }
+inline int state_of(const SkaterPhysicsModule* component) { return component->state()->cur_phase_; }
 
 // The game's clock (0x0044ECE0, plus the offset at 0x00696D60).
 inline int get_now()
@@ -87,9 +87,9 @@ inline void set_timed_flag(objects::RiderPoseState* flags, PoseFlag flag, uint8_
 }
 inline void set_flag(SkaterPhysicsModule* component, PoseFlag flag, uint8_t value)
 {
-    component->state_->set_flag(flag, value);
+    component->state()->set_flag(flag, value);
 }
-inline uint8_t bit_mark(const SkaterPhysicsModule* component, PoseFlag flag) { return component->state_->is_on(flag); }
+inline uint8_t bit_mark(const SkaterPhysicsModule* component, PoseFlag flag) { return component->state()->is_on(flag); }
 
 // 0x00580400 / 0x00580440: a physics value (the skater's own tuning structure for `object`, else the global script
 // value).
@@ -105,12 +105,12 @@ inline int physics_integer(uint32_t name, void* object)
 // 0x00434BF0: the trigger component told the feeler `feeler` hit something, for the three `events` (const int[3]).
 inline void trigger_feeler(SkaterPhysicsModule* component, const std::array<int, 3>& events, render::ProbeRay* feeler)
 {
-    component->trigger_->probe_touches_zone(events, feeler);
+    component->trigger()->probe_touches_zone(events, feeler);
 }
 // Whether a trigger's script took over (the physics control component's +0x26).
 inline bool trigger_took_over(const SkaterPhysicsModule* component)
 {
-    return component->physics_control_->flag26_ != 0;
+    return component->physics_control()->flag26_ != 0;
 }
 
 // A vector's length as the original's 0x004023C0 leaves it in ST0: sqrt((x*x + y*y) + z*z) in double, unrounded
@@ -134,8 +134,8 @@ inline void assign_feeler(void* to, const void* from)
     static_cast<render::ProbeRay*>(to)->get_assign(*static_cast<const render::ProbeRay*>(from));
 }
 // The ride tracker (+0x152C's +0x18) and what its smart pointer points at; 0x00427C70: stop riding.
-inline objects::RideTracker* get_tracker(SkaterPhysicsModule* component) { return component->ride_->ride_.get(); }
-inline void stop_riding(SkaterPhysicsModule* component) { component->ride_->stop_riding(); }
+inline objects::RideTracker* get_tracker(SkaterPhysicsModule* component) { return component->ride()->ride_.get(); }
+inline void stop_riding(SkaterPhysicsModule* component) { component->ride()->stop_riding(); }
 
 inline void destroy_feeler(void* feeler) { static_cast<render::ProbeRay*>(feeler)->destruct(); }
 

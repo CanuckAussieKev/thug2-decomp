@@ -787,12 +787,12 @@ void DrivableModule::update_skater()
     skater->basis_frame_ = object->basis_frame_;
     // The skater's core physics keeps its own copy of its object's matrix (+0x18).
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_core_physics_);
-    core->display_matrix_ = core->entity_->basis_frame_;
+    core->display_matrix() = core->entity_->basis_frame_;
     skater->vel_ = object->vel_;
     if (!rider_shown_)
         return;
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).
-    objects::RiderPoseState* flags = core->state_;
+    objects::RiderPoseState* flags = core->state();
     const float steering = flags->flag(PoseFlag::kFlipped).on ? display_steering_ : -display_steering_;
     auto* blender = core::down_cast<AnimBlenderComponent>(anim_blender_ptr_);
     const double duration = blender->fetch_value(rider_anim_name_);

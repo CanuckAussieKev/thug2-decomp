@@ -211,7 +211,7 @@ void FootMovement::check_sticker_slap()
     auto since_as_float = [](int then) {
         return static_cast<float>(static_cast<double>(static_cast<uint32_t>(clock_since(then))));
     };
-    const float since_wallplant = since_as_float(static_cast<int>(core_physics_->wallplant_time_));
+    const float since_wallplant = since_as_float(static_cast<int>(core_physics_->wallplant_time()));
     if (script::fetch_float(kDisallowRewallplant) > since_wallplant)
         return;
     const float since_state = since_as_float(state_time_);
@@ -399,7 +399,7 @@ void FootMovement::try_wallplant()
     auto since_as_float = [](int then) {
         return static_cast<float>(static_cast<double>(static_cast<uint32_t>(clock_since(then))));
     };
-    const float since_wallplant = since_as_float(static_cast<int>(core_physics_->wallplant_time_));
+    const float since_wallplant = since_as_float(static_cast<int>(core_physics_->wallplant_time()));
     if (script::fetch_float(kDisallowRewallplant) > since_wallplant)
         return;
     const float since_state = since_as_float(state_time_);
@@ -450,7 +450,7 @@ void FootMovement::try_wallplant()
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.
     core::down_cast<MoveExecutor>(entity_->fetch_module(kTrick))
         ->pass_to_trick_objects(contact->feeler.hit_.object_checksum_);
-    core_physics_->wallplant_time_ = frame_clock::game_clock_elapsed() + clock_offset();
+    core_physics_->set_wallplant_time(frame_clock::game_clock_elapsed() + clock_offset());
     anim_state_ = kWallplant;
 }
 

@@ -876,7 +876,7 @@ void FootMovement::get_begin(bool on_ground)
         change_phase(1);
         // Off a vert ramp (the skater's flag +0x30) with a turn under way: thrown out along the object's forward
         // axis turned on (by +0x730 about +0x734) times initial_vert_vel_boost.
-        if (core_physics_->state_->flag(PoseFlag::kVertAir).on && !(upright_time_ == 0.0f)) {
+        if (core_physics_->state()->flag(PoseFlag::kVertAir).on && !(upright_time_ == 0.0f)) {
             maths::Vec4 forward = core::at(entity_->basis_frame_.row, 2);
             forward.rotate_about_axis(upright_axis_, upright_angle_);
             const double boost = walk_parameter(kInitialVertVelBoost);
@@ -888,7 +888,7 @@ void FootMovement::get_begin(bool on_ground)
             velocity.z += z;
             velocity.w += w;
         }
-        if (!core_physics_->state_->flag(PoseFlag::kVertAir).on)
+        if (!core_physics_->state()->flag(PoseFlag::kVertAir).on)
             jump_unsteered_ = true;
         // The heading: the velocity flattened, else the forward axis flattened, else the up axis reversed and
         // flattened; made unit length.
@@ -921,7 +921,7 @@ void FootMovement::get_begin(bool on_ground)
         leap_duration_ = 0.0f;
         pushing_ = false;
         off_vert_ =
-            core_physics_->state_->flag(PoseFlag::kVertAir).on || core_physics_->state_->flag(PoseFlag::kNoAcidDrop).on;
+            core_physics_->state()->flag(PoseFlag::kVertAir).on || core_physics_->state()->flag(PoseFlag::kNoAcidDrop).on;
     }
     curb_offset_ = 0.0f;
     leave_for_ = 0;
@@ -1041,7 +1041,7 @@ void FootMovement::get_jump()
 // 0x0052BC70
 bool FootMovement::try_barrier_jump()
 {
-    if (core_physics_->state_->flag(PoseFlag::kBailing).on)
+    if (core_physics_->state()->flag(PoseFlag::kBailing).on)
         return false;
     static const std::array<int, 3> kAhead = {{0, 1, 6}}; // the contacts ahead: straight on and either side of it
 

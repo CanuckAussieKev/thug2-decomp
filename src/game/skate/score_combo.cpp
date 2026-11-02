@@ -362,7 +362,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
         trick_component->set_get_bailed(true);
     auto* physics = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics));
     auto* physics_skater = core::down_cast<objects::Rider>(physics->entity_);
-    const uint8_t flipped = physics->state_->flag(objects::PoseFlag::kFlipped).on;
+    const uint8_t flipped = physics->state()->flag(objects::PoseFlag::kFlipped).on;
     const int stance = physics_skater->goofy_ ? flipped : !flipped;
     stats->set10(text, score, stance);
     if (tricks_ > 249) {

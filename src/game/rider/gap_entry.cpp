@@ -160,7 +160,7 @@ void add_gap_score(modules::PointTally* score, const char* text, int points, int
 // The state component (the physics control's).
 RiderPoseState* state_of(RiderBoardPhysics* physics_control) { return physics_control->pose_; }
 // The core physics' state component.
-RiderPoseState* get_core_state(skater::SkaterPhysicsModule* core_physics) { return core_physics->state_; }
+RiderPoseState* get_core_state(skater::SkaterPhysicsModule* core_physics) { return core_physics->state(); }
 
 // Spin degrees in half turns (truncated, as the original's division).
 int get_half_turns(int degrees) { return degrees / 180; }

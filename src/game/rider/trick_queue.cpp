@@ -285,7 +285,7 @@ void MoveExecutor::set_trick_objects(bool on)
         list.get_clear();
         return;
     }
-    list.append_one(core_physics_->floor_feeler_.hit_.object_checksum_);
+    list.append_one(core_physics_->floor_feeler().hit_.object_checksum_);
 }
 
 // 0x005232E0
@@ -316,7 +316,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     uint32_t script = 0;
     trick->read_hash_value(kScr, &script, 0);
     if (script == kGrind) {
-        const GrindPoint* rail = core_physics_->rail_node_;
+        const GrindPoint* rail = core_physics_->rail_node();
         if (!rail || !rail->label_)
             return false;
     }
@@ -494,7 +494,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
     trick->read_sub_struct(kParams, &trick_params, 0);
     Entity* object = entity_;
     if (object->kind_tag_ == kSkaterType)
-        core_physics_->rail_adjust_ = 0;
+        core_physics_->set_rail_adjust(0);
     starting_special_ = grind_.is_special_;
     prepare_flip_and_rotate(this);
     object->replace_script(script, trick_params);

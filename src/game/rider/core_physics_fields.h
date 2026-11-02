@@ -62,7 +62,7 @@ inline uint32_t get_since(uint32_t stamp)
 // A timed flag set to `value` (the time noted if it changes).
 inline void set_timed_flag(SkaterPhysicsModule* component, PoseFlag flag, uint8_t value)
 {
-    component->state_->set_flag(flag, value);
+    component->state()->set_flag(flag, value);
 }
 
 // A physics value (0x00580400 / 0x00580440): the skater's tuning structure's `name`, else the global script value

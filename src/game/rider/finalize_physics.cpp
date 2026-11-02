@@ -77,7 +77,7 @@ void RiderPhysicsCommit::tick_frame()
     objects::RiderPoseState* state = pose_;
     // Out of a lip trick (the physics' +0x256: the frame began in one) straight up: into the air with hardly any speed
     // across the ground. Kept while in the air.
-    if (core->frame_began_in_lip_ && state->cur_phase_ != kStateLip) {
+    if (core->frame_began_in_lip() && state->cur_phase_ != kStateLip) {
         state->lip_straight_up_ = 0;
         if (state->cur_phase_ == kStateAir && std::fabs(entity_->vel_.x) < kStillSpeed &&
             std::fabs(entity_->vel_.z) < kStillSpeed)
@@ -85,12 +85,12 @@ void RiderPhysicsCommit::tick_frame()
     }
     if (state->cur_phase_ != kStateAir)
         state->lip_straight_up_ = 0;
-    state->drawn_normal_ = core->drawn_normal_;
-    state->floor_normal_ = core->floor_normal_;
+    state->drawn_normal_ = core->drawn_normal();
+    state->floor_normal_ = core->floor_normal();
 
     // The matrices: orthonormal again about up; the physics' own replaced by the object's if that needed repair.
     entity_->basis_frame_.square_up_axes(1);
-    maths::Mat4& physics_matrix = core->display_matrix_;
+    maths::Mat4& physics_matrix = core->display_matrix();
     physics_matrix.square_up_axes(1);
     if (entity_->basis_frame_.restore_right_angles())
         physics_matrix = static_cast<ObjectModule*>(core)->entity_->basis_frame_;

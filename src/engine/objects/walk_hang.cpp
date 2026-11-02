@@ -204,7 +204,7 @@ void set_anim_done(objects::FootMovement* walk, script::ObjectCallback code)
 void tell_physics_node(objects::FootMovement* walk)
 {
     if (objects::GrindPoint* node = walk->hang_node())
-        physics_of(walk)->rail_node_ = node;
+        physics_of(walk)->set_rail_node(node);
 }
 
 // The skater core's rail node and rail manager (its +0x22C / +0x230), for its rail scripts.
@@ -212,7 +212,7 @@ void tell_physics_rail(objects::FootMovement* walk)
 {
     tell_physics_node(walk);
     if (objects::GrindRailHub* rails = get_rails_of(walk))
-        physics_of(walk)->rail_manager_ = rails;
+        physics_of(walk)->set_rail_manager(rails);
 }
 void trigger_rail_script(objects::FootMovement* walk, const std::array<int, 3>& events)
 {
@@ -257,7 +257,7 @@ void let_go_of_ride(objects::MovingSurfaceModule* contact)
 // The skater core's timed flag +0xA0 of +0x1528 set (with the time at +0xA4), unless it is.
 void set_physics_flag_a0(objects::FootMovement* walk)
 {
-    objects::RiderPoseState* flags = physics_of(walk)->state_;
+    objects::RiderPoseState* flags = physics_of(walk)->state();
     if (flags->flag(objects::PoseFlag::kWallplanted).on != 1) {
         flags->flag(objects::PoseFlag::kWallplanted).on = 1;
         flags->flag(objects::PoseFlag::kWallplanted).changed_at = get_now();
@@ -612,7 +612,7 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
 // 0x0043EC40
 bool objects::FootMovement::drop_to_hang()
 {
-    if (physics_of(this)->state_->flag(objects::PoseFlag::kBailing).on)
+    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on)
         return false;
     const float factor = get_param(kDropToHangSpeedFactor);
     const double speed = run_speed() * factor;
@@ -1390,7 +1390,7 @@ void objects::FootMovement::climb_off_top()
 // 0x00441DE0
 bool objects::FootMovement::climb_onto_bottom(bool button)
 {
-    if (physics_of(this)->state_->flag(objects::PoseFlag::kBailing).on)
+    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on)
         return false;
     const float radius = button ? get_param(kButtonHorizSnapDistance) : get_param(kMaxHorizSnapDistance);
     const float height = get_param(kMaxVertSnapDistance);
@@ -1416,7 +1416,7 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
 // 0x00441FC0
 bool objects::FootMovement::climb_onto_top()
 {
-    if (physics_of(this)->state_->flag(objects::PoseFlag::kBailing).on)
+    if (physics_of(this)->state()->flag(objects::PoseFlag::kBailing).on)
         return false;
     const float height = get_param(kMaxVertSnapDistance);
     const float radius = get_param(kMaxHorizSnapDistance);

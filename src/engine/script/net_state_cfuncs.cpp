@@ -299,7 +299,7 @@ bool cfunc_set_slomo(script::Struct* params, script::Script*)
     frame_clock::set_game_clock_speed(speed);
     if (get_home_rider()) {
         if (objects::ObjectModule* component = get_home_rider()->fetch_module(kSlomoComponent))
-            core::down_cast<skater::SkaterPhysicsModule>(component)->slomo_speed_ = speed;
+            core::down_cast<skater::SkaterPhysicsModule>(component)->slomo_speed() = speed;
     }
     return true;
 }

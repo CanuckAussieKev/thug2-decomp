@@ -261,7 +261,7 @@ void ProjectileProximityComponent::tick_frame()
         script::launch_script(kProjectileHitPed, params.get(), find_object(rider_ref_->ident_), false, nullptr);
         params->put_name_key(
             kAmmoType,
-            core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kSkaterCorePhysics))->ammo_type_);
+            core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kSkaterCorePhysics))->ammo_type());
         script::launch_script(kHitPedScript, params.get(), entity_, false, nullptr);
         params.reset();
         projectile.active = false;

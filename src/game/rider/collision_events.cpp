@@ -731,8 +731,8 @@ void note_path(SkaterPhysicsModule* component, RouteWay path, const maths::Vec4&
         ++collision_events_state().path_count_;
     record.frame = frame_loop::frames_run();
     record.path = path;
-    record.face = face_of(component->feeler_);
-    record.ray = line_of(component->feeler_);
+    record.face = face_of(component->feeler());
+    record.ray = line_of(component->feeler());
 }
 
 void checkpoint(SkaterPhysicsModule* component, const char* label)
@@ -746,7 +746,7 @@ void checkpoint(SkaterPhysicsModule* component, const char* label)
     mark.frame = frame_loop::frames_run();
     mark.label = label;
     copy3(mark.vel, component->entity_->vel_);
-    mark.ray = line_of(component->feeler_);
+    mark.ray = line_of(component->feeler());
 }
 
 void end_frame(SkaterPhysicsModule* component)
@@ -774,12 +774,12 @@ void end_frame(SkaterPhysicsModule* component)
     const objects::GameEntity* object = object_of(component);
     Sample s = {};
     s.frame = frame_loop::frames_run();
-    s.state = component->state_->cur_phase_;
-    s.physics = component->state_->physics_mode_;
-    s.trick = component->state_->in_trick_move_ != 0;
-    const objects::RiderTeeterMoves* balance = component->balance_;
+    s.state = component->state()->cur_phase_;
+    s.physics = component->state()->physics_mode_;
+    s.trick = component->state()->in_trick_move_ != 0;
+    const objects::RiderTeeterMoves* balance = component->balance();
     s.balance = balance ? balance->trick_ : 0;
-    if (objects::PadInputModule* input = component->input_) {
+    if (objects::PadInputModule* input = component->input()) {
         // The pad's 16 buttons (0x20 bytes each from +0x20 - the first is up) and its scaled first stick.
         for (int i = 0; i < 16; ++i)
             if (const objects::ControlButton* button = input->pad_primary_.button_at_offset(static_cast<uint32_t>(i) * 0x20u);
@@ -791,9 +791,9 @@ void end_frame(SkaterPhysicsModule* component)
     copy3(s.pos, object->at_point_);
     copy3(s.vel, object->vel_);
     copy3(s.facing, core::at(object->basis_frame_.row, 2));
-    copy3(s.ground_normal_, component->floor_normal_);
-    s.ground = face_of(component->floor_feeler_);
-    s.ground_ray_ = line_of(component->floor_feeler_);
+    copy3(s.ground_normal_, component->floor_normal());
+    s.ground = face_of(component->floor_feeler());
+    s.ground_ray_ = line_of(component->floor_feeler());
     if (collision_events_state().sample_total_) {
         const Sample& last = sample_at(0);
         const float dx = core::at(s.pos, 0) - core::at(last.pos, 0);

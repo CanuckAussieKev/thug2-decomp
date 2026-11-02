@@ -145,7 +145,7 @@ void RiderBoardPhysics::dismount_to_walk()
     auto* camera = core::down_cast<GameEntity>(core::down_cast<Rider>(entity_)->get_skater_camera());
     ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
     ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
-    const int skater_state = core_physics_->state_->cur_phase_;
+    const int skater_state = core_physics_->state()->cur_phase_;
     core_leaving(core_physics_);
     freeze_module(static_cast<ObjectModule*>(core_physics_), true);
     freeze_module(entity_->fetch_module(kSkaterRotate), true);
@@ -203,7 +203,7 @@ void RiderBoardPhysics::tick_frame()
         return;
     switch (pose_->physics_mode_) {
     case kSkating:
-        entity_->display_matrix_ = core_physics_->display_matrix_;
+        entity_->display_matrix_ = core_physics_->display_matrix();
         break;
     case kWalking:
         entity_->display_matrix_ = entity_->basis_frame_;

@@ -164,7 +164,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         if (entity_->is_local_skater_) {
             char* deferred = &core::at(deferred_name_, 0);
             if (*deferred) {
-                const bool on_rail = core_physics_->landed_from_air_vert_ != 0;
+                const bool on_rail = core_physics_->landed_from_air_vert() != 0;
                 if (spin_counts(this, on_rail)) {
                     score_trick(this, deferred, deferred_score_, deferred_flags_);
                     score_spin(this, truncate(spin_total_));
@@ -186,7 +186,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         trick_count_ = 0;
         balance_trick_->keep_best_times();
         balance_trick_->get_reset();
-        core_physics_->special_friction_index_ = 0;
+        core_physics_->set_special_friction_index(0);
         return 1;
     }
     case kClearQuickGetup:
@@ -339,7 +339,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         balance_trick_->get_reset();
         core_physics_->end_skitch();
         spin_total_ = 0.0f;
-        core_physics_->special_friction_index_ = 0;
+        core_physics_->set_special_friction_index(0);
         list.get_clear();
         static_cast<void>(entity_->fetch_module(kSkaterGap)); // (its only use was ECX of the call below)
         discard_queued_gaps();
@@ -445,7 +445,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 flags |= 0x400;
             if (entity_->is_local_skater_) {
                 auto* core = core_physics_;
-                if (core->state_->cur_phase_ == 4) {
+                if (core->state()->cur_phase_ == 4) {
                     const int trick_score = trick_score_;
                     if (trick_score) {
                         const float multiplier = score->robot_factor();
@@ -459,8 +459,8 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 score_trick(this, trick_name, trick_score_, flags);
                 if (*trick_name) {
                     entity_->announce(kSkaterTrickDisplayed, nullptr, 0.0f);
-                    const bool special = core->state_->flag(PoseFlag::kVertAir).on;
-                    if ((!special && !static_cast<bool>(core->landed_from_air_vert_)) || spin_counts(this, true))
+                    const bool special = core->state()->flag(PoseFlag::kVertAir).on;
+                    if ((!special && !static_cast<bool>(core->landed_from_air_vert())) || spin_counts(this, true))
                         score_spin(this, truncate(spin_total_));
                 }
             }

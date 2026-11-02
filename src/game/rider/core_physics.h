@@ -712,6 +712,71 @@ public:
     // it stepped up.
     bool step_up(const maths::Vec4* point);
 
+    // The fields other code reads and sets.
+    maths::Mat4& display_matrix() { return display_matrix_; }
+    [[nodiscard]] const maths::Mat4& display_matrix() const { return display_matrix_; }
+    maths::Vec4& drawn_normal() { return drawn_normal_; }
+    [[nodiscard]] const maths::Vec4& drawn_normal() const { return drawn_normal_; }
+    [[nodiscard]] const maths::Vec4& floor_normal() const { return floor_normal_; }
+    void set_floor_normal(const maths::Vec4& value) { floor_normal_ = value; }
+    maths::Vec4& old_normal() { return old_normal_; }
+    [[nodiscard]] const maths::Vec4& old_normal() const { return old_normal_; }
+    float& normal_blend() { return normal_blend_; }
+    [[nodiscard]] float normal_blend() const { return normal_blend_; }
+    [[nodiscard]] float frame_length() const { return frame_length_; }
+    [[nodiscard]] int state_changed_at() const { return state_changed_at_; }
+    maths::Vec4& safe_pos() { return safe_pos_; }
+    [[nodiscard]] const maths::Vec4& safe_pos() const { return safe_pos_; }
+    render::ProbeRay& feeler() { return feeler_; }
+    [[nodiscard]] const render::ProbeRay& feeler() const { return feeler_; }
+    render::ProbeRay& floor_feeler() { return floor_feeler_; }
+    [[nodiscard]] const render::ProbeRay& floor_feeler() const { return floor_feeler_; }
+    maths::Vec4& probe_start() { return probe_start_; }
+    [[nodiscard]] const maths::Vec4& probe_start() const { return probe_start_; }
+    maths::Vec4& probe_end() { return probe_end_; }
+    [[nodiscard]] const maths::Vec4& probe_end() const { return probe_end_; }
+    [[nodiscard]] uint8_t hit_skatable() const { return hit_skatable_; }
+    [[nodiscard]] uint8_t hit_vert() const { return hit_vert_; }
+    [[nodiscard]] objects::GrindPoint* rail_node() const { return rail_node_; }
+    void set_rail_node(objects::GrindPoint* value) { rail_node_ = value; }
+    void set_rail_manager(objects::GrindRailHub* value) { rail_manager_ = value; }
+    [[nodiscard]] uint8_t frame_began_in_lip() const { return frame_began_in_lip_; }
+    uint8_t& auto_kick() { return auto_kick_; }
+    [[nodiscard]] uint8_t auto_kick() const { return auto_kick_; }
+    uint8_t& tap_spin() { return tap_spin_; }
+    [[nodiscard]] uint8_t tap_spin() const { return tap_spin_; }
+    float& slomo_speed() { return slomo_speed_; }
+    [[nodiscard]] float slomo_speed() const { return slomo_speed_; }
+    [[nodiscard]] uint8_t point_rail_spin() const { return point_rail_spin_; }
+    [[nodiscard]] uint8_t on_vehicle() const { return on_vehicle_; }
+    [[nodiscard]] uint32_t vehicle() const { return vehicle_; }
+    [[nodiscard]] uint32_t ammo_type() const { return ammo_type_; }
+    [[nodiscard]] uint8_t motoskateboard() const { return motoskateboard_; }
+    [[nodiscard]] uint8_t crouch_stats() const { return crouch_stats_; }
+    [[nodiscard]] uint8_t no_kick() const { return no_kick_; }
+    [[nodiscard]] uint8_t can_brake() const { return can_brake_; }
+    void set_special_friction_index(int value) { special_friction_index_ = value; }
+    void set_braking(uint8_t value) { braking_ = value; }
+    [[nodiscard]] uint8_t rail_backwards() const { return rail_backwards_; }
+    void set_rail_backwards(uint8_t value) { rail_backwards_ = value; }
+    [[nodiscard]] uint8_t landed_from_air_vert() const { return landed_from_air_vert_; }
+    [[nodiscard]] uint32_t air_start() const { return air_start_; }
+    [[nodiscard]] uint8_t lock_velocity() const { return lock_velocity_; }
+    void set_last_spin_backside(uint8_t value) { last_spin_backside_ = value; }
+    void set_rail_adjust(int value) { rail_adjust_ = value; }
+    [[nodiscard]] const maths::Mat4& drop_matrix() const { return drop_matrix_; }
+    [[nodiscard]] uint32_t wallplant_time() const { return wallplant_time_; }
+    void set_wallplant_time(uint32_t value) { wallplant_time_ = value; }
+    [[nodiscard]] objects::PadInputModule* input() const { return input_; }
+    [[nodiscard]] objects::ActivationZoneModule* trigger() const { return trigger_; }
+    [[nodiscard]] objects::RiderSfxPlayer* sound() const { return sound_; }
+    [[nodiscard]] objects::MoveExecutor* trick() const { return trick_; }
+    [[nodiscard]] objects::RiderPointKeeper* score() const { return score_; }
+    [[nodiscard]] objects::RiderTeeterMoves* balance() const { return balance_; }
+    [[nodiscard]] objects::RiderPoseState* state() const { return state_; }
+    [[nodiscard]] objects::MovingSurfaceModule* ride() const { return ride_; }
+    [[nodiscard]] objects::RiderBoardPhysics* physics_control() const { return physics_control_; }
+
 private:
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
     // what every way out of the update does.)
@@ -732,7 +797,7 @@ private:
     // normal as the new up.)
     void land_from_air();
 
-public:
+private:
     // The fields after the base's (+0x18-+0x153B). Other components and the network code read a few of them.
     maths::Mat4 display_matrix_{};  // +0x18 the matrix the skater is drawn with
     maths::Vec4 drawn_normal_{};    // +0x58 the ground normal the display matrix leans to (blended from old_normal_)

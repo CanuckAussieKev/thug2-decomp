@@ -162,7 +162,7 @@ void place_skater(objects::Rider* skater, Point pos, float heading)
         core::at(m->row, 2) = {.x = s, .y = 0.0f, .z = c, .w = 0.0f};
     }
     if (skater->core_physics_)
-        skater->core_physics_->display_matrix_ = skater->basis_frame_; // (its display matrix)
+        skater->core_physics_->display_matrix() = skater->basis_frame_; // (its display matrix)
     skater->at_point_ = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
     skater->old_pos_ = skater->at_point_;
 }

@@ -37,7 +37,7 @@ constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 constexpr float kFullCircle = 360.0f;                     // 0x00645EA8
 
 // The core physics' vector at +0x78 (the plane PitchGreaterThan and RollGreaterThan measure against).
-const maths::Vec4& core_vector78(skater::SkaterPhysicsModule* core_physics) { return core_physics->old_normal_; }
+const maths::Vec4& core_vector78(skater::SkaterPhysicsModule* core_physics) { return core_physics->old_normal(); }
 
 // The unnamed float parameter (0 without one; asserted).
 float angle_parameter(script::Struct* params)
@@ -67,7 +67,7 @@ void RiderFrameLookups::seal()
 }
 
 // 0x00514030
-void RiderFrameLookups::tick_frame() { basis_frame_ = core_physics_->display_matrix_; }
+void RiderFrameLookups::tick_frame() { basis_frame_ = core_physics_->display_matrix(); }
 
 // 0x00514040
 int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)

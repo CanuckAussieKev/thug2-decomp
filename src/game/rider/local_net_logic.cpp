@@ -94,7 +94,7 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
     out.flag74 = core->in_trick_move_;
     out.flag75 = core->physics_mode_ == 1 ? 1 : 0;
     out.flag76 = core->in_vehicle_;
-    const objects::GrindPoint* rail = self->board_->rail_node_;
+    const objects::GrindPoint* rail = self->board_->rail_node();
     out.value80 = rail ? rail->label_ : 0;
     // A bit per state flag (the state component's 24 timed flags): set while it's on.
     uint32_t controls = 0;

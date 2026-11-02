@@ -34,7 +34,7 @@ constexpr float kDegreesPerRadian = 57.2957763671875f;    // 0x00645468
 constexpr float kSecondsPerMs = 0.001f;                   // 0x006461D8
 constexpr float kSecondsPerFrame = 0.0166666675f;         // 0x006463B8
 
-maths::Mat4& core_matrix(skater::SkaterPhysicsModule* core_physics) { return core_physics->display_matrix_; }
+maths::Mat4& core_matrix(skater::SkaterPhysicsModule* core_physics) { return core_physics->display_matrix(); }
 // The core physics' matrix set from its object's.
 void core_matrix_from_object(skater::SkaterPhysicsModule* core_physics)
 {
@@ -159,7 +159,7 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
         right.y = -right.y;
         right.z = -right.z;
         core_matrix_from_object(core_physics_);
-        core_physics_->rail_backwards_ = core_physics_->rail_backwards_ ? 0 : 1;
+        core_physics_->set_rail_backwards(core_physics_->rail_backwards() ? 0 : 1);
         return 1;
     }
     core_matrix_from_object(core_physics_);

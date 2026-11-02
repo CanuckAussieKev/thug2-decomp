@@ -922,8 +922,8 @@ void trace_frame()
         const int landed = score ? score->pot_score() : -1;
         // the core physics' last ground hit (its feeler copy at +0x158): the face's flags and the object's checksum
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysicsComponent));
-        const unsigned ground_flags = core ? core->floor_feeler_.hit_.face_flags_ : 0;
-        const unsigned ground_object = core ? core->floor_feeler_.hit_.object_checksum_ : 0;
+        const unsigned ground_flags = core ? core->floor_feeler().hit_.face_flags_ : 0;
+        const unsigned ground_object = core ? core->floor_feeler().hit_.object_checksum_ : 0;
         text::print_to(trace.file.get(), "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
                        frame_loop::frames_run(), static_cast<double>(skater->at_point_.x),
                        static_cast<double>(skater->at_point_.y), static_cast<double>(skater->at_point_.z),

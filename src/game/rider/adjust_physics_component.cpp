@@ -64,14 +64,14 @@ void RiderPhysicsTweaks::seal()
 // 0x004F8C40
 void RiderPhysicsTweaks::tick_frame()
 {
-    objects::RiderPoseState* flags = core_ptr_->state_;
+    objects::RiderPoseState* flags = core_ptr_->state();
     if (flags->cur_phase_ == 0 || entity_->vel_.y < 0.0f) {
         if (flags->flag(PoseFlag::kDescended).on != 1) {
             flags->flag(PoseFlag::kDescended).on = 1;
             flags->flag(PoseFlag::kDescended).changed_at = frame_clock::game_clock_elapsed() + clock_offset();
         }
     }
-    if (!core_ptr_->state_->flag(PoseFlag::kSkitching).on)
+    if (!core_ptr_->state()->flag(PoseFlag::kSkitching).on)
         check_inside_moving_object();
     keep_above_ground();
     entity_->old_pos_ = entity_->at_point_;
@@ -80,7 +80,7 @@ void RiderPhysicsTweaks::tick_frame()
 // 0x004F8AA0
 void RiderPhysicsTweaks::check_inside_moving_object()
 {
-    const maths::Vec4& frame_start = core_ptr_->safe_pos_;
+    const maths::Vec4& frame_start = core_ptr_->safe_pos();
     if (!ride_->find_contact_ahead(&entity_->at_point_, &frame_start))
         return;
     debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182,
@@ -93,7 +93,7 @@ void RiderPhysicsTweaks::check_inside_moving_object()
     feeler.change_finish(&end);
     if (feeler.get_hit_shape(true, false) && feeler.hit_object_alive())
         ride_->ride_on(feeler.get_hit_object());
-    if (core_ptr_->state_->cur_phase_ == 4) {
+    if (core_ptr_->state()->cur_phase_ == 4) {
         change_phase(core_ptr_, 1);
         entity_->post_own_event(kUnderTheFloor, nullptr);
     } else if (entity_->at_point_ == frame_start) {

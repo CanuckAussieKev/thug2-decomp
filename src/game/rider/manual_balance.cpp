@@ -172,7 +172,7 @@ void Balance::kickoff(uint32_t left_button, uint32_t right_button, uint32_t tric
     const uint32_t type = get_trick_type(balance_trick_);
     if (type == kGrind || type == kSlide) {
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_->fetch_module(kSkaterCorePhysics));
-        void* rail = core->rail_node_;
+        void* rail = core->rail_node();
         if (rail_ != -1) {
             if (static_cast<GrindPoint*>(rail)->is_named(static_cast<uint32_t>(rail_))) { // the same rail
                 on_rail_seconds_ =
@@ -308,7 +308,7 @@ void Balance::tick_frame()
         bool flip = flip_;
         if (mirrored_) {
             auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_->fetch_module(kSkaterCorePhysics));
-            if (core->state_->flag(PoseFlag::kFlipped).on)
+            if (core->state()->flag(PoseFlag::kFlipped).on)
                 flip = !flip;
         }
         if (ObjectModule* blender = skater_->fetch_module(kAnimBlender)) {

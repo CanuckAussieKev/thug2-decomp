@@ -134,7 +134,7 @@ void SkaterVehicleSoundComponent::seal()
 // 0x0051B920
 void SkaterVehicleSoundComponent::tick_frame()
 {
-    if (!static_cast<bool>(core_physics_->on_vehicle_) || silenced_ || !settings_)
+    if (!static_cast<bool>(core_physics_->on_vehicle()) || silenced_ || !settings_)
         return;
     tick_engine();
     update_skid();
@@ -190,8 +190,8 @@ void SkaterVehicleSoundComponent::tick_engine()
     }
 
     // The gear: back to the first a while after driving stopped, else shifted at the gear's speeds.
-    if (core_physics_->state_->cur_phase_ == 0) {
-        const int last_driven = static_cast<int>(core_physics_->air_start_);
+    if (core_physics_->state()->cur_phase_ == 0) {
+        const int last_driven = static_cast<int>(core_physics_->air_start());
         const float delay = get_rate(0xC0F451D4);
         const int clock = get_clock();
         if (as_unsigned(get_since(clock, clock_offset(), last_driven)) > delay)
@@ -251,7 +251,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 void SkaterVehicleSoundComponent::update_skid()
 {
     float skid = 0.0f;
-    if (input_->pad_primary_.btn_down_.held_down_ && core_physics_->state_->cur_phase_ == 0) {
+    if (input_->pad_primary_.btn_down_.held_down_ && core_physics_->state()->cur_phase_ == 0) {
         const double speed = get_pace(entity_->vel_);
         if (!(0.0 > speed))
             skid = static_cast<float>(speed);

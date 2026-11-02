@@ -99,7 +99,7 @@ const objects::Rider* skater_of_feeler(const void* feeler)
         return nullptr;
     for (uint32_t i = 0; const objects::Rider* rider = skate->get_skater_at(i); ++i) {
         const skater::SkaterPhysicsModule* core = rider->core_physics_;
-        if (core && (feeler == &core->feeler_ || feeler == &core->floor_feeler_))
+        if (core && (feeler == &core->feeler() || feeler == &core->floor_feeler()))
             return rider;
         if (rider->walk_ && feeler == &rider->walk_->get_feeler())
             return rider;
