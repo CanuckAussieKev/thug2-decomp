@@ -52,8 +52,8 @@ float*& get_intensities() { return g_intensities; }
 DynamicLightBase** dynamic_lights() { return g_dynamic_lights.data(); }
 int& dynamic_light_count() { return g_dynamic_light_count; }
 // get_dynamic_lights_near's falloffs and the lights' indexes (32 each).
-float* near_falloffs() { return g_near_light_falloffs.data(); }
-int* near_indexes() { return g_near_light_indexes.data(); }
+std::array<float, 31>& near_falloffs() { return g_near_light_falloffs; }
+std::array<int, 32>& near_indexes() { return g_near_light_indexes; }
 
 // 2b - 1 times a range, plus 1 (the high range above 0.5 - or NaN -, the low one at and below).
 float get_scaled(float brightness, float low, float high)
@@ -272,8 +272,8 @@ DynamicLightBase** find_dynamic_light(uint32_t owner)
 // 0x0048EF90
 uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, DynamicLightBase** out)
 {
-    float* falloffs = near_falloffs();
-    int* indexes = near_indexes();
+    float* falloffs = near_falloffs().data();
+    int* indexes = near_indexes().data();
     uint32_t count = 0;
     for (int i = 0; i < dynamic_light_count(); ++i) {
         DynamicLightBase* light = dynamic_lights()[i]; // (not checked for null, as the original)

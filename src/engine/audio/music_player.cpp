@@ -49,7 +49,7 @@ std::array<char, 100> g_soundtrack_name;
 std::array<Playlist, 2>& get_playlists() { return g_playlists; }
 int& current_playlist() { return g_current_playlist; }
 // The track playing (40 bytes, just before the playlists) and whether it loops (SetMusicLooping).
-void* special_track() { return g_special_track.data(); }
+std::array<char, 44>& special_track() { return g_special_track; }
 
 uint8_t g_random_order{1};
 bool g_reshuffle{true};
@@ -285,7 +285,7 @@ bool is_track_playing(int list, int track)
     if (track >= core::at(get_playlists(), list).count)
         return false;
     const uint32_t name = checksums::hash_from_text(core::at(core::at(get_playlists(), list).tracks, track).data());
-    return checksums::hash_from_text(static_cast<const char*>(special_track())) == name;
+    return checksums::hash_from_text(static_cast<const char*>(special_track().data())) == name;
 }
 
 // 0x004514C0
@@ -365,7 +365,7 @@ void play_track(const char* name, bool loop)
 {
     if (!music_on() || music_channel_kind() != 0)
         return;
-    char* playing = static_cast<char*>(special_track());
+    char* playing = static_cast<char*>(special_track().data());
     THUG2_MSVC_WARNING(suppress : 4996) // (40 bytes, as in the original)
     std::strcpy(playing, name);
     const int list = current_playlist();
@@ -414,7 +414,7 @@ void play_next_track()
         return;
     }
     if (get_looping()) {
-        play_track(static_cast<const char*>(special_track()), true);
+        play_track(static_cast<const char*>(special_track().data()), true);
         return;
     }
     if (list.count == 0)
@@ -488,7 +488,7 @@ void play_next_track_in_order()
     g_bgm_stream_kind = 0;
     apply_track_volume(); // the music volume
     if (get_looping()) {
-        play_track(static_cast<const char*>(special_track()), true);
+        play_track(static_cast<const char*>(special_track().data()), true);
         return;
     }
     for (int track = 0; track < list.count; ++track) {

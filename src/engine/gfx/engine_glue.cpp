@@ -68,7 +68,7 @@ bool omit_from_draw() { return g_suppress_draw; }
 
 // The screenshot asked for by name, taken once the frame is shown (0x00786D94, 0x80 characters), and whether that
 // name is used as it is (0x00786E14) rather than numbered.
-char* pending_screen_shot() { return g_pending_screen_shot.data(); }
+std::array<char, 128>& pending_screen_shot() { return g_pending_screen_shot; }
 bool& screen_shot_name_exact() { return g_screen_shot_name_exact; }
 
 // The clear colour: the fog's with fog and distance clipping on, else the background's.
@@ -176,9 +176,9 @@ void finish_rendering()
     input_port()->Present(nullptr, nullptr, nullptr, nullptr);
     g_draw_calls = 0; // the frame's draw counts
     g_drawn_triangles = 0;
-    if (pending_screen_shot()[0]) {
-        screen_shot(pending_screen_shot(), 0);
-        pending_screen_shot()[0] = 0;
+    if (core::at(pending_screen_shot(), 0)) {
+        screen_shot(pending_screen_shot().data(), 0);
+        core::at(pending_screen_shot(), 0) = 0;
         screen_shot_name_exact() = false;
     }
     // The next frame's clear: with the screen blur on, colour and depth (and the blur's frames counted, from 0

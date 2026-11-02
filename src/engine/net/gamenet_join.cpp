@@ -143,8 +143,8 @@ struct AuthInstance {
 std::array<char, kPasswordSize> g_join_password;
 
 // The global passwords: the one being typed (12) and the one in use (10; resent with every request).
-char* pending_password() { return g_pending_password.data(); }
-char* join_password() { return g_join_password.data(); }
+std::array<char, kPasswordSize>& pending_password() { return g_pending_password; }
+std::array<char, kPasswordSize>& join_password() { return g_join_password; }
 
 net::Hub* net_session_slot() { return net::Hub::sole(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
@@ -424,15 +424,15 @@ void Hub::join_server(uint32_t ip, uint16_t port, int index)
     }
     info.observer = join_mode_ == kJoinModeObserve;
     info.version = kVersion;
-    if (std::strlen(pending_password()) != 0) {
-        std::strcpy(info.password.data(), pending_password());
-        std::strcpy(join_password(), pending_password());
+    if (std::strlen(pending_password().data()) != 0) {
+        std::strcpy(info.password.data(), pending_password().data());
+        std::strcpy(join_password().data(), pending_password().data());
     } else {
-        std::memset(join_password(), 0, kPasswordSize);
+        std::memset(join_password().data(), 0, kPasswordSize);
         core::at(info.password, 0) = '\0';
     }
     if (!client->is_host_local())
-        std::memset(pending_password(), 0, kPasswordSize);
+        std::memset(pending_password().data(), 0, kPasswordSize);
     info.can_queue_up_ = false;
     info.broadband = net->get_net_link_kind() != kConnectionTypeModem;
     thugpro::ConnectRequest request{};
@@ -472,7 +472,7 @@ void Hub::retry_entry(AppHost* client)
 // 0x00534BD0
 void Hub::retry_entry_with_key(const char* password)
 {
-    std::strcpy(join_password(), password);
+    std::strcpy(join_password().data(), password);
     const char* name = preference_text(this, kNetworkId); // (not used)
     (void)name;
     ConnectInfo info{};
@@ -801,7 +801,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     }
     std::strncpy(info->name.data(), name, kNameSize - 1);
     core::at(info->name, kNameSize - 1) = '\0';
-    std::strcpy(info->password.data(), join_password());
+    std::strcpy(info->password.data(), join_password().data());
     int size = 0;
     if (!info->observer) {
         auto* profile = modules::g_skate_module->fetch_account(0);
@@ -868,7 +868,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         info.version = kVersion;
         info.can_queue_up_ = true;
         info.broadband = net->get_net_link_kind() != kConnectionTypeModem;
-        std::strcpy(info.password.data(), join_password());
+        std::strcpy(info.password.data(), join_password().data());
         thugpro::ConnectRequest request{};
         send_connection_request(as_client(manager->client_app_), info, &request);
         manager->join_phase_ = kJoinStateCdKey;

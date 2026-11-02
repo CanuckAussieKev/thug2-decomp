@@ -84,7 +84,7 @@ prefs::Preferences* net_game_options(Hub* m) { return &m->net_options_; }
 std::array<char, 128> g_fallback_map_name{{"Boston"}};
 
 // The level's name for qr2's mapname when the level select has none (0x0067F0A0, "Boston" until set up).
-char* fallback_map_name() { return g_fallback_map_name.data(); }
+std::array<char, 128>& fallback_map_name() { return g_fallback_map_name; }
 
 } // namespace
 
@@ -112,7 +112,7 @@ void server_key_callback(int key, void* buffer, void*)
         return;
     case kKeyMapname: {
         const char* name = manager->get_map_name(true);
-        buffer_add(buffer, name ? name : fallback_map_name());
+        buffer_add(buffer, name ? name : fallback_map_name().data());
         return;
     }
     case kKeyGametype:
@@ -200,7 +200,7 @@ void start_query_reporting(bool keep_map_name)
     if (!keep_map_name) { // the level's name, for mapname when the level select has none
         const char* text = nullptr;
         net_game_options(net_session_slot())->fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
-        std::strcpy(fallback_map_name(), text);
+        std::strcpy(fallback_map_name().data(), text);
     }
     bool& reporting = g_query_reporting;
     if (reporting)

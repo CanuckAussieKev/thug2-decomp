@@ -117,7 +117,7 @@ void unload_tex_dict(void* textures) { render::unload_tex_dict(static_cast<rende
 
 // --- shared steps ---------------------------------------------------------------------------------------------
 std::array<uint8_t, 0x180> g_params_pool; // 4 blocks of 0x60 bytes
-uint8_t* params_pool() { return g_params_pool.data(); }
+std::array<uint8_t, 0x180>& params_pool() { return g_params_pool; }
 uint32_t& params_in_use() { return g_params_in_use; }
 
 // strcpy (no bounds, as the original's).
@@ -198,7 +198,7 @@ void* alloc_load_params(uint32_t /*size*/)
     for (int i = 0; i < 4; ++i) {
         if (!(params_in_use() & (1u << i))) {
             params_in_use() |= 1u << i;
-            return params_pool() + 0x60 * i;
+            return params_pool().data() + 0x60 * i;
         }
     }
     return nullptr;
@@ -208,7 +208,7 @@ void* alloc_load_params(uint32_t /*size*/)
 void free_load_params(void* params)
 {
     for (int i = 0; i < 4; ++i) {
-        if (params_pool() + 0x60 * i == params) {
+        if (params_pool().data() + 0x60 * i == params) {
             params_in_use() &= ~(1u << i);
             return;
         }

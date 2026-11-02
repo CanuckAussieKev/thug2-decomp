@@ -30,7 +30,7 @@ constexpr double kPer128 = 1.0 / 128.0;  // 0x0064A2FC
 constexpr float kPer255 = 1.0f / 255.0f; // 0x00645D70 (0x3B808081)
 
 // The renderer's light constants.
-float* ambient_constant() { return g_light_constants.data(); }
+std::array<float, 28>& ambient_constant() { return g_light_constants; }
 float* light_direction_constant(uint32_t light) { return g_light_constants.data() + 4 + 8 * light; }
 float* light_color_constant(uint32_t light) { return g_light_constants.data() + 8 + 8 * light; }
 
@@ -146,7 +146,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         color = ambient;
     else
         fetch_ambient_hue(&color);
-    send_color(ambient_constant(), color, size_factor_);
+    send_color(ambient_constant().data(), color, size_factor_);
     for (uint32_t i = 0; i < light_count(); ++i) {
         if (overrides & (2u << (i & 31))) {
             send_color(light_color_constant(i), colors[i], intensities_[i]);
@@ -227,7 +227,7 @@ bool PcModelLights::diffuse_light_is_on(int light) { return (overrides & (2u << 
 // 0x004B67E0
 bool update_ambient_light()
 {
-    send_color(ambient_constant(), scene_ambient(), scene_scale());
+    send_color(ambient_constant().data(), scene_ambient(), scene_scale());
     return true;
 }
 
@@ -270,7 +270,7 @@ bool delete_model_lights(gsl::owner<PcModelLights*> lights)
 // 0x004B6940
 void reset_lights()
 {
-    send_color(ambient_constant(), scene_ambient(), scene_scale());
+    send_color(ambient_constant().data(), scene_ambient(), scene_scale());
     for (int i = 0; i < 2; ++i) {
         uint32_t color = 0;
         fetch_light_tint(&color, i);

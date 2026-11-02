@@ -34,7 +34,7 @@ std::array<OccluderPolygon, 512>& polys() { return g_occluder_quads; }
 uint32_t& poly_count() { return g_occlusion_poly_count; }
 uint32_t& next_poly() { return g_occlusion_next_poly; } // where add_occluders carries on
 int& tick_cycle() { return g_occlusion_frame; }
-Occluder* occluder_array() { return g_occluders.data(); }
+std::array<Occluder, 8>& occluder_array() { return g_occluders; }
 uint32_t& occluder_count() { return g_occluder_count; }
 constexpr uint32_t kOccluderLimit = 8;
 
@@ -123,8 +123,8 @@ bool inside_frustum(const float* view, float radius)
 int compare_occluders(const void* a, const void* b)
 {
     // (qsort hands out const pointers; the occluders are the array's own)
-    Occluder* first = mutable_within(occluder_array(), static_cast<const Occluder*>(a));
-    Occluder* second = mutable_within(occluder_array(), static_cast<const Occluder*>(b));
+    Occluder* first = mutable_within(occluder_array().data(), static_cast<const Occluder*>(a));
+    Occluder* second = mutable_within(occluder_array().data(), static_cast<const Occluder*>(b));
     if (!first->poly->enabled)
         core::at(first->hidden, 0) = 0;
     if (!second->poly->enabled)
@@ -148,9 +148,9 @@ void sort_occluders()
     const uint32_t count = occluder_count();
     if (count == 0)
         return;
-    get_qsort(occluder_array(), count, sizeof(Occluder), &compare_occluders);
+    get_qsort(occluder_array().data(), count, sizeof(Occluder), &compare_occluders);
     for (int i = static_cast<int>(occluder_count()) - 1; i >= 0; --i) {
-        Occluder& occluder = occluder_array()[i];
+        Occluder& occluder = core::at(occluder_array(), i);
         if (core::at(occluder.hidden, 1) + core::at(occluder.hidden, 0) == 0) {
             // Hid nothing: its polygon is free again (the list is sorted, so it's at the end).
             occluder.poly->in_use_ = 0;
@@ -191,7 +191,7 @@ void add_occluders()
         OccluderPolygon& poly = core::at(polys(), next++);
         if (!poly.in_use_ && poly.enabled) {
             if (occluders < kOccluderLimit) {
-                Occluder& occluder = occluder_array()[occluders++];
+                Occluder& occluder = core::at(occluder_array(), occluders++);
                 occluder.poly = &poly;
                 poly.in_use_ = 1;
                 core::at(occluder.hidden, 0) = 0;
@@ -251,7 +251,7 @@ void collect_occluders(const maths::Vec4* eye, int frame)
     using L = LengthOrder;
     using D = DotOrder;
     for (uint32_t i = 0; i < occluder_count(); ++i) {
-        Occluder& occluder = occluder_array()[i];
+        Occluder& occluder = core::at(occluder_array(), i);
         const OccluderPolygon& poly = *occluder.poly;
         const float* p0 = core::at(poly.corners, 0).data();
         const float* p1 = core::at(poly.corners, 1).data();
@@ -296,7 +296,7 @@ bool sphere_occluded(const maths::Vec4* centre, float radius, int weight)
     }
     const float limit = -radius;
     for (uint32_t i = 0; i < occluder_count(); ++i) {
-        Occluder& occluder = occluder_array()[i];
+        Occluder& occluder = core::at(occluder_array(), i);
         int plane = 0;
         for (; plane < 5; ++plane) {
             const float* p = core::at(occluder.planes, plane).data();

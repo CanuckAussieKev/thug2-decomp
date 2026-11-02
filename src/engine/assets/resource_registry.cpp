@@ -42,7 +42,7 @@ struct ExtensionType {
 // (the extensions are the exe's strings; the table's last entry stays null)
 std::array<ExtensionType, 13> g_extensions{{{"BIN", 1}, {"COL", 4}, {"SCN", 2},  {"GEOM", 2}, {"MDL", 7}, {"SKA", 5},
                                {"FAM", 5}, {"SKE", 6}, {"SKIN", 7}, {"TEX", 3},  {"CUT", 9}, {"QB", 10}}};
-const ExtensionType* get_extensions() { return g_extensions.data(); }
+const std::array<ExtensionType, 13>& get_extensions() { return g_extensions; }
 
 // The hash table lookup inlined in the original: the first item with the key and a value.
 Resource* get_find(lists::KeyMap* table, uint32_t checksum)
@@ -439,7 +439,7 @@ int ResourceRegistry::get_type_from_extension(const char* name)
         --dot;
     if (*dot != '.')
         return 0;
-    for (const ExtensionType* entry = get_extensions(); entry->extension; ++entry) {
+    for (const ExtensionType* entry = get_extensions().data(); entry->extension; ++entry) {
         if (_stricmp(entry->extension, dot + 1) == 0)
             return entry->type;
     }

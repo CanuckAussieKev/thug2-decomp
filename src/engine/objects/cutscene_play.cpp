@@ -54,7 +54,7 @@ constexpr uint32_t kInfoScript = 0xD9157174;
 
 // The frame counter while the time is fixed (one frame each update), and the screenshots' file name.
 int& fixed_frame() { return g_cutscene_fixed_frame; }
-char* shot_name() { return g_cutscene_shot_name.data(); }
+std::array<char, 256>& shot_name() { return g_cutscene_shot_name; }
 
 void get_run(uint32_t script, script::Struct* params = nullptr)
 {
@@ -128,9 +128,9 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const Cut
     stubs::return_true(); // (0x005B6570: a jump to the shared stub, true)
     const char* name = cutscene_name_from_path(path);
     if (flag_34b_0_)
-        std::memcpy(shot_name(), name, std::strlen(name) + 1);
+        std::memcpy(shot_name().data(), name, std::strlen(name) + 1);
     else
-        std::memcpy(shot_name(), "dummy", 6); // (the game's 0x0064799C)
+        std::memcpy(shot_name().data(), "dummy", 6); // (the game's 0x0064799C)
     label_ = checksums::hash_from_text(name);
     if (flag_34b_0_) {
         // the music: the cutscene's for the skater's model, else the cutscene's own; else none to wait for
@@ -224,7 +224,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
         }
         if (fixed && fixed_frame() > 0) {
             std::array<char, 128> shot{};
-            std::snprintf(shot.data(), sizeof(shot), "%s%04d", shot_name(), fixed_frame() - 1);
+            std::snprintf(shot.data(), sizeof(shot), "%s%04d", shot_name().data(), fixed_frame() - 1);
             render::screen_shot(shot.data(), 1); // (a screenshot)
         }
     }

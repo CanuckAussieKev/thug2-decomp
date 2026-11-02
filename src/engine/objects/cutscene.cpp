@@ -32,14 +32,14 @@ constexpr uint32_t kSlot12Global = 0xA2A4F02F;   // CinematicEntry::update_optio
 constexpr uint32_t kButtonX = 0x40;
 constexpr uint32_t kButtonStart = 0x800;
 
-char* name_buffer() { return g_cutscene_name_buffer.data(); }
+std::array<char, 256>& name_buffer() { return g_cutscene_name_buffer; }
 
 } // namespace
 
 // 0x004638B0
 const char* cutscene_name_from_path(const char* path)
 {
-    char* name = name_buffer();
+    char* name = name_buffer().data();
     for (int i = static_cast<int>(std::strlen(path)); i >= 0; --i) {
         if (path[i] == '\\' || path[i] == '/') {
             // (copied forwards a byte at a time, as the original)

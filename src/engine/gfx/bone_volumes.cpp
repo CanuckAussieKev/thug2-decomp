@@ -34,7 +34,7 @@ lists::KeyMap& get_table() { return g_bone_volume_table; }
 std::array<maths::Vec4, 64> g_bone_world_pos; // each bone's world position as segment_hits_bone found it
 
 // Each bone's world position as segment_hits_bone found it (64 of them).
-maths::Vec4* joint_point_array() { return g_bone_world_pos.data(); }
+std::array<maths::Vec4, 64>& joint_point_array() { return g_bone_world_pos; }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -182,7 +182,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
     float nearest = 0.0f;
     float nearest_t = 0.0f;
     uint32_t hit = 0;
-    maths::Vec4* positions = joint_point_array();
+    maths::Vec4* positions = joint_point_array().data();
     for (int i = 0; i < skeleton->get_num_bones(); ++i) {
         const Joint* bone_state = skeleton->get_bone(i);
         maths::Mat4 at{};

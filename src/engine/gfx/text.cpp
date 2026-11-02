@@ -387,8 +387,8 @@ void set_texture_stage_state(int stage, int type, int value)
 
 // The vertices' store (open_sketch points the buffer at it) and the quads' triangles as indices into it (made the
 // first time they're drawn).
-TextVertex* vertex_store() { return g_text_vertex_store.data(); }
-uint16_t* quad_indices() { return g_text_quad_indices.data(); }
+std::array<TextVertex, 0x1C00 * 4 / sizeof(TextVertex)>& vertex_store() { return g_text_vertex_store; }
+std::array<uint16_t, 0x100 * 6>& quad_indices() { return g_text_quad_indices; }
 bool& quad_indices_made() { return g_quad_indices_made; }
 constexpr int kQuads = 0x100;
 
@@ -411,7 +411,7 @@ uint32_t get_u32(const uint8_t* p)
 } // namespace
 
 // 0x004CEF00
-void GlyphRun::open_sketch() { get_vertex_buffer() = vertex_store(); }
+void GlyphRun::open_sketch() { get_vertex_buffer() = vertex_store().data(); }
 
 // 0x004CEF10
 void GlyphRun::close_sketch()
@@ -419,7 +419,7 @@ void GlyphRun::close_sketch()
     if (!quad_indices_made()) {
         for (int quad = 0; quad < kQuads; ++quad) {
             auto first = static_cast<uint16_t>(quad * 4);
-            uint16_t* triangles = quad_indices() + quad * 6;
+            uint16_t* triangles = quad_indices().data() + quad * 6;
             triangles[0] = first;
             triangles[1] = static_cast<uint16_t>(first + 1);
             triangles[2] = static_cast<uint16_t>(first + 2);
@@ -447,8 +447,8 @@ void GlyphRun::close_sketch()
     if (!g_suppress_draw) {                                                      // (rendering not skipped)
         ++g_draw_calls;                                                          // draw calls
         g_drawn_triangles += count / 2;                                          // "triangles"
-        g_d3d_device->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, count, count / 2, quad_indices(), D3DFMT_INDEX16,
-                                             vertex_store(), sizeof(TextVertex));
+        g_d3d_device->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, count, count / 2, quad_indices().data(), D3DFMT_INDEX16,
+                                             vertex_store().data(), sizeof(TextVertex));
     }
     set_texture_stage_state(0, 1, 4); // colour and alpha back to texture x diffuse
     set_texture_stage_state(0, 4, 4);

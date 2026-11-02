@@ -46,9 +46,9 @@ std::array<char, 128> g_path_prefix;
 std::array<char, 128> g_bootstrap_argument;
 std::array<char, 128> g_bootstrap_return;
 
-char* path_prefix() { return g_path_prefix.data(); }               // (0x80 bytes)
-char* bootstrap_return() { return g_bootstrap_return.data(); }     // where a bootstrap demo returns to
-char* bootstrap_argument() { return g_bootstrap_argument.data(); } // what it passes back
+std::array<char, 128>& path_prefix() { return g_path_prefix; }               // (0x80 bytes)
+std::array<char, 128>& bootstrap_return() { return g_bootstrap_return; }     // where a bootstrap demo returns to
+std::array<char, 128>& bootstrap_argument() { return g_bootstrap_argument; } // what it passes back
 const char* const kEmpty = "";                              // ""
 
 // strcpy (unbounded, as the original's).
@@ -117,7 +117,7 @@ bool got_argument(const char* option, int argc, char** argv)
 }
 
 // 0x005B5F10
-const char* get_path_prefix() { return path_prefix(); }
+const char* get_path_prefix() { return path_prefix().data(); }
 
 // 0x005B5F20
 const char* get_locale_label()
@@ -222,7 +222,7 @@ void set_ntsc_flag(bool on)
 // 0x005B60B0
 void prepare_all(int argc, char** argv)
 {
-    copy_string(path_prefix(), kEmpty);
+    copy_string(path_prefix().data(), kEmpty);
     read_registry(argc, argv);
     if (got_argument("CD", argc, argv)) // "CD"
         from_cd() = true;
@@ -233,14 +233,14 @@ void prepare_all(int argc, char** argv)
     if (got_argument("Bootstrap", argc, argv)) { // "Bootstrap"
         bootstrap() = true;
         if (argc > 2) {
-            copy_string(bootstrap_return(), argv[2]);
+            copy_string(bootstrap_return().data(), argv[2]);
             if (argc > 3)
-                copy_string(bootstrap_argument(), argv[3]);
+                copy_string(bootstrap_argument().data(), argv[3]);
             else
-                copy_string(bootstrap_argument(), "THUG2"); // "THUG2" (the original's sprintf)
+                copy_string(bootstrap_argument().data(), "THUG2"); // "THUG2" (the original's sprintf)
             // "This bootstrap demo will return to %s passing back: %s\n"
-            debug::printf("This bootstrap demo will return to %s passing back: %s\n", bootstrap_return(),
-                          bootstrap_argument());
+            debug::printf("This bootstrap demo will return to %s passing back: %s\n", bootstrap_return().data(),
+                          bootstrap_argument().data());
         }
     }
     if (got_argument("NotBootstrap", argc, argv)) // "NotBootstrap"

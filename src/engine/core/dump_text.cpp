@@ -18,7 +18,7 @@ std::array<char, 0x3F0> g_dump_buffer;
 char* g_text_dump_cursor;
 file::Hdl g_dump_file;
 
-char* dump_buffer() { return g_dump_buffer.data(); }
+std::array<char, 0x3F0>& dump_buffer() { return g_dump_buffer; }
 char* dump_buffer_end() { return g_dump_buffer.data() + sizeof(g_dump_buffer); }
 char*& dump_write_cursor() { return g_text_dump_cursor; }
 file::Hdl dump_file() { return g_dump_file; }
@@ -32,9 +32,9 @@ void dump_text(const char* text)
     char* position = dump_write_cursor();
     // Flushed when the text won't fit (checked before newlines become CR LF: they can run past the end).
     if (position + length > dump_buffer_end() &&
-        position != dump_buffer()) {
-        file::emit_out(dump_buffer(), static_cast<int>(position - dump_buffer()), 1, dump_file());
-        position = dump_buffer();
+        position != dump_buffer().data()) {
+        file::emit_out(dump_buffer().data(), static_cast<int>(position - dump_buffer().data()), 1, dump_file());
+        position = dump_buffer().data();
         dump_write_cursor() = position;
     }
     if (length <= 0)

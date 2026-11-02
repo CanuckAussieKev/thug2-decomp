@@ -23,8 +23,8 @@ int g_memcard_references;
 std::array<char, 320> g_filename_buffer;
 
 // The shared path buffers.
-char* path_buffer() { return g_path_buffer.data(); }
-char* filename_buffer() { return g_filename_buffer.data(); }
+std::array<char, 128>& path_buffer() { return g_path_buffer; }
+std::array<char, 320>& filename_buffer() { return g_filename_buffer; }
 
 Hub*& sole() { return g_the_card; }
 int& ref_tally() { return g_memcard_references; }
@@ -88,7 +88,7 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int)
 {
     fault_ = 0;
     // (with '/' turned into '\')
-    char* path = path_buffer();
+    char* path = path_buffer().data();
     for (size_t i = 0;; ++i) {
         path[i] = name[i] == '/' ? '\\' : name[i];
         if (!name[i])
@@ -138,8 +138,8 @@ bool SaveCard::remove_file(const char* name) { return DeleteFileA(name) != 0; }
 // 0x005BC740
 const char* SaveCard::convert_filename(const char* name)
 {
-    std::memcpy(filename_buffer(), name, std::strlen(name) + 1);
-    return filename_buffer();
+    std::memcpy(filename_buffer().data(), name, std::strlen(name) + 1);
+    return filename_buffer().data();
 }
 
 // 0x005BC790
@@ -156,7 +156,7 @@ int SaveCard::get_free_blocks()
 // 0x005BCAE0
 bool SaveCard::list_save_files(const char* pattern, memory::ListNode* list)
 {
-    char* path = path_buffer();
+    char* path = path_buffer().data();
     std::snprintf(path, MAX_PATH, "Save\\%s", pattern);
     WIN32_FIND_DATAA found;
     HANDLE search = FindFirstFileA(path, &found);

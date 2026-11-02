@@ -50,7 +50,7 @@ constexpr float kAtanC15 = get_bits(0xBB84D7E7); // -0.00405406
 constexpr float kMinusQuarterPi = get_bits(0xBF490FDB), kThreeQuarterPi = get_bits(0x4016CBE4),
                 kQuarterPi = get_bits(0x3F490FDB), kPiF = get_bits(0x40490FDB);
 
-SinCosEntry* sin_table() { return g_sin_table.data(); }
+std::array<SinCosEntry, kSinTableSize>& sin_table() { return g_sin_table; }
 
 } // namespace
 
@@ -137,7 +137,7 @@ float fast_sin(float angle)
 {
     const float steps = angle * kSinStepsPerRadian;
     const int index = static_cast<int>(steps); // truncates, like the CRT's _ftol the original calls
-    const SinCosEntry& entry = sin_table()[index];
+    const SinCosEntry& entry = core::at(sin_table(), index);
     return (steps - static_cast<float>(index)) * entry.sin_delta_ + entry.sin;
 }
 
@@ -146,14 +146,14 @@ float fast_cos(float angle)
 {
     const float steps = angle * kSinStepsPerRadian;
     const int index = static_cast<int>(steps);
-    const SinCosEntry& entry = sin_table()[index];
+    const SinCosEntry& entry = core::at(sin_table(), index);
     return (steps - static_cast<float>(index)) * entry.cos_delta_ + entry.cos;
 }
 
 // 0x00403F70
 void fill_sine_table()
 {
-    SinCosEntry* table = sin_table();
+    SinCosEntry* table = sin_table().data();
     for (int i = 0; i < kSinTableSize; ++i) {
         const double angle = static_cast<double>(i) * kSinTableStep; // (the FPU's product, not rounded to float)
         table[i].sin = static_cast<float>(std::sin(angle));

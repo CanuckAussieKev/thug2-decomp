@@ -44,7 +44,7 @@ void set_texture_stage_state(int stage, int type, int value)
     g_d3d_device->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
-const uint16_t* quad_indices() { return g_sprite_quad_indices.data(); }
+const std::array<uint16_t, 6>& quad_indices() { return g_sprite_quad_indices; }
 
 struct Vertex {
     float x, y, z, rhw;
@@ -238,7 +238,7 @@ void QuadSprite::draw()
     if (!g_suppress_draw) {           // (rendering not skipped)
         ++g_draw_calls;               // draw calls
         g_drawn_triangles += 2;       // triangles
-        g_d3d_device->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices(), D3DFMT_INDEX16, vertices.data(),
+        g_d3d_device->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices().data(), D3DFMT_INDEX16, vertices.data(),
                                              sizeof(Vertex));
     }
 }

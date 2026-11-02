@@ -213,7 +213,7 @@ IDirect3DSurface9*& back_depth() { return g_back_depth; }
 IDirect3DSurface9*& depth_texture_target() { return g_depth_texture_target; }
 D3DADAPTER_IDENTIFIER9& adapter_identifier() { return g_adapter_identifier; }
 // The description of the last sound device DirectSound listed.
-char* sound_device_name() { return g_sound_device_name.data(); }
+std::array<char, 200>& sound_device_name() { return g_sound_device_name; }
 
 // The dynamic vertex buffer and the quads' index buffer (the platform layer's).
 void create_dynamic_vertex_buffer(uint32_t size) { os_layer::create_dynamic_vertex_buffer(size); }
@@ -234,9 +234,9 @@ BOOL CALLBACK sound_device_found(GUID* /*guid*/, const char* description, const 
 {
     const size_t length = std::strlen(description);
     if (length > 200)
-        std::memcpy(sound_device_name(), description, 199); // (strncpy: not terminated, the 200th byte stays)
+        std::memcpy(sound_device_name().data(), description, 199); // (strncpy: not terminated, the 200th byte stays)
     else
-        std::memcpy(sound_device_name(), description, length + 1);
+        std::memcpy(sound_device_name().data(), description, length + 1);
     return TRUE; // (all are listed: the last one stays)
 }
 
@@ -266,7 +266,7 @@ HRESULT create_device(int width, int height, bool hardware_vertices, bool multis
     // A Radeon 8500 (0x00786AB5)...
     g_radeon8500 = std::strstr(std::data(id.Description), "8500") != nullptr;
     // ... and an Intel 915G with Realtek HD audio's rear output: 0x0067DA40 off.
-    if (std::memcmp(sound_device_name(), "Realtek HD Audio rear output", 29) == 0 && id.VendorId == 0x8086 &&
+    if (std::memcmp(sound_device_name().data(), "Realtek HD Audio rear output", 29) == 0 && id.VendorId == 0x8086 &&
         id.DeviceId == 0x2582)
         g_set_frequency_allowed = 0;
     return result;

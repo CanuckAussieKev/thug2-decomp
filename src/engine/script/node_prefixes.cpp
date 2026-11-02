@@ -30,7 +30,7 @@ PrefixTables* g_node_prefixes;
 constexpr uint32_t kName = 0xA1DC81F9; // name
 constexpr int kGrowBy = 100;           // indices
 
-uint32_t* node_names() { return g_node_names.data(); } // (room for 1000)
+std::array<uint32_t, 1000>& node_names() { return g_node_names; } // (room for 1000)
 
 // The PrefixNodes stored under `prefix` (lists::KeyMap's lookup, inlined in the original).
 PrefixNodes* get_find(lists::KeyMap* table, uint32_t prefix)
@@ -198,7 +198,7 @@ void PrefixTables::remove_node_array(uint32_t name)
 // 0x0045BE90
 uint32_t* PrefixTables::get_nodes(uint32_t prefix, uint16_t* count)
 {
-    uint32_t* names = node_names();
+    uint32_t* names = node_names().data();
     int found = 0;
     for (const PrefixTable* table = first_ptr_; table; table = table->following_) {
         const PrefixNodes* nodes = get_find(table->slot_table_, prefix);

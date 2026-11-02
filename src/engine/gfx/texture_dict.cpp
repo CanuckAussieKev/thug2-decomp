@@ -38,7 +38,7 @@ lists::KeyMap g_loaded_tex_dicts{lists::KeyMap::Unconstructed{}}; // (the exe ma
 lists::KeyMap& loaded_tex_dicts() { return g_loaded_tex_dicts; }
 
 // The multipliers find_texture tries the name's CRC with (0x0067E520: 2, 3, 4, 6, 12, 8, 24, then -1).
-const int* key_multipliers() { return g_key_multipliers.data(); }
+const std::array<int, 8>& key_multipliers() { return g_key_multipliers; }
 
 // The CRC of what follows a name's last slash or backslash.
 uint32_t filename_key(const char* name)
@@ -119,7 +119,7 @@ BitmapTexture* TextureSet::get_texture_by_name(const char* name)
 BitmapTexture* TextureSet::find_texture(const char* name)
 {
     auto find = [this](uint32_t checksum) -> BitmapTexture* {
-        for (const int* multiplier = key_multipliers(); *multiplier > 0; ++multiplier) {
+        for (const int* multiplier = key_multipliers().data(); *multiplier > 0; ++multiplier) {
             const uint32_t key = static_cast<uint32_t>(*multiplier) * checksum;
             BitmapTexture* texture = textures_ ? static_cast<BitmapTexture*>(textures_->fetch_entry(key)) : nullptr;
             if (texture)

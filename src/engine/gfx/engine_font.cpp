@@ -22,7 +22,7 @@ std::array<FontSlot, 16> g_font_slots;
 
 namespace {
 
-FontSlot* get_slots() { return g_font_slots.data(); }
+std::array<FontSlot, 16>& get_slots() { return g_font_slots; }
 lists::KeyMap& font_table() { return g_font_table; }
 std::array<char, 32>& glyph_escape_table() { return g_glyph_alias_table; }
 
@@ -48,7 +48,7 @@ char button_glyph(const char* digit) { return core::at(glyph_escape_table(), tex
 // 0x0048D6C0
 void unload_font(const char* name)
 {
-    FontSlot* slots = get_slots();
+    FontSlot* slots = get_slots().data();
     int index = 0;
     while (std::strcmp(slots[index].name.data(), name) != 0) {
         if (++index >= kFontSlots)

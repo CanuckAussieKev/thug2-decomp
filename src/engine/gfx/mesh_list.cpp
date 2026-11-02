@@ -67,7 +67,7 @@ void destroy_material(void* material) { static_cast<MaterialRef*>(material)->~Ma
 std::array<uint16_t, 3072> g_index_scratch;
 
 // The rebuilt strip (0x007CAA40).
-uint16_t* tri_strip_scratch() { return g_index_scratch.data(); }
+std::array<uint16_t, 3072>& tri_strip_scratch() { return g_index_scratch; }
 
 // The C runtime's qsort (the game's, so equal meshes stay in the same order).
 void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const void*, const void*))
@@ -309,10 +309,10 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
         uint32_t n = 0;
         for (uint32_t i = 0; i < get_index_count(mesh); ++i) {
             const uint16_t value = indices[i] & 0x7FFF;
-            tri_strip_scratch()[n++] = value;
+            core::at(tri_strip_scratch(), n++) = value;
             if (indices[i] & 0x8000) { // repeated: a strip break
-                tri_strip_scratch()[n++] = value;
-                tri_strip_scratch()[n++] = value;
+                core::at(tri_strip_scratch(), n++) = value;
+                core::at(tri_strip_scratch(), n++) = value;
             }
         }
         release_index_buffer(index_buffer_of(mesh));
@@ -320,7 +320,7 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
         gsl::owner<IdxStore*> buffer = new_index_buffer(n * 2);
         index_buffer_of(mesh) = buffer;
         uint16_t* rebuilt = lock_indices(buffer);
-        std::memcpy(rebuilt, tri_strip_scratch(), get_index_count(mesh) * 2);
+        std::memcpy(rebuilt, tri_strip_scratch().data(), get_index_count(mesh) * 2);
         unlock_indices(index_buffer_of(mesh));
     }
 }

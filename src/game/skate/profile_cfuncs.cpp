@@ -31,7 +31,7 @@ using script::Script;
 using script::Struct;
 
 constexpr int kSwapSlots = 5;
-SwapSlot* swap_table() { return g_swap_table.data(); }
+std::array<SwapSlot, 5>& swap_table() { return g_swap_table; }
 
 objects::ProfileRoster* get_profiles() { return objects::g_profile_roster.get(); }
 objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
@@ -47,7 +47,7 @@ const char* const kNoText = "---"; // "---"
 // 0x005AA930
 void swap_mapping(uint32_t a, uint32_t b)
 {
-    SwapSlot* table = swap_table();
+    SwapSlot* table = swap_table().data();
     int slot_a = -1;
     int slot_b = -1;
     for (int i = 0; i < kSwapSlots; ++i) {

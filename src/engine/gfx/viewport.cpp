@@ -87,7 +87,7 @@ ViewRegion* current_view_slot(int n)
 }
 
 uint8_t* occlusion_slots() { return g_occlusion_slots.data(); }
-OcclusionRequest* occlusion_requests() { return g_occlusion_requests.data(); }
+std::array<OcclusionRequest, 4>& occlusion_requests() { return g_occlusion_requests; }
 uint32_t& occlusion_request_count() { return g_occlusion_request_count; }
 
 } // namespace
@@ -286,7 +286,7 @@ uint32_t request_occlusion_query(OcclusionRequest* request)
         }
     }
     request->slot = slot;
-    occlusion_requests()[occlusion_request_count()] = *request;
+    core::at(occlusion_requests(), occlusion_request_count()) = *request;
     ++occlusion_request_count();
     return slot;
 }
@@ -295,7 +295,7 @@ uint32_t request_occlusion_query(OcclusionRequest* request)
 void issue_occlusion_queries()
 {
     for (int i = 0; i < kOcclusionRequests; ++i) {
-        OcclusionRequest& request = occlusion_requests()[i];
+        OcclusionRequest& request = core::at(occlusion_requests(), i);
         if (request.slot && request.callback && !request.issued) {
             request.callback(request.data, static_cast<uint8_t>(request.slot));
             request.issued = 1;
@@ -306,7 +306,7 @@ void issue_occlusion_queries()
 // 0x004A0F80
 void pop_occlusion_request()
 {
-    OcclusionRequest* requests = occlusion_requests();
+    OcclusionRequest* requests = occlusion_requests().data();
     for (int i = 0; i < kOcclusionRequests - 1; ++i)
         requests[i] = requests[i + 1];
     requests[kOcclusionRequests - 1].slot = 0;

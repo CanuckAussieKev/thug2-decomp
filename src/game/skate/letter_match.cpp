@@ -43,7 +43,7 @@ constexpr uint32_t kYouTied = 0x334622A1;         // horse_str_youtiedthetargets
 // NoScoreSet.
 std::array<uint32_t, 7> g_horse_statuses{{0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0,
                              0x23DB4AEA, 0xA71DD8EB, 0x00000000}}; // (zero-terminated)
-const uint32_t* statuses() { return g_horse_statuses.data(); }
+const std::array<uint32_t, 7>& statuses() { return g_horse_statuses; }
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): indexes into tables and arrays
 enum StatusIndex : uint8_t {
     kGotLetter = 0,
@@ -89,12 +89,12 @@ void LetterMatch::prepare_all()
 }
 
 // 0x00560180
-void LetterMatch::begin_timed_session() { cur_standing_ = statuses()[kIdle]; }
+void LetterMatch::begin_timed_session() { cur_standing_ = core::at(statuses(), kIdle); }
 
 // 0x00560190
 bool LetterMatch::state_matches(script::Struct* params)
 {
-    for (const uint32_t* status = statuses(); *status; ++status)
+    for (const uint32_t* status = statuses().data(); *status; ++status)
         if (params->has_bare_flag(*status))
             return cur_standing_ == *status;
     return false;
@@ -217,7 +217,7 @@ void LetterMatch::end_run()
         points_target_ = total;
         const char* points = text::format_with_separators(total);
         std::snprintf(panel_.data(), sizeof(panel_), "%s %s", script::fetch_text(kSetScoreIs), points); // "%s %s"
-        cur_standing_ = statuses()[kBeatScore];
+        cur_standing_ = core::at(statuses(), kBeatScore);
         return;
     }
     if (total < points_target_) {
@@ -226,20 +226,20 @@ void LetterMatch::end_run()
         choose_next_spawn();
         if (is_over()) {
             std::snprintf(panel_.data(), sizeof(panel_), "You are a %s!", word_.data()); // "You are a %s!"
-            cur_standing_ = statuses()[kMatchEnded];
+            cur_standing_ = core::at(statuses(), kMatchEnded);
             return;
         }
         std::array<char, 2> letter = {{get_upper(core::at(word_, core::at(letters_, skater_) - 1)), 0}};
         std::snprintf(panel_.data(), sizeof(panel_), "%s %s", script::fetch_text(kGetsTheLetter), letter.data()); // "%s %s"
-        cur_standing_ = statuses()[kGotLetter];
+        cur_standing_ = core::at(statuses(), kGotLetter);
         return;
     }
     if (total == 0) {
         dup_from(panel_.data(), script::fetch_text(kNoScoreSet));
-        cur_standing_ = statuses()[kNoScoreSetStatus];
+        cur_standing_ = core::at(statuses(), kNoScoreSetStatus);
     } else {
         dup_from(panel_.data(), script::fetch_text(kYouTied));
-        cur_standing_ = statuses()[kTieScore];
+        cur_standing_ = core::at(statuses(), kTieScore);
     }
 }
 

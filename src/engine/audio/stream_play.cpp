@@ -32,7 +32,7 @@ std::array<uint32_t, 3> g_last_streams;
 std::array<uint32_t, 3>& last_streams() { return g_last_streams; }
 // Where a user soundtrack's track is read to, and each stream's buffer (0x14000 bytes each).
 std::array<uint8_t, 0x14000> g_user_track_buffer;
-void* user_track_buffer() { return g_user_track_buffer.data(); }
+std::array<uint8_t, 0x14000>& user_track_buffer() { return g_user_track_buffer; }
 std::array<uint8_t, 3 * 0x14000> g_stream_buffers;
 void* stream_buffer(int slot) { return g_stream_buffers.data() + slot * 0x14000; }
 
@@ -159,7 +159,7 @@ bool play_user_track(int soundtrack, int track)
     Hdl file = open_user_track(soundtrack, track);
     if (file == INVALID_HANDLE_VALUE || !music.wad)
         return false;
-    if (music.wad->unseal(file, user_track_buffer()) != 0)
+    if (music.wad->unseal(file, user_track_buffer().data()) != 0)
         return false;
     if (music.paused) {
         music.paused = true;

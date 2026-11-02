@@ -105,7 +105,7 @@ void** get_textures() { return g_textures.data(); }            // [4]
 uint32_t& vertex_format() { return g_vertex_format; }
 const void*& pixel_shader_locked() { return g_pixel_shader_locked; }
 void*& current_pixel_shader() { return g_current_pixel_shader; }
-float* ps_constant_bank() { return g_ps_constant_bank.data(); } // [5][4]; [4] is 0x00786F0C
+std::array<float, 20>& ps_constant_bank() { return g_ps_constant_bank; } // [5][4]; [4] is 0x00786F0C
 uint8_t& pixel_shader_changed() { return g_pixel_shader_changed; }
 uint32_t& vertex_format_locked() { return g_vertex_format_locked; }
 uint32_t& forced_blend() { return g_forced_blend; }
@@ -546,7 +546,7 @@ void set_pixel_shader(void* shader, const MaterialRef* material)
             current_pixel_shader() = shader;
             pixel_shader_changed() = 1;
         }
-        input_port()->SetPixelShaderConstantF(0, ps_constant_bank(), 5);
+        input_port()->SetPixelShaderConstantF(0, ps_constant_bank().data(), 5);
     }
     pixel_shader_changed() = 0;
 }
@@ -561,8 +561,8 @@ void set_pixel_shader_with_constants(void* shader, uint32_t count)
             current_pixel_shader() = shader;
             pixel_shader_changed() = 1;
         }
-        input_port()->SetPixelShaderConstantF(0, ps_constant_bank(), count);
-        input_port()->SetPixelShaderConstantF(4, ps_constant_bank() + 16, 1);
+        input_port()->SetPixelShaderConstantF(0, ps_constant_bank().data(), count);
+        input_port()->SetPixelShaderConstantF(4, ps_constant_bank().data() + 16, 1);
     }
     pixel_shader_changed() = 0;
 }

@@ -39,7 +39,7 @@ int get_sprintf(char* out, const char* format, Args... args)
 }
 
 // The goal editor's shared name buffer (also GoalEditorMarkerObject<n>'s).
-char* name_buffer() { return g_goal_name_buffer.data(); }
+std::array<char, 104>& name_buffer() { return g_goal_name_buffer; }
 
 uint32_t current_level() { return modules::Skate::sole()->level_; }
 
@@ -224,8 +224,8 @@ void EditedGoal::place_goal_marker(int index)
     default:
         break;
     }
-    get_sprintf(name_buffer(), "GoalEditorMarkerObject%d", index);
-    params.put_name_key(0xA1DC81F9, checksums::hash_from_text(name_buffer()));
+    get_sprintf(name_buffer().data(), "GoalEditorMarkerObject%d", index);
+    params.put_name_key(0xA1DC81F9, checksums::hash_from_text(name_buffer().data()));
     const EditedGoalPoint& point = core::at(path_vertices_, index);
     params.put_vec3(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
     params.push_float(0xFF7EBAF6, point.angle * kDegreesPerRadian);

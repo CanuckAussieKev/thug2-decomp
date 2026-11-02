@@ -23,7 +23,7 @@ constexpr float kSixteen = 16.0f;
 
 // The shared index table every face of a geometry is listed by when there's no tree to narrow them down.
 std::array<uint16_t, 2048> g_all_faces{{0xFFFF}};
-uint16_t* all_faces() { return g_all_faces.data(); }
+std::array<uint16_t, 2048>& all_faces() { return g_all_faces; }
 
 uint16_t* g_face_buffer;
 int g_face_count;
@@ -304,7 +304,7 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
 // 0x00414D30
 bool TriMeshSource::set_up_all_faces()
 {
-    uint16_t* table = all_faces();
+    uint16_t* table = all_faces().data();
     if (table[0] != 0) {
         for (int i = 0; i < 0x800; ++i)
             table[i] = static_cast<uint16_t>(i);
@@ -425,7 +425,7 @@ uint16_t* TriMeshSource::get_faces_in_box(const maths::BBox* box, int* count, ui
 {
     if (!bsp_) {
         *count = tri_count_;
-        return all_faces();
+        return all_faces().data();
     }
     s_face_buffer = buffer;
     s_face_buffer_size = buffer_size;
@@ -434,7 +434,7 @@ uint16_t* TriMeshSource::get_faces_in_box(const maths::BBox* box, int* count, ui
     uint16_t* result = nullptr;
     if (s_face_count < 0) {
         *count = tri_count_;
-        result = all_faces();
+        result = all_faces().data();
     } else {
         *count = s_face_count;
         result = s_face_buffer;
