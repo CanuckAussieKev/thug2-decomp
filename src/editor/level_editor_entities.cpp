@@ -50,6 +50,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::entities {
 
@@ -447,21 +448,42 @@ bool deleted_copy(const nodes::Elem& node)
     return nodes::get_array_name(node) == kCopies && !object_edit::is_copy(node.name);
 }
 
-// The state the layout keeps, the baked fields' (read when a level loads; not saved), the undo step under way.
-State g_state;
-State g_baked;
-State g_undo_before;
-bool g_have_undo;
-bool g_ui_active; // (one of the Inspector's fields is being dragged: the undo step waits)
-std::vector<std::function<void()>> g_queue;
-int g_level_loads = -1;
-bool g_scanned;
+// NOT ORIGINAL grouping - level_editor_entities.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_entities_state()).
+struct LevelEditorEntitiesState {
+    // The state the layout keeps, the baked fields' (read when a level loads; not saved), the undo step under way.
+    State state_{};
+    State baked_{};
+    State undo_before_{};
+    bool have_undo_{};
+    bool ui_active_{}; // (one of the Inspector's fields is being dragged: the undo step waits)
+    std::vector<std::function<void()>> queue_{};
+    int level_loads_ = -1;
+    bool scanned_{};
+};
+
+LevelEditorEntitiesState& level_editor_entities_state()
+{
+    static core::NoDestroy<LevelEditorEntitiesState> state;
+    return state.get();
+}
 
 // Sounds playing on emitters.
 struct Playing {
     uint32_t name, sound, id;
 };
-std::vector<Playing> g_playing;
+// NOT ORIGINAL grouping - the entities playing and the next slow tick (were globals). Made on first use, never
+// destroyed (entity_playback()).
+struct EntityPlayback {
+    std::vector<Playing> playing_{};
+    double next_slow_tick_{};
+};
+
+EntityPlayback& entity_playback()
+{
+    static core::NoDestroy<EntityPlayback> state;
+    return state.get();
+}
 
 // Speeds put on objects (the object each was put on, so one made again gets it again).
 std::unordered_map<uint32_t, std::pair<const void*, float>>& speed_applied()
@@ -469,7 +491,6 @@ std::unordered_map<uint32_t, std::pair<const void*, float>>& speed_applied()
     static std::unordered_map<uint32_t, std::pair<const void*, float>> value;
     return value;
 }
-double g_next_slow_tick;
 
 // Objects made again: killed, and once the game has removed them, made from their nodes (put back where they were).
 struct Remake {
@@ -479,7 +500,11 @@ struct Remake {
     double due;
     bool killed;
 };
-std::vector<Remake> g_remakes;
+std::vector<Remake>& remakes()
+{
+    static core::NoDestroy<std::vector<Remake>> remakes;
+    return remakes.get();
+}
 
 // A particle node's emitter as it was first seen (the level's - or a copy's as made), the place and heading it was at
 // then, and the place / heading it was last made for (map4: turned too).
@@ -512,26 +537,35 @@ struct Preview {
     float distance = 0.0f;
     bool playing = false;
 };
-Preview g_preview;
-double g_last_tick;
+// NOT ORIGINAL grouping - the entity preview, its last tick and whether uncreated ones show (were globals). Made on
+// first use, never destroyed (entity_preview()).
+struct EntityPreview {
+    Preview preview_{};
+    double last_tick_{};
+    bool show_uncreated_{};
+};
 
-bool g_show_uncreated;
+EntityPreview& entity_preview()
+{
+    static core::NoDestroy<EntityPreview> state;
+    return state.get();
+}
 
 // The emitters' state in effect: the layout's over the baked fields.
 std::vector<EmitterSound> effective_emitters()
 {
-    std::vector<EmitterSound> out = g_state.emitters;
-    for (const EmitterSound& e : g_baked.emitters) {
-        if (!emitter_of(g_state, e.name))
+    std::vector<EmitterSound> out = level_editor_entities_state().state_.emitters;
+    for (const EmitterSound& e : level_editor_entities_state().baked_.emitters) {
+        if (!emitter_of(level_editor_entities_state().state_, e.name))
             out.push_back(e);
     }
     return out;
 }
 std::vector<Pace> effective_speeds()
 {
-    std::vector<Pace> out = g_state.speeds;
-    for (const Pace& s : g_baked.speeds) {
-        if (!speed_of(g_state, s.name))
+    std::vector<Pace> out = level_editor_entities_state().state_.speeds;
+    for (const Pace& s : level_editor_entities_state().baked_.speeds) {
+        if (!speed_of(level_editor_entities_state().state_, s.name))
             out.push_back(s);
     }
     return out;
@@ -539,9 +573,9 @@ std::vector<Pace> effective_speeds()
 
 void note_undo()
 {
-    if (!g_have_undo) {
-        g_undo_before = g_state;
-        g_have_undo = true;
+    if (!level_editor_entities_state().have_undo_) {
+        level_editor_entities_state().undo_before_ = level_editor_entities_state().state_;
+        level_editor_entities_state().have_undo_ = true;
     }
 }
 
@@ -550,7 +584,7 @@ void queue_remake(uint32_t name, bool keep, double delay)
     objects::GameEntity* object = live_object(name);
     if (!object)
         return; // (nothing made of it now: its node is what a later create reads)
-    for (Remake& r : g_remakes) {
+    for (Remake& r : remakes()) {
         if (r.name == name && !r.killed) {
             r.due = get_now() + delay;
             if (keep)
@@ -560,13 +594,13 @@ void queue_remake(uint32_t name, bool keep, double delay)
     }
     const Remake r = {.name = name, .keep = keep, .state = keep ? object_edit::store_away(object) : object_edit::State{}, .due = get_now() + delay,
                       .killed = false};
-    g_remakes.push_back(r);
+    remakes().push_back(r);
 }
 
 void run_remakes()
 {
     const double now = get_now();
-    for (auto it = g_remakes.begin(); it != g_remakes.end();) {
+    for (auto it = remakes().begin(); it != remakes().end();) {
         Remake& r = *it;
         if (!r.killed) {
             if (now < r.due) {
@@ -592,7 +626,7 @@ void run_remakes()
             if (debug_enabled())
                 get_log("level editor: %s made again from its node", object_edit::caption(r.name).c_str());
         }
-        it = g_remakes.erase(it);
+        it = remakes().erase(it);
     }
 }
 
@@ -618,9 +652,9 @@ void stop_playing(Playing* p)
 
 void stop_all_sounds()
 {
-    for (Playing& p : g_playing)
+    for (Playing& p : entity_playback().playing_)
         stop_playing(&p);
-    g_playing.clear();
+    entity_playback().playing_.clear();
 }
 
 void update_sounds()
@@ -629,11 +663,11 @@ void update_sounds()
     std::vector<EmitterSound> emitters = effective_emitters();
     const bool off = !m || sound::no_sound() || !in_level() || layout::network_active();
     // (those no longer wanted, or of another sound now: stopped)
-    for (auto it = g_playing.begin(); it != g_playing.end();) {
+    for (auto it = entity_playback().playing_.begin(); it != entity_playback().playing_.end();) {
         auto e = std::ranges::find_if(emitters, [&](const EmitterSound& x) { return x.name == it->name; });
         if (off || e == emitters.end() || e->sound != it->sound) {
             stop_playing(&*it);
-            it = g_playing.erase(it);
+            it = entity_playback().playing_.erase(it);
         } else {
             ++it;
         }
@@ -643,10 +677,10 @@ void update_sounds()
     for (const EmitterSound& e : emitters) {
         if (!e.sound)
             continue;
-        auto p = std::ranges::find_if(g_playing, [&](const Playing& x) { return x.name == e.name; });
-        if (p == g_playing.end()) {
-            g_playing.push_back({.name = e.name, .sound = e.sound, .id = 0});
-            p = g_playing.end() - 1;
+        auto p = std::ranges::find_if(entity_playback().playing_, [&](const Playing& x) { return x.name == e.name; });
+        if (p == entity_playback().playing_.end()) {
+            entity_playback().playing_.push_back({.name = e.name, .sound = e.sound, .id = 0});
+            p = entity_playback().playing_.end() - 1;
         }
         objects::EmitterNode* emitter = get_emitter(e.name);
         const sound::SoundWaveSlot* wave = m->fetch_wave_slot(e.sound);
@@ -771,7 +805,7 @@ void update_speeds()
 // The baked fields (tools/game/apply_layout.ts): ed_sound / ed_volume on emitters, ed_path_speed on moving objects.
 void scan_baked()
 {
-    g_baked = State{};
+    level_editor_entities_state().baked_ = State{};
     if (layout::network_active())
         return;
     for (const nodes::Elem& n : nodes::get_all()) {
@@ -786,15 +820,15 @@ void scan_baked()
             float volume = 100.0f;
             if (s->fetch_float(k_ed_volume(), &volume, 0))
                 e.volume = std::clamp(volume, kMinVolume, kLoudest);
-            g_baked.emitters.push_back(e);
+            level_editor_entities_state().baked_.emitters.push_back(e);
         }
         float mph = 0.0f;
         if (s->fetch_float(k_ed_path_speed(), &mph, 0) && mph >= kMinMph && mph <= kMaxMph)
-            g_baked.speeds.push_back({.name = n.name, .mph = mph});
+            level_editor_entities_state().baked_.speeds.push_back({.name = n.name, .mph = mph});
     }
-    if (!vacant(g_baked))
+    if (!vacant(level_editor_entities_state().baked_))
         get_log("level editor: the level's baked fields: %u emitter sounds, %u path speeds",
-                static_cast<unsigned>(g_baked.emitters.size()), static_cast<unsigned>(g_baked.speeds.size()));
+                static_cast<unsigned>(level_editor_entities_state().baked_.emitters.size()), static_cast<unsigned>(level_editor_entities_state().baked_.speeds.size()));
 }
 
 // --- the preview ---
@@ -844,9 +878,9 @@ float current_heading(const objects::GameEntity* object)
 
 void preview_place(float distance)
 {
-    objects::GameEntity* object = live_object(g_preview.id);
+    objects::GameEntity* object = live_object(entity_preview().preview_.id);
     V3 pos{}, dir{};
-    if (!object || !path_sample(g_preview.points, g_preview.closed, distance, &pos, &dir))
+    if (!object || !path_sample(entity_preview().preview_.points, entity_preview().preview_.closed, distance, &pos, &dir))
         return;
     object_edit::get_place(object, pos);
     if (dir.x != 0.0f || dir.z != 0.0f)
@@ -857,21 +891,21 @@ void preview_start(uint32_t id)
 {
     stop_preview();
     objects::GameEntity* object = live_object(id);
-    if (!object || !path_of(id, &g_preview.points, &g_preview.closed))
+    if (!object || !path_of(id, &entity_preview().preview_.points, &entity_preview().preview_.closed))
         return;
-    g_preview.id = id;
-    g_preview.saved = object_edit::store_away(object);
-    g_preview.distance = 0.0f;
-    g_preview.playing = true;
+    entity_preview().preview_.id = id;
+    entity_preview().preview_.saved = object_edit::store_away(object);
+    entity_preview().preview_.distance = 0.0f;
+    entity_preview().preview_.playing = true;
     preview_place(0.0f);
 }
 
 void preview_tick(double seconds)
 {
-    if (!g_preview.id || !g_preview.playing)
+    if (!entity_preview().preview_.id || !entity_preview().preview_.playing)
         return;
-    g_preview.distance += mph_to_units(preview_mph(g_preview.id)) * static_cast<float>(std::min(seconds, 0.1));
-    preview_place(g_preview.distance);
+    entity_preview().preview_.distance += mph_to_units(preview_mph(entity_preview().preview_.id)) * static_cast<float>(std::min(seconds, 0.1));
+    preview_place(entity_preview().preview_.distance);
 }
 
 // --- the palette ---
@@ -882,13 +916,22 @@ struct Source {
     std::vector<uint32_t> names; // (copies: the node(s) copied)
     uint32_t sound = 0;
 };
-std::vector<PaletteEntry> g_palette;
-std::vector<Source> g_sources;
-uint32_t g_palette_generation = 0xFFFFFFFF;
+// NOT ORIGINAL grouping - the entity palette, its sources and models and their generations (were globals). Made on
+// first use, never destroyed (entity_palette()).
+struct EntityPalette {
+    std::vector<PaletteEntry> palette_{};
+    std::vector<Source> sources_{};
+    uint32_t palette_generation_ = 0xFFFFFFFF;
+    // Loaded models (the model= of every object the level has made), for the model swap.
+    std::vector<std::string> models_{};
+    uint32_t models_generation_ = 0xFFFFFFFF;
+};
 
-// Loaded models (the model= of every object the level has made), for the model swap.
-std::vector<std::string> g_models;
-uint32_t g_models_generation = 0xFFFFFFFF;
+EntityPalette& entity_palette()
+{
+    static core::NoDestroy<EntityPalette> state;
+    return state.get();
+}
 
 const char* short_name(const std::string& path)
 {
@@ -899,8 +942,8 @@ const char* short_name(const std::string& path)
 
 void build_palette()
 {
-    g_palette.clear();
-    g_sources.clear();
+    entity_palette().palette_.clear();
+    entity_palette().sources_.clear();
     if (!in_level())
         return;
     std::set<std::string> types;
@@ -944,8 +987,8 @@ void build_palette()
     auto add = [](std::vector<std::pair<std::string, Source>>& list, uint32_t colour) {
         std::ranges::sort(list, [](const auto& a, const auto& b) { return a.first < b.first; });
         for (auto& e : list) {
-            g_palette.push_back({.label = e.first, .colour = colour, .why = ""});
-            g_sources.push_back(e.second);
+            entity_palette().palette_.push_back({.label = e.first, .colour = colour, .why = ""});
+            entity_palette().sources_.push_back(e.second);
         }
     };
     add(peds, 0xFFE0A0FF);
@@ -957,8 +1000,8 @@ void build_palette()
             names.resize(24);
         std::array<char, 160> label{};
         text::format_to(label, "Bouncy set: %s (%u)", stem.c_str(), static_cast<unsigned>(names.size()));
-        g_palette.push_back({.label = label.data(), .colour = 0xFFFFB060, .why = ""});
-        g_sources.push_back({.kind = SourceKind::kAssignValue, .names = names});
+        entity_palette().palette_.push_back({.label = label.data(), .colour = 0xFFFFB060, .why = ""});
+        entity_palette().sources_.push_back({.kind = SourceKind::kAssignValue, .names = names});
     }
     add(particles, 0xFFFF9050);
     // The level's loaded sounds (its wave table): an emitter with that sound.
@@ -974,14 +1017,14 @@ void build_palette()
     }
     std::ranges::sort(sounds, [](const auto& a, const auto& b) { return a.first < b.first; });
     for (auto& e : sounds) {
-        g_palette.push_back({.label = e.first, .colour = 0xFF4FD1C5, .why = why ? why : ""});
-        g_sources.push_back(e.second);
+        entity_palette().palette_.push_back({.label = e.first, .colour = 0xFF4FD1C5, .why = why ? why : ""});
+        entity_palette().sources_.push_back(e.second);
     }
 }
 
 void build_models()
 {
-    g_models.clear();
+    entity_palette().models_.clear();
     std::set<std::string> seen;
     for (const nodes::Elem& n : nodes::get_all()) {
         if (n.family != nodes::Family::kObject || !live_object(n.name))
@@ -989,9 +1032,9 @@ void build_models()
         const std::string model = model_of(nodes::struct_of(n));
         const std::string key = type_key(0, 0, 0, model);
         if (!model.empty() && seen.insert(key).second)
-            g_models.push_back(model);
+            entity_palette().models_.push_back(model);
     }
-    std::ranges::sort(g_models, [](const std::string& a, const std::string& b) {
+    std::ranges::sort(entity_palette().models_, [](const std::string& a, const std::string& b) {
         return std::strcmp(short_name(a), short_name(b)) < 0;
     });
 }
@@ -1003,11 +1046,11 @@ void build_models()
 State at_hand()
 {
     State out;
-    for (const Pace& s : g_state.speeds) {
+    for (const Pace& s : level_editor_entities_state().state_.speeds) {
         if (look_up_node_params(s.name))
             out.speeds.push_back(s);
     }
-    for (const EmitterSound& e : g_state.emitters) {
+    for (const EmitterSound& e : level_editor_entities_state().state_.emitters) {
         if (look_up_node_params(e.name))
             out.emitters.push_back(e);
     }
@@ -1018,24 +1061,24 @@ void change_phase(const State& state)
 {
     // (radii no longer set: back to the node's own - an added emitter's spec, a level emitter's Radius as loaded is
     // what its node had; the radius written into a level node stays until the level loads again)
-    g_state = state;
+    level_editor_entities_state().state_ = state;
     speed_applied().clear();
-    for (const EmitterSound& e : g_state.emitters)
+    for (const EmitterSound& e : level_editor_entities_state().state_.emitters)
         apply_radius(e);
 }
 
 bool take_undo(State* before)
 {
-    if (!g_have_undo || g_ui_active)
+    if (!level_editor_entities_state().have_undo_ || level_editor_entities_state().ui_active_)
         return false;
-    g_have_undo = false;
-    if (same_state(g_undo_before, g_state))
+    level_editor_entities_state().have_undo_ = false;
+    if (same_state(level_editor_entities_state().undo_before_, level_editor_entities_state().state_))
         return false;
-    *before = g_undo_before;
+    *before = level_editor_entities_state().undo_before_;
     return true;
 }
 
-void get_queue(std::function<void()> action) { g_queue.push_back(std::move(action)); }
+void get_queue(std::function<void()> action) { level_editor_entities_state().queue_.push_back(std::move(action)); }
 
 void kickoff() { stop_preview(); }
 
@@ -1043,43 +1086,43 @@ void halt() { stop_preview(); }
 
 void stop_preview()
 {
-    if (!g_preview.id)
+    if (!entity_preview().preview_.id)
         return;
-    object_edit::get_restore(g_preview.saved);
-    g_preview = Preview{};
+    object_edit::get_restore(entity_preview().preview_.saved);
+    entity_preview().preview_ = Preview{};
 }
 
 void preview_suspend()
 {
-    if (g_preview.id)
-        object_edit::get_restore(g_preview.saved);
+    if (entity_preview().preview_.id)
+        object_edit::get_restore(entity_preview().preview_.saved);
 }
 
 void preview_resume()
 {
-    if (g_preview.id)
-        preview_place(g_preview.distance);
+    if (entity_preview().preview_.id)
+        preview_place(entity_preview().preview_.distance);
 }
 
 void tick(bool editor_active, uint32_t selected, bool dragging)
 {
     const double now = get_now();
-    const double seconds = g_last_tick > 0.0 ? now - g_last_tick : 0.0;
-    g_last_tick = now;
+    const double seconds = entity_preview().last_tick_ > 0.0 ? now - entity_preview().last_tick_ : 0.0;
+    entity_preview().last_tick_ = now;
     // (a new level: read its baked fields once it is up)
-    if (g_level_loads != layout::level_loads()) {
-        g_level_loads = layout::level_loads();
-        g_scanned = false;
+    if (level_editor_entities_state().level_loads_ != layout::level_loads()) {
+        level_editor_entities_state().level_loads_ = layout::level_loads();
+        level_editor_entities_state().scanned_ = false;
     }
-    if (!g_scanned && in_level()) {
-        g_scanned = true;
+    if (!level_editor_entities_state().scanned_ && in_level()) {
+        level_editor_entities_state().scanned_ = true;
         scan_baked();
     }
     std::vector<std::function<void()>> queue;
-    queue.swap(g_queue);
+    queue.swap(level_editor_entities_state().queue_);
     for (auto& action : queue)
         action();
-    if (g_preview.id && (!editor_active || dragging || selected != g_preview.id))
+    if (entity_preview().preview_.id && (!editor_active || dragging || selected != entity_preview().preview_.id))
         stop_preview();
     preview_tick(seconds);
     run_remakes();
@@ -1093,10 +1136,10 @@ void tick(bool editor_active, uint32_t selected, bool dragging)
         }
     }
     update_sounds();
-    if (now >= g_next_slow_tick) {
-        g_next_slow_tick = now + 0.5;
+    if (now >= entity_playback().next_slow_tick_) {
+        entity_playback().next_slow_tick_ = now + 0.5;
         update_speeds();
-        for (const EmitterSound& e : g_state.emitters)
+        for (const EmitterSound& e : level_editor_entities_state().state_.emitters)
             apply_radius(e);
     }
 }
@@ -1185,25 +1228,25 @@ const char* when_applied(uint32_t name, int family)
 const std::vector<PaletteEntry>& get_palette()
 {
     // (made again when the node arrays change - not on a timer: an armed entry keeps its index)
-    if (g_palette_generation != nodes::get_generation()) {
-        g_palette_generation = nodes::get_generation();
+    if (entity_palette().palette_generation_ != nodes::get_generation()) {
+        entity_palette().palette_generation_ = nodes::get_generation();
         build_palette();
     }
-    return g_palette;
+    return entity_palette().palette_;
 }
 
 void refresh_palette()
 {
-    g_palette_generation = 0xFFFFFFFF;
-    g_models_generation = 0xFFFFFFFF;
+    entity_palette().palette_generation_ = 0xFFFFFFFF;
+    entity_palette().models_generation_ = 0xFFFFFFFF;
 }
 
 Placed get_place(int index, V3 at, float yaw)
 {
     Placed placed;
-    if (index < 0 || std::cmp_greater_equal(index, g_sources.size()))
+    if (index < 0 || std::cmp_greater_equal(index, entity_palette().sources_.size()))
         return placed;
-    const Source& source = core::at(g_sources, index);
+    const Source& source = core::at(entity_palette().sources_, index);
     if (source.kind == SourceKind::kSound) {
         placed.emitter = true;
         placed.sound = source.sound;
@@ -1243,14 +1286,14 @@ Placed get_place(int index, V3 at, float yaw)
 void attach_sound(uint32_t emitter, uint32_t sound)
 {
     EmitterSound e;
-    if (const EmitterSound* had = emitter_of(g_state, emitter))
+    if (const EmitterSound* had = emitter_of(level_editor_entities_state().state_, emitter))
         e = *had;
     e.name = emitter;
     e.sound = sound;
-    set_emitter(&g_state, e);
+    set_emitter(&level_editor_entities_state().state_, e);
 }
 
-bool& show_uncreated() { return g_show_uncreated; }
+bool& show_uncreated() { return entity_preview().show_uncreated_; }
 
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
@@ -1270,13 +1313,13 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
     // The previewed path.
-    if (g_preview.id) {
-        for (size_t i = 0; i + 1 < g_preview.points.size(); ++i)
-            line(core::at(g_preview.points, i), core::at(g_preview.points, i + 1), 0xFF60FF90, 2.0f);
-        if (g_preview.closed && g_preview.points.size() > 2)
-            line(g_preview.points.back(), g_preview.points.front(), 0xFF60FF90, 2.0f);
+    if (entity_preview().preview_.id) {
+        for (size_t i = 0; i + 1 < entity_preview().preview_.points.size(); ++i)
+            line(core::at(entity_preview().preview_.points, i), core::at(entity_preview().preview_.points, i + 1), 0xFF60FF90, 2.0f);
+        if (entity_preview().preview_.closed && entity_preview().preview_.points.size() > 2)
+            line(entity_preview().preview_.points.back(), entity_preview().preview_.points.front(), 0xFF60FF90, 2.0f);
     }
-    if (!g_show_uncreated)
+    if (!entity_preview().show_uncreated_)
         return;
     // Ghosts: object nodes the level hasn't made, nearest first (within 4000 units, 200 at most).
     std::vector<std::pair<float, const nodes::Elem*>> near;
@@ -1314,18 +1357,18 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
 void forget_level()
 {
     stop_all_sounds();
-    g_preview = Preview{};
-    g_state = State{};
-    g_baked = State{};
-    g_have_undo = false;
-    g_queue.clear();
-    g_remakes.clear();
+    entity_preview().preview_ = Preview{};
+    level_editor_entities_state().state_ = State{};
+    level_editor_entities_state().baked_ = State{};
+    level_editor_entities_state().have_undo_ = false;
+    level_editor_entities_state().queue_.clear();
+    remakes().clear();
     particle_at().clear();
     made_with().clear();
     speed_applied().clear();
-    g_scanned = false;
-    g_palette_generation = 0xFFFFFFFF;
-    g_models_generation = 0xFFFFFFFF;
+    level_editor_entities_state().scanned_ = false;
+    entity_palette().palette_generation_ = 0xFFFFFFFF;
+    entity_palette().models_generation_ = 0xFFFFFFFF;
 }
 
 // --- for the UI (level_editor_entities_ui.cpp) ---
@@ -1333,11 +1376,11 @@ void forget_level()
 namespace detail {
 const std::vector<std::string>& get_models()
 {
-    if (g_models_generation != nodes::get_generation()) {
-        g_models_generation = nodes::get_generation();
+    if (entity_palette().models_generation_ != nodes::get_generation()) {
+        entity_palette().models_generation_ = nodes::get_generation();
         build_models();
     }
-    return g_models;
+    return entity_palette().models_;
 }
 void watch_model(uint32_t id, const std::string& made)
 {
@@ -1362,23 +1405,23 @@ bool has_path(uint32_t id)
 }
 float speed_set(uint32_t id)
 {
-    const Pace* s = speed_of(g_state, id);
+    const Pace* s = speed_of(level_editor_entities_state().state_, id);
     if (s)
         return s->mph;
-    s = speed_of(g_baked, id);
+    s = speed_of(level_editor_entities_state().baked_, id);
     return s ? s->mph : 0.0f;
 }
 float default_mph(uint32_t id) { return preview_mph(id); }
 void change_speed(uint32_t id, float mph)
 {
     note_undo();
-    set_speed(&g_state, id, mph);
+    set_speed(&level_editor_entities_state().state_, id, mph);
 }
 EmitterSound emitter_now(uint32_t name)
 {
-    if (const EmitterSound* e = emitter_of(g_state, name))
+    if (const EmitterSound* e = emitter_of(level_editor_entities_state().state_, name))
         return *e;
-    if (const EmitterSound* e = emitter_of(g_baked, name))
+    if (const EmitterSound* e = emitter_of(level_editor_entities_state().baked_, name))
         return *e;
     EmitterSound e;
     e.name = name;
@@ -1387,7 +1430,7 @@ EmitterSound emitter_now(uint32_t name)
 void change_emitter(const EmitterSound& e)
 {
     note_undo();
-    set_emitter(&g_state, e);
+    set_emitter(&level_editor_entities_state().state_, e);
     apply_radius(e);
 }
 float emitter_radius(uint32_t name, bool* sphere)
@@ -1409,28 +1452,28 @@ std::vector<std::pair<uint32_t, std::string>> get_sounds()
     std::ranges::sort(out, [](const auto& a, const auto& b) { return a.second < b.second; });
     return out;
 }
-void set_ui_active(bool active) { g_ui_active = active; }
-bool get_previewing(uint32_t id) { return g_preview.id == id && id; }
-bool preview_playing() { return g_preview.playing; }
+void set_ui_active(bool active) { level_editor_entities_state().ui_active_ = active; }
+bool get_previewing(uint32_t id) { return entity_preview().preview_.id == id && id; }
+bool preview_playing() { return entity_preview().preview_.playing; }
 void preview_play(uint32_t id)
 {
-    if (g_preview.id == id)
-        g_preview.playing = !g_preview.playing;
+    if (entity_preview().preview_.id == id)
+        entity_preview().preview_.playing = !entity_preview().preview_.playing;
     else
         preview_start(id);
 }
 void preview_step(uint32_t id)
 {
-    if (g_preview.id != id)
+    if (entity_preview().preview_.id != id)
         preview_start(id);
-    if (!g_preview.id)
+    if (!entity_preview().preview_.id)
         return;
-    g_preview.playing = false;
-    g_preview.distance += mph_to_units(preview_mph(id)) * 0.5f; // (half a second along)
-    preview_place(g_preview.distance);
+    entity_preview().preview_.playing = false;
+    entity_preview().preview_.distance += mph_to_units(preview_mph(id)) * 0.5f; // (half a second along)
+    preview_place(entity_preview().preview_.distance);
 }
-float preview_distance() { return g_preview.distance; }
-float preview_length() { return path_length(g_preview.points, g_preview.closed); }
+float preview_distance() { return entity_preview().preview_.distance; }
+float preview_length() { return path_length(entity_preview().preview_.points, entity_preview().preview_.closed); }
 } // namespace detail
 
 } // namespace frontend::level_editor::entities

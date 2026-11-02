@@ -19,6 +19,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::grind_preview {
 
@@ -136,17 +137,26 @@ objects::GrindRailHub* get_rails()
     return manager && !manager->on_object_ && manager->nodes_ ? manager : nullptr;
 }
 
-std::string g_describe;
+// NOT ORIGINAL grouping - level_editor_grind_preview.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_grind_preview_state()).
+struct LevelEditorGrindPreviewState {
+    std::string describe_{};
+    // (the terrain's name, asked once per rail shown)
+    uint32_t terrain_for_{};
+    std::string terrain_{};
+};
 
-// (the terrain's name, asked once per rail shown)
-uint32_t g_terrain_for;
-std::string g_terrain;
+LevelEditorGrindPreviewState& level_editor_grind_preview_state()
+{
+    static core::NoDestroy<LevelEditorGrindPreviewState> state;
+    return state.get();
+}
 
 } // namespace
 
 void add_overlay(const overlays::Painter& painter, int hovered, int selected)
 {
-    g_describe.clear();
+    level_editor_grind_preview_state().describe_.clear();
     if (!overlays::get_shown(overlays::kGrindPreview))
         return;
     const std::vector<nodes::Elem>& all = nodes::get_all();
@@ -255,27 +265,27 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
         }
     }
     // The label at the point: the rail, its size, terrain, speed-ups, connections.
-    if (g_terrain_for != name) {
-        g_terrain_for = name;
+    if (level_editor_grind_preview_state().terrain_for_ != name) {
+        level_editor_grind_preview_state().terrain_for_ = name;
         chains::View view = chains::view_of(name);
-        g_terrain = view.terrain >= 0 && std::cmp_less(view.terrain, view.terrains.size()) ? core::at(view.terrains, view.terrain)
+        level_editor_grind_preview_state().terrain_ = view.terrain >= 0 && std::cmp_less(view.terrain, view.terrains.size()) ? core::at(view.terrains, view.terrain)
                                                                                            : std::string("terrain ?");
     }
     std::array<char, 256> text{};
     text::format_to(text, "%s: %d points, %d segments, %.0f long, %s%s%s%s", nodes::caption(name).c_str(),
                     static_cast<int>(rail.points.size()), static_cast<int>(rail.links.size()), len_of(rail, positions),
-                    g_terrain.c_str(), active ? "" : ", off", speed_ups ? ", speed-ups" : "",
+                    level_editor_grind_preview_state().terrain_.c_str(), active ? "" : ", off", speed_ups ? ", speed-ups" : "",
                     rail.links.empty() ? ", a single point (not grindable)" : "");
     painter.draw_label(core::at(positions, start), 0xFFFFF060, text.data(), 10.0f, -24.0f);
-    g_describe = text.data();
+    level_editor_grind_preview_state().describe_ = text.data();
     if (transfers || !get_branches(rail).empty()) {
         text::format_to(text, "%d transfers within %.0f, %d branches", transfers, kTransferReach,
                         static_cast<int>(get_branches(rail).size()));
         painter.draw_label(core::at(positions, start), 0xFFFF80FF, text.data(), 10.0f, -8.0f);
-        g_describe += std::string("; ") + text.data();
+        level_editor_grind_preview_state().describe_ += std::string("; ") + text.data();
     }
 }
 
-std::string describe() { return g_describe; }
+std::string describe() { return level_editor_grind_preview_state().describe_; }
 
 } // namespace frontend::level_editor::grind_preview

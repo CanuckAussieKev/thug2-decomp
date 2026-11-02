@@ -2,6 +2,7 @@
 #include "editor/level_editor.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 #include <algorithm>
 #include <cmath>
@@ -245,12 +246,16 @@ bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uin
 }
 
 namespace {
-std::vector<Lock> g_locks;
+std::vector<Lock>& stored_locks()
+{
+    static core::NoDestroy<std::vector<Lock>> locks;
+    return locks.get();
+}
 }
 
 bool latched(uint32_t kind, uint32_t id)
 {
-    for (const Lock& lock : g_locks)
+    for (const Lock& lock : stored_locks())
         if (lock.kind == kind && lock.id == id)
             return true;
     return false;
@@ -258,18 +263,18 @@ bool latched(uint32_t kind, uint32_t id)
 
 bool set_locked(uint32_t kind, uint32_t id, bool locked)
 {
-    auto it = std::ranges::find_if(g_locks, [&](const Lock& l) { return l.kind == kind && l.id == id; });
-    if (locked == (it != g_locks.end()))
+    auto it = std::ranges::find_if(stored_locks(), [&](const Lock& l) { return l.kind == kind && l.id == id; });
+    if (locked == (it != stored_locks().end()))
         return false;
     if (locked)
-        g_locks.push_back({.kind = kind, .id = id});
+        stored_locks().push_back({.kind = kind, .id = id});
     else
-        g_locks.erase(it);
+        stored_locks().erase(it);
     return true;
 }
 
-const std::vector<Lock>& get_locks() { return g_locks; }
-void clear_locks() { g_locks.clear(); }
-void set_locks(const std::vector<Lock>& locks) { g_locks = locks; }
+const std::vector<Lock>& get_locks() { return stored_locks(); }
+void clear_locks() { stored_locks().clear(); }
+void set_locks(const std::vector<Lock>& locks) { stored_locks() = locks; }
 
 } // namespace frontend::level_editor::picking

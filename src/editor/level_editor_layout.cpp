@@ -61,6 +61,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::layout {
 
@@ -639,9 +640,19 @@ namespace {
 constexpr uint32_t kSkater = 0x5B8AB877; // Skater (the local skater's alias)
 constexpr int kSettleFrames = 60;        // (a level's objects and rails are made after its scenes: wait a second)
 
-bool g_pending;
-int g_wait;
-int g_level_loads;
+// NOT ORIGINAL grouping - level_editor_layout.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_layout_state()).
+struct LevelEditorLayoutState {
+    bool pending_{};
+    int wait_{};
+    int level_loads_{};
+};
+
+LevelEditorLayoutState& level_editor_layout_state()
+{
+    static core::NoDestroy<LevelEditorLayoutState> state;
+    return state.get();
+}
 
 // Other modules' records (add_extension).
 std::vector<Extension>& get_extensions()
@@ -671,25 +682,34 @@ void apply_extensions(const std::vector<std::string>& extra)
     }
 }
 
-// The autosave: the text made by the last Snapshot and where it goes (plain memory the crash hook can write without
-// allocating: `ready` is false while they change), whether it has been written since, whether this run wrote (or
-// restored) this level's autosave, and whether an older one is being offered (nothing written over it meanwhile).
-std::string g_snapshot;
-std::array<char, MAX_PATH> g_snapshot_path;
-std::array<char, MAX_PATH> g_snapshot_folder;
-volatile bool g_snapshot_ready;
-volatile bool g_snapshot_written = true;
-bool g_autosave_ours;
-bool g_offer_pending;
+// NOT ORIGINAL grouping - the layout's snapshot, autosave, the offer and request, the scene switch (were globals). Made
+// on first use, never destroyed (layout_save()).
+struct LayoutSave {
+    // The autosave: the text made by the last Snapshot and where it goes (plain memory the crash hook can write without
+    // allocating: `ready` is false while they change), whether it has been written since, whether this run wrote (or
+    // restored) this level's autosave, and whether an older one is being offered (nothing written over it meanwhile).
+    std::string snapshot_{};
+    std::array<char, MAX_PATH> snapshot_path_{};
+    std::array<char, MAX_PATH> snapshot_folder_{};
+    volatile bool snapshot_ready_{};
+    volatile bool snapshot_written_ = true;
+    bool autosave_ours_{};
+    bool offer_pending_{};
+    // The edited copy: the level picked as edited (its load script; 0: none - LevelEditor_PickLevel), whether the level
+    // loaded now is its edited copy, whether the last scene was loaded for a network game, and a switch asked for in place
+    // (the level picked is the one loaded: +1 to the edited copy, -1 back to the level as shipped) and its wait.
+    uint32_t request_{};
+    bool edited_copy_{};
+    bool net_scene_{};
+    int switch_{};
+    int switch_wait_{};
+};
 
-// The edited copy: the level picked as edited (its load script; 0: none - LevelEditor_PickLevel), whether the level
-// loaded now is its edited copy, whether the last scene was loaded for a network game, and a switch asked for in place
-// (the level picked is the one loaded: +1 to the edited copy, -1 back to the level as shipped) and its wait.
-uint32_t g_request;
-bool g_edited_copy;
-bool g_net_scene;
-int g_switch;
-int g_switch_wait;
+LayoutSave& layout_save()
+{
+    static core::NoDestroy<LayoutSave> state;
+    return state.get();
+}
 
 // The network game (online::Hub 0x007CCE14, 0x0044E4F0: a network game is on - host or client).
 bool in_net_game()
@@ -1067,8 +1087,8 @@ void reset_to_level(const FileLoad& keep)
 // The crash hook's write (no allocation; run_guarded catches a fault in it).
 void write_snapshot()
 {
-    if (write_whole(g_snapshot_folder.data(), g_snapshot_path.data(), g_snapshot.data(), g_snapshot.size()))
-        g_snapshot_written = true;
+    if (write_whole(layout_save().snapshot_folder_.data(), layout_save().snapshot_path_.data(), layout_save().snapshot_.data(), layout_save().snapshot_.size()))
+        layout_save().snapshot_written_ = true;
 }
 
 } // namespace
@@ -1108,9 +1128,9 @@ bool store_away(std::string* message)
     const std::string autosave = autosave_path_for(file.scene);
     if (DeleteFileA(autosave.c_str()))
         get_log("level editor: autosave deleted - %s", autosave.c_str());
-    g_snapshot_ready = false;
-    g_snapshot_written = true;
-    g_offer_pending = false;
+    layout_save().snapshot_ready_ = false;
+    layout_save().snapshot_written_ = true;
+    layout_save().offer_pending_ = false;
     return true;
 }
 
@@ -1143,58 +1163,58 @@ bool get_snapshot()
         return false;
     std::string text = emit_out(file);
     const std::string path = autosave_path_for(file.scene);
-    if (g_snapshot_ready && text == g_snapshot && path == g_snapshot_path.data())
+    if (layout_save().snapshot_ready_ && text == layout_save().snapshot_ && path == layout_save().snapshot_path_.data())
         return true;
-    g_snapshot_ready = false; // (the crash hook leaves it alone while it changes)
-    g_snapshot.swap(text);
-    strncpy_s(g_snapshot_path.data(), g_snapshot_path.size(), path.c_str(), _TRUNCATE);
-    strncpy_s(g_snapshot_folder.data(), g_snapshot_folder.size(), get_folder().c_str(), _TRUNCATE);
-    g_snapshot_written = false;
-    g_snapshot_ready = true;
+    layout_save().snapshot_ready_ = false; // (the crash hook leaves it alone while it changes)
+    layout_save().snapshot_.swap(text);
+    strncpy_s(layout_save().snapshot_path_.data(), layout_save().snapshot_path_.size(), path.c_str(), _TRUNCATE);
+    strncpy_s(layout_save().snapshot_folder_.data(), layout_save().snapshot_folder_.size(), get_folder().c_str(), _TRUNCATE);
+    layout_save().snapshot_written_ = false;
+    layout_save().snapshot_ready_ = true;
     return true;
 }
 
 bool write_autosave()
 {
-    if (!g_snapshot_ready || g_snapshot_written || g_offer_pending)
+    if (!layout_save().snapshot_ready_ || layout_save().snapshot_written_ || layout_save().offer_pending_)
         return false;
-    if (!write_whole(g_snapshot_folder.data(), g_snapshot_path.data(), g_snapshot.data(), g_snapshot.size())) {
-        get_log("level editor: couldn't write the autosave %s", g_snapshot_path.data());
+    if (!write_whole(layout_save().snapshot_folder_.data(), layout_save().snapshot_path_.data(), layout_save().snapshot_.data(), layout_save().snapshot_.size())) {
+        get_log("level editor: couldn't write the autosave %s", layout_save().snapshot_path_.data());
         return false;
     }
-    g_snapshot_written = true;
-    g_autosave_ours = true;
-    get_log("level editor: autosaved - %s", g_snapshot_path.data());
+    layout_save().snapshot_written_ = true;
+    layout_save().autosave_ours_ = true;
+    get_log("level editor: autosaved - %s", layout_save().snapshot_path_.data());
     return true;
 }
 
 void write_autosave_from_crash()
 {
     static volatile LONG busy = 0;
-    if (!g_snapshot_ready || g_snapshot_written || g_offer_pending || InterlockedExchange(&busy, 1))
+    if (!layout_save().snapshot_ready_ || layout_save().snapshot_written_ || layout_save().offer_pending_ || InterlockedExchange(&busy, 1))
         return;
     run_guarded(write_snapshot);
-    if (g_snapshot_written)
-        get_log("level editor: the unsaved changes were autosaved - %s (Ctrl+R restores them)", g_snapshot_path.data());
+    if (layout_save().snapshot_written_)
+        get_log("level editor: the unsaved changes were autosaved - %s (Ctrl+R restores them)", layout_save().snapshot_path_.data());
     else
-        get_log("level editor: the unsaved changes couldn't be autosaved - %s", g_snapshot_path.data());
+        get_log("level editor: the unsaved changes couldn't be autosaved - %s", layout_save().snapshot_path_.data());
     busy = 0;
 }
 
 bool autosave_offered()
 {
     render::WorldScene* scene = scenery::main_scene();
-    if (render::current_level() == 0 || !scene || g_autosave_ours || get_refused())
+    if (render::current_level() == 0 || !scene || layout_save().autosave_ours_ || get_refused())
         return false;
     const uint32_t name = scenery::world_scene_key(scene);
     uint64_t autosave_time = 0, saved_time = 0;
     const bool have_autosave = write_time(autosave_path_for(name), &autosave_time);
     const bool have_saved = write_time(path_for(name), &saved_time);
-    g_offer_pending = autosave_newer(have_autosave, autosave_time, have_saved, saved_time);
-    if (g_offer_pending)
+    layout_save().offer_pending_ = autosave_newer(have_autosave, autosave_time, have_saved, saved_time);
+    if (layout_save().offer_pending_)
         get_log("level editor: an autosave newer than the saved layout - %s (Ctrl+R restores, Ctrl+Shift+R discards)",
                 autosave_path_for(name).c_str());
-    return g_offer_pending;
+    return layout_save().offer_pending_;
 }
 
 bool restore_autosave(std::string* message)
@@ -1212,8 +1232,8 @@ bool restore_autosave(std::string* message)
     reset_to_level(file);
     *message = "Autosave restored: " + get_apply(file);
     get_log("level editor: %s - %s", message->c_str(), path.c_str());
-    g_offer_pending = false;
-    g_autosave_ours = true; // (it's this run's now: the next autosave goes over it)
+    layout_save().offer_pending_ = false;
+    layout_save().autosave_ours_ = true; // (it's this run's now: the next autosave goes over it)
     return true;
 }
 
@@ -1225,18 +1245,18 @@ bool discard_autosave(std::string* message)
         return false;
     }
     const std::string path = autosave_path_for(scenery::world_scene_key(scene));
-    g_offer_pending = false;
+    layout_save().offer_pending_ = false;
     if (!DeleteFileA(path.c_str())) {
         *message = "No autosave to discard";
         return false;
     }
-    g_autosave_ours = false;
+    layout_save().autosave_ours_ = false;
     *message = "Autosave discarded";
     get_log("level editor: autosave discarded - %s", path.c_str());
     return true;
 }
 
-int level_loads() { return g_level_loads; }
+int level_loads() { return level_editor_layout_state().level_loads_; }
 
 namespace {
 
@@ -1244,11 +1264,11 @@ namespace {
 // the autosave state start again, as for a new level.
 void forget_session()
 {
-    ++g_level_loads;
-    g_snapshot_ready = false;
-    g_snapshot_written = true;
-    g_autosave_ours = false;
-    g_offer_pending = false;
+    ++level_editor_layout_state().level_loads_;
+    layout_save().snapshot_ready_ = false;
+    layout_save().snapshot_written_ = true;
+    layout_save().autosave_ours_ = false;
+    layout_save().offer_pending_ = false;
 }
 
 // The level picked is the one loaded (the level select doesn't load it again): switched to its edited copy (the layout
@@ -1258,14 +1278,14 @@ void switch_in_place(int to)
     if (get_refused())
         return;
     std::string message;
-    if (to > 0 && !g_edited_copy) {
-        g_edited_copy = true;
+    if (to > 0 && !layout_save().edited_copy_) {
+        layout_save().edited_copy_ = true;
         career::get_edited_copy(true); // (the career's gap list kept as it is first - level_editor_career.h)
         read_in(&message);
         get_log("level editor: switched to the edited copy in place (%s)", message.c_str());
-    } else if (to < 0 && g_edited_copy) {
+    } else if (to < 0 && layout_save().edited_copy_) {
         reset_to_level(FileLoad{});
-        g_edited_copy = false;
+        layout_save().edited_copy_ = false;
         career::get_edited_copy(false); // (the career's gap list put back as before)
         get_log("level editor: switched back to the level as shipped in place");
     } else {
@@ -1346,37 +1366,37 @@ void on_scene_loaded(const char* name, bool is_net)
     entities::forget_level();
     picking::clear_locks();
     reset_extensions();
-    g_pending = true; // (Tick decides: the edited copy if it was picked, never in a network session)
-    g_wait = 0;
-    ++g_level_loads;
-    g_snapshot_ready = false;
-    g_snapshot_written = true;
-    g_autosave_ours = false;
-    g_offer_pending = false;
-    g_edited_copy = false;
+    level_editor_layout_state().pending_ = true; // (Tick decides: the edited copy if it was picked, never in a network session)
+    level_editor_layout_state().wait_ = 0;
+    ++level_editor_layout_state().level_loads_;
+    layout_save().snapshot_ready_ = false;
+    layout_save().snapshot_written_ = true;
+    layout_save().autosave_ours_ = false;
+    layout_save().offer_pending_ = false;
+    layout_save().edited_copy_ = false;
     career::get_edited_copy(false); // (the career's gap list put back as before the edited copy)
-    g_net_scene = is_net;
-    g_switch = 0;
+    layout_save().net_scene_ = is_net;
+    layout_save().switch_ = 0;
 }
 
 void tick()
 {
     const bool up = render::current_level() != 0 && objects::find_object(kSkater) && scenery::main_scene();
-    if (g_switch && up && ++g_switch_wait >= kSettleFrames) {
-        const int to = g_switch;
-        g_switch = 0;
+    if (layout_save().switch_ && up && ++layout_save().switch_wait_ >= kSettleFrames) {
+        const int to = layout_save().switch_;
+        layout_save().switch_ = 0;
         switch_in_place(to);
     }
     // The mode became a career-type one with the edited copy loaded (the level not loaded again): back to the level as
     // shipped at once - nothing done from now on is done in the edited copy. (Not while the editor runs: the mode
     // can't change then; it's put back once the editor is left.)
-    if (g_edited_copy && up && !live_now()) {
+    if (layout_save().edited_copy_ && up && !live_now()) {
         if (const char* mode = career_mode_active()) {
             reset_to_level(FileLoad{});
-            g_edited_copy = false;
-            g_request = 0;
-            g_pending = false;
-            g_switch = 0;
+            layout_save().edited_copy_ = false;
+            layout_save().request_ = 0;
+            level_editor_layout_state().pending_ = false;
+            layout_save().switch_ = 0;
             career::get_edited_copy(false); // (the career's gap list put back as before)
             forget_session();
             get_log("level editor: the game mode is now %s - the edited copy put back as the level as shipped (edited "
@@ -1385,18 +1405,18 @@ void tick()
             return;
         }
     }
-    if (!g_pending || !up)
+    if (!level_editor_layout_state().pending_ || !up)
         return;
-    if (++g_wait < kSettleFrames)
+    if (++level_editor_layout_state().wait_ < kSettleFrames)
         return;
-    g_pending = false;
+    level_editor_layout_state().pending_ = false;
     // The level as shipped, unless it was picked as its edited copy (and never in a network session or a career-type
     // mode).
     std::string why;
     const bool refused = get_refused(&why);
     const uint32_t load = current_load();
-    const bool apply = apply_edited_copy(g_request, load, refused);
-    g_request = request_after_load(g_request, load, refused);
+    const bool apply = apply_edited_copy(layout_save().request_, load, refused);
+    layout_save().request_ = request_after_load(layout_save().request_, load, refused);
     // (map4: the level structure's own ambient light / fog - a bake's ed_ keys, or the edited copy's written there for
     // this load - taken before it's put back; never in a network session)
     level_props::on_level_up(network_active());
@@ -1408,7 +1428,7 @@ void tick()
                     level_title().c_str(), refused ? (" (" + why + ")").c_str() : "");
         return;
     }
-    g_edited_copy = true;
+    layout_save().edited_copy_ = true;
     career::get_edited_copy(true); // (the career's gap list kept as it is first - level_editor_career.h)
     std::string message;
     read_in(&message);
@@ -1417,11 +1437,11 @@ void tick()
 
 void on_node_array_added(uint32_t array)
 {
-    if (!g_request || get_refused())
+    if (!layout_save().request_ || get_refused())
         return;
     // (the level picked as its edited copy - its level structure names its node array (qb=) and its scene (level=))
     std::unordered_map<uint32_t, LevelInfo> levels = levels_by_load();
-    auto level = levels.find(g_request);
+    auto level = levels.find(layout_save().request_);
     if (level == levels.end() || !level->second.node_array_ || level->second.node_array_ != array)
         return;
     FileLoad file;
@@ -1460,7 +1480,7 @@ bool saved_props(uint32_t scene, level_props::Props* props)
 bool network_active()
 {
     net::Hub* net = net::Hub::sole();
-    return network_session(net && net->is_online(), in_net_game(), g_net_scene);
+    return network_session(net && net->is_online(), in_net_game(), layout_save().net_scene_);
 }
 
 ModeFlags current_mode()
@@ -1517,7 +1537,7 @@ void panel_message(const char* text)
     script::delete_struct(params);
 }
 
-bool editing_copy() { return g_edited_copy; }
+bool editing_copy() { return layout_save().edited_copy_; }
 
 bool has_saved_layout()
 {
@@ -1529,7 +1549,7 @@ bool has_saved_layout()
 std::string level_title()
 {
     // (phase 6: the edited copy's own name, as its level properties give it)
-    if (g_edited_copy && !level_props::at_hand().name.empty())
+    if (layout_save().edited_copy_ && !level_props::at_hand().name.empty())
         return level_props::at_hand().name;
     // (the symbols walked once a level: the toolbar asks every frame)
     static uint32_t g_cached_load = 0, g_cached_scene = 0;
@@ -1562,15 +1582,15 @@ bool enter_edited_copy(std::string* message)
         *message = std::string("The level editor isn't offered in ") + mode + " (free skate and single session only)";
         return false;
     }
-    g_switch = 0;
-    g_request = current_load(); // (loaded again, it stays the edited copy)
-    if (g_edited_copy) {
+    layout_save().switch_ = 0;
+    layout_save().request_ = current_load(); // (loaded again, it stays the edited copy)
+    if (layout_save().edited_copy_) {
         message->clear();
         return true;
     }
-    g_edited_copy = true;
+    layout_save().edited_copy_ = true;
     career::get_edited_copy(true); // (the career's gap list kept as it is first - level_editor_career.h)
-    g_pending = false;             // (put in place here, not again by Tick)
+    level_editor_layout_state().pending_ = false;             // (put in place here, not again by Tick)
     std::string loaded;
     if (has_saved_layout() && read_in(&loaded))
         *message = "Editing " + level_title() + " (Edited)";
@@ -1597,10 +1617,10 @@ bool reset_level(std::string* before, std::string* message)
             get_log("level editor: reset - deleted %s", path.c_str());
         }
     }
-    g_snapshot_ready = false;
-    g_snapshot_written = true;
-    g_autosave_ours = false;
-    g_offer_pending = false;
+    layout_save().snapshot_ready_ = false;
+    layout_save().snapshot_written_ = true;
+    layout_save().autosave_ours_ = false;
+    layout_save().offer_pending_ = false;
     *message = deleted ? "Level reset; saved layout deleted" : "Level reset";
     get_log("level editor: %s", message->c_str());
     return true;
@@ -1645,26 +1665,26 @@ bool cfunc_pick_level(script::Struct* params, script::Script*)
     const bool network = get_refused(&why);
     if (edited && network)
         get_log("level editor: an edited copy picked - refused, the level as shipped (%s)", why.c_str());
-    g_request = request_from_pick(load, edited, network);
+    layout_save().request_ = request_from_pick(load, edited, network);
     // (phase 6) the edited copy's field edits go into its node array as it loads; its level properties into its level
     // structure now, before load_level reads it (put back once the level is up - Tick - or another level is picked)
     level_nodes::set_node_array_added_hook(&on_node_array_added);
     level_props::restore_structure();
     const bool loaded_already = load && load == current_load() && render::current_level() != 0;
-    if (g_request && !loaded_already) {
+    if (layout_save().request_ && !loaded_already) {
         std::unordered_map<uint32_t, LevelInfo> levels = levels_by_load();
-        auto level = levels.find(g_request);
+        auto level = levels.find(layout_save().request_);
         level_props::Props props;
         if (level != levels.end() && saved_props(level->second.scene, &props))
             level_props::export_to_struct(level->second.structure, props);
     }
     // (the level already loaded: the level select won't load it again - switched in place once its menus are gone)
-    if (loaded_already && !network && (g_request != 0) != g_edited_copy) {
-        g_switch = g_request ? 1 : -1;
-        g_switch_wait = 0;
+    if (loaded_already && !network && (layout_save().request_ != 0) != layout_save().edited_copy_) {
+        layout_save().switch_ = layout_save().request_ ? 1 : -1;
+        layout_save().switch_wait_ = 0;
     }
     get_log("level editor: level picked - %s%s", object_edit::caption(load).c_str(),
-            g_request ? " (its edited copy)" : " (as shipped)");
+            layout_save().request_ ? " (its edited copy)" : " (as shipped)");
     return true;
 }
 

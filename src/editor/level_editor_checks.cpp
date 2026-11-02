@@ -53,6 +53,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::checks {
 
@@ -319,8 +320,31 @@ namespace {
 
 // --- the state ----------------------------------------------------------------------------------------------------
 
-std::vector<Issue> g_issues;        // the last check's
-std::vector<Issue> g_layout_issues; // the loaded layout's unresolved records
+// NOT ORIGINAL grouping - level_editor_checks.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_checks_state()).
+struct LevelEditorChecksState {
+    std::vector<Issue> issues_{}; // the last check's
+    std::vector<Issue> layout_issues_{}; // the loaded layout's unresolved records
+    int changes_ = -1;
+    uint32_t generation_ = 0;
+    int loads_ = -1;
+    double due_ = -1.0; // (seconds: when to check again; -1 none due)
+    bool checked_once_ = false;
+    double last_seconds_ = 0.0; // (how long the last check took)
+    bool open_ = false;
+    int tab_ = kProblemsTab;
+    bool tab_pending_ = false;
+    bool show_own_ = false;
+    bool show_ignored_ = false;
+    std::vector<std::function<void()>> queue_{};
+};
+
+LevelEditorChecksState& level_editor_checks_state()
+{
+    static core::NoDestroy<LevelEditorChecksState> state;
+    return state.get();
+}
+
 std::unordered_set<uint32_t>& ignored_state()
 {
     static std::unordered_set<uint32_t> value;
@@ -331,18 +355,6 @@ std::unordered_map<uint32_t, uint8_t>& marks_state()
     static std::unordered_map<uint32_t, uint8_t> value;
     return value;
 }
-int g_changes = -1;
-uint32_t g_generation = 0;
-int g_loads = -1;
-double g_due = -1.0; // (seconds: when to check again; -1 none due)
-bool g_checked_once = false;
-double g_last_seconds = 0.0; // (how long the last check took)
-bool g_open = false;
-int g_tab = kProblemsTab;
-bool g_tab_pending = false;
-bool g_show_own = false;
-bool g_show_ignored = false;
-std::vector<std::function<void()>> g_queue;
 
 double get_seconds() { return static_cast<double>(SDL_GetTicks()) / 1000.0; }
 
@@ -821,16 +833,16 @@ void get_run()
         check_triggers(&issues, world);
         check_online(&issues);
         check_multiplayer(&issues);
-        for (const Issue& u : g_layout_issues)
+        for (const Issue& u : level_editor_checks_state().layout_issues_)
             issues.push_back(u);
     }
     get_sort(&issues);
-    g_issues = std::move(issues);
-    g_checked_once = true;
-    g_last_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    level_editor_checks_state().issues_ = std::move(issues);
+    level_editor_checks_state().checked_once_ = true;
+    level_editor_checks_state().last_seconds_ = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     if (debug_enabled())
-        get_log("level editor: problems checked - %u issues in %.1f ms", static_cast<unsigned>(g_issues.size()),
-                g_last_seconds * 1000.0);
+        get_log("level editor: problems checked - %u issues in %.1f ms", static_cast<unsigned>(level_editor_checks_state().issues_.size()),
+                level_editor_checks_state().last_seconds_ * 1000.0);
 }
 
 // --- fixes (undoable) -------------------------------------------------------------------------------------------
@@ -844,7 +856,7 @@ struct NodePlace : ModuleStep {
         node_edit::assign_value(name, values);
         if (const int index = nodes::get_find(name); index >= 0)
             nodes::reread(index);
-        g_due = get_seconds();
+        level_editor_checks_state().due_ = get_seconds();
     }
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
@@ -859,12 +871,12 @@ struct LayoutRecords : ModuleStep {
     explicit LayoutRecords(std::vector<Issue> list) : issues(std::move(list)) {}
     void get_restore() override
     {
-        g_layout_issues = issues;
-        g_due = get_seconds();
+        level_editor_checks_state().layout_issues_ = issues;
+        level_editor_checks_state().due_ = get_seconds();
     }
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
-        return std::make_shared<LayoutRecords>(g_layout_issues);
+        return std::make_shared<LayoutRecords>(level_editor_checks_state().layout_issues_);
     }
 };
 
@@ -890,8 +902,8 @@ void fix(const Issue& issue)
         hud::get_message(("The collision taken along by " + get_name(issue.sector) + " turned off").c_str());
         break;
     case Rule::kLayoutRecord: {
-        push_module_undo(std::make_shared<LayoutRecords>(g_layout_issues));
-        std::erase_if(g_layout_issues, [&](const Issue& i) { return i.key == issue.key; });
+        push_module_undo(std::make_shared<LayoutRecords>(level_editor_checks_state().layout_issues_));
+        std::erase_if(level_editor_checks_state().layout_issues_, [&](const Issue& i) { return i.key == issue.key; });
         hud::get_message("Record removed");
         get_log("level editor: problems - layout record dropped: %s", issue.record.c_str());
         break;
@@ -899,7 +911,7 @@ void fix(const Issue& issue)
     default:
         break;
     }
-    g_due = get_seconds();
+    level_editor_checks_state().due_ = get_seconds();
 }
 
 } // namespace
@@ -926,7 +938,7 @@ std::string line_of(const layout::FileLoad& one)
 
 void note_layout_applied(const layout::FileLoad& file)
 {
-    g_layout_issues.clear();
+    level_editor_checks_state().layout_issues_.clear();
     auto node = [](uint32_t name) { return name && nodes::get_find(name) >= 0; };
     auto sector = [](uint32_t checksum) { return checksum && scenery::sector_of(checksum) != nullptr; };
     auto object = [&](uint32_t id) { return objects::find_object(id) != nullptr || node(id); };
@@ -939,8 +951,8 @@ void note_layout_applied(const layout::FileLoad& file)
         issue.fixable = !issue.record.empty();
         issue.text = what + " not found in the level: " + issue.record;
         issue.key = issue_key(Rule::kLayoutRecord, subject, issue.record);
-        if (std::ranges::none_of(g_layout_issues, [&](const Issue& i) { return i.key == issue.key; }))
-            g_layout_issues.push_back(issue);
+        if (std::ranges::none_of(level_editor_checks_state().layout_issues_, [&](const Issue& i) { return i.key == issue.key; }))
+            level_editor_checks_state().layout_issues_.push_back(issue);
     };
     for (const scenery::SectorState& s : file.sectors) {
         if (!sector(s.checksum)) {
@@ -1092,23 +1104,23 @@ void note_layout_applied(const layout::FileLoad& file)
         one.level = file.level;
         report(file.level.start, "The level's start, restart " + get_name(file.level.start), one);
     }
-    for (const Issue& i : g_layout_issues)
+    for (const Issue& i : level_editor_checks_state().layout_issues_)
         get_log("level editor: layout record not found in the level - kept for the next save (the Problems window, "
                 "Alt+P, drops it): %s",
                 i.record.c_str());
-    g_due = get_seconds();
+    level_editor_checks_state().due_ = get_seconds();
 }
 
 void forget_layout_records()
 {
-    g_layout_issues.clear();
-    g_due = get_seconds();
+    level_editor_checks_state().layout_issues_.clear();
+    level_editor_checks_state().due_ = get_seconds();
 }
 
 std::vector<std::string> carried_records(const std::string& captured)
 {
     std::vector<std::string> lines;
-    for (const Issue& i : g_layout_issues) {
+    for (const Issue& i : level_editor_checks_state().layout_issues_) {
         if (i.record.empty())
             continue;
         std::istringstream in(i.record);
@@ -1119,7 +1131,7 @@ std::vector<std::string> carried_records(const std::string& captured)
     return lines.empty() ? lines : carried_lines(lines, captured);
 }
 
-const std::vector<Issue>& layout_issues() { return g_layout_issues; }
+const std::vector<Issue>& layout_issues() { return level_editor_checks_state().layout_issues_; }
 
 // --- the frame ----------------------------------------------------------------------------------------------------
 
@@ -1128,18 +1140,18 @@ void note_model(int changes, const std::unordered_map<uint32_t, uint8_t>& marks)
     const uint32_t generation = nodes::get_generation();
     const int loads = layout::level_loads();
     const double now = get_seconds();
-    if (changes != g_changes || generation != g_generation || loads != g_loads || !g_checked_once) {
-        const bool first = !g_checked_once || loads != g_loads;
-        g_changes = changes;
-        g_generation = generation;
-        g_loads = loads;
+    if (changes != level_editor_checks_state().changes_ || generation != level_editor_checks_state().generation_ || loads != level_editor_checks_state().loads_ || !level_editor_checks_state().checked_once_) {
+        const bool first = !level_editor_checks_state().checked_once_ || loads != level_editor_checks_state().loads_;
+        level_editor_checks_state().changes_ = changes;
+        level_editor_checks_state().generation_ = generation;
+        level_editor_checks_state().loads_ = loads;
         marks_state() = marks;
         // (a moment after a change: changes come in bursts - a drag, a typed field)
-        g_due = first ? now : now + 0.4;
+        level_editor_checks_state().due_ = first ? now : now + 0.4;
     }
-    if (g_due >= 0.0 && now >= g_due) {
+    if (level_editor_checks_state().due_ >= 0.0 && now >= level_editor_checks_state().due_) {
         marks_state() = marks;
-        g_due = -1.0;
+        level_editor_checks_state().due_ = -1.0;
         get_run();
     }
 }
@@ -1147,7 +1159,7 @@ void note_model(int changes, const std::unordered_map<uint32_t, uint8_t>& marks)
 void tick_frame()
 {
     std::vector<std::function<void()>> queue;
-    queue.swap(g_queue);
+    queue.swap(level_editor_checks_state().queue_);
     for (const auto& action : queue)
         action();
 }
@@ -1155,21 +1167,21 @@ void tick_frame()
 void forget_level()
 {
     placed_state().clear();
-    g_issues.clear();
-    g_layout_issues.clear();
+    level_editor_checks_state().issues_.clear();
+    level_editor_checks_state().layout_issues_.clear();
     ignored_state().clear();
     marks_state().clear();
-    g_checked_once = false;
-    g_due = -1.0;
+    level_editor_checks_state().checked_once_ = false;
+    level_editor_checks_state().due_ = -1.0;
 }
 
-const std::vector<Issue>& get_issues() { return g_issues; }
+const std::vector<Issue>& get_issues() { return level_editor_checks_state().issues_; }
 
 namespace {
 
 bool get_shown(const Issue& issue)
 {
-    return (g_show_own || !issue.level_own_) && (g_show_ignored || !ignored_state().count(issue.key));
+    return (level_editor_checks_state().show_own_ || !issue.level_own_) && (level_editor_checks_state().show_ignored_ || !ignored_state().count(issue.key));
 }
 
 } // namespace
@@ -1177,7 +1189,7 @@ bool get_shown(const Issue& issue)
 void shown_counts(int* errors, int* warnings, int* infos)
 {
     *errors = *warnings = *infos = 0;
-    for (const Issue& issue : g_issues) {
+    for (const Issue& issue : level_editor_checks_state().issues_) {
         if (issue.level_own_ || ignored_state().count(issue.key))
             continue;
         (issue.severity == Severity::kError ? *errors : issue.severity == Severity::kWarning ? *warnings : *infos) += 1;
@@ -1186,16 +1198,16 @@ void shown_counts(int* errors, int* warnings, int* infos)
 
 void open_window(int tab)
 {
-    g_open = true;
-    g_tab = tab;
-    g_tab_pending = true;
-    g_due = get_seconds(); // (opened: checked again now)
+    level_editor_checks_state().open_ = true;
+    level_editor_checks_state().tab_ = tab;
+    level_editor_checks_state().tab_pending_ = true;
+    level_editor_checks_state().due_ = get_seconds(); // (opened: checked again now)
 }
 
 void toggle_window()
 {
-    if (g_open)
-        g_open = false;
+    if (level_editor_checks_state().open_)
+        level_editor_checks_state().open_ = false;
     else
         open_window(kProblemsTab);
 }
@@ -1231,29 +1243,29 @@ void problems_tab(float scale, ImFont* mono)
 {
     (void)mono;
     if (ImGui::Button("Check now"))
-        g_queue.emplace_back([] { g_due = get_seconds(); });
+        level_editor_checks_state().queue_.emplace_back([] { level_editor_checks_state().due_ = get_seconds(); });
     ImGui::SameLine();
     int own = 0, ignored = 0;
-    for (const Issue& issue : g_issues) {
+    for (const Issue& issue : level_editor_checks_state().issues_) {
         own += issue.level_own_;
         ignored += ignored_state().count(issue.key) != 0;
     }
     std::array<char, 64> label{};
     text::format_to(label, "Original Level (%d)", own);
-    ImGui::Checkbox(label.data(), &g_show_own);
+    ImGui::Checkbox(label.data(), &level_editor_checks_state().show_own_);
     if (ImGui::IsItemHovered())
         gui::tooltip("Problems present in the original level");
     ImGui::SameLine();
     text::format_to(label, "Ignored (%d)", ignored);
-    ImGui::Checkbox(label.data(), &g_show_ignored);
+    ImGui::Checkbox(label.data(), &level_editor_checks_state().show_ignored_);
     ImGui::SameLine();
-    if (g_checked_once)
-        gui::text_disabled("%.0f ms", g_last_seconds * 1000.0);
+    if (level_editor_checks_state().checked_once_)
+        gui::text_disabled("%.0f ms", level_editor_checks_state().last_seconds_ * 1000.0);
     else
         gui::text_disabled("not checked");
     ImGui::Separator();
     int shown = 0;
-    for (const Issue& issue : g_issues)
+    for (const Issue& issue : level_editor_checks_state().issues_)
         shown += get_shown(issue);
     if (!shown) {
         gui::text_colored(ImVec4(0.45f, 0.80f, 0.50f, 1.0f), "No problems");
@@ -1270,8 +1282,8 @@ void problems_tab(float scale, ImFont* mono)
     ImGui::TableSetupColumn("Problem", ImGuiTableColumnFlags_WidthStretch);
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 150.0f * scale);
     ImGui::TableHeadersRow();
-    for (size_t i = 0; i < g_issues.size(); ++i) {
-        const Issue& issue = core::at(g_issues, i);
+    for (size_t i = 0; i < level_editor_checks_state().issues_.size(); ++i) {
+        const Issue& issue = core::at(level_editor_checks_state().issues_, i);
         if (!get_shown(issue))
             continue;
         const bool is_ignored = ignored_state().count(issue.key) != 0;
@@ -1291,14 +1303,14 @@ void problems_tab(float scale, ImFont* mono)
         ImGui::BeginDisabled(!can_go);
         if (ImGui::SmallButton("Go to")) {
             const Issue copy = issue;
-            g_queue.emplace_back([copy] { go_to(copy); });
+            level_editor_checks_state().queue_.emplace_back([copy] { go_to(copy); });
         }
         ImGui::EndDisabled();
         if (issue.fixable) {
             ImGui::SameLine();
             if (ImGui::SmallButton("Fix")) {
                 const Issue copy = issue;
-                g_queue.emplace_back([copy] { fix(copy); });
+                level_editor_checks_state().queue_.emplace_back([copy] { fix(copy); });
             }
             if (ImGui::IsItemHovered())
                 gui::tooltip("%s", issue.rule == Rule::kBelowGround       ? "Move to the surface above"
@@ -1327,7 +1339,7 @@ void problems_tab(float scale, ImFont* mono)
 void pane(float view_x, float view_y, float view_width, float view_height, float scale, ImFont* mono)
 {
     (void)view_height;
-    if (!g_open)
+    if (!level_editor_checks_state().open_)
         return;
     ImGui::SetNextWindowPos(ImVec2(view_x + view_width * 0.5f, view_y + 48.0f * scale), ImGuiCond_FirstUseEver,
                             ImVec2(0.5f, 0.0f));
@@ -1335,7 +1347,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     bool open = true;
     if (!ImGui::Begin("Problems###problems", &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
-        g_open = open;
+        level_editor_checks_state().open_ = open;
         return;
     }
     if (ImGui::BeginTabBar("##problemTabs")) {
@@ -1344,23 +1356,23 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         std::array<char, 64> label{};
         text::format_to(label, "Problems (%d)###problemsTab", errors + warnings + infos);
         const ImGuiTabItemFlags problems_flags =
-            g_tab_pending && g_tab == kProblemsTab ? ImGuiTabItemFlags_SetSelected : 0;
-        const ImGuiTabItemFlags budget_flags = g_tab_pending && g_tab == kBudgetTab ? ImGuiTabItemFlags_SetSelected : 0;
-        g_tab_pending = false;
+            level_editor_checks_state().tab_pending_ && level_editor_checks_state().tab_ == kProblemsTab ? ImGuiTabItemFlags_SetSelected : 0;
+        const ImGuiTabItemFlags budget_flags = level_editor_checks_state().tab_pending_ && level_editor_checks_state().tab_ == kBudgetTab ? ImGuiTabItemFlags_SetSelected : 0;
+        level_editor_checks_state().tab_pending_ = false;
         if (ImGui::BeginTabItem(label.data(), nullptr, problems_flags)) {
-            g_tab = kProblemsTab;
+            level_editor_checks_state().tab_ = kProblemsTab;
             problems_tab(scale, mono);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Budget###budgetTab", nullptr, budget_flags)) {
-            g_tab = kBudgetTab;
+            level_editor_checks_state().tab_ = kBudgetTab;
             budget::get_table();
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
     }
     ImGui::End();
-    g_open = open;
+    level_editor_checks_state().open_ = open;
 }
 
 } // namespace frontend::level_editor::checks

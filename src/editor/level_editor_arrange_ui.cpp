@@ -15,13 +15,18 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::arrange {
 
 namespace {
 
-std::vector<std::function<void()>> g_queue;
-void get_later(std::function<void()> action) { g_queue.push_back(std::move(action)); }
+std::vector<std::function<void()>>& stored_queue()
+{
+    static core::NoDestroy<std::vector<std::function<void()>>> queue;
+    return queue.get();
+}
+void get_later(std::function<void()> action) { stored_queue().push_back(std::move(action)); }
 
 void get_tip(const char* text)
 {
@@ -35,7 +40,7 @@ void get_tip(const char* text)
 void run_queued()
 {
     std::vector<std::function<void()>> queue;
-    queue.swap(g_queue);
+    queue.swap(stored_queue());
     for (auto& action : queue)
         action();
 }

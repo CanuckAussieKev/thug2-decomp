@@ -12,6 +12,7 @@
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_transform.h"
+#include "engine/core/no_destroy.h"
 namespace frontend::level_editor::adjust {
 
 namespace {
@@ -94,11 +95,21 @@ struct RamStats {
     V3 start = {};                // (Move: where it was)
     uint64_t serial = 0;          // (the undo stack's top when it was made)
 };
-RamStats g_last;
-bool g_applying;
-bool g_shown = true;
-bool g_pending;
-ActStep g_request;
+// NOT ORIGINAL grouping - level_editor_adjust.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_adjust_state()).
+struct LevelEditorAdjustState {
+    RamStats last_{};
+    bool applying_{};
+    bool shown_ = true;
+    bool pending_{};
+    ActStep request_{};
+};
+
+LevelEditorAdjustState& level_editor_adjust_state()
+{
+    static core::NoDestroy<LevelEditorAdjustState> state;
+    return state.get();
+}
 
 bool same_selection(const edit::Selected& a, const edit::Selected& b) { return a.kind == b.kind && a.ids == b.ids; }
 
@@ -106,9 +117,9 @@ bool same_selection(const edit::Selected& a, const edit::Selected& b) { return a
 void get_apply(const ActStep& wanted)
 {
     const ActStep n = normalised(wanted, xform::get_grid());
-    if (get_same(n, g_last.action))
+    if (get_same(n, level_editor_adjust_state().last_.action))
         return;
-    g_applying = true;
+    level_editor_adjust_state().applying_ = true;
     size_t depth = edit::deepness();
     bool pushed = true;
     switch (n.kind) {
@@ -116,7 +127,7 @@ void get_apply(const ActStep& wanted)
         const V3 pos = edit::get_pos();
         if (pos.x != n.pos.x || pos.y != n.pos.y || pos.z != n.pos.z)
             edit::place_at(n.pos);
-        const float turn = n.degrees - g_last.action.degrees;
+        const float turn = n.degrees - level_editor_adjust_state().last_.action.degrees;
         if (std::fabs(turn) > 1e-4f)
             edit::turn_by(turn * kPi / 180.0f);
         edit::get_settle();
@@ -126,7 +137,7 @@ void get_apply(const ActStep& wanted)
     case Kind::kShiftBy:
         edit::take_back();
         edit::get_begin();
-        edit::place_at(g_last.start + n.offset);
+        edit::place_at(level_editor_adjust_state().last_.start + n.offset);
         edit::get_end();
         break;
     case Kind::kTurn:
@@ -144,7 +155,7 @@ void get_apply(const ActStep& wanted)
         break;
     case Kind::kDuplicate: {
         edit::take_back();
-        edit::choose_one(g_last.source);
+        edit::choose_one(level_editor_adjust_state().last_.source);
         depth = edit::deepness();
         xform::RepeatStep step = step_of(n);
         for (int i = 0; i < n.count; ++i) {
@@ -171,84 +182,84 @@ void get_apply(const ActStep& wanted)
     case Kind::kNone:
         break;
     }
-    g_applying = false;
+    level_editor_adjust_state().applying_ = false;
     if (n.kind != Kind::kPlace && !pushed) {
-        g_last.valid = false; // (nothing made: the step under it isn't this action's)
+        level_editor_adjust_state().last_.valid = false; // (nothing made: the step under it isn't this action's)
         hud::get_message("Adjust: invalid values");
         return;
     }
     (void)depth;
-    g_last.action = n;
-    g_last.serial = edit::top_serial();
-    g_last.after = edit::get_selection();
+    level_editor_adjust_state().last_.action = n;
+    level_editor_adjust_state().last_.serial = edit::top_serial();
+    level_editor_adjust_state().last_.after = edit::get_selection();
 }
 
 } // namespace
 
 void get_note(const ActStep& action)
 {
-    if (g_applying)
+    if (level_editor_adjust_state().applying_)
         return;
-    g_last.valid = action.kind != Kind::kNone;
-    g_last.action = action;
-    g_last.serial = edit::top_serial();
-    g_last.after = edit::get_selection();
+    level_editor_adjust_state().last_.valid = action.kind != Kind::kNone;
+    level_editor_adjust_state().last_.action = action;
+    level_editor_adjust_state().last_.serial = edit::top_serial();
+    level_editor_adjust_state().last_.after = edit::get_selection();
     if (action.kind == Kind::kShiftBy)
-        g_last.start = edit::get_pos() - action.offset;
+        level_editor_adjust_state().last_.start = edit::get_pos() - action.offset;
     if (action.kind == Kind::kPlace) {
-        g_last.action.pos = edit::get_pos();
-        g_last.action.degrees = 0.0f;
+        level_editor_adjust_state().last_.action.pos = edit::get_pos();
+        level_editor_adjust_state().last_.action.degrees = 0.0f;
     }
-    g_pending = false;
+    level_editor_adjust_state().pending_ = false;
 }
 
 void note_duplicate(const edit::Selected& source, const ActStep& action)
 {
-    if (g_applying)
+    if (level_editor_adjust_state().applying_)
         return;
-    g_last.source = source;
+    level_editor_adjust_state().last_.source = source;
     get_note(action);
 }
 
-bool applying() { return g_applying; }
+bool applying() { return level_editor_adjust_state().applying_; }
 
 void get_request(const ActStep& action, bool now)
 {
-    g_request = action;
-    g_pending = true;
+    level_editor_adjust_state().request_ = action;
+    level_editor_adjust_state().pending_ = true;
     (void)now;
 }
 
-const ActStep& final_one() { return g_last.action; }
+const ActStep& final_one() { return level_editor_adjust_state().last_.action; }
 
 bool get_adjustable()
 {
-    if (!g_last.valid || edit::top_serial() != g_last.serial)
+    if (!level_editor_adjust_state().last_.valid || edit::top_serial() != level_editor_adjust_state().last_.serial)
         return false;
     // (a placed thing: still the one selected)
-    return g_last.action.kind != Kind::kPlace || same_selection(edit::get_selection(), g_last.after);
+    return level_editor_adjust_state().last_.action.kind != Kind::kPlace || same_selection(edit::get_selection(), level_editor_adjust_state().last_.after);
 }
 
-bool& get_shown() { return g_shown; }
+bool& get_shown() { return level_editor_adjust_state().shown_; }
 
 void tick()
 {
     // (F4 - its registry entry, level_editor_arrange.cpp - switches Shown)
-    if (!g_pending || edit::get_dragging())
+    if (!level_editor_adjust_state().pending_ || edit::get_dragging())
         return;
-    g_pending = false;
+    level_editor_adjust_state().pending_ = false;
     if (!get_adjustable()) {
         hud::get_message("Adjust: only the last operation can be adjusted");
         return;
     }
-    get_apply(g_request);
+    get_apply(level_editor_adjust_state().request_);
 }
 
 void get_forget()
 {
-    g_last = RamStats{};
-    g_pending = false;
-    g_applying = false;
+    level_editor_adjust_state().last_ = RamStats{};
+    level_editor_adjust_state().pending_ = false;
+    level_editor_adjust_state().applying_ = false;
 }
 
 } // namespace frontend::level_editor::adjust

@@ -20,6 +20,7 @@
 
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::actions {
 
@@ -618,12 +619,22 @@ std::vector<ActStep>& get_registry()
     return registry;
 }
 
-// The keymap's frame: the keys down last frame, the actions fired this frame, those triggered for the next.
-std::array<uint8_t, SDL_NUM_SCANCODES> g_was;
-std::vector<bool> g_fired;
-std::vector<bool> g_triggered;
-int g_capture = -1;
-int g_capture_slot = 0;
+// NOT ORIGINAL grouping - level_editor_actions.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_actions_state()).
+struct LevelEditorActionsState {
+    // The keymap's frame: the keys down last frame, the actions fired this frame, those triggered for the next.
+    std::array<uint8_t, SDL_NUM_SCANCODES> was_{};
+    std::vector<bool> fired_{};
+    std::vector<bool> triggered_{};
+    int capture_ = -1;
+    int capture_slot_ = 0;
+};
+
+LevelEditorActionsState& level_editor_actions_state()
+{
+    static core::NoDestroy<LevelEditorActionsState> state;
+    return state.get();
+}
 
 std::string ini_path() { return game_folder_path("thug2-decomp.ini"); }
 
@@ -767,40 +778,40 @@ std::vector<int> conflicts(int index)
 void begin_frame(platform::KeyState keys)
 {
     std::vector<ActStep>& r = get_registry();
-    g_fired.assign(r.size(), false);
-    g_triggered.resize(r.size(), false);
+    level_editor_actions_state().fired_.assign(r.size(), false);
+    level_editor_actions_state().triggered_.resize(r.size(), false);
     for (size_t i = 0; i < r.size(); ++i) {
-        if (core::at(g_triggered, i)) {
-            core::at(g_fired, i) = true;
-            core::at(g_triggered, i) = false;
+        if (core::at(level_editor_actions_state().triggered_, i)) {
+            core::at(level_editor_actions_state().fired_, i) = true;
+            core::at(level_editor_actions_state().triggered_, i) = false;
         }
     }
     const uint8_t held = held_mods(keys);
     std::vector<std::vector<Chord>> bound(r.size());
     bool have_bound = false;
     for (int s = 0; s < SDL_NUM_SCANCODES; ++s) {
-        const bool pressed = core::at(keys, s) && !core::at(g_was, s);
-        core::at(g_was, s) = core::at(keys, s);
+        const bool pressed = core::at(keys, s) && !core::at(level_editor_actions_state().was_, s);
+        core::at(level_editor_actions_state().was_, s) = core::at(keys, s);
         if (!pressed || is_modifier(s))
             continue;
-        if (g_capture >= 0) {
+        if (level_editor_actions_state().capture_ >= 0) {
             // (the key being captured: Escape cancels)
             if (s != SDL_SCANCODE_ESCAPE) {
-                if (const ActStep* a = get_pull(g_capture)) {
+                if (const ActStep* a = get_pull(level_editor_actions_state().capture_)) {
                     std::vector<Chord> next = a->keys;
                     const Chord chord = {.scancode = s, .mods = held};
                     if (!*get_key_name(s)) {
                         get_log("level editor: key %d can't be bound (not one the keymap names)", s);
                     } else {
-                        if (std::cmp_less(g_capture_slot, next.size()))
-                            core::at(next, g_capture_slot) = chord;
+                        if (std::cmp_less(level_editor_actions_state().capture_slot_, next.size()))
+                            core::at(next, level_editor_actions_state().capture_slot_) = chord;
                         else
                             next.push_back(chord);
-                        set_keys(g_capture, next);
+                        set_keys(level_editor_actions_state().capture_, next);
                     }
                 }
             }
-            g_capture = -1;
+            level_editor_actions_state().capture_ = -1;
             continue;
         }
         if (!have_bound) {
@@ -811,22 +822,22 @@ void begin_frame(platform::KeyState keys)
             have_bound = true;
         }
         for (const int i : settle_up(bound, s, held))
-            core::at(g_fired, i) = true;
+            core::at(level_editor_actions_state().fired_, i) = true;
     }
 }
 
 void seed_keys(platform::KeyState keys)
 {
-    core::copy_into(keys.first(g_was.size()), std::span(g_was));
-    g_triggered.assign(g_triggered.size(), false);
+    core::copy_into(keys.first(level_editor_actions_state().was_.size()), std::span(level_editor_actions_state().was_));
+    level_editor_actions_state().triggered_.assign(level_editor_actions_state().triggered_.size(), false);
 }
 
-bool squeezed(int index) { return index >= 0 && std::cmp_less(index, g_fired.size()) && core::at(g_fired, index); }
+bool squeezed(int index) { return index >= 0 && std::cmp_less(index, level_editor_actions_state().fired_.size()) && core::at(level_editor_actions_state().fired_, index); }
 
 bool get_held(platform::KeyState keys, int index)
 {
     const ActStep* a = get_pull(index);
-    if (!a || g_capture >= 0)
+    if (!a || level_editor_actions_state().capture_ >= 0)
         return false;
     const uint8_t held = held_mods(keys);
     for (const Chord& c : a->keys) {
@@ -841,8 +852,8 @@ void fire_off(int index)
     const std::vector<ActStep>& r = get_registry();
     if (index < 0 || std::cmp_greater_equal(index, r.size()))
         return;
-    g_triggered.resize(r.size(), false);
-    core::at(g_triggered, index) = true;
+    level_editor_actions_state().triggered_.resize(r.size(), false);
+    core::at(level_editor_actions_state().triggered_, index) = true;
 }
 
 void get_run(int index)
@@ -896,11 +907,11 @@ void load_keys()
 
 void begin_capture(int index, int slot)
 {
-    g_capture = get_pull(index) && get_pull(index)->rebindable ? index : -1;
-    g_capture_slot = slot;
+    level_editor_actions_state().capture_ = get_pull(index) && get_pull(index)->rebindable ? index : -1;
+    level_editor_actions_state().capture_slot_ = slot;
 }
-void cancel_capture() { g_capture = -1; }
-bool get_capturing() { return g_capture >= 0; }
-int capturing_index() { return g_capture; }
+void cancel_capture() { level_editor_actions_state().capture_ = -1; }
+bool get_capturing() { return level_editor_actions_state().capture_ >= 0; }
+int capturing_index() { return level_editor_actions_state().capture_; }
 
 } // namespace frontend::level_editor::actions

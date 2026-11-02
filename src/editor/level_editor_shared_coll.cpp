@@ -258,7 +258,11 @@ std::map<uint32_t, TableRow>& entries()
     static std::map<uint32_t, TableRow> value;
     return value;
 }
-uint32_t g_generation; // (faces taken or given back: the collision view's cache made again)
+uint32_t& generation()
+{
+    static uint32_t generation{}; // (faces taken or given back: the collision view's cache made again)
+    return generation;
+}
 
 bool is_switched_on()
 {
@@ -537,7 +541,7 @@ void get_drop(const std::map<uint32_t, TableRow>::iterator& it)
                 t.geometry->set_face_flags(t.face, t.flags);
         }
         render::remove_from_caches(entry.companion->get_object());
-        ++g_generation;
+        ++generation();
     }
     entries().erase(it);
 }
@@ -568,7 +572,7 @@ void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell*
         for (const Taken& t : taken)
             t.geometry->set_face_flags(t.face, static_cast<uint16_t>(t.flags | 0x10));
         entry.taken = std::move(taken);
-        ++g_generation;
+        ++generation();
     }
 }
 
@@ -693,7 +697,7 @@ std::vector<int> taken_faces(const render::TriMeshSource* geometry)
     return faces;
 }
 
-uint32_t get_generation() { return g_generation; }
+uint32_t get_generation() { return generation(); }
 
 bool taken_face(const render::TriMeshSource* geometry, int face, uint32_t* piece, int* index, uint16_t* flags)
 {
@@ -742,7 +746,7 @@ bool set_taken_flags(const render::TriMeshSource* geometry, int face, uint16_t f
             if (entry.second.companion)
                 entry.second.companion->change_tri_flags(static_cast<int>(i), flags);
             core::at(taken, i).geometry->set_face_flags(core::at(taken, i).face, static_cast<uint16_t>(flags | 0x10));
-            ++g_generation;
+            ++generation();
             return true;
         }
     }

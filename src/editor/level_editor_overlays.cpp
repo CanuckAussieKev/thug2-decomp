@@ -22,6 +22,7 @@
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::overlays {
 
@@ -76,18 +77,28 @@ const std::vector<BitInfo>& get_bits()
 
 namespace {
 
-bool g_read;
-uint32_t g_bits = kDefaultBits;
-int g_view_mode;
-bool g_forced_collision; // (Collision only turned the collision view on: off again when it ends)
+// NOT ORIGINAL grouping - level_editor_overlays.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_overlays_state()).
+struct LevelEditorOverlaysState {
+    bool read_{};
+    uint32_t bits_ = kDefaultBits;
+    int view_mode_{};
+    bool forced_collision_{}; // (Collision only turned the collision view on: off again when it ends)
+};
+
+LevelEditorOverlaysState& level_editor_overlays_state()
+{
+    static core::NoDestroy<LevelEditorOverlaysState> state;
+    return state.get();
+}
 
 void get_take_in()
 {
-    if (g_read)
+    if (level_editor_overlays_state().read_)
         return;
-    g_read = true;
+    level_editor_overlays_state().read_ = true;
     const int value = config_int("editor", "overlays", -1);
-    g_bits = parse_bits(value, value >= 0);
+    level_editor_overlays_state().bits_ = parse_bits(value, value >= 0);
 }
 
 } // namespace
@@ -95,7 +106,7 @@ void get_take_in()
 uint32_t at_hand()
 {
     get_take_in();
-    return g_bits;
+    return level_editor_overlays_state().bits_;
 }
 
 bool get_shown(uint32_t bit) { return (at_hand() & bit) != 0; }
@@ -103,39 +114,39 @@ bool get_shown(uint32_t bit) { return (at_hand() & bit) != 0; }
 void assign_value(uint32_t bit, bool on)
 {
     get_take_in();
-    const uint32_t bits = on ? g_bits | bit : g_bits & ~bit;
-    if (bits == g_bits)
+    const uint32_t bits = on ? level_editor_overlays_state().bits_ | bit : level_editor_overlays_state().bits_ & ~bit;
+    if (bits == level_editor_overlays_state().bits_)
         return;
-    g_bits = bits & kAllBits;
-    config_set_int("editor", "overlays", static_cast<int>(g_bits));
+    level_editor_overlays_state().bits_ = bits & kAllBits;
+    config_set_int("editor", "overlays", static_cast<int>(level_editor_overlays_state().bits_));
 }
 
 void kickoff()
 {
     get_take_in();
-    g_view_mode = 0;
-    g_forced_collision = false;
+    level_editor_overlays_state().view_mode_ = 0;
+    level_editor_overlays_state().forced_collision_ = false;
     render::view_mode::assign_value(render::view_mode::Mode::kLit);
 }
 
 void halt() { change_view_mode(0); }
 
-int view_mode() { return g_view_mode; }
+int view_mode() { return level_editor_overlays_state().view_mode_; }
 
 void change_view_mode(int mode)
 {
-    if (mode < 0 || mode >= kViewModes || mode == g_view_mode)
+    if (mode < 0 || mode >= kViewModes || mode == level_editor_overlays_state().view_mode_)
         return;
     constexpr int kCollisionOnly = static_cast<int>(render::view_mode::Mode::kCollisionOnly);
     if (mode == kCollisionOnly && !view::show_collision()) {
         view::set_show_collision(true);
-        g_forced_collision = true;
-    } else if (g_view_mode == kCollisionOnly && g_forced_collision) {
+        level_editor_overlays_state().forced_collision_ = true;
+    } else if (level_editor_overlays_state().view_mode_ == kCollisionOnly && level_editor_overlays_state().forced_collision_) {
         if (view::show_collision())
             view::set_show_collision(false);
-        g_forced_collision = false;
+        level_editor_overlays_state().forced_collision_ = false;
     }
-    g_view_mode = mode;
+    level_editor_overlays_state().view_mode_ = mode;
     render::view_mode::assign_value(static_cast<render::view_mode::Mode>(mode));
 }
 

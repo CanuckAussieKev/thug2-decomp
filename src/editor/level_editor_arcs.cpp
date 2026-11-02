@@ -31,6 +31,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::arcs {
 
@@ -297,7 +298,11 @@ Physics& physics_state()
     static Physics value = arcs_fallback();
     return value;
 }
-bool g_have_read;
+bool& have_read()
+{
+    static bool have_read{};
+    return have_read;
+}
 
 // A stat structure's value at `stat` (its pair, its limit), from the physics structure or the global one; false:
 // not found.
@@ -410,7 +415,11 @@ struct Cache {
     std::chrono::steady_clock::time_point made;
     bool valid = false;
 };
-Cache g_cache;
+Cache& cache()
+{
+    static core::NoDestroy<Cache> cache;
+    return cache.get();
+}
 
 std::vector<V3> boxes_of(const std::vector<uint32_t>& sectors)
 {
@@ -441,13 +450,13 @@ bool same_boxes(const std::vector<V3>& a, const std::vector<V3>& b)
 
 void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& boxes)
 {
-    g_cache = Cache{};
-    g_cache.sectors = sectors;
-    g_cache.boxes = boxes;
-    g_cache.made = std::chrono::steady_clock::now();
-    g_cache.valid = true;
+    cache() = Cache{};
+    cache().sectors = sectors;
+    cache().boxes = boxes;
+    cache().made = std::chrono::steady_clock::now();
+    cache().valid = true;
     read_physics();
-    g_have_read = true;
+    have_read() = true;
     std::vector<Face> faces;
     for (const uint32_t s : sectors)
         sector_faces(s, &faces);
@@ -467,11 +476,11 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
                                           return cast_feeler(from, to, hit, normal, landed_on);
                                       });
         }
-        g_cache.arcs.push_back(arcs);
+        cache().arcs.push_back(arcs);
     }
     if (debug_enabled())
         get_log("level editor: jump arcs - %d lips (%s; g %.0f / vert %.0f, jump %.0f, speeds %.0f / %.0f / %.0f)",
-                static_cast<int>(g_cache.arcs.size()), physics_state().source.c_str(), physics_state().air_gravity_,
+                static_cast<int>(cache().arcs.size()), physics_state().source.c_str(), physics_state().air_gravity_,
                 physics_state().vert_gravity_, physics_state().jump, core::at(physics_state().speeds, 0),
                 core::at(physics_state().speeds, 1), core::at(physics_state().speeds, 2));
 }
@@ -480,9 +489,9 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
 
 const Physics& current_physics(bool refresh)
 {
-    if (refresh || !g_have_read) {
+    if (refresh || !have_read()) {
         read_physics();
-        g_have_read = true;
+        have_read() = true;
     }
     return physics_state();
 }
@@ -490,16 +499,16 @@ const Physics& current_physics(bool refresh)
 void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& sectors)
 {
     if (!overlays::get_shown(overlays::kJumpArcs) || sectors.empty()) {
-        g_cache.valid = false;
+        cache().valid = false;
         return;
     }
     const std::vector<V3> boxes = boxes_of(sectors);
-    const bool stale = !g_cache.valid || g_cache.sectors != sectors || !same_boxes(g_cache.boxes, boxes);
+    const bool stale = !cache().valid || cache().sectors != sectors || !same_boxes(cache().boxes, boxes);
     // (while the selection moves: made again at most four times a second)
-    if (stale && (!g_cache.valid || g_cache.sectors != sectors ||
-                  std::chrono::steady_clock::now() - g_cache.made > std::chrono::milliseconds(250)))
+    if (stale && (!cache().valid || cache().sectors != sectors ||
+                  std::chrono::steady_clock::now() - cache().made > std::chrono::milliseconds(250)))
         get_remake(sectors, boxes);
-    for (const LipArcs& arcs : g_cache.arcs) {
+    for (const LipArcs& arcs : cache().arcs) {
         const Lip& lip = arcs.lip;
         const V3 half = lip.across * (lip.width * 0.5f);
         (void)painter.get_seg(lip.point - half, lip.point + half, 0xFFFFFFFF, 2.0f);
@@ -548,23 +557,23 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
 
 std::string describe()
 {
-    if (!g_cache.valid)
+    if (!cache().valid)
         return "";
     std::array<char, 160> text{};
-    if (g_cache.arcs.empty())
+    if (cache().arcs.empty())
         return "Jump Arcs: no lip found";
-    const LipArcs& first = g_cache.arcs.front();
+    const LipArcs& first = cache().arcs.front();
     if (first.lip.vert)
         text::format_to(text, "jump arcs: %d lips; vert - rises %.0f at top speed",
-                        static_cast<int>(g_cache.arcs.size()), core::at(first.rise, 1));
+                        static_cast<int>(cache().arcs.size()), core::at(first.rise, 1));
     else if (core::at(first.flights, 1).landed)
-        text::format_to(text, "jump arcs: %d lips; lands %.0f out at top speed", static_cast<int>(g_cache.arcs.size()),
+        text::format_to(text, "jump arcs: %d lips; lands %.0f out at top speed", static_cast<int>(cache().arcs.size()),
                         std::sqrt((core::at(first.flights, 1).landing.x - first.lip.point.x) *
                                       (core::at(first.flights, 1).landing.x - first.lip.point.x) +
                                   (core::at(first.flights, 1).landing.z - first.lip.point.z) *
                                       (core::at(first.flights, 1).landing.z - first.lip.point.z)));
     else
-        text::format_to(text, "jump arcs: %d lips", static_cast<int>(g_cache.arcs.size()));
+        text::format_to(text, "jump arcs: %d lips", static_cast<int>(cache().arcs.size()));
     return text.data();
 }
 

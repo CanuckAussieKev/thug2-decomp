@@ -29,6 +29,7 @@
 #include "engine/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
 #include "engine/gfx/cag_cfuncs.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::skate_view {
 
@@ -134,22 +135,32 @@ std::unordered_map<uint32_t, Cached>& cache()
     static std::unordered_map<uint32_t, Cached> value;
     return value;
 }
-std::array<int, kKinds> g_counts;
-bool g_capped;
-int g_rail_segments;
-float g_threshold = -1.0f;
+// NOT ORIGINAL grouping - level_editor_skate_view.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_skate_view_state()).
+struct LevelEditorSkateViewState {
+    std::array<int, kKinds> counts_{};
+    bool capped_{};
+    int rail_segments_{};
+    float threshold_ = -1.0f;
+};
+
+LevelEditorSkateViewState& level_editor_skate_view_state()
+{
+    static core::NoDestroy<LevelEditorSkateViewState> state;
+    return state.get();
+}
 
 V3 to_v3(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z}; }
 
 float game_threshold()
 {
-    if (g_threshold < 0.0f) {
+    if (level_editor_skate_view_state().threshold_ < 0.0f) {
         // (0x005003A0: the script float 0x3EEDE4D3 - 0x00478F00 with its assert on, as it asks - times 0x00645464)
         const float angle = script::fetch_float(0x3EEDE4D3u); // (the original also passes 1, unused)
         const float factor = ::commands::kDegreeToRadianRatio;
-        g_threshold = get_threshold(angle, factor);
+        level_editor_skate_view_state().threshold_ = get_threshold(angle, factor);
     }
-    return g_threshold;
+    return level_editor_skate_view_state().threshold_;
 }
 
 const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int trigger)
@@ -205,9 +216,9 @@ void halt() { cache().clear(); }
 
 void add_overlay(const overlays::Painter& painter)
 {
-    std::memset(g_counts.data(), 0, sizeof(g_counts));
-    g_capped = false;
-    g_rail_segments = 0;
+    std::memset(level_editor_skate_view_state().counts_.data(), 0, sizeof(level_editor_skate_view_state().counts_));
+    level_editor_skate_view_state().capped_ = false;
+    level_editor_skate_view_state().rail_segments_ = 0;
     if (!get_shown() || !painter.overlay)
         return;
     // The level's kill / water triggers by sector (1 kill, 2 water).
@@ -253,7 +264,7 @@ void add_overlay(const overlays::Painter& painter)
         const Cached& c = cache_of(candidate.checksum, candidate.tri, trigger == triggers.end() ? 0 : trigger->second);
         for (size_t f = 0; f < c.kinds.size(); ++f) {
             if (static_cast<int>(polygons.size()) >= kMaxFaces) {
-                g_capped = true;
+                level_editor_skate_view_state().capped_ = true;
                 break;
             }
             std::array<V3, 4> clipped{};
@@ -279,9 +290,9 @@ void add_overlay(const overlays::Painter& painter)
             poly.depth = depth / static_cast<float>(count);
             poly.argb = get_colour(kind);
             polygons.push_back(poly);
-            ++core::at(g_counts, core::at(c.kinds, f));
+            ++core::at(level_editor_skate_view_state().counts_, core::at(c.kinds, f));
         }
-        if (g_capped)
+        if (level_editor_skate_view_state().capped_)
             break;
     }
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
@@ -321,7 +332,7 @@ void add_overlay(const overlays::Painter& painter)
             if (painter.get_seg(a, b, kRail, 3.0f))
                 ++drawn;
         }
-        g_rail_segments = drawn;
+        level_editor_skate_view_state().rail_segments_ = drawn;
     }
 }
 
@@ -353,10 +364,10 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
             ImGui::TextUnformatted(name);
     };
     for (int k = 1; k < kKinds; ++k)
-        row(get_colour(static_cast<Kind>(k)), get_name(static_cast<Kind>(k)), core::at(g_counts, k));
-    row(kRail, "Grind rail (the rail manager's)", g_rail_segments);
+        row(get_colour(static_cast<Kind>(k)), get_name(static_cast<Kind>(k)), core::at(level_editor_skate_view_state().counts_, k));
+    row(kRail, "Grind rail (the rail manager's)", level_editor_skate_view_state().rail_segments_);
     gui::text_disabled("Slope limit: normal y %.2f", game_threshold());
-    if (g_capped)
+    if (level_editor_skate_view_state().capped_)
         gui::text_disabled("(nearest %d faces)", kMaxFaces);
     ImGui::End();
 }

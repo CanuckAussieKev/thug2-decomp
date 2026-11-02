@@ -35,6 +35,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::faces {
 
@@ -190,16 +191,27 @@ namespace {
 
 constexpr size_t kMostSelected = 8192;
 
-bool g_picking;
-std::vector<FaceKey> g_selection;
-bool g_have_hover;
-FaceKey g_hover;
+// NOT ORIGINAL grouping - level_editor_faces.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_faces_state()).
+struct LevelEditorFacesState {
+    bool picking_{};
+    std::vector<FaceKey> selection_{};
+    bool have_hover_{};
+    FaceKey hover_{};
+    std::vector<std::function<void()>> queue_{};
+};
+
+LevelEditorFacesState& level_editor_faces_state()
+{
+    static core::NoDestroy<LevelEditorFacesState> state;
+    return state.get();
+}
+
 std::map<FaceKey, uint16_t>& origins()
 {
     static std::map<FaceKey, uint16_t> value; // (each face the editor changed: its flags as the level has them)
     return value;
 }
-std::vector<std::function<void()>> g_queue;
 
 // The sector's collision geometry (its StaticCollider's), null for none.
 render::TriMeshSource* get_geometry(uint32_t checksum)
@@ -211,7 +223,6 @@ render::TriMeshSource* get_geometry(uint32_t checksum)
     auto* tri = coll->geometry_;
     return tri && tri->faces_ ? tri : nullptr;
 }
-
 
 // The face's flags written (a taken face: in its companion - the original keeps 0x10); its level's flags noted first.
 bool emit_out(FaceKey key, uint16_t flags)
@@ -294,7 +305,7 @@ struct Step : ModuleStep {
     {
         for (const auto& f : flags)
             emit_out(f.first, f.second);
-        g_selection = selection;
+        level_editor_faces_state().selection_ = selection;
         view::stale_cache();
     }
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
@@ -305,7 +316,7 @@ struct Step : ModuleStep {
             get_take_in(f.first, &value);
             now->flags.emplace_back(f.first, value);
         }
-        now->selection = g_selection;
+        now->selection = level_editor_faces_state().selection_;
         return now;
     }
 };
@@ -318,7 +329,7 @@ std::shared_ptr<Step> get_capture(const std::vector<FaceKey>& keys)
         if (get_take_in(key, &value))
             step->flags.emplace_back(key, value);
     }
-    step->selection = g_selection;
+    step->selection = level_editor_faces_state().selection_;
     return step;
 }
 
@@ -326,52 +337,52 @@ std::string piece_label(uint32_t checksum) { return object_edit::caption(checksu
 
 } // namespace
 
-bool get_picking() { return g_picking; }
+bool get_picking() { return level_editor_faces_state().picking_; }
 
 void set_picking(bool on)
 {
     // The collision view comes on with Face Select and goes off with it again if Face Select turned it on.
     static bool s_turned_collision_on;
-    if (on && !g_picking) {
+    if (on && !level_editor_faces_state().picking_) {
         s_turned_collision_on = !view::show_collision();
         if (s_turned_collision_on)
             view::set_show_collision(true);
-    } else if (!on && g_picking) {
+    } else if (!on && level_editor_faces_state().picking_) {
         if (s_turned_collision_on && view::show_collision())
             view::set_show_collision(false);
         s_turned_collision_on = false;
     }
-    g_picking = on;
+    level_editor_faces_state().picking_ = on;
     if (!on)
-        g_have_hover = false;
+        level_editor_faces_state().have_hover_ = false;
 }
 
 void kickoff()
 {
-    actions::set_checked(actions::kFaces, [] { return g_picking ? 1 : 0; }); // (its check in the View menu)
-    g_picking = false;
-    g_selection.clear();
-    g_have_hover = false;
+    actions::set_checked(actions::kFaces, [] { return level_editor_faces_state().picking_ ? 1 : 0; }); // (its check in the View menu)
+    level_editor_faces_state().picking_ = false;
+    level_editor_faces_state().selection_.clear();
+    level_editor_faces_state().have_hover_ = false;
 }
 
 void halt()
 {
-    g_picking = false;
-    g_selection.clear();
-    g_have_hover = false;
-    g_queue.clear();
+    level_editor_faces_state().picking_ = false;
+    level_editor_faces_state().selection_.clear();
+    level_editor_faces_state().have_hover_ = false;
+    level_editor_faces_state().queue_.clear();
 }
 
-const std::vector<FaceKey>& get_selection() { return g_selection; }
-bool has_selection() { return !g_selection.empty(); }
-void clear_selection() { g_selection.clear(); }
+const std::vector<FaceKey>& get_selection() { return level_editor_faces_state().selection_; }
+bool has_selection() { return !level_editor_faces_state().selection_.empty(); }
+void clear_selection() { level_editor_faces_state().selection_.clear(); }
 
 bool click_at(V3 origin, V3 unit_dir, bool add)
 {
     view::FaceHit hit;
     if (!view::pick_face(origin, unit_dir, &hit)) {
         if (!add)
-            g_selection.clear();
+            level_editor_faces_state().selection_.clear();
         hud::get_message("No collision face under cursor");
         return false;
     }
@@ -381,17 +392,17 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
         hud::get_message(why, 4.0);
         return false;
     }
-    if (add && g_selection.size() >= kMostSelected && std::ranges::find(g_selection, key) == g_selection.end()) {
+    if (add && level_editor_faces_state().selection_.size() >= kMostSelected && std::ranges::find(level_editor_faces_state().selection_, key) == level_editor_faces_state().selection_.end()) {
         hud::get_message("Limit: 8192 faces");
         return false;
     }
-    const bool selected = get_click(&g_selection, key, add);
+    const bool selected = get_click(&level_editor_faces_state().selection_, key, add);
     uint16_t flags = 0;
     get_take_in(key, &flags);
     std::array<char, 160> text{};
     text::format_to(text, "Face %u of %s %s - flags 0x%04X (%u selected)", static_cast<unsigned>(key.face),
                     piece_label(key.checksum).c_str(), selected ? "selected" : "dropped", flags,
-                    static_cast<unsigned>(g_selection.size()));
+                    static_cast<unsigned>(level_editor_faces_state().selection_.size()));
     hud::get_message(text.data());
     if (debug_enabled())
         get_log("level editor: %s", text.data());
@@ -400,11 +411,11 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
 
 void get_hover(V3 origin, V3 unit_dir, bool have_ray)
 {
-    g_have_hover = false;
+    level_editor_faces_state().have_hover_ = false;
     view::FaceHit hit;
     std::string why;
-    if (g_picking && have_ray && view::pick_face(origin, unit_dir, &hit) && get_key_of(hit, &g_hover, &why))
-        g_have_hover = true;
+    if (level_editor_faces_state().picking_ && have_ray && view::pick_face(origin, unit_dir, &hit) && get_key_of(hit, &level_editor_faces_state().hover_, &why))
+        level_editor_faces_state().have_hover_ = true;
 }
 
 bool select_piece(uint32_t checksum, bool add)
@@ -428,12 +439,12 @@ bool select_piece(uint32_t checksum, bool add)
     if (faces.empty())
         return false;
     if (!add)
-        g_selection.clear();
+        level_editor_faces_state().selection_.clear();
     for (const FaceKey& key : faces) {
-        if (g_selection.size() >= kMostSelected)
+        if (level_editor_faces_state().selection_.size() >= kMostSelected)
             break;
-        if (std::ranges::find(g_selection, key) == g_selection.end())
-            g_selection.push_back(key);
+        if (std::ranges::find(level_editor_faces_state().selection_, key) == level_editor_faces_state().selection_.end())
+            level_editor_faces_state().selection_.push_back(key);
     }
     return true;
 }
@@ -450,12 +461,12 @@ bool get_take_in(FaceKey key, uint16_t* flags)
 
 bool set_flag(uint16_t bit, bool on)
 {
-    if (g_selection.empty())
+    if (level_editor_faces_state().selection_.empty())
         return false;
-    const std::shared_ptr<Step> before = get_capture(g_selection);
+    const std::shared_ptr<Step> before = get_capture(level_editor_faces_state().selection_);
     bool changed = false;
     int faces = 0;
-    for (const FaceKey& key : g_selection) {
+    for (const FaceKey& key : level_editor_faces_state().selection_) {
         uint16_t flags = 0;
         if (!get_take_in(key, &flags))
             continue;
@@ -479,11 +490,11 @@ bool set_flag(uint16_t bit, bool on)
 
 bool home_selection()
 {
-    if (g_selection.empty())
+    if (level_editor_faces_state().selection_.empty())
         return false;
-    const std::shared_ptr<Step> before = get_capture(g_selection);
+    const std::shared_ptr<Step> before = get_capture(level_editor_faces_state().selection_);
     int faces = 0;
-    for (const FaceKey& key : g_selection) {
+    for (const FaceKey& key : level_editor_faces_state().selection_) {
         auto origin = origins().find(key);
         uint16_t now = 0;
         if (origin != origins().end() && get_take_in(key, &now) && now != origin->second &&
@@ -534,26 +545,26 @@ void reset_all()
         if (get_take_in(origin.first, &now) && now != origin.second)
             emit_out(origin.first, origin.second);
     }
-    g_selection.clear();
+    level_editor_faces_state().selection_.clear();
     view::stale_cache();
 }
 
 void forget_level()
 {
     origins().clear();
-    g_selection.clear();
-    g_have_hover = false;
-    g_queue.clear();
+    level_editor_faces_state().selection_.clear();
+    level_editor_faces_state().have_hover_ = false;
+    level_editor_faces_state().queue_.clear();
 }
 
 void tick_frame()
 {
     std::vector<std::function<void()>> queue;
-    queue.swap(g_queue);
+    queue.swap(level_editor_faces_state().queue_);
     for (auto& action : queue)
         action();
     // (faces of a level gone: dropped from the selection)
-    std::erase_if(g_selection, [](const FaceKey& key) {
+    std::erase_if(level_editor_faces_state().selection_, [](const FaceKey& key) {
         uint16_t flags = 0;
         return !get_take_in(key, &flags);
     });
@@ -581,44 +592,44 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         }
     };
     size_t drawn = 0;
-    for (const FaceKey& key : g_selection) {
+    for (const FaceKey& key : level_editor_faces_state().selection_) {
         if (++drawn > 4096)
             break;
         outline(key, 0xFF40F0FF, 2.0f);
     }
-    if (g_picking && g_have_hover)
-        outline(g_hover, 0xFFFFF040, 2.5f);
+    if (level_editor_faces_state().picking_ && level_editor_faces_state().have_hover_)
+        outline(level_editor_faces_state().hover_, 0xFFFFF040, 2.5f);
 }
 
 std::string describe()
 {
     std::array<char, 96> text{};
-    text::format_to(text, "Faces mode%s: %u selected", g_picking ? "" : " off",
-                    static_cast<unsigned>(g_selection.size()));
+    text::format_to(text, "Faces mode%s: %u selected", level_editor_faces_state().picking_ ? "" : " off",
+                    static_cast<unsigned>(level_editor_faces_state().selection_.size()));
     return text.data();
 }
 
 void inspector_section(ImFont* mono, ImFont* small_font)
 {
-    if (!g_picking && g_selection.empty())
+    if (!level_editor_faces_state().picking_ && level_editor_faces_state().selection_.empty())
         return;
     ImGui::Spacing();
     ImGui::Separator();
     if (!ImGui::CollapsingHeader("Collision faces###faceflags", ImGuiTreeNodeFlags_DefaultOpen))
         return;
     ImGui::PushFont(small_font);
-    gui::text_disabled("%s", g_picking ? "Click a face to select, Shift+click to add" : "Face Select is off");
+    gui::text_disabled("%s", level_editor_faces_state().picking_ ? "Click a face to select, Shift+click to add" : "Face Select is off");
     ImGui::PopFont();
-    bool picking = g_picking;
+    bool picking = level_editor_faces_state().picking_;
     if (ImGui::Checkbox("Face Select Mode", &picking))
-        g_queue.emplace_back([picking] { set_picking(picking); });
-    if (g_selection.empty()) {
+        level_editor_faces_state().queue_.emplace_back([picking] { set_picking(picking); });
+    if (level_editor_faces_state().selection_.empty()) {
         gui::text_disabled("No faces selected");
         return;
     }
     std::vector<uint16_t> flags;
     std::vector<uint32_t> pieces;
-    for (const FaceKey& key : g_selection) {
+    for (const FaceKey& key : level_editor_faces_state().selection_) {
         uint16_t f = 0;
         if (get_take_in(key, &f))
             flags.push_back(f);
@@ -626,11 +637,11 @@ void inspector_section(ImFont* mono, ImFont* small_font)
             pieces.push_back(key.checksum);
     }
     ImGui::PushFont(mono);
-    if (g_selection.size() == 1 && !flags.empty())
-        gui::text("face %u of %s: 0x%04X", static_cast<unsigned>(core::at(g_selection, 0).face),
-                    piece_label(core::at(g_selection, 0).checksum).c_str(), core::at(flags, 0));
+    if (level_editor_faces_state().selection_.size() == 1 && !flags.empty())
+        gui::text("face %u of %s: 0x%04X", static_cast<unsigned>(core::at(level_editor_faces_state().selection_, 0).face),
+                    piece_label(core::at(level_editor_faces_state().selection_, 0).checksum).c_str(), core::at(flags, 0));
     else
-        gui::text("%u faces in %u piece%s", static_cast<unsigned>(g_selection.size()),
+        gui::text("%u faces in %u piece%s", static_cast<unsigned>(level_editor_faces_state().selection_.size()),
                     static_cast<unsigned>(pieces.size()), pieces.size() == 1 ? "" : "s");
     ImGui::PopFont();
     for (int i = 0; i < kFlagCount; ++i) {
@@ -642,20 +653,20 @@ void inspector_section(ImFont* mono, ImFont* small_font)
         if (ImGui::Checkbox(label.data(), &on)) {
             const uint16_t bit = info.bit;
             const bool set = state != 1; // (mixed or clear: set on all; all set: clear)
-            g_queue.emplace_back([bit, set] { set_flag(bit, set); });
+            level_editor_faces_state().queue_.emplace_back([bit, set] { set_flag(bit, set); });
         }
         if (ImGui::IsItemHovered())
             gui::tooltip("%s", info.what);
     }
     if (ImGui::Button("Home (the level's flags)##faces"))
-        g_queue.emplace_back([] { home_selection(); });
+        level_editor_faces_state().queue_.emplace_back([] { home_selection(); });
     ImGui::SameLine();
     if (ImGui::Button("Drop selection##faces"))
-        g_queue.emplace_back([] { clear_selection(); });
-    const uint32_t piece = g_selection.back().checksum;
+        level_editor_faces_state().queue_.emplace_back([] { clear_selection(); });
+    const uint32_t piece = level_editor_faces_state().selection_.back().checksum;
     const std::string all_label = "All faces of " + piece_label(piece);
     if (ImGui::Button(all_label.c_str()))
-        g_queue.emplace_back([piece] {
+        level_editor_faces_state().queue_.emplace_back([piece] {
             if (select_piece(piece, false))
                 hud::get_message("Selected all faces of " + piece_label(piece));
         });
@@ -664,7 +675,7 @@ void inspector_section(ImFont* mono, ImFont* small_font)
     if (scenery::has_selection()) {
         ImGui::SameLine();
         if (ImGui::Button("Select All Faces"))
-            g_queue.emplace_back([] {
+            level_editor_faces_state().queue_.emplace_back([] {
                 // (a copy: selecting changes the selection)
                 const auto sectors = std::vector<uint32_t>(scenery::get_selection());
                 bool any = false;

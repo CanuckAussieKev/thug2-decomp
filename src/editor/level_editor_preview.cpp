@@ -32,6 +32,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::preview {
 
@@ -81,13 +82,23 @@ namespace {
 constexpr uint32_t kBackground = 0xFF2A2C30;
 constexpr float kRadiansPerPixel = 0.01f;
 
-Kind g_kind = Kind::kNone;
-uint32_t g_id;
-Orbit g_orbit;
-bool g_have_time;
-std::chrono::steady_clock::time_point g_last_frame;
-std::chrono::steady_clock::time_point g_last_drag;
-bool g_failed_logged;
+// NOT ORIGINAL grouping - level_editor_preview.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_preview_state()).
+struct LevelEditorPreviewState {
+    Kind kind_ = Kind::kNone;
+    uint32_t id_{};
+    Orbit orbit_{};
+    bool have_time_{};
+    std::chrono::steady_clock::time_point last_frame_{};
+    std::chrono::steady_clock::time_point last_drag_{};
+    bool failed_logged_{};
+};
+
+LevelEditorPreviewState& level_editor_preview_state()
+{
+    static core::NoDestroy<LevelEditorPreviewState> state;
+    return state.get();
+}
 
 // The renderer's calls (not rewritten yet; thiscall / cdecl).
 void set_material(render::MaterialRef* material) { material->hand_in(); }
@@ -189,7 +200,7 @@ bool box_of(Kind kind, uint32_t id, OrientedBox* box)
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     return object && !(object->object_flags_ & objects::kObjectFlagDead) && object_edit::model_box(object, box);
 }
-bool subject_box(OrientedBox* box) { return box_of(g_kind, g_id, box); }
+bool subject_box(OrientedBox* box) { return box_of(level_editor_preview_state().kind_, level_editor_preview_state().id_, box); }
 
 void draw_subject(Kind kind, uint32_t id)
 {
@@ -212,46 +223,46 @@ void draw_subject(Kind kind, uint32_t id)
 
 void get_show(Kind kind, uint32_t id)
 {
-    if (kind == g_kind && id == g_id)
+    if (kind == level_editor_preview_state().kind_ && id == level_editor_preview_state().id_)
         return;
-    g_kind = kind;
-    g_id = id;
-    g_orbit = Orbit{};
-    g_last_drag = {};
+    level_editor_preview_state().kind_ = kind;
+    level_editor_preview_state().id_ = id;
+    level_editor_preview_state().orbit_ = Orbit{};
+    level_editor_preview_state().last_drag_ = {};
 }
 
 void intake(float dx, float dy, float wheel)
 {
     if (dx != 0.0f || dy != 0.0f) {
-        get_drag(&g_orbit, dx, dy, kRadiansPerPixel);
-        g_last_drag = std::chrono::steady_clock::now();
+        get_drag(&level_editor_preview_state().orbit_, dx, dy, kRadiansPerPixel);
+        level_editor_preview_state().last_drag_ = std::chrono::steady_clock::now();
     }
     if (wheel != 0.0f)
-        get_wheel(&g_orbit, wheel);
+        get_wheel(&level_editor_preview_state().orbit_, wheel);
 }
 
 uint64_t render(int size)
 {
     auto now = std::chrono::steady_clock::now();
-    const double elapsed = g_have_time ? std::chrono::duration<double>(now - g_last_frame).count() : 0.0;
-    g_last_frame = now;
-    g_have_time = true;
-    if (g_kind == Kind::kNone)
+    const double elapsed = level_editor_preview_state().have_time_ ? std::chrono::duration<double>(now - level_editor_preview_state().last_frame_).count() : 0.0;
+    level_editor_preview_state().last_frame_ = now;
+    level_editor_preview_state().have_time_ = true;
+    if (level_editor_preview_state().kind_ == Kind::kNone)
         return 0;
     // The slow turn (paused for a while after a drag).
-    if (std::chrono::duration<double>(now - g_last_drag).count() > kTurnWait)
-        g_orbit.yaw += kTurnSpeed * static_cast<float>(std::min(elapsed, 0.1));
+    if (std::chrono::duration<double>(now - level_editor_preview_state().last_drag_).count() > kTurnWait)
+        level_editor_preview_state().orbit_.yaw += kTurnSpeed * static_cast<float>(std::min(elapsed, 0.1));
 
     OrientedBox box{};
     if (!subject_box(&box))
         return 0;
     if (!ui_backend::begin_offscreen(size, kBackground)) {
-        if (!g_failed_logged)
+        if (!level_editor_preview_state().failed_logged_)
             get_log("level editor: the Add palette's preview has no target - shown without one");
-        g_failed_logged = true;
+        level_editor_preview_state().failed_logged_ = true;
         return 0;
     }
-    draw_view(g_kind, g_id, g_orbit);
+    draw_view(level_editor_preview_state().kind_, level_editor_preview_state().id_, level_editor_preview_state().orbit_);
     ui_backend::end_offscreen();
     return ui_backend::offscreen_texture();
 }
@@ -292,9 +303,9 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
 
 void conceal()
 {
-    g_kind = Kind::kNone;
-    g_id = 0;
-    g_have_time = false;
+    level_editor_preview_state().kind_ = Kind::kNone;
+    level_editor_preview_state().id_ = 0;
+    level_editor_preview_state().have_time_ = false;
     ui_backend::free_offscreen();
 }
 
@@ -303,7 +314,7 @@ void tick_cycle(ui::ShapeMesh* model)
     ui::ShapeMesh::PreviewView& view = model->preview;
     const std::vector<ui::BrowserItem>* items = model->browser_items_;
     if (!model->browser || !items || view.index < 0 || view.index >= ints::as_signed(items->size())) {
-        if (g_kind != Kind::kNone)
+        if (level_editor_preview_state().kind_ != Kind::kNone)
             conceal();
         return;
     }
@@ -317,7 +328,7 @@ void tick_cycle(ui::ShapeMesh* model)
                         box.max.z - box.min.z);
         view.size = size.data();
     }
-    if (g_kind == Kind::kSector) {
+    if (level_editor_preview_state().kind_ == Kind::kSector) {
         view.type = "scene sector (scenery)";
     } else {
         view.type = object_edit::class_of(id);

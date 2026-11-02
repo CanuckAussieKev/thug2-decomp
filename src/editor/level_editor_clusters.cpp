@@ -31,6 +31,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::clusters {
 
@@ -117,10 +118,20 @@ std::map<uint32_t, Membership>& level_state()
     static std::map<uint32_t, Membership> value; // (those pieces as the level has them)
     return value;
 }
-std::vector<std::function<void()>> g_queue;
-std::vector<void*> g_detached; // (list nodes taken out of their clusters: kept until the level goes)
-// The Inspector's typed cluster name.
-std::array<char, 64> g_typed;
+// NOT ORIGINAL grouping - level_editor_clusters.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_clusters_state()).
+struct LevelEditorClustersState {
+    std::vector<std::function<void()>> queue_{};
+    std::vector<void*> detached_{}; // (list nodes taken out of their clusters: kept until the level goes)
+    // The Inspector's typed cluster name.
+    std::array<char, 64> typed_{};
+};
+
+LevelEditorClustersState& level_editor_clusters_state()
+{
+    static core::NoDestroy<LevelEditorClustersState> state;
+    return state.get();
+}
 
 objects::TrickSpotHub* hub() { return objects::g_trick_spot_hub.get(); }
 
@@ -157,7 +168,7 @@ void unregister(uint32_t name, uint32_t cluster)
             memory::ListNode* next = node->next;
             if (static_cast<objects::TrickSpot*>(node->data)->label_ == name) {
                 node->uncouple();
-                g_detached.push_back(node);
+                level_editor_clusters_state().detached_.push_back(node);
             }
             node = next;
         }
@@ -335,14 +346,14 @@ void forget_level()
 {
     set_state().clear();
     level_state().clear();
-    g_queue.clear();
-    g_detached.clear(); // (the manager and its lists went with the level)
+    level_editor_clusters_state().queue_.clear();
+    level_editor_clusters_state().detached_.clear(); // (the manager and its lists went with the level)
 }
 
 void tick_frame()
 {
     std::vector<std::function<void()>> queue;
-    queue.swap(g_queue);
+    queue.swap(level_editor_clusters_state().queue_);
     for (auto& action : queue)
         action();
 }
@@ -389,16 +400,16 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     ImGui::PopFont();
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::PushFont(mono);
-    ImGui::InputTextWithHint("##clustername", "Cluster name", g_typed.data(), sizeof(g_typed));
+    ImGui::InputTextWithHint("##clustername", "Cluster name", level_editor_clusters_state().typed_.data(), sizeof(level_editor_clusters_state().typed_));
     ImGui::PopFont();
     const std::vector<uint32_t>& pieces = sectors;
-    const std::string typed = g_typed.data();
+    const std::string typed = level_editor_clusters_state().typed_.data();
     bool valid = !typed.empty();
     for (const char c : typed)
         valid = valid && (std::isalnum(static_cast<unsigned char>(c)) || c == '_');
     ImGui::BeginDisabled(!valid);
     if (ImGui::Button("Set Cluster")) {
-        g_queue.emplace_back([pieces, typed] {
+        level_editor_clusters_state().queue_.emplace_back([pieces, typed] {
             fields::remember(typed);
             assign_value(pieces, true, checksums::hash_from_text(typed.c_str()));
         });
@@ -408,23 +419,23 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
         gui::tooltip("Add the selection to the named cluster");
     ImGui::SameLine();
     if (ImGui::Button("Separate Clusters"))
-        g_queue.emplace_back([pieces] { assign_value(pieces, true, 0); });
+        level_editor_clusters_state().queue_.emplace_back([pieces] { assign_value(pieces, true, 0); });
     if (ImGui::IsItemHovered())
         gui::tooltip("Give each piece its own cluster");
     if (same && core::at(now, 0).trick) {
         const uint32_t cluster = core::at(now, 0).cluster;
         ImGui::SameLine();
         if (ImGui::SmallButton("Use Name"))
-            text::format_to(g_typed, "%s", get_name_of(cluster).c_str());
+            text::format_to(level_editor_clusters_state().typed_, "%s", get_name_of(cluster).c_str());
     }
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Clear Trick Object"))
-        g_queue.emplace_back([pieces] { assign_value(pieces, false, 0); });
+        level_editor_clusters_state().queue_.emplace_back([pieces] { assign_value(pieces, false, 0); });
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::BeginDisabled(!edited);
     if (ImGui::Button("Home##clusters"))
-        g_queue.emplace_back([pieces] { get_home(pieces); });
+        level_editor_clusters_state().queue_.emplace_back([pieces] { get_home(pieces); });
     ImGui::EndDisabled();
 }
 

@@ -25,21 +25,31 @@
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_ui.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::ux3 {
 
 namespace {
 
-std::vector<std::function<void()>> g_tasks;
-std::array<bool, kWindowCount> g_open;
-bool g_similar_menu;
-bool g_group_name;
-Settings g_settings;
+// NOT ORIGINAL grouping - level_editor_ux3.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_ux3_state()).
+struct LevelEditorUx3State {
+    std::vector<std::function<void()>> tasks_{};
+    std::array<bool, kWindowCount> open_{};
+    bool similar_menu_{};
+    bool group_name_{};
+    Settings settings_{};
+    std::vector<ChangeRow> changes_{};
+    uint32_t changes_at_{};
+    size_t history_key_ = static_cast<size_t>(-1);
+    bool refresh_asked_ = true;
+};
 
-std::vector<ChangeRow> g_changes;
-uint32_t g_changes_at;
-size_t g_history_key = static_cast<size_t>(-1);
-bool g_refresh_asked = true;
+LevelEditorUx3State& level_editor_ux3_state()
+{
+    static core::NoDestroy<LevelEditorUx3State> state;
+    return state.get();
+}
 
 void get_say(const std::string& message) { show_message(message, 5.0); }
 
@@ -69,26 +79,26 @@ void get_ask(ui::Request::Kind kind, int value = 0, uint32_t id = 0)
 
 } // namespace
 
-void get_queue(std::function<void()> task) { g_tasks.push_back(std::move(task)); }
+void get_queue(std::function<void()> task) { level_editor_ux3_state().tasks_.push_back(std::move(task)); }
 
-bool& unseal(Pane window) { return core::at(g_open, window); }
+bool& unseal(Pane window) { return core::at(level_editor_ux3_state().open_, window); }
 
 bool take_similar_menu()
 {
-    const bool asked = g_similar_menu;
-    g_similar_menu = false;
+    const bool asked = level_editor_ux3_state().similar_menu_;
+    level_editor_ux3_state().similar_menu_ = false;
     return asked;
 }
 
 bool take_group_name()
 {
-    const bool asked = g_group_name;
-    g_group_name = false;
+    const bool asked = level_editor_ux3_state().group_name_;
+    level_editor_ux3_state().group_name_ = false;
     return asked;
 }
 
-void note_settings(const Settings& settings) { g_settings = settings; }
-const Settings& settings_now() { return g_settings; }
+void note_settings(const Settings& settings) { level_editor_ux3_state().settings_ = settings; }
+const Settings& settings_now() { return level_editor_ux3_state().settings_; }
 
 void prepare_all()
 {
@@ -103,19 +113,19 @@ void prepare_all()
     set_enabled(kPasteTransform, [] { return clip::have_transform(); });
     set_enabled(kPasteFields, [] { return clip::field_count() > 0; });
     // (the windows: their own flags, switched at once - nothing of the level changes)
-    set_run(kPalette, [] { core::at(g_open, kPaletteWindow) = !core::at(g_open, kPaletteWindow); });
-    set_run(kHistory, [] { core::at(g_open, kHistoryWindow) = !core::at(g_open, kHistoryWindow); });
+    set_run(kPalette, [] { core::at(level_editor_ux3_state().open_, kPaletteWindow) = !core::at(level_editor_ux3_state().open_, kPaletteWindow); });
+    set_run(kHistory, [] { core::at(level_editor_ux3_state().open_, kHistoryWindow) = !core::at(level_editor_ux3_state().open_, kHistoryWindow); });
     set_run(kChanges, [] {
-        core::at(g_open, kChangesWindow) = !core::at(g_open, kChangesWindow);
-        g_refresh_asked = true;
+        core::at(level_editor_ux3_state().open_, kChangesWindow) = !core::at(level_editor_ux3_state().open_, kChangesWindow);
+        level_editor_ux3_state().refresh_asked_ = true;
     });
-    set_run(kKeys, [] { core::at(g_open, kKeysWindow) = !core::at(g_open, kKeysWindow); });
-    set_run(kSnapshots, [] { core::at(g_open, kSnapshotsWindow) = !core::at(g_open, kSnapshotsWindow); });
-    set_checked(kPalette, [] { return core::at(g_open, kPaletteWindow) ? 1 : 0; });
-    set_checked(kHistory, [] { return core::at(g_open, kHistoryWindow) ? 1 : 0; });
-    set_checked(kChanges, [] { return core::at(g_open, kChangesWindow) ? 1 : 0; });
-    set_checked(kKeys, [] { return core::at(g_open, kKeysWindow) ? 1 : 0; });
-    set_checked(kSnapshots, [] { return core::at(g_open, kSnapshotsWindow) ? 1 : 0; });
+    set_run(kKeys, [] { core::at(level_editor_ux3_state().open_, kKeysWindow) = !core::at(level_editor_ux3_state().open_, kKeysWindow); });
+    set_run(kSnapshots, [] { core::at(level_editor_ux3_state().open_, kSnapshotsWindow) = !core::at(level_editor_ux3_state().open_, kSnapshotsWindow); });
+    set_checked(kPalette, [] { return core::at(level_editor_ux3_state().open_, kPaletteWindow) ? 1 : 0; });
+    set_checked(kHistory, [] { return core::at(level_editor_ux3_state().open_, kHistoryWindow) ? 1 : 0; });
+    set_checked(kChanges, [] { return core::at(level_editor_ux3_state().open_, kChangesWindow) ? 1 : 0; });
+    set_checked(kKeys, [] { return core::at(level_editor_ux3_state().open_, kKeysWindow) ? 1 : 0; });
+    set_checked(kSnapshots, [] { return core::at(level_editor_ux3_state().open_, kSnapshotsWindow) ? 1 : 0; });
     set_checked(kCollision, [] { return settings_now().collision ? 1 : 0; });
     add_toggle(
         "snap25", "Snap", "Snap moves to the grid", [] { return settings_now().snap_always_ ? 1 : 0; },
@@ -172,7 +182,7 @@ void tick_frame()
     using namespace actions;
     // (the panels' clicks: done now, in the editor's update)
     std::vector<std::function<void()>> tasks;
-    tasks.swap(g_tasks);
+    tasks.swap(level_editor_ux3_state().tasks_);
     for (const std::function<void()>& task : tasks)
         task();
     const bool busy = change_under_way();
@@ -205,7 +215,7 @@ void tick_frame()
     if (squeezed(kBoxSelect) && !busy)
         organize::arm_box();
     if (squeezed(kSelectSimilar) && !busy)
-        g_similar_menu = true;
+        level_editor_ux3_state().similar_menu_ = true;
     if (squeezed(kSelectFamily) && !busy)
         organize::select_family();
     if (squeezed(kInvertSelection) && !busy)
@@ -213,24 +223,24 @@ void tick_frame()
     if (squeezed(kSelectAll) && !busy)
         organize::select_all();
     if (squeezed(kMakeGroup) && !busy)
-        g_group_name = true;
+        level_editor_ux3_state().group_name_ = true;
     // The Changes list: refreshed when the history moved (a change made, undone or redone), when asked, or a second on
     // (other changes - a save, an autosave restored - don't move the history).
     const size_t key = undo_history().size() * 1000003u + redo_history().size();
     const uint32_t now = SDL_GetTicks();
-    if (key != g_history_key || g_refresh_asked || now - g_changes_at > 1000) {
-        g_history_key = key;
-        g_refresh_asked = false;
-        g_changes_at = now;
+    if (key != level_editor_ux3_state().history_key_ || level_editor_ux3_state().refresh_asked_ || now - level_editor_ux3_state().changes_at_ > 1000) {
+        level_editor_ux3_state().history_key_ = key;
+        level_editor_ux3_state().refresh_asked_ = false;
+        level_editor_ux3_state().changes_at_ = now;
         refresh_changes();
     }
 }
 
-const std::vector<ChangeRow>& change_list() { return g_changes; }
+const std::vector<ChangeRow>& change_list() { return level_editor_ux3_state().changes_; }
 
 void refresh_changes()
 {
-    g_changes.clear();
+    level_editor_ux3_state().changes_.clear();
     std::string text;
     if (!layout::capture_text(&text))
         return;
@@ -247,7 +257,7 @@ void refresh_changes()
         return std::string(name ? name : "");
     };
     for (const changes::TableRow& e : changes::link_chain(text, label))
-        g_changes.push_back({.entry = e, .record = e.line >= 0 && std::cmp_less(e.line, lines.size()) ? core::at(lines, e.line) : ""});
+        level_editor_ux3_state().changes_.push_back({.entry = e, .record = e.line >= 0 && std::cmp_less(e.line, lines.size()) ? core::at(lines, e.line) : ""});
 }
 
 void go_to(const ChangeRow& row)
@@ -282,7 +292,7 @@ void revert(const ChangeRow& row)
         }
         if (line < 0) {
             get_say("List refreshed");
-            g_refresh_asked = true;
+            level_editor_ux3_state().refresh_asked_ = true;
             return;
         }
         const std::string label = "Revert: " + summary.substr(0, 48);
@@ -290,7 +300,7 @@ void revert(const ChangeRow& row)
             get_say("Reverted: " + summary);
         else
             get_say("Couldn't revert: " + message);
-        g_refresh_asked = true;
+        level_editor_ux3_state().refresh_asked_ = true;
     });
 }
 

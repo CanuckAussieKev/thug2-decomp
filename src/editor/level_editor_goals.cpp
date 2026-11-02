@@ -45,6 +45,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::goal_edit {
 
@@ -654,11 +655,21 @@ namespace {
 
 using Function = bool (*)(script::Struct*, script::Script*);
 
-std::vector<Goal> g_goals;  // (their points' places: as their nodes had them when last read)
-std::vector<int> g_in_play; // the play indexes in the goal manager now
-std::vector<std::function<void()>> g_queue;
-bool g_dragging;   // a field being dragged: one undo step
-int g_select = -1; // a node to select (Nodes::All() index)
+// NOT ORIGINAL grouping - level_editor_goals.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_goals_state()).
+struct LevelEditorGoalsState {
+    std::vector<Goal> goals_{}; // (their points' places: as their nodes had them when last read)
+    std::vector<int> in_play_{}; // the play indexes in the goal manager now
+    std::vector<std::function<void()>> queue_{};
+    bool dragging_{}; // a field being dragged: one undo step
+    int select_ = -1; // a node to select (Nodes::All() index)
+};
+
+LevelEditorGoalsState& level_editor_goals_state()
+{
+    static core::NoDestroy<LevelEditorGoalsState> state;
+    return state.get();
+}
 
 constexpr const char* kStem = "ed_goal";
 constexpr const char* kGoalMarkerType = "ed_goal";
@@ -670,8 +681,8 @@ std::string point_node(const Goal& g, int index) { return g.id + "_" + point_suf
 
 int index_of_goal_id(const std::string& id)
 {
-    for (size_t i = 0; i < g_goals.size(); ++i)
-        if (core::at(g_goals, i).id == id)
+    for (size_t i = 0; i < level_editor_goals_state().goals_.size(); ++i)
+        if (core::at(level_editor_goals_state().goals_, i).id == id)
             return static_cast<int>(i);
     return -1;
 }
@@ -679,9 +690,9 @@ int index_of_goal_id(const std::string& id)
 // The goal and point a node is (false: not one of ours).
 bool point_of(uint32_t node, int* goal, int* point)
 {
-    for (size_t i = 0; i < g_goals.size(); ++i) {
-        for (size_t k = 0; k < core::at(g_goals, i).points.size(); ++k) {
-            if (get_checksums(point_node(core::at(g_goals, i), static_cast<int>(k))) == node) {
+    for (size_t i = 0; i < level_editor_goals_state().goals_.size(); ++i) {
+        for (size_t k = 0; k < core::at(level_editor_goals_state().goals_, i).points.size(); ++k) {
+            if (get_checksums(point_node(core::at(level_editor_goals_state().goals_, i), static_cast<int>(k))) == node) {
                 *goal = static_cast<int>(i);
                 *point = static_cast<int>(k);
                 return true;
@@ -706,7 +717,7 @@ node_create::Spec point_spec(const Goal& g, int index)
 // The goals' places read again from their nodes (a node deleted: its last place kept - Restore points makes it again).
 void get_refresh()
 {
-    for (Goal& g : g_goals) {
+    for (Goal& g : level_editor_goals_state().goals_) {
         for (size_t k = 0; k < g.points.size(); ++k) {
             node_edit::Values v;
             if (node_edit::get_take_in(get_checksums(point_node(g, static_cast<int>(k))), &v)) {
@@ -783,14 +794,14 @@ struct Step : ModuleStep {
     void get_restore() override
     {
         remove_stray_points(goals);
-        g_goals = goals;
+        level_editor_goals_state().goals_ = goals;
         sync_nodes(goals);
     }
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
         get_refresh();
         auto now = std::make_shared<Step>();
-        now->goals = g_goals;
+        now->goals = level_editor_goals_state().goals_;
         return now;
     }
 };
@@ -799,7 +810,7 @@ void push_undo()
 {
     get_refresh();
     auto step = std::make_shared<Step>();
-    step->goals = g_goals;
+    step->goals = level_editor_goals_state().goals_;
     push_module_undo(step);
 }
 
@@ -947,9 +958,9 @@ std::vector<int> gap_ordinals(const Goal& g)
 
 void take_out_of_play()
 {
-    if (g_in_play.empty())
+    if (level_editor_goals_state().in_play_.empty())
         return;
-    for (const int index : g_in_play) {
+    for (const int index : level_editor_goals_state().in_play_) {
         const uint32_t goal = get_checksums(get_goal_id(index));
         if (skate_module() && goal_exists(goal)) {
             if (is_goal_running(goal))
@@ -962,22 +973,22 @@ void take_out_of_play()
             remove_node(play_node_name(which, index));
         }
     }
-    get_log("level editor: %u goals taken out of play", static_cast<unsigned>(g_in_play.size()));
-    g_in_play.clear();
+    get_log("level editor: %u goals taken out of play", static_cast<unsigned>(level_editor_goals_state().in_play_.size()));
+    level_editor_goals_state().in_play_.clear();
 }
 
 void put_in_play()
 {
     take_out_of_play();
     std::string why;
-    if (live_now() || !layout::editing_copy() || layout::get_refused(&why) || !skate_module() || g_goals.empty())
+    if (live_now() || !layout::editing_copy() || layout::get_refused(&why) || !skate_module() || level_editor_goals_state().goals_.empty())
         return;
     get_refresh();
     const uint32_t level = current_level();
     node_create::LinkChain nodes;
     std::vector<std::pair<int, const Goal*>> play;
-    for (size_t i = 0; i < g_goals.size() && static_cast<int>(i) < kMaxGoals; ++i) {
-        const Goal& g = core::at(g_goals, i);
+    for (size_t i = 0; i < level_editor_goals_state().goals_.size() && static_cast<int>(i) < kMaxGoals; ++i) {
+        const Goal& g = core::at(level_editor_goals_state().goals_, i);
         std::string incomplete;
         if (!get_complete(g, &incomplete)) {
             get_log("level editor: goal %s (%s) not played - %s", g.id.c_str(), g.name.c_str(), incomplete.c_str());
@@ -1013,7 +1024,7 @@ void put_in_play()
             continue;
         }
         initialize_goal(id);
-        g_in_play.push_back(index);
+        level_editor_goals_state().in_play_.push_back(index);
         get_log("level editor: goal %s (%s, \"%s\") in play as %s", goal->id.c_str(), current_type_name(goal->type),
                 goal->name.c_str(), get_goal_id(index).c_str());
     }
@@ -1057,7 +1068,7 @@ std::string fresh_title(KindTag type)
 {
     // (goal_editor_set_type: the menu's name, then "<name> 2", "<name> 3"... while a goal has it)
     auto taken = [](const std::string& name) {
-        return std::ranges::any_of(g_goals, [&](const Goal& g) { return same_text(g.name, name); });
+        return std::ranges::any_of(level_editor_goals_state().goals_, [&](const Goal& g) { return same_text(g.name, name); });
     };
     std::string name = type_title(type);
     for (int suffix = 2; taken(name) && suffix < 100; ++suffix)
@@ -1068,22 +1079,22 @@ std::string fresh_title(KindTag type)
 void select_point(const Goal& g, int index)
 {
     nodes::mark_stale();
-    g_select = nodes::get_find(get_checksums(point_node(g, index)));
+    level_editor_goals_state().select_ = nodes::get_find(get_checksums(point_node(g, index)));
 }
 
 } // namespace
 
 int take_select()
 {
-    const int select = g_select;
-    g_select = -1;
+    const int select = level_editor_goals_state().select_;
+    level_editor_goals_state().select_ = -1;
     return select;
 }
 
 std::vector<Goal> get_all()
 {
     get_refresh();
-    return g_goals;
+    return level_editor_goals_state().goals_;
 }
 
 bool is_goal_point(uint32_t node)
@@ -1099,7 +1110,7 @@ bool fabricate(KindTag type)
         hud::get_message("No view available");
         return false;
     }
-    if (static_cast<int>(g_goals.size()) >= kMaxGoals) {
+    if (static_cast<int>(level_editor_goals_state().goals_.size()) >= kMaxGoals) {
         hud::get_message("Goal limit reached (10)", 4.0);
         return false;
     }
@@ -1125,7 +1136,7 @@ bool fabricate(KindTag type)
         p.heading = node_edit::wrap_angle(p.heading);
     }
     push_undo();
-    g_goals.push_back(g);
+    level_editor_goals_state().goals_.push_back(g);
     sync_nodes({g});
     select_point(g, 0);
     hud::get_message("Added goal \"" + g.name + "\"", 5.0);
@@ -1139,27 +1150,27 @@ bool get_edit(const std::string& id, const Goal& changed, bool done)
     const int i = index_of_goal_id(id);
     if (i < 0)
         return false;
-    if (!g_dragging)
+    if (!level_editor_goals_state().dragging_)
         push_undo();
-    g_dragging = !done;
+    level_editor_goals_state().dragging_ = !done;
     get_refresh();
     Goal g = changed;
-    g.id = core::at(g_goals, i).id;
-    g.type = core::at(g_goals, i).type;
+    g.id = core::at(level_editor_goals_state().goals_, i).id;
+    g.type = core::at(level_editor_goals_state().goals_, i).type;
     g.name = clean_text(g.name, 49);
     if (g.name.empty())
-        g.name = core::at(g_goals, i).name;
+        g.name = core::at(level_editor_goals_state().goals_, i).name;
     g.ped = clean_text(g.ped, 20);
     g.text = clean_text(g.text, 99);
     g.win = clean_text(g.win, 99);
     g.trick = clean_text(g.trick, 49);
     // (the points' places are their nodes': only the heights come from the change)
-    std::vector<Point> points = core::at(g_goals, i).points;
+    std::vector<Point> points = core::at(level_editor_goals_state().goals_, i).points;
     for (size_t k = 0; k < points.size() && k < g.points.size(); ++k)
         core::at(points, k).height = std::clamp(core::at(g.points, k).height, 0.0f, 1000.0f); // (EditorCam_MaxHeight)
     g.points = points;
     confine(&g);
-    core::at(g_goals, i) = g;
+    core::at(level_editor_goals_state().goals_, i) = g;
     return true;
 }
 
@@ -1169,10 +1180,10 @@ bool drop_out(const std::string& id)
     if (i < 0)
         return false;
     push_undo();
-    const Goal g = core::at(g_goals, i);
+    const Goal g = core::at(level_editor_goals_state().goals_, i);
     for (size_t k = 0; k < g.points.size(); ++k)
         remove_node(point_node(g, static_cast<int>(k)));
-    g_goals.erase(g_goals.begin() + i);
+    level_editor_goals_state().goals_.erase(level_editor_goals_state().goals_.begin() + i);
     hud::get_message("Deleted goal \"" + g.name + "\"");
     return true;
 }
@@ -1180,11 +1191,11 @@ bool drop_out(const std::string& id)
 bool add_checkpoint(const std::string& id)
 {
     const int i = index_of_goal_id(id);
-    if (i < 0 || core::at(g_goals, i).type != KindTag::kRace ||
-        static_cast<int>(core::at(g_goals, i).points.size()) >= max_points(KindTag::kRace))
+    if (i < 0 || core::at(level_editor_goals_state().goals_, i).type != KindTag::kRace ||
+        static_cast<int>(core::at(level_editor_goals_state().goals_, i).points.size()) >= max_points(KindTag::kRace))
         return false;
     push_undo();
-    Goal& g = core::at(g_goals, i);
+    Goal& g = core::at(level_editor_goals_state().goals_, i);
     const Point& last = g.points.back();
     const V3 ahead = {.x = std::sin(last.heading), .y = 0.0f, .z = std::cos(last.heading)};
     g.points.push_back({.pos = get_grounded(last.pos + ahead * 300.0f), .heading = last.heading, .height = 0.0f});
@@ -1196,11 +1207,11 @@ bool add_checkpoint(const std::string& id)
 bool remove_checkpoint(const std::string& id)
 {
     const int i = index_of_goal_id(id);
-    if (i < 0 || core::at(g_goals, i).type != KindTag::kRace ||
-        static_cast<int>(core::at(g_goals, i).points.size()) <= min_points(KindTag::kRace))
+    if (i < 0 || core::at(level_editor_goals_state().goals_, i).type != KindTag::kRace ||
+        static_cast<int>(core::at(level_editor_goals_state().goals_, i).points.size()) <= min_points(KindTag::kRace))
         return false;
     push_undo();
-    Goal& g = core::at(g_goals, i);
+    Goal& g = core::at(level_editor_goals_state().goals_, i);
     remove_node(point_node(g, static_cast<int>(g.points.size()) - 1));
     g.points.pop_back();
     return true;
@@ -1209,10 +1220,10 @@ bool remove_checkpoint(const std::string& id)
 bool restore_points(const std::string& id)
 {
     const int i = index_of_goal_id(id);
-    if (i < 0 || !missing_points(core::at(g_goals, i)))
+    if (i < 0 || !missing_points(core::at(level_editor_goals_state().goals_, i)))
         return false;
     push_undo();
-    sync_nodes({core::at(g_goals, i)});
+    sync_nodes({core::at(level_editor_goals_state().goals_, i)});
     return true;
 }
 
@@ -1224,7 +1235,7 @@ bool export_goal(const std::string& id, std::string* message)
         return false;
     }
     get_refresh();
-    const Goal& g = core::at(g_goals, i);
+    const Goal& g = core::at(level_editor_goals_state().goals_, i);
     std::string why;
     if (!get_complete(g, &why)) {
         *message = "Not complete: " + why;
@@ -1276,7 +1287,7 @@ int get_apply(const std::vector<Goal>& goals)
 {
     int made = 0;
     for (const Goal& g : goals) {
-        if (index_of_goal_id(g.id) >= 0 || static_cast<int>(g_goals.size()) >= kMaxGoals)
+        if (index_of_goal_id(g.id) >= 0 || static_cast<int>(level_editor_goals_state().goals_.size()) >= kMaxGoals)
             continue;
         bool clash = false;
         for (size_t k = 0; k < g.points.size(); ++k)
@@ -1287,10 +1298,10 @@ int get_apply(const std::vector<Goal>& goals)
                     g.id.c_str());
             continue;
         }
-        g_goals.push_back(g);
+        level_editor_goals_state().goals_.push_back(g);
         ++made;
     }
-    sync_nodes(g_goals);
+    sync_nodes(level_editor_goals_state().goals_);
     if (made)
         get_log("level editor: the layout's %d goals put in place", made);
     if (!live_now())
@@ -1301,10 +1312,10 @@ int get_apply(const std::vector<Goal>& goals)
 void reset_all()
 {
     take_out_of_play();
-    for (const Goal& g : g_goals)
+    for (const Goal& g : level_editor_goals_state().goals_)
         for (size_t k = 0; k < g.points.size(); ++k)
             remove_node(point_node(g, static_cast<int>(k)));
-    g_goals.clear();
+    level_editor_goals_state().goals_.clear();
 }
 
 void forget_level()
@@ -1312,58 +1323,58 @@ void forget_level()
     // (the level's nodes and objects went with it; a goal of ours the goal manager still has is removed - the game's
     // level change normally takes every goal out first)
     if (skate_module()) {
-        for (const int index : g_in_play) {
+        for (const int index : level_editor_goals_state().in_play_) {
             const uint32_t goal = get_checksums(get_goal_id(index));
             if (goal_exists(goal))
                 drop_objective(goal);
         }
     }
-    g_in_play.clear();
-    g_goals.clear();
-    g_queue.clear();
-    g_dragging = false;
-    g_select = -1;
+    level_editor_goals_state().in_play_.clear();
+    level_editor_goals_state().goals_.clear();
+    level_editor_goals_state().queue_.clear();
+    level_editor_goals_state().dragging_ = false;
+    level_editor_goals_state().select_ = -1;
 }
 
 void kickoff() { take_out_of_play(); }
 
 void halt()
 {
-    g_dragging = false;
+    level_editor_goals_state().dragging_ = false;
     put_in_play();
 }
 
 void tick_frame()
 {
     std::vector<std::function<void()>> queue;
-    queue.swap(g_queue);
+    queue.swap(level_editor_goals_state().queue_);
     for (auto& action : queue)
         action();
     get_refresh();
 }
 
-void get_queue(std::function<void()> action) { g_queue.push_back(std::move(action)); }
-void end_drag() { g_dragging = false; }
+void get_queue(std::function<void()> action) { level_editor_goals_state().queue_.push_back(std::move(action)); }
+void end_drag() { level_editor_goals_state().dragging_ = false; }
 int get_missing(const std::string& id)
 {
     const int i = index_of_goal_id(id);
-    return i < 0 ? 0 : missing_points(core::at(g_goals, i));
+    return i < 0 ? 0 : missing_points(core::at(level_editor_goals_state().goals_, i));
 }
 bool point_of_node(uint32_t node, std::string* id, int* point)
 {
     int goal = 0;
     if (!point_of(node, &goal, point))
         return false;
-    *id = core::at(g_goals, goal).id;
+    *id = core::at(level_editor_goals_state().goals_, goal).id;
     return true;
 }
 void choose_one(const std::string& id, int point)
 {
     const int i = index_of_goal_id(id);
-    if (i >= 0 && point >= 0 && std::cmp_less(point, core::at(g_goals, i).points.size()))
-        select_point(core::at(g_goals, i), point);
+    if (i >= 0 && point >= 0 && std::cmp_less(point, core::at(level_editor_goals_state().goals_, i).points.size()))
+        select_point(core::at(level_editor_goals_state().goals_, i), point);
 }
-bool in_play() { return !g_in_play.empty(); }
+bool in_play() { return !level_editor_goals_state().in_play_.empty(); }
 
 // The level's gap list's names (the Gap goal's choices).
 std::vector<std::string> get_level_gaps()
@@ -1399,7 +1410,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
     std::string selected_goal;
     int selected_point = -1;
     point_of_node(selected, &selected_goal, &selected_point);
-    for (const Goal& g : g_goals) {
+    for (const Goal& g : level_editor_goals_state().goals_) {
         const bool lit = g.id == selected_goal;
         const uint32_t colour = lit ? 0xFFFFE070 : 0xFFE0A030;
         for (size_t k = 0; k < g.points.size(); ++k) {
@@ -1436,11 +1447,11 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
 std::string describe()
 {
     int complete = 0;
-    for (const Goal& g : g_goals)
+    for (const Goal& g : level_editor_goals_state().goals_)
         complete += get_complete(g) ? 1 : 0;
     std::array<char, 96> text{};
-    text::format_to(text, "%u goals (%d complete, %u in play)", static_cast<unsigned>(g_goals.size()), complete,
-                    static_cast<unsigned>(g_in_play.size()));
+    text::format_to(text, "%u goals (%d complete, %u in play)", static_cast<unsigned>(level_editor_goals_state().goals_.size()), complete,
+                    static_cast<unsigned>(level_editor_goals_state().in_play_.size()));
     return text.data();
 }
 

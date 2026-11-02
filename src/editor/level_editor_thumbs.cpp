@@ -26,6 +26,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::thumbs {
 
@@ -177,20 +178,31 @@ CellCache& cells_state()
     static CellCache value;
     return value;
 }
-uint32_t g_generation; // (the atlas's: a new one - every cell to draw again)
-uint64_t g_frame = 1;
-std::vector<uint64_t> g_wanted;                  // (the grid's entries shown last frame, in order)
+// NOT ORIGINAL grouping - level_editor_thumbs.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_thumbs_state()).
+struct LevelEditorThumbsState {
+    uint32_t generation_{}; // (the atlas's: a new one - every cell to draw again)
+    uint64_t frame_ = 1;
+    std::vector<uint64_t> wanted_{}; // (the grid's entries shown last frame, in order)
+    std::string level_{}; // (the lists' level)
+    std::vector<std::string> recent_{};
+    std::vector<std::string> favourites_{};
+    bool grid_read_{};
+    bool grid_ = true;
+    int list_mode_{}; // (0 all, 1 recent, 2 favourites)
+};
+
+LevelEditorThumbsState& level_editor_thumbs_state()
+{
+    static core::NoDestroy<LevelEditorThumbsState> state;
+    return state.get();
+}
+
 std::unordered_map<uint64_t, uint64_t>& failed_state()
 {
     static std::unordered_map<uint64_t, uint64_t> value; // (entries that couldn't be drawn: the frame tried)
     return value;
 }
-std::string g_level;                             // (the lists' level)
-std::vector<std::string> g_recent;
-std::vector<std::string> g_favourites;
-bool g_grid_read;
-bool g_grid = true;
-int g_list_mode; // (0 all, 1 recent, 2 favourites)
 
 std::string get_ini() { return game_folder_path("thug2-decomp.ini"); }
 
@@ -208,49 +220,49 @@ void write_string(const char* section, const std::string& key, const std::string
 
 void load_lists(const std::string& level)
 {
-    g_level = level;
-    g_recent = split_list(read_string("editor_palette", get_key_of(level) + "_recent"));
-    g_favourites = split_list(read_string("editor_palette", get_key_of(level) + "_favourites"));
-    if (g_recent.size() > kRecent)
-        g_recent.resize(kRecent);
+    level_editor_thumbs_state().level_ = level;
+    level_editor_thumbs_state().recent_ = split_list(read_string("editor_palette", get_key_of(level) + "_recent"));
+    level_editor_thumbs_state().favourites_ = split_list(read_string("editor_palette", get_key_of(level) + "_favourites"));
+    if (level_editor_thumbs_state().recent_.size() > kRecent)
+        level_editor_thumbs_state().recent_.resize(kRecent);
 }
 
 void save_lists()
 {
-    if (g_level.empty())
+    if (level_editor_thumbs_state().level_.empty())
         return;
-    write_string("editor_palette", get_key_of(g_level) + "_recent", join_list(g_recent));
-    write_string("editor_palette", get_key_of(g_level) + "_favourites", join_list(g_favourites));
+    write_string("editor_palette", get_key_of(level_editor_thumbs_state().level_) + "_recent", join_list(level_editor_thumbs_state().recent_));
+    write_string("editor_palette", get_key_of(level_editor_thumbs_state().level_) + "_favourites", join_list(level_editor_thumbs_state().favourites_));
 }
 
 } // namespace
 
 void tick_cycle(const ui::ShapeMesh& model)
 {
-    ++g_frame;
-    if (model.level != g_level) {
+    ++level_editor_thumbs_state().frame_;
+    if (model.level != level_editor_thumbs_state().level_) {
         load_lists(model.level);
         cells_state().get_clear();
         failed_state().clear();
     }
-    if (ui_backend::atlas_generation() != g_generation) {
-        g_generation = ui_backend::atlas_generation();
+    if (ui_backend::atlas_generation() != level_editor_thumbs_state().generation_) {
+        level_editor_thumbs_state().generation_ = ui_backend::atlas_generation();
         std::fill(cells_state().drawn.begin(), cells_state().drawn.end(), 0);
     }
     if (!model.browser || !grid_mode()) {
-        g_wanted.clear();
+        level_editor_thumbs_state().wanted_.clear();
         return;
     }
     // The pictures the grid showed last frame and lacks, a few a frame.
     int drawn_now = 0;
-    for (const uint64_t key : g_wanted) {
+    for (const uint64_t key : level_editor_thumbs_state().wanted_) {
         if (drawn_now >= kPerFrame)
             break;
         const int cell = cells_state().get_find(key);
         if (cell < 0 || core::at(cells_state().drawn, cell))
             continue;
         auto failed = failed_state().find(key);
-        if (failed != failed_state().end() && g_frame - failed->second < 300)
+        if (failed != failed_state().end() && level_editor_thumbs_state().frame_ - failed->second < 300)
             continue;
         int x = 0, y = 0;
         cell_rect(cell, &x, &y);
@@ -263,7 +275,7 @@ void tick_cycle(const ui::ShapeMesh& model)
         ui_backend::end_atlas_cell();
         core::at(cells_state().drawn, cell) = 1;
         if (!drew)
-            failed_state()[key] = g_frame;
+            failed_state()[key] = level_editor_thumbs_state().frame_;
         ++drawn_now;
     }
 }
@@ -272,43 +284,43 @@ void halt()
 {
     ui_backend::free_atlas();
     cells_state().get_clear();
-    g_wanted.clear();
+    level_editor_thumbs_state().wanted_.clear();
     failed_state().clear();
 }
 
 void note_used(int tab, uint32_t id)
 {
-    push_recent(&g_recent, get_entry_name(tab, id), kRecent);
+    push_recent(&level_editor_thumbs_state().recent_, get_entry_name(tab, id), kRecent);
     save_lists();
 }
 
 bool favourite(int tab, uint32_t id)
 {
     const std::string entry = get_entry_name(tab, id);
-    return std::ranges::find(g_favourites, entry) != g_favourites.end();
+    return std::ranges::find(level_editor_thumbs_state().favourites_, entry) != level_editor_thumbs_state().favourites_.end();
 }
 
 void toggle_favourite(int tab, uint32_t id)
 {
-    toggle_in(&g_favourites, get_entry_name(tab, id));
+    toggle_in(&level_editor_thumbs_state().favourites_, get_entry_name(tab, id));
     save_lists();
 }
 
 bool grid_mode()
 {
-    if (!g_grid_read) {
-        g_grid_read = true;
-        g_grid = config_int("editor", "palette_grid", 1) != 0;
+    if (!level_editor_thumbs_state().grid_read_) {
+        level_editor_thumbs_state().grid_read_ = true;
+        level_editor_thumbs_state().grid_ = config_int("editor", "palette_grid", 1) != 0;
     }
-    return g_grid;
+    return level_editor_thumbs_state().grid_;
 }
 
 void set_grid_mode(bool on)
 {
     grid_mode();
-    if (on == g_grid)
+    if (on == level_editor_thumbs_state().grid_)
         return;
-    g_grid = on;
+    level_editor_thumbs_state().grid_ = on;
     config_set_int("editor", "palette_grid", on ? 1 : 0);
 }
 
@@ -367,11 +379,11 @@ bool star_button(const char* id, ImVec2 centre, float radius, bool on)
 
 void chip(const char* label, int mode, const char* tip)
 {
-    const bool on = g_list_mode == mode;
+    const bool on = level_editor_thumbs_state().list_mode_ == mode;
     if (on)
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.82f, 0.34f, 0.11f, 0.85f));
     if (ImGui::SmallButton(label))
-        g_list_mode = mode;
+        level_editor_thumbs_state().list_mode_ = mode;
     if (on)
         ImGui::PopStyleColor();
     if (ImGui::IsItemHovered())
@@ -411,11 +423,11 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
 
     // The entries listed: the filter, then the mode (Recent in its order).
     std::vector<int> shown;
-    if (g_list_mode == 1) {
+    if (level_editor_thumbs_state().list_mode_ == 1) {
         std::unordered_map<uint32_t, int> by_id;
         for (int i = 0; std::cmp_less(i, items.size()); ++i)
             by_id.emplace(core::at(items, i).id, i);
-        for (const std::string& entry : g_recent) {
+        for (const std::string& entry : level_editor_thumbs_state().recent_) {
             int entry_tab = 0;
             uint32_t id = 0;
             if (!parse_entry(entry, &entry_tab, &id) || entry_tab != tab)
@@ -428,7 +440,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
         for (int i = 0; std::cmp_less(i, items.size()); ++i) {
             if (!get_matches(core::at(items, i).label, filter))
                 continue;
-            if (g_list_mode == 2 && !favourite(tab, core::at(items, i).id))
+            if (level_editor_thumbs_state().list_mode_ == 2 && !favourite(tab, core::at(items, i).id))
                 continue;
             shown.push_back(i);
         }
@@ -444,8 +456,8 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     if (items.empty())
         gui::text_disabled("%s", tab == 0 ? "(no movable pieces)" : "(no copyable objects)");
     else if (shown.empty())
-        gui::text_disabled("%s", g_list_mode == 1 ? "(none placed yet)"
-                            : g_list_mode == 2 ? "(no favourites)"
+        gui::text_disabled("%s", level_editor_thumbs_state().list_mode_ == 1 ? "(none placed yet)"
+                            : level_editor_thumbs_state().list_mode_ == 2 ? "(no favourites)"
                                                : "(no matches)");
     if (!grid) {
         // The list, a star at each row's end.
@@ -474,7 +486,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
         }
         ImGui::PopFont();
         ImGui::EndChild();
-        g_wanted.clear();
+        level_editor_thumbs_state().wanted_.clear();
         return hovered;
     }
 
@@ -528,7 +540,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 }
                 ImDrawList* draw = ImGui::GetWindowDrawList();
                 const uint64_t key = get_key(tab, core::at(items, i).id);
-                const int c = cells_state().get_take(key, g_frame);
+                const int c = cells_state().get_take(key, level_editor_thumbs_state().frame_);
                 wanted.push_back(key);
                 if (c >= 0 && texture && core::at(cells_state().drawn, c)) {
                     float u0 = 0.0f, v0 = 0.0f, u1 = 0.0f, v1 = 0.0f;
@@ -567,7 +579,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     clipper.End();
     ImGui::PopFont();
     ImGui::EndChild();
-    g_wanted = std::move(wanted);
+    level_editor_thumbs_state().wanted_ = std::move(wanted);
     return hovered;
 }
 

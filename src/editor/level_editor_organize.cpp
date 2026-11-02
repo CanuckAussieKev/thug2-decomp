@@ -36,6 +36,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::organize {
 
@@ -407,8 +408,18 @@ bool snapshot_of(const std::string& file_name, uint32_t scene, std::string* name
 
 namespace {
 
-State g_state;
-std::vector<uint32_t> g_hidden_gizmos; // (the eye on a node: its gizmo hidden while editing - never saved)
+// NOT ORIGINAL grouping - level_editor_organize.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_organize_state()).
+struct LevelEditorOrganizeState {
+    State state_{};
+    std::vector<uint32_t> hidden_gizmos_{}; // (the eye on a node: its gizmo hidden while editing - never saved)
+};
+
+LevelEditorOrganizeState& level_editor_organize_state()
+{
+    static core::NoDestroy<LevelEditorOrganizeState> state;
+    return state.get();
+}
 
 struct BoxDrag {
     bool armed = false, pressed = false, active = false;
@@ -419,10 +430,10 @@ struct BoxDrag {
 struct OrganizeStep : ModuleStep {
     State state;
     explicit OrganizeStep(State s) : state(std::move(s)) {}
-    void get_restore() override { g_state = state; }
+    void get_restore() override { level_editor_organize_state().state_ = state; }
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
-        return std::make_shared<OrganizeStep>(g_state);
+        return std::make_shared<OrganizeStep>(level_editor_organize_state().state_);
     }
 };
 
@@ -551,14 +562,18 @@ const char* similar_name(Similar by)
     return "?";
 }
 
-std::string g_outliner_search; // (asked for by Select similar on a node: the Outliner shows the family)
+std::string& outliner_search()
+{
+    static core::NoDestroy<std::string> outliner_search; // (asked for by Select similar on a node: the Outliner shows the family)
+    return outliner_search.get();
+}
 
 } // namespace
 
 std::string take_outliner_search()
 {
     std::string text;
-    text.swap(g_outliner_search);
+    text.swap(outliner_search());
     return text;
 }
 
@@ -572,7 +587,7 @@ void prepare_all()
     e.keywords = {"group", "label", "edlock", "nopick", "snapshot"};
     e.capture = []() {
         std::vector<std::string> lines;
-        std::istringstream in(write_records(g_state));
+        std::istringstream in(write_records(level_editor_organize_state().state_));
         for (std::string line; std::getline(in, line);)
             lines.push_back(line);
         return lines;
@@ -583,23 +598,23 @@ void prepare_all()
             if (!read_record(line, &next))
                 get_log("level editor: a layout's editor record isn't readable - skipped: %s", line.c_str());
         }
-        g_state = next;
+        level_editor_organize_state().state_ = next;
     };
     e.reset = []() {
-        g_state = State{};
-        g_hidden_gizmos.clear();
+        level_editor_organize_state().state_ = State{};
+        level_editor_organize_state().hidden_gizmos_.clear();
     };
     layout::add_extension(e);
 }
 
-const State& at_hand() { return g_state; }
+const State& at_hand() { return level_editor_organize_state().state_; }
 
 void get_change(const State& next, const char* label)
 {
-    if (same_state(next, g_state))
+    if (same_state(next, level_editor_organize_state().state_))
         return;
-    push_module_undo_labelled(std::make_shared<OrganizeStep>(g_state), label);
-    g_state = next;
+    push_module_undo_labelled(std::make_shared<OrganizeStep>(level_editor_organize_state().state_), label);
+    level_editor_organize_state().state_ = next;
 }
 
 bool hidden_in_editor(const nodes::Elem& node)
@@ -608,7 +623,7 @@ bool hidden_in_editor(const nodes::Elem& node)
         return view::hidden_object(node.name);
     if (node.family == nodes::Family::kScenery)
         return view::hidden_sector(node.name);
-    return get_has(g_hidden_gizmos, node.name);
+    return get_has(level_editor_organize_state().hidden_gizmos_, node.name);
 }
 
 void set_hidden_in_editor(const nodes::Elem& node, bool hidden)
@@ -623,14 +638,14 @@ void set_hidden_in_editor(const nodes::Elem& node, bool hidden)
             view::get_show(object ? none : one, object ? one : none);
         return;
     }
-    set_flag(&g_hidden_gizmos, node.name, hidden);
+    set_flag(&level_editor_organize_state().hidden_gizmos_, node.name, hidden);
 }
 
-bool latched(uint32_t id) { return get_has(g_state.locked, id); }
+bool latched(uint32_t id) { return get_has(level_editor_organize_state().state_.locked, id); }
 
 void set_locked(uint32_t id, bool locked)
 {
-    State next = g_state;
+    State next = level_editor_organize_state().state_;
     set_flag(&next.locked, id, locked);
     get_change(next, locked ? "Lock (no changes)" : "Unlock");
 }
@@ -641,7 +656,7 @@ bool get_selectable(const nodes::Elem& node)
         return !picking::latched(picking::kObjects, node.name);
     if (node.family == nodes::Family::kScenery)
         return !picking::latched(picking::kScenery, node.name);
-    return !get_has(g_state.unpickable, node.name);
+    return !get_has(level_editor_organize_state().state_.unpickable, node.name);
 }
 
 void set_selectable(const nodes::Elem& node, bool selectable)
@@ -654,17 +669,17 @@ void set_selectable(const nodes::Elem& node, bool selectable)
         picking::set_locked(kind, node.name, !selectable);
         return;
     }
-    State next = g_state;
+    State next = level_editor_organize_state().state_;
     set_flag(&next.unpickable, node.name, !selectable);
     get_change(next, selectable ? "Selectable" : "Not selectable");
 }
 
-bool gizmo_hidden(uint32_t name) { return !g_hidden_gizmos.empty() && get_has(g_hidden_gizmos, name); }
-bool gizmo_pickable(uint32_t name) { return g_state.unpickable.empty() || !get_has(g_state.unpickable, name); }
+bool gizmo_hidden(uint32_t name) { return !level_editor_organize_state().hidden_gizmos_.empty() && get_has(level_editor_organize_state().hidden_gizmos_, name); }
+bool gizmo_pickable(uint32_t name) { return level_editor_organize_state().state_.unpickable.empty() || !get_has(level_editor_organize_state().state_.unpickable, name); }
 
 bool selection_locked(bool say)
 {
-    if (g_state.locked.empty())
+    if (level_editor_organize_state().state_.locked.empty())
         return false;
     const SelectionIds s = current_selection();
     bool locked = (s.node && latched(s.node));
@@ -699,13 +714,13 @@ void make_group(const std::string& wanted)
     // (a name of its own: "Group 2" when "Group" is taken)
     const std::string base = name;
     for (int n = 2;; ++n) {
-        const bool taken = std::ranges::any_of(g_state.groups, [&](const GroupSet& o) { return o.name == name; });
+        const bool taken = std::ranges::any_of(level_editor_organize_state().state_.groups, [&](const GroupSet& o) { return o.name == name; });
         if (!taken)
             break;
         name = base + " " + std::to_string(n);
     }
     g.name = name;
-    State next = g_state;
+    State next = level_editor_organize_state().state_;
     next.groups.push_back(g);
     get_change(next, "Make group");
     show_message("Created group \"" + name + "\" (" + std::to_string(g.members.size()) + ")");
@@ -713,12 +728,12 @@ void make_group(const std::string& wanted)
 
 void select_group(int index)
 {
-    if (index < 0 || std::cmp_greater_equal(index, g_state.groups.size()))
+    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size()))
         return;
     SelectionIds ids;
     uint32_t node = 0;
     int missing = 0;
-    for (const Member& m : core::at(g_state.groups, index).members) {
+    for (const Member& m : core::at(level_editor_organize_state().state_.groups, index).members) {
         if (m.kind == 'o') {
             if (live_object(m.id))
                 ids.objects.push_back(m.id);
@@ -746,15 +761,15 @@ void select_group(int index)
         ids.node = node;
     }
     set_selection(ids);
-    show_message("Group \"" + core::at(g_state.groups, index).name + "\" selected" + note +
+    show_message("Group \"" + core::at(level_editor_organize_state().state_.groups, index).name + "\" selected" + note +
                  (missing ? " - " + std::to_string(missing) + " missing" : ""));
 }
 
 void delete_group(int index)
 {
-    if (index < 0 || std::cmp_greater_equal(index, g_state.groups.size()))
+    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size()))
         return;
-    State next = g_state;
+    State next = level_editor_organize_state().state_;
     next.groups.erase(next.groups.begin() + index);
     get_change(next, "Delete group");
 }
@@ -762,25 +777,25 @@ void delete_group(int index)
 void rename_group(int index, const std::string& wanted)
 {
     std::string name;
-    if (index < 0 || std::cmp_greater_equal(index, g_state.groups.size()) || !clean_name(wanted, &name))
+    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size()) || !clean_name(wanted, &name))
         return;
-    for (int i = 0; std::cmp_less(i, g_state.groups.size()); ++i) {
-        if (i != index && core::at(g_state.groups, i).name == name) {
+    for (int i = 0; std::cmp_less(i, level_editor_organize_state().state_.groups.size()); ++i) {
+        if (i != index && core::at(level_editor_organize_state().state_.groups, i).name == name) {
             show_message("Group name already in use");
             return;
         }
     }
-    State next = g_state;
+    State next = level_editor_organize_state().state_;
     core::at(next.groups, index).name = name;
     get_change(next, "Rename group");
 }
 
 void add_to_group(int index)
 {
-    if (index < 0 || std::cmp_greater_equal(index, g_state.groups.size()))
+    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size()))
         return;
     const SelectionIds s = current_selection();
-    State next = g_state;
+    State next = level_editor_organize_state().state_;
     std::vector<Member>& members = core::at(next.groups, index).members;
     auto add = [&](char kind, uint32_t id) {
         const Member m = {.kind = kind, .id = id};
@@ -798,7 +813,7 @@ void add_to_group(int index)
 
 bool in_group(const std::string& group, const nodes::Elem& node)
 {
-    for (const GroupSet& g : g_state.groups) {
+    for (const GroupSet& g : level_editor_organize_state().state_.groups) {
         if (get_lower(g.name).compare(0, group.size(), get_lower(group)) != 0)
             continue;
         for (const Member& m : g.members) {
@@ -971,7 +986,7 @@ void select_similar(Similar by)
             count += alike(a, b, by == Similar::kMesh ? Similar::kKindTag : by) ? 1 : 0;
         }
         const std::string family = nodes::family_name(n.family);
-        g_outliner_search = get_lower(family) + ":";
+        outliner_search() = get_lower(family) + ":";
         show_message(std::to_string(count) + " similar nodes listed in the Outliner: " + family);
         return;
     }
@@ -1035,7 +1050,7 @@ std::vector<std::string> snapshots()
     return names;
 }
 
-std::string active_snapshot() { return g_state.snapshot; }
+std::string active_snapshot() { return level_editor_organize_state().state_.snapshot; }
 
 namespace {
 
@@ -1067,10 +1082,10 @@ bool save_snapshot(const std::string& name, std::string* message)
         *message = "Invalid name: use letters, digits, _ and - (max 32)";
         return false;
     }
-    const std::string before = g_state.snapshot;
-    g_state.snapshot = name; // (the layout knows which snapshot it is: the active one)
+    const std::string before = level_editor_organize_state().state_.snapshot;
+    level_editor_organize_state().state_.snapshot = name; // (the layout knows which snapshot it is: the active one)
     if (!write_snapshot_file(name, message)) {
-        g_state.snapshot = before;
+        level_editor_organize_state().state_.snapshot = before;
         return false;
     }
     *message = "Snapshot \"" + name + "\" saved";
@@ -1088,18 +1103,18 @@ bool switch_snapshot(const std::string& name, std::string* message)
     std::stringstream text;
     text << in.rdbuf();
     // (the layout as it is now kept first: in the active snapshot, else in "previous")
-    const std::string keep = g_state.snapshot.empty() || g_state.snapshot == name ? "previous" : g_state.snapshot;
+    const std::string keep = level_editor_organize_state().state_.snapshot.empty() || level_editor_organize_state().state_.snapshot == name ? "previous" : level_editor_organize_state().state_.snapshot;
     if (keep != name) {
-        const std::string kept = g_state.snapshot;
-        g_state.snapshot = keep;
+        const std::string kept = level_editor_organize_state().state_.snapshot;
+        level_editor_organize_state().state_.snapshot = keep;
         std::string why;
         if (!write_snapshot_file(keep, &why))
             get_log("level editor: the layout before the switch couldn't be kept - %s", why.c_str());
-        g_state.snapshot = kept;
+        level_editor_organize_state().state_.snapshot = kept;
     }
     if (!apply_layout_step(text.str(), "Switch snapshot", message))
         return false;
-    g_state.snapshot = name;
+    level_editor_organize_state().state_.snapshot = name;
     actions::fire_off(actions::kSave); // (saved as the edited copy's layout - the (EDITED) entry's: the active one)
     *message = "Snapshot \"" + name + "\" loaded (previous kept as \"" + keep + "\")";
     return true;
@@ -1112,8 +1127,8 @@ bool delete_snapshot(const std::string& name, std::string* message)
         *message = "Couldn't delete the snapshot \"" + name + "\"";
         return false;
     }
-    if (g_state.snapshot == name)
-        g_state.snapshot.clear();
+    if (level_editor_organize_state().state_.snapshot == name)
+        level_editor_organize_state().state_.snapshot.clear();
     *message = "Snapshot \"" + name + "\" deleted";
     return true;
 }

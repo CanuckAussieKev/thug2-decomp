@@ -25,6 +25,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::fields {
 
@@ -892,11 +893,15 @@ struct Touched {
     Own origin;
     script::Struct* structure;
 };
-std::vector<Touched> g_touched;
+std::vector<Touched>& touched()
+{
+    static core::NoDestroy<std::vector<Touched>> touched;
+    return touched.get();
+}
 
 Touched* find_touched(uint32_t node, uint32_t key)
 {
-    for (Touched& t : g_touched) {
+    for (Touched& t : touched()) {
         if (t.node == node && t.key == key)
             return &t;
     }
@@ -1058,7 +1063,7 @@ bool set_on(script::Struct* s, uint32_t name, nodes::Family family, uint32_t key
         want.index = now.present && !included_after(s, key, false, now.index) ? now.index : -1;
     }
     if (!find_touched(name, key))
-        g_touched.push_back({.node = name, .key = key, .flag = flag, .origin = now, .structure = s});
+        touched().push_back({.node = name, .key = key, .flag = flag, .origin = now, .structure = s});
     put_own(s, key, flag, want);
     error->clear();
     return true;
@@ -1118,7 +1123,7 @@ bool get_origin(uint32_t name, uint32_t key, Own* own)
 bool reset_node(uint32_t name)
 {
     bool any = false;
-    for (const Touched& t : g_touched) {
+    for (const Touched& t : touched()) {
         if (t.node == name && level_node(name) == t.structure) {
             put_own(t.structure, t.key, t.flag, t.origin);
             any = true;
@@ -1131,7 +1136,7 @@ bool reset_node(uint32_t name)
 
 bool node_edited(uint32_t name)
 {
-    for (const Touched& t : g_touched) {
+    for (const Touched& t : touched()) {
         if (t.node == name && level_node(name) == t.structure &&
             !same_own(own_of(t.structure, t.key, t.flag), t.origin, t.flag))
             return true;
@@ -1142,7 +1147,7 @@ bool node_edited(uint32_t name)
 std::vector<uint32_t> touched_keys(uint32_t name)
 {
     std::vector<uint32_t> keys;
-    for (const Touched& t : g_touched) {
+    for (const Touched& t : touched()) {
         if (t.node == name)
             keys.push_back(t.key);
     }
@@ -1152,7 +1157,7 @@ std::vector<uint32_t> touched_keys(uint32_t name)
 std::vector<NodeEdits> get_changed()
 {
     std::vector<NodeEdits> out;
-    for (const Touched& t : g_touched) {
+    for (const Touched& t : touched()) {
         script::Struct* s = level_node(t.node);
         if (!s || s != t.structure)
             continue;
@@ -1196,18 +1201,18 @@ int get_apply(const std::vector<NodeEdits>& edits)
 
 void reset_all()
 {
-    for (const Touched& t : g_touched) {
+    for (const Touched& t : touched()) {
         if (level_node(t.node) == t.structure)
             put_own(t.structure, t.key, t.flag, t.origin);
     }
-    if (!g_touched.empty())
+    if (!touched().empty())
         nodes::mark_stale();
 }
 
 void forget_level()
 {
     reset_all(); // (only where the structure is still the one changed: the same level's array kept loaded)
-    g_touched.clear();
+    touched().clear();
 }
 
 int apply_early(uint32_t array, const std::vector<NodeEdits>& edits)

@@ -13,6 +13,7 @@
 #include "imgui.h"
 #include "engine/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::prefs {
 
@@ -54,12 +55,22 @@ const char* accent_name(int accent)
 
 namespace {
 
-bool g_loaded;
-Values g_values;
-int g_style_generation;
-bool g_open;
-bool g_tips; // (the tips window is up)
-bool g_tips_shown_this_run;
+// NOT ORIGINAL grouping - level_editor_prefs.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_prefs_state()).
+struct LevelEditorPrefsState {
+    bool loaded_{};
+    Values values_{};
+    int style_generation_{};
+    bool open_{};
+    bool tips_{}; // (the tips window is up)
+    bool tips_shown_this_run_{};
+};
+
+LevelEditorPrefsState& level_editor_prefs_state()
+{
+    static core::NoDestroy<LevelEditorPrefsState> state;
+    return state.get();
+}
 
 // One [editor] key per value: its name, and the value as an int.
 struct Key {
@@ -95,8 +106,8 @@ void read_in()
         v.*k.field = config_int("editor", k.name, v.*k.field);
     for (const BitMark& f : kFlags)
         v.*f.field = config_int("editor", f.name, v.*f.field ? 1 : 0) != 0;
-    g_values = get_clamped(v);
-    g_loaded = true;
+    level_editor_prefs_state().values_ = get_clamped(v);
+    level_editor_prefs_state().loaded_ = true;
 }
 
 void store_away(const Values& before, const Values& after)
@@ -114,9 +125,9 @@ void store_away(const Values& before, const Values& after)
 void save_all()
 {
     for (const Key& k : kIntKeys)
-        config_set_int("editor", k.name, g_values.*k.field);
+        config_set_int("editor", k.name, level_editor_prefs_state().values_.*k.field);
     for (const BitMark& f : kFlags)
-        config_set_int("editor", f.name, g_values.*f.field ? 1 : 0);
+        config_set_int("editor", f.name, level_editor_prefs_state().values_.*f.field ? 1 : 0);
 }
 
 void get_tip(const char* text)
@@ -131,9 +142,9 @@ void get_tip(const char* text)
 
 const Values& get_pull()
 {
-    if (!g_loaded)
+    if (!level_editor_prefs_state().loaded_)
         read_in();
-    return g_values;
+    return level_editor_prefs_state().values_;
 }
 
 void assign_value(const Values& values, bool save)
@@ -141,25 +152,25 @@ void assign_value(const Values& values, bool save)
     const Values before = get_pull();
     const Values after = get_clamped(values);
     if (after.ui_scale_pct_ != before.ui_scale_pct_ || after.accent != before.accent)
-        ++g_style_generation;
-    g_values = after;
+        ++level_editor_prefs_state().style_generation_;
+    level_editor_prefs_state().values_ = after;
     if (save)
         store_away(before, after);
 }
 
-int style_generation() { return g_style_generation; }
+int style_generation() { return level_editor_prefs_state().style_generation_; }
 
-bool& unseal() { return g_open; }
+bool& unseal() { return level_editor_prefs_state().open_; }
 
 void pane(float scale, ImFont* heading, ImFont* small)
 {
-    if (!g_open)
+    if (!level_editor_prefs_state().open_)
         return;
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing,
                             ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(440.0f * scale, 0.0f), ImGuiCond_Appearing);
-    if (!ImGui::Begin("Preferences###editorprefs", &g_open,
+    if (!ImGui::Begin("Preferences###editorprefs", &level_editor_prefs_state().open_,
                       ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
         return;
@@ -255,7 +266,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
         show_tips();
     ImGui::SameLine();
     if (ImGui::Button("Close"))
-        g_open = false;
+        level_editor_prefs_state().open_ = false;
     if (changed || active)
         assign_value(v, false);
     if ((changed && !active) || (s_prev_focused && !active))
@@ -266,18 +277,18 @@ void pane(float scale, ImFont* heading, ImFont* small)
 
 void show_tips()
 {
-    g_tips = true;
-    g_tips_shown_this_run = true;
+    level_editor_prefs_state().tips_ = true;
+    level_editor_prefs_state().tips_shown_this_run_ = true;
 }
 
 void tips_window(float scale, ImFont* heading, ImFont* mono)
 {
     // (the first time the editor opens: once a run until dismissed for good)
-    if (!g_tips && !g_tips_shown_this_run && !get_pull().tips_seen_) {
-        g_tips = true;
-        g_tips_shown_this_run = true;
+    if (!level_editor_prefs_state().tips_ && !level_editor_prefs_state().tips_shown_this_run_ && !get_pull().tips_seen_) {
+        level_editor_prefs_state().tips_ = true;
+        level_editor_prefs_state().tips_shown_this_run_ = true;
     }
-    if (!g_tips)
+    if (!level_editor_prefs_state().tips_)
         return;
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.42f), ImGuiCond_Appearing,
@@ -321,7 +332,7 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
     gui::text_disabled("(Help > Show Tips shows this again)");
     ImGui::End();
     if (dismiss || !open) {
-        g_tips = false;
+        level_editor_prefs_state().tips_ = false;
         if (!get_pull().tips_seen_) {
             Values v = get_pull();
             v.tips_seen_ = true;

@@ -19,7 +19,11 @@ namespace frontend::level_editor::goal_edit {
 
 namespace {
 
-int g_new_type = 0;
+int& new_type()
+{
+    static int new_type{0};
+    return new_type;
+}
 
 // A text field: typed, applied when let go (Enter or leaving it); its buffer follows `value` while it isn't edited.
 struct TextBuffer {
@@ -286,10 +290,10 @@ void list_section(ImFont* mono, ImFont* small_font)
     gui::text_disabled("Goals for this level, saved with the layout");
     ImGui::PopFont();
     ImGui::SetNextItemWidth(170.0f * ImGui::GetFontSize() / 13.0f);
-    if (ImGui::BeginCombo("##goaltype", type_title(static_cast<KindTag>(g_new_type)))) {
+    if (ImGui::BeginCombo("##goaltype", type_title(static_cast<KindTag>(new_type())))) {
         for (int t = 0; t < kTypes; ++t) {
-            if (ImGui::Selectable(type_title(static_cast<KindTag>(t)), t == g_new_type))
-                g_new_type = t;
+            if (ImGui::Selectable(type_title(static_cast<KindTag>(t)), t == new_type()))
+                new_type() = t;
         }
         ImGui::EndCombo();
     }
@@ -298,7 +302,7 @@ void list_section(ImFont* mono, ImFont* small_font)
     if (static_cast<int>(all.size()) >= kMaxGoals)
         ImGui::BeginDisabled();
     if (ImGui::Button("New goal")) {
-        auto type = static_cast<KindTag>(g_new_type);
+        auto type = static_cast<KindTag>(new_type());
         get_queue([type] { fabricate(type); });
     }
     if (static_cast<int>(all.size()) >= kMaxGoals)

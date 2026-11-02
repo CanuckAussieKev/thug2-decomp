@@ -25,6 +25,7 @@
 #include "engine/gfx/scene_lights.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::node_edit {
 
@@ -118,7 +119,11 @@ struct Touched {
     Values origin;
     script::Struct* node;
 };
-std::vector<Touched> g_touched;
+std::vector<Touched>& stored_touched()
+{
+    static core::NoDestroy<std::vector<Touched>> touched;
+    return touched.get();
+}
 std::unordered_map<uint32_t, size_t>& touched_index()
 {
     static std::unordered_map<uint32_t, size_t> value;
@@ -329,8 +334,8 @@ void note_origin(uint32_t name)
     Values origin;
     if (!get_take_in(name, &origin))
         return;
-    touched_index()[name] = g_touched.size();
-    g_touched.push_back({.name = name, .origin = origin, .node = struct_named(name)});
+    touched_index()[name] = stored_touched().size();
+    stored_touched().push_back({.name = name, .origin = origin, .node = struct_named(name)});
 }
 
 const Values* get_origin(uint32_t name)
@@ -342,7 +347,7 @@ const Values* get_origin(uint32_t name)
         return &values;
     }
     auto it = touched_index().find(name);
-    return it == touched_index().end() ? nullptr : &core::at(g_touched, it->second).origin;
+    return it == touched_index().end() ? nullptr : &core::at(stored_touched(), it->second).origin;
 }
 
 bool assign_value(uint32_t name, const Values& values)
@@ -380,7 +385,7 @@ bool assign_value(uint32_t name, const Values& values)
 std::vector<LinkRecord> get_changed()
 {
     std::vector<LinkRecord> out;
-    for (const Touched& t : g_touched) {
+    for (const Touched& t : stored_touched()) {
         Values now;
         if (get_take_in(t.name, &now) && !get_same(now, t.origin))
             out.push_back({.name = t.name, .values = now});
@@ -393,15 +398,15 @@ void get_forget(uint32_t name)
     auto it = touched_index().find(name);
     if (it == touched_index().end())
         return;
-    g_touched.erase(g_touched.begin() + static_cast<std::ptrdiff_t>(it->second));
+    stored_touched().erase(stored_touched().begin() + static_cast<std::ptrdiff_t>(it->second));
     touched_index().clear();
-    for (size_t i = 0; i < g_touched.size(); ++i)
-        touched_index()[core::at(g_touched, i).name] = i;
+    for (size_t i = 0; i < stored_touched().size(); ++i)
+        touched_index()[core::at(stored_touched(), i).name] = i;
 }
 
 void reset_all()
 {
-    const std::vector<Touched> touched = g_touched;
+    const std::vector<Touched> touched = stored_touched();
     for (const Touched& t : touched)
         assign_value(t.name, t.origin);
 }
@@ -410,14 +415,14 @@ void forget_level()
 {
     // (a level whose node array stays loaded - the same structures under the same names - gets its places back: the
     // layout puts them in again; another level's nodes of the same name aren't touched)
-    for (const Touched& t : g_touched) {
+    for (const Touched& t : stored_touched()) {
         script::Struct* node = struct_named(t.name);
         if (node && node == t.node) {
             store_node_vector(node, kPos, t.origin.pos);
             store_node_vector(node, kAngles, t.origin.angles);
         }
     }
-    g_touched.clear();
+    stored_touched().clear();
     touched_index().clear();
     rail_origins().clear();
 }

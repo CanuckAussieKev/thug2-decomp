@@ -35,6 +35,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::node_create {
 
@@ -518,12 +519,22 @@ constexpr uint32_t kType = 0x7321A8D6;   // type
 constexpr uint32_t kPos = 0x7F261953;    // pos
 constexpr uint32_t kAngles = 0x9D2D0915; // angles
 
-// The overlay: its specs (names, classes...; places are the structures') and structures, in array order.
-LinkChain g_list;
-std::vector<script::Struct*> g_structs;
-script::Array* g_array;
-bool g_registered;
-uint32_t g_level_array; // (the array the overlay was added after: it leaves with it)
+// NOT ORIGINAL grouping - level_editor_node_create.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_node_create_state()).
+struct LevelEditorNodeCreateState {
+    // The overlay: its specs (names, classes...; places are the structures') and structures, in array order.
+    LinkChain list_{};
+    std::vector<script::Struct*> structs_{};
+    script::Array* array_{};
+    bool registered_{};
+    uint32_t level_array_{}; // (the array the overlay was added after: it leaves with it)
+};
+
+LevelEditorNodeCreateState& level_editor_node_create_state()
+{
+    static core::NoDestroy<LevelEditorNodeCreateState> state;
+    return state.get();
+}
 
 // Hidden nodes: the structure (the level's array still the one loaded) and what was active.
 struct HiddenNode {
@@ -531,7 +542,11 @@ struct HiddenNode {
     script::Struct* node;
     bool proxim_active_, emitter_active_;
 };
-std::vector<HiddenNode> g_hidden;
+std::vector<HiddenNode>& stored_hidden()
+{
+    static core::NoDestroy<std::vector<HiddenNode>> hidden;
+    return hidden.get();
+}
 
 level_nodes::NodeManager* hub() { return level_nodes::node_manager_instance().get(); }
 
@@ -551,10 +566,10 @@ void on_array_removed(uint32_t name)
 {
     if (g_array_removed_listener)
         g_array_removed_listener(name);
-    if (name == nodes::overlay_array() || !g_registered || name != g_level_array)
+    if (name == nodes::overlay_array() || !level_editor_node_create_state().registered_ || name != level_editor_node_create_state().level_array_)
         return;
     get_log("level editor: the level's node array left - its %u added nodes go with it",
-            static_cast<unsigned>(g_structs.size()));
+            static_cast<unsigned>(level_editor_node_create_state().structs_.size()));
     get_forget();
 }
 
@@ -655,14 +670,14 @@ bool get_sync()
         return false;
     level_nodes::set_node_array_removed_hook(&on_array_removed);
     level_nodes::set_editor_node_array(nodes::overlay_array());
-    if (g_registered) {
-        g_registered = false;
+    if (level_editor_node_create_state().registered_) {
+        level_editor_node_create_state().registered_ = false;
         manager->remove_node_array(nodes::overlay_array());
     }
     nodes::mark_stale();
-    if (g_structs.empty())
+    if (level_editor_node_create_state().structs_.empty())
         return true;
-    if (!g_array) {
+    if (!level_editor_node_create_state().array_) {
         const uint32_t name = nodes::overlay_array();
         script::note_qb_name(name, nodes::kOverlayArrayName);
         if (script::SymbolTableEntry* old = script::find_symbol(name))
@@ -670,27 +685,27 @@ bool get_sync()
         gsl::owner<script::Array*> made = script::new_array(); // (the symbol's, below)
         if (!made)
             return false;
-        g_array = made;
+        level_editor_node_create_state().array_ = made;
         script::SymbolTableEntry* symbol = script::create_symbol(name);
         symbol->type = script::kQbvalArray;
-        symbol->value.set_array(g_array);
+        symbol->value.set_array(level_editor_node_create_state().array_);
     }
     if (manager->num_ >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays)) {
         get_log("level editor: the node manager's 20 node arrays are in use - added nodes not registered");
         return false;
     }
-    g_level_array = manager->get_last_node_array_name(); // (the overlay passed over: the level's)
-    g_array->configure_size_kind(static_cast<uint32_t>(g_structs.size()), script::kQbvalStruct);
-    for (size_t i = 0; i < g_structs.size(); ++i) {
-        g_array->set_cell(static_cast<uint32_t>(i), script::Cell::of(core::at(g_structs, i)));
+    level_editor_node_create_state().level_array_ = manager->get_last_node_array_name(); // (the overlay passed over: the level's)
+    level_editor_node_create_state().array_->configure_size_kind(static_cast<uint32_t>(level_editor_node_create_state().structs_.size()), script::kQbvalStruct);
+    for (size_t i = 0; i < level_editor_node_create_state().structs_.size(); ++i) {
+        level_editor_node_create_state().array_->set_cell(static_cast<uint32_t>(i), script::Cell::of(core::at(level_editor_node_create_state().structs_, i)));
         // (links= are names already: kept out of AddNodeArray's resolve_links, which reads indices - put on after)
-        core::at(g_structs, i)->erase_module(kLinks);
+        core::at(level_editor_node_create_state().structs_, i)->erase_module(kLinks);
     }
-    g_registered = manager->add_node_array(nodes::overlay_array(), false);
-    for (size_t i = 0; i < g_structs.size(); ++i)
-        write_links(core::at(g_structs, i), core::at(g_list, i).links);
+    level_editor_node_create_state().registered_ = manager->add_node_array(nodes::overlay_array(), false);
+    for (size_t i = 0; i < level_editor_node_create_state().structs_.size(); ++i)
+        write_links(core::at(level_editor_node_create_state().structs_, i), core::at(level_editor_node_create_state().list_, i).links);
     nodes::mark_stale();
-    return g_registered;
+    return level_editor_node_create_state().registered_;
 }
 
 // What the game would have made for the node at the level's load (cfunc_parse_node_array), made now.
@@ -754,27 +769,27 @@ Spec with_place(const Spec& spec, script::Struct* node)
 void get_forget()
 {
     level_nodes::NodeManager* manager = hub();
-    if (g_registered && manager) {
-        g_registered = false;
+    if (level_editor_node_create_state().registered_ && manager) {
+        level_editor_node_create_state().registered_ = false;
         manager->remove_node_array(nodes::overlay_array());
     }
-    g_registered = false;
-    for (const Spec& spec : g_list)
+    level_editor_node_create_state().registered_ = false;
+    for (const Spec& spec : level_editor_node_create_state().list_)
         node_edit::get_forget(name_hash(spec.name));
-    for (script::Struct* node : g_structs)
+    for (script::Struct* node : level_editor_node_create_state().structs_)
         dealloc(node);
-    g_structs.clear();
-    g_list.clear();
-    if (g_array)
-        g_array->configure_size_kind(0, script::kQbvalStruct);
-    g_hidden.clear();
+    level_editor_node_create_state().structs_.clear();
+    level_editor_node_create_state().list_.clear();
+    if (level_editor_node_create_state().array_)
+        level_editor_node_create_state().array_->configure_size_kind(0, script::kQbvalStruct);
+    stored_hidden().clear();
     nodes::mark_stale();
 }
 
 bool in_level()
 {
     const level_nodes::NodeManager* manager = hub();
-    return manager && manager->num_ > (g_registered ? 1u : 0u) && render::current_level() != 0;
+    return manager && manager->num_ > (level_editor_node_create_state().registered_ ? 1u : 0u) && render::current_level() != 0;
 }
 
 } // namespace
@@ -788,14 +803,14 @@ void set_array_removed_listener(void (*listener)(uint32_t name))
 LinkChain at_hand()
 {
     LinkChain list;
-    for (size_t i = 0; i < g_list.size(); ++i)
-        list.push_back(with_place(core::at(g_list, i), core::at(g_structs, i)));
+    for (size_t i = 0; i < level_editor_node_create_state().list_.size(); ++i)
+        list.push_back(with_place(core::at(level_editor_node_create_state().list_, i), core::at(level_editor_node_create_state().structs_, i)));
     return list;
 }
 
 bool is_added(uint32_t name)
 {
-    for (const Spec& spec : g_list) {
+    for (const Spec& spec : level_editor_node_create_state().list_) {
         if (name_hash(spec.name) == name)
             return true;
     }
@@ -805,7 +820,7 @@ bool is_added(uint32_t name)
 bool name_taken(const std::string& name)
 {
     const uint32_t checksum = name_hash(name);
-    if (get_index_of(g_list, name) >= 0)
+    if (get_index_of(level_editor_node_create_state().list_, name) >= 0)
         return true;
     if (hub() && level_nodes::fetch_vertex(checksum, false))
         return true;
@@ -866,13 +881,13 @@ bool fabricate(const Spec& spec, int index, std::string* message)
         *message = "Couldn't make the node";
         return false;
     }
-    if (index < 0 || std::cmp_greater(index, g_list.size()))
-        index = static_cast<int>(g_list.size());
-    g_list.insert(g_list.begin() + index, spec);
-    g_structs.insert(g_structs.begin() + index, node);
+    if (index < 0 || std::cmp_greater(index, level_editor_node_create_state().list_.size()))
+        index = static_cast<int>(level_editor_node_create_state().list_.size());
+    level_editor_node_create_state().list_.insert(level_editor_node_create_state().list_.begin() + index, spec);
+    level_editor_node_create_state().structs_.insert(level_editor_node_create_state().structs_.begin() + index, node);
     if (!get_sync()) {
-        g_list.erase(g_list.begin() + index);
-        g_structs.erase(g_structs.begin() + index);
+        level_editor_node_create_state().list_.erase(level_editor_node_create_state().list_.begin() + index);
+        level_editor_node_create_state().structs_.erase(level_editor_node_create_state().structs_.begin() + index);
         dealloc(node);
         get_sync();
         *message = "Couldn't add it to the node manager";
@@ -900,8 +915,8 @@ int create_all(const LinkChain& specs, std::string* message)
             continue;
         }
         if (gsl::owner<script::Struct*> node = get_build(spec)) {
-            g_list.push_back(spec);
-            g_structs.push_back(node);
+            level_editor_node_create_state().list_.push_back(spec);
+            level_editor_node_create_state().structs_.push_back(node);
             made.emplace_back(spec, node);
         }
     }
@@ -909,9 +924,9 @@ int create_all(const LinkChain& specs, std::string* message)
         return 0;
     if (!get_sync()) {
         for (size_t i = 0; i < made.size(); ++i) {
-            g_list.pop_back();
-            dealloc(g_structs.back());
-            g_structs.pop_back();
+            level_editor_node_create_state().list_.pop_back();
+            dealloc(level_editor_node_create_state().structs_.back());
+            level_editor_node_create_state().structs_.pop_back();
         }
         get_sync();
         *message = "Couldn't add the layout's nodes to the node manager";
@@ -924,15 +939,15 @@ int create_all(const LinkChain& specs, std::string* message)
 
 bool drop_out(uint32_t name, Spec* spec, int* index)
 {
-    for (size_t i = 0; i < g_list.size(); ++i) {
-        if (name_hash(core::at(g_list, i).name) != name)
+    for (size_t i = 0; i < level_editor_node_create_state().list_.size(); ++i) {
+        if (name_hash(core::at(level_editor_node_create_state().list_, i).name) != name)
             continue;
-        *spec = with_place(core::at(g_list, i), core::at(g_structs, i));
+        *spec = with_place(core::at(level_editor_node_create_state().list_, i), core::at(level_editor_node_create_state().structs_, i));
         *index = static_cast<int>(i);
-        script::Struct* node = core::at(g_structs, i);
+        script::Struct* node = core::at(level_editor_node_create_state().structs_, i);
         kill_live(*spec); // (the light lists by name - before the node goes)
-        g_list.erase(g_list.begin() + static_cast<std::ptrdiff_t>(i));
-        g_structs.erase(g_structs.begin() + static_cast<std::ptrdiff_t>(i));
+        level_editor_node_create_state().list_.erase(level_editor_node_create_state().list_.begin() + static_cast<std::ptrdiff_t>(i));
+        level_editor_node_create_state().structs_.erase(level_editor_node_create_state().structs_.begin() + static_cast<std::ptrdiff_t>(i));
         get_sync();
         node_edit::get_forget(name);
         dealloc(node);
@@ -944,11 +959,11 @@ bool drop_out(uint32_t name, Spec* spec, int* index)
 
 bool set_links(uint32_t name, const std::vector<uint32_t>& links)
 {
-    for (size_t i = 0; i < g_list.size(); ++i) {
-        if (name_hash(core::at(g_list, i).name) != name)
+    for (size_t i = 0; i < level_editor_node_create_state().list_.size(); ++i) {
+        if (name_hash(core::at(level_editor_node_create_state().list_, i).name) != name)
             continue;
-        core::at(g_list, i).links = links;
-        write_links(core::at(g_structs, i), links);
+        core::at(level_editor_node_create_state().list_, i).links = links;
+        write_links(core::at(level_editor_node_create_state().structs_, i), links);
         nodes::mark_stale();
         return true;
     }
@@ -958,7 +973,7 @@ bool set_links(uint32_t name, const std::vector<uint32_t>& links)
 std::vector<std::string> get_order()
 {
     std::vector<std::string> names;
-    for (const Spec& spec : g_list)
+    for (const Spec& spec : level_editor_node_create_state().list_)
         names.push_back(spec.name);
     return names;
 }
@@ -967,32 +982,32 @@ void set_order(const std::vector<std::string>& names)
 {
     LinkChain list;
     std::vector<script::Struct*> structs;
-    std::vector<bool> used(g_list.size(), false);
+    std::vector<bool> used(level_editor_node_create_state().list_.size(), false);
     for (const std::string& name : names) {
-        const int i = get_index_of(g_list, name);
+        const int i = get_index_of(level_editor_node_create_state().list_, name);
         if (i >= 0 && !core::at(used, i)) {
             core::at(used, i) = true;
-            list.push_back(core::at(g_list, i));
-            structs.push_back(core::at(g_structs, i));
+            list.push_back(core::at(level_editor_node_create_state().list_, i));
+            structs.push_back(core::at(level_editor_node_create_state().structs_, i));
         }
     }
-    for (size_t i = 0; i < g_list.size(); ++i) {
+    for (size_t i = 0; i < level_editor_node_create_state().list_.size(); ++i) {
         if (!core::at(used, i)) {
-            list.push_back(core::at(g_list, i));
-            structs.push_back(core::at(g_structs, i));
+            list.push_back(core::at(level_editor_node_create_state().list_, i));
+            structs.push_back(core::at(level_editor_node_create_state().structs_, i));
         }
     }
-    g_list.swap(list);
-    g_structs.swap(structs);
+    level_editor_node_create_state().list_.swap(list);
+    level_editor_node_create_state().structs_.swap(structs);
     get_sync();
 }
 
 bool move_crown(uint32_t name, int delta, std::string* message)
 {
-    for (const Spec& spec : g_list) {
+    for (const Spec& spec : level_editor_node_create_state().list_) {
         if (name_hash(spec.name) != name)
             continue;
-        LinkChain list = g_list;
+        LinkChain list = level_editor_node_create_state().list_;
         if (!node_create::move_crown(&list, spec.name, delta)) {
             *message = delta < 0 ? "Already the first added crown" : "Already the last crown";
             return false;
@@ -1009,7 +1024,7 @@ bool move_crown(uint32_t name, int delta, std::string* message)
 
 void apply_crown_order(const std::vector<std::string>& order)
 {
-    LinkChain list = g_list;
+    LinkChain list = level_editor_node_create_state().list_;
     node_create::apply_crown_order(&list, order);
     std::vector<std::string> names;
     for (const Spec& s : list)
@@ -1062,14 +1077,14 @@ bool can_hide(const nodes::Elem& node, const char** why)
 
 bool get_hidden(uint32_t name)
 {
-    return std::ranges::any_of(g_hidden, [&](const HiddenNode& h) { return h.name == name; });
+    return std::ranges::any_of(stored_hidden(), [&](const HiddenNode& h) { return h.name == name; });
 }
 
 std::vector<uint32_t> hidden_names()
 {
     std::vector<uint32_t> names;
-    names.reserve(g_hidden.size());
-    for (const HiddenNode& h : g_hidden)
+    names.reserve(stored_hidden().size());
+    for (const HiddenNode& h : stored_hidden())
         names.push_back(h.name);
     return names;
 }
@@ -1081,11 +1096,11 @@ bool conceal(uint32_t name, bool hide)
     script::Struct* node = level_nodes::fetch_vertex(name, false);
     if (!node)
         return false;
-    auto it = std::ranges::find_if(g_hidden, [&](const HiddenNode& h) { return h.name == name; });
+    auto it = std::ranges::find_if(stored_hidden(), [&](const HiddenNode& h) { return h.name == name; });
     static const uint32_t kLight = name_hash("LevelLight"), kProxim = name_hash("ProximNode"),
                           kEmitter = name_hash("EmitterObject");
     if (hide) {
-        if (it != g_hidden.end())
+        if (it != stored_hidden().end())
             return true;
         HiddenNode h = {.name = name, .node = node, .proxim_active_ = false, .emitter_active_ = false};
         uint32_t cls = 0, type = 0;
@@ -1116,13 +1131,13 @@ bool conceal(uint32_t name, bool hide)
         if (object && !(object->object_flags_ & objects::kObjectFlagDead) && cls != kProxim && cls != kEmitter &&
             cls != kLight)
             object->flag_as_dead();
-        g_hidden.push_back(h);
+        stored_hidden().push_back(h);
         get_log("level editor: hid the level's node %s", object_edit::caption(name).c_str());
     } else {
-        if (it == g_hidden.end())
+        if (it == stored_hidden().end())
             return true;
         const HiddenNode h = *it;
-        g_hidden.erase(it);
+        stored_hidden().erase(it);
         uint32_t cls = 0, type = 0;
         node->read_hash_value(nodes::hidden_class_key(), &cls, 0);
         node->read_hash_value(nodes::hidden_type_key(), &type, 0);
@@ -1162,7 +1177,7 @@ void forget_level()
 {
     // (a level whose node array stays loaded: hidden nodes shown, added ones removed; another level's: forgotten)
     if (hub()) {
-        for (const HiddenNode& h : std::vector<HiddenNode>(g_hidden)) {
+        for (const HiddenNode& h : std::vector<HiddenNode>(stored_hidden())) {
             if (level_nodes::fetch_vertex(h.name, false) == h.node)
                 conceal(h.name, false);
         }

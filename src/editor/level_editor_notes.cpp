@@ -28,6 +28,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::notes {
 
@@ -200,30 +201,40 @@ std::string caption(const std::string& text, size_t most)
 
 namespace {
 
-std::vector<Note> g_notes;
-std::string g_selected;         // (the note whose window is open; "" none)
-std::array<char, kMaxText + 1> g_edit_text; // (the window's text while typed)
-std::string g_edit_for;         // (the note the text buffer holds)
-std::vector<Note> g_before;     // (the notes as they were when a field was taken: its undo step)
-std::vector<std::function<void()>> g_queue;
+// NOT ORIGINAL grouping - level_editor_notes.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_notes_state()).
+struct LevelEditorNotesState {
+    std::vector<Note> notes_{};
+    std::string selected_{}; // (the note whose window is open; "" none)
+    std::array<char, kMaxText + 1> edit_text_{}; // (the window's text while typed)
+    std::string edit_for_{}; // (the note the text buffer holds)
+    std::vector<Note> before_{}; // (the notes as they were when a field was taken: its undo step)
+    std::vector<std::function<void()>> queue_{};
+};
+
+LevelEditorNotesState& level_editor_notes_state()
+{
+    static core::NoDestroy<LevelEditorNotesState> state;
+    return state.get();
+}
 
 struct NotesStep : ModuleStep {
     std::vector<Note> notes;
     explicit NotesStep(std::vector<Note> list) : notes(std::move(list)) {}
     void get_restore() override
     {
-        g_notes = notes;
-        g_edit_for.clear(); // (the window reads the text again)
+        level_editor_notes_state().notes_ = notes;
+        level_editor_notes_state().edit_for_.clear(); // (the window reads the text again)
     }
-    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<NotesStep>(g_notes); }
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<NotesStep>(level_editor_notes_state().notes_); }
 };
 
-void push_undo() { push_module_undo(std::make_shared<NotesStep>(g_notes)); }
+void push_undo() { push_module_undo(std::make_shared<NotesStep>(level_editor_notes_state().notes_)); }
 
 Note* get_find(const std::string& name)
 {
-    auto it = std::ranges::find_if(g_notes, [&](const Note& n) { return n.name == name; });
-    return it == g_notes.end() ? nullptr : &*it;
+    auto it = std::ranges::find_if(level_editor_notes_state().notes_, [&](const Note& n) { return n.name == name; });
+    return it == level_editor_notes_state().notes_.end() ? nullptr : &*it;
 }
 
 // Where the view looks: the first surface under the middle of the view (else 800 units ahead).
@@ -249,11 +260,11 @@ void add_here()
         return;
     push_undo();
     Note note;
-    note.name = fresh_name(g_notes);
+    note.name = fresh_name(level_editor_notes_state().notes_);
     note.pos = at;
-    g_notes.push_back(note);
-    g_selected = note.name;
-    g_edit_for.clear();
+    level_editor_notes_state().notes_.push_back(note);
+    level_editor_notes_state().selected_ = note.name;
+    level_editor_notes_state().edit_for_.clear();
     hud::get_message(("Added note " + note.name).c_str());
 }
 
@@ -278,27 +289,27 @@ bool get_matches(const std::string& text, const char* filter)
 
 } // namespace
 
-const std::vector<Note>& get_all() { return g_notes; }
+const std::vector<Note>& get_all() { return level_editor_notes_state().notes_; }
 
-std::vector<Note> get_capture() { return g_notes; }
+std::vector<Note> get_capture() { return level_editor_notes_state().notes_; }
 
 int get_apply(const std::vector<Note>& notes)
 {
-    g_notes.clear();
+    level_editor_notes_state().notes_.clear();
     for (const Note& note : notes) {
         if (!get_find(note.name))
-            g_notes.push_back(note);
+            level_editor_notes_state().notes_.push_back(note);
     }
-    g_selected.clear();
-    g_edit_for.clear();
-    return static_cast<int>(g_notes.size());
+    level_editor_notes_state().selected_.clear();
+    level_editor_notes_state().edit_for_.clear();
+    return static_cast<int>(level_editor_notes_state().notes_.size());
 }
 
 void reset_all()
 {
-    g_notes.clear();
-    g_selected.clear();
-    g_edit_for.clear();
+    level_editor_notes_state().notes_.clear();
+    level_editor_notes_state().selected_.clear();
+    level_editor_notes_state().edit_for_.clear();
 }
 
 void forget_level() { reset_all(); }
@@ -306,19 +317,19 @@ void forget_level() { reset_all(); }
 void tick_frame()
 {
     std::vector<std::function<void()>> queue;
-    queue.swap(g_queue);
+    queue.swap(level_editor_notes_state().queue_);
     for (const auto& action : queue)
         action();
-    if (!g_selected.empty() && !get_find(g_selected))
-        g_selected.clear();
+    if (!level_editor_notes_state().selected_.empty() && !get_find(level_editor_notes_state().selected_))
+        level_editor_notes_state().selected_.clear();
 }
 
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
                  std::vector<ui::Overlay::OverlayText>* texts)
 {
-    for (const Note& note : g_notes) {
-        const bool selected = note.name == g_selected;
+    for (const Note& note : level_editor_notes_state().notes_) {
+        const bool selected = note.name == level_editor_notes_state().selected_;
         // (a pin: a stem from the point up to its head - longer far away, so it stands out - and the text beside the head)
         const float distance = std::sqrt(get_dot(note.pos - camera_pos, note.pos - camera_pos));
         const float height = std::max(40.0f, std::min(400.0f, distance * 0.06f));
@@ -350,20 +361,20 @@ void outliner_section(ImFont* mono, const char* search)
     ImGui::SameLine();
     if (mono)
         ImGui::PushFont(mono);
-    gui::text_disabled("%d", static_cast<int>(g_notes.size()));
+    gui::text_disabled("%d", static_cast<int>(level_editor_notes_state().notes_.size()));
     if (mono)
         ImGui::PopFont();
     ImGui::SameLine();
     if (ImGui::SmallButton("+ Note here"))
-        g_queue.emplace_back([] { add_here(); });
+        level_editor_notes_state().queue_.emplace_back([] { add_here(); });
     if (ImGui::IsItemHovered())
         gui::tooltip("Add a note at the view center");
     if (!open)
         return;
-    if (g_notes.empty())
+    if (level_editor_notes_state().notes_.empty())
         gui::text_disabled("No notes");
-    for (size_t i = 0; i < g_notes.size(); ++i) {
-        const Note& note = core::at(g_notes, i);
+    for (size_t i = 0; i < level_editor_notes_state().notes_.size(); ++i) {
+        const Note& note = core::at(level_editor_notes_state().notes_, i);
         if (!get_matches(note.name + " " + note.text, search))
             continue;
         ImGui::PushID(static_cast<int>(i));
@@ -374,14 +385,14 @@ void outliner_section(ImFont* mono, const char* search)
         ImGui::SetCursorScreenPos(ImVec2(pos.x + h * 0.6f, pos.y));
         const std::string label = caption(note.text, 40);
         const bool clicked =
-            ImGui::Selectable(label.c_str(), note.name == g_selected, ImGuiSelectableFlags_AllowDoubleClick);
+            ImGui::Selectable(label.c_str(), note.name == level_editor_notes_state().selected_, ImGuiSelectableFlags_AllowDoubleClick);
         if (clicked) {
             const std::string name = note.name;
             const V3 at = note.pos;
             const bool go = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
-            g_queue.emplace_back([name, at, go] {
-                g_selected = name;
-                g_edit_for.clear();
+            level_editor_notes_state().queue_.emplace_back([name, at, go] {
+                level_editor_notes_state().selected_ = name;
+                level_editor_notes_state().edit_for_.clear();
                 if (go)
                     go_to_point(at, 400.0f);
             });
@@ -396,12 +407,12 @@ void outliner_section(ImFont* mono, const char* search)
 void pane(float view_x, float view_y, float view_width, float view_height, float scale)
 {
     (void)view_width;
-    const Note* note = g_selected.empty() ? nullptr : get_find(g_selected);
+    const Note* note = level_editor_notes_state().selected_.empty() ? nullptr : get_find(level_editor_notes_state().selected_);
     if (!note)
         return;
-    if (g_edit_for != note->name) {
-        text::format_to(g_edit_text, "%s", note->text.c_str());
-        g_edit_for = note->name;
+    if (level_editor_notes_state().edit_for_ != note->name) {
+        text::format_to(level_editor_notes_state().edit_text_, "%s", note->text.c_str());
+        level_editor_notes_state().edit_for_ = note->name;
     }
     ImGui::SetNextWindowPos(ImVec2(view_x + 12.0f * scale, view_y + view_height - 12.0f * scale),
                             ImGuiCond_FirstUseEver, ImVec2(0.0f, 1.0f));
@@ -411,7 +422,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
         if (!open)
-            g_queue.emplace_back([] { g_selected.clear(); });
+            level_editor_notes_state().queue_.emplace_back([] { level_editor_notes_state().selected_.clear(); });
         return;
     }
     std::string name = note->name;
@@ -420,20 +431,20 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     // change complete: the autosave's snapshot follows it).
     auto held = [] {
         if (ImGui::IsItemActivated())
-            g_queue.emplace_back([] { g_before = g_notes; });
+            level_editor_notes_state().queue_.emplace_back([] { level_editor_notes_state().before_ = level_editor_notes_state().notes_; });
         if (ImGui::IsItemDeactivated())
-            g_queue.emplace_back([] {
-                bool same = g_before.size() == g_notes.size();
-                for (size_t i = 0; same && i < g_notes.size(); ++i)
-                    same = get_same(core::at(g_before, i), core::at(g_notes, i));
+            level_editor_notes_state().queue_.emplace_back([] {
+                bool same = level_editor_notes_state().before_.size() == level_editor_notes_state().notes_.size();
+                for (size_t i = 0; same && i < level_editor_notes_state().notes_.size(); ++i)
+                    same = get_same(core::at(level_editor_notes_state().before_, i), core::at(level_editor_notes_state().notes_, i));
                 if (!same)
-                    push_module_undo(std::make_shared<NotesStep>(g_before));
+                    push_module_undo(std::make_shared<NotesStep>(level_editor_notes_state().before_));
             });
     };
-    ImGui::InputTextMultiline("##text", g_edit_text.data(), sizeof(g_edit_text), ImVec2(-1.0f, 90.0f * scale));
+    ImGui::InputTextMultiline("##text", level_editor_notes_state().edit_text_.data(), sizeof(level_editor_notes_state().edit_text_), ImVec2(-1.0f, 90.0f * scale));
     if (ImGui::IsItemEdited()) {
-        const std::string text = g_edit_text.data();
-        g_queue.emplace_back([name, text] {
+        const std::string text = level_editor_notes_state().edit_text_.data();
+        level_editor_notes_state().queue_.emplace_back([name, text] {
             if (Note* n = get_find(name))
                 n->text = text;
         });
@@ -449,7 +460,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         if (ImGui::ColorButton("##colour", colour, ImGuiColorEditFlags_NoTooltip,
                                ImVec2(18.0f * scale, 18.0f * scale))) {
             const uint32_t rgb = core::at(kColours, c);
-            g_queue.emplace_back([name, rgb] {
+            level_editor_notes_state().queue_.emplace_back([name, rgb] {
                 Note* n = get_find(name);
                 if (!n || n->colour == rgb)
                     return;
@@ -470,20 +481,20 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::DragFloat3("##pos", pos.data(), 5.0f, 0.0f, 0.0f, "%.0f")) {
         const V3 to = {.x = core::at(pos, 0), .y = core::at(pos, 1), .z = core::at(pos, 2)};
-        g_queue.emplace_back([name, to] {
+        level_editor_notes_state().queue_.emplace_back([name, to] {
             if (Note* n = get_find(name))
                 n->pos = to;
         });
     }
     held();
     if (ImGui::Button("Go to"))
-        g_queue.emplace_back([name] {
+        level_editor_notes_state().queue_.emplace_back([name] {
             if (const Note* n = get_find(name))
                 go_to_point(n->pos, 400.0f);
         });
     ImGui::SameLine();
     if (ImGui::Button("Move here"))
-        g_queue.emplace_back([name] {
+        level_editor_notes_state().queue_.emplace_back([name] {
             V3 at{};
             Note* n = get_find(name);
             if (!n || !view_point(&at))
@@ -495,17 +506,17 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         gui::tooltip("Move to the view center");
     ImGui::SameLine();
     if (ImGui::Button("Delete"))
-        g_queue.emplace_back([name] {
+        level_editor_notes_state().queue_.emplace_back([name] {
             if (!get_find(name))
                 return;
             push_undo();
-            std::erase_if(g_notes, [&](const Note& n) { return n.name == name; });
-            g_selected.clear();
+            std::erase_if(level_editor_notes_state().notes_, [&](const Note& n) { return n.name == name; });
+            level_editor_notes_state().selected_.clear();
             hud::get_message(("Deleted note " + name).c_str());
         });
     ImGui::End();
     if (!open)
-        g_queue.emplace_back([] { g_selected.clear(); });
+        level_editor_notes_state().queue_.emplace_back([] { level_editor_notes_state().selected_.clear(); });
 }
 
 } // namespace frontend::level_editor::notes
@@ -514,7 +525,7 @@ namespace frontend::level_editor::notes {
 
 void add_here_queued()
 {
-    g_queue.emplace_back([] { add_here(); });
+    level_editor_notes_state().queue_.emplace_back([] { add_here(); });
 }
 
 } // namespace frontend::level_editor::notes

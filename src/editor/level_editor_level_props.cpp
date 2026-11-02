@@ -27,6 +27,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::level_props {
 
@@ -242,17 +243,29 @@ void read_override_keys(script::Struct* level, Props* out)
 
 namespace {
 
-Props g_props;
-// (map4) The level structure's ed_ambient / ed_fog (a bake's - or the edited copy's, written for its load).
-Props g_level;
-bool g_filter_set;
+// NOT ORIGINAL grouping - level_editor_level_props.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_level_props_state()).
+struct LevelEditorLevelPropsState {
+    Props props_{};
+    // (map4) The level structure's ed_ambient / ed_fog (a bake's - or the edited copy's, written for its load).
+    Props level_{};
+    bool filter_set_{};
+    std::vector<std::string> skies_{};
+    bool skies_made_{};
+};
 
-bool get_filter(gfx::TodParams* params) { return get_override(g_props, g_level, params); }
+LevelEditorLevelPropsState& level_editor_level_props_state()
+{
+    static core::NoDestroy<LevelEditorLevelPropsState> state;
+    return state.get();
+}
+
+bool get_filter(gfx::TodParams* params) { return get_override(level_editor_level_props_state().props_, level_editor_level_props_state().level_, params); }
 
 void install_filter()
 {
-    if (!g_filter_set) {
-        g_filter_set = true;
+    if (!level_editor_level_props_state().filter_set_) {
+        level_editor_level_props_state().filter_set_ = true;
         gfx::set_tod_params_filter(&get_filter);
     }
 }
@@ -263,16 +276,24 @@ bool lighting_same(const Props& a, const Props& b)
            (!a.has_ambient_ || std::memcmp(a.ambient.data(), b.ambient.data(), sizeof(a.ambient)) == 0) && a.has_fog_ == b.has_fog_ &&
            (!a.has_fog_ || std::memcmp(a.fog.data(), b.fog.data(), sizeof(a.fog)) == 0);
 }
-std::vector<std::string> g_skies;
-bool g_skies_made;
 
 // The level structure's values put in by export_to_struct, and what was there before.
 struct Kept {
     uint32_t key;
     fields::Own before;
 };
-script::Struct* g_written;
-std::vector<Kept> g_kept;
+// NOT ORIGINAL grouping - the level properties written and kept (were globals). Made on first use, never destroyed
+// (props_written()).
+struct PropsWritten {
+    script::Struct* written_{};
+    std::vector<Kept> kept_{};
+};
+
+PropsWritten& props_written()
+{
+    static core::NoDestroy<PropsWritten> state;
+    return state.get();
+}
 
 // The level structure of the level loaded now (Levels.qb's Level_<x>: its load_script is the skate module's level).
 script::Struct* current_level_structure()
@@ -300,21 +321,21 @@ void show_time_of_day(int tod)
 
 } // namespace
 
-const Props& at_hand() { return g_props; }
+const Props& at_hand() { return level_editor_level_props_state().props_; }
 
 void assign_value(const Props& props)
 {
     int tod = props.tod;
-    if (tod != g_props.tod && tod < 0) {
+    if (tod != level_editor_level_props_state().props_.tod && tod < 0) {
         // (back to the level's own state)
         Props defaults;
         if (level_defaults(&defaults))
             tod = defaults.tod;
     }
-    const bool tod_changed = props.tod != g_props.tod;
-    const bool fog_was = g_props.has_fog_ || g_level.has_fog_;
-    const bool lighting = !lighting_same(props, g_props);
-    g_props = props;
+    const bool tod_changed = props.tod != level_editor_level_props_state().props_.tod;
+    const bool fog_was = level_editor_level_props_state().props_.has_fog_ || level_editor_level_props_state().level_.has_fog_;
+    const bool lighting = !lighting_same(props, level_editor_level_props_state().props_);
+    level_editor_level_props_state().props_ = props;
     install_filter();
     if (tod_changed)
         show_time_of_day(tod); // (its refresh sends the ambient / fog through the filter too)
@@ -322,7 +343,7 @@ void assign_value(const Props& props)
         reapply();
     // (a fog the editor had forced on, taken off where the manager's fog is off: off again - the manager's own switch)
     gfx::CtodManager* manager = gfx::tod_manager();
-    if (fog_was && !g_props.has_fog_ && !g_level.has_fog_ && manager && !manager->fog_active_) {
+    if (fog_was && !level_editor_level_props_state().props_.has_fog_ && !level_editor_level_props_state().level_.has_fog_ && manager && !manager->fog_active_) {
         manager->fog_active_ = true;
         manager->set_fog_active(false);
     }
@@ -333,8 +354,8 @@ void on_level_up(bool network)
     Props level;
     if (!network)
         read_override_keys(current_level_structure(), &level);
-    const bool changed = !lighting_same(level, g_level);
-    g_level = level;
+    const bool changed = !lighting_same(level, level_editor_level_props_state().level_);
+    level_editor_level_props_state().level_ = level;
     if (!changed)
         return;
     install_filter();
@@ -379,7 +400,7 @@ bool level_defaults(Props* props)
     gfx::CtodManager* manager = gfx::tod_manager();
     if (manager && manager->params_set_) {
         gfx::TodParams now = manager->get_tod_params(-1);
-        get_override(Props{}, g_level, &now);
+        get_override(Props{}, level_editor_level_props_state().level_, &now);
         p.has_ambient_ = true;
         core::at(p.ambient, 0) = now.ambient_red_;
         core::at(p.ambient, 1) = now.ambient_green_;
@@ -394,17 +415,17 @@ bool level_defaults(Props* props)
 
 void forget_level()
 {
-    g_props = Props{};
-    g_level = Props{}; // (before the new level's load sends its lighting: on_level_up reads its keys once it's up)
-    g_skies_made = false;
+    level_editor_level_props_state().props_ = Props{};
+    level_editor_level_props_state().level_ = Props{}; // (before the new level's load sends its lighting: on_level_up reads its keys once it's up)
+    level_editor_level_props_state().skies_made_ = false;
 }
 
 const std::vector<std::string>& skies()
 {
-    if (g_skies_made)
-        return g_skies;
-    g_skies_made = true;
-    g_skies.clear();
+    if (level_editor_level_props_state().skies_made_)
+        return level_editor_level_props_state().skies_;
+    level_editor_level_props_state().skies_made_ = true;
+    level_editor_level_props_state().skies_.clear();
     static const uint32_t kSky = checksums::hash_from_text("sky"),
                           kLoadScript = checksums::hash_from_text("load_script");
     for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
@@ -415,14 +436,14 @@ const std::vector<std::string>& skies()
             !e->value.structure()->fetch_text(kSky, &sky, 0) || !sky || !valid_sky(sky))
             continue;
         bool there = false;
-        for (const std::string& s : g_skies)
+        for (const std::string& s : level_editor_level_props_state().skies_)
             there = there || _stricmp(s.c_str(), sky) == 0;
         if (!there)
-            g_skies.emplace_back(sky);
+            level_editor_level_props_state().skies_.emplace_back(sky);
     }
-    std::ranges::sort(g_skies,
+    std::ranges::sort(level_editor_level_props_state().skies_,
                       [](const std::string& a, const std::string& b) { return _stricmp(a.c_str(), b.c_str()) < 0; });
-    return g_skies;
+    return level_editor_level_props_state().skies_;
 }
 
 void export_to_struct(script::Struct* level, const Props& props)
@@ -433,10 +454,10 @@ void export_to_struct(script::Struct* level, const Props& props)
     const std::vector<std::pair<const char*, fields::Value>> values = structure_values(props);
     if (values.empty())
         return;
-    g_written = level;
+    props_written().written_ = level;
     for (const auto& entry : values) {
         const uint32_t key = checksums::hash_from_text(entry.first);
-        g_kept.push_back({.key = key, .before = fields::own_in(level, key, false)});
+        props_written().kept_.push_back({.key = key, .before = fields::own_in(level, key, false)});
         fields::Own own;
         own.present = true;
         own.value = entry.second;
@@ -448,12 +469,12 @@ void export_to_struct(script::Struct* level, const Props& props)
 
 void restore_structure()
 {
-    if (g_written) {
-        for (auto it = g_kept.rbegin(); it != g_kept.rend(); ++it)
-            fields::put_in(g_written, it->key, false, it->before);
+    if (props_written().written_) {
+        for (auto it = props_written().kept_.rbegin(); it != props_written().kept_.rend(); ++it)
+            fields::put_in(props_written().written_, it->key, false, it->before);
     }
-    g_written = nullptr;
-    g_kept.clear();
+    props_written().written_ = nullptr;
+    props_written().kept_.clear();
 }
 
 void on_edited_copy_up(const Props& props)

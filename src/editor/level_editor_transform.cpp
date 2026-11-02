@@ -14,6 +14,7 @@
 #include "editor/level_editor.h"
 #include "editor/level_editor_prefs.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::xform {
 
@@ -21,12 +22,22 @@ namespace {
 
 constexpr float kPi = 3.14159265f;
 
-Settings g_settings;
-Repeat g_repeat;
+// NOT ORIGINAL grouping - level_editor_transform.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_transform_state()).
+struct LevelEditorTransformState {
+    Settings settings_{};
+    Repeat repeat_{};
+};
+
+LevelEditorTransformState& level_editor_transform_state()
+{
+    static core::NoDestroy<LevelEditorTransformState> state;
+    return state.get();
+}
 
 } // namespace
 
-Settings& at_hand() { return g_settings; }
+Settings& at_hand() { return level_editor_transform_state().settings_; }
 
 bool fly_always() { return prefs::get_pull().wasd_flies_; }
 void set_fly_always(bool always)
@@ -373,6 +384,6 @@ V3 repeat_target(V3 from, const RepeatStep& step)
     return from + offset;
 }
 
-Repeat& last_duplicate() { return g_repeat; }
+Repeat& last_duplicate() { return level_editor_transform_state().repeat_; }
 
 } // namespace frontend::level_editor::xform

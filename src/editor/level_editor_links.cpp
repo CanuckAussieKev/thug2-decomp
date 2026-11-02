@@ -29,6 +29,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::links {
 
@@ -197,7 +198,11 @@ bool read_record(std::istringstream& in, LinkRecord* record)
 
 namespace {
 
-State g_state;
+State& stored_state()
+{
+    static core::NoDestroy<State> state;
+    return state.get();
+}
 // What the sources were seen as (their scale, their fields' record tokens) - by source.
 struct Watch {
     bool init = false;
@@ -215,7 +220,11 @@ struct Remake {
     object_edit::State state;
     int frames = 0;
 };
-std::vector<Remake> g_remakes;
+std::vector<Remake>& remakes()
+{
+    static core::NoDestroy<std::vector<Remake>> remakes;
+    return remakes.get();
+}
 
 objects::GameEntity* live_object(uint32_t id)
 {
@@ -236,9 +245,9 @@ int relative_quarters(uint32_t sector)
 {
     int q = placement_of(sector).quarters;
     bool is_source = false;
-    const int index = group_of(g_state, sector, &is_source);
+    const int index = group_of(stored_state(), sector, &is_source);
     if (index >= 0 && !is_source) {
-        for (const Member& m : core::at(g_state, index).members) {
+        for (const Member& m : core::at(stored_state(), index).members) {
             if (m.id == sector)
                 q += m.quarters;
         }
@@ -274,11 +283,11 @@ V3 get_ratio(V3 now, V3 before)
 
 struct Step : ModuleStep {
     State state;
-    void get_restore() override { g_state = state; }
+    void get_restore() override { stored_state() = state; }
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
     {
         auto now = std::make_shared<Step>();
-        now->state = g_state;
+        now->state = stored_state();
         return now;
     }
 };
@@ -344,7 +353,7 @@ void propagate_objects(const GroupSet& group)
             objects::GameEntity* copy = live_object(m.id);
             if (!copy || !object_edit::is_copy(m.id))
                 continue;
-            g_remakes.push_back({.name = m.id, .source = group.source, .state = object_edit::store_away(copy)});
+            remakes().push_back({.name = m.id, .source = group.source, .state = object_edit::store_away(copy)});
             object_edit::remove_copy(m.id);
         }
         get_log("level editor: the fields of %s changed - its linked copies made again",
@@ -354,8 +363,8 @@ void propagate_objects(const GroupSet& group)
 
 void run_remakes()
 {
-    for (size_t i = 0; i < g_remakes.size();) {
-        Remake& r = core::at(g_remakes, i);
+    for (size_t i = 0; i < remakes().size();) {
+        Remake& r = core::at(remakes(), i);
         ++r.frames;
         const bool gone = objects::find_object(r.name) == nullptr;
         if (gone) {
@@ -364,13 +373,13 @@ void run_remakes()
                 object_edit::State state = r.state;
                 state.id = made->ident_;
                 object_edit::get_restore(state);
-                g_remakes.erase(g_remakes.begin() + static_cast<long>(i));
+                remakes().erase(remakes().begin() + static_cast<long>(i));
                 continue;
             }
         }
         if (r.frames > 600) {
             get_log("level editor: a linked copy (%08X) couldn't be made again", r.name);
-            g_remakes.erase(g_remakes.begin() + static_cast<long>(i));
+            remakes().erase(remakes().begin() + static_cast<long>(i));
             continue;
         }
         ++i;
@@ -379,8 +388,8 @@ void run_remakes()
 
 } // namespace
 
-const State& at_hand() { return g_state; }
-void assign_value(const State& state) { g_state = state; }
+const State& at_hand() { return stored_state(); }
+void assign_value(const State& state) { stored_state() = state; }
 
 bool linked_duplicate()
 {
@@ -404,7 +413,7 @@ bool linked_duplicate()
             if (s.first == pair.first)
                 q = s.second;
         }
-        get_join(&g_state, scenery, pair.first, {{.id = pair.second, .quarters = q}});
+        get_join(&stored_state(), scenery, pair.first, {{.id = pair.second, .quarters = q}});
     }
     adjust::get_note(adjust::ActStep{}); // (a linked copy isn't adjusted afterwards: its count would make plain copies)
     hud::get_message(std::string("Linked copy created"), 5.0);
@@ -415,7 +424,7 @@ bool linked_duplicate()
 bool unlink_selection()
 {
     const edit::Selected selection = edit::get_selection();
-    State next = g_state;
+    State next = stored_state();
     bool any = false;
     for (const uint32_t id : selection.ids)
         any = uncouple(&next, id) || any;
@@ -424,9 +433,9 @@ bool unlink_selection()
         return false;
     }
     auto before = std::make_shared<Step>();
-    before->state = g_state;
+    before->state = stored_state();
     push_module_undo(before);
-    g_state = next;
+    stored_state() = next;
     hud::get_message("Unlinked");
     return true;
 }
@@ -437,10 +446,10 @@ std::string describe()
     if (selection.ids.empty())
         return {};
     bool is_source = false;
-    const int index = group_of(g_state, selection.ids.front(), &is_source);
+    const int index = group_of(stored_state(), selection.ids.front(), &is_source);
     if (index < 0)
         return {};
-    const GroupSet& group = core::at(g_state, index);
+    const GroupSet& group = core::at(stored_state(), index);
     std::array<char, 160> text{};
     if (is_source)
         text::format_to(text, "Linked: the source of %d cop%s", static_cast<int>(group.members.size()),
@@ -456,13 +465,13 @@ void tick()
     // (watches of groups gone forgotten: a group linked again starts afresh)
     for (auto it = watch().begin(); it != watch().end();) {
         bool is_source = false;
-        const int index = group_of(g_state, it->first, &is_source);
+        const int index = group_of(stored_state(), it->first, &is_source);
         it = index >= 0 && is_source ? std::next(it) : watch().erase(it);
     }
     run_remakes();
     if (edit::get_dragging())
         return; // (a drag's scale reaches the copies once it's let go)
-    for (const GroupSet& group : g_state) {
+    for (const GroupSet& group : stored_state()) {
         if (group.scenery)
             propagate_scenery(group);
         else
@@ -489,7 +498,7 @@ std::vector<LinkRecord> get_capture(const std::vector<uint32_t>& clones)
         ref->id = id;
         return !scenery::get_hidden(id);
     };
-    for (const GroupSet& group : g_state) {
+    for (const GroupSet& group : stored_state()) {
         LinkRecord record;
         record.scenery = group.scenery;
         if (!ref_of(group.source, group.scenery, &record.source))
@@ -526,7 +535,7 @@ int get_apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t
         }
         if (members.empty())
             continue;
-        get_join(&g_state, record.scenery, source, members);
+        get_join(&stored_state(), record.scenery, source, members);
         ++groups;
     }
     watch().clear();
@@ -535,9 +544,9 @@ int get_apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t
 
 void reset_all()
 {
-    g_state.clear();
+    stored_state().clear();
     watch().clear();
-    g_remakes.clear();
+    remakes().clear();
 }
 
 void forget_level() { reset_all(); }

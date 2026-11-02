@@ -62,6 +62,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/mem.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -982,18 +983,29 @@ constexpr float kDrawRadius = 8000.0f; // (level triggers drawn within this of t
 constexpr float kLabelRadius = 3000.0f;
 constexpr int kMaxLevelDrawn = 300, kMaxLabels = 48, kMaxFacesKept = 64;
 
-// The editor's triggers (alive or not: a deleted one's spec is kept for its undo), what Tick saw of them.
-std::vector<Spec> g_specs;
-std::vector<Added> g_added;
-// The level's triggers (scanned when the editor starts in a level); those switched off / on here (their walls' states
-// go in the undo steps); those switched off while an editable copy stands in for them (on again when it goes).
-std::vector<LevelTrigger> g_level;
-bool g_scanned;
-std::vector<uint32_t> g_switched;
-std::vector<uint32_t> g_turned_off;
-uint32_t g_select_wall;
-uint32_t g_level_array;
-uint32_t g_inspected;
+// NOT ORIGINAL grouping - level_editor_triggers.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_triggers_state()).
+struct LevelEditorTriggersState {
+    // The editor's triggers (alive or not: a deleted one's spec is kept for its undo), what Tick saw of them.
+    std::vector<Spec> specs_{};
+    std::vector<Added> added_{};
+    // The level's triggers (scanned when the editor starts in a level); those switched off / on here (their walls' states
+    // go in the undo steps); those switched off while an editable copy stands in for them (on again when it goes).
+    std::vector<LevelTrigger> level_{};
+    bool scanned_{};
+    std::vector<uint32_t> switched_{};
+    std::vector<uint32_t> turned_off_{};
+    uint32_t select_wall_{};
+    uint32_t level_array_{};
+    uint32_t inspected_{};
+};
+
+LevelEditorTriggersState& level_editor_triggers_state()
+{
+    static core::NoDestroy<LevelEditorTriggersState> state;
+    return state.get();
+}
+
 // The collision boxes.
 struct Cuboid {
     uint32_t name;
@@ -1001,23 +1013,34 @@ struct Cuboid {
     V3 pos, size;
     float yaw;
 };
-std::vector<Cuboid> g_boxes;
-// The scripts last defined, the gaps the editor put in the checklist (their names and scores) and the checklist.
-std::vector<uint8_t> g_defined;
-std::vector<std::pair<std::string, int>> g_gaps_added;
-goals::GapTally* g_checklist;
-std::vector<std::string> g_level_gap_names;
-bool g_level_gaps_read;
-// Undo, selection, the UI's actions.
-bool g_has_undo;
-State g_undo_before;
-int g_select = -1;
-std::vector<std::function<void()>> g_actions;
-bool g_shown;
-bool g_setting_read;
-V3 g_camera = {};
-V3 g_forward = {.x = 0.0f, .y = 0.0f, .z = 1.0f};
-float g_yaw;
+// NOT ORIGINAL grouping - the trigger boxes, the checklist, the gaps, the undo step, the view (were globals). Made on
+// first use, never destroyed (trigger_edit()).
+struct TriggerEdit {
+    std::vector<Cuboid> boxes_{};
+    // The scripts last defined, the gaps the editor put in the checklist (their names and scores) and the checklist.
+    std::vector<uint8_t> defined_{};
+    std::vector<std::pair<std::string, int>> gaps_added_{};
+    goals::GapTally* checklist_{};
+    std::vector<std::string> level_gap_names_{};
+    bool level_gaps_read_{};
+    // Undo, selection, the UI's actions.
+    bool has_undo_{};
+    State undo_before_{};
+    int select_ = -1;
+    std::vector<std::function<void()>> actions_{};
+    bool shown_{};
+    bool setting_read_{};
+    V3 camera_ = {};
+    V3 forward_ = {.x = 0.0f, .y = 0.0f, .z = 1.0f};
+    float yaw_{};
+    Calls* calls_{};
+};
+
+TriggerEdit& trigger_edit()
+{
+    static core::NoDestroy<TriggerEdit> state;
+    return state.get();
+}
 
 uint32_t hash_of_name(const std::string& name) { return node_create::name_hash(name); }
 
@@ -1042,88 +1065,91 @@ bool node_place(const std::string& name, V3* pos, float* yaw)
 
 // --- what a script calls ---
 
-Calls* g_calls;
 void on_kill(script::Struct* params, const uint8_t*)
 {
-    g_calls->kill = true;
+    trigger_edit().calls_->kill = true;
     uint32_t target = 0;
     if (params && params->read_hash_value(current_node_name(), &target, 0) && target)
-        g_calls->target = target;
+        trigger_edit().calls_->target = target;
 }
 void on_water(script::Struct* params, const uint8_t* call)
 {
     on_kill(params, call);
-    g_calls->water = true;
+    trigger_edit().calls_->water = true;
 }
 void on_teleport(script::Struct* params, const uint8_t*)
 {
-    g_calls->teleport = true;
+    trigger_edit().calls_->teleport = true;
     uint32_t target = 0;
     if (params && params->read_hash_value(current_node_name(), &target, 0) && target)
-        g_calls->target = target;
+        trigger_edit().calls_->target = target;
 }
 void on_start_gap(script::Struct* params, const uint8_t*)
 {
-    g_calls->start_gap_ = true;
+    trigger_edit().calls_->start_gap_ = true;
     uint32_t id = 0;
-    if (params && params->read_hash_value(get_gap_id(), &id, 0) && !g_calls->gap_id_)
-        g_calls->gap_id_ = id;
+    if (params && params->read_hash_value(get_gap_id(), &id, 0) && !trigger_edit().calls_->gap_id_)
+        trigger_edit().calls_->gap_id_ = id;
 }
 void on_end_gap(script::Struct* params, const uint8_t*)
 {
-    g_calls->end_gap_ = true;
+    trigger_edit().calls_->end_gap_ = true;
     uint32_t id = 0;
     if (params && params->read_hash_value(get_gap_id(), &id, 0))
-        g_calls->gap_id_ = id;
+        trigger_edit().calls_->gap_id_ = id;
     const char* text = nullptr;
     if (params && params->fetch_text(get_text(), &text, 0) && text)
-        g_calls->gap_text_ = text;
+        trigger_edit().calls_->gap_text_ = text;
     int score = 0;
     if (params && params->fetch_int_value(get_score(), &score, 0))
-        g_calls->gap_score_ = score;
+        trigger_edit().calls_->gap_score_ = score;
 }
 
 void on_boost(script::Struct* params, const uint8_t*)
 {
-    g_calls->boost = true;
+    trigger_edit().calls_->boost = true;
     int speed = 0;
     float value = 0.0f;
     if (params && params->fetch_int_value(get_checksums("speed"), &speed, 0))
-        g_calls->boost_speed_ = static_cast<float>(speed);
+        trigger_edit().calls_->boost_speed_ = static_cast<float>(speed);
     else if (params && params->fetch_float(get_checksums("speed"), &value, 0))
-        g_calls->boost_speed_ = value;
+        trigger_edit().calls_->boost_speed_ = value;
     if (params && params->fetch_float(get_checksums("multi"), &value, 0))
-        g_calls->boost_multi_ = value;
+        trigger_edit().calls_->boost_multi_ = value;
 }
-void on_shatter(script::Struct*, const uint8_t*) { g_calls->shatter = true; }
+void on_shatter(script::Struct*, const uint8_t*) { trigger_edit().calls_->shatter = true; }
 void on_camera(script::Struct* params, const uint8_t*)
 {
-    g_calls->camera = true;
+    trigger_edit().calls_->camera = true;
     uint32_t node = 0;
     if (params && params->read_hash_value(get_checksums("camera"), &node, 0))
-        g_calls->camera_node_ = node;
+        trigger_edit().calls_->camera_node_ = node;
 }
 void on_rail_accelerate(script::Struct* params, const uint8_t*)
 {
-    g_calls->rail_speed_ = true;
-    g_calls->rail_rate_ = 0.05f; // (THAW's default)
+    trigger_edit().calls_->rail_speed_ = true;
+    trigger_edit().calls_->rail_rate_ = 0.05f; // (THAW's default)
     float rate = 0.0f;
     if (params && params->fetch_float(get_checksums("rate"), &rate, 0))
-        g_calls->rail_rate_ = rate;
+        trigger_edit().calls_->rail_rate_ = rate;
 }
 
 Calls get_walk(uint32_t script);
 
 // What a script calls, walked once a level (a trigger that runs a script: shown every frame).
-std::vector<std::pair<uint32_t, Calls>> g_calls_cache;
+std::vector<std::pair<uint32_t, Calls>>& calls_cache()
+{
+    static core::NoDestroy<std::vector<std::pair<uint32_t, Calls>>> calls_cache;
+    return calls_cache.get();
+}
 const Calls& calls_of(uint32_t script)
 {
-    for (const auto& c : g_calls_cache) {
+    for (const auto& c : calls_cache()) {
         if (c.first == script)
             return c.second;
     }
-    g_calls_cache.emplace_back(script, get_walk(script));
-    return g_calls_cache.back().second;
+    calls_cache().emplace_back(script, get_walk(script));
+    return calls_cache().back().second;
 }
 
 bool is_script(uint32_t name)
@@ -1137,7 +1163,7 @@ Calls get_walk(uint32_t script)
     Calls calls;
     if (!is_script(script))
         return calls;
-    g_calls = &calls;
+    trigger_edit().calls_ = &calls;
     static const auto kKills = std::to_array<uint32_t>({kill_skater(), get_checksums("SK3_KillSkater_Pungee"),
                                       get_checksums("SK3_Killskater_Finish"), get_checksums("KillSkater")});
     script::clear_script_flag_6f_2564(); // (as for_each_node_script_call walks them)
@@ -1156,7 +1182,7 @@ Calls get_walk(uint32_t script)
     level_nodes::for_each_script_call(script, get_checksums("LevelEditor_PlayCamera"), &on_camera, nullptr,
                                       0); // (map4)
     script::set_script_flag_6f_2564();
-    g_calls = nullptr;
+    trigger_edit().calls_ = nullptr;
     return calls;
 }
 
@@ -1167,7 +1193,7 @@ render::HitMesh* coll_of(render::WorldCell* sector)
     render::HitMesh* coll = sector ? sector->hit_body_ : nullptr;
     return render::is_static_collider(coll) ? coll : nullptr;
 }
-bool turned_off_by_us(uint32_t sector) { return std::ranges::find(g_turned_off, sector) != g_turned_off.end(); }
+bool turned_off_by_us(uint32_t sector) { return std::ranges::find(level_editor_triggers_state().turned_off_, sector) != level_editor_triggers_state().turned_off_.end(); }
 
 V3 to_v3(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z}; }
 
@@ -1223,36 +1249,40 @@ void scan_sector(void*, uint32_t checksum, render::WorldCell* sector)
         t.has_node_ = true;
         node->read_hash_value(kTriggerScript, &t.script, 0);
     }
-    g_level.push_back(std::move(t));
+    level_editor_triggers_state().level_.push_back(std::move(t));
 }
 
 void scan_level()
 {
-    g_level.clear();
-    g_scanned = true;
+    level_editor_triggers_state().level_.clear();
+    level_editor_triggers_state().scanned_ = true;
     if (!level_nodes::node_manager_instance() || !scenery::main_scene())
         return;
     scenery::for_each_level_sector(&scan_sector, nullptr);
-    for (LevelTrigger& t : g_level) {
+    for (LevelTrigger& t : level_editor_triggers_state().level_) {
         t.calls = get_walk(t.script);
         t.kind = kind_of_calls(t.calls, t.script != 0);
     }
-    get_log("level editor: %u trigger volumes in the level", static_cast<unsigned>(g_level.size()));
+    get_log("level editor: %u trigger volumes in the level", static_cast<unsigned>(level_editor_triggers_state().level_.size()));
 }
 
 // The level's own gaps' names (every EndGap its nodes' TriggerScripts reach - not the editor's): the gaps the editor
 // never takes out of the checklist.
-std::vector<std::string>* g_names;
+std::vector<std::string>*& stored_names()
+{
+    static std::vector<std::string>* names{};
+    return names;
+}
 void on_level_gap(script::Struct* params, const uint8_t*)
 {
     const char* text = nullptr;
     if (params && params->fetch_text(get_text(), &text, 0) && text)
-        g_names->emplace_back(text);
+        stored_names()->emplace_back(text);
 }
 void read_level_gaps()
 {
-    g_level_gap_names.clear();
-    g_level_gaps_read = true;
+    trigger_edit().level_gap_names_.clear();
+    trigger_edit().level_gaps_read_ = true;
     std::vector<uint32_t> scripts;
     for (const nodes::Elem& node : nodes::get_all()) {
         if (node.added || !node.trigger_script_)
@@ -1263,14 +1293,14 @@ void read_level_gaps()
             std::ranges::find(scripts, script) == scripts.end())
             scripts.push_back(script);
     }
-    g_names = &g_level_gap_names;
+    stored_names() = &trigger_edit().level_gap_names_;
     script::clear_script_flag_6f_2564();
     for (const uint32_t script : scripts) {
         if (is_script(script))
             level_nodes::for_each_script_call(script, end_gap(), &on_level_gap, nullptr, 0);
     }
     script::set_script_flag_6f_2564();
-    g_names = nullptr;
+    stored_names() = nullptr;
 }
 
 // --- the boxes ---
@@ -1312,9 +1342,9 @@ void place_box(Cuboid* b, V3 pos, float yaw, V3 size)
 
 void drop_boxes()
 {
-    for (const Cuboid& b : g_boxes)
+    for (const Cuboid& b : trigger_edit().boxes_)
         free_box(b.coll);
-    g_boxes.clear();
+    trigger_edit().boxes_.clear();
 }
 
 // --- the gap checklist ---
@@ -1327,7 +1357,7 @@ goals::GapTally* get_checklist()
 
 bool level_gap(const std::string& name)
 {
-    return std::ranges::find(g_level_gap_names, name) != g_level_gap_names.end();
+    return std::ranges::find(trigger_edit().level_gap_names_, name) != trigger_edit().level_gap_names_.end();
 }
 
 // The editor's gaps that are no longer wanted out of `checklist` (a level's own gap of that name stays).
@@ -1335,7 +1365,7 @@ void take_out_gaps(goals::GapTally* checklist, const std::vector<std::pair<std::
 {
     if (!checklist)
         return;
-    for (const auto& gap : g_gaps_added) {
+    for (const auto& gap : trigger_edit().gaps_added_) {
         if (std::ranges::find(wanted, gap) != wanted.end() || level_gap(gap.first))
             continue;
         const int index = checklist->find_gap(gap.first.c_str());
@@ -1365,7 +1395,7 @@ const char* game_problem(const Spec& spec)
 // and moved (an invisible wall moved by level_editor_walls.h: its faces read again when its collision's box changed).
 void refresh_level()
 {
-    for (LevelTrigger& t : g_level) {
+    for (LevelTrigger& t : level_editor_triggers_state().level_) {
         render::WorldCell* sector = scenery::sector_of(t.sector);
         const render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
         auto* tri = coll ? coll->geometry_ : nullptr;
@@ -1389,8 +1419,8 @@ void refresh_level()
 
 int spec_index(const std::string& name)
 {
-    for (size_t i = 0; i < g_specs.size(); ++i) {
-        if (same_text(core::at(g_specs, i).name, name))
+    for (size_t i = 0; i < level_editor_triggers_state().specs_.size(); ++i) {
+        if (same_text(core::at(level_editor_triggers_state().specs_, i).name, name))
             return static_cast<int>(i);
     }
     return -1;
@@ -1422,7 +1452,11 @@ bool break_place(const Spec& spec, V3* pos, V3* size)
 }
 
 // Proximity nodes: the edits, what each ProximNode had before the editor touched it (put back), the scripts defined.
-std::vector<ProximEdit> g_proxims;
+std::vector<ProximEdit>& stored_proxims()
+{
+    static core::NoDestroy<std::vector<ProximEdit>> proxims;
+    return proxims.get();
+}
 struct ProximOriginal {
     uint32_t script;
     int shape;
@@ -1434,14 +1468,18 @@ std::map<uint32_t, ProximOriginal>& proxim_originals()
     static std::map<uint32_t, ProximOriginal> value;
     return value;
 }
-std::vector<uint8_t> g_proxim_defined;
+std::vector<uint8_t>& proxim_defined()
+{
+    static core::NoDestroy<std::vector<uint8_t>> proxim_defined;
+    return proxim_defined.get();
+}
 
 bool have_proxim_manager() { return objects::g_proximity_hub != nullptr; }
 
 int proxim_index(uint32_t node)
 {
-    for (size_t i = 0; i < g_proxims.size(); ++i) {
-        if (core::at(g_proxims, i).node == node)
+    for (size_t i = 0; i < stored_proxims().size(); ++i) {
+        if (core::at(stored_proxims(), i).node == node)
             return static_cast<int>(i);
     }
     return -1;
@@ -1461,12 +1499,12 @@ void put_proxim_back(objects::ProximNode* p, const ProximOriginal& o)
 // no longer edited (or in a network session) put back.
 void sync_proxims()
 {
-    if (!have_proxim_manager() || (g_proxims.empty() && proxim_originals().empty()))
+    if (!have_proxim_manager() || (stored_proxims().empty() && proxim_originals().empty()))
         return;
     const bool refused = layout::get_refused();
     std::vector<ProximScript> scripts;
     std::vector<std::pair<const ProximEdit*, objects::ProximNode*>> live;
-    for (const ProximEdit& e : g_proxims) {
+    for (const ProximEdit& e : stored_proxims()) {
         objects::ProximNode* p = refused || !proxim_edited(e) ? nullptr : objects::proxim_get_node(e.node);
         if (!p)
             continue;
@@ -1495,9 +1533,9 @@ void sync_proxims()
         }
     }
     std::vector<uint8_t> file = proxim_qb_file(scripts);
-    if (!scripts.empty() && file != g_proxim_defined) {
+    if (!scripts.empty() && file != proxim_defined()) {
         script::load_qb_data("editor\\thug2_decomp_proxim.qb", file, 0, 0, 0);
-        g_proxim_defined = file;
+        proxim_defined() = file;
     }
     for (const auto& l : live) {
         const ProximEdit& e = *l.first;
@@ -1531,8 +1569,8 @@ void sync_proxims()
 void get_sync()
 {
     // What each spec is now.
-    g_added.clear();
-    for (const Spec& spec : g_specs) {
+    level_editor_triggers_state().added_.clear();
+    for (const Spec& spec : level_editor_triggers_state().specs_) {
         Added a;
         a.spec = spec;
         a.alive = node_alive(spec.name) && node_place(spec.name, &a.pos, &a.yaw);
@@ -1549,12 +1587,12 @@ void get_sync()
             }
             a.broken = !is_sector_enabled(checksum_of(spec.target));
         }
-        g_added.push_back(a);
+        level_editor_triggers_state().added_.push_back(a);
     }
     // Their scripts (every spec's: a deleted one's undo brings its node back naming it). The game's loader defines
     // them (an unchanged script is left as it is).
     std::vector<Spec> scripted;
-    for (const Added& a : g_added) {
+    for (const Added& a : level_editor_triggers_state().added_) {
         Spec s = a.spec;
         if (a.problem)
             s.kind = Kind::kOther; // (an empty script: it does nothing yet)
@@ -1562,38 +1600,38 @@ void get_sync()
     }
     std::vector<uint8_t> file = scripted.empty() ? std::vector<uint8_t>() : qb_file(scripted);
     bool redefined = false;
-    if (file != g_defined && !file.empty()) {
+    if (file != trigger_edit().defined_ && !file.empty()) {
         script::load_qb_data(kFileName.data(), file, 0, 0, 0);
-        g_defined = file;
+        trigger_edit().defined_ = file;
         redefined = true;
     }
     // The boxes: one for each alive trigger, where its node is (none in a network session or a career-type mode -
     // Guard).
     const bool network = layout::get_refused();
-    for (size_t i = 0; i < g_boxes.size();) {
+    for (size_t i = 0; i < trigger_edit().boxes_.size();) {
         int at = -1;
-        for (size_t k = 0; k < g_added.size(); ++k) {
-            if (core::at(g_added, k).alive && !core::at(g_added, k).broken && hash_of_name(core::at(g_added, k).spec.name) == core::at(g_boxes, i).name)
+        for (size_t k = 0; k < level_editor_triggers_state().added_.size(); ++k) {
+            if (core::at(level_editor_triggers_state().added_, k).alive && !core::at(level_editor_triggers_state().added_, k).broken && hash_of_name(core::at(level_editor_triggers_state().added_, k).spec.name) == core::at(trigger_edit().boxes_, i).name)
                 at = static_cast<int>(k);
         }
         if (at < 0 || network) {
-            free_box(core::at(g_boxes, i).coll);
-            g_boxes.erase(g_boxes.begin() + static_cast<std::ptrdiff_t>(i));
+            free_box(core::at(trigger_edit().boxes_, i).coll);
+            trigger_edit().boxes_.erase(trigger_edit().boxes_.begin() + static_cast<std::ptrdiff_t>(i));
         } else {
             ++i;
         }
     }
-    for (const Added& a : g_added) {
+    for (const Added& a : level_editor_triggers_state().added_) {
         if (!a.alive || a.broken || network)
             continue;
         uint32_t name = hash_of_name(a.spec.name);
-        auto it = std::ranges::find_if(g_boxes, [&](const Cuboid& b) { return b.name == name; });
-        if (it == g_boxes.end()) {
+        auto it = std::ranges::find_if(trigger_edit().boxes_, [&](const Cuboid& b) { return b.name == name; });
+        if (it == trigger_edit().boxes_.end()) {
             Cuboid b = {.name = name, .coll = make_box(name), .pos = {}, .size = {}, .yaw = 0.0f};
             if (!b.coll)
                 continue;
             place_box(&b, a.pos, a.yaw, a.spec.size);
-            g_boxes.push_back(b);
+            trigger_edit().boxes_.push_back(b);
             get_log("level editor: trigger %s (%s) in place", a.spec.name.c_str(), kind_name(a.spec.kind));
         } else if (it->pos.x != a.pos.x || it->pos.y != a.pos.y || it->pos.z != a.pos.z || it->yaw != a.yaw ||
                    it->size.x != a.spec.size.x || it->size.y != a.spec.size.y || it->size.z != a.spec.size.z) {
@@ -1603,14 +1641,14 @@ void get_sync()
     // The level's triggers an alive editable copy stands in for: switched off (through level_editor_walls.h - the
     // collision switch's one owner: WorldCell::change_live for a wall), on again once no copy stands in for them.
     std::vector<uint32_t> replaced;
-    for (const Added& a : g_added) {
+    for (const Added& a : level_editor_triggers_state().added_) {
         if (a.alive && a.spec.replaces && scenery::sector_of(a.spec.replaces))
             replaced.push_back(a.spec.replaces);
     }
-    for (size_t i = 0; i < g_turned_off.size();) {
-        if (std::ranges::find(replaced, core::at(g_turned_off, i)) == replaced.end()) {
-            walls::set_off(core::at(g_turned_off, i), false);
-            g_turned_off.erase(g_turned_off.begin() + static_cast<std::ptrdiff_t>(i));
+    for (size_t i = 0; i < level_editor_triggers_state().turned_off_.size();) {
+        if (std::ranges::find(replaced, core::at(level_editor_triggers_state().turned_off_, i)) == replaced.end()) {
+            walls::set_off(core::at(level_editor_triggers_state().turned_off_, i), false);
+            level_editor_triggers_state().turned_off_.erase(level_editor_triggers_state().turned_off_.begin() + static_cast<std::ptrdiff_t>(i));
         } else {
             ++i;
         }
@@ -1620,28 +1658,28 @@ void get_sync()
             continue;
         if (!walls::disengaged(sector))
             walls::set_off(sector, true);
-        g_turned_off.push_back(sector);
+        level_editor_triggers_state().turned_off_.push_back(sector);
     }
     refresh_level();
     // The gap list: built again as the level's load builds it; the editor's gaps no longer there taken out.
     std::vector<std::pair<std::string, int>> wanted;
-    for (const Added& a : g_added) {
+    for (const Added& a : level_editor_triggers_state().added_) {
         if (a.alive && !a.problem && a.spec.kind == Kind::kGapEnd)
             wanted.emplace_back(clean_text(a.spec.text), a.spec.score);
     }
     std::ranges::sort(wanted);
-    if (redefined || wanted != g_gaps_added) {
+    if (redefined || wanted != trigger_edit().gaps_added_) {
         goals::GapTally* checklist = get_checklist();
         if (checklist && !script::fetch_int_value(0xF7ECD937u)) {
-            if (!g_level_gaps_read)
+            if (!trigger_edit().level_gaps_read_)
                 read_level_gaps();
             checklist->get_build();
             take_out_gaps(checklist, wanted);
-            g_checklist = checklist;
-            if (wanted != g_gaps_added)
+            trigger_edit().checklist_ = checklist;
+            if (wanted != trigger_edit().gaps_added_)
                 get_log("level editor: gap list built again - %u of the editor's gaps",
                         static_cast<unsigned>(wanted.size()));
-            g_gaps_added = wanted;
+            trigger_edit().gaps_added_ = wanted;
         }
     }
     sync_proxims();
@@ -1654,11 +1692,11 @@ bool get_editor_gaps(const goals::GapTally* checklist, std::vector<std::string>*
 {
     names->clear();
     level_names->clear();
-    if (!checklist || checklist != g_checklist || g_gaps_added.empty())
+    if (!checklist || checklist != trigger_edit().checklist_ || trigger_edit().gaps_added_.empty())
         return false;
-    for (const auto& gap : g_gaps_added)
+    for (const auto& gap : trigger_edit().gaps_added_)
         names->push_back(gap.first);
-    *level_names = g_level_gap_names;
+    *level_names = trigger_edit().level_gap_names_;
     return true;
 }
 
@@ -1669,24 +1707,24 @@ namespace {
 void get_forget()
 {
     drop_boxes();
-    take_out_gaps(g_checklist, {});
-    g_gaps_added.clear();
-    g_checklist = nullptr;
-    g_specs.clear();
-    g_added.clear();
-    g_switched.clear();
-    g_turned_off.clear(); // (their collision goes with the level)
-    g_select_wall = 0;
-    g_level.clear();
-    g_scanned = false;
-    g_level_gap_names.clear();
-    g_level_gaps_read = false;
-    g_calls_cache.clear();
-    g_inspected = 0;
-    g_has_undo = false;
-    g_select = -1;
-    g_actions.clear();
-    g_level_array = 0;
+    take_out_gaps(trigger_edit().checklist_, {});
+    trigger_edit().gaps_added_.clear();
+    trigger_edit().checklist_ = nullptr;
+    level_editor_triggers_state().specs_.clear();
+    level_editor_triggers_state().added_.clear();
+    level_editor_triggers_state().switched_.clear();
+    level_editor_triggers_state().turned_off_.clear(); // (their collision goes with the level)
+    level_editor_triggers_state().select_wall_ = 0;
+    level_editor_triggers_state().level_.clear();
+    level_editor_triggers_state().scanned_ = false;
+    trigger_edit().level_gap_names_.clear();
+    trigger_edit().level_gaps_read_ = false;
+    calls_cache().clear();
+    level_editor_triggers_state().inspected_ = 0;
+    trigger_edit().has_undo_ = false;
+    trigger_edit().select_ = -1;
+    trigger_edit().actions_.clear();
+    level_editor_triggers_state().level_array_ = 0;
     // (proximity nodes: put back while the level's are still there - none once nearby_zone_shutdown has run)
     if (have_proxim_manager()) {
         for (const auto& o : proxim_originals()) {
@@ -1694,17 +1732,17 @@ void get_forget()
                 put_proxim_back(p, o.second);
         }
     }
-    g_proxims.clear();
+    stored_proxims().clear();
     proxim_originals().clear();
 }
 
 void on_array_removed(uint32_t name)
 {
-    if (!name || name != g_level_array)
+    if (!name || name != level_editor_triggers_state().level_array_)
         return;
-    if (!g_specs.empty())
+    if (!level_editor_triggers_state().specs_.empty())
         get_log("level editor: the level's node array left - its %u triggers go with it",
-                static_cast<unsigned>(g_specs.size()));
+                static_cast<unsigned>(level_editor_triggers_state().specs_.size()));
     get_forget();
 }
 
@@ -1723,22 +1761,22 @@ void note_level()
 {
     node_create::set_array_removed_listener(&on_array_removed);
     if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get()) {
-        if (g_level_array && array_loaded(manager, g_level_array))
+        if (level_editor_triggers_state().level_array_ && array_loaded(manager, level_editor_triggers_state().level_array_))
             return;
         const uint32_t level = manager->get_last_node_array_name();
-        if (level && level != g_level_array) {
-            if (g_level_array)
+        if (level && level != level_editor_triggers_state().level_array_) {
+            if (level_editor_triggers_state().level_array_)
                 get_forget();
-            g_level_array = level;
+            level_editor_triggers_state().level_array_ = level;
         }
     }
 }
 
 void note_undo()
 {
-    if (!g_has_undo) {
-        g_undo_before = store_away();
-        g_has_undo = true;
+    if (!trigger_edit().has_undo_) {
+        trigger_edit().undo_before_ = store_away();
+        trigger_edit().has_undo_ = true;
     }
 }
 
@@ -1763,7 +1801,7 @@ bool name_taken(const std::string& name) { return spec_index(name) >= 0 || node_
 std::string fresh_gap()
 {
     return node_create::fresh_name("ed_gap", [](const std::string& id) {
-        return std::ranges::any_of(g_specs, [&](const Spec& s) { return same_text(s.gap, id); });
+        return std::ranges::any_of(level_editor_triggers_state().specs_, [&](const Spec& s) { return same_text(s.gap, id); });
     });
 }
 
@@ -1805,10 +1843,10 @@ bool ground_below(V3 from, V3* hit) { return get_cast(from, {.x = from.x, .y = f
 // Where a new trigger goes: the ground where the view looks (else 600 units ahead), its box standing on it.
 V3 place_ahead(V3 size, float ahead)
 {
-    const V3 forward = make_unit(g_forward);
+    const V3 forward = make_unit(trigger_edit().forward_);
     V3 at{};
-    if (!get_cast(g_camera, g_camera + forward * 4000.0f, &at))
-        at = g_camera + forward * 600.0f;
+    if (!get_cast(trigger_edit().camera_, trigger_edit().camera_ + forward * 4000.0f, &at))
+        at = trigger_edit().camera_ + forward * 600.0f;
     const V3 flat = make_unit({.x = forward.x, .y = 0.0f, .z = forward.z});
     at = at + flat * ahead;
     V3 ground{};
@@ -1829,15 +1867,15 @@ void fabricate(const std::vector<Placed>& made, const char* what)
             hud::get_message(message, 5.0);
             break;
         }
-        g_specs.push_back(p.spec);
+        level_editor_triggers_state().specs_.push_back(p.spec);
         if (first < 0)
-            first = static_cast<int>(g_specs.size()) - 1;
+            first = static_cast<int>(level_editor_triggers_state().specs_.size()) - 1;
         get_log("level editor: added trigger %s (%s) at (%.1f, %.1f, %.1f)", p.spec.name.c_str(),
                 kind_name(p.spec.kind), p.pos.x, p.pos.y, p.pos.z);
     }
     get_sync();
     if (first >= 0) {
-        g_select = nodes::get_find(hash_of_name(core::at(g_specs, first).name));
+        trigger_edit().select_ = nodes::get_find(hash_of_name(core::at(level_editor_triggers_state().specs_, first).name));
         hud::get_message(std::string("Added ") + what, 4.0);
     }
 }
@@ -1848,65 +1886,65 @@ void get_guard()
 {
     sync_proxims(); // (proximity nodes as their edits say - put back in a network session)
     // A breakable broken in play (its piece killed by its own script): its box goes, so it isn't shattered again.
-    for (size_t i = 0; i < g_boxes.size();) {
+    for (size_t i = 0; i < trigger_edit().boxes_.size();) {
         int at = -1;
-        for (size_t k = 0; k < g_specs.size(); ++k) {
-            if (core::at(g_specs, k).kind == Kind::kBreak && hash_of_name(core::at(g_specs, k).name) == core::at(g_boxes, i).name)
+        for (size_t k = 0; k < level_editor_triggers_state().specs_.size(); ++k) {
+            if (core::at(level_editor_triggers_state().specs_, k).kind == Kind::kBreak && hash_of_name(core::at(level_editor_triggers_state().specs_, k).name) == core::at(trigger_edit().boxes_, i).name)
                 at = static_cast<int>(k);
         }
-        if (at >= 0 && !is_sector_enabled(checksum_of(core::at(g_specs, at).target))) {
-            free_box(core::at(g_boxes, i).coll);
-            g_boxes.erase(g_boxes.begin() + static_cast<std::ptrdiff_t>(i));
+        if (at >= 0 && !is_sector_enabled(checksum_of(core::at(level_editor_triggers_state().specs_, at).target))) {
+            free_box(core::at(trigger_edit().boxes_, i).coll);
+            trigger_edit().boxes_.erase(trigger_edit().boxes_.begin() + static_cast<std::ptrdiff_t>(i));
             get_log("level editor: breakable %s broken - its box taken out until the piece is back",
-                    core::at(g_specs, at).name.c_str());
+                    core::at(level_editor_triggers_state().specs_, at).name.c_str());
         } else {
             ++i;
         }
     }
     std::string why;
-    if (g_boxes.empty() || !layout::get_refused(&why))
+    if (trigger_edit().boxes_.empty() || !layout::get_refused(&why))
         return;
-    get_log("level editor: the editor's %u trigger volumes taken out (%s)", static_cast<unsigned>(g_boxes.size()),
+    get_log("level editor: the editor's %u trigger volumes taken out (%s)", static_cast<unsigned>(trigger_edit().boxes_.size()),
             why.c_str());
     drop_boxes();
 }
 
-const std::vector<LevelTrigger>& level_triggers() { return g_level; }
-const std::vector<Added>& added_triggers() { return g_added; }
+const std::vector<LevelTrigger>& level_triggers() { return level_editor_triggers_state().level_; }
+const std::vector<Added>& added_triggers() { return level_editor_triggers_state().added_; }
 
 bool is_trigger(uint32_t name)
 {
-    return std::ranges::any_of(g_specs, [&](const Spec& s) { return hash_of_name(s.name) == name; });
+    return std::ranges::any_of(level_editor_triggers_state().specs_, [&](const Spec& s) { return hash_of_name(s.name) == name; });
 }
 
 bool get_shown()
 {
-    if (!g_setting_read) {
-        g_setting_read = true;
-        g_shown = config_int("editor", "triggers", 1) != 0;
+    if (!trigger_edit().setting_read_) {
+        trigger_edit().setting_read_ = true;
+        trigger_edit().shown_ = config_int("editor", "triggers", 1) != 0;
     }
-    return g_shown;
+    return trigger_edit().shown_;
 }
 
 void set_shown(bool shown)
 {
     get_shown();
-    g_shown = shown;
+    trigger_edit().shown_ = shown;
     config_set_int("editor", "triggers", shown ? 1 : 0);
 }
 
-uint32_t inspected_sector() { return g_inspected; }
-void inspect(uint32_t sector) { g_inspected = sector; }
+uint32_t inspected_sector() { return level_editor_triggers_state().inspected_; }
+void inspect(uint32_t sector) { level_editor_triggers_state().inspected_ = sector; }
 
-void get_queue(std::function<void()> action) { g_actions.push_back(std::move(action)); }
+void get_queue(std::function<void()> action) { trigger_edit().actions_.push_back(std::move(action)); }
 
 void kickoff()
 {
     note_level();
     scan_level();
-    g_level_gaps_read = false;
+    trigger_edit().level_gaps_read_ = false;
     // (breakables broken while playing: their pieces back to edit - and to break again)
-    for (const Spec& spec : g_specs) {
+    for (const Spec& spec : level_editor_triggers_state().specs_) {
         const uint32_t piece = spec.kind == Kind::kBreak ? checksum_of(spec.target) : 0;
         render::WorldCell* sector = piece ? scenery::sector_of(piece) : nullptr;
         if (sector && node_alive(spec.name) && !is_sector_enabled(piece) && !scenery::get_hidden(piece)) {
@@ -1917,18 +1955,18 @@ void kickoff()
     get_sync();
 }
 
-void halt() { g_actions.clear(); }
+void halt() { trigger_edit().actions_.clear(); }
 
 void tick(V3 camera, V3 forward, float yaw)
 {
-    g_camera = camera;
-    g_forward = forward;
-    g_yaw = yaw;
+    trigger_edit().camera_ = camera;
+    trigger_edit().forward_ = forward;
+    trigger_edit().yaw_ = yaw;
     note_level();
-    if (!g_scanned)
+    if (!level_editor_triggers_state().scanned_)
         scan_level();
     std::vector<std::function<void()>> actions;
-    actions.swap(g_actions);
+    actions.swap(trigger_edit().actions_);
     for (auto& action : actions)
         action();
     get_sync();
@@ -1944,7 +1982,7 @@ void add_kill(bool water)
     p.spec.water = water;
     p.spec.size = water ? V3{.x = 800.0f, .y = 100.0f, .z = 800.0f} : V3{.x = 400.0f, .y = 200.0f, .z = 400.0f};
     p.pos = place_ahead(p.spec.size, 0.0f);
-    p.yaw = g_yaw;
+    p.yaw = trigger_edit().yaw_;
     p.spec.target = nearest_restart(p.pos);
     fabricate({p}, water ? "a water kill zone" : "a kill zone");
 }
@@ -1956,7 +1994,7 @@ void add_teleport()
     p.spec.kind = Kind::kJumpTo;
     p.spec.size = {.x = 200.0f, .y = 200.0f, .z = 200.0f};
     p.pos = place_ahead(p.spec.size, 0.0f);
-    p.yaw = g_yaw;
+    p.yaw = trigger_edit().yaw_;
     p.spec.target = nearest_restart(p.pos);
     fabricate({p}, "a teleport");
 }
@@ -1968,7 +2006,7 @@ void append_script()
     p.spec.kind = Kind::kScripts;
     p.spec.size = {.x = 300.0f, .y = 200.0f, .z = 300.0f};
     p.pos = place_ahead(p.spec.size, 0.0f);
-    p.yaw = g_yaw;
+    p.yaw = trigger_edit().yaw_;
     fabricate({p}, "a script trigger");
 }
 
@@ -1987,7 +2025,7 @@ void register_gap_entry()
     start.spec.text = text.data();
     start.spec.score = 100;
     start.pos = place_ahead(start.spec.size, 0.0f);
-    start.yaw = g_yaw;
+    start.yaw = trigger_edit().yaw_;
     end = start;
     end.spec.name = "";
     end.spec.kind = Kind::kGapEnd;
@@ -2029,13 +2067,13 @@ void set_spec(const std::string& name, const Spec& spec, bool undo)
     if (undo)
         note_undo();
     Spec s = spec;
-    s.name = core::at(g_specs, i).name;
+    s.name = core::at(level_editor_triggers_state().specs_, i).name;
     s.size = clamp_size(s.size);
     s.text = clean_text(s.text);
     // (a gap's name, score and flags are the same at both ends)
     if (s.kind == Kind::kGapStart || s.kind == Kind::kGapEnd) {
-        for (Spec& other : g_specs) {
-            if (&other != &core::at(g_specs, i) && !s.gap.empty() && same_text(other.gap, core::at(g_specs, i).gap) &&
+        for (Spec& other : level_editor_triggers_state().specs_) {
+            if (&other != &core::at(level_editor_triggers_state().specs_, i) && !s.gap.empty() && same_text(other.gap, core::at(level_editor_triggers_state().specs_, i).gap) &&
                 (other.kind == Kind::kGapStart || other.kind == Kind::kGapEnd)) {
                 other.gap = s.gap;
                 other.text = s.text;
@@ -2044,7 +2082,7 @@ void set_spec(const std::string& name, const Spec& spec, bool undo)
             }
         }
     }
-    core::at(g_specs, i) = s;
+    core::at(level_editor_triggers_state().specs_, i) = s;
 }
 
 void begin_edit() { note_undo(); }
@@ -2052,7 +2090,7 @@ void begin_edit() { note_undo(); }
 void turn_off(uint32_t sector, bool off)
 {
     const LevelTrigger* t = nullptr;
-    for (const LevelTrigger& l : g_level) {
+    for (const LevelTrigger& l : level_editor_triggers_state().level_) {
         if (l.sector == sector)
             t = &l;
     }
@@ -2060,8 +2098,8 @@ void turn_off(uint32_t sector, bool off)
         hud::get_message("Has non-trigger faces; can't be disabled", 5.0);
         return;
     }
-    if (std::ranges::find(g_switched, sector) == g_switched.end())
-        g_switched.push_back(sector); // (its wall state in the undo steps from now on)
+    if (std::ranges::find(level_editor_triggers_state().switched_, sector) == level_editor_triggers_state().switched_.end())
+        level_editor_triggers_state().switched_.push_back(sector); // (its wall state in the undo steps from now on)
     note_undo();
     if (!walls::set_off(sector, off)) {
         hud::get_message("Couldn't change the trigger", 4.0);
@@ -2071,12 +2109,12 @@ void turn_off(uint32_t sector, bool off)
                          : "Trigger " + get_label_of(sector) + " enabled");
 }
 
-void select_wall(uint32_t sector) { g_select_wall = sector; }
+void select_wall(uint32_t sector) { level_editor_triggers_state().select_wall_ = sector; }
 
 void make_editable(uint32_t sector)
 {
     const LevelTrigger* t = nullptr;
-    for (const LevelTrigger& l : g_level) {
+    for (const LevelTrigger& l : level_editor_triggers_state().level_) {
         if (l.sector == sector)
             t = &l;
     }
@@ -2090,7 +2128,7 @@ void make_editable(uint32_t sector)
         hud::get_message("Has non-trigger faces; can't be replaced", 5.0);
         return;
     }
-    for (const Spec& s : g_specs) {
+    for (const Spec& s : level_editor_triggers_state().specs_) {
         if (s.replaces == sector && node_alive(s.name)) {
             hud::get_message("Already has an editable copy: " + s.name, 4.0);
             return;
@@ -2111,16 +2149,16 @@ void make_editable(uint32_t sector)
 void select_partner(const std::string& name)
 {
     const int i = spec_index(name);
-    const int other = partner(g_specs, i);
+    const int other = partner(level_editor_triggers_state().specs_, i);
     if (other >= 0)
-        g_select = nodes::get_find(hash_of_name(core::at(g_specs, other).name));
+        trigger_edit().select_ = nodes::get_find(hash_of_name(core::at(level_editor_triggers_state().specs_, other).name));
 }
 
 void select_node_named(uint32_t name)
 {
     const int index = nodes::get_find(name);
     if (index >= 0)
-        g_select = index;
+        trigger_edit().select_ = index;
 }
 
 // --- picking and drawing ---
@@ -2133,7 +2171,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
         return false;
     float best = max_t;
     bool any = false;
-    for (const Added& a : g_added) {
+    for (const Added& a : level_editor_triggers_state().added_) {
         if (!a.alive)
             continue;
         OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
@@ -2145,7 +2183,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
             any = *node >= 0;
         }
     }
-    for (const LevelTrigger& l : g_level) {
+    for (const LevelTrigger& l : level_editor_triggers_state().level_) {
         std::array<V3, 3> axes = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}};
         const V3 grow = {.x = 2.0f, .y = 2.0f, .z = 2.0f};
         float t = 0.0f;
@@ -2169,7 +2207,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
         any = true;
     }
     if (any && *sector)
-        g_inspected = *sector;
+        level_editor_triggers_state().inspected_ = *sector;
     return any;
 }
 
@@ -2317,7 +2355,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     };
     // The level's: nearest first.
     std::vector<std::pair<float, const LevelTrigger*>> near;
-    for (const LevelTrigger& l : g_level) {
+    for (const LevelTrigger& l : level_editor_triggers_state().level_) {
         const float d = distance_to(camera, l.min, l.max);
         if (d <= kDrawRadius)
             near.emplace_back(d, &l);
@@ -2327,7 +2365,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         near.resize(kMaxLevelDrawn);
     for (const auto& n : near) {
         const LevelTrigger& l = *n.second;
-        const bool inspected = l.sector == g_inspected;
+        const bool inspected = l.sector == level_editor_triggers_state().inspected_;
         const uint32_t colour = l.off ? 0x70909090u : get_dim(kind_colour(l.kind), inspected ? 0xFFu : 0xC0u);
         const float thickness = inspected ? 2.5f : 1.0f;
         if (l.face_count_ <= kMaxFacesKept) {
@@ -2353,7 +2391,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                   (l.off ? "(off) " : "") + describe(l.calls, l.kind) + "  " + get_label_of(l.sector));
     }
     // The editor's.
-    for (const Added& a : g_added) {
+    for (const Added& a : level_editor_triggers_state().added_) {
         if (!a.alive)
             continue;
         const OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
@@ -2365,10 +2403,10 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
             get_node_pos(checksum_of(a.spec.target), &target))
             paint.get_arrow(a.pos, target, get_dim(colour, a.spec.kind == Kind::kKill ? 0x80 : 0xE0));
         if (a.spec.kind == Kind::kGapStart) {
-            const int other = partner(g_specs, spec_index(a.spec.name));
+            const int other = partner(level_editor_triggers_state().specs_, spec_index(a.spec.name));
             if (other >= 0) {
-                for (const Added& b : g_added) {
-                    if (b.alive && same_text(b.spec.name, core::at(g_specs, other).name))
+                for (const Added& b : level_editor_triggers_state().added_) {
+                    if (b.alive && same_text(b.spec.name, core::at(level_editor_triggers_state().specs_, other).name))
                         paint.get_arrow(a.pos, b.pos, get_dim(kind_colour(Kind::kGapEnd), 0xB0));
                 }
             }
@@ -2474,7 +2512,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
             label(top + up * 10.0f, colour, text);
         }
     };
-    for (const ProximEdit& e : g_proxims) {
+    for (const ProximEdit& e : stored_proxims()) {
         if (e.node != selected)
             draw_proxim(e.node, false);
     }
@@ -2482,7 +2520,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
         draw_proxim(selected, true);
     // Breakables: cracks over the piece's box (each face's middle, five jagged rays); jump boosts: an arrow up as
     // strong as they are (the level's too).
-    for (const Added& a : g_added) {
+    for (const Added& a : level_editor_triggers_state().added_) {
         if (!a.alive)
             continue;
         const V3 d = a.pos - camera;
@@ -2517,7 +2555,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
             paint.get_arrow(base, base + up * (static_cast<float>(a.spec.strength) * 0.15f), kind_colour(Kind::kBoost));
         }
     }
-    for (const LevelTrigger& l : g_level) {
+    for (const LevelTrigger& l : level_editor_triggers_state().level_) {
         if (l.kind != Kind::kBoost || l.off)
             continue;
         const V3 centre = (l.min + l.max) * 0.5f;
@@ -2538,7 +2576,11 @@ constexpr std::array<uint32_t, 3> kHandleColours = {{0xFFFF4040u, 0xFF40E040u, 0
 
 // The selected editor trigger's node, the view add_overlay last drew with, the handles where they were drawn, the one
 // under the cursor, and a resize under way.
-uint32_t g_selected_node;
+uint32_t& stored_selected_node()
+{
+    static uint32_t selected_node{};
+    return selected_node;
+}
 struct LastView {
     bool have = false;
     V3 camera = {};
@@ -2551,8 +2593,19 @@ struct DrawnHandle {
     int handle;
     float x, y;
 };
-std::vector<DrawnHandle> g_drawn_handles;
-int g_hover_handle = -1;
+// NOT ORIGINAL grouping - the handles drawn and the one hovered (were globals). Made on first use, never destroyed
+// (trigger_handles()).
+struct TriggerHandles {
+    std::vector<DrawnHandle> drawn_handles_{};
+    int hover_handle_ = -1;
+};
+
+TriggerHandles& trigger_handles()
+{
+    static core::NoDestroy<TriggerHandles> state;
+    return state.get();
+}
+
 struct ResizeDrag {
     bool on = false;
     std::string name;
@@ -2576,7 +2629,7 @@ void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, std::spa
 
 const Added* alive_named(uint32_t node)
 {
-    for (const Added& a : g_added) {
+    for (const Added& a : level_editor_triggers_state().added_) {
         if (a.alive && hash_of_name(a.spec.name) == node)
             return &a;
     }
@@ -2587,9 +2640,9 @@ const Added* alive_named(uint32_t node)
 
 void set_selected(uint32_t node)
 {
-    if (node != g_selected_node)
-        g_hover_handle = -1;
-    g_selected_node = node;
+    if (node != stored_selected_node())
+        trigger_handles().hover_handle_ = -1;
+    stored_selected_node() = node;
 }
 
 namespace {
@@ -2645,9 +2698,9 @@ bool shape_for(uint32_t node, HandleShape* s)
 
 void add_handles(std::vector<ui::Overlay::Circle>* circles)
 {
-    g_drawn_handles.clear();
+    trigger_handles().drawn_handles_.clear();
     HandleShape shape;
-    if (!g_last_view.have || !shape_for(g_selected_node, &shape))
+    if (!g_last_view.have || !shape_for(stored_selected_node(), &shape))
         return;
     for (int h = 0; h < 6; ++h) {
         const V3 p = handle_point(shape.pos, shape.yaw, shape.size, h);
@@ -2655,11 +2708,11 @@ void add_handles(std::vector<ui::Overlay::Circle>* circles)
         if (!cast_onto(g_last_view.camera, g_last_view.frame, g_last_view.lens, p, g_last_view.near_z_, &nx, &ny))
             continue;
         ndc_to_pixel(g_last_view.viewport, nx, ny, &x, &y);
-        const bool lit = h == g_hover_handle || (g_resize.on && h == g_resize.handle);
+        const bool lit = h == trigger_handles().hover_handle_ || (g_resize.on && h == g_resize.handle);
         const uint32_t colour = lit ? 0xFFFFFF40u : core::at(kHandleColours, h >> 1);
         circles->push_back({.x = x, .y = y, .radius = lit ? 7.0f : 5.5f, .argb = colour, .filled = true, .thickness = 1.0f});
         circles->push_back({.x = x, .y = y, .radius = lit ? 7.0f : 5.5f, .argb = 0xFF101010u, .filled = false, .thickness = 1.0f});
-        g_drawn_handles.push_back({.handle = h, .x = x, .y = y});
+        trigger_handles().drawn_handles_.push_back({.handle = h, .x = x, .y = y});
     }
 }
 
@@ -2667,7 +2720,7 @@ int handle_at(float x, float y, float radius)
 {
     int best = -1;
     float best_distance = radius;
-    for (const DrawnHandle& d : g_drawn_handles) {
+    for (const DrawnHandle& d : trigger_handles().drawn_handles_) {
         const float distance = std::sqrt((d.x - x) * (d.x - x) + (d.y - y) * (d.y - y));
         if (distance <= best_distance) {
             best_distance = distance;
@@ -2677,17 +2730,17 @@ int handle_at(float x, float y, float radius)
     return best;
 }
 
-void set_hover_handle(int handle) { g_hover_handle = handle; }
+void set_hover_handle(int handle) { trigger_handles().hover_handle_ = handle; }
 
 bool begin_resize(int handle, V3 origin, V3 dir)
 {
     HandleShape shape;
-    if (!shape_for(g_selected_node, &shape) || handle < 0 || handle > 5)
+    if (!shape_for(stored_selected_node(), &shape) || handle < 0 || handle > 5)
         return false;
-    const Added* a = shape.trigger ? alive_named(g_selected_node) : nullptr;
+    const Added* a = shape.trigger ? alive_named(stored_selected_node()) : nullptr;
     ResizeDrag r;
     r.name = a ? a->spec.name : std::string();
-    r.node = g_selected_node;
+    r.node = stored_selected_node();
     r.handle = handle;
     r.pos0 = shape.pos;
     r.size0 = shape.size;
@@ -2746,7 +2799,7 @@ void rescale(V3 origin, V3 dir, bool snap)
         g_resize.on = false;
         return;
     }
-    Spec spec = core::at(g_specs, i);
+    Spec spec = core::at(level_editor_triggers_state().specs_, i);
     if (spec.size.x != size.x || spec.size.y != size.y || spec.size.z != size.z) {
         spec.size = size;
         set_spec(g_resize.name, spec, false);
@@ -2772,7 +2825,11 @@ struct Seen {
     uint32_t node;
     bool inside;
 };
-std::vector<Seen> g_seen;
+std::vector<Seen>& stored_seen()
+{
+    static core::NoDestroy<std::vector<Seen>> seen;
+    return seen.get();
+}
 
 // The trigger's TriggerScript run on the skater, as the trigger component's get_trigger_node (0x00434A60) runs it: not when
 // the skate module skips the node (0x00565BB0), its online_mode_flag / Permanent flags, the node's name.
@@ -2795,28 +2852,28 @@ void fire_on_leaving(objects::Entity* skater, uint32_t node)
 
 void perform(bool editing)
 {
-    const bool any = std::ranges::any_of(g_added, [](const Added& a) { return a.alive && a.spec.exit; });
-    if (editing || !any || g_boxes.empty() || layout::get_refused()) { // (a network session or a career-type mode)
-        g_seen.clear(); // (seen afresh once play goes on: a box moved while editing doesn't fire)
+    const bool any = std::ranges::any_of(level_editor_triggers_state().added_, [](const Added& a) { return a.alive && a.spec.exit; });
+    if (editing || !any || trigger_edit().boxes_.empty() || layout::get_refused()) { // (a network session or a career-type mode)
+        stored_seen().clear(); // (seen afresh once play goes on: a box moved while editing doesn't fire)
         return;
     }
     auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
     if (!skater)
         return;
     const V3 at = {.x = skater->at_point_.x, .y = skater->at_point_.y, .z = skater->at_point_.z};
-    for (const Added& a : g_added) {
+    for (const Added& a : level_editor_triggers_state().added_) {
         if (!a.alive || !a.spec.exit || a.problem)
             continue;
         uint32_t node = hash_of_name(a.spec.name);
         const bool now = get_inside(box_of(a.pos, a.yaw, a.spec.size), at);
-        auto it = std::ranges::find_if(g_seen, [&](const Seen& s) { return s.node == node; });
-        const bool known = it != g_seen.end();
+        auto it = std::ranges::find_if(stored_seen(), [&](const Seen& s) { return s.node == node; });
+        const bool known = it != stored_seen().end();
         if (get_left(known, known && it->inside, now))
             fire_on_leaving(skater, node);
         if (known)
             it->inside = now;
         else
-            g_seen.push_back({.node = node, .inside = now});
+            stored_seen().push_back({.node = node, .inside = now});
     }
 }
 
@@ -2825,14 +2882,14 @@ void perform(bool editing)
 State store_away()
 {
     State state;
-    state.specs = g_specs;
+    state.specs = level_editor_triggers_state().specs_;
     for (const node_create::Spec& n : node_create::at_hand()) {
         if (n.owned && spec_index(n.name) >= 0)
             state.nodes.push_back(n);
     }
-    if (!g_switched.empty())
-        state.walls = walls::store_away(g_switched);
-    state.proxims = g_proxims;
+    if (!level_editor_triggers_state().switched_.empty())
+        state.walls = walls::store_away(level_editor_triggers_state().switched_);
+    state.proxims = stored_proxims();
     return state;
 }
 
@@ -2850,7 +2907,7 @@ void get_restore(const State& state)
             node_create::drop_out(hash_of_name(n.name), &removed, &at);
         }
     }
-    g_specs = state.specs;
+    level_editor_triggers_state().specs_ = state.specs;
     std::string message;
     for (const node_create::Spec& n : state.nodes) {
         const uint32_t name = hash_of_name(n.name);
@@ -2868,32 +2925,32 @@ void get_restore(const State& state)
     }
     if (!state.walls.empty())
         walls::apply_states(state.walls);
-    g_proxims = state.proxims;
-    g_has_undo = false;
+    stored_proxims() = state.proxims;
+    trigger_edit().has_undo_ = false;
     get_sync();
 }
 
 bool take_undo(State* before)
 {
-    if (!g_has_undo)
+    if (!trigger_edit().has_undo_)
         return false;
-    g_has_undo = false;
-    *before = std::move(g_undo_before);
-    g_undo_before = State{};
+    trigger_edit().has_undo_ = false;
+    *before = std::move(trigger_edit().undo_before_);
+    trigger_edit().undo_before_ = State{};
     return true;
 }
 
 int take_select()
 {
-    const int select = g_select;
-    g_select = -1;
+    const int select = trigger_edit().select_;
+    trigger_edit().select_ = -1;
     return select;
 }
 
 uint32_t take_wall_select()
 {
-    const uint32_t wall = g_select_wall;
-    g_select_wall = 0;
+    const uint32_t wall = level_editor_triggers_state().select_wall_;
+    level_editor_triggers_state().select_wall_ = 0;
     return wall;
 }
 
@@ -2902,7 +2959,7 @@ uint32_t take_wall_select()
 std::vector<Placed> capture_added()
 {
     std::vector<Placed> out;
-    for (const Spec& spec : g_specs) {
+    for (const Spec& spec : level_editor_triggers_state().specs_) {
         Placed p;
         p.spec = spec;
         if (!node_alive(spec.name) || !node_place(spec.name, &p.pos, &p.yaw))
@@ -2922,7 +2979,7 @@ std::vector<Placed> capture_added()
 int get_apply(const std::vector<Placed>& placed, std::string* message)
 {
     note_level();
-    if (!g_scanned)
+    if (!level_editor_triggers_state().scanned_)
         scan_level();
     int made = 0;
     for (const Placed& p : placed) {
@@ -2932,7 +2989,7 @@ int get_apply(const std::vector<Placed>& placed, std::string* message)
         }
         if (!node_create::fabricate(node_spec(p.spec, p.pos, p.yaw), -1, message))
             continue;
-        g_specs.push_back(p.spec);
+        level_editor_triggers_state().specs_.push_back(p.spec);
         ++made;
     }
     get_sync();
@@ -2941,23 +2998,23 @@ int get_apply(const std::vector<Placed>& placed, std::string* message)
 
 void reset_all()
 {
-    for (const Spec& spec : std::vector<Spec>(g_specs)) {
+    for (const Spec& spec : std::vector<Spec>(level_editor_triggers_state().specs_)) {
         node_create::Spec removed;
         int at = 0;
         node_create::drop_out(hash_of_name(spec.name), &removed, &at);
     }
-    g_specs.clear();
-    g_switched.clear();
-    g_inspected = 0;
-    g_has_undo = false;
-    g_proxims.clear(); // (sync_proxims puts their nodes back)
+    level_editor_triggers_state().specs_.clear();
+    level_editor_triggers_state().switched_.clear();
+    level_editor_triggers_state().inspected_ = 0;
+    trigger_edit().has_undo_ = false;
+    stored_proxims().clear(); // (sync_proxims puts their nodes back)
     get_sync();
 }
 
 std::vector<ProximEdit> capture_proxims()
 {
     std::vector<ProximEdit> out;
-    for (const ProximEdit& e : g_proxims) {
+    for (const ProximEdit& e : stored_proxims()) {
         if (proxim_edited(e))
             out.push_back(e);
     }
@@ -2971,9 +3028,9 @@ int apply_proxims(const std::vector<ProximEdit>& edits)
     for (const ProximEdit& e : edits) {
         const int i = proxim_index(e.node);
         if (i >= 0)
-            core::at(g_proxims, i) = e;
+            core::at(stored_proxims(), i) = e;
         else
-            g_proxims.push_back(e);
+            stored_proxims().push_back(e);
         found += have_proxim_manager() && objects::proxim_get_node(e.node) ? 1 : 0;
     }
     sync_proxims();
@@ -2992,7 +3049,7 @@ void add_boost()
     p.spec.size = {.x = 250.0f, .y = 60.0f, .z = 250.0f};
     p.spec.strength = 900;
     p.pos = place_ahead(p.spec.size, 0.0f);
-    p.yaw = g_yaw;
+    p.yaw = trigger_edit().yaw_;
     fabricate({p}, "a jump boost");
 }
 
@@ -3003,7 +3060,7 @@ void add_camera()
     p.spec.kind = Kind::kViewCam;
     p.spec.seconds = 3.0f;
     p.pos = place_ahead(p.spec.size, 0.0f);
-    p.yaw = g_yaw;
+    p.yaw = trigger_edit().yaw_;
     // (the nearest of the editor's cameras - another is chosen in the Inspector)
     float best = 0.0f;
     for (const cameras::ViewCam& camera : cameras::get_all()) {
@@ -3021,7 +3078,7 @@ void add_camera()
 
 const Added* breakable_of(uint32_t sector)
 {
-    for (const Added& a : g_added) {
+    for (const Added& a : level_editor_triggers_state().added_) {
         if (a.alive && a.spec.kind == Kind::kBreak && checksum_of(a.spec.target) == sector)
             return &a;
     }
@@ -3055,7 +3112,7 @@ void set_breakable(uint32_t sector, bool on)
     node_create::drop_out(hash_of_name(name), &removed, &at);
     const int i = spec_index(name);
     if (i >= 0)
-        g_specs.erase(g_specs.begin() + i);
+        level_editor_triggers_state().specs_.erase(level_editor_triggers_state().specs_.begin() + i);
     if (render::WorldCell* piece = scenery::sector_of(sector);
         piece && !is_sector_enabled(sector) && !scenery::get_hidden(sector))
         piece->change_live(true);
@@ -3066,7 +3123,7 @@ void set_breakable(uint32_t sector, bool on)
 const ProximEdit* proxim_of(uint32_t node)
 {
     const int i = proxim_index(node);
-    return i >= 0 ? &core::at(g_proxims, i) : nullptr;
+    return i >= 0 ? &core::at(stored_proxims(), i) : nullptr;
 }
 
 void set_proxim(const ProximEdit& edit, bool undo)
@@ -3081,11 +3138,11 @@ void set_proxim(const ProximEdit& edit, bool undo)
     const int i = proxim_index(e.node);
     if (!proxim_edited(e)) {
         if (i >= 0)
-            g_proxims.erase(g_proxims.begin() + i);
+            stored_proxims().erase(stored_proxims().begin() + i);
     } else if (i >= 0) {
-        core::at(g_proxims, i) = e;
+        core::at(stored_proxims(), i) = e;
     } else {
-        g_proxims.push_back(e);
+        stored_proxims().push_back(e);
     }
     sync_proxims();
 }
@@ -3097,13 +3154,13 @@ bool has_handles(uint32_t node) { return is_trigger(node) || is_proxim(node); }
 std::string describe()
 {
     int alive = 0;
-    for (const Added& a : g_added)
+    for (const Added& a : level_editor_triggers_state().added_)
         alive += a.alive ? 1 : 0;
     int off = 0;
-    for (const LevelTrigger& l : g_level)
+    for (const LevelTrigger& l : level_editor_triggers_state().level_)
         off += l.off ? 1 : 0;
     std::array<char, 160> text{};
-    text::format_to(text, "%u level trigger volumes (%d off), %d added", static_cast<unsigned>(g_level.size()), off,
+    text::format_to(text, "%u level trigger volumes (%d off), %d added", static_cast<unsigned>(level_editor_triggers_state().level_.size()), off,
                     alive);
     return text.data();
 }

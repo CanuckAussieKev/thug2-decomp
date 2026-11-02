@@ -24,6 +24,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::gap_wizard {
 
@@ -145,17 +146,27 @@ int clamp_score(int score) { return std::max(kMinScore, std::min(kMaxScore, scor
 
 namespace {
 
-bool g_armed;
-int g_picked; // (0, 1 or 2 ends)
-std::array<Spot, 2> g_spots;
-bool g_have_hover;
-Spot g_hover;
-// The form.
-bool g_form_open;
-std::array<char, 64> g_name = {"My Gap"};
-int g_score = 250;
-int g_type;
-std::vector<std::function<void()>> g_queue;
+// NOT ORIGINAL grouping - level_editor_gap_wizard.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_gap_wizard_state()).
+struct LevelEditorGapWizardState {
+    bool armed_{};
+    int picked_{}; // (0, 1 or 2 ends)
+    std::array<Spot, 2> spots_{};
+    bool have_hover_{};
+    Spot hover_{};
+    // The form.
+    bool form_open_{};
+    std::array<char, 64> name_ = {"My Gap"};
+    int score_ = 250;
+    int type_{};
+    std::vector<std::function<void()>> queue_{};
+};
+
+LevelEditorGapWizardState& level_editor_gap_wizard_state()
+{
+    static core::NoDestroy<LevelEditorGapWizardState> state;
+    return state.get();
+}
 
 struct Hit {
     V3 point, normal;
@@ -257,30 +268,30 @@ void draw_gate(const overlays::Painter& painter, const Gate& gate, uint32_t argb
 void get_make()
 {
     triggers::Placed start, end;
-    const Gate a = gate_for(core::at(g_spots, 0), core::at(g_spots, 1).point);
-    const Gate b = gate_for(core::at(g_spots, 1), core::at(g_spots, 0).point);
+    const Gate a = gate_for(core::at(level_editor_gap_wizard_state().spots_, 0), core::at(level_editor_gap_wizard_state().spots_, 1).point);
+    const Gate b = gate_for(core::at(level_editor_gap_wizard_state().spots_, 1), core::at(level_editor_gap_wizard_state().spots_, 0).point);
     // (a box is the same turned half round: the end's gate facing back to the start lies across the same line)
     start.pos = a.pos, start.yaw = a.yaw, start.spec.size = a.size;
     end.pos = b.pos, end.yaw = b.yaw, end.spec.size = b.size;
-    start.spec.text = g_name.data();
-    start.spec.score = clamp_score(g_score);
-    start.spec.flags = flags_for(static_cast<KindTag>(g_type));
-    get_log("level editor: gap wizard - \"%s\" (%d, %s) from %s to %s", g_name.data(), start.spec.score,
-            current_type_name(static_cast<KindTag>(g_type)), spot_name(core::at(g_spots, 0).kind), spot_name(core::at(g_spots, 1).kind));
+    start.spec.text = level_editor_gap_wizard_state().name_.data();
+    start.spec.score = clamp_score(level_editor_gap_wizard_state().score_);
+    start.spec.flags = flags_for(static_cast<KindTag>(level_editor_gap_wizard_state().type_));
+    get_log("level editor: gap wizard - \"%s\" (%d, %s) from %s to %s", level_editor_gap_wizard_state().name_.data(), start.spec.score,
+            current_type_name(static_cast<KindTag>(level_editor_gap_wizard_state().type_)), spot_name(core::at(level_editor_gap_wizard_state().spots_, 0).kind), spot_name(core::at(level_editor_gap_wizard_state().spots_, 1).kind));
     triggers::get_queue([start, end] { triggers::add_gap_pair(start, end); });
 }
 
 } // namespace
 
-bool get_armed() { return g_armed || g_form_open; }
-bool get_picking() { return g_armed && g_picked < 2; }
+bool get_armed() { return level_editor_gap_wizard_state().armed_ || level_editor_gap_wizard_state().form_open_; }
+bool get_picking() { return level_editor_gap_wizard_state().armed_ && level_editor_gap_wizard_state().picked_ < 2; }
 
 void set_armed(bool on)
 {
-    g_armed = on;
-    g_picked = 0;
-    g_form_open = false;
-    g_have_hover = false;
+    level_editor_gap_wizard_state().armed_ = on;
+    level_editor_gap_wizard_state().picked_ = 0;
+    level_editor_gap_wizard_state().form_open_ = false;
+    level_editor_gap_wizard_state().have_hover_ = false;
     if (on)
         show_message("Gap Wizard: click the gap start", 6.0);
 }
@@ -296,25 +307,25 @@ bool get_cancel()
 
 void get_hover(V3 origin, V3 unit_dir, float x, float y)
 {
-    g_have_hover = g_armed && g_picked < 2 && spot_at(origin, unit_dir, x, y, &g_hover);
+    level_editor_gap_wizard_state().have_hover_ = level_editor_gap_wizard_state().armed_ && level_editor_gap_wizard_state().picked_ < 2 && spot_at(origin, unit_dir, x, y, &level_editor_gap_wizard_state().hover_);
 }
 
 bool get_click(V3 origin, V3 unit_dir, float x, float y)
 {
-    if (!g_armed || g_picked >= 2)
+    if (!level_editor_gap_wizard_state().armed_ || level_editor_gap_wizard_state().picked_ >= 2)
         return false;
     Spot spot;
     if (!spot_at(origin, unit_dir, x, y, &spot)) {
         show_message("Gap Wizard: click a rail, lip, wall or ground");
         return true;
     }
-    core::at(g_spots, g_picked++) = spot;
-    if (g_picked == 1) {
+    core::at(level_editor_gap_wizard_state().spots_, level_editor_gap_wizard_state().picked_++) = spot;
+    if (level_editor_gap_wizard_state().picked_ == 1) {
         show_message(std::string("Gap starts at ") + spot_name(spot.kind) + " - click the gap end", 6.0);
     } else {
-        g_armed = false;
-        g_form_open = true;
-        g_type = static_cast<int>(suggest(core::at(g_spots, 0), core::at(g_spots, 1)));
+        level_editor_gap_wizard_state().armed_ = false;
+        level_editor_gap_wizard_state().form_open_ = true;
+        level_editor_gap_wizard_state().type_ = static_cast<int>(suggest(core::at(level_editor_gap_wizard_state().spots_, 0), core::at(level_editor_gap_wizard_state().spots_, 1)));
         show_message(std::string("Gap ends at ") + spot_name(spot.kind) + "", 6.0);
     }
     return true;
@@ -325,35 +336,35 @@ void add_overlay(const overlays::Painter& painter)
     if (!get_armed())
         return;
     constexpr uint32_t kStart = 0xFF62E26A, kEnd = 0xFFF2D24A, kHover = 0xC0FFFFFF;
-    if (g_picked >= 1) {
-        const V3 other = g_picked >= 2  ? core::at(g_spots, 1).point
-                         : g_have_hover ? g_hover.point
-                                        : core::at(g_spots, 0).point + V3{.x = 0, .y = 0, .z = 1};
-        draw_gate(painter, gate_for(core::at(g_spots, 0), other), kStart);
-        painter.draw_label(core::at(g_spots, 0).point, kStart, std::string("start: ") + spot_name(core::at(g_spots, 0).kind));
+    if (level_editor_gap_wizard_state().picked_ >= 1) {
+        const V3 other = level_editor_gap_wizard_state().picked_ >= 2  ? core::at(level_editor_gap_wizard_state().spots_, 1).point
+                         : level_editor_gap_wizard_state().have_hover_ ? level_editor_gap_wizard_state().hover_.point
+                                        : core::at(level_editor_gap_wizard_state().spots_, 0).point + V3{.x = 0, .y = 0, .z = 1};
+        draw_gate(painter, gate_for(core::at(level_editor_gap_wizard_state().spots_, 0), other), kStart);
+        painter.draw_label(core::at(level_editor_gap_wizard_state().spots_, 0).point, kStart, std::string("start: ") + spot_name(core::at(level_editor_gap_wizard_state().spots_, 0).kind));
     }
-    if (g_picked >= 2) {
-        const Gate b = gate_for(core::at(g_spots, 1), core::at(g_spots, 0).point);
+    if (level_editor_gap_wizard_state().picked_ >= 2) {
+        const Gate b = gate_for(core::at(level_editor_gap_wizard_state().spots_, 1), core::at(level_editor_gap_wizard_state().spots_, 0).point);
         draw_gate(painter, b, kEnd);
-        painter.draw_label(core::at(g_spots, 1).point, kEnd, std::string("end: ") + spot_name(core::at(g_spots, 1).kind));
-        (void)painter.get_seg(core::at(g_spots, 0).point, core::at(g_spots, 1).point, 0xFFFFFFFF, 2.0f);
-        const V3 d = core::at(g_spots, 1).point - core::at(g_spots, 0).point;
+        painter.draw_label(core::at(level_editor_gap_wizard_state().spots_, 1).point, kEnd, std::string("end: ") + spot_name(core::at(level_editor_gap_wizard_state().spots_, 1).kind));
+        (void)painter.get_seg(core::at(level_editor_gap_wizard_state().spots_, 0).point, core::at(level_editor_gap_wizard_state().spots_, 1).point, 0xFFFFFFFF, 2.0f);
+        const V3 d = core::at(level_editor_gap_wizard_state().spots_, 1).point - core::at(level_editor_gap_wizard_state().spots_, 0).point;
         std::array<char, 64> text{};
         text::format_to(text, "%.0f across, %.0f %s", std::sqrt(d.x * d.x + d.z * d.z), std::fabs(d.y),
                         d.y >= 0.0f ? "up" : "down");
-        painter.draw_label((core::at(g_spots, 0).point + core::at(g_spots, 1).point) * 0.5f, 0xFFFFFFFF, text.data());
-    } else if (g_have_hover) {
-        painter.get_dot(g_hover.point, 5.0f, kHover);
-        painter.draw_label(g_hover.point, kHover, spot_name(g_hover.kind));
-        if (g_picked == 1)
-            (void)painter.get_seg(core::at(g_spots, 0).point, g_hover.point, 0x90FFFFFF, 1.0f);
+        painter.draw_label((core::at(level_editor_gap_wizard_state().spots_, 0).point + core::at(level_editor_gap_wizard_state().spots_, 1).point) * 0.5f, 0xFFFFFFFF, text.data());
+    } else if (level_editor_gap_wizard_state().have_hover_) {
+        painter.get_dot(level_editor_gap_wizard_state().hover_.point, 5.0f, kHover);
+        painter.draw_label(level_editor_gap_wizard_state().hover_.point, kHover, spot_name(level_editor_gap_wizard_state().hover_.kind));
+        if (level_editor_gap_wizard_state().picked_ == 1)
+            (void)painter.get_seg(core::at(level_editor_gap_wizard_state().spots_, 0).point, level_editor_gap_wizard_state().hover_.point, 0x90FFFFFF, 1.0f);
     }
 }
 
 void tick_frame()
 {
     std::vector<std::function<void()>> queue;
-    queue.swap(g_queue);
+    queue.swap(level_editor_gap_wizard_state().queue_);
     for (auto& action : queue)
         action();
 }
@@ -361,7 +372,7 @@ void tick_frame()
 void pane(float view_x, float view_y, float view_width, float view_height, float scale)
 {
     (void)view_height;
-    if (!g_form_open)
+    if (!level_editor_gap_wizard_state().form_open_)
         return;
     ImGui::SetNextWindowPos(ImVec2(view_x + view_width * 0.5f, view_y + 80.0f * scale), ImGuiCond_Appearing,
                             ImVec2(0.5f, 0.0f));
@@ -371,19 +382,19 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         if (!open)
-            g_queue.emplace_back([] { set_armed(false); });
+            level_editor_gap_wizard_state().queue_.emplace_back([] { set_armed(false); });
         return;
     }
-    gui::text_disabled("From %s to %s", spot_name(core::at(g_spots, 0).kind), spot_name(core::at(g_spots, 1).kind));
-    ImGui::InputText("Name", g_name.data(), sizeof(g_name));
-    ImGui::SliderInt("Score", &g_score, kMinScore, kMaxScore, "%d", ImGuiSliderFlags_AlwaysClamp);
+    gui::text_disabled("From %s to %s", spot_name(core::at(level_editor_gap_wizard_state().spots_, 0).kind), spot_name(core::at(level_editor_gap_wizard_state().spots_, 1).kind));
+    ImGui::InputText("Name", level_editor_gap_wizard_state().name_.data(), sizeof(level_editor_gap_wizard_state().name_));
+    ImGui::SliderInt("Score", &level_editor_gap_wizard_state().score_, kMinScore, kMaxScore, "%d", ImGuiSliderFlags_AlwaysClamp);
     for (int t = 0; t < kTypes; ++t) {
         if (t)
             ImGui::SameLine();
-        ImGui::RadioButton(current_type_name(static_cast<KindTag>(t)), &g_type, t);
+        ImGui::RadioButton(current_type_name(static_cast<KindTag>(t)), &level_editor_gap_wizard_state().type_, t);
     }
     std::string flags;
-    for (const std::string& f : flags_for(static_cast<KindTag>(g_type)))
+    for (const std::string& f : flags_for(static_cast<KindTag>(level_editor_gap_wizard_state().type_)))
         flags += (flags.empty() ? "" : ", ") + f;
     gui::text_disabled("StartGap flags: %s", flags.c_str());
     ImGui::BeginDisabled();
@@ -392,24 +403,24 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
         gui::tooltip("Not supported in THUG2");
     ImGui::Separator();
-    const bool named = std::ranges::any_of(std::string_view(g_name.data()), [](char c) { return c != ' '; });
+    const bool named = std::ranges::any_of(std::string_view(level_editor_gap_wizard_state().name_.data()), [](char c) { return c != ' '; });
     ImGui::BeginDisabled(!named);
     if (ImGui::Button("Create Gap"))
-        g_queue.emplace_back([] {
+        level_editor_gap_wizard_state().queue_.emplace_back([] {
             get_make();
-            g_form_open = false;
-            g_picked = 0;
+            level_editor_gap_wizard_state().form_open_ = false;
+            level_editor_gap_wizard_state().picked_ = 0;
         });
     ImGui::EndDisabled();
     ImGui::SameLine();
     if (ImGui::Button("Pick again"))
-        g_queue.emplace_back([] { set_armed(true); });
+        level_editor_gap_wizard_state().queue_.emplace_back([] { set_armed(true); });
     ImGui::SameLine();
     if (ImGui::Button("Cancel"))
-        g_queue.emplace_back([] { set_armed(false); });
+        level_editor_gap_wizard_state().queue_.emplace_back([] { set_armed(false); });
     ImGui::End();
     if (!open)
-        g_queue.emplace_back([] { set_armed(false); });
+        level_editor_gap_wizard_state().queue_.emplace_back([] { set_armed(false); });
 }
 
 } // namespace frontend::level_editor::gap_wizard

@@ -24,6 +24,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/field_reader.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::view_cam {
 
@@ -208,7 +209,11 @@ struct Flight {
     View then_view_ = View::kNone;
     float then_equivalent_ = 0.0f;
 };
-Flight g_flight;
+Flight& stored_flight()
+{
+    static core::NoDestroy<Flight> flight;
+    return flight.get();
+}
 
 // The ortho view: which, its heading (kept: the selection's focus would turn it), the point it looks at, and its zoom.
 struct OrthoState {
@@ -218,7 +223,11 @@ struct OrthoState {
     float equivalent = 1500.0f;
     V3 last_eye_ = {};
 };
-OrthoState g_ortho;
+OrthoState& stored_ortho()
+{
+    static core::NoDestroy<OrthoState> ortho;
+    return ortho.get();
+}
 
 // Alt+left drag.
 struct OrbitState {
@@ -229,24 +238,33 @@ struct OrbitState {
     bool have_pivot_ = false;
     V3 pivot = {};
 };
-OrbitState g_orbit;
+// NOT ORIGINAL grouping - level_editor_camera.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_camera_state()).
+struct LevelEditorCameraState {
+    OrbitState orbit_{};
+    uint32_t scene_{};
+    std::array<Bookmark, kBookmarks> marks_{};
+    float fly_held_{};
+};
 
-uint32_t g_scene;
-std::array<Bookmark, kBookmarks> g_marks;
-float g_fly_held;
+LevelEditorCameraState& level_editor_camera_state()
+{
+    static core::NoDestroy<LevelEditorCameraState> state;
+    return state.get();
+}
 
-std::string bookmarks_path() { return game_folder_path("thug2-decomp-layouts") + "\\" + bookmarks_file_name(g_scene); }
+std::string bookmarks_path() { return game_folder_path("thug2-decomp-layouts") + "\\" + bookmarks_file_name(level_editor_camera_state().scene_); }
 
 void load_bookmarks()
 {
-    for (Bookmark& m : g_marks)
+    for (Bookmark& m : level_editor_camera_state().marks_)
         m = Bookmark{};
     const std::ifstream file(bookmarks_path(), std::ios::binary);
     if (!file)
         return;
     std::stringstream text;
     text << file.rdbuf();
-    if (!parse_bookmarks(text.str(), g_marks))
+    if (!parse_bookmarks(text.str(), level_editor_camera_state().marks_))
         get_log("level editor: %s isn't a bookmarks file - not read", bookmarks_path().c_str());
 }
 
@@ -256,7 +274,7 @@ bool save_bookmarks()
     std::ofstream file(bookmarks_path(), std::ios::binary | std::ios::trunc);
     if (!file)
         return false;
-    file << format_bookmarks(g_marks);
+    file << format_bookmarks(level_editor_camera_state().marks_);
     return static_cast<bool>(file);
 }
 
@@ -264,41 +282,41 @@ V3 get_forward(float yaw, float pitch) { return frame_from_yaw_pitch(yaw, pitch)
 
 void fly_to(const Rig& rig, const Pose& to, View then_view = View::kNone, float then_equivalent = 0.0f)
 {
-    g_flight.on = true;
-    g_flight.from = {.pos = *rig.pos, .yaw = *rig.yaw, .pitch = *rig.pitch};
-    g_flight.to = to;
-    g_flight.t = 0.0f;
-    g_flight.then_view_ = then_view;
-    g_flight.then_equivalent_ = then_equivalent;
+    stored_flight().on = true;
+    stored_flight().from = {.pos = *rig.pos, .yaw = *rig.yaw, .pitch = *rig.pitch};
+    stored_flight().to = to;
+    stored_flight().t = 0.0f;
+    stored_flight().then_view_ = then_view;
+    stored_flight().then_equivalent_ = then_equivalent;
 }
 
 void enter_ortho(const Rig& rig, View view, float yaw, float pitch, V3 pivot, float equivalent)
 {
-    g_ortho.view = view;
-    g_ortho.yaw = yaw;
-    g_ortho.pitch = pitch;
-    g_ortho.pivot = rig.have_selection_ ? rig.target : pivot;
-    g_ortho.equivalent = std::clamp(equivalent, 50.0f, 20000.0f);
+    stored_ortho().view = view;
+    stored_ortho().yaw = yaw;
+    stored_ortho().pitch = pitch;
+    stored_ortho().pivot = rig.have_selection_ ? rig.target : pivot;
+    stored_ortho().equivalent = std::clamp(equivalent, 50.0f, 20000.0f);
     *rig.yaw = yaw;
     *rig.pitch = pitch;
     const V3 forward = get_forward(yaw, pitch);
-    *rig.pos = g_ortho.pivot - forward * eye_distance(g_ortho.equivalent);
+    *rig.pos = stored_ortho().pivot - forward * eye_distance(stored_ortho().equivalent);
     if (rig.have_selection_)
-        *rig.orbit_distance_ = eye_distance(g_ortho.equivalent);
-    g_ortho.last_eye_ = *rig.pos;
+        *rig.orbit_distance_ = eye_distance(stored_ortho().equivalent);
+    stored_ortho().last_eye_ = *rig.pos;
     hud::get_message(std::string(view_name(view)) + " (orthographic)", 2.5);
 }
 
 void exit_ortho(const Rig& rig)
 {
-    if (g_ortho.view == View::kNone)
+    if (stored_ortho().view == View::kNone)
         return;
     const V3 forward = get_forward(*rig.yaw, *rig.pitch);
-    const V3 pivot = rig.have_selection_ ? rig.target : g_ortho.pivot;
-    *rig.pos = pivot - forward * g_ortho.equivalent;
+    const V3 pivot = rig.have_selection_ ? rig.target : stored_ortho().pivot;
+    *rig.pos = pivot - forward * stored_ortho().equivalent;
     if (rig.have_selection_)
-        *rig.orbit_distance_ = std::clamp(g_ortho.equivalent, 20.0f, 20000.0f);
-    g_ortho.view = View::kNone;
+        *rig.orbit_distance_ = std::clamp(stored_ortho().equivalent, 20.0f, 20000.0f);
+    stored_ortho().view = View::kNone;
     hud::get_message("Perspective", 1.5);
 }
 
@@ -318,64 +336,64 @@ V3 look_point(const Rig& rig)
 
 void kickoff(uint32_t scene)
 {
-    g_flight = Flight{};
-    g_ortho = OrthoState{};
-    g_orbit = OrbitState{};
-    g_fly_held = 0.0f;
-    g_scene = scene;
+    stored_flight() = Flight{};
+    stored_ortho() = OrthoState{};
+    level_editor_camera_state().orbit_ = OrbitState{};
+    level_editor_camera_state().fly_held_ = 0.0f;
+    level_editor_camera_state().scene_ = scene;
     load_bookmarks();
 }
 
 void halt()
 {
-    g_flight = Flight{};
-    g_ortho.view = View::kNone;
-    g_orbit = OrbitState{};
+    stored_flight() = Flight{};
+    stored_ortho().view = View::kNone;
+    level_editor_camera_state().orbit_ = OrbitState{};
 }
 
 void get_cancel()
 {
-    g_flight = Flight{};
-    g_ortho.view = View::kNone;
-    g_orbit = OrbitState{};
+    stored_flight() = Flight{};
+    stored_ortho().view = View::kNone;
+    level_editor_camera_state().orbit_ = OrbitState{};
 }
 
-bool ortho() { return g_ortho.view != View::kNone; }
-View current_view() { return g_ortho.view; }
+bool ortho() { return stored_ortho().view != View::kNone; }
+View current_view() { return stored_ortho().view; }
 
 float apparent(float distance)
 {
     if (!ortho())
         return distance;
-    return distance * g_ortho.equivalent / eye_distance(g_ortho.equivalent);
+    return distance * stored_ortho().equivalent / eye_distance(stored_ortho().equivalent);
 }
 
 float adjust_view_angle(float base_degrees)
 {
-    return ortho() ? ortho_angle(base_degrees, g_ortho.equivalent) : base_degrees;
+    return ortho() ? ortho_angle(base_degrees, stored_ortho().equivalent) : base_degrees;
 }
 
-float get_near_plane() { return ortho() ? ortho_near(g_ortho.equivalent) : 2.0f; }
+float get_near_plane() { return ortho() ? ortho_near(stored_ortho().equivalent) : 2.0f; }
 
 std::string get_standing()
 {
     std::string s;
     if (ortho()) {
         std::array<char, 64> text{};
-        text::format_to(text, "%s ortho (%.0f)", view_name(g_ortho.view), g_ortho.equivalent);
+        text::format_to(text, "%s ortho (%.0f)", view_name(stored_ortho().view), stored_ortho().equivalent);
         s = text.data();
     }
-    if (g_orbit.orbiting)
+    if (level_editor_camera_state().orbit_.orbiting)
         s += s.empty() ? "orbiting" : "  orbiting";
     return s;
 }
 
-bool get_orbiting() { return g_orbit.orbiting; }
+bool get_orbiting() { return level_editor_camera_state().orbit_.orbiting; }
 
 void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 last_ray)
 {
     // The wheel with the right button held: the flying speed (Unreal's).
-    if (m.right && *m.wheel && !g_orbit.orbiting) {
+    if (m.right && *m.wheel && !level_editor_camera_state().orbit_.orbiting) {
         *rig.speed = std::clamp(*rig.speed * std::pow(1.25f, static_cast<float>(*m.wheel)), 50.0f, 20000.0f);
         *m.wheel = 0;
         std::array<char, 64> text{};
@@ -386,63 +404,63 @@ void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 la
     if (m.right && (*m.rel_x_ != 0.0f || *m.rel_y_ != 0.0f) && ortho())
         exit_ortho(rig);
     // Alt+left: held back until it moves (an orbit) or is let go (an Alt+click).
-    if (!g_orbit.pending && *m.left_presses_ && alt && !rig.dragging && !m.right) {
-        g_orbit = OrbitState{};
-        g_orbit.pending = true;
+    if (!level_editor_camera_state().orbit_.pending && *m.left_presses_ && alt && !rig.dragging && !m.right) {
+        level_editor_camera_state().orbit_ = OrbitState{};
+        level_editor_camera_state().orbit_.pending = true;
         *m.left_presses_ = 0;
         // (the pivot: the selection, else the surface under the cursor where the press was)
         if (!rig.have_selection_ && have_last_ray && rig.cast) {
             const V3 dir = make_unit(last_ray);
-            g_orbit.have_pivot_ = rig.cast(*rig.pos, *rig.pos + dir * 30000.0f, &g_orbit.pivot);
+            level_editor_camera_state().orbit_.have_pivot_ = rig.cast(*rig.pos, *rig.pos + dir * 30000.0f, &level_editor_camera_state().orbit_.pivot);
         }
-        if (!rig.have_selection_ && !g_orbit.have_pivot_) {
-            g_orbit.pivot = look_point(rig);
-            g_orbit.have_pivot_ = true;
+        if (!rig.have_selection_ && !level_editor_camera_state().orbit_.have_pivot_) {
+            level_editor_camera_state().orbit_.pivot = look_point(rig);
+            level_editor_camera_state().orbit_.have_pivot_ = true;
         }
         return;
     }
-    if (!g_orbit.pending)
+    if (!level_editor_camera_state().orbit_.pending)
         return;
-    if (!g_orbit.orbiting) {
-        g_orbit.travel += std::fabs(*m.rel_x_) + std::fabs(*m.rel_y_);
-        if (g_orbit.travel >= 4.0f) {
-            g_orbit.orbiting = true;
-            g_flight.on = false;
+    if (!level_editor_camera_state().orbit_.orbiting) {
+        level_editor_camera_state().orbit_.travel += std::fabs(*m.rel_x_) + std::fabs(*m.rel_y_);
+        if (level_editor_camera_state().orbit_.travel >= 4.0f) {
+            level_editor_camera_state().orbit_.orbiting = true;
+            stored_flight().on = false;
             if (ortho())
                 exit_ortho(rig);
         }
     }
-    if (g_orbit.orbiting) {
-        g_orbit.dx += *m.rel_x_;
-        g_orbit.dy += *m.rel_y_;
-        g_orbit.wheel += *m.wheel;
+    if (level_editor_camera_state().orbit_.orbiting) {
+        level_editor_camera_state().orbit_.dx += *m.rel_x_;
+        level_editor_camera_state().orbit_.dy += *m.rel_y_;
+        level_editor_camera_state().orbit_.wheel += *m.wheel;
         *m.rel_x_ = *m.rel_y_ = 0.0f;
         *m.wheel = 0;
     }
     if (!m.left) {
         // let go: unmoved, the press given back as an Alt+click (with its release)
-        if (!g_orbit.orbiting) {
+        if (!level_editor_camera_state().orbit_.orbiting) {
             *m.left_presses_ = 1;
             *m.left_releases_ = 1; // (the button is up: a press and its release, as a quick click)
         } else
             *m.left_releases_ = 0;
-        g_orbit.pending = false;
-        g_orbit.orbiting = false;
+        level_editor_camera_state().orbit_.pending = false;
+        level_editor_camera_state().orbit_.orbiting = false;
     }
 }
 
 void apply_orbit(const Rig& rig)
 {
-    if (!g_orbit.orbiting && g_orbit.dx == 0.0f && g_orbit.dy == 0.0f && g_orbit.wheel == 0)
+    if (!level_editor_camera_state().orbit_.orbiting && level_editor_camera_state().orbit_.dx == 0.0f && level_editor_camera_state().orbit_.dy == 0.0f && level_editor_camera_state().orbit_.wheel == 0)
         return;
     const prefs::Values& prefs = prefs::get_pull();
     const float sensitivity = 0.0035f * static_cast<float>(prefs.look_pct_) / 100.0f;
-    const float dy = prefs.invert_y_ ? -g_orbit.dy : g_orbit.dy;
+    const float dy = prefs.invert_y_ ? -level_editor_camera_state().orbit_.dy : level_editor_camera_state().orbit_.dy;
     const TickCycle before = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
-    get_look(rig.yaw, rig.pitch, g_orbit.dx, dy, sensitivity);
-    g_orbit.dx = g_orbit.dy = 0.0f;
-    const int wheel = g_orbit.wheel;
-    g_orbit.wheel = 0;
+    get_look(rig.yaw, rig.pitch, level_editor_camera_state().orbit_.dx, dy, sensitivity);
+    level_editor_camera_state().orbit_.dx = level_editor_camera_state().orbit_.dy = 0.0f;
+    const int wheel = level_editor_camera_state().orbit_.wheel;
+    level_editor_camera_state().orbit_.wheel = 0;
     if (rig.have_selection_) {
         // (the editor puts the camera round it at its orbit distance: the wheel nearer / further)
         if (wheel)
@@ -450,16 +468,16 @@ void apply_orbit(const Rig& rig)
                 std::clamp(*rig.orbit_distance_ * std::pow(0.85f, static_cast<float>(wheel)), 20.0f, 20000.0f);
         return;
     }
-    if (!g_orbit.have_pivot_)
+    if (!level_editor_camera_state().orbit_.have_pivot_)
         return;
     const TickCycle after = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
-    V3 pos = orbit_about(*rig.pos, g_orbit.pivot, before, after);
+    V3 pos = orbit_about(*rig.pos, level_editor_camera_state().orbit_.pivot, before, after);
     if (wheel) {
-        const V3 offset = pos - g_orbit.pivot;
+        const V3 offset = pos - level_editor_camera_state().orbit_.pivot;
         const float length = std::sqrt(get_dot(offset, offset));
         const float wanted = std::clamp(length * std::pow(0.85f, static_cast<float>(wheel)), 20.0f, 30000.0f);
         if (length > 0.001f)
-            pos = g_orbit.pivot + offset * (wanted / length);
+            pos = level_editor_camera_state().orbit_.pivot + offset * (wanted / length);
     }
     *rig.pos = pos;
 }
@@ -477,8 +495,8 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
             const float tan_half = std::min(rig.lens.tan_x_, rig.lens.tan_y_);
             if (ortho()) {
                 // (an ortho view: its zoom to fit, the lens as perspective has it)
-                const float base = tan_half * eye_distance(g_ortho.equivalent) / std::max(1.0f, g_ortho.equivalent);
-                g_ortho.equivalent = std::clamp(frame_distance(rig.radius, base, 100.0f), 50.0f, 20000.0f);
+                const float base = tan_half * eye_distance(stored_ortho().equivalent) / std::max(1.0f, stored_ortho().equivalent);
+                stored_ortho().equivalent = std::clamp(frame_distance(rig.radius, base, 100.0f), 50.0f, 20000.0f);
             } else {
                 const float distance = std::min(20000.0f, frame_distance(rig.radius, tan_half, 100.0f));
                 const TickCycle frame = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
@@ -496,18 +514,18 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
             continue;
         std::array<char, 96> text{};
         if (store) {
-            Bookmark& m = core::at(g_marks, i);
+            Bookmark& m = core::at(level_editor_camera_state().marks_, i);
             m.set = true;
             m.pose = {.pos = *rig.pos, .yaw = *rig.yaw, .pitch = *rig.pitch};
-            m.view = g_ortho.view;
-            m.equivalent = g_ortho.equivalent;
+            m.view = stored_ortho().view;
+            m.equivalent = stored_ortho().equivalent;
             if (ortho())
-                m.pose.pos = rig.have_selection_ ? rig.target : g_ortho.pivot; // (an ortho bookmark keeps its pivot)
+                m.pose.pos = rig.have_selection_ ? rig.target : stored_ortho().pivot; // (an ortho bookmark keeps its pivot)
             const bool saved = save_bookmarks();
             text::format_to(text, "Camera bookmark %d stored%s", i + 1, saved ? "" : " (not saved: the file)");
             hud::get_message(text.data(), 2.0);
-        } else if (core::at(g_marks, i).set) {
-            const Bookmark& m = core::at(g_marks, i);
+        } else if (core::at(level_editor_camera_state().marks_, i).set) {
+            const Bookmark& m = core::at(level_editor_camera_state().marks_, i);
             if (rig.deselect)
                 rig.deselect();
             Rig free = rig;
@@ -536,7 +554,7 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
         const bool opposite = actions::squeezed(core::at(core::at(kPad, i), 1)) && i != 3;
         if (!opposite && !actions::squeezed(core::at(core::at(kPad, i), 0)))
             continue;
-        g_flight.on = false;
+        stored_flight().on = false;
         if (i == 3) {
             if (ortho()) {
                 exit_ortho(rig);
@@ -550,9 +568,9 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
         static const std::array<std::array<View, 2>, 3> kViews = {{
             {View::kTop, View::kBottom}, {View::kMenuSystem, View::kBack}, {View::kRight, View::kLeft}}};
         const View view = core::at(core::at(kViews, i), opposite ? 1 : 0);
-        const V3 pivot = ortho() ? (rig.have_selection_ ? rig.target : g_ortho.pivot) : look_point(rig);
+        const V3 pivot = ortho() ? (rig.have_selection_ ? rig.target : stored_ortho().pivot) : look_point(rig);
         const V3 d = pivot - *rig.pos;
-        const float equivalent = ortho() ? g_ortho.equivalent : std::clamp(std::sqrt(get_dot(d, d)), 200.0f, 20000.0f);
+        const float equivalent = ortho() ? stored_ortho().equivalent : std::clamp(std::sqrt(get_dot(d, d)), 200.0f, 20000.0f);
         float yaw = 0.0f, pitch = 0.0f;
         axis_yaw_pitch(view, &yaw, &pitch);
         enter_ortho(rig, view, yaw, pitch, pivot, equivalent);
@@ -561,25 +579,25 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
 
 void after_update(const Rig& rig, int wheel, bool interrupted)
 {
-    if (g_flight.on && interrupted)
-        g_flight.on = false;
-    if (g_flight.on) {
+    if (stored_flight().on && interrupted)
+        stored_flight().on = false;
+    if (stored_flight().on) {
         // (the frame's time from SDL's clock: the editor caps a frame at a tenth of a second)
         static uint64_t last;
         const uint64_t now = SDL_GetPerformanceCounter();
-        const double seconds = g_flight.t == 0.0f || !last ? 1.0 / 60.0
+        const double seconds = stored_flight().t == 0.0f || !last ? 1.0 / 60.0
                                                            : static_cast<double>(now - last) /
                                                                  static_cast<double>(SDL_GetPerformanceFrequency());
         last = now;
-        g_flight.t += static_cast<float>(std::min(seconds, 0.1)) / g_flight.duration;
-        Pose to = g_flight.to;
+        stored_flight().t += static_cast<float>(std::min(seconds, 0.1)) / stored_flight().duration;
+        Pose to = stored_flight().to;
         if (rig.have_selection_) {
             // (the selection may move meanwhile: the place is kept relative to it)
             const TickCycle frame = frame_from_yaw_pitch(to.yaw, to.pitch);
-            const V3 d = g_flight.to.pos - rig.target;
+            const V3 d = stored_flight().to.pos - rig.target;
             to.pos = rig.target + frame.back * std::sqrt(get_dot(d, d));
         }
-        const Pose pose = get_blend(g_flight.from, to, std::min(1.0f, g_flight.t));
+        const Pose pose = get_blend(stored_flight().from, to, std::min(1.0f, stored_flight().t));
         *rig.pos = pose.pos;
         *rig.yaw = pose.yaw;
         *rig.pitch = pose.pitch;
@@ -587,12 +605,12 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
             const V3 d = *rig.pos - rig.target;
             *rig.orbit_distance_ = std::clamp(std::sqrt(get_dot(d, d)), 20.0f, 20000.0f);
         }
-        if (g_flight.t >= 1.0f) {
-            g_flight.on = false;
-            if (g_flight.then_view_ != View::kNone) {
+        if (stored_flight().t >= 1.0f) {
+            stored_flight().on = false;
+            if (stored_flight().then_view_ != View::kNone) {
                 const V3 forward = get_forward(to.yaw, to.pitch);
-                enter_ortho(rig, g_flight.then_view_, to.yaw, to.pitch, to.pos + forward * g_flight.then_equivalent_,
-                            g_flight.then_equivalent_);
+                enter_ortho(rig, stored_flight().then_view_, to.yaw, to.pitch, to.pos + forward * stored_flight().then_equivalent_,
+                            stored_flight().then_equivalent_);
             } else if (rig.have_selection_ && rig.focus) {
                 rig.focus();
             }
@@ -602,32 +620,32 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
     if (!ortho())
         return;
     // The ortho view: its heading kept, the camera far back along it.
-    *rig.yaw = g_ortho.yaw;
-    *rig.pitch = g_ortho.pitch;
-    const V3 forward = get_forward(g_ortho.yaw, g_ortho.pitch);
+    *rig.yaw = stored_ortho().yaw;
+    *rig.pitch = stored_ortho().pitch;
+    const V3 forward = get_forward(stored_ortho().yaw, stored_ortho().pitch);
     if (rig.have_selection_) {
         if (wheel && !rig.dragging)
-            g_ortho.equivalent =
-                std::clamp(g_ortho.equivalent * std::pow(0.85f, static_cast<float>(wheel)), 50.0f, 20000.0f);
-        g_ortho.pivot = rig.target;
+            stored_ortho().equivalent =
+                std::clamp(stored_ortho().equivalent * std::pow(0.85f, static_cast<float>(wheel)), 50.0f, 20000.0f);
+        stored_ortho().pivot = rig.target;
     } else {
         // (the editor flew the camera: along the view a zoom, across it a pan)
-        const V3 moved = *rig.pos - g_ortho.last_eye_;
+        const V3 moved = *rig.pos - stored_ortho().last_eye_;
         const float along = get_dot(moved, forward);
-        g_ortho.equivalent = std::clamp(g_ortho.equivalent - along, 50.0f, 20000.0f);
-        g_ortho.pivot = g_ortho.pivot + (moved - forward * along);
+        stored_ortho().equivalent = std::clamp(stored_ortho().equivalent - along, 50.0f, 20000.0f);
+        stored_ortho().pivot = stored_ortho().pivot + (moved - forward * along);
     }
-    const float eye = eye_distance(g_ortho.equivalent);
-    *rig.pos = g_ortho.pivot - forward * eye;
+    const float eye = eye_distance(stored_ortho().equivalent);
+    *rig.pos = stored_ortho().pivot - forward * eye;
     if (rig.have_selection_)
         *rig.orbit_distance_ = eye;
-    g_ortho.last_eye_ = *rig.pos;
+    stored_ortho().last_eye_ = *rig.pos;
 }
 
 float fly_factor(bool held, double seconds)
 {
-    g_fly_held = held ? g_fly_held + static_cast<float>(seconds) : 0.0f;
-    return fly_ramp(g_fly_held, prefs::get_pull().fly_accel_ms_);
+    level_editor_camera_state().fly_held_ = held ? level_editor_camera_state().fly_held_ + static_cast<float>(seconds) : 0.0f;
+    return fly_ramp(level_editor_camera_state().fly_held_, prefs::get_pull().fly_accel_ms_);
 }
 
 } // namespace frontend::level_editor::view_cam

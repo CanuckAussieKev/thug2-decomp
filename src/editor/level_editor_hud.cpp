@@ -19,6 +19,7 @@
 #include <gsl/pointers>
 #include "engine/core/mem.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::hud {
 namespace {
@@ -36,18 +37,28 @@ std::map<std::string, std::string>& shown()
     static std::map<std::string, std::string> value; // element id -> text
     return value;
 }
-std::string g_message;
-uint32_t g_message_until;
-bool g_panel;
-bool g_elements = true; // (false while the UI shows the editor)
-float g_panel_x;
-float g_panel_y;
-float g_panel_width;
-size_t g_panel_lines;
+// NOT ORIGINAL grouping - level_editor_hud.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_hud_state()).
+struct LevelEditorHudState {
+    std::string message_{};
+    uint32_t message_until_{};
+    bool panel_{};
+    bool elements_ = true; // (false while the UI shows the editor)
+    float panel_x_{};
+    float panel_y_{};
+    float panel_width_{};
+    size_t panel_lines_{};
+};
+
+LevelEditorHudState& level_editor_hud_state()
+{
+    static core::NoDestroy<LevelEditorHudState> state;
+    return state.get();
+}
 
 void change_caption(const std::string& id, const std::string& full)
 {
-    if (!g_elements)
+    if (!level_editor_hud_state().elements_)
         return;
     const std::string text = full.size() > kMaxText ? full.substr(0, kMaxText) : full;
     auto it = shown().find(id);
@@ -67,13 +78,13 @@ void change_caption(const std::string& id, const std::string& full)
 void get_reset(bool screen_elements)
 {
     shown().clear();
-    g_message.clear();
-    g_message_until = 0;
-    g_panel = false;
-    g_elements = screen_elements;
+    level_editor_hud_state().message_.clear();
+    level_editor_hud_state().message_until_ = 0;
+    level_editor_hud_state().panel_ = false;
+    level_editor_hud_state().elements_ = screen_elements;
 }
 
-const std::string& current_message() { return g_message; }
+const std::string& current_message() { return level_editor_hud_state().message_; }
 
 void change_strand(int line, const std::string& text)
 {
@@ -84,24 +95,24 @@ void change_strand(int line, const std::string& text)
 
 void get_message(const std::string& text, double seconds)
 {
-    g_message = text;
-    g_message_until = SDL_GetTicks() + static_cast<uint32_t>(seconds * 1000.0);
+    level_editor_hud_state().message_ = text;
+    level_editor_hud_state().message_until_ = SDL_GetTicks() + static_cast<uint32_t>(seconds * 1000.0);
     change_strand(7, text);
 }
 
 void tick()
 {
-    if (!g_message.empty() && static_cast<int32_t>(SDL_GetTicks() - g_message_until) >= 0) {
-        g_message.clear();
+    if (!level_editor_hud_state().message_.empty() && static_cast<int32_t>(SDL_GetTicks() - level_editor_hud_state().message_until_) >= 0) {
+        level_editor_hud_state().message_.clear();
         change_strand(7, "");
     }
 }
 
 void show_panel(const std::vector<std::string>& lines, float x, float y, float width)
 {
-    if (!g_elements)
+    if (!level_editor_hud_state().elements_)
         return;
-    if (!g_panel || g_panel_x != x || g_panel_y != y || g_panel_width != width || g_panel_lines != lines.size()) {
+    if (!level_editor_hud_state().panel_ || level_editor_hud_state().panel_x_ != x || level_editor_hud_state().panel_y_ != y || level_editor_hud_state().panel_width_ != width || level_editor_hud_state().panel_lines_ != lines.size()) {
         alignas(4) std::array<uint8_t, 8> memory{};
         auto params = memory::construct_in<script::Struct>(memory.data());
         const float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
@@ -112,11 +123,11 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
         params->get_clear();
         for (auto it = shown().begin(); it != shown().end();)
             it = it->first.starts_with("level_editor_panel_") ? shown().erase(it) : std::next(it);
-        g_panel = true;
-        g_panel_x = x;
-        g_panel_y = y;
-        g_panel_width = width;
-        g_panel_lines = lines.size();
+        level_editor_hud_state().panel_ = true;
+        level_editor_hud_state().panel_x_ = x;
+        level_editor_hud_state().panel_y_ = y;
+        level_editor_hud_state().panel_width_ = width;
+        level_editor_hud_state().panel_lines_ = lines.size();
     }
     for (size_t i = 0; i < lines.size(); ++i) {
         std::array<char, 32> id{};
@@ -127,15 +138,15 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
 
 void hide_panel()
 {
-    if (!g_panel)
+    if (!level_editor_hud_state().panel_)
         return;
     script::launch_script("level_editor_panel_hide", nullptr, nullptr, false);
     for (auto it = shown().begin(); it != shown().end();)
         it = it->first.starts_with("level_editor_panel_") ? shown().erase(it) : std::next(it);
-    g_panel = false;
+    level_editor_hud_state().panel_ = false;
 }
 
-bool panel_shown() { return g_panel; }
+bool panel_shown() { return level_editor_hud_state().panel_; }
 
 std::string get_key(const char* keys) { return std::string("\\c1") + keys + "\\c0"; }
 

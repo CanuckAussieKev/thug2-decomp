@@ -120,20 +120,24 @@ std::string elide(const std::string& text, float max_width)
 // --- the recorder ----------------------------------------------------------------------------------------------------
 
 namespace {
-std::vector<Cuboid>* g_boxes;
+std::vector<Cuboid>*& stored_boxes()
+{
+    static std::vector<Cuboid>* boxes{};
+    return boxes;
+}
 } // namespace
 
-void set_recorder(std::vector<Cuboid>* boxes) { g_boxes = boxes; }
+void set_recorder(std::vector<Cuboid>* boxes) { stored_boxes() = boxes; }
 
 void note_rect(float x0, float y0, float x1, float y1, const char* what)
 {
-    if (g_boxes)
-        g_boxes->push_back({.x0 = x0, .y0 = y0, .x1 = x1, .y1 = y1, .what = what});
+    if (stored_boxes())
+        stored_boxes()->push_back({.x0 = x0, .y0 = y0, .x1 = x1, .y1 = y1, .what = what});
 }
 
 void get_note(const char* what)
 {
-    if (!g_boxes)
+    if (!stored_boxes())
         return;
     const ImVec2 a = ImGui::GetItemRectMin();
     const ImVec2 b = ImGui::GetItemRectMax();
@@ -451,8 +455,8 @@ void blit(const State& state, float x, float y, float width, float scale, Output
     get_note("More");
     if (ImGui::BeginPopup("##stripoverflow")) {
         // (the hidden controls, one a line; not recorded - they're in a popup of their own)
-        std::vector<Cuboid>* boxes = g_boxes;
-        g_boxes = nullptr;
+        std::vector<Cuboid>* boxes = stored_boxes();
+        stored_boxes() = nullptr;
         for (size_t i = 0; i < items.size(); ++i) {
             if (core::at(plan.shown, i))
                 continue;
@@ -460,7 +464,7 @@ void blit(const State& state, float x, float y, float width, float scale, Output
             draw_item(core::at(items, i).id, state, scale, out);
             ImGui::PopID();
         }
-        g_boxes = boxes;
+        stored_boxes() = boxes;
         ImGui::EndPopup();
     }
 }

@@ -56,6 +56,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::chains {
 
@@ -979,7 +980,11 @@ std::map<uint32_t, OriginalLinks>& original_links()
     static std::map<uint32_t, OriginalLinks> value;
     return value;
 }
-std::vector<uint32_t> g_dropped;
+std::vector<uint32_t>& stored_dropped()
+{
+    static core::NoDestroy<std::vector<uint32_t>> dropped;
+    return dropped.get();
+}
 std::map<uint32_t, bool>& drop_active()
 {
     static std::map<uint32_t, bool> value;
@@ -994,22 +999,33 @@ std::map<uint32_t, TerrainSet>& terrains_state()
     static std::map<uint32_t, TerrainSet> value;
     return value;
 }
-// The rail manager's node arrays replaced by rebuild_rails (freed with the level).
-std::vector<void*> g_retired;
-objects::GrindPoint* g_built; // (the node array rebuild_rails made last)
-// Objects to make again from their nodes (their path changed) once the game has removed them.
-std::vector<uint32_t> g_remake;
-// Drawing: the kind, the last point drawn (0: none yet). An armed pick: what for, and from which node.
-Blit g_draw = Blit::kNone;
-uint32_t g_draw_last;
-Op g_pick = kOpCancel;
-uint32_t g_pick_from;
-// Drawing a ladder: its foot (once the first click found a wall) and its heading.
-bool g_ladder_have_foot;
-V3 g_ladder_foot;
-float g_ladder_facing;
-// The scenery piece the last snapped click hit (0: none) - a new rail's trick-object cluster.
-uint32_t g_snap_sector;
+// NOT ORIGINAL grouping - level_editor_chains.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_chains_state()).
+struct LevelEditorChainsState {
+    // The rail manager's node arrays replaced by rebuild_rails (freed with the level).
+    std::vector<void*> retired_{};
+    objects::GrindPoint* built_{}; // (the node array rebuild_rails made last)
+    // Objects to make again from their nodes (their path changed) once the game has removed them.
+    std::vector<uint32_t> remake_{};
+    // Drawing: the kind, the last point drawn (0: none yet). An armed pick: what for, and from which node.
+    Blit draw_ = Blit::kNone;
+    uint32_t draw_last_{};
+    Op pick_ = kOpCancel;
+    uint32_t pick_from_{};
+    // Drawing a ladder: its foot (once the first click found a wall) and its heading.
+    bool ladder_have_foot_{};
+    V3 ladder_foot_{};
+    float ladder_facing_{};
+    // The scenery piece the last snapped click hit (0: none) - a new rail's trick-object cluster.
+    uint32_t snap_sector_{};
+};
+
+LevelEditorChainsState& level_editor_chains_state()
+{
+    static core::NoDestroy<LevelEditorChainsState> state;
+    return state.get();
+}
+
 // Added points' fields that aren't in their nodes (by name): a rail's cluster, grindable on flat ground.
 struct Extras {
     uint32_t cluster = 0;
@@ -1035,7 +1051,11 @@ std::map<uint32_t, SpeedApplied>& speed_applied()
     static std::map<uint32_t, SpeedApplied> value;
     return value;
 }
-std::vector<uint8_t> g_speed_defined;
+std::vector<uint8_t>& speed_defined()
+{
+    static core::NoDestroy<std::vector<uint8_t>> speed_defined;
+    return speed_defined.get();
+}
 // The level's own speed-ups (a RailAccelerate in a rail point's TriggerScript): found once for each rail manager
 // array (name, rate).
 struct LevelSpeedCache {
@@ -1043,7 +1063,11 @@ struct LevelSpeedCache {
     int count = -1;
     std::vector<std::pair<uint32_t, float>> found;
 };
-LevelSpeedCache g_level_speed_cache;
+LevelSpeedCache& level_speed_cache()
+{
+    static core::NoDestroy<LevelSpeedCache> level_speed_cache;
+    return level_speed_cache.get();
+}
 std::unordered_map<uint32_t, Extras>& extras_state()
 {
     static std::unordered_map<uint32_t, Extras> value;
@@ -1060,7 +1084,11 @@ std::map<uint32_t, FacingSet>& facings_state()
     return value;
 }
 // Level rail points marked grindable on flat ground.
-std::vector<uint32_t> g_level_flat;
+std::vector<uint32_t>& level_flat()
+{
+    static core::NoDestroy<std::vector<uint32_t>> level_flat;
+    return level_flat.get();
+}
 // The trick objects the editor registered (name -> cluster).
 std::map<uint32_t, uint32_t>& trick_state()
 {
@@ -1075,8 +1103,18 @@ struct FlatCache {
     unsigned generation = ~0u;
     std::vector<const objects::GrindPoint*> marked;
 };
-FlatCache g_flat_cache;
-unsigned g_flat_generation;
+// NOT ORIGINAL grouping - the flattened chains and their generation (were globals). Made on first use, never destroyed
+// (flat_chains()).
+struct FlatChains {
+    FlatCache flat_cache_{};
+    unsigned flat_generation_{};
+};
+
+FlatChains& flat_chains()
+{
+    static core::NoDestroy<FlatChains> state;
+    return state.get();
+}
 
 std::vector<Point> added_points()
 {
@@ -1210,8 +1248,8 @@ void get_remake(uint32_t name)
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
     if (object && !(object->object_flags_ & objects::kObjectFlagDead))
         object->flag_as_dead();
-    if (std::ranges::find(g_remake, name) == g_remake.end())
-        g_remake.push_back(name);
+    if (std::ranges::find(level_editor_chains_state().remake_, name) == level_editor_chains_state().remake_.end())
+        level_editor_chains_state().remake_.push_back(name);
     get_log("level editor: %s's path changed - it is made again from its node", object_edit::caption(name).c_str());
 }
 
@@ -1306,7 +1344,7 @@ void rebuild_rails()
         objects::GrindPoint* node = &core::at(nodes, i);
         index.emplace(node->label_, i);
         node->succ_ = node->last_value_ = nullptr;
-        const bool dropped = std::ranges::find(g_dropped, node->label_) != g_dropped.end();
+        const bool dropped = std::ranges::find(stored_dropped(), node->label_) != stored_dropped().end();
         auto was = drop_active().find(node->label_);
         if (dropped) {
             if (was == drop_active().end())
@@ -1320,7 +1358,7 @@ void rebuild_rails()
     }
     // The links, as add_from_node_array makes them: a node's next is its first link (or a DefaultLine one), the linked
     // node's previous likewise. Dropped points take no part.
-    auto is_dropped = [&](uint32_t name) { return std::ranges::find(g_dropped, name) != g_dropped.end(); };
+    auto is_dropped = [&](uint32_t name) { return std::ranges::find(stored_dropped(), name) != stored_dropped().end(); };
     for (int i = 0; i < count; ++i) {
         objects::GrindPoint* node = &core::at(nodes, i);
         if (is_dropped(node->label_))
@@ -1369,10 +1407,10 @@ void rebuild_rails()
         }
     }
     if (!old.empty())
-        g_retired.push_back(old.data()); // (a skater's grind may point into it: freed with the level)
-    g_built = nodes_block;
+        level_editor_chains_state().retired_.push_back(old.data()); // (a skater's grind may point into it: freed with the level)
+    level_editor_chains_state().built_ = nodes_block;
     register_trick_objects();
-    ++g_flat_generation;
+    ++flat_chains().flat_generation_;
     scenery::rails_rebuilt();
     nodes::mark_stale();
     if (debug_enabled())
@@ -1394,13 +1432,13 @@ State at_hand()
         if (now != entry.second.links)
             state.links.push_back({.name = entry.first, .links = now});
     }
-    state.dropped = g_dropped;
+    state.dropped = stored_dropped();
     std::ranges::sort(state.dropped);
     for (const auto& entry : terrains_state())
         state.terrains.push_back({.name = entry.first, .terrain = entry.second.terrain});
     for (const auto& entry : facings_state())
         state.facings.push_back({.name = entry.first, .facing = entry.second.facing});
-    state.grind_flat_ = g_level_flat;
+    state.grind_flat_ = level_flat();
     std::ranges::sort(state.grind_flat_);
     for (const auto& entry : level_speeds())
         state.speeds.push_back({.name = entry.first, .rate = entry.second}); // (a map: sorted by name)
@@ -1490,10 +1528,10 @@ bool change_phase(const State& target)
             facings_state()[f.name] = {.facing = f.facing, .original = node->climb_};
         facings_state()[f.name].facing = f.facing;
     }
-    g_level_flat.clear();
+    level_flat().clear();
     for (const uint32_t name : target.grind_flat_) {
         if (!node_create::is_added(name) && look_up_node_params(name))
-            g_level_flat.push_back(name);
+            level_flat().push_back(name);
     }
     // The level's links: as the target has them, else as the level had them.
     std::set<uint32_t> names;
@@ -1516,7 +1554,7 @@ bool change_phase(const State& target)
     }
     // Dropped points: hidden with phase 3's marker (shown again when no longer dropped).
     std::vector<uint32_t> dropped = target.dropped;
-    for (const uint32_t name : std::vector<uint32_t>(g_dropped)) {
+    for (const uint32_t name : std::vector<uint32_t>(stored_dropped())) {
         if (std::ranges::find(dropped, name) == dropped.end())
             node_create::conceal(name, false);
     }
@@ -1527,7 +1565,7 @@ bool change_phase(const State& target)
         if (node_create::get_hidden(name) || node_create::conceal(name, true))
             kept.push_back(name);
     }
-    g_dropped = kept;
+    stored_dropped() = kept;
     // Terrains (level points): put back where no longer set.
     for (auto it = terrains_state().begin(); it != terrains_state().end();) {
         bool wanted = false;
@@ -1569,20 +1607,20 @@ void forget_level()
             set_own_links(node, entry.second.links);
     }
     original_links().clear();
-    g_dropped.clear();
+    stored_dropped().clear();
     drop_active().clear();
     terrains_state().clear();
-    g_remake.clear();
-    g_draw = Blit::kNone;
-    g_draw_last = 0;
-    g_pick = kOpCancel;
-    g_ladder_have_foot = false;
+    level_editor_chains_state().remake_.clear();
+    level_editor_chains_state().draw_ = Blit::kNone;
+    level_editor_chains_state().draw_last_ = 0;
+    level_editor_chains_state().pick_ = kOpCancel;
+    level_editor_chains_state().ladder_have_foot_ = false;
     // (the rail manager and the trick object manager are the level's: they go with it)
     extras_state().clear();
     facings_state().clear();
-    g_level_flat.clear();
+    level_flat().clear();
     trick_state().clear();
-    ++g_flat_generation;
+    ++flat_chains().flat_generation_;
     // (the speed-ups' TriggerScripts: the level's nodes put back while its array is the one loaded)
     for (const auto& entry : speed_applied()) {
         script::Struct* node = look_up_node_params(entry.first);
@@ -1591,7 +1629,7 @@ void forget_level()
     }
     speed_applied().clear();
     level_speeds().clear();
-    g_level_speed_cache = LevelSpeedCache{};
+    level_speed_cache() = LevelSpeedCache{};
 }
 
 namespace {
@@ -1600,13 +1638,13 @@ namespace {
 // point marked so, or a node carrying the flag ed_grind_flat (a level baked by apply_layout.ts).
 void refresh_flat(objects::GrindRailHub* rails)
 {
-    if (g_flat_cache.nodes == rails->nodes_ && g_flat_cache.count == rails->num_ &&
-        g_flat_cache.generation == g_flat_generation)
+    if (flat_chains().flat_cache_.nodes == rails->nodes_ && flat_chains().flat_cache_.count == rails->num_ &&
+        flat_chains().flat_cache_.generation == flat_chains().flat_generation_)
         return;
-    g_flat_cache.nodes = rails->nodes_;
-    g_flat_cache.count = rails->num_;
-    g_flat_cache.generation = g_flat_generation;
-    g_flat_cache.marked.clear();
+    flat_chains().flat_cache_.nodes = rails->nodes_;
+    flat_chains().flat_cache_.count = rails->num_;
+    flat_chains().flat_cache_.generation = flat_chains().flat_generation_;
+    flat_chains().flat_cache_.marked.clear();
     if (!rails->nodes_ || !level_nodes::node_manager_instance())
         return;
     static const uint32_t kFlag = name_hash("ed_grind_flat");
@@ -1616,17 +1654,17 @@ void refresh_flat(objects::GrindRailHub* rails)
             continue;
         auto extras = extras_state().find(node->label_);
         bool marked = (extras != extras_state().end() && extras->second.grind_flat_) ||
-                      std::ranges::find(g_level_flat, node->label_) != g_level_flat.end();
+                      std::ranges::find(level_flat(), node->label_) != level_flat().end();
         if (!marked) {
             script::Struct* params = look_up_node_params(node->label_);
             marked = params && params->has_bare_flag(kFlag);
         }
         if (marked)
-            g_flat_cache.marked.push_back(node);
+            flat_chains().flat_cache_.marked.push_back(node);
     }
-    if (debug_enabled() && !g_flat_cache.marked.empty())
+    if (debug_enabled() && !flat_chains().flat_cache_.marked.empty())
         get_log("level editor: %u rail segments grindable on flat ground",
-                static_cast<unsigned>(g_flat_cache.marked.size()));
+                static_cast<unsigned>(flat_chains().flat_cache_.marked.size()));
 }
 
 bool flat_hook(const maths::Vec4* a, const maths::Vec4* b)
@@ -1701,9 +1739,9 @@ void apply_speeds()
         script::load_qb_data("editor\\thug2_decomp_railspeed.qb", qb, 0, 0, 0);
     }
     std::vector<uint8_t> file = speed_qb_file(scripts);
-    if (file != g_speed_defined) {
+    if (file != speed_defined()) {
         script::load_qb_data("editor\\thug2_decomp_railspeeds.qb", file, 0, 0, 0);
-        g_speed_defined = file;
+        speed_defined() = file;
         if (debug_enabled())
             get_log("level editor: %u rail speed-up scripts defined", static_cast<unsigned>(scripts.size()));
     }
@@ -1730,10 +1768,10 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
     if (!rails || !rails->nodes_ || !level_nodes::node_manager_instance())
         return out;
     // (the level's own RailAccelerate points: found once for each rail manager array)
-    if (g_level_speed_cache.nodes != rails->nodes_ || g_level_speed_cache.count != rails->num_) {
-        g_level_speed_cache.nodes = rails->nodes_;
-        g_level_speed_cache.count = rails->num_;
-        g_level_speed_cache.found.clear();
+    if (level_speed_cache().nodes != rails->nodes_ || level_speed_cache().count != rails->num_) {
+        level_speed_cache().nodes = rails->nodes_;
+        level_speed_cache().count = rails->num_;
+        level_speed_cache().found.clear();
         for (int i = 0; i < rails->num_; ++i) {
             const objects::GrindPoint* node = &core::at(rails->node_run(), i);
             script::Struct* params = node->succ_ ? look_up_node_params(node->label_) : nullptr;
@@ -1745,7 +1783,7 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
                 script = applied->second.original_script_; // (the level's own script, under ours)
             const triggers::Calls calls = triggers::script_calls(script);
             if (calls.rail_speed_)
-                g_level_speed_cache.found.emplace_back(node->label_, calls.rail_rate_);
+                level_speed_cache().found.emplace_back(node->label_, calls.rail_rate_);
         }
     }
     float r2 = radius * radius;
@@ -1769,7 +1807,7 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
         if (rate > 0.0f)
             add(rail_node_named(entry.first), rate, false);
     }
-    for (const auto& found : g_level_speed_cache.found) {
+    for (const auto& found : level_speed_cache().found) {
         if (!speed_applied().count(found.first))
             add(rail_node_named(found.first), found.second, true);
     }
@@ -1782,7 +1820,7 @@ bool flat_grindable(V3 a, V3 b)
     if (!rails)
         return false;
     refresh_flat(rails);
-    for (const objects::GrindPoint* node : g_flat_cache.marked) {
+    for (const objects::GrindPoint* node : flat_chains().flat_cache_.marked) {
         const objects::GrindPoint* next = node->succ_;
         if (next && same_segment(a, b, {.x = node->at_point_.x, .y = node->at_point_.y, .z = node->at_point_.z},
                                  {.x = next->at_point_.x, .y = next->at_point_.y, .z = next->at_point_.z}, 0.01f))
@@ -1800,23 +1838,23 @@ void tick()
     }
     // The rail manager's old node arrays: freed once the level's rails are no longer the ones built here (the game
     // made a new level's - its Cleanup freed ours - or there are none).
-    if (!g_retired.empty()) {
+    if (!level_editor_chains_state().retired_.empty()) {
         const objects::GrindRailHub* rails = get_rails();
-        if (!rails || rails->nodes_ != g_built) {
-            for (void* nodes : g_retired)
+        if (!rails || rails->nodes_ != level_editor_chains_state().built_) {
+            for (void* nodes : level_editor_chains_state().retired_)
                 memory::free_malloc(nodes);
-            g_retired.clear();
-            g_built = nullptr;
+            level_editor_chains_state().retired_.clear();
+            level_editor_chains_state().built_ = nullptr;
         }
     }
     apply_speeds();
-    if (g_remake.empty())
+    if (level_editor_chains_state().remake_.empty())
         return;
     if (!in_level()) {
-        g_remake.clear();
+        level_editor_chains_state().remake_.clear();
         return;
     }
-    for (auto it = g_remake.begin(); it != g_remake.end();) {
+    for (auto it = level_editor_chains_state().remake_.begin(); it != level_editor_chains_state().remake_.end();) {
         if (objects::find_object(*it)) {
             ++it; // (not removed yet: the game deletes dead objects in its update)
             continue;
@@ -1824,7 +1862,7 @@ void tick()
         if (script::Struct* node = look_up_node_params(*it))
             commands::create_from_node(node);
         get_log("level editor: %s made again (its path from its links)", object_edit::caption(*it).c_str());
-        it = g_remake.erase(it);
+        it = level_editor_chains_state().remake_.erase(it);
     }
 }
 
@@ -1978,7 +2016,7 @@ std::string fresh_point_name(nodes::Family family, const State& state, bool ledg
 Point append_rail_vertex(nodes::Family family, uint32_t from, V3 pos, const State& state)
 {
     // (a ledge: drawn as one, or drawn on from one)
-    const bool ledge = family == nodes::Family::kLadder && (g_draw == Blit::kLedge || (from && is_ledge_node(from)));
+    const bool ledge = family == nodes::Family::kLadder && (level_editor_chains_state().draw_ == Blit::kLedge || (from && is_ledge_node(from)));
     Point p;
     p.name = fresh_point_name(family, state, ledge);
     p.cls = family == nodes::Family::kRouteWay ? "Waypoint"
@@ -2015,7 +2053,7 @@ Point append_rail_vertex(nodes::Family family, uint32_t from, V3 pos, const Stat
     } else if (family == nodes::Family::kRail) {
         // (a new rail: a trick object of the scenery piece the click hit, as the levels name their rails' clusters -
         // else of its own)
-        p.cluster = g_snap_sector ? g_snap_sector : name_hash(p.name);
+        p.cluster = level_editor_chains_state().snap_sector_ ? level_editor_chains_state().snap_sector_ : name_hash(p.name);
     }
     return p;
 }
@@ -2143,7 +2181,7 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
     message->clear();
     if (op == kOpCancel) {
         stop_drawing();
-        g_pick = kOpCancel;
+        level_editor_chains_state().pick_ = kOpCancel;
         *message = "Stopped";
         return false;
     }
@@ -2163,8 +2201,8 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
             return false;
         }
         if (op == kOpAssignArm) {
-            g_pick = kOpAssignArm;
-            g_pick_from = name;
+            level_editor_chains_state().pick_ = kOpAssignArm;
+            level_editor_chains_state().pick_from_ = name;
             *message = "Click the first waypoint (Esc: cancel)";
             return false;
         }
@@ -2270,9 +2308,9 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
             *message = "Select an end point to extend";
             return false;
         }
-        g_draw = family == nodes::Family::kRouteWay ? Blit::kRouteWay : ledge ? Blit::kLedge : Blit::kRail;
-        g_draw_last = name;
-        g_pick = kOpCancel;
+        level_editor_chains_state().draw_ = family == nodes::Family::kRouteWay ? Blit::kRouteWay : ledge ? Blit::kLedge : Blit::kRail;
+        level_editor_chains_state().draw_last_ = name;
+        level_editor_chains_state().pick_ = kOpCancel;
         *message = "Click to add points (Enter: finish)";
         return false;
     }
@@ -2406,8 +2444,8 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
             *message = "Select an end point to link";
             return false;
         }
-        g_pick = kOpLinkArm;
-        g_pick_from = name;
+        level_editor_chains_state().pick_ = kOpLinkArm;
+        level_editor_chains_state().pick_from_ = name;
         *message = "Click the end to link to (Esc: cancel)";
         return false;
     }
@@ -2418,41 +2456,41 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
 
 void start_drawing(Blit kind)
 {
-    g_draw = kind;
-    g_draw_last = 0;
-    g_pick = kOpCancel;
-    g_ladder_have_foot = false;
+    level_editor_chains_state().draw_ = kind;
+    level_editor_chains_state().draw_last_ = 0;
+    level_editor_chains_state().pick_ = kOpCancel;
+    level_editor_chains_state().ladder_have_foot_ = false;
 }
-Blit get_drawing() { return g_draw; }
+Blit get_drawing() { return level_editor_chains_state().draw_; }
 void stop_drawing()
 {
-    g_draw = Blit::kNone;
-    g_draw_last = 0;
-    g_ladder_have_foot = false;
+    level_editor_chains_state().draw_ = Blit::kNone;
+    level_editor_chains_state().draw_last_ = 0;
+    level_editor_chains_state().ladder_have_foot_ = false;
 }
 
 bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
 {
     *select = 0;
-    if (g_draw == Blit::kNone || !in_level())
+    if (level_editor_chains_state().draw_ == Blit::kNone || !in_level())
         return false;
-    if (end && !g_draw_last) {
+    if (end && !level_editor_chains_state().draw_last_) {
         // (the first click on an existing end: drawing goes on from it)
-        g_draw_last = end;
+        level_editor_chains_state().draw_last_ = end;
         *select = end;
         *message = "Click the next point";
         return false;
     }
-    const nodes::Family family = g_draw == Blit::kRouteWay ? nodes::Family::kRouteWay
-                                 : g_draw == Blit::kLedge  ? nodes::Family::kLadder
+    const nodes::Family family = level_editor_chains_state().draw_ == Blit::kRouteWay ? nodes::Family::kRouteWay
+                                 : level_editor_chains_state().draw_ == Blit::kLedge  ? nodes::Family::kLadder
                                                            : nodes::Family::kRail;
     State state = at_hand();
     Graph graph = graph_of(family);
-    if (g_draw_last && !graph.count(g_draw_last))
-        g_draw_last = 0; // (it went: a new chain)
-    if (end && g_draw_last && end != g_draw_last) {
+    if (level_editor_chains_state().draw_last_ && !graph.count(level_editor_chains_state().draw_last_))
+        level_editor_chains_state().draw_last_ = 0; // (it went: a new chain)
+    if (end && level_editor_chains_state().draw_last_ && end != level_editor_chains_state().draw_last_) {
         // (onto an existing end: linked, and the drawing done)
-        if (!get_link(&graph, g_draw_last, end)) {
+        if (!get_link(&graph, level_editor_chains_state().draw_last_, end)) {
             *message = "Can't link: no free end";
             return false;
         }
@@ -2461,21 +2499,21 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
         *select = end;
         return get_apply(state, message, "Linked onto that end - drawing finished");
     }
-    const Point p = append_rail_vertex(family, g_draw_last, at, state);
+    const Point p = append_rail_vertex(family, level_editor_chains_state().draw_last_, at, state);
     const uint32_t made = name_hash(p.name);
     state.points.push_back(p);
     graph[made] = {};
-    if (g_draw_last && !extend(&graph, g_draw_last, made)) {
+    if (level_editor_chains_state().draw_last_ && !extend(&graph, level_editor_chains_state().draw_last_, made)) {
         *message = "Not an end point: starting a new chain";
-        g_draw_last = 0;
+        level_editor_chains_state().draw_last_ = 0;
     }
     put_graph(&state, graph);
     if (!change_phase(state)) {
         *message = "Not in a level";
         return false;
     }
-    const bool first = g_draw_last == 0;
-    g_draw_last = made;
+    const bool first = level_editor_chains_state().draw_last_ == 0;
+    level_editor_chains_state().draw_last_ = made;
     *select = made;
     if (message->empty())
         *message = first ? (family == nodes::Family::kRouteWay ? "Path started (Enter: finish)"
@@ -2492,8 +2530,8 @@ bool add_rail(const std::vector<V3>& points, uint32_t cluster, std::string* mess
         *message = points.size() < 2 ? "A rail needs two points" : "Not in a level";
         return false;
     }
-    const Blit drawing = g_draw;
-    g_draw = Blit::kNone; // (append_rail_vertex: a plain rail, whatever is being drawn)
+    const Blit drawing = level_editor_chains_state().draw_;
+    level_editor_chains_state().draw_ = Blit::kNone; // (append_rail_vertex: a plain rail, whatever is being drawn)
     State state = at_hand();
     Graph graph = graph_of(nodes::Family::kRail);
     uint32_t last = 0, first = 0;
@@ -2510,7 +2548,7 @@ bool add_rail(const std::vector<V3>& points, uint32_t cluster, std::string* mess
             first = made;
         last = made;
     }
-    g_draw = drawing;
+    level_editor_chains_state().draw_ = drawing;
     put_graph(&state, graph);
     if (!change_phase(state)) {
         *message = "Not in a level";
@@ -2557,9 +2595,9 @@ bool ground_below(V3 at, float* ground_y)
 bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* select)
 {
     *select = 0;
-    if (g_draw != Blit::kLadder || !in_level())
+    if (level_editor_chains_state().draw_ != Blit::kLadder || !in_level())
         return false;
-    if (!g_ladder_have_foot) {
+    if (!level_editor_chains_state().ladder_have_foot_) {
         V3 hit{}, normal{};
         if (!cast_ray(from, from + dir * max_t, &hit, &normal)) {
             *message = "Click on a wall";
@@ -2570,24 +2608,24 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
             *message = "Click a wall to place the ladder's foot";
             return false;
         }
-        g_ladder_foot = foot;
-        g_ladder_facing = facing_into_wall(normal);
-        g_ladder_have_foot = true;
+        level_editor_chains_state().ladder_foot_ = foot;
+        level_editor_chains_state().ladder_facing_ = facing_into_wall(normal);
+        level_editor_chains_state().ladder_have_foot_ = true;
         *message = "Click to place the top";
         return false;
     }
     V3 top{};
-    if (!ladder_top(g_ladder_foot, from, dir, &top)) {
+    if (!ladder_top(level_editor_chains_state().ladder_foot_, from, dir, &top)) {
         *message = "Top must be at least 24 units above the foot";
         return false;
     }
     // The ladder: its foot linked to its top, both facing into the wall (as THUG2's own ladders).
     State state = at_hand();
-    Point foot = append_rail_vertex(nodes::Family::kLadder, 0, g_ladder_foot, state);
-    foot.facing = g_ladder_facing;
+    Point foot = append_rail_vertex(nodes::Family::kLadder, 0, level_editor_chains_state().ladder_foot_, state);
+    foot.facing = level_editor_chains_state().ladder_facing_;
     state.points.push_back(foot);
     Point upper = append_rail_vertex(nodes::Family::kLadder, 0, top, state);
-    upper.facing = g_ladder_facing;
+    upper.facing = level_editor_chains_state().ladder_facing_;
     state.points.back().links = {name_hash(upper.name)};
     state.points.push_back(upper);
     if (!change_phase(state)) {
@@ -2597,10 +2635,10 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
     stop_drawing();
     *select = name_hash(foot.name);
     std::array<char, 128> text{};
-    text::format_to(text, "Ladder added (%.0f high)", static_cast<double>(top.y - g_ladder_foot.y));
+    text::format_to(text, "Ladder added (%.0f high)", static_cast<double>(top.y - level_editor_chains_state().ladder_foot_.y));
     *message = text.data();
     get_log("level editor: added %s / %s (a ladder, facing %.0f degrees)", foot.name.c_str(), upper.name.c_str(),
-            static_cast<double>(node_edit::get_heading_degrees({.x = 0.0f, .y = g_ladder_facing, .z = 0.0f})));
+            static_cast<double>(node_edit::get_heading_degrees({.x = 0.0f, .y = level_editor_chains_state().ladder_facing_, .z = 0.0f})));
     return true;
 }
 
@@ -2608,7 +2646,7 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
 {
     *end = 0;
     V3 hit{}, normal{};
-    if (!cast_ray(from, from + dir * max_t, &hit, &normal, &g_snap_sector))
+    if (!cast_ray(from, from + dir * max_t, &hit, &normal, &level_editor_chains_state().snap_sector_))
         return false;
     *point = hit;
     if (!free) {
@@ -2625,16 +2663,16 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
             &snapped);
     }
     // A free end of a chain of the kind drawn, within 24: taken as it is.
-    if (g_draw != Blit::kNone) {
-        const nodes::Family family = g_draw == Blit::kRouteWay ? nodes::Family::kRouteWay
-                                     : g_draw == Blit::kLedge  ? nodes::Family::kLadder
+    if (level_editor_chains_state().draw_ != Blit::kNone) {
+        const nodes::Family family = level_editor_chains_state().draw_ == Blit::kRouteWay ? nodes::Family::kRouteWay
+                                     : level_editor_chains_state().draw_ == Blit::kLedge  ? nodes::Family::kLadder
                                                                : nodes::Family::kRail;
         const Graph graph = graph_of(family);
         float best = 24.0f * 24.0f;
         for (const auto& entry : graph) {
-            if (entry.first == g_draw_last || (!is_last(graph, entry.first) && !is_first(graph, entry.first)))
+            if (entry.first == level_editor_chains_state().draw_last_ || (!is_last(graph, entry.first) && !is_first(graph, entry.first)))
                 continue;
-            if (g_draw == Blit::kLedge && !is_ledge_node(entry.first))
+            if (level_editor_chains_state().draw_ == Blit::kLedge && !is_ledge_node(entry.first))
                 continue; // (a ledge links onto ledges, not ladders)
             const V3 at = place_of(entry.first);
             const V3 d = at - *point;
@@ -2650,14 +2688,14 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
     return true;
 }
 
-bool wants_pick() { return g_pick == kOpLinkArm || g_pick == kOpAssignArm; }
+bool wants_pick() { return level_editor_chains_state().pick_ == kOpLinkArm || level_editor_chains_state().pick_ == kOpAssignArm; }
 
 bool get_picked(uint32_t name, std::string* message, uint32_t* select)
 {
     *select = 0;
-    const Op pick = g_pick;
-    g_pick = kOpCancel;
-    const uint32_t from = g_pick_from;
+    const Op pick = level_editor_chains_state().pick_;
+    level_editor_chains_state().pick_ = kOpCancel;
+    const uint32_t from = level_editor_chains_state().pick_from_;
     if (pick == kOpLinkArm) {
         const nodes::Family family = family_of_name(from);
         if (family_of_name(name) != family) {
@@ -2694,18 +2732,18 @@ bool get_picked(uint32_t name, std::string* message, uint32_t* select)
 
 const char* get_waiting()
 {
-    if (g_pick == kOpLinkArm)
+    if (level_editor_chains_state().pick_ == kOpLinkArm)
         return "Click the end to link to (Esc: cancel)";
-    if (g_pick == kOpAssignArm)
+    if (level_editor_chains_state().pick_ == kOpAssignArm)
         return "Click the first waypoint (Esc: cancel)";
-    if (g_draw == Blit::kRail)
-        return g_draw_last ? "Rail: click the next point (Enter: finish)" : "Rail: click the first point";
-    if (g_draw == Blit::kRouteWay)
-        return g_draw_last ? "Path: click the next waypoint (Enter: finish)" : "Path: click the first waypoint";
-    if (g_draw == Blit::kLedge)
-        return g_draw_last ? "Ledge: click the next point (Enter: finish)" : "Ledge: click the first point on an edge";
-    if (g_draw == Blit::kLadder)
-        return g_ladder_have_foot ? "Ladder: click to place the top" : "Ladder: click a wall to place the foot";
+    if (level_editor_chains_state().draw_ == Blit::kRail)
+        return level_editor_chains_state().draw_last_ ? "Rail: click the next point (Enter: finish)" : "Rail: click the first point";
+    if (level_editor_chains_state().draw_ == Blit::kRouteWay)
+        return level_editor_chains_state().draw_last_ ? "Path: click the next waypoint (Enter: finish)" : "Path: click the first waypoint";
+    if (level_editor_chains_state().draw_ == Blit::kLedge)
+        return level_editor_chains_state().draw_last_ ? "Ledge: click the next point (Enter: finish)" : "Ledge: click the first point on an edge";
+    if (level_editor_chains_state().draw_ == Blit::kLadder)
+        return level_editor_chains_state().ladder_have_foot_ ? "Ladder: click to place the top" : "Ladder: click a wall to place the foot";
     return nullptr;
 }
 
@@ -2803,7 +2841,7 @@ View view_of(uint32_t name)
             if (view.trick_object_)
                 view.cluster = object_edit::caption(cluster);
             view.grind_flat_ =
-                std::ranges::find(g_level_flat, name) != g_level_flat.end() || (params && params->has_bare_flag(kFlag));
+                std::ranges::find(level_flat(), name) != level_flat().end() || (params && params->has_bare_flag(kFlag));
         }
         if (const objects::GrindPoint* rail = rail_node_named(name)) {
             for (size_t i = 0; i < view.terrains.size(); ++i) {

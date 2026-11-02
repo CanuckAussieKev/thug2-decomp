@@ -34,6 +34,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::view {
 
@@ -236,8 +237,18 @@ render::TriMeshSource* drawn_tri_data_of(uint32_t checksum, render::WorldCell* s
 
 V3 to_v3(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z}; }
 
-bool g_show_collision;
-bool g_setting_read;
+// NOT ORIGINAL grouping - level_editor_view.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_view_state()).
+struct LevelEditorViewState {
+    bool show_collision_{};
+    bool setting_read_{};
+};
+
+LevelEditorViewState& level_editor_view_state()
+{
+    static core::NoDestroy<LevelEditorViewState> state;
+    return state.get();
+}
 
 // The collision cache: a sector's faces in world space (3 points each) and their flags, made again when its collision
 // geometry, its box or its first and last vertices change (moved, or turned - a quarter turn can keep the box).
@@ -312,7 +323,11 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
     return &c;
 }
 
-uint32_t g_hover_wall; // (Shift held with the collision shown: the wall a Shift+click would take)
+uint32_t& stored_hover_wall()
+{
+    static uint32_t hover_wall{}; // (Shift held with the collision shown: the wall a Shift+click would take)
+    return hover_wall;
+}
 
 // What was drawn last frame (for Shift+click on a wall): each face's sector and points.
 struct Drawn {
@@ -322,9 +337,19 @@ struct Drawn {
     int face = -1;          // (its index in its collision - level_editor_faces.h)
     bool companion = false; // (a moved piece's shared collision: not a wall's, never Shift+clicked)
 };
-std::vector<Drawn> g_drawn;
-Attributes g_stats;
-uint32_t g_wall;
+// NOT ORIGINAL grouping - what was drawn, the stats and the wall (were globals). Made on first use, never destroyed
+// (view_stats()).
+struct ViewStats {
+    std::vector<Drawn> drawn_{};
+    Attributes stats_{};
+    uint32_t wall_{};
+};
+
+ViewStats& view_stats()
+{
+    static core::NoDestroy<ViewStats> state;
+    return state.get();
+}
 
 // --- hiding ---
 
@@ -337,8 +362,18 @@ struct HiddenObjectRec {
     uint32_t id;
     std::vector<std::pair<void*, bool>> geoms; // (each geometry and whether it was on)
 };
-std::vector<HiddenSectorRec> g_hidden_sectors;
-std::vector<HiddenObjectRec> g_concealed_records;
+// NOT ORIGINAL grouping - the hidden sectors and the records concealed (were globals). Made on first use, never
+// destroyed (hidden_sectors()).
+struct HiddenSectors {
+    std::vector<HiddenSectorRec> hidden_sectors_{};
+    std::vector<HiddenObjectRec> concealed_records_{};
+};
+
+HiddenSectors& hidden_sectors()
+{
+    static core::NoDestroy<HiddenSectors> state;
+    return state.get();
+}
 
 // WorldCell::toggle_shown (0x0049E680, thiscall, RET 4) / fetch_shown (0x0049E690): the viewports it shows in.
 void toggle_shown(render::WorldCell* sector, uint32_t mask) { sector->toggle_shown(mask); }
@@ -361,7 +396,7 @@ bool hide_sector(uint32_t checksum)
     render::WorldCell* sector = scenery::sector_of(checksum);
     if (!sector || !geom_of(sector))
         return false; // (collision only: nothing drawn to hide)
-    g_hidden_sectors.push_back({.checksum = checksum, .sector = sector, .mask = fetch_shown(sector)});
+    hidden_sectors().hidden_sectors_.push_back({.checksum = checksum, .sector = sector, .mask = fetch_shown(sector)});
     toggle_shown(sector, 0);
     return true;
 }
@@ -383,7 +418,7 @@ bool hide_object(uint32_t id)
     }
     if (rec.geoms.empty())
         return false;
-    g_concealed_records.push_back(rec);
+    hidden_sectors().concealed_records_.push_back(rec);
     return true;
 }
 
@@ -402,34 +437,34 @@ void collect_object(objects::Entity* object, void* data)
 
 void kickoff()
 {
-    if (!g_setting_read) {
-        g_show_collision = config_int("editor", "collision", 0) != 0;
-        g_setting_read = true;
+    if (!level_editor_view_state().setting_read_) {
+        level_editor_view_state().show_collision_ = config_int("editor", "collision", 0) != 0;
+        level_editor_view_state().setting_read_ = true;
     }
     cache_state().clear();
-    g_drawn.clear();
-    g_wall = 0;
-    g_hover_wall = 0;
-    g_hidden_sectors.clear();
-    g_concealed_records.clear();
+    view_stats().drawn_.clear();
+    view_stats().wall_ = 0;
+    stored_hover_wall() = 0;
+    hidden_sectors().hidden_sectors_.clear();
+    hidden_sectors().concealed_records_.clear();
 }
 
 void halt()
 {
     show_all();
     cache_state().clear();
-    g_drawn.clear();
-    g_wall = 0;
+    view_stats().drawn_.clear();
+    view_stats().wall_ = 0;
 }
 
 void tick()
 {
     // (the model's suspend pass turns its geometries on when its decision changes: off again)
-    for (size_t i = 0; i < g_concealed_records.size();) {
-        const HiddenObjectRec& rec = core::at(g_concealed_records, i);
+    for (size_t i = 0; i < hidden_sectors().concealed_records_.size();) {
+        const HiddenObjectRec& rec = core::at(hidden_sectors().concealed_records_, i);
         objects::GameEntity* object = live_object(rec.id);
         if (!object) {
-            g_concealed_records.erase(g_concealed_records.begin() + static_cast<long>(i));
+            hidden_sectors().concealed_records_.erase(hidden_sectors().concealed_records_.begin() + static_cast<long>(i));
             continue;
         }
         for (int g = 0; std::cmp_less(g, rec.geoms.size()); ++g) {
@@ -441,23 +476,23 @@ void tick()
     }
 }
 
-bool show_collision() { return g_show_collision; }
+bool show_collision() { return level_editor_view_state().show_collision_; }
 
 void set_show_collision(bool on)
 {
-    g_show_collision = on;
-    g_setting_read = true;
+    level_editor_view_state().show_collision_ = on;
+    level_editor_view_state().setting_read_ = true;
     config_set_int("editor", "collision", on ? 1 : 0);
     if (!on)
-        g_drawn.clear();
+        view_stats().drawn_.clear();
 }
 
 void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
                    std::vector<ui::Overlay::Triangle>* triangles, std::vector<ui::Seg>* lines)
 {
-    g_drawn.clear();
-    g_stats = {};
-    if (!g_show_collision)
+    view_stats().drawn_.clear();
+    view_stats().stats_ = {};
+    if (!level_editor_view_state().show_collision_)
         return;
     // The sectors near enough, nearest first (invisible walls before the rest: never left out by the cap).
     struct Candidate {
@@ -484,7 +519,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
             const V3 min = to_v3(tri->bounds_.min);
             const V3 max = to_v3(tri->bounds_.max);
             const float distance = distance_to_box(w->camera, min, max);
-            if (distance > (wall ? kWallRadius : kRadius) && checksum != g_wall)
+            if (distance > (wall ? kWallRadius : kRadius) && checksum != view_stats().wall_)
                 return;
             // (wholly behind the camera: left out)
             bool front = false;
@@ -494,7 +529,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
             }
             if (!front)
                 return;
-            w->found.push_back({.checksum = checksum, .sector = sector, .tri = tri, .order = wall || checksum == g_wall ? distance - 1e7f : distance, .off = off});
+            w->found.push_back({.checksum = checksum, .sector = sector, .tri = tri, .order = wall || checksum == view_stats().wall_ ? distance - 1e7f : distance, .off = off});
         },
         &walk);
     std::ranges::sort(walk.found, [](const Candidate& a, const Candidate& b) { return a.order < b.order; });
@@ -562,15 +597,15 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         trigger_colours[t.sector] = triggers::kind_colour(t.kind);
     for (const Candidate& candidate : walk.found) {
         if (static_cast<int>(polygons.size()) >= kMaxTriangles) {
-            g_stats.capped = true;
+            view_stats().stats_.capped = true;
             break;
         }
         const Cached* cached = cache_of(candidate.checksum, candidate.sector, candidate.tri);
         FaceFacts facts;
         facts.collision_only_ = cached->collision_only_;
         facts.off = candidate.off;
-        facts.selected = candidate.checksum == g_wall;
-        facts.hovered = candidate.checksum == g_hover_wall;
+        facts.selected = candidate.checksum == view_stats().wall_;
+        facts.hovered = candidate.checksum == stored_hover_wall();
         auto trigger = trigger_colours.find(candidate.checksum);
         facts.trigger_colour_ = trigger == trigger_colours.end() ? 0 : trigger->second;
         bool any = false;
@@ -583,15 +618,15 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
             // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it;
             // nor is a face taken along - its piece's companion is where it is now)
             if ((cached->collision_only_ || !candidate.off) && !facts.taken)
-                g_drawn.push_back({.checksum = candidate.checksum, .wall = cached->collision_only_, .a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .face = core::at(cached->index, f)});
+                view_stats().drawn_.push_back({.checksum = candidate.checksum, .wall = cached->collision_only_, .a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .face = core::at(cached->index, f)});
             any = true;
-            g_stats.taken += facts.taken ? 1 : 0;
-            g_stats.triggers += (facts.flags & 0x40) && facts.trigger_colour_ ? 1 : 0;
+            view_stats().stats_.taken += facts.taken ? 1 : 0;
+            view_stats().stats_.triggers += (facts.flags & 0x40) && facts.trigger_colour_ ? 1 : 0;
         }
         if (any) {
-            ++g_stats.sectors;
-            g_stats.walls += cached->collision_only_ ? 1 : 0;
-            g_stats.off += candidate.off ? 1 : 0;
+            ++view_stats().stats_.sectors;
+            view_stats().stats_.walls += cached->collision_only_ ? 1 : 0;
+            view_stats().stats_.off += candidate.off ? 1 : 0;
         }
     }
     // The moved pieces' shared collision where it is now (level_editor_shared_coll.h - not a sector's: drawn apart).
@@ -626,10 +661,10 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
             facts.companion = true;
             const bool drawn = ok && add_face(p, facts);
             if (drawn)
-                g_drawn.push_back({.checksum = entry.first, .wall = false, .a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .face = f, .companion = true});
+                view_stats().drawn_.push_back({.checksum = entry.first, .wall = false, .a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .face = f, .companion = true});
             any = drawn || any;
         }
-        g_stats.companions += any ? 1 : 0;
+        view_stats().stats_.companions += any ? 1 : 0;
     }
     // Far to near: the nearer faces painted over the farther.
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
@@ -639,16 +674,16 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         if (p.count == 4)
             triangles->push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 2), .by = core::at(p.y, 2), .cx = core::at(p.x, 3), .cy = core::at(p.y, 3), .argb = p.argb});
     }
-    g_stats.triangles = static_cast<int>(polygons.size());
+    view_stats().stats_.triangles = static_cast<int>(polygons.size());
 }
 
-Attributes last_stats() { return g_stats; }
+Attributes last_stats() { return view_stats().stats_; }
 
 uint32_t pick_wall(V3 origin, V3 unit_dir)
 {
     float best = 1e30f;
     const Drawn* nearest = nullptr;
-    for (const Drawn& d : g_drawn) {
+    for (const Drawn& d : view_stats().drawn_) {
         float t = 0.0f;
         if (d.companion)
             continue; // (as before the face flags: a wall's faces only compete with sectors' faces)
@@ -664,7 +699,7 @@ bool pick_face(V3 origin, V3 unit_dir, FaceHit* hit)
 {
     float best = 1e30f;
     const Drawn* nearest = nullptr;
-    for (const Drawn& d : g_drawn) {
+    for (const Drawn& d : view_stats().drawn_) {
         float t = 0.0f;
         if (d.face >= 0 && picking::ray_triangle(origin, unit_dir, d.a, d.b, d.c, &t) && t < best) {
             best = t;
@@ -682,11 +717,11 @@ bool pick_face(V3 origin, V3 unit_dir, FaceHit* hit)
 
 void stale_cache() { cache_state().clear(); }
 
-void set_hover_wall(uint32_t checksum) { g_hover_wall = g_show_collision ? checksum : 0; }
-uint32_t hover_wall() { return g_hover_wall; }
-void select_wall(uint32_t checksum) { g_wall = checksum; }
-uint32_t selected_wall() { return g_wall; }
-void clear_wall() { g_wall = 0; }
+void set_hover_wall(uint32_t checksum) { stored_hover_wall() = level_editor_view_state().show_collision_ ? checksum : 0; }
+uint32_t hover_wall() { return stored_hover_wall(); }
+void select_wall(uint32_t checksum) { view_stats().wall_ = checksum; }
+uint32_t selected_wall() { return view_stats().wall_; }
+void clear_wall() { view_stats().wall_ = 0; }
 
 std::string describe_wall(uint32_t checksum)
 {
@@ -724,12 +759,12 @@ std::string describe_wall(uint32_t checksum)
 
 bool hidden_sector(uint32_t checksum)
 {
-    return std::ranges::any_of(g_hidden_sectors, [&](const HiddenSectorRec& r) { return r.checksum == checksum; });
+    return std::ranges::any_of(hidden_sectors().hidden_sectors_, [&](const HiddenSectorRec& r) { return r.checksum == checksum; });
 }
 
 bool hidden_object(uint32_t id)
 {
-    return std::ranges::any_of(g_concealed_records, [&](const HiddenObjectRec& r) { return r.id == id; });
+    return std::ranges::any_of(hidden_sectors().concealed_records_, [&](const HiddenObjectRec& r) { return r.id == id; });
 }
 
 int conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
@@ -741,7 +776,7 @@ int conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& o
         hidden += hide_object(id) ? 1 : 0;
     if (debug_enabled())
         get_log("level editor: view - hid %d (%d sectors, %d objects hidden in all)", hidden,
-                static_cast<int>(g_hidden_sectors.size()), static_cast<int>(g_concealed_records.size()));
+                static_cast<int>(hidden_sectors().hidden_sectors_.size()), static_cast<int>(hidden_sectors().concealed_records_.size()));
     return hidden;
 }
 
@@ -764,11 +799,11 @@ int get_isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t
 
 void show_all()
 {
-    for (const HiddenSectorRec& rec : g_hidden_sectors) {
+    for (const HiddenSectorRec& rec : hidden_sectors().hidden_sectors_) {
         if (scenery::sector_of(rec.checksum) == rec.sector && geom_of(rec.sector))
             toggle_shown(rec.sector, rec.mask);
     }
-    g_hidden_sectors.clear();
+    hidden_sectors().hidden_sectors_.clear();
     // (a copy made of a hidden piece - picked in the Outliner - copied its visibility too: shown as its source is)
     for (const scenery::Replicate& clone : scenery::get_clones()) {
         render::WorldCell* copy = scenery::sector_of(clone.checksum);
@@ -776,7 +811,7 @@ void show_all()
         if (copy && source && geom_of(copy) && geom_of(source) && fetch_shown(copy) == 0 && fetch_shown(source) != 0)
             toggle_shown(copy, fetch_shown(source));
     }
-    for (const HiddenObjectRec& rec : g_concealed_records) {
+    for (const HiddenObjectRec& rec : hidden_sectors().concealed_records_) {
         objects::GameEntity* object = live_object(rec.id);
         for (int g = 0; object && std::cmp_less(g, rec.geoms.size()); ++g) {
             void* geom = object_edit::get_geometry(object, g);
@@ -784,23 +819,23 @@ void show_all()
                 set_geom_active(geom, core::at(rec.geoms, g).second);
         }
     }
-    g_concealed_records.clear();
+    hidden_sectors().concealed_records_.clear();
 }
 
 int get_show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& objects)
 {
     int shown = 0;
-    for (auto it = g_hidden_sectors.begin(); it != g_hidden_sectors.end();) {
+    for (auto it = hidden_sectors().hidden_sectors_.begin(); it != hidden_sectors().hidden_sectors_.end();) {
         if (std::ranges::find(sectors, it->checksum) == sectors.end()) {
             ++it;
             continue;
         }
         if (scenery::sector_of(it->checksum) == it->sector && geom_of(it->sector))
             toggle_shown(it->sector, it->mask);
-        it = g_hidden_sectors.erase(it);
+        it = hidden_sectors().hidden_sectors_.erase(it);
         ++shown;
     }
-    for (auto it = g_concealed_records.begin(); it != g_concealed_records.end();) {
+    for (auto it = hidden_sectors().concealed_records_.begin(); it != hidden_sectors().concealed_records_.end();) {
         if (std::ranges::find(objects, it->id) == objects.end()) {
             ++it;
             continue;
@@ -811,21 +846,21 @@ int get_show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& 
             if (geom && geom == core::at(it->geoms, g).first)
                 set_geom_active(geom, core::at(it->geoms, g).second);
         }
-        it = g_concealed_records.erase(it);
+        it = hidden_sectors().concealed_records_.erase(it);
         ++shown;
     }
     return shown;
 }
 
-int hidden_count() { return static_cast<int>(g_hidden_sectors.size() + g_concealed_records.size()); }
+int hidden_count() { return static_cast<int>(hidden_sectors().hidden_sectors_.size() + hidden_sectors().concealed_records_.size()); }
 
 std::vector<uint32_t> hidden_ids()
 {
     std::vector<uint32_t> ids;
-    ids.reserve(g_hidden_sectors.size());
-    for (const HiddenSectorRec& rec : g_hidden_sectors)
+    ids.reserve(hidden_sectors().hidden_sectors_.size());
+    for (const HiddenSectorRec& rec : hidden_sectors().hidden_sectors_)
         ids.push_back(rec.checksum);
-    for (const HiddenObjectRec& rec : g_concealed_records)
+    for (const HiddenObjectRec& rec : hidden_sectors().concealed_records_)
         ids.push_back(rec.id);
     return ids;
 }

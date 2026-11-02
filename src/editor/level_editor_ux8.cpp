@@ -29,6 +29,7 @@
 #include "editor/level_editor_ux8_pie.h"
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::ux8 {
 
@@ -41,26 +42,47 @@ struct Ids {
     std::array<int, nav::kQuickSets> recall = {};
 } g_ids;
 
-bool g_pad_mode;
-bool g_pad_owns; // (the crosshair is the cursor)
-bool g_following;
-nav::Follower g_follower;
-bool g_walking;
-nav::Walker g_walker;
-uint32_t g_last_empty_click;
-float g_last_empty_x;
-float g_last_empty_y;
-bool g_have_empty_click;
+// NOT ORIGINAL grouping - level_editor_ux8.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_ux8_state()).
+struct LevelEditorUx8State {
+    bool pad_mode_{};
+    bool pad_owns_{}; // (the crosshair is the cursor)
+    bool following_{};
+    nav::Follower follower_{};
+    bool walking_{};
+    nav::Walker walker_{};
+    uint32_t last_empty_click_{};
+    float last_empty_x_{};
+    float last_empty_y_{};
+    bool have_empty_click_{};
+};
+
+LevelEditorUx8State& level_editor_ux8_state()
+{
+    static core::NoDestroy<LevelEditorUx8State> state;
+    return state.get();
+}
+
 struct GlideState {
     bool on = false;
     V3 from = {}, to = {};
     float t = 0.0f;
 } g_glide;
 
-pie::State g_pie;
-float g_view_x;
-float g_view_y;
-bool g_have_view_centre;
+// NOT ORIGINAL grouping - the pie menu and the view's centre (were globals). Made on first use, never destroyed
+// (pie_menu()).
+struct PieMenu {
+    pie::State pie_{};
+    float view_x_{};
+    float view_y_{};
+    bool have_view_centre_{};
+};
+
+PieMenu& pie_menu()
+{
+    static core::NoDestroy<PieMenu> state;
+    return state.get();
+}
 
 std::string ini_path() { return game_folder_path("thug2-decomp.ini"); }
 
@@ -184,12 +206,12 @@ void register_actions()
                             "Walk at skater height with gravity");
     g_ids.follow =
         append_one("follow_selection", "Follow Selection", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_F, kShift)},
-                   "Keep the camera on the selection as it moves", nullptr, [] { return g_following ? 1 : 0; });
+                   "Keep the camera on the selection as it moves", nullptr, [] { return level_editor_ux8_state().following_ ? 1 : 0; });
     g_ids.teleport = append_one("teleport", "Go to Cursor", "Camera", Kind::kPress, {},
                                 "Move the camera to the surface under the cursor");
     g_ids.pad = append_one(
         "controller_mode", "Controller Mode", "Settings", Kind::kFlipOver, {}, "Use a game controller in the editor",
-        [] { set_pad_mode(!g_pad_mode); }, [] { return g_pad_mode ? 1 : 0; });
+        [] { set_pad_mode(!level_editor_ux8_state().pad_mode_); }, [] { return level_editor_ux8_state().pad_mode_ ? 1 : 0; });
     for (int i = 0; i < nav::kQuickSets; ++i) {
         const std::string n = std::to_string(i + 1);
         const std::string store_id = "quick_set_store_" + n;
@@ -219,30 +241,30 @@ void prepare_all()
     if (done)
         return;
     done = true;
-    g_pad_mode = GetPrivateProfileIntA("editor", "pad", 0, ini_path().c_str()) != 0;
+    level_editor_ux8_state().pad_mode_ = GetPrivateProfileIntA("editor", "pad", 0, ini_path().c_str()) != 0;
     register_actions();
 }
 
 void kickoff()
 {
-    g_pie = pie::State{};
-    g_walking = false;
-    g_following = false;
-    g_follower = {};
+    pie_menu().pie_ = pie::State{};
+    level_editor_ux8_state().walking_ = false;
+    level_editor_ux8_state().following_ = false;
+    level_editor_ux8_state().follower_ = {};
     g_glide = {};
-    g_have_empty_click = false;
-    g_pad_owns = false;
+    level_editor_ux8_state().have_empty_click_ = false;
+    level_editor_ux8_state().pad_owns_ = false;
 }
 
 void halt() { kickoff(); }
 
 // --- the controller ---
 
-bool pad_mode() { return g_pad_mode; }
+bool pad_mode() { return level_editor_ux8_state().pad_mode_; }
 
 void set_pad_mode(bool on)
 {
-    g_pad_mode = on;
+    level_editor_ux8_state().pad_mode_ = on;
     WritePrivateProfileStringA("editor", "pad", on ? "1" : "0", ini_path().c_str());
     get_say(on ? "Controller mode on" : "Controller mode off");
 }
@@ -263,16 +285,20 @@ SDL_GameController* find_controller()
 }
 
 constexpr float kDeadzone = 0.22f;
-uint32_t g_pad_was; // (the buttons down last frame: bit per SDL_GameControllerButton)
+uint32_t& pad_was()
+{
+    static uint32_t pad_was{}; // (the buttons down last frame: bit per SDL_GameControllerButton)
+    return pad_was;
+}
 
 } // namespace
 
 Pad read_pad()
 {
     Pad p;
-    SDL_GameController* c = g_pad_mode ? find_controller() : nullptr;
+    SDL_GameController* c = level_editor_ux8_state().pad_mode_ ? find_controller() : nullptr;
     if (!c) {
-        g_pad_was = 0;
+        pad_was() = 0;
         return p;
     }
     p.active = true;
@@ -288,8 +314,8 @@ Pad read_pad()
         if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b)))
             now |= 1u << b;
     }
-    uint32_t pressed = now & ~g_pad_was, released = g_pad_was & ~now;
-    g_pad_was = now;
+    uint32_t pressed = now & ~pad_was(), released = pad_was() & ~now;
+    pad_was() = now;
     auto down = [&](SDL_GameControllerButton b) { return (now >> b & 1u) != 0; };
     auto press = [&](SDL_GameControllerButton b) { return (pressed >> b & 1u) != 0; };
     p.a_down_ = down(SDL_CONTROLLER_BUTTON_A);
@@ -351,17 +377,17 @@ platform::KeyState pad_keys(platform::KeyState keys, const Pad& pad)
 bool get_pad_cursor(const Pad& pad, bool mouse_moved, float* x, float* y)
 {
     if (!pad.active) {
-        g_pad_owns = false;
+        level_editor_ux8_state().pad_owns_ = false;
         return false;
     }
     if (mouse_moved)
-        g_pad_owns = false;
+        level_editor_ux8_state().pad_owns_ = false;
     if (pad.used)
-        g_pad_owns = true;
-    if (!g_pad_owns || !g_have_view_centre)
+        level_editor_ux8_state().pad_owns_ = true;
+    if (!level_editor_ux8_state().pad_owns_ || !pie_menu().have_view_centre_)
         return false;
-    *x = g_view_x;
-    *y = g_view_y;
+    *x = pie_menu().view_x_;
+    *y = pie_menu().view_y_;
     return true;
 }
 
@@ -369,7 +395,7 @@ bool pad_cancel(const Pad& pad)
 {
     if (!pad.active)
         return false;
-    if (g_pie.open)
+    if (pie_menu().pie_.open)
         return false; // (the pie takes B)
     if (pad.back)
         actions::fire_off(actions::kUndo);
@@ -379,7 +405,7 @@ bool pad_cancel(const Pad& pad)
         actions::fire_off(actions::kTurnRight);
     if (pad.r3)
         actions::fire_off(actions::kFrameSelection);
-    return pad.b && !g_walking;
+    return pad.b && !level_editor_ux8_state().walking_;
 }
 
 // --- once a frame ---
@@ -388,22 +414,22 @@ namespace {
 
 void open_pie(pie::Kind kind, bool have_selection, float x, float y, int key, bool pad_button)
 {
-    g_pie = pie::State{};
-    g_pie.open = true;
-    g_pie.kind = kind;
-    g_pie.items = kind == pie::Kind::kView ? pie::view_items() : pie::context_items(have_selection);
-    g_pie.x = x;
-    g_pie.y = y;
-    g_pie.key = key;
-    g_pie.pad_button_ = pad_button;
-    g_pie.opened_at_ = SDL_GetTicks();
+    pie_menu().pie_ = pie::State{};
+    pie_menu().pie_.open = true;
+    pie_menu().pie_.kind = kind;
+    pie_menu().pie_.items = kind == pie::Kind::kView ? pie::view_items() : pie::context_items(have_selection);
+    pie_menu().pie_.x = x;
+    pie_menu().pie_.y = y;
+    pie_menu().pie_.key = key;
+    pie_menu().pie_.pad_button_ = pad_button;
+    pie_menu().pie_.opened_at_ = SDL_GetTicks();
 }
 
 void run_slice()
 {
-    const int at = g_pie.hovered;
-    std::vector<pie::Item> items = g_pie.items;
-    g_pie.open = false;
+    const int at = pie_menu().pie_.hovered;
+    std::vector<pie::Item> items = pie_menu().pie_.items;
+    pie_menu().pie_.open = false;
     if (at < 0 || std::cmp_greater_equal(at, items.size()) || !core::at(items, at).enabled())
         return;
     if (core::at(items, at).edits)
@@ -427,23 +453,23 @@ void tick_frame(TickCycle& f)
     }
     // The follow camera: on frames the selection (F) and keeps with it.
     if (squeezed(g_ids.follow) && !f.dragging) {
-        if (g_following) {
-            g_following = false;
+        if (level_editor_ux8_state().following_) {
+            level_editor_ux8_state().following_ = false;
             get_say("Follow off");
         } else if (!f.have_selection_) {
             get_say("Nothing selected");
         } else {
-            g_following = true;
-            g_follower = {};
+            level_editor_ux8_state().following_ = true;
+            level_editor_ux8_state().follower_ = {};
             fire_off(kFrameSelection);
             get_say("Following selection");
         }
     }
     // The pies.
-    const bool pad_open = f.pad.active && (f.pad.x || f.pad.y) && !g_pie.open;
+    const bool pad_open = f.pad.active && (f.pad.x || f.pad.y) && !pie_menu().pie_.open;
     const bool key_context = squeezed(g_ids.pie_context_);
     const bool key_view = squeezed(g_ids.pie_view_);
-    if ((key_context || key_view || pad_open) && !g_pie.open && !f.right && !f.dragging && !f.browser && !g_walking &&
+    if ((key_context || key_view || pad_open) && !pie_menu().pie_.open && !f.right && !f.dragging && !f.browser && !level_editor_ux8_state().walking_ &&
         ui::underway()) { // (drawn by the UI: the old HUD has no pies)
         // ([editor] wasd_flies=1: a pie key that's also a fly key held flies)
         const bool flying = xform::fly_always() && !pad_open &&
@@ -451,9 +477,9 @@ void tick_frame(TickCycle& f)
                              get_held(f.keys, kBack) || get_held(f.keys, kLeft) || get_held(f.keys, kRight));
         if (!flying) {
             float x = f.mouse_x_, y = f.mouse_y_;
-            if (pad_open && g_have_view_centre) {
-                x = g_view_x;
-                y = g_view_y;
+            if (pad_open && pie_menu().have_view_centre_) {
+                x = pie_menu().view_x_;
+                y = pie_menu().view_y_;
             }
             if (pad_open)
                 open_pie(f.pad.y ? pie::Kind::kView : pie::Kind::kCtxInfo, f.have_selection_, x, y, -1, true);
@@ -462,22 +488,22 @@ void tick_frame(TickCycle& f)
                          key_view ? g_ids.pie_view_ : g_ids.pie_context_, false);
         }
     }
-    if (!g_pie.open)
+    if (!pie_menu().pie_.open)
         return;
     // Pointing: the mouse (or the left stick) from the centre.
-    float dx = f.mouse_x_ - g_pie.x, dy = f.mouse_y_ - g_pie.y;
-    if (g_pie.pad_button_ || (f.pad.active && (f.pad.move_x_ != 0 || f.pad.move_y_ != 0))) {
+    float dx = f.mouse_x_ - pie_menu().pie_.x, dy = f.mouse_y_ - pie_menu().pie_.y;
+    if (pie_menu().pie_.pad_button_ || (f.pad.active && (f.pad.move_x_ != 0 || f.pad.move_y_ != 0))) {
         dx = f.pad.move_x_ * 100.0f;
         dy = -f.pad.move_y_ * 100.0f;
     }
-    g_pie.hovered = nav::slice_at(dx, dy, static_cast<int>(g_pie.items.size()), pie::kDeadzone);
+    pie_menu().pie_.hovered = nav::slice_at(dx, dy, static_cast<int>(pie_menu().pie_.items.size()), pie::kDeadzone);
     const bool clicked = f.left_presses_ && *f.left_presses_ > 0;
     if (f.left_presses_)
         *f.left_presses_ = 0; // (the view doesn't see clicks while a pie is up)
     if (f.left_releases_)
         *f.left_releases_ = 0;
     if (f.right || (f.pad.active && f.pad.b)) {
-        g_pie.open = false;
+        pie_menu().pie_.open = false;
         return;
     }
     if (clicked || (f.pad.active && f.pad.a_presses_)) {
@@ -485,11 +511,11 @@ void tick_frame(TickCycle& f)
         return;
     }
     // Letting go of its key / button: a hold runs what's pointed at; a tap keeps it up for a click.
-    const bool held = g_pie.pad_button_ ? (g_pie.kind == pie::Kind::kView ? f.pad.y_down_ : f.pad.x_down_)
-                                        : g_pie.key >= 0 && get_held(f.keys, g_pie.key);
-    if (!held && !g_pie.sticky) {
-        if (SDL_GetTicks() - g_pie.opened_at_ < nav::kPieTapMs && g_pie.hovered < 0)
-            g_pie.sticky = true;
+    const bool held = pie_menu().pie_.pad_button_ ? (pie_menu().pie_.kind == pie::Kind::kView ? f.pad.y_down_ : f.pad.x_down_)
+                                        : pie_menu().pie_.key >= 0 && get_held(f.keys, pie_menu().pie_.key);
+    if (!held && !pie_menu().pie_.sticky) {
+        if (SDL_GetTicks() - pie_menu().pie_.opened_at_ < nav::kPieTapMs && pie_menu().pie_.hovered < 0)
+            pie_menu().pie_.sticky = true;
         else
             run_slice();
     }
@@ -497,37 +523,37 @@ void tick_frame(TickCycle& f)
 
 bool get_cancel()
 {
-    if (g_pie.open) {
-        g_pie.open = false;
+    if (pie_menu().pie_.open) {
+        pie_menu().pie_.open = false;
         return true;
     }
-    if (g_walking) {
-        g_walking = false;
+    if (level_editor_ux8_state().walking_) {
+        level_editor_ux8_state().walking_ = false;
         get_say("Walk mode off");
         return true;
     }
     return false;
 }
 
-bool wants_escape() { return g_pie.open || g_walking; }
+bool wants_escape() { return pie_menu().pie_.open || level_editor_ux8_state().walking_; }
 
-bool get_following() { return g_following; }
-nav::Follower& get_follower() { return g_follower; }
+bool get_following() { return level_editor_ux8_state().following_; }
+nav::Follower& get_follower() { return level_editor_ux8_state().follower_; }
 
-bool on_foot() { return g_walking; }
+bool on_foot() { return level_editor_ux8_state().walking_; }
 void set_walking(bool on, V3 camera)
 {
-    g_walking = on;
-    g_pie.open = false;
+    level_editor_ux8_state().walking_ = on;
+    pie_menu().pie_.open = false;
     if (on) {
-        g_walker = nav::walker_at(camera);
+        level_editor_ux8_state().walker_ = nav::walker_at(camera);
         g_glide.on = false;
         get_say("Walk Mode: WASD walk, Space jump, Shift run, Esc exit", 5.0);
     } else {
         get_say("Walk mode off");
     }
 }
-nav::Walker& walker_state() { return g_walker; }
+nav::Walker& walker_state() { return level_editor_ux8_state().walker_; }
 
 bool take_walk_toggle() { return actions::squeezed(g_ids.walk); }
 bool take_teleport() { return actions::squeezed(g_ids.teleport); }
@@ -535,11 +561,11 @@ bool take_teleport() { return actions::squeezed(g_ids.teleport); }
 bool note_empty_click(uint32_t now, float x, float y)
 {
     const bool twice =
-        g_have_empty_click && nav::is_double_click(g_last_empty_click, g_last_empty_x, g_last_empty_y, now, x, y);
-    g_have_empty_click = !twice;
-    g_last_empty_click = now;
-    g_last_empty_x = x;
-    g_last_empty_y = y;
+        level_editor_ux8_state().have_empty_click_ && nav::is_double_click(level_editor_ux8_state().last_empty_click_, level_editor_ux8_state().last_empty_x_, level_editor_ux8_state().last_empty_y_, now, x, y);
+    level_editor_ux8_state().have_empty_click_ = !twice;
+    level_editor_ux8_state().last_empty_click_ = now;
+    level_editor_ux8_state().last_empty_x_ = x;
+    level_editor_ux8_state().last_empty_y_ = y;
     return twice;
 }
 
@@ -565,17 +591,17 @@ bool glide(V3* pos, double seconds)
 
 void stop_glide() { g_glide.on = false; }
 
-bool pie_open() { return g_pie.open; }
-bool pie_sticky() { return g_pie.sticky; }
+bool pie_open() { return pie_menu().pie_.open; }
+bool pie_sticky() { return pie_menu().pie_.sticky; }
 
 // (for the UI file)
-const pie::State& pie_now() { return g_pie; }
+const pie::State& pie_now() { return pie_menu().pie_; }
 void note_view_centre(float x, float y)
 {
-    g_view_x = x;
-    g_view_y = y;
-    g_have_view_centre = true;
+    pie_menu().view_x_ = x;
+    pie_menu().view_y_ = y;
+    pie_menu().have_view_centre_ = true;
 }
-bool pad_owns_cursor() { return g_pad_mode && g_pad_owns; }
+bool pad_owns_cursor() { return level_editor_ux8_state().pad_mode_ && level_editor_ux8_state().pad_owns_; }
 
 } // namespace frontend::level_editor::ux8

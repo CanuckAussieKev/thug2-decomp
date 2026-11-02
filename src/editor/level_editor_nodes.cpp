@@ -27,6 +27,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::nodes {
 
@@ -192,13 +193,24 @@ constexpr uint32_t kLinks = 0x2E7D5EE7;  // links
 constexpr uint32_t kPos = 0x7F261953;    // pos
 constexpr uint32_t kAngles = 0x9D2D0915; // angles
 
-std::vector<Elem> g_nodes;
+// NOT ORIGINAL grouping - level_editor_nodes.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_nodes_state()).
+struct LevelEditorNodesState {
+    std::vector<Elem> nodes_{};
+    std::array<int, kFamilies> counts_{};
+};
+
+LevelEditorNodesState& level_editor_nodes_state()
+{
+    static core::NoDestroy<LevelEditorNodesState> state;
+    return state.get();
+}
+
 std::unordered_map<uint32_t, int>& by_name()
 {
     static std::unordered_map<uint32_t, int> value;
     return value;
 }
-std::array<int, kFamilies> g_counts;
 // The node arrays as last scanned: each one's name, size and script array.
 struct ArraySignature {
     uint32_t label;
@@ -206,10 +218,20 @@ struct ArraySignature {
     const script::Array* nodes;
     bool operator==(const ArraySignature&) const = default;
 };
-std::vector<ArraySignature> g_signature;
-int g_walked_crowns;
-int g_walked_spawns;
-uint32_t g_generation;
+// NOT ORIGINAL grouping - the nodes' signature, the crowns and spawns walked and the generation (were globals). Made on
+// first use, never destroyed (node_walk()).
+struct NodeWalk {
+    std::vector<ArraySignature> signature_{};
+    int walked_crowns_{};
+    int walked_spawns_{};
+    uint32_t generation_{};
+};
+
+NodeWalk& node_walk()
+{
+    static core::NoDestroy<NodeWalk> state;
+    return state.get();
+}
 
 std::vector<ArraySignature> get_signature()
 {
@@ -249,9 +271,9 @@ V3 get_heading_of(V3 angles)
 
 void get_scan()
 {
-    g_nodes.clear();
+    level_editor_nodes_state().nodes_.clear();
     by_name().clear();
-    std::memset(g_counts.data(), 0, sizeof(g_counts));
+    std::memset(level_editor_nodes_state().counts_.data(), 0, sizeof(level_editor_nodes_state().counts_));
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
     if (!manager)
         return;
@@ -260,7 +282,7 @@ void get_scan()
                           kRadius = name_hash("Radius"), kSurfaceKindKey = name_hash("TerrainType"),
                           kTrickObject = name_hash("TrickObject"), kTriggerScript = name_hash("TriggerScript");
     int crowns = 0, restarts = 0;
-    ++g_generation;
+    ++node_walk().generation_;
     for (uint32_t a = 0; a < manager->num_ && a < level_nodes::NodeManager::kMaxArrays; ++a) {
         script::Array* nodes = core::at(manager->arrays_, a).node_entries_;
         if (!nodes || nodes->kind_tag_ != script::kQbvalStruct)
@@ -369,16 +391,16 @@ void get_scan()
                 break;
             }
             node.trigger_script_ = s->has_entry_named(kTriggerScript);
-            ++core::at(g_counts, static_cast<int>(node.family));
+            ++core::at(level_editor_nodes_state().counts_, static_cast<int>(node.family));
             if (node.name)
-                by_name().emplace(node.name, static_cast<int>(g_nodes.size()));
-            g_nodes.push_back(std::move(node));
+                by_name().emplace(node.name, static_cast<int>(level_editor_nodes_state().nodes_.size()));
+            level_editor_nodes_state().nodes_.push_back(std::move(node));
         }
     }
-    g_walked_crowns = crowns;
-    g_walked_spawns = restarts;
+    node_walk().walked_crowns_ = crowns;
+    node_walk().walked_spawns_ = restarts;
     // The links, as indices (links= holds the linked nodes' names once the array is added - resolve_links).
-    for (Elem& node : g_nodes) {
+    for (Elem& node : level_editor_nodes_state().nodes_) {
         script::Struct* s = get_node_at(core::at(manager->arrays_, node.array).node_entries_, static_cast<uint32_t>(node.index));
         script::Array* links = nullptr;
         if (!s || !s->fetch_list(kLinks, &links, 0) || !links)
@@ -395,11 +417,15 @@ void get_scan()
 // point moves by itself (level_editor_node_edit.h), in the rail manager only - the node array keeps the level's pos=.
 // Skaters grind the rail manager's points, so the gizmos and the Inspector show those (read again whenever rail
 // points move: Scenery::rail_generation).
-uint32_t g_rail_generation;
+uint32_t& stored_rail_generation()
+{
+    static uint32_t rail_generation{};
+    return rail_generation;
+}
 
 void sync_rails()
 {
-    g_rail_generation = scenery::rail_generation();
+    stored_rail_generation() = scenery::rail_generation();
     std::unordered_map<uint32_t, V3> points;
     scenery::for_each_rail_point(
         [](void* context, uint32_t name, V3 pos) {
@@ -408,7 +434,7 @@ void sync_rails()
         &points);
     if (points.empty())
         return;
-    for (Elem& node : g_nodes) {
+    for (Elem& node : level_editor_nodes_state().nodes_) {
         if (node.family != Family::kRail && node.family != Family::kLadder)
             continue;
         auto it = points.find(node.name);
@@ -422,11 +448,11 @@ void sync_rails()
 void get_refresh()
 {
     const std::vector<ArraySignature> signature = get_signature();
-    if (signature != g_signature) {
-        g_signature = signature;
+    if (signature != node_walk().signature_) {
+        node_walk().signature_ = signature;
         get_scan();
         sync_rails();
-    } else if (scenery::rail_generation() != g_rail_generation) {
+    } else if (scenery::rail_generation() != stored_rail_generation()) {
         sync_rails();
     }
 }
@@ -436,30 +462,30 @@ void get_refresh()
 const std::vector<Elem>& get_all()
 {
     get_refresh();
-    return g_nodes;
+    return level_editor_nodes_state().nodes_;
 }
 
 const std::array<int, kFamilies>& get_counts()
 {
     get_refresh();
-    return g_counts;
+    return level_editor_nodes_state().counts_;
 }
 
 int walked(Family family)
 {
     get_refresh();
-    return family == Family::kCrown   ? g_walked_crowns
-           : family == Family::kSpawn ? g_walked_spawns
-                                      : core::at(g_counts, static_cast<int>(family));
+    return family == Family::kCrown   ? node_walk().walked_crowns_
+           : family == Family::kSpawn ? node_walk().walked_spawns_
+                                      : core::at(level_editor_nodes_state().counts_, static_cast<int>(family));
 }
 
 uint32_t get_generation()
 {
     get_refresh();
-    return g_generation;
+    return node_walk().generation_;
 }
 
-void mark_stale() { g_signature.clear(); }
+void mark_stale() { node_walk().signature_.clear(); }
 
 const char* const kOverlayArrayName = "thug2_decomp_editor_nodes";
 uint32_t overlay_array()
@@ -500,9 +526,9 @@ script::Struct* struct_of(const Elem& node)
 
 void reread(int index)
 {
-    if (index < 0 || std::cmp_greater_equal(index, g_nodes.size()))
+    if (index < 0 || std::cmp_greater_equal(index, level_editor_nodes_state().nodes_.size()))
         return;
-    Elem& node = core::at(g_nodes, index);
+    Elem& node = core::at(level_editor_nodes_state().nodes_, index);
     script::Struct* s = struct_of(node);
     if (!s)
         return;

@@ -39,6 +39,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::cameras {
 
@@ -190,9 +191,19 @@ std::map<std::string, float>& distances_state()
     static std::map<std::string, float> value; // (each camera's target distance, by name)
     return value;
 }
-std::vector<std::function<void()>> g_queue;
-// A field being dragged (pitch / distance): the cameras before its first change (one undo step).
-bool g_dragging;
+// NOT ORIGINAL grouping - level_editor_cameras.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_cameras_state()).
+struct LevelEditorCamerasState {
+    std::vector<std::function<void()>> queue_{};
+    // A field being dragged (pitch / distance): the cameras before its first change (one undo step).
+    bool dragging_{};
+};
+
+LevelEditorCamerasState& level_editor_cameras_state()
+{
+    static core::NoDestroy<LevelEditorCamerasState> state;
+    return state.get();
+}
 
 bool same_text(const std::string& a, const std::string& b) { return _stricmp(a.c_str(), b.c_str()) == 0; }
 
@@ -343,7 +354,11 @@ namespace {
 uint32_t get_checksums(const char* text) { return fields::hash_of_name(text); }
 
 // When the last shot ends (steady clock seconds; 0: none played).
-double g_shot_until;
+double& shot_until()
+{
+    static double shot_until{};
+    return shot_until;
+}
 double get_now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 
 using Function = bool (*)(script::Struct*, script::Script*);
@@ -402,7 +417,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
         seconds = static_cast<float>(whole);
     const uint32_t shot = get_checksums("ed_camera_shot");
     const double now = get_now();
-    if (now < g_shot_until) {
+    if (now < shot_until()) {
         // (the last shot still playing: killed first, as the goals kill theirs)
         gsl::owner<script::Struct*> kill = script::new_struct();
         kill->put_name_key(get_checksums("name"), shot);
@@ -423,7 +438,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     commands::cfunc_play_skater_cam_anim(anim, script);
     anim->get_clear();
     script::delete_struct(anim);
-    g_shot_until = now + frames / 60.0;
+    shot_until() = now + frames / 60.0;
     if (debug_enabled())
         get_log("level editor: camera %s played for %d frames", nodes::caption(name).c_str(), frames);
     return true;
@@ -490,9 +505,9 @@ bool set_pitch(uint32_t name, float degrees, bool done)
     const ViewCam* c = get_find(all, name);
     if (!c)
         return false;
-    if (!g_dragging)
+    if (!level_editor_cameras_state().dragging_)
         push_undo();
-    g_dragging = !done;
+    level_editor_cameras_state().dragging_ = !done;
     node_edit::Values values;
     values.pos = c->pos;
     values.angles = c->angles;
@@ -507,9 +522,9 @@ bool place_at_range(uint32_t name, float distance, bool done)
     const ViewCam* c = get_find(all, name);
     if (!c)
         return false;
-    if (!g_dragging)
+    if (!level_editor_cameras_state().dragging_)
         push_undo();
-    g_dragging = !done;
+    level_editor_cameras_state().dragging_ = !done;
     distances_state()[c->name] = clamp_distance(distance);
     return true;
 }
@@ -563,14 +578,14 @@ void reset_all()
 void forget_level()
 {
     distances_state().clear();
-    g_queue.clear();
-    g_dragging = false;
+    level_editor_cameras_state().queue_.clear();
+    level_editor_cameras_state().dragging_ = false;
 }
 
 void tick_frame()
 {
     std::vector<std::function<void()>> queue;
-    queue.swap(g_queue);
+    queue.swap(level_editor_cameras_state().queue_);
     for (auto& action : queue)
         action();
     for (const ViewCam& c : get_all())
@@ -639,19 +654,19 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::DragFloat("Pitch##camera", &pitch_degrees, 0.25f, -89.0f, 89.0f, "%.1f deg",
                          ImGuiSliderFlags_AlwaysClamp)) {
         const float value = pitch_degrees;
-        g_queue.emplace_back([node, value] { set_pitch(node, value, false); });
+        level_editor_cameras_state().queue_.emplace_back([node, value] { set_pitch(node, value, false); });
     }
     if (ImGui::IsItemDeactivated())
-        g_queue.emplace_back([] { g_dragging = false; });
+        level_editor_cameras_state().queue_.emplace_back([] { level_editor_cameras_state().dragging_ = false; });
     float distance = c->distance;
     ImGui::SetNextItemWidth(160.0f * ImGui::GetFontSize() / 13.0f);
     if (ImGui::DragFloat("Target##camera", &distance, 5.0f, kMinDistance, kMaxDistance, "%.0f units",
                          ImGuiSliderFlags_AlwaysClamp)) {
         const float value = distance;
-        g_queue.emplace_back([node, value] { place_at_range(node, value, false); });
+        level_editor_cameras_state().queue_.emplace_back([node, value] { place_at_range(node, value, false); });
     }
     if (ImGui::IsItemDeactivated())
-        g_queue.emplace_back([] { g_dragging = false; });
+        level_editor_cameras_state().queue_.emplace_back([] { level_editor_cameras_state().dragging_ = false; });
     const V3 target = target_of(c->pos, c->angles, c->distance);
     const V3 offset = position_offset(c->pos, c->angles, c->distance);
     ImGui::PushFont(small_font);
@@ -662,16 +677,16 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::IsItemHovered())
         gui::tooltip("Computed from position and heading");
     if (ImGui::Button("Look through##camera"))
-        g_queue.emplace_back([node] { get_preview(node); });
+        level_editor_cameras_state().queue_.emplace_back([node] { get_preview(node); });
     ImGui::SameLine();
     if (ImGui::Button("Put at the view##camera"))
-        g_queue.emplace_back([node] { aim_from_view(node); });
+        level_editor_cameras_state().queue_.emplace_back([node] { aim_from_view(node); });
     if (ImGui::IsItemHovered())
         gui::tooltip("Move the camera to the current view");
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Delete##camera"))
-        g_queue.emplace_back([node] { drop_out(node); });
+        level_editor_cameras_state().queue_.emplace_back([node] { drop_out(node); });
     ImGui::PopStyleColor();
 }
 
@@ -685,7 +700,7 @@ void list_section(ImFont* mono, ImFont* small_font)
     gui::text_disabled("Camera nodes, saved with the layout");
     ImGui::PopFont();
     if (ImGui::Button("New Camera from View"))
-        g_queue.emplace_back([] { create_from_view(); });
+        level_editor_cameras_state().queue_.emplace_back([] { create_from_view(); });
     const std::vector<ViewCam> all = get_all();
     if (all.empty())
         gui::text_disabled("None yet.");
@@ -696,7 +711,7 @@ void list_section(ImFont* mono, ImFont* small_font)
         ImGui::TextUnformatted(c.name.c_str());
         ImGui::SameLine();
         if (ImGui::SmallButton("View Through"))
-            g_queue.emplace_back([name] { get_preview(name); });
+            level_editor_cameras_state().queue_.emplace_back([name] { get_preview(name); });
         ImGui::PopID();
     }
     ImGui::PopFont();

@@ -22,6 +22,7 @@
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::carry {
 
@@ -105,8 +106,18 @@ constexpr uint32_t kCluster = 0x1A3A966Bu;    // "Cluster" (a node's TrickObject
 constexpr uint32_t kClass = 0x12B4E660u;      // Class
 constexpr uint32_t kPedestrian = 0xA0DFAC98u; // Pedestrian
 
-bool g_setting_read;
-bool g_enabled = true;
+// NOT ORIGINAL grouping - level_editor_carry.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_carry_state()).
+struct LevelEditorCarryState {
+    bool setting_read_{};
+    bool enabled_ = true;
+};
+
+LevelEditorCarryState& level_editor_carry_state()
+{
+    static core::NoDestroy<LevelEditorCarryState> state;
+    return state.get();
+}
 
 struct Carried {
     std::vector<uint32_t> objects; // (ids)
@@ -117,7 +128,11 @@ struct Carried {
     bool armed = false;
     std::vector<uint32_t> noted; // (objects whose first place was noted)
 };
-Carried g_carried;
+Carried& stored_carried()
+{
+    static core::NoDestroy<Carried> carried;
+    return carried.get();
+}
 
 Placement placement_of(uint32_t sector)
 {
@@ -244,17 +259,17 @@ objects::GameEntity* live_object(uint32_t id)
 
 bool is_switched_on()
 {
-    if (!g_setting_read) {
-        g_setting_read = true;
-        g_enabled = config_int("editor", "carry", 1) != 0;
+    if (!level_editor_carry_state().setting_read_) {
+        level_editor_carry_state().setting_read_ = true;
+        level_editor_carry_state().enabled_ = config_int("editor", "carry", 1) != 0;
     }
-    return g_enabled;
+    return level_editor_carry_state().enabled_;
 }
 
 void set_enabled(bool on)
 {
     is_switched_on();
-    g_enabled = on;
+    level_editor_carry_state().enabled_ = on;
     config_set_int("editor", "carry", on ? 1 : 0);
     if (!on)
         disarm();
@@ -262,7 +277,7 @@ void set_enabled(bool on)
 
 Taken arm()
 {
-    g_carried = Carried{};
+    stored_carried() = Carried{};
     const std::vector<uint32_t>& selection = scenery::get_selection();
     if (!is_switched_on() || selection.empty())
         return {};
@@ -277,10 +292,10 @@ Taken arm()
     }
     if (objects::EntityHub* manager = objects::object_hub_slot().get())
         manager->for_each(gather_object, &g);
-    g_carried.objects = g.objects;
-    for (const uint32_t id : g_carried.objects) {
+    stored_carried().objects = g.objects;
+    for (const uint32_t id : stored_carried().objects) {
         if (objects::GameEntity* object = live_object(id))
-            g_carried.taken.objects.push_back(object_edit::store_away(object));
+            stored_carried().taken.objects.push_back(object_edit::store_away(object));
     }
     for (const nodes::Elem& node : nodes::get_all()) {
         if (!node.name || node.hidden || !node_edit::get_movable(node) || node_edit::is_chain(node.name))
@@ -289,45 +304,45 @@ Taken arm()
         if (!node_edit::get_take_in(node.name, &values))
             continue;
         if (attachment_of(g, node.name, values.pos) != Attachment::kNone &&
-            std::ranges::find(g_carried.nodes, node.name) == g_carried.nodes.end())
-            g_carried.nodes.push_back(node.name);
+            std::ranges::find(stored_carried().nodes, node.name) == stored_carried().nodes.end())
+            stored_carried().nodes.push_back(node.name);
     }
-    g_carried.taken.nodes = node_edit::get_capture(g_carried.nodes, node_edit::get_take_in);
-    g_carried.reference = selection.front();
-    g_carried.last = placement_of(g_carried.reference);
-    g_carried.armed = true;
-    if (debug_enabled() && (!g_carried.objects.empty() || !g_carried.nodes.empty()))
+    stored_carried().taken.nodes = node_edit::get_capture(stored_carried().nodes, node_edit::get_take_in);
+    stored_carried().reference = selection.front();
+    stored_carried().last = placement_of(stored_carried().reference);
+    stored_carried().armed = true;
+    if (debug_enabled() && (!stored_carried().objects.empty() || !stored_carried().nodes.empty()))
         get_log("level editor: carrying %u object%s and %u node%s with the selection",
-                static_cast<unsigned>(g_carried.objects.size()), g_carried.objects.size() == 1 ? "" : "s",
-                static_cast<unsigned>(g_carried.nodes.size()), g_carried.nodes.size() == 1 ? "" : "s");
-    return g_carried.taken;
+                static_cast<unsigned>(stored_carried().objects.size()), stored_carried().objects.size() == 1 ? "" : "s",
+                static_cast<unsigned>(stored_carried().nodes.size()), stored_carried().nodes.size() == 1 ? "" : "s");
+    return stored_carried().taken;
 }
 
 void get_follow(void (*on_node)(uint32_t name))
 {
-    if (!g_carried.armed || (g_carried.objects.empty() && g_carried.nodes.empty()))
+    if (!stored_carried().armed || (stored_carried().objects.empty() && stored_carried().nodes.empty()))
         return;
-    const Placement now = placement_of(g_carried.reference);
-    const Placement step = get_between(g_carried.last, now);
-    g_carried.last = now;
+    const Placement now = placement_of(stored_carried().reference);
+    const Placement step = get_between(stored_carried().last, now);
+    stored_carried().last = now;
     if (is_none(step))
         return;
     const float angle = static_cast<float>(step.quarters & 3) * 1.57079633f;
-    for (const uint32_t id : g_carried.objects) {
+    for (const uint32_t id : stored_carried().objects) {
         objects::GameEntity* object = live_object(id);
         if (!object)
             continue;
-        if (std::ranges::find(g_carried.noted, id) == g_carried.noted.end()) {
+        if (std::ranges::find(stored_carried().noted, id) == stored_carried().noted.end()) {
             object_edit::note_origin(object);
             object_edit::touch(id);
-            g_carried.noted.push_back(id);
+            stored_carried().noted.push_back(id);
         }
         const V3 to = get_apply(step, object_edit::pos_of(object));
         if (step.quarters & 3)
             object_edit::turn_about(object, object_edit::pos_of(object), angle); // (its heading; turned about itself)
         object_edit::get_place(object, to);
     }
-    for (const uint32_t name : g_carried.nodes) {
+    for (const uint32_t name : stored_carried().nodes) {
         node_edit::Values values;
         if (!node_edit::get_take_in(name, &values))
             continue;
@@ -342,26 +357,26 @@ void get_follow(void (*on_node)(uint32_t name))
 
 void get_leave()
 {
-    if (!g_carried.armed)
+    if (!stored_carried().armed)
         return;
-    for (const object_edit::State& state : g_carried.taken.objects)
+    for (const object_edit::State& state : stored_carried().taken.objects)
         object_edit::get_restore(state);
-    node_edit::place_in(g_carried.taken.nodes, [](uint32_t name, const node_edit::Values& values) {
+    node_edit::place_in(stored_carried().taken.nodes, [](uint32_t name, const node_edit::Values& values) {
         node_edit::Values now;
         if (node_edit::get_take_in(name, &now) && !node_edit::get_same(now, values))
             node_edit::assign_value(name, values);
     });
-    g_carried = Carried{};
+    stored_carried() = Carried{};
 }
 
-void disarm() { g_carried = Carried{}; }
+void disarm() { stored_carried() = Carried{}; }
 
-bool get_armed() { return g_carried.armed; }
+bool get_armed() { return stored_carried().armed; }
 
-int total_of() { return g_carried.armed ? static_cast<int>(g_carried.objects.size() + g_carried.nodes.size()) : 0; }
+int total_of() { return stored_carried().armed ? static_cast<int>(stored_carried().objects.size() + stored_carried().nodes.size()) : 0; }
 
-std::vector<uint32_t> carried_objects() { return g_carried.armed ? g_carried.objects : std::vector<uint32_t>{}; }
+std::vector<uint32_t> carried_objects() { return stored_carried().armed ? stored_carried().objects : std::vector<uint32_t>{}; }
 
-std::vector<uint32_t> carried_nodes() { return g_carried.armed ? g_carried.nodes : std::vector<uint32_t>{}; }
+std::vector<uint32_t> carried_nodes() { return stored_carried().armed ? stored_carried().nodes : std::vector<uint32_t>{}; }
 
 } // namespace frontend::level_editor::carry

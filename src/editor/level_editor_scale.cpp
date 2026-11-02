@@ -38,6 +38,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::scale_tool {
 
@@ -534,7 +535,11 @@ struct ObjectEntry {
     };
     std::vector<Cuboid> boxes;
 };
-std::vector<ObjectEntry> g_objects;
+std::vector<ObjectEntry>& stored_objects()
+{
+    static core::NoDestroy<std::vector<ObjectEntry>> objects;
+    return objects.get();
+}
 
 render::RenderModel* model_of(objects::GameEntity* object)
 {
@@ -559,8 +564,8 @@ bool get_alive(objects::GameEntity* object)
 // The entry of an object, if it's still the object (and the collision) it was made for.
 ObjectEntry* entry_of(objects::GameEntity* object)
 {
-    for (size_t i = 0; i < g_objects.size(); ++i) {
-        ObjectEntry& entry = core::at(g_objects, i);
+    for (size_t i = 0; i < stored_objects().size(); ++i) {
+        ObjectEntry& entry = core::at(stored_objects(), i);
         if (entry.id != object->ident_)
             continue;
         bool same = entry.object == object && get_alive(object) && collision_of(object) == entry.collision;
@@ -568,7 +573,7 @@ ObjectEntry* entry_of(objects::GameEntity* object)
             same = same && t.tri->geometry_ == t.copy.data && same_collision(t.copy);
         if (same)
             return &entry;
-        g_objects.erase(g_objects.begin() + static_cast<std::ptrdiff_t>(i)); // (another object of that name now)
+        stored_objects().erase(stored_objects().begin() + static_cast<std::ptrdiff_t>(i)); // (another object of that name now)
         return nullptr;
     }
     return nullptr;
@@ -693,8 +698,8 @@ bool set_object_scale(objects::GameEntity* object, V3 scale)
             get_log("level editor: %08X's collision couldn't be copied - not scaled", object->ident_);
             return false;
         }
-        g_objects.push_back(std::move(made));
-        entry = &g_objects.back();
+        stored_objects().push_back(std::move(made));
+        entry = &stored_objects().back();
     }
     const V3 limit = object_limit(object);
     scale = {.x = std::max(kMin, std::min(limit.x, confine(scale.x))), .y = std::max(kMin, std::min(limit.y, confine(scale.y))),
@@ -708,6 +713,6 @@ bool set_object_scale(objects::GameEntity* object, V3 scale)
     return true;
 }
 
-void forget_objects() { g_objects.clear(); }
+void forget_objects() { stored_objects().clear(); }
 
 } // namespace frontend::level_editor::scale_tool

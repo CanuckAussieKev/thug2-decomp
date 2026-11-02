@@ -36,6 +36,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::object_edit {
 namespace {
@@ -63,15 +64,24 @@ uint32_t node_class_hash(script::Struct* node)
     return cls;
 }
 
-std::vector<DupFrom> g_copies;
+// NOT ORIGINAL grouping - level_editor_objects.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_objects_state()).
+struct LevelEditorObjectsState {
+    std::vector<DupFrom> copies_{};
+    // The copies' nodes: a node array of ours (level_editor_copy_nodes) in the node manager, so the game finds a copy's
+    // node by its name as it does any object's - creating a LevelObject runs scripts that look it up (SetObjectColor's
+    // node command, 0x005A3E80, reads the node unchecked: without one the game crashed). The array is made again with
+    // every node added (a script array of one keeps its element in place of the pointer - Resize mishandles that) and
+    // only the new node is hashed (the others keep their places). Taken out and freed when a level loads.
+    script::Array* copy_nodes_{};
+    std::vector<script::Struct*> copy_node_list_{};
+};
 
-// The copies' nodes: a node array of ours (level_editor_copy_nodes) in the node manager, so the game finds a copy's
-// node by its name as it does any object's - creating a LevelObject runs scripts that look it up (SetObjectColor's
-// node command, 0x005A3E80, reads the node unchecked: without one the game crashed). The array is made again with
-// every node added (a script array of one keeps its element in place of the pointer - Resize mishandles that) and
-// only the new node is hashed (the others keep their places). Taken out and freed when a level loads.
-script::Array* g_copy_nodes;
-std::vector<script::Struct*> g_copy_node_list;
+LevelEditorObjectsState& level_editor_objects_state()
+{
+    static core::NoDestroy<LevelEditorObjectsState> state;
+    return state.get();
+}
 
 uint32_t copy_nodes_name()
 {
@@ -96,40 +106,50 @@ bool add_copy_node(script::Struct* node)
         if (manager->num_ >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays))
             return false;
         gsl::owner<script::Array*> made = script::new_array(); // (the node manager's, below)
-        g_copy_nodes = made;
-        g_copy_node_list.clear();
+        level_editor_objects_state().copy_nodes_ = made;
+        level_editor_objects_state().copy_node_list_.clear();
         index = static_cast<int>(manager->num_);
         core::at(manager->arrays_, index).label_ = name;
-        core::at(manager->arrays_, index).node_entries_ = g_copy_nodes;
+        core::at(manager->arrays_, index).node_entries_ = level_editor_objects_state().copy_nodes_;
         core::at(manager->arrays_, index).flag_ = false;
         ++manager->num_;
     }
-    g_copy_node_list.push_back(node);
-    auto count = static_cast<uint32_t>(g_copy_node_list.size());
-    g_copy_nodes->configure_size_kind(count, script::kQbvalStruct);
+    level_editor_objects_state().copy_node_list_.push_back(node);
+    auto count = static_cast<uint32_t>(level_editor_objects_state().copy_node_list_.size());
+    level_editor_objects_state().copy_nodes_->configure_size_kind(count, script::kQbvalStruct);
     for (uint32_t i = 0; i < count; ++i)
-        g_copy_nodes->set_cell(i, script::Cell::of(core::at(g_copy_node_list, i)));
+        level_editor_objects_state().copy_nodes_->set_cell(i, script::Cell::of(core::at(level_editor_objects_state().copy_node_list_, i)));
     return manager->hash_node_in(name, count - 1, node);
 }
 
 void forget_copy_nodes()
 {
-    if (!g_copy_nodes)
+    if (!level_editor_objects_state().copy_nodes_)
         return;
     if (level_nodes::NodeManager* manager = get_node_manager())
         manager->remove_node_array(copy_nodes_name());
-    for (script::Struct* node : g_copy_node_list) {
+    for (script::Struct* node : level_editor_objects_state().copy_node_list_) {
         node->get_clear();
         script::delete_struct(node);
     }
-    g_copy_node_list.clear();
-    g_copy_nodes->configure_size_kind(0, script::kQbvalNone);
-    script::delete_array(g_copy_nodes);
-    g_copy_nodes = nullptr;
+    level_editor_objects_state().copy_node_list_.clear();
+    level_editor_objects_state().copy_nodes_->configure_size_kind(0, script::kQbvalNone);
+    script::delete_array(level_editor_objects_state().copy_nodes_);
+    level_editor_objects_state().copy_nodes_ = nullptr;
 }
-std::vector<uint32_t> g_touched;
-std::vector<State> g_origins;
-int g_copy_counter;
+// NOT ORIGINAL grouping - the objects touched, their origins and the copy counter (were globals). Made on first use,
+// never destroyed (object_copies()).
+struct ObjectCopies {
+    std::vector<uint32_t> touched_{};
+    std::vector<State> origins_{};
+    int copy_counter_{};
+};
+
+ObjectCopies& object_copies()
+{
+    static core::NoDestroy<ObjectCopies> state;
+    return state.get();
+}
 
 struct PickWalk {
     V3 origin, dir;
@@ -456,11 +476,11 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
         // (a name no object has: "level_editor_copy_<source>_<n>", shown as "<source's name> copy <n>")
         std::array<char, 64> text{};
         for (bool again = true; again; again = objects::find_object(name)) {
-            ++g_copy_counter;
-            text::format_to(text, "level_editor_copy_%08X_%d", source, g_copy_counter);
+            ++object_copies().copy_counter_;
+            text::format_to(text, "level_editor_copy_%08X_%d", source, object_copies().copy_counter_);
             name = checksums::hash_from_text(text.data());
         }
-        text::format_to(text, "%s copy %d", caption(source).c_str(), g_copy_counter);
+        text::format_to(text, "%s copy %d", caption(source).c_str(), object_copies().copy_counter_);
         script::note_qb_name(name, text.data());
     }
     if (objects::find_object(name))
@@ -498,7 +518,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
     commands::create_from_node(copy);
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
     if (object)
-        g_copies.push_back({.name = name, .source = source});
+        level_editor_objects_state().copies_.push_back({.name = name, .source = source});
     if (debug_enabled())
         get_log("level editor: copy %08X of %s at (%.0f, %.0f, %.0f): %s", name, caption(source).c_str(), pos.x, pos.y,
                 pos.z, object ? "made" : "NOT made");
@@ -507,10 +527,10 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
 
 bool remove_copy(uint32_t name)
 {
-    auto it = std::ranges::find_if(g_copies, [&](const DupFrom& c) { return c.name == name; });
-    if (it == g_copies.end())
+    auto it = std::ranges::find_if(level_editor_objects_state().copies_, [&](const DupFrom& c) { return c.name == name; });
+    if (it == level_editor_objects_state().copies_.end())
         return false;
-    g_copies.erase(it);
+    level_editor_objects_state().copies_.erase(it);
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
     if (!object || (object->object_flags_ & objects::kObjectFlagDead))
         return false;
@@ -518,30 +538,30 @@ bool remove_copy(uint32_t name)
     return true;
 }
 
-const std::vector<DupFrom>& get_copies() { return g_copies; }
+const std::vector<DupFrom>& get_copies() { return level_editor_objects_state().copies_; }
 
 bool is_copy(uint32_t id)
 {
-    return std::ranges::any_of(g_copies, [&](const DupFrom& c) { return c.name == id; });
+    return std::ranges::any_of(level_editor_objects_state().copies_, [&](const DupFrom& c) { return c.name == id; });
 }
 
 void touch(uint32_t id)
 {
-    if (!is_copy(id) && std::ranges::find(g_touched, id) == g_touched.end())
-        g_touched.push_back(id);
+    if (!is_copy(id) && std::ranges::find(object_copies().touched_, id) == object_copies().touched_.end())
+        object_copies().touched_.push_back(id);
 }
 
-const std::vector<uint32_t>& get_touched() { return g_touched; }
+const std::vector<uint32_t>& get_touched() { return object_copies().touched_; }
 
 void note_origin(objects::GameEntity* object)
 {
     if (!get_origin(object->ident_))
-        g_origins.push_back(store_away(object));
+        object_copies().origins_.push_back(store_away(object));
 }
 
 const State* get_origin(uint32_t id)
 {
-    for (const State& state : g_origins) {
+    for (const State& state : object_copies().origins_) {
         if (state.id == id)
             return &state;
     }
@@ -552,9 +572,9 @@ void forget_level()
 {
     scale_tool::forget_objects();
     forget_copy_nodes();
-    g_copies.clear();
-    g_touched.clear();
-    g_origins.clear();
+    level_editor_objects_state().copies_.clear();
+    object_copies().touched_.clear();
+    object_copies().origins_.clear();
 }
 
 std::vector<TableRow> copyable()

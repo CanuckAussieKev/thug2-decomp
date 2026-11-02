@@ -30,17 +30,22 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::ux3 {
 
 namespace {
 
-Fonts g_fonts;
+Fonts& stored_fonts()
+{
+    static core::NoDestroy<Fonts> fonts;
+    return fonts.get();
+}
 constexpr ImVec4 kAccent(0.82f, 0.34f, 0.11f, 0.85f);
 constexpr ImVec4 kKeyColour(1.0f, 0.78f, 0.45f, 1.0f);
 constexpr ImVec4 kMuted(0.6f, 0.61f, 0.63f, 1.0f);
 
-float current_s() { return g_fonts.scale > 0.0f ? g_fonts.scale : 1.0f; }
+float current_s() { return stored_fonts().scale > 0.0f ? stored_fonts().scale : 1.0f; }
 
 // The right end of the window's content (local x), a scrollbar's room left.
 float get_right_edge()
@@ -50,19 +55,19 @@ float get_right_edge()
 
 void get_mono(const char* text)
 {
-    if (g_fonts.mono)
-        ImGui::PushFont(g_fonts.mono);
+    if (stored_fonts().mono)
+        ImGui::PushFont(stored_fonts().mono);
     ImGui::TextUnformatted(text);
-    if (g_fonts.mono)
+    if (stored_fonts().mono)
         ImGui::PopFont();
 }
 
 void current_heading(const char* text)
 {
-    if (g_fonts.heading)
-        ImGui::PushFont(g_fonts.heading);
+    if (stored_fonts().heading)
+        ImGui::PushFont(stored_fonts().heading);
     ImGui::TextUnformatted(text);
-    if (g_fonts.heading)
+    if (stored_fonts().heading)
         ImGui::PopFont();
 }
 
@@ -76,15 +81,25 @@ bool begin_floating(const char* title, bool* open, ImVec2 pos, ImVec2 size)
 
 // --- the command search ---
 
-std::array<char, 128> g_query;
-int g_highlight;
-bool g_palette_was_open;
+// NOT ORIGINAL grouping - level_editor_ux3_ui.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_ux3_ui_state()).
+struct LevelEditorUx3UiState {
+    std::array<char, 128> query_{};
+    int highlight_{};
+    bool palette_was_open_{};
+};
+
+LevelEditorUx3UiState& level_editor_ux3_ui_state()
+{
+    static core::NoDestroy<LevelEditorUx3UiState> state;
+    return state.get();
+}
 
 void get_palette()
 {
     bool& open = unseal(kPaletteWindow);
     if (!open) {
-        g_palette_was_open = false;
+        level_editor_ux3_ui_state().palette_was_open_ = false;
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
@@ -94,20 +109,20 @@ void get_palette()
     ImGui::Begin("Command Search###ux3palette", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize);
-    if (!g_palette_was_open) {
-        core::at(g_query, 0) = 0;
-        g_highlight = 0;
+    if (!level_editor_ux3_ui_state().palette_was_open_) {
+        core::at(level_editor_ux3_ui_state().query_, 0) = 0;
+        level_editor_ux3_ui_state().highlight_ = 0;
         ImGui::SetKeyboardFocusHere();
-        g_palette_was_open = true;
+        level_editor_ux3_ui_state().palette_was_open_ = true;
     }
     ImGui::SetNextItemWidth(-1.0f);
-    const bool enter = ImGui::InputTextWithHint("##query", "Search commands\xE2\x80\xA6", g_query.data(), sizeof(g_query),
+    const bool enter = ImGui::InputTextWithHint("##query", "Search commands\xE2\x80\xA6", level_editor_ux3_ui_state().query_.data(), sizeof(level_editor_ux3_ui_state().query_),
                                                 ImGuiInputTextFlags_EnterReturnsTrue);
     if (ImGui::IsItemActive() || enter) {
         if (ImGui::IsKeyPressed(ImGuiKey_DownArrow))
-            ++g_highlight;
+            ++level_editor_ux3_ui_state().highlight_;
         if (ImGui::IsKeyPressed(ImGuiKey_UpArrow))
-            --g_highlight;
+            --level_editor_ux3_ui_state().highlight_;
         if (ImGui::IsKeyPressed(ImGuiKey_Escape))
             open = false;
     }
@@ -115,15 +130,15 @@ void get_palette()
     std::vector<std::pair<int, int>> found; // (score, index)
     for (int i = 0; std::cmp_less(i, all.size()); ++i) {
         const actions::ActStep& a = core::at(all, i);
-        const int score = std::max({actions::fuzzy_score(g_query.data(), a.name) * 2,
-                                    actions::fuzzy_score(g_query.data(), a.category + " " + a.name),
-                                    std::strlen(g_query.data()) >= 3 ? actions::fuzzy_score(g_query.data(), a.tip) / 2 : 0,
-                                    actions::fuzzy_score(g_query.data(), actions::get_keys_text(i))});
+        const int score = std::max({actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), a.name) * 2,
+                                    actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), a.category + " " + a.name),
+                                    std::strlen(level_editor_ux3_ui_state().query_.data()) >= 3 ? actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), a.tip) / 2 : 0,
+                                    actions::fuzzy_score(level_editor_ux3_ui_state().query_.data(), actions::get_keys_text(i))});
         if (score > 0)
             found.emplace_back(score, i);
     }
     std::ranges::stable_sort(found, [](const auto& a, const auto& b) { return a.first > b.first; });
-    g_highlight = found.empty() ? 0 : std::clamp(g_highlight, 0, static_cast<int>(found.size()) - 1);
+    level_editor_ux3_ui_state().highlight_ = found.empty() ? 0 : std::clamp(level_editor_ux3_ui_state().highlight_, 0, static_cast<int>(found.size()) - 1);
     const float row_height = ImGui::GetTextLineHeightWithSpacing();
     ImGui::BeginChild(
         "##results",
@@ -139,11 +154,11 @@ void get_palette()
         const std::string text = (checked == 1 ? "[x] " : checked == 0 ? "[ ] " : "") + a.name;
         if (!enabled)
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
-        if (ImGui::Selectable(text.c_str(), r == g_highlight))
+        if (ImGui::Selectable(text.c_str(), r == level_editor_ux3_ui_state().highlight_))
             run = i;
         if (!enabled)
             ImGui::PopStyleColor();
-        if (r == g_highlight && (ImGui::IsKeyPressed(ImGuiKey_DownArrow) || ImGui::IsKeyPressed(ImGuiKey_UpArrow)))
+        if (r == level_editor_ux3_ui_state().highlight_ && (ImGui::IsKeyPressed(ImGuiKey_DownArrow) || ImGui::IsKeyPressed(ImGuiKey_UpArrow)))
             ImGui::SetScrollHereY(0.5f);
         if (ImGui::IsItemHovered() && !a.tip.empty())
             gui::tooltip("%s%s", a.tip.c_str(), a.kind == actions::Kind::kDetailsOf ? "\n(mouse gesture)" : "");
@@ -151,12 +166,12 @@ void get_palette()
         gui::text_colored(kMuted, "%s", a.category.c_str());
         const std::string keys = actions::get_keys_text(i);
         if (!keys.empty()) {
-            if (g_fonts.mono)
-                ImGui::PushFont(g_fonts.mono);
+            if (stored_fonts().mono)
+                ImGui::PushFont(stored_fonts().mono);
             const float width = ImGui::CalcTextSize(keys.c_str()).x;
             ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 8.0f * current_s(), get_right_edge() - width));
             gui::text_colored(kKeyColour, "%s", keys.c_str());
-            if (g_fonts.mono)
+            if (stored_fonts().mono)
                 ImGui::PopFont();
         }
         ImGui::PopID();
@@ -165,7 +180,7 @@ void get_palette()
         gui::text_disabled("Nothing matches");
     ImGui::EndChild();
     if (enter && !found.empty())
-        run = core::at(found, g_highlight).second;
+        run = core::at(found, level_editor_ux3_ui_state().highlight_).second;
     ImGui::End();
     if (run >= 0) {
         open = false;
@@ -236,7 +251,11 @@ void history_window()
 
 // --- the changes ---
 
-std::array<char, 64> g_changes_filter;
+std::array<char, 64>& changes_filter()
+{
+    static std::array<char, 64> changes_filter{};
+    return changes_filter;
+}
 
 void changes_window()
 {
@@ -253,7 +272,7 @@ void changes_window()
     const std::vector<ChangeRow>& rows = change_list();
     gui::text_disabled("%d changes", static_cast<int>(rows.size()));
     ImGui::SetNextItemWidth(-1.0f);
-    ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", g_changes_filter.data(), sizeof(g_changes_filter));
+    ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", changes_filter().data(), sizeof(changes_filter()));
     ImGui::Separator();
     ImGui::BeginChild("##changes");
     if (rows.empty())
@@ -261,7 +280,7 @@ void changes_window()
     for (const char* group : changes::bunches()) {
         std::vector<const ChangeRow*> in;
         for (const ChangeRow& row : rows) {
-            if (row.entry.group == group && actions::fuzzy_score(g_changes_filter.data(), row.entry.summary + " " + group) > 0)
+            if (row.entry.group == group && actions::fuzzy_score(changes_filter().data(), row.entry.summary + " " + group) > 0)
                 in.push_back(&row);
         }
         if (in.empty())
@@ -298,7 +317,11 @@ void changes_window()
 
 // --- the keys ---
 
-std::array<char, 64> g_keys_filter;
+std::array<char, 64>& keys_filter()
+{
+    static std::array<char, 64> keys_filter{};
+    return keys_filter;
+}
 
 void keys_window()
 {
@@ -321,16 +344,26 @@ void keys_window()
 
 // --- the snapshots ---
 
-std::array<char, 40> g_snapshot_name;
-std::vector<std::string> g_snapshots;
-uint32_t g_snapshots_at;
-bool g_snapshots_stale = true;
+// NOT ORIGINAL grouping - the snapshots and when they were taken (were globals). Made on first use, never destroyed
+// (snapshots()).
+struct Snapshots {
+    std::array<char, 40> snapshot_name_{};
+    std::vector<std::string> snapshots_{};
+    uint32_t snapshots_at_{};
+    bool snapshots_stale_ = true;
+};
+
+Snapshots& snapshots()
+{
+    static core::NoDestroy<Snapshots> state;
+    return state.get();
+}
 
 void snapshots_window()
 {
     bool& open = unseal(kSnapshotsWindow);
     if (!open) {
-        g_snapshots_stale = true;
+        snapshots().snapshots_stale_ = true;
         return;
     }
     const ImGuiIO& io = ImGui::GetIO();
@@ -340,33 +373,33 @@ void snapshots_window()
         ImGui::End();
         return;
     }
-    if (g_snapshots_stale || SDL_GetTicks() - g_snapshots_at > 2000) {
-        g_snapshots = organize::snapshots();
-        g_snapshots_at = SDL_GetTicks();
-        g_snapshots_stale = false;
+    if (snapshots().snapshots_stale_ || SDL_GetTicks() - snapshots().snapshots_at_ > 2000) {
+        snapshots().snapshots_ = organize::snapshots();
+        snapshots().snapshots_at_ = SDL_GetTicks();
+        snapshots().snapshots_stale_ = false;
     }
     const std::string active = organize::active_snapshot();
     gui::text_disabled("Named versions of the layout");
     gui::text("Active: %s", active.empty() ? "(none)" : active.c_str());
     ImGui::Separator();
     ImGui::SetNextItemWidth(200.0f * current_s());
-    const bool enter = ImGui::InputTextWithHint("##name", "Name", g_snapshot_name.data(), sizeof(g_snapshot_name),
+    const bool enter = ImGui::InputTextWithHint("##name", "Name", snapshots().snapshot_name_.data(), sizeof(snapshots().snapshot_name_),
                                                 ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
-    if ((ImGui::Button("Save Snapshot") || enter) && core::at(g_snapshot_name, 0)) {
-        const std::string name = g_snapshot_name.data();
+    if ((ImGui::Button("Save Snapshot") || enter) && core::at(snapshots().snapshot_name_, 0)) {
+        const std::string name = snapshots().snapshot_name_.data();
         get_queue([name] {
             std::string message;
             organize::save_snapshot(name, &message);
             show_message(message, 5.0);
         });
-        core::at(g_snapshot_name, 0) = 0;
-        g_snapshots_stale = true;
+        core::at(snapshots().snapshot_name_, 0) = 0;
+        snapshots().snapshots_stale_ = true;
     }
     ImGui::BeginChild("##snapshots");
-    if (g_snapshots.empty())
+    if (snapshots().snapshots_.empty())
         gui::text_disabled("No snapshots");
-    for (const std::string& name : g_snapshots) {
+    for (const std::string& name : snapshots().snapshots_) {
         ImGui::PushID(name.c_str());
         const bool is_active = name == active;
         if (is_active)
@@ -380,7 +413,7 @@ void snapshots_window()
                 organize::switch_snapshot(name, &message);
                 show_message(message, 6.0);
             });
-            g_snapshots_stale = true;
+            snapshots().snapshots_stale_ = true;
         }
         if (ImGui::IsItemHovered())
             gui::tooltip("Load this snapshot");
@@ -391,7 +424,7 @@ void snapshots_window()
                 organize::delete_snapshot(name, &message);
                 show_message(message);
             });
-            g_snapshots_stale = true;
+            snapshots().snapshots_stale_ = true;
         }
         if (ImGui::IsItemHovered())
             gui::tooltip("Shift+click to delete");
@@ -403,14 +436,24 @@ void snapshots_window()
 
 // --- the menus and name windows ---
 
-std::array<char, 48> g_group_name;
-std::array<char, 48> g_label_text;
-uint32_t g_label_for;
-bool g_label_asked;
-bool g_group_asked;
-int g_rename_group = -1;
-std::array<char, 48> g_rename_text;
-bool g_rename_asked;
+// NOT ORIGINAL grouping - the labels and groups being named (were globals). Made on first use, never destroyed
+// (labels()).
+struct Labels {
+    std::array<char, 48> group_name_{};
+    std::array<char, 48> label_text_{};
+    uint32_t label_for_{};
+    bool label_asked_{};
+    bool group_asked_{};
+    int rename_group_ = -1;
+    std::array<char, 48> rename_text_{};
+    bool rename_asked_{};
+};
+
+Labels& labels()
+{
+    static core::NoDestroy<Labels> state;
+    return state.get();
+}
 
 void get_menus()
 {
@@ -444,9 +487,9 @@ void get_menus()
             get_queue([] { organize::select_all(); });
         ImGui::EndPopup();
     }
-    if (take_group_name() || g_group_asked) {
-        g_group_asked = false;
-        text::format_to(g_group_name, "Group");
+    if (take_group_name() || labels().group_asked_) {
+        labels().group_asked_ = false;
+        text::format_to(labels().group_name_, "Group");
         ImGui::OpenPopup("Group the selection###ux3group");
     }
     if (ImGui::BeginPopupModal("Group the selection###ux3group", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -454,9 +497,9 @@ void get_menus()
         if (ImGui::IsWindowAppearing())
             ImGui::SetKeyboardFocusHere();
         const bool enter =
-            ImGui::InputText("##group", g_group_name.data(), sizeof(g_group_name), ImGuiInputTextFlags_EnterReturnsTrue);
+            ImGui::InputText("##group", labels().group_name_.data(), sizeof(labels().group_name_), ImGuiInputTextFlags_EnterReturnsTrue);
         if (ImGui::Button("Make group") || enter) {
-            const std::string name = g_group_name.data();
+            const std::string name = labels().group_name_.data();
             get_queue([name] { organize::make_group(name); });
             ImGui::CloseCurrentPopup();
         }
@@ -465,8 +508,8 @@ void get_menus()
             ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
-    if (g_label_asked) {
-        g_label_asked = false;
+    if (labels().label_asked_) {
+        labels().label_asked_ = false;
         ImGui::OpenPopup("Label###ux3label");
     }
     if (ImGui::BeginPopupModal("Label###ux3label", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -474,10 +517,10 @@ void get_menus()
         if (ImGui::IsWindowAppearing())
             ImGui::SetKeyboardFocusHere();
         const bool enter =
-            ImGui::InputText("##label", g_label_text.data(), sizeof(g_label_text), ImGuiInputTextFlags_EnterReturnsTrue);
+            ImGui::InputText("##label", labels().label_text_.data(), sizeof(labels().label_text_), ImGuiInputTextFlags_EnterReturnsTrue);
         if (ImGui::Button("Set") || enter) {
-            const std::string text = g_label_text.data();
-            const uint32_t id = g_label_for;
+            const std::string text = labels().label_text_.data();
+            const uint32_t id = labels().label_for_;
             get_queue([id, text] {
                 organize::State next = organize::at_hand();
                 std::string clean;
@@ -491,18 +534,18 @@ void get_menus()
             ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
-    if (g_rename_asked) {
-        g_rename_asked = false;
+    if (labels().rename_asked_) {
+        labels().rename_asked_ = false;
         ImGui::OpenPopup("Rename group###ux3rename");
     }
     if (ImGui::BeginPopupModal("Rename group###ux3rename", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         if (ImGui::IsWindowAppearing())
             ImGui::SetKeyboardFocusHere();
         const bool enter =
-            ImGui::InputText("##rename", g_rename_text.data(), sizeof(g_rename_text), ImGuiInputTextFlags_EnterReturnsTrue);
+            ImGui::InputText("##rename", labels().rename_text_.data(), sizeof(labels().rename_text_), ImGuiInputTextFlags_EnterReturnsTrue);
         if (ImGui::Button("Rename") || enter) {
-            const std::string text = g_rename_text.data();
-            const int index = g_rename_group;
+            const std::string text = labels().rename_text_.data();
+            const int index = labels().rename_group_;
             get_queue([index, text] { organize::rename_group(index, text); });
             ImGui::CloseCurrentPopup();
         }
@@ -519,9 +562,19 @@ void get_menus()
 constexpr auto kSections = std::to_array<const char*>({"###fields",    "###levelprops", "###camera",  "###cameras", "###clusters",
                                  "###faceflags", "###locks",      "###ux3clip", "###ux3multi"});
 constexpr int kSectionCount = sizeof(kSections) / sizeof(core::at(kSections, 0));
-std::array<int, kSectionCount> g_section_state;
-bool g_sections_loaded;
-ImGuiID g_sections_window;
+// NOT ORIGINAL grouping - the sections loaded and their window (were globals). Made on first use, never destroyed
+// (sections()).
+struct Sections {
+    std::array<int, kSectionCount> section_state_{};
+    bool sections_loaded_{};
+    ImGuiID sections_window_{};
+};
+
+Sections& sections()
+{
+    static core::NoDestroy<Sections> state;
+    return state.get();
+}
 
 // --- the Inspector's shared fields ---
 
@@ -529,14 +582,24 @@ struct SharedEdit {
     uint32_t key = 0;
     std::array<char, 160> text = {""};
 };
-std::vector<SharedEdit> g_shared;
-ImGuiID g_shared_active;
+// NOT ORIGINAL grouping - the shared view and whether it is on (were globals). Made on first use, never destroyed
+// (shared_view()).
+struct SharedView {
+    std::vector<SharedEdit> shared_{};
+    ImGuiID shared_active_{};
+};
+
+SharedView& shared_view()
+{
+    static core::NoDestroy<SharedView> state;
+    return state.get();
+}
 
 } // namespace
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-void set_fonts(const Fonts& fonts) { g_fonts = fonts; }
+void set_fonts(const Fonts& fonts) { stored_fonts() = fonts; }
 
 void get_windows(const ui::ShapeMesh& model)
 {
@@ -577,13 +640,13 @@ void help_from_registry()
                 current_heading(category.c_str());
             first = false;
             ImGui::TableNextColumn();
-            if (g_fonts.mono)
-                ImGui::PushFont(g_fonts.mono);
+            if (stored_fonts().mono)
+                ImGui::PushFont(stored_fonts().mono);
             ImGui::PushTextWrapPos(0.0f);
             const std::string keys = actions::get_keys_text(i);
             gui::text_colored(kKeyColour, "%s", keys.empty() ? "-" : keys.c_str());
             ImGui::PopTextWrapPos();
-            if (g_fonts.mono)
+            if (stored_fonts().mono)
                 ImGui::PopFont();
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(a.name.c_str());
@@ -599,7 +662,7 @@ void keys_section()
     const std::vector<actions::ActStep>& all = actions::get_all();
     gui::text_disabled("Click a key to rebind, + to add, right-click to remove");
     ImGui::SetNextItemWidth(220.0f * current_s());
-    ImGui::InputTextWithHint("##keysfilter", "Filter\xE2\x80\xA6", g_keys_filter.data(), sizeof(g_keys_filter));
+    ImGui::InputTextWithHint("##keysfilter", "Filter\xE2\x80\xA6", keys_filter().data(), sizeof(keys_filter()));
     ImGui::SameLine();
     if (ImGui::SmallButton("Reset all") && ImGui::GetIO().KeyShift) {
         for (int i = 0; std::cmp_less(i, all.size()); ++i)
@@ -621,7 +684,7 @@ void keys_section()
         for (int i = 0; std::cmp_less(i, all.size()); ++i) {
             const actions::ActStep& a = core::at(all, i);
             if (!a.rebindable ||
-                actions::fuzzy_score(g_keys_filter.data(), a.category + " " + a.name + " " + actions::get_keys_text(i)) == 0)
+                actions::fuzzy_score(keys_filter().data(), a.category + " " + a.name + " " + actions::get_keys_text(i)) == 0)
                 continue;
             ImGui::PushID(i);
             ImGui::TableNextRow();
@@ -635,8 +698,8 @@ void keys_section()
             if (ImGui::IsItemHovered() && !a.tip.empty())
                 gui::tooltip("%s", a.tip.c_str());
             ImGui::TableNextColumn();
-            if (g_fonts.mono)
-                ImGui::PushFont(g_fonts.mono);
+            if (stored_fonts().mono)
+                ImGui::PushFont(stored_fonts().mono);
             for (int k = 0; std::cmp_less(k, a.keys.size()); ++k) {
                 ImGui::PushID(k);
                 const bool capturing = actions::get_capturing() && actions::capturing_index() == i;
@@ -655,7 +718,7 @@ void keys_section()
             }
             if (ImGui::SmallButton("+"))
                 actions::begin_capture(i, static_cast<int>(a.keys.size()));
-            if (g_fonts.mono)
+            if (stored_fonts().mono)
                 ImGui::PopFont();
             std::vector<int> clashes = actions::conflicts(i);
             if (!clashes.empty()) {
@@ -726,9 +789,9 @@ void bunches()
             if (ImGui::MenuItem("Add Selection"))
                 get_queue([i] { organize::add_to_group(i); });
             if (ImGui::MenuItem("Rename...")) {
-                g_rename_group = i;
-                text::format_to(g_rename_text, "%s", g.name.c_str());
-                g_rename_asked = true;
+                labels().rename_group_ = i;
+                text::format_to(labels().rename_text_, "%s", g.name.c_str());
+                labels().rename_asked_ = true;
             }
             if (ImGui::MenuItem("Delete Group"))
                 get_queue([i] { organize::delete_group(i); });
@@ -798,9 +861,9 @@ void row_menu(const nodes::Elem& node)
     current_heading(nodes::caption(node.name).c_str());
     ImGui::Separator();
     if (ImGui::MenuItem("Label...")) {
-        g_label_for = node.name;
-        text::format_to(g_label_text, "%s", row_label(node.name).c_str());
-        g_label_asked = true;
+        labels().label_for_ = node.name;
+        text::format_to(labels().label_text_, "%s", row_label(node.name).c_str());
+        labels().label_asked_ = true;
     }
     const nodes::Elem& copy = node;
     const bool hidden = organize::hidden_in_editor(node);
@@ -814,7 +877,7 @@ void row_menu(const nodes::Elem& node)
         get_queue([copy, selectable] { organize::set_selectable(copy, !selectable); });
     ImGui::Separator();
     if (ImGui::MenuItem("Group Selection...", actions::get_keys_text(actions::kMakeGroup).c_str()))
-        g_group_asked = true;
+        labels().group_asked_ = true;
     const organize::State& state = organize::at_hand();
     if (!state.groups.empty() && ImGui::BeginMenu("Add Selection to")) {
         for (int i = 0; std::cmp_less(i, state.groups.size()); ++i) {
@@ -918,8 +981,8 @@ void inspector_section(const ui::ShapeMesh& model)
         return;
     ImGui::TableSetupColumn("##k", ImGuiTableColumnFlags_WidthFixed, 120.0f * current_s());
     ImGui::TableSetupColumn("##v", ImGuiTableColumnFlags_WidthStretch);
-    if (g_shared.size() != shared.size())
-        g_shared.assign(shared.size(), SharedEdit{});
+    if (shared_view().shared_.size() != shared.size())
+        shared_view().shared_.assign(shared.size(), SharedEdit{});
     for (size_t i = 0; i < shared.size(); ++i) {
         const Shared& f = core::at(shared, i);
         ImGui::TableNextRow();
@@ -927,24 +990,24 @@ void inspector_section(const ui::ShapeMesh& model)
         gui::text_disabled("%s", fields::get_name_text(f.key, fields::get_name_of).c_str());
         ImGui::TableNextColumn();
         ImGui::PushID(static_cast<int>(f.key));
-        SharedEdit& edit = core::at(g_shared, i);
+        SharedEdit& edit = core::at(shared_view().shared_, i);
         const ImGuiID id = ImGui::GetID("##value");
         // (the value shown afresh unless it's being typed in)
-        if (g_shared_active != id || edit.key != f.key) {
+        if (shared_view().shared_active_ != id || edit.key != f.key) {
             edit.key = f.key;
             text::format_to(edit.text, "%s", f.mixed ? "" : f.text.c_str());
         }
         ImGui::SetNextItemWidth(-1.0f);
-        if (g_fonts.mono)
-            ImGui::PushFont(g_fonts.mono);
+        if (stored_fonts().mono)
+            ImGui::PushFont(stored_fonts().mono);
         const bool enter = ImGui::InputTextWithHint("##value", f.mixed ? "mixed" : "", edit.text.data(), sizeof(edit.text),
                                                     ImGuiInputTextFlags_EnterReturnsTrue);
-        if (g_fonts.mono)
+        if (stored_fonts().mono)
             ImGui::PopFont();
         if (ImGui::IsItemActive())
-            g_shared_active = id;
-        else if (g_shared_active == id)
-            g_shared_active = 0;
+            shared_view().shared_active_ = id;
+        else if (shared_view().shared_active_ == id)
+            shared_view().shared_active_ = 0;
         if (ImGui::IsItemHovered())
             gui::tooltip("%s - %s", fields::kind_name(f.kind), f.mixed ? "mixed values" : "same on all");
         if (enter) {
@@ -960,7 +1023,7 @@ void inspector_section(const ui::ShapeMesh& model)
                                      (message.empty() ? "" : " (" + message + ")")
                                : "Not set: " + message);
             }));
-            g_shared_active = 0;
+            shared_view().shared_active_ = 0;
         }
         ImGui::PopID();
     }
@@ -973,13 +1036,13 @@ void remember_sections()
     if (!window)
         return;
     const std::string ini = game_folder_path("thug2-decomp.ini");
-    if (!g_sections_loaded || g_sections_window != window->ID) {
-        g_sections_loaded = true;
-        g_sections_window = window->ID;
+    if (!sections().sections_loaded_ || sections().sections_window_ != window->ID) {
+        sections().sections_loaded_ = true;
+        sections().sections_window_ = window->ID;
         for (int i = 0; i < kSectionCount; ++i) {
             const int value =
                 static_cast<int>(GetPrivateProfileIntA("editor_sections", std::next(core::at(kSections, i), 3), -1, ini.c_str()));
-            core::at(g_section_state, i) = value;
+            core::at(sections().section_state_, i) = value;
             if (value == 0 || value == 1)
                 window->StateStorage.SetInt(window->GetID(core::at(kSections, i)), value);
         }
@@ -987,9 +1050,9 @@ void remember_sections()
     }
     for (int i = 0; i < kSectionCount; ++i) {
         const int value = window->StateStorage.GetInt(window->GetID(core::at(kSections, i)), -1);
-        if (value < 0 || value == core::at(g_section_state, i))
+        if (value < 0 || value == core::at(sections().section_state_, i))
             continue;
-        core::at(g_section_state, i) = value;
+        core::at(sections().section_state_, i) = value;
         WritePrivateProfileStringA("editor_sections", std::next(core::at(kSections, i), 3), value ? "1" : "0", ini.c_str());
     }
 }

@@ -44,6 +44,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::ground {
 
@@ -100,7 +101,11 @@ void upload_indices(render::IdxStore* buffer)
 
 // --- state ---
 
-std::vector<Spec> g_specs;
+std::vector<Spec>& stored_specs()
+{
+    static core::NoDestroy<std::vector<Spec>> specs;
+    return specs.get();
+}
 struct Made {
     uint32_t sector = 0; // the sector made for it (Checksums(name + "_" + material) - a new donor: a new copy)
     Spec built;
@@ -120,8 +125,18 @@ std::map<uint32_t, int>& tile_hides()
     static std::map<uint32_t, int> value; // (tiles hidden by pits, and by how many)
     return value;
 }
-render::WorldScene* g_scene;
-uint32_t g_active_scene_key;
+// NOT ORIGINAL grouping - level_editor_ground_game.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_ground_game_state()).
+struct LevelEditorGroundGameState {
+    render::WorldScene* scene_{};
+    uint32_t active_scene_key_{};
+};
+
+LevelEditorGroundGameState& level_editor_ground_game_state()
+{
+    static core::NoDestroy<LevelEditorGroundGameState> state;
+    return state.get();
+}
 
 uint32_t sector_key_from_spec(const Spec& spec)
 {
@@ -135,11 +150,11 @@ void note_level()
 {
     render::WorldScene* scene = scenery::main_scene();
     const uint32_t name = scenery::world_scene_key(scene);
-    if (scene == g_scene && name == g_active_scene_key)
+    if (scene == level_editor_ground_game_state().scene_ && name == level_editor_ground_game_state().active_scene_key_)
         return;
-    g_scene = scene;
-    g_active_scene_key = name;
-    g_specs.clear();
+    level_editor_ground_game_state().scene_ = scene;
+    level_editor_ground_game_state().active_scene_key_ = name;
+    stored_specs().clear();
     made_state().clear();
     pool().clear();
     tile_hides().clear();
@@ -170,7 +185,7 @@ struct GroundStep : ModuleStep {
         std::string message;
         apply_to_each(specs, &message);
     }
-    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<GroundStep>(g_specs); }
+    [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<GroundStep>(stored_specs()); }
 };
 
 // The generated piece written into a copy of its donor (see the header). False and why.
@@ -388,13 +403,13 @@ void unmake(const std::string& piece_name)
 
 } // namespace
 
-const std::vector<Spec>& get_all() { return g_specs; }
+const std::vector<Spec>& get_all() { return stored_specs(); }
 
 bool is_piece(uint32_t sector) { return pool().count(sector) != 0; }
 
 const Spec* get_find(const std::string& name)
 {
-    for (const Spec& s : g_specs) {
+    for (const Spec& s : stored_specs()) {
         if (s.name == name)
             return &s;
     }
@@ -624,19 +639,19 @@ bool place_in(const Spec& in, std::string* why)
         return false;
     if (!spec.lower)
         spec.hides.clear();
-    const std::vector<Spec> before = g_specs;
+    const std::vector<Spec> before = stored_specs();
     if (!get_make(spec, why))
         return false;
     push_module_undo_labelled(std::make_shared<GroundStep>(before), spec.lower ? "Lower ground" : "Raise ground");
     bool found = false;
-    for (Spec& s : g_specs) {
+    for (Spec& s : stored_specs()) {
         if (s.name == spec.name) {
             s = spec;
             found = true;
         }
     }
     if (!found)
-        g_specs.push_back(spec);
+        stored_specs().push_back(spec);
     return true;
 }
 
@@ -645,9 +660,9 @@ void drop_out(const std::string& name)
     note_level();
     if (!get_find(name))
         return;
-    push_module_undo_labelled(std::make_shared<GroundStep>(g_specs), "Remove ground piece");
+    push_module_undo_labelled(std::make_shared<GroundStep>(stored_specs()), "Remove ground piece");
     unmake(name);
-    std::erase_if(g_specs, [&](const Spec& s) { return s.name == name; });
+    std::erase_if(stored_specs(), [&](const Spec& s) { return s.name == name; });
 }
 
 int apply_to_each(const std::vector<Spec>& specs, std::string* message)
@@ -675,15 +690,15 @@ int apply_to_each(const std::vector<Spec>& specs, std::string* message)
         }
         kept.push_back(spec); // (kept even when not made: its record isn't lost)
     }
-    g_specs = kept;
+    stored_specs() = kept;
     return placed;
 }
 
 std::vector<std::string> capture_records()
 {
     std::vector<std::string> lines;
-    lines.reserve(g_specs.size());
-    for (const Spec& s : g_specs)
+    lines.reserve(stored_specs().size());
+    for (const Spec& s : stored_specs())
         lines.push_back("ground " + link_record(s, object_edit::caption(s.material).c_str()));
     return lines;
 }
@@ -710,7 +725,7 @@ void reset_all()
 {
     // (a new level: nothing of the old one touched - its sectors are gone)
     render::WorldScene* scene = scenery::main_scene();
-    if (scene == g_scene && scenery::world_scene_key(scene) == g_active_scene_key) {
+    if (scene == level_editor_ground_game_state().scene_ && scenery::world_scene_key(scene) == level_editor_ground_game_state().active_scene_key_) {
         std::vector<std::string> names;
         names.reserve(made_state().size());
         for (const auto& made : made_state())
@@ -718,10 +733,10 @@ void reset_all()
         for (const std::string& name : names)
             unmake(name);
     }
-    g_specs.clear();
+    stored_specs().clear();
     made_state().clear();
     tile_hides().clear();
-    if (scene != g_scene || scenery::world_scene_key(scene) != g_active_scene_key)
+    if (scene != level_editor_ground_game_state().scene_ || scenery::world_scene_key(scene) != level_editor_ground_game_state().active_scene_key_)
         note_level();
 }
 

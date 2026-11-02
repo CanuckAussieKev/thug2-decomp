@@ -32,6 +32,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::budget {
 
@@ -186,22 +187,26 @@ struct Datum {
     double main = 0.0, script = 0.0;
     std::array<int, kPoolCount> pools = {};
 };
-Datum g_base;
+Datum& base()
+{
+    static core::NoDestroy<Datum> base;
+    return base.get();
+}
 
 void take_baseline()
 {
     const memory::Hub* manager = memory::Hub::get_pull();
     double size = 0.0;
-    g_base.main = g_base.script = 0.0;
+    base().main = base().script = 0.0;
     if (manager) {
-        region_use(manager->primary_zone_, &size, &g_base.main);
-        region_use(manager->script_region_.get(), &size, &g_base.script);
+        region_use(manager->primary_zone_, &size, &base().main);
+        region_use(manager->script_region_.get(), &size, &base().script);
     }
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, count = 0;
-        core::at(g_base.pools, i) = pool_use(core::at(kPools, i).pair(), &used, &count) ? used : 0;
+        core::at(base().pools, i) = pool_use(core::at(kPools, i).pair(), &used, &count) ? used : 0;
     }
-    g_base.taken = true;
+    base().taken = true;
 }
 
 } // namespace
@@ -209,11 +214,11 @@ void take_baseline()
 void get_observe()
 {
     const int loads = layout::level_loads();
-    if (loads != g_base.loads) {
-        g_base.loads = loads;
-        g_base.taken = false;
+    if (loads != base().loads) {
+        base().loads = loads;
+        base().taken = false;
     }
-    if (!g_base.taken && level_up())
+    if (!base().taken && level_up())
         take_baseline();
 }
 
@@ -281,7 +286,7 @@ std::vector<Meter> get_meters()
         m.name = core::at(kPools, i).name;
         m.used = used;
         m.limit = total;
-        m.added = g_base.taken ? used - core::at(g_base.pools, i) : 0.0;
+        m.added = base().taken ? used - core::at(base().pools, i) : 0.0;
         m.approximate = true;
         m.where = core::at(kPools, i).where;
         meters.push_back(m);
@@ -293,7 +298,7 @@ std::vector<Meter> get_meters()
             m.name = "Script heap";
             m.used = used;
             m.limit = size;
-            m.added = g_base.taken ? used - g_base.script : 0.0;
+            m.added = base().taken ? used - base().script : 0.0;
             m.bytes = m.approximate = true;
             m.where =
                 "the script region (InitStandardHeaps 0x005BBE80: original 0x434770 bytes, grown by the bigger pools)";
@@ -304,7 +309,7 @@ std::vector<Meter> get_meters()
             m.name = "Main memory";
             m.used = used;
             m.limit = size;
-            m.added = g_base.taken ? used - g_base.main : 0.0;
+            m.added = base().taken ? used - base().main : 0.0;
             m.bytes = m.approximate = true;
             m.where = "the main region (Mem::Manager::Construct 0x005BBC00: original 64 MB, grown by the bigger pools) "
                       "- geometry, copies' meshes, collision";

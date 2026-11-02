@@ -23,6 +23,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -39,18 +40,29 @@ std::string get_name_of(uint32_t checksum) { return name_for(checksum, script::k
 // The level's restarts (names), and the scripts its nodes' TriggerScripts name - made again when the nodes change.
 std::vector<std::string> g_restarts; // (map4: the editor's camera nodes)
 std::vector<std::string> g_scripts;
-std::vector<std::string> g_cameras;
-uint32_t g_lists_generation = 0xFFFFFFFF;
+// NOT ORIGINAL grouping - level_editor_triggers_ui.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_triggers_ui_state()).
+struct LevelEditorTriggersUiState {
+    std::vector<std::string> cameras_{};
+    uint32_t lists_generation_ = 0xFFFFFFFF;
+};
+
+LevelEditorTriggersUiState& level_editor_triggers_ui_state()
+{
+    static core::NoDestroy<LevelEditorTriggersUiState> state;
+    return state.get();
+}
+
 void update_lists()
 {
-    if (g_lists_generation == nodes::get_generation())
+    if (level_editor_triggers_ui_state().lists_generation_ == nodes::get_generation())
         return;
-    g_lists_generation = nodes::get_generation();
+    level_editor_triggers_ui_state().lists_generation_ = nodes::get_generation();
     g_restarts.clear();
     g_scripts.clear();
-    g_cameras.clear();
+    level_editor_triggers_ui_state().cameras_.clear();
     for (const cameras::ViewCam& camera : cameras::get_all())
-        g_cameras.push_back(camera.name);
+        level_editor_triggers_ui_state().cameras_.push_back(camera.name);
     static const uint32_t kTriggerScript = 0x2CA8A299;
     for (const nodes::Elem& node : nodes::get_all()) {
         if (node.family == nodes::Family::kSpawn && !node.hidden && node.name)
@@ -475,7 +487,7 @@ void inspector_section(int index)
     }
     case Kind::kViewCam: {
         // (map4) the camera played and for how long
-        changed |= name_combo("Camera", &s.target, g_cameras);
+        changed |= name_combo("Camera", &s.target, level_editor_triggers_ui_state().cameras_);
         changed |= name_field("Or a node", &s.target, target.data(), sizeof(target), &g_target_editing);
         if (ImGui::IsItemHovered())
             gui::tooltip("Camera node");

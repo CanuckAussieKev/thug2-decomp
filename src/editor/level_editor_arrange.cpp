@@ -49,6 +49,7 @@
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::level_editor::arrange {
 
@@ -766,7 +767,11 @@ struct SnapCache {
     Aabb moving;
     uint32_t contacts_at_ = 0;
 };
-SnapCache g_snap;
+SnapCache& stored_snap()
+{
+    static core::NoDestroy<SnapCache> snap;
+    return snap.get();
+}
 
 struct GatherContext {
     const std::vector<uint32_t>* skip{};
@@ -806,25 +811,25 @@ V3 edge_snapped(V3 pos, V3 wanted, int axes)
     if (!sectors_bounds(selection.ids, &moving))
         return wanted;
     const uint32_t now = SDL_GetTicks();
-    if (g_snap.selection != selection.ids || now - g_snap.last_used_ > 300) {
+    if (stored_snap().selection != selection.ids || now - stored_snap().last_used_ > 300) {
         // (the neighbours, once a drag: within 1500 of where the piece is - they don't move meanwhile)
-        g_snap.selection = selection.ids;
-        g_snap.boxes.clear();
+        stored_snap().selection = selection.ids;
+        stored_snap().boxes.clear();
         GatherContext context = {
-            .skip = &selection.ids, .near = {.min = moving.min - V3{.x = 1500, .y = 1500, .z = 1500}, .max = moving.max + V3{.x = 1500, .y = 1500, .z = 1500}}, .out = &g_snap.boxes};
+            .skip = &selection.ids, .near = {.min = moving.min - V3{.x = 1500, .y = 1500, .z = 1500}, .max = moving.max + V3{.x = 1500, .y = 1500, .z = 1500}}, .out = &stored_snap().boxes};
         scenery::for_each_level_sector(gather_sector, &context);
     }
-    g_snap.last_used_ = now;
+    stored_snap().last_used_ = now;
     float distance = 0.0f;
     ViewNow view{};
     if (current_view(&view)) {
         const V3 d = pos - view.pos;
         distance = std::sqrt(get_dot(d, d));
     }
-    g_snap.contacts.clear();
-    const V3 delta = edge_snap(moving, wanted - pos, g_snap.boxes, snap_reach(distance), axes, &g_snap.contacts);
-    g_snap.moving = {.min = moving.min + delta, .max = moving.max + delta};
-    g_snap.contacts_at_ = now;
+    stored_snap().contacts.clear();
+    const V3 delta = edge_snap(moving, wanted - pos, stored_snap().boxes, snap_reach(distance), axes, &stored_snap().contacts);
+    stored_snap().moving = {.min = moving.min + delta, .max = moving.max + delta};
+    stored_snap().contacts_at_ = now;
     return pos + delta;
 }
 
@@ -832,14 +837,28 @@ V3 edge_snapped(V3 pos, V3 wanted, int axes)
 
 namespace {
 
-bool g_edge_picking;
+bool& stored_edge_picking()
+{
+    static bool edge_picking{};
+    return edge_picking;
+}
 struct EdgeCache {
     std::vector<uint32_t> selection;
     V3 pivot = {};
     std::vector<Run> runs;
 };
-EdgeCache g_edges;
-int g_edge_hover = -1;
+// NOT ORIGINAL grouping - level_editor_arrange.cpp's state (were globals). Made on first use, never destroyed
+// (level_editor_arrange_state()).
+struct LevelEditorArrangeState {
+    EdgeCache edges_{};
+    int edge_hover_ = -1;
+};
+
+LevelEditorArrangeState& level_editor_arrange_state()
+{
+    static core::NoDestroy<LevelEditorArrangeState> state;
+    return state.get();
+}
 
 // A sector's drawn triangles where it is now (its meshes' first index buffers as strips - as picking reads them).
 void sector_triangles(uint32_t checksum, std::vector<V3>* out)
@@ -880,23 +899,23 @@ const std::vector<Run>& edge_runs()
 {
     const edit::Selected selection = edit::get_selection();
     const V3 pivot = selection.kind == edit::Kind::kScenery ? scenery::get_pivot() : V3{};
-    if (selection.ids != g_edges.selection || pivot.x != g_edges.pivot.x || pivot.y != g_edges.pivot.y ||
-        pivot.z != g_edges.pivot.z) {
-        g_edges.selection = selection.ids;
-        g_edges.pivot = pivot;
-        g_edges.runs.clear();
+    if (selection.ids != level_editor_arrange_state().edges_.selection || pivot.x != level_editor_arrange_state().edges_.pivot.x || pivot.y != level_editor_arrange_state().edges_.pivot.y ||
+        pivot.z != level_editor_arrange_state().edges_.pivot.z) {
+        level_editor_arrange_state().edges_.selection = selection.ids;
+        level_editor_arrange_state().edges_.pivot = pivot;
+        level_editor_arrange_state().edges_.runs.clear();
         if (selection.kind == edit::Kind::kScenery) {
             std::vector<V3> triangles;
             for (const uint32_t s : selection.ids) {
                 if (!scenery::is_shadow(s))
                     sector_triangles(s, &triangles);
             }
-            g_edges.runs = top_edges(triangles, 0.5f, 16.0f);
-            if (g_edges.runs.size() > 256)
-                g_edges.runs.resize(256);
+            level_editor_arrange_state().edges_.runs = top_edges(triangles, 0.5f, 16.0f);
+            if (level_editor_arrange_state().edges_.runs.size() > 256)
+                level_editor_arrange_state().edges_.runs.resize(256);
         }
     }
-    return g_edges.runs;
+    return level_editor_arrange_state().edges_.runs;
 }
 
 bool pixel_of(const ViewNow& view, V3 p, float* x, float* y)
@@ -911,7 +930,7 @@ bool pixel_of(const ViewNow& view, V3 p, float* x, float* y)
 
 } // namespace
 
-bool edge_picking() { return g_edge_picking; }
+bool edge_picking() { return stored_edge_picking(); }
 
 void set_edge_picking(bool on)
 {
@@ -919,20 +938,20 @@ void set_edge_picking(bool on)
         hud::get_message("Rail Along Edge: select a scenery piece", 4.0);
         on = false;
     }
-    g_edge_picking = on;
-    g_edge_hover = -1;
+    stored_edge_picking() = on;
+    level_editor_arrange_state().edge_hover_ = -1;
     if (on) {
         const size_t runs = edge_runs().size();
         hud::get_message(
             runs ? "Rail Along Edge: click a top edge (Shift: more)" : "Rail Along Edge: no top edges found", 5.0);
         if (!runs)
-            g_edge_picking = false;
+            stored_edge_picking() = false;
     }
 }
 
 bool edge_click(float x, float y)
 {
-    if (!g_edge_picking)
+    if (!stored_edge_picking())
         return false;
     ViewNow view{};
     if (!current_view(&view))
@@ -964,7 +983,7 @@ bool edge_click(float x, float y)
     if (more)
         edit::choose_one(selection);
     else
-        g_edge_picking = false;
+        stored_edge_picking() = false;
     get_log("level editor: auto-rail along an edge of %s: %d points, %.0f long", object_edit::caption(cluster).c_str(),
             static_cast<int>(run.points.size()), run.length);
     return true;
@@ -980,17 +999,27 @@ struct Segment {
     uint32_t from, to;
     bool ledge;
 };
-std::vector<Segment> g_segments;
-uint32_t g_segments_nodes = ~0u;
-uint32_t g_segments_rails = ~0u;
+// NOT ORIGINAL grouping - the segments and the nodes and rails they were made from (were globals). Made on first use,
+// never destroyed (segments()).
+struct Segments {
+    std::vector<Segment> segments_{};
+    uint32_t segments_nodes_ = ~0u;
+    uint32_t segments_rails_ = ~0u;
+};
+
+Segments& segments()
+{
+    static core::NoDestroy<Segments> state;
+    return state.get();
+}
 
 const std::vector<Segment>& current_segments()
 {
-    if (g_segments_nodes == nodes::get_generation() && g_segments_rails == scenery::rail_generation())
-        return g_segments;
-    g_segments_nodes = nodes::get_generation();
-    g_segments_rails = scenery::rail_generation();
-    g_segments.clear();
+    if (segments().segments_nodes_ == nodes::get_generation() && segments().segments_rails_ == scenery::rail_generation())
+        return segments().segments_;
+    segments().segments_nodes_ = nodes::get_generation();
+    segments().segments_rails_ = scenery::rail_generation();
+    segments().segments_.clear();
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
     auto place = [&](const nodes::Elem& n, V3* p) {
         if (scenery::get_rail_point(n.name, p, true))
@@ -1010,10 +1039,10 @@ const std::vector<Segment>& current_segments()
                 continue;
             V3 b{};
             if (place(core::at(nodes, link), &b))
-                g_segments.push_back({.a = a, .b = b, .from = n.name, .to = core::at(nodes, link).name, .ledge = ledge});
+                segments().segments_.push_back({.a = a, .b = b, .from = n.name, .to = core::at(nodes, link).name, .ledge = ledge});
         }
     }
-    return g_segments;
+    return segments().segments_;
 }
 
 // The selection's axis-aligned box and its size (an object's own: its model box's).
@@ -1048,11 +1077,21 @@ bool selection_box(const edit::Selected& selection, Aabb* box, V3* size)
 
 namespace {
 
-// The registry's entries (level_editor_actions.h): their indices, once registered.
-int g_act_window = -1;
-int g_act_adjust = -1;
-int g_act_edge_rail = -1;
-int g_act_linked = -1;
+// NOT ORIGINAL grouping - the arrange actions' windows (were globals). Made on first use, never destroyed
+// (arrange_actions()).
+struct ArrangeActions {
+    // The registry's entries (level_editor_actions.h): their indices, once registered.
+    int act_window_ = -1;
+    int act_adjust_ = -1;
+    int act_edge_rail_ = -1;
+    int act_linked_ = -1;
+};
+
+ArrangeActions& arrange_actions()
+{
+    static core::NoDestroy<ArrangeActions> state;
+    return state.get();
+}
 
 int add_action(const char* id, const char* name, const char* category, const char* tip,
                std::vector<actions::Chord> keys, std::function<void()> run, std::function<int()> checked = nullptr)
@@ -1073,18 +1112,18 @@ void flip_over(bool* setting) { *setting = !*setting; }
 
 void register_actions()
 {
-    if (g_act_window >= 0)
+    if (arrange_actions().act_window_ >= 0)
         return;
     using actions::Chord;
     const uint8_t ctrl_alt = actions::kCtrl | actions::kAlt;
-    g_act_window = add_action("arrange_window", "Arrange", "Panels", "Align, distribute and replace",
+    arrange_actions().act_window_ = add_action("arrange_window", "Arrange", "Panels", "Align, distribute and replace",
                               {Chord{.scancode = SDL_SCANCODE_F2, .mods = 0}}, [] { flip_over(&at_hand().window); });
-    g_act_adjust =
+    arrange_actions().act_adjust_ =
         add_action("adjust_last", "Adjust Last Operation", "Panels", "Edit the parameters of the last operation",
                    {Chord{.scancode = SDL_SCANCODE_F4, .mods = 0}}, [] { flip_over(&adjust::get_shown()); });
-    g_act_edge_rail = add_action("edge_rail", "Rail Along Edge", "Edit", "Click a scenery edge to add a rail along it",
-                                 {Chord{.scancode = SDL_SCANCODE_R, .mods = actions::kAlt}}, [] { set_edge_picking(!g_edge_picking); });
-    g_act_linked =
+    arrange_actions().act_edge_rail_ = add_action("edge_rail", "Rail Along Edge", "Edit", "Click a scenery edge to add a rail along it",
+                                 {Chord{.scancode = SDL_SCANCODE_R, .mods = actions::kAlt}}, [] { set_edge_picking(!stored_edge_picking()); });
+    arrange_actions().act_linked_ =
         add_action("linked_duplicate", "Duplicate Linked", "Edit", "Duplicate; copies follow the source's changes",
                    {Chord{.scancode = SDL_SCANCODE_D, .mods = ctrl_alt}}, [] { links::linked_duplicate(); });
     static const auto kEdges = std::to_array<const char*>({"min", "centre", "max"});
@@ -1119,8 +1158,18 @@ void register_actions()
         [] { flip_over(&at_hand().click_places_); }, [] { return at_hand().click_places_ ? 1 : 0; });
 }
 
-V3 g_drag_from;
-bool g_was_dragging;
+// NOT ORIGINAL grouping - where a drag started and whether one was going on (were globals). Made on first use, never
+// destroyed (arrange_drag()).
+struct ArrangeDrag {
+    V3 drag_from_{};
+    bool was_dragging_{};
+};
+
+ArrangeDrag& arrange_drag()
+{
+    static core::NoDestroy<ArrangeDrag> state;
+    return state.get();
+}
 
 } // namespace
 
@@ -1129,23 +1178,23 @@ void tick_frame()
     register_actions();
     run_queued();
     if (!edit::get_dragging()) {
-        if (actions::squeezed(g_act_window) && !ui::underway())
+        if (actions::squeezed(arrange_actions().act_window_) && !ui::underway())
             hud::get_message("Requires the editor UI (editor_ui=1)");
-        else if (actions::squeezed(g_act_window))
+        else if (actions::squeezed(arrange_actions().act_window_))
             flip_over(&at_hand().window);
-        if (actions::squeezed(g_act_adjust))
+        if (actions::squeezed(arrange_actions().act_adjust_))
             flip_over(&adjust::get_shown());
-        if (actions::squeezed(g_act_edge_rail))
-            set_edge_picking(!g_edge_picking);
-        if (actions::squeezed(g_act_linked))
+        if (actions::squeezed(arrange_actions().act_edge_rail_))
+            set_edge_picking(!stored_edge_picking());
+        if (actions::squeezed(arrange_actions().act_linked_))
             links::linked_duplicate();
     }
-    if (g_edge_picking && edit::get_selection().kind != edit::Kind::kScenery)
-        g_edge_picking = false; // (deselected: Esc stops it)
+    if (stored_edge_picking() && edit::get_selection().kind != edit::Kind::kScenery)
+        stored_edge_picking() = false; // (deselected: Esc stops it)
     const bool dragging = edit::get_dragging();
-    if (dragging && !g_was_dragging)
-        g_drag_from = edit::get_pos();
-    g_was_dragging = dragging;
+    if (dragging && !arrange_drag().was_dragging_)
+        arrange_drag().drag_from_ = edit::get_pos();
+    arrange_drag().was_dragging_ = dragging;
 }
 
 namespace {
@@ -1302,7 +1351,7 @@ void add_readout(const Painter& p)
     Readout r;
     Aabb box;
     const bool have_box = selection_box(selection, &box, &r.size);
-    const V3 moved = edit::get_pos() - g_drag_from;
+    const V3 moved = edit::get_pos() - arrange_drag().drag_from_;
     r.moved = std::sqrt(get_dot(moved, moved));
     V3 base{}, ground{};
     if (edit::ground_mark(&base, &ground)) {
@@ -1351,14 +1400,14 @@ void add_readout(const Painter& p)
 
 void add_contacts(const Painter& p)
 {
-    if (!edit::get_dragging() || SDL_GetTicks() - g_snap.contacts_at_ > 150)
+    if (!edit::get_dragging() || SDL_GetTicks() - stored_snap().contacts_at_ > 150)
         return;
-    for (const Contact& c : g_snap.contacts) {
-        if (c.other < 0 || std::cmp_greater_equal(c.other, g_snap.boxes.size()))
+    for (const Contact& c : stored_snap().contacts) {
+        if (c.other < 0 || std::cmp_greater_equal(c.other, stored_snap().boxes.size()))
             continue;
         // (the face met: the neighbour's rectangle on that plane where the two boxes meet)
-        const Aabb& o = core::at(g_snap.boxes, c.other);
-        const Aabb& m = g_snap.moving;
+        const Aabb& o = core::at(stored_snap().boxes, c.other);
+        const Aabb& m = stored_snap().moving;
         const int u = c.axis == 0 ? 1 : 0;
         const int v = c.axis == 2 ? 1 : 2;
         float u0 = std::max(get_component(o.min, u), get_component(m.min, u)),
@@ -1384,16 +1433,16 @@ void add_contacts(const Painter& p)
 
 void add_edges(const Painter& p)
 {
-    if (!g_edge_picking)
+    if (!stored_edge_picking())
         return;
     const std::vector<Run>& runs = edge_runs();
     float x = 0.0f, y = 0.0f;
     edit::get_cursor(&x, &y);
-    g_edge_hover = run_at(
+    level_editor_arrange_state().edge_hover_ = run_at(
         runs, [&](V3 q, float* px, float* py) { return p.get_pixel(q, px, py); }, x, y,
         12.0f * static_cast<float>(core::at(p.viewport, 3)) / 720.0f);
     for (size_t r = 0; r < runs.size(); ++r) {
-        const bool lit = ints::as_signed(r) == g_edge_hover;
+        const bool lit = ints::as_signed(r) == level_editor_arrange_state().edge_hover_;
         for (size_t i = 1; i < core::at(runs, r).points.size(); ++i)
             p.get_seg(core::at(core::at(runs, r).points, i - 1), core::at(core::at(runs, r).points, i), lit ? 0xFFFFE040 : 0xD040E0F0, lit ? 3.5f : 2.0f);
         if (lit) {
@@ -1453,11 +1502,11 @@ bool place_click(bool more)
 
 void get_forget()
 {
-    g_snap = SnapCache{};
-    g_edges = EdgeCache{};
-    g_edge_picking = false;
-    g_segments_nodes = g_segments_rails = ~0u;
-    g_segments.clear();
+    stored_snap() = SnapCache{};
+    level_editor_arrange_state().edges_ = EdgeCache{};
+    stored_edge_picking() = false;
+    segments().segments_nodes_ = segments().segments_rails_ = ~0u;
+    segments().segments_.clear();
 }
 
 } // namespace frontend::level_editor::arrange
