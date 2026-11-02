@@ -806,8 +806,8 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
                 if (k == 1)
                     core::at(first.pos, 1) = thugpro::pack_height(skater->at_point_.y);
                 else
-                    core::at(first.pos, k) = thugpro::pack_horizontal((&skater->at_point_.x)[k]);
-                core::at(first.angles, k) = (&eulers.x)[k];
+                    core::at(first.pos, k) = thugpro::pack_horizontal(skater->at_point_[k]);
+                core::at(first.angles, k) = eulers[k];
             }
             previous = 0;
         }
@@ -896,7 +896,7 @@ uint32_t SkateNet::get_relay_flags(void* sent_record, void* state_entry, uint8_t
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
-            k == 1 ? thugpro::pack_height((&entry->position.x)[1]) : thugpro::pack_horizontal((&entry->position.x)[k]);
+            k == 1 ? thugpro::pack_height(entry->position[1]) : thugpro::pack_horizontal(entry->position[k]);
         if (value != core::at(core::at(sent->pos_, index), k) || force)
             flags |= 1u << k;
     }
@@ -933,7 +933,7 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
-            k == 1 ? thugpro::pack_height(entry.position.y) : thugpro::pack_horizontal((&entry.position.x)[k]);
+            k == 1 ? thugpro::pack_height(entry.position.y) : thugpro::pack_horizontal(entry.position[k]);
         if (flags & (1u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         core::at(core::at(sent->pos_, index), k) = value;

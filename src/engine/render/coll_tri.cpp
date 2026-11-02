@@ -37,7 +37,7 @@ int& s_face_buffer_size = g_face_buffer_size;
 // The compiler's float-to-integer conversion (_ftol: toward zero, the low 32 bits of the 64-bit result).
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-float get_component(const maths::Vec4* v, int axis) { return (&v->x)[axis]; }
+float get_component(const maths::Vec4* v, int axis) { return (*v)[axis]; }
 
 } // namespace
 

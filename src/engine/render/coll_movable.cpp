@@ -101,7 +101,7 @@ maths::Mat4* MatrixTranspose::transpose_from(const maths::Mat4* source)
     }
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c)
-            (&core::at(row, r).x)[c] = (&core::at(source->row, c).x)[r];
+            core::at(row, r)[c] = core::at(source->row, c)[r];
     }
     return this;
 }
@@ -111,9 +111,9 @@ void MatrixTranspose::transpose_in_place()
 {
     for (int r = 0; r < 4; ++r) {
         for (int c = r + 1; c < 4; ++c) {
-            const float swap = (&core::at(row, r).x)[c];
-            (&core::at(row, r).x)[c] = (&core::at(row, c).x)[r];
-            (&core::at(row, c).x)[r] = swap;
+            const float swap = core::at(row, r)[c];
+            core::at(row, r)[c] = core::at(row, c)[r];
+            core::at(row, c)[r] = swap;
         }
     }
 }
@@ -213,10 +213,10 @@ void CollScaled::line_to_local(const maths::Seg* line, maths::Seg* out) const
 void CollScaled::update_inverse()
 {
     for (int r = 0; r < 3; ++r) {
-        const double inverse = 1.0 / (&size_factor_.x)[r];
-        (&core::at(inverse_.row, 0).x)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).x);
-        (&core::at(inverse_.row, 1).x)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).y);
-        (&core::at(inverse_.row, 2).x)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).z);
+        const double inverse = 1.0 / size_factor_[r];
+        core::at(inverse_.row, 0)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).x);
+        core::at(inverse_.row, 1)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).y);
+        core::at(inverse_.row, 2)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).z);
     }
     maths::Vec4& back = core::at(inverse_.row, 3);
     back.x = -core::at(basis_frame_.row, 3).x;

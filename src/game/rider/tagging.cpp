@@ -224,8 +224,8 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     tag.object_id = static_cast<int8_t>(entity_->ident_);
     tag.sticker = sticker != 0;
     for (int i = 0; i < 4; ++i) {
-        core::at(tag.start, i) = (&start.x)[i];
-        core::at(tag.end, i) = (&end.x)[i];
+        core::at(tag.start, i) = start[i];
+        core::at(tag.end, i) = end[i];
     }
     tag.size = size;
     std::array<uint8_t, online::kPlaceTagSize> data{};

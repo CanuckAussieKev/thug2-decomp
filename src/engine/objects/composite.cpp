@@ -625,13 +625,13 @@ bool GameEntity::obj_get_collision(Struct* params, Script* /*script*/)
     // The end: `length` along the right (side), down (down) or ahead.
     if (params->has_bare_flag(kSide)) {
         for (int i = 0; i < 4; ++i)
-            (&end.x)[i] = static_cast<float>(static_cast<double>(length) * (&right.x)[i] + (&end.x)[i]);
+            end[i] = static_cast<float>(static_cast<double>(length) * right[i] + end[i]);
     } else if (params->has_bare_flag(kDown)) {
         for (int i = 0; i < 4; ++i)
-            (&end.x)[i] = static_cast<float>((&end.x)[i] - static_cast<double>(length) * (&up.x)[i]);
+            end[i] = static_cast<float>(end[i] - static_cast<double>(length) * up[i]);
     } else {
         for (int i = 0; i < 4; ++i)
-            (&end.x)[i] = static_cast<float>(static_cast<double>(length) * (&at.x)[i] + (&end.x)[i]);
+            end[i] = static_cast<float>(static_cast<double>(length) * at[i] + end[i]);
     }
     return feeler.get_hit_shape(true, false);
 }

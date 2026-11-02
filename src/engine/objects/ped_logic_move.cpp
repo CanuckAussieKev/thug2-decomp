@@ -1204,7 +1204,7 @@ bool PedestrianBrainModule::ped_turn_to_current_waypoint_orientation(script::Str
     d3dx_multiply(m, m, maths::make_yaw_matrix(rotation, angles.y));
     d3dx_multiply(m, m, maths::make_roll_matrix(rotation, angles.z));
     for (int i = 0; i < 4; ++i)
-        (&core::at(m.row, 2).x)[i] = static_cast<float>(static_cast<double>((&core::at(m.row, 2).x)[i]) * kReach);
+        core::at(m.row, 2)[i] = static_cast<float>(static_cast<double>(core::at(m.row, 2)[i]) * kReach);
     const maths::Vec4& at = entity_->at_point_;
     const maths::Vec4 target = {static_cast<float>(static_cast<double>(core::at(m.row, 2).x) + at.x),
                                 static_cast<float>(static_cast<double>(core::at(m.row, 2).y) + at.y),

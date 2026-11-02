@@ -116,12 +116,12 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
-            k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal((&entity_->at_point_.x)[k]);
+            k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal(entity_->at_point_[k]);
         if (value != core::at(sent_pos_, k) || force)
             flags |= 1u << k;
     }
     for (int k = 0; k < 3; ++k) {
-        const int16_t value = pack_angle((&now.angles.x)[k]);
+        const int16_t value = pack_angle(now.angles[k]);
         if (value != core::at(sent_angles_, k) || force) {
             core::at(sent_angles_, k) = value;
             flags |= 8u << k;
@@ -170,13 +170,13 @@ void RiderHostSync::send_update()
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
-            k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal((&entity_->at_point_.x)[k]);
+            k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal(entity_->at_point_[k]);
         if (flags & (1u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         core::at(sent_pos_, k) = value;
     }
     for (int k = 0; k < 3; ++k) {
-        const int16_t value = pack_angle((&now.angles.x)[k]);
+        const int16_t value = pack_angle(now.angles[k]);
         if (flags & (8u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         core::at(sent_angles_, k) = value;

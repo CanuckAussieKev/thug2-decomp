@@ -353,7 +353,7 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton)
     }
     if (flag_bits_ & kModelScaled) {
         for (int row = 0; row < 3; ++row) {
-            const float factor = (&size_factor_.x)[row];
+            const float factor = size_factor_[row];
             for (int i = 0; i < 4; ++i)
                 (*matrix)[row][i] *= factor;
         }

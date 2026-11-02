@@ -43,7 +43,7 @@ constexpr uint32_t kCar = 0x88C21962;            // Car
 constexpr float kDegrees = get_bits(0x3C8EFA35);
 
 // Each axis' value of a per-axis vector.
-float& get_axis(maths::Vec4& v, int axis) { return (&v.x)[axis]; }
+float& get_axis(maths::Vec4& v, int axis) { return v[axis]; }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library: not decompiled): out = a * b.
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }

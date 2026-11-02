@@ -203,9 +203,9 @@ void BBox::get_closest_surface_point(const Vec4& point, Vec4& out) const
         float best_value = 0.0f, best_distance = 0.0f; // always set on the first pass (axis 0)
         int winning_axis = 0;
         for (int axis = 0; axis < 3; ++axis) {
-            const float p = (&point.x)[axis];
-            const float lo = (&min.x)[axis];
-            const float hi = (&max.x)[axis];
+            const float p = point[axis];
+            const float lo = min[axis];
+            const float hi = max[axis];
             float value = hi, distance = hi - p;
             if (!(distance <= p - lo)) {
                 value = lo;
@@ -218,17 +218,17 @@ void BBox::get_closest_surface_point(const Vec4& point, Vec4& out) const
             }
         }
         out = point;
-        (&out.x)[winning_axis] = best_value;
+        out[winning_axis] = best_value;
         return;
     }
 
     // Outside: keep the coordinates that are within range and clamp the rest.
     out.w = 1.0f;
     for (int axis = 0; axis < 3; ++axis) {
-        const float p = (&point.x)[axis];
-        const float lo = (&min.x)[axis];
-        const float hi = (&max.x)[axis];
-        float& o = (&out.x)[axis];
+        const float p = point[axis];
+        const float lo = min[axis];
+        const float hi = max[axis];
+        float& o = out[axis];
         if (axes & (1u << axis))
             o = p;
         else

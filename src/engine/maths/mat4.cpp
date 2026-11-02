@@ -59,8 +59,8 @@ Mat4& get_multiply(Mat4& out, const Mat4& a, const Mat4& b)
         const float* ra = &core::at(a.row, i).x;
         float* rr = &core::at(result.row, i).x;
         for (int j = 0; j < 4; ++j)
-            rr[j] = ra[0] * (&core::at(b.row, 0).x)[j] + ra[1] * (&core::at(b.row, 1).x)[j] + ra[2] * (&core::at(b.row, 2).x)[j] +
-                    ra[3] * (&core::at(b.row, 3).x)[j];
+            rr[j] = ra[0] * core::at(b.row, 0)[j] + ra[1] * core::at(b.row, 1)[j] + ra[2] * core::at(b.row, 2)[j] +
+                    ra[3] * core::at(b.row, 3)[j];
     }
     out = result;
     return out;
@@ -144,7 +144,7 @@ Mat4& Mat4::get_slide(const Vec4& offset)
 // (row 1 + row 0) + row 2, then the old value.
 Mat4& Mat4::offset_local(const Vec4& offset)
 {
-    auto term = [&](int r, int c) { return static_cast<double>((&core::at(row, r).x)[c]) * (&offset.x)[r]; };
+    auto term = [&](int r, int c) { return static_cast<double>(core::at(row, r)[c]) * offset[r]; };
     core::at(row, 3).x = static_cast<float>(term(1, 0) + term(2, 0) + term(0, 0) + core::at(row, 3).x);
     core::at(row, 3).y = static_cast<float>(term(1, 1) + term(0, 1) + term(2, 1) + core::at(row, 3).y);
     core::at(row, 3).z = static_cast<float>(term(1, 2) + term(0, 2) + term(2, 2) + core::at(row, 3).z);
@@ -155,7 +155,7 @@ Mat4& Mat4::offset_local(const Vec4& offset)
 // first, then z's, then y's (for x: w, z, y, then x's term last).
 Vec4 operator*(const Vec4& v, const Mat4& m)
 {
-    auto term = [&](int r, int c) { return static_cast<double>((&core::at(m.row, r).x)[c]) * (&v.x)[r]; };
+    auto term = [&](int r, int c) { return static_cast<double>(core::at(m.row, r)[c]) * v[r]; };
     Vec4 out{};
     out.w = static_cast<float>(term(3, 3) + term(0, 3) + term(2, 3) + term(1, 3));
     out.z = static_cast<float>(term(3, 2) + term(0, 2) + term(2, 2) + term(1, 2));
@@ -314,7 +314,7 @@ float get_angle_in_plane(const Mat4& m, const Vec4& v, int ref_axis, int normal_
                      ref.x * in_plane.y - ref.y * in_plane.x, 0.0f};
     int axis = 0;
     const bool cross_positive = cross.dominant_axis_index(&axis) > 0.0f;
-    const bool normal_positive = (&normal.x)[axis] > 0.0f;
+    const bool normal_positive = normal[axis] > 0.0f;
     return cross_positive == normal_positive ? angle : -angle;
 }
 
@@ -458,10 +458,10 @@ Mat4& build_axis_angle_matrix(Mat4& m, int axis, float angle)
     core::at(m.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
     core::at(m.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
     core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
-    (&core::at(m.row, a).x)[a] = c;
-    (&core::at(m.row, a).x)[b] = s;
-    (&core::at(m.row, b).x)[a] = -s;
-    (&core::at(m.row, b).x)[b] = c;
+    core::at(m.row, a)[a] = c;
+    core::at(m.row, a)[b] = s;
+    core::at(m.row, b)[a] = -s;
+    core::at(m.row, b)[b] = c;
     return m;
 }
 
@@ -568,7 +568,7 @@ Mat4& Mat4::set_from_euler_angles(float x, float y, float z)
 namespace {
 
 // Element (r, c), treating the four row vectors as a 4x4 array.
-float get_at(const Mat4& m, int r, int c) { return (&core::at(m.row, r).x)[c]; }
+float get_at(const Mat4& m, int r, int c) { return core::at(m.row, r)[c]; }
 
 // Determinant of the 3x3 matrix left after removing row `skip_row` and column `skip_col`, expanded along its
 // first row in the same order as the original: a(ei - fh) - b(di - fg) + c(dh - eg) - on the FPU (53 bits; the
@@ -610,7 +610,7 @@ Mat4& Mat4::get_adjugate(const Mat4& source)
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c) {
             auto cofactor = static_cast<float>(minor(source, c, r));
-            (&core::at(row, r).x)[c] = ((r + c) & 1) ? -cofactor : cofactor;
+            core::at(row, r)[c] = ((r + c) & 1) ? -cofactor : cofactor;
         }
     }
     return *this;

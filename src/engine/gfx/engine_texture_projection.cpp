@@ -156,8 +156,8 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     x += static_cast<double>(core::at(m.row, 1).x) * oy;
     x += get_f(static_cast<double>(core::at(m.row, 2).x) * oz);
     auto rounded = [&](int c) {
-        const float a = get_f(get_f(get_f((&core::at(m.row, 0).x)[c] * ox) + static_cast<double>((&pos.x)[c])) +
-                              static_cast<double>(get_f((&core::at(m.row, 1).x)[c] * oy)));
+        const float a = get_f(get_f(get_f(core::at(m.row, 0)[c] * ox) + static_cast<double>(pos[c])) +
+                              static_cast<double>(get_f(core::at(m.row, 1)[c] * oy)));
         return a;
     };
     const float y = get_f(static_cast<double>(rounded(1)) + get_f(static_cast<double>(core::at(m.row, 2).y) * oz));

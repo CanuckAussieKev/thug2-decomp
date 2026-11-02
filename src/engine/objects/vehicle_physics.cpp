@@ -462,12 +462,12 @@ void DrivableModule::update_inertia()
 {
     // R * diag(inverse moments) * R^T.
     for (int r = 0; r < 3; ++r) {
-        (&core::at(inv_inertia_.row, r).x)[0] =
-            static_cast<float>(static_cast<double>((&core::at(basis_frame_.row, r).x)[0]) * core::at(inv_moments_, 0));
-        (&core::at(inv_inertia_.row, r).x)[1] =
-            static_cast<float>(static_cast<double>((&core::at(basis_frame_.row, r).x)[1]) * core::at(inv_moments_, 1));
-        (&core::at(inv_inertia_.row, r).x)[2] =
-            static_cast<float>(static_cast<double>((&core::at(basis_frame_.row, r).x)[2]) * core::at(inv_moments_, 2));
+        core::at(inv_inertia_.row, r)[0] =
+            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, r)[0]) * core::at(inv_moments_, 0));
+        core::at(inv_inertia_.row, r)[1] =
+            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, r)[1]) * core::at(inv_moments_, 1));
+        core::at(inv_inertia_.row, r)[2] =
+            static_cast<float>(static_cast<double>(core::at(basis_frame_.row, r)[2]) * core::at(inv_moments_, 2));
     }
     render::MatrixTranspose transposed;
     transposed.transpose_from(&basis_frame_);

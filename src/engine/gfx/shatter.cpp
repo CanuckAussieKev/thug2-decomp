@@ -101,7 +101,7 @@ namespace {
 void get_turn(const maths::Mat4& m, double x, double y, double z, float* out)
 {
     for (int k = 0; k < 3; ++k)
-        out[k] = static_cast<float>(z * (&core::at(m.row, 2).x)[k] + y * (&core::at(m.row, 1).x)[k] + x * (&core::at(m.row, 0).x)[k]);
+        out[k] = static_cast<float>(z * core::at(m.row, 2)[k] + y * core::at(m.row, 1)[k] + x * core::at(m.row, 0)[k]);
 }
 
 int get_rand() { return crt::get_rand(); }                          // (the game's C runtime's)

@@ -581,10 +581,10 @@ void FootMovement::update_air()
     maths::Vec4& position = pos_;
     const maths::Vec4& velocity = vel_;
     for (int i = 0; i < 4; ++i)
-        (&position.x)[i] = static_cast<float>(frame * (&velocity.x)[i] + (&position.x)[i]);
+        position[i] = static_cast<float>(frame * velocity[i] + position[i]);
     maths::Vec4& extra = jump_velocity_;
     for (int i = 0; i < 4; ++i)
-        (&position.x)[i] = static_cast<float>(frame * (&extra.x)[i] + (&position.x)[i]);
+        position[i] = static_cast<float>(frame * extra[i] + position[i]);
     float& vertical = up_speed_;
     position.y = static_cast<float>((vertical * frame - frame * frame * gravity * 0.5) + position.y);
     vertical = static_cast<float>(vertical - gravity * frame);
