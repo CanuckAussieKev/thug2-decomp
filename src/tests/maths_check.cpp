@@ -21,7 +21,6 @@
 #include "engine/core/checked_index.h"
 
 #if defined(_MSC_VER) && defined(_M_IX86)
-#include <cfloat>
 #include <array>
 #include "engine/core/format.h"
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
