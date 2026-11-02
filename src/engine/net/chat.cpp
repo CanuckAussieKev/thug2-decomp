@@ -60,7 +60,7 @@ void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
 
 const char* player_name(PlayerRecord* player) { return player->label().data(); }
 bool is_observer(PlayerRecord* player) { return (player->flag_bits() >> 2) & 1; }
-uint8_t team_color(PlayerRecord* player) { return static_cast<uint8_t>(player->skater()->ident_); }
+uint8_t team_color(PlayerRecord* player) { return static_cast<uint8_t>(player->skater()->ident()); }
 
 
 // Scripts::CStruct (8 bytes, from the current script struct pool when there is one).
@@ -244,8 +244,8 @@ bool handle_chat_command(Hub* manager, const char* text)
         get_log("where: level %u", level);
         auto* skater = modules::Skate::sole()->get_home_rider(); // the skate module's local skater
         if (skater) {
-            const maths::Vec4& p = skater->at_point_;
-            const maths::Mat4& m = skater->basis_frame_;
+            const maths::Vec4& p = skater->at_point();
+            const maths::Mat4& m = skater->basis_frame();
             get_log("where: skater pos %.3f %.3f %.3f", p.x, p.y, p.z);
             for (int row = 0; row < 3; ++row)
                 get_log("where: skater matrix row %d %.6f %.6f %.6f", row, core::at(m.row, row).x, core::at(m.row, row).y, core::at(m.row, row).z);
@@ -260,7 +260,7 @@ bool handle_chat_command(Hub* manager, const char* text)
         std::array<char, 128> line{};
         if (skater)
             text::format_to(line, "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
-                            skater->at_point_.x, skater->at_point_.y, skater->at_point_.z);
+                            skater->at_point().x, skater->at_point().y, skater->at_point().z);
         else
             text::format_to(line, "\\c4where:\\c0 level %u (no skater) - saved to the log", level);
         show_local_chat_line(line.data());

@@ -789,7 +789,7 @@ object_edit::State state_of(uint32_t id, std::span<const float, 3> pos, std::spa
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
+    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
 }
 
 // The level's changes as they are now (false: not in a level).
@@ -825,8 +825,8 @@ bool get_capture(FileLoad* file)
         objects::GameEntity* object = live_object(id);
         if (!object)
             continue;
-        ObjectRecord record = {.id = id, .pos = {object->at_point_.x, object->at_point_.y, object->at_point_.z}, .rows = {}};
-        rows_of(object->basis_frame_, record.rows);
+        ObjectRecord record = {.id = id, .pos = {object->at_point().x, object->at_point().y, object->at_point().z}, .rows = {}};
+        rows_of(object->basis_frame(), record.rows);
         record.scale = scale_tool::get_object_scale(object);
         file->objects.push_back(record);
     }
@@ -835,8 +835,8 @@ bool get_capture(FileLoad* file)
         if (!object)
             continue;
         CopyRecord record = {
-            .name = copy.name, .source = copy.source, .pos = {object->at_point_.x, object->at_point_.y, object->at_point_.z}, .rows = {}};
-        rows_of(object->basis_frame_, record.rows);
+            .name = copy.name, .source = copy.source, .pos = {object->at_point().x, object->at_point().y, object->at_point().z}, .rows = {}};
+        rows_of(object->basis_frame(), record.rows);
         record.scale = scale_tool::get_object_scale(object);
         file->copies.push_back(record);
     }

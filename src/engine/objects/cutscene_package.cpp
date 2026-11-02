@@ -292,7 +292,7 @@ CinematicTable::~CinematicTable()
 void CinematicTable::load_from_bundle()
 {
     const file::AssetBundle* bundle = bundle_ptr_.get();
-    const int count = bundle->num_;
+    const int count = bundle->num();
     for (int i = 0; i < count; ++i) {
         file::AssetBundle::TableRow* entry = bundle_ptr_->get_entry(i);
         void* data = bundle_ptr_->obtain_loaded_item(i);

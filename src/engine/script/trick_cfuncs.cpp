@@ -97,7 +97,7 @@ pad_input::Hub* input_manager() { return pad_input::get_input_manager(); }
 // The skate module's local skater (0x00566520, no source yet; null if there's none).
 objects::GameEntity* local_skater() { return get_skate()->get_home_rider(); }
 // Whether a skater is a local one (its byte at +0xBC, as 0x00566520 reads it).
-bool is_local_skater(objects::GameEntity* skater) { return skater->is_local_skater_ != 0; }
+bool is_local_skater(objects::GameEntity* skater) { return skater->is_local_skater() != 0; }
 // The skater's score (0x00580480: its score component's object).
 void* skater_score(objects::GameEntity* skater) { return core::down_cast<objects::Rider>(skater)->get_points_total(); }
 
@@ -122,10 +122,10 @@ uint32_t key_combo_for_cat(Struct* mapping, int cat)
 
 // The profile manager's template table: its count (0x00469490, single::PointerMember::get_pull folded) and the template at
 // `index` (0x00557FB0, no source yet).
-int template_count(objects::ProfileRoster* manager) { return static_cast<int>(manager->templates_.num_); }
+int template_count(objects::ProfileRoster* manager) { return static_cast<int>(manager->templates().num_); }
 RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 {
-    return manager->templates_.get_by_index(index, nullptr); // (the original: the goal table's code, shared)
+    return manager->templates().get_by_index(index, nullptr); // (the original: the goal table's code, shared)
 }
 
 // A trick structure's type: its trickType, else its scr, else GrindTrick.

@@ -89,7 +89,7 @@ float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
     online::Hub* net = net_session_slot();
     net::Conn* conn = nullptr;
     if (net->get_on_server()) {
-        const online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_));
+        const online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident()));
         conn = player->conn();
     } else {
         net::ConnSearch search;
@@ -119,22 +119,22 @@ void RiderRemoteSync::interpolate()
         SkaterStateHistoryFrame* frame = history_frame(past_frames_, newest);
         play_idx_ = newest;
         sync_time_ = static_cast<int>(history_frame_stamp(frame) - delay);
-        skater->basis_frame_ = snapshot_orientation(frame);
-        skater->display_matrix_ = snapshot_orientation(frame);
-        skater->at_point_ = frame_position(frame);
+        skater->basis_frame() = snapshot_orientation(frame);
+        skater->display_matrix() = snapshot_orientation(frame);
+        skater->at_point() = frame_position(frame);
         skater->mark_jumped_ahead(true);
-        skater->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        skater->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         if (skater->get_flag_2c_4())
             return;
         skater->show_skater();
         script::launch_script(kSkaterAppeared, nullptr, skater, false, nullptr);
-        net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)); // (its result unused)
+        net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())); // (its result unused)
         update_ground_lighting();
         return;
     }
 
     // (the original's slerp interpolator is made here: its constructor 0x005902E0 does nothing)
-    auto* player = (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
+    auto* player = (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
     if (!player->has_finished_joining())
         player->set_finished_joining();
     const int count = past_frames_->state_count_;
@@ -178,30 +178,30 @@ void RiderRemoteSync::interpolate()
     const double turned = std::sqrt((static_cast<double>(turn.x) * turn.x + static_cast<double>(turn.z) * turn.z) +
                                     static_cast<double>(turn.y) * turn.y);
     if (turned > kTurnSnap) {
-        skater->basis_frame_ = snapshot_orientation(from);
-        skater->display_matrix_ = snapshot_orientation(from);
+        skater->basis_frame() = snapshot_orientation(from);
+        skater->display_matrix() = snapshot_orientation(from);
     } else {
         const maths::Mat4 start = snapshot_orientation(from);
         const maths::Mat4 end = snapshot_orientation(to);
         maths::Mat4 between{};
         const maths::ArcRotationBlender slerp(start, end);
         slerp.fetch_mat(between, t);
-        skater->basis_frame_ = between;
-        skater->display_matrix_ = between;
+        skater->basis_frame() = between;
+        skater->display_matrix() = between;
     }
 
     // The position: interpolated, unless it moved too far (then put at the later state's, standing).
     const double distance = std::sqrt((static_cast<double>(move.x) * move.x + static_cast<double>(move.y) * move.y) +
                                       static_cast<double>(move.z) * move.z);
     if (distance > kTeleportDistance) {
-        skater->at_point_ = frame_position(to);
-        skater->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        skater->at_point() = frame_position(to);
+        skater->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         skater->mark_jumped_ahead(true);
     } else {
         move = frame_position(from) + move * t; // (the move's storage now holds the position)
-        skater->at_point_ = move;
-        skater->vel_ = (skater->at_point_ - last_play_pos_) / frame_seconds_;
-        core::at(moves_, updates_ % kHistory) = skater->vel_;
+        skater->at_point() = move;
+        skater->vel() = (skater->at_point() - last_play_pos_) / frame_seconds_;
+        core::at(moves_, updates_ % kHistory) = skater->vel();
         // The velocity: the average of the moves kept - quirk kept: the sum starts from the position, not zero.
         std::array<double, 4> sum = {{move.x, move.y, move.z, move.w}};
         int n = 0;
@@ -214,30 +214,30 @@ void RiderRemoteSync::interpolate()
         if (n > 0) {
             const double inverse = static_cast<double>(kOne) / n;
             auto rounded = static_cast<float>(inverse);
-            skater->vel_.x = static_cast<float>(inverse * core::at(sum, 0));
-            skater->vel_.y = static_cast<float>(core::at(sum, 1) * rounded);
-            skater->vel_.z = static_cast<float>(core::at(sum, 2) * rounded);
-            skater->vel_.w = static_cast<float>(core::at(sum, 3) * rounded);
+            skater->vel().x = static_cast<float>(inverse * core::at(sum, 0));
+            skater->vel().y = static_cast<float>(core::at(sum, 1) * rounded);
+            skater->vel().z = static_cast<float>(core::at(sum, 2) * rounded);
+            skater->vel().w = static_cast<float>(core::at(sum, 3) * rounded);
         }
     }
 
     // The state as the later state has it.
-    play_pos_ = skater->at_point_;
+    play_pos_ = skater->at_point();
     auto* state = pose_;
     state->change_phase(to->state);
-    pose_->in_trick_move_ = to->flag74 != 0;
+    pose_->set_in_trick_move(to->flag74 != 0);
     state->set_surface_kind(to->value_7c_);
     state->set_physics_mode(to->flag75 != 0);
-    pose_->in_vehicle_ = to->flag76 != 0;
+    pose_->set_in_vehicle(to->flag76 != 0);
     core::down_cast<RiderSessionEnd>(run_over_)->flag_bits_ = to->value_6c_; // (0x00407A70)
     // The timed flags (each a bool and the time it last changed) from the state's bits.
     const uint32_t bits = to->value68;
     for (int i = 0; i < kPoseFlagCount; ++i)
         pose_->set_flag(static_cast<PoseFlag>(i), (bits & (1u << i)) != 0);
     if (pose_->flag(PoseFlag::kAcidDrop).on)
-        pose_->drop_velocity_ = skater->vel_;
+        pose_->drop_velocity() = skater->vel();
     else
-        pose_->drop_velocity_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        pose_->drop_velocity() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x00515360
@@ -257,7 +257,7 @@ void RiderRemoteSync::get_extrapolate()
     double alignment = 0.0;
     const online::PlayerRecord* local = net->get_own_player();
     if (local && local->skater()) {
-        maths::Vec4 theirs = local->skater()->vel_;
+        maths::Vec4 theirs = local->skater()->vel();
         maths::Vec4 mine = {.x = dx, .y = dy, .z = dz, .w = dw};
         theirs.make_unit();
         mine.make_unit();
@@ -296,7 +296,7 @@ void RiderRemoteSync::get_extrapolate()
     auto move_w = static_cast<float>(static_cast<double>(dw) * speed * scale);
     auto move_z = static_cast<float>(static_cast<double>(dir_z) * speed * scale);
     auto move_x = static_cast<float>(static_cast<double>(dir_x) * speed * scale);
-    maths::Vec4& pos = entity_->at_point_;
+    maths::Vec4& pos = entity_->at_point();
     pos.w += move_w;
     pos.z += move_z;
     pos.x += move_x;
@@ -304,7 +304,7 @@ void RiderRemoteSync::get_extrapolate()
     // A wall between the played position and the new one (both the collision height up the up row): bounced off.
     GameEntity* skater = entity_;
     auto height = static_cast<float>(read_tuning_float(kFirstForwardCollisionHeight, 1, skater));
-    const maths::Vec4& up = core::at(skater->basis_frame_.row, 1);
+    const maths::Vec4& up = core::at(skater->basis_frame().row, 1);
     const float raise_w = height * up.w;
     const float raise_z = height * up.z;
     const float raise_y = height * up.y;
@@ -321,7 +321,7 @@ void RiderRemoteSync::get_extrapolate()
     feeler.change_strand(&from, &to);
     feeler.set_excluded(0x10, 0);
     if (feeler.get_hit_shape(true, false))
-        deflect_from_wall(&feeler.surface_dir_, &feeler.contact_pos_);
+        deflect_from_wall(&feeler.surface_dir(), &feeler.contact_pos());
 }
 
 // 0x00516640
@@ -348,7 +348,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     const float gravity = read_tuning_float(kRailGravity, 1, skater);
     maths::Vec4 pull = {.x = 0.0f, .y = gravity, .z = 0.0f, .w = 1.0f};
     pull.project_onto(along);
-    maths::Vec4& vel = skater->vel_;
+    maths::Vec4& vel = skater->vel();
     vel.x = static_cast<float>(static_cast<double>(pull.x) * seconds + vel.x);
     vel.y = static_cast<float>(static_cast<double>(pull.y) * seconds + vel.y);
     vel.z = static_cast<float>(pull.z * seconds) + vel.z;
@@ -399,7 +399,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     // clear and not round too sharp a corner - the overshoot carried on along it.
     float overshoot = 0.0f;
     rails->get_absolute_pos(&p1, sign > 0.0f ? node : next);
-    const maths::Vec4& pos = skater->at_point_;
+    const maths::Vec4& pos = skater->at_point();
     const double dx = static_cast<double>(pos.x) - p1.x;
     const double dy = static_cast<double>(pos.y) - p1.y;
     const double dz = static_cast<double>(pos.z) - p1.z;
@@ -416,7 +416,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
             if (!rail_clear(from, to) || stopped)
                 return nullptr;
             rails->get_absolute_pos(&p1, next);
-            skater->at_point_ = p1;
+            skater->at_point() = p1;
             node = next;
         } else {
             maths::Vec4 to{}, from{};
@@ -425,7 +425,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
             if (!rail_clear(from, to) || stopped)
                 return nullptr;
             rails->get_absolute_pos(&p1, node);
-            skater->at_point_ = p1;
+            skater->at_point() = p1;
             node = beyond;
         }
     }
@@ -447,7 +447,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     vel.z *= sign;
     vel.w *= sign;
     const maths::Vec4 heading = {.x = segment.x * sign, .y = segment.y * sign, .z = segment.z * sign, .w = segment.w * sign};
-    maths::Mat4& m = skater->basis_frame_;
+    maths::Mat4& m = skater->basis_frame();
     core::at(m.row, 2) = heading;
     core::at(m.row, 2).make_unit();
     core::at(m.row, 0) = {.x = core::at(m.row, 2).z, .y = 0.0f, .z = -core::at(m.row, 2).x, .w = 0.0f};
@@ -459,7 +459,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     auto up_z = static_cast<float>(static_cast<double>(at.x) * r.y - static_cast<double>(r.x) * at.y);
     core::at(m.row, 1) = {.x = up_x, .y = up_y, .z = up_z, .w = 0.0f};
     core::at(m.row, 1).make_unit();
-    maths::Vec4& p = skater->at_point_;
+    maths::Vec4& p = skater->at_point();
     p.x = static_cast<float>(static_cast<double>(seconds) * vel.x + p.x);
     p.y = static_cast<float>(static_cast<double>(seconds) * vel.y + p.y);
     p.z = static_cast<float>(seconds * vel.z) + p.z;
@@ -487,7 +487,7 @@ void RiderRemoteSync::extrapolate_on_rail()
     double alignment = 0.0;
     const online::PlayerRecord* local = net->get_own_player();
     if (local) { // (its skater isn't checked here)
-        maths::Vec4 theirs = local->skater()->vel_;
+        maths::Vec4 theirs = local->skater()->vel();
         maths::Vec4 mine = {.x = dx, .y = dy, .z = dz, .w = dw};
         theirs.make_unit();
         mine.make_unit();
@@ -521,7 +521,7 @@ void RiderRemoteSync::extrapolate_on_rail()
         node = move_along_rail(node, left > frame_seconds_ ? frame_seconds_ : left);
         if (!node) {
             // Off the rail's end: from the played position, as on the ground.
-            entity_->at_point_ = play_pos_;
+            entity_->at_point() = play_pos_;
             get_extrapolate();
             return;
         }
@@ -597,7 +597,7 @@ void RiderRemoteSync::play_history_events()
                 if (params)
                     params = new (params) script::Struct;
                 params->put_name_key(kItemName, msg->bone_);
-                params->put_name_key(kItemOwner, entity_->ident_);
+                params->put_name_key(kItemOwner, entity_->ident());
                 item->fetch_module(kItemComponent)->configure_from_data(params);
                 if (params) {
                     params->get_clear();

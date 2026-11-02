@@ -256,17 +256,17 @@ bool ShootVideoObjective::target_in_view()
     centre[2] = sphere[2];
     centre[3] = 1.0f;
     (void)bounds;
-    centre.multiply_by(object->basis_frame_);
+    centre.multiply_by(object->basis_frame());
     for (int i = 0; i < 4; ++i)
-        centre[i] = centre[i] + object->at_point_[i];
+        centre[i] = centre[i] + object->at_point()[i];
     // (0x0048C490: the sphere hidden from the camera)
     if (render::engine::sphere_visible_in_one_viewport(&centre, 6.0f))
         return false;
     auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
     maths::Vec4* camera = static_cast<gfx::ViewCam*>(skater->obtain_active_lens())->fetch_location();
-    const float dx = (*camera)[0] - object->at_point_[0];
-    const float dy = (*camera)[1] - object->at_point_[1];
-    const float dz = (*camera)[2] - object->at_point_[2];
+    const float dx = (*camera)[0] - object->at_point()[0];
+    const float dy = (*camera)[1] - object->at_point()[1];
+    const float dz = (*camera)[2] - object->at_point()[2];
     int maximum = 0;
     args()->fetch_int_value(kMaxDistanceToTarget, &maximum, 1);
     const double distance =

@@ -55,12 +55,26 @@ public:
     int get_take_in(void* out, unsigned int count);
     int seek_to(int offset, int origin);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] lists::KeyMap* files() const { return files_; }
+    [[nodiscard]] FileInfo* open_entry() const { return open_entry_; }
+    int& open_count() { return open_count_; }
+    [[nodiscard]] int open_count() const { return open_count_; }
+
+private:
     uint8_t* block_;
     int entry_count_;
     lists::KeyMap* files_; // FileInfo by name checksum
     FileInfo* open_entry_;
     int open_count_;
     bool bottom_up_heap_;
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ArchiveFile, open_count_) == 0x10 && offsetof(ArchiveFile, bottom_up_heap_) == 0x14 &&
+                          sizeof(ArchiveFile) == 0x18,
+                      "layout must match the original");
+    }
 };
 
 // The pre manager: every loaded archive, searched in turn when a file is opened. There is one, created and
@@ -100,6 +114,12 @@ public:
         std::array<char, 64> name;
     };
 
+    // The fields other code reads and sets.
+    [[nodiscard]] ArchiveFile* open_archive() const { return open_archive_; }
+    [[nodiscard]] lists::KeyMap* pres() const { return pres_; }
+    [[nodiscard]] int queued_archive_count() const { return queued_archive_count_; }
+
+private:
     ArchiveFile* open_archive_{};
     ArchiveFile::FileInfo* open_entry_key_;
     uint8_t* open_entry_data_;
@@ -108,6 +128,14 @@ public:
     bool hold_archive_loads_{};
     std::array<PendingLoad, 8> pending_{};
     int queued_archive_count_;
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ArchiveManager, pres_) == 0x10 && offsetof(ArchiveManager, hold_archive_loads_) == 0x14 &&
+                          offsetof(ArchiveManager, pending_) == 0x18 &&
+                          offsetof(ArchiveManager, queued_archive_count_) == 0x238 && sizeof(ArchiveManager) == 0x23C,
+                      "layout must match the original");
+    }
 };
 
 // The pre manager, if one exists (set by its constructor), and the one create_manager made - the same object.

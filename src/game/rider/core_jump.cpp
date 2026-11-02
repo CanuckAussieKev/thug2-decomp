@@ -72,7 +72,7 @@ float scaled_physics(objects::GameEntity* object, uint32_t name)
 void SkaterPhysicsModule::play_jump_sound(uint8_t terrain)
 {
     objects::GameEntity* object = object_of(this);
-    const maths::Vec4& v = object->vel_;
+    const maths::Vec4& v = object->vel();
     auto speed = static_cast<float>(
         std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y + static_cast<double>(v.z) * v.z));
     const float fraction = speed / scaled_physics(object, kSpeedCapStat);
@@ -133,19 +133,19 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         trigger_feeler(this, kJumpTriggerEvents, &floor_feeler_);
         if (trigger_took_over(this))
             return;
-        std::memcpy(&last_ground_pos_, &entity_->at_point_, 16); // (where it jumped)
+        std::memcpy(&last_ground_pos_, &entity_->at_point(), 16); // (where it jumped)
         if (sound)
-            play_jump_sound(floor_feeler_.hit_.terrain);
+            play_jump_sound(floor_feeler_.hit().terrain);
         start_vert_air();
         set_flag(this, PoseFlag::kLeftVert, 1);
         break;
     case kAir:
         if (sound)
-            play_jump_sound(floor_feeler_.hit_.terrain);
+            play_jump_sound(floor_feeler_.hit().terrain);
         break;
     case kRail:
         if (sound)
-            play_jump_sound(state_->surface_type_);
+            play_jump_sound(state_->surface_type());
         break;
     default:
         break;
@@ -167,7 +167,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     params->fetch_float(kSpeed, &speed, 0);
 
     set_flag(this, PoseFlag::kCrouched, 0);
-    maths::Vec4& velocity = entity_->vel_;
+    maths::Vec4& velocity = entity_->vel();
     if (bit_mark(this, PoseFlag::kVertAir) && velocity.y < 0.0f) {
         // Off vert, going down: pushed off the ramp (along +0x58) instead; no longer on vert.
         const maths::Vec4& away = drawn_normal_;
@@ -183,17 +183,17 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     } else if (velocity.y < 0.0f) {
         velocity.y = 0.0f;
     }
-    entity_->vel_.y += speed;
+    entity_->vel().y += speed;
     const bool bike = thaw_bmx::live_now(this); // (not original: THAW 0x005DDDC0's bike branches, thaw_bmx_physics.cpp)
     if (bike)
         thaw_bmx::jump_boost(this);
     object = object_of(this);
-    if (core::at(object->basis_frame_.row, 1).y < kSteepUp) {
+    if (core::at(object->basis_frame().row, 1).y < kSteepUp) {
         // A ramp too steep (upside down): less up, and lifted off it along the up.
-        maths::Vec4& v = object->vel_;
+        maths::Vec4& v = object->vel();
         v.y = static_cast<float>(v.y - static_cast<double>(speed) * kSteepDrop);
-        const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
-        maths::Vec4& position = object->at_point_;
+        const maths::Vec4& up = core::at(object->basis_frame().row, 1);
+        maths::Vec4& position = object->at_point();
         const float z = up.z * kFeelerAhead;
         const float w = up.w * kFeelerAhead;
         position.x = static_cast<float>(static_cast<double>(up.x) * kFeelerAhead + position.x);
@@ -260,10 +260,10 @@ void SkaterPhysicsModule::step_wallplant()
         set_physics_state(kAir);
         maths::Vec4& start = probe_start_;
         maths::Vec4& end = probe_end_;
-        start = core::at(entity_->basis_frame_.row, 2) * kFeelerAhead;
-        end = core::at(entity_->basis_frame_.row, 2) * kFeelerBehind;
-        start += entity_->at_point_;
-        end += entity_->at_point_;
+        start = core::at(entity_->basis_frame().row, 2) * kFeelerAhead;
+        end = core::at(entity_->basis_frame().row, 2) * kFeelerBehind;
+        start += entity_->at_point();
+        end += entity_->at_point();
         if (get_feel(this, 0x10, 0))
             trigger_feeler(this, kWallplantEvents, &feeler_);
         return;
@@ -274,15 +274,15 @@ void SkaterPhysicsModule::step_wallplant()
     objects::RideTracker* tracker = get_tracker(this);
     if (!tracker)
         return;
-    if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point_)) {
+    if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point())) {
         stop_riding(this);
         return;
     }
-    entity_->at_point_ += get_tracker(this)->carried_;
+    entity_->at_point() += get_tracker(this)->carried_;
     tracker = get_tracker(this);
     if (tracker->turned_) {
         auto multiply = d3dx::matrix_multiply;
-        maths::Mat4& matrix = entity_->basis_frame_;
+        maths::Mat4& matrix = entity_->basis_frame();
         multiply(&matrix, &matrix, &tracker->turn_);
         multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
     }
@@ -320,14 +320,14 @@ int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script*)
         rail_node_ = nullptr;
     if (state_of(this) == kWallRide) {
         turn_to_normal(maths::Vec4{.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f});
-        display_matrix_ = entity_->basis_frame_;
+        display_matrix_ = entity_->basis_frame();
     }
     switch (state) {
     case kAirName:
         set_physics_state(kAir);
         break;
     case kGroundName:
-        floor_feeler_.hit_.face_flag40_ = 0;
+        floor_feeler_.hit().face_flag40_ = 0;
         set_physics_state(kGround);
         break;
     case kLipName:

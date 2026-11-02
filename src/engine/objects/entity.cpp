@@ -526,12 +526,12 @@ bool Entity::obj_switch_script(Struct* params, Script* /*script*/)
 Entity* find_object(uint32_t id) { return get_tracker()->look_up_object(id); }
 
 // 0x00460AC0
-void get_unlock(Entity* object, void* /*data*/) { object->object_flags_ &= ~kObjectFlagLocked; }
+void get_unlock(Entity* object, void* /*data*/) { object->object_flags() &= ~kObjectFlagLocked; }
 
 // 0x00460AA0
 void dispose_when_free(Entity* object, void* /*data*/)
 {
-    if (!(object->object_flags_ & kObjectFlagLocked)) {
+    if (!(object->object_flags() & kObjectFlagLocked)) {
         gsl::owner<decltype(object)> owned = memory::owned_element(object); // (the manager's)
         delete owned;
     }

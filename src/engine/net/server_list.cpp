@@ -313,7 +313,7 @@ void Hub::update_hosting_status()
     net::Hub* net = net::net_core();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     lobby_service_->start_hosting();
-    if (presence_service_->authenticated_) { // (0x005480B0: logged in to presence)
+    if (presence_service_->authenticated()) { // (0x005480B0: logged in to presence)
         const char* server_name = nullptr;
         get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
         std::array<char, 1024> location{};

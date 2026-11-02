@@ -58,6 +58,10 @@ public:
     // the board's rotation (the other way, told to the server); the model's +0x1F4 cleared.
     void do_after_anim();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] bool deck_turned() const { return deck_turned_; }
+
+private:
     bool deck_turned_{false};                   // +0x18
     bool flip_after_{};                         // +0x19
     bool rotate_after_{};                       // +0x1A

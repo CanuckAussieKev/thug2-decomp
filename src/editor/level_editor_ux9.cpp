@@ -83,9 +83,9 @@ bool get_cast(V3 from, V3 to, V3* hit, uint32_t* sector)
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const auto& p = ray->hit_.point;
+    const auto& p = ray->hit().point;
     *hit = {.x = p[0], .y = p[1], .z = p[2]};
-    *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
+    *sector = ray->hit().object ? ray->hit().object_checksum_ : 0;
     return true;
 }
 

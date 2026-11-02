@@ -131,7 +131,7 @@ namespace {
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
+    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
 }
 
 // A level's own point node as a new node of its kind (false: not a kind the editor makes).
@@ -240,11 +240,11 @@ bool dup_from(std::string* message)
             skipped.push_back(object_edit::caption(id));
             continue;
         }
-        layout::CopyRecord record = {.name = 0, .source = source, .pos = {object->at_point_.x, object->at_point_.y, object->at_point_.z}, .rows = {}};
+        layout::CopyRecord record = {.name = 0, .source = source, .pos = {object->at_point().x, object->at_point().y, object->at_point().z}, .rows = {}};
         for (int r = 0; r < 3; ++r) {
-            core::at(record.rows, r * 3 + 0) = core::at(object->basis_frame_.row, r).x;
-            core::at(record.rows, r * 3 + 1) = core::at(object->basis_frame_.row, r).y;
-            core::at(record.rows, r * 3 + 2) = core::at(object->basis_frame_.row, r).z;
+            core::at(record.rows, r * 3 + 0) = core::at(object->basis_frame().row, r).x;
+            core::at(record.rows, r * 3 + 1) = core::at(object->basis_frame().row, r).y;
+            core::at(record.rows, r * 3 + 2) = core::at(object->basis_frame().row, r).z;
         }
         record.scale = scale_tool::get_object_scale(object);
         fragment.copies.push_back(record);

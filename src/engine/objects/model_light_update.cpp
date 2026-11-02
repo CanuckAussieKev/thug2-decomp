@@ -71,11 +71,11 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
     // Down from just above the object (nudged along its up vector).
     render::ProbeRay down;
     const GameEntity* object = entity_;
-    maths::Vec4& start = down.line_.start;
-    maths::Vec4& end = down.line_.end;
-    start = object->at_point_;
-    end = object->at_point_;
-    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
+    maths::Vec4& start = down.line().start;
+    maths::Vec4& end = down.line().end;
+    start = object->at_point();
+    end = object->at_point();
+    const maths::Vec4& up = core::at(object->basis_frame().row, 1);
     const double step_x = static_cast<double>(up.x) * kUpNudge;
     const double step_y = static_cast<double>(up.y) * kUpNudge;
     const double step_z = static_cast<double>(up.z) * kUpNudge;
@@ -90,11 +90,11 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
     // Again from higher up, to just under what it hit (or as far down), faces flagged 0x20 only.
     render::ProbeRay again;
     again.set_excluded(0, 0x20);
-    again.line_.start = {.x = start.x, .y = start.y + kSecondAbove, .z = start.z, .w = start.w};
+    again.line().start = {.x = start.x, .y = start.y + kSecondAbove, .z = start.z, .w = start.w};
     if (hit)
-        again.line_.end = {.x = down.contact_pos_.x, .y = down.contact_pos_.y - 1.0f, .z = down.contact_pos_.z, .w = down.contact_pos_.w};
+        again.line().end = {.x = down.contact_pos().x, .y = down.contact_pos().y - 1.0f, .z = down.contact_pos().z, .w = down.contact_pos().w};
     else
-        again.line_.end = {.x = start.x, .y = start.y - kDepth, .z = start.z, .w = start.w};
+        again.line().end = {.x = start.x, .y = start.y - kDepth, .z = start.z, .w = start.w};
     if (again.get_hit_shape(false, false)) {
         mesh_instance_->apply_brightness(&again, lerp, rate);
         brightness_ = static_cast<float>(again.get_hit_vertex_value());

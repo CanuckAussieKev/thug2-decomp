@@ -94,7 +94,7 @@ uint32_t type_of(ObjectModule* component) { return component->kind_tag_; }
 ObjectModule*& next_of_type(ObjectModule* component) { return component->next_of_type_; }
 
 // A composite object's flags.
-uint32_t& composite_flags(GameEntity* object) { return object->composite_flags_; }
+uint32_t& composite_flags(GameEntity* object) { return object->composite_flags(); }
 
 // GameEntity's code (composite.cpp).
 
@@ -129,7 +129,7 @@ void walk_objects(ObjectHubBase* manager, Visit visit)
         bit <<= 1;
     manager->walking_ |= bit;
     for (memory::ListNode* node = get_next_node(&manager->entities_); node && node->data; node = get_next_node(node))
-        static_cast<Entity*>(node->data)->visited_mask_ &= ~bit;
+        static_cast<Entity*>(node->data)->visited_mask() &= ~bit;
     for (bool again = true; again; again = manager->restart_walks_ & bit) {
         manager->restart_walks_ &= ~bit;
         memory::ListNode* node = get_next_node(&manager->entities_);
@@ -137,8 +137,8 @@ void walk_objects(ObjectHubBase* manager, Visit visit)
         while (object) {
             memory::ListNode* next_node = get_next_node(node);
             GameEntity* next = object_of(next_node);
-            if (!(object->visited_mask_ & bit)) {
-                object->visited_mask_ |= bit;
+            if (!(object->visited_mask() & bit)) {
+                object->visited_mask() |= bit;
                 visit(object);
                 if (manager->restart_walks_ & bit)
                     break;

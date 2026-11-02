@@ -67,21 +67,21 @@ bool get_ground_hit(std::array<maths::Vec4, 3>& triangle, const maths::Vec4* end
     if (!feeler.get_collision_along(start, end, false))
         return false;
     // (the face hit becomes the triangle tried first next time)
-    render::HitMesh* object = feeler.hit_.object;
+    render::HitMesh* object = feeler.hit().object;
     const render::TriMeshSource* geometry = object->geometry_;
-    const int face = static_cast<int>(feeler.hit_.face);
+    const int face = static_cast<int>(feeler.hit().face);
     for (int corner = 0; corner < 3; ++corner) {
         const auto vertex = static_cast<int>(geometry->face_vertex(face, corner));
         core::at(triangle, corner) = vertex_position3(object, vertex);
     }
-    *out = feeler.contact_pos_;
+    *out = feeler.contact_pos();
     return true;
 }
 
 // 0x00424870
 void KinematicsModule::update_jump()
 {
-    const maths::Vec4& pos = entity_->at_point_;
+    const maths::Vec4& pos = entity_->at_point();
     float x = pos.x;
     float z = pos.z;
     float w = pos.w;
@@ -110,8 +110,8 @@ void KinematicsModule::update_jump()
         } else {
             render::ProbeRay feeler;
             auto above = static_cast<float>(static_cast<double>(w) + 1.0f);
-            feeler.line_.start = {.x = x, .y = static_cast<float>(static_cast<double>(y) + jump_col_above_), .z = z, .w = above};
-            feeler.line_.end = {.x = x, .y = static_cast<float>(static_cast<double>(y) + -jump_col_below_), .z = z, .w = above};
+            feeler.line().start = {.x = x, .y = static_cast<float>(static_cast<double>(y) + jump_col_above_), .z = z, .w = above};
+            feeler.line().end = {.x = x, .y = static_cast<float>(static_cast<double>(y) + -jump_col_below_), .z = z, .w = above};
             if (feeler.get_hit_shape(true, false))
                 motion_flags_ &= ~kMotionJumping;
         }
@@ -124,8 +124,8 @@ bool KinematicsModule::stick_to_ground()
 {
     if (ground_above_ == 0.0f && ground_below_ == 0.0f)
         return false;
-    maths::Mat4& matrix = entity_->basis_frame_;
-    maths::Vec4& pos = entity_->at_point_;
+    maths::Mat4& matrix = entity_->basis_frame();
+    maths::Vec4& pos = entity_->at_point();
     if (ground_height_only_) {
         // The right axis from up and at, then the ground under it: the height to make up (Update eases it in).
         const maths::Vec4& up = core::at(matrix.row, 1);
@@ -228,7 +228,7 @@ bool KinematicsModule::stick_to_ground()
 bool KinematicsModule::move_to(script::Struct* params, script::Script*, maths::Vec4 target, uint32_t node)
 {
     move_target_ = target;
-    const maths::Vec4& pos = entity_->at_point_;
+    const maths::Vec4& pos = entity_->at_point();
     const double dx = static_cast<double>(move_target_.x) - pos.x;
     const double dy = static_cast<double>(move_target_.y) - pos.y;
     const double dz = static_cast<double>(move_target_.z) - pos.z;
@@ -246,7 +246,7 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script*, maths::V
     float speed = 0.0f;
     if (!params->fetch_float(kSpeed, &speed, 0)) {
         // (no speed or time: there at once)
-        entity_->at_point_ = move_target_;
+        entity_->at_point() = move_target_;
         motion_flags_ &= ~kMotionMoving;
         if (node && params->has_bare_flag(kOrient))
             face_node(level_nodes::fetch_vertex(node, true));
@@ -301,7 +301,7 @@ void KinematicsModule::move_to_position(script::Struct* params, script::Script* 
     if (params->has_bare_flag(kMaxCoords))
         pos.negate_x_rotate_x90();
     if (!absolute) {
-        const maths::Vec4& at = entity_->at_point_;
+        const maths::Vec4& at = entity_->at_point();
         pos = {.x = pos.x + at.x, .y = pos.y + at.y, .z = pos.z + at.z, .w = pos.w + at.w};
     }
     move_to(params, script, pos, 0);
@@ -334,7 +334,7 @@ void KinematicsModule::move_along(script::Struct* params, script::Script* script
 {
     float distance = 0.0f;
     params->fetch_float(kDist, &distance, 0);
-    const maths::Vec4& pos = entity_->at_point_;
+    const maths::Vec4& pos = entity_->at_point();
     const double w = static_cast<double>(distance) * direction.w;
     auto z = static_cast<float>(static_cast<double>(distance) * direction.z);
     auto y = static_cast<float>(static_cast<double>(distance) * direction.y);
@@ -371,7 +371,7 @@ bool KinematicsModule::obj_skip_to_restart(script::Struct* params, script::Scrip
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     maths::Vec4 pos;
     level_nodes::fetch_place(node, &pos);
-    entity_->at_point_ = pos;
+    entity_->at_point() = pos;
     face_node(node);
     // (its model brought up to date: a crash without a model component)
     ObjectModule* model = entity_->fetch_module(kModel);
@@ -389,14 +389,14 @@ bool KinematicsModule::obj_move_to_pos_stored(script::Struct* params, script::Sc
 // 0x00427320
 bool KinematicsModule::obj_move_forward(script::Struct* params, script::Script* script)
 {
-    move_along(params, script, core::at(entity_->basis_frame_.row, 2));
+    move_along(params, script, core::at(entity_->basis_frame().row, 2));
     return true;
 }
 
 // 0x004273D0
 bool KinematicsModule::obj_move_left(script::Struct* params, script::Script* script)
 {
-    move_along(params, script, core::at(entity_->basis_frame_.row, 0));
+    move_along(params, script, core::at(entity_->basis_frame().row, 0));
     return true;
 }
 

@@ -49,7 +49,7 @@ void SkaterPhysicsModule::step_coping_move()
     flip_spin_started_ = 0;
     // Carried by what the skater rides on: the position, and the start of the lip (+0x258) - 0x00427A00 works it out.
     if (objects::RideTracker* tracker = get_tracker(this)) {
-        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point_)) {
+        if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point())) {
             stop_riding(this);
         } else {
             // (0x00427A00 returns `where`; ours is void: the point is read from `where`)
@@ -57,29 +57,29 @@ void SkaterPhysicsModule::step_coping_move()
             maths::Vec4 where;
             objects::GameEntity* object = object_of(this);
             contact->get_contact_point(&where);
-            object->at_point_ = where;
+            object->at_point() = where;
             ride_->get_contact_point(&where);
             lip_pos_ = where;
             if (get_tracker(this)->turned_) {
                 auto multiply = d3dx::matrix_multiply;
-                maths::Mat4& matrix = entity_->basis_frame_;
+                maths::Mat4& matrix = entity_->basis_frame();
                 multiply(&matrix, &matrix, &get_tracker(this)->turn_);
                 multiply(&display_matrix_, &display_matrix_, &get_tracker(this)->turn_);
             }
         }
     }
     // The lip's balance (the Perfect Rail cheat: its global flag, and no lean).
-    if (balance_->trick_ == kLipKind) {
+    if (balance_->trick() == kLipKind) {
         auto career = [] { return modules::Skate::sole()->career().get(); };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
-            balance_->lip_.set_lean(0.0f);
-            balance_->lip_.set_lean_speed(0.0f);
+            balance_->lip().set_lean(0.0f);
+            balance_->lip().set_lean_speed(0.0f);
             online::net_game_state().set_cheat_flag(true);
         }
-        balance_->lip_.tick_frame();
+        balance_->lip().tick_frame();
     }
-    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary_.pos_x().held_down_)
+    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary().pos_x().held_down())
         set_flag(this, PoseFlag::kCrouched, 1);
     // Off the lip (0x004FFB10): the rail's TriggerScript, twice.
     if (jump_released()) {
@@ -88,7 +88,7 @@ void SkaterPhysicsModule::step_coping_move()
         trigger_rail_script(kOffLipEvents);
     }
     auto* node = rail_node_;
-    if (node && rail_manager_->node_array_) {
+    if (node && rail_manager_->node_array()) {
         script::Struct* script = level_nodes::fetch_vertex(node->label_, true);
         script->read_hash_value(kName, &rail_script_node_, 1);
         static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(rail_script_node_);
@@ -112,15 +112,15 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
             set_flag(this, PoseFlag::kNoAcidDrop, 1);
     }
     state_changed_at_ = get_now();
-    display_matrix_ = entity_->basis_frame_;
+    display_matrix_ = entity_->basis_frame();
     // The ground normals from the up (+0x68, +0x78, +0x58), the position kept as the last.
-    floor_normal_ = core::at(entity_->basis_frame_.row, 1);
+    floor_normal_ = core::at(entity_->basis_frame().row, 1);
     old_normal_ = floor_normal_;
     drawn_normal_ = old_normal_;
-    safe_pos_ = entity_->at_point_;
-    entity_->old_pos_ = safe_pos_;
+    safe_pos_ = entity_->at_point();
+    entity_->old_pos() = safe_pos_;
     // The jump / trick state cleared.
-    floor_feeler_.hit_.face_flag40_ = 0;
+    floor_feeler_.hit().face_flag40_ = 0;
     side_reach_ = 0.0f;
     jump_charge_ms_ = 0;
     wall_ride_start_ = 0;
@@ -128,7 +128,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     no_spin_ = 0;
     no_kick_ = 0;
     can_brake_ = 1;
-    state_->lip_straight_up_ = 0; // (without its time)
+    state_->set_lip_straight_up(0); // (without its time)
     if (limits_time_ != -2.0f)
         limits_time_ = 0.0f;
     speed_override_ = 1.0f;
@@ -149,8 +149,8 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
         if (objects::GameEntity* object = grind_from->grind_object())
             ride_->ride_on(object);
         start_grind(&grind_from->grind_point(), grind_from->grind_node(), grind_from->grind_rails(), true, true);
-        safe_pos_ = entity_->at_point_;
-        entity_->old_pos_ = safe_pos_;
+        safe_pos_ = entity_->at_point();
+        entity_->old_pos() = safe_pos_;
     } else if (acid_drop) {
         start_acid_drop(acid_drop);
     }

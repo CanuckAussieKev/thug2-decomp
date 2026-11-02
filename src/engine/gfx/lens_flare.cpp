@@ -367,7 +367,7 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
     facing[1] = maths::cross_vec(facing[2], facing[0]);
     if (lens_flare_state().flare_sun_texture_)
         quad->set_texture(lens_flare_state().flare_sun_texture_, 0, 0);
-    const float size = camera->unknownb4_ * get_size(); // (0x004426B0 reads the factor)
+    const float size = camera->unknownb4() * get_size(); // (0x004426B0 reads the factor)
     const float half = size / 2.0f;
     std::array<maths::Vec4, 4> quad_corners = {{
         {.x = -half, .y = -half, .z = 0.0f, .w = 1.0f},
@@ -387,10 +387,10 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
         core::at(corners, i * 3 + 1) = core::at(quad_corners, i).y;
         core::at(corners, i * 3 + 2) = core::at(quad_corners, i).z;
     }
-    quad->blend_mode_ = kBlend;
+    quad->set_blend_mode(kBlend);
     quad->prepare_all(3, 4, 4);
-    quad->blend_mode_ = kAdd;
-    quad->unknown14 = true;
+    quad->set_blend_mode(kAdd);
+    quad->set_unknown14(true);
     quad->get_ready();
 }
 
@@ -504,7 +504,7 @@ void render(gfx::ViewCam* camera)
         corner_colors(colors, 0.5);
         if (get_corona_texture())
             sun.set_texture(get_corona_texture(), 0, 0);
-        sun.blend_mode_ = kAdd;
+        sun.set_blend_mode(kAdd);
         blit_quad(&sun, corners, colors, uvs);
         if (static_cast<double>(morph_in_time()) * 1000.0f < static_cast<double>(unseen))
             show_flare(&screen, 0.0f);

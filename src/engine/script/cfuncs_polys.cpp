@@ -70,7 +70,7 @@ render::WorldScene* first_sky_scene() { return render::get_sky_scene(); }
 
 // A sector's geometry (0x004A2BA0: +0x14) and the geometry's vertex count / positions / colours (0x0048DF70,
 // 0x0048DF80, 0x0048E150 into a buffer, 0x0048DFA0 back from one).
-void* sector_geometry(void* sector) { return static_cast<render::WorldCell*>(sector)->geom_handle_; }
+void* sector_geometry(void* sector) { return static_cast<render::WorldCell*>(sector)->geom_handle(); }
 // (the geometry's virtual functions)
 render::Geom* as_geom(void* geometry) { return static_cast<render::Geom*>(geometry); }
 int get_vertex_count(void* geometry) { return static_cast<int>(as_geom(geometry)->fetch_vertex_tally()); }
@@ -120,7 +120,7 @@ void for_each_sector_geometry(render::WorldScene* scene, uint32_t light_group, F
         return;
     for (auto* sector = static_cast<render::WorldCell*>(sectors->iter_item_->value); sector;) {
         void* geometry = sector_geometry(sector);
-        if (geometry && (!light_group || light_group == sector->light_group_))
+        if (geometry && (!light_group || light_group == sector->light_group()))
             fn(geometry);
         if (!sectors->step_iterator() || !sectors->iter_item_)
             break;

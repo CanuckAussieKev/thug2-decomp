@@ -343,8 +343,8 @@ void assign_value(const Props& props)
         reapply();
     // (a fog the editor had forced on, taken off where the manager's fog is off: off again - the manager's own switch)
     gfx::CtodManager* manager = gfx::tod_manager();
-    if (fog_was && !level_editor_level_props_state().props_.has_fog_ && !level_editor_level_props_state().level_.has_fog_ && manager && !manager->fog_active_) {
-        manager->fog_active_ = true;
+    if (fog_was && !level_editor_level_props_state().props_.has_fog_ && !level_editor_level_props_state().level_.has_fog_ && manager && !manager->fog_active()) {
+        manager->assign_fog_active(true);
         manager->set_fog_active(false);
     }
 }
@@ -369,7 +369,7 @@ void reapply()
     gfx::CtodManager* manager = gfx::tod_manager();
     // (no parameters yet: nothing to send; lights a script set from a named state - reset_level_lights - kept: the
     // override goes with the next state change)
-    if (!manager || !manager->params_set_ || manager->level_lights_reset_)
+    if (!manager || !manager->params_set() || manager->level_lights_reset())
         return;
     install_filter();
     manager->apply_tod_params(manager->get_tod_params(-1));
@@ -398,7 +398,7 @@ bool level_defaults(Props* props)
     // (map4) The ambient light and fog the level shows: the time-of-day manager's current state's - where the engine's
     // come from - with the level structure's ed_ keys (a bake's) over them.
     gfx::CtodManager* manager = gfx::tod_manager();
-    if (manager && manager->params_set_) {
+    if (manager && manager->params_set()) {
         gfx::TodParams now = manager->get_tod_params(-1);
         get_override(Props{}, level_editor_level_props_state().level_, &now);
         p.has_ambient_ = true;

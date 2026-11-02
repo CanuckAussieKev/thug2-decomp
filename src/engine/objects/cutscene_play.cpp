@@ -259,7 +259,7 @@ void CinematicEntry::tick_frame()
                 get_run(begin_script_);
         }
         begun_ = true;
-        content_->perform(viewer_, args_);
+        content_->perform(viewer(), args_);
         return;
     }
     if (!content_->is_loaded())
@@ -273,7 +273,7 @@ void CinematicEntry::tick_frame()
         content_->refresh_objects();
         content_->update_object_transforms();
     } else {
-        content_->perform(viewer_, args_);
+        content_->perform(viewer(), args_);
     }
     // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
     if (unknown60_ > -1 && --unknown60_ == 0) {
@@ -285,9 +285,9 @@ void CinematicEntry::tick_frame()
 // 0x00468040
 bool CinematicEntry::is_finished()
 {
-    if (is_finished_)
+    if (get_is_finished())
         return true;
-    if (flag18_ || !content_)
+    if (flag18() || !content_)
         return false;
     return content_->is_loaded() && content_->is_finished();
 }

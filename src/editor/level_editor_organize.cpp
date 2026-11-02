@@ -454,7 +454,7 @@ uint32_t scene_now()
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
+    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
 }
 
 // Every object with a model the editor can select (the level's object nodes and the copies), once each.

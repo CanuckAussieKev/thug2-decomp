@@ -78,6 +78,10 @@ public:
     // 0x00431360 (not a Ghidra function): the light's direction handed to the shadow (if any).
     void set_light_direction(const maths::Vec4* direction);
 
+    // The fields other code reads and sets.
+    void set_follow_object(bool value) { follow_object_ = value; }
+
+private:
     std::unique_ptr<render::ShadowBase> shadow_handle_; // +0x18 the renderer's shadow object
     maths::Vec4 at_point_{};                            // +0x1C where it is
     maths::Vec4 surface_dir_{};                         // +0x2C the ground's normal under it

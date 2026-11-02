@@ -610,7 +610,7 @@ bool Objective::all_skaters_run_done()
         auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         // (in horse, a skater not taking the turn doesn't count)
         if (active_ruleset_label() == kHorse &&
-            (core::down_cast<objects::Rider>(skater)->is_halted() || (skater->composite_flags_ >> 2) & 1))
+            (core::down_cast<objects::Rider>(skater)->is_halted() || (skater->composite_flags() >> 2) & 1))
             continue;
         bool done = false;
         if (run_ending_ == 0)

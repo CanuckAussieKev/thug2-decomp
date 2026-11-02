@@ -482,13 +482,13 @@ bool read_skater(objects::GameEntity* skater, SkaterNow* out)
     if (!state)
         return false;
     const auto* pose = core::down_cast<const objects::RiderPoseState>(state);
-    const int physics = pose->cur_phase_;
+    const int physics = pose->cur_phase();
     const bool bailing = pose->is_on(objects::PoseFlag::kBailing) != 0;
-    const bool driving = pose->in_vehicle_ != 0;
-    const bool walking = !driving && pose->physics_mode_ == 1;
+    const bool driving = pose->in_vehicle() != 0;
+    const bool walking = !driving && pose->physics_mode() == 1;
     const objects::ObjectModule* balance = skater->fetch_module(kSkaterBalanceTrick);
-    const uint32_t trick = balance ? core::down_cast<const objects::RiderTeeterMoves>(balance)->trick_ : 0;
-    out->pos = {.x = skater->at_point_.x, .y = skater->at_point_.y, .z = skater->at_point_.z};
+    const uint32_t trick = balance ? core::down_cast<const objects::RiderTeeterMoves>(balance)->trick() : 0;
+    out->pos = {.x = skater->at_point().x, .y = skater->at_point().y, .z = skater->at_point().z};
     out->motion = get_classify(physics, bailing, trick, walking, driving);
     out->bailing = bailing;
     out->pending = 0;
@@ -619,7 +619,7 @@ std::vector<GapRead> read_gaps()
         if (node->data == memory::ListNode::head_marker())
             break;
         auto* gap = static_cast<goals::GapEntry*>(node->data);
-        out.push_back({.name = gap->label_.c_str() ? gap->label_.c_str() : "", .pending = gap->pending_, .count = gap->num_, .score = gap->points_held_});
+        out.push_back({.name = gap->label().c_str() ? gap->label().c_str() : "", .pending = gap->pending(), .count = gap->num(), .score = gap->points_held()});
     }
     return out;
 }
@@ -761,12 +761,12 @@ void snap_one(objects::Entity* object, void* data)
 {
     auto* walk = static_cast<SnapWalk*>(data);
     auto* composite = core::down_cast<objects::GameEntity>(object);
-    if ((composite->object_flags_ & objects::kObjectFlagDead) ||
-        (composite->composite_flags_ & objects::kCompositeFlagDestroying))
+    if ((composite->object_flags() & objects::kObjectFlagDead) ||
+        (composite->composite_flags() & objects::kCompositeFlagDestroying))
         return;
     if (composite->fetch_module(kSkaterPhysicsControl) || composite->fetch_module(kCamModuleName))
         return;
-    walk->out->push_back({.state = object_edit::store_away(composite), .vel = composite->vel_});
+    walk->out->push_back({.state = object_edit::store_away(composite), .vel = composite->vel()});
 }
 
 // The skaters paused again after the game is unpaused (the front end's own walk of them - FrontEnd::PauseGame: their
@@ -862,7 +862,7 @@ void stop_simulation(const char* why)
                 continue;
             }
             if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(s.state.id)))
-                object->vel_ = s.vel;
+                object->vel() = s.vel;
             ++restored;
         }
     }

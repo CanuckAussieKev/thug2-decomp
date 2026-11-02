@@ -86,11 +86,11 @@ int& gap_taps(TrickListEntry* gap) { return gap->taps(); }
 maths::Vec4& gap_start_pos(TrickListEntry* gap) { return gap->start_pos(); }
 maths::Vec4& gap_start_dir(TrickListEntry* gap) { return gap->start_dir(); }
 
-uint32_t& trick_gap_id(TrickNameEntry* trick) { return trick->gap_id_; }
-int& trick_node(TrickNameEntry* trick) { return trick->node_; }
-uint32_t& get_trick_script(TrickNameEntry* trick) { return trick->trick_script_; }
-uint8_t& trick_done(TrickNameEntry* trick) { return trick->done_; }
-uint32_t& trick_frame(TrickNameEntry* trick) { return trick->frame_; }
+uint32_t& trick_gap_id(TrickNameEntry* trick) { return trick->gap_id(); }
+int& trick_node(TrickNameEntry* trick) { return trick->node(); }
+uint32_t& get_trick_script(TrickNameEntry* trick) { return trick->trick_script(); }
+uint8_t& trick_done(TrickNameEntry* trick) { return trick->done(); }
+uint32_t& trick_frame(TrickNameEntry* trick) { return trick->frame(); }
 
 // A list's first entry and the one after `node` (null at the head: its data is -1).
 template <typename T>
@@ -158,7 +158,7 @@ void add_gap_score(modules::PointTally* score, const char* text, int points, int
 }
 
 // The state component (the physics control's).
-RiderPoseState* state_of(RiderBoardPhysics* physics_control) { return physics_control->pose_; }
+RiderPoseState* state_of(RiderBoardPhysics* physics_control) { return physics_control->pose(); }
 // The core physics' state component.
 RiderPoseState* get_core_state(skater::SkaterPhysicsModule* core_physics) { return core_physics->state(); }
 
@@ -217,7 +217,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         *require |= bit << kRequireShift;
     };
     const objects::RiderPoseState* state = state_of(physics_control_);
-    if (state->in_vehicle_) {
+    if (state->in_vehicle()) {
         // Driving: on the ground while the vehicle (PlayerVehicle) has wheels down (+0x114), else in the air.
         *cancel = kGapDriving;
         *require |= kGapDriving << kRequireShift;
@@ -226,7 +226,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         set(physics->wheels_in_contact() != 0 ? kGapGround : kGapAir);
         return;
     }
-    if (state->physics_mode_ != 0) {
+    if (state->physics_mode() != 0) {
         // Walking: the walk component's state.
         *cancel = kGapWalking;
         *require |= kGapWalking << kRequireShift;
@@ -252,9 +252,9 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
     *cancel = kGapSkating;
     *require |= kGapSkating << kRequireShift;
     objects::RiderPoseState* core_state = get_core_state(core_physics_);
-    switch (core_state->cur_phase_) {
+    switch (core_state->cur_phase()) {
     case 0: { // the ground: plain (+0x90 and the balance trick's two clear) or a manual
-        const bool balancing = balance_trick_->trick_ != 0 || balance_trick_->started_;
+        const bool balancing = balance_trick_->trick() != 0 || balance_trick_->started();
         if (!core_state->flag(PoseFlag::kCancelGround).on && !balancing)
             set(kGapGround);
         if (balancing)
@@ -315,7 +315,7 @@ void RiderGapTracker::start_gap_trick(script::Struct* params, script::Script* sc
 {
     void* memory = memory::alloc_zeroed(sizeof(TrickNameEntry));
     auto* trick = memory ? memory::construct_in<TrickNameEntry>(memory) : nullptr;
-    add_to_front(gap_move_chain_, &trick->list_link_);
+    add_to_front(gap_move_chain_, &trick->list_link());
     trick_node(trick) = script->list_link();
     trick_done(trick) = 0;
     trick_frame(trick) = tick_;
@@ -324,7 +324,7 @@ void RiderGapTracker::start_gap_trick(script::Struct* params, script::Script* sc
     trick_gap_id(trick) = gap_id;
     const char* text = nullptr;
     params->fetch_text(kTrickText, &text, 0);
-    trick->label_ = text;
+    trick->set_label(text);
     get_trick_script(trick) = 0;
     params->read_hash_value(kTrickscript, &get_trick_script(trick), 1);
 }
@@ -374,8 +374,8 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     gap_trick_text(gap) = 0;
     // Where the skater starts: its camera's position, and facing back along the camera's at row.
     auto* skater = core::down_cast<Rider>(entity_);
-    gap_start_pos(gap) = core::down_cast<GameEntity>(skater->get_skater_camera())->at_point_;
-    const maths::Vec4& at = core::at(core::down_cast<GameEntity>(skater->get_skater_camera())->basis_frame_.row, 2);
+    gap_start_pos(gap) = core::down_cast<GameEntity>(skater->get_skater_camera())->at_point();
+    const maths::Vec4& at = core::at(core::down_cast<GameEntity>(skater->get_skater_camera())->basis_frame().row, 2);
     maths::Vec4& dir = gap_start_dir(gap);
     dir.z = -at.z;
     dir.x = -at.x;
@@ -433,7 +433,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
         gap_option_labels(gap) |= kGapDriving;
 
     // Checked against the state now - unless gap checks are Off (the settings' +0x40), when driving can't matter.
-    const bool driving_matters = state_of(physics_control_)->in_vehicle_ && (gap_option_labels(gap) & kGapDriving);
+    const bool driving_matters = state_of(physics_control_)->in_vehicle() && (gap_option_labels(gap) & kGapDriving);
     if (!driving_matters && park_editing::ParkBuilderMode::sole()->cur_phase() == kOff)
         return;
     uint32_t cancel = 0, require = 0;
@@ -516,7 +516,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         }
         gap_tally_ref()->set_gap_positions(text, gap_start_pos(gap), gap_start_dir(gap));
         int points = 0;
-        if (params->fetch_int_value(kScore, &points, 0) && entity_->is_local_skater_) {
+        if (params->fetch_int_value(kScore, &points, 0) && entity_->is_local_skater()) {
             add_gap_score(points_held_, coloured.data(), points, 0x10);
             core::down_cast<MoveExecutor>(entity_->fetch_module(kTrick))->set_get_bailed(true);
             gap_tally_ref()->register_gap_hit(text);
@@ -532,7 +532,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         if (params->read_sub_struct(kContinue, &continuation, 0))
             start_gap(continuation, script);
         const uint32_t success = checksums::fold_text_into_checksum(gap_id, "_Success");
-        get_tracker()->launch_event(success, 0xFFFFFFFF, entity_->ident_, params, true, -1.0f);
+        get_tracker()->launch_event(success, 0xFFFFFFFF, entity_->ident(), params, true, -1.0f);
         // The gap deleted if it's still in the list; then the walk begins again.
         for (auto* other = get_first<TrickListEntry>(gaps_); other; other = get_next(other)) {
             if (other == gap) {

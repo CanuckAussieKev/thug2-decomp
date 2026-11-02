@@ -87,19 +87,19 @@ int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(s
 // (shared by both: the original repeats it in each)
 void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateState& out)
 {
-    self->entity_->display_matrix_.get_euler_angles(out.angles);
+    self->entity_->display_matrix().get_euler_angles(out.angles);
     const objects::RiderPoseState* core = self->pose();
-    out.state = static_cast<uint8_t>(core->cur_phase_);
-    out.value_7c_ = core->surface_type_;
-    out.flag74 = core->in_trick_move_;
-    out.flag75 = core->physics_mode_ == 1 ? 1 : 0;
-    out.flag76 = core->in_vehicle_;
+    out.state = static_cast<uint8_t>(core->cur_phase());
+    out.value_7c_ = core->surface_type();
+    out.flag74 = core->in_trick_move();
+    out.flag75 = core->physics_mode() == 1 ? 1 : 0;
+    out.flag76 = core->in_vehicle();
     const objects::GrindPoint* rail = self->board()->rail_node();
     out.value80 = rail ? rail->label_ : 0;
     // A bit per state flag (the state component's 24 timed flags): set while it's on.
     uint32_t controls = 0;
     for (int k = 0; k < 24; ++k) {
-        if (core::at(core->timed_flags_, k).on)
+        if (core::at(core->timed_flags(), k).on)
             controls |= 1u << k;
         else
             controls &= ~(1u << k);
@@ -122,7 +122,7 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
-            k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal(entity_->at_point_[k]);
+            k == 1 ? thugpro::pack_height(entity_->at_point().y) : thugpro::pack_horizontal(entity_->at_point()[k]);
         if (value != core::at(sent_pos_, k) || force)
             flags |= 1u << k;
     }
@@ -171,12 +171,12 @@ void RiderHostSync::send_update()
         uint32_t& guard = local_net_logic_state().local_net_guard_;
         if (!(guard & 1))
             guard |= 1;
-        local_net_logic_state().local_net_position_ = entity_->at_point_;
+        local_net_logic_state().local_net_position_ = entity_->at_point();
     }
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
-            k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal(entity_->at_point_[k]);
+            k == 1 ? thugpro::pack_height(entity_->at_point().y) : thugpro::pack_horizontal(entity_->at_point()[k]);
         if (flags & (1u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         core::at(sent_pos_, k) = value;
@@ -272,10 +272,10 @@ int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
         return net::kResultPassOn;
     uint32_t script = 0;
     Rider* other = nullptr;
-    if (skater->ident_ == thief_id) {
+    if (skater->ident() == thief_id) {
         script = kGraffitiStealYou;
         other = victim;
-    } else if (skater->ident_ == victim_id) {
+    } else if (skater->ident() == victim_id) {
         script = kGraffitiStealOther;
         other = thief;
     } else {

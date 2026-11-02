@@ -93,11 +93,11 @@ bool get_cast(V3 from, V3 to, SurfaceHit* hit)
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const auto& normal = ray->hit_.normal;
-    const auto& point = ray->hit_.point;
+    const auto& normal = ray->hit().normal;
+    const auto& point = ray->hit().point;
     hit->normal = {.x = normal[0], .y = normal[1], .z = normal[2]};
     hit->point = {.x = point[0], .y = point[1], .z = point[2]};
-    hit->checksum = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
+    hit->checksum = ray->hit().object ? ray->hit().object_checksum_ : 0;
     return true;
 }
 
@@ -131,17 +131,17 @@ std::vector<V3> sector_vertices(uint32_t checksum, size_t limit)
         return out;
     // (the geometry's meshes, +0x3C / +0x40 - as level_editor_scenery.cpp's ray_meshes reads them: each vertex's
     // position its first 12 bytes, where the sector is now)
-    const std::span<render::MeshRef*> meshes = geom->meshes ? geom->mesh_run() : std::span<render::MeshRef*>();
-    const uint32_t count = geom->mesh_count_;
+    const std::span<render::MeshRef*> meshes = geom->meshes_value() ? geom->mesh_run() : std::span<render::MeshRef*>();
+    const uint32_t count = geom->mesh_count();
     for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096 && out.size() < limit; ++i) {
         const render::MeshRef* mesh = core::at(meshes, i);
         if (!mesh || mesh->billboard_value() || (mesh->flags_value() & 0x10))
             continue;
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
-        if (!vertices || !vertices->data || mesh->stride_value() < 12)
+        if (!vertices || !vertices->data_value() || mesh->stride_value() < 12)
             continue;
         for (uint32_t v = 0; v < mesh->vertex_count() && out.size() < limit; ++v) {
-            const auto p = gpu::VertexView(vertices->data, mesh->stride_value(), mesh->vertex_count()).float3(v);
+            const auto p = gpu::VertexView(vertices->data_value(), mesh->stride_value(), mesh->vertex_count()).float3(v);
             out.push_back({.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2)});
         }
     }

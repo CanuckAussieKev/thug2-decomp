@@ -131,6 +131,28 @@ public:
     // The flag set to `value`; its time noted if it changes.
     void set_flag(PoseFlag f, uint8_t value);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int cur_phase() const { return cur_phase_; }
+    [[nodiscard]] int physics_mode() const { return physics_mode_; }
+    void assign_physics_mode(int value) { physics_mode_ = value; }
+    [[nodiscard]] const std::array<TimedFlag, kPoseFlagCount>& timed_flags() const { return timed_flags_; }
+    [[nodiscard]] uint8_t in_trick_move() const { return in_trick_move_; }
+    void set_in_trick_move(uint8_t value) { in_trick_move_ = value; }
+    [[nodiscard]] uint8_t surface_type() const { return surface_type_; }
+    maths::Vec4& drop_velocity() { return drop_velocity_; }
+    [[nodiscard]] const maths::Vec4& drop_velocity() const { return drop_velocity_; }
+    [[nodiscard]] uint8_t lip_straight_up() const { return lip_straight_up_; }
+    void set_lip_straight_up(uint8_t value) { lip_straight_up_ = value; }
+    [[nodiscard]] const maths::Vec4& drawn_normal() const { return drawn_normal_; }
+    void set_drawn_normal(const maths::Vec4& value) { drawn_normal_ = value; }
+    maths::Vec4& floor_normal() { return floor_normal_; }
+    [[nodiscard]] const maths::Vec4& floor_normal() const { return floor_normal_; }
+    [[nodiscard]] uint8_t in_vehicle() const { return in_vehicle_; }
+    void set_in_vehicle(uint8_t value) { in_vehicle_ = value; }
+    [[nodiscard]] float height_above_ground() const { return height_above_ground_; }
+    void set_height_above_ground(float value) { height_above_ground_ = value; }
+
+private:
     int cur_phase_{};                         // +0x18 State
     int physics_mode_{};                      // +0x1C PhysicsMode (-1 until the physics control component sets it)
     std::array<TimedFlag, kPoseFlagCount> timed_flags_{}; // +0x20 (PoseFlag; kBailing is +0x70)

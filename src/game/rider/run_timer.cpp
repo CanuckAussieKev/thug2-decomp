@@ -62,7 +62,7 @@ double physics_value(GameEntity* skater, uint32_t name)
 // An event of `type` to the run timer's script (no data, not broadcast).
 void tell_timer_script(GameEntity* skater, uint32_t type)
 {
-    get_tracker()->launch_event(type, timer_script_id(skater), skater->ident_, nullptr, false, -1.0f);
+    get_tracker()->launch_event(type, timer_script_id(skater), skater->ident(), nullptr, false, -1.0f);
 }
 
 } // namespace

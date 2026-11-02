@@ -275,7 +275,7 @@ bool EffectsEmitterModule::set_emit_target(script::Struct* params, script::Scrip
 {
     params->read_hash_value(0u, &emit_target_, 1);
     if (effect_handle_)
-        effect_handle_->set_emit_script(emit_target_, entity_->ident_);
+        effect_handle_->set_emit_script(emit_target_, entity_->ident());
     return true;
 }
 
@@ -309,7 +309,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     p.emit_script_ = 0;
     if (params->read_hash_value(0x092276DBu, &emit_target_, 0)) {
         p.emit_script_ = emit_target_;
-        p.entity_key_ = entity_->ident_;
+        p.entity_key_ = entity_->ident();
     }
     params->fetch_int_value(0x5A235299u, &lifespan_, 0);
     params->read_hash_value(0xA1DC81F9u, &p.label_, 1);
@@ -477,12 +477,12 @@ void EffectsEmitterModule::tick_frame()
         return;
     for (int i = 0; i < 3; ++i) {
         const maths::Vec4& local = core::at(args.offset_pos_, i);
-        const maths::Vec4& at = entity_->at_point_;
+        const maths::Vec4& at = entity_->at_point();
         const maths::Vec4 pos = {.x = local.x + at.x, .y = local.y + at.y, .z = local.z + at.z, .w = local.w + at.w};
         effect_handle_->change_place(i, &pos);
         if (args.orient_with_object_) {
             maths::Mat4 orientation{};
-            orientation = entity_->basis_frame_;
+            orientation = entity_->basis_frame();
             core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             effect_handle_->spin_by(i, &orientation);
         }
@@ -501,8 +501,8 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, 
         float value = 1.0f;
         render::ProbeRay feeler;
         const maths::Vec4& at = core::at(effect_handle_->args_.at_point_, 0);
-        feeler.line_.start = {.x = at.x, .y = static_cast<float>(at.y + 1.0f), .z = at.z, .w = at.w};
-        feeler.line_.end = {.x = at.x, .y = static_cast<float>(static_cast<double>(at.y) - 4800.0), .z = at.z, .w = at.w};
+        feeler.line().start = {.x = at.x, .y = static_cast<float>(at.y + 1.0f), .z = at.z, .w = at.w};
+        feeler.line().end = {.x = at.x, .y = static_cast<float>(static_cast<double>(at.y) - 4800.0), .z = at.z, .w = at.w};
         if (feeler.get_hit_shape(true, false))
             value = static_cast<float>(feeler.get_hit_vertex_value() * 2.0);
         if (effect_handle_)

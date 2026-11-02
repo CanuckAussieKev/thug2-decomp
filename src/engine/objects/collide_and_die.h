@@ -47,6 +47,7 @@ public:
     // 0x0041C3D0 (vtable slot 1): see the class. The times are the game clock's, compared unsigned.
     void tick_frame() override;
 
+private:
     DormancyModule* suspend_{};  // +0x18 the suspend component
     float radius_{0.0f};         // +0x1C radius
     float size_factor_{0.0f};    // +0x20 scale (given to death_script)

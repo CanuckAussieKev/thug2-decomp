@@ -78,7 +78,7 @@ std::span<const render::HierarchyNode> model_bones(void* model)
 }
 // A skeleton's bone matrices (+0x04) and bone count (+0x14) - the folded getters 0x005480C0 / 0x004A2BA0.
 std::span<maths::Mat4> rig_matrix_block(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->matrices(); }
-int skeleton_bone_count(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->bone_total_; }
+int skeleton_bone_count(void* skeleton) { return static_cast<gfx::Rig*>(skeleton)->bone_total(); }
 
 // The motion component's speed (+0x30) and path follower (0x00423510).
 float motion_speed(KinematicsModule* motion) { return motion->path_speed(); }
@@ -89,7 +89,7 @@ PathFollower* motion_path_follower(KinematicsModule* motion)
 
 // The suspend component (no source yet): suspended (+0x30, the getter 0x00433E90), and whether its object should be
 // updated this frame (0x00433EA0).
-bool suspend_suspended(const DormancyModule* suspend) { return suspend->far_; }
+bool suspend_suspended(const DormancyModule* suspend) { return suspend->far(); }
 bool suspend_should_update(DormancyModule* suspend, float* distance)
 {
     return suspend->wants_animating(distance);
@@ -273,7 +273,7 @@ void AutomobileDynamicsModule::tick_frame()
 {
     if (suspend_suspended(suspend_))
         return;
-    if (entity_->object_flags_ & 1)
+    if (entity_->object_flags() & 1)
         return;
     if (!suspend_should_update(suspend_, nullptr))
         return;

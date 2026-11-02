@@ -495,9 +495,9 @@ void log_script_pool_use(const char* when)
         for (const memory::SlabBank* pool : p.pair->pools) {
             if (!pool)
                 continue;
-            used += pool->taken_count_;
-            peak += pool->peak_used_;
-            count += pool->num_;
+            used += pool->taken_count();
+            peak += pool->peak_used();
+            count += pool->num();
         }
         std::array<char, 96> part{};
         text::format_to(part, "%s%s %d (peak %d) of %d", line.empty() ? "" : ", ", p.name, used, peak, count);
@@ -506,7 +506,7 @@ void log_script_pool_use(const char* when)
     // (and the hash tables' items, Main's HashItem pool - memory_sizes.h hash_item_pool)
     if (const memory::SlabBank* items = memory::slot_pool_setup::get_pool(0)) {
         std::array<char, 96> part{};
-        text::format_to(part, ", HashItem %d (peak %d) of %d", items->taken_count_, items->peak_used_, items->num_);
+        text::format_to(part, ", HashItem %d (peak %d) of %d", items->taken_count(), items->peak_used(), items->num());
         line += part.data();
     }
     get_log("script pools in use %s: %s", when, line.c_str());
@@ -554,8 +554,8 @@ void add_pending_symbol(SymbolTableEntry* symbol, bool owned)
 } // namespace
 
 // 0x00470000 / 0x0046FFF0
-void clear_script_flag_6f_2564() { script_state().get_evaluator().unknown1f4_ = false; } // (0x006F2564: the evaluator's +0x1F4)
-void set_script_flag_6f_2564() { script_state().get_evaluator().unknown1f4_ = true; }
+void clear_script_flag_6f_2564() { script_state().get_evaluator().set_unknown1f4(false); } // (0x006F2564: the evaluator's +0x1F4)
+void set_script_flag_6f_2564() { script_state().get_evaluator().set_unknown1f4(true); }
 
 // 0x00470010
 void allocate_script_checksum_names(bool debug_heap)

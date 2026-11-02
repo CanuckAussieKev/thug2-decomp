@@ -1134,7 +1134,7 @@ bool conceal(uint32_t name, bool hide)
             remove_light(name);
         // (a flag a CTF game made: killed - it comes back when the game makes it again)
         auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
-        if (object && !(object->object_flags_ & objects::kObjectFlagDead) && cls != kProxim && cls != kEmitter &&
+        if (object && !(object->object_flags() & objects::kObjectFlagDead) && cls != kProxim && cls != kEmitter &&
             cls != kLight)
             object->flag_as_dead();
         stored_hidden().push_back(h);

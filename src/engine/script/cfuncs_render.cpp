@@ -382,8 +382,8 @@ bool cfunc_set_clipping_distances(Struct* params, Script*)
     params->fetch_float("Far", &far_plane, 0);
     for (int i = 0; i < 2; ++i) {
         if (gfx::ViewCam* camera = viewport_camera(i)) {
-            camera->near_dist_ = near_plane;
-            camera->far_clip_ = far_plane;
+            camera->set_near_dist(near_plane);
+            camera->set_far_clip(far_plane);
         }
     }
     return true;

@@ -231,7 +231,7 @@ void BuildPointer::tick_frame(float offset_cell_x, float offset_cell_z, int turn
             clipboard_->preview_pieces(shown, angle_, clipboard_height_);
         return;
     }
-    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following_)
+    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())
         clipboard->free_all_piece_groups();
     if (mode_sel_ != kModeRailPlacement)
         piece_group_->change_place(shown, angle_);
@@ -278,7 +278,7 @@ bool BuildPointer::copy_area_to_clipboard()
         return false;
 
     int count = 0;
-    for (const Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following_)
+    for (const Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())
         ++count;
     if (count == kClipboardLimit)
         remove_oldest_clipboard();
@@ -289,14 +289,14 @@ bool BuildPointer::copy_area_to_clipboard()
     while (!copy->copy_picked_to_clipboard(area) && copy_buffers_) {
         Clipboard* previous = nullptr;
         Clipboard* last = copy_buffers_;
-        while (last->following_) {
+        while (last->following()) {
             previous = last;
-            last = last->following_;
+            last = last->following();
         }
         last->teardown();
         free_clipboard(last);
         if (previous)
-            previous->following_ = nullptr;
+            previous->set_following(nullptr);
         else
             copy_buffers_ = nullptr;
     }
@@ -307,7 +307,7 @@ bool BuildPointer::copy_area_to_clipboard()
         }
         return false;
     }
-    copy->following_ = copy_buffers_;
+    copy->set_following(copy_buffers_);
     copy_buffers_ = copy;
     return true;
 }
@@ -348,7 +348,7 @@ void BuildPointer::destroy_cursor_meta()
 void BuildPointer::switch_to_clipboard()
 {
     int count = 0;
-    for (const Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following_)
+    for (const Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())
         ++count;
     if (count == 0)
         return;
@@ -372,7 +372,7 @@ void BuildPointer::switch_to_clipboard()
     }
     set->selected_ = 0;
 
-    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following_)
+    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())
         clipboard->free_all_piece_groups();
     clipboard_ = copy_buffers_;
     destroy_cursor_meta();

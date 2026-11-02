@@ -120,7 +120,7 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
                               {.x = static_cast<float>(left), .y = static_cast<float>(bottom), .z = 0.0f, .w = 0.0f}}};
     place_corners(poly, corners);
     PcPrimitive* primitive = poly->primitive;
-    primitive->blend_mode_ = poly->blend_mode_;
+    primitive->set_blend_mode(poly->blend_mode_);
     primitive->prepare_all(layout, 4, 4); // (through the jump 0x004A10A0)
     const std::array<std::array<float, 2>, 4> uvs = {{{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}}};
     for (int i = 0; i < 4; ++i) {
@@ -129,7 +129,7 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
             poly->primitive->set_uv(i, core::at(core::at(uvs, i), 0), core::at(core::at(uvs, i), 1));
         set_corner(poly->primitive, i, core::at(corners, i));
     }
-    poly->primitive->unknown14 = (poly->flags >> 1) & 1;
+    poly->primitive->set_unknown14((poly->flags >> 1) & 1);
     poly->primitive->get_ready();
     effects_state().spawned_polys().insert(poly);
 }

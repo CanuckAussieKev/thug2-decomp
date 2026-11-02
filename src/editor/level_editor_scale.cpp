@@ -260,7 +260,7 @@ void split_nodes(render::HitTreeNode* node, std::vector<CollisionCopy::Elem>* ou
 
 uint32_t get_vertex_bytes(const render::TriMeshSource* data)
 {
-    return data->num_vertices_ * (data->compressed_ ? 6u : 12u);
+    return data->num_vertices() * (data->compressed() ? 6u : 12u);
 }
 
 } // namespace
@@ -271,36 +271,36 @@ CollisionCopy copy_collision(render::TriMeshSource* data)
     copy.data = data;
     if (!data)
         return copy;
-    copy.num_vertices_ = data->num_vertices_;
-    copy.compressed = data->compressed_;
-    copy.vertex_array_ = data->vertices_;
-    if (data->vertices_) {
-        const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(data->vertices_), get_vertex_bytes(data));
+    copy.num_vertices_ = data->num_vertices();
+    copy.compressed = data->compressed();
+    copy.vertex_array_ = data->vertices();
+    if (data->vertices()) {
+        const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(data->vertices()), get_vertex_bytes(data));
         copy.vertices.assign(bytes.begin(), bytes.end());
     }
-    copy.min = data->bounds_.min;
-    copy.max = data->bounds_.max;
-    copy.rejection = data->unknown3c_;
-    split_nodes(data->bsp_, &copy.nodes, 0);
+    copy.min = data->bounds().min;
+    copy.max = data->bounds().max;
+    copy.rejection = data->unknown3c();
+    split_nodes(data->bsp(), &copy.nodes, 0);
     return copy;
 }
 
 bool same_collision(const CollisionCopy& copy)
 {
     const render::TriMeshSource* data = copy.data;
-    return data && data->vertices_ == copy.vertex_array_ && data->num_vertices_ == copy.num_vertices_ &&
-           data->compressed_ == copy.compressed && copy.vertices.size() == get_vertex_bytes(data);
+    return data && data->vertices() == copy.vertex_array_ && data->num_vertices() == copy.num_vertices_ &&
+           data->compressed() == copy.compressed && copy.vertices.size() == get_vertex_bytes(data);
 }
 
 void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale)
 {
     render::TriMeshSource* data = copy.data;
-    if (!data || !data->vertices_)
+    if (!data || !data->vertices())
         return;
-    std::memcpy(data->vertices_, copy.vertices.data(), copy.vertices.size());
-    data->bounds_.min = copy.min;
-    data->bounds_.max = copy.max;
-    data->unknown3c_ = copy.rejection;
+    std::memcpy(data->vertices(), copy.vertices.data(), copy.vertices.size());
+    data->bounds().min = copy.min;
+    data->bounds().max = copy.max;
+    data->set_unknown3c(copy.rejection);
     for (const CollisionCopy::Elem& n : copy.nodes) {
         n.node->axis_tag_ = n.split;
         n.node->chain_link_ = n.link;
@@ -322,14 +322,14 @@ void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
 V3 collision_limit(const render::TriMeshSource* data, V3 scale)
 {
     V3 limit = get_uniform(kMax);
-    if (!data || !data->compressed_)
+    if (!data || !data->compressed())
         return limit;
     if (scale.x > 0.0f)
-        limit.x = compressed_limit((data->bounds_.max.x - data->bounds_.min.x) / scale.x);
+        limit.x = compressed_limit((data->bounds().max.x - data->bounds().min.x) / scale.x);
     if (scale.y > 0.0f)
-        limit.y = compressed_limit((data->bounds_.max.y - data->bounds_.min.y) / scale.y);
+        limit.y = compressed_limit((data->bounds().max.y - data->bounds().min.y) / scale.y);
     if (scale.z > 0.0f)
-        limit.z = compressed_limit((data->bounds_.max.z - data->bounds_.min.z) / scale.z);
+        limit.z = compressed_limit((data->bounds().max.z - data->bounds().min.z) / scale.z);
     return limit;
 }
 
@@ -356,7 +356,7 @@ struct MeshCopy {
     std::vector<float> list_copy_;
 };
 
-gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body_; }
+gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body(); }
 render::TriMeshSource* collision_data(render::WorldCell* sector)
 {
     const render::HitMesh* coll = coll_of(sector);
@@ -369,9 +369,9 @@ uint32_t vertex_format(const render::MeshRef* mesh) { return mesh->fvf_value(); 
 // The vertex buffer written back to the card (0x004D40E0 after the inlined lock of the whole buffer, as MeshRef::move_to).
 void upload(render::VertexBuffer* buffer)
 {
-    buffer->lock_offset_ = 0;
-    buffer->lock_size_ = buffer->size;
-    buffer->lock_flags_ = 0;
+    buffer->set_lock_offset(0);
+    buffer->set_lock_size(buffer->size_value());
+    buffer->set_lock_flags(0);
     buffer->get_unlock();
 }
 
@@ -395,8 +395,8 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
 {
     auto original = std::make_shared<Original>();
     original->geom = geom;
-    original->mesh_list_ = geom->meshes;
-    original->mesh_count_ = geom->mesh_count_;
+    original->mesh_list_ = geom->meshes_value();
+    original->mesh_count_ = geom->mesh_count();
     original->quarters = quarters;
     original->position = position;
     if (!original->mesh_list_ || original->mesh_count_ == 0 || original->mesh_count_ > 4096)
@@ -421,11 +421,11 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
                          .list_copy_ = {}};
         for (int b = 0; std::cmp_less(b, mesh->vertex_buffer_count()); ++b) {
             render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), b);
-            if (!buffer || !buffer->data || buffer->size < static_cast<uint32_t>(mesh->vertex_count()) * mesh->stride_value())
+            if (!buffer || !buffer->data_value() || buffer->size_value() < static_cast<uint32_t>(mesh->vertex_count()) * mesh->stride_value())
                 return nullptr;
             std::vector<float> positions(3u * mesh->vertex_count());
             std::vector<float> normals(copy.normal_offset_ >= 0 ? 3u * mesh->vertex_count() : 0u);
-            const std::span<const uint8_t> vertex_run(buffer->data, size_t{mesh->vertex_count()} * mesh->stride_value());
+            const std::span<const uint8_t> vertex_run(buffer->data_value(), size_t{mesh->vertex_count()} * mesh->stride_value());
             for (uint32_t v = 0; v < mesh->vertex_count(); ++v) {
                 const std::span<const uint8_t> vertex = vertex_run.subspan(size_t{v} * mesh->stride_value(), mesh->stride_value());
                 std::memcpy(&core::at(positions, 3u * v), vertex.data(), 12);
@@ -433,7 +433,7 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
                     std::memcpy(&core::at(normals, 3u * v), vertex.subspan(static_cast<size_t>(copy.normal_offset_)).data(), 12);
             }
             copy.buffers.emplace_back(buffer);
-            copy.data.push_back(buffer->data);
+            copy.data.push_back(buffer->data_value());
             copy.positions.push_back(std::move(positions));
             copy.normals.push_back(std::move(normals));
         }
@@ -444,7 +444,7 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
         original->meshes.push_back(std::move(copy));
     }
     render::TriMeshSource* data = collision_data(sector);
-    original->have_collision_ = data && data->vertices_;
+    original->have_collision_ = data && data->vertices();
     if (original->have_collision_)
         original->collision = copy_collision(data);
     return original;
@@ -454,7 +454,7 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
                 V3 scale, int quarters0)
 {
     // (still the sector copied: its meshes, buffers and collision where and as they were)
-    if (geom != original.geom || geom->meshes != original.mesh_list_ || geom->mesh_count_ != original.mesh_count_)
+    if (geom != original.geom || geom->meshes_value() != original.mesh_list_ || geom->mesh_count() != original.mesh_count_)
         return false;
     const std::span<render::MeshRef*> mesh_run(original.mesh_list_, original.mesh_count_);
     for (uint32_t i = 0; i < original.mesh_count_; ++i) {
@@ -465,7 +465,7 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
             mesh->position_count() != copy.list_count_)
             return false;
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
-            if (core::at(mesh->vertex_buffers(), b) != core::at(copy.buffers, b) || core::at(copy.buffers, b)->data != core::at(copy.data, b))
+            if (core::at(mesh->vertex_buffers(), b) != core::at(copy.buffers, b) || core::at(copy.buffers, b)->data_value() != core::at(copy.data, b))
                 return false;
         }
     }
@@ -477,10 +477,10 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
     for (const MeshCopy& copy : original.meshes) {
         render::MeshRef* mesh = copy.mesh;
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
-            rewrite_positions(core::at(copy.buffers, b)->data, copy.stride, copy.vertex_count_, core::at(copy.positions, b).data(), f.from,
+            rewrite_positions(core::at(copy.buffers, b)->data_value(), copy.stride, copy.vertex_count_, core::at(copy.positions, b).data(), f.from,
                               f.to, f.turns, f.copy_scale_);
             if (copy.normal_offset_ >= 0)
-                rewrite_normals(core::at(copy.buffers, b)->data, copy.stride, copy.vertex_count_,
+                rewrite_normals(core::at(copy.buffers, b)->data_value(), copy.stride, copy.vertex_count_,
                                 static_cast<uint32_t>(copy.normal_offset_), core::at(copy.normals, b).data(), scale,
                                 f.normal_turns_);
             upload(core::at(copy.buffers, b));
@@ -557,8 +557,8 @@ gsl::owner<render::HitMesh*> collision_of(objects::GameEntity* object)
 
 bool get_alive(objects::GameEntity* object)
 {
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) &&
-           !(object->composite_flags_ & objects::kCompositeFlagDestroying);
+    return object && !(object->object_flags() & objects::kObjectFlagDead) &&
+           !(object->composite_flags() & objects::kCompositeFlagDestroying);
 }
 
 // The entry of an object, if it's still the object (and the collision) it was made for.
@@ -566,7 +566,7 @@ ObjectEntry* entry_of(objects::GameEntity* object)
 {
     for (size_t i = 0; i < stored_objects().size(); ++i) {
         ObjectEntry& entry = core::at(stored_objects(), i);
-        if (entry.id != object->ident_)
+        if (entry.id != object->ident())
             continue;
         bool same = entry.object == object && get_alive(object) && collision_of(object) == entry.collision;
         for (const ObjectEntry::Tri& t : entry.tris)
@@ -630,7 +630,7 @@ void apply_collision(ObjectEntry& entry)
     for (ObjectEntry::Tri& t : entry.tris) {
         rebuild_collision(t.copy, 0, {.x = 0.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 0.0f}, entry.scale);
         t.tri->assign_shape_data(t.copy.data); // (its radius from the vertices; its box made again)
-        t.tri->unknownd0_ = is_unit_scale(entry.scale) ? t.rejection : t.copy.data->unknown3c_;
+        t.tri->unknownd0_ = is_unit_scale(entry.scale) ? t.rejection : t.copy.data->unknown3c();
     }
     for (const ObjectEntry::Cuboid& b : entry.boxes) {
         const maths::Vec4& lo = b.original.min;
@@ -693,9 +693,9 @@ bool set_object_scale(objects::GameEntity* object, V3 scale)
     if (!entry && is_unit_scale(scale))
         return true; // (never scaled: nothing to put back)
     if (!entry) {
-        ObjectEntry made = {.id = object->ident_, .object = object, .collision = collision_of(object), .scale = get_uniform(1.0f), .tris = {}, .boxes = {}};
+        ObjectEntry made = {.id = object->ident(), .object = object, .collision = collision_of(object), .scale = get_uniform(1.0f), .tris = {}, .boxes = {}};
         if (!take_collision(made.collision, &made)) {
-            get_log("level editor: %08X's collision couldn't be copied - not scaled", object->ident_);
+            get_log("level editor: %08X's collision couldn't be copied - not scaled", object->ident());
             return false;
         }
         stored_objects().push_back(std::move(made));

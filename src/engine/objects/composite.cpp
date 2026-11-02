@@ -162,8 +162,8 @@ public:
     CollisionFeeler(const CollisionFeeler&) = delete;
     CollisionFeeler& operator=(const CollisionFeeler&) = delete;
     ~CollisionFeeler() = default;
-    maths::Vec4& kickoff() { return ray_.line_.start; }
-    maths::Vec4& get_end() { return ray_.line_.end; }
+    maths::Vec4& kickoff() { return ray_.line().start; }
+    maths::Vec4& get_end() { return ray_.line().end; }
     bool get_hit_shape(bool a, bool b) { return ray_.get_hit_shape(a, b) != 0; }
 
 private:
@@ -230,7 +230,7 @@ GameEntity::GameEntity()
     core::at(display_matrix_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
     core::at(display_matrix_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
     core::at(display_matrix_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    object_flags_ |= kObjectFlagHasPosition;
+    object_flags() |= kObjectFlagHasPosition;
 }
 
 // 0x0045D890
@@ -253,9 +253,9 @@ void GameEntity::tick_frame()
     if (composite_flags_ & kCompositeFlagPaused)
         return;
     if (!(composite_flags_ & kCompositeFlagSuspended)) {
-        if (own_script_)
-            own_script_->tick_frame();
-        if (object_flags_ & kObjectFlagDead)
+        if (own_script())
+            own_script()->tick_frame();
+        if (object_flags() & kObjectFlagDead)
             return;
         own_update();
     }
@@ -263,7 +263,7 @@ void GameEntity::tick_frame()
         if (component->flag_bits_ & kComponentFlagSuspended)
             continue;
         component->tick_frame();
-        if (object_flags_ & kObjectFlagDead)
+        if (object_flags() & kObjectFlagDead)
             break;
     }
     at_point_.w = 1.0f;
@@ -373,7 +373,7 @@ void GameEntity::configure_from_data(Struct* params)
     get_position_from_structure(params, &at_point_);
     get_orientation_from_structure(params, &basis_frame_);
     if (params->has_bare_flag(kPermanent))
-        object_flags_ |= kObjectFlagLocked;
+        object_flags() |= kObjectFlagLocked;
 }
 
 // 0x0045DB30
@@ -565,7 +565,7 @@ bool GameEntity::obj_speed_below(Struct* params, Script* /*script*/)
 // 0x0045E3F0: its type, in the calling script's parameters.
 bool GameEntity::obj_get_type(Struct* /*params*/, Script* script)
 {
-    script->args()->put_name_key(kTypeResult, kind_tag_);
+    script->args()->put_name_key(kTypeResult, kind_tag());
     return true;
 }
 
@@ -772,7 +772,7 @@ bool GameEntity::obj_get_quat(Struct* /*params*/, Script* script)
 GameEntity* GameEntity::find_nearest_object_of_type(uint32_t type)
 {
     ObjectSearch search;
-    auto* object = core::down_cast<GameEntity>(search.first_item_of_type(manager_object_list(park_owner_), type));
+    auto* object = core::down_cast<GameEntity>(search.first_item_of_type(manager_object_list(park_owner()), type));
     if (object == this)
         object = core::down_cast<GameEntity>(search.next_item_of_type());
     if (!object)

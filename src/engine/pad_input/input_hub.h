@@ -52,6 +52,22 @@ struct Payload {
     static constexpr uint32_t kPressEdge = 0x4000;
     static constexpr uint32_t kButtonLeft = 0x8000;
 
+    // The fields other code reads and sets.
+    std::array<uint8_t, kQueueCapacity>& incident() { return incident_; }
+    [[nodiscard]] const std::array<uint8_t, kQueueCapacity>& incident() const { return incident_; }
+    [[nodiscard]] uint32_t buttons() const { return buttons_; }
+    void set_buttons(uint32_t value) { buttons_ = value; }
+    [[nodiscard]] uint32_t makes() const { return makes_; }
+    void set_makes(uint32_t value) { makes_ = value; }
+    [[nodiscard]] uint32_t breaks() const { return breaks_; }
+    void set_breaks(uint32_t value) { breaks_ = value; }
+    void set_changes(uint32_t value) { changes_ = value; }
+    [[nodiscard]] uint32_t ongoing() const { return ongoing_; }
+    void set_ongoing(uint32_t value) { ongoing_ = value; }
+    [[nodiscard]] uint32_t previous() const { return previous_; }
+    void set_previous(uint32_t value) { previous_ = value; }
+
+private:
     std::array<uint8_t, kQueueCapacity> incident_;
     std::array<uint8_t, 3> pad19;
     uint32_t buttons_;  // +0x1C: down
@@ -60,6 +76,8 @@ struct Payload {
     uint32_t changes_;  // +0x28
     uint32_t ongoing_;  // +0x2C: the buttons read this frame
     uint32_t previous_; // +0x30: and last frame
+
+public:
 
     // 0x0044E840: the buttons in `mask` read as up (held, pressed and released).
     void block_button_input(uint32_t mask);
@@ -74,8 +92,13 @@ struct Payload {
     // 0x0044EA30: with no d-pad button down, the left stick works the d-pad: its direction's button bit and
     // pressure (the pressures as the original computes them: up's grows towards the centre).
     void pad_follows_stick();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(Payload) == 0x34 && offsetof(Payload, buttons_) == 0x1C && offsetof(Payload, previous_) == 0x30);
+    }
 };
-static_assert(sizeof(Payload) == 0x34 && offsetof(Payload, buttons_) == 0x1C && offsetof(Payload, previous_) == 0x30);
 
 // An input handler (0x24 bytes; the base's vtable 0x00646090): a task in a controller's handler list, run once a
 // frame with that controller's data.

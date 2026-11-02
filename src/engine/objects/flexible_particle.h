@@ -95,6 +95,7 @@ public:
     // 0x0041E190 (destroy_particles): the system destroyed now and let go; the object dies. 1.
     int destroy_particles(uint32_t name, script::Struct* params, script::Script* script);
 
+private:
     SharedRef<render::EmitterInstance> system_; // +0x18
     uint32_t label_{0};                         // +0x24 name (or a running number: next_unnamed_label)
     uint32_t unknown28_{0};                     // +0x28 0x184197D5 (given to the system's +0x78)

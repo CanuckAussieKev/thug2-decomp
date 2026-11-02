@@ -161,7 +161,7 @@ void unregister(uint32_t name, uint32_t cluster)
     if (!manager || !cluster)
         return;
     if (const objects::TrickObjectCluster* object = cluster_object(manager, cluster)) {
-        const memory::ListNode* head = &object->entities_;
+        const memory::ListNode* head = &object->entities();
         memory::ListNode* node = head->next;
         for (int guard = 0; node && node != head && guard < 100000; ++guard) {
             memory::ListNode* next = node->next;

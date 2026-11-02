@@ -107,8 +107,8 @@ public:
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
     ~Feeler() = default;
-    maths::Vec4& kickoff() { return ray_.line_.start; }
-    maths::Vec4& get_end() { return ray_.line_.end; }
+    maths::Vec4& kickoff() { return ray_.line().start; }
+    maths::Vec4& get_end() { return ray_.line().end; }
     bool get_hit_shape(int a, int b) { return ray_.get_hit_shape(a != 0, b != 0) != 0; }
 
 private:
@@ -171,7 +171,7 @@ float ObstacleDodgeModule::side_away_from_skater()
     const GameEntity* skater = local_skater();
     // The skater's heading (its at row) flat and normalised; across it (x up), as the original's cross product
     // with (0, 1, 0) - the zero terms multiplied out.
-    const maths::Vec4& at = core::at(skater->basis_frame_.row, 2);
+    const maths::Vec4& at = core::at(skater->basis_frame().row, 2);
     double x = at.x, z = at.z, y = 0.0;
     auto length = static_cast<float>(std::sqrt(z * z + x * x));
     if (length > 0.0f) {
@@ -187,14 +187,14 @@ float ObstacleDodgeModule::side_away_from_skater()
     auto side_z = static_cast<float>(x - zero_y);
     maths::Vec4 side = {.x = side_x, .y = side_y, .z = side_z, .w = 0.0f};
     // Which of the object's two sides is further from the skater (the first one's x and y unrounded).
-    const maths::Vec4& pos = entity_->at_point_;
+    const maths::Vec4& pos = entity_->at_point();
     const double a_x = static_cast<double>(side_x) + pos.x;
     const double a_y = static_cast<double>(side_y) + pos.y;
     const float a_z = side_z + pos.z;
     const float b_x = pos.x - side_x;
     const float b_y = pos.y - side_y;
     const float b_z = pos.z - side_z;
-    const maths::Vec4& s = skater->at_point_;
+    const maths::Vec4& s = skater->at_point();
     auto d1x = static_cast<float>(s.x - a_x);
     const double d1y = s.y - a_y;
     const double d1z = static_cast<double>(s.z) - a_z;
@@ -207,7 +207,7 @@ float ObstacleDodgeModule::side_away_from_skater()
         side.x = -side_x;
         side.z = -side_z;
     }
-    return static_cast<float>(static_cast<double>(angle_in_plane(entity_->display_matrix_, side)) * kToDegrees);
+    return static_cast<float>(static_cast<double>(angle_in_plane(entity_->display_matrix(), side)) * kToDegrees);
 }
 
 // 0x004E3A40
@@ -226,7 +226,7 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, f
     maths::Vec4 end;
     xform(out, end, landing);
     core::at(out.row, 3) = end;
-    const maths::Vec4& s = local_skater()->at_point_;
+    const maths::Vec4& s = local_skater()->at_point();
     const double dx = static_cast<double>(end.x) - s.x;
     const double dy = static_cast<double>(end.y) - s.y;
     const double dz = static_cast<double>(end.z) - s.z;
@@ -259,7 +259,7 @@ void ObstacleDodgeModule::play_jump(float angle, script::Struct* params)
         if (flip)
             params->read_hash_value(other, &anim, 1);
         if (ObjectModule* blender = entity_->fetch_module(kAnimBlender))
-            flip_anims(blender, entity_->ident_, flip, 0, 1);
+            flip_anims(blender, entity_->ident(), flip, 0, 1);
         break;
     }
     case 2:
@@ -278,8 +278,8 @@ void ObstacleDodgeModule::play_jump(float angle, script::Struct* params)
 bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*script*/)
 {
     // From where it stands, as its display matrix shows it.
-    maths::Mat4 start = entity_->display_matrix_;
-    core::at(start.row, 3) = entity_->at_point_;
+    maths::Mat4 start = entity_->display_matrix();
+    core::at(start.row, 3) = entity_->at_point();
     float max_distance = 100.0f;
     params->fetch_float("maxHerdDistance", &max_distance, 0);
     maths::Mat4 end{};
@@ -298,7 +298,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
         const maths::Vec4& pos = core::at(start.row, 3);
         const maths::Vec4 away = {.x = herd_point_.x - pos.x, .y = herd_point_.y - pos.y, .z = herd_point_.z - pos.z,
                                   .w = herd_point_.w - pos.w};
-        const float angle = angle_in_plane(entity_->basis_frame_, away);
+        const float angle = angle_in_plane(entity_->basis_frame(), away);
         found = try_jump(start, end, angle, avoid_distance(angle, params), max_distance);
     }
     if (!found)
@@ -311,7 +311,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     progress_ = 0.0f;
     const maths::Vec4& pos = core::at(start.row, 3);
     const maths::Vec4 move = {.x = landing.x - pos.x, .y = landing.y - pos.y, .z = landing.z - pos.z, .w = landing.w - pos.w};
-    play_jump(angle_in_plane(entity_->basis_frame_, move), params);
+    play_jump(angle_in_plane(entity_->basis_frame(), move), params);
     return true;
 }
 
@@ -331,9 +331,9 @@ bool ObstacleDodgeModule::step_jump(script::Struct* /*params*/, script::Script* 
                                    progress_);
     maths::Mat4 now{};
     slerp_.fetch_mat(now, progress_);
-    entity_->at_point_ = core::at(now.row, 3);
-    entity_->basis_frame_ = now;
-    core::at(entity_->basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    entity_->at_point() = core::at(now.row, 3);
+    entity_->basis_frame() = now;
+    core::at(entity_->basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     return true;
 }
 
@@ -348,14 +348,14 @@ bool ObstacleDodgeModule::jump_finished(script::Struct* /*params*/, script::Scri
 // 0x004E3810
 bool ObstacleDodgeModule::store_position(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    herd_point_ = entity_->at_point_;
+    herd_point_ = entity_->at_point();
     return true;
 }
 
 // 0x004E3850
 bool ObstacleDodgeModule::store_target(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    const maths::Vec4* point = &entity_->at_point_;
+    const maths::Vec4* point = &entity_->at_point();
     ObjectModule* motion = entity_->fetch_module(kMotion);
     if (motion && motion_path(motion))
         point = &motion_path(motion)->end_point(); // (the original's +0x74: the node headed for)

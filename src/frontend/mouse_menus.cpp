@@ -78,9 +78,9 @@ constexpr uint32_t kFlagPriority = 0x10000000;  // priority > 0 (pad events with
 constexpr float kMinAlpha = 0.01f;
 
 const objects::Entity* as_object(const UiWidget* element) { return static_cast<const objects::Entity*>(element); }
-uint32_t current_flags(const UiWidget* element) { return as_object(element)->object_flags_; }
-uint32_t kind_tag(const UiWidget* element) { return as_object(element)->kind_tag_; }
-uint32_t ident_no(const UiWidget* element) { return as_object(element)->ident_; }
+uint32_t current_flags(const UiWidget* element) { return as_object(element)->object_flags(); }
+uint32_t kind_tag(const UiWidget* element) { return as_object(element)->kind_tag(); }
+uint32_t ident_no(const UiWidget* element) { return as_object(element)->ident(); }
 UiWidget* current_parent(const UiWidget* element) { return element->container().get_pull(); }
 UiWidget* first_child(const UiWidget* element) { return element->eldest().get_pull(); }
 UiWidget* next_sibling(const UiWidget* element) { return element->following().get_pull(); }
@@ -311,10 +311,10 @@ bool is_menu(const UiWidget* element)
 namespace {
 const MenuBase* as_menu(const UiWidget* menu) { return core::down_cast<const MenuBase>(menu); }
 } // namespace
-bool menu_runs_top_to_bottom(const UiWidget* menu) { return as_menu(menu)->vertical_; }
-int selected_index(const UiWidget* menu) { return as_menu(menu)->selected_index_; }
-bool menu_has_focus(const UiWidget* menu) { return as_menu(menu)->focused_; }
-bool menu_wraps(const UiWidget* menu) { return as_menu(menu)->cycles_around_; }
+bool menu_runs_top_to_bottom(const UiWidget* menu) { return as_menu(menu)->vertical(); }
+int selected_index(const UiWidget* menu) { return as_menu(menu)->selected_index(); }
+bool menu_has_focus(const UiWidget* menu) { return as_menu(menu)->focused(); }
+bool menu_wraps(const UiWidget* menu) { return as_menu(menu)->cycles_around(); }
 
 int child_count(const UiWidget* element)
 {
@@ -334,7 +334,7 @@ bool item_focusable(const UiWidget* item)
 bool item_passed_over(const UiWidget* item)
 {
     // The tags' own components (SetTags stores them there; no global names or included structures to follow).
-    const script::Struct* tags = as_object(item)->tag_table_;
+    const script::Struct* tags = as_object(item)->tag_table();
     for (const script::Component* c = tags ? tags->head_ : nullptr; c; c = c->next) {
         if (c->name == 0 && c->kind_tag() == script::kQbvalName && c->value.word() == kTagBlank)
             return true;
@@ -522,7 +522,7 @@ void handle_mouse_event(SDL_Event* event)
     }
 }
 
-UiWidget* root_element(void* manager) { return static_cast<UiTree*>(manager)->tree_root_.get_pull(); }
+UiWidget* root_element(void* manager) { return static_cast<UiTree*>(manager)->tree_root().get_pull(); }
 
 bool in_park_editor()
 {
@@ -539,14 +539,14 @@ bool menu_takes_pad_events(UiWidget* menu)
 {
     if (!menu_has_focus(menu))
         return false;
-    auto* manager = core::down_cast<UiTree>(as_object(menu)->park_owner_);
+    auto* manager = core::down_cast<UiTree>(as_object(menu)->park_owner());
     if (!manager)
         return false;
-    if (manager->num_priorities_ > 0) {
+    if (manager->num_priorities() > 0) {
         bool listed = false;
-        const int count = manager->pad_event_kind_count_;
+        const int count = manager->pad_event_kind_count();
         for (int i = 0; i < count; ++i)
-            if (core::at(manager->pad_event_types_, i) == kPadChoose)
+            if (core::at(manager->pad_event_types(), i) == kPadChoose)
                 listed = true;
         if (listed) {
             if (!flag_in_chain(menu, kFlagPriority))
@@ -652,7 +652,7 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
 // The item's own handler for `type` (its script's event handler table).
 bool handles_event(const UiWidget* item, uint32_t type)
 {
-    const script::Script* script = as_object(item)->own_script_;
+    const script::Script* script = as_object(item)->own_script();
     if (!script || !script->signal_routes())
         return false;
     const objects::SignalRouteTable* table = script->signal_routes();
@@ -677,7 +677,7 @@ void log_menu(UiWidget* menu)
 {
     get_log("  menu %08X (%s): selected %d of %d, focus %d, takes pad events %d, movement %d, wraps %d%s",
             ident_no(menu), current_type_name(kind_tag(menu)), selected_index(menu), child_count(menu),
-            menu_has_focus(menu), menu_takes_pad_events(menu), as_menu(menu)->pad_handling_ ? 1 : 0, menu_wraps(menu),
+            menu_has_focus(menu), menu_takes_pad_events(menu), as_menu(menu)->pad_handling() ? 1 : 0, menu_wraps(menu),
             is_rotating_menu(menu) ? ", turned (a spin menu)" : "");
 }
 

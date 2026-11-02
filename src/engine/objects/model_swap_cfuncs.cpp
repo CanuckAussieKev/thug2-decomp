@@ -109,7 +109,7 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
         skater = core::down_cast<objects::Rider>(b);
     if (!a || !b || a == b)
         return false;
-    record_swap(a->ident_, b->ident_);
+    record_swap(a->ident(), b->ident());
 
     auto* model_a = core::down_cast<objects::MeshInstanceModule>(a->fetch_module(kModel));
     auto* model_b = core::down_cast<objects::MeshInstanceModule>(b->fetch_module(kModel));
@@ -126,7 +126,7 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
     void* memory = memory::alloc(sizeof(gfx::Rig));
-    gfx::Rig* temp = memory ? memory::construct_in<gfx::Rig>(memory, skeleton_a->payload_) : nullptr;
+    gfx::Rig* temp = memory ? memory::construct_in<gfx::Rig>(memory, skeleton_a->payload()) : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
     copy_skeleton(temp, skeleton_a);
     copy_skeleton(skeleton_a, skeleton_b);
@@ -154,8 +154,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
 
     if (skater) {
         // (each component's model as it is now)
-        follow_position(model_a->mesh_instance().get(), &a->at_point_);
-        follow_position(model_b->mesh_instance().get(), &b->at_point_);
+        follow_position(model_a->mesh_instance().get(), &a->at_point());
+        follow_position(model_b->mesh_instance().get(), &b->at_point());
         bool found = false;
         for (int i = 0; i < kSwapCount; ++i) {
             if (core::at(commands::swap_table(), i).used && core::at(commands::swap_table(), i).value == 0) {

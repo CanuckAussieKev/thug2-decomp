@@ -45,7 +45,7 @@ void HitMesh::assign_shape_data(TriMeshSource* geometry)
 {
     geometry_ = geometry;
     if (geometry)
-        checksum_ = geometry->checksum_;
+        checksum_ = geometry->checksum();
 }
 
 // 0x00413390 (the base's part of every deleting destructor)

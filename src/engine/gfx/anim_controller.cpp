@@ -126,12 +126,12 @@ void frame_pose(void* frame, Stance* pose, float time, int index, void* source)
 // The frame source given the skeleton's bone masks (its bones' LOD masks) and its level of detail.
 void set_bones(void* source, const Rig* skeleton)
 {
-    RigData* bones = skeleton->payload_;
-    static_cast<render::FrameSource*>(source)->bone_masks_ = bones ? bones->lod_masks_.data() : nullptr;
+    RigData* bones = skeleton->payload();
+    static_cast<render::FrameSource*>(source)->set_bone_masks(bones ? bones->lod_masks().data() : nullptr);
 }
 void set_bone_count(void* source, const Rig* skeleton)
 {
-    static_cast<render::FrameSource*>(source)->mask_bit_ = static_cast<int>(skeleton->lod_);
+    static_cast<render::FrameSource*>(source)->set_mask_bit(static_cast<int>(skeleton->lod()));
 }
 
 // The game clock (ms) plus its offset.
@@ -206,7 +206,7 @@ bool StandardAnimController::fetch_pose(Stance* pose)
     }
     set_bones(blend_source_, skeleton_of(this));
     set_bone_count(blend_source_, skeleton_of(this));
-    frame_pose(frame_source_, pose, timeline_ptr_->ongoing_, frame_index_, blend_source_);
+    frame_pose(frame_source_, pose, timeline_ptr_->ongoing(), frame_index_, blend_source_);
     source_frame(blend_source_, true);
     return true;
 }
@@ -253,10 +253,10 @@ int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct*
 // 0x004A4620
 void StandardAnimController::tick_frame()
 {
-    const float before = timeline_ptr_->ongoing_;
-    timeline_ptr_->ongoing_ = get_step(timeline_ptr_);
-    passed_events(timeline_ptr_, before, timeline_ptr_->ongoing_);
-    if (timeline_ptr_->ongoing_ < before)
+    const float before = timeline_ptr_->ongoing();
+    timeline_ptr_->set_ongoing(get_step(timeline_ptr_));
+    passed_events(timeline_ptr_, before, timeline_ptr_->ongoing());
+    if (timeline_ptr_->ongoing() < before)
         frame_source_ = source_frame(blend_source_, false);
 }
 
@@ -376,7 +376,7 @@ bool WobbleDriver::fetch_pose(Stance* pose)
 {
     set_bones(blend_source_, skeleton_of(this));
     set_bone_count(blend_source_, skeleton_of(this));
-    frame_pose(frame_source_, pose, timeline_ptr_->ongoing_, -1, blend_source_);
+    frame_pose(frame_source_, pose, timeline_ptr_->ongoing(), -1, blend_source_);
     source_frame(blend_source_, true);
     return true;
 }
@@ -402,7 +402,7 @@ int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, s
             else if (fraction > 1.0f)
                 fraction = 1.0f;
             const AnimTimeline* t = timeline_ptr_;
-            aim_point_ = static_cast<float>((static_cast<double>(t->finish_) - t->outset_) * fraction + t->outset_);
+            aim_point_ = static_cast<float>((static_cast<double>(t->finish()) - t->outset()) * fraction + t->outset());
         }
         return 1;
     }
@@ -434,15 +434,15 @@ float WobbleDriver::wobble_time()
     const float k1 = k1_;
     const float k2 = k2_;
     const double scale =
-        std::fabs(target - (static_cast<double>(t->outset_) + t->finish_) * 0.5) *
-            ((static_cast<double>(spaz_factor_) - 1.0) / ((static_cast<double>(t->finish_) - t->outset_) * 0.5)) +
+        std::fabs(target - (static_cast<double>(t->outset()) + t->finish()) * 0.5) *
+            ((static_cast<double>(spaz_factor_) - 1.0) / ((static_cast<double>(t->finish()) - t->outset()) * 0.5)) +
         1.0;
     auto a = static_cast<float>(scale * amp_a_);
     auto b = static_cast<float>(scale * amp_b_);
-    if (static_cast<double>(target) - a - b < t->outset_)
-        target = static_cast<float>(static_cast<double>(b) + a + t->outset_);
-    if (static_cast<double>(target) + b + a > t->finish_)
-        target = static_cast<float>(static_cast<double>(t->finish_) - a - b);
+    if (static_cast<double>(target) - a - b < t->outset())
+        target = static_cast<float>(static_cast<double>(b) + a + t->outset());
+    if (static_cast<double>(target) + b + a > t->finish())
+        target = static_cast<float>(static_cast<double>(t->finish()) - a - b);
 
     double cycles = static_cast<double>(get_clock()) * k1;
     double phase = (cycles - static_cast<double>(get_truncated(cycles)) * 0.0625 * 16.0) * two_pi();
@@ -450,19 +450,19 @@ float WobbleDriver::wobble_time()
     cycles = static_cast<double>(get_clock()) * k2;
     phase = (cycles - static_cast<double>(get_truncated(cycles)) * 0.0625 * 16.0) * two_pi();
     double time = std::sin(phase) * amplitude + target;
-    if (time < t->outset_)
-        time = t->outset_;
-    if (time > t->finish_)
-        time = t->finish_;
+    if (time < t->outset())
+        time = t->outset();
+    if (time > t->finish())
+        time = t->finish();
     return static_cast<float>(time);
 }
 
 // 0x004A52E0
 void WobbleDriver::tick_frame()
 {
-    const float before = timeline_ptr_->ongoing_;
-    timeline_ptr_->ongoing_ = wobble_time();
-    if (timeline_ptr_->ongoing_ < before)
+    const float before = timeline_ptr_->ongoing();
+    timeline_ptr_->set_ongoing(wobble_time());
+    if (timeline_ptr_->ongoing() < before)
         frame_source_ = source_frame(blend_source_, false);
 }
 
@@ -519,7 +519,7 @@ bool PartialClipDriver::fetch_pose(Stance* pose)
 {
     set_bones(blend_source_, skeleton_of(this));
     set_bone_count(blend_source_, skeleton_of(this));
-    frame_pose(frame_source_, pose, partial_->ongoing_, -1, blend_source_);
+    frame_pose(frame_source_, pose, partial_->ongoing(), -1, blend_source_);
     source_frame(blend_source_, true);
     return true;
 }
@@ -556,31 +556,31 @@ int PartialClipDriver::invoke_method_by_name(uint32_t name, script::Struct* para
         // the timeline stepped once by `frames` (its speed held at 0 meanwhile)
         float frames = 0.0f; // (missing: the original's is whatever its argument slot held)
         params->fetch_float(kFrames, &frames, 1);
-        auto speed = static_cast<float>(static_cast<double>(partial_->speed_) * frames_per_second());
-        partial_->speed_ = 0.0f;
-        partial_->ongoing_ = static_cast<float>(static_cast<double>(frames) + partial_->ongoing_);
+        auto speed = static_cast<float>(static_cast<double>(partial_->speed()) * frames_per_second());
+        partial_->set_speed(0.0f);
+        partial_->set_ongoing(static_cast<float>(static_cast<double>(frames) + partial_->ongoing()));
         partial_->tick_frame();
-        partial_->speed_ = static_cast<float>(static_cast<double>(speed) * seconds_per_frame());
+        partial_->set_speed(static_cast<float>(static_cast<double>(speed) * seconds_per_frame()));
         return 1;
     }
     case kSetSpeed: {
         float speed = 0.0f;
         params->fetch_float(kSpeed, &speed, 1);
-        partial_->speed_ = static_cast<float>(static_cast<double>(speed) * seconds_per_frame());
+        partial_->set_speed(static_cast<float>(static_cast<double>(speed) * seconds_per_frame()));
         return 1;
     }
     case kInvalidateCache:
         frame_source_ = source_frame(blend_source_, false);
         return kNotMine;
     case kGetPartialAnimParams: {
-        script->args()->push_float(kPartialAnimTime, partial_->ongoing_);
-        script->args()->put_name_key(kPartialAnim, partial_->anim_);
+        script->args()->push_float(kPartialAnimTime, partial_->ongoing());
+        script->args()->put_name_key(kPartialAnim, partial_->anim());
         Struct* out = script->args().get();
         out->put_int(kPartialAnimComplete, is_accomplished(partial_));
         return 1;
     }
     case kReverse:
-        partial_->direction_ = partial_->direction_ ? 0 : -1;
+        partial_->set_direction(partial_->direction() ? 0 : -1);
         return 1;
     default:
         return kNotMine;
@@ -590,9 +590,9 @@ int PartialClipDriver::invoke_method_by_name(uint32_t name, script::Struct* para
 // 0x004A4EF0
 void PartialClipDriver::tick_frame()
 {
-    const float before = partial_->ongoing_;
-    partial_->ongoing_ = get_step(partial_);
-    if (partial_->ongoing_ < before)
+    const float before = partial_->ongoing();
+    partial_->set_ongoing(get_step(partial_));
+    if (partial_->ongoing() < before)
         frame_source_ = source_frame(blend_source_, false);
 }
 

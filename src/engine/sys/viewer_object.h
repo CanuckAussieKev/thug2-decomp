@@ -81,6 +81,11 @@ public:
     // 0x0058AB30 (its own update): the commands carried out, the panel updated, the commands cleared.
     void own_update() override;
 
+    // The fields other code reads and sets.
+    uint32_t& actions() { return actions_; }
+    [[nodiscard]] uint32_t actions() const { return actions_; }
+
+private:
     gsl::owner<ViewerObjectInputHandler*> task_; // +0x108: its input handler (0x0058A060)
     uint32_t unknown10c_{};
     uint32_t actions_{0};     // +0x110

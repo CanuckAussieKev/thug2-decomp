@@ -274,7 +274,7 @@ gsl::owner<Geom*> PcGeom::plat_replicate(int instance_flag, WorldScene* into)
         maths::Mat4 identity{};
         get_identity(&identity);
         gsl::owner<Singleton*> inst = new_instance(list, &identity, 1, nullptr);
-        inst->flags |= 1;
+        inst->flags_value() |= 1;
         geom->instance = inst;
     }
     return geom;
@@ -286,14 +286,14 @@ gsl::owner<Geom*> PcGeom::clone_instance(int instance_flag, RenderModel* model)
     const bool share = static_cast<uint8_t>(instance_flag) != 0;
     auto scene_owner = std::make_unique<PcScene>(10); // (only for the copy)
     PcScene* temp_scene = scene_owner.get();
-    temp_scene->meshes = instance->scene;
+    temp_scene->meshes = instance->scene_value();
     auto geom = memory::make_owned<PcGeom>();
     geom->scene = temp_scene;
-    auto count = static_cast<uint32_t>(instance->scene->mesh_count());
+    auto count = static_cast<uint32_t>(instance->scene_value()->mesh_count());
     geom->meshes = count ? static_cast<MeshRef**>(memory::alloc(4 * count)) : nullptr;
     geom->mesh_count_ = count;
     for (uint32_t i = 0; i < geom->mesh_count_; ++i)
-        core::at(geom->mesh_run(), i) = core::at(scene_meshes(instance->scene), i)->replicate(share);
+        core::at(geom->mesh_run(), i) = core::at(scene_meshes(instance->scene_value()), i)->replicate(share);
     std::memcpy(&geom->bounds, &bounds, sizeof(bounds));
     SceneRef* list = geom->create_mesh_list();
     // the scene was only for the copy: destroyed without its mesh list
@@ -310,7 +310,7 @@ gsl::owner<Geom*> PcGeom::clone_instance(int instance_flag, RenderModel* model)
     maths::Mat4 identity{};
     get_identity(&identity);
     gsl::owner<Singleton*> inst = new_instance(list, &identity, bone_count, bones);
-    inst->flags |= 1;
+    inst->flags_value() |= 1;
     geom->instance = inst;
     return geom;
 }
@@ -331,16 +331,16 @@ bool PcGeom::plat_init_instance(SubMesh* sub_mesh, RenderModel* model, int /*unu
         inst = memory::construct_in<Singleton>(memory, list, &identity, bone_count, bones);
     }
     instance = inst;
-    inst->model = model; // (no check, as the original)
+    inst->set_model(model); // (no check, as the original)
     return true;
 }
 
 // 0x004B45F0
 void PcGeom::clean_instance_strips()
 {
-    if (!instance || !instance->scene)
+    if (!instance || !instance->scene_value())
         return;
-    SceneRef* list = instance->scene;
+    SceneRef* list = instance->scene_value();
     for (int i = 0; i < list->mesh_count(); ++i)
         core::at(scene_meshes(list), i)->clean_strip();
 }
@@ -356,8 +356,8 @@ void PcGeom::change_tint(uint32_t rgba)
         return;
     }
     if (instance) {
-        instance->flags |= 4;
-        std::memcpy(instance->color.data(), &rgba, 4);
+        instance->flags_value() |= 4;
+        std::memcpy(instance->color_value().data(), &rgba, 4);
         return;
     }
     if (!meshes)
@@ -380,8 +380,8 @@ uint32_t* PcGeom::plat_get_color(uint32_t* out)
     std::array<uint8_t, 4> color = {{0, 0, 0, 0}};
     MeshRef* mesh = nullptr;
     if (instance) {
-        if (instance->scene->mesh_count() > 0)
-            mesh = core::at(scene_meshes(instance->scene), 0);
+        if (instance->scene_value()->mesh_count() > 0)
+            mesh = core::at(scene_meshes(instance->scene_value()), 0);
     } else if (meshes) {
         mesh = core::at(mesh_run(), 0);
     }
@@ -398,8 +398,8 @@ uint32_t* PcGeom::plat_get_color(uint32_t* out)
 void PcGeom::wipe_tint()
 {
     if (instance) {
-        std::memset(instance->color.data(), 0x80, 4);
-        instance->flags &= ~4u;
+        std::memset(instance->color_value().data(), 0x80, 4);
+        instance->flags_value() &= ~4u;
         return;
     }
     if (!meshes)
@@ -412,10 +412,10 @@ void PcGeom::wipe_tint()
 bool PcGeom::change_material_tint(uint32_t checksum, int pass, uint32_t rgba)
 {
     bool found = false;
-    if (!instance || !instance->scene)
+    if (!instance || !instance->scene_value())
         return false;
-    for (int i = 0; i < instance->scene->mesh_count(); ++i) {
-        MaterialRef* material = material_of(core::at(scene_meshes(instance->scene), i));
+    for (int i = 0; i < instance->scene_value()->mesh_count(); ++i) {
+        MaterialRef* material = material_of(core::at(scene_meshes(instance->scene_value()), i));
         if (!material)
             continue;
         const int index = pass_from_checksum(material, checksum, pass);
@@ -448,7 +448,7 @@ uint32_t PcGeom::fetch_shown() { return visibility | 0xFFFFFF00u; }
 void PcGeom::change_live(bool on)
 {
     if (instance) {
-        instance->active = on;
+        instance->set_active(on);
         return;
     }
     active = on;
@@ -463,13 +463,13 @@ void PcGeom::change_live(bool on)
 }
 
 // 0x004B4690
-bool PcGeom::is_operative() { return instance ? instance->active : active; }
+bool PcGeom::is_operative() { return instance ? instance->active_value() : active; }
 
 // 0x004B4730
 void PcGeom::change_bound_sphere(const maths::Vec4* sphere)
 {
-    if (instance && instance->scene) {
-        SceneRef* list = instance->scene;
+    if (instance && instance->scene_value()) {
+        SceneRef* list = instance->scene_value();
         std::memcpy(list->centre_value().data(), sphere, 12);
         std::memcpy(&list->radius_value(), &sphere->w, 4);
     }
@@ -478,8 +478,8 @@ void PcGeom::change_bound_sphere(const maths::Vec4* sphere)
 // 0x004B4760
 maths::Vec4* PcGeom::plat_get_bounding_sphere(maths::Vec4* out)
 {
-    if (instance && instance->scene) {
-        const SceneRef* list = instance->scene;
+    if (instance && instance->scene_value()) {
+        const SceneRef* list = instance->scene_value();
         *out = {.x = core::at(list->centre_value(), 0), .y = core::at(list->centre_value(), 1), .z = core::at(list->centre_value(), 2), .w = list->radius_value()};
     } else {
         *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 10000.0f};
@@ -492,7 +492,7 @@ void PcGeom::place_at_absolute_point(const maths::Vec4* position)
 {
     const maths::Vec4 pos = {.x = position->x, .y = position->y, .z = position->z, .w = 1.0f};
     if (instance) {
-        core::at(instance->transform.row, 3) = pos;
+        core::at(instance->transform_value().row, 3) = pos;
         return;
     }
     for (uint32_t i = 0; i < mesh_count_; ++i)
@@ -504,7 +504,7 @@ maths::Vec4* PcGeom::get_absolute_point()
 {
     maths::Vec4& pos = static_position();
     if (instance) {
-        pos = core::at(instance->transform.row, 3);
+        pos = core::at(instance->transform_value().row, 3);
         return &pos;
     }
     pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -519,11 +519,11 @@ void PcGeom::change_facing(const maths::Mat4* orientation)
     if (!instance)
         return;
     maths::Mat4 m{};
-    m = instance->transform;
+    m = instance->transform_value();
     core::at(m.row, 0) = core::at(orientation->row, 0);
     core::at(m.row, 1) = core::at(orientation->row, 1);
     core::at(m.row, 2) = core::at(orientation->row, 2);
-    instance->transform = m;
+    instance->set_transform(m);
 }
 
 // 0x004B56E0
@@ -531,7 +531,7 @@ maths::Mat4* PcGeom::fetch_facing()
 {
     maths::Mat4& m = static_orientation();
     if (instance)
-        m = instance->transform;
+        m = instance->transform_value();
     else
         get_identity(&m);
     core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -549,14 +549,14 @@ void PcGeom::rotate_y(int turns)
         return;
     }
     maths::Mat4 m{};
-    m = instance->transform;
+    m = instance->transform_value();
     core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::Mat4 rotation{};
     maths::make_yaw_matrix(rotation, static_cast<float>(static_cast<double>(turns) * kQuarterTurn));
     // D3DX (linked library code): rotation = m * rotation
     d3dx::matrix_multiply(&rotation, &m, &rotation);
-    core::at(rotation.row, 3) = core::at(instance->transform.row, 3);
-    instance->transform = rotation;
+    core::at(rotation.row, 3) = core::at(instance->transform_value().row, 3);
+    instance->set_transform(rotation);
 }
 
 // 0x004B4DB0
@@ -594,8 +594,8 @@ maths::Vec4* PcGeom::fetch_magnification(maths::Vec4* out)
 bool PcGeom::upload_skinning_palette(const maths::Mat4* transform, const maths::Mat4* bones, int count, int, int)
 {
     if (instance) {
-        instance->transform = *transform;
-        std::memcpy(instance->bones, bones, count * sizeof(maths::Mat4));
+        instance->set_transform(*transform);
+        std::memcpy(instance->bones_value(), bones, count * sizeof(maths::Mat4));
     }
     return true;
 }
@@ -604,15 +604,15 @@ bool PcGeom::upload_skinning_palette(const maths::Mat4* transform, const maths::
 void PcGeom::copy_bones(const maths::Mat4* bones, int count)
 {
     if (instance)
-        std::memcpy(instance->bones, bones, count * sizeof(maths::Mat4));
+        std::memcpy(instance->bones_value(), bones, count * sizeof(maths::Mat4));
 }
 
 // 0x004B4820
 void PcGeom::set_bones(maths::Mat4* bones, int count)
 {
     if (instance) {
-        instance->bones = bones;
-        instance->bone_count_ = count;
+        instance->set_bones(bones);
+        instance->set_bone_count(count);
     }
 }
 
@@ -620,7 +620,7 @@ void PcGeom::set_bones(maths::Mat4* bones, int count)
 bool PcGeom::break_strips(uint32_t mask)
 {
     if (source)
-        instance->scene->break_strips(mask, source->breaks, source->break_count_);
+        instance->scene_value()->break_strips(mask, source->breaks, source->break_count_);
     return true;
 }
 
@@ -756,10 +756,10 @@ void PcGeom::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float 
 // 0x004B4EF0
 void PcGeom::enable_explicit_uv_wibble(int /*unused*/)
 {
-    if (!instance || !instance->scene)
+    if (!instance || !instance->scene_value())
         return;
-    for (int i = 0; i < instance->scene->mesh_count(); ++i) {
-        MaterialRef* material = material_of(core::at(scene_meshes(instance->scene), i));
+    for (int i = 0; i < instance->scene_value()->mesh_count(); ++i) {
+        MaterialRef* material = material_of(core::at(scene_meshes(instance->scene_value()), i));
         if (!material)
             continue;
         for (uint32_t p = 0; p < material->pass_count(); ++p) {
@@ -792,10 +792,10 @@ void PcGeom::set_uv_wibble_offsets(float u, float v)
 // 0x004B4F60
 bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* matrix)
 {
-    if (!instance || !instance->scene)
+    if (!instance || !instance->scene_value())
         return true;
-    for (int i = 0; i < instance->scene->mesh_count(); ++i) {
-        MeshRef* mesh = core::at(scene_meshes(instance->scene), i);
+    for (int i = 0; i < instance->scene_value()->mesh_count(); ++i) {
+        MeshRef* mesh = core::at(scene_meshes(instance->scene_value()), i);
         MaterialRef* material = material_of(mesh);
         if (!material)
             continue;
@@ -828,11 +828,11 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
 // 0x004B5130
 bool PcGeom::create_uv_anim_params(uint32_t checksum, int pass)
 {
-    if (!instance || !instance->scene)
+    if (!instance || !instance->scene_value())
         return false;
     bool made = false;
-    for (int i = 0; i < instance->scene->mesh_count(); ++i) {
-        MaterialRef* material = material_of(core::at(scene_meshes(instance->scene), i));
+    for (int i = 0; i < instance->scene_value()->mesh_count(); ++i) {
+        MaterialRef* material = material_of(core::at(scene_meshes(instance->scene_value()), i));
         if (!material)
             continue;
         const int index = pass_from_checksum(material, checksum, pass);

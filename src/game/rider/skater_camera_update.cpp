@@ -111,14 +111,14 @@ void RiderChaseView::tick_frame()
     if (!skater)
         return;
     const RiderBoardPhysics* control = control_;
-    if (control && control->pose_->in_vehicle_) {
+    if (control && control->pose()->in_vehicle()) {
         // Driving: the camera object not updated.
-        entity_->composite_flags_ |= 1;
+        entity_->composite_flags() |= 1;
         return;
     }
     auto* camera_component = entity_->fetch_module(kCamera);
     bool instant = false;
-    if ((rider_ref_->composite_flags_ >> 3) & 1) {
+    if ((rider_ref_->composite_flags() >> 3) & 1) {
         instant = true;
         instant_frames_ = 3;
     }
@@ -130,13 +130,13 @@ void RiderChaseView::tick_frame()
     update_lerps();
     gfx::ViewCam* camera = core::down_cast<ViewpointModule>(camera_component)->view_camera_.get();
     camera->remember_prev_pos();
-    maths::Mat4& view = camera_component->entity_->basis_frame_;
+    maths::Mat4& view = camera_component->entity_->basis_frame();
     std::memcpy(&view, orientation_.data(), sizeof(orientation_));
     const float last_facing_z = core::at(view.row, 2).z;
     const float last_facing_y = core::at(view.row, 2).y;
     const float last_facing_x = core::at(view.row, 2).x;
     const objects::RiderPoseState* state = state_ref_;
-    const int physics_state = state->cur_phase_;
+    const int physics_state = state->cur_phase();
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
     bool turned = false;
 
@@ -146,14 +146,14 @@ void RiderChaseView::tick_frame()
     if (physics_state != 2 && (!core || !core->point_rail_spin())) {
         wall_ride_frames_ = 0;
         skater = rider_ref_;
-        orient = skater->is_local_skater_ ? *skater_display_matrix(skater) : skater->display_matrix_;
+        orient = skater->is_local_skater() ? *skater_display_matrix(skater) : skater->display_matrix();
         skater_matrix_ = orient;
     } else {
         orient = skater_matrix_;
         if (physics_state == 2) {
             skater = rider_ref_;
             const maths::Vec4& facing =
-                skater->is_local_skater_ ? core::at(skater_display_matrix(skater)->row, 2) : core::at(skater->display_matrix_.row, 2);
+                skater->is_local_skater() ? core::at(skater_display_matrix(skater)->row, 2) : core::at(skater->display_matrix().row, 2);
             if (wall_ride_frames_ == 0) {
                 maths::Vec4& wall = wall_facing_;
                 wall = facing;
@@ -178,9 +178,9 @@ void RiderChaseView::tick_frame()
 
     // The roll: on a rail on the skater's model, the balance's lean.
     double roll = 0.0;
-    if (physics_state == 4 && rider_ref_->is_local_skater_) {
+    if (physics_state == 4 && rider_ref_->is_local_skater()) {
         auto* balance = core::down_cast<RiderTeeterMoves>(rider_ref_->fetch_module(kBalanceTrick));
-        roll = static_cast<double>(balance_roll_scale()) * balance->grind_.lean();
+        roll = static_cast<double>(balance_roll_scale()) * balance->grind().lean();
     }
     float& roll_now = roll_;
     if (roll_now != roll) {
@@ -191,14 +191,14 @@ void RiderChaseView::tick_frame()
     }
 
     // The up for the offsets: the orientation's (off the ground), else the state's ground normal (+0xF8).
-    const maths::Vec4 up = physics_state != 0 ? core::at(orient.row, 1) : state->drawn_normal_;
+    const maths::Vec4 up = physics_state != 0 ? core::at(orient.row, 1) : state->drawn_normal();
 
     // The facing from the velocity (or straight down).
     skater = rider_ref_;
-    const float velocity_z = skater->vel_.z;
-    const float velocity_x = skater->vel_.x;
+    const float velocity_z = skater->vel().z;
+    const float velocity_x = skater->vel().x;
     const bool look_down = get_look_down();
-    if (!(control && control->is_halted_)) {
+    if (!(control && control->is_halted())) {
         const double horizontal =
             std::sqrt(static_cast<double>(velocity_x) * velocity_x + static_cast<double>(velocity_z) * velocity_z);
         bool along = false;
@@ -213,12 +213,12 @@ void RiderChaseView::tick_frame()
             maths::Vec4& facing = core::at(orient.row, 2);
             if (along) {
                 skater = rider_ref_;
-                facing = skater->vel_;
+                facing = skater->vel();
                 objects::RiderPoseState* s = state_ref_;
                 if (s->flag(PoseFlag::kAcidDrop).on) {
                     facing.x = 0.0f;
                     facing.z = 0.0f;
-                    facing += s->drop_velocity_;
+                    facing += s->drop_velocity();
                 }
                 facing.make_unit();
                 double ux = 0.0, uy = 0.0, uz = 0.0, uw = 0.0;
@@ -236,7 +236,7 @@ void RiderChaseView::tick_frame()
                     ux = 0.0, uy = 1.0, uz = 0.0, uw = 1.0;
                     k = facing.y;
                 } else {
-                    const maths::Vec4& n = s->floor_normal_;
+                    const maths::Vec4& n = s->floor_normal();
                     ux = n.x, uy = n.y, uz = n.z, uw = n.w;
                     k = static_cast<float>(((ux * facing.x + uy * facing.y) + uz * facing.z) * kGroundLookDown);
                 }
@@ -264,7 +264,7 @@ void RiderChaseView::tick_frame()
             up_row.make_unit();
         }
     }
-    if (rider_ref_->is_local_skater_ && state_ref_->flag(PoseFlag::kFromAcidDrop).on) {
+    if (rider_ref_->is_local_skater() && state_ref_->flag(PoseFlag::kFromAcidDrop).on) {
         auto* physics = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
         orient = physics->drop_matrix();
     }
@@ -309,11 +309,11 @@ void RiderChaseView::tick_frame()
         if (wallride_offset_angle_ != 0.0f && turned) {
             skater = rider_ref_;
             const maths::Vec4 world_up(0.0f, 1.0f, 0.0f, 1.0f);
-            maths::Vec4 across = maths::cross_vec(core::at(skater->basis_frame_.row, 1), world_up);
+            maths::Vec4 across = maths::cross_vec(core::at(skater->basis_frame().row, 1), world_up);
             across.make_unit();
-            const double side = (static_cast<double>(across.z) * core::at(skater->basis_frame_.row, 2).z +
-                                 static_cast<double>(across.y) * core::at(skater->basis_frame_.row, 2).y) +
-                                static_cast<double>(core::at(skater->basis_frame_.row, 2).x) * across.x;
+            const double side = (static_cast<double>(across.z) * core::at(skater->basis_frame().row, 2).z +
+                                 static_cast<double>(across.y) * core::at(skater->basis_frame().row, 2).y) +
+                                static_cast<double>(core::at(skater->basis_frame().row, 2).x) * across.x;
             const float sign = side < 0.0 ? 1.0f : -1.0f; // (-1 when facing along it, or not a number)
             orient.yaw_locally(static_cast<float>(static_cast<double>(sign) * wallride_offset_angle_));
         }
@@ -337,7 +337,7 @@ void RiderChaseView::tick_frame()
             render::ProbeRay feeler;
             maths::Vec4 side(core::at(orient.row, 2).x, 0.0f, core::at(orient.row, 2).z, 1.0f);
             side.make_unit();
-            const maths::Vec4& position = rider_ref_->at_point_;
+            const maths::Vec4& position = rider_ref_->at_point();
             const maths::Vec4& facing = core::at(orient.row, 2);
             const double back_w = static_cast<double>(facing.w) * kLipBack;
             const double back_z = static_cast<double>(facing.z) * kLipBack;
@@ -355,14 +355,14 @@ void RiderChaseView::tick_frame()
                                   static_cast<float>(start_w - reach_w));
             feeler.set_excluded(0x90, 0);
             if (feeler.get_collision_along(&start, &end, true)) {
-                const float first_distance = feeler.reach_;
+                const float first_distance = feeler.reach();
                 orient.rotate_y(lip_turn() * -2.0f);
                 maths::Vec4 other(core::at(orient.row, 2).x, 0.0f, core::at(orient.row, 2).z, 1.0f);
                 other.make_unit();
-                const maths::Vec4 back = rider_ref_->at_point_ - core::at(orient.row, 2) * kLipBack;
+                const maths::Vec4 back = rider_ref_->at_point() - core::at(orient.row, 2) * kLipBack;
                 const maths::Vec4 other_end = back - other * kLipReach;
                 if (!feeler.get_collision_along(&back, &other_end, true) ||
-                    !(feeler.reach_ >= first_distance || std::isnan(feeler.reach_))) {
+                    !(feeler.reach() >= first_distance || std::isnan(feeler.reach()))) {
                     lip = 2;
                 } else {
                     orient.rotate_y(lip_turn() * 2.0f);
@@ -383,9 +383,9 @@ void RiderChaseView::tick_frame()
     {
         auto* s = rider_ref_;
         if (s && lip_state_ == 2)
-            s->flag_bits_ |= 1u << (script::fetch_int_value(kHideFlagBit) & 31); // (SHL: the count's low 5 bits)
+            s->flag_bits() |= 1u << (script::fetch_int_value(kHideFlagBit) & 31); // (SHL: the count's low 5 bits)
         else
-            rider_ref_->flag_bits_ &= ~(1u << (script::fetch_int_value(kHideFlagBit) & 31));
+            rider_ref_->flag_bits() &= ~(1u << (script::fetch_int_value(kHideFlagBit) & 31));
     }
 
     // The view looking along the orientation (right and at reversed), slerped from the camera's.
@@ -410,7 +410,7 @@ void RiderChaseView::tick_frame()
         if (vert_air(state_ref_)) {
             slerp->fetch_mat(view, static_cast<float>(frame_blend(vert_air_slerp_, seconds)));
             settle_time_ = 1.0f / 6.0f;
-        } else if (state_ref_->cur_phase_ == 0 && settle_time_ >= seconds) {
+        } else if (state_ref_->cur_phase() == 0 && settle_time_ >= seconds) {
             settle_time_ = static_cast<float>(settle_time_ - static_cast<double>(seconds));
             slerp->fetch_mat(view, static_cast<float>(frame_blend(vert_air_landed_slerp_, seconds)));
         } else {
@@ -468,7 +468,7 @@ void RiderChaseView::tick_frame()
         target.z = static_cast<float>(target.z + uz);
         target.w += uw;
     }
-    const maths::Vec4& position = rider_ref_->at_point_;
+    const maths::Vec4& position = rider_ref_->at_point();
     const double eye_y = static_cast<double>(lift.y) + position.y;
     const double eye_z = static_cast<double>(lift.z) + position.z;
     const maths::Vec4 eye(lift.x + position.x, static_cast<float>(eye_y), static_cast<float>(eye_z),
@@ -497,7 +497,7 @@ void RiderChaseView::tick_frame()
 
     // Kept clear of the world (unless riding something on a lip).
     bool avoid = true;
-    if (rider_ref_->is_local_skater_) {
+    if (rider_ref_->is_local_skater()) {
         auto* physics = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
         if (physics->ride()->ride_ && physics_state == 3)
             avoid = false;
@@ -513,7 +513,7 @@ void RiderChaseView::tick_frame()
         avoid_camera_collisions(&target, &view, &focus, &eye, true, true);
     }
     target.w = 1.0f;
-    camera_component->entity_->at_point_ = target;
+    camera_component->entity_->at_point() = target;
     if (instant)
         core::down_cast<ViewpointModule>(camera_component)->view_camera_->remember_prev_pos();
 }

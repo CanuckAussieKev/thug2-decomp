@@ -177,9 +177,9 @@ void KinematicsModule::update_hover()
     phase = phase * static_cast<double>(get_bits(0x40490FDB)) / static_cast<double>(bob_period_); // (pi)
     auto offset = static_cast<float>(std::sin(phase) * static_cast<double>(bob_height_));
     bob_now_ = offset;
-    const float height = entity_->at_point_.y;
+    const float height = entity_->at_point().y;
     hover_base_ = height;
-    entity_->at_point_.y = static_cast<float>(static_cast<double>(offset) + height);
+    entity_->at_point().y = static_cast<float>(static_cast<double>(offset) + height);
 }
 
 // --- script member functions ---
@@ -187,7 +187,7 @@ void KinematicsModule::update_hover()
 // 0x004237D0
 bool KinematicsModule::obj_store_pos(script::Struct*, script::Script*)
 {
-    stored_pos_ = entity_->at_point_;
+    stored_pos_ = entity_->at_point();
     return true;
 }
 
@@ -206,7 +206,7 @@ bool KinematicsModule::obj_set_constant_height(script::Struct* params, script::S
         return true;
     }
     motion_flags2_ |= kMotion2ConstantHeight;
-    params->fetch_float(0u, &entity_->at_point_.y, 0);
+    params->fetch_float(0u, &entity_->at_point().y, 0);
     return true;
 }
 
@@ -223,7 +223,7 @@ bool KinematicsModule::obj_get_random_link(script::Struct*, script::Script* scri
 bool KinematicsModule::obj_hover(script::Struct* params, script::Script*)
 {
     if (params->has_bare_flag(kOff)) {
-        entity_->at_point_.y = hover_base_;
+        entity_->at_point().y = hover_base_;
         motion_flags_ &= ~kMotionHovering;
         return true;
     }
@@ -241,7 +241,7 @@ bool KinematicsModule::obj_hover(script::Struct* params, script::Script*)
     if (period <= 0)
         bob_period_ = 1;
     motion_flags_ |= kMotionHovering;
-    hover_base_ = entity_->at_point_.y;
+    hover_base_ = entity_->at_point().y;
     return true;
 }
 
@@ -252,10 +252,10 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
     if (motion_flags_ & kMotionMoving) {
         speed = move_speed_;
     } else if (entity_->fetch_module(kLockObj) &&
-               (core::down_cast<PinnedObjectModule>(entity_->fetch_module(kLockObj))->lock_flags_ & kLockFlagLocked)) {
-        auto dx = static_cast<float>(static_cast<double>(entity_->at_point_.x) - entity_->old_pos_.x);
-        auto dy = static_cast<float>(static_cast<double>(entity_->at_point_.y) - entity_->old_pos_.y);
-        auto dz = static_cast<float>(static_cast<double>(entity_->at_point_.z) - entity_->old_pos_.z);
+               (core::down_cast<PinnedObjectModule>(entity_->fetch_module(kLockObj))->lock_flags() & kLockFlagLocked)) {
+        auto dx = static_cast<float>(static_cast<double>(entity_->at_point().x) - entity_->old_pos().x);
+        auto dy = static_cast<float>(static_cast<double>(entity_->at_point().y) - entity_->old_pos().y);
+        auto dz = static_cast<float>(static_cast<double>(entity_->at_point().z) - entity_->old_pos().z);
         const double frame = frame_clock::get_slomo_frame_seconds();
         if (!(frame == 0.0)) {
             const double moved =
@@ -263,7 +263,7 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
             speed = static_cast<float>(moved / frame);
         }
     } else {
-        const maths::Vec4& v = entity_->vel_;
+        const maths::Vec4& v = entity_->vel();
         speed = static_cast<float>(std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
                                              static_cast<double>(v.z) * v.z));
     }
@@ -285,14 +285,14 @@ bool KinematicsModule::obj_jump(script::Struct* params, script::Script*)
     jump_start_speed_ = jump_speed_;
     leap_pull_ = -360.0f;
     params->fetch_float(kGravity, &leap_pull_, 0);
-    jump_start_ = entity_->at_point_;
+    jump_start_ = entity_->at_point();
     jump_col_above_ = 6.0f;
     params->fetch_float(kColDistAbove, &jump_col_above_, 0);
     jump_col_below_ = 6.0f;
     params->fetch_float(kColDistBelow, &jump_col_below_, 0);
     bool heading = params->fetch_vec(kHeading, &leap_direction_, 0);
     if (!heading && params->has_bare_flag(kUseCurrentHeading)) {
-        leap_direction_ = core::at(entity_->display_matrix_.row, 2);
+        leap_direction_ = core::at(entity_->display_matrix().row, 2);
         heading = true;
     }
     if (heading) {

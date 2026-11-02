@@ -29,6 +29,15 @@ public:
         FreeSlot* next;
     };
 
+    // The fields other code reads and sets.
+    std::span<uint8_t>& memory() { return memory_; }
+    [[nodiscard]] const std::span<uint8_t>& memory() const { return memory_; }
+    [[nodiscard]] int num() const { return num_; }
+    [[nodiscard]] int slot_bytes() const { return slot_bytes_; }
+    [[nodiscard]] int taken_count() const { return taken_count_; }
+    [[nodiscard]] int peak_used() const { return peak_used_; }
+
+private:
     std::span<uint8_t> memory_; // the items' block (the original's start and end pointers)
     int num_;
     int slot_bytes_;

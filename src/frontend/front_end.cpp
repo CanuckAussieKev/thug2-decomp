@@ -576,10 +576,10 @@ void FrontEnd::get_pause_game(bool pause)
     // The main loop's logic tasks: while paused those of the 0xC kinds (a task's +0x14 bits) are skipped
     // (0x00406AC0 runs a task only when (mask & its kinds) == 0).
     if (pause) {
-        main_loop_manager()->logic_tasks_.skip_bits_ = 0xC;
+        main_loop_manager()->logic_tasks_.set_skip_bits(0xC);
         report_pause_state();
     } else {
-        main_loop_manager()->logic_tasks_.skip_bits_ = 0;
+        main_loop_manager()->logic_tasks_.set_skip_bits(0);
         modules::Skate::sole()->get_freeze(false);
         report_pause_state();
     }
@@ -615,12 +615,12 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
                 }
                 front_end->check_startup_script_ = false;
             }
-            const uint32_t repeated = front_end->auto_repeat(handler->control_data_->buttons_, handler->ordinal_);
+            const uint32_t repeated = front_end->auto_repeat(handler->control_data_->buttons(), handler->ordinal_);
             if (repeated)
                 event = repeated;
         }
-        const uint32_t pressed = front_end->grab_control_event(handler->control_data_->makes_, index, handler->ordinal_,
-                                                               handler->control_data_->buttons_);
+        const uint32_t pressed = front_end->grab_control_event(handler->control_data_->makes(), index, handler->ordinal_,
+                                                               handler->control_data_->buttons());
         if (pressed)
             event = pressed;
         if (!event)

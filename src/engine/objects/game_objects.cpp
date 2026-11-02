@@ -117,7 +117,7 @@ void spawn_pedestrian(script::Struct* params)
     add_motion_components(ped);
     ped->change_species(kObjectTypePed);
     object_hub_slot()->enrol_subject(ped);
-    level_nodes::fetch_place(params, &ped->at_point_);
+    level_nodes::fetch_place(params, &ped->at_point());
     add_node_components(ped, params);
     script::launch_script(kPedAddComponents, params, ped, false, nullptr);
     ped->seal();
@@ -160,7 +160,7 @@ void spawn_automobile(script::Struct* params)
     add_base_components(car);
     car->change_species(kObjectTypeCar);
     car->attach_module(new_component<AutomobileDynamicsModule, 0x58>());
-    level_nodes::fetch_place(params, &car->at_point_);
+    level_nodes::fetch_place(params, &car->at_point());
     object_hub_slot()->enrol_subject(car);
     set_up_automobile(car, params);
 }
@@ -169,7 +169,7 @@ void spawn_automobile(script::Struct* params)
 CrownObject::CrownObject()
 {
     add_base_components(this);
-    kind_tag_ = kObjectTypeCrown;
+    set_kind_tag(kObjectTypeCrown);
     change_serial(kCrownObject);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     worn_ = false;
@@ -199,21 +199,21 @@ void CrownObject::own_update()
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
     void* skeleton = core::down_cast<objects::BoneRigModule>(skater_->fetch_module(kSkeleton))->bone_rig_;
-    static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame_);
+    static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame());
     maths::Mat4 turn;
-    maths::get_multiply(basis_frame_, maths::make_pitch_matrix(turn, 90.0f), basis_frame_);
+    maths::get_multiply(basis_frame(), maths::make_pitch_matrix(turn, 90.0f), basis_frame());
     const maths::Vec4 raise = {.x = 0.0f, .y = 0.0f, .z = -18.0f, .w = 0.0f};
-    basis_frame_.offset_local(raise);
-    const maths::Vec4 offset = core::at(basis_frame_.row, 3);
-    core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    maths::get_multiply(basis_frame_, basis_frame_, skater_->basis_frame_);
+    basis_frame().offset_local(raise);
+    const maths::Vec4 offset = core::at(basis_frame().row, 3);
+    core::at(basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    maths::get_multiply(basis_frame(), basis_frame(), skater_->basis_frame());
     maths::Vec4 moved;
-    at_point_ = skater_->basis_frame_.xform(moved, offset); // (the matrix times the offset, w too)
-    const maths::Vec4& at = skater_->at_point_;
-    at_point_.x = static_cast<float>(static_cast<double>(at.x) + at_point_.x);
-    at_point_.y = static_cast<float>(static_cast<double>(at.y) + at_point_.y);
-    at_point_.z = static_cast<float>(static_cast<double>(at.z) + at_point_.z);
-    at_point_.w = static_cast<float>(static_cast<double>(at.w) + at_point_.w);
+    at_point() = skater_->basis_frame().xform(moved, offset); // (the matrix times the offset, w too)
+    const maths::Vec4& at = skater_->at_point();
+    at_point().x = static_cast<float>(static_cast<double>(at.x) + at_point().x);
+    at_point().y = static_cast<float>(static_cast<double>(at.y) + at_point().y);
+    at_point().z = static_cast<float>(static_cast<double>(at.z) + at_point().z);
+    at_point().w = static_cast<float>(static_cast<double>(at.w) + at_point().w);
 }
 
 // 0x00578490
@@ -228,10 +228,10 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     add_node_components(this, node);
     change_serial(kCrownObject);
     auto* suspend = core::down_cast<DormancyModule>(fetch_module(kSuspend));
-    core::at(suspend->lod_distances_, 0) = 1000000.0f;
-    core::at(suspend->lod_distances_, 1) = 1000001.0f;
-    core::at(suspend->lod_distances_, 2) = 1000002.0f;
-    core::at(suspend->lod_distances_, 3) = 1000003.0f;
+    core::at(suspend->lod_distances(), 0) = 1000000.0f;
+    core::at(suspend->lod_distances(), 1) = 1000001.0f;
+    core::at(suspend->lod_distances(), 2) = 1000002.0f;
+    core::at(suspend->lod_distances(), 3) = 1000003.0f;
     text::Chars file;
     file = gfx::make_model_path("crown", ".mdl"); // (0x004879D0 returns a String: a temporary)
     // The model component's model (+0x208): loaded from the file (0x004935E0), then 0x00493C60(1).
@@ -239,7 +239,7 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     static_cast<render::RenderModel*>(model_data)->add_file_geom(file.c_str(), 0, true, 0, false, false, true, false);
     model_data = core::down_cast<objects::MeshInstanceModule>(fetch_module(kModel))->mesh_instance().get();
     static_cast<render::RenderModel*>(model_data)->change_live(1);
-    level_nodes::fetch_place(node, &at_point_);
+    level_nodes::fetch_place(node, &at_point());
     seal();
     update_model(fetch_module(kModel));
 }

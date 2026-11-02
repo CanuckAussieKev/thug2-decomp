@@ -50,10 +50,10 @@ namespace frontend::level_editor::ground {
 
 namespace {
 
-render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
-gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body_; }
+render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle()); }
+gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body(); }
 std::span<render::MeshRef*> meshes_of(render::PcGeom* geom) { return geom->mesh_run(); }
-uint32_t mesh_count_of(render::PcGeom* geom) { return geom->mesh_count_; }
+uint32_t mesh_count_of(render::PcGeom* geom) { return geom->mesh_count(); }
 uint32_t vertex_format(const render::MeshRef* mesh) { return mesh->fvf_value(); }
 
 render::WorldCell* lookup_sector(render::WorldScene* scene, uint32_t checksum)
@@ -77,9 +77,9 @@ render::StaticCollider* static_of(render::WorldCell* sector)
 gsl::owner<render::VertexBuffer*> new_vertex_buffer(uint32_t size) { return render::new_vertex_buffer(size, 0, 0); }
 void upload_vertices(render::VertexBuffer* buffer)
 {
-    buffer->lock_offset_ = 0;
-    buffer->lock_size_ = buffer->size;
-    buffer->lock_flags_ = 0;
+    buffer->set_lock_offset(0);
+    buffer->set_lock_size(buffer->size_value());
+    buffer->set_lock_flags(0);
     buffer->get_unlock();
 }
 gsl::owner<render::IdxStore*> new_index_buffer(uint32_t bytes)
@@ -221,11 +221,11 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     write_vertices(mesh, layout, first->stride_value(), spec.colour, data);
     for (int b = 0; std::cmp_less(b, first->vertex_buffer_count()); ++b) {
         gsl::owner<render::VertexBuffer*> buffer = new_vertex_buffer(static_cast<uint32_t>(data.size())); // (the mesh's)
-        if (!buffer || !buffer->data) {
+        if (!buffer || !buffer->data_value()) {
             *why = "no vertex buffer";
             return false;
         }
-        std::memcpy(buffer->data, data.data(), data.size());
+        std::memcpy(buffer->data_value(), data.data(), data.size());
         upload_vertices(buffer);
         core::at(first->vertex_buffers(), b) = buffer;
     }
@@ -272,8 +272,8 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         core::at(other->centre_value(), 0) = centre.x, core::at(other->centre_value(), 1) = centre.y, core::at(other->centre_value(), 2) = centre.z;
         other->set_radius(1.0f);
     }
-    geom->bounds.min.x = mesh.min.x, geom->bounds.min.y = mesh.min.y, geom->bounds.min.z = mesh.min.z;
-    geom->bounds.max.x = mesh.max.x, geom->bounds.max.y = mesh.max.y, geom->bounds.max.z = mesh.max.z;
+    geom->bounds_value().min.x = mesh.min.x, geom->bounds_value().min.y = mesh.min.y, geom->bounds_value().min.z = mesh.min.z;
+    geom->bounds_value().max.x = mesh.max.x, geom->bounds_value().max.y = mesh.max.y, geom->bounds_value().max.z = mesh.max.z;
 
     // The collision: new arrays (memory::alloc - the game frees them with memory::Dealloc, TriMeshSource::destruct), floats,
     // 10-byte faces, one leaf listing every face.
@@ -283,8 +283,8 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     auto* face_data = static_cast<uint8_t*>(memory::alloc(faces * 10));
     render::HitTreeNode* leaf = render::new_tree_nodes(1);
     auto* leaf_faces = static_cast<uint16_t*>(memory::alloc(faces * 2));
-    uint8_t* bytes = tri->vertex_bytes_ ? static_cast<uint8_t*>(memory::alloc(count)) : nullptr;
-    if (!vertices || !face_data || !leaf || !leaf_faces || (tri->vertex_bytes_ && !bytes)) {
+    uint8_t* bytes = tri->vertex_bytes() ? static_cast<uint8_t*>(memory::alloc(count)) : nullptr;
+    if (!vertices || !face_data || !leaf || !leaf_faces || (tri->vertex_bytes() && !bytes)) {
         *why = "out of memory for the collision";
         return false;
     }
@@ -301,26 +301,26 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     }
     if (bytes)
         std::memset(bytes, 0x80, count);
-    if (tri->vertices_)
-        memory::dealloc(tri->vertices_);
-    if (tri->faces_)
-        memory::dealloc(tri->faces_);
-    if (tri->vertex_bytes_)
-        memory::dealloc(tri->vertex_bytes_);
+    if (tri->vertices())
+        memory::dealloc(tri->vertices());
+    if (tri->faces())
+        memory::dealloc(tri->faces());
+    if (tri->vertex_bytes())
+        memory::dealloc(tri->vertex_bytes());
     tri->delete_bsp();
-    tri->vertices_ = vertices;
-    tri->faces_ = face_data;
-    tri->vertex_bytes_ = bytes;
-    tri->num_vertices_ = static_cast<uint16_t>(count);
-    tri->tri_count_ = static_cast<uint16_t>(faces);
-    tri->small_faces_ = false;
-    tri->compressed_ = false;
-    tri->bounds_.min.x = mesh.min.x, tri->bounds_.min.y = mesh.min.y, tri->bounds_.min.z = mesh.min.z;
-    tri->bounds_.max.x = mesh.max.x, tri->bounds_.max.y = mesh.max.y, tri->bounds_.max.z = mesh.max.z;
-    tri->unknown3c_ = 0; // (no face skipped by its distance)
+    tri->set_vertices(vertices);
+    tri->set_faces(face_data);
+    tri->set_vertex_bytes(bytes);
+    tri->set_num_vertices(static_cast<uint16_t>(count));
+    tri->set_tri_count(static_cast<uint16_t>(faces));
+    tri->set_small_faces(false);
+    tri->set_compressed(false);
+    tri->bounds().min.x = mesh.min.x, tri->bounds().min.y = mesh.min.y, tri->bounds().min.z = mesh.min.z;
+    tri->bounds().max.x = mesh.max.x, tri->bounds().max.y = mesh.max.y, tri->bounds().max.z = mesh.max.z;
+    tri->set_unknown3c(0); // (no face skipped by its distance)
     // (new HitTreeNode[1]: one leaf of every face)
     leaf->make_leaf(static_cast<uint16_t>(faces), leaf_faces);
-    tri->bsp_ = leaf;
+    tri->set_bsp(leaf);
     tri->set_up_all_faces();
     // (the face-rejection bytes: one a face, on the bottom-up heap as StaticCollider::Replicate keeps them)
     if (coll->octets_)
@@ -430,10 +430,10 @@ const char* why_not_donor(uint32_t checksum)
     render::PcGeom* geom = geom_of(sector);
     if (!render::is_pc_geom(geom))
         return "nothing drawn";
-    if (geom->instance)
+    if (geom->instance_value())
         return "an instance";
     const uint32_t meshes = mesh_count_of(geom);
-    if (!geom->meshes || meshes == 0 || meshes > 64)
+    if (!geom->meshes_value() || meshes == 0 || meshes > 64)
         return "no meshes (or too many)";
     const render::MeshRef* first = core::at(meshes_of(geom), 0);
     Layout layout;
@@ -442,7 +442,7 @@ const char* why_not_donor(uint32_t checksum)
     if (!layout_for(vertex_format(first), first->stride_value(), &layout) || layout.tex_count_ < 1)
         return "its vertex format (no plain positions and texture coordinates)";
     if (first->vertex_buffer_count() < 1 || first->vertex_buffer_count() > 3 || !core::at(first->vertex_buffers(), 0) ||
-        !core::at(first->vertex_buffers(), 0)->data)
+        !core::at(first->vertex_buffers(), 0)->data_value())
         return "its vertex buffers";
     if (first->per_vertex_data())
         return "per-vertex data the editor can't make";
@@ -450,7 +450,7 @@ const char* why_not_donor(uint32_t checksum)
     if (!material || picking::material_see_through(core::at(material->pass_flags(), 0), core::at(material->blend_modes(), 0)))
         return "a see-through material";
     const render::StaticCollider* coll = static_of(sector);
-    if (!coll || !coll->geometry_ || !coll->geometry_->tri_count_)
+    if (!coll || !coll->geometry_ || !coll->geometry_->tri_count())
         return "no collision";
     return nullptr;
 }
@@ -473,8 +473,8 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
                     return;
                 const render::TriMeshSource* tri = static_of(sector)->geometry_;
                 const V3 c = {.x = (w->spec->x0 + w->spec->x1) * 0.5f, .y = w->spec->base, .z = (w->spec->z0 + w->spec->z1) * 0.5f};
-                const V3 lo = {.x = tri->bounds_.min.x, .y = tri->bounds_.min.y, .z = tri->bounds_.min.z};
-                const V3 hi = {.x = tri->bounds_.max.x, .y = tri->bounds_.max.y, .z = tri->bounds_.max.z};
+                const V3 lo = {.x = tri->bounds().min.x, .y = tri->bounds().min.y, .z = tri->bounds().min.z};
+                const V3 hi = {.x = tri->bounds().max.x, .y = tri->bounds().max.y, .z = tri->bounds().max.z};
                 const V3 nearest = {.x = std::clamp(c.x, lo.x, hi.x), .y = std::clamp(c.y, lo.y, hi.y),
                                     .z = std::clamp(c.z, lo.z, hi.z)};
                 const V3 d = nearest - c;
@@ -499,7 +499,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     const render::MeshRef* mesh = core::at(meshes_of(geom_of(sector)), 0);
     Layout layout;
     layout_for(vertex_format(mesh), mesh->stride_value(), &layout);
-    const uint8_t* data = core::at(mesh->vertex_buffers(), 0)->data;
+    const uint8_t* data = core::at(mesh->vertex_buffers(), 0)->data_value();
     const std::span<const uint8_t> vertex_bytes(data, size_t{mesh->vertex_count()} * mesh->stride_value());
     if (layout.diffuse >= 0 && mesh->vertex_count()) {
         std::array<double, 4> sum = {};
@@ -543,7 +543,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     }
     const render::TriMeshSource* tri = static_of(sector)->geometry_;
     std::map<uint16_t, int> terrains;
-    for (int f = 0; std::cmp_less(f, tri->tri_count_) && tri->faces_; ++f)
+    for (int f = 0; std::cmp_less(f, tri->tri_count()) && tri->faces(); ++f)
         ++terrains[tri->face_terrain(f)];
     int most = -1;
     for (const auto& t : terrains) {
@@ -571,15 +571,15 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                 return;
             const render::StaticCollider* coll = static_of(sector);
             const render::TriMeshSource* tri = coll ? coll->geometry_ : nullptr;
-            if (!tri || !tri->faces_ || !tri->vertices_ || ((coll->flag_bits_ & 4) && !mine))
+            if (!tri || !tri->faces() || !tri->vertices() || ((coll->flag_bits_ & 4) && !mine))
                 return;
             const Spec& s = *w->spec;
-            if (tri->bounds_.max.x < s.x0 || tri->bounds_.min.x > s.x1 || tri->bounds_.max.z < s.z0 ||
-                tri->bounds_.min.z > s.z1 || tri->bounds_.max.y < s.base - 40.0f ||
-                tri->bounds_.min.y > s.base + 40.0f)
+            if (tri->bounds().max.x < s.x0 || tri->bounds().min.x > s.x1 || tri->bounds().max.z < s.z0 ||
+                tri->bounds().min.z > s.z1 || tri->bounds().max.y < s.base - 40.0f ||
+                tri->bounds().min.y > s.base + 40.0f)
                 return;
             bool ground = false;
-            const int faces = std::min<int>(tri->tri_count_, 60000);
+            const int faces = std::min<int>(tri->tri_count(), 60000);
             for (int f = 0; f < faces && !ground; ++f) {
                 const uint16_t flags =
                     tri->face_flags(f);
@@ -589,7 +589,7 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                 bool ok = true;
                 for (int k = 0; k < 3 && ok; ++k) {
                     const uint32_t index = tri->face_vertex(f, k);
-                    ok = index < tri->num_vertices_;
+                    ok = index < tri->num_vertices();
                     if (ok) {
                         const maths::Vec4 p = tri->read_stored_vertex(static_cast<int>(index));
                         core::at(c, k) = {.x = p.x, .y = p.y, .z = p.z};
@@ -599,8 +599,8 @@ bool find_pit_tiles(Spec* spec, std::string* why)
             }
             if (!ground)
                 return;
-            const V3 lo = {.x = tri->bounds_.min.x, .y = tri->bounds_.min.y, .z = tri->bounds_.min.z};
-            const V3 hi = {.x = tri->bounds_.max.x, .y = tri->bounds_.max.y, .z = tri->bounds_.max.z};
+            const V3 lo = {.x = tri->bounds().min.x, .y = tri->bounds().min.y, .z = tri->bounds().min.z};
+            const V3 hi = {.x = tri->bounds().max.x, .y = tri->bounds().max.y, .z = tri->bounds().max.z};
             if (tile_inside(lo, hi, s, 25.0f)) {
                 w->tiles.push_back(checksum);
                 return;

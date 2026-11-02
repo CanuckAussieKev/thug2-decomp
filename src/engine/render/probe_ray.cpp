@@ -110,7 +110,7 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
         entity_.assign_value(farthest ? collide_with_movables_farthest(&line, &hit_, callback, cache)
                                       : collide_with_movables(&line, &hit_, callback, cache));
         if (entity_)
-            entity_key_ = entity_->ident_;
+            entity_key_ = entity_->ident();
     }
     reach_ = hit_.distance;
     contact_pos_ = hit_.point;

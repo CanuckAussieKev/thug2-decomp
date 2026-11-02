@@ -37,6 +37,17 @@ public:
     HierarchyNode* fetch_bone_tree();
     uint32_t get_hierarchy_count();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] TextureSet* textures() const { return textures_; }
+    void set_textures(TextureSet* value) { textures_ = value; }
+    [[nodiscard]] int collision_count() const { return collision_count_; }
+    [[nodiscard]] TriMeshSource* hit_shape() const { return hit_shape_; }
+    [[nodiscard]] uint32_t bone_count() const { return bone_count_; }
+    void set_bone_count(uint32_t value) { bone_count_ = value; }
+    void set_hierarchy(HierarchyNode* value) { hierarchy_ = value; }
+    void set_hierarchy_count(uint32_t value) { hierarchy_count_ = value; }
+
+private:
     TextureSet* textures_{};      // +0x04: its texture dictionary (the PC loaders set it)
     std::array<char, 0x80> collision_name_{}; // +0x08: the .col file kept loaded (Pip)
     int collision_count_{};       // +0x88
@@ -45,9 +56,14 @@ public:
     uint32_t bone_count_{0};    // +0xB0 (the PC skin file's, from version 2)
     HierarchyNode* hierarchy_{nullptr}; // +0xB4: its scene's
     uint32_t hierarchy_count_{0}; // +0xB8
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(SubMesh, bone_count_) == 0xB0, "layout must match the original");
+        static_assert(offsetof(SubMesh, box_) == 0x90 && offsetof(SubMesh, hierarchy_count_) == 0xB8 && sizeof(SubMesh) == 0xBC,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(SubMesh, box_) == 0x90 && offsetof(SubMesh, hierarchy_count_) == 0xB8 && sizeof(SubMesh) == 0xBC,
-              "layout must match the original");
 
 // 0x00490AD0: a skin's collision file name: `name` with ".col." in place of its extension (or added) and the
 // platform's extension after it.

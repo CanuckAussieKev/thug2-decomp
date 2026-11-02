@@ -32,13 +32,13 @@ ClassNodeList* hook_nodes(ObjectModule* hooks) { return core::down_cast<HookPoin
 void place_nodes(ClassNodeList* nodes, GameEntity* object)
 {
     maths::Mat4 transform{};
-    transform = object->basis_frame_;
-    core::at(transform.row, 3).x = object->at_point_.x;
-    core::at(transform.row, 3).z = object->at_point_.z;
+    transform = object->basis_frame();
+    core::at(transform.row, 3).x = object->at_point().x;
+    core::at(transform.row, 3).z = object->at_point().z;
     core::at(transform.row, 0).w = 0.0f;
     core::at(transform.row, 1).w = 0.0f;
     core::at(transform.row, 2).w = 0.0f;
-    core::at(transform.row, 3).y = object->at_point_.y;
+    core::at(transform.row, 3).y = object->at_point().y;
     core::at(transform.row, 3).w = 1.0f;
     nodes->set_transform(&transform);
 }
@@ -83,12 +83,12 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
     for (const ClassNodeList::TableRow* node = nodes->entries_; node; node = node->next, ++index) {
         maths::Vec4 point;
         nodes->xform(&point, &node->pos);
-        const maths::Vec4& pos = object->at_point_;
+        const maths::Vec4& pos = object->at_point();
         point.x -= pos.x;
         point.y -= pos.y;
         point.z -= pos.z;
         point.w -= pos.w;
-        point.flatten_onto_plane(core::at(object->basis_frame_.row, 1));
+        point.flatten_onto_plane(core::at(object->basis_frame().row, 1));
         point.x += pos.x;
         point.y += pos.y;
         point.z += pos.z;
@@ -123,9 +123,9 @@ bool TowRideHandler::get_hook_point(maths::Vec4* out, int index)
             continue;
         maths::Vec4 point;
         nodes->xform(&point, &node->pos);
-        point -= object->at_point_;
-        point.flatten_onto_plane(core::at(object->basis_frame_.row, 1));
-        point += object->at_point_;
+        point -= object->at_point();
+        point.flatten_onto_plane(core::at(object->basis_frame().row, 1));
+        point += object->at_point();
         *out = point;
         return true;
     }

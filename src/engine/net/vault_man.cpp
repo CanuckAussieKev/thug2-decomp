@@ -762,7 +762,7 @@ bool download_directory_list(script::Struct* params, script::Script*)
     params->read_hash_value(0u, &vault->kind_tag(), 1);
     if (const char* folder = type_folder(vault->kind_tag())) // (an unknown type keeps the folder)
         text::format_to(vault->folder(), "%s", folder);
-    if (buddies->account_ != kUploadsProfile) {
+    if (buddies->account() != kUploadsProfile) {
         vault->list_categories();
         return true;
     }

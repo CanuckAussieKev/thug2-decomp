@@ -119,8 +119,8 @@ bool load_anim(Movie* movie, script::Struct* params)
     } else {
         int frames = 0;
         params->fetch_int_value(kFrames, &frames, 1);
-        movie->anim_ = nullptr;
-        play_anim(&movie->timeline_, 0, 0.0f, static_cast<float>(frames * static_cast<double>(seconds_per_frame())), 0,
+        movie->set_anim(nullptr);
+        play_anim(&movie->timeline(), 0, 0.0f, static_cast<float>(frames * static_cast<double>(seconds_per_frame())), 0,
                   0.0f, 1.0f);
     }
     set_held(movie, 1);
@@ -165,13 +165,13 @@ bool ObjectAnimMovie::kickoff()
 // 0x00587280 / 0x005872A0
 bool ObjectAnimMovie::is_finished()
 {
-    if (is_finished_)
+    if (get_is_finished())
         return true;
-    if (flag18_)
+    if (flag18())
         return false;
     return is_accomplished(&timeline_);
 }
-bool ObjectAnimMovie::is_held_and_complete() { return flag18_ && is_accomplished(&timeline_); }
+bool ObjectAnimMovie::is_held_and_complete() { return flag18() && is_accomplished(&timeline_); }
 
 // --- the camera animation movie -------------------------------------------------------------------------------
 
@@ -191,7 +191,7 @@ bool CameraAnimMovie::read_in(script::Struct* params)
     float fov = 0.0f;
     if (params->fetch_float(0x17E7321E, &fov, 0)) {
         field_of_view_ = fov;
-        viewer_->change_h_fov(fov);
+        viewer()->change_h_fov(fov);
     }
     if (!load_anim(this, params))
         return false;
@@ -199,7 +199,7 @@ bool CameraAnimMovie::read_in(script::Struct* params)
     start_movie(this);
     place_camera();
     if (anim_)
-        step_asset(anim_, timeline_.ongoing_, timeline_.ongoing_, viewer_, true);
+        step_asset(anim_, timeline_.ongoing(), timeline_.ongoing(), viewer(), true);
     return true;
 }
 
@@ -238,13 +238,13 @@ bool CameraAnimMovie::kickoff()
 // 0x00587330 / 0x00587350
 bool CameraAnimMovie::is_finished()
 {
-    if (is_finished_)
+    if (get_is_finished())
         return true;
-    if (flag18_)
+    if (flag18())
         return false;
     return is_accomplished(&timeline_);
 }
-bool CameraAnimMovie::is_held_and_complete() { return flag18_ && is_accomplished(&timeline_); }
+bool CameraAnimMovie::is_held_and_complete() { return flag18() && is_accomplished(&timeline_); }
 
 // 0x00587590
 bool CameraAnimMovie::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
@@ -265,23 +265,23 @@ bool CameraAnimMovie::invoke_method_by_name(uint32_t name, script::Struct* param
 // 0x00588090
 void CameraAnimMovie::tick_frame()
 {
-    const float from = timeline_.ongoing_;
+    const float from = timeline_.ongoing();
     update_timeline(&timeline_);
-    viewer_->remember_prev_pos();
+    viewer()->remember_prev_pos();
     if (anim_)
-        step_asset(anim_, from, timeline_.ongoing_, viewer_, false);
+        step_asset(anim_, from, timeline_.ongoing(), viewer(), false);
     place_camera();
 }
 
 // 0x00587A50
 void CameraAnimMovie::place_camera()
 {
-    const std::span<float, 4> pos(viewer_->fetch_location()->data(), 4);
-    maths::Mat4* mat = viewer_->fetch_mat();
+    const std::span<float, 4> pos(viewer()->fetch_location()->data(), 4);
+    maths::Mat4* mat = viewer()->fetch_mat();
     const std::span<float, 16> m(mat->data(), 16);
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
     for (const auto& handler : modules::front_end_instance()->pad_listeners()) {
-        if (handler->control_data_->makes_ & 0x40)
+        if (handler->control_data_->makes() & 0x40)
             check_done(true);
     }
     if (anim_) {
@@ -289,7 +289,7 @@ void CameraAnimMovie::place_camera()
         std::array<float, 4> quat = {{0.0f, 0.0f, 0.0f, 1.0f}};
         std::array<float, 4> at{};
         bool flag = false;
-        static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quat, at, &flag, timeline_.ongoing_, 0);
+        static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quat, at, &flag, timeline_.ongoing(), 0);
         for (int i = 0; i < 4; ++i)
             core::at(pos, i) = core::at(at, i);
         std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
@@ -302,7 +302,7 @@ void CameraAnimMovie::place_camera()
         float fov = field_of_view_;
         if (fov == kFloatZero)
             fov = script::fetch_float(0x99529205);
-        viewer_->change_h_fov(fov);
+        viewer()->change_h_fov(fov);
     }
     if (!has_goal_)
         return;
@@ -313,10 +313,10 @@ void CameraAnimMovie::place_camera()
             static_cast<ObjectHubBase*>(objects::object_hub_slot().get())->look_up_entity(aim_point_));
         if (!object)
             return;
-        std::array<float, 4> target = {{object->at_point_.x, object->at_point_.y, object->at_point_.z, 1.0f}};
+        std::array<float, 4> target = {{object->at_point().x, object->at_point().y, object->at_point().z, 1.0f}};
         maths::Mat4 frame{};
         auto moved = [&](const maths::Vec4& offset) {
-            frame = object->basis_frame_;
+            frame = object->basis_frame();
             frame[3] = {.x = core::at(target, 0), .y = core::at(target, 1), .z = core::at(target, 2), .w = 1.0f};
             frame.offset_local(offset);
         };
@@ -383,10 +383,10 @@ void CameraAnimMovie::place_camera()
 // 0x005876A0 (and the thunk 0x00587F60)
 void ObjectAnimMovie::tick_frame()
 {
-    const float from = timeline_.ongoing_;
+    const float from = timeline_.ongoing();
     update_timeline(&timeline_);
     if (anim_)
-        step_asset(anim_, from, timeline_.ongoing_, viewer_, false);
+        step_asset(anim_, from, timeline_.ongoing(), viewer(), false);
     // Every object the asset moves: its frame's rotation and position.
     auto* frames = static_cast<gfx::JointClipFrames*>(anim_);
     const int count = frames->bone_count();
@@ -401,7 +401,7 @@ void ObjectAnimMovie::tick_frame()
     auto* position_memory = static_cast<float*>(memory::alloc(frames->bone_count() * 16));
     const std::span<float> positions(position_memory, bones * 4);
     auto* flags = static_cast<bool*>(memory::alloc(frames->bone_count()));
-    static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quats, positions, flags, timeline_.ongoing_, 0);
+    static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quats, positions, flags, timeline_.ongoing(), 0);
     for (int i = 0; i < frames->bone_count(); ++i) {
         const uint32_t name = static_cast<gfx::JointClipFrames*>(anim_)->fetch_joint_name(i);
         auto* object = core::down_cast<GameEntity>(objects::find_object(name));
@@ -412,14 +412,14 @@ void ObjectAnimMovie::tick_frame()
         std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
         std::array<float, 16> matrix{};
         objects::quat_to_matrix(gfx::quad_at(quats, static_cast<size_t>(i)), origin, matrix);
-        std::memcpy(&object->basis_frame_, matrix.data(), sizeof(matrix));    // its matrix
-        std::memcpy(&object->display_matrix_, matrix.data(), sizeof(matrix)); // and its display matrix
-        std::memcpy(&object->at_point_, gfx::quad_at(positions, static_cast<size_t>(i)).data(), 16); // its position
+        std::memcpy(&object->basis_frame(), matrix.data(), sizeof(matrix));    // its matrix
+        std::memcpy(&object->display_matrix(), matrix.data(), sizeof(matrix)); // and its display matrix
+        std::memcpy(&object->at_point(), gfx::quad_at(positions, static_cast<size_t>(i)).data(), 16); // its position
         if (script::fetch_int_value(0x2F510F45)) {
             debug::printf("Object %s @ time %f:  ", script::find_checksum_name_or_unknown(name),
-                          static_cast<double>(timeline_.ongoing_));
-            object->at_point_.echo_out(); // (printed)
-            object->basis_frame_.echo_out();
+                          static_cast<double>(timeline_.ongoing()));
+            object->at_point().echo_out(); // (printed)
+            object->basis_frame().echo_out();
         }
         // The object's model told (the Update of its 0x286A8D26 component).
         ObjectModule* component = object->fetch_module(0x286A8D26);

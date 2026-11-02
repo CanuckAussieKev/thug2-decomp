@@ -33,10 +33,10 @@ void get_unlock(VertexBuffer* buffer) { buffer->get_unlock(); }
 // The inlined lock: the whole buffer (flags 0x10: read only).
 uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
 {
-    uint8_t* data = buffer->data;
-    buffer->lock_offset_ = 0;
-    buffer->lock_size_ = buffer->size;
-    buffer->lock_flags_ = flags;
+    uint8_t* data = buffer->data_value();
+    buffer->set_lock_offset(0);
+    buffer->set_lock_size(buffer->size_value());
+    buffer->set_lock_flags(flags);
     return data;
 }
 // An index buffer of `bytes` (constructor not rewritten yet; thiscall), from the C runtime's malloc.

@@ -364,10 +364,10 @@ bool cfunc_notify_bail_done(script::Struct*, script::Script* script)
 {
     online::Hub* game_net = online_hub_handle();
     objects::Entity* object = script ? script->entity().get_pull() : nullptr;
-    if (!object || object->kind_tag_ != kSkaterType)
+    if (!object || object->kind_tag() != kSkaterType)
         return true;
     auto* skater = core::down_cast<objects::Rider>(object);
-    if (!skater->is_local_skater_)
+    if (!skater->is_local_skater())
         return true;
     if (net::AppHost* client = game_net->fetch_patron(skater->view_slot())) {
         net::NetMessageInfo desc;

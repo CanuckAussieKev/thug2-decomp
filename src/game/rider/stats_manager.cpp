@@ -163,7 +163,7 @@ void AttributeTracker::configure_from_data(script::Struct*)
     count_a84_ = 0;
     air_score_ = 0;
     first_update_ = true;
-    skater_ = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(entity_->ident_));
+    skater_ = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(entity_->ident()));
     if (!skater_) {
         skater_state_ = nullptr;
         physics_control_ = nullptr;
@@ -392,11 +392,11 @@ void AttributeTracker::tick_frame()
     multiplier_ = multiplier;
     path_vertices_ = multiplier == 0.0f ? 0 : truncate(points_held_ / static_cast<double>(multiplier));
 
-    const int physics_state = skater_state_->cur_phase_;
+    const int physics_state = skater_state_->cur_phase();
     cur_phase_ = kStateOther;
-    const RiderPoseState* control_state = physics_control_->pose_;
-    const maths::Vec4& pos = entity_->at_point_;
-    if (!control_state->in_vehicle_ && control_state->physics_mode_ == 0) {
+    const RiderPoseState* control_state = physics_control_->pose();
+    const maths::Vec4& pos = entity_->at_point();
+    if (!control_state->in_vehicle() && control_state->physics_mode() == 0) {
         if (skater_state_->flag(PoseFlag::kVertAir).on) {
             cur_phase_ = kStateLaunched;
             if (last_state_ != kStateLaunched) {

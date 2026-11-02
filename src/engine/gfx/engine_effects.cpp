@@ -485,8 +485,8 @@ void update_shatters()
         return;
     auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     effects_state().shatters().for_each([elapsed](PcShatter* shatter) {
-        const double left = static_cast<double>(shatter->lifetime) - elapsed;
-        shatter->lifetime = static_cast<float>(left);
+        const double left = static_cast<double>(shatter->lifetime_value()) - elapsed;
+        shatter->set_lifetime(static_cast<float>(left));
         if (left <= 0.0) {
             effects_state().shatters().erase(shatter);
             gsl::owner<Shatter*> owned = memory::owned_element(shatter); // (the set's)

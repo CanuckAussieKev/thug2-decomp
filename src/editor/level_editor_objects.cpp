@@ -163,8 +163,8 @@ void pick_one(objects::Entity* object, void* data)
     auto* walk = static_cast<PickWalk*>(data);
     auto* composite = core::down_cast<objects::GameEntity>(object);
     OrientedBox box{};
-    if (picking::latched(picking::kObjects, composite->ident_) ||
-        view::hidden_object(composite->ident_) || // (H: level_editor_view.h)
+    if (picking::latched(picking::kObjects, composite->ident()) ||
+        view::hidden_object(composite->ident()) || // (H: level_editor_view.h)
         !model_box(composite, &box))
         return;
     float t = 0.0f;
@@ -193,15 +193,15 @@ void count_one(objects::Entity* object, void* data)
                 component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get() : nullptr;
             get_log("level editor:   not pickable %s at (%.0f, %.0f, %.0f): flags %X, model component %p, model %p "
                     "(flags %02X)",
-                    caption(composite->ident_).c_str(), composite->at_point_.x, composite->at_point_.y,
-                    composite->at_point_.z, composite->composite_flags_, static_cast<void*>(component),
+                    caption(composite->ident()).c_str(), composite->at_point().x, composite->at_point().y,
+                    composite->at_point().z, composite->composite_flags(), static_cast<void*>(component),
                     static_cast<const void*>(model), model ? model->flag_bits() : 0);
         }
         return;
     }
     if (++census->pickable <= 8)
-        get_log("level editor:   pickable %s at (%.1f, %.1f, %.1f)", caption(composite->ident_).c_str(),
-                composite->at_point_.x, composite->at_point_.y, composite->at_point_.z);
+        get_log("level editor:   pickable %s at (%.1f, %.1f, %.1f)", caption(composite->ident()).c_str(),
+                composite->at_point().x, composite->at_point().y, composite->at_point().z);
 }
 
 // An object's model's geometry `index` (the model component's model +0x208, 0x00494640 - as 0x00420700 colours a
@@ -242,9 +242,9 @@ std::string caption(uint32_t checksum)
 // 0x004219F0, places only those).
 bool model_box(objects::GameEntity* object, OrientedBox* out)
 {
-    if (object->composite_flags_ & (objects::kCompositeFlagHidden | objects::kCompositeFlagDestroying))
+    if (object->composite_flags() & (objects::kCompositeFlagHidden | objects::kCompositeFlagDestroying))
         return false;
-    if (object->object_flags_ & objects::kObjectFlagDead)
+    if (object->object_flags() & objects::kObjectFlagDead)
         return false;
     if (object->fetch_module(kSkaterPhysicsControl) || object->fetch_module(kCamModuleName))
         return false;
@@ -296,7 +296,7 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     // (the model is drawn with the display matrix's rows and the object's position: 0x004215F0)
     out->origin = pos;
     for (int i = 0; i < 3; ++i) {
-        const maths::Vec4& row = core::at(object->display_matrix_.row, i);
+        const maths::Vec4& row = core::at(object->display_matrix().row, i);
         core::at(out->axes, i) = {.x = row.x, .y = row.y, .z = row.z};
     }
     return true;
@@ -333,7 +333,7 @@ void log_census()
     get_log("level editor: %d composite objects, %d pickable", census.objects, census.pickable);
 }
 
-V3 pos_of(const objects::GameEntity* object) { return {.x = object->at_point_.x, .y = object->at_point_.y, .z = object->at_point_.z}; }
+V3 pos_of(const objects::GameEntity* object) { return {.x = object->at_point().x, .y = object->at_point().y, .z = object->at_point().z}; }
 
 V3 current_centre(objects::GameEntity* object)
 {
@@ -348,15 +348,15 @@ V3 current_centre(objects::GameEntity* object)
 
 void get_place(objects::GameEntity* object, V3 pos)
 {
-    object->at_point_ = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
-    object->old_pos_ = object->at_point_;
+    object->at_point() = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
+    object->old_pos() = object->at_point();
     object->mark_jumped_ahead(true); // (its components follow: the model, the collision)
 }
 
 void turn_about(objects::GameEntity* object, V3 pivot, float angle)
 {
     for (int i = 0; i < 3; ++i) {
-        for (maths::Mat4* m : {&object->basis_frame_, &object->display_matrix_}) {
+        for (maths::Mat4* m : {&object->basis_frame(), &object->display_matrix()}) {
             maths::Vec4& row = core::at(m->row, i);
             const V3 turned = turn_about_up({.x = row.x, .y = row.y, .z = row.z}, angle);
             row.x = turned.x;
@@ -394,27 +394,27 @@ std::string describe(objects::GameEntity* object)
 {
     if (!object)
         return "-";
-    const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
+    const maths::Vec4& at = core::at(object->basis_frame().row, 2);
     std::array<char, 200> text{};
-    text::format_to(text, "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", class_of(object->ident_),
-                    caption(object->ident_).c_str(), object->at_point_.x, object->at_point_.y, object->at_point_.z,
+    text::format_to(text, "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", class_of(object->ident()),
+                    caption(object->ident()).c_str(), object->at_point().x, object->at_point().y, object->at_point().z,
                     std::atan2(at.x, at.z) * 180.0f / kPi);
     return text.data();
 }
 
 State store_away(objects::GameEntity* object)
 {
-    return {.id = object->ident_, .pos = object->at_point_, .matrix = object->basis_frame_, .draw_matrix_ = object->display_matrix_,
+    return {.id = object->ident(), .pos = object->at_point(), .matrix = object->basis_frame(), .draw_matrix_ = object->display_matrix(),
             .scale = scale_tool::get_object_scale(object)};
 }
 
 bool get_restore(const State& state)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(state.id));
-    if (!object || (object->object_flags_ & objects::kObjectFlagDead))
+    if (!object || (object->object_flags() & objects::kObjectFlagDead))
         return false;
-    object->basis_frame_ = state.matrix;
-    object->display_matrix_ = state.draw_matrix_;
+    object->basis_frame() = state.matrix;
+    object->display_matrix() = state.draw_matrix_;
     get_place(object, {.x = state.pos.x, .y = state.pos.y, .z = state.pos.z});
     if (!same_scale(scale_tool::get_object_scale(object), state.scale))
         scale_tool::set_object_scale(object, state.scale);
@@ -445,7 +445,7 @@ bool get_tint(objects::GameEntity* object, uint32_t rgba)
         if (!geom)
             break;
         if (scenery::tintable(geom)) {
-            scenery::get_tint({.id = object->ident_, .index = i}, geom, rgba);
+            scenery::get_tint({.id = object->ident(), .index = i}, geom, rgba);
             any = true;
         }
     }
@@ -457,7 +457,7 @@ void* resolve_tint(scenery::TintOwner owner)
     if (owner.index < 0)
         return scenery::sector_geometry(owner.id);
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(owner.id));
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? model_geometry(object, owner.index)
+    return object && !(object->object_flags() & objects::kObjectFlagDead) ? model_geometry(object, owner.index)
                                                                          : nullptr;
 }
 
@@ -532,7 +532,7 @@ bool remove_copy(uint32_t name)
         return false;
     level_editor_objects_state().copies_.erase(it);
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
-    if (!object || (object->object_flags_ & objects::kObjectFlagDead))
+    if (!object || (object->object_flags() & objects::kObjectFlagDead))
         return false;
     object->flag_as_dead();
     return true;
@@ -555,7 +555,7 @@ const std::vector<uint32_t>& get_touched() { return object_copies().touched_; }
 
 void note_origin(objects::GameEntity* object)
 {
-    if (!get_origin(object->ident_))
+    if (!get_origin(object->ident()))
         object_copies().origins_.push_back(store_away(object));
 }
 

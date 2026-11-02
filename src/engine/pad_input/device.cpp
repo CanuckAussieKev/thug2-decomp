@@ -608,7 +608,7 @@ void pump_window_messages() { os_layer::process_window_events(); }
 void read_pad_state(int port, PadSnapshot* state) { os_layer::read_pad(port + 1, state); }
 bool get_key_down(int code) { return os_layer::get_key_down(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
-int get_menu_port() { return objects::profile_roster()->cursor_pos_; }
+int get_menu_port() { return objects::profile_roster()->cursor_pos(); }
 
 uint8_t if_above(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }
 uint8_t pressure_or_zero(uint8_t value) { return value > 0x20 ? value : 0; }

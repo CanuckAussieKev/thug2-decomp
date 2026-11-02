@@ -95,6 +95,17 @@ public:
     // 0x004079C0: the type of a file name's extension (0 if none matches; thiscall, the manager unused).
     int get_type_from_extension(const char* name);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int unknown18() const { return unknown18_; }
+    LoadCallback& callback() { return callback_; }
+    [[nodiscard]] const LoadCallback& callback() const { return callback_; }
+    void set_callback(const LoadCallback& value) { callback_ = value; }
+    [[nodiscard]] void* callback_data0() const { return callback_data0_; }
+    [[nodiscard]] void* callback_data1() const { return callback_data1_; }
+    [[nodiscard]] bool callback_once() const { return callback_once_; }
+    void set_callback_once(bool value) { callback_once_ = value; }
+
+private:
     bool permanent_by_default_{}; // +0x14 what LoadAnim loads with
     bool unknown15_{false};       // +0x15 cleared by the constructor
     std::array<uint8_t, 2> pad16{};
@@ -108,10 +119,14 @@ public:
     bool callback_once_{false}; // +0x34 the callback cleared after one asset
     std::array<uint8_t, 3> pad35{};
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x38 a tasks::Task<ResourceRegistry> running process_task
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(ResourceRegistry) == 0x3C && offsetof(ResourceRegistry, assets_) == 0x1C &&
+                          offsetof(ResourceRegistry, task_) == 0x38,
+                      "layout must match the original");
+    }
 };
-static_assert(sizeof(ResourceRegistry) == 0x3C && offsetof(ResourceRegistry, assets_) == 0x1C &&
-                  offsetof(ResourceRegistry, task_) == 0x38,
-              "layout must match the original");
 
 // 0x004088E0: the first call with `create` makes the manager; every call takes a reference. Returns the manager.
 ResourceRegistry* create_asset_manager(bool create);

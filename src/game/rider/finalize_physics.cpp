@@ -77,40 +77,40 @@ void RiderPhysicsCommit::tick_frame()
     objects::RiderPoseState* state = pose_;
     // Out of a lip trick (the physics' +0x256: the frame began in one) straight up: into the air with hardly any speed
     // across the ground. Kept while in the air.
-    if (core->frame_began_in_lip() && state->cur_phase_ != kStateLip) {
-        state->lip_straight_up_ = 0;
-        if (state->cur_phase_ == kStateAir && std::fabs(entity_->vel_.x) < kStillSpeed &&
-            std::fabs(entity_->vel_.z) < kStillSpeed)
-            state->lip_straight_up_ = 1;
+    if (core->frame_began_in_lip() && state->cur_phase() != kStateLip) {
+        state->set_lip_straight_up(0);
+        if (state->cur_phase() == kStateAir && std::fabs(entity_->vel().x) < kStillSpeed &&
+            std::fabs(entity_->vel().z) < kStillSpeed)
+            state->set_lip_straight_up(1);
     }
-    if (state->cur_phase_ != kStateAir)
-        state->lip_straight_up_ = 0;
-    state->drawn_normal_ = core->drawn_normal();
-    state->floor_normal_ = core->floor_normal();
+    if (state->cur_phase() != kStateAir)
+        state->set_lip_straight_up(0);
+    state->set_drawn_normal(core->drawn_normal());
+    state->floor_normal() = core->floor_normal();
 
     // The matrices: orthonormal again about up; the physics' own replaced by the object's if that needed repair.
-    entity_->basis_frame_.square_up_axes(1);
+    entity_->basis_frame().square_up_axes(1);
     maths::Mat4& physics_matrix = core->display_matrix();
     physics_matrix.square_up_axes(1);
-    if (entity_->basis_frame_.restore_right_angles())
-        physics_matrix = static_cast<ObjectModule*>(core)->entity_->basis_frame_;
-    entity_->display_matrix_ = physics_matrix;
+    if (entity_->basis_frame().restore_right_angles())
+        physics_matrix = static_cast<ObjectModule*>(core)->entity_->basis_frame();
+    entity_->display_matrix() = physics_matrix;
 
     // The sounds: terrain and state.
     auto* sound = core::down_cast<RiderSfxPlayer>(entity_->fetch_module(kSkaterSound));
-    sound->sliding_ = pose_->flag(PoseFlag::kSlide).on;
-    sound->surface_type_ = pose_->surface_type_;
+    sound->set_sliding(pose_->flag(PoseFlag::kSlide).on);
+    sound->set_surface_type(pose_->surface_type());
     auto* looping = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound));
-    const double x = entity_->vel_.x;
-    const double z = entity_->vel_.z;
+    const double x = entity_->vel().x;
+    const double z = entity_->vel().z;
     auto speed = static_cast<float>(std::sqrt(x * x + z * z));
     auto fraction = static_cast<float>(speed / scaled_physics_value(entity_, kSkaterMaxMaxSpeedStat));
     set_looping_sound_speed(looping, fraction);
     looping->set_no_rail_sound(pose_->flag(PoseFlag::kBailing).on);
     uint8_t& changed = looping->sound_changed();
     get_note(looping->sliding(), pose_->flag(PoseFlag::kSlide).on, changed);
-    get_note(looping->surface_type(), pose_->surface_type_, changed);
-    get_note(looping->cur_phase(), pose_->cur_phase_, changed);
+    get_note(looping->surface_type(), pose_->surface_type(), changed);
+    get_note(looping->cur_phase(), pose_->cur_phase(), changed);
 }
 
 } // namespace objects

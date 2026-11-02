@@ -375,7 +375,7 @@ void objects::FootMovement::end_drop_to_hang()
     change_phase(2);
     tell_physics_rail(this);
     trigger_rail_script(this, kHangEvents);
-    core::down_cast<objects::TaggingControlComponent>(object_of(this)->fetch_module(kTaggingControl))->blocked_ = false;
+    core::down_cast<objects::TaggingControlComponent>(object_of(this)->fetch_module(kTaggingControl))->set_blocked(false);
 }
 
 // 0x0043DDD0
@@ -396,7 +396,7 @@ bool objects::FootMovement::side_clear(render::ProbeRay* feeler, const RailHit& 
     const float hw = horiz * out.w;
     auto cz = static_cast<float>(static_cast<double>(hz) + point.z);
     auto cw = static_cast<float>(static_cast<double>(hw) + point.w);
-    maths::Seg& line = feeler->line_;
+    maths::Seg& line = feeler->line();
     line.start.w = cw + sw;
     line.start.x = cx + sx;
     line.start.y = static_cast<float>(cy + sy);
@@ -559,26 +559,26 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
         const double angle = static_cast<double>(i) * 0.89759790897369385;
         const double c = std::cos(angle);
         const double s = std::sin(angle);
-        probe.line_.start = {.x = ground.x, .y = static_cast<float>(static_cast<double>(ground.y) + height), .z = ground.z, .w = ground.w};
+        probe.line().start = {.x = ground.x, .y = static_cast<float>(static_cast<double>(ground.y) + height), .z = ground.z, .w = ground.w};
         auto dx = static_cast<float>(c * facing.x - s * facing.z);
         const double dz = s * facing.x + c * facing.z;
         auto out_x = static_cast<float>(static_cast<double>(dx) * half_push);
         auto out_z = static_cast<float>(dz * half_push);
         const float rise = no_rise + ground.y;
-        probe.line_.end = {.x = out_x + ground.x, .y = static_cast<float>(static_cast<double>(rise) + height), .z = out_z + ground.z,
+        probe.line().end = {.x = out_x + ground.x, .y = static_cast<float>(static_cast<double>(rise) + height), .z = out_z + ground.z,
                            .w = ground.w + half_push};
         if (probe.get_hit_shape(true, false))
             return false;
     }
     // and from behind the skater, up past the obstruction height, to just above the ground point
     const maths::Vec4& pos = pos_;
-    probe.line_.start = {.x = static_cast<float>(static_cast<double>(facing.x) * -6.0f + pos.x),
+    probe.line().start = {.x = static_cast<float>(static_cast<double>(facing.x) * -6.0f + pos.x),
                          .y = static_cast<float>(pos.y + static_cast<double>(facing.y) * -6.0f), .z = pos.z + facing.z * -6.0f,
                          .w = pos.w + facing.w * -6.0f};
     const float top = get_param(kHangVertOriginOffset);
     const float obstruction = get_param(kPullUpObstructionHeight);
-    probe.line_.start.y = static_cast<float>(static_cast<double>(probe.line_.start.y) + obstruction + top);
-    probe.line_.end = {.x = ground.x, .y = ground.y + 1.0f, .z = ground.z, .w = ground.w};
+    probe.line().start.y = static_cast<float>(static_cast<double>(probe.line().start.y) + obstruction + top);
+    probe.line().end = {.x = ground.x, .y = ground.y + 1.0f, .z = ground.z, .w = ground.w};
     if (probe.get_hit_shape(true, false))
         return false;
 
@@ -587,7 +587,7 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
         set_anim_done(this, script::object_callback<&objects::FootMovement::end_pull_up>());
         assign_feeler(&feeler_, &ledge);
         feeler_hit_ = true;
-        floor_normal_ = ledge.surface_dir_;
+        floor_normal_ = ledge.surface_dir();
     } else {
         set_anim_done(this, script::object_callback<&objects::FootMovement::end_drop_from_hang>());
     }
@@ -622,7 +622,7 @@ bool objects::FootMovement::drop_to_hang()
     if (speed * speed < moving)
         return false;
     auto* tagging = core::down_cast<objects::TaggingControlComponent>(object_of(this)->fetch_module(kTaggingControl));
-    if (tagging->pending_)
+    if (tagging->pending())
         return false;
     old_pos_.w = 1.0f;
     pos_.w = 1.0f;
@@ -636,7 +636,7 @@ bool objects::FootMovement::drop_to_hang()
     along_ = rail.along;
     rail_out_ = rail.out;
     rail_up_ = rail.up;
-    tagging->blocked_ = true;
+    tagging->set_blocked(true);
     transition_start_ = pos_;
     transition_pos_ = rail.point;
     set_anim_done(this, script::object_callback<&objects::FootMovement::end_drop_to_hang>());
@@ -733,7 +733,7 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
     }
     // the feeler: from the hang point, raised and pulled back out of the wall
     render::ProbeRay feeler;
-    maths::Seg& line = feeler.line_;
+    maths::Seg& line = feeler.line();
     line.start = *point;
     line.start.y = line.start.y + get_param(kHangMoveCollisionUp);
     const float back = get_param(kHangMoveCollisionBack);
@@ -869,7 +869,7 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
     // nothing between the skater and the critical point - or, on the ground, over whatever is (up first)
     maths::Vec4 critical = rail->point + get_param(kHangCriticalPointHorizOffset) * rail->facing;
     critical.y = static_cast<float>(critical_point_up() + critical.y);
-    maths::Seg& line = feeler->line_;
+    maths::Seg& line = feeler->line();
     line.start = pos_;
     line.end = critical;
     if (!feeler->get_hit_shape(true, false))
@@ -962,8 +962,8 @@ void objects::FootMovement::shimmy(float move)
     {
         const maths::Vec4 critical = {.x = offset.x + pos.x, .y = offset.y + pos.y, .z = offset.z + pos.z, .w = offset.w + pos.w};
         render::ProbeRay feeler;
-        feeler.line_.start = old_critical;
-        feeler.line_.end = critical;
+        feeler.line().start = old_critical;
+        feeler.line().end = critical;
         if (feeler.get_hit_shape(true, false)) {
             pos = old_pos;
             along = old_along;
@@ -1028,7 +1028,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     box.max = {.x = on_rail->x + 24.0f, .y = height + on_rail->y, .z = on_rail->z + 24.0f, .w = on_rail->w + 1.0f};
     box.min = {.x = on_rail->x - 24.0f, .y = on_rail->y - 24.0f, .z = on_rail->z - 24.0f, .w = on_rail->w - 1.0f};
     cache.tick_frame(box);
-    feeler.hit_cache_ = &cache;
+    feeler.set_hit_cache(&cache);
     rail->along = along;
     if (!hang_clear(&feeler, on_rail, record)) {
         if ((state_ != 1 && away) || ((flags & 0x80) && !on_right) || ((flags & 0x40) && on_right) ||
@@ -1047,7 +1047,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     const float hy = horiz * out.y;
     const float hz = horiz * out.z;
     const double hw = static_cast<double>(horiz) * out.w;
-    maths::Seg& line = feeler.line_;
+    maths::Seg& line = feeler.line();
     line.start = {.x = hx + rail->point.x, .y = hy + rail->point.y, .z = hz + rail->point.z, .w = static_cast<float>(hw + rail->point.w)};
     line.start.y = line.start.y + get_param(kHangInitAnimFeelerHeight);
     line.end = line.start;
@@ -1081,8 +1081,8 @@ void objects::FootMovement::update_hang()
     const maths::Vec4& facing = facing_;
     const objects::PadInputModule* input = input_;
     if (control_full_) {
-        if (core::at(input->pad_primary_.lock(), 0) == 0 && core::at(input->pad_primary_.polar(), 1).length != 0.0f &&
-            std::fabs(core::at(input->pad_primary_.polar(), 1).angle) < 0.78539818525314331f) {
+        if (core::at(input->pad_primary().lock(), 0) == 0 && core::at(input->pad_primary().polar(), 1).length != 0.0f &&
+            std::fabs(core::at(input->pad_primary().polar(), 1).angle) < 0.78539818525314331f) {
             // pushed forward: a pull-up, pull_up_offset_forward ahead - then half that
             const float forward = get_param(kPullUpOffsetForward);
             maths::Vec4 target = {.x = static_cast<float>(static_cast<double>(forward) * facing.x + pos.x),
@@ -1097,7 +1097,7 @@ void objects::FootMovement::update_hang()
             target.y = get_param(kPullUpOffsetUp) + target.y;
             if (pull_up(&target))
                 return;
-        } else if (walk::turned_round(&input->pad_primary_)) {
+        } else if (walk::turned_round(&input->pad_primary())) {
             // turned round: let go
             change_phase(1);
             object_of(this)->post_own_event(kSkaterExitHang, nullptr);
@@ -1110,11 +1110,11 @@ void objects::FootMovement::update_hang()
     }
 
     // the shimmy's speed: the control's sideways part (within hang_vert_control_tolerance of straight sideways)
-    auto sideways = static_cast<float>(1.5707963705062866 - std::fabs(core::at(input->pad_primary_.polar(), 1).angle));
+    auto sideways = static_cast<float>(1.5707963705062866 - std::fabs(core::at(input->pad_primary().polar(), 1).angle));
     const float tolerance = get_param(kHangVertControlTolerance);
     float wanted = 0.0f;
     if (std::cos(static_cast<double>(tolerance) * 0.017453292384743690) > std::fabs(sideways)) {
-        const float direction = core::at(input->pad_primary_.polar(), 1).angle > 0.0f ? 1.0f : -1.0f;
+        const float direction = core::at(input->pad_primary().polar(), 1).angle > 0.0f ? 1.0f : -1.0f;
         const float speed = get_param(kHangMoveSpeedParam);
         wanted = static_cast<float>(static_cast<double>(direction) * stick_deflection_ * speed);
     }
@@ -1266,8 +1266,8 @@ bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const m
     ladder->point = {.x = on_ladder->x - cx, .y = on_ladder->y - cy, .z = on_ladder->z - cz,
                      .w = static_cast<float>(on_ladder->w - static_cast<double>(climb) * at.w)};
     render::ProbeRay feeler;
-    feeler.line_.start = pos_;
-    feeler.line_.end = ladder->point;
+    feeler.line().start = pos_;
+    feeler.line().end = ladder->point;
     if (feeler.get_hit_shape(true, false))
         return false;
     ladder->facing = at;
@@ -1292,7 +1292,7 @@ void objects::FootMovement::climb_off_bottom()
     const bool found = find_stand_position(&target, &target, ground);
     feeler_hit_ = found;
     if (found)
-        floor_normal_ = ground->surface_dir_;
+        floor_normal_ = ground->surface_dir();
     // the animated move there
     transition_start_ = pos;
     transition_pos_ = target;
@@ -1340,11 +1340,11 @@ bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const
     ladder->point.w = static_cast<float>(ladder->point.w - static_cast<double>(climb) * at.w);
     // nothing between the skater and 6 behind that point
     render::ProbeRay feeler;
-    feeler.line_.start = pos_;
+    feeler.line().start = pos_;
     const float bx = at.x * 6.0f;
     const float by = at.y * 6.0f;
     const float bz = at.z * 6.0f;
-    feeler.line_.end = {.x = ladder->point.x - bx, .y = ladder->point.y - by, .z = ladder->point.z - bz,
+    feeler.line().end = {.x = ladder->point.x - bx, .y = ladder->point.y - by, .z = ladder->point.z - bz,
                         .w = static_cast<float>(ladder->point.w - static_cast<double>(at.w) * 6.0f)};
     if (feeler.get_hit_shape(true, false))
         return false;
@@ -1373,7 +1373,7 @@ void objects::FootMovement::climb_off_top()
         set_anim_done(this, script::object_callback<&objects::FootMovement::end_ladder_off_top>());
         assign_feeler(&feeler_, &ledge);
         feeler_hit_ = true;
-        floor_normal_ = feeler_.surface_dir_;
+        floor_normal_ = feeler_.surface_dir();
     } else {
         set_anim_done(this, script::object_callback<&objects::FootMovement::end_ladder_off_top_to_air>());
     }
@@ -1464,7 +1464,7 @@ void objects::FootMovement::climb_ladder()
     // the control's up / down part (its angle's cosine) at ladder_move_speed
     const float speed = get_param(kLadderMoveSpeed);
     const objects::PadInputModule* input = input_;
-    const double move_speed = std::cos(static_cast<double>(core::at(input->pad_primary_.polar(), 1).angle)) * stick_deflection_ *
+    const double move_speed = std::cos(static_cast<double>(core::at(input->pad_primary().polar(), 1).angle)) * stick_deflection_ *
                               static_cast<double>(speed);
     speed_ = static_cast<float>(move_speed);
     auto move = static_cast<float>(move_speed * frame_length_);
@@ -1530,7 +1530,7 @@ void objects::FootMovement::update_ladder()
     jump_unsteered_ = false;
     // the control within ladder_control_tolerance of up or down: climbing
     const objects::PadInputModule* input = input_;
-    auto upright = static_cast<float>(1.5707963705062866 - std::fabs(core::at(input->pad_primary_.polar(), 1).angle));
+    auto upright = static_cast<float>(1.5707963705062866 - std::fabs(core::at(input->pad_primary().polar(), 1).angle));
     const float tolerance = get_param(kLadderControlTolerance);
     if (std::cos(static_cast<double>(tolerance) * 0.017453292384743690) < std::fabs(upright)) {
         climb_ladder();

@@ -75,7 +75,7 @@ memory::ListNode* new_head() { return memory::ListNode::create_head(); }
 
 void order_batches(BillboardSet* manager)
 {
-    crt::get_qsort(static_cast<void*>(manager->batches.data()), static_cast<uint32_t>(manager->count), 4,
+    crt::get_qsort(static_cast<void*>(manager->batches_value().data()), static_cast<uint32_t>(manager->count_value()), 4,
                    compare_batches); // (the C runtime's qsort)
 }
 
@@ -168,7 +168,7 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into_block, D3DLOCK_DISCARD);
     const size_t vertex_bytes = static_cast<size_t>(mesh->stride_value()) * mesh->vertex_count();
     core::Cursor<uint8_t> into(std::span<uint8_t>(into_block, vertex_bytes));
-    core::Cursor<const uint8_t> from(std::span<const uint8_t>(get_vertex_buffer(mesh, 0)->data, vertex_bytes));
+    core::Cursor<const uint8_t> from(std::span<const uint8_t>(get_vertex_buffer(mesh, 0)->data_value(), vertex_bytes));
     const auto& pivot = mesh->billboard_value()->pivot;
     const float px = core::at(pivot, 0);
     const float py = core::at(pivot, 1);
@@ -219,7 +219,7 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         from += rest;
     }
     get_vertex_buffer(mesh, 0)->get_unlock();
-    renderer().d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(get_vertex_buffer(mesh, 0)->buffer), 0,
+    renderer().d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(get_vertex_buffer(mesh, 0)->buffer_value()), 0,
                                   mesh->stride_value());
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)
     renderer().d3d_device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(core::at(mesh->index_buffers(), 0)->buffer));
@@ -412,7 +412,7 @@ void BillboardBatch::render()
         core::copy_into(y.first(3), constants.subspan(4, 3));
         core::copy_into(z.first(3), constants.subspan(8, 3));
     };
-    set_axes(manager->right, manager->up, manager->view);
+    set_axes(manager->right_value(), manager->up_value(), manager->view_value());
     renderer().d3d_device()->SetVertexShaderConstantF(4, constants.data(), 3);
     {
         std::array<float, 3> x_axis{};
@@ -425,12 +425,12 @@ void BillboardBatch::render()
     }
     {
         const std::array<float, 3> flat_up = {{0.0f, 1.0f, 0.0f}};
-        set_axes(manager->flat_right_, flat_up, manager->flat_forward_);
+        set_axes(manager->flat_right(), flat_up, manager->flat_forward());
         std::array<float, 3> x_axis{};
         const std::array<float, 3> y_axis = {{0.0f, 1.0f, 0.0f}};
         std::array<float, 3> z_axis{};
-        core::copy_into(std::span<const float>(manager->flat_right_).first(3), std::span<float>(x_axis));
-        core::copy_into(std::span<const float>(manager->flat_forward_).first(3), std::span<float>(z_axis));
+        core::copy_into(std::span<const float>(manager->flat_right()).first(3), std::span<float>(x_axis));
+        core::copy_into(std::span<const float>(manager->flat_forward()).first(3), std::span<float>(z_axis));
         draw_list(core::at(lists, 1), y_axis, x_axis, z_axis);
     }
     // About each mesh's own axis: across = forward x axis, out = across x axis, both normalised.
@@ -439,7 +439,7 @@ void BillboardBatch::render()
         MeshRef* mesh = static_cast<BillboardRec*>(node->data)->mesh;
         if (mesh->flags_value() & 0x40) {
             const auto& axis = mesh->billboard_value()->axis;
-            const auto& d = manager->view;
+            const auto& d = manager->view_value();
             double rx = static_cast<double>(core::at(d, 1)) * core::at(axis, 2) - static_cast<double>(core::at(d, 2)) * core::at(axis, 1);
             auto ry = static_cast<float>(static_cast<double>(core::at(d, 2)) * core::at(axis, 0) - static_cast<double>(core::at(d, 0)) * core::at(axis, 2));
             auto rz = static_cast<float>(static_cast<double>(core::at(d, 0)) * core::at(axis, 1) - static_cast<double>(core::at(d, 1)) * core::at(axis, 0));

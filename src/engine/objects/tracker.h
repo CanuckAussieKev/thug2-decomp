@@ -101,6 +101,14 @@ public:
     // 0x00462CB0: free the name table.
     void teardown();
 
+    // The fields other code reads and sets.
+    void set_ordinal(int value) { ordinal_ = value; }
+    void set_has_looped(bool value) { has_looped_ = value; }
+    void set_names_ptr(lists::KeyMap* value) { names_ptr_ = value; }
+    void set_layer(int value) { layer_ = value; }
+    void set_added_since_sweep(int value) { added_since_sweep_ = value; }
+
+private:
     std::array<TableRow, 0x400> entries_;
     int ordinal_;             // +0x7000 the next entry
     bool has_looped_;         // +0x7004 the ring is full
@@ -166,6 +174,12 @@ public:
     void log_read(Signal* event, uint32_t how, uint32_t script);
     void log_frame();
 
+    // The fields other code reads and sets.
+    SignalTrace& log() { return log_; }
+    [[nodiscard]] const SignalTrace& log() const { return log_; }
+    void set_launched_from_script(int value) { launched_from_script_ = value; }
+
+private:
     // (The offsets are the original's, which has its vtable at +0x00.)
     int next_auto_id_{0};             // +0x04
     gsl::owner<lists::KeyMap*> entity_list_;      // +0x08 id -> Entity (8 bits)

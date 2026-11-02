@@ -126,8 +126,8 @@ bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, s
     const std::span<const uint16_t> trans_sizes = translation_sizes();
     size_t rot_keys = 0;
     size_t trans_keys = 0;
-    const uint32_t mask_bit = mask && mask->resume_ ? 1u << (mask->mask_bit_ & 31) : 0u;
-    const std::span<const uint32_t> bone_masks = mask_bit && mask->bone_masks_ ? std::span<const uint32_t>(mask->bone_masks_, static_cast<size_t>(bone_count_)) : std::span<const uint32_t>();
+    const uint32_t mask_bit = mask && mask->resume() ? 1u << (mask->mask_bit() & 31) : 0u;
+    const std::span<const uint32_t> bone_masks = mask_bit && mask->bone_masks() ? std::span<const uint32_t>(mask->bone_masks(), static_cast<size_t>(bone_count_)) : std::span<const uint32_t>();
     for (int i = 0; i < bone_count_; ++i) {
         bool skip = mask_bit ? (core::at(bone_masks, i) & mask_bit) != 0 : false;
         if (flag_bits_ & kBoneBits)
@@ -211,7 +211,7 @@ void JointClipFrames::build_cache(int format)
     const uint32_t size = manager->fetch_record_bytes(bone_count_, static_cast<int>(quat_key_count_),
                                                       static_cast<int>(trans_key_count_), format);
     const int priority = static_cast<int16_t>(static_cast<int16_t>(bits_ << 7) >> 8);
-    if (manager->num_ == 0x32 || ClipStore::heap_available() < size) {
+    if (manager->num() == 0x32 || ClipStore::heap_available() < size) {
         if (manager->free_oldest(priority, size))
             cache_slot_ = nullptr;
     }

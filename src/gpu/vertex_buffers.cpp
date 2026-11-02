@@ -79,7 +79,7 @@ void unlist(BufferNode*& head, const void* buffer)
     dealloc(memory::owned_element(node)); // (the list's)
 }
 
-IDirect3DVertexBuffer9* d_3d(const VertexBuffer* vb) { return static_cast<IDirect3DVertexBuffer9*>(vb->buffer); }
+IDirect3DVertexBuffer9* d_3d(const VertexBuffer* vb) { return static_cast<IDirect3DVertexBuffer9*>(vb->buffer_value()); }
 IDirect3DIndexBuffer9* d_3d(const IdxStore* ib) { return static_cast<IDirect3DIndexBuffer9*>(ib->buffer); }
 
 constexpr uint32_t kNoCopy = 1;

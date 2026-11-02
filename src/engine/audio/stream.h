@@ -224,6 +224,15 @@ struct StreamSlot {
 
     [[nodiscard]] bool get_playing() const { return wad || bink; }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] WadStream* wad_value() const { return wad; }
+    [[nodiscard]] BinkStream* bink_value() const { return bink; }
+    [[nodiscard]] float volume_value() const { return volume; }
+    void set_volume(float value) { volume = value; }
+    [[nodiscard]] bool paused_value() const { return paused; }
+    void set_paused(bool value) { paused = value; }
+
+private:
     WadStream* wad;     // +0x00
     BinkStream* bink;   // +0x04
     uint32_t unknown08; // +0x08

@@ -306,7 +306,7 @@ void BodyDynamicsModule::feel_pushers()
         if (!pusher)
             continue;
         const float reach = core::at(objects_shared().pusher_reach(), i);
-        const maths::Vec4& at = pusher->at_point_;
+        const maths::Vec4& at = pusher->at_point();
         const double outer = get_wide(reach) + skater_radius_;
         const double dz = get_wide(at_point_.z) - at.z;
         const double dx = get_wide(at_point_.x) - at.x;
@@ -324,9 +324,9 @@ void BodyDynamicsModule::feel_pushers()
         const double inverse = 1.0 / std::sqrt(ez * ez + get_wide(ex) * ex);
         const float nx = get_narrow(get_wide(ex) * inverse);
         const float nz = get_narrow(ez * inverse);
-        const float rx = get_narrow(get_wide(pusher->vel_.x) - vel_.x);
-        const double ry = get_wide(pusher->vel_.y) - vel_.y;
-        const float rz = get_narrow(get_wide(pusher->vel_.z) - vel_.z);
+        const float rx = get_narrow(get_wide(pusher->vel().x) - vel_.x);
+        const double ry = get_wide(pusher->vel().y) - vel_.y;
+        const float rz = get_narrow(get_wide(pusher->vel().z) - vel_.z);
         if (std::fabs(rx) <= kSlow && std::fabs(ry) <= kSlow && std::fabs(rz) <= kSlow)
             return;
         const double approach = (std::fabs(ry * kUpShare) + get_wide(rx) * nx) + get_wide(rz) * nz;
@@ -395,7 +395,7 @@ void BodyDynamicsModule::feel_pushers()
         push_cooldown_ = push_cooldown_time_;
         if (collide_script_)
             entity_->spawn_script(collide_script_, callback_params_ptr_, 0, false)->tick_frame();
-        hide_sector(checksums::fold_text_into_checksum(entity_->ident_, "_Shadow"));
+        hide_sector(checksums::fold_text_into_checksum(entity_->ident(), "_Shadow"));
         const int now = static_cast<int>(frame_clock::get_time());
         if (now - static_cast<int>(unknownf0_) > 0 && now - next_collide_sound_time() > 0 && audio_module_ &&
             collide_sound_ptr_) {

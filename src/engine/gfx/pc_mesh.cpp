@@ -42,7 +42,7 @@ bool read_breaks(PcMesh* mesh, Stream& in)
         return false;
     }
     if (skin.version >= 2)
-        mesh->bone_count_ = skin.bone_count;
+        mesh->set_bone_count(skin.bone_count);
     mesh->break_count_ = skin.break_count;
     if (mesh->break_count_) {
         mesh->breaks = new_breaks(mesh->break_count_);
@@ -125,8 +125,8 @@ void PcMesh::choose_scene(PcScene* new_scene)
 {
     scene = new_scene;
     const SceneRef* list = new_scene->meshes;
-    hierarchy_ = list->hierarchy_value();
-    hierarchy_count_ = list->unknown78_value();
+    set_hierarchy(list->hierarchy_value());
+    set_hierarchy_count(list->unknown78_value());
 }
 
 } // namespace render

@@ -125,7 +125,7 @@ void FootView::configure_from_data(script::Struct* params)
     bind_rider(core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id)));
     turn_cosine_ = 1.0f;
     zoom_ = 1.0f;
-    orientation_ = entity_->basis_frame_;
+    orientation_ = entity_->basis_frame();
 }
 
 // 0x00524FB0
@@ -213,13 +213,13 @@ float FootView::get_param(uint32_t name)
 void FootView::fetch_goal(maths::Vec4* out, bool instant)
 {
     if (instant) {
-        aim_point_ = skater_->at_point_;
+        aim_point_ = skater_->at_point();
     } else {
         auto across = static_cast<float>(
             frame_blend(skater_camera_->lerp_xz(), static_cast<float>(frame_clock::get_slomo_frame_seconds())));
         auto up = static_cast<float>(
             frame_blend(skater_camera_->lerp_y(), static_cast<float>(frame_clock::get_slomo_frame_seconds())));
-        const maths::Vec4& skater = skater_->at_point_;
+        const maths::Vec4& skater = skater_->at_point();
         const float x = aim_point_.x;
         const float y = aim_point_.y;
         const float z = aim_point_.z;
@@ -259,11 +259,11 @@ void FootView::tick_frame()
 {
     if (!skater_)
         return;
-    if (physics_control_ && physics_control_->pose_->in_vehicle_) {
-        entity_->composite_flags_ |= kCompositeFlagPaused;
+    if (physics_control_ && physics_control_->pose()->in_vehicle()) {
+        entity_->composite_flags() |= kCompositeFlagPaused;
         return;
     }
-    if (skater_->composite_flags_ & kCompositeFlagTeleported)
+    if (skater_->composite_flags() & kCompositeFlagTeleported)
         instant_frames_ = 3;
     bool instant = false;
     if (instant_frames_ > 0) {
@@ -274,14 +274,14 @@ void FootView::tick_frame()
     }
     viewer_->view_camera_->remember_prev_pos();
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    const float turn = core::at(core::down_cast<PadInputModule>(entity_->fetch_module(kInput))->pad_primary_.scaled_stick(), 0);
-    entity_->basis_frame_ = orientation_;
+    const float turn = core::at(core::down_cast<PadInputModule>(entity_->fetch_module(kInput))->pad_primary().scaled_stick(), 0);
+    entity_->basis_frame() = orientation_;
 
     // Where to look: along the camera's flat facing, swung round to the skater's.
-    const maths::Vec4& at = core::at(entity_->basis_frame_.row, 2);
+    const maths::Vec4& at = core::at(entity_->basis_frame().row, 2);
     maths::Vec4 facing = {.x = -at.x, .y = 0.0f, .z = -at.z, .w = -at.w};
     facing.make_unit();
-    const maths::Vec4& skater_at = core::at(skater_->basis_frame_.row, 2);
+    const maths::Vec4& skater_at = core::at(skater_->basis_frame().row, 2);
     maths::Vec4 skater_facing = {.x = skater_at.x, .y = 0.0f, .z = skater_at.z, .w = skater_at.w};
     skater_facing.make_unit();
     if (flush_) {
@@ -301,7 +301,7 @@ void FootView::tick_frame()
                     full = get_param(kDpadFullSlerpSpeed);
                     least = get_param(kDpadMinSlerpSpeed);
                 }
-                const maths::Vec4& velocity = skater_->vel_;
+                const maths::Vec4& velocity = skater_->vel();
                 const double speed = std::sqrt(static_cast<double>(velocity.x) * velocity.x +
                                                static_cast<double>(velocity.z) * velocity.z);
                 auto speed_f = static_cast<float>(speed);
@@ -344,8 +344,8 @@ void FootView::tick_frame()
     matrix_multiply(&look, &tilt, &look);
     core::at(look.row, 0) = {.x = -core::at(look.row, 0).x, .y = -core::at(look.row, 0).y, .z = -core::at(look.row, 0).z, .w = -core::at(look.row, 0).w};
     core::at(look.row, 2) = {.x = -core::at(look.row, 2).x, .y = -core::at(look.row, 2).y, .z = -core::at(look.row, 2).z, .w = -core::at(look.row, 2).w};
-    const maths::Vec4 skater_up = core::at(skater_->basis_frame_.row, 1);
-    maths::Mat4& matrix = entity_->basis_frame_;
+    const maths::Vec4 skater_up = core::at(skater_->basis_frame().row, 1);
+    maths::Mat4& matrix = entity_->basis_frame();
     if (instant) {
         matrix = look;
     } else {
@@ -420,7 +420,7 @@ void FootView::tick_frame()
     target.y = target.y + step_y;
     target.z = static_cast<float>(target.z + step_z);
     target.w = static_cast<float>(target.w + step_w);
-    const maths::Vec4& skater_pos = skater_->at_point_;
+    const maths::Vec4& skater_pos = skater_->at_point();
     const maths::Vec4 focus = {.x = up_xf + skater_pos.x, .y = static_cast<float>(up_y + skater_pos.y), .z = up_zf + skater_pos.z,
                                .w = up_wf + skater_pos.w};
 
@@ -460,7 +460,7 @@ void FootView::tick_frame()
     const maths::Vec4 pull = {.x = clear.x + offset.x, .y = clear.y + offset.y, .z = clear.z + offset.z, .w = clear.w + offset.w};
     avoid_camera_collisions(&target, &matrix, &pull, &focus, true, true);
     target.w = 1.0f;
-    entity_->at_point_ = target;
+    entity_->at_point() = target;
     if (instant)
         viewer_->view_camera_->remember_prev_pos();
     skater_camera_->set_skater_matrix(matrix);

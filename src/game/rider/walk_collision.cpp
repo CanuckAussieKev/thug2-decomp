@@ -102,29 +102,29 @@ void FootMovement::update_curb_float()
     // A feeler from half a unit above the feet, curb_float_feeler_length ahead.
     render::ProbeRay feeler;
     const maths::Vec4& pos = pos_;
-    feeler.line_.start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kHalf), .z = pos.z, .w = 0.0f};
+    feeler.line().start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kHalf), .z = pos.z, .w = 0.0f};
     const float reach = walk_parameter(kCurbFloatFeelerLength);
     const float reach_y = ahead.y * reach;
     const float reach_x = reach * ahead.x;
-    feeler.line_.end = {.x = reach_x + pos.x, .y = static_cast<float>((static_cast<double>(reach_y) + pos.y) + kHalf),
+    feeler.line().end = {.x = reach_x + pos.x, .y = static_cast<float>((static_cast<double>(reach_y) + pos.y) + kHalf),
                         .z = static_cast<float>(static_cast<double>(ahead.z) * reach + pos.z), .w = 0.0f};
     if (!feeler.get_hit_shape(true, false))
         return;
-    const float distance = feeler.reach_;
+    const float distance = feeler.reach();
 
     // Something ahead: straight down onto it from snap_up_height, half a unit past where it was hit.
-    const maths::Vec4 over = {.x = ahead.x * kHalf + feeler.contact_pos_.x, .y = ahead.y * kHalf + feeler.contact_pos_.y,
-                              .z = ahead.z * kHalf + feeler.contact_pos_.z,
-                              .w = static_cast<float>(static_cast<double>(ahead.w) * kHalf + feeler.contact_pos_.w)};
-    feeler.line_.end = over;
-    feeler.line_.start = over;
-    feeler.line_.start.y = static_cast<float>(static_cast<double>(walk_parameter(kSnapUpHeight)) + pos.y);
+    const maths::Vec4 over = {.x = ahead.x * kHalf + feeler.contact_pos().x, .y = ahead.y * kHalf + feeler.contact_pos().y,
+                              .z = ahead.z * kHalf + feeler.contact_pos().z,
+                              .w = static_cast<float>(static_cast<double>(ahead.w) * kHalf + feeler.contact_pos().w)};
+    feeler.line().end = over;
+    feeler.line().start = over;
+    feeler.line().start.y = static_cast<float>(static_cast<double>(walk_parameter(kSnapUpHeight)) + pos.y);
     if (!feeler.get_hit_shape(true, false))
         return;
 
     // Its height, less the nearer it is, eased toward - unless the float is settled, there's no push and it's
     // slower than min_curb_height_adjust_vel (the original reads it through 0x0043DA70).
-    auto target = static_cast<float>((static_cast<double>(feeler.contact_pos_.y) - pos.y) *
+    auto target = static_cast<float>((static_cast<double>(feeler.contact_pos().y) - pos.y) *
                                      (kOne - static_cast<double>(distance)));
     float& curb = curb_offset_;
     const maths::Vec4& vel = vel_;
@@ -155,31 +155,31 @@ void FootMovement::check_ceiling()
     // A feeler up from just above the feet to the head.
     render::ProbeRay feeler;
     maths::Vec4& pos = pos_;
-    feeler.line_.start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kHeadClearance), .z = pos.z, .w = pos.w};
-    feeler.line_.end = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + top), .z = pos.z, .w = pos.w};
+    feeler.line().start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kHeadClearance), .z = pos.z, .w = pos.w};
+    feeler.line().end = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + top), .z = pos.z, .w = pos.w};
     if (!feeler.get_hit_shape(true, false))
         return;
 
     // A ceiling: the velocity into it taken away, and the head moved back out of it.
     maths::Vec4& vel = vel_;
     vel.y = up_speed_;
-    const maths::Vec4& normal = feeler.surface_dir_;
+    const maths::Vec4& normal = feeler.surface_dir();
     if ((static_cast<double>(normal.y) * vel.y + static_cast<double>(normal.z) * vel.z) +
             static_cast<double>(normal.x) * vel.x <
         0.0)
         vel.flatten_onto_plane(normal);
-    const maths::Vec4& end = feeler.line_.end;
-    maths::Vec4 back = {.x = feeler.contact_pos_.x - end.x, .y = feeler.contact_pos_.y - end.y, .z = feeler.contact_pos_.z - end.z,
-                        .w = feeler.contact_pos_.w - end.w};
+    const maths::Vec4& end = feeler.line().end;
+    maths::Vec4 back = {.x = feeler.contact_pos().x - end.x, .y = feeler.contact_pos().y - end.y, .z = feeler.contact_pos().z - end.z,
+                        .w = feeler.contact_pos().w - end.w};
     up_speed_ = vel.y;
     vel.y = 0.0f;
     back.project_onto(normal);
-    feeler.line_.end = {.x = back.x + pos.x, .y = back.y + pos.y, .z = back.z + pos.z, .w = back.w + pos.w};
+    feeler.line().end = {.x = back.x + pos.x, .y = back.y + pos.y, .z = back.z + pos.z, .w = back.w + pos.w};
     if (feeler.get_hit_shape(true, false))
-        pos = {.x = feeler.contact_pos_.x + feeler.surface_dir_.x, .y = feeler.contact_pos_.y + feeler.surface_dir_.y,
-               .z = feeler.contact_pos_.z + feeler.surface_dir_.z, .w = feeler.contact_pos_.w + feeler.surface_dir_.w};
+        pos = {.x = feeler.contact_pos().x + feeler.surface_dir().x, .y = feeler.contact_pos().y + feeler.surface_dir().y,
+               .z = feeler.contact_pos().z + feeler.surface_dir().z, .w = feeler.contact_pos().w + feeler.surface_dir().w};
     else
-        pos = feeler.line_.end;
+        pos = feeler.line().end;
     entity_->post_own_event(kCeilingEvent, nullptr);
 }
 
@@ -187,8 +187,8 @@ void FootMovement::check_ceiling()
 void FootMovement::check_sticker_slap()
 {
     // X and the pad's +0x20 button (btn_down_) both down, the latter within 30 ms.
-    auto* pad = &input_->pad_primary_;
-    if (!pad->pos_x().held_down_ || !pad->btn_down().held_down_)
+    auto* pad = &input_->pad_primary();
+    if (!pad->pos_x().held_down() || !pad->btn_down().held_down())
         return;
     if (static_cast<uint32_t>(pad->btn_down().get_held_millis()) > 30)
         return;
@@ -196,17 +196,17 @@ void FootMovement::check_sticker_slap()
     // A wall ahead: a feeler from feeler_height up, feeler_length along the facing (static collision only).
     render::ProbeRay feeler;
     const maths::Vec4& facing = facing_;
-    maths::Vec4& start = feeler.line_.start;
+    maths::Vec4& start = feeler.line().start;
     start = pos_;
     start.y = static_cast<float>(static_cast<double>(start.y) + walk_parameter(kProbeElevation));
     const float reach = walk_parameter(kFeelerLength);
-    feeler.line_.end = {.x = reach * facing.x + start.x, .y = reach * facing.y + start.y, .z = reach * facing.z + start.z,
+    feeler.line().end = {.x = reach * facing.x + start.x, .y = reach * facing.y + start.y, .z = reach * facing.z + start.z,
                         .w = static_cast<float>(static_cast<double>(reach) * facing.w + start.w)};
     if (!feeler.get_hit_shape(false, false))
         return;
 
     // High enough, not just wallplanted, not just after leaving the ground, and the physics allows it.
-    if (script::fetch_float(kMinWallplantHeight) > skater_state_->height_above_ground_)
+    if (script::fetch_float(kMinWallplantHeight) > skater_state_->height_above_ground())
         return;
     auto since_as_float = [](int then) {
         return static_cast<float>(static_cast<double>(static_cast<uint32_t>(clock_since(then))));
@@ -234,20 +234,20 @@ void FootMovement::update_ground_below()
     render::ProbeRay down;
     const float y = pos.y + offset.y;
     const maths::Vec4 point = {.x = pos.x + offset.x, .y = y, .z = pos.z + offset.z, .w = pos.w + offset.w};
-    down.line_.start = {.x = point.x, .y = static_cast<float>(static_cast<double>(y) + kOne), .z = point.z, .w = point.w};
-    down.line_.end = {.x = point.x, .y = static_cast<float>(static_cast<double>(y) - depth), .z = point.z, .w = point.w};
+    down.line().start = {.x = point.x, .y = static_cast<float>(static_cast<double>(y) + kOne), .z = point.z, .w = point.w};
+    down.line().end = {.x = point.x, .y = static_cast<float>(static_cast<double>(y) - depth), .z = point.z, .w = point.w};
     const bool below = down.get_hit_shape(true, false);
 
     // From 12 higher (faces flagged 0x20 only): down to just under that ground, or as deep.
     render::ProbeRay shade;
     shade.set_excluded(0, 0x20);
-    shade.line_.start = {.x = point.x, .y = static_cast<float>((static_cast<double>(pos.y) + offset.y) + kTwelve), .z = point.z,
+    shade.line().start = {.x = point.x, .y = static_cast<float>((static_cast<double>(pos.y) + offset.y) + kTwelve), .z = point.z,
                          .w = point.w};
     if (below)
-        shade.line_.end = {.x = down.contact_pos_.x, .y = static_cast<float>(static_cast<double>(down.contact_pos_.y) - kOne),
-                           .z = down.contact_pos_.z, .w = down.contact_pos_.w};
+        shade.line().end = {.x = down.contact_pos().x, .y = static_cast<float>(static_cast<double>(down.contact_pos().y) - kOne),
+                           .z = down.contact_pos().z, .w = down.contact_pos().w};
     else
-        shade.line_.end = {.x = point.x, .y = static_cast<float>(static_cast<double>(shade.line_.start.y) - depth), .z = point.z,
+        shade.line().end = {.x = point.x, .y = static_cast<float>(static_cast<double>(shade.line().start.y) - depth), .z = point.z,
                            .w = point.w};
     // The model shaded by the face hit (its vertex value).
     auto shade_model = [this](render::ProbeRay* feeler) { model_->apply_brightness(feeler, true, kOne); };
@@ -258,10 +258,10 @@ void FootMovement::update_ground_below()
 
     if (below) {
         // The height above it (the skater state's +0x11C), the shadow on it.
-        skater_state_->height_above_ground_ = static_cast<float>(static_cast<double>(pos.y) - down.contact_pos_.y);
+        skater_state_->set_height_above_ground(static_cast<float>(static_cast<double>(pos.y) - down.contact_pos().y));
         auto* shadow = core::down_cast<GroundShadowModule>(entity_->fetch_module(kShadow));
-        shadow->change_place(&down.contact_pos_);
-        shadow->set_normal(&down.surface_dir_);
+        shadow->change_place(&down.contact_pos());
+        shadow->set_normal(&down.surface_dir());
         return;
     }
 
@@ -321,11 +321,11 @@ void FootMovement::ease_critical_point_offset()
     render::ProbeRay feeler;
     const maths::Vec4& old_pos = old_pos_;
     maths::Vec4& pos = pos_;
-    feeler.line_.start = {.x = old.x + old_pos.x, .y = old.y + old_pos.y, .z = old.z + old_pos.z, .w = old.w + old_pos.w};
-    feeler.line_.end = {.x = pos.x + offset.x, .y = pos.y + offset.y, .z = pos.z + offset.z, .w = pos.w + offset.w};
+    feeler.line().start = {.x = old.x + old_pos.x, .y = old.y + old_pos.y, .z = old.z + old_pos.z, .w = old.w + old_pos.w};
+    feeler.line().end = {.x = pos.x + offset.x, .y = pos.y + offset.y, .z = pos.z + offset.z, .w = pos.w + offset.w};
     if (feeler.get_hit_shape(true, false)) {
         const maths::Vec4 adjustment =
-            (feeler.contact_pos_ + kAdjustClearance * feeler.surface_dir_) - feeler.line_.end;
+            (feeler.contact_pos() + kAdjustClearance * feeler.surface_dir()) - feeler.line().end;
         pos += adjustment;
         debug::printf(kMessageFormat, kSourceFile, 0xB8C, kBadPointMessage);
         debug::printf(kAdjustmentFormat, kSourceFile, 0xB8D, static_cast<double>(adjustment.x),
@@ -350,8 +350,8 @@ void FootMovement::plan_jump_over_obstruction()
 {
     // A feeler up from the head by jump_obstruction_check_height (static collision only)...
     render::ProbeRay feeler;
-    maths::Vec4& start = feeler.line_.start;
-    maths::Vec4& end = feeler.line_.end;
+    maths::Vec4& start = feeler.line().start;
+    maths::Vec4& end = feeler.line().end;
     start = pos_;
     start.y = static_cast<float>(static_cast<double>(start.y) + walk_parameter(kWalkerHeight));
     end = start;
@@ -360,7 +360,7 @@ void FootMovement::plan_jump_over_obstruction()
         return;
     // ... meets something: the same jump_obstruction_check_back further back must be clear.
     const float back = walk_parameter(kJumpObstructionCheckBack);
-    const float height = feeler.contact_pos_.y - start.y;
+    const float height = feeler.contact_pos().y - start.y;
     const maths::Vec4& facing = facing_;
     for (maths::Vec4* v : {&start, &end}) {
         v->x = static_cast<float>(v->x - static_cast<double>(back) * facing.x);
@@ -391,10 +391,10 @@ void FootMovement::plan_jump_over_obstruction()
 void FootMovement::try_wallplant()
 {
     // X down, not rising, high enough, not just wallplanted, not just after leaving the ground...
-    auto* pad = &input_->pad_primary_;
-    if (!pad->pos_x().held_down_ || up_speed_ > 0.0f)
+    auto* pad = &input_->pad_primary();
+    if (!pad->pos_x().held_down() || up_speed_ > 0.0f)
         return;
-    if (script::fetch_float(kMinWallplantHeight) > skater_state_->height_above_ground_)
+    if (script::fetch_float(kMinWallplantHeight) > skater_state_->height_above_ground())
         return;
     auto since_as_float = [](int then) {
         return static_cast<float>(static_cast<double>(static_cast<uint32_t>(clock_since(then))));
@@ -437,7 +437,7 @@ void FootMovement::try_wallplant()
     // Off a moving object: its velocity added.
     auto& feeler = contact->feeler;
     if (feeler.hit_object_alive()) {
-        const maths::Vec4& carried = feeler.get_hit_object()->vel_;
+        const maths::Vec4& carried = feeler.get_hit_object()->vel();
         up_speed_ = carried.y + up_speed_;
         vel_.x = carried.x + vel_.x;
         vel_.z = carried.z + vel_.z;
@@ -445,11 +445,11 @@ void FootMovement::try_wallplant()
     plan_jump_over_obstruction();
     // The trigger told (events 0x0064C63C); a trigger's script may take over.
     trigger_->probe_touches_zone(kWalkEvents0064c63c, &feeler);
-    if (static_cast<bool>(physics_control_->flag26_))
+    if (static_cast<bool>(physics_control_->flag26()))
         return;
     // The wall's checksum (the feeler hit's +0x34) to the trick objects; the wallplant's time; its animation.
     core::down_cast<MoveExecutor>(entity_->fetch_module(kTrick))
-        ->pass_to_trick_objects(contact->feeler.hit_.object_checksum_);
+        ->pass_to_trick_objects(contact->feeler.hit().object_checksum_);
     core_physics_->set_wallplant_time(frame_clock::game_clock_elapsed() + clock_offset());
     anim_state_ = kWallplant;
 }
@@ -457,7 +457,7 @@ void FootMovement::try_wallplant()
 // 0x005299F0
 bool FootMovement::try_grind()
 {
-    if (physics_control_->board_missing_)
+    if (physics_control_->board_missing())
         return false;
     // A rail along the move: the level's, else one riding an object (in that object's space).
     maths::Vec4& old_pos = old_pos_;
@@ -501,9 +501,9 @@ bool FootMovement::try_grind()
         return false;
     render::ProbeRay feeler(&pos, &point);
     if (feeler.get_hit_shape(true, false)) {
-        const double dz = static_cast<double>(point.z) - feeler.contact_pos_.z;
-        const double dy = static_cast<double>(point.y) - feeler.contact_pos_.y;
-        const double dx = static_cast<double>(point.x) - feeler.contact_pos_.x;
+        const double dz = static_cast<double>(point.z) - feeler.contact_pos().z;
+        const double dy = static_cast<double>(point.y) - feeler.contact_pos().y;
+        const double dx = static_cast<double>(point.x) - feeler.contact_pos().x;
         if ((dx * dx + dy * dy) + dz * dz > kGrindClearance)
             return false;
     }

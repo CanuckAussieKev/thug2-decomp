@@ -86,7 +86,7 @@ bool get_hit(Point from, Point to, Point* at)
     if (!feeler->get_collision_along(&start, &end, false))
         return false;
     if (at)
-        *at = point_of(feeler->contact_pos_);
+        *at = point_of(feeler->contact_pos());
     return true;
 }
 
@@ -156,15 +156,15 @@ void place_skater(objects::Rider* skater, Point pos, float heading)
 {
     const double h = static_cast<double>(heading) * kPi / 180.0;
     auto s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
-    for (maths::Mat4* m : {&skater->basis_frame_, &skater->display_matrix_}) {
+    for (maths::Mat4* m : {&skater->basis_frame(), &skater->display_matrix()}) {
         core::at(m->row, 0) = {.x = c, .y = 0.0f, .z = -s, .w = 0.0f};
         core::at(m->row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
         core::at(m->row, 2) = {.x = s, .y = 0.0f, .z = c, .w = 0.0f};
     }
     if (skater->core_physics())
-        skater->core_physics()->display_matrix() = skater->basis_frame_; // (its display matrix)
-    skater->at_point_ = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
-    skater->old_pos_ = skater->at_point_;
+        skater->core_physics()->display_matrix() = skater->basis_frame(); // (its display matrix)
+    skater->at_point() = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
+    skater->old_pos() = skater->at_point();
 }
 
 // ThawBmx_HomeSpot: pos / heading of the level's bike.
@@ -193,12 +193,12 @@ bool cfunc_walk_to_bike(script::Struct* params, script::Script*)
     const objects::GameEntity* bike = object_of(params);
     if (!skater || !bike)
         return true;
-    const Point from = point_of(skater->at_point_);
-    const Point to = point_of(bike->at_point_);
-    const float heading = get_heading_of(core::at(skater->basis_frame_.row, 2).x, core::at(skater->basis_frame_.row, 2).z);
+    const Point from = point_of(skater->at_point());
+    const Point to = point_of(bike->at_point());
+    const float heading = get_heading_of(core::at(skater->basis_frame().row, 2).x, core::at(skater->basis_frame().row, 2).z);
     Point next{};
     if (step_toward(from, to, kWalkStep, &next)) {
-        place_skater(skater, to, get_heading_of(core::at(bike->basis_frame_.row, 2).x, core::at(bike->basis_frame_.row, 2).z));
+        place_skater(skater, to, get_heading_of(core::at(bike->basis_frame().row, 2).x, core::at(bike->basis_frame().row, 2).z));
         return true;
     }
     // (turned towards it first, then walked)
@@ -214,7 +214,7 @@ bool cfunc_bike_reachable(script::Struct* params, script::Script*)
 {
     const objects::Rider* skater = local_skater();
     const objects::GameEntity* bike = object_of(params);
-    return skater && bike && get_clear(point_of(skater->at_point_), point_of(bike->at_point_));
+    return skater && bike && get_clear(point_of(skater->at_point()), point_of(bike->at_point()));
 }
 
 void launch_script(const char* name)
@@ -305,8 +305,8 @@ void update_parked(modules::FrontEnd* front_end)
         if (stage_map().frames < kSettleFrames)
             return;
         // (where the skater is now: where the level started it)
-        const Point pos = point_of(skater->at_point_);
-        const float heading = get_heading_of(core::at(skater->basis_frame_.row, 2).x, core::at(skater->basis_frame_.row, 2).z);
+        const Point pos = point_of(skater->at_point());
+        const float heading = get_heading_of(core::at(skater->basis_frame().row, 2).x, core::at(skater->basis_frame().row, 2).z);
         stage_map().start = find_start_spot(pos, heading);
         stage_map().noted = true;
         if (!stage_map().start.valid)

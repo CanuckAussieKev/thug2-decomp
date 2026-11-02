@@ -354,7 +354,7 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
     int seen_count = 0;
     for (objects::ObjectModule* component = objects->find_first_module_of_kind(kModel); component;
          component = component->next_of_type_) {
-        if (component->entity_->kind_tag_ != kCarType)
+        if (component->entity_->kind_tag() != kCarType)
             continue;
         render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
         bool added = false;

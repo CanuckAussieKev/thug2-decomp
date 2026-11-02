@@ -68,6 +68,11 @@ public:
     // 1; any other member: 2 (not its own).
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
+    // The fields other code reads and sets.
+    uint8_t& lock_flags() { return lock_flags_; }
+    [[nodiscard]] uint8_t lock_flags() const { return lock_flags_; }
+
+private:
     uint32_t entity_label_{};        // +0x18 ObjectName (0 none)
     uint32_t target_id_{};           // +0x1C id (default the "no id" value at 0x0064780C)
     uint32_t bone_{};                // +0x20 bone (0 none)
@@ -80,12 +85,16 @@ public:
     int wobble_seed_{};              // +0x88 Rnd(1024)
     uint8_t lock_flags_{};           // +0x8C LOCK_FLAG_*
     std::array<uint8_t, 3> pad8d_{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PinnedObjectModule, entity_label_) == 0x18 && offsetof(PinnedObjectModule, shift_) == 0x24 &&
+                          offsetof(PinnedObjectModule, orientation_turn_) == 0x34 &&
+                          offsetof(PinnedObjectModule, lag_) == 0x74 && offsetof(PinnedObjectModule, wobble_) == 0x80 &&
+                          offsetof(PinnedObjectModule, wobble_seed_) == 0x88 &&
+                          offsetof(PinnedObjectModule, lock_flags_) == 0x8C && sizeof(PinnedObjectModule) == 0x90,
+                      "layout must match the original (0x0041FF20 allocates 0x90 bytes)");
+    }
 };
-static_assert(offsetof(PinnedObjectModule, entity_label_) == 0x18 && offsetof(PinnedObjectModule, shift_) == 0x24 &&
-                  offsetof(PinnedObjectModule, orientation_turn_) == 0x34 &&
-                  offsetof(PinnedObjectModule, lag_) == 0x74 && offsetof(PinnedObjectModule, wobble_) == 0x80 &&
-                  offsetof(PinnedObjectModule, wobble_seed_) == 0x88 &&
-                  offsetof(PinnedObjectModule, lock_flags_) == 0x8C && sizeof(PinnedObjectModule) == 0x90,
-              "layout must match the original (0x0041FF20 allocates 0x90 bytes)");
 
 } // namespace objects

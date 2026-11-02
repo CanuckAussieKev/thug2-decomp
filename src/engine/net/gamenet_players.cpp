@@ -164,8 +164,8 @@ void Hub::spectate_player(PlayerRecord* player)
     set_camera_skater(skater_camera, skater);
     set_walk_camera_skater(walk_camera, skater);
     core::down_cast<objects::FootView>(walk_camera)->set_instant_frames(3);
-    const objects::RiderPoseState* state = core::down_cast<objects::RiderBoardPhysics>(control)->pose_;
-    if (!state->in_vehicle_ && state->physics_mode_ == 0) {
+    const objects::RiderPoseState* state = core::down_cast<objects::RiderBoardPhysics>(control)->pose();
+    if (!state->in_vehicle() && state->physics_mode() == 0) {
         skater_camera->hold_off(false);
         walk_camera->hold_off(true);
     } else {

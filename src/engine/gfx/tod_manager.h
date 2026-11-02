@@ -210,6 +210,20 @@ public:
     [[nodiscard]] uint32_t current_state() const;
     [[nodiscard]] bool can_set_tod_instant(uint32_t state) const;
 
+    // The fields other code reads and sets.
+    std::array<TodSystem, kSystems>& systems() { return systems_; }
+    [[nodiscard]] const std::array<TodSystem, kSystems>& systems() const { return systems_; }
+    [[nodiscard]] float time_multiplier() const { return time_multiplier_; }
+    void set_time_multiplier(float value) { time_multiplier_ = value; }
+    void set_transition_script(uint32_t value) { transition_script_ = value; }
+    [[nodiscard]] bool fog_active() const { return fog_active_; }
+    void assign_fog_active(bool value) { fog_active_ = value; }
+    [[nodiscard]] bool level_lights_reset() const { return level_lights_reset_; }
+    [[nodiscard]] bool active() const { return active_; }
+    void set_active(bool value) { active_ = value; }
+    [[nodiscard]] bool params_set() const { return params_set_; }
+
+private:
     lists::KeyMap* dead_objects_; // +0x000 nodes marked permanently dead (value: the manager)
     gsl::owner<script::Struct*> unknown4_; // +0x004 made, emptied and freed, never filled
     std::array<TodSystem, kSystems> systems_{}; // +0x008
@@ -227,11 +241,15 @@ public:
 private:
     // The first system that isn't a sky system (index 2 - past the end - if both are; never checked).
     [[nodiscard]] int current_system() const;
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(CtodManager, systems_) == 8 && offsetof(CtodManager, temp_bloom_) == 0x318 &&
+                          offsetof(CtodManager, time_multiplier_) == 0x330 && offsetof(CtodManager, params_set_) == 0x33C &&
+                          sizeof(CtodManager) == 0x340,
+                      "layout must match the original (0x00574540 allocates 0x340 bytes)");
+    }
 };
-static_assert(offsetof(CtodManager, systems_) == 8 && offsetof(CtodManager, temp_bloom_) == 0x318 &&
-                  offsetof(CtodManager, time_multiplier_) == 0x330 && offsetof(CtodManager, params_set_) == 0x33C &&
-                  sizeof(CtodManager) == 0x340,
-              "layout must match the original (0x00574540 allocates 0x340 bytes)");
 
 // 0x005725F0: `color` given to `scene`'s sectors (the scene's sector table: those of `lightGroup` - and those of
 // `resetLightGroup` set back to neutral - or every sector for no group), only start_percent..end_percent of them

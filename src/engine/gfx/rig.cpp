@@ -71,7 +71,7 @@ bool in_exceptions(uint32_t name)
 
 Joint* find_bone(const Rig* skeleton, uint32_t name)
 {
-    for (int i = 0; i < skeleton->bone_total_; ++i) {
+    for (int i = 0; i < skeleton->bone_total(); ++i) {
         if (core::at(skeleton->bones(), i).name == name)
             return &core::at(skeleton->bones(), i);
     }
@@ -95,7 +95,7 @@ maths::Mat4 bone_space(Rig* skeleton, int index)
     maths::Mat4 matrix{};
     matrix = core::at(skeleton->matrices(), index);
     maths::Mat4 result{};
-    result = core::at(skeleton->payload_->inverse_binds(), index);
+    result = core::at(skeleton->payload()->inverse_binds(), index);
     result.invert_orthonormal();
     get_multiply(&result, &result, &matrix);
     return result;
@@ -201,15 +201,15 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
 // 0x004A3D30
 Rig::Rig(RigData* data)
 {
-    if (data->flag_bits_ & 1)
+    if (data->flag_bits() & 1)
         flag_bits_ = kMirrorData;
-    bone_array_ = new_bones(data->num_);
-    matrix_array_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(data->num_) << 6));
-    bone_total_ = data->num_;
-    for (int i = 0; i < data->num_; ++i)
+    bone_array_ = new_bones(data->num());
+    matrix_array_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(data->num()) << 6));
+    bone_total_ = data->num();
+    for (int i = 0; i < data->num(); ++i)
         set_identity(core::at(matrices(), i));
-    for (int i = 0; i < data->num_; ++i)
-        core::at(bones(), i).name = core::at(data->names_, i); // (no check for bones without memory, as the original)
+    for (int i = 0; i < data->num(); ++i)
+        core::at(bones(), i).name = core::at(data->names(), i); // (no check for bones without memory, as the original)
     link_bones(data);
     payload_ = data;
     max_lod_ = 0x1F;
@@ -218,13 +218,13 @@ Rig::Rig(RigData* data)
 // 0x004A3E80
 Rig* Rig::construct_copy(const Rig* other)
 {
-    bone_total_ = other->payload_->num_;
+    bone_total_ = other->payload_->num();
     bone_array_ = new_bones(bone_total_);
     matrix_array_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(bone_total_) << 6));
     for (int i = 0; i < bone_total_; ++i)
         std::memcpy(&core::at(matrices(), i), &core::at(other->matrices(), i), sizeof(maths::Mat4));
-    for (int i = 0; i < other->payload_->num_; ++i)
-        core::at(bones(), i).name = core::at(other->payload_->names_, i);
+    for (int i = 0; i < other->payload_->num(); ++i)
+        core::at(bones(), i).name = core::at(other->payload_->names(), i);
     link_bones(other->payload_);
     for (int i = 0; i < bone_total_; ++i) {
         core::at(bones(), i).flags = core::at(other->bones(), i).flags;
@@ -305,8 +305,8 @@ bool Rig::change_bone_sizing(uint32_t name, const maths::Vec4* scale, bool local
 void Rig::copy_bone_scales(const Rig* other, bool check_list)
 {
     const RigData* data = other->payload_;
-    for (int i = 0; i < data->num_; ++i) {
-        const uint32_t name = core::at(data->names_, i);
+    for (int i = 0; i < data->num(); ++i) {
+        const uint32_t name = core::at(data->names(), i);
         if (!find_bone(this, name))
             continue;
         maths::Vec4 scale{};
@@ -350,7 +350,7 @@ void Rig::set_lod(float distance)
 {
     if (payload_) {
         for (uint32_t i = 0; i <= max_lod_; ++i) {
-            if (distance < core::at(payload_->lod_distances_, i)) {
+            if (distance < core::at(payload_->lod_distances(), i)) {
                 lod_ = i;
                 return;
             }
@@ -362,8 +362,8 @@ void Rig::set_lod(float distance)
 // 0x004A3150
 void Rig::link_bones(RigData* data)
 {
-    for (int i = 0; i < data->num_; ++i) {
-        const uint32_t parent = core::at(data->parent_names_, i);
+    for (int i = 0; i < data->num(); ++i) {
+        const uint32_t parent = core::at(data->parent_names(), i);
         const int index = parent ? data->fetch_slot_no(parent) : 0;
         core::at(bones(), i).parent = &core::at(matrices(), index);
         core::at(bones(), i).flags = 0;
@@ -483,7 +483,7 @@ void Rig::tick_frame(const maths::QuatRotation* rotations, const maths::Vec4* tr
         maths::Mat4& matrix = core::at(matrices(), i);
         if (bone.flags & Joint::kInactive)
             continue;
-        if (core::at(payload_->lod_masks_, i) & lod_bit) { // (collapsed into its parent at this LOD)
+        if (core::at(payload_->lod_masks(), i) & lod_bit) { // (collapsed into its parent at this LOD)
             matrix = *bone.parent;
             continue;
         }

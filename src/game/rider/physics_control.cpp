@@ -110,16 +110,16 @@ void RiderBoardPhysics::seal()
 {
     core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity_->fetch_module(kSkaterCorePhysics));
     pose_ = core::down_cast<RiderPoseState>(entity_->fetch_module(kSkaterState));
-    pose_->physics_mode_ = -1;
+    pose_->assign_physics_mode(-1);
 }
 
 // 0x005178B0
 void RiderBoardPhysics::set_frozen(bool paused)
 {
     is_halted_ = paused;
-    if (!paused && (entity_->composite_flags_ & kCompositeFlagSuspended))
+    if (!paused && (entity_->composite_flags() & kCompositeFlagSuspended))
         return;
-    switch (pose_->physics_mode_) {
+    switch (pose_->physics_mode()) {
     case kSkating:
         freeze_module(static_cast<ObjectModule*>(core_physics_), paused);
         freeze_module(entity_->fetch_module(kSkaterRotate), paused);
@@ -137,7 +137,7 @@ void RiderBoardPhysics::set_frozen(bool paused)
 // 0x00517940
 void RiderBoardPhysics::dismount_to_walk()
 {
-    if (pose_->physics_mode_ == kWalking)
+    if (pose_->physics_mode() == kWalking)
         return;
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
@@ -145,7 +145,7 @@ void RiderBoardPhysics::dismount_to_walk()
     auto* camera = core::down_cast<GameEntity>(core::down_cast<Rider>(entity_)->get_skater_camera());
     ObjectModule* skater_camera = camera->fetch_module(kSkaterCamera);
     ObjectModule* walk_camera = camera->fetch_module(kWalkCamera);
-    const int skater_state = core_physics_->state()->cur_phase_;
+    const int skater_state = core_physics_->state()->cur_phase();
     core_leaving(core_physics_);
     freeze_module(static_cast<ObjectModule*>(core_physics_), true);
     freeze_module(entity_->fetch_module(kSkaterRotate), true);
@@ -166,7 +166,7 @@ void RiderBoardPhysics::dismount_to_walk()
 // 0x00517B20
 void RiderBoardPhysics::remount_board()
 {
-    if (pose_->physics_mode_ == kSkating)
+    if (pose_->physics_mode() == kSkating)
         return;
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
@@ -201,12 +201,12 @@ void RiderBoardPhysics::tick_frame()
     flag26_ = 0;
     if (!is_halted_)
         return;
-    switch (pose_->physics_mode_) {
+    switch (pose_->physics_mode()) {
     case kSkating:
-        entity_->display_matrix_ = core_physics_->display_matrix();
+        entity_->display_matrix() = core_physics_->display_matrix();
         break;
     case kWalking:
-        entity_->display_matrix_ = entity_->basis_frame_;
+        entity_->display_matrix() = entity_->basis_frame();
         break;
     default:
         break;

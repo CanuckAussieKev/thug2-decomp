@@ -73,7 +73,7 @@ ModelGeom* new_entry(bool default_heap)
 // A geom's own mesh deleted with its textures.
 void delete_own_scene(gsl::owner<PcMesh*> mesh)
 {
-    TextureSet* textures = mesh->textures_;
+    TextureSet* textures = mesh->textures();
     discard_mesh(mesh);
     unload_textures(textures);
 }
@@ -225,7 +225,7 @@ bool RenderModel::add_asset_geom(uint32_t asset_name, uint32_t name, bool multic
     if (!default_heap && !entry->geom)
         return false; // (the node isn't freed)
     load_geom(entry->geom, scene, this, multicolor);
-    entry->textures = scene->textures_;
+    entry->textures = scene->textures();
     set_geom_shadow(entry->geom, (flag_bits_ >> 4) & 1);
     entry->name = name;
     visible_geoms_ |= geom_bit(geom_total_);
@@ -302,7 +302,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     if (!default_heap && !entry->geom)
         return false; // (the node isn't freed)
     load_geom(entry->geom, scene, this, multicolor);
-    entry->textures = scene->textures_;
+    entry->textures = scene->textures();
     set_geom_shadow(entry->geom, (flag_bits_ >> 4) & 1);
     entry->name = name;
     visible_geoms_ |= geom_bit(geom_total_);

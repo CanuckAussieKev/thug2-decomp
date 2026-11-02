@@ -83,6 +83,23 @@ DynamicLightBase* new_dynamic_light(int type);
 // subclass, nothing deleting through it: no vtable here): a point light at a position with a radius, an intensity and
 // a colour, held by an object (the dynamic light component, `owner` its id).
 struct DynamicLightBase {
+    // The fields other code reads and sets.
+    std::array<float, 4>& pos_value() { return pos; }
+    [[nodiscard]] const std::array<float, 4>& pos_value() const { return pos; }
+    [[nodiscard]] int type_value() const { return type; }
+    void set_type(int value) { type = value; }
+    [[nodiscard]] float radius_value() const { return radius; }
+    void set_radius(float value) { radius = value; }
+    void set_inverse_radius(float value) { inverse_radius_ = value; }
+    [[nodiscard]] float intensity_value() const { return intensity; }
+    void set_intensity(float value) { intensity = value; }
+    [[nodiscard]] uint32_t colour_value() const { return colour; }
+    void set_colour(uint32_t value) { colour = value; }
+    [[nodiscard]] uint32_t owner_value() const { return owner; }
+    void set_owner(uint32_t value) { owner = value; }
+    void set_unknown2c(bool value) { unknown2c_ = value; }
+
+private:
     std::array<float, 4> pos;          // +0x04
     int type;              // +0x14
     float radius;          // +0x18
@@ -91,6 +108,8 @@ struct DynamicLightBase {
     uint32_t colour;       // +0x24 (bytes r, g, b, a)
     uint32_t owner;        // +0x28 the id of the object it belongs to (0 once it's let go)
     bool unknown2c_;
+
+public:
 
     // 0x0048E8C0 (its vtable's slot 0): its intensity is above 0 (1 / 0).
     int is_on();

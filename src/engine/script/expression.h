@@ -69,6 +69,10 @@ public:
         int open_parentheses_;
     };
 
+    // The fields other code reads and sets.
+    void set_unknown1f4(bool value) { unknown1f4_ = value; }
+
+private:
     std::array<Component, 20> values_;
     int value_top_{};
     std::array<Operator, 20> operators_{};
@@ -77,6 +81,17 @@ public:
     const uint8_t* token_{};
     const char* fault_{};
     bool unknown1f4_{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ValueResolver, value_top_) == 0x140, "layout must match the original");
+        static_assert(offsetof(ValueResolver, operators_) == 0x144, "layout must match the original");
+        static_assert(offsetof(ValueResolver, operator_top_) == 0x1E4, "layout must match the original");
+        static_assert(offsetof(ValueResolver, has_operators_) == 0x1E8, "layout must match the original");
+        static_assert(offsetof(ValueResolver, token_) == 0x1EC, "layout must match the original");
+        static_assert(offsetof(ValueResolver, fault_) == 0x1F0, "layout must match the original");
+        static_assert(offsetof(ValueResolver, unknown1f4_) == 0x1F4, "layout must match the original");
+    }
 };
 static_assert(sizeof(Component) * 20 == 0x140, "layout must match the original");
 

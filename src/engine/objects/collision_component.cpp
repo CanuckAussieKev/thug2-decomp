@@ -49,7 +49,7 @@ render::RenderModel* model_of(ObjectModule* model)
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).
 render::WorldCell* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
-gsl::owner<render::HitMesh*> sector_collision(const render::WorldCell* sector) { return sector->hit_body_; }
+gsl::owner<render::HitMesh*> sector_collision(const render::WorldCell* sector) { return sector->hit_body(); }
 
 // The model's bone matrix (0x00493040: a single-bone model's, from the asset manager; null otherwise): its rotation at
 // +0x10, its translation at +0x40 (the matrix's fourth row).
@@ -109,7 +109,7 @@ void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geome
     const auto* data =
         static_cast<const render::SubMesh*>(assets::asset_manager()->get_asset_data(model->source_path(), 0));
     if (data) {
-        hit_shape_ = render::build_dynamic_hit_mesh(type, data->hit_shape_, data->collision_count_, entity_);
+        hit_shape_ = render::build_dynamic_hit_mesh(type, data->hit_shape(), data->collision_count(), entity_);
     } else {
         hit_shape_ = render::build_dynamic_hit_mesh(type, nullptr, 0, entity_);
     }
@@ -124,16 +124,16 @@ void ContactShapeModule::tick_frame()
     ObjectModule* model = entity_->fetch_module(kModelModuleName);
     const render::HierarchyNode* bone = model ? bone_of(model_of(model)) : nullptr;
     if (!bone) {
-        collision->place_at_absolute_point(&entity_->at_point_);
-        collision->change_facing(&entity_->display_matrix_);
+        collision->place_at_absolute_point(&entity_->at_point());
+        collision->change_facing(&entity_->display_matrix());
         return;
     }
     const maths::Vec4& translation = core::at(bone->matrix.row, 3);
-    const maths::Vec4& pos = entity_->at_point_;
+    const maths::Vec4& pos = entity_->at_point();
     const maths::Vec4 position = {.x = translation.x + pos.x, .y = translation.y + pos.y, .z = translation.z + pos.z, .w = pos.w};
     collision->place_at_absolute_point(&position);
     maths::Mat4 orientation{};
-    d3dx_multiply(&orientation, &bone->matrix, &entity_->display_matrix_);
+    d3dx_multiply(&orientation, &bone->matrix, &entity_->display_matrix());
     collision->change_facing(&orientation);
 }
 

@@ -34,7 +34,7 @@ BuildPointer* BuildPointer::singleton() { return park_editing::BuildPointer::sol
 
 void BuildPointer::hide_clipboards()
 {
-    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following_)
+    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())
         clipboard->free_all_piece_groups();
 }
 
@@ -76,7 +76,7 @@ void BuildPointer::select_clipboard(int index)
     hide_clipboards();
     Clipboard* clipboard = copy_buffers_;
     for (int i = 0; i < index && clipboard; ++i)
-        clipboard = clipboard->following_;
+        clipboard = clipboard->following();
     clipboard_ = clipboard;
 }
 
@@ -136,14 +136,14 @@ void BuildPointer::remove_oldest_clipboard()
     Clipboard* last = copy_buffers_;
     if (!last)
         return;
-    while (last->following_) {
+    while (last->following()) {
         previous = last;
-        last = last->following_;
+        last = last->following();
     }
     last->teardown();
     Clipboard::dealloc(last);
     if (previous)
-        previous->following_ = nullptr;
+        previous->set_following(nullptr);
     else
         copy_buffers_ = nullptr;
 }
@@ -189,7 +189,7 @@ void BuildPointer::free_copy_buffers()
 {
     Clipboard* clipboard = copy_buffers_;
     while (clipboard) {
-        Clipboard* next = clipboard->following_;
+        Clipboard* next = clipboard->following();
         clipboard->teardown();
         Clipboard::dealloc(clipboard);
         clipboard = next;

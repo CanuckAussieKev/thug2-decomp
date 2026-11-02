@@ -167,19 +167,19 @@ void move_lights(uint32_t name, V3 pos)
     const int dynamic_count = render::light_sets().dynamic_light_count();
     for (int i = 0; i < dynamic_count && i < 256; ++i) {
         render::DynamicLightBase* light = core::at(render::light_sets().dynamic_lights(), i);
-        if (light && light->owner == name) {
-            core::at(light->pos, 0) = pos.x;
-            core::at(light->pos, 1) = pos.y;
-            core::at(light->pos, 2) = pos.z;
+        if (light && light->owner_value() == name) {
+            core::at(light->pos_value(), 0) = pos.x;
+            core::at(light->pos_value(), 1) = pos.y;
+            core::at(light->pos_value(), 2) = pos.z;
         }
     }
     const int level_count = render::light_sets().scene_light_count();
     for (int i = 0; i < level_count && i < 150; ++i) {
         render::LevelLamp& lamp = core::at(render::light_sets().level_lamps(), i);
-        if (lamp.label_ == name) {
-            lamp.at_point_.x = pos.x;
-            lamp.at_point_.y = pos.y;
-            lamp.at_point_.z = pos.z;
+        if (lamp.label() == name) {
+            lamp.at_point().x = pos.x;
+            lamp.at_point().y = pos.y;
+            lamp.at_point().z = pos.z;
         }
     }
 }
@@ -201,7 +201,7 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
         move_lights(name, values.pos);
     // Its object (a flag a CTF or team game made; any object of the node's name): moved and turned as the node.
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
-    if (object && !(object->object_flags_ & objects::kObjectFlagDead)) {
+    if (object && !(object->object_flags() & objects::kObjectFlagDead)) {
         object_edit::State state = object_edit::store_away(object);
         state.pos = pos;
         maths::Mat4 matrix;

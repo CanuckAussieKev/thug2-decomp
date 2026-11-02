@@ -58,7 +58,7 @@ inline void discard_mesh(gsl::owner<PcMesh*> mesh) { delete mesh; }
 inline void unload_textures(TextureSet* textures) { unload_tex_dict(textures); }
 
 // A skeleton's bone matrices (+0x04, the folded getter 0x005480C0) and bone count (+0x14, 0x004A2BA0).
-inline maths::Mat4* skeleton_bones(gfx::Rig* skeleton) { return skeleton->matrix_array_; }
+inline maths::Mat4* skeleton_bones(gfx::Rig* skeleton) { return skeleton->matrix_array(); }
 inline int skeleton_bone_count(gfx::Rig* skeleton) { return skeleton->get_num_bones(); }
 
 // The list's first node (none without a head - which the original then reads through anyway).

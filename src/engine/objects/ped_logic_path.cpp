@@ -269,13 +269,13 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
     } else {
         // To the next node: up to its height (and a slop above it) and across to it.
         const GameEntity* object = entity_;
-        const float dw = next_node_pos_.w - object->at_point_.w;
-        const float dz = next_node_pos_.z - object->at_point_.z;
-        const float dx = next_node_pos_.x - object->at_point_.x;
+        const float dw = next_node_pos_.w - object->at_point().w;
+        const float dz = next_node_pos_.z - object->at_point().z;
+        const float dx = next_node_pos_.x - object->at_point().x;
         maths::Vec4 across = {.x = dx, .y = 0.0f, .z = dz, .w = dw};
-        if (static_cast<double>(height) + object->at_point_.y < next_node_pos_.y) {
+        if (static_cast<double>(height) + object->at_point().y < next_node_pos_.y) {
             const double slop = script::fetch_float(kHeightSlop);
-            height = static_cast<float>(slop + (static_cast<double>(next_node_pos_.y) - object->at_point_.y));
+            height = static_cast<float>(slop + (static_cast<double>(next_node_pos_.y) - object->at_point().y));
         }
         const double inverse_gravity = 1.0 / gravity;
         const double up = std::sqrt(static_cast<double>(height) * inverse_gravity * kMinusTwo);
@@ -284,7 +284,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
             static_cast<float>((static_cast<double>(across.y) * across.y + static_cast<double>(across.z) * across.z) +
                                static_cast<double>(across.x) * across.x);
         const double down = std::sqrt(
-            std::fabs(((static_cast<double>(height) + entity_->at_point_.y) - next_node_pos_.y) * inverse_gravity) *
+            std::fabs(((static_cast<double>(height) + entity_->at_point().y) - next_node_pos_.y) * inverse_gravity) *
             2.0);
         jump_time = static_cast<float>(down + up);
         const maths::Vec4& direction = across.make_unit();
@@ -367,7 +367,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
 // 0x004EFBC0
 void PedestrianBrainModule::lip_trick_update()
 {
-    maths::Mat4 matrix = entity_->display_matrix_;
+    maths::Mat4 matrix = entity_->display_matrix();
     core::at(matrix.row, 2) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     const maths::Vec4& up = up_dir_.make_unit();
     // Across: up x (0, 1, 0), normalised (x and z kept as floats too).
@@ -402,7 +402,7 @@ void PedestrianBrainModule::lip_trick_update()
         up_row_z = static_cast<float>(up_row_z * inverse);
     }
     core::at(matrix.row, 1) = {.x = static_cast<float>(a), .y = static_cast<float>(b), .z = up_row_z, .w = 0.0f};
-    entity_->display_matrix_ = matrix;
+    entity_->display_matrix() = matrix;
 }
 
 // --- the states a node's SkateAction starts ---
@@ -685,13 +685,13 @@ bool PedestrianBrainModule::ped_init_path(script::Struct*, script::Script*)
         dy = static_cast<float>(dy * inverse);
         dz = static_cast<float>(dz * inverse);
     }
-    maths::Mat4 matrix = entity_->display_matrix_;
+    maths::Mat4 matrix = entity_->display_matrix();
     core::at(matrix.row, 2) = {.x = dx, .y = dy, .z = dz, .w = dw};
     matrix.square_up_axes(2);
-    entity_->display_matrix_ = matrix;
+    entity_->display_matrix() = matrix;
     saved_matrix_ = matrix;
     for (maths::Vec4& position : past_frames_)
-        position = entity_->at_point_;
+        position = entity_->at_point();
     return true;
 }
 
@@ -710,7 +710,7 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
     // (The gravity is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
     float gravity = 0.0f; // (missing: 0 - the original read an argument's stack slot, an address)
     params->fetch_float(kGravity, &gravity, 1);
-    const maths::Vec4& at = entity_->at_point_;
+    const maths::Vec4& at = entity_->at_point();
     float dx = next_node_pos_.x - at.x, dy = next_node_pos_.y - at.y, dz = next_node_pos_.z - at.z,
           dw = next_node_pos_.w - at.w;
     const double rise = std::sqrt(static_cast<double>(height) / gravity * kMinusTwo);

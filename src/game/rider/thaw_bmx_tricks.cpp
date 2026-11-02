@@ -139,7 +139,7 @@ bool find_ledge(const maths::Vec4& start, const maths::Vec4& end, const maths::V
     bool found = false;
     float best = 1e14f;
     const float steepest = rail_ascent_sine();
-    for (int index = 0; index < rails->num_; ++index) {
+    for (int index = 0; index < rails->num(); ++index) {
         const objects::GrindPoint* node = &core::at(rails->node_run(), index);
         if ((node->flag_bits_ & objects::kRailFlagLadder) || !(node->flag_bits_ & objects::kRailFlagActive) ||
             !node->succ_)
@@ -172,7 +172,7 @@ objects::GameEntity* bike_of(void* skater)
         return nullptr;
     const uint32_t id = name_hash(kBikeObject);
     for (objects::GameEntity* item : items->items_) {
-        if (item && (item->ident_ == id || item->ident_ == id + static_cast<objects::Entity*>(skater)->ident_))
+        if (item && (item->ident() == id || item->ident() == id + static_cast<objects::Entity*>(skater)->ident()))
             return item;
     }
     return nullptr;
@@ -276,9 +276,9 @@ bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::
 
 // --- the gates ---------------------------------------------------------------------------------------------------
 
-bool wallride_button(SkaterPhysicsModule* core) { return core->input()->pad_primary_.button_box().held_down_ != 0; }
+bool wallride_button(SkaterPhysicsModule* core) { return core->input()->pad_primary().button_box().held_down() != 0; }
 
-bool wallplant_by_square(SkaterPhysicsModule* core) { return core->input()->pad_primary_.button_box().held_down_ != 0; }
+bool wallplant_by_square(SkaterPhysicsModule* core) { return core->input()->pad_primary().button_box().held_down() != 0; }
 
 uint32_t wallplant_trick_list()
 {
@@ -286,7 +286,7 @@ uint32_t wallplant_trick_list()
     return script::fetch_list(bike) ? bike : kThugWallplantTrick;
 }
 
-objects::ControlButton* tow_button(SkaterPhysicsModule* core) { return &core->input()->pad_primary_.shoulder_right_b(); }
+objects::ControlButton* tow_button(SkaterPhysicsModule* core) { return &core->input()->pad_primary().shoulder_right_b(); }
 
 // --- the tire tap ------------------------------------------------------------------------------------------------
 
@@ -314,14 +314,14 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     const bool not_vert = !flags->flag(PoseFlag::kVertAir).on;
     if (not_vert)
         state.tap_armed_ = false;
-    const objects::PadSnapshot* pad = &core->input()->pad_primary_;
-    const bool held = pad->shoulder_right_a().held_down_ && (state.stick_up_.down || state.stick_down_.down);
+    const objects::PadSnapshot* pad = &core->input()->pad_primary();
+    const bool held = pad->shoulder_right_a().held_down() && (state.stick_up_.down || state.stick_down_.down);
     if (!state.tap_armed_ && !held)
         return;
     const objects::GameEntity* object = object_of(core);
     auto* physics = static_cast<SkaterPhysicsModule*>(core);
-    const maths::Vec4 position = object->at_point_;
-    const maths::Vec4 up = core::at(object->basis_frame_.row, 1);
+    const maths::Vec4 position = object->at_point();
+    const maths::Vec4 up = core::at(object->basis_frame().row, 1);
     bool found = false;
     float best = kTapFar;
     if (!not_vert) {
@@ -341,19 +341,19 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
             const maths::Vec4 to = {.x = from.x, .y = from.y - kTapDrop, .z = from.z, .w = from.w};
             core->probe_start() = from;
             core->probe_end() = to;
-            if (!physics->probe_touches_zone(0x10, 0) || (core->feeler().hit_.face_flags_ & 8))
+            if (!physics->probe_touches_zone(0x10, 0) || (core->feeler().hit().face_flags_ & 8))
                 continue;
-            const float distance = from.y - core->feeler().contact_pos_.y;
+            const float distance = from.y - core->feeler().contact_pos().y;
             if (distance > best + kTapNearer)
                 continue;
             best = distance;
-            state.tap_point_ = core->feeler().contact_pos_;
+            state.tap_point_ = core->feeler().contact_pos();
             state.tap_start_ = position;
             state.tap_ledge_ = false;
             found = true;
         }
     }
-    maths::Vec4 direction = object->vel_;
+    maths::Vec4 direction = object->vel();
     direction.y = 0.0f;
     direction.w = 0.0f;
     if (dot3(direction, direction) > 0.0)
@@ -401,10 +401,10 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     }
     state.tap_armed_ = false;
     objects::GameEntity* object = object_of(core);
-    maths::Vec4& velocity = object->vel_;
-    maths::Vec4& position = object->at_point_;
-    const objects::PadSnapshot* pad = &core->input()->pad_primary_;
-    const bool held = pad->shoulder_right_a().held_down_ && (state.stick_up_.down || state.stick_down_.down);
+    maths::Vec4& velocity = object->vel();
+    maths::Vec4& position = object->at_point();
+    const objects::PadSnapshot* pad = &core->input()->pad_primary();
+    const bool held = pad->shoulder_right_a().held_down() && (state.stick_up_.down || state.stick_down_.down);
     if (held || state.tap_ledge_) {
         velocity = bike::tire_tap_velocity(velocity);
         const bike::TapStep step = bike::tire_tap_step(position, state.tap_point_);
@@ -440,7 +440,7 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
         const float most = kTapPitch / kTapPitchTime * get_frame_length(core);
         const float step = std::fabs(remaining) < most ? remaining : (remaining > 0.0f ? most : -most);
         state.tap_pitch_ += step;
-        object->basis_frame_.pitch_locally(step);
+        object->basis_frame().pitch_locally(step);
         core->display_matrix().pitch_locally(step);
     }
 }
@@ -621,12 +621,12 @@ int call_trick_member(SkaterPhysicsModule* core, uint32_t name, script::Struct* 
     }
     if (name == kClearStall) { // 0x005C8420: cleared only once in the stall state
         BikeState* state = state_of(core, false);
-        if (state && core->state()->cur_phase_ == kStateBikeStall)
+        if (state && core->state()->cur_phase() == kStateBikeStall)
             state->stall_script_ = false;
         return 1;
     }
     if (name == kOnStall) // (its state component's: the physics state the stall's)
-        return core->state()->cur_phase_ == kStateBikeStall ? 1 : 0;
+        return core->state()->cur_phase() == kStateBikeStall ? 1 : 0;
     if (name == kExitStallBoost) {
         // 0x005C83D0: the velocity's x / z from THAW's +0x714 / +0x71C, which nothing of THAW's
         // writes that a search finds (the skater's stall boost) - left out; only BIKE_OLLIE's Boost asks, which no bike

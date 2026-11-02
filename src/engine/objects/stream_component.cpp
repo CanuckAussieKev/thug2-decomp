@@ -74,7 +74,7 @@ maths::Vec4* AudioStreamModule::get_stream_position(maths::Vec4* out, void* came
         spewer_->nearest_point_on(out, viewer_location(camera));
         return out;
     }
-    *out = entity_->at_point_;
+    *out = entity_->at_point();
     return out;
 }
 

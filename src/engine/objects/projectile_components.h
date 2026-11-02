@@ -61,6 +61,7 @@ public:
     // anything else.
     int score_taken();
 
+private:
     DormancyModule* suspend_{};  // +0x18 the suspend component (Finalize)
     float radius_{0.0f};         // +0x1C radius
     float size_factor_{0.0f};    // +0x20 scale

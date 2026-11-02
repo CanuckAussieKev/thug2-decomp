@@ -227,7 +227,7 @@ bool get_ground_y(V3 from, float* y)
     const maths::Vec4 end = {.x = from.x, .y = from.y - 5000.0f, .z = from.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    *y = ray->hit_.point.y;
+    *y = ray->hit().point.y;
     return true;
 }
 
@@ -258,7 +258,7 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
         for (const uint32_t id : carry::carried_objects()) {
             auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
             OrientedBox box{};
-            if (!object || (object->object_flags_ & objects::kObjectFlagDead) || !object_edit::model_box(object, &box))
+            if (!object || (object->object_flags() & objects::kObjectFlagDead) || !object_edit::model_box(object, &box))
                 continue;
             std::array<V3, 8> corners{};
             box_corners(box.origin, box.axes, box.min, box.max, corners);

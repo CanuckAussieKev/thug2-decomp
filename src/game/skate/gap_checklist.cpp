@@ -62,7 +62,7 @@ GapEntry* gap_of(memory::ListNode* node)
 {
     return node->data == memory::ListNode::head_marker() ? nullptr : static_cast<GapEntry*>(node->data);
 }
-GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link_.next); }
+GapEntry* get_next(GapEntry* gap) { return gap_of(gap->list_link().next); }
 
 // The skate module's checklist (0x005656C0) and the career's of a level (0x00584110; the current level 0x00584130).
 GapTally* skate_checklist() { return static_cast<GapTally*>(modules::Skate::sole()->fetch_gap_list()); }
@@ -110,27 +110,27 @@ void GapTally::register_gap_entry(const char* name, int count, int score)
     built_ = true;
     GapEntry* after = nullptr;
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
-        if (std::strcmp(gap->label_.c_str(), name) == 0 && gap->points_held_ == score) {
-            gap->in_level_ = true;
+        if (std::strcmp(gap->label().c_str(), name) == 0 && gap->points_held() == score) {
+            gap->set_in_level(true);
             return;
         }
-        if (gap->points_held_ < score ||
-            (gap->points_held_ == score && text::compare_caseless(gap->label_.c_str(), name) < 0))
+        if (gap->points_held() < score ||
+            (gap->points_held() == score && text::compare_caseless(gap->label().c_str(), name) < 0))
             after = gap;
     }
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap());
     void* memory = memory::alloc_zeroed(sizeof(GapEntry));
     GapEntry* gap = memory ? memory::construct_in<GapEntry>(memory) : nullptr;
-    gap->num_ = 0;
-    gap->label_ = name;
-    gap->num_ = count;
-    gap->points_held_ = score;
-    memory::ListNode* before = after ? &after->list_link_ : &gaps_;
-    gap->list_link_.prev = before;
-    gap->list_link_.next = before->next;
-    before->next->prev = &gap->list_link_;
-    before->next = &gap->list_link_;
+    gap->num() = 0;
+    gap->label() = name;
+    gap->num() = count;
+    gap->set_points_held(score);
+    memory::ListNode* before = after ? &after->list_link() : &gaps_;
+    gap->list_link().prev = before;
+    gap->list_link().next = before->next;
+    before->next->prev = &gap->list_link();
+    before->next = &gap->list_link();
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -173,7 +173,7 @@ int GapTally::find_gap(const char* name)
 {
     int index = 0;
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++index) {
-        if (std::strcmp(gap->label_.c_str(), name) == 0)
+        if (std::strcmp(gap->label().c_str(), name) == 0)
             return index;
     }
     return -1;
@@ -183,9 +183,9 @@ int GapTally::find_gap(const char* name)
 void GapTally::set_gap_positions(const char* name, maths::Vec4 pos, maths::Vec4 dir)
 {
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
-        if (std::strcmp(gap->label_.c_str(), name) == 0) {
-            gap->skater_start_pos_ = pos;
-            gap->skater_start_dir_ = dir;
+        if (std::strcmp(gap->label().c_str(), name) == 0) {
+            gap->set_skater_start_pos(pos);
+            gap->set_skater_start_dir(dir);
             return;
         }
     }
@@ -195,8 +195,8 @@ void GapTally::set_gap_positions(const char* name, maths::Vec4 pos, maths::Vec4 
 void GapTally::register_gap_hit(const char* name)
 {
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
-        if (std::strcmp(gap->label_.c_str(), name) == 0) {
-            ++gap->pending_;
+        if (std::strcmp(gap->label().c_str(), name) == 0) {
+            ++gap->pending();
             return;
         }
     }
@@ -206,7 +206,7 @@ void GapTally::register_gap_hit(const char* name)
 void GapTally::clear_pending()
 {
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap))
-        gap->pending_ = 0;
+        gap->pending() = 0;
 }
 
 // 0x00578D20
@@ -222,7 +222,7 @@ int GapTally::total_of()
 bool GapTally::all_got()
 {
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
-        if (!gap->num_)
+        if (!gap->num())
             return false;
     }
     return true;
@@ -232,9 +232,9 @@ bool GapTally::all_got()
 void GapTally::get_reset()
 {
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
-        gap->num_ = 0;
-        gap->pending_ = 0;
-        gap->in_level_ = true;
+        gap->num() = 0;
+        gap->pending() = 0;
+        gap->set_in_level(true);
     }
 }
 
@@ -244,7 +244,7 @@ bool GapTally::get_gap_totals(script::Struct* /*params*/, script::Script* script
     int total = 0, collected = 0;
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap)) {
         ++total;
-        if (gap->num_)
+        if (gap->num())
             ++collected;
     }
     script->args()->put_int(kNumGaps, total);
@@ -265,12 +265,12 @@ bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script
             item->put_name_key(0u, kFirstItem);
         else if (!next)
             item->put_name_key(0u, kLastItem);
-        item->put_int(kGapScore, gap->points_held_);
-        item->append_word(kGapName, gap->label_.c_str());
-        item->put_int(kTimes, gap->num_);
+        item->put_int(kGapScore, gap->points_held());
+        item->append_word(kGapName, gap->label().c_str());
+        item->put_int(kTimes, gap->num());
         item->put_int(kGapNumber, index);
-        item->put_vec3(kSkaterStartPos, gap->skater_start_pos_.x, gap->skater_start_pos_.y, gap->skater_start_pos_.z);
-        item->put_vec3(kSkaterStartDir, gap->skater_start_dir_.x, gap->skater_start_dir_.y, gap->skater_start_dir_.z);
+        item->put_vec3(kSkaterStartPos, gap->skater_start_pos().x, gap->skater_start_pos().y, gap->skater_start_pos().z);
+        item->put_vec3(kSkaterStartDir, gap->skater_start_dir().x, gap->skater_start_dir().y, gap->skater_start_dir().z);
         item->put_name_key(kChooseScript, choose_script);
         script::launch_script(kGapMenuAddItem, item.get(), nullptr, false, nullptr);
         item.reset();
@@ -297,15 +297,15 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
     int got = 0;
     int index = 0;
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++index) {
-        if (gap->num_)
+        if (gap->num())
             ++got;
         gsl::owner<script::Struct*> item = script::new_struct();
-        item->put_int("gap_score", gap->points_held_);
-        item->append_word("gap_name", gap->label_.c_str());
-        item->put_int("times", gap->num_);
+        item->put_int("gap_score", gap->points_held());
+        item->append_word("gap_name", gap->label().c_str());
+        item->put_int("times", gap->num());
         item->put_int("gap_number", index);
-        item->put_vec3(kSkaterStartPos, gap->skater_start_pos_.x, gap->skater_start_pos_.y, gap->skater_start_pos_.z);
-        item->put_vec3(kSkaterStartDir, gap->skater_start_dir_.x, gap->skater_start_dir_.y, gap->skater_start_dir_.z);
+        item->put_vec3(kSkaterStartPos, gap->skater_start_pos().x, gap->skater_start_pos().y, gap->skater_start_pos().z);
+        item->put_vec3(kSkaterStartDir, gap->skater_start_dir().x, gap->skater_start_dir().y, gap->skater_start_dir().z);
         list->set_cell(index, script::Cell::of(item));
     }
     script->args()->append_array_ref(kGapList, list);
@@ -325,18 +325,18 @@ GapEntry* GapTally::get_gap(int index)
 }
 
 // 0x00579420
-const char* GapTally::get_gap_title(int index) { return get_gap(index)->label_.c_str(); }
+const char* GapTally::get_gap_title(int index) { return get_gap(index)->label().c_str(); }
 // 0x00579440
-int GapTally::count_gaps_found(int index) { return get_gap(index)->num_; }
+int GapTally::count_gaps_found(int index) { return get_gap(index)->num(); }
 // 0x00579450
-int GapTally::get_gap_points(int index) { return get_gap(index)->points_held_; }
+int GapTally::get_gap_points(int index) { return get_gap(index)->points_held(); }
 
 // 0x00579460
 void GapTally::get_gap_positions(int index, maths::Vec4* pos, maths::Vec4* dir)
 {
     const GapEntry* gap = get_gap(index);
-    *pos = gap->skater_start_pos_;
-    *dir = gap->skater_start_dir_;
+    *pos = gap->skater_start_pos();
+    *dir = gap->skater_start_dir();
 }
 
 // 0x005796C0
@@ -345,22 +345,22 @@ void GapTally::pay_out_queued_gaps()
     int8_t new_gaps = 0;
     int index = 0;
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++index) {
-        if (gap->pending_) {
+        if (gap->pending()) {
             GoalManager* goals = get_objective_board(); // the goal manager
             if (goals->has_active_gap_goal())
                 goals->register_gap_hit(index);
-            if (gap->num_ == 0) {
+            if (gap->num() == 0) {
                 ++new_gaps;
                 const script::StructPtr params = script::make_struct();
                 if (new_gaps > 1)
                     params->put_int(kMultipleNewGaps, new_gaps);
-                params->append_word(kGapText, gap->label_.c_str());
+                params->append_word(kGapText, gap->label().c_str());
                 script::launch_script(kGotGapForFirstTime, params.get(), nullptr, false, nullptr);
             }
-            gap->num_ += gap->pending_;
-            gap->pending_ = 0;
+            gap->num() += gap->pending();
+            gap->pending() = 0;
         }
-        gap->pending_ = 0;
+        gap->pending() = 0;
     }
 }
 
@@ -393,7 +393,7 @@ bool cfunc_give_all_gaps(script::Struct* params, script::Script* /*script*/)
         level = current_level(career);
     const GapTally* checklist = level_checklist(career, level);
     for (GapEntry* gap = gap_of(checklist->gaps_.next); gap; gap = get_next(gap))
-        ++gap->num_;
+        ++gap->num();
     return true;
 }
 

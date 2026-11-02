@@ -44,7 +44,7 @@ float speed_of(const maths::Vec4& v)
 void SkaterPhysicsModule::clamp_skater_speed()
 {
     objects::GameEntity* object = object_of(this);
-    maths::Vec4& velocity = object->vel_;
+    maths::Vec4& velocity = object->vel();
     // (The horizontal speed: y out of it while it's measured and limited.)
     const float upward = velocity.y;
     velocity.y = 0.0f;
@@ -68,12 +68,12 @@ void SkaterPhysicsModule::clamp_skater_speed()
     }
     if (speed > max_max) {
         speed = max_max;
-        set_length(entity_->vel_, max_max);
+        set_length(entity_->vel(), max_max);
     }
     object = object_of(this);
     if (speed > max && heavy_friction)
         apply_friction((script::fetch_float(kHeavyAirFriction)));
-    entity_->vel_.y = upward;
+    entity_->vel().y = upward;
 
     float& rolling = special_friction_time_;
     if (rolling != 0.0f) {
@@ -99,17 +99,17 @@ void SkaterPhysicsModule::get_brake()
         return;
     }
     objects::GameEntity* object = object_of(this);
-    const float speed = speed_of(object->vel_);
+    const float speed = speed_of(object->vel());
     const double slowing = static_cast<double>(tuning_float_lookup(kBrakeAcceleration, object)) * frame_length_;
     if (slowing + slowing > speed) {
         // Less than two frames' worth left: stopped.
-        entity_->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        entity_->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         return;
     }
-    maths::Vec4 slow = entity_->vel_;
+    maths::Vec4 slow = entity_->vel();
     set_length(slow, static_cast<float>(
                          -(static_cast<double>(tuning_float_lookup(kBrakeAcceleration, object)) * frame_length_)));
-    maths::Vec4& velocity = entity_->vel_;
+    maths::Vec4& velocity = entity_->vel();
     velocity.x = slow.x + velocity.x;
     velocity.y = slow.y + velocity.y;
     velocity.z = slow.z + velocity.z;
@@ -139,8 +139,8 @@ void SkaterPhysicsModule::start_riding_hit_object()
     if (!static_cast<objects::MovingSurfaceModule*>(ride)->start_riding(&feeler_))
         return;
     const objects::GameEntity* ride_object = ride_->ride_->entity_.get_pull();
-    const maths::Vec4& ride_velocity = ride_object->vel_;
-    maths::Vec4& velocity = entity_->vel_;
+    const maths::Vec4& ride_velocity = ride_object->vel();
+    maths::Vec4& velocity = entity_->vel();
     velocity.x -= ride_velocity.x;
     velocity.y -= ride_velocity.y;
     velocity.z -= ride_velocity.z;

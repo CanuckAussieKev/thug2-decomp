@@ -216,7 +216,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
     // The pros that can compete: not hidden (0xF3149AC5) and not the player, in a random order.
     std::array<int, 96> pros{}; // (the original's stack room)
     int pro_count = 0;
-    const int templates = static_cast<int>(manager->templates_.num_);
+    const int templates = static_cast<int>(manager->templates().num_);
     for (int i = 0; i < templates; ++i) {
         objects::RiderIdentity* profile = template_at(manager, i);
         if (profile->is_pro() && !profile->has_flag_f_3149a_c5() &&

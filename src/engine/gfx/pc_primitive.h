@@ -83,13 +83,17 @@ public:
     // 0x004C5340 (vtable slot 35): the sort order by type: 1 before `other` (a PC primitive too), 0 the same, -1 after.
     int weigh(const Primitive* other) override;
 
+private:
     uint32_t unknown20_{};   // +0x20
+
+public:
     // NOT ORIGINAL - the vertices' bytes (vertex_count_ of stride_ each).
     [[nodiscard]] std::span<uint8_t> vertex_bytes() const
     {
         return {vertices_, vertices_ ? static_cast<std::size_t>(vertex_count_) * static_cast<std::size_t>(stride_) : 0};
     }
 
+private:
     uint8_t* vertices_{nullptr}; // +0x24
     uint32_t vertex_format_{2};  // +0x28: D3DFVF (2, 0x42, 0x102, 0x142, 0x152)
     uint32_t layout_{};      // +0x2C: as given to prepare_all (1 colour, 2 texture, 4 normal)
@@ -99,11 +103,15 @@ public:
     MaterialRef material_;   // +0x3C (its constructor 0x004D1A90)
     uint32_t colour_{0x80808080}; // +0x14C
     std::array<uint8_t, 8> unknown150_{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PcPrimitive, vertices_) == 0x24 && offsetof(PcPrimitive, stride_) == 0x38 &&
+                          offsetof(PcPrimitive, material_) == 0x3C && offsetof(PcPrimitive, colour_) == 0x14C &&
+                          sizeof(PcPrimitive) == 0x158,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(PcPrimitive, vertices_) == 0x24 && offsetof(PcPrimitive, stride_) == 0x38 &&
-                  offsetof(PcPrimitive, material_) == 0x3C && offsetof(PcPrimitive, colour_) == 0x14C &&
-                  sizeof(PcPrimitive) == 0x158,
-              "layout must match the original");
 
 // 0x004C5E40 (the engine's primitive state 0x0049C700 jumps here for state 1): the depth test - 1 never, 2 always,
 // 3 less or equal, 4 less; anything else less or equal.

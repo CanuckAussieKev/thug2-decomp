@@ -105,7 +105,7 @@ constexpr int kStateLighting = 0x16; // change_phase's
 
 int bones_on_device(const SceneRef* scene) { return static_cast<int>(scene->unknown78_value()); }
 // Its bones drawn by the vertex shader: it has bones, and its scene doesn't skin them on the CPU (+0x78).
-bool skinned_by_shader(const Singleton* instance) { return instance->bones && bones_on_device(instance->scene) <= 0; }
+bool skinned_by_shader(const Singleton* instance) { return instance->bones_value() && bones_on_device(instance->scene_value()) <= 0; }
 // The scene's first byte's top bit: drawn unlit.
 bool scene_unlit(const SceneRef* scene) { return static_cast<int8_t>(scene->flags_value() & 0xFF) < 0; }
 
@@ -114,7 +114,7 @@ uint32_t& mesh_flags_ref(MeshRef* mesh) { return mesh->flags_value(); }
 
 const maths::Vec4* get_position(const Singleton* instance)
 {
-    return &core::at(instance->transform.row, 3);
+    return &core::at(instance->transform_value().row, 3);
 }
 
 // A colour channel (0-1) as a byte, as the original's _ftol (truncated through 64 bits).
@@ -127,12 +127,12 @@ uint32_t get_channel(float value)
 // scene's.
 void refresh_instance_lighting(Singleton* instance)
 {
-    ModelLights* lights = instance->model ? instance->model->lights_ptr().get() : nullptr;
+    ModelLights* lights = instance->model_value() ? instance->model_value()->lights_ptr().get() : nullptr;
     if (!lights) {
         reset_lights();
         return;
     }
-    lights->plat_apply_scene_lights(get_position(instance), lights->dynamic_radius_);
+    lights->plat_apply_scene_lights(get_position(instance), lights->dynamic_radius());
 }
 
 // The renderer's light constants into the device's lights 0 and 1 (direction, diffuse colour) and its ambient
@@ -282,14 +282,14 @@ void Singleton::render(uint32_t draw_bits)
 void draw_one_instance(Singleton* instance, uint32_t flags)
 {
     set_last_bones(nullptr);
-    if (!instance->active)
+    if (!instance->active_value())
         return;
-    set_world_transform((instance->transform).data());
-    const maths::Vec4 sphere = sphere_of(instance->scene->centre_value(), instance->scene->radius_value());
+    set_world_transform((instance->transform_value()).data());
+    const maths::Vec4 sphere = sphere_of(instance->scene_value()->centre_value(), instance->scene_value()->radius_value());
     const maths::Vec4* centre = &sphere;
     if ((flags & 8) ||
-        (sphere_in_view(centre, instance->scene->radius_value()) && !sphere_occluded(centre, instance->scene->radius_value(), 1))) {
-        if (instance->bones) {
+        (sphere_in_view(centre, instance->scene_value()->radius_value()) && !sphere_occluded(centre, instance->scene_value()->radius_value(), 1))) {
+        if (instance->bones_value()) {
             set_flag_786e_b4();
             instance->render(kRenderOpaque | kRenderTransparent);
             clear_flag_786e_b4();
@@ -309,10 +309,10 @@ void draw_instance_batch(uint32_t flags, int viewport)
     int count = 0;
     set_last_bones(nullptr);
     if (instances()) {
-        for (Singleton* instance = instances(); instance; instance = instance->next) {
-            if (!instance->active || !(instance->viewports & mask))
+        for (Singleton* instance = instances(); instance; instance = instance->next_value()) {
+            if (!instance->active_value() || !(instance->viewports_value() & mask))
                 continue;
-            const SceneRef* list = instance->scene;
+            const SceneRef* list = instance->scene_value();
             if (!((flags & kRenderOpaque) && list->mesh_count() > list->transparent_count()) &&
                 !((flags & kRenderTransparent) && list->transparent_count() > 0))
                 continue;
@@ -320,10 +320,10 @@ void draw_instance_batch(uint32_t flags, int viewport)
             for (int k = 0; k < 4; ++k)
                 core::at(culling, 12 + k) = position[k];
             set_world_transform(culling.data());
-            float radius = instance->scene->radius_value();
-            if (instance->bones && bones_on_device(instance->scene) == 0 && radius < 72.0f)
+            float radius = instance->scene_value()->radius_value();
+            if (instance->bones_value() && bones_on_device(instance->scene_value()) == 0 && radius < 72.0f)
                 radius = 72.0f; // (a skinned model's sphere at least this big)
-            const maths::Vec4 sphere = sphere_of(instance->scene->centre_value(), instance->scene->radius_value());
+            const maths::Vec4 sphere = sphere_of(instance->scene_value()->centre_value(), instance->scene_value()->radius_value());
             if (!sphere_occluded(&sphere, radius, 1))
                 core::at(get_visible(), count++) = instance;
         }
@@ -376,22 +376,22 @@ int compare_instances(const void* a, const void* b)
     if (skinned_by_shader(first)) {
         if (!skinned_by_shader(second))
             return -1;
-        if (first->bones != second->bones)
-            return second->bones < first->bones ? 1 : -1;
-        const int x = first->scene->transparent_count();
-        const int y = second->scene->transparent_count();
+        if (first->bones_value() != second->bones_value())
+            return second->bones_value() < first->bones_value() ? 1 : -1;
+        const int x = first->scene_value()->transparent_count();
+        const int y = second->scene_value()->transparent_count();
         return x == y ? 0 : x > y ? 1 : -1;
     }
     if (skinned_by_shader(second))
         return 1;
-    const int x = first->scene->transparent_count();
-    const int y = second->scene->transparent_count();
+    const int x = first->scene_value()->transparent_count();
+    const int y = second->scene_value()->transparent_count();
     if (x != y)
         return x > y ? 1 : -1;
     if (x <= 0)
         return 0;
-    const MaterialRef* m1 = core::at(first->scene->mesh_run(), first->scene->first_transparent())->material_value();
-    const MaterialRef* m2 = core::at(second->scene->mesh_run(), second->scene->first_transparent())->material_value();
+    const MaterialRef* m1 = core::at(first->scene_value()->mesh_run(), first->scene_value()->first_transparent())->material_value();
+    const MaterialRef* m2 = core::at(second->scene_value()->mesh_run(), second->scene_value()->first_transparent())->material_value();
     if (!m1 || !m2)
         return 0;
     const float k1 = m1->sort_key();

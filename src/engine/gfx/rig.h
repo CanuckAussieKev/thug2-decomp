@@ -58,6 +58,17 @@ public:
         return {bind_translations_, static_cast<std::size_t>(num_)};
     }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int num() const { return num_; }
+    [[nodiscard]] const std::array<uint32_t, 64>& names() const { return names_; }
+    [[nodiscard]] const std::array<uint32_t, 64>& parent_names() const { return parent_names_; }
+    std::array<uint32_t, 64>& lod_masks() { return lod_masks_; }
+    [[nodiscard]] const std::array<uint32_t, 64>& lod_masks() const { return lod_masks_; }
+    [[nodiscard]] const std::array<float, 32>& lod_distances() const { return lod_distances_; }
+    [[nodiscard]] maths::Vec4* bind_translations() const { return bind_translations_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+
+private:
     int num_{0};                     // +0x004
     std::array<uint32_t, 64> names_{};           // +0x008
     std::array<uint32_t, 64> parent_names_{};    // +0x108
@@ -145,6 +156,16 @@ public:
     [[nodiscard]] std::span<maths::Mat4> matrices() const { return {matrix_array_, static_cast<std::size_t>(bone_total_)}; }
     [[nodiscard]] std::span<Joint> bones() const { return {bone_array_, static_cast<std::size_t>(bone_total_)}; }
 
+    // The fields other code reads and sets.
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] maths::Mat4* matrix_array() const { return matrix_array_; }
+    [[nodiscard]] RigData* payload() const { return payload_; }
+    [[nodiscard]] uint32_t lod() const { return lod_; }
+    void set_max_lod(uint32_t value) { max_lod_ = value; }
+    [[nodiscard]] int bone_total() const { return bone_total_; }
+
+private:
     uint32_t flag_bits_{0};     // +0x00
     maths::Mat4* matrix_array_; // +0x04
     RigData* payload_;          // +0x08
@@ -152,8 +173,12 @@ public:
     uint32_t max_lod_;          // +0x10
     int bone_total_;            // +0x14
     Joint* bone_array_;         // +0x18
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(Rig, bone_array_) == 0x18 && sizeof(Rig) == 0x1C, "layout must match the original");
+    }
 };
-static_assert(offsetof(Rig, bone_array_) == 0x18 && sizeof(Rig) == 0x1C, "layout must match the original");
 
 // 0x004A2F20: a bone's matrix from a rotation and a translation (x87: the products and the -z w term unrounded, the
 // -x w and -y w terms rounded); `mirror` / `swap_z` negate entries to mirror it.

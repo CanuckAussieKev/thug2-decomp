@@ -78,8 +78,8 @@ void fade_model(void* model, float target)
 // An object's two matrices (its orientation and display matrix) set to `matrix`.
 void set_matrices(GameEntity* object, const float* matrix)
 {
-    std::memcpy(&object->basis_frame_, matrix, 64);
-    std::memcpy(&object->display_matrix_, matrix, 64);
+    std::memcpy(&object->basis_frame(), matrix, 64);
+    std::memcpy(&object->display_matrix(), matrix, 64);
 }
 
 // (debug drawing, compiled out: the object's box)
@@ -207,12 +207,12 @@ void CinematicTable::update_stand_in(GameEntity* object)
             core::down_cast<MeshInstanceModule>(level_component)->get_update_brightness();
             ObjectModule* skeleton = object->fetch_module(kSkeletonModuleName);
             maths::Mat4 matrix{};
-            matrix = object->display_matrix_;
-            matrix[3] = object->at_point_; // (its position row)
+            matrix = object->display_matrix();
+            matrix[3] = object->at_point(); // (its position row)
             static_cast<render::RenderModel*>(level_model)
                 ->render(&matrix, false,
                          core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_);
-            std::memcpy(&level->at_point_, &object->at_point_, 16);
+            std::memcpy(&level->at_point(), &object->at_point(), 16);
         } else {
             if (fader_of(model)) {
                 fade_model(model_of(component), 1.0f);
@@ -222,7 +222,7 @@ void CinematicTable::update_stand_in(GameEntity* object)
         }
     }
     if (ObjectModule* matrix = object->fetch_module(kMatrixComponent))
-        core::down_cast<MatrixComponent>(matrix)->change_mat(&object->display_matrix_);
+        core::down_cast<MatrixComponent>(matrix)->change_mat(&object->display_matrix());
 }
 
 // 0x00465C00
@@ -250,7 +250,7 @@ void CinematicTable::update_object_transforms()
         maths::Mat4 matrix{};
         quat_to_matrix(gfx::quad_at(objects_shared().get_rotations(), j), origin, std::span<float, 16>(matrix.data(), 16));
         set_matrices(object, matrix.data());
-        std::memcpy(&object->at_point_, gfx::quad_at(objects_shared().get_translations(), j).data(), 16);
+        std::memcpy(&object->at_point(), gfx::quad_at(objects_shared().get_translations(), j).data(), 16);
     }
     for (int i = 0; i < object_count_; ++i) {
         const ObjectEntry& entry = core::at(entities_, i);
@@ -262,10 +262,10 @@ void CinematicTable::update_object_transforms()
             maths::Vec4 turned{};
             static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, &bone);
             turned =
-                bone * parent->display_matrix_;
+                bone * parent->display_matrix();
             const maths::Vec4& offset = turned;
-            const maths::Vec4& at = parent->at_point_;
-            maths::Vec4& position = object->at_point_;
+            const maths::Vec4& at = parent->at_point();
+            maths::Vec4& position = object->at_point();
             position[2] = static_cast<float>(static_cast<double>(at[2]) + offset[2]);
             position[3] = static_cast<float>(static_cast<double>(at[3]) + offset[3]);
             position[0] = static_cast<float>(static_cast<double>(offset[0]) + at[0]);
@@ -274,7 +274,7 @@ void CinematicTable::update_object_transforms()
             maths::Mat4 joint_mat{};
             static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kAttachBone, &joint_mat);
             std::array<float, 16> owner_mat{};
-            std::memcpy(owner_mat.data(), &parent->display_matrix_, 64);
+            std::memcpy(owner_mat.data(), &parent->display_matrix(), 64);
             std::memcpy(std::span(owner_mat).subspan(12, 4).data(), &at, 16);
             core::at(owner_mat, 3) = 0.0f;
             core::at(owner_mat, 7) = 0.0f;
@@ -294,12 +294,12 @@ void CinematicTable::update_object_transforms()
             quat_to_matrix(gfx::quad_at(objects_shared().get_rotations(), static_cast<size_t>(entry.anim_index_)), origin,
                            std::span<float, 16>(matrix.data(), 16));
             set_matrices(object, matrix.data());
-            std::memcpy(&object->at_point_, gfx::quad_at(objects_shared().get_translations(), static_cast<size_t>(entry.anim_index_)).data(), 16);
+            std::memcpy(&object->at_point(), gfx::quad_at(objects_shared().get_translations(), static_cast<size_t>(entry.anim_index_)).data(), 16);
             update_stand_in(object);
         }
         if (script::fetch_int_value(kDebugBoxes)) {
             const std::array<float, 8> box = {{1.0f, 10.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, 1.0f}};
-            debug_draw_box(&object->display_matrix_, &object->at_point_, box.data(), 0, 1, 0, 0xFF0000C8);
+            debug_draw_box(&object->display_matrix(), &object->at_point(), box.data(), 0, 1, 0, 0xFF0000C8);
         }
     }
 }

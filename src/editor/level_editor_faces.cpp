@@ -217,18 +217,18 @@ std::map<FaceKey, uint16_t>& origins()
 render::TriMeshSource* get_geometry(uint32_t checksum)
 {
     const render::WorldCell* sector = scenery::sector_of(checksum);
-    const render::HitMesh* coll = sector ? sector->hit_body_ : nullptr;
+    const render::HitMesh* coll = sector ? sector->hit_body() : nullptr;
     if (!render::is_static_collider(coll))
         return nullptr;
     auto* tri = coll->geometry_;
-    return tri && tri->faces_ ? tri : nullptr;
+    return tri && tri->faces() ? tri : nullptr;
 }
 
 // The face's flags written (a taken face: in its companion - the original keeps 0x10); its level's flags noted first.
 bool emit_out(FaceKey key, uint16_t flags)
 {
     render::TriMeshSource* tri = get_geometry(key.checksum);
-    if (!tri || key.face >= tri->tri_count_)
+    if (!tri || key.face >= tri->tri_count())
         return false;
     if (!origins().count(key)) {
         uint16_t origin = 0;
@@ -245,7 +245,7 @@ bool emit_out(FaceKey key, uint16_t flags)
 bool get_corners(FaceKey key, std::span<V3, 3> out)
 {
     const render::TriMeshSource* tri = get_geometry(key.checksum);
-    if (!tri || key.face >= tri->tri_count_ || !tri->vertices_)
+    if (!tri || key.face >= tri->tri_count() || !tri->vertices())
         return false;
     uint32_t piece = 0;
     int index = -1;
@@ -263,7 +263,7 @@ bool get_corners(FaceKey key, std::span<V3, 3> out)
     }
     for (int k = 0; k < 3; ++k) {
         const uint32_t v = tri->face_vertex(key.face, k);
-        if (v >= tri->num_vertices_)
+        if (v >= tri->num_vertices())
             return false;
         maths::Vec4 p{};
         tri->read_stored_vertex(static_cast<int>(v), &p);
@@ -284,7 +284,7 @@ bool get_key_of(const view::FaceHit& hit, FaceKey* key, std::string* why)
             *why = "Face belongs to a copy; edit the source";
             return false;
         }
-        checksum = geometry->checksum_;
+        checksum = geometry->checksum();
     }
     if (scenery::is_clone(checksum)) {
         *why = "Face belongs to a copy; edit the source";
@@ -424,7 +424,7 @@ bool select_piece(uint32_t checksum, bool add)
     if (scenery::is_clone(checksum))
         return false;
     if (const render::TriMeshSource* tri = get_geometry(checksum)) {
-        for (int f = 0; std::cmp_less(f, tri->tri_count_) && faces.size() < kMostSelected; ++f)
+        for (int f = 0; std::cmp_less(f, tri->tri_count()) && faces.size() < kMostSelected; ++f)
             faces.push_back({.checksum = checksum, .face = static_cast<uint16_t>(f)});
     }
     // (the faces its shared collision took along: theirs to edit too)
@@ -433,7 +433,7 @@ bool select_piece(uint32_t checksum, bool add)
             render::TriMeshSource* geometry = nullptr;
             int face = -1;
             if (shared_collision::origin_of(checksum, i, &geometry, &face) && geometry && face >= 0)
-                faces.push_back({.checksum = geometry->checksum_, .face = static_cast<uint16_t>(face)});
+                faces.push_back({.checksum = geometry->checksum(), .face = static_cast<uint16_t>(face)});
         }
     }
     if (faces.empty())
@@ -452,7 +452,7 @@ bool select_piece(uint32_t checksum, bool add)
 bool get_take_in(FaceKey key, uint16_t* flags)
 {
     const render::TriMeshSource* tri = get_geometry(key.checksum);
-    if (!tri || key.face >= tri->tri_count_)
+    if (!tri || key.face >= tri->tri_count())
         return false;
     if (!shared_collision::taken_face(tri, key.face, nullptr, nullptr, flags))
         *flags = tri->face_flags(key.face);

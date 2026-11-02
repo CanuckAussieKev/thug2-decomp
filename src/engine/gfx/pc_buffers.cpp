@@ -40,14 +40,14 @@ void MeshRef::set_vertex_buffer(int index, VertexBuffer* vb) { core::at(vertex_b
 void MeshRef::move_into_arena(VertexArena* arena)
 {
     VertexBuffer* vb = core::at(vertex_buffers_, 0);
-    if (vb->buffer)
+    if (vb->buffer_value())
         return; // (the original adds 0x1F & ~0x1F - nothing - to the arena's offset)
-    vb->buffer = arena->buffer;
-    vb->arena_offset_ = arena->used;
+    vb->set_buffer(arena->buffer);
+    vb->set_arena_offset(arena->used);
     const std::span<uint8_t> locked(static_cast<uint8_t*>(arena->data), arena->size); // (the buffer, locked)
-    std::memcpy(locked.subspan(arena->used, vb->size).data(), vb->data, vb->size);
+    std::memcpy(locked.subspan(arena->used, vb->size_value()).data(), vb->data_value(), vb->size_value());
     static_cast<IDirect3DVertexBuffer9*>(arena->buffer)->AddRef();
-    arena->used += (vb->size + 0x1F) & ~0x1Fu;
+    arena->used += (vb->size_value() + 0x1F) & ~0x1Fu;
 }
 
 // 0x004D3D10

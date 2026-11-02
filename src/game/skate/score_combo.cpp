@@ -82,7 +82,7 @@ constexpr uint8_t kGroupGame = 8;
 bool points_held(objects::Rider* skater)
 {
     const objects::ObjectModule* adjust = skater->fetch_module(kSkaterAdjustPhysics);
-    return adjust && core::down_cast<const objects::RiderPhysicsTweaks>(adjust)->uber_frigged_;
+    return adjust && core::down_cast<const objects::RiderPhysicsTweaks>(adjust)->uber_frigged();
 }
 
 // `points` to the server (message `id`, the client of the skater's viewport).
@@ -693,7 +693,7 @@ void PointTally::get_reset()
     reset_score_pot();
     lists::TableItemEraser destroyer{&seen_};
     destroyer.free_table_contents();
-    if (skater && skater->is_local_skater_) {
+    if (skater && skater->is_local_skater()) {
         dispatch_trick_sequence(false);
         dispatch_score_pot(0, 0.0f);
     }
@@ -708,7 +708,7 @@ void PointTally::get_reset()
     pot_state_ = 0;
     set_special_bar_colors();
     skater = rider_for_slot(rider_no_);
-    if (skater && skater->is_local_skater_)
+    if (skater && skater->is_local_skater())
         core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer))->halt();
 }
 

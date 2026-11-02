@@ -118,7 +118,7 @@ void GroundShadowModule::refresh_shadow()
     switch (shadow_kind_of(shadow_handle_.get())) {
     case kShadowDetailed: {
         const GameEntity* object = entity_;
-        const maths::Vec4 above = object->at_point_ + core::at(object->basis_frame_.row, 1) * kDetailedHeight;
+        const maths::Vec4 above = object->at_point() + core::at(object->basis_frame().row, 1) * kDetailedHeight;
         // (the model's lights' first direction - their slot 5 -, turned round - and not used)
         if (auto* lights =
                 (model->lights_ptr().get())) {
@@ -133,7 +133,7 @@ void GroundShadowModule::refresh_shadow()
         as_blob(shadow_handle_.get())->size_factor_ = model->size_factor().x;
         [[fallthrough]];
     case kShadowVolume:
-        shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
+        shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame(), surface_dir_);
         break;
     default:
         break;
@@ -179,7 +179,7 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     default:
         return;
     }
-    shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
+    shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame(), surface_dir_);
 }
 
 // 0x00431780
@@ -226,7 +226,7 @@ void GroundShadowModule::configure_from_data(script::Struct* params)
         float scale = 1.0f;
         params->fetch_float(kBlobSizeFactor, &scale, 0);
         as_blob(shadow_handle_.get())->size_factor_ = scale;
-        shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
+        shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame(), surface_dir_);
         break;
     }
     case kVolume:
@@ -246,10 +246,10 @@ void GroundShadowModule::configure_from_data(script::Struct* params)
 void GroundShadowModule::tick_frame()
 {
     if (follow_object_) {
-        at_point_ = entity_->at_point_;
+        at_point_ = entity_->at_point();
         if (shadow_handle_) {
-            maths::Mat4 matrix = entity_->display_matrix_;
-            maths::Vec4 pos = entity_->at_point_;
+            maths::Mat4 matrix = entity_->display_matrix();
+            maths::Vec4 pos = entity_->at_point();
             render::RenderModel* model = mesh_instance_ ? model_of(mesh_instance_) : nullptr;
             if (model && hierarchy_of(model)) {
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
@@ -257,9 +257,9 @@ void GroundShadowModule::tick_frame()
                 pos = {.x = root.x, .y = root.y, .z = root.z, .w = 0.0f};
                 const maths::Mat4 base_mat = hierarchy_of(model)->matrix;
                 (void)base_mat; // (copied and not used: the product reads the hierarchy's again)
-                pos += entity_->at_point_;
+                pos += entity_->at_point();
                 matrix = maths::MatrixProduct{.left = &hierarchy_of(model)->matrix,
-                                              .right = &entity_->display_matrix_};
+                                              .right = &entity_->display_matrix()};
             }
             core::at(matrix.row, 3) = pos;
             shadow_handle_->change_mat(&matrix);

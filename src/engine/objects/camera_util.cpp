@@ -36,10 +36,10 @@ public:
     {
         return as_feeler()->get_collision_along(&start, &end, a != 0) != 0;
     }
-    [[nodiscard]] const maths::Vec4& kickoff() const { return ray_.line_.start; }
-    [[nodiscard]] const maths::Vec4& get_end() const { return ray_.line_.end; }
-    [[nodiscard]] float get_fraction() const { return ray_.reach_; }
-    [[nodiscard]] const maths::Vec4& get_point() const { return ray_.contact_pos_; }
+    [[nodiscard]] const maths::Vec4& kickoff() const { return ray_.line().start; }
+    [[nodiscard]] const maths::Vec4& get_end() const { return ray_.line().end; }
+    [[nodiscard]] float get_fraction() const { return ray_.reach(); }
+    [[nodiscard]] const maths::Vec4& get_point() const { return ray_.contact_pos(); }
 
 private:
     render::ProbeRay* as_feeler() { return &ray_; }

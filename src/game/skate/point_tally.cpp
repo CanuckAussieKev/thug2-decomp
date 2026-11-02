@@ -346,7 +346,7 @@ void PointTally::set_grand_total(int total)
 {
     sum_ = total;
     objects::Rider* skater = rider_for_slot(rider_no_);
-    if (!skater->is_local_skater_) // (no check: as the original)
+    if (!skater->is_local_skater()) // (no check: as the original)
         return;
     std::array<char, 0x40> shown{};
     if (get_game_mode()->get_name_key() == kNetKing || get_game_mode()->get_name_key() == kKing) {

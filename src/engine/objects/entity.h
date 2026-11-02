@@ -168,6 +168,35 @@ public:
     bool obj_spawn_script(script::Struct* params, script::Script* script);        // 0x004617E0
     bool obj_switch_script(script::Struct* params, script::Script* script);       // 0x004618A0
 
+    // The fields other code reads and sets.
+    uint32_t& object_flags() { return object_flags_; }
+    [[nodiscard]] uint32_t object_flags() const { return object_flags_; }
+    [[nodiscard]] ObjectHubBase* park_owner() const { return park_owner_; }
+    void set_park_owner(ObjectHubBase* value) { park_owner_ = value; }
+    [[nodiscard]] script::Script* own_script() const { return own_script_; }
+    void set_own_script(script::Script* value) { own_script_ = value; }
+    uint32_t& ident() { return ident_; }
+    [[nodiscard]] uint32_t ident() const { return ident_; }
+    void set_ident(uint32_t value) { ident_ = value; }
+    [[nodiscard]] uint32_t kind_tag() const { return kind_tag_; }
+    void set_kind_tag(uint32_t value) { kind_tag_ = value; }
+    uint32_t& visited_mask() { return visited_mask_; }
+    [[nodiscard]] uint32_t visited_mask() const { return visited_mask_; }
+    [[nodiscard]] script::Struct* tag_table() const { return static_cast<script::Struct*>(tag_table_); } // (a view: it stays the owner's)
+    void set_tag_table(gsl::owner<script::Struct*> value) { tag_table_ = value; }
+    // 0x0057A190: every field but the tables (the vptr, the list node table word, ref_'s vptr), the smart pointer
+    // lists and the list node's links copied as they are (movie_manager.cpp).
+    void assign_fields_from(const Entity& other);
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    uint32_t& alias_count() { return alias_count_; }
+    [[nodiscard]] uint32_t alias_count() const { return alias_count_; }
+    ObjectRef& ref() { return ref_; }
+    [[nodiscard]] const ObjectRef& ref() const { return ref_; }
+
+private:
     // --- fields (after SharedBase's vptr and smart pointer list) ---
     uint32_t object_flags_ = 0;            // +0x08 OBJECT_FLAG_*
     ObjectHubBase* park_owner_ = nullptr;  // +0x0C the manager it is registered with
@@ -387,6 +416,23 @@ public:
     // (the original's slot 10, 0x005480A0 here) Its own update, each frame before its components': nothing here.
     virtual void own_update() {}
 
+    // The fields other code reads and sets.
+    maths::Vec4& at_point() { return at_point_; }
+    [[nodiscard]] const maths::Vec4& at_point() const { return at_point_; }
+    maths::Vec4& old_pos() { return old_pos_; }
+    [[nodiscard]] const maths::Vec4& old_pos() const { return old_pos_; }
+    maths::Mat4& basis_frame() { return basis_frame_; }
+    [[nodiscard]] const maths::Mat4& basis_frame() const { return basis_frame_; }
+    maths::Vec4& vel() { return vel_; }
+    [[nodiscard]] const maths::Vec4& vel() const { return vel_; }
+    uint8_t& is_local_skater() { return is_local_skater_; }
+    [[nodiscard]] uint8_t is_local_skater() const { return is_local_skater_; }
+    maths::Mat4& display_matrix() { return display_matrix_; }
+    [[nodiscard]] const maths::Mat4& display_matrix() const { return display_matrix_; }
+    uint32_t& composite_flags() { return composite_flags_; }
+    [[nodiscard]] uint32_t composite_flags() const { return composite_flags_; }
+
+private:
     maths::Vec4 at_point_{};                   // +0x4C (w = 1 after every update)
     maths::Vec4 old_pos_{};                    // +0x5C (not initialised here; the skater's code sets it)
     maths::Mat4 basis_frame_{};                // +0x6C its orientation (rows: right, up, at, and a fourth)

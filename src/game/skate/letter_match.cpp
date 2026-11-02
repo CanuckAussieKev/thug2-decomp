@@ -200,7 +200,7 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
         text::format_to(text, "%s", word_.data());
         break;
     case kPlayerName:
-        text::format_to(text, "%s", get_skater(skater->ident_)->fetch_shown_name());
+        text::format_to(text, "%s", get_skater(skater->ident())->fetch_shown_name());
         break;
     default:
         break;

@@ -48,7 +48,7 @@ bool cfunc_initialize_skaters(script::Struct*, script::Script*)
 {
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (skater->is_local_skater_ != 0) {
+        if (skater->is_local_skater() != 0) {
             skater->reset_input();
         }
         get_skate()->conceal_skater(skater, false);
@@ -76,7 +76,7 @@ bool cfunc_reset_score(script::Struct* params, script::Script*)
     const bool all = params->has_entry_named(kResetAll);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (!(skater->is_local_skater_ != 0) && !all)
+        if (!(skater->is_local_skater() != 0) && !all)
             continue;
         static_cast<modules::PointTally*>(skater->get_points_total())->get_reset();
         if (active_ruleset_label() == kNetKing || active_ruleset_label() == kKing)
@@ -92,7 +92,7 @@ bool cfunc_update_score(script::Struct*, script::Script*)
 {
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (!(skater->is_local_skater_ != 0))
+        if (!(skater->is_local_skater() != 0))
             continue;
         void* score = skater->get_points_total();
         static_cast<modules::PointTally*>(score)->set_grand_total(
@@ -108,7 +108,7 @@ bool cfunc_reset_score_pot(script::Struct* params, script::Script*)
     const bool bail_style = params->has_bare_flag(kUseBailStyle);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (skater->is_local_skater_ != 0)
+        if (skater->is_local_skater() != 0)
             static_cast<modules::PointTally*>(skater->get_points_total())->get_bail(!bail_style);
     }
     return true;
@@ -135,20 +135,20 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
         const objects::Rider* skater = get_skater_at(i);
         if (!skater)
             continue;
-        auto* info = (net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
+        auto* info = (net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
         if (!info)
             continue;
         if (info->team() == exclude_team && !info->is_carrying_flag())
             continue;
         if (info->team() != exclude_team && info->is_carrying_flag())
             continue;
-        const double dx = static_cast<double>(skater->at_point_.x) - object->at_point_.x;
-        const double dy = static_cast<double>(skater->at_point_.y) - object->at_point_.y;
-        const double dz = static_cast<double>(skater->at_point_.z) - object->at_point_.z;
+        const double dx = static_cast<double>(skater->at_point().x) - object->at_point().x;
+        const double dy = static_cast<double>(skater->at_point().y) - object->at_point().y;
+        const double dz = static_cast<double>(skater->at_point().z) - object->at_point().z;
         const double distance_squared = dz * dz + dx * dx + dy * dy;
         if (distance_squared < radius_squared && distance_squared < nearest) {
             nearest = static_cast<float>(distance_squared);
-            player = skater->ident_;
+            player = skater->ident();
         }
     }
     if (static_cast<int>(player) > -1)

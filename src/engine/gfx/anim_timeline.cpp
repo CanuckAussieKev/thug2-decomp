@@ -33,14 +33,14 @@ constexpr float kSecondsPerFrame = 1.0f / 60.0f; // 0x006463B8
 // The timeline's empty state (Reset and the constructor).
 void get_clear(AnimTimeline* t)
 {
-    t->outset_ = 0.0f;
-    t->ongoing_ = 0.0f;
-    t->finish_ = 0.0f;
-    t->speed_ = 0.0f;
-    t->direction_ = 0;
-    t->repeat_mode_ = AnimTimeline::kCycle;
-    t->complete_ = false;
-    t->anim_ = kNoAnim;
+    t->set_outset(0.0f);
+    t->set_ongoing(0.0f);
+    t->set_finish(0.0f);
+    t->set_speed(0.0f);
+    t->set_direction(0);
+    t->set_repeat_mode(AnimTimeline::kCycle);
+    t->set_complete(false);
+    t->set_anim(kNoAnim);
 }
 
 } // namespace

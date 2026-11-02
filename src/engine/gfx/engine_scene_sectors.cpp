@@ -51,8 +51,8 @@ bool scene_unload_collision(WorldScene* scene) { return scene->unload_collision(
 gsl::owner<WorldCell*> alloc_sector(WorldScene* scene)
 {
     gsl::owner<WorldCell*> sector = scene->plat_create_sector();
-    sector->geom_handle_ = nullptr;
-    sector->hit_body_ = nullptr;
+    sector->set_geom_handle(nullptr);
+    sector->set_hit_body(nullptr);
     return sector;
 }
 
@@ -110,7 +110,7 @@ void for_each_sector(WorldScene* scene, Body body)
 
 void put_sector(WorldScene* scene, WorldCell* sector)
 {
-    const uint32_t key = sector->checksum_;
+    const uint32_t key = sector->checksum();
     scene->sectors()->store_entry(key, sector);
 }
 
@@ -176,7 +176,7 @@ void WorldScene::fetch_diagnostics(script::Struct* info)
     if (sectors_) {
         for_each_sector(this, [&](WorldCell* sector) {
             ++sectors;
-            if (void* geom = sector->geom_handle_) {
+            if (void* geom = sector->geom_handle()) {
                 count70 += geom_count70(geom);
                 slot33 += geom_slot33(geom);
                 slot33_again += geom_slot33(geom);
@@ -207,11 +207,11 @@ uint32_t WorldScene::duplicate_scene_sector(WorldCell* sector, WorldScene* scene
     if (!clone)
         return 0;
     if (name)
-        clone->checksum_ = name;
+        clone->set_checksum(name);
     put_sector(scene, clone);
     if (flag)
         scene->sector_kept_ = true;
-    return clone->checksum_;
+    return clone->checksum();
 }
 
 // 0x0049DF30
@@ -243,7 +243,7 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
             gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(sectors_->fetch_entry(name));
             if (!sector) {
                 sector = alloc_sector(this);
-                sector->checksum_ = name;
+                sector->set_checksum(name);
                 sector->change_live(true);
                 put_sector(this, sector);
             }
@@ -282,19 +282,19 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
     manager->enter_heap_scope(manager->top_down_heap());
     for_each_sector(this, [&](WorldCell* sector) {
         if (sector->fetch_bits() & kSectorAddToGrid) {
-            append_last(&to_add, new_node(sector->hit_body_));
+            append_last(&to_add, new_node(sector->hit_body()));
             sector->clear_flags(kSectorAddToGrid);
             sector->change_bits(kSectorInGrid);
         }
         if (sector->fetch_bits() & (kSectorDelete | kSectorRemoveFromGrid)) {
-            append_last(&to_remove, new_node(sector->hit_body_));
+            append_last(&to_remove, new_node(sector->hit_body()));
             if (sector->fetch_bits() & kSectorDelete)
                 append_last(&to_delete, new_node(sector));
             else
                 sector->clear_flags(kSectorRemoveFromGrid);
         }
         if (sector->fetch_bits() & kSectorMoved) {
-            append_last(&moved, new_node(sector->hit_body_));
+            append_last(&moved, new_node(sector->hit_body()));
             sector->clear_flags(kSectorMoved);
         }
     });
@@ -305,9 +305,9 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
             bool listed = false;
             for (const memory::ListNode* removing = head_of_scene_list(&to_remove); removing && !listed;
                  removing = get_next_node(removing))
-                listed = removing->data == sector->hit_body_;
+                listed = removing->data == sector->hit_body();
             if (!listed) {
-                append_last(&to_remove, new_node(sector->hit_body_));
+                append_last(&to_remove, new_node(sector->hit_body()));
                 sector->clear_flags(kSectorRemoveFromGrid);
             }
             node = next;
@@ -321,7 +321,7 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
     for (memory::ListNode* node = head_of_scene_list(&to_delete); node;) {
         memory::ListNode* next = get_next_node(node);
         gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(node->data);
-        const uint32_t key = sector->checksum_;
+        const uint32_t key = sector->checksum();
         sectors_->erase_entry(key);
         sector->clear_flags(kSectorInGrid);
         delete sector;
@@ -357,7 +357,7 @@ bool WorldScene::load_add_scene(const char* name)
             gsl::owner<WorldCell*> sector = memory::adopt<WorldCell*>(sectors_->fetch_entry(section_id));
             if (!sector) {
                 sector = alloc_sector(this);
-                sector->checksum_ = section_id;
+                sector->set_checksum(section_id);
                 sector->change_live(true);
                 sector->change_bits(kSectorAddToGrid);
                 sector_kept_ = true;
@@ -384,7 +384,7 @@ bool WorldScene::flip_extra_scene()
         auto* sector = static_cast<WorldCell*>(node->data);
         sector->change_bits(kSectorRemoveFromGrid);
         sector_kept_ = true;
-        const uint32_t key = sector->checksum_;
+        const uint32_t key = sector->checksum();
         sectors_->erase_entry(key);
         sector->change_live(false);
         node = next;

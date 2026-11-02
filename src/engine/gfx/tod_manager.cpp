@@ -209,7 +209,7 @@ void set_model_color(objects::ObjectModule* model, uint32_t color)
 
 TodSystem& system_at(CtodManager* manager, int index)
 {
-    return core::at(manager->systems_, index); // (the original had no bounds check)
+    return core::at(manager->systems(), index); // (the original had no bounds check)
 }
 
 BloomParams bloom_of(const TodParams& params)
@@ -571,7 +571,7 @@ void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint32_t li
     if (!table)
         return;
     auto colour = [](render::WorldCell* sector, uint32_t value) {
-        void* geometry = sector->geom_handle_;
+        void* geometry = sector->geom_handle();
         if (geometry) {
             static_cast<render::Geom*>(geometry)->change_tint(value);
         }
@@ -611,14 +611,14 @@ void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint32_t li
         for (bool again = true; again; again = (sector = next()) != nullptr) {
             if (remaining-- == 0)
                 return;
-            if (sector->light_group_ == light_group)
+            if (sector->light_group() == light_group)
                 colour(sector, color);
         }
     } else {
         for (bool again = true; again; again = (sector = next()) != nullptr) {
             if (remaining-- == 0)
                 return;
-            const uint32_t group = sector->light_group_;
+            const uint32_t group = sector->light_group();
             if (group == light_group)
                 colour(sector, color);
             else if (group == reset_light_group)
@@ -659,10 +659,10 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
         // The models: those of objects without a sector of their name, or an outdoor one, get the colour.
         for (objects::ObjectModule* model = objects::object_hub_slot()->find_first_module_of_kind(kModel); model;
              model = model->next_of_type_) {
-            const render::WorldCell* sector = look_up_sector(model->entity_->ident_);
-            if (!sector || sector->light_group_ == kOutdoor)
+            const render::WorldCell* sector = look_up_sector(model->entity_->ident());
+            if (!sector || sector->light_group() == kOutdoor)
                 set_model_color(model, color);
-            if (reset_light_group && sector && sector->light_group_ == reset_light_group)
+            if (reset_light_group && sector && sector->light_group() == reset_light_group)
                 set_model_color(model, kNeutralColor);
         }
     }
@@ -1186,7 +1186,7 @@ bool cfunc_tod_manager_set_active(script::Struct* params, script::Script* /*scri
     CtodManager* manager = tod_manager();
     int active = 0;
     params->fetch_int_value(0u, &active, 1);
-    manager->active_ = active != 0;
+    manager->set_active(active != 0);
     return true;
 }
 
@@ -1207,7 +1207,7 @@ bool cfunc_tod_manager_set_time_multiplier(script::Struct* params, script::Scrip
     params->fetch_float(0u, &multiplier, 0);
     if (!tod_manager())
         return false;
-    tod_manager()->time_multiplier_ = multiplier;
+    tod_manager()->set_time_multiplier(multiplier);
     return true;
 }
 
@@ -1216,7 +1216,7 @@ bool cfunc_tod_manager_get_time_multiplier(script::Struct* /*params*/, script::S
 {
     if (!tod_manager())
         return false;
-    script->args()->push_float(kTimeMultiplierName, tod_manager()->time_multiplier_);
+    script->args()->push_float(kTimeMultiplierName, tod_manager()->time_multiplier());
     return true;
 }
 
@@ -1226,7 +1226,7 @@ bool cfunc_tod_manager_set_tod_script(script::Struct* params, script::Script* /*
     CtodManager* manager = tod_manager();
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
-    manager->transition_script_ = name;
+    manager->set_transition_script(name);
     return true;
 }
 
@@ -1252,9 +1252,9 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
     CtodManager* manager = tod_manager();
     const TodParams p = manager->get_tod_params(index);
     gsl::owner<script::Struct*> out = script::new_struct();
-    out->put_int(kActive, manager->active_);
+    out->put_int(kActive, manager->active());
     int current = 0;
-    while (current < CtodManager::kSystems && core::at(manager->systems_, current).sky)
+    while (current < CtodManager::kSystems && core::at(manager->systems(), current).sky)
         ++current;
     out->put_name_key(kCurrentStateName, system_at(manager, current).state);
     out->put_int(kLevRed, p.lev_red_);
@@ -1394,7 +1394,7 @@ bool cfunc_tod_manager_advance_tod_state(script::Struct* /*params*/, script::Scr
     if (!manager)
         return false;
     int current = 0;
-    while (current < CtodManager::kSystems && core::at(manager->systems_, current).sky)
+    while (current < CtodManager::kSystems && core::at(manager->systems(), current).sky)
         ++current;
     manager->set_tod_instant(next_tod_state(system_at(manager, current).state));
     return true;

@@ -104,6 +104,19 @@ public:
     bool set_flag_1b(uint8_t value);
     bool set_value20(uint32_t value);
 
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] gfx::ViewCam* viewer() const { return static_cast<gfx::ViewCam*>(viewer_); } // (a view: it stays the owner's)
+    [[nodiscard]] bool flag18() const { return flag18_; }
+    [[nodiscard]] uint8_t flag19() const { return flag19_; }
+    [[nodiscard]] bool get_is_finished() const { return is_finished_; }
+    [[nodiscard]] uint8_t flag_1b() const { return flag_1b_; }
+    [[nodiscard]] uint32_t value20() const { return value20_; }
+    [[nodiscard]] uint32_t label() const { return label_; }
+    [[nodiscard]] script::Struct* args() const { return args_; }
+
+private:
     memory::ListNode list_link_{};              // +0x04 in the manager's queue (data = this)
     gsl::owner<gfx::ViewCam*> viewer_;       // +0x14
     bool flag18_{false};                        // +0x18 (0xEB300C29; held at its end)
@@ -115,11 +128,15 @@ public:
     uint32_t value20_{};   // +0x20 its name
     uint32_t label_{};     // +0x24 the script run when it ends (0x1A005041)
     script::Struct* args_{nullptr}; // +0x28 that script's params
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(VideoEntry, list_link_) == 0x04 && offsetof(VideoEntry, viewer_) == 0x14 &&
+                          offsetof(VideoEntry, flag_1c_) == 0x1C && offsetof(VideoEntry, label_) == 0x24 &&
+                          offsetof(VideoEntry, args_) == 0x28 && sizeof(VideoEntry) == 0x2C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(VideoEntry, list_link_) == 0x04 && offsetof(VideoEntry, viewer_) == 0x14 &&
-                  offsetof(VideoEntry, flag_1c_) == 0x1C && offsetof(VideoEntry, label_) == 0x24 &&
-                  offsetof(VideoEntry, args_) == 0x28 && sizeof(VideoEntry) == 0x2C,
-              "layout must match the original");
 
 // The nodes of one class (0xD18719D5) in a node array, with an optional transform (0x00469300-0x00469492).
 class ClassNodeList {

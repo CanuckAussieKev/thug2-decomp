@@ -132,10 +132,10 @@ gsl::owner<Resource*> make_asset(int type, bool with_cutscene)
 // The manager's callback given to a new asset (cleared after one asset if it's a one-shot).
 void give_callback(ResourceRegistry* manager, Resource* asset)
 {
-    asset->change_hook(manager->callback_, manager->callback_data0_, manager->callback_data1_);
-    if (manager->callback_once_) {
-        manager->callback_ = nullptr;
-        manager->callback_once_ = false;
+    asset->change_hook(manager->callback(), manager->callback_data0(), manager->callback_data1());
+    if (manager->callback_once()) {
+        manager->set_callback(nullptr);
+        manager->set_callback_once(false);
     }
 }
 // `asset` depends on the asset `group` (if given): each knows the other.

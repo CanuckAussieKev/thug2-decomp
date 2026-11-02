@@ -43,7 +43,7 @@ PieceGroup* node_meta(MapListNode* node)
 PieceGroup* as_meta(void* meta) { return static_cast<PieceGroup*>(meta); }
 Clipboard* as_clipboard(Clipboard* clipboard) { return clipboard; }
 ParkAssembler* as_generator(void* generator) { return static_cast<ParkAssembler*>(generator); }
-Clipboard* next_clipboard(Clipboard* clipboard) { return clipboard->following_; }
+Clipboard* next_clipboard(Clipboard* clipboard) { return clipboard->following(); }
 // A clipboard's area where the cursor would paste it.
 void clipboard_area(Clipboard* clipboard, BuildPointer* cursor, CellBox* area)
 {
@@ -86,7 +86,7 @@ void BuildPointer::remove_clipboards_too_big()
         if (area.w > park_width || area.w > park_length || area.l > park_width || area.l > park_length) {
             // Too big to paste in this park: unlinked and deleted.
             if (previous)
-                previous->following_ = next;
+                previous->set_following(next);
             if (clipboard == get_clipboards())
                 get_clipboards() = next;
             as_clipboard(clipboard)->teardown();

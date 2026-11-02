@@ -246,12 +246,12 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     // Anything across it (either way): not clear.
     feeler.change_strand(&plus, &minus);
     if (feeler.get_hit_shape(true, false)) {
-        feeler.entity_.get_release();
+        feeler.entity().get_release();
         return false;
     }
-    std::swap(feeler.line_.start, feeler.line_.end); // (0x0057C210: the two halves swapped)
+    std::swap(feeler.line().start, feeler.line().end); // (0x0057C210: the two halves swapped)
     if (feeler.get_hit_shape(true, false)) {
-        feeler.entity_.get_release();
+        feeler.entity().get_release();
         return false;
     }
     // Down 12 from one side: nothing there, clear.
@@ -259,11 +259,11 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     maths::Vec4 bottom = {.x = plus.x, .y = static_cast<float>(plus.y - 12.0), .z = plus.z, .w = static_cast<float>(plus.w + 1.0)};
     feeler.change_strand(&top, &bottom);
     if (!feeler.get_hit_shape(true, false)) {
-        feeler.entity_.get_release();
+        feeler.entity().get_release();
         return true;
     }
     auto base = static_cast<float>(high_y - 6.0);
-    auto height_one = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) - base);
+    auto height_one = static_cast<float>(static_cast<double>(feeler.contact_pos().y) - base);
     // And from the other.
     top = minus;
     bottom = {.x = minus.x, .y = static_cast<float>(minus.y - 12.0), .z = minus.z, .w = static_cast<float>(minus.w + 1.0)};
@@ -271,7 +271,7 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     if (!feeler.get_hit_shape(true, false)) {
         return true;
     }
-    const double height_two = static_cast<double>(feeler.contact_pos_.y) - base;
+    const double height_two = static_cast<double>(feeler.contact_pos().y) - base;
     // Ground on both sides: clear only if one side is at the rail's height (within 1) or 2 below it.
     if (height_one > -1.0f && height_two > -1.0) { // (NaN: on to the next test)
         return false;
@@ -376,9 +376,9 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
                             .w = static_cast<float>(static_cast<double>(at_w) - dw)};
     feeler.change_strand(&from, &to);
     const bool hit_one_way = feeler.get_hit_shape(true, false);
-    const maths::Vec4 start = feeler.line_.start;
-    feeler.line_.start = feeler.line_.end;
-    feeler.line_.end = start;
+    const maths::Vec4 start = feeler.line().start;
+    feeler.line().start = feeler.line().end;
+    feeler.line().end = start;
     const bool hit_other_way = feeler.get_hit_shape(true, false);
     int side = 0;
     if (hit_one_way != hit_other_way) {
@@ -388,7 +388,7 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
         if (dot < 0.0)
             side = -side;
     }
-    feeler.entity_.get_release();
+    feeler.entity().get_release();
     return side;
 }
 

@@ -89,12 +89,12 @@ int get_combined(const std::vector<bool>& offs)
 
 namespace {
 
-render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
+render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle()); }
 
 // The sector's level collision (StaticCollider) and its geometry, whether on or off.
 render::HitMesh* coll_of(render::WorldCell* sector)
 {
-    render::HitMesh* coll = sector->hit_body_;
+    render::HitMesh* coll = sector->hit_body();
     return render::is_static_collider(coll) ? coll : nullptr;
 }
 render::TriMeshSource* tri_of(render::HitMesh* coll) { return coll->geometry_; }
@@ -136,7 +136,7 @@ bool at_hand(uint32_t checksum, const Track& t)
     const bool wall = geom_of(sector) == nullptr;
     // (a drawn piece's collision box moves with the piece - Scenery's moves: only its pointers checked)
     return t.sector == sector && t.coll == coll && t.tri == tri && t.wall == wall &&
-           (!wall || (same_v(t.min, tri->bounds_.min) && same_v(t.max, tri->bounds_.max)));
+           (!wall || (same_v(t.min, tri->bounds().min) && same_v(t.max, tri->bounds().max)));
 }
 
 Track* track_of(uint32_t checksum)
@@ -161,8 +161,8 @@ Track* track_of(uint32_t checksum)
     t.placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
     // (a drawn piece hidden - not active - has its collision off with it: that isn't this switch)
     t.off0 = t.off = flag_off(coll) && (wall || geom_active(geom_of(sector)));
-    t.min = tri->bounds_.min;
-    t.max = tri->bounds_.max;
+    t.min = tri->bounds().min;
+    t.max = tri->bounds().max;
     return &tracks_state().emplace(checksum, t).first->second;
 }
 
@@ -192,8 +192,8 @@ void get_place(uint32_t checksum, Track* t, const Placement& to)
     target.scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f};
     step_collision(t->tri, t->placement, target);
     t->placement = target;
-    t->min = t->tri->bounds_.min;
-    t->max = t->tri->bounds_.max;
+    t->min = t->tri->bounds().min;
+    t->max = t->tri->bounds().max;
     scenery::note_collision_moved(checksum);
 }
 
@@ -213,8 +213,8 @@ bool cuboid(uint32_t checksum, V3* min, V3* max)
     const render::TriMeshSource* tri = coll ? tri_of(coll) : nullptr;
     if (!tri)
         return false;
-    *min = {.x = tri->bounds_.min.x, .y = tri->bounds_.min.y, .z = tri->bounds_.min.z};
-    *max = {.x = tri->bounds_.max.x, .y = tri->bounds_.max.y, .z = tri->bounds_.max.z};
+    *min = {.x = tri->bounds().min.x, .y = tri->bounds().min.y, .z = tri->bounds().min.z};
+    *max = {.x = tri->bounds().max.x, .y = tri->bounds().max.y, .z = tri->bounds().max.z};
     return true;
 }
 

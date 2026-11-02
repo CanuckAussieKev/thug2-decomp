@@ -184,7 +184,7 @@ void AudioMixer::doppler_shift(float* pitch, const maths::Vec4* position, const 
         if (!camera)
             return;
     }
-    const maths::Vec4* camera_at = &static_cast<gfx::ViewCam*>(camera)->old_pos_; // (its +0x4C, as the original)
+    const maths::Vec4* camera_at = &static_cast<gfx::ViewCam*>(camera)->old_pos(); // (its +0x4C, as the original)
     const float px = camera_at->x - previous->x;
     const float py = camera_at->y - previous->y;
     const float pz = camera_at->z - previous->z;

@@ -281,7 +281,7 @@ void Rider::set_42b_d60(float value) { set_rigid_body_pusher_reach(this, value);
 // 0x005802E0
 script::Struct* get_physics_structure(GameEntity* skater)
 {
-    if (!skater || !skater->is_local_skater_)
+    if (!skater || !skater->is_local_skater())
         return script::read_sub_struct(kSkaterPhysics);
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics));
     // Not original - on THAW's bike, THAW's bicycle_physics (thaw_bicycle_physics: game/rider/thaw_bmx.h), as
@@ -353,7 +353,7 @@ float Rider::fetch_tally(int index)
     // Online: the server's rules for this player.
     if (net_link()->in_net_game()) {
         auto* player =
-            net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_));
+            net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
         if (!player)
             // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
             stat = 10.0f;
@@ -365,7 +365,7 @@ float Rider::fetch_tally(int index)
             stat = 10.0f;
     } else if (rule_5a_1180()) {
         auto* player =
-            net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_));
+            net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
         if (player && player->holds_crown())
             stat = 1.0f;
     }
@@ -425,7 +425,7 @@ float Rider::get_scaled_value(script::Struct* params)
 float Rider::get_scaled_physics(uint32_t name)
 {
     script::Struct* params = nullptr;
-    Entity* object = object_hub_slot()->look_up_entity(ident_);
+    Entity* object = object_hub_slot()->look_up_entity(ident());
     script::Struct* physics = get_physics_structure(core::down_cast<GameEntity>(object));
     if (!physics->read_sub_struct(name, &params, 0))
         params = script::read_sub_struct(name);
@@ -484,14 +484,14 @@ void Rider::set_pause_state(int state)
             debug::printf("Freezing game\n");
             pause_game(true);
         } else if (ObjectModule* physics_control = fetch_module(kSkaterPhysicsControl);
-                   core::down_cast<RiderBoardPhysics>(physics_control)->is_halted_ != 1) {
+                   core::down_cast<RiderBoardPhysics>(physics_control)->is_halted() != 1) {
             control(physics_control, 1);
         }
         break;
     case 2:
         if (!read_tuning_int(kPauseValue, 0, nullptr)) {
             ObjectModule* physics_control = fetch_module(kSkaterPhysicsControl);
-            if (core::down_cast<RiderBoardPhysics>(physics_control)->is_halted_)
+            if (core::down_cast<RiderBoardPhysics>(physics_control)->is_halted())
                 control(physics_control, 0);
         }
         break;
@@ -543,8 +543,8 @@ void Rider::update_shadow_light()
     // In the air (or not on the ground): fade towards straight down; else back.
     bool fading = false;
     const RiderBoardPhysics* control = physics_control_;
-    if (control && !control->pose_->in_vehicle_ && !static_cast<uint32_t>(control->pose_->physics_mode_))
-        fading = core_physics_->state()->cur_phase_ == 0;
+    if (control && !control->pose()->in_vehicle() && !static_cast<uint32_t>(control->pose()->physics_mode()))
+        fading = core_physics_->state()->cur_phase() == 0;
     else if (!walk_)
         fading = true;
     else
@@ -617,7 +617,7 @@ void Rider::update_from_profile(RiderIdentity* profile)
             core::at(given_name_, i) = i < first.size() ? core::at(first, i) : '\0';
     }
     label_ = profile->fetch_title();
-    if (is_local_skater_) {
+    if (is_local_skater()) {
         core_physics_->state()->set_flag(PoseFlag::kFlipped, goofy_ ? 0 : 1);
         core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
     }
@@ -633,12 +633,12 @@ void Rider::reset_input()
     for (int i = 0; i < 24; ++i) {
         core_physics_->state()->set_flag(static_cast<PoseFlag>(i), 1);
         if (i == 7)
-            core_physics_->sound()->sliding_ = 1;
+            core_physics_->sound()->set_sliding(1);
         core_physics_->state()->set_flag(static_cast<PoseFlag>(i), 0);
         if (i == 7)
-            core_physics_->sound()->sliding_ = 0;
+            core_physics_->sound()->set_sliding(0);
     }
-    pad_input_->pad_primary_.get_clear();
+    pad_input_->pad_primary().get_clear();
     script::launch_script(0xAE5438AF, nullptr, this, false, nullptr);
 }
 
@@ -646,7 +646,7 @@ void Rider::reset_input()
 void Rider::reset_state()
 {
     auto* physics_control = core::down_cast<RiderBoardPhysics>(fetch_module(kSkaterPhysicsControl));
-    if (physics_control->is_halted_)
+    if (physics_control->is_halted())
         physics_control->set_frozen(false);
     core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate))->clear_after_flags();
     MoveExecutor* tricks = trick_;
@@ -661,8 +661,8 @@ void Rider::reset_state()
     balance_displays_off(score_holder_->points_held_);
     if (vibration_)
         vibration_->stop_all();
-    shadow_->change_place(&at_point_);
-    shadow_->set_normal(&core::at(basis_frame_.row, 1));
+    shadow_->change_place(&at_point());
+    shadow_->set_normal(&core::at(basis_frame().row, 1));
     core::down_cast<RiderStanceDisplay>(fetch_module(0x21FC3301))->shown_ = -1;
 }
 
@@ -671,9 +671,9 @@ void Rider::set_up_network()
 {
     const net::AppHost* client = net_link()->fetch_patron(skater_number_);
     auto* flip_and_rotate = core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate));
-    flip_and_rotate->apply_board_turned(ident_, false, client->clock(), is_local_skater_ != 0);
+    flip_and_rotate->apply_board_turned(ident(), false, client->clock(), is_local_skater() != 0);
     flip_and_rotate->apply_flip_to_anims();
-    model_component_->conceal_mesh(0xA7A9D4B8, false, is_local_skater_ != 0);
+    model_component_->conceal_mesh(0xA7A9D4B8, false, is_local_skater() != 0);
     anim_blender_->reset_channels();
 }
 
@@ -752,7 +752,7 @@ void Rider::show_board_element(uint32_t type)
 // 0x005814D0
 void Rider::reset_27c()
 {
-    if (!is_local_skater_)
+    if (!is_local_skater())
         core::down_cast<RiderRemoteSync>(fetch_module(0x850EEF66))->reset_playback();
     state_history_->state_count_ = 0;
 }
@@ -760,7 +760,7 @@ void Rider::reset_27c()
 // 0x00581510
 void Rider::conceal_skater()
 {
-    if (is_local_skater_)
+    if (is_local_skater())
         core::down_cast<RiderRollingAudio>(fetch_module(0xB5F1E9D2))->stop_sound();
     static_cast<GroundShadowModule*>(shadow_)->destroy_shadow();
     conceal(true);
@@ -779,62 +779,62 @@ void Rider::show_skater()
 const char* Rider::fetch_shown_name()
 {
     if (net_link()->in_net_game())
-        return net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_))->label().data();
+        return net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident()))->label().data();
     return shown_name_.c_str();
 }
 
 // 0x005815C0
 void Rider::glide_to_node(uint32_t name)
 {
-    core::at(basis_frame_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(basis_frame_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
-    core::at(basis_frame_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
-    core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    core::at(basis_frame().row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(basis_frame().row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(basis_frame().row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (!name)
         return;
     script::Struct* node = level_nodes::fetch_vertex(name, !net_link()->in_net_game());
     if (!node)
         return;
-    level_nodes::fetch_place(name, &at_point_);
-    old_pos_ = at_point_;
-    core_physics_->safe_pos() = at_point_;
+    level_nodes::fetch_place(name, &at_point());
+    old_pos() = at_point();
+    core_physics_->safe_pos() = at_point();
     mark_jumped_ahead(true);
     maths::Vec4 angles;
     level_nodes::read_turn_angles(node, &angles);
-    basis_frame_.init_from_angles(angles);
+    basis_frame().init_from_angles(angles);
     auto* object = core_physics_->entity_;
-    core_physics_->display_matrix() = object->basis_frame_;
-    core_physics_->set_floor_normal(core::at(basis_frame_.row, 1));
+    core_physics_->display_matrix() = object->basis_frame();
+    core_physics_->set_floor_normal(core::at(basis_frame().row, 1));
     core_physics_->old_normal() = core_physics_->floor_normal();
     core_physics_->drawn_normal() = core_physics_->old_normal();
-    static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point_);
-    static_cast<GroundShadowModule*>(shadow_)->set_normal(&core::at(basis_frame_.row, 1));
-    display_matrix_ = core_physics_->display_matrix();
+    static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point());
+    static_cast<GroundShadowModule*>(shadow_)->set_normal(&core::at(basis_frame().row, 1));
+    display_matrix() = core_physics_->display_matrix();
 }
 
 // 0x00581760
 void Rider::get_freeze()
 {
-    if (is_halted_ || !is_local_skater_)
+    if (is_halted_ || !is_local_skater())
         return;
     is_halted_ = true;
-    composite_flags_ |= 1;
+    composite_flags() |= 1;
     balance_displays_off(score_holder_->points_held_);
     script::launch_script(0x1277E3FD, nullptr, nullptr, false, nullptr);
     if (const PadInputModule* input = pad_input_)
-        input->handler_->dev_->pause_actuators();
+        input->handler()->dev_->pause_actuators();
     sound::get_audio_mixer()->update_voice_volumes();
 }
 
 // 0x005817F0
 void Rider::unpause()
 {
-    if (!is_halted_ || !is_local_skater_)
+    if (!is_halted_ || !is_local_skater())
         return;
     is_halted_ = false;
-    composite_flags_ &= ~1u;
+    composite_flags() &= ~1u;
     if (const PadInputModule* input = pad_input_)
-        input->handler_->dev_->unpause_actuators();
+        input->handler()->dev_->unpause_actuators();
     if (auto* component = core::down_cast<RiderRollingAudio>(fetch_module(0xB5F1E9D2)))
         component->set_force_update(1);
 }
@@ -867,7 +867,7 @@ void Rider::prepare_all(RiderIdentity* profile)
 {
     const modules::Skate* skate = modules::Skate::sole();
     memory::Hub* manager = memory::Hub::get_pull();
-    if (is_local_skater_) {
+    if (is_local_skater()) {
         // Its camera: found, or made from skatercam_composite_structure.
         manager->enter_heap_scope(manager->skater_info_heap());
         const uint32_t camera_name = view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0;
@@ -880,7 +880,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         } else {
             gsl::owner<script::Struct*> memory = script::spawn_param_bag();
             script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-            params->put_name_key(0x4C48DA58, ident_);
+            params->put_name_key(0x4C48DA58, ident());
             params->put_name_key(kNameChecksum, camera_name);
             camera = object_hub_slot()->spawn_entity_from_node(script::fetch_list("skatercam_composite_structure"),
                                                                params, true);
@@ -891,12 +891,12 @@ void Rider::prepare_all(RiderIdentity* profile)
         }
         core::down_cast<FootMovement>(fetch_module(0x726E85AA))->choose_camera(camera); // Walk
         commands::make_camera_active(camera_name, view_slot_, false);
-        camera->object_flags_ |= kObjectFlagLocked;
+        camera->object_flags() |= kObjectFlagLocked;
         core::down_cast<RiderChaseView>(camera->fetch_module(0x5E43A604))->change_regime(2, 0.0f);
         memory::Hub::get_pull()->leave_heap_scope();
     }
     // Its script; its anim set (skater_asset_info's skater_skeleton, else thps6_human).
-    own_script_ = script::Script::create();
+    set_own_script(script::Script::create());
     uint32_t skeleton = 0x9FE476E2;
     if (script::Struct* asset_info = script::read_sub_struct(0x962E5CF7))
         asset_info->read_hash_value(0xCEEFD662, &skeleton, 0);
@@ -913,7 +913,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         params->put_int(0xD3982061, 0); // max_bone_skip_lod
     });
     static_cast<AnimBlenderComponent*>(anim_blender_)->set_flag_4c(true);
-    const bool local = is_local_skater_ != 0;
+    const bool local = is_local_skater() != 0;
     add_component_from_structure(this, [local](script::Struct* params) {
         params->put_name_key(0u, 0x10079F2D); // UseModelLights
         params->put_int(0xD223B8BD, 1);       // max_scene_lights
@@ -934,8 +934,8 @@ void Rider::prepare_all(RiderIdentity* profile)
         params->put_name_key(0x9AC24B18, 0x76A54CD1); // ShadowType
     });
     shadow_ = core::down_cast<GroundShadowModule>(fetch_module(0x8A897DD2));
-    shadow_->follow_object_ = false;
-    if (is_local_skater_) {
+    shadow_->set_follow_object(false);
+    if (is_local_skater()) {
         add_component_from_structure(
             this, [](script::Struct* params) { params->put_name_key(kPartHash, 0x404EB936); }); // vibration
         vibration_ = core::down_cast<PadRumbleModule>(fetch_module(0x404EB936));
@@ -944,26 +944,26 @@ void Rider::prepare_all(RiderIdentity* profile)
     } else {
         vibration_ = nullptr;
     }
-    if (is_local_skater_) {
+    if (is_local_skater()) {
         add_component_from_structure(
             this, [](script::Struct* params) { params->put_name_key(kPartHash, 0x187574FA); }); // skatersound
         sound_ = core::down_cast<RiderSfxPlayer>(fetch_module(0x187574FA));
         vehicle_sound_ = core::down_cast<SkaterVehicleSoundComponent>(fetch_module(0x1859F772)); // SkaterVehicleSound
     }
     seal(); // (Finalize)
-    if (is_local_skater_) {
+    if (is_local_skater()) {
         // The pad's settings for its viewport (the skate module's, 8 bytes each from +0x394).
         core_physics_->auto_kick() = core::at(skate->participants(), view_slot_).auto_kick_;
         core_physics_->tap_spin() = core::at(skate->participants(), view_slot_).spin_taps_;
         vibration_->change_live(core::at(skate->participants(), view_slot_).vibration_ != 0);
-        if (is_local_skater_)
-            own_script_->bind_script("SkaterInit", nullptr, this);
+        if (is_local_skater())
+            own_script()->bind_script("SkaterInit", nullptr, this);
     }
     update_from_profile(profile);
     set_stats_from_profile(profile);
-    if (is_local_skater_) {
+    if (is_local_skater()) {
         const float max_speed = get_scaled_physics(0xCC5F87AA); // Skater_Max_Max_Speed_Stat
-        core::down_cast<RiderSfxPlayer>(fetch_module(0x187574FA))->full_speed_ = max_speed;
+        core::down_cast<RiderSfxPlayer>(fetch_module(0x187574FA))->set_full_speed(max_speed);
     }
     if (MoveExecutor* state = trick_) {
         state->apply_trick_bindings(profile);
@@ -975,7 +975,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         trick_->set_get_score(score_holder_->points_held_);
     }
     if (RiderGapTracker* other = gap_tracker_)
-        other->points_held_ = score_holder_->points_held_;
+        other->set_points_held(score_holder_->points_held_);
     if (ObjectModule* collision = fetch_module(0xA432DC41)) {
         // (its +0x18, read through the folded getter 0x005480F0)
         if (render::HitMesh* shape = core::down_cast<ContactShapeModule>(collision)->hit_shape_)
@@ -984,7 +984,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     model_component_->jump_to(); // the model's update
     script::launch_script(0xAE5438AF, nullptr, this, false, nullptr);
     anim_blender_->play_animation(0x1CA1FF20, std::bit_cast<uint32_t>(0.3f)); // default
-    if (is_local_skater_) {
+    if (is_local_skater()) {
         for (std::unique_ptr<goals::CreateATrick>& trick : trick_slots_)
             trick = std::make_unique<goals::CreateATrick>();
         script::launch_script(0x0BDC1C89, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
@@ -1022,7 +1022,7 @@ void Rider::init_from_profile(RiderIdentity* profile)
 {
     prepare_all(profile);
     online::Hub* net = net_link();
-    if (is_local_skater_ && static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) != 0) {
+    if (is_local_skater() && static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) != 0) {
         // Its network messages.
         net::AppHost* client = net->fetch_patron(view_slot_);
         net::Router* dispatcher = &client->dispatcher();
@@ -1039,18 +1039,18 @@ void Rider::init_from_profile(RiderIdentity* profile)
     }
     // Never suspended (its suspend component's distances).
     if (auto* suspend = core::down_cast<DormancyModule>(fetch_module(0xCE0CA665))) {
-        core::at(suspend->lod_distances_, 0) = 3000.0f;
-        core::at(suspend->lod_distances_, 1) = 5000.0f;
-        core::at(suspend->lod_distances_, 2) = 10000000.0f;
-        core::at(suspend->lod_distances_, 3) = 10000000.0f;
+        core::at(suspend->lod_distances(), 0) = 3000.0f;
+        core::at(suspend->lod_distances(), 1) = 5000.0f;
+        core::at(suspend->lod_distances(), 2) = 10000000.0f;
+        core::at(suspend->lod_distances(), 3) = 10000000.0f;
     }
 }
 
 // 0x005823A0
 void Rider::run_state_script(bool walk, bool other)
 {
-    if (!own_script_) {
-        own_script_ = script::Script::create();
+    if (!own_script()) {
+        set_own_script(script::Script::create());
     }
     script::Struct* params = nullptr;
     if (walk || other) {
@@ -1061,9 +1061,9 @@ void Rider::run_state_script(bool walk, bool other)
         if (other)
             params->put_name_key(0u, 0x7B738580);
     }
-    own_script_->bind_script(0xE740F458, params, this);
-    if (is_local_skater_)
-        own_script_->tick_frame();
+    own_script()->bind_script(0xE740F458, params, this);
+    if (is_local_skater())
+        own_script()->tick_frame();
     if (params) {
         params->get_clear();
         script::delete_struct(params);
@@ -1073,13 +1073,13 @@ void Rider::run_state_script(bool walk, bool other)
 // 0x00582510
 void Rider::switch_to_script(uint32_t name, script::Struct* params)
 {
-    if (!own_script_) {
-        own_script_ = script::Script::create();
+    if (!own_script()) {
+        set_own_script(script::Script::create());
     }
     if (ObjectModule* flip_and_rotate = fetch_module(kSkaterFlipAndRotate))
         core::down_cast<RiderSpinAndFlip>(flip_and_rotate)->do_after_anim();
-    own_script_->bind_script(name, params, this);
-    own_script_->tick_frame();
+    own_script()->bind_script(name, params, this);
+    own_script()->tick_frame();
 }
 
 // 0x005825E0
@@ -1115,7 +1115,7 @@ void Rider::write_list_44b_66a_9f(script::Struct* save)
 void Rider::launch_projectile()
 {
     // Its flat heading.
-    float heading_x = core::at(basis_frame_.row, 2).x, heading_y = 0.0f, heading_z = core::at(basis_frame_.row, 2).z;
+    float heading_x = core::at(basis_frame().row, 2).x, heading_y = 0.0f, heading_z = core::at(basis_frame().row, 2).z;
     float best = 1000.0f;
     const GameEntity* target = nullptr;
     const double length =
@@ -1127,17 +1127,17 @@ void Rider::launch_projectile()
         heading_z = static_cast<float>(heading_z * inverse);
     }
     // From a wrist (the right one, or the left by its stance and whether it's walking).
-    const RiderPoseState* walking = physics_control_->pose_;
+    const RiderPoseState* walking = physics_control_->pose();
     const bool flipped = core_physics_->state()->flag(PoseFlag::kFlipped).on != 0;
-    const bool walk = !walking->in_vehicle_ && walking->physics_mode_ == 1;
+    const bool walk = !walking->in_vehicle() && walking->physics_mode() == 1;
     const uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
     maths::Vec4 bone, rotated;
     core::down_cast<BoneRigModule>(fetch_module(0x222756D5))->get_local_bone_position(wrist, &bone);
-    const maths::Vec4* turned = &basis_frame_.rotate_vector(rotated, bone);
-    const maths::Vec4 origin = {.x = static_cast<float>(static_cast<double>(turned->x) + at_point_.x),
-                                .y = static_cast<float>(static_cast<double>(turned->y) + at_point_.y),
-                                .z = static_cast<float>(static_cast<double>(turned->z) + at_point_.z),
-                                .w = static_cast<float>(static_cast<double>(turned->w) + at_point_.w)};
+    const maths::Vec4* turned = &basis_frame().rotate_vector(rotated, bone);
+    const maths::Vec4 origin = {.x = static_cast<float>(static_cast<double>(turned->x) + at_point().x),
+                                .y = static_cast<float>(static_cast<double>(turned->y) + at_point().y),
+                                .z = static_cast<float>(static_cast<double>(turned->z) + at_point().z),
+                                .w = static_cast<float>(static_cast<double>(turned->w) + at_point().w)};
     // The nearest projectile target (projectileproximity) ahead within the targeting distance and angle; a ped
     // that's been shot is left out, and a ped is aimed at a bone it chooses.
     float to_target_x = 0.0f, to_target_z = 0.0f;
@@ -1155,9 +1155,9 @@ void Rider::launch_projectile()
             if (state == 0x54F87744) // shot
                 continue;
         }
-        const double dz = static_cast<double>(object->at_point_.z) - origin.z;
-        const double dy = static_cast<double>(object->at_point_.y) - origin.y;
-        const double dx = static_cast<double>(object->at_point_.x) - origin.x;
+        const double dz = static_cast<double>(object->at_point().z) - origin.z;
+        const double dy = static_cast<double>(object->at_point().y) - origin.y;
+        const double dx = static_cast<double>(object->at_point().x) - origin.x;
         auto distance = static_cast<float>(std::sqrt(dx * dx + dy * dy + dz * dz));
         auto to_z = static_cast<float>(dz);
         auto to_x = static_cast<float>(dx);
@@ -1189,14 +1189,14 @@ void Rider::launch_projectile()
             core::down_cast<BoneRigModule>(object->fetch_module(0x222756D5))->get_local_bone_position(target_bone, &at);
             // (turned by the object's rotation in place: 0x00411840, Nx's VectorTurn::turn_by)
             maths::Vec4 turned_at;
-            object->basis_frame_.rotate_vector(turned_at, at);
+            object->basis_frame().rotate_vector(turned_at, at);
             at = turned_at;
-            aim = {.x = static_cast<float>(static_cast<double>(at.x) + object->at_point_.x),
-                   .y = static_cast<float>(static_cast<double>(at.y) + object->at_point_.y),
-                   .z = static_cast<float>(static_cast<double>(at.z) + object->at_point_.z),
-                   .w = static_cast<float>(static_cast<double>(at.w) + object->at_point_.w)};
+            aim = {.x = static_cast<float>(static_cast<double>(at.x) + object->at_point().x),
+                   .y = static_cast<float>(static_cast<double>(at.y) + object->at_point().y),
+                   .z = static_cast<float>(static_cast<double>(at.z) + object->at_point().z),
+                   .w = static_cast<float>(static_cast<double>(at.w) + object->at_point().w)};
         } else {
-            aim = object->at_point_;
+            aim = object->at_point();
         }
     }
     // LaunchProjectile from there (at the target, when there is one beyond 100).
@@ -1221,24 +1221,24 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
 {
     // Its node in the skater list (lists::Elem<Rider>).
     skater_link_.make_node(this);
-    is_local_skater_ = local;
+    is_local_skater() = local;
     add_base_components(this);
-    kind_tag_ = 0xBAF9B341;
+    set_kind_tag(0xBAF9B341);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     flag_2c_4_ = false;
     skater_number_ = skater_number;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    ident_ = id;
+    set_ident(id);
     if (skater_number == 0)
         get_tracker()->register_nickname(0x5B8AB877, this);
     else if (skater_number == 1)
         get_tracker()->register_nickname(0x06ED3FA7, this);
-    list_link_.priority = -500;
+    list_link().priority = -500;
     manager->enrol_subject(this);
     view_slot_ = viewport;
     unknown31c_ = 0;
     debug::printf("D:%s:%i: m_skater_number = %i\n", "jects\\skater.cpp", 0x43C, viewport);
-    debug::printf("D:%s:%i: m_id = %i\n", "jects\\skater.cpp", 0x43D, ident_);
+    debug::printf("D:%s:%i: m_id = %i\n", "jects\\skater.cpp", 0x43D, ident());
     anim_blender_ = nullptr;
     model_component_ = nullptr;
     shadow_ = nullptr;
@@ -1261,7 +1261,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
     };
     add(0x43686585);
     add(0xF27A294D);
-    if (is_local_skater_) {
+    if (is_local_skater()) {
         add(0x27D7CD28);
         pad_input_ = core::down_cast<PadInputModule>(fetch_module(0x27D7CD28));
         add(0xD262802F);
@@ -1324,15 +1324,15 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
 // 0x00583400
 void Rider::reset_components()
 {
-    if (is_local_skater_) {
+    if (is_local_skater()) {
         gap_tracker_->clear_gaps();
         core::down_cast<RiderTeeterMoves>(fetch_module(0x589E5FB3))->clear_params();
     }
     core::down_cast<PickupItemHandler>(fetch_module(0xF27A294D))->destroy_items();
     anim_blender_->reset_channels();
-    if (script::Script* script = own_script_) {
+    if (script::Script* script = own_script()) {
         script::Script::destroy(script);
-        own_script_ = nullptr;
+        set_own_script(nullptr);
     }
     // Not original - the special items gone, THAW's bike with them: off the bike (game/rider/thaw_bmx.h).
     if (skater::thaw_bmx::is_switched_on())
@@ -1342,8 +1342,8 @@ void Rider::reset_components()
 // 0x00583470
 void Rider::relaunch(uint32_t a, uint32_t b)
 {
-    const RiderPoseState* walking = physics_control_->pose_;
-    if (!walking->in_vehicle_ && walking->physics_mode_ == 1) {
+    const RiderPoseState* walking = physics_control_->pose();
+    if (!walking->in_vehicle() && walking->physics_mode() == 1) {
         // Walking: back to skating first.
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
@@ -1354,8 +1354,8 @@ void Rider::relaunch(uint32_t a, uint32_t b)
             script::delete_struct(params);
         }
     }
-    if (own_script_)
-        own_script_->run_on_exit_scripts();
+    if (own_script())
+        own_script()->run_on_exit_scripts();
     core_physics_->get_reset();
     auto* camera =
         core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0));
@@ -1372,17 +1372,17 @@ void Rider::relaunch(uint32_t a, uint32_t b)
 void Rider::skip_to_custom_restart()
 {
     jump_to_spawn(0, custom_restart_walking_);
-    at_point_ = custom_restart_pos_;
-    basis_frame_ = custom_restart_matrix_;
-    core_physics_->safe_pos() = at_point_;
-    old_pos_ = at_point_;
+    at_point() = custom_restart_pos_;
+    basis_frame() = custom_restart_matrix_;
+    core_physics_->safe_pos() = at_point();
+    old_pos() = at_point();
     mark_jumped_ahead(true);
-    core_physics_->display_matrix() = core_physics_->entity_->basis_frame_;
-    core_physics_->set_floor_normal(core::at(basis_frame_.row, 1));
+    core_physics_->display_matrix() = core_physics_->entity_->basis_frame();
+    core_physics_->set_floor_normal(core::at(basis_frame().row, 1));
     core_physics_->old_normal() = core_physics_->floor_normal();
     core_physics_->drawn_normal() = core_physics_->old_normal();
-    static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point_);
-    static_cast<GroundShadowModule*>(shadow_)->set_normal(&core::at(basis_frame_.row, 1));
+    static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point());
+    static_cast<GroundShadowModule*>(shadow_)->set_normal(&core::at(basis_frame().row, 1));
 }
 
 // 0x005835D0
@@ -1398,7 +1398,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         if (!params->read_hash_value(0x6C4E7971, &prefix, 0) && params->fetch_text(0x6C4E7971, &text, 0)) // prefix
             prefix = checksums::hash_from_text(text);
         if (prefix) {
-            script::Struct* node = level_nodes::find_closest_node_with_prefix(prefix, &at_point_);
+            script::Struct* node = level_nodes::find_closest_node_with_prefix(prefix, &at_point());
             jump_to_spawn((level_nodes::get_node_name(node)), walking);
             return true;
         }
@@ -1434,7 +1434,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         return named == label_;
     }
     case 0x3E8EB713: // ShouldMongo
-        if (!is_local_skater_)
+        if (!is_local_skater())
             return false;
         if (stroke_kind_ == 0x0CDBA4F9) // mongo_when_switch
             return (core_physics_->is_sides_swapped() & 0xFF) != 0;
@@ -1455,8 +1455,8 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
     case 0x42832375:                             // SetCustomRestart
         if (params->has_bare_flag(0x19EBDA23)) { // Set: here and now - and skipped to
             custom_restart_set_ = true;
-            custom_restart_pos_ = at_point_;
-            custom_restart_matrix_ = basis_frame_;
+            custom_restart_pos_ = at_point();
+            custom_restart_matrix_ = basis_frame();
             custom_restart_walking_ = physics_control_->is_on_foot();
             skip_to_custom_restart();
             return true;
@@ -1470,7 +1470,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         skip_to_custom_restart();
         return true;
     case 0x7015BC33: // IsLocalSkater
-        return is_local_skater_ != 0;
+        return is_local_skater() != 0;
     case 0x72AECFC0: // ResetRigidBodyCollisionRadiusBoost
         set_rigid_body_pusher_reach(this, 0.0f);
         return true;
@@ -1501,23 +1501,23 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         const maths::Vec4* camera_pos = camera->fetch_location();
         camera = render::fetch_live_camera(view_slot_);
         const maths::Mat4* camera_matrix = camera->fetch_mat();
-        basis_frame_.reset_to_identity();
-        at_point_ = *camera_pos;
-        at_point_ -= core::at(camera_matrix->row, 2) * 144.0f;
-        old_pos_ = at_point_;
-        core_physics_->safe_pos() = at_point_;
-        basis_frame_ = *camera_matrix;
-        core::at(basis_frame_.row, 2) = -core::at(basis_frame_.row, 2);
-        core::at(basis_frame_.row, 0) = -core::at(basis_frame_.row, 0);
-        core_physics_->display_matrix() = core_physics_->entity_->basis_frame_;
-        core_physics_->set_floor_normal(core::at(basis_frame_.row, 1));
+        basis_frame().reset_to_identity();
+        at_point() = *camera_pos;
+        at_point() -= core::at(camera_matrix->row, 2) * 144.0f;
+        old_pos() = at_point();
+        core_physics_->safe_pos() = at_point();
+        basis_frame() = *camera_matrix;
+        core::at(basis_frame().row, 2) = -core::at(basis_frame().row, 2);
+        core::at(basis_frame().row, 0) = -core::at(basis_frame().row, 0);
+        core_physics_->display_matrix() = core_physics_->entity_->basis_frame();
+        core_physics_->set_floor_normal(core::at(basis_frame().row, 1));
         core_physics_->old_normal() = core_physics_->floor_normal();
         core_physics_->drawn_normal() = core_physics_->old_normal();
-        static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point_);
-        static_cast<GroundShadowModule*>(shadow_)->set_normal(&core::at(basis_frame_.row, 1));
-        vel_ = -*camera_pos;
-        vel_.y = 0.0f;
-        vel_.set_length(10.0f);
+        static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point());
+        static_cast<GroundShadowModule*>(shadow_)->set_normal(&core::at(basis_frame().row, 1));
+        vel() = -*camera_pos;
+        vel().y = 0.0f;
+        vel().set_length(10.0f);
         mark_jumped_ahead(false);
         return true;
     }
@@ -1535,9 +1535,9 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
 void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
 {
     online::Hub* net = net_link();
-    core::down_cast<RiderBoardPhysics>(fetch_module(kSkaterPhysicsControl))->flag26_ = 1;
-    if (is_local_skater_) {
-        pad_input_->disabled_ = false;
+    core::down_cast<RiderBoardPhysics>(fetch_module(kSkaterPhysicsControl))->set_flag26(1);
+    if (is_local_skater()) {
+        pad_input_->set_disabled(false);
         unpause();
         if (AttributeTracker* list = stats_)
             list->set_first_update(true);
@@ -1551,9 +1551,9 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
     if (node)
         glide_to_node(node);
     relaunch(walking, 0);
-    if (is_local_skater_) {
+    if (is_local_skater()) {
         core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
-        if (is_local_skater_) {
+        if (is_local_skater()) {
             if (pause_state_ == 0) {
                 mark_jumped_ahead(false);
                 auto* camera = core::down_cast<GameEntity>(
@@ -1575,7 +1575,7 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
     if (mode() == 0x6C5FF266 || mode() == 0x6EF8FDA0 || mode() == 0x5D32129C) {
         net::NetMessageInfo message;
         auto* client = core::down_cast<net::Guest>(net->fetch_patron(view_slot_));
-        if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident_)))
+        if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident())))
             player->mark_face_texture_sent();
         message.ident_ = 0x57;
         message.queue_ = net::NetMessageInfo::kLaneOrdered;
@@ -1587,15 +1587,15 @@ void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
 // 0x00583FB0
 Rider::~Rider()
 {
-    if (is_halted_ && is_local_skater_ && pad_input_) {
-        pad_input_->handler_->dev_->unpause_actuators();
-        pad_input_->handler_->dev_->stop_actuators();
+    if (is_halted_ && is_local_skater() && pad_input_) {
+        pad_input_->handler()->dev_->unpause_actuators();
+        pad_input_->handler()->dev_->stop_actuators();
     }
     reset_components();
     script::launch_script(0xF429E0AC, nullptr, this, false, nullptr);
     for (std::unique_ptr<goals::CreateATrick>& trick : trick_slots_)
         trick.reset();
-    if (is_local_skater_ && view_slot_ == 1) {
+    if (is_local_skater() && view_slot_ == 1) {
         if (Entity* camera = object_hub_slot()->look_up_entity(kSkaterCam1))
             camera->flag_as_dead();
     }

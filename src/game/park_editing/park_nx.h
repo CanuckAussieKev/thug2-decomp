@@ -38,7 +38,7 @@ inline void place_at_absolute_point(render::WorldCell* sector, const maths::Vec4
 // 0x0049E7C0: its scale (x y z)
 inline void change_scale(render::WorldCell* sector, const maths::Vec4* scale) { sector->change_scale(scale); }
 // 0x004A2BA0 (a folded getter, +0x14): its geometry (null if none)
-inline render::Geom* fetch_shape(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle_); }
+inline render::Geom* fetch_shape(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle()); }
 
 // CGeom (virtual):
 // 0x0048DEE0 (slot 20): its orientation (a 4 x 4 matrix)

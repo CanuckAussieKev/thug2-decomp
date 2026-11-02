@@ -154,7 +154,7 @@ void RoomManager::server_key_callback(void*, int key, void* buffer, void*)
         buffer_add_int(buffer, manager->get_hosting_role());
         break;
     case kKeyLoggedIn:
-        buffer_add_int(buffer, manager->presence_service()->authenticated_ ? 1 : 0); // (the presence)
+        buffer_add_int(buffer, manager->presence_service()->authenticated() ? 1 : 0); // (the presence)
         break;
     default:
         buffer_add(buffer, "");

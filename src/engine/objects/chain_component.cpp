@@ -143,7 +143,7 @@ void Chain::update_lines()
 {
     for (uint32_t i = 1; i < ints::as_unsigned(links_); ++i) {
         render::PcPrimitive* line = core::at(chain_link_, i - 1).line_ptr_;
-        line->ready_ = true;
+        line->set_ready(true);
         set_line_colour(line, 0, kLineBlack);
         set_line_vertex(line, 0, core::at(chain_link_, i - 1).at_point_);
         set_line_colour(line, 1, kLineBlack);
@@ -271,13 +271,13 @@ void ChainComponent::configure_from_data(script::Struct* params)
             // (a grey line to the next link)
             auto line = memory::make_owned<render::PcPrimitive>(1);
             link.line_ptr_ = line;
-            line->blend_mode_ = kLineBlend;
+            line->set_blend_mode(kLineBlend);
             line->prepare_all(1, 0, 2); // (through the jump 0x004A10A0)
             set_line_colour(line, 0, kLineGrey);
             set_line_vertex(line, 0, link.at_point_);
             set_line_colour(line, 1, kLineGrey);
             set_line_vertex(line, 1, link.at_point_);
-            line->unknown14 = 1;
+            line->set_unknown14(1);
             line->get_ready();
         }
         // (onto the end of the list)
@@ -354,7 +354,7 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
 void ChainComponent::tick_frame()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    const maths::Vec4 velocity = entity_->vel_;
+    const maths::Vec4 velocity = entity_->vel();
     maths::Vec4 plane_point{}, axis_from{}, axis_to{};
     joint_world_point(bone_rig_, plane_bone_, &plane_point);
     joint_world_point(bone_rig_, axis_from_bone_, &axis_from);
@@ -434,8 +434,8 @@ void ChainComponent::tick_frame()
             .x = get_rounded(static_cast<double>(start.x) + turned.x), .y = get_rounded(static_cast<double>(start.y) + turned.y),
             .z = get_rounded(static_cast<double>(start.z) + turned.z), .w = get_rounded(static_cast<double>(start.w) + turned.w)};
         {
-            const maths::Mat4& m = entity_->display_matrix_;
-            const maths::Vec4& at = entity_->at_point_;
+            const maths::Mat4& m = entity_->display_matrix();
+            const maths::Vec4& at = entity_->at_point();
             const double x = (static_cast<double>(start.z) * core::at(m.row, 2).x + static_cast<double>(start.y) * core::at(m.row, 1).x) +
                              static_cast<double>(start.x) * core::at(m.row, 0).x;
             const double y = (static_cast<double>(start.z) * core::at(m.row, 2).y + static_cast<double>(start.y) * core::at(m.row, 1).y) +
@@ -453,8 +453,8 @@ void ChainComponent::tick_frame()
         maths::Vec4 end = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
         if (auto* other = core::down_cast<GameEntity>(find_object(chain->obj_end_))) {
             bone_position(other->fetch_module(kSkeleton), chain->bone_end_, &end);
-            const maths::Mat4& m = other->display_matrix_;
-            const maths::Vec4& at = other->at_point_;
+            const maths::Mat4& m = other->display_matrix();
+            const maths::Vec4& at = other->at_point();
             const double x = (static_cast<double>(end.y) * core::at(m.row, 1).x + static_cast<double>(end.z) * core::at(m.row, 2).x) +
                              static_cast<double>(end.x) * core::at(m.row, 0).x;
             const double y = (static_cast<double>(end.y) * core::at(m.row, 1).y + static_cast<double>(end.z) * core::at(m.row, 2).y) +
@@ -599,11 +599,11 @@ void ChainComponent::tick_frame()
             link.last_pos_ = link.at_point_;
             link.at_point_ = link.next_pos_;
         }
-        if (!(entity_->composite_flags_ & kCompositeFlagHidden) && !invisible_) {
+        if (!(entity_->composite_flags() & kCompositeFlagHidden) && !invisible_) {
             chain->update_lines();
         } else {
             for (uint32_t i = 1; i < ints::as_unsigned(chain->links_); ++i)
-                core::at(chain->chain_link_, i - 1).line_ptr_->ready_ = false;
+                core::at(chain->chain_link_, i - 1).line_ptr_->set_ready(false);
         }
     }
     final_frame_ = frame;

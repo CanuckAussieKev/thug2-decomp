@@ -65,6 +65,7 @@ public:
     // for the array, as the original does). 1.
     int set_colors_from_script(script::Struct* params, script::Script* script);
 
+private:
     std::array<maths::Vec4, kCycleColorCap> colors_{}; // +0x18 (x, y, z: 0-255)
     int color_count_{0};                   // +0x68
     int ongoing_{0};                       // +0x6C

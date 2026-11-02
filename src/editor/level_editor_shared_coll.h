@@ -97,8 +97,8 @@ public:
 
     render::StaticCollider* get_object() { return &entity_; }
     [[nodiscard]] const render::TriMeshSource& get_geometry() const { return geometry_; }
-    [[nodiscard]] int face_count() const { return geometry_.tri_count_; }
-    [[nodiscard]] int get_vertex_count() const { return geometry_.num_vertices_; }
+    [[nodiscard]] int face_count() const { return geometry_.tri_count(); }
+    [[nodiscard]] int get_vertex_count() const { return geometry_.num_vertices(); }
     [[nodiscard]] V3 base_vertex(int i) const { return core::at(base_, i); }
     [[nodiscard]] V3 get_vertex(int i) const;
 

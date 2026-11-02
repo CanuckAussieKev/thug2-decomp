@@ -83,6 +83,20 @@ public:
     Balance* at_hand();
     [[nodiscard]] const Balance* at_hand() const;
 
+    // The fields other code reads and sets.
+    uint32_t& trick() { return trick_; }
+    [[nodiscard]] uint32_t trick() const { return trick_; }
+    [[nodiscard]] bool started() const { return started_; }
+    Balance& manual() { return manual_; }
+    [[nodiscard]] const Balance& manual() const { return manual_; }
+    Balance& grind() { return grind_; }
+    [[nodiscard]] const Balance& grind() const { return grind_; }
+    Balance& lip() { return lip_; }
+    [[nodiscard]] const Balance& lip() const { return lip_; }
+    Balance& skitch() { return skitch_; }
+    [[nodiscard]] const Balance& skitch() const { return skitch_; }
+
+private:
     uint32_t trick_{}; // +0x18 the balance trick being balanced (0: none)
     bool started_{};   // +0x1C StartBalanceTrick
     std::array<uint8_t, 3> pad1d_{};

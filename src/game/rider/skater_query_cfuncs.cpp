@@ -77,9 +77,9 @@ int score_pot(modules::PointTally* score)
 // The local skater's speed: the length of its velocity (as the original's x87: in double).
 double speed_of(objects::GameEntity* skater)
 {
-    const double x = skater->vel_.x;
-    const double y = skater->vel_.y;
-    const double z = skater->vel_.z;
+    const double x = skater->vel().x;
+    const double y = skater->vel().y;
+    const double z = skater->vel().z;
     return std::sqrt(x * x + y * y + z * z);
 }
 // An integer parameter, 0 if missing.
@@ -215,7 +215,7 @@ bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
             continue;
         desc = net::NetMessageInfo();
         player->mark_eliminated();
-        data = player->skater()->ident_;
+        data = player->skater()->ident();
         prepare_eliminated(&desc, &data);
         send_to_players(manager, &desc, true);
     }
@@ -521,9 +521,9 @@ bool cfunc_get_skater_id(script::Struct* params, script::Script* script)
     int index = 0;
     const objects::GameEntity* skater =
         params->fetch_int_value(kSkater, &index, 0) ? get_rider_at(index) : get_home_rider();
-    if (!skater || !skater->is_local_skater_)
+    if (!skater || !skater->is_local_skater())
         return false;
-    script->args()->put_name_key(kObjId, skater->ident_);
+    script->args()->put_name_key(kObjId, skater->ident());
     return true;
 }
 
@@ -536,7 +536,7 @@ bool cfunc_skater_exists(script::Struct* params, script::Script* script)
     const objects::GameEntity* skater = get_rider_at(index);
     if (!skater)
         return false;
-    script->args()->put_name_key(kObjId, skater->ident_);
+    script->args()->put_name_key(kObjId, skater->ident());
     return true;
 }
 
@@ -557,9 +557,9 @@ bool cfunc_get_skater_sex(script::Struct* params, script::Script* script)
 bool cfunc_get_current_skater_id(script::Struct*, script::Script* script)
 {
     auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
-    if (!object || !object->is_local_skater_)
+    if (!object || !object->is_local_skater())
         return false;
-    const uint32_t id = object->ident_;
+    const uint32_t id = object->ident();
     script->args()->put_name_key(kObjId, id);
     script->args()->put_int(kIntId, static_cast<int>(id));
     return true;
@@ -572,9 +572,9 @@ bool cfunc_get_skater_position(script::Struct*, script::Script* script)
     auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
     if (!object)
         return false;
-    const float y = object->at_point_.y;
-    const float z = object->at_point_.z;
-    script->args()->put_int("x", static_cast<int>(static_cast<int64_t>(object->at_point_.x))); // (the original's _ftol)
+    const float y = object->at_point().y;
+    const float z = object->at_point().z;
+    script->args()->put_int("x", static_cast<int>(static_cast<int64_t>(object->at_point().x))); // (the original's _ftol)
     script->args()->put_int("y", static_cast<int>(static_cast<int64_t>(y)));
     script->args()->put_int("z", static_cast<int>(static_cast<int64_t>(z)));
     return true;
@@ -590,12 +590,12 @@ bool cfunc_set_skater_velocity(script::Struct* params, script::Script* script)
         return false;
     float speed = 0.0f;
     if (params->fetch_float(0u, &speed, 0)) {
-        maths::Vec4 direction = object->vel_;
+        maths::Vec4 direction = object->vel();
         direction.make_unit();
-        object->vel_.x = direction.x * speed;
-        object->vel_.y = direction.y * speed;
-        object->vel_.z = direction.z * speed;
-        object->vel_.w = direction.w * speed;
+        object->vel().x = direction.x * speed;
+        object->vel().y = direction.y * speed;
+        object->vel().z = direction.z * speed;
+        object->vel().w = direction.w * speed;
         return true;
     }
     float x = 0.0f, y = 0.0f, z = 0.0f;
@@ -609,7 +609,7 @@ bool cfunc_set_skater_velocity(script::Struct* params, script::Script* script)
     velocity->y = y;
     velocity->z = z;
     velocity->w = 1.0f;
-    object->vel_ = *velocity;
+    object->vel() = *velocity;
     memory::Hub::get_pull()->dealloc(velocity);
     return true;
 }

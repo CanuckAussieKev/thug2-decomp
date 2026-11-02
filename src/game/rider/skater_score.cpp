@@ -85,13 +85,13 @@ void RiderPointKeeper::configure_from_data(script::Struct* /*params*/)
         return;
     void* memory = memory::alloc_zeroed(0x1550);
     points_held_ = memory ? memory::construct_in<modules::PointTally>(memory) : nullptr; // (its constructor)
-    get_score_of(points_held_)->set_rider_number(static_cast<int16_t>(entity_->ident_));
+    get_score_of(points_held_)->set_rider_number(static_cast<int16_t>(entity_->ident()));
 }
 
 // 0x005186E0
 void RiderPointKeeper::tick_frame()
 {
-    if (!entity_->is_local_skater_) {
+    if (!entity_->is_local_skater()) {
         hold_off(true);
         return;
     }

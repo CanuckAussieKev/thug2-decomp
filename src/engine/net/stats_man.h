@@ -176,6 +176,18 @@ public:
     // 0x0054CA10 (stdcall): the SDK's GenerateAuth (0x00600640) for `challenge` and `password`.
     static void generate_auth(const char* challenge, const char* password, char* response);
 
+    // The fields other code reads and sets.
+    void set_cur_phase(int value) { cur_phase_ = value; }
+    PersonalStats& personal() { return personal_; }
+    [[nodiscard]] const PersonalStats& personal() const { return personal_; }
+    int& top_file() { return top_file_; }
+    [[nodiscard]] int top_file() const { return top_file_; }
+    std::array<TopList, 5>& top_lists() { return top_lists_; }
+    [[nodiscard]] const std::array<TopList, 5>& top_lists() const { return top_lists_; }
+    [[nodiscard]] bool need_top_stats() const { return need_top_stats_; }
+    void set_need_top_stats(bool value) { need_top_stats_ = value; }
+
+private:
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<RankingsManager> (stats_task)
     bool authenticated_;                         // +0x004
     std::array<uint8_t, 3> pad5_{};

@@ -115,7 +115,7 @@ FaceCopy read_face(const render::TriMeshSource* geometry, int face)
         maths::Vec4 v;
         geometry->read_stored_vertex(static_cast<int>(vertex), &v);
         core::at(copy.v, k) = {.x = v.x, .y = v.y, .z = v.z};
-        core::at(copy.bytes, k) = geometry->vertex_bytes_ ? core::at(geometry->vertex_byte_run(), vertex) : 0x80;
+        core::at(copy.bytes, k) = geometry->vertex_bytes() ? core::at(geometry->vertex_byte_run(), vertex) : 0x80;
     }
     return copy;
 }
@@ -152,17 +152,17 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
     if (bytes_.empty())
         bytes_.push_back(0);
 
-    geometry_.checksum_ = checksum;
-    geometry_.unknown04_ = 0;
-    geometry_.num_vertices_ = static_cast<uint16_t>(base_.size());
-    geometry_.tri_count_ = static_cast<uint16_t>(count);
-    geometry_.small_faces_ = false;
-    geometry_.compressed_ = false;
-    geometry_.faces_ = faces_.empty() ? nullptr : faces_.data();
-    geometry_.vertices_ = vertices_.empty() ? nullptr : vertices_.data();
-    geometry_.bsp_ = nullptr;
-    geometry_.vertex_bytes_ = bytes_.data();
-    geometry_.unknown3c_ = 0; // (the rejection scale 0.0f: no face rejected by distance)
+    geometry_.set_checksum(checksum);
+    geometry_.set_unknown04(0);
+    geometry_.set_num_vertices(static_cast<uint16_t>(base_.size()));
+    geometry_.set_tri_count(static_cast<uint16_t>(count));
+    geometry_.set_small_faces(false);
+    geometry_.set_compressed(false);
+    geometry_.set_faces(faces_.empty() ? nullptr : faces_.data());
+    geometry_.set_vertices(vertices_.empty() ? nullptr : vertices_.data());
+    geometry_.set_bsp(nullptr);
+    geometry_.set_vertex_bytes(bytes_.data());
+    geometry_.set_unknown3c(0); // (the rejection scale 0.0f: no face rejected by distance)
 
     entity_.checksum_ = checksum; // (a sector's collision object, no flags)
     entity_.visit_stamp_ = 0;
@@ -193,8 +193,8 @@ V3 Companion::get_vertex(int i) const { return {.x = core::at(vertices_, i * 3),
 
 std::vector<FaceCopy> Companion::get_faces() const
 {
-    std::vector<FaceCopy> faces(geometry_.tri_count_);
-    for (int f = 0; std::cmp_less(f, geometry_.tri_count_); ++f)
+    std::vector<FaceCopy> faces(geometry_.tri_count());
+    for (int f = 0; std::cmp_less(f, geometry_.tri_count()); ++f)
         core::at(faces, f) = read_face(&geometry_, f);
     return faces;
 }
@@ -208,7 +208,7 @@ bool Companion::live_now() const { return !(entity_.flag_bits_ & 4); }
 
 void Companion::change_tri_flags(int face, uint16_t flags)
 {
-    if (face >= 0 && std::cmp_less(face, geometry_.tri_count_))
+    if (face >= 0 && std::cmp_less(face, geometry_.tri_count()))
         std::memcpy(&core::at(faces_, static_cast<size_t>(face) * 10), &flags, 2);
 }
 
@@ -221,18 +221,18 @@ void Companion::update_box()
         lo = {.x = std::min(lo.x, v.x), .y = std::min(lo.y, v.y), .z = std::min(lo.z, v.z)};
         hi = {.x = std::max(hi.x, v.x), .y = std::max(hi.y, v.y), .z = std::max(hi.z, v.z)};
     }
-    geometry_.bounds_.min = {.x = lo.x, .y = lo.y, .z = lo.z, .w = 1.0f};
-    geometry_.bounds_.max = {.x = hi.x, .y = hi.y, .z = hi.z, .w = 1.0f};
+    geometry_.bounds().min = {.x = lo.x, .y = lo.y, .z = lo.z, .w = 1.0f};
+    geometry_.bounds().max = {.x = hi.x, .y = hi.y, .z = hi.z, .w = 1.0f};
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
 
 namespace {
 
-render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
+render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle()); }
 render::StaticCollider* coll_of(render::WorldCell* sector)
 {
-    return core::down_cast<render::StaticCollider>(sector->hit_body_);
+    return core::down_cast<render::StaticCollider>(sector->hit_body());
 }
 void* grid_of(render::WorldScene* scene) { return scene->coll_grid(); }
 
@@ -274,17 +274,17 @@ bool is_switched_on()
 template <typename F>
 void for_each_strip(render::PcGeom* geom, F fn)
 {
-    const std::span<render::MeshRef*> meshes = geom->meshes ? geom->mesh_run() : std::span<render::MeshRef*>();
-    const uint32_t count = geom->mesh_count_;
+    const std::span<render::MeshRef*> meshes = geom->meshes_value() ? geom->mesh_run() : std::span<render::MeshRef*>();
+    const uint32_t count = geom->mesh_count();
     for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096; ++i) {
         const render::MeshRef* mesh = core::at(meshes, i);
         if (!mesh || mesh->billboard_value() || (mesh->flags_value() & 0x10))
             continue;
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
-        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride_value() < 12)
+        if (!vertices || !vertices->data_value() || !indices || !indices->indices || mesh->stride_value() < 12)
             continue;
-        fn(vertices->data, static_cast<uint32_t>(mesh->stride_value()), static_cast<uint32_t>(mesh->vertex_count()),
+        fn(vertices->data_value(), static_cast<uint32_t>(mesh->stride_value()), static_cast<uint32_t>(mesh->vertex_count()),
            indices->indices, static_cast<uint32_t>(core::at(mesh->index_counts(), 0)));
     }
 }
@@ -339,7 +339,7 @@ render::TriMeshSource* get_collision_only(render::WorldCell* sector)
     if (!sector || geom_of(sector))
         return nullptr;
     const render::StaticCollider* coll = coll_of(sector);
-    if (!coll || (coll->flag_bits_ & 6) || !coll->geometry_ || !coll->geometry_->faces_)
+    if (!coll || (coll->flag_bits_ & 6) || !coll->geometry_ || !coll->geometry_->faces())
         return nullptr;
     return coll->geometry_;
 }
@@ -445,8 +445,8 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
 
     for (const auto& source : context.sources) {
         render::TriMeshSource* geometry = get_collision_only(source.second);
-        const maths::Vec4& lo = geometry->bounds_.min;
-        const maths::Vec4& hi = geometry->bounds_.max;
+        const maths::Vec4& lo = geometry->bounds().min;
+        const maths::Vec4& hi = geometry->bounds().max;
         if (lo.x > max.x || hi.x < min.x || lo.y > max.y || hi.y < min.y || lo.z > max.z || hi.z < min.z)
             continue;
         const bool named = std::ranges::find(mine, source.first) != mine.end();
@@ -454,7 +454,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
             continue; // (named after another piece: that one's)
         const V3 named_min = min - V3{.x = 100.0f, .y = 100.0f, .z = 100.0f};
         const V3 named_max = max + V3{.x = 100.0f, .y = 100.0f, .z = 100.0f};
-        for (int f = 0; std::cmp_less(f, geometry->tri_count_) && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
+        for (int f = 0; std::cmp_less(f, geometry->tri_count()) && faces.size() < static_cast<size_t>(kMostFaces); ++f) {
             const FaceCopy face = read_face(geometry, f);
             if (!takeable(face.flags))
                 continue;

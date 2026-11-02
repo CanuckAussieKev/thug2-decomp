@@ -49,13 +49,13 @@ PadSticks& sticks_of(const void* pad)
 {
     PadSticks& sticks = get_pads()[pad];
     for (int i = 0; i < 8; ++i)
-        if (!core::at(sticks.buttons, i).label_)
-            core::at(sticks.buttons, i).label_ = stick_button_name(i);
+        if (!core::at(sticks.buttons, i).label())
+            core::at(sticks.buttons, i).set_label(stick_button_name(i));
     return sticks;
 }
 
 // The trick component's pad (the input component's).
-const void* trick_pad(const objects::MoveExecutor* trick) { return &trick->input()->pad_primary_; }
+const void* trick_pad(const objects::MoveExecutor* trick) { return &trick->input()->pad_primary(); }
 
 // The bike state of `trick`'s skater while it rides the bike, else null.
 BikeState* riding_state(const objects::MoveExecutor* trick)
@@ -161,7 +161,7 @@ void update_trick_sticks(void* trick_component)
     if (riding) {
         const PadSticks& sticks = sticks_of(trick_pad(trick));
         for (int i = 0; i < 8; ++i)
-            if (core::at(sticks.buttons, i).held_down_)
+            if (core::at(sticks.buttons, i).held_down())
                 bits |= 1u << i;
     }
     for (int s = 0; s < 2; ++s) {

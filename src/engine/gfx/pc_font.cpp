@@ -104,19 +104,19 @@ void PcText::update_hidden() { text->change_concealed(invisible()); }
 // 0x004B3F50
 void PcText::update_settings()
 {
-    text->text = text_buffer();
+    text->set_text(text_buffer());
     if (typeface())
-        text->font = core::down_cast<PcFont>(typeface())->font;
-    text->pivot_x_ = pivot_x();
-    text->pivot_y_ = pivot_y();
-    text->effects = effects();
-    text->angle = angle();
-    text->x = pos_x();
-    text->y = y();
-    text->xscale = scale_h();
-    text->yscale = scale_v();
-    text->color = shade();
-    text->fixed_color_ = fixed_colour();
+        text->set_font(core::down_cast<PcFont>(typeface())->font);
+    text->set_pivot_x(pivot_x());
+    text->set_pivot_y(pivot_y());
+    text->set_effects(effects());
+    text->set_angle(angle());
+    text->set_x(pos_x());
+    text->set_y(y());
+    text->set_xscale(scale_h());
+    text->set_yscale(scale_v());
+    text->set_color(shade());
+    text->set_fixed_color(fixed_colour());
 }
 
 // 0x004B3DB0 (the depth read as a 16.16 integer, as the original - the engine's set_depth stores a float there)

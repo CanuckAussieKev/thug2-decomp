@@ -154,8 +154,8 @@ bool pool_use(memory::PoolPair& pools, int* used, int* count)
     const memory::SlabBank* pool = pools.current == 0 || pools.current == 1 ? core::at(pools.pools, pools.current) : nullptr;
     if (!pool)
         return false;
-    *used = pool->taken_count_;
-    *count = pool->num_;
+    *used = pool->taken_count();
+    *count = pool->num();
     return true;
 }
 

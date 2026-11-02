@@ -65,7 +65,7 @@ constexpr uint32_t kVelocity = 0xAC;
 
 inline objects::GameEntity* object_of(const SkaterPhysicsModule* component) { return component->entity_; }
 using objects::PoseFlag;
-inline int state_of(const SkaterPhysicsModule* component) { return component->state()->cur_phase_; }
+inline int state_of(const SkaterPhysicsModule* component) { return component->state()->cur_phase(); }
 
 // The game's clock (0x0044ECE0, plus the offset at 0x00696D60).
 inline int get_now()
@@ -110,7 +110,7 @@ inline void trigger_feeler(SkaterPhysicsModule* component, const std::array<int,
 // Whether a trigger's script took over (the physics control component's +0x26).
 inline bool trigger_took_over(const SkaterPhysicsModule* component)
 {
-    return component->physics_control()->flag26_ != 0;
+    return component->physics_control()->flag26() != 0;
 }
 
 // A vector's length as the original's 0x004023C0 leaves it in ST0: sqrt((x*x + y*y) + z*z) in double, unrounded

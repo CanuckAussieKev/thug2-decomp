@@ -94,28 +94,28 @@ ActivationZoneModule::ActivationZoneModule() { kind_tag_ = kType; }
 ActivationZoneModule::~ActivationZoneModule() = default;
 
 // 0x00434940
-void ActivationZoneModule::configure_from_data(script::Struct* /*params*/) { last_pos_ = entity_->at_point_; }
+void ActivationZoneModule::configure_from_data(script::Struct* /*params*/) { last_pos_ = entity_->at_point(); }
 
 // 0x00434D90
 void ActivationZoneModule::tick_frame()
 {
     const GameEntity* object = entity_;
-    const maths::Vec4& pos = object->at_point_;
+    const maths::Vec4& pos = object->at_point();
     // (not a number counts as moved, as the original's FUCOMPP)
     if (last_pos_.x == pos.x && last_pos_.y == pos.y && last_pos_.z == pos.z && last_pos_.w == pos.w)
         return;
-    if (object->composite_flags_ & kCompositeFlagTeleported) {
+    if (object->composite_flags() & kCompositeFlagTeleported) {
         last_pos_ = pos;
         return;
     }
     render::ProbeRay feeler;
-    feeler.line_.start = last_pos_;
-    feeler.line_.end = entity_->at_point_;
+    feeler.line().start = last_pos_;
+    feeler.line().end = entity_->at_point();
     feeler.set_excluded(0, kTriggerFaces);
-    feeler.callback_ = [](render::ProbeRay* hit) { (void)feeler_hit(hit); };
-    feeler.user_data_ = this;
+    feeler.set_callback([](render::ProbeRay* hit) { (void)feeler_hit(hit); });
+    feeler.set_user_data(this);
     feeler.get_hit_shape(true, false);
-    last_pos_ = entity_->at_point_;
+    last_pos_ = entity_->at_point();
 }
 
 // 0x00434970
@@ -165,7 +165,7 @@ bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, ui
     }
     script::Struct* params = nullptr;
     if (other) {
-        if (script::Struct* other_node = level_nodes::fetch_vertex(other->ident_, false))
+        if (script::Struct* other_node = level_nodes::fetch_vertex(other->ident(), false))
             other_node->read_sub_struct(kParams, &params, 0);
     }
     // Not original - a trigger face whose object has no node (a level's collision with another level's node array:
@@ -203,21 +203,21 @@ bool ActivationZoneModule::get_trigger_node(const std::array<int, 3>& events, ui
 // 0x00434BF0
 bool ActivationZoneModule::probe_touches_zone(const std::array<int, 3>& events, render::ProbeRay* feeler)
 {
-    if (!feeler->hit_.face_flag40_ || !feeler->hit_.object_checksum_)
+    if (!feeler->hit().face_flag40_ || !feeler->hit().object_checksum_)
         return false;
     if (feeler->get_tested_owner()) {
         // A movable object's face, while it's being tested: through its own nodes.
         auto* owner = feeler->get_tested_owner();
         script::Array* nodes = node_array_of(owner);
-        const uint32_t name = feeler->hit_.object_checksum_;
+        const uint32_t name = feeler->hit().object_checksum_;
         return get_trigger_node(events, name, nodes, owner);
     }
     if (!feeler->hit_object_alive()) // (which clears the name when the object is gone)
-        return get_trigger_node(events, feeler->hit_.object_checksum_, nullptr, nullptr);
+        return get_trigger_node(events, feeler->hit().object_checksum_, nullptr, nullptr);
     if (!feeler->get_hit_object())
         return false;
     script::Array* nodes = node_array_of(feeler->get_hit_object());
-    const uint32_t name = feeler->hit_.object_checksum_;
+    const uint32_t name = feeler->hit().object_checksum_;
     return get_trigger_node(events, name, nodes, feeler->get_hit_object());
 }
 
@@ -243,7 +243,7 @@ void ActivationZoneModule::trigger_hits(const std::array<int, 3>& events, const 
 // 0x00434D70
 bool ActivationZoneModule::feeler_hit(render::ProbeRay* feeler)
 {
-    auto* component = static_cast<ActivationZoneModule*>(feeler->user_data_);
+    auto* component = static_cast<ActivationZoneModule*>(feeler->user_data());
     return component->probe_touches_zone(kNoEvents, feeler);
 }
 

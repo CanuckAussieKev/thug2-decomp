@@ -54,6 +54,7 @@ public:
     // 0x1A0F4C50 its colour (rgba=, four bytes; read whether given or not) - each asserted; 1. Anything else: 2.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
+private:
     render::DynamicLightBase* light_{nullptr}; // +0x18
     uint32_t start_color_{};          // +0x1C
     uint32_t middle_color_{};         // +0x20

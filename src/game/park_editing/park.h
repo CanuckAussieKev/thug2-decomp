@@ -464,6 +464,27 @@ using GapRecord = GapDetails;
 // piece it was made from, its cell and size where it was copied (raised so the lowest piece of the copy is at 0), its
 // turn, and the preview shown at the cursor. `centre_x` / `centre_z` below are the copy's centre cell.
 struct ClipboardEntry {
+    // The fields other code reads and sets.
+    [[nodiscard]] PieceGroup* piece_group() const { return piece_group_; }
+    void set_piece_group(PieceGroup* value) { piece_group_ = value; }
+    [[nodiscard]] uint8_t pos_x() const { return pos_x_; }
+    void set_pos_x(uint8_t value) { pos_x_ = value; }
+    [[nodiscard]] int8_t y() const { return y_; }
+    void set_y(int8_t value) { y_ = value; }
+    [[nodiscard]] uint8_t depth_cell() const { return depth_cell_; }
+    void set_depth_cell(uint8_t value) { depth_cell_ = value; }
+    [[nodiscard]] int quarter_turns() const { return quarter_turns_; }
+    void set_quarter_turns(int value) { quarter_turns_ = value; }
+    [[nodiscard]] uint8_t w() const { return w_; }
+    void set_w(uint8_t value) { w_ = value; }
+    [[nodiscard]] uint8_t l() const { return l_; }
+    void set_l(uint8_t value) { l_ = value; }
+    [[nodiscard]] PieceGroup* preview() const { return preview_; }
+    void set_preview(PieceGroup* value) { preview_ = value; }
+    [[nodiscard]] ClipboardEntry* following() const { return following_; }
+    void set_following(ClipboardEntry* value) { following_ = value; }
+
+private:
     PieceGroup* piece_group_; // +0x00: the abstract metapiece
     uint8_t pos_x_;           // +0x04
     int8_t y_;                // +0x05
@@ -475,6 +496,8 @@ struct ClipboardEntry {
     std::array<uint8_t, 2> pad0e_;
     PieceGroup* preview_;       // +0x10: shown at the cursor (kCursor)
     ClipboardEntry* following_; // +0x14
+
+public:
 
     // 0x0058B800: the cells it would take with the cursor's copy (turned with the cursor; one high, at its height).
     void fetch_extent(CellBox* area, uint8_t centre_x, uint8_t centre_z, BuildPointer* cursor);
@@ -489,14 +512,24 @@ struct ClipboardEntry {
     void glow_overlapping_pieces(uint8_t centre_x, uint8_t centre_z, BuildPointer* cursor, int on);
     // 0x0058BCA0: its preview (made the first time) placed at `position` turned by `angle` degrees
     void show_preview(uint8_t centre_x, int height, uint8_t centre_z, maths::Vec4 position, float angle);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ClipboardEntry, quarter_turns_) == 0x08 && offsetof(ClipboardEntry, preview_) == 0x10 &&
+                          sizeof(ClipboardEntry) == 0x18,
+                      "pool item");
+    }
 };
-static_assert(offsetof(ClipboardEntry, quarter_turns_) == 0x08 && offsetof(ClipboardEntry, preview_) == 0x10 &&
-                  sizeof(ClipboardEntry) == 0x18,
-              "pool item");
 
 // A copied area (0x18 bytes, pooled: the pool pair 0x007CE5B4; copy_buffer.cpp): the metapieces (and rails) copied from
 // it.
 struct Clipboard {
+    // The fields other code reads and sets.
+    [[nodiscard]] Clipboard* following() const { return following_; }
+    void set_following(Clipboard* value) { following_ = value; }
+
+private:
     CellBox edit_span_{};           // +0x00
     uint8_t lo_cell_x_{0xFF}, lo_cell_z_{0xFF}; // +0x06: the cells its entries cover
     uint8_t hi_cell_x_{0}, hi_cell_z_{0};       // +0x08
@@ -504,6 +537,8 @@ struct Clipboard {
     ClipboardEntry* metas_{nullptr}; // +0x0C: its entries (the newest first)
     void* rail_groups_{nullptr};    // +0x10: the rail editor's copies of the rails over it (linked by their first word)
     Clipboard* following_{nullptr}; // +0x14: the cursor's list
+
+public:
 
     // 0x0058BDF0
     Clipboard();

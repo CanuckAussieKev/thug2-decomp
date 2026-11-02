@@ -275,17 +275,17 @@ void HitMesh::set_checksum(uint32_t checksum)
 {
     checksum_ = checksum;
     if (geometry_)
-        geometry_->checksum_ = checksum;
+        geometry_->set_checksum(checksum);
 }
 
 // 0x00410BC0
 uint8_t* StaticCollider::take_buffer(uint8_t* block, const TriMeshSource* geometry)
 {
-    unknown14_ = static_cast<int>(geometry->unknown3c_);
-    if (geometry->small_faces_)
+    unknown14_ = static_cast<int>(geometry->unknown3c());
+    if (geometry->small_faces())
         return block;
     octets_ = block;
-    return std::span<uint8_t>(block, geometry->tri_count_).subspan(geometry->tri_count_).data();
+    return std::span<uint8_t>(block, geometry->tri_count()).subspan(geometry->tri_count()).data();
 }
 
 // 0x004182D0

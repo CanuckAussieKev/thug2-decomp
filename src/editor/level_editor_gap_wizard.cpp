@@ -183,11 +183,11 @@ bool get_cast(V3 from, V3 to, Hit* hit)
     if (!ray->get_collision_along(&start, &end, false))
         return false;
     // (the feeler's hit record at +0x24: normal +0x00, point +0x10, face flags +0x2C - coll_line.h's CollisionHit)
-    const auto& n = ray->hit_.normal;
-    const auto& p = ray->hit_.point;
+    const auto& n = ray->hit().normal;
+    const auto& p = ray->hit().point;
     hit->normal = {.x = n[0], .y = n[1], .z = n[2]};
     hit->point = {.x = p[0], .y = p[1], .z = p[2]};
-    hit->flags = ray->hit_.face_flags_;
+    hit->flags = ray->hit().face_flags_;
     return true;
 }
 
@@ -195,7 +195,7 @@ objects::GrindRailHub* get_rails()
 {
     const modules::Skate* skate = modules::Skate::sole();
     auto* manager = skate ? skate->rail_manager().get() : nullptr;
-    return manager && !manager->on_object_ && manager->nodes_ ? manager : nullptr;
+    return manager && !manager->on_object() && manager->nodes() ? manager : nullptr;
 }
 
 // The rail segment nearest the cursor within 14 pixels (and not behind what the ray hits first): the point on it.
@@ -206,7 +206,7 @@ bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot
         return false;
     float best = 14.0f;
     bool found = false;
-    for (int i = 0; i < rails->num_; ++i) {
+    for (int i = 0; i < rails->num(); ++i) {
         const objects::GrindPoint& node = core::at(rails->node_run(), i);
         if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
             !(node.flag_bits_ & objects::kRailFlagActive))

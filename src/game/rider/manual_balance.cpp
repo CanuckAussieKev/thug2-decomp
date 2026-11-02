@@ -74,7 +74,7 @@ constexpr double kFrames = 60.0; // 0x00645EA0 (frames a second)
 uint32_t get_clock() { return static_cast<uint32_t>(frame_clock::game_clock_elapsed() + clock_offset()); }
 // A physics value (0x004F90A0 on the balance trick component).
 double get_physics(RiderTeeterMoves* balance_trick, uint32_t name) { return balance_trick->get_physics_value(name); }
-uint32_t& get_trick_type(RiderTeeterMoves* balance_trick) { return balance_trick->trick_; }
+uint32_t& get_trick_type(RiderTeeterMoves* balance_trick) { return balance_trick->trick(); }
 modules::PointTally* score_display(RiderPointKeeper* score) { return score->points_held_; }
 // The score's two balance displays (0x00563370 / 0x00563390): on or off, and the lean shown.
 void show_lean(void* score, int on, float lean)
@@ -88,7 +88,7 @@ void show_lean2(void* score, int on, float lean)
 // A button of the input component's control data held (its first byte).
 bool get_held(PadInputModule* input, uint32_t button)
 {
-    return input->pad_primary_.read_button(button)->held_down_ != 0;
+    return input->pad_primary().read_button(button)->held_down() != 0;
 }
 
 void reset_state(Balance* b)
@@ -239,7 +239,7 @@ void Balance::tick_frame()
         return;
     auto* net = online::net_game_state().online_hub();
     if (net->host())                                                           // (the folded getter 0x005480C0)
-        net->find_player_slot_by_obj(static_cast<uint16_t>(skater_->ident_)); // (its result unused)
+        net->find_player_slot_by_obj(static_cast<uint16_t>(skater_->ident())); // (its result unused)
     // The cheese wears off.
     if (cheese_ > 0.01f) {
         auto cheese = static_cast<float>(get_physics(balance_trick_, kCheese));
@@ -293,8 +293,8 @@ void Balance::tick_frame()
             lean_speed_ = static_cast<float>(maths::get_sign(lean_speed_) * shake * 0.01f + lean_speed_);
         }
     }
-    if (!skater_->own_script_) {
-        skater_->own_script_ = script::Script::create();
+    if (!skater_->own_script()) {
+        skater_->set_own_script(script::Script::create());
     }
     // Past the bail angle: the skater falls.
     const float lean = std::fabs(lean_);

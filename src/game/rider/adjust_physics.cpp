@@ -46,7 +46,7 @@ constexpr std::array<std::array<float, 4>, 5> kUberFrigOffsets = {{
     {0.0f, 0.0f, -0.2f, 1.0f}, {0.2f, 0.0f, 0.0f, 1.0f},
 }};
 
-int state_of(skater::SkaterPhysicsModule* core) { return core->state()->cur_phase_; }
+int state_of(skater::SkaterPhysicsModule* core) { return core->state()->cur_phase(); }
 void change_phase(skater::SkaterPhysicsModule* core, int state) { core->set_physics_state(state); }
 
 } // namespace
@@ -57,7 +57,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     skater::SkaterPhysicsModule* core = core_ptr_;
     GameEntity* object = entity_;
     uber_frigged_ = 0;
-    maths::Vec4& position = object->at_point_;
+    maths::Vec4& position = object->at_point();
     const maths::Vec4& frame_start = core->safe_pos();
     if (position.x == frame_start.x && position.y == frame_start.y && position.z == frame_start.z &&
         position.w == frame_start.w)
@@ -68,7 +68,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     maths::Vec4& end = core->probe_end();
     start = position;
     end = position;
-    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
+    const maths::Vec4& up = core::at(object->basis_frame().row, 1);
     start.x = static_cast<float>(static_cast<double>(up.x) * kUpNudge + start.x);
     start.y = static_cast<float>(static_cast<double>(up.y) * kUpNudge + start.y);
     start.z = static_cast<float>(static_cast<double>(up.z) * kUpNudge + start.z);
@@ -97,13 +97,13 @@ void RiderPhysicsTweaks::keep_above_ground()
             } else {
                 uber_frig_tries_ = 0;
             }
-            maths::Vec4& velocity = object->vel_;
+            maths::Vec4& velocity = object->vel();
             velocity = {.x = -velocity.x + kNudgeXy, .y = -velocity.y + kNudgeXy, .z = -velocity.z + kNudgeZ, .w = -velocity.w + kOne};
             state = state_of(core);
             if (state != 0 && state != 1)
                 change_phase(core, 1);
         }
-        state_ref_->height_above_ground_ = 0.0f;
+        state_ref_->set_height_above_ground(0.0f);
         return;
     }
 
@@ -114,7 +114,7 @@ void RiderPhysicsTweaks::keep_above_ground()
         const RideTracker* ride = ride_->ride_.get();
         bool leave = true;
         if (ride->entity_.get_pull()) {
-            const int state = flags->cur_phase_;
+            const int state = flags->cur_phase();
             if (state == 0 || state == 1) {
                 render::ProbeRay& feeler = core->feeler();
                 if (feeler.hit_object_alive() && feeler.get_hit_object() == ride->entity_.get_pull())
@@ -123,7 +123,7 @@ void RiderPhysicsTweaks::keep_above_ground()
                 leave = false;
             }
             if (leave)
-                object->vel_ += ride_->ride_->entity_.get_pull()->vel_;
+                object->vel() += ride_->ride_->entity_.get_pull()->vel();
         }
         if (leave)
             ride_->stop_riding();
@@ -131,13 +131,13 @@ void RiderPhysicsTweaks::keep_above_ground()
 
     // Kept just over the ground.
     {
-        const double over = static_cast<double>(position.y) - core->feeler().contact_pos_.y;
-        state_ref_->height_above_ground_ = static_cast<float>(over);
+        const double over = static_cast<double>(position.y) - core->feeler().contact_pos().y;
+        state_ref_->set_height_above_ground(static_cast<float>(over));
         if (over < kLeastHeight)
-            position.y = static_cast<float>(static_cast<double>(core->feeler().contact_pos_.y) + kLeastHeight);
+            position.y = static_cast<float>(static_cast<double>(core->feeler().contact_pos().y) + kLeastHeight);
     }
-    shadow_handle_->change_place(&core->feeler().contact_pos_);
-    shadow_handle_->set_normal(&core->feeler().surface_dir_);
+    shadow_handle_->change_place(&core->feeler().contact_pos());
+    shadow_handle_->set_normal(&core->feeler().surface_dir());
     if (state_of(core) != 4)
         get_update_brightness(&core->feeler());
 
@@ -156,12 +156,12 @@ void RiderPhysicsTweaks::keep_above_ground()
             to.y += raise;
         feeler.change_finish(&to);
         if (feeler.get_hit_shape(true, false)) {
-            const maths::Vec4 off = {.x = position.x - feeler.contact_pos_.x, .y = position.y - feeler.contact_pos_.y,
-                                     .z = position.z - feeler.contact_pos_.z, .w = position.w - feeler.contact_pos_.w};
+            const maths::Vec4 off = {.x = position.x - feeler.contact_pos().x, .y = position.y - feeler.contact_pos().y,
+                                     .z = position.z - feeler.contact_pos().z, .w = position.w - feeler.contact_pos().w};
             const double near = static_cast<double>(off.x) * off.x + static_cast<double>(off.y) * off.y +
                                 static_cast<double>(off.z) * off.z;
             if (near < kFloorNear) {
-                position = feeler.contact_pos_;
+                position = feeler.contact_pos();
             } else {
                 const maths::Vec4& began = core->safe_pos();
                 const maths::Vec4 moved = {.x = position.x - began.x, .y = position.y - began.y, .z = position.z - began.z,
@@ -169,8 +169,8 @@ void RiderPhysicsTweaks::keep_above_ground()
                 const double moved_sqr = static_cast<double>(moved.x) * moved.x +
                                          static_cast<double>(moved.y) * moved.y +
                                          static_cast<double>(moved.z) * moved.z;
-                position = moved_sqr < kOne ? feeler.contact_pos_ : began;
-                maths::Vec4& velocity = object->vel_;
+                position = moved_sqr < kOne ? feeler.contact_pos() : began;
+                maths::Vec4& velocity = object->vel();
                 velocity = {.x = kBounce * velocity.x, .y = kBounce * velocity.y, .z = kBounce * velocity.z, .w = kBounce * velocity.w};
                 if (state_of(core) == 4) {
                     change_phase(core, 1);
@@ -179,7 +179,7 @@ void RiderPhysicsTweaks::keep_above_ground()
                 }
             }
         }
-        feeler.entity_.get_release();
+        feeler.entity().get_release();
     }
     uber_frig_tries_ = 0;
     core->safe_pos() = position;

@@ -143,7 +143,7 @@ void* PoolPair::carve(unsigned int size)
     if (SlabBank* pool = core::at(pools, current)) {
         // Not original - an object bigger than the pool's items (its class grew, the pool's size didn't) ends the
         // game with a report instead of running into the next item.
-        Expects(std::cmp_less_equal(size, pool->slot_bytes_));
+        Expects(std::cmp_less_equal(size, pool->slot_bytes()));
         return pool->carve();
     }
     return alloc(size);

@@ -92,9 +92,9 @@ bool cast_feeler(V3 from, V3 to, V3* hit, uint32_t* sector)
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const auto& p = ray->hit_.point;
+    const auto& p = ray->hit().point;
     *hit = {.x = p[0], .y = p[1], .z = p[2]};
-    *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
+    *sector = ray->hit().object ? ray->hit().object_checksum_ : 0;
     return true;
 }
 
@@ -105,13 +105,13 @@ std::vector<V3> corners_near(uint32_t checksum, V3 near, float reach)
     const render::WorldCell* sector = checksum ? scenery::sector_of(checksum) : nullptr;
     if (!sector)
         return corners;
-    const render::HitMesh* coll = sector->hit_body_;
+    const render::HitMesh* coll = sector->hit_body();
     if (!render::is_static_collider(coll))
         return corners;
     const auto* tri = coll->geometry_;
-    if (!tri || !tri->vertices_)
+    if (!tri || !tri->vertices())
         return corners;
-    const int count = tri->num_vertices_ < 20000 ? tri->num_vertices_ : 20000;
+    const int count = tri->num_vertices() < 20000 ? tri->num_vertices() : 20000;
     for (int i = 0; i < count; ++i) {
         const maths::Vec4 v = tri->read_stored_vertex(i);
         const V3 p = {.x = v.x, .y = v.y, .z = v.z};

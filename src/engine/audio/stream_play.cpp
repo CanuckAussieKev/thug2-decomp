@@ -68,19 +68,19 @@ constexpr float kFifth = 0.2f;
 
 void freeze_stream(StreamSlot& slot)
 {
-    if (slot.wad)
-        slot.wad->get_freeze(1);
-    else if (slot.bink)
-        slot.bink->get_freeze(1);
+    if (slot.wad_value())
+        slot.wad_value()->get_freeze(1);
+    else if (slot.bink_value())
+        slot.bink_value()->get_freeze(1);
 }
 
 // The flag the "start" calls set and loading clears (nothing on PC reads it).
 void set_started(StreamSlot& slot, bool started)
 {
-    if (slot.wad)
-        slot.wad->set_unknown5f(started);
-    else if (slot.bink)
-        slot.bink->set_unknown6b(started);
+    if (slot.wad_value())
+        slot.wad_value()->set_unknown5f(started);
+    else if (slot.bink_value())
+        slot.bink_value()->set_unknown6b(started);
 }
 
 // Freed now if it may go, else asked to stop (update_streams frees it later).
@@ -88,13 +88,13 @@ void halt(StreamSlot& slot)
 {
     WaitForSingleObject(stream_lock(), INFINITE);
     if (slot.get_playing()) {
-        const bool ready = slot.wad ? slot.wad->ready_to_free() : slot.bink->ready_to_free();
+        const bool ready = slot.wad_value() ? slot.wad_value()->ready_to_free() : slot.bink_value()->ready_to_free();
         if (ready)
             slot.dealloc();
-        else if (slot.wad)
-            slot.wad->set_stop_requested(true);
-        else if (slot.bink)
-            slot.bink->set_stop_requested(true);
+        else if (slot.wad_value())
+            slot.wad_value()->set_stop_requested(true);
+        else if (slot.bink_value())
+            slot.bink_value()->set_stop_requested(true);
     }
     ReleaseMutex(stream_lock());
 }
@@ -116,18 +116,18 @@ bool load_music_track(uint32_t checksum)
     music.fabricate(1, false, 1);
     std::array<char, 256> path{};
     text::format_to(path, "%s%s%.8x.bik", data_root(), R"(data\streams\music\)", checksum);
-    const Result result = music.bink ? music.bink->unseal(path.data()) : -1;
-    if (music.wad)
-        music.wad->change_loudness(music.volume);
-    else if (music.bink)
-        music.bink->change_loudness(music.volume);
+    const Result result = music.bink_value() ? music.bink_value()->unseal(path.data()) : -1;
+    if (music.wad_value())
+        music.wad_value()->change_loudness(music.volume_value());
+    else if (music.bink_value())
+        music.bink_value()->change_loudness(music.volume_value());
     if (result != 0) {
         music.dealloc();
         ReleaseMutex(stream_lock());
         return false;
     }
-    if (music.paused) {
-        music.paused = true;
+    if (music.paused_value()) {
+        music.set_paused(true);
         freeze_stream(music);
     }
     ReleaseMutex(stream_lock());
@@ -171,12 +171,12 @@ bool play_user_track(int soundtrack, int track)
         return false;
     music.fabricate(0, false, 1);
     Hdl file = open_user_track(soundtrack, track);
-    if (file == INVALID_HANDLE_VALUE || !music.wad)
+    if (file == INVALID_HANDLE_VALUE || !music.wad_value())
         return false;
-    if (music.wad->unseal(file, user_track_buffer().data()) != 0)
+    if (music.wad_value()->unseal(file, user_track_buffer().data()) != 0)
         return false;
-    if (music.paused) {
-        music.paused = true;
+    if (music.paused_value()) {
+        music.set_paused(true);
         freeze_stream(music);
     }
     return true;
@@ -191,11 +191,11 @@ int platform_set_music_volume(float volume)
     WaitForSingleObject(stream_lock(), INFINITE);
     StreamSlot& music = music_slot();
     if (music.get_playing()) {
-        music.volume = volume;
-        if (music.wad)
-            music.wad->change_loudness(volume);
-        else if (music.bink)
-            music.bink->change_loudness(volume);
+        music.set_volume(volume);
+        if (music.wad_value())
+            music.wad_value()->change_loudness(volume);
+        else if (music.bink_value())
+            music.bink_value()->change_loudness(volume);
     }
     ReleaseMutex(stream_lock());
     return 1;
@@ -207,7 +207,7 @@ void sync_music_to_time(float seconds)
     if (!music_slot().get_playing())
         return;
     WaitForSingleObject(stream_lock(), INFINITE);
-    render::Bink* bink = music_slot().bink->bink(); // (a WadStream, or a paused Bink stream, would crash here)
+    render::Bink* bink = music_slot().bink_value()->bink(); // (a WadStream, or a paused Bink stream, would crash here)
     const int frame =
         ftol(static_cast<double>(bink->frame_rate_) * seconds / static_cast<double>(bink->frame_rate_div_));
     uint32_t off = bink->frame_num_ - static_cast<uint32_t>(frame);
@@ -239,11 +239,11 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
                 last = scaled;
             }
             const double sum = last + core::at(level, 3) + core::at(level, 2) + core::at(level, 1) + core::at(level, 0);
-            slot.volume = static_cast<float>(sum * kFifth);
-            if (slot.wad)
-                slot.wad->set_channel_volumes(core::at(level, 0), core::at(level, 1), core::at(level, 2), core::at(level, 3), core::at(level, 4));
-            else if (slot.bink)
-                slot.bink->set_channel_volumes(core::at(level, 0), core::at(level, 1), core::at(level, 2), core::at(level, 3), core::at(level, 4));
+            slot.set_volume(static_cast<float>(sum * kFifth));
+            if (slot.wad_value())
+                slot.wad_value()->set_channel_volumes(core::at(level, 0), core::at(level, 1), core::at(level, 2), core::at(level, 3), core::at(level, 4));
+            else if (slot.bink_value())
+                slot.bink_value()->set_channel_volumes(core::at(level, 0), core::at(level, 1), core::at(level, 2), core::at(level, 3), core::at(level, 4));
             break;
         }
         case 0:
@@ -253,7 +253,7 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
             // for 0 and 3).
             auto left = static_cast<float>(static_cast<double>(sound_volume()) * core::at(volume->level, 0) * kPercent);
             auto right = static_cast<float>(static_cast<double>(sound_volume()) * core::at(volume->level, 1) * kPercent);
-            slot.volume = left;
+            slot.set_volume(left);
             slot.set_volume_and_pan(left, right);
             break;
         }

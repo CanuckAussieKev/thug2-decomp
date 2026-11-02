@@ -163,7 +163,7 @@ void FootMovement::refresh_hit_cache()
     const float height = walk_parameter(kWalkerHeight);
     float below = walk_parameter(kSnapDownHeight);
     auto above = static_cast<float>(static_cast<double>(height) + kOne);
-    const maths::Vec4& pos = static_cast<GameEntity*>(entity_)->at_point_;
+    const maths::Vec4& pos = static_cast<GameEntity*>(entity_)->at_point();
     maths::BBox box;
     box.max = {.x = pos.x + reach, .y = pos.y + above, .z = pos.z + reach, .w = pos.w};
     below = static_cast<float>(static_cast<double>(below) + kOne);
@@ -224,15 +224,15 @@ void FootMovement::update_push()
 void FootMovement::copy_from_object()
 {
     auto* object = static_cast<GameEntity*>(entity_);
-    pos_ = object->at_point_;
+    pos_ = object->at_point();
     maths::Vec4& vel = vel_;
-    vel = object->vel_;
+    vel = object->vel();
     vel.y = 0.0f;
-    up_speed_ = object->vel_.y;
+    up_speed_ = object->vel().y;
     maths::Vec4& up = up_;
-    up = core::at(object->basis_frame_.row, 1);
+    up = core::at(object->basis_frame().row, 1);
     maths::Vec4& facing = facing_;
-    facing = core::at(object->basis_frame_.row, 2);
+    facing = core::at(object->basis_frame().row, 2);
     facing_y_ = facing.y;
     facing.y = 0.0f;
     const double length =
@@ -240,7 +240,7 @@ void FootMovement::copy_from_object()
                   static_cast<double>(facing.z) * facing.z);
     if (length < kMinFacingLength) {
         // Facing straight up or down: the way the up row leans, backwards; the up row nudged upright.
-        const maths::Vec4& object_up = core::at(object->basis_frame_.row, 1);
+        const maths::Vec4& object_up = core::at(object->basis_frame().row, 1);
         facing = {.x = -object_up.x, .y = -object_up.y, .z = -object_up.z, .w = -object_up.w};
         facing.y = 0.0f;
         facing.make_unit();
@@ -260,8 +260,8 @@ void FootMovement::update_control()
 {
     // The camera's flat forward (its at-row backwards), turned by the stick's angle - straight ahead within
     // forward_tolerance degrees.
-    const maths::Vec4& at = core::at(camera_->basis_frame_.row, 2);
-    auto* pad = &input_->pad_primary_;
+    const maths::Vec4& at = core::at(camera_->basis_frame().row, 2);
+    auto* pad = &input_->pad_primary();
     float forward_x = -at.x;
     float forward_z = -at.z;
     const double length =
@@ -299,7 +299,7 @@ void FootMovement::update_control()
         if (core::at(pad->polar(), 1).length == 0.0f) {
             magnitude = 0.0f;
             full = false;
-        } else if (state_ == 0 && !pad->pos_x().held_down_) {
+        } else if (state_ == 0 && !pad->pos_x().held_down()) {
             magnitude = walk_parameter(kWalkPoint);
             full = true;
         } else {
@@ -460,12 +460,12 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                 maths::spin_by(left ? turn : -turn, facing.x, facing.z, &turned_x, &turned_z);
                 auto ahead_x = static_cast<float>(turned_x), ahead_z = static_cast<float>(turned_z);
                 render::ProbeRay feeler;
-                maths::Vec4& start = feeler.line_.start;
+                maths::Vec4& start = feeler.line().start;
                 start = pos_;
                 start.y = static_cast<float>(static_cast<double>(start.y) + walk_parameter(kProbeElevation));
                 const float reach = walk_parameter(kFeelerLength);
                 const float none = reach * 0.0f;
-                feeler.line_.end = {.x = ahead_x * reach + start.x, .y = none + start.y, .z = ahead_z * reach + start.z,
+                feeler.line().end = {.x = ahead_x * reach + start.x, .y = none + start.y, .z = ahead_z * reach + start.z,
                                     .w = none + start.w};
                 // (the original reads wall_rotate_factor through 0x0043DA70)
                 if (feeler.get_hit_shape(false, false))
@@ -537,8 +537,8 @@ void FootMovement::update_rotate_upright()
     maths::build_axis_angle_matrix(rotation, upright_axis_, angle);
     auto* object = static_cast<GameEntity*>(entity_);
     // D3DXMatrixMultiply (0x005BFA8C)
-    d3dx::matrix_multiply(&object->basis_frame_, &object->basis_frame_, &rotation);
-    object->display_matrix_ = object->basis_frame_;
+    d3dx::matrix_multiply(&object->basis_frame(), &object->basis_frame(), &rotation);
+    object->display_matrix() = object->basis_frame();
     const double remaining = static_cast<double>(left) - get_frame_length(this);
     left = remaining < 0.0 ? 0.0f : static_cast<float>(remaining);
 }
@@ -549,7 +549,7 @@ void FootMovement::apply_transition()
     auto* object = static_cast<GameEntity*>(entity_);
     const maths::Vec4& at = transition_pos_;
     const maths::Vec4& offset = climb_offset_;
-    object->at_point_ = {.x = at.x + offset.x, .y = at.y + offset.y, .z = at.z + offset.z, .w = at.w + offset.w};
+    object->at_point() = {.x = at.x + offset.x, .y = at.y + offset.y, .z = at.z + offset.z, .w = at.w + offset.w};
     // Upright, facing the transition's facing (row 0's w 1, as the original).
     const maths::Vec4& facing = transition_facing_;
     maths::Mat4 matrix{};
@@ -557,7 +557,7 @@ void FootMovement::apply_transition()
     core::at(matrix.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     core::at(matrix.row, 2) = facing;
     core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    object->basis_frame_ = matrix;
+    object->basis_frame() = matrix;
     model_lift_ = transition_display_offset_;
     // Then the transition's member function, if any (+0x1948, this adjusted by +0x194C).
     script::ObjectCallback callback = anim_done_.code_;
@@ -591,11 +591,11 @@ void FootMovement::copy_to_object()
                      .w = 0.0f};
     core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     auto* object = static_cast<GameEntity*>(entity_);
-    object->at_point_ = pos_;
-    object->basis_frame_ = matrix;
-    object->display_matrix_ = matrix;
+    object->at_point() = pos_;
+    object->basis_frame() = matrix;
+    object->display_matrix() = matrix;
     // The object's velocity by state.
-    maths::Vec4& vel = object->vel_;
+    maths::Vec4& vel = object->vel();
     switch (state_) {
     case 0: // on the ground, in the air
     case 1:

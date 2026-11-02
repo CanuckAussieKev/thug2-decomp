@@ -311,7 +311,7 @@ void FlexibleParticleComponent::tick_frame()
     bool update = true;
     if (suspend_ && !suspend_should_update(suspend_))
         update = false;
-    if (suspend_ && suspend_->far_ && !net_hub()->in_net_game()) {
+    if (suspend_ && suspend_->far() && !net_hub()->in_net_game()) {
         // Suspended: only catching up, once the time reaches the particle manager's update time.
         if (clock_ >= particle_update_time()) {
             render::EmitterInstance* system = system_.get_pull();
@@ -331,14 +331,14 @@ void FlexibleParticleComponent::tick_frame()
         system_.get_pull()->set_unknown12f(true);
         if (update) {
             if (rotate_) {
-                maths::Mat4 orientation = entity_->display_matrix_;
+                maths::Mat4 orientation = entity_->display_matrix();
                 core::at(orientation.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
                 maths::Mat4 rotation{};
-                matrix_multiply(&entity_->display_matrix_, system_rotation(system_.get_pull(), &rotation),
+                matrix_multiply(&entity_->display_matrix(), system_rotation(system_.get_pull(), &rotation),
                                 &orientation);
-                system_.get_pull()->set_xform_ref(&entity_->display_matrix_);
+                system_.get_pull()->set_xform_ref(&entity_->display_matrix());
             }
-            system_.get_pull()->set_at_point(entity_->at_point_);
+            system_.get_pull()->set_at_point(entity_->at_point());
             render::EmitterInstance* system = system_.get_pull();
             if (system->wants_time()) {
                 if (brightness_model_)
@@ -350,7 +350,7 @@ void FlexibleParticleComponent::tick_frame()
             idle_system(system_.get_pull());
         }
     }
-    if (entity_->composite_flags_ & kCompositeFlagHidden) {
+    if (entity_->composite_flags() & kCompositeFlagHidden) {
         system_.get_pull()->set_unknown12f(false);
         system_.get_pull()->set_unknown130(false);
     }

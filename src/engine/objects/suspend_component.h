@@ -83,6 +83,21 @@ public:
     // 0x004341E0 (not a Ghidra function) Obj_ResetNoSuspendCount: reset_counts and the object unsuspended. True.
     bool obj_reset_no_suspend_count(script::Struct* params, script::Script* script);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] bool never_suspend() const { return never_suspend_; }
+    [[nodiscard]] float suspend_distance_squared() const { return suspend_distance_squared_; }
+    void set_distance_squared(float value) { distance_squared_ = value; }
+    int& frames_before_check() { return frames_before_check_; }
+    [[nodiscard]] int frames_before_check() const { return frames_before_check_; }
+    [[nodiscard]] ObjectModule* mesh_instance() const { return mesh_instance_; }
+    [[nodiscard]] bool far() const { return far_; }
+    void set_far(bool value) { far_ = value; }
+    std::array<float, 4>& lod_distances() { return lod_distances_; }
+    [[nodiscard]] const std::array<float, 4>& lod_distances() const { return lod_distances_; }
+    int& frames_before_lod() { return frames_before_lod_; }
+    [[nodiscard]] int frames_before_lod() const { return frames_before_lod_; }
+
+private:
     bool never_suspend_{true}; // +0x18
     std::array<uint8_t, 3> pad19{};
     float suspend_distance_;         // +0x1C (inches)

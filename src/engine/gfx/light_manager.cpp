@@ -270,7 +270,7 @@ DynamicLightBase** find_dynamic_light(uint32_t owner)
 {
     for (int i = 0; i < light_sets().dynamic_light_count(); ++i) {
         const DynamicLightBase* light = core::at(light_sets().dynamic_lights(), i);
-        if (light && light->owner == owner)
+        if (light && light->owner_value() == owner)
             return &core::at(light_sets().dynamic_lights(), i);
     }
     return nullptr;
@@ -284,13 +284,13 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, std:
     uint32_t count = 0;
     for (int i = 0; i < light_sets().dynamic_light_count(); ++i) {
         DynamicLightBase* light = core::at(light_sets().dynamic_lights(), i); // (not checked for null, as the original)
-        if (!(light->intensity > 0.0f) || !light->owner)
+        if (!(light->intensity_value() > 0.0f) || !light->owner_value())
             continue;
-        const double dx = static_cast<double>(position->x) - core::at(light->pos, 0);
-        const double dy = static_cast<double>(position->y) - core::at(light->pos, 1);
-        const double dz = static_cast<double>(position->z) - core::at(light->pos, 2);
+        const double dx = static_cast<double>(position->x) - core::at(light->pos_value(), 0);
+        const double dy = static_cast<double>(position->y) - core::at(light->pos_value(), 1);
+        const double dz = static_cast<double>(position->z) - core::at(light->pos_value(), 2);
         const double distance_squared = dz * dz + dy * dy + dx * dx;
-        const double radius = light->radius;
+        const double radius = light->radius_value();
         if (distance_squared > radius * radius) // (NaN: within reach)
             continue;
         auto distance = static_cast<float>(std::sqrt(static_cast<double>(static_cast<float>(distance_squared))));
@@ -344,10 +344,10 @@ DynamicLightBase* create_dynamic_light(int type)
     auto* light = static_cast<DynamicLightBase*>(memory::alloc_zeroed(sizeof(DynamicLightBase)));
     if (!light)
         return nullptr;
-    light->unknown2c_ = false;
-    light->type = 1;
-    light->radius = 50.0f;
-    light->inverse_radius_ = 50.0f; // (as the original: not 1 / 50)
+    light->set_unknown2c(false);
+    light->set_type(1);
+    light->set_radius(50.0f);
+    light->set_inverse_radius(50.0f); // (as the original: not 1 / 50)
     return light;
 }
 
@@ -361,7 +361,7 @@ DynamicLightBase* new_dynamic_light(int type)
             core::at(light_sets().dynamic_lights(), i) = create_dynamic_light(type);
             return core::at(light_sets().dynamic_lights(), i);
         }
-        if (!light->owner)
+        if (!light->owner_value())
             return core::at(light_sets().dynamic_lights(), i);
     }
     if (count >= kMaxDynamicLights || core::at(light_sets().dynamic_lights(), count))

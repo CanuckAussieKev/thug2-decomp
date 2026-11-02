@@ -134,7 +134,7 @@ void ScriptStore::make_room(int size, uint32_t /*name*/)
 {
     while (size > static_cast<int>(memory::Hub::get_pull()->script_heap()->largest_free()) - 0x80)
         delete_entry(oldest_unused_); // (null when nothing is left to drop: the original crashes too)
-    while (core::at(script_state().entry_pools().pools, script_state().entry_pools().current)->taken_count_ >= 100 && oldest_unused_)
+    while (core::at(script_state().entry_pools().pools, script_state().entry_pools().current)->taken_count() >= 100 && oldest_unused_)
         delete_entry(oldest_unused_);
 }
 

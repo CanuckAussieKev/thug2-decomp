@@ -56,7 +56,7 @@ void place_at_absolute_point(render::WorldCell* sector, const maths::Vec4* posit
 }
 void spin_around_up(render::WorldCell* sector, int rot) { sector->spin_around_up(rot); }
 const maths::BBox* get_local_bounds(render::WorldCell* sector) { return sector->fetch_bounds(); }
-render::Geom* fetch_shape(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle_); }
+render::Geom* fetch_shape(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle()); }
 int get_vertex_count(render::Geom* geometry) { return static_cast<int>(geometry->fetch_vertex_tally()); }
 void get_vertex_positions(render::Geom* geometry, std::span<maths::Vec4> out) { geometry->get_vertices(out); }
 void set_vertex_colours(render::Geom* geometry, std::span<const uint32_t> colours) { geometry->change_colors(colours); }
@@ -209,9 +209,9 @@ void ParkAssembler::light_piece(ParkTile* p)
     // the collision's vertex intensities, from the source's (grey)
     const render::TriMeshSource* collision = get_hit_shape(geometry);
     const render::TriMeshSource* source_collision = get_hit_shape(source_geometry);
-    const int vertices = collision->num_vertices_;
+    const int vertices = collision->num_vertices();
     const std::span<const uint8_t> source_bytes = source_collision->vertex_byte_run();
-    const std::span<uint8_t> target_bytes(collision->vertex_bytes_, collision->num_vertices_);
+    const std::span<uint8_t> target_bytes(collision->vertex_bytes(), collision->num_vertices());
     for (int i = 0; i < vertices; ++i) {
         const uint8_t grey = core::at(source_bytes, i);
         const maths::Vec4 position = collision->read_stored_vertex(i);
@@ -440,7 +440,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
         memory::leave_heap_scope();
         source->following_ = sources_;
         sources_ = source;
-        source->sector_ = sector->checksum_;
+        source->sector_ = sector->checksum();
         const maths::BBox* box = get_local_bounds(sector);
         const maths::Vec4& min = box->min;
         const maths::Vec4& max = box->max;

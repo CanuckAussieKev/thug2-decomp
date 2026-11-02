@@ -77,13 +77,13 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
     const maths::Vec4& at = core::at(basis_frame_.row, 2);
     switch (name) {
     case kGetHeading: {
-        const maths::Vec4& facing = core::at(entity_->basis_frame_.row, 2);
+        const maths::Vec4& facing = core::at(entity_->basis_frame().row, 2);
         auto heading = static_cast<float>(static_cast<double>(maths::fast_a_cos(facing.x)) * kDegreesPerRadian);
         if (facing.z < 0.0f)
             heading = kFullCircle - heading;
         script->args()->push_float(kHeading, heading);
-        script->args()->push_float(kCosine, core::at(entity_->basis_frame_.row, 2).x);
-        script->args()->push_float(kSine, core::at(entity_->basis_frame_.row, 2).z);
+        script->args()->push_float(kCosine, core::at(entity_->basis_frame().row, 2).x);
+        script->args()->push_float(kSine, core::at(entity_->basis_frame().row, 2).z);
         return 1;
     }
     case kAbsolutePitchGreaterThan: {
@@ -92,11 +92,11 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
     }
     case kGetSlope: {
         // The at row's angle from its own flattened copy (negative when it points down).
-        const maths::Vec4& facing = core::at(entity_->basis_frame_.row, 2);
+        const maths::Vec4& facing = core::at(entity_->basis_frame().row, 2);
         maths::Vec4 flat = facing;
         flat.y = 0.0f;
         auto slope = static_cast<float>(maths::read_turn_angle(facing, flat));
-        if (core::at(entity_->basis_frame_.row, 2).y < 0.0f)
+        if (core::at(entity_->basis_frame().row, 2).y < 0.0f)
             slope = -slope;
         script->args()->push_float(kSlope, slope);
         script->args()->push_float(kChangeInSlope, slope - prev_gradient_);
@@ -111,12 +111,12 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         return cos_degrees(angle) > dot ? 1 : 0;
     }
     case kYawingLeft: {
-        maths::Vec4 v = entity_->vel_;
+        maths::Vec4 v = entity_->vel();
         v.align_to_plane(up);
         return static_cast<double>(v.z) * at.x - static_cast<double>(v.x) * at.z > 0.0 ? 1 : 0;
     }
     case kYawingRight: {
-        maths::Vec4 v = entity_->vel_;
+        maths::Vec4 v = entity_->vel();
         v.align_to_plane(up);
         return maths::cross_vec(v, at).y < 0.0f ? 1 : 0;
     }
@@ -129,7 +129,7 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
     case kYawBetween: {
         script::Pair range;
         params->fetch_pair(uint32_t{0}, &range, true);
-        maths::Vec4 v = entity_->vel_;
+        maths::Vec4 v = entity_->vel();
         v.align_to_plane(up);
         if (!maths::is_angle_beyond(v, at, range.x))
             return 0;

@@ -170,7 +170,7 @@ void PlayerRecord::set_face_texture_data(const uint8_t* bytes, uint32_t size)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->net_misc_heap());
-    auto id = static_cast<uint8_t>(skater_->ident_); // (the skater's object id)
+    auto id = static_cast<uint8_t>(skater_->ident()); // (the skater's object id)
     face_texture_data_ = static_cast<uint8_t*>(memory::alloc(size + 1));
     const std::span<uint8_t> face(face_texture_data_, size + 1);
     core::at(face, 0) = id;

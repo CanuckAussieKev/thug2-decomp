@@ -132,6 +132,15 @@ public:
     // 0x004AB5D0: elements gone leave their slots; the top one is shown.
     void update_priorities();
 
+    // The fields other code reads and sets.
+    ElementPtr& tree_root() { return tree_root_; }
+    [[nodiscard]] const ElementPtr& tree_root() const { return tree_root_; }
+    [[nodiscard]] const std::array<FocusEntry*, 2>& focus_lists() const { return focus_lists_; }
+    [[nodiscard]] int num_priorities() const { return num_priorities_; }
+    [[nodiscard]] const std::array<uint32_t, kPadEventSlots>& pad_event_types() const { return pad_event_types_; }
+    [[nodiscard]] int pad_event_kind_count() const { return pad_event_kind_count_; }
+
+private:
     TreeListener listener_{this};             // +0x28
     ElementPtr tree_root_;                    // +0x44
     ElementPtr resolving_;                    // +0x50 resolve_id's element so far

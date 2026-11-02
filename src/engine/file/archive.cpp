@@ -33,9 +33,6 @@
 namespace pre {
 
 static_assert(sizeof(ArchiveFile::FileInfo) == 0x14, "allocated as 0x14 bytes by the original");
-static_assert(offsetof(ArchiveFile, open_count_) == 0x10 && offsetof(ArchiveFile, bottom_up_heap_) == 0x14 &&
-                  sizeof(ArchiveFile) == 0x18,
-              "layout must match the original");
 
 namespace {
 
@@ -203,10 +200,6 @@ int ArchiveFile::seek_to(int offset, int origin)
 
 // --- ArchiveManager ---------------------------------------------------------------------------------------------
 
-static_assert(offsetof(ArchiveManager, pres_) == 0x10 && offsetof(ArchiveManager, hold_archive_loads_) == 0x14 &&
-                  offsetof(ArchiveManager, pending_) == 0x18 &&
-                  offsetof(ArchiveManager, queued_archive_count_) == 0x238 && sizeof(ArchiveManager) == 0x23C,
-              "layout must match the original");
 
 namespace {
 
@@ -279,7 +272,7 @@ void destroy_manager()
         return;
     }
     if (ArchiveManager* manager = instance_slot()) {
-        if (lists::KeyMap* pres = manager->pres_) {
+        if (lists::KeyMap* pres = manager->pres()) {
             pres->~KeyMap();
             memory::dealloc(pres);
         }
@@ -433,7 +426,7 @@ bool ArchiveManager::is_file_present(const char* name)
     std::array<char, 128> path{};
     normalise_name(path, name);
     return for_each_pre(
-        pres_, [&](ArchiveFile* pre) { return pre->files_->fetch_entry(checksums::hash_from_text(path.data())) != nullptr; });
+        pres_, [&](ArchiveFile* pre) { return pre->files()->fetch_entry(checksums::hash_from_text(path.data())) != nullptr; });
 }
 
 // 0x005B8AD0
@@ -547,21 +540,21 @@ ArchiveFile::FileInfo* unseal(const char* name, const char* mode, bool count_ope
         return nullptr;
     }
     if (count_open)
-        ++hub()->open_archive_->open_count_;
+        ++hub()->open_archive()->open_count();
     // Archives are read-only: any mode other than r/b gives the file up (and leaves it to FileLoad::).
     for (const char c : std::string_view(mode)) {
         if (c != 'r' && c != 'b') {
-            ArchiveFile* pre = hub()->open_archive_;
-            if (pre->open_entry_->unpacked)
-                memory::dealloc(pre->open_entry_->unpacked);
-            pre->open_entry_->unpacked = nullptr;
+            ArchiveFile* pre = hub()->open_archive();
+            if (pre->open_entry()->unpacked)
+                memory::dealloc(pre->open_entry()->unpacked);
+            pre->open_entry()->unpacked = nullptr;
             if (count_open)
-                --pre->open_count_;
+                --pre->open_count();
             get_handled() = false;
             return nullptr;
         }
     }
-    hub()->open_archive_->open_entry_->position = 0;
+    hub()->open_archive()->open_entry()->position = 0;
     get_handled() = true;
     return handle;
 }
@@ -573,12 +566,12 @@ int shut(ArchiveFile::FileInfo* file, bool count_open)
         get_handled() = false;
         return 0;
     }
-    ArchiveFile* pre = hub()->open_archive_;
-    if (pre->open_entry_->unpacked)
-        memory::dealloc(pre->open_entry_->unpacked);
-    pre->open_entry_->unpacked = nullptr;
+    ArchiveFile* pre = hub()->open_archive();
+    if (pre->open_entry()->unpacked)
+        memory::dealloc(pre->open_entry()->unpacked);
+    pre->open_entry()->unpacked = nullptr;
     if (count_open)
-        --pre->open_count_;
+        --pre->open_count();
     get_handled() = true;
     return 0;
 }
@@ -591,7 +584,7 @@ int get_take_in(void* buffer, int size, int count, ArchiveFile::FileInfo* file)
         return 0;
     }
     get_handled() = true;
-    return hub()->open_archive_->get_take_in(buffer, static_cast<unsigned int>(size * count));
+    return hub()->open_archive()->get_take_in(buffer, static_cast<unsigned int>(size * count));
 }
 
 // 0x005B8680
@@ -610,7 +603,7 @@ int seek_to(ArchiveFile::FileInfo* file, int offset, int origin)
         return 0;
     }
     get_handled() = true;
-    return hub()->open_archive_->seek_to(offset, origin);
+    return hub()->open_archive()->seek_to(offset, origin);
 }
 
 // 0x005B86E0
@@ -621,7 +614,7 @@ int get_file_size(ArchiveFile::FileInfo* file)
         return 0;
     }
     get_handled() = true;
-    const ArchiveFile::FileInfo* active = hub()->open_archive_->open_entry_;
+    const ArchiveFile::FileInfo* active = hub()->open_archive()->open_entry();
     return active ? active->size : 0;
 }
 
@@ -676,7 +669,7 @@ bool cfunc_is_load_pre_finished(script::Struct* params, script::Script* /*script
 // 0x005B8190: AllLoadPreFinished
 bool cfunc_all_load_pre_finished(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    return sole()->queued_archive_count_ == 0;
+    return sole()->queued_archive_count() == 0;
 }
 
 // 0x005B81B0: WaitLoadPre <name>
@@ -693,7 +686,7 @@ bool cfunc_wait_load_pre(script::Struct* params, script::Script* /*script*/)
 bool cfunc_wait_all_load_pre(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const ArchiveManager* manager = sole();
-    while (manager->queued_archive_count_ != 0)
+    while (manager->queued_archive_count() != 0)
         file::async_wait_for_io();
     return true;
 }

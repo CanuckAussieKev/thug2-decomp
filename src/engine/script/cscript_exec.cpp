@@ -549,7 +549,7 @@ ScriptOutcome Script::tick_frame()
                 // (the object's id as a number: find_checksum_name_or_unknown's text for an unknown name is one buffer)
                 get_log("script: %s (object id %08X) has run %u steps in one frame without waiting - a loop that never "
                         "yields (the game hangs here)",
-                        find_checksum_name_or_unknown(script_title_), object ? object->ident_ : 0u, steps);
+                        find_checksum_name_or_unknown(script_title_), object ? object->ident() : 0u, steps);
             }
         }
         current_script_var() = this;

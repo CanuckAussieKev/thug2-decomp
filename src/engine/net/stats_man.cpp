@@ -773,18 +773,18 @@ bool retrieve_personal_stats(script::Struct*, script::Script*)
 {
     const Hub* manager = net_game_state().net_session_slot();
     const void* callback = code_address(&RankingsManager::on_personal_stats);
-    int profile = manager->presence_service()->account_;
+    int profile = manager->presence_service()->account();
     get_persist_data_values(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);
     for (int index = 1; index <= kPersonalStatsLevels; ++index) { // (1-15: the answer to 14 ends the wait)
-        profile = manager->presence_service()->account_;
+        profile = manager->presence_service()->account();
         get_persist_data_values(0, profile, 2, index, "\\THUG2HighScore\\THUG2HighCombo", callback, nullptr);
     }
-    manager->rating_service()->cur_phase_ = RankingsManager::kGettingStats;
+    manager->rating_service()->set_cur_phase(RankingsManager::kGettingStats);
     return true;
 }
 
 // 0x0054CE70
-bool need_to_retrieve_top_stats(script::Struct*, script::Script*) { return get_attributes()->need_top_stats_; }
+bool need_to_retrieve_top_stats(script::Struct*, script::Script*) { return get_attributes()->need_top_stats(); }
 
 // 0x0054D670: raise_tallies [0x132AA339: the final report]
 bool raise_tallies(script::Struct* params, script::Script*)
@@ -797,7 +797,7 @@ bool raise_tallies(script::Struct* params, script::Script*)
 // 0x0054D6A0: the rank (0..10) into the script's parameters (0x7786171A).
 bool get_rank(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(0x7786171A, current_rank(static_cast<double>(get_attributes()->personal_.skill_points_)));
+    script->args()->put_int(0x7786171A, current_rank(static_cast<double>(get_attributes()->personal().skill_points_)));
     return true;
 }
 
@@ -805,11 +805,11 @@ bool get_rank(script::Struct*, script::Script* script)
 bool clean_up_top_stats(script::Struct*, script::Script*)
 {
     RankingsManager* stats = get_attributes();
-    if (stats->need_top_stats_)
+    if (stats->need_top_stats())
         return true;
-    for (TopList& list : stats->top_lists_)
+    for (TopList& list : stats->top_lists())
         list.dealloc();
-    stats->need_top_stats_ = true;
+    stats->set_need_top_stats(true);
     script::release_array_storage(script::fetch_list("high_scores_array_all_time"));
     script::release_array_storage(script::fetch_list("best_combos_array_all_time"));
     script::release_array_storage(script::fetch_list("high_scores_array_monthly"));
@@ -830,22 +830,22 @@ bool fill_stats_arrays(script::Struct* params, script::Script*)
     TopList* list = nullptr;
     switch (which) {
     case 0xEF20D3A1:
-        list = &core::at(stats->top_lists_, 0);
+        list = &core::at(stats->top_lists(), 0);
         break;
     case 0x9FE64312:
-        list = &core::at(stats->top_lists_, 1);
+        list = &core::at(stats->top_lists(), 1);
         break;
     case 0xCB95928F:
-        list = &core::at(stats->top_lists_, 2);
+        list = &core::at(stats->top_lists(), 2);
         break;
     case 0x67F1AE8A:
-        list = &core::at(stats->top_lists_, 3);
+        list = &core::at(stats->top_lists(), 3);
         break;
     case 0x5299291B:
-        core::at(stats->top_lists_, 4).fill_sorted_scores(true);
+        core::at(stats->top_lists(), 4).fill_sorted_scores(true);
         return true;
     case 0xFEF84FFF:
-        stats->personal_.get_fill();
+        stats->personal().get_fill();
         return true;
     default:
         return true;

@@ -321,7 +321,7 @@ int AnimBlenderComponent::pass_to_channel(uint32_t name, script::Struct* params,
     if ((name == kPlayAnim || name == kObjPlayAnim) && channel && skater::thaw_bmx::is_switched_on()) {
         const int flip = skater::thaw_bmx::play_flip(entity_);
         if (flip >= 0)
-            channel->set_flipped(entity_->ident_, bool_arg(static_cast<uint32_t>(flip)), 0u, bool_arg(0u));
+            channel->set_flipped(entity_->ident(), bool_arg(static_cast<uint32_t>(flip)), 0u, bool_arg(0u));
     }
     return channel->invoke_method_by_name(name, params, script);
 }
@@ -528,7 +528,7 @@ float AnimBlenderComponent::get_timeline18()
     memory::ListNode* timeline = channel->timelines().next;
     if (is_over(timeline))
         return 0.0f;
-    return static_cast<gfx::AnimTimeline*>(timeline->data)->ongoing_;
+    return static_cast<gfx::AnimTimeline*>(timeline->data)->ongoing();
 }
 
 // 0x0041A0A0
@@ -540,7 +540,7 @@ uint32_t AnimBlenderComponent::get_timeline30()
     memory::ListNode* timeline = channel->timelines().next;
     if (is_over(timeline))
         return 0;
-    return static_cast<gfx::AnimTimeline*>(timeline->data)->anim_;
+    return static_cast<gfx::AnimTimeline*>(timeline->data)->anim();
 }
 
 // 0x0041A0E0

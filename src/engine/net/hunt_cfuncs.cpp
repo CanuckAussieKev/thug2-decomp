@@ -67,7 +67,7 @@ online::PlayerRecord* script_player(script::Script* script)
     const objects::Entity* object = script->entity().get_pull();
     if (!object)
         return nullptr;
-    return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(object->ident_));
+    return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(object->ident()));
 }
 
 // A message without data to every player (or every remote one) through the server.
@@ -232,7 +232,7 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
              player = online::detail::step_roster_sweep(manager, &others, false)) {
             if (player == receiver)
                 continue;
-            msg.player_id = static_cast<int8_t>(player->skater()->ident_);
+            msg.player_id = static_cast<int8_t>(player->skater()->ident());
             msg.count = placed_count(player);
             // (NOT ORIGINAL: no more than the message holds - the original wrote a player's sixth on past it)
             for (int i = 0; i < placed_count(player) && i < online::kHuntPlacements; ++i) {

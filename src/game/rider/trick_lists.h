@@ -87,6 +87,20 @@ struct TrickNameEntry {
     memory::ListNode& list_link() { return list_link_; }
     [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
 
+    // The fields other code reads and sets.
+    void set_label(const text::Chars& value) { label_ = value; }
+    uint32_t& gap_id() { return gap_id_; }
+    [[nodiscard]] uint32_t gap_id() const { return gap_id_; }
+    int& node() { return node_; }
+    [[nodiscard]] int node() const { return node_; }
+    uint32_t& trick_script() { return trick_script_; }
+    [[nodiscard]] uint32_t trick_script() const { return trick_script_; }
+    uint8_t& done() { return done_; }
+    [[nodiscard]] uint8_t done() const { return done_; }
+    uint32_t& frame() { return frame_; }
+    [[nodiscard]] uint32_t frame() const { return frame_; }
+
+private:
     memory::ListNode list_link_{};
     text::Chars label_;     // +0x14
     uint32_t gap_id_{};     // +0x20 the gap it's part of
@@ -95,6 +109,8 @@ struct TrickNameEntry {
     uint8_t done_{};          // +0x2C (set_flag; a gap trick: done)
     std::array<uint8_t, 3> pad2d_{};
     uint32_t frame_{}; // +0x30
+
+public:
 
     // 0x005787F0: an unlinked node (its data itself), an empty name.
     TrickNameEntry();

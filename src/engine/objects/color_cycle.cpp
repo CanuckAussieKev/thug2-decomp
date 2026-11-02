@@ -85,9 +85,9 @@ void ColorCycleComponent::set_on(bool on)
 {
     if (on_ && !on) {
         gsl::owner<script::Struct*> params = script::new_struct();
-        params->put_name_key(kName, entity_->ident_);
+        params->put_name_key(kName, entity_->ident());
         params->put_int(kColor, kNeutralColor);
-        set_object_color(entity_->ident_, params);
+        set_object_color(entity_->ident(), params);
         delete_params(params);
     }
     if (on_) {
@@ -112,9 +112,9 @@ void ColorCycleComponent::tick_frame()
     rgb = (rgb + static_cast<uint32_t>(get_truncated(color.y))) << 8;
     rgb += static_cast<uint32_t>(get_truncated(color.x));
     params->put_int(kColor, static_cast<int>(rgb));
-    params->put_name_key(kName, entity_->ident_);
+    params->put_name_key(kName, entity_->ident());
     script::dump_to_log(params, 0);
-    set_object_color(entity_->ident_, params);
+    set_object_color(entity_->ident(), params);
     delete_params(params);
     // (compared before rounding, as the original keeps the sum on the FPU stack)
     const double time = frame_clock::get_slomo_frame_seconds() * kMilliseconds + clock_;

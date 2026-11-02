@@ -145,7 +145,7 @@ uint32_t AnimCacheEntry::carve(const void* key, int16_t bones, int rotation_keys
     bones_ = bones;
     kind_tag_ = type;
     key_sizes(type, rotation_key_size_, translation_key_size_);
-    const uint32_t granularity = get_cache()->granularity_;
+    const uint32_t granularity = get_cache()->granularity();
     extent_ = rotation_key_size_ * rotation_keys + translation_key_size_ * translation_keys;
     allocated_ = (extent_ / granularity + 1) * granularity;
     push_anim_heap();

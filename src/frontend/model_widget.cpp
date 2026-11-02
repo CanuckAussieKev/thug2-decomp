@@ -507,7 +507,7 @@ void ModelWidget::tick_frame()
         if (parent) {
             basis_frame_.reset_to_identity();
             core::at(basis_frame_.row, 3) =
-                core::down_cast<objects::GameEntity>(parent)->at_point_ + anchor_shift_ * basis_frame_;
+                core::down_cast<objects::GameEntity>(parent)->at_point() + anchor_shift_ * basis_frame_;
         } else {
             script::Script* script =
                 script::spawn_script(kKillScript, nullptr, 0, nullptr, 0, 0, false, false, false, false);
@@ -537,7 +537,7 @@ void ModelWidget::tick_frame()
             target = target_position_;
         } else if (point_at_ == kPointAtObject) {
             if (objects::Entity* object = objects::find_object(target_object_))
-                target = core::down_cast<objects::GameEntity>(object)->at_point_;
+                target = core::down_cast<objects::GameEntity>(object)->at_point();
         }
         if (point_at_ != kPointAtNothing) {
             // Facing the target (row 2 the direction to it, row 0 across, w 1 - sic), then tilted about the
@@ -657,8 +657,8 @@ void ModelWidget::tick_frame()
             position.w = position.w + hover.w;
         }
         model.object->conceal(!visible);
-        model.object->at_point_ = position;
-        model.object->display_matrix_ = orientation;
+        model.object->at_point() = position;
+        model.object->display_matrix() = orientation;
         component->tick_frame();
     }
 }

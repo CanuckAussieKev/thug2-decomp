@@ -34,8 +34,8 @@ RideTracker::RideTracker(GameEntity* object)
 {
     entity_.construct_from(object);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    previous_xform_ = object->basis_frame_;
-    last_pos_ = object->at_point_;
+    previous_xform_ = object->basis_frame();
+    last_pos_ = object->at_point();
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     carried_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
@@ -46,10 +46,10 @@ bool RideTracker::tick_frame(const maths::Vec4* point)
     const GameEntity* object = entity_.get_pull();
     if (!object)
         return false;
-    const maths::Vec4& position = object->at_point_;
+    const maths::Vec4& position = object->at_point();
     carried_ = {.x = get_difference(position.x, last_pos_.x), .y = get_difference(position.y, last_pos_.y),
                 .z = get_difference(position.z, last_pos_.z), .w = get_difference(position.w, last_pos_.w)};
-    if (object->basis_frame_ == previous_xform_) {
+    if (object->basis_frame() == previous_xform_) {
         turned_ = false;
     } else {
         turned_ = true;
@@ -59,7 +59,7 @@ bool RideTracker::tick_frame(const maths::Vec4* point)
         maths::Mat4 undo = previous_xform_;
         keep_rotation(undo);
         undo.invert_orthonormal();
-        turn_ = object->basis_frame_;
+        turn_ = object->basis_frame();
         keep_rotation(turn_);
         d3d_matrix_multiply(&turn_, &turn_, &undo);
         maths::Vec4 turned{};
@@ -68,9 +68,9 @@ bool RideTracker::tick_frame(const maths::Vec4* point)
         carried_.y = static_cast<float>((static_cast<double>(turned.y) - offset.y) + carried_.y);
         carried_.z = get_difference(turned.z, offset.z) + carried_.z;
         carried_.w = get_difference(turned.w, offset.w) + carried_.w;
-        previous_xform_ = object->basis_frame_;
+        previous_xform_ = object->basis_frame();
     }
-    last_pos_ = object->at_point_;
+    last_pos_ = object->at_point();
     return true;
 }
 

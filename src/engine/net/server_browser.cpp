@@ -260,7 +260,7 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
         manager->join_phase_job()->drop_out();
         get_run(kJoinRefusedDialog, reply.get());
     } else {
-        if (manager->presence_service()->authenticated_) // (0x005480B0: logged in to presence)
+        if (manager->presence_service()->authenticated()) // (0x005480B0: logged in to presence)
             manager->lobby_service()->change_host_name(server->label().data());
         const char* ip = crt::get_inet_ntoa(server->remote_ip());
         if (!server->can_reach())

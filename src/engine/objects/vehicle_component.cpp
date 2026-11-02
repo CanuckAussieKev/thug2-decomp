@@ -602,7 +602,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     // The orientation from the object's matrix (or Save's Orientation: the object's matrix from it); the position
     // from the object's (or Pos: the object's too).
     maths::Vec4 quat;
-    matrix_to_quat(&quat, &entity_->basis_frame_);
+    matrix_to_quat(&quat, &entity_->basis_frame());
     orientation_ = quat;
     quat_normalize(&orientation_, 1.0f);
     if (params->has_entry_named(0xAA99C521)) {
@@ -614,13 +614,13 @@ void DrivableModule::configure_from_data(script::Struct* params)
         quat_normalize(&orientation_, 1.0f);
         quat_to_matrix(&orientation_, &basis_frame_);
         clear_to_w1(core::at(basis_frame_.row, 3));
-        entity_->basis_frame_ = basis_frame_;
-        entity_->display_matrix_ = basis_frame_;
+        entity_->basis_frame() = basis_frame_;
+        entity_->display_matrix() = basis_frame_;
     }
-    at_point_ = entity_->at_point_;
+    at_point_ = entity_->at_point();
     if (params->has_entry_named(0x7F261953)) {
         params->fetch_vec(0x7F261953, &at_point_, 0);
-        entity_->at_point_ = at_point_;
+        entity_->at_point() = at_point_;
     }
     rider_shown_ = rider_shown_ || params->has_bare_flag(kSkater);
     if (params->has_bare_flag(kSkater)) {
@@ -742,10 +742,10 @@ void DrivableModule::seal()
     recentre(skater_bone_);
     recentre(skater_pos_);
     update_dependents();
-    entity_->at_point_ = at_point_;
-    entity_->vel_ = vel_;
-    entity_->basis_frame_ = basis_frame_;
-    entity_->display_matrix_ = entity_->basis_frame_;
+    entity_->at_point() = at_point_;
+    entity_->vel() = vel_;
+    entity_->basis_frame() = basis_frame_;
+    entity_->display_matrix() = entity_->basis_frame();
     refresh_bone_rig();
 }
 
@@ -764,7 +764,7 @@ void DrivableModule::tick_frame()
     }
     if (awake_ == 0) {
         // Asleep: only the steering, the wheels' roll (stopped by the brake), the model and the skater.
-        entity_->display_matrix_ = entity_->basis_frame_;
+        entity_->display_matrix() = entity_->basis_frame();
         update_steering();
         if (brake_)
             for (int i = wheel_count_ - 1; i >= 0; --i)
@@ -807,11 +807,11 @@ void DrivableModule::tick_frame()
             core::at(wheels_, i).torque = 0.0f;
         if (!passive_) {
             collide();
-            if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
+            if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
                 return;
         }
         update_wheel_contacts();
-        if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
+        if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
             return;
         update_steering();
         apply_damping();
@@ -828,10 +828,10 @@ void DrivableModule::tick_frame()
     if (passive_)
         return;
     debug_draw();
-    entity_->at_point_ = at_point_;
-    entity_->vel_ = vel_;
-    entity_->basis_frame_ = basis_frame_;
-    entity_->display_matrix_ = entity_->basis_frame_;
+    entity_->at_point() = at_point_;
+    entity_->vel() = vel_;
+    entity_->basis_frame() = basis_frame_;
+    entity_->display_matrix() = entity_->basis_frame();
     check_sleep();
     refresh_bone_rig();
     update_skater();
@@ -990,7 +990,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     const maths::Vec4 end{.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) - kBelow), .z = pos.z, .w = start.w};
     render::ProbeRay feeler(&start, &end);
     if (feeler.get_hit_shape(false, false))
-        pos.y = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) - above);
+        pos.y = static_cast<float>(static_cast<double>(feeler.contact_pos().y) - above);
     // The node marks the fixed axle (the first fixed wheel from the last): back along the node's facing by its place.
     int fixed = -1;
     for (int i = 3; i >= 0; --i) {
@@ -1022,10 +1022,10 @@ void DrivableModule::glide_to_node(script::Struct* node)
     clear_to_w1(rotmom_);
     cut_short_ = true;
     awake_ = 0;
-    entity_->at_point_ = at_point_;
-    entity_->vel_ = vel_;
-    entity_->basis_frame_ = basis_frame_;
-    entity_->display_matrix_ = entity_->basis_frame_;
+    entity_->at_point() = at_point_;
+    entity_->vel() = vel_;
+    entity_->basis_frame() = basis_frame_;
+    entity_->display_matrix() = entity_->basis_frame();
     refresh_bone_rig();
     update_skater();
     entity_->mark_jumped_ahead(true);
@@ -1087,7 +1087,7 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
     at_point_.z = static_cast<float>(at_point_.z - static_cast<double>(at_z) * kFeet);
     at_point_.w =
         static_cast<float>(static_cast<double>(at_point_.w) - static_cast<float>(static_cast<double>(at_w) * kFeet));
-    entity_->at_point_ = at_point_;
+    entity_->at_point() = at_point_;
     // Facing away from the camera.
     core::at(basis_frame_.row, 0) = {.x = -core::at(view.row, 0).x, .y = -core::at(view.row, 0).y, .z = -core::at(view.row, 0).z, .w = -core::at(view.row, 0).w};
     core::at(basis_frame_.row, 1) = core::at(view.row, 1);
@@ -1098,7 +1098,7 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
     quat_normalize(&orientation_, 1.0f);
     quat_to_matrix(&orientation_, &basis_frame_);
     clear_to_w1(core::at(basis_frame_.row, 3));
-    entity_->basis_frame_ = basis_frame_;
+    entity_->basis_frame() = basis_frame_;
     update_dependents();
     return true;
 }

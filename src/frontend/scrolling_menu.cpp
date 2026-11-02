@@ -34,14 +34,14 @@ void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script)
     event->set_event_consumed(how, script);
 }
 
-UiTree* manager_of(const UiWidget* e) { return core::down_cast<UiTree>(e->park_owner_); }
+UiTree* manager_of(const UiWidget* e) { return core::down_cast<UiTree>(e->park_owner()); }
 
 // With the manager's pad-event priorities, only the top priority element may have a pad event.
 bool may_have(UiWidget* e, objects::Signal* event)
 {
     UiTree* manager = manager_of(e);
     if (e->manager_uses_priorities() && manager->is_pad_event(event->kind_tag_))
-        return e->has_priority() && manager->has_top_precedence(e->ident_);
+        return e->has_priority() && manager->has_top_precedence(e->ident());
     return true;
 }
 
@@ -73,10 +73,10 @@ void WindowedList::find_menu()
         ElementPtr child;
         child.assign_value(eldest().get_pull());
         while (child) {
-            if (child->kind_tag_ == v_menu_type() && vertical_)
+            if (child->kind_tag() == v_menu_type() && vertical_)
                 // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
                 menu_ = child.get_pull();
-            else if (child->kind_tag_ == h_menu_type() && !vertical_)
+            else if (child->kind_tag() == h_menu_type() && !vertical_)
                 menu_ = child.get_pull();
             child.assign_value(child->following().get_pull());
         }
@@ -145,22 +145,22 @@ bool WindowedList::pass_event_to_script(objects::Signal* event)
         find_menu();
         rearrange_ = true;
         tick_frame();
-        event->set_event_handled(ident_, 0);
+        event->set_event_handled(ident(), 0);
     }
     if (event->kind_tag_ == kFocus) {
         if (!menu_)
             find_menu();
         if (!focused_) {
             focused_ = true;
-            tracker->launch_event(kFocus, menu_->ident_, kSystem, event->payload_, false, -1.0f);
-            event->set_event_handled(ident_, 0);
+            tracker->launch_event(kFocus, menu_->ident(), kSystem, event->payload_, false, -1.0f);
+            event->set_event_handled(ident(), 0);
         }
     }
     if (event->kind_tag_ == kUnfocus && focused_) {
         find_menu();
         focused_ = false;
-        tracker->launch_event(kUnfocus, menu_->ident_, kSystem, nullptr, false, -1.0f);
-        event->set_event_handled(ident_, 0);
+        tracker->launch_event(kUnfocus, menu_->ident(), kSystem, nullptr, false, -1.0f);
+        event->set_event_handled(ident(), 0);
     }
     return true;
 }
@@ -178,11 +178,11 @@ void WindowedList::listener_receive(objects::Signal* event)
     if (!may_have(self, event))
         return;
     if (event->kind_tag_ == kFocusSentEvent && self->menu_) {
-        if (event->aim_point_ == self->menu_->ident_) {
+        if (event->aim_point_ == self->menu_->ident()) {
             self->rearrange_ = true;
             self->tick_frame();
         }
-        set_event_consumed(event, self->ident_, 0);
+        set_event_consumed(event, self->ident(), 0);
     }
     if (event->kind_tag_ == kFocus) {
         if (!self->menu_)
@@ -190,10 +190,10 @@ void WindowedList::listener_receive(objects::Signal* event)
         ElementPtr item;
         item.assign_value(self->menu_->eldest().get_pull());
         while (item) {
-            if (item->ident_ == event->aim_point_) {
-                self->chosen_item_id_ = item->ident_;
+            if (item->ident() == event->aim_point_) {
+                self->chosen_item_id_ = item->ident();
                 self->rearrange_ = true;
-                set_event_consumed(event, self->ident_, 0);
+                set_event_consumed(event, self->ident(), 0);
                 break;
             }
             item.assign_value(item->following().get_pull());

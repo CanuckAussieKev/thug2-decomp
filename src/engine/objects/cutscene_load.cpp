@@ -240,7 +240,7 @@ void CinematicTable::add_objects(script::Struct* params)
                         const uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits();
                         lent_3c_ = flags >> 2 & 1;
                         lent_3d_ = flags >> 3 & 1;
-                        lent_pos_ = level->at_point_;
+                        lent_pos_ = level->at_point();
                         lent_saved_ = true;
                     }
                     const maths::Vec4 offset2 = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 150.0f};

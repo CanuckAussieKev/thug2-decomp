@@ -226,22 +226,22 @@ void apply_flag_command(FlagCommandData* data, objects::Entity* object)
     data->found = true;
     switch (data->action) {
     case 0:
-        object->flag_bits_ |= 1u << (data->value & 31);
+        object->flag_bits() |= 1u << (data->value & 31);
         data->result = true;
         break;
     case 1:
-        object->flag_bits_ &= ~(1u << (data->value & 31));
+        object->flag_bits() &= ~(1u << (data->value & 31));
         data->result = true;
         break;
     case 2:
-        if (object->flag_bits_ & (1u << (data->value & 31)))
+        if (object->flag_bits() & (1u << (data->value & 31)))
             data->result = true;
         break;
     case 3:
-        object->object_flags_ |= data->value;
+        object->object_flags() |= data->value;
         break;
     case 4:
-        object->object_flags_ &= ~data->value;
+        object->object_flags() &= ~data->value;
         break;
     case 5:
         object->post_own_event(data->value, nullptr);
@@ -258,7 +258,7 @@ void apply_flag_command(FlagCommandData* data, objects::Entity* object)
 void apply_flag_command_to_object(objects::Entity* object, void* data)
 {
     auto* command = static_cast<FlagCommand*>(data);
-    if (object->ident_ == command->id)
+    if (object->ident() == command->id)
         apply_flag_command(&command->data, object);
 }
 
@@ -310,7 +310,7 @@ bool cfunc_make_skater_goto(script::Struct* params, script::Script* script)
     params->read_hash_value(0u, &name, 0);
     objects::Entity* object = script ? script->entity().get_pull() : nullptr;
     objects::Rider* skater = nullptr;
-    if (object && object->kind_tag_ == kSkaterType) {
+    if (object && object->kind_tag() == kSkaterType) {
         skater = core::down_cast<objects::Rider>(object);
     } else {
         int index = 0;
@@ -321,9 +321,9 @@ bool cfunc_make_skater_goto(script::Struct* params, script::Script* script)
     }
     // Not original - THAW's BMX (game/rider/thaw_bmx.h skater_script): on the bike THAW's PedKnockDown takes its bike
     // branch. Original behaviour: the skater goes to `name` as given.
-    if (skater && skater->is_local_skater_)
+    if (skater && skater->is_local_skater())
         name = skater::thaw_bmx::skater_script(skater, name, script);
-    if (skater && skater->is_local_skater_ && name)
+    if (skater && skater->is_local_skater() && name)
         skater->switch_to_script(name, script_params);
     return true;
 }
@@ -337,7 +337,7 @@ bool cfunc_make_skater_gosub(script::Struct* params, script::Script* script)
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
     objects::Entity* object = script ? script->entity().get_pull() : nullptr;
-    if (!object || object->kind_tag_ != kSkaterType) {
+    if (!object || object->kind_tag() != kSkaterType) {
         int index = 0;
         params->fetch_int_value(kSkater, &index, 0);
         object = get_rider_at(index);
@@ -664,7 +664,7 @@ bool cfunc_set_screen_mode_from_game_mode(script::Struct*, script::Script*)
 {
     for (uint32_t i = 0; i < 8; ++i) {
         const objects::Rider* skater = get_rider_at(static_cast<int>(i));
-        if (skater && skater->is_local_skater_)
+        if (skater && skater->is_local_skater())
             debug::printf("cfuncs %d: SUTUBBBEDDDDDDDDDDDDDDDDDDDDDDDD\n", 0x16C0); // "cfuncs %d: SUTUBBBED..."
     }
     const int mode = game_mode_object()->get_view_layout();
@@ -673,7 +673,7 @@ bool cfunc_set_screen_mode_from_game_mode(script::Struct*, script::Script*)
         render::set_screen_mode(mode);
     for (uint32_t i = 0; i < 8; ++i) {
         objects::Rider* skater = get_rider_at(static_cast<int>(i));
-        if (skater && skater->is_local_skater_)
+        if (skater && skater->is_local_skater())
             update_score_display(skater);
     }
     return true;

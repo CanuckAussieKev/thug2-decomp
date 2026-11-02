@@ -104,6 +104,18 @@ public:
     // (asserted; milliseconds, or with seconds / second times 1000, with frames / frame times 1000 / 60).
     int held_longer_than(script::Struct* params, script::Script* script);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t events() const { return events_; }
+    PadSnapshot& pad_primary() { return pad_primary_; }
+    [[nodiscard]] const PadSnapshot& pad_primary() const { return pad_primary_; }
+    PadSnapshot& pad_secondary() { return pad_secondary_; }
+    [[nodiscard]] const PadSnapshot& pad_secondary() const { return pad_secondary_; }
+    [[nodiscard]] Responder* handler() const { return static_cast<Responder*>(handler_); } // (a view: it stays the owner's)
+    [[nodiscard]] bool disabled() const { return disabled_; }
+    void set_disabled(bool value) { disabled_ = value; }
+    [[nodiscard]] bool net_disabled() const { return net_disabled_; }
+
+private:
     uint32_t last_events_{};    // +0x18 the buttons down last frame (their event bits)
     uint32_t events_{};         // +0x1C this frame's
     PadSnapshot pad_primary_;   // +0x20
@@ -115,11 +127,15 @@ public:
     bool input_events_{};       // +0x49A EnableInputEvents
     uint8_t pad49b_{};
     uint32_t unknown49c_{0}; // +0x49C 0xB9B1E3B6
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PadInputModule, pad_primary_) == 0x20 && offsetof(PadInputModule, pad_secondary_) == 0x258 &&
+                          offsetof(PadInputModule, handler_) == 0x490 && offsetof(PadInputModule, disabled_) == 0x498 &&
+                          offsetof(PadInputModule, unknown49c_) == 0x49C && sizeof(PadInputModule) == 0x4A0,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(PadInputModule, pad_primary_) == 0x20 && offsetof(PadInputModule, pad_secondary_) == 0x258 &&
-                  offsetof(PadInputModule, handler_) == 0x490 && offsetof(PadInputModule, disabled_) == 0x498 &&
-                  offsetof(PadInputModule, unknown49c_) == 0x49C && sizeof(PadInputModule) == 0x4A0,
-              "layout must match the original");
 
 } // namespace objects
 

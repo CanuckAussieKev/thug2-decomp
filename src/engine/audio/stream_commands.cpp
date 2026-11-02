@@ -315,7 +315,7 @@ uint32_t play_stream_at_object(objects::AudioStreamModule* component, uint32_t c
     change_muted(&stream_volume);
     if (use_pos_info) {
         const objects::GameEntity* object = component->entity_;
-        void* emitter = nearest_emitter(&object->at_point_);
+        void* emitter = nearest_emitter(&object->at_point());
         bool audible = true;
         if (emitter) {
             maths::Vec4 direction{};

@@ -684,7 +684,7 @@ objects::GameEntity* get_live(const Picked& picked)
 {
     if (!picked.object)
         return nullptr;
-    if (objects::find_object(picked.id) != picked.object || (picked.object->object_flags_ & objects::kObjectFlagDead))
+    if (objects::find_object(picked.id) != picked.object || (picked.object->object_flags() & objects::kObjectFlagDead))
         return nullptr;
     return picked.object;
 }
@@ -800,7 +800,7 @@ void select_objects(const std::vector<objects::GameEntity*>& objects)
 {
     drag_state().objects_.clear();
     for (objects::GameEntity* object : objects)
-        drag_state().objects_.push_back({.object = object, .id = object->ident_});
+        drag_state().objects_.push_back({.object = object, .id = object->ident()});
     if (!objects.empty())
         scenery::clear_selection();
 }
@@ -831,7 +831,7 @@ V3 selection_pos()
 float get_selection_base()
 {
     if (const objects::GameEntity* object = get_primary())
-        return object->at_point_.y;
+        return object->at_point().y;
     node_edit::Values node;
     if (node_values(&node))
         return node.pos.y;
@@ -1073,7 +1073,7 @@ UndoStep get_snapshot()
         step.kind = UndoStep::Kind::kObjects;
         for (objects::GameEntity* object : objects) {
             object_edit::note_origin(object);
-            object_edit::touch(object->ident_);
+            object_edit::touch(object->ident());
             step.objects.push_back(object_edit::store_away(object));
         }
     } else {
@@ -1176,7 +1176,7 @@ bool scale_objects(const std::vector<objects::GameEntity*>& objects, V3 factor, 
         if (!uniform) {
             std::array<V3, 3> rows{};
             for (int i = 0; i < 3; ++i)
-                core::at(rows, i) = {.x = core::at(object->basis_frame_.row, i).x, .y = core::at(object->basis_frame_.row, i).y, .z = core::at(object->basis_frame_.row, i).z};
+                core::at(rows, i) = {.x = core::at(object->basis_frame().row, i).x, .y = core::at(object->basis_frame().row, i).y, .z = core::at(object->basis_frame().row, i).z};
             local = scale_tool::get_uniform(1.0f);
             const std::array<float, 3> along = {{factor.x, factor.y, factor.z}};
             for (int a = 0; a < 3; ++a) {
@@ -1305,7 +1305,7 @@ void set_exist(UndoStep* step, bool exist)
         std::vector<objects::GameEntity*> made;
         for (MadeCopy& copy : step->copies) {
             auto* object = core::down_cast<objects::GameEntity>(objects::find_object(copy.name));
-            const bool there = object && !(object->object_flags_ & objects::kObjectFlagDead);
+            const bool there = object && !(object->object_flags() & objects::kObjectFlagDead);
             if (exist && !there) {
                 const V3 pos = {.x = copy.state.pos.x, .y = copy.state.pos.y, .z = copy.state.pos.z};
                 object = object_edit::make_copy(copy.source, pos, copy.name);
@@ -1659,7 +1659,7 @@ void selection_axes(std::span<V3, 3> out)
     if (const objects::GameEntity* object = get_primary()) {
         std::array<V3, 3> rows{};
         for (int i = 0; i < 3; ++i)
-            core::at(rows, i) = {.x = core::at(object->basis_frame_.row, i).x, .y = core::at(object->basis_frame_.row, i).y, .z = core::at(object->basis_frame_.row, i).z};
+            core::at(rows, i) = {.x = core::at(object->basis_frame().row, i).x, .y = core::at(object->basis_frame().row, i).y, .z = core::at(object->basis_frame().row, i).z};
         xform::unit_axes(rows, out);
         return;
     }
@@ -1686,7 +1686,7 @@ float selection_heading()
 {
     if (const objects::GameEntity* object = get_primary())
         return xform::get_heading_of(
-            {.x = core::at(object->basis_frame_.row, 2).x, .y = core::at(object->basis_frame_.row, 2).y, .z = core::at(object->basis_frame_.row, 2).z});
+            {.x = core::at(object->basis_frame().row, 2).x, .y = core::at(object->basis_frame().row, 2).y, .z = core::at(object->basis_frame().row, 2).z});
     node_edit::Values node;
     if (node_values(&node))
         return node.angles.y;
@@ -1756,7 +1756,7 @@ V3 scale_applied_now()
     if (const objects::GameEntity* object = get_primary()) {
         std::array<V3, 3> rows{};
         for (int i = 0; i < 3; ++i)
-            core::at(rows, i) = {.x = core::at(object->basis_frame_.row, i).x, .y = core::at(object->basis_frame_.row, i).y, .z = core::at(object->basis_frame_.row, i).z};
+            core::at(rows, i) = {.x = core::at(object->basis_frame().row, i).x, .y = core::at(object->basis_frame().row, i).y, .z = core::at(object->basis_frame().row, i).z};
         const std::array<float, 3> own = {{r.x, r.y, r.z}};
         return {.x = core::at(own, scale_tool::nearest_axis(rows, 0)), .y = core::at(own, scale_tool::nearest_axis(rows, 1)),
                 .z = core::at(own, scale_tool::nearest_axis(rows, 2))};
@@ -2018,7 +2018,7 @@ void surface_drag(V3 origin, V3 dir)
     if (!xform::at_hand().align_to_slope_)
         return;
     for (objects::GameEntity* object : selected_objects()) {
-        for (maths::Mat4* m : {&object->basis_frame_, &object->display_matrix_}) {
+        for (maths::Mat4* m : {&object->basis_frame(), &object->display_matrix()}) {
             std::array<V3, 3> rows{};
             for (int i = 0; i < 3; ++i)
                 core::at(rows, i) = {.x = core::at(m->row, i).x, .y = core::at(m->row, i).y, .z = core::at(m->row, i).z};
@@ -2822,7 +2822,7 @@ bool get_cast(V3 from, V3 to, V3* hit)
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const auto& point = ray->hit_.point;
+    const auto& point = ray->hit().point;
     *hit = {.x = point[0], .y = point[1], .z = point[2]};
     return true;
 }
@@ -2852,7 +2852,7 @@ void place_skater_below_camera()
     const maths::Vec4 right = {.x = at.z, .y = 0.0f, .z = -at.x, .w = 0.0f};
     const maths::Vec4 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
     const maths::Vec4 forward = {.x = at.x, .y = 0.0f, .z = at.z, .w = 0.0f};
-    for (maths::Mat4* m : {&skater->basis_frame_, &skater->display_matrix_}) {
+    for (maths::Mat4* m : {&skater->basis_frame(), &skater->display_matrix()}) {
         core::at(m->row, 0) = right;
         core::at(m->row, 1) = up;
         core::at(m->row, 2) = forward;
@@ -2895,8 +2895,8 @@ bool cfunc_stop(script::Struct*, script::Script*)
     set_relative(false);
     place_skater_below_camera();
     if (level_editor_state().camera_) {
-        level_editor_state().camera_->at_point_ = level_editor_state().saved_pos_;
-        level_editor_state().camera_->basis_frame_ = level_editor_state().saved_matrix_;
+        level_editor_state().camera_->set_at_point(level_editor_state().saved_pos_);
+        level_editor_state().camera_->set_basis_frame(level_editor_state().saved_matrix_);
     }
     if (level_editor_state().saved_cursor_ >= 0)
         SDL_ShowCursor(level_editor_state().saved_cursor_);
@@ -2960,10 +2960,10 @@ void place_camera(gfx::ViewCam* camera)
         return;
     if (!level_editor_state().camera_) {
         level_editor_state().camera_ = camera;
-        level_editor_state().saved_pos_ = camera->at_point_;
-        level_editor_state().saved_matrix_ = camera->basis_frame_;
-        level_editor_state().pos_ = {.x = camera->at_point_.x, .y = camera->at_point_.y, .z = camera->at_point_.z};
-        const maths::Vec4& back = core::at(camera->basis_frame_.row, 2);
+        level_editor_state().saved_pos_ = camera->at_point();
+        level_editor_state().saved_matrix_ = camera->basis_frame();
+        level_editor_state().pos_ = {.x = camera->at_point().x, .y = camera->at_point().y, .z = camera->at_point().z};
+        const maths::Vec4& back = core::at(camera->basis_frame().row, 2);
         yaw_pitch_from_back({.x = back.x, .y = back.y, .z = back.z}, &level_editor_state().yaw_, &level_editor_state().pitch_);
         if (debug_enabled())
             get_log("level editor: camera %p at (%.1f, %.1f, %.1f), yaw %.1f, pitch %.1f degrees",
@@ -2977,10 +2977,10 @@ void place_camera(gfx::ViewCam* camera)
     if (camera != level_editor_state().camera_)
         return;
     const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
-    camera->at_point_ = {.x = level_editor_state().pos_.x, .y = level_editor_state().pos_.y, .z = level_editor_state().pos_.z, .w = 1.0f};
-    core::at(camera->basis_frame_.row, 0) = {.x = frame.right.x, .y = frame.right.y, .z = frame.right.z, .w = 0.0f};
-    core::at(camera->basis_frame_.row, 1) = {.x = frame.up.x, .y = frame.up.y, .z = frame.up.z, .w = 0.0f};
-    core::at(camera->basis_frame_.row, 2) = {.x = frame.back.x, .y = frame.back.y, .z = frame.back.z, .w = 0.0f};
+    camera->set_at_point({.x = level_editor_state().pos_.x, .y = level_editor_state().pos_.y, .z = level_editor_state().pos_.z, .w = 1.0f});
+    core::at(camera->basis_frame().row, 0) = {.x = frame.right.x, .y = frame.right.y, .z = frame.right.z, .w = 0.0f};
+    core::at(camera->basis_frame().row, 1) = {.x = frame.up.x, .y = frame.up.y, .z = frame.up.z, .w = 0.0f};
+    core::at(camera->basis_frame().row, 2) = {.x = frame.back.x, .y = frame.back.y, .z = frame.back.z, .w = 0.0f};
 }
 
 float adjust_view_angle(gfx::ViewCam* camera, float angle)
@@ -3283,7 +3283,7 @@ uint32_t chain_target()
     if (drag_state().node_selected_ && drag_state().node_name_)
         return drag_state().node_name_;
     if (const objects::GameEntity* object = get_primary())
-        return nodes::get_find(object->ident_) >= 0 ? object->ident_ : 0;
+        return nodes::get_find(object->ident()) >= 0 ? object->ident() : 0;
     return 0;
 }
 
@@ -3602,7 +3602,7 @@ void unlink_list_node(bool confirmed)
                 source = c.source;
         }
         auto* object = core::down_cast<objects::GameEntity>(objects::find_object(node.name));
-        if (!object || (object->object_flags_ & objects::kObjectFlagDead))
+        if (!object || (object->object_flags() & objects::kObjectFlagDead))
             return;
         step.copies.push_back({.name = node.name, .source = source, .state = object_edit::store_away(object)});
         object_edit::remove_copy(node.name);
@@ -3807,9 +3807,9 @@ std::unordered_map<uint32_t, uint8_t> change_marks()
         auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
         if (!origin || !object)
             continue;
-        const maths::Vec4 &a = core::at(origin->matrix.row, 2), &b = core::at(object->basis_frame_.row, 2);
-        if (origin->pos.x != object->at_point_.x || origin->pos.y != object->at_point_.y ||
-            origin->pos.z != object->at_point_.z || a.x != b.x || a.z != b.z)
+        const maths::Vec4 &a = core::at(origin->matrix.row, 2), &b = core::at(object->basis_frame().row, 2);
+        if (origin->pos.x != object->at_point().x || origin->pos.y != object->at_point().y ||
+            origin->pos.z != object->at_point().z || a.x != b.x || a.z != b.z)
             mark(id, ui::kMarkMoved);
     }
     for (const node_edit::LinkRecord& r : node_edit::get_changed())
@@ -3899,12 +3899,12 @@ ui::ShapeMesh assemble_model()
     if (!objects.empty()) {
         objects::GameEntity* object = objects.front();
         s.objects = static_cast<int>(objects.size());
-        const char* cls = object_edit::class_of(object->ident_);
+        const char* cls = object_edit::class_of(object->ident());
         s.kind = cls ? cls : "Object";
-        s.name = object_edit::caption(object->ident_);
-        s.checksum = object->ident_;
+        s.name = object_edit::caption(object->ident());
+        s.checksum = object->ident();
         s.pos = object_edit::pos_of(object);
-        const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
+        const maths::Vec4& at = core::at(object->basis_frame().row, 2);
         s.scalable = scale_tool::object_scalable(object);
         s.scale = scale_tool::get_object_scale(object);
         s.has_heading_ = true;
@@ -4191,7 +4191,7 @@ void place_from_browser(V3 at, bool keep_open = false)
             return;
         }
         select_objects({object});
-        step.copies.push_back({.name = object->ident_, .source = source, .state = object_edit::store_away(object)});
+        step.copies.push_back({.name = object->ident(), .source = source, .state = object_edit::store_away(object)});
     }
     push_undo(step, "Place copy");
     thumbs::note_used(stored_browser().tab, source); // (the palette's Recently used - level_editor_thumbs.h)
@@ -4236,11 +4236,11 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
         std::vector<objects::GameEntity*> made;
         std::vector<uint32_t> sources;
         for (objects::GameEntity* object : objects) {
-            if (!object_edit::can_copy(object->ident_) && !object_edit::is_copy(object->ident_))
+            if (!object_edit::can_copy(object->ident()) && !object_edit::is_copy(object->ident()))
                 continue;
-            uint32_t source = object->ident_;
+            uint32_t source = object->ident();
             for (const object_edit::DupFrom& c : object_edit::get_copies()) {
-                if (c.name == object->ident_)
+                if (c.name == object->ident())
                     source = c.source; // (a copy's copy: made from the same node)
             }
             OrientedBox box{};
@@ -4252,12 +4252,12 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
             if (!copy)
                 continue;
             object_edit::State state = object_edit::store_away(object);
-            state.id = copy->ident_;
-            state.pos = copy->at_point_;
+            state.id = copy->ident();
+            state.pos = copy->at_point();
             object_edit::get_restore(state);
             made.emplace_back(copy);
             sources.push_back(source);
-            duplicate_pairs().emplace_back(object->ident_, copy->ident_);
+            duplicate_pairs().emplace_back(object->ident(), copy->ident());
         }
         // (repeated: the copies turned as the last ones were, about the first copy - then their places noted)
         if (repeat && repeat->turn != 0.0f && !made.empty()) {
@@ -4266,7 +4266,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
                 object_edit::turn_about(copy, pivot, repeat->turn);
         }
         for (size_t i = 0; i < made.size(); ++i)
-            step.copies.push_back({.name = core::at(made, i)->ident_, .source = core::at(sources, i), .state = object_edit::store_away(core::at(made, i))});
+            step.copies.push_back({.name = core::at(made, i)->ident(), .source = core::at(sources, i), .state = object_edit::store_away(core::at(made, i))});
         if (made.empty()) {
             hud::get_message("This object type can't be copied");
             return;
@@ -4406,7 +4406,7 @@ void repeat_duplicate(const TickCycle& frame)
     } else if (!objects.empty()) {
         kind = xform::Kind::kObject;
         for (const objects::GameEntity* object : objects)
-            ids.push_back(object->ident_);
+            ids.push_back(object->ident());
     } else if (scenery::has_selection()) {
         kind = xform::Kind::kScenery;
         ids = scenery::get_selection();
@@ -4472,14 +4472,14 @@ void erase_one()
         step.kind = UndoStep::Kind::kMade;
         step.exist = true; // (undone: they're made again)
         for (objects::GameEntity* object : objects) {
-            if (!object_edit::is_copy(object->ident_))
+            if (!object_edit::is_copy(object->ident()))
                 continue;
             uint32_t source = 0;
             for (const object_edit::DupFrom& c : object_edit::get_copies()) {
-                if (c.name == object->ident_)
+                if (c.name == object->ident())
                     source = c.source;
             }
-            step.copies.push_back({.name = object->ident_, .source = source, .state = object_edit::store_away(object)});
+            step.copies.push_back({.name = object->ident(), .source = source, .state = object_edit::store_away(object)});
         }
         if (step.copies.empty()) {
             hud::get_message("Only object copies can be deleted");
@@ -4543,7 +4543,7 @@ void get_reset()
         const UndoStep before = get_snapshot();
         bool any = false;
         for (const objects::GameEntity* object : objects) {
-            if (const object_edit::State* origin = object_edit::get_origin(object->ident_))
+            if (const object_edit::State* origin = object_edit::get_origin(object->ident()))
                 any |= object_edit::get_restore(*origin);
         }
         if (any) {
@@ -4631,7 +4631,7 @@ void note_click_for_cycle(float x, float y, V3 dir, bool plain)
     } else {
         std::vector<picking::Layered> objects, scenery;
         for (const auto& hit : object_edit::pick_all(level_editor_state().pos_, dir, kMaxPickDistance))
-            objects.push_back({.id = hit.first->ident_, .t = hit.second, .passed = false});
+            objects.push_back({.id = hit.first->ident(), .t = hit.second, .passed = false});
         scenery::Hit first;
         std::vector<scenery::Layer> layers;
         scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
@@ -4646,7 +4646,7 @@ void note_click_for_cycle(float x, float y, V3 dir, bool plain)
         pick_cycle().cycle_.order = picking::cycle_order(drag_state().hover_node_, objects, scenery, drag_state().pick_filter_);
         const objects::GameEntity* object = get_live(drag_state().hover_);
         pick_cycle().cycle_.index = drag_state().hover_node_ >= 0 ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kNode, drag_state().hover_node_)
-                        : object ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kObject, object->ident_)
+                        : object ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kObject, object->ident())
                         : drag_state().hover_sector_
                             ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kScenery, drag_state().hover_sector_)
                             : -1;
@@ -4696,7 +4696,7 @@ std::vector<picking::Lock> selection_locks()
 {
     std::vector<picking::Lock> locks;
     for (const objects::GameEntity* object : selected_objects())
-        locks.push_back({.kind = picking::kObjects, .id = object->ident_});
+        locks.push_back({.kind = picking::kObjects, .id = object->ident()});
     if (locks.empty())
         for (const uint32_t sector : scenery::get_selection())
             locks.push_back({.kind = picking::kScenery, .id = sector});
@@ -4831,7 +4831,7 @@ int inspected_node()
         return found;
     }
     if (const objects::GameEntity* object = get_primary())
-        return nodes::get_find(object->ident_);
+        return nodes::get_find(object->ident());
     if (scenery::has_selection())
         return nodes::get_find(scenery::get_selection().front());
     return -1;
@@ -4849,7 +4849,7 @@ void select_node(int index)
     if (node.family == nodes::Family::kObject) {
         auto* object = core::down_cast<objects::GameEntity>(objects::find_object(node.name));
         OrientedBox box{};
-        if (object && !(object->object_flags_ & objects::kObjectFlagDead) && object_edit::model_box(object, &box)) {
+        if (object && !(object->object_flags() & objects::kObjectFlagDead) && object_edit::model_box(object, &box)) {
             drag_state().node_selected_ = false;
             select_objects({object});
             note_action("selected %s (its node)", nodes::caption(node.name).c_str());
@@ -4873,7 +4873,7 @@ void select_node(int index)
 // The flag node of a flag's object (-1: not a flag's).
 int flag_node_of(objects::GameEntity* object)
 {
-    const int index = object ? nodes::get_find(object->ident_) : -1;
+    const int index = object ? nodes::get_find(object->ident()) : -1;
     return index >= 0 && core::at(nodes::get_all(), index).family == nodes::Family::kBitMark ? index : -1;
 }
 
@@ -5460,7 +5460,7 @@ void drill_through(int steps, float x, float y, V3 dir)
     } else {
         std::vector<picking::Layered> objects, scenery;
         for (const auto& hit : object_edit::pick_all(level_editor_state().pos_, dir, kMaxPickDistance))
-            objects.push_back({.id = hit.first->ident_, .t = hit.second, .passed = false});
+            objects.push_back({.id = hit.first->ident(), .t = hit.second, .passed = false});
         scenery::Hit first;
         std::vector<scenery::Layer> layers;
         scenery::get_pick(level_editor_state().pos_, make_unit(dir), kMaxPickDistance, &first, &layers);
@@ -5476,7 +5476,7 @@ void drill_through(int steps, float x, float y, V3 dir)
         pick_cycle().cycle_.order = picking::cycle_order(drag_state().hover_node_, objects, scenery, drag_state().pick_filter_);
         const objects::GameEntity* object = get_live(drag_state().hover_);
         shown = drag_state().hover_node_ >= 0 ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kNode, drag_state().hover_node_)
-                : object          ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kObject, object->ident_)
+                : object          ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kObject, object->ident())
                 : drag_state().hover_sector_  ? picking::get_index_of(pick_cycle().cycle_.order, picking::Choice::kScenery, drag_state().hover_sector_)
                                   : -1;
     }
@@ -5620,7 +5620,7 @@ void tick_frame()
     // (emitters' sounds, path speeds, objects made again, the path preview - level_editor_entities.h)
     {
         const objects::GameEntity* primary = level_editor_state().active_ ? get_primary() : nullptr;
-        entities::tick(level_editor_state().active_, primary ? primary->ident_ : 0, drag_state().dragging_);
+        entities::tick(level_editor_state().active_, primary ? primary->ident() : 0, drag_state().dragging_);
     }
     chains::tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
     if (!level_editor_state().active_)
@@ -6395,7 +6395,7 @@ void tick_frame()
         }
         if (debug_enabled() && hover_sector != drag_state().hover_sector_ && hover_sector)
             get_log("level editor: hovering %s", scenery::describe_hover(hover_sector).c_str());
-        drag_state().hover_ = hover ? Picked{.object = hover, .id = hover->ident_} : Picked{};
+        drag_state().hover_ = hover ? Picked{.object = hover, .id = hover->ident()} : Picked{};
         drag_state().hover_sector_ = hover_sector;
     }
 
@@ -6544,7 +6544,7 @@ void tick_frame()
                 if (is_picked(hover))
                     std::erase_if(drag_state().objects_, [&](const Picked& p) { return p.object == hover; });
                 else
-                    drag_state().objects_.push_back({.object = hover, .id = hover->ident_});
+                    drag_state().objects_.push_back({.object = hover, .id = hover->ident()});
             } else {
                 if (!is_picked(hover))
                     select_objects({hover});
@@ -6892,7 +6892,7 @@ SelectionIds current_selection()
 {
     SelectionIds ids;
     for (const objects::GameEntity* object : selected_objects())
-        ids.objects.push_back(object->ident_);
+        ids.objects.push_back(object->ident());
     if (ids.objects.empty())
         ids.sectors = scenery::get_selection();
     if (ids.objects.empty() && ids.sectors.empty() && drag_state().node_selected_ && inspected_node() >= 0)
@@ -6908,7 +6908,7 @@ void set_selection(const SelectionIds& ids)
     std::vector<objects::GameEntity*> objects;
     for (const uint32_t id : ids.objects) {
         auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-        if (object && !(object->object_flags_ & objects::kObjectFlagDead))
+        if (object && !(object->object_flags() & objects::kObjectFlagDead))
             objects.push_back(object);
     }
     if (!objects.empty()) {
@@ -6937,7 +6937,7 @@ bool go_to_thing(uint32_t id)
         return true;
     }
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    if (object && !(object->object_flags_ & objects::kObjectFlagDead)) {
+    if (object && !(object->object_flags() & objects::kObjectFlagDead)) {
         unpick();
         select_objects({object});
         go_to_selection();
@@ -7009,7 +7009,7 @@ bool selection_transform(TransformValues* transform)
     transform->pos = selection_pos();
     node_edit::Values node;
     if (objects::GameEntity* object = get_primary()) {
-        const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
+        const maths::Vec4& at = core::at(object->basis_frame().row, 2);
         transform->has_heading_ = true;
         transform->heading = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)));
         transform->has_scale_ = scale_tool::object_scalable(object);
@@ -7035,7 +7035,7 @@ bool set_selection_transform(const TransformValues& transform)
     node_edit::Values node;
     if (transform.has_heading_) {
         if (const objects::GameEntity* object = get_primary()) {
-            const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
+            const maths::Vec4& at = core::at(object->basis_frame().row, 2);
             auto now = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)));
             const V3 pivot = object_edit::pos_of(object);
             for (objects::GameEntity* o : selected_objects())
@@ -7121,7 +7121,7 @@ Selected get_selection()
     if (!objects.empty()) {
         out.kind = Kind::kObject;
         for (const objects::GameEntity* object : objects)
-            out.ids.push_back(object->ident_);
+            out.ids.push_back(object->ident());
     } else if (picked_node_index() >= 0) {
         out.kind = Kind::kElem;
         out.ids.push_back(drag_state().node_name_);
@@ -7142,7 +7142,7 @@ void choose_one(const Selected& selected)
         std::vector<objects::GameEntity*> objects;
         for (const uint32_t id : selected.ids) {
             auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-            if (object && !(object->object_flags_ & objects::kObjectFlagDead))
+            if (object && !(object->object_flags() & objects::kObjectFlagDead))
                 objects.push_back(object);
         }
         unpick();

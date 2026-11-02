@@ -19,6 +19,7 @@ struct EmitterInstance;
 // (0x28 bytes in the original, with a vtable 0x006494B0 holding only its destructor; one, made at start-up and never
 // deleted: no vtable here, 0x24 bytes.)
 struct FlexibleParticleManager : memory::HeapObject {
+private:
     gsl::owner<memory::Zone*>
         zone_; // (a memory manager region: deleted after its heap) its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
     memory::Arena* arena_;                                 // "FlxParticles"
@@ -26,6 +27,8 @@ struct FlexibleParticleManager : memory::HeapObject {
     memory::Arena* temp_heap_;                             // "TEMPFlxPrtcl": systems are made on it while it's there
     memory::ListNode* systems_ptr_;            // the list's head (lists::Foremost<EmitterInstance>)
     std::array<float, 4> colour_scale_{};                  // the level's colour (given to the systems with flag 0x10000)
+
+public:
 
     // 0x0049AF20: its memory, the list, the colour white; the frame time scale (0x00700EF4) 60 / the script float
     // 0x3214C818 - 60 when that's 0.

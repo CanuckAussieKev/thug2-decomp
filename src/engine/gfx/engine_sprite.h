@@ -128,6 +128,7 @@ public:
     // 0x0049ED50: its colour (RGBA).
     void change_rgba(uint32_t rgba);
 
+private:
     void* screen_region_; // (the original's offsets: +0x04)
     BitmapTexture* bitmap_{nullptr}; // +0x08
     bool invisible_{true};     // +0x0C

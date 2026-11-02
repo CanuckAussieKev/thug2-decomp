@@ -46,24 +46,24 @@ bool BodyDynamicsModule::find_contacts()
 
     if (contact_count_ != 0) {
         render::ProbeRay feeler;
-        feeler.hit_cache_ = body_cache();
+        feeler.set_hit_cache(body_cache());
         for (int i = contact_count_ - 1; i >= 0; --i) {
             const maths::Vec4& point = core::at(world_contact_points(), i);
             Contact& contact = core::at(get_contacts(), contacts_hit_);
-            feeler.line_.start = at_point_;
-            feeler.line_.end = {
+            feeler.line().start = at_point_;
+            feeler.line().end = {
                 .x = get_narrow(get_wide(at_point_.x) + point.x), .y = get_narrow(get_wide(at_point_.y) + point.y),
                 .z = get_narrow(get_wide(at_point_.z) + point.z), .w = get_narrow(get_wide(at_point_.w) + point.w)};
             contact.active = feeler.get_hit_shape(false, false) != 0;
             if (!contact.active)
                 continue;
-            const maths::Seg& line = feeler.line_;
+            const maths::Seg& line = feeler.line();
             const double dz = get_wide(line.end.z) - line.start.z;
             const double dy = get_wide(line.end.y) - line.start.y;
             const float dx = get_narrow(get_wide(line.end.x) - line.start.x);
-            const float rest = get_narrow(1.0 - feeler.reach_);
+            const float rest = get_narrow(1.0 - feeler.reach());
             contact.offset = point;
-            contact.normal = feeler.surface_dir_;
+            contact.normal = feeler.surface_dir();
             contact.scaled = false;
             const float az = get_narrow(dz * rest);
             contact.impulse = 0.0f;

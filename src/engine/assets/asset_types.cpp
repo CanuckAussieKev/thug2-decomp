@@ -898,7 +898,7 @@ bool SkinCollisionAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* model = group_data(this);
     add_skin_collision(model, buffer, size); // (not original: the size)
-    change_contents(static_cast<render::SubMesh*>(model)->hit_shape_); // (its collision objects)
+    change_contents(static_cast<render::SubMesh*>(model)->hit_shape()); // (its collision objects)
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref());

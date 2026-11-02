@@ -323,7 +323,7 @@ uint32_t NodeManager::get_last_node_array_name()
 void NodeManager::set_owner(assets::NodeTableResource* owner) { owner_ptr_ = owner; }
 
 // 0x0045D470
-script::Array* NodeManager::get_owner_nodes() { return owner_ptr_->nodes_; }
+script::Array* NodeManager::get_owner_nodes() { return owner_ptr_->nodes(); }
 
 // 0x0045D270
 bool NodeManager::has_node_array(uint32_t name)

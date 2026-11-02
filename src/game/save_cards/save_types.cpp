@@ -495,7 +495,7 @@ bool apply_cat_and_custom_skater(Struct* loaded, Struct* custom_skater)
     objects::ProfileRoster* profiles = objects::profile_roster();
     modules::Skate* skate = modules::Skate::sole();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
-    const int index = profiles->cursor_pos_;
+    const int index = profiles->cursor_pos();
     auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(index));
     skater->load_cat_info(loaded);
     skater->load_list_44b_66a_9f(loaded);

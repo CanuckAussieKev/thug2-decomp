@@ -43,6 +43,18 @@ static_assert(sizeof(BillboardBatch) == 0x14, "layout must match the original");
 
 // The billboard manager (0x00775B80).
 struct BillboardSet {
+    // The fields other code reads and sets.
+    [[nodiscard]] int count_value() const { return count; }
+    std::array<BillboardBatch*, 0x100>& batches_value() { return batches; }
+    [[nodiscard]] const std::array<BillboardBatch*, 0x100>& batches_value() const { return batches; }
+    std::array<float, 4>& view_value() { return view; }
+    [[nodiscard]] const std::array<float, 4>& view_value() const { return view; }
+    [[nodiscard]] const std::array<float, 4>& right_value() const { return right; }
+    [[nodiscard]] const std::array<float, 4>& up_value() const { return up; }
+    [[nodiscard]] const std::array<float, 4>& flat_forward() const { return flat_forward_; }
+    [[nodiscard]] const std::array<float, 4>& flat_right() const { return flat_right_; }
+
+private:
     int count;
     std::array<BillboardBatch*, 0x100> batches; // sorted by the materials' draw order (+0x1C), nulls last
     std::array<float, 4> view;                  // +0x404 the view's forward (its third column), w 1
@@ -50,6 +62,8 @@ struct BillboardSet {
     std::array<float, 4> up;                    // +0x424 right x forward
     std::array<float, 4> flat_forward_;         // +0x434 the forward along the ground, w 1
     std::array<float, 4> flat_right_;           // +0x444 and right
+
+public:
 
     // 0x004CDA60: the batch of a material, or null.
     BillboardBatch* get_find(const MaterialRef* material);
@@ -62,9 +76,14 @@ struct BillboardSet {
     void remove_mesh(MeshRef* mesh);
     // 0x004CEAB0: the batches drawn: with `which` & 1 the materials without flag 0x40 (+0x20), with & 2 those with.
     void render(unsigned int which);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(BillboardSet, view) == 0x404 && offsetof(BillboardSet, flat_right_) == 0x444,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(BillboardSet, view) == 0x404 && offsetof(BillboardSet, flat_right_) == 0x444,
-              "layout must match the original");
 
 // 0x004CD9D0 (the batches' qsort comparison; code Ghidra never made a function of): by the materials' +0x1C
 // (none: 0), nulls after everything.

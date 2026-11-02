@@ -261,7 +261,7 @@ void Hub::cancel_join()
     disconnect_clients();
     join_expiry_job_->drop_out();
     remove_all_new_players();
-    if (presence_service_->authenticated_) // (logged in to the presence)
+    if (presence_service_->authenticated()) // (logged in to the presence)
         presence_service_->change_standing(kHomieStatusChatting, script::fetch_text("homie_status_chatting"),
                                            lobby_service_->room_name().data());
 }
@@ -291,7 +291,7 @@ void Hub::observer_input(pad_input::Responder<Hub>* input)
         if (menu_state == kOn)
             return;
     }
-    if (input->control_data_->makes_ & 0x40) // (the controller's button pressed: the next player)
+    if (input->control_data_->makes() & 0x40) // (the controller's button pressed: the next player)
         manager->spectate_request_ = 1;
 }
 

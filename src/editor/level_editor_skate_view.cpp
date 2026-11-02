@@ -165,31 +165,31 @@ float game_threshold()
 
 const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int trigger)
 {
-    const V3 min = to_v3(tri->bounds_.min);
-    const V3 max = to_v3(tri->bounds_.max);
+    const V3 min = to_v3(tri->bounds().min);
+    const V3 max = to_v3(tri->bounds().max);
     V3 first = {};
     V3 last = {};
-    if (tri->vertices_ && tri->num_vertices_) {
+    if (tri->vertices() && tri->num_vertices()) {
         first = to_v3(tri->read_stored_vertex(0));
-        last = to_v3(tri->read_stored_vertex(tri->num_vertices_ - 1));
+        last = to_v3(tri->read_stored_vertex(tri->num_vertices() - 1));
     }
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
     const float threshold = game_threshold();
     Cached& c = cache()[checksum];
-    if (c.tri == tri && std::cmp_equal(c.faces, tri->tri_count_) && c.threshold == threshold && same(c.min, min) &&
+    if (c.tri == tri && std::cmp_equal(c.faces, tri->tri_count()) && c.threshold == threshold && same(c.min, min) &&
         same(c.max, max) && same(c.first, first) && same(c.last, last))
         return c;
     c = Cached{};
-    c.tri = tri, c.min = min, c.max = max, c.first = first, c.last = last, c.faces = tri->tri_count_;
+    c.tri = tri, c.min = min, c.max = max, c.first = first, c.last = last, c.faces = tri->tri_count();
     c.threshold = threshold;
-    if (!tri->faces_ || !tri->vertices_)
+    if (!tri->faces() || !tri->vertices())
         return c;
     for (int f = 0; f < c.faces; ++f) {
         std::array<V3, 3> p{};
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
             const uint32_t index = tri->face_vertex(f, k);
-            ok = index < tri->num_vertices_;
+            ok = index < tri->num_vertices();
             if (ok)
                 core::at(p, k) = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
         }
@@ -239,13 +239,13 @@ void add_overlay(const overlays::Painter& painter)
     scenery::for_each_level_sector(
         [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
-            const render::HitMesh* coll = sector->hit_body_;
+            const render::HitMesh* coll = sector->hit_body();
             if (!render::is_static_collider(coll) || (coll->flag_bits_ & 4))
                 return; // (no collision, or switched off)
             const auto* tri = coll->geometry_;
-            if (!tri || !tri->tri_count_ || view::hidden_sector(checksum))
+            if (!tri || !tri->tri_count() || view::hidden_sector(checksum))
                 return;
-            const float distance = view::distance_to_box(w->camera, to_v3(tri->bounds_.min), to_v3(tri->bounds_.max));
+            const float distance = view::distance_to_box(w->camera, to_v3(tri->bounds().min), to_v3(tri->bounds().max));
             if (distance <= kRadius)
                 w->found.push_back({.checksum = checksum, .tri = tri, .distance = distance});
         },
@@ -318,9 +318,9 @@ void add_overlay(const overlays::Painter& painter)
     // Grind rails: the rail manager's active segments near the camera.
     const modules::Skate* skate = modules::Skate::sole();
     auto* rails = skate ? skate->rail_manager().get() : nullptr;
-    if (rails && !rails->on_object_ && rails->nodes_) {
+    if (rails && !rails->on_object() && rails->nodes()) {
         int drawn = 0;
-        for (int i = 0; i < rails->num_; ++i) {
+        for (int i = 0; i < rails->num(); ++i) {
             const objects::GrindPoint& node = core::at(rails->node_run(), i);
             if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
                 !(node.flag_bits_ & objects::kRailFlagActive))

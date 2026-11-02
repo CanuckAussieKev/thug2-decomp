@@ -80,6 +80,16 @@ public:
     bool un_set_force_walk(script::Struct* params, script::Script* script);                   // 0x00517720
     bool is_force_walk_on(script::Struct* params, script::Script* script);                    // 0x00517730
 
+    // The fields other code reads and sets.
+    [[nodiscard]] bool is_halted() const { return is_halted_; }
+    [[nodiscard]] int switch_time() const { return switch_time_; }
+    [[nodiscard]] bool board_missing() const { return board_missing_; }
+    [[nodiscard]] bool force_walk() const { return force_walk_; }
+    [[nodiscard]] uint8_t flag26() const { return flag26_; }
+    void set_flag26(uint8_t value) { flag26_ = value; }
+    [[nodiscard]] RiderPoseState* pose() const { return pose_; }
+
+private:
     bool is_halted_{}; // +0x18
     std::array<uint8_t, 3> pad19{};
     int switch_time_{};       // +0x1C the game clock when the physics last switched

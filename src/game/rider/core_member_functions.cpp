@@ -134,7 +134,7 @@ int get_is(uint8_t value) { return value ? 1 : 0; }
 // as the end of a feeler from `start` `distance` long.
 void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, float distance)
 {
-    const maths::Vec4& facing = core::at(object->basis_frame_.row, 2);
+    const maths::Vec4& facing = core::at(object->basis_frame().row, 2);
     double x = facing.x;
     double y = facing.y;
     float z = facing.z;
@@ -145,8 +145,8 @@ void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, fl
         y *= inverse;
         z = static_cast<float>(z * inverse);
     }
-    const maths::Vec4& start = feeler.line_.start;
-    maths::Vec4& end = feeler.line_.end;
+    const maths::Vec4& start = feeler.line().start;
+    maths::Vec4& end = feeler.line().end;
     end.x = static_cast<float>(x * distance + start.x);
     end.y = static_cast<float>(y * distance + start.y);
     end.z = static_cast<float>(static_cast<double>(z) * distance + start.z);
@@ -155,9 +155,9 @@ void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, fl
 // A wall the feeler hit: not vert, its normal's y within 0.1 of 0 (or not a number).
 bool hit_wall(const render::ProbeRay& feeler)
 {
-    if (feeler.hit_.face_flags_ & 8)
+    if (feeler.hit().face_flags_ & 8)
         return false;
-    return !(std::fabs(static_cast<double>(feeler.surface_dir_.y)) > kWallNormalY);
+    return !(std::fabs(static_cast<double>(feeler.surface_dir().y)) > kWallNormalY);
 }
 
 } // namespace
@@ -165,7 +165,7 @@ bool hit_wall(const render::ProbeRay& feeler)
 // The time in the air: in the air or on a wall (states 1, 2) since it began, else the last one's length.
 uint32_t SkaterPhysicsModule::time_aloft()
 {
-    const int state = state_->cur_phase_;
+    const int state = state_->cur_phase();
     if (state == 1 || state == 2)
         return get_since(air_start_);
     return air_end_ - air_start_;
@@ -179,11 +179,11 @@ bool SkaterPhysicsModule::feel_ahead(script::Struct* params, render::ProbeRay& f
     params->fetch_float(0u, &distance, 0);
     // (the feeler made by the caller - 0x00417760 here in the original)
     objects::GameEntity* object = object_of(this);
-    const maths::Vec4& position = object->at_point_;
-    feeler.line_.start = position;
+    const maths::Vec4& position = object->at_point();
+    feeler.line().start = position;
     if (raise)
-        feeler.line_.start.y = static_cast<float>(static_cast<double>(position.y) + kVertFeelerRaise);
-    feeler.line_.end = feeler.line_.start;
+        feeler.line().start.y = static_cast<float>(static_cast<double>(position.y) + kVertFeelerRaise);
+    feeler.line().end = feeler.line().start;
     feel_along_facing(feeler, object, distance);
     return feeler.get_hit_shape(true, false) != 0;
 }
@@ -611,7 +611,7 @@ int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
 int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
 {
     objects::GameEntity* object = object_of(this);
-    maths::Vec4& velocity = object->vel_;
+    maths::Vec4& velocity = object->vel();
     float upward = velocity.y;
     if (upward < 0.0f)
         upward = 0.0f;
@@ -621,7 +621,7 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
     // Along the horizontal velocity; slower than 10: the facing; that barely anything either: (1, 0, 1).
     maths::Vec4 direction(velocity.x, 0.0f, velocity.z, velocity.w);
     if (static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x < kSlowSquared) {
-        const maths::Vec4& facing = core::at(object->basis_frame_.row, 2);
+        const maths::Vec4& facing = core::at(object->basis_frame().row, 2);
         direction = maths::Vec4(facing.x, 0.0f, facing.z, facing.w);
         const double flat = static_cast<double>(facing.z) * facing.z + static_cast<double>(facing.x) * facing.x;
         if (flat < kStillSquared)
@@ -639,7 +639,7 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
     auto y = static_cast<float>(direction.y * boost);
     auto z = static_cast<float>(direction.z * boost);
     auto w = static_cast<float>(direction.w * boost);
-    maths::Vec4& v = entity_->vel_;
+    maths::Vec4& v = entity_->vel();
     v.x = static_cast<float>(v.x + direction.x * boost);
     v.y += y;
     v.z += z;
@@ -654,7 +654,7 @@ int SkaterPhysicsModule::set_rail_sound(script::Struct* params, script::Script*)
     params->read_hash_value(0u, &sound, 1);
     const bool slide = sound == kSlide;
     set_timed_flag(this, PoseFlag::kSlide, slide ? 1 : 0);
-    sound_->sliding_ = slide ? 1 : 0;
+    sound_->set_sliding(slide ? 1 : 0);
     return 1;
 }
 
@@ -689,17 +689,17 @@ int SkaterPhysicsModule::last_spin_was(script::Struct* params, script::Script*)
 int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
 {
     objects::GameEntity* object = object_of(this);
-    const maths::Vec4& velocity = object->vel_;
+    const maths::Vec4& velocity = object->vel();
     const double x = velocity.x;
     const double y = velocity.y;
     const double z = velocity.z;
     const double length_squared = (x * x + y * y) + z * z;
     if (length_squared < kStillSquared)
         return 1;
-    maths::Vec4& right = core::at(object->basis_frame_.row, 0);
-    maths::Vec4& up = core::at(object->basis_frame_.row, 1);
-    maths::Vec4& facing = core::at(object->basis_frame_.row, 2);
-    facing = object->vel_;
+    maths::Vec4& right = core::at(object->basis_frame().row, 0);
+    maths::Vec4& up = core::at(object->basis_frame().row, 1);
+    maths::Vec4& facing = core::at(object->basis_frame().row, 2);
+    facing = object->vel();
     facing.make_unit();
     // right = up x facing
     const double rx = static_cast<double>(facing.z) * up.y - static_cast<double>(facing.y) * up.z;
@@ -719,7 +719,7 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
     up.x = static_cast<float>(ux);
     up.y = static_cast<float>(uy);
     up.make_unit();
-    display_matrix_ = entity_->basis_frame_;
+    display_matrix_ = entity_->basis_frame();
     return 1;
 }
 
@@ -780,9 +780,9 @@ int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Sc
 // 0x004FD580
 int SkaterPhysicsModule::get_matrix_normal(script::Struct*, script::Script* script)
 {
-    script->args().get()->push_float(kX, core::at(entity_->basis_frame_.row, 1).x);
-    script->args().get()->push_float(kY, core::at(entity_->basis_frame_.row, 1).y);
-    script->args().get()->push_float(kZ, core::at(entity_->basis_frame_.row, 1).z);
+    script->args().get()->push_float(kX, core::at(entity_->basis_frame().row, 1).x);
+    script->args().get()->push_float(kY, core::at(entity_->basis_frame().row, 1).y);
+    script->args().get()->push_float(kZ, core::at(entity_->basis_frame().row, 1).z);
     return 1;
 }
 // 0x004FD5E0
@@ -834,12 +834,12 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
     render::ProbeRay feeler;
     if (!feel_ahead(params, feeler, false) || !hit_wall(feeler))
         return 0;
-    entity_->vel_.change_heading(feeler.surface_dir_);
-    core::at(entity_->basis_frame_.row, 2).change_heading(feeler.surface_dir_);
+    entity_->vel().change_heading(feeler.surface_dir());
+    core::at(entity_->basis_frame().row, 2).change_heading(feeler.surface_dir());
     core::down_cast<objects::RiderSpinAndFlip>(
         static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kSkaterFlipAndRotate))
         ->get_flip();
-    display_matrix_ = entity_->basis_frame_;
+    display_matrix_ = entity_->basis_frame();
     return 1;
 }
 
@@ -847,7 +847,7 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
 int SkaterPhysicsModule::is_facing_vert(script::Struct* params, script::Script*)
 {
     render::ProbeRay feeler;
-    if (feel_ahead(params, feeler, true) && (feeler.hit_.face_flags_ & 8))
+    if (feel_ahead(params, feeler, true) && (feeler.hit().face_flags_ & 8))
         return 1;
     return 0;
 }

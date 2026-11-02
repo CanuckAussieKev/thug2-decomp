@@ -156,25 +156,25 @@ void copy3(std::array<float, 3>& to, const maths::Vec4& from) { to = {from.x, fr
 Ray line_of(const render::ProbeRay& feeler)
 {
     Ray ray{};
-    copy3(ray.start, feeler.line_.start);
-    copy3(ray.end, feeler.line_.end);
+    copy3(ray.start, feeler.line().start);
+    copy3(ray.end, feeler.line().end);
     return ray;
 }
 
 Face face_of(const render::ProbeRay& feeler)
 {
     Face face;
-    face.hit = feeler.hit_.hit;
+    face.hit = feeler.hit().hit;
     if (!face.hit)
         return face;
-    face.object = feeler.entity_.get_pull() != nullptr;
-    face.checksum = face.object ? feeler.entity_key_ : feeler.hit_.object_checksum_;
-    face.index = static_cast<int>(feeler.hit_.face);
-    face.flags = feeler.hit_.face_flags_;
-    face.terrain = feeler.hit_.terrain;
-    face.coll_obj_ = feeler.hit_.object;
-    copy3(face.point, feeler.contact_pos_);
-    copy3(face.normal, feeler.surface_dir_);
+    face.object = feeler.entity().get_pull() != nullptr;
+    face.checksum = face.object ? feeler.entity_key() : feeler.hit().object_checksum_;
+    face.index = static_cast<int>(feeler.hit().face);
+    face.flags = feeler.hit().face_flags_;
+    face.terrain = feeler.hit().terrain;
+    face.coll_obj_ = feeler.hit().object;
+    copy3(face.point, feeler.contact_pos());
+    copy3(face.normal, feeler.surface_dir());
     return face;
 }
 
@@ -339,7 +339,7 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
         return;
     auto* object = static_cast<render::HitMesh*>(face.coll_obj_);
     const render::TriMeshSource* geometry = object->geometry_;
-    if (!geometry || face.index < 0 || std::cmp_greater_equal(face.index, geometry->tri_count_))
+    if (!geometry || face.index < 0 || std::cmp_greater_equal(face.index, geometry->tri_count()))
         return;
     std::array<uint32_t, 3> index{};
     std::array<maths::Vec4, 3> raw{};
@@ -350,8 +350,8 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
         copy3(core::at(detail->corners, k), world);
     }
     detail->geometry = true;
-    copy3(detail->bounds_low_, geometry->bounds_.min);
-    copy3(detail->bounds_high_, geometry->bounds_.max);
+    copy3(detail->bounds_low_, geometry->bounds().min);
+    copy3(detail->bounds_high_, geometry->bounds().max);
     for (int k = 0; k < 3; ++k) {
         const float d = to_segment(spot, core::at(detail->corners, k), core::at(detail->corners, (k + 1) % 3));
         if (detail->edge < 0 || d < detail->edge_distance_) {
@@ -371,7 +371,7 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
         const float dz = v.z - core::at(raw, k).z;
         return dx * dx + dy * dy + dz * dz < 0.25f;
     };
-    for (int j = 0; std::cmp_less(j, geometry->tri_count_); ++j) {
+    for (int j = 0; std::cmp_less(j, geometry->tri_count()); ++j) {
         if (j == face.index)
             continue;
         bool has_a = false, has_b = false;
@@ -745,7 +745,7 @@ void checkpoint(SkaterPhysicsModule* component, const char* label)
         ++mark_ring().marker_total_;
     mark.frame = frame_loop::frames_run();
     mark.label = label;
-    copy3(mark.vel, component->entity_->vel_);
+    copy3(mark.vel, component->entity_->vel());
     mark.ray = line_of(component->feeler());
 }
 
@@ -774,23 +774,23 @@ void end_frame(SkaterPhysicsModule* component)
     const objects::GameEntity* object = object_of(component);
     Sample s = {};
     s.frame = frame_loop::frames_run();
-    s.state = component->state()->cur_phase_;
-    s.physics = component->state()->physics_mode_;
-    s.trick = component->state()->in_trick_move_ != 0;
+    s.state = component->state()->cur_phase();
+    s.physics = component->state()->physics_mode();
+    s.trick = component->state()->in_trick_move() != 0;
     const objects::RiderTeeterMoves* balance = component->balance();
-    s.balance = balance ? balance->trick_ : 0;
+    s.balance = balance ? balance->trick() : 0;
     if (objects::PadInputModule* input = component->input()) {
         // The pad's 16 buttons (0x20 bytes each from +0x20 - the first is up) and its scaled first stick.
         for (int i = 0; i < 16; ++i)
-            if (const objects::ControlButton* button = input->pad_primary_.button_at_offset(static_cast<uint32_t>(i) * 0x20u);
-                button && button->held_down_)
+            if (const objects::ControlButton* button = input->pad_primary().button_at_offset(static_cast<uint32_t>(i) * 0x20u);
+                button && button->held_down())
                 s.buttons = static_cast<uint16_t>(s.buttons | (1u << i));
-        core::at(s.stick, 0) = core::at(input->pad_primary_.scaled_stick(), 0);
-        core::at(s.stick, 1) = core::at(input->pad_primary_.scaled_stick(), 1);
+        core::at(s.stick, 0) = core::at(input->pad_primary().scaled_stick(), 0);
+        core::at(s.stick, 1) = core::at(input->pad_primary().scaled_stick(), 1);
     }
-    copy3(s.pos, object->at_point_);
-    copy3(s.vel, object->vel_);
-    copy3(s.facing, core::at(object->basis_frame_.row, 2));
+    copy3(s.pos, object->at_point());
+    copy3(s.vel, object->vel());
+    copy3(s.facing, core::at(object->basis_frame().row, 2));
     copy3(s.ground_normal_, component->floor_normal());
     s.ground = face_of(component->floor_feeler());
     s.ground_ray_ = line_of(component->floor_feeler());

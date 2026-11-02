@@ -367,14 +367,14 @@ void process_pad_input(ParkEditorInputHandler* handler)
     ParkBuilderMode* editor = handler->content_;
     editor->actions() = 0;
     const pad_input::Payload* data = handler->control_data_;
-    auto stick = [data](int event) { return static_cast<float>(static_cast<int>(core::at(data->incident_, event)) - 0x80); };
+    auto stick = [data](int event) { return static_cast<float>(static_cast<int>(core::at(data->incident(), event)) - 0x80); };
     editor->set_pad_rx(stick(pad_input::Payload::kRightX));
     editor->set_pad_ry(stick(pad_input::Payload::kRightY));
     editor->set_pad_lx(stick(pad_input::Payload::kLeftX));
     editor->set_pad_ly(stick(pad_input::Payload::kLeftY));
     uint32_t& commands = editor->actions();
-    auto made = [handler]() { return handler->control_data_->makes_; };
-    auto held = [handler]() { return handler->control_data_->buttons_; };
+    auto made = [handler]() { return handler->control_data_->makes(); };
+    auto held = [handler]() { return handler->control_data_->buttons(); };
     if (made() & 0x80) // Square
         commands |= ParkBuilderMode::kCommandTurnRight;
     if (made() & 0x20) // Circle
@@ -448,8 +448,8 @@ void ParkBuilderMode::tick_frame()
     core::at(camera.row, 3).z = static_cast<float>(static_cast<double>(cursor_pos.z) + core::at(camera.row, 3).z);
     auto* objects = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
     if (auto* cam = core::down_cast<objects::GameEntity>(objects->look_up_entity(kParkedCam))) {
-        cam->at_point_ = core::at(camera.row, 3);
-        cam->basis_frame_ = camera;
+        cam->at_point() = core::at(camera.row, 3);
+        cam->basis_frame() = camera;
     }
     if (flag_bits_ & kFlagPaused)
         return;

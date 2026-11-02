@@ -198,7 +198,7 @@ void dump_pool_usage(bool to_dump_file, bool print)
         emit();
     };
     auto pool = [&](text::FormatFor<int, int, int> format, const memory::SlabBank* p) {
-        text::format_to(line, format, p->taken_count_, p->num_, p->peak_used_);
+        text::format_to(line, format, p->taken_count(), p->num(), p->peak_used());
         emit();
     };
     auto current = [](const memory::PoolPair& pools) {

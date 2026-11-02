@@ -28,11 +28,11 @@ constexpr uint32_t kGraffitiColors = 0x7F1BA1AA; // graffitiColors
 // (0x0049E670); the viewports it shows in (0x0049E680, a mask); drawn and collided with or not (0x0049E9B0).
 inline uint32_t sector_key_from_spec(const render::WorldCell* sector)
 {
-    return sector->checksum_;
+    return sector->checksum();
 }
 inline void set_sector_colour(render::WorldCell* sector, uint32_t rgba)
 {
-    void* geometry = sector->geom_handle_;
+    void* geometry = sector->geom_handle();
     if (geometry)
         static_cast<render::Geom*>(geometry)->change_tint(rgba);
 }

@@ -112,7 +112,7 @@ void ParagraphWidget::change_typeface(uint32_t font)
     read_string_param(get_font(font), sizing_text(), &width, &height);
     const int line_height = get_truncated(static_cast<double>(height) * internal_scale_);
     line_capacity_ = get_truncated(level_y()) / line_height;
-    object_flags_ |= kVisibleNow;
+    object_flags() |= kVisibleNow;
 }
 
 // 0x004AF720 (a new line from an empty one "trims" the byte before it, as the original)
@@ -160,7 +160,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
         while (child) {
             ElementPtr next;
             next.assign_value(child->following().get_pull());
-            manager->dismantle_part(child->ident_, 1, 0, nullptr);
+            manager->dismantle_part(child->ident(), 1, 0, nullptr);
             child.assign_value(next.get_pull());
         }
     }
@@ -228,7 +228,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
         }
         line->set_font_name(font_name_);
         line->set_typeface(get_font(font_name_));
-        line->object_flags_ |= kVisibleNow;
+        line->object_flags() |= kVisibleNow;
         line->change_caption(line_buffer(lines_, first).data());
         line->change_scale(internal_scale_, internal_scale_, false, 0);
         lines_height_ =
@@ -239,7 +239,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
     memory::dealloc(*lines_);
     memory::dealloc(static_cast<void*>(lines_));
     set_focus_sent(1);
-    object_flags_ |= kVisibleNow;
+    object_flags() |= kVisibleNow;
 }
 
 // 0x004B11C0
@@ -359,13 +359,13 @@ void ParagraphWidget::change_traits(Struct* params)
 {
     UiWidget::change_traits(params);
     if (params->fetch_float(kInternalScale, &internal_scale_, 0))
-        object_flags_ |= kVisibleNow;
+        object_flags() |= kVisibleNow;
     params->fetch_float(kLineSpacing, &line_spacing_, 0);
     uint32_t font = 0;
     if (params->read_hash_value(kFont, &font, 0))
         change_typeface(font);
     if (read_alignment_param(params, kInnerAlign, &inner_align_h_, &inner_align_v_))
-        object_flags_ |= kVisibleNow;
+        object_flags() |= kVisibleNow;
     if (params->has_bare_flag(kMayGrow))
         may_grow_ = true;
     std::array<const char*, kMaxTexts> texts{};
@@ -445,7 +445,7 @@ void ParagraphWidget::blend_towards(Struct* params)
 // 0x004B1EC0 (as many lines as were made: the original doesn't check for fewer children)
 void ParagraphWidget::tick_frame()
 {
-    if (!(object_flags_ & kVisibleNow))
+    if (!(object_flags() & kVisibleNow))
         return;
     auto y = static_cast<float>((static_cast<double>(level_y()) - lines_height_) *
                                 (static_cast<double>(inner_align_v_) + get_one()) * get_half());

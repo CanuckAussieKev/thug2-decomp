@@ -395,7 +395,7 @@ void ObjectiveNpc::load_anim_bank(uint32_t stream, uint32_t anim_set)
     std::array<char, 0x20> path{};
     text::format_to(path, "fam\\%08x.fam", stream); // "fam\%08x.fam"
     assets::ResourceRegistry* assets = assets::asset_manager();
-    const int previous = assets->unknown18_;
+    const int previous = assets->unknown18();
     if (assets->load_anim(path.data(), stream, anim_set, false, false))
         fam_ = checksums::hash_from_text(path.data());
     assets->set_unknown18(previous);

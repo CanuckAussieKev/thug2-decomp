@@ -133,7 +133,7 @@ bool is_head(const memory::ListNode* node) { return node->data == memory::ListNo
 // A timeline's list node holds the timeline (its data).
 AnimTrack* track_of(memory::ListNode* node) { return core::down_cast<AnimTrack>(static_cast<AnimTimeline*>(node->data)); }
 AnimTrack* masked(memory::ListNode* node) { return is_head(node) ? nullptr : track_of(node); }
-memory::ListNode* elem(AnimTrack* timeline) { return &timeline->list_link_; }
+memory::ListNode* elem(AnimTrack* timeline) { return &timeline->list_link(); }
 
 // The playing timeline (the list's first), or null.
 AnimTrack* get_first(BlendChannel* channel)
@@ -282,7 +282,7 @@ void BlendChannel::get_reset()
     next_blend_ = 0.0f;
     if (waiting) {
         waiting_ = false;
-        if (script::Script* script = get_owner(this)->own_script_)
+        if (script::Script* script = get_owner(this)->own_script())
             script->stop_waiting();
     }
     wait_time_ = 0.0f;
@@ -321,7 +321,7 @@ void BlendChannel::release_waiting_script(script::Script* script)
 void BlendChannel::update_blend()
 {
     if (const AnimTrack* first = get_first(this))
-        prev_timeline_pos_ = first->ongoing_;
+        prev_timeline_pos_ = first->ongoing();
     if (period_left_ > 0.0f) {
         double left = period_left_ - frame_clock::get_slomo_frame_seconds();
         period_left_ = static_cast<float>(left);
@@ -336,11 +336,11 @@ void BlendChannel::update_blend()
     if (!waiting_)
         return;
     objects::GameEntity* owner = get_owner(this);
-    if (!owner->own_script_) {
-        owner->own_script_ = script::Script::create();
+    if (!owner->own_script()) {
+        owner->set_own_script(script::Script::create());
     }
     bool stop = false;
-    if (!owner->own_script_->is_blocked(false)) {
+    if (!owner->own_script()->is_blocked(false)) {
         stop = true;
     } else {
         float start = 0.0f, current = 0.0f, end = 0.0f;
@@ -352,7 +352,7 @@ void BlendChannel::update_blend()
             stop = start >= end && current <= wait_time_;
     }
     if (stop) {
-        owner->own_script_->stop_waiting();
+        owner->own_script()->stop_waiting();
         waiting_ = false;
     }
 }
@@ -404,9 +404,9 @@ void BlendChannel::push_timeline(float period)
                 auto* timeline = track_of(node);
                 if (timeline->is_fading())
                     others =
-                        static_cast<float>(static_cast<double>(timeline->fade_scale_) * timeline->fade_left_ + others);
+                        static_cast<float>(static_cast<double>(timeline->fade_scale()) * timeline->fade_left() + others);
             }
-            first->fade_scale_ = static_cast<float>((1.0 - others) / first->fade_left_);
+            first->set_fade_scale(static_cast<float>((1.0 - others) / first->fade_left()));
         }
     }
     void* memory = new_timeline(sizeof(AnimTrack));
@@ -428,11 +428,11 @@ bool BlendChannel::blend_pose(int index)
         return false;
     skeleton->set_lod(blender_->distance_squared_);
     const int count = count_list_items(&timelines_);
-    const RigData* data = skeleton->payload_;
+    const RigData* data = skeleton->payload();
     for (int i = 0; i < count; ++i) {
         // (each pose's translations start as the skeleton's bind translations)
         Stance& pose = core::at(current_poses(), i);
-        std::memcpy(pose.translations.data(), data->bind_translations_,
+        std::memcpy(pose.translations.data(), data->bind_translations(),
                     static_cast<size_t>(skeleton->get_num_bones() & 0x0FFFFFFF) * 16);
         fetch_pose(i, &pose, &core::at(blend_weights(), i));
     }
@@ -495,7 +495,7 @@ void BlendChannel::toggle_flipped()
 {
     const net::AppHost* app = net_session_slot()->fetch_patron(0);
     const uint32_t unused = app->clock();
-    set_flipped(get_owner(this)->ident_, !((flag_bits_ >> 29) & 1), unused, true);
+    set_flipped(get_owner(this)->ident(), !((flag_bits_ >> 29) & 1), unused, true);
 }
 
 // 0x0047E010
@@ -519,14 +519,14 @@ bool BlendChannel::is_cycling()
     const AnimTrack* first = get_first(this);
     if (!first)
         return false;
-    return first->repeat_mode_ == AnimTimeline::kCycle || first->repeat_mode_ == AnimTimeline::kPingPong;
+    return first->repeat_mode() == AnimTimeline::kCycle || first->repeat_mode() == AnimTimeline::kPingPong;
 }
 
 // 0x0047DF50
 bool BlendChannel::is_anim_one_of(Struct* params, script::Script* /*script*/)
 {
     const AnimTrack* first = get_first(this);
-    const uint32_t anim = first ? first->anim_ : 0;
+    const uint32_t anim = first ? first->anim() : 0;
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
         if (component->name)
@@ -560,7 +560,7 @@ bool BlendChannel::is_anim_one_of(Struct* params, script::Script* /*script*/)
 void BlendChannel::choose_wobble_goal(float target, bool send)
 {
     if (send && ident_ == 0) {
-        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
+        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
             net::Guest* app = client_of(player);
             if (target < 0.0f)
                 target = 0.0f;
@@ -568,7 +568,7 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
                 target = 1.0f;
             std::array<uint8_t, 2> data{};
             core::at(data, 1) = static_cast<uint8_t>(get_truncated(target * 255.0)); // (0x00646B88)
-            core::at(data, 0) = static_cast<uint8_t>(get_owner(this)->ident_);
+            core::at(data, 0) = static_cast<uint8_t>(get_owner(this)->ident());
             if (last_wobble_target() != core::at(data, 1)) {
                 net::NetMessageInfo message;
                 post_out(app, message, kMsgWobbleTarget, data.data(), 2, true);
@@ -588,7 +588,7 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
 void BlendChannel::set_wobble_details(std::span<const float, 5> details, bool send)
 {
     if (send && ident_ == 0) {
-        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
+        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
             net::Guest* app = client_of(player);
             // Which of its known values each detail has (0x00645D6C... - the server sends those).
             uint8_t bits = 0;
@@ -604,7 +604,7 @@ void BlendChannel::set_wobble_details(std::span<const float, 5> details, bool se
             const uint8_t b4 = core::at(details, 4) == 1.5f ? 0 : core::at(details, 4) == 1.0f ? 1 : 0;
             std::array<uint8_t, 2> data{};
             core::at(data, 0) = static_cast<uint8_t>(bits | b1 << 2 | b2 << 3 | b3 << 4 | b4 << 5);
-            core::at(data, 1) = static_cast<uint8_t>(get_owner(this)->ident_);
+            core::at(data, 1) = static_cast<uint8_t>(get_owner(this)->ident());
             if (last_wobble_details() != core::at(data, 0)) {
                 net::NetMessageInfo message;
                 post_out(app, message, kMsgWobbleDetails, data.data(), 2, true);
@@ -628,9 +628,9 @@ void BlendChannel::set_wobble_details(std::span<const float, 5> details, bool se
 void BlendChannel::change_repeat_mode(int loop_type, bool send)
 {
     if (send && ident_ == 0) {
-        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
+        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
             net::Guest* app = client_of(player);
-            std::array<uint8_t, 2> data = {{static_cast<uint8_t>(get_owner(this)->ident_), static_cast<uint8_t>(loop_type)}};
+            std::array<uint8_t, 2> data = {{static_cast<uint8_t>(get_owner(this)->ident()), static_cast<uint8_t>(loop_type)}};
             if (last_loop_type() != loop_type) {
                 net::NetMessageInfo message;
                 post_out(app, message, kMsgLoopType, data.data(), 2, false);
@@ -639,14 +639,14 @@ void BlendChannel::change_repeat_mode(int loop_type, bool send)
         }
     }
     if (AnimTrack* first = get_first(this))
-        first->repeat_mode_ = loop_type;
+        first->set_repeat_mode(loop_type);
 }
 
 // 0x0047E810
 void BlendChannel::get_reverse(uint32_t /*unused*/)
 {
     if (AnimTrack* first = get_first(this))
-        first->direction_ = first->direction_ != 0 ? 0 : -1;
+        first->set_direction(first->direction() != 0 ? 0 : -1);
 }
 
 // 0x0047E850 (x87: the range and the ratio's products unrounded)
@@ -655,15 +655,15 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
     const AnimTrack* first = get_first(this);
     if (!first)
         return;
-    if (!all && std::abs(static_cast<double>(first->speed_) * kFramesPerSecond - speed) < 0.05f) // (0x00645D6C)
+    if (!all && std::abs(static_cast<double>(first->speed()) * kFramesPerSecond - speed) < 0.05f) // (0x00645D6C)
         return;
     if (send && ident_ == 0) {
-        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
+        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
             if (net::Guest* app = client_of(player)) {
                 net::NetMessageInfo message;
                 online::AnimSpeedMessage sent;
                 sent.speed_bits = std::bit_cast<uint32_t>(speed);
-                sent.object_id = static_cast<uint8_t>(get_owner(this)->ident_);
+                sent.object_id = static_cast<uint8_t>(get_owner(this)->ident());
                 std::array<uint8_t, online::kAnimSpeedSize> data{};
                 util::ByteWriter writer(data.data(), sizeof(data));
                 online::write_anim_speed(writer, sent);
@@ -672,7 +672,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
         }
     }
     if (!all) {
-        get_first(this)->speed_ = speed * kSecondsPerFrame;
+        get_first(this)->set_speed(speed * kSecondsPerFrame);
         return;
     }
     if (keep_ratio) {
@@ -682,7 +682,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
         for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next) {
             auto* timeline = track_of(node);
             timeline->get_times(&start, &current, &end);
-            timeline->speed_ = static_cast<float>((static_cast<double>(end) - start) * ratio * kSecondsPerFrame);
+            timeline->set_speed(static_cast<float>((static_cast<double>(end) - start) * ratio * kSecondsPerFrame));
         }
     } else {
         memory::ListNode* node = timelines_.next;
@@ -690,7 +690,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
             return;
         const float per_frame = speed * kSecondsPerFrame;
         for (; !is_head(node) && node; node = node->next)
-            track_of(node)->speed_ = per_frame;
+            track_of(node)->set_speed(per_frame);
     }
 }
 
@@ -700,7 +700,7 @@ double BlendChannel::get_speed(Struct* /*params*/, script::Script* /*script*/)
     const AnimTrack* first = get_first(this);
     if (!first)
         return 0.0;
-    return static_cast<double>(first->speed_) * kFramesPerSecond;
+    return static_cast<double>(first->speed()) * kFramesPerSecond;
 }
 
 // 0x0047EA80
@@ -708,7 +708,7 @@ void BlendChannel::set_events_on(bool on)
 {
     if (AnimTrack* first = get_first(this)) {
         events_on_ = on;
-        first->events_on_ = on;
+        first->set_events_on(on);
     }
 }
 
@@ -769,13 +769,13 @@ void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int
     if (!anim)
         anim = kDefault;
     if (send && ident_ == 0) {
-        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident_)) {
+        if (online::PlayerRecord* player = find_own_player_record(get_owner(this)->ident())) {
             net::NetMessageInfo message;
             net::Guest* app = client_of(player);
             // loop type, object, anim, then the times, blend period and speed x 4096 as shorts
             online::PlayAnimMessage sent;
             sent.loop_type = static_cast<uint8_t>(loop_type);
-            sent.object_id = static_cast<uint8_t>(get_owner(this)->ident_);
+            sent.object_id = static_cast<uint8_t>(get_owner(this)->ident());
             sent.anim = anim;
             sent.from = static_cast<uint16_t>(get_truncated(from * kFixedPoint));
             sent.to = static_cast<uint16_t>(get_truncated(to * kFixedPoint));
@@ -792,7 +792,7 @@ void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int
     push_timeline(blend_period);
     masked(timelines_.next)
         ->play_anim(anim, from, to, loop_type, blend_period, speed, ((flag_bits_ >> 29) & 1) != 0, params);
-    if (Struct* tags = get_owner(this)->tag_table_)
+    if (Struct* tags = get_owner(this)->tag_table())
         tags->erase_module(kAnimTags);
     set_anim_tags(anim);
 }
@@ -832,7 +832,7 @@ void BlendChannel::configure_from_data(Struct* params)
 uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* script, float blend_period)
 {
     if (const AnimTrack* first = get_first(this))
-        prev_timeline_pos_ = first->ongoing_;
+        prev_timeline_pos_ = first->ongoing();
     if (flag_4e_) {
         AnimTrack* first = get_first(this);
         if (!first || !first->is_accomplished())
@@ -847,7 +847,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     float speed = 1.0f;
     params->fetch_float(kSpeed, &speed, 0);
     const AnimTrack* first = get_first(this);
-    const uint32_t playing = first ? first->anim_ : 0;
+    const uint32_t playing = first ? first->anim() : 0;
     if (anim == kCurrent) {
         anim = playing;
     } else if (playing == anim && params->has_bare_flag(0xFE09FE09)) { // NoRestart
@@ -916,7 +916,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     AnimTrack* timeline = masked(timelines_.next);
     if (start != 0.0f)
         timeline->advance_clock(start);
-    timeline->events_on_ = events_on_;
+    timeline->set_events_on(events_on_);
 
     uint32_t partial = 0;
     if (params->read_hash_value(0x6C565F57, &partial, 0)) { // PartialAnimOverlay: a partial animation controller too
@@ -999,7 +999,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
     case kObjPlayAnim: {
         play_anim_from_script(params, script, kStockCrossfade);
         memory::ListNode* node = timelines_.next;
-        if (!is_head(node) && node && track_of(node)->repeat_mode_ == AnimTimeline::kHold)
+        if (!is_head(node) && node && track_of(node)->repeat_mode() == AnimTimeline::kHold)
             owner_ptr_
                 ->invoke_method_by_name(0xEA6D0EFDu, params,
                                         script); // (the object's own member function: the original's slot 3)
@@ -1020,7 +1020,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
             float start = 0.0f, current = 0.0f, end = 0.0f;
             timeline->get_times(&start, &current, &end);
             const float larger = start > end ? start : end;
-            timeline->speed_ = static_cast<float>(larger / static_cast<double>(duration) * kSecondsPerFrame);
+            timeline->set_speed(static_cast<float>(larger / static_cast<double>(duration) * kSecondsPerFrame));
         }
         return 1;
     }
@@ -1108,14 +1108,14 @@ int BlendChannel::wait_anim(Struct* params)
     if (forwards ? wait_time_ > end : wait_time_ < end)
         wait_time_ = end;
     objects::GameEntity* owner = get_owner(this);
-    if (!owner->own_script_) {
-        owner->own_script_ = script::Script::create();
+    if (!owner->own_script()) {
+        owner->set_own_script(script::Script::create());
     }
     if ((start <= end && current >= wait_time_) || (start >= end && current <= wait_time_)) {
-        owner->own_script_->stop_waiting(); // (already there)
+        owner->own_script()->stop_waiting(); // (already there)
         waiting_ = false;
     } else {
-        owner->own_script_->gate_off(0);
+        owner->own_script()->gate_off(0);
         waiting_ = true;
     }
     return 1;

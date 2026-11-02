@@ -813,15 +813,15 @@ objects::GrindRailHub* get_rails()
 {
     const modules::Skate* skate = modules::Skate::sole();
     auto* manager = skate ? skate->rail_manager().get() : nullptr;
-    return manager && !manager->on_object_ ? manager : nullptr;
+    return manager && !manager->on_object() ? manager : nullptr;
 }
 
 objects::GrindPoint* rail_node_named(uint32_t name)
 {
     const objects::GrindRailHub* rails = get_rails();
-    if (!rails || !rails->nodes_)
+    if (!rails || !rails->nodes())
         return nullptr;
-    for (int i = 0; i < rails->num_; ++i) {
+    for (int i = 0; i < rails->num(); ++i) {
         if (core::at(rails->node_run(), i).label_ == name)
             return &core::at(rails->node_run(), i);
     }
@@ -1246,7 +1246,7 @@ void cuboid(objects::GrindPoint* node)
 void get_remake(uint32_t name)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
-    if (object && !(object->object_flags_ & objects::kObjectFlagDead))
+    if (object && !(object->object_flags() & objects::kObjectFlagDead))
         object->flag_as_dead();
     if (std::ranges::find(level_editor_chains_state().remake_, name) == level_editor_chains_state().remake_.end())
         level_editor_chains_state().remake_.push_back(name);
@@ -1294,7 +1294,7 @@ void rebuild_rails()
     objects::GrindRailHub* rails = get_rails();
     if (!rails)
         return;
-    const std::span<objects::GrindPoint> old(rails->nodes_, rails->nodes_ ? static_cast<size_t>(rails->num_) : 0);
+    const std::span<objects::GrindPoint> old(rails->nodes(), rails->nodes() ? static_cast<size_t>(rails->num()) : 0);
     const int old_count = static_cast<int>(old.size());
     // The nodes: the ones it has whose node is still there (a dropped one too - kept switched off, so the editor's
     // moves of it stay), then the overlay's new rail points.
@@ -1331,13 +1331,13 @@ void rebuild_rails()
     const std::span<objects::GrindPoint> nodes(nodes_block, static_cast<size_t>(count));
     for (size_t i = 0; i < kept.size(); ++i)
         core::at(nodes, i) = core::at(old, core::at(kept, i));
-    rails->nodes_ = nodes_block;
-    rails->num_ = count;
+    rails->set_nodes(nodes_block);
+    rails->set_num(count);
     for (size_t i = 0; i < added.size(); ++i) {
-        rails->adding_ = static_cast<int>(kept.size() + i);
+        rails->set_adding(static_cast<int>(kept.size() + i));
         rails->append_vertex(core::at(added, i).first, core::at(added, i).second); // (the game's own: flags, place, terrain)
     }
-    rails->adding_ = count;
+    rails->set_adding(count);
     // On / off: dropped points off (their state noted first), shown ones back as they were.
     std::unordered_map<uint32_t, int> index;
     for (int i = 0; i < count; ++i) {
@@ -1638,17 +1638,17 @@ namespace {
 // point marked so, or a node carrying the flag ed_grind_flat (a level baked by apply_layout.ts).
 void refresh_flat(objects::GrindRailHub* rails)
 {
-    if (flat_chains().flat_cache_.nodes == rails->nodes_ && flat_chains().flat_cache_.count == rails->num_ &&
+    if (flat_chains().flat_cache_.nodes == rails->nodes() && flat_chains().flat_cache_.count == rails->num() &&
         flat_chains().flat_cache_.generation == flat_chains().flat_generation_)
         return;
-    flat_chains().flat_cache_.nodes = rails->nodes_;
-    flat_chains().flat_cache_.count = rails->num_;
+    flat_chains().flat_cache_.nodes = rails->nodes();
+    flat_chains().flat_cache_.count = rails->num();
     flat_chains().flat_cache_.generation = flat_chains().flat_generation_;
     flat_chains().flat_cache_.marked.clear();
-    if (!rails->nodes_ || !level_nodes::node_manager_instance())
+    if (!rails->nodes() || !level_nodes::node_manager_instance())
         return;
     static const uint32_t kFlag = name_hash("ed_grind_flat");
-    for (int i = 0; i < rails->num_; ++i) {
+    for (int i = 0; i < rails->num(); ++i) {
         const objects::GrindPoint* node = &core::at(rails->node_run(), i);
         if ((node->flag_bits_ & objects::kRailFlagClimbing) || !node->succ_)
             continue;
@@ -1765,14 +1765,14 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
 {
     std::vector<SpeedSegment> out;
     const objects::GrindRailHub* rails = get_rails();
-    if (!rails || !rails->nodes_ || !level_nodes::node_manager_instance())
+    if (!rails || !rails->nodes() || !level_nodes::node_manager_instance())
         return out;
     // (the level's own RailAccelerate points: found once for each rail manager array)
-    if (level_speed_cache().nodes != rails->nodes_ || level_speed_cache().count != rails->num_) {
-        level_speed_cache().nodes = rails->nodes_;
-        level_speed_cache().count = rails->num_;
+    if (level_speed_cache().nodes != rails->nodes() || level_speed_cache().count != rails->num()) {
+        level_speed_cache().nodes = rails->nodes();
+        level_speed_cache().count = rails->num();
         level_speed_cache().found.clear();
-        for (int i = 0; i < rails->num_; ++i) {
+        for (int i = 0; i < rails->num(); ++i) {
             const objects::GrindPoint* node = &core::at(rails->node_run(), i);
             script::Struct* params = node->succ_ ? look_up_node_params(node->label_) : nullptr;
             uint32_t script = 0;
@@ -1840,7 +1840,7 @@ void tick()
     // made a new level's - its Cleanup freed ours - or there are none).
     if (!level_editor_chains_state().retired_.empty()) {
         const objects::GrindRailHub* rails = get_rails();
-        if (!rails || rails->nodes_ != level_editor_chains_state().built_) {
+        if (!rails || rails->nodes() != level_editor_chains_state().built_) {
             for (void* nodes : level_editor_chains_state().retired_)
                 memory::free_malloc(nodes);
             level_editor_chains_state().retired_.clear();
@@ -1908,7 +1908,7 @@ bool move_added_point(uint32_t name, V3 pos)
         if (rail->at_point_.x != pos.x || rail->at_point_.y != pos.y || rail->at_point_.z != pos.z) {
             rail->at_point_ = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
             const objects::GrindRailHub* rails = get_rails();
-            for (int i = 0; i < rails->num_; ++i) {
+            for (int i = 0; i < rails->num(); ++i) {
                 if (&core::at(rails->node_run(), i) == rail || core::at(rails->node_run(), i).succ_ == rail)
                     cuboid(&core::at(rails->node_run(), i));
             }
@@ -2571,12 +2571,12 @@ bool cast_ray(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const auto& n = ray->hit_.normal;
-    const auto& p = ray->hit_.point;
+    const auto& n = ray->hit().normal;
+    const auto& p = ray->hit().point;
     *normal = {.x = n[0], .y = n[1], .z = n[2]};
     *hit = {.x = p[0], .y = p[1], .z = p[2]};
     if (sector)
-        *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
+        *sector = ray->hit().object ? ray->hit().object_checksum_ : 0;
     return true;
 }
 

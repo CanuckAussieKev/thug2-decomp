@@ -72,6 +72,19 @@ public:
     // The sort order against `other` (render_primitives: below 0 goes before it).
     virtual int weigh(const Primitive* other); // 0x0049C640
 
+    // The fields other code reads and sets.
+    Primitive*& following() { return following_; }
+    [[nodiscard]] Primitive* following() const { return following_; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] uint32_t blend_mode() const { return blend_mode_; }
+    void set_blend_mode(uint32_t value) { blend_mode_ = value; }
+    [[nodiscard]] int owns_vertices() const { return owns_vertices_; }
+    void set_unknown14(uint8_t value) { unknown14 = value; }
+    [[nodiscard]] bool ready() const { return ready_; }
+    void set_ready(bool value) { ready_ = value; }
+
+private:
     Primitive* following_ = nullptr; // +0x04: in the new or the drawing list
     uint32_t flag_bits_ = 0;         // +0x08: 0x100 on the list of new ones (the PC class's: 1 made, 2 set up, 4 ready)
     uint32_t blend_mode_{0x54628ED7}; // +0x0C: a checksum
@@ -80,11 +93,15 @@ public:
     bool ready_ = false;             // +0x15: readied (get_ready): drawn by render_primitives
     std::array<uint8_t, 6> unknown16{};
     uint32_t unknown1c_ = 0; // +0x1C
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(Primitive, flag_bits_) == 0x08 && offsetof(Primitive, owns_vertices_) == 0x10 &&
+                          offsetof(Primitive, ready_) == 0x15 && offsetof(Primitive, unknown1c_) == 0x1C &&
+                          sizeof(Primitive) == 0x20,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(Primitive, flag_bits_) == 0x08 && offsetof(Primitive, owns_vertices_) == 0x10 &&
-                  offsetof(Primitive, ready_) == 0x15 && offsetof(Primitive, unknown1c_) == 0x1C &&
-                  sizeof(Primitive) == 0x20,
-              "layout must match the original");
 
 // 0x0049C7D0 (cdecl): `primitive` put first on the list of new ones (flag 0x100).
 void link_primitive(Primitive* primitive);

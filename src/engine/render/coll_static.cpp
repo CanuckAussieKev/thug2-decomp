@@ -98,7 +98,7 @@ HitMesh* StaticCollider::replicate(int argument)
         copy->flag_bits_ |= kOwnsGeometry;
         copy->geometry_ = geometry;
         if (!instance && octets_) {
-            const uint32_t size = geometry_->tri_count_;
+            const uint32_t size = geometry_->tri_count();
             memory::push_mem_profile("Collision face-rejection optimization");
             memory::enter_heap_scope(memory::bottom_up_heap());
             copy->octets_ = static_cast<uint8_t*>(memory::alloc_block(size));
@@ -137,13 +137,13 @@ maths::Vec4 StaticCollider::read_vertex_point(int index) const
 // 0x00410C70
 bool StaticCollider::inside_bounds(const maths::BBox* box)
 {
-    return box->intersects(geometry_->bounds_);
+    return box->intersects(geometry_->bounds());
 }
 
 // 0x00412750
 const maths::BBox* StaticCollider::get_world_bounds()
 {
-    return &geometry_->bounds_;
+    return &geometry_->bounds();
 }
 
 // 0x00412840
@@ -168,8 +168,8 @@ void CollStaticInstance::set_shared_geometry(TriMeshSource* geometry)
 {
     flag_bits_ |= kOwnsGeometry | kSharedGeometry;
     geometry_ = geometry;
-    world_box_.min = geometry->bounds_.min;
-    world_box_.max = geometry->bounds_.max;
+    world_box_.min = geometry->bounds().min;
+    world_box_.max = geometry->bounds().max;
     octets_ = nullptr;
 }
 
@@ -201,7 +201,7 @@ void CollStaticInstance::recompute_world_bounds()
 {
     world_box_.min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
     world_box_.max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
-    const int count = geometry_->num_vertices_;
+    const int count = geometry_->num_vertices();
     for (int i = 0; i < count; ++i) {
         maths::Vec4 raw{};
         geometry_->read_stored_vertex(i, &raw);
@@ -243,7 +243,7 @@ HitMovingTriangles::HitMovingTriangles(TriMeshSource* geometry)
 {
     assign_shape_data(geometry);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    unknownd0_ = geometry->unknown3c_;
+    unknownd0_ = geometry->unknown3c();
     box_dirty_ = true;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
@@ -268,9 +268,9 @@ void HitMovingTriangles::assign_shape_data(TriMeshSource* geometry)
 {
     geometry_ = geometry;
     if (geometry)
-        checksum_ = geometry->checksum_;
+        checksum_ = geometry->checksum();
     radius_ = 0.0f;
-    for (int i = 0; std::cmp_less(i, geometry->num_vertices_); ++i) {
+    for (int i = 0; std::cmp_less(i, geometry->num_vertices()); ++i) {
         const maths::Vec4 v = geometry_->read_stored_vertex(i);
         const double length = std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
                                         static_cast<double>(v.z) * v.z);
@@ -360,8 +360,8 @@ gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometry_ar
         if (count >= 1) {
             maths::BBox bounds;
             for (int i = 0; i < count; ++i) {
-                bounds.append_spot(core::at(geometries, i).bounds_.min);
-                bounds.append_spot(core::at(geometries, i).bounds_.max);
+                bounds.append_spot(core::at(geometries, i).bounds().min);
+                bounds.append_spot(core::at(geometries, i).bounds().max);
             }
             box->box_ = bounds;
         }

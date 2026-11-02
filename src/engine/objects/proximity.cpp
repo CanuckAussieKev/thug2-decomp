@@ -63,7 +63,7 @@ const maths::Mat4* sector_world_matrix(void* sector) { return static_cast<render
 // the original passed `offset`'s address as its second argument, which isn't read).
 bool sector_contains(void* sector, const maths::Vec4* point, maths::Vec4* /*offset*/)
 {
-    render::HitMesh* collision = static_cast<render::WorldCell*>(sector)->hit_body_;
+    render::HitMesh* collision = static_cast<render::WorldCell*>(sector)->hit_body();
     return collision->is_point_behind_faces(point, 0);
 }
 // The level sector named `name` (null if none).
@@ -79,9 +79,9 @@ void execute_node_script(ProximityRegistry* manager, ProximNode* node, Entity* o
     if (object) {
         object->start_script_task(node->own_script(), static_cast<int>(node->label()), false, false, nullptr);
         if (entering)
-            node->get_is_within() |= 1u << object->ident_;
+            node->get_is_within() |= 1u << object->ident();
         else
-            node->get_is_within() &= ~(1u << object->ident_);
+            node->get_is_within() &= ~(1u << object->ident());
     } else {
         script::launch_script(node->own_script(), nullptr, nullptr, false, nullptr);
     }
@@ -338,7 +338,7 @@ void nearby_zone_add_node(uint32_t name, bool active)
     node->set_active(true);
     int id = 0;
     for (Entity* skater = entity_for_id(0); skater && id < kSkaterSlots; skater = entity_for_id(++id)) {
-        if (core::down_cast<GameEntity>(skater)->is_local_skater_)
+        if (core::down_cast<GameEntity>(skater)->is_local_skater())
             node->get_is_within() |= 1u << id;
     }
     node->change_live(false);
@@ -364,9 +364,9 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
                 execute_node_script(manager, node, object, true);
             } else if (object) {
                 gsl::owner<GameEntity*> made = entity_hub_handle()->create_composite_object();
-                made->change_serial(node->entity_key() + object->ident_);
-                made->at_point_ = node->at_point();
-                node->entities() |= 1u << object->ident_;
+                made->change_serial(node->entity_key() + object->ident());
+                made->at_point() = node->at_point();
+                node->entities() |= 1u << object->ident();
                 script::Struct params;
                 if (node->sector())
                     params.put_name_key(kOwnerSectorKey, node->label());
@@ -385,9 +385,9 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
             if (node->entity_key() == 0) {
                 execute_node_script(manager, node, object, false);
             } else if (object) {
-                if (Entity* made = entity_for_id(node->entity_key() + object->ident_))
+                if (Entity* made = entity_for_id(node->entity_key() + object->ident()))
                     flag_as_dead(made);
-                node->entities() &= ~(1u << object->ident_);
+                node->entities() &= ~(1u << object->ident());
             }
         }
     }

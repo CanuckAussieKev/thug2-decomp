@@ -165,7 +165,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         color = ambient;
     else
         fetch_ambient_hue(&color);
-    send_color(std::span<float>(ambient_constant()).first<3>(), color, size_factor_);
+    send_color(std::span<float>(ambient_constant()).first<3>(), color, size_factor());
     for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
         if (overrides & (2u << (i & 31))) {
             send_color(light_color_constant(i), core::at(colors_of(*this), i), core::at(intensities(), i));
@@ -187,7 +187,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
     }
     for (uint32_t j = 0; j < count; ++j) {
         DynamicLightBase* light = core::at(dynamic, j);
-        const auto& at = light->pos;
+        const auto& at = light->pos_value();
         double dx = static_cast<double>(position->x) - core::at(at, 0);
         double dy = static_cast<double>(position->y) - core::at(at, 1);
         const double dz = static_cast<double>(position->z) - core::at(at, 2);
@@ -208,10 +208,10 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         core::at(direction, 0) = static_cast<float>(dx);
         core::at(direction, 1) = static_cast<float>(dy);
         core::at(direction, 2) = zf;
-        if (light->type == 1) {
-            const double factor = (1.0 - falloff) * light->intensity * kPer255;
+        if (light->type_value() == 1) {
+            const double factor = (1.0 - falloff) * light->intensity_value() * kPer255;
             const std::span<float, 3> out = light_color_constant(first_dynamic_ + j);
-            const colour::Bytes colour = colour::bytes_of(light->colour); // (its r, g, b bytes)
+            const colour::Bytes colour = colour::bytes_of(light->colour_value()); // (its r, g, b bytes)
             for (int k = 0; k < 3; ++k)
                 core::at(out, k) = static_cast<float>(core::at(colour, k) * factor);
         }

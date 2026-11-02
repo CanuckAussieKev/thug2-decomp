@@ -54,9 +54,9 @@ bool set_squared_radius(script::Struct* params, float& radius)
 
 double get_distance_squared(const GameEntity* a, const GameEntity* b)
 {
-    const double dx = static_cast<double>(a->at_point_.x) - b->at_point_.x;
-    const double dy = static_cast<double>(a->at_point_.y) - b->at_point_.y;
-    const double dz = static_cast<double>(a->at_point_.z) - b->at_point_.z;
+    const double dx = static_cast<double>(a->at_point().x) - b->at_point().x;
+    const double dy = static_cast<double>(a->at_point().y) - b->at_point().y;
+    const double dz = static_cast<double>(a->at_point().z) - b->at_point().z;
     return (dx * dx + dz * dz) + dy * dy;
 }
 
@@ -83,7 +83,7 @@ double ObjectProximityComponent::local_skater_distance_squared(uint32_t* skater_
     auto* skater = modules::Skate::sole()->get_home_rider();
     if (!skater || skater == entity_)
         return far_away();
-    *skater_id = skater->ident_;
+    *skater_id = skater->ident();
     return get_distance_squared(skater, entity_);
 }
 
@@ -100,7 +100,7 @@ float ObjectProximityComponent::nearest_skater_distance_squared(uint32_t* skater
         const double distance = get_distance_squared(skater, entity_);
         if (distance < nearest) {
             nearest = static_cast<float>(distance);
-            *skater_id = skater->ident_;
+            *skater_id = skater->ident();
         }
     }
     return nearest;
@@ -134,7 +134,7 @@ void ObjectProximityComponent::tick_frame()
             data->put_name_key(0xF79C90AE, id);
             data->put_int(0xDB1E28CD, static_cast<int>(id));
             event(0x7048029A, data);
-            if (!(entity_->object_flags_ & kObjectFlagDead))
+            if (!(entity_->object_flags() & kObjectFlagDead))
                 event(0xF5B2A042, data);
             delete_data(data);
         } else {
@@ -152,7 +152,7 @@ void ObjectProximityComponent::tick_frame()
     if (outer_radius_squared_ != 0.0f) {
         if (distance == 0.0f)
             distance = nearest_skater_distance_squared(&id);
-        if (distance >= outer_radius_squared_ && !(entity_->object_flags_ & kObjectFlagDead)) {
+        if (distance >= outer_radius_squared_ && !(entity_->object_flags() & kObjectFlagDead)) {
             gsl::owner<script::Struct*> data = new_data();
             data->put_name_key(0x873A40D0, id);
             data->put_int(0x5F3602F5, static_cast<int>(id));
@@ -166,7 +166,7 @@ void ObjectProximityComponent::tick_frame()
         if (distance <= inner_avoid_radius_squared_) {
             gsl::owner<script::Struct*> data = new_data();
             data->put_name_key(0xF79C90AE, id);
-            if (!(entity_->object_flags_ & kObjectFlagDead))
+            if (!(entity_->object_flags() & kObjectFlagDead))
                 event(0xD69BD3DE, data);
             delete_data(data);
         }
@@ -174,13 +174,13 @@ void ObjectProximityComponent::tick_frame()
     if (outer_avoid_radius_squared_ != 0.0f) {
         if (distance == 0.0f)
             distance = static_cast<float>(local_skater_distance_squared(&id));
-        if (distance >= outer_avoid_radius_squared_ && !(entity_->object_flags_ & kObjectFlagDead))
+        if (distance >= outer_avoid_radius_squared_ && !(entity_->object_flags() & kObjectFlagDead))
             event(0x35FDAFAE, nullptr);
     }
     if (attention_radius_squared_ != 0.0f) {
         if (distance == 0.0f)
             distance = static_cast<float>(local_skater_distance_squared(&id));
-        dead = (entity_->object_flags_ & kObjectFlagDead) != 0;
+        dead = (entity_->object_flags() & kObjectFlagDead) != 0;
         if (!dead)
             event(distance <= attention_radius_squared_ ? 0xA06C9031 : 0x9C1CDE7A, nullptr);
     }

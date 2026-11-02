@@ -47,17 +47,17 @@ void ViewpointModule::configure_from_data(script::Struct*)
 // 0x0041B810
 void ViewpointModule::seal()
 {
-    view_camera_->change_location(entity_->at_point_);
-    view_camera_->change_mat(entity_->basis_frame_);
+    view_camera_->change_location(entity_->at_point());
+    view_camera_->change_mat(entity_->basis_frame());
 }
 
 // 0x0041B8A0
 void ViewpointModule::tick_frame()
 {
-    const maths::Vec4 pos = entity_->at_point_;
+    const maths::Vec4 pos = entity_->at_point();
     maths::Mat4 matrix{};
-    matrix = entity_->basis_frame_;
-    entity_->display_matrix_ = matrix;
+    matrix = entity_->basis_frame();
+    entity_->display_matrix() = matrix;
     view_camera_->change_location(pos);
     view_camera_->change_mat(matrix);
 }

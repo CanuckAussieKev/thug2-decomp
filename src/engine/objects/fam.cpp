@@ -105,7 +105,7 @@ void FamComponent::load_anim_bank(uint32_t name, uint32_t anim_set)
                     name); // (the original: the game's sprintf, 0x006234FE)
     debug::printf("loading %s\n", file_name.data());
     assets::ResourceRegistry* assets = asset_manager();
-    const int saved = assets->unknown18_;
+    const int saved = assets->unknown18();
     if (assets->load_anim(file_name.data(), name, anim_set, false, false)) {
         debug::printf("loaded\n");
         fam_ = checksums::hash_from_text(file_name.data());

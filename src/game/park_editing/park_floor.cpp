@@ -104,9 +104,9 @@ void ParkLayout::generate_node_array()
         feeler.change_finish(&end);
         if (feeler.get_hit_shape(true, false)) {
             if (i >= 2 && i <= 5)
-                point.y = feeler.contact_pos_.y;
+                point.y = feeler.contact_pos().y;
             else
-                point.y = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) + kGridStepUp);
+                point.y = static_cast<float>(static_cast<double>(feeler.contact_pos().y) + kGridStepUp);
         }
         builder_->plant_restart_point(&point, 0, &pos, type, 1, flag);
         // (the feeler's destructor lets go of what it hit)

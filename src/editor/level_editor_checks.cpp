@@ -271,13 +271,13 @@ bool get_cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const auto& n = ray->hit_.normal;
-    const auto& p = ray->hit_.point;
+    const auto& n = ray->hit().normal;
+    const auto& p = ray->hit().point;
     *hit = {.x = p[0], .y = p[1], .z = p[2]};
     if (normal)
         *normal = {.x = n[0], .y = n[1], .z = n[2]};
     if (sector)
-        *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
+        *sector = ray->hit().object ? ray->hit().object_checksum_ : 0;
     return true;
 }
 
@@ -585,7 +585,7 @@ void check_collision(std::vector<Issue>* out)
         }
         const bool moved = s.placement.quarters != 0 || !is_unit_scale(s.placement.scale) ||
                            s.placement.offset.x != 0.0f || s.placement.offset.y != 0.0f || s.placement.offset.z != 0.0f;
-        const bool own = sector->hit_body_ != nullptr; // (its collision object - WorldCell +0x18)
+        const bool own = sector->hit_body() != nullptr; // (its collision object - WorldCell +0x18)
         if (moved && !own && !companion && scenery::sector_geometry(s.checksum)) {
             issue.rule = Rule::kCollisionLeft;
             issue.severity = Severity::kDetailsOf;

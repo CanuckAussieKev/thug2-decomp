@@ -494,7 +494,7 @@ void BodyDynamicsModule::resolve_contacts()
 // 0x00430BE0
 void BodyDynamicsModule::collide(render::ProbeRay* feeler)
 {
-    const maths::Vec4& n = feeler->surface_dir_;
+    const maths::Vec4& n = feeler->surface_dir();
     const double along = (get_wide(vel_.z) * n.z + get_wide(vel_.y) * n.y) + get_wide(vel_.x) * n.x;
     // The bounce: -(1 + restitution) of the speed along the normal.
     const double k = -((get_wide(restitution_) + 1.0f) * along);
@@ -522,7 +522,7 @@ void BodyDynamicsModule::collide(render::ProbeRay* feeler)
     }
     vel_ = {.x = append_one(bounce.x, vel_.x), .y = append_one(bounce.y, vel_.y), .z = append_one(bounce.z, vel_.z),
             .w = get_narrow(bounce_w + vel_.w)};
-    on_bounce(get_narrow(-along), &feeler->contact_pos_);
+    on_bounce(get_narrow(-along), &feeler->contact_pos());
 }
 
 // 0x00430E20
@@ -542,7 +542,7 @@ void BodyDynamicsModule::tick_frame()
             die_timer_ = get_sub(die_timer_, frame);
     }
     if (cur_phase_ == kStateAsleep) {
-        entity_->display_matrix_ = basis_frame_;
+        entity_->display_matrix() = basis_frame_;
         return;
     }
 
@@ -557,22 +557,22 @@ void BodyDynamicsModule::tick_frame()
         const double vz = get_wide(remaining) * vel_.z;
         const double vw = get_wide(remaining) * vel_.w;
         const double half = (get_wide(remaining) * remaining) * kHalf;
-        feeler.line_.start = at_point_;
-        feeler.line_.end = {
+        feeler.line().start = at_point_;
+        feeler.line().end = {
             .x = get_narrow(half * steady_accel_.x + (get_wide(get_narrow(vx)) + at_point_.x)),
             .y = get_narrow(get_wide(get_narrow(half * steady_accel_.y)) + (get_wide(get_narrow(vy)) + at_point_.y)),
             .z = get_narrow(get_wide(get_narrow(half * steady_accel_.z)) + (vz + at_point_.z)),
             .w = get_narrow(get_wide(get_narrow(half * steady_accel_.w)) + get_narrow(vw + at_point_.w))};
         const bool hit = feeler.get_hit_shape(false, false) != 0;
         if (hit) {
-            const maths::Seg& line = feeler.line_;
+            const maths::Seg& line = feeler.line();
             const double dx = get_wide(line.end.x) - line.start.x;
             const double dy = get_wide(line.end.y) - line.start.y;
             const double dz = get_wide(line.end.z) - line.start.z;
             const double path = std::sqrt((dx * dx + dy * dy) + dz * dz);
             const double speed =
                 std::sqrt((get_wide(vel_.x) * vel_.x + get_wide(vel_.y) * vel_.y) + get_wide(vel_.z) * vel_.z);
-            length = get_narrow((path * feeler.reach_ - kHitBackOff) / speed);
+            length = get_narrow((path * feeler.reach() - kHitBackOff) / speed);
             if (length < kZero)
                 length = 0.0f;
         }
@@ -597,11 +597,11 @@ void BodyDynamicsModule::tick_frame()
 
     maths::Vec4 offset{};
     basis_frame_.rotate_vector(offset, model_offset_);
-    entity_->at_point_ = {.x = append_one(at_point_.x, offset.x), .y = append_one(at_point_.y, offset.y),
+    entity_->at_point() = {.x = append_one(at_point_.x, offset.x), .y = append_one(at_point_.y, offset.y),
                           .z = append_one(at_point_.z, offset.z), .w = append_one(at_point_.w, offset.w)};
-    entity_->basis_frame_ = basis_frame_;
-    entity_->display_matrix_ = basis_frame_;
-    entity_->vel_ = vel_;
+    entity_->basis_frame() = basis_frame_;
+    entity_->display_matrix() = basis_frame_;
+    entity_->vel() = vel_;
     if (objects_shared().draw_shape())
         debug_draw();
 }

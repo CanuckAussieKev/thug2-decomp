@@ -17,6 +17,18 @@ namespace render {
 // unlocked, and the lock's state. Every one is on a list (0x007865E4) of C runtime nodes, so they can be made again
 // after the device is reset.
 struct VertexBuffer {
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t size_value() const { return size; }
+    [[nodiscard]] IDirect3DVertexBuffer9* buffer_value() const { return buffer; }
+    void set_buffer(IDirect3DVertexBuffer9* value) { buffer = value; }
+    [[nodiscard]] uint8_t* data_value() const { return data; }
+    void set_lock_offset(uint32_t value) { lock_offset_ = value; }
+    void set_lock_size(uint32_t value) { lock_size_ = value; }
+    void set_lock_flags(uint32_t value) { lock_flags_ = value; }
+    [[nodiscard]] uint32_t arena_offset() const { return arena_offset_; }
+    void set_arena_offset(uint32_t value) { arena_offset_ = value; }
+
+private:
     uint32_t size;
     uint32_t usage;
     IDirect3DVertexBuffer9* buffer{nullptr};        // +0x08
@@ -24,6 +36,8 @@ struct VertexBuffer {
     uint32_t lock_offset_{}, lock_size_{}, lock_flags_; // +0x10 (lockFlags -1: not locked)
     uint32_t flags;                                 // +0x1C: 1 no copy in memory; 4 a share of an arena's buffer
     uint32_t arena_offset_;                         // +0x20: where in the arena's buffer
+
+public:
 
     // 0x004D3FF0: construct - a buffer of its own (without flag 4: CreateVertexBuffer, default pool), the copy (but
     // with flag 1), on the list.
@@ -43,10 +57,15 @@ struct VertexBuffer {
     // 0x004D6720: destroyed - the card's buffer released, off the list, the copy and itself freed (the C runtime's).
     // The buffer's reference count after the release.
     uint32_t teardown();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(VertexBuffer, data) == 0xC && offsetof(VertexBuffer, lock_flags_) == 0x18 &&
+                          sizeof(VertexBuffer) == 0x24,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(VertexBuffer, data) == 0xC && offsetof(VertexBuffer, lock_flags_) == 0x18 &&
-                  sizeof(VertexBuffer) == 0x24,
-              "layout must match the original");
 
 // An index buffer (0x18 bytes, constructor 0x004D4270): the size, the Direct3D buffer and a copy of the indices in
 // memory, written to the card when unlocked; on a list (0x007865E8) as the vertex buffers are.

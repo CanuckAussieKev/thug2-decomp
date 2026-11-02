@@ -46,6 +46,12 @@ public:
     // each is printed too.
     void tick_frame() override;
 
+    // The fields other code reads and sets.
+    void set_anim(void* value) { anim_ = value; }
+    gfx::AnimTimeline& timeline() { return timeline_; }
+    [[nodiscard]] const gfx::AnimTimeline& timeline() const { return timeline_; }
+
+private:
     void* anim_{nullptr};        // +0x2C the animation asset (null: just a timer)
     gfx::AnimTimeline timeline_; // +0x30
 };
@@ -59,6 +65,12 @@ public:
     // 0x005872C0 (0x00587450 the deleting one): the timeline's, then the base's.
     ~CameraAnimMovie() override;
 
+    // The fields other code reads and sets.
+    void set_anim(void* value) { anim_ = value; }
+    gfx::AnimTimeline& timeline() { return timeline_; }
+    [[nodiscard]] const gfx::AnimTimeline& timeline() const { return timeline_; }
+
+private:
     float field_of_view_{}; // +0x2C (0: the script global 0x99529205)
     bool has_goal_{false};  // +0x30
     std::array<uint8_t, 3> pad31{};
@@ -69,6 +81,8 @@ public:
     bool look_offset_set_{};     // +0x59
     void* anim_{nullptr};        // +0x5C
     gfx::AnimTimeline timeline_; // +0x60
+
+public:
 
     // 0x00587F70 (slot 1): ReadIn(params): the base's; the field of view (0x17E7321E, if there); the asset or a timer
     // as ObjectAnimMovie's; the target; started; the camera placed (0x00587A50) and told the asset's first frame.

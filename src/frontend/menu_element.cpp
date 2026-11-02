@@ -134,7 +134,7 @@ void MenuBase::move_selection(int direction, bool stay, bool grid_x)
         stay = false;
         ElementPtr item;
         item.assign_value(find_child_at_slot(selected_index_));
-        chosen_item_id_ = item->ident_;
+        chosen_item_id_ = item->ident();
         if (grid_x) {
             grid_index_ = -1;
             item->read_int_tag(kTagGridX, &grid_index_);
@@ -204,7 +204,7 @@ void MenuBase::arrange()
             total = static_cast<float>(static_cast<double>(total) - item_gap_);
         }
     }
-    if (object_flags_ & kDimsLocked) {
+    if (object_flags() & kDimsLocked) {
         // the size only grows
         if (vertical_) {
             if (total > level_y())
@@ -220,7 +220,7 @@ void MenuBase::arrange()
         set_span(total);
     }
     place_top_left(&aim_point());
-    object_flags_ |= kDirty;
+    object_flags() |= kDirty;
     // where the first item goes: the free space split by internal_just
     float offset = vertical_ ? static_cast<float>((static_cast<double>(level_y()) - total) *
                                                   (static_cast<double>(inner_align_v_) + 1.0) * 0.5)
@@ -261,8 +261,8 @@ void MenuBase::arrange()
                         offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * 0.5), 1);
                 }
                 offset = static_cast<float>(static_cast<double>(half_stored) + offset + item_gap_);
-                if (item->object_flags_ & kDirty)
-                    object_flags_ |= kDirty;
+                if (item->object_flags() & kDirty)
+                    object_flags() |= kDirty;
             }
         }
     }
@@ -277,9 +277,9 @@ void MenuBase::arrange()
 // 0x004A8100
 bool MenuBase::pass_event_to_script(objects::Signal* event)
 {
-    void* manager = park_owner_;
+    void* manager = park_owner();
     if (manager_uses_priorities() && is_priority_event(manager, event->kind_tag_)) {
-        if (!has_priority() || !has_top_precedence(manager, ident_))
+        if (!has_priority() || !has_top_precedence(manager, ident()))
             return false;
     }
     if (!objects::Entity::pass_event_to_script(event))
@@ -295,7 +295,7 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
                 ElementPtr by_index;
                 by_index.assign_value(find_child_at_slot(selected_index_));
                 if (by_index) {
-                    chosen_item_id_ = by_index->ident_;
+                    chosen_item_id_ = by_index->ident();
                     set_selection_tags();
                 } else {
                     selected_index_ = -1;
@@ -316,7 +316,7 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
                 send_focus(chosen_item_id_, controller_, -1);
         }
         arrange();
-        event->set_event_handled(ident_, 0);
+        event->set_event_handled(ident(), 0);
     }
     if (event->kind_tag_ == kFocus && !focused_) {
         controller_ = objects::event_controller(event);
@@ -343,7 +343,7 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
             ElementPtr item;
             item.assign_value(eldest().get_pull());
             for (int i = 0; item; ++i) {
-                if (child_id == item->ident_) {
+                if (child_id == item->ident()) {
                     chosen_item_id_ = child_id;
                     selected_index_ = i;
                     break;
@@ -357,23 +357,23 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
             if (chosen_item_id_)
                 get_launch(kFocus, chosen_item_id_, event->payload_);
         }
-        event->set_event_handled(ident_, 0);
+        event->set_event_handled(ident(), 0);
     }
     if (event->kind_tag_ == kUnfocus && focused_) {
         focused_ = false;
         if (chosen_item_id_)
             get_launch(kUnfocus, chosen_item_id_, nullptr);
-        event->set_event_handled(ident_, 0);
+        event->set_event_handled(ident(), 0);
     }
     uint32_t type = event->kind_tag_;
     if (((type == kPadUp && vertical_) || (type == kPadLeft && !vertical_)) && focused_ && pad_handling_) {
         get_step(-1);
-        event->set_event_handled(ident_, 0);
+        event->set_event_handled(ident(), 0);
     }
     type = event->kind_tag_;
     if (((type == kPadDown && vertical_) || (type == kPadRight && !vertical_)) && focused_ && pad_handling_) {
         get_step(1);
-        event->set_event_handled(ident_, 0);
+        event->set_event_handled(ident(), 0);
     }
     return true;
 }
@@ -396,9 +396,9 @@ void GroupWidget::change_traits(script::Struct* params)
 // 0x004AA560
 bool GroupWidget::pass_event_to_script(objects::Signal* event)
 {
-    void* manager = park_owner_;
+    void* manager = park_owner();
     if (uses_priorities(manager) && is_priority_event(manager, event->kind_tag_)) {
-        if (!has_priority() || !has_top_precedence(manager, ident_))
+        if (!has_priority() || !has_top_precedence(manager, ident()))
             return false;
     }
     if (!objects::Entity::pass_event_to_script(event))
@@ -410,7 +410,7 @@ bool GroupWidget::pass_event_to_script(objects::Signal* event)
             get_launch(event->kind_tag_, focusable_child_, &data);
             data.get_clear();
         }
-        event->set_event_handled(ident_, 0);
+        event->set_event_handled(ident(), 0);
     }
     return true;
 }

@@ -201,9 +201,9 @@ void PadInputModule::handler_code2(Responder* handler)
 // 0x0041F090
 void PadInputModule::update_pad(const pad_input::Payload* data)
 {
-    if (entity_->composite_flags_ & kCompositeFlagPaused)
+    if (entity_->composite_flags() & kCompositeFlagPaused)
         return;
-    update_events(data->incident_);
+    update_events(data->incident());
     const bool blocked = is_input_blocked();
     if (!disabled_ && !net_disabled_ && !blocked) {
         pad_primary_.tick_frame(data);
@@ -217,7 +217,7 @@ void PadInputModule::update_pad(const pad_input::Payload* data)
 // 0x0041F100
 void PadInputModule::update_pad2(const pad_input::Payload* data)
 {
-    if (entity_->composite_flags_ & kCompositeFlagPaused)
+    if (entity_->composite_flags() & kCompositeFlagPaused)
         return;
     const bool blocked = is_input_blocked();
     if (!disabled_ && !net_disabled_ && !blocked) {
@@ -272,7 +272,7 @@ void PadInputModule::read_button_state(std::span<const uint8_t> data, int index,
                                        ControlButton* button)
 {
     if (button) {
-        auto locked_until = static_cast<uint32_t>(get_truncated(button->locked_until_));
+        auto locked_until = static_cast<uint32_t>(get_truncated(button->locked_until()));
         if (frame_clock::get_time() < locked_until)
             return;
     }
@@ -294,7 +294,7 @@ void PadInputModule::lock_button(uint32_t name, float seconds, bool release)
     auto time = static_cast<double>(static_cast<int32_t>(now));
     if (static_cast<int32_t>(now) < 0)
         time += kTwoTo32;
-    button->locked_until_ = static_cast<float>(get_truncated(time + static_cast<double>(seconds) * kMilliseconds));
+    button->set_locked_until(static_cast<float>(get_truncated(time + static_cast<double>(seconds) * kMilliseconds)));
     if (release) {
         button->set_held_down(0);
         button->reset_activation();
@@ -369,25 +369,25 @@ int PadInputModule::player_input_is_disabled(script::Struct*, script::Script*)
 // 0x0041EA20
 int PadInputModule::left_pressed(script::Struct*, script::Script*)
 {
-    return pad_primary_.left_side().held_down_ != 0 ? 1 : 0;
+    return pad_primary_.left_side().held_down() != 0 ? 1 : 0;
 }
 
 // 0x0041EA30
 int PadInputModule::right_pressed(script::Struct*, script::Script*)
 {
-    return pad_primary_.right_side().held_down_ != 0 ? 1 : 0;
+    return pad_primary_.right_side().held_down() != 0 ? 1 : 0;
 }
 
 // 0x0041EA40
 int PadInputModule::up_pressed(script::Struct*, script::Script*)
 {
-    return pad_primary_.up_dir().held_down_ != 0 ? 1 : 0;
+    return pad_primary_.up_dir().held_down() != 0 ? 1 : 0;
 }
 
 // 0x0041EA50
 int PadInputModule::down_pressed(script::Struct*, script::Script*)
 {
-    return pad_primary_.btn_down().held_down_ != 0 ? 1 : 0;
+    return pad_primary_.btn_down().held_down() != 0 ? 1 : 0;
 }
 
 // 0x0041EA60
@@ -420,7 +420,7 @@ int PadInputModule::held_longer_than(script::Struct* params, script::Script*)
         scaled = static_cast<double>(time) * kFrameMilliseconds;
     auto milliseconds = static_cast<uint32_t>(get_truncated(scaled));
     ControlButton* button = pad_primary_.read_button(name);
-    if (button && button->held_down_ && ints::as_unsigned(button->get_held_millis()) > milliseconds)
+    if (button && button->held_down() && ints::as_unsigned(button->get_held_millis()) > milliseconds)
         return 1;
     return 0;
 }

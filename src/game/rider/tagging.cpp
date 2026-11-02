@@ -220,7 +220,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     if (!manager->in_net_game())
         return;
     online::PlaceTag tag;
-    tag.object_id = static_cast<int8_t>(entity_->ident_);
+    tag.object_id = static_cast<int8_t>(entity_->ident());
     tag.sticker = sticker != 0;
     for (int i = 0; i < 4; ++i) {
         core::at(tag.start, i) = start[i];
@@ -304,9 +304,9 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     if (!sticker) {
         settings->fetch_float(0xE7AB5365u, &reach, 1);
         if (!walking) {
-            facing.x = skater->vel_.x;
-            facing.z = skater->vel_.z;
-            facing.w = skater->vel_.w;
+            facing.x = skater->vel().x;
+            facing.z = skater->vel().z;
+            facing.w = skater->vel().w;
         } else {
             maths::Vec4 heading;
             const maths::Vec4* got = walk_->get_facing(&heading);
@@ -316,7 +316,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
         }
     } else {
         settings->fetch_float(0x7B5E76C4u, &reach, 1);
-        const maths::Vec4& up = core::at(skater->basis_frame_.row, 1);
+        const maths::Vec4& up = core::at(skater->basis_frame().row, 1);
         facing.x = -up.x;
         facing.z = -up.z;
         facing.w = up.w;
@@ -324,7 +324,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     facing.y = 0.0f;
     facing.make_unit();
 
-    maths::Vec4 from = entity_->at_point_;
+    maths::Vec4 from = entity_->at_point();
     const double height = sticker ? 30.0 : (low ? 20.0 : 50.0); // 0x00646240 / 0x006486AC / 0x006463CC
     from.y = static_cast<float>(from.y + height);
     feeler.set_excluded(0x3000, 0);
@@ -333,20 +333,20 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     const float back_y = facing.y * kInch;
     const float back_z = facing.z * kInch;
     const double back_w = static_cast<double>(facing.w) * kInch;
-    feeler.line_.start = {.x = from.x - back_x, .y = from.y - back_y, .z = from.z - back_z, .w = static_cast<float>(from.w - back_w)};
+    feeler.line().start = {.x = from.x - back_x, .y = from.y - back_y, .z = from.z - back_z, .w = static_cast<float>(from.w - back_w)};
     const float ahead_x = facing.x * reach;
     const float ahead_y = facing.y * reach;
     const float ahead_z = facing.z * reach;
     const double ahead_w = static_cast<double>(facing.w) * reach;
-    feeler.line_.end = {.x = from.x + ahead_x, .y = from.y + ahead_y, .z = from.z + ahead_z, .w = static_cast<float>(ahead_w + from.w)};
+    feeler.line().end = {.x = from.x + ahead_x, .y = from.y + ahead_y, .z = from.z + ahead_z, .w = static_cast<float>(ahead_w + from.w)};
     if (!feeler.get_hit_shape(true, false)) {
         debug::printf("No contact found for sticker?\n"); // "No contact found for sticker?"
         return false;
     }
 
     // The wall: 12 out from it along its normal, and 12 into it (as the original rounds them).
-    const maths::Vec4& point = feeler.contact_pos_;
-    const maths::Vec4& normal = feeler.surface_dir_;
+    const maths::Vec4& point = feeler.contact_pos();
+    const maths::Vec4& normal = feeler.surface_dir();
     const double nw = static_cast<double>(normal.w) * kInch;
     const double nz = static_cast<double>(normal.z) * kInch;
     const double ny = static_cast<double>(normal.y) * kInch;
@@ -378,8 +378,8 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
 // 0x0051E390
 bool TaggingControlComponent::try_tagging()
 {
-    const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(entity_->fetch_module(kSkaterPhysicsControl))->pose_;
-    if (state->in_vehicle_ || state->physics_mode_ != 1 || blocked_)
+    const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(entity_->fetch_module(kSkaterPhysicsControl))->pose();
+    if (state->in_vehicle() || state->physics_mode() != 1 || blocked_)
         return false;
     if (cooldown_ > 0.0f) {
         cooldown_ = static_cast<float>(cooldown_ - 1.0);
@@ -395,8 +395,8 @@ bool TaggingControlComponent::try_tagging()
     uint32_t bone = core->state()->flag(PoseFlag::kFlipped).on ? 0x82B37CBCu : 0x78BC41DFu;
     if (core::down_cast<Rider>(entity_)->label() == 0xFC3A8D7F)
         bone = 0xDDEC28AF;
-    auto* button = &core::down_cast<PadInputModule>(input_)->pad_primary_.button_wedge();
-    const bool tapped = button->held_down_ && static_cast<uint32_t>(button->get_held_millis()) < 100u;
+    auto* button = &core::down_cast<PadInputModule>(input_)->pad_primary().button_wedge();
+    const bool tapped = button->held_down() && static_cast<uint32_t>(button->get_held_millis()) < 100u;
     if (!tapped && (!pending_ || countdown_ != 0))
         return true;
 
@@ -426,15 +426,15 @@ bool TaggingControlComponent::try_tagging()
         feeler.set_excluded(0x3000, 0);
         const float back_z = dz * kInch;
         const float back_x = dx * kInch;
-        feeler.line_.start = {.x = joint_world.x - back_x, .y = joint_world.y, .z = joint_world.z - back_z,
+        feeler.line().start = {.x = joint_world.x - back_x, .y = joint_world.y, .z = joint_world.z - back_z,
                               .w = static_cast<float>(joint_world.w - 12.0)};
         const float ahead_z = dz * reach;
         const float ahead_x = dx * reach;
-        feeler.line_.end = {.x = joint_world.x + ahead_x, .y = joint_world.y + rise, .z = joint_world.z + ahead_z,
+        feeler.line().end = {.x = joint_world.x + ahead_x, .y = joint_world.y + rise, .z = joint_world.z + ahead_z,
                             .w = static_cast<float>(static_cast<double>(reach) + joint_world.w)};
         if (feeler.get_hit_shape(true, false)) {
-            core::at(hits, i) = feeler.contact_pos_;
-            core::at(distances, i) = std::fabs(feeler.reach_);
+            core::at(hits, i) = feeler.contact_pos();
+            core::at(distances, i) = std::fabs(feeler.reach());
             found = true;
             core::down_cast<ActivationZoneModule>(trigger_)->probe_touches_zone(kTaggingEvents, &feeler);
         } else {
@@ -462,19 +462,19 @@ bool TaggingControlComponent::try_tagging()
     const float back_x = dx * kInch;
     for (int j = 0; j < 5; ++j) {
         feeler.set_excluded(0x3000, 0);
-        feeler.line_.start = {.x = joint_world.x - back_x, .y = joint_world.y, .z = joint_world.z - back_z,
+        feeler.line().start = {.x = joint_world.x - back_x, .y = joint_world.y, .z = joint_world.z - back_z,
                               .w = static_cast<float>(joint_world.w - 12.0)};
         const float ahead_z = dz * distance;
         const auto ahead_y = static_cast<float>(distance * 0.0);
         const float ahead_x = dx * distance;
-        feeler.line_.end = {.x = joint_world.x + ahead_x, .y = joint_world.y + ahead_y, .z = joint_world.z + ahead_z,
+        feeler.line().end = {.x = joint_world.x + ahead_x, .y = joint_world.y + ahead_y, .z = joint_world.z + ahead_z,
                             .w = static_cast<float>(static_cast<double>(distance) + joint_world.w)};
         if (feeler.get_hit_shape(true, false))
             break;
         distance = static_cast<float>(distance + 10.0);
     }
-    const maths::Vec4 start = feeler.line_.start;
-    const maths::Vec4 end = feeler.line_.end;
+    const maths::Vec4 start = feeler.line().start;
+    const maths::Vec4 end = feeler.line().end;
 
     if (!pending_) {
         pending_ = true;

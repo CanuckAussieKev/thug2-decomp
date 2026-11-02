@@ -46,9 +46,9 @@ FileLoad* new_file(HANDLE handle, SaveCard* card)
     auto* file = static_cast<FileLoad*>(memory::alloc_zeroed(sizeof(FileLoad)));
     if (!file)
         return nullptr;
-    file->hdl_ = handle;
-    file->list_link_.make_node(file);
-    file->save_device_ = card;
+    file->set_hdl(handle);
+    file->list_link().make_node(file);
+    file->set_save_device(card);
     return file;
 }
 
@@ -178,24 +178,24 @@ bool SaveCard::list_save_files(const char* pattern, memory::ListNode* list)
             continue;
         FileLoad* file = new_file(nullptr, this);
         // (no bounds: a long name runs into the fields after it, as in the original)
-        std::memcpy(file->label_.data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
+        std::memcpy(file->label().data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
         FILETIME local;
         SYSTEMTIME time;
         FileTimeToLocalFileTime(&found.ftLastWriteTime, &local);
         FileTimeToSystemTime(&local, &time);
-        file->year_ = time.wYear;
-        file->month_ = static_cast<uint8_t>(time.wMonth);
-        file->day_ = static_cast<uint8_t>(time.wDay);
-        file->hour_ = static_cast<uint8_t>(time.wHour);
-        file->minute_ = static_cast<uint8_t>(time.wMinute);
-        file->second_ = static_cast<uint8_t>(time.wSecond);
-        file->extent_ = found.nFileSizeLow;
-        file->unknown48_ = 0;
+        file->set_year(time.wYear);
+        file->set_month(static_cast<uint8_t>(time.wMonth));
+        file->set_day(static_cast<uint8_t>(time.wDay));
+        file->set_hour(static_cast<uint8_t>(time.wHour));
+        file->set_minute(static_cast<uint8_t>(time.wMinute));
+        file->set_second(static_cast<uint8_t>(time.wSecond));
+        file->set_extent(found.nFileSizeLow);
+        file->set_unknown48(0);
         // At the end of the list.
-        file->list_link_.prev = list->prev;
-        file->list_link_.next = list;
-        list->prev->next = &file->list_link_;
-        list->prev = &file->list_link_;
+        file->list_link().prev = list->prev;
+        file->list_link().next = list;
+        list->prev->next = &file->list_link();
+        list->prev = &file->list_link();
     }
     FindClose(search);
     return true;

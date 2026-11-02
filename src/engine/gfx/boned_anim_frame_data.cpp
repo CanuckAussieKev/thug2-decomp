@@ -1029,7 +1029,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
     size_t quat_data = 0;
     size_t trans_data = 0;
     bool forwards = true;
-    const uint32_t mask = source && source->resume_ ? 1u << (source->mask_bit_ & 31) : 0u;
+    const uint32_t mask = source && source->resume() ? 1u << (source->mask_bit() & 31) : 0u;
     if (cache_slot_) {
         uint32_t& counter = cache_use_counter();
         cache_slot_->set_last_used(counter++);
@@ -1038,7 +1038,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
             forwards = false;
     }
     AnimCacheEntry* entry = cache_slot_;
-    const std::span<const uint32_t> bone_masks = mask && source->bone_masks_ ? std::span<const uint32_t>(source->bone_masks_, static_cast<size_t>(bone_count_)) : std::span<const uint32_t>();
+    const std::span<const uint32_t> bone_masks = mask && source->bone_masks() ? std::span<const uint32_t>(source->bone_masks(), static_cast<size_t>(bone_count_)) : std::span<const uint32_t>();
     for (int bone = 0; bone < bone_count_; ++bone) {
         const std::span<float, 4> rotation(core::at(rotations, bone).data(), 4);
         const std::span<float, 4> translation(core::at(translations, bone).data(), 4);
@@ -1087,13 +1087,13 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                     // Decompressing: from the bone's start (or where the source left it) to the pair around the frame.
                     const KeyCursor end(quat_run, static_cast<std::ptrdiff_t>(quat_data + quat_size));
                     KeyCursor at(quat_run, static_cast<std::ptrdiff_t>(quat_data));
-                    if (source && source->resume_ && core::at(source->quat_at_, bone))
-                        at = KeyCursor(quat_run, core::at(source->quat_at_, bone) - quat_run.data());
+                    if (source && source->resume() && core::at(source->quat_at(), bone))
+                        at = KeyCursor(quat_run, core::at(source->quat_at(), bone) - quat_run.data());
                     ShortKey a{}, b{};
                     float t = 0.0f;
                     for (;;) {
                         if (source)
-                            core::at(source->quat_at_, bone) = at.rest().data();
+                            core::at(source->quat_at(), bone) = at.rest().data();
                         at = decompress_quat_key(at, &a, flag_bits_, own_key_table());
                         if (at >= end) {
                             b = a;
@@ -1151,13 +1151,13 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
                 if (!done) {
                     const KeyCursor end(trans_run, static_cast<std::ptrdiff_t>(trans_data + trans_size));
                     KeyCursor at(trans_run, static_cast<std::ptrdiff_t>(trans_data));
-                    if (source && source->resume_ && core::at(source->trans_at_, bone))
-                        at = KeyCursor(trans_run, core::at(source->trans_at_, bone) - trans_run.data());
+                    if (source && source->resume() && core::at(source->trans_at(), bone))
+                        at = KeyCursor(trans_run, core::at(source->trans_at(), bone) - trans_run.data());
                     ShortKey a{}, b{};
                     float t = 0.0f;
                     for (;;) {
                         if (source)
-                            core::at(source->trans_at_, bone) = at.rest().data();
+                            core::at(source->trans_at(), bone) = at.rest().data();
                         at = decompress_trans_key(at, &a);
                         if (at >= end) {
                             b = a;

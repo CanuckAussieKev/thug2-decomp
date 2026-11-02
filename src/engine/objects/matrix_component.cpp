@@ -25,7 +25,7 @@ MatrixComponent::MatrixComponent()
 MatrixComponent::~MatrixComponent() = default;
 
 // 0x0041CAA0
-void MatrixComponent::tick_frame() { entity_->display_matrix_ = basis_frame_; }
+void MatrixComponent::tick_frame() { entity_->display_matrix() = basis_frame_; }
 
 // 0x0041CAC0
 void MatrixComponent::change_mat(const maths::Mat4* matrix) { basis_frame_ = *matrix; }

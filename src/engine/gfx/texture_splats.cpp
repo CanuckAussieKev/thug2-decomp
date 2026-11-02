@@ -485,7 +485,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
     TextureSplats* splats = nullptr;
     int slot = 0;
     for (void* const sector : core::null_terminated(sectors)) {
-        auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom_handle_); // (the sector's geom)
+        auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom_handle()); // (the sector's geom)
         if (!geom)
             continue;
         for (MeshRef* const mesh : geom->mesh_run()) {

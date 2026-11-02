@@ -243,9 +243,9 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     Section skater{.title = "skater", .fields = {}};
     if (in_level && !loading) {
         if (const objects::GameEntity* s = local_skater()) {
-            std::array<float, 3> pos = {{s->at_point_.x, s->at_point_.y, s->at_point_.z}};
+            std::array<float, 3> pos = {{s->at_point().x, s->at_point().y, s->at_point().z}};
             skater.fields.push_back({.key = "position", .value = vec(pos)});
-            const maths::Vec4& at = core::at(s->basis_frame_.row, 2);
+            const maths::Vec4& at = core::at(s->basis_frame().row, 2);
             const double heading =
                 std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
             text::format_to(text, "%.1f degrees (0 = +z, 90 = +x)", heading);

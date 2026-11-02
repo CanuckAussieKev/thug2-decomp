@@ -408,7 +408,7 @@ void update_session(float dt)
                 break;
             auto* gap = static_cast<goals::GapEntry*>(node->data);
             read.push_back(
-                {.name = gap->label_.c_str() ? gap->label_.c_str() : "", .pending = gap->pending_, .count = gap->num_, .score = gap->points_held_});
+                {.name = gap->label().c_str() ? gap->label().c_str() : "", .pending = gap->pending(), .count = gap->num(), .score = gap->points_held()});
         }
     }
     session_state().gaps_total_ = static_cast<int>(read.size());
@@ -828,13 +828,13 @@ void keep_root_hidden()
 
 // --- phase 3: the original screens restyled (new_frontend_mirror.h) ---
 
-uint32_t type_of(const UiWidget* element) { return static_cast<const objects::Entity*>(element)->kind_tag_; }
-uint32_t id_of_element(const UiWidget* element) { return static_cast<const objects::Entity*>(element)->ident_; }
+uint32_t type_of(const UiWidget* element) { return static_cast<const objects::Entity*>(element)->kind_tag(); }
+uint32_t id_of_element(const UiWidget* element) { return static_cast<const objects::Entity*>(element)->ident(); }
 UiWidget* first_child(const UiWidget* element) { return element->eldest().get_pull(); }
 UiWidget* get_next(const UiWidget* element) { return element->following().get_pull(); }
 bool element_hidden(const UiWidget* element)
 {
-    return (static_cast<const objects::Entity*>(element)->object_flags_ & UiWidget::kHidden) != 0;
+    return (static_cast<const objects::Entity*>(element)->object_flags() & UiWidget::kHidden) != 0;
 }
 bool get_visible(const UiWidget* element)
 {
@@ -855,7 +855,7 @@ uint32_t sprite_type()
 UiWidget* root_element()
 {
     const UiTree* manager = UiTree::sole();
-    return manager ? manager->tree_root_.get_pull() : nullptr;
+    return manager ? manager->tree_root().get_pull() : nullptr;
 }
 
 // The menu that takes the pad events now: of the focused menus, one in a dialog box first, else the last in the tree

@@ -324,10 +324,10 @@ void LabelWidget::change_caption(const char* text)
     if (typeface_) {
         float width = 0.0f, height = 0.0f;
         read_string_param(typeface_, chars_, &width, &height);
-        if (!(object_flags_ & kDimsLocked))
+        if (!(object_flags() & kDimsLocked))
             fit_to_size(width, height, 0);
     }
-    object_flags_ |= kVisibleNow;
+    object_flags() |= kVisibleNow;
 }
 
 // 0x004AFA00 (the target compared unrounded, the shown one with the float)
@@ -337,7 +337,7 @@ void LabelWidget::set_text_rotation(float degrees, int now)
     auto angle = static_cast<float>(radians);
     if (radians != aim_point().angle) {
         aim_point().angle = angle;
-        object_flags_ |= kDirty;
+        object_flags() |= kDirty;
     }
     if (!now || angle == shown().angle)
         return;
@@ -360,7 +360,7 @@ void LabelWidget::set_text_rotation(float degrees, int now)
         if (shadow_)
             text_rotation(object_at(shadows_, num_, i), angle, x, y);
     }
-    object_flags_ |= kDirty;
+    object_flags() |= kDirty;
     shown().angle = angle;
 }
 
@@ -493,13 +493,13 @@ void LabelWidget::change_traits(Struct* params)
     if (params->read_hash_value(kFont, &font, 0)) {
         font_name_ = font;
         typeface_ = get_font(font);
-        object_flags_ |= kVisibleNow;
+        object_flags() |= kVisibleNow;
     }
     float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0))
         set_text_rotation(degrees, 1);
     if (read_alignment_param(params, kInnerAlign, &inner_align_h_, &inner_align_v_))
-        object_flags_ |= kVisibleNow;
+        object_flags() |= kVisibleNow;
     const char* text = nullptr;
     if (params->fetch_text(kText, &text, 0))
         change_caption(text);
@@ -561,7 +561,7 @@ void LabelWidget::tick_frame()
         return;
     const float top = summed().top;
     const bool outside = top < layout_top() || top > layout_bottom();
-    const float shown_angle = (object_flags_ & kFlag1000000) ? shown().angle : summed().angle;
+    const float shown_angle = (object_flags() & kFlag1000000) ? shown().angle : summed().angle;
     if (num_) {
         uint32_t shown = 0;
         std::memcpy(&shown, this->shown().rgba.data(), 4);
@@ -592,9 +592,9 @@ void LabelWidget::tick_frame()
         text_scale(t, summed().scale_x_, summed().scale_y_);
         change_glyph_text(t, chars_);
         bool hidden = false;
-        if (object_flags_ & kPos3d) {
+        if (object_flags() & kPos3d) {
             text_depth(t, summed().z);
-            hidden = (object_flags_ & kOffScreen) || is_concealed();
+            hidden = (object_flags() & kOffScreen) || is_concealed();
         } else {
             text_priority(t, z_priority());
             hidden = outside || is_concealed();
@@ -613,9 +613,9 @@ void LabelWidget::tick_frame()
             text_rotation(s, shown_angle, x, y);
             text_scale(s, summed().scale_x_, summed().scale_y_);
             change_glyph_text(s, chars_);
-            if (object_flags_ & kPos3d) {
+            if (object_flags() & kPos3d) {
                 text_depth(s, summed().z);
-                text_hidden(s, (object_flags_ & kOffScreen) || is_concealed());
+                text_hidden(s, (object_flags() & kOffScreen) || is_concealed());
             } else {
                 text_priority(s, static_cast<float>(static_cast<double>(z_priority()) - shadow_behind()));
                 text_hidden(s, outside || is_concealed());

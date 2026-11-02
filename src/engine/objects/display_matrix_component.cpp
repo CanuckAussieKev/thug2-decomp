@@ -19,6 +19,6 @@ FaceHeadingModule::FaceHeadingModule() { kind_tag_ = kType; }
 FaceHeadingModule::~FaceHeadingModule() = default;
 
 // 0x00431280
-void FaceHeadingModule::tick_frame() { entity_->display_matrix_ = entity_->basis_frame_; }
+void FaceHeadingModule::tick_frame() { entity_->display_matrix() = entity_->basis_frame(); }
 
 } // namespace objects

@@ -91,11 +91,11 @@ public:
     void change_finish(const maths::Vec4& v) { as_feeler()->change_finish(&v); }
     bool get_hit_shape(int a, int b) { return as_feeler()->get_hit_shape(a != 0, b != 0) != 0; }
     render::ProbeRay* as_feeler() { return &ray_; }
-    maths::Vec4& kickoff() { return ray_.line_.start; }
-    maths::Vec4& get_end() { return ray_.line_.end; }
-    render::FeelerCallback& hook_fn() { return ray_.callback_; }
-    [[nodiscard]] const maths::Vec4& get_point() const { return ray_.contact_pos_; }
-    [[nodiscard]] const maths::Vec4& get_normal() const { return ray_.surface_dir_; }
+    maths::Vec4& kickoff() { return ray_.line().start; }
+    maths::Vec4& get_end() { return ray_.line().end; }
+    render::FeelerCallback& hook_fn() { return ray_.callback(); }
+    [[nodiscard]] const maths::Vec4& get_point() const { return ray_.contact_pos(); }
+    [[nodiscard]] const maths::Vec4& get_normal() const { return ray_.surface_dir(); }
 
 private:
     render::ProbeRay ray_;
@@ -166,9 +166,9 @@ bool script_flagged(uint32_t name)
 // 0x004E5320
 void flag_scripted_hit(render::ProbeRay* feeler)
 {
-    if (!feeler->hit_.face_flag40_)
+    if (!feeler->hit().face_flag40_)
         return;
-    const uint32_t node_name = feeler->hit_.object_checksum_;
+    const uint32_t node_name = feeler->hit().object_checksum_;
     if (!node_name)
         return;
     script::Struct* node = level_nodes::fetch_vertex(node_name, false);
@@ -326,7 +326,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
     if (height >= cursor_.y) { // (not a number goes down)
         // Up: the height above it less the rise (the editor's own camera only if it's no lower than 0x71EC75E9).
         auto lowered = static_cast<float>(level_y_ - (static_cast<double>(height) - cursor_.y));
-        if (!simple_collision_ || entity_->ident_ == 0x5B509AD3 || get_global(0x71EC75E9) < level_y_)
+        if (!simple_collision_ || entity_->ident() == 0x5B509AD3 || get_global(0x71EC75E9) < level_y_)
             level_y_ = lowered;
         if (level_y_ < min_height_)
             level_y_ = min_height_;
@@ -372,7 +372,7 @@ void EditorViewModule::tick_frame()
 {
     min_tilt_ = get_global(0x7D16D113);
     max_tilt_ = get_global(0x411BEE4A);
-    const PadSnapshot& pad = input_ptr_->pad_primary_;
+    const PadSnapshot& pad = input_ptr_->pad_primary();
 
     // Heading, wrapped into 0..2 pi (the comparison on the unrounded sum, as the original).
     const double heading = static_cast<double>(get_global(0x8242D878)) * core::at(pad.scaled_stick(), 0) + heading_;
@@ -402,7 +402,7 @@ void EditorViewModule::tick_frame()
     // The zoom and height buttons by controller type.
     bool zoom_in = false, zoom_out = false, raise = false, lower = false;
     const int controller = game_config::hardware();
-    const uint32_t buttons = input_ptr_->events_;
+    const uint32_t buttons = input_ptr_->events();
     if (controller == 4 || controller == 7) {
         zoom_in = (buttons & 0x400000) != 0;
         zoom_out = (buttons & 0x800000) != 0;
@@ -422,10 +422,10 @@ void EditorViewModule::tick_frame()
             raise = (buttons & 0x1000) != 0;
         }
     } else {
-        zoom_in = pad.shoulder_right_a().held_down_ != 0;
-        zoom_out = pad.shoulder_right_b().held_down_ != 0;
-        raise = pad.shoulder_left_a().held_down_ != 0;
-        lower = pad.shoulder_left_b().held_down_ != 0;
+        zoom_in = pad.shoulder_right_a().held_down() != 0;
+        zoom_out = pad.shoulder_right_b().held_down() != 0;
+        raise = pad.shoulder_left_a().held_down() != 0;
+        lower = pad.shoulder_left_b().held_down() != 0;
     }
     double zoom_rate = get_global(0x4E58F829);
     if (!zoom_in)
@@ -514,15 +514,15 @@ void EditorViewModule::tick_frame()
     auto side = static_cast<float>(static_cast<double>(core::at(pad.stick(), 2)) * kStickScale);
     double ahead = static_cast<double>(core::at(pad.stick(), 3)) * kStickScale;
     if (std::fabs(side) < kDeadZone) {
-        if (pad.left_side().held_down_)
+        if (pad.left_side().held_down())
             side = -0.5f;
-        if (pad.right_side().held_down_)
+        if (pad.right_side().held_down())
             side = 0.5f;
     }
     if (std::fabs(ahead) < kDeadZone) {
-        if (pad.up_dir().held_down_)
+        if (pad.up_dir().held_down())
             ahead = -0.5f;
-        if (pad.btn_down().held_down_)
+        if (pad.btn_down().held_down())
             ahead = 0.5f;
     }
     auto a1 = static_cast<float>(ahead * forward_.w);
@@ -565,7 +565,7 @@ void EditorViewModule::tick_frame()
         .w = 0.0f};
     core::at(look.row, 2) = {.x = at_x, .y = at_y, .z = at_z, .w = 0.0f};
     core::at(look.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    entity_->basis_frame_ = look;
+    entity_->basis_frame() = look;
     const float zoom_now = zoom_;
     const float off_w = previous.w * zoom_now; // (the cursor's w from before the move, as the original reuses it)
     const float off_z = at_z * zoom_now;
@@ -576,7 +576,7 @@ void EditorViewModule::tick_frame()
     viewer_.z = focus_.z + off_z;
     viewer_.w = focus_.w + off_w;
     viewer_.w = 1.0f;
-    entity_->at_point_ = viewer_;
+    entity_->at_point() = viewer_;
     resync_ground_shadow();
 }
 

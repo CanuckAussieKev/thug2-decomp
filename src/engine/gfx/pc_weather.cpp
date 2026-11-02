@@ -395,13 +395,13 @@ void PcWeather::render_splashes(float x, float z)
         feeler.change_origin(&at);
         at.y = -50000.0f;
         feeler.change_finish(&at);
-        const float landing = feeler.get_hit_shape(false, false) ? feeler.contact_pos_.y : 50000.0f;
+        const float landing = feeler.get_hit_shape(false, false) ? feeler.contact_pos().y : 50000.0f;
         core::at(splash_x_, next_splash_) = at.x;
         core::at(splash_y_, next_splash_) = static_cast<float>(static_cast<double>(landing) + 4.0f);
         core::at(splash_z_, next_splash_) = at.z;
         core::at(splash_frames_, next_splash_) = splash_life();
         next_splash_ = (next_splash_ + 1) % 0x20;
-        feeler.entity_.get_release();
+        feeler.entity().get_release();
     }
     choose_blend_mode(splash_blend_);
     change_phase(kPhaseAlphaTest, 0);
@@ -496,7 +496,7 @@ void PcWeather::tick_grid()
             at.y = -50000.0f;
             feeler.change_finish(&at);
             const int height = feeler.get_hit_shape(false, false)
-                                   ? ftol(static_cast<double>(feeler.contact_pos_.y) * 16.0f)
+                                   ? ftol(static_cast<double>(feeler.contact_pos().y) * 16.0f)
                                    : kNoGround;
             int found = -1;
             for (int i = 0; i < levels; ++i) {
@@ -576,7 +576,7 @@ void PcWeather::tick_grid()
     set_active(true);
     std::memset(splash_frames_.data(), 0, sizeof(splash_frames_));
     next_splash_ = 0;
-    feeler.entity_.get_release();
+    feeler.entity().get_release();
 }
 
 } // namespace render

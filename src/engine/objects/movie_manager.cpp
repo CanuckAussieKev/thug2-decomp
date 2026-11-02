@@ -10,7 +10,6 @@
 #include "engine/lists/chain_start.h"
 #include "engine/gfx/viewport.h"
 #include "game/goals/goal_manager.h"
-#include "engine/maths/mat4.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/objects/cutscene.h"
 #include "engine/objects/node_objects.h"
@@ -86,23 +85,28 @@ void uncouple(memory::ListNode* node)
 } // namespace
 
 // 0x0057A190
-Entity* assign_object_fields(Entity* to, const Entity* other)
+void Entity::assign_fields_from(const Entity& other)
 {
     // Every field but the tables (the vptr, the original's list node table word and ref_'s vptr), the smart pointer
     // lists and the list node's links copied as they are.
-    to->smart_pointers_ = other->smart_pointers_;
-    to->object_flags_ = other->object_flags_;
-    to->park_owner_ = other->park_owner_;
-    to->own_script_ = other->own_script_;
-    to->ident_ = other->ident_;
-    to->kind_tag_ = other->kind_tag_;
-    to->visited_mask_ = other->visited_mask_;
-    to->tag_table_ = other->tag_table_;
-    to->flag_bits_ = other->flag_bits_;
-    to->list_link_ = other->list_link_;
-    to->alias_count_ = other->alias_count_;
-    to->ref_.smart_pointers_ = other->ref_.smart_pointers_;
-    to->ref_.owner_object_ = other->ref_.owner_object_;
+    smart_pointers_ = other.smart_pointers_;
+    object_flags_ = other.object_flags_;
+    park_owner_ = other.park_owner_;
+    own_script_ = other.own_script_;
+    ident_ = other.ident_;
+    kind_tag_ = other.kind_tag_;
+    visited_mask_ = other.visited_mask_;
+    tag_table_ = other.tag_table_;
+    flag_bits_ = other.flag_bits_;
+    list_link_ = other.list_link_;
+    alias_count_ = other.alias_count_;
+    ref_.smart_pointers_ = other.ref_.smart_pointers_;
+    ref_.owner_object_ = other.ref_.owner_object_;
+}
+
+Entity* assign_object_fields(Entity* to, const Entity* other)
+{
+    to->assign_fields_from(*other);
     return to;
 }
 
@@ -110,15 +114,15 @@ Entity* assign_object_fields(Entity* to, const Entity* other)
 gfx::ViewCam* assign_camera_fields(gfx::ViewCam* camera, const gfx::ViewCam* other)
 {
     assign_object_fields(camera, other);
-    camera->old_pos_ = other->old_pos_;
-    camera->at_point_ = other->at_point_;
-    camera->basis_frame_ = other->basis_frame_;
-    camera->h_fov_ = other->h_fov_;
-    camera->corrected_horiz_fov_ = other->corrected_horiz_fov_;
-    camera->unknownb4_ = other->unknownb4_;
-    camera->near_dist_ = other->near_dist_;
-    camera->far_clip_ = other->far_clip_;
-    camera->unknownc0_ = other->unknownc0_;
+    camera->old_pos() = other->old_pos();
+    camera->set_at_point(other->at_point());
+    camera->set_basis_frame(other->basis_frame());
+    camera->set_h_fov(other->h_fov());
+    camera->set_corrected_horiz_fov(other->corrected_horiz_fov());
+    camera->set_unknownb4(other->unknownb4());
+    camera->set_near_dist(other->near_dist());
+    camera->set_far_clip(other->far_clip());
+    camera->set_unknownc0(other->unknownc0());
     return camera;
 }
 
@@ -172,7 +176,7 @@ void VideoHub::keep_camera(Movie* movie)
         return;
     if (modules::Skate::sole()->level() == 0xE92ECAFE)
         return;
-    assign_camera_fields(&viewer_, movie->viewer_);
+    assign_camera_fields(&viewer_, movie->viewer());
     keep_until_ = static_cast<uint32_t>(frame_clock::get_draw_frame()) + 1;
     keep_camera_ = true;
 }
@@ -186,7 +190,7 @@ gfx::ViewCam* VideoHub::obtain_active_lens()
     if (total_of()) {
         Movie* playing = movie_at(&movies_, 0);
         if (playing && has_camera(playing)) {
-            gfx::ViewCam* const lens = playing->viewer_; // (the movie's)
+            gfx::ViewCam* const lens = playing->viewer(); // (the movie's)
             return lens;
         }
     }
@@ -226,13 +230,13 @@ void VideoHub::clear_movies()
 // 0x0057A6B0
 void VideoHub::end_movie(Movie* movie)
 {
-    const uint32_t end_script = movie->label_;
+    const uint32_t end_script = movie->label();
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->append_structure_if_any(movie->args_);
+    params->append_structure_if_any(movie->args());
     if (total_of() == 1)
         keep_camera(movie);
     halt(movie);
-    uncouple(&movie->list_link_);
+    uncouple(&movie->list_link());
     delete_movie(memory::owned_element(movie)); // (the list's)
     const uint64_t frame = frame_clock::get_draw_frame();
     // (the original passed the 64-bit frame to this %ld: only its low word was printed)
@@ -257,7 +261,7 @@ bool VideoHub::end_movies(bool skippable)
         }
     } else {
         Movie* movie = first();
-        while (movie && movie->flag19_) {
+        while (movie && movie->flag19()) {
             end_movie(movie);
             // (the first one now, walked to inline)
             movie = nullptr;
@@ -341,7 +345,7 @@ bool VideoHub::kill_movie(uint32_t name)
         end_movies(false);
         return true;
     }
-    uncouple(&movie->list_link_);
+    uncouple(&movie->list_link());
     delete_movie(memory::owned_element(movie)); // (the list's)
     return true;
 }
@@ -392,10 +396,10 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
         keep_camera_ = kept_camera;
         return false;
     }
-    movie->list_link_.prev = movies_.prev;
-    movie->list_link_.next = &movies_;
-    movies_.prev->next = &movie->list_link_;
-    movies_.prev = &movie->list_link_;
+    movie->list_link().prev = movies_.prev;
+    movie->list_link().next = &movies_;
+    movies_.prev->next = &movie->list_link();
+    movies_.prev = &movie->list_link();
     if (total_of() == 1 && has_camera(movie))
         set_game_camera(obtain_active_lens());
     return true;
@@ -418,7 +422,7 @@ bool VideoHub::tick_frame()
     if (!stored_simulation_halted() || stored_view_mode() != 0) // (not paused, or the view mode)
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         movie->tick_frame();
-    else if (!movie->flag_1b_)
+    else if (!movie->flag_1b())
         movie->tick_frame();
     if (movie->is_finished())
         end_movies(false);
@@ -480,6 +484,6 @@ VideoHub::~VideoHub()
 }
 
 // (no address: the getter folded at 0x00543150 - movie_manager.h)
-uint32_t movie_key_from_params(const void* movie) { return static_cast<const VideoEntry*>(movie)->value20_; }
+uint32_t movie_key_from_params(const void* movie) { return static_cast<const VideoEntry*>(movie)->value20(); }
 
 } // namespace objects

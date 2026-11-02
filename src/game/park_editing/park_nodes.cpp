@@ -274,9 +274,9 @@ void ParkAssembler::build_source_rails(Array* nodes)
         uint32_t node = find_following_rail_node(nodes, geometry, 0, &info, &is_loop);
         while (node) {
             Rail* rail = rails.get_new_rail();
-            rail->class_ = info.class_;
-            rail->label_ = geometry;
-            rail->flag_bits_ = static_cast<uint8_t>((rail->flag_bits_ & ~Rail::kLoop) | (is_loop ? Rail::kLoop : 0));
+            rail->set_class(info.class_);
+            rail->set_label(geometry);
+            rail->flag_bits() = static_cast<uint8_t>((rail->flag_bits() & ~Rail::kLoop) | (is_loop ? Rail::kLoop : 0));
             RailPoint* point = rails.append_rail_vertex();
             point->at_point_ = info.at_point_;
             point->headings_ = info.headings_;
@@ -291,8 +291,8 @@ void ParkAssembler::build_source_rails(Array* nodes)
                 point->kind_tag_ = info.kind_tag_;
                 point->surface_type_ = info.surface_type_;
                 rail->append_spot(point);
-                if ((rail->flag_bits_ & Rail::kClimbable) && !info.climbable_)
-                    rail->flag_bits_ &= static_cast<uint8_t>(~Rail::kClimbable);
+                if ((rail->flag_bits() & Rail::kClimbable) && !info.climbable_)
+                    rail->flag_bits() &= static_cast<uint8_t>(~Rail::kClimbable);
             }
             rails.add_rail(rail);
             is_loop = false;
@@ -308,7 +308,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
         source->rail_point_total_ = 0;
         source->num_rail_segments_ = 0;
         for (int i = 0; const Rail* rail = rails.find_rail(source->sector_, i); ++i) {
-            source->rail_point_total_ += rail->vertex_total_;
+            source->rail_point_total_ += rail->vertex_total();
             source->num_rail_segments_ += rail->count_segments();
         }
     }
@@ -318,8 +318,8 @@ bool ParkAssembler::find_nearest_rail_point(const maths::Vec4* position, maths::
 {
     bool found = false;
     float best = 1e8f;
-    for (const Rail* rail = rails_.rail_groups_; rail; rail = rail->following_) {
-        for (const RailPoint* point = rail->point_chain_; point; point = point->following_) {
+    for (const Rail* rail = rails_.rail_groups(); rail; rail = rail->following()) {
+        for (const RailPoint* point = rail->point_chain(); point; point = point->following_) {
             const double dx = static_cast<double>(point->at_point_.x) - position->x;
             const double dy = static_cast<double>(point->at_point_.y) - position->y;
             const double dz = static_cast<double>(point->at_point_.z) - position->z;
@@ -466,16 +466,16 @@ void ParkAssembler::write_rail_nodes(Array* nodes, int* index)
     if (!count)
         return;
     const int end = *index + count;
-    const Rail* rail = rails.rail_groups_;
-    const RailPoint* point = rail->point_chain_;
+    const Rail* rail = rails.rail_groups();
+    const RailPoint* point = rail->point_chain();
     int rail_start = *index; // the node a loop's last point links to
     uint32_t name = kFirstRailNode;
     while (*index < end) {
         Struct* node = elem(nodes, *index);
-        if (rail->class_ == kRailNode) {
+        if (rail->get_class() == kRailNode) {
             node->put_vec3(kPos, get_value(point->at_point_));
             node->put_name_key(kName, name++);
-            node->put_name_key(kFlag, (rail->flag_bits_ & Rail::kClimbable) ? kClimbableRailFlag : kRailFlag);
+            node->put_name_key(kFlag, (rail->flag_bits() & Rail::kClimbable) ? kClimbableRailFlag : kRailFlag);
             node->put_name_key(kSurfaceKindKey, point->surface_type_);
             if (point->cluster_) {
                 node->put_name_key(kFlag, kTrickObject);
@@ -488,9 +488,9 @@ void ParkAssembler::write_rail_nodes(Array* nodes, int* index)
             node->put_name_key(kFlag, kClimbingFlag);
             node->put_name_key(kType, point->kind_tag_);
         }
-        if (point->following_ || (rail->flag_bits_ & Rail::kLoop)) {
+        if (point->following_ || (rail->flag_bits() & Rail::kLoop)) {
             int link = *index + 1;
-            if (!point->following_ && (rail->flag_bits_ & Rail::kLoop))
+            if (!point->following_ && (rail->flag_bits() & Rail::kLoop))
                 link = rail_start;
             gsl::owner<Array*> links = new_array_of(script::kQbvalInteger, static_cast<uint32_t>(link));
             node->append_array_value(kLinks, links);
@@ -498,9 +498,9 @@ void ParkAssembler::write_rail_nodes(Array* nodes, int* index)
         }
         point = point->following_;
         if (!point) {
-            rail = rail->following_;
+            rail = rail->following();
             if (rail) {
-                point = rail->point_chain_;
+                point = rail->point_chain();
                 rail_start = *index + 1;
             }
         }

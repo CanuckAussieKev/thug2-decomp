@@ -190,7 +190,7 @@ bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
     if (!object)
         return false;
     float x = 0.0f, y = 0.0f, depth = 0.0f;
-    project_to_screen(camera, &object->at_point_, &x, &y, &depth);
+    project_to_screen(camera, &object->at_point(), &x, &y, &depth);
     script->args()->push_float(kScreenX, x);
     script->args()->push_float(kScreenY, y);
     return true;
@@ -223,7 +223,7 @@ bool cfunc_transform_local_to_world(script::Struct* params, script::Script* scri
     const objects::GameEntity* object = entity_for_id(id);
     const maths::Vec4 local = {.x = offset.x, .y = offset.y, .z = offset.z, .w = offset.w};
     maths::Vec4 world;
-    object->display_matrix_.xform(world, local);
+    object->display_matrix().xform(world, local);
     script->args()->put_vec3(kWorldOffset, world.x, world.y, world.z);
     return true;
 }
@@ -239,7 +239,7 @@ bool cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script*
     for (objects::ObjectModule* component = objects::object_hub_slot()->find_first_module_of_kind(kParticle); component;
          component = component->next_of_type_) {
         objects::GameEntity* object = component->entity_;
-        if (!(object->object_flags_ & objects::kObjectFlagDead) && particle_group(component) == group)
+        if (!(object->object_flags() & objects::kObjectFlagDead) && particle_group(component) == group)
             flag_as_dead(object);
     }
     return true;
@@ -261,9 +261,9 @@ bool cfunc_get_node(script::Struct* params, script::Script* script)
 bool cfunc_get_node_name(script::Struct*, script::Script* script)
 {
     const objects::Entity* object = script->entity().get_pull();
-    if (!object || !object->ident_)
+    if (!object || !object->ident())
         return false;
-    script->args()->put_name_key(kNodeName, object->ident_);
+    script->args()->put_name_key(kNodeName, object->ident());
     return true;
 }
 
@@ -290,7 +290,7 @@ bool cfunc_run_script_on_object(script::Struct* params, script::Script* script)
     objects::Entity* object = objects::find_object(id);
     if (!object)
         return false;
-    script::Script* own = object->own_script_;
+    script::Script* own = object->own_script();
     if (own && !own->entity().get_pull())
         own->entity().assign_value(object);
     object->run_sub_script(name, script_params);
@@ -327,7 +327,7 @@ bool cfunc_orient(script::Struct* params, script::Script*)
         angles.w *= degrees;
     }
 
-    maths::Mat4& matrix = object->basis_frame_;
+    maths::Mat4& matrix = object->basis_frame();
     angles_to_matrix(&matrix, &angles);
     core::at(matrix.row, 3) = {.x = offset.x, .y = offset.y, .z = offset.z, .w = offset.w};
     if (bone) {
@@ -337,13 +337,13 @@ bool cfunc_orient(script::Struct* params, script::Script*)
     }
     if (relative_to) {
         maths::Mat4 relative;
-        relative = relative_to->display_matrix_;
-        core::at(relative.row, 3) = relative_to->at_point_;
+        relative = relative_to->display_matrix();
+        core::at(relative.row, 3) = relative_to->at_point();
         matrix_multiply(&matrix, &matrix, &relative);
     }
-    object->at_point_ = core::at(matrix.row, 3);
+    object->at_point() = core::at(matrix.row, 3);
     core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    object->display_matrix_ = matrix;
+    object->display_matrix() = matrix;
     return true;
 }
 
@@ -362,10 +362,10 @@ bool cfunc_set_event_handler_on_object(script::Struct* params, script::Script*)
     uint32_t id = 0;
     params->read_hash_value(kObject, &id, 1);
     objects::GameEntity* object = entity_for_id(id);
-    if (!object->own_script_) {
-        object->own_script_ = script::Script::create();
+    if (!object->own_script()) {
+        object->set_own_script(script::Script::create());
     }
-    object->own_script_->set_event_handler(event_type, handler, group, exception, handler_params);
+    object->own_script()->set_event_handler(event_type, handler, group, exception, handler_params);
     return true;
 }
 

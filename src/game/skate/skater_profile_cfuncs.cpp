@@ -93,7 +93,7 @@ constexpr uint32_t kOff = 0xD443A2BC;              // off
 constexpr uint32_t kNoFaceTexture = 0x3AF36E6D;    // NoFaceTexture
 
 // The profile manager's templates (its table, 0x00557FB0 by index) and each one's info structure.
-uint32_t template_count() { return objects::profile_roster()->templates_.num_; }
+uint32_t template_count() { return objects::profile_roster()->templates().num_; }
 objects::RiderIdentity* template_at(uint32_t index)
 {
     // (0x00557FB0: the lookup table's by-index code, shared with the goal manager's)
@@ -426,7 +426,7 @@ bool cfunc_select_current_skater(script::Struct* params, script::Script*)
         return false;
     manager->set_current_skater(name);
     objects::RiderIdentity* profile = get_profile_from_params(nullptr);
-    auto* skater = core::down_cast<objects::Rider>(get_rider_at(manager->cursor_pos_));
+    auto* skater = core::down_cast<objects::Rider>(get_rider_at(manager->cursor_pos()));
     if (skater)
         skater->update_from_profile(profile);
     return true;
@@ -457,7 +457,7 @@ bool cfunc_award_special_trick_slot(script::Struct* params, script::Script*)
 {
     objects::ProfileRoster* manager = objects::profile_roster();
     if (params->has_bare_flag(kAll)) {
-        const int count = static_cast<int>(manager->templates_.num_);
+        const int count = static_cast<int>(manager->templates().num_);
         for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
             manager->get_template_at(i)
                 ->add_max_specials(1);
@@ -486,7 +486,7 @@ bool cfunc_update_skater_stats(script::Struct* params, script::Script*)
 // 0x005AFFE0: GetCurrentSkaterProfileIndex - the profile manager's current index as currentSkaterProfileIndex.
 bool cfunc_get_current_skater_profile_index(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(kCurrentSkaterProfileIndex, objects::profile_roster()->cursor_pos_);
+    script->args()->put_int(kCurrentSkaterProfileIndex, objects::profile_roster()->cursor_pos());
     return true;
 }
 

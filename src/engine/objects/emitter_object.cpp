@@ -210,7 +210,7 @@ void FollowTrail::tick_frame()
     auto* object = core::down_cast<GameEntity>(find_object(entity_key_));
     if (!object)
         return;
-    aim_point_ = object->at_point_;
+    aim_point_ = object->at_point();
     if (num_ == 0) {
         head_ = 0;
         core::at(path_vertices_, 0) = aim_point_;

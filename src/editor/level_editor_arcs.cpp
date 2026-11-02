@@ -358,18 +358,18 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
     const render::WorldCell* sector = scenery::sector_of(checksum);
     if (!sector)
         return;
-    const render::HitMesh* coll = sector->hit_body_;
+    const render::HitMesh* coll = sector->hit_body();
     if (!render::is_static_collider(coll) || (coll->flag_bits_ & 4))
         return;
     const auto* tri = coll->geometry_;
-    if (!tri || !tri->faces_ || !tri->vertices_)
+    if (!tri || !tri->faces() || !tri->vertices())
         return;
-    for (int f = 0; std::cmp_less(f, tri->tri_count_) && out->size() < 20000; ++f) {
+    for (int f = 0; std::cmp_less(f, tri->tri_count()) && out->size() < 20000; ++f) {
         std::array<V3, 3> p{};
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
             const uint32_t index = tri->face_vertex(f, k);
-            if (index >= tri->num_vertices_) {
+            if (index >= tri->num_vertices()) {
                 ok = false;
                 break;
             }
@@ -394,11 +394,11 @@ bool cast_feeler(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const auto& p = ray->hit_.point;
-    const auto& n = ray->hit_.normal;
+    const auto& p = ray->hit().point;
+    const auto& n = ray->hit().normal;
     *hit = {.x = p[0], .y = p[1], .z = p[2]};
     *normal = {.x = n[0], .y = n[1], .z = n[2]};
-    *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
+    *sector = ray->hit().object ? ray->hit().object_checksum_ : 0;
     return true;
 }
 

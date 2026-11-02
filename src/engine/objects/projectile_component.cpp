@@ -65,7 +65,7 @@ void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
 {
     auto* skater = core::down_cast<Rider>(skate_calls::get_home_rider());
     rider_ref_ = skater;
-    const uint32_t name = entity_->ident_;
+    const uint32_t name = entity_->ident();
     seat_ = -1;
     for (int i = 0; i < kSlotCount; ++i) {
         if (name == core::at(skater->projectiles(), i).name) {
@@ -87,7 +87,7 @@ void ProjectileComponent::seal()
 // 0x004F3A90
 void ProjectileComponent::tick_frame()
 {
-    core::at(rider_ref_->projectiles(), seat_).pos = entity_->at_point_;
+    core::at(rider_ref_->projectiles(), seat_).pos = entity_->at_point();
     check_triggers();
 }
 
@@ -99,17 +99,17 @@ void ProjectileComponent::check_triggers()
         return;
     }
     render::ProbeRay feeler;
-    const maths::Vec4 pos = entity_->at_point_;
+    const maths::Vec4 pos = entity_->at_point();
     auto end_w = static_cast<float>(static_cast<double>(pos.w) + kReach);
     for (int i = 0; i < kFeelers; ++i) {
-        feeler.line_.start = pos;
-        feeler.line_.end.y = pos.y;
-        feeler.line_.end.w = end_w;
-        probe_tip(i, pos.x, pos.z, &feeler.line_.end.x, &feeler.line_.end.z);
+        feeler.line().start = pos;
+        feeler.line().end.y = pos.y;
+        feeler.line().end.w = end_w;
+        probe_tip(i, pos.x, pos.z, &feeler.line().end.x, &feeler.line().end.z);
         if (feeler.get_hit_shape(true, false) && trigger_ptr_->probe_touches_zone(touch_events(), &feeler))
             rest_ = kRestFrames;
     }
-    feeler.entity_.get_release();
+    feeler.entity().get_release();
 }
 
 } // namespace objects

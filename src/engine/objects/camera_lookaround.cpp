@@ -97,13 +97,13 @@ void FreeLookModule::turn_to(float heading, float tilt, float time, float factor
 // 0x004E4060
 void FreeLookModule::tick_frame()
 {
-    PadSnapshot* pad = script::fetch_int_value(kSecondPad) ? &input_ptr_->pad_secondary_ : &input_ptr_->pad_primary_;
-    if (!script::fetch_int_value(kNoButton) && pad->button_choose().fired_) {
+    PadSnapshot* pad = script::fetch_int_value(kSecondPad) ? &input_ptr_->pad_secondary() : &input_ptr_->pad_primary();
+    if (!script::fetch_int_value(kNoButton) && pad->button_choose().fired()) {
         pad->button_choose().reset_activation();
-        script::launch_script(entity_->ident_ == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
+        script::launch_script(entity_->ident() == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
                               nullptr);
     }
-    if (pad->stick_click_right().fired_) {
+    if (pad->stick_click_right().fired()) {
         locked_ = !locked_;
         pad->stick_click_right().reset_activation();
     }
@@ -114,8 +114,8 @@ void FreeLookModule::tick_frame()
         // x 3). Original behaviour: the stick's, below, always.
         const PadSnapshot* p = pad;
         const skater::thaw_bmx::LookInputs in = skater::thaw_bmx::d_pad_look_inputs(
-            p->up_dir().held_down_ != 0, p->btn_down().held_down_ != 0, p->left_side().held_down_ != 0,
-            p->right_side().held_down_ != 0, skater::thaw_bmx::kLookInvertDefault);
+            p->up_dir().held_down() != 0, p->btn_down().held_down() != 0, p->left_side().held_down() != 0,
+            p->right_side().held_down() != 0, skater::thaw_bmx::kLookInvertDefault);
         const float tilt = in.tilt * (in.tilt < 0.0f ? kUpScale : kDownScale) * kTiltScale;
         get_ease(lean_angle_, tilt, frame);
         get_ease(heading_, in.heading, frame);

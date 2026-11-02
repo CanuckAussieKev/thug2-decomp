@@ -21,6 +21,24 @@ namespace goals {
 
 // One gap (0x50 bytes; its own node in the checklist, which keeps the original's size).
 struct GapEntry {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] const maths::Vec4& skater_start_pos() const { return skater_start_pos_; }
+    void set_skater_start_pos(const maths::Vec4& value) { skater_start_pos_ = value; }
+    [[nodiscard]] const maths::Vec4& skater_start_dir() const { return skater_start_dir_; }
+    void set_skater_start_dir(const maths::Vec4& value) { skater_start_dir_ = value; }
+    int& pending() { return pending_; }
+    [[nodiscard]] int pending() const { return pending_; }
+    int& num() { return num_; }
+    [[nodiscard]] int num() const { return num_; }
+    [[nodiscard]] int points_held() const { return points_held_; }
+    void set_points_held(int value) { points_held_ = value; }
+    void set_in_level(bool value) { in_level_ = value; }
+    text::Chars& label() { return label_; }
+    [[nodiscard]] const text::Chars& label() const { return label_; }
+
+private:
     memory::ListNode list_link_{};   // data = the gap itself
     maths::Vec4 skater_start_pos_{}; // +0x14 where the gap menu puts the skater (set_gap_positions)
     maths::Vec4 skater_start_dir_{}; // +0x24
@@ -30,6 +48,8 @@ struct GapEntry {
     bool in_level_{true};          // +0x40 found by the last scan of the level's scripts
     std::array<uint8_t, 3> pad41{};
     text::Chars label_; // +0x44
+
+public:
 
     // 0x005786E0: an unlinked node, an empty name, never landed, in the level.
     GapEntry();

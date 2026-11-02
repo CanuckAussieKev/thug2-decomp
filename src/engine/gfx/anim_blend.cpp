@@ -176,9 +176,9 @@ void add_timeline_info(AnimTimeline* timeline, script::Struct* info)
 {
     constexpr uint32_t kAnim = 0x98549BA4, kSpeed = 0xF0D90109, kRepeatMode = 0x6B888E80;
     constexpr uint32_t kStartTime = 0xD16B61E6, kCurrentTime = 0xD4FC8176, kEndTime = 0xAB81BB3D;
-    info->put_name_key(kAnim, timeline->anim_);
-    info->push_float(kSpeed, timeline->speed_);
-    info->put_name_key(kRepeatMode, core::at((loop_type_checksums()), timeline->repeat_mode_));
+    info->put_name_key(kAnim, timeline->anim());
+    info->push_float(kSpeed, timeline->speed());
+    info->put_name_key(kRepeatMode, core::at((loop_type_checksums()), timeline->repeat_mode()));
     float start = 0.0f, current = 0.0f, end = 0.0f;
     timeline->get_times(&start, &current, &end);
     info->push_float(kStartTime, start);
@@ -215,7 +215,7 @@ bool BlendChannel::has_value(uint32_t offset) { return render::get_anim_data(loo
 // 0x0047D660
 void BlendChannel::clear_flag()
 {
-    if (script::Struct* params = owner_ptr_->tag_table_)
+    if (script::Struct* params = owner_ptr_->tag_table())
         params->erase_module(0x5DB4115F);
 }
 

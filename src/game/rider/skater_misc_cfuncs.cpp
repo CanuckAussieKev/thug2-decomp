@@ -99,7 +99,7 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
     auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
     if (!object)
         return false;
-    maths::Vec4 velocity = object->vel_;
+    maths::Vec4 velocity = object->vel();
     float scale = 1.0f;
     float skew = 0.0f;
     params->fetch_float(kTiltDegrees, &skew, 0);
@@ -131,13 +131,13 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
             z = turned.z;
         }
     } else {
-        const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
+        const maths::Vec4& at = core::at(object->basis_frame().row, 2);
         x = at.x;
         y = at.y;
         z = at.z;
         if (skew != 0.0f) {
             maths::Mat4 m{};
-            m = object->basis_frame_;
+            m = object->basis_frame();
             turn_about_y(m, skew, true);
             x = core::at(m.row, 2).x;
             y = core::at(m.row, 2).y;

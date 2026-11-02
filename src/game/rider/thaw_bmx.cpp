@@ -308,7 +308,7 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
     if (name == kOn) { // 0x005C98E0
         state.on = true;
         const objects::GameEntity* skater = core->entity_;
-        set_wheel_points(state, skater->at_point_, core::at(skater->basis_frame_.row, 2));
+        set_wheel_points(state, skater->at_point(), core::at(skater->basis_frame().row, 2));
         return 1;
     }
     if (name == kOff) { // 0x005C74C0 (THAW clears only the flag; ours the bike's other states too)

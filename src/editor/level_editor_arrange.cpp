@@ -396,7 +396,7 @@ const std::array<V3, 3> kWorld = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
+    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
 }
 
 void get_corners(const OrientedBox& box, std::vector<V3>* out)
@@ -475,7 +475,7 @@ void axes_of(const std::vector<Unit>& units, bool local, std::span<V3, 3> out)
     if (const objects::GameEntity* object = units.front().object) {
         for (int i = 0; i < 3; ++i)
             core::at(out, i) = make_unit(
-                {.x = core::at(object->basis_frame_.row, i).x, .y = core::at(object->basis_frame_.row, i).y, .z = core::at(object->basis_frame_.row, i).z});
+                {.x = core::at(object->basis_frame().row, i).x, .y = core::at(object->basis_frame().row, i).y, .z = core::at(object->basis_frame().row, i).z});
         return;
     }
     Placement placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}};
@@ -705,9 +705,9 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
             if (!copy)
                 continue;
             object_edit::State state = was;
-            state.id = copy->ident_;
+            state.id = copy->ident();
             object_edit::get_restore(state);
-            made.push_back(copy->ident_);
+            made.push_back(copy->ident());
         }
         if (!made.empty())
             edit::push_made(made, {});
@@ -866,18 +866,18 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
     const render::PcGeom* geom = scenery::sector_geometry(checksum);
     if (!geom)
         return;
-    const std::span<render::MeshRef*> meshes = geom->meshes ? geom->mesh_run() : std::span<render::MeshRef*>();
-    const uint32_t count = geom->mesh_count_;
+    const std::span<render::MeshRef*> meshes = geom->meshes_value() ? geom->mesh_run() : std::span<render::MeshRef*>();
+    const uint32_t count = geom->mesh_count();
     for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096 && out->size() < 600000; ++i) {
         render::MeshRef* mesh = core::at(meshes, i);
         if (!mesh || mesh->billboard_value() || (mesh->flags_value() & 0x10))
             continue;
         render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
-        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride_value() < 12)
+        if (!vertices || !vertices->data_value() || !indices || !indices->indices || mesh->stride_value() < 12)
             continue;
         auto at = [&](uint16_t k) {
-            const auto f = gpu::VertexView(vertices->data, mesh->stride_value(), mesh->vertex_count()).float3(k);
+            const auto f = gpu::VertexView(vertices->data_value(), mesh->stride_value(), mesh->vertex_count()).float3(k);
             return V3{.x = core::at(f, 0), .y = core::at(f, 1), .z = core::at(f, 2)};
         };
         const std::span<const uint16_t> index(indices->indices, core::at(mesh->index_counts(), 0));
@@ -1483,7 +1483,7 @@ bool place_click(bool more)
             objects::GameEntity* object = live_object(pid);
             if (!object)
                 continue;
-            for (maths::Mat4* m : {&object->basis_frame_, &object->display_matrix_}) {
+            for (maths::Mat4* m : {&object->basis_frame(), &object->display_matrix()}) {
                 std::array<V3, 3> rows{};
                 for (int i = 0; i < 3; ++i)
                     core::at(rows, i) = {.x = core::at(m->row, i).x, .y = core::at(m->row, i).y, .z = core::at(m->row, i).z};

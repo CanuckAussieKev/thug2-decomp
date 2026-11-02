@@ -163,7 +163,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
 {
     ProjectionBatch* batch = nullptr;
     for (void* const sector : core::null_terminated(sectors)) {
-        auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom_handle_); // (the sector's geom)
+        auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom_handle()); // (the sector's geom)
         if (!geom)
             continue;
         for (MeshRef* const mesh : geom->mesh_run()) {

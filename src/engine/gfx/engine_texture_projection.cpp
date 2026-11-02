@@ -158,8 +158,8 @@ void TextureProjection::update_matrix()
 void TextureProjection::tick_frame(objects::GameEntity* object)
 {
     maths::Mat4 m{};
-    m = object->display_matrix_;
-    const maths::Vec4& pos = object->at_point_;
+    m = object->display_matrix();
+    const maths::Vec4& pos = object->at_point();
     double ox = shift_.x, oy = shift_.y, oz = shift_.z;
     // the position: the object's plus the offset through its matrix (x kept at 53 bits but for the third row's
     // term; y, z, w rounded at each step; w's third term unrounded)

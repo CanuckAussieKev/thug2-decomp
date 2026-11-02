@@ -619,7 +619,7 @@ void FallingTricksGoal::add_tricks(int count)
             change_owner(manager, container, key_text);
             script::free_struct(params);
         }
-        t.element = static_cast<objects::Entity*>(container)->ident_; // its id
+        t.element = static_cast<objects::Entity*>(container)->ident(); // its id
         ++trick_total_;
 
         // The add script (red once the stack is three quarters full); then the stack's tricks turned red.
@@ -1201,7 +1201,7 @@ void TrickBeatGoal::add_tricks(int count)
             change_owner(manager, container, key_text);
             script::free_struct(params);
         }
-        t.element = static_cast<objects::Entity*>(container)->ident_;
+        t.element = static_cast<objects::Entity*>(container)->ident();
         ++trick_total_;
         params = script::new_struct();
         if (!key_combo_text)
@@ -1318,7 +1318,7 @@ void TrickObjectsGoal::get_object_hit(uint32_t cluster)
     auto* score_component = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore));
     modules::PointTally* score = score_component->points_held_;
     // Only while the skater is in the air (+0xE0) or has points pending.
-    if (!state->in_trick_move_ && pending_points(score) <= 0)
+    if (!state->in_trick_move() && pending_points(score) <= 0)
         return;
     if (!is_operative()) {
         void* manager = objective_board();

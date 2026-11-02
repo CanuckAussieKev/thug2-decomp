@@ -289,13 +289,13 @@ void render_shadow_textures()
             const int count = get_mesh_count(model);
             for (int i = 0; i < count; ++i) {
                 // (the geom's instance: drawn when active, its mesh list flagged as a shadow meanwhile)
-                Singleton* instance = static_cast<PcGeom*>(get_mesh(model, i))->instance;
-                if (!instance->active)
+                Singleton* instance = static_cast<PcGeom*>(get_mesh(model, i))->instance_value();
+                if (!instance->active_value())
                     continue;
-                instance->scene->flags_value() |= 0x80; // (drawn as a shadow)
+                instance->scene_value()->flags_value() |= 0x80; // (drawn as a shadow)
                 draw_mesh(instance, 8);
-                instance->scene->flags_value() &= ~0x80u;
-                instance->scene->flags_value() |= 0x200;
+                instance->scene_value()->flags_value() &= ~0x80u;
+                instance->scene_value()->flags_value() |= 0x200;
             }
         };
         draw_model(caster->model);

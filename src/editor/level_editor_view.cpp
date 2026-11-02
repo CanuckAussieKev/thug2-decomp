@@ -209,8 +209,8 @@ std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, const std
 
 namespace {
 
-render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
-gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body_; }
+render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle()); }
+gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body(); }
 
 // The sector's collision geometry, whether its collision is on or off (StaticCollider; `off`: its flag 4 - the game's
 // switch, level_editor_walls.h).
@@ -272,18 +272,18 @@ std::unordered_map<uint32_t, Cached>& cache_state()
 
 const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const render::TriMeshSource* tri)
 {
-    const V3 min = to_v3(tri->bounds_.min);
-    const V3 max = to_v3(tri->bounds_.max);
+    const V3 min = to_v3(tri->bounds().min);
+    const V3 max = to_v3(tri->bounds().max);
     V3 first = {}, last = {};
-    if (tri->vertices_ && tri->num_vertices_) {
+    if (tri->vertices() && tri->num_vertices()) {
         first = to_v3(tri->read_stored_vertex(0));
-        last = to_v3(tri->read_stored_vertex(tri->num_vertices_ - 1));
+        last = to_v3(tri->read_stored_vertex(tri->num_vertices() - 1));
     }
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
     const bool collision_only = geom_of(sector) == nullptr;
     Cached& c = cache_state()[checksum];
     const uint32_t generation = shared_collision::get_generation();
-    if (c.sector == sector && c.tri == tri && std::cmp_equal(c.faces, tri->tri_count_) &&
+    if (c.sector == sector && c.tri == tri && std::cmp_equal(c.faces, tri->tri_count()) &&
         c.collision_only_ == collision_only && c.generation == generation && same(c.min, min) && same(c.max, max) &&
         same(c.first, first) && same(c.last, last))
         return &c;
@@ -296,9 +296,9 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
     c.max = max;
     c.first = first;
     c.last = last;
-    c.faces = tri->tri_count_;
+    c.faces = tri->tri_count();
     c.collision_only_ = collision_only;
-    if (!tri->faces_ || !tri->vertices_)
+    if (!tri->faces() || !tri->vertices())
         return &c;
     c.points.reserve(static_cast<size_t>(c.faces) * 3);
     c.flags.reserve(c.faces);
@@ -307,7 +307,7 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
         std::array<V3, 3> p{};
         for (int k = 0; k < 3; ++k) {
             const uint32_t index = tri->face_vertex(f, k);
-            if (index >= tri->num_vertices_) {
+            if (index >= tri->num_vertices()) {
                 ok = false;
                 break;
             }
@@ -386,7 +386,7 @@ bool geom_active(void* geom) { return static_cast<render::Geom*>(geom)->is_opera
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
+    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
 }
 
 bool hide_sector(uint32_t checksum)
@@ -430,7 +430,7 @@ void collect_object(objects::Entity* object, void* data)
     auto* composite = core::down_cast<objects::GameEntity>(object);
     OrientedBox box{};
     if (object_edit::model_box(composite, &box))
-        static_cast<ObjectWalk*>(data)->ids.push_back(composite->ident_);
+        static_cast<ObjectWalk*>(data)->ids.push_back(composite->ident());
 }
 
 } // namespace
@@ -513,11 +513,11 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
             auto* w = static_cast<Walk*>(context);
             bool off = false;
             render::TriMeshSource* tri = drawn_tri_data_of(checksum, sector, &off);
-            if (!tri || tri->tri_count_ == 0 || hidden_sector(checksum))
+            if (!tri || tri->tri_count() == 0 || hidden_sector(checksum))
                 return;
             const bool wall = geom_of(sector) == nullptr;
-            const V3 min = to_v3(tri->bounds_.min);
-            const V3 max = to_v3(tri->bounds_.max);
+            const V3 min = to_v3(tri->bounds().min);
+            const V3 max = to_v3(tri->bounds().max);
             const float distance = distance_to_box(w->camera, min, max);
             if (distance > (wall ? kWallRadius : kRadius) && checksum != view_stats().wall_)
                 return;
@@ -638,7 +638,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         [](void* context, uint32_t checksum, const shared_collision::Companion& companion) {
             auto* w = static_cast<CompanionWalk*>(context);
             const render::TriMeshSource& tri = companion.get_geometry();
-            if (distance_to_box(w->camera, to_v3(tri.bounds_.min), to_v3(tri.bounds_.max)) <= kRadius &&
+            if (distance_to_box(w->camera, to_v3(tri.bounds().min), to_v3(tri.bounds().max)) <= kRadius &&
                 !hidden_sector(checksum))
                 w->near.emplace_back(checksum, &companion);
         },
@@ -647,12 +647,12 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, std:
         const render::TriMeshSource& tri = entry.second->get_geometry();
         bool any = false;
         for (int f = 0;
-             std::cmp_less(f, tri.tri_count_) && tri.faces_ && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
+             std::cmp_less(f, tri.tri_count()) && tri.faces() && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
             std::array<V3, 3> p{};
             bool ok = true;
             for (int k = 0; k < 3 && ok; ++k) {
                 const uint32_t index = tri.face_vertex(f, k);
-                ok = index < tri.num_vertices_;
+                ok = index < tri.num_vertices();
                 if (ok)
                     core::at(p, k) = entry.second->get_vertex(static_cast<int>(index));
             }
@@ -731,7 +731,7 @@ std::string describe_wall(uint32_t checksum)
         return "(gone)";
     // The faces' flags: each distinct value and how many faces have it.
     std::vector<std::pair<uint16_t, int>> counts;
-    for (int f = 0; std::cmp_less(f, tri->tri_count_) && tri->faces_; ++f) {
+    for (int f = 0; std::cmp_less(f, tri->tri_count()) && tri->faces(); ++f) {
         uint16_t flags = tri->face_flags(f);
         auto it = std::ranges::find_if(counts, [&](const auto& c) { return c.first == flags; });
         if (it == counts.end())
@@ -744,9 +744,9 @@ std::string describe_wall(uint32_t checksum)
         text,
         "Collision only: nothing is drawn for it.\n%d faces, %d vertices\nbox (%.0f, %.0f, %.0f) to (%.0f, %.0f, "
         "%.0f)\nsize %.0f x %.0f x %.0f\nface flags:",
-        tri->tri_count_, tri->num_vertices_, tri->bounds_.min.x, tri->bounds_.min.y, tri->bounds_.min.z,
-        tri->bounds_.max.x, tri->bounds_.max.y, tri->bounds_.max.z, tri->bounds_.max.x - tri->bounds_.min.x,
-        tri->bounds_.max.y - tri->bounds_.min.y, tri->bounds_.max.z - tri->bounds_.min.z);
+        tri->tri_count(), tri->num_vertices(), tri->bounds().min.x, tri->bounds().min.y, tri->bounds().min.z,
+        tri->bounds().max.x, tri->bounds().max.y, tri->bounds().max.z, tri->bounds().max.x - tri->bounds().min.x,
+        tri->bounds().max.y - tri->bounds().min.y, tri->bounds().max.z - tri->bounds().min.z);
     std::string out = text.data();
     for (size_t i = 0; i < counts.size() && i < 8; ++i) {
         text::format_to(text, " 0x%04X x%d", core::at(counts, i).first, core::at(counts, i).second);

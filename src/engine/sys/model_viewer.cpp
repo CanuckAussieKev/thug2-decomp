@@ -123,7 +123,7 @@ void get_roll(objects::GameEntity* object, float angle)
     const maths::Vec4 axis = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
     maths::Mat4 rotation{};
     maths::build_axis_angle_matrix(rotation, axis, angle);
-    maths::get_multiply(object->basis_frame_, rotation, object->basis_frame_);
+    maths::get_multiply(object->basis_frame(), rotation, object->basis_frame());
 }
 
 void add_input_handler(ViewerInputHandler* handler)
@@ -203,9 +203,9 @@ void handle_viewer_shift(ViewerInputHandler* handler)
     Viewer* viewer = handler->content_;
     viewer->shift_makes() = 0;
     const pad_input::Payload* data = handler->control_data_;
-    if (!(data->buttons_ & 0x100)) // select
+    if (!(data->buttons() & 0x100)) // select
         return;
-    viewer->shift_makes() |= data->makes_;
+    viewer->shift_makes() |= data->makes();
     if (script::fetch_int_value(kSelectShift)) {
         handler->control_data_->block_button_input(1);
         handler->control_data_->block_stick_input(1);
@@ -219,7 +219,7 @@ void handle_viewer_input(ViewerInputHandler* handler)
     if (!objects::view_mode())
         return;
     auto stick = [handler](int event) {
-        return static_cast<float>(static_cast<int>(core::at(handler->control_data_->incident_, event)) - 0x80);
+        return static_cast<float>(static_cast<int>(core::at(handler->control_data_->incident(), event)) - 0x80);
     };
     viewer->pad_rx() = stick(pad_input::Payload::kRawRightX);
     viewer->pad_ry() = stick(pad_input::Payload::kRawRightY);
@@ -230,8 +230,8 @@ void handle_viewer_input(ViewerInputHandler* handler)
                                      &viewer->actions());
     if (!script::fetch_int_value(kViewerButtonsEnabled))
         return;
-    auto held = [handler]() { return handler->control_data_->buttons_; };
-    auto made = [handler]() { return handler->control_data_->makes_; };
+    auto held = [handler]() { return handler->control_data_->buttons(); };
+    auto made = [handler]() { return handler->control_data_->makes(); };
     if (held() & 0x8) {
         if (!(made() & 0x2) && !(held() & 0x2))
             viewer->actions() |= 0x2;
@@ -308,18 +308,18 @@ void Viewer::add_commands(uint32_t commands) { actions_ |= commands; }
 void move_object_local(objects::GameEntity* object, const maths::Vec4* offset)
 {
     maths::Mat4 m{};
-    m = object->basis_frame_;
+    m = object->basis_frame();
     const maths::Vec4& v = *offset;
     auto along = [&](int c) {
         return static_cast<double>(core::at(m.row, 2)[c]) * v.z + static_cast<double>(core::at(m.row, 0)[c]) * v.x +
                static_cast<double>(core::at(m.row, 1)[c]) * v.y;
     };
-    const double x = along(0) + object->at_point_.x;
-    const double y = along(1) + object->at_point_.y;
-    const double z = along(2) + object->at_point_.z;
-    object->at_point_.z = static_cast<float>(z);
-    object->at_point_.x = static_cast<float>(x);
-    object->at_point_.y = static_cast<float>(y);
+    const double x = along(0) + object->at_point().x;
+    const double y = along(1) + object->at_point().y;
+    const double z = along(2) + object->at_point().z;
+    object->at_point().z = static_cast<float>(z);
+    object->at_point().x = static_cast<float>(x);
+    object->at_point().y = static_cast<float>(y);
 }
 
 // 0x00577380
@@ -410,7 +410,7 @@ bool Viewer::place_camera(script::Struct* params)
     core::at(identity.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
     core::at(identity.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
     core::at(identity.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    camera->basis_frame_ = identity;
+    camera->basis_frame() = identity;
     script::VectorValue at{};
     float x = 0.0f, y = 0.0f, z = 0.0f;
     if (params->fetch_vec("ViewerObjPos", &at, 0)) {
@@ -422,10 +422,10 @@ bool Viewer::place_camera(script::Struct* params)
         y = 35.0f;
         z = 100.0f;
     }
-    camera->at_point_.y = y;
-    camera->at_point_.x = x;
-    camera->at_point_.w = 1.0f;
-    camera->at_point_.z = z;
+    camera->at_point().y = y;
+    camera->at_point().x = x;
+    camera->at_point().w = 1.0f;
+    camera->at_point().z = z;
     return true;
 }
 
@@ -453,17 +453,17 @@ void free_camera_task(ViewerTask* task)
                 const maths::Vec4 axis = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
                 auto angle =
                     static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_ly() * seconds * kDegrees);
-                camera->basis_frame_.turn_in_own_frame(axis, angle);
+                camera->basis_frame().turn_in_own_frame(axis, angle);
             }
             if (viewer->pad_lx() != 0.0f) {
                 // Left / right: about the world's y axis.
                 maths::Mat4 matrix{};
-                matrix = camera->basis_frame_;
+                matrix = camera->basis_frame();
                 auto angle =
                     static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_lx() * seconds * -kDegrees);
                 maths::Mat4 rotation{};
                 maths::get_multiply(matrix, matrix, maths::make_yaw_matrix(rotation, angle));
-                camera->basis_frame_ = matrix;
+                camera->basis_frame() = matrix;
             }
         } else if (viewer->mode_sel() == 1) {
             viewer->entity()->change_spin(viewer->pad_lx(), viewer->pad_ly());
@@ -493,7 +493,7 @@ void free_camera_task(ViewerTask* task)
         if (viewer->actions() & 0x20000)
             get_roll(camera, static_cast<float>(static_cast<double>(rotate_velocity()) * seconds * kHalfDegrees));
     }
-    camera->composite_flags_ &= ~objects::kCompositeFlagPaused;
+    camera->composite_flags() &= ~objects::kCompositeFlagPaused;
     if (viewer->actions() & 0x1000) {
         const int next = (render::get_view_layout() + 1) % 6;
         render::set_screen_mode(next);

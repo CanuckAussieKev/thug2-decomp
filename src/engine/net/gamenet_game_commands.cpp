@@ -452,7 +452,7 @@ bool cfunc_create_player_options(Struct* params, Script*)
     player->flag_bits() |= kRemoveMark;
     script::StructPtr dialog = script::make_struct();
     const int profile = player->profile_id();
-    if ((manager->flag_bits() & kFlagsInternet) && profile && manager->presence_service()->authenticated_) {
+    if ((manager->flag_bits() & kFlagsInternet) && profile && manager->presence_service()->authenticated()) {
         dialog->put_int(kProfile, player->profile_id());
         dialog->append_word(kNick, player_name(player));
         dialog->put_name_key(0u, is_buddy(manager, player->profile_id()) ? kAllowRemoveHomie : kAllowAddHomie);
@@ -486,7 +486,7 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
         rgba->configure_size_kind(4, script::kQbvalInteger);
         uint32_t blue = 0;
         const int profile = player->profile_id();
-        if (profile && manager->presence_service()->authenticated_) {
+        if (profile && manager->presence_service()->authenticated()) {
             if (is_buddy(manager, player->profile_id())) {
                 rgba->set_element(0, 0x80);
                 rgba->set_element(1, 0x80);

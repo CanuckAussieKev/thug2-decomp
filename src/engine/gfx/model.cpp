@@ -180,10 +180,10 @@ uint32_t RenderModel::get_strip_break_flags()
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head; node = node->next) {
         const ModelGeom* entry = table_row(node);
         if (entry->scene) {
-            flags |= entry->scene->bone_count_;
+            flags |= entry->scene->bone_count();
         } else if (entry->asset_name_) {
             if (const auto* mesh = static_cast<const PcMesh*>(assets::asset_manager()->get_asset_data(entry->asset_name_, 1)))
-                flags |= mesh->bone_count_;
+                flags |= mesh->bone_count();
         }
     }
     return flags;

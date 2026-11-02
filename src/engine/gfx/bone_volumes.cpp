@@ -155,7 +155,7 @@ void BoneVolumes::get_fill(RigData* data)
         for (uint32_t j = 0; j < descriptions->extent_; ++j) {
             uint32_t bone = 0;
             descriptions->struct_at(j)->read_hash_value(kBone, &bone, 1);
-            if (bone != core::at(data->names_, i))
+            if (bone != core::at(data->names(), i))
                 continue;
             float radius = kDefaultRadius;
             auto* volume = static_cast<BoneVolume*>(memory::alloc(sizeof(BoneVolume)));
@@ -172,7 +172,7 @@ void BoneVolumes::get_fill(RigData* data)
 uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton, const maths::Mat4* world,
                                         uint32_t bone, float scale, float extra_radius, float* distance, float* t)
 {
-    RigData* data = skeleton->payload_;
+    RigData* data = skeleton->payload();
     const std::span<const maths::Mat4> inverse_binds = data->inverse_binds();
     if (bone) {
         const int index = skeleton->fetch_bone_slot(bone);
@@ -231,7 +231,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
 // 0x0048BC40
 bool BoneVolumes::get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint32_t bone, float* volume)
 {
-    RigData* data = skeleton->payload_;
+    RigData* data = skeleton->payload();
     const std::span<const maths::Mat4> inverse_binds = data->inverse_binds();
     const int index = skeleton->fetch_bone_slot(bone);
     const Joint* bone_state = skeleton->get_bone(index);

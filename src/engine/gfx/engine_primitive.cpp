@@ -158,23 +158,23 @@ int Primitive::weigh(const Primitive*)
 // 0x0049C7D0
 void link_primitive(Primitive* primitive)
 {
-    primitive->following_ = new_primitives();
+    primitive->following() = new_primitives();
     new_primitives() = primitive;
-    primitive->flag_bits_ |= kNewFlag;
+    primitive->flag_bits() |= kNewFlag;
 }
 
 // 0x0049C7F0
 void unlink_primitive(Primitive* primitive)
 {
-    Primitive** list = (primitive->flag_bits_ & kNewFlag) ? &new_primitives() : &drawn_primitives();
+    Primitive** list = (primitive->flag_bits() & kNewFlag) ? &new_primitives() : &drawn_primitives();
     Primitive* before = *list;
     if (before == primitive) {
-        *list = before->following_;
+        *list = before->following();
         return;
     }
-    while (before && before->following_ && before->following_ != primitive)
-        before = before->following_;
-    before->following_ = before->following_->following_; // (not found: through null, as the original)
+    while (before && before->following() && before->following() != primitive)
+        before = before->following();
+    before->following() = before->following()->following(); // (not found: through null, as the original)
 }
 
 // 0x0049C840
@@ -182,23 +182,23 @@ void render_primitives()
 {
     while (Primitive* primitive = new_primitives()) {
         unlink_primitive(primitive);
-        primitive->flag_bits_ &= ~kNewFlag;
+        primitive->flag_bits() &= ~kNewFlag;
         Primitive** at = &drawn_primitives();
         if (*at) {
             for (;;) {
                 const int order = primitive->weigh(*at);
                 if (order < 0)
                     break;
-                at = &(*at)->following_;
+                at = &(*at)->following();
                 if (!*at)
                     break;
             }
         }
-        primitive->following_ = *at;
+        primitive->following() = *at;
         *at = primitive;
     }
-    for (Primitive* primitive = drawn_primitives(); primitive; primitive = primitive->following_) {
-        if (primitive->ready_)
+    for (Primitive* primitive = drawn_primitives(); primitive; primitive = primitive->following()) {
+        if (primitive->ready())
             primitive->render_if_ready();
     }
 }

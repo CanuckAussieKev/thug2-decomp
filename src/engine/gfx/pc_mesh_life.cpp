@@ -97,10 +97,10 @@ long MeshRef::apply_vertex_colors()
     if (!per_vertex_bytes_)
         return 0;
     VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
-    vb->lock_size_ = vb->size;
-    vb->lock_offset_ = 0;
-    vb->lock_flags_ = 0;
-    const gpu::VertexWriter vertices(vb->data, stride, vertex_count_); // (locked whole, inline)
+    vb->set_lock_size(vb->size_value());
+    vb->set_lock_offset(0);
+    vb->set_lock_flags(0);
+    const gpu::VertexWriter vertices(vb->data_value(), stride, vertex_count_); // (locked whole, inline)
     const std::span<const uint32_t> colors = material->anim_colour_run();
     const std::span<const uint8_t> per_vertex(per_vertex_bytes_, vertex_count_);
     for (uint32_t i = 0; i < vertex_count_; ++i) {
@@ -187,10 +187,10 @@ void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexA
     if (arena)
         arena->size += (bytes + 0x1F) & ~0x1Fu;
     VertexBuffer* vb = core::at(vertex_buffers_, 0);
-    uint8_t* data = vb->data; // (locked whole, inline)
-    vb->lock_offset_ = 0;
-    vb->lock_size_ = vb->size;
-    vb->lock_flags_ = 0;
+    uint8_t* data = vb->data_value(); // (locked whole, inline)
+    vb->set_lock_offset(0);
+    vb->set_lock_size(vb->size_value());
+    vb->set_lock_flags(0);
     std::memcpy(data, vertices, bytes);
     core::at(vertex_buffers_, 0)->get_unlock();
 }
@@ -204,12 +204,12 @@ void release_buffers()
         auto* vb = static_cast<VertexBuffer*>(node->buffer);
         if (!vb)
             continue;
-        IDirect3DVertexBuffer9* buffer = vb->buffer;
+        IDirect3DVertexBuffer9* buffer = vb->buffer_value();
         if (buffer) {
             static_cast<IDirect3DVertexBuffer9*>(buffer)->Release();
-            vb->buffer = nullptr;
+            vb->set_buffer(nullptr);
         }
-        vb->buffer = buffer; // (kept: recreate_buffers matches the shares by it)
+        vb->set_buffer(buffer); // (kept: recreate_buffers matches the shares by it)
     }
     for (memory::ListNode* node = first_scene_node_bytes(); node;) {
         memory::ListNode* next = next_scene_node(node);
@@ -240,8 +240,8 @@ void recreate_buffers()
                                              &arena_buffer(meshes), nullptr);
             for (const BufferNode* vb_node = vertex_buffer_list(); vb_node; vb_node = vb_node->next) {
                 auto* vb = static_cast<VertexBuffer*>(vb_node->buffer);
-                if (vb && vb->buffer == old)
-                    vb->buffer = arena_buffer(meshes); // (the shares moved to the new arena buffer)
+                if (vb && vb->buffer_value() == old)
+                    vb->set_buffer(arena_buffer(meshes)); // (the shares moved to the new arena buffer)
             }
         }
         node = next;
@@ -298,13 +298,13 @@ MeshRef::~MeshRef()
             stream->Release(); // (only compared with below)
         for (uint32_t i = 0; i < vertex_buffer_count_; ++i) {
             if (core::at(vertex_buffers_, i)) {
-                if (stream == core::at(vertex_buffers_, i)->buffer)
+                if (stream == core::at(vertex_buffers_, i)->buffer_value())
                     renderer().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
                 core::at(vertex_buffers_, i)->teardown();
                 core::at(vertex_buffers_, i) = nullptr;
             }
             if (core::at(extra_buffers_, i)) {
-                if (stream == core::at(extra_buffers_, i)->buffer)
+                if (stream == core::at(extra_buffers_, i)->buffer_value())
                     renderer().d3d_device()->SetStreamSource(0, nullptr, 0, 0);
                 core::at(extra_buffers_, i)->teardown(); // (left pointing at it: cleared with the rest below)
             }

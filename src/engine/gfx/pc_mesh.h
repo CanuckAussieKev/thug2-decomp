@@ -52,7 +52,7 @@ public:
     // 0x004B7ED0: its scene, and the scene's hierarchy.
     void choose_scene(PcScene* scene);
 };
-static_assert(offsetof(PcMesh, bone_count_) == 0xB0 && offsetof(PcMesh, scene) == 0xC4 && sizeof(PcMesh) == 0xC8,
+static_assert(offsetof(PcMesh, scene) == 0xC4 && sizeof(PcMesh) == 0xC8,
               "layout must match the original");
 
 } // namespace render

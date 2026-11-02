@@ -165,7 +165,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         std::array<char, 64> name{};
         text::format_to(name, "Grass-Grass_Layer%d", layer);
         const uint32_t checksum = checksums::generate_crc_from_buffer(name.data(), static_cast<int>(std::strlen(name.data())));
-        const SceneRef* scene = geom->scene->meshes;
+        const SceneRef* scene = geom->scene_value()->meshes;
         auto* material = static_cast<MaterialRef*>(scene->find_material(checksum));
         copy->set_material(material);
         material_pixel_shader(material, &copy->pixel_shader());

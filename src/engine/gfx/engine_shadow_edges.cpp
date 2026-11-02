@@ -34,7 +34,7 @@ void add_shadow_volume(ShadowVolume* volume)
 }
 
 // The meshes of the model's collision scene: their count (the array is the volumes' key).
-int get_mesh_count(const SubMesh* asset_data) { return asset_data->collision_count_; }
+int get_mesh_count(const SubMesh* asset_data) { return asset_data->collision_count(); }
 
 bool get_skipped(const TriMeshSource& mesh) { return (mesh.face_flags(0) & 0x40) != 0; }
 
@@ -98,7 +98,7 @@ void add_edge(EdgeStore& store, int& count, uint16_t from, uint16_t to, const ma
 void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
 {
     if (asset_data)
-        model_key_ = asset_data->hit_shape_;
+        model_key_ = asset_data->hit_shape();
     edges_ = find_shadow_edges(model_key_);
     if (edges_) {
         ++edges_->users;
@@ -113,8 +113,8 @@ void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
         const std::span<const TriMeshSource> mesh_run(meshes, static_cast<size_t>(get_mesh_count(asset_data)));
         for (const TriMeshSource& mesh : mesh_run) {
             if (!get_skipped(mesh)) {
-                faces += mesh.tri_count_;
-                vertices += mesh.num_vertices_;
+                faces += mesh.tri_count();
+                vertices += mesh.num_vertices();
             }
         }
     }
@@ -133,7 +133,7 @@ void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
             if (get_skipped(mesh))
                 continue;
             count = 0; // (each mesh starts the edges again: only the last one's are kept)
-            for (int f = 0; std::cmp_less(f, mesh.tri_count_); ++f) {
+            for (int f = 0; std::cmp_less(f, mesh.tri_count()); ++f) {
                 const auto a = static_cast<uint16_t>(mesh.face_vertex(f, 0));
                 const auto b = static_cast<uint16_t>(mesh.face_vertex(f, 1));
                 const auto c = static_cast<uint16_t>(mesh.face_vertex(f, 2));

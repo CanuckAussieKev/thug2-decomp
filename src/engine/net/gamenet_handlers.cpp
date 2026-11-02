@@ -368,7 +368,7 @@ int handle_cd_key_answer(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
-    const uint32_t id = player->skater()->ident_; // its skater's id
+    const uint32_t id = player->skater()->ident(); // its skater's id
     manager->rating_service()->set_player_auth(static_cast<int>(id), net::wire::text_of(context->body_));
     return kContinue;
 }

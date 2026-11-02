@@ -100,9 +100,9 @@ bool pressed_within(MoveExecutor* self, uint32_t button, int ms, int ignore)
 // SkaterFlipAndRotate's do_after_anim (before a trick's script starts).
 void prepare_flip_and_rotate(MoveExecutor* self) { self->flip_rotate()->do_after_anim(); }
 // The state component told a trick started.
-void trick_started(MoveExecutor* self) { self->skater_state()->in_trick_move_ = true; }
+void trick_started(MoveExecutor* self) { self->skater_state()->set_in_trick_move(true); }
 
-script::Script* object_script(MoveExecutor* self) { return self->entity_->own_script_; }
+script::Script* object_script(MoveExecutor* self) { return self->entity_->own_script(); }
 
 // A new structure, as the original's inlined `new CStruct` (from the structure pool; null if that fails).
 gsl::owner<script::Struct*> new_struct_copy(script::Struct* source)
@@ -191,7 +191,7 @@ void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
 // 0x00521E50
 void MoveExecutor::update_buttons()
 {
-    const uint32_t mask = input_->events_;
+    const uint32_t mask = input_->events();
     auto bit = [mask](int n) { return ((mask >> n) & 1) != 0; };
     const int direction = d_pad_direction(bit(6), bit(7), bit(5), bit(4));
     for (int i = 1; i <= 8; ++i)
@@ -285,7 +285,7 @@ void MoveExecutor::set_trick_objects(bool on)
         list.get_clear();
         return;
     }
-    list.append_one(core_physics_->floor_feeler().hit_.object_checksum_);
+    list.append_one(core_physics_->floor_feeler().hit().object_checksum_);
 }
 
 // 0x005232E0
@@ -335,9 +335,9 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     Entity* object = entity_;
     object->replace_script(script, trick_params);
     if (flag)
-        object->own_script_->args()->put_name_key(0u, flag);
-    object->own_script_->args()->append_structure_if_any(extra_params);
-    object->own_script_->tick_frame();
+        object->own_script()->args()->put_name_key(0u, flag);
+    object->own_script()->args()->append_structure_if_any(extra_params);
+    object->own_script()->tick_frame();
     trick_started(this);
     count_trick();
     --busy_;
@@ -347,7 +347,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
 // 0x00522670
 void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script::Struct* trick_params)
 {
-    skater_state_->in_trick_move_ = false;
+    skater_state_->set_in_trick_move(false);
     starting_special_ = false;
     int& head = queue_first_;
     int& tail = queue_last_;
@@ -376,7 +376,7 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
     }
     if (first) {
         entity_->create_script_if_needed();
-        entity_->own_script_->preempt(first, params);
+        entity_->own_script()->preempt(first, params);
     }
     auto* trick = script::fetch_list(array)->struct_at(index);
     if (try_trick(trick, 0, trick_params))
@@ -396,7 +396,7 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
         object->replace_script(kCreateATrick, create_params);
         if (create_params)
             free_struct(create_params);
-        object->own_script_->tick_frame();
+        object->own_script()->tick_frame();
         trick_started(this);
         count_trick();
         return;
@@ -427,7 +427,7 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
         script::Struct copy;
         copy.init_copy(params);
         entity_->create_script_if_needed();
-        entity_->own_script_->preempt(first, first_params);
+        entity_->own_script()->preempt(first, first_params);
         params->get_assign(&copy);
         copy.get_clear();
     }
@@ -452,7 +452,7 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
     } else {
         object->replace_script(script, trick_params);
     }
-    object->own_script_->tick_frame();
+    object->own_script()->tick_frame();
     trick_started(this);
     if (++trick_count_ > 3)
         entity_->announce(kTricksDone, nullptr, 0.0f);
@@ -493,12 +493,12 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
     script::Struct* trick_params = nullptr;
     trick->read_sub_struct(kParams, &trick_params, 0);
     Entity* object = entity_;
-    if (object->kind_tag_ == kSkaterType)
+    if (object->kind_tag() == kSkaterType)
         core_physics_->set_rail_adjust(0);
     starting_special_ = grind_.is_special_;
     prepare_flip_and_rotate(this);
     object->replace_script(script, trick_params);
-    object->own_script_->tick_frame();
+    object->own_script()->tick_frame();
     trick_started(this);
     if (++trick_count_ > 3)
         entity_->announce(kTricksDone, nullptr, 0.0f);
@@ -695,7 +695,7 @@ void MoveExecutor::update_bash()
     if (blender->get_timeline30() != kRunOut && blender->get_timeline30() != kRunOutQuick) {
         if (!(get_bash_speed() > kMashedFastEnough))
             return;
-        if (static_cast<uint32_t>(skater_state_->physics_mode_)) {
+        if (static_cast<uint32_t>(skater_state_->physics_mode())) {
             float one = 0.0f;
             uint32_t bits = 1;
             std::memcpy(&one, &bits, 4);
@@ -720,7 +720,7 @@ void MoveExecutor::update_bash()
 // 0x005231D0
 void MoveExecutor::tick_frame()
 {
-    if (!entity_->is_local_skater_) {
+    if (!entity_->is_local_skater()) {
         hold_off(true);
         return;
     }

@@ -19,21 +19,21 @@ namespace commands {
 // The controller's input state (its data this frame): one byte per button, non-zero = held.
 struct PadInputSample {
     const pad_input::Payload* data;
-    [[nodiscard]] uint8_t right() const { return core::at(data->incident_, 0x04); }
-    [[nodiscard]] uint8_t left() const { return core::at(data->incident_, 0x05); }
-    [[nodiscard]] uint8_t up() const { return core::at(data->incident_, 0x06); }
-    [[nodiscard]] uint8_t down() const { return core::at(data->incident_, 0x07); }
-    [[nodiscard]] uint8_t triangle() const { return core::at(data->incident_, 0x08); }
-    [[nodiscard]] uint8_t circle() const { return core::at(data->incident_, 0x09); }
-    [[nodiscard]] uint8_t x() const { return core::at(data->incident_, 0x0A); }
-    [[nodiscard]] uint8_t square() const { return core::at(data->incident_, 0x0B); }
-    [[nodiscard]] uint8_t l1() const { return core::at(data->incident_, 0x0C); }
-    [[nodiscard]] uint8_t r1() const { return core::at(data->incident_, 0x0D); }
-    [[nodiscard]] uint8_t l2() const { return core::at(data->incident_, 0x0E); }
-    [[nodiscard]] uint8_t r2() const { return core::at(data->incident_, 0x0F); }
-    [[nodiscard]] uint8_t black() const { return core::at(data->incident_, 0x16); }
-    [[nodiscard]] uint8_t white() const { return core::at(data->incident_, 0x17); }
-    [[nodiscard]] uint8_t z() const { return core::at(data->incident_, 0x18); }
+    [[nodiscard]] uint8_t right() const { return core::at(data->incident(), 0x04); }
+    [[nodiscard]] uint8_t left() const { return core::at(data->incident(), 0x05); }
+    [[nodiscard]] uint8_t up() const { return core::at(data->incident(), 0x06); }
+    [[nodiscard]] uint8_t down() const { return core::at(data->incident(), 0x07); }
+    [[nodiscard]] uint8_t triangle() const { return core::at(data->incident(), 0x08); }
+    [[nodiscard]] uint8_t circle() const { return core::at(data->incident(), 0x09); }
+    [[nodiscard]] uint8_t x() const { return core::at(data->incident(), 0x0A); }
+    [[nodiscard]] uint8_t square() const { return core::at(data->incident(), 0x0B); }
+    [[nodiscard]] uint8_t l1() const { return core::at(data->incident(), 0x0C); }
+    [[nodiscard]] uint8_t r1() const { return core::at(data->incident(), 0x0D); }
+    [[nodiscard]] uint8_t l2() const { return core::at(data->incident(), 0x0E); }
+    [[nodiscard]] uint8_t r2() const { return core::at(data->incident(), 0x0F); }
+    [[nodiscard]] uint8_t black() const { return core::at(data->incident(), 0x16); }
+    [[nodiscard]] uint8_t white() const { return core::at(data->incident(), 0x17); }
+    [[nodiscard]] uint8_t z() const { return core::at(data->incident(), 0x18); }
 };
 
 // The per-button debounce times (0x007CE758, 22 entries, indexed like the button table 0x0067D6D8): a button

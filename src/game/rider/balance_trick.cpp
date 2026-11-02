@@ -233,9 +233,9 @@ void RiderTeeterMoves::change_args(script::Struct* params)
 // 0x004F9200
 void RiderTeeterMoves::set_wobble(script::Struct* wobble)
 {
-    if (!entity_->own_script_) {
+    if (!entity_->own_script()) {
         void* memory = script::script_pools().carve(0xF4);
-        entity_->own_script_ = memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
+        entity_->set_own_script(memory ? static_cast<script::Script*>(memory)->make_new() : nullptr);
     }
     std::array<float, 5> values{};
     script::Struct* value = nullptr; // (not cleared again: a missing one leaves the last found)

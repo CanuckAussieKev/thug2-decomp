@@ -40,7 +40,7 @@ namespace {
 uint32_t sector_attribute_bits(void* sector) { return static_cast<WorldCell*>(sector)->fetch_bits(); }
 void apply_sector_bits(void* sector, uint32_t flags) { static_cast<WorldCell*>(sector)->change_bits(flags); }
 void reset_sector_bits(void* sector, uint32_t flags) { static_cast<WorldCell*>(sector)->clear_flags(flags); }
-uint32_t sector_key_from_spec(void* sector) { return static_cast<WorldCell*>(sector)->checksum_; }
+uint32_t sector_key_from_spec(void* sector) { return static_cast<WorldCell*>(sector)->checksum(); }
 const maths::BBox* sector_box(void* sector) { return static_cast<WorldCell*>(sector)->fetch_bounds(); }
 // (0x0049E9B0 tests the argument's low byte only)
 void enable_sector(void* sector, uint32_t on)
@@ -114,8 +114,8 @@ StaticCollider* WorldScene::fetch_static_collision(int index)
 gsl::owner<WorldCell*> WorldScene::spawn_sector()
 {
     gsl::owner<WorldCell*> sector = plat_create_sector();
-    sector->geom_handle_ = nullptr;
-    sector->hit_body_ = nullptr;
+    sector->set_geom_handle(nullptr);
+    sector->set_hit_body(nullptr);
     return sector;
 }
 
@@ -192,9 +192,9 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, gsl
         StaticCollider* object = &core::at(std::span<StaticCollider>(*statics, static_cast<std::size_t>(header.object_count)), i);
         object->assign_shape_data(geometry);
         buffer = object->take_buffer(buffer, geometry);
-        if (geometry->tri_count_ > 0) {
-            box->append_spot(geometry->bounds_.min);
-            box->append_spot(geometry->bounds_.max);
+        if (geometry->tri_count() > 0) {
+            box->append_spot(geometry->bounds().min);
+            box->append_spot(geometry->bounds().max);
             any_vertices = true;
         }
     }

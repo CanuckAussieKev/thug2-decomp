@@ -170,8 +170,8 @@ void SkaterVehicleSoundComponent::read_settings()
 void SkaterVehicleSoundComponent::tick_engine()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    auto speed = static_cast<float>(get_pace(entity_->vel_) * kToMph);
-    if (!input_->pad_primary_.pos_x().held_down_ || input_->pad_primary_.btn_down().held_down_)
+    auto speed = static_cast<float>(get_pace(entity_->vel()) * kToMph);
+    if (!input_->pad_primary().pos_x().held_down() || input_->pad_primary().btn_down().held_down())
         speed = static_cast<float>(get_rate(0xEC67BC97) * static_cast<double>(speed));
 
     // The speed eased towards the object's, each step limited by the rates (as the original compares them, a step
@@ -190,7 +190,7 @@ void SkaterVehicleSoundComponent::tick_engine()
     }
 
     // The gear: back to the first a while after driving stopped, else shifted at the gear's speeds.
-    if (core_physics_->state()->cur_phase_ == 0) {
+    if (core_physics_->state()->cur_phase() == 0) {
         const int last_driven = static_cast<int>(core_physics_->air_start());
         const float delay = get_rate(0xC0F451D4);
         const int clock = get_clock();
@@ -232,7 +232,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
+    sfx->fetch_loudness(&volume, &entity_->at_point(), sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
                         nullptr);
     const float loudest = get_setting(settings_, 0x288B029D);
     const float quiet = get_setting(settings_, 0xB8F81277);
@@ -251,8 +251,8 @@ void SkaterVehicleSoundComponent::tick_engine()
 void SkaterVehicleSoundComponent::update_skid()
 {
     float skid = 0.0f;
-    if (input_->pad_primary_.btn_down().held_down_ && core_physics_->state()->cur_phase_ == 0) {
-        const double speed = get_pace(entity_->vel_);
+    if (input_->pad_primary().btn_down().held_down() && core_physics_->state()->cur_phase() == 0) {
+        const double speed = get_pace(entity_->vel());
         if (!(0.0 > speed))
             skid = static_cast<float>(speed);
     }
@@ -264,7 +264,7 @@ void SkaterVehicleSoundComponent::update_skid()
 
     sound::VolumeRef volume;
     sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(skid_sound_name_), 0, nullptr, nullptr);
+    sfx->fetch_loudness(&volume, &entity_->at_point(), sfx->get_dropoff_distance(skid_sound_name_), 0, nullptr, nullptr);
     const float loudest = get_setting(settings_, 0x42EA5746);
     const float quiet = get_setting(settings_, 0x43E6CDF2);
     volume.percent_tweak(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));

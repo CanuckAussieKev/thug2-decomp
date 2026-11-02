@@ -101,22 +101,22 @@ void SkaterPhysicsModule::get_reset()
     auto* game_net = online::net_game_state().online_hub();
     if (!game_net->in_net_game()) {
         // (Off line: the old position, and the one kept at +0x98, are where the skater is now.)
-        entity_->old_pos_ = entity_->at_point_;
-        safe_pos_ = entity_->at_point_;
+        entity_->old_pos() = entity_->at_point();
+        safe_pos_ = entity_->at_point();
     }
     lip_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     state_changed_at_ = get_now();
-    entity_->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    entity_->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     physics::change_phase(this, 0);
     old_state_ = 0;
     // Every timed flag (23 down to 0) set, then cleared; flag 7 tells +0x1514's +0x1E each time.
     for (int flag = 0x17; flag >= 0; --flag) {
         set_timed_flag(this, static_cast<PoseFlag>(flag), 1);
         if (flag == 7)
-            sound_->sliding_ = 1;
+            sound_->set_sliding(1);
         set_timed_flag(this, static_cast<PoseFlag>(flag), 0);
         if (flag == 7)
-            sound_->sliding_ = 0;
+            sound_->set_sliding(0);
     }
     set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity_)->goofy());
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
@@ -128,7 +128,7 @@ void SkaterPhysicsModule::get_reset()
         ride->ride_ = nullptr;
         ride->stop_time_ = get_now();
     }
-    floor_feeler_.hit_.face_flag40_ = 0;
+    floor_feeler_.hit().face_flag40_ = 0;
     side_reach_ = 0.0f;
     jump_charge_ms_ = 0;
     wall_ride_start_ = 0;
@@ -137,7 +137,7 @@ void SkaterPhysicsModule::get_reset()
     bail_on_ = 0;
     no_kick_ = 0;
     can_brake_ = 1;
-    state_->lip_straight_up_ = 0;
+    state_->set_lip_straight_up(0);
     rail_node_ = nullptr;
     if (limits_time_ != -2.0f) // (-2: kept)
         limits_time_ = 0.0f;
@@ -153,7 +153,7 @@ void SkaterPhysicsModule::get_reset()
 void SkaterPhysicsModule::remember_floor_probe(const void* feeler)
 {
     floor_feeler_.get_assign(*static_cast<const render::ProbeRay*>(feeler));
-    sound_->last_ground_ = floor_feeler_.hit_.terrain;
+    sound_->set_last_ground(floor_feeler_.hit().terrain);
 }
 
 // 0x00506BD0
@@ -165,7 +165,7 @@ int SkaterPhysicsModule::cancel_rotate_displayand_update_matrix(script::Struct*,
 // 0x00500670
 void SkaterPhysicsModule::refresh_hit_cache()
 {
-    const maths::Vec4& position = entity_->at_point_;
+    const maths::Vec4& position = entity_->at_point();
     maths::BBox box;
     box.min = {.x = position.x - kCacheReach, .y = position.y - kCacheBelow, .z = position.z - kCacheReach, .w = position.w};
     box.max = {.x = position.x + kCacheReach, .y = position.y + kCacheAbove, .z = position.z + kCacheReach, .w = position.w};
@@ -193,13 +193,13 @@ void SkaterPhysicsModule::update_free_revert()
 // 0x005007A0
 void SkaterPhysicsModule::update_focus_button()
 {
-    objects::ControlButton* button = &input_->pad_primary_.stick_click_left();
+    objects::ControlButton* button = &input_->pad_primary().stick_click_left();
     if (focus_held_) {
-        if (!button->held_down_)
+        if (!button->held_down())
             focus_held_ = 0;
         return;
     }
-    if (!button->held_down_)
+    if (!button->held_down())
         return;
     const int wait = script::fetch_int_value(kFocusButtonTime);
     if (time_since_press(button) > wait) {
@@ -214,7 +214,7 @@ void SkaterPhysicsModule::update_projectiles()
     if (throwing_projectile_ || !projectiles_on_ || state_->flag(PoseFlag::kBailing).on)
         return;
     const objects::TaggingControlComponent* other = tagging_component_;
-    if (other->pending_ || other->countdown_ || !(other->cooldown_ == 0.0f))
+    if (other->pending() || other->countdown() || !(other->cooldown() == 0.0f))
         return;
     int& wait = throw_wait_;
     if (wait) {
@@ -240,7 +240,7 @@ void SkaterPhysicsModule::update_model_rotation()
     const double left = static_cast<double>(model_rotation_left_) - slomo_speed_;
     model_rotation_left_ = static_cast<float>(left); // (compared below unrounded)
     auto reset_rotations = [model] { model->cancel_rotate_display(); };
-    if (state_->cur_phase_ != 1) {
+    if (state_->cur_phase() != 1) {
         reset_rotations();
         model_rotating_ = 0;
         no_rail_tricks_ = 0;
@@ -286,9 +286,9 @@ void SkaterPhysicsModule::update_special_time()
 int SkaterPhysicsModule::get_air_time_left(script::Struct*, script::Script* script)
 {
     const objects::GameEntity* object = object_of(this);
-    const float y = object->at_point_.y;
-    auto drop = static_cast<float>(y - (static_cast<double>(y) - state_->height_above_ground_));
-    const float upward = object->vel_.y;
+    const float y = object->at_point().y;
+    auto drop = static_cast<float>(y - (static_cast<double>(y) - state_->height_above_ground()));
+    const float upward = object->vel().y;
     const double down = -current_gravity(this);
     // Solving y + upward * t - down * t^2 / 2 = the take-off height.
     const double discriminant = static_cast<double>(upward) * upward + 2.0 * (down * drop);
@@ -309,9 +309,9 @@ int SkaterPhysicsModule::can_kick(script::Struct*, script::Script*) { return can
 // 0x00500E90
 int SkaterPhysicsModule::orient_to_normal(script::Struct*, script::Script*)
 {
-    drawn_normal_ = core::at(entity_->basis_frame_.row, 1);
-    floor_normal_ = core::at(entity_->basis_frame_.row, 1);
-    turn_to_normal(feeler_.surface_dir_);
+    drawn_normal_ = core::at(entity_->basis_frame().row, 1);
+    floor_normal_ = core::at(entity_->basis_frame().row, 1);
+    turn_to_normal(feeler_.surface_dir());
     return 1;
 }
 
@@ -319,12 +319,12 @@ int SkaterPhysicsModule::orient_to_normal(script::Struct*, script::Script*)
 void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, bool trick2, bool trick3, bool trick4)
 {
     objects::GameEntity* object = object_of(this);
-    if (!object->own_script_) {
-        object_of(this)->own_script_ = script::Script::create();
+    if (!object->own_script()) {
+        object_of(this)->set_own_script(script::Script::create());
     }
     if (motoskateboard_) {
         object = object_of(this);
-        object->own_script_->bind_script(kMotoskateboardGrind, nullptr, object);
+        object->own_script()->bind_script(kMotoskateboardGrind, nullptr, object);
     } else {
         // GrindTrickList[the rail's type (0-8; anything else 0)][the four trick buttons as bits 0-3].
         const uint32_t index = rail_type <= 8 ? rail_type : 0;
@@ -349,10 +349,10 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
         core::down_cast<objects::RiderSpinAndFlip>(object_of(this)->fetch_module(kSkaterFlipAndRotate))
             ->do_after_anim();
         object = object_of(this);
-        object->own_script_->bind_script(tricks->fetch_part(buttons), nullptr, object);
+        object->own_script()->bind_script(tricks->fetch_part(buttons), nullptr, object);
     }
-    object_of(this)->own_script_->tick_frame();
-    state_->in_trick_move_ = 1;
+    object_of(this)->own_script()->tick_frame();
+    state_->set_in_trick_move(1);
 }
 
 } // namespace skater

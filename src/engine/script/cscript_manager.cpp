@@ -70,7 +70,7 @@ bool call_member_function_by_name(objects::Entity* object, uint32_t name, Struct
 // False while the object is paused (its kScriptFlagPauseWithObject scripts wait).
 bool object_runs_scripts(objects::Entity* object) { return object->should_update_scripts(); }
 // The object's id (sent to the other players).
-uint32_t current_object_id(objects::Entity* object) { return object->ident_; }
+uint32_t current_object_id(objects::Entity* object) { return object->ident(); }
 
 // The network game (online::Hub 0x007CCE14).
 using NetSessionSlot = online::Hub;

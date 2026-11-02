@@ -48,6 +48,14 @@ public:
     // spacing_between) and the menu's size set; with nothing selected and the focus, the first item focused.
     void arrange();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int selected_index() const { return selected_index_; }
+    [[nodiscard]] bool focused() const { return focused_; }
+    [[nodiscard]] bool vertical() const { return vertical_; }
+    [[nodiscard]] bool pad_handling() const { return pad_handling_; }
+    [[nodiscard]] bool cycles_around() const { return cycles_around_; }
+
+private:
     int selected_index_{-1};     // +0x178 (-1 none)
     uint32_t chosen_item_id_{0}; // +0x17C (0 none)
     bool focused_{false};        // +0x180

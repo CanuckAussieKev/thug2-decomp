@@ -71,6 +71,32 @@ void free_tree_nodes(HitTreeNode* first);
 // A collision object's geometry (render::TriMeshSource, from a .col file): its vertices (floats, or 16-bit offsets
 // from its box's minimum in sixteenths when "compressed"), faces and BSP tree.
 struct TriMeshSource {
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t checksum() const { return checksum_; }
+    void set_checksum(uint32_t value) { checksum_ = value; }
+    void set_unknown04(uint16_t value) { unknown04_ = value; }
+    [[nodiscard]] uint16_t num_vertices() const { return num_vertices_; }
+    void set_num_vertices(uint16_t value) { num_vertices_ = value; }
+    [[nodiscard]] uint16_t tri_count() const { return tri_count_; }
+    void set_tri_count(uint16_t value) { tri_count_ = value; }
+    [[nodiscard]] bool small_faces() const { return small_faces_; }
+    void set_small_faces(bool value) { small_faces_ = value; }
+    [[nodiscard]] bool compressed() const { return compressed_; }
+    void set_compressed(bool value) { compressed_ = value; }
+    [[nodiscard]] uint8_t* faces() const { return faces_; }
+    void set_faces(uint8_t* value) { faces_ = value; }
+    maths::BBox& bounds() { return bounds_; }
+    [[nodiscard]] const maths::BBox& bounds() const { return bounds_; }
+    [[nodiscard]] void* vertices() const { return vertices_; }
+    void set_vertices(void* value) { vertices_ = value; }
+    [[nodiscard]] HitTreeNode* bsp() const { return bsp_; }
+    void set_bsp(HitTreeNode* value) { bsp_ = value; }
+    [[nodiscard]] uint8_t* vertex_bytes() const { return vertex_bytes_; }
+    void set_vertex_bytes(uint8_t* value) { vertex_bytes_ = value; }
+    [[nodiscard]] uint32_t unknown3c() const { return unknown3c_; }
+    void set_unknown3c(uint32_t value) { unknown3c_ = value; }
+
+private:
     uint32_t checksum_{}; // +0x00 the sector's name
     uint16_t unknown04_{};
     uint16_t num_vertices_{};   // +0x06
@@ -82,9 +108,14 @@ struct TriMeshSource {
     void* vertices_{};        // +0x30 float[3] each, or uint16_t[3] when compressed
     HitTreeNode* bsp_{};      // +0x34
     uint8_t* vertex_bytes_{}; // +0x38 one byte per vertex (copied and freed with the geometry), or null
+
+public:
     // NOT ORIGINAL - those bytes as a run of num_vertices_.
     [[nodiscard]] std::span<const uint8_t> vertex_byte_run() const { return {vertex_bytes_, num_vertices_}; }
+private:
     uint32_t unknown3c_{};    // +0x3C a float: the face-rejection scale (cleared when turned or scaled; a movable
+
+public:
                             // triangle object keeps a copy)
 
     // NOT ORIGINAL - the stored vertices as runs of floats / 16-bit words (three each, num_vertices_ vertices).
@@ -159,14 +190,19 @@ struct TriMeshSource {
     [[nodiscard]] uint16_t face_flags(int face) const { return face_table().flags(face); }
     [[nodiscard]] uint16_t face_terrain(int face) const { return face_table().terrain(face); }
     void set_face_flags(int face, uint16_t flags) { face_table().set_flags(face, flags); }
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(TriMeshSource, num_vertices_) == 0x06 && offsetof(TriMeshSource, tri_count_) == 0x08 &&
+                          offsetof(TriMeshSource, small_faces_) == 0x0A && offsetof(TriMeshSource, compressed_) == 0x0B &&
+                          offsetof(TriMeshSource, faces_) == 0x0C && offsetof(TriMeshSource, bounds_) == 0x10 &&
+                          offsetof(TriMeshSource, vertices_) == 0x30 && offsetof(TriMeshSource, bsp_) == 0x34 &&
+                          offsetof(TriMeshSource, vertex_bytes_) == 0x38 &&
+                          sizeof(TriMeshSource) == collision_format::kObjectSize,
+                      "the collision file's object record (collision_format.h)");
+    }
 };
 // The collision file's object record, used in place (formats/collision_format.h): its layout is the file's.
-static_assert(offsetof(TriMeshSource, num_vertices_) == 0x06 && offsetof(TriMeshSource, tri_count_) == 0x08 &&
-                  offsetof(TriMeshSource, small_faces_) == 0x0A && offsetof(TriMeshSource, compressed_) == 0x0B &&
-                  offsetof(TriMeshSource, faces_) == 0x0C && offsetof(TriMeshSource, bounds_) == 0x10 &&
-                  offsetof(TriMeshSource, vertices_) == 0x30 && offsetof(TriMeshSource, bsp_) == 0x34 &&
-                  offsetof(TriMeshSource, vertex_bytes_) == 0x38 &&
-                  sizeof(TriMeshSource) == collision_format::kObjectSize,
-              "the collision file's object record (collision_format.h)");
 
 } // namespace render

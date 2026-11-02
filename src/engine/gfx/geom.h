@@ -25,6 +25,26 @@ class PcMesh;
 // An instance (0x64 bytes, constructor 0x004D1030): a mesh list drawn with a transform of its own and bone matrices,
 // on the instances' list (0x007825C0).
 struct Singleton {
+    // The fields other code reads and sets.
+    uint32_t& flags_value() { return flags; }
+    [[nodiscard]] uint32_t flags_value() const { return flags; }
+    maths::Mat4& transform_value() { return transform; }
+    [[nodiscard]] const maths::Mat4& transform_value() const { return transform; }
+    void set_transform(const maths::Mat4& value) { transform = value; }
+    [[nodiscard]] maths::Mat4* bones_value() const { return bones; }
+    void set_bones(maths::Mat4* value) { bones = value; }
+    void set_bone_count(int value) { bone_count_ = value; }
+    [[nodiscard]] bool active_value() const { return active; }
+    void set_active(bool value) { active = value; }
+    std::array<uint8_t, 4>& color_value() { return color; }
+    [[nodiscard]] const std::array<uint8_t, 4>& color_value() const { return color; }
+    [[nodiscard]] RenderModel* model_value() const { return model; }
+    void set_model(RenderModel* value) { model = value; }
+    [[nodiscard]] SceneRef* scene_value() const { return scene; }
+    [[nodiscard]] Singleton* next_value() const { return next; }
+    [[nodiscard]] uint32_t viewports_value() const { return viewports; }
+
+private:
     uint32_t flags{0};       // 1: owns its mesh list and bones; 2: lit (every mesh asks for it; set by the
                              // constructor); 4: coloured
     maths::Mat4 transform{}; // +0x04
@@ -37,6 +57,8 @@ struct Singleton {
     SceneRef* scene;    // +0x58: its mesh list (the bounding sphere at +0x64)
     Singleton* next;    // +0x5C
     uint32_t viewports; // +0x60: a bit per viewport it shows in (all: -1)
+
+public:
 
     // 0x004D1030: construct over `scene` (its mesh list) with a copy of `transform` and the bones (not copied);
     // active, on the instances' list (0x007825C0). Lit (2) when the bones are not drawn by the vertex shader and
@@ -51,10 +73,15 @@ struct Singleton {
     // set of bones), one draw per bone (up to 58: each mesh shown, 0x40, when its +0x1F is that bone; the bone
     // times the transform as the world), or once with its transform; lit with its model's lights or the scene's.
     void render(uint32_t flags);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(Singleton, bones) == 0x44 && offsetof(Singleton, color) == 0x4D &&
+                          offsetof(Singleton, scene) == 0x58 && sizeof(Singleton) == 0x64,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(Singleton, bones) == 0x44 && offsetof(Singleton, color) == 0x4D &&
-                  offsetof(Singleton, scene) == 0x58 && sizeof(Singleton) == 0x64,
-              "layout must match the original");
 
 // 0x004D16B0: an instance drawn on its own (flag 8: even out of view or occluded), the world transform put back.
 void draw_one_instance(Singleton* instance, uint32_t flags);
@@ -183,23 +210,43 @@ public:
     // 0x004B52A0 (vtable slot 48): the meshes' texture animations started again (not for an instance).
     void reset_texture_anims() override;
 
+    // The fields other code reads and sets.
+    maths::BBox& bounds_value() { return bounds; }
+    [[nodiscard]] const maths::BBox& bounds_value() const { return bounds; }
+    [[nodiscard]] PcScene* scene_value() const { return scene; }
+    void set_scene(PcScene* value) { scene = value; }
+    [[nodiscard]] memory::ListNode* load_list() const { return load_list_; }
+    [[nodiscard]] MeshRef** meshes_value() const { return meshes; }
+    [[nodiscard]] uint32_t mesh_count() const { return mesh_count_; }
+    void set_mesh_count(uint32_t value) { mesh_count_ = value; }
+    [[nodiscard]] bool active_value() const { return active; }
+    [[nodiscard]] Singleton* instance_value() const { return instance; }
+
+private:
     maths::BBox bounds;           // +0x14 (as loaded)
     PcScene* scene{};             // +0x34: the PC scene it's in
     memory::ListNode* load_list_{nullptr}; // +0x38: the meshes while it loads (a list's head), made into `meshes` after
     MeshRef** meshes{nullptr};             // +0x3C
     uint32_t mesh_count_{};       // +0x40
+
+public:
     // NOT ORIGINAL - the meshes as a run of mesh_count_.
     [[nodiscard]] std::span<MeshRef*> mesh_run() const { return {meshes, mesh_count_}; }
+private:
     uint32_t visibility{0xDEADBEEF}; // +0x44: a viewport mask (0xDEADBEEF until set)
     bool active{true};               // +0x48
     std::array<uint8_t, 3> pad49{};
     Singleton* instance{nullptr}; // +0x4C: an instance's (null for a sector's geometry)
     PcMesh* source{};                // +0x50: the mesh it's an instance of (its strip breaks)
     maths::Vec4 scale{}; // +0x54
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PcGeom, bounds) == 0x14 && offsetof(PcGeom, scene) == 0x34 && offsetof(PcGeom, meshes) == 0x3C &&
+                          offsetof(PcGeom, instance) == 0x4C && offsetof(PcGeom, scale) == 0x54 && sizeof(PcGeom) == 0x64,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(PcGeom, bounds) == 0x14 && offsetof(PcGeom, scene) == 0x34 && offsetof(PcGeom, meshes) == 0x3C &&
-                  offsetof(PcGeom, instance) == 0x4C && offsetof(PcGeom, scale) == 0x54 && sizeof(PcGeom) == 0x64,
-              "layout must match the original");
 
 // The bone matrices of the instance being drawn by the vertex shader (its bones counted; empty between instances).
 std::span<maths::Mat4> bone_palette();

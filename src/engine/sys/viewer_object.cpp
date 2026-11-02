@@ -243,15 +243,15 @@ void PreviewEntity::read_in(script::Struct* params)
     }
     script::VectorValue position{};
     if (params->fetch_vec(kViewerObjPos, &position, 0)) {
-        at_point_.x = position.x;
-        at_point_.y = position.y;
-        at_point_.z = position.z;
-        at_point_.w = position.w;
+        at_point().x = position.x;
+        at_point().y = position.y;
+        at_point().z = position.z;
+        at_point().w = position.w;
     } else {
-        at_point_ = kOriginPosition; // (0, 0, 0, 1)
+        at_point() = kOriginPosition; // (0, 0, 0, 1)
     }
     static const std::array<float, 16> kIdentity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-    std::memcpy(&basis_frame_, kIdentity.data(), sizeof(kIdentity));
+    std::memcpy(&basis_frame(), kIdentity.data(), sizeof(kIdentity));
     script::launch_script(kAddComponents, params, this, false, nullptr);
     seal(); // (Finalize)
     script::launch_script(kSetupModelScript, params, this, false, nullptr);
@@ -278,10 +278,10 @@ void PreviewEntity::reload_animation(const char* file, uint32_t anim)
 void PreviewEntity::change_spin(float z, float x)
 {
     static const std::array<float, 16> kIdentity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-    std::memcpy(&basis_frame_, kIdentity.data(), sizeof(kIdentity));
+    std::memcpy(&basis_frame(), kIdentity.data(), sizeof(kIdentity));
     maths::Mat4 rotation{};
-    multiply_matrix(&basis_frame_, &basis_frame_, &maths::make_roll_matrix(rotation, z));
-    multiply_matrix(&basis_frame_, &basis_frame_, &maths::make_pitch_matrix(rotation, x));
+    multiply_matrix(&basis_frame(), &basis_frame(), &maths::make_roll_matrix(rotation, z));
+    multiply_matrix(&basis_frame(), &basis_frame(), &maths::make_pitch_matrix(rotation, x));
 }
 
 // 0x0058A360
@@ -463,51 +463,51 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
     } else {
         count = repeat_count();
     }
-    if (handler->control_data_->makes_ & 0x10)
-        object->actions_ |= PreviewEntity::kCommandTogglePanel;
+    if (handler->control_data_->makes() & 0x10)
+        object->actions() |= PreviewEntity::kCommandTogglePanel;
     // A frame back / on when Left / Right is pressed, and while it's held: after `delay` frames, then every `rate`.
     const pad_input::Payload* data = handler->control_data_;
-    if (data->makes_ & pad_input::Payload::kButtonLeft) {
-        object->actions_ |= PreviewEntity::kCommandStepBack;
+    if (data->makes() & pad_input::Payload::kButtonLeft) {
+        object->actions() |= PreviewEntity::kCommandStepBack;
         repeat_count() = delay;
-    } else if (data->makes_ & pad_input::Payload::kButtonRight) {
-        object->actions_ |= PreviewEntity::kCommandStepForward;
+    } else if (data->makes() & pad_input::Payload::kButtonRight) {
+        object->actions() |= PreviewEntity::kCommandStepForward;
         repeat_count() = delay;
-    } else if (data->buttons_ & pad_input::Payload::kButtonLeft) {
+    } else if (data->buttons() & pad_input::Payload::kButtonLeft) {
         repeat_count() = --count;
         if (count <= 0) {
-            object->actions_ |= PreviewEntity::kCommandStepBack;
+            object->actions() |= PreviewEntity::kCommandStepBack;
             repeat_count() = rate;
         }
-    } else if (data->buttons_ & pad_input::Payload::kButtonRight) {
+    } else if (data->buttons() & pad_input::Payload::kButtonRight) {
         repeat_count() = --count;
         if (count <= 0) {
-            object->actions_ |= PreviewEntity::kCommandStepForward;
+            object->actions() |= PreviewEntity::kCommandStepForward;
             repeat_count() = rate;
         }
     } else {
         repeat_count() = delay;
     }
-    if (handler->control_data_->makes_ & 0x200)
-        object->actions_ |= PreviewEntity::kCommandToggleMode;
-    const uint32_t buttons = handler->control_data_->buttons_;
+    if (handler->control_data_->makes() & 0x200)
+        object->actions() |= PreviewEntity::kCommandToggleMode;
+    const uint32_t buttons = handler->control_data_->buttons();
     if (buttons & 0x8) {
         if (!(buttons & 0x2))
-            object->actions_ |= PreviewEntity::kCommandCameraUp;
+            object->actions() |= PreviewEntity::kCommandCameraUp;
     } else if (buttons & 0x2) {
-        object->actions_ |= PreviewEntity::kCommandCameraDown;
+        object->actions() |= PreviewEntity::kCommandCameraDown;
     }
-    const uint32_t makes = handler->control_data_->makes_;
+    const uint32_t makes = handler->control_data_->makes();
     if (makes & 0x4)
-        object->actions_ |= PreviewEntity::kCommandFaster;
+        object->actions() |= PreviewEntity::kCommandFaster;
     else if (makes & 0x1)
-        object->actions_ |= PreviewEntity::kCommandSlower;
+        object->actions() |= PreviewEntity::kCommandSlower;
     if (!object->fetch_module(AnimBlenderComponent::kType)) {
-        const uint32_t held = handler->control_data_->buttons_;
+        const uint32_t held = handler->control_data_->buttons();
         if (held & 0x20)
-            object->actions_ |= PreviewEntity::kCommandRollLeft;
+            object->actions() |= PreviewEntity::kCommandRollLeft;
         else if (held & 0x80)
-            object->actions_ |= PreviewEntity::kCommandRollRight;
+            object->actions() |= PreviewEntity::kCommandRollRight;
     }
 }
 
@@ -583,7 +583,7 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     panel_shown_ = true;
     speed_ = 1.0f;
     static const std::array<float, 16> kIdentity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-    std::memcpy(&basis_frame_, kIdentity.data(), sizeof(kIdentity));
+    std::memcpy(&basis_frame(), kIdentity.data(), sizeof(kIdentity));
     is_halted_ = false;
     asset_ = 0;
     owner_app_ = app;

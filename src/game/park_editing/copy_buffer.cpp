@@ -78,10 +78,10 @@ const maths::Vec4* rail_origin() { return &park_editing_state().get_zero(); } //
 // A preview metapiece taken out of the park.
 void destroy_preview(ClipboardEntry* entry)
 {
-    entry->preview_->flag_bits_ &= ~PieceGroup::kCursor;
-    ParkLayout::singleton()->free_placed_piece(entry->preview_, 0);
+    entry->preview()->flag_bits_ &= ~PieceGroup::kCursor;
+    ParkLayout::singleton()->free_placed_piece(entry->preview(), 0);
     ParkLayout::singleton()->rebuild_park_geometry(0);
-    entry->preview_ = nullptr;
+    entry->set_preview(nullptr);
 }
 
 } // namespace
@@ -255,7 +255,7 @@ int Clipboard::fetch_tallness(BuildPointer* cursor)
     const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
     const auto centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
     int highest = kNoHeight;
-    for (ClipboardEntry* entry = metas_; entry; entry = entry->following_) {
+    for (ClipboardEntry* entry = metas_; entry; entry = entry->following()) {
         const int height = entry->fetch_tallness(centre_x, centre_z, cursor);
         if (height > highest)
             highest = height;
@@ -268,7 +268,7 @@ void Clipboard::glow_overlapping_pieces(BuildPointer* cursor, int on)
 {
     const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
     const auto centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
-    for (ClipboardEntry* entry = metas_; entry; entry = entry->following_)
+    for (ClipboardEntry* entry = metas_; entry; entry = entry->following())
         entry->glow_overlapping_pieces(centre_x, centre_z, cursor, on);
 }
 
@@ -344,7 +344,7 @@ void Clipboard::preview_pieces(maths::Vec4 position, float angle, int height)
 {
     const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
     const auto centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
-    for (ClipboardEntry* entry = metas_; entry; entry = entry->following_)
+    for (ClipboardEntry* entry = metas_; entry; entry = entry->following())
         entry->show_preview(centre_x, height, centre_z, position, angle);
     maths::Vec4 centre;
     get_centre(&centre);
@@ -357,8 +357,8 @@ void Clipboard::preview_pieces(maths::Vec4 position, float angle, int height)
 // 0x0058C200
 void Clipboard::free_all_piece_groups()
 {
-    for (ClipboardEntry* entry = metas_; entry; entry = entry->following_) {
-        if (entry->preview_)
+    for (ClipboardEntry* entry = metas_; entry; entry = entry->following()) {
+        if (entry->preview())
             destroy_preview(entry);
     }
     for (void* rail = rail_groups_; rail; rail = follow_rail_link(rail))
@@ -372,34 +372,34 @@ bool Clipboard::add_row(PieceGroup* meta, int dy)
     const auto y = static_cast<int8_t>(area.y + dy);
     PieceGroup* source = ParkLayout::singleton()->fetch_meta_template(meta->name_key_, nullptr);
     // (Already in it: done.)
-    for (const ClipboardEntry* entry = metas_; entry; entry = entry->following_) {
-        if (entry->piece_group_ == source && entry->pos_x_ == area.x && entry->y_ == y &&
-            entry->depth_cell_ == area.z && entry->w_ == area.w && entry->l_ == area.l &&
-            entry->quarter_turns_ == meta->quarter_turns_)
+    for (const ClipboardEntry* entry = metas_; entry; entry = entry->following()) {
+        if (entry->piece_group() == source && entry->pos_x() == area.x && entry->y() == y &&
+            entry->depth_cell() == area.z && entry->w() == area.w && entry->l() == area.l &&
+            entry->quarter_turns() == meta->quarter_turns_)
             return true;
     }
     memory::PoolPair& pools = clipboard_entry_pools();
     const memory::SlabBank* pool = core::at(pools.pools, pools.current); // (not null-checked: as the original)
-    if (pool->taken_count_ == pool->num_)
+    if (pool->taken_count() == pool->num())
         return false;
     auto* entry = pools.allocate<ClipboardEntry>();
     if (entry) {
-        entry->piece_group_ = nullptr;
-        entry->preview_ = nullptr;
-        entry->depth_cell_ = 0;
-        entry->y_ = 0;
-        entry->pos_x_ = 0;
-        entry->w_ = 0;
-        entry->l_ = 0;
-        entry->quarter_turns_ = 0;
-        entry->following_ = nullptr;
+        entry->set_piece_group(nullptr);
+        entry->set_preview(nullptr);
+        entry->set_depth_cell(0);
+        entry->set_y(0);
+        entry->set_pos_x(0);
+        entry->set_w(0);
+        entry->set_l(0);
+        entry->set_quarter_turns(0);
+        entry->set_following(nullptr);
     }
-    entry->y_ = y; // (not null-checked: as the original)
-    entry->depth_cell_ = area.z;
-    entry->piece_group_ = source;
-    entry->pos_x_ = area.x;
-    entry->w_ = area.w;
-    entry->l_ = area.l;
+    entry->set_y(y); // (not null-checked: as the original)
+    entry->set_depth_cell(area.z);
+    entry->set_piece_group(source);
+    entry->set_pos_x(area.x);
+    entry->set_w(area.w);
+    entry->set_l(area.l);
     // The copy's bounds take in both corners.
     auto take_in = [this](uint8_t x, uint8_t z) {
         if (x < lo_cell_x_)
@@ -413,8 +413,8 @@ bool Clipboard::add_row(PieceGroup* meta, int dy)
     };
     take_in(area.x, area.z);
     take_in(static_cast<uint8_t>(area.w + area.x - 1), static_cast<uint8_t>(area.l + area.z - 1));
-    entry->quarter_turns_ = meta->quarter_turns_;
-    entry->following_ = metas_;
+    entry->set_quarter_turns(meta->quarter_turns_);
+    entry->set_following(metas_);
     metas_ = entry;
     return true;
 }
@@ -424,8 +424,8 @@ void Clipboard::teardown()
 {
     memory::PoolPair& pools = clipboard_entry_pools();
     for (ClipboardEntry* entry = metas_; entry;) {
-        ClipboardEntry* next = entry->following_;
-        if (entry->preview_)
+        ClipboardEntry* next = entry->following();
+        if (entry->preview())
             destroy_preview(entry);
         pools.dealloc(entry);
         entry = next;
@@ -501,7 +501,7 @@ bool Clipboard::show_at(BuildPointer* cursor)
     }
     const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
     const auto centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
-    for (ClipboardEntry* entry = metas_; entry; entry = entry->following_) {
+    for (ClipboardEntry* entry = metas_; entry; entry = entry->following()) {
         if (!entry->can_place(centre_x, centre_z, cursor)) {
             ParkBuilderMode::get_release();
             return false;
@@ -514,7 +514,7 @@ bool Clipboard::show_at(BuildPointer* cursor)
         ParkBuilderMode::get_release();
         return false;
     }
-    for (ClipboardEntry* entry = metas_; entry; entry = entry->following_)
+    for (ClipboardEntry* entry = metas_; entry; entry = entry->following())
         entry->graft(centre_x, cursor->clipboard_height(), centre_z, cursor);
     maths::Vec4 centre;
     get_centre(&centre);

@@ -63,7 +63,7 @@ bool ground_below(Vec3 point, float* y)
     const maths::Vec4 end = {.x = point.x, .y = point.y - kProbeBelow, .z = point.z, .w = 1.0f};
     if (!feeler->get_collision_along(&start, &end, false))
         return false;
-    *y = feeler->contact_pos_.y;
+    *y = feeler->contact_pos().y;
     return true;
 }
 
@@ -126,7 +126,7 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     if (!skater)
         return "no local skater";
     if (!has_heading) {
-        const maths::Vec4& at = core::at(skater->basis_frame_.row, 2);
+        const maths::Vec4& at = core::at(skater->basis_frame().row, 2);
         heading_degrees =
             static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
     }
@@ -185,12 +185,12 @@ void place_camera(gfx::ViewCam* camera, int viewport)
     if (!lock().on || !camera || viewport != 0)
         return;
     auto frames = static_cast<float>(frame_loop::frames_run() - lock().frame);
-    camera->at_point_ = get_row({.x = lock().pos.x + lock().drift.x * frames, .y = lock().pos.y + lock().drift.y * frames,
+    camera->set_at_point(get_row({.x = lock().pos.x + lock().drift.x * frames, .y = lock().pos.y + lock().drift.y * frames,
                                  .z = lock().pos.z + lock().drift.z * frames},
-                                1.0f);
-    core::at(camera->basis_frame_.row, 0) = get_row(lock().right, 0.0f);
-    core::at(camera->basis_frame_.row, 1) = get_row(lock().up, 0.0f);
-    core::at(camera->basis_frame_.row, 2) = get_row(lock().back, 0.0f);
+                                1.0f));
+    core::at(camera->basis_frame().row, 0) = get_row(lock().right, 0.0f);
+    core::at(camera->basis_frame().row, 1) = get_row(lock().up, 0.0f);
+    core::at(camera->basis_frame().row, 2) = get_row(lock().back, 0.0f);
 }
 
 void register_script_functions()

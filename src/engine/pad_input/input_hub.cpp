@@ -82,13 +82,13 @@ bool get_centred(uint8_t value) { return span_to(value) <= 0x32; }
 // The new buttons; the old ones become the previous.
 void set_buttons(Payload& data, uint32_t buttons)
 {
-    data.previous_ = data.ongoing_;
-    const uint32_t changes = data.previous_ ^ buttons;
-    data.ongoing_ = buttons;
-    data.changes_ = changes;
-    data.buttons_ = buttons;
-    data.makes_ = buttons & changes;
-    data.breaks_ = ~buttons & changes;
+    data.set_previous(data.ongoing());
+    const uint32_t changes = data.previous() ^ buttons;
+    data.set_ongoing(buttons);
+    data.set_changes(changes);
+    data.set_buttons(buttons);
+    data.set_makes(buttons & changes);
+    data.set_breaks(~buttons & changes);
 }
 
 } // namespace
@@ -167,11 +167,11 @@ void Payload::pad_follows_stick()
 HostEnd::HostEnd()
 {
     // (the handler list made first by its constructor)
-    std::memset(content_.incident_.data(), 0, sizeof(content_.incident_));
-    content_.buttons_ = 0;
-    content_.ongoing_ = 0;
-    content_.changes_ = 0;
-    content_.previous_ = 0;
+    std::memset(content_.incident().data(), 0, sizeof(content_.incident()));
+    content_.set_buttons(0);
+    content_.set_ongoing(0);
+    content_.set_changes(0);
+    content_.set_previous(0);
 }
 
 // 0x0044EAA0
@@ -179,7 +179,7 @@ void HostEnd::poll_input_sinks()
 {
     if (data_in_ && data_in_->is_usable_) {
         set_buttons(content_, data_in_->buttons_);
-        std::memcpy(content_.incident_.data(), data_in_->incident_.data(), sizeof(content_.incident_));
+        std::memcpy(content_.incident().data(), data_in_->incident_.data(), sizeof(content_.incident()));
         handlers_.work_on(nullptr);
         data_in_ = std::next(data_in_);
         return;
@@ -202,17 +202,17 @@ void HostEnd::poll_input_sinks()
         content_.digital_as_stick();
         break;
     case 5: // the sticks, no pressures
-        std::memcpy(content_.incident_.data(), std::span(control).subspan(4).data(), 4);
+        std::memcpy(content_.incident().data(), std::span(control).subspan(4).data(), 4);
         content_.digital_as_stick();
         if (pad_follows_stick(manager))
             content_.pad_follows_stick();
         break;
     case 7: // the sticks, and pressures if the device reads them
         if (device->unknownc8() == 1) {
-            std::memcpy(content_.incident_.data(), std::span(control).subspan(4, Payload::kQueueCapacity).data(), Payload::kQueueCapacity);
+            std::memcpy(content_.incident().data(), std::span(control).subspan(4, Payload::kQueueCapacity).data(), Payload::kQueueCapacity);
             break;
         }
-        std::memcpy(content_.incident_.data(), std::span(control).subspan(4).data(), 4);
+        std::memcpy(content_.incident().data(), std::span(control).subspan(4).data(), 4);
         content_.digital_as_stick();
         content_.apply_deadzone_rules();
         if (pad_follows_stick(manager))
@@ -220,15 +220,15 @@ void HostEnd::poll_input_sinks()
         break;
     }
     if (data_out_) {
-        data_out_->buttons_ = content_.ongoing_;
+        data_out_->buttons_ = content_.ongoing();
         data_out_->is_usable_ = 1;
-        std::memcpy(data_out_->incident_.data(), content_.incident_.data(), sizeof(content_.incident_));
+        std::memcpy(data_out_->incident_.data(), content_.incident().data(), sizeof(content_.incident()));
         data_out_ = std::next(data_out_);
     }
     if (dev_) {
-        core::at(device_buttons(), dev_->ordinal()) = content_.buttons_;
-        core::at(device_makes(), dev_->ordinal()) = content_.makes_;
-        core::at(device_breaks(), dev_->ordinal()) = content_.breaks_;
+        core::at(device_buttons(), dev_->ordinal()) = content_.buttons();
+        core::at(device_makes(), dev_->ordinal()) = content_.makes();
+        core::at(device_breaks(), dev_->ordinal()) = content_.breaks();
     }
     handlers_.work_on(nullptr);
 }

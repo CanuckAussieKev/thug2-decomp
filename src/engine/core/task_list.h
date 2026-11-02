@@ -118,6 +118,10 @@ public:
     // 0x00406F10: delete the popped lists.
     void delete_popped_lists();
 
+    // The fields other code reads and sets.
+    void set_skip_bits(uint32_t value) { skip_bits_ = value; }
+
+private:
     int lock_{0};                   // +0x00
     uint32_t skip_bits_{};          // +0x04
     memory::ListNode lists_{};      // +0x08 newest first (lists::Foremost<StackList>)

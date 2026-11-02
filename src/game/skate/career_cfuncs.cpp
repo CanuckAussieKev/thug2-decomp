@@ -252,7 +252,7 @@ bool cfunc_profile_equals(script::Struct* params, script::Script* script)
 {
     if (script) {
         objects::Entity* object = script->entity().get_pull();
-        if (object && object->kind_tag_ == kSkaterType)
+        if (object && object->kind_tag() == kSkaterType)
             return core::down_cast<objects::Rider>(object)->matches_params(params);
     }
     if (!is_multiplayer())

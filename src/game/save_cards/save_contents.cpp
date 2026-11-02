@@ -349,7 +349,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
             contents->read_sub_struct(kCustomSkater, &custom_skater, 1);
             objects::ProfileRoster* profiles = objects::profile_roster();
             // the stats kept unless the current skater is the first (the manager's +0x1C, 0x00553E90)
-            const bool keep = profiles->cursor_pos_ != 0;
+            const bool keep = profiles->cursor_pos() != 0;
             profiles->read_custom_skater(custom_skater, keep);
             loaded_custom_skater = true;
         }

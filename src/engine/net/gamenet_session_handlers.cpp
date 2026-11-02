@@ -159,7 +159,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     info.password = *manager->fetch_secret() != '\0';
     info.in_game = get_game_type() != kNetLobby;
     info.host_mode = static_cast<uint8_t>(manager->get_hosting_role());
-    info.logged_in = manager->in_internet_mode() && manager->presence_service()->authenticated_;
+    info.logged_in = manager->in_internet_mode() && manager->presence_service()->authenticated();
     copy_name(info.name.data(), name.data());
     // (NOT ORIGINAL: cut to their fields, terminated - the original's sprintf ran on into the next field)
     text::format_to(std::span(info.level).first(kServerInfoTextSize), "%s", manager->get_map_name(true));

@@ -48,7 +48,7 @@ gsl::owner<PcGeom*> new_sector_geom(PcScene* scene)
 {
     auto geom = memory::make_owned<PcGeom>();
     // (no check: a failed allocation writes through null, as the original)
-    geom->scene = scene;
+    geom->set_scene(scene);
     return geom;
 }
 // The 2D clip rectangle off (0x004D3CE0).
@@ -191,7 +191,7 @@ gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures)
     clear_screen_clip();
     auto mesh = memory::make_owned<PcMesh>(name);
     mesh->choose_scene(scene);
-    mesh->textures_ = textures;
+    mesh->set_textures(textures);
     return mesh;
 }
 
@@ -209,7 +209,7 @@ gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data
     mesh->load_skin(static_cast<const uint8_t*>(skin), skin_size);
     clear_screen_clip();
     mesh->choose_scene(scene);
-    mesh->textures_ = textures;
+    mesh->set_textures(textures);
     return mesh;
 }
 

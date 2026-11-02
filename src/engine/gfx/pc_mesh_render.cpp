@@ -162,12 +162,12 @@ void MeshRef::render()
          unknowna0_ != mesh_pass().current_instance())) { // (once a frame per instance)
         unknown9c_ = renderer().frames_rendered();
         unknowna0_ = mesh_pass().current_instance();
-        uint8_t* out = vb->data; // (locked whole with DISCARD, inline: the card's buffer written)
-        vb->lock_size_ = vb->size;
-        vb->lock_offset_ = 0;
-        vb->lock_flags_ = D3DLOCK_DISCARD;
+        uint8_t* out = vb->data_value(); // (locked whole with DISCARD, inline: the card's buffer written)
+        vb->set_lock_size(vb->size_value());
+        vb->set_lock_offset(0);
+        vb->set_lock_flags(D3DLOCK_DISCARD);
         void* locked = out;
-        static_cast<IDirect3DVertexBuffer9*>(vb->buffer)->Lock(0, 0, &locked, D3DLOCK_DISCARD);
+        static_cast<IDirect3DVertexBuffer9*>(vb->buffer_value())->Lock(0, 0, &locked, D3DLOCK_DISCARD);
         out = static_cast<uint8_t*>(locked);
         // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
         switch (unknowna8_) {
@@ -185,7 +185,7 @@ void MeshRef::render()
     }
     if (vertex_buffer_count_ > 1)
         current_vertex_buffer_ = static_cast<uint8_t>((current_vertex_buffer_ + 1) % vertex_buffer_count_);
-    renderer().d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer), vb->arena_offset_, stride);
+    renderer().d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(vb->buffer_value()), vb->arena_offset(), stride);
     int level = 0;
     if (unknown48) { // (the levels of detail's distances)
         const maths::Vec4 sphere = sphere_of(centre, radius);

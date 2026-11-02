@@ -330,7 +330,7 @@ bool update_stream_volume(int slot)
     if (stream->use_pos_info_) {
         // (the emitter nearest the owner's object: 0x004A09E0, not rewritten yet)
         void* object = render::fetch_nearest_camera(
-            &owner->entity_->at_point_, nullptr);
+            &owner->entity_->at_point(), nullptr);
         if (object) {
             auto* component = owner;
             maths::Vec4 extent{};

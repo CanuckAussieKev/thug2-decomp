@@ -65,7 +65,7 @@ void RiderPhysicsTweaks::seal()
 void RiderPhysicsTweaks::tick_frame()
 {
     objects::RiderPoseState* flags = core_ptr_->state();
-    if (flags->cur_phase_ == 0 || entity_->vel_.y < 0.0f) {
+    if (flags->cur_phase() == 0 || entity_->vel().y < 0.0f) {
         if (flags->flag(PoseFlag::kDescended).on != 1) {
             flags->flag(PoseFlag::kDescended).on = 1;
             flags->flag(PoseFlag::kDescended).changed_at = frame_clock::game_clock_elapsed() + clock_offset();
@@ -74,32 +74,32 @@ void RiderPhysicsTweaks::tick_frame()
     if (!core_ptr_->state()->flag(PoseFlag::kSkitching).on)
         check_inside_moving_object();
     keep_above_ground();
-    entity_->old_pos_ = entity_->at_point_;
+    entity_->old_pos() = entity_->at_point();
 }
 
 // 0x004F8AA0
 void RiderPhysicsTweaks::check_inside_moving_object()
 {
     const maths::Vec4& frame_start = core_ptr_->safe_pos();
-    if (!ride_->find_contact_ahead(&entity_->at_point_, &frame_start))
+    if (!ride_->find_contact_ahead(&entity_->at_point(), &frame_start))
         return;
     debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182,
                   "found to be inside a moving object");
     render::ProbeRay feeler;
-    const maths::Vec4& pos = entity_->at_point_;
+    const maths::Vec4& pos = entity_->at_point();
     const maths::Vec4 start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), .z = pos.z, .w = pos.w};
     feeler.change_origin(&start);
     const maths::Vec4 end = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), .z = pos.z, .w = pos.w};
     feeler.change_finish(&end);
     if (feeler.get_hit_shape(true, false) && feeler.hit_object_alive())
         ride_->ride_on(feeler.get_hit_object());
-    if (core_ptr_->state()->cur_phase_ == 4) {
+    if (core_ptr_->state()->cur_phase() == 4) {
         change_phase(core_ptr_, 1);
         entity_->post_own_event(kUnderTheFloor, nullptr);
-    } else if (entity_->at_point_ == frame_start) {
-        entity_->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    } else if (entity_->at_point() == frame_start) {
+        entity_->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     }
-    feeler.entity_.get_release();
+    feeler.entity().get_release();
 }
 
 // 0x004F82F0
@@ -109,18 +109,18 @@ void RiderPhysicsTweaks::get_update_brightness(render::ProbeRay* ground)
     render::ProbeRay feeler;
     feeler.copy_construct(*ground);
     feeler.set_excluded(0, 0x20);
-    feeler.line_.start.y = static_cast<float>(static_cast<double>(feeler.line_.start.y) + kBrightnessAbove);
+    feeler.line().start.y = static_cast<float>(static_cast<double>(feeler.line().start.y) + kBrightnessAbove);
     if (hit)
-        feeler.line_.end = {.x = ground->contact_pos_.x,
-                            .y = static_cast<float>(static_cast<double>(ground->contact_pos_.y) - 1.0f),
-                            .z = ground->contact_pos_.z, .w = ground->contact_pos_.w};
+        feeler.line().end = {.x = ground->contact_pos().x,
+                            .y = static_cast<float>(static_cast<double>(ground->contact_pos().y) - 1.0f),
+                            .z = ground->contact_pos().z, .w = ground->contact_pos().w};
     else
-        feeler.line_.end = feeler.line_.start;
+        feeler.line().end = feeler.line().start;
     if (feeler.get_hit_shape(false, false))
         mesh_instance_->apply_brightness(&feeler, true, 1.0f);
     else if (hit)
         mesh_instance_->apply_brightness(ground, true, 1.0f);
-    feeler.entity_.get_release();
+    feeler.entity().get_release();
 }
 
 } // namespace objects

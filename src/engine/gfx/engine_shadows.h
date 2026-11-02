@@ -145,16 +145,21 @@ public:
     // kept) found or built, and this volume put in the volumes' list.
     void change_mesh(RenderModel* model, const SubMesh* asset_data) override;
 
+private:
     std::unique_ptr<gfx::ViewCam> view_camera_; // +0x08
     maths::Mat4 basis_frame_{};                 // +0x0C
     const TriMeshSource* model_key_;            // +0x4C the asset data's collision meshes
     maths::Vec4 direction_{};                   // +0x50
     ShadowEdges* edges_;                        // +0x60
     float reach_;                               // +0x64
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ShadowVolume, model_key_) == 0x4C && offsetof(ShadowVolume, edges_) == 0x60 &&
+                          sizeof(ShadowVolume) == 0x68,
+                      "the original's size");
+    }
 };
-static_assert(offsetof(ShadowVolume, model_key_) == 0x4C && offsetof(ShadowVolume, edges_) == 0x60 &&
-                  sizeof(ShadowVolume) == 0x68,
-              "the original's size");
 
 // 0x004A1E40: a volume taken out of the volumes drawn (0x007013D8, 16 slots).
 void remove_shadow_volume(ShadowVolume* volume);

@@ -70,6 +70,7 @@ public:
     // 0x00524720: the position and the orientation given to the camera object (its matrix and display matrix).
     void apply_to_camera();
 
+private:
     GameEntity* subject_{};          // +0x18 the vehicle
     DrivableModule* vehicle_{};      // +0x1C its Vehicle component
     maths::Vec4 direction_{};        // +0x20 where the camera looks (flat, normalised)

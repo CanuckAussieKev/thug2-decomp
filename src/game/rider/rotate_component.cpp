@@ -38,7 +38,7 @@ maths::Mat4& core_matrix(skater::SkaterPhysicsModule* core_physics) { return cor
 // The core physics' matrix set from its object's.
 void core_matrix_from_object(skater::SkaterPhysicsModule* core_physics)
 {
-    core_matrix(core_physics) = core_physics->entity_->basis_frame_;
+    core_matrix(core_physics) = core_physics->entity_->basis_frame();
 }
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
 void turn_by(maths::Mat4& m, const maths::Mat4& rotation) { d3dx::matrix_multiply(&m, &rotation, &m); }
@@ -96,7 +96,7 @@ void RiderTurning::tick_frame()
         }
         maths::Mat4 rotation;
         maths::build_axis_angle_matrix(rotation, axis, step);
-        turn_by(entity_->basis_frame_, rotation);
+        turn_by(entity_->basis_frame(), rotation);
         turn_by(core_matrix(core_physics_), rotation);
     }
     if (!core::at(turns_, 0).active && !core::at(turns_, 1).active && !core::at(turns_, 2).active)
@@ -128,10 +128,10 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
         if (params->read_hash_value(kNode, &node, 0)) {
             maths::Vec4 pos;
             level_nodes::fetch_place(level_nodes::fetch_vertex(node, true), &pos);
-            const maths::Vec4& at = entity_->at_point_;
+            const maths::Vec4& at = entity_->at_point();
             const maths::Vec4 to_node = {.x = pos.x - at.x, .y = pos.y - at.y, .z = pos.z - at.z, .w = pos.w - at.w};
             const double degrees =
-                static_cast<double>(maths::get_angle_in_plane(entity_->basis_frame_, to_node, 2, 1)) *
+                static_cast<double>(maths::get_angle_in_plane(entity_->basis_frame(), to_node, 2, 1)) *
                 kDegreesPerRadian;
             start_turn(core::at(turns_, 1), degrees, duration);
         }
@@ -143,18 +143,18 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
     if (params->fetch_float(kX, &degrees, 0)) {
         maths::Mat4 rotation;
         maths::make_pitch_matrix(rotation, static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
-        turn_by(entity_->basis_frame_, rotation);
+        turn_by(entity_->basis_frame(), rotation);
     } else if (params->fetch_float(kY, &degrees, 0)) {
-        entity_->basis_frame_.yaw_locally(static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
+        entity_->basis_frame().yaw_locally(static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
     } else if (params->fetch_float(kZ, &degrees, 0)) {
-        entity_->basis_frame_.roll_in_own_frame(static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
+        entity_->basis_frame().roll_in_own_frame(static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
     } else {
         // Turned round: the at and right rows reversed (their w kept), and the core physics' flag at +0x34C flipped.
-        maths::Vec4& at_row = core::at(entity_->basis_frame_.row, 2);
+        maths::Vec4& at_row = core::at(entity_->basis_frame().row, 2);
         at_row.x = -at_row.x;
         at_row.y = -at_row.y;
         at_row.z = -at_row.z;
-        maths::Vec4& right = core::at(entity_->basis_frame_.row, 0);
+        maths::Vec4& right = core::at(entity_->basis_frame().row, 0);
         right.x = -right.x;
         right.y = -right.y;
         right.z = -right.z;

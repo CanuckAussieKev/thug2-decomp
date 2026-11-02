@@ -205,7 +205,7 @@ RiderFrameLog::RiderFrameLog()
 // 0x00519FA0
 void RiderFrameLog::get_frame_movement(maths::Vec4* out)
 {
-    const maths::Vec4& vel = entity_->vel_;
+    const maths::Vec4& vel = entity_->vel();
     const double frame = frame_clock::get_frame_seconds();
     auto rounded = static_cast<float>(frame);
     out->x = rounded * vel.x;
@@ -215,12 +215,12 @@ void RiderFrameLog::get_frame_movement(maths::Vec4* out)
 }
 
 // 0x00519FF0
-void RiderFrameLog::fetch_place(maths::Vec4* out) { *out = entity_->at_point_; }
+void RiderFrameLog::fetch_place(maths::Vec4* out) { *out = entity_->at_point(); }
 
 // 0x0051A020
 double RiderFrameLog::get_collision_reach(bool driving)
 {
-    const float reach = script::fetch_float(entity_->is_local_skater_ ? 0x0D24273Bu : 0x25F78481u);
+    const float reach = script::fetch_float(entity_->is_local_skater() ? 0x0D24273Bu : 0x25F78481u);
     if (!driving)
         return reach;
     return (script::fetch_float(0x0A49FF23u) + 1.0) * reach;
@@ -230,7 +230,7 @@ double RiderFrameLog::get_collision_reach(bool driving)
 double RiderFrameLog::fetch_hit_radius(bool my_driving, bool their_driving)
 {
     uint32_t name = 0;
-    if (entity_->is_local_skater_)
+    if (entity_->is_local_skater())
         name = manager_flag4() ? 0xF2E35FA3u : 0xECB41860u;
     else
         name = manager_flag4() ? 0xDBD6D58Au : 0xC5819249u;
@@ -245,10 +245,10 @@ double RiderFrameLog::fetch_hit_radius(bool my_driving, bool their_driving)
 bool RiderFrameLog::is_near_local_skater()
 {
     const GameEntity* local = local_skater();
-    const maths::Vec4& pos = entity_->at_point_;
-    const float dx = get_difference(pos.x, local->at_point_.x);
-    const double dy = static_cast<double>(pos.y) - local->at_point_.y;
-    const double dz = static_cast<double>(pos.z) - local->at_point_.z;
+    const maths::Vec4& pos = entity_->at_point();
+    const float dx = get_difference(pos.x, local->at_point().x);
+    const double dy = static_cast<double>(pos.y) - local->at_point().y;
+    const double dz = static_cast<double>(pos.z) - local->at_point().z;
     const double distance = std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx);
     return distance < 96.0f; // 0x0064EC40
 }
@@ -256,7 +256,7 @@ bool RiderFrameLog::is_near_local_skater()
 // 0x0051A1C0
 void RiderFrameLog::check_for_collisions(int first)
 {
-    online::PlayerRecord* me = find_player_slot_by_obj(static_cast<int>(entity_->ident_));
+    online::PlayerRecord* me = find_player_slot_by_obj(static_cast<int>(entity_->ident()));
     if (!me || is_observing(me))
         return;
     if (!manager_may_collide() && !is_it(me) && !on_a_team(me))
@@ -271,8 +271,8 @@ void RiderFrameLog::check_for_collisions(int first)
         if (!is_it(me) && !on_a_team(me))
             return;
     }
-    const bool my_driving = my_state->in_vehicle_;
-    const maths::Vec4 my_pos = entity_->at_point_;
+    const bool my_driving = my_state->in_vehicle();
+    const maths::Vec4 my_pos = entity_->at_point();
     maths::Vec4 my_move{};
     get_frame_movement(&my_move);
     maths::Vec4 my_dir = my_move;
@@ -287,7 +287,7 @@ void RiderFrameLog::check_for_collisions(int first)
         auto* their_state = core::down_cast<RiderPoseState>(skater->fetch_module(kSkaterState));
         if (their_state->flag(PoseFlag::kBailing).on)
             continue;
-        online::PlayerRecord* them = find_player_slot_by_obj(static_cast<int>(skater->ident_));
+        online::PlayerRecord* them = find_player_slot_by_obj(static_cast<int>(skater->ident()));
         if (is_observing(them) || is_it(them))
             continue;
         if (on_a_team(me) && on_a_team(them) && get_team(me) != them->team())
@@ -296,7 +296,7 @@ void RiderFrameLog::check_for_collisions(int first)
             continue;
 
         RiderFrameLog* their_history = core::down_cast<Rider>(skater)->state_history();
-        const bool their_driving = their_state->in_vehicle_;
+        const bool their_driving = their_state->in_vehicle();
         maths::Vec4 their_pos{};
         their_history->fetch_place(&their_pos);
         maths::Vec4 their_move{};
@@ -354,7 +354,7 @@ void RiderFrameLog::check_for_collisions(int first)
         if (tell_players) {
             net::NetMessageInfo msg;
             online::RanInto ran_into; // (wire/play_messages.h)
-            ran_into.object_id = static_cast<uint8_t>(their_driving * 0x80 | static_cast<uint8_t>(skater->ident_));
+            ran_into.object_id = static_cast<uint8_t>(their_driving * 0x80 | static_cast<uint8_t>(skater->ident()));
             const maths::Vec4 push = my_point - their_point;
             core::at(ran_into.push, 0) = push.x;
             core::at(ran_into.push, 1) = push.y;
@@ -364,7 +364,7 @@ void RiderFrameLog::check_for_collisions(int first)
             util::ByteWriter ran_into_writer(ran_into_bytes.data(), sizeof(ran_into_bytes));
             online::write_ran_into(ran_into_writer, ran_into);
             if (ObjectModule* input = entity_->fetch_module(kInput))
-                core::down_cast<PadInputModule>(input)->disabled_ = true;
+                core::down_cast<PadInputModule>(input)->set_disabled(true);
             mark_tag_time(me);
             msg.ident_ = kMsgRanInto;
             msg.content_ = ran_into_bytes.data();
@@ -372,7 +372,7 @@ void RiderFrameLog::check_for_collisions(int first)
             msg.queue_ = net::NetMessageInfo::kLaneOrdered;
             msg.group_id_ = 8;
             app->put_on_outbox(get_connection(me), &msg);
-            auto ran_into_by = static_cast<uint8_t>(my_driving * 0x80 | static_cast<uint8_t>(entity_->ident_));
+            auto ran_into_by = static_cast<uint8_t>(my_driving * 0x80 | static_cast<uint8_t>(entity_->ident()));
             msg.ident_ = kMsgRanIntoAck;
             msg.content_ = &ran_into_by;
             msg.byte_count_ = 1;
@@ -396,7 +396,7 @@ void RiderFrameLog::check_for_collisions(int first)
                 if (is_host_local(player))
                     continue;
                 net::NetMessageInfo msg;
-                auto tagged = static_cast<uint8_t>(skater->ident_);
+                auto tagged = static_cast<uint8_t>(skater->ident());
                 msg.content_ = &tagged;
                 msg.ident_ = kMsgTagged;
                 msg.byte_count_ = 1;
@@ -411,7 +411,7 @@ void RiderFrameLog::check_for_collisions(int first)
                 continue;
             net::NetMessageInfo msg;
             std::array<uint8_t, 2> tagged{};
-            core::at(tagged, 0) = static_cast<uint8_t>(skater->ident_);
+            core::at(tagged, 0) = static_cast<uint8_t>(skater->ident());
             core::at(tagged, 1) = static_cast<uint8_t>(get_team(me));
             const bool same_team = get_team(me) == them->team();
             online::PlayerSearch search;
@@ -451,10 +451,10 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
         if (online::PlayerRecord* player = find_player_slot_by_obj(static_cast<int8_t>(hit.object_id))) {
             GameEntity* other = player_object(player);
             // Away from the other skater (straight along x and z if they're on top of each other).
-            const double dx = static_cast<double>(skater->at_point_.x) - other->at_point_.x;
-            const float dy = get_difference(skater->at_point_.y, other->at_point_.y);
-            const float dz = get_difference(skater->at_point_.z, other->at_point_.z);
-            const float dw = get_difference(skater->at_point_.w, other->at_point_.w);
+            const double dx = static_cast<double>(skater->at_point().x) - other->at_point().x;
+            const float dy = get_difference(skater->at_point().y, other->at_point().y);
+            const float dz = get_difference(skater->at_point().z, other->at_point().z);
+            const float dw = get_difference(skater->at_point().w, other->at_point().w);
             const double length = std::sqrt((dx * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz);
             double x = 1.0, y = 0.0, z = 1.0, w = 1.0;
             if (!(length < kTooClose)) {
@@ -466,14 +466,14 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             }
             auto wk = static_cast<float>(w * kKnockBack), zk = static_cast<float>(z * kKnockBack);
             auto yk = static_cast<float>(y * kKnockBack), xk = static_cast<float>(x * kKnockBack);
-            skater->vel_.x = xk * kKnockScale;
-            skater->vel_.y = yk * kKnockScale;
-            skater->vel_.z = zk * kKnockScale;
-            skater->vel_.w = wk * kKnockScale;
-            skater->vel_.y = kKnockUp;
+            skater->vel().x = xk * kKnockScale;
+            skater->vel().y = yk * kKnockScale;
+            skater->vel().z = zk * kKnockScale;
+            skater->vel().w = wk * kKnockScale;
+            skater->vel().y = kKnockUp;
             ObjectModule* control = skater->fetch_module(kSkaterPhysicsControl);
-            const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(control)->pose_;
-            if (!state->in_vehicle_ && state->physics_mode_ == 0)
+            const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(control)->pose();
+            if (!state->in_vehicle() && state->physics_mode() == 0)
                 knock_down(skater->fetch_module(kSkaterCorePhysics), other);
             else
                 knock_down_walking(skater->fetch_module(kWalk), other);
@@ -532,12 +532,12 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
     }
     if (player) {
         ObjectModule* control = skater->fetch_module(kSkaterPhysicsControl);
-        if (!core::down_cast<RiderBoardPhysics>(control)->pose_->in_vehicle_) {
+        if (!core::down_cast<RiderBoardPhysics>(control)->pose()->in_vehicle()) {
             GameEntity* other = player_object(player);
-            const double dw = static_cast<double>(skater->at_point_.w) - other->at_point_.w;
-            const double dz = static_cast<double>(skater->at_point_.z) - other->at_point_.z;
-            const double dy = static_cast<double>(skater->at_point_.y) - other->at_point_.y;
-            std::array<float, 4> away = {{get_difference(skater->at_point_.x, other->at_point_.x), static_cast<float>(dy),
+            const double dw = static_cast<double>(skater->at_point().w) - other->at_point().w;
+            const double dz = static_cast<double>(skater->at_point().z) - other->at_point().z;
+            const double dy = static_cast<double>(skater->at_point().y) - other->at_point().y;
+            std::array<float, 4> away = {{get_difference(skater->at_point().x, other->at_point().x), static_cast<float>(dy),
                              static_cast<float>(dz), static_cast<float>(dw)}};
             const double length = std::sqrt((static_cast<double>(core::at(away, 0)) * core::at(away, 0) + dy * dy) + dz * dz);
             double w = 0.0, z = 0.0;
@@ -558,14 +558,14 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
             auto zk = static_cast<float>(z * kKnockBack);
             const float yk = core::at(away, 1) * kKnockBack;
             const float xk = core::at(away, 0) * kKnockBack;
-            skater->vel_.x = xk * kKnockScale;
-            skater->vel_.y = yk * kKnockScale;
-            skater->vel_.z = zk * kKnockScale;
-            skater->vel_.w = static_cast<float>(wk * kKnockScale);
-            skater->vel_.y = kKnockUp;
-            const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(control)->pose_;
-            if (!state->in_vehicle_ && state->physics_mode_ == 0 &&
-                !core::down_cast<RiderBoardPhysics>(control)->force_walk_)
+            skater->vel().x = xk * kKnockScale;
+            skater->vel().y = yk * kKnockScale;
+            skater->vel().z = zk * kKnockScale;
+            skater->vel().w = static_cast<float>(wk * kKnockScale);
+            skater->vel().y = kKnockUp;
+            const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(control)->pose();
+            if (!state->in_vehicle() && state->physics_mode() == 0 &&
+                !core::down_cast<RiderBoardPhysics>(control)->force_walk())
                 knock_down(skater->fetch_module(kSkaterCorePhysics), other);
             else
                 knock_down_walking(skater->fetch_module(kWalk), other);

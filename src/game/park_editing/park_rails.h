@@ -36,6 +36,22 @@ struct ParkRailString {
     static constexpr uint8_t kClimbable = 0x2; // (set by NewRail)
     static constexpr uint32_t kClimbingNode = 0x30C19600; // ClimbingNode (the class)
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t get_class() const { return class_; }
+    void set_class(uint32_t value) { class_ = value; }
+    uint8_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint8_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] uint32_t label() const { return label_; }
+    void set_label(uint32_t value) { label_ = value; }
+    [[nodiscard]] ParkRailPoint* point_chain() const { return point_chain_; }
+    void set_point_chain(ParkRailPoint* value) { point_chain_ = value; }
+    [[nodiscard]] uint16_t vertex_total() const { return vertex_total_; }
+    void set_vertex_total(uint16_t value) { vertex_total_ = value; }
+    [[nodiscard]] ParkRailString* following() const { return following_; }
+    void set_following(ParkRailString* value) { following_ = value; }
+    void set_point_group(ParkRailSet* value) { point_group_ = value; }
+
+private:
     uint32_t class_;    // +0x00: RailNode or ClimbingNode
     uint8_t flag_bits_; // +0x04
     std::array<uint8_t, 3> pad05;
@@ -46,6 +62,8 @@ struct ParkRailString {
     std::array<uint8_t, 2> pad16;
     ParkRailString* following_; // +0x18
     ParkRailSet* point_group_;  // +0x1C: whose pools it uses
+
+public:
 
     // 0x0058AFC0: `point` on the end.
     void append_spot(ParkRailPoint* point);
@@ -59,13 +77,23 @@ struct ParkRailString {
     void delete_points();
     // 0x0058B220: CPoolable's delete (the pool pair 0x007CE594).
     static void dealloc(void* item);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ParkRailString, point_chain_) == 0x0C && offsetof(ParkRailString, vertex_total_) == 0x14 &&
+                          offsetof(ParkRailString, point_group_) == 0x1C && sizeof(ParkRailString) == 0x20,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ParkRailString, point_chain_) == 0x0C && offsetof(ParkRailString, vertex_total_) == 0x14 &&
-                  offsetof(ParkRailString, point_group_) == 0x1C && sizeof(ParkRailString) == 0x20,
-              "layout must match the original");
 
 // A rail set (0x34 bytes: its rails and the pools they and their points come from).
 struct ParkRailSet {
+    // The fields other code reads and sets.
+    [[nodiscard]] ParkRailString* rail_groups() const { return rail_groups_; }
+    [[nodiscard]] memory::SlabBank* point_pool() const { return point_pool_; }
+
+private:
     ParkRailString* rail_groups_{nullptr}; // +0x00
     ParkRailString* tail_node_{}; // +0x04
     uint16_t rail_total_{0};      // +0x08
@@ -73,6 +101,8 @@ struct ParkRailSet {
     memory::SlabBank* point_pool_{nullptr}; // +0x0C (0x30-byte items)
     memory::SlabBank* rail_pool_{nullptr};  // +0x10 (0x20-byte items)
     std::array<char, 0x20> label_{};           // +0x14: "In set" / "Out set"
+
+public:
 
     // 0x0058AFF0: no rails, no pools (the last rail isn't cleared).
     ParkRailSet();
@@ -94,9 +124,14 @@ struct ParkRailSet {
     void free_rail(ParkRailString* rail);
     // 0x0058B700: every rail (and its points) given back; empty.
     void get_clear();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ParkRailSet, rail_total_) == 0x08 && offsetof(ParkRailSet, point_pool_) == 0x0C &&
+                          offsetof(ParkRailSet, label_) == 0x14 && sizeof(ParkRailSet) == 0x34,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ParkRailSet, rail_total_) == 0x08 && offsetof(ParkRailSet, point_pool_) == 0x0C &&
-                  offsetof(ParkRailSet, label_) == 0x14 && sizeof(ParkRailSet) == 0x34,
-              "layout must match the original");
 
 } // namespace park_editing

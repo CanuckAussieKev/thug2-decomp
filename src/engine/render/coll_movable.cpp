@@ -140,9 +140,9 @@ void HitMovingBox::assign_shape_data(TriMeshSource* geometry)
 {
     geometry_ = geometry;
     if (geometry)
-        checksum_ = geometry->checksum_;
-    box_.min = geometry->bounds_.min;
-    box_.max = geometry->bounds_.max;
+        checksum_ = geometry->checksum();
+    box_.min = geometry->bounds().min;
+    box_.max = geometry->bounds().max;
 }
 
 // 0x0040AE60

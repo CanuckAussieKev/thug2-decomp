@@ -104,6 +104,7 @@ public:
     static constexpr int kMaxTricks = 30;
     static constexpr int kBeats = 16;
 
+private:
     std::array<BeatTrick, kMaxTricks> tricks_{}; // +0x70
     int trick_total_{};              // +0x430
     int last_time_{};                // +0x434 the game clock last frame (ms)
@@ -118,6 +119,8 @@ public:
     int total_to_win_{};           // +0x458 total_to_win
     std::array<bool, kMaxTricks> unknown45c_{}; // +0x45C
     std::array<uint8_t, 2> pad47a_{};
+
+public:
 
     // 0x00574C40 / 0x00575140 / 0x00576210: constructor, destructor body, scalar deleting destructor.
     explicit TrickBeatGoal(script::Struct* params);

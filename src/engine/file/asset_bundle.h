@@ -46,6 +46,10 @@ public:
     // Free every asset with this name and type; whether there was one.
     bool free_asset(uint32_t name, uint32_t type);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int num() const { return num_; }
+
+private:
     // (the original's table at 0x0065822C held only the destructor: no vtable here)
     AsyncFileHandle* file_ref_{nullptr}; // an async load in progress (closed when the bundle is split / destroyed)
     void* bundle_bytes_{nullptr};        // the whole file, as loaded (shrinks as the assets are split off)

@@ -97,7 +97,7 @@ void AudioEmitterModule::configure_from_data(script::Struct* params)
 void AudioEmitterModule::tick_frame()
 {
     last_pos_ = at_point_;
-    at_point_ = entity_->at_point_;
+    at_point_ = entity_->at_point();
     update_waiting_sounds();
 }
 

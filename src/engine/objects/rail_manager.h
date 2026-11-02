@@ -127,6 +127,16 @@ public:
     // NOT ORIGINAL - the nodes as a span of their count.
     [[nodiscard]] std::span<GrindPoint> node_run() const { return {nodes_, static_cast<size_t>(num_)}; }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] GrindPoint* nodes() const { return nodes_; }
+    void set_nodes(GrindPoint* value) { nodes_ = value; }
+    [[nodiscard]] script::Array* node_array() const { return node_array_; }
+    [[nodiscard]] int num() const { return num_; }
+    void set_num(int value) { num_ = value; }
+    void set_adding(int value) { adding_ = value; }
+    [[nodiscard]] bool on_object() const { return on_object_; }
+
+private:
     maths::Mat4 frame_xform_{}; // +0x00
     GrindPoint* nodes_{nullptr};         // +0x40
     script::Array* node_array_{nullptr}; // +0x44 the node array they were made from
@@ -134,10 +144,14 @@ public:
     int adding_{};              // +0x4C the node being added (0x0057D090)
     bool on_object_{false};     // +0x50
     std::array<uint8_t, 3> pad51{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(GrindRailHub, nodes_) == 0x40 && offsetof(GrindRailHub, num_) == 0x48 &&
+                          offsetof(GrindRailHub, on_object_) == 0x50,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(GrindRailHub, nodes_) == 0x40 && offsetof(GrindRailHub, num_) == 0x48 &&
-                  offsetof(GrindRailHub, on_object_) == 0x50,
-              "layout must match the original");
 
 // The box helpers (cdecl):
 // 0x0057C260: the box of `a` and `b` (min and max per axis; w 1).

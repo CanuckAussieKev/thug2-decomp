@@ -797,20 +797,20 @@ void carried_flags_task(tasks::Task<Hub>*)
             return;
         auto* skater = core::down_cast<objects::GameEntity>(player_skater(player));
         gfx::Rig* skeleton = core::down_cast<objects::BoneRigModule>(skater->fetch_module(kSkeleton))->bone_rig_;
-        maths::Mat4* matrix = &flag->basis_frame_;
+        maths::Mat4* matrix = &flag->basis_frame();
         skeleton->read_joint_matrix(kBoneHead, matrix); // the head bone's matrix
         maths::Mat4 turn{};
         d_3d_x_matrix_multiply(matrix, &maths::make_pitch_matrix(turn, kQuarterTurn), matrix);
         matrix->offset_local(maths::Vec4{.x = 0.0f, .y = 12.0f, .z = 0.0f, .w = 0.0f}); // (moved along its own axes)
         const maths::Vec4 offset = core::at(matrix->row, 3);                  // its translation row, taken out
         core::at(matrix->row, 3) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-        const maths::Mat4* skater_matrix = &skater->basis_frame_;
+        const maths::Mat4* skater_matrix = &skater->basis_frame();
         d_3d_x_matrix_multiply(matrix, matrix, skater_matrix);
         maths::Vec4 moved{};
         const maths::Vec4& out = skater_matrix->xform(moved, offset);
-        flag->at_point_ = out;
+        flag->at_point() = out;
         for (int i = 0; i < 4; ++i)
-            flag->at_point_[i] = skater->at_point_[i] + flag->at_point_[i];
+            flag->at_point()[i] = skater->at_point()[i] + flag->at_point()[i];
     }
 }
 

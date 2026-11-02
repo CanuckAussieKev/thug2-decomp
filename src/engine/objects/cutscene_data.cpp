@@ -232,7 +232,7 @@ void CinematicTable::destroy_objects()
             maths::Mat4* mine = model_get(model);
             model_set(model, model_get(model_of(stand_in)));
             model_set(model_of(stand_in), mine);
-            original->at_point_ = lent_pos_;
+            original->at_point() = lent_pos_;
         }
         gsl::owner<decltype(entry.object)> object = memory::owned_element(entry.object); // (the cutscene's entry's)
         delete object;
@@ -275,7 +275,7 @@ gsl::owner<GameEntity*> CinematicTable::create_object(script::Struct* params)
     script::launch_script(kCreateScript, params, object, false, nullptr);
     object->seal();
     script::launch_script(kInitScript, params, object, false, nullptr);
-    object->at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // at the origin
+    object->at_point() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // at the origin
     return object;
 }
 
@@ -341,11 +341,11 @@ void CinematicTable::update_object_poses()
         void* animation = entry.animation->data;
         skeleton->set_lod(0.0f);
         auto* rig = skeleton;
-        gfx::RigData* data = rig->payload_;
-        source->bone_masks_ = data ? data->lod_masks_.data() : nullptr;
-        source->mask_bit_ = static_cast<int>(rig->lod_);
+        gfx::RigData* data = rig->payload();
+        source->set_bone_masks(data ? data->lod_masks().data() : nullptr);
+        source->set_mask_bit(static_cast<int>(rig->lod()));
         auto count = static_cast<uint32_t>(rig->get_num_bones());
-        std::memcpy(cutscene_data_state().object_pose_translations_.data(), rig->payload_->bind_translations_, count * 16);
+        std::memcpy(cutscene_data_state().object_pose_translations_.data(), rig->payload()->bind_translations(), count * 16);
         // (within the first twelfth of a second, without the source)
         if (clock_ - static_cast<double>(unknown3480_) < 0.083333336f)
             source = nullptr;

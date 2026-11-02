@@ -82,7 +82,7 @@ DynamicLightComponent::DynamicLightComponent() { kind_tag_ = kType; }
 DynamicLightComponent::~DynamicLightComponent()
 {
     if (light_) {
-        light_->owner = 0;
+        light_->set_owner(0);
         light_ = nullptr;
     }
     wait_and_die_ = nullptr;
@@ -123,7 +123,7 @@ void DynamicLightComponent::tick_frame()
 {
     if (!light_) {
         light_ = new_dynamic_light(1);
-        light_->owner = entity_->ident_;
+        light_->set_owner(entity_->ident());
     }
     // The life's fraction.
     const auto* life = wait_and_die_;
@@ -154,12 +154,12 @@ void DynamicLightComponent::tick_frame()
                  << (8 * i);
     }
     render::DynamicLightBase* light = light_;
-    core::at(light->pos, 0) = entity_->at_point_.x;
-    core::at(light->pos, 1) = entity_->at_point_.y;
-    core::at(light->pos, 2) = entity_->at_point_.z;
-    core::at(light->pos, 3) = entity_->at_point_.w;
-    light->colour = color;
-    light->intensity = static_cast<float>((static_cast<double>(to_intensity) - from_intensity) * t + from_intensity);
+    core::at(light->pos_value(), 0) = entity_->at_point().x;
+    core::at(light->pos_value(), 1) = entity_->at_point().y;
+    core::at(light->pos_value(), 2) = entity_->at_point().z;
+    core::at(light->pos_value(), 3) = entity_->at_point().w;
+    light->set_colour(color);
+    light->set_intensity(static_cast<float>((static_cast<double>(to_intensity) - from_intensity) * t + from_intensity));
     light->set_reach(radius);
 }
 
@@ -176,7 +176,7 @@ int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* 
     case kSetIntensity: {
         float intensity = 0.0f;
         params->fetch_float(kIntensity, &intensity, 1);
-        light_->intensity = intensity;
+        light_->set_intensity(intensity);
         return 1;
     }
     case kSetColor: {
@@ -185,7 +185,7 @@ int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* 
         colour::Bytes out{};
         for (uint32_t i = 0; i < 4; ++i)
             core::at(out, i) = static_cast<uint8_t>(bytes->fetch_part(i));
-        light_->colour = colour::packed_of(out);
+        light_->set_colour(colour::packed_of(out));
         return 1;
     }
     default:

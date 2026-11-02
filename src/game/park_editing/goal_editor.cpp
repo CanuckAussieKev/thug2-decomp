@@ -534,7 +534,7 @@ bool near_other_goals(ObjectiveAuthoring* editor, const maths::Vec4& pos, float 
 // The input component's button `offset` bytes into the component (its pad at +0x20).
 objects::ControlButton* get_button(objects::ObjectModule* input, uint32_t offset)
 {
-    return core::down_cast<objects::PadInputModule>(input)->pad_primary_.button_at_offset(offset - 0x20);
+    return core::down_cast<objects::PadInputModule>(input)->pad_primary().button_at_offset(offset - 0x20);
 }
 
 } // namespace
@@ -547,7 +547,7 @@ void ObjectiveAuthoring::tick_frame()
         return;
     }
     objects::ControlButton* place = get_button(input_ptr_, 0x1C0);
-    if (place->fired_) {
+    if (place->fired()) {
         place->reset_activation();
         const objects::EditorViewModule* camera = view_cam(view_camera_);
         const maths::Vec4 pos = camera->cursor();
@@ -567,7 +567,7 @@ void ObjectiveAuthoring::tick_frame()
             script::launch_script(0xC05E7E20, nullptr, entity_, false, nullptr);
     }
     objects::ControlButton* back = get_button(input_ptr_, 0x1A0);
-    if (back->fired_) {
+    if (back->fired()) {
         back->reset_activation();
         const objects::EditorViewModule* camera = view_cam(view_camera_);
         const maths::Vec4 pos = camera->cursor();

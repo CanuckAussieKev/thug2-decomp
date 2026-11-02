@@ -698,7 +698,7 @@ bool is_straight_direction(uint32_t button)
 // 0x0051FDA0
 bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, uint32_t mask, bool scaled)
 {
-    if (!trigger || input_->disabled_ || input_->net_disabled_)
+    if (!trigger || input_->disabled() || input_->net_disabled())
         return false;
     const script::Component* kind = trigger->step_to_entry(nullptr);
     if (!kind)

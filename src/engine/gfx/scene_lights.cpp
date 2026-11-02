@@ -81,13 +81,13 @@ LevelLamp* find_scene_light(uint32_t name)
 {
     auto& lamps = light_sets();
     for (int i = 0; i < lamps.scene_light_count(); ++i) {
-        if (core::at(lamps.level_lamps(), i).label_ == name)
+        if (core::at(lamps.level_lamps(), i).label() == name)
             return &core::at(lamps.level_lamps(), i);
     }
     return nullptr;
 }
 
-Geom* geom_of(const WorldCell* sector) { return static_cast<Geom*>(sector->geom_handle_); }
+Geom* geom_of(const WorldCell* sector) { return static_cast<Geom*>(sector->geom_handle()); }
 uint32_t get_vertex_count(Geom* geom) { return geom->fetch_vertex_tally(); }
 void get_vertices(Geom* geom, std::span<maths::Vec4> out) { geom->get_vertices(out); }
 void set_colours(Geom* geom, std::span<const uint32_t> in) { geom->change_colors(in); }
@@ -100,11 +100,11 @@ struct Sums {
     void append_one(const LevelLamp& light, double distance_squared)
     {
         auto d2 = static_cast<float>(distance_squared);
-        const double radius = light.radius_;
+        const double radius = light.radius();
         if (!(d2 < radius * radius))
             return;
-        const double f = (radius - std::sqrt(static_cast<double>(d2))) / radius * light.strength_;
-        const colour::Bytes colour = colour::bytes_of(light.shade_);
+        const double f = (radius - std::sqrt(static_cast<double>(d2))) / radius * light.strength();
+        const colour::Bytes colour = colour::bytes_of(light.shade());
         r += core::at(colour, 0) * f;
         g += core::at(colour, 1) * f;
         b += core::at(colour, 2) * f;
@@ -164,8 +164,8 @@ void LevelLamp::set_reach(float radius)
     DynamicLightBase* const* slot = find_dynamic_light(label_);
     if (!slot)
         return;
-    (*slot)->radius = radius;
-    (*slot)->inverse_radius_ = radius == 0.0f ? 1.0e10f : static_cast<float>(1.0 / radius);
+    (*slot)->set_radius(radius);
+    (*slot)->set_inverse_radius(radius == 0.0f ? 1.0e10f : static_cast<float>(1.0 / radius));
 }
 
 // 0x0048F200
@@ -189,7 +189,7 @@ void LevelLamp::find_sectors(script::Array* excluded)
         return;
     for (auto* sector = static_cast<WorldCell*>(get_first_value(sectors)); sector;
          sector = static_cast<WorldCell*>(next_value(sectors))) {
-        if (sector->light_group_ == 0xED82767B || sector->light_group_ == 0xEC6542D3 || !sector->geom_handle_)
+        if (sector->light_group() == 0xED82767B || sector->light_group() == 0xEC6542D3 || !sector->geom_handle())
             continue;
         const maths::BBox* box = sector->fetch_bounds();
         // The box's centre (x and y rounded to floats, z not), its half-diagonal, the distance to the light (its z
@@ -210,7 +210,7 @@ void LevelLamp::find_sectors(script::Array* excluded)
         const uint32_t count = excluded ? excluded->extent_ : 0;
         bool skip = false;
         for (uint32_t i = 0; i < count; ++i) {
-            if (excluded->fetch_part(i) == sector->checksum_) {
+            if (excluded->fetch_part(i) == sector->checksum()) {
                 skip = true;
                 break;
             }
@@ -232,7 +232,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
     int found = 0;
     for (int i = 0; i < lamps.scene_light_count(); ++i) {
         LevelLamp& light = core::at(lamps.level_lamps(), i);
-        if (light.strength_ > 0.0f && light.touches_sector(sector)) {
+        if (light.strength() > 0.0f && light.touches_sector(sector)) {
             core::at(lights, found) = i;
             if (++found >= 8)
                 break;
@@ -259,7 +259,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
         Sums sums;
         for (int l = 0; l < found; ++l) {
             const LevelLamp& light = core::at(lamps.level_lamps(), core::at(lights, l));
-            sums.append_one(light, offset_squared_zxy(core::at(vertices, v), light.at_point_));
+            sums.append_one(light, offset_squared_zxy(core::at(vertices, v), light.at_point()));
         }
         if (sums.lit)
             core::at(colours, v) = sums.get_apply(core::at(colours, v));
@@ -281,15 +281,15 @@ void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out,
         bool facing = true;
         if (normal) {
             const maths::Vec4& first = core::at(positions, 0);
-            const double dx = static_cast<double>(first.x) - light.at_point_.x;
-            const double dy = static_cast<double>(first.y) - light.at_point_.y;
-            const double dz = static_cast<double>(first.z) - light.at_point_.z;
+            const double dx = static_cast<double>(first.x) - light.at_point().x;
+            const double dy = static_cast<double>(first.y) - light.at_point().y;
+            const double dz = static_cast<double>(first.z) - light.at_point().z;
             facing = dz * normal->z + dy * normal->y + dx * normal->x <= 0.0; // (NaN: not)
         }
-        if (!(light.strength_ > 0.0f))
+        if (!(light.strength() > 0.0f))
             continue;
-        const double rr = static_cast<double>(light.radius_) * light.radius_;
-        const double d2 = offset_squared_zyx(core::at(positions, 0), light.at_point_);
+        const double rr = static_cast<double>(light.radius()) * light.radius();
+        const double d2 = offset_squared_zyx(core::at(positions, 0), light.at_point());
         if (!(rr >= d2) || !facing)
             continue;
         core::at(lights, found++) = i;
@@ -302,7 +302,7 @@ void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out,
         Sums sums;
         for (int l = 0; l < found; ++l) {
             const LevelLamp& light = core::at(lamps.level_lamps(), core::at(lights, l));
-            sums.append_one(light, offset_squared_zyx(core::at(positions, v), light.at_point_));
+            sums.append_one(light, offset_squared_zyx(core::at(positions, v), light.at_point()));
         }
         if (sums.lit)
             core::at(out, v) = sums.get_apply(core::at(in, v));
@@ -315,10 +315,10 @@ void apply_scene_light(WorldScene* /*scene*/, uint32_t name)
     if (!name)
         return;
     const LevelLamp* light = find_scene_light(name);
-    if (!light || !light->sectors_)
+    if (!light || !light->sectors())
         return;
-    light->sectors_->for_each([](WorldCell* sector) {
-        if (sector->geom_handle_)
+    light->sectors()->for_each([](WorldCell* sector) {
+        if (sector->geom_handle())
             apply_scene_lights_to_sector(sector);
     });
 }
@@ -330,7 +330,7 @@ void delete_scene_light(uint32_t name)
     std::array<DynamicLightBase*, 256>& dynamic = light_sets().dynamic_lights();
     int& dynamic_count = light_sets().dynamic_light_count();
     for (int i = 0; i < dynamic_count; ++i) {
-        if (core::at(dynamic, i)->owner == name) { // (no null check, as the original)
+        if (core::at(dynamic, i)->owner_value() == name) { // (no null check, as the original)
             memory::Hub::get_pull()->dealloc(core::at(dynamic, i));
             core::at(dynamic, i) = core::at(dynamic, dynamic_count - 1);
             --dynamic_count;
@@ -339,7 +339,7 @@ void delete_scene_light(uint32_t name)
         }
     }
     for (int i = 0; i < lamps.scene_light_count(); ++i) {
-        if (core::at(lamps.level_lamps(), i).label_ == name) {
+        if (core::at(lamps.level_lamps(), i).label() == name) {
             core::at(lamps.level_lamps(), i).clear_sectors(); // (its table isn't freed: the last light's is copied over it)
             --lamps.scene_light_count();
             core::at(lamps.level_lamps(), i) = core::at(lamps.level_lamps(), lamps.scene_light_count());
@@ -421,10 +421,10 @@ void update_scene_light(uint32_t name, script::Struct* params)
     if (light) {
         if (params->fetch_float(0x9E497FC6u, &value, 0)) {
             value = static_cast<float>(value * static_cast<double>(kPercent));
-            if (value != light->strength_) { // (NaN: set)
-                light->strength_ = value;
-                if (DynamicLightBase* const* slot = find_dynamic_light(light->label_))
-                    (*slot)->intensity = value;
+            if (value != light->strength()) { // (NaN: set)
+                light->set_strength(value);
+                if (DynamicLightBase* const* slot = find_dynamic_light(light->label()))
+                    (*slot)->set_intensity(value);
             }
         }
         if (params->fetch_float(0x0999151Bu, &value, 0)) {
@@ -436,9 +436,9 @@ void update_scene_light(uint32_t name, script::Struct* params)
             params->fetch_int_value(0x61C9354Bu, &blue, 1);
             const uint32_t colour = static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << 8 |
                                     static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 | 0xFF000000u;
-            light->shade_ = colour;
-            if (DynamicLightBase* const* slot = find_dynamic_light(light->label_))
-                (*slot)->colour = colour;
+            light->set_shade(colour);
+            if (DynamicLightBase* const* slot = find_dynamic_light(light->label()))
+                (*slot)->set_colour(colour);
         }
         apply_scene_light(scene, name);
         return;
@@ -448,15 +448,15 @@ void update_scene_light(uint32_t name, script::Struct* params)
         return;
     if (params->fetch_float(0x9E497FC6u, &value, 0)) {
         value = static_cast<float>(value * static_cast<double>(kPercent));
-        (*slot)->intensity = value;
+        (*slot)->set_intensity(value);
     }
     if (params->fetch_float(0x0999151Bu, &value, 0))
         (*slot)->set_reach(value);
     if (params->fetch_int_value(0x059EA070u, &red, 0)) {
         params->fetch_int_value(0x2F6511DEu, &green, 1);
         params->fetch_int_value(0x61C9354Bu, &blue, 1);
-        (*slot)->colour = static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << 8 |
-                          static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 | 0xFF000000u;
+        (*slot)->set_colour(static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << 8 |
+                          static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 | 0xFF000000u);
     }
 }
 
@@ -469,16 +469,16 @@ LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, float bri
         return nullptr;
     const double intensity = brightness * static_cast<double>(kPercent);
     LevelLamp* light = &core::at(lamps.level_lamps(), lamps.scene_light_count()++);
-    light->label_ = name;
-    light->at_point_ = *pos;
-    if (light->strength_ != intensity) { // (the slot's old value; NaN: set)
-        light->strength_ = static_cast<float>(intensity);
+    light->set_label(name);
+    light->at_point() = *pos;
+    if (light->strength() != intensity) { // (the slot's old value; NaN: set)
+        light->set_strength(static_cast<float>(intensity));
         if (DynamicLightBase* const* slot = find_dynamic_light(name))
-            (*slot)->intensity = static_cast<float>(intensity);
+            (*slot)->set_intensity(static_cast<float>(intensity));
     }
-    light->shade_ = colour;
-    if (DynamicLightBase* const* slot = find_dynamic_light(light->label_))
-        (*slot)->colour = colour;
+    light->set_shade(colour);
+    if (DynamicLightBase* const* slot = find_dynamic_light(light->label()))
+        (*slot)->set_colour(colour);
     light->set_reach(radius);
     light->find_sectors(excluded);
     if (brightness > 0.0f)
@@ -515,13 +515,13 @@ void create_light_from_node(script::Struct* node)
     node->read_hash_value(0xC2737050u, &type, 0);
     if (dynamic) {
         if (DynamicLightBase* light = new_dynamic_light(type == 0x485A0CDB ? 1 : 0)) {
-            light->owner = name;
-            std::memcpy(light->pos.data(), &pos, sizeof(light->pos));
-            light->intensity = static_cast<float>(brightness * static_cast<double>(kPercent));
-            light->colour = colour;
-            light->radius = radius;
-            light->inverse_radius_ = radius == 0.0f ? 1.0e10f : static_cast<float>(1.0 / radius);
-            light->unknown2c_ = true;
+            light->set_owner(name);
+            std::memcpy(light->pos_value().data(), &pos, sizeof(light->pos_value()));
+            light->set_intensity(static_cast<float>(brightness * static_cast<double>(kPercent)));
+            light->set_colour(colour);
+            light->set_radius(radius);
+            light->set_inverse_radius(radius == 0.0f ? 1.0e10f : static_cast<float>(1.0 / radius));
+            light->set_unknown2c(true);
         }
     }
     if (scene) {

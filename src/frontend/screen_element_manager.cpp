@@ -266,9 +266,9 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
             found.get_release();
             if (!resolving_)
                 return false;
-            id = resolving_->ident_;
+            id = resolving_->ident();
         } else if (const objects::Entity* aliased = objects::get_tracker()->look_up_by_nickname(id)) {
-            id = aliased->ident_;
+            id = aliased->ident();
         }
         resolving_.get_release();
         *out = id;
@@ -283,7 +283,7 @@ bool UiTree::resolve_id(script::Struct* params, uint32_t name, uint32_t* out)
         resolving_.get_release();
         if (!child)
             return false;
-        *out = child->ident_;
+        *out = child->ident();
         return true;
     }
     resolving_.get_release();
@@ -330,9 +330,9 @@ void UiTree::lock_tree(int lock)
     while (count) {
         UiWidget* element = core::at(stack, --count);
         if (lock == 1)
-            ++element->alias_count_;
-        else if (static_cast<int>(element->alias_count_) > 0)
-            --element->alias_count_;
+            ++element->alias_count();
+        else if (static_cast<int>(element->alias_count()) > 0)
+            --element->alias_count();
         if (element->following())
             core::at(stack, count++) = element->following().get_pull();
         if (element->eldest())
@@ -379,7 +379,7 @@ void UiTree::add_focus_entry(ElementPtr* element, int list)
     }
     FocusEntry* entry = &core::at(focus_entries_, free);
     entry->element.assign_value(element->get_pull());
-    entry->id = element->get_pull()->ident_;
+    entry->id = element->get_pull()->ident();
     entry->next = nullptr;
     entry->marked = false;
     if (last)
@@ -530,7 +530,7 @@ void UiTree::listener_receive(objects::Signal* event)
             if (!entry->tried && !entry->marked && !entry->element->input_suppressed()) {
                 if (pad_event && (!entry->element->has_priority() || !manager->has_top_precedence(entry->id)))
                     continue;
-                if (tracker->launch_event(event->kind_tag_, entry->element->ident_, event->from_where_, event->payload_,
+                if (tracker->launch_event(event->kind_tag_, entry->element->ident(), event->from_where_, event->payload_,
                                           false, -1.0f)) {
                     event->set_event_handled(1, 0);
                     return;

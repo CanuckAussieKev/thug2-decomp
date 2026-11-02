@@ -70,7 +70,7 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     if (!target)
         target = manager->look_up_entity(entity_label_);
     if (target) {
-        const int priority = get_truncated(static_cast<double>(target->list_link_.priority) - 1.0);
+        const int priority = get_truncated(static_cast<double>(target->list_link().priority) - 1.0);
         manager->set_entity_rank(static_cast<Entity*>(entity_), priority);
     }
     lock_flags_ &= ~kLockFlagLag;
@@ -116,10 +116,10 @@ void PinnedObjectModule::tick_frame()
     }
     // NOT ORIGINAL: THAW's no_rotate - placed by the lock (the offset turned by the target, as THAW's ferris cars go
     // round with the wheel), its own orientation kept.
-    const maths::Mat4 own = entity_->basis_frame_;
+    const maths::Mat4 own = entity_->basis_frame();
     update_lock();
-    entity_->basis_frame_ = own;
-    entity_->display_matrix_ = own;
+    entity_->basis_frame() = own;
+    entity_->display_matrix() = own;
 }
 
 // 0x0041F410

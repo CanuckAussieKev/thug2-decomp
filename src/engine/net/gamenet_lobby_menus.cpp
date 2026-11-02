@@ -97,8 +97,8 @@ void set_rgba(script::Array* rgba, int r, int g, int b, int a)
 }
 
 // The presence (online's FriendsManager: +4 the player's profile, +0x10 logged in).
-bool mark_friend_online(FriendsManager* buddy) { return buddy->authenticated_; }
-int own_profile(FriendsManager* buddy) { return buddy->account_; }
+bool mark_friend_online(FriendsManager* buddy) { return buddy->authenticated(); }
+int own_profile(FriendsManager* buddy) { return buddy->account(); }
 
 } // namespace
 

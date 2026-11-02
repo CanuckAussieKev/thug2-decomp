@@ -130,7 +130,7 @@ bool profile_logged_in(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
-    return get_buddies()->authenticated_;
+    return get_buddies()->authenticated();
 }
 
 // 0x00548370: the message `string` sent to `profile` (false for none or an empty one).

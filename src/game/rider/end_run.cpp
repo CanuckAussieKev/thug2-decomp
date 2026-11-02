@@ -40,7 +40,7 @@ bool server_told_run_ended() { return online::net_game_state().online_hub()->gam
 void tell_server_run_ended() { online::net_game_state().online_hub()->send_game_ended(); }
 
 // The skater object's +0xBC: a local skater (this machine's player).
-bool is_local_skater(GameEntity* object) { return object->is_local_skater_ != 0; }
+bool is_local_skater(GameEntity* object) { return object->is_local_skater() != 0; }
 
 } // namespace
 

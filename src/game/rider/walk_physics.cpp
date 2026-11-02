@@ -186,7 +186,7 @@ void FootMovement::change_phase(int state)
         climb_scale_ = 0.0f;
         if (previous_state_ == 1) {
             // Just caught a ledge: the pad's hang controls ignored for hang_control_debounce_time.
-            objects::PadSnapshot* pad = &input_->pad_primary_;
+            objects::PadSnapshot* pad = &input_->pad_primary();
             float debounce = walk_parameter(kHangControlDebounceTime);
             uint32_t now = frame_clock::get_time();
             core::at(pad->lock(), 0) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
@@ -204,7 +204,7 @@ void FootMovement::clear_model_offset() { model_->set_shift({.x = 0.0f, .y = 0.0
 bool FootMovement::using_dpad()
 {
     const objects::PadInputModule* input = input_;
-    if (!(core::at(input->pad_primary_.stick(), 2) == 0.0f) || !(core::at(input->pad_primary_.stick(), 3) == 0.0f))
+    if (!(core::at(input->pad_primary().stick(), 2) == 0.0f) || !(core::at(input->pad_primary().stick(), 3) == 0.0f))
         return false;
     return control_full_;
 }
@@ -299,12 +299,12 @@ double FootMovement::get_gravity()
 bool FootMovement::find_stand_position(const maths::Vec4* position, maths::Vec4* out, render::ProbeRay* feeler)
 {
     const float height = walk_parameter(kProbeElevation);
-    feeler->line_.start = *position;
-    feeler->line_.start.y = static_cast<float>(static_cast<double>(height) + height + feeler->line_.start.y);
-    feeler->line_.end = *position;
-    feeler->line_.end.y = feeler->line_.end.y - walk_parameter(kStandPosSearchDepth);
+    feeler->line().start = *position;
+    feeler->line().start.y = static_cast<float>(static_cast<double>(height) + height + feeler->line().start.y);
+    feeler->line().end = *position;
+    feeler->line().end.y = feeler->line().end.y - walk_parameter(kStandPosSearchDepth);
     if (feeler->get_hit_shape(true, false)) {
-        *out = feeler->contact_pos_;
+        *out = feeler->contact_pos();
         return true;
     }
     *out = *position;

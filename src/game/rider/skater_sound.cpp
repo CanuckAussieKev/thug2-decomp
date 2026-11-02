@@ -54,7 +54,7 @@ bool play_bike_sound(GameEntity* skater, skater::thaw_bmx::BikeSound kind, float
     if (bike < 0)
         return false;
     if (bike > 0)
-        surface_kind::play_sound_info(info, &skater->at_point_, volume, percent);
+        surface_kind::play_sound_info(info, &skater->at_point(), volume, percent);
     return true;
 }
 
@@ -95,7 +95,7 @@ void RiderSfxPlayer::play_land(float speed, int terrain)
     using skater::thaw_bmx::BikeSound;
     if (play_bike_sound(entity_, cur_phase_ == kStateRail ? BikeSound::kGrindLand : BikeSound::kLand, volume, percent))
         return;
-    play_terrain_sound(table, terrain, &entity_->at_point_, volume, percent);
+    play_terrain_sound(table, terrain, &entity_->at_point(), volume, percent);
 }
 
 // 0x00518D60
@@ -107,7 +107,7 @@ void RiderSfxPlayer::play_jump(float speed, int terrain, int state)
     using skater::thaw_bmx::BikeSound;
     if (play_bike_sound(entity_, state == kStateRail ? BikeSound::kGrindJump : BikeSound::kOllie, volume, percent))
         return;
-    play_terrain_sound(table, terrain, &entity_->at_point_, volume, percent);
+    play_terrain_sound(table, terrain, &entity_->at_point(), volume, percent);
 }
 
 // 0x00518DD0
@@ -117,7 +117,7 @@ void RiderSfxPlayer::play_bonk(float speed, int terrain)
     auto volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
     if (play_bike_sound(entity_, skater::thaw_bmx::BikeSound::kBonk, volume, percent))
         return;
-    play_terrain_sound(kTableBonk, terrain, &entity_->at_point_, volume, percent);
+    play_terrain_sound(kTableBonk, terrain, &entity_->at_point(), volume, percent);
 }
 
 // 0x00518EA0
@@ -142,7 +142,7 @@ void RiderSfxPlayer::play_bonk_here(float speed)
     auto volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
     if (play_bike_sound(entity_, skater::thaw_bmx::BikeSound::kBonk, volume, percent))
         return;
-    play_terrain_sound(kTableBonk, surface_type_, &entity_->at_point_, volume, percent);
+    play_terrain_sound(kTableBonk, surface_type_, &entity_->at_point(), volume, percent);
 }
 
 // 0x00518F50
@@ -150,13 +150,13 @@ void RiderSfxPlayer::play_cess_here(float speed)
 {
     auto percent = static_cast<float>(static_cast<double>(speed) * kPercent);
     auto volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
-    play_terrain_sound(kTableCess, surface_type_, &entity_->at_point_, volume, percent);
+    play_terrain_sound(kTableCess, surface_type_, &entity_->at_point(), volume, percent);
 }
 
 // 0x00518FD0
 int RiderSfxPlayer::invoke_method_by_name(uint32_t name, script::Struct* /*params*/, script::Script* /*script*/)
 {
-    const maths::Vec4& vel = entity_->vel_;
+    const maths::Vec4& vel = entity_->vel();
     switch (name) {
     case kPlayJumpSound:
         if (cur_phase_ >= 0 && (cur_phase_ <= kStateAir || cur_phase_ == kStateRail))

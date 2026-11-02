@@ -103,7 +103,7 @@ void TextureElement::change_traits(Struct* params)
     if (params->read_hash_value(kTexture, &texture, 0)) {
         texture_ = texture;
         piece_->set_texture(static_cast<render::BitmapTexture*>(find_texture(texture)));
-        object_flags_ |= kVisibleNow;
+        object_flags() |= kVisibleNow;
     }
     float angle = 0.0f;
     if (params->fetch_float(kRotAngle, &angle, 0))
@@ -163,7 +163,7 @@ void ImageWidget::set_texture(uint32_t texture)
     auto height = static_cast<float>(texels_down(found));
     auto width = static_cast<float>(texels_across(found));
     fit_to_size(width, height, 0);
-    object_flags_ |= kVisibleNow;
+    object_flags() |= kVisibleNow;
 }
 
 // 0x004AF240 (the target compared unrounded, the shown one with the float)
@@ -173,11 +173,11 @@ void ImageWidget::set_sprite_rotation(float degrees, int now)
     auto angle = static_cast<float>(radians);
     if (radians != aim_point().angle) {
         aim_point().angle = angle;
-        object_flags_ |= kDirty;
+        object_flags() |= kDirty;
     }
     if (now && angle != shown().angle) {
         quad_->change_spin(angle);
-        object_flags_ |= kDirty;
+        object_flags() |= kDirty;
         shown().angle = angle;
     }
 }
@@ -219,7 +219,7 @@ void ImageWidget::blend_towards(Struct* params)
         const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
         if (radians != aim_point().angle) {
             aim_point().angle = static_cast<float>(radians);
-            object_flags_ |= kDirty;
+            object_flags() |= kDirty;
         }
     }
 }
@@ -231,7 +231,7 @@ void ImageWidget::tick_frame()
     const bool outside = top < layout_top() || top > layout_bottom();
     const bool hidden = is_concealed();
     quad_->change_concealed(outside || hidden);
-    if (!(object_flags_ & (kChildrenDirty | kVisibleNow)))
+    if (!(object_flags() & (kChildrenDirty | kVisibleNow)))
         return;
     const uint32_t rgba = shown_colour(this);
     quad_->change_location(summed().x, summed().y);
@@ -239,17 +239,17 @@ void ImageWidget::tick_frame()
     const int height = get_truncated(level_y());
     const int width = get_truncated(span());
     quad_->change_extent(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
-    quad_->set_flip(static_cast<bool>((object_flags_ >> 25) & 1), static_cast<bool>((object_flags_ >> 26) & 1));
-    quad_->change_spin((object_flags_ & kFlag1000000) ? shown().angle : summed().angle);
+    quad_->set_flip(static_cast<bool>((object_flags() >> 25) & 1), static_cast<bool>((object_flags() >> 26) & 1));
+    quad_->change_spin((object_flags() & kFlag1000000) ? shown().angle : summed().angle);
     quad_->set_hot_spot(just_x(), just_y());
     quad_->change_scale(summed().scale_x_, summed().scale_y_);
-    if (object_flags_ & kPos3d) {
+    if (object_flags() & kPos3d) {
         // the depth's bits, 5000 more with kKeepScale (an integer added to the float's bits, as the original)
         uint32_t depth = 0;
         std::memcpy(&depth, &summed().z, 4);
-        depth += (object_flags_ & kKeepScale) ? 5000u : 0u;
+        depth += (object_flags() & kKeepScale) ? 5000u : 0u;
         quad_->set_depth(depth);
-        quad_->change_concealed((object_flags_ & kOffScreen) != 0 || hidden);
+        quad_->change_concealed((object_flags() & kOffScreen) != 0 || hidden);
     } else {
         quad_->change_rank(z_priority());
         quad_->change_concealed(outside || hidden);
@@ -281,7 +281,7 @@ void* PanelWidget::fetch_screen_rect() const { return screen_region_; }
 // 0x004B21A0
 void PanelWidget::tick_frame()
 {
-    if (!(object_flags_ & (kChildrenDirty | kVisibleNow)))
+    if (!(object_flags() & (kChildrenDirty | kVisibleNow)))
         return;
     const int top = get_truncated(summed().y - (static_cast<double>(just_y()) + get_one()) * get_half() * level_y());
     const int left = get_truncated(summed().x - (static_cast<double>(just_x()) + get_one()) * get_half() * span());

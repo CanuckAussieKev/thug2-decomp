@@ -151,11 +151,11 @@ uint32_t first_hit(V3 from, V3 to, V3* point)
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return 0;
-    if (!ray->hit_.object)
+    if (!ray->hit().object)
         return 0;
-    const auto& hit = ray->hit_.point;
+    const auto& hit = ray->hit().point;
     *point = {.x = hit[0], .y = hit[1], .z = hit[2]};
-    return ray->hit_.object_checksum_;
+    return ray->hit().object_checksum_;
 }
 
 script::Struct* look_up_node_params(uint32_t name, const nodes::Elem** out)
@@ -239,20 +239,20 @@ void gather_object(objects::Entity* object, void* data)
         return;
     uint32_t cls = 0;
     const nodes::Elem* node = nullptr;
-    if (script::Struct* s = look_up_node_params(composite->ident_, &node))
+    if (script::Struct* s = look_up_node_params(composite->ident(), &node))
         s->read_hash_value(kClass, &cls, 0);
     if (cls == kPedestrian)
         return; // (peds walk their paths: not carried)
     if (node && node->family == nodes::Family::kBitMark)
         return; // (a flag's object: its node is carried, and moves it)
-    if (attachment_of(*g, composite->ident_, object_edit::pos_of(composite)) != Attachment::kNone)
-        g->objects.push_back(composite->ident_);
+    if (attachment_of(*g, composite->ident(), object_edit::pos_of(composite)) != Attachment::kNone)
+        g->objects.push_back(composite->ident());
 }
 
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
+    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
 }
 
 } // namespace

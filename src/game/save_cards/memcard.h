@@ -15,6 +15,29 @@ class SaveCard;
 
 // A save file (also an entry of a directory listing: name, date, size).
 struct FileLoad {
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    std::array<char, 0x28>& label() { return label_; }
+    [[nodiscard]] const std::array<char, 0x28>& label() const { return label_; }
+    [[nodiscard]] uint8_t second() const { return second_; }
+    void set_second(uint8_t value) { second_ = value; }
+    [[nodiscard]] uint8_t minute() const { return minute_; }
+    void set_minute(uint8_t value) { minute_ = value; }
+    [[nodiscard]] uint8_t hour() const { return hour_; }
+    void set_hour(uint8_t value) { hour_ = value; }
+    [[nodiscard]] uint8_t day() const { return day_; }
+    void set_day(uint8_t value) { day_ = value; }
+    [[nodiscard]] uint8_t month() const { return month_; }
+    void set_month(uint8_t value) { month_ = value; }
+    [[nodiscard]] uint16_t year() const { return year_; }
+    void set_year(uint16_t value) { year_ = value; }
+    void set_extent(uint32_t value) { extent_ = value; }
+    void set_unknown48(uint16_t value) { unknown48_ = value; }
+    void set_hdl(const HANDLE& value) { hdl_ = value; }
+    void set_save_device(SaveCard* value) { save_device_ = value; }
+
+private:
     // The list node it starts with (lists::Elem<File>: the data is the file itself; the original's size).
     memory::ListNode list_link_;
     std::array<char, 0x28> label_;
@@ -25,6 +48,8 @@ struct FileLoad {
     std::array<uint8_t, 0x42> unknown4a_;
     HANDLE hdl_;
     SaveCard* save_device_;
+
+public:
 
     // Origin: 0 from the start, 1 from the current position, else from the end. Returns the new position.
     DWORD seek_to(LONG offset, int origin);

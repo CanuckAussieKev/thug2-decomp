@@ -78,7 +78,7 @@ modules::Contest* the_competition() { return get_competition(); }
 // the next player; 0x00560380 whether it's over; 0x00560190 its status is the one `params` names; 0x00560440 one of
 // its strings (`which`); 0x005601F0 its word (H-O-R-S-E) set. The current skater's id is its +0x04 (0x005480C0).
 modules::LetterMatch* the_horse() { return get_horse(); }
-uint32_t current_horse_skater() { return static_cast<uint32_t>(get_horse()->skater_); }
+uint32_t current_horse_skater() { return static_cast<uint32_t>(get_horse()->skater()); }
 // The horse's string `which`, built in `storage` (the caller destroys it).
 gsl::owner<text::Chars*> get_horse_string(void* storage, uint32_t which)
 {
@@ -317,7 +317,7 @@ bool cfunc_add_bonus(script::Struct* params, script::Script*)
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_rider_at(index);
-    if (skater->is_local_skater_) {
+    if (skater->is_local_skater()) {
         modules::PointTally* score = get_score_of(skater);
         int bonus = 0;
         params->fetch_int_value(0u, &bonus, 0);
@@ -332,7 +332,7 @@ bool cfunc_get_bonus_value(script::Struct* params, script::Script* script)
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_rider_at(index);
-    if (skater->is_local_skater_)
+    if (skater->is_local_skater())
         script->args()->put_int(kBonus, get_bonus(get_score_of(skater)));
     return true;
 }

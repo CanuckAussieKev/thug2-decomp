@@ -192,10 +192,10 @@ void BoneLookAt::tick_frame()
             core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(bone.aim_point_));
         if (!object)
             continue;
-        bone.look_goal_.z = bone.shift_.z + object->at_point_.z;
-        bone.look_goal_.w = bone.shift_.w + object->at_point_.w;
-        bone.look_goal_.x = bone.shift_.x + object->at_point_.x;
-        bone.look_goal_.y = bone.shift_.y + object->at_point_.y;
+        bone.look_goal_.z = bone.shift_.z + object->at_point().z;
+        bone.look_goal_.w = bone.shift_.w + object->at_point().w;
+        bone.look_goal_.x = bone.shift_.x + object->at_point().x;
+        bone.look_goal_.y = bone.shift_.y + object->at_point().y;
     }
 }
 
@@ -213,8 +213,8 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
         const int index = skeleton->fetch_bone_slot(bone.bone_);
         if (index == -1)
             continue;
-        const maths::Vec4& pos = object->at_point_;
-        const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
+        const maths::Vec4& pos = object->at_point();
+        const maths::Vec4& at = core::at(object->basis_frame().row, 2);
         // The direction to the target, and the turn from the object's own
         float dx = bone.look_goal_.x - pos.x;
         float dy = bone.look_goal_.y - pos.y;

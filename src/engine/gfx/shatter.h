@@ -30,6 +30,12 @@ public:
     Shatter(const Shatter&) = delete;
     Shatter& operator=(const Shatter&) = delete;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] float lifetime_value() const { return lifetime; }
+    void set_lifetime(float value) { lifetime = value; }
+    [[nodiscard]] uint16_t triangle_count() const { return triangle_count_; }
+
+private:
     maths::Vec4* centres;    // +0x04
     maths::Vec4* velocities; // +0x08
     uint32_t unknown0c_{};
@@ -42,6 +48,8 @@ public:
     uint16_t pad26{};
     uint32_t unknown28; // +0x28 (the settings' checksum 0x007004C0)
 
+public:
+
     // 0x004913D0: triangle `index` moved a step; below the floor and falling, it bounces (the height mirrored, the
     // speed turned up and scaled) and gets a new random turn (about a random axis, up to 0.1); then gravity.
     void get_step(int index, float step);
@@ -50,10 +58,15 @@ public:
     [[nodiscard]] std::span<maths::Vec4> centre_run() const { return {centres, triangle_count_}; }
     [[nodiscard]] std::span<maths::Vec4> velocity_run() const { return {velocities, triangle_count_}; }
     [[nodiscard]] std::span<maths::Mat4> rotation_run() const { return {rotations, triangle_count_}; }
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(Shatter, rotations) == 0x10 && offsetof(Shatter, triangle_count_) == 0x24 &&
+                          sizeof(Shatter) == 0x2C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(Shatter, rotations) == 0x10 && offsetof(Shatter, triangle_count_) == 0x24 &&
-                  sizeof(Shatter) == 0x2C,
-              "layout must match the original");
 
 // A shatter (0x40 bytes, vtable 0x0064A4AC; the engine's shatter - per triangle its centre, velocity and rotation, the
 // settings it was made with - and the triangles' vertices).

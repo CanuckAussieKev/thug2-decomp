@@ -220,7 +220,7 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
     };
     // how many each cell gets
     for (StaticCollider& object : statics) {
-        if (object.geometry_->tri_count_ == 0)
+        if (object.geometry_->tri_count() == 0)
             continue;
         int x0 = 0, x1 = 0, z0 = 0, z1 = 0;
         cells_of(&object, x0, x1, z0, z1);
@@ -242,7 +242,7 @@ void CollGrid::get_fill(std::span<StaticCollider> statics)
     memory::leave_heap_scope();
     const std::span<int> filled(filled_block, static_cast<size_t>(kSize) * kSize);
     for (StaticCollider& object : statics) {
-        if (object.geometry_->tri_count_ == 0)
+        if (object.geometry_->tri_count() == 0)
             continue;
         int x0 = 0, x1 = 0, z0 = 0, z1 = 0;
         cells_of(&object, x0, x1, z0, z1);

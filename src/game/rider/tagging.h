@@ -96,6 +96,14 @@ public:
     // countdown are over, or without a wall.
     bool slap_sticker(bool sticker, bool walking, bool low);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int countdown() const { return countdown_; }
+    void set_countdown(int value) { countdown_ = value; }
+    [[nodiscard]] bool pending() const { return pending_; }
+    void set_blocked(bool value) { blocked_ = value; }
+    [[nodiscard]] float cooldown() const { return cooldown_; }
+
+private:
     int countdown_{}; // +0x18 frames until a pending tag may be placed
     bool pending_{false}; // +0x1C a tag or sticker started
     bool blocked_{false}; // +0x1D BlockTaggingOn

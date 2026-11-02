@@ -214,7 +214,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
             PlayerRecord* other = by_object_id(id);
             if (!other)
                 continue;
-            other = by_object_id(static_cast<int>(skater_of(other)->ident_));
+            other = by_object_id(static_cast<int>(skater_of(other)->ident()));
             if (!other || other == player)
                 continue;
             const objects::Rider* skater = skater_of(other);
@@ -223,7 +223,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
             if (!states)
                 continue;
             const uint16_t newest = core::at(history->states_, (states - 1) % objects::RiderFrameLog::kEntries).time;
-            if (newest == core::at(player->sent().time_, skater->ident_))
+            if (newest == core::at(player->sent().time_, skater->ident()))
                 continue;
             mask |= 1u << id;
             if (++count >= player->get_skaters_per_update())
@@ -379,7 +379,7 @@ int SkateNet::handle_relay(net::InboundMsgCtx* context)
                 break;
             util::ByteWriter rewrite(context->body_, context->body_size_);
             rewrite.seek(online::kProjectileOwnerAt);
-            rewrite.u8(static_cast<uint8_t>(skater_of(sender)->ident_));
+            rewrite.u8(static_cast<uint8_t>(skater_of(sender)->ident()));
             rewrite.seek(online::kProjectileTimeAt);
             rewrite.i32(context->sender_conn_->get_mean_ping());
             break;
@@ -410,9 +410,9 @@ int SkateNet::handle_relay_nearby(net::InboundMsgCtx* context)
             if (!to)
                 continue;
             // (x87: the differences and the sum unrounded)
-            const double dx = static_cast<double>(to->at_point_.x) - from->at_point_.x;
-            const double dy = static_cast<double>(to->at_point_.y) - from->at_point_.y;
-            const double dz = static_cast<double>(to->at_point_.z) - from->at_point_.z;
+            const double dx = static_cast<double>(to->at_point().x) - from->at_point().x;
+            const double dy = static_cast<double>(to->at_point().y) - from->at_point().y;
+            const double dz = static_cast<double>(to->at_point().z) - from->at_point().z;
             const double distance = std::sqrt(dz * dz + dy * dy + dx * dx);
             if (!(distance < 1800.0))
                 continue;
@@ -510,7 +510,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
                 desc = net::NetMessageInfo();
                 net::AppHost* server = server_app();
                 core::at(left, 0) = goals::game_mode()->is_squad_match() ? static_cast<uint8_t>(collector->team())
-                                                            : static_cast<uint8_t>(skater_of(collector)->ident_);
+                                                            : static_cast<uint8_t>(skater_of(collector)->ident());
                 core::at(left, 1) = count;
                 desc.content_ = left.data();
                 desc.ident_ = 0x95;
@@ -644,7 +644,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             net::NetMessageInfo desc;
             if (other->is_own_player() || other == player || other->conn()->get_link_speed_class() == 1)
                 continue;
-            auto id = static_cast<uint8_t>(skater_of(player)->ident_);
+            auto id = static_cast<uint8_t>(skater_of(player)->ident());
             desc.content_ = &id;
             desc.ident_ = 0x96;
             desc.byte_count_ = 1;
@@ -787,7 +787,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         online::Hub* net = net_link();
         if (net->in_net_game()) {
             // (only the camera's own player's)
-            PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(target->ident_));
+            PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(target->ident()));
             PlayerRecord* camera = net->fetch_viewed_player();
             if (!camera || player != camera)
                 scaled_time = 0.0f;
@@ -1293,13 +1293,13 @@ void Skate::broadcast_points(bool final)
             const bool all = final || mode->is_true(kShouldModulateColor) || !mode->keeps_move_points();
             if (other == player && !all)
                 continue;
-            const auto id = static_cast<uint8_t>(skater_of(other)->ident_);
+            const auto id = static_cast<uint8_t>(skater_of(other)->ident());
             int score = 0;
             if (goals::game_mode()->get_name_key() == kNetGoalAttack)
                 score =
-                    goals::get_objective_board()->count_cleared_by_player(static_cast<int>(skater_of(other)->ident_));
+                    goals::get_objective_board()->count_cleared_by_player(static_cast<int>(skater_of(other)->ident()));
             else
-                score = net->get_entrant_points(skater_of(other)->ident_);
+                score = net->get_entrant_points(skater_of(other)->ident());
             if (count >= kMaxSent) // (NOT ORIGINAL: the original wrote on past its buffer)
                 continue;
             core::at(message->entries, count).id = static_cast<int8_t>(id);

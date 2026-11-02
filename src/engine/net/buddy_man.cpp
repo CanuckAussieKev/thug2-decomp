@@ -803,13 +803,13 @@ bool add_buddy(script::Struct* params, script::Script*)
 }
 
 // 0x00548E90
-bool has_buddies(script::Struct*, script::Script*) { return total_of(&get_buddies()->friends_) > 0; }
+bool has_buddies(script::Struct*, script::Script*) { return total_of(&get_buddies()->friends()) > 0; }
 
 // 0x00548ED0
-bool buddy_list_full(script::Struct*, script::Script*) { return total_of(&get_buddies()->friends_) >= kMaxBuddies; }
+bool buddy_list_full(script::Struct*, script::Script*) { return total_of(&get_buddies()->friends()) >= kMaxBuddies; }
 
 // 0x00548F10
-bool any_buddy_messages_left(script::Struct*, script::Script*) { return total_of(&get_buddies()->messages_) != 0; }
+bool any_buddy_messages_left(script::Struct*, script::Script*) { return total_of(&get_buddies()->messages()) != 0; }
 
 // 0x00549D10
 bool profile_log_off(script::Struct*, script::Script*)
@@ -849,7 +849,7 @@ bool remove_buddy(script::Struct* params, script::Script*)
 bool show_next_buddy_message(script::Struct*, script::Script* script)
 {
     lists::Hunt<FriendNote> search;
-    FriendNote* message = search.head_element(&get_buddies()->messages_);
+    FriendNote* message = search.head_element(&get_buddies()->messages());
     script->args()->append_word(0xD6F4D0C8, message->nick_.data());
     script->args()->append_word(0xD3A5478A, message->nick_.data());
     script->args()->append_word(0x59EDEC1C, message->text_.data());

@@ -231,7 +231,7 @@ bool cfunc_create_screen_element(script::Struct* params, script::Script* script)
     params->read_hash_value(kId, &id, 0);
     ElementPtr element;
     hub()->spawn_part(&element, type, id, params);
-    script->args()->put_name_key(kId, element->ident_);
+    script->args()->put_name_key(kId, element->ident());
     return true;
 }
 
@@ -332,7 +332,7 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
         return false;
     }
     element.get_pull()->get_properties(script->args().get());
-    if (element->kind_tag_ == kElement3d) {
+    if (element->kind_tag() == kElement3d) {
         auto* e3d = core::down_cast<ModelWidget>(objects::get_tracker()->look_up_object(id));
         script->args()->push_float(kAngleX, core::at(e3d->angle(), 0));
         script->args()->push_float(kAngleY, core::at(e3d->angle(), 1));
@@ -370,7 +370,7 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
         array = new (array) script::Array;
     array->configure_size_kind(count, script::kQbvalName);
     for (int i = 0; i < count; ++i)
-        array->set_element(i, element->find_child_at_slot(i)->ident_);
+        array->set_element(i, element->find_child_at_slot(i)->ident());
     script->args()->append_array_ref(kChildren, array);
     return true;
 }
@@ -382,12 +382,12 @@ bool cfunc_text_element_concatenate(script::Struct* params, script::Script*)
     hub()->resolve_element(&element, params, kId, 1);
     const char* text = nullptr;
     params->fetch_text(0u, &text, 1);
-    if (element->kind_tag_ == kTextBlockElement) {
+    if (element->kind_tag() == kTextBlockElement) {
         const bool last_line = params->has_bare_flag(kLastLine);
         const bool enforce = params->has_bare_flag(kEnforceMaxWidth);
         return text_block_concatenate(element.get_pull(), text, enforce, last_line);
     }
-    if (element->kind_tag_ == kTextElement)
+    if (element->kind_tag() == kTextElement)
         return text_concatenate(element.get_pull(), text);
     return false;
 }
@@ -397,9 +397,9 @@ bool cfunc_text_element_backspace(script::Struct* params, script::Script*)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
-    if (element->kind_tag_ == kTextBlockElement)
+    if (element->kind_tag() == kTextBlockElement)
         return text_block_backspace(element.get_pull());
-    if (element->kind_tag_ == kTextElement)
+    if (element->kind_tag() == kTextElement)
         return text_backspace(element.get_pull());
     return false;
 }
@@ -410,10 +410,10 @@ bool cfunc_get_text_element_string(script::Struct* params, script::Script* scrip
     std::array<char, 0x200> text{};
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
-    if (element->kind_tag_ == kTextBlockElement) {
+    if (element->kind_tag() == kTextBlockElement) {
         if (text_block_string(element.get_pull(), text.data(), sizeof(text)))
             script->args()->append_word(kString, text.data());
-    } else if (element->kind_tag_ == kTextElement) {
+    } else if (element->kind_tag() == kTextElement) {
         if (const char* string = core::down_cast<LabelWidget>(element.get_pull())->chars())
             script->args()->append_word(kString, string);
     }
@@ -426,9 +426,9 @@ bool cfunc_get_text_element_length(script::Struct* params, script::Script* scrip
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
     int length = 0;
-    if (element->kind_tag_ == kTextBlockElement)
+    if (element->kind_tag() == kTextBlockElement)
         length = text_block_length(element.get_pull());
-    else if (element->kind_tag_ == kTextElement)
+    else if (element->kind_tag() == kTextElement)
         length = get_text_length(element.get_pull());
     else
         return false;
@@ -453,7 +453,7 @@ bool cfunc_menu_selected_index_is(script::Struct* params, script::Script*)
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
     auto* menu = core::down_cast<MenuBase>(element.get_pull());
-    const int selected = menu->selected_index_;
+    const int selected = menu->selected_index();
     if (selected == -1)
         return false;
     int index = 0;

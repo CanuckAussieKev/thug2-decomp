@@ -35,6 +35,26 @@ namespace park_editing {
 
 // A point of an edited rail (0x28 bytes).
 struct EditedRailPoint {
+    // The fields other code reads and sets.
+    maths::Vec4& at_point() { return at_point_; }
+    [[nodiscard]] const maths::Vec4& at_point() const { return at_point_; }
+    [[nodiscard]] bool has_post() const { return has_post_; }
+    void set_has_post(bool value) { has_post_ = value; }
+    void set_highlighted(bool value) { highlighted_ = value; }
+    [[nodiscard]] float level_y() const { return level_y_; }
+    void set_level_y(float value) { level_y_ = value; }
+    [[nodiscard]] EditedRailPoint* following() const { return following_; }
+    void set_following(EditedRailPoint* value) { following_ = value; }
+    [[nodiscard]] EditedRailPoint* preceding() const { return preceding_; }
+    void set_preceding(EditedRailPoint* value) { preceding_ = value; }
+    render::WorldCell*& segment() { return segment_; }
+    [[nodiscard]] render::WorldCell* segment() const { return segment_; }
+    void set_segment(render::WorldCell* value) { segment_ = value; }
+    render::WorldCell*& post() { return post_; }
+    [[nodiscard]] render::WorldCell* post() const { return post_; }
+    void set_post(render::WorldCell* value) { post_ = value; }
+
+private:
     maths::Vec4 at_point_; // +0x00 (w = 1)
     bool has_post_;        // +0x10 a post stands under it
     bool highlighted_;     // +0x11 its sectors coloured (Highlight)
@@ -44,6 +64,8 @@ struct EditedRailPoint {
     EditedRailPoint* preceding_; // +0x1C
     render::WorldCell* segment_;  // +0x20 the sector of the rail from here to the next point
     render::WorldCell* post_;     // +0x24 its post's sector
+
+public:
 
     // 0x004F3AD0: if highlighted, its sectors (and those of its neighbours that Highlight coloured: the previous
     // point's segment, an end point's post) back to their own colour and shown in every viewport; not highlighted.
@@ -69,12 +91,17 @@ struct EditedRailPoint {
     // 0x004F5D10 (fastcall: ECX the position): the ground's height under a position (a feeler 2000 up and down;
     // nothing: 0).
     static float ground_height(const maths::Vec4* position);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(EditedRailPoint, has_post_) == 0x10 && offsetof(EditedRailPoint, highlighted_) == 0x11 &&
+                          offsetof(EditedRailPoint, level_y_) == 0x14 && offsetof(EditedRailPoint, following_) == 0x18 &&
+                          offsetof(EditedRailPoint, preceding_) == 0x1C && offsetof(EditedRailPoint, segment_) == 0x20 &&
+                          offsetof(EditedRailPoint, post_) == 0x24 && sizeof(EditedRailPoint) == 0x28,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(EditedRailPoint, has_post_) == 0x10 && offsetof(EditedRailPoint, highlighted_) == 0x11 &&
-                  offsetof(EditedRailPoint, level_y_) == 0x14 && offsetof(EditedRailPoint, following_) == 0x18 &&
-                  offsetof(EditedRailPoint, preceding_) == 0x1C && offsetof(EditedRailPoint, segment_) == 0x20 &&
-                  offsetof(EditedRailPoint, post_) == 0x24 && sizeof(EditedRailPoint) == 0x28,
-              "layout must match the original");
 
 // A rail (0x10 bytes). Its points are kept newest first: the head is the last point laid.
 struct EditedRail {
@@ -287,6 +314,13 @@ public:
     static void free_rail(void* rail);
     static void free_point(void* point);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] EditedRail* rail_groups() const { return rail_groups_; }
+    void set_rail_groups(EditedRail* value) { rail_groups_ = value; }
+    [[nodiscard]] EditedRail* active_node() const { return active_node_; }
+    void set_active_node(EditedRail* value) { active_node_ = value; }
+
+private:
     objects::ObjectModule* input_ptr_;  // +0x18 the input component (0x27D7CD28)
     objects::ObjectModule* view_camera_; // +0x1C the editor camera component (0xAC8946E2)
     EditedRail* rail_groups_;   // +0x20
@@ -296,11 +330,15 @@ public:
     render::WorldCell* dotted_line_; // +0x30 its sector
     rail_buffer_format::Bytes packed_{}; // +0x34 the rails packed (rail_buffer_format.h)
     std::array<uint8_t, 2> pad1166{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(RailAuthoring, input_ptr_) == 0x18 && offsetof(RailAuthoring, rail_groups_) == 0x20 &&
+                          offsetof(RailAuthoring, active_node_) == 0x24 && offsetof(RailAuthoring, mode_sel_) == 0x28 &&
+                          offsetof(RailAuthoring, dotted_line_) == 0x30 && offsetof(RailAuthoring, packed_) == 0x34 &&
+                          sizeof(RailAuthoring) == 0x1168,
+                      "layout must match the original (0x004F7FB0 allocates 0x1168 bytes)");
+    }
 };
-static_assert(offsetof(RailAuthoring, input_ptr_) == 0x18 && offsetof(RailAuthoring, rail_groups_) == 0x20 &&
-                  offsetof(RailAuthoring, active_node_) == 0x24 && offsetof(RailAuthoring, mode_sel_) == 0x28 &&
-                  offsetof(RailAuthoring, dotted_line_) == 0x30 && offsetof(RailAuthoring, packed_) == 0x34 &&
-                  sizeof(RailAuthoring) == 0x1168,
-              "layout must match the original (0x004F7FB0 allocates 0x1168 bytes)");
 
 } // namespace park_editing

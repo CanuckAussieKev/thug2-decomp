@@ -129,7 +129,7 @@ bool cfunc_leave_lobby(script::Struct* params, script::Script*)
     FriendsManager* buddy = manager->presence_service().get();
     game_spy::peer_leave_room(lobby->remote(), kRoomGroupKind, nullptr); // the group room left
     lobby->set_in_group_room(false);
-    if (buddy->authenticated_ && !params->has_entry_named(kPreserveStatus)) {
+    if (buddy->authenticated() && !params->has_entry_named(kPreserveStatus)) {
         const char* text = script::fetch_text(kHomieStatusLoggingIn);
         const char* status = script::fetch_text(kHomieStatusOnline);
         static_cast<FriendsManager*>(buddy)->change_standing(kStatusOnline, status,
@@ -166,9 +166,9 @@ bool cfunc_can_host_game(script::Struct*, script::Script*)
     const RoomManager* lobby = manager->lobby_service().get();
     if (!lobby->restricted_hosting())
         return lobby->unknown30() < lobby->unknown2c();
-    if (!manager->presence_service()->authenticated_) // (logged in to the presence)
+    if (!manager->presence_service()->authenticated()) // (logged in to the presence)
         return false;
-    const int profile = manager->presence_service()->account_;
+    const int profile = manager->presence_service()->account();
     for (const int allowed : kHostProfiles)
         if (profile == allowed)
             return true;

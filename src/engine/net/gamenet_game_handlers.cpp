@@ -194,7 +194,7 @@ int handle_crown_spawn(net::InboundMsgCtx* context)
             if (spot == 0) {
                 maths::Vec4 position;
                 level_nodes::fetch_place(node, &position);
-                crown->at_point_ = position;
+                crown->at_point() = position;
                 placed = true;
                 break;
             }

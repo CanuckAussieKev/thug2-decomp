@@ -229,7 +229,7 @@ std::vector<Remake>& remakes()
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
+    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
 }
 
 Placement placement_of(uint32_t sector)
@@ -371,7 +371,7 @@ void run_remakes()
             const V3 pos = {.x = r.state.pos.x, .y = r.state.pos.y, .z = r.state.pos.z};
             if (const objects::GameEntity* made = object_edit::make_copy(r.source, pos, r.name)) {
                 object_edit::State state = r.state;
-                state.id = made->ident_;
+                state.id = made->ident();
                 object_edit::get_restore(state);
                 remakes().erase(remakes().begin() + static_cast<long>(i));
                 continue;

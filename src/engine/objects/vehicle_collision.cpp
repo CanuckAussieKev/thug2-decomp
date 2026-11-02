@@ -59,7 +59,7 @@ void light_from_feeler(ObjectModule* model, render::ProbeRay* feeler, bool b, fl
 
 bool get_interrupted(const DrivableModule* vehicle)
 {
-    return vehicle->cut_short() || (vehicle->entity_->object_flags_ & kObjectFlagDead);
+    return vehicle->cut_short() || (vehicle->entity_->object_flags() & kObjectFlagDead);
 }
 
 } // namespace
@@ -190,13 +190,13 @@ void DrivableModule::move_by(const maths::Vec4* move)
         // Going through something: put just off the surface, the rest of the move reflected, the momentum into it
         // turned back by half again.
         debug::printf(kDebugFormat, kDebugFile, 0xB10, "less than uber frig"); // "less than uber frig"
-        const maths::Vec4& point = feeler.contact_pos_;
-        const maths::Vec4& n = feeler.surface_dir_;
+        const maths::Vec4& point = feeler.contact_pos();
+        const maths::Vec4& n = feeler.surface_dir();
         at_point_.x = static_cast<float>(static_cast<double>(n.x) + point.x);
         at_point_.y = static_cast<float>(static_cast<double>(point.y) + n.y);
         at_point_.z = static_cast<float>(static_cast<double>(point.z) + n.z);
         at_point_.w = static_cast<float>(static_cast<double>(point.w) + n.w);
-        const double distance = feeler.reach_;
+        const double distance = feeler.reach();
         const double vx = distance * move->x;
         const double vy = distance * move->y;
         const double vz = distance * move->z;
@@ -231,9 +231,9 @@ void DrivableModule::move_by(const maths::Vec4* move)
     }
     // Nothing below at all (4800 down): through the world - put back where it was. Else the model lit from the
     // ground.
-    feeler.line_.start = at_point_;
-    feeler.line_.end = at_point_;
-    feeler.line_.end.y = static_cast<float>(static_cast<double>(at_point_.y) - kDropTest);
+    feeler.line().start = at_point_;
+    feeler.line().end = at_point_;
+    feeler.line().end.y = static_cast<float>(static_cast<double>(at_point_.y) - kDropTest);
     if (!feeler.get_hit_shape(false, false)) {
         debug::printf(kDebugFormat, kDebugFile, 0xB26, "uber frig"); // "uber frig"
         at_point_ = saved;
@@ -447,7 +447,7 @@ void DrivableModule::collide()
     render::BoxProbe rect;
     render::ProbeRay feeler;
     rect.hit_cache_ = &contact_memo_;
-    feeler.hit_cache_ = &contact_memo_;
+    feeler.set_hit_cache(&contact_memo_);
     contact_count_ = 0;
     const std::span<Contact> contacts = get_contacts();
     // Each collider's face against the world: where it crosses the world's faces, and lines from the body's
@@ -481,41 +481,41 @@ void DrivableModule::collide()
         }
         if (debug_mode_)
             rect.debug_draw(0xFF, 0xFF, 0xFF, 1);
-        feeler.line_.start = at_point_;
-        feeler.line_.end = rect.rect_.origin;
+        feeler.line().start = at_point_;
+        feeler.line().end = rect.rect_.origin;
         for (int corner = 0; corner < 4; ++corner) {
             if (corner == 1) {
-                feeler.line_.end = {.x = static_cast<float>(static_cast<double>(feeler.line_.end.x) + rect.rect_.side_a_.x),
-                                    .y = static_cast<float>(static_cast<double>(rect.rect_.side_a_.y) + feeler.line_.end.y),
-                                    .z = static_cast<float>(static_cast<double>(rect.rect_.side_a_.z) + feeler.line_.end.z),
-                                    .w = static_cast<float>(static_cast<double>(rect.rect_.side_a_.w) + feeler.line_.end.w)};
+                feeler.line().end = {.x = static_cast<float>(static_cast<double>(feeler.line().end.x) + rect.rect_.side_a_.x),
+                                    .y = static_cast<float>(static_cast<double>(rect.rect_.side_a_.y) + feeler.line().end.y),
+                                    .z = static_cast<float>(static_cast<double>(rect.rect_.side_a_.z) + feeler.line().end.z),
+                                    .w = static_cast<float>(static_cast<double>(rect.rect_.side_a_.w) + feeler.line().end.w)};
             } else if (corner == 2) {
-                feeler.line_.end = {.x = static_cast<float>(static_cast<double>(feeler.line_.end.x) + rect.rect_.side_b_.x),
-                                    .y = static_cast<float>(static_cast<double>(rect.rect_.side_b_.y) + feeler.line_.end.y),
-                                    .z = static_cast<float>(static_cast<double>(rect.rect_.side_b_.z) + feeler.line_.end.z),
-                                    .w = static_cast<float>(static_cast<double>(rect.rect_.side_b_.w) + feeler.line_.end.w)};
+                feeler.line().end = {.x = static_cast<float>(static_cast<double>(feeler.line().end.x) + rect.rect_.side_b_.x),
+                                    .y = static_cast<float>(static_cast<double>(rect.rect_.side_b_.y) + feeler.line().end.y),
+                                    .z = static_cast<float>(static_cast<double>(rect.rect_.side_b_.z) + feeler.line().end.z),
+                                    .w = static_cast<float>(static_cast<double>(rect.rect_.side_b_.w) + feeler.line().end.w)};
             } else if (corner == 3) {
-                feeler.line_.end = {.x = static_cast<float>(static_cast<double>(feeler.line_.end.x) - rect.rect_.side_a_.x),
-                                    .y = static_cast<float>(static_cast<double>(feeler.line_.end.y) - rect.rect_.side_a_.y),
-                                    .z = static_cast<float>(static_cast<double>(feeler.line_.end.z) - rect.rect_.side_a_.z),
-                                    .w = static_cast<float>(static_cast<double>(feeler.line_.end.w) - rect.rect_.side_a_.w)};
+                feeler.line().end = {.x = static_cast<float>(static_cast<double>(feeler.line().end.x) - rect.rect_.side_a_.x),
+                                    .y = static_cast<float>(static_cast<double>(feeler.line().end.y) - rect.rect_.side_a_.y),
+                                    .z = static_cast<float>(static_cast<double>(feeler.line().end.z) - rect.rect_.side_a_.z),
+                                    .w = static_cast<float>(static_cast<double>(feeler.line().end.w) - rect.rect_.side_a_.w)};
             }
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
                 if (get_interrupted(this))
                     return;
                 Contact& contact = core::at(contacts, contact_count_);
-                contact.point = feeler.contact_pos_;
-                contact.normal = feeler.surface_dir_;
+                contact.point = feeler.contact_pos();
+                contact.normal = feeler.surface_dir();
                 if (!normal_faces_away(&contact)) {
                     // How far in: the rest of the line, along the normal.
-                    const maths::Seg& line = feeler.line_;
+                    const maths::Seg& line = feeler.line();
                     const double dz = static_cast<double>(line.start.z) - line.end.z;
                     const double dy = static_cast<double>(line.start.y) - line.end.y;
                     const double dx = static_cast<double>(line.start.x) - line.end.x;
                     contact.depth = static_cast<float>(
-                        (1.0 - feeler.reach_) *
-                        ((dz * feeler.surface_dir_.z + dy * feeler.surface_dir_.y) + dx * feeler.surface_dir_.x));
+                        (1.0 - feeler.reach()) *
+                        ((dz * feeler.surface_dir().z + dy * feeler.surface_dir().y) + dx * feeler.surface_dir().x));
                     ++contact_count_;
                     // (the original marks the next record, not this one - the one past the table when it is full)
                     if (static_cast<std::size_t>(contact_count_) < contacts.size())

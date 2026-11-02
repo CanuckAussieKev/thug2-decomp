@@ -19,6 +19,18 @@ struct FrameSource {
     FrameSource() = default;
     // (0x0048D000 the scalar deleting destructor: nothing of its own)
 
+    // The fields other code reads and sets.
+    std::array<const uint8_t*, 64>& quat_at() { return quat_at_; }
+    [[nodiscard]] const std::array<const uint8_t*, 64>& quat_at() const { return quat_at_; }
+    std::array<const uint8_t*, 64>& trans_at() { return trans_at_; }
+    [[nodiscard]] const std::array<const uint8_t*, 64>& trans_at() const { return trans_at_; }
+    [[nodiscard]] bool resume() const { return resume_; }
+    [[nodiscard]] const uint32_t* bone_masks() const { return bone_masks_; }
+    void set_bone_masks(const uint32_t* value) { bone_masks_ = value; }
+    [[nodiscard]] int mask_bit() const { return mask_bit_; }
+    void set_mask_bit(int value) { mask_bit_ = value; }
+
+private:
     uint32_t anim_ = 0;                    // the animation's checksum
     std::array<const uint8_t*, 64> quat_at_ = {};      // each bone's rotation key its search last ended at
     std::array<const uint8_t*, 64> trans_at_ = {};     // and translation key
@@ -26,6 +38,8 @@ struct FrameSource {
                                            // `bone_masks_` collapse at level of detail `mask_bit_` are skipped
     const uint32_t* bone_masks_ = nullptr; // the skeleton's (a word for each bone: a bit per level of detail)
     int mask_bit_ = 0;                     // the skeleton's level of detail
+
+public:
 
     // 0x0048CFA0: done or not (resume_); not done, the animation's data (null when done).
     void* set_done(bool done);

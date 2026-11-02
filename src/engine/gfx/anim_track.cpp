@@ -125,7 +125,7 @@ AnimDriver* AnimTrack::find_controller(uint32_t id)
 // 0x00481AC0
 void AnimTrack::tick_frame()
 {
-    complete_ = false;
+    set_complete(false);
     if (cur_phase_ == kFading) {
         // (x87 at 53 bits: the frame's share of the rate, taken off the weight left; the comparisons use the
         // unrounded result)
@@ -217,10 +217,10 @@ void AnimTrack::fire_events(float from, float to)
     const double last = static_cast<double>(to) * 60.0;
     auto first_frame = static_cast<float>(first);
     auto last_frame = static_cast<float>(last);
-    const bool looped = direction_ == 0 ? first > last : last > first;
+    const bool looped = direction() == 0 ? first > last : last > first;
     if (looped) {
         arm_events();
-        first_frame = outset_; // (as the original: the start itself, not in frames)
+        first_frame = outset(); // (as the original: the start itself, not in frames)
     }
     for (TimedClipEvent& event : events_) {
         arm_event(&event, true);
@@ -291,18 +291,18 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
                     sizeof(duration)); // (the argument's own slot, as above)
         params->fetch_float(kDuration, &duration, 1);
         const bool sync = params->has_bare_flag(kSync);
-        anim_ = anim;
+        set_anim(anim);
         delete_events();
-        load_events(anim_);
+        load_events(this->anim());
         float current = 0.0f;
         if (sync) {
             // (x87 at 53 bits: the place on the old timeline in proportion, rounded once)
-            auto place = static_cast<double>(ongoing_);
-            ongoing_ = 0.0f;
-            current = static_cast<float>(place / finish_ * duration);
+            auto place = static_cast<double>(ongoing());
+            set_ongoing(0.0f);
+            current = static_cast<float>(place / finish() * duration);
         }
-        finish_ = duration;
-        outset_ = 0.0f;
+        set_finish(duration);
+        set_outset(0.0f);
         advance_clock(current);
     }
     for (int i = 0; i < controller_count_; ++i) {

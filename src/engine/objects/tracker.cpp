@@ -70,12 +70,12 @@ constexpr int kWaiters = 40;
 // The pool pair of the listener lists (ScriptList).
 
 // --- the objects ---
-uint32_t& current_object_id(Entity* object) { return object->ident_; }
+uint32_t& current_object_id(Entity* object) { return object->ident(); }
 // The tracker's aliases of it (compared as a signed count by the original).
-bool has_aliases(const Entity* object) { return static_cast<int>(object->alias_count_) > 0; }
-bool has_position(const Entity* object) { return (object->object_flags_ & kObjectFlagHasPosition) != 0; }
+bool has_aliases(const Entity* object) { return static_cast<int>(object->alias_count()) > 0; }
+bool has_position(const Entity* object) { return (object->object_flags() & kObjectFlagHasPosition) != 0; }
 // The position: GameEntity's at_point_ (+0x4C, just after Entity's; read on any object).
-const maths::Vec4& get_position(Entity* object) { return core::down_cast<GameEntity>(object)->at_point_; }
+const maths::Vec4& get_position(Entity* object) { return core::down_cast<GameEntity>(object)->at_point(); }
 // Take the properties in `params` (SetObjectProps); an event targeted at it.
 void change_traits(Entity* object, script::Struct* params) { object->change_traits(params); }
 void forward_trigger(Entity* object, Signal* event) { object->pass_event_to_script(event); }
@@ -256,11 +256,11 @@ void SignalTrace::teardown() { delete_hash_table(memory::owned_element(names_ptr
 // 0x00462CF0
 EventWaitBoard::EventWaitBoard()
 {
-    log_.ordinal_ = 0;
-    log_.has_looped_ = false;
-    log_.names_ptr_ = nullptr;
-    log_.layer_ = 0;
-    log_.added_since_sweep_ = 0;
+    log_.set_ordinal(0);
+    log_.set_has_looped(false);
+    log_.set_names_ptr(nullptr);
+    log_.set_layer(0);
+    log_.set_added_since_sweep(0);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     entity_list_ = new_hash_table(8);
     aliases_ = new_hash_table(4);
@@ -310,7 +310,7 @@ void EventWaitBoard::add_object(Entity* object)
 {
     if (auto* aliased = static_cast<Entity*>(aliases_->fetch_entry(current_object_id(object)))) {
         if (has_aliases(aliased))
-            --aliased->alias_count_;
+            --aliased->alias_count();
         aliases_->erase_entry(current_object_id(object));
     }
     entity_list_->store_entry(current_object_id(object), object);
@@ -354,7 +354,7 @@ void EventWaitBoard::remove_aliases_of(Entity* object)
             aliased = static_cast<Entity*>(table->iter_item_->value);
         }
         if (has_aliases(aliased))
-            --aliased->alias_count_;
+            --aliased->alias_count();
         table->erase_entry(alias);
     }
 }
@@ -364,10 +364,10 @@ void EventWaitBoard::register_nickname(uint32_t alias, Entity* object)
 {
     if (auto* aliased = static_cast<Entity*>(aliases_->fetch_entry(alias))) {
         if (has_aliases(aliased))
-            --aliased->alias_count_;
+            --aliased->alias_count();
         aliases_->erase_entry(alias);
     }
-    ++object->alias_count_;
+    ++object->alias_count();
     aliases_->store_entry(alias, object);
 }
 
@@ -667,7 +667,7 @@ bool cfunc_print_event_log(script::Struct* params, script::Script* /*script*/)
     int count = kLogSize;
     if (params->fetch_int_value(0u, &count, 0))
         only_new = false;
-    get_tracker()->log_.echo_out(only_new, count);
+    get_tracker()->log().echo_out(only_new, count);
     return true;
 }
 
@@ -709,7 +709,7 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
 
     uint32_t type = 0;
     if (params->read_hash_value(kType, &type, 0)) {
-        tracker->launched_from_script_ = from_script();
+        tracker->set_launched_from_script(from_script());
         tracker->launch_event(type, target, source, data, broadcast, radius);
         return true;
     }
@@ -717,7 +717,7 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
     if (params->fetch_list(kType, &types, 0)) {
         const uint32_t size = types->extent_;
         for (uint32_t i = 0; i < size; ++i) {
-            tracker->launched_from_script_ = from_script();
+            tracker->set_launched_from_script(from_script());
             tracker->launch_event(types->fetch_part(i), target, source, data, broadcast, radius);
         }
         return true;
@@ -726,7 +726,7 @@ bool cfunc_launch_event(script::Struct* params, script::Script* script)
     if (params->read_sub_struct(kType, &structure, 0)) {
         for (script::Component* component = structure->step_to_entry(nullptr); component;
              component = structure->step_to_entry(component)) {
-            tracker->launched_from_script_ = from_script();
+            tracker->set_launched_from_script(from_script());
             tracker->launch_event(component->value.word(), target, source, data, broadcast, radius);
         }
     }

@@ -258,7 +258,7 @@ void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, voi
     std::array<char, 1024> location{};
     text::format_to(location, "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name,
                     lobby->room_name_.data());
-    if (buddy->authenticated_) // (logged in to the presence)
+    if (buddy->authenticated()) // (logged in to the presence)
         static_cast<FriendsManager*>(buddy)->change_standing(kStatusHosting, script::fetch_text(kHomieStatusHosting),
                                                              location.data());
 }
@@ -428,7 +428,7 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
     auto nick_error = &RoomManager::get_nick_error_callback;
     auto connected = &RoomManager::get_connect_callback;
     game_spy::peer_connect(lobby->remote_, static_cast<const char*>(nick.data()),
-                           manager->presence_service()->account_ /* its profile */, nick_error, connected, lobby_data,
+                           manager->presence_service()->account() /* its profile */, nick_error, connected, lobby_data,
                            0); // peer connect (not blocking)
     memory::Hub::get_pull()->leave_heap_scope();
     return 0;

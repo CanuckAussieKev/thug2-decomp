@@ -102,7 +102,7 @@ FloatingTextComponent::~FloatingTextComponent()
 void FloatingTextComponent::configure_from_data(script::Struct* params)
 {
     if (!ident_)
-        ident_ = entity_->ident_ - kIdBase;
+        ident_ = entity_->ident() - kIdBase;
     const char* text = nullptr;
     if (params->fetch_text(kString, &text, 0)) {
         if (!*text) {
@@ -147,7 +147,7 @@ void FloatingTextComponent::tick_frame()
     std::array<char, 0x40> text{};
     text::format_to(text, "\\c%d%s", tint_, text_.data());
     params->append_word(kText, text.data());
-    const maths::Vec4& pos = entity_->at_point_;
+    const maths::Vec4& pos = entity_->at_point();
     params->put_vec3(kPos3d, pos.x, pos.y + y_offset_, pos.z);
     frontend::ElementPtr found;
     frontend::UiTree::sole()->fetch_part(&found, ident_, 0);

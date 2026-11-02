@@ -81,7 +81,7 @@ void number_time(Struct* params, uint32_t name, float* time)
 // A model component's object's id and its model.
 uint32_t current_object_id(objects::MeshInstanceModule* component)
 {
-    return static_cast<objects::Entity*>(component->entity_)->ident_;
+    return static_cast<objects::Entity*>(component->entity_)->ident();
 }
 bool hideable(objects::MeshInstanceModule* component)
 {

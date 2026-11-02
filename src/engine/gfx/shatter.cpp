@@ -38,7 +38,7 @@ namespace render {
 
 namespace {
 
-uint16_t triangle_count(const PcShatter* shatter) { return shatter->triangle_count_; }
+uint16_t triangle_count(const PcShatter* shatter) { return shatter->triangle_count(); }
 
 // A mesh's fields the drawing uses: its vertex format (+0x38) and pixel shader (+0x44).
 uint32_t mesh_vertex_format(const MeshRef* mesh) { return mesh->fvf_value(); }
@@ -132,9 +132,9 @@ uint16_t* lock_indices(IdxStore* buffer)
 void update_shatter(PcShatter* shatter, float step)
 {
     const uint32_t stride = shatter->mesh->stride_value();
-    const gpu::VertexWriter out(shatter->vertices, stride, 3 * static_cast<size_t>(shatter->triangle_count_));
+    const gpu::VertexWriter out(shatter->vertices, stride, 3 * static_cast<size_t>(shatter->triangle_count()));
     const gpu::VertexView in = out.view();
-    for (int i = 0; std::cmp_less(i, shatter->triangle_count_); ++i) {
+    for (int i = 0; std::cmp_less(i, shatter->triangle_count()); ++i) {
         const auto v0 = static_cast<size_t>(3 * i);
         const size_t v1 = v0 + 1;
         const size_t v2 = v0 + 2;
@@ -176,7 +176,7 @@ void update_shatter(PcShatter* shatter, float step)
     const uint8_t normal_offset = shatter->mesh->normal_offset();
     if (!normal_offset)
         return;
-    for (int i = 0; std::cmp_less(i, shatter->triangle_count_); ++i) {
+    for (int i = 0; std::cmp_less(i, shatter->triangle_count()); ++i) {
         const maths::Mat4& m = core::at(shatter->rotation_run(), i);
         for (int v = 0; v < 3; ++v) {
             const auto vertex = static_cast<size_t>((3 * i) + v);

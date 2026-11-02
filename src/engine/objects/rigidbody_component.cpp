@@ -249,9 +249,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     rot_vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     for (int r = 0; r < 4; ++r)
         core::at(basis_frame_.row, r) = {.x = r == 0 ? 1.0f : 0.0f, .y = r == 1 ? 1.0f : 0.0f, .z = r == 2 ? 1.0f : 0.0f, .w = r == 3 ? 1.0f : 0.0f};
-    at_point_ = entity_->at_point_;
+    at_point_ = entity_->at_point();
     maths::QuatRotation orientation{};
-    orientation.from_matrix(entity_->basis_frame_);
+    orientation.from_matrix(entity_->basis_frame());
     orientation_ = orientation;
     orientation_.make_unit(1.0f);
     quat_to_matrix(&orientation_, &basis_frame_);
@@ -534,7 +534,7 @@ void BodyDynamicsModule::wake()
 {
     if (cur_phase_ == kStateAwake)
         return;
-    wake_pos_ = entity_->at_point_;
+    wake_pos_ = entity_->at_point();
     cur_phase_ = kStateAwake;
 }
 
@@ -558,13 +558,13 @@ bool BodyDynamicsModule::rigidbody_kick(script::Struct* params, script::Script* 
     script::VectorValue v{};
     if (params->fetch_vec(0x0C4C809E, &v, 0)) { // vel
         vel_ = {.x = v.x + vel_.x, .y = v.y + vel_.y, .z = v.z + vel_.z, .w = v.w + vel_.w};
-        entity_->vel_ = vel_;
+        entity_->vel() = vel_;
     }
     if (params->fetch_vec(0xFB1A83B2, &v, 0)) // rotvel
         rot_vel_ = {.x = v.x + rot_vel_.x, .y = v.y + rot_vel_.y, .z = v.z + rot_vel_.z, .w = v.w + rot_vel_.w};
     if (params->fetch_vec(0x7F261953, &v, 0)) { // pos
         at_point_ = {.x = v.x + at_point_.x, .y = v.y + at_point_.y, .z = v.z + at_point_.z, .w = v.w + at_point_.w};
-        entity_->at_point_ = at_point_;
+        entity_->at_point() = at_point_;
     }
     wake();
     return true;
@@ -576,7 +576,7 @@ bool BodyDynamicsModule::rigid_body_set_velocities(script::Struct* params, scrip
     script::VectorValue v{};
     if (params->fetch_vec(0x0C4C809E, &v, 0)) { // vel
         vel_ = {.x = v.x, .y = v.y, .z = v.z, .w = v.w};
-        entity_->vel_ = vel_;
+        entity_->vel() = vel_;
     }
     if (params->fetch_vec(0xFB1A83B2, &v, 0)) // rotvel
         rot_vel_ = {.x = v.x, .y = v.y, .z = v.z, .w = v.w};
@@ -588,13 +588,13 @@ bool BodyDynamicsModule::rigid_body_set_velocities(script::Struct* params, scrip
 bool BodyDynamicsModule::rigid_body_enable(script::Struct* /*params*/, script::Script* /*script*/)
 {
     cur_phase_ = kStateAwake;
-    at_point_ = entity_->at_point_;
+    at_point_ = entity_->at_point();
     maths::QuatRotation orientation{};
-    orientation.from_matrix(entity_->basis_frame_);
+    orientation.from_matrix(entity_->basis_frame());
     orientation_ = orientation;
     orientation_.make_unit(1.0f);
     quat_to_matrix(&orientation_, &basis_frame_);
-    vel_ = entity_->vel_;
+    vel_ = entity_->vel();
     return true;
 }
 
@@ -625,13 +625,13 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
     const uint32_t id = params->step_to_entry(nullptr)->value.word();
     auto* other = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(id));
     const bool adjust = params->has_bare_flag(0x8ACE8A0F); // ApplyRandomAdjustment
-    vel_ = other->vel_;
+    vel_ = other->vel();
     if (adjust) {
         const double factor = maths::plus_or_minus_exact(0.4000000059604645f) + 1.0f;
         vel_ = {.x = static_cast<float>(factor * vel_.x), .y = static_cast<float>(factor * vel_.y),
                 .z = static_cast<float>(factor * vel_.z), .w = static_cast<float>(factor * vel_.w)};
     }
-    entity_->vel_ = vel_;
+    entity_->vel() = vel_;
     if (cur_phase_ == kStateAsleep && std::fabs(vel_.y) < 1.0f)
         vel_.y = 1.0f;
     if (auto* body = core::down_cast<BodyDynamicsModule>(other->fetch_module(kType))) {

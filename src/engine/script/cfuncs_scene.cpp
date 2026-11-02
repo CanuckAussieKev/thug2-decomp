@@ -190,7 +190,7 @@ bool cfunc_unload_anim(Struct* params, Script*)
     uint32_t reference = 0;
     params->read_hash_value(kSpecKey, &desc, 1);
     if (!params->read_hash_value(kTargetKey, &reference, 0))
-        reference = static_cast<uint32_t>(assets->unknown18_); // the reference checksum (SetReferenceChecksum)
+        reference = static_cast<uint32_t>(assets->unknown18()); // the reference checksum (SetReferenceChecksum)
     const uint32_t checksum = desc ? reference + desc : checksums::hash_from_text(name);
     if (assets::Resource* asset = assets->obtain_loaded_item(checksum, 0))
         assets->discard_loaded_item(asset);
@@ -225,7 +225,7 @@ bool cfunc_load_anim(Struct* params, Script*)
     params->read_hash_value(kSpecKey, &desc, true);
     const bool async = params->has_bare_flag(kAsync);
     const bool use_pip = params->has_bare_flag(kUsePip);
-    return assets->load_anim(name, desc, static_cast<uint32_t>(assets->unknown18_), async, use_pip);
+    return assets->load_anim(name, desc, static_cast<uint32_t>(assets->unknown18()), async, use_pip);
 }
 
 // 0x00445640

@@ -294,10 +294,10 @@ void MeshRef::build_collision()
     if (position_count_ || !core::at(index_counts_, 0))
         return;
     VertexBuffer* vb = core::at(vertex_buffers_, 0);
-    const gpu::VertexView vertices(vb->data, stride, vertex_count_); // (locked read-only, inline)
-    vb->lock_offset_ = 0;
-    vb->lock_size_ = vb->size;
-    vb->lock_flags_ = D3DLOCK_READONLY;
+    const gpu::VertexView vertices(vb->data_value(), stride, vertex_count_); // (locked read-only, inline)
+    vb->set_lock_offset(0);
+    vb->set_lock_size(vb->size_value());
+    vb->set_lock_flags(D3DLOCK_READONLY);
     position_count_ = vertex_count_;
     positions = static_cast<float*>(alloc_block(vertex_count_ * 12u));
     const std::span<float> position_run(positions, 3u * vertex_count_);

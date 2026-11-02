@@ -177,6 +177,11 @@ public:
     // heap; everything given back when that can't be had). Always 0.
     int defragment();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int num() const { return num_; }
+    [[nodiscard]] uint32_t granularity() const { return granularity_; }
+
+private:
     std::array<AnimCacheEntry*, 50> slot_array_; // +0x00
     int num_;                        // +0xC8
     uint32_t taken_count_;           // +0xCC bytes
@@ -185,9 +190,13 @@ public:
     uint32_t unknownd8_;
     bool evict_unused_; // +0xDC
     std::array<uint8_t, 3> paddd_;
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ClipStore, num_) == 0xC8 && offsetof(ClipStore, evict_unused_) == 0xDC &&
+                          sizeof(ClipStore) == 0xE0,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ClipStore, num_) == 0xC8 && offsetof(ClipStore, evict_unused_) == 0xDC &&
-                  sizeof(ClipStore) == 0xE0,
-              "layout must match the original");
 
 } // namespace gfx

@@ -69,7 +69,7 @@ bool cfunc_pause_skaters(Struct* params, Script*)
     auto count = static_cast<uint32_t>(skate->count_riders());
     for (uint32_t i = 0; i < count; ++i) {
         objects::GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
-        if (skater && skater->is_local_skater_) {
+        if (skater && skater->is_local_skater()) {
             pause_skater(skater);
             skater->conceal(hide);
         }
@@ -124,7 +124,7 @@ bool cfunc_launch_viewer(Struct*, Script*)
         node_data->get_clear();
         script::delete_struct(node_data);
     }
-    camera->object_flags_ |= 2;
+    camera->object_flags() |= 2;
     return true;
 }
 

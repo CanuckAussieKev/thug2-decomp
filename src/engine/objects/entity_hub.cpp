@@ -52,10 +52,10 @@ ObjectHubBase::~ObjectHubBase() { entities_.uncouple(); }
 void ObjectHubBase::enrol_subject(Entity* object)
 {
     EventWaitBoard* tracker = get_tracker();
-    object->park_owner_ = this;
-    add_node_by_priority(&entities_, &object->list_link_);
+    object->set_park_owner(this);
+    add_node_by_priority(&entities_, &object->list_link());
     restart_walks_ = 0xFFFFFFFF;
-    if (object->ident_ == kUnassignedId)
+    if (object->ident() == kUnassignedId)
         object->change_serial(tracker->fetch_distinct_id());
     tracker->add_object(object);
 }
@@ -64,13 +64,13 @@ void ObjectHubBase::enrol_subject(Entity* object)
 void ObjectHubBase::drop_entity_registration(Entity* object)
 {
     get_tracker()->remove_object(object, new_id_, reassigning_);
-    memory::ListNode* node = &object->list_link_;
+    memory::ListNode* node = &object->list_link();
     if (node->prev != node) {
         node->prev->next = node->next;
         node->next->prev = node->prev;
         node->next = node;
         node->prev = node;
-        object->park_owner_ = nullptr;
+        object->set_park_owner(nullptr);
         restart_walks_ = 0xFFFFFFFF;
     }
 }
@@ -81,7 +81,7 @@ void ObjectHubBase::reassign_object_id(Entity* object, uint32_t id)
     new_id_ = id;
     reassigning_ = true;
     drop_entity_registration(object);
-    object->ident_ = id;
+    object->set_ident(id);
     enrol_subject(object);
     reassigning_ = false;
 }
@@ -89,8 +89,8 @@ void ObjectHubBase::reassign_object_id(Entity* object, uint32_t id)
 // 0x004619D0
 void ObjectHubBase::set_entity_rank(Entity* object, int priority)
 {
-    const uint32_t id = object->ident_;
-    object->list_link_.priority = priority;
+    const uint32_t id = object->ident();
+    object->list_link().priority = priority;
     reassign_object_id(object, id);
 }
 
@@ -106,7 +106,7 @@ void ObjectHubBase::for_each(ObjectCallback callback, void* data)
         bit <<= 1;
     walking_ |= bit;
     for (memory::ListNode* node = get_next_node(&entities_); node && node->data; node = get_next_node(node))
-        static_cast<Entity*>(node->data)->visited_mask_ &= ~bit;
+        static_cast<Entity*>(node->data)->visited_mask() &= ~bit;
     for (bool again = true; again; again = restart_walks_ & bit) {
         restart_walks_ &= ~bit;
         memory::ListNode* node = get_next_node(&entities_);
@@ -114,8 +114,8 @@ void ObjectHubBase::for_each(ObjectCallback callback, void* data)
         while (object) {
             memory::ListNode* next_node = get_next_node(node);
             Entity* next = object_of(next_node);
-            if (!(object->visited_mask_ & bit)) {
-                object->visited_mask_ |= bit;
+            if (!(object->visited_mask() & bit)) {
+                object->visited_mask() |= bit;
                 callback(object, data);
                 if (restart_walks_ & bit)
                     break;
@@ -147,7 +147,7 @@ MiscHub::~MiscHub()
 // 0x00461B00
 void MiscHub::remove_entity(Entity* object)
 {
-    memory::ListNode* node = &object->list_link_;
+    memory::ListNode* node = &object->list_link();
     memory::ListNode* head = &dead_objects_;
     node->prev = head;
     node->next = head->next;
@@ -185,7 +185,7 @@ Entity* ObjectSearch::first_item_of_type(memory::ListNode* head, uint32_t type)
     kind_tag_ = type;
     if (!object)
         return nullptr;
-    while (object->kind_tag_ != type) {
+    while (object->kind_tag() != type) {
         list_link_ = get_next_node(list_link_);
         if (!list_link_)
             return nullptr;
@@ -205,7 +205,7 @@ Entity* ObjectSearch::next_item_of_type()
     Entity* object = object_of(list_link_);
     if (!object)
         return nullptr;
-    while (object->kind_tag_ != kind_tag_) {
+    while (object->kind_tag() != kind_tag_) {
         list_link_ = get_next_node(list_link_);
         if (!list_link_)
             return nullptr;

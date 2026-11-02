@@ -79,6 +79,27 @@ public:
     // the feeler's own, given the feeler (the hit's callback data).
     static void callback_relay(CollisionHit* hit);
 
+    // The fields other code reads and sets.
+    maths::Seg& line() { return line_; }
+    [[nodiscard]] const maths::Seg& line() const { return line_; }
+    FeelerCallback& callback() { return callback_; }
+    [[nodiscard]] const FeelerCallback& callback() const { return callback_; }
+    void set_callback(const FeelerCallback& value) { callback_ = value; }
+    CollisionHit& hit() { return hit_; }
+    [[nodiscard]] const CollisionHit& hit() const { return hit_; }
+    [[nodiscard]] float reach() const { return reach_; }
+    maths::Vec4& contact_pos() { return contact_pos_; }
+    [[nodiscard]] const maths::Vec4& contact_pos() const { return contact_pos_; }
+    maths::Vec4& surface_dir() { return surface_dir_; }
+    [[nodiscard]] const maths::Vec4& surface_dir() const { return surface_dir_; }
+    objects::SharedRef<objects::GameEntity>& entity() { return entity_; }
+    [[nodiscard]] const objects::SharedRef<objects::GameEntity>& entity() const { return entity_; }
+    [[nodiscard]] uint32_t entity_key() const { return entity_key_; }
+    [[nodiscard]] void* user_data() const { return user_data_; }
+    void set_user_data(void* value) { user_data_ = value; }
+    void set_hit_cache(HitMeshCache* value) { hit_cache_ = value; }
+
+private:
     maths::Seg line_{};                              // +0x00 start, +0x10 end
     FeelerCallback callback_;                        // +0x20
     CollisionHit hit_{};                             // +0x24
@@ -89,11 +110,15 @@ public:
     uint32_t entity_key_{};                          // +0xA4 its id
     void* user_data_{};                              // +0xA8 (its user's: a trigger component)
     HitMeshCache* hit_cache_;                        // +0xAC null: the current cache
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ProbeRay, hit_) == 0x24 && offsetof(ProbeRay, reach_) == 0x74 &&
+                          offsetof(ProbeRay, entity_) == 0x98 && offsetof(ProbeRay, hit_cache_) == 0xAC &&
+                          sizeof(ProbeRay) == 0xB0,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ProbeRay, hit_) == 0x24 && offsetof(ProbeRay, reach_) == 0x74 &&
-                  offsetof(ProbeRay, entity_) == 0x98 && offsetof(ProbeRay, hit_cache_) == 0xAC &&
-                  sizeof(ProbeRay) == 0xB0,
-              "layout must match the original");
 
 // NOT ORIGINAL - the cache queries use when the feeler has none; the rider sets it around its feelers.
 void set_current_cache(HitMeshCache* cache);

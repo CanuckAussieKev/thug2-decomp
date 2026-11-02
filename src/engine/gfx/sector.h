@@ -109,15 +109,34 @@ public:
     void start_texture_anim(bool reset);
     void stop_texture_anim();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t checksum() const { return checksum_; }
+    void set_checksum(uint32_t value) { checksum_ = value; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] uint32_t light_group() const { return light_group_; }
+    void set_light_group(uint32_t value) { light_group_ = value; }
+    [[nodiscard]] int rot_y() const { return rot_y_; }
+    [[nodiscard]] void* geom_handle() const { return geom_handle_; }
+    void set_geom_handle(void* value) { geom_handle_ = value; }
+    [[nodiscard]] HitMesh* hit_body() const { return hit_body_; }
+    void set_hit_body(HitMesh* value) { hit_body_ = value; }
+
+private:
     uint32_t checksum_{};                       // +0x04: its name
     uint32_t flag_bits_{kSectorCollidable};     // +0x08
     uint32_t light_group_{kOutdoorLightGroup};  // +0x0C: its light group (the time of day's; outdoor by default)
     int rot_y_{0};                              // +0x10: quarter turns about y
     void* geom_handle_{nullptr};                // +0x14: CGeom (on PC a PcGeom), or null
     HitMesh* hit_body_{nullptr}; // +0x18: or null (a clone's own copy, deleted by its destructor; else the scene's)
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(WorldCell, geom_handle_) == 0x14, "layout must match the original");
+        static_assert(offsetof(WorldCell, rot_y_) == 0x10 && offsetof(WorldCell, hit_body_) == 0x18 &&
+                          sizeof(WorldCell) == 0x1C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(WorldCell, rot_y_) == 0x10 && offsetof(WorldCell, hit_body_) == 0x18 &&
-                  sizeof(WorldCell) == 0x1C,
-              "layout must match the original");
 
 } // namespace render

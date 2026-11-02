@@ -98,10 +98,10 @@ Result open_bink_from_wad(BinkStream* bink, uint32_t checksum, const char* path,
 // Whether the slot's stream uses this OVERLAPPED block.
 bool uses_overlapped(const StreamSlot& slot, const OVERLAPPED* overlapped)
 {
-    if (slot.wad)
-        return slot.wad->async_ctl() == overlapped;
-    if (slot.bink)
-        return slot.bink->async_ctl() == overlapped;
+    if (slot.wad_value())
+        return slot.wad_value()->async_ctl() == overlapped;
+    if (slot.bink_value())
+        return slot.bink_value()->async_ctl() == overlapped;
     return false;
 }
 
@@ -115,19 +115,19 @@ bool get_over(Stream* stream)
 }
 bool get_over(const StreamSlot& slot)
 {
-    if (slot.wad)
-        return get_over(slot.wad);
-    if (slot.bink)
-        return get_over(slot.bink);
+    if (slot.wad_value())
+        return get_over(slot.wad_value());
+    if (slot.bink_value())
+        return get_over(slot.bink_value());
     return false;
 }
 
 bool prefetch_complete(const StreamSlot& slot)
 {
-    if (slot.wad)
-        return slot.wad->prefetch_complete();
-    if (slot.bink)
-        return slot.bink->prefetch_complete();
+    if (slot.wad_value())
+        return slot.wad_value()->prefetch_complete();
+    if (slot.bink_value())
+        return slot.bink_value()->prefetch_complete();
     return true;
 }
 
@@ -196,10 +196,10 @@ namespace {
 
 void update_slot(StreamSlot& slot)
 {
-    if (slot.wad)
-        slot.wad->tick_frame();
-    else if (slot.bink)
-        slot.bink->tick_frame();
+    if (slot.wad_value())
+        slot.wad_value()->tick_frame();
+    else if (slot.bink_value())
+        slot.bink_value()->tick_frame();
 }
 
 } // namespace
@@ -365,22 +365,22 @@ void pause_streams(bool pause, int which)
 {
     if (which == 1) {
         StreamSlot& music = music_slot();
-        music.paused = pause;
-        if (music.wad)
-            music.wad->get_freeze(pause ? 1 : 0);
-        else if (music.bink)
-            music.bink->get_freeze(pause ? 1 : 0);
+        music.set_paused(pause);
+        if (music.wad_value())
+            music.wad_value()->get_freeze(pause ? 1 : 0);
+        else if (music.bink_value())
+            music.bink_value()->get_freeze(pause ? 1 : 0);
         return;
     }
     for (int i = 0; i < kStreamSlots; ++i) {
         StreamSlot& slot = core::at(stream_slots(), i);
         if (!slot.get_playing())
             continue;
-        if (slot.wad)
-            slot.wad->get_freeze(pause ? 1 : 0);
-        else if (slot.bink)
-            slot.bink->get_freeze(pause ? 1 : 0);
-        slot.paused = pause;
+        if (slot.wad_value())
+            slot.wad_value()->get_freeze(pause ? 1 : 0);
+        else if (slot.bink_value())
+            slot.bink_value()->get_freeze(pause ? 1 : 0);
+        slot.set_paused(pause);
     }
 }
 

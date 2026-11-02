@@ -110,9 +110,9 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
     const int count = checklist->total_of();
     for (int i = 0; i < count; ++i) {
         goals::GapEntry* gap = checklist->get_gap(i);
-        if (gap && !gap->num_) {
-            gap->num_ = 1;
-            gap->skater_start_dir_ = facing;
+        if (gap && !gap->num()) {
+            gap->num() = 1;
+            gap->set_skater_start_dir(facing);
         }
     }
     core::at(career->visited(), level) = true;

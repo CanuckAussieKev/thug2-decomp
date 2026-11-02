@@ -53,7 +53,7 @@ bool retrieve_top_stats(script::Struct* params, script::Script*)
 {
     const online::Hub* manager = online::net_game_state().online_hub();
     online::RankingsManager* stats = manager->rating_service().get();
-    int& current = stats->top_file_;
+    int& current = stats->top_file();
     int index = 0;
     if (params->fetch_int_value(0x7360C9EF, &index, 0))
         current = index;
@@ -74,7 +74,7 @@ bool retrieve_top_stats(script::Struct* params, script::Script*)
     request.done_script_ = current == 4 ? 0x7346E8E7 : 0xD932B07B; // (which reply: ratings or scores)
     manager->vault_man()->download(&request);                       // (the vault, +0x14)
     // (the original's +0x1FC: need_top_stats_ - this cleared a byte past it, our layout lacking the lists' table words)
-    stats->need_top_stats_ = false;
+    stats->set_need_top_stats(false);
     return true;
 }
 

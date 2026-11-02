@@ -131,6 +131,22 @@ public:
     // texture - the button font's after a button glyph - or this text's font's, and empty the buffer.
     void close_sketch() override;
 
+    // The fields other code reads and sets.
+    void set_font(TypefaceData* value) { font = value; }
+    void set_effects(const TextEffect* value) { effects = value; }
+    void set_text(const char* value) { text = value; }
+    void set_x(float value) { x = value; }
+    [[nodiscard]] float y_value() const { return y; }
+    void set_y(float value) { y = value; }
+    void set_xscale(float value) { xscale = value; }
+    void set_yscale(float value) { yscale = value; }
+    void set_pivot_x(float value) { pivot_x_ = value; }
+    void set_pivot_y(float value) { pivot_y_ = value; }
+    void set_angle(float value) { angle = value; }
+    void set_color(uint32_t value) { color = value; }
+    void set_fixed_color(bool value) { fixed_color_ = value; }
+
+private:
     TypefaceData* font{};
     const TextEffect* effects{}; // or null
     const char* text{};
@@ -141,13 +157,20 @@ public:
     uint32_t color{};             // RGBA as bytes
     bool fixed_color_{};          // ignore "\c" colours
 
+public:
+
     // 0x004CFB20: one character of a key name at *pen_x (advanced past it), at line height pen_y - plain, no
     // effects.
     void draw_key_char(char c, float* pen_x, float pen_y);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(GlyphRun, z) == 0x10, "layout must match the original");
+        static_assert(offsetof(GlyphRun, text) == 0x1C, "layout must match the original");
+        static_assert(offsetof(GlyphRun, angle) == 0x38, "layout must match the original");
+        static_assert(offsetof(GlyphRun, fixed_color_) == 0x40, "layout must match the original");
+    }
 };
-static_assert(offsetof(GlyphRun, z) == 0x10, "layout must match the original");
-static_assert(offsetof(GlyphRun, text) == 0x1C, "layout must match the original");
-static_assert(offsetof(GlyphRun, angle) == 0x38, "layout must match the original");
-static_assert(offsetof(GlyphRun, fixed_color_) == 0x40, "layout must match the original");
 
 } // namespace render

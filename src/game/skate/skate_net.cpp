@@ -287,7 +287,7 @@ void SkateNet::add_client_handlers(Skate* skate, net::AppHost* client, int index
     for (uint32_t i = 0; i < 8; ++i) {
         auto* skater =
             core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
-        if (!skater || !skater->is_local_skater_ || skater->get_skater_number() != index)
+        if (!skater || !skater->is_local_skater() || skater->get_skater_number() != index)
             continue;
         append_listener(client, 0x3B, &modules::PointTally::on_score_msg, 0, skater);
         append_listener(client, 0x44, &objects::RiderFrameLog::handle_collision_messages, 0, skater);
@@ -442,7 +442,7 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
         const script::VectorValue position = {.x = core::at(at, 0), .y = core::at(at, 1), .z = core::at(at, 2), .w = core::at(at, 3)};
         const script::StructPtr params = script::make_struct();
         params->put_int(kIndex, i);
-        params->put_int(kObjId, static_cast<int>(player_skater(player)->ident_));
+        params->put_int(kObjId, static_cast<int>(player_skater(player)->ident()));
         params->put_vec3(kPos, position);
         params->put_name_key(kShowNow, kShowNow);
         get_run(kDropObject, params.get(), player_skater(player));
@@ -510,15 +510,15 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         auto* skater = core::down_cast<objects::Rider>(object);
         modules::PointTally* score = nullptr;
         if (!goals::game_mode()->is_true(kShouldModulateColor) && goals::game_mode()->keeps_move_points()) {
-            if (skater->is_local_skater_) // (a local skater keeps its own)
+            if (skater->is_local_skater()) // (a local skater keeps its own)
                 continue;
             score = skater->get_points_total();
         } else {
             score = skater->get_points_total();
-            if (goals::game_mode()->get_name_key() == kNetFirefight && !skater->is_local_skater_ &&
+            if (goals::game_mode()->get_name_key() == kNetFirefight && !skater->is_local_skater() &&
                 score->get_total_score() > 0 && value == 0) {
                 // Eliminated.
-                if (PlayerRecord* player = find_player_slot_by_obj(object->ident_))
+                if (PlayerRecord* player = find_player_slot_by_obj(object->ident()))
                     player->mark_eliminated();
                 script::StructPtr params = script::make_struct();
                 params->append_word(kName, skater->fetch_shown_name());
@@ -582,7 +582,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     int best_score = 0;
     for (PlayerRecord* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
-        const int score = net->get_entrant_points(player_skater(player)->ident_);
+        const int score = net->get_entrant_points(player_skater(player)->ident());
         if (score > best_score) {
             best_score = score;
             best = player;
@@ -790,16 +790,16 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         } else {
             // The first: what came before is where the skater is now.
             maths::Mat4 matrix{};
-            matrix = skater->basis_frame_;
+            matrix = skater->basis_frame();
             maths::Vec4 eulers{};
             matrix.get_euler_angles(eulers);
             StateEntry& first = core::at(history->states_, 0);
             for (int k = 0; k < 3; ++k) {
                 // (TP-R6: in a big level as sent there; THUGPRO's own left this one in halves / quarters)
                 if (k == 1)
-                    core::at(first.pos, 1) = thugpro::pack_height(skater->at_point_.y);
+                    core::at(first.pos, 1) = thugpro::pack_height(skater->at_point().y);
                 else
-                    core::at(first.pos, k) = thugpro::pack_horizontal(skater->at_point_[k]);
+                    core::at(first.pos, k) = thugpro::pack_horizontal(skater->at_point()[k]);
                 core::at(first.angles, k) = eulers[k];
             }
             previous = 0;
@@ -911,9 +911,9 @@ uint32_t SkateNet::get_relay_flags(void* sent_record, void* state_entry, uint8_t
 // 0x005698F0
 void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
 {
-    PlayerRecord* player = find_player_slot_by_obj(object->ident_);
+    PlayerRecord* player = find_player_slot_by_obj(object->ident());
     objects::Entity* skater = player_skater(player);
-    auto index = static_cast<uint8_t>(skater->ident_);
+    auto index = static_cast<uint8_t>(skater->ident());
     objects::RiderFrameLog* history = history_of(skater);
     StateEntry& entry = core::at(history->states_, (history->state_count_ - 1) % 20);
     online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(out->sent_)->sent();

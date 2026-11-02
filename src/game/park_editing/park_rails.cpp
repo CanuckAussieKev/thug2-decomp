@@ -43,7 +43,7 @@ uint8_t& pool_owned(memory::PoolPair& pair) { return core::at(pair.made_here_, p
 // A pool deleted: its block (0x005BA4E0, ~Pool), then the pool.
 void delete_pool(memory::SlabBank* pool)
 {
-    memory::dealloc(pool->memory_.data());
+    memory::dealloc(pool->memory().data());
     memory::Hub::get_pull()->dealloc(pool);
 }
 
@@ -153,7 +153,7 @@ void ParkRailString::delete_points()
     memory::PoolPair& pair = point_pools();
     for (ParkRailPoint* point = point_chain_; point;) {
         ParkRailPoint* next = point->following_;
-        lend_pool(pair, point_group_->point_pool_);
+        lend_pool(pair, point_group_->point_pool());
         pair.dealloc(point);
         take_back_pool(pair);
         point = next;
@@ -175,7 +175,7 @@ void ParkRailSet::add_rail(ParkRailString* string)
         tail_node_ = string;
         return;
     }
-    tail_node_->following_ = string;
+    tail_node_->set_following(string);
     ++rail_total_;
     tail_node_ = string;
 }
@@ -184,8 +184,8 @@ void ParkRailSet::add_rail(ParkRailString* string)
 int ParkRailSet::rail_point_total() const
 {
     int points = 0;
-    for (const ParkRailString* string = rail_groups_; string; string = string->following_)
-        points += string->vertex_total_;
+    for (const ParkRailString* string = rail_groups_; string; string = string->following())
+        points += string->vertex_total();
     return points;
 }
 
@@ -193,8 +193,8 @@ int ParkRailSet::rail_point_total() const
 ParkRailString* ParkRailSet::find_rail(uint32_t name, int index)
 {
     int found = 0;
-    for (ParkRailString* string = rail_groups_; string; string = string->following_) {
-        if (string->label_ == name) {
+    for (ParkRailString* string = rail_groups_; string; string = string->following()) {
+        if (string->label() == name) {
             if (found == index)
                 return string;
             ++found;
@@ -255,14 +255,14 @@ ParkRailString* ParkRailSet::get_new_rail()
     lend_pool(pair, rail_pool_);
     auto* string = pair.allocate<ParkRailString>();
     if (string) {
-        string->flag_bits_ =
-            static_cast<uint8_t>((string->flag_bits_ & ~ParkRailString::kLoop) | ParkRailString::kClimbable);
-        string->point_chain_ = nullptr;
-        string->vertex_total_ = 0;
-        string->following_ = nullptr;
+        string->flag_bits() =
+            static_cast<uint8_t>((string->flag_bits() & ~ParkRailString::kLoop) | ParkRailString::kClimbable);
+        string->set_point_chain(nullptr);
+        string->set_vertex_total(0);
+        string->set_following(nullptr);
     }
     take_back_pool(pair);
-    string->point_group_ = this; // (not null-checked: as the original)
+    string->set_point_group(this); // (not null-checked: as the original)
     return string;
 }
 
@@ -281,7 +281,7 @@ void ParkRailSet::get_clear()
 {
     memory::PoolPair& pair = string_pools();
     for (ParkRailString* string = rail_groups_; string;) {
-        ParkRailString* next = string->following_;
+        ParkRailString* next = string->following();
         string->delete_points();
         lend_pool(pair, rail_pool_);
         pair.dealloc(string);

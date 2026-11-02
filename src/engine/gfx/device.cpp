@@ -403,12 +403,12 @@ void show_disc_error()
     }
     GlyphRun glyphs(0.0f);
     GlyphRun* text = &glyphs;
-    text->font = adapter_info().debug_font_;
-    text->x = 48.0f;
-    text->y = 128.0f;
-    text->xscale = std::bit_cast<float>(0x3F4CCCCDu); // 0.8
-    text->yscale = 1.0f;
-    text->color = 0x80808080;
+    text->set_font(adapter_info().debug_font_);
+    text->set_x(48.0f);
+    text->set_y(128.0f);
+    text->set_xscale(std::bit_cast<float>(0x3F4CCCCDu)); // 0.8
+    text->set_yscale(1.0f);
+    text->set_color(0x80808080);
     text->next = nullptr;
     set_texture(1, nullptr);
     set_texture(2, nullptr);
@@ -425,13 +425,13 @@ void show_disc_error()
         change_phase(kZWrite, 0);
         gfx.d3d_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
         gfx.d3d_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
-        text->y = text->y - kOffsetLines;
-        text->text = first;
+        text->set_y(text->y_value() - kOffsetLines);
+        text->set_text(first);
         text->open_sketch();
         text->draw();
         text->close_sketch();
-        text->y = text->y + kOffsetLines;
-        text->text = second;
+        text->set_y(text->y_value() + kOffsetLines);
+        text->set_text(second);
         text->open_sketch();
         text->draw();
         text->close_sketch();

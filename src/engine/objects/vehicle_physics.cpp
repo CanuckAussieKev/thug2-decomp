@@ -602,39 +602,39 @@ void DrivableModule::update_dependents()
 void DrivableModule::update_wheel_contacts()
 {
     render::ProbeRay feeler;
-    feeler.hit_cache_ = &contact_memo_;
+    feeler.set_hit_cache(&contact_memo_);
     wheels_in_contact_ = 0;
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
-        feeler.line_.start = wheel.feeler_start_;
-        feeler.line_.end = wheel.feeler_end_;
+        feeler.line().start = wheel.feeler_start_;
+        feeler.line().end = wheel.feeler_end_;
         feeler.set_excluded(0x10, 0);
         if (feeler.get_hit_shape(false, false)) {
             if (wheel.state == kWheelInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
-                if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
+                if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
                     return; // (the feeler's destructor lets go of its object)
-            } else if (feeler.hit_.object != wheel.feeler.hit_.object) {
+            } else if (feeler.hit().object != wheel.feeler.hit().object) {
                 // Onto another collision object: off the old, onto the new.
                 trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
-                if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
+                if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
                     return;
                 trigger_feeler(trigger_ptr_, kWheelLandsEvents, &feeler);
-                if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
+                if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
                     return;
             }
             // Touching: the suspension's extension where the ground is, the feeler kept, its line ending there.
             wheel.feeler.get_assign(feeler);
             wheel.state = kWheelOnGround;
-            wheel.normal = feeler.surface_dir_;
+            wheel.normal = feeler.surface_dir();
             wheel.y =
-                static_cast<float>((static_cast<double>(wheel.rest_y_) - wheel.radius) * feeler.reach_ + wheel.radius);
+                static_cast<float>((static_cast<double>(wheel.rest_y_) - wheel.radius) * feeler.reach() + wheel.radius);
             ++wheels_in_contact_;
-            feeler.line_.end = feeler.contact_pos_;
+            feeler.line().end = feeler.contact_pos();
         } else {
             if (wheel.state != kWheelInAir) {
                 trigger_feeler(trigger_ptr_, kWheelLeavesEvents, &wheel.feeler);
-                if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
+                if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
                     return;
             }
             wheel.state = kWheelInAir;
@@ -645,7 +645,7 @@ void DrivableModule::update_wheel_contacts()
             feeler.set_excluded(0, 0x50);
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
-                if (cut_short_ || (entity_->object_flags_ & kObjectFlagDead))
+                if (cut_short_ || (entity_->object_flags() & kObjectFlagDead))
                     return;
             }
         }
@@ -711,27 +711,27 @@ void DrivableModule::check_sleep()
 // 0x004376B0
 void DrivableModule::read_controls()
 {
-    const PadSnapshot& input = input_ptr_->pad_primary_;
+    const PadSnapshot& input = input_ptr_->pad_primary();
     // The stick squared (its sign kept); else the d-pad's left / right.
     const float stick = core::at(input.scaled_stick(), 2);
     const double steering = std::fabs(static_cast<double>(stick)) * stick;
     steering_ = static_cast<float>(steering);
     if (steering == 0.0) {
-        const bool left = input.left_side().held_down_ != 0;
-        const bool right = input.right_side().held_down_ != 0;
+        const bool left = input.left_side().held_down() != 0;
+        const bool right = input.right_side().held_down() != 0;
         if (left && !right)
             steering_ = -1.0f;
         else if (!left && right)
             steering_ = 1.0f;
     }
-    throttle_ = input.pos_x().held_down_ != 0;
-    handbrake_ = input.shoulder_right_a().held_down_ != 0 && !handbrake_disabled_;
+    throttle_ = input.pos_x().held_down() != 0;
+    handbrake_ = input.shoulder_right_a().held_down() != 0 && !handbrake_disabled_;
     // The brake button: braking while moving forward, else reversing; with Exitable, the other button too, which
     // also brakes while moving backwards and tells the object it has stopped (0xCBAA3476).
     bool pressed = false, other = false;
-    if (input.button_box().held_down_) {
+    if (input.button_box().held_down()) {
         pressed = true;
-    } else if (can_dismount_ && input.button_wedge().held_down_) {
+    } else if (can_dismount_ && input.button_wedge().held_down()) {
         pressed = true;
         other = true;
     } else {
@@ -779,16 +779,16 @@ void DrivableModule::update_skater()
     const GameEntity* object = entity_;
     GameEntity* skater = rider_ref_;
     maths::Vec4 place;
-    object->basis_frame_.rotate_vector(place, skater_pos_);
-    skater->at_point_.z = static_cast<float>(static_cast<double>(object->at_point_.z) + place.z);
-    skater->at_point_.w = static_cast<float>(static_cast<double>(object->at_point_.w) + place.w);
-    skater->at_point_.x = static_cast<float>(static_cast<double>(place.x) + object->at_point_.x);
-    skater->at_point_.y = static_cast<float>(static_cast<double>(object->at_point_.y) + place.y);
-    skater->basis_frame_ = object->basis_frame_;
+    object->basis_frame().rotate_vector(place, skater_pos_);
+    skater->at_point().z = static_cast<float>(static_cast<double>(object->at_point().z) + place.z);
+    skater->at_point().w = static_cast<float>(static_cast<double>(object->at_point().w) + place.w);
+    skater->at_point().x = static_cast<float>(static_cast<double>(place.x) + object->at_point().x);
+    skater->at_point().y = static_cast<float>(static_cast<double>(object->at_point().y) + place.y);
+    skater->basis_frame() = object->basis_frame();
     // The skater's core physics keeps its own copy of its object's matrix (+0x18).
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_core_physics_);
-    core->display_matrix() = core->entity_->basis_frame_;
-    skater->vel_ = object->vel_;
+    core->display_matrix() = core->entity_->basis_frame();
+    skater->vel() = object->vel();
     if (!rider_shown_)
         return;
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).

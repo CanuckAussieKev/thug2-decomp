@@ -93,7 +93,7 @@ void add_geom(render::RenderModel* model, render::Geom* geom, uint32_t name) { m
 bool fetch_magnification(maths::Vec4* scale, script::Struct* params) { return gfx::scale_from_args(scale, params); }
 // A level sector by name in any scene (0x0048C510) and its geometry (0x004A2BA0: its +0x14).
 render::WorldCell* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
-render::Geom* sector_geom(const render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle_); }
+render::Geom* sector_geom(const render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle()); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
 void model_path_for(const char* name, const char* ext, char* out) { gfx::make_model_file_name(name, ext, out); }
 // The model's lights' brightness (0x0048E660).
@@ -144,10 +144,10 @@ void MeshInstanceModule::configure_from_data(script::Struct* params)
         if (!model_lights(mesh_instance_.get())) {
             mesh_instance_->create_lights();
             render::ModelLights* lights = model_lights(mesh_instance_.get());
-            lights->bind_position_source(&entity_->at_point_);
+            lights->bind_position_source(&entity_->at_point());
             int count = 1;
             params->fetch_int_value(kMaxSceneLights, &count, 0);
-            lights->dynamic_radius_ = static_cast<uint32_t>(count); // (0x00407700)
+            lights->set_dynamic_radius(static_cast<uint32_t>(count)); // (0x00407700)
         }
     } else if (model_lights(mesh_instance_.get())) {
         mesh_instance_->destroy_lights();
@@ -200,7 +200,7 @@ void MeshInstanceModule::change_mesh(render::RenderModel* model)
     // (the model it had isn't deleted: the caller has it - the model swap hands it to the other component)
     memory::let_go(mesh_instance_);
     mesh_instance_.reset(model);
-    if (entity_->composite_flags_ & kCompositeFlagFinalized) {
+    if (entity_->composite_flags() & kCompositeFlagFinalized) {
         tick_frame();
         if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
             update_lights_brightness(model_lights(mesh_instance_.get()));
@@ -220,7 +220,7 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
     gfx::ModelAssembler builder(via_resource_store, tex_dict_offset); // (destroyed at the end)
     builder.get_build(static_cast<gfx::ModelLook*>(profile), model, skeleton,
                       build_script ? build_script : kDefaultBuildScript);
-    if (entity_->composite_flags_ & kCompositeFlagFinalized) {
+    if (entity_->composite_flags() & kCompositeFlagFinalized) {
         tick_frame();
         if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
             update_lights_brightness(model_lights(mesh_instance_.get()));
@@ -259,9 +259,9 @@ void MeshInstanceModule::init_bone_volumes()
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->fetch_heap_by_key(kBoneVolumeHeap, 1));
     const gfx::Rig* skeleton = skeleton_of(bone_rig_);
-    gfx::RigData* data = skeleton->payload_;
+    gfx::RigData* data = skeleton->payload();
     // (the volumes are shared by skeletons of the same bone count)
-    gfx::BoneVolumes* volumes = gfx::find_bone_volumes(static_cast<uint32_t>(skeleton->bone_total_));
+    gfx::BoneVolumes* volumes = gfx::find_bone_volumes(static_cast<uint32_t>(skeleton->bone_total()));
     if (volumes) {
         ++volumes->users_; // (another user)
     } else {
@@ -269,7 +269,7 @@ void MeshInstanceModule::init_bone_volumes()
         gsl::owner<void*> made = memory::adopt<void*>(memory::alloc(0x0C));
         if (made)
             made = new (made) gfx::BoneVolumes(0);
-        static_cast<gfx::BoneVolumes*>(made)->enrol(static_cast<uint32_t>(skeleton->bone_total_));
+        static_cast<gfx::BoneVolumes*>(made)->enrol(static_cast<uint32_t>(skeleton->bone_total()));
         static_cast<gfx::BoneVolumes*>(made)->get_fill(data);
     }
     mesh_instance_->set_bone_volumes(volumes);
@@ -365,7 +365,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             }
         }
     }
-    if (entity_->composite_flags_ & kCompositeFlagFinalized) {
+    if (entity_->composite_flags() & kCompositeFlagFinalized) {
         tick_frame();
         if (mesh_instance_.get() && model_lights(mesh_instance_.get()))
             update_lights_brightness(model_lights(mesh_instance_.get()));

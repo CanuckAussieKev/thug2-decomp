@@ -86,7 +86,7 @@ uint32_t flash_mask(int rate)
 render::WorldCell* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
 render::Geom* fetch_shape(render::WorldCell* sector)
 {
-    return static_cast<render::Geom*>(sector->geom_handle_);
+    return static_cast<render::Geom*>(sector->geom_handle());
 }
 int get_vertex_count(render::Geom* geometry) { return static_cast<int>(geometry->fetch_vertex_tally()); }
 // (the buffers are made for the geometry's vertex count: the run is of that)
@@ -101,7 +101,7 @@ render::TriMeshSource* get_hit_shape(render::Geom* geometry)
 }
 uint16_t collision_vertex_count(const render::TriMeshSource* collision)
 {
-    return collision->num_vertices_;
+    return collision->num_vertices();
 }
 void set_collision_vertices(render::WorldCell* sector, Vec4* vertices)
 {
@@ -515,11 +515,11 @@ float EditedRailPoint::ground_height(const Vec4* position)
                 .w = position->w};
     feeler.change_finish(&end);
     if (feeler.get_hit_shape(true, false)) {
-        const float height = feeler.contact_pos_.y;
-        feeler.entity_.get_release();
+        const float height = feeler.contact_pos().y;
+        feeler.entity().get_release();
         return height;
     }
-    feeler.entity_.get_release();
+    feeler.entity().get_release();
     return 0.0f;
 }
 
@@ -577,17 +577,17 @@ void EditedRailPoint::spotlight(bool flash, bool include_end_posts)
 void EditedRail::xform(const Vec4* origin, const Vec4* position, float angle)
 {
     // (transform_rail_point's turn, but z' not rounded to float before the position is added)
-    for (EditedRailPoint* p = point_chain_; p; p = p->following_) {
-        const double dx = static_cast<double>(p->at_point_.x) - origin->x;
-        auto dy = static_cast<float>(static_cast<double>(p->at_point_.y) - origin->y);
-        const double dz = static_cast<double>(p->at_point_.z) - origin->z;
+    for (EditedRailPoint* p = point_chain_; p; p = p->following()) {
+        const double dx = static_cast<double>(p->at_point().x) - origin->x;
+        auto dy = static_cast<float>(static_cast<double>(p->at_point().y) - origin->y);
+        const double dz = static_cast<double>(p->at_point().z) - origin->z;
         float x = 0.0f;
         double z = 0.0;
         turn_about_y(dx, dz, angle, &x, &z);
-        p->at_point_.z = static_cast<float>(z + position->z);
-        p->at_point_.w = static_cast<float>(0.0 + position->w); // (the original adds an unset local - here 0)
-        p->at_point_.x = static_cast<float>(static_cast<double>(x) + position->x);
-        p->at_point_.y = static_cast<float>(static_cast<double>(dy) + position->y);
+        p->at_point().z = static_cast<float>(z + position->z);
+        p->at_point().w = static_cast<float>(0.0 + position->w); // (the original adds an unset local - here 0)
+        p->at_point().x = static_cast<float>(static_cast<double>(x) + position->x);
+        p->at_point().y = static_cast<float>(static_cast<double>(dy) + position->y);
     }
 }
 
@@ -595,16 +595,16 @@ void EditedRail::xform(const Vec4* origin, const Vec4* position, float angle)
 void EditedRail::draw_segments(const Vec4* origin, const Vec4* position, float angle)
 {
     EditedRailPoint* last = nullptr;
-    for (EditedRailPoint* p = point_chain_; p; p = p->following_)
+    for (EditedRailPoint* p = point_chain_; p; p = p->following())
         last = p;
-    for (EditedRailPoint* p = last; p; p = p->preceding_)
+    for (EditedRailPoint* p = last; p; p = p->preceding())
         p->draw_segment(origin, position, angle);
 }
 
 // 0x004F6210
 void EditedRail::draw_posts(const Vec4* origin, const Vec4* position, float angle)
 {
-    for (EditedRailPoint* p = point_chain_; p; p = p->following_)
+    for (EditedRailPoint* p = point_chain_; p; p = p->following())
         p->draw_post(origin, position, angle);
 }
 
@@ -613,24 +613,23 @@ bool EditedRail::move_point(int index, const Vec4* position, bool /*updateSuperS
 {
     EditedRailPoint* p = fetch_vertex_at(index);
     bool valid = true;
-    if (p->following_ && !rail_segment_valid(&p->following_->at_point_, position))
+    if (p->following() && !rail_segment_valid(&p->following()->at_point(), position))
         valid = false;
-    if (p->preceding_ && !rail_segment_valid(&p->preceding_->at_point_, position))
+    if (p->preceding() && !rail_segment_valid(&p->preceding()->at_point(), position))
         valid = false;
     if (!ParkBuilderMode::is_inside_park(*position, 10.0f))
         valid = false;
     // Moved (even when not valid) unless a neighbour would be out of reach.
-    if (p->following_ && distance_zyx(position, &p->following_->at_point_) > kMaxReach)
+    if (p->following() && distance_zyx(position, &p->following()->at_point()) > kMaxReach)
         return valid;
-    if (p->preceding_ && distance_zyx(position, &p->preceding_->at_point_) > kMaxReach)
+    if (p->preceding() && distance_zyx(position, &p->preceding()->at_point()) > kMaxReach)
         return valid;
-    p->at_point_ = *position;
-    p->level_y_ =
-        static_cast<float>(static_cast<double>(p->at_point_.y) - EditedRailPoint::ground_height(&p->at_point_));
+    p->at_point() = *position;
+    p->set_level_y(static_cast<float>(static_cast<double>(p->at_point().y) - EditedRailPoint::ground_height(&p->at_point())));
     p->draw_post(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
     p->draw_segment(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
-    if (p->preceding_)
-        p->preceding_->draw_segment(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
+    if (p->preceding())
+        p->preceding()->draw_segment(&park_editing_state().get_zero(), &park_editing_state().get_zero(), 0.0f);
     return valid;
 }
 
@@ -641,10 +640,10 @@ void RailAuthoring::restore_heights()
 {
     change_live(false);
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
-        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
-            if (p->has_post_)
-                p->at_point_.y = static_cast<float>(static_cast<double>(EditedRailPoint::ground_height(&p->at_point_)) +
-                                                    p->level_y_);
+        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following()) {
+            if (p->has_post())
+                p->at_point().y = static_cast<float>(static_cast<double>(EditedRailPoint::ground_height(&p->at_point())) +
+                                                    p->level_y());
         }
     }
     change_live(true);
@@ -654,9 +653,8 @@ void RailAuthoring::restore_heights()
 void RailAuthoring::store_heights()
 {
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
-        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
-            p->level_y_ =
-                static_cast<float>(static_cast<double>(p->at_point_.y) - EditedRailPoint::ground_height(&p->at_point_));
+        for (EditedRailPoint* p = rail->point_chain_; p; p = p->following())
+            p->set_level_y(static_cast<float>(static_cast<double>(p->at_point().y) - EditedRailPoint::ground_height(&p->at_point())));
     }
 }
 
@@ -692,13 +690,13 @@ void RailAuthoring::draw_dotted_line(const Vec4* position)
     if (!head)
         return;
     uint32_t source = kDottedGreen;
-    if (rail_too_far(&head->at_point_, position)) {
-        if (rail_out_of_reach(&head->at_point_, position)) {
+    if (rail_too_far(&head->at_point(), position)) {
+        if (rail_out_of_reach(&head->at_point(), position)) {
             delete_dotted_line();
             return;
         }
         source = kDottedRed;
-    } else if (head->following_ && !rail_corner_ok(&head->following_->at_point_, &head->at_point_, position)) {
+    } else if (head->following() && !rail_corner_ok(&head->following()->at_point(), &head->at_point(), position)) {
         source = kDottedRed;
     }
     if (!dotted_line_ || source != dotted_line_name_) {
@@ -707,7 +705,7 @@ void RailAuthoring::draw_dotted_line(const Vec4* position)
         dotted_line_name_ = source;
     }
     // (the original passes an unset local as the previous point: unread without a previous sector)
-    stretch_rail_sector(dotted_line_name_, &head->at_point_, position, position, dotted_line_, nullptr, false);
+    stretch_rail_sector(dotted_line_name_, &head->at_point(), position, position, dotted_line_, nullptr, false);
     if (source == kDottedRed)
         set_sector_visibility(dotted_line_, flash_mask(script::fetch_int_value(kRedLineFlashRate)));
 }

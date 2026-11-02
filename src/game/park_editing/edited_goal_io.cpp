@@ -74,7 +74,7 @@ void EditedGoal::drop_point_to_ground(int index)
         if (!feeler.get_hit_shape(true, false))
             return;
     }
-    pos = feeler.contact_pos_;
+    pos = feeler.contact_pos();
 }
 
 // 0x004E9590

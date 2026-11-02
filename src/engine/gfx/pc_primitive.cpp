@@ -81,8 +81,8 @@ uint32_t get_swapped(uint32_t rgba) { return (rgba & 0xFF00FF00u) | (rgba & 0xFF
 PcPrimitive::PcPrimitive(int own) : Primitive(own)
 {
     // (material_ made first by its constructor)
-    const uint32_t made = flag_bits_ | 1;
-    flag_bits_ = made;
+    const uint32_t made = flag_bits() | 1;
+    flag_bits() = made;
     core::at(material_.pass_flags(), 0) = 0;
     const int r = get_rand();
     material_.set_checksum(static_cast<uint32_t>(r * get_rand())); // (a sort key)
@@ -101,7 +101,7 @@ PcPrimitive::PcPrimitive(int own) : Primitive(own)
 // 0x004C5A20
 PcPrimitive::~PcPrimitive()
 {
-    if (owns_vertices_ == 1 && vertices_)
+    if (owns_vertices() == 1 && vertices_)
         memory::Hub::get_pull()->dealloc(vertices_);
     // (then material_'s destructor)
 }
@@ -117,7 +117,7 @@ void PcPrimitive::set_texture(const BitmapTexture* texture, int, int)
     core::at(material_.textures_value(), 0) = pc_texture;
     material_.set_two_sided(1);
     material_.set_depth_bias(4);
-    core::at(material_.blend_modes(), 0) = blend_mode_from_name(blend_mode_);
+    core::at(material_.blend_modes(), 0) = blend_mode_from_name(blend_mode());
     core::at(core::at(material_.pass_color(), 0), 0) = core::at(core::at(material_.pass_color(), 0), 1) = core::at(core::at(material_.pass_color(), 0), 2) = 0.5f;
     material_.set_alpha_ref(1);
     core::at(material_.address_modes(), 0) = 0;
@@ -138,7 +138,7 @@ void PcPrimitive::prepare_all(uint32_t layout_flags, int primitive_type, int cou
         vertex_format_ |= 0x100;
     if (layout_flags & 4)
         vertex_format_ |= 0x10;
-    if (owns_vertices_ == 1) {
+    if (owns_vertices() == 1) {
         int size = 0;
         switch (vertex_format_) {
         case 0x2:
@@ -166,7 +166,7 @@ void PcPrimitive::prepare_all(uint32_t layout_flags, int primitive_type, int cou
         }
     }
     vertex_count_ = count;
-    flag_bits_ = (flag_bits_ & ~1u) | 2;
+    flag_bits() = (flag_bits() & ~1u) | 2;
     layout_ = layout_flags;
     type_ = primitive_type;
 }
@@ -175,13 +175,13 @@ void PcPrimitive::prepare_all(uint32_t layout_flags, int primitive_type, int cou
 void PcPrimitive::end_setup()
 {
     if (!(vertex_format_ & 0x100) || core::at(material_.textures_value(), 0) != nullptr)
-        flag_bits_ = (flag_bits_ & ~2u) | 4;
+        flag_bits() = (flag_bits() & ~2u) | 4;
 }
 
 // 0x004C5370
 void PcPrimitive::render()
 {
-    core::at(material_.blend_modes(), 0) = blend_mode_from_name(blend_mode_);
+    core::at(material_.blend_modes(), 0) = blend_mode_from_name(blend_mode());
     material_.hand_in(); // (its set-up)
     IDirect3DVertexBuffer9* buffer = nullptr;
     uint32_t first_vertex = 0, room = 0;

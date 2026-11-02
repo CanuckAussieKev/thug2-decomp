@@ -158,9 +158,9 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
         uz = static_cast<float>(uz * inverse);
     }
     TriMeshSource* geometry = geometry_;
-    const float cx = get_difference(geometry->bounds_.min.x, line->start.x);
-    const float cy = get_difference(geometry->bounds_.min.y, line->start.y);
-    const double cz_exact = static_cast<double>(geometry->bounds_.min.z) - line->start.z;
+    const float cx = get_difference(geometry->bounds().min.x, line->start.x);
+    const float cy = get_difference(geometry->bounds().min.y, line->start.y);
+    const double cz_exact = static_cast<double>(geometry->bounds().min.z) - line->start.z;
     auto cz = static_cast<float>(cz_exact);
     auto along = static_cast<float>((cz_exact * uz + cy * uy) + cx * ux);
     auto px = static_cast<float>(ux * along);
@@ -181,7 +181,7 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         geometry = geometry_;
         const uint32_t face = core::at(faces, i);
-        const uint8_t rejection = geometry->small_faces_ ? geometry->face_table().small_rejection(static_cast<int>(face)) : core::at(std::span<const uint8_t>(octets_, geometry->tri_count_), face);
+        const uint8_t rejection = geometry->small_faces() ? geometry->face_table().small_rejection(static_cast<int>(face)) : core::at(std::span<const uint8_t>(octets_, geometry->tri_count()), face);
         if (threshold > rejection)
             continue;
         maths::Vec4 v0{}, v1{}, v2{};
@@ -284,12 +284,12 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
     around.append_spot(local.end);
     TriMeshSource* geometry = geometry_;
     uint32_t threshold = 0;
-    if (geometry->small_faces_) {
+    if (geometry->small_faces()) {
         maths::Vec4 unit = way;
         unit.make_unit();
-        const double cx = static_cast<double>(geometry->bounds_.min.x) - local.start.x;
-        const double cy = static_cast<double>(geometry->bounds_.min.y) - local.start.y;
-        const float cz = get_difference(geometry->bounds_.min.z, local.start.z);
+        const double cx = static_cast<double>(geometry->bounds().min.x) - local.start.x;
+        const double cy = static_cast<double>(geometry->bounds().min.y) - local.start.y;
+        const float cz = get_difference(geometry->bounds().min.z, local.start.z);
         const double along = (cx * unit.x + static_cast<double>(cz) * unit.z) + cy * unit.y;
         const double px = unit.x * along;
         auto py = static_cast<float>(unit.y * along);
@@ -308,7 +308,7 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
     for (uint32_t i = 0; i < ints::as_unsigned(count); ++i) {
         geometry = geometry_;
         const uint32_t face = core::at(faces, i);
-        if (geometry->small_faces_ && threshold > geometry->face_table().small_rejection(static_cast<int>(face)))
+        if (geometry->small_faces() && threshold > geometry->face_table().small_rejection(static_cast<int>(face)))
             continue;
         maths::Vec4 v0{}, v1{}, v2{};
         get_corners(geometry, face, &v0, &v1, &v2);

@@ -62,6 +62,27 @@ struct AnimTimeline {
     // 0x004816B0: `seconds` (in frames) added to the current time, then wrapped / held as a step of no time does.
     void advance_clock(float frames);
 
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] float outset() const { return outset_; }
+    void set_outset(float value) { outset_ = value; }
+    [[nodiscard]] float ongoing() const { return ongoing_; }
+    void set_ongoing(float value) { ongoing_ = value; }
+    [[nodiscard]] float finish() const { return finish_; }
+    void set_finish(float value) { finish_ = value; }
+    [[nodiscard]] float speed() const { return speed_; }
+    void set_speed(float value) { speed_ = value; }
+    [[nodiscard]] int direction() const { return direction_; }
+    void set_direction(int value) { direction_ = value; }
+    [[nodiscard]] int repeat_mode() const { return repeat_mode_; }
+    void set_repeat_mode(int value) { repeat_mode_ = value; }
+    void set_complete(bool value) { complete_ = value; }
+    uint32_t& anim() { return anim_; }
+    [[nodiscard]] uint32_t anim() const { return anim_; }
+    void set_anim(uint32_t value) { anim_ = value; }
+
+private:
     memory::ListNode list_link_{}; // +0x00 (data = this; the original's node size: the fields keep their offsets)
     float outset_{};               // +0x14
     float ongoing_{};              // +0x18
@@ -184,6 +205,7 @@ public:
     // 0x004A5180: the time to show now (ST0).
     float wobble_time();
 
+private:
     float amp_a_;        // +0x14 wobbleAmpA
     float amp_b_;        // +0x18 wobbleAmpB
     float k1_;           // +0x1C wobbleK1 (cycles per ms of the first sine)

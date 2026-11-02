@@ -295,8 +295,8 @@ bool make_camera_active(uint32_t id, int viewport, bool take_current_view)
     if (!camera)
         return true;
     if (take_current_view) {
-        object->basis_frame_ = *viewport_camera(viewport)->fetch_mat();
-        object->at_point_ = *viewport_camera(viewport)->fetch_location();
+        object->basis_frame() = *viewport_camera(viewport)->fetch_mat();
+        object->at_point() = *viewport_camera(viewport)->fetch_location();
         camera->tick_frame(); // (vtable slot 1)
     }
     set_viewport_camera(viewport, viewpoint_camera(camera)); // the component's camera
@@ -363,7 +363,7 @@ bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
 // 0x0059FB10
 void destroy_object_with_id(objects::Entity* object, void* id)
 {
-    if (object->ident_ == *static_cast<uint32_t*>(id))
+    if (object->ident() == *static_cast<uint32_t*>(id))
         object->dispose_when_free();
 }
 
@@ -505,8 +505,8 @@ bool cfunc_get_viewer_object_id(script::Struct*, script::Script* script)
 {
     if (modules::Viewer* viewer = modules::get_live_viewer()) {
         const objects::PreviewEntity* object = viewer_target(viewer);
-        script->args()->put_name_key(0x0830ECAF, object->ident_);
-        script->args()->put_name_key(0x52280066, object->ident_);
+        script->args()->put_name_key(0x0830ECAF, object->ident());
+        script->args()->put_name_key(0x52280066, object->ident());
     }
     return true;
 }
@@ -661,7 +661,7 @@ bool cfunc_move_node(script::Struct* params, script::Script*)
     }
     node->put_vec3(kPos, position.x, position.y, position.z);
     if (objects::Entity* object = object_edit()->look_up_entity(name))
-        std::memcpy(&core::down_cast<objects::GameEntity>(object)->at_point_, &position, sizeof(position));
+        std::memcpy(&core::down_cast<objects::GameEntity>(object)->at_point(), &position, sizeof(position));
     uint32_t node_class = 0;
     node->read_hash_value(0x12B4E660u, &node_class, 0); // "class"
     switch (node_class) {

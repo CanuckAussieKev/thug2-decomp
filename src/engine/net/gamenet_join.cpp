@@ -761,7 +761,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
         manager->join_ip_ = proceed->public_ip_;
         manager->join_private_ip_ = proceed->private_ip_;
         manager->join_port_ = proceed->port;
-        if (manager->presence_service_->authenticated_) {
+        if (manager->presence_service_->authenticated()) {
             std::strcpy(manager->lobby_service_->server_name().data(), proceed->server_name_.data());
             std::array<char, 0x1000> location{};
             get_sprintf(location.data(), kPresenceLocationFormat.data(), manager->join_ip_, manager->join_private_ip_,
@@ -776,7 +776,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     std::memset(static_cast<JoinRequestHeader*>(info), 0, sizeof(JoinRequestHeader));
     // NOT ORIGINAL: in the THUGPRO peer mode the profile is our machine id, as THUGPRO's client sends it (TP-R12).
     info->profile =
-        thugpro::peer_mode() ? static_cast<int32_t>(thugpro::get_machine_id()) : manager->presence_service_->account_;
+        thugpro::peer_mode() ? static_cast<int32_t>(thugpro::get_machine_id()) : manager->presence_service_->account();
     info->rating = get_rating(manager);
     info->observer = manager->join_mode_ == kJoinModeObserve;
     info->version = kVersion;

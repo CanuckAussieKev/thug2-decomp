@@ -63,7 +63,7 @@ constexpr float kAngleScaleToDeg = 57.2957763671875f; // 0x00645468
 // The input component's pad and its four buttons (X +0x1A0, Triangle +0x180, Square +0x160, Circle +0x140 in it).
 objects::PadSnapshot* pad_of(objects::ObjectModule* input)
 {
-    return &core::down_cast<objects::PadInputModule>(input)->pad_primary_;
+    return &core::down_cast<objects::PadInputModule>(input)->pad_primary();
 }
 objects::ControlButton* get_button(objects::ObjectModule* input, uint32_t offset)
 {
@@ -73,7 +73,7 @@ objects::ControlButton* get_button(objects::ObjectModule* input, uint32_t offset
 int rail_pool_used()
 {
     const memory::PoolPair& pools = park_editing_state().rail_pools();
-    return core::at(pools.pools, pools.current)->taken_count_;
+    return core::at(pools.pools, pools.current)->taken_count();
 }
 
 // The editor camera's (0xAC8946E2) target: its cursor's position, its heading (radians), the height over it.
@@ -99,7 +99,7 @@ void RailAuthoring::tick_frame()
         {.button = 0x1A0, .script = kRailEditorX}, {.button = 0x180, .script = kRailEditorTriangle}, {.button = 0x160, .script = kRailEditorSquare}, {.button = 0x140, .script = kRailEditorCircle}}};
     for (const Press& press : kPresses) {
         objects::ControlButton* button = get_button(input_ptr_, press.button);
-        if (button->fired_) {
+        if (button->fired()) {
             button->reset_activation();
             script::launch_script(press.script, nullptr, entity_, false, nullptr);
         }
@@ -166,16 +166,16 @@ void RailAuthoring::write_to_structure(script::Struct* params)
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
         gsl::owner<script::Struct*> rail_info = script::new_struct();
         uint32_t point_count = 0;
-        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
+        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following())
             ++point_count;
         gsl::owner<script::Array*> points = script::new_array();
         points->configure_size_kind(point_count, script::kQbvalStruct);
         uint32_t i = 0;
-        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
+        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following()) {
             gsl::owner<script::Struct*> point = script::new_struct();
-            point->put_vec3(kPos, p->at_point_.x, p->at_point_.y, p->at_point_.z);
+            point->put_vec3(kPos, p->at_point().x, p->at_point().y, p->at_point().z);
             // (a post drawn, not has_post_)
-            if (p->post_)
+            if (p->post())
                 point->put_name_key(0u, kHasPost);
             points->set_cell(i++, script::Cell::of(point));
         }
@@ -202,9 +202,9 @@ void RailAuthoring::decode_from_struct(script::Struct* params)
             EditedRailPoint* p = active_node_->append_rail_vertex();
             auto* point = points->struct_at(i);
             // (a full pool: written through null, as the original)
-            point->fetch_vec(kPos, &p->at_point_, 0);
+            point->fetch_vec(kPos, &p->at_point(), 0);
             if (point->has_bare_flag(kHasPost))
-                p->has_post_ = true;
+                p->set_has_post(true);
         }
     }
 }
@@ -215,10 +215,10 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
     int next = *index;
     int rail_index = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_, ++rail_index) {
-        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
+        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following()) {
             auto* node = nodes->struct_at(static_cast<uint32_t>(next));
             ++next;
-            node->put_vec3(kPos, p->at_point_.x, p->at_point_.y, p->at_point_.z);
+            node->put_vec3(kPos, p->at_point().x, p->at_point().y, p->at_point().z);
             node->put_name_key(kName, name++);
             node->put_name_key(0u, kRailNodeClass);
             node->put_name_key(0u, kTrickObject);
@@ -226,7 +226,7 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
             text::format_to(cluster, "CreatedRailCluster%d", rail_index);
             node->put_name_key(kCluster, checksums::hash_from_text(cluster.data()));
             node->put_name_key(kSurfaceKindKey, kMetalSmooth);
-            if (p->following_) {
+            if (p->following()) {
                 // linked to the next point's node (the next one written)
                 gsl::owner<script::Array*> links = script::new_array();
                 links->configure_size_kind(1, script::kQbvalInteger);
@@ -265,17 +265,16 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         if (!active_node_)
             return 0;
         const EditedRailPoint* head = active_node_->point_chain_;
-        if (head && !rail_segment_valid(&pos, &head->at_point_))
+        if (head && !rail_segment_valid(&pos, &head->at_point()))
             return 1;
         if (!ParkBuilderMode::is_inside_park(pos, 10.0f))
             return head ? 1 : 0;
         ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
         if (!editor->is_park_full()) {
             if (EditedRailPoint* p = active_node_->append_rail_vertex()) {
-                p->at_point_ = pos;
-                p->level_y_ =
-                    static_cast<float>(static_cast<double>(pos.y) - EditedRailPoint::ground_height(&p->at_point_));
-                p->has_post_ = params->has_bare_flag(kAddPost);
+                p->at_point() = pos;
+                p->set_level_y(static_cast<float>(static_cast<double>(pos.y) - EditedRailPoint::ground_height(&p->at_point())));
+                p->set_has_post(params->has_bare_flag(kAddPost));
                 const Vec4& zero = park_editing_state().get_zero();
                 p->draw_segment(&zero, &zero, 0.0f);
                 p->draw_post(&zero, &zero, 0.0f);

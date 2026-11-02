@@ -266,11 +266,11 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         core::at(twist_rate_, 1).get_clear();
         core::at(twist_rate_, 2).get_clear();
         void* manager = net_session_slot();
-        void* player = find_player_slot_by_obj(manager, entity_->ident_);
+        void* player = find_player_slot_by_obj(manager, entity_->ident());
         if (player && is_own_player(player)) {
             net::NetMessageInfo message;
             net::Guest* app = client_app(manager, player_skater_index(player));
-            auto object = static_cast<uint8_t>(entity_->ident_);
+            auto object = static_cast<uint8_t>(entity_->ident());
             message.content_ = &object;
             message.byte_count_ = 1;
             message.ident_ = online::kMsgCancelSpins;
@@ -306,7 +306,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             axes |= static_cast<uint8_t>(1 << axis);
         }
         void* manager = net_session_slot();
-        void* player = find_player_slot_by_obj(manager, entity_->ident_);
+        void* player = find_player_slot_by_obj(manager, entity_->ident());
         if (player && is_own_player(player)) {
             net::NetMessageInfo message;
             net::Guest* app = client_app(manager, player_skater_index(player));
@@ -315,7 +315,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             sent.start = static_cast<int16_t>(get_truncated(start));
             sent.range = static_cast<int16_t>(get_truncated(static_cast<double>(end) - start));
             sent.power = power;
-            sent.object_id = static_cast<uint8_t>(entity_->ident_);
+            sent.object_id = static_cast<uint8_t>(entity_->ident());
             sent.hold = hold;
             sent.axes = axes;
             std::array<uint8_t, online::kSpinModelSize> data{};

@@ -862,7 +862,7 @@ void initialize_goal(uint32_t goal)
 void remove_entity(const std::string& name)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(get_checksums(name)));
-    if (object && !(object->object_flags_ & objects::kObjectFlagDead))
+    if (object && !(object->object_flags() & objects::kObjectFlagDead))
         object->flag_as_dead();
 }
 
@@ -1038,7 +1038,7 @@ bool get_cast(V3 from, V3 to, V3* hit)
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const auto& point = ray->hit_.point;
+    const auto& point = ray->hit().point;
     *hit = {.x = point[0], .y = point[1], .z = point[2]};
     return true;
 }

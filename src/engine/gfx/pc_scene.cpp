@@ -65,7 +65,7 @@ namespace {
 
 PcGeom* geometry_of(void* sector)
 {
-    return static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom_handle_);
+    return static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom_handle());
 } // (+0x14: the getter 0x004A2BA0, folded with others)
 
 // The first sector of a fresh iteration of the table (null if none).
@@ -91,8 +91,8 @@ void* next_sector(lists::KeyMap* table)
 // 0x004C6530
 void PcSector::plat_set_shatter(bool on)
 {
-    if (on && geom_handle_)
-        engine::shatter_geom(geom_handle_);
+    if (on && geom_handle())
+        engine::shatter_geom(geom_handle());
 }
 
 // 0x004C65C0
@@ -182,7 +182,7 @@ namespace {
 // The engine and mesh code the loaders go through.
 void change_sector_key(PcSector* sector, uint32_t checksum)
 {
-    sector->checksum_ = checksum; // (the original calls a setter folded with Resource::set_checksum)
+    sector->set_checksum(checksum); // (the original calls a setter folded with Resource::set_checksum)
 }
 gsl::owner<MeshRef*> new_mesh()
 {
@@ -198,7 +198,7 @@ void set_mesh_sphere_and_box(MeshRef* mesh, std::span<const float, 3> centre, fl
 void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboard_type, const maths::Vec4* pivot,
                  const maths::Vec4* axis, const maths::Vec4* min, const maths::Vec4* max, uint8_t light_group)
 {
-    maths::BBox* bounds = &geom->scene->meshes->bounds_value();
+    maths::BBox* bounds = &geom->scene_value()->meshes->bounds_value();
     bounds->append_spot(*min);
     bounds->append_spot(*max);
     if (sector->flags & 0x800000) {
@@ -215,7 +215,7 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
 uint32_t count_loaded_meshes(const PcGeom* geom)
 {
     uint32_t count = 0;
-    for (const memory::ListNode* node = geom->load_list_->next; node->data != memory::ListNode::head_marker() && node;
+    for (const memory::ListNode* node = geom->load_list()->next; node->data != memory::ListNode::head_marker() && node;
          node = node->next)
         ++count;
     return count;
@@ -227,31 +227,31 @@ uint32_t count_loaded_meshes(const PcGeom* geom)
 template <typename Stream, typename LoadBody>
 bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
 {
-    auto* geometry = static_cast<PcGeom*>(sector->geom_handle_);
+    auto* geometry = static_cast<PcGeom*>(sector->geom_handle());
     scene_format::Sector record;
     // Not original - each record read and checked first: a sector, mesh or index list cut short (or a mesh count
     // past what is there) ends the scene (the original read on past its end).
     const bool read = scene_format::read_sector(in, &record);
     change_sector_key(sector, record.checksum);
     sector->flags = record.flags;
-    geometry->mesh_count_ = read ? record.mesh_count : 0;
+    geometry->set_mesh_count(read ? record.mesh_count : 0);
     // (the box's corners kept: the meshes' are read over them, their w still 1)
     maths::Vec4 min = {.x = core::at(record.box, 0), .y = core::at(record.box, 1), .z = core::at(record.box, 2), .w = 1.0f};
     maths::Vec4 max = {.x = core::at(record.box, 3), .y = core::at(record.box, 4), .z = core::at(record.box, 5), .w = 1.0f};
-    geometry->bounds.min = min;
-    geometry->bounds.max = max;
+    geometry->bounds_value().min = min;
+    geometry->bounds_value().max = max;
     const uint32_t billboard_type = record.billboard_type;
     const maths::Vec4 pivot = {.x = core::at(record.pivot, 0), .y = core::at(record.pivot, 1), .z = -core::at(record.pivot, 2), .w = 0.0f};
     const maths::Vec4 axis = {.x = core::at(record.axis, 0), .y = core::at(record.axis, 1), .z = core::at(record.axis, 2), .w = 0.0f};
     if (!read) {
         debug::printf("scene sector %08x damaged: cut short\n", record.checksum);
         in.fail();
-        geometry->mesh_count_ = count_loaded_meshes(geometry);
+        geometry->set_mesh_count(count_loaded_meshes(geometry));
         return false;
     }
     std::array<float, 4> centre = {}; // (its w not read)
     scene_format::SectorMesh fields;
-    for (uint32_t i = 0; i < geometry->mesh_count_; ++i) {
+    for (uint32_t i = 0; i < geometry->mesh_count(); ++i) {
         if (!scene_format::read_sector_mesh(in, &fields)) {
             debug::printf("scene sector %08x damaged: mesh %u cut short\n", record.checksum, i);
             in.fail();
@@ -267,7 +267,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
             mesh->flags_value() |= 0x20000;
         // (the index lists: read and dropped - the PC's are built from the vertices' own)
         mesh->set_load_index(static_cast<uint16_t>(i));
-        if (!load_body(mesh, fields.material, geometry->scene->meshes)) {
+        if (!load_body(mesh, fields.material, geometry->scene_value()->meshes)) {
             memory::Hub::get_pull()->dealloc(mesh); // (nothing of it made yet)
             break;
         }
@@ -275,7 +275,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
         finish_mesh(sector, geometry, mesh, billboard_type, &pivot, &axis, &min, &max,
                     static_cast<uint8_t>(record.light_group));
     }
-    geometry->mesh_count_ = count_loaded_meshes(geometry);
+    geometry->set_mesh_count(count_loaded_meshes(geometry));
     return in.ok();
 }
 

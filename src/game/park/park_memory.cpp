@@ -85,7 +85,7 @@ void delete_pool(memory::PoolPair& pair)
     if (!pool)
         return;
     if (pool_made_here(pair)) {
-        memory::dealloc(pool->memory_.data()); // ~Pool (0x005BA4E0)
+        memory::dealloc(pool->memory().data()); // ~Pool (0x005BA4E0)
         memory::Hub::get_pull()->dealloc(pool);
     }
     core::at(pair.pools, pair.current) = nullptr;
@@ -108,8 +108,8 @@ void update_max(MemoryStats& stats, double value, float stored)
 float pool_usage(memory::PoolPair& pair, const char* base_name, const int& items)
 {
     const memory::SlabBank* pool = active_slab_pool(pair);
-    const int count = pool->num_;
-    const int used = pool->taken_count_;
+    const int count = pool->num();
+    const int used = pool->taken_count();
     const int base = get_memory_value(base_name, -1);
     return static_cast<float>(static_cast<double>(items) / (count - used - base));
 }
@@ -210,8 +210,8 @@ void get_marker(uint32_t marker)
         break;
     case 0x9BF91DBE:
         stats.marker48 = free_memory(heap);
-        stats.components_used_at_marker_ = active_slab_pool(script::component_pools())->taken_count_;
-        stats.vectors_used_at_marker_ = active_slab_pool(script::vector_pools())->taken_count_;
+        stats.components_used_at_marker_ = active_slab_pool(script::component_pools())->taken_count();
+        stats.vectors_used_at_marker_ = active_slab_pool(script::vector_pools())->taken_count();
         break;
     case 0xCC63F828:
         stats.marker_5c_ = free_memory(heap);

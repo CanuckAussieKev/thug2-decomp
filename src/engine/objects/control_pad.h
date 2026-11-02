@@ -31,6 +31,15 @@ public:
     int read_let_go_time();
     int get_held_millis();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint8_t held_down() const { return held_down_; }
+    [[nodiscard]] uint8_t fired() const { return fired_; }
+    [[nodiscard]] uint32_t label() const { return label_; }
+    void set_label(uint32_t value) { label_ = value; }
+    [[nodiscard]] float locked_until() const { return locked_until_; }
+    void set_locked_until(float value) { locked_until_ = value; }
+
+private:
     uint8_t held_down_; // +0x00
     std::array<uint8_t, 3> unknown1_;
     int press_time_;   // +0x04: the game clock (with its offset) at the last press

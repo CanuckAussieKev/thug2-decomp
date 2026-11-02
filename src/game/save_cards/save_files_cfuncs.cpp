@@ -75,7 +75,7 @@ void delete_reserve_pool(memory::PoolPair& pools)
     ++pools.current;
     if (memory::SlabBank* pool = core::at(pools.pools, pools.current)) {
         if (core::at(pools.made_here_, pools.current)) {
-            memory::Hub::get_pull()->dealloc(pool->memory_.data()); // (its destructor body, 0x005BA4E0)
+            memory::Hub::get_pull()->dealloc(pool->memory().data()); // (its destructor body, 0x005BA4E0)
             memory::Hub::get_pull()->dealloc(pool);
         }
         core::at(pools.pools, pools.current) = nullptr;
@@ -370,14 +370,14 @@ uint32_t listed_file_type(const FileLoad* file, int folder_length)
     case 2:
     case 3:
     case 5:
-        return type_from_letter(core::at(file->label_, folder_length + 7));
+        return type_from_letter(core::at(file->label(), folder_length + 7));
     case 4:
     case 7:
     case 8: {
         // (the music and sounds kept going while the files are read)
         audio::tick_frame();
         sound::update_voice_states();
-        const std::string_view label(file->label_.data());
+        const std::string_view label(file->label().data());
         const char* extension = label.size() >= 4 ? label.substr(label.size() - 4).data() : label.data();
         if (_stricmp(extension, ".NWS") == 0)
             return kSaveNetworkSettings;
@@ -447,7 +447,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     int game_files = 0;
     for (int i = 0; i < file_count; ++i) {
         FileLoad* file = list_entry(&head, i);
-        if (std::memcmp(file->label_.data(), folder, static_cast<size_t>(folder_length)) != 0)
+        if (std::memcmp(file->label().data(), folder, static_cast<size_t>(folder_length)) != 0)
             continue;
         ++game_files;
         const uint32_t type = listed_file_type(file, folder_length);
@@ -460,17 +460,17 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             entry = new (entry) script::Struct;
         entry->put_name_key(0xFADDC0B8u, type);     // file_type
         entry->put_int(0x7F8C98FEu, listed);        // index
-        entry->put_int(0x447D8CC8u, file->year_);   // year
-        entry->put_int(0x7149EFF9u, file->month_);  // month
-        entry->put_int(0x1A5FD66Fu, file->day_);    // day
-        entry->put_int(0x8FE1EEB1u, file->hour_);   // hour
-        entry->put_int(0x5F94B55Cu, file->minute_); // minutes
-        entry->put_int(0xD029F619u, file->second_); // seconds
+        entry->put_int(0x447D8CC8u, file->year());   // year
+        entry->put_int(0x7149EFF9u, file->month());  // month
+        entry->put_int(0x1A5FD66Fu, file->day());    // day
+        entry->put_int(0x8FE1EEB1u, file->hour());   // hour
+        entry->put_int(0x5F94B55Cu, file->minute()); // minutes
+        entry->put_int(0xD029F619u, file->second()); // seconds
         std::array<char, 100> path{};
         if (os_layer() == 5)
-            text::format_to(path, "%s", file->label_.data());
+            text::format_to(path, "%s", file->label().data());
         else
-            text::format_to(path, "Save/%s", file->label_.data());
+            text::format_to(path, "Save/%s", file->label().data());
         entry->append_word(0x13C68F74u, path.data()); // actual_file_name
         constexpr uint32_t kDamagedFile = 0x2C7CD632, kNgcDamagedFile = 0xFD4AA64E;
         FileLoad* opened = card->unseal(path.data(), 1, 0);

@@ -136,6 +136,15 @@ public:
     // 0x00548320: the presence status (gpSetStatus, 0x00600330: status, its text, the location).
     void change_standing(int status, const char* text, const char* location);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int account() const { return account_; }
+    [[nodiscard]] bool authenticated() const { return authenticated_; }
+    memory::ListNode& friends() { return friends_; }
+    [[nodiscard]] const memory::ListNode& friends() const { return friends_; }
+    memory::ListNode& messages() { return messages_; }
+    [[nodiscard]] const memory::ListNode& messages() const { return messages_; }
+
+private:
     void* connection_{}; // +0x00 GPConnection (this object is passed as its address)
     int account_;      // +0x04 the logged-in profile id
     int cur_phase_;    // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in

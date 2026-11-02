@@ -134,7 +134,7 @@ objects::GrindRailHub* get_rails()
 {
     const modules::Skate* skate = modules::Skate::sole();
     auto* manager = skate ? skate->rail_manager().get() : nullptr;
-    return manager && !manager->on_object_ && manager->nodes_ ? manager : nullptr;
+    return manager && !manager->on_object() && manager->nodes() ? manager : nullptr;
 }
 
 // NOT ORIGINAL grouping - level_editor_grind_preview.cpp's state (were globals). Made on first use, never destroyed
@@ -170,17 +170,17 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     const uint32_t name = core::at(all, index).name;
     // The rail manager's graph (a point to its next), and the point named.
     Graph graph;
-    graph.count = rails->num_;
+    graph.count = rails->num();
     std::vector<V3> positions(graph.count);
     int start = -1;
-    for (int i = 0; i < rails->num_; ++i) {
+    for (int i = 0; i < rails->num(); ++i) {
         const objects::GrindPoint& node = core::at(rails->node_run(), i);
         core::at(positions, i) = {.x = node.at_point_.x, .y = node.at_point_.y, .z = node.at_point_.z};
         if (node.label_ == name && !(node.flag_bits_ & objects::kRailFlagClimbing))
             start = i;
         if (node.succ_ && !(node.flag_bits_ & objects::kRailFlagClimbing)) {
-            const int next = static_cast<int>(node.succ_ - rails->nodes_);
-            if (next >= 0 && next < rails->num_)
+            const int next = static_cast<int>(node.succ_ - rails->nodes());
+            if (next >= 0 && next < rails->num())
                 graph.links.emplace_back(i, next);
         }
     }

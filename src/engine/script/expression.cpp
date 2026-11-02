@@ -15,13 +15,6 @@
 
 namespace script {
 
-static_assert(offsetof(ValueResolver, value_top_) == 0x140, "layout must match the original");
-static_assert(offsetof(ValueResolver, operators_) == 0x144, "layout must match the original");
-static_assert(offsetof(ValueResolver, operator_top_) == 0x1E4, "layout must match the original");
-static_assert(offsetof(ValueResolver, has_operators_) == 0x1E8, "layout must match the original");
-static_assert(offsetof(ValueResolver, token_) == 0x1EC, "layout must match the original");
-static_assert(offsetof(ValueResolver, fault_) == 0x1F0, "layout must match the original");
-static_assert(offsetof(ValueResolver, unknown1f4_) == 0x1F4, "layout must match the original");
 
 namespace {
 constexpr float kEvalDivisorMinimum{0.000001f};

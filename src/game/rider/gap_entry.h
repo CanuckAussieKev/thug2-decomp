@@ -92,6 +92,10 @@ public:
     // begins again after each.
     void end_gap(script::Struct* params, script::Script* script);
 
+    // The fields other code reads and sets.
+    void set_points_held(modules::PointTally* value) { points_held_ = value; }
+
+private:
     memory::ListNode gaps_{};                   // +0x18 lists::Foremost<TrickListEntry>
     memory::ListNode gap_move_chain_{};         // +0x2C lists::Foremost<TrickNameEntry>
     uint32_t tick_{};                           // +0x40 counted by Update

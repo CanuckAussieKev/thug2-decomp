@@ -407,17 +407,22 @@ public:
     int os_load_whole(void* buffer) override;
     int os_read_chunk(void* buffer, int size, int count) override;
 
+private:
     std::array<uint8_t, 0x7C - 0x3C> unknown3c_{};
     int unknown7c_{0};
     void* destination_{nullptr}; // where a read through staging_bytes_ goes
     void* staging_bytes_{nullptr};
     HANDLE file_ref_{INVALID_HANDLE_VALUE};
     OVERLAPPED async_ctl_{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PcAsyncFileHandle, file_ref_) == 0x88 && sizeof(PcAsyncFileHandle) == 0xA0,
+                      "layout must match the original");
+    }
 };
 
 } // namespace
-static_assert(offsetof(PcAsyncFileHandle, file_ref_) == 0x88 && sizeof(PcAsyncFileHandle) == 0xA0,
-              "layout must match the original");
 
 // 0x005B9950 (keeps the size and position up to date, then the base class's)
 void PcAsyncFileHandle::io_done_handler(int event, bool error, int value, int extra)

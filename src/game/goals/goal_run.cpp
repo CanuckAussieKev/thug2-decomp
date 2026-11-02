@@ -406,7 +406,7 @@ int Objective::net_stage_flag_set(int bit) { return (net_stage_flags_ & (1u << (
 void Objective::set_launch_altitude()
 {
     auto* state = core::down_cast<objects::RiderPoseState>(local_skater()->fetch_module(kSkaterState));
-    args_->put_int(kLaunchAltitude, truncate(state->height_above_ground_));
+    args_->put_int(kLaunchAltitude, truncate(state->height_above_ground()));
 }
 
 // 0x00555710
@@ -420,7 +420,7 @@ bool Objective::test_highest_air()
     int start = 10000;
     args_->fetch_int_value(kLaunchAltitude, &start, 0);
     auto* state = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kSkaterState));
-    int height = truncate(state->height_above_ground_) - start;
+    int height = truncate(state->height_above_ground()) - start;
     if (height < 0)
         height = 0;
     const int feet = height / 12;
@@ -446,8 +446,8 @@ bool Objective::test_longest_jump()
     if (!skater || !object)
         return false;
     // The distance across the ground: the height's square added and taken away again, as the original.
-    const maths::Vec4& from = core::down_cast<objects::GameEntity>(object)->at_point_;
-    const auto& to = skater->at_point_;
+    const maths::Vec4& from = core::down_cast<objects::GameEntity>(object)->at_point();
+    const auto& to = skater->at_point();
     const double dx = static_cast<double>(from.x) - to[0];
     const double dy = static_cast<double>(from.y) - to[1];
     const double dz = static_cast<double>(from.z) - to[2];

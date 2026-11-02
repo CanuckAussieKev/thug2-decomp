@@ -147,10 +147,10 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
             if (!sector)
                 break;
             // (the sector's name: the getter folded at 0x005480C0, its +4)
-            if (!only || sector->checksum_ == only) {
+            if (!only || sector->checksum() == only) {
                 render::Geom* geom = nullptr;
                 if (sector->is_operative()) // active
-                    geom = static_cast<render::Geom*>(sector->geom_handle_);
+                    geom = static_cast<render::Geom*>(sector->geom_handle());
                 const int count = geom ? static_cast<int>(geom->fetch_vertex_tally()) : 0;
                 if (count) {
                     if (!memory::manager_ready_flag()) // (the memory manager set up, if it isn't)
@@ -188,7 +188,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
     auto distance = static_cast<float>(size);
     if (size < gfx::kThousand) // (1000)
         distance = 1000.0f;
-    maths::Mat4& m = camera->basis_frame_;
+    maths::Mat4& m = camera->basis_frame();
     for (int row = 0; row < 4; ++row) {
         maths::Vec4& r = core::at(m.row, row);
         for (int column = 0; column < 4; ++column)
@@ -208,10 +208,10 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
     auto bx = static_cast<float>(back * at.x);
     auto by = static_cast<float>(back * at.y);
     auto bz = static_cast<float>(back * at.z);
-    camera->at_point_.x = static_cast<float>(static_cast<double>(bx) + centre.x);
-    camera->at_point_.y = static_cast<float>(static_cast<double>(by) + centre.y);
-    camera->at_point_.z = static_cast<float>(static_cast<double>(bz) + centre.z);
-    camera->at_point_.w = static_cast<float>(back * at.w + centre.w);
+    camera->at_point().x = static_cast<float>(static_cast<double>(bx) + centre.x);
+    camera->at_point().y = static_cast<float>(static_cast<double>(by) + centre.y);
+    camera->at_point().z = static_cast<float>(static_cast<double>(bz) + centre.z);
+    camera->at_point().w = static_cast<float>(back * at.w + centre.w);
 }
 
 // 0x005A2D60: CenterCamera [scale (0.9)] [x (-45)] [y (45)] [z (0)] [id=<sector>]: the viewer's camera fitted to each
@@ -278,7 +278,7 @@ bool create_from_node(script::Struct* node)
         return true;
     case kClassLevelObject:
         memory::push_mem_profile("LevelObjects"); // "LevelObjects"
-        if (gfx::tod_manager()->params_set_) {
+        if (gfx::tod_manager()->params_set()) {
             uint32_t colour = 0;
             gfx::tod_manager()->get_level_color(&colour);
             node->put_int(kLevelColor, static_cast<int>(colour));
@@ -334,8 +334,8 @@ bool create_from_node(script::Struct* node)
         duplicate_scene_sector(scene, sector, scene, 1, 1, section_id);
         copy = look_up_sector(scene, section_id);
     }
-    sector->flag_bits_ |= 0x80;
-    copy->flag_bits_ &= ~0x80u;
+    sector->flag_bits() |= 0x80;
+    copy->flag_bits() &= ~0x80u;
     script::VectorValue angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (node->fetch_vec(kAngles, &angles, 0)) {
         maths::Mat4 orientation;
@@ -484,7 +484,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
                 change_live(sector, false);
                 uint32_t terrain = kDefaultTerrain;
                 node->read_hash_value(kSurfaceKindKey, &terrain, 0);
-                sector->light_group_ = terrain;
+                sector->set_light_group(terrain);
             }
         } else if (node_class == kClassLevelGeometry) {
             node->erase_module(kGeometryRemove);
@@ -514,7 +514,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
                 }
                 uint32_t terrain = kDefaultTerrain;
                 node->read_hash_value(kSurfaceKindKey, &terrain, 0);
-                sector->light_group_ = terrain;
+                sector->set_light_group(terrain);
             } else {
                 uint32_t clone_from = 0;
                 node->read_hash_value(kCloneFrom, &clone_from, 0);
@@ -734,7 +734,7 @@ bool set_node_color(uint32_t name, script::Struct* params)
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
     const render::WorldCell* sector = find_scene_sector(section_id); // (not checked for null)
-    if (auto* geometry = static_cast<render::Geom*>(sector->geom_handle_))
+    if (auto* geometry = static_cast<render::Geom*>(sector->geom_handle()))
         geometry->change_tint(rgba);
     return true;
 }
@@ -774,7 +774,7 @@ bool set_node_terrain(uint32_t name, script::Struct* params)
     uint32_t section_id = 0;
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
-    find_scene_sector(section_id)->light_group_ = terrain; // (not checked for null)
+    find_scene_sector(section_id)->set_light_group(terrain); // (not checked for null)
     return true;
 }
 
@@ -866,7 +866,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     maths::Vec4 velocity;
     if (params->has_bare_flag(0x9F98989Eu)) {
         params->fetch_float(0x13B9DA7Bu, &scale, 0); // "scale"
-        const maths::Vec4& v = core::down_cast<objects::GameEntity>(script->entity().get_pull())->vel_;
+        const maths::Vec4& v = core::down_cast<objects::GameEntity>(script->entity().get_pull())->vel();
         velocity.x = static_cast<float>(static_cast<double>(scale) * v.x);
         velocity.y = static_cast<float>(static_cast<double>(scale) * v.y);
         velocity.z = static_cast<float>(static_cast<double>(scale) * v.z);

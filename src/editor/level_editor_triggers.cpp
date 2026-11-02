@@ -1190,7 +1190,7 @@ Calls get_walk(uint32_t script)
 
 render::HitMesh* coll_of(render::WorldCell* sector)
 {
-    render::HitMesh* coll = sector ? sector->hit_body_ : nullptr;
+    render::HitMesh* coll = sector ? sector->hit_body() : nullptr;
     return render::is_static_collider(coll) ? coll : nullptr;
 }
 bool turned_off_by_us(uint32_t sector) { return std::ranges::find(level_editor_triggers_state().turned_off_, sector) != level_editor_triggers_state().turned_off_.end(); }
@@ -1203,16 +1203,16 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
 {
     const render::HitMesh* coll = coll_of(sector);
     auto* tri = coll ? coll->geometry_ : nullptr;
-    if (!tri || !tri->faces_ || !tri->vertices_ || tri->tri_count_ == 0)
+    if (!tri || !tri->faces() || !tri->vertices() || tri->tri_count() == 0)
         return false;
     t->faces.clear();
     t->face_count_ = 0;
     t->all_trigger_ = true;
-    t->wall = static_cast<render::PcGeom*>(sector->geom_handle_) == nullptr; // (no geometry: collision only)
-    t->bounds_low_ = {.x = tri->bounds_.min.x, .y = tri->bounds_.min.y, .z = tri->bounds_.min.z};
-    t->bounds_high_ = {.x = tri->bounds_.max.x, .y = tri->bounds_.max.y, .z = tri->bounds_.max.z};
+    t->wall = static_cast<render::PcGeom*>(sector->geom_handle()) == nullptr; // (no geometry: collision only)
+    t->bounds_low_ = {.x = tri->bounds().min.x, .y = tri->bounds().min.y, .z = tri->bounds().min.z};
+    t->bounds_high_ = {.x = tri->bounds().max.x, .y = tri->bounds().max.y, .z = tri->bounds().max.z};
     bool any = false;
-    for (int f = 0; std::cmp_less(f, tri->tri_count_); ++f) {
+    for (int f = 0; std::cmp_less(f, tri->tri_count()); ++f) {
         const uint16_t flags = tri->face_flags(f);
         if (!(flags & 0x40)) {
             t->all_trigger_ = false;
@@ -1222,7 +1222,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
             const uint32_t index = tri->face_vertex(f, k);
-            ok = index < tri->num_vertices_;
+            ok = index < tri->num_vertices();
             if (ok)
                 core::at(p, k) = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
         }
@@ -1370,7 +1370,7 @@ void take_out_gaps(goals::GapTally* checklist, const std::vector<std::pair<std::
             continue;
         const int index = checklist->find_gap(gap.first.c_str());
         goals::GapEntry* check = index >= 0 ? checklist->get_gap(index) : nullptr;
-        if (check && check->points_held_ == gap.second) {
+        if (check && check->points_held() == gap.second) {
             check->teardown(1);
             get_log("level editor: gap \"%s\" taken out of the gap list", gap.first.c_str());
         }
@@ -1402,9 +1402,9 @@ void refresh_level()
         if (!tri)
             continue;
         t.off = walls::disengaged(t.sector) || (coll->flag_bits_ & 4) != 0;
-        if (tri->bounds_.min.x != t.bounds_low_.x || tri->bounds_.min.y != t.bounds_low_.y ||
-            tri->bounds_.min.z != t.bounds_low_.z || tri->bounds_.max.x != t.bounds_high_.x ||
-            tri->bounds_.max.y != t.bounds_high_.y || tri->bounds_.max.z != t.bounds_high_.z) {
+        if (tri->bounds().min.x != t.bounds_low_.x || tri->bounds().min.y != t.bounds_low_.y ||
+            tri->bounds().min.z != t.bounds_low_.z || tri->bounds().max.x != t.bounds_high_.x ||
+            tri->bounds().max.y != t.bounds_high_.y || tri->bounds().max.z != t.bounds_high_.z) {
             LevelTrigger now = t;
             if (read_faces(sector, &now)) {
                 t.faces = now.faces;
@@ -1834,7 +1834,7 @@ bool get_cast(V3 from, V3 to, V3* hit)
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!ray->get_collision_along(&start, &end, false))
         return false;
-    const auto& point = ray->hit_.point;
+    const auto& point = ray->hit().point;
     *hit = {.x = point[0], .y = point[1], .z = point[2]};
     return true;
 }
@@ -2872,7 +2872,7 @@ void perform(bool editing)
     auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
     if (!skater)
         return;
-    const V3 at = {.x = skater->at_point_.x, .y = skater->at_point_.y, .z = skater->at_point_.z};
+    const V3 at = {.x = skater->at_point().x, .y = skater->at_point().y, .z = skater->at_point().z};
     for (const Added& a : level_editor_triggers_state().added_) {
         if (!a.alive || !a.spec.exit || a.problem)
             continue;

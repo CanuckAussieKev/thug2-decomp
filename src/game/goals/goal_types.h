@@ -64,6 +64,7 @@ class ShootVideoObjective final : public Objective {
 public:
     ShootVideoObjective(const ShootVideoObjective&) = delete;
     ShootVideoObjective& operator=(const ShootVideoObjective&) = delete;
+private:
     bool recording_shot_{}; // +0x70 (StartFilming)
     std::array<uint8_t, 3> pad71_{};
     uint32_t shot_hold_time_{}; // +0x74 ms
@@ -71,6 +72,8 @@ public:
     uint32_t unknown7c_{};      // +0x7C (always 0: 0 times time)
     int checkpoints_{};         // +0x80 (0xC808F9FB: the checkpoints to pass)
     int checkpoints_passed_{};  // +0x84
+
+public:
 
     // 0x005527D0: the constructor. 0x005527F0 / 0x005528A0 (vtable +0x00): the destructor body / the
     // scalar deleting destructor.

@@ -105,6 +105,7 @@ public:
     // 0x3EA1D93A, else - without 0x5F78A252 - the last), 0x982C70E5 (hidden or not: 0x5B6634D4) - 1; anything else 2.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
+private:
     ChainList chains_{};          // +0x18
     ObjectModule* suspend_;       // +0x20
     ObjectModule* bone_rig_;      // +0x24

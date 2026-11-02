@@ -332,7 +332,7 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
     int b = 0;
     params->fetch_int_value(kBlue, &b, 1);
     const objects::GameEntity* skater = get_skate()->get_home_rider();
-    const maths::Vec4& position = skater->at_point_;
+    const maths::Vec4& position = skater->at_point();
     const double above = static_cast<double>(position.y) + 75.0;
     auto horizontal = static_cast<float>(std::cos(static_cast<double>(pitch)) * 50.0);
     maths::Vec4 from;

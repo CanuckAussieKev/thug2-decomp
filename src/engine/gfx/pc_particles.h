@@ -64,6 +64,7 @@ struct PcParticleSystem final : Sparkle {
     // The ring of bursts as a run.
     [[nodiscard]] std::span<ParticleBurst> burst_ring() const { return {bursts, static_cast<std::size_t>(capacity)}; }
 
+private:
     bool emitting{}; // +0x190
     std::array<uint8_t, 3> unknown191{};
     int capacity{};          // +0x194: bursts (5)
@@ -76,11 +77,15 @@ struct PcParticleSystem final : Sparkle {
     MaterialRef* material{}; // +0x228: its own
     ParticleCurve spread{};  // +0x22C: the boxes and radii through time
     ParticleCurve path{};    // +0x25C: the positions and sizes through time, less 1.5 times the spread
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PcParticleSystem, capacity) == 0x194 && offsetof(PcParticleSystem, matrix) == 0x1A8 &&
+                          offsetof(PcParticleSystem, material) == 0x228 && offsetof(PcParticleSystem, spread) == 0x22C &&
+                          offsetof(PcParticleSystem, path) == 0x25C && sizeof(PcParticleSystem) == 0x28C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(PcParticleSystem, capacity) == 0x194 && offsetof(PcParticleSystem, matrix) == 0x1A8 &&
-                  offsetof(PcParticleSystem, material) == 0x228 && offsetof(PcParticleSystem, spread) == 0x22C &&
-                  offsetof(PcParticleSystem, path) == 0x25C && sizeof(PcParticleSystem) == 0x28C,
-              "layout must match the original");
 
 // The PC particle manager (0x1C bytes, vtable 0x0064A304; the engine's particle manager with nothing of its own but
 // the systems it makes. Its destructor 0x004B2740 - 0x004B2710 the scalar deleting one - is the engine's.)

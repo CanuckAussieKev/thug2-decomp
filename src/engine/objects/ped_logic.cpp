@@ -192,12 +192,12 @@ void PedestrianBrainModule::configure_from_data(script::Struct* params)
     params->read_hash_value(kName, &list_link_, 1);
     level_nodes::fetch_place(list_link_, &node_pos_);
     up_blend_ = 0.0f;
-    up_target_ = core::at(entity_->basis_frame_.row, 1);
+    up_target_ = core::at(entity_->basis_frame().row, 1);
     up_dir_ = up_target_;
     up_shown_ = up_dir_;
     params->fetch_float(kDistAbove, &stick_above_, 0);
     params->fetch_float(kDistBelow, &stick_below_, 0);
-    saved_matrix_ = entity_->display_matrix_;
+    saved_matrix_ = entity_->display_matrix();
 }
 
 // 0x004ED460
@@ -213,9 +213,9 @@ void PedestrianBrainModule::no_move_update()
 {
     GameEntity* object = entity_;
     if (get_motion(object)->is_spinning())
-        saved_matrix_ = object->basis_frame_;
+        saved_matrix_ = object->basis_frame();
     else
-        object->display_matrix_ = saved_matrix_;
+        object->display_matrix() = saved_matrix_;
 }
 
 // 0x004ED4F0
@@ -223,7 +223,7 @@ void PedestrianBrainModule::push_position()
 {
     for (int i = 0; i < 4; ++i)
         core::at(past_frames_, i) = core::at(past_frames_, i + 1);
-    core::at(past_frames_, 4) = entity_->at_point_;
+    core::at(past_frames_, 4) = entity_->at_point();
 }
 
 // 0x004EDC60
@@ -234,7 +234,7 @@ void PedestrianBrainModule::set_sound_state(int state)
         looping->set_cur_phase(state);
     }
     if (auto* sound = core::down_cast<RiderSfxPlayer>(entity_->fetch_module(kSkaterSound)))
-        sound->cur_phase_ = state;
+        sound->set_cur_phase(state);
 }
 
 // 0x004EDCB0
@@ -245,8 +245,8 @@ void PedestrianBrainModule::set_sound_terrain(uint8_t terrain)
         looping->set_surface_type(terrain);
     }
     if (auto* sound = core::down_cast<RiderSfxPlayer>(entity_->fetch_module(kSkaterSound))) {
-        sound->surface_type_ = terrain;
-        sound->last_ground_ = terrain;
+        sound->set_surface_type(terrain);
+        sound->set_last_ground(terrain);
     }
 }
 
@@ -275,7 +275,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::get_state_params(script::Stru
 {
     gsl::owner<script::Struct*> out = script::new_struct();
     out->append_structure_if_any(params);
-    out->append_structure_if_any(entity_->tag_table_);
+    out->append_structure_if_any(entity_->tag_table());
     return out;
 }
 
@@ -341,8 +341,8 @@ bool PedestrianBrainModule::change_phase(uint32_t state, uint32_t table, script:
     initialize_movement();
     if (state_struct->has_bare_flag(kHideBoardGeom))
         hide_board(1);
-    if (entity_->own_script_)
-        entity_->own_script_->tick_frame();
+    if (entity_->own_script())
+        entity_->own_script()->tick_frame();
     return true;
 }
 
@@ -630,9 +630,9 @@ bool PedestrianBrainModule::ped_bail(script::Struct*, script::Script*)
 // 0x004EE3A0
 bool PedestrianBrainModule::ped_get_voice_prefix(script::Struct*, script::Script* script)
 {
-    GameEntity* object = entity_;
+    const GameEntity* object = entity_;
     uint32_t profile_name = 0;
-    if (object->tag_table_ && object->tag_table_->read_hash_value(kProfileName, &profile_name, 0)) {
+    if (object->tag_table() && object->tag_table()->read_hash_value(kProfileName, &profile_name, 0)) {
         if (profile_name == kCustom) {
             if (const char* voice = profile_voice()) {
                 script->args()->append_word(kVoicePrefix, voice);
@@ -657,7 +657,7 @@ bool PedestrianBrainModule::ped_get_voice_prefix(script::Struct*, script::Script
         }
     }
     // The ped's node's profile's voice_prefix.
-    if (script::Struct* node = level_nodes::fetch_vertex(entity_->ident_, true)) {
+    if (script::Struct* node = level_nodes::fetch_vertex(entity_->ident(), true)) {
         script::Struct* profile = nullptr;
         node->read_sub_struct(kProfile, &profile, 0);
         if (profile) {

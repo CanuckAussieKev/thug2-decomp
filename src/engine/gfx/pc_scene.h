@@ -57,7 +57,7 @@ public:
     float unknown2c_{1.0f};               // +0x2C (1)
     std::array<uint8_t, 4> unknown30_{};
 };
-static_assert(offsetof(PcSector, geom_handle_) == 0x14 && offsetof(PcSector, unknown20) == 0x20 &&
+static_assert(offsetof(PcSector, unknown20) == 0x20 &&
                   sizeof(PcSector) == 0x34,
               "layout must match the original");
 

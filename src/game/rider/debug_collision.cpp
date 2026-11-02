@@ -112,9 +112,9 @@ bool get_skater_position(const objects::Rider* skater, std::array<float, 3>& pos
     if (!skater)
         return false;
     const objects::GameEntity* object = skater;
-    core::at(position, 0) = object->at_point_.x;
-    core::at(position, 1) = object->at_point_.y;
-    core::at(position, 2) = object->at_point_.z;
+    core::at(position, 0) = object->at_point().x;
+    core::at(position, 1) = object->at_point().y;
+    core::at(position, 2) = object->at_point().z;
     return true;
 }
 
@@ -169,18 +169,18 @@ bool should_log(const void* what, int face)
 void log_hit(const void* feeler, uint32_t caller)
 {
     const auto* ray = static_cast<const render::ProbeRay*>(feeler);
-    const auto& start = ray->line_.start;
-    const auto& end = ray->line_.end;
-    const auto& normal = ray->hit_.normal;
-    const auto& point = ray->hit_.point;
-    const int face = static_cast<int>(ray->hit_.face);
-    const uint16_t flags = ray->hit_.face_flags_;
-    const uint8_t terrain = ray->hit_.terrain;
-    const bool static_hit = ray->hit_.hit;
-    const render::HitMesh* coll_object = ray->hit_.object;
-    const uint32_t sector = ray->hit_.object_checksum_;
-    const void* object = ray->entity_.get_pull();
-    const uint32_t object_id = ray->entity_key_;
+    const auto& start = ray->line().start;
+    const auto& end = ray->line().end;
+    const auto& normal = ray->hit().normal;
+    const auto& point = ray->hit().point;
+    const int face = static_cast<int>(ray->hit().face);
+    const uint16_t flags = ray->hit().face_flags_;
+    const uint8_t terrain = ray->hit().terrain;
+    const bool static_hit = ray->hit().hit;
+    const render::HitMesh* coll_object = ray->hit().object;
+    const uint32_t sector = ray->hit().object_checksum_;
+    const void* object = ray->entity().get_pull();
+    const uint32_t object_id = ray->entity_key();
 
     const objects::Rider* skater_feeler = skater_of_feeler(feeler);
     if (get_mode() == 1 && (!skater_feeler || normal[1] > 0.7f))

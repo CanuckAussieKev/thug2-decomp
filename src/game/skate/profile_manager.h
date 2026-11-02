@@ -164,6 +164,12 @@ public:
     static ProfileRoster* fabricate(bool create);
     static void get_release();
 
+    // The fields other code reads and sets.
+    ProfileTable& templates() { return templates_; }
+    [[nodiscard]] const ProfileTable& templates() const { return templates_; }
+    [[nodiscard]] int cursor_pos() const { return cursor_pos_; }
+
+private:
     ProfileTable templates_{};     // +0x00
     std::array<RiderIdentity*, 2> profiles_{}; // +0x14 (the first: a template; the second: a copy)
     int cursor_pos_{0};            // +0x1C

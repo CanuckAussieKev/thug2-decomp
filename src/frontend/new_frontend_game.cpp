@@ -38,7 +38,7 @@ constexpr uint32_t kController = 0xB30D9965;   // "controller"
 
 uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level() : 0; }
 
-uint32_t id_of(UiWidget* element) { return static_cast<objects::Entity*>(element)->ident_; }
+uint32_t id_of(UiWidget* element) { return static_cast<objects::Entity*>(element)->ident(); }
 
 bool get_paused(modules::FrontEnd* front_end) { return front_end && front_end->is_halted(); }
 

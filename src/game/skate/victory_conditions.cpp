@@ -157,7 +157,7 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
             // skater has won (its stage flag by the skater's id: the original's vtable +0x50).
             if (goal->parents()->objective_key_ != 0 || !goal->is_picked())
                 continue;
-            if (goal->stage_flag_set(static_cast<int>(skater->ident_)))
+            if (goal->stage_flag_set(static_cast<int>(skater->ident())))
                 continue;
             missing = true;
             break;
@@ -201,7 +201,7 @@ bool EliminationVictoryCondition::has_won_match(uint32_t player)
     const objects::Rider* skater = get_rider_at(modules::Skate::sole(), player);
     if (!skater)
         return false;
-    PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)); // the skater's player
+    PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())); // the skater's player
     return !is_eliminated(info);
 }
 

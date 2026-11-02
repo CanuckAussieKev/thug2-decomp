@@ -25,12 +25,27 @@ class WorldCell;
 using SectorSet = lists::ObjectSet<WorldCell>;
 
 struct LevelLamp {
+    // The fields other code reads and sets.
+    maths::Vec4& at_point() { return at_point_; }
+    [[nodiscard]] const maths::Vec4& at_point() const { return at_point_; }
+    [[nodiscard]] float strength() const { return strength_; }
+    void set_strength(float value) { strength_ = value; }
+    [[nodiscard]] float radius() const { return radius_; }
+    [[nodiscard]] uint32_t label() const { return label_; }
+    void set_label(uint32_t value) { label_ = value; }
+    [[nodiscard]] uint32_t shade() const { return shade_; }
+    void set_shade(uint32_t value) { shade_ = value; }
+    [[nodiscard]] SectorSet* sectors() const { return sectors_; }
+
+private:
     maths::Vec4 at_point_;   // +0x00
     float strength_;         // +0x10 (0-1)
     float radius_;           // +0x14
     uint32_t label_;         // +0x18: the node's (its dynamic light's owner)
     uint32_t shade_;         // +0x1C: RGBA
     SectorSet* sectors_;     // +0x20: the sectors it reaches
+
+public:
 
     // 0x0048FF40 (the array's static constructor's callback): an empty set of sectors, grey, nothing else
     // set. Returns this.
@@ -45,8 +60,13 @@ struct LevelLamp {
     // 0xED82767B / 0xEC6542D3) whose box's bounding sphere its radius touches (half the diagonal + its radius past the
     // distance between the centres), unless its name is in `excluded`.
     void find_sectors(script::Array* excluded);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(LevelLamp, label_) == 0x18 && sizeof(LevelLamp) == 0x24, "layout must match the original");
+    }
 };
-static_assert(offsetof(LevelLamp, label_) == 0x18 && sizeof(LevelLamp) == 0x24, "layout must match the original");
 
 // 0x0048F250: a sector's vertex colours made again: its own (CGeom::fetch_tints) with up to 8 lights that reach it
 // added - each (radius - distance) / radius x its intensity x its colour, the sums added to the colour's RGB and

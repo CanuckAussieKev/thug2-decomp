@@ -45,6 +45,28 @@ public:
     // 0x00485B20: the horizontal field of view in degrees (at 4:3).
     void change_h_fov(float degrees);
 
+    // The fields other code reads and sets.
+    maths::Vec4& old_pos() { return old_pos_; }
+    [[nodiscard]] const maths::Vec4& old_pos() const { return old_pos_; }
+    [[nodiscard]] const maths::Vec4& at_point() const { return at_point_; }
+    void set_at_point(const maths::Vec4& value) { at_point_ = value; }
+    maths::Mat4& basis_frame() { return basis_frame_; }
+    [[nodiscard]] const maths::Mat4& basis_frame() const { return basis_frame_; }
+    void set_basis_frame(const maths::Mat4& value) { basis_frame_ = value; }
+    [[nodiscard]] float h_fov() const { return h_fov_; }
+    void set_h_fov(float value) { h_fov_ = value; }
+    [[nodiscard]] float corrected_horiz_fov() const { return corrected_horiz_fov_; }
+    void set_corrected_horiz_fov(float value) { corrected_horiz_fov_ = value; }
+    [[nodiscard]] float unknownb4() const { return unknownb4_; }
+    void set_unknownb4(float value) { unknownb4_ = value; }
+    [[nodiscard]] float near_dist() const { return near_dist_; }
+    void set_near_dist(float value) { near_dist_ = value; }
+    [[nodiscard]] float far_clip() const { return far_clip_; }
+    void set_far_clip(float value) { far_clip_ = value; }
+    [[nodiscard]] float unknownc0() const { return unknownc0_; }
+    void set_unknownc0(float value) { unknownc0_ = value; }
+
+private:
     maths::Vec4 old_pos_{};     // +0x4C
     maths::Vec4 at_point_{};    // +0x5C
     maths::Mat4 basis_frame_{}; // +0x6C: row 2 points backward (the view looks along -row 2), row 1 up

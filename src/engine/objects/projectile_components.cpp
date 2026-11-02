@@ -136,11 +136,11 @@ void ShotImpactModule::tick_frame()
     const bool team_game = goals::game_mode()->is_squad_match() != 0;
     for (uint32_t i = 0; i < count; ++i) {
         GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
-        if (skater->ident_ == holder_key_)
+        if (skater->ident() == holder_key_)
             continue;
         auto* owner =
             (net->find_player_slot_by_obj(static_cast<uint16_t>(holder_key_)));
-        auto* victim = (net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
+        auto* victim = (net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
         if (!victim->can_be_hit_again())
             continue;
         modules::PointTally* score = get_score_of(skater);
@@ -150,9 +150,9 @@ void ShotImpactModule::tick_frame()
             net->get_online_settings()->get_preference_checksum(kFriendlyFire, kChecksum) != kBooleanTrue)
             continue;
         const GameEntity* object = entity_;
-        const double dz = static_cast<double>(skater->at_point_.z) - object->at_point_.z;
-        const double dy = static_cast<double>(skater->at_point_.y) - object->at_point_.y;
-        const double dx = static_cast<double>(skater->at_point_.x) - object->at_point_.x;
+        const double dz = static_cast<double>(skater->at_point().z) - object->at_point().z;
+        const double dy = static_cast<double>(skater->at_point().y) - object->at_point().y;
+        const double dx = static_cast<double>(skater->at_point().x) - object->at_point().x;
         if (!(std::sqrt(dx * dx + dy * dy + dz * dz) < reach))
             continue;
 
@@ -161,7 +161,7 @@ void ShotImpactModule::tick_frame()
         net::AppHost* server = static_cast<online::Hub*>(net)->host();
         get_kill(entity_);
         if (on_collide_script_) {
-            const maths::Vec4 pos = entity_->at_point_;
+            const maths::Vec4 pos = entity_->at_point();
             const script::StructPtr params = script::make_struct();
             params->put_vec3(kPos, script::VectorValue{.x = pos.x, .y = pos.y, .z = pos.z, .w = pos.w});
             params->put_vec3(kVel, script::VectorValue{.x = vel_.x, .y = vel_.y, .z = vel_.z, .w = vel_.w});
@@ -184,7 +184,7 @@ void ShotImpactModule::tick_frame()
         msg.group_id_ = 8;
         victim->change_recent_hit_stamp(frame_clock::get_time());
         server->put_on_outbox(victim->get_link_handle(), &msg);
-        hit.object_id = static_cast<uint8_t>(skater->ident_);
+        hit.object_id = static_cast<uint8_t>(skater->ident());
         util::ByteWriter owner_writer(bytes.data(), sizeof(bytes));
         online::write_hit(owner_writer, hit);
         msg.ident_ = kMsgHitOwner;
@@ -234,7 +234,7 @@ void ProjectileProximityComponent::tick_frame()
         rider_ref_ = local_skater();
         return;
     }
-    if (!entity_->ident_)
+    if (!entity_->ident())
         return;
     if (!ped_logic_) {
         ped_logic_ = core::down_cast<PedestrianBrainModule>(entity_->fetch_module(kPedLogic));
@@ -246,7 +246,7 @@ void ProjectileProximityComponent::tick_frame()
         if (!projectile.active)
             continue;
         const auto& pos = projectile.pos;
-        const maths::Vec4& at = entity_->at_point_;
+        const maths::Vec4& at = entity_->at_point();
         const double middle = static_cast<double>(at.y) + kAbovePed;
         auto dz = static_cast<float>(static_cast<double>(pos[2]) - at.z);
         const double dy = pos[1] - middle;
@@ -256,9 +256,9 @@ void ProjectileProximityComponent::tick_frame()
         // In reach: the ped is hit.
         entity_->post_own_event(kProjectileInAvoidRadius, nullptr);
         script::StructPtr params = script::make_struct();
-        params->put_name_key(kPedId, entity_->ident_);
+        params->put_name_key(kPedId, entity_->ident());
         params->put_name_key(kProjectileId, projectile.name);
-        script::launch_script(kProjectileHitPed, params.get(), find_object(rider_ref_->ident_), false, nullptr);
+        script::launch_script(kProjectileHitPed, params.get(), find_object(rider_ref_->ident()), false, nullptr);
         params->put_name_key(
             kAmmoType,
             core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kSkaterCorePhysics))->ammo_type());

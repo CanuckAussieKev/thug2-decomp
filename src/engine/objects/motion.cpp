@@ -37,7 +37,7 @@ void KinematicsModule::rotate_to(script::Struct* params)
     maths::Vec4 angles{};
     maths::Mat4 target{};
     if (read_turn_angles(params, kRelative, &angles)) {
-        target = entity_->basis_frame_;
+        target = entity_->basis_frame();
         target.turn_in_own_frame(angles);
         start_rotation(params, &target);
         return;

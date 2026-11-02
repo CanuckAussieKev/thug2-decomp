@@ -90,7 +90,7 @@ void ImpactDestructModule::seal() { suspend_ = core::down_cast<DormancyModule>(e
 // 0x0041C3D0
 void ImpactDestructModule::tick_frame()
 {
-    if (!stored_online_hub()->in_net_game() && suspend_->far_)
+    if (!stored_online_hub()->in_net_game() && suspend_->far())
         return;
     const int offset = clock_offset();
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) >
@@ -102,21 +102,21 @@ void ImpactDestructModule::tick_frame()
     } else {
         render::ProbeRay feeler;
         const GameEntity* object = entity_;
-        maths::Vec4 direction = object->vel_;
+        maths::Vec4 direction = object->vel();
         direction.make_unit();
         // From where it was (24 up)...
-        maths::Vec4 start = first_update_ ? object->at_point_ : last_pos_;
+        maths::Vec4 start = first_update_ ? object->at_point() : last_pos_;
         start.y = start.y + kAbove;
         // ...to where it is (24 up), `radius` on along its velocity.
-        const double up = static_cast<double>(object->at_point_.y) + kAbove;
+        const double up = static_cast<double>(object->at_point().y) + kAbove;
         const float along_w = radius_ * direction.w;
         const float along_z = radius_ * direction.z;
         const float along_y = radius_ * direction.y;
         maths::Vec4 end{};
-        end.x = static_cast<float>(static_cast<double>(radius_) * direction.x + object->at_point_.x);
+        end.x = static_cast<float>(static_cast<double>(radius_) * direction.x + object->at_point().x);
         end.y = static_cast<float>(up + along_y);
-        end.z = object->at_point_.z + along_z;
-        end.w = object->at_point_.w + along_w;
+        end.z = object->at_point().z + along_z;
+        end.w = object->at_point().w + along_w;
         feeler.change_origin(&start);
         feeler.change_finish(&end);
         if (feeler.get_hit_shape(true, false) && !fading_out_) {
@@ -126,7 +126,7 @@ void ImpactDestructModule::tick_frame()
             death_time_ =
                 static_cast<uint32_t>(frame_clock::game_clock_elapsed() + offset + static_cast<int>(kDyingTime));
             if (on_collide_script_) {
-                maths::Vec4 point = feeler.contact_pos_;
+                maths::Vec4 point = feeler.contact_pos();
                 gsl::owner<script::Struct*> params = script::spawn_param_bag();
                 if (params)
                     new (params) script::Struct;
@@ -141,7 +141,7 @@ void ImpactDestructModule::tick_frame()
             }
         }
     } // (the feeler's destructor lets go of the object it hit)
-    last_pos_ = entity_->at_point_;
+    last_pos_ = entity_->at_point();
     first_update_ = false;
 }
 

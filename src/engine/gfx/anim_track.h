@@ -108,6 +108,13 @@ public:
 
     static memory::PoolPair& get_pools();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] float fade_left() const { return fade_left_; }
+    [[nodiscard]] float fade_scale() const { return fade_scale_; }
+    void set_fade_scale(float value) { fade_scale_ = value; }
+    void set_events_on(bool value) { events_on_ = value; }
+
+private:
     uint32_t unknown34_{};
     int cur_phase_{kPlaying};           // +0x38 State
     std::array<AnimDriver*, 6> controller_list_{};  // +0x3C (by priority, highest first)

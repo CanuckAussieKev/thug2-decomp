@@ -211,7 +211,7 @@ void DormancyModule::refresh_shown_state()
     if (!mesh_instance_ || !model_of(mesh_instance_))
         return;
     bool visible = false;
-    if (!(entity_->object_flags_ & kEntityHiddenBit)) {
+    if (!(entity_->object_flags() & kEntityHiddenBit)) {
         render::RenderModel* model = model_of(mesh_instance_);
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
         if (std::bit_cast<uint32_t>(core::at(lod_distances_, 2)) == core::at(kNoLodBits, 2)) {
@@ -228,8 +228,8 @@ void DormancyModule::refresh_shown_state()
                 model->fetch_bound_sphere(
                     &sphere);
                 maths::Vec4 centre = {.x = sphere[0], .y = sphere[1], .z = sphere[2], .w = 1.0f};
-                centre.multiply_by(entity_->basis_frame_);
-                centre += entity_->at_point_;
+                centre.multiply_by(entity_->basis_frame());
+                centre += entity_->at_point();
                 visible = render::engine::sphere_visible_in_one_viewport(&centre, sphere[3]) == 0;
             }
         }
@@ -283,35 +283,35 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
     const modules::Skate* camera = modules::Skate::sole();
     auto* component = core::down_cast<DormancyModule>(object_hub_slot()->find_first_module_of_kind(DormancyModule::kType));
     while (component) {
-        component->distance_squared_ = 0.0f;
-        component->far_ = false;
-        if (component->frames_before_check_) {
+        component->set_distance_squared(0.0f);
+        component->set_far(false);
+        if (component->frames_before_check()) {
             // (the original goes round again with the same component: its frames all counted down at once)
-            --component->frames_before_check_;
+            --component->frames_before_check();
             continue;
         }
-        if (!camera->no_camera() && !component->never_suspend_) {
-            if (component->frames_before_lod_) {
-                --component->frames_before_lod_;
+        if (!camera->no_camera() && !component->never_suspend()) {
+            if (component->frames_before_lod()) {
+                --component->frames_before_lod();
             } else {
-                const maths::Vec4& pos = component->entity_->at_point_;
+                const maths::Vec4& pos = component->entity_->at_point();
                 const maths::Vec4& at = camera->viewer_pos();
                 const double dx = static_cast<double>(pos.x) - at.x;
                 const double dy = static_cast<double>(pos.y) - at.y;
                 const double dz = static_cast<double>(pos.z) - at.z;
                 const double distance_squared = (dz * dz + dy * dy) + dx * dx;
-                component->distance_squared_ = static_cast<float>(distance_squared);
-                component->far_ = distance_squared > component->suspend_distance_squared_;
+                component->set_distance_squared(static_cast<float>(distance_squared));
+                component->set_far(distance_squared > component->suspend_distance_squared());
             }
         }
         GameEntity* object = component->entity_;
-        const bool suspended = (object->composite_flags_ & kCompositeFlagSuspended) != 0;
-        if (component->far_ && !suspended)
+        const bool suspended = (object->composite_flags() & kCompositeFlagSuspended) != 0;
+        if (component->far() && !suspended)
             object->hold_off(true);
-        else if (!component->far_ && suspended)
+        else if (!component->far() && suspended)
             object->hold_off(false);
-        if (ObjectModule* model = component->mesh_instance_) {
-            if (component->frames_before_lod_) {
+        if (ObjectModule* model = component->mesh_instance()) {
+            if (component->frames_before_lod()) {
                 if (model_of(model))
                     change_model_enabled(model_of(model), true);
             } else {

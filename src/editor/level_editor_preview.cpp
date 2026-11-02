@@ -111,8 +111,8 @@ void update_frustum() { render::billboard_pool().setup_axes(); }
 void draw_meshes(render::PcGeom* geom)
 {
     const std::span<render::MeshRef*> meshes = geom->mesh_run();
-    const uint32_t count = geom->mesh_count_;
-    if (!geom->meshes)
+    const uint32_t count = geom->mesh_count();
+    if (!geom->meshes_value())
         return;
     const render::MaterialRef* current = nullptr;
     for (int pass = 0; pass < 2; ++pass) {
@@ -139,7 +139,7 @@ void draw_meshes(render::PcGeom* geom)
 // An object's geometry: through its instance when it has one, else its meshes.
 void draw_geometry(render::PcGeom* geom)
 {
-    if (auto* instance = geom->instance)
+    if (auto* instance = geom->instance_value())
         draw_instance(instance);
     else
         draw_meshes(geom);
@@ -153,7 +153,7 @@ bool box_of(Kind kind, uint32_t id, OrientedBox* box)
     if (kind != Kind::kObject)
         return false;
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) && object_edit::model_box(object, box);
+    return object && !(object->object_flags() & objects::kObjectFlagDead) && object_edit::model_box(object, box);
 }
 bool subject_box(OrientedBox* box) { return box_of(level_editor_preview_state().kind_, level_editor_preview_state().id_, box); }
 

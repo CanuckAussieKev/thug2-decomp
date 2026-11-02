@@ -33,7 +33,7 @@ void SkaterPhysicsModule::tick_frame()
     landed_this_frame_ = 0;
     frame_began_in_lip_ = state_of(this) == kLip;
     frame_began_in_drop_ = bit_mark(this, PoseFlag::kAcidDrop);
-    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary_.pos_x().held_down_)
+    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary().pos_x().held_down())
         set_flag(this, PoseFlag::kCrouched, 1);
     clamp_skater_speed();
     set_flag(this, PoseFlag::kGroundSnapped, 0);
@@ -43,7 +43,7 @@ void SkaterPhysicsModule::tick_frame()
 
     switch (state_of(this)) {
     case kGround:
-        last_ground_pos_ = entity_->at_point_;
+        last_ground_pos_ = entity_->at_point();
         do_ground_physics();
         try_start_skitch();
         break;

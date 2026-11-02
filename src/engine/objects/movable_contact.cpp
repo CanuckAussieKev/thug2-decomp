@@ -40,22 +40,22 @@ MovingSurfaceModule::~MovingSurfaceModule() { memory::let_go(ride_); } // (a rid
 GameEntity* MovingSurfaceModule::find_contact(const maths::Vec4* point, maths::Vec4* hit)
 {
     render::ProbeRay down;
-    down.line_.start = {.x = point->x, .y = get_sum(point->y, kFeelerTop), .z = point->z, .w = point->w};
-    down.line_.end = {.x = point->x, .y = get_sum(point->y, kFeelerBottom), .z = point->z, .w = point->w};
+    down.line().start = {.x = point->x, .y = get_sum(point->y, kFeelerTop), .z = point->z, .w = point->w};
+    down.line().end = {.x = point->x, .y = get_sum(point->y, kFeelerBottom), .z = point->z, .w = point->w};
     render::ProbeRay up;
     for (int tries = 1;;) {
         if (!down.get_hit_shape(true, false) || !down.hit_object_alive())
             return nullptr;
         // (nothing between the point and just over the hit: it's what the point is on)
-        up.line_.start = *point;
-        up.line_.end = {.x = down.contact_pos_.x, .y = get_sum(down.contact_pos_.y, kNudge), .z = down.contact_pos_.z,
-                        .w = down.contact_pos_.w};
+        up.line().start = *point;
+        up.line().end = {.x = down.contact_pos().x, .y = get_sum(down.contact_pos().y, kNudge), .z = down.contact_pos().z,
+                        .w = down.contact_pos().w};
         if (!up.get_hit_shape(true, false)) {
-            *hit = down.contact_pos_;
+            *hit = down.contact_pos();
             return down.get_hit_object();
         }
-        down.line_.start = {.x = down.contact_pos_.x, .y = get_sum(down.contact_pos_.y, -static_cast<double>(kNudge)),
-                            .z = down.contact_pos_.z, .w = down.contact_pos_.w};
+        down.line().start = {.x = down.contact_pos().x, .y = get_sum(down.contact_pos().y, -static_cast<double>(kNudge)),
+                            .z = down.contact_pos().z, .w = down.contact_pos().w};
         if (++tries == 10)
             return nullptr;
     }
@@ -74,7 +74,7 @@ GameEntity* MovingSurfaceModule::find_contact_ahead(maths::Vec4* pos, const math
     }
     // (two frames of the object's velocity ahead: x through the unrounded product, the others rounded first)
     const double frame = frame_clock::get_slomo_frame_seconds();
-    const maths::Vec4& vel = object->vel_;
+    const maths::Vec4& vel = object->vel();
     const double x = frame * vel.x;
     auto y = static_cast<float>(frame * vel.y);
     auto z = static_cast<float>(frame * vel.z);
@@ -97,10 +97,10 @@ maths::Vec4* MovingSurfaceModule::get_contact_point(maths::Vec4* out)
     maths::Vec4 point = contact_point_;
     if (last_object_) {
         maths::Mat4 matrix{};
-        matrix = last_object_->basis_frame_;
+        matrix = last_object_->basis_frame();
         maths::Vec4 turned;
         matrix.rotate_vector(turned, point);
-        const maths::Vec4& at = last_object_->at_point_;
+        const maths::Vec4& at = last_object_->at_point();
         point = {.x = turned.x + at.x, .y = turned.y + at.y, .z = turned.z + at.z, .w = turned.w + at.w};
     }
     *out = point;
@@ -171,10 +171,10 @@ void MovingSurfaceModule::update_contact_point()
         if (!object)
             return;
     }
-    const maths::Vec4 at = object->at_point_;
+    const maths::Vec4 at = object->at_point();
     maths::Mat4 inverse{};
-    inverse = object->basis_frame_;
-    const maths::Vec4& pos = entity_->at_point_;
+    inverse = object->basis_frame();
+    const maths::Vec4& pos = entity_->at_point();
     contact_point_ = {
         .x = static_cast<float>(static_cast<double>(pos.x) - at.x), .y = static_cast<float>(static_cast<double>(pos.y) - at.y),
         .z = static_cast<float>(static_cast<double>(pos.z) - at.z), .w = static_cast<float>(static_cast<double>(pos.w) - at.w)};

@@ -94,7 +94,7 @@ void CinematicTable::check_skip()
     auto* device = handler->dev_;
     if (!device->is_attached() || !device->is_usable())
         return;
-    if (handler->control_data_->makes_ & (kButtonX | kButtonStart)) {
+    if (handler->control_data_->makes() & (kButtonX | kButtonStart)) {
         clock_ = end_time_;
         skipped_ = true;
     }

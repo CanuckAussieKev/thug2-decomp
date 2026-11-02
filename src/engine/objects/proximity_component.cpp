@@ -49,7 +49,7 @@ void ProximityComponent::launch_script(uint32_t script, Entity* skater)
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
-    params->put_name_key(kSkaterId, skater->ident_);
+    params->put_name_key(kSkaterId, skater->ident());
     if (call_args_)
         params->merge_structure(call_args_);
     script::launch_script(script, params, entity_, false, nullptr);
@@ -68,25 +68,25 @@ void ProximityComponent::tick_frame()
     int inside = is_within_;
     bool within = false;
     if (active_) {
-        const maths::Vec4& at = entity_->at_point_;
-        const double dx = static_cast<double>(skater->at_point_.x) - at.x;
-        const double dy = static_cast<double>(skater->at_point_.y) - at.y;
-        const double dz = static_cast<double>(skater->at_point_.z) - at.z;
+        const maths::Vec4& at = entity_->at_point();
+        const double dx = static_cast<double>(skater->at_point().x) - at.x;
+        const double dy = static_cast<double>(skater->at_point().y) - at.y;
+        const double dz = static_cast<double>(skater->at_point().z) - at.z;
         const double reach = static_cast<double>(skater_radius()) + outer_radius_;
         if (!(reach * reach < (dz * dz + dy * dy) + dx * dx)) {
             maths::Seg line{};
-            const maths::Vec4& head = skater->at_point_;
+            const maths::Vec4& head = skater->at_point();
             line.start = head;
             line.end = {.x = head.x, .y = static_cast<float>(static_cast<double>(head.y) + skater_radius()), .z = head.z, .w = head.w};
             maths::Capsule capsule(line, 0.0f);
             if (!is_within_) {
                 capsule.radius = inner_radius_;
-                if (capsule.contains_point(entity_->at_point_, nullptr))
+                if (capsule.contains_point(entity_->at_point(), nullptr))
                     inside = 1;
                 within = true;
             } else {
                 capsule.radius = outer_radius_;
-                within = capsule.contains_point(entity_->at_point_, nullptr);
+                within = capsule.contains_point(entity_->at_point(), nullptr);
             }
         }
     }

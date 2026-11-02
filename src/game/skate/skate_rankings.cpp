@@ -150,7 +150,7 @@ void fill_elimination_ranking()
         online::ScoreEntry* entry = new_entry();
         text::copy_unbounded(entry->text_.data(), info->rider()->fetch_shown_name());
         entry->team_score_ =
-            reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater()->ident_);
+            reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater()->ident());
         entry->shade_ = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? info->team() + 2 : 0;
         entry->priority = info->eliminated_time() ? static_cast<int>(info->eliminated_time()) : 100000;
         lists::append_vertex(list.head_, entry); // (inlined there)
@@ -188,8 +188,8 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
     auto score_of = [&](online::PlayerRecord* info) -> uint32_t {
         if (goal_attack)
             return static_cast<uint32_t>(
-                goals::get_objective_board()->count_cleared_by_player(static_cast<int>(info->skater()->ident_)));
-        return static_cast<uint32_t>(net->get_entrant_points(info->skater()->ident_));
+                goals::get_objective_board()->count_cleared_by_player(static_cast<int>(info->skater()->ident())));
+        return static_cast<uint32_t>(net->get_entrant_points(info->skater()->ident()));
     };
     if (static_cast<uint8_t>(goals::game_mode()->is_squad_match())) {
         // The teams with players, by their scores; under each its players, then its total.

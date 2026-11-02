@@ -72,6 +72,12 @@ public:
     // segment has no length.
     void fetch_place(maths::Vec4* position, maths::Mat4* matrix);
 
+    // The fields other code reads and sets.
+    void set_entity_key(uint32_t value) { entity_key_ = value; }
+    void set_reach(float value) { reach_ = value; }
+    void set_free_facing(bool value) { free_facing_ = value; }
+
+private:
     std::array<maths::Vec4, 64> path_vertices_{}; // +0x000: a ring, newest at head_
     int num_{};                       // +0x400
     int head_{};                      // +0x404

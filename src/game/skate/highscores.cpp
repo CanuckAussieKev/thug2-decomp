@@ -425,7 +425,7 @@ bool cfunc_update_arcade_scores(script::Struct* params, script::Script*)
     int level = 0; // (uninitialised in the original; always set below)
     if (!params->fetch_int_value("level", &level, 0))
         level = skate_calls::get_career()->fetch_stage();
-    stored_game_records()->get_level_records(level)->arcade_scores_->decode_from_struct(params);
+    stored_game_records()->get_level_records(level)->arcade_scores()->decode_from_struct(params);
     return true;
 }
 

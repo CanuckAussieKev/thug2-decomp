@@ -54,6 +54,14 @@ public:
     void play_bonk_here(float speed);
     void play_cess_here(float speed);
 
+    // The fields other code reads and sets.
+    void set_cur_phase(int value) { cur_phase_ = value; }
+    void set_surface_type(uint8_t value) { surface_type_ = value; }
+    void set_last_ground(uint8_t value) { last_ground_ = value; }
+    void set_sliding(uint8_t value) { sliding_ = value; }
+    void set_full_speed(float value) { full_speed_ = value; }
+
+private:
     int cur_phase_{};        // +0x18 the skater's state (0 ground, 1 air, 4 rail)
     uint8_t surface_type_{}; // +0x1C
     uint8_t last_ground_{};  // +0x1D the terrain the ground and air sounds use

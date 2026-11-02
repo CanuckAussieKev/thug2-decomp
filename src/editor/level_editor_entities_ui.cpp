@@ -38,7 +38,7 @@ const char* short_name(const std::string& path)
 bool get_live(uint32_t id)
 {
     const objects::Entity* object = objects::find_object(id);
-    return object && !(object->object_flags_ & objects::kObjectFlagDead);
+    return object && !(object->object_flags() & objects::kObjectFlagDead);
 }
 
 // The rigid body's fields (THUG2's bouncy objects), in the order the levels write them.

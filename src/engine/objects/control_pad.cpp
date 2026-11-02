@@ -212,7 +212,7 @@ void PadSnapshot::get_clear()
 // 0x0046BDA0
 void PadSnapshot::tick_frame(const pad_input::Payload* payload)
 {
-    const auto& data = payload->incident_; // (the sticks, then a pressure per button)
+    const auto& data = payload->incident(); // (the sticks, then a pressure per button)
     up_dir_.tick_frame(get_full(core::at(data, 6) != 0));
     btn_down_.tick_frame(get_full(core::at(data, 7) != 0));
     left_side_.tick_frame(get_full(core::at(data, 5) != 0));
@@ -225,7 +225,7 @@ void PadSnapshot::tick_frame(const pad_input::Payload* payload)
     shoulder_right_a_.tick_frame(get_full(core::at(data, 0xD) != 0));
     shoulder_left_b_.tick_frame(get_full(core::at(data, 0xE) != 0));
     shoulder_right_b_.tick_frame(get_full(core::at(data, 0xF) != 0));
-    const uint32_t bits = payload->buttons_;
+    const uint32_t bits = payload->buttons();
     stick_click_left_.tick_frame(get_full((bits & 0x200) != 0));
     stick_click_right_.tick_frame(get_full((bits & 0x400) != 0));
     button_choose_.tick_frame(get_full((bits & 0x100) != 0));
@@ -281,7 +281,7 @@ ControlButton* PadSnapshot::read_button(uint32_t name)
                                 &shoulder_left_a_,  &shoulder_left_b_,   &stick_click_left_, &shoulder_right_a_,
                                 &shoulder_right_b_, &stick_click_right_, &outset_,           &button_choose_});
     for (ControlButton* button : buttons) {
-        if (button->label_ == name)
+        if (button->label() == name)
             return button;
     }
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons by name (leftup ... rightright - its bike

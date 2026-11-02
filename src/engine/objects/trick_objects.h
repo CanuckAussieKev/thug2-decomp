@@ -74,6 +74,20 @@ struct TrickSpot {
 // A trick object cluster (0x58 bytes, constructor 0x00588BD0): its name, the score that holds it (graffiti), each
 // player's best score on it (by the skater's object id), the player holding it and whether anyone does, its objects.
 struct TrickObjectCluster {
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t label() const { return label_; }
+    [[nodiscard]] uint32_t record_points() const { return record_points_; }
+    void set_record_points(uint32_t value) { record_points_ = value; }
+    std::array<uint32_t, 8>& scores() { return scores_; }
+    [[nodiscard]] const std::array<uint32_t, 8>& scores() const { return scores_; }
+    [[nodiscard]] int owner() const { return owner_; }
+    void set_owner(int value) { owner_ = value; }
+    [[nodiscard]] bool owned() const { return owned_; }
+    void set_owned(bool value) { owned_ = value; }
+    memory::ListNode& entities() { return entities_; }
+    [[nodiscard]] const memory::ListNode& entities() const { return entities_; }
+
+private:
     memory::ListNode list_link_{}; // +0x00 (data itself)
     uint32_t label_;             // +0x14
     uint32_t record_points_{0};  // +0x18
@@ -82,6 +96,8 @@ struct TrickObjectCluster {
     bool owned_{false};          // +0x40
     std::array<uint8_t, 3> pad41_{};
     memory::ListNode entities_{}; // +0x44 its CTrickObjects (the head: a sentinel)
+
+public:
 
     // 0x00588630: a trick object for sector `name` made (0x18 bytes) and put last in the list; its sector's colour
     // cleared first (and, with show_all_trick_objects set outside the 0x00684FA8 mode, given graffiti colour 2).

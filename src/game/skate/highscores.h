@@ -79,6 +79,16 @@ public:
     // 0x0057F7B0: the records written to `params` as structures of those names.
     void write_to_structure(script::Struct* params);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] BestEntryList* high_scores() const { return high_scores_; }
+    [[nodiscard]] BestEntryList* best_combos() const { return best_combos_; }
+    [[nodiscard]] BestEntryList* arcade_scores() const { return arcade_scores_; }
+    [[nodiscard]] BestEntry* grind_record() const { return grind_record_; }
+    [[nodiscard]] BestEntry* longest_manual() const { return longest_manual_; }
+    [[nodiscard]] BestEntry* longest_lip_trick() const { return longest_lip_trick_; }
+    [[nodiscard]] BestEntry* biggest_chain() const { return biggest_chain_; }
+
+private:
     BestEntryList* high_scores_;   // +0x00
     BestEntryList* best_combos_;   // +0x04
     BestEntryList* arcade_scores_; // +0x08

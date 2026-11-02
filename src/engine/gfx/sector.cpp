@@ -265,7 +265,7 @@ void WorldCell::choose_raw_verts(const maths::Vec4* vertices)
         return;
     // TriMeshSource: every vertex set (0x00415C10)
     // (the vertices are made for the collision's vertex count)
-    hit_body_->geometry_->choose_raw_verts({vertices, hit_body_->geometry_->num_vertices_});
+    hit_body_->geometry_->choose_raw_verts({vertices, hit_body_->geometry_->num_vertices()});
     if (flag_bits_ & kSectorInGrid)
         flag_bits_ |= kSectorMoved;
 }

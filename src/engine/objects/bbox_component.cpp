@@ -62,17 +62,17 @@ memory::ListNode* manager_object_list(ObjectHubBase* manager) { return manager->
 // The squares summed z, y, then x on the FPU stack, compared unrounded.
 bool is_near(const GameEntity* object, const GameEntity* self, float reach_squared, const maths::Vec4* point)
 {
-    float x = self->at_point_.x;
-    float y = self->at_point_.y;
-    float z = self->at_point_.z;
+    float x = self->at_point().x;
+    float y = self->at_point().y;
+    float z = self->at_point().z;
     if (point) {
         x = point->x;
         y = point->y;
         z = point->z;
     }
-    const double dx = static_cast<double>(object->at_point_.x) - x;
-    const double dy = static_cast<double>(object->at_point_.y) - y;
-    const double dz = static_cast<double>(object->at_point_.z) - z;
+    const double dx = static_cast<double>(object->at_point().x) - x;
+    const double dy = static_cast<double>(object->at_point().y) - y;
+    const double dz = static_cast<double>(object->at_point().z) - z;
     return dz * dz + dy * dy + dx * dx < reach_squared;
 }
 
@@ -127,7 +127,7 @@ void CbBoxComponent::compute_rect(Rect2* rect)
 {
     if (rect->computed_)
         return;
-    rect->basis_frame_ = entity_->basis_frame_;
+    rect->basis_frame_ = entity_->basis_frame();
     if (rect->angle_ != 0.0f) {
         maths::Mat4 rotation;
         matrix_multiply(&rect->basis_frame_, &maths::make_yaw_matrix(rotation, rect->angle_), &rect->basis_frame_);
@@ -183,16 +183,16 @@ bool CbBoxComponent::is_in_rect(GameEntity* object, Rect2* rect)
     const float offset_z = rect->shift_.z;
     compute_rect(rect);
     // From the box's middle (rounded where the original stores: x, the middle's z, the sum).
-    const maths::Vec4& self = entity_->at_point_;
-    auto dx = static_cast<float>((static_cast<double>(offset_x) + object->at_point_.x) - self.x);
-    const double dy = (static_cast<double>(offset_y) + object->at_point_.y) - self.y;
-    auto middle_z = static_cast<float>(static_cast<double>(offset_z) + object->at_point_.z);
+    const maths::Vec4& self = entity_->at_point();
+    auto dx = static_cast<float>((static_cast<double>(offset_x) + object->at_point().x) - self.x);
+    const double dy = (static_cast<double>(offset_y) + object->at_point().y) - self.y;
+    auto middle_z = static_cast<float>(static_cast<double>(offset_z) + object->at_point().z);
     const double dz = static_cast<double>(middle_z) - self.z;
     auto distance_sqr = static_cast<float>(dz * dz + dy * dy + static_cast<double>(dx) * dx);
     if (rect_radius_sqr(rect) < distance_sqr)
         return false;
     // The middle of its box in the box's frame.
-    maths::Vec4 point = object->at_point_;
+    maths::Vec4 point = object->at_point();
     auto* query = core::down_cast<CbBoxComponent>(object->fetch_module(kType));
     point.y = static_cast<float>((static_cast<double>(query->box_max_.y) - query->box_min_.y) * kHalf + point.y);
     point.x = point.x - self.x;
@@ -246,7 +246,7 @@ bool CbBoxComponent::any_object_near(script::Struct* params, script::Script* scr
     }
     ObjectSearch search;
     for (auto* object = core::down_cast<GameEntity>(
-             search.first_item_of_type(manager_object_list(entity_->park_owner_), object_type));
+             search.first_item_of_type(manager_object_list(entity_->park_owner()), object_type));
          object; object = core::down_cast<GameEntity>(search.next_item_of_type())) {
         if (object == entity_)
             continue;

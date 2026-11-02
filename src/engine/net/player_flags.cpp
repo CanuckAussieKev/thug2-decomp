@@ -111,7 +111,7 @@ bool PlayerRecord::is_invulnerable()
                 ->get_total_score() <= 0)
             return true;
     }
-    if (is_eliminated() || (skater_->composite_flags_ >> 2) & 1)
+    if (is_eliminated() || (skater_->composite_flags() >> 2) & 1)
         return true;
     if (frame_clock::get_time() - join_time_ <= kJustJoinedTime)
         return (flag_bits_ >> 1) & 1;

@@ -250,11 +250,11 @@ void BuildPointer::step_piece_family(int dir)
         return;
     }
     const int selected = set.selected_;
-    for (Clipboard* clipboard = get_clipboards(); clipboard; clipboard = clipboard->following_)
+    for (Clipboard* clipboard = get_clipboards(); clipboard; clipboard = clipboard->following())
         clipboard->free_all_piece_groups();
     Clipboard* clipboard = get_clipboards();
     for (int i = 0; i < selected && clipboard; ++i)
-        clipboard = clipboard->following_;
+        clipboard = clipboard->following();
     active_copy_buffer() = clipboard;
     if (get_meta()) {
         get_meta_flags(get_meta()) &= ~kMetaInCursor;

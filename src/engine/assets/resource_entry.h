@@ -124,6 +124,7 @@ public:
     void set_cur_phase(int value) { cur_phase_ = value; }
     [[nodiscard]] bool pinned() const { return pinned_; }
     void set_pinned(bool value) { pinned_ = value; }
+    LoadCallback& callback() { return callback_; }
     [[nodiscard]] const LoadCallback& callback() const { return callback_; }
     [[nodiscard]] void* callback_data0() const { return callback_data0_; }
     [[nodiscard]] void* callback_data1() const { return callback_data1_; }
@@ -214,6 +215,10 @@ struct CutsceneResource final : Resource {
 struct NodeTableResource final : Resource {
     // 0x00408BB0 (vtable 0x00645698)
     NodeTableResource();
+    // The fields other code reads and sets.
+    [[nodiscard]] script::Array* nodes() const { return nodes_; }
+
+private:
     uint32_t archive_{0};    // +0x4C
     uint32_t source_path_{}; // +0x50 the checksum of the file name (its script's)
     uint32_t array_name_{};  // +0x54 the node array's checksum
@@ -221,6 +226,8 @@ struct NodeTableResource final : Resource {
     char* args_{};           // +0x5C (0x40 bytes, the file name)
     bool owned_{};           // +0x60 the node manager's owner
     std::array<uint8_t, 3> pad61{};
+
+public:
     // 0x00408BE0: kNodeArray, or kOwnedNodeArray when owned; 0x00408BD0
     [[nodiscard]] int fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;

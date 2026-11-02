@@ -44,7 +44,7 @@ bool skin_matrix_ptr(void* skeleton, uint32_t bone, maths::Mat4* out)
 int bone_index(void* skeleton, uint32_t bone) { return static_cast<gfx::Rig*>(skeleton)->fetch_bone_slot(bone); }
 uint32_t parent_bone(void* skeleton, int index)
 {
-    return static_cast<gfx::Rig*>(skeleton)->payload_->fetch_parent_hash(index);
+    return static_cast<gfx::Rig*>(skeleton)->payload()->fetch_parent_hash(index);
 }
 // The model component's 0x004215F0: its matrix into `out`.
 void compose_object_transform(ObjectModule* model, maths::Mat4* out)
@@ -54,7 +54,7 @@ void compose_object_transform(ObjectModule* model, maths::Mat4* out)
 // Whether the target's model is to be followed: a model with its +0x234 set, or a skater.
 bool follow_model(ObjectModule* model, GameEntity* target)
 {
-    return (model && core::down_cast<MeshInstanceModule>(model)->level_object()) || target->ident_ < kFirstNonSkaterId;
+    return (model && core::down_cast<MeshInstanceModule>(model)->level_object()) || target->ident() < kFirstNonSkaterId;
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
@@ -91,52 +91,52 @@ void PinnedObjectModule::update_lock()
         if (!target)
             return;
     }
-    maths::Vec4 pos = entity_->at_point_;         // where it goes
+    maths::Vec4 pos = entity_->at_point();         // where it goes
     maths::Vec4 extra = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // added to it when there's no lag
     maths::Vec4 local{};
     if (bone_) {
         // On a bone: its orientation, and its "at" towards its parent.
         const ObjectModule* skeleton_component = target->fetch_module(kSkeleton);
         void* skeleton = skeleton_component ? skeleton_of(target->fetch_module(kSkeleton)) : nullptr;
-        if (skeleton && skin_matrix_ptr(skeleton, bone_, &entity_->basis_frame_)) {
+        if (skeleton && skin_matrix_ptr(skeleton, bone_, &entity_->basis_frame())) {
             maths::Mat4 parent{};
             skin_matrix_ptr(skeleton, parent_bone(skeleton, bone_index(skeleton, bone_)), &parent);
             GameEntity* object = entity_;
-            const maths::Vec4 joint_world = core::at(object->basis_frame_.row, 3);
+            const maths::Vec4 joint_world = core::at(object->basis_frame().row, 3);
             maths::Vec4 owner_pos = core::at(parent.row, 3);
-            core::at(object->basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+            core::at(object->basis_frame().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             core::at(parent.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             ObjectModule* model = target->fetch_module(kModel);
             if (model && follow_model(model, target)) {
                 maths::Mat4 frame{};
                 compose_object_transform(model, &frame);
-                extra = core::at(frame.row, 3) - target->at_point_;
+                extra = core::at(frame.row, 3) - target->at_point();
                 core::at(frame.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-                set_product(entity_->basis_frame_, entity_->basis_frame_, frame);
+                set_product(entity_->basis_frame(), entity_->basis_frame(), frame);
                 set_product(parent, parent, frame);
                 pos = frame.xform(local, joint_world);
-                pos += target->at_point_ + shift_ * entity_->basis_frame_;
+                pos += target->at_point() + shift_ * entity_->basis_frame();
                 owner_pos = frame.xform(local, owner_pos);
-                owner_pos += target->at_point_ + shift_ * parent;
+                owner_pos += target->at_point() + shift_ * parent;
             } else {
-                const maths::Mat4& frame = target->display_matrix_;
-                set_product(entity_->basis_frame_, entity_->basis_frame_, frame);
+                const maths::Mat4& frame = target->display_matrix();
+                set_product(entity_->basis_frame(), entity_->basis_frame(), frame);
                 set_product(parent, parent, frame);
                 pos = frame.xform(local, joint_world);
-                pos += target->at_point_ + shift_ * entity_->basis_frame_;
+                pos += target->at_point() + shift_ * entity_->basis_frame();
                 owner_pos = frame.xform(local, owner_pos);
-                owner_pos += target->at_point_ + shift_ * parent;
+                owner_pos += target->at_point() + shift_ * parent;
             }
             object = entity_;
-            maths::Vec4& at = core::at(object->basis_frame_.row, 2);
+            maths::Vec4& at = core::at(object->basis_frame().row, 2);
             at = {.x = owner_pos.x - pos.x, .y = owner_pos.y - pos.y, .z = owner_pos.z - pos.z, .w = owner_pos.w - pos.w};
-            core::at(entity_->basis_frame_.row, 2).make_unit();
-            const maths::Vec4 up = core::at(target->display_matrix_.row, 1);
+            core::at(entity_->basis_frame().row, 2).make_unit();
+            const maths::Vec4 up = core::at(target->display_matrix().row, 1);
             object = entity_;
-            core::at(object->basis_frame_.row, 0) = maths::cross_vec(core::at(object->basis_frame_.row, 2), up);
+            core::at(object->basis_frame().row, 0) = maths::cross_vec(core::at(object->basis_frame().row, 2), up);
             object = entity_;
-            core::at(object->basis_frame_.row, 1) = maths::cross_vec(core::at(object->basis_frame_.row, 2), core::at(object->basis_frame_.row, 0));
-            entity_->display_matrix_ = entity_->basis_frame_;
+            core::at(object->basis_frame().row, 1) = maths::cross_vec(core::at(object->basis_frame().row, 2), core::at(object->basis_frame().row, 0));
+            entity_->display_matrix() = entity_->basis_frame();
         }
     } else {
         // At the target (or its model): its orientation, and the offset turned by it.
@@ -146,32 +146,32 @@ void PinnedObjectModule::update_lock()
             compose_object_transform(model, &frame);
             pos = shift_ * frame;
             core::at(frame.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-            entity_->basis_frame_ = frame;
+            entity_->basis_frame() = frame;
         } else {
-            entity_->basis_frame_ = target->display_matrix_;
-            const maths::Vec4 turned = shift_ * entity_->basis_frame_;
-            pos = {.x = turned.x + target->at_point_.x, .y = target->at_point_.y + turned.y, .z = target->at_point_.z + turned.z,
-                   .w = target->at_point_.w + turned.w};
+            entity_->basis_frame() = target->display_matrix();
+            const maths::Vec4 turned = shift_ * entity_->basis_frame();
+            pos = {.x = turned.x + target->at_point().x, .y = target->at_point().y + turned.y, .z = target->at_point().z + turned.z,
+                   .w = target->at_point().w + turned.w};
         }
     }
     GameEntity* object = entity_;
     if (lock_flags_ & kLockFlagLag) {
         // Part of the way there (the roundings where the original stores).
         const float lag = lag_;
-        const double dx = static_cast<double>(pos.x) - object->at_point_.x;
-        const double dy = static_cast<double>(pos.y) - object->at_point_.y;
-        const float dz = pos.z - object->at_point_.z;
-        const float dw = pos.w - object->at_point_.w;
+        const double dx = static_cast<double>(pos.x) - object->at_point().x;
+        const double dy = static_cast<double>(pos.y) - object->at_point().y;
+        const float dz = pos.z - object->at_point().z;
+        const float dw = pos.w - object->at_point().w;
         auto step_x = static_cast<float>(dx * lag);
         auto step_y = static_cast<float>(dy * lag);
         const double step_z = static_cast<double>(dz) * lag;
         const float step_w = dw * lag;
-        const float x = step_x + object->at_point_.x;
-        const float y = step_y + object->at_point_.y;
-        object->at_point_.z = static_cast<float>(step_z + object->at_point_.z);
-        object->at_point_.w = step_w + object->at_point_.w;
-        object->at_point_.x = x;
-        object->at_point_.y = y;
+        const float x = step_x + object->at_point().x;
+        const float y = step_y + object->at_point().y;
+        object->at_point().z = static_cast<float>(step_z + object->at_point().z);
+        object->at_point().w = step_w + object->at_point().w;
+        object->at_point().x = x;
+        object->at_point().y = y;
         // The lag for the next update: as configure_from_data's, with the update's step.
         const int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
         auto time = static_cast<double>(t);
@@ -180,12 +180,12 @@ void PinnedObjectModule::update_lock()
                               std::sin(time * static_cast<double>(core::at(wobble_, 0)) * step);
         lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - lag_min_) * 0.5 + lag_min_);
     } else {
-        object->at_point_ = {.x = extra.x + pos.x, .y = extra.y + pos.y, .z = extra.z + pos.z, .w = extra.w + pos.w};
+        object->at_point() = {.x = extra.x + pos.x, .y = extra.y + pos.y, .z = extra.z + pos.z, .w = extra.w + pos.w};
     }
-    entity_->vel_ = target->vel_;
+    entity_->vel() = target->vel();
     if (lock_flags_ & kLockFlagAngles)
-        matrix_multiply(&entity_->basis_frame_, &entity_->basis_frame_, &orientation_turn_);
-    entity_->display_matrix_ = entity_->basis_frame_;
+        matrix_multiply(&entity_->basis_frame(), &entity_->basis_frame(), &orientation_turn_);
+    entity_->display_matrix() = entity_->basis_frame();
 }
 
 } // namespace objects

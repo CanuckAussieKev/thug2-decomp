@@ -331,7 +331,7 @@ void RoomManager::fill_prospective_buddy_list()
         if (!player)
             break;
         const int profile = player->account_;
-        if (profile != manager->presence_service()->account_ && profile > 0 && // (0x005480C0: our own profile)
+        if (profile != manager->presence_service()->account() && profile > 0 && // (0x005480C0: our own profile)
             !manager->presence_service()->is_buddy(profile))                   // (a buddy already)
             add_buddy_menu_item(player);                                      // (a prospective buddy)
     }
@@ -468,7 +468,7 @@ void RoomManager::join_room_callback(void* peer, int success, int result, int ro
     get_run(kCreateSelectGamesMenu);
     lobby->in_group_room_ = true;
     lobby->request_player_list();
-    if (!manager->presence_service()->authenticated_) // (0x005480B0: logged in to GameSpy presence)
+    if (!manager->presence_service()->authenticated()) // (0x005480B0: logged in to GameSpy presence)
         return;
     // Our status: chatting in the lobby (0x00548320).
     manager->presence_service()->change_standing(4, script::fetch_text("homie_status_chatting"), lobby->room_name_.data());

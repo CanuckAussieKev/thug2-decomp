@@ -430,7 +430,7 @@ uint32_t class_of(script::Struct* node)
 objects::GameEntity* live_object(uint32_t id)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? object : nullptr;
+    return object && !(object->object_flags() & objects::kObjectFlagDead) ? object : nullptr;
 }
 
 std::string model_of(script::Struct* node)
@@ -872,7 +872,7 @@ float preview_mph(uint32_t name)
 
 float current_heading(const objects::GameEntity* object)
 {
-    const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
+    const maths::Vec4& at = core::at(object->basis_frame().row, 2);
     return std::atan2(at.x, at.z);
 }
 
@@ -1261,7 +1261,7 @@ Placed get_place(int index, V3 at, float yaw)
         const uint32_t cls = class_of(look_up_node_params(source.names.front()));
         if (cls == kPedestrian || cls == kVehicle)
             object_edit::turn_about(copy, at, yaw - current_heading(copy)); // (facing the way the camera looks)
-        placed.copies.push_back(copy->ident_);
+        placed.copies.push_back(copy->ident());
         placed.message = "Placed a copy of " + nodes::caption(source.names.front());
         return placed;
     }
@@ -1275,7 +1275,7 @@ Placed get_place(int index, V3 at, float yaw)
     const V3 anchor = pin_anchor_point(places);
     for (size_t i = 0; i < source.names.size(); ++i) {
         if (const objects::GameEntity* copy = object_edit::make_copy(core::at(source.names, i), at + (core::at(places, i) - anchor)))
-            placed.copies.push_back(copy->ident_);
+            placed.copies.push_back(copy->ident());
     }
     std::array<char, 96> text{};
     text::format_to(text, "Placed a bouncy set: %u objects", static_cast<unsigned>(placed.copies.size()));

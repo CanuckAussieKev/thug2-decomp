@@ -700,7 +700,7 @@ bool in_front_end() { return current_load_state() == kLoadMainMenu; }
 UiWidget* first_child(const UiWidget* element) { return element->eldest().get_pull(); }
 UiWidget* next_sibling(const UiWidget* element) { return element->following().get_pull(); }
 UiWidget* current_parent(const UiWidget* element) { return element->container().get_pull(); }
-uint32_t ident_no(const UiWidget* element) { return element->ident_; }
+uint32_t ident_no(const UiWidget* element) { return element->ident(); }
 
 UiWidget* child_at(const UiWidget* menu, int index)
 {
@@ -724,7 +724,7 @@ int get_index_of(const UiWidget* menu, const UiWidget* item)
 bool hidden_in_chain(const UiWidget* element)
 {
     for (; element; element = current_parent(element))
-        if (element->object_flags_ & UiWidget::kHidden)
+        if (element->object_flags() & UiWidget::kHidden)
             return true;
     return false;
 }
@@ -782,7 +782,7 @@ bool struct_denied(script::Struct* params, int depth)
 // Whether an element's event handlers (all, or only pad_choose / pad_start ones) run or name a denied script.
 bool handlers_denied(const UiWidget* element, bool choose_only)
 {
-    const script::Script* script = element->own_script_;
+    const script::Script* script = element->own_script();
     if (!script || !script->signal_routes())
         return false;
     const objects::SignalRouteTable* table = script->signal_routes();
@@ -818,7 +818,7 @@ void focused_elements(std::vector<UiWidget*>* focused, std::vector<UiWidget*>* s
     if (!manager)
         return;
     int guard = 0;
-    for (const UiTree::FocusEntry* entry = ::core::at(manager->focus_lists_, 0); entry && guard < 64;
+    for (const UiTree::FocusEntry* entry = ::core::at(manager->focus_lists(), 0); entry && guard < 64;
          entry = entry->next, ++guard) {
         UiWidget* element = entry->element.get_pull();
         if (!element)
@@ -910,10 +910,10 @@ void trace_frame()
     auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
     if (skater) {
         auto* state = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kStateModuleKey));
-        const int where = state ? state->cur_phase_ : -1;
-        const int physics = state ? state->physics_mode_ : -1;
+        const int where = state ? state->cur_phase() : -1;
+        const int physics = state ? state->physics_mode() : -1;
         const int bailing = state ? state->is_on(objects::PoseFlag::kBailing) : -1;
-        const int trick = state ? state->in_trick_move_ : -1;
+        const int trick = state ? state->in_trick_move() : -1;
         // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)
         const auto* score_component = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kScoreModuleKey));
         const modules::PointTally* score = score_component ? score_component->points_held_ : nullptr;
@@ -922,14 +922,14 @@ void trace_frame()
         const int landed = score ? score->pot_score() : -1;
         // the core physics' last ground hit (its feeler copy at +0x158): the face's flags and the object's checksum
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysicsComponent));
-        const unsigned ground_flags = core ? core->floor_feeler().hit_.face_flags_ : 0;
-        const unsigned ground_object = core ? core->floor_feeler().hit_.object_checksum_ : 0;
+        const unsigned ground_flags = core ? core->floor_feeler().hit().face_flags_ : 0;
+        const unsigned ground_object = core ? core->floor_feeler().hit().object_checksum_ : 0;
         text::print_to(trace.file.get(), "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
-                       frame_loop::frames_run(), static_cast<double>(skater->at_point_.x),
-                       static_cast<double>(skater->at_point_.y), static_cast<double>(skater->at_point_.z),
-                       static_cast<double>(skater->vel_.x), static_cast<double>(skater->vel_.y),
-                       static_cast<double>(skater->vel_.z),
-                       static_cast<double>(::core::at(skater->basis_frame_.row, 1).y), where, physics, bailing, trick,
+                       frame_loop::frames_run(), static_cast<double>(skater->at_point().x),
+                       static_cast<double>(skater->at_point().y), static_cast<double>(skater->at_point().z),
+                       static_cast<double>(skater->vel().x), static_cast<double>(skater->vel().y),
+                       static_cast<double>(skater->vel().z),
+                       static_cast<double>(::core::at(skater->basis_frame().row, 1).y), where, physics, bailing, trick,
                        pot, static_cast<double>(multiplier), landed, ground_flags, ground_object);
         std::fflush(trace.file.get());
     }

@@ -77,11 +77,11 @@ bool RiderChaseView::get_look_down()
     if (!rider_ref_)
         return false;
     const objects::RiderPoseState* state = state_ref_;
-    if (state->physics_mode_)
+    if (state->physics_mode())
         return false;
-    if (state->cur_phase_ == 3 || vert_air(state))
+    if (state->cur_phase() == 3 || vert_air(state))
         return true;
-    return state->lip_straight_up_ != 0;
+    return state->lip_straight_up() != 0;
 }
 
 // 0x004F9F00
@@ -126,7 +126,7 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
         *out = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
     }
-    const maths::Vec4 position = skater->at_point_;
+    const maths::Vec4 position = skater->at_point();
     if (rate_time_ > 0.0f) {
         const double left = rate_time_ - static_cast<double>(seconds);
         rate_time_ = static_cast<float>(left);
@@ -178,16 +178,16 @@ void RiderChaseView::get_zoomed_offsets(float* height, float* distance)
         return;
     zoom_target_ = 1.0f;
     const objects::RiderPoseState* state = state_ref_;
-    if (!vert_zoom_on_ && vert_air(state) && state->in_trick_move_)
+    if (!vert_zoom_on_ && vert_air(state) && state->in_trick_move())
         vert_zoom_on_ = 1;
     else if (!vert_air(state_ref_))
         vert_zoom_on_ = 0;
     state = state_ref_;
     if (vert_zoom_on_)
         zoom_target_ = big_air_trick_zoom_;
-    else if (state->cur_phase_ == 4)
+    else if (state->cur_phase() == 4)
         zoom_target_ = rail_zoom_factor_;
-    else if (state->cur_phase_ == 3)
+    else if (state->cur_phase() == 3)
         zoom_target_ = lip_trick_zoom_;
     const FreeLookModule* look_around = free_look_module_;
     if (look_around->turning() && std::bit_cast<uint32_t>(look_around->factor()) != 0x3F800000u)
@@ -200,7 +200,7 @@ void RiderChaseView::get_zoomed_offsets(float* height, float* distance)
     if (tilt < 0.0f)
         *distance = static_cast<float>(((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange + kTiltBase) *
                                        behind);
-    const float above = state_ref_->cur_phase_ == 3 ? lip_trick_above_ : above_;
+    const float above = state_ref_->cur_phase() == 3 ? lip_trick_above_ : above_;
     if (zoom_ < 1.0f)
         *height = static_cast<float>((static_cast<double>(above) - kZoomedHeight) * zoom_ + kZoomedHeight);
     else
@@ -256,7 +256,7 @@ RiderChaseView::RiderChaseView()
 // 0x004FA5C0
 void RiderChaseView::configure_from_data(script::Struct* params)
 {
-    maths::Mat4& matrix = entity_->basis_frame_;
+    maths::Mat4& matrix = entity_->basis_frame();
     core::at(matrix.row, 0) = maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
     core::at(matrix.row, 1) = maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
     core::at(matrix.row, 2) = maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
