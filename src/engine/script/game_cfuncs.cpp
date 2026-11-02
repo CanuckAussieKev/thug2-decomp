@@ -595,7 +595,7 @@ bool cfunc_spawn_second_controller_check(script::Struct*, script::Script*)
     const tasks::Task<void>::Code code = &second_pad_watch_tick;
     auto task = memory::make_owned<tasks::Task<void>>(code, nullptr, 0);
     game_cfuncs_state().second_controller_check_ = memory::take_unique(task);
-    main_loop->logic_tasks_.queue_job(game_cfuncs_state().second_controller_check_.get());
+    main_loop->logic_tasks().queue_job(game_cfuncs_state().second_controller_check_.get());
     return true;
 }
 

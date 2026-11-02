@@ -11,6 +11,15 @@
 namespace frame_loop {
 
 struct Hub {
+    // The fields other code reads and sets.
+    tasks::PileUp& logic_tasks() { return logic_tasks_; }
+    [[nodiscard]] const tasks::PileUp& logic_tasks() const { return logic_tasks_; }
+    tasks::PileUp& display_tasks() { return display_tasks_; }
+    [[nodiscard]] const tasks::PileUp& display_tasks() const { return display_tasks_; }
+    tasks::PileUp& system_tasks() { return system_tasks_; }
+    [[nodiscard]] const tasks::PileUp& system_tasks() const { return system_tasks_; }
+
+private:
     uint8_t is_finished_{false}; // +0x00: (a bool) ends the loop after the current frame
     std::array<uint8_t, 3> pad01{};
     tasks::PileUp logic_tasks_;   // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
@@ -21,6 +30,8 @@ struct Hub {
     std::array<uint8_t, 0x04> padc0_{};
     int profile_frames_{}; // +0xAC (+0xC4): frames still to profile (announced, counted down)
     int profiling_{};      // +0xB0 (+0xC8): this frame is being profiled (passed to the task lists)
+
+public:
 
     // 0x0044EDC0: the three task lists (0x00406E80 each), the +0xB8/+0xBC words and is_finished_ cleared.
     Hub();
@@ -42,15 +53,20 @@ struct Hub {
     // device after it's lost. Returns when the game is quit (0x007D6A2C) or is_finished_ is set; is_finished_ is then put
     // back as it was on entry. PartyMod's letterbox per level is built in (render_frame_letterboxed).
     void get_main_loop();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(Hub, logic_tasks_) == 0x04);
+        static_assert(offsetof(Hub, display_tasks_) == 0x38);
+        static_assert(offsetof(Hub, system_tasks_) == 0x6C);
+        static_assert(offsetof(Hub, unknownb8_) == 0xA0);
+        static_assert(offsetof(Hub, profile_frames_) == 0xAC);
+        static_assert(offsetof(Hub, profiling_) == 0xB0);
+    }
 };
 // (The task lists' heads are 8 bytes smaller than the original's: the offsets after the first moved. The logic tasks at
 // +0x04 are read by byte offset elsewhere.)
-static_assert(offsetof(Hub, logic_tasks_) == 0x04);
-static_assert(offsetof(Hub, display_tasks_) == 0x38);
-static_assert(offsetof(Hub, system_tasks_) == 0x6C);
-static_assert(offsetof(Hub, unknownb8_) == 0xA0);
-static_assert(offsetof(Hub, profile_frames_) == 0xAC);
-static_assert(offsetof(Hub, profiling_) == 0xB0);
 static_assert(sizeof(Hub) == 0xB4);
 
 // NOT ORIGINAL: the main loop's passes so far (ours: features that need the game up - the front end's input logic

@@ -157,20 +157,20 @@ const char* view_mode_name(int mode) { return render::view_mode::get_name(static
 bool Painter::get_pixel(V3 p, float* x, float* y) const
 {
     float nx = 0.0f, ny = 0.0f;
-    if (!cast_onto(camera, frame, lens, p, near_z_, &nx, &ny))
+    if (!cast_onto(camera_, frame_, lens_, p, near_z_, &nx, &ny))
         return false;
-    ndc_to_pixel(viewport, nx, ny, x, y);
+    ndc_to_pixel(viewport_, nx, ny, x, y);
     return true;
 }
 
 bool Painter::get_seg(V3 a, V3 b, uint32_t argb, float thickness) const
 {
-    if (!clip_to_near(camera, frame, near_z_ + 0.01f, &a, &b))
+    if (!clip_to_near(camera_, frame_, near_z_ + 0.01f, &a, &b))
         return false;
     float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
     if (!get_pixel(a, &ax, &ay) || !get_pixel(b, &bx, &by))
         return false;
-    overlay->lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
+    overlay_->lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     return true;
 }
 
@@ -178,14 +178,14 @@ void Painter::get_dot(V3 p, float radius, uint32_t argb, bool filled) const
 {
     float x = 0.0f, y = 0.0f;
     if (get_pixel(p, &x, &y))
-        overlay->circles.push_back({.x = x, .y = y, .radius = radius, .argb = argb, .filled = filled, .thickness = 1.5f});
+        overlay_->circles.push_back({.x = x, .y = y, .radius = radius, .argb = argb, .filled = filled, .thickness = 1.5f});
 }
 
 void Painter::draw_label(V3 p, uint32_t argb, const std::string& text, float dx, float dy) const
 {
     float x = 0.0f, y = 0.0f;
     if (get_pixel(p, &x, &y))
-        overlay->texts.push_back({.x = x + dx, .y = y + dy, .argb = argb, .text = text});
+        overlay_->texts.push_back({.x = x + dx, .y = y + dy, .argb = argb, .text = text});
 }
 
 void Painter::perpendicular(V3 p, float size, uint32_t argb, float thickness) const
@@ -196,7 +196,7 @@ void Painter::perpendicular(V3 p, float size, uint32_t argb, float thickness) co
 
 float Painter::span_to(V3 p) const
 {
-    const V3 d = p - camera;
+    const V3 d = p - camera_;
     return std::sqrt(level_editor::get_dot(d, d));
 }
 
@@ -205,13 +205,13 @@ bool painter_now(ui::Overlay* overlay, Painter* painter)
     ViewNow view{};
     if (!current_view(&view))
         return false;
-    painter->camera = view.pos;
-    painter->frame = frame_from_yaw_pitch(view.yaw, view.pitch);
-    painter->lens = view.lens;
+    painter->set_camera(view.pos);
+    painter->set_frame(frame_from_yaw_pitch(view.yaw, view.pitch));
+    painter->set_lens(view.lens);
     for (int i = 0; i < 4; ++i)
-        core::at(painter->viewport, i) = core::at(view.viewport, i);
-    painter->near_z_ = view.near_z_;
-    painter->overlay = overlay;
+        core::at(painter->viewport(), i) = core::at(view.viewport, i);
+    painter->set_near_z(view.near_z_);
+    painter->set_overlay(overlay);
     return true;
 }
 
@@ -240,7 +240,7 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
         static V3 g_last_from = {.x = 1e30f, .y = 0.0f, .z = 0.0f};
         static float g_ground_y = 0.0f;
         static bool g_have_ground = false;
-        const V3 from = have_selection ? selection_base + V3{.x = 0.0f, .y = 2.0f, .z = 0.0f} : painter.camera;
+        const V3 from = have_selection ? selection_base + V3{.x = 0.0f, .y = 2.0f, .z = 0.0f} : painter.camera();
         const V3 d = from - g_last_from;
         if (get_dot(d, d) > 25.0f * 25.0f) {
             g_last_from = from;

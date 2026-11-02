@@ -574,7 +574,7 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     auto handler = memory::make_owned<ViewerObjectInputHandler>(&handle_viewer_object_input, this, 0, 0);
     task_ = handler;
     // Onto its controller's handlers (not null-checked: as the original).
-    pad_input::HostEnd& controller = core::at(input->hosts_, handler->ordinal());
+    pad_input::HostEnd& controller = core::at(input->hosts(), handler->ordinal());
     controller.handlers_.queue_job(handler);
     handler->set_control_data(&controller.content_);
     handler->set_dev(controller.dev_);

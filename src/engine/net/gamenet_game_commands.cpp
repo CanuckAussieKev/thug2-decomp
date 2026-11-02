@@ -109,7 +109,7 @@ constexpr int kPlayerMenuIdBase = 123456;   // the menu items' ids: this plus th
 constexpr uint32_t kJoinTeamInterval = 150; // ms between team requests
 constexpr int kMaxCrownSpawns = 10;
 
-tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
 uint32_t& last_team_request()
 {

@@ -67,7 +67,7 @@ constexpr uint32_t kPlayerMarked = 0x400; // chosen in the kick / ban menu
 constexpr int kDropBanned = 3;
 constexpr int kDropKicked = 4;
 
-tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
 // The flag message (took / captured): the player's object id and the team, to every remote player through the server;
 // `local` for this machine's.

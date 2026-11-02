@@ -28,7 +28,7 @@ inline void add_observer_controls(Hub* manager, PlayerRecord* player, tasks::Pil
     auto handler = memory::make_owned<pad_input::Responder<Hub>>(&Hub::observer_input, manager, handler_priority, 0);
     manager->set_spectator_pad_listener(handler);
     // (a null handler is read through, as in the original)
-    pad_input::HostEnd& server = core::at(input->hosts_, handler->ordinal());
+    pad_input::HostEnd& server = core::at(input->hosts(), handler->ordinal());
     server.handlers_.queue_job(handler);
     handler->set_control_data(&server.content_);
     handler->set_dev(server.dev_);

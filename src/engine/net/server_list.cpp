@@ -99,7 +99,7 @@ constexpr uint32_t kShowDelay = 500;         // ms
 constexpr uint32_t kNewsBufferSize = 0x6400; // bytes
 
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
 // NOT ORIGINAL grouping - server_list.cpp's state (the original's globals). Made on first use, never destroyed
 // (server_list_state()).

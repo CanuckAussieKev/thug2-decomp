@@ -219,7 +219,7 @@ void add_overlay(const overlays::Painter& painter)
     std::memset(level_editor_skate_view_state().counts_.data(), 0, sizeof(level_editor_skate_view_state().counts_));
     level_editor_skate_view_state().capped_ = false;
     level_editor_skate_view_state().rail_segments_ = 0;
-    if (!get_shown() || !painter.overlay)
+    if (!get_shown() || !painter.overlay())
         return;
     // The level's kill / water triggers by sector (1 kill, 2 water).
     std::unordered_map<uint32_t, int> triggers;
@@ -235,7 +235,7 @@ void add_overlay(const overlays::Painter& painter)
     struct Walk {
         V3 camera;
         std::vector<Candidate> found;
-    } walk = {.camera = painter.camera, .found = {}};
+    } walk = {.camera = painter.camera(), .found = {}};
     scenery::for_each_level_sector(
         [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
@@ -269,7 +269,7 @@ void add_overlay(const overlays::Painter& painter)
             }
             std::array<V3, 4> clipped{};
             const int count =
-                view::clip_triangle_to_near(painter.camera, painter.frame, painter.near_z_, std::span<const V3>(c.points).subspan(f * 3).first<3>(), clipped);
+                view::clip_triangle_to_near(painter.camera(), painter.frame(), painter.near_z(), std::span<const V3>(c.points).subspan(f * 3).first<3>(), clipped);
             if (!count)
                 continue;
             Polygon poly = {};
@@ -278,11 +278,11 @@ void add_overlay(const overlays::Painter& painter)
             float depth = 0.0f;
             for (int k = 0; k < count; ++k) {
                 float nx = 0.0f, ny = 0.0f;
-                cast_onto(painter.camera, painter.frame, painter.lens, core::at(clipped, k), painter.near_z_ * 0.5f, &nx, &ny);
+                cast_onto(painter.camera(), painter.frame(), painter.lens(), core::at(clipped, k), painter.near_z() * 0.5f, &nx, &ny);
                 left = left && nx < -1.0f, right = right && nx > 1.0f, below = below && ny < -1.0f;
                 above = above && ny > 1.0f;
-                ndc_to_pixel(painter.viewport, nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));
-                depth += -get_dot(core::at(clipped, k) - painter.camera, painter.frame.back);
+                ndc_to_pixel(painter.viewport(), nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));
+                depth += -get_dot(core::at(clipped, k) - painter.camera(), painter.frame().back);
             }
             if (left || right || below || above)
                 continue;
@@ -296,7 +296,7 @@ void add_overlay(const overlays::Painter& painter)
             break;
     }
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
-    auto& under = painter.overlay->under;
+    auto& under = painter.overlay()->under;
     for (const Polygon& p : polygons) {
         under.push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 1), .by = core::at(p.y, 1), .cx = core::at(p.x, 2), .cy = core::at(p.y, 2), .argb = p.argb});
         if (p.count == 4)

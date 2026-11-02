@@ -211,7 +211,7 @@ void Skate::start_callback()
     objects::nearby_zone_startup();
     objects::emitter_init();
     update_job_->skip_bits() = 2;
-    main_loop->logic_tasks_.queue_job(update_job_.get());
+    main_loop->logic_tasks().queue_job(update_job_.get());
     goals::game_mode()->get_reset();
     script::launch_script(kNetworkDriverStartup, nullptr, nullptr, false, nullptr);
     script::launch_script(kInitLoadingBar, nullptr, nullptr, false, nullptr);

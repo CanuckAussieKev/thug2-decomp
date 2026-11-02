@@ -168,12 +168,21 @@ static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, handlers_) == 0x04 &&
 struct Hub {
     static constexpr int kNumServers = 2;
 
+    // The fields other code reads and sets.
+    std::unique_ptr<tasks::Task<Hub>>& task() { return task_; }
+    [[nodiscard]] const std::unique_ptr<tasks::Task<Hub>>& task() const { return task_; }
+    std::array<HostEnd, kNumServers>& hosts() { return hosts_; }
+    [[nodiscard]] const std::array<HostEnd, kNumServers>& hosts() const { return hosts_; }
+
+private:
     std::unique_ptr<tasks::Task<Hub>> task_; // priority 2000, running the servers (service_task)
     std::array<HostEnd, kNumServers> hosts_;             // +0x04
     bool stick_replaces_pad_;                // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool unknown10d_;
     std::array<uint8_t, 2> pad10e_{};
     std::array<int, 2> unknown110_{}; // +0x110 (0x0044E630 / 0x0044E640 get and set them)
+
+public:
 
     // 0x0044E700: the servers, the task, each server's device (by index), the stick working the d-pad on.
     Hub();
@@ -195,8 +204,13 @@ struct Hub {
     // 0x0044E660: the task's code (`task` its tasks::Task<Manager>: the manager at +0x1C): for each server, a
     // recording played back or made that reached its end stops; then the server's frame (poll_input_sinks).
     static void service_task(tasks::Task<Hub>* task);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(sizeof(Hub) == 0x118 && offsetof(Hub, stick_replaces_pad_) == 0x10C);
+    }
 };
-static_assert(sizeof(Hub) == 0x118 && offsetof(Hub, stick_replaces_pad_) == 0x10C);
 
 // The singleton (0x00696D40, references 0x00696D44). 0x0044E7F0: the first call with `create` makes it, every
 // call takes a reference and returns it (null if there is none).

@@ -266,7 +266,7 @@ int on_admitted_msg(net::InboundMsgCtx* context)
 // 0x0052E1A0
 int handle_ready_to_play(net::InboundMsgCtx* context)
 {
-    auto* logic_tasks = (&assets::get_main_loop_manager()->logic_tasks_);
+    auto* logic_tasks = (&assets::get_main_loop_manager()->logic_tasks());
     Hub* manager = manager_of(context);
     manager->set_ready_state(true); // (cleared_to_start_ set, the skaters told)
     if (!context->receiver_app_->is_host_local())

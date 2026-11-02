@@ -164,10 +164,10 @@ bool Hub::load_network_drivers(const char* /*ip*/, const char* /*subnet_mask*/, 
 void Hub::add_app_tasks(AppHost* app)
 {
     frame_loop::Hub* mlp = assets::get_main_loop_manager();
-    mlp->logic_tasks_.queue_job((app->receive_task()));
-    mlp->logic_tasks_.queue_job((app->send_task()));
-    mlp->logic_tasks_.queue_job((app->process_task()));
-    mlp->logic_tasks_.queue_job((app->metrics_task()));
+    mlp->logic_tasks().queue_job((app->receive_task()));
+    mlp->logic_tasks().queue_job((app->send_task()));
+    mlp->logic_tasks().queue_job((app->process_task()));
+    mlp->logic_tasks().queue_job((app->metrics_task()));
 }
 
 // 0x00454DE0

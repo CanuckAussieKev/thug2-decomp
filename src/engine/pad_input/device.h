@@ -181,6 +181,11 @@ public:
     void pause_devices();
     void unpause_devices();
 
+    // The fields other code reads and sets.
+    std::unique_ptr<tasks::Task<memory::ListNode>>& task() { return task_; }
+    [[nodiscard]] const std::unique_ptr<tasks::Task<memory::ListNode>>& task() const { return task_; }
+
+private:
     memory::ListNode devs_{};                             // the list's head
     std::unique_ptr<tasks::Task<memory::ListNode>> task_; // running process_task with the list as its data
 };

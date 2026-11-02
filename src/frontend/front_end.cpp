@@ -306,11 +306,11 @@ uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
 void FrontEnd::start_callback()
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
-    append_vertex(main_loop_manager()->logic_tasks_, update_job_.get());
+    append_vertex(main_loop_manager()->logic_tasks(), update_job_.get());
     pad_input::Hub* input = input_manager();
     for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
         // The controller's place in the input manager (see update_input_mappings).
-        pad_input::HostEnd& server = core::at(input->hosts_, handler->ordinal());
+        pad_input::HostEnd& server = core::at(input->hosts(), handler->ordinal());
         append_vertex(server.handlers_, handler.get());
         handler->set_control_data(&server.content_);
         handler->set_dev(server.dev_);
@@ -330,7 +330,7 @@ void FrontEnd::stop_callback()
 void FrontEnd::register_key_listener(int device)
 {
     keyboard_device_ = device;
-    append_vertex(main_loop_manager()->logic_tasks_, keyboard_task_.get());
+    append_vertex(main_loop_manager()->logic_tasks(), keyboard_task_.get());
 }
 
 // 0x0054EF80
@@ -576,10 +576,10 @@ void FrontEnd::get_pause_game(bool pause)
     // The main loop's logic tasks: while paused those of the 0xC kinds (a task's +0x14 bits) are skipped
     // (0x00406AC0 runs a task only when (mask & its kinds) == 0).
     if (pause) {
-        main_loop_manager()->logic_tasks_.set_skip_bits(0xC);
+        main_loop_manager()->logic_tasks().set_skip_bits(0xC);
         report_pause_state();
     } else {
-        main_loop_manager()->logic_tasks_.set_skip_bits(0);
+        main_loop_manager()->logic_tasks().set_skip_bits(0);
         modules::Skate::sole()->get_freeze(false);
         report_pause_state();
     }
@@ -657,7 +657,7 @@ void FrontEnd::update_input_mappings()
         debug::printf("got a handler\n"); // "got a handler\n"
         remove_node(handler);
         // The controller's place in the input manager: its device, its handler list, its control data.
-        pad_input::HostEnd& server = core::at(input.supervisor_->hosts_, core::at(device_server_map_, i));
+        pad_input::HostEnd& server = core::at(input.supervisor_->hosts(), core::at(device_server_map_, i));
         append_vertex(server.handlers_, handler);
         handler->set_control_data(&server.content_);
         handler->set_dev(server.dev_);

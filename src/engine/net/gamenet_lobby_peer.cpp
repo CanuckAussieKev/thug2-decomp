@@ -89,7 +89,7 @@ constexpr uint32_t kPlayerObserverCounted = 0x08; // (0x005434C0: an observer re
 constexpr uint32_t kNewPlayerCounted = 0x18;
 constexpr uint32_t kNewPlayerObserver = 0x04;
 
-tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
 RoomManager* task_lobby(tasks::Task<RoomManager>* task) { return task->content(); }
 

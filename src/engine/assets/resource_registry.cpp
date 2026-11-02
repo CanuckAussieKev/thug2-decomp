@@ -177,7 +177,7 @@ ResourceRegistry::~ResourceRegistry()
 // 0x00407E90
 void ResourceRegistry::start_callback()
 {
-    (&registry_state().main_loop_manager_->logic_tasks_)->queue_job(task_.get()); // the logic tasks
+    (&registry_state().main_loop_manager_->logic_tasks())->queue_job(task_.get()); // the logic tasks
 }
 
 // 0x00407AE0

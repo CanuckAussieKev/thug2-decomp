@@ -207,8 +207,8 @@ void SkateNet::launch_host(Skate* skate)
     auto* server = net->start_host_session(!auto_serving, true);
     if (!server)
         return;
-    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks(), 0).get());
-    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks(), 1).get());
+    mlp->logic_tasks().queue_job(core::at(skate->server_tasks(), 0).get());
+    mlp->logic_tasks().queue_job(core::at(skate->server_tasks(), 1).get());
     append_listener(server, 0x3B, handle_trick_objects, 0, nullptr);
     append_listener(server, 0x52, handle_combo_score, 0, skate);
     append_listener(server, 0x86, handle_game_stats, 0, skate);

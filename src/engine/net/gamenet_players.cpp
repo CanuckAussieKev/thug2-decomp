@@ -119,7 +119,7 @@ constexpr uint32_t kHideCtfArrow = 0x1C318F8C;           // hide_ctf_arrow
 // (The joining player's record: online::JoinerRecord, player_info.h.)
 constexpr uint32_t kNewPlayerRejoining = 0x10; // (a pending player added back)
 
-tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
 // The skater camera's / walk camera's calls not rewritten as members here.
 void set_camera_skater(objects::ObjectModule* camera, void* skater)

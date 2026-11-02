@@ -109,7 +109,7 @@ void seal(GameEntity* object) { object->seal(); }
 // The task system (Tsk): a task's constructor (priority), its removal from its list, and the main loop's logic task
 // list's add.
 void get_remove_task(tasks::SchedulerTask* task) { task->drop_out(); }
-void register_logic_task(tasks::SchedulerTask* task) { assets::get_main_loop_manager()->logic_tasks_.queue_job(task); }
+void register_logic_task(tasks::SchedulerTask* task) { assets::get_main_loop_manager()->logic_tasks().queue_job(task); }
 
 // The node after `node`, or null at the head; a node's object (null for none).
 memory::ListNode* get_next_node(memory::ListNode* node)

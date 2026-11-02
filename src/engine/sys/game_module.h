@@ -62,9 +62,16 @@ private:
 };
 
 struct Hub {
+    // The fields other code reads and sets.
+    std::unique_ptr<tasks::Task<Hub>>& task() { return task_; }
+    [[nodiscard]] const std::unique_ptr<tasks::Task<Hub>>& task() const { return task_; }
+
+private:
     std::unique_ptr<tasks::Task<Hub>> task_; // priority -1000, running tick_modules
     memory::ListNode modules_{};             // +0x04: the list's head (lists::Foremost<Module>)
     bool command_pending_; // +0x14 (the original's +0x18): a module was given a command since the task last ran
+
+public:
 
     // 0x0044F5E0: the empty list and the task (not added to a task list here).
     Hub();

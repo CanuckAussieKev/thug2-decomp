@@ -98,7 +98,7 @@ uint32_t& last_flag_base_warning()
     return last_flag_base_warning;
 }
 
-tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
 bool in_group_room(Hub* manager) { return manager->lobby_service()->in_group_room(); }
 

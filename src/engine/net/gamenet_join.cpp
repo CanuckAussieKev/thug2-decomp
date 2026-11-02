@@ -158,7 +158,7 @@ std::array<char, kPasswordSize>& join_password()
 }
 
 net::Hub* net_session_slot() { return net::Hub::sole(); }
-tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 int milli_seconds() { return static_cast<int>(frame_clock::get_time()); }
 uint32_t current_local_address() { return crt::get_inet_addr(net_session_slot()->fetch_own_address()); }
 

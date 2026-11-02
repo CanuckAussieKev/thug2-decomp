@@ -622,7 +622,7 @@ uint32_t& loader_module_refs() { return async_state().loader_module_refs_; }
 void register_logic_task(tasks::SchedulerTask* task)
 {
     // The main loop manager's logic task list.
-    assets::get_main_loop_manager()->logic_tasks_.queue_job(task);
+    assets::get_main_loop_manager()->logic_tasks().queue_job(task);
 }
 
 } // namespace

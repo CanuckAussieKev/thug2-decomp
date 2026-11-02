@@ -100,6 +100,7 @@ public:
         uint32_t unknown8;
         uint32_t unknownc_;
     };
+private:
     std::array<std::array<Bay, 2>, 4> slots_{};
     SaveCard save_device_{};
 };

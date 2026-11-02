@@ -102,7 +102,7 @@ memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap()); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap()); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
-tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
+tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
 uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name); }
 void get_run(const char* script, script::Struct* params = nullptr)

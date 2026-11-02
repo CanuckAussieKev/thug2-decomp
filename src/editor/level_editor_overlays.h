@@ -68,12 +68,29 @@ constexpr int kViewModes = 4;
 
 // World lines, dots and labels projected to the view's back buffer pixels into the UI's overlay.
 struct Painter {
-    V3 camera;
-    TickCycle frame;
-    Lens lens;
-    std::array<uint32_t, 4> viewport;
+    // The fields other code reads and sets.
+    [[nodiscard]] const V3& camera() const { return camera_; }
+    void set_camera(const V3& value) { camera_ = value; }
+    [[nodiscard]] const TickCycle& frame() const { return frame_; }
+    void set_frame(const TickCycle& value) { frame_ = value; }
+    [[nodiscard]] const Lens& lens() const { return lens_; }
+    void set_lens(const Lens& value) { lens_ = value; }
+    std::array<uint32_t, 4>& viewport() { return viewport_; }
+    [[nodiscard]] const std::array<uint32_t, 4>& viewport() const { return viewport_; }
+    [[nodiscard]] float near_z() const { return near_z_; }
+    void set_near_z(float value) { near_z_ = value; }
+    [[nodiscard]] ui::Overlay* overlay() const { return overlay_; }
+    void set_overlay(ui::Overlay* value) { overlay_ = value; }
+
+private:
+    V3 camera_;
+    TickCycle frame_;
+    Lens lens_;
+    std::array<uint32_t, 4> viewport_;
     float near_z_;
-    ui::Overlay* overlay;
+    ui::Overlay* overlay_;
+
+public:
     // False when it is wholly behind the near plane.
     [[nodiscard]] bool get_seg(V3 a, V3 b, uint32_t argb, float thickness = 1.0f) const;
     // A point's pixel (false: behind the camera).

@@ -168,13 +168,13 @@ ParkBuilderMode::~ParkBuilderMode() { ParkLayout::discard_occurrence(); }
 void ParkBuilderMode::start_callback()
 {
     frame_loop::Hub* main_loop = get_main_loop();
-    main_loop->logic_tasks_.queue_job(editor_update_job_.get());
+    main_loop->logic_tasks().queue_job(editor_update_job_.get());
     ParkEditorInputHandler* handler = editor_pad_listener_.get();
-    pad_input::HostEnd& server = core::at(input_manager()->hosts_, handler->ordinal());
+    pad_input::HostEnd& server = core::at(input_manager()->hosts(), handler->ordinal());
     server.handlers_.queue_job(handler);
-    handler->set_control_data(&core::at(input_manager()->hosts_, handler->ordinal()).content_);
-    handler->set_dev(core::at(input_manager()->hosts_, handler->ordinal()).dev_);
-    main_loop->display_tasks_.queue_job(draw_job_.get());
+    handler->set_control_data(&core::at(input_manager()->hosts(), handler->ordinal()).content_);
+    handler->set_dev(core::at(input_manager()->hosts(), handler->ordinal()).dev_);
+    main_loop->display_tasks().queue_job(draw_job_.get());
 }
 
 // 0x0058D340
@@ -624,7 +624,7 @@ void ParkBuilderMode::link_to_pad(int controller)
     pad_input::Hub* input = pad_input::create_manager(false); // (a single::LazyInstance<pad_input::Hub>)
     ParkEditorInputHandler* handler = editor_pad_listener_.get();
     handler->drop_out();
-    pad_input::HostEnd& server = core::at(input->hosts_, controller);
+    pad_input::HostEnd& server = core::at(input->hosts(), controller);
     server.handlers_.queue_job(handler);
     handler->set_control_data(&server.content_);
     handler->set_dev(server.dev_);

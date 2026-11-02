@@ -30,7 +30,7 @@ void add_node_by_priority(memory::ListNode* head, memory::ListNode* node)
     lists::append_vertex(*head, node);
 }
 // tasks::Task's constructor and the main loop's system task list's add.
-void queue_engine_job(tasks::SchedulerTask* task) { assets::get_main_loop_manager()->system_tasks_.queue_job(task); }
+void queue_engine_job(tasks::SchedulerTask* task) { assets::get_main_loop_manager()->system_tasks().queue_job(task); }
 
 // The node after `node`, or null at the head.
 memory::ListNode* get_next_node(memory::ListNode* node)

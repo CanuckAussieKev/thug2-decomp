@@ -128,7 +128,7 @@ void get_roll(objects::GameEntity* object, float angle)
 
 void add_input_handler(ViewerInputHandler* handler)
 {
-    pad_input::HostEnd& server = core::at(input_manager()->hosts_, handler->ordinal());
+    pad_input::HostEnd& server = core::at(input_manager()->hosts(), handler->ordinal());
     append_vertex(server.handlers_, handler);
     handler->set_control_data(&server.content_);
     handler->set_dev(server.dev_);
@@ -529,11 +529,11 @@ void Viewer::start_callback()
                                    0x80);
         dispatcher.append_listener(0x2B, &on_remote_script_msg, 3, this, 0x80);
     }
-    append_vertex(main_loop_manager()->logic_tasks_, task_1c_.get());
+    append_vertex(main_loop_manager()->logic_tasks(), task_1c_.get());
     add_input_handler(pad_listener_.get());
     debug::printf("Adding shift input handlers\n)");
     add_input_handler(shift_handler_.get());
-    append_vertex(main_loop_manager()->logic_tasks_, task20_.get());
+    append_vertex(main_loop_manager()->logic_tasks(), task20_.get());
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

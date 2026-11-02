@@ -185,9 +185,9 @@ int game_main(int argc, char** argv)
         memory::pop_mem_profile();
 
         memory::push_mem_profile("Resgistering and starting modules");
-        queue_job(mlp->system_tasks_, mdl->task_.get());
-        queue_job(mlp->system_tasks_, sio->task_.get());
-        queue_job(mlp->logic_tasks_, input->task_.get());
+        queue_job(mlp->system_tasks(), mdl->task().get());
+        queue_job(mlp->system_tasks(), sio->task().get());
+        queue_job(mlp->logic_tasks(), input->task().get());
         enrol_unit(mdl, script_cache);
         enrol_unit(mdl, park_editor);
         enrol_unit(mdl, front_end);
@@ -219,9 +219,9 @@ int game_main(int argc, char** argv)
         remove_module(mdl, park_editor);
         remove_module(mdl, async_loader);
         remove_module(mdl, assets);
-        clear_job_list(mlp->display_tasks_);
-        clear_job_list(mlp->logic_tasks_);
-        clear_job_list(mlp->system_tasks_);
+        clear_job_list(mlp->display_tasks());
+        clear_job_list(mlp->logic_tasks());
+        clear_job_list(mlp->system_tasks());
         gfx::release_tod_manager();
         level_nodes::release_node_manager();
         frontend::delete_screen_element_manager();
