@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include <cstddef>
 #include <cstdint>
 
@@ -56,7 +57,7 @@ public:
     void choose_tri_source(void* faces);
     // 0x0048E150: the vertex colours (fetch_vertex_tally of them) copied to `out` - from a copy kept
     // (plat_get_render_colors, made the first time with memory::alloc_block on the front end's heap).
-    void fetch_tints(uint32_t* out);
+    void fetch_tints(std::span<uint32_t> out);
 
     // The platform's virtual functions (vtable slots 1 - 48; the base's bodies print their "STUB: ..." and do nothing
     // - or return what the comment says). The slots the same in both tables are plain methods below.
@@ -91,10 +92,10 @@ public:
     virtual bool break_strips(uint32_t mask);           // [31] 0x0048DC40 PlatHidePolys: true
     virtual uint32_t plat_get_num_render_polys();       // [33] 0x0048DC80: 0
     virtual uint32_t fetch_vertex_tally();              // [36] 0x0048DC60: 0
-    virtual void get_vertices(maths::Vec4* out);        // [37] 0x0048DC70
-    virtual void plat_get_render_colors(uint32_t* out);  // [38] 0x0048DCA0
-    virtual void set_vertices(const maths::Vec4* in);   // [39] 0x0048DCB0
-    virtual void change_colors(const uint32_t* in);      // [40] 0x0048DCC0
+    virtual void get_vertices(std::span<maths::Vec4> out); // [37] 0x0048DC70
+    virtual void plat_get_render_colors(std::span<uint32_t> out); // [38] 0x0048DCA0
+    virtual void set_vertices(std::span<const maths::Vec4> in); // [39] 0x0048DCB0
+    virtual void change_colors(std::span<const uint32_t> in); // [40] 0x0048DCC0
     virtual void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
                                       float v_freq, float v_phase);                             // [42] 0x0048DCE0
     virtual void enable_explicit_uv_wibble(int on);                                             // [43] 0x0048DCF0

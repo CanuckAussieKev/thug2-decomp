@@ -4,10 +4,12 @@
 
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "game/park_editing/park_scene.h"
 
 #include "engine/assets/resource_entry.h"
+#include "engine/core/span_copy.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "game/park_editing/park.h"
@@ -56,9 +58,9 @@ void spin_around_up(render::WorldCell* sector, int rot) { sector->spin_around_up
 const maths::BBox* get_local_bounds(render::WorldCell* sector) { return sector->fetch_bounds(); }
 render::Geom* fetch_shape(render::WorldCell* sector) { return static_cast<render::Geom*>(sector->geom_handle_); }
 int get_vertex_count(render::Geom* geometry) { return static_cast<int>(geometry->fetch_vertex_tally()); }
-void get_vertex_positions(render::Geom* geometry, maths::Vec4* out) { geometry->get_vertices(out); }
-void set_vertex_colours(render::Geom* geometry, const uint32_t* colours) { geometry->change_colors(colours); }
-void get_vertex_colours(render::Geom* geometry, uint32_t* out) { geometry->plat_get_render_colors(out); }
+void get_vertex_positions(render::Geom* geometry, std::span<maths::Vec4> out) { geometry->get_vertices(out); }
+void set_vertex_colours(render::Geom* geometry, std::span<const uint32_t> colours) { geometry->change_colors(colours); }
+void get_vertex_colours(render::Geom* geometry, std::span<uint32_t> out) { geometry->plat_get_render_colors(out); }
 render::TriMeshSource* get_hit_shape(render::Geom* geometry)
 {
     return static_cast<render::TriMeshSource*>(geometry->hit_triangles_);
@@ -192,15 +194,17 @@ void ParkAssembler::light_piece(ParkTile* p)
     const int count = get_vertex_count(geometry);
     if (count) {
         // (new[] of vectors and colours: their constructors do nothing)
-        auto* positions = static_cast<maths::Vec4*>(memory::alloc(count * sizeof(maths::Vec4)));
-        auto* colours = static_cast<uint32_t*>(memory::alloc(count * sizeof(uint32_t)));
+        auto* positions_block = static_cast<maths::Vec4*>(memory::alloc(count * sizeof(maths::Vec4)));
+        auto* colours_block = static_cast<uint32_t*>(memory::alloc(count * sizeof(uint32_t)));
+        const std::span<maths::Vec4> positions(positions_block, static_cast<size_t>(count));
+        const std::span<uint32_t> colours(colours_block, static_cast<size_t>(count));
         get_vertex_positions(geometry, positions);
         get_vertex_colours(source_geometry, colours);
         for (int i = 0; i < count; ++i)
-            colours[i] = sample_light_colour(&positions[i], colours[i]);
+            core::at(colours, i) = sample_light_colour(&core::at(positions, i), core::at(colours, i));
         set_vertex_colours(geometry, colours);
-        memory::dealloc(positions);
-        memory::dealloc(colours);
+        memory::dealloc(positions_block);
+        memory::dealloc(colours_block);
     }
     // the collision's vertex intensities, from the source's (grey)
     const render::TriMeshSource* collision = get_hit_shape(geometry);

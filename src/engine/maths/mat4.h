@@ -2,6 +2,7 @@
 
 #include "engine/maths/vec4.h"
 #include <array>
+#include <span>
 
 namespace maths {
 
@@ -47,6 +48,9 @@ public:
     // The 16 values, row by row, as an array of floats (for D3D / D3DX and the original's float-array code).
     float* data() { return row.front().data(); }
     [[nodiscard]] const float* data() const { return row.front().data(); }
+    // The same 16 values as a span (checked element access; the rows are contiguous).
+    std::span<float, 16> floats() { return std::span<float, 16>(data(), 16); }
+    [[nodiscard]] std::span<const float, 16> floats() const { return std::span<const float, 16>(data(), 16); }
 
     // this = rotation * this: rotate about the matrix's own (local) axis.
     Mat4& pitch_locally(float angle);

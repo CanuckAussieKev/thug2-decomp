@@ -85,8 +85,12 @@ render::Geom* fetch_shape(render::WorldCell* sector)
     return static_cast<render::Geom*>(sector->geom_handle_);
 }
 int get_vertex_count(render::Geom* geometry) { return static_cast<int>(geometry->fetch_vertex_tally()); }
-void get_vertices(render::Geom* geometry, Vec4* out) { geometry->get_vertices(out); }
-void set_vertices(render::Geom* geometry, Vec4* vertices) { geometry->set_vertices(vertices); }
+// (the buffers are made for the geometry's vertex count: the run is of that)
+void get_vertices(render::Geom* geometry, Vec4* out) { geometry->get_vertices({out, geometry->fetch_vertex_tally()}); }
+void set_vertices(render::Geom* geometry, Vec4* vertices)
+{
+    geometry->set_vertices({vertices, geometry->fetch_vertex_tally()});
+}
 render::TriMeshSource* get_hit_shape(render::Geom* geometry)
 {
     return static_cast<render::TriMeshSource*>(geometry->hit_triangles_);

@@ -6,6 +6,8 @@
 #include <cstring>
 #include <new>
 
+#include "engine/core/checked_index.h"
+#include "engine/core/span_copy.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -96,7 +98,7 @@ maths::Vec4* Geom::fetch_bound_sphere(maths::Vec4* out)
 void Geom::choose_tri_source(void* faces) { hit_triangles_ = faces; }
 
 // 0x0048E150
-void Geom::fetch_tints(uint32_t* out)
+void Geom::fetch_tints(std::span<uint32_t> out)
 {
     const uint32_t count = fetch_vertex_tally();
     if (!render_colours_) {
@@ -104,9 +106,9 @@ void Geom::fetch_tints(uint32_t* out)
         manager->enter_heap_scope(manager->front_end_heap_);
         render_colours_ = static_cast<uint32_t*>(memory::alloc_block(count * 4));
         memory::Hub::get_pull()->leave_heap_scope();
-        plat_get_render_colors(render_colours_);
+        plat_get_render_colors({render_colours_, count});
     }
-    std::memcpy(out, render_colours_, count * 4);
+    core::copy_into(std::span<const uint32_t>(render_colours_, count), out);
 }
 
 // --- the base's platform calls ----------------------------------------------------------------------------------
@@ -275,7 +277,7 @@ uint32_t Geom::fetch_vertex_tally()
     return 0;
 }
 // 0x0048DC70
-void Geom::get_vertices(maths::Vec4*)
+void Geom::get_vertices(std::span<maths::Vec4>)
 {
     get_stub("STUB: CGeom::plat_get_render_verts\n");
 } // "STUB: CGeom::plat_get_render_verts\n"
@@ -292,17 +294,17 @@ uint32_t Geom::plat_get_num_render_base_polys()
     return 0;
 }
 // 0x0048DCA0
-void Geom::plat_get_render_colors(uint32_t*)
+void Geom::plat_get_render_colors(std::span<uint32_t>)
 {
     get_stub("STUB: CGeom::plat_get_render_colors\n");
 } // "STUB: CGeom::plat_get_render_colors\n"
 // 0x0048DCB0
-void Geom::set_vertices(const maths::Vec4*)
+void Geom::set_vertices(std::span<const maths::Vec4>)
 {
     get_stub("STUB: CGeom::plat_set_render_verts\n");
 } // "STUB: CGeom::plat_set_render_verts\n"
 // 0x0048DCC0
-void Geom::change_colors(const uint32_t*)
+void Geom::change_colors(std::span<const uint32_t>)
 {
     get_stub("STUB: CGeom::plat_set_render_colors\n");
 } // "STUB: CGeom::plat_set_render_colors\n"

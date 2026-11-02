@@ -162,7 +162,7 @@ bool cfunc_fake_lights(script::Struct* params, script::Script*)
     // (the original passes is_prefix too: 0x0045BF90 takes two arguments and ignores it)
     (void)is_prefix;
     const uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, &count);
-    render::queue_scene_lights(nodes, count, time, params);
+    render::queue_scene_lights({nodes, count}, time, params);
     return true;
 }
 

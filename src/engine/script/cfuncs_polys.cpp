@@ -77,13 +77,13 @@ render::Geom* as_geom(void* geometry) { return static_cast<render::Geom*>(geomet
 int get_vertex_count(void* geometry) { return static_cast<int>(as_geom(geometry)->fetch_vertex_tally()); }
 void get_positions(void* geometry, script::VectorValue* out)
 {
-    as_geom(geometry)->get_vertices(out); // (x, y, z, w each)
+    as_geom(geometry)->get_vertices({out, as_geom(geometry)->fetch_vertex_tally()}); // (x, y, z, w each)
 }
 void get_colours(void* geometry, colour::Bytes* out)
 {
     static_assert(sizeof(colour::Bytes) == sizeof(uint32_t));
     std::vector<uint32_t> words(static_cast<size_t>(get_vertex_count(geometry)));
-    static_cast<render::Geom*>(geometry)->fetch_tints(words.data());
+    static_cast<render::Geom*>(geometry)->fetch_tints(words);
     for (size_t i = 0; i < words.size(); ++i)
         out[i] = colour::bytes_of(core::at(words, i));
 }
@@ -92,7 +92,7 @@ void set_colours(void* geometry, const colour::Bytes* colours)
     std::vector<uint32_t> words(static_cast<size_t>(get_vertex_count(geometry)));
     for (size_t i = 0; i < words.size(); ++i)
         core::at(words, i) = colour::packed_of(colours[i]);
-    as_geom(geometry)->change_colors(words.data());
+    as_geom(geometry)->change_colors(words);
 }
 
 // The CRT's _ftol (0x006236FC): truncation towards zero; callers keep the low bits.

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -159,12 +160,12 @@ public:
     uint32_t fetch_vertex_tally() override;
     // 0x004B4BB0 (vtable slot 37) / 0x004B4C50 (vtable slot 39): the vertices (x, y, z, 1 each), read and written -
     // each mesh's bounding sphere made again from the box of its new vertices.
-    void get_vertices(maths::Vec4* out) override;
-    void set_vertices(const maths::Vec4* in) override;
+    void get_vertices(std::span<maths::Vec4> out) override;
+    void set_vertices(std::span<const maths::Vec4> in) override;
     // 0x004B4160 (vtable slot 38) / 0x004B4210 (vtable slot 40): the vertex colours (RGBA; the buffers hold BGRA) read
     // from the first vertex buffers and written to all.
-    void plat_get_render_colors(uint32_t* out) override;
-    void change_colors(const uint32_t* in) override;
+    void plat_get_render_colors(std::span<uint32_t> out) override;
+    void change_colors(std::span<const uint32_t> in) override;
     // 0x004B4300 (vtable slot 42): the UV wibble of each mesh's first pass that has one.
     void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
                               float v_freq, float v_phase) override;
@@ -187,6 +188,8 @@ public:
     memory::ListNode* load_list_{nullptr}; // +0x38: the meshes while it loads (a list's head), made into `meshes` after
     MeshRef** meshes{nullptr};             // +0x3C
     uint32_t mesh_count_{};       // +0x40
+    // NOT ORIGINAL - the meshes as a run of mesh_count_.
+    [[nodiscard]] std::span<MeshRef*> mesh_run() const { return {meshes, mesh_count_}; }
     uint32_t visibility{0xDEADBEEF}; // +0x44: a viewport mask (0xDEADBEEF until set)
     bool active{true};               // +0x48
     std::array<uint8_t, 3> pad49{};

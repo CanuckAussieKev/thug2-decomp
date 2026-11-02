@@ -156,7 +156,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
                     auto* vertices =
                         static_cast<maths::Vec4*>(mem_manager()->carve(count * sizeof(maths::Vec4), 1, nullptr));
                     // (the original runs the vertices' empty constructor over the block, 0x00401020 with 0x005902E0)
-                    geom->get_vertices(vertices);
+                    geom->get_vertices({vertices, static_cast<size_t>(count)});
                     for (int i = 0; i < count; ++i)
                         box.append_spot(vertices[i]);
                     mem_manager()->dealloc(vertices);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <span>
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -42,6 +43,9 @@ struct SceneRef {
     uint32_t unknown78{0};
     IDirect3DVertexBuffer9* arena_buffer_{nullptr}; // +0x7C: the vertex arena's buffer (released with the scene)
     uint32_t unknown80{0};
+
+    // NOT ORIGINAL - the meshes as a run of mesh_count_.
+    [[nodiscard]] std::span<MeshRef*> mesh_run() const { return {meshes, static_cast<size_t>(mesh_count_)}; }
 
     // 0x004DE300: construct empty.
     SceneRef();

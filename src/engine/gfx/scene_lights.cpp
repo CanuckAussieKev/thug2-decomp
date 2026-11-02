@@ -8,7 +8,9 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <span>
 
+#include "engine/core/span_copy.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_geom.h"
@@ -50,6 +52,8 @@ int& scene_light_count() { return g_scene_light_count; }
 // The queue.
 uint32_t*& queued_nodes() { return g_queued_nodes; }
 int& queued_count() { return g_queued_count; }
+// NOT ORIGINAL - the queued nodes as a run of the count they were queued with.
+std::span<uint32_t> queued_run() { return {g_queued_nodes, static_cast<size_t>(g_queued_count)}; }
 int& queue_done() { return g_queue_done; }
 int& queue_frames() { return g_queue_frames; }
 int& queue_frame() { return g_queue_frame; }
@@ -80,8 +84,8 @@ LevelLamp* find_scene_light(uint32_t name)
 
 Geom* geom_of(const WorldCell* sector) { return static_cast<Geom*>(sector->geom_handle_); }
 uint32_t get_vertex_count(Geom* geom) { return geom->fetch_vertex_tally(); }
-void get_vertices(Geom* geom, maths::Vec4* out) { geom->get_vertices(out); }
-void set_colours(Geom* geom, const uint32_t* in) { geom->change_colors(in); }
+void get_vertices(Geom* geom, std::span<maths::Vec4> out) { geom->get_vertices(out); }
+void set_colours(Geom* geom, std::span<const uint32_t> in) { geom->change_colors(in); }
 
 // What a light adds at a vertex: (radius - distance) / radius x its intensity - when the vertex is within its radius
 // (the squared distance rounded to a float first); its colour's bytes times that summed into r, g, b.
@@ -118,18 +122,18 @@ struct Sums {
 };
 
 // A position's offset from a light, squared: the original's two orders of summing.
-double offset_squared_zxy(const float* p, const maths::Vec4& l)
+double offset_squared_zxy(const maths::Vec4& p, const maths::Vec4& l)
 {
-    const double dx = static_cast<double>(p[0]) - l.x;
-    const double dy = static_cast<double>(p[1]) - l.y;
-    const double dz = static_cast<double>(p[2]) - l.z;
+    const double dx = static_cast<double>(p.x) - l.x;
+    const double dy = static_cast<double>(p.y) - l.y;
+    const double dz = static_cast<double>(p.z) - l.z;
     return dz * dz + dx * dx + dy * dy;
 }
-double offset_squared_zyx(const float* p, const maths::Vec4& l)
+double offset_squared_zyx(const maths::Vec4& p, const maths::Vec4& l)
 {
-    const double dx = static_cast<double>(p[0]) - l.x;
-    const double dy = static_cast<double>(p[1]) - l.y;
-    const double dz = static_cast<double>(p[2]) - l.z;
+    const double dx = static_cast<double>(p.x) - l.x;
+    const double dy = static_cast<double>(p.y) - l.y;
+    const double dz = static_cast<double>(p.z) - l.z;
     return dz * dz + dy * dy + dx * dx;
 }
 
@@ -232,33 +236,36 @@ void apply_scene_lights_to_sector(WorldCell* sector)
     if (count <= 0)
         return;
     if (found == 0) { // its own colours back
-        auto* colours = static_cast<uint32_t*>(memory::alloc(count * 4));
+        auto* colours_block = static_cast<uint32_t*>(memory::alloc(count * 4));
+        const std::span<uint32_t> colours(colours_block, static_cast<size_t>(count));
         geom->fetch_tints(colours);
         set_colours(geom, colours);
-        memory::dealloc(colours);
+        memory::dealloc(colours_block);
         return;
     }
-    auto* vertices = static_cast<maths::Vec4*>(memory::alloc(count * 16));
-    auto* colours = static_cast<uint32_t*>(memory::alloc(count * 4));
+    auto* vertices_block = static_cast<maths::Vec4*>(memory::alloc(count * 16));
+    auto* colours_block = static_cast<uint32_t*>(memory::alloc(count * 4));
+    const std::span<maths::Vec4> vertices(vertices_block, static_cast<size_t>(count));
+    const std::span<uint32_t> colours(colours_block, static_cast<size_t>(count));
     get_vertices(geom, vertices);
     geom->fetch_tints(colours);
     for (int v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
             const LevelLamp& light = core::at(scene_light_array(), core::at(lights, l));
-            sums.append_one(light, offset_squared_zxy(&vertices[v].x, light.at_point_));
+            sums.append_one(light, offset_squared_zxy(core::at(vertices, v), light.at_point_));
         }
         if (sums.lit)
-            colours[v] = sums.get_apply(colours[v]);
+            core::at(colours, v) = sums.get_apply(core::at(colours, v));
     }
     set_colours(geom, colours);
-    memory::dealloc(vertices);
-    memory::dealloc(colours);
+    memory::dealloc(vertices_block);
+    memory::dealloc(colours_block);
 }
 
 // 0x0048F620
-void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* positions, const maths::Vec4* normal,
-                          uint32_t count)
+void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out, std::span<const maths::Vec4> positions,
+                          const maths::Vec4* normal, uint32_t count)
 {
     std::array<int, 3> lights{};
     int found = 0;
@@ -266,31 +273,32 @@ void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* 
         const LevelLamp& light = core::at(scene_light_array(), i);
         bool facing = true;
         if (normal) {
-            const double dx = static_cast<double>(positions->x) - light.at_point_.x;
-            const double dy = static_cast<double>(positions->y) - light.at_point_.y;
-            const double dz = static_cast<double>(positions->z) - light.at_point_.z;
+            const maths::Vec4& first = core::at(positions, 0);
+            const double dx = static_cast<double>(first.x) - light.at_point_.x;
+            const double dy = static_cast<double>(first.y) - light.at_point_.y;
+            const double dz = static_cast<double>(first.z) - light.at_point_.z;
             facing = dz * normal->z + dy * normal->y + dx * normal->x <= 0.0; // (NaN: not)
         }
         if (!(light.strength_ > 0.0f))
             continue;
         const double rr = static_cast<double>(light.radius_) * light.radius_;
-        const double d2 = offset_squared_zyx(&positions->x, light.at_point_);
+        const double d2 = offset_squared_zyx(core::at(positions, 0), light.at_point_);
         if (!(rr >= d2) || !facing)
             continue;
         core::at(lights, found++) = i;
     }
     if (found == 0) {
-        std::memcpy(out, in, count * 4);
+        core::copy_into(in.first(count), out);
         return;
     }
     for (uint32_t v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
             const LevelLamp& light = core::at(scene_light_array(), core::at(lights, l));
-            sums.append_one(light, offset_squared_zyx(&positions[v].x, light.at_point_));
+            sums.append_one(light, offset_squared_zyx(core::at(positions, v), light.at_point_));
         }
         if (sums.lit)
-            out[v] = sums.get_apply(in[v]);
+            core::at(out, v) = sums.get_apply(core::at(in, v));
     }
 }
 
@@ -311,14 +319,14 @@ void apply_scene_light(WorldScene* /*scene*/, uint32_t name)
 // 0x0048FCA0
 void delete_scene_light(uint32_t name)
 {
-    DynamicLightBase** dynamic = g_dynamic_lights.data();
+    std::array<DynamicLightBase*, 256>& dynamic = g_dynamic_lights;
     int& dynamic_count = g_dynamic_light_count;
     for (int i = 0; i < dynamic_count; ++i) {
-        if (dynamic[i]->owner == name) { // (no null check, as the original)
-            memory::Hub::get_pull()->dealloc(dynamic[i]);
-            dynamic[i] = dynamic[dynamic_count - 1];
+        if (core::at(dynamic, i)->owner == name) { // (no null check, as the original)
+            memory::Hub::get_pull()->dealloc(core::at(dynamic, i));
+            core::at(dynamic, i) = core::at(dynamic, dynamic_count - 1);
             --dynamic_count;
-            dynamic[dynamic_count] = nullptr;
+            core::at(dynamic, dynamic_count) = nullptr;
             break;
         }
     }
@@ -359,8 +367,9 @@ void clear_scene_light_queue()
 }
 
 // 0x0048FE40
-void queue_scene_lights(const uint32_t* nodes, int count, int frames, script::Struct* params)
+void queue_scene_lights(std::span<const uint32_t> nodes, int frames, script::Struct* params)
 {
+    const auto count = static_cast<int>(nodes.size());
     clear_scene_light_queue();
     gsl::owner<script::Struct*> copy = script::spawn_param_bag();
     if (copy)
@@ -369,8 +378,8 @@ void queue_scene_lights(const uint32_t* nodes, int count, int frames, script::St
     copy->append_structure_if_any(params);
     if (count) {
         queued_nodes() = static_cast<uint32_t*>(memory::alloc_block(count * 4));
-        for (int i = 0; i < count; ++i)
-            queued_nodes()[i] = nodes[i];
+        queued_count() = count; // (set before the copy: the run is of the count)
+        core::copy_into(nodes, queued_run());
     }
     queue_frames() = frames;
     queued_count() = count;
@@ -387,7 +396,7 @@ void update_scene_light_queue()
     }
     const int target = queue_frames() ? queued_count() * queue_frame() / queue_frames() : queued_count();
     for (; queue_done() < target; ++queue_done()) {
-        script::Struct* node = level_nodes::fetch_vertex(queued_nodes()[queue_done()], true);
+        script::Struct* node = level_nodes::fetch_vertex(core::at(queued_run(), queue_done()), true);
         update_scene_light(level_nodes::get_node_name(node), queue_params());
     }
     ++queue_frame();

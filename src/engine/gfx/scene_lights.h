@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/maths/vec4.h"
 
@@ -53,8 +54,8 @@ static_assert(offsetof(LevelLamp, label_) == 0x18 && sizeof(LevelLamp) == 0x24, 
 void apply_scene_lights_to_sector(WorldCell* sector);
 // 0x0048F620: `count` vertex colours from `in` to `out`, lit by up to 3 lights that reach the first position (and,
 // with a `normal`, face it); unlit vertices left as they are in `out`, all copied when no light does.
-void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* positions, const maths::Vec4* normal,
-                          uint32_t count);
+void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out, std::span<const maths::Vec4> positions,
+                          const maths::Vec4* normal, uint32_t count);
 // 0x0048FC00: the sectors the light `name` reaches coloured again (`scene` isn't used).
 void apply_scene_light(WorldScene* scene, uint32_t name);
 // 0x0048FCA0: the dynamic light and the scene light of `name` deleted (the last ones moved into their slots).
@@ -65,7 +66,7 @@ void delete_all_scene_lights();
 void clear_scene_light_queue();
 // 0x0048FE40: `count` light nodes queued to be brought up to date with a copy of `params`, spread over `frames`
 // frames.
-void queue_scene_lights(const uint32_t* nodes, int count, int frames, script::Struct* params);
+void queue_scene_lights(std::span<const uint32_t> nodes, int frames, script::Struct* params);
 // 0x004904E0: the queue's share for this frame brought up to date (not while paused); let go of when it's done.
 void update_scene_light_queue();
 // 0x004901D0: the light `name` (a scene light, else a dynamic light) given the brightness (0x9E497FC6, in percent),
