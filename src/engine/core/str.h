@@ -2,6 +2,8 @@
 
 #include <cstddef>
 #include <cstring>
+#include <limits>
+#include <span>
 
 namespace text {
 
@@ -32,16 +34,16 @@ int next_word(char* out, const char*& cursor);
 // no length limit (the destination is the original's buffer, sized as it was). Returns `dest`.
 inline char* copy_unbounded(char* dest, const char* source)
 {
-    for (std::size_t i = 0;; ++i) {
-        dest[i] = source[i];
-        if (source[i] == '\0')
-            return dest;
-    }
+    // (memmove: a forward copy a byte at a time, as the original, whichever way the two overlap)
+    std::memmove(dest, source, std::strlen(source) + 1);
+    return dest;
 }
 // The original's inline strcat: `source` copied onto the end of `dest`'s text, with no length limit.
 inline char* append_unbounded(char* dest, const char* source)
 {
-    copy_unbounded(dest + std::strlen(dest), source);
+    // (the original's buffer has no extent we know: the span reaches as far as indexing does)
+    const std::span<char> from_end = std::span<char>(dest, std::numeric_limits<std::ptrdiff_t>::max()).subspan(std::strlen(dest));
+    copy_unbounded(from_end.data(), source);
     return dest;
 }
 
