@@ -8,6 +8,7 @@
 #include <dinput.h>
 
 #include <cstddef>
+#include <string_view>
 #include <cstdint>
 #include <array>
 
@@ -82,7 +83,7 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID context);
 // again, or all up when that fails. There must be a keyboard.
 void read_keyboard();
 // 0x005F3470 (cdecl): the hex number at `*cursor` (digits and upper-case A-F), the cursor moved past it.
-uint32_t parse_hex(const char** cursor);
+uint32_t parse_hex(std::string_view& cursor);
 // 0x005F34D0 (cdecl): the options and controls from HKEY_CURRENT_USER\<key> (PartyMod: thug2-decomp.ini).
 void load_registry_options(const char* key);
 // 0x005F39E0 (cdecl): the joysticks, their effects, the keyboard and DirectInput released (not the mouse).
