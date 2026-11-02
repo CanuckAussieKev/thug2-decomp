@@ -3,6 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
+
+#include <gsl/pointers>
 
 #include "platform/all_ones.h"
 
@@ -16,6 +19,16 @@ namespace memory {
 
 class MemSource;
 
+// NOT ORIGINAL - the heaps' memory as one run of bytes: the main region, which holds every block any heap hands out
+// (the other regions are blocks of its heaps), set when the memory manager makes it. Headers and blocks are found by
+// their offset in it - a block's header is the 16 bytes before the block, the next header the bytes after it -
+// each reach checked against the run (a pointer that isn't a heap block ends the game with a report instead of
+// reading whatever lies before it).
+std::span<uint8_t> heap_memory();
+void set_heap_memory(std::span<uint8_t> memory);
+// Where `place` is in the heaps' memory (its end included).
+uint32_t heap_offset(const void* place);
+
 // In front of every block: the allocator that owns it, its size, and a marker.
 struct ChunkPrefix {
     MemSource* allocator;
@@ -27,13 +40,23 @@ struct ChunkPrefix {
     static constexpr uint32_t kBlockInUse = 0xCF801FE1;
     static constexpr uint32_t kBlockFreed = 0xDEADDEAD;
 
-    static ChunkPrefix* get_of(void* block) { return static_cast<ChunkPrefix*>(block) - 1; }
-    void* gate_off() { return this + 1; }
-    // The header right after this block (block sizes are multiples of the header's 16 bytes).
-    ChunkPrefix* following() { return this + 1 + size / 16; }
+    // The header in front of `block`.
+    static ChunkPrefix* get_of(void* block);
+    // The header made in the heaps' memory at `offset` (a block being split or given back in part).
+    static gsl::owner<ChunkPrefix*> make_at(uint32_t offset);
+    // Where this header is in the heaps' memory; its block's start (16 bytes on) and end (the next header's place:
+    // block sizes are multiples of the header's 16 bytes).
+    [[nodiscard]] uint32_t offset() const { return heap_offset(this); }
+    [[nodiscard]] uint32_t block_offset() const;
+    [[nodiscard]] uint32_t end_offset() const { return block_offset() + size; }
+    // The block itself.
+    void* gate_off();
+    // Whether `other` is the header right after this block.
+    [[nodiscard]] bool is_followed_by(const ChunkPrefix* other) const { return end_offset() == other->offset(); }
     ChunkPrefix*& next_free() { return next_free_; }
 };
 constexpr uint32_t kBlockHeaderSize = sizeof(ChunkPrefix);
+inline uint32_t ChunkPrefix::block_offset() const { return offset() + kBlockHeaderSize; }
 
 // Memory debugging: the heap reports each block it hands out, splits or resizes (before and after the change).
 // Compiled out of this build (the empty function at 0x005480A0), kept to show where the original reports.
@@ -55,8 +78,8 @@ public:
     static void* operator new(std::size_t, void* place) noexcept { return place; }
     static void operator delete(void*, void*) noexcept {}
 
-    // 0x005BC5F0
-    Zone(uint8_t* start, uint8_t* end);
+    // 0x005BC5F0 (the original took its start and end)
+    explicit Zone(std::span<uint8_t> memory);
     // 0x005BC4D0 / 0x005BC6D0 (vtable 0x00658A58): nothing - the memory isn't the region's.
     virtual ~Zone() = default;
     Zone(const Zone&) = delete;
@@ -66,12 +89,15 @@ public:
     void remove_allocator(MemSource* allocator);
     // The space between the two allocators' tops.
     int free_byte_count();
-    // Move `allocator`'s top by `size` (in its direction). Returns the start of the claimed space - the old top
-    // growing up, the new top growing down - or null if it would cross the other allocator.
-    uint8_t* carve(MemSource* allocator, int size, int unused);
-    uint8_t* outset_{};
+    // Move `allocator`'s top by `size` (in its direction). Returns the claimed space - from the old top growing up,
+    // from the new top growing down - or an empty span if it would cross the other allocator.
+    std::span<uint8_t> carve(MemSource* allocator, int size, int unused);
+    // NOT ORIGINAL - the region's size, and where `place` is in it (its end included).
+    [[nodiscard]] uint32_t byte_size() const { return static_cast<uint32_t>(memory_.size()); }
+    [[nodiscard]] uint32_t offset_of(const void* place) const;
+
+    std::span<uint8_t> memory_; // the region's bytes (the original's start and end pointers)
     int min_available_{}; // the least free_byte_count has been (starts as the whole region)
-    uint8_t* finish_{};
     std::array<MemSource*, 2> allocators_{}; // growing up, growing down
 
 protected:
@@ -170,7 +196,7 @@ public:
     int max_free_size_;
     Zone* region_;
     int direction_;     // Direction
-    uint8_t* top_side_{}; // how far it has claimed in the region
+    uint32_t top_side_{}; // how far it has claimed in the region (an offset in it; the original's was a pointer)
     CtxInfo* context_;  // the current context
     const char* label_;
     ListNode zone_chain_{}; // head of the context stack (newest first)

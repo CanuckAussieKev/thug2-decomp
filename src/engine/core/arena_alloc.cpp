@@ -7,9 +7,55 @@
 #include "engine/core/mem.h"
 #include "engine/core/checked_index.h"
 
+#include <gsl/assert>
+
 namespace memory {
 
-// --- block headers -------------------------------------------------------------------------------------
+// --- the heaps' memory and the block headers -----------------------------------------------------------
+
+namespace {
+std::span<uint8_t> g_heap_memory;
+
+// How far `to` is from `from`, in bytes.
+std::ptrdiff_t byte_distance(const void* from, const void* to)
+{
+    return static_cast<const uint8_t*>(to) - static_cast<const uint8_t*>(from);
+}
+
+// A place in `memory` (its end included), checked.
+uint32_t offset_in(std::span<uint8_t> memory, const void* place)
+{
+    const std::ptrdiff_t offset = byte_distance(memory.data(), place);
+    Expects(offset >= 0 && static_cast<std::size_t>(offset) <= memory.size());
+    return static_cast<uint32_t>(offset);
+}
+
+// The header's 16 bytes at `offset` in the heaps' memory, checked to be inside it.
+void* header_place(uint32_t offset)
+{
+    const std::span<uint8_t> memory = g_heap_memory;
+    Expects(static_cast<std::size_t>(offset) + kBlockHeaderSize <= memory.size());
+    return &core::at(memory, offset);
+}
+} // namespace
+
+std::span<uint8_t> heap_memory() { return g_heap_memory; }
+void set_heap_memory(std::span<uint8_t> memory) { g_heap_memory = memory; }
+uint32_t heap_offset(const void* place) { return offset_in(g_heap_memory, place); }
+
+ChunkPrefix* ChunkPrefix::get_of(void* block)
+{
+    const uint32_t offset = heap_offset(block);
+    Expects(offset >= kBlockHeaderSize);
+    return static_cast<ChunkPrefix*>(header_place(offset - kBlockHeaderSize));
+}
+
+gsl::owner<ChunkPrefix*> ChunkPrefix::make_at(uint32_t offset)
+{
+    return memory::construct_in<ChunkPrefix>(header_place(offset));
+}
+
+void* ChunkPrefix::gate_off() { return g_heap_memory.subspan(block_offset()).data(); }
 
 // 0x005BA080
 void* mark_block_in_use(void* block)
@@ -42,7 +88,7 @@ void* Zone::operator new(std::size_t size) noexcept { return alloc_zeroed(static
 void Zone::operator delete(void* memory) { memory::dealloc(memory); }
 
 // 0x005BC5F0
-Zone::Zone(uint8_t* start, uint8_t* end) : outset_(start), min_available_(static_cast<int>(end - start)), finish_(end)
+Zone::Zone(std::span<uint8_t> memory) : memory_(memory), min_available_(static_cast<int>(memory.size()))
 {
     core::at(allocators_, 1) = nullptr;
     core::at(allocators_, 0) = nullptr;
@@ -52,8 +98,10 @@ Zone::Zone(uint8_t* start, uint8_t* end) : outset_(start), min_available_(static
 void Zone::add_allocator(MemSource* allocator)
 {
     core::at(allocators_, (allocator->direction_ >> 1) & 1) = allocator;
-    allocator->top_side_ = allocator->direction_ == MemSource::kGrowUp ? outset_ : finish_;
+    allocator->top_side_ = allocator->direction_ == MemSource::kGrowUp ? 0 : byte_size();
 }
+
+uint32_t Zone::offset_of(const void* place) const { return offset_in(memory_, place); }
 
 // 0x005BC510
 void Zone::remove_allocator(MemSource* allocator) { core::at(allocators_, (allocator->direction_ >> 1) & 1) = nullptr; }
@@ -61,33 +109,33 @@ void Zone::remove_allocator(MemSource* allocator) { core::at(allocators_, (alloc
 // 0x005BC530
 int Zone::free_byte_count()
 {
-    const uint8_t* bottom = core::at(allocators_, 0) ? core::at(allocators_, 0)->top_side_ : outset_;
-    const uint8_t* top = core::at(allocators_, 1) ? core::at(allocators_, 1)->top_side_ : finish_;
+    const uint32_t bottom = core::at(allocators_, 0) ? core::at(allocators_, 0)->top_side_ : 0;
+    const uint32_t top = core::at(allocators_, 1) ? core::at(allocators_, 1)->top_side_ : byte_size();
     return static_cast<int>(top - bottom);
 }
 
 // 0x005BC560
-uint8_t* Zone::carve(MemSource* allocator, int size, int /*unused*/)
+std::span<uint8_t> Zone::carve(MemSource* allocator, int size, int /*unused*/)
 {
     const int side = (allocator->direction_ >> 1) & 1; // 0 growing up, 1 growing down
     const MemSource* other = core::at(allocators_, side ^ 1);
-    uint8_t* new_top = allocator->top_side_ + allocator->direction_ * size;
-    uint8_t* result = new_top;
+    const int64_t new_top = int64_t{allocator->top_side_} + (int64_t{allocator->direction_} * size);
+    int64_t result = new_top;
     if (side) {
-        const uint8_t* limit = other ? other->top_side_ : outset_;
+        const int64_t limit = other ? other->top_side_ : 0;
         if (new_top < limit)
-            return nullptr;
+            return {};
     } else {
-        const uint8_t* limit = other ? other->top_side_ : finish_;
+        const int64_t limit = other ? other->top_side_ : byte_size();
         result = allocator->top_side_;
         if (new_top > limit)
-            return nullptr;
+            return {};
     }
-    allocator->top_side_ = new_top;
+    allocator->top_side_ = static_cast<uint32_t>(new_top);
     const int available = free_byte_count();
     if (available < min_available_)
         min_available_ = available;
-    return result;
+    return memory_.subspan(static_cast<std::size_t>(result), static_cast<std::size_t>(size));
 }
 
 // 0x005BC620
@@ -95,17 +143,16 @@ MemoryArena::MemoryArena(uint32_t size)
 {
     if (size) {
         const uint32_t rounded = size & ~0xFu;
-        auto* start = static_cast<uint8_t*>(alloc(rounded)); // (New makes sure the memory system is set up)
-        finish_ = start + rounded;
-        outset_ = start;
-        min_available_ = static_cast<int>(finish_ - start);
+        // (New makes sure the memory system is set up)
+        memory_ = std::span<uint8_t>(static_cast<uint8_t*>(alloc(rounded)), rounded);
+        min_available_ = static_cast<int>(rounded);
         core::at(allocators_, 1) = nullptr;
         core::at(allocators_, 0) = nullptr;
     }
 }
 
 // 0x005BC6B0
-MemoryArena::~MemoryArena() { memory::dealloc(outset_); }
+MemoryArena::~MemoryArena() { memory::dealloc(memory_.data()); }
 
 // --- allocators ----------------------------------------------------------------------------------------
 

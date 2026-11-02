@@ -9,6 +9,8 @@
 #include <cstdio>
 #include <string>
 #include <array>
+#include <memory>
+#include <span>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
@@ -33,7 +35,9 @@ void address_space(uint64_t& total, uint64_t& largest)
             if (info.RegionSize > largest)
                 largest = info.RegionSize;
         }
-        uint8_t* next = static_cast<uint8_t*>(info.BaseAddress) + info.RegionSize;
+        // (the next region starts where this one ends)
+        const std::span<uint8_t> region(static_cast<uint8_t*>(info.BaseAddress), info.RegionSize);
+        uint8_t* next = std::to_address(region.end());
         if (next <= at)
             break;
         at = next;

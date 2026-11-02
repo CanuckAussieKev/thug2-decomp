@@ -75,7 +75,7 @@ void delete_reserve_pool(memory::PoolPair& pools)
     ++pools.current;
     if (memory::SlabBank* pool = core::at(pools.pools, pools.current)) {
         if (core::at(pools.made_here_, pools.current)) {
-            memory::Hub::get_pull()->dealloc(pool->outset_); // (its destructor body, 0x005BA4E0)
+            memory::Hub::get_pull()->dealloc(pool->memory_.data()); // (its destructor body, 0x005BA4E0)
             memory::Hub::get_pull()->dealloc(pool);
         }
         core::at(pools.pools, pools.current) = nullptr;

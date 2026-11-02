@@ -4,6 +4,7 @@
 #include <new>
 #include <utility>
 #include <array>
+#include <span>
 #include <gsl/pointers>
 
 namespace memory {
@@ -28,8 +29,7 @@ public:
         FreeSlot* next;
     };
 
-    uint8_t* outset_;
-    uint8_t* finish_;
+    std::span<uint8_t> memory_; // the items' block (the original's start and end pointers)
     int num_;
     int slot_bytes_;
     int taken_count_;

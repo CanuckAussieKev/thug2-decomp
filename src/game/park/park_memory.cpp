@@ -76,7 +76,7 @@ void delete_pool(memory::PoolPair& pair)
     if (!pool)
         return;
     if (pool_made_here(pair)) {
-        memory::dealloc(pool->outset_); // ~Pool (0x005BA4E0)
+        memory::dealloc(pool->memory_.data()); // ~Pool (0x005BA4E0)
         memory::Hub::get_pull()->dealloc(pool);
     }
     core::at(pair.pools, pair.current) = nullptr;

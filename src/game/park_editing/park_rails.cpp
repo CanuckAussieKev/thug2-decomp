@@ -30,7 +30,7 @@ uint8_t& pool_owned(memory::PoolPair& pair) { return core::at(pair.made_here_, p
 // A pool deleted: its block (0x005BA4E0, ~Pool), then the pool.
 void delete_pool(memory::SlabBank* pool)
 {
-    memory::dealloc(pool->outset_);
+    memory::dealloc(pool->memory_.data());
     memory::Hub::get_pull()->dealloc(pool);
 }
 

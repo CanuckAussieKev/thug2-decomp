@@ -15,6 +15,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include <memory>
+#include <span>
 
 namespace memory {
 
@@ -467,9 +468,7 @@ gsl::owner<MemoryArena*> new_alloc_region(uint32_t size) { return new MemoryAren
 Hub*& Hub::sole() { return g_memory_manager; }
 
 namespace {
-uint8_t* g_heap_block_limit;
-uint8_t* g_heap_block_end;
-uint8_t* g_heap_block_start;
+std::span<uint8_t> g_heap_block; // the block the main region is in (the original kept its start, end and limit)
 uintptr_t g_data_end;
 uintptr_t g_data_start;
 uintptr_t g_text_seg_base;
@@ -489,19 +488,15 @@ Hub::Hub()
     // pool sizes as THUGPRO's), so every heap in it keeps the room it had.
     // Original behaviour: 64 MB (0x4000000).
     const uint32_t block_size = sizes::main_block_size();
-    auto* block = static_cast<uint8_t*>(get_crt_malloc(block_size));
-    g_heap_block_start = block;
-    g_heap_block_end = block + block_size;
-    g_heap_block_limit = block + block_size;
-    const uint8_t* end = g_heap_block_limit;
+    g_heap_block = std::span<uint8_t>(static_cast<uint8_t*>(get_crt_malloc(block_size)), block_size);
     // The region: the block's start rounded up and its end rounded down to 16 bytes.
-    void* aligned = block;
+    void* aligned = g_heap_block.data();
     size_t space = block_size;
     std::align(16, 0, aligned, space);
-    auto* const start = static_cast<uint8_t*>(aligned);
-    auto* const finish = start + ((end - start) & ~ptrdiff_t{15});
+    const std::span<uint8_t> main_memory = g_heap_block.subspan(block_size - space, space & ~size_t{15});
+    set_heap_memory(main_memory);
     void* region = get_clear(sizeof(Zone), kMainRegionStorage);
-    primary_zone_ = region ? memory::construct_in<Zone>(region, start, finish) : nullptr;
+    primary_zone_ = region ? memory::construct_in<Zone>(region, main_memory) : nullptr;
     void* top = get_clear(sizeof(Arena), kTopDownStorage);
     top_down_heap_ = top ? memory::construct_in<Arena>(top, primary_zone_, MemSource::kGrowDown, static_cast<const char*>("Top Down")) : nullptr;
     void* bottom = get_clear(sizeof(Arena), kBottomUpStorage);

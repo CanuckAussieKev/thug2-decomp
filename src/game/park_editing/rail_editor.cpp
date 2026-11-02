@@ -79,7 +79,7 @@ void free_pool(memory::PoolPair& pair)
     if (!pool)
         return;
     if (get_owned(pair, pair.current)) {
-        memory::dealloc(pool->outset_);
+        memory::dealloc(pool->memory_.data());
         memory::Hub::get_pull()->dealloc(pool);
     }
     core::at(pair.pools, pair.current) = nullptr;

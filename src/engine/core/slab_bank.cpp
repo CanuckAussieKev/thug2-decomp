@@ -7,6 +7,7 @@
 #include <initializer_list>
 #include <new>
 #include <array>
+#include <span>
 #include <utility>
 
 #include <gsl/assert>
@@ -20,9 +21,8 @@ namespace memory {
 // 0x005BA420
 SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), slot_bytes_(item_size)
 {
-    auto* block = static_cast<uint8_t*>(alloc(static_cast<unsigned int>(item_size * count)));
-    finish_ = block + num_ * slot_bytes_;
-    outset_ = block;
+    const auto bytes = static_cast<std::size_t>(num_) * static_cast<std::size_t>(slot_bytes_);
+    memory_ = std::span<uint8_t>(static_cast<uint8_t*>(alloc(static_cast<unsigned int>(item_size * count))), bytes);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     taken_count_ = 0;
     peak_used_ = 0;
@@ -30,7 +30,7 @@ SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), sl
     // Link every item to the next (from the last, which ends the list); the first heads it.
     gsl::owner<FreeSlot*> next = nullptr;
     for (int i = num_ - 1; i >= 0; --i)
-        next = memory::construct_in<FreeSlot>(block + i * slot_bytes_, next);
+        next = memory::construct_in<FreeSlot>(&core::at(memory_, i * slot_bytes_), next);
     free_list_ = next;
 
     // The original copies with no length limit, like strcpy.
@@ -89,8 +89,9 @@ void SlabBank::dealloc(void* item)
 // 0x005BA3B0
 bool SlabBank::get_holds(const void* pointer) const
 {
-    auto* p = static_cast<const uint8_t*>(pointer);
-    return outset_ <= p && p < finish_;
+    // (where it is from the block's start: before it reads negative)
+    const std::ptrdiff_t offset = static_cast<const uint8_t*>(pointer) - memory_.data();
+    return offset >= 0 && static_cast<std::size_t>(offset) < memory_.size();
 }
 
 namespace slot_pool_setup {

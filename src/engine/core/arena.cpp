@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <new>
+#include <span>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/dbg.h"
@@ -31,7 +32,8 @@ void count_up(int& value, int& max, int amount)
 
 uint32_t round_up16(uint32_t size) { return (size + 15) & ~15u; }
 
-uint8_t* end_of(ChunkPrefix* header) { return static_cast<uint8_t*>(header->gate_off()) + header->size; }
+// Where a block of the heap's region ends, in the region (the allocator's top is an offset there).
+uint32_t end_in_region(const Zone& region, ChunkPrefix* header) { return region.offset_of(header->gate_off()) + header->size; }
 // A block's header made in the memory at `place`.
 gsl::owner<ChunkPrefix*> header_at(uint8_t* place) { return memory::construct_in<ChunkPrefix>(place); }
 
@@ -76,7 +78,7 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
         // Split off what isn't needed, as a free block of its own.
         const int rest = static_cast<int>(best->size - kBlockHeaderSize - rounded);
         if (rest > 0) {
-            gsl::owner<ChunkPrefix*> tail = header_at(static_cast<uint8_t*>(best->gate_off()) + rounded);
+            gsl::owner<ChunkPrefix*> tail = ChunkPrefix::make_at(best->block_offset() + rounded);
             best->size = rounded;
             tail->allocator = this;
             tail->size = static_cast<uint32_t>(rest);
@@ -87,8 +89,8 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
     }
 
     // Claim new space from the region.
-    uint8_t* const space = region_->carve(this, static_cast<int>(kBlockHeaderSize + rounded), use_fallbacks_ == 0 && halt_if_exhausted);
-    ChunkPrefix* const header = space ? header_at(space) : nullptr;
+    const std::span<uint8_t> space = region_->carve(this, static_cast<int>(kBlockHeaderSize + rounded), use_fallbacks_ == 0 && halt_if_exhausted);
+    ChunkPrefix* const header = space.empty() ? nullptr : header_at(space.data());
     if (!header) {
         if (use_fallbacks_ && !heap_busy()) {
             heap_busy() = 1;
@@ -158,7 +160,7 @@ void* Arena::extend_block_upward(uint32_t new_size, void* block)
         return block;
     }
     ChunkPrefix* extra = fetch_chunk_prefix(carve(rounded - header->size, true));
-    if (header->following() != extra) {
+    if (!header->is_followed_by(extra)) {
         // Not right after the block: give it back.
         heap_busy() = 0;
         dealloc(extra);
@@ -184,7 +186,7 @@ void* Arena::trim_block_end(uint32_t new_size, void* block)
         heap_busy() = 0;
         return block;
     }
-    gsl::owner<ChunkPrefix*> tail = header_at(static_cast<uint8_t*>(block) + (header->size - cut));
+    gsl::owner<ChunkPrefix*> tail = ChunkPrefix::make_at(header->block_offset() + (header->size - cut));
     tail->size = cut - kBlockHeaderSize;
     tail->allocator = this;
     debug_track_block(tail);
@@ -219,7 +221,7 @@ void Arena::dealloc(ChunkPrefix* header)
     }
 
     header->next_free() = next;
-    if (next && header->following() == next) {
+    if (next && header->is_followed_by(next)) {
         header->next_free() = next->next_free();
         header->size += next->size + kBlockHeaderSize;
         --free_blocks_;
@@ -230,7 +232,7 @@ void Arena::dealloc(ChunkPrefix* header)
     if (!previous) {
         context_->free_list_ = header;
         before = nullptr;
-    } else if (previous->following() == header) {
+    } else if (previous->is_followed_by(header)) {
         previous->size += header->size + kBlockHeaderSize;
         previous->next_free() = header->next_free();
         --free_blocks_;
@@ -243,13 +245,13 @@ void Arena::dealloc(ChunkPrefix* header)
     }
 
     // At the heap's top? Then it goes back to the region.
-    if (direction_ == kGrowUp && !next && top_side_ == end_of(header)) {
+    if (direction_ == kGrowUp && !next && top_side_ == end_in_region(*region_, header)) {
         if (before)
             before->next_free() = nullptr;
         else
             context_->free_list_ = nullptr;
-        top_side_ -= (header->size + kBlockHeaderSize) * direction_;
-    } else if (direction_ == kGrowDown && !before && top_side_ + kBlockHeaderSize == header->gate_off()) {
+        top_side_ -= header->size + kBlockHeaderSize; // (growing up: the original's size times the direction)
+    } else if (direction_ == kGrowDown && !before && top_side_ == region_->offset_of(header)) {
         top_side_ += kBlockHeaderSize + header->size;
         context_->free_list_ = header->next_free();
     } else {

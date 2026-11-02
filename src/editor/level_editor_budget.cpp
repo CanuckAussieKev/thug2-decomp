@@ -167,7 +167,7 @@ bool region_use(memory::Zone* region, double* size, double* used)
         if (allocator)
             free += allocator->free_size_;
     }
-    *size = static_cast<double>(region->finish_ - region->outset_);
+    *size = static_cast<double>(region->byte_size());
     *used = *size - free;
     return true;
 }
