@@ -47,9 +47,9 @@
 
 namespace gfx {
 
-Stance* g_blend_buffer;
-float* g_blend_weights;
-uint32_t* g_blend_sets;
+std::span<Stance> g_blend_buffer;
+std::span<float> g_blend_weights;
+std::span<uint32_t> g_blend_sets;
 namespace {
 
 using script::Struct;
@@ -84,7 +84,7 @@ using online::kMsgWobbleTarget;
 uint8_t g_last_wobble_target{0xFF};
 uint8_t g_last_wobble_details{0xFF};
 int8_t g_last_loop_type{-1};
-Stance* g_poses;
+std::span<Stance> g_poses;
 int g_max_blends;
 int g_subsets;
 
@@ -94,10 +94,10 @@ uint8_t& last_wobble_details() { return g_last_wobble_details; }
 int8_t& last_loop_type() { return g_last_loop_type; }
 
 // The blend buffers (init_buffers).
-uint32_t*& blend_sets() { return g_blend_sets; }
-float*& blend_weights() { return g_blend_weights; }
-Stance*& blend_buffer() { return g_blend_buffer; }
-Stance*& current_poses() { return g_poses; }
+std::span<uint32_t>& blend_sets() { return g_blend_sets; }
+std::span<float>& blend_weights() { return g_blend_weights; }
+std::span<Stance>& blend_buffer() { return g_blend_buffer; }
+std::span<Stance>& current_poses() { return g_poses; }
 int& max_blends() { return g_max_blends; }
 int& get_subsets() { return g_subsets; }
 bool omit_from_draw() { return render::g_suppress_draw; }
@@ -408,13 +408,14 @@ bool BlendChannel::blend_pose(int index)
     const RigData* data = skeleton->payload_;
     for (int i = 0; i < count; ++i) {
         // (each pose's translations start as the skeleton's bind translations)
-        std::memcpy(current_poses()[i].translations.data(), data->bind_translations_,
+        Stance& pose = core::at(current_poses(), i);
+        std::memcpy(pose.translations.data(), data->bind_translations_,
                     static_cast<size_t>(skeleton->get_num_bones() & 0x0FFFFFFF) * 16);
-        fetch_pose(i, &current_poses()[i], &blend_weights()[i]);
+        fetch_pose(i, &pose, &core::at(blend_weights(), i));
     }
     if (count > 1)
-        mix_poses(current_poses(), blend_weights(), skeleton->get_num_bones(), current_poses(), count);
-    std::memcpy(&blend_buffer()[index], current_poses(), sizeof(Stance));
+        mix_poses(current_poses(), blend_weights(), skeleton->get_num_bones(), core::at(current_poses(), 0), count);
+    core::at(blend_buffer(), index) = core::at(current_poses(), 0);
     return true;
 }
 
@@ -716,19 +717,23 @@ void BlendChannel::init_buffers(int blends, int subsets)
     // (each pose's rotations made the identity by the vector constructor iterator 0x00401020 with 0x00464340; its
     // translations' constructor 0x005902E0 does nothing)
     auto new_poses = [](int count) {
-        auto* poses = static_cast<Stance*>(memory::alloc(static_cast<uint32_t>(count) * sizeof(Stance)));
-        if (poses) {
-            for (int i = 0; i < count; ++i) {
-                for (auto& rotation : poses[i].rotations)
-                    rotation = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // (0x00590300: the identity)
-            }
+        auto* block = static_cast<Stance*>(memory::alloc(static_cast<uint32_t>(count) * sizeof(Stance)));
+        const std::span<Stance> poses(block, block ? static_cast<size_t>(count) : 0);
+        for (Stance& pose : poses) {
+            for (auto& rotation : pose.rotations)
+                rotation = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // (0x00590300: the identity)
         }
         return poses;
     };
+    // A block of `count` words as a run of them (none without memory).
+    auto new_words = []<typename Word>(int count) {
+        auto* block = static_cast<Word*>(memory::alloc(static_cast<uint32_t>(count) * 4));
+        return std::span<Word>(block, block ? static_cast<size_t>(count) : 0);
+    };
     blend_buffer() = new_poses(get_subsets());
     current_poses() = new_poses(max_blends());
-    blend_sets() = static_cast<uint32_t*>(memory::alloc(static_cast<uint32_t>(max_blends()) * 4));
-    blend_weights() = static_cast<float*>(memory::alloc(static_cast<uint32_t>(max_blends()) * 4));
+    blend_sets() = new_words.operator()<uint32_t>(max_blends());
+    blend_weights() = new_words.operator()<float>(max_blends());
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

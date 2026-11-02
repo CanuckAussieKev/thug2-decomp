@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/quat_rotation.h"
@@ -34,16 +35,17 @@ struct Stance {
 };
 
 // 0x0047D470: the rotation a fraction `t` of the way from `from` to `to` (the shorter way: `to` is negated first
-// when the two point apart), normalised. As the original, `to` is overwritten with the result too.
-float* interpolate_rotation(float* out, const float* from, float* to, float t);
+// when the two point apart), normalised. As the original, `to` is overwritten with the result too. Returns out.
+std::span<float, 4> interpolate_rotation(std::span<float, 4> out, std::span<const float, 4> from, std::span<float, 4> to,
+                                         float t);
 
 // 0x0047D680: `count` poses mixed into the first by `weights` (weights[0] becomes 1 minus the others), `bones`
-// bones each; the result copied to `out` if that isn't `poses`. The poses' rotations change on the way.
-void mix_poses(Stance* poses, float* weights, int bones, Stance* out, int count);
+// bones each; the result (the first pose) copied to `out` if that isn't it. The poses' rotations change on the way.
+void mix_poses(std::span<Stance> poses, std::span<float> weights, int bones, Stance& out, int count);
 // 0x0047D8F0: the same for the poses whose `ids` are `id` only (weights below 0.00001 left out); a bone a pose
 // takes from a higher one is marked valid.
-void blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int bones, Stance* out, int count,
-                       uint32_t id);
+void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::span<const uint32_t> ids, int bones,
+                       Stance& out, int count, uint32_t id);
 
 // 0x0047D580 (code nothing calls): the timeline's animation, speed, loop type and times added to `info`.
 void add_timeline_info(AnimTimeline* timeline, script::Struct* info);
@@ -208,8 +210,9 @@ public:
 int count_list_items(const memory::ListNode* head);
 
 // The blend's shared buffers: the weights, the bone set of each channel, the pose.
-extern Stance* g_blend_buffer;
-extern float* g_blend_weights;
-extern uint32_t* g_blend_sets;
+// (blocks of the AnimScratch heap: a pose per subset, a weight and a set per blend)
+extern std::span<Stance> g_blend_buffer;
+extern std::span<float> g_blend_weights;
+extern std::span<uint32_t> g_blend_sets;
 
 } // namespace gfx

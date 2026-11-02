@@ -7,7 +7,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <algorithm>
 #include <array>
+#include <span>
 
 #include "engine/gfx/anim_controller.h"
 #include "engine/maths/vec4.h"
@@ -44,7 +46,10 @@ void blend_bones(Stance& to, Stance& from, int bones, float t, bool mark_copied)
         if (core::at(to.valid, k)) {
             if (core::at(from.valid, k)) {
                 std::array<float, 4> blended{};
-                copy4(core::at(to.rotations, k).data(), interpolate_rotation(blended.data(), core::at(to.rotations, k).data(), core::at(from.rotations, k).data(), t));
+                maths::QuatRotation& rotation = core::at(to.rotations, k);
+                interpolate_rotation(blended, std::span<const float, 4>(rotation.data(), 4),
+                                     std::span<float, 4>(core::at(from.rotations, k).data(), 4), t);
+                copy4(rotation.data(), blended.data());
                 lerp_vector(blended.data(), core::at(to.translations, k).data(), core::at(from.translations, k).data(), t);
                 copy4(core::at(to.translations, k).data(), blended.data());
             }
@@ -60,93 +65,102 @@ void blend_bones(Stance& to, Stance& from, int bones, float t, bool mark_copied)
 } // namespace
 
 // 0x0047D470 (x87: the first two components and the length unrounded)
-float* interpolate_rotation(float* out, const float* from, float* to, float t)
+std::span<float, 4> interpolate_rotation(std::span<float, 4> out, std::span<const float, 4> from, std::span<float, 4> to,
+                                         float t)
 {
-    double dot = static_cast<double>(from[0]) * to[0];
-    dot += static_cast<double>(to[3]) * from[3];
-    dot += static_cast<double>(to[2]) * from[2];
-    dot += static_cast<double>(to[1]) * from[1];
+    const auto f = [from](int i) { return static_cast<double>(core::at(from, i)); };
+    const auto g = [to](int i) { return static_cast<double>(core::at(to, i)); };
+    double dot = f(0) * g(0);
+    dot += g(3) * f(3);
+    dot += g(2) * f(2);
+    dot += g(1) * f(1);
     if (dot < 0.0) {
-        for (int i = 0; i < 4; ++i)
-            to[i] = -to[i];
+        for (float& component : to)
+            component = -component;
     }
-    const double x = (static_cast<double>(to[0]) - from[0]) * t + from[0];
-    const double y = (static_cast<double>(to[1]) - from[1]) * t + from[1];
-    auto z = static_cast<float>((static_cast<double>(to[2]) - from[2]) * t + from[2]);
-    const double w_unrounded = (static_cast<double>(to[3]) - from[3]) * t + from[3];
+    const double x = (g(0) - f(0)) * t + f(0);
+    const double y = (g(1) - f(1)) * t + f(1);
+    auto z = static_cast<float>((g(2) - f(2)) * t + f(2));
+    const double w_unrounded = (g(3) - f(3)) * t + f(3);
     auto w = static_cast<float>(w_unrounded);
     double length = w_unrounded * w + static_cast<double>(z) * z;
     length += y * y;
     length += x * x;
     const double inverse = 1.0f / std::sqrt(length);
     auto rounded = static_cast<float>(inverse);
-    to[0] = static_cast<float>(inverse * x);
-    to[1] = static_cast<float>(rounded * y);
-    to[2] = static_cast<float>(static_cast<double>(rounded) * z);
-    to[3] = static_cast<float>(static_cast<double>(rounded) * w);
-    copy4(out, to);
+    core::at(to, 0) = static_cast<float>(inverse * x);
+    core::at(to, 1) = static_cast<float>(rounded * y);
+    core::at(to, 2) = static_cast<float>(static_cast<double>(rounded) * z);
+    core::at(to, 3) = static_cast<float>(static_cast<double>(rounded) * w);
+    std::ranges::copy(to, out.begin());
     return out;
 }
 
 // 0x0047D680
-void mix_poses(Stance* poses, float* weights, int bones, Stance* out, int count)
+void mix_poses(std::span<Stance> poses, std::span<float> weights, int bones, Stance& out, int count)
 {
-    weights[0] = 1.0f;
+    core::at(weights, 0) = 1.0f;
     double others = 0.0;
     for (int k = 1; k < count; ++k)
-        others += weights[k];
-    weights[0] = static_cast<float>(1.0f - others);
+        others += core::at(weights, k);
+    core::at(weights, 0) = static_cast<float>(1.0f - others);
     // from the top down: each pose taken into the next lower one with a weight
     float taken = 0.0f;
     for (int i = count - 1; i > 0; --i) {
-        const float weight = weights[i];
+        const float weight = core::at(weights, i);
         if (weight == 0.0f) // (NaN goes on)
             continue;
         const double above = static_cast<double>(weight) + taken;
         int j = i - 1;
-        while (!(weights[j] > 0.0f) && !std::isnan(weights[j]) && j > 0)
+        while (!(core::at(weights, j) > 0.0f) && !std::isnan(core::at(weights, j)) && j > 0)
             --j;
-        const double below = weights[j];
-        taken = static_cast<float>(static_cast<double>(taken) + weights[i]);
+        const double below = core::at(weights, j);
+        taken = static_cast<float>(static_cast<double>(taken) + core::at(weights, i));
         auto t = static_cast<float>(1.0f - below / (below + above));
-        blend_bones(poses[j], poses[i], bones, t, false);
+        blend_bones(core::at(poses, j), core::at(poses, i), bones, t, false);
     }
-    // (as the original: `bones` poses' worth)
-    if (out != poses)
-        std::memcpy(out, poses, static_cast<size_t>(bones) * sizeof(Stance));
+    // The mixed pose (the original copied `bones` poses' worth from the first on, reading past the poses; never
+    // reached - the only caller mixes in place).
+    if (&out != &core::at(poses, 0))
+        out = core::at(poses, 0);
 }
 
 // 0x0047D8F0
-void blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int bones, Stance* out, int count,
-                       uint32_t id)
+void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::span<const uint32_t> ids, int bones,
+                       Stance& out, int count, uint32_t id)
 {
     double others = 0.0;
     for (int k = 1; k < count; ++k) {
-        if (weights[k] != 0.0f && ids[k] == id) // (NaN counts)
-            others += weights[k];
+        if (core::at(weights, k) != 0.0f && core::at(ids, k) == id) // (NaN counts)
+            others += core::at(weights, k);
     }
-    weights[0] = static_cast<float>(1.0f - others);
+    core::at(weights, 0) = static_cast<float>(1.0f - others);
     float taken = 0.0f;
     for (int i = count - 1; i > 0; --i) {
-        const float weight = weights[i];
-        if (!(weight >= kMinWeight) || ids[i] != id)
+        const float weight = core::at(weights, i);
+        if (!(weight >= kMinWeight) || core::at(ids, i) != id)
             continue;
         const double above = static_cast<double>(weight) + taken;
-        // the next pose down with a weight and the id (below the first, any weight; as the original, nothing
-        // stops the search past the first pose)
+        // the next pose down with a weight and the id (the first: any weight). The original's search had no end:
+        // with no pose of the id at or below the first it read the words before the arrays and blended into the
+        // memory before the poses (the heap block's header and whatever preceded it). It stops at the first pose
+        // here, and a pose with no lower one of its id is left as it is.
         int j = i - 1;
-        for (;; --j) {
-            const bool weighted = weights[j] > kMinWeight || std::isnan(weights[j]);
-            if ((weighted || j <= 0) && ids[j] == id)
+        for (; j >= 0; --j) {
+            const bool weighted = core::at(weights, j) > kMinWeight || std::isnan(core::at(weights, j));
+            if ((weighted || j <= 0) && core::at(ids, j) == id)
                 break;
         }
-        const double below = weights[j];
-        taken = static_cast<float>(static_cast<double>(taken) + weights[i]);
+        if (j < 0)
+            continue;
+        const double below = core::at(weights, j);
+        taken = static_cast<float>(static_cast<double>(taken) + core::at(weights, i));
         auto t = static_cast<float>(1.0f - below / (below + above));
-        blend_bones(poses[j], poses[i], bones, t, true);
+        blend_bones(core::at(poses, j), core::at(poses, i), bones, t, true);
     }
-    if (out != poses)
-        std::memcpy(out, poses, static_cast<size_t>(bones) * sizeof(Stance));
+    // (as mix_poses: the original copied `bones` poses' worth; never reached)
+    if (&out != &core::at(poses, 0))
+        out = core::at(poses, 0);
 }
 
 namespace {

@@ -297,8 +297,8 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
         if (closeness < kEaseBelow) {
             auto t = static_cast<float>(std::fabs(closeness) * kEaseFactor);
             std::array<float, 4> eased{};
-            const float* result = interpolate_rotation(eased.data(), &last.x, &pose.x, t);
-            pose = {result[0], result[1], result[2], result[3]};
+            interpolate_rotation(eased, std::span<const float, 4>(last.data(), 4), std::span<float, 4>(pose.data(), 4), t);
+            pose = {std::get<0>(eased), std::get<1>(eased), std::get<2>(eased), std::get<3>(eased)};
         }
         last = pose;
     }

@@ -121,17 +121,17 @@ void AnimBlenderComponent::tick_frame()
             // a channel after the first with (next to) no weight: only reset
             channel->update_blend();
             channel->update_timelines();
-            gfx::g_blend_sets[count] = static_cast<uint32_t>(channel->rank_);
-            if (!(highest_set > gfx::g_blend_sets[count]))
-                highest_set = gfx::g_blend_sets[count];
-            gfx::g_blend_weights[count] = 0.0f;
+            core::at(gfx::g_blend_sets, count) = static_cast<uint32_t>(channel->rank_);
+            if (!(highest_set > core::at(gfx::g_blend_sets, count)))
+                highest_set = core::at(gfx::g_blend_sets, count);
+            core::at(gfx::g_blend_weights, count) = 0.0f;
         } else {
             if (channel->tick_frame(count, ready))
                 changed = true;
-            gfx::g_blend_weights[count] = channel->ongoing_;
-            gfx::g_blend_sets[count] = static_cast<uint32_t>(channel->rank_);
-            if (!(highest_set > gfx::g_blend_sets[count]))
-                highest_set = gfx::g_blend_sets[count];
+            core::at(gfx::g_blend_weights, count) = channel->ongoing_;
+            core::at(gfx::g_blend_sets, count) = static_cast<uint32_t>(channel->rank_);
+            if (!(highest_set > core::at(gfx::g_blend_sets, count)))
+                highest_set = core::at(gfx::g_blend_sets, count);
         }
         memory::ListNode* next = get_next(channel);
         ++count;
@@ -146,23 +146,23 @@ void AnimBlenderComponent::tick_frame()
         return (core::down_cast<objects::BoneRigModule>(bone_rig_)->bone_rig_);
     };
     if (count == 1) {
-        notify_observers(gfx::g_blend_buffer);
+        notify_observers(gfx::g_blend_buffer.data());
     } else {
         const uint32_t sets = highest_set + 1;
         for (uint32_t set = 0; set != sets;) {
-            gfx::Stance* pose = gfx::g_blend_buffer;
+            gfx::Stance& pose = core::at(gfx::g_blend_buffer, 0);
             auto bones = static_cast<uint32_t>(skeleton()->get_num_bones());
             gfx::blend_poses_by_id(gfx::g_blend_buffer, gfx::g_blend_weights, gfx::g_blend_sets,
                                    static_cast<int>(bones), pose, count, set);
             ++set;
-            gfx::g_blend_sets[0] = set;
-            gfx::g_blend_weights[0] = 0.0f;
+            core::at(gfx::g_blend_sets, 0) = set;
+            core::at(gfx::g_blend_weights, 0) = 0.0f;
             if (!(set < sets))
                 break;
         }
-        notify_observers(gfx::g_blend_buffer);
+        notify_observers(gfx::g_blend_buffer.data());
     }
-    skeleton()->tick_frame(gfx::g_blend_buffer);
+    skeleton()->tick_frame(gfx::g_blend_buffer.data());
 }
 
 // 0x00419DD0

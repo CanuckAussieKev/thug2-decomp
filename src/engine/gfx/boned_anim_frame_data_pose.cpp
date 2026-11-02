@@ -126,8 +126,9 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 added *= turn;
                 maths::QuatRotation to = added;
                 std::array<float, 4> blended{};
-                const float* result = interpolate_rotation(blended.data(), &rotation.x, &to.x, weight);
-                rotation = {result[0], result[1], result[2], result[3]};
+                interpolate_rotation(blended, std::span<const float, 4>(rotation.data(), 4), std::span<float, 4>(to.data(), 4),
+                                     weight);
+                rotation = {std::get<0>(blended), std::get<1>(blended), std::get<2>(blended), std::get<3>(blended)};
             }
             const uint32_t flags = flag_bits_;
             if (!(flags & kTranslationKeys) || *trans_sizes) {

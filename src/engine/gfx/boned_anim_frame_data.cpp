@@ -306,7 +306,7 @@ void interpolate_quat(std::span<float, 4> out, const void* a, const void* b, flo
     std::array<float, 4> result{};
     get_quat(a, from, floats);
     get_quat(b, to, floats);
-    interpolate_rotation(result.data(), from.data(), to.data(), t);
+    interpolate_rotation(result, from, to, t);
     std::memcpy(out.data(), result.data(), sizeof(result));
 }
 
@@ -344,7 +344,7 @@ void interpolate_short_quat(std::span<float, 4> out, const ShortKey* a, const Sh
     std::array<float, 4> result{};
     get_short_quat(a, from);
     get_short_quat(b, to);
-    interpolate_rotation(result.data(), from.data(), to.data(), t);
+    interpolate_rotation(result, from, to, t);
     std::memcpy(out.data(), result.data(), sizeof(result));
 }
 
