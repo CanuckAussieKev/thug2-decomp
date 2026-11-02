@@ -415,7 +415,7 @@ bool Entity::obj_get_tags(Struct* params, Script* script)
 }
 
 // 0x00460FB0: the tag named by the unnamed checksum, into the calling script's parameters.
-bool Entity::obj_get_single_tag(Struct* params, Script* script) { return get_tag(params, script->args_); }
+bool Entity::obj_get_single_tag(Struct* params, Script* script) { return get_tag(params, script->args_.get()); }
 
 // 0x00460FC0: the tags named in the unnamed array, into the calling script's parameters. With no array, the
 // pointer `params` is taken for one [bug].
@@ -423,7 +423,7 @@ bool Entity::obj_get_named_tags(Struct* params, Script* script)
 {
     Array* names = nullptr; // (the original: the structure's own pointer read as the array [bug])
     params->fetch_list(kUnnamed, &names, 1);
-    return fetch_labels(names, script->args_);
+    return fetch_labels(names, script->args_.get());
 }
 
 // 0x00460FF0: remove the tags named in tags= (else the unnamed array); with neither, every tag goes. True.

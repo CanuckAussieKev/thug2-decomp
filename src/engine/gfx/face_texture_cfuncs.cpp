@@ -87,10 +87,9 @@ uint32_t read_colour(Struct* params, bool* given)
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // A new integer array for the converted colour: 3 elements, or 4 with the source's fourth copied.
-Array* new_colour_array(Array* source)
+gsl::owner<Array*> new_colour_array(Array* source)
 {
-    gsl::owner<Array*> memory = script::alloc_script_array();
-    Array* colour = memory ? new (memory) script::Array : nullptr;
+    gsl::owner<Array*> colour = script::new_array();
     if (source->extent_ == 4) {
         colour->configure_size_kind(4, script::kQbvalInteger);
         colour->set_element(3, source->fetch_part(3));
@@ -300,7 +299,7 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
         break;
     }
 
-    Array* rgb = new_colour_array(hsv);
+    gsl::owner<Array*> rgb = new_colour_array(hsv);
     rgb->set_element(0, static_cast<uint32_t>(ftol(static_cast<double>(r) * 128.0f)));
     rgb->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(g) * 128.0f)));
     rgb->set_element(2, static_cast<uint32_t>(ftol(static_cast<double>(b) * 128.0f)));
@@ -356,7 +355,7 @@ bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
     if (h > 360.0f)
         h = static_cast<float>(static_cast<double>(h) - 360.0f);
 
-    Array* hsv = new_colour_array(rgb_array);
+    gsl::owner<Array*> hsv = new_colour_array(rgb_array);
     hsv->set_element(0, static_cast<uint32_t>(ftol(h)));
     hsv->set_element(1, static_cast<uint32_t>(ftol(static_cast<double>(s) * 90.0f)));
     hsv->set_element(2, static_cast<uint32_t>(ftol(static_cast<double>(max) * 60.0f)));

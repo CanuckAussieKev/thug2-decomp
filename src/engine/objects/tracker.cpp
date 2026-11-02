@@ -97,7 +97,7 @@ gsl::owner<lists::KeyMap*> new_hash_table(int bits)
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     return memory ? memory::construct_in<lists::KeyMap>(memory, bits) : nullptr;
 }
-void delete_hash_table(lists::KeyMap* table)
+void delete_hash_table(gsl::owner<lists::KeyMap*> table)
 {
     if (table) {
         table->~KeyMap();

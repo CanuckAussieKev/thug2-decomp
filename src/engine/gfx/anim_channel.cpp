@@ -933,12 +933,12 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         if (!params->fetch_int_value(kIndex, &index, 0)) {
             const memory::ListNode* node = timelines_.next;
             if (!is_head(node) && node)
-                add_timeline_info(static_cast<AnimTimeline*>(node->data), script->args_);
+                add_timeline_info(static_cast<AnimTimeline*>(node->data), script->args_.get());
             return 1;
         }
         for (AnimTrack* timeline = masked(timelines_.next); timeline; timeline = masked(elem(timeline)->next)) {
             if (index == 0) {
-                add_timeline_info(timeline, script->args_);
+                add_timeline_info(timeline, script->args_.get());
                 break;
             }
             --index;

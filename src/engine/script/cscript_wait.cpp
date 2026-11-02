@@ -250,7 +250,7 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
     // The caller's state (the frame's other wait-type and flag bits are left as they were).
     CallFrame& frame = frame_records_[call_depth_++];
     frame.script_id_ = script_title_;
-    frame.arg_struct_ = args_;
+    frame.arg_struct_ = args_.release(); // (the frame keeps them: the return gives them back)
     frame.caller_frame_ = pc_;
     frame.owner_entity_ = entity_.get_pull();
     frame.loop_state_ = innermost_repeat_;
@@ -267,8 +267,8 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
     // through null - not checked.) The loop pointer is kept: the callee's loops go above the caller's.
     script_title_ = name;
     pc_ = code;
-    args_ = new_empty_struct();
-    pc_ = parse_arguments(args_, pc_, nullptr);
+    args_ = memory::take_unique<Struct, StructFree>(new_empty_struct());
+    pc_ = parse_arguments(args_.get(), pc_, nullptr);
     if (params)
         args_->merge_structure(params);
     entity_.assign_value(object);
@@ -288,13 +288,11 @@ bool Script::return_from_script(Struct* results)
         pc_ = nullptr;
     } else {
         --call_depth_;
-        if (args_) {
-            args_->get_clear();
-            delete_struct(args_);
-        }
+        if (args_)
+            memory::destroy_then_clear(args_); // (cleared and given back to the pool, as free_struct)
         const CallFrame& frame = frame_records_[call_depth_];
         script_title_ = frame.script_id_;
-        args_ = memory::owned_element(frame.arg_struct_);
+        args_ = memory::take_unique<Struct, StructFree>(memory::owned_element(frame.arg_struct_));
         pc_ = frame.caller_frame_;
         entity_.assign_value(frame.owner_entity_);
         innermost_repeat_ = frame.loop_state_;
@@ -338,10 +336,12 @@ int Script::print_event_handler_table() { return SignalRouteTable::list_wait_tab
 void Script::install_event_table(Array* handlers, bool replace)
 {
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
-    if (!signal_routes_)
-        signal_routes_ = new_event_handler_table();
-    else
+    if (!signal_routes_) {
+        gsl::owner<objects::SignalRouteTable*> made = new_event_handler_table();
+        signal_routes_ = made;
+    } else {
         signal_routes_->unregister_with_tracker(this);
+    }
     signal_routes_->add_handlers(handlers, replace);
     signal_routes_->compact();
     signal_routes_->enter_wait_board(this);
@@ -352,8 +352,10 @@ void Script::install_event_table(Array* handlers, bool replace)
 void Script::set_event_handler(uint32_t event_type, uint32_t script, uint32_t group, bool exception, Struct* params)
 {
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
-    if (!signal_routes_)
-        signal_routes_ = new_event_handler_table();
+    if (!signal_routes_) {
+        gsl::owner<objects::SignalRouteTable*> made = new_event_handler_table();
+        signal_routes_ = made;
+    }
     signal_routes_->append_listener(this, event_type, script, group, exception, params);
     memory::leave_heap_scope();
 }
@@ -375,8 +377,10 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
     if (signal_routes_)
         signal_routes_->mark_group(group);
     const int count = static_cast<int>(table->extent_);
-    if (!signal_routes_ && count)
-        signal_routes_ = new_event_handler_table();
+    if (!signal_routes_ && count) {
+        gsl::owner<objects::SignalRouteTable*> made = new_event_handler_table();
+        signal_routes_ = made;
+    }
     for (int i = 0; i < count; ++i) {
         const Component* flag = table->struct_at(static_cast<uint32_t>(i))->step_to_entry(nullptr);
         const Component* type = flag->next;

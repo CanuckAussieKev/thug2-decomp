@@ -466,7 +466,7 @@ bool cfunc_get_level_records(script::Struct* params, script::Script* script)
     int level = 0;
     if (!params->fetch_int_value(kLevel, &level, 0))
         level = skate->career_->fetch_stage();
-    highscores::g_game_records->get_level_records(level)->write_to_structure(script->args_);
+    highscores::g_game_records->get_level_records(level)->write_to_structure(script->args_.get());
     return true;
 }
 

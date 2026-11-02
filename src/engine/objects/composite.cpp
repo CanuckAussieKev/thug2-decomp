@@ -354,8 +354,7 @@ void GameEntity::create_component_from_structure(Struct* params, Struct* extra)
         component->configure_from_data(params);
         return;
     }
-    gsl::owner<Struct*> memory = script::spawn_param_bag();
-    Struct* merged = memory ? new (memory) script::Struct : nullptr;
+    gsl::owner<Struct*> merged = script::new_struct();
     merged->merge_structure(params);
     merged->merge_structure(extra);
     component->configure_from_data(merged);

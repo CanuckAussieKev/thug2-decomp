@@ -74,7 +74,7 @@ void Script::teardown()
     reset_script_state();
     report_stopped(); // (inlined in the original)
     if (callback_params_)
-        free_struct(callback_params_);
+        memory::destroy_then_clear(callback_params_);
 
     if (!prior_entry_)
         script_list_head() = following_;
@@ -132,14 +132,10 @@ void Script::reset_script_state()
     if (pc_)
         cache->release_script(script_title_);
     pc_ = nullptr;
-    if (args_) {
-        free_struct(args_);
-        args_ = nullptr;
-    }
-    if (stmt_args_) {
-        free_struct(stmt_args_);
-        stmt_args_ = nullptr;
-    }
+    if (args_)
+        memory::destroy_then_clear(args_);
+    if (stmt_args_)
+        memory::destroy_then_clear(stmt_args_);
     for (int i = 0; i < call_depth_; ++i) {
         cache->release_script(frame_records_[i].script_id_);
         if (Struct* params = frame_records_[i].arg_struct_) {
@@ -211,10 +207,10 @@ void Script::bind_script(uint32_t name, const uint8_t* code, Struct* params, obj
     // reset_script_state frees this script's parameters: keep what `params` needs.
     gsl::owner<Struct*> copy = copy_params_if_owned(params);
     reset_script_state();
-    stmt_args_ = script::new_struct();
+    stmt_args_ = script::make_struct();
     script_title_ = name;
     entity_.assign_value(object);
-    args_ = script::new_struct();
+    args_ = script::make_struct();
     pc_ = code ? code : script_store_instance()->fetch_script(name);
     if (!pc_) {
         // No such script.
@@ -225,7 +221,7 @@ void Script::bind_script(uint32_t name, const uint8_t* code, Struct* params, obj
         return;
     }
     // The first line: the script's default parameters.
-    pc_ = parse_arguments(args_, pc_, nullptr);
+    pc_ = parse_arguments(args_.get(), pc_, nullptr);
     if (copy) {
         args_->append_structure_if_any(copy);
         free_struct(copy);
@@ -273,7 +269,7 @@ void Script::relaunch()
         object = frame_records_[0].owner_entity_;
         name = frame_records_[0].script_id_;
     } else {
-        params->get_assign(args_);
+        params->get_assign(args_.get());
         object = entity_.get_pull();
         name = script_title_;
     }

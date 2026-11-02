@@ -105,10 +105,9 @@ bool read_point(Struct* params, uint32_t name, int* point)
 }
 
 // A new integer array of two holding `point`.
-Array* new_point_array(const int* point)
+gsl::owner<Array*> new_point_array(const int* point)
 {
-    gsl::owner<Array*> memory = script::alloc_script_array();
-    Array* array = memory ? new (memory) script::Array : nullptr;
+    gsl::owner<Array*> array = script::new_array();
     array->configure_size_kind(2, script::kQbvalInteger);
     array->set_element(0, static_cast<uint32_t>(point[0]));
     array->set_element(1, static_cast<uint32_t>(point[1]));
@@ -145,10 +144,10 @@ bool read_face_points(FaceAnchors* points, Struct* params)
 // 0x00487000
 bool write_face_points(const FaceAnchors* points, Struct* params)
 {
-    Array* left_eye = new_point_array(points->left_eye_.data());
-    Array* right_eye = new_point_array(points->right_eye_.data());
-    Array* nose = new_point_array(points->nose_slot_.data());
-    Array* lips = new_point_array(points->mouth_part_.data());
+    gsl::owner<Array*> left_eye = new_point_array(points->left_eye_.data());
+    gsl::owner<Array*> right_eye = new_point_array(points->right_eye_.data());
+    gsl::owner<Array*> nose = new_point_array(points->nose_slot_.data());
+    gsl::owner<Array*> lips = new_point_array(points->mouth_part_.data());
     params->append_array_ref(kLeftEye, left_eye);
     params->append_array_ref(kRightEye, right_eye);
     params->append_array_ref(kNose, nose);
@@ -343,8 +342,7 @@ void FaceSkin::load_from_structure(Struct* params)
 // 0x00487680
 void FaceSkin::save_to_structure(Struct* params)
 {
-    gsl::owner<Array*> memory = script::alloc_script_array();
-    Array* image = memory ? new (memory) script::Array : nullptr;
+    gsl::owner<Array*> image = script::new_array();
     constexpr uint32_t kWords = kTexelEdge / 4;
     image->configure_size_kind(kWords, script::kQbvalName);
     for (uint32_t i = 0; i < kWords; ++i) {

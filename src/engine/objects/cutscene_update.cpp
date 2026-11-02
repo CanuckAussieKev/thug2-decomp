@@ -94,7 +94,7 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
     const int count = static_cast<int>(table[1]);
     const uint32_t* entry = table + 2;
     gsl::owner<script::Array*> memory = script::alloc_script_array();
-    script::Array* objects = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    gsl::owner<script::Array*> objects = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     objects->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     for (int i = 0; i < count; ++i, entry += 5) {
         gsl::owner<script::Struct*> block = script::spawn_param_bag();

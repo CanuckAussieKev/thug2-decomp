@@ -45,7 +45,7 @@ int os_layer() { return game_config::g_platform; }
 SaveCard* the_card() { return g_the_card->get_storage_slot(0, 0); }
 
 // The calling script's own parameters (Scripts::CScript +0x14): where commands leave results for it.
-Struct* result_params(Script* script) { return script->args_; }
+Struct* result_params(Script* script) { return script->args_.get(); }
 
 // The console builds' save folder (0x005B5F10, no source yet).
 const char* save_folder() { return game_config::get_path_prefix(); }

@@ -168,8 +168,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     params->fetch_int_value(kStreamCount, &count, 0);
 
     // the stream numbers 1..count, shuffled
-    gsl::owner<Array*> memory = script::alloc_script_array();
-    Array* order = memory ? new (memory) script::Array : nullptr;
+    gsl::owner<Array*> order = script::new_array();
     order->configure_size_kind(count, script::kQbvalInteger);
     for (int i = 0; i < count; ++i)
         order->set_element(i, static_cast<uint32_t>(i + 1));
@@ -214,8 +213,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
         std::snprintf(stream.data(), sizeof(stream), "%s_%s%02i", voice.data(), type, static_cast<int>(order->fetch_part(i)));
         if (!audio::stream_exists(checksums::hash_from_text(stream.data())))
             continue;
-        gsl::owner<Struct*> struct_memory = script::spawn_param_bag();
-        Struct* stream_params = struct_memory ? new (struct_memory) script::Struct : nullptr;
+        gsl::owner<Struct*> stream_params = script::new_struct();
         stream_params->put_name_key(kStreamChecksum, checksums::hash_from_text(stream.data()));
         script::launch_script(kSkaterPlayBailStream, stream_params, script->entity_.get_pull(), false, nullptr);
         if (stream_params) {

@@ -221,7 +221,7 @@ void read_save_header(Struct* global, Script* script)
         career->read_hash_value(kLastLevelLoadScript, &last_level, 0);
         career->read_hash_value(kLastGameMode, &last_mode, 0);
     }
-    Struct* results = script->args_;
+    Struct* results = script->args_.get();
     if (last_level)
         results->put_name_key(kLastLevelLoadScript, last_level);
     if (last_mode)

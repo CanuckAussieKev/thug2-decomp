@@ -39,7 +39,7 @@ const char* const kTotalZ = "total_Z_angle";               // "total_Z_angle"
 
 objects::Rider* local_skater() { return core::down_cast<objects::Rider>(skate_calls::get_home_rider()); }
 CreateATrick* created_trick(objects::Rider* skater, int index) { return core::at(skater->trick_slots_, index).get(); }
-script::Struct* get_results(script::Script* script) { return script->args_; }
+script::Struct* get_results(script::Script* script) { return script->args_.get(); }
 
 
 } // namespace

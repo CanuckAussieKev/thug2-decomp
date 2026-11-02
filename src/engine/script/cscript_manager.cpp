@@ -124,7 +124,7 @@ void tick_child_scripts()
             run = object_runs_scripts(script->entity_.get_pull());
         if (run && get_update_script(script) == kScriptOutcomeFinished) {
             if (script->on_finish_script_)
-                launch_script(script->on_finish_script_, script->callback_params_, script->entity_.get_pull(), false,
+                launch_script(script->on_finish_script_, script->callback_params_.get(), script->entity_.get_pull(), false,
                               nullptr);
             Script::destroy(script);
         }
@@ -178,7 +178,7 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
     if (callback) {
         script->on_finish_script_ = callback;
         gsl::owner<Struct*> copy = script::new_struct();
-        script->callback_params_ = copy;
+        script->callback_params_ = memory::take_unique<Struct, StructFree>(copy);
         if (callback_params)
             copy->merge_structure(callback_params);
     }
@@ -266,7 +266,7 @@ void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Str
     bind_script(script, name, nullptr, params, object);
     get_update_script(script);
     if (script->args_)
-        results->merge_structure(script->args_); // (no check that there are results)
+        results->merge_structure(script->args_.get()); // (no check that there are results)
     Script::destroy(script);
 }
 

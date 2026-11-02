@@ -35,7 +35,7 @@ SwapSlot* swap_table() { return g_swap_table.data(); }
 
 objects::ProfileRoster* get_profiles() { return objects::g_profile_roster.get(); }
 objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
-Struct* result_params(Script* script) { return script->args_; }
+Struct* result_params(Script* script) { return script->args_.get(); }
 
 // The skate module's profile `params`' skater names (0x00564F80).
 objects::RiderIdentity* skate_profile(Struct* params) { return modules::Skate::sole()->fetch_account(params); }

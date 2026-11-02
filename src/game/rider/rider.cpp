@@ -1070,7 +1070,7 @@ void Rider::switch_to_script(uint32_t name, script::Struct* params)
 void Rider::write_cat_info(script::Struct* save)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
-    script::Array* tricks = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    gsl::owner<script::Array*> tricks = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     tricks->configure_size_kind(11, script::kQbvalStruct);
     for (int i = 0; i < 11; ++i) {
         gsl::owner<script::Struct*> struct_memory = script::spawn_param_bag();
@@ -1088,7 +1088,7 @@ void Rider::write_cat_info(script::Struct* save)
 void Rider::write_list_44b_66a_9f(script::Struct* save)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
-    script::Array* entries = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    gsl::owner<script::Array*> entries = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     entries->configure_size_kind(0x46, script::kQbvalInteger);
     for (int i = 0; i < 0x46; ++i)
         entries->set_element(i, static_cast<uint32_t>(static_cast<AttributeTracker*>(stats_)->get_goal_status(i)));
@@ -1358,7 +1358,7 @@ namespace {
 void skip_to_restart_virtual(Rider* skater, uint32_t node, uint32_t walking) { skater->jump_to_spawn(node, walking); }
 
 // What the script gives back (its +0x14).
-script::Struct* script_results(script::Script* script) { return script->args_; }
+script::Struct* script_results(script::Script* script) { return script->args_.get(); }
 
 } // namespace
 

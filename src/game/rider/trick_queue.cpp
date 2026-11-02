@@ -107,7 +107,7 @@ void trick_started(MoveExecutor* self) { self->skater_state_->in_trick_move_ = t
 script::Script* object_script(MoveExecutor* self) { return self->entity_->own_script_; }
 
 // A new structure, as the original's inlined `new CStruct` (from the structure pool; null if that fails).
-script::Struct* new_struct_copy(script::Struct* source)
+gsl::owner<script::Struct*> new_struct_copy(script::Struct* source)
 {
     gsl::owner<script::Struct*> structure = script::spawn_param_bag();
     return structure ? structure->init_copy(source) : nullptr;
@@ -754,7 +754,7 @@ bool cfunc_do_next_trick(script::Struct* params, script::Script* script)
         trick->do_next_trick(first, first_params, nullptr);
         return true;
     }
-    script::Struct* copy = new_struct_copy(trick_params);
+    gsl::owner<script::Struct*> copy = new_struct_copy(trick_params);
     trick->do_next_trick(first, first_params, copy);
     if (copy)
         free_struct(copy);

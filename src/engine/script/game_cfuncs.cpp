@@ -382,7 +382,7 @@ bool cfunc_node_array_man_unload(script::Struct* params, script::Script*)
 // preference).
 bool cfunc_get_preference_string(script::Struct* params, script::Script* script)
 {
-    script::Struct* results = script->args_;
+    script::Struct* results = script->args_.get();
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
     uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
@@ -398,7 +398,7 @@ bool cfunc_get_preference_string(script::Struct* params, script::Script* script)
 // characters (in a static buffer, 0x007CEBD0, unchecked), as the script's password_string.
 bool cfunc_get_preference_password(script::Struct* params, script::Script* script)
 {
-    script::Struct* results = script->args_;
+    script::Struct* results = script->args_.get();
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
     uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
@@ -418,7 +418,7 @@ bool cfunc_get_preference_password(script::Struct* params, script::Script* scrip
 // 0x0059FD00: GetPreferenceChecksum <field> pref_type=<type>: the preference's checksum, as the script's checksum.
 bool cfunc_get_preference_checksum(script::Struct* params, script::Script* script)
 {
-    script::Struct* results = script->args_;
+    script::Struct* results = script->args_.get();
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
     uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)

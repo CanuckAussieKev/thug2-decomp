@@ -39,7 +39,7 @@ int get_sprintf(char* out, const char* format, Args... args)
 
 char* created_goal_name() { return g_created_goal_name.data(); } // the shared CreatedGoal<n> buffer
 
-script::Array* new_array_of(uint32_t size, uint32_t type)
+gsl::owner<script::Array*> new_array_of(uint32_t size, uint32_t type)
 {
     gsl::owner<script::Array*> array = script::new_array();
     array->configure_size_kind(size, static_cast<script::QbValueKind>(type));
@@ -168,7 +168,7 @@ void EditedGoal::write_key_combo_sets(script::Struct* out)
 {
     if (num_key_combo_sets_ == 0)
         return;
-    script::Array* sets = new_array_of(static_cast<uint32_t>(num_key_combo_sets_), kStructureArray);
+    gsl::owner<script::Array*> sets = new_array_of(static_cast<uint32_t>(num_key_combo_sets_), kStructureArray);
     for (int i = 0; i < num_key_combo_sets_; ++i) {
         const KeyComboSet& set = core::at(key_combo_sets_, i);
         gsl::owner<script::Struct*> entry = script::new_struct();
@@ -198,7 +198,7 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
         structure_element(all_sets, core::at(key_combo_sets_, i).set)->fetch_list(0x79704516, &combos, 0);
         total += combos->extent_;
     }
-    script::Array* result = new_array_of(total, kStructureArray);
+    gsl::owner<script::Array*> result = new_array_of(total, kStructureArray);
     uint32_t index = 0;
     for (int i = 0; i < num_key_combo_sets_; ++i) {
         const KeyComboSet& set = core::at(key_combo_sets_, i);
@@ -264,18 +264,18 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
     case kGoalTypeGap:
         out->append_word(0x730844A3, required_trick_.data());
         if (for_goal_manager == 1) {
-            script::Array* flags = new_array_of(num_gaps_, kChecksumArray);
+            gsl::owner<script::Array*> flags = new_array_of(num_gaps_, kChecksumArray);
             for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
                 get_sprintf(text.data(), "got_%d", i + 1);
                 flags->set_element(static_cast<uint32_t>(i), checksums::hash_from_text(text.data()));
             }
             out->append_array_ref(0xCC3C4CC4, flags);
-            script::Array* gaps = new_array_of(num_gaps_, kIntegerArray);
+            gsl::owner<script::Array*> gaps = new_array_of(num_gaps_, kIntegerArray);
             for (int i = 0; std::cmp_less(i, num_gaps_); ++i)
                 gaps->set_element(static_cast<uint32_t>(i), core::at(gaps_, i));
             out->append_array_ref(0x52D4489E, gaps);
         } else if (num_gaps_) {
-            script::Array* gaps = new_array_of(num_gaps_, kIntegerArray);
+            gsl::owner<script::Array*> gaps = new_array_of(num_gaps_, kIntegerArray);
             for (int i = 0; std::cmp_less(i, num_gaps_); ++i)
                 gaps->set_element(static_cast<uint32_t>(i), core::at(gaps_, i));
             out->append_array_ref(0xD76C173E, gaps);
@@ -337,7 +337,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
     }
     case kGoalTypeCombo: {
         static const std::array<const char*, 5> kLetters = {{"C", "O", "M", "B", "O"}};
-        script::Array* letters = new_array_of(5, kStructureArray);
+        gsl::owner<script::Array*> letters = new_array_of(5, kStructureArray);
         for (int i = 0; i < 5; ++i) {
             gsl::owner<script::Struct*> letter = script::new_struct();
             core::at(name, 0) = '\0';
@@ -351,8 +351,8 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
     }
     case kGoalTypeRace: {
         const int count = vertex_total_ - 2;
-        script::Array* waypoints = new_array_of(static_cast<uint32_t>(count), kStructureArray);
-        script::Array* flags = new_array_of(static_cast<uint32_t>(count), kChecksumArray);
+        gsl::owner<script::Array*> waypoints = new_array_of(static_cast<uint32_t>(count), kStructureArray);
+        gsl::owner<script::Array*> flags = new_array_of(static_cast<uint32_t>(count), kChecksumArray);
         std::array<char, 0x64> flag{};
         for (int i = 0; i < count; ++i) {
             gsl::owner<script::Struct*> waypoint = script::new_struct();
@@ -421,7 +421,7 @@ void EditedGoal::export_to_struct(script::Struct* out)
     write_specific_params(out, 0);
     if (!vertex_total_)
         return;
-    script::Array* points = new_array_of(vertex_total_, kStructureArray);
+    gsl::owner<script::Array*> points = new_array_of(vertex_total_, kStructureArray);
     for (uint32_t i = 0; i < vertex_total_; ++i) {
         const EditedGoalPoint& point = core::at(path_vertices_, i);
         gsl::owner<script::Struct*> entry = script::new_struct();

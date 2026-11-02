@@ -263,8 +263,8 @@ public:
     Script* prior_entry_;           // +0x04 (newer; null for the head)
     uint8_t* code_copy_;            // +0x08 a private copy of the code (set_script_copy), freed by reset_script_state
     const uint8_t* pc_;             // +0x0C the next token; null: not running
-    gsl::owner<Struct*> stmt_args_;             // +0x10 the current statement's arguments (owned)
-    gsl::owner<Struct*> args_;                  // +0x14 the script's parameters (owned; CFunctions leave results here)
+    StructPtr stmt_args_;           // +0x10 the current statement's arguments
+    StructPtr args_;                // +0x14 the script's parameters (CFunctions leave results here)
     RepeatFrame* innermost_repeat_; // +0x18 the innermost begin ... repeat (null: none)
     RepeatFrame inline_loop_;       // +0x1C
     RepeatFrame* loops_;            // +0x2C inline_loop_, or 10 on the script heap
@@ -289,8 +289,8 @@ public:
     uint32_t spawner_file_;                    // +0xD0 the .qb file of the script that spawned it (set_spawner_file)
     uint32_t spawn_id_;                        // +0xD4 SpawnScript's id
     uint32_t on_finish_script_;                // +0xD8 run when a spawned script ends
-    gsl::owner<Struct*> callback_params_;      // +0xDC (owned)
-    gsl::owner<objects::SignalRouteTable*> signal_routes_; // +0xE0 made on demand
+    StructPtr callback_params_;                // +0xDC
+    objects::SignalRouteTable* signal_routes_; // +0xE0 made on demand (the script's: teardown frees it, or marks it for its handlers to)
     uint32_t on_exception_script_;             // +0xE4 OnExceptionRun
     uint32_t on_exit_script_;                  // +0xE8 OnExitRun (this level's)
     objects::SharedBase shared_base_;          // +0xEC lets smart pointers point at the script (vtable 0x006478E4)

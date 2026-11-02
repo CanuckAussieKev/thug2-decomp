@@ -129,7 +129,7 @@ script::VectorValue* get_out(maths::Vec4* v) { return v; }
 float restart_angle(int rot) { return static_cast<float>((rot + 2.0) * static_cast<double>(kHalfPi)); }
 
 // A new script array of one `type` element.
-Array* new_array_of(script::QbValueKind type, uint32_t value)
+gsl::owner<Array*> new_array_of(script::QbValueKind type, uint32_t value)
 {
     gsl::owner<Array*> array = script::alloc_script_array();
     if (array)
@@ -485,7 +485,7 @@ void ParkAssembler::write_rail_nodes(Array* nodes, int* index)
             int link = *index + 1;
             if (!point->following_ && (rail->flag_bits_ & Rail::kLoop))
                 link = rail_start;
-            Array* links = new_array_of(script::kQbvalInteger, static_cast<uint32_t>(link));
+            gsl::owner<Array*> links = new_array_of(script::kQbvalInteger, static_cast<uint32_t>(link));
             node->append_array_value(kLinks, links);
             free_array(links);
         }
@@ -517,7 +517,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
         node->put_name_key(kType, kPlayerType);
         node->append_word(kRestartName, "High Score");
         node->put_name_key(kFlag, kCreatedAtStart);
-        Array* types = new_array_of(script::kQbvalName, kPlayer1);
+        gsl::owner<Array*> types = new_array_of(script::kQbvalName, kPlayer1);
         node->append_array_value(kRestartTypes, types);
         free_array(types);
         ++*index;
@@ -580,7 +580,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                         }
                     }
                     node->append_word(kRestartName, script::kQbvalString, label);
-                    Array* types = new_array_of(script::kQbvalName, restart_type);
+                    gsl::owner<Array*> types = new_array_of(script::kQbvalName, restart_type);
                     node->append_array_value(kRestartTypes, types);
                     free_array(types);
                 }

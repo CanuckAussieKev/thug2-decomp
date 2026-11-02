@@ -323,7 +323,7 @@ bool cfunc_get_player_appearance(script::Struct* params, script::Script* script)
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     // (the original checked the appearance structure's address - the profile's +0x4C - for null: never true)
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
-    script::Struct* copy = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
+    gsl::owner<script::Struct*> copy = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     copy->append_structure_if_any(appearance_structure(profile));
     script->args_->append_struct_ref("profile", copy);
     return true;
@@ -361,9 +361,9 @@ bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script*)
     params->read_hash_value(kPart, &part, 1);
     script::Struct* slot = appearance_part(profile, part);
     if (!slot) {
-        gsl::owner<script::Struct*> memory = script::spawn_param_bag();
-        slot = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-        appearance_structure(profile)->append_struct_ref(part, slot);
+        gsl::owner<script::Struct*> made = script::new_struct(); // (the appearance's from here)
+        slot = made;
+        appearance_structure(profile)->append_struct_ref(part, made);
     }
     float value = 0.0f;
     if (params->fetch_float(kX, &value, 0))

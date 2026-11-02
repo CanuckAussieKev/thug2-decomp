@@ -122,7 +122,7 @@ bool Script::invoke_method_by_name(const MemberFunctionEntry* entry, objects::En
         no_object_check();
         return false;
     }
-    return script::invoke_method_by_name(entry, stmt_args_, object, this);
+    return script::invoke_method_by_name(entry, stmt_args_.get(), object, this);
 }
 
 // 0x004731E0
@@ -134,14 +134,14 @@ bool Script::invoke_method_by_name(uint32_t name, objects::Entity* object)
         no_object_check();
         return false;
     }
-    return object_call_member_function(object, name, stmt_args_, this);
+    return object_call_member_function(object, name, stmt_args_.get(), this);
 }
 
 // 0x00472950
 void Script::parse_function_params()
 {
     stmt_args_->get_clear();
-    pc_ = parse_arguments(stmt_args_, pc_, args_);
+    pc_ = parse_arguments(stmt_args_.get(), pc_, args_.get());
 }
 
 // 0x004729E0: a name token, `<name>` (the parameter's checksum value) or `<...>` (the unnamed checksum
@@ -199,7 +199,7 @@ bool Script::execute_command()
             no_object_check();
             return false;
         }
-        return object_call_member_function(entity_.get_pull(), name, stmt_args_, this);
+        return object_call_member_function(entity_.get_pull(), name, stmt_args_.get(), this);
     }
     case 0x46: {
         ++pc_;
@@ -210,21 +210,21 @@ bool Script::execute_command()
             no_object_check();
             return false;
         }
-        return script::invoke_method_by_name(entry, stmt_args_, entity_.get_pull(), this);
+        return script::invoke_method_by_name(entry, stmt_args_.get(), entity_.get_pull(), this);
     }
     case 0x43: {
         ++pc_;
         const NativeFunction function = native_function_at(pc_);
         pc_ += 4;
         parse_function_params();
-        return function(stmt_args_, this);
+        return function(stmt_args_.get(), this);
     }
     }
 
     uint32_t name = 0;
     if (*pc_ == 0x0E) {
         gsl::owner<Component*> value = new_component();
-        pc_ = parse_expression(pc_, args_, value);
+        pc_ = parse_expression(pc_, args_.get(), value);
         if (value->kind_tag() != kQbvalName) {
             const bool result = value->value.word() != 0;
             delete_component(value);
@@ -260,7 +260,7 @@ bool Script::execute_command()
         switch (symbol->type) {
         case kQbvalScriptBody: {
             const uint8_t* code = script_store_instance()->fetch_script(symbol->name);
-            run_sub_script(function, code, stmt_args_, object, false);
+            run_sub_script(function, code, stmt_args_.get(), object, false);
             return true;
         }
         case kQbvalNativeMethod:
@@ -279,9 +279,9 @@ bool Script::execute_command()
         pc_ = resolve_random_jumps(pc_);
         gsl::owner<Component*> value = new_component();
         if (*pc_ == 0x0E)
-            pc_ = parse_expression(pc_, args_, value);
+            pc_ = parse_expression(pc_, args_.get(), value);
         else
-            pc_ = parse_value(pc_, args_, value);
+            pc_ = parse_value(pc_, args_.get(), value);
         if (value->kind_tag() != kQbvalNone) {
             value->name = target;
             args_->attach_module(value);
@@ -302,23 +302,23 @@ bool Script::execute_command()
     // Not original - the loading console (engine/gfx/loading_console.h): while a loading screen is up, the scripts
     // called and the commands that load or build things.
     if (gfx::loading_console::live_now() && (symbol->type == kQbvalScriptBody || symbol->type == kQbvalNativeFunc))
-        gfx::loading_console::note_script_call(name, symbol->type == kQbvalNativeFunc, stmt_args_);
+        gfx::loading_console::note_script_call(name, symbol->type == kQbvalNativeFunc, stmt_args_.get());
     switch (symbol->type) {
     case kQbvalScriptBody: {
         const uint8_t* code = script_store_instance()->fetch_script(symbol->name);
-        run_sub_script(name, code, stmt_args_, entity_.get_pull(), false);
+        run_sub_script(name, code, stmt_args_.get(), entity_.get_pull(), false);
         return true;
     }
     case kQbvalNativeFunc:
-        return symbol->value.function()(stmt_args_, this);
+        return symbol->value.function()(stmt_args_.get(), this);
     case kQbvalNativeMethod: {
         auto* entry = symbol->value.method();
         objects::Entity* object = entity_.get_pull();
         if (entry) {
             if (object)
-                return script::invoke_method_by_name(entry, stmt_args_, object, this);
+                return script::invoke_method_by_name(entry, stmt_args_.get(), object, this);
         } else if (object) {
-            return object_call_member_function(object, name, stmt_args_, this);
+            return object_call_member_function(object, name, stmt_args_.get(), this);
         }
         no_object_check();
         return false;
@@ -459,7 +459,7 @@ void Script::run_counted_loop()
     if (loop->args_expected_) {
         ++pc_;
         stmt_args_->get_clear();
-        innermost_repeat_->tokens_end_ = parse_arguments(stmt_args_, pc_, args_);
+        innermost_repeat_->tokens_end_ = parse_arguments(stmt_args_.get(), pc_, args_.get());
         innermost_repeat_->args_seen_ = stmt_args_->fetch_int_value(0u, &innermost_repeat_->headcount_, 0);
         innermost_repeat_->args_expected_ = false;
     }
@@ -496,7 +496,7 @@ void Script::run_loop_exit()
         pc_ = step_over_token(pc_);
     } while (searching);
     stmt_args_->get_clear();
-    pc_ = parse_arguments(stmt_args_, pc_, nullptr);
+    pc_ = parse_arguments(stmt_args_.get(), pc_, nullptr);
     innermost_repeat_ = outer_loop(innermost_repeat_, loops_);
 }
 
@@ -569,7 +569,7 @@ ScriptOutcome Script::tick_frame()
             // (from wherever the on-exit script left pc_ - see docs/script-runtime.md)
             ++pc_;
             parse_function_params();
-            if (return_from_script(stmt_args_))
+            if (return_from_script(stmt_args_.get()))
                 return kScriptOutcomeEndedByInterrupt;
             break;
         case 0x25:

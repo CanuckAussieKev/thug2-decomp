@@ -189,8 +189,7 @@ bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* sc
             if (!entry.used)
                 continue;
             any = true;
-            gsl::owner<Struct*> memory = script::spawn_param_bag();
-            Struct* swap = memory ? new (memory) script::Struct : nullptr;
+            gsl::owner<Struct*> swap = script::new_struct();
             swap->put_name_key(kObj1, entry.key);
             swap->put_name_key(kObj2, entry.value);
             cfunc_swap_object_models(swap, script);

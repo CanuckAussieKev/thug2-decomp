@@ -358,7 +358,7 @@ bool cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Scrip
 bool cfunc_goal_manager_get_goal_attempt_info(script::Struct*, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
-    script::Struct* results = script->args_;
+    script::Struct* results = script->args_.get();
     results->append_struct_ref(kTryDetails, manager->get_objective_try_details());
     return true;
 }
@@ -369,7 +369,7 @@ bool cfunc_goal_manager_get_view_goals_info(script::Struct* params, script::Scri
     GoalManager* manager = get_objective_board();
     uint32_t skater = 0;
     params->read_hash_value(kSkater, &skater, 0);
-    manager->get_view_goals_info(script->args_, skater);
+    manager->get_view_goals_info(script->args_.get(), skater);
     return true;
 }
 

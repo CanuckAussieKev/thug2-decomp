@@ -290,10 +290,10 @@ public:
     void put_vec3(const char* name, VectorValue value);
     void insert_pair(uint32_t name, float x, float y);
     // Arrays and structures added by pointer (the structure takes them over).
-    void append_array_ref(uint32_t name, Array* value);
-    void append_array_ref(const char* name, Array* value);
-    void append_struct_ref(uint32_t name, Struct* value);
-    void append_struct_ref(const char* name, Struct* value);
+    void append_array_ref(uint32_t name, gsl::owner<Array*> value);
+    void append_array_ref(const char* name, gsl::owner<Array*> value);
+    void append_struct_ref(uint32_t name, gsl::owner<Struct*> value);
+    void append_struct_ref(const char* name, gsl::owner<Struct*> value);
     // A copy of `value`.
     void put_sub_struct(uint32_t name, Struct* value);
     void put_sub_struct(const char* name, Struct* value);

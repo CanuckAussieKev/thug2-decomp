@@ -1046,7 +1046,7 @@ void Struct::insert_pair(uint32_t name, float x, float y)
 }
 
 // 0x004780D0
-void Struct::append_array_ref(uint32_t name, Array* value)
+void Struct::append_array_ref(uint32_t name, gsl::owner<Array*> value)
 {
     gsl::owner<Component*> component = new_typed_component(name, kQbvalArray);
     component->value.set_array(value);
@@ -1054,13 +1054,13 @@ void Struct::append_array_ref(uint32_t name, Array* value)
 }
 
 // 0x00478180
-void Struct::append_array_ref(const char* name, Array* value)
+void Struct::append_array_ref(const char* name, gsl::owner<Array*> value)
 {
     append_array_ref(checksums::hash_from_text(name), value);
 }
 
 // 0x004781B0
-void Struct::append_struct_ref(uint32_t name, Struct* value)
+void Struct::append_struct_ref(uint32_t name, gsl::owner<Struct*> value)
 {
     gsl::owner<Component*> component = new_typed_component(name, kQbvalStruct);
     component->value.set_structure(value);
@@ -1068,7 +1068,7 @@ void Struct::append_struct_ref(uint32_t name, Struct* value)
 }
 
 // 0x00478260
-void Struct::append_struct_ref(const char* name, Struct* value)
+void Struct::append_struct_ref(const char* name, gsl::owner<Struct*> value)
 {
     append_struct_ref(checksums::hash_from_text(name), value);
 }

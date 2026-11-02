@@ -364,7 +364,7 @@ bool ObjectiveAuthoring::edit_goal(script::Struct* params, script::Script* /*scr
 bool ObjectiveAuthoring::get_current_edited_goal_info(script::Struct* /*params*/, script::Script* script)
 {
     if (active_node_)
-        active_node_->export_to_struct(script->args_);
+        active_node_->export_to_struct(script->args_.get());
     return true;
 }
 
@@ -379,7 +379,7 @@ bool ObjectiveAuthoring::add_edited_goal_to_goal_manager(script::Struct* params,
 // 0x004EC200
 bool ObjectiveAuthoring::get_created_goals(script::Struct* /*params*/, script::Script* script)
 {
-    write_goals(script->args_);
+    write_goals(script->args_.get());
     return true;
 }
 

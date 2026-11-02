@@ -323,7 +323,7 @@ constexpr uint32_t kValue634 = 0xF884773C;
 constexpr uint32_t kMaxValue634 = 0x1C6CF075;
 constexpr uint32_t kCareerInfoKey = 0x55D761CF;
 
-script::Array* alloc_script_array(uint32_t size, script::QbValueKind type)
+gsl::owner<script::Array*> alloc_script_array(uint32_t size, script::QbValueKind type)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
@@ -460,20 +460,20 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
 // 0x00585550
 void RiderStoryProgress::write_to_structure(script::Struct* save)
 {
-    script::Array* goals = alloc_script_array(kLevels * 8, script::kQbvalInteger);
+    gsl::owner<script::Array*> goals = alloc_script_array(kLevels * 8, script::kQbvalInteger);
     for (uint32_t first = 0; first < kLevels * 8; first += 8) {
         for (uint32_t i = 0; i < 8; ++i)
             goals->set_element(first + i, goal_words()[first + i]);
     }
-    script::Array* flags = alloc_script_array(kLevels * 8, script::kQbvalInteger);
+    gsl::owner<script::Array*> flags = alloc_script_array(kLevels * 8, script::kQbvalInteger);
     for (uint32_t first = 0; first < kLevels * 8; first += 8) {
         for (uint32_t i = 0; i < 8; ++i)
             flags->set_element(first + i, flag_words()[first + i]);
     }
-    script::Array* globals = alloc_script_array(16, script::kQbvalInteger);
+    gsl::owner<script::Array*> globals = alloc_script_array(16, script::kQbvalInteger);
     for (uint32_t i = 0; i < 16; ++i)
         globals->set_element(i, core::at(global_flags_, i));
-    script::Array* gap_levels = alloc_script_array(kLevels, script::kQbvalStruct);
+    gsl::owner<script::Array*> gap_levels = alloc_script_array(kLevels, script::kQbvalStruct);
     for (int level = 0; level < kLevels; ++level) {
         goals::GapTally* checklist = core::at(gaps_, level);
         gsl::owner<script::Struct*> entry = script::new_struct();
@@ -484,7 +484,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
         if (frontend::level_editor::career::save_view(checklist, &view)) {
             entry->put_int(kGapsBuilt, view.built ? 1 : 0);
             if (view.built) {
-                script::Array* list = alloc_script_array(static_cast<uint32_t>(view.gaps.size()), script::kQbvalStruct);
+                gsl::owner<script::Array*> list = alloc_script_array(static_cast<uint32_t>(view.gaps.size()), script::kQbvalStruct);
                 for (size_t i = 0; i < view.gaps.size(); ++i) {
                     const frontend::level_editor::career::Gap& g = core::at(view.gaps, i);
                     gsl::owner<script::Struct*> gap = script::new_struct();
@@ -502,7 +502,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
         } else {
             entry->put_int(kGapsBuilt, 1);
             const int count = checklist->total_of();
-            script::Array* list = alloc_script_array(static_cast<uint32_t>(count), script::kQbvalStruct);
+            gsl::owner<script::Array*> list = alloc_script_array(static_cast<uint32_t>(count), script::kQbvalStruct);
             for (int i = 0; i < count; ++i) {
                 gsl::owner<script::Struct*> gap = script::new_struct();
                 gap->append_word(kGapName, checklist->get_gap_title(i));
@@ -519,7 +519,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
         }
         gap_levels->set_cell(static_cast<uint32_t>(level), script::Cell::of(entry));
     }
-    script::Array* visited = alloc_script_array(kLevels, script::kQbvalInteger);
+    gsl::owner<script::Array*> visited = alloc_script_array(kLevels, script::kQbvalInteger);
     for (int level = 0; level < kLevels; ++level)
         visited->set_element(static_cast<uint32_t>(level), core::at(visited_, level));
     gsl::owner<script::Struct*> career = script::new_struct();
@@ -532,9 +532,9 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     career->put_name_key(0x2CC06F5E, goals::g_game_mode->get_name_key());
     // (both made first, then sized, as the original)
     gsl::owner<script::Array*> cash_memory = script::alloc_script_array();
-    script::Array* cash = cash_memory ? memory::construct_in<script::Array>(cash_memory) : nullptr;
+    gsl::owner<script::Array*> cash = cash_memory ? memory::construct_in<script::Array>(cash_memory) : nullptr;
     gsl::owner<script::Array*> amount_memory = script::alloc_script_array();
-    script::Array* amounts = amount_memory ? memory::construct_in<script::Array>(amount_memory) : nullptr;
+    gsl::owner<script::Array*> amounts = amount_memory ? memory::construct_in<script::Array>(amount_memory) : nullptr;
     cash->configure_size_kind(kLevels, script::kQbvalInteger);
     amounts->configure_size_kind(kLevels, script::kQbvalInteger);
     for (int level = 0; level < kLevels; ++level) {
@@ -545,7 +545,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     career->append_array_ref(kAmountArray, amounts);
     career->put_int(kCashBalanceKey, lifetime_funds_);
     career->put_int(kTotalAmount, total_amount_);
-    script::Array* counters = alloc_script_array(18, script::kQbvalInteger);
+    gsl::owner<script::Array*> counters = alloc_script_array(18, script::kQbvalInteger);
     for (int level = 0; level < 18; ++level)
         counters->set_element(static_cast<uint32_t>(level), core::at(counter_, level));
     career->append_array_ref(kCounterArray, counters);
@@ -561,7 +561,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
 bool cfunc_get_career_save_info(script::Struct* /*params*/, script::Script* script)
 {
     RiderStoryProgress* career = modules::g_skate_module->career_.get();
-    career->write_to_structure(script->args_);
+    career->write_to_structure(script->args_.get());
     return true;
 }
 

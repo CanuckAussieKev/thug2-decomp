@@ -114,8 +114,7 @@ bool array_has(Array* array, uint32_t name)
 // true.
 bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script)
 {
-    gsl::owner<Struct*> memory = script::spawn_param_bag();
-    Struct* result = memory ? new (memory) script::Struct : nullptr;
+    gsl::owner<Struct*> result = script::new_struct();
     Struct* a = nullptr;
     params->read_sub_struct(kA, &a, 1);
     Struct* b = nullptr;
@@ -368,8 +367,7 @@ bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
     params->fetch_text(kString, &string, 1);
     const char* field = nullptr;
     params->fetch_text("field", &field, 1);
-    gsl::owner<Struct*> memory = script::spawn_param_bag();
-    Struct* value = memory ? new (memory) script::Struct : nullptr;
+    gsl::owner<Struct*> value = script::new_struct();
     value->append_word(kUiString, script::kQbvalString, string);
     uint32_t checksum = 0;
     params->read_hash_value("checksum", &checksum, 0);

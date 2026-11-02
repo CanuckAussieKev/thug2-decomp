@@ -337,7 +337,7 @@ bool cfunc_get_gamma_values(Struct*, Script* script)
 {
     float red = 0.0f, green = 0.0f, blue = 0.0f;
     render::get_gamma(&red, &green, &blue);
-    Struct* out = script->args_;
+    Struct* out = script->args_.get();
     out->erase_module(kRed);
     out->erase_module(kGreen);
     out->erase_module(kBlue);
@@ -473,7 +473,7 @@ bool cfunc_set_light_diffuse_color(Struct* params, Script*)
 // (0x0048E950) into the script's params as ambient_red .. blue_1. Always true.
 bool cfunc_get_light_current_color(Struct*, Script* script)
 {
-    Struct* out = script->args_;
+    Struct* out = script->args_.get();
     uint32_t colour = 0;
     auto add = [&](uint32_t red, uint32_t green, uint32_t blue) {
         out->put_int(red, static_cast<int>(colour & 0xFF));

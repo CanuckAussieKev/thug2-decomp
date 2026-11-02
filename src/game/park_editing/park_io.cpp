@@ -413,7 +413,7 @@ void ParkLayout::export_to_struct(script::Struct* out)
         write_compressed_map();
     flag_bits_ &= ~kMapNotSavedLocal;
     gsl::owner<script::Array*> memory = script::alloc_script_array();
-    script::Array* map = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    gsl::owner<script::Array*> map = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     map->configure_size_kind(kParkMapWords, script::kQbvalInteger); // (out of memory crashes, as in the original)
     std::array<uint32_t, kParkMapWords> words{};
     park_map_to_words(&map_, words.data());
@@ -421,7 +421,7 @@ void ParkLayout::export_to_struct(script::Struct* out)
         map->set_element(i, core::at(words, i));
     out->append_array_ref(0x337C5289u, map); // Park_editor_map
     gsl::owner<script::Struct*> struct_memory = script::spawn_param_bag();
-    script::Struct* goals = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;
+    gsl::owner<script::Struct*> goals = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;
     // the goal editor (module GoalEditor, 0x004E8470) writes the park's goals (level Load_Sk5Ed)
     ObjectiveAuthoring::get_pull()->write_level_goals(0xE8B4B836, goals);
     out->append_struct_ref(0xD8EB825Eu, goals); // Park_editor_goals

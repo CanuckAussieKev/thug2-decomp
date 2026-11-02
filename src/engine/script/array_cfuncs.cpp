@@ -151,7 +151,7 @@ bool cfunc_get_2d_array_data(Struct* params, script::Script* script)
     params->fetch_int_value(kIndex1, &i, 1);
     int j = 0;
     params->fetch_int_value(kIndex2, &j, 1);
-    add_element(script->args_, element_array(array, static_cast<uint32_t>(i)), static_cast<uint32_t>(j));
+    add_element(script->args_.get(), element_array(array, static_cast<uint32_t>(i)), static_cast<uint32_t>(j));
     return true;
 }
 
@@ -168,7 +168,7 @@ bool cfunc_get_3d_array_data(Struct* params, script::Script* script)
     int k = 0;
     params->fetch_int_value(kIndex3, &k, 1);
     Array* plane = element_array(element_array(array, static_cast<uint32_t>(i)), static_cast<uint32_t>(j));
-    add_element(script->args_, plane, static_cast<uint32_t>(k));
+    add_element(script->args_.get(), plane, static_cast<uint32_t>(k));
     return true;
 }
 
@@ -185,7 +185,7 @@ bool cfunc_get_nd_array_data(Struct* params, script::Script* script)
     uint32_t i = 0;
     for (; i < indices->extent_ - 1; ++i)
         array = element_array(array, indices->fetch_part(i));
-    add_element(script->args_, array, indices->fetch_part(i));
+    add_element(script->args_.get(), array, indices->fetch_part(i));
     return true;
 }
 

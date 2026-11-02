@@ -319,7 +319,7 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
         params->has_bare_flag(kDontAssert);
         return false;
     }
-    element.get_pull()->get_properties(script->args_);
+    element.get_pull()->get_properties(script->args_.get());
     if (element->kind_tag_ == kElement3d) {
         auto* e3d = core::down_cast<ModelWidget>(objects::get_tracker()->look_up_object(id));
         script->args_->push_float(kAngleX, core::at(e3d->angle_, 0));

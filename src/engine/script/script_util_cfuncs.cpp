@@ -95,7 +95,7 @@ bool cfunc_remove_parameter(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
-    Struct* own = script->args_;
+    Struct* own = script->args_.get();
     own->erase_module(name);
     own->remove_flag(name);
     return true;
@@ -180,7 +180,7 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
             return false;
     }
     script->args_->put_int(kIndex, index);
-    Struct* own = script->args_;
+    Struct* own = script->args_.get();
     switch (array->kind_tag_) {
     case script::kQbvalInteger:
         own->put_int(kElement, static_cast<int>(array->fetch_part(index)));
@@ -224,7 +224,7 @@ bool cfunc_get_random_array_element(Struct* params, Script* script)
         return false;
     const int index = maths::rnd(static_cast<int>(array->extent_));
     script->args_->put_int(kIndex, index);
-    Struct* own = script->args_;
+    Struct* own = script->args_.get();
     switch (array->kind_tag_) {
     case script::kQbvalInteger:
         own->put_int(kElement, static_cast<int>(array->fetch_part(index)));
@@ -286,7 +286,7 @@ bool cfunc_goto_random_script(Struct* params, Script* script)
 // 0x0044BE20: FormatText: the text put together into the script's parameters (0x0044A480). Always true.
 bool cfunc_format_text(Struct* params, Script* script)
 {
-    format_text_into(script->args_, params);
+    format_text_into(script->args_.get(), params);
     return true;
 }
 
@@ -461,7 +461,7 @@ bool cfunc_permute_array(Struct* params, Script* script)
         return false;
     const bool make_copy = !params->has_bare_flag("PermuteSource"); // "PermuteSource"
     uint32_t new_name = 0;
-    Array* copy = nullptr;
+    gsl::owner<Array*> copy = nullptr;
     Array* array = source;
     if (make_copy) {
         params->read_hash_value("NewArrayName", &new_name, 0); // "NewArrayName"
@@ -505,7 +505,7 @@ bool cfunc_goto_preserve_params(Struct* params, Script* script)
     gsl::owner<Struct*> script_params = script::spawn_param_bag();
     if (script_params)
         script_params = new (script_params) script::Struct;
-    script_params->append_structure_if_any(script->args_);
+    script_params->append_structure_if_any(script->args_.get());
     Struct* extra = nullptr;
     params->read_sub_struct(kParams, &extra, 0);
     script_params->append_structure_if_any(extra);

@@ -127,7 +127,7 @@ constexpr uint32_t kLimitsTimeDefault = 0x551184E7;     // (float bits: about 1e
 constexpr uint32_t kLimitsFrictionDefault = 0x360637BD; // (float bits: about 2e-6)
 
 int get_is(uint8_t value) { return value ? 1 : 0; }
-script::Struct* results_of(script::Script* script) { return script->args_; }
+script::Struct* results_of(script::Script* script) { return script->args_.get(); }
 
 // The time in the air: in the air or on a wall (states 1, 2) since it began, else the last one's length.
 uint32_t time_aloft(SkaterPhysicsModule* component)

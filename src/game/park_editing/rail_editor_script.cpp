@@ -84,7 +84,7 @@ float camera_heading(objects::ObjectModule* camera) { return editor_view(camera)
 float camera_height(objects::ObjectModule* camera) { return editor_view(camera)->level_y_; }
 
 // The structure a script's member function writes its results to (CScript +0x14).
-script::Struct* get_results(script::Script* script) { return script->args_; }
+script::Struct* get_results(script::Script* script) { return script->args_.get(); }
 
 } // namespace
 
