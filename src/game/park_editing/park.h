@@ -18,10 +18,12 @@
 #include <cstdint>
 #include <array>
 #include <optional>
+#include <span>
 
 #include "game/park_editing/park_rails.h"
 #include "engine/maths/vec4.h"
 #include "engine/core/mem.h"
+#include "engine/core/checked_index.h"
 #include "engine/core/slab_bank.h"
 #include "engine/assets/resource_entry.h"
 #include <gsl/pointers>
@@ -85,9 +87,8 @@ struct CellBox {
 };
 static_assert(sizeof(CellBox) == 6, "passed by value in two stack slots");
 
-// One piece of a metapiece (12 bytes in the original): its cell offset and rotation within the metapiece, and the
-// piece - the original's one word held either.
-struct PieceGroupDesc {
+// Where a piece of a metapiece lies: its cell offset and rotation within the metapiece (a descriptor's first 8 bytes).
+struct PiecePlace {
     uint8_t x;
     int8_t y;
     uint8_t z;
@@ -96,8 +97,47 @@ struct PieceGroupDesc {
                       //        these set the cells' floor heights (set_meta_in_cells), PieceGroup::intersects' precise
                       //        test leaves them out, and their metapiece is kFloorLocked
     std::array<uint8_t, 3> spare_slot5_;
-    gsl::owner<ParkTile*> placed_; // +0x08: in a concrete metapiece, the scene piece
-    uint32_t name_;                // in an abstract one, the piece's (or inner metapiece's) name
+};
+
+// One piece of a metapiece (a descriptor): where it lies and the piece (+0x08) - in a concrete metapiece the placed
+// piece (PlacedSlot: the park builder owns it), in an abstract one the name of a source piece or of an inner palette
+// metapiece (NamedSlot). The original's one word held either; each kind of metapiece keeps its own kind of slot, so a
+// descriptor is 12 bytes as the original's: a metapiece's descriptors are on the park heap, and the park editor's
+// memory meter counts that heap's free bytes.
+template <typename Piece>
+struct PieceSlot : PiecePlace {
+    Piece piece;
+};
+using PlacedSlot = PieceSlot<ParkTile*>;
+using NamedSlot = PieceSlot<uint32_t>;
+static_assert(sizeof(NamedSlot) == 12 && sizeof(PlacedSlot) == sizeof(PiecePlace) + sizeof(ParkTile*),
+              "a descriptor is the original's size: the park heap's use is the player's memory meter");
+
+// A metapiece's descriptors: the first two inside it, the others in an array from the current heap (the park heap
+// while the park editor runs), its own - replaced when the metapiece grows or turns, freed with it.
+template <typename Piece>
+class PieceSlots {
+public:
+    using Slot = PieceSlot<Piece>;
+
+    // Descriptor `index` (signed: below 2 the first two; piece 2 is the array's first).
+    Slot& at(int index) { return index < 2 ? core::at(first_, index) : core::at(extra(), index - 2); }
+    // Room for `count` descriptors: a new array (none for 2 or fewer), the extra ones kept when it grows.
+    void commission(int count);
+    // Every descriptor turned `turn` quarter turns within `area` (its new size, already turned), into a new array:
+    // `size_of(slot, &across, &along)` gives a slot's own size in cells as it lies (x, z).
+    template <typename SizeOf>
+    void turn(uint32_t filled, int turn, const CellBox& area, SizeOf size_of);
+
+private:
+    // An array of `count` descriptors from the current heap (the memory manager's, uninitialised).
+    static memory::HeapPtr<Slot> allocate(uint32_t count);
+    // The extra descriptors (none without the array).
+    std::span<Slot> extra() { return {extra_.get(), extra_ && limit_ > 2 ? limit_ - 2 : 0}; }
+
+    std::array<Slot, 2> first_{};
+    memory::HeapPtr<Slot> extra_; // the others (limit_ - 2 of them; piece 2 is the first)
+    uint32_t limit_ = 0;          // room for this many
 };
 
 // A piece of the scene (what a metapiece is made of; park_pieces.cpp). Two kinds: a source piece (TileTemplate,
@@ -208,8 +248,9 @@ public:
     maths::Vec4* measure_span(maths::Vec4* out) override;
 };
 
-// A metapiece (abstract or concrete; 0x3C bytes; park_metapieces.cpp): its pieces, by descriptor. (The original's
-// vtables: the base's 0x0064F3BC, PlacedPieceGroup's 0x0064F3D8, PieceBlueprint's 0x0064F3E4.)
+// A metapiece (abstract or concrete; 0x3C bytes - the descriptors in each kind's own slots; park_metapieces.cpp): its
+// pieces, by descriptor. (The original's vtables: the base's 0x0064F3BC, PlacedPieceGroup's 0x0064F3D8,
+// PieceBlueprint's 0x0064F3E4.)
 class PieceGroup : public memory::HeapObject {
 public:
     // The flags (flag_bits_).
@@ -238,30 +279,31 @@ public:
 
     PieceGroup(const PieceGroup&) = delete;
     PieceGroup& operator=(const PieceGroup&) = delete;
-    // 0x005917E0 (0x00591670 / 0x00591BB0 the deleting ones): the extra descriptors freed.
-    virtual ~PieceGroup();
+    PieceGroup(PieceGroup&&) = delete;
+    PieceGroup& operator=(PieceGroup&&) = delete;
+    // 0x005917E0 (0x00591670 / 0x00591BB0 the deleting ones): the extra descriptors freed (each kind's slots).
+    virtual ~PieceGroup() = default;
     // Piece `index` (null past the end): a placed metapiece's cloned piece, a palette entry's source piece.
     virtual ParkPiece* get_piece(uint32_t index) = 0;
     // A piece added at the cells `pos` (x y z), turned `rot`.
     virtual void insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor) = 0;
+    // 0x00590340: where descriptor `index` lies (signed: below 2 the first two)
+    virtual PiecePlace* get_descriptor(int index) = 0;
+    // 0x00590AD0: room for `count` pieces (the extra ones kept when it grows)
+    virtual void commission(int count) = 0;
 
     CellBox cell_footprint_ = {0, 0, 0, 0, 0, 0}; // +0x04 (the offsets are the original's: the vtable at +0x00)
     std::array<uint8_t, 2> pad0a_{};
     uint32_t flag_bits_ = 0;               // +0x0C
     int quarter_turns_{};                  // +0x10: quarter turns
-    std::array<PieceGroupDesc, 2> desc_{};             // +0x14: the first two pieces
-    PieceGroupDesc* extra_desc_ = nullptr; // +0x2C: the others (piece 2 is extra_desc_[0])
-    uint32_t slot_limit_ = 0;              // +0x30
-    uint32_t filled_slots_ = 0;            // +0x34
-    uint32_t name_key_{};                  // +0x38: the abstract metapiece's name
+    uint32_t filled_slots_ = 0;            // (+0x34 in the original)
+    uint32_t name_key_{};                  // (+0x38): the abstract metapiece's name
 
     // 0x005902E0 (returns this; folded with many empty constructors): a metapiece as a concrete one
     PieceGroup* as_placed_piece() { return this; }
     PieceGroup* get_cast() { return this; }
     // 0x005902F0: one of the eight restart pieces (by its name)
     bool is_spawn_marker();
-    // 0x00590340: descriptor `index` (signed: below 2 the first two)
-    PieceGroupDesc* get_descriptor(int index);
     // 0x00591A50: each of its cloned pieces tinted (purple with `gap`) or back to normal
     void spotlight(int on, int gap);
     // 0x00591800: its pieces put at `position`, turned by `angle` degrees about it
@@ -273,11 +315,9 @@ public:
     // 0x00590750: whether the metapiece lies within `area` (x and z)
     bool fits_inside_region(CellBox* area);
     // 0x00590340 (as get_descriptor)
-    PieceGroupDesc* get_entry(int index) { return get_descriptor(index); }
+    PiecePlace* get_entry(int index) { return get_descriptor(index); }
     // 0x00590400: how many pieces, a palette entry of several pieces counted by its pieces (an abstract metapiece)
     int count_pieces();
-    // 0x00590AD0: room for `count` pieces (the extra ones kept when it grows)
-    void commission(int count);
     // 0x00591AB0: its cell area from its pieces' bounds, and the pieces centred on it
     void finish_pieces();
     // 0x005903A0: its pieces' sectors drawn and collided with, or neither
@@ -292,6 +332,13 @@ public:
 
 protected:
     PieceGroup() = default;
+    // Every descriptor turned `turn` quarter turns (the metapiece's area already turned).
+    virtual void turn_descriptors(int turn) = 0;
+
+private:
+    // Descriptor `index`'s placed piece (a concrete metapiece's) / its name (an abstract one's).
+    ParkTile* placed_piece(uint32_t index);
+    uint32_t piece_name(uint32_t index);
 };
 
 // A metapiece placed in the park or held by the cursor: its pieces are cloned pieces.
@@ -304,6 +351,16 @@ public:
     // 0x00590ED0: `piece` (a placed piece) added at the cells `pos` (x y z), turned `rot`; the piece's position set to
     // its centre there
     void insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor) override;
+    PiecePlace* get_descriptor(int index) override { return &slots_.at(index); }
+    void commission(int count) override;
+    // Descriptor `index`, with its placed piece.
+    PlacedSlot& slot(int index) { return slots_.at(index); }
+
+protected:
+    void turn_descriptors(int turn) override;
+
+private:
+    PieceSlots<ParkTile*> slots_; // +0x14
 };
 
 // A palette entry: its descriptors name source pieces or other palette entries.
@@ -316,12 +373,24 @@ public:
     // 0x00591020: a source piece added by name (anything else only counted), the area grown to take it in (at least
     // 1 high)
     void insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor) override;
+    PiecePlace* get_descriptor(int index) override { return &slots_.at(index); }
+    void commission(int count) override;
+    // Descriptor `index`, with its piece's name.
+    NamedSlot& slot(int index) { return slots_.at(index); }
     // 0x00591100: a palette metapiece added by name (null only counted), the area grown to take it in
     void add_meta_piece(PieceGroup* meta, CellBox* pos, int rot, uint8_t sets_floor);
     // 0x005911D0: entry `index` counting the pieces of the palette metapieces it's made of one by one (each placed
     // and turned in this one); returns `out`
-    PieceGroupDesc* get_entry(PieceGroupDesc* out, int index);
+    NamedSlot* get_entry(NamedSlot* out, int index);
+
+protected:
+    void turn_descriptors(int turn) override;
+
+private:
+    PieceSlots<uint32_t> slots_; // +0x14
 };
+static_assert(sizeof(void*) != 4 || (sizeof(PlacedPieceGroup) == 0x3C && sizeof(PieceBlueprint) == 0x3C),
+              "a metapiece is the original's size: the park heap's use is the player's memory meter");
 
 // A node of a metapiece list (12 bytes, pooled: the pool pair 0x007CE5F0).
 struct MapListNode {

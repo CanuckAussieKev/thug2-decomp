@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <utility>
 #include <array>
+#include <span>
 
 #include "game/park_editing/park.h"
 #include "platform/d3dx.h"
@@ -30,12 +31,6 @@ constexpr double kCellSlack = 2.0;
 // The bounds' starting values (0x47C35000): far outside the park.
 constexpr float kFarAway = 100000.0f;
 
-// The extra descriptors' memory (the memory manager's, on the current heap).
-PieceGroupDesc* allocate_descriptors(uint32_t count)
-{
-    return static_cast<PieceGroupDesc*>(memory::carve(count * sizeof(PieceGroupDesc), 1, nullptr));
-}
-
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void multiply_matrices(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
 {
@@ -48,6 +43,79 @@ uint8_t get_cells(double size, float cell)
 }
 
 } // namespace
+
+// --- PieceSlots -------------------------------------------------------------------------------------------------
+
+template <typename Piece>
+memory::HeapPtr<typename PieceSlots<Piece>::Slot> PieceSlots<Piece>::allocate(uint32_t count)
+{
+    return memory::heap_ptr<Slot>(memory::carve(count * sizeof(Slot), 1, nullptr));
+}
+
+template <typename Piece>
+void PieceSlots<Piece>::commission(int count)
+{
+    memory::HeapPtr<Slot> extra;
+    if (count > 2) {
+        extra = allocate(static_cast<uint32_t>(count - 2));
+        // Growing: the extra entries kept.
+        if (extra && extra_ && limit_ <= ints::as_unsigned(count) && limit_ > 2) {
+            const std::span<Slot> to(extra.get(), static_cast<uint32_t>(count - 2));
+            const std::span<Slot> from = this->extra();
+            for (uint32_t i = 2; i < limit_; ++i)
+                core::at(to, i - 2) = core::at(from, i - 2);
+        }
+    }
+    extra_ = std::move(extra); // (the old array freed)
+    limit_ = static_cast<uint32_t>(count);
+}
+
+template <typename Piece>
+template <typename SizeOf>
+void PieceSlots<Piece>::turn(uint32_t filled, int turn, const CellBox& area, SizeOf size_of)
+{
+    // Every descriptor turned about the metapiece's corner, into new storage.
+    memory::HeapPtr<Slot> extra = extra_ ? allocate(limit_ - 2) : nullptr;
+    const std::span<Slot> to_extra(extra.get(), extra ? limit_ - 2 : 0);
+    // (the original leaves the unused ones of these two as stack leftovers; here they keep what they were)
+    std::array<Slot, 2> first = first_;
+    for (uint32_t i = 0; i < filled; ++i) {
+        Slot* to = i < 2 ? &core::at(first, i) : &core::at(to_extra, i - 2);
+        const Slot* from = &at(static_cast<int>(i));
+        *to = *from;
+        // The entry's own size in cells, as it lies (x, z).
+        uint8_t across = 0;
+        uint8_t along = 0;
+        size_of(*from, &across, &along);
+        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
+        switch (turn) {
+        case 0:
+            to->x = from->x;
+            to->z = from->z;
+            break;
+        case 1:
+            to->x = from->z;
+            to->z = static_cast<uint8_t>(area.l - from->x - across);
+            break;
+        case 2:
+            to->x = static_cast<uint8_t>(area.w - from->x - across);
+            to->z = static_cast<uint8_t>(area.l - from->z - along);
+            break;
+        case 3:
+            to->x = static_cast<uint8_t>(area.w - from->z - along);
+            to->z = from->x;
+            break;
+        }
+        to->y = from->y;
+        to->rot = static_cast<uint8_t>((from->rot + turn) & 3);
+        to->piece = from->piece;
+    }
+    extra_ = std::move(extra); // (the old array freed)
+    first_ = first;
+}
+
+template class PieceSlots<ParkTile*>;
+template class PieceSlots<uint32_t>;
 
 // --- PieceGroup ---------------------------------------------------------------------------------------------------
 
@@ -68,12 +136,20 @@ bool PieceGroup::is_spawn_marker()
     }
 }
 
-PieceGroupDesc* PieceGroup::get_descriptor(int index) { return index < 2 ? &core::at(desc_, index) : &extra_desc_[index - 2]; }
+ParkTile* PieceGroup::placed_piece(uint32_t index)
+{
+    return core::down_cast<PlacedPieceGroup>(this)->slot(static_cast<int>(index)).piece;
+}
+
+uint32_t PieceGroup::piece_name(uint32_t index)
+{
+    return core::down_cast<PieceBlueprint>(this)->slot(static_cast<int>(index)).piece;
+}
 
 void PieceGroup::toggle_shown(bool visible)
 {
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        auto* piece = get_descriptor(static_cast<int>(i))->placed_;
+        auto* piece = placed_piece(i);
         scene::change_live(scene::look_up_sector(piece->sector_), visible);
     }
 }
@@ -82,7 +158,7 @@ int PieceGroup::count_pieces()
 {
     int count = 0;
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        const uint32_t name = get_descriptor(static_cast<int>(i))->name_;
+        const uint32_t name = piece_name(i);
         const PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(name, nullptr);
         if (entry->flag_bits_ & kSector) // a single piece
             ++count;
@@ -111,65 +187,7 @@ void PieceGroup::set_quarter_turns(int rot)
         cell_footprint_.w = cell_footprint_.l;
         cell_footprint_.l = w;
     }
-    // Every descriptor turned about the metapiece's corner, into new storage.
-    PieceGroupDesc* extra = extra_desc_ ? allocate_descriptors(slot_limit_ - 2) : nullptr;
-    // (the original leaves the unused ones of these two as stack leftovers; here they keep what they were)
-    std::array<PieceGroupDesc, 2> first = {{core::at(desc_, 0), core::at(desc_, 1)}};
-    for (uint32_t i = 0; i < filled_slots_; ++i) {
-        PieceGroupDesc* to = i < 2 ? &core::at(first, i) : &extra[i - 2];
-        const PieceGroupDesc* from = i < 2 ? &core::at(desc_, i) : &extra_desc_[i - 2];
-        *to = *from;
-        // The entry's own size in cells, as it lies (x, z).
-        uint8_t across = 0;
-        uint8_t along = 0;
-        if (flag_bits_ & kAbstract) {
-            const PieceGroup* entry =
-                ParkLayout::singleton()->fetch_meta_template(from->name_, nullptr);
-            const CellBox size = entry->cell_footprint_;
-            if (from->rot & 1) {
-                along = size.w;
-                across = size.l;
-            } else {
-                along = size.l;
-                across = size.w;
-            }
-        } else {
-            CellBox size{};
-            size.w = 0;
-            size.l = 0;
-            from->placed_->get_footprint_size(&size);
-            along = size.l;
-            across = size.w;
-        }
-        // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
-        switch (turn) {
-        case 0:
-            to->x = from->x;
-            to->z = from->z;
-            break;
-        case 1:
-            to->x = from->z;
-            to->z = static_cast<uint8_t>(cell_footprint_.l - from->x - across);
-            break;
-        case 2:
-            to->x = static_cast<uint8_t>(cell_footprint_.w - from->x - across);
-            to->z = static_cast<uint8_t>(cell_footprint_.l - from->z - along);
-            break;
-        case 3:
-            to->x = static_cast<uint8_t>(cell_footprint_.w - from->z - along);
-            to->z = from->x;
-            break;
-        }
-        to->y = from->y;
-        to->rot = static_cast<uint8_t>((from->rot + turn) & 3);
-        to->placed_ = from->placed_;
-        to->name_ = from->name_;
-    }
-    if (extra_desc_)
-        memory::dealloc(extra_desc_);
-    extra_desc_ = extra;
-    core::at(desc_, 0) = core::at(first, 0);
-    core::at(desc_, 1) = core::at(first, 1);
+    turn_descriptors(turn);
 }
 
 maths::Vec4* PieceGroup::get_relative_position(maths::Vec4* out, uint32_t index)
@@ -177,7 +195,7 @@ maths::Vec4* PieceGroup::get_relative_position(maths::Vec4* out, uint32_t index)
     // The metapiece's half size (x and z).
     const auto half_w = static_cast<float>(static_cast<double>(cell_footprint_.w) * kGridPitch * 0.5);
     const auto half_l = static_cast<float>(static_cast<double>(cell_footprint_.l) * kGridStepAlong * 0.5);
-    const PieceGroupDesc* entry = get_descriptor(static_cast<int>(index));
+    const PiecePlace* entry = get_descriptor(static_cast<int>(index));
     ParkPiece* piece = get_piece(index);
     maths::Vec4 size1;
     maths::Vec4 size2;
@@ -195,29 +213,12 @@ maths::Vec4* PieceGroup::get_relative_position(maths::Vec4* out, uint32_t index)
     return out;
 }
 
-void PieceGroup::commission(int count)
-{
-    PieceGroupDesc* extra = nullptr;
-    if (count > 2) {
-        extra = allocate_descriptors(static_cast<uint32_t>(count - 2));
-        // Growing: the extra entries kept.
-        if (extra && extra_desc_ && slot_limit_ <= ints::as_unsigned(count) && slot_limit_ > 2) {
-            for (uint32_t i = 2; i < slot_limit_; ++i)
-                extra[i - 2] = extra_desc_[i - 2];
-        }
-    }
-    if (extra_desc_)
-        memory::dealloc(extra_desc_);
-    extra_desc_ = extra;
-    slot_limit_ = static_cast<uint32_t>(count);
-}
-
 void PieceGroup::get_bounds(maths::Vec4* max, maths::Vec4* min)
 {
     *min = {kFarAway, kFarAway, kFarAway, 0.0f};
     *max = {-kFarAway, -kFarAway, -kFarAway, 0.0f};
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        auto* piece = get_descriptor(static_cast<int>(i))->placed_;
+        auto* piece = placed_piece(i);
         maths::Vec4 size;
         piece->measure_span(&size);
         const double x = piece->at_point_.x;
@@ -266,7 +267,7 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
     if (!any_sets_floor)
         return true;
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        const PieceGroupDesc* entry = get_descriptor(static_cast<int>(i));
+        const PiecePlace* entry = get_descriptor(static_cast<int>(i));
         CellBox size{};
         size.w = 0;
         size.h = 0;
@@ -284,20 +285,13 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
     return false;
 }
 
-PieceGroup::~PieceGroup()
-{
-    if (extra_desc_)
-        memory::dealloc(extra_desc_);
-}
-
 void PieceGroup::get_piece_list(script::Array* out)
 {
     out->configure_size_kind(filled_slots_, script::kQbvalStruct);
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        const PieceGroupDesc* entry = get_descriptor(static_cast<int>(i));
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* piece = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-        piece->put_name_key(0u, entry->name_); // (out of memory crashes, as in the original)
+        piece->put_name_key(0u, piece_name(i)); // (out of memory crashes, as in the original)
         maths::Vec4 position;
         get_relative_position(&position, i);
         piece->put_vec3(0u, position.x, position.y, position.z);
@@ -313,8 +307,8 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
         return;
     const auto radians = static_cast<float>(static_cast<double>(angle) * kRadiansPerDegree);
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        const PieceGroupDesc* entry = get_descriptor(static_cast<int>(i));
-        auto* piece = entry->placed_;
+        const PiecePlace* entry = get_descriptor(static_cast<int>(i));
+        auto* piece = placed_piece(i);
         maths::Vec4 size;
         piece->measure_span(&size);
         // The piece's centre from the metapiece's centre (y read unsigned here), turned with the metapiece.
@@ -346,7 +340,7 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
 void PieceGroup::spotlight(int on, int gap)
 {
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        auto* piece = get_descriptor(static_cast<int>(i))->placed_;
+        auto* piece = placed_piece(i);
         if (piece->flag_bits_ & ParkTile::kCloned)
             piece->set_highlight(on != 0, gap != 0);
     }
@@ -370,7 +364,7 @@ void PieceGroup::finish_pieces()
     const double half_x = size_x * 0.5;
     const double half_z = static_cast<double>(size_z) * 0.5;
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        auto* piece = get_descriptor(static_cast<int>(i))->placed_;
+        auto* piece = placed_piece(i);
         piece->at_point_.x = static_cast<float>((static_cast<double>(piece->at_point_.x) - min.x) - half_x);
         piece->at_point_.z = static_cast<float>((static_cast<double>(piece->at_point_.z) - min.z) - half_z);
     }
@@ -388,13 +382,27 @@ ParkTile* PlacedPieceGroup::get_piece(uint32_t index)
 {
     if (index >= filled_slots_ || static_cast<int>(index) < 0)
         return nullptr;
-    return get_descriptor(static_cast<int>(index))->placed_;
+    return slot(static_cast<int>(index)).piece;
+}
+
+void PlacedPieceGroup::commission(int count) { slots_.commission(count); }
+
+void PlacedPieceGroup::turn_descriptors(int turn)
+{
+    slots_.turn(filled_slots_, turn, cell_footprint_, [](const PlacedSlot& from, uint8_t* across, uint8_t* along) {
+        CellBox size{};
+        size.w = 0;
+        size.l = 0;
+        from.piece->get_footprint_size(&size);
+        *along = size.l;
+        *across = size.w;
+    });
 }
 
 void PlacedPieceGroup::insert_tile(ParkPiece* placed, CellBox* pos, int rot, bool sets_floor)
 {
     auto* piece = core::down_cast<ParkTile>(placed);
-    PieceGroupDesc* entry = get_descriptor(static_cast<int>(filled_slots_++));
+    PlacedSlot* entry = &slot(static_cast<int>(filled_slots_++));
     maths::Vec4 size;
     piece->measure_span(&size);
     // The piece's centre in the metapiece's cells.
@@ -405,7 +413,7 @@ void PlacedPieceGroup::insert_tile(ParkPiece* placed, CellBox* pos, int rot, boo
     piece->at_point_.z = static_cast<float>(z);
     piece->at_point_.x = static_cast<float>(x);
     piece->at_point_.y = static_cast<float>(y);
-    entry->placed_ = piece;
+    entry->piece = piece;
     entry->x = pos->x;
     entry->y = pos->y;
     entry->z = pos->z;
@@ -421,8 +429,24 @@ TileTemplate* PieceBlueprint::get_piece(uint32_t index)
 {
     if (index >= filled_slots_ || static_cast<int>(index) < 0)
         return nullptr;
-    const PieceGroupDesc* entry = get_descriptor(static_cast<int>(index));
-    return ParkLayout::singleton()->builder_->get_piece_source(entry->name_);
+    return ParkLayout::singleton()->builder_->get_piece_source(slot(static_cast<int>(index)).piece);
+}
+
+void PieceBlueprint::commission(int count) { slots_.commission(count); }
+
+void PieceBlueprint::turn_descriptors(int turn)
+{
+    slots_.turn(filled_slots_, turn, cell_footprint_, [](const NamedSlot& from, uint8_t* across, uint8_t* along) {
+        const PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(from.piece, nullptr);
+        const CellBox size = entry->cell_footprint_;
+        if (from.rot & 1) {
+            *along = size.w;
+            *across = size.l;
+        } else {
+            *along = size.l;
+            *across = size.w;
+        }
+    });
 }
 
 namespace {
@@ -446,7 +470,7 @@ void grow_to_take(CellBox& cells, const CellBox* pos)
 void PieceBlueprint::insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool sets_floor)
 {
     auto* source = (piece->flag_bits_ & ParkPiece::kSource) ? core::down_cast<TileTemplate>(piece) : nullptr;
-    PieceGroupDesc* entry = get_descriptor(static_cast<int>(filled_slots_++));
+    NamedSlot* entry = &slot(static_cast<int>(filled_slots_++));
     if (!source)
         return; // (counted all the same)
     entry->x = pos->x;
@@ -454,7 +478,7 @@ void PieceBlueprint::insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool s
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
     entry->sets_floor_ = sets_floor;
-    entry->name_ = source->sector_;
+    entry->piece = source->sector_;
     grow_to_take(cell_footprint_, pos);
     if (cell_footprint_.h < 1)
         cell_footprint_.h = 1;
@@ -462,7 +486,7 @@ void PieceBlueprint::insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool s
 
 void PieceBlueprint::add_meta_piece(PieceGroup* meta, CellBox* pos, int rot, uint8_t sets_floor)
 {
-    PieceGroupDesc* entry = get_descriptor(static_cast<int>(filled_slots_++));
+    NamedSlot* entry = &slot(static_cast<int>(filled_slots_++));
     if (!meta)
         return;
     entry->x = pos->x;
@@ -470,19 +494,18 @@ void PieceBlueprint::add_meta_piece(PieceGroup* meta, CellBox* pos, int rot, uin
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
     entry->sets_floor_ = sets_floor != 0;
-    entry->name_ = meta->name_key_;
+    entry->piece = meta->name_key_;
     grow_to_take(cell_footprint_, pos);
 }
 
-PieceGroupDesc* PieceBlueprint::get_entry(PieceGroupDesc* out, int index)
+NamedSlot* PieceBlueprint::get_entry(NamedSlot* out, int index)
 {
     int n = 0; // the entries counted so far, a nested metapiece's pieces each one
     // (when `index` is past the end the original returns a stack leftover; here an empty entry)
-    PieceGroupDesc result = {};
+    NamedSlot result = {};
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        const PieceGroupDesc* outer = get_descriptor(static_cast<int>(i));
-        PieceGroup* entry =
-            ParkLayout::singleton()->fetch_meta_template(outer->name_, nullptr);
+        const NamedSlot* outer = &slot(static_cast<int>(i));
+        PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(outer->piece, nullptr);
         if (entry->flag_bits_ & kSector) { // a single piece
             if (n == index) {
                 *out = *outer;
@@ -492,7 +515,7 @@ PieceGroupDesc* PieceBlueprint::get_entry(PieceGroupDesc* out, int index)
             continue;
         }
         for (uint32_t j = 0; j < entry->filled_slots_; ++j) {
-            const PieceGroupDesc* inner = entry->get_descriptor(static_cast<int>(j));
+            const NamedSlot* inner = &core::down_cast<PieceBlueprint>(entry)->slot(static_cast<int>(j));
             if (n != index) {
                 ++n;
                 continue;
