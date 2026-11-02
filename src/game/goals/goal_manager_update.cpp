@@ -8,6 +8,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <array>
+#include <span>
 
 #include "engine/core/str.h"
 #include "frontend/screen_element.h"

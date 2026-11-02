@@ -7,6 +7,7 @@
 #include <cstring>
 #include <span>
 
+#include "engine/core/cursor.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
 #include "engine/script/cscript.h"

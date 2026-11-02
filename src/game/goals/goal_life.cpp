@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "game/goals/objective.h"

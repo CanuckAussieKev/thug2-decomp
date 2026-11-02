@@ -10,6 +10,7 @@
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
+#include "engine/maths/vec4.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"

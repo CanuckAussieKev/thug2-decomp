@@ -11,6 +11,7 @@
 
 #include "engine/core/mem.h"
 #include "engine/core/stubs.h"
+#include "engine/lists/lookup_table.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_names.h"
 #include "game/goals/goal_types.h"

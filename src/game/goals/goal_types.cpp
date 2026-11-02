@@ -14,6 +14,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "game/goals/objective.h"
 #include "game/skate/contest.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"

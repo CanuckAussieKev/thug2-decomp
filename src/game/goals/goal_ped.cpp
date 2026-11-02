@@ -8,6 +8,7 @@
 #include <cstring>
 #include <array>
 
+#include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
 #include "game/goals/objective.h"

@@ -1,7 +1,9 @@
 // goals::CGoalManager: its goals made from the level's scripts, restarted, saved at the level's end, listed for the
 // menus (0x0055BA10-0x0055BE8F, 0x0055BF40-0x0055C7D6; see goal_manager.h).
 
+#include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "engine/core/mem.h"
 #include "game/goals/objective.h"
