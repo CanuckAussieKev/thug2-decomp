@@ -135,7 +135,11 @@ if ($p.HasExited) { "exited early (code $($p.ExitCode)) after {0:N1} s" -f $star
     "running after {0:N1} s; responding=$($p.Responding)" -f $started.Elapsed.TotalSeconds
     Stop-Process -Id $p.Id -Force
 }
-Start-Sleep -Seconds 2
+# (a killed game takes a moment to go - its log is complete and the exe free only then: waited for, up to 30 s, so
+# the next run or the lock's release doesn't find it still there)
+if (-not $p.WaitForExit(30000)) { "not gone 30 s after the kill: $(Close-Game $p)" }
+$gone = [Diagnostics.Stopwatch]::StartNew()
+while ((Get-Process -Id $p.Id -ErrorAction SilentlyContinue) -and $gone.Elapsed.TotalSeconds -lt 10) { Start-Sleep -Milliseconds 250 }
 if (Get-Process -Id $p.Id -ErrorAction SilentlyContinue) { "STILL RUNNING" } else {
     "closed"
     # (the commands are done with: a later start mustn't run them again - the status stays for reading)

@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory = $true)][ValidateSet('acquire', 'release', 'status')][string]$Action,
     [string]$Owner = '',
     [int]$WaitMinutes = 8,
-    [string]$Game = 'C:\Games\THUG2'
+    [string]$Game = 'C:\Games\THUG2',
+    [int]$ExitWaitSeconds = 60
 )
 # One game per game folder: whoever holds <Game>\.game-lock may deploy a build, edit the ini, launch and close the game
 # in that folder. -Game: C:\Games\THUG2 (the user's, the default) or a workspace copy C:\Games\THUG2-1, -2, -3...
@@ -11,8 +12,10 @@ param(
 #            thug2-decomp.ini into the lock folder; in a workspace
 #            then sets [features] mute_audio=1 (its games always run muted: Set-WorkspaceMuted, game_exe.ps1).
 #   release: in a workspace, first closes a game still running from that folder (the holder's: crashed, stuck on a
-#            dialog, or left open - its outcome and log tail recorded, game_health.ps1); then puts the backed-up
-#            files and ini back (removing the deployed ones that weren't there) and removes the lock. Never closes a game in the main install C:\Games\THUG2.
+#            dialog, or left open - its outcome and log tail recorded, game_health.ps1) and waits for it to go (up to
+#            -ExitWaitSeconds, then kills it); then puts the backed-up files and ini back (removing the deployed ones
+#            that weren't there) and removes the lock. Never closes a game in the main install C:\Games\THUG2. While a
+#            game from the folder is still running it refuses (exit 1): the lock kept, nothing put back.
 #   status:  who holds it, since when.
 . (Join-Path $PSScriptRoot 'game_exe.ps1')
 . (Join-Path $PSScriptRoot 'game_health.ps1')
@@ -67,11 +70,17 @@ switch ($Action) {
                 else { "a game was still running from $game at release: $closed" }
             }
         }
+        # Nothing is put back while a game from this folder is still running (its exe is in use: the copy would fail
+        # and the deployed files would be lost with the lock). A closed game can take a while to go (its process
+        # listed until it has gone): waited for, up to -ExitWaitSeconds; a workspace's then killed again.
+        $deadline = (Get-Date).AddSeconds($ExitWaitSeconds)
+        while ((Get-GamesHere) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+        if (-not $mainInstall) {
+            foreach ($running in @(Get-GamesHere)) { "a game from $game still running at release: $(Close-Game $running)" }
+        }
         if (Get-GamesHere) {
-            Copy-Item (Join-Path $lock 'thug2-decomp.ini.backup') (Join-Path $game 'thug2-decomp.ini') -Force
-            Remove-Item $lock -Recurse -Force
-            "RELEASED - a game is running (the user's?), so it was left alone and its exe NOT put back (in use); ini put back"
-            exit 0
+            "NOT RELEASED - a game is still running from $game$(if ($mainInstall) { ' (the user''s?)' }); the lock is kept and nothing put back: release again once it has exited"
+            exit 1
         }
         $had = @(Get-Content (Join-Path $lock 'deployed.txt') -ErrorAction SilentlyContinue | Where-Object { $_ })
         foreach ($f in $DeployedFiles) {

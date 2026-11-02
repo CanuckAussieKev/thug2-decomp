@@ -14,8 +14,10 @@ TypeScript tools' --game / --thug2 the same, thug2-level-converter-core/lib/inst
   (default 8 min; prints BUSY and exits 1 if still held), refuses while a game from that folder runs, and backs up
   the deployed thug2-decomp.exe (its PDB, d3dx9_43.dll, an earlier build's dinput8.dll - those that are there) and
   thug2-decomp.ini into `<folder>\.game-lock`; release puts them back as they were - in a workspace it
-  first closes a game still running from that folder (crashed, stuck or left open; recorded - "Crashes" below), in the
-  main install it never closes one. Under the lock you may copy your build's exe (with its PDB and d3dx9_43.dll) in, edit the ini, launch and close the game you started. To
+  first closes a game still running from that folder (crashed, stuck or left open; recorded - "Crashes" below) and
+  waits for it to go (`-ExitWaitSeconds`, default 60, then a kill), in the main install it never closes one; while a
+  game from the folder still runs it refuses (exit 1: the lock kept, nothing put back - release again once it has
+  exited). Under the lock you may copy your build's exe (with its PDB and d3dx9_43.dll) in, edit the ini, launch and close the game you started. To
   install something permanently (the lead installing main), also copy it over the `.backup` file before releasing.
 - **Workspace games are muted:** `game_lock.ps1` acquire, `run_game.ps1` (so load_check and the scenic captures),
   `edit_level.ts` and `try_spot.ts` set `[features] mute_audio=1` in a workspace's ini (C:\Games\THUG2-n only -
