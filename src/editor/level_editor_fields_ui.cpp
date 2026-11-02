@@ -487,9 +487,9 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         }
         ImGui::SameLine();
         ImGui::BeginDisabled(!props.has_ambient_);
-        const int* shown = (props.has_ambient_ ? props.ambient : own.ambient).data();
-        std::array<float, 3> colour = {{static_cast<float>(shown[0]) / 255.0f, static_cast<float>(shown[1]) / 255.0f,
-                           static_cast<float>(shown[2]) / 255.0f}};
+        const auto& shown = props.has_ambient_ ? props.ambient : own.ambient;
+        std::array<float, 3> colour = {{static_cast<float>(core::at(shown, 0)) / 255.0f, static_cast<float>(core::at(shown, 1)) / 255.0f,
+                           static_cast<float>(core::at(shown, 2)) / 255.0f}};
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::ColorEdit3("##ambientcolour", colour.data(), ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
             for (int i = 0; i < 3; ++i)
@@ -515,9 +515,9 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         }
         ImGui::SameLine();
         ImGui::BeginDisabled(!props.has_fog_);
-        const int* f = (props.has_fog_ ? props.fog : own.fog).data();
-        std::array<float, 4> fog_colour = {{static_cast<float>(f[0]) / 255.0f, static_cast<float>(f[1]) / 255.0f,
-                               static_cast<float>(f[2]) / 255.0f, static_cast<float>(f[3]) / 255.0f}};
+        const auto& f = props.has_fog_ ? props.fog : own.fog;
+        std::array<float, 4> fog_colour = {{static_cast<float>(core::at(f, 0)) / 255.0f, static_cast<float>(core::at(f, 1)) / 255.0f,
+                               static_cast<float>(core::at(f, 2)) / 255.0f, static_cast<float>(core::at(f, 3)) / 255.0f}};
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         bool changed = false;
         if (ImGui::ColorEdit4("##fogcolour", fog_colour.data(),
@@ -529,7 +529,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             changed = true;
         }
         bool done = ImGui::IsItemDeactivatedAfterEdit();
-        int distance = f[4];
+        int distance = core::at(f, 4);
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::DragInt("##fogdist", &distance, 10.0f, 0, 100000, "distance %d")) {
             core::at(props.fog, 4) = level_props::span_to(distance);

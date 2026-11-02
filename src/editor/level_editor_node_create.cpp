@@ -42,8 +42,9 @@ bool same_text(const std::string& a, const char* b)
 {
     if (a.size() != std::strlen(b))
         return false;
+    const std::string_view b_text(b);
     for (size_t i = 0; i < a.size(); ++i) {
-        char x = core::at(a, i), y = b[i];
+        char x = core::at(a, i), y = core::at(b_text, i);
         if (x >= 'A' && x <= 'Z')
             x = static_cast<char>(x - 'A' + 'a');
         if (y >= 'A' && y <= 'Z')

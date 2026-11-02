@@ -49,7 +49,7 @@ namespace {
 
 render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
 gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body_; }
-render::MeshRef** meshes_of(render::PcGeom* geom) { return geom->meshes; }
+std::span<render::MeshRef*> meshes_of(render::PcGeom* geom) { return geom->mesh_run(); }
 uint32_t mesh_count_of(render::PcGeom* geom) { return geom->mesh_count_; }
 uint32_t vertex_format(const render::MeshRef* mesh) { return mesh->fvf; }
 
@@ -179,8 +179,8 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         *why = "the copy has no drawn geometry";
         return false;
     }
-    render::MeshRef* const* meshes = meshes_of(geom);
-    render::MeshRef* first = meshes[0];
+    const std::span<render::MeshRef*> meshes = meshes_of(geom);
+    render::MeshRef* first = core::at(meshes, 0);
     Layout layout;
     if (!first || !layout_for(vertex_format(first), first->stride, &layout) || first->vertex_buffer_count_ < 1 ||
         first->vertex_buffer_count_ > 3) {
@@ -201,7 +201,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     auto count = static_cast<uint32_t>(mesh.vertices.size());
     // The render: new vertex buffers (each of the mesh's) and index buffers (each level of detail it draws).
     std::vector<uint8_t> data(static_cast<size_t>(count) * first->stride);
-    write_vertices(mesh, layout, first->stride, spec.colour, data.data());
+    write_vertices(mesh, layout, first->stride, spec.colour, data);
     for (int b = 0; std::cmp_less(b, first->vertex_buffer_count_); ++b) {
         gsl::owner<render::VertexBuffer*> buffer = new_vertex_buffer(static_cast<uint32_t>(data.size())); // (the mesh's)
         if (!buffer || !buffer->data) {
@@ -239,15 +239,15 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     first->radius = std::sqrt(get_dot(half, half));
     // The other meshes: nothing drawn (their strips all one index - degenerate).
     for (uint32_t i = 1; i < mesh_count_of(geom); ++i) {
-        render::MeshRef* other = meshes[i];
+        render::MeshRef* other = core::at(meshes, i);
         if (!other)
             continue;
         for (int k = 0; k < 8; ++k) {
             render::IdxStore* buffer = core::at(other->index_buffers_, k);
             if (!core::at(other->index_counts_, k) || !buffer || !buffer->indices)
                 continue;
-            if (std::any_of(buffer->indices, buffer->indices + core::at(other->index_counts_, k),
-                            [](uint16_t v) { return v != 0; })) {
+            if (std::ranges::any_of(std::span<const uint16_t>(buffer->indices, core::at(other->index_counts_, k)),
+                                    [](uint16_t v) { return v != 0; })) {
                 std::memset(buffer->indices, 0, core::at(other->index_counts_, k) * 2u);
                 upload_indices(buffer);
             }
@@ -271,13 +271,16 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         *why = "out of memory for the collision";
         return false;
     }
+    const std::span<float> vertex_floats(vertices, size_t{count} * 3);
     for (uint32_t v = 0; v < count; ++v)
-        std::memcpy(vertices + 3 * v, &core::at(mesh.vertices, v).pos, 12);
+        std::memcpy(&core::at(vertex_floats, 3 * v), &core::at(mesh.vertices, v).pos, 12);
+    const std::span<uint8_t> face_bytes(face_data, size_t{faces} * 10);
+    const std::span<uint16_t> leaf_run(leaf_faces, faces);
     for (uint32_t f = 0; f < faces; ++f) {
         const Face& face = core::at(mesh.faces, f);
         std::array<uint16_t, 5> words = {{face.flags, spec.terrain, face.a, face.b, face.c}};
-        std::memcpy(face_data + 10 * f, words.data(), 10);
-        leaf_faces[f] = static_cast<uint16_t>(f);
+        std::memcpy(&core::at(face_bytes, 10 * f), words.data(), 10);
+        core::at(leaf_run, f) = static_cast<uint16_t>(f);
     }
     if (bytes)
         std::memset(bytes, 0x80, count);
@@ -413,9 +416,9 @@ const char* why_not_donor(uint32_t checksum)
     if (geom->instance)
         return "an instance";
     const uint32_t meshes = mesh_count_of(geom);
-    if (!meshes_of(geom) || meshes == 0 || meshes > 64)
+    if (!geom->meshes || meshes == 0 || meshes > 64)
         return "no meshes (or too many)";
-    const render::MeshRef* first = meshes_of(geom)[0];
+    const render::MeshRef* first = core::at(meshes_of(geom), 0);
     Layout layout;
     if (!first || first->billboard || (first->flags & 0x11))
         return "a billboard or shared mesh";
@@ -476,15 +479,16 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     spec->material = chosen;
     // What it looks like: its first mesh's average colour, how many units a texture repeat spans, its commonest terrain.
     render::WorldCell* sector = lookup_sector(scenery::main_scene(), chosen);
-    const render::MeshRef* mesh = meshes_of(geom_of(sector))[0];
+    const render::MeshRef* mesh = core::at(meshes_of(geom_of(sector)), 0);
     Layout layout;
     layout_for(vertex_format(mesh), mesh->stride, &layout);
     const uint8_t* data = core::at(mesh->vertex_buffers_, 0)->data;
+    const std::span<const uint8_t> vertex_bytes(data, size_t{mesh->vertex_count_} * mesh->stride);
     if (layout.diffuse >= 0 && mesh->vertex_count_) {
         std::array<double, 4> sum = {};
         for (uint32_t v = 0; v < mesh->vertex_count_; ++v) {
             uint32_t c = 0;
-            std::memcpy(&c, data + v * mesh->stride + layout.diffuse, 4);
+            std::memcpy(&c, vertex_bytes.subspan(size_t{v} * mesh->stride + static_cast<size_t>(layout.diffuse)).data(), 4);
             for (int k = 0; k < 4; ++k)
                 core::at(sum, k) += (c >> (8 * k)) & 0xFF;
         }
@@ -497,9 +501,10 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     const render::IdxStore* indices = core::at(mesh->index_buffers_, 0);
     if (indices && indices->indices && core::at(mesh->index_counts_, 0) >= 3) {
         double world = 0.0, texture = 0.0;
+        const std::span<const uint16_t> index_run(indices->indices, core::at(mesh->index_counts_, 0));
         for (uint32_t i = 0; i + 1 < core::at(mesh->index_counts_, 0); ++i) {
-            const uint16_t a = indices->indices[i];
-            const uint16_t b = indices->indices[i + 1];
+            const uint16_t a = core::at(index_run, i);
+            const uint16_t b = core::at(index_run, i + 1);
             if (a == b || a >= mesh->vertex_count_ || b >= mesh->vertex_count_)
                 continue;
             const auto pa = gpu::VertexView(data, mesh->stride, mesh->vertex_count_).float3(a);

@@ -218,7 +218,7 @@ bool read_token(const std::string& field, V3* scale)
     if (!field.starts_with("scale=") || field.size() == 6)
         return false;
     std::array<float, 3> values{};
-    const char* at = field.c_str() + 6;
+    const char* at = std::next(field.c_str(), 6);
     // (one number, or exactly three separated by commas)
     for (int count = 0;;) {
         char* end = nullptr;
@@ -235,7 +235,7 @@ bool read_token(const std::string& field, V3* scale)
         }
         if (*end != ',' || count == 3)
             return false;
-        at = end + 1;
+        at = std::next(end);
     }
 }
 
@@ -271,8 +271,8 @@ CollisionCopy copy_collision(render::TriMeshSource* data)
     copy.compressed = data->compressed_;
     copy.vertex_array_ = data->vertices_;
     if (data->vertices_) {
-        const auto* bytes = static_cast<const uint8_t*>(data->vertices_);
-        copy.vertices.assign(bytes, bytes + get_vertex_bytes(data));
+        const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(data->vertices_), get_vertex_bytes(data));
+        copy.vertices.assign(bytes.begin(), bytes.end());
     }
     copy.min = data->bounds_.min;
     copy.max = data->bounds_.max;
@@ -397,8 +397,9 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
     original->position = position;
     if (!original->mesh_list_ || original->mesh_count_ == 0 || original->mesh_count_ > 4096)
         return nullptr;
+    const std::span<render::MeshRef*> mesh_run(original->mesh_list_, original->mesh_count_);
     for (uint32_t i = 0; i < original->mesh_count_; ++i) {
-        render::MeshRef* mesh = original->mesh_list_[i];
+        render::MeshRef* mesh = core::at(mesh_run, i);
         if (!mesh || mesh->stride < 12 || mesh->vertex_buffer_count_ > 3)
             return nullptr;
         MeshCopy copy = {mesh,
@@ -420,19 +421,22 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
                 return nullptr;
             std::vector<float> positions(3u * mesh->vertex_count_);
             std::vector<float> normals(copy.normal_offset_ >= 0 ? 3u * mesh->vertex_count_ : 0u);
-            const uint8_t* vertex = buffer->data;
-            for (uint32_t v = 0; v < mesh->vertex_count_; ++v, vertex += mesh->stride) {
-                std::memcpy(&core::at(positions, 3u * v), vertex, 12);
+            const std::span<const uint8_t> vertex_run(buffer->data, size_t{mesh->vertex_count_} * mesh->stride);
+            for (uint32_t v = 0; v < mesh->vertex_count_; ++v) {
+                const std::span<const uint8_t> vertex = vertex_run.subspan(size_t{v} * mesh->stride, mesh->stride);
+                std::memcpy(&core::at(positions, 3u * v), vertex.data(), 12);
                 if (copy.normal_offset_ >= 0)
-                    std::memcpy(&core::at(normals, 3u * v), vertex + copy.normal_offset_, 12);
+                    std::memcpy(&core::at(normals, 3u * v), vertex.subspan(static_cast<size_t>(copy.normal_offset_)).data(), 12);
             }
             copy.buffers.emplace_back(buffer);
             copy.data.push_back(buffer->data);
             copy.positions.push_back(std::move(positions));
             copy.normals.push_back(std::move(normals));
         }
-        if (mesh->positions && mesh->position_count_)
-            copy.list_copy_.assign(mesh->positions, mesh->positions + 3u * mesh->position_count_);
+        if (mesh->positions && mesh->position_count_) {
+            const std::span<const float> position_list(mesh->positions, 3u * size_t{mesh->position_count_});
+            copy.list_copy_.assign(position_list.begin(), position_list.end());
+        }
         original->meshes.push_back(std::move(copy));
     }
     render::TriMeshSource* data = collision_data(sector);
@@ -448,9 +452,10 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
     // (still the sector copied: its meshes, buffers and collision where and as they were)
     if (geom != original.geom || geom->meshes != original.mesh_list_ || geom->mesh_count_ != original.mesh_count_)
         return false;
+    const std::span<render::MeshRef*> mesh_run(original.mesh_list_, original.mesh_count_);
     for (uint32_t i = 0; i < original.mesh_count_; ++i) {
         const MeshCopy& copy = core::at(original.meshes, i);
-        const render::MeshRef* mesh = original.mesh_list_[i];
+        const render::MeshRef* mesh = core::at(mesh_run, i);
         if (mesh != copy.mesh || mesh->vertex_count_ != copy.vertex_count_ || mesh->stride != copy.stride ||
             mesh->vertex_buffer_count_ != copy.buffers.size() || mesh->positions != copy.list ||
             mesh->position_count_ != copy.list_count_)
@@ -481,12 +486,13 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
         core::at(mesh->centre, 1) = centre.y;
         core::at(mesh->centre, 2) = centre.z;
         mesh->radius = copy.radius * get_largest(scale);
+        const std::span<float> list = copy.list_copy_.empty() ? std::span<float>() : std::span<float>(mesh->positions, 3u * size_t{copy.list_count_});
         for (uint32_t k = 0; k < copy.list_count_ && !copy.list_copy_.empty(); ++k) {
             const V3 p = get_rebuilt({core::at(copy.list_copy_, 3 * k), core::at(copy.list_copy_, 3 * k + 1), core::at(copy.list_copy_, 3 * k + 2)},
                                      f.from, f.to, 0, f.copy_scale_);
-            mesh->positions[3 * k + 0] = p.x;
-            mesh->positions[3 * k + 1] = p.y;
-            mesh->positions[3 * k + 2] = p.z;
+            core::at(list, 3 * k + 0) = p.x;
+            core::at(list, 3 * k + 1) = p.y;
+            core::at(list, 3 * k + 2) = p.z;
         }
     }
     if (original.have_collision_)

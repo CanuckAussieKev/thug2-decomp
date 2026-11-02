@@ -75,10 +75,11 @@ float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t v
         const auto f = gpu::VertexView(positions, stride, vertex_count).float3(i);
         return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
     };
+    const std::span<const uint16_t> index_run(indices, index_count);
     for (uint32_t i = 2; i < index_count; ++i) {
-        const uint16_t a = indices[i - 2];
-        const uint16_t b = indices[i - 1];
-        const uint16_t c = indices[i];
+        const uint16_t a = core::at(index_run, i - 2);
+        const uint16_t b = core::at(index_run, i - 1);
+        const uint16_t c = core::at(index_run, i);
         if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
             continue;
         const V3 va = at(a);
@@ -100,15 +101,14 @@ bool belongs(float own, float nearest_other) { return own <= kNear && own < near
 FaceCopy read_face(const render::TriMeshSource* geometry, int face)
 {
     FaceCopy copy{};
-    const uint8_t* data = geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10);
-    std::memcpy(&copy.flags, data, 2);
-    std::memcpy(&copy.terrain, data + 2, 2);
+    copy.flags = geometry->face_flags(face);
+    copy.terrain = geometry->face_terrain(face);
     for (int k = 0; k < 3; ++k) {
         const uint32_t vertex = geometry->face_vertex(face, k);
         maths::Vec4 v;
         geometry->read_stored_vertex(static_cast<int>(vertex), &v);
         core::at(copy.v, k) = {v.x, v.y, v.z};
-        core::at(copy.bytes, k) = geometry->vertex_bytes_ ? geometry->vertex_bytes_[vertex] : 0x80;
+        core::at(copy.bytes, k) = geometry->vertex_bytes_ ? core::at(geometry->vertex_byte_run(), vertex) : 0x80;
     }
     return copy;
 }
@@ -119,9 +119,9 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
     faces_.resize(count * 10);
     for (size_t f = 0; f < count; ++f) {
         const FaceCopy& face = core::at(faces, f);
-        uint8_t* out = &core::at(faces_, f * 10);
-        std::memcpy(out, &face.flags, 2);
-        std::memcpy(out + 2, &face.terrain, 2);
+        const std::span<uint8_t> out = std::span<uint8_t>(faces_).subspan(f * 10, 10);
+        std::memcpy(out.data(), &face.flags, 2);
+        std::memcpy(out.subspan(2).data(), &face.terrain, 2);
         for (int k = 0; k < 3; ++k) {
             // (corners shared where exactly equal, with the same byte)
             size_t index = base_.size();
@@ -137,7 +137,7 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
                 bytes_.push_back(core::at(face.bytes, k));
             }
             auto index16 = static_cast<uint16_t>(index);
-            std::memcpy(out + 4 + 2 * k, &index16, 2);
+            std::memcpy(out.subspan(4 + 2 * static_cast<size_t>(k)).data(), &index16, 2);
         }
     }
     vertices_.resize(base_.size() * 3);
@@ -263,10 +263,10 @@ bool is_switched_on()
 template <typename F>
 void for_each_strip(render::PcGeom* geom, F fn)
 {
-    auto* const* meshes = geom->meshes;
+    const std::span<render::MeshRef*> meshes = geom->meshes ? geom->mesh_run() : std::span<render::MeshRef*>();
     const uint32_t count = geom->mesh_count_;
-    for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
-        const render::MeshRef* mesh = meshes[i];
+    for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096; ++i) {
+        const render::MeshRef* mesh = core::at(meshes, i);
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;

@@ -309,24 +309,25 @@ bool layout_for(uint32_t fvf, uint32_t stride, Layout* layout)
     return ints::as_unsigned(at) == stride;
 }
 
-void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, uint32_t colour, uint8_t* out)
+void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, uint32_t colour, std::span<uint8_t> out)
 {
     for (const Vertex& v : mesh.vertices) {
-        std::memset(out, 0, stride);
-        std::memcpy(out, &v.pos, 12);
+        const std::span<uint8_t> one = out.first(stride);
+        std::memset(one.data(), 0, stride);
+        std::memcpy(one.data(), &v.pos, 12);
         if (layout.normal >= 0)
-            std::memcpy(out + layout.normal, &v.normal, 12);
+            std::memcpy(one.subspan(static_cast<size_t>(layout.normal)).data(), &v.normal, 12);
         if (layout.size >= 0) {
-            float one = 1.0f;
-            std::memcpy(out + layout.size, &one, 4);
+            float unit = 1.0f;
+            std::memcpy(one.subspan(static_cast<size_t>(layout.size)).data(), &unit, 4);
         }
         if (layout.diffuse >= 0)
-            std::memcpy(out + layout.diffuse, &colour, 4);
+            std::memcpy(one.subspan(static_cast<size_t>(layout.diffuse)).data(), &colour, 4);
         for (int t = 0; t < layout.tex_count_; ++t) {
-            std::memcpy(out + layout.tex + 8 * t, &v.u, 4);
-            std::memcpy(out + layout.tex + 8 * t + 4, &v.v, 4);
+            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + 8 * t)).data(), &v.u, 4);
+            std::memcpy(one.subspan(static_cast<size_t>(layout.tex + 8 * t + 4)).data(), &v.v, 4);
         }
-        out += stride;
+        out = out.subspan(stride);
     }
 }
 
@@ -367,7 +368,7 @@ bool is_hex8(const std::string& text, uint32_t* value)
     if (text.size() != 10 || core::at(text, 0) != '0' || (core::at(text, 1) != 'x' && core::at(text, 1) != 'X'))
         return false;
     char* end = nullptr;
-    const unsigned long v = std::strtoul(text.c_str() + 2, &end, 16);
+    const unsigned long v = std::strtoul(std::next(text.c_str(), 2), &end, 16);
     if (!end || *end)
         return false;
     *value = static_cast<uint32_t>(v);

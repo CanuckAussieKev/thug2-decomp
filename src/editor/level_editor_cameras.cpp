@@ -42,19 +42,19 @@ namespace {
 constexpr float kPi = 3.14159265f;
 
 // Numbers separated by commas, the whole text (as the layout's other records read them).
-bool read_numbers(const std::string& text, float* out, int count)
+bool read_numbers(const std::string& text, std::span<float> out, int count)
 {
     const char* at = text.c_str();
     for (int i = 0; i < count; ++i) {
         char* end = nullptr;
-        out[i] = std::strtof(at, &end);
-        if (end == at || !std::isfinite(out[i]))
+        core::at(out, i) = std::strtof(at, &end);
+        if (end == at || !std::isfinite(core::at(out, i)))
             return false;
         at = end;
         if (i + 1 < count) {
             if (*at != ',')
                 return false;
-            ++at;
+            at = std::next(at);
         }
     }
     return *at == '\0';
@@ -63,7 +63,7 @@ bool read_numbers(const std::string& text, float* out, int count)
 bool read_triple(const std::string& text, V3* out)
 {
     std::array<float, 3> v{};
-    if (!read_numbers(text, v.data(), 3))
+    if (!read_numbers(text, v, 3))
         return false;
     *out = {core::at(v, 0), core::at(v, 1), core::at(v, 2)};
     return true;
@@ -162,7 +162,7 @@ bool read_record(std::istringstream& in, ViewCam* out)
                 return false;
             have_angles = true;
         } else if (key == "dist") {
-            if (have_distance || !read_numbers(value, &c.distance, 1))
+            if (have_distance || !read_numbers(value, std::span<float>(&c.distance, 1), 1))
                 return false;
             c.distance = clamp_distance(c.distance);
             have_distance = true;

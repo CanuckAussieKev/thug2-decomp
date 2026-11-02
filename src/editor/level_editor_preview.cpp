@@ -121,17 +121,17 @@ struct SavedView {
     std::array<uint8_t, kSavedBytes> bytes;
     void store_away()
     {
-        uint8_t* at = bytes.data();
+        size_t at = 0;
         for (const SavedRange& range : kSaved) {
-            std::memcpy(at, range.address(), range.size);
+            std::memcpy(std::span<uint8_t>(bytes).subspan(at, range.size).data(), range.address(), range.size);
             at += range.size;
         }
     }
     void get_restore() const
     {
-        const uint8_t* at = bytes.data();
+        size_t at = 0;
         for (const SavedRange& range : kSaved) {
-            std::memcpy(range.address(), at, range.size);
+            std::memcpy(range.address(), std::span<const uint8_t>(bytes).subspan(at, range.size).data(), range.size);
             at += range.size;
         }
     }
@@ -140,14 +140,14 @@ struct SavedView {
 // A geometry's meshes as the world pass draws them: shown and not hidden; opaque ones first, then the transparent.
 void draw_meshes(render::PcGeom* geom)
 {
-    auto* const* meshes = geom->meshes;
+    const std::span<render::MeshRef*> meshes = geom->mesh_run();
     const uint32_t count = geom->mesh_count_;
-    if (!meshes)
+    if (!geom->meshes)
         return;
     const render::MaterialRef* current = nullptr;
     for (int pass = 0; pass < 2; ++pass) {
         for (uint32_t i = 0; i < count && i < 4096; ++i) {
-            render::MeshRef* mesh = meshes[i];
+            render::MeshRef* mesh = core::at(meshes, i);
             if (!mesh)
                 continue;
             const uint32_t flags = mesh->flags;

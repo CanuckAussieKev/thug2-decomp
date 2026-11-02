@@ -1904,7 +1904,7 @@ std::vector<V3> selection_corners()
     std::array<V3, 8> corners{};
     auto add = [&](const OrientedBox& b) {
         box_corners(b.origin, b.axes, b.min, b.max, corners);
-        out.insert(out.end(), corners.data(), corners.data() + 8);
+        out.insert(out.end(), corners.begin(), corners.end());
     };
     const std::vector<objects::GameEntity*> objects = selected_objects();
     for (objects::GameEntity* object : objects) {
@@ -1983,7 +1983,7 @@ void vertex_drag(V3 origin, V3 dir, const TickCycle& frame)
         if (object_edit::model_box(picked.first, &box)) {
             std::array<V3, 8> corners{};
             box_corners(box.origin, box.axes, box.min, box.max, corners);
-            targets.assign(corners.data(), corners.data() + 8);
+            targets.assign(corners.begin(), corners.end());
             at = origin + unit * picked.second;
             reach = picked.second;
         }

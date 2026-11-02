@@ -101,7 +101,7 @@ bool parse_entry(const std::string& text, int* tab, uint32_t* id)
         if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i))))
             return false;
     *tab = core::at(text, 0) == 's' ? 0 : 1;
-    *id = static_cast<uint32_t>(std::strtoul(text.c_str() + 2, nullptr, 16));
+    *id = static_cast<uint32_t>(std::strtoul(std::next(text.c_str(), 2), nullptr, 16));
     return true;
 }
 
@@ -310,7 +310,7 @@ namespace {
 
 bool get_matches(const std::string& text, const char* filter)
 {
-    if (!filter || !filter[0])
+    if (!filter || !*filter)
         return true;
     auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
     std::string a = text, b = filter;

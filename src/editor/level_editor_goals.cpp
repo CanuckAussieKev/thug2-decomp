@@ -73,19 +73,19 @@ constexpr auto kComboSuffixes = std::to_array<const char*>({"c", "o", "m", "b", 
 int get_index(KindTag type) { return static_cast<int>(type); }
 
 // The record's numbers.
-bool read_numbers(const std::string& text, float* out, int count)
+bool read_numbers(const std::string& text, std::span<float> out, int count)
 {
     const char* at = text.c_str();
     for (int i = 0; i < count; ++i) {
         char* end = nullptr;
-        out[i] = std::strtof(at, &end);
-        if (end == at || !std::isfinite(out[i]))
+        core::at(out, i) = std::strtof(at, &end);
+        if (end == at || !std::isfinite(core::at(out, i)))
             return false;
         at = end;
         if (i + 1 < count) {
             if (*at != ',')
                 return false;
-            ++at;
+            at = std::next(at);
         }
     }
     return *at == '\0';
@@ -472,11 +472,11 @@ bool read_record(const std::string& text, Goal* out)
                 }
             }
         } else if (key == "accelpct") {
-            ok = read_numbers(value, &g.accel_percent_, 1);
+            ok = read_numbers(value, std::span<float>(&g.accel_percent_, 1), 1);
         } else if (key.size() >= 2 && core::at(key, 0) == 'p' && key.find_first_not_of("0123456789", 1) == std::string::npos) {
             int index = 0;
             std::array<float, 5> v{};
-            ok = read_int(key.substr(1), &index) && index >= 0 && index < kMaxPoints && read_numbers(value, v.data(), 5);
+            ok = read_int(key.substr(1), &index) && index >= 0 && index < kMaxPoints && read_numbers(value, v, 5);
             if (ok)
                 points.emplace_back(index, Point{{core::at(v, 0), core::at(v, 1), core::at(v, 2)}, core::at(v, 3), core::at(v, 4)});
         } else {

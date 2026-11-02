@@ -301,7 +301,7 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
         }
         if (!ok)
             continue;
-        c.points.insert(c.points.end(), p.data(), p.data() + 3);
+        c.points.insert(c.points.end(), p.begin(), p.end());
         c.flags.push_back(tri->face_flags(f));
         c.taken.push_back(std::ranges::find(taken, f) != taken.end() ? 1 : 0);
         c.index.push_back(f);

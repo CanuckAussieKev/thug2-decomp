@@ -128,7 +128,7 @@ bool parse_ref(const std::string& text, bool member, bool scenery, RefTo* ref)
         if (!scenery)
             return false;
         char* end = nullptr;
-        const long n = std::strtol(body.c_str() + 1, &end, 10);
+        const long n = std::strtol(std::next(body.c_str()), &end, 10);
         if (*end || n < 0 || n > 1000000)
             return false;
         ref->clone = static_cast<int>(n);

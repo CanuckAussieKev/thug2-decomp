@@ -397,9 +397,8 @@ uint32_t world_signature()
 {
     uint32_t hash = 2166136261u;
     auto mix = [&](const void* data, size_t size) {
-        const auto* bytes = static_cast<const uint8_t*>(data);
-        for (size_t i = 0; i < size; ++i)
-            hash = (hash ^ bytes[i]) * 16777619u;
+        for (const uint8_t byte : std::span<const uint8_t>(static_cast<const uint8_t*>(data), size))
+            hash = (hash ^ byte) * 16777619u;
     };
     for (const scenery::SectorState& s : scenery::changed_sectors()) {
         mix(&s.checksum, sizeof(s.checksum));

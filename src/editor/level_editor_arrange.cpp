@@ -399,7 +399,7 @@ void get_corners(const OrientedBox& box, std::vector<V3>* out)
 {
     std::array<V3, 8> c{};
     box_corners(box.origin, box.axes, box.min, box.max, c);
-    out->insert(out->end(), c.data(), c.data() + 8);
+    out->insert(out->end(), c.begin(), c.end());
 }
 
 // A piece the tools move as one: an object, or a scenery piece with the shadows cast by it.
@@ -845,10 +845,10 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
     const render::PcGeom* geom = scenery::sector_geometry(checksum);
     if (!geom)
         return;
-    auto* const* meshes = geom->meshes;
+    const std::span<render::MeshRef*> meshes = geom->meshes ? geom->mesh_run() : std::span<render::MeshRef*>();
     const uint32_t count = geom->mesh_count_;
-    for (uint32_t i = 0; meshes && i < count && i < 4096 && out->size() < 600000; ++i) {
-        render::MeshRef* mesh = meshes[i];
+    for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096 && out->size() < 600000; ++i) {
+        render::MeshRef* mesh = core::at(meshes, i);
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
         render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
@@ -859,11 +859,11 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
             const auto f = gpu::VertexView(vertices->data, mesh->stride, mesh->vertex_count_).float3(k);
             return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
         };
-        const uint16_t* index = indices->indices;
-        for (uint32_t k = 2; k < core::at(mesh->index_counts_, 0); ++k) {
-            const uint16_t a = index[k - 2];
-            const uint16_t b = index[k - 1];
-            const uint16_t c = index[k];
+        const std::span<const uint16_t> index(indices->indices, core::at(mesh->index_counts_, 0));
+        for (uint32_t k = 2; k < index.size(); ++k) {
+            const uint16_t a = core::at(index, k - 2);
+            const uint16_t b = core::at(index, k - 1);
+            const uint16_t c = core::at(index, k);
             if (a == b || b == c || a == c || a >= mesh->vertex_count_ || b >= mesh->vertex_count_ ||
                 c >= mesh->vertex_count_)
                 continue;
@@ -1083,15 +1083,15 @@ void register_actions()
         add_action("linked_duplicate", "Duplicate Linked", "Edit", "Duplicate; copies follow the source's changes",
                    {Chord{SDL_SCANCODE_D, ctrl_alt}}, [] { links::linked_duplicate(); });
     static const auto kEdges = std::to_array<const char*>({"min", "centre", "max"});
-    static const char* const kAxes = "xyz";
+    static constexpr std::string_view kAxes = "xyz";
     for (int axis = 0; axis < 3; ++axis) {
         for (int edge = 0; edge < 3; ++edge) {
-            const std::string key = std::string("align_") + kAxes[axis] + "_" + core::at(kEdges, edge);
+            const std::string key = std::string("align_") + core::at(kAxes, axis) + "_" + core::at(kEdges, edge);
             const std::string name = std::string("Align ") + get_axis_name(axis) + " " + core::at(kEdges, edge);
             add_action(key.c_str(), name.c_str(), "Arrange", "Align the selection", {},
                        [axis, edge] { justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local); });
         }
-        const std::string key = std::string("distribute_") + kAxes[axis];
+        const std::string key = std::string("distribute_") + core::at(kAxes, axis);
         const std::string name = std::string("Distribute along ") + get_axis_name(axis);
         add_action(key.c_str(), name.c_str(), "Arrange", "Space the selection evenly (3 or more)", {},
                    [axis] { distribute(axis, at_hand().gaps, at_hand().local); });

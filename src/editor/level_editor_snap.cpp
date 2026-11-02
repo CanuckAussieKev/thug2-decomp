@@ -129,10 +129,10 @@ std::vector<V3> sector_vertices(uint32_t checksum, size_t limit)
         return out;
     // (the geometry's meshes, +0x3C / +0x40 - as level_editor_scenery.cpp's ray_meshes reads them: each vertex's
     // position its first 12 bytes, where the sector is now)
-    auto* const* meshes = geom->meshes;
+    const std::span<render::MeshRef*> meshes = geom->meshes ? geom->mesh_run() : std::span<render::MeshRef*>();
     const uint32_t count = geom->mesh_count_;
-    for (uint32_t i = 0; meshes && i < count && i < 4096 && out.size() < limit; ++i) {
-        const render::MeshRef* mesh = meshes[i];
+    for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096 && out.size() < limit; ++i) {
+        const render::MeshRef* mesh = core::at(meshes, i);
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;

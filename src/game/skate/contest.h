@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/core/checked_index.h"
 #include "engine/core/text_store.h"
 #include "engine/core/raw_view.h"
 
@@ -40,7 +41,15 @@ struct Contest {
         [[nodiscard]] int best_two(int count) const;
         // The same of the four words from the scores on (the debug output's: unknown1c_ and its padding the fourth).
         [[nodiscard]] int best_two_of_four_words() const;
-        [[nodiscard]] int get_word(int index) const { return scores_.data()[index]; }
+        // The leader's words from +0x10: the three scores, then (the debug output reads four) the flag and its padding
+        // as one little-endian word - what the original reached past the scores; any other index ends the game.
+        [[nodiscard]] int get_word(int index) const
+        {
+            if (index == kRuns)
+                return static_cast<int>(static_cast<uint32_t>(unknown1c_) | (static_cast<uint32_t>(core::at(pad1d_, 0)) << 8) |
+                                        (static_cast<uint32_t>(core::at(pad1d_, 1)) << 16) | (static_cast<uint32_t>(core::at(pad1d_, 2)) << 24));
+            return core::at(scores_, index);
+        }
     };
 
     script::Struct* args_;             // +0x00: StartCompetition's extra parameters (leader_board_names,

@@ -116,7 +116,7 @@ struct Layout {
 };
 bool layout_for(uint32_t fvf, uint32_t stride, Layout* layout);
 // The vertices written in that layout (`out`: mesh.vertices.size() * stride bytes).
-void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, uint32_t colour, uint8_t* out);
+void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, uint32_t colour, std::span<uint8_t> out);
 
 // The record (after "ground ") and back (false: a bad or repeated key, a missing rect / base / height / material, an
 // unknown kind; `known`: the material's name, if any).

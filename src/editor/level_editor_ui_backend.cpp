@@ -192,10 +192,13 @@ uint64_t create_texture(int width, int height, PixelLayout format, const void* d
     D3DLOCKED_RECT locked;
     if (FAILED(texture->LockRect(0, &locked, nullptr, 0)))
         return 0;
-    const auto* from = static_cast<const uint8_t*>(data);
-    auto* to = static_cast<uint8_t*>(locked.pBits);
-    for (int row = 0; row < rows; ++row)
-        std::memcpy(to + row * locked.Pitch, from + row * row_bytes, static_cast<size_t>(row_bytes));
+    const auto rows_in_bytes = static_cast<size_t>(rows);
+    const auto source_pitch = static_cast<size_t>(row_bytes);
+    const auto target_pitch = static_cast<size_t>(locked.Pitch);
+    const std::span<const uint8_t> from(static_cast<const uint8_t*>(data), rows_in_bytes * source_pitch);
+    const std::span<uint8_t> to(static_cast<uint8_t*>(locked.pBits), rows_in_bytes * target_pitch);
+    for (size_t row = 0; row < rows_in_bytes; ++row)
+        std::memcpy(to.subspan(row * target_pitch).data(), from.subspan(row * source_pitch).data(), source_pitch);
     texture->UnlockRect(0);
     return get_texture_id(texture.detach()); // (released by release_texture)
 }

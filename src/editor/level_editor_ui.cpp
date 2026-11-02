@@ -175,7 +175,7 @@ ux8::Fonts ux8_fonts()
 
 bool get_matches(const std::string& text, const char* filter)
 {
-    if (!filter[0])
+    if (!*filter)
         return true;
     auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
     std::string a = text, b = filter;
@@ -516,11 +516,11 @@ void family_chips(const ShapeMesh& model)
     ImGui::PushFont(g_small);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5.0f * g_scale, 2.0f * g_scale));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f * g_scale, 4.0f * g_scale));
-    const int* counts = nodes::get_counts();
+    const auto& counts = nodes::get_counts();
     const float right = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x;
     for (int f = 0; f < nodes::kFamilies; ++f) {
         auto family = static_cast<nodes::Family>(f);
-        if (!counts[f])
+        if (!core::at(counts, f))
             continue;
         const bool on = (model.nodes.families & nodes::get_bit(family)) != 0;
         const char* name = nodes::family_name(family);
@@ -536,7 +536,7 @@ void family_chips(const ShapeMesh& model)
             get_ask(Request::Kind::kFamilies, 0, model.nodes.families ^ nodes::get_bit(family));
         ImGui::PopStyleColor(2);
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%d %s - click to %s", counts[f], name, on ? "hide" : "show");
+            ImGui::SetTooltip("%d %s - click to %s", core::at(counts, f), name, on ? "hide" : "show");
     }
     ImGui::PopStyleVar(2);
     ImGui::PopFont();
@@ -1244,7 +1244,7 @@ void get_help(const ShapeMesh& model)
             for (const Row& row : rows) {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
-                if (row.section[0]) {
+                if (*row.section) {
                     ImGui::PushFont(g_heading);
                     ImGui::TextUnformatted(row.section);
                     ImGui::PopFont();

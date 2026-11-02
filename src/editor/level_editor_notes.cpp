@@ -93,7 +93,7 @@ bool read_triple(const std::string& text, V3* out)
         if (i < 2) {
             if (*at != ',')
                 return false;
-            ++at;
+            at = std::next(at);
         }
     }
     if (*at)

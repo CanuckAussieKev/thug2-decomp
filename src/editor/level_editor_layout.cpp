@@ -80,7 +80,7 @@ bool read_triple(const std::string& text, std::span<float, 3> out)
         if (i < 2) {
             if (*at != ',')
                 return false;
-            ++at;
+            at = std::next(at);
         }
     }
     return *at == '\0';
@@ -597,7 +597,7 @@ std::string sign_label(const std::string& name)
 bool saved_layout_scene(const std::string& file_name, uint32_t* scene)
 {
     // (exactly "XXXXXXXX.txt": "XXXXXXXX.autosave.txt" and "XXXXXXXX.txt.tmp" aren't)
-    if (file_name.size() != 12 || _stricmp(file_name.c_str() + 8, ".txt") != 0)
+    if (file_name.size() != 12 || _stricmp(std::next(file_name.c_str(), 8), ".txt") != 0)
         return false;
     uint32_t value = 0;
     for (int i = 0; i < 8; ++i) {

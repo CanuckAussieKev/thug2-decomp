@@ -409,7 +409,7 @@ std::string get_model_file(uint32_t name)
     if (!node || !node->fetch_text(kModel, &model, 0) || !model || !*model)
         return {};
     const char* base = std::max(std::strrchr(model, '\\'), std::strrchr(model, '/'));
-    return base ? base + 1 : model;
+    return base ? std::next(base) : model;
 }
 
 bool get_tint(objects::GameEntity* object, uint32_t rgba)
@@ -581,7 +581,7 @@ std::vector<TableRow> copyable()
             label += caption(name);
             if (model && *model) {
                 const char* base = std::max(std::strrchr(model, '\\'), std::strrchr(model, '/'));
-                label += std::string("  (") + (base ? base + 1 : model) + ")";
+                label += std::string("  (") + (base ? std::next(base) : model) + ")";
             }
             entries.push_back({name, label});
         }

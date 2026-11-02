@@ -189,7 +189,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
         Kind kind = get_classify(flags, ny, threshold, (flags & 0x40) ? trigger : 0);
         if (kind == Kind::kNone)
             continue;
-        c.points.insert(c.points.end(), p.data(), p.data() + 3);
+        c.points.insert(c.points.end(), p.begin(), p.end());
         c.kinds.push_back(static_cast<uint8_t>(kind));
     }
     return c;

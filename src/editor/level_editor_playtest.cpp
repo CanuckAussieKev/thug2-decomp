@@ -334,7 +334,7 @@ bool parse(const std::string& text, LevelTrails* trails)
         } else if (line.starts_with("run ")) {
             int number = 0, visible = 1;
             float seconds = 0.0f;
-            if (sscanf_s(line.c_str() + 4, "%d %f %d", &number, &seconds, &visible) < 2 || number <= 0)
+            if (sscanf_s(std::next(line.c_str(), 4), "%d %f %d", &number, &seconds, &visible) < 2 || number <= 0)
                 continue;
             Run r;
             r.number = number;

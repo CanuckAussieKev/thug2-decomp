@@ -210,8 +210,9 @@ void for_each_sector(render::WorldScene* scene, F fn)
     if (!buckets)
         return;
     const uint32_t count = 1u << table->bits_;
+    const std::span<const lists::KeyMap::Item> bucket_run(buckets, count);
     for (uint32_t i = 0; i < count; ++i) {
-        for (const lists::KeyMap::Item* entry = &buckets[i]; entry; entry = entry->next) {
+        for (const lists::KeyMap::Item* entry = &core::at(bucket_run, i); entry; entry = entry->next) {
             if (entry->value)
                 fn(entry->key, static_cast<render::WorldCell*>(entry->value));
         }
@@ -1132,7 +1133,7 @@ std::string describe_selection()
                   quarters * 90);
     if (!is_unit_scale(scale)) {
         const size_t used = std::strlen(more.data());
-        std::snprintf(more.data() + used, sizeof(more) - used, "  scaled %s", scale_tool::describe(scale).c_str());
+        std::snprintf(std::next(more.data(), static_cast<std::ptrdiff_t>(used)), sizeof(more) - used, "  scaled %s", scale_tool::describe(scale).c_str());
     }
     if (g_selection.size() > 1)
         text += " + " + std::to_string(g_selection.size() - 1) + " more";

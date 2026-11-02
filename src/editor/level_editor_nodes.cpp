@@ -436,10 +436,10 @@ const std::vector<Elem>& get_all()
     return g_nodes;
 }
 
-const int* get_counts()
+const std::array<int, kFamilies>& get_counts()
 {
     get_refresh();
-    return g_counts.data();
+    return g_counts;
 }
 
 int walked(Family family)

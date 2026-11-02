@@ -389,7 +389,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
         ImGui::SetTooltip("Not supported in THUG2");
     ImGui::Separator();
-    const bool named = std::any_of(g_name.data(), g_name.data() + std::strlen(g_name.data()), [](char c) { return c != ' '; });
+    const bool named = std::ranges::any_of(std::string_view(g_name.data()), [](char c) { return c != ' '; });
     ImGui::BeginDisabled(!named);
     if (ImGui::Button("Create Gap"))
         g_queue.emplace_back([] {

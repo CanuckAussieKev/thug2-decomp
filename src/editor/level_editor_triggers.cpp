@@ -1201,7 +1201,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
             any = true;
         }
         if (t->face_count_ < kMaxFacesKept)
-            t->faces.insert(t->faces.end(), p.data(), p.data() + 3);
+            t->faces.insert(t->faces.end(), p.begin(), p.end());
         ++t->face_count_;
     }
     return any;
@@ -1975,7 +1975,7 @@ void register_gap_entry()
     start.spec.size = {300.0f, 300.0f, 60.0f};
     start.spec.gap = gap;
     start.spec.flags = {"CANCEL_GROUND"};
-    const int number = text::to_int(gap.c_str() + 6);
+    const int number = text::to_int(std::next(gap.c_str(), 6));
     std::array<char, 32> text{};
     std::snprintf(text.data(), sizeof(text), "Editor Gap %d", number > 0 ? number : 1);
     start.spec.text = text.data();

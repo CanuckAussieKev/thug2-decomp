@@ -29,14 +29,14 @@ namespace {
 
 const std::array<const char*, kStates> kTimeOfDayLabels = {{"morning", "afternoon", "evening", "night"}};
 
-bool read_ints(const std::string& text, int* out, int count)
+bool read_ints(const std::string& text, std::span<int> out, int count)
 {
     std::string error;
     fields::Value v;
     if (!fields::parse(fields::Kind::kIntegers, text, &v, &error) || std::cmp_not_equal(v.list.size(), count))
         return false;
     for (int i = 0; i < count; ++i)
-        out[i] = static_cast<int32_t>(core::at(v.list, i));
+        core::at(out, i) = static_cast<int32_t>(core::at(v.list, i));
     return true;
 }
 
@@ -144,11 +144,11 @@ bool read_record(std::istringstream& in, Props* props)
                 return false;
             p.time = value == "1" ? 1 : 0;
         } else if (key == "ambient") {
-            if (!read_ints(value, p.ambient.data(), 3))
+            if (!read_ints(value, p.ambient, 3))
                 return false;
             p.has_ambient_ = true;
         } else if (key == "fog") {
-            if (!read_ints(value, p.fog.data(), 5))
+            if (!read_ints(value, p.fog, 5))
                 return false;
             p.has_fog_ = true;
         } else if (key == "sky") {
@@ -219,17 +219,17 @@ void read_override_keys(script::Struct* level, Props* out)
 {
     static const uint32_t kAmbient = checksums::hash_from_text("ed_ambient"),
                           kFog = checksums::hash_from_text("ed_fog");
-    auto read = [&](uint32_t key, int* values, uint32_t count) {
+    auto read = [&](uint32_t key, std::span<int> values, uint32_t count) {
         script::Array* array = nullptr;
         if (!level || !level->fetch_list(key, &array, 0) || !array || array->kind_tag_ != script::kQbvalInteger ||
             array->extent_ != count)
             return false;
         for (uint32_t i = 0; i < count; ++i)
-            values[i] = static_cast<int32_t>(array->fetch_part(i));
+            core::at(values, i) = static_cast<int32_t>(array->fetch_part(i));
         return true;
     };
-    out->has_ambient_ = read(kAmbient, out->ambient.data(), 3);
-    out->has_fog_ = read(kFog, out->fog.data(), 5);
+    out->has_ambient_ = read(kAmbient, out->ambient, 3);
+    out->has_fog_ = read(kFog, out->fog, 5);
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------

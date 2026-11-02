@@ -148,10 +148,10 @@ void tools_menu()
     if (ImGui::BeginMenu("Arrange")) {
         get_item("arrange_window");
         ImGui::Separator();
-        static const char* const kAxes = "xyz";
+        static constexpr std::string_view kAxes = "xyz";
         for (int axis = 0; axis < 3; ++axis) {
             for (const char* edge : {"min", "centre", "max"})
-                get_item((std::string("align_") + kAxes[axis] + "_" + edge).c_str());
+                get_item((std::string("align_") + core::at(kAxes, axis) + "_" + edge).c_str());
         }
         ImGui::Separator();
         get_items({"distribute_x", "distribute_y", "distribute_z"});

@@ -96,7 +96,7 @@ uint32_t hidden_type_key();  // ed_hidden_type
 // The nodes (scanned again when the node arrays change: their names, sizes or count) - empty outside a level.
 const std::vector<Elem>& get_all();
 // The count of each family (hidden ones too).
-const int* get_counts();
+const std::array<int, kFamilies>& get_counts();
 // How many of a family the game counts (spawns, crowns: hidden ones not).
 int walked(Family family);
 // A number that changes whenever the nodes are scanned again (the UI's caches key on it).

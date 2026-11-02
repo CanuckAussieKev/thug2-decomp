@@ -726,7 +726,7 @@ uint32_t path_speed_script()
     for (const char* text : {"LevelEditor_PathSpeed", "Obj_SetPathVelocity", "speed", "mph"}) {
         qb.push_back(0x2B);
         put4(get_key(text));
-        qb.insert(qb.end(), text, text + std::strlen(text));
+        qb.insert(qb.end(), std::string_view(text).begin(), std::string_view(text).end());
         qb.push_back(0x00);
     }
     qb.push_back(0x00);
@@ -887,7 +887,7 @@ const char* short_name(const std::string& path)
 {
     const char* text = path.c_str();
     const char* base = std::max(std::strrchr(text, '\\'), std::strrchr(text, '/'));
-    return base ? base + 1 : text;
+    return base ? std::next(base) : text;
 }
 
 void build_palette()
@@ -956,14 +956,14 @@ void build_palette()
     add(particles, 0xFFFF9050);
     // The level's loaded sounds (its wave table): an emitter with that sound.
     const char* why = node_create::get_why_not(node_create::Kind::kSound, node_create::Team::kRed);
-    auto* waves = sound::g_level_waves.data();
     const int count = std::clamp(sound::g_level_count, 0, 256);
     std::vector<std::pair<std::string, Source>> sounds;
     for (int i = 0; i < count && !sound::no_sound(); ++i) {
-        std::string label = "Sound emitter: " + nodes::caption(waves[i].checksum);
-        if (waves[i].looping)
+        const auto& wave = core::at(sound::g_level_waves, i);
+        std::string label = "Sound emitter: " + nodes::caption(wave.checksum);
+        if (wave.looping)
             label += " (loop)";
-        sounds.emplace_back(label, Source{SourceKind::kSound, {}, waves[i].checksum});
+        sounds.emplace_back(label, Source{SourceKind::kSound, {}, wave.checksum});
     }
     std::ranges::sort(sounds, [](const auto& a, const auto& b) { return a.first < b.first; });
     for (auto& e : sounds) {
@@ -1394,10 +1394,11 @@ std::vector<std::pair<uint32_t, std::string>> get_sounds()
     std::vector<std::pair<uint32_t, std::string>> out;
     if (sound::no_sound())
         return out;
-    auto* waves = sound::g_level_waves.data();
     const int count = std::clamp(sound::g_level_count, 0, 256);
-    for (int i = 0; i < count; ++i)
-        out.emplace_back(waves[i].checksum, nodes::caption(waves[i].checksum) + (waves[i].looping ? " (loop)" : ""));
+    for (int i = 0; i < count; ++i) {
+        const auto& wave = core::at(sound::g_level_waves, i);
+        out.emplace_back(wave.checksum, nodes::caption(wave.checksum) + (wave.looping ? " (loop)" : ""));
+    }
     std::ranges::sort(out, [](const auto& a, const auto& b) { return a.second < b.second; });
     return out;
 }

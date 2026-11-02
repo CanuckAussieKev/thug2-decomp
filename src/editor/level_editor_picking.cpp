@@ -48,10 +48,11 @@ void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uin
         const auto f = gpu::VertexView(positions, stride, vertex_count).float3(i);
         return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
     };
+    const std::span<const uint16_t> index_run(indices, index_count);
     for (uint32_t i = 2; i < index_count; ++i) {
-        const uint16_t a = indices[i - 2];
-        const uint16_t b = indices[i - 1];
-        const uint16_t c = indices[i];
+        const uint16_t a = core::at(index_run, i - 2);
+        const uint16_t b = core::at(index_run, i - 1);
+        const uint16_t c = core::at(index_run, i);
         if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
             continue;
         add_top_triangle(area, at(a), at(b), at(c));
@@ -221,10 +222,11 @@ bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uin
         const auto f = gpu::VertexView(positions, stride, vertex_count).float3(i);
         return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
     };
+    const std::span<const uint16_t> index_run(indices, index_count);
     for (uint32_t i = 2; i < index_count; ++i) {
-        const uint16_t a = indices[i - 2];
-        const uint16_t b = indices[i - 1];
-        const uint16_t c = indices[i];
+        const uint16_t a = core::at(index_run, i - 2);
+        const uint16_t b = core::at(index_run, i - 1);
+        const uint16_t c = core::at(index_run, i);
         if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
             continue;
         float hit = 0.0f;

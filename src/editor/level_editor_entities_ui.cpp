@@ -27,7 +27,7 @@ const char* short_name(const std::string& path)
 {
     const char* text = path.c_str();
     const char* base = std::max(std::strrchr(text, '\\'), std::strrchr(text, '/'));
-    return base ? base + 1 : text;
+    return base ? std::next(base) : text;
 }
 
 bool get_live(uint32_t id)

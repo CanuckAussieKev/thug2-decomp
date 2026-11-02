@@ -678,7 +678,7 @@ bool row_passes(const nodes::Elem& node, const std::string& name, const char* se
         last = search;
         filter = organize::parse_filter(last);
     }
-    if (!search[0])
+    if (!*search)
         return true;
     const std::string label = filter.labeled || !filter.text.empty() ? row_label(node.name) : "";
     const bool in_group = !filter.group.empty() && organize::in_group(filter.group, node);
@@ -970,7 +970,7 @@ void remember_sections()
         g_sections_window = window->ID;
         for (int i = 0; i < kSectionCount; ++i) {
             const int value =
-                static_cast<int>(GetPrivateProfileIntA("editor_sections", core::at(kSections, i) + 3, -1, ini.c_str()));
+                static_cast<int>(GetPrivateProfileIntA("editor_sections", std::next(core::at(kSections, i), 3), -1, ini.c_str()));
             core::at(g_section_state, i) = value;
             if (value == 0 || value == 1)
                 window->StateStorage.SetInt(window->GetID(core::at(kSections, i)), value);
@@ -982,7 +982,7 @@ void remember_sections()
         if (value < 0 || value == core::at(g_section_state, i))
             continue;
         core::at(g_section_state, i) = value;
-        WritePrivateProfileStringA("editor_sections", core::at(kSections, i) + 3, value ? "1" : "0", ini.c_str());
+        WritePrivateProfileStringA("editor_sections", std::next(core::at(kSections, i), 3), value ? "1" : "0", ini.c_str());
     }
 }
 
