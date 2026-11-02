@@ -844,8 +844,8 @@ Counts counts_now()
         if (node.cls == kRestart)
             ++counts.restarts;
     }
-    counts.dynamic_lights_ = render::g_dynamic_light_count;
-    counts.level_lights_ = render::g_scene_light_count;
+    counts.dynamic_lights_ = render::dynamic_light_count();
+    counts.level_lights_ = render::scene_light_count();
     return counts;
 }
 

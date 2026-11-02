@@ -26,8 +26,9 @@ namespace render {
 
 namespace {
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
-// NOT ORIGINAL grouping - glow.cpp's state (the original's globals). Made on first use, never destroyed (glow_state()).
+// NOT ORIGINAL grouping - glow.cpp's state (the original's globals). Made on first use, never destroyed
+
+// (glow_state()).
 struct GlowState {
     lists::KeyMap glow_table_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
     std::array<uint8_t, 0x400> glow_queries_in_use_{}; // (a byte per query: DrawGlows looks through 0x400)
@@ -99,9 +100,9 @@ void update_glows(bool queries)
 {
     // The camera's across and up directions from the view matrix's third column (a, b, c): u = (b*0 - c, c*0 - a*0,
     // a - b*0) and v = u x (a, b, c), each then normalised.
-    const double a = core::at(g_view_matrix.row, 0).z;
-    const double b = core::at(g_view_matrix.row, 1).z;
-    const double c = core::at(g_view_matrix.row, 2).z;
+    const double a = core::at(view_matrix().row, 0).z;
+    const double b = core::at(view_matrix().row, 1).z;
+    const double c = core::at(view_matrix().row, 2).z;
     std::array<float, 3> u{};
     std::array<float, 3> v{};
     core::at(u, 0) = static_cast<float>(b * 0.0f - c);
@@ -128,13 +129,13 @@ void update_glows(bool queries)
 
     if (queries) {
         // Each glow gets an occlusion query (up to three outstanding).
-        input_port()->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
+        d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, FALSE);
         choose_blend_mode(0);
         set_texture(0, nullptr);
         set_pixel_shader(nullptr, nullptr);
-        input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
-        input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
-        input_port()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
+        d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
+        d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
+        d3d_device()->SetTextureStageState(1, D3DTSS_COLOROP, D3DTOP_DISABLE);
         set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
         for (; glow; glow = next_glow()) {
             if (glow->query_count_ >= 3)
@@ -152,18 +153,18 @@ void update_glows(bool queries)
             if (query > 0)
                 set_quad(glow, u, v, glow->query_size_, 0xFFFFFFFF);
         }
-        input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
-        input_port()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
+        d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
+        d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
         return;
     }
 
     // Each glow grows towards its size while its queries see it, and fades otherwise.
     choose_blend_mode(5);
-    set_pixel_shader(core::at(g_pixel_shaders, kPixelShader94c), nullptr);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader94c), nullptr);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     for (; glow; glow = next_glow()) {
         bool seen = false;
-        if (!g_radeon8500) { // (not on a Radeon 8500)
+        if (!radeon8500()) { // (not on a Radeon 8500)
             uint32_t pixels = 0;
             const int result = query_result(core::at(glow->queries, 0), &pixels);
             if (result == 0) {
@@ -187,8 +188,8 @@ void update_glows(bool queries)
         if (glow->size > 0.0f)
             set_quad(glow, u, v, glow->size, 0x40FFFFFF);
     }
-    input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 } // namespace render

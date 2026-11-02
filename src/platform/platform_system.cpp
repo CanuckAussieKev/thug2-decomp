@@ -41,7 +41,6 @@ char& cd_drive_letter() { return platform_system_state().cd_drive_letter_; }
 char& cd_drive_colon() { return platform_system_state().cd_drive_colon_; }
 char& cd_drive_slash() { return platform_system_state().cd_drive_slash_; }
 
-HWND& game_window() { return render::g_game_window; }
 // How far the window's frame reaches left of / above its inside (negated AdjustWindowRect's left / top).
 int& get_frame_left() { return platform_system_state().frame_left_; }
 int& frame_top() { return platform_system_state().frame_top_; }
@@ -127,9 +126,9 @@ HWND create_game_window(const char* class_name, const char* title, int x, int y,
         frame_height = GetSystemMetrics(SM_CYSCREEN);
     }
     SetLastError(0);
-    game_window() = CreateWindowExA(ex_style, class_name, title, style, x, y, frame_width, frame_height, nullptr,
-                                    nullptr, instance, nullptr);
-    return game_window();
+    render::set_game_window(CreateWindowExA(ex_style, class_name, title, style, x, y, frame_width, frame_height, nullptr,
+                                    nullptr, instance, nullptr));
+    return render::game_window();
 }
 
 // 0x005F59D0

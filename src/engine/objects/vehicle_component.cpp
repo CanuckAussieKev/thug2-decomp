@@ -839,7 +839,7 @@ void DrivableModule::tick_frame()
 // 0x0043A070
 void DrivableModule::refresh_bone_rig()
 {
-    if (render::g_suppress_draw) // (rendering off)
+    if (render::suppress_draw()) // (rendering off)
         return;
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
     const std::span<maths::Mat4> bones = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->matrices();

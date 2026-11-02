@@ -70,8 +70,6 @@ TextureSplatsState& texture_splats_state()
 
 namespace {
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
-IDirect3DDevice9* draw_device() { return g_draw_device; } // (the same device, kept twice)
 
 // RGBA bytes as ARGB.
 uint32_t to_argb(uint32_t rgba)
@@ -175,10 +173,10 @@ void kill_texture_splats_in_box(const maths::BBox* box)
 void draw_texture_splats()
 {
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    input_port()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+    d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
     DWORD min_filter = 0;
-    input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-    input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+    d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     engine_effects_shared().splat_sets_.for_each([](TextureSplats* splats) {
         if (splats->last < 0)
             return;
@@ -195,11 +193,11 @@ void draw_texture_splats()
             core::at(uv, 1) = static_cast<float>((static_cast<double>(core::at(core::at(splats->uvs, j), 1)) - 0.5f) * factor + 0.5f);
         }
         splats->material->hand_in(); // (the material's set-up)
-        set_pixel_shader(core::at(g_pixel_shaders, kPixelShader964), splats->material);
+        set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), splats->material);
         draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, splats->last + 1, splats->vertices.data(),
                                        sizeof(ProjectedVertex));
     });
-    input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+    d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
 }
 
 // 0x004B7FA0

@@ -34,7 +34,6 @@ namespace {
 constexpr float kNearlyUp = 0.99f;        // 0x00645450
 constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
 
-void* particle_hub_handle() { return g_flexible_particle_manager.get(); }
 
 gfx::ViewCam* viewport_camera(int viewport) { return fetch_live_camera(viewport); }
 // _ftol: truncated to a 64-bit integer, its low half.
@@ -200,7 +199,7 @@ EmitterInstance::~EmitterInstance()
     if (!particle_list_.empty())
         delete_particles(particle_list_);
     // the particle manager lets go of it
-    static_cast<FlexibleParticleManager*>(particle_hub_handle())->remove_system(this);
+    static_cast<FlexibleParticleManager*>(flexible_particle_manager())->remove_system(this);
     list_link_.uncouple(); // (0x00496D10)
     // (then SharedBase's: its smart pointers cleared)
 }

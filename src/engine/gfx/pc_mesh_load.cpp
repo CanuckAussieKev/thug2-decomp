@@ -212,7 +212,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     }
     if (body.shader == 1) {
         mesh->pixel_shader_ = nullptr; // (the chunk skipped)
-        if (g_shaders_available)
+        if (shaders_available())
             material_pixel_shader(material, &mesh->pixel_shader_);
     } else {
         mesh->pixel_shader_ = pixel_shader_from_index(body.shader);

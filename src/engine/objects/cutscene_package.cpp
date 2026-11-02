@@ -227,7 +227,7 @@ void CinematicEntry::stop()
     }
     get_run(0xE7BC7EFD);
     get_run(0x4C0FD1D7);
-    render::g_flexible_particle_manager->delete_temp_heap();
+    render::flexible_particle_manager()->delete_temp_heap();
     if (content_) {
         discard_loaded_item(asset_);
         content_ = nullptr;

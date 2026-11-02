@@ -109,7 +109,6 @@ constexpr uint32_t kX = 0x7323E97C;              // "x"
 constexpr uint32_t kY = 0x0424D9EA;              // "y"
 constexpr uint32_t kZ = 0x9D2D8850;              // "z"
 
-bool distance_clipping() { return render::g_distance_clipping; }
 
 // Compiled out of this build - jumps to the empty function 0x005480A0 (0x0048C1B0) or calls of it.
 inline void finish_rendering() {}
@@ -285,7 +284,7 @@ bool cfunc_debug_line(Struct* params, Script*)
 // the script's params. Always true.
 bool cfunc_get_pause_pos_by_resolution(Struct*, Script* script)
 {
-    const float x = render::g_present_parameters.BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
+    const float x = render::present_parameters().BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
     script->args_->insert_pair(checksums::hash_from_text("pos"), x, 240.0f);
     return true;
 }
@@ -394,7 +393,7 @@ bool cfunc_set_clipping_distances(Struct* params, Script*)
 // use is compiled out). False (and nothing) while distance clipping is on.
 bool cfunc_set_fog_distance(Struct* params, Script*)
 {
-    if (distance_clipping())
+    if (render::distance_clipping())
         return false;
     float distance = 0.0f;
     params->fetch_float("distance", &distance, 0);
@@ -413,8 +412,8 @@ bool cfunc_set_fog_color(Struct* params, Script*)
     params->fetch_int_value("g", &g, 0);
     params->fetch_int_value("b", &b, 0);
     params->fetch_int_value("a", &a, 0);
-    if (distance_clipping()) {
-        render::g_fog_colour = static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 | (b & 0xFF);
+    if (render::distance_clipping()) {
+        render::set_fog_colour(static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 | (b & 0xFF));
         return false;
     }
     render::engine::set_fog_color(pack_bytes(r, g, b, a));
@@ -426,7 +425,7 @@ bool cfunc_set_render_mode(Struct* params, Script*)
 {
     int mode = 0;
     params->fetch_int_value(kMode, &mode, 0);
-    render::g_render_mode = mode;
+    render::set_render_mode(mode);
     return true;
 }
 

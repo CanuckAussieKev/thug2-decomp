@@ -399,7 +399,7 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
     float down = y - 224.0f; // (stored: rounded to float)
     double across =
         (static_cast<double>(x) - 320.0f) * (static_cast<double>(render::fetch_view_ratio()) * aspect_to_layout());
-    if (static_cast<int32_t>(render::g_back_buffer_width) > 640) { // the back buffer's width
+    if (static_cast<int32_t>(render::back_buffer_width()) > 640) { // the back buffer's width
         across *= wide_screen();
         down = static_cast<float>(static_cast<double>(down) * wide_screen());
     }

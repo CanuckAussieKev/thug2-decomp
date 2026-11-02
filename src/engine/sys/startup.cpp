@@ -81,7 +81,6 @@ void remove_module(modules::Hub* mdl, modules::PartUnit* module) { mdl->remove_m
 void push_bottom_up_heap() { memory::Hub::get_pull()->bottom_up_heap_->enter_heap_scope(); }
 void pop_bottom_up_heap() { memory::Hub::get_pull()->bottom_up_heap_->leave_heap_scope(); }
 
-bool quit_requested() { return render::g_quit_requested; }
 
 bool& demo_mode()
 {
@@ -121,7 +120,7 @@ int game_main(int argc, char** argv)
     maths::seed_random(0x06680BF3);
     maths::fill_sine_table();
 
-    while (!quit_requested()) {
+    while (!render::quit_requested()) {
         push_bottom_up_heap();
         stubs::ignore_argument(0x10); // (a memory manager method, compiled down to the shared stub)
 

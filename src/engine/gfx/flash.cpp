@@ -35,8 +35,8 @@ void draw_flash(const Flash* flash)
 {
     // The viewport (fractions of the screen) the flash belongs to.
     const ViewRegion* view = fetch_current_view(flash->viewport);
-    const double width = g_back_buffer_width;
-    const double height = g_back_buffer_height;
+    const double width = back_buffer_width();
+    const double height = back_buffer_height();
     // (x87: each product is rounded once, each sum to float)
     auto left = static_cast<float>(width * view->pos_x_);
     auto top = static_cast<float>(height * view->y_);
@@ -61,15 +61,15 @@ void draw_flash(const Flash* flash)
     set_sampler_state(2, 0);
     set_pixel_shader(nullptr, nullptr); // (no pixel shader)
     set_vertex_format(0x144);
-    ++g_draw_calls;         // draw calls
-    g_drawn_triangles += 2; // triangles
+    ++draw_calls();         // draw calls
+    drawn_triangles() += 2; // triangles
     // Originally from PartyMod Fixes (its reorder_flash_vertices at 0x004B91E7): the original passes the first three vertices in the
     // wrong order; rotate them.
     const FlashVertex first = core::at(vertices, 0);
     core::at(vertices, 0) = core::at(vertices, 1);
     core::at(vertices, 1) = core::at(vertices, 2);
     core::at(vertices, 2) = first;
-    g_draw_device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(FlashVertex));
+    draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(FlashVertex));
 }
 
 } // namespace render

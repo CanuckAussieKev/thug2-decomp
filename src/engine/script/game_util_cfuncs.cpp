@@ -250,7 +250,7 @@ bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* scrip
 // 0x005B3160: GetParkName: 0xCC23BDDB, the park's name (the buffer at 0x007CED58). Returns false.
 bool cfunc_get_park_name(script::Struct*, script::Script* script)
 {
-    script->args_->append_word(kParkName, commands::g_park_name.data());
+    script->args_->append_word(kParkName, commands::park_name().data());
     return false;
 }
 

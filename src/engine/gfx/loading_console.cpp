@@ -141,13 +141,12 @@ LoadingConsoleState& loading_console_state()
 
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
 HANDLE screen_mutex() { return render::loading_bar_shared().screen_mutex_; }
-IDirect3DDevice9* input_port() { return render::g_d3d_device; }
-bool load_screen_shown() { return render::g_loading_screen_up != 0; } // the main loop draws nothing then
-uint32_t bar_timer() { return render::g_loading_bar_timer; }          // the loading bar's timer (0x004B7400)
+
+bool load_screen_shown() { return render::loading_screen_up() != 0; } // the main loop draws nothing then
+
 bool screen_picture() { return render::loading_screen_shared().loading_screen_picture_ != nullptr; } // the loading screen's picture is up
-void* movie_shown() { return render::g_current_movie; }               // a Bink movie playing (gfx/movie.cpp)
-int get_screen_width() { return render::g_back_buffer_width; }
-int get_screen_height() { return render::g_back_buffer_height; }
+
+
 int progress_bar_pixels() { return render::loading_bar_shared().gradient_width_; } // the loading bar's width in pixels
 
 double get_now()
@@ -198,10 +197,10 @@ ConsoleFont& console_font()
 void build_font()
 {
     console_font().font_tried_ = true;
-    IDirect3DDevice9* device = input_port();
+    IDirect3DDevice9* device = render::d3d_device();
     if (!device)
         return;
-    const float pixels = std::clamp(std::round(static_cast<float>(get_screen_height()) * 15.0f / 720.0f), 12.0f, 30.0f);
+    const float pixels = std::clamp(std::round(static_cast<float>(render::back_buffer_height()) * 15.0f / 720.0f), 12.0f, 30.0f);
     ImFontAtlas atlas;
     atlas.Flags |= ImFontAtlasFlags_NoMouseCursors;
     ImFontConfig config;
@@ -317,7 +316,7 @@ void get_layout(double now)
     last = loading_console_state().last_activity_;
     ReleaseSRWLockShared(&loading_console_state().lock_);
 
-    auto width = static_cast<float>(get_screen_width()), height = static_cast<float>(get_screen_height());
+    auto width = static_cast<float>(render::back_buffer_width()), height = static_cast<float>(render::back_buffer_height());
     const float margin = std::max(8.0f, std::round(height * 0.02f));
     const float pad = std::round(console_font().line_height_ * 0.4f);
     // Left of the loading bar (centred, progress_bar_pixels wide, its frame 5/640 of the screen wider each side), at most 45%.
@@ -383,14 +382,14 @@ void CALLBACK screen_tick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
 {
     // Only while the loading bar's own timer isn't running (it draws the panel then), a loading screen is up, it
     // isn't a frozen frame, and no movie is shown.
-    if (!loading_console_state().active_ || !console_timer().timer_draws_ || bar_timer() != 0 || !load_screen_shown() || movie_shown())
+    if (!loading_console_state().active_ || !console_timer().timer_draws_ || render::loading_bar_timer() != 0 || !load_screen_shown() || render::current_movie())
         return;
     const bool blank = console_timer().blank_;
     if (!blank && !screen_picture())
         return;
     WaitForSingleObject(screen_mutex(), INFINITE);
-    IDirect3DDevice9* device = input_port();
-    if (device && load_screen_shown() && bar_timer() == 0 && loading_console_state().active_) {
+    IDirect3DDevice9* device = render::d3d_device();
+    if (device && load_screen_shown() && render::loading_bar_timer() == 0 && loading_console_state().active_) {
         device->BeginScene();
         // as the loading screen draws it (0x004B78B0): its picture, or black
         if (blank)
@@ -530,7 +529,7 @@ void draw_panel()
 {
     if (!loading_console_state().active_ || !console_font().texture_)
         return;
-    IDirect3DDevice9* device = input_port();
+    IDirect3DDevice9* device = render::d3d_device();
     if (!device)
         return;
     const double now = get_now();

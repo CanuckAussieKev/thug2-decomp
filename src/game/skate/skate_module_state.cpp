@@ -235,7 +235,7 @@ void Skate::tidy_before_park_build()
 {
     objects::trick_spot_hub()->remove_all_clusters();
     render::engine::kill_all_texture_splats();
-    static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager.get())->destroy_non_persistent();
+    static_cast<render::FlexibleParticleManager*>(render::flexible_particle_manager())->destroy_non_persistent();
     rail_manager_->tidy_up();
     objects::nearby_zone_shutdown();
     objects::emitter_cleanup();

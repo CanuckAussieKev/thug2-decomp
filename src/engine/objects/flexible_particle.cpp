@@ -110,27 +110,27 @@ float& particle_update_time()
 }
 
 // The particle manager (0x006FA7C0; no source yet).
-void* particle_hub_handle() { return render::g_flexible_particle_manager.get(); }
+
 render::EmitterInstance* find_system(uint32_t name)
 {
-    return static_cast<render::FlexibleParticleManager*>(particle_hub_handle())->find_system(name);
+    return static_cast<render::FlexibleParticleManager*>(render::flexible_particle_manager())->find_system(name);
 }
 // 0x0049AC60: a new system (named `name`) from the parameters.
 render::EmitterInstance* start_subsystem(uint32_t name, uint32_t type, int max, int max_streams, uint32_t texture,
                                          uint32_t blend_mode, int unknowna605b89f, int segments, float unknown4e0a65ee,
                                          int history, int perm, bool use_global_color_modulation, const char* model)
 {
-    return static_cast<render::FlexibleParticleManager*>(particle_hub_handle())
+    return static_cast<render::FlexibleParticleManager*>(render::flexible_particle_manager())
         ->start_subsystem(name, type, max, max_streams, texture, blend_mode, unknowna605b89f, segments, unknown4e0a65ee,
                           history, perm, use_global_color_modulation, model);
 }
 void destroy_system_now(uint32_t name)
 {
-    static_cast<render::FlexibleParticleManager*>(particle_hub_handle())->destroy_system_now(name);
+    static_cast<render::FlexibleParticleManager*>(render::flexible_particle_manager())->destroy_system_now(name);
 }
 void destroy_system_when_empty(uint32_t name)
 {
-    static_cast<render::FlexibleParticleManager*>(particle_hub_handle())->destroy_system_when_empty(name);
+    static_cast<render::FlexibleParticleManager*>(render::flexible_particle_manager())->destroy_system_when_empty(name);
 }
 
 // The system's own (no source yet).

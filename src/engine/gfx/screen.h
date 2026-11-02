@@ -46,7 +46,8 @@ void set_letterbox(bool letterbox);
 // 0x0048C170: SetScreenBlur <amount>
 bool cfunc_set_screen_blur(script::Struct* params, script::Script* script);
 
-extern float g_base_fov_angle;
-extern float g_angle_factor;
+float base_fov_angle();
+float angle_factor();
+void set_angle_factor(float value);
 
 } // namespace render

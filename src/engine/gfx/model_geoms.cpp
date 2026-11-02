@@ -92,11 +92,11 @@ gsl::owner<PcMesh*> load_scene(const char* file_name, TextureSet* textures, int 
 // The texture dictionary (0x00700F1C): a texture by checksum (0x0049F540), one taken out (0x0049F500), a texture
 // made from an image (0x0049FA20) or loaded (0x0049F9B0); a texture's own replaced in a dictionary by name (0x0049FB20)
 // or by a texture (0x0049F800).
-void* get_textures() { return g_game_texture_dict; }
-void* find_texture(uint32_t checksum) { return static_cast<TextureSet*>(get_textures())->fetch_skin(checksum); }
+
+void* find_texture(uint32_t checksum) { return static_cast<TextureSet*>(game_texture_dict())->fetch_skin(checksum); }
 void detach_texture(void* texture)
 {
-    static_cast<TextureSet*>(get_textures())->unload_texture(static_cast<BitmapTexture*>(texture));
+    static_cast<TextureSet*>(game_texture_dict())->unload_texture(static_cast<BitmapTexture*>(texture));
 }
 
 // The texture's checksum (+4, the folded getter 0x005480C0).
@@ -592,9 +592,9 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
     manager->enter_heap_scope(manager->top_down_heap_);
     const int size = face_texture->fetch_skin_resolution();
     const void* data = face_texture->get_image();
-    void* image = static_cast<TextureSet*>(get_textures())
+    void* image = static_cast<TextureSet*>(game_texture_dict())
                       ->read_texture_buffer(static_cast<const uint8_t*>(data), size, kFaceImage, 1, 1, false, 1);
-    void* overlay = static_cast<TextureSet*>(get_textures())->ingest_skin(face_texture->get_overlay_name(), 1, 1, true);
+    void* overlay = static_cast<TextureSet*>(game_texture_dict())->ingest_skin(face_texture->get_overlay_name(), 1, 1, true);
     memory::Hub::get_pull()->leave_heap_scope();
     // The profile's skin colour (0x004869D0 reads it, 0x004869A0 makes it current) and the overlay (0x004869C0)
     // applied to the image (0x00486F70) with the face's colour parameters.

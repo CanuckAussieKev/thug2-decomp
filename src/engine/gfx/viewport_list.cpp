@@ -12,14 +12,14 @@ namespace render {
 namespace {
 
 // The ten viewports (0x00701350).
-ViewRegion* get_viewport(int index) { return core::at(g_viewports, index); }
+ViewRegion* get_viewport(int index) { return core::at(viewports(), index); }
 
 } // namespace
 
 // 0x004A06D0
 ViewRegion* fetch_current_view(int n)
 {
-    const std::span<const int> map = g_mode_map;
+    const std::span<const int> map = mode_map();
     int shown = 0;
     for (int view = 0; view < 10; ++view) {
         // (past the table's end the original read the words after it: those views are not shown)
@@ -34,7 +34,7 @@ ViewRegion* fetch_current_view(int n)
 }
 
 // 0x004A0710
-int get_view_layout() { return g_screen_mode; }
+int get_view_layout() { return screen_mode_setting(); }
 
 // 0x004A0720
 bool flag_camera_for_removal(gfx::ViewCam* camera)

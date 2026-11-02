@@ -82,6 +82,6 @@ LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, float bri
 // (0xAF3F7288).
 void create_light_from_node(script::Struct* node);
 
-extern int g_scene_light_count;
-extern std::array<LevelLamp, 150> g_level_lamps;
+int scene_light_count();
+std::array<LevelLamp, 150>& level_lamps();
 } // namespace render

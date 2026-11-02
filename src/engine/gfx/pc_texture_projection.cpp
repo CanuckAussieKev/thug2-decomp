@@ -51,8 +51,6 @@ auto& projection_batches()
 constexpr uint32_t kBatchLimit = 10;
 constexpr uint32_t kBatchVertices = 0x600;
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
-IDirect3DDevice9* draw_device() { return g_draw_device; } // (the same device, kept twice)
 uint32_t& batch_count()
 {
     static uint32_t projection_batch_count{};
@@ -145,20 +143,20 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
 void draw_projection_batches()
 {
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    input_port()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
+    d3d_device()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
     DWORD min_filter = 0;
-    input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
-    input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+    d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+    d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (uint32_t i = 0; i < batch_count(); ++i) {
         ProjectionBatch* batch = &core::at(get_batches(), i);
         batch->material.hand_in(); // (the material's set-up)
         set_pixel_shader(batch->pixel_shader_, &batch->material);
         draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices.data(),
                                        sizeof(ProjectedVertex));
-        ++g_draw_calls;                              // (the frame's draw calls)
-        g_drawn_triangles += batch->triangle_count_; // (and triangles)
+        ++draw_calls();                              // (the frame's draw calls)
+        drawn_triangles() += batch->triangle_count_; // (and triangles)
     }
-    input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
+    d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
     batch_count() = 0;
 }
 

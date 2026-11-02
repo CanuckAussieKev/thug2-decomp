@@ -51,8 +51,7 @@ bool& viewer_launched()
 }
 
 // The weather (0x006FA7C8) and the screen effects (0x006FA7CC).
-render::WeatherSystem* get_weather() { return render::g_weather.get(); }
-render::ScreenEffects* screen_effects() { return render::g_screen_effects.get(); }
+
 } // namespace
 
 // 0x005A5360
@@ -145,115 +144,115 @@ bool cfunc_add_skater_early(Struct*, Script*)
 // 0x005A5680: its vtable +0x04 (through 0x004A1090).
 bool cfunc_weather_update_grid(Struct*, Script*)
 {
-    get_weather()->tick_grid(); // (0x004A1090: a jump through the vtable +0x04)
+    render::weather()->tick_grid(); // (0x004A1090: a jump through the vtable +0x04)
     return true;
 }
 // 0x005A5690
 bool cfunc_weather_set_rain_height(Struct* params, Script* script)
 {
-    return get_weather()->script_set_rain_height(params, script);
+    return render::weather()->script_set_rain_height(params, script);
 }
 // 0x005A56B0
 bool cfunc_weather_set_rain_frames(Struct* params, Script* script)
 {
-    return get_weather()->script_set_rain_frames(params, script);
+    return render::weather()->script_set_rain_frames(params, script);
 }
 // 0x005A56D0
 bool cfunc_weather_set_rain_length(Struct* params, Script* script)
 {
-    return get_weather()->script_set_rain_length(params, script);
+    return render::weather()->script_set_rain_length(params, script);
 }
 // 0x005A56F0
 bool cfunc_weather_set_rain_blend_mode(Struct* params, Script* script)
 {
-    return get_weather()->script_set_rain_blend_mode(params, script);
+    return render::weather()->script_set_rain_blend_mode(params, script);
 }
 // 0x005A5710
 bool cfunc_weather_set_rain_rate(Struct* params, Script* script)
 {
-    return get_weather()->script_set_rain_rate(params, script);
+    return render::weather()->script_set_rain_rate(params, script);
 }
 // 0x005A5730
 bool cfunc_weather_set_rain_color(Struct* params, Script* script)
 {
-    return get_weather()->script_set_rain_color(params, script);
+    return render::weather()->script_set_rain_color(params, script);
 }
 // 0x005A5750
 bool cfunc_weather_set_splash_rate(Struct* params, Script* script)
 {
-    return get_weather()->script_set_splash_rate(params, script);
+    return render::weather()->script_set_splash_rate(params, script);
 }
 // 0x005A5770
 bool cfunc_weather_set_splash_life(Struct* params, Script* script)
 {
-    return get_weather()->script_set_splash_life(params, script);
+    return render::weather()->script_set_splash_life(params, script);
 }
 // 0x005A5790
 bool cfunc_weather_set_splash_size(Struct* params, Script* script)
 {
-    return get_weather()->script_set_splash_size(params, script);
+    return render::weather()->script_set_splash_size(params, script);
 }
 // 0x005A57B0
 bool cfunc_weather_set_splash_color(Struct* params, Script* script)
 {
-    return get_weather()->script_set_splash_color(params, script);
+    return render::weather()->script_set_splash_color(params, script);
 }
 // 0x005A57D0
 bool cfunc_weather_set_splash_blend_mode(Struct* params, Script* script)
 {
-    return get_weather()->script_set_splash_blend_mode(params, script);
+    return render::weather()->script_set_splash_blend_mode(params, script);
 }
 // 0x005A57F0
 bool cfunc_weather_set_snow_height(Struct* params, Script* script)
 {
-    return get_weather()->script_set_snow_height(params, script);
+    return render::weather()->script_set_snow_height(params, script);
 }
 // 0x005A5810
 bool cfunc_weather_set_snow_frames(Struct* params, Script* script)
 {
-    return get_weather()->script_set_snow_frames(params, script);
+    return render::weather()->script_set_snow_frames(params, script);
 }
 // 0x005A5830
 bool cfunc_weather_set_snow_size(Struct* params, Script* script)
 {
-    return get_weather()->script_set_snow_size(params, script);
+    return render::weather()->script_set_snow_size(params, script);
 }
 // 0x005A5850
 bool cfunc_weather_set_snow_blend_mode(Struct* params, Script* script)
 {
-    return get_weather()->script_set_snow_blend_mode(params, script);
+    return render::weather()->script_set_snow_blend_mode(params, script);
 }
 // 0x005A5870
 bool cfunc_weather_set_snow_rate(Struct* params, Script* script)
 {
-    return get_weather()->script_set_snow_rate(params, script);
+    return render::weather()->script_set_snow_rate(params, script);
 }
 // 0x005A5890
 bool cfunc_weather_set_snow_color(Struct* params, Script* script)
 {
-    return get_weather()->script_set_snow_color(params, script);
+    return render::weather()->script_set_snow_color(params, script);
 }
 // 0x005A58B0
 bool cfunc_weather_set_snow_active(Struct* params, Script* script)
 {
-    return get_weather()->script_set_snow_active(params, script);
+    return render::weather()->script_set_snow_active(params, script);
 }
 // 0x005A58D0
 bool cfunc_weather_set_rain_active(Struct* params, Script* script)
 {
-    return get_weather()->script_set_rain_active(params, script);
+    return render::weather()->script_set_rain_active(params, script);
 }
 
 // --- the screen effects ---
 
 // 0x005A58F0
-bool cfunc_set_screen_effects_on(Struct* params, Script* script) { return screen_effects()->set_on(params, script); }
+bool cfunc_set_screen_effects_on(Struct* params, Script* script) { return render::screen_effects()->set_on(params, script); }
 // 0x005A5910
-bool cfunc_set_screen_effects_off(Struct* params, Script* script) { return screen_effects()->set_off(params, script); }
+bool cfunc_set_screen_effects_off(Struct* params, Script* script) { return render::screen_effects()->set_off(params, script); }
 // 0x005A5930
 bool cfunc_set_screen_effects_dof_params(Struct* params, Script* script)
 {
-    return screen_effects()->set_dof_params(params, script);
+    return render::screen_effects()->set_dof_params(params, script);
 }
 
 // 0x005A5950

@@ -77,25 +77,38 @@ void reset_render_state();
 // 0x004D80D0: the cached state sent to the device (after it is created or reset), with the fixed ones.
 void apply_render_state();
 
-extern bool g_shaders_available;
-extern uint32_t g_specular;
-extern uint8_t g_z_write;
-extern uint32_t g_depth_bias;
-extern uint32_t g_cull_mode;
-extern bool g_near_camera;
-extern std::array<void*, 4> g_textures;
-extern std::array<uint32_t, 4> g_border_colours;
-extern const void* g_pixel_shader_locked;
-extern void* g_current_pixel_shader;
-extern std::array<float, 20> g_ps_constant_bank;
-extern uint32_t g_instance_colour_on;
-extern std::array<uint8_t, 4> g_instance_colour;
-extern uint8_t g_pixel_shader_changed;
-extern uint32_t g_vertex_format_locked;
-extern uint32_t g_skipped_passes;
-extern uint32_t g_submit_locked;
-extern uint32_t g_fog_active;
-extern const float* g_world_transform;
-extern std::array<float, 16> g_world_transform_copy;
+// The render state the device was last sent (render_state.cpp's record; the original's globals).
+bool shaders_available();
+void set_shaders_available(bool value);
+uint32_t specular_state();
+uint8_t z_write();
+void set_z_write(uint8_t value);
+uint32_t depth_bias();
+void set_depth_bias(uint32_t value);
+uint32_t cull_mode();
+void set_cull_mode(uint32_t value);
+bool near_camera();
+void set_near_camera(bool value);
+const std::array<void*, 4>& stage_textures();
+std::array<uint32_t, 4>& border_colours();
+const void* pixel_shader_locked();
+void set_pixel_shader_locked(const void* value);
+void* current_pixel_shader();
+void set_current_pixel_shader(void* value);
+std::array<float, 20>& ps_constant_bank();
+uint32_t instance_colour_on();
+void set_instance_colour_on(uint32_t value);
+std::array<uint8_t, 4>& instance_colour();
+uint8_t pixel_shader_changed();
+void set_pixel_shader_changed(uint8_t value);
+uint32_t vertex_format_locked();
+void set_vertex_format_locked(uint32_t value);
+uint32_t& skipped_passes();
+uint32_t submit_locked();
+void set_submit_locked(uint32_t value);
+uint32_t fog_active();
+void set_fog_active(uint32_t value);
+const float*& current_world_transform();
+std::array<float, 16>& world_transform_copy();
 
 } // namespace render

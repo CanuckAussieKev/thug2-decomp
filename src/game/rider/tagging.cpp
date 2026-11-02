@@ -62,20 +62,20 @@ constexpr float kRadiansPerDegree = 0.017453292f; // 0x00645464
 constexpr float kInch = 12.0f;                    // 0x0064546C (feet to inches)
 
 // --- textures (the texture dictionary 0x00700F20) ---
-render::TextureSet* texture_bank() { return render::g_particle_texture_dict; }
+
 void* ingest_skin(const char* name, bool a, bool b, bool c)
 {
-    return static_cast<render::TextureSet*>(texture_bank())->ingest_skin(name, a, b, c);
+    return static_cast<render::TextureSet*>(render::particle_texture_dict())->ingest_skin(name, a, b, c);
 }
 render::BitmapTexture* copy_texture(uint32_t key, void* texture)
 {
-    return static_cast<render::TextureSet*>(texture_bank())
+    return static_cast<render::TextureSet*>(render::particle_texture_dict())
         ->copy_texture(key, static_cast<render::BitmapTexture*>(texture));
 }
-void* find_texture(uint32_t checksum) { return static_cast<render::TextureSet*>(texture_bank())->fetch_skin(checksum); }
+void* find_texture(uint32_t checksum) { return static_cast<render::TextureSet*>(render::particle_texture_dict())->fetch_skin(checksum); }
 void unload_texture(void* texture)
 {
-    static_cast<render::TextureSet*>(texture_bank())->unload_texture(static_cast<render::BitmapTexture*>(texture));
+    static_cast<render::TextureSet*>(render::particle_texture_dict())->unload_texture(static_cast<render::BitmapTexture*>(texture));
 }
 void release_texture(void* texture)
 {

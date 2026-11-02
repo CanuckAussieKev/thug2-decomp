@@ -57,6 +57,6 @@ bool cfunc_unload_sfp_texture(script::Struct* params, script::Script* script);  
 // 0x005AA8F0: SetParkName <string>: copied to the park name (0x007CED58, no length limit). False.
 bool cfunc_set_park_name(script::Struct* params, script::Script* script);
 
-extern bool g_texture_flag_ce441;
-extern std::array<char, 128> g_park_name;
+bool texture_flag_ce441();
+std::array<char, 128>& park_name();
 } // namespace commands

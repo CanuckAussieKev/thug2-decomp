@@ -113,7 +113,6 @@ lists::ObjectSet<TextureSplats>& splat_sets() { return engine_effects_shared().s
 lists::ObjectSet<RecentSplat>& recent_splats() { return flashes_and_splats().recent_splats_; }
 lists::ObjectSet<PcShatter>& shatters() { return shatter_shared().shatters_; }
 
-
 // The game's C runtime's rand() and its scales (0x0064930C: 2 / 32767, 0x00646510: 1 / 32767).
 int get_rand() { return crt::get_rand(); }
 constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u);
@@ -415,7 +414,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
         }
     }
     if (!texture) {
-        auto* textures = g_particle_texture_dict; // (the particles' dictionary)
+        auto* textures = particle_texture_dict(); // (the particles' dictionary)
         texture = textures->fetch_skin(checksums::hash_from_text(image_label));
     }
     // The line's box grown by the size; the collision objects of the grids along the line that meet it.

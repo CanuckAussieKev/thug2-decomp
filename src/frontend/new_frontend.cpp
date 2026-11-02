@@ -111,8 +111,8 @@ modules::FrontEnd* the_front_end() { return modules::front_end_instance().get();
 bool get_paused() { return the_front_end() && the_front_end()->is_halted_; }
 bool loading_screen_up()
 {
-    return render::g_loading_screen_shown != 0 || render::g_loading_bar_timer != 0 ||
-           static_cast<uint8_t>(render::g_loading_screen_up) != 0;
+    return render::loading_screen_shown() != 0 || render::loading_bar_timer() != 0 ||
+           static_cast<uint8_t>(render::loading_screen_up()) != 0;
 }
 
 bool is_script(uint32_t name)
@@ -1023,7 +1023,6 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
             read_value_sprites(child, item, budget);
     }
 }
-
 
 // The skater select's stats for the template `name`: stat_names' short_string (else string) and the template's value.
 std::vector<std::pair<std::string, int>> skater_stats(uint32_t name)

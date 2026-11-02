@@ -38,28 +38,38 @@ long set_render_state(int state, uint32_t value);
 // 0x0044F890: the device's Clear (rectangles or the whole viewport; D3DCLEAR_* flags). Returns the HRESULT.
 long clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil);
 
-extern IDirect3DDevice9* g_d3d_device;
-extern IDirect3DDevice9* g_draw_device; // the same device, kept twice
-extern D3DPRESENT_PARAMETERS g_present_parameters;
-extern std::array<IDirect3DSurface9*, 9> g_screen_surfaces;
+// The device, what was made with it and its settings (device.cpp's record; the original's globals). The draw device
+// is the same device, kept twice; the display factors scale 640x480 to the back buffer.
+IDirect3DDevice9* d3d_device();
+void set_d3d_device(IDirect3DDevice9* value);
+D3DPRESENT_PARAMETERS& present_parameters();
+bool stream_offset_supported();
+uint32_t loading_bar_timer();
+void set_loading_bar_timer(uint32_t value);
+float display_factor_x();
+void set_display_factor_x(float value);
+IDirect3DDevice9* draw_device();
+std::array<IDirect3DTexture9*, 9>& screen_textures();
+uint8_t frequency_setting_allowed();
+int resolution_setting();
+void set_resolution_setting(int value);
+bool antialiasing();
+void set_antialiasing(bool value);
+int& screen_offset_y();
+int& screen_offset_x();
+float display_factor_y();
+void set_display_factor_y(float value);
+IDirect3DSurface9* z_buffer_surface();
+std::array<IDirect3DSurface9*, 9>& screen_surfaces();
+IDirect3DSurface9* back_depth();
+IDirect3DSurface9* back_buffer();
+bool blend_factor_supported();
+bool border_addressing_supported();
+uint32_t max_anisotropy();
+HWND game_window();
+void set_game_window(HWND value);
+IDirect3D9* direct_3d();
+void set_direct_3d(IDirect3D9* value);
 inline constexpr bool kShowWindowFlag{false}; // (the original showed the window maximised / minimised by it)
-extern bool g_stream_offset_supported;
-extern std::array<IDirect3DTexture9*, 9> g_screen_textures;
-extern uint32_t g_loading_bar_timer; // the timer's id (timeSetEvent)
-extern float g_display_factor_x;     // 640x480 -> back buffer scale
 
-extern float g_display_factor_y;
-extern int g_screen_offset_x;
-extern int g_screen_offset_y;
-extern IDirect3DSurface9* g_z_buffer_surface;
-extern IDirect3DSurface9* g_back_buffer;
-extern IDirect3DSurface9* g_back_depth;
-extern bool g_border_addressing_supported;
-extern bool g_blend_factor_supported;
-extern uint32_t g_max_anisotropy;
-extern bool g_antialiasing;
-extern uint8_t g_set_frequency_allowed;
-extern int g_resolution_setting;
-extern IDirect3D9* g_direct_3d;
-extern HWND g_game_window;
 } // namespace render

@@ -128,8 +128,8 @@ ScreenshotJob& screenshot_job()
 uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level_ : 0; }
 bool loading_screen_up()
 {
-    return render::g_loading_screen_shown != 0 || render::g_loading_bar_timer != 0 ||
-           static_cast<uint8_t>(render::g_loading_screen_up) != 0;
+    return render::loading_screen_shown() != 0 || render::loading_bar_timer() != 0 ||
+           static_cast<uint8_t>(render::loading_screen_up()) != 0;
 }
 modules::FrontEnd* the_front_end() { return modules::front_end_instance().get(); }
 std::string get_name_of(uint32_t checksum)

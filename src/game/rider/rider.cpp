@@ -577,7 +577,6 @@ void balance_displays_off(void* score)
 
 // An input flag (a byte and the clock when it last changed) set to `on` if it isn't already.
 
-render::TextureSet* get_elements() { return render::g_game_texture_dict; }
 
 } // namespace
 
@@ -710,7 +709,7 @@ void Rider::show_board_element(uint32_t type)
     params->read_hash_value(0x676F1DF1, &model_swap2, 1);
     params->fetch_text(0xC553C612, &texture, 1);
     auto new_element = [](const char* text) {
-        return static_cast<render::TextureSet*>(get_elements())->ingest_skin(text, 0, 0, true);
+        return static_cast<render::TextureSet*>(render::game_texture_dict())->ingest_skin(text, 0, 0, true);
     };
     // (the textures' calls go through the folded jumps 0x0048D060, 0x0048DE80, 0x0048DED0, 0x0048DEB0, 0x0049F360,
     // 0x0049F420, 0x0048DE30 and 0x0048E4C0)
@@ -743,8 +742,8 @@ void Rider::show_board_element(uint32_t type)
     params->fetch_text(0x49B318FD, &model, 1);
     core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->swap_texture(model_swap, model, model_swap2);
     if (second)
-        static_cast<render::TextureSet*>(get_elements())->unload_texture(overlay);
-    static_cast<render::TextureSet*>(get_elements())->unload_texture(element);
+        static_cast<render::TextureSet*>(render::game_texture_dict())->unload_texture(overlay);
+    static_cast<render::TextureSet*>(render::game_texture_dict())->unload_texture(element);
     parent->end_edit();
     memory::Hub::get_pull()->leave_heap_scope();
 }

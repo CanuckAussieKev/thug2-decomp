@@ -22,12 +22,11 @@ std::unique_ptr<std::vector<EventHandler>>& handlers()
     return handlers.get();
 }
 
-bool& quit_requested() { return render::g_quit_requested; }
 
 void handle_quit(SDL_Event* event)
 {
     if (event->type == SDL_QUIT)
-        quit_requested() = true;
+        render::set_quit_requested(true);
 }
 
 } // namespace

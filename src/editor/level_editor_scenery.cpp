@@ -196,7 +196,7 @@ bool is_end(const SceneNode* node) { return node->is_head(); }
 template <typename F>
 void for_each_scene(F fn)
 {
-    auto* node = (render::g_scene_list.next);
+    auto* node = (render::scene_list().next);
     for (int guard = 0; node && !is_end(node) && guard < 256; ++guard) {
         SceneNode* next = node->next;
         if (scene_of(node) && !scene_of(node)->is_sky_)
@@ -1251,7 +1251,7 @@ void log_meshes()
                 material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 0)) : 0,
                 material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 1)) : 0,
                 material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 2)) : 0,
-                static_cast<uint8_t>(render::g_shaders_available));
+                static_cast<uint8_t>(render::shaders_available()));
     }
 }
 } // namespace
@@ -1917,7 +1917,7 @@ int get_moved_count()
 void log_census()
 {
     // (every node of the scene list, skies too: what the walk sees)
-    auto* node = (render::g_scene_list.next);
+    auto* node = (render::scene_list().next);
     for (int i = 0; node && i < 16; ++i, node = node->next) {
         const bool end = is_end(node);
         const render::WorldScene* scene = end ? nullptr : scene_of(node);

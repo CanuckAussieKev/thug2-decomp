@@ -358,7 +358,7 @@ int Skate::find_free_rider_heap(bool local)
 void Skate::set_skater_shadow(objects::Rider* skater)
 {
     auto* shadow = core::down_cast<objects::GroundShadowModule>(skater->fetch_module(kShadow));
-    int type = render::g_hq_shadows ? 1 : 2;
+    int type = render::hq_shadows() ? 1 : 2;
     memory::enter_heap_scope(rider_heap_at(skater->get_skater_number()));
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)))
         type = 2;
@@ -517,7 +517,7 @@ void Skate::tidy_up()
     net_session_slot()->clear_crown();
     script::kill_all_child_scripts();
     objects::trick_spot_hub()->remove_all_clusters();
-    static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager.get())->destroy_non_persistent();
+    static_cast<render::FlexibleParticleManager*>(render::flexible_particle_manager())->destroy_non_persistent();
     rail_manager_->tidy_up();
     objects::nearby_zone_shutdown();
     objects::emitter_cleanup();

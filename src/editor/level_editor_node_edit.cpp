@@ -163,18 +163,18 @@ void store_node_vector(script::Struct* node, uint32_t name, V3 value)
 // lights (up to 256, by their owner) and the level lights (up to 150, by their label).
 void move_lights(uint32_t name, V3 pos)
 {
-    const int dynamic_count = render::g_dynamic_light_count;
+    const int dynamic_count = render::dynamic_light_count();
     for (int i = 0; i < dynamic_count && i < 256; ++i) {
-        render::DynamicLightBase* light = core::at(render::g_dynamic_lights, i);
+        render::DynamicLightBase* light = core::at(render::dynamic_lights(), i);
         if (light && light->owner == name) {
             core::at(light->pos, 0) = pos.x;
             core::at(light->pos, 1) = pos.y;
             core::at(light->pos, 2) = pos.z;
         }
     }
-    const int level_count = render::g_scene_light_count;
+    const int level_count = render::scene_light_count();
     for (int i = 0; i < level_count && i < 150; ++i) {
-        render::LevelLamp& lamp = core::at(render::g_level_lamps, i);
+        render::LevelLamp& lamp = core::at(render::level_lamps(), i);
         if (lamp.label_ == name) {
             lamp.at_point_.x = pos.x;
             lamp.at_point_.y = pos.y;

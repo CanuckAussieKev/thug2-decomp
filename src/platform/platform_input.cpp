@@ -18,7 +18,6 @@
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/device.h"
 #include "platform/compiler.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
@@ -105,11 +104,6 @@ std::array<uint32_t, 2 * kPorts>& force_resolutions() { return platform_input_sh
 
 std::array<std::array<wchar_t, kKeyNameLength>, 256>& key_names() { return platform_input_state().key_names_; }
 
-HWND game_window()
-{
-    return render::g_game_window;
-}
-
 // dinput8.lib's data formats and dxguid.lib's constant-force effect GUID (the original's own copies of them).
 const DIDATAFORMAT* joystick_format() { return &c_dfDIJoystick2; } // c_dfDIJoystick2
 const DIDATAFORMAT* keyboard_format() { return &c_dfDIKeyboard; } // c_dfDIKeyboard
@@ -162,7 +156,7 @@ void place_at_range(uint32_t distance)
     if (distance > 100)
         platform_shared().distance_setting_ = 0;
     else if (distance != 0)
-        gfx::g_draw_distance_setting = static_cast<int32_t>(static_cast<double>(distance) * 5.0f + 95.0f);
+        gfx::set_draw_distance_setting(static_cast<int32_t>(static_cast<double>(distance) * 5.0f + 95.0f));
 }
 
 struct KeyNameEntry {
@@ -358,7 +352,7 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
         if (SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             core::at(joysticks(), port) = created;
             created->SetDataFormat(joystick_format());
-            created->SetCooperativeLevel(game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+            created->SetCooperativeLevel(render::game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
             created->EnumObjects(add_joystick_axis, created, DIDFT_AXIS);
             if (core::at(force_axis_counts(), port) > 0) {
                 // Rumble: an endless constant force along X and Y, started by set_actuators.
@@ -389,14 +383,14 @@ BOOL CALLBACK add_input_device(LPCDIDEVICEINSTANCEA device, LPVOID /*context*/)
         if (!stored_keyboard_device() && SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             stored_keyboard_device() = created;
             created->SetDataFormat(keyboard_format());
-            created->SetCooperativeLevel(game_window(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
+            created->SetCooperativeLevel(render::game_window(), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND);
             created->Acquire();
         }
     } else if (type == DI8DEVTYPE_MOUSE) {
         if (!get_mouse() && SUCCEEDED(get_direct_input()->CreateDevice(device->guidInstance, &created, nullptr))) {
             get_mouse() = created;
             created->SetDataFormat(mouse_format());
-            created->SetCooperativeLevel(game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
+            created->SetCooperativeLevel(render::game_window(), DISCL_EXCLUSIVE | DISCL_FOREGROUND);
             created->Acquire();
         }
     }
@@ -444,9 +438,9 @@ void load_registry_options(const char* key)
         place_at_range(value);
     if (RegQueryValueExA(options, "options", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS) {
         if (value & 1)
-            render::g_fog_setting = true;
+            render::set_fog_setting(true);
         if (value & 2)
-            render::g_hq_shadows = 1;
+            render::set_hq_shadows(1);
         if (value & 4)
             platform_shared().options38_and39_ = static_cast<uint16_t>((platform_shared().options38_and39_ & 0xFF00) | 1); // (its low byte)
         if (value & 8)
@@ -454,15 +448,15 @@ void load_registry_options(const char* key)
         if (value & 0x10)
             platform_shared().option37_ = 1;
         if (value & 0x20)
-            memory::bits_as<uint8_t>(render::g_antialiasing) = 1;
+            render::set_antialiasing(true);
         if (value & 0x100)
-            render::g_distance_clipping = true;
+            render::set_distance_clipping(true);
     }
     if (RegQueryValueExA(options, "distance", nullptr, &type, raw::bytes(&value), &size) == ERROR_SUCCESS)
         place_at_range(value);
     if (RegQueryValueExA(options, "resolution", nullptr, &type, raw::bytes(&value), &size) ==
         ERROR_SUCCESS)
-        render::g_resolution_setting = value > 3 ? 0 : static_cast<int>(value);
+        render::set_resolution_setting(value > 3 ? 0 : static_cast<int>(value));
 
     // The joystick each port plays with (the text buffer isn't cleared before the first: a short value leaves
     // whatever was there after it).

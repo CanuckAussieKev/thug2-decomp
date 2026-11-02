@@ -29,8 +29,6 @@ namespace render {
 
 namespace {
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
-uint8_t& get_z_write() { return g_z_write; }
 float sphere_depth() { return occlusion_shared().last_sphere_distance_; }
 constexpr float kNear = 600.0f; // 0x0064AA98
 
@@ -57,7 +55,7 @@ MaterialRef* get_mesh_material(const MeshRef* mesh) { return mesh->material; }
 void set_material(MaterialRef* material) { material->hand_in(); }
 void draw_mesh(MeshRef* mesh) { mesh->render(); }
 // The render statistics (0x00775B80; thiscall).
-void count_pass(int which) { g_billboard_pool.render(which); }
+void count_pass(int which) { billboard_pool().render(which); }
 
 // The game's qsort (equal entries keep the game's order).
 void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const void*, const void*))
@@ -167,20 +165,20 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
             }
         }
         if (scene->flags & 0x100) { // shadows on the meshes drawn
-            if (get_z_write() == 1) {
+            if (z_write() == 1) {
                 render::set_render_state(D3DRS_ZWRITEENABLE, FALSE);
-                get_z_write() = 0;
+                set_z_write(0);
             }
             DWORD min_filter = 0;
-            input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
+            d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
             if (min_filter == D3DTEXF_ANISOTROPIC)
-                input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
+                d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
             draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn)));
             if (min_filter == D3DTEXF_ANISOTROPIC)
-                input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
-            if (!get_z_write()) {
+                d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
+            if (!z_write()) {
                 render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);
-                get_z_write() = 1;
+                set_z_write(1);
             }
         }
         pass.drawn = 0;

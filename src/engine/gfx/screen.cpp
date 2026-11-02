@@ -35,29 +35,45 @@ ScreenState& screen_state()
 }
 
 } // namespace
-float g_base_fov_angle;
-float g_angle_factor{1.0f};
+namespace {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed (field_of_view()).
+struct FieldOfView {
+    float base_fov_angle_{};
+    float angle_factor_{1.0f};
+};
+
+FieldOfView& field_of_view()
+{
+    static core::NoDestroy<FieldOfView> state;
+    return state.get();
+}
+
+} // namespace
+
+float base_fov_angle() { return field_of_view().base_fov_angle_; }
+float angle_factor() { return field_of_view().angle_factor_; }
+void set_angle_factor(float value) { field_of_view().angle_factor_ = value; }
 
 namespace {
 
 // Whether the device can do the blur (its render-target textures were made).
-bool blur_available() { return core::at(g_screen_surfaces, 0) != nullptr; }
+bool blur_available() { return core::at(screen_surfaces(), 0) != nullptr; }
 auto& screen_blur() { return engine_glue_shared().screen_blur_; }
 // The last amount the script asked for (kept even when the blur is off).
 auto& script_screen_blur() { return screen_state().script_screen_blur_; }
 
 // The screen's aspect (width / height), and the original's angle factor constant (1.0).
 float& view_ratio_slot() { return screen_state().width_over_height_; }
-float angle_factor_constant() { return g_angle_factor; }
+
 
 // The 640x480 -> back buffer conversion (init_direct_3d) and the letterbox flag.
-uint8_t& cinema_bars_on() { return g_camera.letterbox_active_; }
-float& horiz_screen_ratio() { return g_display_factor_x; }
-float& vert_screen_ratio() { return g_display_factor_y; }
-void set_screen_offset_x(uint32_t x) { g_screen_offset_x = static_cast<int>(x); }
-void set_screen_offset_y(uint32_t y) { g_screen_offset_y = static_cast<int>(y); }
-uint32_t get_back_buffer_width() { return static_cast<uint32_t>(g_back_buffer_width); }
-uint32_t get_back_buffer_height() { return static_cast<uint32_t>(g_back_buffer_height); }
+uint8_t& cinema_bars_on() { return render_camera().letterbox_active_; }
+
+void set_screen_offset_x(uint32_t x) { screen_offset_x() = static_cast<int>(x); }
+void set_screen_offset_y(uint32_t y) { screen_offset_y() = static_cast<int>(y); }
+uint32_t get_back_buffer_width() { return static_cast<uint32_t>(back_buffer_width()); }
+uint32_t get_back_buffer_height() { return static_cast<uint32_t>(back_buffer_height()); }
 
 } // namespace
 
@@ -105,10 +121,10 @@ void set_screen_aspect_ratio(float /*aspect*/) { view_ratio_slot() = desired_3d_
 float fetch_view_ratio() { return view_ratio_slot(); }
 
 // 0x004A07A0
-void set_screen_angle(float angle) { g_base_fov_angle = angle; }
+void set_screen_angle(float angle) { field_of_view().base_fov_angle_ = angle; }
 
 // 0x004A07B0
-float get_screen_angle() { return g_base_fov_angle; }
+float get_screen_angle() { return field_of_view().base_fov_angle_; }
 
 // 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). Originally from PartyMod Fixes: the view is widened for
 // screens wider than 4:3 (the aspect / (4/3)) - unless that constant isn't 1 - and the screen's aspect
@@ -119,8 +135,8 @@ float fetch_fov_ratio()
     // (narrower than 4:3: the horizontal view isn't narrowed - the vertical one grows instead)
     const float factor = aspect > 4.0f / 3.0f ? aspect / (4.0f / 3.0f) : 1.0f;
     view_ratio_slot() = aspect;
-    if (angle_factor_constant() != 1.0f)
-        return angle_factor_constant();
+    if (field_of_view().angle_factor_ != 1.0f)
+        return field_of_view().angle_factor_;
     return factor;
 }
 
@@ -150,17 +166,17 @@ void set_letterbox(bool letterbox)
     const float desired = desired_aspect_ratio();
     if (back_buffer_aspect > desired) {
         // wider: bars left and right
-        horiz_screen_ratio() = desired / back_buffer_aspect * (static_cast<float>(get_back_buffer_width()) / 640.0f);
-        vert_screen_ratio() = static_cast<float>(get_back_buffer_height()) / 480.0f;
-        auto width = static_cast<uint32_t>(horiz_screen_ratio() * 640.0f);
+        set_display_factor_x(desired / back_buffer_aspect * (static_cast<float>(get_back_buffer_width()) / 640.0f));
+        set_display_factor_y(static_cast<float>(get_back_buffer_height()) / 480.0f);
+        auto width = static_cast<uint32_t>(display_factor_x() * 640.0f);
         set_screen_offset_x((get_back_buffer_width() - width) / 2);
-        set_screen_offset_y(static_cast<uint32_t>(16.0f * vert_screen_ratio()));
+        set_screen_offset_y(static_cast<uint32_t>(16.0f * display_factor_y()));
     } else {
-        horiz_screen_ratio() = static_cast<float>(get_back_buffer_width()) / 640.0f;
-        vert_screen_ratio() = back_buffer_aspect / desired * (static_cast<float>(get_back_buffer_height()) / 480.0f);
-        auto height = static_cast<uint32_t>(vert_screen_ratio() * 480.0f);
+        set_display_factor_x(static_cast<float>(get_back_buffer_width()) / 640.0f);
+        set_display_factor_y(back_buffer_aspect / desired * (static_cast<float>(get_back_buffer_height()) / 480.0f));
+        auto height = static_cast<uint32_t>(display_factor_y() * 480.0f);
         set_screen_offset_x(0);
-        set_screen_offset_y(static_cast<uint32_t>(16.0f * vert_screen_ratio() +
+        set_screen_offset_y(static_cast<uint32_t>(16.0f * display_factor_y() +
                                                   // NOLINTNEXTLINE(bugprone-integer-division): as the original
                                                   static_cast<float>((get_back_buffer_height() - height) / 2)));
     }

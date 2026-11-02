@@ -39,10 +39,7 @@ std::array<uint8_t, 0x100>& primitive_vertex_buffer()
     return primitive_vertex_buffer;
 }
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
-IDirect3DIndexBuffer9* quad_indices() { return g_quad_indices; }
-uint32_t& draw_calls() { return g_draw_calls; }
-uint32_t& drawn_triangles() { return g_drawn_triangles; }
+
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
 // The vertex layouts by flexible vertex format (D3DFVF): XYZ (0x2) and XYZ | DIFFUSE (0x42) - positions and colours -,
@@ -191,24 +188,24 @@ void PcPrimitive::render()
     IDirect3DVertexBuffer9* buffer = nullptr;
     uint32_t first_vertex = 0, room = 0;
     set_vertex_format(vertex_format_);
-    set_pixel_shader(core::at(g_pixel_shaders, kPixelShader964), nullptr);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), nullptr);
     if (type_ != 0 && type_ != 2 && type_ != 4)
         return;
     void* out = os_layer::lock_dynamic_vertices(vertex_count_, stride_, &buffer, &first_vertex, &room);
     std::memcpy(out, vertices_, static_cast<uint32_t>(vertex_count_ * stride_));
     os_layer::unlock_dynamic_vertices(vertex_count_, stride_);
-    input_port()->SetStreamSource(0, buffer, 0, stride_);
+    d3d_device()->SetStreamSource(0, buffer, 0, stride_);
     int primitives = 0;
     if (type_ == 0) {
         primitives = vertex_count_ / 2;
-        input_port()->DrawPrimitive(D3DPT_LINELIST, first_vertex, primitives);
+        d3d_device()->DrawPrimitive(D3DPT_LINELIST, first_vertex, primitives);
     } else if (type_ == 2) {
         primitives = vertex_count_ / 3;
-        input_port()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, primitives);
+        d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, primitives);
     } else {
-        input_port()->SetIndices(quad_indices());
+        d3d_device()->SetIndices(quad_index_buffer());
         primitives = vertex_count_ / 2;
-        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertex_count_, 0,
+        d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertex_count_, 0,
                                            primitives);
     }
     ++draw_calls();
@@ -459,7 +456,7 @@ void set_primitive_depth_test(int state, int value)
             break;
         }
     }
-    input_port()->SetRenderState(D3DRS_ZFUNC, function);
+    d3d_device()->SetRenderState(D3DRS_ZFUNC, function);
 }
 
 } // namespace render

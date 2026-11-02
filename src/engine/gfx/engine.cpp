@@ -44,13 +44,35 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's file names, unboun
 
 namespace render {
 
-bool g_suppress_draw; // rendering skipped (frames not drawn or shown)
+namespace {
 
-std::unique_ptr<FlexibleParticleManager> g_flexible_particle_manager;
-memory::HeapUnique<ImposterManager> g_imposter_manager;
-int g_render_mode;
-// The scenes' list (its head: data -1 once made; its first node, the head's next, is at +0xC, the last at +0x10).
-memory::ListNode g_scene_list;
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (engine_objects()).
+struct EngineObjects {
+    bool suppress_draw_{}; // rendering skipped (frames not drawn or shown)
+    std::unique_ptr<FlexibleParticleManager> flexible_particle_manager_{};
+    memory::HeapUnique<ImposterManager> imposter_manager_{};
+    int render_mode_{};
+    // The scenes' list (its head: data -1 once made; its first node, the head's next, is at +0xC, the last at +0x10).
+    memory::ListNode scene_list_{};
+};
+
+EngineObjects& engine_objects()
+{
+    static core::NoDestroy<EngineObjects> state;
+    return state.get();
+}
+
+} // namespace
+
+bool suppress_draw() { return engine_objects().suppress_draw_; }
+void set_suppress_draw(bool value) { engine_objects().suppress_draw_ = value; }
+FlexibleParticleManager* flexible_particle_manager() { return engine_objects().flexible_particle_manager_.get(); }
+ImposterManager* imposter_manager() { return engine_objects().imposter_manager_.get(); }
+int render_mode() { return engine_objects().render_mode_; }
+void set_render_mode(int value) { engine_objects().render_mode_ = value; }
+memory::ListNode& scene_list() { return engine_objects().scene_list_; }
+
 namespace {
 
 constexpr uint32_t kCameraFov = 0x99529205;                     // camera_fov
@@ -59,7 +81,7 @@ constexpr const char* kSceneFileFormat = "levels\\%s\\%s%s.scn.%s"; // 0x00648A2
 constexpr const char* kModelFileFormat = "%s.%s.%s";                // 0x006458F4
 
 // The scenes' list (0x006FA7E0: its head, data -1; the first node at +0xC, the last at +0x10).
-memory::ListNode& scene_list() { return g_scene_list; }
+
 const auto kNoScene = memory::ListNode::head_marker();
 // The node after `node`, null at the end (the head).
 memory::ListNode* next_scene(memory::ListNode* node) { return node->next->data == kNoScene ? nullptr : node->next; }
@@ -92,11 +114,8 @@ EngineState& engine_state()
 // The engine's managers: the flexible particle manager (0x006FA7C0), the imposter manager (0x006FA7BC, 8 bytes:
 // constructor 0x0048E3E0, its frame 0x0048E2D0 - not rewritten yet), the particle manager and the weather (made by
 // start_engine).
-std::unique_ptr<FlexibleParticleManager>& flexible_particle_manager() { return g_flexible_particle_manager; }
-memory::HeapUnique<ImposterManager>& imposter_manager() { return g_imposter_manager; }
 
-WeatherSystem* get_weather() { return g_weather.get(); }
-bool omit_from_draw() { return g_suppress_draw; }
+
 
 
 // (0x004904E0, not rewritten yet: the frame's ... after the imposters)
@@ -126,11 +145,11 @@ void prepare_all(uint32_t text_pool_size)
     set_screen_mode(0);
     memory::pop_mem_profile();
     memory::push_mem_profile("CFlexibleParticleManager");
-    flexible_particle_manager() = std::make_unique<FlexibleParticleManager>();
+    engine_objects().flexible_particle_manager_ = std::make_unique<FlexibleParticleManager>();
     memory::pop_mem_profile();
     memory::push_mem_profile("CImposterManager");
     void* memory = memory::alloc(8);
-    imposter_manager() = memory::HeapUnique<ImposterManager>(memory ? memory::construct_in<ImposterManager>(memory) : nullptr);
+    engine_objects().imposter_manager_ = memory::HeapUnique<ImposterManager>(memory ? memory::construct_in<ImposterManager>(memory) : nullptr);
     memory::pop_mem_profile();
     memory::push_mem_profile("MiscFXInitialize");
     init_effects();
@@ -154,10 +173,10 @@ void render_frame()
     update_shatters();
     objects::particle_hub()->tick_particles();
     // the weather's frame (through the folded jump 0x004E3F90), by the slow-motion frame time
-    get_weather()->tick_frame(static_cast<float>(frame_clock::get_slomo_frame_seconds()));
-    static_cast<ImposterManager*>(imposter_manager().get())->tick_frame();
+    weather()->tick_frame(static_cast<float>(frame_clock::get_slomo_frame_seconds()));
+    static_cast<ImposterManager*>(imposter_manager())->tick_frame();
     update_after_imposters();
-    if (!omit_from_draw())
+    if (!engine_objects().suppress_draw_)
         draw_world();
 }
 
@@ -170,7 +189,7 @@ std::array<WorldScene*, 16>& get_collision_scenes() { return engine_scene_list_s
 // 0x0048C0D0
 void toggle_render_mode()
 {
-    int& mode = g_render_mode;
+    int& mode = engine_objects().render_mode_;
     if (++mode == 4)
         mode = 0;
 }
@@ -326,6 +345,6 @@ WorldScene* find_scene(uint32_t checksum)
 namespace render {
 
 // 0x00640B00 (a static initialiser): the scene list, an empty head.
-void construct_scene_list() { new (&g_scene_list) SceneListHead; }
+void construct_scene_list() { new (&engine_objects().scene_list_) SceneListHead; }
 
 } // namespace render

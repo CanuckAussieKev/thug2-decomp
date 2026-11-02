@@ -57,15 +57,14 @@ constexpr std::array<uint32_t, 4> kHeadBoneGroups = {{
 
 // The texture dictionaries (0x00700F1C the game's, 0x00700F20 the skater's) and a texture by checksum (0x0049F540),
 // a new texture (0x0049FAA0: name, width, height, then 4 / 8, 0x20, 1, 1) and one taken out (0x0049F500).
-render::TextureSet* get_textures() { return render::g_game_texture_dict; }
-render::TextureSet* skater_textures() { return render::g_particle_texture_dict; }
+
 render::BitmapTexture* find_texture(void* dictionary, uint32_t name)
 {
     return static_cast<render::TextureSet*>(dictionary)->fetch_skin(name);
 }
 gsl::owner<render::BitmapTexture*> alloc_pc_texture(uint32_t name, int width, int height, int a, int b)
 {
-    return static_cast<render::TextureSet*>(get_textures())->create_texture(name, width, height, a, b, 1, true);
+    return static_cast<render::TextureSet*>(render::game_texture_dict())->create_texture(name, width, height, a, b, 1, true);
 }
 
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
@@ -74,7 +73,6 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 modules::Skate* get_skate() { return modules::Skate::sole(); }
 
 } // namespace
-
 
 // 0x005B3A90: GenerateCAGTexture info_array=[{texture_id scale flip_h flip_v rot pos_x pos_y rgba layer_id}...]
 // player=n [Test=1]: the custom tag texture composed from its layers: cleared, then each layer's texture drawn into a
@@ -87,7 +85,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     std::array<uint8_t, 0x400> palette{}; // (filled by the tag's palette call, not here)
     Array* layers = nullptr;
     params->fetch_list(kLayerInfoList, &layers, 1);
-    render::BitmapTexture* tag = find_texture(skater_textures(), kCustomTag);
+    render::BitmapTexture* tag = find_texture(render::particle_texture_dict(), kCustomTag);
     tag->begin_edit(false, false);
     tag->modulate(0u, false);
     const uint32_t size = tag->fetch_breadth();
@@ -102,7 +100,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         auto* info = layers->struct_at(i);
         uint32_t texture_id = 0;
         info->read_hash_value(kTextureId, &texture_id, 1);
-        render::BitmapTexture* source = find_texture(get_textures(), texture_id);
+        render::BitmapTexture* source = find_texture(render::game_texture_dict(), texture_id);
         source->begin_edit(false, false);
         workspace->end_edit();
         workspace->begin_edit(false, false);
@@ -156,7 +154,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         tag->write_back(0, static_cast<void*>(palette.data()));
     else
         tag->write_back(1, static_cast<void*>(nullptr));
-    static_cast<render::TextureSet*>(get_textures())->unload_texture(static_cast<render::BitmapTexture*>(workspace));
+    static_cast<render::TextureSet*>(render::game_texture_dict())->unload_texture(static_cast<render::BitmapTexture*>(workspace));
 
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 1);
@@ -186,7 +184,7 @@ bool cfunc_sync_cag_workspace(script::Struct* params, script::Script*)
     auto* tagging = core::down_cast<objects::TaggingComponent>(skater->fetch_module(objects::TaggingComponent::kType));
     void* graffiti = tagging->graffiti_; // (0x00553E90, a getter folded with others)
     if (graffiti)
-        find_texture(skater_textures(), kCustomTag)->copy_from(static_cast<render::BitmapTexture*>(graffiti));
+        find_texture(render::particle_texture_dict(), kCustomTag)->copy_from(static_cast<render::BitmapTexture*>(graffiti));
     return true;
 }
 

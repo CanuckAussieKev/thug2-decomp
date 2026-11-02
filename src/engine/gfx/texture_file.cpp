@@ -29,7 +29,6 @@ namespace render {
 
 namespace {
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 // The image's header: image_format.h (read through its reader).
 using image_format::ImageHeader;
@@ -144,7 +143,7 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
     if (is_hd_dxt(header)) { // (not original - hd_ui.h)
         gsl::owner<TextureRef*> hd = alloc_pc_texture();
         hd->palette = nullptr;
-        input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
+        d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
                                     (&hd->texture), nullptr);
         set_sizes(hd, header, false);
         D3DLOCKED_RECT locked;
@@ -170,7 +169,7 @@ gsl::owner<TextureRef*> read_texture_file(const char* name)
     std::array<uint8_t, image_format::kPaletteCapacity> palette{};
     if (palettized)
         file::get_take_in(palette.data(), static_cast<int>(header.palette_size), 1, file);
-    input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
+    d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
                                 (&texture->texture), nullptr);
     set_sizes(texture, header, plain);
     const uint32_t size = image_format::texel_size(header, plain);
@@ -214,7 +213,7 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
             return nullptr;
         gsl::owner<TextureRef*> hd = alloc_pc_texture();
         hd->palette = nullptr;
-        input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
+        d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
                                     (&hd->texture), nullptr);
         if (!hd->texture)
             return nullptr;
@@ -239,7 +238,7 @@ gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_siz
     std::array<uint8_t, image_format::kPaletteCapacity> palette{};
     if (palettized)
         reader.bytes(palette.data(), image_format::kPaletteCapacity);
-    input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
+    d3d_device()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
                                 (&texture->texture), nullptr);
     if (!texture->texture)
         return nullptr; // (the texture object stays made and listed)

@@ -12,7 +12,6 @@
 #include "platform/sdl_events.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/view_cam.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "platform/shared_state.h"
@@ -70,19 +69,19 @@ bool init_input(HINSTANCE instance, HWND window, int config)
     core::at(platform_input_shared().force_resolutions_, 2) = 0;
     core::at(platform_input_shared().force_resolutions_, 3) = 0;
     std::memset(os_layer::get_controls().data(), 0xFF, sizeof(os_layer::get_controls()));
-    render::g_antialiasing = false;
-    render::g_hq_shadows = 0;
-    render::g_fog_setting = false;
+    render::set_antialiasing(false);
+    render::set_hq_shadows(0);
+    render::set_fog_setting(false);
     platform_shared().option37_ = 0;
     core::at(platform_input_shared().force_axis_counts_, 0) = 0;
     // (the original clears dwords here across byte-sized settings; each is written by name)
     platform_shared().options38_and39_ = 0;
-    render::g_distance_clipping = false;
+    render::set_distance_clipping(false);
     platform_shared().unknown643b_ = 0;
     core::at(platform_input_shared().force_axis_counts_, 1) = 0;
-    memory::bits_as<uint32_t>(render::g_resolution_setting) = 0;
+    render::set_resolution_setting(0);
     platform_shared().distance_setting_ = 0;
-    memory::bits_as<uint32_t>(gfx::g_draw_distance_setting) = 0;
+    gfx::set_draw_distance_setting(0);
     // Originally from PartyMod Fixes: the graphics settings from thug2-decomp.ini in place of the original's loader 0x005F34D0(config).
     render::write_graphics_settings();
     // Originally from PartyMod Fixes: SDL input (game controllers, the key bindings) in place of the original's

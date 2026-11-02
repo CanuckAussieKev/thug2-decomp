@@ -49,11 +49,32 @@ namespace render {
 
 namespace {} // namespace
 
-bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
-std::unique_ptr<WeatherSystem> g_weather;
+namespace {
 
-std::unique_ptr<ScreenEffects> g_screen_effects;
-uint32_t g_fog_colour;
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (engine_glue_objects()).
+struct EngineGlueObjects {
+    bool loading_screen_up_{}; // the loading screen is up: it draws and presents on its own
+    std::unique_ptr<WeatherSystem> weather_{};
+    std::unique_ptr<ScreenEffects> screen_effects_{};
+    uint32_t fog_colour_{};
+};
+
+EngineGlueObjects& engine_glue_objects()
+{
+    static core::NoDestroy<EngineGlueObjects> state;
+    return state.get();
+}
+
+} // namespace
+
+bool loading_screen_up() { return engine_glue_objects().loading_screen_up_; }
+void set_loading_screen_up(bool value) { engine_glue_objects().loading_screen_up_ = value; }
+WeatherSystem* weather() { return engine_glue_objects().weather_.get(); }
+ScreenEffects* screen_effects() { return engine_glue_objects().screen_effects_.get(); }
+uint32_t fog_colour() { return engine_glue_objects().fog_colour_; }
+void set_fog_colour(uint32_t value) { engine_glue_objects().fog_colour_ = value; }
+
 EngineGlueShared& engine_glue_shared()
 {
     static core::NoDestroy<EngineGlueShared> state;
@@ -62,7 +83,6 @@ EngineGlueShared& engine_glue_shared()
 
 namespace {
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
 uint32_t& mem_view_toggle()
 {
     static uint32_t mem_view_toggle{};
@@ -70,9 +90,9 @@ uint32_t& mem_view_toggle()
 }
 
 // The loading screen is up (0x00786D04, show_loading_screen): it draws and presents on its own.
-bool loading_screen_up() { return g_loading_screen_up; }
+
 // Rendering skipped (frames not drawn or shown).
-bool omit_from_draw() { return g_suppress_draw; }
+
 
 // The screenshot asked for by name, taken once the frame is shown (0x00786D94, 0x80 characters), and whether that
 // name is used as it is (0x00786E14) rather than numbered.
@@ -82,9 +102,9 @@ bool& screen_shot_name_exact() { return engine_glue_shared().screen_shot_name_ex
 // The clear colour: the fog's with fog and distance clipping on, else the background's.
 uint32_t back_buffer_fill()
 {
-    if (g_fog_setting && g_distance_clipping)
-        return g_fog_colour;
-    return g_camera.background_colour_;
+    if (fog_setting() && distance_clipping())
+        return engine_glue_objects().fog_colour_;
+    return render_camera().background_colour_;
 }
 
 // D3DX (linked library code): a surface written to an image file (format 1: JPEG).
@@ -104,9 +124,9 @@ void toggle_mem_view() { mem_view_toggle() ^= 1; }
 // 0x004B2280 (the device 0x007D69E0's BeginScene, vtable slot 41; not while the loading screen is up: 0x00786D04)
 void begin_frame_draw()
 {
-    if (g_loading_screen_up)
+    if (engine_glue_objects().loading_screen_up_)
         return;
-    g_d3d_device->BeginScene();
+    d3d_device()->BeginScene();
 }
 
 // 0x004B22B0
@@ -155,11 +175,11 @@ void screen_shot(const char* name, int /*unused*/)
         }
     }
     D3DDISPLAYMODE mode;
-    input_port()->GetDisplayMode(0, &mode);
+    d3d_device()->GetDisplayMode(0, &mode);
     IDirect3DSurface9* surface = nullptr;
-    input_port()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface,
+    d3d_device()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface,
                                               nullptr);
-    input_port()->GetFrontBufferData(0, surface);
+    d3d_device()->GetFrontBufferData(0, surface);
     save_surface_to_file(file.data(), surface);
     surface->Release();
 }
@@ -169,8 +189,8 @@ void start_engine()
 {
     init_direct_3d();
     objects::set_particle_hub(std::make_unique<PcParticleManager>());
-    g_weather = std::make_unique<PcWeather>();
-    g_screen_effects = std::make_unique<PcScreenEffects>();
+    engine_glue_objects().weather_ = std::make_unique<PcWeather>();
+    engine_glue_objects().screen_effects_ = std::make_unique<PcScreenEffects>();
 }
 
 // 0x004B2750
@@ -178,12 +198,12 @@ void finish_rendering()
 {
     if (loading_screen_up())
         return;
-    input_port()->EndScene();
-    if (omit_from_draw())
+    d3d_device()->EndScene();
+    if (suppress_draw())
         return;
-    input_port()->Present(nullptr, nullptr, nullptr, nullptr);
-    g_draw_calls = 0; // the frame's draw counts
-    g_drawn_triangles = 0;
+    d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
+    draw_calls() = 0; // the frame's draw counts
+    drawn_triangles() = 0;
     if (core::at(pending_screen_shot(), 0)) {
         screen_shot(pending_screen_shot().data(), 0);
         core::at(pending_screen_shot(), 0) = 0;
@@ -192,19 +212,19 @@ void finish_rendering()
     // The next frame's clear: with the screen blur on, colour and depth (and the blur's frames counted, from 0
     // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
     if (engine_glue_shared().screen_blur_ != 0) {
-        if (!omit_from_draw())
-            input_port()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
+        if (!suppress_draw())
+            d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
         ++engine_glue_shared().screen_blur_frames_;
         return;
     }
-    if (g_camera.letterbox_active_) {
-        if (!omit_from_draw())
+    if (render_camera().letterbox_active_) {
+        if (!suppress_draw())
             clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
-    } else if (g_camera.clear_colour_and_depth_) {
-        if (!omit_from_draw())
+    } else if (render_camera().clear_colour_and_depth_) {
+        if (!suppress_draw())
             clear_device(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, back_buffer_fill(), 1.0f, 0);
-    } else if (!omit_from_draw()) {
-        clear_device(0, nullptr, D3DCLEAR_ZBUFFER, g_camera.background_colour_, 1.0f, 0);
+    } else if (!suppress_draw()) {
+        clear_device(0, nullptr, D3DCLEAR_ZBUFFER, render_camera().background_colour_, 1.0f, 0);
     }
     engine_glue_shared().screen_blur_frames_ = 0;
 }

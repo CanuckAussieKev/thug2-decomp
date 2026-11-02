@@ -23,9 +23,26 @@
 
 namespace render {
 
-int g_dynamic_light_count;
+namespace {
 
-std::array<DynamicLightBase*, 256> g_dynamic_lights;
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (dynamic_light_set()).
+struct DynamicLightSet {
+    int dynamic_light_count_{};
+    std::array<DynamicLightBase*, 256> dynamic_lights_{};
+};
+
+DynamicLightSet& dynamic_light_set()
+{
+    static core::NoDestroy<DynamicLightSet> state;
+    return state.get();
+}
+
+} // namespace
+
+int& dynamic_light_count() { return dynamic_light_set().dynamic_light_count_; }
+std::array<DynamicLightBase*, 256>& dynamic_lights() { return dynamic_light_set().dynamic_lights_; }
+
 LightManagerShared& light_manager_shared()
 {
     static core::NoDestroy<LightManagerShared> state;
@@ -69,8 +86,7 @@ float& ambient_intensity() { return light_manager_shared().ambient_intensity_; }
 float min_intensity() { return kMinIntensity; }
 std::span<float>& get_intensities() { return light_manager_shared().intensities_; }
 
-std::array<DynamicLightBase*, 256>& dynamic_lights() { return g_dynamic_lights; }
-int& dynamic_light_count() { return g_dynamic_light_count; }
+
 // get_dynamic_lights_near's falloffs and the lights' indexes (32 each).
 std::array<float, 31>& near_falloffs() { return light_manager_state().near_light_falloffs_; }
 std::array<int, 32>& near_indexes() { return light_manager_state().near_light_indexes_; }
@@ -275,7 +291,7 @@ void delete_dynamic_lights()
             core::at(dynamic_lights(), i) = nullptr;
         }
     }
-    dynamic_light_count() = 0;
+    dynamic_light_set().dynamic_light_count_ = 0;
 }
 
 // 0x0048EF50
@@ -379,7 +395,7 @@ DynamicLightBase* new_dynamic_light(int type)
     }
     if (count >= kMaxDynamicLights || core::at(dynamic_lights(), count))
         return nullptr;
-    dynamic_light_count() = count + 1;
+    dynamic_light_set().dynamic_light_count_ = count + 1;
     core::at(dynamic_lights(), count) = create_dynamic_light(type);
     return core::at(dynamic_lights(), count);
 }

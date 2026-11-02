@@ -24,6 +24,7 @@
 #include "frontend/start_level.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/draw_frame.h"
+#include "engine/gfx/device.h"
 #include "engine/gfx/render_state.h"
 #include "engine/audio/music_player.h"
 #include "engine/audio/music_api.h"
@@ -44,7 +45,6 @@
 namespace render {
 
 // (device.h declares this too; not included here, its SetRenderState is another one than the one below)
-extern IDirect3DDevice9* g_d3d_device;
 
 namespace {
 
@@ -57,7 +57,7 @@ static_assert(sizeof(MovieVertex) == 0x1C, "the draw's stride");
 
 void set_texture_stage_state(int stage, int type, int value)
 {
-    g_d3d_device->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+    d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
 
@@ -88,21 +88,21 @@ void set_movie_texture(int stage, void* texture, int unknown)
 
 void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* vertices, uint32_t stride)
 {
-    const auto back_buffer_width = static_cast<uint32_t>(g_back_buffer_width);
-    const auto back_buffer_height = static_cast<uint32_t>(g_back_buffer_height);
+    const auto buffer_width = static_cast<uint32_t>(back_buffer_width());
+    const auto buffer_height = static_cast<uint32_t>(back_buffer_height());
     // (4:3, whatever the movie's own shape: some, like the credits, are anamorphic)
     const float target_aspect = 4.0f / 3.0f;
-    const float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
-    auto width = static_cast<float>(back_buffer_width);
-    auto height = static_cast<float>(back_buffer_height);
+    const float back_buffer_aspect = static_cast<float>(buffer_width) / static_cast<float>(buffer_height);
+    auto width = static_cast<float>(buffer_width);
+    auto height = static_cast<float>(buffer_height);
     float offset_x = 0.0f;
     float offset_y = 0.0f;
     if (back_buffer_aspect > target_aspect) {
-        width = target_aspect / back_buffer_aspect * static_cast<float>(back_buffer_width);
-        offset_x = (static_cast<float>(back_buffer_width) - width) / 2;
+        width = target_aspect / back_buffer_aspect * static_cast<float>(buffer_width);
+        offset_x = (static_cast<float>(buffer_width) - width) / 2;
     } else if (back_buffer_aspect < target_aspect) {
-        height = back_buffer_aspect / target_aspect * static_cast<float>(back_buffer_height);
-        offset_y = (static_cast<float>(back_buffer_height) - height) / 2;
+        height = back_buffer_aspect / target_aspect * static_cast<float>(buffer_height);
+        offset_y = (static_cast<float>(buffer_height) - height) / 2;
     }
     const std::span<MovieVertex, 4> quad(static_cast<MovieVertex*>(vertices), 4);
     core::at(quad, 0).x = offset_x;
@@ -152,11 +152,33 @@ MovieSavedStates& movie_saved_states()
 }
 
 } // namespace
-bool g_movie_playing;
-int g_movie_dump_count;
-bool g_device_lost;
-bool g_quit_requested;
-Bink* g_current_movie; // a Bink movie playing
+namespace {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed (movie_flags()).
+struct MovieFlags {
+    bool movie_playing_{};
+    int movie_dump_count_{};
+    bool device_lost_{};
+    bool quit_requested_{};
+    Bink* current_movie_{}; // a Bink movie playing
+};
+
+MovieFlags& movie_flags()
+{
+    static core::NoDestroy<MovieFlags> state;
+    return state.get();
+}
+
+} // namespace
+
+bool movie_playing() { return movie_flags().movie_playing_; }
+void set_movie_playing(bool value) { movie_flags().movie_playing_ = value; }
+int movie_dump_count() { return movie_flags().movie_dump_count_; }
+bool device_lost() { return movie_flags().device_lost_; }
+void set_device_lost(bool value) { movie_flags().device_lost_ = value; }
+bool quit_requested() { return movie_flags().quit_requested_; }
+void set_quit_requested(bool value) { movie_flags().quit_requested_ = value; }
+Bink* current_movie() { return movie_flags().current_movie_; }
 
 // 0x0044FA80
 void draw_movie_frame(void* texture, float x, float y, float width, float height, float alpha)
@@ -166,8 +188,8 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     choose_blend_mode(0);
     change_phase(kAddressMode0, 0x10001); // (clamp)
     set_vertex_format(0x144);
-    g_d3d_device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-    g_d3d_device->SetFVF(0x144);
+    d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+    d3d_device()->SetFVF(0x144);
     set_pixel_shader(nullptr, nullptr);                                            // (no pixel shader)
     set_texture_stage_state(0, 1, 5);                                              // colour: modulate
     set_texture_stage_state(0, 2, 2);
@@ -177,8 +199,8 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     set_texture(0, nullptr);          // (the original also passes 0, unused)
     // (a leftover from testing: the name of a frame dump that's never written)
     std::array<char, 256> dump_name{};
-    text::format_to(dump_name, "e:\\movietest\\movie%04d.bmp", g_movie_dump_count);
-    ++g_movie_dump_count;
+    text::format_to(dump_name, "e:\\movietest\\movie%04d.bmp", movie_flags().movie_dump_count_);
+    ++movie_flags().movie_dump_count_;
     // Originally from PartyMod Fixes (its call at 0x0044FB8C): set_movie_texture in place of the renderer's texture set (0x004DA730)
     set_movie_texture(0, texture, 0);
 
@@ -196,9 +218,9 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     core::at(vertices, 3) = core::at(vertices, 1);
     core::at(vertices, 3).y = core::at(vertices, 2).y;
     core::at(vertices, 3).v = 1.0f;
-    if (g_d3d_device->TestCooperativeLevel() == D3D_OK) // the device isn't lost
+    if (d3d_device()->TestCooperativeLevel() == D3D_OK) // the device isn't lost
         // Originally from PartyMod Fixes (its call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
-        draw_movie_quad(g_d3d_device, D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
+        draw_movie_quad(d3d_device(), D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
     set_texture_stage_state(0, 1, 4); // colour: modulate back
 }
 
@@ -209,29 +231,26 @@ void video_set_loudness(Bink* bink, uint32_t track, int volume)
     bink::set_volume(bink, track, sound::output_bink_volume(volume));
 } // (NOT ORIGINAL: mute_audio)
 
-Bink*& current_movie() { return g_current_movie; }
-bool& movie_playing() { return g_movie_playing; }
-
 // The d_3d device's render and sampler states (IDirect3DDevice9 methods 57/58 and 69/70).
-void set_render_state(int state, uint32_t value)
+void put_render_state(int state, uint32_t value)
 {
-    g_d3d_device->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
+    d3d_device()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
 }
 void get_render_state(int state, uint32_t* value)
 {
     DWORD read = *value; // (left as it was if the call fails)
-    g_d3d_device->GetRenderState(static_cast<D3DRENDERSTATETYPE>(state), &read);
+    d3d_device()->GetRenderState(static_cast<D3DRENDERSTATETYPE>(state), &read);
     *value = read;
 }
 void get_sampler_state(int sampler, int type, uint32_t* value)
 {
     DWORD read = *value;
-    g_d3d_device->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &read);
+    d3d_device()->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &read);
     *value = read;
 }
 void set_sampler_state(int sampler, int type, uint32_t value)
 {
-    g_d3d_device->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
+    d3d_device()->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
 }
 constexpr int kD3dCullMode = 22;
 constexpr int kRsMultisample = 161;
@@ -250,10 +269,10 @@ void set_renderer_sampler(int state, int value) { change_phase(state, static_cas
 void* begin_movie(uint32_t width, uint32_t height)
 {
     get_render_state(kD3dCullMode, &saved_cull_mode());
-    set_render_state(kD3dCullMode, 1); // none
+    put_render_state(kD3dCullMode, 1); // none
     get_render_state(kRsMultisample, &saved_antialias());
-    set_render_state(kRsMultisample, 0);
-    set_render_state(kD3dLighting, 0);
+    put_render_state(kRsMultisample, 0);
+    put_render_state(kD3dLighting, 0);
     set_renderer_sampler(1, 0);
     set_renderer_sampler(2, 0);
     get_sampler_state(0, kMinFilter, &get_saved_min_filter());
@@ -261,24 +280,24 @@ void* begin_movie(uint32_t width, uint32_t height)
     // (x87: unsigned to float through FILD and +2^32)
     movie_sizes().movie_picture_width_ = static_cast<float>(static_cast<double>(width));
     movie_sizes().movie_picture_height_ = static_cast<float>(static_cast<double>(height));
-    movie_sizes().movie_back_buffer_width_ = static_cast<float>(g_back_buffer_width); // the back buffer
-    movie_sizes().movie_back_buffer_height_ = static_cast<float>(g_back_buffer_height);
+    movie_sizes().movie_back_buffer_width_ = static_cast<float>(back_buffer_width()); // the back buffer
+    movie_sizes().movie_back_buffer_height_ = static_cast<float>(back_buffer_height());
     IDirect3DTexture9* texture = nullptr;
     // one level, no usage
     const HRESULT result =
-        g_d3d_device->CreateTexture(width, height, 1, 0, D3DFMT_X8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
+        d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_X8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
     if (FAILED(result))
         return nullptr;
-    movie_playing() = true;
+    movie_flags().movie_playing_ = true;
     return texture;
 }
 
 // 0x0044F9F0
 void end_movie(void* texture)
 {
-    movie_playing() = false;
-    set_render_state(kD3dCullMode, saved_cull_mode());
-    set_render_state(kRsMultisample, saved_antialias());
+    movie_flags().movie_playing_ = false;
+    put_render_state(kD3dCullMode, saved_cull_mode());
+    put_render_state(kRsMultisample, saved_antialias());
     set_sampler_state(0, kMinFilter, get_saved_min_filter());
     set_renderer_sampler(1, 1);
     set_renderer_sampler(2, 1);
@@ -290,11 +309,11 @@ void end_movie(void* texture)
 // 0x0044FCC0
 void draw_movie(Bink* bink, void* texture)
 {
-    g_d3d_device->BeginScene();
-    g_d3d_device->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0); // the target, to black (Z 1.0)
+    d3d_device()->BeginScene();
+    d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0); // the target, to black (Z 1.0)
     draw_movie_frame(texture, 0.0f, 0.0f, kMovieDrawWidth, kMovieDrawHeight, 1.0f);
-    g_d3d_device->EndScene();
-    g_d3d_device->Present(nullptr, nullptr, nullptr, nullptr);
+    d3d_device()->EndScene();
+    d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     bink::next_frame(bink);
 }
 
@@ -317,9 +336,6 @@ void release_sound_manager() { sound::release_manager(); }
 float sound_volume() { return sound::fetch_master_loudness(); }
 float current_music_volume() { return audio::get_music_volume(); }
 void toggle_fog(bool on) { render::engine::enable_fog(on); }
-
-bool quit_requested() { return g_quit_requested; }
-bool device_lost() { return g_device_lost; }
 
 constexpr uint32_t kStart = 0x0800; // PS2 control data bytes 2-3 (set while up)
 
@@ -353,7 +369,7 @@ void play_movie_file(const char* name)
 
     audio::stop_music();
     audio::halt_streams(-1); // (all of them)
-    current_movie() = bink::open(path.c_str(), 0);
+    movie_flags().current_movie_ = bink::open(path.c_str(), 0);
     if (!current_movie()) {
         release_sound_manager();
         return;
@@ -363,7 +379,7 @@ void play_movie_file(const char* name)
     UINT screen_saver_timeout = 0;
     SystemParametersInfoA(SPI_GETSCREENSAVETIMEOUT, 0, &screen_saver_timeout, 0);
     uint32_t screen_saver_frames = 0;
-    const bool fog = g_fog_active != 0;
+    const bool fog = fog_active() != 0;
     toggle_fog(false);
     if (texture) {
         sio::Hub* input = sio::create_manager(false);
@@ -439,11 +455,11 @@ void play_movie_file(const char* name)
         }
         sio::release_manager();
     }
-    movie_playing() = false;
+    movie_flags().movie_playing_ = false;
     toggle_fog(fog);
     end_movie(texture);
     bink::close(current_movie());
-    current_movie() = nullptr;
+    movie_flags().current_movie_ = nullptr;
     set_texture_stage_state(0, 4, 4); // alpha: modulate
     release_sound_manager();
 }

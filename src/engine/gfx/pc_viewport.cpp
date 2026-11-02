@@ -25,7 +25,33 @@
 
 namespace render {
 
-std::array<uint8_t, 1024> g_occlusion_slots{{1}};
+namespace {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (occlusion_slot_state()).
+struct OcclusionSlots {
+    std::array<uint8_t, 1024> occlusion_slots_{{1}};
+    float scale_2d_in_3d_numerator_{300.0f};
+    float scale_2d_in_3d_max_{3.0f};
+    float scale_2d_in_3d_min_{};
+};
+
+OcclusionSlots& occlusion_slot_state()
+{
+    static core::NoDestroy<OcclusionSlots> state;
+    return state.get();
+}
+
+} // namespace
+
+std::array<uint8_t, 1024>& occlusion_slots() { return occlusion_slot_state().occlusion_slots_; }
+float scale_2d_in_3d_numerator() { return occlusion_slot_state().scale_2d_in_3d_numerator_; }
+void set_scale_2d_in_3d_numerator(float value) { occlusion_slot_state().scale_2d_in_3d_numerator_ = value; }
+float scale_2d_in_3d_max() { return occlusion_slot_state().scale_2d_in_3d_max_; }
+void set_scale_2d_in_3d_max(float value) { occlusion_slot_state().scale_2d_in_3d_max_ = value; }
+float scale_2d_in_3d_min() { return occlusion_slot_state().scale_2d_in_3d_min_; }
+void set_scale_2d_in_3d_min(float value) { occlusion_slot_state().scale_2d_in_3d_min_ = value; }
+
 namespace {
 uint32_t& stored_occlusion_pixels()
 {
@@ -58,14 +84,9 @@ PcViewportState& pc_viewport_state()
 constexpr float kVirtualScreenHeight{448.0f};
 constexpr float kVirtualScreenWidth{640.0f};
 } // namespace
-float g_scale_2d_in_3d_numerator{300.0f};
-float g_scale_2d_in_3d_max{3.0f};
-float g_scale_2d_in_3d_min;
 
 namespace {
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
-bool radeon8500() { return g_radeon8500; }
 
 void xform(float* out, const float* v, const void* matrix) { d3dx::vec4_transform(out, v, matrix); }
 
@@ -74,14 +95,14 @@ void begin_query_draw(uint32_t fvf)
 {
     choose_blend_mode(0);
     set_texture(0, nullptr);
-    set_pixel_shader(core::at(g_pixel_shaders, kPixelShader94c), nullptr);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader94c), nullptr);
     set_vertex_format(fvf);
     os_layer::begin_occlusion_query();
 }
 void end_query_draw(uint8_t query)
 {
     os_layer::end_occlusion_query(query);
-    input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
+    d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
     change_phase(kZWrite, 1);
 }
 
@@ -99,8 +120,8 @@ float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y
     std::array<float, 4> v = {{point->x, point->y, point->z, 1.0f}};
     std::array<float, 4> view{};
     std::array<float, 4> clip{};
-    xform(view.data(), v.data(), &g_view_matrix);
-    xform(clip.data(), view.data(), &g_projection_matrix);
+    xform(view.data(), v.data(), &view_matrix());
+    xform(clip.data(), view.data(), &projection_matrix());
     if (core::at(clip, 3) != 0.0f) {
         const double inverse = 1.0f / static_cast<double>(core::at(clip, 3));
         core::at(clip, 0) = static_cast<float>(core::at(clip, 0) * inverse);
@@ -111,9 +132,9 @@ float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y
     *y = static_cast<float>((1.0f - static_cast<double>(core::at(clip, 1))) * 0.5f * kVirtualScreenHeight);
     if (!(core::at(clip, 2) < 1.0f))
         return -1.0f;
-    const float most = g_scale_2d_in_3d_max;
-    const float least = g_scale_2d_in_3d_min;
-    double factor = core::at(view, 2) == 0.0f ? most : -1.0f / static_cast<double>(core::at(view, 2)) * g_scale_2d_in_3d_numerator;
+    const float most = occlusion_slot_state().scale_2d_in_3d_max_;
+    const float least = occlusion_slot_state().scale_2d_in_3d_min_;
+    double factor = core::at(view, 2) == 0.0f ? most : -1.0f / static_cast<double>(core::at(view, 2)) * occlusion_slot_state().scale_2d_in_3d_numerator_;
     if (factor > most)
         factor = most;
     else if (factor < least)
@@ -128,11 +149,11 @@ uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_
     if (radeon8500() || !query)
         return 0;
     change_phase(kZWrite, 0);
-    input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
+    d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     begin_query_draw(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     for (QueryPointVertex& vertex : pc_viewport_state().query_point_strip_)
         vertex = {.x = point->x, .y = point->y, .z = point->z, .colour = 0xFFFFFFFF};
-    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_point_strip_.data(), sizeof(QueryPointVertex));
+    d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_point_strip_.data(), sizeof(QueryPointVertex));
     end_query_draw(query);
     return query;
 }
@@ -142,7 +163,7 @@ uint8_t PcViewport::query_rect(float x0, float y0, float x1, float y1, uint32_t 
 {
     if (radeon8500() || !query)
         return 0;
-    input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
+    d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     change_phase(kZWrite, 0);
     begin_query_draw(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
     auto depth = static_cast<float>(static_cast<double>(z));
@@ -150,7 +171,7 @@ uint8_t PcViewport::query_rect(float x0, float y0, float x1, float y1, uint32_t 
                            {.x = x0, .y = y1, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
                            {.x = x1, .y = y0, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
                            {.x = x1, .y = y1, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF}}};
-    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_rect_strip_.data(), sizeof(QueryRectVertex));
+    d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_rect_strip_.data(), sizeof(QueryRectVertex));
     end_query_draw(query);
     return query;
 }
@@ -161,9 +182,9 @@ uint32_t occlusion_pixels()
     if (radeon8500())
         return 0;
     DWORD pixels = 0;
-    const HRESULT result = os_layer::get_occlusion_result(core::at(g_occlusion_requests, 0).slot, &pixels);
+    const HRESULT result = os_layer::get_occlusion_result(core::at(occlusion_requests(), 0).slot, &pixels);
     if (result == S_OK) {
-        core::at(g_occlusion_slots, core::at(g_occlusion_requests, 0).slot) = 0;
+        core::at(occlusion_slot_state().occlusion_slots_, core::at(occlusion_requests(), 0).slot) = 0;
         pop_occlusion_request(); // (the requests moved on)
         stored_occlusion_pixels() = pixels;
         return pixels;

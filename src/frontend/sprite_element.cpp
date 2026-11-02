@@ -65,7 +65,7 @@ uint32_t shown_colour(const UiWidget* e)
 
 // The texture with this checksum (the texture dictionary 0x00700F1C's lookup, 0x0049F540) and its size
 // (through the jumps 0x0049F3C0 / 0x0049F3D0).
-void* find_texture(uint32_t checksum) { return render::g_game_texture_dict->fetch_skin(checksum); }
+void* find_texture(uint32_t checksum) { return render::game_texture_dict()->fetch_skin(checksum); }
 uint16_t texels_across(void* texture) { return render::texels_across(texture); }
 uint16_t texels_down(void* texture) { return render::texels_down(texture); }
 

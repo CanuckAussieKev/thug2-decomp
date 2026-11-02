@@ -126,7 +126,7 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     }
     set_up_animated_grass_material(mesh->material);
     mesh->flags |= 0x402;
-    mesh->pixel_shader_ = core::at(g_pixel_shaders, kPixelShader924);
+    mesh->pixel_shader_ = core::at(pixel_shaders(), kPixelShader924);
     uint8_t* vertices = nullptr;
     mesh->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
     const gpu::VertexWriter grass(vertices, mesh->stride, mesh->vertex_count_);

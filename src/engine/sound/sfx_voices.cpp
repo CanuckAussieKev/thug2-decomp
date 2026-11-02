@@ -840,7 +840,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
     }
     if (frequency != voice.frequency) {
         voice.frequency = frequency;
-        if (static_cast<bool>(render::g_set_frequency_allowed))
+        if (static_cast<bool>(render::frequency_setting_allowed()))
             buffer_of(voice.buffer)->SetFrequency(static_cast<DWORD>(frequency));
     }
 }

@@ -59,11 +59,15 @@ void draw_movie(Bink* bink, void* texture);
 // 0x0044F840: whether a button of `mask` is pressed now after having been seen up (control data bits are set while up).
 bool button_pressed_again(const std::array<uint8_t, 32>& control_data, uint16_t* seen_up, uint32_t mask);
 
-extern Bink* g_current_movie; // a Bink movie playing
+// The movie player's and the window's flags (movie.cpp's record; the original's globals).
+bool movie_playing();
+void set_movie_playing(bool value);
+int movie_dump_count();
+bool device_lost();
+void set_device_lost(bool value);
+bool quit_requested();
+void set_quit_requested(bool value);
+Bink* current_movie();
 
 inline constexpr float kOnePercent{0.01f};
-extern bool g_quit_requested;
-extern bool g_movie_playing;
-extern bool g_device_lost;
-extern int g_movie_dump_count; // (also read by the music's shuffle: pcm/music.cpp)
 } // namespace render

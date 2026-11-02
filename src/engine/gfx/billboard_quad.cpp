@@ -27,19 +27,15 @@ namespace {
 // Two triangles of a quad: 0 1 2, 1 3 2.
 
 // The 640x480 layout -> back buffer conversion (set_letterbox) and the back buffer's size.
-float horiz_screen_ratio() { return g_display_factor_x; }
-float vert_screen_ratio() { return g_display_factor_y; }
-int32_t screen_offset_x() { return static_cast<int32_t>(g_screen_offset_x); }
-int32_t screen_offset_y() { return static_cast<int32_t>(g_screen_offset_y); }
-int32_t get_back_buffer_width() { return g_back_buffer_width; }
-int32_t get_back_buffer_height() { return g_back_buffer_height; }
+
+
 // The layout's size (the constants at 0x00649FD4 and 0x006484B4).
 constexpr float kLayoutWidth = 640.0f;
 constexpr float kLayoutHeight = 480.0f;
 
 void set_texture_stage_state(int stage, int type, int value)
 {
-    g_d3d_device->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+    d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
 const std::array<uint16_t, 6>& quad_indices()
@@ -120,7 +116,7 @@ void QuadSprite::draw()
         return;
 
     const bool front_end_widescreen = get_front_end_widescreen();
-    auto screen_right = static_cast<float>(get_back_buffer_width());
+    auto screen_right = static_cast<float>(back_buffer_width());
     std::array<Vertex, 4> vertices{}; // top left, bottom left, top right, bottom right
     if (rotation == 0.0f) {
         auto x0 = static_cast<float>(left + x);
@@ -134,18 +130,18 @@ void QuadSprite::draw()
             x0 = 0.0f;
             x1 = screen_right;
         } else {
-            x0 = static_cast<float>(static_cast<double>(horiz_screen_ratio()) * x0 + screen_offset_x());
-            x1 = static_cast<float>(static_cast<double>(horiz_screen_ratio()) * x1 + screen_offset_x());
+            x0 = static_cast<float>(static_cast<double>(display_factor_x()) * x0 + screen_offset_x());
+            x1 = static_cast<float>(static_cast<double>(display_factor_x()) * x1 + screen_offset_x());
         }
         if (y0 <= 0.0f && y1 >= kLayoutHeight) {
             y0 = 0.0f;
-            y1 = get_back_buffer_height();
+            y1 = back_buffer_height();
         } else {
             // (an edge exactly at 0 isn't moved by the offset - the original's)
             if (y0 != 0.0f)
-                y0 = static_cast<float>(static_cast<double>(vert_screen_ratio()) * y0 + screen_offset_y());
+                y0 = static_cast<float>(static_cast<double>(display_factor_y()) * y0 + screen_offset_y());
             if (y1 != 0.0)
-                y1 = y1 * vert_screen_ratio() + screen_offset_y();
+                y1 = y1 * display_factor_y() + screen_offset_y();
         }
         if (front_end_widescreen) {
             // (only sprites overlapping the layout: one lying wholly outside it - parked off-screen, or the end
@@ -178,9 +174,9 @@ void QuadSprite::draw()
             // (truncated to whole pixels, unlike the upright ones)
             core::at(layout_x, i) = static_cast<double>(core::at(corners, i).x) + x;
             core::at(vertices, i).x =
-                static_cast<float>(static_cast<int32_t>(get_truncated(core::at(layout_x, i) * horiz_screen_ratio() + offset_x)));
+                static_cast<float>(static_cast<int32_t>(get_truncated(core::at(layout_x, i) * display_factor_x() + offset_x)));
             core::at(vertices, i).y = static_cast<float>(static_cast<int32_t>(
-                get_truncated((static_cast<double>(core::at(corners, i).y) + y) * vert_screen_ratio() + offset_y)));
+                get_truncated((static_cast<double>(core::at(corners, i).y) + y) * display_factor_y() + offset_y)));
         }
         if (front_end_widescreen && upright) {
             // The sprite's left side is its two leftmost corners in the layout, the right side the two rightmost
@@ -237,10 +233,10 @@ void QuadSprite::draw()
     set_vertex_format(0x144);         // position (pre-transformed), colour, one texture coordinate
     set_texture_stage_state(0, 1, 5); // colour: texture x diffuse, doubled
     set_texture_stage_state(0, 4, 5); // alpha: the same
-    if (!g_suppress_draw) {           // (rendering not skipped)
-        ++g_draw_calls;               // draw calls
-        g_drawn_triangles += 2;       // triangles
-        g_d3d_device->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices().data(), D3DFMT_INDEX16, vertices.data(),
+    if (!suppress_draw()) {           // (rendering not skipped)
+        ++draw_calls();               // draw calls
+        drawn_triangles() += 2;       // triangles
+        d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices().data(), D3DFMT_INDEX16, vertices.data(),
                                              sizeof(Vertex));
     }
 }

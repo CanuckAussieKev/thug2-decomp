@@ -62,7 +62,6 @@ constexpr uint32_t kHeading = 0xFD4BC03E;      // "heading"
 constexpr uint32_t kPitch = 0xD8604126;        // "pitch"
 constexpr uint32_t kMetrics = 0xDD755518;      // "Metrics"
 
-
 // The loaded scenes' list (0x006FA7EC, ended by a node whose scene is -1): walked by the engine's helpers.
 // A scene's flag at +0x8D: a sky. 0x0048C7B0: the first scene that is one.
 bool is_sky_backdrop(const render::WorldScene* scene) { return scene->is_sky_; }
@@ -210,7 +209,7 @@ bool cfunc_spawn_poly(Struct* params, Script*)
     params->read_hash_value(kBlendMode, &details->blend_mode_, 0);
     uint32_t texture = 0;
     params->read_hash_value(kTexture, &texture, 0);
-    details->texture = texture ? render::g_particle_texture_dict->fetch_skin(texture) // the texture dictionary
+    details->texture = texture ? render::particle_texture_dict()->fetch_skin(texture) // the texture dictionary
                                : nullptr;
     render::engine::spawn_poly(details,
                                &vector1, &vector2);

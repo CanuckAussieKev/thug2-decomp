@@ -28,5 +28,5 @@ void display_loading_screen(const char* name, bool keep, bool black);
 // 0x004908C0: the loading screen hidden and its sprite freed (0x006FC49C cleared).
 void remove_loading_screen();
 
-extern uint8_t g_loading_screen_shown;
+uint8_t loading_screen_shown();
 } // namespace render

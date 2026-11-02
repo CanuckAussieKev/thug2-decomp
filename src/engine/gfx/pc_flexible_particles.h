@@ -264,6 +264,6 @@ struct PcStarParticles final : StarParticles {
     void render() override;
 };
 
-extern IDirect3DIndexBuffer9* g_quad_indices;
+IDirect3DIndexBuffer9*& quad_index_buffer();
 
 } // namespace render

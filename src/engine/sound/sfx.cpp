@@ -36,8 +36,7 @@ std::span<const SoundWaveSlot, 256> loaded_level_waves() { return sound_state().
 int level_wave_count() { return sound_state().level_count_; }
 namespace {
 // NOT ORIGINAL grouping - the mixer's volume scale, master volume, pitch and the positional sounds' entries. Made on
-// first
-// use, never destroyed (mix_state()).
+// first use, never destroyed (mix_state()).
 struct MixState {
     float volume_scale_{100.0f};
     float master_gain_{100.0f};
@@ -352,7 +351,7 @@ bool AudioMixer::is_frozen()
 {
     if (mute_override_)
         return false;
-    return render::g_loading_screen_shown || objects::simulation_halted();
+    return render::loading_screen_shown() || objects::simulation_halted();
 }
 
 // 0x0047B360

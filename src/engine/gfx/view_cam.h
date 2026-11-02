@@ -56,5 +56,6 @@ public:
     float unknownc0_{1.0f};     // +0xC0: 1 (divides the widened angle's tangent)
 };
 
-extern int g_draw_distance_setting;
+int draw_distance_setting();
+void set_draw_distance_setting(int value);
 } // namespace gfx

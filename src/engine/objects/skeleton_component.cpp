@@ -65,8 +65,8 @@ bool skeleton_bone_matrix(gfx::Rig* skeleton, uint32_t bone, maths::Mat4* out)
 }
 
 // The texture dictionary's texture by name / checksum (0x0049F560 / 0x0049F540).
-render::BitmapTexture* texture_named(const char* name) { return render::g_particle_texture_dict->get_texture_by_name(name); }
-render::BitmapTexture* texture_by_checksum(uint32_t checksum) { return render::g_particle_texture_dict->fetch_skin(checksum); }
+render::BitmapTexture* texture_named(const char* name) { return render::particle_texture_dict()->get_texture_by_name(name); }
+render::BitmapTexture* texture_by_checksum(uint32_t checksum) { return render::particle_texture_dict()->fetch_skin(checksum); }
 
 // The game's C runtime rand().
 int get_rand() { return crt::get_rand(); }

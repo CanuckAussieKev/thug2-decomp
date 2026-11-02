@@ -48,10 +48,10 @@ constexpr uint32_t kHsv = 0xFB0E4249;        // "hsv"
 constexpr uint32_t kRgb = 0xDECB67C7;        // "rgb"
 
 // The texture dictionary (0x00700F1C) and its texture by checksum (0x0049F540; null if none).
-render::TextureSet* texture_bank() { return render::g_game_texture_dict; }
+
 render::BitmapTexture* find_texture(uint32_t name)
 {
-    return static_cast<render::TextureSet*>(texture_bank())->fetch_skin(name);
+    return static_cast<render::TextureSet*>(render::game_texture_dict())->fetch_skin(name);
 }
 
 // The current profile's face texture (its appearance's +0x54, through the getter 0x00576E60 folded with others) - the
@@ -111,7 +111,7 @@ bool cfunc_load_face_texture_from_profile(script::Struct* params, script::Script
     void* face = get_face_texture();
     const int size = static_cast<gfx::FaceSkin*>(face)->fetch_skin_resolution(); // (0x4420)
     const void* data = static_cast<gfx::FaceSkin*>(face)->get_image();           // (its +0x3C)
-    const void* texture = static_cast<render::TextureSet*>(texture_bank())
+    const void* texture = static_cast<render::TextureSet*>(render::game_texture_dict())
                               ->read_texture_buffer(static_cast<const uint8_t*>(data), size, name, 1, 1, true, 1);
     return texture != nullptr;
 }

@@ -71,7 +71,6 @@ PcSceneState& pc_scene_state()
 
 namespace {
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
 PcGeom* geometry_of(void* sector)
 {
     return static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom_handle_);
@@ -139,7 +138,7 @@ void PcScene::post_load(void* arena_word)
     lists::KeyMap* table = sectors_;
     void* sector = first_sector(table);
     if (arena) {
-        input_port()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+        d3d_device()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                          &arena->buffer, nullptr);
         arena->buffer->Lock(0, 0, &arena->data, 0);
         arena->used = 0;
@@ -212,7 +211,7 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
     bounds->append_spot(*max);
     if (sector->flags & 0x800000) {
         mesh->make_billboard(static_cast<int>(billboard_type), pivot, axis);
-        g_billboard_pool.append_mesh(mesh);
+        billboard_pool().append_mesh(mesh);
     }
     if (sector->flags & 0x200000)
         mesh->flags |= 0x200;

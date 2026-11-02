@@ -229,7 +229,7 @@ bool cfunc_stop_second_controller_check(script::Struct*, script::Script*)
 // 0x0059F760: QuitGame: the game ends (0x007D6A2C).
 bool cfunc_quit_game(script::Struct*, script::Script*)
 {
-    render::g_quit_requested = true;
+    render::set_quit_requested(true);
     return true;
 }
 

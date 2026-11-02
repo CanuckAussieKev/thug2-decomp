@@ -118,7 +118,7 @@ void TextureProjection::configure_from_data(script::Struct* params)
     int fineness = 0;
     params->fetch_int_value(0x12602598, &fineness, 0);
     fineness_ = static_cast<uint32_t>(fineness);
-    bitmap_ = g_particle_texture_dict->fetch_skin(texture);
+    bitmap_ = particle_texture_dict()->fetch_skin(texture);
     int flag = 0;
     params->fetch_int_value(0xAF06447B, &flag, 0);
     if (flag)

@@ -40,10 +40,9 @@ SdlWindowState& sdl_window_state()
     return state.get();
 }
 
-HWND& game_window() { return render::g_game_window; }
 
 // Whether the device may be recreated (off while the window is in the background).
-bool& recreate_device() { return render::g_device_lost; }
+
 
 // A size no display mode reaches in both directions (width and height checked separately) becomes 0x0 (the
 // desktop's).
@@ -78,7 +77,7 @@ void handle_window_event(SDL_Event* event)
     if (event->type != SDL_WINDOWEVENT)
         return;
     if (event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-        recreate_device() = false;
+        render::set_device_lost(false);
         // Not PartyMod's - with the test-automation channel on (frontend/automation.h) the game keeps drawing in
         // the background, so a test's picture of its window (PrintWindow) shows the frame now, not the last one
         // drawn before the window lost the focus (the main loop draws nothing while the flag is off).
@@ -86,7 +85,7 @@ void handle_window_event(SDL_Event* event)
         if (!frontend::automation::is_switched_on())
             set_app_active(false);
     } else if (event->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
-        recreate_device() = true;
+        render::set_device_lost(true);
         set_app_active(true);
     }
 }
@@ -129,7 +128,7 @@ void create_sdl_window()
     SDL_VERSION(&info.version);
     SDL_GetWindowWMInfo(sdl_window_state().window_, &info);
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): SDL's window-manager info (an API union by platform)
-    game_window() = info.info.win.window;
+    render::set_game_window(info.info.win.window);
     set_app_active(true);
 
     SDL_ShowCursor(0);

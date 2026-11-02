@@ -211,8 +211,8 @@ int count_list_items(const memory::ListNode* head);
 
 // The blend's shared buffers: the weights, the bone set of each channel, the pose.
 // (blocks of the AnimScratch heap: a pose per subset, a weight and a set per blend)
-extern std::span<Stance> g_blend_buffer;
-extern std::span<float> g_blend_weights;
-extern std::span<uint32_t> g_blend_sets;
+std::span<Stance>& blend_buffer();
+std::span<float>& blend_weights();
+std::span<uint32_t>& blend_sets();
 
 } // namespace gfx

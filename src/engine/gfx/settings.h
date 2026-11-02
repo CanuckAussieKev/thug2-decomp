@@ -18,8 +18,12 @@ void write_graphics_settings();
 // The DisableBlur setting (see SetScreenBlur).
 bool& blur_disabled();
 
-extern bool g_fog_setting;
-extern bool g_distance_clipping;
+// The graphics options (settings.cpp's record; the original's globals).
+uint8_t hq_shadows();
+void set_hq_shadows(uint8_t value);
+bool fog_setting();
+void set_fog_setting(bool value);
+bool distance_clipping();
+void set_distance_clipping(bool value);
 
-extern uint8_t g_hq_shadows;
 } // namespace render

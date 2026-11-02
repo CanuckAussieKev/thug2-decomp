@@ -84,10 +84,13 @@ WorldScene* find_scene(uint32_t checksum);
 
 } // namespace engine
 
-extern bool g_suppress_draw; // rendering skipped (frames not drawn or shown)
+// The engine's managers and its draw switch (engine.cpp's record; the original's globals).
+bool suppress_draw();
+void set_suppress_draw(bool value);
+FlexibleParticleManager* flexible_particle_manager();
+ImposterManager* imposter_manager();
+int render_mode();
+void set_render_mode(int value);
+memory::ListNode& scene_list();
 
-extern std::unique_ptr<FlexibleParticleManager> g_flexible_particle_manager;
-extern memory::HeapUnique<ImposterManager> g_imposter_manager;
-extern int g_render_mode;
-extern memory::ListNode g_scene_list;
 } // namespace render

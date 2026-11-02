@@ -34,7 +34,6 @@ namespace render {
 
 namespace {
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 // The game's C runtime heap (what the buffers' copies and nodes come from).
 gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); }
@@ -197,13 +196,11 @@ void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexA
     core::at(vertex_buffers_, 0)->get_unlock();
 }
 
-
-
 // 0x004D67F0
 void release_buffers()
 {
-    input_port()->SetStreamSource(0, nullptr, 0, 0);
-    input_port()->SetIndices(nullptr);
+    d3d_device()->SetStreamSource(0, nullptr, 0, 0);
+    d3d_device()->SetIndices(nullptr);
     for (const BufferNode* node = vertex_buffer_list(); node; node = node->next) {
         auto* vb = static_cast<VertexBuffer*>(node->buffer);
         if (!vb)
@@ -240,7 +237,7 @@ void recreate_buffers()
         SceneRef* meshes = scene_meshes(node);
         if (meshes && arena_buffer(meshes)) {
             const IDirect3DVertexBuffer9* old = arena_buffer(meshes);
-            input_port()->CreateVertexBuffer(meshes->unknown80, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+            d3d_device()->CreateVertexBuffer(meshes->unknown80, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                              &arena_buffer(meshes), nullptr);
             for (const BufferNode* vb_node = vertex_buffer_list(); vb_node; vb_node = vb_node->next) {
                 auto* vb = static_cast<VertexBuffer*>(vb_node->buffer);
@@ -257,7 +254,7 @@ void recreate_buffers()
         auto* ib = static_cast<IdxStore*>(node->buffer);
         if (!ib)
             continue;
-        input_port()->CreateIndexBuffer(ib->size, ib->usage | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format),
+        d3d_device()->CreateIndexBuffer(ib->size, ib->usage | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format),
                                         D3DPOOL_DEFAULT, &ib->buffer,
                                         nullptr);
         void* card = nullptr;
@@ -272,7 +269,7 @@ void recreate_buffers()
 MeshRef::~MeshRef()
 {
     if (flags & 0x10)
-        g_billboard_pool.remove_mesh(this);
+        billboard_pool().remove_mesh(this);
     memory::Hub* heap = memory::Hub::get_pull();
     if (transform)
         heap->dealloc(transform);
@@ -297,19 +294,19 @@ MeshRef::~MeshRef()
         dealloc(memory::owned_element(per_vertex_data_));
         IDirect3DVertexBuffer9* stream = nullptr;
         UINT offset = 0, stream_stride = 0;
-        input_port()->GetStreamSource(0, &stream, &offset, &stream_stride);
+        d3d_device()->GetStreamSource(0, &stream, &offset, &stream_stride);
         if (stream)
             stream->Release(); // (only compared with below)
         for (uint32_t i = 0; i < vertex_buffer_count_; ++i) {
             if (core::at(vertex_buffers_, i)) {
                 if (stream == core::at(vertex_buffers_, i)->buffer)
-                    input_port()->SetStreamSource(0, nullptr, 0, 0);
+                    d3d_device()->SetStreamSource(0, nullptr, 0, 0);
                 core::at(vertex_buffers_, i)->teardown();
                 core::at(vertex_buffers_, i) = nullptr;
             }
             if (core::at(extra_buffers_, i)) {
                 if (stream == core::at(extra_buffers_, i)->buffer)
-                    input_port()->SetStreamSource(0, nullptr, 0, 0);
+                    d3d_device()->SetStreamSource(0, nullptr, 0, 0);
                 core::at(extra_buffers_, i)->teardown(); // (left pointing at it: cleared with the rest below)
             }
         }

@@ -68,23 +68,29 @@ void draw_screen_blur();
 // the 2D over the whole screen.
 void draw_world();
 
-extern bool g_radeon8500;
-extern int g_frames_rendered;
-extern maths::Mat4 g_world_matrix;
-extern maths::Mat4 g_view_matrix;
-extern maths::Mat4 g_projection_matrix;
-extern maths::Mat4 g_heading_matrix;
-extern int g_step_seconds;
-extern int g_screen_copy_index;
-extern int g_back_buffer_width;
-extern int g_back_buffer_height;
-extern uint32_t g_draw_calls;
-extern uint32_t g_drawn_triangles;
-extern float g_fog_begin_distance;
-extern float g_fog_end;
-
-extern DeviceViewport g_device_viewport;
-extern RenderCamera g_camera;
-extern ViewShape g_view_shape;
+// The frame's camera, matrices, viewport and counters (draw_frame.cpp's record; the original's globals).
+DeviceViewport& device_viewport();
+RenderCamera& render_camera();
+ViewShape& view_shape();
+bool radeon8500();
+void set_radeon8500(bool value);
+int frames_rendered();
+maths::Mat4& world_matrix();
+maths::Mat4& view_matrix();
+maths::Mat4& projection_matrix();
+maths::Mat4& heading_matrix();
+int step_seconds();
+int screen_copy_index();
+void set_screen_copy_index(int value);
+int back_buffer_width();
+void set_back_buffer_width(int value);
+int back_buffer_height();
+void set_back_buffer_height(int value);
+uint32_t& draw_calls();
+uint32_t& drawn_triangles();
+float fog_begin_distance();
+void set_fog_begin_distance(float value);
+float fog_end();
+void set_fog_end(float value);
 
 } // namespace render

@@ -51,7 +51,12 @@ PcBillboardsState& pc_billboards_state()
 }
 
 } // namespace
-BillboardSet g_billboard_pool;
+BillboardSet& billboard_pool()
+{
+    static BillboardSet billboard_pool{};
+    return billboard_pool;
+}
+
 PcBillboardsShared& pc_billboards_shared()
 {
     static core::NoDestroy<PcBillboardsShared> state;
@@ -60,8 +65,6 @@ PcBillboardsShared& pc_billboards_shared()
 
 namespace {
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
-bool vertex_shaders() { return g_shaders_available; }
 void toggle_fog(bool on) { engine::enable_fog(on); }
 VertexBuffer* get_vertex_buffer(MeshRef* mesh, int index) { return mesh->fetch_vertex_store(index); }
 
@@ -138,34 +141,34 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
 {
     if (mesh->stride < 0x10 || mesh->stride > 0x30)
         return;
-    if (g_distance_clipping && g_fog_setting) { // (fog: its start a quarter back)
-        const float end = g_camera.far_z_;
-        g_fog_begin_distance = 0.0f;
-        g_fog_end = 0.0f;
-        auto start = static_cast<float>(end - (static_cast<double>(end) - g_camera.near_z_) * 0.25f);
+    if (distance_clipping() && fog_setting()) { // (fog: its start a quarter back)
+        const float end = render_camera().far_z_;
+        set_fog_begin_distance(0.0f);
+        set_fog_end(0.0f);
+        auto start = static_cast<float>(end - (static_cast<double>(end) - render_camera().near_z_) * 0.25f);
         toggle_fog(true);
-        input_port()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
-        input_port()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
+        d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
+        d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
     } else {
         toggle_fog(false);
     }
-    if (vertex_shaders()) {
+    if (shaders_available()) {
         if (mesh->flags & 4)
             mesh->set_pixel_shader_colored();
         else
             set_pixel_shader(mesh->pixel_shader_, nullptr);
     }
     D3DVIEWPORT9 viewport;
-    input_port()->GetViewport(&viewport);
+    d3d_device()->GetViewport(&viewport);
     IDirect3DVertexBuffer9* stream = nullptr;
     UINT offset = 0, stream_stride = 0;
-    input_port()->GetStreamSource(0, &stream, &offset, &stream_stride);
+    d3d_device()->GetStreamSource(0, &stream, &offset, &stream_stride);
     IDirect3DPixelShader9* pixel_shader = nullptr;
-    input_port()->GetPixelShader(&pixel_shader);
+    d3d_device()->GetPixelShader(&pixel_shader);
     IDirect3DVertexShader9* vertex_shader = nullptr;
-    input_port()->GetVertexShader(&vertex_shader);
+    d3d_device()->GetVertexShader(&vertex_shader);
     IDirect3DIndexBuffer9* indices = nullptr;
-    input_port()->GetIndices(&indices);
+    d3d_device()->GetIndices(&indices);
     const uint32_t primitives = primitive_count(mesh->primitive_type_, core::at(mesh->index_counts_, 0));
     uint8_t* into_block = nullptr;
     get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into_block, D3DLOCK_DISCARD);
@@ -222,29 +225,29 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         from += rest;
     }
     get_vertex_buffer(mesh, 0)->get_unlock();
-    input_port()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(get_vertex_buffer(mesh, 0)->buffer), 0,
+    d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(get_vertex_buffer(mesh, 0)->buffer), 0,
                                   mesh->stride);
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)
-    input_port()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(core::at(mesh->index_buffers_, 0)->buffer));
+    d3d_device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(core::at(mesh->index_buffers_, 0)->buffer));
     DWORD format = 0;
-    input_port()->GetFVF(&format);
-    input_port()->SetFVF(mesh->fvf);
+    d3d_device()->GetFVF(&format);
+    d3d_device()->SetFVF(mesh->fvf);
     auto type = static_cast<D3DPRIMITIVETYPE>(mesh->primitive_type_);
-    if (vertex_shaders()) {
-        input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
+    if (shaders_available()) {
+        d3d_device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
     } else {
         for (uint32_t pass = 0; pass < mesh->material->pass_count_; ++pass) {
             mesh->material->submit_pass(pass, mesh->flags & 4 ? mesh->color.data() : nullptr);
-            input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
+            d3d_device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
         }
     }
-    input_port()->SetFVF(format);
-    input_port()->SetStreamSource(0, stream, 0, stream_stride); // (the offset not put back, as the original)
+    d3d_device()->SetFVF(format);
+    d3d_device()->SetStreamSource(0, stream, 0, stream_stride); // (the offset not put back, as the original)
     if (stream)
         stream->Release();
-    input_port()->SetPixelShader(pixel_shader); // (the shaders not released, as the original)
-    input_port()->SetVertexShader(vertex_shader);
-    input_port()->SetIndices(indices);
+    d3d_device()->SetPixelShader(pixel_shader); // (the shaders not released, as the original)
+    d3d_device()->SetVertexShader(vertex_shader);
+    d3d_device()->SetIndices(indices);
     if (indices)
         indices->Release();
     toggle_fog(false);
@@ -264,7 +267,7 @@ BillboardBatch* BillboardSet::get_find(const MaterialRef* material)
 // 0x004CDAA0
 void BillboardSet::setup_axes()
 {
-    const std::span<const float, 16> m = g_view_matrix.floats();
+    const std::span<const float, 16> m = view_matrix().floats();
     const float vz = core::at(m, 10);
     core::at(view, 0) = core::at(m, 2);
     core::at(view, 1) = core::at(m, 6);
@@ -380,7 +383,7 @@ void BillboardBatch::render()
 {
     if (!material)
         return;
-    if (vertex_shaders())
+    if (shaders_available())
         material->hand_in();
     else
         material->submit_states();
@@ -389,7 +392,7 @@ void BillboardBatch::render()
         if (is_head(first) || !first)
             continue;
         const memory::ListNode* node = head_of_scene_list(list);
-        if (vertex_shaders())
+        if (shaders_available())
             set_pixel_shader(static_cast<BillboardRec*>(node->data)->mesh->pixel_shader_, nullptr);
         break;
     }
@@ -400,14 +403,14 @@ void BillboardBatch::render()
     std::array<float, 16> identity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
     std::array<float, 16> view_world{};
     std::array<float, 16> all{};
-    transpose(projection.data(), g_projection_matrix.data());
-    transpose(view.data(), g_view_matrix.data());
+    transpose(projection.data(), projection_matrix().data());
+    transpose(view.data(), view_matrix().data());
     core::at(view, 12) = core::at(view, 13) = core::at(view, 14) = 0.0f; // (its last row cleared)
     core::at(view, 15) = 1.0f;
     multiply(view_world.data(), view.data(), identity.data());
     multiply(all.data(), projection.data(), view_world.data());
-    input_port()->SetVertexShaderConstantF(0, all.data(), 4);
-    auto* manager = &g_billboard_pool;
+    d3d_device()->SetVertexShaderConstantF(0, all.data(), 4);
+    auto* manager = &billboard_pool();
     const std::span<float> constants(pc_billboards_state().billboard_constants_); // c4-c6
     // (the first three floats of each of the three vectors given)
     auto set_axes = [&](std::span<const float> x, std::span<const float> y, std::span<const float> z) {
@@ -416,7 +419,7 @@ void BillboardBatch::render()
         core::copy_into(z.first(3), constants.subspan(8, 3));
     };
     set_axes(manager->right, manager->up, manager->view);
-    input_port()->SetVertexShaderConstantF(4, constants.data(), 3);
+    d3d_device()->SetVertexShaderConstantF(4, constants.data(), 3);
     {
         std::array<float, 3> x_axis{};
         std::array<float, 3> y_axis{};
@@ -473,7 +476,7 @@ void BillboardBatch::render()
         }
         node = next;
     }
-    g_vertex_format_locked = 0; // (the vertex format unlocked)
+    set_vertex_format_locked(0); // (the vertex format unlocked)
 }
 
 // 0x004CEBE0

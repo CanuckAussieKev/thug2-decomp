@@ -23,7 +23,6 @@ namespace render {
 
 namespace {
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 // The game's C runtime heap (the nodes, copies and buffers are freed through it).
 gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); }
@@ -96,7 +95,7 @@ buffer_lists::Node* buffer_lists::index_buffers() { return vertex_buffers_state(
 VertexBuffer::VertexBuffer(uint32_t bytes, uint32_t usage_flags, uint32_t buffer_flags)
 {
     if (!(buffer_flags & kShared))
-        input_port()->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
+        d3d_device()->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
                                          raw::as<IDirect3DVertexBuffer9*>(&buffer), nullptr);
     size = bytes;
     usage = usage_flags;
@@ -152,7 +151,7 @@ void VertexBuffer::recreate()
     if (flags & kShared)
         d_3d(this)->AddRef();
     else
-        input_port()->CreateVertexBuffer(size, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+        d3d_device()->CreateVertexBuffer(size, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                          raw::as<IDirect3DVertexBuffer9*>(&buffer), nullptr);
     if (flags & kNoCopy)
         return;
@@ -166,7 +165,7 @@ void VertexBuffer::recreate()
 // 0x004D4270
 IdxStore::IdxStore(uint32_t bytes, uint32_t usage_flags, uint32_t index_format)
 {
-    input_port()->CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
+    d3d_device()->CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
                                     D3DPOOL_DEFAULT, raw::as<IDirect3DIndexBuffer9*>(&buffer), nullptr);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     size = bytes;

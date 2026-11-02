@@ -536,7 +536,7 @@ unsigned long __stdcall news_thread(void* argument)
     std::memset(buffer.data(), 0, 0x1900 * 4);
     std::array<char, 256> url{};
     text::format_to(url, "%s",
-                    commands::g_texture_flag_ce441 ? "http://www.thug2online.com/testmotd.dat"
+                    commands::texture_flag_ce441() ? "http://www.thug2online.com/testmotd.dat"
                                                    : "http://www.thug2online.com/motd.dat");
     manager->request_ =
         game_spy::http_get_ex(url.data(), nullptr, buffer.data(), static_cast<int>(kNewsBufferSize), nullptr,

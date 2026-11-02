@@ -29,7 +29,18 @@ constexpr float kDegreesPerRadian = float_from_bits(0x42652EE0);
 
 } // namespace
 
-int g_draw_distance_setting;
+namespace {
+
+int& stored_draw_distance_setting()
+{
+    static int draw_distance_setting{};
+    return draw_distance_setting;
+}
+
+} // namespace
+
+int draw_distance_setting() { return stored_draw_distance_setting(); }
+void set_draw_distance_setting(int value) { stored_draw_distance_setting() = value; }
 
 // 0x00485BA0
 ViewCam::ViewCam() : h_fov_(render::get_screen_angle())
@@ -43,10 +54,10 @@ ViewCam::ViewCam() : h_fov_(render::get_screen_angle())
     near_dist_ = 12.0f;
     far_clip_ = 12000.0f;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    if (render::g_distance_clipping) { // distance clipping (setting 0x007D6444)
+    if (render::distance_clipping()) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
-        auto distance = static_cast<double>(g_draw_distance_setting);
-        if (g_draw_distance_setting < 0)
+        auto distance = static_cast<double>(stored_draw_distance_setting());
+        if (stored_draw_distance_setting() < 0)
             distance += 4294967296.0;
         far_clip_ = static_cast<float>(distance * 30.0);
     }

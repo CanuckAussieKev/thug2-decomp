@@ -30,7 +30,12 @@
 
 namespace render {
 
-lists::ObjectSet<ShadowCaster> g_shadow_casters;
+lists::ObjectSet<ShadowCaster>& shadow_casters()
+{
+    static core::NoDestroy<lists::ObjectSet<ShadowCaster>> shadow_casters;
+    return shadow_casters.get();
+}
+
 namespace {
 // NOT ORIGINAL grouping - pixel_shaders.cpp's state (the original's globals). Made on first use, never destroyed
 // (pixel_shaders_state()).
@@ -48,12 +53,21 @@ PixelShadersState& pixel_shaders_state()
 }
 
 } // namespace
-std::array<void*, kPixelShaderCount> g_pixel_shaders;
+namespace {
+
+std::array<void*, kPixelShaderCount>& stored_pixel_shaders()
+{
+    static std::array<void*, kPixelShaderCount> pixel_shaders{};
+    return pixel_shaders;
+}
+
+} // namespace
+
+const std::array<void*, kPixelShaderCount>& pixel_shaders() { return stored_pixel_shaders(); }
 
 namespace {
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
-void*& hdl(int slot) { return core::at(g_pixel_shaders, slot); }
+void*& hdl(int slot) { return core::at(stored_pixel_shaders(), slot); }
 lists::KeyMap& get_cache() { return pixel_shaders_state().shader_cache_; }
 
 // An ID3DXBuffer (COM, through its vtable): [2] Release, [3] GetBufferPointer.
@@ -128,7 +142,7 @@ void compile_pixel_shaders()
     done = true;
     for (int slot = kPixelShader920; slot < kPixelShaderCount; ++slot)
         hdl(slot) = nullptr;
-    if (!g_shaders_available) {
+    if (!shaders_available()) {
         // No pixel shaders: stand-ins the fixed-function stages tell apart (the original's numbers 1-10; here the
         // addresses of markers of their own - only compared, never given to the device).
         static constexpr auto kStandIns = std::to_array<int>({kPixelShader964, kPixelShader960, kPixelShader95c,
@@ -155,7 +169,7 @@ void compile_pixel_shaders()
         for (const Fixed& f : kFixed) {
             assemble_shader(f.source, static_cast<uint32_t>(std::strlen(f.source)), &shader, &errors);
             IDirect3DPixelShader9* made = nullptr;
-            input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &made);
+            d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &made);
             hdl(f.handle) = made;
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the source kept for its twin.
             view_mode::note_shader_source(hdl(f.handle), f.source);
@@ -287,7 +301,7 @@ void* generated_pixel_shader(const void* material)
     IDirect3DPixelShader9* handle = nullptr;
     if (assemble_shader(text.buffer.data(), static_cast<uint32_t>(std::strlen(text.buffer.data())), &shader, &errors) != 0)
         buffer_pointer(errors); // (the error text, not shown)
-    input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &handle);
+    d3d_device()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)), &handle);
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
     view_mode::note_shader_source(handle, text.buffer.data());
     cache.store_entry(key, handle);

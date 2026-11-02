@@ -21,6 +21,6 @@ void* generated_pixel_shader(const void* material);
 void material_pixel_shader(const void* material, void** shader);
 
 struct ShadowCaster;
-extern lists::ObjectSet<ShadowCaster> g_shadow_casters;
+lists::ObjectSet<ShadowCaster>& shadow_casters();
 
 } // namespace render

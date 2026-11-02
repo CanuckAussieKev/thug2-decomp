@@ -35,7 +35,7 @@ namespace render {
 namespace {
 
 // The list's first node (the head's next; the head itself when the list is empty).
-memory::ListNode* head_of_scene_list() { return g_scene_list.next; }
+memory::ListNode* head_of_scene_list() { return scene_list().next; }
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 // The node after `node` (null at the end).
 memory::ListNode* get_next_node(const memory::ListNode* node)
@@ -291,7 +291,7 @@ WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_s
     build_scene_file_path(file.data(), sizeof(file), name);
     memory::push_mem_profile(file.data());
     VertexArena vertex_arena{};
-    VertexArena* arena = g_stream_offset_supported ? &vertex_arena : nullptr;
+    VertexArena* arena = stream_offset_supported() ? &vertex_arena : nullptr;
     WorldScene* scene = load_scene_from_file(file.data(), textures, with_super_sectors, is_sky, mesh_flag, arena);
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, arena, unused);

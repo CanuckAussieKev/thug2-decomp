@@ -15,9 +15,30 @@
 
 namespace render {
 
-uint8_t g_hq_shadows;
-bool g_fog_setting;
-bool g_distance_clipping;
+namespace {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (graphics_option_flags()).
+struct GraphicsOptionFlags {
+    uint8_t hq_shadows_{};
+    bool fog_setting_{};
+    bool distance_clipping_{};
+};
+
+GraphicsOptionFlags& graphics_option_flags()
+{
+    static core::NoDestroy<GraphicsOptionFlags> state;
+    return state.get();
+}
+
+} // namespace
+
+uint8_t hq_shadows() { return graphics_option_flags().hq_shadows_; }
+void set_hq_shadows(uint8_t value) { graphics_option_flags().hq_shadows_ = value; }
+bool fog_setting() { return graphics_option_flags().fog_setting_; }
+void set_fog_setting(bool value) { graphics_option_flags().fog_setting_ = value; }
+bool distance_clipping() { return graphics_option_flags().distance_clipping_; }
+void set_distance_clipping(bool value) { graphics_option_flags().distance_clipping_ = value; }
 
 namespace {
 
@@ -62,17 +83,17 @@ void load_graphics_settings()
 
 void write_graphics_settings()
 {
-    g_antialiasing = static_cast<uint8_t>(settings_state().settings_.antialiasing) != 0;
-    g_hq_shadows = static_cast<uint8_t>(settings_state().settings_.hq_shadows_);
-    g_distance_clipping = static_cast<uint8_t>(settings_state().settings_.distance_clipping_);
+    set_antialiasing(static_cast<uint8_t>(settings_state().settings_.antialiasing) != 0);
+    graphics_option_flags().hq_shadows_ = static_cast<uint8_t>(settings_state().settings_.hq_shadows_);
+    graphics_option_flags().distance_clipping_ = static_cast<uint8_t>(settings_state().settings_.distance_clipping_);
     uint32_t distance = settings_state().settings_.clipping_distance_;
     if (distance > 100)
         distance = 100;
     else if (distance < 1)
         distance = 1;
     // (the engine's distance: 100 to 595)
-    gfx::g_draw_distance_setting = static_cast<int>(static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f));
-    g_fog_setting = static_cast<uint8_t>(settings_state().settings_.fog);
+    gfx::set_draw_distance_setting(static_cast<int>(static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f)));
+    graphics_option_flags().fog_setting_ = static_cast<uint8_t>(settings_state().settings_.fog);
 }
 
 } // namespace render

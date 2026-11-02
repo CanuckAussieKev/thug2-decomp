@@ -19,7 +19,7 @@ bool& wire()
 
 } // namespace
 
-int render_mode() { return g_render_mode; }
+int render_mode() { return render::render_mode(); }
 
 void begin_world()
 {

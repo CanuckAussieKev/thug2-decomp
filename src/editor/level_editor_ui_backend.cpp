@@ -29,7 +29,6 @@ namespace frontend::level_editor::ui_backend {
 
 namespace {
 
-IDirect3DDevice9* input_port() { return render::g_d3d_device; }
 
 // Whether the backends are started for the current ImGui context: each context (the editor's, the new front end's -
 // frontend/new_frontend.h) has its own backend data, which the backends keep in its IO.
@@ -112,7 +111,7 @@ bool prepare_all()
     if (context_ready())
         return true;
     SDL_Window* window = sys::sdl_window();
-    IDirect3DDevice9* device = input_port();
+    IDirect3DDevice9* device = render::d3d_device();
     if (!window || !device) {
         if (!failed_logged())
             get_log("level editor UI: no %s yet", window ? "device" : "window");
@@ -190,7 +189,7 @@ void invalidate_context_objects()
 
 uint64_t create_texture(int width, int height, PixelLayout format, const void* data, int row_bytes, int rows)
 {
-    IDirect3DDevice9* device = input_port();
+    IDirect3DDevice9* device = render::d3d_device();
     if (!device || width <= 0 || height <= 0 || !data)
         return 0;
     util::ComPtr<IDirect3DTexture9> texture;
@@ -228,8 +227,8 @@ void window_size(int* width, int* height)
 
 void back_buffer_size(int* width, int* height)
 {
-    *width = render::g_back_buffer_width;
-    *height = render::g_back_buffer_height;
+    *width = render::back_buffer_width();
+    *height = render::back_buffer_height();
 }
 
 uint64_t get_texture_id(void* renderer_texture)
@@ -240,7 +239,7 @@ uint64_t get_texture_id(void* renderer_texture)
 
 bool begin_offscreen(int size, uint32_t argb)
 {
-    IDirect3DDevice9* device = input_port();
+    IDirect3DDevice9* device = render::d3d_device();
     if (!device || offscreen().active || size <= 0 || !make_offscreen(device, size))
         return false;
     IDirect3DSurface9* surface = nullptr;
@@ -265,7 +264,7 @@ bool begin_offscreen(int size, uint32_t argb)
 void end_offscreen()
 {
     Offscreen& o = offscreen();
-    IDirect3DDevice9* device = input_port();
+    IDirect3DDevice9* device = render::d3d_device();
     if (!o.active || !device)
         return;
     device->SetRenderTarget(0, o.saved_target_);
@@ -366,7 +365,7 @@ bool make_atlas(IDirect3DDevice9* device, int size)
 
 bool begin_atlas_cell(int atlas_size, int x, int y, int size, uint32_t argb)
 {
-    IDirect3DDevice9* device = input_port();
+    IDirect3DDevice9* device = render::d3d_device();
     if (!device || stored_atlas().active || offscreen().active || atlas_size <= 0 || size <= 0 || x < 0 || y < 0 ||
         x + size > atlas_size || y + size > atlas_size || !make_atlas(device, atlas_size))
         return false;
@@ -394,7 +393,7 @@ bool begin_atlas_cell(int atlas_size, int x, int y, int size, uint32_t argb)
 void end_atlas_cell()
 {
     Atlas& a = stored_atlas();
-    IDirect3DDevice9* device = input_port();
+    IDirect3DDevice9* device = render::d3d_device();
     if (!a.active || !device)
         return;
     device->SetRenderTarget(0, a.saved_target_);

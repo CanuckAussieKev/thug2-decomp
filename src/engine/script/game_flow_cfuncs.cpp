@@ -166,7 +166,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     skate_module()->tidy_up(); // the skate module's objects
     if (script)
         script->spawn_flags_ = static_cast<uint8_t>((script->spawn_flags_ & ~script::kScriptFlagSpawned) | spawned);
-    render::g_imposter_manager->delete_all();
+    render::imposter_manager()->delete_all();
     render::engine::kill_all_effects();
     gfx::ClipStore* particles = gfx::ClipStore::get_pull(); // (0x006F92B0)
     particles->drain(false);

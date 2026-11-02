@@ -59,17 +59,17 @@ constexpr uint32_t kOccluderLimit = 8;
 // The object's transform for culling (set_world_transform), or none (empty): only its position row is used here.
 std::span<const float> world_transform()
 {
-    return g_world_transform ? std::span<const float>(g_world_transform, 16) : std::span<const float>();
+    return current_world_transform() ? std::span<const float>(current_world_transform(), 16) : std::span<const float>();
 }
 // The view matrix (0x00786BD0) and the view's clip values.
-const void* view_matrix() { return g_view_matrix.data(); }
-float near_plane_depth() { return g_camera.near_z_; }
-float far_clip() { return g_camera.far_z_; }
+const void* view_matrix_data() { return view_matrix().data(); }
+float near_plane_depth() { return render_camera().near_z_; }
+float far_clip() { return render_camera().far_z_; }
 // The frustum's side planes as (cos, sin) pairs: horizontal 0x00786E20 / 0x00786E28, vertical 0x00786E24 / 0x00786E2C.
-float side_cos() { return g_view_shape.sin_x_; }
-float vertical_cos() { return g_view_shape.sin_y_; }
-float side_sin() { return g_view_shape.cos_x_; }
-float vertical_sin() { return g_view_shape.cos_y_; }
+float side_cos() { return view_shape().sin_x_; }
+float vertical_cos() { return view_shape().sin_y_; }
+float side_sin() { return view_shape().cos_x_; }
+float vertical_sin() { return view_shape().cos_y_; }
 
 // D3DXVec3Transform (linked library code; stdcall): (x, y, z, 1) x matrix.
 void xform(float* out, const float* point, const void* matrix) { d3dx::vec3_transform(out, point, matrix); }
@@ -338,7 +338,7 @@ bool sphere_occluded(const maths::Vec4* centre, float radius, int weight)
 int sphere_outside_view(const maths::Vec4* centre, float radius)
 {
     std::array<float, 4> view{};
-    xform(view.data(), centre->data(), view_matrix());
+    xform(view.data(), centre->data(), view_matrix_data());
     return inside_frustum(view, radius) ? 0 : 1;
 }
 
@@ -354,7 +354,7 @@ bool sphere_in_view(const maths::Vec4* centre, float radius)
         point = moved.data();
     }
     std::array<float, 4> view{};
-    xform(view.data(), point, view_matrix());
+    xform(view.data(), point, view_matrix_data());
     occlusion_shared().last_sphere_distance_ = static_cast<float>(-static_cast<double>(core::at(view, 2)) - radius);
     return inside_frustum(view, radius);
 }
@@ -362,7 +362,7 @@ bool sphere_in_view(const maths::Vec4* centre, float radius)
 // 0x004DB6D0
 bool beyond_clip_distance(const void* bounds)
 {
-    if (!g_distance_clipping)
+    if (!distance_clipping())
         return false;
     const std::span<const float, 5> sphere(static_cast<const float*>(bounds), 5);
     const float radius = core::at(sphere, 4);
@@ -376,7 +376,7 @@ bool beyond_clip_distance(const void* bounds)
         point = moved.data();
     }
     std::array<float, 4> view{};
-    xform(view.data(), point, view_matrix());
+    xform(view.data(), point, view_matrix_data());
     const double distance =
         std::sqrt((static_cast<double>(core::at(view, 2)) * core::at(view, 2) + static_cast<double>(core::at(view, 1)) * core::at(view, 1)) +
                   static_cast<double>(core::at(view, 0)) * core::at(view, 0));

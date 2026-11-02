@@ -21,9 +21,8 @@ namespace gfx::screenshot_capture {
 
 namespace {
 
-IDirect3DDevice9* input_port() { return render::g_d3d_device; }
 // The renderer's "device lost" flag (render::begin_frame_draw doesn't begin a scene while it's set).
-bool device_lost_flag() { return static_cast<uint8_t>(render::g_loading_screen_up) != 0; }
+bool device_lost_flag() { return static_cast<uint8_t>(render::loading_screen_up()) != 0; }
 
 sys::screenshot::PixelFormat get_map(D3DFORMAT format)
 {
@@ -119,7 +118,7 @@ bool dup_from(IDirect3DDevice9* device, sys::screenshot::TickCycle* out, std::st
 
 bool capture_back_buffer(sys::screenshot::TickCycle* out, std::string* error)
 {
-    IDirect3DDevice9* device = input_port();
+    IDirect3DDevice9* device = render::d3d_device();
     if (!device) {
         *error = "no device yet";
         return false;

@@ -234,7 +234,7 @@ bool cfunc_reload_skater_cam_anim(script::Struct* params, script::Script*)
 // 0x005AE000: CutsceneDestroyListActive - the renderer's 0x0049A8E0 (its +0x10 set) on 0x006FA7C0.
 bool cfunc_cutscene_destroy_list_active(script::Struct*, script::Script*)
 {
-    return render::g_flexible_particle_manager->has_temp_heap();
+    return render::flexible_particle_manager()->has_temp_heap();
 }
 
 // 0x005AE010: PlayCutscene ... - a cutscene queued (as the movie Cutscene); with ObjectAnim, name=<anim> as an

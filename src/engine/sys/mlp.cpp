@@ -49,13 +49,13 @@ namespace {
 
 // Set for a frame that isn't drawn (running late, the window inactive, the device just reset): the scene isn't
 // begun or presented.
-bool& omit_from_draw() { return render::g_suppress_draw; }
+
 
 bool text_entry() { return online::text_entry(); } // keeps the loop running while the window is inactive
-bool quit_requested() { return render::g_quit_requested; }
-bool& device_lost() { return render::g_device_lost; }
-IDirect3DDevice9* input_port() { return render::g_d3d_device; }
-D3DPRESENT_PARAMETERS* present_parameters() { return &render::g_present_parameters; }
+
+
+
+D3DPRESENT_PARAMETERS* present_parameters() { return &render::present_parameters(); }
 
 // NOT ORIGINAL grouping - the main loop's references and its skipped renders. Made on first use, never destroyed
 // (mlp_state()).
@@ -100,7 +100,7 @@ void render_frame() { render::engine::render_frame(); } // the world, then the 2
 void after_render() { modules::Skate::debug_rails(); }  // (uses the skate module)
 void end_scene() { render::engine::end_render(); }      // EndScene, Present
 
-uint8_t cinema_bars_on() { return render::g_camera.letterbox_active_; }
+uint8_t cinema_bars_on() { return render::render_camera().letterbox_active_; }
 
 } // namespace
 
@@ -132,9 +132,9 @@ Hub::Hub() = default;
 // 0x0044EE90
 void Hub::reset_device_if_lost()
 {
-    if (!device_lost())
+    if (!render::device_lost())
         return;
-    if (input_port()->TestCooperativeLevel() == D3DERR_DEVICELOST) // (not yet: it can't be reset)
+    if (render::d3d_device()->TestCooperativeLevel() == D3DERR_DEVICELOST) // (not yet: it can't be reset)
         return;
     // Not original - the level editor's UI (editor/level_editor_ui.h): ImGui's default-pool objects dropped before
     // the reset (made again on its next frame).
@@ -142,10 +142,10 @@ void Hub::reset_device_if_lost()
     frontend::level_editor::ui::device_lost();
     frontend::new_frontend::device_lost(); // (not original either: the new front end's - frontend/new_frontend.h)
     release_device_objects();
-    if (input_port()->Reset(present_parameters()) < 0)
+    if (render::d3d_device()->Reset(present_parameters()) < 0)
         return;
     restore_device_objects();
-    device_lost() = false;
+    render::set_device_lost(false);
 }
 
 // 0x0044F220
@@ -207,7 +207,7 @@ void Hub::get_main_loop()
             SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             frames_since_screen_saver = 0;
         }
-        omit_from_draw() = false;
+        render::set_suppress_draw(false);
         objects::set_cutscene_playing(false);
         sio::read_keyboard();
         os_layer::process_window_events();
@@ -225,13 +225,13 @@ void Hub::get_main_loop()
                 }
                 continue;
             }
-            omit_from_draw() = true;
+            render::set_suppress_draw(true);
         }
-        if (quit_requested())
+        if (render::quit_requested())
             break;
-        if (device_lost()) {
+        if (render::device_lost()) {
             reset_device_if_lost(); // (inline in the original)
-            omit_from_draw() = true;
+            render::set_suppress_draw(true);
         }
 
         // Wait for the frame's time (60 a second).
@@ -257,7 +257,7 @@ void Hub::get_main_loop()
             skipped_in_a_row() = 0;
         } else {
             ++skipped_total();
-            omit_from_draw() = true;
+            render::set_suppress_draw(true);
             ++skipped_in_a_row();
         }
         frame_start += frame_ticks;
@@ -271,14 +271,14 @@ void Hub::get_main_loop()
         }
         run_tasks(system_tasks_, profiling_ != 0);
         run_tasks(logic_tasks_, profiling_ != 0);
-        if (!omit_from_draw())
+        if (!render::suppress_draw())
             begin_scene();
         render_frame_letterboxed();
         after_render();
         // Not original - the screenshot key (platform/screenshot.h): the frame read just before it's presented.
         // Original behaviour: the scene is ended and presented.
-        sys::screenshot::before_present(!omit_from_draw());
-        if (!omit_from_draw())
+        sys::screenshot::before_present(!render::suppress_draw());
+        if (!render::suppress_draw())
             end_scene();
         // Not original - a frame series (platform/screenshot.h): the capture's time isn't counted, so no frame is
         // skipped to catch up - every logic frame is drawn and taken.

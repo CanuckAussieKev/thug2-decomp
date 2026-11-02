@@ -8,6 +8,7 @@ class Mat4;
 
 namespace render {
 
-extern const maths::Mat4* g_last_bones; // the bone matrices last set up
+const maths::Mat4* last_bones();
+void set_last_bones(const maths::Mat4* value);
 
 } // namespace render

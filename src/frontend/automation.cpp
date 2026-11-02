@@ -1225,8 +1225,8 @@ std::string press_refusal(const Button& button)
 // logo left the logo up), so choose / press wait for it - at most kPressWaitSeconds.
 bool loading_screen_up()
 {
-    return render::g_loading_screen_shown != 0 || render::g_loading_bar_timer != 0 ||
-           static_cast<uint8_t>(render::g_loading_screen_up) != 0;
+    return render::loading_screen_shown() != 0 || render::loading_bar_timer() != 0 ||
+           static_cast<uint8_t>(render::loading_screen_up()) != 0;
 }
 
 // choose / focus, once a frame until done.

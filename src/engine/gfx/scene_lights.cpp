@@ -31,8 +31,25 @@
 
 namespace render {
 
-int g_scene_light_count;
-std::array<LevelLamp, 150> g_level_lamps; // (kMaxSceneLights)
+namespace {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (level_lamp_set()).
+struct LevelLampSet {
+    int scene_light_count_{};
+    std::array<LevelLamp, 150> level_lamps_{}; // (kMaxSceneLights)
+};
+
+LevelLampSet& level_lamp_set()
+{
+    static core::NoDestroy<LevelLampSet> state;
+    return state.get();
+}
+
+} // namespace
+
+int scene_light_count() { return level_lamp_set().scene_light_count_; }
+std::array<LevelLamp, 150>& level_lamps() { return level_lamp_set().level_lamps_; }
 
 namespace {
 // NOT ORIGINAL grouping - scene_lights.cpp's state (the original's globals). Made on first use, never destroyed
@@ -55,8 +72,7 @@ SceneLightsState& scene_lights_state()
 constexpr int kMaxSceneLights = 150;
 constexpr float kPercent = 0.01f; // 0x0064544C
 
-std::array<LevelLamp, 150>& scene_light_array() { return g_level_lamps; }
-int& scene_light_count() { return g_scene_light_count; }
+
 
 // The queue.
 uint32_t*& queued_nodes() { return scene_lights_state().queued_nodes_; }
@@ -84,9 +100,10 @@ void* get_first_value(lists::KeyMap* table)
 
 LevelLamp* find_scene_light(uint32_t name)
 {
-    for (int i = 0; i < scene_light_count(); ++i) {
-        if (core::at(scene_light_array(), i).label_ == name)
-            return &core::at(scene_light_array(), i);
+    auto& lamps = level_lamp_set();
+    for (int i = 0; i < lamps.scene_light_count_; ++i) {
+        if (core::at(lamps.level_lamps_, i).label_ == name)
+            return &core::at(lamps.level_lamps_, i);
     }
     return nullptr;
 }
@@ -228,13 +245,14 @@ void LevelLamp::find_sectors(script::Array* excluded)
 // 0x0048F250
 void apply_scene_lights_to_sector(WorldCell* sector)
 {
+    auto& lamps = level_lamp_set();
     Geom* geom = geom_of(sector);
     if (!geom)
         return;
     std::array<int, 8> lights{};
     int found = 0;
-    for (int i = 0; i < scene_light_count(); ++i) {
-        LevelLamp& light = core::at(scene_light_array(), i);
+    for (int i = 0; i < lamps.scene_light_count_; ++i) {
+        LevelLamp& light = core::at(lamps.level_lamps_, i);
         if (light.strength_ > 0.0f && light.touches_sector(sector)) {
             core::at(lights, found) = i;
             if (++found >= 8)
@@ -261,7 +279,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
     for (int v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
-            const LevelLamp& light = core::at(scene_light_array(), core::at(lights, l));
+            const LevelLamp& light = core::at(lamps.level_lamps_, core::at(lights, l));
             sums.append_one(light, offset_squared_zxy(core::at(vertices, v), light.at_point_));
         }
         if (sums.lit)
@@ -276,10 +294,11 @@ void apply_scene_lights_to_sector(WorldCell* sector)
 void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out, std::span<const maths::Vec4> positions,
                           const maths::Vec4* normal, uint32_t count)
 {
+    auto& lamps = level_lamp_set();
     std::array<int, 3> lights{};
     int found = 0;
-    for (int i = 0; i < scene_light_count() && found < 3; ++i) {
-        const LevelLamp& light = core::at(scene_light_array(), i);
+    for (int i = 0; i < lamps.scene_light_count_ && found < 3; ++i) {
+        const LevelLamp& light = core::at(lamps.level_lamps_, i);
         bool facing = true;
         if (normal) {
             const maths::Vec4& first = core::at(positions, 0);
@@ -303,7 +322,7 @@ void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out,
     for (uint32_t v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
-            const LevelLamp& light = core::at(scene_light_array(), core::at(lights, l));
+            const LevelLamp& light = core::at(lamps.level_lamps_, core::at(lights, l));
             sums.append_one(light, offset_squared_zyx(core::at(positions, v), light.at_point_));
         }
         if (sums.lit)
@@ -328,8 +347,9 @@ void apply_scene_light(WorldScene* /*scene*/, uint32_t name)
 // 0x0048FCA0
 void delete_scene_light(uint32_t name)
 {
-    std::array<DynamicLightBase*, 256>& dynamic = g_dynamic_lights;
-    int& dynamic_count = g_dynamic_light_count;
+    auto& lamps = level_lamp_set();
+    std::array<DynamicLightBase*, 256>& dynamic = dynamic_lights();
+    int& dynamic_count = dynamic_light_count();
     for (int i = 0; i < dynamic_count; ++i) {
         if (core::at(dynamic, i)->owner == name) { // (no null check, as the original)
             memory::Hub::get_pull()->dealloc(core::at(dynamic, i));
@@ -339,11 +359,11 @@ void delete_scene_light(uint32_t name)
             break;
         }
     }
-    for (int i = 0; i < scene_light_count(); ++i) {
-        if (core::at(scene_light_array(), i).label_ == name) {
-            core::at(scene_light_array(), i).clear_sectors(); // (its table isn't freed: the last light's is copied over it)
-            --scene_light_count();
-            core::at(scene_light_array(), i) = core::at(scene_light_array(), scene_light_count());
+    for (int i = 0; i < lamps.scene_light_count_; ++i) {
+        if (core::at(lamps.level_lamps_, i).label_ == name) {
+            core::at(lamps.level_lamps_, i).clear_sectors(); // (its table isn't freed: the last light's is copied over it)
+            --lamps.scene_light_count_;
+            core::at(lamps.level_lamps_, i) = core::at(lamps.level_lamps_, lamps.scene_light_count_);
             return;
         }
     }
@@ -352,9 +372,10 @@ void delete_scene_light(uint32_t name)
 // 0x0048FDA0
 void delete_all_scene_lights()
 {
-    for (int i = 0; i < scene_light_count(); ++i)
-        core::at(scene_light_array(), i).clear_sectors();
-    scene_light_count() = 0;
+    auto& lamps = level_lamp_set();
+    for (int i = 0; i < lamps.scene_light_count_; ++i)
+        core::at(lamps.level_lamps_, i).clear_sectors();
+    lamps.scene_light_count_ = 0;
 }
 
 // 0x0048FDE0
@@ -464,10 +485,11 @@ void update_scene_light(uint32_t name, script::Struct* params)
 LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, float brightness, uint32_t colour, float radius,
                                 script::Array* excluded)
 {
-    if (scene_light_count() >= kMaxSceneLights)
+    auto& lamps = level_lamp_set();
+    if (lamps.scene_light_count_ >= kMaxSceneLights)
         return nullptr;
     const double intensity = brightness * static_cast<double>(kPercent);
-    LevelLamp* light = &core::at(scene_light_array(), scene_light_count()++);
+    LevelLamp* light = &core::at(lamps.level_lamps_, lamps.scene_light_count_++);
     light->label_ = name;
     light->at_point_ = *pos;
     if (light->strength_ != intensity) { // (the slot's old value; NaN: set)
@@ -537,7 +559,7 @@ namespace render {
 // 0x00640BC0 (a static initialiser): the 150 scene lights (each with its table of sectors).
 void construct_scene_lights()
 {
-    for (LevelLamp& light : g_level_lamps)
+    for (LevelLamp& light : level_lamp_set().level_lamps_)
         light.make_new();
 }
 

@@ -53,8 +53,6 @@ PcParticlesState& pc_particles_state()
 
 constexpr float kRandomScale = 1.0f / 16384.0f; // 0x006487C8
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
-IDirect3DIndexBuffer9* quad_indices() { return g_quad_indices; }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
 // _ftol: truncated to a 64-bit integer, its low half.
@@ -69,7 +67,7 @@ void change_material_layer(MaterialRef* material, int pass)
     material->submit_pass(pass, nullptr); // (the original passed 0 as the colour: not read)
 }
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
-const BitmapTexture* find_texture(uint32_t checksum) { return g_particle_texture_dict->fetch_skin(checksum); }
+const BitmapTexture* find_texture(uint32_t checksum) { return particle_texture_dict()->fetch_skin(checksum); }
 
 // The random sequence the particles' spreads come from (three words; four numbers a particle).
 uint32_t& random_a() { return pc_particles_state().particle_random_a_; }
@@ -177,9 +175,9 @@ float get_mid_time(const PcParticleSystem* system)
 // and u = r x (a, b, c), each normalised when it has a length.
 void camera_axes(std::span<float, 3> r, std::span<float, 3> u)
 {
-    const double a = core::at(g_view_matrix.row, 0).z;
-    const double b = core::at(g_view_matrix.row, 1).z;
-    const double c = core::at(g_view_matrix.row, 2).z;
+    const double a = core::at(view_matrix().row, 0).z;
+    const double b = core::at(view_matrix().row, 1).z;
+    const double c = core::at(view_matrix().row, 2).z;
     const double b0 = b * 0.0f;
     core::at(r, 0) = static_cast<float>(b0 - c);
     core::at(r, 1) = static_cast<float>(c * 0.0f - a * 0.0f);
@@ -375,7 +373,7 @@ void PcParticleSystem::draw(bool advance)
     std::array<float, 3> u{};
     camera_axes(r, u);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    set_pixel_shader(core::at(g_pixel_shaders, kPixelShader964), nullptr);
+    set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), nullptr);
     std::array<std::array<float, 4>, 3> colour_table{};
     for (int i = 0; i < 3; ++i)
         for (int k = 0; k < 4; ++k)
@@ -522,9 +520,9 @@ void PcParticleSystem::draw(bool advance)
             }
             remaining -= static_cast<int>(quads);
             os_layer::unlock_dynamic_vertices(quads * 4, sizeof(ParticleVertex));
-            input_port()->SetStreamSource(0, buffer, 0, sizeof(ParticleVertex));
-            input_port()->SetIndices(quad_indices());
-            input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
+            d3d_device()->SetStreamSource(0, buffer, 0, sizeof(ParticleVertex));
+            d3d_device()->SetIndices(quad_index_buffer());
+            d3d_device()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
                                                quads * 2);
         }
     }

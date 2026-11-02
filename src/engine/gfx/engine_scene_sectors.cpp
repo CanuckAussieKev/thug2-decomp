@@ -252,7 +252,7 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
         }
     }
     if (script::fetch_int_value(0xBA1E4254)) {
-        g_weather->tick_grid(); // (through the jump 0x004A1090)
+        weather()->tick_grid(); // (through the jump 0x004A1090)
     }
     return true;
 }

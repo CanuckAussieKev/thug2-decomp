@@ -24,7 +24,7 @@ namespace render {
 namespace {
 
 // The texture dictionary's lookup (not rewritten yet; thiscall): the texture entry for a checksum, or null.
-const BitmapTexture* find_texture(uint32_t checksum) { return g_particle_texture_dict->fetch_skin(checksum); }
+const BitmapTexture* find_texture(uint32_t checksum) { return particle_texture_dict()->fetch_skin(checksum); }
 // A material's constructor and destructor body (not rewritten yet; thiscall).
 gsl::owner<MaterialRef*> construct_material(void* memory) { return new (memory) MaterialRef; }
 // The C runtime's rand (the game's: its sequence).
@@ -93,7 +93,7 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint3
     m->has_uv_wibble_ = false;
     material = m;
     const uint32_t mode = core::at(m->blend_modes_, 0) & 0xFFFFFF;
-    shader = core::at(g_pixel_shaders, mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964);
+    shader = core::at(pixel_shaders(), mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964);
 }
 
 // 0x004D9CD0

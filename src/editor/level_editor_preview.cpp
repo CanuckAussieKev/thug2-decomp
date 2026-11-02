@@ -106,7 +106,7 @@ void draw_mesh(render::MeshRef* mesh) { mesh->render(); }
 // 0x004D16B0: one instance drawn (flag 8: not culled) - its world matrix, its bones, its lights.
 void draw_instance(render::Singleton* instance) { render::draw_one_instance(instance, 8); }
 // 0x004CDAA0 (thiscall on 0x00775B80): the view frustum from the camera's globals.
-void update_frustum() { render::g_billboard_pool.setup_axes(); }
+void update_frustum() { render::billboard_pool().setup_axes(); }
 
 // The camera's globals render::choose_camera and the instance render change, saved and put back.
 struct SavedRange {
@@ -114,20 +114,20 @@ struct SavedRange {
     uint32_t size;
 };
 constexpr auto kSaved = std::to_array<SavedRange>({
-    {.address = []() -> void* { return &render::g_world_matrix; }, .size = sizeof(maths::Mat4)},
-    {.address = []() -> void* { return &render::g_view_matrix; }, .size = sizeof(maths::Mat4)},
-    {.address = []() -> void* { return &render::g_projection_matrix; }, .size = sizeof(maths::Mat4)},
-    {.address = []() -> void* { return &render::g_heading_matrix; }, .size = sizeof(maths::Mat4)},
-    {.address = []() -> void* { return &render::g_device_viewport; }, .size = sizeof(render::DeviceViewport)},
-    {.address = []() -> void* { return &render::g_camera; }, .size = sizeof(render::RenderCamera)},
-    {.address = []() -> void* { return &render::g_view_shape; }, .size = sizeof(render::ViewShape)}, // (the view's shape: culling)
-    {.address = []() -> void* { return static_cast<void*>(&render::g_world_transform); },
+    {.address = []() -> void* { return &render::world_matrix(); }, .size = sizeof(maths::Mat4)},
+    {.address = []() -> void* { return &render::view_matrix(); }, .size = sizeof(maths::Mat4)},
+    {.address = []() -> void* { return &render::projection_matrix(); }, .size = sizeof(maths::Mat4)},
+    {.address = []() -> void* { return &render::heading_matrix(); }, .size = sizeof(maths::Mat4)},
+    {.address = []() -> void* { return &render::device_viewport(); }, .size = sizeof(render::DeviceViewport)},
+    {.address = []() -> void* { return &render::render_camera(); }, .size = sizeof(render::RenderCamera)},
+    {.address = []() -> void* { return &render::view_shape(); }, .size = sizeof(render::ViewShape)}, // (the view's shape: culling)
+    {.address = []() -> void* { return static_cast<void*>(&render::current_world_transform()); },
      .size = sizeof(void*)}, // (the culling world matrix: none or the copy)
-    {.address = []() -> void* { return &render::g_world_transform_copy; }, .size = sizeof(render::g_world_transform_copy)},
+    {.address = []() -> void* { return &render::world_transform_copy(); }, .size = sizeof(render::world_transform_copy())},
 });
 constexpr uint32_t kSavedBytes = 4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) +
                                  sizeof(render::RenderCamera) + sizeof(render::ViewShape) + sizeof(void*) +
-                                 sizeof(render::g_world_transform_copy);
+                                 sizeof(render::world_transform_copy());
 // (the camera's globals from the world matrix to the camera's end: 0x164 bytes; the view's shape: 0x18)
 static_assert(4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) + sizeof(render::RenderCamera) == 0x164 &&
                   sizeof(render::ViewShape) == 0x18,
@@ -297,7 +297,7 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     // next instance sets its own); the device's target and transforms are the caller's (the backend's) to put back.
     saved.get_restore();
     update_frustum();
-    render::g_last_bones = nullptr;
+    render::set_last_bones(nullptr);
     return true;
 }
 

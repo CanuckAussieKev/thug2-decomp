@@ -21,11 +21,31 @@
 #include "platform/crt.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
-float g_frame_time_scale;
-int g_drawn_viewport;
+namespace {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (particle_frame()).
+struct ParticleFrame {
+    float frame_time_scale_{};
+    int drawn_viewport_{};
+};
+
+ParticleFrame& particle_frame()
+{
+    static core::NoDestroy<ParticleFrame> state;
+    return state.get();
+}
+
+} // namespace
+
+float frame_time_scale() { return particle_frame().frame_time_scale_; }
+int drawn_viewport() { return particle_frame().drawn_viewport_; }
+void set_drawn_viewport(int value) { particle_frame().drawn_viewport_ = value; }
+
 namespace {
 
 const char* const kHeapName = "FlxParticles";     // "FlxParticles"
@@ -35,9 +55,6 @@ constexpr uint32_t kFrameRateSymbol = 0x3214C818;
 constexpr int kDefaultHeapSize = 0x5000;
 constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
 
-float& frame_time_scale() { return g_frame_time_scale; }
-
-int drawn_viewport() { return g_drawn_viewport; }
 
 // The list's head deleted (0x0049AEF0).
 void delete_head(memory::ListNode* head) { memory::ListNode::destroy(head); }
@@ -71,8 +88,7 @@ FlexibleParticleManager::FlexibleParticleManager()
     core::at(colour_scale_, 0) = core::at(colour_scale_, 1) = core::at(colour_scale_, 2) = core::at(colour_scale_, 3) = 1.0f;
     const float rate = script::fetch_float(kFrameRateSymbol);
     // (0 gives 60; anything else, NaN too, 60 / it)
-    frame_time_scale() =
-        rate == 0.0f ? kFramesPerSecond : static_cast<float>(kFramesPerSecond / static_cast<double>(rate));
+    particle_frame().frame_time_scale_ = rate == 0.0f ? kFramesPerSecond : static_cast<float>(kFramesPerSecond / static_cast<double>(rate));
 }
 
 // 0x0049AA10

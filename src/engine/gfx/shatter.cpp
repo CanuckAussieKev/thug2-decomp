@@ -46,7 +46,6 @@ ShatterShared& shatter_shared()
 
 namespace {
 
-IDirect3DDevice9* draw_device() { return g_draw_device; }
 
 uint16_t triangle_count(const PcShatter* shatter) { return shatter->triangle_count_; }
 
@@ -91,8 +90,8 @@ void draw_shatter(PcShatter* shatter)
     mesh->material->hand_in(); // (the material's set-up)
     set_pixel_shader(mesh_pixel_shader(mesh), mesh->material);
     set_vertex_format(mesh_vertex_format(mesh));
-    ++g_draw_calls; // the frame's draw calls and triangles
-    g_drawn_triangles += triangle_count(shatter);
+    ++draw_calls(); // the frame's draw calls and triangles
+    drawn_triangles() += triangle_count(shatter);
     draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangle_count(shatter), shatter->vertices, mesh->stride);
 }
 

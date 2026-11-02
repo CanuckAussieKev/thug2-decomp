@@ -14,7 +14,17 @@
 
 namespace render {
 
-uint8_t g_loading_screen_shown;
+namespace {
+
+uint8_t& stored_loading_screen_shown()
+{
+    static uint8_t loading_screen_shown{};
+    return loading_screen_shown;
+}
+
+} // namespace
+
+uint8_t loading_screen_shown() { return stored_loading_screen_shown(); }
 
 namespace {
 
@@ -43,7 +53,6 @@ bool change_colour(script::Struct* params, std::array<uint8_t, 4>& setting)
     return true;
 }
 
-uint8_t& loading_screen_shown() { return g_loading_screen_shown; }
 
 float& loading_bar_seconds()
 {
@@ -103,7 +112,7 @@ void display_loading_screen(const char* name, bool keep, bool black)
 {
     free_loading_screen_sprite();
     show_loading_screen(name, keep, black);
-    loading_screen_shown() = true;
+    stored_loading_screen_shown() = true;
 }
 
 // 0x004908C0
@@ -111,7 +120,7 @@ void remove_loading_screen()
 {
     hide_loading_screen();
     free_loading_screen_sprite();
-    loading_screen_shown() = false;
+    stored_loading_screen_shown() = false;
 }
 
 } // namespace render

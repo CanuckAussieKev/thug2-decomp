@@ -83,10 +83,12 @@ void add_texture_shadow_caster(const BitmapTexture* texture, void* model, WorldS
 void aim_texture_shadow_caster(const BitmapTexture* texture, gfx::ViewCam* camera);
 void remove_texture_shadow_caster(const BitmapTexture* texture);
 
-extern bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
+// The weather, the screen effects, the fog colour and the loading screen flag (engine_glue.cpp's record).
+bool loading_screen_up();
+void set_loading_screen_up(bool value);
+WeatherSystem* weather();
+ScreenEffects* screen_effects();
+uint32_t fog_colour();
+void set_fog_colour(uint32_t value);
 
-extern std::unique_ptr<WeatherSystem> g_weather;
-
-extern uint32_t g_fog_colour;
-extern std::unique_ptr<ScreenEffects> g_screen_effects;
 } // namespace render

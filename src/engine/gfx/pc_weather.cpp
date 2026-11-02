@@ -56,7 +56,6 @@ PcWeatherState& pc_weather_state()
 
 constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 
-IDirect3DDevice9* input_port() { return g_d3d_device; }
 int ftol(double value) { return static_cast<int>(value); } // (the game's _ftol)
 uint32_t get_argb(std::span<const uint8_t, 4> rgba)
 {
@@ -67,8 +66,8 @@ uint32_t get_argb(std::span<const uint8_t, 4> rgba)
 // The frame's draw counts.
 void count_draw(uint32_t primitives)
 {
-    ++g_draw_calls;
-    g_drawn_triangles += primitives;
+    ++draw_calls();
+    drawn_triangles() += primitives;
 }
 
 // The drop slots' order: a linear-feedback step through 0-0x3FF (0 goes to 0x19B first; 0x19B back to 0).
@@ -205,8 +204,8 @@ void PcWeather::render_rain(float x, float z)
     }
     change_phase(kPhaseAlphaTest, 0);
     set_pixel_shader(nullptr, nullptr);
-    input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
-    input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
+    d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
+    d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     // (in 16ths of a unit)
     const int base_x = ftol(static_cast<double>(origin_x_) * 16.0f);
@@ -229,7 +228,7 @@ void PcWeather::render_rain(float x, float z)
     auto flush = [&] {
         const uint32_t count = used >> 5; // (a quarter of the lines: the original's count, as it is)
         if (count) {
-            input_port()->DrawPrimitiveUP(D3DPT_LINELIST, count, lines.data(), 0x10);
+            d3d_device()->DrawPrimitiveUP(D3DPT_LINELIST, count, lines.data(), 0x10);
             count_draw(count);
         }
     };
@@ -270,8 +269,8 @@ void PcWeather::render_rain(float x, float z)
         }
     }
     flush();
-    input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 // 0x004CC630
@@ -291,15 +290,15 @@ void PcWeather::render_snow(float x, float z)
     change_phase(kPhaseAlphaTest, 0);
     change_phase(kAddressMode0, 0);
     static_cast<TextureRef*>(snow_texture_)->assign_value(0);
-    input_port()->SetRenderState(D3DRS_POINTSPRITEENABLE, TRUE);
-    input_port()->SetRenderState(D3DRS_POINTSCALEENABLE, TRUE);
-    input_port()->SetRenderState(D3DRS_POINTSIZE, std::bit_cast<DWORD>(snow_size_));
-    input_port()->SetRenderState(D3DRS_POINTSCALE_A, 0);
-    input_port()->SetRenderState(D3DRS_POINTSCALE_B, 0);
-    input_port()->SetRenderState(D3DRS_POINTSCALE_C, std::bit_cast<DWORD>(1.0f));
+    d3d_device()->SetRenderState(D3DRS_POINTSPRITEENABLE, TRUE);
+    d3d_device()->SetRenderState(D3DRS_POINTSCALEENABLE, TRUE);
+    d3d_device()->SetRenderState(D3DRS_POINTSIZE, std::bit_cast<DWORD>(snow_size_));
+    d3d_device()->SetRenderState(D3DRS_POINTSCALE_A, 0);
+    d3d_device()->SetRenderState(D3DRS_POINTSCALE_B, 0);
+    d3d_device()->SetRenderState(D3DRS_POINTSCALE_C, std::bit_cast<DWORD>(1.0f));
     set_pixel_shader(nullptr, nullptr);
-    input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-    input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
+    d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
+    d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     const float base_x = origin_x_;
     const float base_z = origin_z_;
@@ -349,7 +348,7 @@ void PcWeather::render_snow(float x, float z)
                 used += 4;
                 out += 4;
                 if (used >= 0x7FC) {
-                    input_port()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(),
+                    d3d_device()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(),
                                                   0x10); // (a quarter, as the original)
                     count_draw(used >> 4);
                     used = 0;
@@ -358,11 +357,11 @@ void PcWeather::render_snow(float x, float z)
             }
         }
     }
-    input_port()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(), 0x10); // (even none, as the original)
+    d3d_device()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points.data(), 0x10); // (even none, as the original)
     count_draw(used >> 4);
-    input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
-    input_port()->SetRenderState(D3DRS_POINTSPRITEENABLE, FALSE);
+    d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    d3d_device()->SetRenderState(D3DRS_POINTSPRITEENABLE, FALSE);
 }
 
 // 0x004CCC00
@@ -375,7 +374,7 @@ void PcWeather::render_splashes(float x, float z)
         // A cast down at a random place before the camera (along its heading up to 2048 out, across by up to
         // 2048 either side - alternately - nearer in), its landing the splash's.
         ProbeRay feeler;
-        const auto& camera = g_camera.position;
+        const auto& camera = render_camera().position;
         maths::Vec4 heading = {.x = static_cast<float>(static_cast<double>(x) - core::at(camera, 0)), .y = 0.0f,
                                .z = static_cast<float>(static_cast<double>(z) - core::at(camera, 2)), .w = 1.0f};
         maths::Vec4 at = {.x = core::at(camera, 0), .y = 50000.0f, .z = core::at(camera, 2), .w = 1.0f};
@@ -409,8 +408,8 @@ void PcWeather::render_splashes(float x, float z)
     change_phase(kAddressMode0, 0);
     static_cast<TextureRef*>(splash_texture_)->assign_value(0);
     set_pixel_shader(nullptr, nullptr);
-    input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
-    input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
+    d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
+    d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     struct Vertex {
         float x, y, z;
@@ -445,11 +444,11 @@ void PcWeather::render_splashes(float x, float z)
     }
     const uint32_t triangles = used / 6 / 3;
     if (triangles) {
-        input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads.data(), 0x18);
+        d3d_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, quads.data(), 0x18);
         count_draw(triangles);
     }
-    input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
-    input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+    d3d_device()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    d3d_device()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
 // 0x004CD1A0
@@ -570,9 +569,9 @@ void PcWeather::tick_grid()
     drops_ = 0;
     next = 0x19B;
     splash_texture_ = nullptr;
-    if (const BitmapTexture* splash = g_particle_texture_dict->fetch_skin(0x45C7EB0F))
+    if (const BitmapTexture* splash = particle_texture_dict()->fetch_skin(0x45C7EB0F))
         splash_texture_ = image_of(splash);
-    if (const BitmapTexture* snow = g_particle_texture_dict->fetch_skin(0xC97C5A4C))
+    if (const BitmapTexture* snow = particle_texture_dict()->fetch_skin(0xC97C5A4C))
         snow_texture_ = image_of(snow);
     active_ = true;
     std::memset(splash_frames_.data(), 0, sizeof(splash_frames_));

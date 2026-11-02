@@ -41,9 +41,12 @@ gsl::owner<PcViewport*> create_viewport(const std::array<float, 4>* rect, gfx::V
 // there's none (or on a Radeon 8500).
 uint32_t occlusion_pixels();
 
-extern std::array<uint8_t, 1024> g_occlusion_slots;
-extern float g_scale_2d_in_3d_numerator;
-extern float g_scale_2d_in_3d_max;
-extern float g_scale_2d_in_3d_min;
+std::array<uint8_t, 1024>& occlusion_slots();
+float scale_2d_in_3d_numerator();
+void set_scale_2d_in_3d_numerator(float value);
+float scale_2d_in_3d_max();
+void set_scale_2d_in_3d_max(float value);
+float scale_2d_in_3d_min();
+void set_scale_2d_in_3d_min(float value);
 
 } // namespace render

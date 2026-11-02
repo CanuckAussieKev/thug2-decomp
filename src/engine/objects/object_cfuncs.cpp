@@ -83,7 +83,7 @@ float project_to_screen(render::ViewRegion* camera, const maths::Vec4* position,
 }
 
 // The renderer's particle manager (0x006FA7C0) and its "destroy the particle systems of this group" (0x0049ADE0).
-void* particle_hub_handle() { return render::g_flexible_particle_manager.get(); }
+
 void destroy_particle_group(void* manager, uint32_t group)
 {
     static_cast<render::FlexibleParticleManager*>(manager)->destroy_group(group);
@@ -234,7 +234,7 @@ bool cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script*
 {
     uint32_t group = 0;
     params->read_hash_value(kGroupId, &group, 1);
-    if (void* manager = particle_hub_handle())
+    if (void* manager = render::flexible_particle_manager())
         destroy_particle_group(manager, group);
     for (objects::ObjectModule* component = objects::object_hub_slot()->find_first_module_of_kind(kParticle); component;
          component = component->next_of_type_) {

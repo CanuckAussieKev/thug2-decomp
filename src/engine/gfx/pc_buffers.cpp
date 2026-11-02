@@ -60,14 +60,14 @@ void MeshRef::move_into_arena(VertexArena* arena)
 void MeshRef::set_pixel_shader_colored()
 {
     const uint32_t bytes = material->pass_count_ << 4; // 16 a pass
-    auto& constants = g_ps_constant_bank;
+    auto& constants = ps_constant_bank();
     auto& saved = saved_pixel_shader_constants();
     std::memcpy(saved.data(), constants.data(), bytes);
     double r = 0.0, g = 0.0, b = 0.0;
-    if (g_instance_colour_on) {
-        r = core::at(g_instance_colour, 0) * static_cast<double>(1.0f / 128);
-        g = core::at(g_instance_colour, 1) * static_cast<double>(1.0f / 128);
-        b = core::at(g_instance_colour, 2) * static_cast<double>(1.0f / 128);
+    if (instance_colour_on()) {
+        r = core::at(instance_colour(), 0) * static_cast<double>(1.0f / 128);
+        g = core::at(instance_colour(), 1) * static_cast<double>(1.0f / 128);
+        b = core::at(instance_colour(), 2) * static_cast<double>(1.0f / 128);
     } else {
         r = static_cast<double>(core::at(color, 0)) + core::at(color, 0);
         g = static_cast<double>(core::at(color, 1)) + core::at(color, 1);
@@ -83,10 +83,10 @@ void MeshRef::set_pixel_shader_colored()
         c1 = static_cast<float>(g * c1);
         c2 = static_cast<float>(b * c2);
     }
-    g_pixel_shader_changed = 1; // (the constants changed)
+    set_pixel_shader_changed(1); // (the constants changed)
     set_pixel_shader_with_constants(pixel_shader_, material->pass_count_);
     std::memcpy(constants.data(), saved.data(), bytes);
-    g_pixel_shader_changed = 1;
+    set_pixel_shader_changed(1);
 }
 
 // 0x004D3CA0
@@ -128,7 +128,7 @@ void* pixel_shader_from_index(uint32_t index)
                                        kPixelShader920}};
     if (index > 0x12)
         return nullptr; // (NOT ORIGINAL: none - the original returned the index itself as the shader)
-    return core::at(kShaders, index) >= 0 ? core::at(g_pixel_shaders, core::at(kShaders, index)) : nullptr;
+    return core::at(kShaders, index) >= 0 ? core::at(pixel_shaders(), core::at(kShaders, index)) : nullptr;
 }
 
 } // namespace render

@@ -71,10 +71,9 @@ constexpr float kEffectScale = get_bits(0x38800000); // 0x006487C8, 1 / 16384
 constexpr float kMinusHalf = get_bits(0xBF000000);   // 0x0064642C
 
 // The 640x480 -> back buffer conversion (set up by init_direct_3d).
-float horiz_screen_ratio() { return g_display_factor_x; }
-float vert_screen_ratio() { return g_display_factor_y; }
-int screen_offset_x() { return g_screen_offset_x; }
-int screen_offset_y() { return g_screen_offset_y; }
+
+
+
 
 // How many vertices the text vertex store holds (the original's buffer pointer, open_sketch's 0x00779FD8, always
 // pointed at the store's start).
@@ -195,8 +194,8 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
 // 0x004CFB20
 void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
 {
-    const double scale_x = horiz_screen_ratio();
-    const double scale_y = vert_screen_ratio();
+    const double scale_x = display_factor_x();
+    const double scale_y = display_factor_y();
     auto spacing = static_cast<float>(font->glyph_gap_ * static_cast<double>(xscale));
     if (c == ' ') {
         *pen_x = static_cast<float>((font->blank_gap_ * static_cast<double>(xscale) + spacing) * scale_x + *pen_x);
@@ -225,8 +224,8 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
 // 0x004CFD00
 void GlyphRun::draw()
 {
-    const double scale_x = horiz_screen_ratio();
-    const double scale_y = vert_screen_ratio();
+    const double scale_x = display_factor_x();
+    const double scale_y = display_factor_y();
     const double offset_x = screen_offset_x();
     const double offset_y = screen_offset_y();
     // Screen positions (x87: each sum rounded to float once, when stored).
@@ -407,7 +406,7 @@ namespace {
 
 void set_texture_stage_state(int stage, int type, int value)
 {
-    g_d3d_device->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+    d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
 
@@ -472,11 +471,11 @@ void GlyphRun::close_sketch()
     set_texture_stage_state(1, 1, 1);      // stage 1 off
     set_vertex_format(0x144);              // position (pre-transformed), colour, one texture coordinate
     set_texture(0, texture_font->texture); // (the original also passes unknown17c_, which SetTexture doesn't take)
-    g_d3d_device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-    if (!g_suppress_draw) {                                                      // (rendering not skipped)
-        ++g_draw_calls;                                                          // draw calls
-        g_drawn_triangles += count / 2;                                          // "triangles"
-        g_d3d_device->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, count, count / 2, quad_indices().data(), D3DFMT_INDEX16,
+    d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+    if (!suppress_draw()) {                                                      // (rendering not skipped)
+        ++draw_calls();                                                          // draw calls
+        drawn_triangles() += count / 2;                                          // "triangles"
+        d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, count, count / 2, quad_indices().data(), D3DFMT_INDEX16,
                                              vertex_store().data(), sizeof(TextVertex));
     }
     set_texture_stage_state(0, 1, 4); // colour and alpha back to texture x diffuse
@@ -586,7 +585,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
         hd_ui::note_font(name, hd_scale, width, height);
     IDirect3DTexture9* texture = nullptr;
     const HRESULT created =
-        g_d3d_device->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
+        d3d_device()->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
     font->texture = texture;
     if (created != D3D_OK)
         return nullptr;

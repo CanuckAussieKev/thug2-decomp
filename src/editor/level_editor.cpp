@@ -2248,12 +2248,12 @@ int arrow_at(const TickCycle& frame, float x, float y)
 uint32_t get_stage_state(int type)
 {
     DWORD value = 0;
-    render::g_d3d_device->GetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), &value);
+    render::d3d_device()->GetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), &value);
     return value;
 }
 void set_stage_state(int type, uint32_t value)
 {
-    render::g_d3d_device->SetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), value);
+    render::d3d_device()->SetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), value);
 }
 
 struct LineVertex {
@@ -6612,7 +6612,7 @@ void tick_frame()
 
 void blit()
 {
-    if (!level_editor_state().active_ || !level_editor_state().have_view_ || !render::g_d3d_device)
+    if (!level_editor_state().active_ || !level_editor_state().have_view_ || !render::d3d_device())
         return;
     const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, level_editor_state().pitch_);
     // What's hovered and selected shows tinted (update_highlights); boxes only for what couldn't be (yellow hovered,
@@ -6750,7 +6750,7 @@ void blit()
         core::at(saved, i) = get_stage_state(core::at(states, i));
         set_stage_state(core::at(states, i), core::at(values, i));
     }
-    render::g_d3d_device->DrawPrimitiveUP(D3DPT_LINELIST, static_cast<unsigned int>(count / 2), line_data,
+    render::d3d_device()->DrawPrimitiveUP(D3DPT_LINELIST, static_cast<unsigned int>(count / 2), line_data,
                                           sizeof(LineVertex));
     for (int i = 0; i < 4; ++i)
         set_stage_state(core::at(states, i), core::at(saved, i));

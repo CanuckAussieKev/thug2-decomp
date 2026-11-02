@@ -533,7 +533,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
         return;
     if (update_brightness_)
         update_ground_brightness(false);
-    auto dt = static_cast<float>(static_cast<double>(g_frame_time_scale) * time);
+    auto dt = static_cast<float>(static_cast<double>(frame_time_scale()) * time);
     for (int i = 0; i < particle_count_; ++i) {
         FlexibleParticle& p = core::at(particle_list_, i);
         p.age = static_cast<float>(static_cast<double>(time) + p.age);

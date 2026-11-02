@@ -215,7 +215,7 @@ void set_up_cutscene_heaps()
 {
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
-    render::g_flexible_particle_manager->create_temp_heap(0x25800);
+    render::flexible_particle_manager()->create_temp_heap(0x25800);
     const uint32_t available = memory::Hub::get_pull()->obtainable();
     memory::Hub::get_pull()->init_cutscene_heaps(available - 0x32000);
     memory::Hub::get_pull()->leave_heap_scope();

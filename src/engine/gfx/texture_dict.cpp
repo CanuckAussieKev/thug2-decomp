@@ -44,9 +44,25 @@ TextureDictState& texture_dict_state()
 
 } // namespace
 
-// The game's texture dictionaries: the textures every level shares, and the particles'.
-TextureSet* g_game_texture_dict;
-TextureSet* g_particle_texture_dict;
+namespace {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed (texture_dicts()).
+struct TextureDicts {
+    // The game's texture dictionaries: the textures every level shares, and the particles'.
+    TextureSet* game_texture_dict_{};
+    TextureSet* particle_texture_dict_{};
+};
+
+TextureDicts& texture_dicts()
+{
+    static core::NoDestroy<TextureDicts> state;
+    return state.get();
+}
+
+} // namespace
+
+TextureSet* game_texture_dict() { return texture_dicts().game_texture_dict_; }
+TextureSet* particle_texture_dict() { return texture_dicts().particle_texture_dict_; }
 
 namespace {
 
@@ -353,7 +369,7 @@ void tex_dict_file_name(char* out, const char* name)
 }
 
 // 0x0049EFB0
-void drop_particle_textures(bool all) { g_particle_texture_dict->drop_textures(all); }
+void drop_particle_textures(bool all) { texture_dicts().particle_texture_dict_->drop_textures(all); }
 
 } // namespace render
 
@@ -388,8 +404,8 @@ TextureSet* shared_tex_dict(const char* name)
 void construct_loaded_tex_dicts() { new (&texture_dict_state().loaded_tex_dicts_) lists::KeyMap(4); }
 
 // 0x00640C10, 0x00640C60 (static initialisers): the dictionaries of the sprites and the particles.
-void set_up_game_texture_dict() { g_game_texture_dict = shared_tex_dict("sprite"); }
-void set_up_particle_texture_dict() { g_particle_texture_dict = shared_tex_dict("particle"); }
+void set_up_game_texture_dict() { texture_dicts().game_texture_dict_ = shared_tex_dict("sprite"); }
+void set_up_particle_texture_dict() { texture_dicts().particle_texture_dict_ = shared_tex_dict("particle"); }
 
 // 0x00640CB0 (a static initialiser)
 void construct_spare_tex_dict_table() { new (&spare_tex_dict_table()) lists::KeyMap(1); }

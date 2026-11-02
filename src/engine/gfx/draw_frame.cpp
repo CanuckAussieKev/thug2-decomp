@@ -52,27 +52,64 @@
 #include "engine/core/checked_index.h"
 #include "platform/d3d_matrix.h"
 #include "engine/gfx/shared_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
-DeviceViewport g_device_viewport;
-RenderCamera g_camera;
-ViewShape g_view_shape;
+namespace {
 
-bool g_radeon8500;
-int g_frames_rendered;
-maths::Mat4 g_world_matrix;
-maths::Mat4 g_view_matrix;
-maths::Mat4 g_projection_matrix;
-maths::Mat4 g_heading_matrix;
-int g_step_seconds;
-int g_screen_copy_index;
-int g_back_buffer_width;
-int g_back_buffer_height;
-uint32_t g_draw_calls;
-uint32_t g_drawn_triangles;
-float g_fog_begin_distance;
-float g_fog_end;
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed (frame_render()).
+struct FrameRender {
+    DeviceViewport device_viewport_{};
+    RenderCamera camera_{};
+    ViewShape view_shape_{};
+    bool radeon8500_{};
+    int frames_rendered_{};
+    maths::Mat4 world_matrix_{};
+    maths::Mat4 view_matrix_{};
+    maths::Mat4 projection_matrix_{};
+    maths::Mat4 heading_matrix_{};
+    int step_seconds_{};
+    int screen_copy_index_{};
+    int back_buffer_width_{};
+    int back_buffer_height_{};
+    uint32_t draw_calls_{};
+    uint32_t drawn_triangles_{};
+    float fog_begin_distance_{};
+    float fog_end_{};
+};
+
+FrameRender& frame_render()
+{
+    static core::NoDestroy<FrameRender> state;
+    return state.get();
+}
+
+} // namespace
+
+DeviceViewport& device_viewport() { return frame_render().device_viewport_; }
+RenderCamera& render_camera() { return frame_render().camera_; }
+ViewShape& view_shape() { return frame_render().view_shape_; }
+bool radeon8500() { return frame_render().radeon8500_; }
+void set_radeon8500(bool value) { frame_render().radeon8500_ = value; }
+int frames_rendered() { return frame_render().frames_rendered_; }
+maths::Mat4& world_matrix() { return frame_render().world_matrix_; }
+maths::Mat4& view_matrix() { return frame_render().view_matrix_; }
+maths::Mat4& projection_matrix() { return frame_render().projection_matrix_; }
+maths::Mat4& heading_matrix() { return frame_render().heading_matrix_; }
+int step_seconds() { return frame_render().step_seconds_; }
+int screen_copy_index() { return frame_render().screen_copy_index_; }
+void set_screen_copy_index(int value) { frame_render().screen_copy_index_ = value; }
+int back_buffer_width() { return frame_render().back_buffer_width_; }
+void set_back_buffer_width(int value) { frame_render().back_buffer_width_ = value; }
+int back_buffer_height() { return frame_render().back_buffer_height_; }
+void set_back_buffer_height(int value) { frame_render().back_buffer_height_ = value; }
+uint32_t& draw_calls() { return frame_render().draw_calls_; }
+uint32_t& drawn_triangles() { return frame_render().drawn_triangles_; }
+float fog_begin_distance() { return frame_render().fog_begin_distance_; }
+void set_fog_begin_distance(float value) { frame_render().fog_begin_distance_ = value; }
+float fog_end() { return frame_render().fog_end_; }
+void set_fog_end(float value) { frame_render().fog_end_ = value; }
 
 namespace {
 
@@ -85,37 +122,36 @@ void change_fog(bool on) { engine::enable_fog(on); }
 
 // --- the D3D9 device (0x007D69E0) and its objects, through their vtables ----------------------------------------
 
-void* input_port() { return g_d3d_device; }
 
 void set_transform(int type, const maths::Mat4* m)
 {
     static_assert(sizeof(maths::Mat4) == sizeof(D3DMATRIX));
-    g_d3d_device->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), d3d::matrix((m)->data()));
+    d3d_device()->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), d3d::matrix((m)->data()));
 }
-void set_render_target(void* surface) { g_d3d_device->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)); }
+void set_render_target(void* surface) { d3d_device()->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)); }
 void set_depth_stencil_surface(void* surface)
 {
-    g_d3d_device->SetDepthStencilSurface(static_cast<IDirect3DSurface9*>(surface));
+    d3d_device()->SetDepthStencilSurface(static_cast<IDirect3DSurface9*>(surface));
 }
 void set_texture_stage_state(int stage, int type, int value)
 {
-    g_d3d_device->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+    d3d_device()->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
 uint32_t get_sampler_state(int sampler, int type)
 {
     DWORD value = 0;
-    g_d3d_device->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &value);
+    d3d_device()->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &value);
     return value;
 }
 void set_sampler_state(int sampler, int type, uint32_t value)
 {
-    g_d3d_device->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
+    d3d_device()->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
 }
-void clear_target(uint32_t color) { g_d3d_device->Clear(0, nullptr, D3DCLEAR_TARGET, color, 1.0f, 0); }
+void clear_target(uint32_t color) { d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, color, 1.0f, 0); }
 void draw_primitive_up(int type, unsigned int count, const void* vertices, unsigned int stride)
 {
-    g_d3d_device->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
+    d3d_device()->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
 }
 
 // --- D3DX (linked library code; stdcall) ----------------------------------------------------------------------
@@ -147,18 +183,20 @@ constexpr float float_from_bits(uint32_t bits) { return std::bit_cast<float>(bit
 
 void set_display_region()
 {
+    auto& frame = frame_render();
     // the 640x480 layout's size on the back buffer (set_letterbox), centred
-    auto width = static_cast<uint32_t>(g_display_factor_x * 640.0f);
-    auto height = static_cast<uint32_t>(g_display_factor_y * 480.0f);
+    auto width = static_cast<uint32_t>(display_factor_x() * 640.0f);
+    auto height = static_cast<uint32_t>(display_factor_y() * 480.0f);
     // (the device viewport, 0x00786C90: x, y, width, height)
-    g_device_viewport.x = (static_cast<uint32_t>(g_back_buffer_width) - width) / 2;
-    g_device_viewport.width = width;
-    g_device_viewport.y = (static_cast<uint32_t>(g_back_buffer_height) - height) / 2;
-    g_device_viewport.height = height;
+    frame.device_viewport_.x = (static_cast<uint32_t>(frame.back_buffer_width_) - width) / 2;
+    frame.device_viewport_.width = width;
+    frame.device_viewport_.y = (static_cast<uint32_t>(frame.back_buffer_height_) - height) / 2;
+    frame.device_viewport_.height = height;
 }
 
 void draw_2d_with_black_bars()
 {
+    auto& frame = frame_render();
     struct BarVertex {
         float x, y, z, w;
         uint32_t color;
@@ -169,13 +207,13 @@ void draw_2d_with_black_bars()
     if (get_front_end_widescreen())
         return;
 
-    const auto back_buffer_width = static_cast<uint32_t>(g_back_buffer_width);
-    const auto back_buffer_height = static_cast<uint32_t>(g_back_buffer_height);
+    const auto back_buffer_width = static_cast<uint32_t>(frame.back_buffer_width_);
+    const auto back_buffer_height = static_cast<uint32_t>(frame.back_buffer_height_);
     const float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
     constexpr uint32_t kBlack = 0xFF000000;
     if (back_buffer_aspect > desired_aspect_ratio()) {
         // bars left and right
-        auto width = static_cast<uint32_t>(std::round(static_cast<double>(g_display_factor_x * 640.0f)));
+        auto width = static_cast<uint32_t>(std::round(static_cast<double>(display_factor_x() * 640.0f)));
         const uint32_t bar_width = (back_buffer_width - width) / 2;
         set_texture(0, nullptr);
         std::array<BarVertex, 4> bar = {{
@@ -191,7 +229,7 @@ void draw_2d_with_black_bars()
         draw_primitive_up(6, 2, bar.data(), sizeof(BarVertex));
     } else if (back_buffer_aspect < desired_aspect_ratio()) {
         // bars top and bottom
-        auto height = static_cast<uint32_t>(std::round(static_cast<double>(g_display_factor_y * 480.0f)));
+        auto height = static_cast<uint32_t>(std::round(static_cast<double>(display_factor_y() * 480.0f)));
         const uint32_t bar_height = (back_buffer_height - height) / 2;
         set_texture(0, nullptr);
         std::array<BarVertex, 4> bar = {{
@@ -222,10 +260,11 @@ float& stored_near_z()
 void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, float angle, float aspect, float zoom,
                    bool infinite)
 {
-    auto& camera = g_camera;
-    auto& world = g_world_matrix;
-    auto& view = g_view_matrix;
-    auto& projection = g_projection_matrix;
+    auto& frame = frame_render();
+    auto& camera = frame.camera_;
+    auto& world = frame.world_matrix_;
+    auto& view = frame.view_matrix_;
+    auto& projection = frame.projection_matrix_;
 
     core::at(camera.position, 0) = position->x;
     core::at(camera.position, 1) = position->y;
@@ -247,9 +286,9 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     // Skatopia). The original: camera.farZ = 32000.0f;
     camera.far_z_ = 96000.0f;
     camera.angle = angle;
-    if (g_distance_clipping) // distance clipping (setting 0x007D6444: 100-595)
+    if (distance_clipping()) // distance clipping (setting 0x007D6444: 100-595)
         camera.far_z_ =
-            static_cast<float>(static_cast<double>(static_cast<uint32_t>(gfx::g_draw_distance_setting)) * 18.0);
+            static_cast<float>(static_cast<double>(static_cast<uint32_t>(gfx::draw_distance_setting())) * 18.0);
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h): the far plane (and with it the
     // distance clipping's cull distance, 0x00786CAC) further out.
     camera.far_z_ = graphics_options::get_scaled(camera.far_z_, graphics_options::get_pull().draw_distance_scale_);
@@ -275,7 +314,7 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     set_transform(2, &view);      // D3DTS_VIEW
     set_transform(3, &projection);
 
-    auto& shape = g_view_shape;
+    auto& shape = frame.view_shape_;
     shape.tan_x_ = std::tan(static_cast<float>(half_angle));
     shape.tan_y_ = -(height_factor * shape.tan_x_);
     const double tan_x2 = static_cast<double>(shape.tan_x_) * shape.tan_x_;
@@ -286,9 +325,9 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     shape.cos_y_ = static_cast<float>(1.0 / std::sqrt(tan_y2 + 1.0));
 
     // The camera's heading: a rotation about the vertical axis (0x00786C50).
-    matrix_rotation_y(&g_heading_matrix, atan2_less_quarter_turn(-core::at(camera.backward, 2), -core::at(camera.backward, 0)));
+    matrix_rotation_y(&frame.heading_matrix_, atan2_less_quarter_turn(-core::at(camera.backward, 2), -core::at(camera.backward, 0)));
     // The view frustum (0x00775B80) follows the new view.
-    g_billboard_pool.setup_axes();
+    billboard_pool().setup_axes();
 }
 
 namespace {
@@ -331,9 +370,9 @@ void draw_screen_blur()
     set_render_state(0x11, 1);
 
     // Two textures take turns: the one just drawn into (the last frame's blur) and the other.
-    const int current = g_screen_copy_index;
-    IDirect3DTexture9* texture = core::at(g_screen_textures, current);
-    IDirect3DTexture9* other = core::at(g_screen_textures, (current + 1) % 2);
+    const int current = frame_render().screen_copy_index_;
+    IDirect3DTexture9* texture = core::at(screen_textures(), current);
+    IDirect3DTexture9* other = core::at(screen_textures(), (current + 1) % 2);
     D3DSURFACE_DESC desc;
     texture->GetLevelDesc(0, &desc);
     const uint32_t texels_wide = desc.Width;
@@ -344,8 +383,8 @@ void draw_screen_blur()
     auto inset = static_cast<float>((1.0 - static_cast<double>(amount) * (1.0f / 255)) * 0.5);
     const double inset_u = inset / static_cast<double>(texels_wide); // (the u's are rounded from this, unrounded)
     auto inset_v = static_cast<float>(inset / static_cast<double>(texels_high));
-    auto screen_width = static_cast<float>(g_present_parameters.BackBufferWidth);
-    auto screen_height = static_cast<float>(g_present_parameters.BackBufferHeight);
+    auto screen_width = static_cast<float>(present_parameters().BackBufferWidth);
+    auto screen_height = static_cast<float>(present_parameters().BackBufferHeight);
     uint32_t color = 0x80808080;
     std::array<ScreenVertex, 4> quad = {{
         {.x = 0, .y = 0, .z = 0, .w = 1, .color = color, .u = static_cast<float>(inset_u), .v = inset_v},
@@ -355,7 +394,7 @@ void draw_screen_blur()
     }};
     // Originally from PartyMod Fixes (its JMP at 0x004DF63A): no letterbox adjustment - PartyMod's letterbox is a viewport. The
     // original, when letterboxed (0x00786CBE), moved the quad in by an eighth of the back buffer's height:
-    //   float bar = static_cast<float>(g_back_buffer_height / 8);
+    //   float bar = static_cast<float>(frame_render().back_buffer_height_ / 8);
     //   quad[0].y = quad[1].y = bar;
     //   quad[0].v = quad[1].v = inset_v + bar;   (sic: a pixel count added to a texture coordinate)
     //   quad[2].y -= bar; quad[3].y -= bar; quad[2].v -= bar; quad[3].v -= bar;
@@ -374,7 +413,7 @@ void draw_screen_blur()
     // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
     if (!graphics_options::set_scene_target(texture)) {
         set_render_target(surface);
-        set_depth_stencil_surface(g_z_buffer_surface);
+        set_depth_stencil_surface(z_buffer_surface());
     }
     surface->Release();
     set_vertex_format(0x144);                                          // XYZRHW | DIFFUSE | TEX1
@@ -386,28 +425,28 @@ void draw_screen_blur()
         set_render_state(0x11, 1);
         set_texture(0, other);
         draw_primitive_up(5 /* triangle strip */, 2, quad.data(), sizeof(ScreenVertex));
-        ++g_draw_calls;         // draw calls
-        g_drawn_triangles += 2; // triangles
+        ++frame_render().draw_calls_;         // draw calls
+        frame_render().drawn_triangles_ += 2; // triangles
     }
     // ...then `texture` onto the back buffer, cleared first to the fog colour (with fog and distance clipping
     // on) or the background colour.
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the multisampled frame resolved into `texture`.
     graphics_options::resolve_scene_target(static_cast<IDirect3DTexture9*>(texture));
-    set_render_target(g_back_buffer);
-    set_depth_stencil_surface(g_back_depth);
-    const bool fog_colour = g_fog_setting && g_distance_clipping;
-    clear_target(fog_colour ? g_fog_colour : g_camera.background_colour_);
+    set_render_target(back_buffer());
+    set_depth_stencil_surface(back_depth());
+    const bool fogged = fog_setting() && distance_clipping();
+    clear_target(fogged ? fog_colour() : frame_render().camera_.background_colour_);
     set_render_state(0x11, 0);
     set_texture(0, texture);
     draw_primitive_up(5, 2, quad.data(), sizeof(ScreenVertex));
     set_render_state(0x11, 1);
-    ++g_draw_calls;
-    g_drawn_triangles += 2;
+    ++frame_render().draw_calls_;
+    frame_render().drawn_triangles_ += 2;
     for (int i = 0; i < 4; ++i) {
         set_sampler_state(i, 6, core::at(min_filter, i));
         set_sampler_state(i, 5, core::at(mag_filter, i));
     }
-    g_screen_copy_index = (g_screen_copy_index + 1) % 2;
+    frame_render().screen_copy_index_ = (frame_render().screen_copy_index_ + 1) % 2;
     change_fog(true);
 }
 
@@ -423,7 +462,7 @@ bool is_end(const SceneNode* node) { return node->is_head(); }
 template <typename F>
 void for_each_scene(F fn)
 {
-    auto* node = (g_scene_list.next);
+    auto* node = (scene_list().next);
     if (is_end(node) || !node) // (sic: the original reads the node before testing it)
         return;
     while (node) {
@@ -433,23 +472,23 @@ void for_each_scene(F fn)
     }
 }
 
-DeviceViewport& the_viewport() { return g_device_viewport; }
 void set_viewport()
 {
-    const DeviceViewport& vp = the_viewport();
+    const DeviceViewport& vp = frame_render().device_viewport_;
     const D3DVIEWPORT9 viewport = {.X = vp.x, .Y = vp.y, .Width = vp.width, .Height = vp.height, .MinZ = vp.min_z_, .MaxZ = vp.max_z_};
-    g_d3d_device->SetViewport(&viewport);
+    d3d_device()->SetViewport(&viewport);
 }
 // The device's render state directly (not the renderer's cached one).
 void set_device_render_state(int state, uint32_t value)
 {
-    g_d3d_device->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
+    d3d_device()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
 }
 
 void full_screen_viewport()
 {
-    the_viewport() = {
-        .x = 0,    .y = 0,   .width = static_cast<uint32_t>(g_back_buffer_width), .height = static_cast<uint32_t>(g_back_buffer_height),
+    auto& frame = frame_render();
+    frame.device_viewport_ = {
+        .x = 0,    .y = 0,   .width = static_cast<uint32_t>(frame.back_buffer_width_), .height = static_cast<uint32_t>(frame.back_buffer_height_),
         .min_z_ = 0.0f, .max_z_ = 1.0f};
 }
 
@@ -479,20 +518,20 @@ void draw_viewport(int index)
     // Not original - the automation channel's camera lock (frontend/test_view.h): viewport 0's camera held at a pose.
     // Original behaviour: the camera is drawn where the game put it.
     frontend::test_view::place_camera(static_cast<gfx::ViewCam*>(camera), index);
-    g_drawn_viewport = index; // the viewport being drawn
-    const double width = g_back_buffer_width;
-    const double height = static_cast<float>(g_back_buffer_height);
-    DeviceViewport& vp = the_viewport();
+    set_drawn_viewport(index); // the viewport being drawn
+    const double width = frame_render().back_buffer_width_;
+    const double height = static_cast<float>(frame_render().back_buffer_height_);
+    DeviceViewport& vp = frame_render().device_viewport_;
     vp.x = static_cast<int>(width * view->pos_x_);
     vp.y = static_cast<int>(height * view->y_);
     vp.width = static_cast<int>(width * view->span_);
     vp.height = static_cast<int>(height * view->level_y_);
     vp.min_z_ = 0.0f;
     vp.max_z_ = 1.0f;
-    if (g_camera.letterbox_active_ && !get_front_end_widescreen()) {
+    if (frame_render().camera_.letterbox_active_ && !get_front_end_widescreen()) {
         // Originally from PartyMod Fixes (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
         // viewport to 3/4 of the screen's height:
-        //   int screen_height = g_back_buffer_height;
+        //   int screen_height = frame_render().back_buffer_height_;
         //   vp.y += screen_height / 8;
         //   vp.height -= screen_height / 4;
         // (widescreen_menus: in the front end the 3D view keeps the whole screen; the 2D below stays fitted.)
@@ -541,7 +580,7 @@ void draw_viewport(int index)
     draw_texture_splats();
     draw_projection_batches();
     set_render_state(1, 1);
-    static_cast<ImposterManager*>(g_imposter_manager.get())->render();
+    static_cast<ImposterManager*>(imposter_manager())->render();
     set_pass(1);
     clear_world_transform();
 
@@ -552,15 +591,15 @@ void draw_viewport(int index)
         stored_near_z() = 2.0f;
         choose_camera(cam_orientation(camera), &origin, angle, aspect, 1.0f, true);
     }
-    float& fog_start = g_fog_begin_distance;
-    float& fog_end = g_fog_end;
+    float& fog_start = frame_render().fog_begin_distance_;
+    float& fog_end = frame_render().fog_end_;
     const float saved_fog_end = fog_end;
     const float saved_fog_start = fog_start;
     fog_start = 20.0f;
     fog_end = 21.0f;
-    set_device_render_state(0x24, std::bit_cast<uint32_t>(g_fog_begin_distance)); // D3DRS_FOGSTART
-    set_device_render_state(0x25, std::bit_cast<uint32_t>(g_fog_end));            // D3DRS_FOGEND
-    const bool fog = g_fog_active != 0;
+    set_device_render_state(0x24, std::bit_cast<uint32_t>(frame_render().fog_begin_distance_)); // D3DRS_FOGSTART
+    set_device_render_state(0x25, std::bit_cast<uint32_t>(frame_render().fog_end_));            // D3DRS_FOGEND
+    const bool fog = fog_active() != 0;
     change_fog(false);
     set_render_state(1, 0);
     set_render_state(2, 1);
@@ -568,7 +607,7 @@ void draw_viewport(int index)
         if (!scene->is_sky_)
             return;
         // (with distance clipping and fog both on, there's no sky)
-        if (g_distance_clipping && g_fog_setting)
+        if (distance_clipping() && fog_setting())
             return;
         const uint32_t min_filter = get_sampler_state(0, 6);
         const uint32_t mip_filter = get_sampler_state(0, 7);
@@ -580,14 +619,14 @@ void draw_viewport(int index)
     });
     set_render_state(1, 1);
     set_render_state(1, 0);
-    if (g_radeon8500)
+    if (frame_render().radeon8500_)
         sun::render(static_cast<gfx::ViewCam*>(camera));
     set_render_state(1, 1);
     set_render_state(2, 1);
     fog_start = saved_fog_start;
     fog_end = saved_fog_end;
-    set_device_render_state(0x24, std::bit_cast<uint32_t>(g_fog_begin_distance));
-    set_device_render_state(0x25, std::bit_cast<uint32_t>(g_fog_end));
+    set_device_render_state(0x24, std::bit_cast<uint32_t>(frame_render().fog_begin_distance_));
+    set_device_render_state(0x25, std::bit_cast<uint32_t>(frame_render().fog_end_));
     change_fog(fog);
 
     // The world again, for the later passes.
@@ -608,13 +647,13 @@ void draw_viewport(int index)
     set_pass(0x102);
     issue_occlusion_queries();
     set_render_state(1, 0);
-    static_cast<FlexibleParticleManager*>(g_flexible_particle_manager.get())->render_systems(index > 0);
+    static_cast<FlexibleParticleManager*>(flexible_particle_manager())->render_systems(index > 0);
     objects::particle_hub()->draw_particles();
-    g_weather->render(); // (through the jump 0x004A10A0)
+    weather()->render(); // (through the jump 0x004A10A0)
     set_render_state(1, 1);
     engine::draw_shatters();
     set_render_state(1, 0);
-    if (!g_radeon8500)
+    if (!frame_render().radeon8500_)
         sun::render(static_cast<gfx::ViewCam*>(camera));
     set_render_state(1, 1);
     set_render_state(2, 1);
@@ -634,9 +673,9 @@ void draw_world()
     // while the game is paused.
     // Original behaviour: nothing.
     frontend::level_editor::tick_frame();
-    ++g_frames_rendered;        // frames rendered
-    if (!g_loading_screen_up) { // (nothing while the device is lost)
-        g_step_seconds = static_cast<int>(frame_clock::get_time());
+    ++frame_render().frames_rendered_;        // frames rendered
+    if (!loading_screen_up()) { // (nothing while the device is lost)
+        frame_render().step_seconds_ = static_cast<int>(frame_clock::get_time());
         set_render_state(1, 1);
         set_render_state(2, 1);
         render_shadow_textures();
@@ -653,17 +692,17 @@ void draw_world()
 
         // Full-screen effects and the 2D on top.
         full_screen_viewport();
-        if (g_camera.letterbox_active_) {
+        if (frame_render().camera_.letterbox_active_) {
             // Originally from PartyMod Fixes (its call at 0x004B33CA): fitted to the aspect wanted. The original:
-            //   int screen_height = g_back_buffer_height;
-            //   the_viewport().y = screen_height / 8;
-            //   the_viewport().height = screen_height - screen_height / 4;
+            //   int screen_height = frame_render().back_buffer_height_;
+            //   frame_render().device_viewport_.y = screen_height / 8;
+            //   frame_render().device_viewport_.height = screen_height - screen_height / 4;
             set_display_region();
         }
         set_viewport();
         copy_screen_quarter();
         draw_screen_blur();
-        const bool fog = g_fog_active != 0;
+        const bool fog = fog_active() != 0;
         change_fog(false);
         // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.

@@ -47,9 +47,27 @@
 
 namespace gfx {
 
-std::span<Stance> g_blend_buffer;
-std::span<float> g_blend_weights;
-std::span<uint32_t> g_blend_sets;
+namespace {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed (blend_scratch()).
+struct BlendScratch {
+    std::span<Stance> blend_buffer_{};
+    std::span<float> blend_weights_{};
+    std::span<uint32_t> blend_sets_{};
+};
+
+BlendScratch& blend_scratch()
+{
+    static core::NoDestroy<BlendScratch> state;
+    return state.get();
+}
+
+} // namespace
+
+std::span<Stance>& blend_buffer() { return blend_scratch().blend_buffer_; }
+std::span<float>& blend_weights() { return blend_scratch().blend_weights_; }
+std::span<uint32_t>& blend_sets() { return blend_scratch().blend_sets_; }
+
 namespace {
 
 using script::Struct;
@@ -104,13 +122,13 @@ uint8_t& last_wobble_details() { return anim_channel_state().last_wobble_details
 int8_t& last_loop_type() { return anim_channel_state().last_loop_type_; }
 
 // The blend buffers (init_buffers).
-std::span<uint32_t>& blend_sets() { return g_blend_sets; }
-std::span<float>& blend_weights() { return g_blend_weights; }
-std::span<Stance>& blend_buffer() { return g_blend_buffer; }
+
+
+
 std::span<Stance>& current_poses() { return anim_channel_state().poses_; }
 int& max_blends() { return anim_channel_state().max_blends_; }
 int& get_subsets() { return anim_channel_state().subsets_; }
-bool omit_from_draw() { return render::g_suppress_draw; }
+
 
 
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
@@ -406,7 +424,7 @@ void BlendChannel::push_timeline(float period)
 // 0x0047ED60
 bool BlendChannel::blend_pose(int index)
 {
-    if (omit_from_draw() || !lookup_key_)
+    if (render::suppress_draw() || !lookup_key_)
         return false;
     Rig* skeleton = skeleton_of(bone_rig_);
     if (!skeleton)
@@ -738,10 +756,10 @@ void BlendChannel::init_buffers(int blends, int subsets)
         auto* block = static_cast<Word*>(memory::alloc(static_cast<uint32_t>(count) * 4));
         return std::span<Word>(block, block ? static_cast<size_t>(count) : 0);
     };
-    blend_buffer() = new_poses(get_subsets());
+    blend_scratch().blend_buffer_ = new_poses(get_subsets());
     current_poses() = new_poses(max_blends());
-    blend_sets() = new_words.operator()<uint32_t>(max_blends());
-    blend_weights() = new_words.operator()<float>(max_blends());
+    blend_scratch().blend_sets_ = new_words.operator()<uint32_t>(max_blends());
+    blend_scratch().blend_weights_ = new_words.operator()<float>(max_blends());
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
