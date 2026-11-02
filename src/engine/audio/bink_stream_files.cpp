@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <gsl/pointers>
 
 #include "engine/audio/stream_commands.h"
 
@@ -34,14 +35,14 @@ bool& stream_files_ready() { return g_stream_files_ready; }
 uint32_t& stream_file_uses() { return g_stream_file_uses; }
 
 // The game's C runtime (its heap and files; until the runtime is linked).
-FILE* crt_fopen(const char* path, const char* mode) { return crt::get_fopen(path, mode); }
+gsl::owner<FILE*> crt_fopen(const char* path, const char* mode) { return crt::get_fopen(path, mode); }
 int crt_fseek(FILE* file, long offset, int origin) { return crt::get_fseek(file, offset, origin); }
 size_t crt_fread(void* buffer, size_t size, size_t count, FILE* file)
 {
     return crt::get_fread(buffer, size, count, file);
 }
 int crt_fclose(FILE* file) { return crt::get_fclose(file); }
-void* get_crt_malloc(size_t size) { return crt::alloc_block(size); }
+gsl::owner<void*> get_crt_malloc(size_t size) { return crt::alloc_block(size); }
 void get_crt_free(void* block) { crt::dealloc(block); }
 
 constexpr uint32_t kBinkFromMemory = 0x04000000;

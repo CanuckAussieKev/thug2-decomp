@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <gsl/pointers>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -103,7 +104,7 @@ void push_internet_bottom_up_heap()
 void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 
 // The game's C runtime (the queue's copies are freed by the original's code too).
-void* game_malloc(size_t size) { return crt::alloc_block(size); }
+gsl::owner<void*> game_malloc(size_t size) { return crt::alloc_block(size); }
 void game_free(void* memory) { crt::dealloc(memory); }
 
 // The queue emptied (its copies freed).

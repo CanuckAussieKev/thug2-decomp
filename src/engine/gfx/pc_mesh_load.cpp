@@ -12,6 +12,7 @@
 #include <vector>
 #include <utility>
 #include <array>
+#include <gsl/pointers>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -43,7 +44,7 @@ std::array<uint32_t, 6> g_vertex_shaders;
 
 namespace {
 
-void* alloc_block(size_t size) { return crt::alloc_block(size); } // the game's C runtime
+gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); } // the game's C runtime
 
 // A vertex's bone-scaled position record (0x84 bytes): 12 bytes unused, the three bones' weights, then each bone's
 // position (P, Q, R) and the vertex's offset from it (A, B, C), four floats each, and the three bones (-1: none).

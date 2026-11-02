@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <gsl/pointers>
 
 #include "engine/core/raw_view.h"
 #include "engine/gfx/device.h"
@@ -22,7 +23,7 @@ namespace {
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 // The game's C runtime heap (the nodes, copies and buffers are freed through it).
-void* alloc_block(size_t size) { return crt::alloc_block(size); }
+gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); }
 void dealloc(void* memory) { crt::dealloc(memory); }
 
 buffer_lists::Node* g_vertex_buffer_list = nullptr; // (the original's 0x007865E4)

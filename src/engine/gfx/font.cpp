@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <new>
 #include <array>
+#include <gsl/pointers>
 
 #include "engine/gfx/font.h"
 
@@ -37,7 +38,7 @@ bool& meta_button_map_loaded() { return g_meta_button_map_loaded; }
 // The loaded font named by this checksum, or null.
 Typeface* find_font(uint32_t checksum) { return get_font(checksum); }
 // Load a font file (fonts\<name>.fnt...).
-Typeface* load_font_file(const char* name) { return create_pc_font(name); }
+gsl::owner<Typeface*> load_font_file(const char* name) { return create_pc_font(name); }
 
 // render::Typeface's setters (the original reaches the font's virtual functions through shared tail jumps:
 // 0x004E3F90, 0x004A10A0, 0x00487D50).

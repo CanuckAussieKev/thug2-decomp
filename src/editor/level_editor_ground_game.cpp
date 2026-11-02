@@ -71,7 +71,7 @@ render::StaticCollider* static_of(render::WorldCell* sector)
 
 // The buffers as MeshRef::Replicate (sub_mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy and the card's) and
 // an index buffer (the C runtime's malloc 0x00624031, constructor 0x004D4270).
-render::VertexBuffer* new_vertex_buffer(uint32_t size) { return render::new_vertex_buffer(size, 0, 0); }
+gsl::owner<render::VertexBuffer*> new_vertex_buffer(uint32_t size) { return render::new_vertex_buffer(size, 0, 0); }
 void upload_vertices(render::VertexBuffer* buffer)
 {
     buffer->lock_offset_ = 0;

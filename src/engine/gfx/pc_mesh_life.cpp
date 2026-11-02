@@ -29,7 +29,7 @@ namespace {
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 // The game's C runtime heap (what the buffers' copies and nodes come from).
-void* alloc_block(size_t size) { return crt::alloc_block(size); }
+gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); }
 void dealloc(void* memory) { crt::dealloc(memory); }
 
 using BufferNode = buffer_lists::Node;

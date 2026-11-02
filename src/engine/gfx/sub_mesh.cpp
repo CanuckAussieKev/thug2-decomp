@@ -25,7 +25,7 @@ namespace render {
 namespace {
 
 // The vertex buffers (not rewritten yet): a new one of `size` bytes, and Unlock (thiscall).
-VertexBuffer* new_vertex_buffer(uint32_t size) { return render::new_vertex_buffer(size, 0, 0); }
+gsl::owner<VertexBuffer*> new_vertex_buffer(uint32_t size) { return render::new_vertex_buffer(size, 0, 0); }
 void get_unlock(VertexBuffer* buffer) { buffer->get_unlock(); }
 // The inlined lock: the whole buffer (flags 0x10: read only).
 uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
@@ -54,7 +54,7 @@ void upload_indices(IdxStore* buffer)
     std::memcpy(locked, buffer->indices, buffer->size);
     d3d->Unlock();
 }
-void* alloc_block(size_t size) { return crt::alloc_block(size); } // the game's C runtime
+gsl::owner<void*> alloc_block(size_t size) { return crt::alloc_block(size); } // the game's C runtime
 
 // 0x00402550's maths (maths::cross_vec as the original computes it: each component in double precision).
 maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)

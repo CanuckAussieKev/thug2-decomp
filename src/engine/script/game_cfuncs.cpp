@@ -606,10 +606,10 @@ bool fetch_place(script::Struct* structure, script::VectorValue* out)
 void* word54(void* object) { return static_cast<modules::Viewer*>(object)->get_viewer_entity(); }
 
 // The game's C runtime (library code, called through the game).
-void* game_fopen(const char* name, const char* mode) { return crt::get_fopen(name, mode); }
+gsl::owner<void*> game_fopen(const char* name, const char* mode) { return crt::get_fopen(name, mode); }
 int game_fseek(void* file, long offset, int origin) { return crt::get_fseek(static_cast<FILE*>(file), offset, origin); }
 long game_ftell(void* file) { return crt::get_ftell(static_cast<FILE*>(file)); }
-void* game_malloc(size_t size) { return crt::alloc_block(size); }
+gsl::owner<void*> game_malloc(size_t size) { return crt::alloc_block(size); }
 size_t game_fread(void* buffer, size_t size, size_t count, void* file)
 {
     return crt::get_fread(buffer, size, count, static_cast<FILE*>(file));
