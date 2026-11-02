@@ -6,6 +6,7 @@
 // loaded with the stream), its trigger object (hidden, killed), its arrow.
 
 #include <cstdint>
+#include <span>
 
 namespace script {
 class Struct;
@@ -26,7 +27,7 @@ public:
 
     // 0x0055EB70 (cdecl): the first word of `*name` (up to its first space, `*name` left there) into `out` - the
     // whole name if there's no space. (`size` isn't read.)
-    static void read_leading_name(char* out, const char** name, int size);
+    static void read_leading_name(std::span<char> out, const char* name);
     // 0x0055EBC0 (cdecl): with `add`, _success appended to `text` (sprintf onto itself, as the original). (`size`
     // isn't read.)
     static void add_success_suffix(bool add, char* text, int size);
@@ -39,7 +40,7 @@ public:
     // a pro or for an unknown difficulty level.
     bool get_voice_clip_key(uint32_t* out, int index, bool success, const char* suffix, bool no_cam_anim);
     // 0x0055F170: the player's first name into `out`. (`size` isn't read.)
-    void get_skater_given_name(char* out, int size);
+    void get_skater_given_name(std::span<char> out);
     // 0x0055F1B0: the last stream stopped (and its object's goal_play_stream scripts).
     void cut_previous_voice_line();
     // 0x0055F210: the goal's current stream (0xDC14D454) dropped and stopped.

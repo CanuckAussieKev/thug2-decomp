@@ -240,7 +240,7 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
         params->fetch_int_value(kTrickName, &premade, 1);
     const bool done = Objective::build_trick_texts(key_combos, key_texts.get(), trick_texts.get(), premade);
     if (done)
-        Objective::replace_trick_tokens(text, out, key_texts.get(), trick_texts.get(), size);
+        Objective::replace_trick_tokens(text, std::span<char>(out, static_cast<std::size_t>(size)), key_texts.get(), trick_texts.get());
     script::release_array_storage(key_texts.get());
     script::release_array_storage(trick_texts.get());
     key_texts.reset();

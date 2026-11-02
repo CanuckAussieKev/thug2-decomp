@@ -445,12 +445,12 @@ bool Objective::test_longest_jump()
     if (!skater || !object)
         return false;
     // The distance across the ground: the height's square added and taken away again, as the original.
-    const float* from = &core::down_cast<objects::GameEntity>(object)->at_point_.x;
+    const maths::Vec4& from = core::down_cast<objects::GameEntity>(object)->at_point_;
     const auto& to = skater->at_point_;
-    const double dx = static_cast<double>(from[0]) - to[0];
-    const double dy = static_cast<double>(from[1]) - to[1];
-    const double dz = static_cast<double>(from[2]) - to[2];
-    const double down = static_cast<double>(to[1]) - from[1];
+    const double dx = static_cast<double>(from.x) - to[0];
+    const double dy = static_cast<double>(from.y) - to[1];
+    const double dz = static_cast<double>(from.z) - to[2];
+    const double down = static_cast<double>(to[1]) - from.y;
     const double distance = std::sqrt(dz * dz + dx * dx + dy * dy - down * down);
     auto rounded = static_cast<float>(distance);
     const int feet = truncate(distance * g_goal_run_inches_to_feet); // (1/12)

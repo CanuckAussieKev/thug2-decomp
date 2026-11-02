@@ -226,7 +226,7 @@ bool Objective::swap_move_caption()
     text = nullptr;
     script::Array* lines = nullptr;
     if (args_->fetch_text(kOriginalGoalDescription, &text, 0)) {
-        replace_trick_tokens(text, buffer.data(), key_texts, trick_texts, kLabelPoints);
+        replace_trick_tokens(text, buffer, key_texts, trick_texts);
         // (the original adds the description as written, not the replaced text)
         args_->append_word(kGoalDescription, text);
     } else if (args_->fetch_list(kOriginalGoalDescription, &lines, 0)) {
@@ -234,14 +234,14 @@ bool Objective::swap_move_caption()
         const script::ArrayPtr replaced = script::make_array();
         replaced->configure_size_kind(size, script::kQbvalString);
         for (uint32_t i = 0; i < size; ++i) {
-            replace_trick_tokens(lines->find_inline_text(i), buffer.data(), key_texts, trick_texts, kLabelPoints);
+            replace_trick_tokens(lines->find_inline_text(i), buffer, key_texts, trick_texts);
             replaced->set_text(i, script::spawn_text(buffer.data()));
         }
         args_->append_array_value(kGoalDescription, replaced.get());
     }
     for (const Original& kept : kKept) {
         if (args_->fetch_text(kept.original, &text, 0)) {
-            replace_trick_tokens(text, buffer.data(), key_texts, trick_texts, kLabelPoints);
+            replace_trick_tokens(text, buffer, key_texts, trick_texts);
             args_->append_word(kept.text, buffer.data());
         }
     }

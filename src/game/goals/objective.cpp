@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
@@ -417,35 +418,39 @@ void Objective::capture_save_block(script::Struct* data)
 }
 
 // 0x00554890
-void Objective::replace_trick_tokens(const char* text, char* out, script::Array* key_combos, script::Array* tricks, int)
+void Objective::replace_trick_tokens(const char* text, std::span<char> out_run, script::Array* key_combos,
+                                     script::Array* tricks)
 {
-    if (!*text) {
+    core::Cursor<char> out(out_run);
+    core::CStringCursor at(text);
+    if (!*at) {
         *out = 0;
         return;
     }
-    while (*text) {
-        const char c = text[0];
+    while (*at) {
+        const char c = *at;
         script::Array* source = nullptr;
-        if (c == '\\' && text[1] == 't' && text[2] <= '9' && text[2] >= '0')
+        if (c == '\\' && at[1] == 't' && at[2] <= '9' && at[2] >= '0')
             source = tricks;
-        else if (c == '\\' && text[1] == 'k' && text[2] <= '9' && text[2] >= '0')
+        else if (c == '\\' && at[1] == 'k' && at[2] <= '9' && at[2] >= '0')
             source = key_combos;
         if (!source) {
             *out++ = c;
-            ++text;
+            ++at;
             continue;
         }
-        int number = text[2] - '0';
-        if (text[3] <= '9' && text[3] >= '0') {
-            number = number * 10 + (text[3] - '0');
-            ++text;
+        int number = at[2] - '0';
+        if (at[3] <= '9' && at[3] >= '0') {
+            number = number * 10 + (at[3] - '0');
+            ++at;
         }
         const char* replacement = source->find_inline_text(static_cast<uint32_t>(number - 1));
-        std::snprintf(out, 0x7FFFFFFF, replacement); // (the original: sprintf, unbounded, the text as the format)
+        const std::span<char> room = out.rest();
+        std::snprintf(room.data(), room.size(), replacement); // (the original: sprintf, unbounded, the text as the format)
         const int length = static_cast<int>(std::strlen(replacement));
         if (length > 0)
             out += length;
-        text += 3;
+        at += 3;
     }
     *out = 0;
 }

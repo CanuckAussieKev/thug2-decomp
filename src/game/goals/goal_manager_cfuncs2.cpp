@@ -20,6 +20,8 @@
 #include "game/skate/skate_module_calls.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
+#include "engine/core/str.h"
 
 namespace goals {
 
@@ -41,12 +43,8 @@ constexpr uint32_t kProStuff = 0x18653764;        // pro_stuff
 constexpr uint32_t kShowGoalPoints = 0x888EF05E;  // GoalManager_ShowGoalPoints
 
 // strcpy / strcat (no bounds, as the original).
-void dup_from(char* dest, const char* text)
-{
-    while ((*dest++ = *text++) != 0) {
-    }
-}
-void get_append(char* dest, const char* text) { dup_from(dest + std::strlen(dest), text); }
+void dup_from(char* dest, const char* text) { text::copy_unbounded(dest, text); }
+void get_append(char* dest, const char* text) { text::append_unbounded(dest, text); }
 
 MatchRules* get_game_mode() { return g_game_mode.get(); }
 // The level structure being played (the skate module's +0x380 names it).
@@ -230,11 +228,12 @@ bool cfunc_goal_manager_get_proset_not_prefix(script::Struct* params, script::Sc
     std::array<char, 128> text{};
     core::at(text, 0) = 0;
     int length = 0;
-    if (prefix[1]) {
+    const core::CStringCursor at(prefix); // (an empty one reads 0 after its end where the original read what follows)
+    if (at[1]) {
         do {
-            core::at(text, length) = prefix[length];
+            core::at(text, length) = at[static_cast<std::size_t>(length)];
             ++length;
-        } while (prefix[length + 1]);
+        } while (at[static_cast<std::size_t>(length) + 1]);
     }
     core::at(text, length) = 0;
     get_append(text.data(), "NOT_"); // "NOT_"

@@ -17,6 +17,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include <gsl/pointers>
+#include <span>
 #include "engine/script/param_struct.h"
 
 namespace script {
@@ -204,8 +205,8 @@ public:
     virtual void capture_save_block(script::Struct* data);
     // 0x00554890 (cdecl): `text` copied to `out` with \t<n> / \k<n> (one or two digits, from 1) replaced by trick
     // `n`'s / key combo `n`'s text. (`size` isn't used: no bounds checks, as the original.)
-    static void replace_trick_tokens(const char* text, char* out, script::Array* key_combos, script::Array* tricks,
-                                     int size);
+    static void replace_trick_tokens(const char* text, std::span<char> out, script::Array* key_combos,
+                                     script::Array* tricks);
     // 0x005549A0: number_collected, else the flags set.
     int count_picked_up();
     // 0x005549D0: num_flags_to_win, else the number of flags (0: -1).

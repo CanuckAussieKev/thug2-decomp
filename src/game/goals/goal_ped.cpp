@@ -28,7 +28,10 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/span_copy.h"
 #include <gsl/pointers>
+#include <span>
+#include <string_view>
 
 namespace goals {
 
@@ -129,16 +132,13 @@ ObjectiveNpc::ObjectiveNpc(script::Struct* params)
 }
 
 // 0x0055EB70
-void ObjectiveNpc::read_leading_name(char* out, const char** name, int)
+void ObjectiveNpc::read_leading_name(std::span<char> out, const char* name)
 {
-    if (!std::strstr(*name, " ")) { // " "
-        for (const char* from = *name; (*out++ = *from++) != 0;) {
-        }
-        return;
-    }
-    while (**name != ' ')
-        *out++ = *(*name)++;
-    *out = 0;
+    // The text up to the first space (all of it without one), terminated.
+    const std::string_view full(name);
+    const std::string_view lead = full.substr(0, full.find(' '));
+    core::copy_into(std::span<const char>(lead.data(), lead.size()), out.first(lead.size()));
+    core::at(out, lead.size()) = '\0';
 }
 
 // 0x0055EBC0
@@ -159,7 +159,7 @@ const char* ObjectiveNpc::get_pro_given_name()
     const char* display = profile->fetch_shown_name();
     if (profile->is_pro()) {
         std::array<char, 0x80> first{};
-        read_leading_name(first.data(), &display, sizeof(first));
+        read_leading_name(first, display);
         if (profile->is_pro() && checksums::hash_from_text(pro) == checksums::hash_from_text(first.data())) {
             const char* alternative = nullptr;
             return params->fetch_text(kProAlternative, &alternative, false) ? alternative : nullptr;
@@ -273,11 +273,11 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
 }
 
 // 0x0055F170
-void ObjectiveNpc::get_skater_given_name(char* out, int size)
+void ObjectiveNpc::get_skater_given_name(std::span<char> out)
 {
     const char* display = current_profile()->fetch_shown_name();
-    out[0] = 0;
-    read_leading_name(out, &display, size);
+    core::at(out, 0) = 0;
+    read_leading_name(out, display);
 }
 
 // 0x0055F1B0
@@ -484,7 +484,7 @@ void ObjectiveNpc::play_pro_voice_line(const char* kind, int count, bool call_by
     objects::RiderIdentity* profile = current_profile();
     const char* display = profile->fetch_shown_name();
     std::array<char, 0x80> player{};
-    read_leading_name(player.data(), &display, sizeof(player));
+    read_leading_name(player, display);
     const int total = call_by_name ? count + 20 : count;
     gsl::owner<script::Array*> order = shuffled_numbers(total);
     for (int i = 0; i < total; ++i) {
@@ -529,7 +529,7 @@ void ObjectiveNpc::play_objective_voice_line(const char* type, script::Struct* p
     if (current_profile()->is_pro()) {
         const char* pro = get_pro_given_name();
         std::array<char, 0x80> player{};
-        get_skater_given_name(player.data(), sizeof(player));
+        get_skater_given_name(player);
         gsl::owner<script::Array*> order = shuffled_numbers(5); // (shuffled, and not used: the names go in order)
         bool played = false;
         for (int n = 1; n <= 5; ++n) {
