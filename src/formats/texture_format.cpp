@@ -1,4 +1,7 @@
 #include "formats/texture_format.h"
+#include "formats/byte_stream.h"
+
+#include <cstdint>
 
 namespace texture_format {
 

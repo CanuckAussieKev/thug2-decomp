@@ -1,4 +1,7 @@
 #include "formats/image_format.h"
+#include "formats/byte_stream.h"
+
+#include <cstdint>
 
 namespace image_format {
 

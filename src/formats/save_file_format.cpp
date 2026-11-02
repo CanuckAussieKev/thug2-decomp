@@ -6,6 +6,8 @@
 #include "engine/core/checksums.h"
 #include "formats/byte_stream.h"
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <span>
 
 namespace save_cards {

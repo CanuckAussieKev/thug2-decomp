@@ -7,6 +7,8 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/raw_view.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <gsl/assert>
 #include <array>
 #include <span>

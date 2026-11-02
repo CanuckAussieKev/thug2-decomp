@@ -2,6 +2,11 @@
 
 #include "formats/wave_format.h"
 #include "engine/core/checked_index.h"
+#include "formats/byte_stream.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <span>
 
 namespace wave_format {
 

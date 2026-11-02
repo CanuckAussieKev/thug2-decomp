@@ -3,6 +3,9 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
+#include <cstddef>
+#include <cstdint>
+
 namespace anim_format {
 
 namespace {

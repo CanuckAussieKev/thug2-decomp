@@ -1,9 +1,12 @@
 #include "formats/collision_format.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <span>
 #include "engine/core/checked_index.h"
 #include "engine/core/pointer_cell.h"
+#include "formats/byte_stream.h"
 
 namespace collision_format {
 

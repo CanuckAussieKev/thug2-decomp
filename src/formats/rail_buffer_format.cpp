@@ -2,7 +2,9 @@
 
 #include "formats/rail_buffer_format.h"
 #include "engine/core/checked_index.h"
+#include "formats/byte_stream.h"
 
+#include <cstdint>
 #include <utility>
 
 namespace park_editing::rail_buffer_format {

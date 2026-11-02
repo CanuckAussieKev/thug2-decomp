@@ -1,6 +1,8 @@
 #include "formats/pre_format.h"
 #include "engine/core/raw_view.h"
+#include "formats/byte_stream.h"
 
+#include <cstdint>
 #include <cstring>
 #include <span>
 
