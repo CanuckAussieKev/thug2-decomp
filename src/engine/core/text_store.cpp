@@ -1,6 +1,7 @@
 #include "engine/core/text_store.h"
 
 #include <cstring>
+#include <iterator>
 #include <new>
 
 #include "engine/core/mem.h"

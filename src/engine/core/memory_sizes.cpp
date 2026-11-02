@@ -3,6 +3,7 @@
 #include "engine/core/memory_sizes.h"
 
 #include <algorithm>
+#include <cstdint>
 
 #include "platform/run_log.h"
 #include "engine/core/ints.h"

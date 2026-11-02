@@ -1,7 +1,9 @@
 #include "engine/core/arena_alloc.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <new>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"

@@ -1,14 +1,20 @@
 #include "engine/core/format.h"
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <charconv>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <limits>
+#include <span>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
+#include <variant>
 
 #include "engine/core/checked_index.h"
 

@@ -3,6 +3,7 @@
 #include "engine/core/cursor.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <span>
 

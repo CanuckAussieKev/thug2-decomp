@@ -5,6 +5,7 @@
 #include <cstring>
 #include <new>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/core/memory_sizes.h"
