@@ -12,6 +12,7 @@
 #include "engine/file/async.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/stream_component.h"
+#include "engine/audio/continue_music.h"
 #include "engine/audio/music_player.h"
 #include "engine/audio/stream.h"
 #include "engine/script/param_struct.h"
@@ -103,6 +104,8 @@ void pick_track(int track) { current_track_index() = track; }
 void stop_music()
 {
     if (!music_on())
+        return;
+    if (continue_music::is_held()) // NOT ORIGINAL - continue_music: a level change keeps the song
         return;
     frame_count() = 1;
     music_channel_kind() = kMusicStreamNone;

@@ -188,6 +188,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 |---|---|---|
 | `skip_intro_movies` | 0 | Skips the logo and intro movies at start-up |
 | `mute_audio` | 0 | Silences all sound from the first frame |
+| `continue_music` | 0 | The song playing carries on through level loads (the skate shop, CAS and the park editor included) and run starts instead of being stopped or skipped; the playlist goes on when it ends. Skip, music volume 0, movies and cutscenes still stop it |
 | `widescreen_menus` | 1 | 0 brings back PartyMod's pillarboxed 4:3 front end |
 | `new_frontend` | 0 | The new front end: the game's own menus, restyled (0 = the classic menus) |
 | `mouse_menus` | 1 | Mouse control of the menus (`debug_mouse=1` logs each click) |
