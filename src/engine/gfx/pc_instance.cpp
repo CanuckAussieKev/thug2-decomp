@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "platform/d3dx.h"
@@ -135,8 +136,7 @@ Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (bones && bones_on_device(scene) <= 0)
         return;
-    for (int i = 0; i < scene->mesh_count_; ++i) {
-        const MeshRef* mesh = scene->meshes[i];
+    for (const MeshRef* mesh : scene->mesh_run()) {
         if (!(mesh->fvf & kMeshLit) || (mesh_traits(mesh) & kMeshNotLit))
             return;
     }
@@ -217,13 +217,13 @@ void Singleton::render(uint32_t draw_bits)
     if (bones_on_device(scene) != 0) {
         const int count = bone_count_ < kMaxBones ? bone_count_ : kMaxBones;
         if (count > 0) {
+            const std::span<const maths::Mat4> bone_run(bones, static_cast<std::size_t>(bone_count_));
             for (int bone = 0; bone < count; ++bone) {
                 maths::Mat4 world = transform;
-                matrix_multiply(&world, &bones[bone], &world);
+                matrix_multiply(&world, &core::at(bone_run, bone), &world);
                 set_world_transform(world.data());
                 input_port()->SetTransform(D3DTS_WORLD, d3d::matrix(world.data()));
-                for (int i = 0; i < scene->mesh_count_; ++i) {
-                    MeshRef* mesh = scene->meshes[i];
+                for (MeshRef* mesh : scene->mesh_run()) {
                     if (static_cast<int8_t>(mesh->bone_) == bone) // (its bone)
                         mesh_flags_ref(mesh) |= kMeshShown;
                     else
@@ -277,7 +277,7 @@ void draw_instance_batch(uint32_t flags, int viewport)
             if (!((flags & kRenderOpaque) && list->mesh_count_ > list->transparent_count_) &&
                 !((flags & kRenderTransparent) && list->transparent_count_ > 0))
                 continue;
-            const auto* position = (get_position(instance))->data();
+            const maths::Vec4& position = *get_position(instance);
             for (int k = 0; k < 4; ++k)
                 core::at(culling, 12 + k) = position[k];
             set_world_transform(culling.data());
@@ -310,10 +310,10 @@ void draw_instance_batch(uint32_t flags, int viewport)
             auto near_squared = static_cast<float>(near_distance * near_distance);
             for (; i < count; ++i) {
                 Singleton* instance = core::at(get_visible(), i);
-                const auto* position = (get_position(instance))->data();
-                const double dx = static_cast<double>(position[0]) - core::at(camera, 0);
-                const double dy = static_cast<double>(position[1]) - core::at(camera, 1);
-                const double dz = static_cast<double>(position[2]) - core::at(camera, 2);
+                const maths::Vec4& position = *get_position(instance);
+                const double dx = static_cast<double>(position.x) - core::at(camera, 0);
+                const double dy = static_cast<double>(position.y) - core::at(camera, 1);
+                const double dz = static_cast<double>(position.z) - core::at(camera, 2);
                 g_near_camera = !(dz * dz + dy * dy + dx * dx > near_squared); // near the camera
                 if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & 0x100)))
                     instance->render(flags);
@@ -351,8 +351,8 @@ int compare_instances(const void* a, const void* b)
         return x > y ? 1 : -1;
     if (x <= 0)
         return 0;
-    const MaterialRef* m1 = first->scene->meshes[first->scene->first_transparent_]->material;
-    const MaterialRef* m2 = second->scene->meshes[second->scene->first_transparent_]->material;
+    const MaterialRef* m1 = core::at(first->scene->mesh_run(), first->scene->first_transparent_)->material;
+    const MaterialRef* m2 = core::at(second->scene->mesh_run(), second->scene->first_transparent_)->material;
     if (!m1 || !m2)
         return 0;
     const float k1 = m1->sort_key_;

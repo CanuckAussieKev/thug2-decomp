@@ -19,6 +19,8 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <span>
+#include <string_view>
 #include <vector>
 #include <array>
 
@@ -31,6 +33,7 @@
 #include "imgui.h"
 #include "engine/util/com_ptr.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
 
 namespace gfx::loading_console {
 
@@ -38,11 +41,9 @@ namespace gfx::loading_console {
 
 const char* get_file_name(const char* path)
 {
-    const char* name = path;
-    for (const char* c = path; *c; ++c)
-        if (*c == '\\' || *c == '/')
-            name = c + 1;
-    return name;
+    const std::string_view full(path);
+    const std::size_t slash = full.find_last_of("\\/");
+    return slash == std::string_view::npos ? path : full.substr(slash + 1).data();
 }
 
 std::string size_text(long long bytes)
@@ -202,12 +203,15 @@ void build_font()
     D3DLOCKED_RECT locked;
     if (FAILED(texture->LockRect(0, &locked, nullptr, 0)))
         return;
+    const std::span<uint8_t> bits(static_cast<uint8_t*>(locked.pBits),
+                                  static_cast<size_t>(locked.Pitch) * static_cast<size_t>(height));
+    const std::span<const unsigned char> rgba_pixels(rgba, static_cast<size_t>(width) * static_cast<size_t>(height) * 4);
     for (int y = 0; y < height; ++y) {
-        uint8_t* row = static_cast<uint8_t*>(locked.pBits) + static_cast<ptrdiff_t>(y) * locked.Pitch;
-        const unsigned char* in = rgba + static_cast<size_t>(y) * width * 4;
+        const std::span<uint8_t> row = bits.subspan(static_cast<size_t>(y) * static_cast<size_t>(locked.Pitch));
+        const std::span<const unsigned char> in = rgba_pixels.subspan(static_cast<size_t>(y) * static_cast<size_t>(width) * 4);
         for (int x = 0; x < width; ++x) {
-            const uint32_t texel = static_cast<uint32_t>(in[x * 4 + 3]) << 24 | 0x00FFFFFFu; // white, coverage as alpha
-            std::memcpy(row + static_cast<ptrdiff_t>(x) * 4, &texel, sizeof(texel));
+            const uint32_t texel = static_cast<uint32_t>(core::at(in, x * 4 + 3)) << 24 | 0x00FFFFFFu; // white, coverage as alpha
+            std::memcpy(row.subspan(static_cast<size_t>(x) * 4, sizeof(texel)).data(), &texel, sizeof(texel));
         }
     }
     texture->UnlockRect(0);
@@ -250,8 +254,9 @@ void rect2(float x0, float y0, float x1, float y1, uint32_t color)
 // Text from (x, y) (the line's top), at most `columns` characters.
 void draw_text(float x, float y, const char* text, size_t columns, uint32_t color)
 {
-    for (size_t i = 0; text[i] && i < columns; ++i) {
-        auto c = static_cast<unsigned char>(text[i]);
+    size_t i = 0;
+    for (core::CStringCursor at(text); *at && i < columns; ++at, ++i) {
+        auto c = static_cast<unsigned char>(*at);
         const Glyph& glyph = core::at(g_glyphs, c < 0x80 ? c : '?');
         if (glyph.visible) {
             const float x0 = x + glyph.x0 - 0.5f;

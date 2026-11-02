@@ -410,10 +410,9 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
             read.count = 0;
         }
         SkinColours table{};
-        table.start = read.entries;
-        table.end = table.start + read.count * bundle_format::kSkinColourSize;
+        table.entries = {read.entries, static_cast<std::size_t>(read.count) * bundle_format::kSkinColourSize};
         table.table = g_skin_colour_table.data();
-        table.colours = skin.data();
+        table.colours = skin;
         // which skin this is: the next names along say (none after it: the last)
         bool male = false, has_face = false;
         if (!bundle_ptr_->find_entry(entry->name + 1, kTypeModel, 0)) {

@@ -6,9 +6,11 @@
 
 #include <d3d9.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <vector>
 #include <utility>
 #include <array>
@@ -17,6 +19,7 @@
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/core/span_copy.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"
@@ -61,20 +64,21 @@ struct ScaledVertex {
 };
 static_assert(sizeof(ScaledVertex) == scene_format::kScaledVertexSize, "file format: a bone-scaled position record");
 
-bool skin_scaling_on() { return g_skin_scaling_on && g_skin_settings.colours; }
+bool skin_scaling_on() { return g_skin_scaling_on && !g_skin_settings.colours.empty(); }
 
 // A bone's scale (four floats: x, then z, then y as the loaders apply them, and w); 1 without a bone.
 void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
 {
-    if (bone == -1) {
+    // (a bone outside the table - the original read the memory after it - scales nothing, like none)
+    if (bone < 0 || 4 * static_cast<std::size_t>(bone) + 4 > g_skin_settings.colours.size()) {
         e0 = e4 = e8 = e12 = 1.0f;
         return;
     }
-    const float* scale = g_skin_settings.colours + 4 * bone;
-    e0 = scale[0];
-    e4 = scale[1];
-    e8 = scale[2];
-    e12 = scale[3];
+    const std::span<const float> scale = g_skin_settings.colours.subspan(4 * static_cast<std::size_t>(bone), 4);
+    e0 = core::at(scale, 0);
+    e4 = core::at(scale, 1);
+    e8 = core::at(scale, 2);
+    e12 = core::at(scale, 3);
 }
 
 // A vertex's position as the bone scales move it: each bone's offset scaled - x by the scale's first value, y by its
@@ -113,7 +117,7 @@ void apply_scaled_positions(const std::vector<uint8_t>& records, uint8_t* vertic
     const gpu::VertexWriter out(vertices, stride, count);
     for (size_t i = 0; i < count; ++i) {
         ScaledVertex v{};
-        std::memcpy(&v, records.data() + i * scene_format::kScaledVertexSize, sizeof(v));
+        std::memcpy(&v, std::span(records).subspan(i * scene_format::kScaledVertexSize, sizeof(v)).data(), sizeof(v));
         if (skin_scaling_on())
             out.set_floats<3>(i, 0, scaled_position(v));
     }
@@ -287,45 +291,44 @@ void MeshRef::build_collision()
     if (position_count_ || !core::at(index_counts_, 0))
         return;
     VertexBuffer* vb = core::at(vertex_buffers_, 0);
-    const uint8_t* vertex = vb->data; // (locked read-only, inline)
+    const gpu::VertexView vertices(vb->data, stride, vertex_count_); // (locked read-only, inline)
     vb->lock_offset_ = 0;
     vb->lock_size_ = vb->size;
     vb->lock_flags_ = D3DLOCK_READONLY;
     position_count_ = vertex_count_;
     positions = static_cast<float*>(alloc_block(vertex_count_ * 12u));
-    for (uint32_t i = 0; i < vertex_count_; ++i) {
-        std::memcpy(positions + 3 * i, vertex, 12);
-        vertex += stride;
-    }
+    const std::span<float> position_run(positions, 3u * vertex_count_);
+    for (uint32_t i = 0; i < vertex_count_; ++i)
+        std::ranges::copy(vertices.float3(i), position_run.subspan(3u * i, 3).begin());
     core::at(vertex_buffers_, 0)->get_unlock();
-    const uint16_t* strip = core::at(index_buffers_, 0)->indices;
-    auto* found = static_cast<uint16_t*>(memory::alloc((core::at(index_counts_, 0) - 2u) * 6));
+    const std::span<uint16_t> strip = core::at(index_buffers_, 0)->index_run();
+    auto* found_block = static_cast<uint16_t*>(memory::alloc((core::at(index_counts_, 0) - 2u) * 6));
+    const std::span<uint16_t> found(found_block, (core::at(index_counts_, 0) - 2u) * 3u);
     uint32_t count = 0;
-    uint16_t* out = found;
-    for (uint32_t k = 0; k < core::at(index_counts_, 0) - 2u; ++k, ++strip) {
-        const uint16_t a = strip[0];
-        const uint16_t b = strip[1];
-        const uint16_t c = strip[2];
+    for (uint32_t k = 0; k < core::at(index_counts_, 0) - 2u; ++k) {
+        const uint16_t a = core::at(strip, k);
+        const uint16_t b = core::at(strip, k + 1);
+        const uint16_t c = core::at(strip, k + 2);
         if (a == b || b == c || c == a)
             continue;
+        const std::span<uint16_t> out = found.subspan(3u * count, 3);
         if (k & 1) { // (every other triangle of a strip winds the other way)
-            out[0] = b;
-            out[1] = a;
+            core::at(out, 0) = b;
+            core::at(out, 1) = a;
         } else {
-            out[0] = a;
-            out[1] = b;
+            core::at(out, 0) = a;
+            core::at(out, 1) = b;
         }
-        out[2] = c;
-        out += 3;
+        core::at(out, 2) = c;
         ++count;
     }
     core::at(index_buffers_, 0)->get_unlock();
     if (count) {
         triangles = static_cast<uint16_t*>(alloc_block(count * 6u));
-        std::memcpy(triangles, found, count * 6u);
+        core::copy_into(std::span<const uint16_t>(found.first(3u * count)), std::span<uint16_t>(triangles, 3u * count));
         triangle_count_ = count;
     }
-    memory::Hub::get_pull()->dealloc(found);
+    memory::Hub::get_pull()->dealloc(found_block);
 }
 
 } // namespace render

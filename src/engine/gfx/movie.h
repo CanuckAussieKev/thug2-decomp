@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 #include "platform/bink.h"
@@ -56,7 +57,7 @@ void end_movie(void* texture);
 void draw_movie(Bink* bink, void* texture);
 
 // 0x0044F840: whether a button of `mask` is pressed now after having been seen up (control data bits are set while up).
-bool button_pressed_again(const uint8_t* control_data, uint16_t* seen_up, uint32_t mask);
+bool button_pressed_again(const std::array<uint8_t, 32>& control_data, uint16_t* seen_up, uint32_t mask);
 
 extern Bink* g_current_movie; // a Bink movie playing
 

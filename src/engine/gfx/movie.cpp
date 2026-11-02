@@ -7,12 +7,15 @@
 
 #include <d3d9.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
 #include <array>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -91,15 +94,15 @@ void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* v
         height = back_buffer_aspect / target_aspect * static_cast<float>(back_buffer_height);
         offset_y = (static_cast<float>(back_buffer_height) - height) / 2;
     }
-    auto* quad = static_cast<MovieVertex*>(vertices);
-    quad[0].x = offset_x;
-    quad[0].y = offset_y;
-    quad[1].x = offset_x + width;
-    quad[1].y = offset_y;
-    quad[2].x = offset_x;
-    quad[2].y = offset_y + height;
-    quad[3].x = offset_x + width;
-    quad[3].y = offset_y + height;
+    const std::span<MovieVertex, 4> quad(static_cast<MovieVertex*>(vertices), 4);
+    core::at(quad, 0).x = offset_x;
+    core::at(quad, 0).y = offset_y;
+    core::at(quad, 1).x = offset_x + width;
+    core::at(quad, 1).y = offset_y;
+    core::at(quad, 2).x = offset_x;
+    core::at(quad, 2).y = offset_y + height;
+    core::at(quad, 3).x = offset_x + width;
+    core::at(quad, 3).y = offset_y + height;
     device->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
 }
 
@@ -266,11 +269,9 @@ void draw_movie(Bink* bink, void* texture)
 }
 
 // 0x0044F840
-bool button_pressed_again(const uint8_t* control_data, uint16_t* seen_up, uint32_t mask)
+bool button_pressed_again(const std::array<uint8_t, 32>& control_data, uint16_t* seen_up, uint32_t mask)
 {
-    if (!control_data)
-        return false;
-    auto up = static_cast<uint16_t>(control_data[2] << 8 | control_data[3]);
+    auto up = static_cast<uint16_t>(core::at(control_data, 2) << 8 | core::at(control_data, 3));
     if (up & mask) {
         *seen_up |= static_cast<uint16_t>(mask);
         return false;
@@ -400,7 +401,7 @@ void play_movie_file(const char* name)
                     core::at(seen_up, port) |= kStart;
                 else if (core::at(seen_up, port) & kStart)
                     skip = true;
-                if (!skip && button_pressed_again(data.data(), &core::at(seen_up, port), kCross))
+                if (!skip && button_pressed_again(data, &core::at(seen_up, port), kCross))
                     skip = true;
             }
             if (skip)
@@ -421,13 +422,18 @@ namespace {
 // thug2-decomp.ini [features] skip_intro_movies=1: the logo and intro movies at start-up aren't played.
 bool is_intro_movie(const char* name)
 {
-    const char* base = name;
-    for (const char* c = name; *c; ++c)
-        if (*c == '\\' || *c == '/')
-            base = c + 1;
+    const std::string_view full(name);
+    const std::size_t slash = full.find_last_of("\\/");
+    const std::string_view base = slash == std::string_view::npos ? full : full.substr(slash + 1);
     for (const char* intro : {"ATVI", "Beenox_Shift", "Dolby_Digital", "Intel_intro", "NSlogo", "intro", "introf"}) {
-        const size_t length = std::strlen(intro);
-        if (_strnicmp(base, intro, length) == 0 && (base[length] == '\0' || base[length] == '.'))
+        const std::string_view wanted(intro);
+        if (base.size() < wanted.size())
+            continue;
+        const std::string_view rest = base.substr(wanted.size());
+        const bool same_name = std::ranges::equal(base.substr(0, wanted.size()), wanted, [](char a, char b) {
+            return std::tolower(static_cast<unsigned char>(a)) == std::tolower(static_cast<unsigned char>(b));
+        });
+        if (same_name && (rest.empty() || rest.starts_with('.')))
             return true;
     }
     return false;

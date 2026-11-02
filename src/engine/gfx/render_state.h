@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <array>
+#include <span>
 
 // The renderer's cached Direct3D 9 state (Nx engine, PC): every setter compares with what it last sent and only
 // calls the device when something changes. The cache is reset to the device's own defaults (reset_render_state)
@@ -61,10 +62,9 @@ void set_world_transform(const float* matrix);
 // The skin scaling's settings (a cutscene's skinned model's colours, while it loads): the colour table's entries, the
 // table, and the colours (four floats a bone) the loaders scale the bones' positions by.
 struct SkinScaling {
-    const uint8_t* end = nullptr;
-    const uint8_t* start = nullptr;
+    std::span<const uint8_t> entries; // the colour table's entries (the original: its end and its start)
     void* table = nullptr;
-    float* colours = nullptr;
+    std::span<const float> colours; // four floats a bone
 };
 void set_skin_scaling(const SkinScaling* settings);
 void clear_skin_scaling();
