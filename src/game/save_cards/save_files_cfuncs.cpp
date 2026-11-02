@@ -9,6 +9,8 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <span>
+#include <string_view>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -16,6 +18,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/core/stubs.h"
+#include "engine/script/cell.h"
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard.h"
 #include "game/save_cards/memcard_cfuncs.h"

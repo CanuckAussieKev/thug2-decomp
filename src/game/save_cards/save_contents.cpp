@@ -8,6 +8,7 @@
 #include <array>
 
 #include "engine/core/dbg.h"
+#include "engine/script/cell.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editor.h"
 #include "game/goals/goal_manager.h"

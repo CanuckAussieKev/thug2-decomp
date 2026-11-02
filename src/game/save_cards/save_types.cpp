@@ -8,6 +8,8 @@
 #include <cstdio>
 #include <memory>
 #include <array>
+#include <span>
+#include <vector>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
