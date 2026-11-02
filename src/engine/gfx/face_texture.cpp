@@ -16,7 +16,6 @@
 #include "engine/file/packs.h"
 #include "engine/gfx/texture_dict.h"
 #include "engine/script/param_struct.h"
-#include "platform/compiler.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/span_copy.h"
 #include <gsl/pointers>

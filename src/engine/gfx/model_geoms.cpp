@@ -24,7 +24,6 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_internal.h"
 #include "engine/gfx/particle_system.h"
-#include "engine/gfx/particle_sets.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/rig.h"
 #include "engine/gfx/texture_dict.h"
@@ -33,7 +32,6 @@
 #include "engine/objects/pager_message.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/checked_index.h"
 #include "engine/gfx/pc_mesh.h"
 
 namespace render {

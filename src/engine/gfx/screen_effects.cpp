@@ -4,7 +4,6 @@
 
 #include "engine/gfx/screen_effects.h"
 
-#include "engine/core/mem.h"
 #include "engine/script/param_struct.h"
 
 namespace render {

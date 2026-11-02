@@ -2,8 +2,6 @@
 // 0x00495260-0x004968AF.
 
 #include "engine/gfx/particle_sets.h"
-#include "engine/gfx/pc_particles.h"
-
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -12,8 +10,6 @@
 #include <array>
 #include <span>
 
-#include "engine/core/dbg.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"

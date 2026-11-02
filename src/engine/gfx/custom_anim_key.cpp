@@ -1,6 +1,5 @@
 // An animation's custom keys (see custom_anim_key.h). From the disassembly of 0x004860C0-0x00486875.
 
-#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <span>

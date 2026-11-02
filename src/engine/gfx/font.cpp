@@ -20,8 +20,6 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/mem.h"
-
 namespace render {
 
 lists::KeyMap g_font_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(4) at start-up)

@@ -7,21 +7,16 @@
 #include <array>
 #include <span>
 
-#include "engine/core/mem.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/anim_controller.h"
 #include "engine/gfx/rig.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
-#include "engine/objects/entity_hub.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
 #include "engine/gfx/model_utils.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/objects/skeleton_component.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 

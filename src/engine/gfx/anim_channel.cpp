@@ -38,8 +38,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "platform/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"

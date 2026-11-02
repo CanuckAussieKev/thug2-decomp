@@ -9,7 +9,6 @@
 #include <span>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/pc_viewport.h"
 #include "engine/gfx/tod_manager.h"
@@ -20,8 +19,6 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
-#include "engine/core/mem.h"
-
 namespace render {
 
 namespace {

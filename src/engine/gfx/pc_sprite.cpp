@@ -3,13 +3,9 @@
 #include "engine/gfx/pc_sprite.h"
 
 #include <memory>
-#include <cstdint>
 #include <cstring>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/gfx/billboard_quad.h"
-#include "engine/gfx/draw2d.h"
 #include "engine/gfx/engine_sprite.h"
 #include "engine/gfx/pc_texture.h"
 

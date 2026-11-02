@@ -5,7 +5,6 @@
 
 #include "engine/core/str.h"
 
-#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <span>

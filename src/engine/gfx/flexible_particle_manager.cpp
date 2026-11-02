@@ -17,7 +17,6 @@
 #include "engine/gfx/pc_flexible_particles.h"
 #include "engine/maths/vec4.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
 #include "engine/objects/movie_manager.h"
 #include "platform/crt.h"
 #include "engine/core/arena_alloc.h"

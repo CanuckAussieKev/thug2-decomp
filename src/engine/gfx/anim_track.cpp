@@ -7,12 +7,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <memory>
 #include <new>
 #include <vector>
 
-#include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/gfx/anim_controller.h"
 #include "engine/objects/anim_blender.h"
@@ -20,10 +17,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "platform/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/script/script_startup.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>

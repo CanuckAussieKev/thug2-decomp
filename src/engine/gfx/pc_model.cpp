@@ -4,7 +4,6 @@
 
 #include <cmath>
 
-#include "engine/core/manager.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/model.h"
 

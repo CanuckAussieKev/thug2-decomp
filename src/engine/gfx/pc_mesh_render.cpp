@@ -7,7 +7,6 @@
 #include <d3d9.h>
 
 #include <cstdint>
-#include <cstring>
 #include <array>
 #include <span>
 

@@ -2,8 +2,6 @@
 
 #include "engine/gfx/anim_cache.h"
 
-#include <intrin.h>
-
 #include <cstdint>
 #include <cstring>
 #include <span>

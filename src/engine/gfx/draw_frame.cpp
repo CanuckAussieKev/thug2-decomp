@@ -11,9 +11,7 @@
 
 #include <bit>
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <array>
 
 #include "editor/level_editor.h"
@@ -47,7 +45,6 @@
 #include "platform/screenshot.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/engine_glue.h"
-#include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/engine.h"
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/weather.h"

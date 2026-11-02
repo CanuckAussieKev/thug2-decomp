@@ -3,14 +3,12 @@
 #include "engine/gfx/engine_texture.h"
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <iterator>
 #include <string_view>
 #include <array>
 
 #include "engine/core/checksums.h"
-#include "engine/gfx/viewport.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 

@@ -36,9 +36,7 @@
 #include "platform/mute_audio.h"
 #include "platform/run_log.h"
 #include "platform/winmain.h"
-#include "platform/crt.h"
 #include "platform/bink.h"
-#include "platform/compiler.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 

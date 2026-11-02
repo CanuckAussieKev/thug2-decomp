@@ -3,8 +3,6 @@
 #include "engine/gfx/window2d.h"
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
-
 namespace render {
 
 ScreenWindow* g_free_windows;

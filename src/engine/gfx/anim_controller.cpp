@@ -14,7 +14,6 @@
 #include "engine/gfx/anim_cache.h"
 #include "engine/gfx/anim_track.h"
 #include "engine/gfx/boned_anim_frame_data.h"
-#include "engine/gfx/engine_glue.h"
 #include "engine/gfx/frame_source.h"
 #include "engine/gfx/model_utils.h"
 #include "engine/gfx/scene_load.h"

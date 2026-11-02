@@ -2,7 +2,6 @@
 
 #include "engine/gfx/engine_imposters.h"
 
-#include <cstdint>
 #include <new>
 
 #include "engine/core/mem.h"

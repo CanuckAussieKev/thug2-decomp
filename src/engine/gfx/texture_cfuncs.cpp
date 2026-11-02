@@ -6,7 +6,6 @@
 #include "engine/core/str.h"
 
 #include <cstdint>
-#include <cstring>
 #include <array>
 
 #include "engine/gfx/engine_texture.h"

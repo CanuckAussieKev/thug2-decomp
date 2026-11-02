@@ -20,7 +20,6 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/span_copy.h"
-#include "engine/file/file_load.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/mesh_list.h"
@@ -33,7 +32,6 @@
 #include "engine/gfx/shader_slots.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/crt.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"
 

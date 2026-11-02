@@ -23,7 +23,6 @@
 #include "engine/gfx/device.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
 #include "platform/crt.h"
 
 namespace render {

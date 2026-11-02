@@ -8,7 +8,6 @@
 #include <memory>
 
 #include "engine/core/checksums.h"
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/str.h"
 #include "engine/gfx/engine_effects.h"
@@ -20,7 +19,6 @@
 #include "engine/gfx/particle_sets.h"
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/pc_font.h"
-#include "engine/gfx/pc_lights.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/scene_lights.h"
 #include "engine/gfx/scene_load.h"
@@ -29,7 +27,6 @@
 #include "engine/gfx/viewport.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "platform/code_address.h"
 #include "engine/objects/particle_component.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/startup_init.h"

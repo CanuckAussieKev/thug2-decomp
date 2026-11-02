@@ -10,7 +10,6 @@
 #include <array>
 #include <span>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/rig.h"
 #include "engine/lists/key_map.h"

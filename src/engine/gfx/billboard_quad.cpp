@@ -12,8 +12,6 @@
 #include <array>
 #include <utility>
 
-#include "engine/core/manager.h"
-#include "engine/gfx/draw2d.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/maths/vec4.h"
 #include "engine/gfx/render_state.h"

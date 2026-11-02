@@ -16,13 +16,11 @@
 #include <memory>
 #include <span>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_sprite.h"
 #include "engine/gfx/geom.h"
-#include "engine/gfx/particle_sets.h"
 #include "engine/gfx/pc_model.h"
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/pc_sprite.h"

@@ -15,11 +15,9 @@
 #include "engine/core/str.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/engine.h"
-#include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/mesh_list.h"
 #include "engine/gfx/scene_file_stream.h"
 #include "formats/scene_format.h"
-#include "engine/core/raw_view.h"
 #include "engine/gfx/pc_scene.h"
 
 namespace render {

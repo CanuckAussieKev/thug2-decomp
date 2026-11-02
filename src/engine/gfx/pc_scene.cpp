@@ -14,8 +14,6 @@
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/file/file_load.h"
-#include "engine/assets/resource_entry.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/geom.h"
@@ -25,19 +23,15 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
 #include "formats/scene_format.h"
-#include "engine/gfx/screen_effects.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/mesh_list.h"
 #include "engine/lists/key_map.h"
-#include "engine/render/coll_movable.h"
 #include "engine/gfx/device.h"
 #include <gsl/pointers>
 #include <array>
 #include <span>
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {

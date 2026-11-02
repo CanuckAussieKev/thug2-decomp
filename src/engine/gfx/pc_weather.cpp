@@ -24,7 +24,6 @@
 #include "engine/gfx/simple_material.h"
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/texture_dict.h"
-#include "engine/gfx/weather.h"
 #include "engine/maths/random.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"

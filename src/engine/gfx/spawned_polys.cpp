@@ -8,10 +8,8 @@
 #include <new>
 #include <array>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
-#include "engine/gfx/engine_primitive.h"
 #include "engine/gfx/pc_primitive.h"
 #include "engine/lists/object_set.h"
 #include "engine/maths/mat4.h"
@@ -19,7 +17,6 @@
 #include "engine/script/cfuncs_engine.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/engine_effects.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace render {

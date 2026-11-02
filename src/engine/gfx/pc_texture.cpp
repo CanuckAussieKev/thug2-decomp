@@ -14,8 +14,6 @@
 #include <cstring>
 #include <new>
 #include <vector>
-#include <utility>
-
 #include "engine/core/manager.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/dbg.h"
@@ -31,7 +29,6 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"

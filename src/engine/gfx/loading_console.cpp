@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
-#include <cstdarg>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>

@@ -7,8 +7,6 @@
 #include <span>
 #include <utility>
 #include <cstdint>
-#include <cstring>
-
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_model_lights.h"

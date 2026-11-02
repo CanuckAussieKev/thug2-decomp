@@ -2,8 +2,6 @@
 
 #include <bit>
 #include <cstdint>
-#include <cstring>
-
 #include "engine/gfx/particle_sets.h"
 #include "engine/script/cscript.h"
 #include "engine/core/checked_index.h"

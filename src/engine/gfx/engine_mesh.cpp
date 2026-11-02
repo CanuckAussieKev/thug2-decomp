@@ -5,7 +5,6 @@
 
 #include "engine/core/str.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
@@ -13,11 +12,9 @@
 #include <cstring>
 #include <new>
 
-#include "engine/core/manager.h"
 #include "engine/file/packs.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/gfx/engine_glue.h"
-#include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
 #include "formats/collision_format.h"
 #include "engine/core/checked_index.h"

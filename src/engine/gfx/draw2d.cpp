@@ -4,7 +4,6 @@
 
 #include <cstdint>
 
-#include "engine/core/manager.h"
 #include "engine/gfx/render_state.h"
 
 namespace render {

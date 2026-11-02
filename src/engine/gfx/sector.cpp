@@ -6,10 +6,8 @@
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
-#include "engine/gfx/engine_texture.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_scene_list.h"
-#include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/coll_obj.h"
 #include <gsl/pointers>

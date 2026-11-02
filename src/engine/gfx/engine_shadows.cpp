@@ -4,8 +4,6 @@
 #include "engine/gfx/engine_shadows.h"
 
 #include <memory>
-#include <cstdint>
-#include <cstring>
 #include <array>
 
 #include "engine/gfx/engine_texture.h"
@@ -17,7 +15,6 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_utils.h"
-#include "engine/lists/key_map.h"
 #include "engine/core/checked_index.h"
 #include "engine/lists/object_set.h"
 #include "engine/maths/mat4.h"

@@ -17,7 +17,6 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/gfx/engine.h"
-#include "engine/gfx/pc_lights.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/lists/key_map.h"

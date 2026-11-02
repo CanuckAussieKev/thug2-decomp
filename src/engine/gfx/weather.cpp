@@ -6,7 +6,6 @@
 #include <cstring>
 
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
 #include "engine/script/param_struct.h"
 
 namespace render {

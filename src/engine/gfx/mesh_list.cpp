@@ -19,7 +19,6 @@
 #include "engine/lists/key_map.h"
 #include "gpu/vertex_buffers.h"
 #include "platform/crt.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_mesh.h"
 #include <d3d9.h>

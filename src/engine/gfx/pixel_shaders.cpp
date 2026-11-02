@@ -14,7 +14,6 @@
 #include <array>
 #include <span>
 
-#include "engine/core/mem.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/view_mode.h"

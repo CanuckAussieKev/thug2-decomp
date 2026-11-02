@@ -10,20 +10,16 @@
 #include <array>
 #include <span>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/anim_blend.h"
 #include "formats/anim_format.h"
 #include "engine/gfx/anim_cache.h"
 #include "engine/gfx/custom_anim_key.h"
-#include "engine/gfx/anim_track.h"
 #include "engine/maths/maths.h"
 #include "engine/maths/vec4.h"
 #include "formats/byte_stream.h"
 #include "engine/objects/walk_hang.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/assert>
 #include <gsl/pointers>

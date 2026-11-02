@@ -12,11 +12,9 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_shadows.h"
-#include "engine/lists/key_map.h"
 #include "engine/lists/object_set.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
-#include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/engine_mesh.h"
 

@@ -10,7 +10,6 @@
 
 #include <d3d9.h>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
@@ -19,7 +18,6 @@
 #include "platform/platform_d3d.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
-#include "engine/gfx/glow.h"
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/checked_index.h"

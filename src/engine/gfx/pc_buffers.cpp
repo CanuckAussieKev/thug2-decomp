@@ -5,7 +5,6 @@
 
 #include <d3d9.h>
 
-#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <span>
@@ -16,9 +15,7 @@
 #include "engine/gfx/pc_scene.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/shader_slots.h"
-#include "engine/gfx/device.h"
 #include "gpu/vertex_buffers.h"
-#include "platform/crt.h"
 #include "engine/core/checked_index.h"
 
 namespace render {

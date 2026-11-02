@@ -12,7 +12,6 @@
 #include <cstdio>
 #include <cstring>
 #include <span>
-#include <utility>
 #include <array>
 
 #include "engine/core/checksums.h"

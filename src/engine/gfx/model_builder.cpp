@@ -19,8 +19,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>

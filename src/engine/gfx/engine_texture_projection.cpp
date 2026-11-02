@@ -5,7 +5,6 @@
 #include "platform/d3dx.h"
 
 #include <cstdint>
-#include <cstring>
 #include <array>
 #include <span>
 
@@ -21,9 +20,7 @@
 #include "engine/render/coll_obj.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
-#include "platform/code_address.h"
 #include "engine/objects/texture_projection_component.h"
-#include "engine/gfx/pc_texture_projection.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
 

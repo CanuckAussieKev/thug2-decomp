@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <span>
 #include <utility>
-#include <cstring>
 #include <array>
 
 #include "engine/core/dbg.h"

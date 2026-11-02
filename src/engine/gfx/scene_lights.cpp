@@ -24,8 +24,6 @@
 #include "engine/script/param_struct.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
 #include <gsl/pointers>

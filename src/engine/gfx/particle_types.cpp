@@ -1,12 +1,10 @@
 // The flexible particle types' engine classes: ribbon, ribbontrail, shaded, smooth, smoothribbon, smoothstar, star
 // (see particle_types.h). From the disassembly of 0x0049B070-0x0049C384.
 
-#include <cstddef>
 #include <cstdint>
 
 #include "engine/gfx/particle_types.h"
 
-#include "engine/core/mem.h"
 #include "engine/gfx/particle_system_internal.h"
 
 namespace render {

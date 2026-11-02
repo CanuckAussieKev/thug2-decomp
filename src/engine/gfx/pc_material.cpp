@@ -22,7 +22,6 @@
 #include "engine/gfx/render_state.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/device.h"
-#include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/bitmap_texture.h"
 #include <bit>

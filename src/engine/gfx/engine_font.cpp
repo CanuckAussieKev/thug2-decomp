@@ -7,7 +7,6 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
-#include "engine/core/manager.h"
 #include "engine/core/str.h"
 #include "engine/gfx/font.h"
 #include "engine/gfx/pc_font.h"

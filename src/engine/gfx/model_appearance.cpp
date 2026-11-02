@@ -17,8 +17,6 @@
 #include "game/skate/cas_options.h"
 #include "engine/script/param_struct.h"
 #include "engine/script/struct_buffer.h"
-#include "platform/code_address.h"
-#include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 #include "engine/core/ints.h"
 #include <gsl/pointers>

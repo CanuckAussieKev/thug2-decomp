@@ -4,7 +4,6 @@
 #include "engine/gfx/frame_source.h"
 
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <algorithm>

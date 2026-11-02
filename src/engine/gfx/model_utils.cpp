@@ -12,7 +12,6 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/core/text_store.h"
 #include "engine/gfx/model.h"
 #include "engine/maths/vec4.h"
@@ -20,7 +19,6 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
-#include "platform/compiler.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
 #include "platform/crt.h"

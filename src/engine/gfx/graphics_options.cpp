@@ -10,7 +10,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <cstring>
 #include <array>
 
 #include "platform/platform_config.h"

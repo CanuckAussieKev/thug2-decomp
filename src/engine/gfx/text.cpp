@@ -20,7 +20,6 @@
 #include "engine/core/mem.h"
 #include "engine/core/str.h"
 #include "engine/file/file_load.h"
-#include "engine/gfx/draw2d.h"
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
 #include "formats/byte_stream.h"

@@ -5,14 +5,10 @@
 #include <memory>
 #include <bit>
 #include <cstdint>
-#include <cstring>
 #include <span>
 
-#include "engine/core/manager.h"
 #include "engine/core/mem.h"
-#include "engine/gfx/draw2d.h"
 #include "engine/gfx/engine_text.h"
-#include "engine/gfx/font.h"
 #include "engine/gfx/text.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"

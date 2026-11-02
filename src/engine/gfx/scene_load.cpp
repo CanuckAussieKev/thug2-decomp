@@ -27,7 +27,6 @@
 #include "engine/gfx/sector.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/texture_dict.h"
