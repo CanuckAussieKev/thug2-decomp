@@ -187,6 +187,7 @@ target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /
 # thug2_format_check).
 add_library(thug2_formats STATIC
     src/engine/core/checksums.cpp
+    src/engine/core/format.cpp
     src/formats/anim_format.cpp
     src/formats/bundle_format.cpp
     src/formats/collision_format.cpp
@@ -940,6 +941,11 @@ add_executable(thug2_parse_check src/tests/parse_check.cpp)
 target_include_directories(thug2_parse_check PRIVATE src)
 target_link_libraries(thug2_parse_check PRIVATE Microsoft.GSL::GSL)
 target_compile_options(thug2_parse_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
+
+# NOT ORIGINAL - thug2_printf_check.exe: the printf-style formatting without C varargs (engine/core/format.h) compared
+# with the C runtime's snprintf over every conversion, flag, width, precision and edge value (src/tests/printf_check.cpp).
+add_executable(thug2_printf_check src/tests/printf_check.cpp)
+target_link_libraries(thug2_printf_check PRIVATE thug2_formats)
 
 # THUG2_GAME_DIR is the folder holding the game. A stock install keeps the game in a Game subfolder
 # (C:/Games/THUG2/Game) - some players delete what's around it and keep Game's contents at the top: a cached
