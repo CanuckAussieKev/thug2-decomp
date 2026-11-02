@@ -177,8 +177,36 @@ keep a check carry a `NOLINT` with their reason:
   explicitly.
 - **No C-style variadics of our own**: printf-style functions are variadic templates over a plain-text function
   (`get_log`, `debug::printf`...). The one left is the run-time-check callback, whose type the C runtime gives.
-- **Globals whose construction may throw** are function-local statics behind an accessor (made on first use);
-  allocation failures don't count as an escaping exception (`IgnoredExceptions`: the game ends either way).
+- **State, not globals** (`cppcoreguidelines-avoid-non-const-global-variables`): what the original kept in globals is a
+  subsystem's state record, reached through one accessor backed by a function-local `core::NoDestroy<T>`
+  (`engine/core/no_destroy.h`):
+
+  ```cpp
+  SoundState& sound_state()
+  {
+      static core::NoDestroy<SoundState> state;
+      return state.get();
+  }
+  ```
+
+  - Made on first use, value-initialised: it starts as the original's zeroed (or initialised) globals did, before
+    anything reads it, with no static-initialisation order between files. Never destroyed: the game ends by
+    `sys::fast_exit` / `crt::exit_fatal`, and nothing is torn down under its other threads. What the original tore
+    down (a level unload, a module's shut-down, a device reset) is done where the original did it, in its order - a
+    reset of the state's members, or the manager owner's `destroy_then_clear`.
+  - A trivially destructible record is held directly with a constexpr constructor - a constant-initialised static, no
+    guard; any other is constructed in place in static storage (the function-local static's guard). Its address is
+    stable, so members may be registered elsewhere. Static storage, as the globals were: the game's heaps don't change.
+  - A record is a plain struct (data members only, `name_`), its comment naming the original's addresses where known.
+    What one file uses is that file's record in its unnamed namespace; what several files of a subsystem share is the
+    subsystem's record in its own internal header (`sound/sound_state.h`), included only by the subsystem. Other
+    subsystems get functions (`sound::get_audio_mixer()`), never the record. The state of the original's start-up
+    initialisers (`sys::run_startup_initialisers`) is still built there, in that order, over its record.
+  - Hot paths take the reference once (`auto& voices = voice_state();`) rather than calling the accessor per element.
+  - Tables that never change are `constexpr` / `const` (`k` names), not state; a cache of a pure result is a
+    function-local static of its one function.
+  - Globals whose construction may throw are behind an accessor the same way; allocation failures don't count as an
+    escaping exception (`IgnoredExceptions`: the game ends either way).
 - File-local names live in **unnamed namespaces**; **`[[nodiscard]]`** marks results not to drop, and `(void)` the
   ones dropped on purpose; **enums** take the smallest type their values need, except where a value comes from
   outside as an int (the pad bindings' ini numbers); `std::numbers` only where a literal is exactly the constant
