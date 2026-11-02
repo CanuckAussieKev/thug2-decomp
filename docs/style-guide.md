@@ -33,6 +33,9 @@ house rules below for what they leave open. `.clang-format` and `.clang-tidy` at
 - `clang-format` with the root `.clang-format`: 4-space indent, 120 columns, `int* p`. Includes keep the order they
   are written in (standard library, then the project's; some Windows headers must follow `windows.h`).
 - `#pragma once` in headers; project includes by path from `src/`.
+- A file includes what it uses (standard headers too: `<cstdint>`, `<string>`, `<array>`... never relied on through another
+  header) and nothing else - `misc-include-cleaner` checks it. An include the check can't see a use of keeps
+  `// IWYU pragma: keep - <why>`; `<new>` is left to the file (placement new).
 - Comments say what the code does and why. A function rewritten from the game carries the original's address in a
   comment above it (`// 0x0046B940`); code that isn't in the original game is marked `NOT ORIGINAL`.
 

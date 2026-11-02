@@ -20,8 +20,6 @@ Checks:
   - '-cppcoreguidelines-avoid-magic-numbers'
   # The engine's classes are data layouts shared between subsystems, as the original's were.
   - '-misc-non-private-member-variables-in-classes'
-  # No include-what-you-use mapping for the Windows / DirectX / SDL headers: its advice there is wrong.
-  - '-misc-include-cleaner'
   # The game's globals are the original's state (g_ names).
   - '-cppcoreguidelines-avoid-non-const-global-variables'
   # The original's signatures (x, y, z / width, height): to come on with strong types (Vec2 / Vec3, Rect, checksum and
@@ -41,6 +39,8 @@ CheckOptions:
   # would name the SDKs' internal headers (or ask for a different one than the umbrella the SDK documents).
   # `<new>` (the last pattern): the check doesn't count a placement new (`new (memory) T`, the game's way of
   # constructing in its own pools) as a use of it, but GCC needs the header there - so it is left as the files include it.
+  # misc-include-cleaner is on: a file includes what it uses and nothing else. An include the check can't see a use of
+  # (a complete type behind a forward declaration, a using-directive's namespace) stays with `// IWYU pragma: keep - why`.
   misc-include-cleaner.IgnoreHeaders: '.*[/\\]_deps[/\\].*;.*[/\\]sdl2-include[/\\].*;.*Windows Kits.*;.*[/\\]generated[/\\].*;.*[/\\]editor_fonts[/\\].*;^<?new>?$'
   # An allocation failure ends the game whether or not it leaves a noexcept function (no handler anywhere: the
   # game has no exception handling); the debug runtime's container moves allocate, so every move of a container
