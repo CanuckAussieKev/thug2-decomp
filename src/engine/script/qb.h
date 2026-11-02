@@ -127,6 +127,4 @@ struct StoredRandom {
     StoredRandom* previous_; // newer
 };
 
-extern memory::PoolPair g_stored_random_pools;
-
 } // namespace script

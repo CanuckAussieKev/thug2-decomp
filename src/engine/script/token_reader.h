@@ -50,9 +50,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result);
 Tokens read_name_token(Tokens token, uint32_t* checksum, const char** name);
 
 inline constexpr float kParseNudge{0.1f};
-extern StoredRandom* g_stored_randoms_newest;
 
 // The script parser's expression evaluator (script/parse.cpp).
-extern ValueResolver g_evaluator;
 
 } // namespace script

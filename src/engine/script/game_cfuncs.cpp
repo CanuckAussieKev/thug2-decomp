@@ -71,11 +71,16 @@
 #include <span>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/script/shared_state.h"
 
 namespace commands {
 
-bool g_trying_to_join;
-std::array<char, 128> g_node_list_name;
+GameCfuncsShared& game_cfuncs_shared()
+{
+    static core::NoDestroy<GameCfuncsShared> state;
+    return state.get();
+}
+
 namespace {
 // NOT ORIGINAL grouping - game_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
 // (game_cfuncs_state()).
@@ -147,7 +152,7 @@ prefs::Preferences* get_preferences_of_type(uint32_t type) { return modules::Ska
 // The network game flags (online).
 bool& internet_game_host() { return sys::g_internet_game_host; }
 bool& joining_internet_game() { return sys::g_joining_internet_game; }
-bool& trying_to_join() { return g_trying_to_join; }
+bool& trying_to_join() { return game_cfuncs_shared().trying_to_join_; }
 bool& online_mode_flag() { return online::g_online_active; }
 bool& join_server_ip_succeeded() { return online::g_join_server_ip_succeeded; }
 
@@ -377,7 +382,7 @@ bool cfunc_node_array_man_load(script::Struct* params, script::Script*)
 {
     const char* file = nullptr;
     params->fetch_text(0u, &file, 1);
-    text::copy_unbounded(g_node_list_name.data(), file);
+    text::copy_unbounded(game_cfuncs_shared().node_list_name_.data(), file);
     assets::asset_manager()->load_asset(file, 11, 0, 0, false, false, false, nullptr, nullptr);
     debug::printf("p_file = %s\n", file); // "p_file = %s\n"
     return true;

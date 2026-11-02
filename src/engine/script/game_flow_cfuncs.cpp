@@ -66,10 +66,16 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
 #include "engine/core/format.h"
+#include "engine/script/shared_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace commands {
 
-uint32_t g_last_broadcasted_omnigon;
+GameFlowCfuncsShared& game_flow_cfuncs_shared()
+{
+    static core::NoDestroy<GameFlowCfuncsShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -112,7 +118,7 @@ inline void compiled_out_debug_call() {}
 // A .qb file's scripts unloaded and the global 0xC472ECC5 cleared (0x005A59B0).
 void unload_qb_file(uint32_t file) { script::unload_qb_file(file); }
 // The level's .qb files to unload with it (0x00696900, 15).
-std::array<uint32_t, 15>& level_qb_files() { return g_level_qb_files; }
+std::array<uint32_t, 15>& level_qb_files() { return debug_cfuncs_shared().level_qb_files_; }
 constexpr int kLevelQbFiles = 15;
 
 // The object's part of a manager walk's command (what 0x005A0120 is given).
@@ -594,7 +600,7 @@ constexpr uint32_t kCheatFailed = 0x323D63FF; // (names unknown) its scripts: no
 constexpr uint32_t kCheatFound = 0xB95B735C;  // a cheat (before the cheat's own script)
 constexpr uint32_t kCheatList = 0x75A23DA4;   // (name unknown) the global array of {c1 c2 cheatscript}
 
-uint32_t& last_broadcasted_omnigon() { return g_last_broadcasted_omnigon; }
+uint32_t& last_broadcasted_omnigon() { return game_flow_cfuncs_shared().last_broadcasted_omnigon_; }
 
 // A skater's score (0x00580480; null if none) and its display brought up to date (0x005626E0).
 void update_score_display(objects::Rider* skater)

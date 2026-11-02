@@ -238,8 +238,6 @@ bool flag_command_by_name(script::Struct* params, script::Script* script, int ac
 // object has the id.
 void apply_flag_command_to_object(objects::Entity* object, void* data);
 
-extern bool g_trying_to_join;
 extern gfx::CtodManager* g_tod_manager;
-extern uint32_t g_last_broadcasted_omnigon;
 
 } // namespace commands

@@ -25,6 +25,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/no_destroy.h"
+#include "engine/script/shared_state.h"
 #include <gsl/pointers>
 
 namespace script {
@@ -32,7 +33,12 @@ namespace script {
 namespace {
 constexpr float kParseRandomScale{0.000030525032f};
 } // namespace
-StoredRandom* g_stored_randoms_newest;
+TokenReaderShared& token_reader_shared()
+{
+    static core::NoDestroy<TokenReaderShared> state;
+    return state.get();
+}
+
 namespace {
 // NOT ORIGINAL grouping - token_reader.cpp's state (the original's globals). Made on first use, never destroyed
 // (token_reader_state()).
@@ -49,7 +55,6 @@ TokenReaderState& token_reader_state()
 }
 
 } // namespace
-ValueResolver g_evaluator;
 namespace {
 
 float get_as_float(uint32_t bits)
@@ -76,11 +81,11 @@ Tokens skip_end_of_lines_in(Tokens p)
 }
 
 // The evaluator expressions are parsed with, and the component values go through on the way.
-ValueResolver& get_evaluator() { return g_evaluator; }
+ValueResolver& get_evaluator() { return token_reader_shared().evaluator_; }
 Component& get_scratch() { return token_reader_state().parse_scratch_; }
 
 // The stored randoms: newest first (next = older), at most 100.
-StoredRandom*& stored_randoms_newest() { return g_stored_randoms_newest; }
+StoredRandom*& stored_randoms_newest() { return token_reader_shared().stored_randoms_newest_; }
 StoredRandom*& stored_randoms_oldest() { return token_reader_state().stored_randoms_oldest_; }
 int& stored_random_count() { return token_reader_state().stored_random_count_; }
 
@@ -148,7 +153,7 @@ StoredRandom* new_stored_random()
         if (newer)
             newer->succ_ = nullptr;
     }
-    auto* stored = g_stored_random_pools.allocate<StoredRandom>();
+    auto* stored = qb_shared().stored_random_pools_.allocate<StoredRandom>();
     if (stored) {
         ++stored_random_count();
         stored->succ_ = nullptr;
@@ -1042,7 +1047,7 @@ Tokens read_name_token(Tokens token, uint32_t* checksum, const char** name)
 }
 
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
-void construct_evaluator() { g_evaluator.prepare_all(); }
+void construct_evaluator() { token_reader_shared().evaluator_.prepare_all(); }
 
 const MemberFunctionEntry* member_entry_at(Tokens p) { return cell::pointer<const MemberFunctionEntry>(fetch_word32(p)); }
 NativeFunction native_function_at(Tokens p)

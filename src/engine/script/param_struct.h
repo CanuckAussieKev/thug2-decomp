@@ -360,15 +360,8 @@ static_assert(sizeof(Struct) == 8, "layout must match the original");
 extern memory::PoolPair g_struct_pools;
 extern memory::PoolPair g_array_pools;
 extern memory::PoolPair g_component_pools;
-extern char* g_permanent_strings_start;
-extern char* g_permanent_strings_next;
-extern uint32_t g_permanent_strings_size;
-extern uint32_t g_permanent_string_count;
 extern memory::PoolPair g_symbol_pools;
-extern memory::PoolPair g_pair_pools;
 extern memory::PoolPair g_vector_pools;
 
 struct PermanentString;
-extern PermanentString* g_permanent_string_table;
-extern uint32_t g_permanent_string_capacity; // (the table's entries)
 } // namespace script

@@ -58,6 +58,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/script/shared_state.h"
 
 namespace commands {
 
@@ -589,7 +590,7 @@ bool cfunc_re_load_node_array(script::Struct*, script::Script* script)
 {
     mem_manager()->enter_heap_scope(static_cast<memory::MemSource*>(mem_manager()->debug_heap_));
     level_nodes::NodeManager* node_manager = level_nodes::node_manager_instance().get();
-    const char* loaded_node_list = g_node_list_name.data();
+    const char* loaded_node_list = game_cfuncs_shared().node_list_name_.data();
     assets::ResourceRegistry* assets = assets::asset_manager();
     assets->discard_loaded_item(assets->obtain_loaded_item(checksums::hash_from_text(loaded_node_list), 0));
     script::Struct file_params; // (on the stack; emptied at the end, never destroyed - as the original)

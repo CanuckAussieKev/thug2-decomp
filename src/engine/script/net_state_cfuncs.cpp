@@ -38,6 +38,7 @@
 #include "game/rider/core_physics.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/script/shared_state.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -521,7 +522,7 @@ bool cfunc_device_chosen(script::Struct*, script::Script*) { return network_pref
 bool cfunc_game_is_over(script::Struct*, script::Script*) { return online_hub_handle()->has_match_ended(); }
 
 namespace {
-bool& trying_to_join() { return g_trying_to_join; }
+bool& trying_to_join() { return game_cfuncs_shared().trying_to_join_; }
 // gethostbyname through the game's import (0x005BEABA).
 uint32_t host_first_address(const char* name) { return crt::host_first_address(name); }
 } // namespace

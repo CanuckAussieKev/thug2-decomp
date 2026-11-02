@@ -67,6 +67,4 @@ bool cfunc_omnigon_allowed(script::Struct* params, script::Script* script);     
 bool cfunc_set_level_name(script::Struct* params, script::Script* script);               // 0x0059F5B0
 bool cfunc_dump_scripts(script::Struct* params, script::Script* script);                 // 0x0059F5E0
 
-extern std::array<char, 128> g_node_list_name;
-
 } // namespace commands

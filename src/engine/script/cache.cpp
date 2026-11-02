@@ -17,6 +17,8 @@
 #include "formats/lzss.h"
 #include <gsl/pointers>
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
+#include "engine/script/shared_state.h"
 
 namespace script {
 
@@ -27,7 +29,11 @@ static_assert(offsetof(ScriptStore, entries_) == 0x14 && offsetof(ScriptStore, n
               "layout must match the original");
 
 std::unique_ptr<script::ScriptStore> g_script_store;
-memory::PoolPair g_cache_entry_pools;
+CacheShared& cache_shared()
+{
+    static core::NoDestroy<CacheShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -37,7 +43,7 @@ uint32_t& cache_references()
     static uint32_t cache_references{};
     return cache_references;
 }
-memory::PoolPair& entry_pools() { return g_cache_entry_pools; }
+memory::PoolPair& entry_pools() { return cache_shared().cache_entry_pools_; }
 
 } // namespace
 

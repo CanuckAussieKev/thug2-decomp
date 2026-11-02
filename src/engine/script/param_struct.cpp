@@ -22,6 +22,7 @@
 #include "engine/script/tokens.h"
 #include "platform/crt.h"
 #include "engine/core/no_destroy.h"
+#include "engine/script/shared_state.h"
 
 namespace script {
 
@@ -46,12 +47,13 @@ ParamStructState& param_struct_state()
 } // namespace
 memory::PoolPair g_array_pools;
 memory::PoolPair g_component_pools;
-char* g_permanent_strings_start;
-char* g_permanent_strings_next;
-uint32_t g_permanent_strings_size;
-uint32_t g_permanent_string_count;
+ParamStructShared& param_struct_shared()
+{
+    static core::NoDestroy<ParamStructShared> state;
+    return state.get();
+}
+
 memory::PoolPair g_symbol_pools;
-memory::PoolPair g_pair_pools;
 memory::PoolPair g_vector_pools;
 
 namespace {
@@ -453,31 +455,29 @@ struct PermanentString {
     uint32_t checksum;
     char* string;
 };
-PermanentString* g_permanent_string_table;
-uint32_t g_permanent_string_capacity;
 namespace {
 
 // The pool pairs of the script's value objects.
 memory::PoolPair& component_pools() { return g_component_pools; }
 memory::PoolPair& struct_pools() { return g_struct_pools; }
 memory::PoolPair& array_pools() { return g_array_pools; }
-memory::PoolPair& pair_pools() { return g_pair_pools; }
+memory::PoolPair& pair_pools() { return param_struct_shared().pair_pools_; }
 memory::PoolPair& vector_pools() { return g_vector_pools; }
 
 // The permanent string cache (used while loading the game's scripts): one block, strings shared by checksum.
 bool& use_permanent_strings() { return param_struct_state().use_permanent_strings_; }
-char*& permanent_strings_start() { return g_permanent_strings_start; }
-char*& permanent_strings_next() { return g_permanent_strings_next; }
-uint32_t& permanent_strings_size() { return g_permanent_strings_size; }
-PermanentString*& permanent_string_table() { return g_permanent_string_table; }
-uint32_t& permanent_string_count() { return g_permanent_string_count; }
+char*& permanent_strings_start() { return param_struct_shared().permanent_strings_start_; }
+char*& permanent_strings_next() { return param_struct_shared().permanent_strings_next_; }
+uint32_t& permanent_strings_size() { return param_struct_shared().permanent_strings_size_; }
+PermanentString*& permanent_string_table() { return param_struct_shared().permanent_string_table_; }
+uint32_t& permanent_string_count() { return param_struct_shared().permanent_string_count_; }
 
 // 0x00476260 (the string in EAX: called only by spawn_text, so registered source-only)
 char* create_permanent_string(const char* string)
 {
     const int length = static_cast<int>(std::strlen(string));
     const uint32_t checksum = checksums::generate_crc_from_buffer(string, length);
-    const std::span<PermanentString> table(permanent_string_table(), g_permanent_string_capacity);
+    const std::span<PermanentString> table(permanent_string_table(), param_struct_shared().permanent_string_capacity_);
     for (uint32_t i = 0; i < permanent_string_count(); ++i) {
         if (core::at(table, i).checksum == checksum)
             return core::at(table, i).string;
@@ -1230,7 +1230,7 @@ int& struct_copy_peak() { return param_struct_state().struct_copy_peak_; }
 } // namespace
 
 // 0x0046D410 / 0x0046D3D0 (operator new; the size is always the object's)
-Pair* new_pair() { return g_pair_pools.allocate<Pair>(); }
+Pair* new_pair() { return param_struct_shared().pair_pools_.allocate<Pair>(); }
 Vector* alloc_script_vector() { return g_vector_pools.allocate<Vector>(); }
 
 // 0x0047AC00

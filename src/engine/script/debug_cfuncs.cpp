@@ -26,12 +26,18 @@
 #include "engine/objects/sound_component.h"
 #include "engine/objects/stream_component.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/no_destroy.h"
+#include "engine/script/shared_state.h"
 #include <gsl/pointers>
 #include <span>
 
 namespace commands {
 
-std::array<uint32_t, 15> g_level_qb_files;
+DebugCfuncsShared& debug_cfuncs_shared()
+{
+    static core::NoDestroy<DebugCfuncsShared> state;
+    return state.get();
+}
 
 namespace {
 
@@ -68,7 +74,7 @@ void print_bytes(const void* data, int count)
 
 } // namespace
 
-std::array<uint32_t, 15>& level_specific_qb_files() { return g_level_qb_files; }
+std::array<uint32_t, 15>& level_specific_qb_files() { return debug_cfuncs_shared().level_qb_files_; }
 
 // 0x004489B0: DisplayFreeMem: for every heap of the memory manager, run UpdateDisplayFreeMemory with id=<the
 // heap's name checksum> free_mem=<the space left in its region> min_free_mem=<the least there has been>.

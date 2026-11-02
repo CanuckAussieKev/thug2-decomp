@@ -33,6 +33,4 @@ bool cfunc_reset_engine(script::Struct* params, script::Script* script);     // 
 std::array<uint32_t, 15>& level_specific_qb_files();
 constexpr int kLevelSpecificQbFiles = 15;
 
-extern std::array<uint32_t, 15> g_level_qb_files;
-
 } // namespace commands

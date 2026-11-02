@@ -86,6 +86,5 @@ ScriptStore* create_script_cache(bool create);
 void release_script_cache();
 
 extern std::unique_ptr<script::ScriptStore> g_script_store;
-extern memory::PoolPair g_cache_entry_pools;
 
 } // namespace script

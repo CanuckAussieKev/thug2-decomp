@@ -26,6 +26,7 @@
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/script/shared_state.h"
 
 namespace commands {
 
@@ -63,10 +64,10 @@ constexpr uint32_t kDumpScriptsFlag = 0x2AB71EEF;    // (name unknown) passed to
 int glyph_for_button_tag(uint32_t button) { return pad_input::glyph_for_button_tag(button); }
 
 // The last Omnigon checksum sent to the other players (0x007CEBC8).
-uint32_t& last_broadcasted_omnigon() { return g_last_broadcasted_omnigon; }
+uint32_t& last_broadcasted_omnigon() { return game_flow_cfuncs_shared().last_broadcasted_omnigon_; }
 
 // The current level's node array name (0x007CE6D8) and the level's name (0x007CE698, 64 characters).
-std::array<char, 128>& node_table_key_text() { return g_node_list_name; }
+std::array<char, 128>& node_table_key_text() { return game_cfuncs_shared().node_list_name_; }
 std::array<char, 64>& get_level_name() { return skate_cfuncs_state().level_name_; }
 
 // The viewer (the debug camera and the object it shows, 0x007CE4A8 through its getter 0x00576EA0).
