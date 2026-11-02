@@ -307,7 +307,7 @@ namespace {
 // Whether typed keys are wanted: the keyboard is being typed on (0x007CE46E), or text entry is on
 // (0x007CCDF8) outside a menu (0x007CE46F). PartyMod sets the last two for its text input.
 bool& keyboard_typing() { return keyboard_on_screen_flag(); }
-bool& text_entry() { return online::g_text_entry; }
+bool text_entry() { return online::text_entry(); }
 bool& in_menu() { return menu_flag(); }
 } // namespace
 

@@ -23,7 +23,18 @@
 
 namespace objects {
 
-online::Hub* g_online_hub;
+namespace {
+
+online::Hub*& stored_online_hub()
+{
+    static online::Hub* online_hub{};
+    return online_hub;
+}
+
+} // namespace
+
+online::Hub* net_hub() { return stored_online_hub(); }
+void set_net_hub(online::Hub* value) { stored_online_hub() = value; }
 
 namespace {
 
@@ -79,7 +90,7 @@ void ImpactDestructModule::seal() { suspend_ = core::down_cast<DormancyModule>(e
 // 0x0041C3D0
 void ImpactDestructModule::tick_frame()
 {
-    if (!g_online_hub->in_net_game() && suspend_->far_)
+    if (!stored_online_hub()->in_net_game() && suspend_->far_)
         return;
     const int& offset = g_clock_offset;
     if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) >

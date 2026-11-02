@@ -76,7 +76,7 @@ constexpr int kQueryPort = 0x1423;           // 5155 (qr2's own)
 void buffer_add(void* buffer, const char* text) { game_spy::call_qr2_buffer_add(buffer, text); }
 void buffer_add_int(void* buffer, int value) { game_spy::get_qr2_buffer_add_int(buffer, value); }
 
-Hub* net_session_slot() { return g_online_hub; }
+Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 prefs::Preferences* net_game_options(Hub* m) { return &m->net_options_; }
 
 // The level's name for qr2's mapname when the level select has none (0x0067F0A0, "Boston" until set up).
@@ -88,7 +88,18 @@ std::array<char, 128>& fallback_map_name()
 
 } // namespace
 
-int g_lobby_group_id;
+namespace {
+
+int& stored_lobby_group_id()
+{
+    static int lobby_group_id{};
+    return lobby_group_id;
+}
+
+} // namespace
+
+int lobby_group_id() { return stored_lobby_group_id(); }
+void set_lobby_group_id(int value) { stored_lobby_group_id() = value; }
 
 // 0x0053B9C0
 void server_key_callback(int key, void* buffer, void*)
@@ -139,7 +150,7 @@ void server_key_callback(int key, void* buffer, void*)
         buffer_add_int(buffer, *manager->fetch_secret() != '\0' ? 1 : 0);
         return;
     case kKeyGroupid:
-        buffer_add_int(buffer, g_lobby_group_id); // (the lobby's group room)
+        buffer_add_int(buffer, stored_lobby_group_id()); // (the lobby's group room)
         return;
     default:
         buffer_add(buffer, "");

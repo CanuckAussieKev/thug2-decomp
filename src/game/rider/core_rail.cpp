@@ -381,7 +381,7 @@ void SkaterPhysicsModule::update_grind_balance()
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
             balance_->grind_.lean_ = 0.0f;
             balance_->grind_.lean_speed_ = 0.0f;
-            online::g_cheat_flag = true;
+            online::set_cheat_flag(true);
         }
     }
 }

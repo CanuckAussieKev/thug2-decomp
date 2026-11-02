@@ -96,7 +96,7 @@ bool cfunc_un_pause_skaters(Struct*, Script*)
 // 0x005A5480
 bool cfunc_skaters_are_ready(Struct*, Script*)
 {
-    if (!online::g_online_hub->cleared_to_start_)
+    if (!online::online_hub()->cleared_to_start_)
         return false;
     if (modules::Skate::sole()->count_riders() > 0)
         return true;

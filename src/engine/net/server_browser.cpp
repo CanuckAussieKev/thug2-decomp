@@ -91,7 +91,7 @@ constexpr int kListingUpdate = 1;
 constexpr int kListingRemove = 2;
 constexpr int kListingClear = 3;
 
-Hub* the_manager() { return g_online_hub; }
+Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_.get(); }
 
@@ -306,7 +306,7 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     auto* manager = static_cast<Hub*>(context->content_);
     if (gamenet_settings_shared().asked_for_) {
         gamenet_settings_shared().asked_for_ = context->sender_conn_->remote_ip_;
-        g_join_server_ip_succeeded = true;
+        gamenet_settings_shared().join_server_ip_succeeded_ = true;
     }
     if (context->body_size_ != kServerResponseSize)
         return kDone;

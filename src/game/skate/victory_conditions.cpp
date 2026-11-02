@@ -66,7 +66,7 @@ bool is_squad_match() { return static_cast<MatchRules*>(get_game_mode())->is_squ
 int current_num_teams() { return static_cast<MatchRules*>(get_game_mode())->current_num_teams(); }
 
 // The network manager's players (0x007CCE14), walked with a lists::Hunt<PlayerRecord> (vtable 0x0064C1A8).
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 using PlayerSearch = online::PlayerSearch;
 using online::PlayerRecord;
 PlayerRecord* start_roster_sweep(PlayerSearch* search) { return net_session_slot()->begin_player_walk(search, false); }

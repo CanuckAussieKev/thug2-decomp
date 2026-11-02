@@ -291,7 +291,7 @@ double FootMovement::get_gravity()
     if (!career->is_code_on(kCheatMoon))
         return walk_parameter(kGravity);
     get_career()->set_global_flag(script::fetch_int_value(kCheatMoon));
-    online::g_cheat_flag = true;
+    online::set_cheat_flag(true);
     return static_cast<double>(walk_parameter(kGravity)) * kHalf;
 }
 

@@ -133,7 +133,7 @@ constexpr uint8_t kSymbolString = 3;     // kQbvalString
 // The singletons (not rewritten): the skate module, the network manager (online::Hub), the game mode
 // (goals::MatchRules), the object manager, the goal manager, the profile manager (graffiti colours).
 Skate* skate_module() { return g_skate_module.get(); }
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 objects::ObjectHubBase* entity_hub_handle()
 {

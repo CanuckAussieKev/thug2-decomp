@@ -714,7 +714,7 @@ LayoutSave& layout_save()
 // The network game (online::Hub 0x007CCE14, 0x0044E4F0: a network game is on - host or client).
 bool in_net_game()
 {
-    void* net = online::g_online_hub;
+    void* net = online::online_hub();
     return net && static_cast<online::Hub*>(net)->in_net_game();
 }
 

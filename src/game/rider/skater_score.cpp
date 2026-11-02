@@ -38,7 +38,6 @@ constexpr uint32_t kLastScoreLandedLessThan = 0x3C445A82, kGetSpecialValue = 0x3
 constexpr uint32_t kValue = 0xE288A7CB, kKeycombo = 0x95E16467, kSpin = 0xEDF5DB70, kNumTaps = 0xC82CF71B,
                    kTrickText = 0x3EAFA520, kTotalScore = 0xEE5B2B48, kNumberOfNonGapTricks = 0xFFE7E02C;
 
-
 // The score (modules::PointTally).
 modules::PointTally* get_score_of(modules::PointTally* score) { return score; }
 int total_score(modules::PointTally* score) { return score->get_total_score(); }
@@ -102,7 +101,7 @@ void RiderPointKeeper::tick_frame()
     if (always_special) {
         get_career()->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));
         get_score_of(points_held_)->fill_special();
-        online::g_cheat_flag = true;
+        online::set_cheat_flag(true);
     }
 }
 

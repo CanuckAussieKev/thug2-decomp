@@ -108,7 +108,7 @@ objects::EntityHub* object_edit() { return objects::g_composite_registry.get(); 
 void* get_game_mode() { return static_cast<void*>(goals::g_game_mode.get()); }
 goals::MatchRules* game_mode_object() { return static_cast<goals::MatchRules*>(get_game_mode()); }
 int game_mode_time_limit() { return game_mode_object()->get_time_limit(); }
-online::Hub* online_hub_handle() { return online::g_online_hub; }
+online::Hub* online_hub_handle() { return online::online_hub(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 
 // Two argument-less calls of Cleanup's to the empty function 0x005480A0 (compiled-out debug code; what it did is

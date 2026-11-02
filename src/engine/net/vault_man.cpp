@@ -36,6 +36,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -54,7 +55,7 @@ constexpr uint32_t kDoneScript = 0x0089990F;
 constexpr uint32_t kProgressScript = 0x4B85EE64;
 constexpr uint32_t kErrorScript = 0xCF040665;
 
-Hub* net_session_slot() { return g_online_hub; }
+Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 VaultMan* get_vault() { return net_session_slot()->vault_man_.get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }

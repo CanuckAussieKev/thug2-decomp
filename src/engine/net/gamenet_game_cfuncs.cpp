@@ -41,6 +41,8 @@
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/no_destroy.h"
+#include "engine/net/shared_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the player's name)
 
@@ -67,7 +69,7 @@ constexpr uint32_t kPlayerMarked = 0x400; // chosen in the kick / ban menu
 constexpr int kDropBanned = 3;
 constexpr int kDropKicked = 4;
 
-Hub* net_session_slot() { return g_online_hub; }
+Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 
 // The flag message (took / captured): the player's object id and the team, to every remote player through the server;
@@ -238,17 +240,24 @@ bool cfunc_set_host_mode(script::Struct* params, script::Script*)
     return true;
 }
 
-bool g_text_entry;
+GamenetGameCfuncsShared& gamenet_game_cfuncs_shared()
+{
+    static core::NoDestroy<GamenetGameCfuncsShared> state;
+    return state.get();
+}
+
+bool text_entry() { return gamenet_game_cfuncs_shared().text_entry_; }
+void set_text_entry(bool value) { gamenet_game_cfuncs_shared().text_entry_ = value; }
 
 // 0x0053D440
 bool cfunc_entered_network_game(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
-    if (g_online_active) // (on the internet: the server's GameSpy reporting)
+    if (gamenet_players_shared().online_active_) // (on the internet: the server's GameSpy reporting)
         start_query_reporting(false);
     tasks::PileUp* tasks = get_logic_tasks();
     tasks->queue_job(manager->keyboard_job_.get());
-    g_text_entry = true;
+    gamenet_game_cfuncs_shared().text_entry_ = true;
     tasks->queue_job(manager->score_broadcast_job_.get());
     manager->show_scores_ = true;
     return true;

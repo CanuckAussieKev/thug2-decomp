@@ -99,7 +99,7 @@ constexpr uint8_t kMsgReadyQuery = 0x25;   // are you ready (a time stamp)
 constexpr uint8_t kGroupGame = 8;
 
 goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 int& get_refs() { return skate_module_state_state().skate_module_references_; }
 float& next_beep() { return skate_module_state_state().next_beep_; }

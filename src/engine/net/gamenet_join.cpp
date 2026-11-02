@@ -67,7 +67,11 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strncpy: the original's own copi
 
 namespace online {
 
-std::array<char, kPasswordSize> g_pending_password; // (winmain.cpp: -PASSWORD when joining)
+std::array<char, kPasswordSize>& pending_password()
+{
+    static std::array<char, kPasswordSize> pending_password{}; // (winmain.cpp: -PASSWORD when joining)
+    return pending_password;
+}
 
 namespace {
 
@@ -147,7 +151,6 @@ struct AuthInstance {
 };
 
 // The global passwords: the one being typed (12) and the one in use (10; resent with every request).
-std::array<char, kPasswordSize>& pending_password() { return g_pending_password; }
 std::array<char, kPasswordSize>& join_password()
 {
     static std::array<char, kPasswordSize> join_password{};

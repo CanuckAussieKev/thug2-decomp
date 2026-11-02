@@ -125,7 +125,7 @@ constexpr auto kSentCheats = std::to_array<uint32_t>({
     0xD5982173, // NO_G_DISPLAY_BALANCE
 });
 
-online::Hub* net_link() { return online::g_online_hub; }
+online::Hub* net_link() { return online::online_hub(); }
 goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
 objects::ObjectHubBase* entity_hub_handle()
 {

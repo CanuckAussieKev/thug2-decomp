@@ -19,7 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/winmain.h"
 #include "engine/core/format.h"
-
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -32,7 +32,7 @@ constexpr uint32_t kString = 0x61414D56;   // string
 constexpr int kStatusOnline = 1;
 constexpr int kStatusChatting = 4;
 
-Hub* the_manager() { return g_online_hub; }
+Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 FriendsManager* get_buddies() { return the_manager()->presence_service_.get(); }
 
@@ -55,8 +55,17 @@ void FriendsManager::on_buddy_request(void* connection, const void* arg, Friends
     ram_stats()->leave_heap_scope();
 }
 
-std::array<char, 256> g_command_line_email;
-std::array<char, 16> g_command_line_password;
+std::array<char, 256>& command_line_email()
+{
+    static std::array<char, 256> command_line_email{};
+    return command_line_email;
+}
+
+std::array<char, 16>& command_line_password()
+{
+    static std::array<char, 16> command_line_password{};
+    return command_line_password;
+}
 
 // 0x00548140
 unsigned long __stdcall FriendsManager::login_thread(void* man)
@@ -67,8 +76,8 @@ unsigned long __stdcall FriendsManager::login_thread(void* man)
     const char* email = nullptr;
     const char* password = nullptr;
     if (sys::g_internet_game_host || sys::g_joining_internet_game) {
-        email = g_command_line_email.data();
-        password = g_command_line_password.data();
+        email = command_line_email().data();
+        password = command_line_password().data();
     } else {
         email = preferences->get_preference_string(checksums::hash_from_text("profile_email"),
                                                    checksums::hash_from_text("ui_string"));

@@ -62,7 +62,7 @@ constexpr uint8_t kGroupGoals = 8;    // (its message group)
 
 const char* const kSpecialGap = "special_gap"; // "special_gap"
 
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 MatchRules* get_game_mode() { return g_game_mode.get(); }
 
 void remove_objective_npc(ObjectiveNpc* ped) { ped->remove_objective_npc(); }

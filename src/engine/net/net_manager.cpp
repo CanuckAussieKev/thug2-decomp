@@ -18,6 +18,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checked_index.h"
 #include "platform/sockets.h"
+#include "engine/net/shared_state.h"
 
 namespace net {
 
@@ -44,7 +45,7 @@ void register_logic_task(frame_loop::Hub* mlp, tasks::SchedulerTask* task) { mlp
 
 } // namespace
 
-Hub* Hub::sole() { return g_net_core.get(); }
+Hub* Hub::sole() { return net_manager_apps_shared().net_core_.get(); }
 
 // 0x00454580
 bool Hub::connect_to_internet()

@@ -59,6 +59,8 @@ public:
     maths::Vec4 last_pos_{};     // +0x44 the object's position at the last update
 };
 
-extern online::Hub* g_online_hub;
+// The objects' own copy of the network manager's pointer (set once at start-up, startup.cpp).
+online::Hub* net_hub();
+void set_net_hub(online::Hub* value);
 
 } // namespace objects

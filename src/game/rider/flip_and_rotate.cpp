@@ -43,10 +43,9 @@ constexpr uint32_t kNormal = 0xDE7A971B;
 
 constexpr uint8_t kMsgBoardRotated = 0x2A;
 
-
 // The network manager (0x007CCE14) and its players: the player with an object id, whether a player is this
 // machine's, a player's skater's index (its +0x2BC) and the client app of an index.
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
 {
     return (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id)));

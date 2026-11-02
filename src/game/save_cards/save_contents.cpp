@@ -74,7 +74,7 @@ constexpr int kControllers = 8;
 modules::Skate* get_skate() { return modules::Skate::sole(); }
 objects::ProfileRoster* get_profiles() { return objects::g_profile_roster.get(); }
 highscores::BestResults* game_records() { return highscores::g_game_records.get(); }
-online::Hub* online_hub_handle() { return online::g_online_hub; }
+online::Hub* online_hub_handle() { return online::online_hub(); }
 objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
 int os_layer() { return game_config::hardware(); }
 

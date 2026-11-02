@@ -60,7 +60,6 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
-
 namespace script {
 
 namespace {
@@ -96,7 +95,7 @@ objects::ObjectModule* fetch_module(objects::Entity* object, uint32_t type)
 objects::Entity* find_object(uint32_t name) { return objects::find_object(name); }
 // 0x0044E4F0 on online::Hub (0x007CCE14): called where a member function has no object to run on, its
 // result unused - what is left of a compiled-out assert.
-void no_object_check() { online::g_online_hub->in_net_game(); }
+void no_object_check() { online::online_hub()->in_net_game(); }
 
 // A component made and freed around one expression / switch value.
 void delete_component(Component* component)

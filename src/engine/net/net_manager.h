@@ -145,6 +145,6 @@ Hub* create_manager(bool create);
 // 0x004558D0: one reference less; the last deletes it.
 void release_manager();
 
-extern memory::HeapUnique<Hub> g_net_core;
+Hub* net_core();
 
 } // namespace net

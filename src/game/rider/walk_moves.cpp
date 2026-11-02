@@ -307,7 +307,7 @@ void FootMovement::update_anim_speed()
     case 3: { // on a ladder: also sent when it changed by 0.1 or more
         const float speed = speed_ / walk_parameter(kLadderMoveSpeed);
         tell(speed);
-        auto* net = online::g_online_hub;
+        auto* net = online::online_hub();
         if (net->in_net_game() && !(std::fabs(static_cast<double>(speed) - ladder_sign_) < 0.10000000149011612)) {
             ladder_sign_ = speed;
             set_speed(speed, 1);

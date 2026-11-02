@@ -19,10 +19,18 @@
 #include <gsl/pointers>
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
+#include "engine/net/shared_state.h"
 
 namespace net {
 
-memory::HeapUnique<Hub> g_net_core;
+NetManagerAppsShared& net_manager_apps_shared()
+{
+    static core::NoDestroy<NetManagerAppsShared> state;
+    return state.get();
+}
+
+Hub* net_core() { return net_manager_apps_shared().net_core_.get(); }
 
 namespace {
 
@@ -35,7 +43,7 @@ constexpr int kConnectionType3 = 3;
 constexpr int kClientMaxConnections = 1;
 // The classes' sizes (Server and Client here are views: their fields past App's aren't named yet).
 
-memory::HeapUnique<Hub>& sole() { return g_net_core; }
+memory::HeapUnique<Hub>& sole() { return net_manager_apps_shared().net_core_; }
 
 uint32_t& ref_tally()
 {

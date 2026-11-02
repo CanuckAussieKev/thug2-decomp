@@ -116,7 +116,7 @@ constexpr int kPlayerMenuIdBase = 123456;   // the menu items' ids: this plus th
 constexpr uint32_t kJoinTeamInterval = 150; // ms between team requests
 constexpr int kMaxCrownSpawns = 10;
 
-Hub* net_link() { return g_online_hub; }
+Hub* net_link() { return gamenet_player_lists_shared().online_hub_; }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 
 uint32_t& last_team_request()
@@ -166,7 +166,7 @@ void report_game_state(Hub* manager, bool on)
     if (on ? reported == 1 : reported == 0)
         return;
     reported = on ? 1 : 0;
-    if (g_online_active && g_online_hub->in_net_game() && gamenet_members_shared().query_reporting_)
+    if (gamenet_players_shared().online_active_ && gamenet_player_lists_shared().online_hub_->in_net_game() && gamenet_members_shared().query_reporting_)
         game_spy::qr2_send_state_changed(nullptr);
 }
 

@@ -9,6 +9,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/shared_state.h"
 
 namespace online::thugpro {
 
@@ -75,7 +76,7 @@ PositionScale level_position_scale(uint32_t level)
 
 void refresh_position_scale()
 {
-    auto* manager = g_online_hub;
+    auto* manager = gamenet_player_lists_shared().online_hub_;
     const bool net_game = manager && manager->in_net_game();
     const uint32_t level = manager ? manager->level_ : 0;
     if (net_game == thugpro_compat_state().scale_net_game_ && level == thugpro_compat_state().scale_level_)

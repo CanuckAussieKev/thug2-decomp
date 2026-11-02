@@ -71,7 +71,7 @@ uint32_t history_frame_stamp(SkaterStateHistoryFrame* frame) { return frame->get
 maths::Mat4& snapshot_orientation(SkaterStateHistoryFrame* frame) { return frame->matrix; }
 maths::Vec4& frame_position(SkaterStateHistoryFrame* frame) { return frame->position; }
 
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 // The network manager's client app: +8 its frame count.
 net::AppHost* client_app() { return net_session_slot()->fetch_patron(0); }
 int frame_rate() { return game_config::frame_rate(); }

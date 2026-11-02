@@ -70,9 +70,8 @@ const char* const kDrivingRadiusBoost = "driving_radius_boost";     // "driving_
 // a - b as the original's x87 code rounds it when it stores it.
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
-
 // --- the network game manager (0x007CCE14), its players and the game mode ---
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 void* get_game_mode() { return static_cast<void*>(goals::g_game_mode.get()); }
 void* skater_manager() { return static_cast<void*>(modules::g_skate_module.get()); }
 

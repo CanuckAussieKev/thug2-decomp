@@ -48,6 +48,7 @@ bool cfunc_enter_surveyor_mode(script::Struct* params, script::Script* script);
 // 0x0053EA20: the players not ready dropped (Hub::drop_players_not_ready). True.
 bool cfunc_drop_pending_players(script::Struct* params, script::Script* script);
 
-extern bool g_text_entry;
+bool text_entry();
+void set_text_entry(bool value);
 
 } // namespace online

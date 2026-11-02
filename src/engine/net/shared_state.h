@@ -10,6 +10,8 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/gamenet_lobby.h"
 #include "engine/net/server_list.h"
+#include "engine/net/gamenet_game_cfuncs.h"
+#include "engine/net/net_manager.h"
 
 namespace online {
 
@@ -28,6 +30,7 @@ namespace online {
 // on first use, never destroyed (gamenet_flow_shared()).
 struct GamenetFlowShared {
     uint32_t auto_serve_start_{};
+    bool cheat_flag_{};
 };
 GamenetFlowShared& gamenet_flow_shared();
 
@@ -108,6 +111,7 @@ namespace online {
 // Made on first use, never destroyed (gamenet_players_shared()).
 struct GamenetPlayersShared {
     bool open_waiting_{};
+    bool online_active_{};
 };
 GamenetPlayersShared& gamenet_players_shared();
 
@@ -130,6 +134,10 @@ namespace online {
 // Made on first use, never destroyed (gamenet_settings_shared()).
 struct GamenetSettingsShared {
     uint32_t asked_for_{};
+    uint32_t network_team_mode_{};
+    int net_skill_level_{3};
+    int net_max_players_{8};
+    bool join_server_ip_succeeded_{};
 };
 GamenetSettingsShared& gamenet_settings_shared();
 
@@ -143,5 +151,49 @@ struct ServerListShared {
     uint32_t news_message_count_{};
 };
 ServerListShared& server_list_shared();
+
+} // namespace online
+
+namespace online {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (gamenet_game_cfuncs_shared()).
+struct GamenetGameCfuncsShared {
+    bool text_entry_{};
+};
+GamenetGameCfuncsShared& gamenet_game_cfuncs_shared();
+
+} // namespace online
+
+namespace online {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (gamenet_state_shared()).
+struct GamenetStateShared {
+    uint32_t command_line_server_{0xFFFFFFFF};
+};
+GamenetStateShared& gamenet_state_shared();
+
+} // namespace online
+
+namespace net {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (net_manager_apps_shared()).
+struct NetManagerAppsShared {
+    memory::HeapUnique<Hub> net_core_{};
+};
+NetManagerAppsShared& net_manager_apps_shared();
+
+} // namespace net
+
+namespace online {
+
+// NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed
+// (gamenet_player_lists_shared()).
+struct GamenetPlayerListsShared {
+    Hub* online_hub_{};
+};
+GamenetPlayerListsShared& gamenet_player_lists_shared();
 
 } // namespace online

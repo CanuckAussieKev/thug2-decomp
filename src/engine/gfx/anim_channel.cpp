@@ -151,7 +151,7 @@ objects::GameEntity* get_owner(BlendChannel* channel)
 
 // The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
 // isn't this machine's player's skater.
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 online::PlayerRecord* find_own_player_record(uint32_t object_id)
 {
     auto* player = (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(object_id)));

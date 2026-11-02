@@ -136,7 +136,7 @@ GamenetManagerCreateShared& gamenet_manager_create_shared()
 // 0x0053F520
 Hub* Hub::fabricate(bool create)
 {
-    Hub*& instance = g_online_hub;
+    Hub*& instance = gamenet_player_lists_shared().online_hub_;
     if (!instance && create) {
         void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1);
         instance = memory ? memory::construct_in<Hub>(memory) : nullptr;

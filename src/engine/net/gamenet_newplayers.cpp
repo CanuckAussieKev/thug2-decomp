@@ -420,9 +420,9 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
         }
     }
     memory::Hub::get_pull()->leave_heap_scope();
-    Hub* global = g_online_hub;
+    Hub* global = gamenet_player_lists_shared().online_hub_;
     global->update_lobby_server();
-    if (g_online_active && global->in_net_game() && gamenet_members_shared().query_reporting_)
+    if (gamenet_players_shared().online_active_ && global->in_net_game() && gamenet_members_shared().query_reporting_)
         game_spy::qr2_send_state_changed(nullptr); // qr2_send_statechanged
 }
 

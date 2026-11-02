@@ -61,7 +61,6 @@ constexpr uint32_t kSkaterScore = 0xD262802F;
 constexpr float kRadiansPerDegree = 0.017453292f; // 0x00645464
 constexpr float kInch = 12.0f;                    // 0x0064546C (feet to inches)
 
-
 // --- textures (the texture dictionary 0x00700F20) ---
 render::TextureSet* texture_bank() { return render::g_particle_texture_dict; }
 void* ingest_skin(const char* name, bool a, bool b, bool c)
@@ -110,8 +109,7 @@ void* load_on_texture_heap(const char* name, bool c)
     return texture;
 }
 
-online::Hub* net_session_slot() { return online::g_online_hub; }
-
+online::Hub* net_session_slot() { return online::online_hub(); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

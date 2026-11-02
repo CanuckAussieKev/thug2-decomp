@@ -1103,7 +1103,7 @@ void process_sdl_device(InputPort* device)
     device->start_or_a_ = ((~core::at(data, 2) & (1 << 3)) || (~core::at(data, 3) & (1 << 6))) ? 1 : 0;
 
     // (typed text only works with these set)
-    online::g_text_entry = true;
+    online::set_text_entry(true);
     screen_flags().in_menu_flag_ = false;
 }
 

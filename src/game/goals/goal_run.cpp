@@ -55,7 +55,7 @@ GoalEdge* alloc_chain_link()
     return link;
 }
 
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 objects::GameEntity* local_skater() { return skate_calls::get_home_rider(); }
 // The game mode's name (0x005532A0) and whether it beeps the timer (0x00553150).
 uint32_t active_ruleset_label()

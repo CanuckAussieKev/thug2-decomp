@@ -59,6 +59,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -97,7 +98,7 @@ uint32_t& login_start() { return buddy_man_state().buddy_login_start_; }
 uint32_t& last_process() { return buddy_man_state().last_process_; }
 bool& creating_profile() { return buddy_man_state().creating_profile_; }
 
-Hub* net_session_slot() { return g_online_hub; }
+Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }

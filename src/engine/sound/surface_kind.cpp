@@ -362,7 +362,7 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
     if (sound::no_sound())
         return;
     sound::AudioMixer* sounds = sound_manager();
-    void* net = online::g_online_hub;
+    void* net = online::online_hub();
     Struct* sound_actions = nullptr;
     if (!get_terrain_structure_into(&sound_actions, terrain, kSoundActions))
         return;

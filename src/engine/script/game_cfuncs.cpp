@@ -153,8 +153,6 @@ prefs::Preferences* get_preferences_of_type(uint32_t type) { return modules::Ska
 bool& internet_game_host() { return sys::g_internet_game_host; }
 bool& joining_internet_game() { return sys::g_joining_internet_game; }
 bool& trying_to_join() { return game_cfuncs_shared().trying_to_join_; }
-bool& online_mode_flag() { return online::g_online_active; }
-bool& join_server_ip_succeeded() { return online::g_join_server_ip_succeeded; }
 
 // The second controller check's task (0x007CEBC4) and the view mode (0x007CEBCC).
 int& view_mode() { return game_cfuncs_state().view_mode_cfunc_; }
@@ -253,22 +251,22 @@ bool cfunc_trying_to_join_game(script::Struct*, script::Script*) { return trying
 bool cfunc_try_join_server_ip_success(script::Struct*, script::Script*)
 {
     if (!trying_to_join())
-        join_server_ip_succeeded() = false;
+        online::set_join_server_ip_succeeded(false);
     debug::printf("ScriptTryJoinServerIPSuccess %d\n",
-                  join_server_ip_succeeded()); // "ScriptTryJoinServerIPSuccess %d\n"
-    return join_server_ip_succeeded();
+                  online::join_server_ip_succeeded()); // "ScriptTryJoinServerIPSuccess %d\n"
+    return online::join_server_ip_succeeded();
 }
 
 // 0x0059F7E0 / 0x0059F7F0: GSEnableNet / GSDisableNet.
 bool cfunc_gs_enable_net(script::Struct*, script::Script*)
 {
-    online_mode_flag() = true;
+    online::set_online_active(true);
     return true;
 }
 
 bool cfunc_gs_disable_net(script::Struct*, script::Script*)
 {
-    online_mode_flag() = false;
+    online::set_online_active(false);
     return true;
 }
 
@@ -454,7 +452,7 @@ bool cfunc_get_preference_checksum(script::Struct* params, script::Script* scrip
 // 0x0059FD80: ToggleNetMetrics.
 bool cfunc_toggle_net_metrics(script::Struct*, script::Script*)
 {
-    online::g_online_hub->toggle_net_metrics();
+    online::online_hub()->toggle_net_metrics();
     return true;
 }
 

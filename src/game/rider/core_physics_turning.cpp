@@ -216,7 +216,7 @@ void SkaterPhysicsModule::natas_spin()
         career->set_global_flag(script::fetch_int_value(kPerfectRail));
         balance_->lip_.lean_ = 0.0f;
         balance_->lip_.lean_speed_ = 0.0f;
-        online::g_cheat_flag = true;
+        online::set_cheat_flag(true);
     }
     balance_->lip_.tick_frame();
     const float factor = script::fetch_float(kNatasSpinFactor);

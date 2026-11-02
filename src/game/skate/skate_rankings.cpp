@@ -48,7 +48,7 @@ constexpr uint32_t kKing = 0x5D32129C;              // king
 constexpr uint32_t kFirstLine = 0x00039447;         // the first score line's id
 
 goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 bool is_crown_rule_active()
 {
     return get_game_mode()->get_name_key() == kNetKing || get_game_mode()->get_name_key() == kKing;
@@ -85,7 +85,6 @@ online::ScoreEntry* new_entry()
     return entry;
 }
 void delete_entry(online::ScoreEntry* entry) { entry->teardown(1); }
-
 
 // A player's (or team's) line in the player list.
 void add_player_line(const char* text, bool team_score)

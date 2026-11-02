@@ -41,11 +41,14 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 
 namespace online {
 
-uint32_t g_network_team_mode;
+uint32_t network_team_mode() { return gamenet_settings_shared().network_team_mode_; }
+void set_network_team_mode(uint32_t value) { gamenet_settings_shared().network_team_mode_ = value; }
 
-int g_net_skill_level{3};
+int net_skill_level() { return gamenet_settings_shared().net_skill_level_; }
+void set_net_skill_level(int value) { gamenet_settings_shared().net_skill_level_ = value; }
 
-int g_net_max_players{8};
+int net_max_players() { return gamenet_settings_shared().net_max_players_; }
+void set_net_max_players(int value) { gamenet_settings_shared().net_max_players_ = value; }
 
 using namespace detail;
 
@@ -340,7 +343,7 @@ void Hub::disconnect_from_internet(uint32_t script)
 // 0x00536C10
 void Hub::cancel_connect_to_internet()
 {
-    Hub* manager = g_online_hub;
+    Hub* manager = gamenet_player_lists_shared().online_hub_;
     net::Hub* net = net::Hub::sole();
     tasks::SchedulerTask* task = manager->dialup_job_.get();
     switch (net->get_dialup_status()) {
@@ -373,7 +376,8 @@ GamenetSettingsShared& gamenet_settings_shared()
     return state.get();
 }
 
-bool g_join_server_ip_succeeded;
+bool join_server_ip_succeeded() { return gamenet_settings_shared().join_server_ip_succeeded_; }
+void set_join_server_ip_succeeded(bool value) { gamenet_settings_shared().join_server_ip_succeeded_ = value; }
 
 // 0x00536490
 void Hub::find_server_at(uint32_t ip)
@@ -381,7 +385,7 @@ void Hub::find_server_at(uint32_t ip)
     stop_server_list(); // (the server lists cleared)
     empty_server_listing();
     start_server_list();
-    g_join_server_ip_succeeded = false;
+    gamenet_settings_shared().join_server_ip_succeeded_ = false;
     if (!browser_client_)
         start_matchmaking_client();
     if (!ip) {
@@ -401,7 +405,7 @@ void Hub::find_server_at(uint32_t ip)
 void Hub::service_game_spy()
 {
     game_spy::cd_key_think();
-    if (g_online_active && g_online_hub->in_net_game() && gamenet_members_shared().query_reporting_)
+    if (gamenet_players_shared().online_active_ && gamenet_player_lists_shared().online_hub_->in_net_game() && gamenet_members_shared().query_reporting_)
         game_spy::get_qr2_think(nullptr);
 }
 
@@ -434,7 +438,7 @@ void Hub::change_arena(uint32_t level)
         game_spy::peer_state_changed(peer); // (the peer's state changed: the GameSpy SDK)
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
     gamenet_players_shared().open_waiting_ = false;
-    if (g_online_active && g_online_hub->in_net_game() && gamenet_members_shared().query_reporting_ && gamenet_players_shared().open_waiting_)
+    if (gamenet_players_shared().online_active_ && gamenet_player_lists_shared().online_hub_->in_net_game() && gamenet_members_shared().query_reporting_ && gamenet_players_shared().open_waiting_)
         game_spy::qr2_send_state_changed(nullptr);
 }
 

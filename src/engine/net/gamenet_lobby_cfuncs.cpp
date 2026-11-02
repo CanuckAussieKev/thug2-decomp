@@ -65,7 +65,7 @@ constexpr int kClientNatIndex = 1;
 constexpr auto kHostProfiles = std::to_array<int>({0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701, 0x01A766CC,
                                  0x01A7672E, 0x01A7675B, 0x01A76773, 0x01A76794, 0x01A767B1});
 
-Hub* net_session_slot() { return g_online_hub; }
+Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 RoomManager* current_lobby() { return net_session_slot()->lobby_service_.get(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 void push_internet_heap()

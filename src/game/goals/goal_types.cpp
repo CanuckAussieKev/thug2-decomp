@@ -175,7 +175,7 @@ bool ContestObjective::get_win()
     invoke_hook_script(kDeactivateScript);
     args_->remove_flag(kJustWonGoal);
     clear_engaged_bit();
-    if (!online::g_online_hub->in_net_game()) {
+    if (!online::online_hub()->in_net_game()) {
         modules::Contest* competition = the_competition();
         int place = 999;
         if (competition->place_is(1))

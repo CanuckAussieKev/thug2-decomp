@@ -261,7 +261,7 @@ bool cfunc_update_trick_mappings(script::Struct* params, script::Script*)
     objects::ProfileRoster* manager = roster_handle();
     objects::GameEntity* skater = nullptr;
     RiderIdentity* profile = nullptr;
-    if (online::g_online_hub->in_net_game()) {
+    if (online::online_hub()->in_net_game()) {
         skater = local_skater();
         profile = manager->fetch_account(0);
     } else {

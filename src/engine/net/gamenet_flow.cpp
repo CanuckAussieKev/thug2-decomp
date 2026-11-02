@@ -185,7 +185,9 @@ GamenetFlowState& gamenet_flow_state()
 }
 
 } // namespace
-bool g_cheat_flag;
+
+bool cheat_flag() { return gamenet_flow_shared().cheat_flag_; }
+void set_cheat_flag(bool value) { gamenet_flow_shared().cheat_flag_ = value; }
 
 // 0x0053B0D0
 void Hub::start_network_game()
@@ -250,7 +252,7 @@ void Hub::start_network_game()
     last_leading_team_ = -1; // the last leading team
     clear_queued_scripts();
     clear_roster();
-    g_cheat_flag = false;
+    gamenet_flow_shared().cheat_flag_ = false;
     if (rating_service_->update_logged_in())
         rating_service_->start_game();
 }
@@ -276,7 +278,7 @@ void Hub::cancel_join()
 // 0x0053BED0
 void Hub::observer_task(tasks::Task<PlayerRecord>*)
 {
-    Hub* manager = g_online_hub;
+    Hub* manager = gamenet_player_lists_shared().online_hub_;
     if (manager->spectate_request_ == 1) { // (the next player asked for)
         manager->spectate_player(manager->next_cam_player());
         manager->spectate_request_ = 0;

@@ -190,7 +190,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
 // model its profile's appearance builds (preload_model_from_appearance) loaded and dropped.
 bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
 {
-    if (online::g_online_hub->in_net_game())
+    if (online::online_hub()->in_net_game())
         return false;
     if (script::fetch_int_value(kNoPedestrians))
         return false;

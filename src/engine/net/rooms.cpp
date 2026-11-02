@@ -80,7 +80,7 @@ constexpr uint32_t kIndex = 0x7F8C98FE;                 // index
 constexpr int kRoomGroupKind = 1; // (GameSpy's RoomType)
 constexpr int kMaxRank = 10;
 
-Hub* the_manager() { return g_online_hub; }
+Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
 RoomManager* the_lobby() { return the_manager()->lobby_service_.get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 

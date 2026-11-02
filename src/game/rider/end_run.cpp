@@ -35,8 +35,8 @@ bool is_versus_session() { return modules::Skate::is_multiplayer() != 0; }
 bool game_mode_ends_runs() { return goals::g_game_mode->clock_halts_at_zero(); }
 // The network manager (0x007CCE14): whether it has told the server the local run is over (0x005332A0: its +0x39
 // matches +0x38), and telling it (0x00533250).
-bool server_told_run_ended() { return online::g_online_hub->game_ended_sent(); }
-void tell_server_run_ended() { online::g_online_hub->send_game_ended(); }
+bool server_told_run_ended() { return online::online_hub()->game_ended_sent(); }
+void tell_server_run_ended() { online::online_hub()->send_game_ended(); }
 
 // The skater object's +0xBC: a local skater (this machine's player).
 bool is_local_skater(GameEntity* object) { return object->is_local_skater_ != 0; }

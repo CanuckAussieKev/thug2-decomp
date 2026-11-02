@@ -48,7 +48,7 @@ constexpr uint8_t kMsgEliminated = 0x8D;              // the player of an object
 constexpr uint32_t kVelX = 0x6187906D, kVelY = 0x1680A0FB, kVelZ = 0x8F89F141; // vel_x, vel_y, vel_z
 
 // The network manager and its player lists (lists::Hunt<PlayerRecord>, vtable 0x0064C1A8; JoinerRecord's 0x0064C82C).
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 using PlayerSearch = online::PlayerSearch;
 using NewPlayerSearch = online::NewPlayerSearch;
 PlayerRecord* start_roster_sweep(online::Hub* manager, PlayerSearch* search, bool observers)

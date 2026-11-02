@@ -311,7 +311,7 @@ void FlexibleParticleComponent::tick_frame()
     bool update = true;
     if (suspend_ && !suspend_should_update(suspend_))
         update = false;
-    if (suspend_ && suspend_->far_ && !g_online_hub->in_net_game()) {
+    if (suspend_ && suspend_->far_ && !net_hub()->in_net_game()) {
         // Suspended: only catching up, once the time reaches the particle manager's update time.
         if (clock_ >= particle_update_time()) {
             render::EmitterInstance* system = system_.get_pull();

@@ -150,7 +150,7 @@ void Hub::spectate_player(PlayerRecord* player)
         return;
     }
     auto* skater = player_skater(player);
-    if (player != find_own_player_record(g_online_hub)) {
+    if (player != find_own_player_record(gamenet_player_lists_shared().online_hub_)) {
         // Someone else's skater: the skater camera onto it.
         set_camera_skater(skater_camera, skater);
         set_walk_camera_skater(walk_camera, nullptr);
@@ -287,7 +287,9 @@ PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, uint32_t
     return player;
 }
 
-bool g_online_active;
+bool online_active() { return gamenet_players_shared().online_active_; }
+void set_online_active(bool value) { gamenet_players_shared().online_active_ = value; }
+
 GamenetPlayersShared& gamenet_players_shared()
 {
     static core::NoDestroy<GamenetPlayersShared> state;
@@ -311,7 +313,7 @@ void Hub::remove_player_record(PlayerRecord* player)
     if (player)
         player->teardown(1); // (its scalar deleting destructor, the original's slot 0)
     update_lobby_server();
-    if (g_online_active && g_online_hub->in_net_game() &&
+    if (gamenet_players_shared().online_active_ && gamenet_player_lists_shared().online_hub_->in_net_game() &&
         gamenet_members_shared().query_reporting_)                         // (reported to GameSpy's qr2: the player count changed)
         game_spy::qr2_send_state_changed(nullptr); // qr2_send_statechanged
 }
@@ -406,7 +408,7 @@ void Hub::re_add_pending_players()
 {
     update_lobby_server();
     gamenet_players_shared().open_waiting_ = true;
-    if (g_online_active && g_online_hub->in_net_game() && gamenet_members_shared().query_reporting_ && gamenet_players_shared().open_waiting_ != 1) // (just set: never)
+    if (gamenet_players_shared().online_active_ && gamenet_player_lists_shared().online_hub_->in_net_game() && gamenet_members_shared().query_reporting_ && gamenet_players_shared().open_waiting_ != 1) // (just set: never)
         game_spy::qr2_send_state_changed(nullptr);
     int frames = 10;
     PlayerSearch search;

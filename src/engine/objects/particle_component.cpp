@@ -446,7 +446,7 @@ void EffectsEmitterModule::tick_frame()
 {
     // (suspended: nothing - unless a network game runs and it has a lifetime)
     if (suspend_ && core::down_cast<DormancyModule>(suspend_)->is_far()) {
-        void* net = static_cast<void*>(g_online_hub);
+        void* net = static_cast<void*>(net_hub());
         if (!static_cast<online::Hub*>(net)->in_net_game() || lifespan_ == 0)
             return;
     }

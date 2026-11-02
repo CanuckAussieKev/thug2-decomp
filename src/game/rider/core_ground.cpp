@@ -55,7 +55,7 @@ void perfect_cheat(uint32_t cheat, objects::Balance& balance)
     get_career()->set_global_flag(script::fetch_int_value(cheat));
     balance.lean_ = 0.0f;
     balance.lean_speed_ = 0.0f;
-    online::g_cheat_flag = true;
+    online::set_cheat_flag(true);
 }
 
 } // namespace

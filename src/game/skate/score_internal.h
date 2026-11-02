@@ -49,7 +49,7 @@ inline int spin_multiplier(int spin) { return spin < 6 ? core::at(g_spin_multipl
 inline int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 inline goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
-inline online::Hub* net_session_slot() { return online::g_online_hub; }
+inline online::Hub* net_session_slot() { return online::online_hub(); }
 inline objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub.get(); }
 inline objects::Rider* rider_for_slot(int id)
 {
@@ -62,6 +62,5 @@ inline frontend::UiWidget* find_element(uint32_t id)
     frontend::ElementPtr found;
     return frontend::UiTree::sole()->fetch_part(&found, id, 0)->get_pull();
 }
-
 
 } // namespace modules::score_internal

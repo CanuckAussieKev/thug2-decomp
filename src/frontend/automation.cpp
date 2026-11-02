@@ -835,7 +835,7 @@ std::string net_refusal()
     if (net::Hub* net = net::Hub::sole())
         if (net->is_online())
             return "the game is online";
-    if (void* game_net = online::g_online_hub)
+    if (void* game_net = online::online_hub())
         if (static_cast<online::Hub*>(game_net)->in_net_game())
             return "a network game runs";
     if (goals::MatchRules* mode = goals::g_game_mode.get()) {

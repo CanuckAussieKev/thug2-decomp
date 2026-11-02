@@ -43,7 +43,6 @@
 #include "engine/gfx/movie.h"
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/parse_number.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
@@ -217,9 +216,9 @@ void read_network_params(const char* command_line)
     if (const auto at = find("-HOSTNAME"))
         copy_value(after(*at, 9), commands::g_hosted_game_name, 15); // the hosted game's name
     if (const auto at = find("-EMAIL"))
-        copy_value(after(*at, 6), online::g_command_line_email, 255);
+        copy_value(after(*at, 6), online::command_line_email(), 255);
     if (const auto at = find("-PPASS"))
-        copy_value(after(*at, 6), online::g_command_line_password, 15);
+        copy_value(after(*at, 6), online::command_line_password(), 15);
     if (!g_internet_game_host) {
         // The server to join: its name, and its IPv4 address (as inet_addr gives it - INADDR_NONE if it isn't one
         // and the name isn't found either). (The value starts 9 characters on, one past "-CONNECT": the
@@ -232,24 +231,24 @@ void read_network_params(const char* command_line)
                 if (const hostent* host = gethostbyname(server))
                     std::memcpy(&address, *host->h_addr_list, sizeof(address));
             }
-            online::g_command_line_server = address;
+            online::set_command_line_server(address);
             g_joining_internet_game = true; // joining a game
         }
     }
     // (The numbers are compared unsigned: a negative one counts as too big.)
     if (const auto at = find("-MAXPLAYERS")) {
         auto players = static_cast<uint32_t>(get_number(after(*at, 11)));
-        memory::bits_as<uint32_t>(online::g_net_max_players) = players < 2 ? 2 : players > 8 ? 8 : players;
+        online::set_net_max_players(static_cast<int>(players < 2 ? 2 : players > 8 ? 8 : players));
     }
     if (const auto at = find("-GROUP"))
-        online::g_lobby_group_id = get_number(after(*at, 6));
+        online::set_lobby_group_id(get_number(after(*at, 6)));
     if (const auto at = find("-NTEAMS")) {
         auto teams = static_cast<uint32_t>(get_number(after(*at, 7)));
-        online::g_network_team_mode = teams > 4 ? 0 : teams;
+        online::set_network_team_mode(teams > 4 ? 0 : teams);
     }
     if (const auto at = find("-SKILLLEVEL")) {
         auto skill = static_cast<uint32_t>(get_number(after(*at, 11)));
-        memory::bits_as<uint32_t>(online::g_net_skill_level) = skill > 4 ? 4 : skill;
+        online::set_net_skill_level(static_cast<int>(skill > 4 ? 4 : skill));
     }
     if (const auto at = find("-NAME"))
         copy_value(after(*at, 5), commands::g_network_id, 15); // the player's name
@@ -258,7 +257,7 @@ void read_network_params(const char* command_line)
         copy_value(after(*at, 9), commands::g_network_password, 9);
         if (g_joining_internet_game) {
             // Joining: it's the server's password (moved to where the join looks for it).
-            std::memcpy(online::g_pending_password.data(), password, std::strlen(password) + 1); // (strcpy)
+            std::memcpy(online::pending_password().data(), password, std::strlen(password) + 1); // (strcpy)
             std::memset(password, 0, 10);
         }
     }

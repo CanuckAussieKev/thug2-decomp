@@ -64,7 +64,7 @@ std::array<uint8_t, TrickSpotHub::kMaxLoggedClusters>& dirty_clusters()
 // The game mode (0x007CE470) and the network manager's players (0x007CCE14), walked with a lists::Hunt<PlayerRecord>
 // (vtable 0x0064C1A8).
 void* get_game_mode() { return static_cast<void*>(goals::g_game_mode.get()); }
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 using PlayerSearch = online::PlayerSearch;
 using online::PlayerRecord;
 PlayerRecord* start_roster_sweep(PlayerSearch* search) { return net_session_slot()->begin_player_walk(search, false); }

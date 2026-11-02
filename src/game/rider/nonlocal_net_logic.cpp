@@ -70,7 +70,6 @@ constexpr int kStateAir = 1, kStateLip = 3, kStateRail = 4;
 // Face flags (as the level editor names them)
 constexpr uint16_t kFaceSkatable = 0x1, kFaceNotSkatable = 0x2, kFaceWallride = 0x4, kFaceVert = 0x8;
 
-
 // A physics value of the skater (GameObjects::read_tuning_float, asserting).
 double get_physics(GameEntity* skater, uint32_t name) { return read_tuning_float(name, 1, skater); }
 
@@ -378,7 +377,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
 // 0x00517270
 void RiderRemoteSync::tick_frame()
 {
-    auto* net_manager = online::g_online_hub;
+    auto* net_manager = online::online_hub();
     frame_seconds_ = static_cast<float>(frame_clock::get_frame_seconds());
     const int state = pose_->cur_phase_;
     const bool was_lip = state == kStateLip;
@@ -395,7 +394,7 @@ void RiderRemoteSync::tick_frame()
     auto* player = static_cast<online::PlayerRecord*>(net_manager->get_own_player());
     if (!player->is_observer() && !player->is_scouting_level()) {
         void* game_mode = static_cast<void*>(goals::g_game_mode.get());
-        const bool extrapolate = online::g_online_hub->players_can_collide() ||
+        const bool extrapolate = online::online_hub()->players_can_collide() ||
                                  static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kNetFirefight ||
                                  static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kFirefight;
         if (extrapolate && past_frames_->state_count_ >= kHistory) {

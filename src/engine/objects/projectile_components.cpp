@@ -70,7 +70,7 @@ constexpr float kAbovePed = 30.0f; // 0x00646240: the ped's middle, above its po
 using online::kMsgHit;
 using online::kMsgHitOwner;
 
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 modules::Skate* skate_module() { return modules::g_skate_module.get(); }
 
 // The skate module's local skater (0x00566520, a register stub on our side).
@@ -78,7 +78,6 @@ Rider* local_skater() { return skate_module()->get_home_rider(); }
 
 // The object dies.
 void get_kill(GameEntity* object) { object->flag_as_dead(); }
-
 
 modules::PointTally* get_score_of(GameEntity* skater)
 {

@@ -294,7 +294,7 @@ bool RiderStoryProgress::is_code_on(uint32_t name)
 {
     const int flag = script::fetch_int_value(name);
     const bool on = (core::at(global_flags_, get_word(flag)) & get_bit(flag)) != 0;
-    online::g_cheat_flag = on;
+    online::set_cheat_flag(on);
     return on;
 }
 

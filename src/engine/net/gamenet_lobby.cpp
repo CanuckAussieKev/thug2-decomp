@@ -104,7 +104,7 @@ bool cfunc_reset_connection_timer(script::Struct*, script::Script*)
 // 0x0053F8D0
 void RoomManager::server_key_callback(void*, int key, void* buffer, void*)
 {
-    Hub* manager = g_online_hub;
+    Hub* manager = gamenet_player_lists_shared().online_hub_;
     prefs::Preferences* prefs = manager->get_online_settings();
     switch (key) {
     case kKeyHostname: {
@@ -169,7 +169,7 @@ int RoomManager::count_callback(void*, int type, void*)
     if (type == kKeyTypeServer)
         return kServerKeyCount;
     if (type == kKeyTypePlayer)
-        return g_online_hub->count_players();
+        return gamenet_player_lists_shared().online_hub_->count_players();
     return 0;
 }
 

@@ -46,8 +46,7 @@ constexpr uint32_t kViewGoalsMenuAddItem = 0x380AEA65; // view_goals_menu_add_it
 constexpr uint32_t kCountAll = 0xA21884B5;             // count_all
 constexpr uint32_t kTrickBeat = 0xD0DD047B;            // TrickBeat
 
-online::Hub* net_session_slot() { return online::g_online_hub; }
-
+online::Hub* net_session_slot() { return online::online_hub(); }
 
 // The active list's nodes, counted (as get_engaged_objective walks them).
 int count_active(memory::ListNode* head)

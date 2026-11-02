@@ -63,8 +63,8 @@ constexpr uint32_t kSkaterType = 0xBAF9B341;           // (name unknown) the ska
 
 modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 objects::GameEntity* get_home_rider() { return get_skate()->get_home_rider(); }
-online::Hub* online_hub_handle() { return online::g_online_hub; }
-net::Hub* net_session_slot() { return net::g_net_core.get(); }
+online::Hub* online_hub_handle() { return online::online_hub(); }
+net::Hub* net_session_slot() { return net::net_core(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 // The game mode's player count (0x00553190: its integer 0x6DC3D6F1).
 uint32_t game_mode_players() { return static_cast<uint32_t>(goals::g_game_mode->get_starting_rider_count()); }
@@ -531,7 +531,7 @@ uint32_t host_first_address(const char* name) { return crt::host_first_address(n
 // tried from now on.
 bool cfunc_try_join_internet_game(script::Struct*, script::Script*)
 {
-    const uint32_t server = online::g_command_line_server;
+    const uint32_t server = online::command_line_server();
     if (server != 0xFFFFFFFF)
         online_hub_handle()->find_server_at(server);
     trying_to_join() = true;
@@ -604,9 +604,9 @@ void init_beenox_preferences()
     set_string_preference(prefs, "password", g_network_password.data());    // "password"
     if (core::at(g_network_id, 0) != '\0')
         set_string_preference(prefs, "network_id", g_network_id.data()); // "network_id"
-    game_net->set_max_players_preference(online::g_net_max_players);
+    game_net->set_max_players_preference(online::net_max_players());
     gsl::owner<script::Struct*> teams = script::new_struct();
-    switch (online::g_network_team_mode) {
+    switch (online::network_team_mode()) {
     case 0:
         set_choice_preference(teams, "None", "teams_none");
         break; // "None", teams_none
@@ -625,7 +625,7 @@ void init_beenox_preferences()
     prefs->change_setting(get_checksums("team_mode"), teams); // "team_mode"
     script::free_struct(teams);
     gsl::owner<script::Struct*> skill = script::new_struct();
-    switch (online::g_net_skill_level) {
+    switch (online::net_skill_level()) {
     case 1:
         set_choice_preference(skill, "1: Baby Steps", "num_1");
         break; // "1: Baby Steps", num_1

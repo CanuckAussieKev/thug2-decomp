@@ -55,7 +55,7 @@ namespace thugpro = online::thugpro;
 
 constexpr uint32_t kComponent6c = 0xB1D5A3E1; // the component whose +0x18 goes out as the 0x80 field's 3 bits
 
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 
 constexpr uint32_t kSkaterLocalNetLogic = 0x7CD3E6D5;
 constexpr uint32_t kSkaterState = 0x43686585, kSkaterCorePhysics = 0x5BD63B29;

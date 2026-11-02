@@ -102,7 +102,7 @@ SkaterPhysicsModule::SkaterPhysicsModule()
 // 0x00506BE0
 void SkaterPhysicsModule::get_reset()
 {
-    auto* game_net = online::g_online_hub;
+    auto* game_net = online::online_hub();
     if (!game_net->in_net_game()) {
         // (Off line: the old position, and the one kept at +0x98, are where the skater is now.)
         entity_->old_pos_ = entity_->at_point_;

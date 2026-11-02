@@ -50,7 +50,7 @@ void VelocityTrackerModule::configure_from_data(script::Struct* params)
 // 0x0043D340
 void VelocityTrackerModule::tick_frame()
 {
-    if (!g_online_hub->in_net_game() && suspend_flag(suspend_))
+    if (!net_hub()->in_net_game() && suspend_flag(suspend_))
         return;
     const maths::Vec4& vel = entity_->vel_;
     // Half the velocity (each rounded), the position as it was.

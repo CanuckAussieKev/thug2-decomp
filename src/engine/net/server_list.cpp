@@ -98,7 +98,7 @@ constexpr uint32_t kListClock = 3000;        // ms
 constexpr uint32_t kShowDelay = 500;         // ms
 constexpr uint32_t kNewsBufferSize = 0x6400; // bytes
 
-Hub* the_manager() { return g_online_hub; }
+Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_.get(); }
@@ -318,7 +318,7 @@ void Hub::set_service_state(int state)
 // 0x005451E0
 void Hub::update_hosting_status()
 {
-    net::Hub* net = net::g_net_core.get();
+    net::Hub* net = net::net_core();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     lobby_service_->start_hosting();
     if (presence_service_->authenticated_) { // (0x005480B0: logged in to presence)

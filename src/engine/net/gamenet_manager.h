@@ -714,19 +714,26 @@ void carried_flags_task(tasks::Task<Hub>* task);
 // 0x005395C0: the manager released (its reference count 0x007CCE18; the last one destroys it).
 void release_manager();
 
-extern uint32_t g_network_team_mode;
-extern int g_net_skill_level;
-extern int g_net_max_players;
-extern uint32_t g_command_line_server;
-extern bool g_online_active;
-extern bool g_join_server_ip_succeeded;
-extern Hub* g_online_hub;
-extern bool g_cheat_flag;
+uint32_t network_team_mode();
+void set_network_team_mode(uint32_t value);
+int net_skill_level();
+void set_net_skill_level(int value);
+int net_max_players();
+void set_net_max_players(int value);
+uint32_t command_line_server();
+void set_command_line_server(uint32_t value);
+bool online_active();
+void set_online_active(bool value);
+bool join_server_ip_succeeded();
+void set_join_server_ip_succeeded(bool value);
+Hub* online_hub();
+bool cheat_flag();
+void set_cheat_flag(bool value);
 
 // The command line's login (-email / -password, buddy_status.cpp) and a session's password to join with
 // (-PASSWORD, gamenet_join.cpp) - set by winmain.cpp.
-extern std::array<char, 256> g_command_line_email;
-extern std::array<char, 16> g_command_line_password;
-extern std::array<char, 10> g_pending_password;
+std::array<char, 256>& command_line_email();
+std::array<char, 16>& command_line_password();
+std::array<char, kPasswordSize>& pending_password();
 
 } // namespace online

@@ -84,7 +84,7 @@ bool net_session()
     if (net::Hub* net = net::Hub::sole())
         if (net->is_online())
             return true;
-    if (void* game_net = online::g_online_hub)
+    if (void* game_net = online::online_hub())
         if (static_cast<online::Hub*>(game_net)->in_net_game())
             return true;
     return active_ruleset_label().starts_with("net");

@@ -146,7 +146,7 @@ constexpr uint8_t kGroupGame = 8;
 constexpr std::array<uint32_t, 4> kTeamRestarts = {{0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}}; // TRG_CTF_Restart_<colour>
 
 goals::MatchRules* get_game_mode() { return goals::g_game_mode.get(); }
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 objects::MiscHub* entity_hub_handle() { return static_cast<objects::MiscHub*>(objects::g_composite_registry.get()); }
 objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub.get(); }
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.

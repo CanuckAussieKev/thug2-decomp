@@ -178,7 +178,7 @@ int game_main(int argc, char** argv)
         modules::Skate* skate_module = modules::Skate::spawn_occurrence(true);
         modules::FrontEnd* front_end = modules::create_front_end(true);
         online::Hub::fabricate(true);
-        objects::g_online_hub = online::g_online_hub; // (the network manager)
+        objects::set_net_hub(online::online_hub()); // (the network manager)
         park_editing::ParkBuilderMode* park_editor = park_editing::ParkBuilderMode::fabricate(true);
         frontend::create_screen_element_manager(true);
         level_nodes::create_node_manager(true);

@@ -38,6 +38,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -67,10 +68,8 @@ uint32_t& login_start()
     static uint32_t stats_login_start{};
     return stats_login_start;
 }
-// Set by the cheat script commands (career.cpp): the game reported as a cheat's.
-bool cheat_flag() { return g_cheat_flag; }
 
-Hub* net_session_slot() { return g_online_hub; }
+Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 RankingsManager* get_attributes() { return net_session_slot()->rating_service_.get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }

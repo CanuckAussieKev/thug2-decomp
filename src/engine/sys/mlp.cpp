@@ -52,7 +52,7 @@ namespace {
 bool& omit_from_draw() { return render::g_suppress_draw; }
 bool& flag_6f_1158() { return objects::g_cutscene_playing; } // cleared every frame (read by the pad code)
 bool app_active() { return sys::g_app_active; }
-bool text_entry() { return online::g_text_entry; } // keeps the loop running while the window is inactive
+bool text_entry() { return online::text_entry(); } // keeps the loop running while the window is inactive
 bool quit_requested() { return render::g_quit_requested; }
 bool& device_lost() { return render::g_device_lost; }
 IDirect3DDevice9* input_port() { return render::g_d3d_device; }

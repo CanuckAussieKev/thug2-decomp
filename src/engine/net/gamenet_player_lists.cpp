@@ -62,6 +62,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/shared_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace online {
 
@@ -566,7 +567,7 @@ void Hub::disconnect_clients()
         delete spectator_pad_listener_;
         spectator_pad_listener_ = nullptr;
     }
-    g_text_entry = false;
+    gamenet_game_cfuncs_shared().text_entry_ = false;
     if (gamenet_members_shared().query_reporting_) {
         game_spy::get_qr2_shutdown(nullptr);
         gamenet_members_shared().query_reporting_ = false;
@@ -765,7 +766,13 @@ PlayerRecord* Hub::next_cam_player()
     return nullptr;
 }
 
-Hub* g_online_hub;
+GamenetPlayerListsShared& gamenet_player_lists_shared()
+{
+    static core::NoDestroy<GamenetPlayerListsShared> state;
+    return state.get();
+}
+
+Hub* online_hub() { return gamenet_player_lists_shared().online_hub_; }
 
 // 0x00539610 (a task's code: the manager's flag task): in capture the flag, each flag a player (no observers)
 // carries (flags 0x7800) put on the carrier's head - the flag object of the team it belongs to (TRG_CTF_Red / Blue /
@@ -773,7 +780,7 @@ Hub* g_online_hub;
 // raised 12, then the skater's own matrix; its position the bone's offset transformed, plus the skater's position.
 void carried_flags_task(tasks::Task<Hub>*)
 {
-    Hub* manager = g_online_hub;
+    Hub* manager = gamenet_player_lists_shared().online_hub_;
     PlayerSearch search;
     if (get_game_type() != kNetCtf)
         return;
@@ -829,12 +836,12 @@ void release_manager()
         --references;
         return;
     }
-    Hub* manager = g_online_hub;
+    Hub* manager = gamenet_player_lists_shared().online_hub_;
     if (manager) {
         manager->~Hub();
         memory::Hub::get_pull()->dealloc(manager);
     }
-    g_online_hub = nullptr;
+    gamenet_player_lists_shared().online_hub_ = nullptr;
     references = 0;
 }
 

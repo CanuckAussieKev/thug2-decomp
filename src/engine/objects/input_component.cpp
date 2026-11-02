@@ -233,7 +233,7 @@ void PadInputModule::update_pad2(const pad_input::Payload* data)
 // 0x0041EF20
 bool PadInputModule::is_input_blocked()
 {
-    if (!g_online_hub->in_net_game())
+    if (!net_hub()->in_net_game())
         return false;
     if (find_element(kControllerUnpluggedDialog))
         return true;

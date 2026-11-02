@@ -452,7 +452,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         break;
     }
     case kSaveNetworkSettings: {
-        Struct* settings = &online::g_online_hub->get_online_settings()->top_entry_;
+        Struct* settings = &online::online_hub()->get_online_settings()->top_entry_;
         Struct* network_id = nullptr;
         settings->read_sub_struct(0xCBED746Eu, &network_id, 0); // network_id
         const char* text = empty;

@@ -159,7 +159,7 @@ constexpr uint32_t kModelModuleName = 0x286A8D26;      // model (a component)
 constexpr uint32_t kPauseValue = 0x9816E1E3;           // (a physics integer: pausing freezes the whole game)
 
 modules::Skate* get_skate() { return modules::g_skate_module.get(); }
-online::Hub* net_link() { return online::g_online_hub; }
+online::Hub* net_link() { return online::online_hub(); }
 bool rule_5a_1180() { return static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0; }
 
 } // namespace

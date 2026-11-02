@@ -28,7 +28,7 @@
 #include "game/rider/rider.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
-
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -44,7 +44,7 @@ constexpr uint32_t kNetFirefight = 0xBFF33600; // netfirefight
 
 constexpr uint32_t kHitWindow = 5000; // ms
 
-Hub* the_manager() { return g_online_hub; }
+Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
 
 objects::ObjectModule* skater_component(objects::Rider* skater, uint32_t type)
 {

@@ -107,7 +107,7 @@ uint32_t& last_flag_base_warning()
 uint32_t& net_game_start_time() { return gamenet_commands_shared().net_game_start_time_; }
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
-Hub* net_link() { return g_online_hub; }
+Hub* net_link() { return gamenet_player_lists_shared().online_hub_; }
 
 // The lobby (online's GameSpy peer side): its peer, whether it's in a group room; the lobby's state (the manager's
 // set_service_state, 0x005453E0) and services state (set_next_service_state, 0x005451B0).

@@ -31,7 +31,7 @@
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
 #include "platform/crt.h"
-
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -71,7 +71,7 @@ constexpr uint8_t kMsgPlayerFullyIn = 0x5E;
 constexpr uint32_t kJoinSettleTime = 1000; // ms
 constexpr uint32_t kJustJoinedTime = 5000; // ms
 
-Hub* the_manager() { return g_online_hub; }
+Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
 PlayerRecord* get_local(Hub* manager) { return find_own_player_record(manager); }
 uint32_t flag_of(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & 31); }
 

@@ -17,6 +17,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/shared_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace online {
 
@@ -91,7 +92,7 @@ park_editing::ObjectiveAuthoring* get_goal_editor() { return park_editing::Objec
 void Hub::set_join_mode(int mode)
 {
     join_mode_ = mode;
-    g_join_server_ip_succeeded = false;
+    gamenet_settings_shared().join_server_ip_succeeded_ = false;
 }
 
 // 0x00532AC0
@@ -154,7 +155,14 @@ net::AppHost* Hub::get_matchmaking_client() { return browser_client_; }
 // 0x00532EC0
 PlayerRecord* Hub::fetch_viewed_player() { return viewed_player_; }
 
-uint32_t g_command_line_server{0xFFFFFFFF};
+GamenetStateShared& gamenet_state_shared()
+{
+    static core::NoDestroy<GamenetStateShared> state;
+    return state.get();
+}
+
+uint32_t command_line_server() { return gamenet_state_shared().command_line_server_; }
+void set_command_line_server(uint32_t value) { gamenet_state_shared().command_line_server_ = value; }
 
 // 0x00532ED0
 void Hub::scan_local_network()
@@ -170,7 +178,7 @@ void Hub::scan_local_network()
         return;
     }
     browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), 0xFFFFFFFF, kLanPort, 0);
-    const uint32_t command_line = g_command_line_server; // (parse_network_params)
+    const uint32_t command_line = gamenet_state_shared().command_line_server_; // (parse_network_params)
     if (command_line != 0xFFFFFFFF)
         browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), command_line, kLanPort, 0);
 }

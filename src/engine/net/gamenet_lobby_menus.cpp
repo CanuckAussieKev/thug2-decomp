@@ -74,7 +74,7 @@ constexpr int kLobbyStateListed = 15;
 constexpr int kLobbyStateFailed = 16;
 constexpr float kItemScale = 1.1f; // (0x3F8CCCCD)
 
-Hub* net_session_slot() { return g_online_hub; }
+Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 void push_internet_heap()
 {
     memory::Hub* memory = memory::Hub::get_pull();

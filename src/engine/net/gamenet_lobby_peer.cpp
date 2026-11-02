@@ -89,7 +89,7 @@ constexpr uint32_t kPlayerObserverCounted = 0x08; // (0x005434C0: an observer re
 constexpr uint32_t kNewPlayerCounted = 0x18;
 constexpr uint32_t kNewPlayerObserver = 0x04;
 
-Hub* net_session_slot() { return g_online_hub; }
+Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 std::array<QueuedPacket, 200>& get_queue() { return gamenet_lobby_cfuncs_shared().queued_packets_; }
 int& queued_count() { return gamenet_lobby_cfuncs_shared().queued_count_; }

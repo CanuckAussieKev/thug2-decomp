@@ -22,6 +22,7 @@ int count_callback(int type, void* user_data);
 // stored secret key, once (0x007CCE1C); unless `keep_map_name`, the level's name noted first (0x0067F0A0).
 void start_query_reporting(bool keep_map_name);
 
-extern int g_lobby_group_id;
+int lobby_group_id();
+void set_lobby_group_id(int value);
 
 } // namespace online

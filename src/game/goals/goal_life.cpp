@@ -29,7 +29,6 @@
 
 namespace goals {
 
-
 namespace {
 
 using namespace goal_calls;
@@ -84,7 +83,7 @@ constexpr uint32_t kGoalGapsGotGap = 0x96DE9A0C;          // goal_gaps_got_gap
 // The x87 code's float to int conversion (_ftol): truncation.
 int truncate(double value) { return static_cast<int>(value); }
 
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 uint32_t active_ruleset_label()
 {
     return static_cast<goals::MatchRules*>(skate_calls::get_game_mode())->get_name_key();

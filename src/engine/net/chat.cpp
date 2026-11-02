@@ -39,6 +39,7 @@
 #include "wire/net_wire.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/net/shared_state.h"
 
 namespace online {
 
@@ -152,7 +153,7 @@ void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
 
 } // namespace
 
-Hub* fetch_hub() { return g_online_hub; }
+Hub* fetch_hub() { return gamenet_player_lists_shared().online_hub_; }
 
 namespace {
 

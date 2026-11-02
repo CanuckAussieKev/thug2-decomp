@@ -43,7 +43,7 @@ bool first_trick_started() { return modules::Skate::sole()->first_trick_started(
 bool first_trick_completed() { return modules::Skate::sole()->first_trick_completed(); }
 void send_scores(bool final) { modules::Skate::sole()->broadcast_points(final); }
 
-online::Hub* net_session_slot() { return online::g_online_hub; }
+online::Hub* net_session_slot() { return online::online_hub(); }
 
 } // namespace
 

@@ -49,8 +49,6 @@ constexpr uint32_t kObjectId = 0x40C698AF;
 
 // Network messages to the server.
 
-
-
 // The object marked dead (its vtable +0x18: a composite object tells its components first).
 void flag_as_dead(GameEntity* object) { object->flag_as_dead(); }
 
@@ -64,7 +62,7 @@ render::RenderModel* get_model_data(GameEntity* object)
 // A message to the server, in a network game.
 void send_to_server(uint8_t id, const online::SpecialItemMessage& item)
 {
-    auto* manager = online::g_online_hub;
+    auto* manager = online::online_hub();
     if (!manager->in_net_game())
         return;
     net::NetMessageInfo msg;
