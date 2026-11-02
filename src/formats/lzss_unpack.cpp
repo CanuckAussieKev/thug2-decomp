@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "formats/lzss.h"
 #include "engine/core/checked_index.h"
@@ -11,8 +12,10 @@ namespace lzss {
 // NOT ORIGINAL - the bounded form of decode (0x004014F0) and of the archives' copy of it (0x005B7DF0): the same
 // window, flags and references, but the input is read only within its size and the output written only within its
 // capacity. A valid stream decodes to exactly the same bytes.
-bool unpack(const uint8_t* in, size_t in_size, uint8_t* out, size_t out_capacity, size_t* written)
+bool unpack(const uint8_t* in_bytes, size_t in_size, uint8_t* out_bytes, size_t out_capacity, size_t* written)
 {
+    const std::span<const uint8_t> in(in_bytes, in_size);
+    const std::span<uint8_t> out(out_bytes, out_capacity);
     constexpr int kWindow = 4096;
     constexpr int kLongest = 18;
     std::array<uint8_t, kWindow> window{};
@@ -27,7 +30,7 @@ bool unpack(const uint8_t* in, size_t in_size, uint8_t* out, size_t out_capacity
         if (!(flags & 0x100)) {
             if (read == in_size)
                 break;
-            flags = in[read++] | 0xFF00u; // the high byte counts the 8 flags off
+            flags = core::at(in, read++) | 0xFF00u; // the high byte counts the 8 flags off
         }
         if (flags & 1) {
             if (read == in_size)
@@ -36,8 +39,8 @@ bool unpack(const uint8_t* in, size_t in_size, uint8_t* out, size_t out_capacity
                 ok = false;
                 break;
             }
-            const uint8_t c = in[read++];
-            out[put++] = c;
+            const uint8_t c = core::at(in, read++);
+            core::at(out, put++) = c;
             core::at(window, r) = c;
             r = (r + 1) & (kWindow - 1);
         } else {
@@ -47,8 +50,8 @@ bool unpack(const uint8_t* in, size_t in_size, uint8_t* out, size_t out_capacity
                 ok = false;
                 break;
             }
-            const int position = in[read] | ((in[read + 1] & 0xF0) << 4);
-            const int last = (in[read + 1] & 0x0F) + 2;
+            const int position = core::at(in, read) | ((core::at(in, read + 1) & 0xF0) << 4);
+            const int last = (core::at(in, read + 1) & 0x0F) + 2;
             read += 2;
             if (out_capacity - put < static_cast<size_t>(last) + 1) {
                 ok = false;
@@ -56,7 +59,7 @@ bool unpack(const uint8_t* in, size_t in_size, uint8_t* out, size_t out_capacity
             }
             for (int k = 0; k <= last; ++k) {
                 const uint8_t c = core::at(window, (position + k) & (kWindow - 1));
-                out[put++] = c;
+                core::at(out, put++) = c;
                 core::at(window, r) = c;
                 r = (r + 1) & (kWindow - 1);
             }

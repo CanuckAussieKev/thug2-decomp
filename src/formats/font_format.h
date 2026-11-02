@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <array>
 
 #include "formats/byte_stream.h"
@@ -54,12 +55,12 @@ struct GlyphRect {
 // The header. False if cut short or the glyph count is negative or more than kMaxGlyphs.
 bool read_header(util::ByteReader& reader, Header* out);
 // `count` character map entries into `out` (kMaxGlyphs of room). False if cut short.
-bool read_glyph_entries(util::ByteReader& reader, int count, GlyphEntry* out);
+bool read_glyph_entries(util::ByteReader& reader, int count, std::span<GlyphEntry> out);
 // The page's header. False if cut short.
 bool read_page(util::ByteReader& reader, Page* out);
 // The page's texel count (width x height rounded up to 4).
 inline uint32_t texel_count(const Page& page) { return (page.height * page.width + 3) & ~3u; }
 // `count` glyph rectangles (after their 4 bytes) into `out`. False if cut short.
-bool read_glyph_rects(util::ByteReader& reader, int count, GlyphRect* out);
+bool read_glyph_rects(util::ByteReader& reader, int count, std::span<GlyphRect> out);
 
 } // namespace font_format

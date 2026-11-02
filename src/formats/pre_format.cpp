@@ -2,6 +2,7 @@
 #include "engine/core/raw_view.h"
 
 #include <cstring>
+#include <span>
 
 namespace pre_format {
 
@@ -54,7 +55,7 @@ bool apply_patch(uint8_t* archive, size_t capacity, const uint8_t* patch, size_t
         const uint8_t* bytes = reader.cursor();
         if (!reader.skip(length) || offset > capacity || length > capacity - offset)
             return false;
-        std::memcpy(archive + offset, bytes, length);
+        std::memcpy(std::span<uint8_t>(archive, capacity).subspan(offset, length).data(), bytes, length);
     }
     return true;
 }

@@ -365,7 +365,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
             // a map, past the end of a short one)
             auto copy = std::make_unique<park_editing::CompressedMap>();
             const std::vector<uint32_t> words = script::words_of(map);
-            park_editing::park_map_from_words(copy.get(), words.data(), static_cast<uint32_t>(words.size()));
+            park_editing::park_map_from_words(copy.get(), words);
             add_map_info(copy.get());
             break;
         }

@@ -485,7 +485,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     std::array<font_format::GlyphEntry, font_format::kMaxGlyphs> entries;
     font_format::Page page;
     if (!font_format::read_header(reader, &header) ||
-        !font_format::read_glyph_entries(reader, header.glyph_count, entries.data()) ||
+        !font_format::read_glyph_entries(reader, header.glyph_count, entries) ||
         !font_format::read_page(reader, &page)) {
         debug::printf("font %s damaged: cut short or %d glyphs\n", from_memory ? "(memory)" : name, header.glyph_count);
         return nullptr;
@@ -498,7 +498,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     const uint8_t* palette_bytes = texels + size;
     reader.skip(hd_scale != 1 ? static_cast<size_t>(size) * 4 : size + font_format::kPaletteSize);
     std::array<font_format::GlyphRect, font_format::kMaxGlyphs> rects;
-    if (!font_format::read_glyph_rects(reader, header.glyph_count, rects.data())) {
+    if (!font_format::read_glyph_rects(reader, header.glyph_count, rects)) {
         debug::printf("font %s damaged: its page or rectangles cut short\n", from_memory ? "(memory)" : name);
         return nullptr;
     }

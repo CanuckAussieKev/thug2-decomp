@@ -745,7 +745,7 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
         return;
     }
     std::vector<font_format::GlyphEntry> entries(font_format::kMaxGlyphs);
-    check(font_format::read_glyph_entries(reader, header.glyph_count, entries.data()), name + ": character map");
+    check(font_format::read_glyph_entries(reader, header.glyph_count, entries), name + ": character map");
     font_format::Page page;
     check(font_format::read_page(reader, &page), name + ": page");
     const uint32_t scale =
@@ -754,7 +754,7 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
     const uint64_t texels = font_format::texel_count(page);
     reader.skip(static_cast<size_t>(hd ? texels * 4 : texels + font_format::kPaletteSize));
     std::vector<font_format::GlyphRect> rects(font_format::kMaxGlyphs);
-    check(font_format::read_glyph_rects(reader, header.glyph_count, rects.data()), name + ": glyph rectangles");
+    check(font_format::read_glyph_rects(reader, header.glyph_count, rects), name + ": glyph rectangles");
     if (!reader.ok())
         return;
     g_fonts.glyphs += header.glyph_count;
@@ -782,10 +782,10 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
     check(hd || same, name + ": as read in place");
     util::ByteReader cut(data, size - 1);
     font_format::read_header(cut, &header);
-    font_format::read_glyph_entries(cut, header.glyph_count, entries.data());
+    font_format::read_glyph_entries(cut, header.glyph_count, entries);
     font_format::read_page(cut, &page);
     cut.skip(static_cast<size_t>(hd ? texels * 4 : texels + font_format::kPaletteSize));
-    check(!font_format::read_glyph_rects(cut, header.glyph_count, rects.data()), name + ": cut short");
+    check(!font_format::read_glyph_rects(cut, header.glyph_count, rects), name + ": cut short");
 }
 
 // --- sound effects (.snd) -----------------------------------------------------------------------------------------

@@ -316,18 +316,18 @@ void check_park_map(const ArrayValue& array, const std::string& what)
     for (uint32_t i = 0; i < kParkMapWords; ++i)
         core::at(word_values, i) = core::at(array.elements, i)->bits;
     std::vector<uint8_t> from_words(kParkMapBytes, 0xEE);
-    park_map_from_words(from_words.data(), word_values.data(), kParkMapWords);
+    park_map_from_words(from_words.data(), word_values);
     std::vector<uint32_t> back_to_words(kParkMapWords);
-    park_map_to_words(from_words.data(), back_to_words.data());
+    park_map_to_words(from_words.data(), back_to_words);
     check(from_words == map && back_to_words == word_values, what + ": park map to / from its words");
     std::vector<uint8_t> short_map(kParkMapBytes, 0xEE);
-    park_map_from_words(short_map.data(), word_values.data(), 10);
+    park_map_from_words(short_map.data(), std::span<const uint32_t>(word_values).first(10));
     check(std::memcmp(short_map.data(), map.data(), 40) == 0 && core::at(short_map, 40) == 0 && short_map.back() == 0,
           what + ": park map from too few words: the rest zeroed");
     util::ByteReader reader(map.data(), map.size());
     ParkMapHeader header;
     check(read_park_map_header(reader, &header), what + ": park map header");
-    check(park_map_checksum(map.data()) == header.checksum, what + ": park map CRC");
+    check(park_map_checksum(map) == header.checksum, what + ": park map CRC");
     std::vector<uint8_t> again(kParkMapBytes);
     util::ByteWriter writer(again.data(), again.size());
     write_park_map_header(writer, header);

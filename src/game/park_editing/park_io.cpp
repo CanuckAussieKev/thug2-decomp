@@ -416,7 +416,7 @@ void ParkLayout::export_to_struct(script::Struct* out)
     gsl::owner<script::Array*> map = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     map->configure_size_kind(kParkMapWords, script::kQbvalInteger); // (out of memory crashes, as in the original)
     std::array<uint32_t, kParkMapWords> words{};
-    park_map_to_words(&map_, words.data());
+    park_map_to_words(&map_, words);
     for (uint32_t i = 0; i < kParkMapWords; ++i)
         map->set_element(i, core::at(words, i));
     out->append_array_ref(0x337C5289u, map); // Park_editor_map

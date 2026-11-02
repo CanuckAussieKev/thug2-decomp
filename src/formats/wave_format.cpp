@@ -12,21 +12,23 @@ bool read_wave(util::ByteReader& reader, Wave* out)
     while (reader.ok() && reader.remaining() >= 8) {
         const uint32_t id = reader.u32();
         const uint32_t size = reader.u32();
-        const uint8_t* body = reader.cursor();
-        if (!reader.skip(size))
+        if (size > reader.remaining())
             return false;
+        const std::span<const uint8_t> body = reader.rest().first(size);
+        reader.skip(size);
         if (id == kFormatId) {
             out->format_size = size;
             for (size_t i = 0; i < kFormatSize && i < size; ++i)
-                core::at(out->format, i) = body[i];
+                core::at(out->format, i) = core::at(body, i);
         } else if (id == kDataId) {
-            out->samples = body;
+            out->samples = body.data();
             out->sample_bytes = size;
             out->has_data = true;
         } else if (id == kSamplerId) {
             uint32_t loops = 0; // (the eighth word; 0 when the chunk is shorter)
             if (size >= 0x20)
-                loops = body[0x1C] | body[0x1D] << 8 | body[0x1E] << 16 | static_cast<uint32_t>(body[0x1F]) << 24;
+                loops = core::at(body, 0x1C) | core::at(body, 0x1D) << 8 | core::at(body, 0x1E) << 16 |
+                        static_cast<uint32_t>(core::at(body, 0x1F)) << 24;
             if (loops > 0)
                 out->looping = true;
         }

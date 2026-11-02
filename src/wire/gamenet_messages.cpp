@@ -4,8 +4,10 @@
 
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "formats/byte_stream.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -347,17 +349,18 @@ namespace {
 
 // The rest of the message up to its NUL, into `out` (`size` bytes, terminated): false when there's no NUL before the
 // end (what there is still copied, cut to fit).
-bool read_rest_string(util::ByteReader& reader, char* out, size_t size)
+bool read_rest_string(util::ByteReader& reader, char* out_text, size_t size)
 {
+    const std::span<char> out(out_text, size);
     size_t length = 0;
-    const uint8_t* rest = reader.cursor();
-    const size_t remaining = reader.remaining();
-    while (length < remaining && rest[length])
+    const std::span<const uint8_t> rest = reader.rest();
+    const size_t remaining = rest.size();
+    while (length < remaining && core::at(rest, length))
         ++length;
     const bool ended = length < remaining;
     const size_t copy = length < size - 1 ? length : size - 1;
-    std::memcpy(out, rest, copy);
-    out[copy] = '\0';
+    std::memcpy(out_text, rest.data(), copy);
+    core::at(out, copy) = 0;
     reader.skip(ended ? length + 1 : length);
     return ended;
 }

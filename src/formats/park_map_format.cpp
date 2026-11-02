@@ -108,24 +108,24 @@ bool write_park_map_gap(util::ByteWriter& writer, const ParkMapGap& gap)
     return writer.ok();
 }
 
-void park_map_to_words(const void* map, uint32_t* words)
+void park_map_to_words(const void* map, std::span<uint32_t> words)
 {
     util::ByteReader reader(map, kParkMapBytes);
     for (uint32_t i = 0; i < kParkMapWords; ++i)
-        words[i] = reader.u32();
+        core::at(words, i) = reader.u32();
 }
 
-void park_map_from_words(void* map, const uint32_t* words, uint32_t count)
+void park_map_from_words(void* map, std::span<const uint32_t> words)
 {
     util::ByteWriter writer(map, kParkMapBytes);
-    for (uint32_t i = 0; i < count && i < kParkMapWords; ++i)
-        writer.u32(words[i]);
+    for (uint32_t i = 0; i < words.size() && i < kParkMapWords; ++i)
+        writer.u32(core::at(words, i));
     writer.fill(0, writer.remaining());
 }
 
-uint32_t park_map_checksum(const uint8_t* map)
+uint32_t park_map_checksum(std::span<const uint8_t> map)
 {
-    return checksums::generate_crc_from_buffer(map + 4, static_cast<int>(kParkMapBytes - 4));
+    return checksums::generate_crc_from_buffer(map.first(kParkMapBytes).subspan(4).data(), static_cast<int>(kParkMapBytes - 4));
 }
 
 } // namespace park_editing
