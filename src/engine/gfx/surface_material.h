@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 // A scene material (Nx engine, PC; 0x110 bytes, constructor 0x004D1A90): up to four passes, each with flags, a
 // texture, a colour, a blend mode, addressing, a mip bias and an optional UV wibble; colour and texture animations;
@@ -41,6 +42,12 @@ struct TextureAnim {
     std::array<int, 4> loops;            // +0x24
     std::array<TextureKey*, 4> keys;     // +0x34
 
+    // NOT ORIGINAL - a pass's keys as a run of its key count.
+    [[nodiscard]] std::span<TextureKey> key_run(size_t pass) const
+    {
+        return {keys.at(pass), key_counts_.at(pass)};
+    }
+
     // 0x004D1A80: started again (the time now, frame_clock::GetTime).
     void relaunch();
 };
@@ -55,6 +62,9 @@ struct ColorAnim {
     uint32_t key_count_;
     int phase;
     ColorKey* keys;
+
+    // NOT ORIGINAL - the keys as a run of key_count_.
+    [[nodiscard]] std::span<ColorKey> key_run() const { return {keys, key_count_}; }
 };
 
 struct MaterialRef {
@@ -86,6 +96,10 @@ struct MaterialRef {
     uint32_t color_anim_count_{0};    // +0xF0
     ColorAnim* color_anims_{nullptr}; // +0xF4
     uint32_t* anim_colors_{nullptr};  // +0xF8: each animation's colour now
+
+    // NOT ORIGINAL - the colour animations and their current colours as runs of color_anim_count_.
+    [[nodiscard]] std::span<ColorAnim> color_anim_run() const { return {color_anims_, color_anim_count_}; }
+    [[nodiscard]] std::span<uint32_t> anim_colour_run() const { return {anim_colors_, color_anim_count_}; }
     TextureAnim* texture_anim_{nullptr}; // +0xFC
     std::array<float, 3> specular{};            // +0x100
     float specular_power_{};        // +0x10C

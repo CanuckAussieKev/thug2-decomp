@@ -58,14 +58,14 @@ constexpr uint32_t kPassExplicitUv = 0x4000;   // the UV wibble's matrix is set,
 
 // (t - from) / (to - from) between two keys' colours, channel by channel in the order a, r, g, b (the bytes 3, 0, 1,
 // 2), each to * f + from * (1 - f) truncated - and not masked: the four values are shifted and or'd as they come.
-uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* to)
+uint32_t blend_key_colors(int num, int den, const std::array<uint8_t, 4>& from, const std::array<uint8_t, 4>& to)
 {
     static const std::array<int, 4> kOrder = {{3, 0, 1, 2}};
     const double f = static_cast<double>(num) / den;
     const double rest = 1.0 - f;
     uint32_t color = 0;
     for (int k = 0; k < 4; ++k) {
-        const auto value = static_cast<uint32_t>(maths::truncate_to_i64(to[core::at(kOrder, k)] * f + from[core::at(kOrder, k)] * rest));
+        const auto value = static_cast<uint32_t>(maths::truncate_to_i64(core::at(to, core::at(kOrder, k)) * f + core::at(from, core::at(kOrder, k)) * rest));
         color = k ? (color << 8 | value) : value;
     }
     return color;
@@ -140,14 +140,14 @@ void change_bump_map_matrix(uint32_t stage)
 }
 
 // A UV wibble's texture matrix (a static, `matrix`): its 2x2 part (the second row's first value negated) and offsets.
-void fill_wibble_matrix(float* matrix, const UvOscillator* wibble)
+void fill_wibble_matrix(std::span<float, 16> matrix, const UvOscillator* wibble)
 {
-    matrix[0] = core::at(wibble->matrix, 0);
-    matrix[1] = core::at(wibble->matrix, 1);
-    matrix[5] = core::at(wibble->matrix, 0);
-    matrix[4] = -core::at(wibble->matrix, 1);
-    matrix[8] = core::at(wibble->offset, 0);
-    matrix[9] = core::at(wibble->offset, 1);
+    core::at(matrix, 0) = core::at(wibble->matrix, 0);
+    core::at(matrix, 1) = core::at(wibble->matrix, 1);
+    core::at(matrix, 5) = core::at(wibble->matrix, 0);
+    core::at(matrix, 4) = -core::at(wibble->matrix, 1);
+    core::at(matrix, 8) = core::at(wibble->offset, 0);
+    core::at(matrix, 9) = core::at(wibble->offset, 1);
 }
 
 uint32_t factor_channel(float value)
@@ -175,8 +175,8 @@ MaterialRef::~MaterialRef()
 {
     memory::Hub* heap = memory::Hub::get_pull();
     if (color_anims_) {
-        for (uint32_t i = 0; i < color_anim_count_; ++i)
-            heap->dealloc(color_anims_[i].keys);
+        for (const ColorAnim& anim : color_anim_run())
+            heap->dealloc(anim.keys);
         heap->dealloc(color_anims_);
     }
     if (anim_colors_)
@@ -207,17 +207,17 @@ void MaterialRef::update_color_anims()
     if (!(core::at(pass_flags_, 0) & kPassColorAnim))
         return;
     for (uint32_t i = 0; i < color_anim_count_; ++i) {
-        const ColorAnim& anim = color_anims_[i];
-        const ColorKey* keys = anim.keys;
-        const int first = keys[0].time;
-        const int period = keys[anim.key_count_ - 1].time - first;
+        const ColorAnim& anim = core::at(color_anim_run(), i);
+        const std::span<ColorKey> keys = anim.key_run();
+        const int first = core::at(keys, 0).time;
+        const int period = core::at(keys, anim.key_count_ - 1).time - first;
         const int t = period ? (anim.phase + g_step_seconds) % period + first : 1;
         int key = static_cast<int>(anim.key_count_) - 1;
-        while (key >= 0 && t < keys[key].time)
+        while (key >= 0 && t < core::at(keys, key).time)
             --key;
-        const ColorKey& from = keys[key];
-        const ColorKey& to = keys[key + 1];
-        anim_colors_[i] = blend_key_colors(t - from.time, to.time - from.time, from.rgba.data(), to.rgba.data());
+        const ColorKey& from = core::at(keys, key);
+        const ColorKey& to = core::at(keys, key + 1);
+        core::at(anim_colour_run(), i) = blend_key_colors(t - from.time, to.time - from.time, from.rgba, to.rgba);
     }
 }
 
@@ -231,19 +231,19 @@ void MaterialRef::update_texture_anims()
     for (int pass = 0; pass < 4; ++pass) {
         if (!(core::at(pass_flags_, pass) & kPassTextureAnim))
             continue;
-        const TextureKey* keys = core::at(anim->keys, pass);
+        const std::span<TextureKey> keys = anim->key_run(static_cast<size_t>(pass));
         const int count = static_cast<int>(core::at(anim->key_counts_, pass));
-        const int first = keys[0].time;
-        const int period = keys[count - 1].time - first;
+        const int first = core::at(keys, 0).time;
+        const int period = core::at(keys, count - 1).time - first;
         const int phase = static_cast<int>(core::at(anim->phases, pass));
         int t = (now + phase) % period + first;
         const int loops = core::at(anim->loops, pass);
         if (loops > 0 && (now - first) / period >= loops)
             t = (loops * period + phase) % period + first; // (held on the last loop's end)
         int key = count - 1;
-        while (key >= 0 && t < keys[key].time)
+        while (key >= 0 && t < core::at(keys, key).time)
             --key;
-        core::at(textures, pass) = keys[key].texture;
+        core::at(textures, pass) = core::at(keys, key).texture;
     }
 }
 
@@ -275,7 +275,7 @@ void MaterialRef::hand_in()
         if (g_skipped_passes & (1u << (pass & 31)))
             continue;
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        if (!constants_changed() && std::memcmp(core::at(pass_color_, pass).data(), pass_constants().data() + 4 * pass, 16) != 0)
+        if (!constants_changed() && std::memcmp(core::at(pass_color_, pass).data(), std::span<float>(pass_constants()).subspan(4 * static_cast<size_t>(pass)).data(), 16) != 0)
             constants_changed() = true;
         const TextureImage* texture = core::at(textures, pass);
         if (!texture) {
@@ -303,7 +303,7 @@ void MaterialRef::hand_in()
             device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass);
             auto& matrix = g_wibble_matrix_pass;
-            fill_wibble_matrix(matrix.data(), core::at(uv_wibble_, pass));
+            fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
             input_port()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
         } else {
             if (g_billboard_flag) { // (the billboard flag: a static matrix's 2x2 part reset)
@@ -366,7 +366,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 device_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
                 device_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
                 auto& matrix = g_wibble_matrix;
-                fill_wibble_matrix(matrix.data(), core::at(uv_wibble_, pass));
+                fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
                 input_port()->SetTransform(D3DTS_TEXTURE0, d3d::matrix(matrix.data()));
             } else {
                 DWORD transform_flags = 0, coordinates = 0;
@@ -398,14 +398,14 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
     // the stages' colour and alpha operations
     if (static_cast<int8_t>(core::at(pass_flags_, pass) & 0xFF) < 0)
         color = nullptr; // (the pass's colour isn't to be changed)
-    const float* own = core::at(pass_color_, pass).data();
+    const std::array<float, 4>& own = core::at(pass_color_, pass);
     const bool alpha_from_texture = (core::at(pass_flags_, pass) & kPassTextureAlpha) != 0;
     const bool blends_with_previous = core::at(blend_modes_, pass) == 0xC || core::at(blend_modes_, pass) == 0xD;
     const uint32_t half = 0x3F000000; // 0.5: the colour unchanged
     // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-    if (std::memcmp(&own[0], &half, 4) == 0 && std::memcmp(&own[1], &half, 4) == 0 &&
+    if (std::memcmp(&core::at(own, 0), &half, 4) == 0 && std::memcmp(&core::at(own, 1), &half, 4) == 0 &&
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        std::memcmp(&own[2], &half, 4) == 0 && !color) {
+        std::memcmp(&core::at(own, 2), &half, 4) == 0 && !color) {
         if (!blends_with_previous) {
             device_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
             device_stage_state(0, D3DTSS_ALPHAOP, alpha_from_texture ? D3DTOP_SELECTARG1 : D3DTOP_MODULATE2X);
@@ -430,10 +430,10 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         device_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
         device_stage_state(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
         device_stage_state(0, D3DTSS_COLORARG2, D3DTA_TFACTOR);
-        const float* factor = color ? color : own;
-        const uint32_t r = factor_channel(factor[0]);
-        const uint32_t g = factor_channel(factor[1]);
-        const uint32_t b = factor_channel(factor[2]);
+        const std::span<const float, 3> factor = color ? std::span<const float, 3>(color, 3) : std::span<const float>(own).first<3>();
+        const uint32_t r = factor_channel(core::at(factor, 0));
+        const uint32_t g = factor_channel(core::at(factor, 1));
+        const uint32_t b = factor_channel(core::at(factor, 2));
         input_port()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFF000000u | r << 16 | g << 8 | b);
         if (alpha_from_texture) {
             device_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);

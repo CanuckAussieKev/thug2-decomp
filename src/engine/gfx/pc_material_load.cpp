@@ -96,10 +96,11 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
             m->anim_colors_ = static_cast<uint32_t*>(memory::alloc(anims * 4));
             for (uint32_t i = 0; i < anims; ++i) {
                 const scene_format::ColorAnimTrack& track = core::at(record.color_anims, i);
-                m->color_anims_[i].key_count_ = track.key_count;
-                m->color_anims_[i].phase = track.phase;
-                m->color_anims_[i].keys = static_cast<ColorKey*>(memory::alloc(track.key_count * sizeof(ColorKey)));
-                std::memcpy(m->color_anims_[i].keys, track.keys.data(), track.keys.size());
+                ColorAnim& anim = core::at(m->color_anim_run(), i);
+                anim.key_count_ = track.key_count;
+                anim.phase = track.phase;
+                anim.keys = static_cast<ColorKey*>(memory::alloc(track.key_count * sizeof(ColorKey)));
+                std::memcpy(anim.keys, track.keys.data(), track.keys.size());
             }
         }
         if (in.flags & scene_format::kPassTextureAnim) {
@@ -115,7 +116,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
             core::at(m->texture_anim_->keys, pass) = static_cast<TextureKey*>(memory::alloc(static_cast<uint32_t>(keys) * 8));
             for (int k = 0; k < keys; ++k) {
                 const scene_format::TextureFrame& frame = core::at(in.texture_keys, static_cast<size_t>(k));
-                TextureKey& key = core::at(m->texture_anim_->keys, pass)[k];
+                TextureKey& key = core::at(m->texture_anim_->key_run(static_cast<size_t>(pass)), k);
                 key.time = frame.time;
                 key.texture = find_texture(textures, frame.texture);
             }
