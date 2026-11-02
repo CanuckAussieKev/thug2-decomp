@@ -27,6 +27,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace save_cards {
 
@@ -139,13 +140,13 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
             const char* folder = game_config::get_path_prefix();
             std::array<char, 20> file{};
             make_file_name(name, file, type);
-            std::snprintf(path.data(), sizeof(path), "/%s%s/%s%s", folder, file.data(), folder, file.data());
+            text::format_to(path, "/%s%s/%s%s", folder, file.data(), folder, file.data());
             break;
         }
         case 5: {
             std::array<char, 104> file{};
             make_folder_file_name(type, name, file.data());
-            std::snprintf(path.data(), sizeof(path), "%s%s", file.data(), file.data());
+            text::format_to(path, "%s%s", file.data(), file.data());
             break;
         }
         case 4:
@@ -154,7 +155,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
             if (!converted)
                 named = false;
             else
-                std::snprintf(path.data(), sizeof(path), "%s", converted);
+                text::format_to(path, "%s", converted);
             break;
         }
         default:

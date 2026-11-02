@@ -13,6 +13,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace park_editing {
 
@@ -199,8 +200,8 @@ void ParkRailSet::prepare_all(int points, int strings, bool in)
         std::memcpy(label_.data(), "Out set", sizeof("Out set"));
     std::array<char, 64> point_name{};
     std::array<char, 64> string_name{};
-    std::snprintf(point_name.data(), sizeof(point_name), "%s RailPoint", label_.data());
-    std::snprintf(string_name.data(), sizeof(string_name), "%s RailString", label_.data());
+    text::format_to(point_name, "%s RailPoint", label_.data());
+    text::format_to(string_name, "%s RailString", label_.data());
     void* memory = memory::alloc(sizeof(memory::SlabBank));
     point_pool_ =
         memory ? memory::construct_in<memory::SlabBank>(memory, sizeof(ParkRailPoint), points, point_name.data()) : nullptr;

@@ -19,6 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace park_editing {
 
@@ -178,7 +179,7 @@ bool BuildPointer::add_gap_half()
                 // The gap's name: "gap", then "gap2", "gap3"...
                 if (gap_counter() > 1)
                     THUG2_MSVC_WARNING(suppress : 4996)
-                std::sprintf(gap.text_.data(), "gap%d", gap_counter()); // "gap%d"
+                text::format_to(gap.text_, "gap%d", gap_counter()); // "gap%d"
                 else std::memcpy(gap.text_.data(), "gap", 4);
                 ++gap_counter();
             }
@@ -472,7 +473,7 @@ void ParkLayout::commission(uint32_t level)
             const char* text = script::fetch_text(0x4E677220u);
             for (int k = 0; k < 6; ++k) {
                 std::array<char, 100> name{};
-                std::snprintf(name.data(), sizeof(name), "Clipboard%d", k); // "Clipboard%d"
+                text::format_to(name, "Clipboard%d", k); // "Clipboard%d"
                 core::at(set.entries_, k).name = text;
                 core::at(set.entries_, k).checksum = checksums::hash_from_text(name.data());
             }

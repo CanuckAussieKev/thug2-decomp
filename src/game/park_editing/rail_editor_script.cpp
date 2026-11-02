@@ -20,6 +20,7 @@
 #include "engine/core/stubs.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace park_editing {
 
@@ -223,7 +224,7 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
             node->put_name_key(0u, kRailNodeClass);
             node->put_name_key(0u, kTrickObject);
             std::array<char, 52> cluster{};
-            std::snprintf(cluster.data(), sizeof(cluster), "CreatedRailCluster%d", rail_index);
+            text::format_to(cluster, "CreatedRailCluster%d", rail_index);
             node->put_name_key(kCluster, checksums::hash_from_text(cluster.data()));
             node->put_name_key(kSurfaceKindKey, kMetalSmooth);
             if (p->following_) {

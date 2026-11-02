@@ -33,6 +33,7 @@
 #include "game/goals/create_a_trick.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace save_cards {
 
@@ -198,36 +199,35 @@ std::array<char, 0x68> g_save_file_name; // (the cutscene list's flag follows)
 // 0x005A62A0
 const char* get_type_file_name(uint32_t type, const char* name)
 {
-    char* buffer = g_save_file_name.data();
-    const char* pattern = nullptr;
+    const char* buffer = g_save_file_name.data();
+    const char* extension = nullptr;
     switch (type) {
     case kSaveCat:
-        pattern = "Save/%s.CAT";
+        extension = "CAT"; // "Save/%s.CAT"
         break;
     case kSavePark:
-        pattern = "Save/%s.PRK";
+        extension = "PRK"; // "Save/%s.PRK"
         break;
     case kSaveReplay:
-        pattern = "Save/%s.REP";
+        extension = "REP"; // "Save/%s.REP"
         break;
     case kSaveCreatedGoals:
-        pattern = "Save/%s.GOA";
+        extension = "GOA"; // "Save/%s.GOA"
         break;
     case kSaveNetworkSettings:
-        pattern = "Save/%s.NWS";
+        extension = "NWS"; // "Save/%s.NWS"
         break;
     case kSaveOptionsAndPros:
-        pattern = "Save/%s.SKA";
+        extension = "SKA"; // "Save/%s.SKA"
         break;
     case kSaveCreatedGraphic:
-        pattern = "Save/%s.GRF";
+        extension = "GRF"; // "Save/%s.GRF"
         break;
     default:
         break;
     }
-    if (pattern)
-        std::snprintf(buffer, 0x68, pattern,
-                      name); // (no limit in the original: a longer name ran on into other globals)
+    if (extension) // (no limit in the original: a longer name ran on into other globals)
+        text::format_to(g_save_file_name, "Save/%s.%s", name, extension);
     return buffer;
 }
 
@@ -237,7 +237,8 @@ int make_folder_file_name(uint32_t type, const char* name, char* buffer)
     std::array<char, 20> file{};
     make_file_name(name, file, type);
     const char* folder = game_config::get_path_prefix();
-    return std::snprintf(buffer, 0x100, "/%s%s", folder, file.data()); // (no limit in the original)
+    return static_cast<int>(
+        text::format_to(std::span(buffer, 0x100), "/%s%s", folder, file.data())); // (no limit in the original)
 }
 
 // 0x005A63E0

@@ -18,6 +18,7 @@
 #include "game/park_editing/park.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace park_editing {
 
@@ -83,7 +84,7 @@ uint32_t GapRegistry::get_gap_trigger_name(ParkTile* piece)
             debug::printf("Editor Gap %d points: %s\n", record->details_.points_held_, record->details_.text_.data());
         }
         std::array<char, 32> name{};
-        std::snprintf(name.data(), sizeof(name), "EditorTrgGap%d", slot);
+        text::format_to(name, "EditorTrgGap%d", slot);
         return checksums::hash_from_text(name.data());
     }
     return 0;

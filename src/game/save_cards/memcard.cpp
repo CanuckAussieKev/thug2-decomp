@@ -12,6 +12,7 @@
 #include "engine/core/mem.h"
 #include "game/save_cards/save_types.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace save_cards {
 
@@ -157,8 +158,8 @@ int SaveCard::get_free_blocks()
 // 0x005BCAE0
 bool SaveCard::list_save_files(const char* pattern, memory::ListNode* list)
 {
-    char* path = path_buffer().data();
-    std::snprintf(path, MAX_PATH, "Save\\%s", pattern);
+    const char* path = path_buffer().data();
+    text::format_to(path_buffer(), "Save\\%s", pattern); // (the original: up to MAX_PATH into the 128 bytes)
     WIN32_FIND_DATAA found;
     HANDLE search = FindFirstFileA(path, &found);
     if (search == INVALID_HANDLE_VALUE)

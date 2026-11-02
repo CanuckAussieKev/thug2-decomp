@@ -27,6 +27,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
 namespace park_editing {
 
@@ -614,16 +615,16 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                 node->put_int("lod_dist2", 801);
                 ++*index;
             };
-            std::snprintf(flag_type.data(), sizeof(flag_type), "Flag_%s", colour);
-            std::snprintf(model.data(), sizeof(model), R"(gameobjects\flags\flag_%s\flag_%s.mdl)", colour, colour);
-            std::snprintf(script.data(), sizeof(script), "TRG_Flag_%sScript_Parked", colour);
-            std::snprintf(flag_name.data(), sizeof(flag_name), "TRG_Flag_%s", colour);
+            text::format_to(flag_type, "Flag_%s", colour);
+            text::format_to(model, R"(gameobjects\flags\flag_%s\flag_%s.mdl)", colour, colour);
+            text::format_to(script, "TRG_Flag_%sScript_Parked", colour);
+            text::format_to(flag_name, "TRG_Flag_%s", colour);
             add_flag_node(true);
-            std::snprintf(flag_name.data(), sizeof(flag_name), "TRG_CTF_%s", colour);
+            text::format_to(flag_name, "TRG_CTF_%s", colour);
             add_flag_node(true);
-            std::snprintf(flag_name.data(), sizeof(flag_name), "TRG_CTF_%s_Base", colour);
-            std::snprintf(flag_type.data(), sizeof(flag_type), "Flag_%s_Base", colour);
-            std::snprintf(model.data(), sizeof(model), R"(gameobjects\flags\flag_%s_base\flag_%s_base.mdl)", colour, colour);
+            text::format_to(flag_name, "TRG_CTF_%s_Base", colour);
+            text::format_to(flag_type, "Flag_%s_Base", colour);
+            text::format_to(model, R"(gameobjects\flags\flag_%s_base\flag_%s_base.mdl)", colour, colour);
             add_flag_node(false);
         }
     }

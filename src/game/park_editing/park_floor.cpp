@@ -14,6 +14,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/smtptr.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace park_editing {
 
@@ -220,7 +221,7 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     bool in_park = false;
     if (height > 0) {
         std::array<char, 128> name{};
-        std::snprintf(name.data(), sizeof(name), "riser_above%d", request->index);
+        text::format_to(name, "riser_above%d", request->index);
         top = checksums::hash_from_text(name.data());
         request->y = 0;
         in_park = lowest >= 0;

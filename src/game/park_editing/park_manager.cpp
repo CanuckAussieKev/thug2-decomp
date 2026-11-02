@@ -14,6 +14,7 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace park_editing {
 
@@ -55,11 +56,11 @@ ParkLayout::ParkLayout()
     // The shell's blocks of each of the 8 kinds.
     for (int i = 1; i <= 8; ++i) {
         std::array<char, 128> name{};
-        std::snprintf(name.data(), sizeof(name), "floor_wall_block%d", i);
+        text::format_to(name, "floor_wall_block%d", i);
         core::at(core::at(shell_blocks_, i - 1), 0) = checksums::hash_from_text(name.data());
-        std::snprintf(name.data(), sizeof(name), "wall_block%d", i);
+        text::format_to(name, "wall_block%d", i);
         core::at(core::at(shell_blocks_, i - 1), 1) = checksums::hash_from_text(name.data());
-        std::snprintf(name.data(), sizeof(name), "floor_block%d", i);
+        text::format_to(name, "floor_block%d", i);
         core::at(core::at(shell_blocks_, i - 1), 2) = checksums::hash_from_text(name.data());
     }
     shell_size_ = 0;

@@ -33,6 +33,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace save_cards {
 
@@ -122,7 +123,7 @@ bool delete_mem_card_file(Struct* params, Script*)
         if (!path) {
             const char* folder = save_folder();
             make_file_name(user_file_name, file, type);
-            std::snprintf(full_name.data(), sizeof(full_name), "/%s%s/%s%s", folder, file.data(), folder, file.data());
+            text::format_to(full_name, "/%s%s/%s%s", folder, file.data(), folder, file.data());
             path = full_name.data();
         }
         const std::string_view path_text(path);
@@ -140,34 +141,34 @@ bool delete_mem_card_file(Struct* params, Script*)
         if (!delete_card_file(card, path))
             deleted = false;
         std::array<char, 104> icon{};
-        std::snprintf(icon.data(), sizeof(icon), "%s/icon.sys", directory.data());
+        text::format_to(icon, "%s/icon.sys", directory.data());
         if (!delete_card_file(card, icon.data()))
             deleted = false;
         const char* icon_file = nullptr;
         switch (file_type) {
         case kSaveCreatedGoals:
-            icon_file = "%s/goals.ico";
+            icon_file = "goals.ico";
             break;
         case kSaveCat:
-            icon_file = "%s/tricks.ico";
+            icon_file = "tricks.ico";
             break;
         case kSavePark:
-            icon_file = "%s/parked.ico";
+            icon_file = "parked.ico";
             break;
         case kSaveCreatedGraphic:
-            icon_file = "%s/grafitti.ico";
+            icon_file = "grafitti.ico";
             break;
         case kSaveNetworkSettings:
-            icon_file = "%s/network.ico";
+            icon_file = "network.ico";
             break;
         case kSaveOptionsAndPros:
-            icon_file = "%s/thps5.ico";
+            icon_file = "thps5.ico";
             break;
         default:
             break; // (icon.sys a second time)
         }
         if (icon_file)
-            std::snprintf(icon.data(), sizeof(icon), icon_file, directory.data());
+            text::format_to(icon, "%s/%s", directory.data(), icon_file); // ("%s/goals.ico" ...)
         if (!delete_card_file(card, icon.data()))
             deleted = false;
         removed = card->remove_file(directory.data());
@@ -189,7 +190,7 @@ bool delete_mem_card_file(Struct* params, Script*)
         const char* folder = save_folder();
         make_file_name(user_file_name, file, type);
         std::array<char, 104> full_name{};
-        std::snprintf(full_name.data(), sizeof(full_name), "%s%s%s%s", folder, file.data(), folder, file.data());
+        text::format_to(full_name, "%s%s%s%s", folder, file.data(), folder, file.data());
         removed = delete_card_file(card, full_name.data());
         break;
     }
@@ -238,7 +239,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
         const char* converted = card->convert_filename(type_file_name);
         if (!converted)
             return false;
-        std::snprintf(path.data(), sizeof(path), "%s", converted);
+        text::format_to(path, "%s", converted);
         break;
     }
     case 1:
@@ -248,7 +249,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
         const char* folder = save_folder();
         std::array<char, 20> file{};
         make_file_name(name, file, type);
-        std::snprintf(path.data(), sizeof(path), "/%s%s/%s%s", folder, file.data(), folder, file.data());
+        text::format_to(path, "/%s%s/%s%s", folder, file.data(), folder, file.data());
         break;
     }
     default:
@@ -464,9 +465,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         entry->put_int(0xD029F619u, file->second_); // seconds
         std::array<char, 100> path{};
         if (os_layer() == 5)
-            std::snprintf(path.data(), sizeof(path), "%s", file->label_.data());
+            text::format_to(path, "%s", file->label_.data());
         else
-            std::snprintf(path.data(), sizeof(path), "Save/%s", file->label_.data());
+            text::format_to(path, "Save/%s", file->label_.data());
         entry->append_word(0x13C68F74u, path.data()); // actual_file_name
         constexpr uint32_t kDamagedFile = 0x2C7CD632, kNgcDamagedFile = 0xFD4AA64E;
         FileLoad* opened = card->unseal(path.data(), 1, 0);
@@ -621,7 +622,7 @@ bool save_to_memory_card(Struct* params, Script*)
         case 5: {
             std::array<char, 104> folder_name{};
             make_folder_file_name(type, name, folder_name.data());
-            std::snprintf(path.data(), sizeof(path), "%s%s", folder_name.data(), folder_name.data());
+            text::format_to(path, "%s%s", folder_name.data(), folder_name.data());
             break;
         }
         case 4:

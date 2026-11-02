@@ -25,6 +25,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace park_editing {
 
@@ -579,7 +580,7 @@ EditedRail* RailAuthoring::find_rail_by_cluster(uint32_t name) const
     int i = 0;
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following_, ++i) {
         std::array<char, 52> cluster{};
-        std::snprintf(cluster.data(), sizeof(cluster), "CreatedRailCluster%d", i);
+        text::format_to(cluster, "CreatedRailCluster%d", i);
         if (name == checksums::hash_from_text(cluster.data()))
             return rail;
     }

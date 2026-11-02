@@ -23,6 +23,7 @@
 #include "game/park_editing/goal_editor.h"
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace park_editing {
 
@@ -123,7 +124,7 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
 void ParkLayout::transfer_park_file(bool save, int slot)
 {
     std::array<char, 64> name{};
-    std::snprintf(name.data(), sizeof(name), "CustomParks\\custom%d.prk", slot);
+    text::format_to(name, "CustomParks\\custom%d.prk", slot);
     if (save) {
         script::StructPtr params = script::make_struct();
         export_to_struct(params.get());
@@ -239,7 +240,7 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
             core::at(info.reach_right_, end) = core::at(record.ends, end).reach_right;
         }
         // (the name cut to the field: the original copied up to a terminator, past 32 bytes when there was none)
-        std::snprintf(info.text_.data(), sizeof(info.text_), "%s", record.text.data());
+        text::format_to(info.text_, "%s", record.text.data());
         info.points_held_ = record.points;
         info.halves_placed_ = 2;
         if (current)

@@ -14,6 +14,7 @@
 #include "engine/core/mem.h"
 #include "game/park/park_memory.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/format.h"
 
 namespace park_editing {
 
@@ -118,7 +119,7 @@ uint32_t ParkLayout::get_shell_checksum()
 {
     std::array<char, 40> name{};
     if ((flag_bits_ & kMapInSync) && map_.shell_size() != 0)
-        std::snprintf(name.data(), sizeof(name), "sk5ed%d_shell", map_.shell_size() + 1); // 0x0064F650
+        text::format_to(name, "sk5ed%d_shell", map_.shell_size() + 1); // 0x0064F650
     else
         std::memcpy(name.data(), "sk5ed_shell", 12); // 0x0064F644
     return checksums::hash_from_text(name.data());

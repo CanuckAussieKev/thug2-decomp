@@ -20,8 +20,9 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include "engine/core/format.h"
 
-THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's copies of the gap names)
+THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of the gap names)
 
 namespace park_editing {
 
@@ -84,7 +85,7 @@ void GapRegistry::update_checklist()
 // 0x0058CDA0
 void GapRegistry::store_gap_details(int index, GapDetails* info)
 {
-    std::sprintf(core::at(gaps_ptr_, index)->label_.data(), "%s", info->text_.data());
+    text::format_to(core::at(gaps_ptr_, index)->label_, "%s", info->text_.data());
     core::at(gaps_ptr_, index)->details_ = *info;
     update_checklist();
 }
