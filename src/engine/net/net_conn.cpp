@@ -91,8 +91,8 @@ Conn::Conn(int flags)
 
     flag_bits_ = static_cast<uint32_t>(flags);
     cur_standing_ = kConnReady;
-    read_buffer_ = read_ptr_ = static_cast<uint8_t*>(memory::alloc(kRecvChunkBytes));
-    outgoing_bytes_ = write_ptr_ = static_cast<uint8_t*>(memory::alloc(kWriteBufferSize));
+    incoming_ = {{static_cast<uint8_t*>(memory::alloc(kRecvChunkBytes)), kRecvChunkBytes}, 0};
+    outgoing_ = {{static_cast<uint8_t*>(memory::alloc(kWriteBufferSize)), kWriteBufferSize}, 0};
     tx_spacing_ms_ = 0;
     last_transmit_at_ = 0;
     send_now_ = false;
@@ -115,8 +115,8 @@ Conn::~Conn()
     destroy_received_sequenced_messages();
     release_queued_messages();
     destroy_links();
-    memory::dealloc(read_buffer_);
-    memory::dealloc(outgoing_bytes_);
+    memory::dealloc(incoming_.bytes.data());
+    memory::dealloc(outgoing_.bytes.data());
     app_node_.uncouple();
     send_streams_.uncouple();
     received_streams_.uncouple();

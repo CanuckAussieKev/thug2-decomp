@@ -2,6 +2,7 @@
 
 #include "engine/net/net_compress.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -16,6 +17,7 @@
 #include "engine/util/lzss.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
 
 namespace net {
 
@@ -31,9 +33,11 @@ constexpr int kMethodLzss = 2;
 } // namespace
 
 // 0x00454A60
-int rle_compress(const uint8_t* in, int size, uint8_t* out, int /*out_size*/)
+int rle_compress(std::span<const uint8_t> input, std::span<uint8_t> output)
 {
-    const uint8_t* start = out;
+    core::Cursor<const uint8_t> in(input);
+    core::Cursor<uint8_t> out(output);
+    int size = static_cast<int>(input.size());
     if (size == 0)
         return 0;
     // The two bytes in hand: `current` and `next` (both taken from the input).
@@ -55,7 +59,7 @@ int rle_compress(const uint8_t* in, int size, uint8_t* out, int /*out_size*/)
                 *out++ = static_cast<uint8_t>(kRunCode + count - 2);
                 *out++ = current;
                 if (size == 0)
-                    return static_cast<int>(out - start);
+                    return static_cast<int>(out.position());
                 current = *in++;
                 --size;
             } else {
@@ -78,17 +82,17 @@ int rle_compress(const uint8_t* in, int size, uint8_t* out, int /*out_size*/)
                 // The last two start a run.
                 *out++ = static_cast<uint8_t>(count - 3);
                 if (count - 2 > 0) {
-                    std::memcpy(out, bytes.data(), count - 2);
+                    std::copy_n(bytes.begin(), count - 2, out.rest().begin());
                     out += count - 2;
                 }
                 current = next = core::at(bytes, count - 2);
                 continue;
             }
             *out++ = static_cast<uint8_t>(count - 1);
-            std::memcpy(out, bytes.data(), count);
+            std::copy_n(bytes.begin(), count, out.rest().begin());
             out += count;
             if (size == 0)
-                return static_cast<int>(out - start);
+                return static_cast<int>(out.position());
             current = *in++;
             --size;
         }
@@ -96,7 +100,7 @@ int rle_compress(const uint8_t* in, int size, uint8_t* out, int /*out_size*/)
             // One byte left: a literal of one.
             *out++ = 0;
             *out++ = current;
-            return static_cast<int>(out - start);
+            return static_cast<int>(out.position());
         }
         next = *in++;
         --size;
@@ -104,8 +108,11 @@ int rle_compress(const uint8_t* in, int size, uint8_t* out, int /*out_size*/)
 }
 
 // 0x00454C20
-int rle_decompress(const uint8_t* in, int size, uint8_t* out, int* out_size)
+int rle_decompress(std::span<const uint8_t> input, std::span<uint8_t> output, int* out_size)
 {
+    core::Cursor<const uint8_t> in(input);
+    core::Cursor<uint8_t> out(output);
+    int size = static_cast<int>(input.size());
     int written = 0;
     while (size != 0) {
         const uint8_t code = *in++;
@@ -151,39 +158,38 @@ uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, c
     // The whole message - id, length, data - is compressed.
     const int size = static_cast<uint16_t>(*length + 3); // (16 bits: wraps for a length of 0xFFFD up)
     int compressed_size = 0;
-    auto* message = static_cast<uint8_t*>(memory::alloc(size));
-    message[0] = *msg_id;
-    std::memcpy(message + 1, length, 2);
-    std::memcpy(message + 3, data, *length);
+    const std::span<uint8_t> message(static_cast<uint8_t*>(memory::alloc(size)), static_cast<size_t>(size));
+    core::at(message, 0) = *msg_id;
+    std::memcpy(message.subspan(1, 2).data(), length, 2);
+    std::memcpy(message.subspan(3, *length).data(), data, *length);
     debug::printf("*** Sending compressed message %d. Old size : %d ", *msg_id, *length);
     const int max_size = size * 4 / 3 + size;
-    auto* compressed = static_cast<uint8_t*>(memory::alloc(max_size + 3));
-    compressed[0] = static_cast<uint8_t>(method);
+    const std::span<uint8_t> compressed(static_cast<uint8_t*>(memory::alloc(max_size + 3)), static_cast<size_t>(max_size) + 3);
+    core::at(compressed, 0) = static_cast<uint8_t>(method);
     auto expanded_size = static_cast<uint16_t>(size);
-    std::memcpy(compressed + 1, &expanded_size, 2);
+    std::memcpy(compressed.subspan(1, 2).data(), &expanded_size, 2);
     if (method == kMethodRle) {
-        compressed_size = rle_compress(message, size, compressed + 3, max_size);
+        compressed_size = rle_compress(message, compressed.subspan(3));
         debug::printf("RLE : New payload len : %d, New size : %d\n", size, compressed_size);
     } else if (method == kMethodLzss) {
-        compressed_size = lzss::pack_up(std::span<const uint8_t>(message, static_cast<size_t>(size)),
-                                         std::span<uint8_t>(compressed, static_cast<size_t>(max_size) + 3).subspan(3), false);
+        compressed_size = lzss::pack_up(message, compressed.subspan(3), false);
         debug::printf("LZSS : New payload len : %d, New size : %d\n", size, compressed_size);
     } else if (method == lzham::kMethod) {
         // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11). A stream that fails or doesn't fit counts as "no smaller".
         const size_t lzham =
-            lzham::compress(message, static_cast<size_t>(size), compressed + 3, static_cast<size_t>(max_size));
+            lzham::compress(message.data(), message.size(), compressed.subspan(3).data(), static_cast<size_t>(max_size));
         compressed_size = lzham != 0 ? static_cast<int>(lzham) : size;
         debug::printf("LZHAM : New payload len : %d, New size : %d\n", size, compressed_size);
     }
     // (Another method compresses to nothing: the 3-byte header "wins".)
-    memory::dealloc(message);
+    memory::dealloc(message.data());
     if (ints::as_unsigned(compressed_size) < *length) {
         *length = static_cast<uint16_t>(compressed_size + 3);
         *msg_id = kMsgCompressed;
-        return compressed;
+        return compressed.data();
     }
     debug::printf("*** Compressed message was larger. Defaulting back to uncompressed version\n");
-    memory::dealloc(compressed);
+    memory::dealloc(compressed.data());
     return nullptr;
 }
 

@@ -121,11 +121,11 @@ void Guest::pull_inbound()
         sockaddr_in server{};
         std::memcpy(&server, host_sock_addr_.data(), sizeof(server));
         if (Conn* conn = net::find_conn_at_address(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
-            uint8_t*& read_ptr = conn->read_ptr_;
-            if (read_ptr + size < conn->read_buffer_ + kConnReceiveBufferSize) {
+            if (static_cast<int>(conn->incoming_.used) + size < static_cast<int>(kConnReceiveBufferSize)) {
                 const uint32_t time = frame_clock::get_time();
-                if (pull_datagram(this, buffer, read_ptr, received)) {
-                    read_ptr += size;
+                if (pull_datagram(this, std::span<const uint8_t>(receive_buffer_).first(static_cast<size_t>(received)),
+                                  conn->incoming_.vacant())) {
+                    conn->incoming_.used += static_cast<size_t>(size);
                     add_packet_metric(&conn->receive_metrics_, received + 0x1C, get_timestamp(this));
                     if (time > conn->last_heard_from_)
                         conn->last_heard_from_ = time;
@@ -137,8 +137,9 @@ void Guest::pull_inbound()
             // from an unknown address
             if (Conn* fresh = net::opened_link(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
                 fresh->owner_app_ = this;
-                if (pull_datagram(this, buffer, fresh->read_ptr_, received)) {
-                    fresh->read_ptr_ = fresh->read_buffer_ + size;
+                if (pull_datagram(this, std::span<const uint8_t>(receive_buffer_).first(static_cast<size_t>(received)),
+                                  fresh->incoming_.vacant())) {
+                    fresh->incoming_.used = static_cast<size_t>(size);
                     mark_new_connection(fresh);
                 } else {
                     if (auto handler = unknown_packet_sink_)
@@ -204,22 +205,21 @@ void Guest::flush_outbox(Conn* conn)
             done = true;
         if (!bundle_messages(conn, kLanePriority, false))
             done = true;
-        uint8_t*& write_ptr = conn->write_ptr_;
-        const int size = static_cast<int>(write_ptr - conn->outgoing_bytes_);
+        const int size = static_cast<int>(conn->outgoing_.used);
         if (size > 0 && is_off_machine(conn)) {
-            const uint8_t* packet = conn->outgoing_bytes_;
+            const uint8_t* packet = conn->outgoing_.bytes.data();
             const bool sent = linked_up_ ? net::post_out(this, packet, size, 0)
                                          : net::transmit_to(this, conn->remote_ip_, conn->port_no_, packet, size, 0);
             if (!sent) {
                 mark_messages_for_retry(conn, conn->timestamp_out_);
-                write_ptr = conn->outgoing_bytes_;
+                conn->outgoing_.used = 0;
                 return;
             }
             outbound_byte_total_ += size;
             add_packet_metric(&conn->send_metrics_, size + 0x1C, get_timestamp(this));
             conn->last_transmit_at_ = get_timestamp(this);
             force_send_now(conn, false);
-            write_ptr = conn->outgoing_bytes_;
+            conn->outgoing_.used = 0;
         }
         ++conn->timestamp_out_;
     } while (!done);

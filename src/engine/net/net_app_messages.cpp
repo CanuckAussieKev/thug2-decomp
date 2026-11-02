@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -18,6 +19,7 @@
 #include "formats/lzss.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/cursor.h"
 
 namespace net {
 
@@ -35,7 +37,7 @@ void construct_context(InboundMsgCtx* context) { *context = InboundMsgCtx(); }
 // NOT ORIGINAL: the room left in the packet being built (the writers checked first that the message fits).
 size_t packet_space_left(Conn* conn)
 {
-    return static_cast<size_t>(kMaxPacketSize) - static_cast<size_t>(conn->write_ptr_ - conn->outgoing_bytes_);
+    return static_cast<size_t>(kMaxPacketSize) - conn->outgoing_.used;
 }
 
 // NOT ORIGINAL: a received message's data.
@@ -46,8 +48,10 @@ util::ByteReader body_reader(const InboundMsgCtx* context) { return {context->bo
 // others, docs/thugpro-online.md section 9). The original decoders read past a stream that ends inside a code, and
 // LZSS writes as much as the stream says: each stream is walked first, and expanded only when it ends exactly at its
 // end (RLE) or expands to exactly `expected` bytes (LZSS) - what the original's own size check then accepts.
-bool rle_stream_fits(const uint8_t* in, int size)
+bool rle_stream_fits(std::span<const uint8_t> stream)
 {
+    core::Cursor<const uint8_t> in(stream);
+    int size = static_cast<int>(stream.size());
     while (size > 0) {
         const uint8_t code = *in++;
         --size;
@@ -59,8 +63,10 @@ bool rle_stream_fits(const uint8_t* in, int size)
     }
     return true;
 }
-bool lzss_stream_fits(const uint8_t* in, int size, int expected)
+bool lzss_stream_fits(std::span<const uint8_t> stream, int expected)
 {
+    core::Cursor<const uint8_t> in(stream);
+    int size = static_cast<int>(stream.size());
     int expanded = 0;
     unsigned int flags = 0;
     for (;;) {
@@ -100,17 +106,16 @@ void free_queued_msg(PendingMsg* msg)
 // A normal or important message into the packet: its id, its length (unless the id has none), its data.
 bool append_message(AppHost* app, Conn* conn, PendingMsg* msg)
 {
-    uint8_t*& write_ptr = conn->write_ptr_;
     const uint8_t flags = message_flags(app->supervisor_, msg->ident_);
     auto size = static_cast<uint16_t>(msg->byte_count_ + ((~flags & kMsgNoLength) ? 3 : 1));
-    if (size + static_cast<int>(write_ptr - conn->outgoing_bytes_) >= static_cast<int>(kMaxPacketSize))
+    if (size + static_cast<int>(conn->outgoing_.used) >= static_cast<int>(kMaxPacketSize))
         return false;
-    util::ByteWriter writer(write_ptr, packet_space_left(conn));
+    util::ByteWriter writer(conn->outgoing_.vacant().first(packet_space_left(conn)));
     writer.u8(msg->ident_);
     if (!(message_flags(app->supervisor_, msg->ident_) & kMsgNoLength))
         writer.u16(msg->byte_count_);
     writer.bytes(msg->content_, msg->byte_count_);
-    write_ptr += writer.position();
+    conn->outgoing_.used += writer.position();
     add_message_metric(&conn->send_metrics_, msg->ident_, msg->byte_count_);
     return true;
 }
@@ -118,18 +123,17 @@ bool append_message(AppHost* app, Conn* conn, PendingMsg* msg)
 // A sequenced message into the packet, wrapped in a message of id 7: group, sequence number, id, data.
 bool append_sequenced_message(Conn* conn, OrderedMsgNode* link)
 {
-    uint8_t*& write_ptr = conn->write_ptr_;
     const SeqQueuedMsg* msg = link->shared_msg_;
     const uint16_t length = msg->byte_count_;
     auto size = static_cast<uint16_t>(length + 9);
-    if (size + static_cast<int>(write_ptr - conn->outgoing_bytes_) >= static_cast<int>(kMaxPacketSize))
+    if (size + static_cast<int>(conn->outgoing_.used) >= static_cast<int>(kMaxPacketSize))
         return false;
-    util::ByteWriter writer(write_ptr, packet_space_left(conn));
+    util::ByteWriter writer(conn->outgoing_.vacant().first(packet_space_left(conn)));
     writer.u8(kMsgSequenced);
     writer.u16(static_cast<uint16_t>(length + wire::kSequencedHeaderSize));
     wire::write_sequenced_header(writer, {link->bundle_id_, link->order_index_, msg->ident_});
     writer.bytes(msg->content_, msg->byte_count_);
-    write_ptr += writer.position();
+    conn->outgoing_.used += writer.position();
     add_message_metric(&conn->send_metrics_, msg->ident_, msg->byte_count_);
     return true;
 }
@@ -299,24 +303,25 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
     const uint8_t method = header.method;
     if (size < ints::as_signed(wire::kMessageHeaderSize))
         return kResultConsumed;
-    const uint8_t* stream = reader.cursor();
-    const int stream_size = static_cast<int>(reader.remaining());
+    const std::span<const uint8_t> stream = reader.rest();
+    const int stream_size = static_cast<int>(stream.size());
     auto* data = static_cast<uint8_t*>(memory::alloc(size));
     const int expected_size = size;
     if (method == 1) {
-        if (!rle_stream_fits(stream, stream_size) ||
-            rle_decompress(stream, stream_size, data, &size) != 0 || expected_size != size) {
+        if (!rle_stream_fits(stream) ||
+            rle_decompress(stream, std::span<uint8_t>(data, static_cast<size_t>(size)), &size) != 0 ||
+            expected_size != size) {
             memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
     } else if (method == 2) {
-        if (!lzss_stream_fits(stream, stream_size, expected_size)) {
+        if (!lzss_stream_fits(stream, expected_size)) {
             memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
         // (bounded by the header's size: the stream fits it, checked above)
         size_t unpacked = 0;
-        const bool whole = lzss::unpack(stream, static_cast<size_t>(stream_size), data,
+        const bool whole = lzss::unpack(stream.data(), stream.size(), data,
                                         static_cast<size_t>(expected_size), &unpacked);
         size = static_cast<int>(unpacked);
         if (!whole || expected_size != size) {
@@ -326,7 +331,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
     } else if (method == lzham::kMethod) {
         // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11), expanded into the header's size and no further.
         size_t expanded = 0;
-        if (!lzham::decompress(stream, static_cast<size_t>(stream_size), data,
+        if (!lzham::decompress(stream.data(), stream.size(), data,
                                static_cast<size_t>(expected_size), &expanded) ||
             expanded != ints::as_unsigned(expected_size)) {
             memory::Hub::get_pull()->dealloc(data);
@@ -382,7 +387,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
     auto length = static_cast<uint16_t>(reader.remaining());
     void* memory = memory::alloc(sizeof(SeqQueuedMsg));
     SeqQueuedMsg* seq_msg =
-        memory ? construct_seq_msg(memory, id, length, context->body_ + reader.position(),
+        memory ? construct_seq_msg(memory, id, length, reader.rest().data(),
                                    group, false)
                : nullptr;
     void* link_memory = memory::alloc_zeroed(sizeof(OrderedMsgNode));

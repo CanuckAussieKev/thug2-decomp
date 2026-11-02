@@ -127,12 +127,10 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
     context.wire_options_ = flags;
     context.body_ = buffer.data();
     context.body_size_ = 0;
-    uint8_t*& read_buffer = conn->read_buffer_;
-    uint8_t*& read_ptr = conn->read_ptr_;
     void* metrics = &conn->receive_metrics_;
 
     // (the messages one after another: net_wire.h)
-    util::ByteReader packet(read_buffer, static_cast<size_t>(read_ptr - read_buffer));
+    util::ByteReader packet(std::span<const uint8_t>(conn->incoming_.filled()));
     for (; packet.ok() && packet.remaining() > 0; packet.skip(context.body_size_)) {
         context.type_code_ = packet.u8();
         Hub* table = fetch_hub(conn->owner_app_);
@@ -159,7 +157,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
             context.wire_options_ |= kPacketForeign;
         const int result = dispatch_msg(&context);
         if (result == kResultFailed || result == kResultStop) {
-            read_ptr = read_buffer;
+            conn->incoming_.used = 0;
             return kResultStop;
         }
         if (result == kResultMsgFreed)
@@ -180,7 +178,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
             put_on_outbox(context.receiver_app_, context.sender_conn_->hdl_, &desc);
         }
     }
-    read_ptr = read_buffer;
+    conn->incoming_.used = 0;
     return kResultPassOn;
 }
 

@@ -31,6 +31,8 @@ public:
     [[nodiscard]] size_t remaining() const { return size_ - position_; }
     // The next byte to be read.
     [[nodiscard]] const uint8_t* cursor() const { return data_ + position_; }
+    // The bytes from the next one to the end.
+    [[nodiscard]] std::span<const uint8_t> rest() const { return std::span<const uint8_t>(data_, size_).subspan(position_); }
 
     // Move to `position` (fails beyond the end).
     bool seek(size_t position)

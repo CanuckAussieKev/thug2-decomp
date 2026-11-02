@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/net/net_app.h"
@@ -103,7 +104,7 @@ inline Conn* opened_link(AppHost* app, uint32_t ip, uint16_t port, int flags)
     return app->opened_link(static_cast<int>(ip), port, flags);
 }
 // A received packet into the connection's read buffer (false: not valid; secure packets lose their checksum).
-inline bool pull_datagram(AppHost* app, uint8_t* packet, uint8_t* to, int size) { return app->decrypt(packet, to, size); }
+inline bool pull_datagram(AppHost* app, std::span<const uint8_t> packet, std::span<uint8_t> to) { return app->decrypt(packet, to); }
 // A message straight to ip:port, not through a connection.
 inline void deliver_to(AppHost* app, uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
                        int flags)

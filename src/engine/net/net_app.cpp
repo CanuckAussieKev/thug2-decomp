@@ -28,6 +28,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/span_copy.h"
 
 namespace net {
 
@@ -53,8 +54,6 @@ ListNode* normal_queue(Conn* conn) { return &conn->normal_msgs_; }
 ListNode* important_queue(Conn* conn) { return &conn->important_msgs_; }
 ListNode* sequenced_queue(Conn* conn) { return &conn->sequenced_msgs_; }
 // The receive buffer's read and write positions (its start and end).
-uint8_t*& read_position(Conn* conn) { return conn->read_buffer_; }
-uint8_t*& write_position(Conn* conn) { return conn->read_ptr_; }
 // Status: 1 ready, bit 2 invalid, bit 3 disconnecting.
 uint32_t& get_standing(Conn* conn) { return conn->cur_standing_; }
 constexpr uint32_t kConnReady = Conn::kConnReady;
@@ -66,10 +65,6 @@ int& alloc_stream_key(Conn* conn) { return conn->stream_counter_; }
 ListNode* get_streams(Conn* conn) { return &conn->send_streams_; } // lists::Foremost<BulkStreamNode>
 void* in_metrics(Conn* conn) { return &conn->receive_metrics_; }   // NetLink::Gauges (0x100C bytes)
 void* out_metrics(Conn* conn) { return &conn->send_metrics_; }
-// The send buffer (its start, the end of what's written): a local connection takes its alias's (the other end,
-// in this process) straight into its own receive buffer.
-uint8_t*& send_buffer_start(Conn* conn) { return conn->outgoing_bytes_; }
-uint8_t*& send_buffer_end(Conn* conn) { return conn->write_ptr_; }
 
 // Conn's methods (net_conn.cpp).
 gsl::owner<Conn*> construct_conn(void* memory, int flags) { return new (memory) Conn(flags); }
@@ -514,7 +509,7 @@ void AppHost::drop_broken_links()
         Conn* next = search.following_item();
         if ((get_standing(conn) & kConnClosing) && !messages_due(conn))
             mark_stale(conn);
-        if (!is_sound(conn) && write_position(conn) <= read_position(conn) && !messages_due(conn)) {
+        if (!is_sound(conn) && conn->incoming_.used == 0 && !messages_due(conn)) {
             drop_out(&conn->app_node_);
             destroy_conn_body(conn);
             ram_stats()->dealloc(conn);
@@ -636,10 +631,12 @@ bool AppHost::handle_incoming()
         Conn* next = search.following_item();
         if (is_local_conn(conn) && conn->alias_conn_) {
             Conn* alias = conn->alias_conn_;
-            const size_t length = send_buffer_end(alias) - send_buffer_start(alias);
-            std::memcpy(write_position(conn), send_buffer_start(alias), length);
-            send_buffer_end(conn->alias_conn_) = send_buffer_start(conn->alias_conn_);
-            write_position(conn) += length;
+            // (a local connection takes its alias's - the other end, in this process - send buffer straight into its
+            // own receive buffer)
+            const size_t length = alias->outgoing_.used;
+            core::copy_into(std::span<const uint8_t>(alias->outgoing_.filled()), conn->incoming_.vacant());
+            alias->outgoing_.used = 0;
+            conn->incoming_.used += length;
         }
         const int result = dispatch_messages(&dispatcher_, conn, 0);
         if (result == 2)

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
@@ -118,7 +119,7 @@ struct AppHost {
     void encrypt(const uint8_t* data, uint8_t* out, int length, int* out_length);
     // 0x00456CC0: a received packet into `out`: false if it's shorter than 3 bytes or (secure) its checksum is
     // wrong; secure packets lose their checksum (`length` - 2 bytes copied).
-    bool decrypt(const uint8_t* packet, uint8_t* out, int length);
+    bool decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out);
 
     // 0x00456A50 / 0x00456A60 / 0x00456A70 / 0x00456A80: the app's main-loop tasks (made by AppHost::make_new and,
     // the send task, by the Server's and the Client's constructors).

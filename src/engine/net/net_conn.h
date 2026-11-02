@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/net/net_latency.h"
@@ -18,6 +19,15 @@
 namespace net {
 
 struct AppHost;
+
+// NOT ORIGINAL - one of a connection's packet buffers (the original kept its start and a write pointer): the bytes
+// of the whole buffer and how many of them are filled.
+struct PacketBuffer {
+    std::span<uint8_t> bytes;
+    std::size_t used = 0;
+    [[nodiscard]] std::span<uint8_t> filled() const { return bytes.first(used); }
+    [[nodiscard]] std::span<uint8_t> vacant() const { return bytes.subspan(used); }
+};
 
 // (The local searches over Conn's lists have vtables holding only a destructor that resets it - 0x004559D0 /
 // 0x00455A80, 0x004559E0 / 0x00455AB0, 0x004559F0 / 0x00455AE0, 0x00455A00 / 0x00455B10: not kept.)
@@ -109,10 +119,8 @@ struct Conn {
     uint32_t ident_;                  // +0x44 a running number (0x0067D800, counted by the constructor)
     uint16_t port_no_{};              // +0x48
     std::array<uint8_t, 2> pad4a_{};
-    uint8_t* outgoing_bytes_;   // +0x4C the packet being built (0x514 bytes): its start
-    uint8_t* write_ptr_;        // +0x50 and end
-    uint8_t* read_buffer_;      // +0x54 received data (0xA28 bytes): its start
-    uint8_t* read_ptr_;         // +0x58 and end
+    PacketBuffer outgoing_;     // +0x4C the packet being built (0x514 bytes) and how much of it is written
+    PacketBuffer incoming_;     // +0x54 received data (0xA28 bytes) and how much of it has come
     uint32_t unknown5c_{};      // +0x5C (never touched by the library)
     uint32_t cur_standing_;     // +0x60 kStatus...
     uint32_t flag_bits_;        // +0x64 kFlag...

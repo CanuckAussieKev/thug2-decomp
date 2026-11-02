@@ -64,22 +64,23 @@ void HostEnd::pull_inbound()
         inbound_byte_total_ += received;
         const int size = (flag_bits_ & kAppSecure) ? received - 2 : received;
         if (Conn* conn = net::find_conn_at_address(this, from.sin_addr.s_addr, ntohs(from.sin_port))) {
-            uint8_t*& read_ptr = conn->read_ptr_;
             if ((is_new(conn) || !(flag_bits_ & kAppSecure)) &&
-                read_ptr + size < conn->read_buffer_ + kConnReceiveBufferSize) {
-                if (pull_datagram(this, buffer, read_ptr, received)) {
-                    read_ptr += size;
+                static_cast<int>(conn->incoming_.used) + size < static_cast<int>(kConnReceiveBufferSize)) {
+                if (pull_datagram(this, std::span<const uint8_t>(receive_buffer_).first(static_cast<size_t>(received)),
+                                  conn->incoming_.vacant())) {
+                    conn->incoming_.used += static_cast<size_t>(size);
                     add_packet_metric(&conn->receive_metrics_, received + 0x1C, get_timestamp(this));
                     conn->last_heard_from_ = frame_clock::get_time();
                 } else if (auto handler = unknown_packet_sink_) {
                     // (given the connection's read pointer, not the packet - as in the original)
-                    handler(read_ptr, received, sockets::generic(&from));
+                    handler(conn->incoming_.vacant().data(), received, sockets::generic(&from));
                 }
             }
         } else if (Conn* fresh = net::opened_link(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
             fresh->owner_app_ = this;
-            if (pull_datagram(this, buffer, fresh->read_ptr_, received)) {
-                fresh->read_ptr_ = fresh->read_buffer_ + size;
+            if (pull_datagram(this, std::span<const uint8_t>(receive_buffer_).first(static_cast<size_t>(received)),
+                              fresh->incoming_.vacant())) {
+                fresh->incoming_.used = static_cast<size_t>(size);
                 mark_new_connection(fresh);
             } else {
                 if (auto handler = unknown_packet_sink_)
@@ -151,19 +152,18 @@ void HostEnd::flush_outbox(Conn* conn)
                 change_throughput(conn, kMinBandwidth);
         }
 
-        uint8_t*& write_ptr = conn->write_ptr_;
-        const int size = static_cast<int>(write_ptr - conn->outgoing_bytes_);
+        const int size = static_cast<int>(conn->outgoing_.used);
         if (size > 0 && is_off_machine(conn)) {
-            if (!net::transmit_to(this, conn->remote_ip_, conn->port_no_, conn->outgoing_bytes_, size, 0)) {
+            if (!net::transmit_to(this, conn->remote_ip_, conn->port_no_, conn->outgoing_.bytes.data(), size, 0)) {
                 mark_messages_for_retry(conn, conn->timestamp_out_);
-                write_ptr = conn->outgoing_bytes_;
+                conn->outgoing_.used = 0;
                 break;
             }
             outbound_byte_total_ += size;
             add_packet_metric(&conn->send_metrics_, size + 0x1C, get_timestamp(this));
             force_send_now(conn, false);
             conn->last_transmit_at_ = get_timestamp(this);
-            write_ptr = conn->outgoing_bytes_;
+            conn->outgoing_.used = 0;
         }
         ++conn->timestamp_out_;
     } while (!done);

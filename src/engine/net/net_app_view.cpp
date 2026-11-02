@@ -25,6 +25,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/span_copy.h"
 #include "platform/sockets.h"
 #include <gsl/pointers>
 
@@ -108,24 +109,27 @@ void AppHost::encrypt(const uint8_t* data, uint8_t* out, int length, int* out_le
 }
 
 // 0x00456CC0
-bool AppHost::decrypt(const uint8_t* packet, uint8_t* out, int length)
+bool AppHost::decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out)
 {
+    int length = static_cast<int>(packet.size());
     if (length < 3)
         return false;
     if (!(flag_bits_ & kSecure)) {
-        std::memcpy(out, packet, length);
+        core::copy_into(packet, out);
         return true;
     }
     uint16_t checksum = 0;
-    std::memcpy(&checksum, packet, sizeof(checksum));
+    std::memcpy(&checksum, packet.data(), sizeof(checksum));
     length -= 2;
-    std::array<uint8_t, kMaxPacketSize> buffer{}; // (a longer packet overruns it, as in the original)
-    std::memcpy(buffer.data(), packet + 2, length);
+    // (a longer packet overruns the buffer, as in the original: here it ends the game with a report)
+    std::array<uint8_t, kMaxPacketSize> buffer{};
+    const std::span<uint8_t> body = std::span<uint8_t>(buffer).first(static_cast<size_t>(length));
+    core::copy_into(packet.subspan(2), body);
     for (int i = 0; i < length; ++i)
         core::at(buffer, i) ^= static_cast<uint8_t>(checksum);
     if (name_hash(buffer.data(), length) != checksum)
         return false;
-    std::memcpy(out, buffer.data(), length);
+    core::copy_into(std::span<const uint8_t>(body), out);
     return true;
 }
 
