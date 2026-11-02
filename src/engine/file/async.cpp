@@ -7,6 +7,7 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <span>
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"

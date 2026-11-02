@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
+#include <string_view>
 
 #include "engine/core/dbg.h"
 #include "engine/file/archive.h"

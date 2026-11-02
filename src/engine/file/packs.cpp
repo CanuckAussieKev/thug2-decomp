@@ -9,6 +9,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "engine/core/checksums.h"
@@ -17,6 +18,7 @@
 #include "engine/file/async.h"
 #include "engine/file/file_load.h"
 #include "engine/file/archive.h"
+#include "engine/script/names.h"
 #include "formats/pre_format.h"
 #include "frontend/data_overlay.h"
 #include "engine/script/params.h"

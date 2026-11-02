@@ -8,6 +8,8 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <span>
+#include <string_view>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"

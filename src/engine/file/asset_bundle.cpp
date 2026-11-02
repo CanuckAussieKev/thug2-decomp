@@ -4,6 +4,7 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <span>
 
 #include "engine/core/mem.h"
 #include "engine/file/async.h"
