@@ -38,7 +38,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
 
@@ -69,8 +69,7 @@ uint32_t& login_start()
     return stats_login_start;
 }
 
-Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
-RankingsManager* get_attributes() { return net_session_slot()->rating_service_.get(); }
+RankingsManager* get_attributes() { return net_game_state().net_session_slot()->rating_service_.get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
@@ -412,7 +411,7 @@ void RankingsManager::log_in()
     get_run(0x23343580);
     DWORD id = 0;
     HANDLE thread = CreateThread(nullptr, 0x8000, &log_in_thread, this, CREATE_SUSPENDED, &id);
-    net_session_slot()->set_room_id(id);
+    net_game_state().net_session_slot()->set_room_id(id);
     ResumeThread(thread); // (never closed)
     if (!task_->is_on_task_list())
         get_logic_tasks()->queue_job(task_.get());
@@ -447,7 +446,7 @@ void RankingsManager::on_logged_in()
 // 0x0054CE80
 void RankingsManager::start_game()
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     detail::PlayerSearch search;
     push_bottom_up();
     game_ = new_game(1);
@@ -494,7 +493,7 @@ void RankingsManager::start_game()
 // 0x0054D170
 void RankingsManager::raise_tallies(bool final)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     detail::PlayerSearch search;
     if (!game_)
         return;
@@ -507,7 +506,7 @@ void RankingsManager::raise_tallies(bool final)
         set_player_int(game_, "score", player_points(manager, id), id);
         set_player_int(game_, "combo", player->best_combo_, id);
     }
-    set_game_int(game_, "highscore", manager->cheating_noted() | cheat_flag());
+    set_game_int(game_, "highscore", manager->cheating_noted() | net_game_state().cheat_flag());
     send_game_snap_shot(game_, nullptr, final);
     if (final) {
         cur_phase_ = kReady;
@@ -777,7 +776,7 @@ bool stats_log_off(script::Struct*, script::Script*)
 // indexes 0-15; state 5 until the answer to 14).
 bool retrieve_personal_stats(script::Struct*, script::Script*)
 {
-    const Hub* manager = net_session_slot();
+    const Hub* manager = net_game_state().net_session_slot();
     const void* callback = code_address(&RankingsManager::on_personal_stats);
     int profile = manager->presence_service_->account_;
     get_persist_data_values(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);

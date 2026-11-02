@@ -74,6 +74,7 @@
 #include "engine/script/shared_state.h"
 #include "engine/sys/game_config.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/net/net_game_state.h"
 
 namespace commands {
 
@@ -251,22 +252,22 @@ bool cfunc_trying_to_join_game(script::Struct*, script::Script*) { return trying
 bool cfunc_try_join_server_ip_success(script::Struct*, script::Script*)
 {
     if (!trying_to_join())
-        online::set_join_server_ip_succeeded(false);
+        online::net_game_state().set_join_server_ip_succeeded(false);
     debug::printf("ScriptTryJoinServerIPSuccess %d\n",
-                  online::join_server_ip_succeeded()); // "ScriptTryJoinServerIPSuccess %d\n"
-    return online::join_server_ip_succeeded();
+                  online::net_game_state().join_server_ip_succeeded()); // "ScriptTryJoinServerIPSuccess %d\n"
+    return online::net_game_state().join_server_ip_succeeded();
 }
 
 // 0x0059F7E0 / 0x0059F7F0: GSEnableNet / GSDisableNet.
 bool cfunc_gs_enable_net(script::Struct*, script::Script*)
 {
-    online::set_online_active(true);
+    online::net_game_state().set_online_active(true);
     return true;
 }
 
 bool cfunc_gs_disable_net(script::Struct*, script::Script*)
 {
-    online::set_online_active(false);
+    online::net_game_state().set_online_active(false);
     return true;
 }
 
@@ -452,7 +453,7 @@ bool cfunc_get_preference_checksum(script::Struct* params, script::Script* scrip
 // 0x0059FD80: ToggleNetMetrics.
 bool cfunc_toggle_net_metrics(script::Struct*, script::Script*)
 {
-    online::online_hub()->toggle_net_metrics();
+    online::net_game_state().online_hub()->toggle_net_metrics();
     return true;
 }
 

@@ -45,7 +45,7 @@
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/format.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy, kept)
 
@@ -80,8 +80,7 @@ constexpr uint32_t kIndex = 0x7F8C98FE;                 // index
 constexpr int kRoomGroupKind = 1; // (GameSpy's RoomType)
 constexpr int kMaxRank = 10;
 
-Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
-RoomManager* the_lobby() { return the_manager()->lobby_service_.get(); }
+RoomManager* the_lobby() { return net_game_state().the_manager()->lobby_service_.get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 
 // Walking a list as the original does: a node whose data is -1 is the head (checked before null).
@@ -250,12 +249,12 @@ uint32_t& unknowne430()
 // 0x00541A10
 void RoomManager::start_listing_games()
 {
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     manager->set_service_state(14); // (the server list's state)
     unknowne430() = 0;
-    gamenet_lobby_menus_shared().listing_asked_ = false;
-    gamenet_lobby_menus_shared().listing_found_ = false;
+    net_game_state().set_listing_asked(false);
+    net_game_state().set_listing_found(false);
     game_spy::peer_list_group_rooms(remote_, R"(\maxplayers\neversoft\maxrating\minrating)",
                                     code_address(online::RoomManager::group_room_callback), this,
                                     0); // (the group rooms listed)
@@ -325,7 +324,7 @@ void RoomManager::fill_player_list()
 // 0x00541C70
 void RoomManager::fill_prospective_buddy_list()
 {
-    const Hub* manager = the_manager();
+    const Hub* manager = net_game_state().the_manager();
     get_run(kDestroyBuddyChildren);
     for (memory::ListNode* node = head_of_scene_list(&participants_); node; node = get_next_node(node)) {
         auto* player = static_cast<LobbyPlayer*>(node->data);
@@ -460,7 +459,7 @@ void RoomManager::enum_players_callback(void* peer, int success, int room_type, 
 void RoomManager::join_room_callback(void* peer, int success, int result, int room_type, RoomManager* lobby)
 {
     (void)result;
-    const Hub* manager = the_manager();
+    const Hub* manager = net_game_state().the_manager();
     if (!success) {
         get_run(kJoinLobbyFailed);
         return;
@@ -506,7 +505,7 @@ bool cfunc_lobby_disconnect(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
-    const Hub* manager = the_manager();
+    const Hub* manager = net_game_state().the_manager();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     RoomManager* lobby = manager->lobby_service_.get();
     while (lobby->negotiations_) { // (counted down one at a time, as the original - a negative count takes long)
@@ -556,7 +555,7 @@ bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
-    const Hub* manager = the_manager();
+    const Hub* manager = net_game_state().the_manager();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     RoomManager* lobby = manager->lobby_service_.get();
     if (lobby->group_id_)
@@ -570,7 +569,7 @@ bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
 bool cfunc_choose_lobby(script::Struct* params, script::Script* script)
 {
     (void)script;
-    const Hub* manager = the_manager();
+    const Hub* manager = net_game_state().the_manager();
     int index = 0;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     params->fetch_int_value(kIndex, &index, 0);
@@ -598,7 +597,7 @@ bool cfunc_lobby_connect(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     auto* logic = (&assets::get_main_loop_manager()->logic_tasks_); // (the logic tasks)
     DWORD thread_id = 0;
     std::array<BOOL, 3> ping_rooms = {{FALSE, TRUE, FALSE}};

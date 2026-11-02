@@ -50,8 +50,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "wire/gamenet_messages.h"
-#include "engine/net/shared_state.h"
-#include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -150,7 +149,7 @@ void Hub::spectate_player(PlayerRecord* player)
         return;
     }
     auto* skater = player_skater(player);
-    if (player != find_own_player_record(gamenet_player_lists_shared().online_hub_)) {
+    if (player != find_own_player_record(net_game_state().net_session_slot())) {
         // Someone else's skater: the skater camera onto it.
         set_camera_skater(skater_camera, skater);
         set_walk_camera_skater(walk_camera, nullptr);
@@ -287,15 +286,6 @@ PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, uint32_t
     return player;
 }
 
-bool online_active() { return gamenet_players_shared().online_active_; }
-void set_online_active(bool value) { gamenet_players_shared().online_active_ = value; }
-
-GamenetPlayersShared& gamenet_players_shared()
-{
-    static core::NoDestroy<GamenetPlayersShared> state;
-    return state.get();
-}
-
 // 0x0053C950
 void Hub::remove_player_record(PlayerRecord* player)
 {
@@ -313,8 +303,8 @@ void Hub::remove_player_record(PlayerRecord* player)
     if (player)
         player->teardown(1); // (its scalar deleting destructor, the original's slot 0)
     update_lobby_server();
-    if (gamenet_players_shared().online_active_ && gamenet_player_lists_shared().online_hub_->in_net_game() &&
-        gamenet_members_shared().query_reporting_)                         // (reported to GameSpy's qr2: the player count changed)
+    if (net_game_state().online_active() && net_game_state().net_session_slot()->in_net_game() &&
+        net_game_state().query_reporting())                         // (reported to GameSpy's qr2: the player count changed)
         game_spy::qr2_send_state_changed(nullptr); // qr2_send_statechanged
 }
 
@@ -407,8 +397,8 @@ void Hub::evict_player(PlayerRecord* player, int reason)
 void Hub::re_add_pending_players()
 {
     update_lobby_server();
-    gamenet_players_shared().open_waiting_ = true;
-    if (gamenet_players_shared().online_active_ && gamenet_player_lists_shared().online_hub_->in_net_game() && gamenet_members_shared().query_reporting_ && gamenet_players_shared().open_waiting_ != 1) // (just set: never)
+    net_game_state().set_open_waiting(true);
+    if (net_game_state().online_active() && net_game_state().net_session_slot()->in_net_game() && net_game_state().query_reporting() && net_game_state().open_waiting() != 1) // (just set: never)
         game_spy::qr2_send_state_changed(nullptr);
     int frames = 10;
     PlayerSearch search;
@@ -567,7 +557,7 @@ void Hub::set_host_mode(int mode)
     host_mode_ = mode;
     if (mode == kHostModeAutoServe) {
         send_observe_request();
-        gamenet_flow_shared().auto_serve_start_ = frame_clock::get_time(); // (the auto-serve task waits 2 s from here)
+        net_game_state().set_auto_serve_start(frame_clock::get_time()); // (the auto-serve task waits 2 s from here)
         get_logic_tasks()->queue_job(auto_serve_job_.get());
     } else if (mode == kHostModeFcfs) {
         send_observe_request();

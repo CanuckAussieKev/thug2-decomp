@@ -34,6 +34,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 #include <bit>
 
 namespace skater {
@@ -248,7 +249,7 @@ double SkaterPhysicsModule::get_gravity()
     if (career->is_code_on(kMoonCheat)) {
         career->set_global_flag(script::fetch_int_value(kMoonCheat));
         result = static_cast<float>(static_cast<double>(tuning_float_lookup(kMoonGravity, object)) * result);
-        online::set_cheat_flag(true);
+        online::net_game_state().set_cheat_flag(true);
     }
     const float scale = script::fetch_float(kFallScale);
     if (scale != 0.0f && !(entity_->vel_.y > 0.0f) && entity_->vel_.y == entity_->vel_.y)

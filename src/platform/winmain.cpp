@@ -46,6 +46,7 @@
 #include "engine/core/format.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/net/net_game_state.h"
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
@@ -262,24 +263,24 @@ void read_network_params(const char* command_line)
                 if (const hostent* host = gethostbyname(server))
                     std::memcpy(&address, *host->h_addr_list, sizeof(address));
             }
-            online::set_command_line_server(address);
+            online::net_game_state().set_command_line_server(address);
             stored_joining_internet_game() = true; // joining a game
         }
     }
     // (The numbers are compared unsigned: a negative one counts as too big.)
     if (const auto at = find("-MAXPLAYERS")) {
         auto players = static_cast<uint32_t>(get_number(after(*at, 11)));
-        online::set_net_max_players(static_cast<int>(players < 2 ? 2 : players > 8 ? 8 : players));
+        online::net_game_state().set_net_max_players(static_cast<int>(players < 2 ? 2 : players > 8 ? 8 : players));
     }
     if (const auto at = find("-GROUP"))
         online::set_lobby_group_id(get_number(after(*at, 6)));
     if (const auto at = find("-NTEAMS")) {
         auto teams = static_cast<uint32_t>(get_number(after(*at, 7)));
-        online::set_network_team_mode(teams > 4 ? 0 : teams);
+        online::net_game_state().set_network_team_mode(teams > 4 ? 0 : teams);
     }
     if (const auto at = find("-SKILLLEVEL")) {
         auto skill = static_cast<uint32_t>(get_number(after(*at, 11)));
-        online::set_net_skill_level(static_cast<int>(skill > 4 ? 4 : skill));
+        online::net_game_state().set_net_skill_level(static_cast<int>(skill > 4 ? 4 : skill));
     }
     if (const auto at = find("-NAME"))
         copy_value(after(*at, 5), commands::network_id(), 15); // the player's name

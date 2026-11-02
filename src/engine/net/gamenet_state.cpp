@@ -16,8 +16,7 @@
 #include "game/park_editing/goal_editor.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
-#include "engine/net/shared_state.h"
-#include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
 
@@ -92,7 +91,7 @@ park_editing::ObjectiveAuthoring* get_goal_editor() { return park_editing::Objec
 void Hub::set_join_mode(int mode)
 {
     join_mode_ = mode;
-    gamenet_settings_shared().join_server_ip_succeeded_ = false;
+    net_game_state().set_join_server_ip_succeeded(false);
 }
 
 // 0x00532AC0
@@ -155,15 +154,6 @@ net::AppHost* Hub::get_matchmaking_client() { return browser_client_; }
 // 0x00532EC0
 PlayerRecord* Hub::fetch_viewed_player() { return viewed_player_; }
 
-GamenetStateShared& gamenet_state_shared()
-{
-    static core::NoDestroy<GamenetStateShared> state;
-    return state.get();
-}
-
-uint32_t command_line_server() { return gamenet_state_shared().command_line_server_; }
-void set_command_line_server(uint32_t value) { gamenet_state_shared().command_line_server_ = value; }
-
 // 0x00532ED0
 void Hub::scan_local_network()
 {
@@ -171,14 +161,13 @@ void Hub::scan_local_network()
         return;
     // 12 bytes: the time, then 8 bytes the original leaves uninitialised (zeroed here).
     std::array<uint32_t, 3> message = {{frame_clock::get_time(), 0, 0}};
-    uint32_t& asked_for = gamenet_settings_shared().asked_for_;
-    if (asked_for) {
+    if (const uint32_t asked_for = net_game_state().asked_for()) {
         browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), asked_for, kLanPort, 0);
-        asked_for = 0;
+        net_game_state().set_asked_for(0);
         return;
     }
     browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), 0xFFFFFFFF, kLanPort, 0);
-    const uint32_t command_line = gamenet_state_shared().command_line_server_; // (parse_network_params)
+    const uint32_t command_line = net_game_state().command_line_server(); // (parse_network_params)
     if (command_line != 0xFFFFFFFF)
         browser_client_->deliver_to(kMsgServerQuery, sizeof(message), message.data(), command_line, kLanPort, 0);
 }

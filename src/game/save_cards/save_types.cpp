@@ -34,6 +34,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "game/save_cards/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 namespace save_cards {
 
@@ -452,7 +453,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         break;
     }
     case kSaveNetworkSettings: {
-        Struct* settings = &online::online_hub()->get_online_settings()->top_entry_;
+        Struct* settings = &online::net_game_state().online_hub()->get_online_settings()->top_entry_;
         Struct* network_id = nullptr;
         settings->read_sub_struct(0xCBED746Eu, &network_id, 0); // network_id
         const char* text = empty;

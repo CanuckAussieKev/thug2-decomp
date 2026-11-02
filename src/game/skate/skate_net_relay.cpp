@@ -61,6 +61,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 
 namespace modules {
 
@@ -125,7 +126,7 @@ constexpr auto kSentCheats = std::to_array<uint32_t>({
     0xD5982173, // NO_G_DISPLAY_BALANCE
 });
 
-online::Hub* net_link() { return online::online_hub(); }
+online::Hub* net_link() { return online::net_game_state().online_hub(); }
 
 objects::ObjectHubBase* entity_hub_handle()
 {

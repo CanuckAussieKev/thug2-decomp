@@ -23,6 +23,7 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "engine/core/format.h"
+#include "engine/net/net_game_state.h"
 
 namespace net {
 
@@ -50,7 +51,7 @@ const char* stats_file(int index)
 // 0x0054DCB0
 bool retrieve_top_stats(script::Struct* params, script::Script*)
 {
-    const online::Hub* manager = online::online_hub();
+    const online::Hub* manager = online::net_game_state().online_hub();
     online::RankingsManager* stats = manager->rating_service_.get();
     int& current = stats->top_file_;
     int index = 0;

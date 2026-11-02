@@ -31,7 +31,6 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 #include "game/skate/skate_module.h"
-#include "engine/net/gamenet_manager.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -41,6 +40,7 @@
 #include "game/rider/skater_score.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 
 namespace objects {
 
@@ -291,7 +291,7 @@ double FootMovement::get_gravity()
     if (!career->is_code_on(kCheatMoon))
         return walk_parameter(kGravity);
     get_career()->set_global_flag(script::fetch_int_value(kCheatMoon));
-    online::set_cheat_flag(true);
+    online::net_game_state().set_cheat_flag(true);
     return static_cast<double>(walk_parameter(kGravity)) * kHalf;
 }
 

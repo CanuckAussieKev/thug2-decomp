@@ -37,19 +37,12 @@
 #include "platform/crt.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/mem.h"
-#include "engine/core/no_destroy.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 namespace online {
 
 using namespace detail;
-
-GamenetLobbyCfuncsShared& gamenet_lobby_cfuncs_shared()
-{
-    static core::NoDestroy<GamenetLobbyCfuncsShared> state;
-    return state.get();
-}
 
 namespace {
 
@@ -65,8 +58,7 @@ constexpr int kClientNatIndex = 1;
 constexpr auto kHostProfiles = std::to_array<int>({0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701, 0x01A766CC,
                                  0x01A7672E, 0x01A7675B, 0x01A76773, 0x01A76794, 0x01A767B1});
 
-Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
-RoomManager* current_lobby() { return net_session_slot()->lobby_service_.get(); }
+RoomManager* current_lobby() { return net_game_state().net_session_slot()->lobby_service_.get(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 void push_internet_heap()
 {
@@ -77,8 +69,6 @@ void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 void nat_cancel(int cookie) { game_spy::nat_cancel(cookie); }
 void nat_think() { game_spy::nat_think(); }
 void nat_free_negotiations() { game_spy::nat_free_negotiations(); }
-std::array<QueuedPacket, 200>& get_queue() { return gamenet_lobby_cfuncs_shared().queued_packets_; }
-int& queued_count() { return gamenet_lobby_cfuncs_shared().queued_count_; }
 
 } // namespace
 
@@ -86,7 +76,7 @@ int& queued_count() { return gamenet_lobby_cfuncs_shared().queued_count_; }
 bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     const char* address = nullptr;
     int port = 0;
     push_internet_heap();
@@ -111,9 +101,9 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
     tasks->queue_job(lobby->nat_task_.get());
     client->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
     tasks->queue_job(lobby->hosting_task_.get());
-    for (int i = 0; i < queued_count(); ++i)
-        crt::dealloc(memory::owned_element(core::at(get_queue(), i).data)); // (the game's C runtime free; the queue's copy)
-    queued_count() = 0;
+    for (int i = 0; i < net_game_state().queued_count(); ++i)
+        crt::dealloc(memory::owned_element(core::at(net_game_state().get_queue(), i).data)); // (the game's C runtime free; the queue's copy)
+    net_game_state().queued_count() = 0;
     pop_heap();
     return true;
 }
@@ -134,7 +124,7 @@ bool cfunc_cancel_nat_negotiation(script::Struct*, script::Script*)
 bool cfunc_leave_lobby(script::Struct* params, script::Script*)
 {
     push_internet_heap();
-    const Hub* manager = net_session_slot();
+    const Hub* manager = net_game_state().net_session_slot();
     auto* lobby = manager->lobby_service_.get();
     FriendsManager* buddy = manager->presence_service_.get();
     game_spy::peer_leave_room(lobby->remote_, kRoomGroupKind, nullptr); // the group room left
@@ -162,7 +152,7 @@ bool cfunc_cancel_lobby_connect(script::Struct*, script::Script*)
 bool cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 {
     push_internet_heap();
-    const Hub* manager = net_session_slot();
+    const Hub* manager = net_game_state().net_session_slot();
     const int quiet = params->has_bare_flag(kOff) ? 0 : 1;
     game_spy::peer_set_quiet_mode(manager->lobby_service_->remote_, quiet);
     pop_heap();
@@ -172,7 +162,7 @@ bool cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 // 0x005406C0
 bool cfunc_can_host_game(script::Struct*, script::Script*)
 {
-    const Hub* manager = net_session_slot();
+    const Hub* manager = net_game_state().net_session_slot();
     const RoomManager* lobby = manager->lobby_service_.get();
     if (!lobby->restricted_hosting_)
         return lobby->unknown30_ < lobby->unknown2c_;

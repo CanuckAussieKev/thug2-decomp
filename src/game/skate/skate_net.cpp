@@ -53,6 +53,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/net/net_game_state.h"
 
 namespace modules {
 
@@ -133,7 +134,7 @@ constexpr uint8_t kSymbolString = 3;     // kQbvalString
 // The singletons (not rewritten): the skate module, the network manager (online::Hub), the game mode
 // (goals::MatchRules), the object manager, the goal manager, the profile manager (graffiti colours).
 
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 objects::ObjectHubBase* entity_hub_handle()
 {

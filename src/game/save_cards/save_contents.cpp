@@ -33,6 +33,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "game/save_cards/shared_state.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 namespace save_cards {
@@ -73,8 +74,7 @@ constexpr int kControllers = 8;
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
 
-
-online::Hub* online_hub_handle() { return online::online_hub(); }
+online::Hub* online_hub_handle() { return online::net_game_state().online_hub(); }
 objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
 int os_layer() { return game_config::hardware(); }
 

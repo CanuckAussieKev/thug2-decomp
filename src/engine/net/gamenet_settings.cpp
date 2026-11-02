@@ -36,19 +36,9 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/sys/mlp.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
-#include "engine/net/shared_state.h"
-#include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
-
-uint32_t network_team_mode() { return gamenet_settings_shared().network_team_mode_; }
-void set_network_team_mode(uint32_t value) { gamenet_settings_shared().network_team_mode_ = value; }
-
-int net_skill_level() { return gamenet_settings_shared().net_skill_level_; }
-void set_net_skill_level(int value) { gamenet_settings_shared().net_skill_level_ = value; }
-
-int net_max_players() { return gamenet_settings_shared().net_max_players_; }
-void set_net_max_players(int value) { gamenet_settings_shared().net_max_players_ = value; }
 
 using namespace detail;
 
@@ -343,7 +333,7 @@ void Hub::disconnect_from_internet(uint32_t script)
 // 0x00536C10
 void Hub::cancel_connect_to_internet()
 {
-    Hub* manager = gamenet_player_lists_shared().online_hub_;
+    Hub* manager = net_game_state().net_session_slot();
     net::Hub* net = net::Hub::sole();
     tasks::SchedulerTask* task = manager->dialup_job_.get();
     switch (net->get_dialup_status()) {
@@ -370,33 +360,24 @@ void Hub::cancel_connect_to_internet()
     }
 }
 
-GamenetSettingsShared& gamenet_settings_shared()
-{
-    static core::NoDestroy<GamenetSettingsShared> state;
-    return state.get();
-}
-
-bool join_server_ip_succeeded() { return gamenet_settings_shared().join_server_ip_succeeded_; }
-void set_join_server_ip_succeeded(bool value) { gamenet_settings_shared().join_server_ip_succeeded_ = value; }
-
 // 0x00536490
 void Hub::find_server_at(uint32_t ip)
 {
     stop_server_list(); // (the server lists cleared)
     empty_server_listing();
     start_server_list();
-    gamenet_settings_shared().join_server_ip_succeeded_ = false;
+    net_game_state().set_join_server_ip_succeeded(false);
     if (!browser_client_)
         start_matchmaking_client();
     if (!ip) {
-        gamenet_settings_shared().asked_for_ = 0;
+        net_game_state().set_asked_for(0);
         return;
     }
     if (browser_client_) {
         std::array<uint32_t, 3> request{}; // (the time; the rest is the original's stack)
         core::at(request, 0) = frame_clock::get_time();
         core::at(request, 1) = core::at(request, 2) = 0;
-        gamenet_settings_shared().asked_for_ = ip;
+        net_game_state().set_asked_for(ip);
         browser_client_->deliver_to(kMsgServerQuery, sizeof(request), request.data(), ip, kLanPort, 0);
     }
 }
@@ -405,7 +386,7 @@ void Hub::find_server_at(uint32_t ip)
 void Hub::service_game_spy()
 {
     game_spy::cd_key_think();
-    if (gamenet_players_shared().online_active_ && gamenet_player_lists_shared().online_hub_->in_net_game() && gamenet_members_shared().query_reporting_)
+    if (net_game_state().online_active() && net_game_state().net_session_slot()->in_net_game() && net_game_state().query_reporting())
         game_spy::get_qr2_think(nullptr);
 }
 
@@ -437,8 +418,8 @@ void Hub::change_arena(uint32_t level)
     if (peer && game_spy::peer_is_connected(peer) && lobby_service_->is_hosting())
         game_spy::peer_state_changed(peer); // (the peer's state changed: the GameSpy SDK)
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
-    gamenet_players_shared().open_waiting_ = false;
-    if (gamenet_players_shared().online_active_ && gamenet_player_lists_shared().online_hub_->in_net_game() && gamenet_members_shared().query_reporting_ && gamenet_players_shared().open_waiting_)
+    net_game_state().set_open_waiting(false);
+    if (net_game_state().online_active() && net_game_state().net_session_slot()->in_net_game() && net_game_state().query_reporting() && net_game_state().open_waiting())
         game_spy::qr2_send_state_changed(nullptr);
 }
 

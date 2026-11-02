@@ -13,6 +13,7 @@
 #include "game/rider/rider.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 
 namespace commands {
 
@@ -43,7 +44,7 @@ bool first_trick_started() { return modules::Skate::sole()->first_trick_started(
 bool first_trick_completed() { return modules::Skate::sole()->first_trick_completed(); }
 void send_scores(bool final) { modules::Skate::sole()->broadcast_points(final); }
 
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 } // namespace
 

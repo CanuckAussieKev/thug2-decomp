@@ -36,6 +36,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 
 namespace objects {
 
@@ -71,7 +72,7 @@ const char* const kDrivingRadiusBoost = "driving_radius_boost";     // "driving_
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
 // --- the network game manager (0x007CCE14), its players and the game mode ---
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 void* get_game_mode() { return static_cast<void*>(goals::game_mode()); }
 void* skater_manager() { return static_cast<void*>(modules::Skate::sole()); }
 

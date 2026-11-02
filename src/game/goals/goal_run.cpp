@@ -30,6 +30,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/format.h"
+#include "engine/net/net_game_state.h"
 
 namespace goals {
 
@@ -55,7 +56,7 @@ GoalEdge* alloc_chain_link()
     return link;
 }
 
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 objects::GameEntity* local_skater() { return skate_calls::get_home_rider(); }
 // The game mode's name (0x005532A0) and whether it beeps the timer (0x00553150).
 uint32_t active_ruleset_label()

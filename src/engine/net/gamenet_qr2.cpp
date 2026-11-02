@@ -36,7 +36,7 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "platform/compiler.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the level's name)
 
 namespace online {
@@ -76,7 +76,6 @@ constexpr int kQueryPort = 0x1423;           // 5155 (qr2's own)
 void buffer_add(void* buffer, const char* text) { game_spy::call_qr2_buffer_add(buffer, text); }
 void buffer_add_int(void* buffer, int value) { game_spy::get_qr2_buffer_add_int(buffer, value); }
 
-Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 prefs::Preferences* net_game_options(Hub* m) { return &m->net_options_; }
 
 // The level's name for qr2's mapname when the level select has none (0x0067F0A0, "Boston" until set up).
@@ -104,7 +103,7 @@ void set_lobby_group_id(int value) { stored_lobby_group_id() = value; }
 // 0x0053B9C0
 void server_key_callback(int key, void* buffer, void*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     switch (key) {
     case kKeyHostname: {
         const char* text = nullptr;
@@ -139,9 +138,9 @@ void server_key_callback(int key, void* buffer, void*)
         buffer_add_int(buffer, manager->get_player_limit());
         return;
     case kKeyGamemode:
-        if (gamenet_game_commands_shared().game_reported_)
+        if (net_game_state().game_reported())
             buffer_add(buffer, "openplaying");
-        else if (gamenet_players_shared().open_waiting_)
+        else if (net_game_state().open_waiting())
             buffer_add(buffer, "openwaiting");
         else
             buffer_add(buffer, "closedwaiting");
@@ -161,7 +160,7 @@ void server_key_callback(int key, void* buffer, void*)
 // 0x0053BBC0
 void player_key_callback(int key, int index, void* buffer, void*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     if (index >= manager->count_players()) {
         buffer_add(buffer, "");
         return;
@@ -199,9 +198,9 @@ void player_key_callback(int key, int index, void* buffer, void*)
 int count_callback(int type, void*)
 {
     if (type == kKeyTypePlayer)
-        return net_session_slot()->count_players();
+        return net_game_state().net_session_slot()->count_players();
     if (type == kKeyTypeTeam)
-        return net_session_slot()->get_num_teams();
+        return net_game_state().net_session_slot()->get_num_teams();
     return 0;
 }
 
@@ -210,11 +209,10 @@ void start_query_reporting(bool keep_map_name)
 {
     if (!keep_map_name) { // the level's name, for mapname when the level select has none
         const char* text = nullptr;
-        net_game_options(net_session_slot())->fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
+        net_game_options(net_game_state().net_session_slot())->fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
         std::strcpy(fallback_map_name().data(), text);
     }
-    bool& reporting = gamenet_members_shared().query_reporting_;
-    if (reporting)
+    if (net_game_state().query_reporting())
         return;
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)
     const int error = game_spy::call_qr2_init(
@@ -222,7 +220,7 @@ void start_query_reporting(bool keep_map_name)
         code_address(online::player_team_key_callback), code_address(online::key_list_callback), &count_callback,
         code_address(online::add_error_callback), nullptr);
     if (error == 0)
-        reporting = true;
+        net_game_state().set_query_reporting(true);
 }
 
 } // namespace online

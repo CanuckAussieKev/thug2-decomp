@@ -612,6 +612,7 @@ add_executable(thug2 WIN32
     src/engine/net/score_list.cpp
     src/engine/net/rooms.cpp
     src/engine/net/server_list.cpp
+    src/engine/net/net_game_state.cpp
     src/engine/net/server_browser.cpp
     src/engine/net/buddy_status.cpp
     src/engine/net/gamenet_players.cpp

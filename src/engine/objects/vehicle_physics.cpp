@@ -26,6 +26,7 @@
 #include "engine/objects/input_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 
 namespace objects {
 
@@ -798,7 +799,7 @@ void DrivableModule::update_skater()
     auto frame = static_cast<float>((static_cast<double>(steering) - -1.0) * kHalf * duration);
     auto frame_bits = std::bit_cast<uint32_t>(frame);
     auto blend = std::bit_cast<uint32_t>(1000.0f);
-    if (!online::online_hub()->in_net_game()) {
+    if (!online::net_game_state().online_hub()->in_net_game()) {
         blender->play_animation_ex(rider_anim_name_, 0, frame_bits, blend, 1, 0, 0);
         return;
     }

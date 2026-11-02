@@ -33,6 +33,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -190,7 +191,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
 // model its profile's appearance builds (preload_model_from_appearance) loaded and dropped.
 bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
 {
-    if (online::online_hub()->in_net_game())
+    if (online::net_game_state().online_hub()->in_net_game())
         return false;
     if (script::fetch_int_value(kNoPedestrians))
         return false;

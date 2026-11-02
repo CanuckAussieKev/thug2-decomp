@@ -31,7 +31,7 @@
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
 #include "platform/crt.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
 
@@ -71,7 +71,6 @@ constexpr uint8_t kMsgPlayerFullyIn = 0x5E;
 constexpr uint32_t kJoinSettleTime = 1000; // ms
 constexpr uint32_t kJustJoinedTime = 5000; // ms
 
-Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
 PlayerRecord* get_local(Hub* manager) { return find_own_player_record(manager); }
 uint32_t flag_of(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & 31); }
 
@@ -124,7 +123,7 @@ bool PlayerRecord::is_invulnerable()
 // 0x005439D0
 void PlayerRecord::set_finished_joining()
 {
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     flag_bits_ |= kPlayerFullyIn;
     if (!manager->in_net_game() || !manager->get_on_server() || (flag_bits_ & kPlayerLocal))
         return;
@@ -151,7 +150,7 @@ void PlayerRecord::score_flag_capture(int team)
 {
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
-    const PlayerRecord* local = get_local(the_manager());
+    const PlayerRecord* local = get_local(net_game_state().the_manager());
     const script::StructPtr params = script::make_struct();
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
@@ -174,7 +173,7 @@ void PlayerRecord::score_flag_capture(int team)
 // 0x00543C70
 void PlayerRecord::note_flag_steal(int team)
 {
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
     script::StructPtr params = script::make_struct();
@@ -196,7 +195,7 @@ void PlayerRecord::note_flag_steal(int team)
 // 0x00543F00
 void PlayerRecord::note_flag_pickup(int team)
 {
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     std::array<char, 64> key{};
     get_team_key(key.data(), team);
     script::StructPtr params = script::make_struct();
@@ -223,7 +222,7 @@ void PlayerRecord::note_flag_pickup(int team)
 // 0x00544110
 void PlayerRecord::note_flag_returned()
 {
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     std::array<char, 64> key{};
     get_team_key(key.data(), team_);
     gsl::owner<script::Struct*> params = script::new_struct();
@@ -248,7 +247,7 @@ void PlayerRecord::note_flag_returned()
 // 0x00544340
 void PlayerRecord::give_crown(bool king)
 {
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     if (!king) {
         if (!(flag_bits_ & kPlayerKing))
             return;

@@ -25,6 +25,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/model_component.h"
 #include "engine/core/down_cast.h"
+#include "engine/net/net_game_state.h"
 namespace goals {
 
 namespace {
@@ -175,7 +176,7 @@ bool ContestObjective::get_win()
     invoke_hook_script(kDeactivateScript);
     args_->remove_flag(kJustWonGoal);
     clear_engaged_bit();
-    if (!online::online_hub()->in_net_game()) {
+    if (!online::net_game_state().online_hub()->in_net_game()) {
         modules::Contest* competition = the_competition();
         int place = 999;
         if (competition->place_is(1))

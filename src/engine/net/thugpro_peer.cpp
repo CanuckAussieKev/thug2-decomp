@@ -51,6 +51,7 @@
 #include "engine/core/format.h"
 #include "engine/core/field_reader.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 
 namespace script {
 class Struct;
@@ -449,7 +450,7 @@ HostOptions& host()
     return host.get();
 }
 
-Hub* net_session_slot() { return fetch_hub(); }
+Hub* net_session_slot() { return net_game_state().fetch_hub(); }
 
 bool is_client_of_net_game(Hub* manager) { return manager && manager->in_net_game() && !manager->get_on_server(); }
 bool is_host_of_net_game(Hub* manager) { return manager && manager->in_net_game() && manager->get_on_server(); }

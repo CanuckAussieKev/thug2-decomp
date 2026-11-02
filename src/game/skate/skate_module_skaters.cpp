@@ -75,6 +75,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 #include <span>
 
@@ -157,7 +158,7 @@ constexpr uint8_t kGroupGame = 8;
 // The CTF / scavenger hunt restart points by team.
 constexpr std::array<uint32_t, 4> kTeamRestarts = {{0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}}; // TRG_CTF_Restart_<colour>
 
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 objects::MiscHub* entity_hub_handle() { return static_cast<objects::MiscHub*>(objects::object_hub_slot().get()); }
 
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.

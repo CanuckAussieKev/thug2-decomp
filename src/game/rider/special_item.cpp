@@ -24,6 +24,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 
 namespace objects {
 
@@ -62,7 +63,7 @@ render::RenderModel* get_model_data(GameEntity* object)
 // A message to the server, in a network game.
 void send_to_server(uint8_t id, const online::SpecialItemMessage& item)
 {
-    auto* manager = online::online_hub();
+    auto* manager = online::net_game_state().online_hub();
     if (!manager->in_net_game())
         return;
     net::NetMessageInfo msg;

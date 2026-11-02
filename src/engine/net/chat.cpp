@@ -39,8 +39,8 @@
 #include "wire/net_wire.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
-#include "engine/net/shared_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
 
@@ -153,8 +153,6 @@ void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
 }
 
 } // namespace
-
-Hub* fetch_hub() { return gamenet_player_lists_shared().online_hub_; }
 
 namespace {
 
@@ -360,7 +358,7 @@ bool cfunc_send_chat_message(script::Struct* params, script::Script* /*script*/)
     if (!text)
         return false;
     if (std::strlen(text) != 0 && _stricmp(text, "--EMPTY--") != 0) {
-        online::Hub* manager = online::fetch_hub();
+        online::Hub* manager = online::net_game_state().fetch_hub();
         if (!online::handle_chat_command(manager, text))
             online::send_chat_message(manager, text);
     }

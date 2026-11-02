@@ -68,6 +68,7 @@
 #include "engine/core/format.h"
 #include "engine/script/shared_state.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 
 namespace commands {
 
@@ -108,7 +109,7 @@ objects::EntityHub* object_edit() { return objects::object_hub_slot().get(); }
 void* get_game_mode() { return static_cast<void*>(goals::game_mode()); }
 goals::MatchRules* game_mode_object() { return static_cast<goals::MatchRules*>(get_game_mode()); }
 int game_mode_time_limit() { return game_mode_object()->get_time_limit(); }
-online::Hub* online_hub_handle() { return online::online_hub(); }
+online::Hub* online_hub_handle() { return online::net_game_state().online_hub(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 
 // Two argument-less calls of Cleanup's to the empty function 0x005480A0 (compiled-out debug code; what it did is

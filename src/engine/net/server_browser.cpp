@@ -36,7 +36,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strncpy, kept)
 
@@ -91,7 +91,6 @@ constexpr int kListingUpdate = 1;
 constexpr int kListingRemove = 2;
 constexpr int kListingClear = 3;
 
-Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_.get(); }
 
@@ -176,7 +175,7 @@ HostListing* find_by_sb(Hub* manager, void* sb)
 bool cfunc_describe_server(script::Struct* params, script::Script* script)
 {
     (void)script;
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
     auto* server = static_cast<HostListing*>(manager->fetch_host(id));
@@ -242,7 +241,7 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
 bool cfunc_choose_server(script::Struct* params, script::Script* script)
 {
     (void)script;
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);
     manager->clear_chosen_servers();
@@ -281,7 +280,7 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
 bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
 {
     (void)script;
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     if ((manager->flag_bits_ >> 3) & 1) // (0x00533F70: LAN mode)
         return true;
     uint32_t id = 0;
@@ -304,9 +303,9 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
 int on_server_reply_msg(net::InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->content_);
-    if (gamenet_settings_shared().asked_for_) {
-        gamenet_settings_shared().asked_for_ = context->sender_conn_->remote_ip_;
-        gamenet_settings_shared().join_server_ip_succeeded_ = true;
+    if (net_game_state().asked_for()) {
+        net_game_state().set_asked_for(context->sender_conn_->remote_ip_);
+        net_game_state().set_join_server_ip_succeeded(true);
     }
     if (context->body_size_ != kServerResponseSize)
         return kDone;
@@ -355,7 +354,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
     (void)staging;
     (void)progress;
     if (!success) {
-        the_manager()->lobby_service_->set_lost_connection(); // (the lobby told the listing failed)
+        net_game_state().the_manager()->lobby_service_->set_lost_connection(); // (the lobby told the listing failed)
         return;
     }
     switch (message) {

@@ -31,7 +31,7 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "engine/core/format.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 namespace net {
 
@@ -153,7 +153,7 @@ void service_task(tasks::Task<online::Hub>* task)
     case 6:
     case 0xA: { // the news: a message (with the count of messages, if any), then the download thread
         freeze_stream(1);
-        const int count = static_cast<int>(online::server_list_shared().news_message_count_);
+        const int count = static_cast<int>(online::net_game_state().news_message_count());
         if (count == 0) {
             spawn_script(0xBDA86A12);
         } else {

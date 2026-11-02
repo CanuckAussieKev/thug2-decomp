@@ -52,7 +52,7 @@
 #include "engine/core/format.h"
 #include "wire/gamenet_messages.h"
 #include "engine/core/no_destroy.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strncpy, kept)
 
@@ -98,7 +98,6 @@ constexpr uint32_t kListClock = 3000;        // ms
 constexpr uint32_t kShowDelay = 500;         // ms
 constexpr uint32_t kNewsBufferSize = 0x6400; // bytes
 
-Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_.get(); }
@@ -238,7 +237,7 @@ HostListing* HostListing::teardown(unsigned int flags)
 // 0x00545790
 void HostListing::enroll_player(const char* name, int rating)
 {
-    ram_stats()->enter_heap_scope(the_manager()->in_internet_mode()
+    ram_stats()->enter_heap_scope(net_game_state().the_manager()->in_internet_mode()
                                       ? static_cast<memory::MemSource*>(ram_stats()->internet_bottom_up_heap_)
                                       : static_cast<memory::MemSource*>(ram_stats()->network_heap_));
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
@@ -253,7 +252,7 @@ void HostListing::enroll_player(const char* name, int rating)
 // 0x005465A0
 void HostListing::clear_players()
 {
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     memory::ListNode* node = head_of_scene_list(&participants_);
     auto* player = data_of<PlayerRecord>(node);
     while (player) {
@@ -296,12 +295,6 @@ int HostListing::get_entrant_rank(int index)
 void Hub::set_next_service_state(int state) { next_service_state_ = state; }
 int Hub::get_service_state() { return service_state_; }
 
-ServerListShared& server_list_shared()
-{
-    static core::NoDestroy<ServerListShared> state;
-    return state.get();
-}
-
 // 0x005453E0
 void Hub::set_service_state(int state)
 {
@@ -309,7 +302,7 @@ void Hub::set_service_state(int state)
     if (state == kStateWake) {
         get_logic_tasks()->queue_job(service_job_.get());
         set_service_state(next_service_state_);
-        server_list_shared().news_message_count_ = 0;
+        net_game_state().set_news_message_count(0);
     } else if (state == kStateStopped) {
         service_job_->drop_out();
     }
@@ -496,7 +489,7 @@ void Hub::refresh_server_list(bool force)
         ram_stats()->leave_heap_scope();
         return;
     }
-    const Hub* manager = the_manager();
+    const Hub* manager = net_game_state().the_manager();
     std::array<uint8_t, 4> keys = {{8, 10, 4, 6}}; // (in the original: over its argument's slot)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     manager->lobby_service_->clear_lost_connection();
@@ -564,7 +557,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
 {
     (void)request;
     (void)param;
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     if (result != 0) {
         manager->service_state_ = kStateNewsFailed;
         return 1;
@@ -609,7 +602,7 @@ bool cfunc_post_game(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     if (!current_lobby(manager)->hosting_)
         manager->update_hosting_status();
     return true;
@@ -619,7 +612,7 @@ bool cfunc_post_game(script::Struct* params, script::Script* script)
 bool cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script)
 {
     (void)params;
-    script->args_->put_int(kNumServers, total_of(&the_manager()->servers_));
+    script->args_->put_int(kNumServers, total_of(&net_game_state().the_manager()->servers_));
     return true;
 }
 

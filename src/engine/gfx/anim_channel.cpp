@@ -43,6 +43,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 namespace gfx {
@@ -164,7 +165,7 @@ objects::GameEntity* get_owner(BlendChannel* channel)
 
 // The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
 // isn't this machine's player's skater.
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 online::PlayerRecord* find_own_player_record(uint32_t object_id)
 {
     auto* player = (net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(object_id)));

@@ -18,6 +18,7 @@
 #include "game/rider/rider.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 
 namespace modules::score_internal {
 
@@ -49,7 +50,7 @@ inline int spin_multiplier(int spin) { return spin < 6 ? core::at(kSpinMultiplie
 inline int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 inline goals::MatchRules* get_game_mode() { return goals::game_mode(); }
-inline online::Hub* net_session_slot() { return online::online_hub(); }
+inline online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 inline objects::TrickSpotHub* get_trick_objects() { return objects::trick_spot_hub(); }
 inline objects::Rider* rider_for_slot(int id)
 {

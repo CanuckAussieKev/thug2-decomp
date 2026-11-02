@@ -21,7 +21,6 @@
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/gfx/screen.h"
-#include "engine/net/gamenet_game_cfuncs.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/thugpro_compat.h"
 #include "game/skate/skate_module.h"
@@ -37,6 +36,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/net/net_game_state.h"
 
 namespace frame_loop {
 
@@ -51,7 +51,7 @@ namespace {
 // Set for a frame that isn't drawn (running late, the window inactive, the device just reset): the scene isn't
 // begun or presented.
 
-bool text_entry() { return online::text_entry(); } // keeps the loop running while the window is inactive
+bool text_entry() { return online::net_game_state().text_entry(); } // keeps the loop running while the window is inactive
 
 D3DPRESENT_PARAMETERS* present_parameters() { return &render::present_parameters(); }
 

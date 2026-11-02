@@ -21,8 +21,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strncpy: the original's own)
 
@@ -74,7 +73,6 @@ constexpr int kLobbyStateListed = 15;
 constexpr int kLobbyStateFailed = 16;
 constexpr float kItemScale = 1.1f; // (0x3F8CCCCD)
 
-Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 void push_internet_heap()
 {
     memory::Hub* memory = memory::Hub::get_pull();
@@ -139,7 +137,7 @@ void RoomManager::room_message_callback(void*, int, const char* nick, const char
 // 0x00540E00
 bool cfunc_send_message(script::Struct* params, script::Script*)
 {
-    const Hub* manager = net_session_slot();
+    const Hub* manager = net_game_state().net_session_slot();
     const char* message = nullptr;
     if (!params->fetch_text(kText, &message, 0))
         return true;
@@ -192,7 +190,7 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
 // 0x005411E0
 void RoomManager::add_player_list_item(LobbyPlayer* player)
 {
-    const Hub* manager = net_session_slot();
+    const Hub* manager = net_game_state().net_session_slot();
     push_internet_heap();
     script::StructPtr choose = script::make_struct();
     script::StructPtr params = script::make_struct();
@@ -244,26 +242,19 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     pop_heap();
 }
 
-GamenetLobbyMenusShared& gamenet_lobby_menus_shared()
-{
-    static core::NoDestroy<GamenetLobbyMenusShared> state;
-    return state.get();
-}
-
 // 0x00541690
 void RoomManager::group_room_callback(void*, int success, int group_id, void* server, const char* name, int num_waiting,
                                       int max_waiting, int num_games, int, void* param)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     auto set_state = [manager](int state) { manager->set_service_state(state); };
     if (!success) {
         set_state(kLobbyStateFailed);
         return;
     }
-    bool& asked = gamenet_lobby_menus_shared().listing_asked_; // a room was asked for (by its lobby_num)
-    bool& found = gamenet_lobby_menus_shared().listing_found_;
+    // (the listing's flags: a room was asked for by its lobby_num, and found)
     if (group_id == 0) { // the list's end
-        set_state(!asked || found ? kLobbyStateListed : kLobbyStateFailed);
+        set_state(!net_game_state().listing_asked() || net_game_state().listing_found() ? kLobbyStateListed : kLobbyStateFailed);
         return;
     }
     memory::Hub* memory = memory::Hub::get_pull();
@@ -286,8 +277,8 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
         const void* data = manager->get_pending_data(&size);
         if (static_cast<uint32_t>(lobby) ==
             checksums::generate_crc_caseless(static_cast<const char*>(data), static_cast<int>(size)))
-            found = true;
-        asked = true;
+            net_game_state().set_listing_found(true);
+        net_game_state().set_listing_asked(true);
     }
     room->max_rating_ = server_int("maxrating", 100000);
     room->min_rating_ = server_int("minrating", 0);

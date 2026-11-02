@@ -36,7 +36,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
 
@@ -55,8 +55,7 @@ constexpr uint32_t kDoneScript = 0x0089990F;
 constexpr uint32_t kProgressScript = 0x4B85EE64;
 constexpr uint32_t kErrorScript = 0xCF040665;
 
-Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
-VaultMan* get_vault() { return net_session_slot()->vault_man_.get(); }
+VaultMan* get_vault() { return net_game_state().net_session_slot()->vault_man_.get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
@@ -81,7 +80,7 @@ HANDLE start_thread(LPTHREAD_START_ROUTINE thread, void* param)
 {
     DWORD id = 0;
     HANDLE handle = CreateThread(nullptr, 0x8000, thread, param, CREATE_SUSPENDED, &id);
-    net_session_slot()->set_room_id(id);
+    net_game_state().net_session_slot()->set_room_id(id);
     return handle; // (never closed)
 }
 
@@ -532,7 +531,7 @@ unsigned long __stdcall VaultMan::list_thread(void* param)
 // 0x0054A860
 unsigned long __stdcall VaultMan::download_thread(void* url)
 {
-    const Hub* manager = net_session_slot();
+    const Hub* manager = net_game_state().net_session_slot();
     VaultMan* vault = get_vault();
     get_stall(vault->semaphore_);
     push_bottom_up();
@@ -552,7 +551,7 @@ unsigned long __stdcall VaultMan::download_thread(void* url)
 unsigned long __stdcall VaultMan::upload_thread(void* param)
 {
     auto* vault = static_cast<VaultMan*>(param);
-    prefs::Preferences* prefs = net_session_slot()->get_online_settings();
+    prefs::Preferences* prefs = net_game_state().net_session_slot()->get_online_settings();
     const char* network_id = nullptr;
     prefs->fetch_setting(get_checksums("network_id"))->fetch_text("ui_string", &network_id, 1);
     get_stall(vault->semaphore_);
@@ -757,7 +756,7 @@ bool cancel_file_transfer(script::Struct*, script::Script*)
 // the uploads list, as an "Uploads" category).
 bool download_directory_list(script::Struct* params, script::Script*)
 {
-    const Hub* manager = net_session_slot();
+    const Hub* manager = net_game_state().net_session_slot();
     VaultMan* vault = manager->vault_man_.get();
     const FriendsManager* buddies = manager->presence_service_.get();
     params->read_hash_value(0u, &vault->kind_tag_, 1);

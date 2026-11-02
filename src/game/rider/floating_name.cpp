@@ -23,6 +23,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/net/net_game_state.h"
 
 namespace objects {
 
@@ -41,7 +42,7 @@ constexpr float kOtherHeight = 120.0f; // above the others'
 
 // The network manager (0x007CCE14): a network game on, its show_names preference on, the player with an object id,
 // this machine's player (fetch_viewed_player: its +0x1CC).
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 bool in_net_game() { return net_session_slot()->in_net_game(); }
 bool show_names() { return net_session_slot()->wants_name_tags(); }
 online::PlayerRecord* find_player_slot_by_obj(uint32_t id)

@@ -39,6 +39,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/objects/ride_tracker.h"
+#include "engine/net/net_game_state.h"
 
 namespace skater {
 
@@ -102,7 +103,7 @@ SkaterPhysicsModule::SkaterPhysicsModule()
 // 0x00506BE0
 void SkaterPhysicsModule::get_reset()
 {
-    auto* game_net = online::online_hub();
+    auto* game_net = online::net_game_state().online_hub();
     if (!game_net->in_net_game()) {
         // (Off line: the old position, and the one kept at +0x98, are where the skater is now.)
         entity_->old_pos_ = entity_->at_point_;
@@ -361,8 +362,3 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
 
 } // namespace skater
 
-namespace skater {
-namespace {} // namespace
-} // namespace skater
-
-namespace skater {} // namespace skater

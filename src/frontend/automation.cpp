@@ -59,6 +59,7 @@
 #include "engine/util/unique_handle.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/net/net_game_state.h"
 
 namespace frontend::automation {
 
@@ -835,7 +836,7 @@ std::string net_refusal()
     if (net::Hub* net = net::Hub::sole())
         if (net->is_online())
             return "the game is online";
-    if (void* game_net = online::online_hub())
+    if (void* game_net = online::net_game_state().online_hub())
         if (static_cast<online::Hub*>(game_net)->in_net_game())
             return "a network game runs";
     if (goals::MatchRules* mode = goals::game_mode()) {

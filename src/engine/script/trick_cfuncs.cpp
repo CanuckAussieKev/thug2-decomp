@@ -29,6 +29,7 @@
 #include "game/goals/create_a_trick.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -261,7 +262,7 @@ bool cfunc_update_trick_mappings(script::Struct* params, script::Script*)
     objects::ProfileRoster* manager = objects::profile_roster();
     objects::GameEntity* skater = nullptr;
     RiderIdentity* profile = nullptr;
-    if (online::online_hub()->in_net_game()) {
+    if (online::net_game_state().online_hub()->in_net_game()) {
         skater = local_skater();
         profile = manager->fetch_account(0);
     } else {

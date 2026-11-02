@@ -45,6 +45,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/net/net_game_state.h"
 
 namespace objects {
 
@@ -110,7 +111,7 @@ void* load_on_texture_heap(const char* name, bool c)
     return texture;
 }
 
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

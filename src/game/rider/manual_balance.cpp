@@ -26,6 +26,7 @@
 #include "engine/objects/input_component.h"
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
+#include "engine/net/net_game_state.h"
 
 namespace objects {
 
@@ -236,7 +237,7 @@ void Balance::tick_frame()
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     if (!left_button_ || !right_press_)
         return;
-    auto* net = online::online_hub();
+    auto* net = online::net_game_state().online_hub();
     if (net->host_)                                                           // (the folded getter 0x005480C0)
         net->find_player_slot_by_obj(static_cast<uint16_t>(skater_->ident_)); // (its result unused)
     // The cheese wears off.

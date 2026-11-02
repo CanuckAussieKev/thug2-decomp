@@ -23,6 +23,7 @@
 #include "game/skate/point_tally.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/format.h"
+#include "engine/net/net_game_state.h"
 
 namespace goals {
 
@@ -51,7 +52,7 @@ constexpr uint32_t kAddedTime = 0xC906B763;              // added_time
 constexpr uint32_t kGoalName = 0xBFECC45B;               // goal_name
 constexpr uint32_t kRaceNextWaypoint = 0xD3741449;       // goal_race_next_waypoint
 
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 uint32_t active_ruleset_label() { return game_mode()->get_name_key(); }
 // Whether every goal is completed (a goal attack's victory condition; the original calls the condition's check with
 // whatever ECX holds - it doesn't use its object).

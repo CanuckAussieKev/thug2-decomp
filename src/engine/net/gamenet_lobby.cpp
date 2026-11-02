@@ -20,7 +20,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "platform/compiler.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the server's name)
 
@@ -97,14 +97,14 @@ bool RoomManager::in_group_room() { return in_group_room_; }
 // 0x0053F8A0
 bool cfunc_reset_connection_timer(script::Struct*, script::Script*)
 {
-    gamenet_lobby_peer_shared().connection_timer_ = frame_clock::get_time();
+    net_game_state().set_connection_timer(frame_clock::get_time());
     return true;
 }
 
 // 0x0053F8D0
 void RoomManager::server_key_callback(void*, int key, void* buffer, void*)
 {
-    Hub* manager = gamenet_player_lists_shared().online_hub_;
+    Hub* manager = net_game_state().net_session_slot();
     prefs::Preferences* prefs = manager->get_online_settings();
     switch (key) {
     case kKeyHostname: {
@@ -160,7 +160,7 @@ void RoomManager::server_key_callback(void*, int key, void* buffer, void*)
         buffer_add(buffer, "");
         break;
     }
-    gamenet_lobby_peer_shared().game_posted_ = true;
+    net_game_state().set_game_posted(true);
 }
 
 // 0x0053FEC0
@@ -169,7 +169,7 @@ int RoomManager::count_callback(void*, int type, void*)
     if (type == kKeyTypeServer)
         return kServerKeyCount;
     if (type == kKeyTypePlayer)
-        return gamenet_player_lists_shared().online_hub_->count_players();
+        return net_game_state().net_session_slot()->count_players();
     return 0;
 }
 

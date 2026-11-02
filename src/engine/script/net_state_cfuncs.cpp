@@ -39,6 +39,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/shared_state.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -76,7 +77,7 @@ constexpr uint32_t kPlayerNamesOffScript = 0x271D435C; // (name unknown)
 constexpr uint32_t kSkaterType = 0xBAF9B341;           // (name unknown) the skaters' object type
 
 objects::GameEntity* get_home_rider() { return modules::Skate::sole()->get_home_rider(); }
-online::Hub* online_hub_handle() { return online::online_hub(); }
+online::Hub* online_hub_handle() { return online::net_game_state().online_hub(); }
 net::Hub* net_session_slot() { return net::net_core(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 // The game mode's player count (0x00553190: its integer 0x6DC3D6F1).
@@ -544,7 +545,7 @@ uint32_t host_first_address(const char* name) { return crt::host_first_address(n
 // tried from now on.
 bool cfunc_try_join_internet_game(script::Struct*, script::Script*)
 {
-    const uint32_t server = online::command_line_server();
+    const uint32_t server = online::net_game_state().command_line_server();
     if (server != 0xFFFFFFFF)
         online_hub_handle()->find_server_at(server);
     trying_to_join() = true;
@@ -617,9 +618,9 @@ void init_beenox_preferences()
     set_string_preference(prefs, "password", network_password().data());    // "password"
     if (core::at(network_id(), 0) != '\0')
         set_string_preference(prefs, "network_id", network_id().data()); // "network_id"
-    game_net->set_max_players_preference(online::net_max_players());
+    game_net->set_max_players_preference(online::net_game_state().net_max_players());
     gsl::owner<script::Struct*> teams = script::new_struct();
-    switch (online::network_team_mode()) {
+    switch (online::net_game_state().network_team_mode()) {
     case 0:
         set_choice_preference(teams, "None", "teams_none");
         break; // "None", teams_none
@@ -638,7 +639,7 @@ void init_beenox_preferences()
     prefs->change_setting(get_checksums("team_mode"), teams); // "team_mode"
     script::free_struct(teams);
     gsl::owner<script::Struct*> skill = script::new_struct();
-    switch (online::net_skill_level()) {
+    switch (online::net_game_state().net_skill_level()) {
     case 1:
         set_choice_preference(skill, "1: Baby Steps", "num_1");
         break; // "1: Baby Steps", num_1

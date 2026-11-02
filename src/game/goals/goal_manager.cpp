@@ -36,6 +36,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 namespace goals {
@@ -62,8 +63,7 @@ constexpr uint8_t kGroupGoals = 8;    // (its message group)
 
 const char* const kSpecialGap = "special_gap"; // "special_gap"
 
-online::Hub* net_session_slot() { return online::online_hub(); }
-
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 void remove_objective_npc(ObjectiveNpc* ped) { ped->remove_objective_npc(); }
 void hide_goal_ped(ObjectiveNpc* ped, bool hide) { ped->conceal(hide); }

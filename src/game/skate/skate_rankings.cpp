@@ -24,6 +24,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/format.h"
+#include "engine/net/net_game_state.h"
 
 namespace modules {
 
@@ -47,7 +48,7 @@ constexpr uint32_t kNetKing = 0x6EF8FDA0;           // netking
 constexpr uint32_t kKing = 0x5D32129C;              // king
 constexpr uint32_t kFirstLine = 0x00039447;         // the first score line's id
 
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 bool is_crown_rule_active()
 {
     return goals::game_mode()->get_name_key() == kNetKing || goals::game_mode()->get_name_key() == kKing;

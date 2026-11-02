@@ -23,6 +23,7 @@
 #include "engine/pad_input/device.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/net/net_game_state.h"
 
 namespace frontend::new_frontend::game_screens {
 
@@ -83,7 +84,7 @@ bool net_session()
     if (net::Hub* net = net::Hub::sole())
         if (net->is_online())
             return true;
-    if (void* game_net = online::online_hub())
+    if (void* game_net = online::net_game_state().online_hub())
         if (static_cast<online::Hub*>(game_net)->in_net_game())
             return true;
     return active_ruleset_label().starts_with("net");

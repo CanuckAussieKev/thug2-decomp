@@ -35,6 +35,7 @@
 #include "wire/play_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/down_cast.h"
+#include "engine/net/net_game_state.h"
 
 namespace objects {
 
@@ -70,8 +71,7 @@ constexpr float kAbovePed = 30.0f; // 0x00646240: the ped's middle, above its po
 using online::kMsgHit;
 using online::kMsgHitOwner;
 
-online::Hub* net_session_slot() { return online::online_hub(); }
-
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 // The skate module's local skater (0x00566520, a register stub on our side).
 Rider* local_skater() { return modules::Skate::sole()->get_home_rider(); }

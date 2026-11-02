@@ -62,6 +62,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 
 namespace frontend::level_editor::layout {
 
@@ -714,7 +715,7 @@ LayoutSave& layout_save()
 // The network game (online::Hub 0x007CCE14, 0x0044E4F0: a network game is on - host or client).
 bool in_net_game()
 {
-    void* net = online::online_hub();
+    void* net = online::net_game_state().online_hub();
     return net && static_cast<online::Hub*>(net)->in_net_game();
 }
 

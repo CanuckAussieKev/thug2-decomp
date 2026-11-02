@@ -47,7 +47,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's own)
 
@@ -89,10 +89,8 @@ constexpr uint32_t kPlayerObserverCounted = 0x08; // (0x005434C0: an observer re
 constexpr uint32_t kNewPlayerCounted = 0x18;
 constexpr uint32_t kNewPlayerObserver = 0x04;
 
-Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
-std::array<QueuedPacket, 200>& get_queue() { return gamenet_lobby_cfuncs_shared().queued_packets_; }
-int& queued_count() { return gamenet_lobby_cfuncs_shared().queued_count_; }
+
 RoomManager* task_lobby(tasks::Task<RoomManager>* task) { return task->content_; }
 
 // The heaps the lobby's SDK work allocates from.
@@ -115,9 +113,9 @@ void game_free(gsl::owner<void*> memory) { crt::dealloc(memory); }
 // The queue emptied (its copies freed).
 void clear_queue()
 {
-    for (int i = 0; i < queued_count(); ++i)
-        game_free(memory::owned_element(core::at(get_queue(), i).data));
-    queued_count() = 0;
+    for (int i = 0; i < net_game_state().queued_count(); ++i)
+        game_free(memory::owned_element(core::at(net_game_state().get_queue(), i).data));
+    net_game_state().queued_count() = 0;
 }
 
 // The SDKs (gamespy.h).
@@ -153,11 +151,6 @@ GamenetLobbyPeerState& gamenet_lobby_peer_state()
 }
 
 } // namespace
-GamenetLobbyPeerShared& gamenet_lobby_peer_shared()
-{
-    static core::NoDestroy<GamenetLobbyPeerShared> state;
-    return state.get();
-}
 
 // 0x0053F570
 void RoomManager::disconnected_callback(void*, const char* reason, void* param)
@@ -181,7 +174,7 @@ void RoomManager::disconnected_callback(void*, const char* reason, void* param)
 // 0x0053F6C0
 void RoomManager::queue_packet(const uint8_t* data, int length, const void* from)
 {
-    if (queued_count() >= kMaxQueued)
+    if (net_game_state().queued_count() >= kMaxQueued)
         return;
     // (a byte of the packet; the original read the one or two bytes it asked for even past a shorter packet: 0 here)
     const std::span<const uint8_t> bytes(data, length > 0 ? static_cast<size_t>(length) : 0);
@@ -193,27 +186,27 @@ void RoomManager::queue_packet(const uint8_t* data, int length, const void* from
         type = kPacketNatNegotiation;
     else
         return;
-    QueuedPacket& packet = core::at(get_queue(), queued_count());
+    QueuedPacket& packet = core::at(net_game_state().get_queue(), net_game_state().queued_count());
     packet.data = static_cast<char*>(game_malloc(length + 1));
     std::memcpy(packet.data, data, length);
     core::at(std::span<char>(packet.data, static_cast<size_t>(length) + 1), static_cast<size_t>(length)) = '\0';
     std::memcpy(packet.from.data(), from, sizeof(packet.from));
     packet.type = type;
     packet.length = length;
-    ++queued_count();
+    ++net_game_state().queued_count();
 }
 
 // 0x0053FB80
 void RoomManager::player_key_callback(void*, int key, int index, void* buffer, void*)
 {
-    gamenet_lobby_peer_shared().game_posted_ = true;
+    net_game_state().set_game_posted(true);
     if (key == kKeyPing) {
         buffer_add(buffer, "");
         return;
     }
     if (key != kKeyForPlayer && key != kKeyRating)
         return;
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     int count = 0;
     PlayerSearch search;
     NewPlayerSearch new_search;
@@ -250,7 +243,7 @@ void RoomManager::player_key_callback(void*, int key, int index, void* buffer, v
 // 0x0053FDA0
 void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, void* param)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     FriendsManager* buddy = manager->presence_service_.get();
     if (!manager->get_on_server())
         return;
@@ -276,7 +269,7 @@ void RoomManager::get_nick_error_callback(void* peer, int type, const char* nick
     push_internet_heap();
     std::array<char, 128> retry{};
     if (type == kNickInUse) {
-        const char* id = net_session_slot()->get_online_settings()->get_preference_string(kNetworkId, kUiString);
+        const char* id = net_game_state().net_session_slot()->get_online_settings()->get_preference_string(kNetworkId, kUiString);
         debug::printf("Nick Error. Nick %s In Use\n", nick);
         text::format_to(retry, "a%d_%s", frame_clock::get_time(), id);
         game_spy::peer_retry_with_nick(peer, static_cast<const char*>(retry.data())); // retried with that nick
@@ -334,8 +327,8 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
     const RoomManager* lobby = task_lobby(task);
     const uint32_t now = frame_clock::get_time();
     push_internet_heap();
-    for (int i = 0; i < queued_count(); ++i) {
-        QueuedPacket& packet = core::at(get_queue(), i);
+    for (int i = 0; i < net_game_state().queued_count(); ++i) {
+        QueuedPacket& packet = core::at(net_game_state().get_queue(), i);
         if (packet.type == kPacketQuery)
             game_spy::peer_parse_query(lobby->remote_, static_cast<char*>(packet.data), packet.length,
                                        static_cast<void*>(packet.from.data()));
@@ -343,9 +336,9 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
             game_spy::nat_process_data(static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from.data()));
         game_free(memory::owned_element(packet.data)); // (the queue's copy)
     }
-    queued_count() = 0;
-    Hub* manager = net_session_slot();
-    if (!gamenet_lobby_peer_shared().game_posted_ && manager->in_net_game() && manager->get_on_server()) { // not reported yet
+    net_game_state().queued_count() = 0;
+    Hub* manager = net_game_state().net_session_slot();
+    if (!net_game_state().game_posted() && manager->in_net_game() && manager->get_on_server()) { // not reported yet
         if (now - gamenet_lobby_peer_state().hosting_since_ > kNotPostedTime) {
             if (!gamenet_lobby_peer_state().not_posted_shown_) {
                 get_run(kCreateNotPostedDialog);
@@ -363,7 +356,7 @@ void RoomManager::query_task(tasks::Task<RoomManager>* task)
 void RoomManager::start_hosting()
 {
     tasks::PileUp* tasks = get_logic_tasks();
-    net::AppHost* server = net_session_slot()->host_;
+    net::AppHost* server = net_game_state().net_session_slot()->host_;
     server->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
     clear_queue();
     if (game_spy::peer_start_reporting_with_socket(remote_, server->get_socket(), static_cast<int>(kHostPort)) ==
@@ -371,10 +364,10 @@ void RoomManager::start_hosting()
         peer_state_changed(remote_);
     const uint32_t now = frame_clock::get_time();
     gamenet_lobby_peer_state().hosting_since_ = now;    // hosting since
-    gamenet_lobby_peer_shared().connection_timer_ = now; // the connection timer
+    net_game_state().set_connection_timer(now); // the connection timer
     gamenet_lobby_peer_state().last_report_time_ = now; // reported last
     gamenet_lobby_peer_state().not_posted_shown_ = false;
-    gamenet_lobby_peer_shared().game_posted_ = false;
+    net_game_state().set_game_posted(false);
     tasks->queue_job(hosting_task_.get());
     hosting_ = true;
 }
@@ -382,7 +375,7 @@ void RoomManager::start_hosting()
 // 0x00540300
 void RoomManager::nat_negotiation_completed(int result, int, const void* address, int user_data)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     if (result == kNatSuccess && !manager->get_on_server()) { // the client joins at the address found
         // (the SDK's sockaddr_in: the family, the port in network order, the address as it is in memory)
         util::ByteReader sockaddr(address, 8);
@@ -427,7 +420,7 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->internet_bottom_up_heap_);
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     std::array<char, 128> nick{};
     std::strcpy(nick.data(), manager->get_online_settings()->get_preference_string(kNetworkId, kUiString));
     auto* lobby = static_cast<RoomManager*>(lobby_data);
@@ -445,7 +438,7 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
 void RoomManager::hole_punch_result_fn(void*, int cookie, void*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
-    const Hub* manager = net_session_slot();
+    const Hub* manager = net_game_state().net_session_slot();
     if (manager->lobby_service_->negotiations_ != 0)
         return; // (one at a time)
     net::AppHost* server = manager->host_;

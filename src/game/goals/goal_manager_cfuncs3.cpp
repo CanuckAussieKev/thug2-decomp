@@ -25,6 +25,7 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/down_cast.h"
+#include "engine/net/net_game_state.h"
 
 namespace goals {
 
@@ -74,8 +75,7 @@ constexpr uint32_t kRewardPoints = 0xBAFFB052;       // reward_points
 
 constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of its chain) started
 
-online::Hub* net_session_slot() { return online::online_hub(); }
-
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 uint32_t get_goal_name(script::Struct* params)
 {

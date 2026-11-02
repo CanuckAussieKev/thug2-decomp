@@ -41,8 +41,7 @@
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
 #include "engine/core/down_cast.h"
-#include "engine/core/no_destroy.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the player's name)
 
@@ -69,7 +68,6 @@ constexpr uint32_t kPlayerMarked = 0x400; // chosen in the kick / ban menu
 constexpr int kDropBanned = 3;
 constexpr int kDropKicked = 4;
 
-Hub* net_session_slot() { return gamenet_player_lists_shared().online_hub_; }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 
 // The flag message (took / captured): the player's object id and the team, to every remote player through the server;
@@ -134,7 +132,7 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
 // 0x0053B450
 bool cfunc_player_took_flag(script::Struct* params, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     int player = 0;
     int team = 0;
     params->fetch_int_value(kPlayer, &player, 0);
@@ -148,7 +146,7 @@ bool cfunc_player_took_flag(script::Struct* params, script::Script*)
 // 0x0053B5A0
 bool cfunc_player_captured_flag(script::Struct* params, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 0);
     PlayerRecord* capturer = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
@@ -168,7 +166,7 @@ bool cfunc_player_captured_flag(script::Struct* params, script::Script*)
 // 0x0053B710
 bool cfunc_player_retrieved_flag(script::Struct* params, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     int player = 0;
     int team = 0;
     params->fetch_int_value("player", &player, 0);
@@ -184,7 +182,7 @@ bool cfunc_player_has_flag(script::Struct* params, script::Script*)
 {
     int player = 0;
     params->fetch_int_value("player", &player, 0);
-    PlayerRecord* found = net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(player));
+    PlayerRecord* found = net_game_state().net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (!found)
         return true;
     return found->is_carrying_flag() != 0; // (flags 0x7800: a team's flag)
@@ -193,7 +191,7 @@ bool cfunc_player_has_flag(script::Struct* params, script::Script*)
 // 0x0053B8A0
 bool cfunc_get_num_players_on_team(script::Struct* params, script::Script* script)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     int team = 0;
     params->fetch_int_value("team", &team, 1);
     script->args_->put_int("num_members", manager->count_team_players(team));
@@ -205,7 +203,7 @@ bool cfunc_get_players_team(script::Struct* params, script::Script* script)
 {
     int id = 0;
     params->fetch_int_value(kObjId, &id, 0);
-    const PlayerRecord* player = net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+    const PlayerRecord* player = net_game_state().net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
     if (player)
         script->args_->put_int("team", player_team(player));
     return true;
@@ -214,7 +212,7 @@ bool cfunc_get_players_team(script::Struct* params, script::Script* script)
 // 0x0053B940
 bool cfunc_exit_surveyor_mode(script::Struct*, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     PlayerRecord* local = find_own_player_record(manager);
     if (!local)
         return false;
@@ -236,28 +234,19 @@ bool cfunc_set_host_mode(script::Struct* params, script::Script*)
 {
     int mode = 0;
     params->fetch_int_value(0u, &mode, 0);
-    net_session_slot()->set_host_mode(mode);
+    net_game_state().net_session_slot()->set_host_mode(mode);
     return true;
 }
-
-GamenetGameCfuncsShared& gamenet_game_cfuncs_shared()
-{
-    static core::NoDestroy<GamenetGameCfuncsShared> state;
-    return state.get();
-}
-
-bool text_entry() { return gamenet_game_cfuncs_shared().text_entry_; }
-void set_text_entry(bool value) { gamenet_game_cfuncs_shared().text_entry_ = value; }
 
 // 0x0053D440
 bool cfunc_entered_network_game(script::Struct*, script::Script*)
 {
-    Hub* manager = net_session_slot();
-    if (gamenet_players_shared().online_active_) // (on the internet: the server's GameSpy reporting)
+    Hub* manager = net_game_state().net_session_slot();
+    if (net_game_state().online_active()) // (on the internet: the server's GameSpy reporting)
         start_query_reporting(false);
     tasks::PileUp* tasks = get_logic_tasks();
     tasks->queue_job(manager->keyboard_job_.get());
-    gamenet_game_cfuncs_shared().text_entry_ = true;
+    net_game_state().set_text_entry(true);
     tasks->queue_job(manager->score_broadcast_job_.get());
     manager->show_scores_ = true;
     return true;
@@ -266,7 +255,7 @@ bool cfunc_entered_network_game(script::Struct*, script::Script*)
 // 0x0053D490
 bool cfunc_kick_player(script::Struct*, script::Script*)
 {
-    kick_or_ban(net_session_slot(), kDropKicked, 0);
+    kick_or_ban(net_game_state().net_session_slot(), kDropKicked, 0);
     return true;
 }
 
@@ -275,7 +264,7 @@ bool cfunc_ban_player(script::Struct*, script::Script*)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap_);
-    kick_or_ban(net_session_slot(), kDropBanned, 1);
+    kick_or_ban(net_game_state().net_session_slot(), kDropBanned, 1);
     memory::Hub::get_pull()->leave_heap_scope();
     return true;
 }
@@ -283,7 +272,7 @@ bool cfunc_ban_player(script::Struct*, script::Script*)
 // 0x0053D760
 bool cfunc_cancel_join_server(script::Struct*, script::Script*)
 {
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     manager->cancel_join();
     manager->join_phase_ = 10;
     return true;
@@ -293,7 +282,7 @@ bool cfunc_cancel_join_server(script::Struct*, script::Script*)
 bool cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
-    Hub* manager = net_session_slot();
+    Hub* manager = net_game_state().net_session_slot();
     pad_input::Hub* input = pad_input::get_input_manager();
     PlayerRecord* local = find_own_player_record(manager);
     if (is_observer(local) || (local->flag_bits_ & kPlayerSurveying))
@@ -309,7 +298,7 @@ bool cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
 // 0x0053EA20
 bool cfunc_drop_pending_players(script::Struct*, script::Script*)
 {
-    net_session_slot()->drop_players_not_ready();
+    net_game_state().net_session_slot()->drop_players_not_ready();
     return true;
 }
 

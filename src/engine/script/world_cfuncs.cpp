@@ -21,6 +21,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/down_cast.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -94,7 +95,7 @@ bool cfunc_un_pause_skaters(Struct*, Script*)
 // 0x005A5480
 bool cfunc_skaters_are_ready(Struct*, Script*)
 {
-    if (!online::online_hub()->cleared_to_start_)
+    if (!online::net_game_state().online_hub()->cleared_to_start_)
         return false;
     if (modules::Skate::sole()->count_riders() > 0)
         return true;

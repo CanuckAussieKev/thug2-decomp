@@ -20,7 +20,6 @@
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"
 #include "frontend/screen_element.h"
-#include "engine/net/gamenet_game_cfuncs.h"
 #include "game/skate/profile_manager.h"
 #include "platform/platform.h"
 #include "platform/platform_input.h"
@@ -42,6 +41,7 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/net/net_game_state.h"
 
 namespace sio {
 
@@ -306,7 +306,7 @@ namespace {
 // Whether typed keys are wanted: the keyboard is being typed on (0x007CE46E), or text entry is on
 // (0x007CCDF8) outside a menu (0x007CE46F). PartyMod sets the last two for its text input.
 bool& keyboard_typing() { return keyboard_on_screen_flag(); }
-bool text_entry() { return online::text_entry(); }
+bool text_entry() { return online::net_game_state().text_entry(); }
 bool& in_menu() { return menu_flag(); }
 } // namespace
 

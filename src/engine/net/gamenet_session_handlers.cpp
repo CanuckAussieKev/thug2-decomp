@@ -50,8 +50,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
-#include "engine/core/no_destroy.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
 
@@ -365,12 +364,6 @@ int handle_host_options(net::InboundMsgCtx* context)
 
 // 0x0052F4A0 is the level change's wait task (gamenet_tasks.cpp).
 
-GamenetSessionHandlersShared& gamenet_session_handlers_shared()
-{
-    static core::NoDestroy<GamenetSessionHandlersShared> state;
-    return state.get();
-}
-
 // 0x005311F0
 int on_level_switch_msg(net::InboundMsgCtx* context)
 {
@@ -393,7 +386,7 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
     }
     const uint32_t old_level = manager->level_;
     manager->level_ = message.level;
-    gamenet_session_handlers_shared().level_change_time_ = frame_clock::get_time() + 3000; // when to change
+    net_game_state().level_change_time() = frame_clock::get_time() + 3000; // when to change
     if (manager->get_on_server()) {
         script::StructPtr params = script::make_struct();
         params->append_word(kUiString, script::kQbvalString, manager->get_map_name(false));
@@ -401,7 +394,7 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
         manager->get_online_settings()->change_setting(kLevel, params.get());
         params.reset();
         if (manager->level_ == kLoadSk5edGameplay)
-            gamenet_session_handlers_shared().level_change_time_ += 1000;
+            net_game_state().level_change_time() += 1000;
     } else if (old_level == kLoadSk5edGameplay && manager->level_ != old_level) {
         park_editing::RailAuthoring::sole()->get_clear(); // the created park's rails gone
     }

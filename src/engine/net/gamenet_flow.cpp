@@ -42,7 +42,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/no_destroy.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
 
@@ -164,12 +164,6 @@ void Hub::reset_to_lobby()
     lobby_since_ = frame_clock::get_time(); // (back in the lobby: auto-serve waits from here)
 }
 
-GamenetFlowShared& gamenet_flow_shared()
-{
-    static core::NoDestroy<GamenetFlowShared> state;
-    return state.get();
-}
-
 namespace {
 // NOT ORIGINAL grouping - gamenet_flow.cpp's state (the original's globals). Made on first use, never destroyed
 // (gamenet_flow_state()).
@@ -185,9 +179,6 @@ GamenetFlowState& gamenet_flow_state()
 }
 
 } // namespace
-
-bool cheat_flag() { return gamenet_flow_shared().cheat_flag_; }
-void set_cheat_flag(bool value) { gamenet_flow_shared().cheat_flag_ = value; }
 
 // 0x0053B0D0
 void Hub::start_network_game()
@@ -252,7 +243,7 @@ void Hub::start_network_game()
     last_leading_team_ = -1; // the last leading team
     clear_queued_scripts();
     clear_roster();
-    gamenet_flow_shared().cheat_flag_ = false;
+    net_game_state().set_cheat_flag(false);
     if (rating_service_->update_logged_in())
         rating_service_->start_game();
 }
@@ -278,7 +269,7 @@ void Hub::cancel_join()
 // 0x0053BED0
 void Hub::observer_task(tasks::Task<PlayerRecord>*)
 {
-    Hub* manager = gamenet_player_lists_shared().online_hub_;
+    Hub* manager = net_game_state().net_session_slot();
     if (manager->spectate_request_ == 1) { // (the next player asked for)
         manager->spectate_player(manager->next_cam_player());
         manager->spectate_request_ = 0;
@@ -308,7 +299,7 @@ void Hub::observer_input(pad_input::Responder<Hub>* input)
 void Hub::auto_serve_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
-    if (frame_clock::get_time() - gamenet_flow_shared().auto_serve_start_ < kAutoServeWait || get_game_type() != kNetLobby ||
+    if (frame_clock::get_time() - net_game_state().auto_serve_start() < kAutoServeWait || get_game_type() != kNetLobby ||
         manager->count_players() < 2 || manager->awaiting_start_ ||
         frame_clock::get_time() - manager->lobby_since_ <= kAutoServeIdle)
         return;
@@ -393,7 +384,7 @@ void Hub::start_game_task(tasks::Task<Hub>* task)
         return;
     }
     if (cfunc_all_players_are_ready(nullptr, nullptr) &&    // (the script command, without parameters)
-        frame_clock::get_time() >= gamenet_commands_shared().net_game_start_time_) { // every one ready, and the time has come
+        frame_clock::get_time() >= net_game_state().net_game_start_time()) { // every one ready, and the time has come
         waiting_shown = false;
         manager->start_network_game();
         manager->start_game_job_->drop_out();

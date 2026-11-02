@@ -39,6 +39,7 @@
 #include "engine/lists/chain_start.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 
 namespace objects {
 
@@ -76,7 +77,7 @@ std::array<uint8_t, TrickSpotHub::kMaxLoggedClusters>& dirty_clusters()
 // The game mode (0x007CE470) and the network manager's players (0x007CCE14), walked with a lists::Hunt<PlayerRecord>
 // (vtable 0x0064C1A8).
 void* get_game_mode() { return static_cast<void*>(goals::game_mode()); }
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 using PlayerSearch = online::PlayerSearch;
 using online::PlayerRecord;
 PlayerRecord* start_roster_sweep(PlayerSearch* search) { return net_session_slot()->begin_player_walk(search, false); }

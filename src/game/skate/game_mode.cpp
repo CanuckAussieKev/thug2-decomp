@@ -20,6 +20,7 @@
 #include "game/goals/goal_manager.h"
 #include "platform/all_ones.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 namespace goals {
@@ -89,7 +90,7 @@ uint32_t& ref_tally()
     static uint32_t game_mode_references{};
     return game_mode_references;
 }
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 // The goal manager (0x005591B0): 0x0055DC30 how many goals (`active`...) and 0x0055E980 its current net goal.
 void* objective_board() { return get_objective_board(); }

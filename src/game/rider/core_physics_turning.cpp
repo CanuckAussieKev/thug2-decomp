@@ -21,12 +21,12 @@
 #include "game/rider/balance_trick.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
-#include "engine/net/gamenet_manager.h"
 #include "game/rider/skater_score.h"
 #include "engine/objects/movable_contact.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/trick_component.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 
 namespace skater {
 
@@ -216,7 +216,7 @@ void SkaterPhysicsModule::natas_spin()
         career->set_global_flag(script::fetch_int_value(kPerfectRail));
         balance_->lip_.lean_ = 0.0f;
         balance_->lip_.lean_speed_ = 0.0f;
-        online::set_cheat_flag(true);
+        online::net_game_state().set_cheat_flag(true);
     }
     balance_->lip_.tick_frame();
     const float factor = script::fetch_float(kNatasSpinFactor);

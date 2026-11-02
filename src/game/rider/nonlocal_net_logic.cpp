@@ -34,6 +34,7 @@
 #include "engine/gfx/model.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 
 namespace objects {
 
@@ -377,7 +378,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
 // 0x00517270
 void RiderRemoteSync::tick_frame()
 {
-    auto* net_manager = online::online_hub();
+    auto* net_manager = online::net_game_state().online_hub();
     frame_seconds_ = static_cast<float>(frame_clock::get_frame_seconds());
     const int state = pose_->cur_phase_;
     const bool was_lip = state == kStateLip;
@@ -394,7 +395,7 @@ void RiderRemoteSync::tick_frame()
     auto* player = static_cast<online::PlayerRecord*>(net_manager->get_own_player());
     if (!player->is_observer() && !player->is_scouting_level()) {
         void* game_mode = static_cast<void*>(goals::game_mode());
-        const bool extrapolate = online::online_hub()->players_can_collide() ||
+        const bool extrapolate = online::net_game_state().online_hub()->players_can_collide() ||
                                  static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kNetFirefight ||
                                  static_cast<goals::MatchRules*>(game_mode)->get_name_key() == kFirefight;
         if (extrapolate && past_frames_->state_count_ >= kHistory) {

@@ -20,6 +20,7 @@
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 
 namespace commands {
 
@@ -54,7 +55,7 @@ constexpr uint8_t kMsgObjectPlacements = online::kMsgHuntPlacements; // a player
 using online::kMsgProjectile;                                        // BroadcastProjectile
 constexpr uint8_t kGroupGame = 8;
 
-Hub* net_session_slot() { return online::online_hub(); }
+Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 // A hunt player's placed objects: how many (+0x34) and where (+0x180, 16 bytes each).
 int& placed_count(online::PlayerRecord* player) { return player->num_placed_; }

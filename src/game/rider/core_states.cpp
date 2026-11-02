@@ -21,11 +21,11 @@
 #include "game/rider/rider.h"
 #include "game/rider/trick_component.h"
 #include "game/skate/skate_module.h"
-#include "engine/net/gamenet_manager.h"
 #include "engine/objects/trigger_events.h"
 #include "game/rider/balance_trick.h"
 #include "game/rider/walk_physics.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 
 namespace skater {
 
@@ -79,7 +79,7 @@ void SkaterPhysicsModule::step_coping_move()
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
             balance_->lip_.lean_ = 0.0f;
             balance_->lip_.lean_speed_ = 0.0f;
-            online::set_cheat_flag(true);
+            online::net_game_state().set_cheat_flag(true);
         }
         balance_->lip_.tick_frame();
     }

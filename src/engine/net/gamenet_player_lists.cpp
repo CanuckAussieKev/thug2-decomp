@@ -61,8 +61,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
-#include "engine/net/shared_state.h"
-#include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
 
@@ -567,10 +566,10 @@ void Hub::disconnect_clients()
         delete spectator_pad_listener_;
         spectator_pad_listener_ = nullptr;
     }
-    gamenet_game_cfuncs_shared().text_entry_ = false;
-    if (gamenet_members_shared().query_reporting_) {
+    net_game_state().set_text_entry(false);
+    if (net_game_state().query_reporting()) {
         game_spy::get_qr2_shutdown(nullptr);
-        gamenet_members_shared().query_reporting_ = false;
+        net_game_state().set_query_reporting(false);
     }
     game_spy::cd_key_disconnect_all(1003);
     keyboard_job_->drop_out();
@@ -766,21 +765,13 @@ PlayerRecord* Hub::next_cam_player()
     return nullptr;
 }
 
-GamenetPlayerListsShared& gamenet_player_lists_shared()
-{
-    static core::NoDestroy<GamenetPlayerListsShared> state;
-    return state.get();
-}
-
-Hub* online_hub() { return gamenet_player_lists_shared().online_hub_; }
-
 // 0x00539610 (a task's code: the manager's flag task): in capture the flag, each flag a player (no observers)
 // carries (flags 0x7800) put on the carrier's head - the flag object of the team it belongs to (TRG_CTF_Red / Blue /
 // Green / Yellow; none: the task stops for the frame) gets the head bone's matrix, turned 90 degrees about x and
 // raised 12, then the skater's own matrix; its position the bone's offset transformed, plus the skater's position.
 void carried_flags_task(tasks::Task<Hub>*)
 {
-    Hub* manager = gamenet_player_lists_shared().online_hub_;
+    Hub* manager = net_game_state().net_session_slot();
     PlayerSearch search;
     if (get_game_type() != kNetCtf)
         return;
@@ -831,17 +822,17 @@ void carried_flags_task(tasks::Task<Hub>*)
 // 0x005395C0 (no `this`): the manager released - its reference count (0x007CCE18) down, or (the last) destroyed.
 void release_manager()
 {
-    uint32_t& references = gamenet_manager_create_shared().game_net_references_;
+    uint32_t& references = net_game_state().game_net_references();
     if (references > 1) {
         --references;
         return;
     }
-    Hub* manager = gamenet_player_lists_shared().online_hub_;
+    Hub* manager = net_game_state().net_session_slot();
     if (manager) {
         manager->~Hub();
         memory::Hub::get_pull()->dealloc(manager);
     }
-    gamenet_player_lists_shared().online_hub_ = nullptr;
+    net_game_state().set_online_hub(nullptr);
     references = 0;
 }
 

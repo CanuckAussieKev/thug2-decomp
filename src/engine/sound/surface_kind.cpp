@@ -25,6 +25,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 #include <string_view>
 
@@ -362,7 +363,7 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
     if (sound::no_sound())
         return;
     sound::AudioMixer* sounds = sound_manager();
-    void* net = online::online_hub();
+    void* net = online::net_game_state().online_hub();
     Struct* sound_actions = nullptr;
     if (!get_terrain_structure_into(&sound_actions, terrain, kSoundActions))
         return;

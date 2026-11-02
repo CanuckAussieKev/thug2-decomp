@@ -59,6 +59,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 namespace commands {
 
@@ -782,7 +783,7 @@ bool set_node_terrain(uint32_t name, script::Struct* params)
 // hidden for the second viewport when it's the second skater's script in a two-viewport game.
 bool node_command(uint32_t name, int action, script::Script* script, script::Struct* params)
 {
-    online::Hub* game_net = online::online_hub();
+    online::Hub* game_net = online::net_game_state().online_hub();
     if (game_net->is_network_game() && skips_node(level_nodes::fetch_vertex(name, true)))
         return false;
     int second_viewport = 0;

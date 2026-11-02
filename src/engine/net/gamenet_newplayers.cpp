@@ -38,7 +38,7 @@
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
@@ -61,7 +61,6 @@ constexpr uint32_t kVehicleComponent = 0x18223FD6; // SkaterStateHistory (its ve
 constexpr uint32_t kResyncedPlayers = 0x1D02CE3B;  // (run after a resync)
 
 Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
-
 
 // The skate module's list of skaters (its head at +0x28): how many.
 int skater_count(modules::Skate* skate)
@@ -420,9 +419,9 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
         }
     }
     memory::Hub::get_pull()->leave_heap_scope();
-    Hub* global = gamenet_player_lists_shared().online_hub_;
+    Hub* global = net_game_state().net_session_slot();
     global->update_lobby_server();
-    if (gamenet_players_shared().online_active_ && global->in_net_game() && gamenet_members_shared().query_reporting_)
+    if (net_game_state().online_active() && global->in_net_game() && net_game_state().query_reporting())
         game_spy::qr2_send_state_changed(nullptr); // qr2_send_statechanged
 }
 

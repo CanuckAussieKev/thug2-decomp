@@ -37,6 +37,7 @@
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 namespace script {
@@ -74,7 +75,7 @@ uint32_t current_object_id(objects::Entity* object) { return object->ident_; }
 
 // The network game (online::Hub 0x007CCE14).
 using NetSessionSlot = online::Hub;
-NetSessionSlot* net_link() { return static_cast<NetSessionSlot*>(online::online_hub()); }
+NetSessionSlot* net_link() { return static_cast<NetSessionSlot*>(online::net_game_state().online_hub()); }
 // 0x0044E4F0: whether a network game is on.
 bool in_net_game(NetSessionSlot* net) { return net->in_net_game(); }
 // 0x00532EA0: the client connection `index` (+0x08 + 4 * index).

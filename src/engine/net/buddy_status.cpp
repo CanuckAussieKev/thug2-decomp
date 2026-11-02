@@ -19,7 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/winmain.h"
 #include "engine/core/format.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
 
@@ -32,9 +32,8 @@ constexpr uint32_t kString = 0x61414D56;   // string
 constexpr int kStatusOnline = 1;
 constexpr int kStatusChatting = 4;
 
-Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-FriendsManager* get_buddies() { return the_manager()->presence_service_.get(); }
+FriendsManager* get_buddies() { return net_game_state().the_manager()->presence_service_.get(); }
 
 void unlink_node(memory::ListNode* node)
 {
@@ -70,7 +69,7 @@ std::array<char, 16>& command_line_password()
 // 0x00548140
 unsigned long __stdcall FriendsManager::login_thread(void* man)
 {
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     prefs::Preferences* preferences = manager->get_online_settings();
     const char* email = nullptr;
@@ -94,7 +93,7 @@ unsigned long __stdcall FriendsManager::login_thread(void* man)
 void FriendsManager::send_buddy_message(int profile, const char* text)
 {
     const char* nick = nullptr;
-    the_manager()
+    net_game_state().the_manager()
         ->get_online_settings()
         ->fetch_setting(checksums::hash_from_text("network_id"))
         ->fetch_text(kUiString, &nick, 1);
@@ -138,7 +137,7 @@ bool profile_logged_in(script::Struct* params, script::Script* script)
 bool send_buddy_message(script::Struct* params, script::Script* script)
 {
     (void)script;
-    const Hub* manager = the_manager();
+    const Hub* manager = net_game_state().the_manager();
     const char* text = nullptr;
     params->fetch_text(kString, &text, 0);
     if (!text || !*text)
@@ -154,7 +153,7 @@ bool set_lobby_status(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
-    const Hub* manager = the_manager();
+    const Hub* manager = net_game_state().the_manager();
     const char* lobby = manager->lobby_service_->room_name_.data(); // (0x0053F820)
     const char* text = script::fetch_text("homie_status_chatting");
     FriendsManager* buddies = manager->presence_service_.get();

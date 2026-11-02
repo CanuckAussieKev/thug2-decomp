@@ -17,8 +17,6 @@ namespace online {
 
 class Hub; // the network game manager (not decompiled yet; one instance, see fetch_hub)
 
-Hub* fetch_hub();
-
 // Send a chat line to the other players and show it locally, as the local player.
 void send_chat_message(Hub* manager, const char* text);
 

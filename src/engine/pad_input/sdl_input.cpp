@@ -22,7 +22,6 @@
 #include "frontend/new_frontend.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
-#include "engine/net/gamenet_game_cfuncs.h"
 #include "engine/pad_input/device.h"
 #include "game/rider/thaw_bmx.h"
 #include "platform/platform_config.h"
@@ -34,6 +33,7 @@
 #include "platform/platform_input.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 
 namespace sio {
 
@@ -1103,7 +1103,7 @@ void process_sdl_device(InputPort* device)
     device->start_or_a_ = ((~core::at(data, 2) & (1 << 3)) || (~core::at(data, 3) & (1 << 6))) ? 1 : 0;
 
     // (typed text only works with these set)
-    online::set_text_entry(true);
+    online::net_game_state().set_text_entry(true);
     screen_flags().in_menu_flag_ = false;
 }
 

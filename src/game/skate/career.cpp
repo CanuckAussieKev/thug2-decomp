@@ -16,8 +16,8 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
-#include "engine/net/gamenet_manager.h"
 #include "engine/core/checked_index.h"
+#include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -294,7 +294,7 @@ bool RiderStoryProgress::is_code_on(uint32_t name)
 {
     const int flag = script::fetch_int_value(name);
     const bool on = (core::at(global_flags_, get_word(flag)) & get_bit(flag)) != 0;
-    online::set_cheat_flag(on);
+    online::net_game_state().set_cheat_flag(on);
     return on;
 }
 

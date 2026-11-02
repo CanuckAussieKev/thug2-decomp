@@ -13,13 +13,13 @@
 #include "game/skate/career.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
-#include "engine/net/gamenet_manager.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/rider.h"
 #include "engine/core/down_cast.h"
+#include "engine/net/net_game_state.h"
 
 namespace objects {
 
@@ -101,7 +101,7 @@ void RiderPointKeeper::tick_frame()
     if (always_special) {
         get_career()->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));
         get_score_of(points_held_)->fill_special();
-        online::set_cheat_flag(true);
+        online::net_game_state().set_cheat_flag(true);
     }
 }
 

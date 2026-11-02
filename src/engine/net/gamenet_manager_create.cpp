@@ -29,8 +29,7 @@
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
 #include "engine/core/checked_index.h"
-#include "engine/core/no_destroy.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
 
@@ -127,21 +126,16 @@ Hub::Hub()
     core::at(challenge_, kChallengeLength) = '\0';
 }
 
-GamenetManagerCreateShared& gamenet_manager_create_shared()
-{
-    static core::NoDestroy<GamenetManagerCreateShared> state;
-    return state.get();
-}
-
 // 0x0053F520
 Hub* Hub::fabricate(bool create)
 {
-    Hub*& instance = gamenet_player_lists_shared().online_hub_;
+    Hub* instance = net_game_state().net_session_slot();
     if (!instance && create) {
         void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1);
         instance = memory ? memory::construct_in<Hub>(memory) : nullptr;
+        net_game_state().set_net_session_slot(instance);
     }
-    ++gamenet_manager_create_shared().game_net_references_; // (the references)
+    ++net_game_state().game_net_references(); // (the references)
     return instance;
 }
 

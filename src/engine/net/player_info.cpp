@@ -28,7 +28,7 @@
 #include "game/rider/rider.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
-#include "engine/net/shared_state.h"
+#include "engine/net/net_game_state.h"
 
 namespace online {
 
@@ -43,8 +43,6 @@ constexpr uint32_t kSkaterScore = 0xD262802F;  // SkaterScore (the component)
 constexpr uint32_t kNetFirefight = 0xBFF33600; // netfirefight
 
 constexpr uint32_t kHitWindow = 5000; // ms
-
-Hub* the_manager() { return gamenet_player_lists_shared().online_hub_; }
 
 objects::ObjectModule* skater_component(objects::Rider* skater, uint32_t type)
 {
@@ -156,7 +154,7 @@ PlayerRecord* PlayerRecord::teardown(unsigned int flags)
 // 0x005438D0
 void PlayerRecord::bind_rider(objects::Rider* skater)
 {
-    Hub* manager = the_manager();
+    Hub* manager = net_game_state().the_manager();
     skater_ = skater;
     if (!(flag_bits_ & kPlayerLocal) && manager->fetch_viewed_player() == this)
         manager->spectate_player(this); // (the camera follows it again)

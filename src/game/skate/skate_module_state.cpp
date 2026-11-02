@@ -50,6 +50,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/net/net_game_state.h"
 
 namespace modules {
 
@@ -98,7 +99,7 @@ constexpr uint8_t kMsgCreatedGoals = 0x87; // the created goals ("goals data")
 constexpr uint8_t kMsgReadyQuery = 0x25;   // are you ready (a time stamp)
 constexpr uint8_t kGroupGame = 8;
 
-online::Hub* net_session_slot() { return online::online_hub(); }
+online::Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 int& get_refs() { return skate_module_state_state().skate_module_references_; }
 float& next_beep() { return skate_module_state_state().next_beep_; }
