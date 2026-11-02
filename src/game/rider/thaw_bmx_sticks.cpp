@@ -229,10 +229,14 @@ LookInputs d_pad_look_inputs(bool up, bool down, bool left, bool right, bool inv
 }
 
 namespace {
-bool g_dpad_camera = false;
+bool& dpad_camera()
+{
+    static bool dpad_camera{false};
+    return dpad_camera;
+}
 } // namespace
 
-void note_d_pad_camera(bool on) { g_dpad_camera = on; }
-bool d_pad_camera_noted() { return g_dpad_camera; }
+void note_d_pad_camera(bool on) { dpad_camera() = on; }
+bool d_pad_camera_noted() { return dpad_camera(); }
 
 } // namespace skater::thaw_bmx

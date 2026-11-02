@@ -33,12 +33,23 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
 namespace {
-maths::Vec4 g_local_net_position;
-uint32_t g_local_net_guard;
+// NOT ORIGINAL grouping - local_net_logic.cpp's state (the original's globals). Made on first use, never destroyed
+// (local_net_logic_state()).
+struct LocalNetLogicState {
+    maths::Vec4 local_net_position_{};
+    uint32_t local_net_guard_{};
+};
+
+LocalNetLogicState& local_net_logic_state()
+{
+    static core::NoDestroy<LocalNetLogicState> state;
+    return state.get();
+}
 
 namespace thugpro = online::thugpro;
 
@@ -57,7 +68,6 @@ Rider* rider_for_slot(uint32_t id) { return modules::Skate::sole()->get_rider_by
 void* find_own_player_record() { return net_session_slot()->get_own_player(); }
 uint8_t run_count() { return net_session_slot()->get_game_id(); }
 
-
 // The network manager's client app for a skater (0x00532EA0: its +8 + 4 * index) and whether this machine is the
 // server (0x00533F90: its flags' bit 0).
 net::AppHost* client_app(int index) { return net_session_slot()->fetch_patron(index); }
@@ -72,7 +82,6 @@ struct UpdateState {
 };
 
 int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(static_cast<double>(angle) * 4096.0)); }
-
 
 // (shared by both: the original repeats it in each)
 void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateState& out)
@@ -158,10 +167,10 @@ void RiderHostSync::send_update()
     stream.write_bits(flags, 9);
     if (on_server) {
         // (a copy of the server's own skater's position, written and never read: the original's static)
-        uint32_t& guard = g_local_net_guard;
+        uint32_t& guard = local_net_logic_state().local_net_guard_;
         if (!(guard & 1))
             guard |= 1;
-        g_local_net_position = entity_->at_point_;
+        local_net_logic_state().local_net_position_ = entity_->at_point_;
     }
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)

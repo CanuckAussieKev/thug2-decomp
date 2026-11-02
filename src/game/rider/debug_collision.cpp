@@ -66,6 +66,7 @@
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace collision_overlay {
 
@@ -123,31 +124,41 @@ struct Recent {
     DWORD time;
 };
 std::array<Recent, 32> g_recent;
-int g_next_recent = 0;
-DWORD g_second_start = 0;
-int g_lines_this_second = 0;
+// NOT ORIGINAL grouping - debug_collision.cpp's state (the original's globals). Made on first use, never destroyed
+// (debug_collision_state()).
+struct DebugCollisionState {
+    int next_recent_ = 0;
+    DWORD second_start_ = 0;
+    int lines_this_second_ = 0;
+};
+
+DebugCollisionState& debug_collision_state()
+{
+    static core::NoDestroy<DebugCollisionState> state;
+    return state.get();
+}
 
 bool should_log(const void* what, int face)
 {
     const DWORD now = GetTickCount();
-    if (now - g_second_start >= 1000) {
-        g_second_start = now;
-        g_lines_this_second = 0;
+    if (now - debug_collision_state().second_start_ >= 1000) {
+        debug_collision_state().second_start_ = now;
+        debug_collision_state().lines_this_second_ = 0;
     }
-    if (g_lines_this_second >= 8)
+    if (debug_collision_state().lines_this_second_ >= 8)
         return false;
     for (Recent& recent : g_recent) {
         if (recent.what == what && recent.face == face) {
             if (now - recent.time < 2000)
                 return false;
             recent.time = now;
-            ++g_lines_this_second;
+            ++debug_collision_state().lines_this_second_;
             return true;
         }
     }
-    core::at(g_recent, g_next_recent) = {.what = what, .face = face, .time = now};
-    g_next_recent = static_cast<int>((g_next_recent + 1) % (sizeof(g_recent) / sizeof(core::at(g_recent, 0))));
-    ++g_lines_this_second;
+    core::at(g_recent, debug_collision_state().next_recent_) = {.what = what, .face = face, .time = now};
+    debug_collision_state().next_recent_ = static_cast<int>((debug_collision_state().next_recent_ + 1) % (sizeof(g_recent) / sizeof(core::at(g_recent, 0))));
+    ++debug_collision_state().lines_this_second_;
     return true;
 }
 

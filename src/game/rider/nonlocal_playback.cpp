@@ -38,7 +38,11 @@
 namespace objects {
 
 namespace {
-int g_nonlocal_lag;
+int& nonlocal_lag()
+{
+    static int nonlocal_lag{};
+    return nonlocal_lag;
+}
 
 // The model component's three spin axes (its twist_rate_, about X, Y, Z) the messages 0x76 / 0x8C start and stop.
 // Message 0x77: the made item's structure and component
@@ -155,7 +159,7 @@ void RiderRemoteSync::interpolate()
     }
     const int lag = (oldest - entry + kHistory) % kHistory;
     play_idx_ = entry;
-    g_nonlocal_lag = lag;
+    nonlocal_lag() = lag;
     if (lag >= 10)
         sync_time_ += 1000 / frame_rate() * 10; // (far behind: ten frames on)
     else if (lag == 0)

@@ -30,14 +30,25 @@
 #include "game/rider/balance_trick.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
 namespace {
-float g_balance_roll_scale{-0.00012783174f};
-float g_air_tilt_rate{0.011635667f};
-float g_tilt_recovery{0.046542667f};
-float g_lip_turn;
+// NOT ORIGINAL grouping - skater_camera_update.cpp's state (the original's globals). Made on first use, never destroyed
+// (skater_camera_update_state()).
+struct SkaterCameraUpdateState {
+    float balance_roll_scale_{-0.00012783174f};
+    float air_tilt_rate_{0.011635667f};
+    float tilt_recovery_{0.046542667f};
+    float lip_turn_{};
+};
+
+SkaterCameraUpdateState& skater_camera_update_state()
+{
+    static core::NoDestroy<SkaterCameraUpdateState> state;
+    return state.get();
+}
 
 constexpr uint32_t kCamera = 0xC4E311FA;       // Camera (a component)
 constexpr uint32_t kCorePhysics = 0x5BD63B29;  // SkaterCorePhysics (a component)
@@ -58,10 +69,10 @@ constexpr float kCosineDecay = 0.9998f;        // 0x0064BB40
 constexpr float kLipBack = 3.0f;               // 0x006467A8
 constexpr float kLipReach = 72.0f;             // 0x00646244
 constexpr float kHalfPi = 1.5707963705062866f; // 0x3FC90FDB
-float& balance_roll_scale() { return g_balance_roll_scale; }
-float& air_tilt_rate() { return g_air_tilt_rate; }
-float& tilt_recovery() { return g_tilt_recovery; }
-float& lip_turn() { return g_lip_turn; }
+float& balance_roll_scale() { return skater_camera_update_state().balance_roll_scale_; }
+float& air_tilt_rate() { return skater_camera_update_state().air_tilt_rate_; }
+float& tilt_recovery() { return skater_camera_update_state().tilt_recovery_; }
+float& lip_turn() { return skater_camera_update_state().lip_turn_; }
 
 bool vert_air(const objects::RiderPoseState* state)
 {

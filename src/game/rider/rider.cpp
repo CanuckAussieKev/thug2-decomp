@@ -98,15 +98,26 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace objects {
 
 namespace {
-// (4 floats each: the light's direction while in the air - straight down - and on the ground. They were declared
-// as single floats and written as four: the writes ran on over whatever followed - the Direct3D device pointer, once.)
-maths::Vec4 g_skater_down_light_colour;
-maths::Vec4 g_skater_light_colour;
-uint32_t g_skater_lights_made;
+// NOT ORIGINAL grouping - rider.cpp's state (the original's globals). Made on first use, never destroyed
+// (rider_state()).
+struct RiderState {
+    // (4 floats each: the light's direction while in the air - straight down - and on the ground. They were declared
+    // as single floats and written as four: the writes ran on over whatever followed - the Direct3D device pointer, once.)
+    maths::Vec4 skater_down_light_colour_{};
+    maths::Vec4 skater_light_colour_{};
+    uint32_t skater_lights_made_{};
+};
+
+RiderState& rider_state()
+{
+    static core::NoDestroy<RiderState> state;
+    return state.get();
+}
 
 // Names.
 constexpr uint32_t kIsPro = 0xD82F8AC8;               // is_pro
@@ -150,7 +161,6 @@ constexpr uint32_t kPauseValue = 0x9816E1E3;           // (a physics integer: pa
 modules::Skate* get_skate() { return modules::g_skate_module.get(); }
 online::Hub* net_link() { return online::g_online_hub; }
 bool rule_5a_1180() { return static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) != 0; }
-
 
 } // namespace
 
@@ -492,9 +502,9 @@ void Rider::set_pause_state(int state)
 // 0x005809C0
 void Rider::update_shadow_light()
 {
-    uint32_t& made = g_skater_lights_made;
-    maths::Vec4& light = g_skater_light_colour;
-    maths::Vec4& down = g_skater_down_light_colour;
+    uint32_t& made = rider_state().skater_lights_made_;
+    maths::Vec4& light = rider_state().skater_light_colour_;
+    maths::Vec4& down = rider_state().skater_down_light_colour_;
     if (!(made & 1)) {
         made |= 1;
         light.x = 0.8f, light.y = -0.8f, light.z = 0.3f, light.w = 1.0f;

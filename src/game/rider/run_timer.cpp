@@ -22,9 +22,6 @@
 
 namespace objects {
 
-namespace {
-std::array<uint32_t, 4> g_run_timer_state_names{{0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA}};
-} // namespace
 std::array<script::MemberFunctionEntry, 7> g_run_timer_member_functions{{
     {.callsign_ = 0x82445966, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x956236B1, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0xAB04CBF9, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x96D81D8E, .owner_kind_ = 0x8BCE7E66},
     {.callsign_ = 0x81AAA6DD, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x37CC7691, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0, .owner_kind_ = 0x8BCE7E66}}};
@@ -43,7 +40,11 @@ constexpr int kMaxResumes = 8;
 constexpr float kResumeShare = 0.125f; // 0x0064B960 (1 / kMaxResumes)
 
 // The state names cur_phase_ shows as (0x0064C080).
-const std::array<uint32_t, 4>& mode_label_keys() { return g_run_timer_state_names; }
+const std::array<uint32_t, 4>& mode_label_keys()
+{
+    static const std::array<uint32_t, 4> kRunTimerStateNames{{0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA}};
+    return kRunTimerStateNames;
+}
 
 uint32_t get_skater_index(GameEntity* skater) { return static_cast<uint32_t>(core::down_cast<Rider>(skater)->view_slot_); }
 uint32_t timer_script_id(GameEntity* skater) { return get_skater_index(skater) + kRunTimerScriptId; }

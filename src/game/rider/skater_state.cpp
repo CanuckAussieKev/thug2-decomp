@@ -24,9 +24,6 @@
 
 namespace objects {
 
-namespace {
-std::array<uint32_t, 1> g_powerup_names{{0xD039432C}};
-} // namespace
 std::array<script::MemberFunctionEntry, 19> g_skater_state_member_functions{{
     {.callsign_ = 0x5EA287F2, .owner_kind_ = 0x43686585}, {.callsign_ = 0x3527FC07, .owner_kind_ = 0x43686585}, {.callsign_ = 0xA32C1A15, .owner_kind_ = 0x43686585}, {.callsign_ = 0x5CB1FBD8, .owner_kind_ = 0x43686585},
     {.callsign_ = 0xE9851E62, .owner_kind_ = 0x43686585}, {.callsign_ = 0xA64DCF8B, .owner_kind_ = 0x43686585}, {.callsign_ = 0x1AB2389B, .owner_kind_ = 0x43686585}, {.callsign_ = 0x57BFBAE8, .owner_kind_ = 0x43686585},
@@ -43,7 +40,7 @@ constexpr uint32_t kTerrain = 0x3789AC4E, kSparksPos = 0xFF5318DA;
 
 // The powerups' names (0x0067F09C): one.
 constexpr int kPowerups = 1;
-const std::array<uint32_t, 1>& powerup_names() { return g_powerup_names; }
+constexpr std::array<uint32_t, 1> kPowerupNames{{0xD039432C}};
 
 // The powerup the unnamed checksum names (asserted), or -1.
 int find_powerup(script::Struct* params)
@@ -52,7 +49,7 @@ int find_powerup(script::Struct* params)
     uint32_t name = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(uint32_t{0}, &name, 1);
     for (int i = 0; i < kPowerups; ++i) {
-        if (core::at(powerup_names(), i) == name)
+        if (core::at(kPowerupNames, i) == name)
             return i;
     }
     return -1;

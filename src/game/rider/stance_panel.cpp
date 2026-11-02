@@ -22,7 +22,6 @@
 namespace objects {
 
 namespace {
-std::array<uint32_t, 5> g_stance_textures{{0x33A15296, 0xBE91F3B6, 0x9F9D3907, 0xB793EF40, 0x4E304FA1}};
 
 constexpr uint32_t kSkaterStancePanel = 0x21FC3301, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kNollieOn = 0x41EB710B, kInNollie = 0x1EB61DCE, kPressureOn = 0x0A23D710, kPressureOff = 0x71B57DD6,
@@ -33,7 +32,7 @@ constexpr uint32_t kPanelIdOffset = 0x69751A23; // the panel's element id: below
 constexpr int kHidden = 5;
 
 // The stances' textures (0x0064C12C).
-const std::array<uint32_t, 5>& stance_textures() { return g_stance_textures; }
+constexpr std::array<uint32_t, 5> kStanceTextures{{0x33A15296, 0xBE91F3B6, 0x9F9D3907, 0xB793EF40, 0x4E304FA1}};
 
 } // namespace
 
@@ -87,7 +86,7 @@ void RiderStanceDisplay::tick_frame()
         panel->change_opacity(0.0f, 1);
         return;
     }
-    core::down_cast<frontend::ImageWidget>(panel)->set_texture(core::at(stance_textures(), stance));
+    core::down_cast<frontend::ImageWidget>(panel)->set_texture(core::at(kStanceTextures, stance));
     panel->change_opacity(1.0f, 1);
 }
 

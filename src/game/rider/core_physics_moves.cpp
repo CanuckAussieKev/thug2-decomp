@@ -41,7 +41,11 @@ namespace skater {
 using namespace physics;
 
 namespace {
-int g_grind_counter;
+int& grind_counter()
+{
+    static int grind_counter{};
+    return grind_counter;
+}
 
 // Physics values, stats, script values and scripts (names not recovered).
 constexpr uint32_t kOverrideStat = 0x2EACDDB3;
@@ -213,7 +217,7 @@ void SkaterPhysicsModule::update_speed_override()
             auto inverse = static_cast<float>(1.0 / stat);
             auto share =
                 static_cast<float>(static_cast<double>(stat_value(object, kOverrideStat)) * inverse * limits_max_);
-            int& counter = g_grind_counter;
+            int& counter = grind_counter();
             counter = (counter + 1) % 10;
             limits_max_max_ = share;
             // (Every tenth time: a line printed, compiled out - an inlined loop that runs once.)

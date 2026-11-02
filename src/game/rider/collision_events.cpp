@@ -35,6 +35,7 @@
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace skater::collision_events {
 
@@ -82,14 +83,25 @@ struct PathRecord {
     Ray ray{};
 };
 
-void* g_component = nullptr;
-std::array<Sample, kHistory> g_samples;
-int g_sample_total = 0; // (a ring: g_next the slot for the next sample)
-int g_next = 0;
-std::array<PathRecord, kPathRecords> g_paths;
-int g_path_count = 0;
-int g_path_next = 0;
-int g_events = 0;
+// NOT ORIGINAL grouping - collision_events.cpp's state (the original's globals). Made on first use, never destroyed
+// (collision_events_state()).
+struct CollisionEventsState {
+    void* component_ = nullptr;
+    std::array<Sample, kHistory> samples_{};
+    int sample_total_ = 0; // (a ring: collision_events_state().next_ the slot for the next sample)
+    int next_ = 0;
+    std::array<PathRecord, kPathRecords> paths_{};
+    int path_count_ = 0;
+    int path_next_ = 0;
+    int events_ = 0;
+};
+
+CollisionEventsState& collision_events_state()
+{
+    static core::NoDestroy<CollisionEventsState> state;
+    return state.get();
+}
+
 std::string& col_file_stamp()
 {
     static std::string value = "-";
@@ -109,17 +121,35 @@ struct Mark {
     std::array<float, 3> vel;
     Ray ray; // (the core's feeler's line there)
 };
-std::array<Mark, kMarks> g_marks;
-int g_marker_total = 0;
-int g_mark_next = 0;
+// NOT ORIGINAL - the marks' ring: the marks, how many were made and the slot for the next. Made on first use, never
+// destroyed (mark_ring()).
+struct MarkRing {
+    std::array<Mark, kMarks> marks_{};
+    int marker_total_ = 0;
+    int mark_next_ = 0;
+};
+
+MarkRing& mark_ring()
+{
+    static core::NoDestroy<MarkRing> state;
+    return state.get();
+}
 
 struct Spot {
     std::array<float, 3> at;
     DWORD time;
     int repeats;
 };
-std::array<Spot, 32> g_spots;
-int g_spot_next = 0;
+// NOT ORIGINAL - the spots' ring and the slot for the next. Made on first use, never destroyed (spot_ring()).
+struct SpotRing {
+    std::array<Spot, 32> spots_{};
+    int spot_next_ = 0;
+};
+SpotRing& spot_ring()
+{
+    static core::NoDestroy<SpotRing> state;
+    return state.get();
+}
 
 void copy3(std::array<float, 3>& to, const maths::Vec4& from) { to = {from.x, from.y, from.z}; }
 
@@ -232,14 +262,14 @@ float get_heading_of(const std::array<float, 3>& facing)
 
 const Sample& sample_at(int age) // 0: the newest
 {
-    return core::at(g_samples, ((g_next - 1 - age) % kHistory + kHistory) % kHistory);
+    return core::at(collision_events_state().samples_, ((collision_events_state().next_ - 1 - age) % kHistory + kHistory) % kHistory);
 }
 
 void get_reset()
 {
-    g_sample_total = g_next = 0;
-    g_path_count = g_path_next = 0;
-    g_marker_total = g_mark_next = 0;
+    collision_events_state().sample_total_ = collision_events_state().next_ = 0;
+    collision_events_state().path_count_ = collision_events_state().path_next_ = 0;
+    mark_ring().marker_total_ = mark_ring().mark_next_ = 0;
 }
 
 // A probe line: as the skater's feelers see (faces flagged 0x10 skipped), or every face.
@@ -258,7 +288,7 @@ Face get_probe(const std::array<float, 3>& from, const std::array<float, 3>& to,
 bool quiet_spot(const std::array<float, 3>& at, int* repeats)
 {
     const DWORD now = GetTickCount();
-    for (Spot& spot : g_spots) {
+    for (Spot& spot : spot_ring().spots_) {
         if (!spot.time)
             continue;
         const float dx = core::at(spot.at, 0) - std::get<0>(at);
@@ -275,8 +305,8 @@ bool quiet_spot(const std::array<float, 3>& at, int* repeats)
         spot.time = now ? now : 1;
         return false;
     }
-    Spot& spot = core::at(g_spots, g_spot_next);
-    g_spot_next = (g_spot_next + 1) % static_cast<int>(sizeof(g_spots) / sizeof(core::at(g_spots, 0)));
+    Spot& spot = core::at(spot_ring().spots_, spot_ring().spot_next_);
+    spot_ring().spot_next_ = (spot_ring().spot_next_ + 1) % static_cast<int>(sizeof(spot_ring().spots_) / sizeof(core::at(spot_ring().spots_, 0)));
     spot.at = at;
     spot.time = now ? now : 1;
     spot.repeats = 0;
@@ -424,8 +454,8 @@ void get_emit(int before)
     // The paths that ran between the two (in order), and the strongest.
     const PathRecord* strongest = nullptr;
     std::array<bool, static_cast<int>(RouteWay::kTotalOf)> seen = {};
-    for (int i = 0; i < g_path_count; ++i) {
-        const PathRecord& record = core::at(g_paths, (g_path_next - g_path_count + i + kPathRecords) % kPathRecords);
+    for (int i = 0; i < collision_events_state().path_count_; ++i) {
+        const PathRecord& record = core::at(collision_events_state().paths_, (collision_events_state().path_next_ - collision_events_state().path_count_ + i + kPathRecords) % kPathRecords);
         if (record.frame < old.frame || record.frame > now.frame)
             continue;
         const int p = static_cast<int>(record.path);
@@ -448,8 +478,8 @@ void get_emit(int before)
     const Mark* flip = nullptr;
     bool uber_frig = false;
     event.flipped = "-";
-    for (int i = 0; i < g_marker_total; ++i) {
-        const Mark& mark = core::at(g_marks, (g_mark_next - g_marker_total + i + kMarks) % kMarks);
+    for (int i = 0; i < mark_ring().marker_total_; ++i) {
+        const Mark& mark = core::at(mark_ring().marks_, (mark_ring().mark_next_ - mark_ring().marker_total_ + i + kMarks) % kMarks);
         if (mark.frame < old.frame || mark.frame > now.frame)
             continue;
         const bool against = core::at(mark.vel, 0) * core::at(dir_old, 0) + core::at(mark.vel, 2) * core::at(dir_old, 1) < 0.0f;
@@ -531,7 +561,7 @@ void get_emit(int before)
         core::at(event.probes, 4 + everything) = get_probe(ahead_from, ahead_to, everything != 0);
     }
 
-    event.number = ++g_events;
+    event.number = ++collision_events_state().events_;
     event.level = get_level_name();
     static const bool kShots = config_int("debug", "collision_event_screenshots", 1) != 0;
     event.screenshot = "-";
@@ -562,7 +592,7 @@ void get_emit(int before)
     detail.scn_file_ = scn_file_stamp();
     detail.approach.clear();
     for (int age = 50; age >= 0; age -= 10) {
-        if (age >= g_sample_total)
+        if (age >= collision_events_state().sample_total_)
             continue;
         const Sample& s = sample_at(age);
         std::array<char, 64> text{};
@@ -584,21 +614,21 @@ void get_emit(int before)
 void detect()
 {
     std::array<Motion, kHistory> frames;
-    for (int i = 0; i < g_sample_total; ++i) {
-        const Sample& s = sample_at(g_sample_total - 1 - i);
+    for (int i = 0; i < collision_events_state().sample_total_; ++i) {
+        const Sample& s = sample_at(collision_events_state().sample_total_ - 1 - i);
         core::at(frames, i).frame = s.frame;
         core::at(frames, i).state = s.state;
         core::at(frames, i).vel = s.vel;
     }
-    const int index = find_reversal(std::span<const Motion>(frames).first(static_cast<std::size_t>(g_sample_total)));
+    const int index = find_reversal(std::span<const Motion>(frames).first(static_cast<std::size_t>(collision_events_state().sample_total_)));
     if (index < 0)
         return;
-    get_emit(g_sample_total - 1 - index);
+    get_emit(collision_events_state().sample_total_ - 1 - index);
     // (seen once - logged or not: the history starts again from this frame)
     const Sample last = sample_at(0);
-    g_sample_total = 1;
-    g_next = 1;
-    core::at(g_samples, 0) = last;
+    collision_events_state().sample_total_ = 1;
+    collision_events_state().next_ = 1;
+    core::at(collision_events_state().samples_, 0) = last;
 }
 
 } // namespace
@@ -693,12 +723,12 @@ bool get_on()
 
 void note_path(SkaterPhysicsModule* component, RouteWay path, const maths::Vec4&)
 {
-    if (component != g_component || !get_on()) // (g_component: set by end_frame, only while on)
+    if (component != collision_events_state().component_ || !get_on()) // (collision_events_state().component_: set by end_frame, only while on)
         return;
-    PathRecord& record = core::at(g_paths, g_path_next);
-    g_path_next = (g_path_next + 1) % kPathRecords;
-    if (g_path_count < kPathRecords)
-        ++g_path_count;
+    PathRecord& record = core::at(collision_events_state().paths_, collision_events_state().path_next_);
+    collision_events_state().path_next_ = (collision_events_state().path_next_ + 1) % kPathRecords;
+    if (collision_events_state().path_count_ < kPathRecords)
+        ++collision_events_state().path_count_;
     record.frame = frame_loop::frames_run();
     record.path = path;
     record.face = face_of(component->feeler_);
@@ -707,12 +737,12 @@ void note_path(SkaterPhysicsModule* component, RouteWay path, const maths::Vec4&
 
 void checkpoint(SkaterPhysicsModule* component, const char* label)
 {
-    if (component != g_component || !get_on()) // (g_component: set by end_frame, only while on)
+    if (component != collision_events_state().component_ || !get_on()) // (collision_events_state().component_: set by end_frame, only while on)
         return;
-    Mark& mark = core::at(g_marks, g_mark_next);
-    g_mark_next = (g_mark_next + 1) % kMarks;
-    if (g_marker_total < kMarks)
-        ++g_marker_total;
+    Mark& mark = core::at(mark_ring().marks_, mark_ring().mark_next_);
+    mark_ring().mark_next_ = (mark_ring().mark_next_ + 1) % kMarks;
+    if (mark_ring().marker_total_ < kMarks)
+        ++mark_ring().marker_total_;
     mark.frame = frame_loop::frames_run();
     mark.label = label;
     copy3(mark.vel, component->entity_->vel_);
@@ -723,11 +753,11 @@ void end_frame(SkaterPhysicsModule* component)
 {
     if (frame_loop::frames_run() == 0 || !get_on()) // (not in the early self-tests)
         return;
-    if (component != g_component) {
+    if (component != collision_events_state().component_) {
         // (only the local skater's component: not a self-test's stand-in)
         if (object_of(component) != local_skater())
             return;
-        g_component = component;
+        collision_events_state().component_ = component;
         get_reset();
     }
     // A line once a level, so the log shows the switch was on; the level's files noted for the events.
@@ -764,21 +794,21 @@ void end_frame(SkaterPhysicsModule* component)
     copy3(s.ground_normal_, component->floor_normal_);
     s.ground = face_of(component->floor_feeler_);
     s.ground_ray_ = line_of(component->floor_feeler_);
-    if (g_sample_total) {
+    if (collision_events_state().sample_total_) {
         const Sample& last = sample_at(0);
         const float dx = core::at(s.pos, 0) - core::at(last.pos, 0);
         const float dy = core::at(s.pos, 1) - core::at(last.pos, 1);
         const float dz = core::at(s.pos, 2) - core::at(last.pos, 2);
         if (s.frame == last.frame) { // (the same frame again: the newer replaces it)
-            g_next = (g_next - 1 + kHistory) % kHistory;
-            --g_sample_total;
+            collision_events_state().next_ = (collision_events_state().next_ - 1 + kHistory) % kHistory;
+            --collision_events_state().sample_total_;
         } else if (dx * dx + dy * dy + dz * dz > kTeleport * kTeleport || s.frame < last.frame)
             get_reset();
     }
-    core::at(g_samples, g_next) = s;
-    g_next = (g_next + 1) % kHistory;
-    if (g_sample_total < kHistory)
-        ++g_sample_total;
+    core::at(collision_events_state().samples_, collision_events_state().next_) = s;
+    collision_events_state().next_ = (collision_events_state().next_ + 1) % kHistory;
+    if (collision_events_state().sample_total_ < kHistory)
+        ++collision_events_state().sample_total_;
     detect();
 }
 
