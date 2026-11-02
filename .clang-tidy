@@ -18,8 +18,6 @@ Checks:
   # The decompiled constants (tuning values, checksums, flags, layout offsets) are the original's: naming each would
   # invent names the binary doesn't give. Constants get names where their meaning is known.
   - '-cppcoreguidelines-avoid-magic-numbers'
-  # The tables mirror the original's data positionally (script commands, member tables, key maps).
-  - '-modernize-use-designated-initializers'
   # The engine's classes are data layouts shared between subsystems, as the original's were.
   - '-misc-non-private-member-variables-in-classes'
   # No include-what-you-use mapping for the Windows / DirectX / SDL headers: its advice there is wrong.
