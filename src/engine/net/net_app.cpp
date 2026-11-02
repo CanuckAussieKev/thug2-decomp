@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <string_view>
 #include <initializer_list>
 #include <utility>
 
@@ -122,10 +123,12 @@ gsl::owner<StreamDesc*> construct_stream_desc(void* memory) { return new (memory
 void destroy_stream_desc_body(StreamDesc* stream) { stream->~StreamDesc(); }
 
 // strcpy: the original copies descriptions with no length limit (32 bytes are kept for them).
-void copy_string(char* out, const char* source)
+void copy_string(std::span<char> out, const char* source)
 {
-    while ((*out++ = *source++) != '\0') {
-    }
+    size_t at = 0;
+    for (const char c : std::string_view(source))
+        core::at(out, at++) = c;
+    core::at(out, at) = '\0';
 }
 
 void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
@@ -350,13 +353,13 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
     if (size > kStreamPieceSize) {
         if (queue_all_pieces) {
             // Every piece now.
-            const uint8_t* next = static_cast<const uint8_t*>(data) + first;
+            const std::span<const uint8_t> bytes(static_cast<const uint8_t*>(data), static_cast<size_t>(size));
             StreamPieceMessage piece;
             for (int sent = first; std::cmp_less(sent, size);) {
                 int length = size - sent;
                 if (length > kStreamPieceSize)
                     length = kStreamPieceSize;
-                piece.build(alloc_stream_key(conn), next, length);
+                piece.build(alloc_stream_key(conn), bytes.subspan(static_cast<size_t>(sent)).data(), length);
                 message.content_ = piece.bytes.data();
                 message.byte_count_ = piece.size;
                 message.group_id_ = group_id;
@@ -365,7 +368,6 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
                 message.feed_ = 1;
                 put_on_outbox(conn->hdl_, &message);
                 sent += length;
-                next += length;
             }
         } else {
             // The rest goes a few pieces a frame (pump_stream_traffic), with sequence ids reserved now.
@@ -378,7 +380,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
                 copy = static_cast<uint8_t*>(memory::alloc(size));
                 std::memcpy(copy, data, size);
             }
-            uint8_t* next = copy + first;
+            uint8_t* next = std::span<uint8_t>(copy, static_cast<size_t>(size)).subspan(static_cast<size_t>(first)).data();
             void* memory = memory::alloc(sizeof(StreamDesc));
             StreamDesc* stream = memory ? construct_stream_desc(memory) : nullptr;
             void* link_memory = memory::alloc_zeroed(sizeof(BulkStreamNode));
@@ -386,7 +388,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
             stream->extent_ = size;
             stream->stream_id_ = alloc_stream_key(conn);
             stream->msg_id_ = msg_id;
-            copy_string(stream->desc_.data(), desc);
+            copy_string(stream->desc_, desc);
             stream->content_ = copy;
             stream->group_id_ = group_id;
             stream->succ_ = next;
@@ -572,7 +574,7 @@ void AppHost::pump_stream_traffic()
                 message.feed_ = 1;
                 message.fixed_seq_no_ = stream->order_number_++;
                 put_on_outbox(conn->hdl_, &message);
-                stream->succ_ += length;
+                stream->succ_ = std::next(stream->succ_, length);
                 sent += length;
                 --budget;
             }

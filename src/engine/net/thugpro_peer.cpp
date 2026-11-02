@@ -111,7 +111,7 @@ void copy_field(char* out, size_t size, const char* in)
     const size_t length = in ? strnlen(in, size - 1) : 0;
     if (length)
         std::memcpy(out, in, length);
-    out[length] = '\0';
+    core::at(std::span<char>(out, size), length) = '\0';
 }
 
 // --- THUGPRO's level lists (register TP-R4) ---
@@ -198,7 +198,7 @@ bool decode_chat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* o
         return false;
     Chat message;
     if (!read_chat(reader, &message) || std::strlen(message.name.data()) >= static_cast<size_t>(kNameSize) ||
-        (reader.remaining() == 0 && data[length - 1] != 0))
+        (reader.remaining() == 0 && core::at(std::span<const uint8_t>(data, length), length - 1) != 0))
         return false;
     out->obj_id_ = message.color;
     std::memcpy(out->name.data(), message.name.data(), sizeof(out->name));
@@ -668,8 +668,8 @@ namespace {
 uint32_t state_named(const char* word, const char* const* names, size_t count)
 {
     for (size_t i = 0; i < count; ++i)
-        if (_stricmp(word, names[i]) == 0)
-            return checksums::hash_from_text(names[i]);
+        if (_stricmp(word, core::at(std::span<const char* const>(names, count), i)) == 0)
+            return checksums::hash_from_text(core::at(std::span<const char* const>(names, count), i));
     return 0;
 }
 
@@ -690,7 +690,7 @@ void get_say(const char* line) { show_local_chat_line(line); }
 
 bool handle_chat_command(const char* text)
 {
-    if (!peer_mode() || text[0] != '/')
+    if (!peer_mode() || *text != '/')
         return false;
     std::array<char, 16> command = {};
     std::array<char, 24> first = {};

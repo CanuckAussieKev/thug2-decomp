@@ -59,7 +59,7 @@ Hub* net_session_slot() { return online::g_online_hub; }
 
 // A hunt player's placed objects: how many (+0x34) and where (+0x180, 16 bytes each).
 int& placed_count(online::PlayerRecord* player) { return player->num_placed_; }
-script::VectorValue* placed_positions(online::PlayerRecord* player) { return player->placed_.data(); }
+auto& placed_positions(online::PlayerRecord* player) { return player->placed_; }
 
 // The player whose skater the script runs on (null without an object or a player).
 online::PlayerRecord* script_player(script::Script* script)
@@ -100,7 +100,7 @@ bool cfunc_place_object(script::Struct* params, script::Script* script)
     script->args_->put_int(kIndex, placed_count(player));
     script::VectorValue pos = {}; // (uninitialised in the original without pos)
     params->fetch_vec(kPos, &pos, 0);
-    placed_positions(player)[placed_count(player)++] = pos;
+    core::at(placed_positions(player), placed_count(player)++) = pos;
     return true;
 }
 
@@ -236,7 +236,7 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
             msg.count = placed_count(player);
             // (NOT ORIGINAL: no more than the message holds - the original wrote a player's sixth on past it)
             for (int i = 0; i < placed_count(player) && i < online::kHuntPlacements; ++i) {
-                const script::VectorValue& at = placed_positions(player)[i];
+                const script::VectorValue& at = core::at(placed_positions(player), i);
                 core::at(core::at(msg.positions, i), 0) = at.x;
                 core::at(core::at(msg.positions, i), 1) = at.y;
                 core::at(core::at(msg.positions, i), 2) = at.z;

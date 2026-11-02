@@ -596,7 +596,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         std::array<char, 32> refused = {}; // (10 sent: the reason, and the challenge for kRefusedCdKey)
         core::at(refused, 0) = static_cast<char>(reason);
         if (reason == kRefusedCdKey)
-            std::strcpy(refused.data() + 1, manager->challenge_.data());
+            std::strcpy(std::span<char>(refused).subspan(1).data(), manager->challenge_.data());
         send_refused(context->receiver_app_, conn, refused.data());
         return net::kResultStop;
     }

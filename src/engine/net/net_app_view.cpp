@@ -103,8 +103,10 @@ void AppHost::encrypt(const uint8_t* data, uint8_t* out, int length, int* out_le
 {
     uint16_t checksum = name_hash(data, length);
     std::memcpy(out, &checksum, sizeof(checksum));
-    for (int i = 0; i < length; ++i)
-        out[2 + i] = data[i] ^ static_cast<uint8_t>(checksum);
+    const std::span<const uint8_t> in(data, static_cast<size_t>(length));
+    const std::span<uint8_t> sealed(out, static_cast<size_t>(length) + 2);
+    for (size_t i = 0; i < in.size(); ++i)
+        core::at(sealed, 2 + i) = core::at(in, i) ^ static_cast<uint8_t>(checksum);
     *out_length = length + 2;
 }
 
@@ -279,9 +281,9 @@ bool AppHost::deliver_to(uint8_t id, uint16_t length, const void* data, uint32_t
 {
     std::array<uint8_t, kMaxPacketSize> packet{};
     core::at(packet, 0) = id;
-    std::memcpy(packet.data() + 1, &length, sizeof(length));
+    std::memcpy(std::span<uint8_t>(packet).subspan(1).data(), &length, sizeof(length));
     if (length > 0)
-        std::memcpy(packet.data() + 3, data, length);
+        std::memcpy(std::span<uint8_t>(packet).subspan(3).data(), data, length);
     return transmit_to(ip, port, packet.data(), length + 3, flags);
 }
 

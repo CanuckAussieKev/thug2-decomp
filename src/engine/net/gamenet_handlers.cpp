@@ -108,7 +108,7 @@ void get_cd_key(char* key)
     // (a value filling all 100 bytes has no terminator: the original's strcpy runs on into its stack - here it stops)
     const size_t length = strnlen(value.data(), sizeof(value));
     std::memcpy(key, value.data(), length);
-    key[length] = '\0';
+    core::at(std::span<char>(key, sizeof(value) + 1), length) = '\0';
 }
 
 // 0x0052D7B0

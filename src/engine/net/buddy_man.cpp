@@ -220,18 +220,20 @@ Buddy* alloc_friend_entry()
 // copies from address 0 if not - a crash), not when making one.
 void parse_location(Buddy* buddy, char* location, bool checked)
 {
-    char* name = std::strchr(location, ':');
-    if (checked) {
-        // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-        if (name && (name = std::strchr(name + 1, ':')) && (name = std::strchr(name + 1, ':')) &&
-            // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-            (name = std::strchr(name + 1, ':')))
-            ++name;
-    } else {
-        name = std::strchr(name + 1, ':');
-        name = std::strchr(name + 1, ':');
-        name = std::strchr(name + 1, ':') + 1;
+    // The text after the fourth ':'. (Fewer than four: null - the original copied from address 0 and crashed when it
+    // checked, and went through a null pointer finding the next ':' when it did not. A crash in both.)
+    (void)checked;
+    const std::string_view whole(location);
+    const char* name = nullptr;
+    size_t colon = 0;
+    int found = 0;
+    for (; found < 4; ++found) {
+        colon = whole.find(':', found == 0 ? 0 : colon + 1);
+        if (colon == std::string_view::npos)
+            break;
     }
+    if (found == 4)
+        name = whole.substr(colon + 1).data();
     text_tools::dup_from(buddy->location_.data(), name);
     text_tools::get_token(location, ":"); // "10thug211"
     buddy->join_ip_ = static_cast<uint32_t>(text::to_int(text_tools::get_token(nullptr, ":")));
@@ -644,7 +646,7 @@ void FriendsManager::on_buddy_message(void*, const void* argument, FriendsManage
     } else {
         // "nick\ntext"
         text_tools::dup_from(message->nick_.data(), text);
-        text_tools::dup_from(message->text_.data(), text + std::strlen(text) + 1);
+        text_tools::dup_from(message->text_.data(), std::next(text, static_cast<std::ptrdiff_t>(std::strlen(text) + 1)));
     }
     script::launch_script(0x10C3647Cu, nullptr, nullptr, false, nullptr);
     get_append(&man->messages_, &message->list_link_);

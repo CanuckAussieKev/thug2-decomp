@@ -125,7 +125,7 @@ void copy_name(char* dest, const char* source)
 {
     const size_t length = strnlen(source, kNameSize - 1);
     std::memcpy(dest, source, length);
-    std::memset(dest + length, 0, kNameSize - length);
+    std::memset(std::span<char>(dest, kNameSize).subspan(length).data(), 0, kNameSize - length);
 }
 
 prefs::Preferences* net_game_options(Hub* manager) { return manager->get_online_settings(); }
@@ -624,20 +624,20 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         auto* goals = objective_board();
         static std::array<uint8_t, 0x1000> selected;
         core::at(selected, 0) = 0;
-        uint8_t* out = selected.data() + 1;
+        size_t out = 1;
         const int count = goals->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             goals::Objective* goal = goals->get_objective_at(i);
             if (goal->is_picked()) {
                 uint32_t name = goal->get_objective_key();
-                std::memcpy(out, &name, 4);
+                std::memcpy(std::span<uint8_t>(selected).subspan(out, 4).data(), &name, 4);
                 out += 4;
             }
         }
-        std::memset(out, 0, 4);
+        std::memset(std::span<uint8_t>(selected).subspan(out, 4).data(), 0, 4);
         desc.content_ = selected.data();
         desc.ident_ = kMsgSelectedGoals;
-        desc.byte_count_ = static_cast<uint16_t>(out - selected.data() + 4);
+        desc.byte_count_ = static_cast<uint16_t>(out + 4);
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
         server->put_on_outbox(player_handle(player), &desc);

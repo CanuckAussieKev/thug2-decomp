@@ -168,18 +168,20 @@ void RoomManager::queue_packet(const uint8_t* data, int length, const void* from
 {
     if (queued_count() >= kMaxQueued)
         return;
-    const uint8_t* bytes = data;
+    // (a byte of the packet; the original read the one or two bytes it asked for even past a shorter packet: 0 here)
+    const std::span<const uint8_t> bytes(data, length > 0 ? static_cast<size_t>(length) : 0);
+    auto byte_at = [&](size_t i) { return i < bytes.size() ? core::at(bytes, i) : uint8_t{0}; };
     int type = 0;
-    if ((bytes[0] == 0xFE && bytes[1] == 0xFD) || bytes[0] == '\\')
+    if ((byte_at(0) == 0xFE && byte_at(1) == 0xFD) || byte_at(0) == '\\')
         type = kPacketQuery;
-    else if (length >= 6 && std::memcmp(bytes, kNatMagic.data(), sizeof(kNatMagic)) == 0)
+    else if (length >= 6 && std::memcmp(bytes.data(), kNatMagic.data(), sizeof(kNatMagic)) == 0)
         type = kPacketNatNegotiation;
     else
         return;
     QueuedPacket& packet = core::at(get_queue(), queued_count());
     packet.data = static_cast<char*>(game_malloc(length + 1));
     std::memcpy(packet.data, data, length);
-    packet.data[length] = '\0';
+    core::at(std::span<char>(packet.data, static_cast<size_t>(length) + 1), static_cast<size_t>(length)) = '\0';
     std::memcpy(packet.from.data(), from, sizeof(packet.from));
     packet.type = type;
     packet.length = length;

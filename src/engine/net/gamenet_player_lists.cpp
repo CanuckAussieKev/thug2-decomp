@@ -386,7 +386,7 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
         *slot = 0;
         std::strcpy(line.data(), copy.data());
         std::strcat(line.data(), string1);
-        std::strcat(line.data(), slot + 3);
+        std::strcat(line.data(), std::next(slot, 3));
         shown = line.data();
     }
     params->append_word(kText, script::kQbvalString, shown);

@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <string_view>
 #include <array>
 
 #include "platform/platform_config.h"
@@ -42,8 +43,8 @@ bool valid_name(const char* name)
     const size_t length = std::strlen(name);
     if (length == 0 || length > kMaxName)
         return false;
-    for (size_t i = 0; i < length; ++i)
-        if (!std::isalnum(static_cast<unsigned char>(name[i])))
+    for (const char c : std::string_view(name))
+        if (!std::isalnum(static_cast<unsigned char>(c)))
             return false;
     return true;
 }
@@ -52,8 +53,8 @@ bool valid_key(const char* key)
 {
     if (std::strlen(key) != kKeyLength)
         return false;
-    for (size_t i = 0; i < kKeyLength; ++i)
-        if (!std::isgraph(static_cast<unsigned char>(key[i])))
+    for (const char c : std::string_view(key))
+        if (!std::isgraph(static_cast<unsigned char>(c)))
             return false;
     return true;
 }

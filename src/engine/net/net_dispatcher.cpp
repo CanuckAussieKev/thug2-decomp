@@ -143,7 +143,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
         } // (else the length stays what the previous message had)
         const uint8_t* p = packet.cursor();
         if (context.type_code_ == kMsgSequenced) // counted by the message inside
-            add_message_metric(metrics, p[5], context.body_size_);
+            add_message_metric(metrics, *std::next(p, 5), context.body_size_);
         if (has_length) {
             if (context.body_size_)
                 std::memcpy(buffer.data(), p, context.body_size_);

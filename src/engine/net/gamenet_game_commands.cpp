@@ -252,7 +252,7 @@ bool cfunc_start_network_game(Struct*, Script*)
         auto* goals = objective_board();
         net::AppHost* server = manager->host_;
         core::at(buffer, 0) = 1;
-        uint8_t* end = buffer.data() + 1;
+        size_t end = 1;
         const int count = goals
                               ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
@@ -260,16 +260,16 @@ bool cfunc_start_network_game(Struct*, Script*)
             if (goal->is_picked()) {
                 goal->un_beat(); // (the original's vtable slot 29)
                 uint32_t id = goal->get_objective_key();
-                std::memcpy(end, &id, 4);
+                std::memcpy(std::span<uint8_t>(buffer).subspan(end, 4).data(), &id, 4);
                 end += 4;
             }
         }
-        std::memset(end, 0, 4);
+        std::memset(std::span<uint8_t>(buffer).subspan(end, 4).data(), 0, 4);
         desc.content_ = buffer.data();
         desc.ident_ = kMsgSelectedGoals;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
-        desc.byte_count_ = static_cast<uint16_t>(static_cast<uint16_t>(end - buffer.data()) + 4);
+        desc.byte_count_ = static_cast<uint16_t>(static_cast<uint16_t>(end) + 4);
         send_to_players(manager, server, &desc, Recipients::kRemote);
     }
     return true;

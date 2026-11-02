@@ -99,7 +99,7 @@ void dup_from(char* out, size_t size, const char* in)
     // strncpy_s: a debug build fills the rest of the field with 0xFE - sent over the network.)
     const size_t length = strnlen(in, size - 1);
     std::memcpy(out, in, length);
-    out[length] = '\0';
+    core::at(std::span<char>(out, size), length) = '\0';
 }
 
 } // namespace
@@ -223,7 +223,7 @@ void send_named_chat_message(Hub* manager, const char* name, const char* text)
 
 bool handle_chat_command(Hub* manager, const char* text)
 {
-    if (text[0] != '/')
+    if (*text != '/')
         return false;
     // (the THUGPRO peer mode's own: /tod, /weather, /option, /proset, /thugpro - thugpro_peer.h)
     if (thugpro::handle_chat_command(text))

@@ -554,8 +554,9 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     // NOT ORIGINAL: no more than the buffer holds (the download is limited to it; the original trusted the size)
     if (size < 0 || std::cmp_greater(size, static_cast<int64_t>(kNewsBufferSize)))
         size = kNewsBufferSize;
-    for (int i = 0; static_cast<int64_t>(i) < size; ++i)
-        buffer[i] ^= 0x6D;
+    const std::span<uint8_t> downloaded(buffer, static_cast<size_t>(size));
+    for (uint8_t& byte : downloaded)
+        byte ^= 0x6D;
     // The file (gamenet_messages.h: News). NOT ORIGINAL: a size past the download's end, or a text without its NUL,
     // fails the news (the original read past them).
     util::ByteReader reader(buffer, static_cast<size_t>(size));
@@ -565,10 +566,10 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
         manager->service_state_ = kStateNewsFailed;
         return 1;
     }
-    uint8_t* text = buffer + (news.data - buffer);
+    const auto text_at = static_cast<size_t>(news.data - buffer);
     manager->motd_text_ = news.motd;
     manager->pending_data_size_ = news.size - news.motd_size;
-    manager->pending_data_ = text + news.motd_size;
+    manager->pending_data_ = downloaded.subspan(text_at + news.motd_size).data();
     manager->motd_received_ = true;
     manager->service_state_ = kStateNewsDone;
     return 1;

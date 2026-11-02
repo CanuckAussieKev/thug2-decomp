@@ -427,14 +427,14 @@ void RoomManager::room_keys_callback(void* peer, int success, int room_type, con
     (void)peer;
     (void)success;
     (void)room_type;
-    if (count <= 0 || !keys[0] || _stricmp(keys[0], "b_rating") != 0)
+    if (count <= 0 || !*keys || _stricmp(*keys, "b_rating") != 0)
         return;
     for (memory::ListNode* node = head_of_scene_list(&lobby->participants_); node; node = get_next_node(node)) {
         auto* player = static_cast<LobbyPlayer*>(node->data);
         if (!player)
             break;
         if (_stricmp(player->nick_.data(), nick) == 0)
-            update_rank(player, values[0]); // (every player of that nick)
+            update_rank(player, *values); // (every player of that nick)
     }
 }
 

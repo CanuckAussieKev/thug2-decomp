@@ -677,22 +677,22 @@ void RankingsManager::on_personal_stats(int, int, int, int index, int success, u
     if (success < 1)
         return;
     RankingsManager* stats = get_attributes();
-    int* values = &stats->personal_.skill_points_; // (index 0 the rating, then the high scores; combos 15 further)
+    PersonalStats& personal = stats->personal_; // (index 0 the rating, then the high scores; the combos 15 further)
     if (index == 0) {
         if (text_tools::get_token(data, "\\")) // "THUG2Rating"
-            values[0] = text::to_int(text_tools::get_token(nullptr, "\\"));
+            personal.skill_points_ = text::to_int(text_tools::get_token(nullptr, "\\"));
         return;
     }
     const char* key = text_tools::get_token(data, "\\");
     if (key) {
         if (text::compare_caseless(key, "THUG2HighScore") == 0) {
             if (const char* value = text_tools::get_token(nullptr, "\\"))
-                values[index] = text::to_int(value);
+                core::at(personal.high_scores_, index - 1) = text::to_int(value);
             key = text_tools::get_token(nullptr, "\\");
         }
         if (text::compare_caseless(key, "THUG2HighCombo") == 0) { // (null key: a crash, as in the original)
             if (const char* value = text_tools::get_token(nullptr, "\\"))
-                values[index + 15] = text::to_int(value);
+                core::at(personal.high_combos_, index - 1) = text::to_int(value);
         }
     }
     if (index == 14) {

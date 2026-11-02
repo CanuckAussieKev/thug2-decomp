@@ -175,7 +175,7 @@ char* prop(char** rest)
     char* field = *rest;
     char* end = std::strstr(field, ":");
     *end = '\0';
-    *rest = end + 1;
+    *rest = std::next(end);
     return field;
 }
 int number_field(char** rest)

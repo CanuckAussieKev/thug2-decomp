@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <string_view>
 
 #include "engine/core/task_list.h"
 #include "engine/net/net_app.h"
@@ -23,16 +24,18 @@ namespace net {
 namespace {
 
 // strcpy: the settings are copied with no length limit.
-void copy_string(char* out, const char* source)
+void copy_string(std::span<char> out, const char* source)
 {
-    while ((*out++ = *source++) != '\0') {
-    }
+    size_t at = 0;
+    for (const char c : std::string_view(source))
+        core::at(out, at++) = c;
+    core::at(out, at) = '\0';
 }
 
 // The setters that copy only a different string.
-void copy_if_different(char* out, const char* source)
+void copy_if_different(std::span<char> out, const char* source)
 {
-    if (std::strcmp(source, out) != 0)
+    if (std::strcmp(source, out.data()) != 0)
         copy_string(out, source);
 }
 
@@ -58,22 +61,22 @@ bool Hub::disconnect_from_internet()
 }
 
 // 0x004545D0
-void Hub::set_dialup_number(int index, const char* number) { copy_string(core::at(dialup_numbers_, index).data(), number); }
+void Hub::set_dialup_number(int index, const char* number) { copy_string(core::at(dialup_numbers_, index), number); }
 
 // 0x00454600
-void Hub::set_dialup_user_name(const char* name) { copy_string(dialup_user_name_.data(), name); }
+void Hub::set_dialup_user_name(const char* name) { copy_string(dialup_user_name_, name); }
 
 // 0x00454620
-void Hub::set_dialup_password(const char* password) { copy_string(dialup_password_.data(), password); }
+void Hub::set_dialup_password(const char* password) { copy_string(dialup_password_, password); }
 
 // 0x00454640
-void Hub::set_router_addr(const char* ip) { copy_if_different(router_addr_.data(), ip); }
+void Hub::set_router_addr(const char* ip) { copy_if_different(router_addr_, ip); }
 
 // 0x004546A0
-void Hub::set_address_mask(const char* ip) { copy_if_different(subnet_mask_.data(), ip); }
+void Hub::set_address_mask(const char* ip) { copy_if_different(subnet_mask_, ip); }
 
 // 0x00454710
-void Hub::set_own_address(const char* ip) { copy_if_different(local_ip_.data(), ip); }
+void Hub::set_own_address(const char* ip) { copy_if_different(local_ip_, ip); }
 
 // 0x00454770
 void Hub::set_net_link_kind(int type)
@@ -112,14 +115,14 @@ void Hub::set_auto_address(bool use_dhcp)
 }
 
 // 0x00454820
-void Hub::set_name_resolver(int index, const char* ip) { copy_if_different(core::at(resolver_ips_, index).data(), ip); }
+void Hub::set_name_resolver(int index, const char* ip) { copy_if_different(core::at(resolver_ips_, index), ip); }
 
 // 0x00454890
 void Hub::set_machine_label(const char* name)
 {
     if (!name)
         core::at(host_name_, 0) = '\0'; // (and the copy below still reads from the null pointer, as in the original)
-    copy_string(host_name_.data(), name);
+    copy_string(host_name_, name);
 }
 
 // 0x004548C0
@@ -127,7 +130,7 @@ void Hub::set_network_domain(const char* name)
 {
     if (!name)
         core::at(domain_name_, 0) = '\0'; // (likewise)
-    copy_string(domain_name_.data(), name);
+    copy_string(domain_name_, name);
 }
 
 // 0x004548F0

@@ -342,7 +342,7 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
         return kContinue;
     }
     for (JoinerRecord* added = first_new_player(manager, &search); added; added = next_new_player(manager, &search)) {
-        if (added->entity_key_ == msg[0]) {
+        if (added->entity_key_ == *msg) {
             added->flag_bits_ |= 0x80;
             break;
         }

@@ -83,12 +83,12 @@ void log_once(uint8_t id, uint32_t name, const char* what)
 uint32_t read32(const net::InboundMsgCtx* context, uint32_t offset)
 {
     uint32_t value = 0;
-    std::memcpy(&value, context->body_ + offset, 4);
+    std::memcpy(&value, std::span<const uint8_t>(context->body_, size_t{offset} + 4).last(4).data(), 4);
     return value;
 }
 void write32(net::InboundMsgCtx* context, uint32_t offset, uint32_t value)
 {
-    std::memcpy(context->body_ + offset, &value, 4);
+    std::memcpy(std::span<uint8_t>(context->body_, size_t{offset} + 4).last(4).data(), &value, 4);
 }
 
 constexpr int kDispatch = -1;

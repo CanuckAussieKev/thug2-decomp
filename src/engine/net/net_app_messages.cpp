@@ -491,7 +491,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
             if (size > room)
                 size = room;
             reader.bytes(desc->succ_, size);
-            desc->succ_ += size;
+            desc->succ_ = std::next(desc->succ_, static_cast<std::ptrdiff_t>(size));
             if (static_cast<uint32_t>(desc->succ_ - desc->content_) >= static_cast<uint32_t>(desc->extent_))
                 return dispatch_stream(context, link, desc, true);
         }
@@ -534,7 +534,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         if (size > reader.remaining())
             size = reader.remaining();
         reader.bytes(desc->content_, size);
-        desc->succ_ += size;
+        desc->succ_ = std::next(desc->succ_, static_cast<std::ptrdiff_t>(size));
         void* link_memory = memory::alloc_zeroed(sizeof(BulkStreamNode));
         BulkStreamNode* link = link_memory ? construct_stream_link(link_memory, desc) : nullptr;
         // at the end of the connection's streams

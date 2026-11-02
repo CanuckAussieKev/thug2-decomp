@@ -305,7 +305,7 @@ void Hub::prepare_created_goals(uint32_t level)
     created_goals_level_ = level;
     std::memcpy(created_goals_.data(), &level, sizeof(level));
     park_editing::ObjectiveAuthoring* editor = get_goal_editor();
-    const int size = static_cast<int>(editor->write_level_goals_to_buffer(level, created_goals_.data() + sizeof(level),
+    const int size = static_cast<int>(editor->write_level_goals_to_buffer(level, std::span(created_goals_).subspan(sizeof(level)).data(),
                                                                           static_cast<uint32_t>(kGoalsBufferSize)));
     created_goals_size_ = size + 4;
 }
