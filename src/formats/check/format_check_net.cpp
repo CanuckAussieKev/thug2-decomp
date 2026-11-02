@@ -820,8 +820,9 @@ void check_collision_messages()
     check_message("ran into 0x43", ran, ran_ref, online::write_ran_into, online::read_ran_into);
 }
 
-// The park's rails (0x7A, sent whole): read as the rail editor's own buffer, byte for byte; cut short, more than 200
-// rails or 400 points refused (the original copied 0x1132 bytes and walked the counts as they came).
+// The park's rails (0x7A, sent whole): written and read as the rail editor's buffer - the bytes the original's own
+// buffer held (its in-memory record, byte for byte); cut short, more than 200 rails or 400 points refused (the
+// original copied 0x1132 bytes and walked the counts as they came).
 void check_rails()
 {
     park_editing::RailBuffer sent{};
@@ -832,8 +833,13 @@ void check_rails()
     for (int i = 0; i < 400; ++i)
         for (int k = 0; k < 5; ++k)
             core::at(core::at(sent.records_, i), k) = static_cast<uint16_t>(i * 5 + k - 7);
-    std::vector<uint8_t> bytes(sizeof(sent));
-    std::memcpy(bytes.data(), &sent, sizeof(sent));
+    std::vector<uint8_t> bytes(park_editing::rail_buffer_format::kSize);
+    util::ByteWriter writer(bytes.data(), bytes.size());
+    std::vector<uint8_t> in_memory(sizeof(sent));
+    std::memcpy(in_memory.data(), &sent, sizeof(sent));
+    check(park_editing::rail_buffer_format::write_rail_buffer(writer, sent) && writer.remaining() == 0 &&
+              bytes == in_memory,
+          "rails 0x7A: written as the original's buffer");
     auto read = std::make_unique<park_editing::RailBuffer>();
     util::ByteReader reader(bytes.data(), bytes.size());
     check(park_editing::rail_buffer_format::read_rail_buffer(reader, read.get()) &&

@@ -3,7 +3,6 @@
 #include "formats/rail_buffer_format.h"
 #include "engine/core/checked_index.h"
 
-#include <cstring>
 #include <utility>
 
 namespace park_editing::rail_buffer_format {
@@ -29,8 +28,20 @@ bool read_rail_buffer(util::ByteReader& reader, RailBuffer* out)
     }
     if (reader.ok() && counts_fit(*out))
         return true;
-    std::memset(out, 0, sizeof(*out));
+    *out = RailBuffer{};
     return false;
+}
+
+bool write_rail_buffer(util::ByteWriter& writer, const RailBuffer& buffer)
+{
+    writer.u16(buffer.rail_count_);
+    for (const uint16_t count : buffer.point_counts_)
+        writer.u16(count);
+    for (const auto& record : buffer.records_) {
+        for (const uint16_t value : record)
+            writer.u16(value);
+    }
+    return writer.ok();
 }
 
 } // namespace park_editing::rail_buffer_format

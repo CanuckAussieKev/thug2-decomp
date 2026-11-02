@@ -11,6 +11,7 @@
 #include <new>
 #include <gsl/pointers>
 #include <array>
+#include <utility>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -136,16 +137,16 @@ void EditedRailPoint::delete_segment() { remove_scene_sector(segment_); }
 void EditedRailPoint::delete_post() { remove_scene_sector(post_); }
 
 // 0x004F4140
-void EditedRailPoint::get_pack(uint16_t* record) const
+void EditedRailPoint::get_pack(std::array<uint16_t, 5>& record) const
 {
-    record[4] = has_post_;
+    core::at(record, 4) = has_post_;
     if (level_y_ < 0.0f)
-        record[3] = 0;
+        core::at(record, 3) = 0;
     else
-        record[3] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(level_y_) * 16.0f));
-    record[0] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.x) * 8.0f));
-    record[1] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.y) * 8.0f));
-    record[2] = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.z) * 8.0f));
+        core::at(record, 3) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(level_y_) * 16.0f));
+    core::at(record, 0) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.x) * 8.0f));
+    core::at(record, 1) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.y) * 8.0f));
+    core::at(record, 2) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.z) * 8.0f));
 }
 
 // --- CEditedRail --------------------------------------------------------------------------------------------------
@@ -408,7 +409,7 @@ RailAuthoring::RailAuthoring()
     dotted_line_name_ = 0;
     rail_groups_ = nullptr;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    std::memset(&packed_, 0, sizeof(packed_));
+    packed_ = {};
     get_clear();
 }
 
@@ -724,42 +725,42 @@ void RailAuthoring::delete_dotted_line()
 // 0x004F4500
 void RailAuthoring::get_pack()
 {
-    std::memset(&packed_, 0, sizeof(packed_));
+    // (packed as a record, then written as the buffer's bytes - rail_buffer_format.h)
+    RailBuffer packed{};
     uint16_t rails = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
         ++rails;
-    packed_.rail_count_ = rails;
+    packed.rail_count_ = rails;
     const EditedRail* rail = rail_groups_;
-    if (!rail)
-        return;
-    while (rail->following_)
-        rail = rail->following_;
-    uint16_t* count = packed_.point_counts_.data();
-    uint16_t* record = core::at(packed_.records_, 0).data();
-    // From the first rail laid (the tail) back to the head, each rail's points from its first laid.
-    for (; rail; rail = rail->preceding_) {
-        uint16_t points = 0;
-        for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
-            ++points;
-        *count = points;
-        ++count;
-        const EditedRailPoint* p = rail->point_chain_;
-        if (!p)
-            continue;
-        while (p->following_)
-            p = p->following_;
-        for (; p; p = p->preceding_) {
-            p->get_pack(record);
-            record += 5;
+    if (rail) {
+        while (rail->following_)
+            rail = rail->following_;
+        int count = 0;
+        int record = 0;
+        // From the first rail laid (the tail) back to the head, each rail's points from its first laid.
+        for (; rail; rail = rail->preceding_) {
+            uint16_t points = 0;
+            for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
+                ++points;
+            core::at(packed.point_counts_, count++) = points;
+            const EditedRailPoint* p = rail->point_chain_;
+            if (!p)
+                continue;
+            while (p->following_)
+                p = p->following_;
+            for (; p; p = p->preceding_)
+                p->get_pack(core::at(packed.records_, record++));
         }
     }
+    util::ByteWriter out(packed_);
+    rail_buffer_format::write_rail_buffer(out, packed);
 }
 
 // 0x004F45B0
-RailBuffer* RailAuthoring::get_packed()
+uint8_t* RailAuthoring::get_packed()
 {
     get_pack();
-    return &packed_;
+    return packed_.data();
 }
 
 // 0x004F3C00
@@ -769,30 +770,35 @@ void RailAuthoring::set_packed(const void* data, size_t size)
     // (reading past a short one), and unpack walked the counts as they came (past the point counts and records for
     // more than 200 rails or 400 points).
     util::ByteReader reader(data, size);
-    if (!rail_buffer_format::read_rail_buffer(reader, &packed_))
+    RailBuffer rails{};
+    if (!rail_buffer_format::read_rail_buffer(reader, &rails))
         debug::printf("rail data damaged: cut short or more rails / points than the editor holds\n");
+    util::ByteWriter out(packed_);
+    rail_buffer_format::write_rail_buffer(out, rails); // (no rails when damaged)
 }
 
 // 0x004F7DF0
 void RailAuthoring::unpack()
 {
     get_clear();
-    if (!rail_buffer_format::counts_fit(packed_)) // Not original - counts past the arrays: no rails
+    // (the buffer's bytes decoded; Not original - counts past the arrays: no rails)
+    RailBuffer packed{};
+    util::ByteReader in(packed_);
+    if (!rail_buffer_format::read_rail_buffer(in, &packed))
         return;
-    const uint16_t* count = packed_.point_counts_.data();
-    const uint16_t* record = core::at(packed_.records_, 0).data();
-    for (unsigned int rails = packed_.rail_count_; rails != 0; --rails) {
-        const uint16_t points = *count++;
+    int record_index = 0;
+    for (int index = 0; std::cmp_less(index, packed.rail_count_); ++index) {
+        const uint16_t points = core::at(packed.point_counts_, index);
         EditedRail* rail = get_new_rail();
         for (unsigned int i = points; i != 0; --i) {
+            const std::array<uint16_t, 5>& record = core::at(packed.records_, record_index++);
             if (EditedRailPoint* p = rail->append_rail_vertex()) {
-                p->has_post_ = record[4] != 0;
-                p->level_y_ = static_cast<float>(static_cast<double>(record[3]) * 0.0625f);
-                p->at_point_.x = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[0])) * 0.125f);
-                p->at_point_.y = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[1])) * 0.125f);
-                p->at_point_.z = static_cast<float>(static_cast<double>(static_cast<int16_t>(record[2])) * 0.125f);
+                p->has_post_ = core::at(record, 4) != 0;
+                p->level_y_ = static_cast<float>(static_cast<double>(core::at(record, 3)) * 0.0625f);
+                p->at_point_.x = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 0))) * 0.125f);
+                p->at_point_.y = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 1))) * 0.125f);
+                p->at_point_.z = static_cast<float>(static_cast<double>(static_cast<int16_t>(core::at(record, 2))) * 0.125f);
             }
-            record += 5;
         }
     }
 }

@@ -53,7 +53,7 @@ struct EditedRailPoint {
     void delete_post();
     // 0x004F4140: written into a 10-byte network / park-file record: x, y, z * 8 (shorts), the height * 16 (0 when
     // negative), whether it has a post.
-    void get_pack(uint16_t* record) const;
+    void get_pack(std::array<uint16_t, 5>& record) const;
     // 0x004F5460: its segment drawn to the next point (none: deleted) - each point moved by `origin` -> `position`
     // turned `angle` degrees; Sk5Ed_RA_Dynamic cloned once. With a next point and a turn sharper than
     // RailEditorMaxJoinAngle the previous segment isn't joined on.
@@ -251,7 +251,7 @@ public:
     void draw_dotted_line(const maths::Vec4* position);
     // 0x004F4500: the rails packed into the buffer. 0x004F45B0: that, and the buffer.
     void get_pack();
-    RailBuffer* get_packed();
+    uint8_t* get_packed();
     // 0x004F3C00: the buffer read from `size` bytes at `data` (rail_buffer_format.h; not original: a buffer cut short
     // or with counts past its arrays reads as no rails). 0x004F7DF0: the rails rebuilt from the buffer.
     void set_packed(const void* data, size_t size);
@@ -293,7 +293,7 @@ public:
     uint32_t mode_sel_{};       // +0x28 SetEditingMode's Mode
     uint32_t dotted_line_name_; // +0x2C the dotted line's clone (Sk5Ed_RAdot_Dynamic / ..._Green)
     render::WorldCell* dotted_line_; // +0x30 its sector
-    RailBuffer packed_{};       // +0x34
+    rail_buffer_format::Bytes packed_{}; // +0x34 the rails packed (rail_buffer_format.h)
     std::array<uint8_t, 2> pad1166{};
 };
 static_assert(offsetof(RailAuthoring, input_ptr_) == 0x18 && offsetof(RailAuthoring, rail_groups_) == 0x20 &&

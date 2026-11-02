@@ -14,26 +14,29 @@
 // post} - each rail's points from its first laid, the rails from the first laid; the points' total at most
 // kMaxPoints.
 //
-// RailBuffer is the rail editor's own copy of it (park_editing::RailAuthoring's +0x34): the file-format view the
-// packer fills in place.
+// The rail editor keeps the buffer's bytes (park_editing::RailAuthoring's +0x34, sent as they are); RailBuffer is the
+// buffer decoded, the record the packer fills and the unpacker reads.
 namespace park_editing {
 
 struct RailBuffer {
-    uint16_t rail_count_;        // +0x00
-    std::array<uint16_t, 200> point_counts_; // +0x02
-    std::array<std::array<uint16_t, 5>, 400> records_;   // +0x192
+    uint16_t rail_count_;
+    std::array<uint16_t, 200> point_counts_;
+    std::array<std::array<uint16_t, 5>, 400> records_;
 };
-static_assert(sizeof(RailBuffer) == 0x1132, "file format: the rail buffer");
 
 namespace rail_buffer_format {
 
 constexpr int kMaxRails = 200;
 constexpr int kMaxPoints = 400;
-constexpr size_t kSize = sizeof(RailBuffer);
+constexpr size_t kSize = 0x1132;
+// The buffer's bytes.
+using Bytes = std::array<uint8_t, kSize>;
 
 // The buffer from `reader` into `out`. False (out cleared: no rails) if cut short, more than kMaxRails rails or the
 // rails' points more than kMaxPoints.
 bool read_rail_buffer(util::ByteReader& reader, RailBuffer* out);
+// `buffer` into `writer` (kSize bytes); false if there isn't room.
+bool write_rail_buffer(util::ByteWriter& writer, const RailBuffer& buffer);
 // Whether a buffer's counts are within its arrays (what read_rail_buffer checks).
 bool counts_fit(const RailBuffer& buffer);
 
