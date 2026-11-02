@@ -16,7 +16,6 @@
 #include "game/park/park_memory.h"
 #include "engine/script/param_struct.h"
 #include "game/park_editing/park_editor.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -72,8 +71,7 @@ ParkAssembler::~ParkAssembler()
         scene_handle_ = nullptr;
     if (source_world_)
         source_world_ = nullptr;
-    // (the node array's owner, made in place by make_new)
-    raw::as<assets::NodeTableResource>(node_array_.data())->~NodeTableResource();
+    node_table_.reset(); // (the node array's owner)
     destroy_empty_member(&rails_);
     destroy_empty_member(&source_rails_);
 }

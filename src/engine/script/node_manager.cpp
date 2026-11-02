@@ -22,7 +22,6 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace level_nodes {
@@ -289,14 +288,10 @@ uint32_t NodeManager::get_last_node_array_name()
 }
 
 // 0x0045D140
-void NodeManager::set_owner(void* owner) { owner_ptr_ = owner; }
+void NodeManager::set_owner(assets::NodeTableResource* owner) { owner_ptr_ = owner; }
 
 // 0x0045D470
-uint32_t NodeManager::get_owner_value58()
-{
-    // (the owner is a node table asset: its script array)
-    return cell::of(static_cast<assets::NodeTableResource*>(owner_ptr_)->nodes_);
-}
+script::Array* NodeManager::get_owner_nodes() { return owner_ptr_->nodes_; }
 
 // 0x0045D270
 bool NodeManager::has_node_array(uint32_t name)
@@ -309,11 +304,11 @@ bool NodeManager::has_node_array(uint32_t name)
 }
 
 // 0x0045D170
-bool NodeManager::hash_node_in(uint32_t name, uint32_t a, uint32_t b)
+bool NodeManager::hash_node_in(uint32_t name, uint32_t index, script::Struct* node)
 {
     for (uint32_t i = 0; i < num_; ++i) {
         if (core::at(arrays_, i).label_ == name) {
-            hash_node(i, a, cell::pointer<Struct>(b));
+            hash_node(i, index, node);
             return true;
         }
     }

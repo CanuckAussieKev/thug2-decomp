@@ -28,7 +28,6 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -256,7 +255,7 @@ void PadInputModule::update_events(const uint8_t* data)
         ControlButton* button =
             event.button < 0
                 ? nullptr
-                : raw::field_at<ControlButton>(&pad_primary_, event.button);
+                : pad_primary_.button_at_offset(static_cast<uint32_t>(event.button));
         read_button_state(data, event.index, event.bit, event.down, event.up, button);
     }
 }

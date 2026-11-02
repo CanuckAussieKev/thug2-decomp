@@ -27,7 +27,6 @@
 #include "platform/run_log.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/objects/model_component.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -104,7 +103,7 @@ bool add_copy_node(script::Struct* node)
     g_copy_nodes->configure_size_kind(count, script::kQbvalStruct);
     for (uint32_t i = 0; i < count; ++i)
         g_copy_nodes->set_cell(i, script::Cell::of(core::at(g_copy_node_list, i)));
-    return manager->hash_node_in(name, count - 1, cell::of(node));
+    return manager->hash_node_in(name, count - 1, node);
 }
 
 void forget_copy_nodes()

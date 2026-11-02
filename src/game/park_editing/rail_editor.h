@@ -286,8 +286,8 @@ public:
     static void free_rail(void* rail);
     static void free_point(void* point);
 
-    void* input_ptr_;           // +0x18 the input component (0x27D7CD28)
-    void* view_camera_;         // +0x1C the editor camera component (0xAC8946E2)
+    objects::ObjectModule* input_ptr_;  // +0x18 the input component (0x27D7CD28)
+    objects::ObjectModule* view_camera_; // +0x1C the editor camera component (0xAC8946E2)
     EditedRail* rail_groups_;   // +0x20
     EditedRail* active_node_{}; // +0x24 the rail points are added to
     uint32_t mode_sel_{};       // +0x28 SetEditingMode's Mode

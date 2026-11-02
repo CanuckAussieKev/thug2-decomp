@@ -57,6 +57,9 @@ public:
     void tick_frame(const pad_input::Payload* payload);
     // 0x0046C270: the button named `name` (null if none).
     ControlButton* read_button(uint32_t name);
+    // The button `offset` bytes into the pad (the original's tables and calls name buttons by their offset: a
+    // multiple of 0x20 below 0x200); null for another offset.
+    ControlButton* button_at_offset(uint32_t offset);
 
     ControlButton up_dir_{};            // +0x000
     ControlButton btn_down_{};          // +0x020

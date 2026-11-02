@@ -284,6 +284,20 @@ ControlButton* PadSnapshot::read_button(uint32_t name)
     return nullptr;
 }
 
+ControlButton* PadSnapshot::button_at_offset(uint32_t offset)
+{
+    // (the buttons in their order in the pad, 0x20 bytes apart)
+    auto buttons = std::to_array<ControlButton*>({&up_dir_,           &btn_down_,          &left_side_,      &right_side_,
+                                                  &shoulder_left_a_,  &shoulder_left_b_,   &stick_click_left_,
+                                                  &shoulder_right_a_, &shoulder_right_b_, &stick_click_right_,
+                                                  &button_round_,     &button_box_,        &button_wedge_,   &pos_x_,
+                                                  &outset_,           &button_choose_});
+    constexpr uint32_t kButtonSize = 0x20;
+    if (offset % kButtonSize != 0 || offset / kButtonSize >= buttons.size())
+        return nullptr;
+    return buttons.at(offset / kButtonSize);
+}
+
 // 0x0046BA50
 int d_pad_direction(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 {

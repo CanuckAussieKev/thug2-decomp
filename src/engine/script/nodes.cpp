@@ -337,7 +337,7 @@ void end_node_walk() { hub()->end_walk(); }
 // 0x0045C210
 Array* get_last_node_array() { return hub()->get_last_node_array(); }
 // 0x0045C220
-uint32_t get_node_owner_value58() { return hub()->get_owner_value58(); }
+script::Array* get_node_owner_nodes() { return hub()->get_owner_nodes(); }
 // 0x0045C230
 uint32_t get_last_node_array_name() { return hub()->get_last_node_array_name(); }
 

@@ -12,10 +12,12 @@
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor_internal.h"
 #include "engine/objects/control_pad.h"
+#include "engine/objects/editor_camera.h"
+#include "engine/objects/input_component.h"
+#include "engine/core/down_cast.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/stubs.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
@@ -55,14 +57,14 @@ constexpr uint32_t kMode = 0x6835B854, kRailId = 0xA61E7CD9, kRailPointIndex = 0
 
 constexpr float kAngleScaleToDeg = 57.2957763671875f; // 0x00645468
 
-// The input component's pad (+0x20) and its four buttons (X +0x1A0, Triangle +0x180, Square +0x160, Circle +0x140).
-objects::PadSnapshot* pad_of(void* input)
+// The input component's pad and its four buttons (X +0x1A0, Triangle +0x180, Square +0x160, Circle +0x140 in it).
+objects::PadSnapshot* pad_of(objects::ObjectModule* input)
 {
-    return raw::field_at<objects::PadSnapshot>(static_cast<uint8_t*>(input), 0x20);
+    return &core::down_cast<objects::PadInputModule>(input)->pad_primary_;
 }
-objects::ControlButton* get_button(void* input, uint32_t offset)
+objects::ControlButton* get_button(objects::ObjectModule* input, uint32_t offset)
 {
-    return raw::field_at<objects::ControlButton>(static_cast<uint8_t*>(input), 0x20 + offset);
+    return pad_of(input)->button_at_offset(offset);
 }
 
 
@@ -72,13 +74,14 @@ int rail_pool_used()
     return core::at(pools.pools, pools.current)->taken_count_;
 }
 
-// The editor camera's (0xAC8946E2) target: +0x3C its position, +0x78 its heading (radians), +0x88 the height over it.
-const Vec4& viewer_location(void* camera)
+// The editor camera's (0xAC8946E2) target: its cursor's position, its heading (radians), the height over it.
+const objects::EditorViewModule* editor_view(objects::ObjectModule* camera)
 {
-    return *raw::field_at<const Vec4>(static_cast<uint8_t*>(camera), 0x3C);
+    return core::down_cast<objects::EditorViewModule>(camera);
 }
-float camera_heading(void* camera) { return *raw::field_at<const float>(static_cast<uint8_t*>(camera), 0x78); }
-float camera_height(void* camera) { return *raw::field_at<const float>(static_cast<uint8_t*>(camera), 0x88); }
+const Vec4& viewer_location(objects::ObjectModule* camera) { return editor_view(camera)->cursor_; }
+float camera_heading(objects::ObjectModule* camera) { return editor_view(camera)->heading_; }
+float camera_height(objects::ObjectModule* camera) { return editor_view(camera)->level_y_; }
 
 // The structure a script's member function writes its results to (CScript +0x14).
 script::Struct* get_results(script::Script* script) { return script->args_; }

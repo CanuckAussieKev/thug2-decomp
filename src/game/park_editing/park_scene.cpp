@@ -19,7 +19,6 @@
 #include "game/park/park_memory.h"
 #include "engine/script/nodes.h"
 #include "game/park_editing/park_editor.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
@@ -142,7 +141,7 @@ ParkAssembler::ParkAssembler()
 {
     for (RestartPoint& restart : restarts_)
         restart.edit_span_.assign_value(0, 0, 0, 0, 0, 0);
-    new (node_array_.data()) assets::NodeTableResource;
+    node_table_.emplace();
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     flag_bits_ = 0;
     field_04_ = 0;

@@ -54,7 +54,6 @@
 #include "engine/script/skate_cfuncs.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/sys/game_config.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -454,7 +453,7 @@ objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub.ge
 bool cfunc_parse_node_array(script::Struct* params, script::Script*)
 {
     memory::push_mem_profile("ParseNodeArray"); // "ParseNodeArray"
-    auto* nodes = cell::pointer<script::Array>(level_nodes::get_node_owner_value58());
+    script::Array* nodes = level_nodes::get_node_owner_nodes();
     objects::GrindRailHub* rails = rail_manager();
     if (!params || !params->has_bare_flag("no_cleanup")) { // "no_cleanup"
         objects::nearby_zone_startup();

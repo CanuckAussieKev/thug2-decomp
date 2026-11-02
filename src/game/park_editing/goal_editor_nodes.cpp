@@ -12,7 +12,6 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace park_editing {
@@ -37,7 +36,7 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
     int count = 0;
     if (!nodes) {
         // Added to the node manager's last array, grown for them, and hashed there.
-        nodes = cell::pointer<script::Array>(level_nodes::get_node_owner_value58());
+        nodes = level_nodes::get_node_owner_nodes();
         manager = level_nodes::node_manager_instance().get();
         array_name = level_nodes::get_last_node_array_name();
         in_place = false;
@@ -73,7 +72,7 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
             node->put_int(0xE50D6573, *index);
             if (!in_place) {
                 nodes->set_cell(static_cast<uint32_t>(*index), script::Cell::of(node));
-                manager->hash_node_in(array_name, static_cast<uint32_t>(*index), cell::of(node));
+                manager->hash_node_in(array_name, static_cast<uint32_t>(*index), node);
             }
             ++*index;
         }

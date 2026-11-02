@@ -23,7 +23,6 @@
 #include "engine/gfx/engine.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/engine_geom.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace park_editing {
@@ -94,7 +93,7 @@ render::TriMeshSource* get_hit_shape(render::Geom* geometry)
 }
 uint16_t collision_vertex_count(const render::TriMeshSource* collision)
 {
-    return *raw::field_at<const uint16_t>(collision, 6);
+    return collision->num_vertices_;
 }
 void set_collision_vertices(render::WorldCell* sector, Vec4* vertices)
 {

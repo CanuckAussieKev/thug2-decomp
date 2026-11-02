@@ -8,6 +8,9 @@
 #include "engine/core/mem.h"
 #include <gsl/pointers>
 
+namespace script {
+class Array;
+}
 namespace file {
 class AsyncFileHandle;
 }
@@ -189,7 +192,7 @@ struct NodeTableResource final : Resource {
     uint32_t archive_{0};    // +0x4C
     uint32_t source_path_{}; // +0x50 the checksum of the file name (its script's)
     uint32_t array_name_{};  // +0x54 the node array's checksum
-    void* nodes_{};          // +0x58 its script array
+    script::Array* nodes_{}; // +0x58 its script array
     char* args_{};           // +0x5C (0x40 bytes, the file name)
     bool owned_{};           // +0x60 the node manager's owner
     std::array<uint8_t, 3> pad61{};

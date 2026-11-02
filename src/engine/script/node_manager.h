@@ -11,6 +11,9 @@
 // 0x006F0D84 / 0x006F0D88): up to 20 named script arrays of node structures, and a hash from every node's name
 // to where it is (0x4000 slots, open addressing). From the disassembly of 0x0045CE60-0x0045D6E0; the node
 // functions (nodes.h) and the prefix tables (node_prefixes.h) sit just before it.
+namespace assets {
+struct NodeTableResource;
+} // namespace assets
 namespace script {
 class Array;
 class Struct;
@@ -53,7 +56,7 @@ public:
     // 0x0045D270: whether there is a node array `name`.
     bool has_node_array(uint32_t name);
     // 0x0045D170: HashNode(its index, a, b) for the node array `name`; false if there is none.
-    bool hash_node_in(uint32_t name, uint32_t a, uint32_t b);
+    bool hash_node_in(uint32_t name, uint32_t index, script::Struct* node);
     // 0x0045D3A0: every node of node array `index` hashed (HashNode(index, node index, node)).
     void hash_nodes(uint32_t index);
     // 0x0045CE60: node `index` of node array `array` put in the hash under its name= (in the first empty slot from
@@ -80,15 +83,16 @@ public:
     // 0x0045D3F0: the next node of the walk, or null at the end.
     script::Struct* get_next_node();
 
-    // 0x0045D140 / 0x0045D470: an object kept with the manager (+0x100F8), and its +0x58.
-    void set_owner(void* owner);
-    uint32_t get_owner_value58();
+    // 0x0045D140 / 0x0045D470: the node table that owns the nodes (+0x100F8: a loaded node array's, or the park's),
+    // and its script array.
+    void set_owner(assets::NodeTableResource* owner);
+    script::Array* get_owner_nodes();
 
     std::array<NodeSlot, kSlots> slots_{};          // +0x00000
     NodeSlot walk_{};                   // +0x10000 the walk's place (list_link_ -1: no walk)
     uint32_t num_{0};                   // +0x10004 node arrays in use
     std::array<NodeArrayEntry, kMaxArrays> arrays_{}; // +0x10008
-    void* owner_ptr_{};                   // +0x100F8
+    assets::NodeTableResource* owner_ptr_{}; // +0x100F8
 };
 static_assert(offsetof(NodeManager, walk_) == 0x10000 && offsetof(NodeManager, num_) == 0x10004 &&
                   offsetof(NodeManager, arrays_) == 0x10008 && offsetof(NodeManager, owner_ptr_) == 0x100F8 &&

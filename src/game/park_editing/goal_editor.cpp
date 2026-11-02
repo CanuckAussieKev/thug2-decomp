@@ -19,6 +19,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/editor_camera.h"
+#include "engine/objects/input_component.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
@@ -26,7 +27,6 @@
 #include "engine/script/struct_buffer.h"
 #include "game/skate/skate_module.h"
 #include "platform/crt.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -529,9 +529,10 @@ bool near_other_goals(ObjectiveAuthoring* editor, const maths::Vec4& pos, float 
     return false;
 }
 
+// The input component's button `offset` bytes into the component (its pad at +0x20).
 objects::ControlButton* get_button(objects::ObjectModule* input, uint32_t offset)
 {
-    return raw::field_at<objects::ControlButton>(input, offset);
+    return core::down_cast<objects::PadInputModule>(input)->pad_primary_.button_at_offset(offset - 0x20);
 }
 
 } // namespace

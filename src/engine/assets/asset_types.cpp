@@ -400,7 +400,7 @@ bool NodeTableResource::finish_loading(void* buffer, uint32_t size)
     script::Array* nodes = script::fetch_list(array_name.data());
     array_name_ = checksums::hash_from_text(array_name.data());
     change_contents(nodes);
-    nodes_ = get_data();
+    nodes_ = static_cast<script::Array*>(get_data());
     close_file(file_ref_);
     free_buffer();
     free_load_params(args_);
@@ -411,13 +411,13 @@ bool NodeTableResource::finish_loading(void* buffer, uint32_t size)
 // 0x00408F00
 int NodeTableResource::offload()
 {
-    auto* nodes = static_cast<script::Array*>(nodes_);
+    auto* nodes = nodes_;
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
         uint32_t id = 0;
         nodes->struct_at(i)->read_hash_value(0xA1DC81F9u, &id, 0); // name
         if (objects::Entity* object = objects::find_object(id))
             object->flag_as_dead();
-        nodes = static_cast<script::Array*>(nodes_);
+        nodes = nodes_;
     }
     if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get())
         manager->remove_node_array(array_name_);

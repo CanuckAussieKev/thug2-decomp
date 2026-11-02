@@ -17,11 +17,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <optional>
 
 #include "game/park_editing/park_rails.h"
 #include "engine/maths/vec4.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
+#include "engine/assets/resource_entry.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -83,7 +85,8 @@ struct CellBox {
 };
 static_assert(sizeof(CellBox) == 6, "passed by value in two stack slots");
 
-// One piece of a metapiece (12 bytes): its cell offset and rotation within the metapiece, and the piece.
+// One piece of a metapiece (12 bytes in the original): its cell offset and rotation within the metapiece, and the
+// piece - the original's one word held either.
 struct PieceGroupDesc {
     uint8_t x;
     int8_t y;
@@ -93,9 +96,9 @@ struct PieceGroupDesc {
                       //        these set the cells' floor heights (set_meta_in_cells), PieceGroup::intersects' precise
                       //        test leaves them out, and their metapiece is kFloorLocked
     std::array<uint8_t, 3> spare_slot5_;
-    gsl::owner<void*> piece; // +0x08: the scene piece (its +0x08 flags); in an abstract metapiece, the piece's name
+    gsl::owner<ParkTile*> placed_; // +0x08: in a concrete metapiece, the scene piece
+    uint32_t name_;                // in an abstract one, the piece's (or inner metapiece's) name
 };
-static_assert(sizeof(PieceGroupDesc) == 12, "layout must match the original");
 
 // A piece of the scene (what a metapiece is made of; park_pieces.cpp). Two kinds: a source piece (TileTemplate,
 // kSource: a piece type - one sector of the "sk5ed" scene, its name and size) and a placed piece (ParkTile, made a
@@ -290,10 +293,6 @@ public:
 protected:
     PieceGroup() = default;
 };
-static_assert(offsetof(PieceGroup, flag_bits_) == 0x0C && offsetof(PieceGroup, desc_) == 0x14 &&
-                  offsetof(PieceGroup, extra_desc_) == 0x2C && offsetof(PieceGroup, filled_slots_) == 0x34 &&
-                  offsetof(PieceGroup, name_key_) == 0x38 && sizeof(PieceGroup) == 0x3C,
-              "layout must match the original");
 
 // A metapiece placed in the park or held by the cursor: its pieces are cloned pieces.
 class PlacedPieceGroup final : public PieceGroup {
@@ -788,12 +787,14 @@ public:
     std::array<float, 3> falloff_{};                         // +0x330 (rgb)
     std::array<maths::Vec4, kLightCapacity> lights_{};       // +0x33C
     uint32_t field_43c_{};
-    alignas(4) std::array<uint8_t, 0x64> node_array_{}; // +0x440: an assets::NodeTableResource made in place (the node array's owner)
+    // +0x440: the node array's owner (made by the constructor, destroyed first by the destructor - the original made
+    // it in place in its storage)
+    std::optional<assets::NodeTableResource> node_table_;
 };
 static_assert(offsetof(ParkAssembler, source_rails_) == 0x24 && offsetof(ParkAssembler, rails_) == 0x58 &&
                   offsetof(ParkAssembler, node_info_) == 0x8C && offsetof(ParkAssembler, restarts_) == 0x98 &&
                   offsetof(ParkAssembler, light_total_) == 0x320 && offsetof(ParkAssembler, lights_) == 0x33C &&
-                  offsetof(ParkAssembler, node_array_) == 0x440 && sizeof(ParkAssembler) == 0x4A4,
+                  offsetof(ParkAssembler, field_43c_) == 0x43C,
               "layout must match the original");
 
 // What rebuild_floor_piece is asked (0x1C bytes): the cell and its floor height; it says where the top piece went.

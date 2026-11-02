@@ -15,7 +15,6 @@
 #include "engine/maths/mat4.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -73,7 +72,7 @@ PieceGroupDesc* PieceGroup::get_descriptor(int index) { return index < 2 ? &core
 void PieceGroup::toggle_shown(bool visible)
 {
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        auto* piece = static_cast<ParkTile*>(get_descriptor(static_cast<int>(i))->piece);
+        auto* piece = get_descriptor(static_cast<int>(i))->placed_;
         scene::change_live(scene::look_up_sector(piece->sector_), visible);
     }
 }
@@ -82,7 +81,7 @@ int PieceGroup::count_pieces()
 {
     int count = 0;
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        auto name = cell::of(get_descriptor(static_cast<int>(i))->piece);
+        const uint32_t name = get_descriptor(static_cast<int>(i))->name_;
         const PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(name, nullptr);
         if (entry->flag_bits_ & kSector) // a single piece
             ++count;
@@ -124,7 +123,7 @@ void PieceGroup::set_quarter_turns(int rot)
         uint8_t along = 0;
         if (flag_bits_ & kAbstract) {
             const PieceGroup* entry =
-                ParkLayout::singleton()->fetch_meta_template(cell::of(from->piece), nullptr);
+                ParkLayout::singleton()->fetch_meta_template(from->name_, nullptr);
             const CellBox size = entry->cell_footprint_;
             if (from->rot & 1) {
                 along = size.w;
@@ -137,7 +136,7 @@ void PieceGroup::set_quarter_turns(int rot)
             CellBox size{};
             size.w = 0;
             size.l = 0;
-            static_cast<ParkTile*>(from->piece)->get_footprint_size(&size);
+            from->placed_->get_footprint_size(&size);
             along = size.l;
             across = size.w;
         }
@@ -162,7 +161,8 @@ void PieceGroup::set_quarter_turns(int rot)
         }
         to->y = from->y;
         to->rot = static_cast<uint8_t>((from->rot + turn) & 3);
-        to->piece = from->piece;
+        to->placed_ = from->placed_;
+        to->name_ = from->name_;
     }
     if (extra_desc_)
         memory::dealloc(extra_desc_);
@@ -216,7 +216,7 @@ void PieceGroup::get_bounds(maths::Vec4* max, maths::Vec4* min)
     *min = {kFarAway, kFarAway, kFarAway, 0.0f};
     *max = {-kFarAway, -kFarAway, -kFarAway, 0.0f};
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        auto* piece = static_cast<ParkTile*>(get_descriptor(static_cast<int>(i))->piece);
+        auto* piece = get_descriptor(static_cast<int>(i))->placed_;
         maths::Vec4 size;
         piece->measure_span(&size);
         const double x = piece->at_point_.x;
@@ -296,8 +296,7 @@ void PieceGroup::get_piece_list(script::Array* out)
         const PieceGroupDesc* entry = get_descriptor(static_cast<int>(i));
         script::Struct* memory = script::spawn_param_bag();
         script::Struct* piece = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-        piece->put_name_key(0u,
-                            cell::of(entry->piece)); // (out of memory crashes, as in the original)
+        piece->put_name_key(0u, entry->name_); // (out of memory crashes, as in the original)
         maths::Vec4 position;
         get_relative_position(&position, i);
         piece->put_vec3(0u, position.x, position.y, position.z);
@@ -314,7 +313,7 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
     const auto radians = static_cast<float>(static_cast<double>(angle) * kRadiansPerDegree);
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         const PieceGroupDesc* entry = get_descriptor(static_cast<int>(i));
-        auto* piece = static_cast<ParkTile*>(entry->piece);
+        auto* piece = entry->placed_;
         maths::Vec4 size;
         piece->measure_span(&size);
         // The piece's centre from the metapiece's centre (y read unsigned here), turned with the metapiece.
@@ -346,7 +345,7 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
 void PieceGroup::spotlight(int on, int gap)
 {
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        auto* piece = static_cast<ParkTile*>(get_descriptor(static_cast<int>(i))->piece);
+        auto* piece = get_descriptor(static_cast<int>(i))->placed_;
         if (piece->flag_bits_ & ParkTile::kCloned)
             piece->set_highlight(on != 0, gap != 0);
     }
@@ -370,7 +369,7 @@ void PieceGroup::finish_pieces()
     const double half_x = size_x * 0.5;
     const double half_z = static_cast<double>(size_z) * 0.5;
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        auto* piece = static_cast<ParkTile*>(get_descriptor(static_cast<int>(i))->piece);
+        auto* piece = get_descriptor(static_cast<int>(i))->placed_;
         piece->at_point_.x = static_cast<float>((static_cast<double>(piece->at_point_.x) - min.x) - half_x);
         piece->at_point_.z = static_cast<float>((static_cast<double>(piece->at_point_.z) - min.z) - half_z);
     }
@@ -388,7 +387,7 @@ ParkTile* PlacedPieceGroup::get_piece(uint32_t index)
 {
     if (index >= filled_slots_ || static_cast<int>(index) < 0)
         return nullptr;
-    return static_cast<ParkTile*>(get_descriptor(static_cast<int>(index))->piece);
+    return get_descriptor(static_cast<int>(index))->placed_;
 }
 
 void PlacedPieceGroup::insert_tile(ParkPiece* placed, CellBox* pos, int rot, bool sets_floor)
@@ -405,7 +404,7 @@ void PlacedPieceGroup::insert_tile(ParkPiece* placed, CellBox* pos, int rot, boo
     piece->at_point_.z = static_cast<float>(z);
     piece->at_point_.x = static_cast<float>(x);
     piece->at_point_.y = static_cast<float>(y);
-    entry->piece = piece;
+    entry->placed_ = piece;
     entry->x = pos->x;
     entry->y = pos->y;
     entry->z = pos->z;
@@ -422,7 +421,7 @@ TileTemplate* PieceBlueprint::get_piece(uint32_t index)
     if (index >= filled_slots_ || static_cast<int>(index) < 0)
         return nullptr;
     const PieceGroupDesc* entry = get_descriptor(static_cast<int>(index));
-    return ParkLayout::singleton()->builder_->get_piece_source(cell::of(entry->piece));
+    return ParkLayout::singleton()->builder_->get_piece_source(entry->name_);
 }
 
 namespace {
@@ -454,7 +453,7 @@ void PieceBlueprint::insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool s
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
     entry->sets_floor_ = sets_floor;
-    entry->piece = cell::pointer<void>(source->sector_);
+    entry->name_ = source->sector_;
     grow_to_take(cell_footprint_, pos);
     if (cell_footprint_.h < 1)
         cell_footprint_.h = 1;
@@ -470,7 +469,7 @@ void PieceBlueprint::add_meta_piece(PieceGroup* meta, CellBox* pos, int rot, uin
     entry->z = pos->z;
     entry->rot = static_cast<uint8_t>(rot);
     entry->sets_floor_ = sets_floor != 0;
-    entry->piece = cell::pointer<void>(meta->name_key_);
+    entry->name_ = meta->name_key_;
     grow_to_take(cell_footprint_, pos);
 }
 
@@ -482,7 +481,7 @@ PieceGroupDesc* PieceBlueprint::get_entry(PieceGroupDesc* out, int index)
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         const PieceGroupDesc* outer = get_descriptor(static_cast<int>(i));
         PieceGroup* entry =
-            ParkLayout::singleton()->fetch_meta_template(cell::of(outer->piece), nullptr);
+            ParkLayout::singleton()->fetch_meta_template(outer->name_, nullptr);
         if (entry->flag_bits_ & kSector) { // a single piece
             if (n == index) {
                 *out = *outer;

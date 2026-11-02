@@ -25,7 +25,6 @@
 #include "game/park_editing/goal_editor.h"
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace park_editing {
@@ -117,7 +116,7 @@ void parse_node_array() { commands::cfunc_parse_node_array(nullptr, nullptr); }
 
 assets::NodeTableResource* node_table_resource(ParkAssembler& d)
 {
-    return raw::as<assets::NodeTableResource>(d.node_array_.data());
+    return &*d.node_table_;
 }
 Struct* elem(Array* nodes, int index)
 {
@@ -372,7 +371,7 @@ void ParkAssembler::build_goal_node_array()
     if (manager->has_node_array(kParkNodeArray))
         manager->remove_node_array(kParkNodeArray);
     manager->add_node_array(kParkNodeArray, true);
-    manager->set_owner(node_array_.data());
+    manager->set_owner(&*node_table_);
 }
 
 void ParkAssembler::remove_node_array()
@@ -647,7 +646,7 @@ void ParkAssembler::build_node_array(MapListNode* metas)
     rails_.free_pools();
     goal_editor_write_nodes(nodes, &index, memory::top_down_heap());
     manager->add_node_array(kParkNodeArray, true);
-    manager->set_owner(node_array_.data());
+    manager->set_owner(&*node_table_);
     parse_node_array();
     flag_bits_ |= ParkAssembler::kNodeArrayBuilt;
 }

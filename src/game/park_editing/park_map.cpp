@@ -61,9 +61,9 @@ uint32_t structure_buffer_size(script::Struct* structure, uint32_t maximum)
 {
     return script::measure_buffer_bytes(structure, maximum);
 }
-void write_structure(script::Struct* structure, void* buffer, uint32_t size, int a, int b)
+void write_structure(script::Struct* structure, void* buffer, uint32_t size, int a)
 {
-    script::emit_into_buffer(structure, static_cast<uint8_t*>(buffer), size, a, function_at<void (*)()>(static_cast<uint32_t>(b)));
+    script::emit_into_buffer(structure, static_cast<uint8_t*>(buffer), size, a, nullptr); // (the original's callback: 0)
 }
 void read_structure(script::Struct* structure, void* buffer, size_t size)
 {
@@ -126,7 +126,7 @@ void ParkLayout::transfer_park_file(bool save, int slot)
         export_to_struct(params.get());
         const uint32_t size = structure_buffer_size(params.get(), 100000);
         void* buffer = memory::alloc_block(size);
-        write_structure(params.get(), buffer, size, 1, 0);
+        write_structure(params.get(), buffer, size, 1);
         file::Hdl file = file::unseal(name.data(), "wb");
         file::emit_out(buffer, static_cast<int>(size), 1, file);
         file::shut(file);

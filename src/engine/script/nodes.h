@@ -73,7 +73,7 @@ void start_node_walk(uint32_t name);
 script::Struct* get_next_node();
 void end_node_walk();
 script::Array* get_last_node_array();
-uint32_t get_node_owner_value58();
+script::Array* get_node_owner_nodes();
 uint32_t get_last_node_array_name();
 
 } // namespace level_nodes
