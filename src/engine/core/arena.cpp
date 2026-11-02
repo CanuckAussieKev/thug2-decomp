@@ -7,7 +7,6 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/script/cfuncs_engine.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 

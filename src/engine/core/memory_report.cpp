@@ -7,7 +7,6 @@
 #include <psapi.h>
 
 #include <cstdint>
-#include <cstdio>
 #include <string>
 #include <array>
 #include <memory>

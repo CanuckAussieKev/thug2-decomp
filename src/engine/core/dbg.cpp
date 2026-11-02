@@ -2,9 +2,6 @@
 
 #include <windows.h>
 
-#include <cstdarg>
-#include <cstdio>
-
 namespace debug {
 
 // 0x00401C30 (printf, dbg.h: formatting, then this)

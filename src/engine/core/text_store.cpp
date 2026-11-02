@@ -5,7 +5,6 @@
 #include <new>
 
 #include "engine/core/mem.h"
-#include "engine/core/raw_view.h"
 #include <span>
 #include "engine/core/checked_index.h"
 

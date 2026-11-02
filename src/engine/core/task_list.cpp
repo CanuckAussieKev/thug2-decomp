@@ -9,8 +9,6 @@
 #include "engine/core/mem.h"
 #include "engine/lists/chain_start.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
-
 namespace tasks {
 
 namespace {

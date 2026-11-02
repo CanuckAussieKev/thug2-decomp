@@ -13,7 +13,6 @@
 #include "platform/crt.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 #include <memory>
 #include <span>

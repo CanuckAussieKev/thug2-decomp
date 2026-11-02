@@ -6,7 +6,6 @@
 #include <array>
 
 #include "engine/file/file_load.h"
-#include "engine/core/pointer_cell.h"
 #include <string_view>
 #include "engine/core/checked_index.h"
 

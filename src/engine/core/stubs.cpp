@@ -7,9 +7,6 @@
 
 #include <cstdint>
 
-#include "engine/core/arena_alloc.h"
-#include "engine/file/async.h"
-
 namespace stubs {
 
 // 0x005B9760 (also through the jump at 0x005B6570): e.g. the script commands that are stubs returning true
