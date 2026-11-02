@@ -97,12 +97,12 @@ RoomManager* task_lobby(tasks::Task<RoomManager>* task) { return task->content_;
 void push_internet_heap()
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->internet_top_down_heap_);
+    memory->enter_heap_scope(memory->internet_top_down_heap());
 }
 void push_internet_bottom_up_heap()
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->internet_bottom_up_heap_);
+    memory->enter_heap_scope(memory->internet_bottom_up_heap());
 }
 void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 
@@ -419,7 +419,7 @@ void RoomManager::hangup()
 unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->internet_bottom_up_heap_);
+    memory->enter_heap_scope(memory->internet_bottom_up_heap());
     Hub* manager = net_game_state().net_session_slot();
     std::array<char, 128> nick{};
     std::strcpy(nick.data(), manager->get_online_settings()->get_preference_string(kNetworkId, kUiString));

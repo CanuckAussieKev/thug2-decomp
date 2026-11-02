@@ -153,7 +153,7 @@ void drop_out(ListNode* node)
 
 // The memory manager.
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-void push_network_heap() { ram_stats()->enter_heap_scope(ram_stats()->network_heap_); }
+void push_network_heap() { ram_stats()->enter_heap_scope(ram_stats()->network_heap()); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
 
 // The pieces of a streamed message (net_wire.h): the start (the description, the total size, the stream's id, a

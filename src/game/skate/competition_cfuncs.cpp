@@ -99,7 +99,7 @@ int get_bonus(modules::PointTally* score) { return score->get_bonus(); }
 void push_skater_info_heap()
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->skater_info_heap_);
+    manager->enter_heap_scope(manager->skater_info_heap());
 }
 void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 

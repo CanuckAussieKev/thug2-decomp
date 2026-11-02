@@ -106,47 +106,47 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
     bool heap_pushed = false;
     uint32_t heap = 0;
     bool push_heap = true;
-    memory::MemSource* chosen = memory->front_end_heap_;
+    memory::MemSource* chosen = memory->front_end_heap();
     if (params->read_hash_value(kHeap, &heap, 0)) {
         int index = 0;
         switch (heap) {
         case kHeapNetwork:
-            chosen = memory->network_heap_;
+            chosen = memory->network_heap();
             break;
         case kHeapTopDown:
-            chosen = memory->top_down_heap_;
+            chosen = memory->top_down_heap();
             break;
         case kHeap3c84a59:
-            chosen = memory->unused_heap_;
+            chosen = memory->unused_heap();
             break;
         case kHeapDefault:
             push_heap = false;
             break;
         case kHeapSkaterGeom:
             params->fetch_int_value(kSkaterIndex, &index, 0);
-            chosen = core::at(memory->skater_geom_heaps_, index);
+            chosen = core::at(memory->skater_geom_heaps(), index);
             break;
         case kHeapSkater:
             params->fetch_int_value(kSkaterIndex, &index, 0);
-            chosen = core::at(memory->skater_heaps_, index);
+            chosen = core::at(memory->skater_heaps(), index);
             break;
         case kHeapDebug:
-            chosen = memory->debug_heap_;
+            chosen = memory->debug_heap();
             break;
         case kHeapScript:
-            chosen = memory->script_heap_;
+            chosen = memory->script_heap();
             break;
         case kHeapInternetBottomUp:
-            chosen = memory->internet_bottom_up_heap_;
+            chosen = memory->internet_bottom_up_heap();
             break;
         case kHeapBottomUp:
-            chosen = memory->bottom_up_heap_;
+            chosen = memory->bottom_up_heap();
             break;
         case kHeapInternetTopDown:
-            chosen = memory->internet_top_down_heap_;
+            chosen = memory->internet_top_down_heap();
             break;
         case kHeapSkaterInfo:
-            chosen = memory->skater_info_heap_;
+            chosen = memory->skater_info_heap();
             break;
         default:
             break;
@@ -214,7 +214,7 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
 bool cfunc_screen_element_system_init(script::Struct*, script::Script*)
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->front_end_heap_);
+    memory->enter_heap_scope(memory->front_end_heap());
     UiWidget* root = new PanelWidget;
     memory::Hub::get_pull()->leave_heap_scope();
     root->change_serial(kRootWindow);

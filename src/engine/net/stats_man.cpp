@@ -71,8 +71,8 @@ uint32_t& login_start()
 
 RankingsManager* get_attributes() { return net_game_state().net_session_slot()->rating_service().get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
-void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
+void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap()); }
+void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap()); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 
@@ -379,7 +379,7 @@ RankingsManager::RankingsManager()
     personal_.skill_points_ = 0;
     std::memset(personal_.high_scores_.data(), 0, sizeof(personal_.high_scores_));
     std::memset(personal_.high_combos_.data(), 0, sizeof(personal_.high_combos_));
-    ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->network_heap());
     task_ = std::make_unique<tasks::Task<RankingsManager>>(&stats_task, this, 0);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     authenticated_ = false;

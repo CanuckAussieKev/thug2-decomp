@@ -256,7 +256,7 @@ GapRegistry*& gap_manager_instance() { return park_editing::GapRegistry::sole();
 void ParkLayout::create_gap_manager_copy()
 {
     GapRegistry* current = gap_manager_instance();
-    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     void* memory = memory::alloc(sizeof(GapRegistry)); // (0xA8 bytes in the original)
     GapRegistry* copy = memory ? memory::construct_in<GapRegistry>(memory, nullptr) : nullptr;
     gap_manager_copy_ = copy;

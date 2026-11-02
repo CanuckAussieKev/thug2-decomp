@@ -50,9 +50,9 @@ void address_space(uint64_t& total, uint64_t& largest)
 void log_memory_use(const char* when)
 {
     Hub* manager = Hub::get_pull();
-    if (!manager || !manager->primary_zone_)
+    if (!manager || !manager->primary_zone())
         return;
-    Zone* main = manager->primary_zone_;
+    Zone* main = manager->primary_zone();
     std::string line;
     std::array<char, 160> part{};
     text::format_to(part, "main block %d KB, free %d KB (least %d KB); heaps:", kb(sizes::main_block_size()),

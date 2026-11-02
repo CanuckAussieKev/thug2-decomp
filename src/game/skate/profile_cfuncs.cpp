@@ -115,7 +115,7 @@ void preload_meshes(uint32_t array_name)
 bool cfunc_add_goal_editor_nodes_to_level_node_array(Struct*, Script*)
 {
     // the goal editor's nodes added (0x004E8F50, no source yet)
-    park_editing::add_goal_editor_nodes(nullptr, nullptr, memory::Hub::get_pull()->bottom_up_heap_);
+    park_editing::add_goal_editor_nodes(nullptr, nullptr, memory::Hub::get_pull()->bottom_up_heap());
     return true;
 }
 

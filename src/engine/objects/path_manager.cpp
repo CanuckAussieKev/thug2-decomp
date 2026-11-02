@@ -211,7 +211,7 @@ void PathManager::carve(int groups, int group_size, int extra_size)
 {
     group_count_ = groups;
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->bottom_up_heap_);
+    memory->enter_heap_scope(memory->bottom_up_heap());
     groups_ = static_cast<ObjectGroup*>(alloc_script_array(group_count_, sizeof(ObjectGroup)));
     for (ObjectGroup& group : this->groups())
         new (&group) ObjectGroup;

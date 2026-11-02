@@ -264,7 +264,7 @@ PlayerRecord* Hub::find_player_slot_by_obj(uint16_t id)
 PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, uint32_t flags)
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->network_heap_);
+    memory->enter_heap_scope(memory->network_heap());
     void* block = memory::alloc_zeroed(kPlayerInfoSize);
     PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, flags) : nullptr;
     player->skater_ = core::down_cast<objects::Rider>(skater); // (out of memory: written through null, as the original)
@@ -419,7 +419,7 @@ void Hub::re_add_pending_players()
             info.score_ = 0;
             info.drive_control_mode_ = player->drive_control_mode_;
             memory::Hub* memory = memory::Hub::get_pull();
-            memory->enter_heap_scope(memory->skater_info_heap_);
+            memory->enter_heap_scope(memory->skater_info_heap());
             info.account_->copy_from(player->account_); // its appearance
             memory::Hub::get_pull()->leave_heap_scope();
             remove_player_record(player);
@@ -541,7 +541,7 @@ void Hub::enter_observe_mode()
     static_cast<modules::Skate*>(skate)->drop_skater_from_roster(core::down_cast<objects::Rider>(player_skater(local)));
     local->skater_ = nullptr;
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(core::at(memory->skater_heaps_, 0));
+    memory->enter_heap_scope(core::at(memory->skater_heaps(), 0));
     spectate_player(next_cam_player()); // the first player to watch
     add_observer_controls(this, local, tasks, input, -1);
     spectate_request_ = 0;

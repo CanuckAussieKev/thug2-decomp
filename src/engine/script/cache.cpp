@@ -52,7 +52,7 @@ void ScriptCacheEntry::operator delete(void* entry) { script_state().entry_pools
 ScriptStore::ScriptStore()
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->script_heap_);
+    manager->enter_heap_scope(manager->script_heap());
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     entries_ = memory ? memory::construct_in<lists::KeyMap>(memory, 8) : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
@@ -132,7 +132,7 @@ void ScriptStore::delete_entry(ScriptCacheEntry* entry)
 // 0x00475BD0
 void ScriptStore::make_room(int size, uint32_t /*name*/)
 {
-    while (size > static_cast<int>(memory::Hub::get_pull()->script_heap_->largest_free()) - 0x80)
+    while (size > static_cast<int>(memory::Hub::get_pull()->script_heap()->largest_free()) - 0x80)
         delete_entry(oldest_unused_); // (null when nothing is left to drop: the original crashes too)
     while (core::at(script_state().entry_pools().pools, script_state().entry_pools().current)->taken_count_ >= 100 && oldest_unused_)
         delete_entry(oldest_unused_);
@@ -161,7 +161,7 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     make_room(static_cast<int>(size), name);
     auto entry = memory::make_owned_value<ScriptCacheEntry>();
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->script_heap_);
+    manager->enter_heap_scope(manager->script_heap());
     auto* code = static_cast<uint8_t*>(memory::alloc_block(size));
     memory::Hub::get_pull()->leave_heap_scope();
     const std::span<uint8_t> script(code, size);

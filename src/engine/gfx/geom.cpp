@@ -145,7 +145,7 @@ PcGeom::~PcGeom()
 void PcGeom::start_mesh_list()
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     load_list_ = ListNode::create_head();
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -154,7 +154,7 @@ void PcGeom::start_mesh_list()
 void PcGeom::append_mesh(MeshRef* mesh)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     ListNode* node = ListNode::create(mesh);
     // at the end: before the head (no check: a failed allocation writes through null, as the original)
     ListNode* head = load_list_;

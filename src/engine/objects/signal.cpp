@@ -310,7 +310,7 @@ void SignalRouteTable::compact()
         num_ = 0;
         return;
     }
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     const std::span<TableRow> kept(static_cast<TableRow*>(memory::alloc(live * sizeof(TableRow))), static_cast<std::size_t>(live));
     memory::Hub::get_pull()->leave_heap_scope();
     std::size_t out = 0;
@@ -346,7 +346,7 @@ void SignalRouteTable::add_handlers(script::Array* handlers, bool replace)
         altered_ = true;
         return;
     }
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     const std::span<TableRow> made(static_cast<TableRow*>(memory::alloc((num_ + count) * sizeof(TableRow))),
                                    static_cast<std::size_t>(num_ + count));
     int used = 0;

@@ -121,7 +121,7 @@ bool in_slap_game() { return commands::cfunc_in_slap_game(nullptr, nullptr); }
 GameEntity* skater_by_index(int index) { return static_cast<modules::Skate*>(skater_manager())->get_rider_at(index); }
 const char* get_skater_name(GameEntity* skater) { return core::down_cast<Rider>(skater)->fetch_shown_name(); }
 // A skater's score (its +0x278's +0x18).
-void* skater_score(GameEntity* skater) { return core::down_cast<Rider>(skater)->score_holder_->points_held_; }
+void* skater_score(GameEntity* skater) { return core::down_cast<Rider>(skater)->score_holder()->points_held_; }
 int get_points_total(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
 void set_points_total(void* score, int value) { static_cast<modules::PointTally*>(score)->set_grand_total(value); }
 
@@ -295,7 +295,7 @@ void RiderFrameLog::check_for_collisions(int first)
         if (is_squad_play() && them->team_ == me->team_)
             continue;
 
-        RiderFrameLog* their_history = core::down_cast<Rider>(skater)->state_history_;
+        RiderFrameLog* their_history = core::down_cast<Rider>(skater)->state_history();
         const bool their_driving = their_state->in_vehicle_;
         maths::Vec4 their_pos{};
         their_history->fetch_place(&their_pos);

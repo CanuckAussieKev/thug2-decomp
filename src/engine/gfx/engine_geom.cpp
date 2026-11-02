@@ -112,7 +112,7 @@ void Geom::fetch_tints(std::span<uint32_t> out)
     const uint32_t count = fetch_vertex_tally();
     if (!render_colours_) {
         memory::Hub* manager = memory::Hub::get_pull();
-        manager->enter_heap_scope(manager->front_end_heap_);
+        manager->enter_heap_scope(manager->front_end_heap());
         render_colours_ = static_cast<uint32_t*>(memory::alloc_block(count * 4));
         memory::Hub::get_pull()->leave_heap_scope();
         plat_get_render_colors({render_colours_, count});

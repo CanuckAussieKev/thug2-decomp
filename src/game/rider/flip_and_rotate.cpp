@@ -69,7 +69,7 @@ void flip_anims(ObjectModule* blender, uint32_t object_id, uint32_t flip, uint32
 }
 
 // The skater's index (+0x2BC of the skater object).
-int get_skater_index(GameEntity* skater) { return core::down_cast<Rider>(skater)->view_slot_; }
+int get_skater_index(GameEntity* skater) { return core::down_cast<Rider>(skater)->view_slot(); }
 
 } // namespace
 

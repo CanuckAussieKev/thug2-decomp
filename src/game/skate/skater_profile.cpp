@@ -70,8 +70,8 @@ uint8_t* read_struct(script::Struct* s, uint8_t* buffer, const uint8_t* limit)
     return script::decode_from_bytes(s, buffer, size);
 }
 
-void push_skater_info_heap() { memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_info_heap_); }
-void push_script_heap() { memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->script_heap_); }
+void push_skater_info_heap() { memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_info_heap()); }
+void push_script_heap() { memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->script_heap()); }
 void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 
 } // namespace

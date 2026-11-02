@@ -410,7 +410,7 @@ int handle_start_game(net::InboundMsgCtx* context)
     PlayerSearch search;
     memory::Hub* memory = memory::Hub::get_pull();
     auto* skate = get_skate();
-    memory->enter_heap_scope(memory->skater_info_heap_);
+    memory->enter_heap_scope(memory->skater_info_heap());
     Hub* manager = manager_of(context);
     // (the message: gamenet_messages.h; NOT ORIGINAL: one too short is read as zeros past its end - the original read
     // on past it)

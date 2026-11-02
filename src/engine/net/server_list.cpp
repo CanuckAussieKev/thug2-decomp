@@ -237,8 +237,8 @@ HostListing* HostListing::teardown(unsigned int flags)
 void HostListing::enroll_player(const char* name, int rating)
 {
     ram_stats()->enter_heap_scope(net_game_state().the_manager()->in_internet_mode()
-                                      ? static_cast<memory::MemSource*>(ram_stats()->internet_bottom_up_heap_)
-                                      : static_cast<memory::MemSource*>(ram_stats()->network_heap_));
+                                      ? static_cast<memory::MemSource*>(ram_stats()->internet_bottom_up_heap())
+                                      : static_cast<memory::MemSource*>(ram_stats()->network_heap()));
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
     PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, 0) : nullptr;
     player->skill_points_ = rating;
@@ -311,7 +311,7 @@ void Hub::set_service_state(int state)
 void Hub::update_hosting_status()
 {
     net::Hub* net = net::net_core();
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     lobby_service_->start_hosting();
     if (presence_service_->authenticated_) { // (0x005480B0: logged in to presence)
         const char* server_name = nullptr;
@@ -337,7 +337,7 @@ bool Hub::start_server_list()
     if (!is_local_network_play())
         return true;
     destroy_match_client();
-    ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->network_heap());
     const net::AppHost* client = start_matchmaking_client();
     ram_stats()->leave_heap_scope();
     if (!client)
@@ -352,7 +352,7 @@ bool Hub::start_server_list()
 void Hub::stop_server_list()
 {
     if (in_internet_mode()) {
-        ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
+        ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
         if (lobby_service_.get()->remote_)
             game_spy::peer_stop_listing_games(lobby_service_.get()->remote_); // (the browsing stopped)
         ram_stats()->leave_heap_scope();
@@ -403,7 +403,7 @@ void Hub::show_server_in_menu(void* item, int index)
 {
     (void)index;
     auto* server = static_cast<HostListing*>(item);
-    ram_stats()->enter_heap_scope(ram_stats()->front_end_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->front_end_heap());
     if (num_servers_in_menu() == 0)
         get_run(kDestroyServerChildren);
     get_run(kPrepareServerMenu);
@@ -479,7 +479,7 @@ void Hub::refresh_server_list(bool force)
         return;
     last_refresh() = frame_clock::get_time();
     show_pending() = true;
-    ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->network_heap());
     stop_server_list();
     empty_server_listing();
     start_server_list();
@@ -490,7 +490,7 @@ void Hub::refresh_server_list(bool force)
     }
     const Hub* manager = net_game_state().the_manager();
     std::array<uint8_t, 4> keys = {{8, 10, 4, 6}}; // (in the original: over its argument's slot)
-    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     manager->lobby_service_->clear_lost_connection();
     game_spy::peer_start_listing_games(lobby_service_.get()->remote_, keys.data(), 4, nullptr,
                                        code_address(listing_games_callback),
@@ -520,7 +520,7 @@ void server_list_task(tasks::Task<Hub>* task)
 unsigned long __stdcall news_thread(void* argument)
 {
     auto* manager = static_cast<Hub*>(argument);
-    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     game_spy::get_msleep(100);
     manager->assign_service_state(kStateNews);
     manager->set_request_started_at(frame_clock::get_time());
@@ -541,7 +541,7 @@ unsigned long __stdcall motd_thread(void* argument)
 {
     auto* manager = static_cast<Hub*>(argument);
     const char* unique_id = "123456789";
-    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     manager->get_online_settings()->fetch_setting(kUniqueId)->fetch_text(kUiString, &unique_id, 0); // (not used)
     manager->set_request_started_at(frame_clock::get_time());
     manager->set_request(game_spy::track_usage(0, 10368, "1.0", 0, 0)); // (the usage report: the SDK's MOTD request)

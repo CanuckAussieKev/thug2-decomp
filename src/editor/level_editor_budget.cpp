@@ -199,8 +199,8 @@ void take_baseline()
     double size = 0.0;
     base().main = base().script = 0.0;
     if (manager) {
-        region_use(manager->primary_zone_, &size, &base().main);
-        region_use(manager->script_region_.get(), &size, &base().script);
+        region_use(manager->primary_zone(), &size, &base().main);
+        region_use(manager->script_region().get(), &size, &base().script);
     }
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, count = 0;
@@ -293,7 +293,7 @@ std::vector<Meter> get_meters()
     }
     if (const memory::Hub* manager = memory::Hub::get_pull()) {
         double size = 0.0, used = 0.0;
-        if (region_use(manager->script_region_.get(), &size, &used)) {
+        if (region_use(manager->script_region().get(), &size, &used)) {
             Meter m;
             m.name = "Script heap";
             m.used = used;
@@ -304,7 +304,7 @@ std::vector<Meter> get_meters()
                 "the script region (InitStandardHeaps 0x005BBE80: original 0x434770 bytes, grown by the bigger pools)";
             meters.push_back(m);
         }
-        if (region_use(manager->primary_zone_, &size, &used)) {
+        if (region_use(manager->primary_zone(), &size, &used)) {
             Meter m;
             m.name = "Main memory";
             m.used = used;

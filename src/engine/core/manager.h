@@ -79,6 +79,28 @@ public:
     // The three that are constructed in place (not freed): the main heaps and region.
     void destroy_main_heaps();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] MemSource** ongoing() const { return ongoing_; }
+    [[nodiscard]] Zone* primary_zone() const { return primary_zone_; }
+    [[nodiscard]] Arena* top_down_heap() const { return top_down_heap_; }
+    [[nodiscard]] Arena* bottom_up_heap() const { return bottom_up_heap_; }
+    [[nodiscard]] Arena* front_end_heap() const { return front_end_heap_; }
+    std::unique_ptr<Zone>& script_region() { return script_region_; }
+    [[nodiscard]] const std::unique_ptr<Zone>& script_region() const { return script_region_; }
+    [[nodiscard]] Arena* script_heap() const { return script_heap_; }
+    [[nodiscard]] Arena* network_heap() const { return network_heap_; }
+    [[nodiscard]] Arena* net_misc_heap() const { return net_misc_heap_; }
+    [[nodiscard]] Arena* internet_top_down_heap() const { return internet_top_down_heap_; }
+    [[nodiscard]] Arena* internet_bottom_up_heap() const { return internet_bottom_up_heap_; }
+    [[nodiscard]] Arena* cinematic_high_heap() const { return cinematic_high_heap_; }
+    [[nodiscard]] Arena* cinematic_low_heap() const { return cinematic_low_heap_; }
+    [[nodiscard]] Arena* debug_heap() const { return debug_heap_; }
+    [[nodiscard]] Arena* unused_heap() const { return unused_heap_; }
+    [[nodiscard]] const std::array<Arena*, kSkaterSlots>& skater_heaps() const { return skater_heaps_; }
+    [[nodiscard]] const std::array<Arena*, kSkaterSlots>& skater_geom_heaps() const { return skater_geom_heaps_; }
+    [[nodiscard]] Arena* skater_info_heap() const { return skater_info_heap_; }
+
+private:
     std::array<MemSource*, kMaxHeaps> heaps_{}; // the registered heaps (made by add_heap: these own them)
     int heap_count_;
     MemSource** ongoing_{nullptr}; // the top of alloc_source_stack_

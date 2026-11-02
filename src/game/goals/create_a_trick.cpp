@@ -82,12 +82,12 @@ CreateATrick::~CreateATrick()
 // 0x00551CA0
 bool cfunc_get_create_a_trick_params(script::Struct* params, script::Script* script)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    const CreateATrick* trick = core::at(skater->trick_slots_, index).get();
+    const CreateATrick* trick = core::at(skater->trick_slots(), index).get();
     script->args().get()->put_sub_struct(kOtherParams, trick->other_params_);
     script->args().get()->append_array_value(kRotationInfo, trick->spin_list_);
     script->args().get()->append_array_value(kAnimationInfo, trick->animations_);
@@ -97,65 +97,65 @@ bool cfunc_get_create_a_trick_params(script::Struct* params, script::Script* scr
 // 0x00551D20
 bool cfunc_get_create_a_trick_other_params(script::Struct* params, script::Script* script)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args().get()->put_sub_struct(kOtherParams, core::at(skater->trick_slots_, index).get()->other_params_);
+    script->args().get()->put_sub_struct(kOtherParams, core::at(skater->trick_slots(), index).get()->other_params_);
     return true;
 }
 
 // 0x00551D80
 bool cfunc_get_create_a_trick_rotations(script::Struct* params, script::Script* script)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args().get()->append_array_value(kRotationInfo, core::at(skater->trick_slots_, index).get()->spin_list_);
+    script->args().get()->append_array_value(kRotationInfo, core::at(skater->trick_slots(), index).get()->spin_list_);
     return true;
 }
 
 // 0x00551DE0
 bool cfunc_get_create_a_trick_animations(script::Struct* params, script::Script* script)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    script->args().get()->append_array_value(kAnimationInfo, core::at(skater->trick_slots_, index).get()->animations_);
+    script->args().get()->append_array_value(kAnimationInfo, core::at(skater->trick_slots(), index).get()->animations_);
     return true;
 }
 
 // 0x00551E40
 bool cfunc_set_create_a_trick_params(script::Struct* params, script::Script*)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    if (!core::at(skater->trick_slots_, 1)) {
+    if (!core::at(skater->trick_slots(), 1)) {
         debug::printf("Skater has no created tricks!!\n"); // "Skater has no created tricks!!\n"
         return false;
     }
     script::Struct* other = nullptr;
     if (params->read_sub_struct(kOtherParams, &other, 1)) {
         debug::printf("Storing param info %i\n", index); // "Storing param info %i\n"
-        core::at(skater->trick_slots_, index).get()->other_params_->append_structure_if_any(other);
+        core::at(skater->trick_slots(), index).get()->other_params_->append_structure_if_any(other);
     }
     script::Array* rotations = nullptr;
     if (params->fetch_list(kRotationInfo, &rotations, 1)) {
         debug::printf("Storing rotation info %i\n", index); // "Storing rotation info %i\n"
-        script::duplicate_array(core::at(skater->trick_slots_, index).get()->spin_list_, rotations);
+        script::duplicate_array(core::at(skater->trick_slots(), index).get()->spin_list_, rotations);
     }
     script::Array* animations = nullptr;
     if (params->fetch_list(kAnimationInfo, &animations, 1)) {
         debug::printf("Storing animation info %i\n", index); // "Storing animation info %i\n"
-        script::duplicate_array(core::at(skater->trick_slots_, index).get()->animations_, animations);
+        script::duplicate_array(core::at(skater->trick_slots(), index).get()->animations_, animations);
     }
     return true;
 }
@@ -163,7 +163,7 @@ bool cfunc_set_create_a_trick_params(script::Struct* params, script::Script*)
 // 0x00551F70
 bool cfunc_set_create_a_trick_other_params(script::Struct* params, script::Script*)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index = 0;
@@ -171,7 +171,7 @@ bool cfunc_set_create_a_trick_other_params(script::Struct* params, script::Scrip
     script::Struct* other = nullptr;
     if (params->read_sub_struct(kOtherParams, &other, 1)) {
         debug::printf("Storing param info %i\n", index);
-        core::at(skater->trick_slots_, index).get()->other_params_->append_structure_if_any(other);
+        core::at(skater->trick_slots(), index).get()->other_params_->append_structure_if_any(other);
     }
     return true;
 }
@@ -179,7 +179,7 @@ bool cfunc_set_create_a_trick_other_params(script::Struct* params, script::Scrip
 // 0x00551FF0
 bool cfunc_set_create_a_trick_rotations(script::Struct* params, script::Script*)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index = 0;
@@ -187,7 +187,7 @@ bool cfunc_set_create_a_trick_rotations(script::Struct* params, script::Script*)
     script::Array* rotations = nullptr;
     if (params->fetch_list(kRotationInfo, &rotations, 1)) {
         debug::printf("Storing rotation info %i\n", index);
-        script::duplicate_array(core::at(skater->trick_slots_, index).get()->spin_list_, rotations);
+        script::duplicate_array(core::at(skater->trick_slots(), index).get()->spin_list_, rotations);
     }
     return true;
 }
@@ -195,7 +195,7 @@ bool cfunc_set_create_a_trick_rotations(script::Struct* params, script::Script*)
 // 0x00552070
 bool cfunc_set_create_a_trick_animations(script::Struct* params, script::Script*)
 {
-    objects::Rider* skater = local_skater();
+    const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int index = 0;
@@ -203,7 +203,7 @@ bool cfunc_set_create_a_trick_animations(script::Struct* params, script::Script*
     script::Array* animations = nullptr;
     if (params->fetch_list(kAnimationInfo, &animations, 1)) {
         debug::printf("Storing animation info %i\n", index);
-        script::duplicate_array(core::at(skater->trick_slots_, index).get()->animations_, animations);
+        script::duplicate_array(core::at(skater->trick_slots(), index).get()->animations_, animations);
     }
     return true;
 }
@@ -212,40 +212,40 @@ namespace {
 
 // A CAT_Set... of an integer field (the command's unnamed integer) / a flag (non-zero), and its CAT_Get... into the
 // script's parameters.
-bool store_int_field(script::Struct* params, int objects::Rider::* field)
+bool store_int_field(script::Struct* params, int& (objects::Rider::*field)())
 {
     objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int value = 0;
     params->fetch_int_value(kNoName, &value, 1);
-    skater->*field = value;
+    (skater->*field)() = value;
     return true;
 }
-bool fetch_int_value(script::Script* script, int objects::Rider::* field, const char* name)
+bool fetch_int_value(script::Script* script, int (objects::Rider::*field)() const, const char* name)
 {
     const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    script->args().get()->put_int(name, skater->*field);
+    script->args().get()->put_int(name, (skater->*field)());
     return true;
 }
-bool set_flag(script::Struct* params, bool objects::Rider::* field)
+bool set_flag(script::Struct* params, bool& (objects::Rider::*field)())
 {
     objects::Rider* skater = local_skater();
     if (!skater)
         return false;
     int value = 0;
     params->fetch_int_value(kNoName, &value, 1);
-    skater->*field = value != 0;
+    (skater->*field)() = value != 0;
     return true;
 }
-bool fetch_marker(script::Script* script, bool objects::Rider::* field, const char* name)
+bool fetch_marker(script::Script* script, bool (objects::Rider::*field)() const, const char* name)
 {
     const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    script->args().get()->put_int(name, skater->*field ? 1 : 0);
+    script->args().get()->put_int(name, (skater->*field)() ? 1 : 0);
     return true;
 }
 
@@ -254,47 +254,47 @@ bool fetch_marker(script::Script* script, bool objects::Rider::* field, const ch
 // 0x005520F0
 bool cfunc_cat_set_num_anims(script::Struct* params, script::Script*)
 {
-    return store_int_field(params, &objects::Rider::cat_num_anims_);
+    return store_int_field(params, &objects::Rider::cat_num_anims);
 }
 // 0x00552130
 bool cfunc_cat_get_num_anims(script::Struct*, script::Script* script)
 {
-    return fetch_int_value(script, &objects::Rider::cat_num_anims_, kNumAnimationsOn);
+    return fetch_int_value(script, &objects::Rider::cat_num_anims, kNumAnimationsOn);
 }
 // 0x00552160
 bool cfunc_cat_set_anims_done(script::Struct* params, script::Script*)
 {
-    return set_flag(params, &objects::Rider::cat_anims_done_);
+    return set_flag(params, &objects::Rider::cat_anims_done);
 }
 // 0x005521A0
 bool cfunc_cat_get_anims_done(script::Struct*, script::Script* script)
 {
-    return fetch_marker(script, &objects::Rider::cat_anims_done_, kAnimationsDone);
+    return fetch_marker(script, &objects::Rider::cat_anims_done, kAnimationsDone);
 }
 // 0x005521F0
 bool cfunc_cat_set_rots_done(script::Struct* params, script::Script*)
 {
-    return set_flag(params, &objects::Rider::cat_rots_done_);
+    return set_flag(params, &objects::Rider::cat_rots_done);
 }
 // 0x00552230
 bool cfunc_cat_get_rots_done(script::Struct*, script::Script* script)
 {
-    return fetch_marker(script, &objects::Rider::cat_rots_done_, kRotationsDone);
+    return fetch_marker(script, &objects::Rider::cat_rots_done, kRotationsDone);
 }
 // 0x00552280
 bool cfunc_cat_set_bail_done(script::Struct* params, script::Script*)
 {
-    return set_flag(params, &objects::Rider::cat_bail_done_);
+    return set_flag(params, &objects::Rider::cat_bail_done);
 }
 // 0x005522C0
 bool cfunc_cat_get_bail_done(script::Struct*, script::Script* script)
 {
-    return fetch_marker(script, &objects::Rider::cat_bail_done_, kBailDone);
+    return fetch_marker(script, &objects::Rider::cat_bail_done, kBailDone);
 }
 // 0x00552310
 bool cfunc_cat_set_flip_skater(script::Struct* params, script::Script*)
 {
-    return set_flag(params, &objects::Rider::cat_flip_180_);
+    return set_flag(params, &objects::Rider::cat_flip_180);
 }
 // 0x00552350
 bool cfunc_cat_get_flip_skater(script::Struct*, script::Script* script)
@@ -302,7 +302,7 @@ bool cfunc_cat_get_flip_skater(script::Struct*, script::Script* script)
     const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    script->args().get()->put_int(kFlipSkater180, skater->cat_flip_180_ ? 1 : 0);
+    script->args().get()->put_int(kFlipSkater180, skater->cat_flip_180() ? 1 : 0);
     return true;
 }
 // 0x005523A0
@@ -313,7 +313,7 @@ bool cfunc_cat_set_hold_time(script::Struct* params, script::Script*)
         return false;
     float time = 0.0f;
     params->fetch_float(kNoName, &time, 1);
-    skater->cat_hold_time_ = time;
+    skater->set_cat_hold_time(time);
     return true;
 }
 // 0x005523E0
@@ -322,38 +322,38 @@ bool cfunc_cat_get_hold_time(script::Struct*, script::Script* script)
     const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    script->args().get()->push_float(kHoldTime, skater->cat_hold_time_);
+    script->args().get()->push_float(kHoldTime, skater->cat_hold_time());
     return true;
 }
 // 0x00552410
 bool cfunc_cat_set_total_y(script::Struct* params, script::Script*)
 {
-    return store_int_field(params, &objects::Rider::cat_total_y_);
+    return store_int_field(params, &objects::Rider::cat_total_y);
 }
 // 0x00552450
 bool cfunc_cat_get_total_y(script::Struct*, script::Script* script)
 {
-    return fetch_int_value(script, &objects::Rider::cat_total_y_, kTotalY);
+    return fetch_int_value(script, &objects::Rider::cat_total_y, kTotalY);
 }
 // 0x00552480
 bool cfunc_cat_set_total_x(script::Struct* params, script::Script*)
 {
-    return store_int_field(params, &objects::Rider::cat_total_x_);
+    return store_int_field(params, &objects::Rider::cat_total_x);
 }
 // 0x005524C0
 bool cfunc_cat_get_total_x(script::Struct*, script::Script* script)
 {
-    return fetch_int_value(script, &objects::Rider::cat_total_x_, kTotalX);
+    return fetch_int_value(script, &objects::Rider::cat_total_x, kTotalX);
 }
 // 0x005524F0
 bool cfunc_cat_set_total_z(script::Struct* params, script::Script*)
 {
-    return store_int_field(params, &objects::Rider::cat_total_z_);
+    return store_int_field(params, &objects::Rider::cat_total_z);
 }
 // 0x00552530
 bool cfunc_cat_get_total_z(script::Struct*, script::Script* script)
 {
-    return fetch_int_value(script, &objects::Rider::cat_total_z_, kTotalZ);
+    return fetch_int_value(script, &objects::Rider::cat_total_z, kTotalZ);
 }
 
 } // namespace goals

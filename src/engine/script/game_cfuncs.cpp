@@ -533,7 +533,7 @@ bool cfunc_reload_anim(script::Struct* params, script::Script*)
     const bool debug_heap = game_config::get_extra_memory();
     if (debug_heap) {
         memory::Hub* memory = memory::Hub::get_pull();
-        memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->debug_heap_));
+        memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->debug_heap()));
     }
     assets->load_anim(file, base, anim, false, false);
     if (game_config::get_extra_memory())
@@ -703,7 +703,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
 {
     compiled_out_debug_call();
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->debug_heap_));
+    memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->debug_heap()));
     bool show1 = params->has_bare_flag(0xB426BF5Au);
     bool show2 = params->has_bare_flag(0x14240297u);
     bool show3 = params->has_bare_flag(0x969D3AF6u);

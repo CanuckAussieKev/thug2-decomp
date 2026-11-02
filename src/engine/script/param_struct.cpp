@@ -513,7 +513,7 @@ char* spawn_text(const char* string)
 {
     if (use_permanent_strings())
         return create_permanent_string(string);
-    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     const size_t size = std::strlen(string) + 1;
     auto* copy = static_cast<char*>(memory::alloc_block(static_cast<unsigned int>(size)));
     std::memcpy(copy, string, size);
@@ -769,7 +769,7 @@ void duplicate_component(Component* dest, const Component* source, int reference
     }
     case kQbvalScriptBody: {
         // The compiled script, `unknown2` bytes.
-        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
         dest->value.set_code(static_cast<uint8_t*>(memory::alloc_block(source->unknown2)));
         dest->unknown2 = source->unknown2;
         memory::leave_heap_scope();
@@ -1135,7 +1135,7 @@ void Struct::append_script(uint32_t name, std::span<const uint8_t> code)
     const auto size = static_cast<uint32_t>(code.size());
     gsl::owner<Component*> component = new_typed_component(name, kQbvalScriptBody);
     component->unknown2 = static_cast<uint16_t>(size);
-    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     auto* block = static_cast<uint8_t*>(memory::alloc_block(size));
     memory::leave_heap_scope();
     const std::span<uint8_t> copy(block, size);
@@ -1224,7 +1224,7 @@ namespace {
 // Allocate `count` elements on the script heap.
 Cell* allocate_elements(uint32_t count)
 {
-    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     auto* elements = static_cast<Cell*>(memory::alloc_block(count * sizeof(Cell)));
     memory::leave_heap_scope();
     return elements;

@@ -216,8 +216,8 @@ void PreviewEntity::read_in(script::Struct* params)
     add_motion_components(this);
     add_node_components(this, params);
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(game_config::get_extra_memory() ? static_cast<memory::MemSource*>(memory->debug_heap_)
-                                                          : static_cast<memory::MemSource*>(memory->bottom_up_heap_));
+    memory->enter_heap_scope(game_config::get_extra_memory() ? static_cast<memory::MemSource*>(memory->debug_heap())
+                                                          : static_cast<memory::MemSource*>(memory->bottom_up_heap()));
     const char* name = nullptr;
     for (int i = 0; i < 4; ++i) {
         std::array<char, 260> key{};

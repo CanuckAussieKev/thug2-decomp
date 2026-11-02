@@ -534,7 +534,7 @@ bool PcTexture::get_zoom(float x_zoom, float y_zoom)
     const uint32_t width = texture->image_width_;
     const uint32_t height = texture->image_height_;
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     const uint32_t bytes = height * width * 4;
     auto* zoomed_block = static_cast<uint32_t*>(memory::alloc(bytes));
     const std::span<uint32_t> zoomed(zoomed_block, static_cast<size_t>(height) * width);
@@ -618,7 +618,7 @@ bool PcTexture::spin_by(float angle, float centre_x, float centre_y)
     std::array<float, 4> m{};
     maths::create_rotate_2d(m, -angle);
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     const uint32_t bytes = height * width * 4;
     auto* rotated_block = static_cast<uint32_t*>(memory::alloc(bytes));
     const std::span<uint32_t> rotated(rotated_block, static_cast<size_t>(height) * width);
@@ -702,7 +702,7 @@ bool PcTexture::get_stretch(uint16_t position, int vertical, int amount)
         }
     }
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->cinematic_high_heap_ ? manager->cinematic_high_heap_ : manager->top_down_heap_);
+    manager->enter_heap_scope(manager->cinematic_high_heap() ? manager->cinematic_high_heap() : manager->top_down_heap());
     auto* part_block = static_cast<uint32_t*>(memory::alloc(static_cast<uint32_t>(read_height) * read_width * 4));
     auto* stretched_block = static_cast<uint32_t*>(memory::alloc(static_cast<uint32_t>(new_height) * new_width * 4));
     const std::span<uint32_t> part(part_block, static_cast<size_t>(read_height) * read_width);
@@ -726,7 +726,7 @@ bool PcTexture::get_mirror()
     const uint32_t width = get_texture()->image_width_;
     const int height = get_texture()->image_height_;
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     auto* column_block = static_cast<uint32_t*>(memory::alloc(height * 4));
     const std::span<uint32_t> column(column_block, static_cast<size_t>(height));
     memory::Hub::get_pull()->leave_heap_scope();
@@ -829,7 +829,7 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
         part_height = height + dy;
     }
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     // (the C runtime's heap, as the original's malloc)
     std::vector<uint32_t> part_pixels(static_cast<size_t>(part_height) * static_cast<size_t>(part_width));
     auto& part = part_pixels;
@@ -923,7 +923,7 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
     auto crt_malloc = crt::alloc_block; // (the C runtime's)
     auto crt_free = crt::dealloc;
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     const int count = read_height * read_width;
     auto* part_block = static_cast<uint32_t*>(crt_malloc(count * 4));
     auto* squashed_block = static_cast<uint32_t*>(crt_malloc(new_height * new_width * 4));
@@ -943,7 +943,7 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
             const bool right = amount > 0;
             const int source = right ? 0 : new_width - 1;
             manager = memory::Hub::get_pull();
-            manager->enter_heap_scope(manager->top_down_heap_);
+            manager->enter_heap_scope(manager->top_down_heap());
             const int rows = static_cast<uint16_t>(height);
             auto* column_block = static_cast<uint32_t*>(crt_malloc(rows * 4));
             const std::span<uint32_t> column(column_block, static_cast<size_t>(rows));
@@ -959,7 +959,7 @@ bool PcTexture::squash(uint16_t position, int vertical, int amount, bool fill, u
             const bool down = amount > 0;
             const int source = down ? 0 : new_height - 1;
             manager = memory::Hub::get_pull();
-            manager->enter_heap_scope(manager->top_down_heap_);
+            manager->enter_heap_scope(manager->top_down_heap());
             const uint32_t bytes = static_cast<uint16_t>(width) * 4u;
             auto* row_block = static_cast<uint32_t*>(crt_malloc(bytes));
             const std::span<uint32_t> row(row_block, bytes / 4);

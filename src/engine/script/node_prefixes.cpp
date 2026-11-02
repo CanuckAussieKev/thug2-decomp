@@ -236,7 +236,7 @@ std::span<const uint32_t> PrefixTables::get_nodes(uint32_t prefix)
 void add_node_array_prefixes(uint32_t name)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->script_heap_);
+    manager->enter_heap_scope(manager->script_heap());
     if (!node_prefixes()) {
         auto* tables = static_cast<PrefixTables*>(memory::alloc_zeroed(sizeof(PrefixTables)));
         if (tables)

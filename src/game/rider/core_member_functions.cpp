@@ -461,7 +461,7 @@ int SkaterPhysicsModule::get_flipped(script::Struct*, script::Script*)
 int SkaterPhysicsModule::get_switched(script::Struct*, script::Script*)
 {
     const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
-    if (core::down_cast<objects::Rider>(entity_)->goofy_)
+    if (core::down_cast<objects::Rider>(entity_)->goofy())
         return flipped ? 1 : 0;
     return flipped ? 0 : 1;
 }
@@ -602,7 +602,7 @@ int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 // 0x004FC9C0
 int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
 {
-    const int profile = core::down_cast<objects::Rider>(entity_)->view_slot_;
+    const int profile = core::down_cast<objects::Rider>(entity_)->view_slot();
     auto_kick_ = core::at(modules::Skate::sole()->participants(), profile).auto_kick_;
     return 1;
 }

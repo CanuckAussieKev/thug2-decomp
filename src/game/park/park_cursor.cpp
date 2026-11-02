@@ -404,7 +404,7 @@ void ParkLayout::commission(uint32_t level)
     // The park's gap manager (0xA8 bytes), in the top-down heap for that level.
     memory::Hub* memory = memory::Hub::get_pull();
     if (level == kTopDownLevel)
-        memory->enter_heap_scope(memory->top_down_heap_);
+        memory->enter_heap_scope(memory->top_down_heap());
     void* block = memory::alloc(0xA8);
     gap_registry_ = block ? memory::construct_in<GapRegistry>(block, this) : nullptr;
     if (level == kTopDownLevel)

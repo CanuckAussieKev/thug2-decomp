@@ -257,7 +257,7 @@ int handle_rails_data(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     if (!(context->wire_options_ & net::kPacketChecksumMismatch)) {
         memory::Hub* memory = memory::Hub::get_pull();
-        memory->enter_heap_scope(memory->bottom_up_heap_);
+        memory->enter_heap_scope(memory->bottom_up_heap());
         static_cast<park_editing::RailAuthoring*>(get_rail_editor())
             ->set_packed(context->body_, context->body_size_); // the rails read
         park_editing::park_editing_state().set_rail_editor_flag(false);

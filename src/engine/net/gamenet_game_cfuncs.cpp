@@ -261,7 +261,7 @@ bool cfunc_kick_player(script::Struct*, script::Script*)
 bool cfunc_ban_player(script::Struct*, script::Script*)
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->network_heap_);
+    memory->enter_heap_scope(memory->network_heap());
     kick_or_ban(net_game_state().net_session_slot(), kDropBanned, 1);
     memory::Hub::get_pull()->leave_heap_scope();
     return true;
@@ -286,7 +286,7 @@ bool cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
     if (is_observer(local) || (local->flag_bits_ & kPlayerSurveying))
         return false;
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->network_heap_);
+    memory->enter_heap_scope(memory->network_heap());
     add_observer_controls(manager, local, tasks, input);
     local->flag_bits_ |= kPlayerSurveying;
     memory::Hub::get_pull()->leave_heap_scope();

@@ -179,7 +179,7 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
     params->read_hash_value(kId, &id, 0);
     auto* server = static_cast<HostListing*>(manager->fetch_host(id));
     get_run(kDestroyDescChildren);
-    ram_stats()->enter_heap_scope(ram_stats()->front_end_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->front_end_heap());
     if (server->started_)
         info_line(kMidGameText, no_value);
     if (server->host_mode_ == 1)
@@ -289,7 +289,7 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
     server->chosen_ = true;
     if (server->detailed_)
         return true;
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     game_spy::peer_update_game(manager->lobby_service().get()->remote_, server->sb_server_, 1); // (the game's details updated)
     ram_stats()->leave_heap_scope();
     return false;
@@ -315,7 +315,7 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     read_server_info(reader, reply.get());
     if (manager->has_server(reply->name.data(), context->sender_conn_->remote_ip_))
         return kDone;
-    ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->network_heap());
     void* block = memory::alloc_zeroed(sizeof(HostListing));
     HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
     text::format_to(server->label_, "%s", reply->name.data());
@@ -358,7 +358,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
     }
     switch (message) {
     case kListingAdd: {
-        ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+        ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
         void* block = memory::alloc_zeroed(sizeof(HostListing));
         HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
         server->sb_server_ = sb;

@@ -94,7 +94,7 @@ bool cfunc_start_server(script::Struct*, script::Script*)
 {
     memory::Hub* memory = mem_manager();
     online::Hub* game_net = online_hub_handle();
-    memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->bottom_up_heap_));
+    memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->bottom_up_heap()));
     modules::SkateNet::launch_host(modules::Skate::sole());
     if (!game_net->in_internet_mode())
         game_net->is_local_network_play();
@@ -116,7 +116,7 @@ bool cfunc_join_server(script::Struct* params, script::Script*)
 {
     memory::Hub* memory = mem_manager();
     online::Hub* game_net = online_hub_handle();
-    memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->bottom_up_heap_));
+    memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->bottom_up_heap()));
     script::launch_script(kJoinScript, nullptr, nullptr, false, nullptr);
     script::process_pending_symbols();
     if (game_net->get_on_server()) {
@@ -369,7 +369,7 @@ bool cfunc_notify_bail_done(script::Struct*, script::Script* script)
     auto* skater = core::down_cast<objects::Rider>(object);
     if (!skater->is_local_skater_)
         return true;
-    if (net::AppHost* client = game_net->fetch_patron(skater->view_slot_)) {
+    if (net::AppHost* client = game_net->fetch_patron(skater->view_slot())) {
         net::NetMessageInfo desc;
         desc.ident_ = 0x45;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;

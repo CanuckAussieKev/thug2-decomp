@@ -161,8 +161,8 @@ void place_skater(objects::Rider* skater, Point pos, float heading)
         core::at(m->row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
         core::at(m->row, 2) = {.x = s, .y = 0.0f, .z = c, .w = 0.0f};
     }
-    if (skater->core_physics_)
-        skater->core_physics_->display_matrix() = skater->basis_frame_; // (its display matrix)
+    if (skater->core_physics())
+        skater->core_physics()->display_matrix() = skater->basis_frame_; // (its display matrix)
     skater->at_point_ = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
     skater->old_pos_ = skater->at_point_;
 }
@@ -313,7 +313,7 @@ void update_parked(modules::FrontEnd* front_end)
             get_log("thaw_bmx: no room for the level's bike near the start (%.0f, %.0f, %.0f)", pos.x, pos.y, pos.z);
         launch_script(kLevelStartScript);
     }
-    if (stage_map().frames % kCheckFrames != 0 || on_bike(skater->core_physics_) ||
+    if (stage_map().frames % kCheckFrames != 0 || on_bike(skater->core_physics()) ||
         objects::find_object(name_hash(kHomeBike)))
         return;
     launch_script(kHomeScript);

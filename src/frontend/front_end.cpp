@@ -305,7 +305,7 @@ uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
 // 0x0054EEA0
 void FrontEnd::start_callback()
 {
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     append_vertex(main_loop_manager()->logic_tasks_, update_job_.get());
     pad_input::Hub* input = input_manager();
     for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
@@ -471,11 +471,11 @@ void FrontEnd::tick_frame(bool game_paused)
     sound::update_voice_states();
     memory::Hub* memory = memory::Hub::get_pull();
     if (!game_paused) {
-        memory->enter_heap_scope(memory->bottom_up_heap_);
+        memory->enter_heap_scope(memory->bottom_up_heap());
         objects->tick_positional_sounds();
         memory::Hub::get_pull()->leave_heap_scope();
     }
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap_);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap());
     script::tick_child_scripts();
     modules::Skate::sole()->advance_match_flow();
     if (pending_script()) {
@@ -639,7 +639,7 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
 // 0x0054FCC0
 void FrontEnd::front_end_tick(FrontEndTask* task)
 {
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     task->content_->tick_frame(task->content_->is_halted_);
     frontend::UiTree::sole()->tick_frame();
     memory::Hub::get_pull()->leave_heap_scope();

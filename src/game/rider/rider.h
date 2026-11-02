@@ -174,6 +174,61 @@ public:
     // its created tricks deleted, the second viewport's camera marked dead, out of the skater list, then GameEntity's.
     ~Rider() override;
 
+    // A launched projectile (the skater keeps five).
+    struct Projectile {
+        uint32_t name; // projectile_0 ... projectile_4
+        bool active;
+        std::array<uint8_t, 3> pad5_;
+        maths::Vec4 pos; // +0x08 (the projectile component's position; w unused)
+    };
+
+    // The fields other code reads and sets.
+    [[nodiscard]] bool goofy() const { return goofy_; }
+    [[nodiscard]] bool pro() const { return pro_; }
+    std::array<char, 0x40>& given_name() { return given_name_; }
+    [[nodiscard]] const std::array<char, 0x40>& given_name() const { return given_name_; }
+    [[nodiscard]] uint32_t label() const { return label_; }
+    bool& always_special() { return always_special_; }
+    [[nodiscard]] bool always_special() const { return always_special_; }
+    [[nodiscard]] const std::array<std::unique_ptr<goals::CreateATrick>, 11>& trick_slots() const { return trick_slots_; }
+    int& cat_num_anims() { return cat_num_anims_; }
+    [[nodiscard]] int cat_num_anims() const { return cat_num_anims_; }
+    bool& cat_bail_done() { return cat_bail_done_; }
+    [[nodiscard]] bool cat_bail_done() const { return cat_bail_done_; }
+    bool& cat_flip_180() { return cat_flip_180_; }
+    [[nodiscard]] bool cat_flip_180() const { return cat_flip_180_; }
+    bool& cat_anims_done() { return cat_anims_done_; }
+    [[nodiscard]] bool cat_anims_done() const { return cat_anims_done_; }
+    bool& cat_rots_done() { return cat_rots_done_; }
+    [[nodiscard]] bool cat_rots_done() const { return cat_rots_done_; }
+    int& cat_total_x() { return cat_total_x_; }
+    [[nodiscard]] int cat_total_x() const { return cat_total_x_; }
+    int& cat_total_y() { return cat_total_y_; }
+    [[nodiscard]] int cat_total_y() const { return cat_total_y_; }
+    int& cat_total_z() { return cat_total_z_; }
+    [[nodiscard]] int cat_total_z() const { return cat_total_z_; }
+    [[nodiscard]] float cat_hold_time() const { return cat_hold_time_; }
+    void set_cat_hold_time(float value) { cat_hold_time_ = value; }
+    std::array<Projectile, 5>& projectiles() { return projectiles_; }
+    [[nodiscard]] const std::array<Projectile, 5>& projectiles() const { return projectiles_; }
+    [[nodiscard]] PadInputModule* pad_input() const { return pad_input_; }
+    [[nodiscard]] RiderPointKeeper* score_holder() const { return score_holder_; }
+    [[nodiscard]] RiderFrameLog* state_history() const { return state_history_; }
+    [[nodiscard]] skater::SkaterPhysicsModule* core_physics() const { return core_physics_; }
+    [[nodiscard]] FootMovement* walk() const { return walk_; }
+    [[nodiscard]] int view_slot() const { return view_slot_; }
+    [[nodiscard]] const maths::Vec4& custom_restart_pos() const { return custom_restart_pos_; }
+    void set_custom_restart_pos(const maths::Vec4& value) { custom_restart_pos_ = value; }
+    maths::Mat4& custom_restart_matrix() { return custom_restart_matrix_; }
+    [[nodiscard]] const maths::Mat4& custom_restart_matrix() const { return custom_restart_matrix_; }
+    void set_custom_restart_matrix(const maths::Mat4& value) { custom_restart_matrix_ = value; }
+    [[nodiscard]] bool custom_restart_walking() const { return custom_restart_walking_; }
+    void set_custom_restart_walking(bool value) { custom_restart_walking_ = value; }
+    [[nodiscard]] uint32_t unknown31c() const { return unknown31c_; }
+    void set_unknown31c(uint32_t value) { unknown31c_ = value; }
+    [[nodiscard]] bool is_halted() const { return is_halted_; }
+
+private:
     uint32_t stroke_kind_{}; // +0x108 (the profile's pushstyle)
     uint32_t style_{};       // +0x10C (skatestyle)
     bool goofy_{};           // +0x110
@@ -201,12 +256,7 @@ public:
     int cat_total_x_{};     // +0x1B4
     int cat_total_y_{};     // +0x1B8
     int cat_total_z_{};     // +0x1BC
-    struct Projectile {
-        uint32_t name; // projectile_0 ... projectile_4
-        bool active;
-        std::array<uint8_t, 3> pad5_;
-        maths::Vec4 pos; // +0x08 (the projectile component's position; w unused)
-    };
+
     std::array<Projectile, 5> projectiles_{}; // +0x1C0
     memory::ListNode skater_link_{};      // +0x238 its node in the skate module's skater list (data = itself)
     AnimBlenderComponent* anim_blender_;  // +0x24C

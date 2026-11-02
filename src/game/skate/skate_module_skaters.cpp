@@ -163,7 +163,7 @@ objects::MiscHub* entity_hub_handle() { return static_cast<objects::MiscHub*>(ob
 
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
-memory::Arena* rider_heap_at(int index) { return core::at(memory::Hub::get_pull()->skater_heaps_, index); }
+memory::Arena* rider_heap_at(int index) { return core::at(memory::Hub::get_pull()->skater_heaps(), index); }
 
 using PlayerSearch = online::PlayerSearch;
 online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
@@ -238,7 +238,7 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
         params->put_name_key(kSkaterId, skater->ident_);
         script::launch_script(kRemoveClientSkater, params.get(), nullptr, false, nullptr);
     }
-    if (skater->is_local_skater_ && skater->view_slot_ == 0) {
+    if (skater->is_local_skater_ && skater->view_slot() == 0) {
         // The local player's created tricks and stat goals kept for the skater that replaces it.
         memory::destroy_then_clear(skate_module_skaters_state().cat_info_);
         debug::printf("CAT: Storing Created Trick data\n"); // "CAT: Storing Created Trick data\n"
@@ -313,7 +313,7 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
     node->priority = static_cast<int>(skater->ident_);
     riders_.insert_by_unique_order(node);
     bind_controllers();
-    if (skater->is_local_skater_ && skater->view_slot_ == 0) {
+    if (skater->is_local_skater_ && skater->view_slot() == 0) {
         if (skate_module_skaters_state().cat_info_) {
             debug::printf("CAT: Restoring Created Tricks\n"); // "CAT: Restoring Created Tricks\n"
             skater->load_cat_info(skate_module_skaters_state().cat_info_.get());
@@ -530,7 +530,7 @@ void Skate::change_level(uint32_t level)
 {
     debug::printf("-----------------------------------------Skate::ChangeLevel(%d)\n",
                   level); // "-----...Skate::ChangeLevel(%d)\n"
-    memory::enter_heap_scope(memory::Hub::get_pull()->skater_info_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->skater_info_heap());
     gsl::owner<script::Struct*> params = script::new_struct();
     params->get_clear();
     params->add_component_of_type(kLevel, script::kQbvalName, level);
@@ -615,8 +615,8 @@ void Skate::test_rider_contacts()
         goals::game_mode()->get_name_key() != kKing && goals::game_mode()->get_name_key() != kNetCtf)
         return;
     for (uint32_t i = 0; i < 8; ++i) {
-        if (objects::Rider* skater = get_skater_at(i))
-            skater->state_history_->check_for_collisions(0);
+        if (const objects::Rider* skater = get_skater_at(i))
+            skater->state_history()->check_for_collisions(0);
     }
     if (goals::game_mode()->get_name_key() != kNetKing && goals::game_mode()->get_name_key() != kKing)
         return;
@@ -626,8 +626,8 @@ void Skate::test_rider_contacts()
     // The crown to the first skater near the local one.
     const objects::Rider* king = nullptr;
     for (uint32_t i = 0; i < 8 && !king; ++i) {
-        objects::Rider* skater = get_skater_at(i);
-        if (skater && skater->state_history_->is_near_local_skater())
+        const objects::Rider* skater = get_skater_at(i);
+        if (skater && skater->state_history()->is_near_local_skater())
             king = skater;
     }
     if (!king)
@@ -924,7 +924,7 @@ void Skate::run_frame_logic()
         auto* skater = core::down_cast<objects::Rider>(get_rider_at(i));
         if (!skater || !skater->is_local_skater_)
             continue;
-        device = skater->pad_input_->handler_;
+        device = skater->pad_input()->handler_;
         if (device->dev_->is_attached())
             continue;
         unplugged = true;
@@ -971,7 +971,7 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     if (goals::game_mode()->finish_rules_reached())
         return;
     auto* king = as_player(net->get_hill_ruler());
-    if (!king || king->rider()->is_halted_)
+    if (!king || king->rider()->is_halted())
         return;
     // The king's time counts up; the beeps as the target comes near.
     auto* score = king->rider()->get_points_total();

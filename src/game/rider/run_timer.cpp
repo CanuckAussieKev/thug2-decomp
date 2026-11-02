@@ -50,7 +50,7 @@ const std::array<uint32_t, 4>& mode_label_keys()
     return kRunTimerStateNames;
 }
 
-uint32_t get_skater_index(GameEntity* skater) { return static_cast<uint32_t>(core::down_cast<Rider>(skater)->view_slot_); }
+uint32_t get_skater_index(GameEntity* skater) { return static_cast<uint32_t>(core::down_cast<Rider>(skater)->view_slot()); }
 uint32_t timer_script_id(GameEntity* skater) { return get_skater_index(skater) + kRunTimerScriptId; }
 
 // The skater's physics value `name`.

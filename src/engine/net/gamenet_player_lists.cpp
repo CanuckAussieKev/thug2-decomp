@@ -401,7 +401,7 @@ void Hub::queue_script(int node, uint32_t object_id, uint32_t script)
             return;
     }
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->network_heap_);
+    memory->enter_heap_scope(memory->network_heap());
     auto* queued = static_cast<PendingScriptItem*>(memory::alloc_zeroed(sizeof(PendingScriptItem)));
     if (queued) { // (a null one is written to anyway, as in the original)
         queued->make_node(queued);
@@ -435,7 +435,7 @@ void Hub::launch_queued_scripts()
     memory::Hub* memory = memory::Hub::get_pull();
     auto* sound = sound::get_audio_mixer();
     modules::Skate* skate = modules::Skate::sole();
-    memory->enter_heap_scope(memory->bottom_up_heap_);
+    memory->enter_heap_scope(memory->bottom_up_heap());
     static_cast<modules::Skate*>(skate)->begin_queued_scripts();
     const float volume = sound::fetch_master_loudness();
     sound->change_master_loudness(0.0f);
@@ -637,7 +637,7 @@ bool Hub::prepare_local_face()
     memory::Hub* memory = memory::Hub::get_pull();
     if (flag_bits_ & 1) {
         auto* local = get_own_player();
-        memory->enter_heap_scope(memory->net_misc_heap_);
+        memory->enter_heap_scope(memory->net_misc_heap());
         local->face_texture_data_ = static_cast<uint8_t*>(memory::alloc(kFaceSize + 1));
         memory::Hub::get_pull()->leave_heap_scope();
         const std::span<uint8_t> stored(local->face_texture_data_, kFaceSize + 1u);
@@ -647,7 +647,7 @@ bool Hub::prepare_local_face()
         net::ConnSearch search;
         if (client_app_->begin_conn_walk(&search)->get_link_speed_class() != 0)
             return false;
-        memory->enter_heap_scope(memory->network_heap_);
+        memory->enter_heap_scope(memory->network_heap());
         void* data = memory::alloc(kFaceSize);
         memory::Hub::get_pull()->leave_heap_scope();
         face->write_to({static_cast<uint8_t*>(data), kFaceSize});
@@ -684,7 +684,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
             return;
     }
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->network_heap_);
+    memory->enter_heap_scope(memory->network_heap());
     void* record_memory = memory::alloc_zeroed(kNewPlayerSize);
     auto* record = record_memory ? memory::construct_in<JoinerRecord>(record_memory) : nullptr;
     std::strcpy(record->label_.data(), info->label_.data());

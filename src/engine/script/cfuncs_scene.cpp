@@ -270,7 +270,7 @@ bool cfunc_add_scene(Struct* params, Script*)
     params->fetch_text(kAdd, &add, false);
     if (scene && add) {
         memory::Hub* manager = memory::Hub::sole();
-        manager->enter_heap_scope(manager->debug_heap_);
+        manager->enter_heap_scope(manager->debug_heap());
         add_to_scene(scene, add);
         memory::Hub::sole()->leave_heap_scope();
     }

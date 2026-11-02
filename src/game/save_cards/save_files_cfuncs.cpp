@@ -288,7 +288,7 @@ bool create_temporary_mem_card_pools(Struct*, Script*)
     if (core::at(script::component_pools().pools, script::component_pools().current + 1))
         return true;
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     memory::push_mem_profile("Mem card CComponent");
     create_reserve_pool(script::component_pools(), 0x10, 50000, "Reserve CComponent");
     memory::pop_mem_profile();

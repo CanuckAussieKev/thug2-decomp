@@ -480,7 +480,7 @@ bool TrickObjectCluster::set_graffiti_color(int index)
 TrickSpotHub::TrickSpotHub() : clusters_(8), object_clusters_(8)
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->script_heap_);
+    memory->enter_heap_scope(memory->script_heap());
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     args_ = params ? memory::construct_in<script::Struct>(params) : nullptr;
     memory->leave_heap_scope();

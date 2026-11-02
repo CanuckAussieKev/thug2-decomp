@@ -100,7 +100,7 @@ bool PlayerRecord::is_invulnerable()
 {
     if (!(conn_->cur_standing_ & net::Conn::kConnReady) || !rider()->get_flag_2c_4())
         return true;
-    if (rider()->state_history_->state_count_ < 10) // (its state history's frames)
+    if (rider()->state_history()->state_count_ < 10) // (its state history's frames)
         return true;
     if (frame_clock::get_time() - join_time_ < kJoinSettleTime)
         return true;

@@ -58,7 +58,7 @@ constexpr auto kStats = std::to_array<uint32_t>({
     0xB1FC0722, // manual_balance
 });
 
-memory::Arena* profile_heap() { return memory::Hub::get_pull()->skater_info_heap_; }
+memory::Arena* profile_heap() { return memory::Hub::get_pull()->skater_info_heap(); }
 
 uint32_t& ref_tally()
 {

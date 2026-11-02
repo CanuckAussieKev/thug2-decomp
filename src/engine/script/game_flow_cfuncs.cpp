@@ -469,7 +469,7 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
         flags |= 4;
     params->fetch_int_value(kSkater, &viewport, 0);
     if (viewport == -1)
-        viewport = core::down_cast<objects::Rider>(script->entity().get_pull())->view_slot_;
+        viewport = core::down_cast<objects::Rider>(script->entity().get_pull())->view_slot();
     if (params->has_bare_flag(kFlashFlag8))
         flags |= 8;
     std::array<uint8_t, 4> start{};

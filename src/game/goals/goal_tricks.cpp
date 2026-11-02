@@ -156,7 +156,7 @@ bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_
         if (in_slot) {
             objects::GameEntity* skater = static_cast<modules::Skate*>(skate)->get_home_rider();
             if (skater) {
-                core::at(core::down_cast<objects::Rider>(skater)->trick_slots_, slot)->other_params_->fetch_text(kName, &trick_text,
+                core::at(core::down_cast<objects::Rider>(skater)->trick_slots(), slot)->other_params_->fetch_text(kName, &trick_text,
                                                                                                     1);
             }
         } else if (premade_cat > -1) {

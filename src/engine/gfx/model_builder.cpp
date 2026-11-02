@@ -187,10 +187,10 @@ void ModelAssembler::get_build(ModelLook* appearance, render::RenderModel* model
     built_model() = model;
     built_skeleton() = skeleton;
     const memory::Hub* manager = memory::Hub::get_pull();
-    void* memory = memory::alloc_zeroed(sizeof(ModelLook), manager->top_down_heap_, 1);
+    void* memory = memory::alloc_zeroed(sizeof(ModelLook), manager->top_down_heap(), 1);
     built_appearance() = std::unique_ptr<ModelLook>(memory::construct_in<ModelLook>(memory)); // (null without memory)
     built_appearance()->get_reset();             // (no memory: a crash, as the original)
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap_);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
     built_appearance()->copy_from(appearance);
     memory::Hub::get_pull()->leave_heap_scope();
     script::launch_script(script, nullptr, this, false, nullptr);
@@ -622,7 +622,7 @@ bool ModelAssembler::set_created_texture(uint32_t part)
     option->read_hash_value(kDescId, &descriptor_id, 1);
     if (descriptor_id != kCreatedGraphic)
         return false;
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap_);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
     uint32_t in = 0, with = 0;
     float x_scale = 0.0f, y_scale = 0.0f;
     const char* temporary = nullptr;

@@ -161,7 +161,7 @@ void PadInputModule::link_to_pad(int controller)
 {
     if (!handler_) {
         memory::Hub* memory = memory::Hub::get_pull();
-        memory->enter_heap_scope(memory->skater_info_heap_);
+        memory->enter_heap_scope(memory->skater_info_heap());
         handler_ = new_handler(0, handler_code, this);
         pad_input::Hub* manager = input_manager();
         core::at(manager->hosts_, (handler_->ordinal_)).handlers_.queue_job(handler_);

@@ -822,7 +822,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
     if (!num_)
         return;
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->bottom_up_heap_);
+    manager->enter_heap_scope(manager->bottom_up_heap());
     nodes_ = static_cast<GrindPoint*>(memory::alloc_block(num_ * sizeof(GrindPoint)));
     // A hash table of the nodes' names (0x4000 slots, linear probing) to their indexes.
     // NOT ORIGINAL: with 0x2000 rail nodes or more (THP8's whole town has ~18,000; past 0x4000 the original's table

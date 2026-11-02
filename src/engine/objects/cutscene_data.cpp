@@ -208,7 +208,7 @@ void remove_cutscene_lights()
 void set_up_cutscene_heaps()
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     render::flexible_particle_manager()->create_temp_heap(0x25800);
     const uint32_t available = memory::Hub::get_pull()->obtainable();
     memory::Hub::get_pull()->init_cutscene_heaps(available - 0x32000);
@@ -319,7 +319,7 @@ void CinematicTable::refresh_viewer(void* camera)
     if (skipped_)
         return;
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->cinematic_low_heap_);
+    manager->enter_heap_scope(manager->cinematic_low_heap());
     object_anims_
         ->fire_events(previous_clock_, clock_, camera, 0);
     memory::Hub::get_pull()->leave_heap_scope();

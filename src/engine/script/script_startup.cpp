@@ -87,7 +87,7 @@ void unload_qb_file(uint32_t file_checksum)
 void load_startup_qb_files()
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     // (the reference build's name, 0x00657698; THUG2.exe has "qb_scripts.prx" there - the file layer opens a .pre
     // as .prx either way)
     packs::load_pre("qb_scripts.pre");

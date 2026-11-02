@@ -127,7 +127,7 @@ uint32_t created_trick_name(int index)
     if (!skater)
         return 0;
     const char* name = nullptr;
-    core::at(skater->trick_slots_, index)->other_params_->fetch_text(kName, &name, 1);
+    core::at(skater->trick_slots(), index)->other_params_->fetch_text(kName, &name, 1);
     return checksums::hash_from_text(name);
 }
 

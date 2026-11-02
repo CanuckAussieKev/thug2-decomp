@@ -108,7 +108,7 @@ void delete_hash_table(gsl::owner<lists::KeyMap*> table)
     }
 }
 
-void push_script_heap() { memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_); }
+void push_script_heap() { memory::enter_heap_scope(memory::Hub::get_pull()->script_heap()); }
 
 // Delete an empty listener list (its key `type` already gone from the table... or about to be).
 void delete_script_list(ScriptList* list)

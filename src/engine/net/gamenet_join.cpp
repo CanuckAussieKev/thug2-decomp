@@ -869,7 +869,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
             break;
         }
         // Ask for it.
-        memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+        memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
         script::launch_script(kCreateEnterPasswordControl, nullptr, nullptr, false, nullptr);
         manager->join_expiry_job_->drop_out();
         memory::Hub::get_pull()->leave_heap_scope();

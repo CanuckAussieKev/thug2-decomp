@@ -241,7 +241,7 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
     }
     // The third level: the call stack moves from inside the script to 16 on the script heap (no check beyond).
     if (frame_records_ == inline_return_addresses_.data() && call_depth_ == 2) {
-        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
         frame_records_ = static_cast<CallFrame*>(memory::alloc_block(16 * sizeof(CallFrame)));
         memory::leave_heap_scope();
         const std::span<CallFrame> moved = call_stack();
@@ -336,7 +336,7 @@ int Script::print_event_handler_table() { return SignalRouteTable::list_wait_tab
 // 0x004734E0
 void Script::install_event_table(Array* handlers, bool replace)
 {
-    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     if (!signal_routes_) {
         gsl::owner<objects::SignalRouteTable*> made = new_event_handler_table();
         signal_routes_ = made;
@@ -352,7 +352,7 @@ void Script::install_event_table(Array* handlers, bool replace)
 // 0x004735D0
 void Script::set_event_handler(uint32_t event_type, uint32_t script, uint32_t group, bool exception, Struct* params)
 {
-    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     if (!signal_routes_) {
         gsl::owner<objects::SignalRouteTable*> made = new_event_handler_table();
         signal_routes_ = made;
@@ -374,7 +374,7 @@ void Script::clear_event_handler(uint32_t event_type)
 // [params]} - the flag `exception` makes it an exception handler. (At least three components each: not checked.)
 void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
 {
-    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     if (signal_routes_)
         signal_routes_->mark_group(group);
     const int count = static_cast<int>(table->extent_);

@@ -91,7 +91,7 @@ double as_unsigned(int value)
 void* front_end_new(unsigned int size)
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->front_end_heap_);
+    memory->enter_heap_scope(memory->front_end_heap());
     void* block = memory::alloc(size);
     memory::Hub::get_pull()->leave_heap_scope();
     return block;
@@ -467,7 +467,7 @@ void LabelWidget::enable_blur()
         return;
     free_text_objects(false);
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->front_end_heap_);
+    memory->enter_heap_scope(memory->front_end_heap());
     blur_ = static_cast<SmearEffect*>(memory::alloc(sizeof(SmearEffect)));
     std::memcpy(&blur_->rgba_value_, shown_.rgba.data(), 4);
     memory::Hub::get_pull()->leave_heap_scope();

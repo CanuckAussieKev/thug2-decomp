@@ -245,7 +245,7 @@ void MatchRules::build_victory_conditions()
     if (!args_.fetch_list(kVictoryConditions, &conditions, 0))
         return;
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->skater_info_heap_);
+    memory->enter_heap_scope(memory->skater_info_heap());
     for (uint32_t i = 0; i < conditions->extent_; ++i) {
         gsl::owner<WinRule*> condition = create_victory_condition(conditions->struct_at(i));
         auto* node = static_cast<ConditionNode*>(memory::alloc_zeroed(sizeof(ConditionNode)));

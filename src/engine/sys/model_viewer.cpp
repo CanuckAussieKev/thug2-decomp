@@ -293,8 +293,8 @@ int handle_remove_viewer_object(net::InboundMsgCtx* context)
 void Viewer::create_viewer_object(void* data)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(game_config::get_extra_memory() ? static_cast<memory::MemSource*>(manager->debug_heap_)
-                                                           : static_cast<memory::MemSource*>(manager->bottom_up_heap_));
+    manager->enter_heap_scope(game_config::get_extra_memory() ? static_cast<memory::MemSource*>(manager->debug_heap())
+                                                           : static_cast<memory::MemSource*>(manager->bottom_up_heap()));
     drop_viewer_entity();
     entity_ = std::make_unique<objects::PreviewEntity>(net_handler_.get());
     entity_->read_in(static_cast<script::Struct*>(data)); // (no memory: a crash, as the original)
@@ -516,7 +516,7 @@ int handle_reload_scene(net::InboundMsgCtx* context)
 void Viewer::start_callback()
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->front_end_heap_);
+    manager->enter_heap_scope(manager->front_end_heap());
     if (!debug_checks()) {
         net::Router& dispatcher = net_handler_->dispatcher_;
         dispatcher.append_listener(0x20, &handle_reload_scene, 3, nullptr, 0x80);

@@ -49,7 +49,7 @@ constexpr uint32_t kHitWindow = 5000; // ms
 gsl::owner<objects::RiderIdentity*> new_profile()
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->skater_info_heap_);
+    memory->enter_heap_scope(memory->skater_info_heap());
     void* block = memory::alloc_zeroed(sizeof(objects::RiderIdentity));
     return block ? memory::construct_in<objects::RiderIdentity>(block) : nullptr;
 }
@@ -169,7 +169,7 @@ void PlayerRecord::set_profile(objects::RiderIdentity* profile)
 void PlayerRecord::set_face_texture_data(const uint8_t* bytes, uint32_t size)
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->net_misc_heap_);
+    memory->enter_heap_scope(memory->net_misc_heap());
     auto id = static_cast<uint8_t>(skater_->ident_); // (the skater's object id)
     face_texture_data_ = static_cast<uint8_t*>(memory::alloc(size + 1));
     const std::span<uint8_t> face(face_texture_data_, size + 1);
@@ -292,7 +292,7 @@ bool PlayerRecord::is_eliminated()
 }
 int PlayerRecord::holds_crown() { return static_cast<int>((flag_bits_ >> 7) & 1); }
 int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl_ : 0; }
-uint32_t PlayerRecord::get_skater_view_slot() { return static_cast<uint32_t>(rider()->view_slot_); }
+uint32_t PlayerRecord::get_skater_view_slot() { return static_cast<uint32_t>(rider()->view_slot()); }
 int PlayerRecord::is_pending_observer() { return static_cast<int>((flag_bits_ >> 3) & 1); }
 
 // --- The score lines' list types ---

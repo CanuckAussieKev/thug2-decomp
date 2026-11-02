@@ -76,7 +76,7 @@ constexpr float kItemScale = 1.1f; // (0x3F8CCCCD)
 void push_internet_heap()
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->internet_top_down_heap_);
+    memory->enter_heap_scope(memory->internet_top_down_heap());
 }
 void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 
@@ -258,7 +258,7 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
         return;
     }
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->internet_bottom_up_heap_);
+    memory->enter_heap_scope(memory->internet_bottom_up_heap());
     void* block = memory::alloc_zeroed(sizeof(LobbyRoom));
     auto* room = block ? memory::construct_in<LobbyRoom>(block) : nullptr;
     std::strncpy(room->label_.data(), name, sizeof(room->label_) - 1);

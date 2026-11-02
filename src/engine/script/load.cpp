@@ -157,7 +157,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int unuse
     loading_file() = checksums::hash_from_text(filename);
 
     const memory::Hub* manager = memory::Hub::get_pull();
-    memory::enter_heap_scope(manager->script_heap_);
+    memory::enter_heap_scope(manager->script_heap());
     Tokens p(file);
     for (;;) {
         p = skip_newline_tokens(p);
@@ -207,12 +207,12 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int unuse
             if (marker == 0x0FA33D9B) {
                 // The end of a debug section.
                 memory::leave_heap_scope();
-                memory::enter_heap_scope(manager->script_heap_);
+                memory::enter_heap_scope(manager->script_heap());
             } else if (marker == 0x70CB0238) {
                 // A debug section: kept (on the debug heap) only while checksum names are.
                 if (checksum_names_enabled()) {
                     memory::leave_heap_scope();
-                    memory::enter_heap_scope(manager->debug_heap_);
+                    memory::enter_heap_scope(manager->debug_heap());
                 } else {
                     while (*p != 0x45 && *p != 0x00)
                         p = step_over_token(p);
@@ -275,14 +275,14 @@ void load_qb(const char* filename, int unused, int temporary)
     if (name.size() >= 4 && name.substr(name.size() - 4, 1) == "." &&
         _stricmp(std::string(name.substr(name.size() - 3)).c_str(), extension) == 0) {
         // Pre-compiled: kept loaded.
-        memory::enter_heap_scope(manager->script_heap_);
+        memory::enter_heap_scope(manager->script_heap());
         auto* data = static_cast<uint8_t*>(packs::read_in(filename, false, nullptr, nullptr, nullptr));
         memory::leave_heap_scope();
         const int size = packs::get_file_size(checksums::hash_from_text(filename));
         parse_precompiled_qb(filename, std::span<uint8_t>(data, size > 0 ? static_cast<size_t>(size) : 0), unused);
         load_checksum_names(filename);
     } else {
-        memory::enter_heap_scope(manager->top_down_heap_);
+        memory::enter_heap_scope(manager->top_down_heap());
         // Originally from PartyMod Fixes (its call at 0x0046EE80): packs::ReadIn, then the binary patch for the file if there is one
         // (scripts\engine\menu\keyboard.qb), in place of the original's plain packs::ReadIn.
         const std::span<const uint8_t> data = load_patched_script(filename);
@@ -305,7 +305,7 @@ void unload_qb(uint32_t file_checksum)
             ++count;
     }
     if (count) {
-        memory::enter_heap_scope(memory::Hub::get_pull()->top_down_heap_);
+        memory::enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
         auto** block = static_cast<SymbolTableEntry**>(memory::alloc_block(static_cast<unsigned int>(count) * 4));
         memory::leave_heap_scope();
         const std::span<SymbolTableEntry*> symbols(block, static_cast<size_t>(count));

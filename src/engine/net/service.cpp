@@ -54,7 +54,7 @@ const auto kMotdThread = &online::motd_thread;
 
 void push_internet_heap()
 {
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->internet_bottom_up_heap_);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->internet_bottom_up_heap());
 }
 void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 

@@ -282,7 +282,7 @@ void Script::set_script_copy(ParamScript* script, Struct* params, objects::Entit
     const std::span<const uint8_t> source = code_between(start, skip_to_end_of_script(start));
     const auto size = static_cast<uint32_t>(source.size());
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->script_heap_);
+    manager->enter_heap_scope(manager->script_heap());
     auto* block = static_cast<uint8_t*>(memory::alloc_block(size));
     memory::Hub::get_pull()->leave_heap_scope();
     const std::span<uint8_t> copy(block, size);

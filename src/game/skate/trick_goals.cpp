@@ -540,9 +540,9 @@ void FallingTricksGoal::add_tricks(int count)
                 // A special trick slot: the skater's trick in it.
                 int special_slot = 0;
                 mapping->fetch_int_value(key_combo, &special_slot, 1);
-                objects::Rider* skater = local_skater();
+                const objects::Rider* skater = local_skater();
                 if (skater) {
-                    core::at(skater->trick_slots_, special_slot)->other_params_->fetch_text(
+                    core::at(skater->trick_slots(), special_slot)->other_params_->fetch_text(
                         kName, &trick_text, 1);
                     t.taps = 1;
                 }
@@ -1125,9 +1125,9 @@ void TrickBeatGoal::add_tricks(int count)
             if (!mapping->read_hash_value(key_combo, &trick_name, 0)) {
                 int special_slot = 0;
                 mapping->fetch_int_value(key_combo, &special_slot, 1);
-                objects::Rider* skater = local_skater();
+                const objects::Rider* skater = local_skater();
                 if (skater) {
-                    core::at(skater->trick_slots_, special_slot)->other_params_->fetch_text(
+                    core::at(skater->trick_slots(), special_slot)->other_params_->fetch_text(
                         kName, &trick_text, 1);
                     t.taps = 1;
                 }

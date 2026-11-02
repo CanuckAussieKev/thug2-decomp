@@ -279,7 +279,7 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
     setup_list_sentinel(&moved);
     setup_list_sentinel(&to_delete);
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     for_each_sector(this, [&](WorldCell* sector) {
         if (sector->fetch_bits() & kSectorAddToGrid) {
             append_last(&to_add, new_node(sector->hit_body_));

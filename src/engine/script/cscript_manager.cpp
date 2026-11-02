@@ -157,7 +157,7 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
     if (symbol && symbol->type == kQbvalNativeFunc) {
         // A C function is just called, with a temporary script (made on the script heap if not from the pool).
         memory::Hub* manager = memory::Hub::get_pull();
-        manager->enter_heap_scope(manager->script_heap_);
+        manager->enter_heap_scope(manager->script_heap());
         Script* script = Script::create();
         memory::Hub::get_pull()->leave_heap_scope();
         symbol->value.function()(params, script);
@@ -237,7 +237,7 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
         return;
     default: {
         memory::Hub* manager = memory::Hub::get_pull();
-        manager->enter_heap_scope(manager->script_heap_);
+        manager->enter_heap_scope(manager->script_heap());
         Script* script = Script::create();
         bind_script(script, name, nullptr, params, object);
         memory::Hub::get_pull()->leave_heap_scope();

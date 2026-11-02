@@ -471,7 +471,7 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
 {
     Hub* manager = net_game_state().net_link();
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->front_end_heap_);
+    memory->enter_heap_scope(memory->front_end_heap());
     int index = 0;
     for (const memory::ListNode* node = get_next_node(&manager->players()); PlayerRecord* player = data_of(node);
          node = get_next_node(node)) {

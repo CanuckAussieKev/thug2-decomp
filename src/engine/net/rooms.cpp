@@ -211,7 +211,7 @@ RoomManager::RoomManager()
 // 0x00542DF0
 void RoomManager::init_peer()
 {
-    ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->network_heap());
     // The SDK's callbacks (those not set stay null).
     game_spy::PeerCallbacks callbacks;
     callbacks.disconnected = &online::RoomManager::disconnected_callback;
@@ -250,7 +250,7 @@ uint32_t& unknowne430()
 void RoomManager::start_listing_games()
 {
     Hub* manager = net_game_state().the_manager();
-    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     manager->set_service_state(14); // (the server list's state)
     unknowne430() = 0;
     net_game_state().set_listing_asked(false);
@@ -264,7 +264,7 @@ void RoomManager::start_listing_games()
 // 0x005427E0
 void RoomManager::clear_lobbies()
 {
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     if (remote_)
         game_spy::peer_stop_listing_games(remote_); // (the games' listing stopped)
     delete_all(&rooms_);
@@ -340,7 +340,7 @@ void RoomManager::fill_prospective_buddy_list()
 // 0x00542B10
 void RoomManager::request_player_list()
 {
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     clear_players();
     get_run(kDestroyUserChildren);
     game_spy::peer_enum_players(remote_, kRoomGroupKind, &enum_players_callback, this); // (the room's players)
@@ -351,7 +351,7 @@ void RoomManager::request_player_list()
 void RoomManager::player_joined_callback(void* peer, int room_type, const char* nick, RoomManager* lobby)
 {
     (void)room_type;
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     if (LobbyPlayer* known = find_player(lobby, nick)) {
         game_spy::peer_get_player_info_no_wait(peer, nick, nullptr, &known->account_);
         ram_stats()->leave_heap_scope();
@@ -450,7 +450,7 @@ void RoomManager::enum_players_callback(void* peer, int success, int room_type, 
         return;
     if (find_player(lobby, nick))
         return;
-    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     enroll_player(lobby, peer, nick, false);
     ram_stats()->leave_heap_scope();
 }
@@ -506,7 +506,7 @@ bool cfunc_lobby_disconnect(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     const Hub* manager = net_game_state().the_manager();
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     RoomManager* lobby = manager->lobby_service().get();
     while (lobby->negotiations_) { // (counted down one at a time, as the original - a negative count takes long)
         --lobby->negotiations_;
@@ -556,7 +556,7 @@ bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     const Hub* manager = net_game_state().the_manager();
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     RoomManager* lobby = manager->lobby_service().get();
     if (lobby->group_id_)
         game_spy::peer_join_group_room(lobby->remote_, lobby->group_id_, &RoomManager::join_room_callback, lobby, 0);
@@ -571,7 +571,7 @@ bool cfunc_choose_lobby(script::Struct* params, script::Script* script)
     (void)script;
     const Hub* manager = net_game_state().the_manager();
     int index = 0;
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     params->fetch_int_value(kIndex, &index, 0);
     RoomManager* lobby = manager->lobby_service().get();
     LobbyRoom* chosen = lobby->get_lobby(index);
@@ -602,7 +602,7 @@ bool cfunc_lobby_connect(script::Struct* params, script::Script* script)
     DWORD thread_id = 0;
     std::array<BOOL, 3> ping_rooms = {{FALSE, TRUE, FALSE}};
     std::array<BOOL, 3> cross_ping_rooms = {{FALSE, FALSE, FALSE}};
-    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     RoomManager* lobby = manager->lobby_service().get();
     lobby->init_peer();
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)

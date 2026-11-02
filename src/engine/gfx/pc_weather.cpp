@@ -481,7 +481,7 @@ void PcWeather::tick_grid()
     width = max_x - min_x + 1;
     origin_z_ = static_cast<float>(min_z << 7);
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     auto* grid_block = static_cast<uint8_t*>(memory::alloc(static_cast<uint32_t>(width * depth)));
     const std::span<uint8_t> grid(grid_block, static_cast<size_t>(width) * depth);
     memory::Hub::get_pull()->leave_heap_scope();

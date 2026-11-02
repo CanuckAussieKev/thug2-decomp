@@ -235,7 +235,7 @@ bool TextureSet::replace_texture_from_file(const char* name, const char* file)
     if (!texture)
         return false;
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     memory::push_mem_profile(file);
     auto* loaded = load_texture_file(file, 0u, 0u);
     insert_texture(this, loaded, true);

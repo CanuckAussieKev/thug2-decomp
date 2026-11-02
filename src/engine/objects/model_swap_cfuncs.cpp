@@ -79,7 +79,7 @@ void remake_shadow(GameEntity* object, objects::GroundShadowModule* shadow, obje
 {
     if (object->fetch_module(kSkaterCorePhysics)) {
         memory::Hub* manager = memory::Hub::get_pull();
-        manager->enter_heap_scope(core::at(manager->skater_heaps_, skater->get_skater_number()));
+        manager->enter_heap_scope(core::at(manager->skater_heaps(), skater->get_skater_number()));
         shadow->build_blob_shadow(1, kPedShadow);
         memory::Hub::get_pull()->leave_heap_scope();
     } else {
@@ -124,7 +124,7 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
     gfx::Rig* skeleton_a = skeleton_of(a->fetch_module(kSkeleton));
     gfx::Rig* skeleton_b = skeleton_of(b->fetch_module(kSkeleton));
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     void* memory = memory::alloc(sizeof(gfx::Rig));
     gfx::Rig* temp = memory ? memory::construct_in<gfx::Rig>(memory, skeleton_a->payload_) : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
@@ -159,12 +159,12 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
         bool found = false;
         for (int i = 0; i < kSwapCount; ++i) {
             if (core::at(commands::swap_table(), i).used && core::at(commands::swap_table(), i).value == 0) {
-                skater->unknown31c_ = core::at(commands::swap_table(), i).key;
+                skater->set_unknown31c(core::at(commands::swap_table(), i).key);
                 found = true;
             }
         }
         if (!found)
-            skater->unknown31c_ = 0;
+            skater->set_unknown31c(0);
     }
     remake_shadow(a, shadow_a, skater);
     remake_shadow(b, shadow_b, skater);
@@ -214,7 +214,7 @@ bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script*)
         skater = core::down_cast<objects::Rider>(modules::Skate::sole()->get_rider_at(index));
     else
         skater = modules::Skate::sole()->get_home_rider();
-    return skater->unknown31c_ != 0;
+    return skater->unknown31c() != 0;
 }
 
 } // namespace commands

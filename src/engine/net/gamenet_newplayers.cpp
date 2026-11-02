@@ -151,7 +151,7 @@ void Hub::add_new_player(JoinerRecord* info)
 void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->skater_info_heap_);
+    memory->enter_heap_scope(memory->skater_info_heap());
     Hub* manager = task_manager(task);
     modules::Skate* skate = modules::Skate::sole();
     net::ConnSearch search;
@@ -268,7 +268,7 @@ void send_word(net::AppHost* server, net::NetMessageInfo& desc, PlayerRecord* to
 void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->skater_info_heap_);
+    memory->enter_heap_scope(memory->skater_info_heap());
     Hub* manager = task_manager(task);
     modules::Skate* skate = modules::Skate::sole();
     net::NetMessageInfo desc;
@@ -286,7 +286,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                 break; // (its time hasn't come: the rest wait too)
             auto* conn = info->conn_;
             const bool broadband = conn->get_link_speed_class() == 1 || net->get_net_link_kind() == 1;
-            memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_info_heap_);
+            memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_info_heap());
             PlayerRecord* player = manager->new_player(nullptr, conn, info->flag_bits_);
             memory::Hub::get_pull()->leave_heap_scope();
             std::strcpy(player->label_.data(), info->label_.data());

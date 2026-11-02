@@ -598,7 +598,7 @@ void Rider::set_stats_from_profile(RiderIdentity* profile)
 void Rider::update_from_profile(RiderIdentity* profile)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(core::at(manager->skater_heaps_, skater_number_));
+    manager->enter_heap_scope(core::at(manager->skater_heaps(), skater_number_));
     auto checksum = [profile](uint32_t name) { return profile->get_name_key_field(name); };
     stroke_kind_ = checksum(kPushStyle);
     goofy_ = checksum(kStance) == kGoofy;
@@ -700,7 +700,7 @@ void Rider::show_board_element(uint32_t type)
     script::Struct* params = script::read_sub_struct(name);
     if (!params)
         return;
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap_);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
     uint32_t model_swap = 0, model_swap2 = 0;
     float width = 0.0f, height = 0.0f;
     const char* texture = nullptr;
@@ -869,7 +869,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     memory::Hub* manager = memory::Hub::get_pull();
     if (is_local_skater_) {
         // Its camera: found, or made from skatercam_composite_structure.
-        manager->enter_heap_scope(manager->skater_info_heap_);
+        manager->enter_heap_scope(manager->skater_info_heap());
         const uint32_t camera_name = view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0;
         auto* camera = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(camera_name));
         if (camera) {
@@ -922,7 +922,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     });
     model_component_ = core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName));
     // Its geometry, in its geometry heap, with the asset manager's flag off meanwhile.
-    memory::Hub::get_pull()->enter_heap_scope(core::at(memory::Hub::get_pull()->skater_geom_heaps_, skater_number_));
+    memory::Hub::get_pull()->enter_heap_scope(core::at(memory::Hub::get_pull()->skater_geom_heaps(), skater_number_));
     auto* assets = assets::asset_manager();
     const bool flag = assets->get_permanent_by_default();
     assets->set_permanent_by_default(false);

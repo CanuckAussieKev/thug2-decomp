@@ -477,7 +477,7 @@ void load_once()
     }
     int added = 0, lists = 0, skipped = 0;
     const memory::Hub* manager = memory::Hub::get_pull();
-    memory::enter_heap_scope(manager->script_heap_);
+    memory::enter_heap_scope(manager->script_heap());
     for (const Target& target : targets) {
         gsl::owner<script::Array*> theirs = script::alloc_script_array();
         if (!theirs)

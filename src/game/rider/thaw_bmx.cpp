@@ -214,7 +214,7 @@ uint32_t bike_skater_script(uint32_t name, uint32_t caller_name, bool bike_scrip
 
 uint32_t skater_script(const objects::Rider* skater, uint32_t name, const script::Script* caller)
 {
-    if (!is_switched_on() || !skater || !on_bike(skater->core_physics_))
+    if (!is_switched_on() || !skater || !on_bike(skater->core_physics()))
         return name;
     static const uint32_t kBikeKnockDown = name_hash("bike_PedKnockDown");
     const uint32_t chosen =
@@ -396,13 +396,13 @@ void register_script_functions()
 
 void on_skater_reset(objects::Rider* skater)
 {
-    BikeState* state = state_of(skater->core_physics_, false);
+    BikeState* state = state_of(skater->core_physics(), false);
     if (!state || !state->on)
         return;
     // The bike (a special item) is gone: off it.
     get_log("thaw_bmx: skater reset on the bike - off it");
-    steer_anim_off(skater->core_physics_);
-    flip_anims_to_flag(skater->core_physics_);
+    steer_anim_off(skater->core_physics());
+    flip_anims_to_flag(skater->core_physics());
     *state = BikeState{};
     run_if_there(kAfterResetScript, skater);
 }

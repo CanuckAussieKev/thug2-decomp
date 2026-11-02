@@ -439,7 +439,7 @@ void Script::run_loop_open(Tokens& pc)
     ++pc;
     if (innermost_repeat_ == &inline_loop_) {
         memory::Hub* manager = memory::Hub::get_pull();
-        manager->enter_heap_scope(manager->script_heap_);
+        manager->enter_heap_scope(manager->script_heap());
         loops_ = static_cast<RepeatFrame*>(memory::alloc_block(10 * sizeof(RepeatFrame)));
         memory::Hub::get_pull()->leave_heap_scope();
         const std::span<RepeatFrame> moved = loop_stack();

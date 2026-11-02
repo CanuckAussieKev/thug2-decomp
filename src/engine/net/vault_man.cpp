@@ -57,8 +57,8 @@ constexpr uint32_t kErrorScript = 0xCF040665;
 
 VaultMan* get_vault() { return net_game_state().net_session_slot()->vault_man().get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
-void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
+void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap()); }
+void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap()); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 

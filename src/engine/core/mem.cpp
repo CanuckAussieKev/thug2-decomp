@@ -27,8 +27,8 @@ void* zeroed(void* memory, unsigned int size)
 
 void* carve(unsigned int size, int mode, Arena* heap) { return Hub::get_pull()->carve(size, mode, heap); }
 
-Arena* bottom_up_heap() { return Hub::get_pull()->bottom_up_heap_; }
-Arena* top_down_heap() { return Hub::get_pull()->top_down_heap_; }
+Arena* bottom_up_heap() { return Hub::get_pull()->bottom_up_heap(); }
+Arena* top_down_heap() { return Hub::get_pull()->top_down_heap(); }
 
 // 0x00401C90
 void* get_clear(unsigned int size, void* dest)

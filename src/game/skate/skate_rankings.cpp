@@ -142,7 +142,7 @@ void fill_elimination_ranking()
     online::Hub* net = net_session_slot();
     PlayerSearch search;
     RankingList list;
-    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     const bool reset_scores = goals::game_mode()->is_true(kShouldResetScores);
     for (void* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
@@ -182,7 +182,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
         fill_elimination_ranking();
         return true;
     }
-    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     bool goal_attack = goals::game_mode()->get_name_key() == kNetGoalAttack;
     // A player's score: the goals beaten in goal attack.
     auto score_of = [&](online::PlayerRecord* info) -> uint32_t {

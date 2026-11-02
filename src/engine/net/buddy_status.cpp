@@ -49,7 +49,7 @@ void unlink_node(memory::ListNode* node)
 void FriendsManager::on_buddy_request(void* connection, const void* arg, FriendsManager* man)
 {
     (void)connection;
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     game_spy::gp_auth_buddy_request(man, *static_cast<const int*>(arg)); // (the request's profile accepted)
     ram_stats()->leave_heap_scope();
 }
@@ -70,7 +70,7 @@ std::array<char, 16>& command_line_password()
 unsigned long __stdcall FriendsManager::login_thread(void* man)
 {
     Hub* manager = net_game_state().the_manager();
-    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     prefs::Preferences* preferences = manager->get_online_settings();
     const char* email = nullptr;
     const char* password = nullptr;
@@ -105,7 +105,7 @@ void FriendsManager::send_buddy_message(int profile, const char* text)
 // 0x005482A0
 void FriendsManager::change_online_flag(int profile)
 {
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     authenticated_ = true;
     account_ = profile;
     cur_phase_ = 4;
@@ -118,7 +118,7 @@ void FriendsManager::change_online_flag(int profile)
 // 0x00548320
 void FriendsManager::change_standing(int status, const char* text, const char* location)
 {
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     game_spy::gp_set_status(this, status, text, location); // (gpSetStatus)
     ram_stats()->leave_heap_scope();
 }
@@ -157,7 +157,7 @@ bool set_lobby_status(script::Struct* params, script::Script* script)
     const char* lobby = manager->lobby_service()->room_name_.data(); // (0x0053F820)
     const char* text = script::fetch_text("homie_status_chatting");
     FriendsManager* buddies = manager->presence_service().get();
-    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
     game_spy::gp_set_status(buddies, kStatusChatting, text, lobby); // (gpSetStatus)
     ram_stats()->leave_heap_scope();
     return true;

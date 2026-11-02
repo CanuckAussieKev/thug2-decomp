@@ -1885,7 +1885,7 @@ void finalise()
         if (!live || !scene->coll_grid_)
             continue;
         if (manager)
-            manager->enter_heap_scope(manager->bottom_up_heap_);
+            manager->enter_heap_scope(manager->bottom_up_heap());
         scene->get_update_super_sectors(nullptr);
         if (manager)
             manager->leave_heap_scope();

@@ -82,7 +82,7 @@ bool SkaterPhysicsModule::projectile_button_pressed()
 int SkaterPhysicsModule::is_sides_swapped()
 {
     const uint8_t flipped = state_->flag(PoseFlag::kFlipped).on;
-    if (core::down_cast<objects::Rider>(entity_)->goofy_)
+    if (core::down_cast<objects::Rider>(entity_)->goofy())
         return flipped;
     return flipped ? 0 : 1;
 }

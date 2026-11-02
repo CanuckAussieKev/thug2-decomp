@@ -426,7 +426,7 @@ uint32_t malloc_available() { return Hub::get_pull()->obtainable(); }
 // 0x005BBB30
 void* trim_block_end(unsigned int size, void* memory)
 {
-    void* result = (*Hub::get_pull()->ongoing_)->trim_block_end(size, memory);
+    void* result = (*Hub::get_pull()->ongoing())->trim_block_end(size, memory);
     if (result)
         mark_block_in_use(result);
     return result;
@@ -448,7 +448,7 @@ void* regrow(void* memory, unsigned int size)
 {
     void* block = nullptr;
     if (size) {
-        block = heap_allocate(*Hub::get_pull()->ongoing_, size, 1);
+        block = heap_allocate(*Hub::get_pull()->ongoing(), size, 1);
         if (block)
             mark_block_in_use(block);
     }
@@ -668,7 +668,7 @@ void set_up_manager()
     void* memory = get_clear(sizeof(Hub), manager_state().manager_storage_.data());
     Hub* manager = memory ? memory::construct_in<Hub>(memory) : nullptr;
     Hub::sole() = manager;
-    manager->enter_heap_scope(manager->bottom_up_heap_);
+    manager->enter_heap_scope(manager->bottom_up_heap());
 }
 
 // 0x004E1950

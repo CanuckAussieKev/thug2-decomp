@@ -435,7 +435,7 @@ void create_script_pools()
     memory::push_mem_profile("AllocateChecksumNameLookupTables");
     allocate_checksum_name_lookup_tables();
     memory::pop_mem_profile();
-    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     // (0x0046F090, 0x0046F110, 0x0046F190, 0x0046F210, 0x0046F290, 0x0046F310, 0x0046F390, 0x0046F410,
     // 0x0046F4A0: one function per class)
     memory::push_mem_profile("CScriptCacheEntry");
@@ -561,7 +561,7 @@ void set_script_flag_6f_2564() { script_state().get_evaluator().unknown1f4_ = tr
 void allocate_script_checksum_names(bool debug_heap)
 {
     const memory::Hub* manager = memory::Hub::get_pull();
-    memory::enter_heap_scope(debug_heap ? manager->debug_heap_ : manager->script_heap_);
+    memory::enter_heap_scope(debug_heap ? manager->debug_heap() : manager->script_heap());
     auto* names = static_cast<uint32_t*>(memory::alloc_block(0x1000 * 12));
     memory::bits_as<uint32_t*>(script_label_table()) = names;
     memory::leave_heap_scope();

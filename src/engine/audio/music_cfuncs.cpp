@@ -401,7 +401,7 @@ bool cfunc_load_music_header(Struct* params, Script*)
     params->fetch_text(0u, &file, 0);
     if (!file)
         return false;
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap_);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap());
     const bool loaded = audio::load_music_header(file);
     memory::Hub::get_pull()->leave_heap_scope();
     return loaded;
@@ -412,7 +412,7 @@ bool cfunc_load_stream_header(Struct* params, Script*)
     params->fetch_text(0u, &file, 0);
     if (!file)
         return false;
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap_);
+    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap());
     const bool loaded = audio::load_stream_header(file);
     memory::Hub::get_pull()->leave_heap_scope();
     return loaded;

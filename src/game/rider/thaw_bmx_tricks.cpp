@@ -511,7 +511,7 @@ void* shadow_companion(void* caster_model)
     if (!is_switched_on() || !kShadow || !modules::Skate::sole())
         return nullptr;
     auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
-    if (!skater || !skater->core_physics_ || !on_bike(skater->core_physics_))
+    if (!skater || !skater->core_physics() || !on_bike(skater->core_physics()))
         return nullptr;
     objects::ObjectModule* rider_model = skater->fetch_module(kModel);
     objects::GameEntity* bike = bike_of(skater);
@@ -531,7 +531,7 @@ int play_flip(objects::GameEntity* object)
     if (!is_switched_on() || !object || !modules::Skate::sole())
         return -1;
     auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
-    if (!skater || !skater->core_physics_ || !on_bike(skater->core_physics_))
+    if (!skater || !skater->core_physics() || !on_bike(skater->core_physics()))
         return -1;
     if (object == skater) {
         // (THAW's Skater_Playanim: HandleFlipOrBoardRotateAfter before the branch - the component's own PlayAnim
@@ -541,7 +541,7 @@ int play_flip(objects::GameEntity* object)
     } else if (object != bike_of(skater)) {
         return -1;
     }
-    return skater->core_physics_->state()->is_on(PoseFlag::kFlipped) ? 1 : 0;
+    return skater->core_physics()->state()->is_on(PoseFlag::kFlipped) ? 1 : 0;
 }
 
 void flip_anims_to_flag(SkaterPhysicsModule* core)
@@ -560,7 +560,7 @@ int bike_sound_of(const void* skater, BikeSound kind, void* info)
 {
     if (!is_switched_on() || !skater)
         return -1;
-    const SkaterPhysicsModule* core = static_cast<const objects::Rider*>(skater)->core_physics_;
+    const SkaterPhysicsModule* core = static_cast<const objects::Rider*>(skater)->core_physics();
     if (!core || !on_bike(core))
         return -1;
     if (kind == BikeSound::kAir)

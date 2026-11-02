@@ -166,7 +166,7 @@ objects::Rider* skater_of(PlayerRecord* player) { return player->rider(); }
 // A skater's state history (+0x27C) and its newest state / message.
 objects::RiderFrameLog* get_history(const objects::Entity* object)
 {
-    return core::down_cast<const objects::Rider>(object)->state_history_;
+    return core::down_cast<const objects::Rider>(object)->state_history();
 }
 int& message_count(objects::RiderFrameLog* history) { return history->message_count_; }
 // The newest message slot made a message of `id`, stamped with the newest state's time.

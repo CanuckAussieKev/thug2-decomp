@@ -383,7 +383,7 @@ bool cfunc_toggle_always_special(script::Struct* params, script::Script*)
         objects::GameEntity* skater = get_rider_at(i);
         if (!skater)
             continue;
-        bool& special = core::down_cast<objects::Rider>(skater)->always_special_;
+        bool& special = core::down_cast<objects::Rider>(skater)->always_special();
         if (on)
             special = true;
         else if (off)

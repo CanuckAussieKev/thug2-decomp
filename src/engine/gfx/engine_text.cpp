@@ -22,7 +22,7 @@ namespace {
 void* front_end_new(unsigned int size)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->front_end_heap_);
+    manager->enter_heap_scope(manager->front_end_heap());
     void* memory = memory::alloc(size);
     memory::Hub::get_pull()->leave_heap_scope();
     return memory;
@@ -32,7 +32,7 @@ void* front_end_new(unsigned int size)
 CharEffect* new_effects()
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->front_end_heap_);
+    manager->enter_heap_scope(manager->front_end_heap());
     // (the original's array new kept the count before them; the count is fixed)
     auto* effects = static_cast<CharEffect*>(memory::alloc(kCharEffects * sizeof(CharEffect)));
     if (effects) {

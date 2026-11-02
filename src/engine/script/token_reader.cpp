@@ -361,7 +361,7 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         return p;
     }
     case 0x05: {
-        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
         gsl::owner<Array*> array = script::new_array();
         memory::leave_heap_scope();
         p = parse_array(array, token, args);
@@ -416,7 +416,7 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         change_species(out, kQbvalScriptBody);
         const std::span<const uint8_t> script = code_between(start, end);
         const auto size = static_cast<uint32_t>(script.size());
-        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
         auto* code = static_cast<uint8_t*>(memory::alloc_block(size));
         memory::leave_heap_scope();
         const std::span<uint8_t> copy(code, size);
@@ -496,7 +496,7 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
         return p;
     }
     case 0x05: {
-        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+        memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
         gsl::owner<Array*> array = script::new_array();
         memory::leave_heap_scope();
         p = parse_array(array, token, args);
@@ -721,7 +721,7 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
     if (type == 0)
         return p + 1;
 
-    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     dest->configure_size_kind(count, static_cast<QbValueKind>(type));
     memory::leave_heap_scope();
     if (type == 7 || type == 8 || type == 9 || type == 11)

@@ -225,7 +225,7 @@ bool cfunc_reload_skater_cam_anim(script::Struct* params, script::Script*)
         return false;
     camera_movies()->clear_movies();
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->debug_heap_);
+    manager->enter_heap_scope(manager->debug_heap());
     const bool result = assets::asset_manager()->refresh_resource(name, file, 0);
     memory::Hub::get_pull()->leave_heap_scope();
     return result;

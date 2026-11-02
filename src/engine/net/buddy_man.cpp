@@ -99,8 +99,8 @@ uint32_t& last_process() { return buddy_man_state().last_process_; }
 bool& creating_profile() { return buddy_man_state().creating_profile_; }
 
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
-void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
+void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap()); }
+void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap()); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks_); }
 
@@ -288,7 +288,7 @@ FriendsManager::FriendsManager()
 {
     friends_.make_head();
     messages_.make_head();
-    ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
+    ram_stats()->enter_heap_scope(ram_stats()->network_heap());
     gp_initialize(this, 0x2880, 0);
     gp_set_callback(this, 0, code_address(&on_error), this);
     gp_set_callback(this, 1, kOnBuddyRequest, this);

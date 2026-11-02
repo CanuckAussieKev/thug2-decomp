@@ -171,7 +171,7 @@ void load_checksum_names(const char* file)
     while (core::at(name, extension) && core::at(name, extension) != '.')
         ++extension;
     std::memcpy(std::span<char>(name).subspan(extension).data(), ".chk", 5);
-    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     auto* text = static_cast<const char*>(packs::read_in(name.data(), false, nullptr, nullptr, nullptr));
     memory::leave_heap_scope();
     parse_checksum_names(text, packs::get_file_size(name.data()), register_name_hash);

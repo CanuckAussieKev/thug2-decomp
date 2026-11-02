@@ -388,7 +388,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
         return kResultPassOn; // handled already
 
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->network_heap_);
+    manager->enter_heap_scope(manager->network_heap());
     const uint8_t id = header.id;
     auto length = static_cast<uint16_t>(reader.remaining());
     void* memory = memory::alloc(sizeof(SeqQueuedMsg));
@@ -476,7 +476,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
 int AppHost::drain_stream_msgs(InboundMsgCtx* context)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->network_heap_);
+    manager->enter_heap_scope(manager->network_heap());
     switch (context->type_code_) {
     case kMsgBulkChunk: {
         // stream id (4 bytes), then the piece (net_wire.h)

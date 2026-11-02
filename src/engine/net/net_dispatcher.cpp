@@ -75,7 +75,7 @@ void Router::tear_down_state()
 NoteHandler* Router::append_listener(uint8_t id, HandlerSlotValue code, uint32_t flags, void* data, int priority)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->network_heap_);
+    manager->enter_heap_scope(manager->network_heap());
     auto* handler = static_cast<NoteHandler*>(memory::alloc_zeroed(sizeof(NoteHandler)));
     if (handler) {
         handler->list_link_.make_node(handler, priority);

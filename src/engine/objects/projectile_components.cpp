@@ -242,7 +242,7 @@ void ProjectileProximityComponent::tick_frame()
     }
     if (ped_logic_->get_logic_state() == kShot)
         return;
-    for (auto& projectile : rider_ref_->projectiles_) {
+    for (auto& projectile : rider_ref_->projectiles()) {
         if (!projectile.active)
             continue;
         const auto& pos = projectile.pos;

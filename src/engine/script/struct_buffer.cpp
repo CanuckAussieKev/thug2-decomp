@@ -327,7 +327,7 @@ uint32_t emit_into_buffer(Struct* structure, uint8_t* buffer, uint32_t size, int
 uint32_t measure_buffer_bytes(Struct* structure, uint32_t max_size)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     auto* scratch = static_cast<uint8_t*>(memory::alloc_block(max_size));
     const uint32_t size = emit_into_buffer(structure, scratch, max_size, 1, nullptr);
     memory::free_malloc(scratch);
@@ -361,7 +361,7 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
 {
     structure->get_clear();
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->script_heap_);
+    manager->enter_heap_scope(manager->script_heap());
     // (a buffer cut short reads as zeros: its type byte ends the structure)
     for (uint8_t type = reader.u8(); type != 0; type = reader.u8()) {
         const uint32_t name = read_name(reader, type);
@@ -445,7 +445,7 @@ void decode_array(Array* array, util::ByteReader& reader)
     const uint8_t type = reader.u8();
     const uint32_t count = reader.u16();
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->script_heap_);
+    manager->enter_heap_scope(manager->script_heap());
     array->configure_size_kind(count, static_cast<QbValueKind>(type));
     memory::Hub::get_pull()->leave_heap_scope();
     switch (type) {

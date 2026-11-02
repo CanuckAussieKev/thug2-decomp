@@ -150,7 +150,7 @@ void Entity::create_script_if_needed()
 {
     if (own_script_)
         return;
-    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
     Script* script = Script::create();
     own_script_ = script;
     script->bind_script(kEmptyScript, nullptr, this);
@@ -229,7 +229,7 @@ void Entity::create_tags_if_needed()
 {
     if (tag_table_)
         return;
-    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     tag_table_ = script::new_struct();
     memory::leave_heap_scope();
 }

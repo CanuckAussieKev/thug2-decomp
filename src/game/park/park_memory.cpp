@@ -134,7 +134,7 @@ bool& counts_dirty() { return park_memory_state().counts_dirty_; }
 memory::Arena* get_park_heap() { return park_heap(); }
 
 // 0x0059E180
-memory::Arena* get_main_heap() { return memory::Hub::get_pull()->bottom_up_heap_; }
+memory::Arena* get_main_heap() { return memory::Hub::get_pull()->bottom_up_heap(); }
 
 // 0x0059E110
 void clear_stats()
@@ -187,7 +187,7 @@ void create_clipboard_pool(int count, const char* name) { make_pool(clipboard_po
 // 0x0059E390
 void get_marker(uint32_t marker)
 {
-    memory::Arena* heap = memory::Hub::get_pull()->bottom_up_heap_;
+    memory::Arena* heap = memory::Hub::get_pull()->bottom_up_heap();
     MemoryStats& stats = get_attributes();
     switch (marker) {
     case 0xAF6240B2:
@@ -278,7 +278,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
         stats.vectors = core::at(counts, 4);
         stats.arrays = core::at(counts, 5);
     }
-    memory::Arena* main_heap = memory::Hub::get_pull()->bottom_up_heap_;
+    memory::Arena* main_heap = memory::Hub::get_pull()->bottom_up_heap();
     memory::Zone* main_region = main_heap->region_;
     // The main heap's pad grows by 0x8EF1C bytes for each player after the first.
     int main_pad = get_memory_value("main_heap_pad", -1); // "main_heap_pad"
@@ -315,7 +315,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     stats.park_heap_usage_ = static_cast<float>(park);
     update_max(stats, park, stats.park_heap_usage_);
 
-    auto top_down_free = static_cast<float>(memory::Hub::get_pull()->top_down_heap_->region_->free_byte_count());
+    auto top_down_free = static_cast<float>(memory::Hub::get_pull()->top_down_heap()->region_->free_byte_count());
     const double top_down =
         2.0 - static_cast<double>(top_down_free) / get_memory_value("top_down_required", -1); // "top_down_required"
     stats.top_down_usage_ = static_cast<float>(top_down);
@@ -378,10 +378,10 @@ void prepare_all(uint32_t level)
     const char* name = "Park Editor"; // "Park Editor"
     int direction = 0;
     if (level == kTopDownLevel) {
-        manager->enter_heap_scope(manager->top_down_heap_);
+        manager->enter_heap_scope(manager->top_down_heap());
         direction = -1;
     } else {
-        manager->enter_heap_scope(manager->bottom_up_heap_);
+        manager->enter_heap_scope(manager->bottom_up_heap());
         direction = 1;
     }
     void* memory = memory::alloc_zeroed(sizeof(memory::MemoryArena));

@@ -75,7 +75,7 @@ void read_string_param(void* font, const char* text, float* width, float* height
 void* front_end_new(unsigned int size)
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->front_end_heap_);
+    memory->enter_heap_scope(memory->front_end_heap());
     void* block = memory::alloc(size);
     memory::Hub::get_pull()->leave_heap_scope();
     return block;
@@ -165,7 +165,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
         }
     }
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->front_end_heap_);
+    memory->enter_heap_scope(memory->front_end_heap());
     lines_ = static_cast<char**>(memory::alloc(kLineBuffers * sizeof(char*)));
     const std::span<char*> line_table(lines_, kLineBuffers);
     core::at(line_table, 0) = static_cast<char*>(memory::alloc(kLineBuffers * kLineChars));
@@ -216,7 +216,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
     lines_height_ = 0.0f;
     for (int k = 0; k < rows_filled_; ++k) {
         memory = memory::Hub::get_pull();
-        memory->enter_heap_scope(memory->front_end_heap_);
+        memory->enter_heap_scope(memory->front_end_heap());
         auto line = memory::make_owned<LabelWidget>();
         memory::Hub::get_pull()->leave_heap_scope();
         manager->enrol_subject(line);
@@ -380,7 +380,7 @@ void ParagraphWidget::change_traits(Struct* params)
     }
     if (params->has_bare_flag(kBlurEffect) && !blur_) {
         memory::Hub* memory = memory::Hub::get_pull();
-        memory->enter_heap_scope(memory->front_end_heap_);
+        memory->enter_heap_scope(memory->front_end_heap());
         blur_ = static_cast<SmearEffect*>(memory::alloc(sizeof(SmearEffect)));
         std::memcpy(&blur_->rgba_value_, shown_.rgba.data(), 4);
         memory::Hub::get_pull()->leave_heap_scope();

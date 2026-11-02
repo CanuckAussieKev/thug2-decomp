@@ -114,7 +114,7 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
 uint32_t RiderHostSync::fetch_sync_field_mask()
 {
     uint32_t flags = 0;
-    const net::AppHost* app = client_app(core::down_cast<Rider>(entity_)->view_slot_);
+    const net::AppHost* app = client_app(core::down_cast<Rider>(entity_)->view_slot());
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
     const bool force = get_on_server() || static_cast<uint32_t>(app->frame_count_) % 15 == 0;
     UpdateState now{};
@@ -148,7 +148,7 @@ void RiderHostSync::send_update()
 {
     net::NetMessageInfo desc;
     util::PackedBitBuffer stream;
-    auto* app = core::down_cast<net::Guest>(client_app(core::down_cast<Rider>(entity_)->view_slot_));
+    auto* app = core::down_cast<net::Guest>(client_app(core::down_cast<Rider>(entity_)->view_slot()));
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
     const bool on_server = get_on_server();
     if (!on_server && static_cast<uint32_t>(app->frame_count_) % 15 != 0) {

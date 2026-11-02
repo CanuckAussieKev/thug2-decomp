@@ -245,7 +245,7 @@ bool massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* poi
                           bool use_colour, uint32_t colour)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->bottom_up_heap_);
+    manager->enter_heap_scope(manager->bottom_up_heap());
     begin_edit(texture);
     memory::Hub::get_pull()->leave_heap_scope();
     fit_face_texture(texture, points, use_colour, colour);

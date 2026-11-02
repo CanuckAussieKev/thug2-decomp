@@ -96,7 +96,7 @@ void RiderPointKeeper::tick_frame()
         return;
     }
     get_score_of(points_held_)->tick_frame();
-    const bool always_special = core::down_cast<Rider>(entity_)->always_special_ ||
+    const bool always_special = core::down_cast<Rider>(entity_)->always_special() ||
                                 get_career()->is_code_on(kCheatAlwaysSpecial);
     if (always_special) {
         get_career()->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));

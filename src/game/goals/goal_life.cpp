@@ -224,7 +224,7 @@ void Objective::merge_skill_tier_args()
 void Objective::prepare_all()
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->bottom_up_heap_);
+    manager->enter_heap_scope(manager->bottom_up_heap());
     // (merge_skill_tier_args, inlined)
     script::Array* levels = nullptr;
     if (args_->fetch_list(kDifficultyLevelParams, &levels, 0)) {
@@ -253,7 +253,7 @@ bool Objective::activate()
     if (is_operative())
         return false;
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->bottom_up_heap_);
+    memory->enter_heap_scope(memory->bottom_up_heap());
     void* manager = objective_board();
     ++times_started_;
     elapsed_ = 0;
@@ -610,7 +610,7 @@ bool Objective::all_skaters_run_done()
         auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         // (in horse, a skater not taking the turn doesn't count)
         if (active_ruleset_label() == kHorse &&
-            (core::down_cast<objects::Rider>(skater)->is_halted_ || (skater->composite_flags_ >> 2) & 1))
+            (core::down_cast<objects::Rider>(skater)->is_halted() || (skater->composite_flags_ >> 2) & 1))
             continue;
         bool done = false;
         if (run_ending_ == 0)

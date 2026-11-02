@@ -137,19 +137,19 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     Vec3 right{}, up{}, at{};
     standing_rows(heading_degrees, &right, &up, &at);
     // (the skater's own custom restart kept and put back: only the restart's code is borrowed)
-    const maths::Vec4 saved_pos = skater->custom_restart_pos_;
-    const maths::Mat4 saved_matrix = skater->custom_restart_matrix_;
-    const bool saved_walking = skater->custom_restart_walking_;
-    skater->custom_restart_pos_ = get_row(position, 1.0f);
-    core::at(skater->custom_restart_matrix_.row, 0) = get_row(right, 0.0f);
-    core::at(skater->custom_restart_matrix_.row, 1) = get_row(up, 0.0f);
-    core::at(skater->custom_restart_matrix_.row, 2) = get_row(at, 0.0f);
-    core::at(skater->custom_restart_matrix_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    skater->custom_restart_walking_ = !on_board;
+    const maths::Vec4 saved_pos = skater->custom_restart_pos();
+    const maths::Mat4 saved_matrix = skater->custom_restart_matrix();
+    const bool saved_walking = skater->custom_restart_walking();
+    skater->set_custom_restart_pos(get_row(position, 1.0f));
+    core::at(skater->custom_restart_matrix().row, 0) = get_row(right, 0.0f);
+    core::at(skater->custom_restart_matrix().row, 1) = get_row(up, 0.0f);
+    core::at(skater->custom_restart_matrix().row, 2) = get_row(at, 0.0f);
+    core::at(skater->custom_restart_matrix().row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    skater->set_custom_restart_walking(!on_board);
     skater->skip_to_custom_restart();
-    skater->custom_restart_pos_ = saved_pos;
-    skater->custom_restart_matrix_ = saved_matrix;
-    skater->custom_restart_walking_ = saved_walking;
+    skater->set_custom_restart_pos(saved_pos);
+    skater->set_custom_restart_matrix(saved_matrix);
+    skater->set_custom_restart_walking(saved_walking);
     get_log("test view: skater teleported %s to (%.1f, %.1f, %.1f) heading %.1f degrees%s",
             on_board ? "on its board" : "standing", position.x, position.y, position.z, heading_degrees,
             grounded ? " (on the ground below)" : " (no ground below: as given)");

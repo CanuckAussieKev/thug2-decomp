@@ -428,7 +428,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
     switch (type) {
     case kSaveCat: {
         auto* skater = core::down_cast<objects::Rider>(modules::Skate::sole()->get_rider_at(0));
-        Struct* trick_record = core::at(skater->trick_slots_, 0)->other_params_;
+        Struct* trick_record = core::at(skater->trick_slots(), 0)->other_params_;
         const char* name = empty;
         trick_record->fetch_text(kName, &name, 1);
         summary->append_word(kName, name);

@@ -118,7 +118,7 @@ bool cfunc_mem_push_context(Struct* params, Script*)
     int number = 0;
     if (params->fetch_int_value(0u, &number, 0)) {
         if (number == 0)
-            hub()->enter_heap_scope(hub()->bottom_up_heap_);
+            hub()->enter_heap_scope(hub()->bottom_up_heap());
         return true;
     }
     uint32_t name = 0; // (uninitialised in the original: asserted)

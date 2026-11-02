@@ -169,7 +169,7 @@ using PlayerSearch = online::PlayerSearch;
 using StateEntry = objects::SkaterStateHistoryFrame;
 objects::RiderFrameLog* history_of(objects::Entity* object)
 {
-    return core::down_cast<objects::Rider>(object)->state_history_;
+    return core::down_cast<objects::Rider>(object)->state_history();
 }
 
 void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint32_t flags, void* data,
@@ -464,7 +464,7 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
     const auto& counts = message.counts;
     objects::TrickSpotHub* trick_objects = objects::trick_spot_hub();
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->script_heap_);
+    manager->enter_heap_scope(manager->script_heap());
     gsl::owner<Struct*> params = script::new_struct();
     for (int i = 0; i < skate_net::kGraffitiSkaters; ++i) {
         if (!core::at(counts, i))
@@ -731,7 +731,7 @@ int SkateNet::on_remote_script_msg(net::InboundMsgCtx* context)
     if (!online::read_run_script(reader, &message))
         return 4;
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->script_heap_);
+    manager->enter_heap_scope(manager->script_heap());
     objects::Entity* object = entity_hub_handle()->look_up_entity(message.object_id);
     script::StructPtr params = script::make_struct();
     script::decode_from_bytes(params.get(), reader.cursor(), reader.remaining()); // the script reader

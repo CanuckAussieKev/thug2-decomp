@@ -119,7 +119,7 @@ void GapTally::register_gap_entry(const char* name, int count, int score)
             after = gap;
     }
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->script_heap_);
+    manager->enter_heap_scope(manager->script_heap());
     void* memory = memory::alloc_zeroed(sizeof(GapEntry));
     GapEntry* gap = memory ? memory::construct_in<GapEntry>(memory) : nullptr;
     gap->num_ = 0;
@@ -159,7 +159,7 @@ void add_gap_from_node_callback(script::Struct* params, const uint8_t* call)
 void GapTally::get_build()
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->script_heap_);
+    manager->enter_heap_scope(manager->script_heap());
     building() = this;
     built_ = true;
     if (script::fetch_int_value("PrintGaps"))

@@ -230,7 +230,7 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script*)
     params->fetch_int_value(kProfile, &profile_index, 0);
     params->fetch_int_value(kSkater, &skater_index, 0);
     auto* skater = core::down_cast<objects::Rider>(get_rider_at(skater_index));
-    if (skater->view_slot_ == 0) {
+    if (skater->view_slot() == 0) {
         auto* objects = static_cast<objects::MiscHub*>(objects::object_hub_slot().get());
         if (objects::Entity* board = objects->look_up_entity(kBailBoard)) {
             board->flag_as_dead();
@@ -239,13 +239,13 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script*)
     }
     objects::RiderIdentity* profile = fetch_account(profile_index);
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(core::at(manager->skater_geom_heaps_, skater->get_skater_number()));
+    manager->enter_heap_scope(core::at(manager->skater_geom_heaps(), skater->get_skater_number()));
     model_build_hook();
     auto* model = core::down_cast<objects::MeshInstanceModule>(skater->fetch_module(kModel));
     model->set_up_mesh_from_profile(profile, false, skater->get_skater_number(), 0);
     memory::Hub::get_pull()->leave_heap_scope();
     manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(core::at(manager->skater_heaps_, skater->get_skater_number()));
+    manager->enter_heap_scope(core::at(manager->skater_heaps(), skater->get_skater_number()));
     skater->set_stats_from_profile(profile);
     core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
     skater->update_from_profile(profile);

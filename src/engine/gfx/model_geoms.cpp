@@ -590,7 +590,7 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
     // its colour parameters (0x00487550, into a buffer).
     auto* face_texture = static_cast<gfx::FaceSkin*>(face);
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->top_down_heap_);
+    manager->enter_heap_scope(manager->top_down_heap());
     const int size = face_texture->fetch_skin_resolution();
     const void* data = face_texture->get_image();
     void* image = static_cast<TextureSet*>(engine_parts().game_texture_dict())

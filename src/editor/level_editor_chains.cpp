@@ -1320,7 +1320,7 @@ void rebuild_rails()
     objects::GrindPoint* nodes_block = nullptr;
     if (count) {
         memory::Hub* manager = memory::Hub::get_pull();
-        manager->enter_heap_scope(manager->bottom_up_heap_);
+        manager->enter_heap_scope(manager->bottom_up_heap());
         nodes_block = static_cast<objects::GrindPoint*>(memory::alloc_block(count * sizeof(objects::GrindPoint)));
         memory::Hub::get_pull()->leave_heap_scope();
         if (!nodes_block) {

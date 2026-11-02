@@ -63,7 +63,7 @@ tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->log
 void push_internet_heap()
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->internet_top_down_heap_);
+    memory->enter_heap_scope(memory->internet_top_down_heap());
 }
 void pop_heap() { memory::Hub::get_pull()->leave_heap_scope(); }
 void nat_cancel(int cookie) { game_spy::nat_cancel(cookie); }

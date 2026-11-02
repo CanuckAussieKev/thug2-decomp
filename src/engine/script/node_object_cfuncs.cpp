@@ -586,7 +586,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
 // 0x005A5960) and the node manager's last array put back in.
 bool cfunc_re_load_node_array(script::Struct*, script::Script* script)
 {
-    mem_manager()->enter_heap_scope(static_cast<memory::MemSource*>(mem_manager()->debug_heap_));
+    mem_manager()->enter_heap_scope(static_cast<memory::MemSource*>(mem_manager()->debug_heap()));
     level_nodes::NodeManager* node_manager = level_nodes::node_manager_instance().get();
     const char* loaded_node_list = script::script_state().node_table_key_text().data();
     assets::ResourceRegistry* assets = assets::asset_manager();

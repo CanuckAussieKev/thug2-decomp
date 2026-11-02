@@ -101,7 +101,7 @@ void send_points(online::Hub* net, objects::Rider* skater, uint8_t id, int point
     desc.byte_count_ = sizeof(data);
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    core::down_cast<net::Guest>(net->fetch_patron(skater->view_slot_))->send_to_host(&desc);
+    core::down_cast<net::Guest>(net->fetch_patron(skater->view_slot()))->send_to_host(&desc);
 }
 
 } // namespace
@@ -363,7 +363,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     auto* physics = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics));
     auto* physics_skater = core::down_cast<objects::Rider>(physics->entity_);
     const uint8_t flipped = physics->state()->flag(objects::PoseFlag::kFlipped).on;
-    const int stance = physics_skater->goofy_ ? flipped : !flipped;
+    const int stance = physics_skater->goofy() ? flipped : !flipped;
     stats->set10(text, score, stance);
     if (tricks_ > 249) {
         trim_log();
@@ -378,7 +378,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
             return;
         }
     }
-    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
+    memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap());
     const uint32_t name = checksums::hash_from_text(text);
     const int kind = static_cast<int>((flags & kTrickKindHigh) ? (flags >> 1) & 4 : (flags >> 1) & 6);
     if (log_.num_ < 250) {
