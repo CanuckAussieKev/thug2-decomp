@@ -3,9 +3,11 @@
 
 #include "engine/util/bps.h"
 
+#include <cstdint>
 #include <cstring>
 #include <array>
 #include <span>
+#include <vector>
 
 #include "platform/debug_log.h"
 #include "engine/core/checked_index.h"

@@ -1,7 +1,9 @@
 #include "engine/util/bitstream.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <new>
+#include <span>
 
 #include "engine/core/checked_index.h"
 
