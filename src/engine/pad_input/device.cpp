@@ -17,6 +17,7 @@
 #include <cstring>
 #include <memory>
 #include <new>
+#include <span>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"

@@ -15,10 +15,12 @@
 #include <SDL2/SDL.h>
 #include <array>
 
+#include "engine/core/format.h"
 #include "frontend/automation.h"
 #include "editor/level_editor.h"
 #include "frontend/mouse_menus.h"
 #include "frontend/new_frontend.h"
+#include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/net/gamenet_game_cfuncs.h"
 #include "engine/pad_input/device.h"

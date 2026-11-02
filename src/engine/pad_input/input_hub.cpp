@@ -4,7 +4,10 @@
 
 #include <cstdint>
 #include <cstring>
+#include <iterator>
+#include <memory>
 #include <new>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
