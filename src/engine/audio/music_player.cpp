@@ -10,6 +10,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <array>
+#include <iterator>
+#include <span>
+#include <string_view>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"

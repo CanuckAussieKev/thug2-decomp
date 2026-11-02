@@ -10,6 +10,7 @@
 
 #include "engine/core/stubs.h"
 #include "engine/maths/vec4.h"
+#include "engine/objects/entity.h"
 #include "engine/objects/stream_component.h"
 #include "engine/audio/music_player.h"
 #include "engine/audio/music_api.h"

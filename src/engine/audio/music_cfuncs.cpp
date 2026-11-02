@@ -6,6 +6,7 @@
 #include <array>
 
 #include "engine/core/dbg.h"
+#include "engine/core/format.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/audio/continue_music.h"
