@@ -5,10 +5,13 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdio>
 #include <span>
+#include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
 #include "engine/core/checksums.h"
 #include "engine/core/ints.h"

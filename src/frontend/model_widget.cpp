@@ -9,18 +9,21 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <span>
 
 #include "engine/core/manager.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/screen.h"
 #include "engine/gfx/viewport.h"
+#include "engine/maths/mat4.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
 #include "engine/script/cscript.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
+#include "game/skate/contest.h"
 #include "platform/stopwatch.h"
 #include "platform/code_address.h"
 #include "platform/run_log.h"

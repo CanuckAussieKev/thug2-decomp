@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <array>
+#include <string>
 
 #include "engine/core/checksums.h"
 #include "frontend/front_end.h"

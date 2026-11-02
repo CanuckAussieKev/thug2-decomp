@@ -8,16 +8,20 @@
 #include "engine/core/checked_index.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <iterator>
 #include <map>
 #include <memory>
+#include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
 namespace frontend::new_frontend {
 

@@ -16,6 +16,7 @@
 #include "engine/gfx/viewport_list.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
+#include "engine/script/math_cfuncs.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "platform/code_address.h"

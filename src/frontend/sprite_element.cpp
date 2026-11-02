@@ -15,6 +15,7 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/window2d.h"
 #include "engine/script/param_struct.h"
+#include "game/skate/contest.h"
 #include "platform/code_address.h"
 #include "engine/objects/entity.h"
 #include "engine/core/stubs.h"

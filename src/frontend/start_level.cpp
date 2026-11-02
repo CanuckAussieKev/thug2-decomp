@@ -6,10 +6,12 @@
 
 #include <cctype>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 #include <string>
 #include <array>
 

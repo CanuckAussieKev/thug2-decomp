@@ -16,6 +16,7 @@
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
 #include "engine/script/param_struct.h"
+#include "game/skate/contest.h"
 #include "platform/stopwatch.h"
 #include "platform/code_address.h"
 #include "engine/objects/entity.h"

@@ -7,6 +7,8 @@
 #include <cctype>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <vector>
 
 namespace frontend::new_frontend::options {
 

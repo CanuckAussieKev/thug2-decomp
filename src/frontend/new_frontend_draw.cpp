@@ -5,14 +5,20 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <iterator>
 #include <memory>
+#include <span>
+#include <string>
 #include <utility>
 #include <array>
+#include <vector>
 
 #include "frontend/new_frontend_mirror.h"
+#include "frontend/new_frontend_model.h"
 #include "frontend/new_frontend_options.h"
 #include "frontend/new_frontend_text.h"
 #include "platform/run_log.h"

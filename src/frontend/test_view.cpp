@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <array>
+#include <string>
 
 #include "engine/gfx/view_cam.h"
 #include "engine/maths/mat4.h"

@@ -8,10 +8,13 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <memory>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/objects/signal.h"
 #include "frontend/new_frontend.h"
+#include "frontend/screen_element.h"
 #include "frontend/text_element.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/tracker.h"

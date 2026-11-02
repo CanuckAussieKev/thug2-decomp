@@ -16,12 +16,16 @@
 #include <cstring>
 #include <deque>
 #include <initializer_list>
+#include <iterator>
+#include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 #include <array>
 #include <span>
 
 #include "engine/core/checksums.h"
+#include "engine/script/cell.h"
 #include "platform/winmain.h"
 #include "engine/core/parse_number.h"
 #include "frontend/front_end.h"

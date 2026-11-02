@@ -8,7 +8,9 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
+#include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
 #include "engine/core/cursor.h"
 #include "engine/core/mem.h"
@@ -16,6 +18,7 @@
 #include "frontend/model_widget.h"
 #include "frontend/menu_element.h"
 #include "frontend/screen_element_cfuncs.h"
+#include "frontend/screen_element.h"
 #include "frontend/screen_element_manager.h"
 #include "frontend/scrolling_menu.h"
 #include "frontend/sprite_element.h"

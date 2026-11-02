@@ -8,6 +8,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -19,6 +20,7 @@
 #include <initializer_list>
 #include <map>
 #include <set>
+#include <span>
 #include <string>
 #include <vector>
 
