@@ -45,10 +45,12 @@ uint32_t& ref_tally() { return g_records_references; }
 
 void copy_initials(char* to, const char* from)
 {
-    to[0] = from[0];
-    to[1] = from[1];
-    to[2] = from[2];
-    to[3] = 0;
+    const std::span<char, 4> out(to, 4);
+    const std::span<const char, 3> in(from, 3); // (three characters, whether or not the text is that long, as the original)
+    core::at(out, 0) = core::at(in, 0);
+    core::at(out, 1) = core::at(in, 1);
+    core::at(out, 2) = core::at(in, 2);
+    core::at(out, 3) = 0;
 }
 
 // A 4-byte buffer for initials (zeroed if it was made).
@@ -142,16 +144,17 @@ BestEntryList::BestEntryList(int count) : num_(count)
         records_ = nullptr;
         return;
     }
-    for (int i = 0; i < count; ++i)
-        new (&records[i]) BestEntry;
     records_ = records;
+    for (BestEntry& entry : this->records())
+        new (&entry) BestEntry;
 }
 
 void BestEntryList::erase_one()
 {
     if (BestEntry* records = records_) {
-        for (int i = num_; i-- > 0;) // (as delete[]: the last first)
-            memory::dealloc(records[i].tag_);
+        const std::span<BestEntry> entries = this->records();
+        for (size_t i = entries.size(); i-- > 0;) // (as delete[]: the last first)
+            memory::dealloc(core::at(entries, i).tag_);
         memory::Hub::get_pull()->dealloc(records);
     }
     memory::Hub::get_pull()->dealloc(this);
@@ -161,25 +164,25 @@ void BestEntryList::erase_one()
 int BestEntryList::try_insert_entry(int value, int number)
 {
     for (int i = 0; i < num_; ++i)
-        records_[i].is_fresh_ = false;
+        core::at(records(), i).is_fresh_ = false;
     const int count = num_;
     int index = 0;
     for (; index < count; ++index) {
-        if (value > records_[index].val_)
+        if (value > core::at(records(), index).val_)
             break;
     }
     if (index >= count)
         return -1;
     // The ones after it moved down (the last dropped).
     for (int i = count - 1; i > index; --i) {
-        copy_initials(records_[i].tag_, records_[i - 1].tag_);
-        records_[i].val_ = records_[i - 1].val_;
-        records_[i].slot_no_ = records_[i - 1].slot_no_;
+        copy_initials(core::at(records(), i).tag_, core::at(records(), i - 1).tag_);
+        core::at(records(), i).val_ = core::at(records(), i - 1).val_;
+        core::at(records(), i).slot_no_ = core::at(records(), i - 1).slot_no_;
     }
-    records_[index].val_ = value;
-    records_[index].slot_no_ = number;
-    copy_initials(records_[index].tag_, "XXX");
-    records_[index].is_fresh_ = true;
+    core::at(records(), index).val_ = value;
+    core::at(records(), index).slot_no_ = number;
+    copy_initials(core::at(records(), index).tag_, "XXX");
+    core::at(records(), index).is_fresh_ = true;
     return index;
 }
 
@@ -187,8 +190,8 @@ int BestEntryList::try_insert_entry(int value, int number)
 void BestEntryList::update_initials(const char* initials)
 {
     for (int i = 0; i < num_; ++i) {
-        if (records_[i].is_fresh_)
-            records_[i].set_player_tag(initials);
+        if (core::at(records(), i).is_fresh_)
+            core::at(records(), i).set_player_tag(initials);
     }
 }
 
@@ -200,7 +203,7 @@ void BestEntryList::decode_from_struct(script::Struct* params)
     if (num_ != ints::as_signed(array->extent_))
         return;
     for (int i = 0; i < num_; ++i)
-        records_[i].decode_from_struct(array->struct_at(i));
+        core::at(records(), i).decode_from_struct(array->struct_at(i));
 }
 
 // 0x0057F4E0
@@ -210,7 +213,7 @@ void BestEntryList::write_to_structure(script::Struct* params)
     gsl::owner<script::Array*> array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(num_, script::kQbvalStruct);
     for (int i = 0; i < num_; ++i) {
-        gsl::owner<script::Struct*> record = record_structure(&records_[i]); // (the array's)
+        gsl::owner<script::Struct*> record = record_structure(&core::at(records(), i)); // (the array's)
         array->set_cell(i, script::Cell::of(record));
     }
     params->append_array_ref(kRecordTable, array);
@@ -302,7 +305,7 @@ BestResults::BestResults() : default_initials_(static_cast<char*>(memory::alloc_
 
 // 0x0057EEA0 / 0x0057EEC0
 void BestResults::set_stock_initials(const char* initials) { copy_initials(default_initials_, initials); }
-StageBests* BestResults::get_level_records(int level) { return &levels_[level]; }
+StageBests* BestResults::get_level_records(int level) { return &core::at(levels(), level); }
 
 // 0x0057FBC0
 void BestResults::init_levels(int count)
@@ -314,9 +317,9 @@ void BestResults::init_levels(int count)
         levels_ = nullptr;
         return;
     }
-    for (int i = 0; i < count; ++i)
-        new (&levels[i]) StageBests;
     levels_ = levels;
+    for (StageBests& stage : this->levels())
+        new (&stage) StageBests;
 }
 
 // 0x0057F440
@@ -327,7 +330,7 @@ void BestResults::decode_from_struct(script::Struct* params)
     if (level_count_ != ints::as_signed(array->extent_))
         return;
     for (int i = 0; i < level_count_; ++i)
-        levels_[i].decode_from_struct(array->struct_at(i));
+        core::at(levels(), i).decode_from_struct(array->struct_at(i));
     const char* initials = "ABC";
     params->fetch_text("DefaultInitials", &initials, 0);
     copy_initials(default_initials_, initials);
@@ -341,7 +344,7 @@ void BestResults::write_to_structure(script::Struct* params)
     array->configure_size_kind(level_count_, script::kQbvalStruct);
     for (int i = 0; i < level_count_; ++i) {
         gsl::owner<script::Struct*> structure = script::new_struct();
-        levels_[i].write_to_structure(structure);
+        core::at(levels(), i).write_to_structure(structure);
         array->set_cell(i, script::Cell::of(structure));
     }
     params->append_array_ref(kGameRecordsArray, array);
@@ -368,8 +371,9 @@ void BestResults::get_release()
     }
     if (BestResults* records = sole().release()) { // (no destructor: its blocks given back)
         if (StageBests* levels = records->levels_) {
-            for (int i = records->level_count_; i-- > 0;) // (as delete[]: the last first)
-                levels[i].destroy_body();
+            const std::span<StageBests> stages = records->levels();
+            for (size_t i = stages.size(); i-- > 0;) // (as delete[]: the last first)
+                core::at(stages, i).destroy_body();
             memory::Hub::get_pull()->dealloc(levels);
         }
         memory::Hub::get_pull()->dealloc(records->default_initials_);

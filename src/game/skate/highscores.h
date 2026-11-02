@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <span>
 #include <cstdint>
 #include <memory>
 
@@ -54,6 +55,9 @@ public:
     // The records freed and the table (the destructor, inlined by its owners).
     void erase_one();
 
+    // NOT ORIGINAL - the records as a span of their count.
+    [[nodiscard]] std::span<BestEntry> records() const { return {records_, static_cast<size_t>(num_)}; }
+
     int num_;            // +0x00
     BestEntry* records_; // +0x04
 };
@@ -105,6 +109,9 @@ public:
     // deletes it.
     static BestResults* fabricate(bool create);
     static void get_release();
+
+    // NOT ORIGINAL - the levels' records as a span of their count.
+    [[nodiscard]] std::span<StageBests> levels() const { return {levels_, static_cast<size_t>(level_count_)}; }
 
     int level_count_{0};     // +0x00
     char* default_initials_; // +0x04
