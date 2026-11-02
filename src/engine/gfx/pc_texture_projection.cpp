@@ -41,20 +41,22 @@
 namespace render {
 
 namespace {
-uint32_t g_projection_batch_count;
 auto& projection_batches()
 {
     static std::array<ProjectionBatch, 10> value; // (kBatchLimit)
     return value;
 }
 
-
 constexpr uint32_t kBatchLimit = 10;
 constexpr uint32_t kBatchVertices = 0x600;
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DDevice9* draw_device() { return g_draw_device; } // (the same device, kept twice)
-uint32_t& batch_count() { return g_projection_batch_count; }
+uint32_t& batch_count()
+{
+    static uint32_t projection_batch_count{};
+    return projection_batch_count;
+}
 std::span<ProjectionBatch> get_batches() { return projection_batches(); }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 

@@ -26,6 +26,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -34,12 +35,22 @@ int g_scene_light_count;
 std::array<LevelLamp, 150> g_level_lamps; // (kMaxSceneLights)
 
 namespace {
-uint32_t* g_queued_nodes;
-int g_queued_count;
-int g_queue_done;
-int g_queue_frames;
-int g_queue_frame;
-script::Struct* g_queue_params;
+// NOT ORIGINAL grouping - scene_lights.cpp's state (the original's globals). Made on first use, never destroyed
+// (scene_lights_state()).
+struct SceneLightsState {
+    uint32_t* queued_nodes_{};
+    int queued_count_{};
+    int queue_done_{};
+    int queue_frames_{};
+    int queue_frame_{};
+    script::Struct* queue_params_{};
+};
+
+SceneLightsState& scene_lights_state()
+{
+    static core::NoDestroy<SceneLightsState> state;
+    return state.get();
+}
 
 constexpr int kMaxSceneLights = 150;
 constexpr float kPercent = 0.01f; // 0x0064544C
@@ -48,14 +59,14 @@ std::array<LevelLamp, 150>& scene_light_array() { return g_level_lamps; }
 int& scene_light_count() { return g_scene_light_count; }
 
 // The queue.
-uint32_t*& queued_nodes() { return g_queued_nodes; }
-int& queued_count() { return g_queued_count; }
+uint32_t*& queued_nodes() { return scene_lights_state().queued_nodes_; }
+int& queued_count() { return scene_lights_state().queued_count_; }
 // NOT ORIGINAL - the queued nodes as a run of the count they were queued with.
-std::span<uint32_t> queued_run() { return {g_queued_nodes, static_cast<size_t>(g_queued_count)}; }
-int& queue_done() { return g_queue_done; }
-int& queue_frames() { return g_queue_frames; }
-int& queue_frame() { return g_queue_frame; }
-script::Struct*& queue_params() { return g_queue_params; }
+std::span<uint32_t> queued_run() { return {scene_lights_state().queued_nodes_, static_cast<size_t>(scene_lights_state().queued_count_)}; }
+int& queue_done() { return scene_lights_state().queue_done_; }
+int& queue_frames() { return scene_lights_state().queue_frames_; }
+int& queue_frame() { return scene_lights_state().queue_frame_; }
+script::Struct*& queue_params() { return scene_lights_state().queue_params_; }
 
 // The table's iteration, inlined in the original: the first / next value (null at the end).
 void* next_value(lists::KeyMap* table)

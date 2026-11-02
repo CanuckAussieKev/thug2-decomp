@@ -22,11 +22,11 @@
 #include "engine/gfx/view_mode.h"
 #include "engine/maths/vec4.h"
 #include "platform/crt.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
-std::array<MeshRef*, 4096> g_drawn_meshes;
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 uint8_t& get_z_write() { return g_z_write; }
@@ -34,14 +34,21 @@ float sphere_depth() { return g_last_sphere_distance; }
 constexpr float kNear = 600.0f; // 0x0064AA98
 
 // The meshes drawn (or to be drawn) this pass, for the shadows (0x00792640, 4096 at most - the last slot reused).
-std::array<MeshRef*, 4096>& get_drawn() { return g_drawn_meshes; }
+std::array<MeshRef*, 4096>& get_drawn()
+{
+    static std::array<MeshRef*, 4096> drawn_meshes{};
+    return drawn_meshes;
+}
 struct DepthOrderedMesh {
     MeshRef* mesh;
     float depth;
     uint32_t unused;
 };
-std::array<DepthOrderedMesh, 1000> g_sorted_meshes;
-std::array<DepthOrderedMesh, 1000>& get_sorted() { return g_sorted_meshes; }
+std::array<DepthOrderedMesh, 1000>& get_sorted()
+{
+    static core::NoDestroy<std::array<DepthOrderedMesh, 1000>> sorted_meshes;
+    return sorted_meshes.get();
+}
 
 // A mesh's fields and calls (not rewritten yet; thiscall).
 uint32_t mesh_traits(const MeshRef* mesh) { return mesh->flags; }

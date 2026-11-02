@@ -18,6 +18,7 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -41,16 +42,25 @@ namespace {
 struct Rgb {
     int r, g, b;
 };
-std::array<Rgb, 100000 / sizeof(Rgb)> s_gradient_buffer;
 
 constexpr float kFloatFive{5.0f};
 constexpr float kFloatTwenty{20.0f};
 constexpr float kPer640{0.0015625f};
 constexpr float kFloat420{420.0f};
 constexpr float kPer480{0.0020833334f};
-uint32_t g_border_argb;
-Rgb g_gradient_end;
-Rgb g_gradient_start;
+// NOT ORIGINAL grouping - loading_bar.cpp's state (the original's globals). Made on first use, never destroyed
+// (loading_bar_state()).
+struct LoadingBarState {
+    uint32_t border_argb_{};
+    Rgb gradient_end_{};
+    Rgb gradient_start_{};
+};
+
+LoadingBarState& loading_bar_state()
+{
+    static core::NoDestroy<LoadingBarState> state;
+    return state.get();
+}
 
 // The bar's settings (SetLoadingBarStartColor etc.): colours as r, g, b(, a) bytes, and its width (in
 // 640-wide screen units).
@@ -61,12 +71,16 @@ int& progress_bar_pixels() { return g_progress_width; }
 int& get_screen_width() { return g_back_buffer_width; }
 float& horiz_screen_ratio() { return g_display_factor_x; }
 
-Rgb& gradient_start() { return g_gradient_start; }
-Rgb& gradient_end() { return g_gradient_end; }
+Rgb& gradient_start() { return loading_bar_state().gradient_start_; }
+Rgb& gradient_end() { return loading_bar_state().gradient_end_; }
 int& gradient_width() { return g_gradient_width; }
-uint32_t& border_argb() { return g_border_argb; }
+uint32_t& border_argb() { return loading_bar_state().border_argb_; }
 
-std::array<Rgb, 100000 / sizeof(Rgb)>& gradient_table() { return s_gradient_buffer; }
+std::array<Rgb, 100000 / sizeof(Rgb)>& gradient_table()
+{
+    static core::NoDestroy<std::array<Rgb, 100000 / sizeof(Rgb)>> gradient_buffer;
+    return gradient_buffer.get();
+}
 
 // The bar's timing (0x004B7400): seconds per tick, seconds so far, seconds for the whole bar.
 float& tick_seconds() { return g_tick_seconds; }

@@ -25,43 +25,45 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
 #include "engine/maths/mat4.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 bool g_shaders_available;
 namespace {
-uint32_t g_blend_mode;
-uint32_t g_blend_op;
-uint32_t g_src_blend;
-uint32_t g_dest_blend;
-uint32_t g_alpha_blend;
-uint32_t g_alpha_test;
-uint32_t g_alpha_test_value;
+// NOT ORIGINAL grouping - the device's render states as last set (blend, alpha test, dither, z test, lighting, the
+// stages, the vertex format) (the original's globals). Made on first use, never destroyed (render_state_cache()).
+struct RenderStateCache {
+    uint32_t blend_mode_{};
+    uint32_t blend_op_{};
+    uint32_t src_blend_{};
+    uint32_t dest_blend_{};
+    uint32_t alpha_blend_{};
+    uint32_t alpha_test_{};
+    uint32_t alpha_test_value_{};
+    uint8_t dither_{};
+    uint8_t z_test_{};
+    uint32_t lighting_{};
+    std::array<uint32_t, 4> address_modes_{};
+    std::array<uint32_t, 4> mip_lod_biases_{};
+    std::array<uint32_t, 4> filters_{};
+    uint32_t vertex_format_{};
+};
+
+RenderStateCache& render_state_cache()
+{
+    static core::NoDestroy<RenderStateCache> state;
+    return state.get();
+}
+
 } // namespace
 uint32_t g_specular;
-namespace {
-uint8_t g_dither;
-} // namespace
 uint8_t g_z_write;
-namespace {
-uint8_t g_z_test;
-} // namespace
 uint32_t g_depth_bias;
-namespace {
-uint32_t g_lighting;
-} // namespace
 uint32_t g_cull_mode;
 bool g_near_camera;
-namespace {
-std::array<uint32_t, 4> g_address_modes;
-std::array<uint32_t, 4> g_mip_lod_biases;
-std::array<uint32_t, 4> g_filters;
-} // namespace
 std::array<void*, 4> g_textures;
 std::array<uint32_t, 4> g_border_colours;
-namespace {
-uint32_t g_vertex_format;
-} // namespace
 const void* g_pixel_shader_locked; // (a shader set for a whole pass: set_pixel_shader leaves the device's alone)
 void* g_current_pixel_shader;
 std::array<float, 20> g_ps_constant_bank;
@@ -72,12 +74,21 @@ uint32_t g_vertex_format_locked;
 uint32_t g_skipped_passes;
 uint32_t g_submit_locked;
 namespace {
-uint32_t g_forced_blend;
+// NOT ORIGINAL grouping - the forced blend and the local viewer switch (the original's globals). Made on first use,
+// never destroyed (forced_states()).
+struct ForcedStates {
+    uint32_t forced_blend_{};
+    uint8_t local_viewer_{};
+};
+
+ForcedStates& forced_states()
+{
+    static core::NoDestroy<ForcedStates> state;
+    return state.get();
+}
+
 } // namespace
 uint32_t g_fog_active;
-namespace {
-uint8_t g_local_viewer;
-} // namespace
 const float* g_world_transform;
 std::array<float, 16> g_world_transform_copy;
 
@@ -86,34 +97,34 @@ namespace {
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 // What the device was last given (the cache).
-uint32_t& get_blend_mode() { return g_blend_mode; }
-uint32_t& blend_op() { return g_blend_op; }
-uint32_t& src_blend() { return g_src_blend; }
-uint32_t& dest_blend() { return g_dest_blend; }
-uint32_t& alpha_blend() { return g_alpha_blend; }
-uint32_t& alpha_test() { return g_alpha_test; }
-uint32_t& alpha_test_level() { return g_alpha_test_value; }
+uint32_t& get_blend_mode() { return render_state_cache().blend_mode_; }
+uint32_t& blend_op() { return render_state_cache().blend_op_; }
+uint32_t& src_blend() { return render_state_cache().src_blend_; }
+uint32_t& dest_blend() { return render_state_cache().dest_blend_; }
+uint32_t& alpha_blend() { return render_state_cache().alpha_blend_; }
+uint32_t& alpha_test() { return render_state_cache().alpha_test_; }
+uint32_t& alpha_test_level() { return render_state_cache().alpha_test_value_; }
 uint32_t& get_specular() { return g_specular; }
-uint8_t& dither() { return g_dither; }
+uint8_t& dither() { return render_state_cache().dither_; }
 uint8_t& get_z_write() { return g_z_write; }
-uint8_t& get_z_test() { return g_z_test; }
+uint8_t& get_z_test() { return render_state_cache().z_test_; }
 uint32_t& depth_bias() { return g_depth_bias; }
-uint32_t& get_lighting() { return g_lighting; }
+uint32_t& get_lighting() { return render_state_cache().lighting_; }
 uint32_t& cull_mode() { return g_cull_mode; }
-std::array<uint32_t, 4>& address_modes() { return g_address_modes; }   // [4]: U low 16 bits, V high
-std::array<uint32_t, 4>& mip_lod_biases() { return g_mip_lod_biases; } // [4]: float bits
-std::array<uint32_t, 4>& filters() { return g_filters; }               // [4]: min low 16 bits, mag high
+std::array<uint32_t, 4>& address_modes() { return render_state_cache().address_modes_; }   // [4]: U low 16 bits, V high
+std::array<uint32_t, 4>& mip_lod_biases() { return render_state_cache().mip_lod_biases_; } // [4]: float bits
+std::array<uint32_t, 4>& filters() { return render_state_cache().filters_; }               // [4]: min low 16 bits, mag high
 std::array<void*, 4>& get_textures() { return g_textures; }            // [4]
-uint32_t& vertex_format() { return g_vertex_format; }
+uint32_t& vertex_format() { return render_state_cache().vertex_format_; }
 const void*& pixel_shader_locked() { return g_pixel_shader_locked; }
 void*& current_pixel_shader() { return g_current_pixel_shader; }
 std::array<float, 20>& ps_constant_bank() { return g_ps_constant_bank; } // [5][4]; [4] is 0x00786F0C
 uint8_t& pixel_shader_changed() { return g_pixel_shader_changed; }
 uint32_t& vertex_format_locked() { return g_vertex_format_locked; }
-uint32_t& forced_blend() { return g_forced_blend; }
+uint32_t& forced_blend() { return forced_states().forced_blend_; }
 uint32_t& get_fog() { return g_fog_active; }
 uint32_t& fog_color() { return g_fog_colour; }
-uint8_t& local_viewer() { return g_local_viewer; }
+uint8_t& local_viewer() { return forced_states().local_viewer_; }
 
 // Device capabilities (found at start-up).
 bool has_pixel_shaders() { return g_shaders_available; }

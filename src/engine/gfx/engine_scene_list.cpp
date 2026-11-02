@@ -27,6 +27,7 @@
 #include "engine/gfx/pc_scene.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -170,8 +171,19 @@ CollGrid* get_first_coll_grid()
 }
 
 namespace {
-uint32_t g_next_sector_name{1};
-std::array<CollGrid*, 16> g_collision_grids;
+// NOT ORIGINAL grouping - engine_scene_list.cpp's state (the original's globals). Made on first use, never destroyed
+// (engine_scene_list_state()).
+struct EngineSceneListState {
+    uint32_t next_sector_name_{1};
+    std::array<CollGrid*, 16> collision_grids_{};
+};
+
+EngineSceneListState& engine_scene_list_state()
+{
+    static core::NoDestroy<EngineSceneListState> state;
+    return state.get();
+}
+
 } // namespace
 std::array<WorldScene*, 16> g_collision_scenes;
 
@@ -179,7 +191,7 @@ std::array<WorldScene*, 16> g_collision_scenes;
 std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
 {
     auto& scenes = g_collision_scenes;
-    auto& grids = g_collision_grids;
+    auto& grids = engine_scene_list_state().collision_grids_;
     maths::BBox box(line->start);
     box.append_spot(line->end);
     uint32_t count = 0;
@@ -211,7 +223,7 @@ std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
 // 0x0048CA80
 uint32_t new_sector_name()
 {
-    uint32_t& counter = g_next_sector_name;
+    uint32_t& counter = engine_scene_list_state().next_sector_name_;
     for (;;) {
         const uint32_t name = counter;
         bool used = false;

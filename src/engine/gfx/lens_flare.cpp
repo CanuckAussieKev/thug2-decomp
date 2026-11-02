@@ -26,6 +26,7 @@
 #include "platform/game_clock.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
+#include "engine/core/no_destroy.h"
 #include <bit>
 #include <gsl/pointers>
 
@@ -56,44 +57,54 @@ constexpr uint32_t kMaybeHideLensFlare = 0xD4F107CB; // "MaybeHideLensFlare"
 constexpr uint32_t kBlend = 0x54628ED7;              // "blend"
 constexpr uint32_t kAdd = 0x02E58C18;                // "Add"
 
-float g_flare_theta;
-float g_flare_phi;
-float g_flare_radius;
-float g_flare_size;
-float g_flare_morph_in_time;
-float g_flare_morph_out_time;
-float g_flare_sun_burst_out_time;
-uint8_t g_flare_query;
-bool g_flare_shown;
-bool g_flare_hidden;
-gsl::owner<render::BitmapTexture*> g_flare_sun_texture; // (taken from the particle dictionary: deleted as the flare's own, as the original does)
-render::BitmapTexture* g_flare_corona_texture;
-FlareElement* g_flare_elements;
-uint32_t g_flare_element_count;
-uint32_t g_flare_visible_time;
-uint32_t g_flare_hidden_time;
-maths::Vec4 g_flare_color;
-maths::Vec4 g_flare_position;
+// NOT ORIGINAL grouping - lens_flare.cpp's state (the original's globals). Made on first use, never destroyed
+// (lens_flare_state()).
+struct LensFlareState {
+    float flare_theta_{};
+    float flare_phi_{};
+    float flare_radius_{};
+    float flare_size_{};
+    float flare_morph_in_time_{};
+    float flare_morph_out_time_{};
+    float flare_sun_burst_out_time_{};
+    uint8_t flare_query_{};
+    bool flare_shown_{};
+    bool flare_hidden_{};
+    render::BitmapTexture* flare_sun_texture_{}; // (taken from the particle dictionary: deleted as the flare's own, as the original does)
+    render::BitmapTexture* flare_corona_texture_{};
+    FlareElement* flare_elements_{};
+    uint32_t flare_element_count_{};
+    uint32_t flare_visible_time_{};
+    uint32_t flare_hidden_time_{};
+    maths::Vec4 flare_color_{};
+    maths::Vec4 flare_position_{};
+};
+
+LensFlareState& lens_flare_state()
+{
+    static core::NoDestroy<LensFlareState> state;
+    return state.get();
+}
 
 // The sun's state.
-float& get_theta() { return g_flare_theta; }
-float& get_phi() { return g_flare_phi; }
-float& get_radius() { return g_flare_radius; }
-float& get_size() { return g_flare_size; }
-float& morph_in_time() { return g_flare_morph_in_time; } // seconds
-float& morph_out_time() { return g_flare_morph_out_time; }
-float& sun_burst_out_time() { return g_flare_sun_burst_out_time; }
-uint8_t& get_query() { return g_flare_query; } // the occlusion query's result number (0: none)
-bool& get_shown() { return g_flare_shown; }
-bool& flare_hidden() { return g_flare_hidden; }
-render::BitmapTexture*& get_corona_texture() { return g_flare_corona_texture; }
-FlareElement*& get_elements() { return g_flare_elements; }
-std::span<FlareElement> element_run() { return {g_flare_elements, g_flare_element_count}; }
-uint32_t& element_count() { return g_flare_element_count; }
-uint32_t& visible_time() { return g_flare_visible_time; } // when the sun was last seen
-uint32_t& hidden_time() { return g_flare_hidden_time; }   // when it was last not seen
-maths::Vec4& get_color() { return g_flare_color; }
-maths::Vec4& get_position() { return g_flare_position; } // in the world, this frame
+float& get_theta() { return lens_flare_state().flare_theta_; }
+float& get_phi() { return lens_flare_state().flare_phi_; }
+float& get_radius() { return lens_flare_state().flare_radius_; }
+float& get_size() { return lens_flare_state().flare_size_; }
+float& morph_in_time() { return lens_flare_state().flare_morph_in_time_; } // seconds
+float& morph_out_time() { return lens_flare_state().flare_morph_out_time_; }
+float& sun_burst_out_time() { return lens_flare_state().flare_sun_burst_out_time_; }
+uint8_t& get_query() { return lens_flare_state().flare_query_; } // the occlusion query's result number (0: none)
+bool& get_shown() { return lens_flare_state().flare_shown_; }
+bool& flare_hidden() { return lens_flare_state().flare_hidden_; }
+render::BitmapTexture*& get_corona_texture() { return lens_flare_state().flare_corona_texture_; }
+FlareElement*& get_elements() { return lens_flare_state().flare_elements_; }
+std::span<FlareElement> element_run() { return {lens_flare_state().flare_elements_, lens_flare_state().flare_element_count_}; }
+uint32_t& element_count() { return lens_flare_state().flare_element_count_; }
+uint32_t& visible_time() { return lens_flare_state().flare_visible_time_; } // when the sun was last seen
+uint32_t& hidden_time() { return lens_flare_state().flare_hidden_time_; }   // when it was last not seen
+maths::Vec4& get_color() { return lens_flare_state().flare_color_; }
+maths::Vec4& get_position() { return lens_flare_state().flare_position_; } // in the world, this frame
 
 // The texture `checksum` (the texture dictionary 0x00700F20's look-up), and a texture deleted.
 render::BitmapTexture* find_texture(uint32_t checksum) { return render::g_particle_texture_dict->fetch_skin(checksum); }
@@ -168,7 +179,6 @@ void corner_colors(std::array<std::array<uint8_t, 4>, 4>& colors, double scale)
 
 } // namespace
 
-
 // 0x00442680
 float clamp_to_range(float value, float min, float max)
 {
@@ -195,15 +205,15 @@ void set_sun(const Settings* settings, uint32_t mask)
     if (mask & kShown)
         get_shown() = settings->shown;
     if (mask & kTexture) {
-        if (g_flare_sun_texture)
-            delete_texture(g_flare_sun_texture);
-        g_flare_sun_texture = nullptr;
-        g_flare_sun_texture = memory::owned_element(find_texture(settings->texture));
+        if (lens_flare_state().flare_sun_texture_)
+            delete_texture(memory::owned_element(lens_flare_state().flare_sun_texture_));
+        lens_flare_state().flare_sun_texture_ = nullptr;
+        lens_flare_state().flare_sun_texture_ = find_texture(settings->texture);
     }
     if (mask & kCoronaTexture) {
         // (the sun's texture is the one deleted, as the original)
-        if (get_corona_texture() && g_flare_sun_texture)
-            delete_texture(g_flare_sun_texture);
+        if (get_corona_texture() && lens_flare_state().flare_sun_texture_)
+            delete_texture(memory::owned_element(lens_flare_state().flare_sun_texture_));
         get_corona_texture() = find_texture(settings->corona_texture_);
     }
 }
@@ -242,8 +252,8 @@ void prepare_all(float theta, float phi, float radius, float size, uint32_t text
     get_radius() = radius;
     get_size() = size;
     get_shown() = true;
-    g_flare_sun_texture = nullptr;
-    g_flare_sun_texture = memory::owned_element(find_texture(texture));
+    lens_flare_state().flare_sun_texture_ = nullptr;
+    lens_flare_state().flare_sun_texture_ = find_texture(texture);
     get_corona_texture() = find_texture(corona_texture);
     Array* data = script::fetch_list(lens_flare_data);
     element_count() = data->extent_;
@@ -354,8 +364,8 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
     facing[0] = -(*camera->fetch_mat())[0];
     facing[2] = maths::cross_vec((*camera->fetch_mat())[1], facing[0]);
     facing[1] = maths::cross_vec(facing[2], facing[0]);
-    if (g_flare_sun_texture)
-        quad->set_texture(g_flare_sun_texture, 0, 0);
+    if (lens_flare_state().flare_sun_texture_)
+        quad->set_texture(lens_flare_state().flare_sun_texture_, 0, 0);
     const float size = camera->unknownb4_ * get_size(); // (0x004426B0 reads the factor)
     const float half = size / 2.0f;
     std::array<maths::Vec4, 4> quad_corners = {{

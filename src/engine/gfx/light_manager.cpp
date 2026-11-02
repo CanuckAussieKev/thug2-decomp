@@ -18,6 +18,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -29,24 +30,38 @@ uint32_t g_model_light_count;
 float g_ambient_intensity{1.0f};
 LightingState g_active_lighting{.ambient = 0, .directions = {}, .colours = {}, .ambient_low_ = 0.5f, .ambient_high_ = 0.0f, .light_low_ = {}, .light_high_ = {}};
 namespace {
-std::array<LightingState, 4> g_world_light_stack; // (the saved ones: PushLights / PopLights)
 
 constexpr int kSavedLightLevels = 4;
 constexpr int kMaxDynamicLights = 256;
 
 LightingState& get_world() { return g_active_lighting; }
-std::array<LightingState, 4>& pile_up() { return g_world_light_stack; }
-int g_light_stack_top{-1};
-float g_light_brightness{1.0f};
-float g_light_brightness_target{1.0f};
-std::array<int, 32> g_near_light_indexes{{-1}};      // get_dynamic_lights_near's indexes
-std::array<float, 31> g_near_light_falloffs{{1.0f}}; // get_dynamic_lights_near's falloffs
+std::array<LightingState, 4>& pile_up()
+{
+    static core::NoDestroy<std::array<LightingState, 4>> world_light_stack; // (the saved ones: PushLights / PopLights)
+    return world_light_stack.get();
+}
+// NOT ORIGINAL grouping - light_manager.cpp's state (the original's globals). Made on first use, never destroyed
+// (light_manager_state()).
+struct LightManagerState {
+    int light_stack_top_{-1};
+    float light_brightness_{1.0f};
+    float light_brightness_target_{1.0f};
+    std::array<int, 32> near_light_indexes_{{-1}}; // get_dynamic_lights_near's indexes
+    std::array<float, 31> near_light_falloffs_{{1.0f}}; // get_dynamic_lights_near's falloffs
+};
+
+LightManagerState& light_manager_state()
+{
+    static core::NoDestroy<LightManagerState> state;
+    return state.get();
+}
+
 constexpr float kMinIntensity{0.0f};
 
-int& stack_top() { return g_light_stack_top; }
+int& stack_top() { return light_manager_state().light_stack_top_; }
 uint32_t& light_count() { return g_light_count; }
-float& get_brightness() { return g_light_brightness; }
-float& light_gain_goal() { return g_light_brightness_target; }
+float& get_brightness() { return light_manager_state().light_brightness_; }
+float& light_gain_goal() { return light_manager_state().light_brightness_target_; }
 float& ambient_intensity() { return g_ambient_intensity; }
 float min_intensity() { return kMinIntensity; }
 std::span<float>& get_intensities() { return g_intensities; }
@@ -54,8 +69,8 @@ std::span<float>& get_intensities() { return g_intensities; }
 std::array<DynamicLightBase*, 256>& dynamic_lights() { return g_dynamic_lights; }
 int& dynamic_light_count() { return g_dynamic_light_count; }
 // get_dynamic_lights_near's falloffs and the lights' indexes (32 each).
-std::array<float, 31>& near_falloffs() { return g_near_light_falloffs; }
-std::array<int, 32>& near_indexes() { return g_near_light_indexes; }
+std::array<float, 31>& near_falloffs() { return light_manager_state().near_light_falloffs_; }
+std::array<int, 32>& near_indexes() { return light_manager_state().near_light_indexes_; }
 
 // 2b - 1 times a range, plus 1 (the high range above 0.5 - or NaN -, the low one at and below).
 float get_scaled(float brightness, float low, float high)
@@ -385,7 +400,7 @@ void set_world_lights_ambient() { g_active_lighting.ambient = 0x80484848; }
 // 0x00640B90 (a static initialiser): the four saved light sets.
 void construct_world_light_stack()
 {
-    for (LightingState& lights : g_world_light_stack)
+    for (LightingState& lights : pile_up())
         lights.make_new();
 }
 

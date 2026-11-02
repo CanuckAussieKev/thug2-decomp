@@ -26,16 +26,28 @@
 #include "engine/gfx/bitmap_texture.h"
 #include <bit>
 #include "platform/d3d_matrix.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
-std::array<float, 8> g_billboard_uv_matrix{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
-std::array<float, 16> g_wibble_matrix_pass{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+// NOT ORIGINAL grouping - pc_material.cpp's state (the original's globals). Made on first use, never destroyed
+// (pc_material_state()).
+struct PcMaterialState {
+    std::array<float, 8> billboard_uv_matrix_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 16> wibble_matrix_pass_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 16> wibble_matrix_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, 16> environment_matrix_{{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f}};
+};
+
+PcMaterialState& pc_material_state()
+{
+    static core::NoDestroy<PcMaterialState> state;
+    return state.get();
+}
+
 std::array<float, 16> g_environment_matrix_pass{{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f,
                                     0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f,  0.5f}};
-std::array<float, 16> g_wibble_matrix{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
-std::array<float, 16> g_environment_matrix{{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f}};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 std::array<float, 20>& pass_constants() { return g_ps_constant_bank; } // the pixel shader's colours, 16 bytes a pass
@@ -302,12 +314,12 @@ void MaterialRef::hand_in()
         } else if (flags & kPassUvWibble) {
             device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
             device_stage_state(pass, D3DTSS_TEXCOORDINDEX, pass);
-            auto& matrix = g_wibble_matrix_pass;
+            auto& matrix = pc_material_state().wibble_matrix_pass_;
             fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
             input_port()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
         } else {
             if (g_billboard_flag) { // (the billboard flag: a static matrix's 2x2 part reset)
-                auto& m = g_billboard_uv_matrix;
+                auto& m = pc_material_state().billboard_uv_matrix_;
                 core::at(m, 0) = 1.0f;
                 core::at(m, 1) = 0;
                 core::at(m, 3) = 0;
@@ -355,7 +367,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 change_bump_map_matrix(0);
             const uint32_t flags = core::at(pass_flags_, pass);
             if ((flags & kPassEnvironment) && g_near_camera) {
-                auto& matrix = g_environment_matrix;
+                auto& matrix = pc_material_state().environment_matrix_;
                 core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * 0.5);
                 core::at(matrix, 5) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * 0.5);
                 change_phase(kLocalViewer, 1);
@@ -365,7 +377,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
             } else if (flags & kPassUvWibble) {
                 device_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
                 device_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
-                auto& matrix = g_wibble_matrix;
+                auto& matrix = pc_material_state().wibble_matrix_;
                 fill_wibble_matrix(matrix, core::at(uv_wibble_, pass));
                 input_port()->SetTransform(D3DTS_TEXTURE0, d3d::matrix(matrix.data()));
             } else {

@@ -42,14 +42,10 @@
 #include "frontend/front_end.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace gfx {
-
-namespace {
-uint32_t g_tod_references;
-} // namespace
-
 
 namespace {
 
@@ -156,7 +152,6 @@ uint32_t color_from_array(script::Array* array)
     return get_rgba(r, g, b, 0);
 }
 
-
 // The engine (not rewritten yet).
 void change_fog(bool on) { render::engine::enable_fog(on); }
 void set_fog_color(uint32_t color) { render::engine::set_fog_color(color); }
@@ -222,20 +217,31 @@ BloomParams bloom_of(const TodParams& params)
     return {.on = params.bloom_on_, .bloom1 = params.bloom1, .bloom2 = params.bloom2, .strength = params.bloom_strength_, .color = params.bloom_color_};
 }
 
-// NOT ORIGINAL - set_tod_params_filter's (null: none).
-TodParamsFilter g_params_filter = nullptr;
-bool get_filter(TodParams* params) { return g_params_filter && g_params_filter(params); }
+// NOT ORIGINAL grouping - tod_manager.cpp's state (the original's globals). Made on first use, never destroyed
+// (tod_manager_state()).
+struct TodManagerState {
+    // NOT ORIGINAL - set_tod_params_filter's (null: none).
+    TodParamsFilter params_filter_ = nullptr;
+    // NOT ORIGINAL - set_multiplayer_unlock's (null: none).
+    MultiplayerUnlock multiplayer_unlock_ = nullptr;
+};
 
-// NOT ORIGINAL - set_multiplayer_unlock's (null: none).
-MultiplayerUnlock g_multiplayer_unlock = nullptr;
+TodManagerState& tod_manager_state()
+{
+    static core::NoDestroy<TodManagerState> state;
+    return state.get();
+}
+
+bool get_filter(TodParams* params) { return tod_manager_state().params_filter_ && tod_manager_state().params_filter_(params); }
+
 // What the original tests (is_multiplayer), then the unlock (THUGPRO's network games): the lights left alone.
-bool lights_locked() { return is_multiplayer() && !(g_multiplayer_unlock && g_multiplayer_unlock()); }
+bool lights_locked() { return is_multiplayer() && !(tod_manager_state().multiplayer_unlock_ && tod_manager_state().multiplayer_unlock_()); }
 
 } // namespace
 
-void set_tod_params_filter(TodParamsFilter filter) { g_params_filter = filter; }
-void set_multiplayer_unlock(MultiplayerUnlock unlock) noexcept { g_multiplayer_unlock = unlock; }
-MultiplayerUnlock get_multiplayer_unlock() { return g_multiplayer_unlock; }
+void set_tod_params_filter(TodParamsFilter filter) { tod_manager_state().params_filter_ = filter; }
+void set_multiplayer_unlock(MultiplayerUnlock unlock) noexcept { tod_manager_state().multiplayer_unlock_ = unlock; }
+MultiplayerUnlock get_multiplayer_unlock() { return tod_manager_state().multiplayer_unlock_; }
 bool tod_lights_locked() { return lights_locked(); }
 
 uint32_t next_tod_state(uint32_t state)
@@ -1133,7 +1139,11 @@ bool CtodManager::can_set_tod_instant(uint32_t state) const
 
 CtodManager*& tod_manager() { return commands::g_tod_manager; }
 namespace {
-uint32_t& ref_tally() { return g_tod_references; }
+uint32_t& ref_tally()
+{
+    static uint32_t tod_references{};
+    return tod_references;
+}
 } // namespace
 
 // 0x00574540

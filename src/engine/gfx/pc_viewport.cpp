@@ -21,12 +21,17 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 std::array<uint8_t, 1024> g_occlusion_slots{{1}};
 namespace {
-uint32_t g_occlusion_pixels;
+uint32_t& stored_occlusion_pixels()
+{
+    static uint32_t occlusion_pixels{};
+    return occlusion_pixels;
+}
 // The queries' strips: four pre-transformed corners (x, y, z, rhw, colour) for a rectangle, four points (x, y, z,
 // colour) for a point.
 struct QueryRectVertex {
@@ -37,8 +42,18 @@ struct QueryPointVertex {
     float x, y, z;
     uint32_t colour;
 };
-std::array<QueryRectVertex, 4> g_query_rect_strip;
-std::array<QueryPointVertex, 4> g_query_point_strip;
+// NOT ORIGINAL grouping - pc_viewport.cpp's state (the original's globals). Made on first use, never destroyed
+// (pc_viewport_state()).
+struct PcViewportState {
+    std::array<QueryRectVertex, 4> query_rect_strip_{};
+    std::array<QueryPointVertex, 4> query_point_strip_{};
+};
+
+PcViewportState& pc_viewport_state()
+{
+    static core::NoDestroy<PcViewportState> state;
+    return state.get();
+}
 
 constexpr float kVirtualScreenHeight{448.0f};
 constexpr float kVirtualScreenWidth{640.0f};
@@ -115,9 +130,9 @@ uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_
     change_phase(kZWrite, 0);
     input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     begin_query_draw(D3DFVF_XYZ | D3DFVF_DIFFUSE);
-    for (QueryPointVertex& vertex : g_query_point_strip)
+    for (QueryPointVertex& vertex : pc_viewport_state().query_point_strip_)
         vertex = {.x = point->x, .y = point->y, .z = point->z, .colour = 0xFFFFFFFF};
-    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, g_query_point_strip.data(), sizeof(QueryPointVertex));
+    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_point_strip_.data(), sizeof(QueryPointVertex));
     end_query_draw(query);
     return query;
 }
@@ -131,11 +146,11 @@ uint8_t PcViewport::query_rect(float x0, float y0, float x1, float y1, uint32_t 
     change_phase(kZWrite, 0);
     begin_query_draw(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
     auto depth = static_cast<float>(static_cast<double>(z));
-    g_query_rect_strip = {{{.x = x0, .y = y0, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
+    pc_viewport_state().query_rect_strip_ = {{{.x = x0, .y = y0, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
                            {.x = x0, .y = y1, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
                            {.x = x1, .y = y0, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
                            {.x = x1, .y = y1, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF}}};
-    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, g_query_rect_strip.data(), sizeof(QueryRectVertex));
+    input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, pc_viewport_state().query_rect_strip_.data(), sizeof(QueryRectVertex));
     end_query_draw(query);
     return query;
 }
@@ -150,10 +165,10 @@ uint32_t occlusion_pixels()
     if (result == S_OK) {
         core::at(g_occlusion_slots, core::at(g_occlusion_requests, 0).slot) = 0;
         pop_occlusion_request(); // (the requests moved on)
-        g_occlusion_pixels = pixels;
+        stored_occlusion_pixels() = pixels;
         return pixels;
     }
-    return result == S_FALSE ? g_occlusion_pixels : 0;
+    return result == S_FALSE ? stored_occlusion_pixels() : 0;
 }
 
 } // namespace render

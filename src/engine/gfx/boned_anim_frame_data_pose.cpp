@@ -19,6 +19,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/span_copy.h"
+#include "engine/core/no_destroy.h"
 
 namespace gfx {
 
@@ -61,12 +62,22 @@ void rotation_to_quat_b(void* out, const void* key)
     expand_quat_key_with_w(static_cast<FloatKey*>(out), static_cast<const ShortKey*>(key));
 }
 
-uint32_t g_caches_built;
-uint64_t g_last_cache_vblank;
+// NOT ORIGINAL grouping - boned_anim_frame_data_pose.cpp's state (the original's globals). Made on first use, never
+// destroyed (boned_anim_frame_data_pose_state()).
+struct BonedAnimFrameDataPoseState {
+    uint32_t caches_built_{};
+    uint64_t last_cache_vblank_{};
+};
+
+BonedAnimFrameDataPoseState& boned_anim_frame_data_pose_state()
+{
+    static core::NoDestroy<BonedAnimFrameDataPoseState> state;
+    return state.get();
+}
 
 // The vblank count when caches were last built (0x006FA2E0) and how many have been since (0x006FA2D8).
-uint64_t& last_cache_vblank() { return g_last_cache_vblank; }
-uint32_t& caches_built() { return g_caches_built; }
+uint64_t& last_cache_vblank() { return boned_anim_frame_data_pose_state().last_cache_vblank_; }
+uint32_t& caches_built() { return boned_anim_frame_data_pose_state().caches_built_; }
 
 // A plain key's time: its first short (rotation keys: 15 bits, signed).
 int rotation_key_time(const uint8_t* key)

@@ -33,6 +33,7 @@
 #include <span>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -40,23 +41,32 @@ namespace {} // namespace
 
 uint32_t g_bloom_on;
 namespace {
-uint32_t g_screen_effect_unknown5724;
-uint32_t g_screen_effect_unknown5728;
-// The empty bounding box (all zero at start, as the original's) and its guard.
-maths::BBox g_empty_bounding_box{maths::BBox(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f})};
-uint32_t g_empty_bounding_box_guard;
+// NOT ORIGINAL grouping - pc_scene.cpp's state (the original's globals). Made on first use, never destroyed
+// (pc_scene_state()).
+struct PcSceneState {
+    uint32_t screen_effect_unknown5724_{};
+    uint32_t screen_effect_unknown5728_{};
+    // The empty bounding box (all zero at start, as the original's) and its guard.
+    maths::BBox empty_bounding_box_{maths::BBox(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f})};
+    uint32_t empty_bounding_box_guard_{};
+    uint32_t screen_effect_unknown984_{0x42A00000};
+    uint32_t screen_effect_unknown988_{0x43000000};
+    uint32_t screen_effect_unknown990_{0x80808080};
+    uint32_t screen_effect_unknown994_{0x80808080};
+};
+
+PcSceneState& pc_scene_state()
+{
+    static core::NoDestroy<PcSceneState> state;
+    return state.get();
+}
+
 } // namespace
 
 uint32_t g_bloom_alpha_first{0x10};
 uint32_t g_bloom_alpha_second{0x10};
-namespace {
-uint32_t g_screen_effect_unknown984{0x42A00000};
-uint32_t g_screen_effect_unknown988{0x43000000};
-} // namespace
 uint32_t g_bloom_cut_off{0x80808080};
 namespace {
-uint32_t g_screen_effect_unknown990{0x80808080};
-uint32_t g_screen_effect_unknown994{0x80808080};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 PcGeom* geometry_of(void* sector)
@@ -97,8 +107,8 @@ gsl::owner<PcSector*> PcSector::plat_clone(int, void*) { return new PcSector(); 
 // 0x004C64E0
 const maths::BBox* PcSector::fetch_empty_bounds()
 {
-    auto* empty = &g_empty_bounding_box; // (the game's, made the first time: its guard's bit 0)
-    uint32_t& made = g_empty_bounding_box_guard;
+    auto* empty = &pc_scene_state().empty_bounding_box_; // (the game's, made the first time: its guard's bit 0)
+    uint32_t& made = pc_scene_state().empty_bounding_box_guard_;
     if (!(made & 1)) {
         made |= 1;
         new (empty) maths::BBox();
@@ -161,17 +171,17 @@ void PcScreenEffects::set_bloom_alphas(int first, int second)
     g_bloom_alpha_second = static_cast<uint32_t>(second);
 }
 // 0x004C6410
-void PcScreenEffects::set_bloom_colour(uint32_t colour) { g_screen_effect_unknown990 = colour; }
+void PcScreenEffects::set_bloom_colour(uint32_t colour) { pc_scene_state().screen_effect_unknown990_ = colour; }
 // 0x004C6420
-void PcScreenEffects::set_dof_on(int on) { g_screen_effect_unknown5724 = on != 0; }
+void PcScreenEffects::set_dof_on(int on) { pc_scene_state().screen_effect_unknown5724_ = on != 0; }
 // 0x004C6460
-void PcScreenEffects::set_dof_colour_a(uint32_t colour) { g_screen_effect_unknown994 = colour; }
+void PcScreenEffects::set_dof_colour_a(uint32_t colour) { pc_scene_state().screen_effect_unknown994_ = colour; }
 // 0x004C6470
-void PcScreenEffects::set_dof_value_a(float value) { g_screen_effect_unknown984 = std::bit_cast<uint32_t>(value); }
+void PcScreenEffects::set_dof_value_a(float value) { pc_scene_state().screen_effect_unknown984_ = std::bit_cast<uint32_t>(value); }
 // 0x004C6440
-void PcScreenEffects::set_dof_value_c(float value) { g_screen_effect_unknown988 = std::bit_cast<uint32_t>(value); }
+void PcScreenEffects::set_dof_value_c(float value) { pc_scene_state().screen_effect_unknown988_ = std::bit_cast<uint32_t>(value); }
 // 0x004C6450
-void PcScreenEffects::set_dof_value_d(float value) { g_screen_effect_unknown5728 = std::bit_cast<uint32_t>(value); }
+void PcScreenEffects::set_dof_value_d(float value) { pc_scene_state().screen_effect_unknown5728_ = std::bit_cast<uint32_t>(value); }
 
 namespace {
 

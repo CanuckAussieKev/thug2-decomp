@@ -37,17 +37,29 @@
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 VertexStack g_vertex_stack;
 namespace {
-std::array<uint8_t, 128> g_splat_middle20;
-std::array<uint8_t, 128> g_splat_middle12;
-std::array<uint8_t, 128> g_splat_middle01;
-std::array<uint8_t, 128> g_splat_vertex0;
-std::array<uint8_t, 128> g_splat_vertex1;
-std::array<uint8_t, 128> g_splat_vertex2;
+// NOT ORIGINAL grouping - texture_splats.cpp's state (the original's globals). Made on first use, never destroyed
+// (texture_splats_state()).
+struct TextureSplatsState {
+    std::array<uint8_t, 128> splat_middle20_{};
+    std::array<uint8_t, 128> splat_middle12_{};
+    std::array<uint8_t, 128> splat_middle01_{};
+    std::array<uint8_t, 128> splat_vertex0_{};
+    std::array<uint8_t, 128> splat_vertex1_{};
+    std::array<uint8_t, 128> splat_vertex2_{};
+};
+
+TextureSplatsState& texture_splats_state()
+{
+    static core::NoDestroy<TextureSplatsState> state;
+    return state.get();
+}
+
 } // namespace
 
 float g_split_area_limit{82944.0f};
@@ -267,9 +279,9 @@ bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
 {
     if (!g_vertex_stack.used)
         return false;
-    const std::span<uint8_t> v2 = g_splat_vertex2; // (the three popped, last pushed first)
-    const std::span<uint8_t> v1 = g_splat_vertex1;
-    const std::span<uint8_t> v0 = g_splat_vertex0;
+    const std::span<uint8_t> v2 = texture_splats_state().splat_vertex2_; // (the three popped, last pushed first)
+    const std::span<uint8_t> v1 = texture_splats_state().splat_vertex1_;
+    const std::span<uint8_t> v0 = texture_splats_state().splat_vertex0_;
     pop_vertex(v2.data());
     pop_vertex(v1.data());
     pop_vertex(v0.data());
@@ -298,9 +310,9 @@ bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
         return true;
     }
     // the midpoints of the edges: v0-v1, v1-v2, v2-v0
-    const std::span<uint8_t> m01 = g_splat_middle01;
-    const std::span<uint8_t> m12 = g_splat_middle12;
-    const std::span<uint8_t> m20 = g_splat_middle20;
+    const std::span<uint8_t> m01 = texture_splats_state().splat_middle01_;
+    const std::span<uint8_t> m12 = texture_splats_state().splat_middle12_;
+    const std::span<uint8_t> m20 = texture_splats_state().splat_middle20_;
     std::memcpy(m01.data(), v0.data(), size);
     std::memcpy(m12.data(), v1.data(), size);
     std::memcpy(m20.data(), v2.data(), size);

@@ -16,28 +16,39 @@
 #include "engine/maths/vec4.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
-std::array<OccluderPolygon, 512> g_occluder_quads;
-std::array<Occluder, 8> g_occluders;
+// NOT ORIGINAL grouping - occlusion.cpp's state (the original's globals). Made on first use, never destroyed
+// (occlusion_state()).
+struct OcclusionState {
+    std::array<OccluderPolygon, 512> occluder_quads_{};
+    std::array<Occluder, 8> occluders_{};
+    uint32_t occlusion_poly_count_{};
+    uint32_t occlusion_next_poly_{};
+    int occlusion_frame_{};
+    uint32_t occluder_count_{};
+};
 
-uint32_t g_occlusion_poly_count;
-uint32_t g_occlusion_next_poly;
-int g_occlusion_frame;
-uint32_t g_occluder_count;
+OcclusionState& occlusion_state()
+{
+    static core::NoDestroy<OcclusionState> state;
+    return state.get();
+}
+
 } // namespace
 float g_last_sphere_distance;
 
 namespace {
 
-std::array<OccluderPolygon, 512>& polys() { return g_occluder_quads; }
-uint32_t& poly_count() { return g_occlusion_poly_count; }
-uint32_t& next_poly() { return g_occlusion_next_poly; } // where add_occluders carries on
-int& tick_cycle() { return g_occlusion_frame; }
-std::array<Occluder, 8>& occluder_array() { return g_occluders; }
-uint32_t& occluder_count() { return g_occluder_count; }
+std::array<OccluderPolygon, 512>& polys() { return occlusion_state().occluder_quads_; }
+uint32_t& poly_count() { return occlusion_state().occlusion_poly_count_; }
+uint32_t& next_poly() { return occlusion_state().occlusion_next_poly_; } // where add_occluders carries on
+int& tick_cycle() { return occlusion_state().occlusion_frame_; }
+std::array<Occluder, 8>& occluder_array() { return occlusion_state().occluders_; }
+uint32_t& occluder_count() { return occlusion_state().occluder_count_; }
 constexpr uint32_t kOccluderLimit = 8;
 
 // The object's transform for culling (set_world_transform), or none (empty): only its position row is used here.

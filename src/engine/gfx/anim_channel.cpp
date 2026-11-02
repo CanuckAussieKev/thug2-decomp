@@ -42,6 +42,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace gfx {
@@ -80,29 +81,38 @@ using online::kMsgPlayAnim;
 using online::kMsgWobbleDetails;
 using online::kMsgWobbleTarget;
 
-uint8_t g_last_wobble_target{0xFF};
-uint8_t g_last_wobble_details{0xFF};
-int8_t g_last_loop_type{-1};
-std::span<Stance> g_poses;
-int g_max_blends;
-int g_subsets;
+// NOT ORIGINAL grouping - anim_channel.cpp's state (the original's globals). Made on first use, never destroyed
+// (anim_channel_state()).
+struct AnimChannelState {
+    uint8_t last_wobble_target_{0xFF};
+    uint8_t last_wobble_details_{0xFF};
+    int8_t last_loop_type_{-1};
+    std::span<Stance> poses_{};
+    int max_blends_{};
+    int subsets_{};
+};
+
+AnimChannelState& anim_channel_state()
+{
+    static core::NoDestroy<AnimChannelState> state;
+    return state.get();
+}
 
 // What was last sent (all start 0xFF).
-uint8_t& last_wobble_target() { return g_last_wobble_target; }
-uint8_t& last_wobble_details() { return g_last_wobble_details; }
-int8_t& last_loop_type() { return g_last_loop_type; }
+uint8_t& last_wobble_target() { return anim_channel_state().last_wobble_target_; }
+uint8_t& last_wobble_details() { return anim_channel_state().last_wobble_details_; }
+int8_t& last_loop_type() { return anim_channel_state().last_loop_type_; }
 
 // The blend buffers (init_buffers).
 std::span<uint32_t>& blend_sets() { return g_blend_sets; }
 std::span<float>& blend_weights() { return g_blend_weights; }
 std::span<Stance>& blend_buffer() { return g_blend_buffer; }
-std::span<Stance>& current_poses() { return g_poses; }
-int& max_blends() { return g_max_blends; }
-int& get_subsets() { return g_subsets; }
+std::span<Stance>& current_poses() { return anim_channel_state().poses_; }
+int& max_blends() { return anim_channel_state().max_blends_; }
+int& get_subsets() { return anim_channel_state().subsets_; }
 bool omit_from_draw() { return render::g_suppress_draw; }
 
 memory::PoolPair& struct_pools() { return script::g_struct_pools; }
-
 
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 // A list node as the original masks it: null when it's the head.
@@ -1153,7 +1163,11 @@ namespace gfx {
 namespace {
 
 // 64 quaternions nothing reads (only their static initialiser writes them).
-std::array<float, 256> g_spare_rotations;
+std::array<float, 256>& spare_rotations()
+{
+    static std::array<float, 256> spare_rotations{};
+    return spare_rotations;
+}
 
 } // namespace
 
@@ -1161,10 +1175,10 @@ std::array<float, 256> g_spare_rotations;
 void construct_spare_rotations()
 {
     for (int i = 0; i < 64; ++i) {
-        core::at(g_spare_rotations, 4 * i + 0) = 0.0f;
-        core::at(g_spare_rotations, 4 * i + 1) = 0.0f;
-        core::at(g_spare_rotations, 4 * i + 2) = 0.0f;
-        core::at(g_spare_rotations, 4 * i + 3) = 1.0f;
+        core::at(spare_rotations(), 4 * i + 0) = 0.0f;
+        core::at(spare_rotations(), 4 * i + 1) = 0.0f;
+        core::at(spare_rotations(), 4 * i + 2) = 0.0f;
+        core::at(spare_rotations(), 4 * i + 3) = 1.0f;
     }
 }
 

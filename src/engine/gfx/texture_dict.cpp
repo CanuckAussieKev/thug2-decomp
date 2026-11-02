@@ -23,11 +23,25 @@
 #include "engine/sys/startup_init.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
-std::array<int, 8> g_key_multipliers{{2, 3, 4, 6, 12, 8, 24, -1}};
+// NOT ORIGINAL grouping - texture_dict.cpp's state (the original's globals). Made on first use, never destroyed
+// (texture_dict_state()).
+struct TextureDictState {
+    std::array<int, 8> key_multipliers_{{2, 3, 4, 6, 12, 8, 24, -1}};
+    // The loaded dictionaries, by checksum (a static hash table).
+    lists::KeyMap loaded_tex_dicts_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(4) at start-up)
+};
+
+TextureDictState& texture_dict_state()
+{
+    static core::NoDestroy<TextureDictState> state;
+    return state.get();
+}
+
 } // namespace
 
 // The game's texture dictionaries: the textures every level shares, and the particles'.
@@ -36,12 +50,10 @@ TextureSet* g_particle_texture_dict;
 
 namespace {
 
-// The loaded dictionaries, by checksum (a static hash table).
-lists::KeyMap g_loaded_tex_dicts{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(4) at start-up)
-lists::KeyMap& loaded_tex_dicts() { return g_loaded_tex_dicts; }
+lists::KeyMap& loaded_tex_dicts() { return texture_dict_state().loaded_tex_dicts_; }
 
 // The multipliers find_texture tries the name's CRC with (0x0067E520: 2, 3, 4, 6, 12, 8, 24, then -1).
-const std::array<int, 8>& key_multipliers() { return g_key_multipliers; }
+const std::array<int, 8>& key_multipliers() { return texture_dict_state().key_multipliers_; }
 
 // The CRC of what follows a name's last slash or backslash.
 uint32_t filename_key(const char* name)
@@ -350,7 +362,11 @@ namespace render {
 namespace {
 
 // A table (2 buckets) nothing uses but its static initialiser and exit function.
-lists::KeyMap g_spare_tex_dict_table{lists::KeyMap::Unconstructed{}};
+lists::KeyMap& spare_tex_dict_table()
+{
+    static lists::KeyMap spare_tex_dict_table{lists::KeyMap::Unconstructed{}};
+    return spare_tex_dict_table;
+}
 
 // The loaded dictionary named `name` (one more use of it), or a new one, made and listed.
 TextureSet* shared_tex_dict(const char* name)
@@ -369,13 +385,13 @@ TextureSet* shared_tex_dict(const char* name)
 } // namespace
 
 // 0x00640BF0 (a static initialiser): the loaded dictionaries' table, 16 buckets.
-void construct_loaded_tex_dicts() { new (&g_loaded_tex_dicts) lists::KeyMap(4); }
+void construct_loaded_tex_dicts() { new (&texture_dict_state().loaded_tex_dicts_) lists::KeyMap(4); }
 
 // 0x00640C10, 0x00640C60 (static initialisers): the dictionaries of the sprites and the particles.
 void set_up_game_texture_dict() { g_game_texture_dict = shared_tex_dict("sprite"); }
 void set_up_particle_texture_dict() { g_particle_texture_dict = shared_tex_dict("particle"); }
 
 // 0x00640CB0 (a static initialiser)
-void construct_spare_tex_dict_table() { new (&g_spare_tex_dict_table) lists::KeyMap(1); }
+void construct_spare_tex_dict_table() { new (&spare_tex_dict_table()) lists::KeyMap(1); }
 
 } // namespace render

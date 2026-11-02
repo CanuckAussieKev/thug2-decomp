@@ -6,6 +6,7 @@
 #include "engine/core/str.h"
 #include "engine/pad_input/sdl_input.h"
 #include "platform/platform_config.h"
+#include "engine/core/no_destroy.h"
 
 #include <cstdint>
 
@@ -13,21 +14,30 @@ namespace render {
 
 namespace {
 
-bool s_prefer_glyphs = false;
-uint8_t s_glyph_style = 0;
+// NOT ORIGINAL grouping - glyphs.cpp's state (were globals). Made on first use, never destroyed (glyphs_state()).
+struct GlyphsState {
+    bool prefer_glyphs_ = false;
+    uint8_t glyph_style_ = 0;
+};
+
+GlyphsState& glyphs_state()
+{
+    static core::NoDestroy<GlyphsState> state;
+    return state.get();
+}
 
 // The keyboard is in use and glyphs aren't preferred: the key names.
-bool key_names() { return sio::using_keyboard() && !s_prefer_glyphs; }
+bool key_names() { return sio::using_keyboard() && !glyphs_state().prefer_glyphs_; }
 
 } // namespace
 
-bool& prefer_glyphs() { return s_prefer_glyphs; }
-uint8_t& glyph_style() { return s_glyph_style; }
+bool& prefer_glyphs() { return glyphs_state().prefer_glyphs_; }
+uint8_t& glyph_style() { return glyphs_state().glyph_style_; }
 
 void load_glyph_settings()
 {
-    s_prefer_glyphs = build_info::fetch_flag(build_info::kMiscellaneous, "PreferGlyphs", false);
-    s_glyph_style = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "GlyphStyle", 1));
+    glyphs_state().prefer_glyphs_ = build_info::fetch_flag(build_info::kMiscellaneous, "PreferGlyphs", false);
+    glyphs_state().glyph_style_ = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "GlyphStyle", 1));
 }
 
 uint32_t button_for_tag(char digit)

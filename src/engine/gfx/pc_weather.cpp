@@ -33,15 +33,26 @@
 #include "engine/core/cursor.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/render/coll_grid.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
-// The rain / snow grid's rows (SWeatherRow, one more than the grid is deep: at most 302) and the columns' height
-// indices (a 16-bit offset into them). The original kept the indices right after the rows in one block (0x00764330,
-// all the bytes up to 0x00775B58); here each has its own, the indices the whole block's size.
-std::array<WeatherRow, 302> g_weather_rows;
-std::array<uint8_t, 0x11828> g_weather_columns;
+// NOT ORIGINAL grouping - pc_weather.cpp's state (the original's globals). Made on first use, never destroyed
+// (pc_weather_state()).
+struct PcWeatherState {
+    // The rain / snow grid's rows (SWeatherRow, one more than the grid is deep: at most 302) and the columns' height
+    // indices (a 16-bit offset into them). The original kept the indices right after the rows in one block (0x00764330,
+    // all the bytes up to 0x00775B58); here each has its own, the indices the whole block's size.
+    std::array<WeatherRow, 302> weather_rows_{};
+    std::array<uint8_t, 0x11828> weather_columns_{};
+};
+
+PcWeatherState& pc_weather_state()
+{
+    static core::NoDestroy<PcWeatherState> state;
+    return state.get();
+}
 
 constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 
@@ -525,8 +536,8 @@ void PcWeather::tick_grid()
         }
     }
     // The rows' ground spans (one row past the last, as the original) and their height indices.
-    rows = g_weather_rows;
-    columns = g_weather_columns;
+    rows = pc_weather_state().weather_rows_;
+    columns = pc_weather_state().weather_columns_;
     uint32_t offset = 0;
     for (int r = 0; r <= depth; ++r) {
         uint16_t first = 0, last = static_cast<uint16_t>(width - 1);

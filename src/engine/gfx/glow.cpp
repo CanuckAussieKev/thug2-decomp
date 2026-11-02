@@ -20,26 +20,40 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-lists::KeyMap g_glow_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
-lists::KeyMap& glows() { return g_glow_table; }
-std::array<uint8_t, 0x400> g_glow_queries_in_use; // (a byte per query: DrawGlows looks through 0x400)
+// NOT ORIGINAL grouping - glow.cpp's state (the original's globals). Made on first use, never destroyed (glow_state()).
+struct GlowState {
+    lists::KeyMap glow_table_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
+    std::array<uint8_t, 0x400> glow_queries_in_use_{}; // (a byte per query: DrawGlows looks through 0x400)
+};
+
+GlowState& glow_state()
+{
+    static core::NoDestroy<GlowState> state;
+    return state.get();
+}
+
+lists::KeyMap& glows() { return glow_state().glow_table_; }
 // A glow's quad: four corners, each x, y, z and a colour.
 struct GlowVertex {
     float x, y, z;
     uint32_t colour;
 };
-std::array<GlowVertex, 4> g_glow_quad;
 
 // The occlusion queries in use (a byte each).
-std::array<uint8_t, 0x400>& queries_in_use() { return g_glow_queries_in_use; }
+std::array<uint8_t, 0x400>& queries_in_use() { return glow_state().glow_queries_in_use_; }
 // The quad worked out for the last glow (four positions and colours; nothing draws it).
-std::array<GlowVertex, 4>& glow_quad() { return g_glow_quad; }
+std::array<GlowVertex, 4>& glow_quad()
+{
+    static core::NoDestroy<std::array<GlowVertex, 4>> glow_quad;
+    return glow_quad.get();
+}
 
 // The number of pixels a query saw: 0 when it has the answer, 1 when not yet.
 int query_result(uint32_t query, uint32_t* pixels)
@@ -182,6 +196,6 @@ void update_glows(bool queries)
 namespace render {
 
 // 0x00640E10 (a static initialiser): the glows' table, 256 buckets.
-void construct_glow_table() { new (&g_glow_table) lists::KeyMap(8); }
+void construct_glow_table() { new (&glow_state().glow_table_) lists::KeyMap(8); }
 
 } // namespace render

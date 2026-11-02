@@ -19,15 +19,25 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 namespace render {
 
 namespace {
-uint32_t g_occlusion_request_count;
+// NOT ORIGINAL grouping - viewport.cpp's state (the original's globals). Made on first use, never destroyed
+// (viewport_state()).
+struct ViewportState {
+    uint32_t occlusion_request_count_{};
+    float screen_angle_{};
+};
+
+ViewportState& viewport_state()
+{
+    static core::NoDestroy<ViewportState> state;
+    return state.get();
+}
+
 } // namespace
 std::array<OcclusionRequest, 4> g_occlusion_requests;
-namespace {
-float g_screen_angle;
-} // namespace
 int g_screen_mode;
 std::array<ViewRegion*, 10> g_viewports;
 
@@ -37,10 +47,12 @@ constexpr float kHalfDegreeRadians{0.008726646f};
 std::array<float, 40> g_split_layouts{{0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f,
                           0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.5f,
                           0.5f, 0.0f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f}};
-std::array<int, 6> g_mode_viewport_counts{{1, 2, 2, 4, 1, 1}};
-std::array<int, 24> g_mode_maps{{0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1}};
+// The viewports' tables: how many viewports each screen mode has, and each mode's map of views to viewports.
+constexpr std::array<int, 6> kModeViewportCounts{{1, 2, 2, 4, 1, 1}};
+constexpr std::array<int, 24> kModeMaps{{0, -1, -1, -1, 2, 3, -1, -1, 4, 5, -1, -1, 6, 7, 8, 9, 0, -1, -1, -1, -1, 1, -1, -1}};
+
 } // namespace
-std::span<const int> g_mode_map{g_mode_maps};
+std::span<const int> g_mode_map{kModeMaps};
 
 namespace {
 
@@ -67,8 +79,8 @@ ViewRegion*& get_viewport(int index) { return core::at(g_viewports, index); }
 std::span<const int>& mode_map() { return g_mode_map; }
 int& screen_mode() { return g_screen_mode; }
 int& active_viewport_count() { return modules::g_viewport_count; }
-int mode_viewport_count(int mode) { return core::at(g_mode_viewport_counts, mode); }
-std::span<const int> mode_map_of(int mode) { return std::span<const int>(g_mode_maps).subspan(4 * static_cast<size_t>(mode)); }
+int mode_viewport_count(int mode) { return core::at(kModeViewportCounts, mode); }
+std::span<const int> mode_map_of(int mode) { return std::span<const int>(kModeMaps).subspan(4 * static_cast<size_t>(mode)); }
 // The map's entry for view `i` (a mode's map is read ten entries on, past the table's end for the last modes: the
 // original read the words after the table there; here those views are not shown).
 int map_entry(std::span<const int> map, int i) { return static_cast<size_t>(i) < map.size() ? core::at(map, i) : -1; }
@@ -91,7 +103,7 @@ ViewRegion* current_view_slot(int n)
 
 std::array<uint8_t, 1024>& occlusion_slots() { return g_occlusion_slots; }
 std::array<OcclusionRequest, 4>& occlusion_requests() { return g_occlusion_requests; }
-uint32_t& occlusion_request_count() { return g_occlusion_request_count; }
+uint32_t& occlusion_request_count() { return viewport_state().occlusion_request_count_; }
 
 } // namespace
 
@@ -264,7 +276,7 @@ void set_screen_field_of_view(float degrees)
 {
     if (degrees == 0.0f)
         degrees = get_screen_angle();
-    g_screen_angle = degrees;
+    viewport_state().screen_angle_ = degrees;
     // tan(degrees / 2) / tan(default / 2)
     g_angle_factor = static_cast<float>(std::tan(static_cast<double>(degrees) * kHalfDegreeRadians) /
                                         std::tan(static_cast<double>(g_base_fov_angle) * kHalfDegreeRadians));

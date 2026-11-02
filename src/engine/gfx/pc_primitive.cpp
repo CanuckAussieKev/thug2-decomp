@@ -33,7 +33,11 @@ namespace render {
 
 namespace {
 // The game's buffer for the vertices of a primitive drawn without one of its own.
-std::array<uint8_t, 0x100> g_primitive_vertex_buffer;
+std::array<uint8_t, 0x100>& primitive_vertex_buffer()
+{
+    static std::array<uint8_t, 0x100> primitive_vertex_buffer{};
+    return primitive_vertex_buffer;
+}
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DIndexBuffer9* quad_indices() { return g_quad_indices; }
@@ -237,7 +241,7 @@ void PcPrimitive::blit(std::span<const float> positions, std::span<const uint32_
     }
     if (size) {
         stride_ = size;
-        vertices_ = g_primitive_vertex_buffer.data(); // (a buffer of the game's)
+        vertices_ = primitive_vertex_buffer().data(); // (a buffer of the game's)
     }
     for (int i = 0; i < vertex_count_; ++i) {
         change_place(i, core::at(positions, 3 * i), core::at(positions, 3 * i + 1), core::at(positions, 3 * i + 2));

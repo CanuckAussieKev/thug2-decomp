@@ -35,6 +35,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace gfx::loading_console {
 
@@ -122,11 +123,21 @@ namespace {
 
 // --- the console's state ---
 
-SRWLOCK g_lock = SRWLOCK_INIT; // the ring and the activity time
-Ring g_ring;
-std::atomic<bool> g_active{false};
-double g_start = 0.0;         // when the load began (Now())
-double g_last_activity = 0.0; // the last line's time (Now())
+// NOT ORIGINAL grouping - loading_console.cpp's state (were globals). Made on first use, never destroyed
+// (loading_console_state()).
+struct LoadingConsoleState {
+    SRWLOCK lock_ = SRWLOCK_INIT; // the ring and the activity time
+    Ring ring_{};
+    std::atomic<bool> active_{false};
+    double start_ = 0.0; // when the load began (Now())
+    double last_activity_ = 0.0; // the last line's time (Now())
+};
+
+LoadingConsoleState& loading_console_state()
+{
+    static core::NoDestroy<LoadingConsoleState> state;
+    return state.get();
+}
 
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
 HANDLE screen_mutex() { return render::g_screen_mutex; }
@@ -154,10 +165,10 @@ double get_now()
 void add_line(const char* text)
 {
     const double now = get_now();
-    AcquireSRWLockExclusive(&g_lock);
-    g_ring.append_one(text, now - g_start);
-    g_last_activity = now;
-    ReleaseSRWLockExclusive(&g_lock);
+    AcquireSRWLockExclusive(&loading_console_state().lock_);
+    loading_console_state().ring_.append_one(text, now - loading_console_state().start_);
+    loading_console_state().last_activity_ = now;
+    ReleaseSRWLockExclusive(&loading_console_state().lock_);
 }
 
 // --- the font: JetBrains Mono, rasterised once by ImGui's font atlas (no ImGui context: only its atlas) ---
@@ -166,17 +177,27 @@ struct Glyph {
     float x0, y0, x1, y1, u0, v0, u1, v1, advance;
     bool visible;
 };
-std::array<Glyph, 128> g_glyphs;
-float g_advance = 0.0f;     // the font's one advance (monospace)
-float g_line_height = 0.0f; // pixels
-float g_white_u = 0.0f;
-float g_white_v = 0.0f;
-IDirect3DTexture9* g_texture = nullptr;
-bool g_font_tried = false;
+// NOT ORIGINAL grouping - the console's font: its glyphs' advances, the line height, the white texel, the texture and
+// whether it was tried (were globals). Made on first use, never destroyed (console_font()).
+struct ConsoleFont {
+    std::array<Glyph, 128> glyphs_{};
+    float advance_ = 0.0f; // the font's one advance (monospace)
+    float line_height_ = 0.0f; // pixels
+    float white_u_ = 0.0f;
+    float white_v_ = 0.0f;
+    IDirect3DTexture9* texture_ = nullptr;
+    bool font_tried_ = false;
+};
+
+ConsoleFont& console_font()
+{
+    static core::NoDestroy<ConsoleFont> state;
+    return state.get();
+}
 
 void build_font()
 {
-    g_font_tried = true;
+    console_font().font_tried_ = true;
     IDirect3DDevice9* device = input_port();
     if (!device)
         return;
@@ -221,14 +242,14 @@ void build_font()
         const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(c));
         if (!glyph)
             continue;
-        core::at(g_glyphs, c) = {.x0 = glyph->X0, .y0 = glyph->Y0, .x1 = glyph->X1, .y1 = glyph->Y1,       .u0 = glyph->U0,
+        core::at(console_font().glyphs_, c) = {.x0 = glyph->X0, .y0 = glyph->Y0, .x1 = glyph->X1, .y1 = glyph->Y1,       .u0 = glyph->U0,
                        .v0 = glyph->V0, .u1 = glyph->U1, .v1 = glyph->V1, .advance = glyph->AdvanceX, .visible = glyph->Visible != 0};
     }
-    g_advance = core::at(g_glyphs, 'M').advance;
-    g_line_height = std::round(pixels * 1.2f);
-    g_white_u = atlas.TexUvWhitePixel.x;
-    g_white_v = atlas.TexUvWhitePixel.y;
-    g_texture = texture.detach();
+    console_font().advance_ = core::at(console_font().glyphs_, 'M').advance;
+    console_font().line_height_ = std::round(pixels * 1.2f);
+    console_font().white_u_ = atlas.TexUvWhitePixel.x;
+    console_font().white_v_ = atlas.TexUvWhitePixel.y;
+    console_font().texture_ = texture.detach();
     get_log("loading console: on ([features] loading_console=0 turns it off) - JetBrains Mono %.0f px", pixels);
 }
 
@@ -243,14 +264,24 @@ constexpr DWORD kVertexFormat = D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1;
 constexpr size_t kShownLines = 12;
 constexpr double kLayoutSeconds = 0.1;
 constexpr double kStallSeconds = 10.0;
-std::vector<Vertex> g_vertices; // (used with the loading screen's lock held)
-double g_laid_out = -1.0;
+// NOT ORIGINAL grouping - the console's vertices and how many are laid out (were globals). Made on first use, never
+// destroyed (console_vertices()).
+struct ConsoleVertices {
+    std::vector<Vertex> vertices_{}; // (used with the loading screen's lock held)
+    double laid_out_ = -1.0;
+};
+
+ConsoleVertices& console_vertices()
+{
+    static core::NoDestroy<ConsoleVertices> state;
+    return state.get();
+}
 
 void rect2(float x0, float y0, float x1, float y1, uint32_t color)
 {
-    const Vertex a{.x = x0, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = g_white_u, .v = g_white_v}, b{.x = x1, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = g_white_u, .v = g_white_v},
-        c{.x = x0, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = g_white_u, .v = g_white_v}, d{.x = x1, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = g_white_u, .v = g_white_v};
-    g_vertices.insert(g_vertices.end(), {a, b, c, b, d, c});
+    const Vertex a{.x = x0, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = console_font().white_u_, .v = console_font().white_v_}, b{.x = x1, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = console_font().white_u_, .v = console_font().white_v_},
+        c{.x = x0, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = console_font().white_u_, .v = console_font().white_v_}, d{.x = x1, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = console_font().white_u_, .v = console_font().white_v_};
+    console_vertices().vertices_.insert(console_vertices().vertices_.end(), {a, b, c, b, d, c});
 }
 
 // Text from (x, y) (the line's top), at most `columns` characters.
@@ -259,7 +290,7 @@ void draw_text(float x, float y, const char* text, size_t columns, uint32_t colo
     size_t i = 0;
     for (core::CStringCursor at(text); *at && i < columns; ++at, ++i) {
         auto c = static_cast<unsigned char>(*at);
-        const Glyph& glyph = core::at(g_glyphs, c < 0x80 ? c : '?');
+        const Glyph& glyph = core::at(console_font().glyphs_, c < 0x80 ? c : '?');
         if (glyph.visible) {
             const float x0 = x + glyph.x0 - 0.5f;
             const float y0 = y + glyph.y0 - 0.5f;
@@ -268,34 +299,34 @@ void draw_text(float x, float y, const char* text, size_t columns, uint32_t colo
             const Vertex a{.x = x0, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u0, .v = glyph.v0},
                 b{.x = x1, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u1, .v = glyph.v0}, cc{.x = x0, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u0, .v = glyph.v1},
                 d{.x = x1, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u1, .v = glyph.v1};
-            g_vertices.insert(g_vertices.end(), {a, b, cc, b, d, cc});
+            console_vertices().vertices_.insert(console_vertices().vertices_.end(), {a, b, cc, b, d, cc});
         }
-        x += g_advance;
+        x += console_font().advance_;
     }
 }
 
 void get_layout(double now)
 {
-    g_laid_out = now;
-    g_vertices.clear();
+    console_vertices().laid_out_ = now;
+    console_vertices().vertices_.clear();
     std::vector<std::string> lines;
     double started = 0.0, last = 0.0;
-    AcquireSRWLockShared(&g_lock);
-    lines = g_ring.final_one(kShownLines);
-    started = g_start;
-    last = g_last_activity;
-    ReleaseSRWLockShared(&g_lock);
+    AcquireSRWLockShared(&loading_console_state().lock_);
+    lines = loading_console_state().ring_.final_one(kShownLines);
+    started = loading_console_state().start_;
+    last = loading_console_state().last_activity_;
+    ReleaseSRWLockShared(&loading_console_state().lock_);
 
     auto width = static_cast<float>(get_screen_width()), height = static_cast<float>(get_screen_height());
     const float margin = std::max(8.0f, std::round(height * 0.02f));
-    const float pad = std::round(g_line_height * 0.4f);
+    const float pad = std::round(console_font().line_height_ * 0.4f);
     // Left of the loading bar (centred, progress_bar_pixels wide, its frame 5/640 of the screen wider each side), at most 45%.
     const float bar_left = (width - static_cast<float>(progress_bar_pixels())) * 0.5f - width * 5.0f / 640.0f;
     float panel_width = std::min(width * 0.45f, bar_left - 2.0f * margin);
-    if (panel_width < 20.0f * g_advance)
-        panel_width = std::min(width - 2.0f * margin, 40.0f * g_advance); // (no room beside the bar: over it)
-    const size_t columns = static_cast<size_t>(std::max(1.0f, (panel_width - 2.0f * pad) / g_advance));
-    const float panel_height = 2.0f * pad + g_line_height * static_cast<float>(kShownLines + 1) + pad * 0.5f;
+    if (panel_width < 20.0f * console_font().advance_)
+        panel_width = std::min(width - 2.0f * margin, 40.0f * console_font().advance_); // (no room beside the bar: over it)
+    const size_t columns = static_cast<size_t>(std::max(1.0f, (panel_width - 2.0f * pad) / console_font().advance_));
+    const float panel_height = 2.0f * pad + console_font().line_height_ * static_cast<float>(kShownLines + 1) + pad * 0.5f;
     const float x0 = margin;
     const float y1 = height - margin;
     const float y0 = y1 - panel_height;
@@ -318,38 +349,48 @@ void get_layout(double now)
     const size_t right_length = std::strlen(right.data());
     const size_t left_length = std::strlen(left.data());
     if (left_length + 2 + right_length <= columns)
-        draw_text(x1 - pad - static_cast<float>(right_length) * g_advance, y, right.data(), columns,
+        draw_text(x1 - pad - static_cast<float>(right_length) * console_font().advance_, y, right.data(), columns,
                   stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
     else
-        draw_text(x0 + pad + static_cast<float>(left_length + 2) * g_advance, y, right.data(),
+        draw_text(x0 + pad + static_cast<float>(left_length + 2) * console_font().advance_, y, right.data(),
                   columns - std::min(columns, left_length + 2), stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
-    y += g_line_height + pad * 0.5f;
+    y += console_font().line_height_ + pad * 0.5f;
     for (size_t i = 0; i < lines.size(); ++i) {
         const bool newest = i + 1 == lines.size();
         const uint32_t color = newest ? (stalled ? 0xFFFFC080u : 0xFFFFFFFFu) : 0xFFB8B8B8u;
         draw_text(x0 + pad, y, core::at(lines, i).c_str(), columns, color);
-        y += g_line_height;
+        y += console_font().line_height_;
     }
 }
 
 // --- the console's own timer, for a loading screen without a loading bar ---
 
-UINT g_timer = 0;
-std::atomic<bool> g_timer_draws{false}; // the screen shown wasn't frozen
-std::atomic<bool> g_blank{false};
+// NOT ORIGINAL grouping - the console's timer, the draws since it started and whether the screen is blank (the
+// original's globals). Made on first use, never destroyed (console_timer()).
+struct ConsoleTimer {
+    UINT timer_ = 0;
+    std::atomic<bool> timer_draws_{false}; // the screen shown wasn't frozen
+    std::atomic<bool> blank_{false};
+};
+
+ConsoleTimer& console_timer()
+{
+    static core::NoDestroy<ConsoleTimer> state;
+    return state.get();
+}
 
 void CALLBACK screen_tick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
 {
     // Only while the loading bar's own timer isn't running (it draws the panel then), a loading screen is up, it
     // isn't a frozen frame, and no movie is shown.
-    if (!g_active || !g_timer_draws || bar_timer() != 0 || !load_screen_shown() || movie_shown())
+    if (!loading_console_state().active_ || !console_timer().timer_draws_ || bar_timer() != 0 || !load_screen_shown() || movie_shown())
         return;
-    const bool blank = g_blank;
+    const bool blank = console_timer().blank_;
     if (!blank && !screen_picture())
         return;
     WaitForSingleObject(screen_mutex(), INFINITE);
     IDirect3DDevice9* device = input_port();
-    if (device && load_screen_shown() && bar_timer() == 0 && g_active) {
+    if (device && load_screen_shown() && bar_timer() == 0 && loading_console_state().active_) {
         device->BeginScene();
         // as the loading screen draws it (0x004B78B0): its picture, or black
         if (blank)
@@ -365,7 +406,7 @@ void CALLBACK screen_tick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
 
 void on_log_line(const char* line)
 {
-    if (g_active)
+    if (loading_console_state().active_)
         note_log_line(line);
 }
 
@@ -377,24 +418,24 @@ bool is_switched_on()
     return kEnabled;
 }
 
-bool live_now() { return g_active; }
+bool live_now() { return loading_console_state().active_; }
 
 void screen_shown(bool freeze, bool blank)
 {
     if (!is_switched_on())
         return;
-    if (!g_font_tried)
+    if (!console_font().font_tried_)
         build_font();
-    if (!g_active) {
+    if (!loading_console_state().active_) {
         const double now = get_now();
-        AcquireSRWLockExclusive(&g_lock);
-        g_ring.count = 0;
-        g_start = now;
-        g_last_activity = now;
-        ReleaseSRWLockExclusive(&g_lock);
-        g_laid_out = -1.0;
+        AcquireSRWLockExclusive(&loading_console_state().lock_);
+        loading_console_state().ring_.count = 0;
+        loading_console_state().start_ = now;
+        loading_console_state().last_activity_ = now;
+        ReleaseSRWLockExclusive(&loading_console_state().lock_);
+        console_vertices().laid_out_ = -1.0;
         set_log_listener(&on_log_line);
-        g_active = true;
+        loading_console_state().active_ = true;
     }
     if (freeze)
         get_note("loading screen (frozen frame)");
@@ -402,36 +443,36 @@ void screen_shown(bool freeze, bool blank)
         get_note("loading screen (blank)");
     else
         get_note("loading screen");
-    g_blank = blank;
-    g_timer_draws = !freeze;
-    if (!freeze && !g_timer)
-        g_timer = timeSetEvent(100, 10, &screen_tick, 0, TIME_PERIODIC);
+    console_timer().blank_ = blank;
+    console_timer().timer_draws_ = !freeze;
+    if (!freeze && !console_timer().timer_)
+        console_timer().timer_ = timeSetEvent(100, 10, &screen_tick, 0, TIME_PERIODIC);
 }
 
 void screen_hidden()
 {
-    if (!g_active)
+    if (!loading_console_state().active_)
         return;
-    g_active = false;
-    g_timer_draws = false;
-    if (g_timer) {
-        timeKillEvent(g_timer);
-        g_timer = 0;
+    loading_console_state().active_ = false;
+    console_timer().timer_draws_ = false;
+    if (console_timer().timer_) {
+        timeKillEvent(console_timer().timer_);
+        console_timer().timer_ = 0;
     }
     const double now = get_now();
-    get_log("loading console: the loading screen was up %.1f s", now - g_start);
+    get_log("loading console: the loading screen was up %.1f s", now - loading_console_state().start_);
 }
 
 void note_text(const char* text)
 {
-    if (!g_active)
+    if (!loading_console_state().active_)
         return;
     add_line(text);
 }
 
 void note_file(const char* what, const char* path, long long size)
 {
-    if (!g_active || !path)
+    if (!loading_console_state().active_ || !path)
         return;
     if (size >= 0)
         get_note("%s %s  %s", what, get_file_name(path), size_text(size).c_str());
@@ -441,7 +482,7 @@ void note_file(const char* what, const char* path, long long size)
 
 void note_script_call(uint32_t name, bool cfunction, script::Struct* params)
 {
-    if (!g_active)
+    if (!loading_console_state().active_)
         return;
     const char* text = script::look_up_hash_name(name);
     if (cfunction) {
@@ -472,30 +513,30 @@ void note_script_call(uint32_t name, bool cfunction, script::Struct* params)
 
 void note_log_line(const char* line)
 {
-    if (!g_active || !interesting_log_line(line))
+    if (!loading_console_state().active_ || !interesting_log_line(line))
         return;
     std::array<char, kLineWidth> text{};
     strncpy_s(text.data(), text.size(), line, _TRUNCATE);
     // (a log line can come from any thread, also while a crash is being logged: never wait for the lock)
     const double now = get_now();
-    if (!TryAcquireSRWLockExclusive(&g_lock))
+    if (!TryAcquireSRWLockExclusive(&loading_console_state().lock_))
         return;
-    g_ring.append_one(text.data(), now - g_start);
-    g_last_activity = now;
-    ReleaseSRWLockExclusive(&g_lock);
+    loading_console_state().ring_.append_one(text.data(), now - loading_console_state().start_);
+    loading_console_state().last_activity_ = now;
+    ReleaseSRWLockExclusive(&loading_console_state().lock_);
 }
 
 void draw_panel()
 {
-    if (!g_active || !g_texture)
+    if (!loading_console_state().active_ || !console_font().texture_)
         return;
     IDirect3DDevice9* device = input_port();
     if (!device)
         return;
     const double now = get_now();
-    if (g_laid_out < 0.0 || now - g_laid_out >= kLayoutSeconds)
+    if (console_vertices().laid_out_ < 0.0 || now - console_vertices().laid_out_ >= kLayoutSeconds)
         get_layout(now);
-    if (g_vertices.empty())
+    if (console_vertices().vertices_.empty())
         return;
     // The device's state saved and put back after (the renderer's cached state stays true).
     IDirect3DStateBlock9* saved = nullptr;
@@ -504,7 +545,7 @@ void draw_panel()
     device->SetPixelShader(nullptr);
     device->SetVertexShader(nullptr);
     device->SetFVF(kVertexFormat);
-    device->SetTexture(0, g_texture);
+    device->SetTexture(0, console_font().texture_);
     device->SetTexture(1, nullptr);
     device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
     device->SetRenderState(D3DRS_ZENABLE, FALSE);
@@ -536,7 +577,7 @@ void draw_panel()
     device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
     device->SetSamplerState(0, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
     device->SetSamplerState(0, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
-    device->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(g_vertices.size() / 3), g_vertices.data(),
+    device->DrawPrimitiveUP(D3DPT_TRIANGLELIST, static_cast<UINT>(console_vertices().vertices_.size() / 3), console_vertices().vertices_.data(),
                             sizeof(Vertex));
     saved->Apply();
     saved->Release();

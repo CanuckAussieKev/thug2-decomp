@@ -37,6 +37,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/format.h"
 #include "platform/crt.h"
+#include "engine/core/no_destroy.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's file names, unbounded as it builds them)
 
@@ -71,11 +72,21 @@ memory::ListNode* first_scene()
 }
 WorldScene* scene_of(memory::ListNode* node) { return static_cast<WorldScene*>(node->data); }
 
-void* g_scene_objects;
-int g_render_ignore0;
-int g_render_ignore1;
-bool g_stats_overlay_on;
-engine::IdleFunction g_idle_function;
+// NOT ORIGINAL grouping - engine.cpp's state (the original's globals). Made on first use, never destroyed
+// (engine_state()).
+struct EngineState {
+    void* scene_objects_{};
+    int render_ignore0_{};
+    int render_ignore1_{};
+    bool stats_overlay_on_{};
+    engine::IdleFunction idle_function_{};
+};
+
+EngineState& engine_state()
+{
+    static core::NoDestroy<EngineState> state;
+    return state.get();
+}
 
 // The engine's managers: the flexible particle manager (0x006FA7C0), the imposter manager (0x006FA7BC, 8 bytes:
 // constructor 0x0048E3E0, its frame 0x0048E2D0 - not rewritten yet), the particle manager and the weather (made by
@@ -150,7 +161,7 @@ void render_frame()
 }
 
 // 0x0048C0A0
-void change_entity_hub(void* manager) { g_scene_objects = manager; }
+void change_entity_hub(void* manager) { engine_state().scene_objects_ = manager; }
 
 // 0x0048C0B0
 std::array<WorldScene*, 16>& get_collision_scenes() { return g_collision_scenes; }
@@ -166,19 +177,19 @@ void toggle_render_mode()
 // 0x0048C0F0
 void toggle_metrics()
 {
-    bool& on = g_stats_overlay_on;
+    bool& on = engine_state().stats_overlay_on_;
     on = !on;
 }
 
 // 0x0048C110
 void set_render_ignore(int ignore1, int ignore0)
 {
-    g_render_ignore0 = ignore0;
-    g_render_ignore1 = ignore1;
+    engine_state().render_ignore0_ = ignore0;
+    engine_state().render_ignore1_ = ignore1;
 }
 
 // 0x0048C1C0
-IdleFunction get_idle_function() { return g_idle_function; }
+IdleFunction get_idle_function() { return engine_state().idle_function_; }
 
 // 0x0048BFE0
 bool split_skin_name(const char* name, char* base)

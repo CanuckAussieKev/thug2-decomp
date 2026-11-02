@@ -210,7 +210,11 @@ void draw_2d_with_black_bars()
 namespace {
 // Not original - the level editor's ortho views (editor/level_editor_camera.h): the near plane brought up for the
 // editor's camera while draw_viewport draws the world with it (2, the original's, otherwise).
-float s_near_z = 2.0f;
+float& stored_near_z()
+{
+    static float near_z{2.0f};
+    return near_z;
+}
 } // namespace
 
 // 0x004DB200
@@ -236,8 +240,8 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     world = maths::Mat4{{{{.x = 1, .y = 0, .z = 0, .w = 0}, {.x = 0, .y = 1, .z = 0, .w = 0}, {.x = 0, .y = 0, .z = 1, .w = 0}, {.x = 0, .y = 0, .z = 0, .w = 1}}}};
     matrix_look_at(&view, camera.position.data(), target.data(), camera.up.data());
 
-    // (not original: s_near_z - the original: camera.nearZ = 2.0f;)
-    camera.near_z_ = s_near_z;
+    // (not original: stored_near_z() - the original: camera.nearZ = 2.0f;)
+    camera.near_z_ = stored_near_z();
     // Originally from PartyMod Fixes (its float at 0x004DB35D): the far plane 96000 - further, for large levels' backgrounds (e.g.
     // Skatopia). The original: camera.farZ = 32000.0f;
     camera.far_z_ = 96000.0f;
@@ -506,7 +510,7 @@ void draw_viewport(int index)
     // The world: every scene but the sky.
     {
         const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
-        s_near_z = editor_near;
+        stored_near_z() = editor_near;
         const maths::Vec4* position = viewer_location(camera);
         choose_camera(cam_orientation(camera), position, angle, aspect, 1.0f, false);
         // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
@@ -544,7 +548,7 @@ void draw_viewport(int index)
     {
         const maths::Vec4 origin = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
-        s_near_z = 2.0f;
+        stored_near_z() = 2.0f;
         choose_camera(cam_orientation(camera), &origin, angle, aspect, 1.0f, true);
     }
     float& fog_start = g_fog_begin_distance;
@@ -589,9 +593,9 @@ void draw_viewport(int index)
     {
         const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
         const maths::Vec4* position = viewer_location(camera);
-        s_near_z = editor_near;
+        stored_near_z() = editor_near;
         choose_camera(cam_orientation(camera), position, angle, aspect, 1.0f, false);
-        s_near_z = 2.0f;
+        stored_near_z() = 2.0f;
     }
     set_pass(0x82);
     set_render_state(1, 1);

@@ -11,7 +11,11 @@ namespace render::wireframe {
 
 namespace {
 
-bool s_wire; // the fill set to wireframe for this frame's 3D
+bool& wire()
+{
+    static bool wire{}; // the fill set to wireframe for this frame's 3D
+    return wire;
+}
 
 } // namespace
 
@@ -19,16 +23,16 @@ int render_mode() { return g_render_mode; }
 
 void begin_world()
 {
-    s_wire = render_mode() != 0;
-    if (s_wire)
+    wire() = render_mode() != 0;
+    if (wire())
         set_render_state(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
 }
 
 void end_world()
 {
-    if (s_wire)
+    if (wire())
         set_render_state(D3DRS_FILLMODE, D3DFILL_SOLID);
-    s_wire = false;
+    wire() = false;
 }
 
 } // namespace render::wireframe

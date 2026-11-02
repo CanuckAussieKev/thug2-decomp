@@ -21,15 +21,26 @@
 #include "formats/byte_stream.h"
 #include "engine/objects/walk_hang.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/assert>
 #include <gsl/pointers>
 
 namespace gfx {
 
 namespace {
-// The shared key tables (256 entries of four shorts), loaded from files at start-up.
-std::array<int16_t, 1024> g_quat_table;
-std::array<int16_t, 1024> g_trans_table;
+// NOT ORIGINAL grouping - boned_anim_frame_data.cpp's state (the original's globals). Made on first use, never
+// destroyed (boned_anim_frame_data_state()).
+struct BonedAnimFrameDataState {
+    // The shared key tables (256 entries of four shorts), loaded from files at start-up.
+    std::array<int16_t, 1024> quat_table_{};
+    std::array<int16_t, 1024> trans_table_{};
+};
+
+BonedAnimFrameDataState& boned_anim_frame_data_state()
+{
+    static core::NoDestroy<BonedAnimFrameDataState> state;
+    return state.get();
+}
 
 constexpr double kQuatUnit = 1.0 / 16384.0; // (0x006487C8)
 constexpr double kTransUnit = 1.0 / 32.0;   // (0x006487CC)
@@ -116,7 +127,7 @@ bool load_quat_table(const char* name)
     bool loaded = false;
     file::Hdl file = file::unseal(name, "rb");
     if (file)
-        loaded = read_key_table(file, g_quat_table);
+        loaded = read_key_table(file, boned_anim_frame_data_state().quat_table_);
     file::shut(file); // (even when it didn't open)
     return loaded;
 }
@@ -127,7 +138,7 @@ bool load_trans_table(const char* name)
     bool loaded = false;
     file::Hdl file = file::unseal(name, "rb");
     if (file)
-        loaded = read_key_table(file, g_trans_table);
+        loaded = read_key_table(file, boned_anim_frame_data_state().trans_table_);
     file::shut(file);
     return loaded;
 }
@@ -137,7 +148,7 @@ bool load_trans_table(const char* name)
 // 0x00482C20
 KeyCursor decompress_quat_key(KeyCursor data, ShortKey* out, uint32_t flags, std::span<const uint8_t> table)
 {
-    const auto& shared = g_quat_table;
+    const auto& shared = boned_anim_frame_data_state().quat_table_;
     const uint16_t first = get_word(data);
     uint16_t header = 0;
     if (flags & 0x100) {
@@ -209,7 +220,7 @@ KeyCursor decompress_trans_key(KeyCursor data, ShortKey* out)
     if (head & 0x80) {
         const int entry = *data++ * 4;
         for (int i = 0; i < 3; ++i)
-            core::at(out->value, i) = core::at(g_trans_table, entry + i);
+            core::at(out->value, i) = core::at(boned_anim_frame_data_state().trans_table_, entry + i);
     } else {
         for (int i = 0; i < 3; ++i)
             core::at(out->value, i) = static_cast<int16_t>(get_word(data + 2 * i));
@@ -377,7 +388,11 @@ void interpolate_short_trans(std::span<float, 4> out, const ShortKey* a, const S
 }
 
 namespace {
-uint32_t g_cache_use_counter;
+uint32_t& cache_use_counter()
+{
+    static uint32_t cache_use_counter{};
+    return cache_use_counter;
+}
 } // namespace
 
 // 0x00483F10
@@ -1016,7 +1031,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
     bool forwards = true;
     const uint32_t mask = source && source->resume_ ? 1u << (source->mask_bit_ & 31) : 0u;
     if (cache_slot_) {
-        uint32_t& counter = g_cache_use_counter;
+        uint32_t& counter = cache_use_counter();
         cache_slot_->last_used_ = counter++;
         if (cursor != -1 &&
             cache_slot_->set_slot_time(cursor, static_cast<int16_t>(static_cast<int>(static_cast<int64_t>(time)))) < 0)

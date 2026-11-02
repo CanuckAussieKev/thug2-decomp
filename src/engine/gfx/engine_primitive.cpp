@@ -8,6 +8,7 @@
 
 #include "engine/core/dbg.h"
 #include "engine/gfx/pc_primitive.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -15,13 +16,23 @@ namespace {
 
 constexpr uint32_t kNewFlag = 0x100;
 
-uint32_t g_primitive_states;
-Primitive* g_drawn_primitives;
-Primitive* g_new_primitives;
+// NOT ORIGINAL grouping - engine_primitive.cpp's state (were globals). Made on first use, never destroyed
+// (engine_primitive_state()).
+struct EnginePrimitiveState {
+    uint32_t primitive_states_{};
+    Primitive* drawn_primitives_{};
+    Primitive* new_primitives_{};
+};
 
-Primitive*& new_primitives() { return g_new_primitives; }
-Primitive*& drawn_primitives() { return g_drawn_primitives; }
-uint32_t& primitive_states() { return g_primitive_states; }
+EnginePrimitiveState& engine_primitive_state()
+{
+    static core::NoDestroy<EnginePrimitiveState> state;
+    return state.get();
+}
+
+Primitive*& new_primitives() { return engine_primitive_state().new_primitives_; }
+Primitive*& drawn_primitives() { return engine_primitive_state().drawn_primitives_; }
+uint32_t& primitive_states() { return engine_primitive_state().primitive_states_; }
 
 } // namespace
 

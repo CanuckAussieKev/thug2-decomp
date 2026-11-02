@@ -29,6 +29,7 @@
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "platform/registry.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -62,31 +63,52 @@ constexpr float kPer640 = get_bits(0x3ACCCCCD); // 0x0064A474, 1 / 640
 constexpr float kPer480 = get_bits(0x3B088889); // 0x0064A47C, 1 / 480
 constexpr float kOffsetLines = 16.0f;           // 0x00645D68
 
-int g_device_width{640};
-int g_device_height{480};
-const char* g_disc_error_french1{"Le disque utilis\xE9 pr\xE9sente une anomalie."};
-const char* g_disc_error_french2{"Il est peut-\xEAtre sale ou endommag\xE9."};
-const char* g_disc_error_german1{"Bei der benutzten CD ist ein Problem aufgetreten."};
+// NOT ORIGINAL grouping - device.cpp's state (the original's globals). Made on first use, never destroyed
+// (device_state()).
+struct DeviceState {
+    int device_width_{640};
+    int device_height_{480};
+    const char* disc_error_french1_{"Le disque utilis\xE9 pr\xE9sente une anomalie."};
+    const char* disc_error_french2_{"Il est peut-\xEAtre sale ou endommag\xE9."};
+    const char* disc_error_german1_{"Bei der benutzten CD ist ein Problem aufgetreten."};
+};
+
+DeviceState& device_state()
+{
+    static core::NoDestroy<DeviceState> state;
+    return state.get();
+}
+
 const char* g_disc_error_german2{"M\xF6glicherweise ist sie verschmutzt oder besch\xE4"
                                  "digt."};
-const char* g_disc_error_english1{"There's a problem with the disc you're using."};
-const char* g_disc_error_english2{"It may be dirty or damaged."};
-D3DADAPTER_IDENTIFIER9 g_adapter_identifier;
-bool g_depth_textures_supported;
-std::array<char, 200> g_sound_device_name; // the description of the last sound device DirectSound listed
-IDirect3DSurface9* g_depth_texture_target;
-uint32_t g_back_buffer_format;
-uint32_t g_screen_surface_format;
-uint32_t g_depth_bits;
-TypefaceData* g_debug_font;
+// NOT ORIGINAL grouping - the adapter: its identifier, depth textures, the back buffer's and screen's formats, the
+// depth bits, the debug font (the original's globals). Made on first use, never destroyed (adapter_info()).
+struct AdapterInfo {
+    const char* disc_error_english1_{"There's a problem with the disc you're using."};
+    const char* disc_error_english2_{"It may be dirty or damaged."};
+    D3DADAPTER_IDENTIFIER9 adapter_identifier_{};
+    bool depth_textures_supported_{};
+    std::array<char, 200> sound_device_name_{}; // the description of the last sound device DirectSound listed
+    IDirect3DSurface9* depth_texture_target_{};
+    uint32_t back_buffer_format_{};
+    uint32_t screen_surface_format_{};
+    uint32_t depth_bits_{};
+    TypefaceData* debug_font_{};
+};
+
+AdapterInfo& adapter_info()
+{
+    static core::NoDestroy<AdapterInfo> state;
+    return state.get();
+}
 
 IDirect3D9*& direct_3d() { return g_direct_3d; }
 IDirect3DDevice9*& input_port() { return g_d3d_device; }
 D3DPRESENT_PARAMETERS& present_parameters() { return g_present_parameters; }
 HWND pane() { return g_game_window; }
 // The size the device is being created at.
-int& device_width() { return g_device_width; }
-int& device_height() { return g_device_height; }
+int& device_width() { return device_state().device_width_; }
+int& device_height() { return device_state().device_height_; }
 
 } // namespace
 
@@ -98,7 +120,7 @@ void init_direct_3d()
     g_display_factor_y = 1.0f;
     g_screen_offset_x = 0;
     g_screen_offset_y = 16;
-    g_depth_texture_target = nullptr;
+    adapter_info().depth_texture_target_ = nullptr;
     g_screen_copy_index = 0;
     // Originally from PartyMod Fixes (its jump at 0x004D869C): the window is never maximised. The original:
     //   if (kShowWindowFlag) ShowWindow(Pane(), SW_MAXIMIZE);
@@ -186,7 +208,7 @@ void init_direct_3d()
     device->GetCreationParameters(&creation);
     if (d3d->CheckDeviceFormat(D3DADAPTER_DEFAULT, creation.DeviceType, pp.BackBufferFormat, 0, D3DRTYPE_TEXTURE,
                                D3DFMT_D24S8) == D3D_OK)
-        g_depth_textures_supported = true;
+        adapter_info().depth_textures_supported_ = true;
     for (IDirect3DTexture9*& texture : g_screen_textures)
         texture = nullptr;
     g_z_buffer_surface = nullptr;
@@ -197,7 +219,7 @@ void init_direct_3d()
     load_gamma();
     // the debug font (none on PC: the original calls the shared `return 0` stub)
     (void)stubs::return_zero();
-    g_debug_font = nullptr;
+    adapter_info().debug_font_ = nullptr;
     frame_clock::change_bits();
 }
 
@@ -209,10 +231,10 @@ std::array<IDirect3DSurface9*, 9>& screen_surfaces() { return g_screen_surfaces;
 IDirect3DSurface9*& z_buffer_surface() { return g_z_buffer_surface; }
 IDirect3DSurface9*& back_buffer() { return g_back_buffer; }
 IDirect3DSurface9*& back_depth() { return g_back_depth; }
-IDirect3DSurface9*& depth_texture_target() { return g_depth_texture_target; }
-D3DADAPTER_IDENTIFIER9& adapter_identifier() { return g_adapter_identifier; }
+IDirect3DSurface9*& depth_texture_target() { return adapter_info().depth_texture_target_; }
+D3DADAPTER_IDENTIFIER9& adapter_identifier() { return adapter_info().adapter_identifier_; }
 // The description of the last sound device DirectSound listed.
-std::array<char, 200>& sound_device_name() { return g_sound_device_name; }
+std::array<char, 200>& sound_device_name() { return adapter_info().sound_device_name_; }
 
 // The dynamic vertex buffer and the quads' index buffer (the platform layer's).
 void create_dynamic_vertex_buffer(uint32_t size) { os_layer::create_dynamic_vertex_buffer(size); }
@@ -313,7 +335,7 @@ void create_render_targets()
     input_port()->GetDepthStencilSurface(&back_depth());
     back_buffer()->Release(); // (only the pointers are kept)
     back_depth()->Release();
-    if (g_depth_textures_supported) // depth textures
+    if (adapter_info().depth_textures_supported_) // depth textures
         input_port()->CreateRenderTarget(256, 256, pp.BackBufferFormat, D3DMULTISAMPLE_NONE, 0, FALSE,
                                          &depth_texture_target(), nullptr);
     D3DCAPS9 caps;
@@ -335,12 +357,12 @@ void create_render_targets()
         (caps.SrcBlendCaps & D3DPBLENDCAPS_BLENDFACTOR) && (caps.DestBlendCaps & D3DPBLENDCAPS_BLENDFACTOR);
     g_back_buffer_width = static_cast<int>(pp.BackBufferWidth);
     g_back_buffer_height = static_cast<int>(pp.BackBufferHeight);
-    g_back_buffer_format = pp.BackBufferFormat;
-    g_depth_bits = pp.AutoDepthStencilFormat == D3DFMT_D16 ? 16 : 32; // depth bits
+    adapter_info().back_buffer_format_ = pp.BackBufferFormat;
+    adapter_info().depth_bits_ = pp.AutoDepthStencilFormat == D3DFMT_D16 ? 16 : 32; // depth bits
     if (core::at(screen_surfaces(), 0)) {
         D3DSURFACE_DESC desc;
         core::at(screen_surfaces(), 0)->GetDesc(&desc);
-        g_screen_surface_format = desc.Format;
+        adapter_info().screen_surface_format_ = desc.Format;
     }
     apply_render_state();
 }
@@ -379,21 +401,21 @@ void show_disc_error()
     const char* second = nullptr;
     switch (game_config::get_language()) {
     case 3:
-        first = g_disc_error_french1;
-        second = g_disc_error_french2;
+        first = device_state().disc_error_french1_;
+        second = device_state().disc_error_french2_;
         break;
     case 5:
-        first = g_disc_error_german1;
+        first = device_state().disc_error_german1_;
         second = g_disc_error_german2;
         break;
     default:
-        first = g_disc_error_english1;
-        second = g_disc_error_english2;
+        first = adapter_info().disc_error_english1_;
+        second = adapter_info().disc_error_english2_;
         break;
     }
     GlyphRun glyphs(0.0f);
     GlyphRun* text = &glyphs;
-    text->font = g_debug_font;
+    text->font = adapter_info().debug_font_;
     text->x = 48.0f;
     text->y = 128.0f;
     text->xscale = std::bit_cast<float>(0x3F4CCCCDu); // 0.8

@@ -29,6 +29,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
 #include "engine/core/span_copy.h"
+#include "engine/core/no_destroy.h"
 #include <span>
 #include <bit>
 #include <gsl/pointers>
@@ -36,13 +37,24 @@
 namespace render {
 
 namespace {
-bool g_billboards_ready;
+// NOT ORIGINAL grouping - pc_billboards.cpp's state (the original's globals). Made on first use, never destroyed
+// (pc_billboards_state()).
+struct PcBillboardsState {
+    bool billboards_ready_{};
+    std::array<float, 12> billboard_constants_{{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+};
+
+PcBillboardsState& pc_billboards_state()
+{
+    static core::NoDestroy<PcBillboardsState> state;
+    return state.get();
+}
+
 } // namespace
 BillboardSet g_billboard_pool;
 uint8_t g_billboard_flag;
 
 namespace {
-std::array<float, 12> g_billboard_constants{{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 bool vertex_shaders() { return g_shaders_available; }
@@ -392,7 +404,7 @@ void BillboardBatch::render()
     multiply(all.data(), projection.data(), view_world.data());
     input_port()->SetVertexShaderConstantF(0, all.data(), 4);
     auto* manager = &g_billboard_pool;
-    const std::span<float> constants(g_billboard_constants); // c4-c6
+    const std::span<float> constants(pc_billboards_state().billboard_constants_); // c4-c6
     // (the first three floats of each of the three vectors given)
     auto set_axes = [&](std::span<const float> x, std::span<const float> y, std::span<const float> z) {
         core::copy_into(x.first(3), constants.first(3));
@@ -533,8 +545,8 @@ void create_window_pool()
 // 0x004CD940
 void mark_billboards_ready()
 {
-    if (!g_billboards_ready)
-        g_billboards_ready = true;
+    if (!pc_billboards_state().billboards_ready_)
+        pc_billboards_state().billboards_ready_ = true;
 }
 
 // 0x004CD960

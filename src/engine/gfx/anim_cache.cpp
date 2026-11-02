@@ -25,9 +25,11 @@ constexpr uint32_t kAnimHeap = 0x8F21A798; // AnimHeap
 constexpr int kEntries = 50;
 constexpr int kSlots = 18;
 
-ClipStore* g_clip_store;
-
-ClipStore*& get_cache() { return g_clip_store; }
+ClipStore*& get_cache()
+{
+    static ClipStore* clip_store{};
+    return clip_store;
+}
 memory::PoolPair& slot_pools() { return g_anim_slot_pools; }
 
 memory::Hub* hub() { return memory::Hub::get_pull(); }

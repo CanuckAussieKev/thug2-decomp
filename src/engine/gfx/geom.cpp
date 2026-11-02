@@ -30,6 +30,7 @@
 #include "engine/core/checked_index.h"
 #include <span>
 #include "gpu/vertex_view.h"
+#include "engine/core/no_destroy.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -94,10 +95,20 @@ uint8_t float_to_channel(float value)
     return static_cast<uint8_t>(static_cast<int>(static_cast<double>(value) * 255.0));
 }
 
-maths::Vec4 g_static_position;
-uint32_t g_static_position_guard;
-maths::Mat4 g_static_orientation;
-uint32_t g_static_orientation_guard;
+// NOT ORIGINAL grouping - geom.cpp's state (the original's globals). Made on first use, never destroyed (geom_state()).
+struct GeomState {
+    maths::Vec4 static_position_{};
+    uint32_t static_position_guard_{};
+    maths::Mat4 static_orientation_{};
+    uint32_t static_orientation_guard_{};
+};
+
+GeomState& geom_state()
+{
+    static core::NoDestroy<GeomState> state;
+    return state.get();
+}
+
 constexpr uint32_t kVertexShaderUv58{0};
 constexpr uint32_t kVertexShaderUv5c{0};
 constexpr uint32_t kVertexShaderUv60{0};
@@ -105,13 +116,13 @@ constexpr uint32_t kVertexShaderUv60{0};
 // The static results of get_absolute_point / fetch_facing (with their initialisation guards' bits).
 maths::Vec4& static_position()
 {
-    g_static_position_guard |= 1;
-    return g_static_position;
+    geom_state().static_position_guard_ |= 1;
+    return geom_state().static_position_;
 }
 maths::Mat4& static_orientation()
 {
-    g_static_orientation_guard |= 1;
-    return g_static_orientation;
+    geom_state().static_orientation_guard_ |= 1;
+    return geom_state().static_orientation_;
 }
 
 } // namespace

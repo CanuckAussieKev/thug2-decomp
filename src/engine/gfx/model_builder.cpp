@@ -23,19 +23,30 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace gfx {
 
 namespace {
 
-render::RenderModel* g_built_model;
-Rig* g_built_skeleton;
-std::unique_ptr<ModelLook> g_built_appearance;
+// NOT ORIGINAL grouping - model_builder.cpp's state (the original's globals). Made on first use, never destroyed
+// (model_builder_state()).
+struct ModelBuilderState {
+    render::RenderModel* built_model_{};
+    Rig* built_skeleton_{};
+    std::unique_ptr<ModelLook> built_appearance_{};
+};
+
+ModelBuilderState& model_builder_state()
+{
+    static core::NoDestroy<ModelBuilderState> state;
+    return state.get();
+}
 
 // While Build runs: the model, its skeleton and the appearance's copy.
-render::RenderModel*& built_model() { return g_built_model; }
-Rig*& built_skeleton() { return g_built_skeleton; }
-std::unique_ptr<ModelLook>& built_appearance() { return g_built_appearance; }
+render::RenderModel*& built_model() { return model_builder_state().built_model_; }
+Rig*& built_skeleton() { return model_builder_state().built_skeleton_; }
+std::unique_ptr<ModelLook>& built_appearance() { return model_builder_state().built_appearance_; }
 // The texture dictionaries: the game's and the skater's (its cag_workspace).
 render::TextureSet* game_textures() { return render::g_game_texture_dict; }
 render::TextureSet* skater_textures() { return render::g_particle_texture_dict; }

@@ -25,7 +25,6 @@ namespace render {
 
 namespace {
 // Two triangles of a quad: 0 1 2, 1 3 2.
-std::array<uint16_t, 6> g_sprite_quad_indices{{0, 1, 2, 1, 3, 2}};
 
 // The 640x480 layout -> back buffer conversion (set_letterbox) and the back buffer's size.
 float horiz_screen_ratio() { return g_display_factor_x; }
@@ -43,7 +42,11 @@ void set_texture_stage_state(int stage, int type, int value)
     g_d3d_device->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
                                        static_cast<DWORD>(value));
 }
-const std::array<uint16_t, 6>& quad_indices() { return g_sprite_quad_indices; }
+const std::array<uint16_t, 6>& quad_indices()
+{
+    static constexpr std::array<uint16_t, 6> kSpriteQuadIndices{{0, 1, 2, 1, 3, 2}};
+    return kSpriteQuadIndices;
+}
 
 struct Vertex {
     float x, y, z, rhw;

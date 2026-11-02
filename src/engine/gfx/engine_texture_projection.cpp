@@ -23,6 +23,7 @@
 #include "engine/objects/texture_projection_component.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -43,12 +44,22 @@ bool sphere_out_of_view(const maths::Vec4* centre, float radius)
 std::span<CollGrid* const> grids_along_line(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 void* find_sector(uint32_t name) { return engine::look_up_sector(name); }
 
-std::array<void*, 128> g_projected_sectors;
-std::array<void*, 128> g_projected_collision;
+// NOT ORIGINAL grouping - engine_texture_projection.cpp's state (the original's globals). Made on first use, never
+// destroyed (engine_texture_projection_state()).
+struct EngineTextureProjectionState {
+    std::array<void*, 128> projected_sectors_{};
+    std::array<void*, 128> projected_collision_{};
+};
+
+EngineTextureProjectionState& engine_texture_projection_state()
+{
+    static core::NoDestroy<EngineTextureProjectionState> state;
+    return state.get();
+}
 
 // The sectors and collision objects a projection reaches (0x00700F40 / 0x00701140, null-terminated).
-std::array<void*, 128>& projected_sectors() { return g_projected_sectors; }
-std::array<void*, 128>& projected_collision() { return g_projected_collision; }
+std::array<void*, 128>& projected_sectors() { return engine_texture_projection_state().projected_sectors_; }
+std::array<void*, 128>& projected_collision() { return engine_texture_projection_state().projected_collision_; }
 
 } // namespace
 

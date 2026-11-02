@@ -19,6 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace gfx {
 
@@ -29,13 +30,24 @@ constexpr uint32_t kBone = 0xCAB94088;             // bone
 constexpr uint32_t kRadius = 0xC48391A5;           // radius
 constexpr float kDefaultRadius = 3.0f;             // 0x40400000
 
-// The shared sets, by bone count.
-lists::KeyMap g_bone_volume_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
-lists::KeyMap& get_table() { return g_bone_volume_table; }
-std::array<maths::Vec4, 64> g_bone_world_pos; // each bone's world position as segment_hits_bone found it
+// NOT ORIGINAL grouping - bone_volumes.cpp's state (the original's globals). Made on first use, never destroyed
+// (bone_volumes_state()).
+struct BoneVolumesState {
+    // The shared sets, by bone count.
+    lists::KeyMap bone_volume_table_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
+    std::array<maths::Vec4, 64> bone_world_pos_{}; // each bone's world position as segment_hits_bone found it
+};
+
+BoneVolumesState& bone_volumes_state()
+{
+    static core::NoDestroy<BoneVolumesState> state;
+    return state.get();
+}
+
+lists::KeyMap& get_table() { return bone_volumes_state().bone_volume_table_; }
 
 // Each bone's world position as segment_hits_bone found it (64 of them).
-std::array<maths::Vec4, 64>& joint_point_array() { return g_bone_world_pos; }
+std::array<maths::Vec4, 64>& joint_point_array() { return bone_volumes_state().bone_world_pos_; }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
 void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -240,6 +252,6 @@ bool BoneVolumes::get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint3
 namespace gfx {
 
 // 0x00640AE0 (a static initialiser): the bone volumes' table, 256 buckets.
-void construct_bone_volume_table() { new (&g_bone_volume_table) lists::KeyMap(8); }
+void construct_bone_volume_table() { new (&bone_volumes_state().bone_volume_table_) lists::KeyMap(8); }
 
 } // namespace gfx

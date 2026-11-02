@@ -59,7 +59,11 @@ std::array<char, 128> g_pending_screen_shot; // the screenshot asked for by name
 namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-uint32_t g_mem_view_toggle;
+uint32_t& mem_view_toggle()
+{
+    static uint32_t mem_view_toggle{};
+    return mem_view_toggle;
+}
 
 // The loading screen is up (0x00786D04, show_loading_screen): it draws and presents on its own.
 bool loading_screen_up() { return g_loading_screen_up; }
@@ -91,7 +95,7 @@ TextureRef* caster_key(const BitmapTexture* texture) { return image_of(texture);
 } // namespace
 
 // 0x004B2270
-void toggle_mem_view() { g_mem_view_toggle ^= 1; }
+void toggle_mem_view() { mem_view_toggle() ^= 1; }
 
 // 0x004B2280 (the device 0x007D69E0's BeginScene, vtable slot 41; not while the loading screen is up: 0x00786D04)
 void begin_frame_draw()

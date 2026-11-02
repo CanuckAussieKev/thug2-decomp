@@ -34,21 +34,31 @@
 #include "engine/gfx/engine.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
-// The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
-std::array<TextVertex, 0x1C00 * 4 / sizeof(TextVertex)> g_text_vertex_store; // (0x7000 bytes)
-std::array<uint16_t, 0x100 * 6> g_text_quad_indices;
+// NOT ORIGINAL grouping - text.cpp's state (the original's globals). Made on first use, never destroyed (text_state()).
+struct TextState {
+    // The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
+    std::array<TextVertex, 0x1C00 * 4 / sizeof(TextVertex)> text_vertex_store_{}; // (0x7000 bytes)
+    std::array<uint16_t, 0x100 * 6> text_quad_indices_{};
+    TypefaceData* typeface_head_{};
+    TypefaceData* texture_font_{};
+    uint32_t text_vertex_count_{};
+    bool quad_indices_made_{};
+};
 
-TypefaceData* g_typeface_head;
+TextState& text_state()
+{
+    static core::NoDestroy<TextState> state;
+    return state.get();
+}
+
 } // namespace
 TypefaceData* g_glyph_typeface;
 namespace {
-TypefaceData* g_texture_font;
-uint32_t g_text_vertex_count;
-bool g_quad_indices_made;
 
 constexpr float get_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
 constexpr float kEffectScale = get_bits(0x38800000); // 0x006487C8, 1 / 16384
@@ -62,13 +72,13 @@ int screen_offset_y() { return g_screen_offset_y; }
 
 // How many vertices the text vertex store holds (the original's buffer pointer, open_sketch's 0x00779FD8, always
 // pointed at the store's start).
-uint32_t& get_vertex_count() { return g_text_vertex_count; }
+uint32_t& get_vertex_count() { return text_state().text_vertex_count_; }
 // The place of the next quad's four vertices in the store.
-core::Cursor<TextVertex> next_quad() { return core::Cursor<TextVertex>(std::span<TextVertex>(g_text_vertex_store), static_cast<std::ptrdiff_t>(get_vertex_count())); }
+core::Cursor<TextVertex> next_quad() { return core::Cursor<TextVertex>(std::span<TextVertex>(text_state().text_vertex_store_), static_cast<std::ptrdiff_t>(get_vertex_count())); }
 constexpr uint32_t kVertexLimit = 0x400;
 // The font button glyphs come from, and the font whose texture the buffer is drawn with.
 TypefaceData* pad_glyph_typeface() { return g_glyph_typeface; }
-TypefaceData*& get_texture_font() { return g_texture_font; }
+TypefaceData*& get_texture_font() { return text_state().texture_font_; }
 
 // A button tag's digit through the meta button map (0x0048D6A0, also used by 0x004AF8C0; not rewritten yet).
 char meta_button(char digit) { return render::button_glyph(digit); }
@@ -397,13 +407,13 @@ void set_texture_stage_state(int stage, int type, int value)
 
 // The vertices' store (open_sketch points the buffer at it) and the quads' triangles as indices into it (made the
 // first time they're drawn).
-std::array<TextVertex, 0x1C00 * 4 / sizeof(TextVertex)>& vertex_store() { return g_text_vertex_store; }
-std::array<uint16_t, 0x100 * 6>& quad_indices() { return g_text_quad_indices; }
-bool& quad_indices_made() { return g_quad_indices_made; }
+std::array<TextVertex, 0x1C00 * 4 / sizeof(TextVertex)>& vertex_store() { return text_state().text_vertex_store_; }
+std::array<uint16_t, 0x100 * 6>& quad_indices() { return text_state().text_quad_indices_; }
+bool& quad_indices_made() { return text_state().quad_indices_made_; }
 constexpr int kQuads = 0x100;
 
 // The loaded fonts (through TypefaceData::next).
-TypefaceData*& typeface_chain() { return g_typeface_head; }
+TypefaceData*& typeface_chain() { return text_state().typeface_head_; }
 
 uint16_t u16(const uint8_t* p)
 {

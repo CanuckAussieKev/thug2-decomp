@@ -5,16 +5,26 @@
 #include <cstdint>
 
 #include "engine/gfx/render_state.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
 
-OverlayDraw* g_draw2d_head;
-uint32_t g_draw2d_z_test_next_frame;
+// NOT ORIGINAL grouping - draw2d.cpp's state (were globals). Made on first use, never destroyed (draw2d_state()).
+struct Draw2dState {
+    OverlayDraw* draw2d_head_{};
+    uint32_t draw2d_z_test_next_frame_{};
+};
 
-OverlayDraw*& foremost() { return g_draw2d_head; }
-uint32_t& z_test_next_frame() { return g_draw2d_z_test_next_frame; }
+Draw2dState& draw2d_state()
+{
+    static core::NoDestroy<Draw2dState> state;
+    return state.get();
+}
+
+OverlayDraw*& foremost() { return draw2d_state().draw2d_head_; }
+uint32_t& z_test_next_frame() { return draw2d_state().draw2d_z_test_next_frame_; }
 
 } // namespace
 

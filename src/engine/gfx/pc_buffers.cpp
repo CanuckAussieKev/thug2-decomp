@@ -23,7 +23,11 @@ namespace render {
 uint8_t g_skin_scaling_on;
 SkinScaling g_skin_settings; // (+ a fifth word, only ever cleared)
 namespace {
-std::array<uint8_t, 64> g_saved_pixel_shader_constants; // (4 passes of 16 bytes: the adapter identifier follows)
+std::array<uint8_t, 64>& saved_pixel_shader_constants()
+{
+    static std::array<uint8_t, 64> saved_pixel_shader_constants{}; // (4 passes of 16 bytes: the adapter identifier follows)
+    return saved_pixel_shader_constants;
+}
 } // namespace
 
 // 0x004D3FC0
@@ -51,7 +55,7 @@ void MeshRef::set_pixel_shader_colored()
 {
     const uint32_t bytes = material->pass_count_ << 4; // 16 a pass
     auto& constants = g_ps_constant_bank;
-    auto& saved = g_saved_pixel_shader_constants;
+    auto& saved = saved_pixel_shader_constants();
     std::memcpy(saved.data(), constants.data(), bytes);
     double r = 0.0, g = 0.0, b = 0.0;
     if (g_instance_colour_on) {

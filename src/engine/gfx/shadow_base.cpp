@@ -39,7 +39,11 @@ namespace render {
 constexpr uint32_t kShadowTriangleBytes = 20480; // the original's triangle buffer (0x00796640)
 namespace {
 constexpr bool kTwoSidedStencil{false};
-std::array<float, 4> g_shadow_viewport{{256.0f, 256.0f, 256.0f, 256.0f}};
+std::array<float, 4>& shadow_viewport()
+{
+    static std::array<float, 4> shadow_viewport{{256.0f, 256.0f, 256.0f, 256.0f}};
+    return shadow_viewport;
+}
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 lists::ObjectSet<ShadowCaster>& get_casters() { return g_shadow_casters; }
@@ -69,7 +73,7 @@ static_assert(sizeof(ShadowCornerPoint) == 0x14, "the draw's stride");
 // NOT ORIGINAL - both buffers grow to fit. The original's are fixed (4096 projected vertices at 0x0079B640, 20480
 // bytes - 1024 vertices - of triangles at 0x00796640) and unchecked: enough for THUG2's own scene meshes, but a
 // ported level's mesh under a shadow (Proving Ground's: more than 4096 vertices) ran past them into the globals
-// after them (a call through g_shadow_companion holding a vertex's float). Their first sizes are the original's.
+// after them (a call through shadow_companion() holding a vertex's float). Their first sizes are the original's.
 std::vector<ProjectedVertex>& projected_vertices()
 {
     static std::vector<ProjectedVertex> value(4096);
@@ -96,7 +100,11 @@ std::span<ShadowCornerPoint> shadow_triangles(uint32_t vertices)
 std::span<ShadowCornerPoint> shadow_triangles() { return shadow_vertices(); }
 constexpr float kFacingLimit = std::bit_cast<float>(0xB8D1B717u); // 0x0064AAA0, -1e-4
 
-ShadowCompanionFn g_shadow_companion = nullptr; // NOT ORIGINAL (set_shadow_companion)
+ShadowCompanionFn& shadow_companion()
+{
+    static ShadowCompanionFn shadow_companion{nullptr}; // NOT ORIGINAL (set_shadow_companion)
+    return shadow_companion;
+}
 
 // D3DX (linked library code; stdcall).
 void matrix_multiply(float* out, const float* a, const float* b) { d3dx::matrix_multiply(out, a, b); }
@@ -194,11 +202,11 @@ void shadow_texture_matrix(const float* a, const float* b, float* out, const flo
     matrix_inverse(inverse.data(), nullptr, view.data()); // (not used)
     // The shadow viewport (0x0067EF4C: x, y, width, height) as a scale and offset of the -1..1 range; depth 0..2^24.
     std::array<float, 16> scale_bias = {};
-    core::at(scale_bias, 0) = static_cast<float>(static_cast<double>(core::at(g_shadow_viewport, 3)) * 0.5);
-    core::at(scale_bias, 5) = static_cast<float>(static_cast<double>(core::at(g_shadow_viewport, 2)) * -0.5);
+    core::at(scale_bias, 0) = static_cast<float>(static_cast<double>(core::at(shadow_viewport(), 3)) * 0.5);
+    core::at(scale_bias, 5) = static_cast<float>(static_cast<double>(core::at(shadow_viewport(), 2)) * -0.5);
     core::at(scale_bias, 10) = std::bit_cast<float>(0x4B7FFFFFu); // 16777215
-    core::at(scale_bias, 12) = static_cast<float>((static_cast<double>(core::at(g_shadow_viewport, 1)) + 1.0) * 0.5);
-    core::at(scale_bias, 13) = static_cast<float>((static_cast<double>(core::at(g_shadow_viewport, 0)) + 1.0) * 0.5);
+    core::at(scale_bias, 12) = static_cast<float>((static_cast<double>(core::at(shadow_viewport(), 1)) + 1.0) * 0.5);
+    core::at(scale_bias, 13) = static_cast<float>((static_cast<double>(core::at(shadow_viewport(), 0)) + 1.0) * 0.5);
     core::at(scale_bias, 15) = 1.0f;
     std::array<float, 16> m{};
     if (first) {
@@ -296,8 +304,8 @@ void render_shadow_textures()
         };
         draw_model(caster->model);
         // NOT ORIGINAL (ours: set_shadow_companion) - a model drawn into this caster's shadow as well.
-        if (g_shadow_companion) {
-            if (void* companion = g_shadow_companion(caster->model))
+        if (shadow_companion()) {
+            if (void* companion = shadow_companion()(caster->model))
                 draw_model(companion);
         }
     }
@@ -458,6 +466,6 @@ void add_shadow_caster(TextureRef* target, void* model, uint32_t unknown)
 }
 
 // NOT ORIGINAL
-void set_shadow_companion(ShadowCompanionFn fn) { g_shadow_companion = fn; }
+void set_shadow_companion(ShadowCompanionFn fn) { shadow_companion() = fn; }
 
 } // namespace render

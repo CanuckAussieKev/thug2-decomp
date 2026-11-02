@@ -64,10 +64,13 @@ void release_vertex_buffer(void* buffer) { static_cast<VertexBuffer*>(buffer)->t
 void destroy_material(void* material) { static_cast<MaterialRef*>(material)->~MaterialRef(); }
 
 // the rebuilt strip (0x1800 bytes: nothing of the original's refers to the bytes up to 0x007CC244)
-std::array<uint16_t, 3072> g_index_scratch;
 
 // The rebuilt strip (0x007CAA40).
-std::array<uint16_t, 3072>& tri_strip_scratch() { return g_index_scratch; }
+std::array<uint16_t, 3072>& tri_strip_scratch()
+{
+    static std::array<uint16_t, 3072> index_scratch{};
+    return index_scratch;
+}
 
 // The C runtime's qsort (the game's, so equal meshes stay in the same order).
 void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const void*, const void*))

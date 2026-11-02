@@ -16,17 +16,26 @@
 #include "game/skate/career.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
-float g_width_over_height;
+// NOT ORIGINAL grouping - screen.cpp's state (the original's globals). Made on first use, never destroyed
+// (screen_state()).
+struct ScreenState {
+    float width_over_height_{};
+    int script_screen_blur_{};
+};
+
+ScreenState& screen_state()
+{
+    static core::NoDestroy<ScreenState> state;
+    return state.get();
+}
+
 } // namespace
 float g_base_fov_angle;
-namespace {
-int g_script_screen_blur;
-} // namespace
-
 float g_angle_factor{1.0f};
 
 namespace {
@@ -35,10 +44,10 @@ namespace {
 bool blur_available() { return core::at(g_screen_surfaces, 0) != nullptr; }
 auto& screen_blur() { return g_screen_blur; }
 // The last amount the script asked for (kept even when the blur is off).
-auto& script_screen_blur() { return g_script_screen_blur; }
+auto& script_screen_blur() { return screen_state().script_screen_blur_; }
 
 // The screen's aspect (width / height), and the original's angle factor constant (1.0).
-float& view_ratio_slot() { return g_width_over_height; }
+float& view_ratio_slot() { return screen_state().width_over_height_; }
 float angle_factor_constant() { return g_angle_factor; }
 
 // The 640x480 -> back buffer conversion (init_direct_3d) and the letterbox flag.

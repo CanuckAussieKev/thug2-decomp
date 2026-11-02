@@ -11,6 +11,7 @@
 #include <mmsystem.h>
 
 #include <cstddef>
+#include <memory>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -29,6 +30,7 @@
 #include "engine/core/checked_index.h"
 #include <string>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -48,25 +50,45 @@ void get_unlock() { ReleaseMutex(screen_mutex()); }
 UINT start_timer(UINT delay, LPTIMECALLBACK callback) { return timeSetEvent(delay, 0, callback, 0, TIME_PERIODIC); }
 void stop_timer(UINT timer) { timeKillEvent(timer); }
 
-gsl::owner<render::BillboardQuad*> g_loading_screen_sprite; // (nothing in this build sets it)
-std::string g_picture_name; // the picture loaded
+// NOT ORIGINAL grouping - loading_screen.cpp's state (the original's globals). Made on first use, never destroyed
+// (loading_screen_state()).
+struct LoadingScreenState {
+    std::unique_ptr<render::BillboardQuad> loading_screen_sprite_{}; // (nothing in this build sets it)
+    std::string picture_name_{}; // the picture loaded
+};
+
+LoadingScreenState& loading_screen_state()
+{
+    static core::NoDestroy<LoadingScreenState> state;
+    return state.get();
+}
 
 // The picture (a texture holder, 0x14 bytes: 0x004C7ED0; its texture at +0x10, through one more pointer with flag 1
 // of +0x08) and the loading screen's other sprite.
 
 // The picture's name (a std::string in the original too: its assign at 0x004B7880 / 0x004B7750).
-const char* picture_name() { return g_picture_name.c_str(); }
-void set_picture_name(const char* text) { g_picture_name = text; }
+const char* picture_name() { return loading_screen_state().picture_name_.c_str(); }
+void set_picture_name(const char* text) { loading_screen_state().picture_name_ = text; }
 
 // NOT ORIGINAL - the level select's loading pictures (tools/pipeline menu_level/loading_select.ts): a level whose
 // loading_screen is "loadscrn_sel_<load>__<the original picture>" shows the level select's picture (16:9, text-free);
 // [features] level_select_loading_screens=0 loads the original picture named after the "__" instead.
 constexpr auto kSelectPrefix = std::to_array("loadscrn_sel_");
 constexpr float kSelectAspect = 16.0f / 9.0f;
-bool s_select_picture = false; // the picture up is one of those (drawn cover-fitted, with the bar's plate)
-bool s_bar_styled = false;     // the bar's own settings are saved and ours are in
-int s_saved_bar_width = 0;
-std::array<std::array<uint8_t, 4>, 3> s_saved_colors = {};
+// NOT ORIGINAL grouping - the level-select picture, whether the bar is restyled and the bar's saved size (the
+// original's globals). Made on first use, never destroyed (select_picture()).
+struct SelectPicture {
+    bool select_picture_ = false; // the picture up is one of those (drawn cover-fitted, with the bar's plate)
+    bool bar_styled_ = false; // the bar's own settings are saved and ours are in
+    int saved_bar_width_ = 0;
+    std::array<std::array<uint8_t, 4>, 3> saved_colors_ = {};
+};
+
+SelectPicture& select_picture()
+{
+    static core::NoDestroy<SelectPicture> state;
+    return state.get();
+}
 
 bool is_select_name(const char* name) { return std::strncmp(name, kSelectPrefix.data(), sizeof(kSelectPrefix) - 1) == 0; }
 bool select_enabled()
@@ -84,24 +106,24 @@ const char* original_of(const char* name)
 // The bar's look over those pictures (the front end's: paper to safety yellow on ink; wider than the original's 140).
 void apply_bar_style(bool select)
 {
-    if (select == s_bar_styled)
+    if (select == select_picture().bar_styled_)
         return;
     if (select) {
-        s_saved_bar_width = g_progress_width;
-        std::memcpy(core::at(s_saved_colors, 0).data(), g_progress_from_color.data(), 4);
-        std::memcpy(core::at(s_saved_colors, 1).data(), g_progress_to_color.data(), 4);
-        std::memcpy(core::at(s_saved_colors, 2).data(), g_progress_edge_color.data(), 4);
+        select_picture().saved_bar_width_ = g_progress_width;
+        std::memcpy(core::at(select_picture().saved_colors_, 0).data(), g_progress_from_color.data(), 4);
+        std::memcpy(core::at(select_picture().saved_colors_, 1).data(), g_progress_to_color.data(), 4);
+        std::memcpy(core::at(select_picture().saved_colors_, 2).data(), g_progress_edge_color.data(), 4);
         g_progress_width = 300;
         g_progress_from_color = {0xB9, 0xB5, 0xAC, 0x80};
         g_progress_to_color = {0xF2, 0xE2, 0x05, 0x80};
         g_progress_edge_color = {0x3A, 0x3A, 0x38, 0x80};
     } else {
-        g_progress_width = s_saved_bar_width;
-        std::memcpy(g_progress_from_color.data(), core::at(s_saved_colors, 0).data(), 4);
-        std::memcpy(g_progress_to_color.data(), core::at(s_saved_colors, 1).data(), 4);
-        std::memcpy(g_progress_edge_color.data(), core::at(s_saved_colors, 2).data(), 4);
+        g_progress_width = select_picture().saved_bar_width_;
+        std::memcpy(g_progress_from_color.data(), core::at(select_picture().saved_colors_, 0).data(), 4);
+        std::memcpy(g_progress_to_color.data(), core::at(select_picture().saved_colors_, 1).data(), 4);
+        std::memcpy(g_progress_edge_color.data(), core::at(select_picture().saved_colors_, 2).data(), 4);
     }
-    s_bar_styled = select;
+    select_picture().bar_styled_ = select;
     update_loading_bar_colors();
 }
 
@@ -139,7 +161,7 @@ void draw_loading_screen_picture()
     // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off
     // evenly - where the original's are stretched)
     float u0 = 0.0f, u1 = 1.0f, v0 = 0.0f, v1 = 1.0f;
-    if (s_select_picture && width > 0.0f && height > 0.0f) {
+    if (select_picture().select_picture_ && width > 0.0f && height > 0.0f) {
         const float aspect = width / height;
         if (aspect < kSelectAspect) {
             u0 = (1.0f - aspect / kSelectAspect) * 0.5f;
@@ -179,10 +201,7 @@ void free_loading_screen_sprite()
 {
     get_lock();
     input_port()->SetRenderState(D3DRS_FOGENABLE, fog_render_flag());
-    if (g_loading_screen_sprite) {
-        delete g_loading_screen_sprite; // (the engine's delete through slot 0)
-        g_loading_screen_sprite = nullptr;
-    }
+    memory::destroy_then_clear(loading_screen_state().loading_screen_sprite_); // (the engine's delete through slot 0)
     get_unlock();
 }
 
@@ -222,7 +241,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
     load_screen_shown() = false;
     if (!keep) {
         if (black) {
-            s_select_picture = false;
+            select_picture().select_picture_ = false;
             apply_bar_style(false);
             input_port()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
         } else {
@@ -251,8 +270,8 @@ void show_loading_screen(const char* name, bool keep, bool black)
                 get_unlock();
                 return;
             }
-            s_select_picture = is_select_name(name);
-            apply_bar_style(s_select_picture);
+            select_picture().select_picture_ = is_select_name(name);
+            apply_bar_style(select_picture().select_picture_);
             input_port()->BeginScene();
             draw_loading_screen_picture();
             input_port()->EndScene();
@@ -263,6 +282,6 @@ void show_loading_screen(const char* name, bool keep, bool black)
     get_unlock();
 }
 
-bool select_picture_up() { return s_select_picture; }
+bool select_picture_up() { return select_picture().select_picture_; }
 
 } // namespace render

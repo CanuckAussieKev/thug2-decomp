@@ -14,6 +14,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -21,8 +22,18 @@ uint32_t g_light_count;
 
 namespace {
 
-maths::Vec4 g_light_direction;
-uint32_t g_light_direction_guard;
+// NOT ORIGINAL grouping - engine_model_lights.cpp's state (the original's globals). Made on first use, never destroyed
+// (engine_model_lights_state()).
+struct EngineModelLightsState {
+    maths::Vec4 light_direction_{};
+    uint32_t light_direction_guard_{};
+};
+
+EngineModelLightsState& engine_model_lights_state()
+{
+    static core::NoDestroy<EngineModelLightsState> state;
+    return state.get();
+}
 
 // The light manager's: how many lights, the ambient ranges below / above the middle brightness, each light's.
 uint32_t light_count() { return g_light_count; }
@@ -158,8 +169,8 @@ uint32_t* ModelLights::read_ambient_light_tint(uint32_t* out)
 const maths::Vec4* ModelLights::read_light_aim(int)
 {
     get_stub("STUB: CModelLights::GetLightDirection\n"); // "STUB: CModelLights::GetLightDirection\n"
-    uint32_t& guard = g_light_direction_guard;
-    auto* direction = &g_light_direction;
+    uint32_t& guard = engine_model_lights_state().light_direction_guard_;
+    auto* direction = &engine_model_lights_state().light_direction_;
     if (!(guard & 1)) {
         guard |= 1;
         std::memset(direction, 0, sizeof(maths::Vec4));

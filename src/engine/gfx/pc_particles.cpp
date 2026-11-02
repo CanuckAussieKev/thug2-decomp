@@ -32,13 +32,24 @@
 #include <array>
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
-uint32_t g_particle_random_b{0x12B9B0A1};
-uint32_t g_particle_random_c{0xAA2FB3F};
-uint32_t g_particle_random_a;
+// NOT ORIGINAL grouping - pc_particles.cpp's state (the original's globals). Made on first use, never destroyed
+// (pc_particles_state()).
+struct PcParticlesState {
+    uint32_t particle_random_b_{0x12B9B0A1};
+    uint32_t particle_random_c_{0xAA2FB3F};
+    uint32_t particle_random_a_{};
+};
+
+PcParticlesState& pc_particles_state()
+{
+    static core::NoDestroy<PcParticlesState> state;
+    return state.get();
+}
 
 constexpr float kRandomScale = 1.0f / 16384.0f; // 0x006487C8
 
@@ -61,9 +72,9 @@ void change_material_layer(MaterialRef* material, int pass)
 const BitmapTexture* find_texture(uint32_t checksum) { return g_particle_texture_dict->fetch_skin(checksum); }
 
 // The random sequence the particles' spreads come from (three words; four numbers a particle).
-uint32_t& random_a() { return g_particle_random_a; }
-uint32_t& random_b() { return g_particle_random_b; }
-uint32_t& random_c() { return g_particle_random_c; }
+uint32_t& random_a() { return pc_particles_state().particle_random_a_; }
+uint32_t& random_b() { return pc_particles_state().particle_random_b_; }
+uint32_t& random_c() { return pc_particles_state().particle_random_c_; }
 // A step: a' = b a + c, b' = (b ^ a') + (a' >> 4), c' = c + (a' >> 3) - 0x10101010 (arithmetic shifts).
 void random_step(uint32_t& a, uint32_t& b, uint32_t& c)
 {

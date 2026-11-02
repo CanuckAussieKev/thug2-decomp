@@ -164,7 +164,11 @@ void blend_poses_by_id(std::span<Stance> poses, std::span<float> weights, std::s
 }
 
 namespace {
-std::array<uint32_t, 4> g_loop_type_checksums{{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203}}; // the loop types' checksums
+std::array<uint32_t, 4>& loop_type_checksums()
+{
+    static std::array<uint32_t, 4> loop_type_checksums{{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203}}; // the loop types' checksums
+    return loop_type_checksums;
+}
 } // namespace
 
 // 0x0047D580
@@ -174,7 +178,7 @@ void add_timeline_info(AnimTimeline* timeline, script::Struct* info)
     constexpr uint32_t kStartTime = 0xD16B61E6, kCurrentTime = 0xD4FC8176, kEndTime = 0xAB81BB3D;
     info->put_name_key(kAnim, timeline->anim_);
     info->push_float(kSpeed, timeline->speed_);
-    info->put_name_key(kRepeatMode, core::at((g_loop_type_checksums), timeline->repeat_mode_));
+    info->put_name_key(kRepeatMode, core::at((loop_type_checksums()), timeline->repeat_mode_));
     float start = 0.0f, current = 0.0f, end = 0.0f;
     timeline->get_times(&start, &current, &end);
     info->push_float(kStartTime, start);

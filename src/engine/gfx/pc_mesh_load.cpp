@@ -40,7 +40,11 @@ namespace render {
 namespace {
 constexpr float kUnpackZScale{0.0019569471f};
 constexpr float kUnpack11Scale{0.0009775171f};
-std::array<uint32_t, 5> g_fvf_by_set_count{{0, 0x100, 0x200, 0x300, 0x400}};
+std::array<uint32_t, 5>& fvf_by_set_count()
+{
+    static std::array<uint32_t, 5> fvf_by_set_count{{0, 0x100, 0x200, 0x300, 0x400}};
+    return fvf_by_set_count;
+}
 } // namespace
 std::array<uint32_t, 6> g_vertex_shaders;
 
@@ -261,7 +265,7 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
     }
     unknowna4_ = sets;
     unknowna8_ = bones;
-    fvf = core::at(g_fvf_by_set_count, sets) | 0x52;
+    fvf = core::at(fvf_by_set_count(), sets) | 0x52;
     stride = static_cast<uint8_t>(sets * 8 + 0x1C);
     buffer_flags_ |= 1;
     gsl::owner<VertexBuffer*> made = new_vertex_buffer(stride * vertex_count_, buffer_usage_, buffer_flags_); // (the mesh's)

@@ -26,12 +26,27 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/gfx/shadow_base.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 lists::ObjectSet<ShadowCaster> g_shadow_casters;
 namespace {
-bool g_pixel_shaders_made;
+// NOT ORIGINAL grouping - pixel_shaders.cpp's state (the original's globals). Made on first use, never destroyed
+// (pixel_shaders_state()).
+struct PixelShadersState {
+    bool pixel_shaders_made_{};
+    std::array<uint8_t, 10> shader_stand_ins_{};
+    // The cache of generated shaders (a hash table kept in place at 0x007CA9C0), by configuration key.
+    lists::KeyMap shader_cache_{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
+};
+
+PixelShadersState& pixel_shaders_state()
+{
+    static core::NoDestroy<PixelShadersState> state;
+    return state.get();
+}
+
 } // namespace
 std::array<void*, kPixelShaderCount> g_pixel_shaders;
 
@@ -39,10 +54,7 @@ namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 void*& hdl(int slot) { return core::at(g_pixel_shaders, slot); }
-std::array<uint8_t, 10> g_shader_stand_ins{};
-// The cache of generated shaders (a hash table kept in place at 0x007CA9C0), by configuration key.
-lists::KeyMap g_shader_cache{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
-lists::KeyMap& get_cache() { return g_shader_cache; }
+lists::KeyMap& get_cache() { return pixel_shaders_state().shader_cache_; }
 
 // An ID3DXBuffer (COM, through its vtable): [2] Release, [3] GetBufferPointer.
 void* buffer_pointer(void* buffer) { return d3dx::buffer_pointer(buffer); }
@@ -110,7 +122,7 @@ void append_alpha_modulate(ShaderText& text, bool saturate, uint32_t pass)
 // 0x004DD7F0
 void compile_pixel_shaders()
 {
-    bool& done = g_pixel_shaders_made;
+    bool& done = pixel_shaders_state().pixel_shaders_made_;
     if (done)
         return;
     done = true;
@@ -124,7 +136,7 @@ void compile_pixel_shaders()
                                                               kPixelShader94c, kPixelShader930, kPixelShader92c,
                                                               kPixelShader944});
         for (size_t i = 0; i < kStandIns.size(); ++i)
-            hdl(core::at(kStandIns, i)) = &core::at(g_shader_stand_ins, i);
+            hdl(core::at(kStandIns, i)) = &core::at(pixel_shaders_state().shader_stand_ins_, i);
     } else {
         void* shader = nullptr;
         void* errors = nullptr;
@@ -309,6 +321,6 @@ void material_pixel_shader(const void* material, void** shader)
 namespace render {
 
 // 0x00640DF0 (a static initialiser): the generated pixel shaders' cache, 256 buckets.
-void construct_shader_cache() { new (&g_shader_cache) lists::KeyMap(8); }
+void construct_shader_cache() { new (&pixel_shaders_state().shader_cache_) lists::KeyMap(8); }
 
 } // namespace render

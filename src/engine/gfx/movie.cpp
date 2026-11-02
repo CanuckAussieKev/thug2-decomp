@@ -39,6 +39,7 @@
 #include "platform/bink.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -60,8 +61,18 @@ void set_texture_stage_state(int stage, int type, int value)
                                        static_cast<DWORD>(value));
 }
 
-uint32_t s_movie_width = 0;
-uint32_t s_movie_height = 0;
+// NOT ORIGINAL grouping - movie.cpp's state (the original's globals). Made on first use, never destroyed
+// (movie_state()).
+struct MovieState {
+    uint32_t movie_width_ = 0;
+    uint32_t movie_height_ = 0;
+};
+
+MovieState& movie_state()
+{
+    static core::NoDestroy<MovieState> state;
+    return state.get();
+}
 
 } // namespace
 
@@ -69,8 +80,8 @@ void set_movie_texture(int stage, void* texture, int unknown)
 {
     D3DSURFACE_DESC desc;
     static_cast<IDirect3DTexture9*>(texture)->GetLevelDesc(0, &desc);
-    s_movie_width = desc.Width;
-    s_movie_height = desc.Height;
+    movie_state().movie_width_ = desc.Width;
+    movie_state().movie_height_ = desc.Height;
     (void)unknown; // (passed on by the original; SetTexture doesn't take it)
     set_texture(stage, texture);
 }
@@ -109,15 +120,37 @@ namespace {
 constexpr float kFloat255{255.0f};
 constexpr float kFloat16384{16384.0f};
 constexpr uint32_t kMovieSurfaceType{3};
-float g_movie_back_buffer_width{640.0f};
-float g_movie_back_buffer_height{480.0f};
-float g_movie_picture_width{640.0f};
-float g_movie_picture_height{480.0f};
+// NOT ORIGINAL grouping - the back buffer's and the movie picture's sizes while a movie plays (the original's globals).
+// Made on first use, never destroyed (movie_sizes()).
+struct MovieSizes {
+    float movie_back_buffer_width_{640.0f};
+    float movie_back_buffer_height_{480.0f};
+    float movie_picture_width_{640.0f};
+    float movie_picture_height_{480.0f};
+};
+
+MovieSizes& movie_sizes()
+{
+    static core::NoDestroy<MovieSizes> state;
+    return state.get();
+}
+
 constexpr float kMovieDrawWidth{1.0f};
 constexpr float kMovieDrawHeight{1.0f};
-uint32_t g_saved_min_filter;
-uint32_t g_saved_antialias;
-uint32_t g_saved_cull_mode;
+// NOT ORIGINAL grouping - the render states a movie saves and puts back (filter, antialias, cull mode) (the original's
+// globals). Made on first use, never destroyed (movie_saved_states()).
+struct MovieSavedStates {
+    uint32_t saved_min_filter_{};
+    uint32_t saved_antialias_{};
+    uint32_t saved_cull_mode_{};
+};
+
+MovieSavedStates& movie_saved_states()
+{
+    static core::NoDestroy<MovieSavedStates> state;
+    return state.get();
+}
+
 } // namespace
 bool g_movie_playing;
 int g_movie_dump_count;
@@ -155,10 +188,10 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     std::array<MovieVertex, 4> vertices{};
     core::at(vertices, 0) = {.x = x, .y = y, .z = 0.0f, .w = 1.0f, .color = color, .u = 0.0f, .v = 0.0f};
     core::at(vertices, 1) = core::at(vertices, 0);
-    core::at(vertices, 1).x = static_cast<float>(static_cast<double>(g_movie_back_buffer_width) * width + x);
+    core::at(vertices, 1).x = static_cast<float>(static_cast<double>(movie_sizes().movie_back_buffer_width_) * width + x);
     core::at(vertices, 1).u = 1.0f;
     core::at(vertices, 2) = core::at(vertices, 0);
-    core::at(vertices, 2).y = static_cast<float>(static_cast<double>(g_movie_back_buffer_height) * height + y);
+    core::at(vertices, 2).y = static_cast<float>(static_cast<double>(movie_sizes().movie_back_buffer_height_) * height + y);
     core::at(vertices, 2).v = 1.0f;
     core::at(vertices, 3) = core::at(vertices, 1);
     core::at(vertices, 3).y = core::at(vertices, 2).y;
@@ -205,9 +238,9 @@ constexpr int kRsMultisample = 161;
 constexpr int kD3dLighting = 137;
 constexpr int kMinFilter = 6;
 // The states begin_movie changes, for end_movie.
-uint32_t& saved_cull_mode() { return g_saved_cull_mode; }
-uint32_t& saved_antialias() { return g_saved_antialias; }
-uint32_t& get_saved_min_filter() { return g_saved_min_filter; }
+uint32_t& saved_cull_mode() { return movie_saved_states().saved_cull_mode_; }
+uint32_t& saved_antialias() { return movie_saved_states().saved_antialias_; }
+uint32_t& get_saved_min_filter() { return movie_saved_states().saved_min_filter_; }
 // The renderer's cached states (change_phase: 1 the z write, 2 the z test).
 void set_renderer_sampler(int state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
 
@@ -226,10 +259,10 @@ void* begin_movie(uint32_t width, uint32_t height)
     get_sampler_state(0, kMinFilter, &get_saved_min_filter());
     set_sampler_state(0, kMinFilter, 2); // linear
     // (x87: unsigned to float through FILD and +2^32)
-    g_movie_picture_width = static_cast<float>(static_cast<double>(width));
-    g_movie_picture_height = static_cast<float>(static_cast<double>(height));
-    g_movie_back_buffer_width = static_cast<float>(g_back_buffer_width); // the back buffer
-    g_movie_back_buffer_height = static_cast<float>(g_back_buffer_height);
+    movie_sizes().movie_picture_width_ = static_cast<float>(static_cast<double>(width));
+    movie_sizes().movie_picture_height_ = static_cast<float>(static_cast<double>(height));
+    movie_sizes().movie_back_buffer_width_ = static_cast<float>(g_back_buffer_width); // the back buffer
+    movie_sizes().movie_back_buffer_height_ = static_cast<float>(g_back_buffer_height);
     IDirect3DTexture9* texture = nullptr;
     // one level, no usage
     const HRESULT result =

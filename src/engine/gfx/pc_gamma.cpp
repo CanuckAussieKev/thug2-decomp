@@ -13,15 +13,26 @@
 
 #include "engine/gfx/device.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
-std::array<float, 3> g_gammas{{1.0f, 1.0f, 1.0f}};
-std::array<uint16_t, 768> g_gamma_ramp;
+// NOT ORIGINAL grouping - pc_gamma.cpp's state (the original's globals). Made on first use, never destroyed
+// (pc_gamma_state()).
+struct PcGammaState {
+    std::array<float, 3> gammas_{{1.0f, 1.0f, 1.0f}};
+    std::array<uint16_t, 768> gamma_ramp_{};
+};
 
-std::array<float, 3>& gammas() { return g_gammas; }
-std::array<uint16_t, 768>& get_ramp() { return g_gamma_ramp; } // red, then green and blue, 256 each
+PcGammaState& pc_gamma_state()
+{
+    static core::NoDestroy<PcGammaState> state;
+    return state.get();
+}
+
+std::array<float, 3>& gammas() { return pc_gamma_state().gammas_; }
+std::array<uint16_t, 768>& get_ramp() { return pc_gamma_state().gamma_ramp_; } // red, then green and blue, 256 each
 
 // A value kept within 0-1 (a NaN kept, as the original's tests let it through).
 float clamp01(float value)
@@ -66,8 +77,8 @@ void set_device_gamma(float r, float g, float b)
     core::at(gammas(), 2) = static_cast<float>(static_cast<double>(b) + b + 0.5f);
     build_gamma_ramp();
     D3DGAMMARAMP ramp{}; // (red, green, blue: the table's three runs)
-    static_assert(sizeof(ramp) == sizeof(g_gamma_ramp));
-    std::memcpy(&ramp, g_gamma_ramp.data(), sizeof(ramp));
+    static_assert(sizeof(ramp) == sizeof(pc_gamma_state().gamma_ramp_));
+    std::memcpy(&ramp, pc_gamma_state().gamma_ramp_.data(), sizeof(ramp));
     g_d3d_device->SetGammaRamp(0, 0, &ramp);
 }
 

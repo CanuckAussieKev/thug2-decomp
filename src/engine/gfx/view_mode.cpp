@@ -19,6 +19,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render::view_mode {
 
@@ -93,10 +94,19 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 void*& current_pixel_shader() { return g_current_pixel_shader; } // (render_state.cpp's cache)
 int& render_mode() { return g_render_mode; }                     // (wireframe.h)
 
-Mode g_mode = Mode::kLit;
-bool g_in_world;
-bool g_set_render_mode; // (the editor set the render mode to 1 for Wireframe)
-bool g_assemble_failed_logged;
+// NOT ORIGINAL grouping - view_mode.cpp's state (were globals). Made on first use, never destroyed (view_mode_state()).
+struct ViewModeState {
+    Mode mode_ = Mode::kLit;
+    bool in_world_{};
+    bool set_render_mode_{}; // (the editor set the render mode to 1 for Wireframe)
+    bool assemble_failed_logged_{};
+};
+
+ViewModeState& view_mode_state()
+{
+    static core::NoDestroy<ViewModeState> state;
+    return state.get();
+}
 
 struct Twin {
     std::string source;
@@ -131,8 +141,8 @@ void* make_twin(void* original, Twin* twin)
     const long result = assemble_shader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
     if (result >= 0 && code && input_port())
         input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)), &made);
-    if (!made && !g_assemble_failed_logged) {
-        g_assemble_failed_logged = true;
+    if (!made && !view_mode_state().assemble_failed_logged_) {
+        view_mode_state().assemble_failed_logged_ = true;
         get_log("view mode: an unlit twin of a pixel shader couldn't be made (%08lX) - drawn lit:\n%s",
                 static_cast<unsigned long>(result), text.c_str());
     }
@@ -146,46 +156,46 @@ void* make_twin(void* original, Twin* twin)
 
 } // namespace
 
-Mode at_hand() { return g_mode; }
+Mode at_hand() { return view_mode_state().mode_; }
 
 void assign_value(Mode mode)
 {
-    if (mode == g_mode || mode >= Mode::kCount)
+    if (mode == view_mode_state().mode_ || mode >= Mode::kCount)
         return;
     // Wireframe: the game's render mode (wireframe.h), put back when the mode goes - unless something else set it.
     if (mode == Mode::kWireframe && render_mode() == 0) {
         render_mode() = 1;
-        g_set_render_mode = true;
-    } else if (g_mode == Mode::kWireframe && g_set_render_mode) {
+        view_mode_state().set_render_mode_ = true;
+    } else if (view_mode_state().mode_ == Mode::kWireframe && view_mode_state().set_render_mode_) {
         if (render_mode() == 1)
             render_mode() = 0;
-        g_set_render_mode = false;
+        view_mode_state().set_render_mode_ = false;
     }
-    g_mode = mode;
+    view_mode_state().mode_ = mode;
     get_log("view mode: %s", get_name(mode));
 }
 
 void begin_world()
 {
-    g_in_world = true;
-    if (g_mode == Mode::kUnlit)
+    view_mode_state().in_world_ = true;
+    if (view_mode_state().mode_ == Mode::kUnlit)
         current_pixel_shader() = nullptr; // (the next SetPixelShader sends the twin)
-    if (g_mode == Mode::kCollisionOnly && input_port())
+    if (view_mode_state().mode_ == Mode::kCollisionOnly && input_port())
         input_port()->Clear(0, nullptr, D3DCLEAR_TARGET, 0xFF1E2024, 1.0f, 0);
 }
 
 void end_world()
 {
-    if (g_in_world && g_mode == Mode::kUnlit)
+    if (view_mode_state().in_world_ && view_mode_state().mode_ == Mode::kUnlit)
         current_pixel_shader() = nullptr; // (the 2D gets the originals again)
-    g_in_world = false;
+    view_mode_state().in_world_ = false;
 }
 
-bool world_hidden() { return g_in_world && g_mode == Mode::kCollisionOnly; }
+bool world_hidden() { return view_mode_state().in_world_ && view_mode_state().mode_ == Mode::kCollisionOnly; }
 
 void* device_shader(void* shader)
 {
-    if (!g_in_world || g_mode != Mode::kUnlit || !shader)
+    if (!view_mode_state().in_world_ || view_mode_state().mode_ != Mode::kUnlit || !shader)
         return shader;
     auto found = twins().find(shader);
     if (found == twins().end())

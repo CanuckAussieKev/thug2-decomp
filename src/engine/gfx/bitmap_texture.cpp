@@ -29,8 +29,11 @@ struct Elem {
     Elem* previous;
     Elem* next;
 };
-Elem* g_texture_list_head;
-Elem*& foremost() { return g_texture_list_head; }
+Elem*& foremost()
+{
+    static Elem* texture_list_head{};
+    return texture_list_head;
+}
 
 // What the textures being drawn with are (the render state cache's).
 void* cached_texture(int stage) { return core::at(g_textures, stage); }

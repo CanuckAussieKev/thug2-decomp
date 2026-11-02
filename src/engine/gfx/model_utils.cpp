@@ -22,6 +22,7 @@
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
 #include "platform/crt.h"
+#include "engine/core/no_destroy.h"
 
 namespace gfx {
 
@@ -222,13 +223,17 @@ void HiddenModels::get_show()
 
 namespace {
 // The models hidden for a cutscene (the original's one instance).
-HiddenModels g_hidden_models;
+HiddenModels& hidden_models()
+{
+    static core::NoDestroy<HiddenModels> hidden_models;
+    return hidden_models.get();
+}
 } // namespace
 
 // 0x00487D20
-void hide_models_for_cutscene() { g_hidden_models.conceal(); }
+void hide_models_for_cutscene() { hidden_models().conceal(); }
 
 // 0x00487D30
-void show_models_after_cutscene() { g_hidden_models.get_show(); }
+void show_models_after_cutscene() { hidden_models().get_show(); }
 
 } // namespace gfx

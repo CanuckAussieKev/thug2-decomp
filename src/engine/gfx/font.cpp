@@ -30,9 +30,12 @@ std::array<FontSlot, 16>& get_slots() { return g_font_slots; }
 lists::KeyMap& font_table() { return g_font_table; }
 // The meta button map: for each meta button (0-31) the digit of the button it stands for.
 std::array<char, 32>& glyph_escape_table() { return g_glyph_alias_table; }
-bool g_meta_button_map_loaded;
 
-bool& meta_button_map_loaded() { return g_meta_button_map_loaded; }
+bool& meta_button_map_loaded()
+{
+    static bool meta_button_map_loaded{};
+    return meta_button_map_loaded;
+}
 
 // The loaded font named by this checksum, or null.
 Typeface* find_font(uint32_t checksum) { return get_font(checksum); }

@@ -34,30 +34,50 @@
 #include "engine/core/checked_index.h"
 #include "engine/gfx/model.h"
 #include "platform/d3d_matrix.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
-D3DLIGHT9 g_device_light1{.Type = D3DLIGHT_DIRECTIONAL, .Diffuse = {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f}};
-D3DLIGHT9 g_device_light0{.Type = D3DLIGHT_DIRECTIONAL, .Diffuse = {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f}, .Specular = {.r = 1.0f, .g = 1.0f, .b = 1.0f, .a = 0.0f}};
-} // namespace
-namespace {
-maths::Mat4* g_palette_base;
-int g_bone_count;
+// NOT ORIGINAL grouping - pc_instance.cpp's state (the original's globals). Made on first use, never destroyed
+// (pc_instance_state()).
+struct PcInstanceState {
+    D3DLIGHT9 device_light1_{.Type = D3DLIGHT_DIRECTIONAL, .Diffuse = {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f}};
+    D3DLIGHT9 device_light0_{.Type = D3DLIGHT_DIRECTIONAL, .Diffuse = {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f}, .Specular = {.r = 1.0f, .g = 1.0f, .b = 1.0f, .a = 0.0f}};
+    maths::Mat4* palette_base_{};
+    int bone_count_{};
+};
+
+PcInstanceState& pc_instance_state()
+{
+    static core::NoDestroy<PcInstanceState> state;
+    return state.get();
+}
+
 } // namespace
 std::span<maths::Mat4> bone_palette()
 {
-    return {g_palette_base, static_cast<std::size_t>(g_bone_count)};
+    return {pc_instance_state().palette_base_, static_cast<std::size_t>(pc_instance_state().bone_count_)};
 }
 Singleton* g_current_instance;
 const maths::Mat4* g_last_bones;
 namespace {
-Singleton* g_instances;
+// NOT ORIGINAL grouping - the instances' table (the original's globals). Made on first use, never destroyed
+// (instance_table()).
+struct InstanceTable {
+    Singleton* instances_{};
+    std::array<Singleton*, 4096> visible_instances_{}; // draw_instance_batch' list
+};
+
+InstanceTable& instance_table()
+{
+    static core::NoDestroy<InstanceTable> state;
+    return state.get();
+}
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-Singleton*& instances() { return g_instances; }
-std::array<Singleton*, 4096> g_visible_instances; // draw_instance_batch' list
-std::array<Singleton*, 4096>& get_visible() { return g_visible_instances; }
+Singleton*& instances() { return instance_table().instances_; }
+std::array<Singleton*, 4096>& get_visible() { return instance_table().visible_instances_; }
 const maths::Mat4* last_bones() { return g_last_bones; }
 void set_last_bones(const maths::Mat4* bones) { g_last_bones = bones; }
 const D3DMATRIX* get_view_world()
@@ -107,7 +127,7 @@ void refresh_instance_lighting(Singleton* instance)
 // colour.
 void send_lights()
 {
-    D3DLIGHT9& lamp_a = g_device_light0;
+    D3DLIGHT9& lamp_a = pc_instance_state().device_light0_;
     lamp_a.Diffuse.r = core::at(g_light_constants, 8);
     lamp_a.Diffuse.g = core::at(g_light_constants, 9);
     lamp_a.Diffuse.b = core::at(g_light_constants, 10);
@@ -115,7 +135,7 @@ void send_lights()
     lamp_a.Direction.y = core::at(g_light_constants, 5);
     lamp_a.Direction.z = core::at(g_light_constants, 6);
     input_port()->SetLight(0, &lamp_a);
-    D3DLIGHT9& lamp_b = g_device_light1;
+    D3DLIGHT9& lamp_b = pc_instance_state().device_light1_;
     lamp_b.Diffuse.r = core::at(g_light_constants, 16);
     lamp_b.Diffuse.g = core::at(g_light_constants, 17);
     lamp_b.Diffuse.b = core::at(g_light_constants, 18);
@@ -188,8 +208,8 @@ void Singleton::render(uint32_t draw_bits)
             set_last_bones(bones);
         }
         input_port()->SetTransform(D3DTS_WORLD, d3d::matrix(transform.data()));
-        g_palette_base = bones;
-        g_bone_count = bone_count_;
+        pc_instance_state().palette_base_ = bones;
+        pc_instance_state().bone_count_ = bone_count_;
         g_current_instance = this;
         if (scene_unlit(scene)) {
             draw_scene(scene, draw_bits | kRenderNoCulling, 0);
@@ -207,8 +227,8 @@ void Singleton::render(uint32_t draw_bits)
         g_pixel_shader_locked = nullptr;
         g_submit_locked = 0;
         set_texture(3, nullptr);
-        g_palette_base = nullptr;
-        g_bone_count = 0;
+        pc_instance_state().palette_base_ = nullptr;
+        pc_instance_state().bone_count_ = 0;
         g_current_instance = nullptr;
         return;
     }

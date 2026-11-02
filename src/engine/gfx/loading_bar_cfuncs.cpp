@@ -44,7 +44,11 @@ bool change_colour(script::Struct* params, std::array<uint8_t, 4>& setting)
 
 uint8_t& loading_screen_shown() { return g_loading_screen_shown; }
 
-float g_loading_bar_seconds;
+float& loading_bar_seconds()
+{
+    static float loading_bar_seconds{};
+    return loading_bar_seconds;
+}
 } // namespace
 
 // 0x00490770
@@ -52,7 +56,7 @@ void set_loading_bar_time(float seconds)
 {
     if (seconds <= 0.0f) // (NaN: started)
         return;
-    g_loading_bar_seconds = seconds;
+    loading_bar_seconds() = seconds;
     update_loading_bar_colors();
     show_progress_bar(seconds);
 }

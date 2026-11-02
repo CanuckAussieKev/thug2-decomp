@@ -21,14 +21,25 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 bool g_screen_copy_in_use;
 namespace {
 constexpr bool kBlurSecondPass{true};
-std::array<float, 4> g_blur_tap_weights{{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f}};
-std::array<float, 4> g_blur_tap_offsets{{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f}};
+// NOT ORIGINAL grouping - screen_fx.cpp's state (the original's globals). Made on first use, never destroyed
+// (screen_fx_state()).
+struct ScreenFxState {
+    std::array<float, 4> blur_tap_weights_{{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f}};
+    std::array<float, 4> blur_tap_offsets_{{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f}};
+};
+
+ScreenFxState& screen_fx_state()
+{
+    static core::NoDestroy<ScreenFxState> state;
+    return state.get();
+}
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DDevice9* device_copy() { return g_draw_device; } // (the same device)
@@ -75,8 +86,8 @@ struct FlatVertex {
 };
 
 // The blur's four taps (texel offsets and weights) at 0x0067EF98 / 0x0067EF88.
-float tap_offset(int tap) { return core::at(g_blur_tap_offsets, tap); }
-float tap_weight(int tap) { return core::at(g_blur_tap_weights, tap); }
+float tap_offset(int tap) { return core::at(screen_fx_state().blur_tap_offsets_, tap); }
+float tap_weight(int tap) { return core::at(screen_fx_state().blur_tap_weights_, tap); }
 
 // A grey of 0-255 at half alpha: 0x80 then the value three times (from _ftol: a bigger value spills over).
 uint32_t tap_colour(float weight)

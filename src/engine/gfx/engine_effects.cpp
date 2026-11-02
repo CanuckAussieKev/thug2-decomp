@@ -34,6 +34,7 @@
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/engine_texture.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
@@ -44,24 +45,45 @@ lists::ObjectSet<SpawnedPoly> g_spawned_polys;
 float g_shatter_velocity_scale{1.0f};
 namespace {
 
-float g_shatter_value_2e_1c{1.0f};
-float g_shatter_value_c483_squared{360.0f};
-int g_splat_reserve{128};
+// NOT ORIGINAL grouping - engine_effects.cpp's state (the original's globals). Made on first use, never destroyed
+// (engine_effects_state()).
+struct EngineEffectsState {
+    float shatter_value_2e_1c_{1.0f};
+    float shatter_value_c483_squared_{360.0f};
+    int splat_reserve_{128};
+};
+
+EngineEffectsState& engine_effects_state()
+{
+    static core::NoDestroy<EngineEffectsState> state;
+    return state.get();
+}
+
 constexpr int kSplatFade{8};
-float g_fog_distance{3000.0f};
-float g_fog_exponent{10.0f};
-float g_glass_life_span{4.0f};
-float g_shatter_floor{-10000.0f};
-float g_glass_restitution{0.8f};
-uint32_t g_fog_color{0x66806060};
-uint32_t g_shatter_texture;
-uint32_t g_shatter_value_af_1a;
-int g_shatter_value_33d_f;
-bool g_fog_active;
-maths::Vec4 g_shatter_vector_210e;
-std::array<float, 4> g_level_color;
-std::array<void*, 128> g_line_sectors;
-std::array<HitMesh*, 128> g_line_objects;
+// NOT ORIGINAL grouping - the fog's settings and the glass shatter's (the original's globals). Made on first use, never
+// destroyed (fog_and_shatter()).
+struct FogAndShatter {
+    float fog_distance_{3000.0f};
+    float fog_exponent_{10.0f};
+    float glass_life_span_{4.0f};
+    float shatter_floor_{-10000.0f};
+    float glass_restitution_{0.8f};
+    uint32_t fog_color_{0x66806060};
+    uint32_t shatter_texture_{};
+    uint32_t shatter_value_af_1a_{};
+    int shatter_value_33d_f_{};
+    bool fog_active_{};
+    maths::Vec4 shatter_vector_210e_{};
+    std::array<float, 4> level_color_{};
+    std::array<void*, 128> line_sectors_{};
+    std::array<HitMesh*, 128> line_objects_{};
+};
+
+FogAndShatter& fog_and_shatter()
+{
+    static core::NoDestroy<FogAndShatter> state;
+    return state.get();
+}
 
 // A recent splat position (0x18 bytes, in 0x007004B4): where, the id it follows, when (frame_clock::GetTime).
 struct RecentSplat {
@@ -70,12 +92,23 @@ struct RecentSplat {
     uint32_t time;   // +0x14
 };
 
-// The tables.
-lists::ObjectSet<Flash> g_flashes;
-lists::ObjectSet<RecentSplat> g_recent_splats;
-lists::ObjectSet<Flash>& flashes() { return g_flashes; }
+// NOT ORIGINAL grouping - the screen flashes and the recent splats (the original's globals). Made on first use, never
+// destroyed (flashes_and_splats()).
+struct FlashesAndSplats {
+    // The tables.
+    lists::ObjectSet<Flash> flashes_{};
+    lists::ObjectSet<RecentSplat> recent_splats_{};
+};
+
+FlashesAndSplats& flashes_and_splats()
+{
+    static core::NoDestroy<FlashesAndSplats> state;
+    return state.get();
+}
+
+lists::ObjectSet<Flash>& flashes() { return flashes_and_splats().flashes_; }
 lists::ObjectSet<TextureSplats>& splat_sets() { return g_splat_sets; }
-lists::ObjectSet<RecentSplat>& recent_splats() { return g_recent_splats; }
+lists::ObjectSet<RecentSplat>& recent_splats() { return flashes_and_splats().recent_splats_; }
 lists::ObjectSet<PcShatter>& shatters() { return g_shatters; }
 
 bool get_paused() { return objects::g_simulation_halted; }
@@ -95,7 +128,6 @@ int frame_milliseconds()
 void set_fog_density_curve(float /*exponent*/) {}
 // Two compiled-out calls (the empty 0x005480A0) after the tables are made.
 void compiled_out() {}
-
 
 } // namespace
 
@@ -119,8 +151,8 @@ SplatParams::SplatParams()
 
 // 0x004912C0
 Shatter::Shatter(int count)
-    : lifetime(g_glass_life_span), floor(g_shatter_floor), bounce(g_glass_restitution),
-      triangle_count_(static_cast<uint16_t>(count)), unknown28(g_shatter_value_af_1a)
+    : lifetime(fog_and_shatter().glass_life_span_), floor(fog_and_shatter().shatter_floor_), bounce(fog_and_shatter().glass_restitution_),
+      triangle_count_(static_cast<uint16_t>(count)), unknown28(fog_and_shatter().shatter_value_af_1a_)
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     centres = static_cast<maths::Vec4*>(memory::alloc(count << 4));
@@ -178,33 +210,33 @@ namespace engine {
 // 0x00490DE0
 void enable_fog(bool on)
 {
-    g_fog_active = on;
+    fog_and_shatter().fog_active_ = on;
     render::toggle_fog(on);
 }
 
 // 0x00490E00
 void set_fog_distance(float distance)
 {
-    g_fog_distance = distance;
+    fog_and_shatter().fog_distance_ = distance;
     render::set_fog_distance(distance);
 }
 
 // 0x00490E10
 void set_fog_exponent(float exponent)
 {
-    g_fog_exponent = exponent;
+    fog_and_shatter().fog_exponent_ = exponent;
     set_fog_density_curve(exponent);
 }
 
 // 0x00490E20
 void set_fog_color(uint32_t rgba)
 {
-    g_fog_color = rgba;
+    fog_and_shatter().fog_color_ = rgba;
     render::set_fog_color(rgba);
 }
 
 // 0x00491290
-void set_level_color(std::span<const float, 4> color) { std::ranges::copy(color, g_level_color.begin()); }
+void set_level_color(std::span<const float, 4> color) { std::ranges::copy(color, fog_and_shatter().level_color_.begin()); }
 
 // 0x00491110
 void change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vector_210e, float value_c483, float area,
@@ -212,18 +244,18 @@ void change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vec
                              float value_2e_1c, uint32_t texture, uint32_t value_af_1a, int value_33d_f)
 {
     g_glass_burst_velocity = *velocity;
-    g_shatter_vector_210e = *vector_210e;
+    fog_and_shatter().shatter_vector_210e_ = *vector_210e;
     g_split_area_limit = area == 0.0f ? 82944.0f : static_cast<float>(static_cast<double>(area) * area);
     g_shatter_speed = speed == 0.0f ? 0.0f : speed;
     g_shatter_velocity_scale = velocity_scale == 0.0f ? 1.0f : velocity_scale;
-    g_glass_life_span = lifetime == 0.0f ? 4.0f : lifetime;
-    g_shatter_floor = floor == 0.0f ? -10000.0f : floor;
-    g_glass_restitution = bounce == 0.0f ? 0.8f : bounce;
-    g_shatter_value_2e_1c = value_2e_1c;
-    g_shatter_value_c483_squared = static_cast<float>(static_cast<double>(value_c483) * value_c483);
-    g_shatter_texture = texture;
-    g_shatter_value_af_1a = value_af_1a;
-    g_shatter_value_33d_f = value_33d_f;
+    fog_and_shatter().glass_life_span_ = lifetime == 0.0f ? 4.0f : lifetime;
+    fog_and_shatter().shatter_floor_ = floor == 0.0f ? -10000.0f : floor;
+    fog_and_shatter().glass_restitution_ = bounce == 0.0f ? 0.8f : bounce;
+    engine_effects_state().shatter_value_2e_1c_ = value_2e_1c;
+    engine_effects_state().shatter_value_c483_squared_ = static_cast<float>(static_cast<double>(value_c483) * value_c483);
+    fog_and_shatter().shatter_texture_ = texture;
+    fog_and_shatter().shatter_value_af_1a_ = value_af_1a;
+    fog_and_shatter().shatter_value_33d_f_ = value_33d_f;
 }
 
 // 0x00490DC0
@@ -255,7 +287,7 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
             ++living;
         }
     }
-    if (living < 0x100 - g_splat_reserve)
+    if (living < 0x100 - engine_effects_state().splat_reserve_)
         return;
     // Nearly full: the triangle furthest through its life (of those with a time and a lifetime; the first one's
     // difference the bar to reach, whatever it is - the last of equals wins).
@@ -352,7 +384,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
                              float cone_angle, float lifetime, const char* image_label, uint32_t unknown38,
                              uint32_t follow, uint8_t unknown40, BitmapTexture* texture)
 {
-    g_splat_reserve = script::fetch_int_value(0x26FCB7BE); // (asserted)
+    engine_effects_state().splat_reserve_ = script::fetch_int_value(0x26FCB7BE); // (asserted)
     RecentSplat* recent = nullptr;
     if (follow) {
         // A recent position of the same id near enough: the splat is made from it. Old ones go.
@@ -399,8 +431,8 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
     const auto grids = get_coll_grids_on_line(&line);
     if (grids.empty())
         return false;
-    auto& sectors = g_line_sectors;
-    auto& objects = g_line_objects;
+    auto& sectors = fog_and_shatter().line_sectors_;
+    auto& objects = fog_and_shatter().line_objects_;
     int count = 0;
     for (CollGrid* const grid : grids) {
         for (HitMesh* const object : grid->objects_in_box(&box)) {

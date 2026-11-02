@@ -14,16 +14,27 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/no_destroy.h"
 namespace render {
 
 namespace {
-// The function-local statics of the stubs below (the boxes they return, and their guards).
-maths::Vec4 g_position_box;
-uint32_t g_position_guard;
-maths::Mat4 g_orientation_box;
-uint32_t g_orientation_guard;
-maths::Mat4 g_transform_box;
-uint32_t g_transform_guard;
+// NOT ORIGINAL grouping - engine_geom.cpp's state (the original's globals). Made on first use, never destroyed
+// (engine_geom_state()).
+struct EngineGeomState {
+    // The function-local statics of the stubs below (the boxes they return, and their guards).
+    maths::Vec4 position_box_{};
+    uint32_t position_guard_{};
+    maths::Mat4 orientation_box_{};
+    uint32_t orientation_guard_{};
+    maths::Mat4 transform_box_{};
+    uint32_t transform_guard_{};
+};
+
+EngineGeomState& engine_geom_state()
+{
+    static core::NoDestroy<EngineGeomState> state;
+    return state.get();
+}
 
 // The stubs' messages ("STUB: ...\n").
 void get_stub(const char* message) { debug::printf_text(message); }
@@ -176,21 +187,32 @@ bool Geom::is_operative()
     return false;
 }
 namespace {
-// (all zero at start, as the original's: the first PlatGetBoundingBox makes it empty)
-maths::BBox g_plat_bounding_box{maths::BBox(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f})};
-uint32_t g_plat_bounding_box_guard; // (bit 0: made)
+// NOT ORIGINAL grouping - the bounding box get_bounding_box hands out and its guard (the original's globals). Made on
+// first use, never destroyed (plat_bounding_box()).
+struct PlatBoundingBox {
+    // (all zero at start, as the original's: the first PlatGetBoundingBox makes it empty)
+    maths::BBox plat_bounding_box_{maths::BBox(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f})};
+    uint32_t plat_bounding_box_guard_{}; // (bit 0: made)
+};
+
+PlatBoundingBox& plat_bounding_box()
+{
+    static core::NoDestroy<PlatBoundingBox> state;
+    return state.get();
+}
+
 } // namespace
 
 // 0x0048DB40 (the box 0x006FAA08, its guard 0x006FAA28: made empty the first time)
 maths::BBox* Geom::fetch_bounds()
 {
-    uint32_t& guard = g_plat_bounding_box_guard;
+    uint32_t& guard = plat_bounding_box().plat_bounding_box_guard_;
     if (!(guard & 1)) {
         guard |= 1;
-        new (&g_plat_bounding_box) maths::BBox();
+        new (&plat_bounding_box().plat_bounding_box_) maths::BBox();
     }
     get_stub("STUB: PlatGetBoundingBox\n"); // "STUB: PlatGetBoundingBox\n"
-    return &g_plat_bounding_box;
+    return &plat_bounding_box().plat_bounding_box_;
 }
 // 0x0048DC30
 void Geom::change_bound_sphere(const maths::Vec4*)
@@ -215,7 +237,7 @@ void Geom::place_at_absolute_point(const maths::Vec4*)
 // 0x0048E0D0 (the vector 0x006FAA2C, its guard 0x006FAA3C: nothing to construct)
 maths::Vec4* Geom::get_absolute_point()
 {
-    maths::Vec4* position = local_static(g_position_box, g_position_guard);
+    maths::Vec4* position = local_static(engine_geom_state().position_box_, engine_geom_state().position_guard_);
     get_stub("STUB: PlatGetWorldPosition\n"); // "STUB: PlatGetWorldPosition\n"
     return position;
 }
@@ -224,7 +246,7 @@ void Geom::change_facing(const maths::Mat4*) { get_stub("STUB: PlatSetOrientatio
 // 0x0048E1C0 (the matrix 0x006FAA40, its guard 0x006FAA80)
 maths::Mat4* Geom::fetch_facing()
 {
-    maths::Mat4* orientation = local_static(g_orientation_box, g_orientation_guard);
+    maths::Mat4* orientation = local_static(engine_geom_state().orientation_box_, engine_geom_state().orientation_guard_);
     get_stub("STUB: PlatGetOrientation\n"); // "STUB: PlatGetOrientation\n"
     return orientation;
 }
@@ -238,7 +260,7 @@ void Geom::plat_set_transform(const maths::Mat4*)
 // 0x0048E1F0 (the matrix 0x006FAA88, its guard 0x006FAAC8)
 maths::Mat4* Geom::plat_get_transform()
 {
-    maths::Mat4* transform = local_static(g_transform_box, g_transform_guard);
+    maths::Mat4* transform = local_static(engine_geom_state().transform_box_, engine_geom_state().transform_guard_);
     get_stub("STUB: PlatGetTransform\n"); // "STUB: PlatGetTransform\n"
     return transform;
 }

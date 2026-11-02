@@ -16,21 +16,31 @@
 #include "platform/run_log.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace render::graphics_options {
 
 namespace {
 
-Options s_options;
-int s_active_anisotropy = 0;
-int s_samples = 0;
-DWORD s_quality = 0;
+// NOT ORIGINAL grouping - graphics_options.cpp's state (were globals). Made on first use, never destroyed
+// (graphics_options_state()).
+struct GraphicsOptionsState {
+    Options options_{};
+    int active_anisotropy_ = 0;
+    int samples_ = 0;
+    DWORD quality_ = 0;
+    // The scene surface and its depth (default pool), and the full-size copy last drawn through them.
+    IDirect3DSurface9* scene_colour_ = nullptr;
+    IDirect3DSurface9* scene_depth_ = nullptr;
+    IDirect3DTexture9* drawn_for_ = nullptr;
+    bool unresolved_ = false;
+};
 
-// The scene surface and its depth (default pool), and the full-size copy last drawn through them.
-IDirect3DSurface9* s_scene_colour = nullptr;
-IDirect3DSurface9* s_scene_depth = nullptr;
-IDirect3DTexture9* s_drawn_for = nullptr;
-bool s_unresolved = false;
+GraphicsOptionsState& graphics_options_state()
+{
+    static core::NoDestroy<GraphicsOptionsState> state;
+    return state.get();
+}
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 D3DPRESENT_PARAMETERS& present_parameters() { return g_present_parameters; }
@@ -72,25 +82,25 @@ void get_release(T*& p)
     }
 }
 
-bool in_use() { return s_samples > 0 && s_scene_colour && s_scene_depth; }
+bool in_use() { return graphics_options_state().samples_ > 0 && graphics_options_state().scene_colour_ && graphics_options_state().scene_depth_; }
 
 } // namespace
 
-Options& get_pull() { return s_options; }
+Options& get_pull() { return graphics_options_state().options_; }
 
 void read_in()
 {
-    s_options.anisotropy = parse_anisotropy(build_info::get_int(build_info::kGraphics, "anisotropy", 0));
-    s_options.msaa = parse_multisample(build_info::get_int(build_info::kGraphics, "msaa", 0));
+    graphics_options_state().options_.anisotropy = parse_anisotropy(build_info::get_int(build_info::kGraphics, "anisotropy", 0));
+    graphics_options_state().options_.msaa = parse_multisample(build_info::get_int(build_info::kGraphics, "msaa", 0));
     std::array<char, 32> text{};
     build_info::fetch_text(build_info::kGraphics, "draw_distance_scale", "1", text.data(), sizeof(text));
-    s_options.draw_distance_scale_ = parse_scale(text.data());
+    graphics_options_state().options_.draw_distance_scale_ = parse_scale(text.data());
     build_info::fetch_text(build_info::kGraphics, "lod_distance_scale", "1", text.data(), sizeof(text));
-    s_options.lod_distance_scale_ = parse_scale(text.data());
-    if (s_options.anisotropy || s_options.msaa || s_options.draw_distance_scale_ != 1.0f ||
-        s_options.lod_distance_scale_ != 1.0f)
+    graphics_options_state().options_.lod_distance_scale_ = parse_scale(text.data());
+    if (graphics_options_state().options_.anisotropy || graphics_options_state().options_.msaa || graphics_options_state().options_.draw_distance_scale_ != 1.0f ||
+        graphics_options_state().options_.lod_distance_scale_ != 1.0f)
         get_log("graphics options: anisotropy=%d msaa=%d draw_distance_scale=%.3g lod_distance_scale=%.3g",
-                s_options.anisotropy, s_options.msaa, s_options.draw_distance_scale_, s_options.lod_distance_scale_);
+                graphics_options_state().options_.anisotropy, graphics_options_state().options_.msaa, graphics_options_state().options_.draw_distance_scale_, graphics_options_state().options_.lod_distance_scale_);
 }
 
 int parse_anisotropy(int value) { return value < 2 ? 0 : (value > 16 ? 16 : value); }
@@ -133,40 +143,40 @@ int pick_samples(int option, bool (*supported)(int samples, void* context), void
 
 float get_scaled(float distance, float scale) { return scale == 1.0f ? distance : distance * scale; }
 
-int& active_anisotropy() { return s_active_anisotropy; }
+int& active_anisotropy() { return graphics_options_state().active_anisotropy_; }
 
-int chosen_samples() { return s_samples; }
+int chosen_samples() { return graphics_options_state().samples_; }
 
-uint32_t chosen_quality() { return s_quality; }
+uint32_t chosen_quality() { return graphics_options_state().quality_; }
 
 void choose_multisample(IDirect3D9* d3d, uint32_t back_buffer_format, uint32_t depth_format, bool windowed)
 {
-    s_samples = 0;
-    s_quality = 0;
-    if (!s_options.msaa || !d3d)
+    graphics_options_state().samples_ = 0;
+    graphics_options_state().quality_ = 0;
+    if (!graphics_options_state().options_.msaa || !d3d)
         return;
     SupportQuery query = {.d3d = d3d, .colour = static_cast<D3DFORMAT>(back_buffer_format), .depth = static_cast<D3DFORMAT>(depth_format),
                           .windowed = windowed ? TRUE : FALSE, .quality = 0};
-    s_samples = pick_samples(s_options.msaa, &get_supported, &query);
-    if (s_samples)
-        s_quality = query.quality - 1; // (the highest)
-    get_log("graphics options: msaa=%d asked, %d samples (quality %lu) chosen", s_options.msaa, s_samples,
-            static_cast<unsigned long>(s_quality));
+    graphics_options_state().samples_ = pick_samples(graphics_options_state().options_.msaa, &get_supported, &query);
+    if (graphics_options_state().samples_)
+        graphics_options_state().quality_ = query.quality - 1; // (the highest)
+    get_log("graphics options: msaa=%d asked, %d samples (quality %lu) chosen", graphics_options_state().options_.msaa, graphics_options_state().samples_,
+            static_cast<unsigned long>(graphics_options_state().quality_));
 }
 
 void create_scene_target()
 {
     release_scene_target();
     const D3DPRESENT_PARAMETERS& pp = present_parameters();
-    if (s_samples <= 0 || pp.MultiSampleType == D3DMULTISAMPLE_NONE)
+    if (graphics_options_state().samples_ <= 0 || pp.MultiSampleType == D3DMULTISAMPLE_NONE)
         return; // (the device was made without: the fallbacks in init_direct_3d)
     IDirect3DDevice9* device = input_port();
     const HRESULT colour =
         device->CreateRenderTarget(pp.BackBufferWidth, pp.BackBufferHeight, pp.BackBufferFormat, pp.MultiSampleType,
-                                   pp.MultiSampleQuality, FALSE, &s_scene_colour, nullptr);
+                                   pp.MultiSampleQuality, FALSE, &graphics_options_state().scene_colour_, nullptr);
     const HRESULT depth =
         device->CreateDepthStencilSurface(pp.BackBufferWidth, pp.BackBufferHeight, pp.AutoDepthStencilFormat,
-                                          pp.MultiSampleType, pp.MultiSampleQuality, TRUE, &s_scene_depth, nullptr);
+                                          pp.MultiSampleType, pp.MultiSampleQuality, TRUE, &graphics_options_state().scene_depth_, nullptr);
     if (FAILED(colour) || FAILED(depth)) {
         get_log("graphics options: no multisampled scene surface (0x%08lX / 0x%08lX) - screen effects unsmoothed",
                 static_cast<unsigned long>(colour), static_cast<unsigned long>(depth));
@@ -176,33 +186,33 @@ void create_scene_target()
 
 void release_scene_target()
 {
-    get_release(s_scene_colour);
-    get_release(s_scene_depth);
-    s_drawn_for = nullptr;
-    s_unresolved = false;
+    get_release(graphics_options_state().scene_colour_);
+    get_release(graphics_options_state().scene_depth_);
+    graphics_options_state().drawn_for_ = nullptr;
+    graphics_options_state().unresolved_ = false;
 }
 
 bool set_scene_target(IDirect3DTexture9* texture)
 {
     if (!in_use() || !texture || (texture != screen_copy(0) && texture != screen_copy(1)))
         return false;
-    input_port()->SetRenderTarget(0, s_scene_colour);
-    input_port()->SetDepthStencilSurface(s_scene_depth);
-    s_drawn_for = texture;
-    s_unresolved = true;
+    input_port()->SetRenderTarget(0, graphics_options_state().scene_colour_);
+    input_port()->SetDepthStencilSurface(graphics_options_state().scene_depth_);
+    graphics_options_state().drawn_for_ = texture;
+    graphics_options_state().unresolved_ = true;
     return true;
 }
 
 void resolve_scene_target(IDirect3DTexture9* texture)
 {
-    if (!in_use() || !s_unresolved || texture != s_drawn_for || !texture)
+    if (!in_use() || !graphics_options_state().unresolved_ || texture != graphics_options_state().drawn_for_ || !texture)
         return;
     IDirect3DSurface9* surface = nullptr;
     if (SUCCEEDED(texture->GetSurfaceLevel(0, &surface)) && surface) {
-        input_port()->StretchRect(s_scene_colour, nullptr, surface, nullptr, D3DTEXF_NONE);
+        input_port()->StretchRect(graphics_options_state().scene_colour_, nullptr, surface, nullptr, D3DTEXF_NONE);
         surface->Release();
     }
-    s_unresolved = false;
+    graphics_options_state().unresolved_ = false;
 }
 
 } // namespace render::graphics_options

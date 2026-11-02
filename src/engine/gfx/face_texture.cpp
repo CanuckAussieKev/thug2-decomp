@@ -22,6 +22,7 @@
 #include <iterator>
 #include <span>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace gfx {
 
@@ -46,13 +47,23 @@ constexpr uint32_t kFacePoints = 0xAC3CD84C;   // face_points
 constexpr uint32_t kNoPaletteGen = 0x5905256B; // no_palette_gen
 constexpr uint32_t kNoColour = 0x80808080;
 
-FaceAnchors g_stock_face_anchors{.left_eye_ = {49, 54}, .right_eye_ = {76, 54}, .nose_slot_ = {64, 75}, .mouth_part_ = {64, 89}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = 128, .level_y_ = 128};
-FaceAnchors g_active_face_anchors{.left_eye_ = {49, 54}, .right_eye_ = {76, 54}, .nose_slot_ = {64, 75}, .mouth_part_ = {64, 89}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = 128, .level_y_ = 128};
-render::BitmapTexture* g_face_overlay;
+// NOT ORIGINAL grouping - face_texture.cpp's state (the original's globals). Made on first use, never destroyed
+// (face_texture_state()).
+struct FaceTextureState {
+    FaceAnchors stock_face_anchors_{.left_eye_ = {49, 54}, .right_eye_ = {76, 54}, .nose_slot_ = {64, 75}, .mouth_part_ = {64, 89}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = 128, .level_y_ = 128};
+    FaceAnchors active_face_anchors_{.left_eye_ = {49, 54}, .right_eye_ = {76, 54}, .nose_slot_ = {64, 75}, .mouth_part_ = {64, 89}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = 128, .level_y_ = 128};
+    render::BitmapTexture* face_overlay_{};
+};
 
-FaceAnchors& stock_face_anchors() { return g_stock_face_anchors; }
-FaceAnchors& active_face_anchors() { return g_active_face_anchors; }
-render::BitmapTexture*& face_overlay() { return g_face_overlay; }
+FaceTextureState& face_texture_state()
+{
+    static core::NoDestroy<FaceTextureState> state;
+    return state.get();
+}
+
+FaceAnchors& stock_face_anchors() { return face_texture_state().stock_face_anchors_; }
+FaceAnchors& active_face_anchors() { return face_texture_state().active_face_anchors_; }
+render::BitmapTexture*& face_overlay() { return face_texture_state().face_overlay_; }
 
 // The game's texture dictionary (0x00700F1C) and its texture `name`.
 render::BitmapTexture* find_texture(uint32_t name) { return render::g_game_texture_dict->fetch_skin(name); }

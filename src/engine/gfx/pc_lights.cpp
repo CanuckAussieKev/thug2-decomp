@@ -15,12 +15,24 @@
 #include <array>
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
+#include "engine/core/no_destroy.h"
 
 namespace render {
 
 namespace {
-maths::Vec4 g_scene_light_direction;
-uint32_t g_scene_light_direction_guard;
+// NOT ORIGINAL grouping - pc_lights.cpp's state (the original's globals). Made on first use, never destroyed
+// (pc_lights_state()).
+struct PcLightsState {
+    maths::Vec4 scene_light_direction_{};
+    uint32_t scene_light_direction_guard_{};
+};
+
+PcLightsState& pc_lights_state()
+{
+    static core::NoDestroy<PcLightsState> state;
+    return state.get();
+}
+
 } // namespace
 std::array<float, 4 + 8 * (2 + 32)> g_light_constants;
 
@@ -303,8 +315,8 @@ bool update_light_direction(int light)
 // 0x004B6AB0
 maths::Vec4* get_light_direction(int light)
 {
-    g_scene_light_direction_guard |= 1; // (the static's initialisation guard)
-    maths::Vec4& out = g_scene_light_direction;
+    pc_lights_state().scene_light_direction_guard_ |= 1; // (the static's initialisation guard)
+    maths::Vec4& out = pc_lights_state().scene_light_direction_;
     const maths::Vec4& direction = core::at(scene_directions(), light);
     out = {.x = direction.x, .y = direction.y, .z = direction.z, .w = 1.0f};
     return &out;
