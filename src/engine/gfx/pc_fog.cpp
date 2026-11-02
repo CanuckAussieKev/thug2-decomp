@@ -66,8 +66,8 @@ void set_fog_color(uint32_t rgba)
         density = 1.0;
     else if (!(density > 0.0))
         density = 0.0;
-    float* constant = &core::at(g_ps_constant_bank, 16);
-    constant[0] = constant[1] = constant[2] = static_cast<float>(density);
+    core::at(g_ps_constant_bank, 16) = core::at(g_ps_constant_bank, 17) = core::at(g_ps_constant_bank, 18) =
+        static_cast<float>(density);
     const uint32_t color = (r << 16) | (g << 8) | b;
     g_fog_colour = color;
     input_port()->SetRenderState(D3DRS_FOGCOLOR, color);

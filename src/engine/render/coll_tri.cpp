@@ -436,7 +436,7 @@ void TriMeshSource::add_occlusion_polys()
                 core::at(points, 3) = read_stored_vertex(extra);
             }
             // (otherwise - not possible with two shared corners - face j's corners as they are)
-            add_debug_shape(4, points.data(), checksum_);
+            add_debug_shape(4, points, checksum_);
             break;
         }
     }

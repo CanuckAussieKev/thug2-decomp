@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 
 #include <gsl/pointers>
 #include <array>
@@ -40,7 +41,7 @@ void set_screen_clip(const SkinScaling* settings);
 // (What it reaches is occlusion.h's insert_occluder_poly - `colour` is the polygon's checksum; the two below are
 // activate_occluder_poly and clear_occluder_polys, and sphere_visible is sphere_outside_view: 1 when the sphere is
 // outside the view. The names here are kept for their callers.)
-void add_debug_shape(int type, const maths::Vec4* points, uint32_t colour);
+void add_debug_shape(int type, std::span<const maths::Vec4> points, uint32_t colour);
 // 0x004B22F0 / 0x004B2300: jumps to 0x004D8C90 (the debug lines with this id get `flag` in their byte at +0)
 // and 0x004D8CC0 (all debug lines cleared).
 void flag_debug_lines(uint32_t id, bool flag);

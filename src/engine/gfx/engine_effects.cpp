@@ -105,7 +105,7 @@ void compiled_out() {}
 void VertexStack::stack_off(uint8_t* out)
 {
     used -= vertex_size_;
-    std::memcpy(out, data.data() + used, vertex_size_);
+    std::memcpy(out, std::span(data).subspan(used, vertex_size_).data(), vertex_size_);
 }
 
 // 0x00490E40
@@ -142,8 +142,8 @@ Shatter::~Shatter()
 // 0x004913D0
 void Shatter::get_step(int index, float step)
 {
-    maths::Vec4& velocity = velocities[index];
-    maths::Vec4& centre = centres[index];
+    maths::Vec4& velocity = core::at(velocity_run(), index);
+    maths::Vec4& centre = core::at(centre_run(), index);
     const double move_x = static_cast<double>(step) * velocity.x;
     const double move_y = static_cast<double>(step) * velocity.y;
     auto move_z = static_cast<float>(static_cast<double>(step) * velocity.z);
@@ -161,7 +161,7 @@ void Shatter::get_step(int index, float step)
         auto a3 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
         maths::Vec4 axis = {a3, a2, a1, 1.0f};
         axis.make_unit();
-        maths::Mat4& rotation = rotations[index];
+        maths::Mat4& rotation = core::at(rotation_run(), index);
         std::memset(&rotation, 0, sizeof(rotation));
         core::at(rotation.row, 0).x = core::at(rotation.row, 1).y = core::at(rotation.row, 2).z = core::at(rotation.row, 3).w = 1.0f;
         auto turn_angle = static_cast<float>(get_rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
@@ -510,11 +510,10 @@ void update_flashes()
                 dead = flash;
             } else {
                 const double t = left / flash->duration;
-                uint8_t* now = &flash->red;
                 for (int i = 0; i < 4; ++i) {
                     const int change = static_cast<int>(
                         static_cast<int64_t>(static_cast<double>(core::at(flash->start, i) - core::at(flash->end, i)) * t));
-                    now[i] = static_cast<uint8_t>(core::at(flash->end, i) + change);
+                    core::at(flash->now, i) = static_cast<uint8_t>(core::at(flash->end, i) + change);
                 }
             }
         }

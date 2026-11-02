@@ -134,7 +134,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
 
     if (flags & kRenderOpaque) {
         for (int i = 0; i < scene->first_transparent_; ++i) {
-            MeshRef* mesh = scene->meshes[i];
+            MeshRef* mesh = core::at(scene->mesh_run(), i);
             if (!pass.get_visible(mesh))
                 continue;
             if (!(flags & kRenderNearFirst)) {
@@ -183,7 +183,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
     // The transparent meshes up to the flagged ones.
     int i = scene->first_transparent_;
     for (; i < scene->first_flagged_; ++i) {
-        MeshRef* mesh = scene->meshes[i];
+        MeshRef* mesh = core::at(scene->mesh_run(), i);
         if (!pass.get_visible(mesh))
             continue;
         pass.blit(mesh);
@@ -194,7 +194,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
         const int end = scene->first_flagged_ + scene->flagged_count_;
         int sorted = 0;
         for (; i < end; ++i) {
-            MeshRef* mesh = scene->meshes[i];
+            MeshRef* mesh = core::at(scene->mesh_run(), i);
             if (!pass.get_visible(mesh))
                 continue;
             pass.remember(mesh);
@@ -209,7 +209,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
         }
         // Then the rest.
         for (; i < scene->mesh_count_; ++i) {
-            MeshRef* mesh = scene->meshes[i];
+            MeshRef* mesh = core::at(scene->mesh_run(), i);
             if (!pass.get_visible(mesh))
                 continue;
             pass.blit(mesh);

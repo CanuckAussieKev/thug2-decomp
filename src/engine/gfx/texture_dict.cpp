@@ -8,6 +8,9 @@
 #include <cstring>
 #include <new>
 #include <array>
+#include <iterator>
+#include <string_view>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -43,10 +46,10 @@ const std::array<int, 8>& key_multipliers() { return g_key_multipliers; }
 // The CRC of what follows a name's last slash or backslash.
 uint32_t filename_key(const char* name)
 {
-    int start = static_cast<int>(std::strlen(name));
-    while (start > 0 && name[start - 1] != '\\' && name[start - 1] != '/')
-        --start;
-    return checksums::hash_from_text(name + start);
+    const std::string_view full(name);
+    const size_t slash = full.find_last_of("\\/");
+    const size_t start = slash == std::string_view::npos ? 0 : slash + 1;
+    return checksums::hash_from_text(std::next(name, static_cast<std::ptrdiff_t>(start)));
 }
 
 // (0x0048C1B0: an empty call - compiled-out debug code - each unload makes before the platform's)
@@ -119,8 +122,10 @@ BitmapTexture* TextureSet::get_texture_by_name(const char* name)
 BitmapTexture* TextureSet::find_texture(const char* name)
 {
     auto find = [this](uint32_t checksum) -> BitmapTexture* {
-        for (const int* multiplier = key_multipliers().data(); *multiplier > 0; ++multiplier) {
-            const uint32_t key = static_cast<uint32_t>(*multiplier) * checksum;
+        for (const int multiplier : key_multipliers()) {
+            if (multiplier <= 0)
+                break;
+            const uint32_t key = static_cast<uint32_t>(multiplier) * checksum;
             BitmapTexture* texture = textures_ ? static_cast<BitmapTexture*>(textures_->fetch_entry(key)) : nullptr;
             if (texture)
                 return texture;
@@ -133,7 +138,7 @@ BitmapTexture* TextureSet::find_texture(const char* name)
     std::snprintf(other.data(), sizeof(other), "%s", name);
     const size_t length = std::strlen(other.data());
     if (length > 4 && length - 4 + 14 <= sizeof(other)) // "_auto32m0.png" and its 0 in place of the last four
-        std::memcpy(other.data() + length - 4, "_auto32m0.png", 14);
+        std::memcpy(std::span(other).subspan(length - 4).data(), "_auto32m0.png", 14);
     return find(checksums::hash_from_text(other.data()));
 }
 

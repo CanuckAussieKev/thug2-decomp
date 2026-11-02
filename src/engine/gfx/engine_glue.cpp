@@ -105,10 +105,10 @@ void begin_frame_draw()
 void set_screen_clip(const SkinScaling* settings) { set_skin_scaling(settings); }
 
 // 0x004B22C0
-void add_debug_shape(int type, const maths::Vec4* points, uint32_t colour)
+void add_debug_shape(int type, std::span<const maths::Vec4> points, uint32_t colour)
 {
     if (type == 4)
-        insert_occluder_poly(points, points + 1, points + 2, points + 3, colour);
+        insert_occluder_poly(&core::at(points, 0), &core::at(points, 1), &core::at(points, 2), &core::at(points, 3), colour);
 }
 
 // 0x004B22F0

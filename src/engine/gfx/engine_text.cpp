@@ -1,6 +1,7 @@
 // The engine's text: see engine_text.h.
 
 #include "engine/gfx/engine_text.h"
+#include "engine/core/checked_index.h"
 
 #include "engine/core/str.h"
 
@@ -37,8 +38,8 @@ CharEffect* new_effects()
     // (the original's array new kept the count before them; the count is fixed)
     auto* effects = static_cast<CharEffect*>(memory::alloc(kCharEffects * sizeof(CharEffect)));
     if (effects) {
-        for (int i = 0; i < kCharEffects; ++i)
-            memory::construct_in<CharEffect>(&effects[i]);
+        for (CharEffect& effect : std::span(effects, static_cast<std::size_t>(kCharEffects)))
+            memory::construct_in<CharEffect>(&effect);
     }
     memory::Hub::get_pull()->leave_heap_scope();
     return effects;
@@ -175,8 +176,8 @@ void GlyphString::set_char_offset(int index, int16_t x, int16_t y)
 {
     if (!effects_)
         effects_ = new_effects();
-    effects_[index].x = x;
-    effects_[index].y = y;
+    core::at(effect_run(), index).x = x;
+    core::at(effect_run(), index).y = y;
     update_settings();
 }
 
@@ -185,8 +186,8 @@ void GlyphString::set_char_scale(int index, float x, float y)
 {
     if (!effects_)
         effects_ = new_effects();
-    effects_[index].xscale = get_fixed(x);
-    effects_[index].yscale = get_fixed(y);
+    core::at(effect_run(), index).xscale = get_fixed(x);
+    core::at(effect_run(), index).yscale = get_fixed(y);
     update_settings();
 }
 
@@ -195,7 +196,7 @@ void GlyphString::set_char_rotation(int index, float rotation)
 {
     if (!effects_)
         effects_ = new_effects();
-    effects_[index].rotation = get_fixed(rotation);
+    core::at(effect_run(), index).rotation = get_fixed(rotation);
     update_settings();
 }
 

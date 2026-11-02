@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "engine/core/mem.h"
 #include <gsl/pointers>
@@ -48,6 +49,8 @@ public:
 
     Typeface* typeface_{nullptr};         // +0x04
     CharEffect* effects_{nullptr};        // +0x08 (null until one is set)
+    // NOT ORIGINAL - the effects as a run of kCharEffects.
+    [[nodiscard]] std::span<CharEffect> effect_run() const { return {effects_, static_cast<std::size_t>(kCharEffects)}; }
     char* text_buffer_{nullptr};          // +0x0C (a buffer of its own, null until set)
     float pos_x_{0.0f}, y_{0.0f};         // +0x10
     float pivot_x_{0.0f}, pivot_y_{0.0f}; // +0x18

@@ -67,7 +67,7 @@ Rgb& gradient_end() { return g_gradient_end; }
 int& gradient_width() { return g_gradient_width; }
 uint32_t& border_argb() { return g_border_argb; }
 
-Rgb* gradient_table() { return s_gradient_buffer.data(); }
+std::array<Rgb, 100000 / sizeof(Rgb)>& gradient_table() { return s_gradient_buffer; }
 
 // The bar's timing (0x004B7400): seconds per tick, seconds so far, seconds for the whole bar.
 float& tick_seconds() { return g_tick_seconds; }
@@ -117,11 +117,12 @@ void update_loading_bar_colors()
     const int steps = static_cast<int>(static_cast<double>(gradient_width()) * horiz_screen_ratio());
     const Rgb start = gradient_start();
     const Rgb delta = {gradient_end().r - start.r, gradient_end().g - start.g, gradient_end().b - start.b};
-    Rgb* table = gradient_table();
+    auto& table = gradient_table();
     for (int i = 0; i < steps; ++i) {
-        table[i].r = delta.r * i / steps + gradient_start().r;
-        table[i].g = delta.g * i / steps + gradient_start().g;
-        table[i].b = delta.b * i / steps + gradient_start().b;
+        Rgb& entry = core::at(table, i);
+        entry.r = delta.r * i / steps + gradient_start().r;
+        entry.g = delta.g * i / steps + gradient_start().g;
+        entry.b = delta.b * i / steps + gradient_start().b;
     }
 }
 
