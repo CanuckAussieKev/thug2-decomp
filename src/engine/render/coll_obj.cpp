@@ -2,7 +2,6 @@
 
 #include "engine/render/coll_obj.h"
 
-#include <cstdint>
 #include <new>
 
 #include "engine/core/manager.h"
@@ -11,7 +10,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_tri.h"
-#include "platform/code_address.h"
 #include "engine/render/coll_static.h"
 #include "engine/core/arena_alloc.h"
 #include <gsl/pointers>

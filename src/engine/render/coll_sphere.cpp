@@ -18,7 +18,6 @@
 #include "engine/render/coll_tri.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {

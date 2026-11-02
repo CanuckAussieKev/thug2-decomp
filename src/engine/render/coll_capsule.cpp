@@ -14,7 +14,6 @@
 #include "engine/render/coll_tests.h"
 #include "engine/render/coll_tri.h"
 #include "engine/core/ints.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
