@@ -27,6 +27,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::new_frontend::paint {
 
@@ -74,18 +75,32 @@ struct FaceLayout {
     float ascent = 0.8f, descent = -0.2f;
     bool ok = false;
 };
-std::array<FaceLayout, 3> g_faces;
+std::array<FaceLayout, 3>& stored_faces()
+{
+    static core::NoDestroy<std::array<FaceLayout, 3>> faces;
+    return faces.get();
+}
 
 struct Baked {
     ImFont* font = nullptr;
     Face face = Face::kBody;
     float em_px_ = 0.0f; // the em in window px it was baked for
 };
-std::array<Baked, kBakeCount> g_baked;
-float g_scale = 0.0f;
-ImFontAtlas* g_atlas = nullptr; // (the atlas the fonts are in: another context's means none built here)
-float g_condense = 1.0f;
-float g_bold = 0.0f;
+// NOT ORIGINAL grouping - new_frontend_draw.cpp's state (were globals). Made on first use, never destroyed
+// (new_frontend_draw_state()).
+struct NewFrontendDrawState {
+    std::array<Baked, kBakeCount> baked_{};
+    float scale_ = 0.0f;
+    ImFontAtlas* atlas_ = nullptr; // (the atlas the fonts are in: another context's means none built here)
+    float condense_ = 1.0f;
+    float bold_ = 0.0f;
+};
+
+NewFrontendDrawState& new_frontend_draw_state()
+{
+    static core::NoDestroy<NewFrontendDrawState> state;
+    return state.get();
+}
 
 // The display face's glyphs: upper case (the design sets it in capitals), figures, punctuation, the em dash. The
 // mono and body faces: ASCII, the em dash, the middle dot, the apostrophe.
@@ -117,16 +132,16 @@ uint32_t be32(std::span<const uint8_t> p)
 const Baked* font_for(Face face, float css)
 {
     const Baked* best = nullptr;
-    for (const Baked& b : g_baked) {
+    for (const Baked& b : new_frontend_draw_state().baked_) {
         if (!b.font || b.face != face)
             continue;
         // (the smallest bake at least as large, else the largest)
-        const float baked_css = b.em_px_ / std::max(g_scale, 0.01f);
+        const float baked_css = b.em_px_ / std::max(new_frontend_draw_state().scale_, 0.01f);
         if (!best) {
             best = &b;
             continue;
         }
-        const float best_css = best->em_px_ / std::max(g_scale, 0.01f);
+        const float best_css = best->em_px_ / std::max(new_frontend_draw_state().scale_, 0.01f);
         const bool fits = baked_css >= css - 0.5f;
         const bool best_fits = best_css >= css - 0.5f;
         if ((fits && (!best_fits || baked_css < best_css)) || (!fits && !best_fits && baked_css > best_css))
@@ -139,7 +154,7 @@ const Baked* font_for(Face face, float css)
     return best;
 }
 
-const FaceLayout& data_of(Face face) { return core::at(g_faces, static_cast<int>(face)); }
+const FaceLayout& data_of(Face face) { return core::at(stored_faces(), static_cast<int>(face)); }
 
 // --- text ---
 
@@ -174,8 +189,8 @@ Gauges metrics_of(const Style& style, const TickCycle& frame)
     if (m.baked)
         m.k = frame.current_s(style.css) / m.baked->em_px_;
     if (style.face == Face::kDisplay && m.baked && m.baked->face == Face::kDisplay) {
-        m.x_scale_ = g_condense;
-        m.bold_px_ = g_bold * frame.current_s(style.css);
+        m.x_scale_ = new_frontend_draw_state().condense_;
+        m.bold_px_ = new_frontend_draw_state().bold_ * frame.current_s(style.css);
     }
     return m;
 }
@@ -1873,26 +1888,26 @@ bool read_font_metrics(const uint8_t* file, size_t size, float* ascent, float* d
 
 void forget_fonts()
 {
-    g_atlas = nullptr;
-    g_scale = 0.0f;
-    for (Baked& b : g_baked)
+    new_frontend_draw_state().atlas_ = nullptr;
+    new_frontend_draw_state().scale_ = 0.0f;
+    for (Baked& b : new_frontend_draw_state().baked_)
         b = Baked{};
 }
 
-float built_scale() { return ImGui::GetCurrentContext() && ImGui::GetIO().Fonts == g_atlas ? g_scale : 0.0f; }
+float built_scale() { return ImGui::GetCurrentContext() && ImGui::GetIO().Fonts == new_frontend_draw_state().atlas_ ? new_frontend_draw_state().scale_ : 0.0f; }
 
 bool build_fonts(const FontFiles& files, float scale)
 {
     ImFontAtlas* atlas = ImGui::GetIO().Fonts;
     atlas->Clear();
-    for (Baked& b : g_baked)
+    for (Baked& b : new_frontend_draw_state().baked_)
         b = Baked{};
-    g_condense = std::clamp(files.condense, 0.5f, 1.5f);
-    g_bold = std::clamp(files.bold, 0.0f, 0.1f);
+    new_frontend_draw_state().condense_ = std::clamp(files.condense, 0.5f, 1.5f);
+    new_frontend_draw_state().bold_ = std::clamp(files.bold, 0.0f, 0.1f);
     const std::array<const std::string*, 3> paths = {{&files.display, &files.mono, &files.body}};
     bool all = true;
     for (int i = 0; i < 3; ++i) {
-        FaceLayout& face = core::at(g_faces, i);
+        FaceLayout& face = core::at(stored_faces(), i);
         face = FaceLayout{};
         if (core::at(paths, i)->empty() || !read_file(*core::at(paths, i), &face.file) ||
             !read_font_metrics(face.file.data(), face.file.size(), &face.ascent, &face.descent)) {
@@ -1904,7 +1919,7 @@ bool build_fonts(const FontFiles& files, float scale)
         face.ok = true;
     }
     for (int i = 0; i < kBakeCount; ++i) {
-        FaceLayout& face = core::at(g_faces, static_cast<int>(core::at(kBakes, i).face));
+        FaceLayout& face = core::at(stored_faces(), static_cast<int>(core::at(kBakes, i).face));
         if (!face.ok)
             continue;
         const float em = std::max(4.0f, std::round(core::at(kBakes, i).css * scale));
@@ -1920,10 +1935,10 @@ bool build_fonts(const FontFiles& files, float scale)
         ImFont* font =
             atlas->AddFontFromMemoryTTF(face.file.data(), static_cast<int>(face.file.size()), pixel_height, &config,
                                         core::at(kBakes, i).face == Face::kDisplay ? kDisplayRanges.data() : kTextRanges.data());
-        core::at(g_baked, i) = {.font = font, .face = core::at(kBakes, i).face, .em_px_ = em};
+        core::at(new_frontend_draw_state().baked_, i) = {.font = font, .face = core::at(kBakes, i).face, .em_px_ = em};
     }
-    g_scale = scale;
-    g_atlas = atlas;
+    new_frontend_draw_state().scale_ = scale;
+    new_frontend_draw_state().atlas_ = atlas;
     atlas->Build();
     get_log("new front end: fonts for scale %.2f - atlas %dx%d", scale, atlas->TexWidth, atlas->TexHeight);
     return all;

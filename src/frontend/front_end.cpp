@@ -37,6 +37,7 @@
 #include <array>
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/no_destroy.h"
 
 namespace modules {
 
@@ -93,13 +94,23 @@ const std::array<const char*, 18> kXboxButtonNames = {{
     "white",
 }};
 
-uint32_t g_front_end_refs;
-bool g_skateshop_override;
+// NOT ORIGINAL grouping - front_end.cpp's state (the original's globals). Made on first use, never destroyed
+// (front_end_state()).
+struct FrontEndState {
+    uint32_t front_end_refs_{};
+    bool skateshop_override_{};
+};
 
-uint32_t& front_end_refs() { return g_front_end_refs; }
+FrontEndState& front_end_state()
+{
+    static core::NoDestroy<FrontEndState> state;
+    return state.get();
+}
+
+uint32_t& front_end_refs() { return front_end_state().front_end_refs_; }
 // Set each frame by Update.
 bool& menus_active() { return g_menus_active; }             // paused, in the skateshop, or keyboard up
-bool& skateshop_override() { return g_skateshop_override; } // set elsewhere: never counts as the skateshop
+bool& skateshop_override() { return front_end_state().skateshop_override_; } // set elsewhere: never counts as the skateshop
 bool& get_keyboard_on_screen() { return sio::keyboard_on_screen_flag(); }
 bool& menu_on_screen() { return sio::menu_flag(); } // a menu, dialog box or the quit dialog
 bool& pending_script() { return g_pending_script; }    // set elsewhere: run 0xFB11E6CD next frame

@@ -27,7 +27,11 @@ uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 // The longest list restyled (ours scrolls it; past this the game's own is kept - nothing the game makes is that long).
 constexpr size_t kMaxItems = 400;
 
-ButtonNamer g_button_namer = nullptr;
+ButtonNamer& button_namer()
+{
+    static ButtonNamer button_namer{nullptr};
+    return button_namer;
+}
 
 std::string get_upper(std::string s)
 {
@@ -257,7 +261,7 @@ std::string clean_text(const std::string& raw, bool newlines)
             }
             if ((e == 'b' || e == 'B' || e == 'm' || e == 'M') && i + 2 < raw.size()) {
                 // (a button: the key's name as the game spells it, between spaces when words touch it)
-                const std::string name = g_button_namer ? g_button_namer(e, core::at(raw, i + 2)) : std::string();
+                const std::string name = button_namer() ? button_namer()(e, core::at(raw, i + 2)) : std::string();
                 if (!name.empty()) {
                     if (!out.empty() && out.back() != ' ' && out.back() != '/')
                         out += ' ';
@@ -295,7 +299,7 @@ std::string clean_text(const std::string& raw, bool newlines)
     return tidy;
 }
 
-void set_button_namer(ButtonNamer namer) { g_button_namer = namer; }
+void set_button_namer(ButtonNamer namer) { button_namer() = namer; }
 
 // The colour menus' ranges (colormenu.qb: colormenu_max_saturation 90, colormenu_min_value 12, colormenu_max_value 60;
 // Create-A-Graphic's value starts at 0).

@@ -25,6 +25,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::restart_tester {
 
@@ -117,13 +118,24 @@ void get_message(const char* text, const char* id = "restart_tester_message", fl
     script::delete_struct(params);
 }
 
-uint32_t s_level;             // the level (its restarts' names) the visited set is for
+// NOT ORIGINAL grouping - restart_tester.cpp's state (the original's globals). Made on first use, never destroyed
+// (restart_tester_state()).
+struct RestartTesterState {
+    uint32_t level_{}; // the level (its restarts' names) the visited set is for
+    bool key_up_ = true;
+};
+
+RestartTesterState& restart_tester_state()
+{
+    static core::NoDestroy<RestartTesterState> state;
+    return state.get();
+}
+
 std::set<uint32_t>& visited_state()
 {
     static std::set<uint32_t> value; // its restarts visited this round
     return value;
 }
-bool s_key_up = true;
 
 void get_next()
 {
@@ -132,8 +144,8 @@ void get_next()
     uint32_t level = 0;
     for (const Relaunch& r : restarts)
         level = level * 31 + r.name;
-    if (level != s_level) {
-        s_level = level;
+    if (level != restart_tester_state().level_) {
+        restart_tester_state().level_ = level;
         visited_state().clear();
     }
     if (restarts.empty()) {
@@ -181,8 +193,8 @@ void tick_frame(modules::FrontEnd* front_end)
         return;
     const platform::KeyState keys = platform::keyboard_keys();
     const bool down = !keys.empty() && core::at(keys, kKey);
-    const bool pressed = down && s_key_up;
-    s_key_up = !down;
+    const bool pressed = down && restart_tester_state().key_up_;
+    restart_tester_state().key_up_ = !down;
     if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||
         (front_end && front_end->is_halted_) || render::current_level() == 0)
         return;

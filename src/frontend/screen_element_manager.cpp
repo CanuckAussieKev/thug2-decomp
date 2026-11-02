@@ -643,7 +643,11 @@ void UiTree::update_priorities()
 // --- the singleton --------------------------------------------------------------------------------------------
 
 namespace {
-uint32_t g_screen_element_manager_uses;
+uint32_t& screen_element_manager_uses()
+{
+    static uint32_t screen_element_manager_uses{};
+    return screen_element_manager_uses;
+}
 } // namespace
 
 // 0x004ACAF0
@@ -652,17 +656,17 @@ void create_screen_element_manager(bool create)
     if (!g_ui_element_hub && create) {
         g_ui_element_hub = std::make_unique<UiTree>(); // (zeroed, from the current heap; null when it's full)
         if (g_ui_element_hub) {
-            ++g_screen_element_manager_uses;
+            ++screen_element_manager_uses();
             return;
         }
     }
-    ++g_screen_element_manager_uses;
+    ++screen_element_manager_uses();
 }
 
 // 0x004AACF0
 void delete_screen_element_manager()
 {
-    uint32_t& uses = g_screen_element_manager_uses;
+    uint32_t& uses = screen_element_manager_uses();
     if (uses > 1) {
         --uses;
         return;

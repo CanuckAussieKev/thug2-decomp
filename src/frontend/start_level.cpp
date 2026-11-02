@@ -33,6 +33,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include "engine/core/format.h"
+#include "engine/core/no_destroy.h"
 
 namespace frontend::begin_level {
 
@@ -97,8 +98,18 @@ bool scene_installed(const std::string& name)
     return file::is_present(path.data());
 }
 
-int s_frames; // the front end's frames with the main menu's scripts loaded
-bool s_done;
+// NOT ORIGINAL grouping - start_level.cpp's state (the original's globals). Made on first use, never destroyed
+// (start_level_state()).
+struct StartLevelState {
+    int frames_{}; // the front end's frames with the main menu's scripts loaded
+    bool done_{};
+};
+
+StartLevelState& start_level_state()
+{
+    static core::NoDestroy<StartLevelState> state;
+    return state.get();
+}
 
 // -edit: the editor opened once the level is up (edit_update).
 constexpr uint32_t kSkater = 0x5B8AB877; // Skater (the local skater's alias)
@@ -107,18 +118,38 @@ constexpr int kPauseWaitFrames = 120;    // (for the pause menu, before Start is
 constexpr int kPauseMenuFrames = 20;     // (the pause menu up this long before LEVEL EDITOR is chosen)
 constexpr int kStartPresses = 5;
 enum class Edit : uint8_t { kDisengaged, kWaitLevel, kWaitPause, kDone };
-Edit s_edit = Edit::kDisengaged;
-int s_edit_frames;
-int s_presses;
-bool s_started;      // the requested level's load began
-bool s_pools_logged; // its script pool use logged (Scripts::log_script_pool_use)
-int s_pool_frames;
+// NOT ORIGINAL grouping - the editor start: its presses and frames, whether it started, the pools' log (the original's
+// globals). Made on first use, never destroyed (edit_start()).
+struct EditStart {
+    Edit edit_ = Edit::kDisengaged;
+    int edit_frames_{};
+    int presses_{};
+    bool started_{}; // the requested level's load began
+    bool pools_logged_{}; // its script pool use logged (Scripts::log_script_pool_use)
+    int pool_frames_{};
+};
+
+EditStart& edit_start()
+{
+    static core::NoDestroy<EditStart> state;
+    return state.get();
+}
 
 // -at / start_at: the skater put there standing once the level is up (at_update).
 constexpr int kAtSettleFrames = 60; // (in the level, unpaused, before the teleport)
 enum class At : uint8_t { kDisengaged, kWaitLevel, kDone };
-At s_at = At::kDisengaged;
-int s_at_frames;
+// NOT ORIGINAL grouping - the spot to start at and the frames spent placing the skater there (the original's globals).
+// Made on first use, never destroyed (start_spot()).
+struct StartSpot {
+    At at_ = At::kDisengaged;
+    int at_frames_{};
+};
+
+StartSpot& start_spot()
+{
+    static core::NoDestroy<StartSpot> state;
+    return state.get();
+}
 
 // The spot asked for ("" if none): -at, then start_at=.
 const std::string& at_text()
@@ -133,14 +164,14 @@ const std::string& at_text()
 // True while the teleport is still to come (-edit's editor waits for it).
 bool at_update(modules::FrontEnd* front_end)
 {
-    if (s_at != At::kWaitLevel)
+    if (start_spot().at_ != At::kWaitLevel)
         return false;
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
     const bool paused = front_end && front_end->is_halted_;
-    s_at_frames = in_level && !paused ? s_at_frames + 1 : 0;
-    if (s_at_frames < kAtSettleFrames)
+    start_spot().at_frames_ = in_level && !paused ? start_spot().at_frames_ + 1 : 0;
+    if (start_spot().at_frames_ < kAtSettleFrames)
         return true;
-    s_at = At::kDone;
+    start_spot().at_ = At::kDone;
     Spot spot;
     parse_spot(at_text(), &spot); // (checked when it was asked for)
     test_view::Vec3 at{};
@@ -156,21 +187,21 @@ void edit_update(modules::FrontEnd* front_end)
 {
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
     const bool paused = front_end && front_end->is_halted_;
-    if (s_edit == Edit::kWaitLevel) {
-        s_edit_frames = in_level && !paused ? s_edit_frames + 1 : 0;
-        if (s_edit_frames < kLevelSettleFrames)
+    if (edit_start().edit_ == Edit::kWaitLevel) {
+        edit_start().edit_frames_ = in_level && !paused ? edit_start().edit_frames_ + 1 : 0;
+        if (edit_start().edit_frames_ < kLevelSettleFrames)
             return;
         if (!level_editor::is_switched_on()) {
             get_log("edit level: the level editor is off ([features] level_editor=0) - free skate in %s, as -level",
                     get_requested());
-            s_edit = Edit::kDone;
+            edit_start().edit_ = Edit::kDone;
             return;
         }
         if (!is_script(name_hash("level_editor_enter"))) {
             get_log("edit level: no level_editor_enter script (the data overlay isn't installed - "
                     "tools/pipeline/menu_level/make_menu_level.ts) - free skate in %s, as -level",
                     get_requested());
-            s_edit = Edit::kDone;
+            edit_start().edit_ = Edit::kDone;
             return;
         }
         // (the level is loaded in free skate - Load - so this is only a safeguard: never in a network session or a
@@ -179,42 +210,42 @@ void edit_update(modules::FrontEnd* front_end)
         if (level_editor::layout::get_refused(&why)) {
             get_log("edit level: the level editor isn't offered here (%s) - %s as it is", why.c_str(), get_requested());
             level_editor::layout::panel_message(("The level editor isn't offered here - " + why).c_str());
-            s_edit = Edit::kDone;
+            edit_start().edit_ = Edit::kDone;
             return;
         }
         // Start, as the player presses it: handle_start_pressed pauses and makes the pause menu.
         get_log("edit level: %s is up - pausing (Start) to open the level editor", get_requested());
         mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
-        ++s_presses;
-        s_edit = Edit::kWaitPause;
-        s_edit_frames = 0;
+        ++edit_start().presses_;
+        edit_start().edit_ = Edit::kWaitPause;
+        edit_start().edit_frames_ = 0;
         return;
     }
-    if (s_edit != Edit::kWaitPause)
+    if (edit_start().edit_ != Edit::kWaitPause)
         return;
     if (!in_level) {
-        s_edit_frames = 0;
+        edit_start().edit_frames_ = 0;
         return;
     }
     if (!paused) {
         // (not taken - a level's intro camera, menu input blocked a moment: pressed again a little later)
-        if (++s_edit_frames < kPauseWaitFrames)
+        if (++edit_start().edit_frames_ < kPauseWaitFrames)
             return;
-        if (s_presses >= kStartPresses) {
+        if (edit_start().presses_ >= kStartPresses) {
             get_log("edit level: the game didn't pause after %d presses of Start - free skate in %s (the pause menu's "
                     "LEVEL EDITOR opens the editor)",
-                    s_presses, get_requested());
-            s_edit = Edit::kDone;
+                    edit_start().presses_, get_requested());
+            edit_start().edit_ = Edit::kDone;
             return;
         }
         mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadStart);
-        ++s_presses;
-        s_edit_frames = 0;
+        ++edit_start().presses_;
+        edit_start().edit_frames_ = 0;
         return;
     }
-    if (++s_edit_frames < kPauseMenuFrames)
+    if (++edit_start().edit_frames_ < kPauseMenuFrames)
         return;
-    s_edit = Edit::kDone;
+    edit_start().edit_ = Edit::kDone;
     get_log("edit level: running level_editor_enter (the pause menu's LEVEL EDITOR)");
     script::launch_script(name_hash("level_editor_enter"), nullptr, nullptr, false, "level_editor_enter");
 }
@@ -298,28 +329,28 @@ void tick_frame(modules::FrontEnd* front_end)
     if (frame_loop::frames_run() == 0)
         return;
     if (!*get_requested()) {
-        if (!s_done && !at_text().empty()) {
-            s_done = true;
+        if (!start_level_state().done_ && !at_text().empty()) {
+            start_level_state().done_ = true;
             get_log("start at: %s asked for without a level (-level / start_level) - ignored", at_text().c_str());
         }
         return;
     }
-    if (s_done) {
+    if (start_level_state().done_) {
         // (once the level is up and settled: what it costs the script pools - for the converters' load checks,
         // tools/game/load_check.ps1)
-        if (!s_pools_logged && s_started) {
+        if (!edit_start().pools_logged_ && edit_start().started_) {
             const bool up = render::current_level() != 0 && objects::find_object(kSkater) != nullptr &&
                             !(front_end && front_end->is_halted_);
-            s_pool_frames = up ? s_pool_frames + 1 : 0;
-            if (s_pool_frames >= kLevelSettleFrames) {
-                s_pools_logged = true;
+            edit_start().pool_frames_ = up ? edit_start().pool_frames_ + 1 : 0;
+            if (edit_start().pool_frames_ >= kLevelSettleFrames) {
+                edit_start().pools_logged_ = true;
                 script::log_script_pool_use((std::string("in ") + get_requested()).c_str());
                 memory::log_memory_use((std::string("in ") + get_requested()).c_str());
             }
         }
         if (at_update(front_end))
             return; // (-edit's editor once the skater stands there)
-        if (s_edit != Edit::kDisengaged && s_edit != Edit::kDone)
+        if (edit_start().edit_ != Edit::kDisengaged && edit_start().edit_ != Edit::kDone)
             edit_update(front_end);
         return;
     }
@@ -328,24 +359,24 @@ void tick_frame(modules::FrontEnd* front_end)
     if (render::current_level() != 0 || (front_end && front_end->is_halted_) ||
         !is_script(name_hash("main_menu_skate_now")))
         return;
-    if (++s_frames < 60)
+    if (++start_level_state().frames_ < 60)
         return;
-    s_done = true;
+    start_level_state().done_ = true;
     const bool loaded = read_in(get_requested(), nullptr);
-    s_started = loaded;
+    edit_start().started_ = loaded;
     if (loaded && !at_text().empty()) {
         if (parse_spot(at_text(), nullptr)) {
-            s_at = At::kWaitLevel;
-            s_at_frames = 0;
+            start_spot().at_ = At::kWaitLevel;
+            start_spot().at_frames_ = 0;
             get_log("start at: the skater is put at %s standing once %s is up", at_text().c_str(), get_requested());
         } else {
             get_log("start at: \"%s\" isn't x,y,z or x,y,z,heading - ignored", at_text().c_str());
         }
     }
     if (loaded && edit_requested()) {
-        s_edit = Edit::kWaitLevel;
-        s_edit_frames = 0;
-        s_presses = 0;
+        edit_start().edit_ = Edit::kWaitLevel;
+        edit_start().edit_frames_ = 0;
+        edit_start().presses_ = 0;
         get_log("edit level: the level editor opens once %s is up", get_requested());
     }
 }

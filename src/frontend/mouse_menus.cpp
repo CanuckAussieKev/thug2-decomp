@@ -38,6 +38,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/mem.h"
+#include "engine/core/no_destroy.h"
 
 namespace mouse_menus {
 
@@ -469,16 +470,26 @@ struct MouseState {
     int left_clicks_ = 0, right_clicks_ = 0;
     int wheel = 0; // notches, away from the user positive
 };
-MouseState s_mouse;
-bool s_cursor_shown = false; // (the window starts with it hidden: sys::create_sdl_window)
-// The item last under the cursor (only compared, never followed).
-const UiWidget* s_hover_item = nullptr;
-uint32_t s_hover_id = 0;
+// NOT ORIGINAL grouping - mouse_menus.cpp's state (the original's globals). Made on first use, never destroyed
+// (mouse_menus_state()).
+struct MouseMenusState {
+    MouseState mouse_{};
+    bool cursor_shown_ = false; // (the window starts with it hidden: sys::create_sdl_window)
+    // The item last under the cursor (only compared, never followed).
+    const UiWidget* hover_item_ = nullptr;
+    uint32_t hover_id_ = 0;
+};
+
+MouseMenusState& mouse_menus_state()
+{
+    static core::NoDestroy<MouseMenusState> state;
+    return state.get();
+}
 
 void read_window_size(uint32_t window_id)
 {
     if (SDL_Window* window = SDL_GetWindowFromID(window_id))
-        SDL_GetWindowSize(window, &s_mouse.window_width_, &s_mouse.window_height_);
+        SDL_GetWindowSize(window, &mouse_menus_state().mouse_.window_width_, &mouse_menus_state().mouse_.window_height_);
 }
 
 void handle_mouse_event(SDL_Event* event)
@@ -487,25 +498,25 @@ void handle_mouse_event(SDL_Event* event)
     case SDL_MOUSEMOTION:
         if (event->motion.xrel == 0 && event->motion.yrel == 0)
             break;
-        s_mouse.x = static_cast<float>(event->motion.x);
-        s_mouse.y = static_cast<float>(event->motion.y);
+        mouse_menus_state().mouse_.x = static_cast<float>(event->motion.x);
+        mouse_menus_state().mouse_.y = static_cast<float>(event->motion.y);
         read_window_size(event->motion.windowID);
-        s_mouse.moved = true;
-        s_mouse.used = true;
+        mouse_menus_state().mouse_.moved = true;
+        mouse_menus_state().mouse_.used = true;
         break;
     case SDL_MOUSEBUTTONDOWN:
-        s_mouse.x = static_cast<float>(event->button.x);
-        s_mouse.y = static_cast<float>(event->button.y);
+        mouse_menus_state().mouse_.x = static_cast<float>(event->button.x);
+        mouse_menus_state().mouse_.y = static_cast<float>(event->button.y);
         read_window_size(event->button.windowID);
         if (event->button.button == SDL_BUTTON_LEFT)
-            ++s_mouse.left_clicks_;
+            ++mouse_menus_state().mouse_.left_clicks_;
         else if (event->button.button == SDL_BUTTON_RIGHT)
-            ++s_mouse.right_clicks_;
-        s_mouse.used = true;
+            ++mouse_menus_state().mouse_.right_clicks_;
+        mouse_menus_state().mouse_.used = true;
         break;
     case SDL_MOUSEWHEEL:
-        s_mouse.wheel += event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event->wheel.y : event->wheel.y;
-        s_mouse.used = true;
+        mouse_menus_state().mouse_.wheel += event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event->wheel.y : event->wheel.y;
+        mouse_menus_state().mouse_.used = true;
         break;
     default:
         break;
@@ -551,7 +562,11 @@ bool menu_takes_pad_events(UiWidget* menu)
 
 // --- the debug log ([features] debug_mouse) ---
 
-bool s_log_events = false; // (while handling a click: the events sent are logged)
+bool& log_events()
+{
+    static bool log_events{false}; // (while handling a click: the events sent are logged)
+    return log_events;
+}
 
 const char* current_type_name(uint32_t type)
 {
@@ -623,7 +638,7 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
         not_sent = "menu input is blocked (SetButtonEventMappings block_menu_input)";
     else if (!handler || !handler->dev_)
         not_sent = "no input device";
-    if (s_log_events && debug_enabled())
+    if (log_events() && debug_enabled())
         get_log("  %s %s%s%s", not_sent ? "NOT sent:" : "sent", event_name(event), not_sent ? " - " : "",
                 not_sent ? not_sent : "");
     if (not_sent)
@@ -718,7 +733,11 @@ struct Awaiting {
     Target target = {};
     uint32_t choose_event_ = 0;
 };
-Awaiting s_pending;
+Awaiting& stored_pending()
+{
+    static core::NoDestroy<Awaiting> pending;
+    return pending.get();
+}
 
 // Its menu: a smart pointer (cleared if the menu dies), allocated once and never freed - no destructor running
 // on the game's memory at exit.
@@ -730,9 +749,9 @@ frontend::ElementPtr& pending_menu()
 
 void clear_pending(const char* why)
 {
-    if (s_pending.active && s_pending.choose_event_ && debug_enabled())
-        get_log("mouse: not choosing item %08X: %s", s_pending.item_id_, why);
-    s_pending.active = false;
+    if (stored_pending().active && stored_pending().choose_event_ && debug_enabled())
+        get_log("mouse: not choosing item %08X: %s", stored_pending().item_id_, why);
+    stored_pending().active = false;
     pending_menu().get_release();
 }
 
@@ -740,10 +759,10 @@ TargetState advance_pending(modules::FrontEnd* front_end)
 {
     UiWidget* menu = pending_menu().get_pull();
     // The menu still there, with the item still at its place (compared by address, then id).
-    UiWidget* item = menu ? child_at(menu, s_pending.target.index) : nullptr;
-    if (!item || item != s_pending.item || ident_no(item) != s_pending.item_id_)
+    UiWidget* item = menu ? child_at(menu, stored_pending().target.index) : nullptr;
+    if (!item || item != stored_pending().item || ident_no(item) != stored_pending().item_id_)
         return TargetState::kGaveUp;
-    s_pending.target.count = child_count(menu);
+    stored_pending().target.count = child_count(menu);
     Stepper stepper;
     stepper.front_end_ = front_end;
     stepper.menu.assign_value(menu);
@@ -752,7 +771,7 @@ TargetState advance_pending(modules::FrontEnd* front_end)
     // focus script moves on).
     UiWidget* current = child_at(menu, selected_index(menu));
     const bool wait = !menu_takes_pad_events(menu) || (current && item_passed_over(current));
-    return advance_target(s_pending.target, wait, read_stepper, send_step, &stepper);
+    return advance_target(stored_pending().target, wait, read_stepper, send_step, &stepper);
 }
 
 // Settle the pending item: there - send its event (a click's); given up - forget it. True if it got there.
@@ -760,20 +779,20 @@ bool settle_pending(modules::FrontEnd* front_end, TargetState state)
 {
     if (state == TargetState::kMoving)
         return false;
-    const uint32_t event = s_pending.choose_event_;
+    const uint32_t event = stored_pending().choose_event_;
     if (state == TargetState::kGaveUp) {
         clear_pending("its menu's selection didn't get there (or the menu / item is gone)");
         return false;
     }
     if (event && debug_enabled())
-        get_log("mouse: item %08X selected", s_pending.item_id_);
-    s_pending.active = false;
+        get_log("mouse: item %08X selected", stored_pending().item_id_);
+    stored_pending().active = false;
     pending_menu().get_release();
     if (event) {
-        const bool logging = s_log_events;
-        s_log_events = true;
+        const bool logging = log_events();
+        log_events() = true;
         send_pad_event(front_end, event);
-        s_log_events = logging;
+        log_events() = logging;
     }
     return true;
 }
@@ -782,12 +801,12 @@ bool settle_pending(modules::FrontEnd* front_end, TargetState state)
 // selected already.
 bool aim_at(modules::FrontEnd* front_end, const Hit& hit, uint32_t event)
 {
-    s_pending.active = true;
+    stored_pending().active = true;
     pending_menu().assign_value(hit.menu);
-    s_pending.item = hit.item;
-    s_pending.item_id_ = ident_no(hit.item);
-    s_pending.target = start_target(hit.index, child_count(hit.menu), menu_wraps(hit.menu));
-    s_pending.choose_event_ = event;
+    stored_pending().item = hit.item;
+    stored_pending().item_id_ = ident_no(hit.item);
+    stored_pending().target = start_target(hit.index, child_count(hit.menu), menu_wraps(hit.menu));
+    stored_pending().choose_event_ = event;
     return settle_pending(front_end, advance_pending(front_end));
 }
 
@@ -798,13 +817,13 @@ void select_under_cursor(modules::FrontEnd* front_end, float x, float y, bool cl
     for (int pass = 0; pass < 4; ++pass) {
         Hit hit{};
         if (!find_item_at(root_element(ui_tree_handle()), x, y, menu_takes_pad_events, &hit)) {
-            s_hover_item = nullptr;
-            s_hover_id = 0;
+            mouse_menus_state().hover_item_ = nullptr;
+            mouse_menus_state().hover_id_ = 0;
             return;
         }
-        const bool changed = hit.item != s_hover_item || ident_no(hit.item) != s_hover_id;
-        s_hover_item = hit.item;
-        s_hover_id = ident_no(hit.item);
+        const bool changed = hit.item != mouse_menus_state().hover_item_ || ident_no(hit.item) != mouse_menus_state().hover_id_;
+        mouse_menus_state().hover_item_ = hit.item;
+        mouse_menus_state().hover_id_ = ident_no(hit.item);
         if (!changed && !(click && pass == 0))
             return;
         if (!click && is_rotating_menu(hit.menu))
@@ -817,7 +836,7 @@ void select_under_cursor(modules::FrontEnd* front_end, float x, float y, bool cl
 void get_click(modules::FrontEnd* front_end, float x, float y)
 {
     const bool debug = debug_enabled();
-    s_log_events = debug;
+    log_events() = debug;
     if (debug)
         get_log("mouse: left click at layout (%.1f, %.1f)", x, y);
     select_under_cursor(front_end, x, y, true);
@@ -829,7 +848,7 @@ void get_click(modules::FrontEnd* front_end, float x, float y)
             if (UiWidget* root = root_element(ui_tree_handle()))
                 log_elements_at(root, x, y, lines);
         }
-        s_log_events = false;
+        log_events() = false;
         return;
     }
     uint32_t event = kPadChoose;
@@ -848,27 +867,27 @@ void get_click(modules::FrontEnd* front_end, float x, float y)
                 area.bottom);
         log_menu(hit.menu);
     }
-    if (s_pending.active && s_pending.item == hit.item && pending_menu().get_pull() == hit.menu) {
-        s_pending.choose_event_ = event;
+    if (stored_pending().active && stored_pending().item == hit.item && pending_menu().get_pull() == hit.menu) {
+        stored_pending().choose_event_ = event;
         if (debug)
             get_log("  the menu is on its way to the item (selected %d): %s once it gets there",
                     selected_index(hit.menu), event_name(event));
     } else if (selected_index(hit.menu) == hit.index) {
         clear_pending("another item was clicked");
         send_pad_event(front_end, event);
-    } else if (!aim_at(front_end, hit, event) && s_pending.active && debug) {
+    } else if (!aim_at(front_end, hit, event) && stored_pending().active && debug) {
         get_log("  the menu is on its way to the item (selected %d): %s once it gets there", selected_index(hit.menu),
                 event_name(event));
     }
-    s_log_events = false;
+    log_events() = false;
 }
 
 void show_cursor(bool show)
 {
-    if (show == s_cursor_shown)
+    if (show == mouse_menus_state().cursor_shown_)
         return;
     SDL_ShowCursor(show ? SDL_ENABLE : SDL_DISABLE);
-    s_cursor_shown = show;
+    mouse_menus_state().cursor_shown_ = show;
 }
 
 } // namespace
@@ -902,10 +921,10 @@ void tick_frame(modules::FrontEnd* front_end)
     // runs here instead.
     // Original behaviour (of the mouse_menus feature): the mouse drives the menus.
     if (frontend::level_editor::live_now()) {
-        s_mouse.moved = false;
-        s_mouse.left_clicks_ = 0;
-        s_mouse.right_clicks_ = 0;
-        s_mouse.wheel = 0;
+        mouse_menus_state().mouse_.moved = false;
+        mouse_menus_state().mouse_.left_clicks_ = 0;
+        mouse_menus_state().mouse_.right_clicks_ = 0;
+        mouse_menus_state().mouse_.wheel = 0;
         clear_pending("the level editor runs");
         frontend::level_editor::input_logic();
         // (not original either: the new front end steps aside while the editor is up - frontend/new_frontend.h)
@@ -930,21 +949,21 @@ void tick_frame(modules::FrontEnd* front_end)
     // get no mouse events, the cursor stays shown)
     frontend::new_frontend::tick_frame(front_end);
     if (frontend::new_frontend::blocks_game_input() || frontend::new_frontend::owns_mouse()) {
-        s_mouse.moved = false;
-        s_mouse.left_clicks_ = 0;
-        s_mouse.right_clicks_ = 0;
-        s_mouse.wheel = 0;
+        mouse_menus_state().mouse_.moved = false;
+        mouse_menus_state().mouse_.left_clicks_ = 0;
+        mouse_menus_state().mouse_.right_clicks_ = 0;
+        mouse_menus_state().mouse_.wheel = 0;
         clear_pending("the new front end has the mouse");
         show_cursor(true);
         return;
     }
     if (!is_switched_on())
         return;
-    const MouseState input = s_mouse;
-    s_mouse.moved = false;
-    s_mouse.left_clicks_ = 0;
-    s_mouse.right_clicks_ = 0;
-    s_mouse.wheel = 0;
+    const MouseState input = mouse_menus_state().mouse_;
+    mouse_menus_state().mouse_.moved = false;
+    mouse_menus_state().mouse_.left_clicks_ = 0;
+    mouse_menus_state().mouse_.right_clicks_ = 0;
+    mouse_menus_state().mouse_.wheel = 0;
 
     // The front end, or a level's pause menu; never the park editor's own cursor.
     void* manager = ui_tree_handle();
@@ -968,10 +987,10 @@ void tick_frame(modules::FrontEnd* front_end)
         return;
     }
     // A selection on its way to an item from earlier frames.
-    if (s_pending.active) {
-        s_log_events = s_pending.choose_event_ != 0;
+    if (stored_pending().active) {
+        log_events() = stored_pending().choose_event_ != 0;
         settle_pending(front_end, advance_pending(front_end));
-        s_log_events = false;
+        log_events() = false;
     }
     if (!input.used)
         return;
@@ -990,10 +1009,10 @@ void tick_frame(modules::FrontEnd* front_end)
         if (debug_enabled())
             get_log("mouse: right click at layout (%.1f, %.1f)%s", x, y,
                     any ? "" : ": no menu takes pad events - nothing sent");
-        s_log_events = true;
+        log_events() = true;
         if (any)
             send_pad_event(front_end, kPadBack);
-        s_log_events = false;
+        log_events() = false;
     }
     int notches = std::max(-5, std::min(5, input.wheel));
     for (; notches != 0; notches += notches > 0 ? -1 : 1)
