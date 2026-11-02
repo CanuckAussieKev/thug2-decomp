@@ -296,9 +296,9 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
         into.set_length(overlap);
         entity_->at_point_ -= into / 10.0f;
         const objects::PadInputModule* input = input_;
-        if (state_of(this) != kAir && !input->pad_primary_.shoulder_right_a_.held_down_ &&
-            !input->pad_primary_.shoulder_left_a_.held_down_ && !input->pad_primary_.left_side_.held_down_ &&
-            !input->pad_primary_.right_side_.held_down_)
+        if (state_of(this) != kAir && !input->pad_primary_.shoulder_right_a().held_down_ &&
+            !input->pad_primary_.shoulder_left_a().held_down_ && !input->pad_primary_.left_side().held_down_ &&
+            !input->pad_primary_.right_side().held_down_)
             deflect_from_wall(&normal, &overlap, 0.2f); // (never: the state is the air's)
         return false;
     }

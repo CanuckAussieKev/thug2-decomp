@@ -86,10 +86,10 @@ uint32_t pass_alpha_flags(const void* material)
 {
     return static_cast<const MaterialRef*>(material)->texture_alpha_passes();
 }
-uint32_t pass_count(const void* material) { return static_cast<const MaterialRef*>(material)->pass_count_; }
+uint32_t pass_count(const void* material) { return static_cast<const MaterialRef*>(material)->pass_count(); }
 uint32_t get_blend_mode(const void* material, uint32_t pass)
 {
-    return core::at(static_cast<const MaterialRef*>(material)->blend_modes_, pass) & 0xFFFFFF;
+    return core::at(static_cast<const MaterialRef*>(material)->blend_modes(), pass) & 0xFFFFFF;
 }
 
 // The fixed shaders' sources.
@@ -319,7 +319,7 @@ void material_pixel_shader(const void* material, void** shader)
         *shader = generated_pixel_shader(material);
         return;
     }
-    if (!core::at(static_cast<const MaterialRef*>(material)->textures, 0)) { // no texture
+    if (!core::at(static_cast<const MaterialRef*>(material)->textures_value(), 0)) { // no texture
         *shader = hdl(kPixelShader95c);
         return;
     }

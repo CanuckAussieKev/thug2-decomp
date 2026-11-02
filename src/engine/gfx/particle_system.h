@@ -66,6 +66,68 @@ struct EmitterInstance : objects::SharedBase {
     // 0x0041D9C0 (thiscall; flexible_particle.cpp): flag bit `bit` of flag_bits_ set or cleared.
     void set_flag(int bit, bool on);
 
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] const maths::Vec4& at_point() const { return at_point_; }
+    void set_at_point(const maths::Vec4& value) { at_point_ = value; }
+    maths::Vec4& align_to() { return align_to_; }
+    [[nodiscard]] const maths::Vec4& align_to() const { return align_to_; }
+    std::array<float, 4>& colour_scale() { return colour_scale_; }
+    [[nodiscard]] const std::array<float, 4>& colour_scale() const { return colour_scale_; }
+    [[nodiscard]] float emit_rate() const { return emit_rate_; }
+    void set_emit_rate(float value) { emit_rate_ = value; }
+    void set_unknown78(uint32_t value) { unknown78_ = value; }
+    [[nodiscard]] int max_particles() const { return max_particles_; }
+    void set_max_particles(int value) { max_particles_ = value; }
+    [[nodiscard]] int particle_count() const { return particle_count_; }
+    void set_particle_count(int value) { particle_count_ = value; }
+    [[nodiscard]] const std::array<float, 4>& extent() const { return extent_; }
+    [[nodiscard]] float size_scale() const { return size_scale_; }
+    void set_xform_ref(maths::Mat4* value) { xform_ref_ = value; }
+    [[nodiscard]] float brightness() const { return brightness_; }
+    void set_brightness(float value) { brightness_ = value; }
+    [[nodiscard]] uint32_t label() const { return label_; }
+    void set_label(uint32_t value) { label_ = value; }
+    [[nodiscard]] uint32_t group_id() const { return group_id_; }
+    void set_group_id(uint32_t value) { group_id_ = value; }
+    std::span<FlexibleParticle>& particle_list() { return particle_list_; }
+    [[nodiscard]] const std::span<FlexibleParticle>& particle_list() const { return particle_list_; }
+    [[nodiscard]] script::Struct* script_args() const { return static_cast<script::Struct*>(script_args_); } // (a view: it stays the owner's)
+    void set_script_args(gsl::owner<script::Struct*> value) { script_args_ = value; }
+    [[nodiscard]] float colour_mid() const { return colour_mid_; }
+    void set_colour_mid(float value) { colour_mid_ = value; }
+    std::span<uint32_t>& start_colour() { return start_colour_; }
+    [[nodiscard]] const std::span<uint32_t>& start_colour() const { return start_colour_; }
+    std::span<uint32_t>& mid_colour() { return mid_colour_; }
+    [[nodiscard]] const std::span<uint32_t>& mid_colour() const { return mid_colour_; }
+    std::span<uint32_t>& end_colour() { return end_colour_; }
+    [[nodiscard]] const std::span<uint32_t>& end_colour() const { return end_colour_; }
+    [[nodiscard]] int history_length() const { return history_length_; }
+    void set_history_length(int value) { history_length_ = value; }
+    std::span<float>& position_array() { return position_array_; }
+    [[nodiscard]] const std::span<float>& position_array() const { return position_array_; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] uint8_t rank() const { return rank_; }
+    void set_rank(uint8_t value) { rank_ = value; }
+    void set_fading_out(bool value) { fading_out_ = value; }
+    [[nodiscard]] bool emitter_independent() const { return emitter_independent_; }
+    void set_emitter_independent(bool value) { emitter_independent_ = value; }
+    [[nodiscard]] bool aligned() const { return aligned_; }
+    void set_aligned(bool value) { aligned_ = value; }
+    [[nodiscard]] bool wants_time() const { return wants_time_; }
+    [[nodiscard]] bool spewing() const { return spewing_; }
+    void set_spewing(bool value) { spewing_ = value; }
+    [[nodiscard]] uint8_t unknown12e() const { return unknown12e_; }
+    void set_unknown12e(uint8_t value) { unknown12e_ = value; }
+    void set_unknown12f(bool value) { unknown12f_ = value; }
+    void set_unknown130(bool value) { unknown130_ = value; }
+    void set_fill_path(bool value) { fill_path_ = value; }
+    void set_update_brightness(bool value) { update_brightness_ = value; }
+    void set_unknown133(bool value) { unknown133_ = value; }
+
+private:
     uint32_t unknown08{};
     memory::ListNode list_link_{};      // +0x0C: in the particle manager's list (data: the system)
     maths::Vec4 at_point_{};            // +0x20: the emitter
@@ -124,6 +186,8 @@ struct EmitterInstance : objects::SharedBase {
     bool fill_path_{};         // +0x131 FillPath
     bool update_brightness_{}; // +0x132
     bool unknown133_{};        // +0x133 (cleared by 0xDE45A90D: not culled)
+
+public:
 
     // 0x00496D70: the defaults (no scripts, no matrix, rate 0, the emitter at (2048, 144, -928), speed 1 - 2, emit
     // range (1, 1, 0), spread 0.5, force (0, -0.02, 0), sizes 2, life 2, target (0, 1, 0), white, ...).

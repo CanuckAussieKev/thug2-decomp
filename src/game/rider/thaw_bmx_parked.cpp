@@ -288,7 +288,7 @@ void register_parked_functions()
 
 void update_parked(modules::FrontEnd* front_end)
 {
-    if ((front_end && front_end->is_halted_) || frontend::level_editor::live_now())
+    if ((front_end && front_end->is_halted()) || frontend::level_editor::live_now())
         return;
     const objects::Rider* skater = local_skater();
     const uint32_t structure = modules::Skate::sole() ? modules::Skate::sole()->level_params() : 0;

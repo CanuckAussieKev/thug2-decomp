@@ -470,7 +470,7 @@ void RankingsManager::start_game()
         text::format_to(key, "%s", "player");
         set_player_string(game_, key.data(), name, id);
         text::format_to(key, "%s", "pid");
-        const int profile = player->profile_id_;
+        const int profile = player->profile_id();
         set_player_int(game_, key.data(), profile, id);
         if (profile > 0) {
             // The player's client answers with its response to the challenge.
@@ -499,7 +499,7 @@ void RankingsManager::raise_tallies(bool final)
         skater->fetch_module(0xD262802F); // (unused)
         const int id = static_cast<int>(detail::get_skater_id(skater));
         set_player_int(game_, "score", manager->get_entrant_points(static_cast<uint32_t>(id)), id);
-        set_player_int(game_, "combo", player->best_combo_, id);
+        set_player_int(game_, "combo", player->best_combo(), id);
     }
     set_game_int(game_, "highscore", manager->cheating_noted() | net_game_state().cheat_flag());
     send_game_snap_shot(game_, nullptr, final);
@@ -696,14 +696,14 @@ void RankingsManager::on_personal_stats(int, int, int, int index, int success, u
 int RankingsManager::on_top_stats(void*, int result, char* buffer, int64_t, void* param)
 {
     auto* vault = static_cast<VaultMan*>(param);
-    vault->progress_ = 100; // (the setters folded at 0x0048DF10, 0x00428270, 0x004076E0)
+    vault->set_progress(100); // (the setters folded at 0x0048DF10, 0x00428270, 0x004076E0)
     if (result != 0) {
-        vault->outcome_val_ = 2;
-        vault->fault_ = result;
+        vault->set_outcome_val(2);
+        vault->set_fault(result);
         return 1;
     }
-    vault->outcome_val_ = 1;
-    vault->fault_ = 0;
+    vault->set_outcome_val(1);
+    vault->set_fault(0);
     RankingsManager* stats = get_attributes();
     switch (stats->top_file_) {
     case 0:

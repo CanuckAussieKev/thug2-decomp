@@ -187,14 +187,14 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
 {
     const double scale_x = renderer().display_factor_x();
     const double scale_y = renderer().display_factor_y();
-    auto spacing = static_cast<float>(font->glyph_gap_ * static_cast<double>(xscale));
+    auto spacing = static_cast<float>(font->glyph_gap() * static_cast<double>(xscale));
     if (c == ' ') {
-        *pen_x = static_cast<float>((font->blank_gap_ * static_cast<double>(xscale) + spacing) * scale_x + *pen_x);
+        *pen_x = static_cast<float>((font->blank_gap() * static_cast<double>(xscale) + spacing) * scale_x + *pen_x);
         return;
     }
-    const Char* glyph = &font->glyph(core::at(font->map, static_cast<uint8_t>(c)));
+    const Char* glyph = &font->glyph(core::at(font->map_value(), static_cast<uint8_t>(c)));
     // (x87: top and bottom stay at double precision until stored)
-    const double top = static_cast<double>(font->base - glyph->baseline) * yscale * scale_y + pen_y;
+    const double top = static_cast<double>(font->base_value() - glyph->baseline) * yscale * scale_y + pen_y;
     const float left = *pen_x;
     auto right = static_cast<float>(glyph->w * scale_x * xscale + left);
     const double bottom = glyph->h * scale_y * yscale + top;
@@ -224,8 +224,8 @@ void GlyphRun::draw()
     auto pos_y = static_cast<float>(scale_y * y + offset_y);
     auto pivot_screen_x = static_cast<float>((static_cast<double>(pivot_x_) + x) * scale_x + offset_x);
     auto pivot_screen_y = static_cast<float>((static_cast<double>(pivot_y_) + y) * scale_y + offset_y);
-    auto glyph_gap = static_cast<float>(font->glyph_gap_ * static_cast<double>(xscale));
-    auto blank_gap = static_cast<float>(font->blank_gap_ * static_cast<double>(xscale));
+    auto glyph_gap = static_cast<float>(font->glyph_gap() * static_cast<double>(xscale));
+    auto blank_gap = static_cast<float>(font->blank_gap() * static_cast<double>(xscale));
     if (xscale == 0.0f || yscale == 0.0f) // (0x0066D520)
         return;
     const float cos_a = std::cos(angle);
@@ -260,7 +260,7 @@ void GlyphRun::draw()
             case 'S':
             case 's':
                 ++p;
-                glyph = &font->glyph(core::at(font->special_map_, text::hex_digit_value(*p)));
+                glyph = &font->glyph(core::at(font->special_map(), text::hex_digit_value(*p)));
                 done = true;
                 break;
             case 'B':
@@ -272,7 +272,7 @@ void GlyphRun::draw()
                 if (use_button_glyph(button)) {
                     // drawn with the button font's texture: draw what's buffered first
                     TypefaceData* buttons = screen_2d().pad_glyph_typeface();
-                    glyph = &buttons->glyph(core::at(buttons->special_map_, button));
+                    glyph = &buttons->glyph(core::at(buttons->special_map(), button));
                     char_font = buttons;
                     close_sketch();
                     open_sketch();
@@ -310,9 +310,9 @@ void GlyphRun::draw()
                 continue;
             }
             if (!glyph)
-                glyph = &char_font->glyph(core::at(char_font->map, static_cast<uint8_t>(*p)));
+                glyph = &char_font->glyph(core::at(char_font->map_value(), static_cast<uint8_t>(*p)));
             auto top =
-                static_cast<float>(static_cast<double>(char_font->base - glyph->baseline) * yscale * scale_y + pos_y);
+                static_cast<float>(static_cast<double>(char_font->base_value() - glyph->baseline) * yscale * scale_y + pos_y);
             const TextEffect* e =
                 effects ? &core::at(effect_records, effect / static_cast<int>(sizeof(TextEffect))) : nullptr;
             float right = 0.0f, bottom = 0.0f;
@@ -461,7 +461,7 @@ void GlyphRun::close_sketch()
     set_texture_stage_state(0, 6, 1);
     set_texture_stage_state(1, 1, 1);      // stage 1 off
     set_vertex_format(0x144);              // position (pre-transformed), colour, one texture coordinate
-    set_texture(0, texture_font->texture); // (the original also passes unknown17c_, which SetTexture doesn't take)
+    set_texture(0, texture_font->texture_value()); // (the original also passes unknown17c_, which SetTexture doesn't take)
     renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
     if (!engine_parts().suppress_draw()) {                                                      // (rendering not skipped)
         renderer().count_draw(count / 2); // the frame's draw calls and triangles

@@ -381,7 +381,7 @@ int handle_joined_team(net::InboundMsgCtx* context)
     PlayerRecord* player = find_player_slot_by_obj(manager, msg.data());
     if (!player)
         return kContinue;
-    player->team_ = int{static_cast<int8_t>(core::at(msg, 1))};
+    player->set_team(int{static_cast<int8_t>(core::at(msg, 1))});
     std::array<char, 64> name{};
     team_name_key(name, static_cast<int8_t>(core::at(msg, 1)));
     script::StructPtr params = script::make_struct();
@@ -441,7 +441,7 @@ int handle_goal_completed(net::InboundMsgCtx* context)
             params->put_int(kNumGoalsLeft, total - done);
             get_run(kCompletedGoal, params.get());
         }
-        static_cast<goals::ObjectiveNpc*>(goal->ped_)->remove_objective_npc();
+        static_cast<goals::ObjectiveNpc*>(goal->ped())->remove_objective_npc();
         return kContinue;
     }
     if (current) {
@@ -451,12 +451,12 @@ int handle_goal_completed(net::InboundMsgCtx* context)
     if (!is_squad_match() || player_team(local) != player_team(player))
         return kContinue;
     // A teammate's: the goal (or the last of its chain) ended here too.
-    const goals::GoalEdge* next = goal->sub_nodes_;
+    const goals::GoalEdge* next = goal->sub_nodes();
     if (next->objective_key_) {
         goals::Objective* last = goal;
         while (next && next->objective_key_) {
             last = get_goal(goals, next->objective_key_);
-            next = last->sub_nodes_;
+            next = last->sub_nodes();
         }
         last->get_win(); // (slot 0x3C)
         if (last != current)
@@ -464,7 +464,7 @@ int handle_goal_completed(net::InboundMsgCtx* context)
     } else {
         objective->get_win();
     }
-    static_cast<goals::ObjectiveNpc*>(current->ped_)->remove_objective_npc();
+    static_cast<goals::ObjectiveNpc*>(current->ped())->remove_objective_npc();
     objective->mark_won(); // (slot 0x68)
     const int total = static_cast<goals::GoalManager*>(goals)->count_picked_objectives();
     const int done = static_cast<goals::GoalManager*>(goals)->count_objectives_cleared();

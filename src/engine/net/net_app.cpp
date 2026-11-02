@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iterator>
+#include <memory>
 #include <span>
 #include <string_view>
 #include <utility>
@@ -54,21 +55,21 @@ constexpr int kProcessTaskPriority = 0;
 
 // --- Conn (net_conn.h): short names for the fields used here ------------------------------------------------
 // The outgoing message queues (lists::Heads of links, highest priority first).
-ListNode* normal_queue(Conn* conn) { return &conn->normal_msgs_; }
-ListNode* important_queue(Conn* conn) { return &conn->important_msgs_; }
-ListNode* sequenced_queue(Conn* conn) { return &conn->sequenced_msgs_; }
+ListNode* normal_queue(Conn* conn) { return &conn->normal_msgs(); }
+ListNode* important_queue(Conn* conn) { return &conn->important_msgs(); }
+ListNode* sequenced_queue(Conn* conn) { return &conn->sequenced_msgs(); }
 // The receive buffer's read and write positions (its start and end).
 // Status: 1 ready, bit 2 invalid, bit 3 disconnecting.
-uint32_t& get_standing(Conn* conn) { return conn->cur_standing_; }
+uint32_t& get_standing(Conn* conn) { return conn->cur_standing(); }
 constexpr uint32_t kConnReady = Conn::kConnReady;
 constexpr uint32_t kConnClosing = 8;
-AppHost*& owner_app(Conn* conn) { return conn->owner_app_; }
+AppHost*& owner_app(Conn* conn) { return conn->owner_app(); }
 // The next sequence id of each message group.
-uint32_t& next_sequence_id(Conn* conn, uint8_t group) { return core::at(conn->next_sequence_ids_, group); }
-int& alloc_stream_key(Conn* conn) { return conn->stream_counter_; }
-ListNode* get_streams(Conn* conn) { return &conn->send_streams_; } // lists::Foremost<BulkStreamNode>
-void* in_metrics(Conn* conn) { return &conn->receive_metrics_; }   // NetLink::Gauges (0x100C bytes)
-void* out_metrics(Conn* conn) { return &conn->send_metrics_; }
+uint32_t& next_sequence_id(Conn* conn, uint8_t group) { return core::at(conn->next_sequence_ids(), group); }
+int& alloc_stream_key(Conn* conn) { return conn->stream_counter(); }
+ListNode* get_streams(Conn* conn) { return &conn->send_streams(); } // lists::Foremost<BulkStreamNode>
+void* in_metrics(Conn* conn) { return &conn->receive_metrics(); }   // NetLink::Gauges (0x100C bytes)
+void* out_metrics(Conn* conn) { return &conn->send_metrics(); }
 
 // Conn's methods (net_conn.cpp).
 gsl::owner<Conn*> construct_conn(void* memory, int flags) { return new (memory) Conn(flags); }
@@ -238,7 +239,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             const int excluded = handle & ~kHandleExcludeBroadcast;
             lists::Hunt<Conn> search;
             for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-                if (conn->hdl_ != excluded && accepts(conn))
+                if (conn->hdl() != excluded && accepts(conn))
                     queue(conn);
             }
         } else {
@@ -353,7 +354,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
     message.ident_ = kMsgBulkBegin;
     message.queue_ = NetMessageInfo::kLaneOrdered;
     message.feed_ = 1;
-    put_on_outbox(conn->hdl_, &message);
+    put_on_outbox(conn->hdl(), &message);
 
     if (size > kStreamPieceSize) {
         if (queue_all_pieces) {
@@ -371,7 +372,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
                 message.ident_ = kMsgBulkChunk;
                 message.queue_ = NetMessageInfo::kLaneOrdered;
                 message.feed_ = 1;
-                put_on_outbox(conn->hdl_, &message);
+                put_on_outbox(conn->hdl(), &message);
                 sent += length;
             }
         } else {
@@ -458,7 +459,7 @@ bool AppHost::is_conn_blocked(Conn* conn)
 {
     lists::Hunt<BlockedConnEntry> search;
     for (const BlockedConnEntry* banned = search.head_element(&banned_); banned; banned = search.following_item()) {
-        if (banned->remote_ip_ == conn->remote_ip_)
+        if (banned->remote_ip_ == conn->remote_ip())
             return true;
     }
     return false;
@@ -516,8 +517,8 @@ void AppHost::drop_broken_links()
         Conn* next = search.following_item();
         if ((get_standing(conn) & kConnClosing) && !messages_due(conn))
             mark_stale(conn);
-        if (!is_sound(conn) && conn->incoming_.used == 0 && !messages_due(conn)) {
-            drop_out(&conn->app_node_);
+        if (!is_sound(conn) && conn->incoming().used == 0 && !messages_due(conn)) {
+            drop_out(&conn->app_node());
             destroy_conn_body(conn);
             ram_stats()->dealloc(conn);
         }
@@ -578,7 +579,7 @@ void AppHost::pump_stream_traffic()
                 message.group_id_ = stream->group_id_;
                 message.feed_ = 1;
                 message.fixed_seq_no_ = stream->order_number_++;
-                put_on_outbox(conn->hdl_, &message);
+                put_on_outbox(conn->hdl(), &message);
                 stream->succ_ = std::next(stream->succ_, length);
                 sent += length;
                 --budget;
@@ -636,14 +637,14 @@ bool AppHost::handle_incoming()
     Conn* conn = search.head_element(&circuits_);
     while (conn) {
         Conn* next = search.following_item();
-        if (is_local_conn(conn) && conn->alias_conn_) {
-            Conn* alias = conn->alias_conn_;
+        if (is_local_conn(conn) && conn->alias_conn()) {
+            Conn* alias = conn->alias_conn();
             // (a local connection takes its alias's - the other end, in this process - send buffer straight into its
             // own receive buffer)
-            const size_t length = alias->outgoing_.used;
-            core::copy_into(std::span<const uint8_t>(alias->outgoing_.filled()), conn->incoming_.vacant());
-            alias->outgoing_.used = 0;
-            conn->incoming_.used += length;
+            const size_t length = alias->outgoing().used;
+            core::copy_into(std::span<const uint8_t>(alias->outgoing().filled()), conn->incoming().vacant());
+            alias->outgoing().used = 0;
+            conn->incoming().used += length;
         }
         const int result = dispatch_messages(&dispatcher_, conn, 0);
         if (result == 2)
@@ -665,15 +666,17 @@ Conn* AppHost::opened_link(int ip, uint16_t port, int flags)
     if (open_links_ < peer_cap_) {
         void* memory = memory::alloc(0x3D20);
         conn = memory ? construct_conn(memory, flags) : nullptr; // (not checked for null)
-        conn->remote_ip_ = static_cast<uint32_t>(ip);
-        conn->port_no_ = port;
-        conn->hdl_ = fetch_unused_slot_id();
+        conn->set_remote_ip(static_cast<uint32_t>(ip));
+        conn->set_port_no(port);
+        conn->set_hdl(fetch_unused_slot_id());
         owner_app(conn) = this;
-        conn->last_heard_from_ = frame_clock::get_time();
-        append_last(&circuits_, &conn->app_node_);
+        conn->set_last_heard_from(frame_clock::get_time());
+        append_last(&circuits_, &conn->app_node());
     }
     pop_heap();
     return conn;
 }
+
+void AppHost::set_send_task(std::unique_ptr<tasks::SchedulerTask> value) { send_task_ = std::move(value); }
 
 } // namespace net

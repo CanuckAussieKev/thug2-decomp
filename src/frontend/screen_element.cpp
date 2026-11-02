@@ -88,13 +88,13 @@ void manager_destroy_element(void* manager, uint32_t id, int recurse, int unknow
 // orders occur in the original (the x87 products round differently): dims then scale, or scale then dims.
 void top_left_dims_first(const UiWidget* e, ElementState* s)
 {
-    s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y_) + 1.0) * e->level_y_ * s->scale_y_ * 0.5);
-    s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x_) + 1.0) * e->span_ * s->scale_x_ * 0.5);
+    s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y()) + 1.0) * e->level_y() * s->scale_y_ * 0.5);
+    s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x()) + 1.0) * e->span() * s->scale_x_ * 0.5);
 }
 void top_left_scale_first(const UiWidget* e, ElementState* s, double width, double height)
 {
-    s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y_) + 1.0) * s->scale_y_ * height * 0.5);
-    s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x_) + 1.0) * s->scale_x_ * width * 0.5);
+    s->top = static_cast<float>(s->y - (static_cast<double>(e->just_y()) + 1.0) * s->scale_y_ * height * 0.5);
+    s->left = static_cast<float>(s->x - (static_cast<double>(e->just_x()) + 1.0) * s->scale_x_ * width * 0.5);
 }
 
 uint32_t get_rgba(const uint8_t* bytes)
@@ -109,10 +109,10 @@ void set_rgba_bytes(uint8_t* bytes, uint32_t value) { std::memcpy(bytes, &value,
 // plus (px cos - py sin, px sin + py cos), px / py scaled by the parent's summed scale.
 void get_rotated(const UiWidget* parent, float x, float y, double c, double s, float* out_x, float* out_y)
 {
-    const double py = static_cast<double>(parent->summed_.scale_y_) * y;
-    const double px = static_cast<double>(parent->summed_.scale_x_) * x;
-    const float parent_top = parent->summed_.top;
-    *out_x = static_cast<float>(px * c - py * s + parent->summed_.left);
+    const double py = static_cast<double>(parent->summed().scale_y_) * y;
+    const double px = static_cast<double>(parent->summed().scale_x_) * x;
+    const float parent_top = parent->summed().top;
+    *out_x = static_cast<float>(px * c - py * s + parent->summed().left);
     *out_y = static_cast<float>(px * s + py * c + parent_top);
 }
 

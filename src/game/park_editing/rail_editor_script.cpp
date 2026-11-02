@@ -81,9 +81,9 @@ const objects::EditorViewModule* editor_view(objects::ObjectModule* camera)
 {
     return core::down_cast<objects::EditorViewModule>(camera);
 }
-const Vec4& viewer_location(objects::ObjectModule* camera) { return editor_view(camera)->cursor_; }
-float camera_heading(objects::ObjectModule* camera) { return editor_view(camera)->heading_; }
-float camera_height(objects::ObjectModule* camera) { return editor_view(camera)->level_y_; }
+const Vec4& viewer_location(objects::ObjectModule* camera) { return editor_view(camera)->cursor(); }
+float camera_heading(objects::ObjectModule* camera) { return editor_view(camera)->heading(); }
+float camera_height(objects::ObjectModule* camera) { return editor_view(camera)->level_y(); }
 
 
 } // namespace
@@ -110,16 +110,16 @@ void RailAuthoring::tick_frame()
 // 0x004F6F90
 void RailAuthoring::conceal(bool hide)
 {
-    ParkLayout* manager = ParkLayout::singleton();
+    const ParkLayout* manager = ParkLayout::singleton();
     if (hide) {
         script::launch_script(kDestroyCursor, nullptr, nullptr, false, nullptr);
-        manager->builder_->destroy_rails();
+        manager->builder()->destroy_rails();
         un_highlight_all();
         delete_dotted_line();
         return;
     }
     script::launch_script(kCreateCursor, nullptr, nullptr, false, nullptr);
-    manager->builder_->build_rails(manager->concrete_metas_);
+    manager->builder()->build_rails(manager->concrete_metas());
     // The camera told whose it is (the input component's configure_from_data: player 0), the pad's events dropped.
     script::StructPtr params = script::make_struct();
     params->put_int(kPlayer, 0);

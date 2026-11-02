@@ -90,7 +90,7 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
         read_goals(goal_editor, goals, 1);
 
     const ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
-    if (editor->cur_phase_ != kEditLevel)
+    if (editor->cur_phase() != kEditLevel)
         park_editing_state().set_rail_editor_flag(false);
     read_rails(params);
     park_editing_state().set_rail_editor_flag(true);

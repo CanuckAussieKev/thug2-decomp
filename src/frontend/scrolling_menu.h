@@ -51,6 +51,7 @@ public:
     // 0x004AE450: an item's top left and size in the menu (scaled by the menu's scale).
     void item_place(ElementPtr* item, float* x, float* y, float* w, float* h);
 
+private:
     MenuListener listener_{this}; // +0x178
     UiWidget* menu_;          // +0x194
     uint32_t chosen_item_id_; // +0x198 the item focused

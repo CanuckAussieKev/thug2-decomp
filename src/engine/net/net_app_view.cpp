@@ -151,7 +151,7 @@ void AppHost::raise_fault()
 bool AppHost::is_send_due(Conn* conn)
 {
     const uint32_t interval = transmit_period(conn);
-    if (clock_ - conn->last_transmit_at_ >= interval)
+    if (clock_ - conn->last_transmit_at() >= interval)
         return true;
     return send_now(conn);
 }
@@ -159,8 +159,8 @@ bool AppHost::is_send_due(Conn* conn)
 // 0x00456B40
 void AppHost::link_duplicate_conns(Conn* first, Conn* second)
 {
-    first->alias_conn_ = second;
-    second->alias_conn_ = first;
+    first->set_alias_conn(second);
+    second->set_alias_conn(first);
 }
 
 // 0x00456BA0
@@ -294,7 +294,7 @@ bool AppHost::deliver_to(uint8_t id, uint16_t length, const void* data, uint32_t
 // 0x00457300
 void AppHost::sever_link(Conn* conn)
 {
-    drop_out(&conn->app_node_);
+    drop_out(&conn->app_node());
     delete_conn(conn);
 }
 
@@ -312,7 +312,7 @@ void AppHost::block_connection(Conn* conn)
     auto* banned = static_cast<BlockedConnEntry*>(memory::alloc_zeroed(sizeof(BlockedConnEntry)));
     if (banned)
         banned->make_node(banned);
-    banned->remote_ip_ = conn->remote_ip_; // (an allocation failure crashes here, as in the original)
+    banned->remote_ip_ = conn->remote_ip(); // (an allocation failure crashes here, as in the original)
     // at the end of the list
     banned->prev = banned_.prev;
     banned->next = &banned_;
@@ -337,12 +337,12 @@ void AppHost::tear_down_state()
 bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
 {
     InboundMsgCtx context;
-    for (memory::ListNode& queue : conn->received_queues_) {
+    for (memory::ListNode& queue : conn->received_queues()) {
         lists::Hunt<OrderedMsgNode> search;
         for (OrderedMsgNode *link = search.head_element(&queue), *next = nullptr; link; link = next) {
             next = search.following_item();
             const uint8_t group = link->bundle_id_;
-            if (link->order_index_ != core::at(conn->sequence_numbers_, group))
+            if (link->order_index_ != core::at(conn->sequence_numbers(), group))
                 break; // not its turn yet
             SeqQueuedMsg* msg = link->shared_msg_;
             context.sender_conn_ = static_cast<Conn*>(conn);
@@ -351,7 +351,7 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
             context.wire_options_ = 0;
             context.type_code_ = msg->ident_;
             context.body_size_ = msg->byte_count_;
-            ++core::at(conn->sequence_numbers_, group);
+            ++core::at(conn->sequence_numbers(), group);
             const int result = DispatchMessage(&dispatcher_, &context);
             if (result == kHandlerKeep)
                 return true;
@@ -389,7 +389,7 @@ Conn* AppHost::find_conn_at_address(uint32_t ip, uint16_t port)
 {
     lists::Hunt<Conn> search;
     for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-        if (conn->remote_ip_ == ip && conn->port_no_ == port)
+        if (conn->remote_ip() == ip && conn->port_no() == port)
             return conn;
     }
     return nullptr;
@@ -400,7 +400,7 @@ Conn* AppHost::find_conn_with_id(int handle)
 {
     lists::Hunt<Conn> search;
     for (Conn* conn = search.head_element(&circuits_); conn; conn = search.following_item()) {
-        if (conn->hdl_ == handle)
+        if (conn->hdl() == handle)
             return conn;
     }
     return nullptr;
@@ -410,14 +410,14 @@ Conn* AppHost::find_conn_with_id(int handle)
 bool AppHost::important_messages_due(Conn* conn)
 {
     lists::Hunt<ReliableMsgNode> important;
-    for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs_); link;
+    for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs()); link;
          link = important.following_item()) {
         const uint32_t sent = link->stamp_ms_;
         if (!sent || clock_ - sent > retransmit_limit(conn))
             return true;
     }
     lists::Hunt<OrderedMsgNode> sequenced;
-    for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs_); link;
+    for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs()); link;
          link = sequenced.following_item()) {
         const uint32_t sent = link->stamp_ms_;
         if (!sent || clock_ - sent > retransmit_limit(conn))
@@ -430,19 +430,19 @@ bool AppHost::important_messages_due(Conn* conn)
 bool AppHost::messages_due(Conn* conn)
 {
     lists::Hunt<MsgNormalLink> normal;
-    for (const MsgNormalLink* link = normal.head_element(&conn->normal_msgs_); link; link = normal.following_item()) {
+    for (const MsgNormalLink* link = normal.head_element(&conn->normal_msgs()); link; link = normal.following_item()) {
         if (clock_ >= link->due_time_)
             return true;
     }
     lists::Hunt<ReliableMsgNode> important;
-    for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs_); link;
+    for (const ReliableMsgNode* link = important.head_element(&conn->important_msgs()); link;
          link = important.following_item()) {
         const uint32_t sent = link->stamp_ms_;
         if (!sent || clock_ < link->due_time_ || clock_ - sent > retransmit_limit(conn))
             return true;
     }
     lists::Hunt<OrderedMsgNode> sequenced;
-    for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs_); link;
+    for (const OrderedMsgNode* link = sequenced.head_element(&conn->sequenced_msgs()); link;
          link = sequenced.following_item()) {
         const uint32_t sent = link->stamp_ms_;
         if (!sent || clock_ < link->due_time_ || clock_ - sent > retransmit_limit(conn))
@@ -457,13 +457,13 @@ void AppHost::free_messages(Conn* conn, int queue, uint8_t id)
     memory::ListNode* list = nullptr;
     switch (queue) {
     case 0:
-        list = &conn->normal_msgs_;
+        list = &conn->normal_msgs();
         break;
     case 1:
-        list = &conn->important_msgs_;
+        list = &conn->important_msgs();
         break;
     case 2:
-        list = &conn->sequenced_msgs_;
+        list = &conn->sequenced_msgs();
         break;
     default:
         return;

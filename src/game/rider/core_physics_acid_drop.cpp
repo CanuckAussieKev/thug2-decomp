@@ -481,9 +481,9 @@ bool SkaterPhysicsModule::try_spine_transfer()
     maths::Vec4 target_normal{};
     if (!find_transfer_target(&look, &normal, &hip, &target, &target_normal, &object_hit)) {
         const objects::PadInputModule* input = input_;
-        if (!input->pad_primary_.left_side_.held_down_ == !input->pad_primary_.right_side_.held_down_)
+        if (!input->pad_primary_.left_side().held_down_ == !input->pad_primary_.right_side().held_down_)
             return false;
-        if (input->pad_primary_.left_side_.held_down_) {
+        if (input->pad_primary_.left_side().held_down_) {
             look = {.x = static_cast<float>(static_cast<double>(back.x) + -normal.z), .y = back.y,
                     .z = static_cast<float>(static_cast<double>(back.z) + normal.x),
                     .w = static_cast<float>(static_cast<double>(back.w) + 1.0f)};

@@ -44,7 +44,7 @@ constexpr uint32_t kName = 0xA1DC81F9;            // Name
 // The model component's model (+0x208).
 render::RenderModel* model_of(ObjectModule* model)
 {
-    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_.get();
+    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance().get();
 }
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).
@@ -107,7 +107,7 @@ void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geome
     }
     const render::RenderModel* model = model_of(entity_->fetch_module(kModelModuleName));
     const auto* data =
-        static_cast<const render::SubMesh*>(assets::asset_manager()->get_asset_data(model->source_path_, 0));
+        static_cast<const render::SubMesh*>(assets::asset_manager()->get_asset_data(model->source_path(), 0));
     if (data) {
         hit_shape_ = render::build_dynamic_hit_mesh(type, data->hit_shape_, data->collision_count_, entity_);
     } else {

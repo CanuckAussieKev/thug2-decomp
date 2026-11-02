@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 #include "engine/pad_input/input_hub.h"
 
 namespace objects {
@@ -61,6 +62,49 @@ public:
     // multiple of 0x20 below 0x200); null for another offset.
     ControlButton* button_at_offset(uint32_t offset);
 
+    // A stick as an angle (atan2(x, -y): 0 = up, clockwise positive) and a length.
+    struct Polar {
+        float angle;
+        float length;
+    };
+
+    // The fields other code reads and sets.
+    ControlButton& up_dir() { return up_dir_; }
+    [[nodiscard]] const ControlButton& up_dir() const { return up_dir_; }
+    ControlButton& btn_down() { return btn_down_; }
+    [[nodiscard]] const ControlButton& btn_down() const { return btn_down_; }
+    ControlButton& left_side() { return left_side_; }
+    [[nodiscard]] const ControlButton& left_side() const { return left_side_; }
+    ControlButton& right_side() { return right_side_; }
+    [[nodiscard]] const ControlButton& right_side() const { return right_side_; }
+    ControlButton& shoulder_left_a() { return shoulder_left_a_; }
+    [[nodiscard]] const ControlButton& shoulder_left_a() const { return shoulder_left_a_; }
+    ControlButton& shoulder_left_b() { return shoulder_left_b_; }
+    [[nodiscard]] const ControlButton& shoulder_left_b() const { return shoulder_left_b_; }
+    ControlButton& stick_click_left() { return stick_click_left_; }
+    [[nodiscard]] const ControlButton& stick_click_left() const { return stick_click_left_; }
+    ControlButton& shoulder_right_a() { return shoulder_right_a_; }
+    [[nodiscard]] const ControlButton& shoulder_right_a() const { return shoulder_right_a_; }
+    ControlButton& shoulder_right_b() { return shoulder_right_b_; }
+    [[nodiscard]] const ControlButton& shoulder_right_b() const { return shoulder_right_b_; }
+    ControlButton& stick_click_right() { return stick_click_right_; }
+    [[nodiscard]] const ControlButton& stick_click_right() const { return stick_click_right_; }
+    [[nodiscard]] const ControlButton& button_round() const { return button_round_; }
+    [[nodiscard]] const ControlButton& button_box() const { return button_box_; }
+    ControlButton& button_wedge() { return button_wedge_; }
+    [[nodiscard]] const ControlButton& button_wedge() const { return button_wedge_; }
+    ControlButton& pos_x() { return pos_x_; }
+    [[nodiscard]] const ControlButton& pos_x() const { return pos_x_; }
+    ControlButton& button_choose() { return button_choose_; }
+    [[nodiscard]] const ControlButton& button_choose() const { return button_choose_; }
+    [[nodiscard]] const std::array<float, 4>& stick() const { return stick_; }
+    [[nodiscard]] const std::array<float, 4>& scaled_stick() const { return scaled_stick_; }
+    std::array<Polar, 2>& polar() { return polar_; }
+    [[nodiscard]] const std::array<Polar, 2>& polar() const { return polar_; }
+    std::array<uint32_t, 2>& lock() { return lock_; }
+    [[nodiscard]] const std::array<uint32_t, 2>& lock() const { return lock_; }
+
+private:
     ControlButton up_dir_{};            // +0x000
     ControlButton btn_down_{};          // +0x020
     ControlButton left_side_{};         // +0x040
@@ -79,20 +123,28 @@ public:
     ControlButton button_choose_{};     // +0x1E0
     std::array<float, 4> stick_{};                  // +0x200: two sticks' x, y: the data's 0x12-0x15 - 0x80
     std::array<float, 4> scaled_stick_{}; // +0x210: the data's 0-3 - 0x80, moved 50 towards 0 (past it: no dead band), / 77
+
     // +0x220: each stick as an angle (atan2(x, -y): 0 = up, clockwise positive) and a length; the second is the
     // d-pad's (length 127) while that stick is centred.
-    struct Polar {
-        float angle;
-        float length;
-    };
     std::array<Polar, 2> polar_{};
     // +0x230: two frame_clock::GetTime times (0 = none; set by other code) for the second stick held up / down: Update
     // clears each once it has passed, or once the stick is centred or leaves that quarter.
     std::array<uint32_t, 2> lock_{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PadSnapshot, stick_) == 0x200 && offsetof(PadSnapshot, polar_) == 0x220 &&
+                          offsetof(PadSnapshot, lock_) == 0x230,
+                      "layout must match the original");
+    }
+
+    // Every button with the name scripts ask for it by (each name's checksum is what read_button matches).
+    struct ButtonName {
+        ControlButton PadSnapshot::* button;
+        const char* name;
+    };
+    static std::span<const ButtonName> button_names();
 };
-static_assert(offsetof(PadSnapshot, stick_) == 0x200 && offsetof(PadSnapshot, polar_) == 0x220 &&
-                  offsetof(PadSnapshot, lock_) == 0x230,
-              "layout must match the original");
 
 // 0x0046BA50: the d-pad direction number (0 none, 1 up, 2 down, 3 left, 4 right, 5-8 the diagonals ...) of the
 // four directions held.

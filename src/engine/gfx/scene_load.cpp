@@ -72,15 +72,15 @@ SceneRef* new_mesh_list(bool mesh_flag)
 {
     void* memory = memory::alloc(sizeof(SceneRef));
     SceneRef* list = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
-    list->unknown40 = mesh_flag;
+    list->set_unknown40(mesh_flag);
     return list;
 }
 
 gsl::owner<PcScene*> build_world_scene(int sectors, bool with_super_sectors, bool flag_8d, SceneRef* list)
 {
     auto scene = memory::make_owned<PcScene>(table_bit_width(sectors));
-    scene->builds_collision_grid_ = with_super_sectors;
-    scene->is_sky_ = flag_8d;
+    scene->set_builds_collision_grid(with_super_sectors);
+    scene->set_is_sky(flag_8d);
     scene->meshes = list;
     return scene;
 }
@@ -112,10 +112,10 @@ gsl::owner<PcScene*> read_sectors(Stream& in, SceneRef* list, bool with_super_se
     const int nodes = scene_format::take<int>(in);
     if (nodes > 0 && in.fits(static_cast<uint64_t>(nodes) * sizeof(HierarchyNode))) {
         HierarchyNode* hierarchy = new_hierarchy(nodes);
-        list->hierarchy = hierarchy;
+        list->set_hierarchy(hierarchy);
         // (no check: a failed allocation reads into null, as the original)
         in.take(hierarchy, nodes * sizeof(HierarchyNode));
-        list->unknown78 = static_cast<uint32_t>(nodes);
+        list->set_unknown78(static_cast<uint32_t>(nodes));
     }
     if (!in.ok())
         debug::printf("scene damaged: cut short or doesn't fit (%d sectors)\n", sectors);
@@ -155,7 +155,7 @@ gsl::owner<PcScene*> load_scene_from_memory(const uint8_t* data, size_t size, co
     SceneRef* list = new_mesh_list(mesh_flag);
     scene_format::MemoryStream in(data, size);
     in.skip(scene_format::kHeaderSize);
-    list->materials = read_materials_from_buffer(in, texture_table(textures));
+    list->set_materials(read_materials_from_buffer(in, texture_table(textures)));
     return read_sectors(in, list, with_super_sectors, flag_8d,
                         [&in](PcSector* sector) { return sector->read_from_ram_block(in); });
 }
@@ -170,7 +170,7 @@ gsl::owner<PcScene*> load_scene_from_file(const char* name, const TextureSet* te
         return nullptr; // (the mesh list isn't freed, as the original)
     scene_format::FileStream in(file);
     in.skip(scene_format::kHeaderSize); // (the header's three words: not used)
-    list->materials = load_materials_from_file(in, texture_table(textures));
+    list->set_materials(load_materials_from_file(in, texture_table(textures)));
     gsl::owner<PcScene*> scene = read_sectors(in, list, with_super_sectors, flag_8d, [&in, arena](PcSector* sector) {
         return sector->ingest_from_file(in, arena);
     });
@@ -185,8 +185,8 @@ gsl::owner<void*> create_frame_source() { return new FrameSource; }
 gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures)
 {
     gsl::owner<PcScene*> scene = load_scene_from_file(name, textures, false, false, false, nullptr); // (the mesh's, below)
-    scene->checksum_ = checksums::hash_from_text(name);
-    scene->texture_set_ = textures;
+    scene->set_checksum(checksums::hash_from_text(name));
+    scene->set_texture_set(textures);
     scene->finish_load(name, nullptr);
     clear_screen_clip();
     auto mesh = memory::make_owned<PcMesh>(name);
@@ -202,8 +202,8 @@ gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data
     std::array<char, 16> name{};
     text::format_to(name, "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)
     gsl::owner<PcScene*> scene = load_scene_from_memory(data, size, textures, false, false, false); // (the mesh's, below)
-    scene->checksum_ = checksums::hash_from_text(name.data());
-    scene->texture_set_ = textures;
+    scene->set_checksum(checksums::hash_from_text(name.data()));
+    scene->set_texture_set(textures);
     scene->finish_load(name.data(), nullptr);
     auto mesh = memory::make_owned<PcMesh>();
     mesh->load_skin(static_cast<const uint8_t*>(skin), skin_size);

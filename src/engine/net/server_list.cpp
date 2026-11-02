@@ -175,7 +175,7 @@ void get_append(memory::ListNode* head, memory::ListNode* node)
 }
 
 // A server's id in the menu and in fetch_host (HostListing::id_).
-uint32_t server_id(const HostListing* server) { return server->id_; }
+uint32_t server_id(const HostListing* server) { return server->id(); }
 
 // NOT ORIGINAL: the next server's id (never 0).
 uint32_t next_server_id()
@@ -241,9 +241,9 @@ void HostListing::enroll_player(const char* name, int rating)
                                       : static_cast<memory::MemSource*>(ram_stats()->network_heap()));
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
     PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, 0) : nullptr;
-    player->skill_points_ = rating;
-    std::strncpy(player->label_.data(), name, 15);
-    core::at(player->label_, 15) = '\0';
+    player->set_skill_points(rating);
+    std::strncpy(player->label().data(), name, 15);
+    core::at(player->label(), 15) = '\0';
     get_append(&participants_, player);
     ram_stats()->leave_heap_scope();
 }
@@ -270,7 +270,7 @@ const char* HostListing::get_entrant_name(int index)
         if (!player)
             return nullptr;
         if (index == 0)
-            return player->label_.data();
+            return player->label().data();
         --index;
     }
     return nullptr;
@@ -282,7 +282,7 @@ int HostListing::get_entrant_rank(int index)
         if (!player)
             return 0;
         if (index == 0)
-            return player->skill_points_;
+            return player->skill_points();
         --index;
     }
     return 0;
@@ -318,12 +318,12 @@ void Hub::update_hosting_status()
         get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
         std::array<char, 1024> location{};
         RoomManager* lobby = lobby_service_.get();
-        if (lobby->remote_) {
-            const uint32_t private_ip = game_spy::peer_get_private_ip(lobby->remote_); // (the peer's private address)
+        if (lobby->remote()) {
+            const uint32_t private_ip = game_spy::peer_get_private_ip(lobby->remote()); // (the peer's private address)
             text::format_to(location, "10thug211:%d:%d:%d:%s (%s)", net->get_local_address(), private_ip, kPort,
-                            server_name, lobby->room_name_.data());
+                            server_name, lobby->room_name().data());
         } else {
-            text::format_to(location, "10thug211:0:0:0:%s (%s)", server_name, lobby->room_name_.data());
+            text::format_to(location, "10thug211:0:0:0:%s (%s)", server_name, lobby->room_name().data());
         }
         presence_service_->change_standing(2, script::fetch_text(kHostingStatus), location.data());
     }
@@ -353,13 +353,13 @@ void Hub::stop_server_list()
 {
     if (in_internet_mode()) {
         ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
-        if (lobby_service_.get()->remote_)
-            game_spy::peer_stop_listing_games(lobby_service_.get()->remote_); // (the browsing stopped)
+        if (lobby_service_.get()->remote())
+            game_spy::peer_stop_listing_games(lobby_service_.get()->remote()); // (the browsing stopped)
         ram_stats()->leave_heap_scope();
         return;
     }
     if (net::AppHost* client = get_matchmaking_client())
-        client->dispatcher_.tear_down_state();
+        client->dispatcher().tear_down_state();
     server_list_job_->drop_out();
 }
 
@@ -380,7 +380,7 @@ void Hub::clear_chosen_servers()
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             break;
-        server->chosen_ = false;
+        server->set_chosen(false);
     }
 }
 
@@ -392,7 +392,7 @@ int Hub::num_servers_in_menu()
         auto* server = static_cast<HostListing*>(node->data);
         if (!server)
             break;
-        if (server->in_menu_)
+        if (server->in_menu())
             ++count;
     }
     return count;
@@ -408,9 +408,9 @@ void Hub::show_server_in_menu(void* item, int index)
         get_run(kDestroyServerChildren);
     get_run(kPrepareServerMenu);
     script::StructPtr params = script::make_struct();
-    params->append_word(kText, server->label_.data());
-    params->append_word(kMode, server->mode_sel_.data());
-    debug::printf("The game mode is: %s\n", server->mode_sel_.data());
+    params->append_word(kText, server->label().data());
+    params->append_word(kMode, server->mode_sel().data());
+    debug::printf("The game mode is: %s\n", server->mode_sel().data());
     const uint32_t id = server_id(server);
     params->put_name_key(kId, id);
     params->put_name_key(kParent, kServerListMenu);
@@ -421,7 +421,7 @@ void Hub::show_server_in_menu(void* item, int index)
     params->put_sub_struct(kPadChooseParams, id_params.get());
     params->put_sub_struct(kFocusParams, id_params.get());
     get_run(kAddMenuItem, params.get());
-    server->in_menu_ = true;
+    server->set_in_menu(true);
     params.reset();
     id_params.reset();
     ram_stats()->leave_heap_scope();
@@ -445,7 +445,7 @@ bool Hub::has_server(const char* name, uint32_t ip)
             auto* server = static_cast<HostListing*>(node->data);
             if (!server)
                 break;
-            if (server->remote_ip_ == ip && _stricmp(server->label_.data(), name) == 0)
+            if (server->remote_ip() == ip && _stricmp(server->label().data(), name) == 0)
                 return true;
         }
     }
@@ -492,7 +492,7 @@ void Hub::refresh_server_list(bool force)
     std::array<uint8_t, 4> keys = {{8, 10, 4, 6}}; // (in the original: over its argument's slot)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     manager->lobby_service_->clear_lost_connection();
-    game_spy::peer_start_listing_games(lobby_service_.get()->remote_, keys.data(), 4, nullptr,
+    game_spy::peer_start_listing_games(lobby_service_.get()->remote(), keys.data(), 4, nullptr,
                                        code_address(listing_games_callback),
                                        this); // (the games listed)
     ram_stats()->leave_heap_scope();
@@ -601,7 +601,7 @@ bool cfunc_post_game(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     Hub* manager = net_game_state().the_manager();
-    if (!manager->lobby_service().get()->hosting_)
+    if (!manager->lobby_service().get()->hosting())
         manager->update_hosting_status();
     return true;
 }

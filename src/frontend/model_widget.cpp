@@ -98,14 +98,14 @@ const maths::BBox* geometry_bounding_box(void* geometry)
 // model's 0x00493CD0(0), then its 0x0048DE80 (thiscall).
 const maths::BBox* model_bounding_box(objects::ObjectModule* component)
 {
-    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
+    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
     void* geometry = model->get_geom_by_name(0);
     return geometry_bounding_box(geometry);
 }
 // The same, or null when the model has no geometry yet (the widescreen rule asks every frame, for every element).
 const maths::BBox* model_bounding_box_if_any(objects::ObjectModule* component)
 {
-    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
+    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
     if (!model)
         return nullptr;
     void* geometry = model->get_geom_by_name(0);
@@ -115,7 +115,7 @@ const maths::BBox* model_bounding_box_if_any(objects::ObjectModule* component)
 }
 void set_model_viewports(objects::ObjectModule* component, uint32_t mask)
 {
-    core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_->toggle_shown(mask);
+    core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance()->toggle_shown(mask);
 }
 
 // The node `name`'s structure (0x0045C1B0, asserting) and its position (0x0045C050).
@@ -235,10 +235,10 @@ void ModelWidget::scale_to_screen_dims()
     const float extent_y = max_y - min_y;
     const float extent_z = max_z - min_z;
     const double extent = extent_x > extent_z ? extent_x : extent_z;
-    const double width = span_;
+    const double width = span();
     const double z = camera_z_;
     auto horizontal = static_cast<float>(width * z / ((width * inv1280() + 1.0) * 640.0f) / extent);
-    double vertical = z * level_y_ / ((width * inv896() + 1.0) * 448.0f) / extent_y;
+    double vertical = z * level_y() / ((width * inv896() + 1.0) * 448.0f) / extent_y;
     horizontal = -horizontal;
     vertical = -vertical;
     fit_scale_ = static_cast<float>(horizontal < vertical ? horizontal : vertical);
@@ -527,8 +527,8 @@ void ModelWidget::tick_frame()
         const maths::Vec4 centre = {.x = static_cast<float>(static_cast<double>(centre_.x) * fit_scale_),
                                     .y = static_cast<float>(static_cast<double>(centre_.y) * fit_scale_),
                                     .z = static_cast<float>(static_cast<double>(centre_.z) * fit_scale_), .w = 1.0f};
-        auto y = static_cast<float>(get_layout_height() * 0.5f + summed_.top);
-        auto x = static_cast<float>(get_layout_width() * 0.5f + summed_.left);
+        auto y = static_cast<float>(get_layout_height() * 0.5f + summed().top);
+        auto x = static_cast<float>(get_layout_width() * 0.5f + summed().left);
         screen_to_world(&centre, &basis_frame_, view_slot_, x, y, camera_z_, &place);
         on_layout = point_at_ == kPointAtNothing;
         maths::Vec4 target; // (left uninitialised by the original if the object isn't found)
@@ -577,8 +577,8 @@ void ModelWidget::tick_frame()
     core::at(local.row, 3).z += pivot_.z;
     core::at(local.row, 3).w += pivot_.w;
 
-    auto scale_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * fit_scale_);
-    maths::Vec4 scale = {.x = scale_x, .y = static_cast<float>(static_cast<double>(summed_.scale_y_) * fit_scale_), .z = scale_x,
+    auto scale_x = static_cast<float>(static_cast<double>(summed().scale_x_) * fit_scale_);
+    maths::Vec4 scale = {.x = scale_x, .y = static_cast<float>(static_cast<double>(summed().scale_y_) * fit_scale_), .z = scale_x,
                          .w = 1.0f};
     void* camera = nullptr;
     // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
@@ -642,7 +642,7 @@ void ModelWidget::tick_frame()
         hover.z = static_cast<float>(s * core::at(basis_frame_.row, 1).z);
         hover.w = static_cast<float>(s * core::at(basis_frame_.row, 1).w);
     }
-    const bool visible = summed_.alpha >= visible_alpha();
+    const bool visible = summed().alpha >= visible_alpha();
     for (int i = 0; i < model_total_; ++i) {
         const ShapeMesh& model = core::at(models_, i);
         if (!model.object)

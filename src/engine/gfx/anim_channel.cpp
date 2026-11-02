@@ -138,7 +138,7 @@ memory::ListNode* elem(AnimTrack* timeline) { return &timeline->list_link_; }
 // The playing timeline (the list's first), or null.
 AnimTrack* get_first(BlendChannel* channel)
 {
-    memory::ListNode* node = channel->timelines_.next;
+    memory::ListNode* node = channel->timelines().next;
     return is_head(node) || !node ? nullptr : track_of(node);
 }
 
@@ -160,7 +160,7 @@ void delete_all_timelines(memory::ListNode* head)
 
 objects::GameEntity* get_owner(BlendChannel* channel)
 {
-    return channel->owner_ptr_;
+    return channel->owner_ptr();
 }
 
 // The network manager (0x007CCE14) and this machine's client app for the channel's object - null when the object
@@ -198,7 +198,7 @@ gsl::owner<Struct*> spawn_param_bag()
 // The playing timeline's controllers given a member function with `params` (slot 5, no script).
 void pass_to_first(BlendChannel* channel, uint32_t name, Struct* params)
 {
-    masked(channel->timelines_.next)->invoke_method_by_name(name, params, nullptr);
+    masked(channel->timelines().next)->invoke_method_by_name(name, params, nullptr);
 }
 
 // The original's _ftol: truncated towards zero.
@@ -494,7 +494,7 @@ bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*
 void BlendChannel::toggle_flipped()
 {
     const net::AppHost* app = net_session_slot()->fetch_patron(0);
-    const uint32_t unused = app->clock_;
+    const uint32_t unused = app->clock();
     set_flipped(get_owner(this)->ident_, !((flag_bits_ >> 29) & 1), unused, true);
 }
 

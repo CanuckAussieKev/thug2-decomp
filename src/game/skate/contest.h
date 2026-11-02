@@ -52,6 +52,7 @@ struct Contest {
         }
     };
 
+private:
     script::Struct* args_;             // +0x00: StartCompetition's extra parameters (leader_board_names,
                                        // first_place_name)
     int runs_{};                       // +0x04: the current run (begin_timed_session counts them; -1 after Start)
@@ -70,6 +71,8 @@ struct Contest {
     std::array<int, kRuns> run_totals_{};            // +0x154: the player's score of each run
     bool ended_{};                       // +0x160
     int standing_{};                     // +0x164: the player's place (1-8) after the last run
+
+public:
 
     // 0x005504B0: the constructor (the leaders' names, an empty parameter structure). The argument isn't used.
     // Returns this.

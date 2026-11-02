@@ -38,9 +38,9 @@ bool buttons_held(objects::FootMovement* walk)
     if (walk->off_vert() || walk->physics_control()->board_missing_)
         return false;
     const objects::PadSnapshot& pad = walk->input()->pad_primary_;
-    if (!ps2_controls() && !pad.shoulder_left_b_.held_down_)
+    if (!ps2_controls() && !pad.shoulder_left_b().held_down_)
         return false;
-    return pad.shoulder_right_b_.held_down_ != 0;
+    return pad.shoulder_right_b().held_down_ != 0;
 }
 
 // The velocity (x, y, z, w) and the up speed after it: the flat velocity and its y as the up speed.

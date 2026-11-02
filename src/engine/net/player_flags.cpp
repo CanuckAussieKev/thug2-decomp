@@ -85,11 +85,11 @@ void take_flag_from_carriers(Hub* manager, int team, bool stop_at_first)
         if (p->get_flag_team() != team)
             continue;
         if (stop_at_first) {
-            p->flag_bits_ &= ~kPlayerCarryingFlags;
+            p->flag_bits() &= ~kPlayerCarryingFlags;
             return;
         }
-        p->flag_bits_ &= ~flag_of(team);
-        p->flag_bits_ &= ~kPlayerCarryingFlags;
+        p->flag_bits() &= ~flag_of(team);
+        p->flag_bits() &= ~kPlayerCarryingFlags;
     }
 }
 
@@ -98,7 +98,7 @@ void take_flag_from_carriers(Hub* manager, int team, bool stop_at_first)
 // 0x00543910
 bool PlayerRecord::is_invulnerable()
 {
-    if (!(conn_->cur_standing_ & net::Conn::kConnReady) || !rider()->get_flag_2c_4())
+    if (!(conn_->cur_standing() & net::Conn::kConnReady) || !rider()->get_flag_2c_4())
         return true;
     if (rider()->state_history()->state_count_ < 10) // (its state history's frames)
         return true;
@@ -134,7 +134,7 @@ void PlayerRecord::set_finished_joining()
         desc.ident_ = kMsgPlayerFullyIn;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
-        server->put_on_outbox(conn_ ? conn_->hdl_ : 0, &desc);
+        server->put_on_outbox(conn_ ? conn_->hdl() : 0, &desc);
         break;
     }
     case 2:

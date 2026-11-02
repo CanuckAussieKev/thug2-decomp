@@ -99,24 +99,24 @@ float wibble_offset(float t, float frequency, float phase, float amplitude, floa
 // (pass 0's flag 0x100) - or none, once, when the last material had it (0x00786E4C).
 void set_common_states(MaterialRef* material)
 {
-    change_phase(kPhaseAlphaTest, material->alpha_ref_);
-    change_phase(kCullMode, material->two_sided_ ? D3DCULL_NONE : D3DCULL_CW);
-    change_phase(kDepthBias, material->depth_bias_);
+    change_phase(kPhaseAlphaTest, material->alpha_ref());
+    change_phase(kCullMode, material->two_sided() ? D3DCULL_NONE : D3DCULL_CW);
+    change_phase(kDepthBias, material->depth_bias());
     material->update_uv_wibbles();
     material->update_color_anims();
     material->update_texture_anims();
     const uint32_t specular_on = renderer().specular_state();
     D3DMATERIAL9 specular;
-    if (core::at(material->pass_flags_, 0) & kPassSpecular) {
+    if (core::at(material->pass_flags(), 0) & kPassSpecular) {
         if (specular_on)
             return;
         change_phase(kSpecular, 1);
         std::memset(&specular, 0, sizeof(specular));
-        specular.Specular.r = core::at(material->specular, 0);
-        specular.Specular.g = core::at(material->specular, 1);
-        specular.Specular.b = core::at(material->specular, 2);
+        specular.Specular.r = core::at(material->specular_value(), 0);
+        specular.Specular.g = core::at(material->specular_value(), 1);
+        specular.Specular.b = core::at(material->specular_value(), 2);
         specular.Specular.a = 1.0f;
-        specular.Power = material->specular_power_;
+        specular.Power = material->specular_power();
     } else {
         if (!specular_on)
             return;
@@ -130,7 +130,7 @@ void set_common_states(MaterialRef* material)
 void set_border_color(const MaterialRef* material, uint32_t pass, uint32_t stage)
 {
     uint32_t& border = core::at(renderer().border_colours(), stage);
-    if (core::at(material->pass_flags_, pass) & kPassBorder) {
+    if (core::at(material->pass_flags(), pass) & kPassBorder) {
         if (border != 0xE0000000)
             border = 0xE0000000;
     } else if (border) {

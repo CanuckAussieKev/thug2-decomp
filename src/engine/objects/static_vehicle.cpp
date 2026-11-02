@@ -31,7 +31,7 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 // bytes from +0x50, each with its matrix at +0x10.
 std::span<const render::HierarchyNode> hierarchy_of(ObjectModule* model)
 {
-    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_->asset_hierarchy_run();
+    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance()->asset_hierarchy_run();
 }
 
 // The skeleton component's skeleton.

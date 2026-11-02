@@ -154,7 +154,7 @@ bool set_lobby_status(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     const Hub* manager = net_game_state().the_manager();
-    const char* lobby = manager->lobby_service()->room_name_.data(); // (0x0053F820)
+    const char* lobby = manager->lobby_service()->room_name().data(); // (0x0053F820)
     const char* text = script::fetch_text("homie_status_chatting");
     FriendsManager* buddies = manager->presence_service().get();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());

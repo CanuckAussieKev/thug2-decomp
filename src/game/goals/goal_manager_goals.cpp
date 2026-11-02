@@ -205,7 +205,7 @@ void GoalManager::append_objective_options(bool selected_only, bool skip_edited,
         goal->swap_move_caption();
         const char* text = nullptr;
         goal->get_objective_list_caption(&text);
-        if (!text || goal->is_online_objective() || goal->parents_->objective_key_)
+        if (!text || goal->is_online_objective() || goal->parents()->objective_key_)
             continue;
         online::cfunc_is_host(nullptr, nullptr); // (its answer isn't used)
         if (selected_only && !goal->is_picked())

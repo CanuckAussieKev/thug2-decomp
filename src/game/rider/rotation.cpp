@@ -129,14 +129,14 @@ void SkaterPhysicsModule::get_spin()
     auto frame_length = [this] { return static_cast<double>(frame_length_); };
     if (tap_spin_) {
         // Each tap queues half a turn (unless the other button is down).
-        if (pad->shoulder_left_a_.fired_) {
-            take_press(&pad->shoulder_left_a_);
-            if (!pad->shoulder_right_a_.held_down_)
+        if (pad->shoulder_left_a().fired_) {
+            take_press(&pad->shoulder_left_a());
+            if (!pad->shoulder_right_a().held_down_)
                 queued = static_cast<float>(static_cast<double>(queued) + kPi);
         }
-        if (pad->shoulder_right_a_.fired_) {
-            take_press(&pad->shoulder_right_a_);
-            if (!pad->shoulder_left_a_.held_down_)
+        if (pad->shoulder_right_a().fired_) {
+            take_press(&pad->shoulder_right_a());
+            if (!pad->shoulder_left_a().held_down_)
                 queued = static_cast<float>(static_cast<double>(queued) - kPi);
         }
         if (queued != 0.0f) {
@@ -154,8 +154,8 @@ void SkaterPhysicsModule::get_spin()
         // Holding one button (not both) turns once it's been held longer than the spin delay - always, with
         // PartyMod's PS2 controls (it NOPs the delay checks' jumps; the delay is still read). Held long enough,
         // the skater can no longer be turned to face the ramp.
-        objects::ControlButton* left = &pad->shoulder_left_a_;
-        objects::ControlButton* right = &pad->shoulder_right_a_;
+        objects::ControlButton* left = &pad->shoulder_left_a();
+        objects::ControlButton* right = &pad->shoulder_right_a();
         if (left->held_down_ && !right->held_down_) {
             float held = get_held_seconds(left);
             if (tuning_float_lookup(kSpinDelay, 0, nullptr) < held || ps2_controls()) {
@@ -181,15 +181,15 @@ void SkaterPhysicsModule::get_spin()
     // The second pair of spin buttons: the speed ramps up from 0 at one held time to full at another.
     if (!state_->flag(PoseFlag::kNoSecondSpin).on && !spinning) {
         int held = 0;
-        if (pad->left_side_.held_down_) {
+        if (pad->left_side().held_down_) {
             speed = static_cast<float>(stat_value(object, kSpinSpeed));
-            held = get_held_time(&pad->left_side_);
+            held = get_held_time(&pad->left_side());
             if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held))
                 state_->set_flag((PoseFlag::kSpin), 0);
         }
-        if (pad->right_side_.held_down_) {
+        if (pad->right_side().held_down_) {
             speed = static_cast<float>(-stat_value(object, kSpinSpeed));
-            held = get_held_time(&pad->right_side_);
+            held = get_held_time(&pad->right_side());
             if (tuning_float_lookup(kSpinFaceRampTime, 1, object) < static_cast<float>(held))
                 state_->set_flag((PoseFlag::kSpin), 0);
         }
@@ -253,8 +253,8 @@ void SkaterPhysicsModule::break_vert(bool force)
     objects::PadSnapshot* pad = &input_->pad_primary_;
     // The two buttons: both (PartyMod's PS2 controls: either - its JNZs at 0x00507184 / 0x005071AE).
     auto triggers = [&] {
-        return ps2_controls() ? pad->shoulder_left_b_.held_down_ || pad->shoulder_right_b_.held_down_
-                              : pad->shoulder_left_b_.held_down_ && pad->shoulder_right_b_.held_down_;
+        return ps2_controls() ? pad->shoulder_left_b().held_down_ || pad->shoulder_right_b().held_down_
+                              : pad->shoulder_left_b().held_down_ && pad->shoulder_right_b().held_down_;
     };
     bool jump_held = false;
     // Not original: THAW 0x005DA210 (the on-bike flag read first, 0x005DA218) - on the bike the movement stick's up
@@ -264,10 +264,10 @@ void SkaterPhysicsModule::break_vert(bool force)
     const bool bike = thaw_bmx::live_now(this);
     if (bike) {
         jump_held = thaw_bmx::vert_push_held(this, tuning_int_lookup(kBreakVertJumpTime, 1, object));
-    } else if (pad->up_dir_.held_down_) {
+    } else if (pad->up_dir().held_down_) {
         const int limit = tuning_int_lookup(kBreakVertJumpTime, 1, object);
-        jump_held = get_held_time(&pad->up_dir_) > limit && !pad->left_side_.held_down_ &&
-                    !pad->right_side_.held_down_ && !pad->button_box_.held_down_ && !pad->button_round_.held_down_;
+        jump_held = get_held_time(&pad->up_dir()) > limit && !pad->left_side().held_down_ &&
+                    !pad->right_side().held_down_ && !pad->button_box().held_down_ && !pad->button_round().held_down_;
     }
     if (!jump_held && !triggers() && !transfer_blocked_ && !force)
         return;

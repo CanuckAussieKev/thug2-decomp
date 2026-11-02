@@ -78,6 +78,7 @@ public:
     // percentage (Sound component's 0x00433240), and the skater gets event 0xC4A60423 with its Strength (0-1).
     void update_collide_sound();
 
+private:
     script::Struct* settings_{nullptr}; // +0x18
     bool park_editor_level_{false};     // +0x1C
     std::array<uint8_t, 3> pad1d_{};

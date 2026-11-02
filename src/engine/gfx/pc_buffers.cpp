@@ -53,7 +53,7 @@ void MeshRef::move_into_arena(VertexArena* arena)
 // 0x004D3D10
 void MeshRef::set_pixel_shader_colored()
 {
-    const uint32_t bytes = material->pass_count_ << 4; // 16 a pass
+    const uint32_t bytes = material->pass_count() << 4; // 16 a pass
     auto& constants = renderer().ps_constant_bank();
     auto& saved = saved_pixel_shader_constants();
     std::memcpy(saved.data(), constants.data(), bytes);
@@ -67,8 +67,8 @@ void MeshRef::set_pixel_shader_colored()
         g = static_cast<double>(core::at(color, 1)) + core::at(color, 1);
         b = static_cast<double>(core::at(color, 2)) + core::at(color, 2);
     }
-    for (uint32_t pass = 0; pass < material->pass_count_; ++pass) {
-        if (core::at(material->pass_flags_, pass) & 0x80) // (the colour isn't to be changed)
+    for (uint32_t pass = 0; pass < material->pass_count(); ++pass) {
+        if (core::at(material->pass_flags(), pass) & 0x80) // (the colour isn't to be changed)
             continue;
         float& c0 = core::at(constants, 4 * pass);
         float& c1 = core::at(constants, 4 * pass + 1);
@@ -78,7 +78,7 @@ void MeshRef::set_pixel_shader_colored()
         c2 = static_cast<float>(b * c2);
     }
     renderer().set_pixel_shader_changed(1); // (the constants changed)
-    set_pixel_shader_with_constants(pixel_shader_, material->pass_count_);
+    set_pixel_shader_with_constants(pixel_shader_, material->pass_count());
     std::memcpy(constants.data(), saved.data(), bytes);
     renderer().set_pixel_shader_changed(1);
 }

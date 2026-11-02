@@ -83,10 +83,10 @@ inline PlayerRecord* is_crown_rule_active(Hub* manager) { return manager->get_hi
 // (0 or 1 in EAX: the original's callers test AL)
 inline bool is_own_player(PlayerRecord* player) { return player->is_own_player() != 0; }
 inline bool is_observer(PlayerRecord* player) { return player->is_observer() != 0; }
-inline objects::GameEntity* player_skater(const PlayerRecord* player) { return player->skater_; }
+inline objects::GameEntity* player_skater(const PlayerRecord* player) { return player->skater(); }
 inline uint32_t get_skater_id(const objects::Entity* skater) { return skater->ident_; }
-inline const char* player_name(const PlayerRecord* player) { return player->label_.data(); }
-inline int player_team(const PlayerRecord* player) { return player->team_; }
+inline const char* player_name(const PlayerRecord* player) { return player->label().data(); }
+inline int player_team(const PlayerRecord* player) { return player->team(); }
 
 inline PlayerRecord* start_roster_sweep(Hub* manager, PlayerSearch* search, bool observers)
 {

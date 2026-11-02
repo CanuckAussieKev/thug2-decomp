@@ -64,9 +64,9 @@ Hub* task_manager(tasks::Task<Hub>* task) { return task->content_; }
 // The connection's line of the network metrics: "(n) Lag: ... Resends: ... Bps: <in> <out>".
 void show_connection_metrics(net::Conn* conn, int index)
 {
-    const int lag = conn->is_host_local() ? 0 : conn->ping_probe_.average_latency_;
-    const int sent = conn->send_metrics_.get_throughput();
-    const int received = conn->receive_metrics_.get_throughput();
+    const int lag = conn->is_host_local() ? 0 : conn->ping_probe().average_latency_;
+    const int sent = conn->send_metrics().get_throughput();
+    const int received = conn->receive_metrics().get_throughput();
     const int resends = conn->get_highest_resend_count();
     std::array<char, 1024> line{};
     text::format_to(line, "(%d) Lag: %d Resends: %d Bps: %d %d", index, lag, resends, received, sent);

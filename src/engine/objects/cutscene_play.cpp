@@ -296,7 +296,7 @@ bool CinematicEntry::is_finished()
 bool CinematicEntry::has_camera()
 {
     CinematicTable* data = content_;
-    return data && data->flag_34b_0_ && data->is_loaded() && data->ready_;
+    return data && data->flag_34b_0() && data->is_loaded() && data->ready();
 }
 
 } // namespace objects

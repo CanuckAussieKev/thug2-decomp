@@ -33,9 +33,9 @@ inline gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<o
 
 // The model's lights (+0x2C, the folded getter 0x00532EB0), its file checksum (+0x30) and flags (+0x44: 2 active, 4
 // hidden).
-inline void* model_lights(render::RenderModel* model) { return model->lights_ptr_.get(); }
-inline uint32_t model_file_checksum(render::RenderModel* model) { return model->source_path_; }
-inline uint8_t get_model_flags(render::RenderModel* model) { return model->flag_bits_; }
+inline void* model_lights(render::RenderModel* model) { return model->lights_ptr().get(); }
+inline uint32_t model_file_checksum(render::RenderModel* model) { return model->source_path(); }
+inline uint8_t get_model_flags(render::RenderModel* model) { return model->flag_bits(); }
 // The model loaded from an asset (0x004934A0: name, geom name, multicolour, 1).
 inline bool load_asset(render::RenderModel* model, uint32_t name, uint32_t mesh_label, bool multicolor)
 {

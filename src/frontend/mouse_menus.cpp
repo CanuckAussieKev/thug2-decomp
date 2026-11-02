@@ -81,11 +81,11 @@ const objects::Entity* as_object(const UiWidget* element) { return static_cast<c
 uint32_t current_flags(const UiWidget* element) { return as_object(element)->object_flags_; }
 uint32_t kind_tag(const UiWidget* element) { return as_object(element)->kind_tag_; }
 uint32_t ident_no(const UiWidget* element) { return as_object(element)->ident_; }
-UiWidget* current_parent(const UiWidget* element) { return element->container_.get_pull(); }
-UiWidget* first_child(const UiWidget* element) { return element->eldest_.get_pull(); }
-UiWidget* next_sibling(const UiWidget* element) { return element->following_.get_pull(); }
-float get_alpha(const UiWidget* element) { return element->summed_.alpha; }
-float bearing(const UiWidget* element) { return element->summed_.angle; }
+UiWidget* current_parent(const UiWidget* element) { return element->container().get_pull(); }
+UiWidget* first_child(const UiWidget* element) { return element->eldest().get_pull(); }
+UiWidget* next_sibling(const UiWidget* element) { return element->following().get_pull(); }
+float get_alpha(const UiWidget* element) { return element->summed().alpha; }
+float bearing(const UiWidget* element) { return element->summed().angle; }
 
 // The flag on the element or a parent.
 bool flag_in_chain(const UiWidget* element, uint32_t flag)
@@ -277,8 +277,8 @@ bool window_to_layout(const ScreenMapping& mapping, float window_x, float window
 
 Cuboid element_box(const UiWidget* element)
 {
-    return {.x = element->summed_.left, .y = element->summed_.top, .width = element->span_ * element->summed_.scale_x_,
-            .height = element->level_y_ * element->summed_.scale_y_, .angle = bearing(element)};
+    return {.x = element->summed().left, .y = element->summed().top, .width = element->span() * element->summed().scale_x_,
+            .height = element->level_y() * element->summed().scale_y_, .angle = bearing(element)};
 }
 
 Rect2 element_rect(const UiWidget* element) { return box_rect(element_box(element)); }
@@ -629,10 +629,10 @@ void log_element(const char* what, const UiWidget* element)
 void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
 {
     const char* not_sent = nullptr;
-    const modules::FrontEndInputHandler* handler = core::at(front_end->pad_listeners_, 0).get();
-    if (core::at(front_end->pad_mappings_, 0).mapping_ == 0)
+    const modules::FrontEndInputHandler* handler = core::at(front_end->pad_listeners(), 0).get();
+    if (core::at(front_end->pad_mappings(), 0).mapping_ == 0)
         not_sent = "the first controller's pad mapping is inactive";
-    else if (front_end->block_menu_input_)
+    else if (front_end->block_menu_input())
         not_sent = "menu input is blocked (SetButtonEventMappings block_menu_input)";
     else if (!handler || !handler->dev_)
         not_sent = "no input device";
@@ -642,7 +642,7 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
     if (not_sent)
         return;
     script::Struct params;
-    params.put_int(kDeviceNum, handler->dev_->port_no_);
+    params.put_int(kDeviceNum, handler->dev_->port_no());
     params.put_int(kController, 0);
     objects::get_tracker()
         ->launch_event(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
@@ -965,17 +965,17 @@ void tick_frame(modules::FrontEnd* front_end)
 
     // The front end, or a level's pause menu; never the park editor's own cursor.
     void* manager = frontend::UiTree::sole();
-    bool menus = manager && root_element(manager) && (render::current_level() == 0 || front_end->is_halted_);
-    if (menus && in_park_editor() && !front_end->is_halted_)
+    bool menus = manager && root_element(manager) && (render::current_level() == 0 || front_end->is_halted());
+    if (menus && in_park_editor() && !front_end->is_halted())
         menus = false;
     if (debug_enabled()) {
         // (debug_mouse: each change of whether the mouse drives the menus, with what decided it)
         static int s_last_menus = -1, s_last_paused = -1;
-        if (static_cast<int>(menus) != s_last_menus || static_cast<int>(front_end->is_halted_) != s_last_paused) {
+        if (static_cast<int>(menus) != s_last_menus || static_cast<int>(front_end->is_halted()) != s_last_paused) {
             s_last_menus = menus;
-            s_last_paused = front_end->is_halted_;
+            s_last_paused = front_end->is_halted();
             get_log("mouse: menus %s (level %u, front end paused %d, element manager %d, root %d, park editor %d)",
-                    menus ? "active" : "inactive", render::current_level(), front_end->is_halted_, manager != nullptr,
+                    menus ? "active" : "inactive", render::current_level(), front_end->is_halted(), manager != nullptr,
                     manager && root_element(manager) != nullptr, in_park_editor());
         }
     }

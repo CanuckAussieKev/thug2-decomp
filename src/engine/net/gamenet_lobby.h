@@ -188,6 +188,38 @@ public:
     // player's asked for (room_keys_callback).
     static void join_room_callback(void* peer, int success, int result, int room_type, RoomManager* lobby);
 
+    // The fields other code reads and sets.
+    memory::ListNode& participants() { return participants_; }
+    [[nodiscard]] const memory::ListNode& participants() const { return participants_; }
+    [[nodiscard]] int group_id() const { return group_id_; }
+    void set_group_id(int value) { group_id_ = value; }
+    [[nodiscard]] int unknown2c() const { return unknown2c_; }
+    void set_unknown2c(int value) { unknown2c_ = value; }
+    [[nodiscard]] int unknown30() const { return unknown30_; }
+    void set_unknown30(int value) { unknown30_ = value; }
+    std::array<char, 0x80>& room_name() { return room_name_; }
+    [[nodiscard]] const std::array<char, 0x80>& room_name() const { return room_name_; }
+    std::array<char, 0x80>& server_name() { return server_name_; }
+    [[nodiscard]] const std::array<char, 0x80>& server_name() const { return server_name_; }
+    void set_in_group_room(bool value) { in_group_room_ = value; }
+    [[nodiscard]] bool restricted_hosting() const { return restricted_hosting_; }
+    void set_restricted_hosting(bool value) { restricted_hosting_ = value; }
+    void set_drop_is_expected(bool value) { drop_is_expected_ = value; }
+    void set_connecting(bool value) { connecting_ = value; }
+    [[nodiscard]] bool hosting() const { return hosting_; }
+    int& negotiations() { return negotiations_; }
+    [[nodiscard]] int negotiations() const { return negotiations_; }
+    [[nodiscard]] void* remote() const { return remote_; }
+    [[nodiscard]] int nat_cookie() const { return nat_cookie_; }
+    void set_nat_cookie(int value) { nat_cookie_ = value; }
+    std::unique_ptr<tasks::SchedulerTask>& get_think_task() { return think_task_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& get_think_task() const { return think_task_; }
+    std::unique_ptr<tasks::SchedulerTask>& nat_task() { return nat_task_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& nat_task() const { return nat_task_; }
+    std::unique_ptr<tasks::SchedulerTask>& hosting_task() { return hosting_task_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& hosting_task() const { return hosting_task_; }
+
+private:
     memory::ListNode rooms_{};        // +0x00 lists::Foremost<LobbyRoom>
     memory::ListNode participants_{}; // +0x14 lists::Foremost<LobbyPlayer>
     int group_id_{};                // +0x28 the chosen room's group room (0: none; LeaveLobby passes it to 0x005FC9B0)

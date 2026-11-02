@@ -26,6 +26,20 @@ struct Char {
 static_assert(sizeof(Char) == 0x18, "layout must match the original");
 
 struct TypefaceData {
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t height_value() const { return height; }
+    [[nodiscard]] uint32_t base_value() const { return base; }
+    [[nodiscard]] const std::array<uint8_t, 256>& map_value() const { return map; }
+    [[nodiscard]] const std::array<uint8_t, 0x20>& special_map() const { return special_map_; }
+    [[nodiscard]] int16_t glyph_gap() const { return glyph_gap_; }
+    void set_glyph_gap(int16_t value) { glyph_gap_ = value; }
+    [[nodiscard]] int16_t blank_gap() const { return blank_gap_; }
+    void set_blank_gap(int16_t value) { blank_gap_ = value; }
+    std::array<uint32_t, 16>& colors_value() { return colors; }
+    [[nodiscard]] const std::array<uint32_t, 16>& colors_value() const { return colors; }
+    [[nodiscard]] void* texture_value() const { return texture; }
+
+private:
     uint32_t height;
     uint32_t base;
     Char* chars;
@@ -41,6 +55,8 @@ struct TypefaceData {
     std::array<uint32_t, 16> colors;  // "\c1" ... (RGBA as bytes)
     void* texture;        // IDirect3DTexture9 (A8R8G8B8, managed)
     uint32_t unknown17c_; // passed with the texture to the renderer's texture set (0x004DA730); 0 when loaded
+
+public:
 
     // The glyph at `index` of `chars` (checked against the glyph count).
     [[nodiscard]] Char& glyph(std::size_t index) const
@@ -67,15 +83,20 @@ struct TypefaceData {
     static TypefaceData* read_in(const char* name);
     // 0x004CFA80: take `font` off the font list and free it (not its texture). cdecl.
     static void offload(TypefaceData* font);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(TypefaceData, map) == 0xC, "layout must match the original");
+        static_assert(offsetof(TypefaceData, special_map_) == 0x10C, "layout must match the original");
+        static_assert(offsetof(TypefaceData, format) == 0x12C, "layout must match the original");
+        static_assert(offsetof(TypefaceData, next) == 0x130, "layout must match the original");
+        static_assert(offsetof(TypefaceData, glyph_gap_) == 0x134, "layout must match the original");
+        static_assert(offsetof(TypefaceData, colors) == 0x138, "layout must match the original");
+        static_assert(offsetof(TypefaceData, texture) == 0x178 && sizeof(TypefaceData) == 0x180,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(TypefaceData, map) == 0xC, "layout must match the original");
-static_assert(offsetof(TypefaceData, special_map_) == 0x10C, "layout must match the original");
-static_assert(offsetof(TypefaceData, format) == 0x12C, "layout must match the original");
-static_assert(offsetof(TypefaceData, next) == 0x130, "layout must match the original");
-static_assert(offsetof(TypefaceData, glyph_gap_) == 0x134, "layout must match the original");
-static_assert(offsetof(TypefaceData, colors) == 0x138, "layout must match the original");
-static_assert(offsetof(TypefaceData, texture) == 0x178 && sizeof(TypefaceData) == 0x180,
-              "layout must match the original");
 
 // Per-character effects (an array parallel to the text, one record per character).
 // (a character's effect: engine_text.h's CharEffect - offset in pixels, scale 16384 = 1, rotation radians * 16384

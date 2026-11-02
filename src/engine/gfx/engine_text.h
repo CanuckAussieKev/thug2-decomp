@@ -47,10 +47,36 @@ public:
     virtual void update_priority() {}
     virtual void update_window() {}
 
+    // The fields other code reads and sets.
+    [[nodiscard]] Typeface* typeface() const { return typeface_; }
+    [[nodiscard]] CharEffect* effects() const { return effects_; }
+    [[nodiscard]] char* text_buffer() const { return text_buffer_; }
+    [[nodiscard]] float pos_x() const { return pos_x_; }
+    [[nodiscard]] float pivot_x() const { return pivot_x_; }
+    [[nodiscard]] float scale_h() const { return scale_h_; }
+    [[nodiscard]] float angle() const { return angle_; }
+    [[nodiscard]] float rank() const { return rank_; }
+    [[nodiscard]] float layer() const { return layer_; }
+    void set_layer(float value) { layer_ = value; }
+    [[nodiscard]] uint32_t shade() const { return shade_; }
+    [[nodiscard]] bool fixed_colour() const { return fixed_colour_; }
+    [[nodiscard]] bool invisible() const { return invisible_; }
+    void set_invisible(bool value) { invisible_ = value; }
+    [[nodiscard]] bool z_enabled() const { return z_enabled_; }
+    [[nodiscard]] GlyphString* next_free() const { return next_free_; }
+    void set_next_free(GlyphString* value) { next_free_ = value; }
+    [[nodiscard]] float y() const { return y_; }
+    [[nodiscard]] float pivot_y() const { return pivot_y_; }
+    [[nodiscard]] float scale_v() const { return scale_v_; }
+
+private:
     Typeface* typeface_{nullptr};         // +0x04
     CharEffect* effects_{nullptr};        // +0x08 (null until one is set)
+
+public:
     // NOT ORIGINAL - the effects as a run of kCharEffects.
     [[nodiscard]] std::span<CharEffect> effect_run() const { return {effects_, static_cast<std::size_t>(kCharEffects)}; }
+private:
     char* text_buffer_{nullptr};          // +0x0C (a buffer of its own, null until set)
     float pos_x_{0.0f}, y_{0.0f};         // +0x10
     float pivot_x_{0.0f}, pivot_y_{0.0f}; // +0x18
@@ -66,6 +92,8 @@ public:
     bool z_enabled_{false};      // +0x3F
     void* screen_region_;    // +0x40: the 2D window it's drawn in
     GlyphString* next_free_{nullptr}; // +0x44
+
+public:
 
     // 0x0048D5A0: the string's buffer and the effects freed.
     void free_buffers();
@@ -97,11 +125,16 @@ public:
     void set_char_offset(int index, int16_t x, int16_t y);
     void set_char_scale(int index, float x, float y);
     void set_char_rotation(int index, float rotation);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(GlyphString, rank_) == 0x2C && offsetof(GlyphString, layer_) == 0x34 &&
+                          offsetof(GlyphString, invisible_) == 0x3E && offsetof(GlyphString, next_free_) == 0x44 &&
+                          sizeof(GlyphString) == 0x48,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(GlyphString, rank_) == 0x2C && offsetof(GlyphString, layer_) == 0x34 &&
-                  offsetof(GlyphString, invisible_) == 0x3E && offsetof(GlyphString, next_free_) == 0x44 &&
-                  sizeof(GlyphString) == 0x48,
-              "layout must match the original");
 
 // 0x0048D1D0: a text from the free list (null when it's empty).
 gsl::owner<GlyphString*> new_text();

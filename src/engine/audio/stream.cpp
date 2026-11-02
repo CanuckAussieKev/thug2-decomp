@@ -99,9 +99,9 @@ Result open_bink_from_wad(BinkStream* bink, uint32_t checksum, const char* path,
 bool uses_overlapped(const StreamSlot& slot, const OVERLAPPED* overlapped)
 {
     if (slot.wad)
-        return slot.wad->async_ctl_ == overlapped;
+        return slot.wad->async_ctl() == overlapped;
     if (slot.bink)
-        return slot.bink->async_ctl_ == overlapped;
+        return slot.bink->async_ctl() == overlapped;
     return false;
 }
 
@@ -109,9 +109,9 @@ bool uses_overlapped(const StreamSlot& slot, const OVERLAPPED* overlapped)
 template <typename Stream>
 bool get_over(Stream* stream)
 {
-    if (stream->finished_ && stream->get_standing() != kPending)
+    if (stream->finished() && stream->get_standing() != kPending)
         return true;
-    return stream->stop_requested_ && stream->ready_to_free();
+    return stream->stop_requested() && stream->ready_to_free();
 }
 bool get_over(const StreamSlot& slot)
 {

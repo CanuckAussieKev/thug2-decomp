@@ -234,14 +234,14 @@ FallingTricksGoal::~FallingTricksGoal() = default;
 // 0x0056F0C0
 bool FallingTricksGoal::get_win()
 {
-    const bool testing = args_->has_bare_flag(kTrialRunFlag);
-    args_->put_name_key(0u, kJustWonGoal);
+    const bool testing = args()->has_bare_flag(kTrialRunFlag);
+    args()->put_name_key(0u, kJustWonGoal);
     disengage(false, true); // Deactivate
-    args_->remove_flag(kJustWonGoal);
+    args()->remove_flag(kJustWonGoal);
     if (testing)
-        args_->put_name_key(0u, kTrialRunFlag);
+        args()->put_name_key(0u, kTrialRunFlag);
     const bool won = Objective::get_win();
-    args_->remove_flag(kTrialRunFlag);
+    args()->remove_flag(kTrialRunFlag);
     return won;
 }
 
@@ -261,7 +261,7 @@ void FallingTricksGoal::clear_tricks()
         t.perfect = false;
         core::at(group_used_, i) = false;
     }
-    args_->remove_flag(kTricksAdded);
+    args()->remove_flag(kTricksAdded);
 }
 
 // 0x0056F180
@@ -284,11 +284,11 @@ bool integer_or_flag(script::Struct* params, uint32_t name)
 } // namespace
 
 // 0x0056F1A0
-bool FallingTricksGoal::is_combo() { return integer_or_flag(args_.get(), kCombo); }
+bool FallingTricksGoal::is_combo() { return integer_or_flag(args().get(), kCombo); }
 // 0x0056F1F0
-bool FallingTricksGoal::is_single_combo() { return integer_or_flag(args_.get(), kSingleCombo); }
+bool FallingTricksGoal::is_single_combo() { return integer_or_flag(args().get(), kSingleCombo); }
 // 0x0056F240
-bool FallingTricksGoal::is_trick_tris() { return integer_or_flag(args_.get(), kTrickTris); }
+bool FallingTricksGoal::is_trick_tris() { return integer_or_flag(args().get(), kTrickTris); }
 
 // 0x0056F2C0
 bool FallingTricksGoal::disengage(bool unused, bool reset_tree)
@@ -303,11 +303,11 @@ void FallingTricksGoal::prepare_all()
     trick_total_ = 0;
     stopwatch_ = 0;
     int combo_time = 0;
-    args_->fetch_int_value(kTrickTime, &combo_time, 1);
-    args_->put_int(kCurrentTrickTime, combo_time);
-    args_->put_int(kTricksDoneCount, 0);
+    args()->fetch_int_value(kTrickTime, &combo_time, 1);
+    args()->put_int(kCurrentTrickTime, combo_time);
+    args()->put_int(kTricksDoneCount, 0);
     // The first trick comes 200 ms in (at once for a single combo).
-    stopwatch_ = integer_or_flag(args_.get(), kSingleCombo) ? 0 : combo_time - 200;
+    stopwatch_ = integer_or_flag(args().get(), kSingleCombo) ? 0 : combo_time - 200;
     for (int i = 0; i < kMaxTricks; ++i) {
         StackedTrickEntry& t = core::at(tricks_, i);
         t.free = true;
@@ -325,7 +325,7 @@ void FallingTricksGoal::prepare_all()
 void FallingTricksGoal::update_alphas()
 {
     int check = 0; // (only read when given)
-    const bool check_given = args_->fetch_int_value(kNoAlphaCheck, &check, 0);
+    const bool check_given = args()->fetch_int_value(kNoAlphaCheck, &check, 0);
     modules::PointTally* score = local_skater()->get_points_total();
     void* manager = frontend::UiTree::sole();
     const float faded = script::fetch_float(kFadedAlpha);
@@ -349,7 +349,7 @@ void FallingTricksGoal::update_alphas()
 // 0x0056F500
 void FallingTricksGoal::expire()
 {
-    if (integer_or_flag(args_.get(), kSingleCombo) || is_trick_tris()) {
+    if (integer_or_flag(args().get(), kSingleCombo) || is_trick_tris()) {
         lose();
         return;
     }
@@ -359,7 +359,7 @@ void FallingTricksGoal::expire()
         return;
     }
     invoke_hook_script(kExpire);
-    if (run_ending_ != 2)
+    if (run_ending() != 2)
         disengage(false, true); // Deactivate
 }
 
@@ -376,7 +376,7 @@ void FallingTricksGoal::clear_tricks_and_menu()
         t.key_combo_ = 0;
         core::at(group_used_, i) = false;
     }
-    args_->remove_flag(kTricksAdded);
+    args()->remove_flag(kTricksAdded);
     hub(frontend::UiTree::sole())->dismantle_part(kTetrisMenu, 1, 1, nullptr);
 }
 
@@ -393,7 +393,7 @@ bool FallingTricksGoal::activate()
 void FallingTricksGoal::drop_move_entry(int index)
 {
     int max_tricks = 0;
-    args_->fetch_int_value(kMaxTricksName, &max_tricks, 1);
+    args()->fetch_int_value(kMaxTricksName, &max_tricks, 1);
     const uint32_t id = core::at(tricks_, index).element;
     void* manager = frontend::UiTree::sole();
     ElementPtr element;
@@ -405,9 +405,9 @@ void FallingTricksGoal::drop_move_entry(int index)
 
     // Red tricks back to normal once the stack is under three quarters full.
     int red = 0;
-    args_->fetch_int_value(kRedTricks, &red, 0);
+    args()->fetch_int_value(kRedTricks, &red, 0);
     if (red == 1 && static_cast<double>(trick_total_ - 1) < static_cast<double>(max_tricks) * three_quarters()) {
-        args_->put_int(kRedTricks, 0);
+        args()->put_int(kRedTricks, 0);
         for (const StackedTrickEntry& t : tricks_) {
             if (t.free)
                 continue;
@@ -424,19 +424,19 @@ void FallingTricksGoal::drop_move_entry(int index)
 
     // Every acceleration_interval tricks, the interval between tricks shortens by acceleration_percent.
     int completed = 0;
-    args_->fetch_int_value(kTricksDoneCount, &completed, 0);
+    args()->fetch_int_value(kTricksDoneCount, &completed, 0);
     ++completed;
     int interval = 0;
-    args_->fetch_int_value(kAccelerationInterval, &interval, 0);
+    args()->fetch_int_value(kAccelerationInterval, &interval, 0);
     if (interval && completed % interval == 0) {
         float percent = 0.0f;
-        args_->fetch_float(kAccelerationPercent, &percent, 0);
+        args()->fetch_float(kAccelerationPercent, &percent, 0);
         int time = 0;
-        args_->fetch_int_value(kCurrentTrickTime, &time, 1);
+        args()->fetch_int_value(kCurrentTrickTime, &time, 1);
         time = ftol((1.0 - percent) * time);
-        args_->put_int(kCurrentTrickTime, time);
+        args()->put_int(kCurrentTrickTime, time);
     }
-    args_->put_int(kTricksDoneCount, completed);
+    args()->put_int(kTricksDoneCount, completed);
     --trick_total_;
     core::at(tricks_, index).free = true;
 }
@@ -445,9 +445,9 @@ void FallingTricksGoal::drop_move_entry(int index)
 void FallingTricksGoal::add_tricks(int count)
 {
     int max_tricks = 0;
-    args_->fetch_int_value(kMaxTricksName, &max_tricks, 1);
+    args()->fetch_int_value(kMaxTricksName, &max_tricks, 1);
     const int total = trick_total_ + count;
-    const bool combo = integer_or_flag(args_.get(), kCombo) || is_single_combo();
+    const bool combo = integer_or_flag(args().get(), kCombo) || is_single_combo();
     if (total > max_tricks) {
         const uint32_t id = get_goal_id(this);
         fail_objective(objective_board(), id);
@@ -466,7 +466,7 @@ void FallingTricksGoal::add_tricks(int count)
     for (int remaining = count; remaining > 0; --remaining) {
         void* manager = frontend::UiTree::sole();
         script::Array* key_combos = nullptr;
-        args_->fetch_list(kTetrisKeyCombos, &key_combos, 0);
+        args()->fetch_list(kTetrisKeyCombos, &key_combos, 0);
         uint32_t key_combo = 0;
         uint32_t trick_name = 0;
         int slot = 0;
@@ -492,7 +492,7 @@ void FallingTricksGoal::add_tricks(int count)
         if (!key_combos) {
             // A random trick of goal_tetris_tricks.
             script::Array* tricks = nullptr;
-            args_->fetch_list(kStackTrickList, &tricks, 1);
+            args()->fetch_list(kStackTrickList, &tricks, 1);
             auto* trick =
                 tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent_)));
             const char* name = nullptr;
@@ -627,14 +627,14 @@ void FallingTricksGoal::add_tricks(int count)
         if (!key_combo_text)
             params->put_name_key(0u, kNoKeyCombo);
         auto stack_full = [&]() {
-            return !integer_or_flag(args_.get(), kTrickTris) && !integer_or_flag(args_.get(), kSingleCombo) &&
+            return !integer_or_flag(args().get(), kTrickTris) && !integer_or_flag(args().get(), kSingleCombo) &&
                    static_cast<double>(max_tricks) * three_quarters() < static_cast<double>(trick_total_);
         };
         const uint32_t add_script = stack_full() ? kAddRedTrick : kPushTrickScript;
         run_on(get_spawn(add_script, params), container);
         script::free_struct(params);
         if (stack_full()) {
-            args_->put_int(kRedTricks, 1);
+            args()->put_int(kRedTricks, 1);
             for (const StackedTrickEntry& other : tricks_) {
                 if (other.free)
                     continue;
@@ -650,7 +650,7 @@ void FallingTricksGoal::check_combos()
 {
     modules::PointTally* score = local_skater()->get_points_total();
     int combo_size = 0;
-    args_->fetch_int_value(kChainLength, &combo_size, 1);
+    args()->fetch_int_value(kChainLength, &combo_size, 1);
     for (int group = 0; group < kMaxTricks; ++group) {
         if (!core::at(group_used_, group))
             continue;
@@ -680,7 +680,7 @@ void FallingTricksGoal::check_combos()
             }
         }
         core::at(group_used_, group) = false;
-        if (integer_or_flag(args_.get(), kSingleCombo)) {
+        if (integer_or_flag(args().get(), kSingleCombo)) {
             void* manager = objective_board();
             complete_objective(manager, get_goal_id(this));
         }
@@ -691,11 +691,11 @@ void FallingTricksGoal::check_combos()
 bool FallingTricksGoal::tick_frame()
 {
     int wait = 0;
-    args_->fetch_int_value(kTrickAddDelay, &wait, 0);
+    args()->fetch_int_value(kTrickAddDelay, &wait, 0);
     if (wait)
         return base_update(this);
     int stop_time = 1;
-    if (!is_single_combo() && args_->fetch_int_value(kTimeToStop, &stop_time, 0))
+    if (!is_single_combo() && args()->fetch_int_value(kTimeToStop, &stop_time, 0))
         stop_time *= 1000;
     auto win = [&]() {
         void* manager = objective_board();
@@ -705,33 +705,33 @@ bool FallingTricksGoal::tick_frame()
     if (is_trick_tris()) {
         if (is_operative() && !is_frozen()) {
             int completed = 0;
-            args_->fetch_int_value(kTricksDoneCount, &completed, 0);
+            args()->fetch_int_value(kTricksDoneCount, &completed, 0);
             int total = 0;
-            args_->fetch_int_value(kTrickTrisTotal, &total, 1);
+            args()->fetch_int_value(kTrickTrisTotal, &total, 1);
             if (completed >= total)
                 return win();
         }
-    } else if (is_operative() && seconds_remaining_ < stop_time && !is_frozen() && all_free()) {
+    } else if (is_operative() && seconds_remaining() < stop_time && !is_frozen() && all_free()) {
         return win();
     }
     if (is_operative() && !is_frozen())
         update_alphas();
     if (is_trick_tris()) {
-        if (!(cur_phase_ & kStateNoTimeLimit) && !(static_cast<double>(seconds_remaining_) > 0.0))
+        if (!(cur_phase() & kStateNoTimeLimit) && !(static_cast<double>(seconds_remaining()) > 0.0))
             return base_update(this);
         if (is_frozen())
             return base_update(this);
         int completed = 0;
-        args_->fetch_int_value(kTricksDoneCount, &completed, 0);
+        args()->fetch_int_value(kTricksDoneCount, &completed, 0);
         int total = 0;
-        args_->fetch_int_value(kTrickTrisTotal, &total, 1);
+        args()->fetch_int_value(kTrickTrisTotal, &total, 1);
         int used = 0;
         for (const StackedTrickEntry& t : tricks_) {
             if (!t.free)
                 ++used;
         }
         int block_size = 0;
-        args_->fetch_int_value(kStackBlockSize, &block_size, 1);
+        args()->fetch_int_value(kStackBlockSize, &block_size, 1);
         if (used >= block_size || used + completed >= total)
             return base_update(this);
         int count = total - used - completed;
@@ -740,26 +740,26 @@ bool FallingTricksGoal::tick_frame()
         add_tricks(count);
         return base_update(this);
     }
-    if (!is_operative() || (!(cur_phase_ & kStateNoTimeLimit) && seconds_remaining_ < stop_time) || is_frozen())
+    if (!is_operative() || (!(cur_phase() & kStateNoTimeLimit) && seconds_remaining() < stop_time) || is_frozen())
         return base_update(this);
     stopwatch_ += ftol(frame_clock::get_slomo_frame_seconds() * 1000.0f);
     if (is_single_combo()) {
-        if (args_->has_bare_flag(kTricksAdded) || stopwatch_ <= 50)
+        if (args()->has_bare_flag(kTricksAdded) || stopwatch_ <= 50)
             return base_update(this);
         int combo_size = 0;
-        args_->fetch_int_value(kChainLength, &combo_size, 1);
+        args()->fetch_int_value(kChainLength, &combo_size, 1);
         add_tricks(combo_size);
-        args_->put_name_key(0u, kTricksAdded);
+        args()->put_name_key(0u, kTricksAdded);
         return base_update(this);
     }
     int combo_time = 0;
-    args_->fetch_int_value(kCurrentTrickTime, &combo_time, 1);
+    args()->fetch_int_value(kCurrentTrickTime, &combo_time, 1);
     if (stopwatch_ <= combo_time)
         return base_update(this);
     stopwatch_ = 0;
     int count = 1;
     if (is_combo())
-        args_->fetch_int_value(kChainLength, &count, 1);
+        args()->fetch_int_value(kChainLength, &count, 1);
     add_tricks(count);
     return base_update(this);
 }
@@ -768,12 +768,12 @@ bool FallingTricksGoal::tick_frame()
 void FallingTricksGoal::check_tricks()
 {
     int check = 0;
-    if (args_->fetch_int_value(kNoAlphaCheck, &check, 0)) {
+    if (args()->fetch_int_value(kNoAlphaCheck, &check, 0)) {
         if (!check)
             return;
-        args_->put_int(kNoAlphaCheck, 0);
+        args()->put_int(kNoAlphaCheck, 0);
     }
-    const bool combo = integer_or_flag(args_.get(), kSingleCombo) || is_combo();
+    const bool combo = integer_or_flag(args().get(), kSingleCombo) || is_combo();
     modules::PointTally* score = local_skater()->get_points_total();
     if (combo) {
         check_combos();
@@ -837,7 +837,7 @@ void TrickBeatGoal::clear_tricks()
         t.free = false;
         core::at(unknown45c_, i) = false;
     }
-    args_->remove_flag(kTricksAdded);
+    args()->remove_flag(kTricksAdded);
 }
 
 // 0x005749F0
@@ -858,9 +858,9 @@ void TrickBeatGoal::prepare_all()
     trick_total_ = 0;
     beat_time_ = 0;
     completed_ = 0;
-    args_->fetch_int_value(kBeatWindowTime, &window_time_, 1);
-    args_->fetch_int_value(kTotalToWin, &total_to_win_, 1);
-    args_->put_int(kTricksDoneCount, 0);
+    args()->fetch_int_value(kBeatWindowTime, &window_time_, 1);
+    args()->fetch_int_value(kTotalToWin, &total_to_win_, 1);
+    args()->put_int(kTricksDoneCount, 0);
     for (int i = 0; i < kMaxTricks; ++i) {
         BeatTrick& t = core::at(tricks_, i);
         t.free = true;
@@ -962,17 +962,17 @@ void TrickBeatGoal::drop_move_entry(int index)
     get_run(kBeatResetContainer, params.get());
     params.reset();
     int red = 0;
-    args_->fetch_int_value(kRedTricks, &red, 0); // (unused)
+    args()->fetch_int_value(kRedTricks, &red, 0); // (unused)
     script::StructPtr remove_params = script::make_struct();
     remove_params->put_name_key(0u, kTrickTris);
     run_on(get_spawn(kBeatRemoveTrick, remove_params.get()), element.get_pull());
     remove_params.reset();
     int completed = 0;
-    args_->fetch_int_value(kTricksDoneCount, &completed, 0);
+    args()->fetch_int_value(kTricksDoneCount, &completed, 0);
     ++completed;
     int interval = 0;
-    args_->fetch_int_value(kAccelerationInterval, &interval, 0); // (unused)
-    args_->put_int(kTricksDoneCount, completed);
+    args()->fetch_int_value(kAccelerationInterval, &interval, 0); // (unused)
+    args()->put_int(kTricksDoneCount, completed);
     --trick_total_;
     core::at(tricks_, index).free = true;
 }
@@ -1052,7 +1052,7 @@ void TrickBeatGoal::add_tricks(int count)
     for (int remaining = count; remaining > 0; --remaining) {
         void* manager = frontend::UiTree::sole();
         script::Array* key_combos = nullptr;
-        args_->fetch_list(kBeatKeyCombos, &key_combos, 0);
+        args()->fetch_list(kBeatKeyCombos, &key_combos, 0);
         uint32_t key_combo = 0;
         uint32_t trick_name = 0;
         int slot = 0;
@@ -1079,7 +1079,7 @@ void TrickBeatGoal::add_tricks(int count)
         std::array<char, 512> text{};
         if (!key_combos) {
             script::Array* tricks = nullptr;
-            args_->fetch_list(kBeatTricks, &tricks, 1);
+            args()->fetch_list(kBeatTricks, &tricks, 1);
             auto* trick =
                 tricks->struct_at(maths::rnd(static_cast<int>(tricks->extent_)));
             const char* name = nullptr;
@@ -1226,7 +1226,7 @@ void TrickBeatGoal::remove_landed_tricks()
 bool TrickBeatGoal::tick_frame()
 {
     int wait = 0;
-    args_->fetch_int_value(kTrickAddDelay, &wait, 0);
+    args()->fetch_int_value(kTrickAddDelay, &wait, 0);
     if (wait)
         return base_update(this);
     if (is_operative() && !is_frozen() && completed_ >= total_to_win_) {
@@ -1236,7 +1236,7 @@ bool TrickBeatGoal::tick_frame()
     }
     if (is_operative())
         is_frozen(); // (the result isn't used)
-    if (is_operative() && ((cur_phase_ & kStateNoTimeLimit) || static_cast<double>(seconds_remaining_) > 0.0) &&
+    if (is_operative() && ((cur_phase() & kStateNoTimeLimit) || static_cast<double>(seconds_remaining()) > 0.0) &&
         !is_frozen()) {
         update_beat();
         int used = 0;
@@ -1245,7 +1245,7 @@ bool TrickBeatGoal::tick_frame()
                 ++used;
         }
         int block_size = 0;
-        args_->fetch_int_value(kBlockSize, &block_size, 1);
+        args()->fetch_int_value(kBlockSize, &block_size, 1);
         if (used < block_size && completed_ + used < total_to_win_) {
             int count = total_to_win_ - completed_ - used;
             if (count > block_size - used)
@@ -1273,7 +1273,7 @@ void TrickObjectsGoal::evaluate_points()
         return;
     }
     int required = 0;
-    if (!args_->fetch_int_value(kRequiredScore, &required, 0)) {
+    if (!args()->fetch_int_value(kRequiredScore, &required, 0)) {
         complete_objective(manager, get_goal_id(this));
         return;
     }
@@ -1293,7 +1293,7 @@ void TrickObjectsGoal::evaluate_points()
 script::Struct* TrickObjectsGoal::get_object_by_cluster(uint32_t cluster)
 {
     script::Array* objects = nullptr;
-    args_->fetch_list(kGoalObjects, &objects, 1);
+    args()->fetch_list(kGoalObjects, &objects, 1);
     const int count = static_cast<int>(objects->extent_);
     uint32_t found = cluster; // (kept from the last entry with a cluster_id: an entry without one matches that)
     for (int i = 0; i < count; ++i) {

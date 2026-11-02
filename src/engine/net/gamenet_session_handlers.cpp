@@ -202,7 +202,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_server_info(writer, info);
     server->deliver_to(kMsgServerInfo, static_cast<uint16_t>(writer.position()), bytes.data(),
-                       context->sender_conn_->remote_ip_, context->sender_conn_->port_no_, 0);
+                       context->sender_conn_->remote_ip(), context->sender_conn_->port_no(), 0);
     return kContinue;
 }
 
@@ -211,7 +211,7 @@ int handle_host_options(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     auto* host = manager->get_host_player(); // (the host's own player)
-    if (!host || host->conn_ != context->sender_conn_)
+    if (!host || host->conn() != context->sender_conn_)
         return kDone;
     // (the messages: gamenet_messages.h - 0x60 the start request, 0x61 the kick request, 0x62 / 0x64 a name, 0x66 a
     // byte; NOT ORIGINAL: one too short for what it is read for is dropped - the original read past it)
@@ -518,11 +518,11 @@ int handle_send_game_state(net::InboundMsgCtx* context)
     auto* skate = get_skate();
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
-    if (!player || (player->flag_bits_ & 0x40))
+    if (!player || (player->flag_bits() & 0x40))
         return kContinue;
     net::NetMessageInfo desc;
     frame_clock::get_time();    // (not used)
-    player->flag_bits_ |= 0x40; // told
+    player->flag_bits() |= 0x40; // told
     // (the message: gamenet_messages.h)
     SessionBrief info;
     info.max_players = static_cast<uint8_t>(manager->get_player_limit());
@@ -619,7 +619,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         static std::array<uint8_t, 0x1000> selected;
         core::at(selected, 0) = 0;
         size_t out = 1;
-        const int count = goals->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
+        const int count = goals->goals().num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             goals::Objective* goal = goals->get_objective_at(i);
             if (goal->is_picked()) {

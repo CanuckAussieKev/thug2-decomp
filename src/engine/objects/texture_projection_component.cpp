@@ -66,10 +66,10 @@ void TextureProjectionComponent::configure_from_data(script::Struct* params)
         settings->read_hash_value(0x1EE8B7B9, &name, 1);
         gsl::owner<render::TextureProjection*> projection = new_projection();
         // (out of memory: written through null, as the original)
-        projection->label_ = name;
+        projection->set_label(name);
         projection->configure_from_data(settings);
         // At the front.
-        memory::ListNode* node = &projection->list_link_;
+        memory::ListNode* node = &projection->list_link();
         node->prev = &head;
         node->next = head.next;
         head.next->prev = node;

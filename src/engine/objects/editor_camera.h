@@ -66,6 +66,16 @@ public:
     // caller puts it back) where it can't go.
     bool place_cursor(maths::Vec4 previous, float step);
 
+    // The fields other code reads and sets.
+    maths::Vec4& cursor() { return cursor_; }
+    [[nodiscard]] const maths::Vec4& cursor() const { return cursor_; }
+    [[nodiscard]] float heading() const { return heading_; }
+    void set_heading(float value) { heading_ = value; }
+    [[nodiscard]] float level_y() const { return level_y_; }
+    void set_level_y(float value) { level_y_ = value; }
+    void set_simple_collision(bool value) { simple_collision_ = value; }
+
+private:
     uint32_t unknown18{};
     maths::Vec4 focus_{};       // +0x1C what the camera looks at (the cursor, the height eased)
     maths::Vec4 viewer_{};      // +0x2C the camera's position
@@ -84,12 +94,16 @@ public:
     std::array<uint8_t, 2> pad92{};
     PadInputModule* input_ptr_;                         // +0x94 the Input component
     std::unique_ptr<render::BlobShadow> shadow_handle_; // +0x98
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(EditorViewModule, focus_) == 0x1C, "m_focus");
+        static_assert(offsetof(EditorViewModule, cursor_) == 0x3C, "m_cursor");
+        static_assert(offsetof(EditorViewModule, zoom_) == 0x6C, "m_zoom");
+        static_assert(offsetof(EditorViewModule, level_y_) == 0x88, "m_height");
+        static_assert(offsetof(EditorViewModule, shadow_handle_) == 0x98, "the shadow's offset");
+    }
 };
-static_assert(offsetof(EditorViewModule, focus_) == 0x1C, "m_focus");
-static_assert(offsetof(EditorViewModule, cursor_) == 0x3C, "m_cursor");
-static_assert(offsetof(EditorViewModule, zoom_) == 0x6C, "m_zoom");
-static_assert(offsetof(EditorViewModule, level_y_) == 0x88, "m_height");
-static_assert(offsetof(EditorViewModule, shadow_handle_) == 0x98, "the shadow's offset");
 static_assert(sizeof(EditorViewModule) == 0x9C, "size");
 
 // 0x004E4F50: whether the script `name` (or one it calls, by name - with a guard against loops in the list at

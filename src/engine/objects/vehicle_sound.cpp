@@ -108,7 +108,7 @@ EngineAudioModule::~EngineAudioModule()
 // 0x0043C670
 void EngineAudioModule::configure_from_data(script::Struct*)
 {
-    park_editor_level_ = park_editing::ParkBuilderMode::sole()->cur_phase_ != kParkEditorOff;
+    park_editor_level_ = park_editing::ParkBuilderMode::sole()->cur_phase() != kParkEditorOff;
 }
 
 // 0x0043D050

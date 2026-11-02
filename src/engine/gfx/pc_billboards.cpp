@@ -79,7 +79,7 @@ void order_batches(BillboardSet* manager)
                    compare_batches); // (the C runtime's qsort)
 }
 
-float sort_depth_of_batch(const BillboardBatch* batch) { return batch->material ? batch->material->sort_key_ : 0.0f; }
+float sort_depth_of_batch(const BillboardBatch* batch) { return batch->material ? batch->material->sort_key() : 0.0f; }
 
 void draw_list(const memory::ListNode* head, const std::array<float, 3>& y_axis, const std::array<float, 3>& x_axis,
                const std::array<float, 3>& z_axis)
@@ -87,7 +87,7 @@ void draw_list(const memory::ListNode* head, const std::array<float, 3>& y_axis,
     for (const memory::ListNode* node = head_of_scene_list(head); node;) {
         const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data)->mesh;
-        if (mesh->flags & 0x40)
+        if (mesh->flags_value() & 0x40)
             draw_billboard_mesh(mesh, y_axis, x_axis, z_axis);
         node = next;
     }
@@ -133,7 +133,7 @@ uint32_t primitive_count(uint32_t type, uint32_t count)
 void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, const std::array<float, 3>& x_axis,
                          const std::array<float, 3>& z_axis)
 {
-    if (mesh->stride < 0x10 || mesh->stride > 0x30)
+    if (mesh->stride_value() < 0x10 || mesh->stride_value() > 0x30)
         return;
     if (view_setup().distance_clipping() && view_setup().fog_setting()) { // (fog: its start a quarter back)
         const float end = renderer().render_camera().far_z_;
@@ -147,10 +147,10 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         toggle_fog(false);
     }
     if (renderer().shaders_available()) {
-        if (mesh->flags & 4)
+        if (mesh->flags_value() & 4)
             mesh->set_pixel_shader_colored();
         else
-            set_pixel_shader(mesh->pixel_shader_, nullptr);
+            set_pixel_shader(mesh->pixel_shader(), nullptr);
     }
     D3DVIEWPORT9 viewport;
     renderer().d3d_device()->GetViewport(&viewport);
@@ -163,26 +163,26 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     renderer().d3d_device()->GetVertexShader(&vertex_shader);
     IDirect3DIndexBuffer9* indices = nullptr;
     renderer().d3d_device()->GetIndices(&indices);
-    const uint32_t primitives = primitive_count(mesh->primitive_type_, core::at(mesh->index_counts_, 0));
+    const uint32_t primitives = primitive_count(mesh->primitive_type(), core::at(mesh->index_counts(), 0));
     uint8_t* into_block = nullptr;
     get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into_block, D3DLOCK_DISCARD);
-    const size_t vertex_bytes = static_cast<size_t>(mesh->stride) * mesh->vertex_count_;
+    const size_t vertex_bytes = static_cast<size_t>(mesh->stride_value()) * mesh->vertex_count();
     core::Cursor<uint8_t> into(std::span<uint8_t>(into_block, vertex_bytes));
     core::Cursor<const uint8_t> from(std::span<const uint8_t>(get_vertex_buffer(mesh, 0)->data, vertex_bytes));
-    const auto& pivot = mesh->billboard->pivot;
+    const auto& pivot = mesh->billboard_value()->pivot;
     const float px = core::at(pivot, 0);
     const float py = core::at(pivot, 1);
     const float pz = core::at(pivot, 2);
-    uint32_t rest = mesh->stride - 0xC;
+    uint32_t rest = mesh->stride_value() - 0xC;
     std::span<const uint32_t> table;
     bool has_table = false;
-    if (mesh->per_vertex_bytes_) { // (a value per vertex from the material's table)
-        table = mesh->material->anim_colour_run();
+    if (mesh->per_vertex_bytes()) { // (a value per vertex from the material's table)
+        table = mesh->material_value()->anim_colour_run();
         has_table = true;
         rest -= 4;
     }
-    const std::span<const uint8_t> vertex_bytes_of_mesh(mesh->per_vertex_bytes_, mesh->per_vertex_bytes_ ? mesh->vertex_count_ : 0);
-    for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
+    const std::span<const uint8_t> vertex_bytes_of_mesh(mesh->per_vertex_bytes(), mesh->per_vertex_bytes() ? mesh->vertex_count() : 0);
+    for (uint32_t i = 0; i < mesh->vertex_count(); ++i) {
         float x = 0.0f, y = 0.0f, z = 0.0f;
         std::memcpy(&x, from.rest().first(4).data(), 4);
         std::memcpy(&y, from.rest().subspan(4, 4).data(), 4);
@@ -220,19 +220,19 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     }
     get_vertex_buffer(mesh, 0)->get_unlock();
     renderer().d3d_device()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(get_vertex_buffer(mesh, 0)->buffer), 0,
-                                  mesh->stride);
+                                  mesh->stride_value());
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)
-    renderer().d3d_device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(core::at(mesh->index_buffers_, 0)->buffer));
+    renderer().d3d_device()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(core::at(mesh->index_buffers(), 0)->buffer));
     DWORD format = 0;
     renderer().d3d_device()->GetFVF(&format);
-    renderer().d3d_device()->SetFVF(mesh->fvf);
-    auto type = static_cast<D3DPRIMITIVETYPE>(mesh->primitive_type_);
+    renderer().d3d_device()->SetFVF(mesh->fvf_value());
+    auto type = static_cast<D3DPRIMITIVETYPE>(mesh->primitive_type());
     if (renderer().shaders_available()) {
-        renderer().d3d_device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
+        renderer().d3d_device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count(), 0, primitives);
     } else {
-        for (uint32_t pass = 0; pass < mesh->material->pass_count_; ++pass) {
-            mesh->material->submit_pass(pass, mesh->flags & 4 ? mesh->color.data() : nullptr);
-            renderer().d3d_device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
+        for (uint32_t pass = 0; pass < mesh->material_value()->pass_count(); ++pass) {
+            mesh->material_value()->submit_pass(pass, mesh->flags_value() & 4 ? mesh->color_value().data() : nullptr);
+            renderer().d3d_device()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count(), 0, primitives);
         }
     }
     renderer().d3d_device()->SetFVF(format);
@@ -331,7 +331,7 @@ BillboardBatch::BillboardBatch(MaterialRef* new_material) : material(new_materia
     core::at(lists, 2) = new_head();
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     vertex_bytes_ = 0x40;
-    vertex_bytes_ = (new_material->pass_count_ + 2) * 0x20;
+    vertex_bytes_ = (new_material->pass_count() + 2) * 0x20;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
@@ -341,7 +341,7 @@ void BillboardBatch::add_row(MeshRef* mesh)
     auto* entry = static_cast<BillboardRec*>(memory::alloc(sizeof(BillboardRec)));
     if (entry) {
         entry->mesh = mesh;
-        entry->type = mesh->billboard->type;
+        entry->type = mesh->billboard_value()->type;
     }
     memory::ListNode* node = memory::ListNode::create(entry);
     // at the end of its list (no checks: written through null, as the original)
@@ -387,7 +387,7 @@ void BillboardBatch::render()
             continue;
         const memory::ListNode* node = head_of_scene_list(list);
         if (renderer().shaders_available())
-            set_pixel_shader(static_cast<BillboardRec*>(node->data)->mesh->pixel_shader_, nullptr);
+            set_pixel_shader(static_cast<BillboardRec*>(node->data)->mesh->pixel_shader(), nullptr);
         break;
     }
     auto transpose = d3dx::matrix_transpose; // (D3DX)
@@ -437,8 +437,8 @@ void BillboardBatch::render()
     for (const memory::ListNode* node = head_of_scene_list(core::at(lists, 2)); node;) {
         const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data)->mesh;
-        if (mesh->flags & 0x40) {
-            const auto& axis = mesh->billboard->axis;
+        if (mesh->flags_value() & 0x40) {
+            const auto& axis = mesh->billboard_value()->axis;
             const auto& d = manager->view;
             double rx = static_cast<double>(core::at(d, 1)) * core::at(axis, 2) - static_cast<double>(core::at(d, 2)) * core::at(axis, 1);
             auto ry = static_cast<float>(static_cast<double>(core::at(d, 2)) * core::at(axis, 0) - static_cast<double>(core::at(d, 0)) * core::at(axis, 2));
@@ -476,12 +476,12 @@ void BillboardBatch::render()
 // 0x004CEBE0
 void BillboardSet::append_mesh(MeshRef* mesh)
 {
-    if (!mesh->material || !core::at(mesh->material->textures, 0))
+    if (!mesh->material_value() || !core::at(mesh->material_value()->textures_value(), 0))
         return;
-    BillboardBatch* batch = get_find(mesh->material);
+    BillboardBatch* batch = get_find(mesh->material_value());
     if (!batch) {
         void* memory = memory::alloc(sizeof(BillboardBatch));
-        batch = memory ? memory::construct_in<BillboardBatch>(memory, mesh->material) : nullptr;
+        batch = memory ? memory::construct_in<BillboardBatch>(memory, mesh->material_value()) : nullptr;
         core::at(batches, count) = batch;
         ++count;
         order_batches(this);
@@ -492,9 +492,9 @@ void BillboardSet::append_mesh(MeshRef* mesh)
 // 0x004CE9F0
 void BillboardSet::remove_mesh(MeshRef* mesh)
 {
-    if (!mesh->material)
+    if (!mesh->material_value())
         return;
-    BillboardBatch* batch = get_find(mesh->material);
+    BillboardBatch* batch = get_find(mesh->material_value());
     if (!batch)
         return;
     batch->erase_record(mesh);
@@ -521,13 +521,13 @@ void BillboardSet::render(unsigned int which)
 {
     if (which & 1) {
         for (int i = 0; i < count; ++i) {
-            if (!(core::at(core::at(batches, i)->material->pass_flags_, 0) & 0x40))
+            if (!(core::at(core::at(batches, i)->material->pass_flags(), 0) & 0x40))
                 core::at(batches, i)->render();
         }
     }
     if (which & 2) {
         for (int i = 0; i < count; ++i) {
-            if (core::at(core::at(batches, i)->material->pass_flags_, 0) & 0x40)
+            if (core::at(core::at(batches, i)->material->pass_flags(), 0) & 0x40)
                 core::at(batches, i)->render();
         }
     }

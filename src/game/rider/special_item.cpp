@@ -57,7 +57,7 @@ void flag_as_dead(GameEntity* object) { object->flag_as_dead(); }
 render::RenderModel* get_model_data(GameEntity* object)
 {
     auto* model = core::down_cast<MeshInstanceModule>(object->fetch_module(kModel));
-    return model ? model->mesh_instance_.get() : nullptr;
+    return model ? model->mesh_instance().get() : nullptr;
 }
 
 // A message to the server, in a network game.
@@ -146,7 +146,7 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
     const render::RenderModel* mine = get_model_data(entity_);
     render::RenderModel* its = get_model_data(item);
     if (mine && its) {
-        const maths::Vec4 colour = mine->size_factor_;
+        const maths::Vec4 colour = mine->size_factor();
         its->change_scale(&colour); // (0x00492EE0: four words set)
     }
     return item;

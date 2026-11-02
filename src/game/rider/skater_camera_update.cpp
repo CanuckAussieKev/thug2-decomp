@@ -180,7 +180,7 @@ void RiderChaseView::tick_frame()
     double roll = 0.0;
     if (physics_state == 4 && rider_ref_->is_local_skater_) {
         auto* balance = core::down_cast<RiderTeeterMoves>(rider_ref_->fetch_module(kBalanceTrick));
-        roll = static_cast<double>(balance_roll_scale()) * balance->grind_.lean_;
+        roll = static_cast<double>(balance_roll_scale()) * balance->grind_.lean();
     }
     float& roll_now = roll_;
     if (roll_now != roll) {
@@ -253,9 +253,9 @@ void RiderChaseView::tick_frame()
             } else {
                 facing = maths::Vec4(0.0f, -1.0f, 0.0f, 1.0f);
                 FreeLookModule* look_around = free_look_module_;
-                if (!look_around->locked_ && !look_around->turning_ && physics_state != 3) {
-                    look_around->lean_angle_ = 0.0f;
-                    free_look_module_->heading_ = 0.0f;
+                if (!look_around->locked() && !look_around->turning() && physics_state != 3) {
+                    look_around->set_lean_angle(0.0f);
+                    free_look_module_->set_heading(0.0f);
                 }
             }
             perpendicular(right, up_row, facing);
@@ -295,7 +295,7 @@ void RiderChaseView::tick_frame()
     FreeLookModule* look_around = free_look_module_;
     bool lip_tilted = false;
     if (!wall_ride) {
-        const float heading = look_around->mode_heading_ + look_around->heading_;
+        const float heading = look_around->mode_heading() + look_around->heading();
         get_multiply(&orient, &maths::make_yaw_matrix(rotation, heading), &orient);
         if (physics_state == 3) {
             get_multiply(&orient, &maths::make_pitch_matrix(rotation, lip_trick_tilt_ + air_tilt_), &orient);
@@ -303,8 +303,8 @@ void RiderChaseView::tick_frame()
         }
     } else {
         if (look_around) {
-            look_around->heading_ = 0.0f;
-            free_look_module_->locked_ = false;
+            look_around->set_heading(0.0f);
+            free_look_module_->assign_locked(false);
         }
         if (wallride_offset_angle_ != 0.0f && turned) {
             skater = rider_ref_;
@@ -324,7 +324,7 @@ void RiderChaseView::tick_frame()
             get_multiply(&orient, &maths::make_pitch_matrix(rotation, lean_angle_ + air_tilt_), &orient);
     }
     if (physics_state != 2 || lip_tilted) {
-        const float tilt = free_look_module_->lean_angle_;
+        const float tilt = free_look_module_->lean_angle();
         get_multiply(&orient, &maths::make_pitch_matrix(rotation, tilt), &orient);
     }
 

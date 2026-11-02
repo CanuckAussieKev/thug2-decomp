@@ -335,33 +335,33 @@ void LabelWidget::set_text_rotation(float degrees, int now)
 {
     const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
     auto angle = static_cast<float>(radians);
-    if (radians != aim_point_.angle) {
-        aim_point_.angle = angle;
+    if (radians != aim_point().angle) {
+        aim_point().angle = angle;
         object_flags_ |= kDirty;
     }
-    if (!now || angle == shown_.angle)
+    if (!now || angle == shown().angle)
         return;
     float width = 0.0f, height = 0.0f;
     read_string_param(typeface_, chars_, &width, &height);
     // the point turned about: internal_just (left / top 0, middle half, right / bottom all) of the scaled size
-    auto half_x = static_cast<float>(static_cast<double>(width) * summed_.scale_x_ * get_half());
-    auto half_y = static_cast<float>(static_cast<double>(height) * summed_.scale_y_ * get_half());
+    auto half_x = static_cast<float>(static_cast<double>(width) * summed().scale_x_ * get_half());
+    auto half_y = static_cast<float>(static_cast<double>(height) * summed().scale_y_ * get_half());
     for (int i = 0; i < num_; ++i) {
         float x = half_x, y = half_y;
         if (inner_align_h_ < get_zero())
             x = 0.0f;
         else if (inner_align_h_ > get_zero())
-            x = static_cast<float>(static_cast<double>(width) * summed_.scale_x_);
+            x = static_cast<float>(static_cast<double>(width) * summed().scale_x_);
         if (inner_align_v_ < get_zero())
             y = 0.0f;
         else if (inner_align_v_ > get_zero())
-            y = static_cast<float>(static_cast<double>(height) * summed_.scale_y_);
+            y = static_cast<float>(static_cast<double>(height) * summed().scale_y_);
         text_rotation(object_at(texts_, num_, i), angle, x, y);
         if (shadow_)
             text_rotation(object_at(shadows_, num_, i), angle, x, y);
     }
     object_flags_ |= kDirty;
-    shown_.angle = angle;
+    shown().angle = angle;
 }
 
 // 0x004AFBB0
@@ -469,7 +469,7 @@ void LabelWidget::enable_blur()
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap());
     blur_ = static_cast<SmearEffect*>(memory::alloc(sizeof(SmearEffect)));
-    std::memcpy(&blur_->rgba_value_, shown_.rgba.data(), 4);
+    std::memcpy(&blur_->rgba_value_, shown().rgba.data(), 4);
     memory::Hub::get_pull()->leave_heap_scope();
     make_text_objects(17, false);
 }
@@ -559,22 +559,22 @@ void LabelWidget::tick_frame()
 {
     if (!chars_)
         return;
-    const float top = summed_.top;
+    const float top = summed().top;
     const bool outside = top < layout_top() || top > layout_bottom();
-    const float shown_angle = (object_flags_ & kFlag1000000) ? shown_.angle : summed_.angle;
+    const float shown_angle = (object_flags_ & kFlag1000000) ? shown().angle : summed().angle;
     if (num_) {
         uint32_t shown = 0;
-        std::memcpy(&shown, shown_.rgba.data(), 4);
+        std::memcpy(&shown, this->shown().rgba.data(), 4);
         void* t = object_at(texts_, num_, 0);
-        const uint32_t rgba = with_alpha(shown, get_faded(static_cast<int>(shown >> 24), summed_.alpha));
+        const uint32_t rgba = with_alpha(shown, get_faded(static_cast<int>(shown >> 24), summed().alpha));
         text_override_alpha(t, override_alpha_);
         // the point turned about (as set_text_rotation), from the text's size when it is turned
         float width = 0.0f, height = 0.0f;
-        if (summed_.angle != get_zero())
+        if (summed().angle != get_zero())
             read_string_param(typeface_, chars_, &width, &height);
-        const double scaled_width = static_cast<double>(width) * summed_.scale_x_;
+        const double scaled_width = static_cast<double>(width) * summed().scale_x_;
         auto x = static_cast<float>(get_half() * scaled_width);
-        const double scaled_height = static_cast<double>(height) * summed_.scale_y_;
+        const double scaled_height = static_cast<double>(height) * summed().scale_y_;
         auto scaled_height_f = static_cast<float>(scaled_height);
         auto y = static_cast<float>(scaled_height * get_half());
         if (inner_align_h_ < get_zero())
@@ -586,17 +586,17 @@ void LabelWidget::tick_frame()
         else if (inner_align_v_ > get_zero())
             y = scaled_height_f;
         text_font(t, typeface_);
-        text_pos(t, summed_.left, summed_.top);
+        text_pos(t, summed().left, summed().top);
         text_colour(t, rgba, override_rgba_);
         text_rotation(t, shown_angle, x, y);
-        text_scale(t, summed_.scale_x_, summed_.scale_y_);
+        text_scale(t, summed().scale_x_, summed().scale_y_);
         change_glyph_text(t, chars_);
         bool hidden = false;
         if (object_flags_ & kPos3d) {
-            text_depth(t, summed_.z);
+            text_depth(t, summed().z);
             hidden = (object_flags_ & kOffScreen) || is_concealed();
         } else {
-            text_priority(t, z_priority_);
+            text_priority(t, z_priority());
             hidden = outside || is_concealed();
         }
         text_hidden(t, hidden);
@@ -604,20 +604,20 @@ void LabelWidget::tick_frame()
             void* s = object_at(shadows_, num_, 0);
             uint32_t shadow = 0;
             std::memcpy(&shadow, shadow_rgba_.data(), 4);
-            const uint32_t shadow_rgba = with_alpha(shadow, get_faded(core::at(shadow_rgba_, 3), summed_.alpha));
+            const uint32_t shadow_rgba = with_alpha(shadow, get_faded(core::at(shadow_rgba_, 3), summed().alpha));
             text_override_alpha(s, override_alpha_);
             text_font(s, typeface_);
-            text_pos(s, static_cast<float>(static_cast<double>(shadow_x_) + summed_.left),
-                     static_cast<float>(static_cast<double>(shadow_y_) + summed_.top));
+            text_pos(s, static_cast<float>(static_cast<double>(shadow_x_) + summed().left),
+                     static_cast<float>(static_cast<double>(shadow_y_) + summed().top));
             text_colour(s, shadow_rgba, override_rgba_);
             text_rotation(s, shown_angle, x, y);
-            text_scale(s, summed_.scale_x_, summed_.scale_y_);
+            text_scale(s, summed().scale_x_, summed().scale_y_);
             change_glyph_text(s, chars_);
             if (object_flags_ & kPos3d) {
-                text_depth(s, summed_.z);
+                text_depth(s, summed().z);
                 text_hidden(s, (object_flags_ & kOffScreen) || is_concealed());
             } else {
-                text_priority(s, static_cast<float>(static_cast<double>(z_priority_) - shadow_behind()));
+                text_priority(s, static_cast<float>(static_cast<double>(z_priority()) - shadow_behind()));
                 text_hidden(s, outside || is_concealed());
             }
         }
@@ -626,26 +626,26 @@ void LabelWidget::tick_frame()
         return;
     // the blur copies: around the element's centre, each displaced, scaled and fainter, behind the one before
     blur_->tick_frame();
-    auto centre_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * span_ * get_half() + summed_.left);
-    auto centre_y = static_cast<float>(static_cast<double>(summed_.scale_y_) * level_y_ * get_half() + summed_.top);
+    auto centre_x = static_cast<float>(static_cast<double>(summed().scale_x_) * span() * get_half() + summed().left);
+    auto centre_y = static_cast<float>(static_cast<double>(summed().scale_y_) * level_y() * get_half() + summed().top);
     for (int i = 1; i < num_; ++i) {
         const SmearEffect::DupFrom* copy = blur_->get_copy(i - 1);
         const uint32_t blur = blur_->rgba_value_;
         const uint32_t rgba = with_alpha(
             blur, static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(blur >> 24)) * copy->alpha)));
         void* t = object_at(texts_, num_, i);
-        auto x = static_cast<float>(centre_x - (static_cast<double>(span_) * copy->scale_x_ * get_half() + copy->dx) *
-                                                   summed_.scale_x_);
+        auto x = static_cast<float>(centre_x - (static_cast<double>(span()) * copy->scale_x_ * get_half() + copy->dx) *
+                                                   summed().scale_x_);
         auto y = static_cast<float>(
-            centre_y - (static_cast<double>(level_y_) * copy->scale_y_ * get_half() + copy->dy) * summed_.scale_y_);
-        auto scale_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * copy->scale_x_);
-        auto scale_y = static_cast<float>(static_cast<double>(summed_.scale_y_) * copy->scale_y_);
+            centre_y - (static_cast<double>(level_y()) * copy->scale_y_ * get_half() + copy->dy) * summed().scale_y_);
+        auto scale_x = static_cast<float>(static_cast<double>(summed().scale_x_) * copy->scale_x_);
+        auto scale_y = static_cast<float>(static_cast<double>(summed().scale_y_) * copy->scale_y_);
         text_override_alpha(t, override_alpha_);
         text_pos(t, x, y);
         text_colour(t, rgba, override_rgba_);
         text_scale(t, scale_x, scale_y);
         auto behind = static_cast<float>(static_cast<double>(i) * blur_behind());
-        text_priority(t, static_cast<float>(static_cast<double>(z_priority_) - behind));
+        text_priority(t, static_cast<float>(static_cast<double>(z_priority()) - behind));
         text_font(t, typeface_);
         change_glyph_text(t, chars_);
         text_hidden(t, outside || is_concealed());
@@ -654,12 +654,12 @@ void LabelWidget::tick_frame()
             uint32_t shadow = 0;
             std::memcpy(&shadow, shadow_rgba_.data(), 4);
             text_override_alpha(s, override_alpha_);
-            const uint32_t shadow_rgba = with_alpha(shadow, get_faded(core::at(shadow_rgba_, 3), summed_.alpha));
+            const uint32_t shadow_rgba = with_alpha(shadow, get_faded(core::at(shadow_rgba_, 3), summed().alpha));
             text_pos(s, static_cast<float>(static_cast<double>(scale_x) * shadow_x_ + x),
                      static_cast<float>(static_cast<double>(scale_y) * shadow_y_ + y));
             text_colour(s, shadow_rgba, override_rgba_);
             text_scale(s, scale_x, scale_y);
-            text_priority(s, static_cast<float>(static_cast<double>(z_priority_) - behind - shadow_behind()));
+            text_priority(s, static_cast<float>(static_cast<double>(z_priority()) - behind - shadow_behind()));
             text_font(s, typeface_);
             change_glyph_text(s, chars_);
             text_hidden(s, outside || is_concealed());

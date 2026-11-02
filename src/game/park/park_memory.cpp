@@ -65,11 +65,11 @@ memory::SlabBank* active_slab_pool(memory::PoolPair& pair) { return core::at(pai
 int& unknown_7c_e_68c() { return park_memory_state().park_memory_unknown_7c_e_68c_; }
 
 // The park manager and its generator, whose +0x20 is the most players the park is set up for.
-park_editing::ParkAssembler* park_assembler_ref() { return park_editing::ParkLayout::singleton()->builder_; }
+park_editing::ParkAssembler* park_assembler_ref() { return park_editing::ParkLayout::singleton()->builder(); }
 int park_max_players() { return park_assembler_ref()->get_player_limit(); }
 
 // A heap's free memory: its region's unclaimed space and its free blocks.
-int free_memory(memory::Arena* heap) { return heap->region_->free_byte_count() + heap->free_size_; }
+int free_memory(memory::Arena* heap) { return heap->region()->free_byte_count() + heap->free_size(); }
 
 void make_pool(memory::PoolPair& pair, int item_size, int count, const char* name)
 {
@@ -215,7 +215,7 @@ void get_marker(uint32_t marker)
         break;
     case 0xCC63F828:
         stats.marker_5c_ = free_memory(heap);
-        stats.marker58_free_size_ = heap->free_size_;
+        stats.marker58_free_size_ = heap->free_size();
         break;
     case 0xE113C765:
         stats.marker_4c_ = free_memory(heap);
@@ -279,15 +279,15 @@ MemoryStats* get_memory_stats(MemoryStats* out)
         stats.arrays = core::at(counts, 5);
     }
     memory::Arena* main_heap = memory::Hub::get_pull()->bottom_up_heap();
-    memory::Zone* main_region = main_heap->region_;
+    memory::Zone* main_region = main_heap->region();
     // The main heap's pad grows by 0x8EF1C bytes for each player after the first.
     int main_pad = get_memory_value("main_heap_pad", -1); // "main_heap_pad"
     main_pad += park_max_players() * 0x8EF1C - 0x8EF1C;
-    stats.main_heap_free_ = main_region->free_byte_count() + main_heap->free_size_;
+    stats.main_heap_free_ = main_region->free_byte_count() + main_heap->free_size();
     stats.main_heap_free_ -= get_memory_value("anim_set_mem", -1) + main_pad; // "anim_set_mem"
     const int park_pad = get_memory_value("park_heap_pad", -1);               // "park_heap_pad"
-    stats.park_bytes_in_use_ = park_heap()->used_size_;
-    stats.park_heap_free_ = park_memory_state().park_region_->free_byte_count() + (park_heap()->free_size_ - park_pad);
+    stats.park_bytes_in_use_ = park_heap()->used_size();
+    stats.park_heap_free_ = park_memory_state().park_region_->free_byte_count() + (park_heap()->free_size() - park_pad);
 
     // Fragmented: the largest block is all that can be counted on.
     if (ints::as_signed(main_heap->largest_free()) < stats.main_heap_free_ &&
@@ -315,7 +315,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     stats.park_heap_usage_ = static_cast<float>(park);
     update_max(stats, park, stats.park_heap_usage_);
 
-    auto top_down_free = static_cast<float>(memory::Hub::get_pull()->top_down_heap()->region_->free_byte_count());
+    auto top_down_free = static_cast<float>(memory::Hub::get_pull()->top_down_heap()->region()->free_byte_count());
     const double top_down =
         2.0 - static_cast<double>(top_down_free) / get_memory_value("top_down_required", -1); // "top_down_required"
     stats.top_down_usage_ = static_cast<float>(top_down);

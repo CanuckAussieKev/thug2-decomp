@@ -471,7 +471,7 @@ void EffectsEmitterModule::tick_frame()
         }
     }
     if (mesh_instance_)
-        effect_handle_->set_brightness(core::down_cast<MeshInstanceModule>(mesh_instance_)->brightness_);
+        effect_handle_->set_brightness(core::down_cast<MeshInstanceModule>(mesh_instance_)->brightness());
     const render::SparkleConfig& args = effect_handle_->args_;
     if (!args.local_positions_)
         return;

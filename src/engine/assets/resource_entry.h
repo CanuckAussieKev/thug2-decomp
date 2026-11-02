@@ -117,6 +117,31 @@ public:
     // (unless the second value is set).
     static void read_callback(file::AsyncFileHandle* file, int event, int size, void* asset, void* other);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t checksum() const { return checksum_; }
+    int& cur_phase() { return cur_phase_; }
+    [[nodiscard]] int cur_phase() const { return cur_phase_; }
+    void set_cur_phase(int value) { cur_phase_ = value; }
+    [[nodiscard]] bool pinned() const { return pinned_; }
+    void set_pinned(bool value) { pinned_ = value; }
+    [[nodiscard]] const LoadCallback& callback() const { return callback_; }
+    [[nodiscard]] void* callback_data0() const { return callback_data0_; }
+    [[nodiscard]] void* callback_data1() const { return callback_data1_; }
+    file::AsyncFileHandle*& file_ref() { return file_ref_; }
+    [[nodiscard]] file::AsyncFileHandle* file_ref() const { return file_ref_; }
+    void set_file_ref(file::AsyncFileHandle* value) { file_ref_ = value; }
+    void*& octets() { return octets_; }
+    [[nodiscard]] void* octets() const { return octets_; }
+    void set_octets(void* value) { octets_ = value; }
+    [[nodiscard]] uint32_t extent() const { return extent_; }
+    void set_extent(uint32_t value) { extent_ = value; }
+    [[nodiscard]] Resource* last_value() const { return last_value_; }
+    void set_last_value(Resource* value) { last_value_ = value; }
+    [[nodiscard]] Resource* succ() const { return succ_; }
+    void set_succ(Resource* value) { succ_ = value; }
+    [[nodiscard]] Resource* bundle() const { return bundle_; }
+
+private:
     uint32_t checksum_{}; // +0x04
     int cur_phase_{kUnloaded}; // +0x08 AssetState
     bool pinned_{};     // +0x0C not unloaded by unload_all_assets(false)

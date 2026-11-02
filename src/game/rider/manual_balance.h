@@ -48,6 +48,25 @@ public:
     void show_display();
     void show_meter();
 
+    // The fields other code reads and sets.
+    void set_clock(float value) { clock_ = value; }
+    [[nodiscard]] float on_rail_seconds() const { return on_rail_seconds_; }
+    void set_on_rail_seconds(float value) { on_rail_seconds_ = value; }
+    [[nodiscard]] float best_time() const { return best_time_; }
+    [[nodiscard]] float lean() const { return lean_; }
+    void set_lean(float value) { lean_ = value; }
+    [[nodiscard]] float lean_speed() const { return lean_speed_; }
+    void set_lean_speed(float value) { lean_speed_ = value; }
+    void set_cheese(float value) { cheese_ = value; }
+    void set_pushed(bool value) { pushed_ = value; }
+    [[nodiscard]] uint32_t left_button() const { return left_button_; }
+    [[nodiscard]] uint32_t right_press() const { return right_press_; }
+    void set_rail(int value) { rail_ = value; }
+    void set_show_meter(bool value) { show_meter_ = value; }
+    [[nodiscard]] bool mirrored() const { return mirrored_; }
+    [[nodiscard]] bool flip() const { return flip_; }
+
+private:
     GameEntity* skater_{};              // +0x04
     RiderTeeterMoves* balance_trick_{}; // +0x08 SkaterBalanceTrick
     RiderPointKeeper* points_held_{};   // +0x0C SkaterScore

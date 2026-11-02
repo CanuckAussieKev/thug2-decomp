@@ -226,7 +226,7 @@ void ParkAssembler::update_bounds(uint32_t /*unused*/)
     // The second: the park's bounds, from the middle of its first cell to the middle of its last, every height.
     CellBox area{};
     area.assign_value(0, 0, 0, 0, 0, 0);
-    area = ParkLayout::singleton()->build_area_;
+    area = ParkLayout::singleton()->build_area();
     maths::Vec4 corner = ParkLayout::singleton()->cell_to_world_pos(area, nullptr);
     area.x = static_cast<uint8_t>(area.x + (area.w - 1));
     area.z = static_cast<uint8_t>(area.z + (area.l - 1));

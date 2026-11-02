@@ -45,7 +45,7 @@ void build_for_play(ParkBuilderMode* editor, uint32_t state)
     manager->rebuild_area(nullptr, false);
     mark_progress("Setting Park Play Mode"); // (0x0064F254)
     BuildPointer::teardown();
-    manager->builder_->rebuild_collision();
+    manager->builder()->rebuild_collision();
     manager->generate_node_array();
     GapRegistry::singleton()->update_checklist();
     editor->change_phase(state);
@@ -58,7 +58,7 @@ void show_cursor(bool visible)
     BuildPointer::singleton()->on_mode_changed();
 }
 // Shown unless it's placing rails.
-bool cursor_shows() { return BuildPointer::singleton()->mode_sel_ != BuildPointer::kModeRailPlacement; }
+bool cursor_shows() { return BuildPointer::singleton()->mode_sel() != BuildPointer::kModeRailPlacement; }
 
 } // namespace
 
@@ -80,14 +80,14 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*scrip
         return true;
     case ParkBuilderMode::kStateOff: {
         editor->change_phase(ParkBuilderMode::kStateOff);
-        editor->cur_phase_ = ParkBuilderMode::kStateOff;
+        editor->set_cur_phase(ParkBuilderMode::kStateOff);
         BuildPointer::teardown();
         TopBarMenus::discard_occurrence();
         ParkLayout* manager = ParkLayout::singleton();
         manager->teardown(0);
         manager->destroy_gap_manager_copy();
         ParkAssembler::remove_node_array();
-        editor->flag_bits_ &= ~ParkBuilderMode::kFlagPaused;
+        editor->flag_bits() &= ~ParkBuilderMode::kFlagPaused;
         if (TopBarMenus::singleton()) {
             TopBarMenus::singleton()->turn_on();
             editor->refresh_piece_menu();
@@ -128,7 +128,7 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*scrip
                 break;
             }
             mark_progress("Setting Edit Mode"); // (0x0064F26C)
-            ParkLayout::singleton()->builder_->set_player_cap(2);
+            ParkLayout::singleton()->builder()->set_player_cap(2);
             break;
         }
         default:
@@ -148,7 +148,7 @@ bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* /*
 {
     ParkBuilderMode* editor = ParkBuilderMode::sole();
     if (params->has_bare_flag("pause")) {
-        editor->flag_bits_ |= ParkBuilderMode::kFlagPaused;
+        editor->flag_bits() |= ParkBuilderMode::kFlagPaused;
         if (TopBarMenus::singleton()) {
             script::launch_script(0x30251D65, nullptr, nullptr, false, nullptr);
             TopBarMenus::singleton()->turn_off_now();
@@ -157,7 +157,7 @@ bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* /*
             show_cursor(false);
         editor->update_menu_stick();
     } else if (params->has_bare_flag("unpause")) {
-        editor->flag_bits_ &= ~ParkBuilderMode::kFlagPaused;
+        editor->flag_bits() &= ~ParkBuilderMode::kFlagPaused;
         if (TopBarMenus::singleton()) {
             TopBarMenus::singleton()->turn_on();
             editor->refresh_piece_menu();

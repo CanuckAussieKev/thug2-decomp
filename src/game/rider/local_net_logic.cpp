@@ -88,13 +88,13 @@ int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(s
 void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateState& out)
 {
     self->entity_->display_matrix_.get_euler_angles(out.angles);
-    const objects::RiderPoseState* core = self->pose_;
+    const objects::RiderPoseState* core = self->pose();
     out.state = static_cast<uint8_t>(core->cur_phase_);
     out.value_7c_ = core->surface_type_;
     out.flag74 = core->in_trick_move_;
     out.flag75 = core->physics_mode_ == 1 ? 1 : 0;
     out.flag76 = core->in_vehicle_;
-    const objects::GrindPoint* rail = self->board_->rail_node();
+    const objects::GrindPoint* rail = self->board()->rail_node();
     out.value80 = rail ? rail->label_ : 0;
     // A bit per state flag (the state component's 24 timed flags): set while it's on.
     uint32_t controls = 0;
@@ -116,7 +116,7 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
     uint32_t flags = 0;
     const net::AppHost* app = client_app(core::down_cast<Rider>(entity_)->view_slot());
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
-    const bool force = get_on_server() || static_cast<uint32_t>(app->frame_count_) % 15 == 0;
+    const bool force = get_on_server() || static_cast<uint32_t>(app->frame_count()) % 15 == 0;
     UpdateState now{};
     read_update_state(this, component_6c, now);
     for (int k = 0; k < 3; ++k) {
@@ -151,19 +151,19 @@ void RiderHostSync::send_update()
     auto* app = core::down_cast<net::Guest>(client_app(core::down_cast<Rider>(entity_)->view_slot()));
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
     const bool on_server = get_on_server();
-    if (!on_server && static_cast<uint32_t>(app->frame_count_) % 15 != 0) {
+    if (!on_server && static_cast<uint32_t>(app->frame_count()) % 15 != 0) {
         // Between the 15th frames: only once the connection's send interval has gone by.
         net::ConnSearch search;
         net::Conn* conn = app->begin_conn_walk(&search);
-        if (app->clock_ - last_transmit_at_ < conn->get_transmit_period())
+        if (app->clock() - last_transmit_at_ < conn->get_transmit_period())
             return;
     }
-    last_transmit_at_ = app->clock_;
+    last_transmit_at_ = app->clock();
     std::array<uint8_t, 0x400> buffer{};
     stream.bind_output_buffer(buffer.data(), 0x400);
     UpdateState now{};
     read_update_state(this, component_6c, now);
-    stream.write_bits(app->clock_, 32);
+    stream.write_bits(app->clock(), 32);
     const uint32_t flags = fetch_sync_field_mask();
     stream.write_bits(flags, 9);
     if (on_server) {

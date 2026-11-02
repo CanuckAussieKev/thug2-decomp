@@ -246,7 +246,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
             apply_object_scale();
             return true;
         }
-        maths::Vec4 scale = built_model()->size_factor_;
+        maths::Vec4 scale = built_model()->size_factor();
         maths::Vec4 factor = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
         if (!fetch_magnification(&factor, body_shape))
             return true;

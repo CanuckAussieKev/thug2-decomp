@@ -51,7 +51,7 @@ SceneRef* scene_meshes(memory::ListNode* node)
     return scene ? scene->meshes : nullptr;
 }
 
-IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes) { return meshes->arena_buffer_; }
+IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes) { return meshes->arena_buffer(); }
 
 } // namespace
 
@@ -236,7 +236,7 @@ void recreate_buffers()
         SceneRef* meshes = scene_meshes(node);
         if (meshes && arena_buffer(meshes)) {
             const IDirect3DVertexBuffer9* old = arena_buffer(meshes);
-            renderer().d3d_device()->CreateVertexBuffer(meshes->unknown80, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+            renderer().d3d_device()->CreateVertexBuffer(meshes->unknown80_value(), D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                              &arena_buffer(meshes), nullptr);
             for (const BufferNode* vb_node = vertex_buffer_list(); vb_node; vb_node = vb_node->next) {
                 auto* vb = static_cast<VertexBuffer*>(vb_node->buffer);

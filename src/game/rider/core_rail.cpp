@@ -55,7 +55,7 @@ constexpr float kRaiseEnd = 6.1f;    // 0x0064BDA8: its end
 constexpr float kFeelerAhead = 6.0f; // (the feeler past the move: 6 along it)
 constexpr float kTurnFacing = 0.3f;  // (how far the display facing turns to the rail each frame)
 
-bool in_park_editor() { return park_editing::ParkBuilderMode::sole()->cur_phase_ == kParkEditorLevel; }
+bool in_park_editor() { return park_editing::ParkBuilderMode::sole()->cur_phase() == kParkEditorLevel; }
 
 // -1 for a dot product below 0, else 1 (NaN: 1).
 float sign_of(double dot) { return dot < 0.0 ? -1.0f : 1.0f; }
@@ -376,8 +376,8 @@ void SkaterPhysicsModule::update_grind_balance()
         auto career = [] { return modules::Skate::sole()->career().get(); };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
-            balance_->grind_.lean_ = 0.0f;
-            balance_->grind_.lean_speed_ = 0.0f;
+            balance_->grind_.set_lean(0.0f);
+            balance_->grind_.set_lean_speed(0.0f);
             online::net_game_state().set_cheat_flag(true);
         }
     }

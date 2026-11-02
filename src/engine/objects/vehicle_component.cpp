@@ -418,7 +418,7 @@ uint32_t skate_restart(int index) { return modules::Skate::sole()->warp_to_resta
 // 0x50 each.
 std::span<const render::HierarchyNode> model_geometry(ObjectModule* model)
 {
-    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance_->asset_hierarchy_run();
+    return core::down_cast<objects::MeshInstanceModule>(model)->mesh_instance()->asset_hierarchy_run();
 }
 // Wheel `i`'s place: hierarchy node 2 + i's translation.
 const maths::Vec4& wheel_place(std::span<const render::HierarchyNode> geometry, int i)
@@ -1051,7 +1051,7 @@ bool DrivableModule::teleport_to_spawn(script::Struct* params, script::Script* s
             return true;
         }
     }
-    if (park_editing::ParkBuilderMode::sole()->cur_phase_ == kParkEditor)
+    if (park_editing::ParkBuilderMode::sole()->cur_phase() == kParkEditor)
         return true;
     glide_to_node(level_nodes::fetch_vertex(skate_restart(0), true));
     return true;

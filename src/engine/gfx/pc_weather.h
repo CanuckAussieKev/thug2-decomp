@@ -23,7 +23,7 @@ struct WeatherRow {
 
 // The PC weather (0x12AC bytes, vtable 0x0064A860).
 class PcWeather final : public WeatherSystem {
-public:
+private:
     void* splash_texture_{nullptr}; // +0x5C TextureRef* (0x45C7EB0F)
     void* snow_texture_{};      // +0x60 TextureRef* (0xC97C5A4C)
     std::span<uint8_t> columns;     // the rows' columns' height indices
@@ -48,6 +48,8 @@ public:
     std::array<float, 0x20> splash_z_{};  // +0x11A8
     std::array<int, 0x20> splash_frames_{}; // +0x1228 left (0: none)
     int next_splash_{};         // +0x12A8
+
+public:
 
     // 0x004CC560: no grid, no splash texture - the snow's left as it was; blend mode 0xA86285A1 with alpha 0x80 for
     // all three.
@@ -79,7 +81,5 @@ public:
     // live splash drawn as a quad fading with its frames.
     void render_splashes(float x, float z);
 };
-static_assert(offsetof(PcWeather, active_) == 0x30 && offsetof(PcWeather, rain_on_) == 0x58,
-              "the base class's layout");
 
 } // namespace render

@@ -29,6 +29,51 @@ class Hub;
 // A server found (0xA8 bytes): a node of the manager's server list (+0x158) or of the servers waiting to be shown
 // (+0x16C). (The offsets are the original's.)
 struct HostListing : memory::ListNode {
+    // The fields other code reads and sets.
+    std::array<char, 16>& label() { return label_; }
+    [[nodiscard]] const std::array<char, 16>& label() const { return label_; }
+    [[nodiscard]] uint32_t remote_ip() const { return remote_ip_; }
+    void set_remote_ip(uint32_t value) { remote_ip_ = value; }
+    [[nodiscard]] int port_no() const { return port_no_; }
+    void set_port_no(int value) { port_no_ = value; }
+    [[nodiscard]] int ping() const { return ping_; }
+    void set_ping(int value) { ping_ = value; }
+    [[nodiscard]] int num_players() const { return num_players_; }
+    void set_num_players(int value) { num_players_ = value; }
+    [[nodiscard]] int max_players() const { return max_players_; }
+    void set_max_players(int value) { max_players_ = value; }
+    [[nodiscard]] int num_observers() const { return num_observers_; }
+    void set_num_observers(int value) { num_observers_ = value; }
+    [[nodiscard]] int max_observers() const { return max_observers_; }
+    void set_max_observers(int value) { max_observers_ = value; }
+    std::array<char, 32>& level() { return level_; }
+    [[nodiscard]] const std::array<char, 32>& level() const { return level_; }
+    std::array<char, 32>& mode_sel() { return mode_sel_; }
+    [[nodiscard]] const std::array<char, 32>& mode_sel() const { return mode_sel_; }
+    void set_password(bool value) { password_ = value; }
+    [[nodiscard]] bool started() const { return started_; }
+    void set_started(bool value) { started_ = value; }
+    [[nodiscard]] int8_t skill_level() const { return skill_level_; }
+    void set_skill_level(int8_t value) { skill_level_ = value; }
+    [[nodiscard]] int host_mode() const { return host_mode_; }
+    void set_host_mode(int value) { host_mode_ = value; }
+    [[nodiscard]] bool ranked() const { return ranked_; }
+    void set_ranked(bool value) { ranked_ = value; }
+    [[nodiscard]] bool can_reach() const { return can_reach_; }
+    void set_can_reach(bool value) { can_reach_ = value; }
+    [[nodiscard]] bool in_menu() const { return in_menu_; }
+    void set_in_menu(bool value) { in_menu_ = value; }
+    [[nodiscard]] bool chosen() const { return chosen_; }
+    void set_chosen(bool value) { chosen_ = value; }
+    [[nodiscard]] bool in_list() const { return in_list_; }
+    void set_in_list(bool value) { in_list_ = value; }
+    [[nodiscard]] bool detailed() const { return detailed_; }
+    void set_detailed(bool value) { detailed_ = value; }
+    [[nodiscard]] void* sb_server() const { return sb_server_; }
+    void set_sb_server(void* value) { sb_server_ = value; }
+    [[nodiscard]] uint32_t id() const { return id_; }
+
+private:
     std::array<char, 16> label_{};     // +0x14
     uint32_t remote_ip_{}; // +0x24
     int port_no_{};        // +0x28
@@ -55,6 +100,8 @@ struct HostListing : memory::ListNode {
     // NOT ORIGINAL: its id in the server menu and for fetch_host - a running number (the original used its SBServer's
     // address on the internet and its own on the LAN: ids that were addresses).
     uint32_t id_{0};
+
+public:
 
     // 0x00545F60: an empty one: one of eight players, one of one observer, skill level 2, mode and level "None",
     // reachable.

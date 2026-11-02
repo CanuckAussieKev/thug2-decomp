@@ -66,8 +66,8 @@ bool ObjectiveAuthoring::edited_goal_got_gap(script::Struct* params, script::Scr
         return false;
     int gap = 0;
     params->fetch_int_value(0x3AC9AB5E, &gap, 0);
-    for (int i = 0; std::cmp_less(i, goal->num_gaps_); ++i) {
-        if (core::at(goal->gaps_, i) == static_cast<uint8_t>(gap))
+    for (int i = 0; std::cmp_less(i, goal->num_gaps()); ++i) {
+        if (core::at(goal->gaps(), i) == static_cast<uint8_t>(gap))
             return true;
     }
     return false;
@@ -121,8 +121,8 @@ bool ObjectiveAuthoring::remove_goal_specific_flag(script::Struct* params, scrip
     if (EditedGoal* goal = get_goal_from_params(params)) {
         uint32_t flag = 0;
         params->read_hash_value(0u, &flag, 0);
-        if (goal->kind_tag_ == kGoalTypeComboTricks && flag == 0xDF47B144)
-            goal->single_combo_ = false;
+        if (goal->kind_tag() == kGoalTypeComboTricks && flag == 0xDF47B144)
+            goal->set_single_combo(false);
     }
     return true;
 }
@@ -139,7 +139,7 @@ bool ObjectiveAuthoring::set_goal_specific_params(script::Struct* params, script
 bool ObjectiveAuthoring::flag_goal_as_won(script::Struct* params, script::Script* /*script*/)
 {
     if (EditedGoal* goal = get_goal_from_params(params))
-        goal->won_ = true;
+        goal->set_won(true);
     return true;
 }
 
@@ -150,7 +150,7 @@ bool ObjectiveAuthoring::find_unfinished_goal(script::Struct* params, script::Sc
     params->read_hash_value("type", &type, 0);
     active_node_ = nullptr;
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count_ && goal.kind_tag_ == type && goal.vertex_total_ < goal.min_points_)
+        if (goal.taken_count() && goal.kind_tag() == type && goal.vertex_total() < goal.min_points())
             active_node_ = &goal; // (the last one)
     }
     return active_node_ != nullptr;
@@ -174,7 +174,7 @@ bool ObjectiveAuthoring::removed_created_goal(script::Struct* params, script::Sc
 bool ObjectiveAuthoring::goal_has_all_positions_set(script::Struct* params, script::Script* /*script*/)
 {
     const EditedGoal* goal = get_goal_from_params(params);
-    return goal && goal->vertex_total_ >= goal->min_points_;
+    return goal && goal->vertex_total() >= goal->min_points();
 }
 
 // 0x004E8980
@@ -200,7 +200,7 @@ bool ObjectiveAuthoring::set_editor_goal_description(script::Struct* params, scr
     const char* text = vacant();
     params->fetch_text("text", &text, 0);
     if (EditedGoal* goal = get_goal_from_params(params))
-        std::strcpy(goal->summary_text_.data(), text);
+        std::strcpy(goal->summary_text().data(), text);
     return true;
 }
 
@@ -210,7 +210,7 @@ bool ObjectiveAuthoring::set_editor_goal_win_message(script::Struct* params, scr
     const char* text = vacant();
     params->fetch_text("text", &text, 0);
     if (EditedGoal* goal = get_goal_from_params(params))
-        std::strcpy(goal->win_message_.data(), text);
+        std::strcpy(goal->win_message().data(), text);
     return true;
 }
 
@@ -234,7 +234,7 @@ bool ObjectiveAuthoring::get_current_edited_goal_id(script::Struct* /*params*/, 
     script->args()->erase_module("goal_id");
     if (active_node_) {
         char* name = park_editing_state().created_goal_name().data();
-        get_sprintf(name, "CreatedGoal%d", active_node_->level_goal_number_);
+        get_sprintf(name, "CreatedGoal%d", active_node_->level_goal_number());
         script->args()->put_name_key("goal_id", checksums::hash_from_text(name));
     }
     return true;
@@ -254,7 +254,7 @@ bool ObjectiveAuthoring::set_editor_goal_name(script::Struct* params, script::Sc
     const char* text = vacant();
     if (active_node_ && params->fetch_text("Name", &text, 0)) {
         active_node_ = get_goal_from_params(params); // (none named: a null write, as the original)
-        std::strcpy(active_node_->label_.data(), text);
+        std::strcpy(active_node_->label().data(), text);
     }
     return true;
 }
@@ -265,7 +265,7 @@ bool ObjectiveAuthoring::set_editor_ped_name(script::Struct* params, script::Scr
     const char* text = vacant();
     if (active_node_ && params->fetch_text("Name", &text, 0)) {
         active_node_ = get_goal_from_params(params);
-        std::strcpy(active_node_->ped_name_.data(), text);
+        std::strcpy(active_node_->ped_name().data(), text);
     }
     return true;
 }
@@ -306,7 +306,7 @@ bool ObjectiveAuthoring::set_goal_score(script::Struct* params, script::Script* 
     if (active_node_) {
         int score = 0;
         if (params->fetch_int_value(0u, &score, 0))
-            active_node_->points_held_ = score;
+            active_node_->set_points_held(score);
     }
     return true;
 }
@@ -330,7 +330,7 @@ bool ObjectiveAuthoring::set_goal_control_type(script::Struct* params, script::S
     if (active_node_) {
         uint32_t control = kGoalTypeSkate;
         if (params->read_hash_value(0u, &control, 0))
-            active_node_->control_type_ = control;
+            active_node_->set_control_type(control);
     }
     return true;
 }

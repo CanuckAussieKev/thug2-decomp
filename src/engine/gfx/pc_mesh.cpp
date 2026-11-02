@@ -125,8 +125,8 @@ void PcMesh::choose_scene(PcScene* new_scene)
 {
     scene = new_scene;
     const SceneRef* list = new_scene->meshes;
-    hierarchy_ = list->hierarchy;
-    hierarchy_count_ = list->unknown78;
+    hierarchy_ = list->hierarchy_value();
+    hierarchy_count_ = list->unknown78_value();
 }
 
 } // namespace render

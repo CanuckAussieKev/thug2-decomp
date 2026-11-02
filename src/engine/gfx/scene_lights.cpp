@@ -184,7 +184,7 @@ void LevelLamp::find_sectors(script::Array* excluded)
     const WorldScene* scene = get_main_scene();
     if (!scene)
         return;
-    lists::KeyMap* sectors = scene->sectors_;
+    lists::KeyMap* sectors = scene->sectors();
     if (!sectors)
         return;
     for (auto* sector = static_cast<WorldCell*>(get_first_value(sectors)); sector;

@@ -101,7 +101,7 @@ bool ScoreReachedVictoryCondition::rule_satisfied()
         PlayerSearch search;
         for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
             modules::PointTally* score = player->rider()->get_points_total();
-            const int team = player->team_;
+            const int team = player->team();
             core::at(totals, team) += total_score(score);
         }
         for (const int total : totals) {
@@ -145,7 +145,7 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
         }
         return false;
     }
-    const auto count = static_cast<uint32_t>(goals->goals_.num_); // (the goals there are - 0x00469490, a folded getter)
+    const auto count = static_cast<uint32_t>(goals->goals().num_); // (the goals there are - 0x00469490, a folded getter)
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
         auto* skater = get_rider_at(skate, i);
         if (count == 0)
@@ -155,7 +155,7 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
             Objective* goal = goals->get_objective_at(static_cast<int>(g));
             // A goal that doesn't count (a parent: its first parent link's id set, or 0x005542F0 false) or that the
             // skater has won (its stage flag by the skater's id: the original's vtable +0x50).
-            if (goal->parents_->objective_key_ != 0 || !goal->is_picked())
+            if (goal->parents()->objective_key_ != 0 || !goal->is_picked())
                 continue;
             if (goal->stage_flag_set(static_cast<int>(skater->ident_)))
                 continue;
@@ -211,7 +211,7 @@ bool CollectAllObjectsVictoryCondition::rule_satisfied()
     int total = 0;
     PlayerSearch search;
     for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search))
-        total += player->num_placed_;
+        total += player->num_placed();
     if (!total)
         return false;
     for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {

@@ -86,7 +86,7 @@ void set_no_lod(float* distances)
 // bounding sphere (0x00492F30: centre, radius in w), and whether it wants to be drawn regardless (+0x234).
 render::RenderModel* model_of(ObjectModule* component)
 {
-    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
+    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
 }
 void change_model_enabled(render::RenderModel* model, bool active)
 {
@@ -218,7 +218,7 @@ void DormancyModule::refresh_shown_state()
             visible = true;
         } else if (modules::viewport_count() > 1) {
             visible = true;
-        } else if (core::down_cast<MeshInstanceModule>(mesh_instance_)->level_object_) {
+        } else if (core::down_cast<MeshInstanceModule>(mesh_instance_)->level_object()) {
             visible = true;
         } else {
             const double lod = core::at(lod_distances_, 1);
@@ -234,7 +234,7 @@ void DormancyModule::refresh_shown_state()
             }
         }
     }
-    const uint8_t flags = model_of(mesh_instance_)->flag_bits_;
+    const uint8_t flags = model_of(mesh_instance_)->flag_bits();
     const bool shown = (flags & 0x2) && !(flags & 0x4);
     change_model_enabled(model_of(mesh_instance_), visible);
     if (visible && !shown)

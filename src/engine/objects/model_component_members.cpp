@@ -207,7 +207,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     case kObjGetScaling:
         if (mesh_instance_.get()) {
-            const maths::Vec4 scale = mesh_instance_->size_factor_; // (0x0041A680: its +0x1C)
+            const maths::Vec4 scale = mesh_instance_->size_factor(); // (0x0041A680: its +0x1C)
             script->args()->put_vec3(kScaling, script::VectorValue{.x = scale.x, .y = scale.y, .z = scale.z, .w = scale.w});
         }
         break;

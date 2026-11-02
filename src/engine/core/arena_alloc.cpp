@@ -102,41 +102,41 @@ Zone::Zone(std::span<uint8_t> memory) : memory_(memory), min_available_(static_c
 // 0x005BC4E0
 void Zone::add_allocator(MemSource* allocator)
 {
-    core::at(allocators_, (allocator->direction_ >> 1) & 1) = allocator;
-    allocator->top_side_ = allocator->direction_ == MemSource::kGrowUp ? 0 : byte_size();
+    core::at(allocators_, (allocator->direction() >> 1) & 1) = allocator;
+    allocator->top_side() = allocator->direction() == MemSource::kGrowUp ? 0 : byte_size();
 }
 
 uint32_t Zone::offset_of(const void* place) const { return offset_in(memory_, place); }
 
 // 0x005BC510
-void Zone::remove_allocator(MemSource* allocator) { core::at(allocators_, (allocator->direction_ >> 1) & 1) = nullptr; }
+void Zone::remove_allocator(MemSource* allocator) { core::at(allocators_, (allocator->direction() >> 1) & 1) = nullptr; }
 
 // 0x005BC530
 int Zone::free_byte_count()
 {
-    const uint32_t bottom = core::at(allocators_, 0) ? core::at(allocators_, 0)->top_side_ : 0;
-    const uint32_t top = core::at(allocators_, 1) ? core::at(allocators_, 1)->top_side_ : byte_size();
+    const uint32_t bottom = core::at(allocators_, 0) ? core::at(allocators_, 0)->top_side() : 0;
+    const uint32_t top = core::at(allocators_, 1) ? core::at(allocators_, 1)->top_side() : byte_size();
     return static_cast<int>(top - bottom);
 }
 
 // 0x005BC560
 std::span<uint8_t> Zone::carve(MemSource* allocator, int size, int /*unused*/)
 {
-    const int side = (allocator->direction_ >> 1) & 1; // 0 growing up, 1 growing down
+    const int side = (allocator->direction() >> 1) & 1; // 0 growing up, 1 growing down
     const MemSource* other = core::at(allocators_, side ^ 1);
-    const int64_t new_top = int64_t{allocator->top_side_} + (int64_t{allocator->direction_} * size);
+    const int64_t new_top = int64_t{allocator->top_side()} + (int64_t{allocator->direction()} * size);
     int64_t result = new_top;
     if (side) {
-        const int64_t limit = other ? other->top_side_ : 0;
+        const int64_t limit = other ? other->top_side() : 0;
         if (new_top < limit)
             return {};
     } else {
-        const int64_t limit = other ? other->top_side_ : byte_size();
-        result = allocator->top_side_;
+        const int64_t limit = other ? other->top_side() : byte_size();
+        result = allocator->top_side();
         if (new_top > limit)
             return {};
     }
-    allocator->top_side_ = static_cast<uint32_t>(new_top);
+    allocator->top_side() = static_cast<uint32_t>(new_top);
     const int available = free_byte_count();
     if (available < min_available_)
         min_available_ = available;

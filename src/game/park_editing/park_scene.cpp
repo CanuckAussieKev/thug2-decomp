@@ -105,11 +105,11 @@ constexpr float kInverseCell = 0.008333333767950535f;
 // The super sectors brought up to date (on the bottom-up heap).
 void get_update_super_sectors(ParkAssembler& d)
 {
-    d.flag_bits_ &= ~ParkAssembler::kSceneChanged;
+    d.flag_bits() &= ~ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());
-    update_super_sectors_of(d.scene_handle_);
+    update_super_sectors_of(d.scene_handle());
     memory::leave_heap_scope();
-    d.flag_bits_ |= ParkAssembler::kSuperSectorsUpdated;
+    d.flag_bits() |= ParkAssembler::kSuperSectorsUpdated;
 }
 
 // Take `piece` out of the list (unless it's the cursor's), delete its sector and the piece (inline in the original, as
@@ -118,24 +118,24 @@ void delete_piece(ParkAssembler& d, DuplicatedTile* piece)
 {
     if (!(piece->flag_bits_ & DuplicatedTile::kCursor)) {
         DuplicatedTile* previous = nullptr;
-        for (DuplicatedTile* p = d.pieces_; p; previous = p, p = p->following_) {
+        for (DuplicatedTile* p = d.pieces(); p; previous = p, p = p->following_) {
             if (p == piece) {
                 if (previous)
                     previous->following_ = p->following_;
                 else
-                    d.pieces_ = p->following_;
+                    d.set_pieces(p->following_);
                 break;
             }
         }
     }
-    remove_scene_sector(d.scene_handle_, piece->sector_);
+    remove_scene_sector(d.scene_handle(), piece->sector_);
     if (park_editing_state().collision_allowed())
         get_update_super_sectors(d);
     set_counts_dirty(); // (given the piece)
     gsl::owner<decltype(piece)> owned = memory::owned_element(piece); // (the generator's list's)
     delete owned;
-    if (!d.pieces_)
-        d.flag_bits_ &= ~ParkAssembler::kHasPieces;
+    if (!d.pieces())
+        d.flag_bits() &= ~ParkAssembler::kHasPieces;
 }
 
 } // namespace
@@ -429,7 +429,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
     next_piece_id_ = 0x20;
     source_world_ = look_up_scene("sk5ed");
     // every sector of the scene (its sector table at +0xD0)
-    lists::KeyMap* sectors = source_world_->sectors_;
+    lists::KeyMap* sectors = source_world_->sectors();
     sectors->iter_bucket_ = -1;
     sectors->iter_item_ = nullptr;
     render::WorldCell* sector = nullptr;
@@ -457,7 +457,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
         if (height < kGridStepUp && height > 0.0)
             source->extent_.y = kGridStepUp; // (at least a step high)
     }
-    scene_handle_ = clone_scene("cloned", source_world_->texture_set_, 1);
+    scene_handle_ = clone_scene("cloned", source_world_->texture_set(), 1);
     park_editing::set_up_bounds(this);
     for (RestartPoint& restart : restarts_)
         restart.kind_tag_ = RestartPoint::kFree;

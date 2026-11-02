@@ -111,7 +111,7 @@ bool BuildPointer::commit_tile_placement()
     // A restart point needs a free slot of its type.
     const uint32_t type = meta_type(get_meta());
     for (int slot = 1; slot < 9; ++slot) {
-        if (type == core::at(manager->restart_pieces_, slot - 1)) {
+        if (type == core::at(manager->restart_pieces(), slot - 1)) {
             if (!as_generator(manager->get_generator())->has_free_restart_slot(slot)) {
                 debug::printf(
                     "No free slots exist for this type of restart point\n"); // "No free slots exist for this type of restart point\n"
@@ -214,7 +214,7 @@ bool BuildPointer::remove_gap_half()
     hub()->rebuild_area(&get_area(), false);
     // The pieces that had gaps are told to look again.
     manager = hub();
-    for (auto* node = manager->concrete_metas_; node; node = node->following_) {
+    for (auto* node = manager->concrete_metas(); node; node = node->following_) {
         if (get_meta_flags(node_meta(node)) & kMetaHasGap)
             as_meta(node_meta(node))->spotlight(1, 1);
     }

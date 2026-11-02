@@ -917,7 +917,7 @@ void PedestrianBrainModule::skater_move_update()
     else
         speed_ratio_ = 0.0f;
     if (auto* looping = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound))) {
-        looping->no_rail_sound_ = (flag_bits_ & (kPedFlagBailing | kPedFlagGrindBailing)) != 0;
+        looping->set_no_rail_sound((flag_bits_ & (kPedFlagBailing | kPedFlagGrindBailing)) != 0);
         looping->set_pace_ratio(speed_ratio_);
     }
 }

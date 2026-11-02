@@ -571,8 +571,8 @@ int trans_key_time(const uint8_t* key) { return trans_key_time(anim_format::key_
 class CachedKeys {
 public:
     explicit CachedKeys(const AnimCacheEntry& entry)
-        : bytes_(entry.payload_, entry.payload_ ? entry.allocated_ : 0),
-          rotations_(offset_of(entry.rotation_keys_ptr_)), translations_(offset_of(entry.translation_keys_ptr_))
+        : bytes_(entry.payload(), entry.payload() ? entry.allocated() : 0),
+          rotations_(offset_of(entry.rotation_keys_ptr())), translations_(offset_of(entry.translation_keys_ptr()))
     {
     }
     // Where the rotation / translation keys start.
@@ -603,11 +603,11 @@ private:
 // A slot's stored key for `bone` (null: none) as a place.
 uint8_t*& slot_rotation(AnimCacheEntry& entry, int slot, int bone)
 {
-    return core::at(core::at(entry.slots_ptr_, slot)->rotation_keys_, bone);
+    return core::at(core::at(entry.slots_ptr(), slot)->rotation_keys_, bone);
 }
 uint8_t*& slot_translation(AnimCacheEntry& entry, int slot, int bone)
 {
-    return core::at(core::at(entry.slots_ptr_, slot)->translation_keys_, bone);
+    return core::at(core::at(entry.slots_ptr(), slot)->translation_keys_, bone);
 }
 
 } // namespace
@@ -1032,7 +1032,7 @@ bool JointClipFrames::fetch_pose(std::span<maths::QuatRotation> rotations, std::
     const uint32_t mask = source && source->resume_ ? 1u << (source->mask_bit_ & 31) : 0u;
     if (cache_slot_) {
         uint32_t& counter = cache_use_counter();
-        cache_slot_->last_used_ = counter++;
+        cache_slot_->set_last_used(counter++);
         if (cursor != -1 &&
             cache_slot_->set_slot_time(cursor, static_cast<int16_t>(static_cast<int>(static_cast<int64_t>(time)))) < 0)
             forwards = false;

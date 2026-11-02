@@ -150,7 +150,7 @@ void BuildPointer::remove_oldest_clipboard()
 
 void BuildPointer::clamp_to_park()
 {
-    const CellBox& bounds = park_owner_->build_area_;
+    const CellBox& bounds = park_owner_->build_area();
     CellBox& pos = cell_footprint_;
     if (pos.x < bounds.x)
         pos.x = bounds.x;

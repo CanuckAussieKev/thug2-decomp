@@ -190,12 +190,12 @@ void count_one(objects::Entity* object, void* data)
         if (census->objects <= 80) {
             objects::ObjectModule* component = composite->fetch_module(kModelModuleName);
             const render::RenderModel* model =
-                component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get() : nullptr;
+                component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get() : nullptr;
             get_log("level editor:   not pickable %s at (%.0f, %.0f, %.0f): flags %X, model component %p, model %p "
                     "(flags %02X)",
                     caption(composite->ident_).c_str(), composite->at_point_.x, composite->at_point_.y,
                     composite->at_point_.z, composite->composite_flags_, static_cast<void*>(component),
-                    static_cast<const void*>(model), model ? model->flag_bits_ : 0);
+                    static_cast<const void*>(model), model ? model->flag_bits() : 0);
         }
         return;
     }
@@ -210,7 +210,7 @@ void* model_geometry(objects::GameEntity* object, int index)
 {
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
     render::RenderModel* model =
-        component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get() : nullptr;
+        component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get() : nullptr;
     return model ? model->fetch_geom(index) : nullptr;
 }
 
@@ -251,14 +251,14 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
     if (!component)
         return false;
-    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
+    render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
     if (!model)
         return false;
     // A model cloned from a scene sector (the component's +0x234: level objects; placed by 0x004219F0 whatever its
     // flags), or one in use (its flags: 1 on - 0 for unused variants - and 4 off; peds' animated models have 2
     // off: they are placed through their skeletons, not 0x004219F0's matrix).
-    const bool cloned = core::down_cast<objects::MeshInstanceModule>(component)->level_object_;
-    const uint8_t flags = model->flag_bits_;
+    const bool cloned = core::down_cast<objects::MeshInstanceModule>(component)->level_object();
+    const uint8_t flags = model->flag_bits();
     if (!cloned && (!(flags & 1) || (flags & 4)))
         return false;
     render::Geom* geometry = model->get_geom_by_name(0);
@@ -271,7 +271,7 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
         max = {.x = bounds->max.x, .y = bounds->max.y, .z = bounds->max.z};
     }
     if (flags & 8) {
-        const maths::Vec4& scale = model->size_factor_;
+        const maths::Vec4& scale = model->size_factor();
         min = {.x = min.x * scale.x, .y = min.y * scale.y, .z = min.z * scale.z};
         max = {.x = max.x * scale.x, .y = max.y * scale.y, .z = max.z * scale.z};
         if (min.x > max.x)

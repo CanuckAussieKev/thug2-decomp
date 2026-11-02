@@ -87,7 +87,7 @@ void RiderPhysicsTweaks::keep_above_ground()
         // Nothing at all: the uber frig (not in the park editor's play while in states 3 / 4): back where the frame
         // began (a little off it each try), going the other way; out of the air states, into the air.
         int state = state_of(core);
-        if (!((state == 4 || state == 3) && park_editor->cur_phase_ == kParkEditorTestPlay)) {
+        if (!((state == 4 || state == 3) && park_editor->cur_phase() == kParkEditorTestPlay)) {
             uber_frigged_ = 1;
             if (uber_frig_tries_ < 5) {
                 const auto& offset = core::at(kUberFrigOffsets, uber_frig_tries_++);
@@ -141,7 +141,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     if (state_of(core) != 4)
         get_update_brightness(&core->feeler());
 
-    if (park_editor->cur_phase_ != kParkEditorTestPlay) {
+    if (park_editor->cur_phase() != kParkEditorTestPlay) {
         // Under the floor: a feeler from far above down to a unit over the skater (faces flagged 0x800 - "under ok" -
         // passed over) hits a floor. Within 6 of it: onto it. Further, moved this frame: back where the frame began
         // at half the speed the other way (a lip: out of it, into the air, 2 up); hardly moved: onto it.

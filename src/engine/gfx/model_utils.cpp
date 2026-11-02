@@ -85,7 +85,7 @@ uint32_t current_object_id(objects::MeshInstanceModule* component)
 }
 bool hideable(objects::MeshInstanceModule* component)
 {
-    return current_object_id(component) && !(component->mesh_instance_->flag_bits_ & render::kModelHidden);
+    return current_object_id(component) && !(component->mesh_instance()->flag_bits() & render::kModelHidden);
 }
 
 } // namespace
@@ -196,7 +196,7 @@ void HiddenModels::conceal()
          component = core::down_cast<objects::MeshInstanceModule>(component->next_of_type_)) {
         if (hideable(component)) {
             core::at(ids, num_) = current_object_id(component);
-            component->mesh_instance_->conceal(1);
+            component->mesh_instance()->conceal(1);
             ++num_;
         }
     }
@@ -212,7 +212,7 @@ void HiddenModels::get_show()
             if (auto* object = core::down_cast<objects::GameEntity>(objects::find_object(core::at(ids, i)))) {
                 auto* component =
                     core::down_cast<objects::MeshInstanceModule>(object->fetch_module(objects::MeshInstanceModule::kType));
-                component->mesh_instance_->conceal(0);
+                component->mesh_instance()->conceal(0);
             }
         }
         memory::Hub::get_pull()->dealloc(ids_ptr_);

@@ -375,7 +375,7 @@ void EditorViewModule::tick_frame()
     const PadSnapshot& pad = input_ptr_->pad_primary_;
 
     // Heading, wrapped into 0..2 pi (the comparison on the unrounded sum, as the original).
-    const double heading = static_cast<double>(get_global(0x8242D878)) * core::at(pad.scaled_stick_, 0) + heading_;
+    const double heading = static_cast<double>(get_global(0x8242D878)) * core::at(pad.scaled_stick(), 0) + heading_;
     heading_ = static_cast<float>(heading);
     if (heading > kTwoPi) {
         double h = heading_;
@@ -392,7 +392,7 @@ void EditorViewModule::tick_frame()
         heading_ = static_cast<float>(h);
     }
     // Tilt, within the globals' range.
-    const double tilt = -(static_cast<double>(get_global(0x3CFA3A72)) * core::at(pad.scaled_stick_, 1)) + lean_angle_;
+    const double tilt = -(static_cast<double>(get_global(0x3CFA3A72)) * core::at(pad.scaled_stick(), 1)) + lean_angle_;
     lean_angle_ = static_cast<float>(tilt);
     if (tilt > max_tilt_)
         lean_angle_ = max_tilt_;
@@ -406,7 +406,7 @@ void EditorViewModule::tick_frame()
     if (controller == 4 || controller == 7) {
         zoom_in = (buttons & 0x400000) != 0;
         zoom_out = (buttons & 0x800000) != 0;
-        if (park_editing::ParkBuilderMode::sole()->cur_phase_ == 0x7ECA21E5) {
+        if (park_editing::ParkBuilderMode::sole()->cur_phase() == 0x7ECA21E5) {
             raise = (buttons & 0x1000) != 0;
             lower = (buttons & 0x4000) != 0;
         } else {
@@ -422,10 +422,10 @@ void EditorViewModule::tick_frame()
             raise = (buttons & 0x1000) != 0;
         }
     } else {
-        zoom_in = pad.shoulder_right_a_.held_down_ != 0;
-        zoom_out = pad.shoulder_right_b_.held_down_ != 0;
-        raise = pad.shoulder_left_a_.held_down_ != 0;
-        lower = pad.shoulder_left_b_.held_down_ != 0;
+        zoom_in = pad.shoulder_right_a().held_down_ != 0;
+        zoom_out = pad.shoulder_right_b().held_down_ != 0;
+        raise = pad.shoulder_left_a().held_down_ != 0;
+        lower = pad.shoulder_left_b().held_down_ != 0;
     }
     double zoom_rate = get_global(0x4E58F829);
     if (!zoom_in)
@@ -511,18 +511,18 @@ void EditorViewModule::tick_frame()
         speed = 1.0f;
 
     // The left stick (or the d-pad) moves the cursor along the axes.
-    auto side = static_cast<float>(static_cast<double>(core::at(pad.stick_, 2)) * kStickScale);
-    double ahead = static_cast<double>(core::at(pad.stick_, 3)) * kStickScale;
+    auto side = static_cast<float>(static_cast<double>(core::at(pad.stick(), 2)) * kStickScale);
+    double ahead = static_cast<double>(core::at(pad.stick(), 3)) * kStickScale;
     if (std::fabs(side) < kDeadZone) {
-        if (pad.left_side_.held_down_)
+        if (pad.left_side().held_down_)
             side = -0.5f;
-        if (pad.right_side_.held_down_)
+        if (pad.right_side().held_down_)
             side = 0.5f;
     }
     if (std::fabs(ahead) < kDeadZone) {
-        if (pad.up_dir_.held_down_)
+        if (pad.up_dir().held_down_)
             ahead = -0.5f;
-        if (pad.btn_down_.held_down_)
+        if (pad.btn_down().held_down_)
             ahead = 0.5f;
     }
     auto a1 = static_cast<float>(ahead * forward_.w);

@@ -108,7 +108,7 @@ bool in_front_end() { return current_load_state() == kLoadMainMenu; }
 // The skate module's career (+0x20; null before the module is up).
 objects::RiderStoryProgress* get_career() { return modules::Skate::sole() ? modules::Skate::sole()->career().get() : nullptr; }
 modules::FrontEnd* the_front_end() { return modules::front_end_instance().get(); }
-bool get_paused() { return the_front_end() && the_front_end()->is_halted_; }
+bool get_paused() { return the_front_end() && the_front_end()->is_halted(); }
 bool loading_screen_up()
 {
     return render::loading_screen_shown() != 0 || render::renderer().loading_bar_timer() != 0 ||
@@ -815,7 +815,7 @@ void keep_root_hidden()
     if (!new_frontend_state().root_hidden_)
         return;
     const UiWidget* root = game_screens::get_find(name_hash("root_window"));
-    if (!root || (root->aim_point_.scale_x_ < 0.001f && root->aim_point_.alpha < 0.001f))
+    if (!root || (root->aim_point().scale_x_ < 0.001f && root->aim_point().alpha < 0.001f))
         return;
     static int s_logged = 0;
     if (s_logged < 20) {
@@ -830,15 +830,15 @@ void keep_root_hidden()
 
 uint32_t type_of(const UiWidget* element) { return static_cast<const objects::Entity*>(element)->kind_tag_; }
 uint32_t id_of_element(const UiWidget* element) { return static_cast<const objects::Entity*>(element)->ident_; }
-UiWidget* first_child(const UiWidget* element) { return element->eldest_.get_pull(); }
-UiWidget* get_next(const UiWidget* element) { return element->following_.get_pull(); }
+UiWidget* first_child(const UiWidget* element) { return element->eldest().get_pull(); }
+UiWidget* get_next(const UiWidget* element) { return element->following().get_pull(); }
 bool element_hidden(const UiWidget* element)
 {
     return (static_cast<const objects::Entity*>(element)->object_flags_ & UiWidget::kHidden) != 0;
 }
 bool get_visible(const UiWidget* element)
 {
-    return !element_hidden(element) && element->aim_point_.alpha > 0.02f && core::at(element->aim_point_.rgba, 3) > 2;
+    return !element_hidden(element) && element->aim_point().alpha > 0.02f && core::at(element->aim_point().rgba, 3) > 2;
 }
 
 uint32_t text_type()
@@ -910,7 +910,7 @@ void collect_texts(const UiWidget* element, std::vector<std::string>* out, const
     if (visible_only && !get_visible(element))
         return;
     if (type_of(element) == text_type()) {
-        const char* text = core::down_cast<const LabelWidget>(element)->chars_;
+        const char* text = core::down_cast<const LabelWidget>(element)->chars();
         if (text && *text)
             out->emplace_back(text);
     }
@@ -923,8 +923,8 @@ void collect_texts(const UiWidget* element, std::vector<std::string>* out, const
 float absolute_y(const UiWidget* element)
 {
     float y = 0.0f;
-    for (int guard = 0; element && guard < 64; ++guard, element = element->container_.get_pull())
-        y += element->aim_point_.y;
+    for (int guard = 0; element && guard < 64; ++guard, element = element->container().get_pull())
+        y += element->aim_point().y;
     return y;
 }
 
@@ -937,7 +937,7 @@ void collect_texts_at(const UiWidget* element, std::vector<std::pair<std::string
     if (std::ranges::find(skip, element) != skip.end())
         return;
     if (type_of(element) == text_type()) {
-        const char* text = core::down_cast<const LabelWidget>(element)->chars_;
+        const char* text = core::down_cast<const LabelWidget>(element)->chars();
         if (text && *text)
             out->emplace_back(text, absolute_y(element));
     }
@@ -948,10 +948,10 @@ void collect_texts_at(const UiWidget* element, std::vector<std::pair<std::string
 // A visible sprite in `element` that isn't a highlight bar (those are drawn at alpha 0 until their item is focused).
 bool has_visible_sprite(const UiWidget* element, int* budget)
 {
-    if (!element || --*budget <= 0 || element_hidden(element) || element->aim_point_.alpha <= 0.02f)
+    if (!element || --*budget <= 0 || element_hidden(element) || element->aim_point().alpha <= 0.02f)
         return false;
-    if (type_of(element) == sprite_type() && core::at(element->aim_point_.rgba, 3) > 2 &&
-        std::fabs(element->aim_point_.scale_x_) > 0.001f)
+    if (type_of(element) == sprite_type() && core::at(element->aim_point().rgba, 3) > 2 &&
+        std::fabs(element->aim_point().scale_x_) > 0.001f)
         return true;
     for (const UiWidget* child = first_child(element); child; child = get_next(child))
         if (has_visible_sprite(child, budget))
@@ -991,7 +991,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                         right = 80.0f;
                     }
                 item->adjustable = true;
-                item->slider_at_ = std::clamp((e->aim_point_.x - left) / (right - left), 0.0f, 1.0f);
+                item->slider_at_ = std::clamp((e->aim_point().x - left) / (right - left), 0.0f, 1.0f);
                 item->slider_hue_ = id == kHueArrow;
                 item->slider_kind_ = id == core::at(kColourArrows, 0)   ? 1
                                      : id == core::at(kColourArrows, 1) ? 2
@@ -1005,9 +1005,9 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 // but unspent ones lit at alpha 0.3)
                 item->stat_value_ = std::max(item->stat_value_, 0);
                 item->stat_cap_ = std::max(item->stat_cap_, 0);
-                if (core::at(e->aim_point_.rgba, 0) >= 40) {
+                if (core::at(e->aim_point().rgba, 0) >= 40) {
                     ++item->stat_cap_;
-                    if (e->aim_point_.alpha > 0.6f)
+                    if (e->aim_point().alpha > 0.6f)
                         ++item->stat_value_;
                 }
             }
@@ -1090,7 +1090,7 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
         static const uint32_t kTextBlock = name_hash("TextBlockElement");
         for (UiWidget* child = first_child(menu); child; child = get_next(child)) {
             if (read.dialog_title_.empty() && type_of(child) == text_type()) {
-                const char* text = core::down_cast<LabelWidget>(child)->chars_;
+                const char* text = core::down_cast<LabelWidget>(child)->chars();
                 read.dialog_title_ = text ? text : "";
             } else if (type_of(child) == kTextBlock) {
                 std::vector<std::string> lines;
@@ -1105,8 +1105,8 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
     }
     if (skaters) {
         if (UiWidget* name = game_screens::get_find(name_hash("select_skater_name")))
-            if (type_of(name) == text_type() && core::down_cast<LabelWidget>(name)->chars_)
-                read.skater_name_ = core::down_cast<LabelWidget>(name)->chars_;
+            if (type_of(name) == text_type() && core::down_cast<LabelWidget>(name)->chars())
+                read.skater_name_ = core::down_cast<LabelWidget>(name)->chars();
         if (read.selected_index_ >= 0 && std::cmp_less(read.selected_index_, read.items.size()))
             read.stats = skater_stats(core::at(read.items, read.selected_index_).id);
         return read;
@@ -1114,12 +1114,12 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
     // A list: its title (title_text, the themed menus'), the other words on its screen (under the same child of the
     // root: not the menu, its title or the helper text).
     if (UiWidget* title = game_screens::get_find(name_hash("title_text")))
-        if (type_of(title) == text_type() && core::down_cast<LabelWidget>(title)->chars_ && get_visible(title))
-            read.title = core::down_cast<LabelWidget>(title)->chars_;
+        if (type_of(title) == text_type() && core::down_cast<LabelWidget>(title)->chars() && get_visible(title))
+            read.title = core::down_cast<LabelWidget>(title)->chars();
     const UiWidget* root = root_element();
     const UiWidget* screen = menu;
     for (int guard = 0; screen && guard < 64; ++guard) {
-        const UiWidget* parent = screen->container_.get_pull();
+        const UiWidget* parent = screen->container().get_pull();
         if (!parent || parent == root)
             break;
         screen = parent;
@@ -1212,7 +1212,7 @@ mirror::MenuRead read_stats(UiWidget* active)
     read.in_level_ = !in_front_end();
     const UiWidget* editing = game_screens::get_find(name_hash("change_stat_sub_anchor"));
     read.stats_editing_ = editing != nullptr;
-    const UiWidget* editing_row = editing ? editing->container_.get_pull() : nullptr;
+    const UiWidget* editing_row = editing ? editing->container().get_pull() : nullptr;
     static const uint32_t kColumn1 = name_hash("sub_vmenu"), kColumn2 = name_hash("sub_vmenu2");
     std::vector<const UiWidget*> menus;
     if (has_stat_rows(active) && id_of_element(active) != kColumn1 && id_of_element(active) != kColumn2) {
@@ -1259,12 +1259,12 @@ mirror::MenuRead read_stats(UiWidget* active)
     // The other words: the screen's texts (the points left, the description, the story's goals) - the stats menus and the
     // helper text left out.
     if (UiWidget* title = game_screens::get_find(name_hash("title_text")))
-        if (type_of(title) == text_type() && core::down_cast<LabelWidget>(title)->chars_ && get_visible(title))
-            read.title = core::down_cast<LabelWidget>(title)->chars_;
+        if (type_of(title) == text_type() && core::down_cast<LabelWidget>(title)->chars() && get_visible(title))
+            read.title = core::down_cast<LabelWidget>(title)->chars();
     const UiWidget* root = root_element();
     const UiWidget* screen = menus.front();
     for (int guard = 0; screen && guard < 64; ++guard) {
-        const UiWidget* parent = screen->container_.get_pull();
+        const UiWidget* parent = screen->container().get_pull();
         if (!parent || parent == root)
             break;
         screen = parent;
@@ -1298,9 +1298,9 @@ void dump_tree(const UiWidget* element, int depth, int* budget)
         const char* type = current_type_name(type_of(element));
         const size_t at =
             text::format_to(line, "%*s%s %08X (%.0f, %.0f)%s", depth * 2, "", type ? type : "?", id_of_element(element),
-                            element->aim_point_.x, element->aim_point_.y, get_visible(element) ? "" : " hidden");
+                            element->aim_point().x, element->aim_point().y, get_visible(element) ? "" : " hidden");
         if (type_of(element) == text_type()) {
-            const char* text = core::down_cast<const LabelWidget>(element)->chars_;
+            const char* text = core::down_cast<const LabelWidget>(element)->chars();
             const std::span<char> rest = std::span<char>(line).subspan(at);
             text::format_to(rest, " \"%.80s\"", text ? text : "");
         } else if (type_of(element) == sprite_type()) {
@@ -1329,7 +1329,7 @@ void dump_left_menu(UiWidget* menu, const std::string& why)
     const UiWidget* root = root_element();
     const UiWidget* screen = menu;
     for (int guard = 0; screen && guard < 64; ++guard) {
-        const UiWidget* parent = screen->container_.get_pull();
+        const UiWidget* parent = screen->container().get_pull();
         if (!parent || parent == root)
             break;
         screen = parent;
@@ -1361,7 +1361,7 @@ UiWidget* keyboard_of(UiWidget* menu)
 {
     if (!menu || type_of(menu) != h_menu_type())
         return nullptr;
-    UiWidget* parent = menu->container_.get_pull();
+    UiWidget* parent = menu->container().get_pull();
     if (!parent || type_of(parent) != v_menu_type())
         return nullptr;
     int rows = 0, singles = 0;
@@ -1423,8 +1423,8 @@ mirror::MenuRead read_keyboard(UiWidget* keys, UiWidget* active)
         ++row;
     }
     if (UiWidget* title = game_screens::get_find(name_hash("title_text")))
-        if (type_of(title) == text_type() && core::down_cast<LabelWidget>(title)->chars_ && get_visible(title))
-            read.title = core::down_cast<LabelWidget>(title)->chars_;
+        if (type_of(title) == text_type() && core::down_cast<LabelWidget>(title)->chars() && get_visible(title))
+            read.title = core::down_cast<LabelWidget>(title)->chars();
     return read;
 }
 

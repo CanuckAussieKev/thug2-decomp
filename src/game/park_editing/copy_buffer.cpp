@@ -98,7 +98,7 @@ void ClipboardEntry::fetch_extent(CellBox* area, uint8_t centre_x, uint8_t centr
         width = size.w;
         length = size.l;
     }
-    if (((cursor->quarter_turns_ + quarter_turns_) & 3) & 1) {
+    if (((cursor->quarter_turns() + quarter_turns_) & 3) & 1) {
         area->w = length;
         area->l = width;
     } else {
@@ -109,7 +109,7 @@ void ClipboardEntry::fetch_extent(CellBox* area, uint8_t centre_x, uint8_t centr
     // Its offset from the copy's centre, turned with the cursor (a turned piece's corner moves to its other side).
     int dx = pos_x_ - centre_x;
     int dz = depth_cell_ - centre_z;
-    switch (cursor->quarter_turns_) {
+    switch (cursor->quarter_turns()) {
     case 1: {
         const int x = dz;
         dz = -dx;
@@ -129,7 +129,7 @@ void ClipboardEntry::fetch_extent(CellBox* area, uint8_t centre_x, uint8_t centr
     default:
         break;
     }
-    switch (cursor->quarter_turns_) {
+    switch (cursor->quarter_turns()) {
     case 1:
         dz += 1 - w_;
         break;
@@ -143,8 +143,8 @@ void ClipboardEntry::fetch_extent(CellBox* area, uint8_t centre_x, uint8_t centr
     default:
         break;
     }
-    area->x = static_cast<uint8_t>(dx + cursor->cell_footprint_.x);
-    area->z = static_cast<uint8_t>(dz + cursor->cell_footprint_.z);
+    area->x = static_cast<uint8_t>(dx + cursor->cell_footprint().x);
+    area->z = static_cast<uint8_t>(dz + cursor->cell_footprint().z);
     area->y = y_;
 }
 
@@ -181,7 +181,7 @@ void ClipboardEntry::graft(uint8_t centre_x, int height, uint8_t centre_z, Build
     }
     if (piece_group_ && !(piece_group_->flag_bits_ & PieceGroup::kBuiltShell)) {
         PieceGroup* meta = manager->make_placed_piece(piece_group_, 0);
-        meta->set_quarter_turns((cursor->quarter_turns_ + quarter_turns_) & 3);
+        meta->set_quarter_turns((cursor->quarter_turns() + quarter_turns_) & 3);
         manager->place_meta_piece_in_park(area, meta);
     }
 }
@@ -278,7 +278,7 @@ void Clipboard::fetch_extent(BuildPointer* cursor, CellBox* area)
     const int left = lo_cell_x_ - static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
     const int near = lo_cell_z_ - static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
     int dx = 0, dz = 0;
-    switch (cursor->quarter_turns_) {
+    switch (cursor->quarter_turns()) {
     case 0:
         area->l = edit_span_.l;
         area->w = edit_span_.w;
@@ -310,8 +310,8 @@ void Clipboard::fetch_extent(BuildPointer* cursor, CellBox* area)
     default:
         break;
     }
-    area->z = static_cast<uint8_t>(dz + cursor->cell_footprint_.z);
-    area->x = static_cast<uint8_t>(dx + cursor->cell_footprint_.x);
+    area->z = static_cast<uint8_t>(dz + cursor->cell_footprint().z);
+    area->x = static_cast<uint8_t>(dx + cursor->cell_footprint().x);
     area->y = 0;
 }
 
@@ -515,7 +515,7 @@ bool Clipboard::show_at(BuildPointer* cursor)
         return false;
     }
     for (ClipboardEntry* entry = metas_; entry; entry = entry->following_)
-        entry->graft(centre_x, cursor->clipboard_height_, centre_z, cursor);
+        entry->graft(centre_x, cursor->clipboard_height(), centre_z, cursor);
     maths::Vec4 centre;
     get_centre(&centre);
     maths::Vec4 at = *editor->get_cursor_pos();
@@ -523,7 +523,7 @@ bool Clipboard::show_at(BuildPointer* cursor)
         void* copy = get_new_rail(get_rail_editor());
         duplicate_rail_path(copy, rail);
         place_rail(copy, &centre, &at,
-                   static_cast<float>(cursor->quarter_turns_ * static_cast<double>(kQuarterTurnDegrees)));
+                   static_cast<float>(cursor->quarter_turns() * static_cast<double>(kQuarterTurnDegrees)));
         transform_rail1(copy, rail_origin(), rail_origin(), 0.0f);
         transform_rail2(copy, rail_origin(), rail_origin(), 0.0f);
     }

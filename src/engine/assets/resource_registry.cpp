@@ -83,14 +83,14 @@ void wait_until_loaded(Resource* asset)
 void get_append(Resource** head, Resource* asset)
 {
     if (*head) {
-        asset->succ_ = *head;
-        asset->last_value_ = (*head)->last_value_;
-        (*head)->last_value_->succ_ = asset;
-        (*head)->last_value_ = asset;
+        asset->set_succ(*head);
+        asset->set_last_value((*head)->last_value());
+        (*head)->last_value()->set_succ(asset);
+        (*head)->set_last_value(asset);
     } else {
         *head = asset;
-        asset->succ_ = asset;
-        asset->last_value_ = asset;
+        asset->set_succ(asset);
+        asset->set_last_value(asset);
     }
 }
 
@@ -190,8 +190,8 @@ void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, u
     memory::push_mem_profile("Asset Overhead");
     gsl::owner<Resource*> asset = make_asset(type, false);
     // (a type that isn't one leaves a null asset: the original crashes here)
-    asset->pinned_ = permanent;
-    asset->cur_phase_ = kUnloaded;
+    asset->set_pinned(permanent);
+    asset->set_cur_phase(kUnloaded);
     asset->set_checksum(checksum);
     give_callback(this, asset);
     // (the original formats "%08x from data stream" with the checksum for the memory profile, unused)
@@ -221,8 +221,8 @@ void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum
         type = get_type_from_extension(name);
     gsl::owner<Resource*> asset = make_asset(type, true);
     // (a type that isn't one leaves a null asset: the original crashes here)
-    asset->pinned_ = permanent;
-    asset->cur_phase_ = kUnloaded;
+    asset->set_pinned(permanent);
+    asset->set_cur_phase(kUnloaded);
     give_callback(this, asset);
     asset->set_checksum(checksum);
     join_group(this, asset, group);
@@ -279,8 +279,8 @@ bool ResourceRegistry::refresh_resource(uint32_t checksum, const char* name, int
 // 0x00407B20
 void ResourceRegistry::discard_loaded_item(Resource* asset)
 {
-    const uint32_t checksum = asset->checksum_;
-    if (Resource* group = asset->bundle_)
+    const uint32_t checksum = asset->checksum();
+    if (Resource* group = asset->bundle())
         group->remove_dependent(asset);
     Resource** list = nullptr;
     if (asset->is_loaded()) {
@@ -301,12 +301,12 @@ void ResourceRegistry::unload_assets_in_list(Resource* head, bool all)
 {
     if (!head)
         return;
-    Resource* asset = head->last_value_;
+    Resource* asset = head->last_value();
     for (;;) {
         if (!asset)
             return;
-        Resource* previous = asset->last_value_;
-        if (all || !asset->pinned_)
+        Resource* previous = asset->last_value();
+        if (all || !asset->pinned())
             discard_loaded_item(asset);
         if (asset == head)
             return;
@@ -321,12 +321,12 @@ void ResourceRegistry::unload_assets_of_type(Resource* head, bool all, int type)
         return;
     std::array<Resource*, 100> found{};
     int count = 0;
-    Resource* asset = head->last_value_;
+    Resource* asset = head->last_value();
     for (;;) {
         if (!asset)
             break;
-        Resource* previous = asset->last_value_;
-        if ((all || !asset->pinned_) && type == asset->fetch_kind())
+        Resource* previous = asset->last_value();
+        if ((all || !asset->pinned()) && type == asset->fetch_kind())
             core::at(found, count++) = asset;
         if (asset == head)
             break;
@@ -395,19 +395,19 @@ void ResourceRegistry::process_pending_assets()
 {
     Resource* asset = pending_;
     while (asset) {
-        Resource* next = asset->succ_;
+        Resource* next = asset->succ();
         bool finished = false;
-        switch (asset->cur_phase_) {
+        switch (asset->cur_phase()) {
         case kRead:
             // (a group that isn't loaded yet holds it back)
-            if (asset->bundle_ && !asset->bundle_->is_loaded())
+            if (asset->bundle() && !asset->bundle()->is_loaded())
                 break;
             [[fallthrough]];
         case kProcessing:
             if (!asset->process_buffer())
                 break;
-            if (asset->callback_)
-                asset->callback_(asset, asset->extent_, asset->callback_data0_, asset->callback_data1_);
+            if (asset->callback())
+                asset->callback()(asset, asset->extent(), asset->callback_data0(), asset->callback_data1());
             finished = true;
             break;
         case kLoaded:
@@ -430,21 +430,21 @@ void ResourceRegistry::process_task(tasks::Task<ResourceRegistry>* task) { task-
 // 0x00407A80
 bool ResourceRegistry::remove_from_list(Resource** head, Resource* asset)
 {
-    if (asset->succ_ == asset) {
+    if (asset->succ() == asset) {
         // (the only one: the list emptied without checking it's this list)
         *head = nullptr;
-        asset->last_value_ = nullptr;
-        asset->succ_ = nullptr;
+        asset->set_last_value(nullptr);
+        asset->set_succ(nullptr);
         return true;
     }
     if (*head == asset)
-        *head = asset->succ_;
-    for (const Resource* item = *head; item; item = item->succ_) {
+        *head = asset->succ();
+    for (const Resource* item = *head; item; item = item->succ()) {
         if (item == asset) {
-            asset->succ_->last_value_ = asset->last_value_;
-            asset->last_value_->succ_ = asset->succ_;
-            asset->last_value_ = nullptr;
-            asset->succ_ = nullptr;
+            asset->succ()->set_last_value(asset->last_value());
+            asset->last_value()->set_succ(asset->succ());
+            asset->set_last_value(nullptr);
+            asset->set_succ(nullptr);
             return true;
         }
     }

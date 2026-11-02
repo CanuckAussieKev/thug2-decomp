@@ -706,7 +706,7 @@ void InputPort::pull_data(int)
     second ^= core::at(p, 2) >= 0x20 ? 0x80 : 0;
     const uint8_t buttons_so_far = second;
     const park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
-    if (editor && editor->cur_phase_ == park_editing::ParkBuilderMode::kStateEdit) {
+    if (editor && editor->cur_phase() == park_editing::ParkBuilderMode::kStateEdit) {
         // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
         bool editor_element = false;
         if (frontend::UiTree::sole()) {
@@ -780,7 +780,7 @@ Hub::Hub()
         auto device = memory::make_owned<InputPort>(index, port, 0);
         if (!device)
             continue;
-        memory::ListNode* node = device->list_link_; // onto the end of the list
+        memory::ListNode* node = device->list_link(); // onto the end of the list
         node->prev = devs_.prev;
         node->next = &devs_;
         devs_.prev->next = node;
@@ -832,7 +832,7 @@ InputPort* Hub::fetch_gadget(int port, int slot)
 {
     lists::Hunt<InputPort> search;
     for (InputPort* device = search.head_element(&devs_); device; device = search.following_item()) {
-        if (device->port_no_ == port && device->seat_ == slot)
+        if (device->port_no() == port && device->seat() == slot)
             return device;
     }
     return nullptr;
@@ -843,7 +843,7 @@ InputPort* Hub::get_pad_at_slot(int index)
 {
     lists::Hunt<InputPort> search;
     for (InputPort* device = search.head_element(&devs_); device; device = search.following_item()) {
-        if (device->ordinal_ == index)
+        if (device->ordinal() == index)
             return device;
     }
     return nullptr;

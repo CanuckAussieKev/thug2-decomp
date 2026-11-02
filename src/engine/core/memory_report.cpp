@@ -59,10 +59,10 @@ void log_memory_use(const char* when)
                     kb(main->free_byte_count()), kb(main->min_available_));
     line += part.data();
     for (MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
-        if (heap->max_used_size_ < 64 * 1024)
+        if (heap->max_used_size() < 64 * 1024)
             continue; // (the small ones: themes, skater info...)
-        text::format_to(part, " %s %d KB (peak %d KB)", heap->label_ ? heap->label_ : "?", kb(heap->used_size_),
-                        kb(heap->max_used_size_));
+        text::format_to(part, " %s %d KB (peak %d KB)", heap->label() ? heap->label() : "?", kb(heap->used_size()),
+                        kb(heap->max_used_size()));
         line += part.data();
     }
     PROCESS_MEMORY_COUNTERS counters = {};

@@ -268,7 +268,7 @@ void SkaterPhysicsModule::kick_off_point_rail(const maths::Vec4* point, bool fro
 void SkaterPhysicsModule::spin_on_point_rail(const maths::Vec4* point)
 {
     point_rail_spin_ = 1;
-    natas_counter_clockwise_ = input_->pad_primary_.shoulder_right_a_.held_down_ != 0;
+    natas_counter_clockwise_ = input_->pad_primary_.shoulder_right_a().held_down_ != 0;
     if (!clear_to_point(point, true))
         return;
     onto_rail(point, true);
@@ -485,8 +485,8 @@ void SkaterPhysicsModule::grind_along_rail(const maths::Vec4* point, bool from_o
             thaw_bmx::grind_stall(this, start_velocity, direction);
         const objects::PadInputModule* input = input_;
         const int pad = objects::d_pad_direction(
-            input->pad_primary_.up_dir_.held_down_, input->pad_primary_.btn_down_.held_down_,
-            input->pad_primary_.left_side_.held_down_, input->pad_primary_.right_side_.held_down_);
+            input->pad_primary_.up_dir().held_down_, input->pad_primary_.btn_down().held_down_,
+            input->pad_primary_.left_side().held_down_, input->pad_primary_.right_side().held_down_);
         start_grind_trick(static_cast<uint32_t>(pad), left_side, sideways, rail_backwards_ != 0,
                              bit_mark(this, PoseFlag::kFlipped) != 0);
     }
@@ -512,7 +512,7 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
 
     if (!node->last_value_ && !node->succ_) {
         // A point rail: a spin when a spin button is held, long enough after the last one; else a kick.
-        if (input->pad_primary_.shoulder_right_a_.held_down_ || input->pad_primary_.shoulder_left_a_.held_down_) {
+        if (input->pad_primary_.shoulder_right_a().held_down_ || input->pad_primary_.shoulder_left_a().held_down_) {
             const int elapsed = static_cast<int>(get_since(static_cast<uint32_t>(natas_spin_time_)));
             if (!(static_cast<double>(script::fetch_float(kNatasDelay)) * 1000.0f > static_cast<float>(elapsed))) {
                 spin_on_point_rail(point);
@@ -558,7 +558,7 @@ void SkaterPhysicsModule::try_grind(bool always)
 {
     if (state_of(this) != kAir && !always)
         return;
-    if (bit_mark(this, PoseFlag::kBailing) || no_rail_tricks_ || !input_->pad_primary_.button_wedge_.held_down_)
+    if (bit_mark(this, PoseFlag::kBailing) || no_rail_tricks_ || !input_->pad_primary_.button_wedge().held_down_)
         return;
     if (get_since(wallplant_time_) < static_cast<uint32_t>(script::fetch_int_value(kDisallowGrind)))
         return;
@@ -567,7 +567,7 @@ void SkaterPhysicsModule::try_grind(bool always)
     maths::Vec4 now = object->at_point_;
     // Soon after leaving a rail (within +0x23C of +0x234; not in the park editor), only a rail lining up.
     float min_alignment = 1.0f;
-    if (park_editing::ParkBuilderMode::sole()->cur_phase_ != kParkEditorLevel &&
+    if (park_editing::ParkBuilderMode::sole()->cur_phase() != kParkEditorLevel &&
         static_cast<uint32_t>(frame_clock::game_clock_time_since(rail_time_)) < static_cast<uint32_t>(rail_wait_))
         min_alignment =
             static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kDegrees));

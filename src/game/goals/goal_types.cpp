@@ -66,8 +66,8 @@ modules::Contest* the_competition() { return modules::Skate::sole()->competition
 // 0x005517C0
 ContestObjective::ContestObjective(script::Struct* params) : Objective(params)
 {
-    record_points_ = 0x7FFFFFFF;
-    run_ending_ = 1;
+    set_record_points(0x7FFFFFFF);
+    set_run_ending(1);
 }
 
 // 0x00551800
@@ -80,23 +80,23 @@ void ContestObjective::expire() { invoke_hook_script(kExpireScript); }
 void ContestObjective::change_live()
 {
     is_halted_ = false;
-    cur_phase_ = static_cast<uint8_t>((cur_phase_ & ~kStatePaused) | kStateActive);
+    cur_phase() = static_cast<uint8_t>((cur_phase() & ~kStatePaused) | kStateActive);
 }
 
 // 0x00551830
 void ContestObjective::clear_engaged_bit()
 {
     is_halted_ = false;
-    cur_phase_ &= ~(kStateActive | kStatePaused);
+    cur_phase() &= ~(kStateActive | kStatePaused);
 }
 
 // 0x00551840
-bool ContestObjective::has_won() { return (flag_bits_ & kFlagWon) != 0; }
+bool ContestObjective::has_won() { return (flag_bits() & kFlagWon) != 0; }
 
 // 0x00551850
 bool ContestObjective::un_beat()
 {
-    flag_bits_ &= ~kFlagWon;
+    flag_bits() &= ~kFlagWon;
     has_third_place_ = false;
     has_second_place_ = false;
     if (!has_won())
@@ -112,11 +112,11 @@ void ContestObjective::freeze_contest() { is_halted_ = true; }
 void ContestObjective::thaw_contest()
 {
     is_halted_ = false;
-    flag_bits_ &= ~kFlagEndOfRunStarted;
+    flag_bits() &= ~kFlagEndOfRunStarted;
 }
 
 // 0x005518A0
-bool ContestObjective::is_frozen() { return (cur_phase_ & kStatePaused) || is_halted_; }
+bool ContestObjective::is_frozen() { return (cur_phase() & kStatePaused) || is_halted_; }
 
 // 0x005518C0
 void ContestObjective::restore_save_block(script::Struct* data)
@@ -137,7 +137,7 @@ void ContestObjective::restore_save_block(script::Struct* data)
     prize_paid_ = given;
     int record = 0;
     if (data->fetch_int_value(kWinRecordName, &record, 0))
-        record_points_ = record;
+        set_record_points(record);
     Objective::restore_save_block(data);
 }
 
@@ -148,7 +148,7 @@ void ContestObjective::capture_save_block(script::Struct* data)
     data->put_int(kGotBronze, has_third_place_ ? 1 : 0);
     data->put_name_key(kGotSilver, has_second_place_ ? 1 : 0); // (the silver and gold medals saved as checksums)
     data->put_name_key(kGotGold, has_top_prize_ ? 1 : 0);
-    data->put_int(kWinRecordName, record_points_);
+    data->put_int(kWinRecordName, record_points());
     data->put_int(kRewardGiven, prize_paid_);
 }
 
@@ -166,15 +166,15 @@ void ContestObjective::mark_won()
     } else if (competition->place_is(3)) {
         has_third_place_ = true;
     }
-    flag_bits_ |= kFlagWon;
+    flag_bits() |= kFlagWon;
 }
 
 // 0x00551A90
 bool ContestObjective::get_win()
 {
-    args_->put_name_key(kNoName, kJustWonGoal);
+    args()->put_name_key(kNoName, kJustWonGoal);
     invoke_hook_script(kDeactivateScript);
-    args_->remove_flag(kJustWonGoal);
+    args()->remove_flag(kJustWonGoal);
     clear_engaged_bit();
     if (!online::net_game_state().online_hub()->in_net_game()) {
         modules::Contest* competition = the_competition();
@@ -185,9 +185,9 @@ bool ContestObjective::get_win()
             place = 2;
         else if (competition->place_is(3))
             place = 3;
-        if (place < record_points_) {
-            args_->put_int(kWinRecordName, place);
-            record_points_ = place;
+        if (place < record_points()) {
+            args()->put_int(kWinRecordName, place);
+            set_record_points(place);
         }
     }
     script::StructPtr rewards = script::make_struct();
@@ -198,9 +198,9 @@ bool ContestObjective::get_win()
         own.reset();
         open_up_prize_objectives();
     } else {
-        args_->erase_module(kRewardParams);
+        args()->erase_module(kRewardParams);
     }
-    args_->put_sub_struct(kRewardParams, rewards.get());
+    args()->put_sub_struct(kRewardParams, rewards.get());
     invoke_hook_script(kSuccessScript);
     rewards.reset();
     if (!has_won())
@@ -224,16 +224,16 @@ bool ShootVideoObjective::activate()
     time_needed_ = 0;
     checkpoints_ = 0;
     recording_shot_ = false;
-    args_->put_int(kTimeOnCamera, 0);
+    args()->put_int(kTimeOnCamera, 0);
     int seconds = 0;
-    if (args_->fetch_int_value(kTotalTimeRequired, &seconds, 0)) {
+    if (args()->fetch_int_value(kTotalTimeRequired, &seconds, 0)) {
         time_needed_ = static_cast<uint32_t>(seconds * 1000);
         int time = 0;
-        args_->fetch_int_value(kTime, &time, 1);
+        args()->fetch_int_value(kTime, &time, 1);
         unknown7c_ = unknown7c_ * static_cast<uint32_t>(time) * 1000;
         return Objective::activate();
     }
-    args_->fetch_int_value(kCheckpoints, &checkpoints_, 0);
+    args()->fetch_int_value(kCheckpoints, &checkpoints_, 0);
     return Objective::activate();
 }
 
@@ -241,12 +241,12 @@ bool ShootVideoObjective::activate()
 bool ShootVideoObjective::target_in_view()
 {
     uint32_t id = 0;
-    args_->read_hash_value(kFilmTarget, &id, 1);
+    args()->read_hash_value(kFilmTarget, &id, 1);
     objects::Entity* target = objects::find_object(id);
     if (!target)
         return false;
     auto* object = core::down_cast<objects::GameEntity>(target);
-    void* model = core::down_cast<objects::MeshInstanceModule>(object->fetch_module(kModel))->mesh_instance_.get();
+    void* model = core::down_cast<objects::MeshInstanceModule>(object->fetch_module(kModel))->mesh_instance().get();
     // The model's bounding sphere (0x00492F30) in the world.
     maths::Vec4 sphere;
     const maths::Vec4* bounds = static_cast<render::RenderModel*>(model)->fetch_bound_sphere(&sphere);
@@ -268,7 +268,7 @@ bool ShootVideoObjective::target_in_view()
     const float dy = (*camera)[1] - object->at_point_[1];
     const float dz = (*camera)[2] - object->at_point_[2];
     int maximum = 0;
-    args_->fetch_int_value(kMaxDistanceToTarget, &maximum, 1);
+    args()->fetch_int_value(kMaxDistanceToTarget, &maximum, 1);
     const double distance =
         std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx);
     return static_cast<double>(maximum) > distance;
@@ -277,20 +277,20 @@ bool ShootVideoObjective::target_in_view()
 // 0x00552A10
 bool ShootVideoObjective::tick_frame()
 {
-    args_->put_int(kLastTimeOnCamera, static_cast<int>(shot_hold_time_));
+    args()->put_int(kLastTimeOnCamera, static_cast<int>(shot_hold_time_));
     if (!is_operative() || is_frozen())
         return Objective::tick_frame();
     if (recording_shot_) {
         if (target_in_view()) {
             shot_hold_time_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand); // (1000)
-            args_->put_int(kTimeOnCamera, static_cast<int>(shot_hold_time_));
+            args()->put_int(kTimeOnCamera, static_cast<int>(shot_hold_time_));
         }
         if (shot_hold_time_ >= time_needed_) {
             void* manager = objective_board();
             return complete_objective(manager, get_objective_key());
         }
         // (no time left to film enough in)
-        if (time_needed_ - shot_hold_time_ > static_cast<uint32_t>(seconds_remaining_)) {
+        if (time_needed_ - shot_hold_time_ > static_cast<uint32_t>(seconds_remaining())) {
             void* manager = objective_board();
             return fail_objective(manager, get_objective_key());
         }
@@ -327,9 +327,9 @@ void HuntGapsObjective::scan_for_gaps()
 {
     auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
     script::Struct* found = nullptr;
-    args_->read_sub_struct(kGapsFound, &found, 1);
+    args()->read_sub_struct(kGapsFound, &found, 1);
     int count = 0;
-    args_->fetch_int_value(kNumGapsFound, &count, 1);
+    args()->fetch_int_value(kNumGapsFound, &count, 1);
     auto* score = skater->get_points_total();
     const int gaps = score->tricks();
     bool found_new = false;
@@ -344,8 +344,8 @@ void HuntGapsObjective::scan_for_gaps()
         ++count;
         found_new = true;
     }
-    args_->put_int(kNumGapsFound, count);
-    args_->put_int(kNumberCollected, count);
+    args()->put_int(kNumGapsFound, count);
+    args()->put_int(kNumberCollected, count);
     if (!found_new)
         return;
     const script::StructPtr params = script::make_struct();
@@ -356,14 +356,14 @@ void HuntGapsObjective::scan_for_gaps()
 // 0x00552D20
 bool HuntGapsObjective::activate()
 {
-    args_->erase_module(kGapsFound);
+    args()->erase_module(kGapsFound);
     script::StructPtr found = script::make_struct();
-    args_->put_sub_struct(kGapsFound, found.get());
+    args()->put_sub_struct(kGapsFound, found.get());
     found.reset();
-    args_->put_int(kNumGapsFound, 0);
-    args_->put_int(kNumberCollected, 0);
+    args()->put_int(kNumGapsFound, 0);
+    args()->put_int(kNumberCollected, 0);
     int to_find = 0;
-    args_->fetch_int_value(kNumGapsToFind, &to_find, 1); // (read and not used)
+    args()->fetch_int_value(kNumGapsToFind, &to_find, 1); // (read and not used)
     return Objective::activate();
 }
 

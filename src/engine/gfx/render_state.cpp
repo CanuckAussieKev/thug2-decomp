@@ -511,7 +511,7 @@ void set_fixed_function_stages_for_material(void* shader, const MaterialRef* mat
         set_fixed_function_stages(shader, 0xFFFFFFFF);
         return;
     }
-    const std::array<float, 4>& color = core::at(material->pass_color_, 0); // (the first pass's colour)
+    const std::array<float, 4>& color = core::at(material->pass_color(), 0); // (the first pass's colour)
     const uint32_t r = static_cast<uint8_t>(ftol(static_cast<double>(std::get<0>(color)) * k255));
     const uint32_t g = static_cast<uint8_t>(ftol(static_cast<double>(std::get<1>(color)) * k255));
     const uint32_t b = static_cast<uint8_t>(ftol(static_cast<double>(std::get<2>(color)) * k255));

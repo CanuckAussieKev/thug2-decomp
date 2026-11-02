@@ -220,15 +220,15 @@ void JointClipFrames::build_cache(int format)
                          static_cast<int>(quat_key_count_), static_cast<int>(trans_key_count_), format);
     if (!entry)
         return;
-    std::array<uint16_t, 60>& rot_offsets = entry->rotation_offsets_;
-    std::array<uint16_t, 60>& trans_offsets = entry->translation_offsets_;
+    std::array<uint16_t, 60>& rot_offsets = entry->rotation_offsets();
+    std::array<uint16_t, 60>& trans_offsets = entry->translation_offsets();
     const uint32_t rot_size = entry->get_rotation_key_size();
     const uint32_t trans_size = entry->get_translation_key_size();
     const int bones = bone_count_;
     // (the entry's block: the rotation keys at its start, the translation keys after them)
-    const std::span<uint8_t> payload(entry->payload_, entry->allocated_);
-    const std::span<uint8_t> rot_data = payload.subspan(static_cast<size_t>(entry->get_rotation_keys(0) - entry->payload_));
-    const std::span<uint8_t> trans_data = payload.subspan(static_cast<size_t>(entry->get_translation_keys(0) - entry->payload_));
+    const std::span<uint8_t> payload(entry->payload(), entry->allocated());
+    const std::span<uint8_t> rot_data = payload.subspan(static_cast<size_t>(entry->get_rotation_keys(0) - entry->payload()));
+    const std::span<uint8_t> trans_data = payload.subspan(static_cast<size_t>(entry->get_translation_keys(0) - entry->payload()));
     // (one buffer for a rotation key and a converted translation: the latter's bytes 2-3 are the former's)
     alignas(4) std::array<uint8_t, 16> key{};
     alignas(4) std::array<uint8_t, 16> quat_a{};
@@ -322,7 +322,7 @@ void JointClipFrames::build_cache(int format)
     cache_slot_ = entry;
     entry->set_release_callback([](void* data) { JointClipFrames::forget_cache_entry(static_cast<JointClipFrames*>(data)); },
                                 this); // (the entry's owner and its release callback)
-    uint16_t& cache_flags = entry->flag_bits_;
+    uint16_t& cache_flags = entry->flag_bits();
     cache_flags = static_cast<uint16_t>(((flag_bits_ >> 11) & 1) << 13 | (cache_flags & 0xDFFF));
     ++caches_built();
     last_cache_vblank() = frame_clock::fetch_retrace_count();

@@ -134,8 +134,8 @@ void RiderRemoteSync::update_ground_lighting()
     if (pose_->cur_phase_ != kStateRail && feeler.is_hit_triangle_collision()) {
         // The model's light from the face's vertex values (the model's light object, its +0x2C - read through the
         // folded getter 0x00532EB0; else the global).
-        const render::RenderModel* model = mesh_set_->mesh_instance_.get();
-        void* light = model->lights_ptr_.get();
+        const render::RenderModel* model = mesh_set_->mesh_instance().get();
+        void* light = model->lights_ptr().get();
         if (light)
             static_cast<render::ModelLights*>(light)->move_brightness(static_cast<float>(feeler.get_hit_vertex_value()),
                                                                       kLightTime);
@@ -442,29 +442,29 @@ void RiderRemoteSync::tick_frame()
     // The looping sound: on while skating, its speed and state.
     auto* sound = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound));
     if (pose_->physics_mode_ != 0) {
-        if (sound->on_) {
+        if (sound->on()) {
             sound->hold_off(true);
-            sound->on_ = 0;
+            sound->set_on(0);
         }
         return;
     }
-    if (sound->on_ != 1) {
+    if (sound->on() != 1) {
         sound->hold_off(false);
-        sound->on_ = 1;
+        sound->set_on(1);
     }
     const double vz = entity_->vel_.z;
     const double vx = entity_->vel_.x;
     sound->set_pace_ratio(static_cast<float>(std::sqrt(vx * vx + vz * vz) * kSpeedToSoundFraction));
-    uint8_t changed = sound->sound_changed_;
-    changed |= sound->cur_phase_ != pose_->cur_phase_ ? 1 : 0;
-    sound->cur_phase_ = pose_->cur_phase_;
-    changed |= sound->surface_type_ != pose_->surface_type_ ? 1 : 0;
-    sound->sound_changed_ = changed;
-    sound->surface_type_ = pose_->surface_type_;
-    sound->no_rail_sound_ = pose_->flag(PoseFlag::kBailing).on;
-    changed |= sound->sliding_ != pose_->flag(PoseFlag::kSlide).on ? 1 : 0;
-    sound->sound_changed_ = changed;
-    sound->sliding_ = pose_->flag(PoseFlag::kSlide).on;
+    uint8_t changed = sound->sound_changed();
+    changed |= sound->cur_phase() != pose_->cur_phase_ ? 1 : 0;
+    sound->set_cur_phase(pose_->cur_phase_);
+    changed |= sound->surface_type() != pose_->surface_type_ ? 1 : 0;
+    sound->sound_changed() = changed;
+    sound->set_surface_type(pose_->surface_type_);
+    sound->set_no_rail_sound(pose_->flag(PoseFlag::kBailing).on);
+    changed |= sound->sliding() != pose_->flag(PoseFlag::kSlide).on ? 1 : 0;
+    sound->sound_changed() = changed;
+    sound->set_sliding(pose_->flag(PoseFlag::kSlide).on);
 }
 
 } // namespace objects

@@ -109,6 +109,62 @@ struct Conn {
     // 0x00456770: every queue emptied (as the destructor does).
     void drop_queued_traffic();
 
+    // The fields other code reads and sets.
+    memory::ListNode& normal_msgs() { return normal_msgs_; }
+    [[nodiscard]] const memory::ListNode& normal_msgs() const { return normal_msgs_; }
+    memory::ListNode& important_msgs() { return important_msgs_; }
+    [[nodiscard]] const memory::ListNode& important_msgs() const { return important_msgs_; }
+    memory::ListNode& sequenced_msgs() { return sequenced_msgs_; }
+    [[nodiscard]] const memory::ListNode& sequenced_msgs() const { return sequenced_msgs_; }
+    [[nodiscard]] int hdl() const { return hdl_; }
+    void set_hdl(int value) { hdl_ = value; }
+    [[nodiscard]] uint32_t remote_ip() const { return remote_ip_; }
+    void set_remote_ip(uint32_t value) { remote_ip_ = value; }
+    uint32_t& ident() { return ident_; }
+    [[nodiscard]] uint32_t ident() const { return ident_; }
+    [[nodiscard]] uint16_t port_no() const { return port_no_; }
+    void set_port_no(uint16_t value) { port_no_ = value; }
+    PacketBuffer& outgoing() { return outgoing_; }
+    [[nodiscard]] const PacketBuffer& outgoing() const { return outgoing_; }
+    PacketBuffer& incoming() { return incoming_; }
+    [[nodiscard]] const PacketBuffer& incoming() const { return incoming_; }
+    uint32_t& cur_standing() { return cur_standing_; }
+    [[nodiscard]] uint32_t cur_standing() const { return cur_standing_; }
+    AppHost*& owner_app() { return owner_app_; }
+    [[nodiscard]] AppHost* owner_app() const { return owner_app_; }
+    void set_owner_app(AppHost* value) { owner_app_ = value; }
+    [[nodiscard]] uint32_t last_heard_from() const { return last_heard_from_; }
+    void set_last_heard_from(uint32_t value) { last_heard_from_ = value; }
+    [[nodiscard]] uint32_t last_transmit_at() const { return last_transmit_at_; }
+    void set_last_transmit_at(uint32_t value) { last_transmit_at_ = value; }
+    std::array<uint32_t, kChannelGroups>& next_sequence_ids() { return next_sequence_ids_; }
+    [[nodiscard]] const std::array<uint32_t, kChannelGroups>& next_sequence_ids() const { return next_sequence_ids_; }
+    std::array<uint32_t, kChannelGroups>& sequence_numbers() { return sequence_numbers_; }
+    [[nodiscard]] const std::array<uint32_t, kChannelGroups>& sequence_numbers() const { return sequence_numbers_; }
+    int& stream_counter() { return stream_counter_; }
+    [[nodiscard]] int stream_counter() const { return stream_counter_; }
+    std::array<memory::ListNode, kChannelGroups>& received_queues() { return received_queues_; }
+    [[nodiscard]] const std::array<memory::ListNode, kChannelGroups>& received_queues() const { return received_queues_; }
+    memory::ListNode& received_streams() { return received_streams_; }
+    [[nodiscard]] const memory::ListNode& received_streams() const { return received_streams_; }
+    memory::ListNode& send_streams() { return send_streams_; }
+    [[nodiscard]] const memory::ListNode& send_streams() const { return send_streams_; }
+    PingProbe& ping_probe() { return ping_probe_; }
+    [[nodiscard]] const PingProbe& ping_probe() const { return ping_probe_; }
+    Gauges& receive_metrics() { return receive_metrics_; }
+    [[nodiscard]] const Gauges& receive_metrics() const { return receive_metrics_; }
+    Gauges& send_metrics() { return send_metrics_; }
+    [[nodiscard]] const Gauges& send_metrics() const { return send_metrics_; }
+    memory::ListNode& app_node() { return app_node_; }
+    [[nodiscard]] const memory::ListNode& app_node() const { return app_node_; }
+    [[nodiscard]] Conn* alias_conn() const { return alias_conn_; }
+    void set_alias_conn(Conn* value) { alias_conn_ = value; }
+    uint32_t& last_timestamp_in() { return last_timestamp_in_; }
+    [[nodiscard]] uint32_t last_timestamp_in() const { return last_timestamp_in_; }
+    uint32_t& timestamp_out() { return timestamp_out_; }
+    [[nodiscard]] uint32_t timestamp_out() const { return timestamp_out_; }
+
+private:
     memory::ListNode normal_msgs_{};    // +0x00 links: PendingMsg* at +0x14, send time at +0x18
     memory::ListNode important_msgs_{}; // +0x14 links: last send time at +0x14 (0 = not sent), PendingMsg* at +0x18,
                                         //       a time at +0x24

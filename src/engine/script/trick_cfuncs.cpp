@@ -534,7 +534,7 @@ bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Script*)
     // "attempting to bind front end %i to controller %i\n"
     debug::printf("attempting to bind front end %i to controller %i\n", pad, controller);
     modules::FrontEnd* front_end = modules::front_end_instance().get();
-    auto& map = front_end->device_server_map_;
+    auto& map = front_end->device_server_map();
     const int old = core::at(map, pad);
     if (core::at(map, 0) == controller)
         core::at(map, 0) = old;

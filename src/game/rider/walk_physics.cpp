@@ -189,22 +189,22 @@ void FootMovement::change_phase(int state)
             objects::PadSnapshot* pad = &input_->pad_primary_;
             float debounce = walk_parameter(kHangControlDebounceTime);
             uint32_t now = frame_clock::get_time();
-            core::at(pad->lock_, 0) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
+            core::at(pad->lock(), 0) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
             debounce = walk_parameter(kHangControlDebounceTime);
             now = frame_clock::get_time();
-            core::at(pad->lock_, 1) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
+            core::at(pad->lock(), 1) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
         }
     }
 }
 
 // 0x005260C0
-void FootMovement::clear_model_offset() { model_->shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; }
+void FootMovement::clear_model_offset() { model_->set_shift({.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}); }
 
 // 0x00524E10
 bool FootMovement::using_dpad()
 {
     const objects::PadInputModule* input = input_;
-    if (!(core::at(input->pad_primary_.stick_, 2) == 0.0f) || !(core::at(input->pad_primary_.stick_, 3) == 0.0f))
+    if (!(core::at(input->pad_primary_.stick(), 2) == 0.0f) || !(core::at(input->pad_primary_.stick(), 3) == 0.0f))
         return false;
     return control_full_;
 }

@@ -168,6 +168,28 @@ public:
     // 0x004A8E90: an rgba from the array `name` (bytes, lowest first). False without the array.
     bool read_colour_param(script::Struct* params, uint32_t name, uint32_t* rgba);
 
+    // The fields other code reads and sets.
+    objects::SharedRef<UiWidget>& container() { return container_; }
+    [[nodiscard]] const objects::SharedRef<UiWidget>& container() const { return container_; }
+    objects::SharedRef<UiWidget>& eldest() { return eldest_; }
+    [[nodiscard]] const objects::SharedRef<UiWidget>& eldest() const { return eldest_; }
+    objects::SharedRef<UiWidget>& following() { return following_; }
+    [[nodiscard]] const objects::SharedRef<UiWidget>& following() const { return following_; }
+    ElementState& shown() { return shown_; }
+    [[nodiscard]] const ElementState& shown() const { return shown_; }
+    ElementState& aim_point() { return aim_point_; }
+    [[nodiscard]] const ElementState& aim_point() const { return aim_point_; }
+    ElementState& summed() { return summed_; }
+    [[nodiscard]] const ElementState& summed() const { return summed_; }
+    [[nodiscard]] float just_x() const { return just_x_; }
+    [[nodiscard]] float z_priority() const { return z_priority_; }
+    [[nodiscard]] float just_y() const { return just_y_; }
+    [[nodiscard]] float span() const { return span_; }
+    void set_span(float value) { span_ = value; }
+    [[nodiscard]] float level_y() const { return level_y_; }
+    void set_level_y(float value) { level_y_ = value; }
+
+private:
     // --- fields (after Entity's) ---
     objects::SharedRef<UiWidget> container_; // +0x4C
     objects::SharedRef<UiWidget> eldest_;    // +0x58

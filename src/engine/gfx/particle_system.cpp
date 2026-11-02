@@ -68,7 +68,7 @@ void delete_particles(std::span<FlexibleParticle> particles)
 // them), each allocated only if the one before was; all grey once the three are there. Whether they are.
 bool new_colours(EmitterInstance* system, int count)
 {
-    const std::array<std::span<uint32_t>*, 3> colours = {{&system->start_colour_, &system->mid_colour_, &system->end_colour_}};
+    const std::array<std::span<uint32_t>*, 3> colours = {{&system->start_colour(), &system->mid_colour(), &system->end_colour()}};
     for (std::span<uint32_t>* const colour : colours) {
         auto* words = static_cast<uint32_t*>(carve(static_cast<unsigned int>(count) * sizeof(uint32_t)));
         if (!words)
@@ -86,16 +86,16 @@ bool new_colours(EmitterInstance* system, int count)
 bool construct_parts(EmitterInstance* system, uint32_t name, int particle_cap, unsigned int positions_size,
                      bool positions_zeroed, int colours)
 {
-    system->label_ = name;
-    system->max_particles_ = particle_cap;
-    system->particle_count_ = 0;
-    system->particle_list_ = new_particles(particle_cap);
-    if (system->particle_list_.empty())
+    system->set_label(name);
+    system->set_max_particles(particle_cap);
+    system->set_particle_count(0);
+    system->particle_list() = new_particles(particle_cap);
+    if (system->particle_list().empty())
         return false;
     auto* positions = static_cast<float*>(positions_zeroed ? allocate_zeroed(positions_size) : carve(positions_size));
     if (!positions)
         return false;
-    system->position_array_ = std::span<float>(positions, positions_size / sizeof(float));
+    system->position_array() = std::span<float>(positions, positions_size / sizeof(float));
     return new_colours(system, colours);
 }
 
@@ -375,10 +375,10 @@ void bind_script(EmitterInstance* system, script::Script*& slot, uint32_t script
     }
     if (!slot)
         slot = script::Script::create();
-    if (!system->script_args_)
-        system->script_args_ = script::new_struct();
-    system->script_args_->append_structure_if_any(params);
-    slot->bind_script(script, system->script_args_, static_cast<objects::Entity*>(object));
+    if (!system->script_args())
+        system->set_script_args(script::new_struct());
+    system->script_args()->append_structure_if_any(params);
+    slot->bind_script(script, system->script_args(), static_cast<objects::Entity*>(object));
 }
 
 } // namespace
@@ -435,8 +435,8 @@ int EmitterInstance::get_num_vertex_lists()
 NewFlatParticles::NewFlatParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
 {
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * 12, false, 1)) {
-        colour_mid_ = -1.0f;
-        flag_bits_ |= 4u;
+        set_colour_mid(-1.0f);
+        flag_bits() |= 4u;
     }
 }
 
@@ -448,17 +448,17 @@ FlatRibbonParticles::FlatRibbonParticles(uint32_t name, int particle_cap, uint32
     // (the colours' count read again as segments_ + 3 for each array and each step of the loop)
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * segments_ * 12), true,
                         segments_ + 3)) {
-        colour_mid_ = -1.0f;
-        flag_bits_ |= 4u;
+        set_colour_mid(-1.0f);
+        flag_bits() |= 4u;
     }
 }
 
 // 0x00499200
 FlatRibbonParticles::~FlatRibbonParticles()
 {
-    if (!particle_list_.empty()) {
-        delete_particles(particle_list_);
-        particle_list_ = {};
+    if (!particle_list().empty()) {
+        delete_particles(particle_list());
+        particle_list() = {};
     }
 }
 
@@ -471,9 +471,9 @@ GlowParticles::GlowParticles(uint32_t name, int particle_cap, uint32_t, uint32_t
 {
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * 12, false, 3)) {
         segments_ = segments;
-        colour_mid_ = -1.0f;
+        set_colour_mid(-1.0f);
         glow_width_ = glow_width;
-        flag_bits_ |= 4u;
+        flag_bits() |= 4u;
     }
 }
 
@@ -481,19 +481,19 @@ GlowParticles::GlowParticles(uint32_t name, int particle_cap, uint32_t, uint32_t
 GlowRibbonTrailParticles::GlowRibbonTrailParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int,
                                                    int segments, float width, int history)
 {
-    history_length_ = history + 1;
+    set_history_length(history + 1);
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>((history + 1) * particle_cap * 12), true,
-                        history_length_ + 3)) {
+                        history_length() + 3)) {
         segments_ = segments;
-        colour_mid_ = -1.0f;
+        set_colour_mid(-1.0f);
         span_ = width;
-        flag_bits_ |= 4u;
+        flag_bits() |= 4u;
     }
 }
 
 // 0x00499820 / 0x00499830
-int GlowRibbonTrailParticles::get_num_colours() { return history_length_ + 3; }
-int GlowRibbonTrailParticles::get_num_vertex_lists() { return history_length_; }
+int GlowRibbonTrailParticles::get_num_colours() { return history_length() + 3; }
+int GlowRibbonTrailParticles::get_num_vertex_lists() { return history_length(); }
 
 // 0x00499B80
 LineParticles::LineParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int history)
@@ -501,8 +501,8 @@ LineParticles::LineParticles(uint32_t name, int particle_cap, uint32_t, uint32_t
 {
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * (history + 1) * 12), true,
                         steps_)) {
-        colour_mid_ = -1.0f;
-        flag_bits_ |= 4u;
+        set_colour_mid(-1.0f);
+        flag_bits() |= 4u;
     }
 }
 

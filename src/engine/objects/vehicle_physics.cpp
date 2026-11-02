@@ -641,7 +641,7 @@ void DrivableModule::update_wheel_contacts()
             wheel.y = wheel.rest_y_;
         }
         // Outside the park editor, triggers along the suspension (faces flagged 0x50).
-        if (park_editing::ParkBuilderMode::sole()->cur_phase_ != kParkEditorOff) {
+        if (park_editing::ParkBuilderMode::sole()->cur_phase() != kParkEditorOff) {
             feeler.set_excluded(0, 0x50);
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
@@ -713,25 +713,25 @@ void DrivableModule::read_controls()
 {
     const PadSnapshot& input = input_ptr_->pad_primary_;
     // The stick squared (its sign kept); else the d-pad's left / right.
-    const float stick = core::at(input.scaled_stick_, 2);
+    const float stick = core::at(input.scaled_stick(), 2);
     const double steering = std::fabs(static_cast<double>(stick)) * stick;
     steering_ = static_cast<float>(steering);
     if (steering == 0.0) {
-        const bool left = input.left_side_.held_down_ != 0;
-        const bool right = input.right_side_.held_down_ != 0;
+        const bool left = input.left_side().held_down_ != 0;
+        const bool right = input.right_side().held_down_ != 0;
         if (left && !right)
             steering_ = -1.0f;
         else if (!left && right)
             steering_ = 1.0f;
     }
-    throttle_ = input.pos_x_.held_down_ != 0;
-    handbrake_ = input.shoulder_right_a_.held_down_ != 0 && !handbrake_disabled_;
+    throttle_ = input.pos_x().held_down_ != 0;
+    handbrake_ = input.shoulder_right_a().held_down_ != 0 && !handbrake_disabled_;
     // The brake button: braking while moving forward, else reversing; with Exitable, the other button too, which
     // also brakes while moving backwards and tells the object it has stopped (0xCBAA3476).
     bool pressed = false, other = false;
-    if (input.button_box_.held_down_) {
+    if (input.button_box().held_down_) {
         pressed = true;
-    } else if (can_dismount_ && input.button_wedge_.held_down_) {
+    } else if (can_dismount_ && input.button_wedge().held_down_) {
         pressed = true;
         other = true;
     } else {

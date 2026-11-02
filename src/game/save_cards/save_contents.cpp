@@ -265,7 +265,7 @@ void write_save_contents(Struct* contents, uint32_t type)
         contents->append_struct_ref(kGlobalInfo, global);
         gsl::owner<Struct*> story = script::new_struct();
         // the goal manager's parameters (the shared getter of +0x14)
-        story->put_sub_struct(kGoalManagerParams, goals::get_objective_board()->goal_data_);
+        story->put_sub_struct(kGoalManagerParams, goals::get_objective_board()->goal_data());
         contents->append_struct_ref(kStory, story);
         gsl::owner<Struct*> story_skater = script::new_struct();
         auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(0));

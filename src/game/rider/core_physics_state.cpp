@@ -193,7 +193,7 @@ void SkaterPhysicsModule::update_free_revert()
 // 0x005007A0
 void SkaterPhysicsModule::update_focus_button()
 {
-    objects::ControlButton* button = &input_->pad_primary_.stick_click_left_;
+    objects::ControlButton* button = &input_->pad_primary_.stick_click_left();
     if (focus_held_) {
         if (!button->held_down_)
             focus_held_ = 0;

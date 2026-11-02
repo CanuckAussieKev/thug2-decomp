@@ -23,7 +23,7 @@ inline void add_observer_controls(Hub* manager, PlayerRecord* player, tasks::Pil
                                   int handler_priority = -1000)
 {
     auto task = memory::make_owned<tasks::Task<PlayerRecord>>(&Hub::observer_task, player, 0);
-    player->observer_task_ = task;
+    player->set_observer_task(task);
     tasks->queue_job(task);
     auto handler = memory::make_owned<pad_input::Responder<Hub>>(&Hub::observer_input, manager, handler_priority, 0);
     manager->set_spectator_pad_listener(handler);

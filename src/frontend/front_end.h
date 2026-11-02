@@ -65,6 +65,20 @@ struct FrontEnd final : public PartUnit {
     };
     static constexpr int kMaxButtonEvents = 32;
 
+    // The fields other code reads and sets.
+    std::array<std::unique_ptr<FrontEndInputHandler>, 2>& pad_listeners() { return pad_listeners_; }
+    [[nodiscard]] const std::array<std::unique_ptr<FrontEndInputHandler>, 2>& pad_listeners() const { return pad_listeners_; }
+    std::array<int, 2>& device_server_map() { return device_server_map_; }
+    [[nodiscard]] const std::array<int, 2>& device_server_map() const { return device_server_map_; }
+    [[nodiscard]] bool is_halted() const { return is_halted_; }
+    void set_hold_repeat_ms(int value) { hold_repeat_ms_ = value; }
+    void set_auto_repeat_rate(int value) { auto_repeat_rate_ = value; }
+    std::array<PadMapping, 2>& pad_mappings() { return pad_mappings_; }
+    [[nodiscard]] const std::array<PadMapping, 2>& pad_mappings() const { return pad_mappings_; }
+    [[nodiscard]] bool block_menu_input() const { return block_menu_input_; }
+    void set_block_menu_input(bool value) { block_menu_input_ = value; }
+
+private:
     std::unique_ptr<FrontEndTask> update_job_; // +0x14: front_end_tick, priority -2000
     std::unique_ptr<FrontEndTask>
         keyboard_task_; // +0x18: keyboard_task, priority -1000 (added by register_key_listener)
@@ -81,6 +95,8 @@ struct FrontEnd final : public PartUnit {
     bool check_startup_script_;  // +0x15C: the first input frame looks at the global below once
     bool startup_script_on_;     // +0x15D
     uint32_t startup_script_id_; // +0x160: the spawned script's unique id
+
+public:
 
     // 0x0054FE00: the constructor (the module, its tasks and handlers; mappings active, 300/50 ms).
     FrontEnd();

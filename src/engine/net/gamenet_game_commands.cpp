@@ -248,7 +248,7 @@ bool cfunc_start_network_game(Struct*, Script*)
         core::at(buffer, 0) = 1;
         size_t end = 1;
         const int count = goals
-                              ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
+                              ->goals().num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             goals::Objective* goal = static_cast<goals::GoalManager*>(goals)->get_objective_at(i);
             if (goal->is_picked()) {
@@ -367,7 +367,7 @@ bool cfunc_set_num_teams(Struct* params, Script*)
         core::at(change, 1) = 0;
         core::at(change, 0) = static_cast<uint8_t>(get_skater_id(player_skater(player)));
         send_to_players(manager, server, &desc, Recipients::kRemote);
-        player->team_ = 0;
+        player->set_team(0);
     }
     return true;
 }
@@ -420,7 +420,7 @@ bool cfunc_all_players_are_ready(Struct*, Script*)
         return true;
     for (const memory::ListNode* node = get_next_node(&manager->players()); const PlayerRecord* player = data_of(node);
          node = get_next_node(node)) {
-        if (!(static_cast<uint8_t>(player->conn_->cur_standing_) & 1))
+        if (!(static_cast<uint8_t>(player->conn()->cur_standing()) & 1))
             return false;
     }
     return true;
@@ -449,13 +449,13 @@ bool cfunc_create_player_options(Struct* params, Script*)
     }
     if (_stricmp(player_name(player), name) != 0)
         return true;
-    player->flag_bits_ |= kRemoveMark;
+    player->flag_bits() |= kRemoveMark;
     script::StructPtr dialog = script::make_struct();
-    const int profile = player->profile_id_;
+    const int profile = player->profile_id();
     if ((manager->flag_bits() & kFlagsInternet) && profile && manager->presence_service()->authenticated_) {
-        dialog->put_int(kProfile, player->profile_id_);
+        dialog->put_int(kProfile, player->profile_id());
         dialog->append_word(kNick, player_name(player));
-        dialog->put_name_key(0u, is_buddy(manager, player->profile_id_) ? kAllowRemoveHomie : kAllowAddHomie);
+        dialog->put_name_key(0u, is_buddy(manager, player->profile_id()) ? kAllowRemoveHomie : kAllowAddHomie);
     }
     dialog->append_word(kName, script::kQbvalString, name);
     get_run(kCreatePlayerOptionsDialog, dialog.get());
@@ -485,9 +485,9 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
         script::Array* rgba = array_memory ? memory::construct_in<script::Array>(array_memory) : nullptr;
         rgba->configure_size_kind(4, script::kQbvalInteger);
         uint32_t blue = 0;
-        const int profile = player->profile_id_;
+        const int profile = player->profile_id();
         if (profile && manager->presence_service()->authenticated_) {
-            if (is_buddy(manager, player->profile_id_)) {
+            if (is_buddy(manager, player->profile_id())) {
                 rgba->set_element(0, 0x80);
                 rgba->set_element(1, 0x80);
             } else {
@@ -539,7 +539,7 @@ bool cfunc_cancel_remove_player(Struct*, Script*)
     PlayerSearch search;
     for (auto* player = manager->begin_player_walk(&search, false); player;
          player = manager->step_player_walk(&search, false))
-        player->flag_bits_ &= ~kRemoveMark;
+        player->flag_bits() &= ~kRemoveMark;
     return true;
 }
 

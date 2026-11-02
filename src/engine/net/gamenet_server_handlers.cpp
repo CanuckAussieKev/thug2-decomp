@@ -93,7 +93,7 @@ int handle_observe_request(net::InboundMsgCtx* context)
         manager->count_observers() >= manager->get_spectator_limit()) { // the observers so far
         desc = net::NetMessageInfo();
         desc.ident_ = kMsgObserversFull;
-        manager->host()->put_on_outbox(context->sender_conn_->hdl_, &desc);
+        manager->host()->put_on_outbox(context->sender_conn_->hdl(), &desc);
         return kContinue;
     }
     desc = net::NetMessageInfo();
@@ -102,8 +102,8 @@ int handle_observe_request(net::InboundMsgCtx* context)
         manager->evict_player(player, 2); // the player out of the game (2: to observe)
         static_cast<modules::Skate*>(skate)->drop_skater_from_roster(
             core::down_cast<objects::Rider>(skater)); // its skater gone
-        player->flag_bits_ |= 4;                   // an observer now
-        player->skater_ = nullptr;
+        player->flag_bits() |= 4;                   // an observer now
+        player->set_skater(nullptr);
         if (player->is_host_player()) {
             player->clear_server_player();
             manager->assign_first_come_first_served();
@@ -116,7 +116,7 @@ int handle_observe_request(net::InboundMsgCtx* context)
         }
     }
     desc.ident_ = kMsgObserve;
-    manager->host()->put_on_outbox(context->sender_conn_->hdl_, &desc);
+    manager->host()->put_on_outbox(context->sender_conn_->hdl(), &desc);
     return kContinue;
 }
 
@@ -132,17 +132,17 @@ int handle_request_game_data(net::InboundMsgCtx* context)
     if (!read_level_switch(reader, &request))
         return kDone;
     net::AppHost* app = context->receiver_app_;
-    int handle = context->sender_conn_->hdl_;
+    int handle = context->sender_conn_->hdl();
     void* park_map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
     app->send_bulk_message(handle, kMsgParkMap, kParkMapSize, park_map, "level data", kGroupGame, false, true);
-    handle = context->sender_conn_->hdl_;
+    handle = context->sender_conn_->hdl();
     auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
     rail_editor(); // (looked up once for nothing)
     void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed();
     app->send_bulk_message(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     if (manager->has_created_goals()) {
         manager->prepare_created_goals(request.level);
-        handle = context->sender_conn_->hdl_;
+        handle = context->sender_conn_->hdl();
         void* goals = manager->get_created_goals_message();
         auto size = static_cast<uint16_t>(manager->get_created_goals_size());
         app->send_bulk_message(handle, kMsgGoalsData, size, goals, "goals data", kGroupGame, false, true);
@@ -185,12 +185,12 @@ int handle_game_ended_report(net::InboundMsgCtx* context)
     if (!player)
         return kContinue;
     PlayerSearch search;
-    if ((player->flag_bits_ & kFlagReady) || game != manager->get_game_id())
+    if ((player->flag_bits() & kFlagReady) || game != manager->get_game_id())
         return kDone;
-    player->flag_bits_ |= kFlagReady;
+    player->flag_bits() |= kFlagReady;
     for (const PlayerRecord* other = start_roster_sweep(manager, &search, false); other;
          other = step_roster_sweep(manager, &search, false)) {
-        if (!(other->flag_bits_ & kFlagReady))
+        if (!(other->flag_bits() & kFlagReady))
             return kContinue; // someone is still playing
     }
     // Everyone's game has ended: game over, to all (observers too).
@@ -366,7 +366,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
     if (player)
-        player->flag_bits_ &= ~kFlag8000;
+        player->flag_bits() &= ~kFlag8000;
     PlayerSearch search;
     net::NetMessageInfo desc;
     if (get_game_type() == kNetCtf) {

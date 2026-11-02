@@ -144,7 +144,7 @@ void Hub::spectate_player(PlayerRecord* player)
     if (!player || !player_skater(player)) {
         set_camera_skater(skater_camera, nullptr);
         set_walk_camera_skater(walk_camera, nullptr);
-        core::down_cast<objects::FootView>(walk_camera)->instant_frames_ = 3; // (frames that jump straight to the target)
+        core::down_cast<objects::FootView>(walk_camera)->set_instant_frames(3); // (frames that jump straight to the target)
         viewed_player_ = nullptr;
         return;
     }
@@ -153,7 +153,7 @@ void Hub::spectate_player(PlayerRecord* player)
         // Someone else's skater: the skater camera onto it.
         set_camera_skater(skater_camera, skater);
         set_walk_camera_skater(walk_camera, nullptr);
-        core::down_cast<objects::FootView>(walk_camera)->instant_frames_ = 3;
+        core::down_cast<objects::FootView>(walk_camera)->set_instant_frames(3);
         skater_camera->hold_off(false);
         walk_camera->hold_off(true);
         viewed_player_ = player;
@@ -163,7 +163,7 @@ void Hub::spectate_player(PlayerRecord* player)
     objects::ObjectModule* control = skater->fetch_module(kSkaterPhysicsControl);
     set_camera_skater(skater_camera, skater);
     set_walk_camera_skater(walk_camera, skater);
-    core::down_cast<objects::FootView>(walk_camera)->instant_frames_ = 3;
+    core::down_cast<objects::FootView>(walk_camera)->set_instant_frames(3);
     const objects::RiderPoseState* state = core::down_cast<objects::RiderBoardPhysics>(control)->pose_;
     if (!state->in_vehicle_ && state->physics_mode_ == 0) {
         skater_camera->hold_off(false);
@@ -195,7 +195,7 @@ void Hub::assign_first_come_first_served()
     net::NetMessageInfo desc;
     for (PlayerRecord* player = start_roster_sweep(this, &search, false); player;
          player = step_roster_sweep(this, &search, false)) {
-        if (is_own_player(player) || !(player->flag_bits_ & kPlayerFcfsCandidate))
+        if (is_own_player(player) || !(player->flag_bits() & kPlayerFcfsCandidate))
             continue;
         player->set_host_player(); // (its flag 0x200: first come, first served)
         uint32_t text = 0;
@@ -242,7 +242,7 @@ PlayerRecord* Hub::find_player_by_sender(net::Conn* conn)
     PlayerSearch search;
     for (PlayerRecord* player = start_roster_sweep(this, &search, true); player;
          player = step_roster_sweep(this, &search, true))
-        if (player->conn_ == conn)
+        if (player->conn() == conn)
             return player;
     return nullptr;
 }
@@ -267,8 +267,8 @@ PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, uint32_t
     memory->enter_heap_scope(memory->network_heap());
     void* block = memory::alloc_zeroed(kPlayerInfoSize);
     PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, flags) : nullptr;
-    player->skater_ = core::down_cast<objects::Rider>(skater); // (out of memory: written through null, as the original)
-    player->conn_ = conn;
+    player->set_skater(core::down_cast<objects::Rider>(skater)); // (out of memory: written through null, as the original)
+    player->set_conn(conn);
     if (is_own_player(player)) {
         if (is_observer(player)) {
             pad_input::Hub* input = pad_input::get_input_manager();
@@ -320,8 +320,8 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         remove_player_record(player);
         return;
     }
-    const net::Conn* conn = player->conn_;
-    game_spy::cd_key_disconnect_user(kGameSpyGameId, static_cast<int>(conn->ident_)); // gcd_disconnect_user
+    const net::Conn* conn = player->conn();
+    game_spy::cd_key_disconnect_user(kGameSpyGameId, static_cast<int>(conn->ident())); // gcd_disconnect_user
     if (!is_observer(player)) {
         PlayerSearch search;
         for (PlayerRecord* other = start_roster_sweep(this, &search, true); other;
@@ -343,19 +343,19 @@ void Hub::evict_player(PlayerRecord* player, int reason)
     }
     bool close = true;
     if (reason == kDropBanned || reason == kDropKicked) {
-        conn = player->conn_;
-        host_->deliver_to(kMsgRemovedYou, 0, nullptr, conn->remote_ip_, conn->port_no_, 0);
+        conn = player->conn();
+        host_->deliver_to(kMsgRemovedYou, 0, nullptr, conn->remote_ip(), conn->port_no(), 0);
         if (reason == kDropBanned)
-            host_->block_connection(player->conn_);
+            host_->block_connection(player->conn());
     } else if (reason == kDropLeftOut) {
-        conn = player->conn_;
-        host_->deliver_to(kMsgMovedOn, 0, nullptr, conn->remote_ip_, conn->port_no_, 0);
+        conn = player->conn();
+        host_->deliver_to(kMsgMovedOn, 0, nullptr, conn->remote_ip(), conn->port_no(), 0);
     } else if (reason == kDropObserving) {
         close = false;
     }
-    if (close && player->conn_) {
-        player->conn_->mark_stale();
-        player->conn_->drop_queued_traffic();
+    if (close && player->conn()) {
+        player->conn()->mark_stale();
+        player->conn()->drop_queued_traffic();
     }
     const uint32_t text = reason >= 0 && reason < ints::as_signed(sizeof(kDropTexts) / sizeof(core::at(kDropTexts, 0)))
                               ? core::at(kDropTexts, reason)
@@ -383,7 +383,7 @@ void Hub::evict_player(PlayerRecord* player, int reason)
     PlayerSearch search;
     for (const PlayerRecord* p = start_roster_sweep(this, &search, false); p;
          p = step_roster_sweep(this, &search, false))
-        if (!(p->flag_bits_ & kPlayerGameEnded))
+        if (!(p->flag_bits() & kPlayerGameEnded))
             return;
     net::NetMessageInfo desc;
     desc.ident_ = kMsgGameOver;
@@ -405,22 +405,22 @@ void Hub::re_add_pending_players()
     PlayerRecord* player = start_roster_sweep(this, &search, true);
     while (player) {
         PlayerRecord* next = step_roster_sweep(this, &search, true); // (before the player is destroyed)
-        if (player->flag_bits_ & kPlayerPending) {
+        if (player->flag_bits() & kPlayerPending) {
             JoinerRecord info; // (its constructor: a skater profile)
             frames += 10;
             std::strcpy(info.label_.data(), player_name(player));
             info.entity_key_ = static_cast<uint8_t>(reserve_obj_id_for_player());
-            info.conn_ = player->conn_;
+            info.conn_ = player->conn();
             info.flag_bits_ = kNewPlayerRejoining;
-            info.profile_id_ = player->profile_id_;
-            info.skill_points_ = player->skill_points_;
+            info.profile_id_ = player->profile_id();
+            info.skill_points_ = player->skill_points();
             info.accumulated_score_ = 0;
             info.eliminated_time_ = 0;
             info.score_ = 0;
-            info.drive_control_mode_ = player->drive_control_mode_;
+            info.drive_control_mode_ = player->drive_control_mode();
             memory::Hub* memory = memory::Hub::get_pull();
             memory->enter_heap_scope(memory->skater_info_heap());
-            info.account_->copy_from(player->account_); // its appearance
+            info.account_->copy_from(player->account()); // its appearance
             memory::Hub::get_pull()->leave_heap_scope();
             remove_player_record(player);
             add_joining_player(&info, frames); // (added back in `frames` frames, 10 apart; then its destructor)
@@ -467,7 +467,7 @@ void Hub::drop_players_not_ready()
     PlayerRecord* player = start_roster_sweep(this, &search, false);
     while (player) {
         PlayerRecord* next = step_roster_sweep(this, &search, false);
-        if (!(player->flag_bits_ & kPlayerFcfsCandidate)) {
+        if (!(player->flag_bits() & kPlayerFcfsCandidate)) {
             objects::Entity* skater = player_skater(player);
             evict_player(player, kDropLeftOut);
             static_cast<modules::Skate*>(skate)->drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
@@ -487,8 +487,8 @@ void Hub::remove_players_and_apps()
 // (inline in remove_player_record / re_add_pending_players)
 void Hub::update_lobby_server()
 {
-    void* peer = lobby_service_->remote_;
-    if (peer && game_spy::peer_is_connected(peer) && lobby_service_->hosting_)
+    void* peer = lobby_service_->remote();
+    if (peer && game_spy::peer_is_connected(peer) && lobby_service_->hosting())
         game_spy::peer_state_changed(peer); // (the hosted game's details to GameSpy's peer SDK)
 }
 
@@ -537,9 +537,9 @@ void Hub::enter_observe_mode()
         get_run(kHideCtfArrow);
         local->clear_flags();
     }
-    local->flag_bits_ |= 4; // an observer
+    local->flag_bits() |= 4; // an observer
     static_cast<modules::Skate*>(skate)->drop_skater_from_roster(core::down_cast<objects::Rider>(player_skater(local)));
-    local->skater_ = nullptr;
+    local->set_skater(nullptr);
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(core::at(memory->skater_heaps(), 0));
     spectate_player(next_cam_player()); // the first player to watch

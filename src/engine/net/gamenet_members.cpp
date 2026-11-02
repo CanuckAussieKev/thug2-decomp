@@ -368,7 +368,7 @@ void Hub::choose_start_points()
         count = 8;
     } else {
         count = mode_max_players();
-        if (park_editing::ParkBuilderMode::sole()->cur_phase_ != kOff && !mode_is_true(kIsHorse)) {
+        if (park_editing::ParkBuilderMode::sole()->cur_phase() != kOff && !mode_is_true(kIsHorse)) {
             count = 2;
             offset = 0;
         }

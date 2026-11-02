@@ -174,17 +174,26 @@ public:
     [[nodiscard]] std::span<UserClipKey*> events() const;
     [[nodiscard]] std::span<const uint32_t> bone_label_run() const;
 
+    // The fields other code reads and sets.
+    [[nodiscard]] float duration() const { return duration_; }
+    [[nodiscard]] int bone_count() const { return bone_count_; }
+    [[nodiscard]] AnimCacheEntry* cache_slot() const { return cache_slot_; }
+
+private:
     float duration_{0.0f}; // +0x00: seconds (the file's third word)
     uint32_t flag_bits_{};                    // +0x04
     int bone_count_{0};                       // +0x08
     uint8_t* key_table_{nullptr};             // +0x0C (flag 0x2000: the animation's own quaternion table)
     uint8_t* quat_keys_{nullptr};             // +0x10
     uint8_t* trans_keys_{nullptr};            // +0x14
+
+public:
     // NOT ORIGINAL - the per-bone key counts (two bytes a count, two counts a bone with the wide counts, else one).
     [[nodiscard]] std::span<const uint8_t> key_count_run() const
     {
         return {key_counts_, static_cast<size_t>(bone_count_) * ((flag_bits_ & 0x400000) ? 4 : 2)};
     }
+private:
     uint8_t* key_counts_{nullptr};            // +0x18
     uint32_t* bone_labels_{nullptr};          // +0x1C
     uint32_t* partial_bones_{nullptr};        // +0x20 (flag 0x80000: a count, then a bit for each bone)
@@ -196,10 +205,14 @@ public:
     int16_t trans_key_count_{};               // +0x36
     int16_t event_count_{0};                  // +0x38
     uint16_t bits_{};                         // +0x3A (bits 1-8: references to its cache entry)
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(JointClipFrames, cache_slot_) == 0x24 && offsetof(JointClipFrames, bits_) == 0x3A &&
+                          sizeof(JointClipFrames) == 0x3C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(JointClipFrames, cache_slot_) == 0x24 && offsetof(JointClipFrames, bits_) == 0x3A &&
-                  sizeof(JointClipFrames) == 0x3C,
-              "layout must match the original");
 
 inline constexpr float kTinyLength{0.00001f};
 } // namespace gfx

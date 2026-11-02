@@ -153,10 +153,10 @@ void SkaterPhysicsModule::lean_push_off_wall()
     // Skate_wall_lean_push_time.
     objects::PadSnapshot* pad = &input_->pad_primary_;
     int held = 0;
-    if (pad->left_side_.held_down_)
-        held = time_since_press(&pad->left_side_);
-    else if (pad->right_side_.held_down_)
-        held = time_since_press(&pad->right_side_);
+    if (pad->left_side().held_down_)
+        held = time_since_press(&pad->left_side());
+    else if (pad->right_side().held_down_)
+        held = time_since_press(&pad->right_side());
     else
         return;
     double held_time = held;
@@ -166,7 +166,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
     const float push_time = script::fetch_float(kLeanPushTime);
     if (seconds > push_time)
         seconds = push_time;
-    if (pad->right_side_.held_down_)
+    if (pad->right_side().held_down_)
         seconds = -seconds;
     const double length = script::fetch_float(kLeanPushLength);
     auto reach = static_cast<float>(length * (static_cast<double>(seconds) / push_time));

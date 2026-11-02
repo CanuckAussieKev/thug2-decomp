@@ -23,6 +23,37 @@ struct HierarchyNode;
 struct StripBreak;
 
 struct SceneRef {
+    // The fields other code reads and sets.
+    uint32_t& flags_value() { return flags; }
+    [[nodiscard]] uint32_t flags_value() const { return flags; }
+    [[nodiscard]] lists::KeyMap* materials_value() const { return materials; }
+    void set_materials(lists::KeyMap* value) { materials = value; }
+    [[nodiscard]] MeshRef** meshes_value() const { return meshes; }
+    void set_meshes(MeshRef** value) { meshes = value; }
+    [[nodiscard]] int mesh_count() const { return mesh_count_; }
+    [[nodiscard]] int transparent_count() const { return transparent_count_; }
+    [[nodiscard]] int first_transparent() const { return first_transparent_; }
+    [[nodiscard]] int first_flagged() const { return first_flagged_; }
+    [[nodiscard]] int flagged_count() const { return flagged_count_; }
+    [[nodiscard]] uint8_t unknown40_value() const { return unknown40; }
+    void set_unknown40(uint8_t value) { unknown40 = value; }
+    maths::BBox& bounds_value() { return bounds; }
+    [[nodiscard]] const maths::BBox& bounds_value() const { return bounds; }
+    std::array<float, 3>& centre_value() { return centre; }
+    [[nodiscard]] const std::array<float, 3>& centre_value() const { return centre; }
+    float& radius_value() { return radius; }
+    [[nodiscard]] float radius_value() const { return radius; }
+    [[nodiscard]] HierarchyNode* hierarchy_value() const { return hierarchy; }
+    void set_hierarchy(HierarchyNode* value) { hierarchy = value; }
+    [[nodiscard]] uint32_t unknown78_value() const { return unknown78; }
+    void set_unknown78(uint32_t value) { unknown78 = value; }
+    IDirect3DVertexBuffer9*& arena_buffer() { return arena_buffer_; }
+    [[nodiscard]] IDirect3DVertexBuffer9* arena_buffer() const { return arena_buffer_; }
+    void set_arena_buffer(IDirect3DVertexBuffer9* value) { arena_buffer_ = value; }
+    [[nodiscard]] uint32_t unknown80_value() const { return unknown80; }
+    void set_unknown80(uint32_t value) { unknown80 = value; }
+
+private:
     uint32_t flags{0}; // 0x100 once its meshes are prepared
     std::array<uint8_t, 0x14> unknown4{};
     lists::KeyMap* materials{nullptr}; // +0x18, by checksum
@@ -43,6 +74,8 @@ struct SceneRef {
     uint32_t unknown78{0};
     IDirect3DVertexBuffer9* arena_buffer_{nullptr}; // +0x7C: the vertex arena's buffer (released with the scene)
     uint32_t unknown80{0};
+
+public:
 
     // NOT ORIGINAL - the meshes as a run of mesh_count_.
     [[nodiscard]] std::span<MeshRef*> mesh_run() const { return {meshes, static_cast<size_t>(mesh_count_)}; }
@@ -75,10 +108,15 @@ struct SceneRef {
 
     // The counts after a change (shared by detach_meshes and order_meshes).
     void recount();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(SceneRef, meshes) == 0x1C && offsetof(SceneRef, bounds) == 0x44 &&
+                          offsetof(SceneRef, radius) == 0x70 && offsetof(SceneRef, arena_buffer_) == 0x7C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(SceneRef, meshes) == 0x1C && offsetof(SceneRef, bounds) == 0x44 &&
-                  offsetof(SceneRef, radius) == 0x70 && offsetof(SceneRef, arena_buffer_) == 0x7C,
-              "layout must match the original");
 
 // 0x004DDD50 (qsort's comparison of two mesh pointers): by the material's sort key (+0x1C), then its byte +0xC,
 // then its flag 0x10, then the mesh's +0x44, then the material's address.

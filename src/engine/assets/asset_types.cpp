@@ -139,18 +139,18 @@ void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen
 // The file opened (null: false) and read into a new buffer; an async read calls back when it's done.
 bool read_file(Resource* asset, const char* file, bool async, uint32_t* size)
 {
-    asset->file_ref_ = file::async_open(file, !async, 100);
-    if (!asset->file_ref_)
+    asset->set_file_ref(file::async_open(file, !async, 100));
+    if (!asset->file_ref())
         return false;
-    *size = static_cast<uint32_t>(asset->file_ref_->get_file_size());
-    asset->octets_ = memory::alloc_block(*size);
+    *size = static_cast<uint32_t>(asset->file_ref()->get_file_size());
+    asset->set_octets(memory::alloc_block(*size));
     return true;
 }
 void start_reading(Resource* asset, file::AsyncFileHandle* file, void* buffer, uint32_t size, bool async)
 {
     if (async) {
-        file->callback_mask_ = 0;
-        file->callback_mask_ |= 1u << file::kOpReadFile;
+        file->callback_mask() = 0;
+        file->callback_mask() |= 1u << file::kOpReadFile;
         file->change_hook(&Resource::read_callback, asset, nullptr);
     }
     file->get_take_in(buffer, 1, static_cast<int>(size));
@@ -166,21 +166,21 @@ void read_archive(Resource* asset, uint32_t* archive, const char* file, uint32_t
         key = lowered.data();
     }
     *archive = checksums::hash_from_text(key);
-    asset->octets_ = packs::read_in(file, false, nullptr, nullptr, nullptr);
+    asset->set_octets(packs::read_in(file, false, nullptr, nullptr, nullptr));
     *size = static_cast<uint32_t>(packs::get_file_size(file));
 }
 // A blocking load finishes at once.
 void finish_now(Resource* asset, uint32_t size)
 {
-    asset->extent_ = size;
+    asset->set_extent(size);
     asset->process_buffer();
 }
 // load_from_buffer's copy: the data copied into a buffer of the asset's own.
 void* copy_data(Resource* asset, void* data, uint32_t size)
 {
-    asset->octets_ = memory::alloc_block(size);
-    std::memcpy(asset->octets_, data, size);
-    return asset->octets_;
+    asset->set_octets(memory::alloc_block(size));
+    std::memcpy(asset->octets(), data, size);
+    return asset->octets();
 }
 void close_file(file::AsyncFileHandle*& file)
 {
@@ -196,7 +196,7 @@ void free_malloc_buffer(void*& buffer)
         buffer = nullptr;
     }
 }
-void* group_data(Resource* asset) { return asset->bundle_->get_data(); }
+void* group_data(Resource* asset) { return asset->bundle()->get_data(); }
 const char* platform_name(const char* name, char* out)
 {
     text::format_to(std::span(out, 256), "%s.%s", name, render::platform_suffix());
@@ -272,7 +272,7 @@ int AnimResource::read_in(const char* name, bool async, bool use_archive, void* 
     } else {
         if (!read_file(this, file.data(), async, &size))
             return -1;
-        start_reading(this, file_ref_, octets_, size, async);
+        start_reading(this, file_ref(), octets(), size, async);
     }
     if (!async)
         finish_now(this, size); // (the original reads the checksum first and doesn't use it)
@@ -294,7 +294,7 @@ bool AnimResource::finish_loading(void* buffer, uint32_t size)
         frames = nullptr;
     }
     change_contents(frames);
-    close_file(file_ref_);
+    close_file(file_ref());
     return Resource::finish_loading(buffer, size);
 }
 
@@ -318,13 +318,13 @@ void AnimResource::free_buffer()
     if (archive_) {
         packs::offload(archive_);
         archive_ = 0;
-        octets_ = nullptr;
+        set_octets(nullptr);
         return;
     }
-    if (octets_)
-        memory::free_malloc(octets_);
+    if (octets())
+        memory::free_malloc(octets());
     archive_ = 0;
-    octets_ = nullptr;
+    set_octets(nullptr);
 }
 
 // --- cutscene -------------------------------------------------------------------------------------------------
@@ -395,7 +395,7 @@ int NodeTableResource::read_in(const char* name, bool async, bool use_archive, v
     } else {
         if (!read_file(this, name, async, &size))
             return -1; // (with the heap context still pushed, as in the original)
-        start_reading(this, file_ref_, octets_, size, async);
+        start_reading(this, file_ref(), octets(), size, async);
     }
     if (!async)
         finish_now(this, size);
@@ -416,7 +416,7 @@ bool NodeTableResource::finish_loading(void* buffer, uint32_t size)
     array_name_ = checksums::hash_from_text(array_name.data());
     change_contents(nodes);
     nodes_ = static_cast<script::Array*>(get_data());
-    close_file(file_ref_);
+    close_file(file_ref());
     free_buffer();
     free_load_params(args_);
     args_ = nullptr;
@@ -512,7 +512,7 @@ int SceneAsset::read_in(const char* name, bool async, bool /*use_archive*/, void
     uint32_t size = 0;
     if (!read_file(this, file.data(), async, &size))
         return -1;
-    start_reading(this, file_ref_, octets_, size, async);
+    start_reading(this, file_ref(), octets(), size, async);
     if (!async)
         finish_now(this, size);
     return 0;
@@ -526,7 +526,7 @@ bool SceneAsset::finish_loading(void* buffer, uint32_t size)
         make_scene(args_->name.data(), buffer, size, textures, core::at(args_->flags, 0), core::at(args_->flags, 1), core::at(args_->flags, 2), core::at(args_->flags, 3)));
     free_load_params(args_);
     args_ = nullptr;
-    close_file(file_ref_);
+    close_file(file_ref());
     return Resource::finish_loading(buffer, size);
 }
 
@@ -535,7 +535,7 @@ int SceneAsset::offload()
 {
     if (get_data()) {
         unload_scene(get_data(), 0);
-        free_malloc_buffer(octets_);
+        free_malloc_buffer(octets());
         change_contents(nullptr);
     }
     return Resource::offload();
@@ -588,7 +588,7 @@ int SceneCollisionAsset::read_in(const char* name, bool async, bool /*use_archiv
     uint32_t size = 0;
     if (!read_file(this, file.data(), async, &size))
         return -1;
-    start_reading(this, file_ref_, octets_, size, async);
+    start_reading(this, file_ref(), octets(), size, async);
     if (!async)
         finish_now(this, size);
     return 0;
@@ -602,7 +602,7 @@ bool SceneCollisionAsset::finish_loading(void* buffer, uint32_t size)
     change_contents(scene_collision(scene));
     free_load_params(args_);
     args_ = nullptr;
-    close_file(file_ref_);
+    close_file(file_ref());
     return Resource::finish_loading(buffer, size);
 }
 
@@ -611,7 +611,7 @@ int SceneCollisionAsset::offload()
 {
     if (get_data()) {
         detach_hit_mesh(group_data(this));
-        free_malloc_buffer(octets_);
+        free_malloc_buffer(octets());
         change_contents(nullptr);
     }
     return Resource::offload();
@@ -640,14 +640,14 @@ int RigResource::read_in(const char* name, bool async, bool /*use_archive*/, voi
     start_loading();
     std::array<char, 256> file{};
     platform_name(name, file.data());
-    file_ref_ = file::async_open(file.data(), !async, 100);
-    if (!file_ref_)
+    set_file_ref(file::async_open(file.data(), !async, 100));
+    if (!file_ref())
         return -1;
-    auto size = static_cast<uint32_t>(file_ref_->get_file_size());
+    auto size = static_cast<uint32_t>(file_ref()->get_file_size());
     memory::enter_heap_scope(memory::top_down_heap());
-    octets_ = memory::alloc_block(size);
+    set_octets(memory::alloc_block(size));
     memory::leave_heap_scope();
-    start_reading(this, file_ref_, octets_, size, async);
+    start_reading(this, file_ref(), octets(), size, async);
     if (!async)
         finish_now(this, size);
     return 0;
@@ -660,7 +660,7 @@ bool RigResource::finish_loading(void* buffer, uint32_t size)
     if (!load_skeleton_data(skeleton, buffer, size))
         return false; // (the skeleton data leaks, as in the original)
     change_contents(skeleton);
-    close_file(file_ref_);
+    close_file(file_ref());
     free_buffer();
     return Resource::finish_loading(buffer, size);
 }
@@ -678,7 +678,7 @@ int RigResource::offload()
 }
 
 // 0x00409A10
-void RigResource::free_buffer() { free_malloc_buffer(octets_); }
+void RigResource::free_buffer() { free_malloc_buffer(octets()); }
 
 // --- skinned model --------------------------------------------------------------------------------------------
 
@@ -748,7 +748,7 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
     } else {
         if (!read_file(this, file.data(), async, &size))
             return -1;
-        start_reading(this, file_ref_, octets_, size, async);
+        start_reading(this, file_ref(), octets(), size, async);
     }
     if (has_cas) {
         std::array<char, 512> cas{};
@@ -780,14 +780,14 @@ bool SkinResource::finish_loading(void* buffer, uint32_t size)
 {
     auto* textures = static_cast<render::TextureSet*>(group_data(this));
     const SkinParams* p = args_;
-    gsl::owner<void*> model = make_skinned_model(checksum_, buffer, size, p->cas_data_, p->cas_size_, textures,
+    gsl::owner<void*> model = make_skinned_model(checksum(), buffer, size, p->cas_data_, p->cas_size_, textures,
                                                  p->value, p->has_cas_, p->flag0);
     change_contents(model); // (the resource's: offload deletes it)
-    if (args_->on_heap_ && octets_)
+    if (args_->on_heap_ && octets())
         free_buffer();
     free_load_params(args_);
     args_ = nullptr;
-    close_file(file_ref_);
+    close_file(file_ref());
     close_file(cas_file_);
     free_malloc_buffer(cas_buffer_);
     return Resource::finish_loading(buffer, size);
@@ -822,13 +822,13 @@ void SkinResource::free_buffer()
     if (archive_) {
         packs::offload(archive_);
         archive_ = 0;
-        octets_ = nullptr;
+        set_octets(nullptr);
         return;
     }
-    if (octets_)
-        memory::free_malloc(octets_);
+    if (octets())
+        memory::free_malloc(octets());
     archive_ = 0;
-    octets_ = nullptr;
+    set_octets(nullptr);
 }
 
 // 0x00409C60
@@ -887,7 +887,7 @@ int SkinCollisionAsset::read_in(const char* name, bool async, bool /*use_archive
     uint32_t size = 0;
     if (!read_file(this, file.data(), async, &size))
         return -1;
-    start_reading(this, file_ref_, octets_, size, async);
+    start_reading(this, file_ref(), octets(), size, async);
     if (!async)
         finish_now(this, size);
     return 0;
@@ -901,7 +901,7 @@ bool SkinCollisionAsset::finish_loading(void* buffer, uint32_t size)
     change_contents(static_cast<render::SubMesh*>(model)->hit_shape_); // (its collision objects)
     free_load_params(args_);
     args_ = nullptr;
-    close_file(file_ref_);
+    close_file(file_ref());
     return Resource::finish_loading(buffer, size);
 }
 
@@ -910,7 +910,7 @@ int SkinCollisionAsset::offload()
 {
     if (get_data()) {
         remove_skin_collision(group_data(this));
-        free_malloc_buffer(octets_);
+        free_malloc_buffer(octets());
         change_contents(nullptr);
     }
     return Resource::offload();
@@ -965,7 +965,7 @@ int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, vo
     uint32_t size = 0;
     if (!read_file(this, file.data(), async, &size))
         return -1;
-    start_reading(this, file_ref_, octets_, size, async);
+    start_reading(this, file_ref(), octets(), size, async);
     if (!async)
         finish_now(this, size);
     return 0;
@@ -975,10 +975,10 @@ int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, vo
 bool TexDictAsset::finish_loading(void* buffer, uint32_t size)
 {
     change_contents(
-        make_tex_dict(checksum_, buffer, size, args_->flag, args_->value, args_->flag8, args_->flag9));
+        make_tex_dict(checksum(), buffer, size, args_->flag, args_->value, args_->flag8, args_->flag9));
     free_load_params(args_);
     args_ = nullptr;
-    close_file(file_ref_);
+    close_file(file_ref());
     return Resource::finish_loading(buffer, size);
 }
 
@@ -987,7 +987,7 @@ int TexDictAsset::offload()
 {
     if (get_data()) {
         unload_tex_dict(get_data());
-        free_malloc_buffer(octets_);
+        free_malloc_buffer(octets());
         change_contents(nullptr);
     }
     return Resource::offload();

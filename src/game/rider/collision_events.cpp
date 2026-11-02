@@ -785,8 +785,8 @@ void end_frame(SkaterPhysicsModule* component)
             if (const objects::ControlButton* button = input->pad_primary_.button_at_offset(static_cast<uint32_t>(i) * 0x20u);
                 button && button->held_down_)
                 s.buttons = static_cast<uint16_t>(s.buttons | (1u << i));
-        core::at(s.stick, 0) = core::at(input->pad_primary_.scaled_stick_, 0);
-        core::at(s.stick, 1) = core::at(input->pad_primary_.scaled_stick_, 1);
+        core::at(s.stick, 0) = core::at(input->pad_primary_.scaled_stick(), 0);
+        core::at(s.stick, 1) = core::at(input->pad_primary_.scaled_stick(), 1);
     }
     copy3(s.pos, object->at_point_);
     copy3(s.vel, object->vel_);

@@ -361,9 +361,9 @@ void poll_controller(InputPort* device, SDL_GameController* controller)
 {
     if (!SDL_GameControllerGetAttached(controller))
         return;
-    std::array<uint8_t, 32>& data = device->control_data_;
-    device->is_usable_ = 1;
-    device->is_connected_ = true;
+    std::array<uint8_t, 32>& data = device->control_data();
+    device->set_is_usable(1);
+    device->set_is_connected(true);
 
     if (is_controller_button_held(controller, sdl_input_state().pad_.menu))
         core::at(data, 2) |= 1 << 3;
@@ -573,9 +573,9 @@ uint8_t get_key_down(platform::KeyState keys, uint8_t key)
 
 void poll_keyboard(InputPort* device)
 {
-    std::array<uint8_t, 32>& data = device->control_data_;
-    device->is_usable_ = 1;
-    device->is_connected_ = true;
+    std::array<uint8_t, 32>& data = device->control_data();
+    device->set_is_usable(1);
+    device->set_is_connected(true);
 
     const platform::KeyState keys = platform::keyboard_keys();
     update_menu_keys(keys);
@@ -995,19 +995,19 @@ void load_pad_binds()
 // keyboard_control_, cleared this way too.
 void set_usable(InputPort* device, bool on)
 {
-    device->is_usable_ = on ? 1 : 0;
-    std::memset(device->pad15_.data(), 0, sizeof(device->pad15_));
+    device->set_is_usable(on ? 1 : 0);
+    std::memset(device->pad15().data(), 0, sizeof(device->pad15()));
 }
 void set_connected(InputPort* device, bool on)
 {
-    device->is_connected_ = on;
-    std::memset(device->pade1_.data(), 0, sizeof(device->pade1_));
+    device->set_is_connected(on);
+    std::memset(device->pade1().data(), 0, sizeof(device->pade1()));
 }
 void set_held_down(InputPort* device, bool on)
 {
-    device->held_down_ = on ? 1 : 0;
-    device->keyboard_control_ = 0;
-    std::memset(device->padee_.data(), 0, sizeof(device->padee_));
+    device->set_held_down(on ? 1 : 0);
+    device->set_keyboard_control(0);
+    std::memset(device->padee().data(), 0, sizeof(device->padee()));
 }
 
 } // namespace
@@ -1056,17 +1056,17 @@ void process_sdl_device(InputPort* device)
     sdl_input_state().editing_park_ = in_park_editor();
     sdl_input_state().in_menu_ = in_menu_flag() && !sdl_input_state().editing_park_;
 
-    device->capabilities_ = 3;
-    device->rumble_motor_count_ = 2;
-    core::at(device->rumble_cap_, 0) = 255;
-    core::at(device->rumble_cap_, 1) = 255;
-    device->cur_phase_ = InputPort::kReady;
+    device->set_capabilities(3);
+    device->set_rumble_motor_count(2);
+    core::at(device->rumble_cap(), 0) = 255;
+    core::at(device->rumble_cap(), 1) = 255;
+    device->set_cur_phase(InputPort::kReady);
 
     os_layer::pump_sdl_events();
 
     set_usable(device, false);
     set_connected(device, false);
-    std::array<uint8_t, 32>& data = device->control_data_;
+    std::array<uint8_t, 32>& data = device->control_data();
     core::at(data, 0) = 0;
     core::at(data, 1) = 0x70;
     // The button bits are set for buttons down while the keyboard and the controller are read (so both can add
@@ -1085,22 +1085,22 @@ void process_sdl_device(InputPort* device)
     // are let go) it has the keyboard and the controllers - the game reads nothing pressed.
     // Original behaviour: the keyboard and the controller always read.
     const bool new_frontend = frontend::new_frontend::blocks_game_input();
-    if (device->port_no_ == 0) {
+    if (device->port_no() == 0) {
         set_usable(device, true);
         set_connected(device, true);
         if (!get_keyboard_on_screen() && !new_frontend)
             poll_keyboard(device);
     }
-    auto port = static_cast<uint32_t>(device->port_no_);
+    auto port = static_cast<uint32_t>(device->port_no());
     if (port < kMaxPlayers && core::at(sdl_input_state().players_, port).controller && !core::at(sdl_input_state().players_, port).locked_out_ && !new_frontend)
         poll_controller(device, core::at(sdl_input_state().players_, port).controller);
     // (not original: the buttons the test-automation channel presses - frontend/automation.h)
-    frontend::automation::add_pad_buttons(device->port_no_, data);
+    frontend::automation::add_pad_buttons(device->port_no(), data);
 
     core::at(data, 2) = static_cast<uint8_t>(~core::at(data, 2));
     core::at(data, 3) = static_cast<uint8_t>(~core::at(data, 3));
     set_held_down(device, (0xFFFF ^ (core::at(data, 2) << 8 | core::at(data, 3))) != 0);
-    device->start_or_a_ = ((~core::at(data, 2) & (1 << 3)) || (~core::at(data, 3) & (1 << 6))) ? 1 : 0;
+    device->set_start_or_a(((~core::at(data, 2) & (1 << 3)) || (~core::at(data, 3) & (1 << 6))) ? 1 : 0);
 
     // (typed text only works with these set)
     online::net_game_state().set_text_entry(true);

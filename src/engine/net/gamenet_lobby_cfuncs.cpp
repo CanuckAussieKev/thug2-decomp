@@ -83,24 +83,24 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
     auto* lobby = manager->lobby_service().get();
     params->fetch_text(0u, &address, 0);
     params->fetch_int_value(0u, &port, 0);
-    auto cookie = static_cast<uint32_t>(lobby->nat_cookie_);
+    auto cookie = static_cast<uint32_t>(lobby->nat_cookie());
     params->read_hash_value(kCookie, &cookie, 0);
-    lobby->nat_cookie_ = static_cast<int>(cookie);
+    lobby->set_nat_cookie(static_cast<int>(cookie));
     net::AppHost* client = manager->start_client_session(false, false, true, 0);
-    game_spy::peer_send_nat_negotiate_cookie(lobby->remote_, static_cast<uint32_t>(inet_addr(address)), port,
-                                             lobby->nat_cookie_); // the cookie to the host
+    game_spy::peer_send_nat_negotiate_cookie(lobby->remote(), static_cast<uint32_t>(inet_addr(address)), port,
+                                             lobby->nat_cookie()); // the cookie to the host
     const int error = game_spy::nat_begin_with_socket(
-        client->get_socket(), lobby->nat_cookie_, kClientNatIndex,
+        client->get_socket(), lobby->nat_cookie(), kClientNatIndex,
         code_address(stubs::do_nothing) /* no progress callback */, &RoomManager::nat_negotiation_completed,
-        lobby->nat_cookie_); // negotiation on the client's socket
+        lobby->nat_cookie()); // negotiation on the client's socket
     if (error) {
         nat_free_negotiations();
         pop_heap();
         return false;
     }
-    tasks->queue_job(lobby->nat_task_.get());
+    tasks->queue_job(lobby->nat_task().get());
     client->set_outside_packet_hook([](const uint8_t* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
-    tasks->queue_job(lobby->hosting_task_.get());
+    tasks->queue_job(lobby->hosting_task().get());
     for (int i = 0; i < net_game_state().queued_count(); ++i)
         crt::dealloc(memory::owned_element(core::at(net_game_state().get_queue(), i).data)); // (the game's C runtime free; the queue's copy)
     net_game_state().queued_count() = 0;
@@ -112,11 +112,11 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
 bool cfunc_cancel_nat_negotiation(script::Struct*, script::Script*)
 {
     const RoomManager* lobby = current_lobby();
-    nat_cancel(lobby->nat_cookie_);
+    nat_cancel(lobby->nat_cookie());
     nat_think();
     nat_free_negotiations();
-    current_lobby()->nat_task_->drop_out();
-    current_lobby()->hosting_task_->drop_out();
+    current_lobby()->nat_task()->drop_out();
+    current_lobby()->hosting_task()->drop_out();
     return true;
 }
 
@@ -127,15 +127,15 @@ bool cfunc_leave_lobby(script::Struct* params, script::Script*)
     const Hub* manager = net_game_state().net_session_slot();
     auto* lobby = manager->lobby_service().get();
     FriendsManager* buddy = manager->presence_service().get();
-    game_spy::peer_leave_room(lobby->remote_, kRoomGroupKind, nullptr); // the group room left
-    lobby->in_group_room_ = false;
+    game_spy::peer_leave_room(lobby->remote(), kRoomGroupKind, nullptr); // the group room left
+    lobby->set_in_group_room(false);
     if (buddy->authenticated_ && !params->has_entry_named(kPreserveStatus)) {
         const char* text = script::fetch_text(kHomieStatusLoggingIn);
         const char* status = script::fetch_text(kHomieStatusOnline);
         static_cast<FriendsManager*>(buddy)->change_standing(kStatusOnline, status,
                                                              text); // the presence's status (its text, location)
     }
-    game_spy::peer_set_group_id(lobby->remote_, lobby->group_id_);
+    game_spy::peer_set_group_id(lobby->remote(), lobby->group_id());
     pop_heap();
     return true;
 }
@@ -143,8 +143,8 @@ bool cfunc_leave_lobby(script::Struct* params, script::Script*)
 // 0x00540640
 bool cfunc_cancel_lobby_connect(script::Struct*, script::Script*)
 {
-    current_lobby()->connecting_ = false;
-    current_lobby()->drop_is_expected_ = true;
+    current_lobby()->set_connecting(false);
+    current_lobby()->set_drop_is_expected(true);
     return true;
 }
 
@@ -154,7 +154,7 @@ bool cfunc_set_quiet_mode(script::Struct* params, script::Script*)
     push_internet_heap();
     const Hub* manager = net_game_state().net_session_slot();
     const int quiet = params->has_bare_flag(kOff) ? 0 : 1;
-    game_spy::peer_set_quiet_mode(manager->lobby_service()->remote_, quiet);
+    game_spy::peer_set_quiet_mode(manager->lobby_service()->remote(), quiet);
     pop_heap();
     return true;
 }
@@ -164,8 +164,8 @@ bool cfunc_can_host_game(script::Struct*, script::Script*)
 {
     const Hub* manager = net_game_state().net_session_slot();
     const RoomManager* lobby = manager->lobby_service().get();
-    if (!lobby->restricted_hosting_)
-        return lobby->unknown30_ < lobby->unknown2c_;
+    if (!lobby->restricted_hosting())
+        return lobby->unknown30() < lobby->unknown2c();
     if (!manager->presence_service()->authenticated_) // (logged in to the presence)
         return false;
     const int profile = manager->presence_service()->account_;

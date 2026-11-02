@@ -84,8 +84,8 @@ JoinerRecord::~JoinerRecord()
 // 0x00543180
 void clear_update_records(PlayerRecord* player)
 {
-    std::ranges::fill(player->sent_.value68_, 0u);
-    std::ranges::fill(player->sent_.value_6c_, 0u);
+    std::ranges::fill(player->sent().value68_, 0u);
+    std::ranges::fill(player->sent().value_6c_, 0u);
 }
 
 // 0x00543740
@@ -219,8 +219,8 @@ void PlayerRecord::await_ready_response(uint32_t id)
         return;
     if (id)
         ready_query_owed_ = id;
-    conn_->cur_standing_ &= ~net::Conn::kConnReady;
-    conn_->cur_standing_ |= net::Conn::kStatus2;
+    conn_->cur_standing() &= ~net::Conn::kConnReady;
+    conn_->cur_standing() |= net::Conn::kStatus2;
 }
 
 // 0x005446C0
@@ -229,8 +229,8 @@ void PlayerRecord::receive_ready_response(uint32_t id)
     if (ready_query_owed_ != id)
         return;
     if (conn_) {
-        conn_->cur_standing_ &= ~net::Conn::kStatus2;
-        conn_->cur_standing_ |= net::Conn::kConnReady;
+        conn_->cur_standing() &= ~net::Conn::kStatus2;
+        conn_->cur_standing() |= net::Conn::kConnReady;
         conn_->clear_resend_counts();
     }
     ready_query_owed_ = 0;
@@ -291,7 +291,7 @@ bool PlayerRecord::is_eliminated()
                             ->get_total_score() == 0; // (its score's lives)
 }
 int PlayerRecord::holds_crown() { return static_cast<int>((flag_bits_ >> 7) & 1); }
-int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl_ : 0; }
+int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl() : 0; }
 uint32_t PlayerRecord::get_skater_view_slot() { return static_cast<uint32_t>(rider()->view_slot()); }
 int PlayerRecord::is_pending_observer() { return static_cast<int>((flag_bits_ >> 3) & 1); }
 
@@ -304,6 +304,12 @@ ScoreEntry* ScoreEntry::teardown(unsigned int flags)
     if (flags & 1)
         memory::Hub::get_pull()->dealloc(this);
     return this;
+}
+
+void PlayerRecord::delete_observer_task()
+{
+    delete observer_task_;
+    observer_task_ = nullptr;
 }
 
 } // namespace online

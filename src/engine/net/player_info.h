@@ -201,9 +201,52 @@ public:
     // player's crown arrow shown again in netking / king).
     void give_crown(bool king);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] objects::GameEntity* skater() const { return skater_; }
+    void set_skater(objects::GameEntity* value) { skater_ = value; }
+    [[nodiscard]] net::Conn* conn() const { return conn_; }
+    void set_conn(net::Conn* value) { conn_ = value; }
+    [[nodiscard]] uint32_t eliminated_time() const { return eliminated_time_; }
+    void set_eliminated_time(uint32_t value) { eliminated_time_ = value; }
+    [[nodiscard]] int accumulated_score() const { return accumulated_score_; }
+    void set_accumulated_score(int value) { accumulated_score_ = value; }
+    [[nodiscard]] int best_combo() const { return best_combo_; }
+    void set_best_combo(int value) { best_combo_ = value; }
+    [[nodiscard]] int32_t profile_id() const { return profile_id_; }
+    void set_profile_id(int32_t value) { profile_id_ = value; }
+    [[nodiscard]] int skill_points() const { return skill_points_; }
+    void set_skill_points(int value) { skill_points_ = value; }
+    [[nodiscard]] int team() const { return team_; }
+    void set_team(int value) { team_ = value; }
+    int& num_placed() { return num_placed_; }
+    [[nodiscard]] int num_placed() const { return num_placed_; }
+    std::array<char, 16>& label() { return label_; }
+    [[nodiscard]] const std::array<char, 16>& label() const { return label_; }
+    [[nodiscard]] int32_t drive_control_mode() const { return drive_control_mode_; }
+    void set_drive_control_mode(int32_t value) { drive_control_mode_ = value; }
+    [[nodiscard]] objects::RiderIdentity* account() const { return account_; }
+    SentSkaterUpdates& sent() { return sent_; }
+    [[nodiscard]] const SentSkaterUpdates& sent() const { return sent_; }
+    std::array<script::VectorValue, 5>& placed() { return placed_; }
+    [[nodiscard]] const std::array<script::VectorValue, 5>& placed() const { return placed_; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] int rejoin_group() const { return rejoin_group_; }
+    void set_rejoin_group(int value) { rejoin_group_ = value; }
+    [[nodiscard]] uint8_t* face_texture_data() const { return face_texture_data_; }
+    void assign_face_texture_data(uint8_t* value) { face_texture_data_ = value; }
+    [[nodiscard]] tasks::SchedulerTask* observer_task() const { return static_cast<tasks::SchedulerTask*>(observer_task_); } // (a view: it stays the owner's)
+    void set_observer_task(gsl::owner<tasks::SchedulerTask*> value) { observer_task_ = value; }
+    // The observer task deleted (where observing ends; player_info.cpp).
+    void delete_observer_task();
+
+private:
     objects::GameEntity* skater_; // +0x14 (a Rider)
+
+public:
     // The skater as the Rider it is (null without one).
     [[nodiscard]] objects::Rider* rider() const;
+private:
     net::Conn* conn_{};          // +0x18
     uint32_t eliminated_time_;   // +0x1C
     int accumulated_score_{};    // +0x20

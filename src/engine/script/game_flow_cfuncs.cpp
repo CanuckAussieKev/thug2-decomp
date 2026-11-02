@@ -638,7 +638,7 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
         desc.byte_count_ = sizeof(data);
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = 8;
-        server->put_on_outbox(conn->hdl_, &desc);
+        server->put_on_outbox(conn->hdl(), &desc);
         script::script_state().last_broadcasted_omnigon() = omnigon;
     }
     script::script_state().last_broadcasted_omnigon() = omnigon;

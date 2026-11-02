@@ -98,6 +98,21 @@ public:
     void enable_blur();
     void disable_blur();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] char* chars() const { return chars_; }
+    void set_font_name(uint32_t value) { font_name_ = value; }
+    void set_typeface(void* value) { typeface_ = value; }
+    [[nodiscard]] int num() const { return num_; }
+    [[nodiscard]] SmearEffect* blur() const { return blur_; }
+    [[nodiscard]] bool shadow() const { return shadow_; }
+    void set_shadow(bool value) { shadow_ = value; }
+    void set_shadow_x(float value) { shadow_x_ = value; }
+    std::array<uint8_t, 4>& shadow_rgba() { return shadow_rgba_; }
+    [[nodiscard]] const std::array<uint8_t, 4>& shadow_rgba() const { return shadow_rgba_; }
+    void set_override_rgba(bool value) { override_rgba_ = value; }
+    void set_shadow_y(float value) { shadow_y_ = value; }
+
+private:
     char* chars_{nullptr};                // +0x178
     uint32_t font_name_{0};               // +0x17C
     void* typeface_{nullptr};             // +0x180

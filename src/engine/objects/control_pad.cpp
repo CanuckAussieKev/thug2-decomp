@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/pad_input/input_hub.h"
@@ -139,38 +140,33 @@ int ControlButton::get_held_millis()
     return frame_clock::game_clock_elapsed() + (stored_clock_offset() - pressed);
 }
 
-namespace {
-
-// Every button of the pad with the name scripts ask for it by (each name's checksum is what read_button matches).
-struct PadButtonName {
-    ControlButton PadSnapshot::* button;
-    const char* name;
-};
-constexpr auto kPadButtons = std::to_array<PadButtonName>({
-    {.button = &PadSnapshot::up_dir_, .name = "UP"},
-    {.button = &PadSnapshot::btn_down_, .name = "DOWN"},
-    {.button = &PadSnapshot::left_side_, .name = "LEFT"},
-    {.button = &PadSnapshot::right_side_, .name = "RIGHT"},
-    {.button = &PadSnapshot::button_box_, .name = "SQUARE"},
-    {.button = &PadSnapshot::button_round_, .name = "CIRCLE"},
-    {.button = &PadSnapshot::button_wedge_, .name = "TRIANGLE"},
-    {.button = &PadSnapshot::pos_x_, .name = "X"},
-    {.button = &PadSnapshot::shoulder_left_a_, .name = "L1"},
-    {.button = &PadSnapshot::shoulder_left_b_, .name = "L2"},
-    {.button = &PadSnapshot::stick_click_left_, .name = "L3"},
-    {.button = &PadSnapshot::shoulder_right_a_, .name = "R1"},
-    {.button = &PadSnapshot::shoulder_right_b_, .name = "R2"},
-    {.button = &PadSnapshot::stick_click_right_, .name = "R3"},
-    {.button = &PadSnapshot::outset_, .name = "START"},
-    {.button = &PadSnapshot::button_choose_, .name = "SELECT"},
-});
-
-} // namespace
+std::span<const PadSnapshot::ButtonName> PadSnapshot::button_names()
+{
+    static constexpr auto kPadButtons = std::to_array<ButtonName>({
+        {.button = &PadSnapshot::up_dir_, .name = "UP"},
+        {.button = &PadSnapshot::btn_down_, .name = "DOWN"},
+        {.button = &PadSnapshot::left_side_, .name = "LEFT"},
+        {.button = &PadSnapshot::right_side_, .name = "RIGHT"},
+        {.button = &PadSnapshot::button_box_, .name = "SQUARE"},
+        {.button = &PadSnapshot::button_round_, .name = "CIRCLE"},
+        {.button = &PadSnapshot::button_wedge_, .name = "TRIANGLE"},
+        {.button = &PadSnapshot::pos_x_, .name = "X"},
+        {.button = &PadSnapshot::shoulder_left_a_, .name = "L1"},
+        {.button = &PadSnapshot::shoulder_left_b_, .name = "L2"},
+        {.button = &PadSnapshot::stick_click_left_, .name = "L3"},
+        {.button = &PadSnapshot::shoulder_right_a_, .name = "R1"},
+        {.button = &PadSnapshot::shoulder_right_b_, .name = "R2"},
+        {.button = &PadSnapshot::stick_click_right_, .name = "R3"},
+        {.button = &PadSnapshot::outset_, .name = "START"},
+        {.button = &PadSnapshot::button_choose_, .name = "SELECT"},
+    });
+    return kPadButtons;
+}
 
 // 0x0046B940
 PadSnapshot::PadSnapshot()
 {
-    for (const PadButtonName& entry : kPadButtons)
+    for (const ButtonName& entry : button_names())
         (this->*entry.button).change_title(entry.name);
     core::at(lock_, 0) = core::at(lock_, 1) = 0;
 }
@@ -178,7 +174,7 @@ PadSnapshot::PadSnapshot()
 // 0x0046BB50: every button let go (a held one records its release), the sticks centred.
 void PadSnapshot::get_reset()
 {
-    for (const PadButtonName& entry : kPadButtons)
+    for (const ButtonName& entry : button_names())
         (this->*entry.button).tick_frame(0);
     for (float& f : stick_)
         f = 0.0f;

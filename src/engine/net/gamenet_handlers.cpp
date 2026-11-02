@@ -351,7 +351,7 @@ int handle_team_object(net::InboundMsgCtx* context)
     if (!player)
         return kDone;
     const uint32_t object = message_word(context, 0);
-    auto& objects = core::at(manager->team_objects(), player->team_); // five per team
+    auto& objects = core::at(manager->team_objects(), player->team()); // five per team
     for (uint32_t& slot : objects) {
         if (!slot) {
             slot = object;
@@ -368,7 +368,7 @@ int handle_cd_key_answer(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     const PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
-    const uint32_t id = player->skater_->ident_; // its skater's id
+    const uint32_t id = player->skater()->ident_; // its skater's id
     manager->rating_service()->set_player_auth(static_cast<int>(id), net::wire::text_of(context->body_));
     return kContinue;
 }
@@ -380,13 +380,13 @@ int handle_created_data_request(net::InboundMsgCtx* context)
     net::AppHost* app = context->receiver_app_;
     Hub* manager = manager_of(context);
     if (id == kMsgRequestRails) {
-        const int handle = context->sender_conn_->hdl_;
+        const int handle = context->sender_conn_->hdl();
         auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
         rail_editor(); // (looked up once for nothing)
         void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed(); // the rails, packed
         app->send_bulk_message(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     } else if (id == kMsgRequestGoals && manager->has_created_goals()) {
-        const int handle = context->sender_conn_->hdl_;
+        const int handle = context->sender_conn_->hdl();
         void* goals = manager->get_created_goals_message();
         auto size = static_cast<uint16_t>(manager->get_created_goals_size());
         app->send_bulk_message(handle, kMsgGoalsData, size, goals, "goals data", kGroupGame, false, true);

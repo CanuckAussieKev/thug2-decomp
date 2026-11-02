@@ -337,9 +337,9 @@ public:
         render::WeatherSystem* object = render::weather();
         if (!object)
             return;
-        float& rain_rate = object->rain_rate_;
-        float& snow_rate = object->snow_rate_;
-        bool& rain = object->rain_on_;
+        float& rain_rate = object->rain_rate();
+        float& snow_rate = object->snow_rate();
+        bool& rain = object->rain_on();
         if (weather == kWeatherRain) {
             rain = true;
             rain_rate = 16.0f;
@@ -572,7 +572,7 @@ bool filter_outgoing_message(net::AppHost* app, int handle, net::NetMessageInfo*
 
 void add_client_handlers(net::AppHost* client, void* skate)
 {
-    net::Router& dispatcher = client->dispatcher_;
+    net::Router& dispatcher = client->dispatcher();
     dispatcher.append_listener(kMsgServerInfo, handle_server_info, 0, skate, 0x80);
     dispatcher.append_listener(kMsgModsAllowed, handle_mods_allowed, 0, skate, 0x80);
     dispatcher.append_listener(kMsgUpdateTimeOfDay, handle_update_time_of_day, net::kPacketLate, skate, 0x80);

@@ -320,13 +320,13 @@ template <size_t N>
 void add_handlers(AppHost* app, Hub* manager, const std::array<HandlerEntry, N>& entries)
 {
     for (const HandlerEntry& entry : entries)
-        app->dispatcher_.append_listener(entry.id, entry.code, entry.flags, entry.manager_data_ ? manager : nullptr,
+        app->dispatcher().append_listener(entry.id, entry.code, entry.flags, entry.manager_data_ ? manager : nullptr,
                                          entry.priority);
 }
 
 void send_refused(AppHost* app, Conn* conn, const char* data)
 {
-    app->deliver_to(kMsgJoinRefused, kJoinRefusedSize, data, conn->remote_ip_, conn->port_no_, 0);
+    app->deliver_to(kMsgJoinRefused, kJoinRefusedSize, data, conn->remote_ip(), conn->port_no(), 0);
 }
 
 } // namespace
@@ -516,7 +516,7 @@ AppHost* Hub::start_matchmaking_client()
     AppHost* client = net->make_client_app(0, kMatchAppName.data(), kJoinPort, static_cast<int>(current_local_address()),
                                            kAppBroadcast | kAppDynamicResend | kAppForeign | kAppSecure);
     browser_client_ = client;
-    client->dispatcher_.append_listener(kMsgServerResponse, &on_server_reply_msg, kRunForForeign | kRunWhenLate, this,
+    client->dispatcher().append_listener(kMsgServerResponse, &on_server_reply_msg, kRunForForeign | kRunWhenLate, this,
                                         kMidPriority);
     return browser_client_;
 }
@@ -561,7 +561,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         desc.content_ = proceed_bytes.data();
         desc.ident_ = kMsgJoinProceed;
         desc.byte_count_ = sizeof(proceed_bytes);
-        context->receiver_app_->put_on_outbox(conn->hdl_, &desc);
+        context->receiver_app_->put_on_outbox(conn->hdl(), &desc);
         return net::kResultPassOn;
     }
     if (!(context->wire_options_ & kRunForForeign))
@@ -591,7 +591,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         return net::kResultStop;
     }
     Conn* joined =
-        context->receiver_app_->opened_link(static_cast<int>(conn->remote_ip_), conn->port_no_, Conn::kFlagRemote);
+        context->receiver_app_->opened_link(static_cast<int>(conn->remote_ip()), conn->port_no(), Conn::kFlagRemote);
     context->sender_conn_ = joined;
     joined->set_link_speed_class(msg->broadband ? Conn::kBandwidthBroadband : Conn::kBandwidthModem);
     joined->set_transmit_period(static_cast<uint32_t>(1000 / game_config::frame_rate() * 2)); // two frames
@@ -603,7 +603,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         instance->manager = manager;
         instance->app = context->receiver_app_;
         instance->conn = joined;
-        authenticate_user(static_cast<int>(joined->ident_), context->sender_conn_->remote_ip_, manager->challenge_.data(),
+        authenticate_user(static_cast<int>(joined->ident()), context->sender_conn_->remote_ip(), manager->challenge_.data(),
                           msg->cd_key_response_.data(), instance);
         return net::kResultPassOn;
     }
@@ -621,8 +621,8 @@ int Hub::on_link_established(InboundMsgCtx* context)
     std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
     util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
     write_proceed_info(writer, proceed);
-    context->receiver_app_->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes.data(), joined->remote_ip_,
-                                       joined->port_no_, 0);
+    context->receiver_app_->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes.data(), joined->remote_ip(),
+                                       joined->port_no(), 0);
     return net::kResultPassOn;
 }
 
@@ -653,8 +653,8 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
         util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
         write_proceed_info(writer, proceed);
-        instance->app->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes.data(), instance->conn->remote_ip_,
-                                  instance->conn->port_no_, 0);
+        instance->app->deliver_to(kMsgJoinProceed, sizeof(proceed_bytes), proceed_bytes.data(), instance->conn->remote_ip(),
+                                  instance->conn->port_no(), 0);
     }
     memory::Hub::get_pull()->dealloc(instance);
 }
@@ -680,7 +680,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         desc.content_ = refused.data();
         desc.byte_count_ = kJoinRefusedSize;
         desc.ident_ = kMsgJoinRefused;
-        context->receiver_app_->put_on_outbox(conn->hdl_, &desc);
+        context->receiver_app_->put_on_outbox(conn->hdl(), &desc);
         context->sender_conn_->mark_stale();
         return net::kResultStop;
     }
@@ -720,7 +720,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
             std::array<char, 0x80> response{};
             get_cd_key(key.data());
             compute_cd_key_response(key.data(), manager->challenge_.data(), response.data());
-            authenticate_user(0, context->sender_conn_->remote_ip_, manager->challenge_.data(), response.data(), nullptr);
+            authenticate_user(0, context->sender_conn_->remote_ip(), manager->challenge_.data(), response.data(), nullptr);
         }
         return net::kResultPassOn;
     }
@@ -739,7 +739,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     player->~JoinerRecord();
     memory::Hub::get_pull()->dealloc(player);
     // Busy until it's in: no game messages meanwhile.
-    context->sender_conn_->cur_standing_ = (context->sender_conn_->cur_standing_ & ~Conn::kConnReady) | Conn::kStatus2;
+    context->sender_conn_->cur_standing() = (context->sender_conn_->cur_standing() & ~Conn::kConnReady) | Conn::kStatus2;
     return net::kResultPassOn;
 }
 
@@ -762,10 +762,10 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
         manager->join_private_ip_ = proceed->private_ip_;
         manager->join_port_ = proceed->port;
         if (manager->presence_service_->authenticated_) {
-            std::strcpy(manager->lobby_service_->server_name_.data(), proceed->server_name_.data());
+            std::strcpy(manager->lobby_service_->server_name().data(), proceed->server_name_.data());
             std::array<char, 0x1000> location{};
             get_sprintf(location.data(), kPresenceLocationFormat.data(), manager->join_ip_, manager->join_private_ip_,
-                        manager->join_port_, manager->lobby_service_->server_name_.data(), manager->lobby_service_->room_name_.data());
+                        manager->join_port_, manager->lobby_service_->server_name().data(), manager->lobby_service_->room_name().data());
             const char* status = script::fetch_text(manager->join_mode_ == 0 ? kStatusPlaying : kStatusObserving);
             manager->presence_service_->change_standing(2, status, location.data());
         }

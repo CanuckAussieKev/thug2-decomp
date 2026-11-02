@@ -339,7 +339,7 @@ bool cfunc_dump_net_message_stats(script::Struct*, script::Script*)
             return true;
     }
     for (net::Conn* conn = app->begin_conn_walk(&search); conn; conn = app->step_conn_walk(&search)) {
-        for (net::Gauges* metrics : {&conn->receive_metrics_, &conn->send_metrics_}) {
+        for (net::Gauges* metrics : {&conn->receive_metrics(), &conn->send_metrics()}) {
             for (int pass = 0; pass < 2; ++pass) {
                 for (int id = 0; id < 256; ++id) {
                     print_message_stat(id, metrics->get_msg_byte_total(id));

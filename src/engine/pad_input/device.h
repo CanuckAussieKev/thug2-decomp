@@ -64,6 +64,34 @@ public:
     // 0x005BDC60: stop the motors and forget the remembered levels.
     void stop_actuators();
 
+    // The fields other code reads and sets.
+    memory::ListNode*& list_link() { return list_link_; }
+    [[nodiscard]] memory::ListNode* list_link() const { return list_link_; }
+    [[nodiscard]] int port_no() const { return port_no_; }
+    [[nodiscard]] int seat() const { return seat_; }
+    [[nodiscard]] uint8_t is_usable() const { return is_usable_; }
+    void set_is_usable(uint8_t value) { is_usable_ = value; }
+    std::array<uint8_t, 3>& pad15() { return pad15_; }
+    [[nodiscard]] const std::array<uint8_t, 3>& pad15() const { return pad15_; }
+    std::array<uint8_t, 32>& control_data() { return control_data_; }
+    [[nodiscard]] const std::array<uint8_t, 32>& control_data() const { return control_data_; }
+    std::array<uint8_t, 32>& rumble_cap() { return rumble_cap_; }
+    [[nodiscard]] const std::array<uint8_t, 32>& rumble_cap() const { return rumble_cap_; }
+    void set_capabilities(uint32_t value) { capabilities_ = value; }
+    [[nodiscard]] uint32_t unknownc8() const { return unknownc8_; }
+    void set_rumble_motor_count(int value) { rumble_motor_count_ = value; }
+    void set_cur_phase(int value) { cur_phase_ = value; }
+    [[nodiscard]] int ordinal() const { return ordinal_; }
+    void set_is_connected(bool value) { is_connected_ = value; }
+    std::array<uint8_t, 3>& pade1() { return pade1_; }
+    [[nodiscard]] const std::array<uint8_t, 3>& pade1() const { return pade1_; }
+    void set_held_down(uint8_t value) { held_down_ = value; }
+    void set_keyboard_control(uint8_t value) { keyboard_control_ = value; }
+    std::array<uint8_t, 2>& padee() { return padee_; }
+    [[nodiscard]] const std::array<uint8_t, 2>& padee() const { return padee_; }
+    void set_start_or_a(uint32_t value) { start_or_a_ = value; }
+
+private:
     // (The original's vtable held only the destructor: no vtable here.)
     memory::ListNode* list_link_; // in the manager's device list
     int kind_tag_{};

@@ -58,7 +58,7 @@ void SkaterPhysicsModule::try_start_skitch()
 {
     if (on_vehicle_)
         return;
-    objects::ControlButton* button = &input_->pad_primary_.up_dir_;
+    objects::ControlButton* button = &input_->pad_primary_.up_dir();
     // (not original: THAW 0x005D33A7 - on the bike R2 held, not up)
     objects::ControlButton* hold = thaw_bmx::live_now(this) ? thaw_bmx::tow_button(this) : button;
     if (state_->flag(PoseFlag::kSkitching).on || !hold->held_down_)
@@ -89,8 +89,8 @@ void SkaterPhysicsModule::try_start_skitch()
     }
     if (!found)
         return;
-    take_press(&input_->pad_primary_.shoulder_left_a_);
-    take_press(&input_->pad_primary_.shoulder_right_a_);
+    take_press(&input_->pad_primary_.shoulder_left_a());
+    take_press(&input_->pad_primary_.shoulder_right_a());
     // (0x0041D1D0: the smart pointer set)
     skitch_target_.assign_object(found);
     found->post_own_event(kSkitched, nullptr);
@@ -111,21 +111,21 @@ void SkaterPhysicsModule::get_skitch()
 
     // A press of either pair of buttons moves to the next skitch point along the car, one way or the other.
     float direction = 0.0f;
-    if (pad->shoulder_left_a_.fired_) {
-        take_press(&pad->shoulder_left_a_);
+    if (pad->shoulder_left_a().fired_) {
+        take_press(&pad->shoulder_left_a());
         direction = 1.0f;
     }
-    if (pad->shoulder_right_a_.fired_) {
-        take_press(&pad->shoulder_right_a_);
+    if (pad->shoulder_right_a().fired_) {
+        take_press(&pad->shoulder_right_a());
         direction = -1.0f;
     }
-    if (pad->shoulder_left_b_.fired_) {
-        take_press(&pad->shoulder_left_b_);
+    if (pad->shoulder_left_b().fired_) {
+        take_press(&pad->shoulder_left_b());
         direction = 1.0f;
     }
     bool move = false;
-    if (pad->shoulder_right_b_.fired_) {
-        take_press(&pad->shoulder_right_b_);
+    if (pad->shoulder_right_b().fired_) {
+        take_press(&pad->shoulder_right_b());
         direction = -1.0f;
         move = true;
     } else {

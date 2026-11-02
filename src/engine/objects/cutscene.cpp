@@ -90,9 +90,9 @@ void CinematicTable::check_skip()
 {
     if (script::fetch_int_value(kNoSkipping) != 0 || !can_skip_ || clock_ == 0.0f)
         return;
-    const modules::FrontEndInputHandler* handler = core::at(modules::front_end_instance()->pad_listeners_, 0).get();
+    const modules::FrontEndInputHandler* handler = core::at(modules::front_end_instance()->pad_listeners(), 0).get();
     auto* device = handler->dev_;
-    if (!device->is_attached() || !device->is_usable_)
+    if (!device->is_attached() || !device->is_usable())
         return;
     if (handler->control_data_->makes_ & (kButtonX | kButtonStart)) {
         clock_ = end_time_;
@@ -140,6 +140,6 @@ void CinematicEntry::update_option_state()
 }
 
 // 0x00464580
-bool CinematicEntry::can_be_skipped() { return content_ ? content_->can_skip_ : false; }
+bool CinematicEntry::can_be_skipped() { return content_ ? content_->can_skip() : false; }
 
 } // namespace objects

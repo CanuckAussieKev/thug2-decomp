@@ -154,7 +154,7 @@ PlayerRecord* find_player_slot_by_obj(uint32_t id)
     return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 bool is_own_player(PlayerRecord* player) { return player->is_own_player() != 0; }
-objects::Entity* player_skater(const PlayerRecord* player) { return player->skater_; }
+objects::Entity* player_skater(const PlayerRecord* player) { return player->skater(); }
 
 // A goal by name (the goal manager's 0x00557F90) and two of its virtuals: +0xC is it active, +0x14 its update.
 goals::Objective* get_goal(goals::GoalManager* manager, uint32_t name) { return manager->get_goal(name, 1); }
@@ -175,7 +175,7 @@ objects::RiderFrameLog* history_of(objects::Entity* object)
 void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint32_t flags, void* data,
                      int priority = 0x80)
 {
-    app->dispatcher_.append_listener(static_cast<uint8_t>(id), code, flags, data, priority);
+    app->dispatcher().append_listener(static_cast<uint8_t>(id), code, flags, data, priority);
 }
 
 } // namespace
@@ -378,9 +378,9 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         int local_team = -1;
         PlayerRecord* local = net->get_own_player();
         if (local && !local->is_observer() && local->has_finished_joining())
-            local_team = local->team_;
+            local_team = local->team();
         params = script::new_struct();
-        params->append_word(kName, local->label_.data()); // (no local player: read through null, as the original)
+        params->append_word(kName, local->label().data()); // (no local player: read through null, as the original)
         if (core::at(data, 1) == 1 || core::at(data, 1) == 5) {
             const bool one = core::at(data, 1) == 1;
             if (core::at(data, 0) == local_team) {
@@ -396,7 +396,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         if (!player)
             return 1;
         params = script::new_struct();
-        params->append_word(kName, player->label_.data());
+        params->append_word(kName, player->label().data());
         if (core::at(data, 1) == 1 || core::at(data, 1) == 5) {
             const bool one = core::at(data, 1) == 1;
             if (is_own_player(player))
@@ -433,8 +433,8 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
     PlayerRecord* player = find_player_slot_by_obj(static_cast<uint32_t>(static_cast<int16_t>(message.player_id)));
     if (!player)
         return 4;
-    player->num_placed_ = message.count;
-    for (int i = 0; i < player->num_placed_; ++i) {
+    player->num_placed() = message.count;
+    for (int i = 0; i < player->num_placed(); ++i) {
         std::array<float, 4> at{};
         // NOT ORIGINAL: no positions past the message's end (the original read on)
         if (!online::read_hunt_position(reader, at))
@@ -557,13 +557,13 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         if (final) {
             objects::Entity* skater = player_skater(local);
             if (skater)
-                skater->post_own_event(local->team_ == best ? kWonGame : kLostGame, nullptr);
+                skater->post_own_event(local->team() == best ? kWonGame : kLostGame, nullptr);
             return 1;
         }
         if (net->get_last_leading_team() == best || !goals::game_mode()->is_true(kShowLeaderMessages) ||
             net->has_match_ended())
             return 1;
-        if (player_skater(local) && local->team_ == best) {
+        if (player_skater(local) && local->team() == best) {
             get_run(kLeaderYourTeam, nullptr, player_skater(local));
         } else {
             text::format_to(text, "team_%d_name", best + 1);
@@ -610,7 +610,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     } else {
         const script::StructPtr params = script::make_struct();
         params->get_clear();
-        params->append_word(kString0, kSymbolString, best->label_.data());
+        params->append_word(kString0, kSymbolString, best->label().data());
         get_run(kLeaderOther, params.get(), player_skater(local));
     }
     net->set_last_leader(best);
@@ -865,7 +865,7 @@ uint32_t entry_time(const StateEntry& entry) { return static_cast<uint32_t>(entr
 uint32_t server_frame()
 {
     const net::AppHost* server = net_session_slot()->host();
-    return static_cast<uint32_t>(server->frame_count_);
+    return static_cast<uint32_t>(server->frame_count());
 }
 
 int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(static_cast<double>(angle) * 4096.0)); }
@@ -875,7 +875,7 @@ int16_t pack_angle(float angle) { return static_cast<int16_t>(static_cast<int>(s
 // 0x005696C0
 uint32_t SkateNet::get_relay_flags(void* sent_record, void* state_entry, uint8_t index)
 {
-    online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(sent_record)->sent_;
+    online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(sent_record)->sent();
     auto* entry = static_cast<StateEntry*>(state_entry);
     uint32_t flags = 0;
     // Everything again once 60 of the server's frames have gone by.
@@ -916,7 +916,7 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     auto index = static_cast<uint8_t>(skater->ident_);
     objects::RiderFrameLog* history = history_of(skater);
     StateEntry& entry = core::at(history->states_, (history->state_count_ - 1) % 20);
-    online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(out->sent_)->sent_;
+    online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(out->sent_)->sent();
     util::PackedBitBuffer& stream = out->feed_;
     core::at(sent->time_, index) = entry_time(entry);
     const std::array<float, 3> angles = {{core::at(entry.angles, 0), core::at(entry.angles, 1), core::at(entry.angles, 2)}};
@@ -975,7 +975,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     util::PackedBitBuffer stream;
     PlayerRecord* player = net_session_slot()->find_player_by_sender(context->sender_conn_);
     objects::Entity* object = player ? player_skater(player) : nullptr;
-    if (!object || !(player->conn_->cur_standing_ & 1) || (context->wire_options_ & 3)) {
+    if (!object || !(player->conn()->cur_standing() & 1) || (context->wire_options_ & 3)) {
         // Not taken: the message's length worked out from its fields (a 32-bit time stamp, 9 field bits, then 16
         // bits for each position and angle, 12 for the state, 8 for the 0x80 pair, 32 for the last).
         stream.change_intake_contents(context->body_, 0x400);

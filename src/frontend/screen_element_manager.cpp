@@ -120,7 +120,7 @@ void UiTree::drop_entity_registration(objects::Entity* object)
              node = node->next) {
             ElementPtr candidate;
             candidate.assign_value(static_cast<UiWidget*>(node->data));
-            if (!candidate->container_ && candidate.get_pull() != element.get_pull()) {
+            if (!candidate->container() && candidate.get_pull() != element.get_pull()) {
                 tree_root_.get_assign(&candidate);
                 break;
             }
@@ -154,12 +154,12 @@ void UiTree::change_root(uint32_t id)
 void UiTree::change_owner(ElementPtr* parent, ElementPtr* child, int unused)
 {
     ElementPtr old_parent;
-    old_parent.assign_value(child->get_pull()->container_.get_pull());
+    old_parent.assign_value(child->get_pull()->container().get_pull());
     if (UiWidget* new_parent = parent->get_pull()) {
         if (tree_root_.get_pull() == child->get_pull() || !tree_root_) {
             tree_root_.assign_value(new_parent);
-            while (tree_root_->container_)
-                tree_root_.assign_value(tree_root_->container_.get_pull());
+            while (tree_root_->container())
+                tree_root_.assign_value(tree_root_->container().get_pull());
         }
     }
     remove_focus_entries(child, false, false);
@@ -171,10 +171,10 @@ void UiTree::destroy_tree(int keep, ElementPtr* element, script::Script* script)
 {
     element->get_pull()->set_focus_sent(0);
     ElementPtr child;
-    child.assign_value(element->get_pull()->eldest_.get_pull());
+    child.assign_value(element->get_pull()->eldest().get_pull());
     while (child) {
         ElementPtr next;
-        next.assign_value(child->following_.get_pull());
+        next.assign_value(child->following().get_pull());
         destroy_tree(0, &child, script);
         child.assign_value(next.get_pull());
     }
@@ -198,7 +198,7 @@ void UiTree::dismantle_part(uint32_t id, int recurse, int keep, script::Script* 
     fetch_part(&element, id, 1);
     if (recurse) {
         remove_focus_entries(&element, false, false);
-        if (UiWidget* parent = element->container_.get_pull())
+        if (UiWidget* parent = element->container().get_pull())
             parent->set_focus_sent(0);
         destroy_tree(keep, &element, script);
     } else {
@@ -215,12 +215,12 @@ void UiTree::dismantle_part(uint32_t id, int recurse, int keep, script::Script* 
 ElementPtr* UiTree::find_by_local_id(ElementPtr* out, const ElementPtr* parent, uint32_t local_id)
 {
     ElementPtr child;
-    child.assign_value(parent->get_pull()->eldest_.get_pull());
+    child.assign_value(parent->get_pull()->eldest().get_pull());
     while (child) {
         uint32_t tag = 0;
         if (child->read_hash_tag(kTagLocalId, &tag) && tag == local_id)
             break;
-        child.assign_value(child->following_.get_pull());
+        child.assign_value(child->following().get_pull());
     }
     out->preceding_ = out->following_ = nullptr;
     out->target_ = nullptr;
@@ -333,10 +333,10 @@ void UiTree::lock_tree(int lock)
             ++element->alias_count_;
         else if (static_cast<int>(element->alias_count_) > 0)
             --element->alias_count_;
-        if (element->following_)
-            core::at(stack, count++) = element->following_.get_pull();
-        if (element->eldest_)
-            core::at(stack, count++) = element->eldest_.get_pull();
+        if (element->following())
+            core::at(stack, count++) = element->following().get_pull();
+        if (element->eldest())
+            core::at(stack, count++) = element->eldest().get_pull();
     }
 }
 
@@ -400,9 +400,9 @@ void UiTree::remove_focus_entries(ElementPtr* element, bool from_parent, bool ma
             ElementPtr walk;
             walk.assign_value(entry->element.get_pull());
             if (from_parent && walk)
-                walk.assign_value(walk->container_.get_pull());
+                walk.assign_value(walk->container().get_pull());
             bool matched = false;
-            for (; walk; walk.assign_value(walk->container_.get_pull())) {
+            for (; walk; walk.assign_value(walk->container().get_pull())) {
                 if (walk.get_pull() == element->get_pull()) {
                     matched = true;
                     break;
@@ -436,7 +436,7 @@ void UiTree::clear_marks(ElementPtr* element)
                 continue;
             ElementPtr walk;
             walk.assign_value(entry->element.get_pull());
-            for (; walk; walk.assign_value(walk->container_.get_pull())) {
+            for (; walk; walk.assign_value(walk->container().get_pull())) {
                 if (walk.get_pull() == element->get_pull()) {
                     entry->marked = false;
                     break;

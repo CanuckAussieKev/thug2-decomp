@@ -63,7 +63,7 @@ uint8_t current_level()
     const modules::Skate* skate = modules::Skate::sole();
     if (!skate)
         return 0;
-    return static_cast<uint8_t>(skate->career()->level_); // (its low byte, as the original reads it)
+    return static_cast<uint8_t>(skate->career()->level()); // (its low byte, as the original reads it)
 }
 
 float desired_aspect_ratio()

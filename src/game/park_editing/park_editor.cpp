@@ -96,7 +96,7 @@ BuildPointer* get_cursor() { return BuildPointer::singleton(); }
 bool have_cursor() { return BuildPointer::singleton() != nullptr; } // (the original asks the getter with 0)
 bool is_gap_tool(BuildPointer* cursor)
 {
-    return cursor->mode_sel_ == BuildPointer::kModeGap || cursor->mode_sel_ == BuildPointer::kModeGapAdjust;
+    return cursor->mode_sel() == BuildPointer::kModeGap || cursor->mode_sel() == BuildPointer::kModeGapAdjust;
 }
 
 void launch_script(uint32_t name) { script::launch_script(name, nullptr, nullptr, false, nullptr); }
@@ -261,7 +261,7 @@ void ParkBuilderMode::set_packed_park_bytes(const uint8_t* bytes, bool flag_dirt
     hub()->set_packed_park_bytes(bytes, flag_dirty);
 }
 bool ParkBuilderMode::main_heap_has_room(int count, int size) { return park_editing::main_heap_has_room(count, size); }
-maths::Vec4* ParkBuilderMode::get_cursor_pos() { return &get_cursor()->at_point_; }
+maths::Vec4* ParkBuilderMode::get_cursor_pos() { return &get_cursor()->at_point(); }
 void ParkBuilderMode::set_daylight_script(uint32_t script) { lighting_script_ = script; }
 uint32_t ParkBuilderMode::get_shell_checksum() { return hub()->get_shell_checksum(); }
 const char* ParkBuilderMode::get_park_name() { return hub()->get_park_name(); }
@@ -269,9 +269,9 @@ const char* ParkBuilderMode::get_park_name() { return hub()->get_park_name(); }
 // 0x0058DCB0
 void ParkBuilderMode::show_editor_view(bool on)
 {
-    hub()->builder_->glow_every_piece(false);
-    hub()->builder_->set_pieces_highlighted(on);
-    hub()->builder_->set_restart_pieces_active(on);
+    hub()->builder()->glow_every_piece(false);
+    hub()->builder()->set_pieces_highlighted(on);
+    hub()->builder()->set_restart_pieces_active(on);
     if (on) {
         launch_script(kPauseTrickText);
         launch_script(kEditorViewOn);
@@ -291,7 +291,7 @@ void ParkBuilderMode::switch_camera()
     auto set_camera = [](uint32_t id, int viewport, int take_current_view) {
         commands::make_camera_active(id, viewport, take_current_view != 0);
     };
-    if (have_cursor() && get_cursor()->mode_sel_ == BuildPointer::kModeRailPlacement) {
+    if (have_cursor() && get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement) {
         set_camera(kRailEditorCam, 0, 0);
         return;
     }
@@ -307,8 +307,8 @@ void ParkBuilderMode::refresh_piece_menu()
     if (!have_cursor())
         return;
     const BuildPointer* cursor = get_cursor();
-    const int menu_index = cursor->menu_index_;
-    const int set = cursor->paste_set_index_;
+    const int menu_index = cursor->menu_index();
+    const int set = cursor->paste_set_index();
     PieceFamily* pieces = hub()->get_piece_family(set, nullptr);
     TopBarMenus::singleton()->select_piece_family(pieces, set, menu_index);
     get_cursor()->on_mode_changed();
@@ -343,7 +343,7 @@ bool ParkBuilderMode::is_inside_park(maths::Vec4 pos, float margin)
 {
     maths::Vec4 size;
     const ParkLayout* manager = hub();
-    const CellBox bounds = manager->build_area_;
+    const CellBox bounds = manager->build_area();
     const maths::Vec4 corner = hub()->cell_to_world_pos(bounds, &size);
     const double x = pos.x;
     const double z = pos.z;
@@ -354,25 +354,25 @@ bool ParkBuilderMode::is_inside_park(maths::Vec4 pos, float margin)
 // 0x0058DF80
 bool ParkBuilderMode::find_restart(void* a, void* b, void* c)
 {
-    return hub()->builder_->find_nearest_rail_point(static_cast<const maths::Vec4*>(a), static_cast<maths::Vec4*>(b),
+    return hub()->builder()->find_nearest_rail_point(static_cast<const maths::Vec4*>(a), static_cast<maths::Vec4*>(b),
                                                     static_cast<float*>(c));
 }
 
 // 0x0058DFA0
-int ParkBuilderMode::get_player_limit() { return hub()->builder_->get_player_limit(); }
+int ParkBuilderMode::get_player_limit() { return hub()->builder()->get_player_limit(); }
 
 // 0x0058DB70
 void process_pad_input(ParkEditorInputHandler* handler)
 {
     ParkBuilderMode* editor = handler->content_;
-    editor->actions_ = 0;
+    editor->actions() = 0;
     const pad_input::Payload* data = handler->control_data_;
     auto stick = [data](int event) { return static_cast<float>(static_cast<int>(core::at(data->incident_, event)) - 0x80); };
-    editor->pad_rx_ = stick(pad_input::Payload::kRightX);
-    editor->pad_ry_ = stick(pad_input::Payload::kRightY);
-    editor->pad_lx_ = stick(pad_input::Payload::kLeftX);
-    editor->pad_ly_ = stick(pad_input::Payload::kLeftY);
-    uint32_t& commands = editor->actions_;
+    editor->set_pad_rx(stick(pad_input::Payload::kRightX));
+    editor->set_pad_ry(stick(pad_input::Payload::kRightY));
+    editor->set_pad_lx(stick(pad_input::Payload::kLeftX));
+    editor->set_pad_ly(stick(pad_input::Payload::kLeftY));
+    uint32_t& commands = editor->actions();
     auto made = [handler]() { return handler->control_data_->makes_; };
     auto held = [handler]() { return handler->control_data_->buttons_; };
     if (made() & 0x80) // Square
@@ -442,8 +442,8 @@ void ParkBuilderMode::tick_frame()
     matrix_multiply(
         &camera, &camera,
         &maths::make_yaw_matrix(rotation, static_cast<float>(camera_angle_ * static_cast<double>(kAngleScaleToRad))));
-    const maths::Vec4& cursor_pos = get_cursor()->at_point_;
-    core::at(camera.row, 3).x = static_cast<float>(static_cast<double>(core::at(camera.row, 3).x) + get_cursor()->at_point_.x);
+    const maths::Vec4& cursor_pos = get_cursor()->at_point();
+    core::at(camera.row, 3).x = static_cast<float>(static_cast<double>(core::at(camera.row, 3).x) + get_cursor()->at_point().x);
     core::at(camera.row, 3).y = static_cast<float>(static_cast<double>(core::at(camera.row, 3).y) + kCameraHeight);
     core::at(camera.row, 3).z = static_cast<float>(static_cast<double>(cursor_pos.z) + core::at(camera.row, 3).z);
     auto* objects = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
@@ -454,7 +454,7 @@ void ParkBuilderMode::tick_frame()
     if (flag_bits_ & kFlagPaused)
         return;
 
-    if (get_cursor()->mode_sel_ != BuildPointer::kModeAreaSelect)
+    if (get_cursor()->mode_sel() != BuildPointer::kModeAreaSelect)
         get_cursor()->glow_overlapping_pieces(0);
     const uint32_t now = frame_clock::get_time();
     const int elapsed = static_cast<int>(now - static_cast<uint32_t>(last_time_));
@@ -511,14 +511,14 @@ void ParkBuilderMode::tick_frame()
     if (actions_ & kCommandPlace) {
         if (is_gap_tool(get_cursor())) {
             if ((get_cursor()->add_gap_half() || get_cursor()->is_over_gap()) &&
-                get_cursor()->gap_.halves_placed_ != 1) {
+                get_cursor()->gap().halves_placed_ != 1) {
                 launch_script(kPlayEdPlaceSound);
                 launch_script(kGapPlaced);
             } else {
                 launch_script(kPlayEdBuzzSound);
             }
             action_finished_ = true;
-        } else if (get_cursor()->mode_sel_ == BuildPointer::kModeAreaSelect) {
+        } else if (get_cursor()->mode_sel() == BuildPointer::kModeAreaSelect) {
             switch (get_cursor()->advance_area_selection()) {
             case 1:
                 launch_script(kPlayEdPlaceSound);
@@ -531,7 +531,7 @@ void ParkBuilderMode::tick_frame()
                 launch_script(kPlayEdBuzzSound);
                 break;
             }
-        } else if (get_cursor()->mode_sel_ == BuildPointer::kModePaste) {
+        } else if (get_cursor()->mode_sel() == BuildPointer::kModePaste) {
             get_cursor()->show_clipboard();
             action_finished_ = true;
         } else {
@@ -545,7 +545,7 @@ void ParkBuilderMode::tick_frame()
         if (is_gap_tool(get_cursor())) {
             launch_script(get_cursor()->remove_gap_half() ? kPlayEdEraseSound : kPlayEdBuzzSound);
         } else {
-            if (get_cursor()->mode_sel_ == BuildPointer::kModeAreaSelect)
+            if (get_cursor()->mode_sel() == BuildPointer::kModeAreaSelect)
                 get_cursor()->drop_area_marquee();
             else
                 launch_script(get_cursor()->destroy_under_cursor() ? kPlayEdEraseSound : kPlayEdBuzzSound);
@@ -602,9 +602,9 @@ void ParkBuilderMode::tick_frame()
     }
 
     get_cursor()->tick_frame(offset_cell_x, offset_cell_z, rotation90);
-    if (get_cursor()->mode_sel_ == BuildPointer::kModeAreaSelect)
+    if (get_cursor()->mode_sel() == BuildPointer::kModeAreaSelect)
         get_cursor()->update_area_selection_highlight();
-    else if (get_cursor()->mode_sel_ == BuildPointer::kModeRailPlacement)
+    else if (get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement)
         get_cursor()->destroy_cursor_meta();
     else
         get_cursor()->glow_overlapping_pieces(1);
@@ -652,18 +652,18 @@ void ParkBuilderMode::logic_update()
         return;
     // The rail editor's flags (+0x08): bit 0.
     auto rail_bit = []() { return (get_rail_editor()->flag_bits_ & 1) != 0; };
-    if (get_cursor()->mode_sel_ == BuildPointer::kModeRailPlacement) {
+    if (get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement) {
         if (rail_bit())
             launch_script(kSwitchOnRailEditor);
         if (!(flag_bits_ & kFlagPaused))
             move_selection_cursor();
-        if (get_cursor()->mode_sel_ != BuildPointer::kModeRailPlacement)
+        if (get_cursor()->mode_sel() != BuildPointer::kModeRailPlacement)
             launch_script(kSwitchOffRailEditor);
     } else {
         if (!rail_bit())
             launch_script(kSwitchOffRailEditor);
         tick_frame();
-        if (get_cursor()->mode_sel_ == BuildPointer::kModeRailPlacement)
+        if (get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement)
             launch_script(kSwitchOnRailEditor);
     }
     ParkLayout::update_percent_bar();
@@ -686,12 +686,12 @@ void ParkBuilderMode::change_phase(uint32_t state)
     modules::FrontEnd* front_end = modules::create_front_end(false); // (a single::LazyInstance<modules::FrontEnd>)
     if (state == kStateEdit) {
         modules::Skate::sole()->tidy_before_park_build();
-        front_end->hold_repeat_ms_ = 320;
-        front_end->auto_repeat_rate_ = 100;
+        front_end->set_hold_repeat_ms(320);
+        front_end->set_auto_repeat_rate(100);
         hub()->highlight_gap_pieces(false, nullptr);
     } else {
-        front_end->hold_repeat_ms_ = 320;
-        front_end->auto_repeat_rate_ = 50;
+        front_end->set_hold_repeat_ms(320);
+        front_end->set_auto_repeat_rate(50);
     }
     update_menu_stick();
     modules::release_front_end();

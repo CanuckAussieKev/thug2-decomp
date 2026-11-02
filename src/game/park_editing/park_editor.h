@@ -165,6 +165,22 @@ public:
         void receive(objects::Signal* event) override;
     };
 
+    // The fields other code reads and sets.
+    uint32_t& cur_phase() { return cur_phase_; }
+    [[nodiscard]] uint32_t cur_phase() const { return cur_phase_; }
+    void set_cur_phase(uint32_t value) { cur_phase_ = value; }
+    uint32_t& actions() { return actions_; }
+    [[nodiscard]] uint32_t actions() const { return actions_; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    void set_pad_rx(float value) { pad_rx_ = value; }
+    void set_pad_ry(float value) { pad_ry_ = value; }
+    void set_pad_lx(float value) { pad_lx_ = value; }
+    void set_pad_ly(float value) { pad_ly_ = value; }
+    [[nodiscard]] uint32_t lighting_script() const { return lighting_script_; }
+    void set_lighting_script(uint32_t value) { lighting_script_ = value; }
+
+private:
     Listener listener_;    // +0x14
     bool action_finished_; // +0x30: a command that changes the park was carried out
     std::array<uint8_t, 3> pad31{};
@@ -186,13 +202,17 @@ public:
     float orbit_radius_;       // +0x70 (500-1500; 1400 to start with)
     int last_time_{};          // +0x74: frame_clock::GetTime at the last Update
     uint32_t lighting_script_; // +0x78 (SetParkEditorTimeOfDay's tod_script)
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ParkBuilderMode, listener_) == 0x14 && offsetof(ParkBuilderMode, action_finished_) == 0x30 &&
+                          offsetof(ParkBuilderMode, editor_pad_listener_) == 0x3C &&
+                          offsetof(ParkBuilderMode, cur_phase_) == 0x40 && offsetof(ParkBuilderMode, move_speed_) == 0x4C &&
+                          offsetof(ParkBuilderMode, camera_angle_) == 0x68 &&
+                          offsetof(ParkBuilderMode, lighting_script_) == 0x78 && sizeof(ParkBuilderMode) == 0x7C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ParkBuilderMode, listener_) == 0x14 && offsetof(ParkBuilderMode, action_finished_) == 0x30 &&
-                  offsetof(ParkBuilderMode, editor_pad_listener_) == 0x3C &&
-                  offsetof(ParkBuilderMode, cur_phase_) == 0x40 && offsetof(ParkBuilderMode, move_speed_) == 0x4C &&
-                  offsetof(ParkBuilderMode, camera_angle_) == 0x68 &&
-                  offsetof(ParkBuilderMode, lighting_script_) == 0x78 && sizeof(ParkBuilderMode) == 0x7C,
-              "layout must match the original");
 
 // 0x0058DB70: the input handler's code: the sticks and the buttons as commands (cleared each frame).
 void process_pad_input(ParkEditorInputHandler* handler);

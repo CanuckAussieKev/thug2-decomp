@@ -141,7 +141,7 @@ void multiply_matrix(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // getter 0x005480F0: +0x18) and the skeleton's bone matrices (0x005480C0: +0x04).
 render::RenderModel* model_of(ObjectModule* component)
 {
-    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
+    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
 }
 int get_bone_count(render::RenderModel* model)
 {
@@ -589,7 +589,7 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     owner_app_ = app;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (app) {
-        net::Router& dispatcher = app->dispatcher_;
+        net::Router& dispatcher = app->dispatcher();
         dispatcher.append_listener(0x25, &handle_play_animation, 3, this, 0x80);
         dispatcher.append_listener(0x26, &on_clip_rate_msg, 3, this, 0x80);
         dispatcher.append_listener(0x27, &handle_step_animation, 3, this, 0x80);

@@ -73,13 +73,13 @@ void SkaterPhysicsModule::step_coping_move()
         auto career = [] { return modules::Skate::sole()->career().get(); };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
-            balance_->lip_.lean_ = 0.0f;
-            balance_->lip_.lean_speed_ = 0.0f;
+            balance_->lip_.set_lean(0.0f);
+            balance_->lip_.set_lean_speed(0.0f);
             online::net_game_state().set_cheat_flag(true);
         }
         balance_->lip_.tick_frame();
     }
-    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary_.pos_x_.held_down_)
+    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary_.pos_x().held_down_)
         set_flag(this, PoseFlag::kCrouched, 1);
     // Off the lip (0x004FFB10): the rail's TriggerScript, twice.
     if (jump_released()) {

@@ -151,7 +151,7 @@ bool cfunc_send_message(script::Struct* params, script::Script*)
         return true;
     }
     push_internet_heap();
-    game_spy::peer_message_room(manager->lobby_service()->remote_, kRoomGroupKind, message,
+    game_spy::peer_message_room(manager->lobby_service()->remote(), kRoomGroupKind, message,
                                 0); // to the group room
     pop_heap();
     return true;

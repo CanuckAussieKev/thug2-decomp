@@ -205,7 +205,7 @@ bool cfunc_kill_skater_cam_anim(script::Struct* params, script::Script*)
         }
     }
     if (camera_movies()->total_of() == 0) {
-        if (park_editing::ParkBuilderMode::sole()->cur_phase_ == kEdit)
+        if (park_editing::ParkBuilderMode::sole()->cur_phase() == kEdit)
             park_editing::ParkBuilderMode::switch_camera();
         else
             script::launch_script(kRestoreSkaterCamera, nullptr, nullptr, false, nullptr);

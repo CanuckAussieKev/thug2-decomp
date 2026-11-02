@@ -97,6 +97,27 @@ public:
     std::span<uint32_t> goal_words() { return {core::at(goals_, 0).data(), kLevels * 8}; }
     std::span<uint32_t> flag_words() { return {core::at(flag_bits_, 0).data(), kLevels * 8}; }
 
+    // The fields other code reads and sets.
+    std::array<uint16_t, kLevels>& funds() { return funds_; }
+    [[nodiscard]] const std::array<uint16_t, kLevels>& funds() const { return funds_; }
+    std::array<uint16_t, kLevels>& amount() { return amount_; }
+    [[nodiscard]] const std::array<uint16_t, kLevels>& amount() const { return amount_; }
+    [[nodiscard]] uint16_t lifetime_funds() const { return lifetime_funds_; }
+    void set_lifetime_funds(uint16_t value) { lifetime_funds_ = value; }
+    [[nodiscard]] uint16_t total_amount() const { return total_amount_; }
+    void set_total_amount(uint16_t value) { total_amount_ = value; }
+    std::array<uint8_t, 18>& counter() { return counter_; }
+    [[nodiscard]] const std::array<uint8_t, 18>& counter() const { return counter_; }
+    [[nodiscard]] uint8_t total_counter() const { return total_counter_; }
+    void set_total_counter(uint8_t value) { total_counter_ = value; }
+    [[nodiscard]] uint8_t flag_5e_f() const { return flag_5e_f_; }
+    [[nodiscard]] int level() const { return level_; }
+    [[nodiscard]] int value634() const { return value634_; }
+    [[nodiscard]] const std::array<goals::GapTally*, kLevels>& gaps() const { return gaps_; }
+    std::array<bool, kLevels>& visited() { return visited_; }
+    [[nodiscard]] const std::array<bool, kLevels>& visited() const { return visited_; }
+
+private:
     // (The offsets are the original's, which has a vtable at +0x000 - 0x0064EFD4 - holding only the destructor.)
     std::array<std::array<uint32_t, 8>, kLevels> goals_{};     // +0x004
     std::array<std::array<uint32_t, 8>, kLevels> flag_bits_{}; // +0x2A4

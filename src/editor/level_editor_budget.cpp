@@ -167,7 +167,7 @@ bool region_use(memory::Zone* region, double* size, double* used)
     double free = region->free_byte_count();
     for (const memory::MemSource* allocator : region->allocators_) {
         if (allocator)
-            free += allocator->free_size_;
+            free += allocator->free_size();
     }
     *size = static_cast<double>(region->byte_size());
     *used = *size - free;

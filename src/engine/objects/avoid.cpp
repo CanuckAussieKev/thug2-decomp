@@ -358,7 +358,7 @@ bool ObstacleDodgeModule::store_target(script::Struct* /*params*/, script::Scrip
     const maths::Vec4* point = &entity_->at_point_;
     ObjectModule* motion = entity_->fetch_module(kMotion);
     if (motion && motion_path(motion))
-        point = &motion_path(motion)->end_point_; // (the original's +0x74: the node headed for)
+        point = &motion_path(motion)->end_point(); // (the original's +0x74: the node headed for)
     aim_point_ = *point;
     return true;
 }

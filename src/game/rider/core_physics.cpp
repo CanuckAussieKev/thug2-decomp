@@ -79,8 +79,8 @@ void stop_riding(void* ride) { static_cast<objects::MovingSurfaceModule*>(ride)-
 bool triggers_held(const objects::PadInputModule* input)
 {
     if (ps2_controls())
-        return input->pad_primary_.shoulder_left_b_.held_down_ || input->pad_primary_.shoulder_right_b_.held_down_;
-    return input->pad_primary_.shoulder_left_b_.held_down_ && input->pad_primary_.shoulder_right_b_.held_down_;
+        return input->pad_primary_.shoulder_left_b().held_down_ || input->pad_primary_.shoulder_right_b().held_down_;
+    return input->pad_primary_.shoulder_left_b().held_down_ && input->pad_primary_.shoulder_right_b().held_down_;
 }
 
 // velocity += direction * scale, the x component's product unrounded (the original keeps it on the x87 stack).
@@ -113,7 +113,7 @@ int SkaterPhysicsModule::lip_push_off(script::Struct*, script::Script*)
     const maths::Vec4 side = {.x = forward.z, .y = 0.0f, .z = -forward.x, .w = 0.0f};
 
     objects::PadInputModule* input = input_;
-    if (input->pad_primary_.right_side_.held_down_)
+    if (input->pad_primary_.right_side().held_down_)
         return 0;
     // (The original: both triggers. PartyMod's JZ -> JNZ at 0x004FCC59 makes it either.)
     if (triggers_held(input)) {
@@ -121,17 +121,17 @@ int SkaterPhysicsModule::lip_push_off(script::Struct*, script::Script*)
         stack_on(entity_->vel_, forward, scale);
         return 1;
     }
-    if (input->pad_primary_.left_side_.held_down_) {
+    if (input->pad_primary_.left_side().held_down_) {
         const int wait = physics_integer(0x3080E9E7, object);
-        if (time_since_press(&input->pad_primary_.left_side_) > wait) {
+        if (time_since_press(&input->pad_primary_.left_side()) > wait) {
             const float scale = tuning_float_lookup(0xDC818B7E, object);
             stack_on(entity_->vel_, forward, scale);
             return 1;
         }
     }
-    if (input->pad_primary_.up_dir_.held_down_) {
+    if (input->pad_primary_.up_dir().held_down_) {
         const int wait = physics_integer(0x9B25142A, object);
-        if (time_since_press(&input->pad_primary_.up_dir_) > wait) {
+        if (time_since_press(&input->pad_primary_.up_dir()) > wait) {
             const float scale = tuning_float_lookup(0x1AB3809F, object);
             maths::Vec4& velocity = entity_->vel_;
             // velocity -= side * scale (x's product unrounded, as above)
@@ -144,9 +144,9 @@ int SkaterPhysicsModule::lip_push_off(script::Struct*, script::Script*)
             return 1;
         }
     }
-    if (input->pad_primary_.btn_down_.held_down_) {
+    if (input->pad_primary_.btn_down().held_down_) {
         const int wait = physics_integer(0x9B25142A, object);
-        if (time_since_press(&input->pad_primary_.btn_down_) > wait) {
+        if (time_since_press(&input->pad_primary_.btn_down()) > wait) {
             const float scale = tuning_float_lookup(0x1AB3809F, object);
             entity_->vel_ += side * scale;
             return 1;
@@ -311,7 +311,7 @@ void SkaterPhysicsModule::check_for_ground()
                                                static_cast<double>(in_ground_plane.z) * in_hit_plane.z +
                                                static_cast<double>(in_ground_plane.y) * in_hit_plane.y);
                 const float angle =
-                    tuning_float_lookup(input->pad_primary_.up_dir_.held_down_ ? 0x4138283E : 0xEF161C2A, object);
+                    tuning_float_lookup(input->pad_primary_.up_dir().held_down_ ? 0x4138283E : 0xEF161C2A, object);
                 const double limit = std::cos(static_cast<double>(angle) * 0.0174532924f); // (degrees to radians)
                 bool keep = true;
                 if (facing_into_hit > 0.0f && turn > 0.0f && turn < limit)
@@ -387,13 +387,13 @@ void SkaterPhysicsModule::check_for_ground()
         // 0x00509E47), so under its PS2 controls this is skipped only while the second is held without the first.
         const bool skip =
             ps2_controls()
-                ? !input->pad_primary_.shoulder_left_b_.held_down_ && input->pad_primary_.shoulder_right_b_.held_down_
-                : input->pad_primary_.shoulder_left_b_.held_down_ && input->pad_primary_.shoulder_right_b_.held_down_;
+                ? !input->pad_primary_.shoulder_left_b().held_down_ && input->pad_primary_.shoulder_right_b().held_down_
+                : input->pad_primary_.shoulder_left_b().held_down_ && input->pad_primary_.shoulder_right_b().held_down_;
         if (!skip)
             break_vert(false);
         const int wait = script::fetch_int_value(0x6BB5B751);
-        if (time_since_release(&input->pad_primary_.up_dir_) > wait &&
-            time_since_press(&input->pad_primary_.up_dir_) > wait)
+        if (time_since_release(&input->pad_primary_.up_dir()) > wait &&
+            time_since_press(&input->pad_primary_.up_dir()) > wait)
             set_timed_flag(state_, PoseFlag::kLeftVert, 0);
     } else if (triggers_held(input)) {
         // (The original: both triggers; PartyMod's JZ -> JNZ at 0x0050A257 makes it either.)
@@ -560,8 +560,8 @@ void SkaterPhysicsModule::do_air_physics()
             if (!probe_touches_zone(0x10, 0)) {
                 break_vert(false);
                 const int wait = script::fetch_int_value(0x6BB5B751);
-                if (time_since_release(&input->pad_primary_.up_dir_) > wait &&
-                    time_since_press(&input->pad_primary_.up_dir_) > wait)
+                if (time_since_release(&input->pad_primary_.up_dir()) > wait &&
+                    time_since_press(&input->pad_primary_.up_dir()) > wait)
                     set_timed_flag(state_, PoseFlag::kLeftVert, 0);
             }
         }
@@ -760,7 +760,7 @@ void SkaterPhysicsModule::land_from_air()
         maths::Vec4& velocity = entity_->vel_;
         const objects::PadInputModule* input = input_;
         if (!landed_from_air_vert_ && !landed_from_vert_ && velocity.x == 0.0f && velocity.z == 0.0f &&
-            input->pad_primary_.btn_down_.held_down_) {
+            input->pad_primary_.btn_down().held_down_) {
             // (Landing straight down with button +0x40 held: no bounce.)
             velocity.y = 0.0f; // (the original stores the word 0)
         } else {

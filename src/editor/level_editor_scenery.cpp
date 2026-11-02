@@ -201,7 +201,7 @@ void for_each_scene(F fn)
     auto* node = (render::engine_parts().scene_list().next);
     for (int guard = 0; node && !is_end(node) && guard < 256; ++guard) {
         SceneNode* next = node->next;
-        if (scene_of(node) && !scene_of(node)->is_sky_)
+        if (scene_of(node) && !scene_of(node)->is_sky())
             fn(scene_of(node));
         node = next;
     }
@@ -211,7 +211,7 @@ void for_each_scene(F fn)
 template <typename F>
 void for_each_sector(render::WorldScene* scene, F fn)
 {
-    const lists::KeyMap* table = scene->sectors_;
+    const lists::KeyMap* table = scene->sectors();
     if (!table || table->bits_ > 20)
         return;
     const lists::KeyMap::Item* buckets = table->buckets_;
@@ -287,13 +287,13 @@ const char* meshes_movable(render::PcGeom* geom)
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
         if (!mesh)
             return "no mesh";
-        const uint32_t buffers = mesh->vertex_buffer_count_;
-        const uint32_t vertices = mesh->vertex_count_;
-        const uint32_t stride = mesh->stride;
-        if (buffers > std::size(mesh->vertex_buffers_))
+        const uint32_t buffers = mesh->vertex_buffer_count();
+        const uint32_t vertices = mesh->vertex_count();
+        const uint32_t stride = mesh->stride_value();
+        if (buffers > std::size(mesh->vertex_buffers()))
             return "odd vertex buffers";
         for (uint32_t b = 0; b < buffers; ++b) {
-            const render::VertexBuffer* buffer = core::at(mesh->vertex_buffers_, b);
+            const render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), b);
             if (!buffer || !buffer->data)
                 return "no vertex copy";
             if (buffer->size != vertices * stride)
@@ -920,20 +920,20 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
         if (!mesh)
             continue;
         float hit = 0.0f;
-        if (mesh->billboard || (mesh->flags & 0x10)) {
-            if (ray_sphere(origin, dir, {.x = core::at(mesh->centre, 0), .y = core::at(mesh->centre, 1), .z = core::at(mesh->centre, 2)}, mesh->radius, &hit) &&
+        if (mesh->billboard_value() || (mesh->flags_value() & 0x10)) {
+            if (ray_sphere(origin, dir, {.x = core::at(mesh->centre_value(), 0), .y = core::at(mesh->centre_value(), 1), .z = core::at(mesh->centre_value(), 2)}, mesh->radius_value(), &hit) &&
                 hit < best) {
                 best = hit;
                 found = true;
             }
             continue;
         }
-        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
-        const render::IdxStore* indices = core::at(mesh->index_buffers_, 0);
-        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
+        const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
+        const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
+        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride_value() < 12)
             continue;
-        if (picking::ray_strip(origin, dir, vertices->data, mesh->stride, mesh->vertex_count_, indices->indices,
-                               core::at(mesh->index_counts_, 0), best, &hit)) {
+        if (picking::ray_strip(origin, dir, vertices->data, mesh->stride_value(), mesh->vertex_count(), indices->indices,
+                               core::at(mesh->index_counts(), 0), best, &hit)) {
             best = hit;
             found = true;
         }
@@ -952,8 +952,8 @@ bool geom_see_through(render::PcGeom* geom)
     if (!meshes || count == 0 || count > 4096)
         return false;
     for (uint32_t i = 0; i < count; ++i) {
-        const render::MaterialRef* material = core::at(std::span<render::MeshRef* const>(meshes, count), i) ? core::at(std::span<render::MeshRef* const>(meshes, count), i)->material : nullptr;
-        if (!material || !picking::material_see_through(core::at(material->pass_flags_, 0), core::at(material->blend_modes_, 0)))
+        const render::MaterialRef* material = core::at(std::span<render::MeshRef* const>(meshes, count), i) ? core::at(std::span<render::MeshRef* const>(meshes, count), i)->material_value() : nullptr;
+        if (!material || !picking::material_see_through(core::at(material->pass_flags(), 0), core::at(material->blend_modes(), 0)))
             return false;
     }
     return true;
@@ -977,14 +977,14 @@ float geom_level_share(uint32_t checksum, render::PcGeom* geom)
     const uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
-        if (!mesh || mesh->billboard || (mesh->flags & 0x10))
+        if (!mesh || mesh->billboard_value() || (mesh->flags_value() & 0x10))
             continue;
-        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
-        const render::IdxStore* indices = core::at(mesh->index_buffers_, 0);
-        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
+        const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
+        const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
+        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride_value() < 12)
             continue;
-        picking::add_top_strip(&area, vertices->data, mesh->stride, mesh->vertex_count_, indices->indices,
-                               core::at(mesh->index_counts_, 0));
+        picking::add_top_strip(&area, vertices->data, mesh->stride_value(), mesh->vertex_count(), indices->indices,
+                               core::at(mesh->index_counts(), 0));
     }
     const float share = picking::get_level_share(area);
     level_shares()[checksum] = {geom, share};
@@ -1243,16 +1243,16 @@ void log_meshes()
     const uint32_t count = geom ? geom->mesh_count_ : 0;
     for (uint32_t i = 0; meshes && i < count && i < 4; ++i) {
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
-        const render::MaterialRef* material = mesh->material;
-        const auto& colour = mesh->color;
+        const render::MaterialRef* material = mesh->material_value();
+        const auto& colour = mesh->color_value();
         get_log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
                 "pass flags %08X %08X, colour 0 %08X %08X %08X; renderer 786AB8 %d",
-                i, mesh->flags, core::at(colour, 0), core::at(colour, 1), core::at(colour, 2), mesh->fvf, static_cast<const void*>(material),
-                material ? material->pass_count_ & 0xFFFFFFF : 0, material ? core::at(material->pass_flags_, 0) : 0,
-                material ? core::at(material->pass_flags_, 1) : 0,
-                material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 0)) : 0,
-                material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 1)) : 0,
-                material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 2)) : 0,
+                i, mesh->flags_value(), core::at(colour, 0), core::at(colour, 1), core::at(colour, 2), mesh->fvf_value(), static_cast<const void*>(material),
+                material ? material->pass_count() & 0xFFFFFFF : 0, material ? core::at(material->pass_flags(), 0) : 0,
+                material ? core::at(material->pass_flags(), 1) : 0,
+                material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color(), 0), 0)) : 0,
+                material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color(), 0), 1)) : 0,
+                material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color(), 0), 2)) : 0,
                 static_cast<uint8_t>(render::renderer().shaders_available()));
     }
 }
@@ -1616,7 +1616,7 @@ bool scene_live(render::WorldScene* scene)
     return live && scene;
 }
 
-uint32_t world_scene_key(render::WorldScene* scene) { return scene ? scene->checksum_ : 0; }
+uint32_t world_scene_key(render::WorldScene* scene) { return scene ? scene->checksum() : 0; }
 
 // --- copies of sectors ---
 //
@@ -1818,7 +1818,7 @@ Saved save_colour(TintOwner owner, render::PcGeom* geom)
     const uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
-        saved.meshes.push_back({.flag = mesh->flags & 4, .color = {core::at(mesh->color, 0), core::at(mesh->color, 1), core::at(mesh->color, 2)}});
+        saved.meshes.push_back({.flag = mesh->flags_value() & 4, .color = {core::at(mesh->color_value(), 0), core::at(mesh->color_value(), 1), core::at(mesh->color_value(), 2)}});
     }
     return saved;
 }
@@ -1838,8 +1838,8 @@ void restore_colour(const Saved& saved)
         return;
     for (uint32_t i = 0; i < count; ++i) {
         render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
-        mesh->flags = (mesh->flags & ~4u) | core::at(saved.meshes, i).flag;
-        std::memcpy(mesh->color.data(), core::at(saved.meshes, i).color.data(), sizeof(mesh->color));
+        mesh->flags_value() = (mesh->flags_value() & ~4u) | core::at(saved.meshes, i).flag;
+        std::memcpy(mesh->color_value().data(), core::at(saved.meshes, i).color.data(), sizeof(mesh->color_value()));
     }
 }
 
@@ -1882,7 +1882,7 @@ void finalise()
     for (render::WorldScene* scene : level_editor_scenery_state().dirty_scenes_) {
         bool live = false;
         for_each_scene([&](render::WorldScene* s) { live |= s == scene; });
-        if (!live || !scene->coll_grid_)
+        if (!live || !scene->coll_grid())
             continue;
         if (manager)
             manager->enter_heap_scope(manager->bottom_up_heap());
@@ -1923,10 +1923,10 @@ void log_census()
     for (int i = 0; node && i < 16; ++i, node = node->next) {
         const bool end = is_end(node);
         const render::WorldScene* scene = end ? nullptr : scene_of(node);
-        const lists::KeyMap* table = scene ? scene->sectors_ : nullptr;
+        const lists::KeyMap* table = scene ? scene->sectors() : nullptr;
         get_log("level editor: scene list node %d %p: scene %p%s, sky byte %d, name %08X, sector table %p (bits %u)", i,
                 static_cast<void*>(node), static_cast<void*>(scene_of(node)), end ? " (end)" : "",
-                scene ? static_cast<int>(scene->is_sky_) : -1, scene ? scene->checksum_ : 0,
+                scene ? static_cast<int>(scene->is_sky()) : -1, scene ? scene->checksum() : 0,
                 static_cast<const void*>(table), table ? static_cast<unsigned>(table->bits_) : 0u);
         if (end)
             break;
@@ -1940,7 +1940,7 @@ void log_census()
             movable += why_not_movable(checksum) ? 0 : 1;
             see_through += geom_of(sector) && plain_geom(geom_of(sector)) && geom_see_through(geom_of(sector)) ? 1 : 0;
         });
-        const uint32_t name = scene->checksum_;
+        const uint32_t name = scene->checksum();
         get_log("level editor: scene %08X (%s): %d sectors, %d with geometry, %d with collision, %d movable, %d "
                 "see-through",
                 name, get_name_of(name) ? get_name_of(name) : "?", sectors, with_geometry, with_collision, movable,

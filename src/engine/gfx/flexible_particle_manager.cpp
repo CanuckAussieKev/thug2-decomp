@@ -45,7 +45,7 @@ EmitterInstance* system_of(memory::ListNode* node)
     return static_cast<EmitterInstance*>(node->data); // (its node's data: the system - the original took its address)
 }
 EmitterInstance* first_system(memory::ListNode* head) { return head ? system_of(head->next) : nullptr; }
-EmitterInstance* next_system(EmitterInstance* system) { return system_of(system->list_link_.next); }
+EmitterInstance* next_system(EmitterInstance* system) { return system_of(system->list_link().next); }
 
 // _ftol: truncated to a 64-bit integer, its low half.
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -112,19 +112,19 @@ int FlexibleParticleManager::compare_distance(const void* a, const void* b)
     const EmitterInstance* first = *static_cast<EmitterInstance* const*>(a);
     const EmitterInstance* second = *static_cast<EmitterInstance* const*>(b);
     // (the original keeps some differences as floats and others at 53 bits)
-    auto x1 = static_cast<float>(static_cast<double>(first->at_point_.x) - at.x);
-    auto y1 = static_cast<float>(static_cast<double>(first->at_point_.y) - at.y);
-    auto z1 = static_cast<float>(static_cast<double>(first->at_point_.z) - at.z);
-    auto x2 = static_cast<float>(static_cast<double>(second->at_point_.x) - at.x);
-    const double y2 = static_cast<double>(second->at_point_.y) - at.y;
-    const double z2 = static_cast<double>(second->at_point_.z) - at.z;
+    auto x1 = static_cast<float>(static_cast<double>(first->at_point().x) - at.x);
+    auto y1 = static_cast<float>(static_cast<double>(first->at_point().y) - at.y);
+    auto z1 = static_cast<float>(static_cast<double>(first->at_point().z) - at.z);
+    auto x2 = static_cast<float>(static_cast<double>(second->at_point().x) - at.x);
+    const double y2 = static_cast<double>(second->at_point().y) - at.y;
+    const double z2 = static_cast<double>(second->at_point().z) - at.z;
     const double distance2 = (z2 * z2 + y2 * y2) + static_cast<double>(x2) * x2;
     const double distance1 =
         (static_cast<double>(z1) * z1 + static_cast<double>(y1) * y1) + static_cast<double>(x1) * x1;
     const int order = truncate(distance2 - distance1);
     if (order)
         return order;
-    return static_cast<int>(second->rank_) - static_cast<int>(first->rank_);
+    return static_cast<int>(second->rank()) - static_cast<int>(first->rank());
 }
 
 // 0x0049AB50
@@ -133,7 +133,7 @@ void FlexibleParticleManager::render_systems(bool force)
     std::array<EmitterInstance*, 256> systems = {};
     int count = 0;
     for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
-        if (system->wants_time_)
+        if (system->wants_time())
             core::at(systems, count++) = system; // (no bound, as the original)
     }
     if (!count)
@@ -149,7 +149,7 @@ void FlexibleParticleManager::render_systems(bool force)
 EmitterInstance* FlexibleParticleManager::find_system(uint32_t name)
 {
     for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
-        if (system->label_ == name)
+        if (system->label() == name)
             return system;
     }
     return nullptr;
@@ -167,21 +167,21 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
     memory::Hub::get_pull()->leave_heap_scope();
     if (!made)
         return nullptr;
-    if (!(made->flag_bits_ & 4u)) { // (not everything allocated)
+    if (!(made->flag_bits() & 4u)) { // (not everything allocated)
         delete made;
         return nullptr;
     }
     EmitterInstance* const system = made; // (the manager's ring's, below)
-    system->unknown12e_ = perm != 0;
-    system->flag_bits_ |= 1u;
+    system->set_unknown12e(perm != 0);
+    system->flag_bits() |= 1u;
     system->set_wants_time(1);
-    system->flag_bits_ |= 0x10000u;
-    system->spewing_ = false;
+    system->flag_bits() |= 0x10000u;
+    system->set_spewing(false);
     if (use_level_colour) {
-        system->flag_bits_ |= 0x10000u;
+        system->flag_bits() |= 0x10000u;
         system->set_colour_scale(colour_scale_);
     }
-    memory::ListNode* node = &system->list_link_;
+    memory::ListNode* node = &system->list_link();
     node->prev = systems_ptr_->prev;
     node->next = systems_ptr_;
     systems_ptr_->prev->next = node;
@@ -194,7 +194,7 @@ void FlexibleParticleManager::remove_system(EmitterInstance* system)
 {
     if (!system)
         return;
-    memory::ListNode* node = &system->list_link_;
+    memory::ListNode* node = &system->list_link();
     node->prev->next = node->next;
     node->next->prev = node->prev;
     node->next = node;
@@ -214,8 +214,8 @@ void FlexibleParticleManager::destroy_system_now(uint32_t name)
 void FlexibleParticleManager::destroy_system_when_empty(uint32_t name)
 {
     if (EmitterInstance* system = find_system(name)) {
-        system->fading_out_ = true;
-        system->flag_bits_ |= 1u;
+        system->set_fading_out(true);
+        system->flag_bits() |= 1u;
     }
 }
 
@@ -225,7 +225,7 @@ void FlexibleParticleManager::destroy_group(uint32_t group)
     EmitterInstance* system = first_system(systems_ptr_);
     while (system) {
         EmitterInstance* next = next_system(system);
-        if (system->group_id_ == group) {
+        if (system->group_id() == group) {
             gsl::owner<EmitterInstance*> owned = memory::owned_element(system); // (the manager's ring's)
             delete owned;
         }
@@ -239,7 +239,7 @@ void FlexibleParticleManager::destroy_non_persistent()
     EmitterInstance* system = first_system(systems_ptr_);
     while (system) {
         EmitterInstance* next = next_system(system);
-        if (!system->unknown12e_) {
+        if (!system->unknown12e()) {
             gsl::owner<EmitterInstance*> owned = memory::owned_element(system); // (the manager's ring's)
             delete owned;
         }
@@ -253,7 +253,7 @@ void FlexibleParticleManager::set_colour_scale(std::span<const float, 4> rgba)
     if (!systems_ptr_)
         return;
     for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
-        if (system->flag_bits_ & 0x10000u)
+        if (system->flag_bits() & 0x10000u)
             system->set_colour_scale(rgba);
     }
     for (int i = 0; i < 4; ++i)

@@ -62,6 +62,20 @@ public:
     // 0x0046A550: the corner reached: onto the arc, into a blend, or (no arc) straight on to the next segment.
     void start_corner();
 
+    // The fields other code reads and sets.
+    maths::Vec4& at_point() { return at_point_; }
+    [[nodiscard]] const maths::Vec4& at_point() const { return at_point_; }
+    [[nodiscard]] uint32_t last_node() const { return last_node_; }
+    uint32_t& list_link() { return list_link_; }
+    [[nodiscard]] uint32_t list_link() const { return list_link_; }
+    maths::Vec4& end_point() { return end_point_; }
+    [[nodiscard]] const maths::Vec4& end_point() const { return end_point_; }
+    void set_corner_distance(float value) { corner_distance_ = value; }
+    maths::Vec4& center() { return center_; }
+    [[nodiscard]] const maths::Vec4& center() const { return center_; }
+    [[nodiscard]] float step() const { return step_; }
+
+private:
     maths::Vec4 at_point_{}; // +0x04 (offsets: the original's, which has a vtable at +0x00)
     GameEntity* owner_;    // +0x14
     maths::Mat4 tick_{};   // +0x18: rows: from the arc's centre, the arc's axis, the heading (+0x38), -

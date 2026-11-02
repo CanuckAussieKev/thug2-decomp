@@ -460,14 +460,14 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         break;
     }
     case kSaveOptionsAndPros: {
-        Struct* own = objective_board()->goal_data_; // (the shared getter of +0x14)
+        Struct* own = objective_board()->goal_data(); // (the shared getter of +0x14)
         Struct* goal_manager_params = nullptr;       // (read, not used)
         own->read_sub_struct(0x23D4170Au, &goal_manager_params, 0);
         const objects::RiderStoryProgress* career = modules::Skate::sole()->career().get();
-        summary->put_int(kTotalScore, career->lifetime_funds_);
-        summary->put_int(kTotalScorePotential, career->total_amount_);
-        summary->put_int(kTotalGoalsComplete, career->total_counter_);
-        summary->put_int(kTotalGoalsPossible, career->flag_5e_f_);
+        summary->put_int(kTotalScore, career->lifetime_funds());
+        summary->put_int(kTotalScorePotential, career->total_amount());
+        summary->put_int(kTotalGoalsComplete, career->total_counter());
+        summary->put_int(kTotalGoalsPossible, career->flag_5e_f());
         break;
     }
     default:
@@ -483,7 +483,7 @@ void apply_goal_manager_params(Struct* saved)
     goals::GoalManager* goal_manager = objective_board();
     goal_manager->reset_goal_data(0); // reset the career (mode 0)
     // its parameters (the shared getter of +0x14)
-    Struct* own = goal_manager->goal_data_;
+    Struct* own = goal_manager->goal_data();
     own->get_clear();
     own->append_structure_if_any(params);
     goal_manager->restore_goal_data(); // the level's goals loaded

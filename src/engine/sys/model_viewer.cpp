@@ -171,7 +171,7 @@ void Viewer::stop_callback()
     remove_node(task_1c_.get());
     remove_node(task20_.get());
     remove_node(shift_handler_.get());
-    net_handler_->dispatcher_.tear_down_state();
+    net_handler_->dispatcher().tear_down_state();
 }
 
 // 0x00576DC0
@@ -201,11 +201,11 @@ Viewer* get_live_viewer() { return sole(); }
 void handle_viewer_shift(ViewerInputHandler* handler)
 {
     Viewer* viewer = handler->content_;
-    viewer->shift_makes_ = 0;
+    viewer->shift_makes() = 0;
     const pad_input::Payload* data = handler->control_data_;
     if (!(data->buttons_ & 0x100)) // select
         return;
-    viewer->shift_makes_ |= data->makes_;
+    viewer->shift_makes() |= data->makes_;
     if (script::fetch_int_value(kSelectShift)) {
         handler->control_data_->block_button_input(1);
         handler->control_data_->block_stick_input(1);
@@ -221,53 +221,53 @@ void handle_viewer_input(ViewerInputHandler* handler)
     auto stick = [handler](int event) {
         return static_cast<float>(static_cast<int>(core::at(handler->control_data_->incident_, event)) - 0x80);
     };
-    viewer->pad_rx_ = stick(pad_input::Payload::kRawRightX);
-    viewer->pad_ry_ = stick(pad_input::Payload::kRawRightY);
-    viewer->pad_lx_ = stick(pad_input::Payload::kRawLeftX);
-    viewer->pad_ly_ = stick(pad_input::Payload::kRawLeftY);
+    viewer->pad_rx() = stick(pad_input::Payload::kRawRightX);
+    viewer->pad_ry() = stick(pad_input::Payload::kRawRightY);
+    viewer->pad_lx() = stick(pad_input::Payload::kRawLeftX);
+    viewer->pad_ly() = stick(pad_input::Payload::kRawLeftY);
     // Not original - debug mode's keyboard flying (engine/sys/debug_mode.h): held keys over the sticks, and up / down.
-    sys::debug_mode::keyboard_viewer(&viewer->pad_lx_, &viewer->pad_ly_, &viewer->pad_rx_, &viewer->pad_ry_,
-                                     &viewer->actions_);
+    sys::debug_mode::keyboard_viewer(&viewer->pad_lx(), &viewer->pad_ly(), &viewer->pad_rx(), &viewer->pad_ry(),
+                                     &viewer->actions());
     if (!script::fetch_int_value(kViewerButtonsEnabled))
         return;
     auto held = [handler]() { return handler->control_data_->buttons_; };
     auto made = [handler]() { return handler->control_data_->makes_; };
     if (held() & 0x8) {
         if (!(made() & 0x2) && !(held() & 0x2))
-            viewer->actions_ |= 0x2;
+            viewer->actions() |= 0x2;
     } else if (held() & 0x2) {
-        viewer->actions_ |= 0x4;
+        viewer->actions() |= 0x4;
     }
     if (made() & 0x800)
-        viewer->actions_ |= 0x800;
-    if (viewer->mode_sel_ == 0) {
+        viewer->actions() |= 0x800;
+    if (viewer->mode_sel() == 0) {
         if (made() & 0x10)
-            viewer->actions_ |= 0x400;
+            viewer->actions() |= 0x400;
         if (made() & 0x80)
-            viewer->actions_ |= 0x100;
+            viewer->actions() |= 0x100;
         if (made() & 0x20)
-            viewer->actions_ |= 0x200;
+            viewer->actions() |= 0x200;
         if (made() & 0x40)
-            viewer->actions_ |= 0x80;
-    } else if (viewer->mode_sel_ == 1) {
+            viewer->actions() |= 0x80;
+    } else if (viewer->mode_sel() == 1) {
         if (made() & 0x40)
-            viewer->actions_ |= 0x8000;
+            viewer->actions() |= 0x8000;
     }
     if ((held() & 0x1000) && (made() & 0x1000))
-        viewer->actions_ |= 0x10;
+        viewer->actions() |= 0x10;
     if ((held() & 0x4000) && (made() & 0x4000))
-        viewer->actions_ |= 0x8;
+        viewer->actions() |= 0x8;
     if (held() & 0x2000)
-        viewer->actions_ |= 0x40;
+        viewer->actions() |= 0x40;
     if (held() & 0x8000)
-        viewer->actions_ |= 0x20;
+        viewer->actions() |= 0x20;
     if (made() & 0x200)
-        viewer->actions_ |= 0x4000;
+        viewer->actions() |= 0x4000;
     if (held() & 0x4) {
         if (!(held() & 0x1))
-            viewer->actions_ |= 0x10000;
+            viewer->actions() |= 0x10000;
     } else if (held() & 0x1) {
-        viewer->actions_ |= 0x20000;
+        viewer->actions() |= 0x20000;
     }
     if (held() & 0x100) // (select: the shift handler's)
         return;
@@ -348,7 +348,7 @@ void select_combo_task(ViewerTask* task)
         {.button = 0x8000, .script = 0xDD589439}, // UserSelectLeft
         {.button = 0x2000, .script = 0x7A03C488}, // UserSelectRight
     });
-    const uint32_t makes = viewer->shift_makes_;
+    const uint32_t makes = viewer->shift_makes();
     for (const auto& combo : kCombos) {
         if (makes & combo.button) {
             spawn_script_if_exists(combo.script);
@@ -437,68 +437,68 @@ void free_camera_task(ViewerTask* task)
     const uint32_t elapsed = frame_clock::get_time() - last;
     last_time() += elapsed;
     auto seconds = static_cast<float>(static_cast<double>(static_cast<int>(elapsed)) * 0.001f);
-    if (viewer->actions_ & 0x4000)
-        viewer->mode_sel_ = viewer->entity_ && viewer->mode_sel_ == 0 ? 1 : 0;
-    viewer->pad_ry_ = dead_zone(viewer->pad_ry_);
-    viewer->pad_rx_ = dead_zone(viewer->pad_rx_);
-    viewer->pad_ly_ = dead_zone(viewer->pad_ly_);
-    viewer->pad_lx_ = dead_zone(viewer->pad_lx_);
+    if (viewer->actions() & 0x4000)
+        viewer->set_mode_sel(viewer->entity() && viewer->mode_sel() == 0 ? 1 : 0);
+    viewer->pad_ry() = dead_zone(viewer->pad_ry());
+    viewer->pad_rx() = dead_zone(viewer->pad_rx());
+    viewer->pad_ly() = dead_zone(viewer->pad_ly());
+    viewer->pad_lx() = dead_zone(viewer->pad_lx());
 
     auto* camera = core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(kViewerCam));
     constexpr float kDegrees = 0.017453292f; // 0x00645464 (pi / 180)
     if (camera) {
-        if (viewer->mode_sel_ == 0) {
-            if (viewer->pad_ly_ != 0.0f) {
+        if (viewer->mode_sel() == 0) {
+            if (viewer->pad_ly() != 0.0f) {
                 // Up / down: about its own x axis.
                 const maths::Vec4 axis = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
                 auto angle =
-                    static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_ly_ * seconds * kDegrees);
+                    static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_ly() * seconds * kDegrees);
                 camera->basis_frame_.turn_in_own_frame(axis, angle);
             }
-            if (viewer->pad_lx_ != 0.0f) {
+            if (viewer->pad_lx() != 0.0f) {
                 // Left / right: about the world's y axis.
                 maths::Mat4 matrix{};
                 matrix = camera->basis_frame_;
                 auto angle =
-                    static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_lx_ * seconds * -kDegrees);
+                    static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_lx() * seconds * -kDegrees);
                 maths::Mat4 rotation{};
                 maths::get_multiply(matrix, matrix, maths::make_yaw_matrix(rotation, angle));
                 camera->basis_frame_ = matrix;
             }
-        } else if (viewer->mode_sel_ == 1) {
-            viewer->entity_->change_spin(viewer->pad_lx_, viewer->pad_ly_);
+        } else if (viewer->mode_sel() == 1) {
+            viewer->entity()->change_spin(viewer->pad_lx(), viewer->pad_ly());
         }
-        if (viewer->pad_rx_ != 0.0f || viewer->pad_ry_ != 0.0f) {
+        if (viewer->pad_rx() != 0.0f || viewer->pad_ry() != 0.0f) {
             const double step = static_cast<double>(movement_velocity()) * seconds;
-            const maths::Vec4 offset = {.x = static_cast<float>(step * viewer->pad_rx_), .y = 0.0f,
-                                        .z = static_cast<float>(step * viewer->pad_ry_), .w = 1.0f};
+            const maths::Vec4 offset = {.x = static_cast<float>(step * viewer->pad_rx()), .y = 0.0f,
+                                        .z = static_cast<float>(step * viewer->pad_ry()), .w = 1.0f};
             move_object_local(camera, &offset);
         }
     }
     // (from here on the original doesn't check for the camera object)
-    if (viewer->actions_ & Viewer::kCommandShoulderA) {
+    if (viewer->actions() & Viewer::kCommandShoulderA) {
         const maths::Vec4 offset = {.x = 0.0f, .y = static_cast<float>(static_cast<double>(movement_velocity()) * seconds), .z = 0.0f,
                                     .w = 1.0f};
         move_object_local(camera, &offset);
     }
-    if (viewer->actions_ & Viewer::kCommandShoulderB) {
+    if (viewer->actions() & Viewer::kCommandShoulderB) {
         const maths::Vec4 offset = {.x = 0.0f, .y = static_cast<float>(-(static_cast<double>(movement_velocity()) * seconds)),
                                     .z = 0.0f, .w = 1.0f};
         move_object_local(camera, &offset);
     }
     if (!script::fetch_int_value(kNoRoll)) {
         constexpr float kHalfDegrees = 0.008726646f; // 0x00648800 (pi / 360)
-        if (viewer->actions_ & 0x10000)
+        if (viewer->actions() & 0x10000)
             get_roll(camera, static_cast<float>(static_cast<double>(rotate_velocity()) * seconds * -kHalfDegrees));
-        if (viewer->actions_ & 0x20000)
+        if (viewer->actions() & 0x20000)
             get_roll(camera, static_cast<float>(static_cast<double>(rotate_velocity()) * seconds * kHalfDegrees));
     }
     camera->composite_flags_ &= ~objects::kCompositeFlagPaused;
-    if (viewer->actions_ & 0x1000) {
+    if (viewer->actions() & 0x1000) {
         const int next = (render::get_view_layout() + 1) % 6;
         render::set_screen_mode(next);
     }
-    viewer->actions_ = 0;
+    viewer->actions() = 0;
 }
 
 // 0x00577CD0
@@ -518,7 +518,7 @@ void Viewer::start_callback()
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->front_end_heap());
     if (!debug_checks()) {
-        net::Router& dispatcher = net_handler_->dispatcher_;
+        net::Router& dispatcher = net_handler_->dispatcher();
         dispatcher.append_listener(0x20, &handle_reload_scene, 3, nullptr, 0x80);
         dispatcher.append_listener(0x21, &online::handle_nothing, 3, nullptr, 0x80);
         dispatcher.append_listener(0x22, &reload_script_file, 3, nullptr,

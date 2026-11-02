@@ -87,7 +87,7 @@ void store_beaten_goal(script::Struct* saved, uint32_t name, int level, uint32_t
 // direction. Gaps already landed keep their count and positions. Returns the checklist's gap count.
 int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::Array* gaps)
 {
-    goals::GapTally* checklist = core::at(career->gaps_, level);
+    goals::GapTally* checklist = core::at(career->gaps(), level);
     if (!checklist)
         return 0;
     const maths::Vec4 facing = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
@@ -115,7 +115,7 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
             gap->skater_start_dir_ = facing;
         }
     }
-    core::at(career->visited_, level) = true;
+    core::at(career->visited(), level) = true;
     return count;
 }
 
@@ -141,7 +141,7 @@ bool cfunc_apply(script::Struct* params, script::Script*)
         return false;
     objects::RiderStoryProgress* career = skate->career().get();
     const goals::GoalManager* goal_manager = skate->goal_manager().get();
-    script::Struct* saved = goal_manager ? goal_manager->goal_data_ : nullptr;
+    script::Struct* saved = goal_manager ? goal_manager->goal_data() : nullptr;
     if (!career || !saved)
         return false;
     int goal_count = 0, classic_count = 0, gap_levels = 0, gap_count = 0;
@@ -155,11 +155,10 @@ bool cfunc_apply(script::Struct* params, script::Script*)
         int points = 0, total = 0;
         if (level->fetch_int_value(name_hash("points"), &points, 0)) {
             level->fetch_int_value(name_hash("total"), &total, 0);
-            career->lifetime_funds_ =
-                static_cast<uint16_t>(career->lifetime_funds_ + (points - core::at(career->funds_, number)));
-            core::at(career->funds_, number) = static_cast<uint16_t>(points);
-            career->total_amount_ = static_cast<uint16_t>(career->total_amount_ + (total - core::at(career->amount_, number)));
-            core::at(career->amount_, number) = static_cast<uint16_t>(total);
+            career->set_lifetime_funds(static_cast<uint16_t>(career->lifetime_funds() + (points - core::at(career->funds(), number))));
+            core::at(career->funds(), number) = static_cast<uint16_t>(points);
+            career->set_total_amount(static_cast<uint16_t>(career->total_amount() + (total - core::at(career->amount(), number))));
+            core::at(career->amount(), number) = static_cast<uint16_t>(total);
         }
         script::Array* goals = nullptr;
         if (level->fetch_list(name_hash("goals"), &goals, 0) && goals) {
@@ -173,8 +172,8 @@ bool cfunc_apply(script::Struct* params, script::Script*)
         if (level->fetch_list(name_hash("classic_goals"), &classic, 0) && classic) {
             for (uint32_t g = 0; g < classic->extent_; ++g, ++classic_count)
                 store_beaten_goal(saved, classic->fetch_part(g), number, kClassic);
-            if (number < ints::as_signed(sizeof(career->counter_)))
-                core::at(career->counter_, number) = static_cast<uint8_t>(classic->extent_);
+            if (number < ints::as_signed(sizeof(career->counter())))
+                core::at(career->counter(), number) = static_cast<uint8_t>(classic->extent_);
         }
         script::Array* gaps = nullptr;
         if (level->fetch_list(name_hash("gaps"), &gaps, 0) && gaps) {
@@ -184,15 +183,15 @@ bool cfunc_apply(script::Struct* params, script::Script*)
     }
     // The classic total complete as the counters add up (the total possible, +0x5EF, is SetClassicTotalGoals').
     int counter_total = 0;
-    for (const uint8_t counter : career->counter_)
+    for (const uint8_t counter : career->counter())
         counter_total += counter;
-    career->total_counter_ = static_cast<uint8_t>(counter_total);
+    career->set_total_counter(static_cast<uint8_t>(counter_total));
     const int stat_goals = complete_stat_goals();
     get_log(
         "create 100%% cas: %u levels; %d story goals beaten, story points %u / %u; %d classic goals beaten, classic "
         "goals %u / %u; %d gaps got in %d levels, all gaps got: %d; %d stat challenges done",
-        levels->extent_, goal_count, career->lifetime_funds_, career->total_amount_, classic_count,
-        career->total_counter_, career->flag_5e_f_, gap_count, gap_levels, career->all_gaps_got() ? 1 : 0, stat_goals);
+        levels->extent_, goal_count, career->lifetime_funds(), career->total_amount(), classic_count,
+        career->total_counter(), career->flag_5e_f(), gap_count, gap_levels, career->all_gaps_got() ? 1 : 0, stat_goals);
     return true;
 }
 

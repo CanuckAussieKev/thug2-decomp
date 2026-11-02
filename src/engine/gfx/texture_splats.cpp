@@ -322,14 +322,14 @@ bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format)
         core::at(q20, k) = midpoint(core::at(p2, k), core::at(p0, k));
     gpu::VertexWriter(m12.data(), size, 1).set_floats(0, 0, q12);
     gpu::VertexWriter(m20.data(), size, 1).set_floats(0, 0, q20);
-    if (const uint8_t c = format->color_offset_) {
+    if (const uint8_t c = format->color_offset()) {
         for (int k = 0; k < 4; ++k) {
             core::at(m01, c + k) = byte_midpoint(core::at(v0, c + k), core::at(v1, c + k));
             core::at(m12, c + k) = byte_midpoint(core::at(v1, c + k), core::at(v2, c + k));
             core::at(m20, c + k) = byte_midpoint(core::at(v2, c + k), core::at(v0, c + k));
         }
     }
-    if (const uint8_t t = format->uv_offset_) {
+    if (const uint8_t t = format->uv_offset()) {
         const auto uv0 = gpu::VertexView(v0.data(), size, 1).float2(0, t);
         const auto uv1 = gpu::VertexView(v1.data(), size, 1).float2(0, t);
         const auto uv2 = gpu::VertexView(v2.data(), size, 1).float2(0, t);
@@ -386,25 +386,25 @@ ProjectedVertex piece_at(const gpu::VertexView& pieces, size_t index)
 TextureSplats* get_texture_splats(TextureImage* texture)
 {
     if (TextureSplats* splats = effects_state().splat_sets().find_if(
-            [texture](const TextureSplats* set) { return core::at(set->material->textures, 0) == texture; }))
+            [texture](const TextureSplats* set) { return core::at(set->material->textures_value(), 0) == texture; }))
         return splats;
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* material = memory ? memory::construct_in<MaterialRef>(memory) : nullptr;
     // (no check: a failed allocation writes through null, as the original)
-    core::at(material->pass_flags_, 0) = texture ? 4 : 0; // (the pass's flags)
+    core::at(material->pass_flags(), 0) = texture ? 4 : 0; // (the pass's flags)
     const int a = get_rand();
     const int b = get_rand();
-    material->checksum = a * b;                                  // a random checksum
-    core::at(material->textures, 0) = texture;
-    material->pass_count_ = 1;                                   // one pass
-    material->two_sided_ = 1;
-    material->depth_bias_ = 0x14;
-    core::at(material->blend_modes_, 0) = 5; // its blend mode
+    material->set_checksum(a * b);                                  // a random checksum
+    core::at(material->textures_value(), 0) = texture;
+    material->set_pass_count(1);                                   // one pass
+    material->set_two_sided(1);
+    material->set_depth_bias(0x14);
+    core::at(material->blend_modes(), 0) = 5; // its blend mode
     for (int k = 0; k < 3; ++k)
-        core::at(core::at(material->pass_color_, 0), k) = 0.5f; // its colour
-    core::at(material->address_modes_, 0) = 0x20002;
-    core::at(material->mip_lod_bias_, 0) = 0;
-    material->alpha_ref_ = 1;
+        core::at(core::at(material->pass_color(), 0), k) = 0.5f; // its colour
+    core::at(material->address_modes(), 0) = 0x20002;
+    core::at(material->mip_lod_bias(), 0) = 0;
+    material->set_alpha_ref(1);
     auto* splats = static_cast<TextureSplats*>(memory::alloc(sizeof(TextureSplats)));
     splats->last = 0;
     splats->material = material;
@@ -489,17 +489,17 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
         if (!geom)
             continue;
         for (MeshRef* const mesh : geom->mesh_run()) {
-            if (mesh->flags & 2)
+            if (mesh->flags_value() & 2)
                 continue;
             uint8_t* vertices = nullptr;
-            core::at(mesh->vertex_buffers_, 0)->get_lock(0, 0, &vertices, 0x10);
-            const gpu::VertexView mesh_vertices(vertices, mesh->stride, mesh->vertex_count_);
+            core::at(mesh->vertex_buffers(), 0)->get_lock(0, 0, &vertices, 0x10);
+            const gpu::VertexView mesh_vertices(vertices, mesh->stride_value(), mesh->vertex_count());
             uint16_t* locked_indices = nullptr;
-            core::at(mesh->index_buffers_, 0)->get_lock(0, 0, &locked_indices, 0x10);
-            const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts_, 0));
+            core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, 0x10);
+            const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts(), 0));
             // (a strip of fewer than two indices has no triangle: the first two are only read, as the original did)
             uint32_t a = indices.size() > 0 ? core::at(indices, 0) : 0u, b = indices.size() > 1 ? core::at(indices, 1) : 0u;
-            for (uint32_t strip = 2; strip < core::at(mesh->index_counts_, 0); ++strip) {
+            for (uint32_t strip = 2; strip < core::at(mesh->index_counts(), 0); ++strip) {
                 const uint32_t c = core::at(indices, strip);
                 const uint32_t ia = a;
                 const uint32_t ib = b;
@@ -570,7 +570,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                 const std::array<uint32_t, 3> index = {{ia, ib, ic}};
                 for (int k = 0; k < 3; ++k)
                     core::at(triangle, k).argb =
-                        splat_color(mesh_vertices.word(core::at(index, k), mesh->color_offset_));
+                        splat_color(mesh_vertices.word(core::at(index, k), mesh->color_offset()));
                 // how fine to split it: a 128th of its cross product's square
                 {
                     const auto& p0 = v0.position;
@@ -597,8 +597,8 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
                 std::memset(pieces, 0, 0x2000);
                 void* memory = memory::alloc(sizeof(MeshRef));
                 MeshRef* format = memory ? memory::construct_in<MeshRef>(memory) : nullptr;
-                format->color_offset_ = offsetof(ProjectedVertex, argb); // (no check: as the original)
-                format->uv_offset_ = offsetof(ProjectedVertex, uv);
+                format->set_color_offset(offsetof(ProjectedVertex, argb)); // (no check: as the original)
+                format->set_uv_offset(offsetof(ProjectedVertex, uv));
                 core::Cursor<uint8_t> cursor(std::span<uint8_t>(pieces, 0x2000));
                 while (split_next_triangle(cursor, format))
                     ;

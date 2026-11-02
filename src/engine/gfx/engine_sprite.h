@@ -62,6 +62,25 @@ public:
     // 0x0049ECF0: its colour (RGBA).
     void change_rgba(uint32_t rgba);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] BitmapTexture* bitmap() const { return bitmap_; }
+    [[nodiscard]] float pos_x() const { return pos_x_; }
+    [[nodiscard]] float scale_h() const { return scale_h_; }
+    [[nodiscard]] float hot_x() const { return hot_x_; }
+    [[nodiscard]] float orientation_turn() const { return orientation_turn_; }
+    [[nodiscard]] float rank() const { return rank_; }
+    [[nodiscard]] uint16_t span() const { return span_; }
+    [[nodiscard]] bool invisible() const { return invisible_; }
+    bool& flip_v() { return flip_v_; }
+    [[nodiscard]] bool flip_v() const { return flip_v_; }
+    std::array<uint8_t, 4>& rgba_value() { return rgba_value_; }
+    [[nodiscard]] const std::array<uint8_t, 4>& rgba_value() const { return rgba_value_; }
+    [[nodiscard]] float y() const { return y_; }
+    [[nodiscard]] float scale_v() const { return scale_v_; }
+    [[nodiscard]] float hot_y() const { return hot_y_; }
+    [[nodiscard]] uint16_t level_y() const { return level_y_; }
+
+private:
     BitmapTexture* bitmap_{nullptr};      // +0x04
     uint32_t mix_mode_{kBlend};           // +0x08
     float pos_x_{-1.0f}, y_{-1.0f};       // +0x0C
@@ -78,11 +97,15 @@ public:
     std::array<uint8_t, 4> rgba_value_{}; // +0x39 (unaligned)
     std::array<uint8_t, 3> pad3d_{};
     void* screen_region_; // +0x40: its 2D window (set by 0x0048D1B0)
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(BillboardQuad, orientation_turn_) == 0x24 && offsetof(BillboardQuad, span_) == 0x30 &&
+                          offsetof(BillboardQuad, rgba_value_) == 0x39 && offsetof(BillboardQuad, screen_region_) == 0x40 &&
+                          sizeof(BillboardQuad) == 0x44,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(BillboardQuad, orientation_turn_) == 0x24 && offsetof(BillboardQuad, span_) == 0x30 &&
-                  offsetof(BillboardQuad, rgba_value_) == 0x39 && offsetof(BillboardQuad, screen_region_) == 0x40 &&
-                  sizeof(BillboardQuad) == 0x44,
-              "layout must match the original");
 
 // The textured quad (0x20 bytes in the original with its vtable 0x00649A98 - [1] a new one, [4]-[6] the platform told
 // of the hidden flag, the settings, the priority: all empty, and no PC class over it - so no vtable here: 0x1C).

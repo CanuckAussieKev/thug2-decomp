@@ -52,6 +52,20 @@ public:
     // 0x004E4000: lock (or unlock) the angles where they are.
     void set_locked(bool locked);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] bool locked() const { return locked_; }
+    void assign_locked(bool value) { locked_ = value; }
+    [[nodiscard]] bool turning() const { return turning_; }
+    float& factor() { return factor_; }
+    [[nodiscard]] float factor() const { return factor_; }
+    [[nodiscard]] float lean_angle() const { return lean_angle_; }
+    void set_lean_angle(float value) { lean_angle_ = value; }
+    [[nodiscard]] float heading() const { return heading_; }
+    void set_heading(float value) { heading_ = value; }
+    [[nodiscard]] float mode_heading() const { return mode_heading_; }
+    void set_mode_heading(float value) { mode_heading_ = value; }
+
+private:
     bool locked_{};  // +0x18
     bool turning_{}; // +0x19
     // NOT ORIGINAL - THAW's BMX (game/rider/thaw_bmx.h): THAW's look-around has this flag (its +0x40, set by its
@@ -69,10 +83,14 @@ public:
     float heading_rate_{};      // +0x38
     float seconds_remaining_{}; // +0x3C
     PadInputModule* input_ptr_{}; // +0x40 the Input component
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(FreeLookModule, locked_) == 0x18 && offsetof(FreeLookModule, factor_) == 0x1C &&
+                          offsetof(FreeLookModule, target_tilt_) == 0x2C && offsetof(FreeLookModule, input_ptr_) == 0x40 &&
+                          sizeof(FreeLookModule) == 0x44,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(FreeLookModule, locked_) == 0x18 && offsetof(FreeLookModule, factor_) == 0x1C &&
-                  offsetof(FreeLookModule, target_tilt_) == 0x2C && offsetof(FreeLookModule, input_ptr_) == 0x40 &&
-                  sizeof(FreeLookModule) == 0x44,
-              "layout must match the original");
 
 } // namespace objects

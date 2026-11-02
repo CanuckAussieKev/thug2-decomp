@@ -64,6 +64,34 @@ public:
     virtual int os_read_chunk(void* buffer, int size, int count); // [14] Read
     virtual bool os_cancel();                                     // [18] Cancel (the PC uses the base's)
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int outcome_val() const { return outcome_val_; }
+    void set_outcome_val(int value) { outcome_val_ = value; }
+    [[nodiscard]] const IoCompletionHook& callback() const { return callback_; }
+    void set_callback(const IoCompletionHook& value) { callback_ = value; }
+    [[nodiscard]] void* arg0() const { return arg0_; }
+    void set_arg0(void* value) { arg0_ = value; }
+    [[nodiscard]] void* arg1() const { return arg1_; }
+    void set_arg1(void* value) { arg1_ = value; }
+    uint32_t& callback_mask() { return callback_mask_; }
+    [[nodiscard]] uint32_t callback_mask() const { return callback_mask_; }
+    [[nodiscard]] int operation() const { return operation_; }
+    void set_operation(int value) { operation_ = value; }
+    void set_unknown1c(int value) { unknown1c_ = value; }
+    void set_feed(bool value) { feed_ = value; }
+    [[nodiscard]] bool is_blocking() const { return is_blocking_; }
+    void set_is_blocking(bool value) { is_blocking_ = value; }
+    void set_buffer_size(int value) { buffer_size_ = value; }
+    void set_rank(int value) { rank_ = value; }
+    [[nodiscard]] int payload_bytes() const { return payload_bytes_; }
+    void set_payload_bytes(int value) { payload_bytes_ = value; }
+    int& anchor_point() { return anchor_point_; }
+    [[nodiscard]] int anchor_point() const { return anchor_point_; }
+    void set_pre_file(void* value) { pre_file_ = value; }
+    volatile int& in_flight_ops() { return in_flight_ops_; }
+    [[nodiscard]] int in_flight_ops() const { return in_flight_ops_; }
+
+private:
     int outcome_val_{}; // result of the last operation (size read, error, ...)
     IoCompletionHook callback_{};
     void* arg0_{};
@@ -79,6 +107,15 @@ public:
     int anchor_point_{};
     void* pre_file_{}; // Pre::ArchiveFile::FileInfo* when the file is inside a loaded .pre archive
     volatile int in_flight_ops_{};
+
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(AsyncFileHandle, callback_mask_) == 0x14 && offsetof(AsyncFileHandle, is_blocking_) == 0x21 &&
+                          offsetof(AsyncFileHandle, payload_bytes_) == 0x2C &&
+                          offsetof(AsyncFileHandle, in_flight_ops_) == 0x38,
+                      "layout must match the original");
+    }
 };
 
 // Whether overlapped I/O is used (chosen at start-up; Windows NT 6 and later).
@@ -123,7 +160,7 @@ void async_swap_callback_lists();
 // As the file loading code uses it.
 inline AsyncFileHandle* async_open(const char* name) { return async_open(name, false, 100); }
 inline int async_get_file_size(AsyncFileHandle* file) { return file->get_file_size(); }
-inline void async_set_callback_mask(AsyncFileHandle* file, uint32_t mask) { file->callback_mask_ = mask; }
+inline void async_set_callback_mask(AsyncFileHandle* file, uint32_t mask) { file->callback_mask() = mask; }
 inline void async_set_callback(AsyncFileHandle* file, IoCompletionHook callback, void* arg0, void* arg1)
 {
     file->change_hook(callback, arg0, arg1);

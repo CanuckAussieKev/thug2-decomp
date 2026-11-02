@@ -74,7 +74,7 @@ uint32_t& score_sync_stamp_slot()
 // A player's SkaterScore's score object (no null checks: as the original).
 void* get_score_of(PlayerRecord* player)
 {
-    auto* skater = player->skater_;
+    auto* skater = player->skater();
     return core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held_;
 }
 int points_of(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
@@ -83,11 +83,11 @@ int points_of(void* score) { return static_cast<modules::PointTally*>(score)->ge
 // A player that gets a score line: fully in (or local), not eliminated, and in netfirefight not out of lives.
 bool has_score_line(PlayerRecord* p)
 {
-    if (!(p->flag_bits_ & (kPlayerFullyIn | kPlayerLocal)) || (p->flag_bits_ & kPlayerEliminated))
+    if (!(p->flag_bits() & (kPlayerFullyIn | kPlayerLocal)) || (p->flag_bits() & kPlayerEliminated))
         return false;
-    if (get_game_type() != kNetFirefight || !p->skater_)
+    if (get_game_type() != kNetFirefight || !p->skater())
         return true;
-    objects::ObjectModule* score = p->skater_->fetch_module(kSkaterScore);
+    objects::ObjectModule* score = p->skater()->fetch_module(kSkaterScore);
     return !score || points_of(core::down_cast<objects::RiderPointKeeper>(score)->points_held_) != 0;
 }
 
@@ -122,9 +122,9 @@ int Hub::get_squad_points(int team)
     const PlayerRecord* local = find_own_player_record(this);
     const bool goal_attack = get_game_type() == kNetGoalAttack;
     for (PlayerRecord* p = start_roster_sweep(this, &search, false); p; p = step_roster_sweep(this, &search, false)) {
-        if (!(p->flag_bits_ & (kPlayerFullyIn | kPlayerLocal)) || p->team_ != team)
+        if (!(p->flag_bits() & (kPlayerFullyIn | kPlayerLocal)) || p->team() != team)
             continue;
-        if (goal_attack && !(local->flag_bits_ & kPlayerObserver))
+        if (goal_attack && !(local->flag_bits() & kPlayerObserver))
             return objective_board()->num_goals_net_beaten_by(team);
         total += points_of(get_score_of(p));
     }
@@ -135,7 +135,7 @@ int Hub::get_squad_points(int team)
 int Hub::get_entrant_points(uint32_t id)
 {
     const PlayerRecord* local = find_own_player_record(this);
-    if (get_game_type() == kNetGoalAttack && !(local->flag_bits_ & kPlayerObserver))
+    if (get_game_type() == kNetGoalAttack && !(local->flag_bits() & kPlayerObserver))
         return objective_board()->count_cleared_by_player(static_cast<int>(id));
     auto* player = find_player_slot_by_obj(static_cast<uint16_t>(id));
     return points_of(get_score_of(player));
@@ -187,18 +187,18 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
             if (!has_score_line(p))
                 continue;
-            if (p->flag_bits_ & kPlayerLocal) {
+            if (p->flag_bits() & kPlayerLocal) {
                 std::array<char, 64> marked{};
-                text::format_to(marked, "> %s", core::at(teams, p->team_)->text_.data());
-                std::strcpy(core::at(teams, p->team_)->text_.data(), marked.data());
+                text::format_to(marked, "> %s", core::at(teams, p->team())->text_.data());
+                std::strcpy(core::at(teams, p->team())->text_.data(), marked.data());
             }
-            if (p->flag_bits_ & kPlayerKing)
-                core::at(teams, p->team_)->king_ = true;
-            if (p->flag_bits_ & kPlayerLocal)
-                core::at(teams, p->team_)->local_ = true;
-            if (p->flag_bits_ & kPlayerCarryingFlags) {
-                core::at(teams, p->team_)->has_flag_ = true;
-                core::at(teams, p->team_)->flag_bits_ |= flag_bit(p);
+            if (p->flag_bits() & kPlayerKing)
+                core::at(teams, p->team())->king_ = true;
+            if (p->flag_bits() & kPlayerLocal)
+                core::at(teams, p->team())->local_ = true;
+            if (p->flag_bits() & kPlayerCarryingFlags) {
+                core::at(teams, p->team())->has_flag_ = true;
+                core::at(teams, p->team())->flag_bits_ |= flag_bit(p);
             }
         }
         for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
@@ -214,17 +214,17 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             if (!has_score_line(p))
                 continue;
             ScoreEntry* entry = new_entry();
-            if (p->flag_bits_ & kPlayerLocal)
-                text::format_to(entry->text_, "> %s", p->label_.data());
+            if (p->flag_bits() & kPlayerLocal)
+                text::format_to(entry->text_, "> %s", p->label().data());
             else
-                std::strcpy(entry->text_.data(), p->label_.data());
-            entry->king_ = (p->flag_bits_ >> 7) & 1;
-            entry->local_ = p->flag_bits_ & 1;
+                std::strcpy(entry->text_.data(), p->label().data());
+            entry->king_ = (p->flag_bits() >> 7) & 1;
+            entry->local_ = p->flag_bits() & 1;
             if (is_squad_match())
-                entry->shade_ = p->team_ + 2;
+                entry->shade_ = p->team() + 2;
             else
-                entry->shade_ = static_cast<int>(get_skater_id(p->skater_)) + 2;
-            if (p->flag_bits_ & kPlayerCarryingFlags) {
+                entry->shade_ = static_cast<int>(get_skater_id(p->skater())) + 2;
+            if (p->flag_bits() & kPlayerCarryingFlags) {
                 entry->has_flag_ = true;
                 entry->flag_bits_ |= flag_bit(p);
             }
@@ -232,7 +232,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
                 get_append(&list, entry);
             } else {
                 entry->priority =
-                    scavenger_hunt ? 5 - p->num_placed_ : manager->get_entrant_points(get_skater_id(p->skater_));
+                    scavenger_hunt ? 5 - p->num_placed() : manager->get_entrant_points(get_skater_id(p->skater()));
                 list.append_vertex(entry);
             }
         }

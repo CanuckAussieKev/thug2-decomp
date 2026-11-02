@@ -174,7 +174,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
     for (int i = 0; i < count; ++i) {
         uint32_t key = 0;
         Objective* goal = goals_.get_by_index(i, &key);
-        const uint32_t pro = goal->skater_;
+        const uint32_t pro = goal->skater();
         if (skater && pro != skater)
             continue;
         const uint32_t id = goal->get_objective_key();
@@ -317,9 +317,9 @@ bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
     script::ArrayPtr list = script::make_array();
-    list->configure_size_kind(static_cast<uint32_t>(manager->goals_.num_), script::kQbvalStruct);
-    for (int i = 0; i < manager->goals_.num_; ++i) {
-        Objective* goal = manager->goals_.get_by_index(i);
+    list->configure_size_kind(static_cast<uint32_t>(manager->goals().num_), script::kQbvalStruct);
+    for (int i = 0; i < manager->goals().num_; ++i) {
+        Objective* goal = manager->goals().get_by_index(i);
         gsl::owner<script::Struct*> entry = script::new_struct();
         entry->put_name_key(kGoalIdKey, goal->get_objective_key());
         entry->put_int(kAlreadyWon, goal->has_won() ? 1 : 0);
@@ -344,7 +344,7 @@ bool cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Scrip
         return true;
     const char* text = nullptr;
     if (!params->fetch_text(kText, &text, 0))
-        return manager->goals_.get_pull(name)->swap_move_caption();
+        return manager->goals().get_pull(name)->swap_move_caption();
     std::array<char, 0x200> replaced{};
     if (manager->swap_move_caption(name, text, replaced.data(), sizeof(replaced))) {
         script->args()->erase_module(kTrickText);

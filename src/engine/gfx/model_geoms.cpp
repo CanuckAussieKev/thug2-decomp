@@ -58,9 +58,9 @@ constexpr uint32_t kFaceImage = 0xB00B0DC0; // the face texture's name in the di
 // (0x004ECC30; the result iterator out).
 void insert_geom(RenderModel* model, ModelGeomNode* where, ModelGeom** entry)
 {
-    model->geom_ring_.insert(where, *entry);
+    model->geom_ring().insert(where, *entry);
 }
-void erase_geoms(RenderModel* model, ModelGeomNode* first, ModelGeomNode* last) { model->geom_ring_.erase(first, last); }
+void erase_geoms(RenderModel* model, ModelGeomNode* first, ModelGeomNode* last) { model->geom_ring().erase(first, last); }
 
 // A node's memory: from the default heap, or the current one (0x00658555: whether to assert when out of it).
 ModelGeom* new_entry(bool default_heap)

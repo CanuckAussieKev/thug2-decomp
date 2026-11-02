@@ -129,7 +129,7 @@ void spawn_pedestrian(script::Struct* params)
     motion->set_path_stop_distance(24.0f);
     motion->init_path_follower(ped);
     auto* path = motion->get_path_follower();
-    path->corner_distance_ = 24.0f;
+    path->set_corner_distance(24.0f);
     motion->motion_flags2() |= 0x400;
     update_model(ped->fetch_module(kModel));
     script::launch_script(kPedDisableBones, nullptr, ped, false, nullptr);
@@ -147,7 +147,7 @@ void set_up_automobile(GameEntity* car, script::Struct* params)
     motion->set_ground_height_only(false);
     motion->init_path_follower(car);
     auto* extra = motion->get_path_follower();
-    extra->corner_distance_ = 240.0f;
+    extra->set_corner_distance(240.0f);
     script::launch_script(kCarAddComponents, params, car, false, nullptr);
     car->seal();
     update_model(car->fetch_module(kModel));
@@ -235,9 +235,9 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     text::Chars file;
     file = gfx::make_model_path("crown", ".mdl"); // (0x004879D0 returns a String: a temporary)
     // The model component's model (+0x208): loaded from the file (0x004935E0), then 0x00493C60(1).
-    void* model_data = core::down_cast<objects::MeshInstanceModule>(fetch_module(kModel))->mesh_instance_.get();
+    void* model_data = core::down_cast<objects::MeshInstanceModule>(fetch_module(kModel))->mesh_instance().get();
     static_cast<render::RenderModel*>(model_data)->add_file_geom(file.c_str(), 0, true, 0, false, false, true, false);
-    model_data = core::down_cast<objects::MeshInstanceModule>(fetch_module(kModel))->mesh_instance_.get();
+    model_data = core::down_cast<objects::MeshInstanceModule>(fetch_module(kModel))->mesh_instance().get();
     static_cast<render::RenderModel*>(model_data)->change_live(1);
     level_nodes::fetch_place(node, &at_point_);
     seal();

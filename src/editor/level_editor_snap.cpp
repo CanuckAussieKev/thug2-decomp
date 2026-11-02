@@ -135,13 +135,13 @@ std::vector<V3> sector_vertices(uint32_t checksum, size_t limit)
     const uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096 && out.size() < limit; ++i) {
         const render::MeshRef* mesh = core::at(meshes, i);
-        if (!mesh || mesh->billboard || (mesh->flags & 0x10))
+        if (!mesh || mesh->billboard_value() || (mesh->flags_value() & 0x10))
             continue;
-        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
-        if (!vertices || !vertices->data || mesh->stride < 12)
+        const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
+        if (!vertices || !vertices->data || mesh->stride_value() < 12)
             continue;
-        for (uint32_t v = 0; v < mesh->vertex_count_ && out.size() < limit; ++v) {
-            const auto p = gpu::VertexView(vertices->data, mesh->stride, mesh->vertex_count_).float3(v);
+        for (uint32_t v = 0; v < mesh->vertex_count() && out.size() < limit; ++v) {
+            const auto p = gpu::VertexView(vertices->data, mesh->stride_value(), mesh->vertex_count()).float3(v);
             out.push_back({.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2)});
         }
     }

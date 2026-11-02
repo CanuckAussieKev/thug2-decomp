@@ -265,14 +265,14 @@ bool cfunc_set_park_editor_time_of_day(script::Struct* params, script::Script*)
 {
     uint32_t script = 0;
     params->read_hash_value(kTodScript, &script, 0);
-    get_editor()->lighting_script_ = script;
+    get_editor()->set_lighting_script(script);
     return true;
 }
 
 // 0x0058DFE0
 bool cfunc_get_park_editor_time_of_day_script(script::Struct*, script::Script* script)
 {
-    const uint32_t tod = get_editor()->lighting_script_;
+    const uint32_t tod = get_editor()->lighting_script();
     if (!tod)
         return false;
     script->args()->put_name_key(kTodScript, tod);
@@ -282,14 +282,14 @@ bool cfunc_get_park_editor_time_of_day_script(script::Struct*, script::Script* s
 // 0x0058E010
 bool cfunc_rebuild_park_node_array(script::Struct*, script::Script*)
 {
-    hub()->builder_->build_goal_node_array(); // the park's node array made again
+    hub()->builder()->build_goal_node_array(); // the park's node array made again
     return true;
 }
 
 // 0x0058E020
 bool cfunc_get_park_editor_cursor_pos(script::Struct*, script::Script* script)
 {
-    const maths::Vec4 pos = get_cursor()->at_point_;
+    const maths::Vec4 pos = get_cursor()->at_point();
     script->args()->put_vec3(kPos, pos.x, pos.y, pos.z);
     return true;
 }
@@ -299,11 +299,11 @@ bool cfunc_custom_park_mode(script::Struct* params, script::Script*)
 {
     const ParkBuilderMode* editor = get_editor();
     if (params->has_bare_flag("editing"))
-        return editor->cur_phase_ == ParkBuilderMode::kStateEdit;
+        return editor->cur_phase() == ParkBuilderMode::kStateEdit;
     if (params->has_bare_flag("testing"))
-        return editor->cur_phase_ == ParkBuilderMode::kStateTestPlay;
+        return editor->cur_phase() == ParkBuilderMode::kStateTestPlay;
     if (params->has_bare_flag("just_using"))
-        return editor->cur_phase_ != ParkBuilderMode::kStateOff;
+        return editor->cur_phase() != ParkBuilderMode::kStateOff;
     return false;
 }
 
@@ -312,14 +312,14 @@ bool cfunc_set_park_editor_max_players(script::Struct* params, script::Script*)
 {
     int players = 1;
     params->fetch_int_value(0u, &players, 0);
-    hub()->builder_->set_player_cap(players);
+    hub()->builder()->set_player_cap(players);
     return true;
 }
 
 // 0x0058E170
 CellBox* get_resize_area(CellBox* out, script::Struct* params)
 {
-    CellBox area = hub()->build_area_;
+    CellBox area = hub()->build_area();
     int w = area.w;
     int l = area.l;
     params->fetch_int_value("w", &w, 0);
@@ -381,7 +381,7 @@ void resize_to(CellBox area)
     if (have_cursor())
         get_cursor()->toggle_shown(false);
     park_editing_state().set_collision_allowed(true);
-    hub()->builder_->rebuild_collision();
+    hub()->builder()->rebuild_collision();
     mark_progress("ResizePark END--------");
 }
 
@@ -414,7 +414,7 @@ bool cfunc_resize_park(script::Struct* params, script::Script*)
 // 0x0058E7E0
 bool cfunc_get_current_park_bounds(script::Struct*, script::Script* script)
 {
-    const CellBox bounds = hub()->build_area_;
+    const CellBox bounds = hub()->build_area();
     script->args()->put_int(kX, bounds.x);
     script->args()->put_int(kZ, bounds.z);
     script->args()->put_int(kW, bounds.w);
@@ -425,8 +425,8 @@ bool cfunc_get_current_park_bounds(script::Struct*, script::Script* script)
 // 0x0058E870
 bool cfunc_can_change_park_dimension(script::Struct* params, script::Script*)
 {
-    const CellBox bounds = hub()->build_area_;
-    const CellBox shell = hub()->shell_bounds_;
+    const CellBox bounds = hub()->build_area();
+    const CellBox shell = hub()->shell_bounds();
     script::Array* size = nullptr;
     if (params->fetch_list(0u, &size, 0)) {
         // [w l]: whether it's another size than the park's
@@ -511,7 +511,7 @@ bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script)
 // 0x0058EB90
 bool cfunc_is_custom_park(script::Struct*, script::Script*)
 {
-    return get_editor()->cur_phase_ != ParkBuilderMode::kStateOff;
+    return get_editor()->cur_phase() != ParkBuilderMode::kStateOff;
 }
 
 // 0x0058EBB0
@@ -552,7 +552,7 @@ bool cfunc_switch_to_park_editor_camera(script::Struct*, script::Script*)
     auto set_camera = [](uint32_t id, int viewport, int take_current_view) {
         commands::make_camera_active(id, viewport, take_current_view != 0);
     };
-    if (have_cursor() && get_cursor()->mode_sel_ == BuildPointer::kModeRailPlacement)
+    if (have_cursor() && get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement)
         set_camera(kRailEditorCam, 0, 0);
     else
         set_camera(kParkedCam, 0, 0);

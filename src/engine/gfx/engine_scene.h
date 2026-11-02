@@ -57,6 +57,20 @@ struct WorldScene : public memory::HeapObject {
     virtual uint8_t* get_default_colour(uint8_t* out);
     virtual void set_rendered(int rendered); // 0x0049CA60
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t checksum() const { return checksum_; }
+    void set_checksum(uint32_t value) { checksum_ = value; }
+    [[nodiscard]] TextureSet* texture_set() const { return texture_set_; }
+    void set_texture_set(TextureSet* value) { texture_set_ = value; }
+    void set_builds_collision_grid(bool value) { builds_collision_grid_ = value; }
+    [[nodiscard]] bool is_sky() const { return is_sky_; }
+    void set_is_sky(bool value) { is_sky_ = value; }
+    [[nodiscard]] lists::KeyMap* sectors() const { return sectors_; }
+    [[nodiscard]] CollGrid* coll_grid() const { return coll_grid_; }
+    std::array<char, 0x80>& add_name() { return add_name_; }
+    [[nodiscard]] const std::array<char, 0x80>& add_name() const { return add_name_; }
+
+private:
     std::array<char, 0x80> label_{};         // +0x04: the file it was loaded from
     uint32_t checksum_{};        // +0x84: its name's
     TextureSet* texture_set_{};  // +0x88
@@ -84,6 +98,8 @@ struct WorldScene : public memory::HeapObject {
     std::array<uint8_t, 2> pad276{};
     memory::ListNode* hidden_sectors_; // +0x278: lists::Foremost<WorldCell> - the base's sectors the added scene hides
     memory::ListNode* add_scene_sectors_; // +0x27C: lists::Foremost<WorldCell> - the sectors the added scene made
+
+public:
 
     // 0x0049C910: the name kept, then post_load with `arena`.
     void finish_load(const char* name, void* arena);
@@ -158,16 +174,21 @@ struct WorldScene : public memory::HeapObject {
     // collision objects deleted (the array), its collision file unloaded, the hidden list emptied, its own sectors
     // deleted (0x0049CB40). True.
     bool unload_added_scene();
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(WorldScene, builds_collision_grid_) == 0x8C && offsetof(WorldScene, collision_box_) == 0xB0 &&
+                          offsetof(WorldScene, sectors_) == 0xD0 && offsetof(WorldScene, coll_grid_) == 0xD4 &&
+                          offsetof(WorldScene, pip_name_) == 0xD8 && offsetof(WorldScene, coll_static_count_) == 0x158 &&
+                          offsetof(WorldScene, coll_statics_) == 0x15C && offsetof(WorldScene, add_name_) == 0x164 &&
+                          offsetof(WorldScene, add_data_) == 0x1E4 && offsetof(WorldScene, sector_kept_) == 0x274 &&
+                          offsetof(WorldScene, added_) == 0x275 && offsetof(WorldScene, unknown_box_) == 0x90 &&
+                          offsetof(WorldScene, add_coll_statics_) == 0x26C &&
+                          offsetof(WorldScene, add_scene_sectors_) == 0x27C && sizeof(WorldScene) == 0x280,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(WorldScene, builds_collision_grid_) == 0x8C && offsetof(WorldScene, collision_box_) == 0xB0 &&
-                  offsetof(WorldScene, sectors_) == 0xD0 && offsetof(WorldScene, coll_grid_) == 0xD4 &&
-                  offsetof(WorldScene, pip_name_) == 0xD8 && offsetof(WorldScene, coll_static_count_) == 0x158 &&
-                  offsetof(WorldScene, coll_statics_) == 0x15C && offsetof(WorldScene, add_name_) == 0x164 &&
-                  offsetof(WorldScene, add_data_) == 0x1E4 && offsetof(WorldScene, sector_kept_) == 0x274 &&
-                  offsetof(WorldScene, added_) == 0x275 && offsetof(WorldScene, unknown_box_) == 0x90 &&
-                  offsetof(WorldScene, add_coll_statics_) == 0x26C &&
-                  offsetof(WorldScene, add_scene_sectors_) == 0x27C && sizeof(WorldScene) == 0x280,
-              "layout must match the original");
 
 // 0x0049CA20 (cdecl): a level's collision file name - "levels\<level>\<level>.col.<the platform's extension>" -
 // into `out`. The length.

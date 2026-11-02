@@ -141,6 +141,18 @@ public:
     // 0x004208D0: every turn off; sent (message 0x8C).
     void cancel_rotate_display();
 
+    // The fields other code reads and sets.
+    void set_pivot(const maths::Vec4& value) { pivot_ = value; }
+    std::array<ModelSpinAxis, 3>& twist_rate() { return twist_rate_; }
+    [[nodiscard]] const std::array<ModelSpinAxis, 3>& twist_rate() const { return twist_rate_; }
+    void set_flip(bool value) { flip_ = value; }
+    void set_shift(const maths::Vec4& value) { shift_ = value; }
+    std::unique_ptr<render::RenderModel>& mesh_instance() { return mesh_instance_; }
+    [[nodiscard]] const std::unique_ptr<render::RenderModel>& mesh_instance() const { return mesh_instance_; }
+    [[nodiscard]] float brightness() const { return brightness_; }
+    [[nodiscard]] bool level_object() const { return level_object_; }
+
+private:
     maths::Vec4 enclosing_ball_{};  // +0x18 the model's (0x00492F30)
     maths::Vec4 pivot_{};           // +0x28 RotationOffset
     std::array<ModelSpinAxis, 3> twist_rate_{}; // +0x38 about X, Y, Z

@@ -172,7 +172,7 @@ bool cfunc_accumulate_scores(script::Struct*, script::Script*)
     (void)unused;
     for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
          player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false)))
-        player->add_to_accumulated_score(total_score(get_score_of(player->skater_)));
+        player->add_to_accumulated_score(total_score(get_score_of(player->skater())));
     return true;
 }
 
@@ -192,7 +192,7 @@ bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
         if (player->is_eliminated())
             continue;
         ++in_game;
-        modules::PointTally* score = get_score_of(player->skater_);
+        modules::PointTally* score = get_score_of(player->skater());
         if (lowest == -1 || total_score(score) < lowest)
             lowest = total_score(score);
         if (total_score(score) > highest)
@@ -211,11 +211,11 @@ bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
     }
     for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
          player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
-        if (player->is_eliminated() || total_score(get_score_of(player->skater_)) != lowest)
+        if (player->is_eliminated() || total_score(get_score_of(player->skater())) != lowest)
             continue;
         desc = net::NetMessageInfo();
         player->mark_eliminated();
-        data = player->skater_->ident_;
+        data = player->skater()->ident_;
         prepare_eliminated(&desc, &data);
         send_to_players(manager, &desc, true);
     }
@@ -233,7 +233,7 @@ bool cfunc_only_one_player_left(script::Struct*, script::Script* script)
         for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
              player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
             if (!player->is_eliminated())
-                ++core::at(teams, player->team_);
+                ++core::at(teams, player->team());
         }
         int with_players = 0;
         for (const int count : teams)
@@ -263,8 +263,8 @@ bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Scrip
         std::array<int, 4> teams = {{0, 0, 0, 0}};
         for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
              player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
-            modules::PointTally* score = get_score_of(player->skater_);
-            core::at(teams, player->team_) += total_score(score);
+            modules::PointTally* score = get_score_of(player->skater());
+            core::at(teams, player->team()) += total_score(score);
         }
         for (const int total : teams) {
             if (total >= target)
@@ -274,7 +274,7 @@ bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Scrip
     }
     for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
          player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
-        if (player->skater_ && total_score(get_score_of(player->skater_)) >= target)
+        if (player->skater() && total_score(get_score_of(player->skater())) >= target)
             return true;
     }
     return false;
@@ -293,8 +293,8 @@ bool cfunc_only_one_skater_left(script::Struct*, script::Script*)
         std::array<int, 4> teams = {{0, 0, 0, 0}};
         for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
              player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
-            modules::PointTally* score = get_score_of(player->skater_);
-            core::at(teams, player->team_) += total_score(score);
+            modules::PointTally* score = get_score_of(player->skater());
+            core::at(teams, player->team()) += total_score(score);
         }
         for (const int total : teams)
             scored += total > 0 ? 1 : 0;
@@ -304,10 +304,10 @@ bool cfunc_only_one_skater_left(script::Struct*, script::Script*)
         int skaters = 0;
         for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
              player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
-            if (!player->skater_)
+            if (!player->skater())
                 continue;
             ++skaters;
-            if (total_score(get_score_of(player->skater_)) > 0)
+            if (total_score(get_score_of(player->skater())) > 0)
                 ++scored;
         }
         if (manager->begin_joiner_walk(&joining) || skaters == 1)
@@ -387,16 +387,16 @@ bool cfunc_in_first_place(script::Struct*, script::Script* script)
     int better = 0;
     int best = 0;
     auto* local = static_cast<PlayerRecord*>(manager->get_own_player());
-    if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater_)
+    if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater())
         return false;
-    const int mine = total_score(component_score_of(local->skater_));
+    const int mine = total_score(component_score_of(local->skater()));
     int in_game = 0;
     for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
          player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
         if (player->is_eliminated())
             continue;
         ++in_game;
-        modules::PointTally* score = component_score_of(player->skater_);
+        modules::PointTally* score = component_score_of(player->skater());
         if (total_score(score) > mine)
             ++better;
         if (!player->is_own_player() && total_score(score) > best)
@@ -417,16 +417,16 @@ bool cfunc_in_last_place(script::Struct*, script::Script* script)
     int worse = 0;
     int lowest = -1;
     auto* local = static_cast<PlayerRecord*>(manager->get_own_player());
-    if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater_)
+    if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater())
         return false;
-    const int mine = total_score(component_score_of(local->skater_));
+    const int mine = total_score(component_score_of(local->skater()));
     int in_game = 0;
     for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
          player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
         if (player->is_eliminated())
             continue;
         ++in_game;
-        modules::PointTally* score = component_score_of(player->skater_);
+        modules::PointTally* score = component_score_of(player->skater());
         if (total_score(score) < mine)
             ++worse;
         if (player->is_own_player())
@@ -452,16 +452,16 @@ bool cfunc_in_second_to_last_place(script::Struct*, script::Script* script)
     int worse = 0;
     int lowest = -1;
     auto* local = static_cast<PlayerRecord*>(manager->get_own_player());
-    if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater_)
+    if (!local || local->is_eliminated() || local->is_scouting_level() || local->is_observer() || !local->skater())
         return false;
-    const int mine = total_score(component_score_of(local->skater_));
+    const int mine = total_score(component_score_of(local->skater()));
     int in_game = 0;
     for (auto* player = static_cast<PlayerRecord*>(manager->begin_player_walk(&search, false)); player;
          player = static_cast<PlayerRecord*>(manager->step_player_walk(&search, false))) {
         if (player->is_eliminated())
             continue;
         ++in_game;
-        modules::PointTally* score = component_score_of(player->skater_);
+        modules::PointTally* score = component_score_of(player->skater());
         if (total_score(score) < mine)
             ++worse;
         if (lowest == -1)
@@ -504,7 +504,7 @@ bool cfunc_toggle_skater_cam_mode(script::Struct* params, script::Script*)
         auto* local = static_cast<PlayerRecord*>(net_session_slot()->get_own_player());
         if (!local)
             return true;
-        skater = local->skater_;
+        skater = local->skater();
     } else {
         skater = get_rider_at(index);
     }

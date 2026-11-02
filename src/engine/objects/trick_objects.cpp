@@ -86,7 +86,7 @@ PlayerRecord* find_player_slot_by_obj(int id)
 {
     return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
-int get_team(PlayerRecord* player) { return player->team_; }
+int get_team(PlayerRecord* player) { return player->team(); }
 objects::Rider* skater_of(PlayerRecord* player) { return player->rider(); }
 int current_object_id(objects::Entity* skater) { return static_cast<int>(skater->ident_); }
 
@@ -623,7 +623,7 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
         if (const objects::Entity* skater =
                 static_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player))) {
             if (const online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)))
-                conn = info->conn_;
+                conn = info->conn();
         }
         std::array<uint8_t, 8> stolen = {};
         count = stored_trick_spot_hub()->log_trick_objects(objects, stolen, player, score);

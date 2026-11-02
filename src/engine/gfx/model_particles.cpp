@@ -54,17 +54,17 @@ void model_path_for(const char* name, const char* ext, char* out) { gfx::make_mo
 ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* model, uint32_t, int, int, float, int)
     : model_count_(static_cast<unsigned int>(particle_cap)), drawn_models_(static_cast<unsigned int>(particle_cap))
 {
-    label_ = name;
+    set_label(name);
     std::array<char, 512> file_name = {};
-    position_array_ = {};
-    particle_list_ = {};
-    particle_count_ = 0;
-    max_particles_ = particle_cap;
-    particle_list_ = particle_parts::new_particles(particle_cap);
-    if (particle_list_.empty())
+    position_array() = {};
+    particle_list() = {};
+    set_particle_count(0);
+    set_max_particles(particle_cap);
+    particle_list() = particle_parts::new_particles(particle_cap);
+    if (particle_list().empty())
         return;
-    position_array_ = counted_words<float>(carve(model_count_ * 12), model_count_ * 3);
-    if (position_array_.empty())
+    position_array() = counted_words<float>(carve(model_count_ * 12), model_count_ * 3);
+    if (position_array().empty())
         return;
     model_path_for(model, kModelExtension, file_name.data());
     text::to_lower_text(file_name.data());
@@ -95,14 +95,14 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
     unknown_13c_ptr_ = rotations;
     if (!rotations)
         return;
-    start_colour_ = counted_words<uint32_t>(carve(4), 1);
-    if (start_colour_.empty())
+    start_colour() = counted_words<uint32_t>(carve(4), 1);
+    if (start_colour().empty())
         return;
-    mid_colour_ = counted_words<uint32_t>(carve(4), 1);
-    if (mid_colour_.empty())
+    mid_colour() = counted_words<uint32_t>(carve(4), 1);
+    if (mid_colour().empty())
         return;
-    end_colour_ = counted_words<uint32_t>(carve(4), 1);
-    if (end_colour_.empty())
+    end_colour() = counted_words<uint32_t>(carve(4), 1);
+    if (end_colour().empty())
         return;
     for (unsigned int i = 0; i < model_count_; ++i) {
         maths::QuatRotation& turn = core::at(turns, i);
@@ -112,8 +112,8 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
         turn.w = static_cast<float>(get_rand() % 100);
         static_cast<maths::QuatRotation*>(unknown_13c_ptr_)->make_unit(1.0f); // (the first, each time: the original's)
     }
-    colour_mid_ = -1.0f;
-    flag_bits_ |= 4u;
+    set_colour_mid(-1.0f);
+    flag_bits() |= 4u;
     return;
 }
 
@@ -122,7 +122,7 @@ void ModelParticles::render()
 {
     const std::span<RenderModel*> models(model_list_, model_count_);
     auto model = [models](unsigned int i) { return core::at(models, i); };
-    const int count = particle_count_;
+    const int count = particle_count();
     if (count == 0) {
         for (unsigned int i = 0; i < drawn_models_; ++i)
             model(i)->change_live(0);
@@ -133,23 +133,23 @@ void ModelParticles::render()
         model(i)->change_live(0);
     const std::span<maths::QuatRotation> rotations(static_cast<maths::QuatRotation*>(unknown_13c_ptr_), model_count_);
     for (int p = 0; p < count; ++p) {
-        const FlexibleParticle& particle = core::at(particle_list_, p);
+        const FlexibleParticle& particle = core::at(particle_list(), p);
         model(static_cast<unsigned int>(p))->change_live(1);
         float life = particle.age / particle.lifetime;
         std::span<const uint32_t> from;
         std::span<const uint32_t> to;
-        if (!(colour_mid_ >= 0.0f)) { // (no mid colour; NaN too)
-            from = start_colour_;
-            to = end_colour_;
-        } else if (life < colour_mid_) {
-            life = static_cast<float>(static_cast<double>(life) / colour_mid_);
-            from = start_colour_;
-            to = mid_colour_;
+        if (!(colour_mid() >= 0.0f)) { // (no mid colour; NaN too)
+            from = start_colour();
+            to = end_colour();
+        } else if (life < colour_mid()) {
+            life = static_cast<float>(static_cast<double>(life) / colour_mid());
+            from = start_colour();
+            to = mid_colour();
         } else {
-            life = static_cast<float>((static_cast<double>(life) - colour_mid_) /
-                                      (1.0 - static_cast<double>(colour_mid_)));
-            from = mid_colour_;
-            to = end_colour_;
+            life = static_cast<float>((static_cast<double>(life) - colour_mid()) /
+                                      (1.0 - static_cast<double>(colour_mid())));
+            from = mid_colour();
+            to = end_colour();
         }
         uint32_t colour = 0;
         colour = *lerp_colour(&colour, colour::bytes_of(core::at(from, 0)), colour::bytes_of(core::at(to, 0)), life);
@@ -179,7 +179,7 @@ void ModelParticles::render()
             for (int c = 0; c < 4; ++c)
                 core::at(matrix.row, r)[c] = r == c ? 1.0f : 0.0f;
         q.fetch_mat(&matrix);
-        const std::span<const float, 3> position = place_at(position_array_, max_particles_, 0, p);
+        const std::span<const float, 3> position = place_at(position_array(), max_particles(), 0, p);
         core::at(matrix.row, 3) = {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 1.0f};
         const double shrink = static_cast<double>(p % 4) * kSizeStep;
         const double size = static_cast<double>(core::at(particle.start_size_, 0)) - shrink;

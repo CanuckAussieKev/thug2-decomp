@@ -62,7 +62,7 @@ inline maths::Mat4* skeleton_bones(gfx::Rig* skeleton) { return skeleton->matrix
 inline int skeleton_bone_count(gfx::Rig* skeleton) { return skeleton->get_num_bones(); }
 
 // The list's first node (none without a head - which the original then reads through anyway).
-inline ModelGeomNode* get_first(const RenderModel* model) { return model->geom_ring_.head ? model->geom_ring_.head->next : nullptr; }
+inline ModelGeomNode* get_first(const RenderModel* model) { return model->geom_ring().head ? model->geom_ring().head->next : nullptr; }
 inline ModelGeom* table_row(const ModelGeomNode* node) { return node->value; }
 inline Geom* get_geom(ModelGeomNode* node) { return table_row(node)->geom; }
 

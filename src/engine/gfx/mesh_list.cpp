@@ -31,11 +31,11 @@ namespace render {
 namespace {
 
 // A mesh's material and what the list looks at.
-MaterialRef* material_of(const MeshRef* mesh) { return mesh->material; }
-bool get_transparent(const MaterialRef* material) { return material && (core::at(material->pass_flags_, 0) & 0x40); }
-uint16_t& load_index(MeshRef* mesh) { return mesh->load_index_; }
-uint16_t& get_index_count(MeshRef* mesh) { return core::at(mesh->index_counts_, 0); }
-IdxStore*& index_buffer_of(MeshRef* mesh) { return core::at(mesh->index_buffers_, 0); }
+MaterialRef* material_of(const MeshRef* mesh) { return mesh->material_value(); }
+bool get_transparent(const MaterialRef* material) { return material && (core::at(material->pass_flags(), 0) & 0x40); }
+uint16_t& load_index(MeshRef* mesh) { return mesh->load_index(); }
+uint16_t& get_index_count(MeshRef* mesh) { return core::at(mesh->index_counts(), 0); }
+IdxStore*& index_buffer_of(MeshRef* mesh) { return core::at(mesh->index_buffers(), 0); }
 
 // The index buffers (not rewritten yet; thiscall): Lock gives the indices (a copy kept in memory).
 uint16_t* lock_indices(void* buffer)
@@ -101,22 +101,22 @@ int compare_meshes(const void* a, const void* b)
     const MeshRef* mesh_b = *static_cast<MeshRef* const*>(b);
     const MaterialRef* material_a = material_of(mesh_a);
     const MaterialRef* material_b = material_of(mesh_b);
-    const float key_a = material_a->sort_key_;
-    const float key_b = material_b->sort_key_;
+    const float key_a = material_a->sort_key();
+    const float key_b = material_b->sort_key();
     if (!(key_a == key_b)) // (also not a number)
         return key_a > key_b ? 1 : -1;
-    if (material_a->sort_flag_ != material_b->sort_flag_)
-        return material_a->sort_flag_ != 0 ? 1 : -1;
+    if (material_a->sort_flag() != material_b->sort_flag())
+        return material_a->sort_flag() != 0 ? 1 : -1;
     if (material_a == material_b)
         return 0;
-    const bool flag_a = (core::at(material_a->pass_flags_, 0) & 0x10) != 0;
-    const bool flag_b = (core::at(material_b->pass_flags_, 0) & 0x10) != 0;
+    const bool flag_a = (core::at(material_a->pass_flags(), 0) & 0x10) != 0;
+    const bool flag_b = (core::at(material_b->pass_flags(), 0) & 0x10) != 0;
     if (flag_a != flag_b)
         return flag_a ? 1 : -1;
     // (then by pixel shader, as the original: its address; then by the material's address)
     constexpr std::less<const void*> kBefore{};
-    if (mesh_a->pixel_shader_ != mesh_b->pixel_shader_)
-        return kBefore(mesh_b->pixel_shader_, mesh_a->pixel_shader_) ? 1 : -1;
+    if (mesh_a->pixel_shader() != mesh_b->pixel_shader())
+        return kBefore(mesh_b->pixel_shader(), mesh_a->pixel_shader()) ? 1 : -1;
     return kBefore(material_b, material_a) ? 1 : -1;
 }
 
@@ -201,7 +201,7 @@ void SceneRef::recount()
         ++transparent_count_;
         if (i < first_transparent_)
             first_transparent_ = i;
-        if (material->sort_flag_) {
+        if (material->sort_flag()) {
             ++flagged_count_;
             if (i < first_flagged_)
                 first_flagged_ = i;
@@ -330,8 +330,8 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
 // 0x004DE560
 void discard_scene(SceneRef* scene)
 {
-    if (lists::KeyMap* table = scene->materials) {
-        for (void* material = get_first_value(table); material; material = next_value(scene->materials)) {
+    if (lists::KeyMap* table = scene->materials_value()) {
+        for (void* material = get_first_value(table); material; material = next_value(scene->materials_value())) {
             destroy_material(material);
             memory::Hub::sole()->dealloc(material);
         }

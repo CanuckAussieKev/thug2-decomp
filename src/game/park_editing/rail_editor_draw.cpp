@@ -125,9 +125,9 @@ bool sin_at_least(double angle, float value) { return !(std::sin(angle) < value)
 // The clone of a source sector made for the park (its pieces' counts marked dirty, the collision rebuilt).
 render::WorldCell* duplicate_scene_sector(uint32_t source)
 {
-    const uint32_t name = ParkLayout::singleton()->builder_->duplicate_scene_sector(source, 0, 1, 0);
+    const uint32_t name = ParkLayout::singleton()->builder()->duplicate_scene_sector(source, 0, 1, 0);
     set_counts_dirty();
-    ParkLayout::singleton()->builder_->rebuild_collision();
+    ParkLayout::singleton()->builder()->rebuild_collision();
     return look_up_sector(name);
 }
 
@@ -376,7 +376,7 @@ void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous
         set_collision_vertices(sector, raw_block);
         memory::free_malloc(raw_block);
         memory::free_malloc(before_block);
-        ParkLayout::singleton()->builder_->rebuild_collision();
+        ParkLayout::singleton()->builder()->rebuild_collision();
     }
     memory::free_malloc(vertices_block);
 }
@@ -677,7 +677,7 @@ void RailAuthoring::draw_all_posts()
 // 0x004F6650
 void RailAuthoring::reassemble()
 {
-    ParkLayout::singleton()->builder_->rebuild_collision();
+    ParkLayout::singleton()->builder()->rebuild_collision();
     store_heights();
     draw_all_segments();
     draw_all_posts();

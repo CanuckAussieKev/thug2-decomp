@@ -167,7 +167,7 @@ bool at_update(modules::FrontEnd* front_end)
     if (start_spot().at_ != At::kWaitLevel)
         return false;
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
-    const bool paused = front_end && front_end->is_halted_;
+    const bool paused = front_end && front_end->is_halted();
     start_spot().at_frames_ = in_level && !paused ? start_spot().at_frames_ + 1 : 0;
     if (start_spot().at_frames_ < kAtSettleFrames)
         return true;
@@ -186,7 +186,7 @@ bool at_update(modules::FrontEnd* front_end)
 void edit_update(modules::FrontEnd* front_end)
 {
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
-    const bool paused = front_end && front_end->is_halted_;
+    const bool paused = front_end && front_end->is_halted();
     if (edit_start().edit_ == Edit::kWaitLevel) {
         edit_start().edit_frames_ = in_level && !paused ? edit_start().edit_frames_ + 1 : 0;
         if (edit_start().edit_frames_ < kLevelSettleFrames)
@@ -340,7 +340,7 @@ void tick_frame(modules::FrontEnd* front_end)
         // tools/game/load_check.ps1)
         if (!edit_start().pools_logged_ && edit_start().started_) {
             const bool up = render::current_level() != 0 && objects::find_object(kSkater) != nullptr &&
-                            !(front_end && front_end->is_halted_);
+                            !(front_end && front_end->is_halted());
             edit_start().pool_frames_ = up ? edit_start().pool_frames_ + 1 : 0;
             if (edit_start().pool_frames_ >= kLevelSettleFrames) {
                 edit_start().pools_logged_ = true;
@@ -356,7 +356,7 @@ void tick_frame(modules::FrontEnd* front_end)
     }
     // In the front end, with the main menu up: its scripts loaded (not the early self-tests' stand-in symbol table,
     // which run this before the game is up), then a second more for the menu to settle.
-    if (render::current_level() != 0 || (front_end && front_end->is_halted_) ||
+    if (render::current_level() != 0 || (front_end && front_end->is_halted()) ||
         !is_script(name_hash("main_menu_skate_now")))
         return;
     if (++start_level_state().frames_ < 60)

@@ -135,6 +135,61 @@ public:
     // 0x004EB6B0: the goal added to the goal manager as CreatedGoal<n> (seen; won again unless `unwin`).
     void add_to_goal_manager(bool unwin);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t level() const { return level_; }
+    void set_level(uint32_t value) { level_ = value; }
+    std::array<char, 0x32>& label() { return label_; }
+    [[nodiscard]] const std::array<char, 0x32>& label() const { return label_; }
+    std::array<char, 0x15>& ped_name() { return ped_name_; }
+    [[nodiscard]] const std::array<char, 0x15>& ped_name() const { return ped_name_; }
+    std::array<char, 0x64>& summary_text() { return summary_text_; }
+    [[nodiscard]] const std::array<char, 0x64>& summary_text() const { return summary_text_; }
+    std::array<char, 0x65>& win_message() { return win_message_; }
+    [[nodiscard]] const std::array<char, 0x65>& win_message() const { return win_message_; }
+    [[nodiscard]] uint32_t kind_tag() const { return kind_tag_; }
+    void set_kind_tag(uint32_t value) { kind_tag_ = value; }
+    std::array<EditedGoalPoint, 13>& path_vertices() { return path_vertices_; }
+    [[nodiscard]] const std::array<EditedGoalPoint, 13>& path_vertices() const { return path_vertices_; }
+    void set_max_points(uint8_t value) { max_points_ = value; }
+    [[nodiscard]] uint8_t min_points() const { return min_points_; }
+    void set_min_points(uint8_t value) { min_points_ = value; }
+    [[nodiscard]] uint8_t vertex_total() const { return vertex_total_; }
+    void set_vertex_total(uint8_t value) { vertex_total_ = value; }
+    [[nodiscard]] uint8_t current_point() const { return current_point_; }
+    void set_current_point(uint8_t value) { current_point_ = value; }
+    [[nodiscard]] bool last_point_placed() const { return last_point_placed_; }
+    void set_last_point_placed(bool value) { last_point_placed_ = value; }
+    void set_won(bool value) { won_ = value; }
+    [[nodiscard]] bool taken_count() const { return taken_count_; }
+    void set_taken_count(bool value) { taken_count_ = value; }
+    [[nodiscard]] int level_goal_number() const { return level_goal_number_; }
+    void set_level_goal_number(int value) { level_goal_number_ = value; }
+    void set_time_limit(int value) { time_limit_ = value; }
+    void set_control_type(uint32_t value) { control_type_ = value; }
+    void set_points_held(int value) { points_held_ = value; }
+    void set_race_total_laps(int value) { race_total_laps_ = value; }
+    void set_race_per_checkpoint_time(int value) { race_per_checkpoint_time_ = value; }
+    void set_acceleration_interval(int value) { acceleration_interval_ = value; }
+    void set_acceleration_percent(float value) { acceleration_percent_ = value; }
+    void set_trick_time(int value) { trick_time_ = value; }
+    void set_time_to_stop_adding_tricks(int value) { time_to_stop_adding_tricks_ = value; }
+    void set_max_tricks(int value) { max_tricks_ = value; }
+    void set_twist_rate(int value) { twist_rate_ = value; }
+    void set_single_combo(bool value) { single_combo_ = value; }
+    void set_chain_length(int value) { chain_length_ = value; }
+    void set_stack_block_span(int value) { stack_block_span_ = value; }
+    void set_tricktris_total_to_win(int value) { tricktris_total_to_win_ = value; }
+    std::array<KeyComboSet, 10>& key_combo_sets() { return key_combo_sets_; }
+    [[nodiscard]] const std::array<KeyComboSet, 10>& key_combo_sets() const { return key_combo_sets_; }
+    void set_num_key_combo_sets(int value) { num_key_combo_sets_ = value; }
+    std::array<uint8_t, 10>& gaps() { return gaps_; }
+    [[nodiscard]] const std::array<uint8_t, 10>& gaps() const { return gaps_; }
+    [[nodiscard]] uint8_t num_gaps() const { return num_gaps_; }
+    void set_num_gaps(uint8_t value) { num_gaps_ = value; }
+    std::array<char, 0x35>& required_trick() { return required_trick_; }
+    [[nodiscard]] const std::array<char, 0x35>& required_trick() const { return required_trick_; }
+
+private:
     uint32_t level_{};                    // +0x000 the level's load script
     std::array<char, 0x32> label_{};                  // +0x004 view_goals_text
     std::array<char, 0x15> ped_name_{};               // +0x036
@@ -172,13 +227,17 @@ public:
     std::array<uint8_t, 10> gaps_{};               // +0x2F8
     uint8_t num_gaps_{};               // +0x302
     std::array<char, 0x35> required_trick_{};      // +0x303
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(EditedGoal, kind_tag_) == 0x114 && offsetof(EditedGoal, path_vertices_) == 0x118 &&
+                          offsetof(EditedGoal, max_points_) == 0x284 && offsetof(EditedGoal, level_goal_number_) == 0x28C &&
+                          offsetof(EditedGoal, single_combo_) == 0x2BC && offsetof(EditedGoal, key_combo_sets_) == 0x2CC &&
+                          offsetof(EditedGoal, num_key_combo_sets_) == 0x2F4 && offsetof(EditedGoal, gaps_) == 0x2F8 &&
+                          offsetof(EditedGoal, required_trick_) == 0x303 && sizeof(EditedGoal) == 0x338,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(EditedGoal, kind_tag_) == 0x114 && offsetof(EditedGoal, path_vertices_) == 0x118 &&
-                  offsetof(EditedGoal, max_points_) == 0x284 && offsetof(EditedGoal, level_goal_number_) == 0x28C &&
-                  offsetof(EditedGoal, single_combo_) == 0x2BC && offsetof(EditedGoal, key_combo_sets_) == 0x2CC &&
-                  offsetof(EditedGoal, num_key_combo_sets_) == 0x2F4 && offsetof(EditedGoal, gaps_) == 0x2F8 &&
-                  offsetof(EditedGoal, required_trick_) == 0x303 && sizeof(EditedGoal) == 0x338,
-              "layout must match the original");
 
 // 0x004E8F50: the goal editor's nodes (ten goals' TRG_EditedGoal<n>_Pro / _Restart / _Object_0..10, from the
 // structures 0x8F0F67D7 / 0xC9119673 / 0x000B52B3, numbered from *index) on `heap`: into `nodes` from *index

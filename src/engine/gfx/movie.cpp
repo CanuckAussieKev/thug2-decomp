@@ -415,7 +415,7 @@ void play_movie_file(const char* name)
                 const sio::InputPort* device = input->get_pad_at_slot(port);
                 if (!device)
                     continue;
-                const auto& data = device->control_data_;
+                const auto& data = device->control_data();
                 if (core::at(data, 2) << 8 & kStart)
                     core::at(seen_up, port) |= kStart;
                 else if (core::at(seen_up, port) & kStart)

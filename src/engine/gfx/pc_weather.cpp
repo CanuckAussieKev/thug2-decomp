@@ -131,11 +131,11 @@ void PcWeather::set_snow_blend_mode(uint32_t name, uint32_t fixed_alpha)
 // 0x004CBDB0
 void PcWeather::tick_frame(float /*frame_seconds*/)
 {
-    if (!active_)
+    if (!active())
         return;
-    const int frames = rain_on_ ? rain_frames_ : snow_frames_;
-    const float rate = rain_on_ ? rain_rate_ : snow_rate_;
-    float& due = rain_on_ ? rain_due_ : snow_due_;
+    const int frames = rain_on() ? rain_frames() : snow_frames();
+    const float rate = rain_on() ? rain_rate() : snow_rate();
+    float& due = rain_on() ? rain_due_ : snow_due_;
     // NOLINTNEXTLINE(bugprone-integer-division): as the original
     auto most = static_cast<float>(0x400 / frames); // (no more than the slots free up)
     const double amount = rate > most ? most : rate;
@@ -150,7 +150,7 @@ void PcWeather::tick_frame(float /*frame_seconds*/)
         slot = static_cast<uint8_t>(0xFE - static_cast<uint8_t>(frames));
         core::at(offset_x_, next) = static_cast<uint8_t>(maths::rnd(0xFF));
         core::at(offset_z_, next) = static_cast<uint8_t>(maths::rnd(0xFF));
-        ++drops_;
+        ++drops();
         step_slot(next);
     }
 }
@@ -158,21 +158,21 @@ void PcWeather::tick_frame(float /*frame_seconds*/)
 // 0x004CD120
 void PcWeather::render()
 {
-    if (!active_)
+    if (!active())
         return;
-    const float x = camera_x_;
-    const float z = camera_z_;
-    if (rain_on_) {
+    const float x = camera_x();
+    const float z = camera_z();
+    if (rain_on()) {
         render_splashes(x, z);
         render_rain(x, z);
     } else {
         render_snow(x, z);
     }
-    if (!drops_)
+    if (!drops())
         return;
     for (uint8_t& slot : stage) { // (each falling drop a frame on; one finishing is freed)
         if (slot == 0xFE) {
-            --drops_;
+            --drops();
             ++slot;
         } else if (slot != 0xFF) {
             ++slot;
@@ -183,7 +183,7 @@ void PcWeather::render()
 // 0x004CBFE0
 void PcWeather::render_rain(float x, float z)
 {
-    if (!drops_)
+    if (!drops())
         return;
     const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));
     const int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0f / 128.0f));
@@ -193,7 +193,7 @@ void PcWeather::render_rain(float x, float z)
     const int max_z = cell_z + 16;
     if (max_z < 0 || min_z > depth - 1)
         return;
-    uint32_t top = get_argb(rain_top_), bottom = get_argb(rain_bottom_);
+    uint32_t top = get_argb(rain_top()), bottom = get_argb(rain_bottom());
     if ((rain_blend_ & 0xFFFFFF) == 10) { // (drawn as mode 9 with the mode's alpha)
         choose_blend_mode(9);
         const uint32_t alpha = rain_blend_ & 0xFF000000;
@@ -210,14 +210,14 @@ void PcWeather::render_rain(float x, float z)
     // (in 16ths of a unit)
     const int base_x = ftol(static_cast<double>(origin_x_) * 16.0f);
     const int base_z = ftol(static_cast<double>(origin_z_) * 16.0f);
-    const int length = ftol(static_cast<double>(rain_length_) * 16.0f);
+    const int length = ftol(static_cast<double>(rain_length()) * 16.0f);
     std::array<int, 0x100> fall{};
     std::array<int, 0x100> spread{};
     {
-        const double frames_f = rain_frames_;
-        const double height = rain_height_;
+        const double frames_f = rain_frames();
+        const double height = rain_height();
         int t = 0;
-        for (int i = 0xFE - rain_frames_; i < 0x100; ++i, ++t)
+        for (int i = 0xFE - rain_frames(); i < 0x100; ++i, ++t)
             core::at(fall, i) = ftol((height - t / frames_f * height) * 16.0f);
     }
     for (int i = 0; i < 0x100; ++i)
@@ -276,7 +276,7 @@ void PcWeather::render_rain(float x, float z)
 // 0x004CC630
 void PcWeather::render_snow(float x, float z)
 {
-    if (!drops_)
+    if (!drops())
         return;
     const int cell_x = ftol((static_cast<double>(x) - origin_x_) * (1.0f / 128.0f));
     const int cell_z = ftol((static_cast<double>(z) - origin_z_) * (1.0f / 128.0f));
@@ -292,7 +292,7 @@ void PcWeather::render_snow(float x, float z)
     static_cast<TextureRef*>(snow_texture_)->assign_value(0);
     renderer().d3d_device()->SetRenderState(D3DRS_POINTSPRITEENABLE, TRUE);
     renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALEENABLE, TRUE);
-    renderer().d3d_device()->SetRenderState(D3DRS_POINTSIZE, std::bit_cast<DWORD>(snow_size_));
+    renderer().d3d_device()->SetRenderState(D3DRS_POINTSIZE, std::bit_cast<DWORD>(snow_size()));
     renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALE_A, 0);
     renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALE_B, 0);
     renderer().d3d_device()->SetRenderState(D3DRS_POINTSCALE_C, std::bit_cast<DWORD>(1.0f));
@@ -306,17 +306,17 @@ void PcWeather::render_snow(float x, float z)
     std::array<float, 0x100> spread{};
     std::array<float, 0x100> sway{};
     {
-        const double frames_f = snow_frames_;
-        const double height = snow_height_;
+        const double frames_f = snow_frames();
+        const double height = snow_height();
         int t = 0;
-        for (int i = 0xFE - snow_frames_; i < 0x100; ++i, ++t)
+        for (int i = 0xFE - snow_frames(); i < 0x100; ++i, ++t)
             core::at(fall, i) = static_cast<float>(height - t / frames_f * height);
     }
     for (int i = 0; i < 0x100; ++i)
         core::at(spread, i) = static_cast<float>(static_cast<double>(i) * 64.0f * (1.0f / 255.0f));
     for (int i = 0; i < 0x100; ++i)
         core::at(sway, i) = static_cast<float>(std::sin(static_cast<double>(i) * (1.0f / 256.0f) * 6.28318548f) * 64.0f);
-    const uint32_t colour = get_argb(snow_colour_);
+    const uint32_t colour = get_argb(snow_colour());
     std::array<float, 0x7FC + 4> points{};
     core::Cursor<float> out(points);
     uint32_t used = 0;
@@ -341,7 +341,7 @@ void PcWeather::render_snow(float x, float z)
                 const int zb = core::at(offset_z_, cell);
                 const int xb = core::at(offset_x_, cell);
                 auto px = static_cast<float>(static_cast<double>(core::at(sway, (at + zb) & 0xFF)) + core::at(spread, xb) + column_x);
-                auto py = static_cast<float>(static_cast<double>(core::at(fall, at)) + snow_size_ + ground);
+                auto py = static_cast<float>(static_cast<double>(core::at(fall, at)) + snow_size() + ground);
                 auto pz = static_cast<float>(static_cast<double>(core::at(sway, (xb + at) & 0xFF)) + core::at(spread, zb) + row_z);
                 out[0] = px, out[1] = py, out[2] = pz;
                 out[3] = std::bit_cast<float>(colour);
@@ -368,7 +368,7 @@ void PcWeather::render_snow(float x, float z)
 void PcWeather::render_splashes(float x, float z)
 {
     const float before = splash_due_;
-    const double total = static_cast<double>(splash_rate_) + splash_due_;
+    const double total = static_cast<double>(splash_rate()) + splash_due_;
     splash_due_ = static_cast<float>(total);
     if (ftol(total) - ftol(before) != 0) {
         // A cast down at a random place before the camera (along its heading up to 2048 out, across by up to
@@ -399,7 +399,7 @@ void PcWeather::render_splashes(float x, float z)
         core::at(splash_x_, next_splash_) = at.x;
         core::at(splash_y_, next_splash_) = static_cast<float>(static_cast<double>(landing) + 4.0f);
         core::at(splash_z_, next_splash_) = at.z;
-        core::at(splash_frames_, next_splash_) = splash_life_;
+        core::at(splash_frames_, next_splash_) = splash_life();
         next_splash_ = (next_splash_ + 1) % 0x20;
         feeler.entity_.get_release();
     }
@@ -423,12 +423,12 @@ void PcWeather::render_splashes(float x, float z)
         const int frames = core::at(splash_frames_, i);
         if (!frames)
             continue;
-        const double half = static_cast<double>(splash_size_) * 0.5f;
+        const double half = static_cast<double>(splash_size()) * 0.5f;
         auto x0 = static_cast<float>(core::at(splash_x_, i) - half), x1 = static_cast<float>(half + core::at(splash_x_, i));
         auto z0 = static_cast<float>(core::at(splash_z_, i) - half), z1 = static_cast<float>(half + core::at(splash_z_, i));
         std::array<uint8_t, 4> c{};
         for (int k = 0; k < 4; ++k)
-            core::at(c, k) = static_cast<uint8_t>(core::at(splash_colour_, k) * frames / splash_life_); // (fading with its frames)
+            core::at(c, k) = static_cast<uint8_t>(core::at(splash_colour(), k) * frames / splash_life()); // (fading with its frames)
         const uint32_t colour = static_cast<uint32_t>(core::at(c, 3)) << 24 | static_cast<uint32_t>(core::at(c, 2)) << 16 |
                                 static_cast<uint32_t>(core::at(c, 1)) << 8 | core::at(c, 0);
         const float y = core::at(splash_y_, i);
@@ -454,7 +454,7 @@ void PcWeather::render_splashes(float x, float z)
 // 0x004CD1A0
 void PcWeather::tick_grid()
 {
-    active_ = false;
+    set_active(false);
     const CollGrid* grid_of_scene = get_first_coll_grid(); // (the scene's collision's box)
     if (!grid_of_scene)
         return;
@@ -566,14 +566,14 @@ void PcWeather::tick_grid()
         core::at(offset_x_, i) = static_cast<uint8_t>(maths::rnd(0xFF));
         core::at(offset_z_, i) = static_cast<uint8_t>(maths::rnd(0xFF));
     }
-    drops_ = 0;
+    drops() = 0;
     next = 0x19B;
     splash_texture_ = nullptr;
     if (const BitmapTexture* splash = engine_parts().particle_texture_dict()->fetch_skin(0x45C7EB0F))
         splash_texture_ = image_of(splash);
     if (const BitmapTexture* snow = engine_parts().particle_texture_dict()->fetch_skin(0xC97C5A4C))
         snow_texture_ = image_of(snow);
-    active_ = true;
+    set_active(true);
     std::memset(splash_frames_.data(), 0, sizeof(splash_frames_));
     next_splash_ = 0;
     feeler.entity_.get_release();

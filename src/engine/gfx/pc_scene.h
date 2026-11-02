@@ -84,7 +84,7 @@ struct PcScene final : public WorldScene {
 
     SceneRef* meshes{}; // +0x280: its mesh list
 };
-static_assert(offsetof(PcScene, sectors_) == 0xD0 && offsetof(PcScene, meshes) == 0x280 && sizeof(PcScene) == 0x284,
+static_assert(offsetof(PcScene, meshes) == 0x280 && sizeof(PcScene) == 0x284,
               "layout must match the original");
 
 // The PC screen effects (8 bytes, vtable 0x0064A6E4; the engine's 0x0049E2F0 - destructor body 0x0049E300): its

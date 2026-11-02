@@ -77,13 +77,13 @@ void execute_node_script(ProximityRegistry* manager, ProximNode* node, Entity* o
     manager->entering_ = entering;
     manager->in_script_ = true;
     if (object) {
-        object->start_script_task(node->own_script_, static_cast<int>(node->label_), false, false, nullptr);
+        object->start_script_task(node->own_script(), static_cast<int>(node->label()), false, false, nullptr);
         if (entering)
-            node->is_within_ |= 1u << object->ident_;
+            node->get_is_within() |= 1u << object->ident_;
         else
-            node->is_within_ &= ~(1u << object->ident_);
+            node->get_is_within() &= ~(1u << object->ident_);
     } else {
-        script::launch_script(node->own_script_, nullptr, nullptr, false, nullptr);
+        script::launch_script(node->own_script(), nullptr, nullptr, false, nullptr);
     }
     manager->in_script_ = false;
 }
@@ -91,7 +91,7 @@ void execute_node_script(ProximityRegistry* manager, ProximNode* node, Entity* o
 // `point` taken into the sector's frame about the box's centre `center`.
 maths::Vec4 into_sector(const ProximNode* node, const maths::Vec4* point, const maths::Vec4& center)
 {
-    return (*point - center) * node->to_sector_ + center;
+    return (*point - center) * node->to_sector() + center;
 }
 
 } // namespace
@@ -139,7 +139,7 @@ void nearby_zone_shutdown()
     if (!manager)
         return;
     for (ProximNode* node = manager->head_; node;) {
-        ProximNode* next = node->succ_;
+        ProximNode* next = node->succ();
         memory::Hub::get_pull()->dealloc(node);
         node = next;
     }
@@ -150,8 +150,8 @@ void nearby_zone_shutdown()
 ProximNode* proxim_get_node(uint32_t name)
 {
     // (no manager: a null read, as the original)
-    for (ProximNode* node = stored_proximity_hub()->head_; node; node = node->succ_) {
-        if (node->label_ == name)
+    for (ProximNode* node = stored_proximity_hub()->head_; node; node = node->succ()) {
+        if (node->label() == name)
             return node;
     }
     return nullptr;
@@ -197,8 +197,8 @@ void proximity_node_enable(uint32_t name, int active)
     const ProximityRegistry* manager = stored_proximity_hub();
     if (!manager)
         return;
-    for (ProximNode* node = manager->head_; node; node = node->succ_) {
-        if (node->label_ == name) {
+    for (ProximNode* node = manager->head_; node; node = node->succ()) {
+        if (node->label() == name) {
             node->change_live(active != 0);
             return;
         }
@@ -298,48 +298,48 @@ void nearby_zone_add_node(uint32_t name, bool active)
 {
     auto* node = static_cast<ProximNode*>(memory::alloc_zeroed(sizeof(ProximNode)));
     if (node)
-        new (&node->box_) maths::BBox();
+        new (&node->box()) maths::BBox();
     const ProximityRegistry* manager = stored_proximity_hub();
-    node->succ_ = manager->head_;
+    node->set_succ(manager->head_);
     stored_proximity_hub()->head_ = node;
-    node->label_ = name;
-    node->active_ = active;
-    node->sector_ = nullptr;
-    node->form_ = kProximShapeSphere;
+    node->label() = name;
+    node->set_active(active);
+    node->assign_sector(nullptr);
+    node->set_form(kProximShapeSphere);
     script::Struct* params = level_nodes::fetch_vertex(name, true);
-    params->read_hash_value(kName, &node->label_, 0);
+    params->read_hash_value(kName, &node->label(), 0);
     uint32_t shape = 0;
     if (params->read_hash_value(kShape, &shape, 0))
-        node->form_ = proxim_shape_from_checksum(shape);
-    node->set_sector(look_up_sector(node->label_));
-    level_nodes::fetch_place(params, &node->at_point_);
-    node->kind_tag_ = 0;
+        node->set_form(proxim_shape_from_checksum(shape));
+    node->set_sector(look_up_sector(node->label()));
+    level_nodes::fetch_place(params, &node->at_point());
+    node->set_kind_tag(0);
     uint32_t type = 0;
     if (params->read_hash_value(kProximType, &type, 0)) {
         if (type == 0x57525413)
-            node->kind_tag_ = 2;
+            node->set_kind_tag(2);
         else if (type == 0x806FFF30)
-            node->kind_tag_ = 0;
+            node->set_kind_tag(0);
         else
-            node->kind_tag_ = type == 0xC4E311FA ? 1 : 0;
+            node->set_kind_tag(type == 0xC4E311FA ? 1 : 0);
     }
-    params->fetch_float(kRadius, &node->radius_, 0);
-    node->reach_sq_ = node->radius_ * node->radius_;
-    params->read_hash_value(kScript, &node->own_script_, 0);
-    node->entity_key_ = 0;
-    node->entities_ = 0;
-    node->is_within_ = 0;
+    params->fetch_float(kRadius, &node->radius(), 0);
+    node->set_reach_sq(node->radius() * node->radius());
+    params->read_hash_value(kScript, &node->own_script(), 0);
+    node->entity_key() = 0;
+    node->entities() = 0;
+    node->get_is_within() = 0;
     if (params->has_bare_flag(kProximityTag)) {
-        node->outside_ = 0xFFFFFFFF;
-        params->read_hash_value(kName, &node->entity_key_, 0);
+        node->outside() = 0xFFFFFFFF;
+        params->read_hash_value(kName, &node->entity_key(), 0);
         return;
     }
-    node->outside_ = 0;
-    node->active_ = true;
+    node->outside() = 0;
+    node->set_active(true);
     int id = 0;
     for (Entity* skater = entity_for_id(0); skater && id < kSkaterSlots; skater = entity_for_id(++id)) {
         if (core::down_cast<GameEntity>(skater)->is_local_skater_)
-            node->is_within_ |= 1u << id;
+            node->get_is_within() |= 1u << id;
     }
     node->change_live(false);
     node->change_live(active);
@@ -351,29 +351,29 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
     ProximityRegistry* manager = stored_proximity_hub();
     if (!manager)
         return;
-    for (ProximNode* node = manager->head_; node; node = node->succ_) {
-        if (!node->active_ || node->kind_tag_ != type)
+    for (ProximNode* node = manager->head_; node; node = node->succ()) {
+        if (!node->active() || node->kind_tag() != type)
             continue;
         const bool inside = node->is_within(point);
-        if (node->outside_ & mask) {
+        if (node->outside() & mask) {
             if (!inside)
                 continue;
             // entered
-            node->outside_ &= ~mask;
-            if (node->entity_key_ == 0) {
+            node->outside() &= ~mask;
+            if (node->entity_key() == 0) {
                 execute_node_script(manager, node, object, true);
             } else if (object) {
                 gsl::owner<GameEntity*> made = entity_hub_handle()->create_composite_object();
-                made->change_serial(node->entity_key_ + object->ident_);
-                made->at_point_ = node->at_point_;
-                node->entities_ |= 1u << object->ident_;
+                made->change_serial(node->entity_key() + object->ident_);
+                made->at_point_ = node->at_point();
+                node->entities() |= 1u << object->ident_;
                 script::Struct params;
-                if (node->sector_)
-                    params.put_name_key(kOwnerSectorKey, node->label_);
+                if (node->sector())
+                    params.put_name_key(kOwnerSectorKey, node->label());
                 made->build_modules_from_list(script::fetch_list("proximobj_composite_structure"), &params);
                 made->seal();
                 script::Struct script_params;
-                made->replace_script(node->own_script_, &script_params);
+                made->replace_script(node->own_script(), &script_params);
                 script_params.get_clear();
                 params.get_clear();
             }
@@ -381,13 +381,13 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
             if (inside)
                 continue;
             // left
-            node->outside_ |= mask;
-            if (node->entity_key_ == 0) {
+            node->outside() |= mask;
+            if (node->entity_key() == 0) {
                 execute_node_script(manager, node, object, false);
             } else if (object) {
-                if (Entity* made = entity_for_id(node->entity_key_ + object->ident_))
+                if (Entity* made = entity_for_id(node->entity_key() + object->ident_))
                     flag_as_dead(made);
-                node->entities_ &= ~(1u << object->ident_);
+                node->entities() &= ~(1u << object->ident_);
             }
         }
     }

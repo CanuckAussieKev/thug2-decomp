@@ -41,15 +41,15 @@ namespace {
 uint16_t triangle_count(const PcShatter* shatter) { return shatter->triangle_count_; }
 
 // A mesh's fields the drawing uses: its vertex format (+0x38) and pixel shader (+0x44).
-uint32_t mesh_vertex_format(const MeshRef* mesh) { return mesh->fvf; }
-void* mesh_pixel_shader(const MeshRef* mesh) { return mesh->pixel_shader_; }
+uint32_t mesh_vertex_format(const MeshRef* mesh) { return mesh->fvf_value(); }
+void* mesh_pixel_shader(const MeshRef* mesh) { return mesh->pixel_shader(); }
 
 } // namespace
 
 // 0x004B8120
 PcShatter::PcShatter(int count, MeshRef* source_mesh, uint32_t own)
     : Shatter(count), own_material_(own), mesh(source_mesh),
-      vertices(static_cast<uint8_t*>(memory::alloc(3 * source_mesh->stride * count)))
+      vertices(static_cast<uint8_t*>(memory::alloc(3 * source_mesh->stride_value() * count)))
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     positions = static_cast<float*>(memory::alloc(12 * count));
@@ -77,12 +77,12 @@ PcShatter::~PcShatter()
 // 0x004B80B0
 void draw_shatter(PcShatter* shatter)
 {
-    MeshRef* mesh = shatter->mesh;
-    mesh->material->hand_in(); // (the material's set-up)
-    set_pixel_shader(mesh_pixel_shader(mesh), mesh->material);
+    const MeshRef* mesh = shatter->mesh;
+    mesh->material_value()->hand_in(); // (the material's set-up)
+    set_pixel_shader(mesh_pixel_shader(mesh), mesh->material_value());
     set_vertex_format(mesh_vertex_format(mesh));
     renderer().count_draw(triangle_count(shatter)); // the frame's draw calls and triangles
-    renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangle_count(shatter), shatter->vertices, mesh->stride);
+    renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangle_count(shatter), shatter->vertices, mesh->stride_value());
 }
 
 // 0x004B9550
@@ -131,7 +131,7 @@ uint16_t* lock_indices(IdxStore* buffer)
 // 0x004B95E0
 void update_shatter(PcShatter* shatter, float step)
 {
-    const uint32_t stride = shatter->mesh->stride;
+    const uint32_t stride = shatter->mesh->stride_value();
     const gpu::VertexWriter out(shatter->vertices, stride, 3 * static_cast<size_t>(shatter->triangle_count_));
     const gpu::VertexView in = out.view();
     for (int i = 0; std::cmp_less(i, shatter->triangle_count_); ++i) {
@@ -173,7 +173,7 @@ void update_shatter(PcShatter* shatter, float step)
         out.set_floats(v2, 0, q2);
     }
     // the normals turned too
-    const uint8_t normal_offset = shatter->mesh->normal_offset_;
+    const uint8_t normal_offset = shatter->mesh->normal_offset();
     if (!normal_offset)
         return;
     for (int i = 0; std::cmp_less(i, shatter->triangle_count_); ++i) {
@@ -192,18 +192,18 @@ void update_shatter(PcShatter* shatter, float step)
 void shatter_geom(PcGeom* geom)
 {
     for (MeshRef* const mesh : geom->mesh_run()) {
-        if (core::at(mesh->index_counts_, 0) < 3)
+        if (core::at(mesh->index_counts(), 0) < 3)
             continue;
-        const uint32_t stride = mesh->stride;
+        const uint32_t stride = mesh->stride_value();
         effects_state().vertex_stack().vertex_size_ = stride; // (the vertex stack's vertex size)
         VertexBuffer* vertex_buffer = mesh->fetch_vertex_store(0);
         const uint8_t* vertices = lock_vertices(vertex_buffer);
-        const gpu::VertexView view(vertices, stride, mesh->vertex_count_);
-        const std::span<const uint16_t> indices(lock_indices(core::at(mesh->index_buffers_, 0)), core::at(mesh->index_counts_, 0));
+        const gpu::VertexView view(vertices, stride, mesh->vertex_count());
+        const std::span<const uint16_t> indices(lock_indices(core::at(mesh->index_buffers(), 0)), core::at(mesh->index_counts(), 0));
         // the strip's triangles onto the stack, counted with what their splitting will make of them
         int count = 0;
         uint32_t a = core::at(indices, 0), b = core::at(indices, 1);
-        for (uint32_t k = 2; k < core::at(mesh->index_counts_, 0); ++k) {
+        for (uint32_t k = 2; k < core::at(mesh->index_counts(), 0); ++k) {
             const uint32_t c = core::at(indices, k);
             if (a != b && a != c && b != c) {
                 ++count;
@@ -249,9 +249,9 @@ void shatter_geom(PcGeom* geom)
         auto speed = static_cast<float>(std::sqrt(static_cast<double>(direction[1]) * direction[1] +
                                                   static_cast<double>(direction[2]) * direction[2] +
                                                   static_cast<double>(direction[0]) * direction[0]));
-        const std::array<float, 4> from = {{static_cast<float>(core::at(mesh->centre, 0) + back_x),
-                               static_cast<float>(static_cast<double>(core::at(mesh->centre, 1)) + back_y),
-                               static_cast<float>(static_cast<double>(core::at(mesh->centre, 2)) + back_z),
+        const std::array<float, 4> from = {{static_cast<float>(core::at(mesh->centre_value(), 0) + back_x),
+                               static_cast<float>(static_cast<double>(core::at(mesh->centre_value(), 1)) + back_y),
+                               static_cast<float>(static_cast<double>(core::at(mesh->centre_value(), 2)) + back_z),
                                static_cast<float>(static_cast<double>(back_w) + 1.0f)}};
         effects_state().shatters().insert(shatter);
         core::Cursor<uint8_t> cursor(std::span<uint8_t>(shatter->vertices, 3 * static_cast<size_t>(stride) * static_cast<size_t>(count)));
@@ -305,7 +305,7 @@ void shatter_geom(PcGeom* geom)
             // D3DX (linked library code): rotation = rotation * turn
             d3dx::matrix_multiply(&rotation, &rotation, &turn);
         }
-        core::at(mesh->index_buffers_, 0)->get_unlock(); // (unlocked)
+        core::at(mesh->index_buffers(), 0)->get_unlock(); // (unlocked)
         mesh->fetch_vertex_store(0)->get_unlock();
     }
 }

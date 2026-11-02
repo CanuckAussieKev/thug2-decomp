@@ -25,8 +25,8 @@ RibbonParticles::RibbonParticles(uint32_t name, int particle_cap, uint32_t, uint
 {
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
                         2)) {
-        colour_mid_ = -1.0f;
-        flag_bits_ |= 4u;
+        set_colour_mid(-1.0f);
+        flag_bits() |= 4u;
     }
 }
 
@@ -40,8 +40,8 @@ RibbonTrailParticles::RibbonTrailParticles(uint32_t name, int particle_cap, uint
     // (the colours' count read again from steps_ for each array and each step of the loop)
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
                         steps_)) {
-        colour_mid_ = -1.0f;
-        flag_bits_ |= 4u;
+        set_colour_mid(-1.0f);
+        flag_bits() |= 4u;
     }
 }
 
@@ -51,8 +51,8 @@ RibbonTrailParticles::RibbonTrailParticles(uint32_t name, int particle_cap, uint
 ShadedParticles::ShadedParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
 {
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 4)) {
-        colour_mid_ = -1.0f;
-        flag_bits_ |= 4u;
+        set_colour_mid(-1.0f);
+        flag_bits() |= 4u;
     }
 }
 
@@ -62,8 +62,8 @@ ShadedParticles::ShadedParticles(uint32_t name, int particle_cap, uint32_t, uint
 SmoothParticles::SmoothParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
 {
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 2)) {
-        colour_mid_ = -1.0f;
-        flag_bits_ |= 4u;
+        set_colour_mid(-1.0f);
+        flag_bits() |= 4u;
     }
 }
 
@@ -76,8 +76,8 @@ SmoothRibbonParticles::SmoothRibbonParticles(uint32_t name, int particle_cap, ui
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * (history + 1)) * kPosition,
                         true, 4)) {
         steps_ = history + 1;
-        colour_mid_ = -1.0f;
-        flag_bits_ |= 4u;
+        set_colour_mid(-1.0f);
+        flag_bits() |= 4u;
     }
 }
 
@@ -89,9 +89,9 @@ SmoothStarParticles::SmoothStarParticles(uint32_t name, int particle_cap, uint32
 {
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 3)) {
         segments_ = segments;
-        colour_mid_ = -1.0f;
+        set_colour_mid(-1.0f);
         extent_ = size;
-        flag_bits_ |= 4u;
+        flag_bits() |= 4u;
     }
 }
 
@@ -102,9 +102,9 @@ StarParticles::StarParticles(uint32_t name, int particle_cap, uint32_t, uint32_t
 {
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap) * kPosition, false, 3)) {
         segments_ = segments;
-        colour_mid_ = -1.0f;
+        set_colour_mid(-1.0f);
         extent_ = size;
-        flag_bits_ |= 4u;
+        flag_bits() |= 4u;
     }
 }
 

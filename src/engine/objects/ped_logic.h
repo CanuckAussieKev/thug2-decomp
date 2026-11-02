@@ -251,6 +251,7 @@ public:
     // 0x004F0950: the motion component looks at 48 ahead along the current node's angles.
     bool ped_turn_to_current_waypoint_orientation(script::Struct* params, script::Script* script);
 
+private:
     uint32_t kind_{};            // +0x18 0 a walker, 2 a skater (Ped_SetIsSkater)
     uint32_t female_{};          // +0x1C 1: SkeletonName is Ped_Female
     uint32_t flag_bits_{0};      // +0x20 PED_FLAG_*
@@ -287,21 +288,25 @@ public:
     float vert_rotation_target_{}; // +0x138
     maths::Mat4 saved_matrix_{};   // +0x13C the display matrix kept
     std::array<maths::Vec4, 5> past_frames_{}; // +0x17C its last positions (the newest last)
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(PedestrianBrainModule, kind_) == 0x18 && offsetof(PedestrianBrainModule, flag_bits_) == 0x20 &&
+                          offsetof(PedestrianBrainModule, aux_script_) == 0x30 &&
+                          offsetof(PedestrianBrainModule, avoid_) == 0x34 && offsetof(PedestrianBrainModule, bias_) == 0x44 &&
+                          offsetof(PedestrianBrainModule, list_link_) == 0x54 &&
+                          offsetof(PedestrianBrainModule, node_pos_) == 0x60 &&
+                          offsetof(PedestrianBrainModule, turn_frame_) == 0x90 &&
+                          offsetof(PedestrianBrainModule, peds_) == 0x98 && offsetof(PedestrianBrainModule, up_dir_) == 0xA0 &&
+                          offsetof(PedestrianBrainModule, up_blend_) == 0xD0 &&
+                          offsetof(PedestrianBrainModule, spin_angle_) == 0xE4 &&
+                          offsetof(PedestrianBrainModule, jump_matrix_) == 0xF4 &&
+                          offsetof(PedestrianBrainModule, vert_rotation_) == 0x134 &&
+                          offsetof(PedestrianBrainModule, saved_matrix_) == 0x13C &&
+                          offsetof(PedestrianBrainModule, past_frames_) == 0x17C && sizeof(PedestrianBrainModule) == 0x1CC,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(PedestrianBrainModule, kind_) == 0x18 && offsetof(PedestrianBrainModule, flag_bits_) == 0x20 &&
-                  offsetof(PedestrianBrainModule, aux_script_) == 0x30 &&
-                  offsetof(PedestrianBrainModule, avoid_) == 0x34 && offsetof(PedestrianBrainModule, bias_) == 0x44 &&
-                  offsetof(PedestrianBrainModule, list_link_) == 0x54 &&
-                  offsetof(PedestrianBrainModule, node_pos_) == 0x60 &&
-                  offsetof(PedestrianBrainModule, turn_frame_) == 0x90 &&
-                  offsetof(PedestrianBrainModule, peds_) == 0x98 && offsetof(PedestrianBrainModule, up_dir_) == 0xA0 &&
-                  offsetof(PedestrianBrainModule, up_blend_) == 0xD0 &&
-                  offsetof(PedestrianBrainModule, spin_angle_) == 0xE4 &&
-                  offsetof(PedestrianBrainModule, jump_matrix_) == 0xF4 &&
-                  offsetof(PedestrianBrainModule, vert_rotation_) == 0x134 &&
-                  offsetof(PedestrianBrainModule, saved_matrix_) == 0x13C &&
-                  offsetof(PedestrianBrainModule, past_frames_) == 0x17C && sizeof(PedestrianBrainModule) == 0x1CC,
-              "layout must match the original");
 
 // 0x004EE2C0: the current profile's voice: its voice= picks the entry of player_voices with that id (its stream_name;
 // null if none), else Male1 / Female1 by is_male.

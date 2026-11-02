@@ -177,6 +177,21 @@ public:
     // `blends` poses (0x006F8A64), sets (0x006F8A58) and weights (0x006F8A5C) - the poses' rotations the identity.
     static void init_buffers(int blends, int subsets);
 
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    [[nodiscard]] const memory::ListNode& timelines() const { return timelines_; }
+    uint32_t& ident() { return ident_; }
+    [[nodiscard]] uint32_t ident() const { return ident_; }
+    [[nodiscard]] int rank() const { return rank_; }
+    [[nodiscard]] float ongoing() const { return ongoing_; }
+    uint32_t& lookup_key() { return lookup_key_; }
+    [[nodiscard]] uint32_t lookup_key() const { return lookup_key_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] uint32_t event_table() const { return event_table_; }
+    [[nodiscard]] objects::GameEntity* owner_ptr() const { return owner_ptr_; }
+
+private:
     memory::ListNode list_link_{}; // +0x00 (data = this; the original's node size, as the head's)
     memory::ListNode timelines_{}; // +0x14 the head (data -1)
     uint32_t ident_{0};            // +0x28

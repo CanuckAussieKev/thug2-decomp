@@ -120,11 +120,11 @@ void draw_meshes(render::PcGeom* geom)
             render::MeshRef* mesh = core::at(meshes, i);
             if (!mesh)
                 continue;
-            const uint32_t flags = mesh->flags;
+            const uint32_t flags = mesh->flags_value();
             if (!(flags & 0x40) || (flags & 0x210))
                 continue;
-            render::MaterialRef* material = mesh->material;
-            const bool transparent = material && (core::at(material->pass_flags_, 0) & 0x40);
+            render::MaterialRef* material = mesh->material_value();
+            const bool transparent = material && (core::at(material->pass_flags(), 0) & 0x40);
             if (transparent != (pass == 1))
                 continue;
             if (material != current) {

@@ -188,9 +188,9 @@ void FootMovement::check_sticker_slap()
 {
     // X and the pad's +0x20 button (btn_down_) both down, the latter within 30 ms.
     auto* pad = &input_->pad_primary_;
-    if (!pad->pos_x_.held_down_ || !pad->btn_down_.held_down_)
+    if (!pad->pos_x().held_down_ || !pad->btn_down().held_down_)
         return;
-    if (static_cast<uint32_t>(pad->btn_down_.get_held_millis()) > 30)
+    if (static_cast<uint32_t>(pad->btn_down().get_held_millis()) > 30)
         return;
 
     // A wall ahead: a feeler from feeler_height up, feeler_length along the facing (static collision only).
@@ -392,7 +392,7 @@ void FootMovement::try_wallplant()
 {
     // X down, not rising, high enough, not just wallplanted, not just after leaving the ground...
     auto* pad = &input_->pad_primary_;
-    if (!pad->pos_x_.held_down_ || up_speed_ > 0.0f)
+    if (!pad->pos_x().held_down_ || up_speed_ > 0.0f)
         return;
     if (script::fetch_float(kMinWallplantHeight) > skater_state_->height_above_ground_)
         return;
@@ -427,7 +427,7 @@ void FootMovement::try_wallplant()
         direction -= maths::operator*(static_cast<float>(into + into), normal);
     const float rise = walk_parameter(kVertWallJumpSpeed);
     const float hold = walk_parameter(kHoldTimeForMaxJump);
-    const double held = static_cast<double>(static_cast<uint32_t>(pad->pos_x_.get_held_millis())) / hold;
+    const double held = static_cast<double>(static_cast<uint32_t>(pad->pos_x().get_held_millis())) / hold;
     const float strength = held > kOne ? kOne : static_cast<float>(held);
     const float least = walk_parameter(kMinJumpFactor);
     up_speed_ = static_cast<float>(((kOne - static_cast<double>(least)) * strength + least) * rise);

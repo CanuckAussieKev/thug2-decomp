@@ -140,7 +140,7 @@ bool will_play(const JoinerRecord* info)
     const uint32_t flags = info->flag_bits_;
     return (flags & 0x18) || !(flags & 4);
 }
-net::Conn* player_conn(const PlayerRecord* player) { return player->conn_; }
+net::Conn* player_conn(const PlayerRecord* player) { return player->conn(); }
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
 bool profile_has_part(void* profile, uint32_t part) { return objects::part_is_created_graphic(profile, part); }
 // A custom tag texture's parts (render::BitmapTexture's virtual slots 25-28).
@@ -326,10 +326,10 @@ void Hub::clear_roster()
 {
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
-        player->flag_bits_ &= ~0x00020100u;
-        player->accumulated_score_ = 0;
-        player->eliminated_time_ = 0;
-        player->num_placed_ = 0;
+        player->flag_bits() &= ~0x00020100u;
+        player->set_accumulated_score(0);
+        player->set_eliminated_time(0);
+        player->num_placed() = 0;
         auto* skater = player_skater(player);
         if (skater) {
             // (not checked for null, as in the original)
@@ -510,7 +510,7 @@ int Hub::count_players()
     int count = 0;
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
-        if (!is_observer(player) || (player->flag_bits_ & 8)) {
+        if (!is_observer(player) || (player->flag_bits() & 8)) {
             if (const objects::Entity* skater = player_skater(player))
                 core::at(ids, noted++) = static_cast<uint8_t>(get_skater_id(skater));
             ++count;
@@ -594,7 +594,7 @@ void Hub::send_tag_textures_to(PlayerRecord* player)
         if (!texture || other == player || player_conn(player)->get_link_speed_class() == 1 || !other->has_custom_tag())
             continue;
         // (the logos are read from the receiving player's profile, as in the original)
-        objects::RiderIdentity* profile = player->account_;
+        objects::RiderIdentity* profile = player->account();
         uint32_t logos = profile_has_part(profile, kHatLogo) ? 1 : 0;
         if (profile_has_part(profile, kFrontLogo))
             logos |= 2;
@@ -638,9 +638,9 @@ bool Hub::prepare_local_face()
     if (flag_bits_ & 1) {
         auto* local = get_own_player();
         memory->enter_heap_scope(memory->net_misc_heap());
-        local->face_texture_data_ = static_cast<uint8_t*>(memory::alloc(kFaceSize + 1));
+        local->assign_face_texture_data(static_cast<uint8_t*>(memory::alloc(kFaceSize + 1)));
         memory::Hub::get_pull()->leave_heap_scope();
-        const std::span<uint8_t> stored(local->face_texture_data_, kFaceSize + 1u);
+        const std::span<uint8_t> stored(local->face_texture_data(), kFaceSize + 1u);
         core::at(stored, 0) = 0;
         face->write_to(stored.subspan(1));
     } else {
@@ -700,7 +700,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     record->drive_control_mode_ = info->drive_control_mode_;
     uint32_t flags = record->flag_bits_;
     if ((flags & 0x10) && (flag_bits_ & 1))
-        record->rejoin_group_ = host_->frame_count_;
+        record->rejoin_group_ = host_->frame_count();
     if (!(flags & 4) || (flags & 8)) {
         // The appearance, through a buffer.
         if (!memory::manager_ready_flag())
@@ -712,7 +712,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     }
     if (flag_bits_ & 1) {
         flags = record->flag_bits_;
-        record->add_at_frame_ = host_->frame_count_ + timeout;
+        record->add_at_frame_ = host_->frame_count() + timeout;
         if (!(flags & 1)) {
             const char* name = info->label_.data();
             if (flags & 4)
@@ -722,7 +722,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
                 build_net_notice(false, kNetMessageJoining, name, nullptr, nullptr, nullptr, false, 2000);
         }
     } else {
-        record->add_at_frame_ = client_app_->frame_count_ + timeout;
+        record->add_at_frame_ = client_app_->frame_count() + timeout;
     }
     // Its node, onto the end of the list.
     // (a null one is written to anyway, as in the original)

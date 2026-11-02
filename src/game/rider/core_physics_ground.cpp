@@ -85,13 +85,13 @@ void SkaterPhysicsModule::apply_friction(float friction)
 bool SkaterPhysicsModule::should_brake()
 {
     const objects::PadInputModule* input = input_;
-    if (!auto_kick_ && !input->pad_primary_.button_box_.held_down_ && speed_of(entity_->vel_) < kSlow)
+    if (!auto_kick_ && !input->pad_primary_.button_box().held_down_ && speed_of(entity_->vel_) < kSlow)
         return true;
-    if (!input->pad_primary_.btn_down_.held_down_ || !can_brake_)
+    if (!input->pad_primary_.btn_down().held_down_ || !can_brake_)
         return false;
     if (speed_of(entity_->vel_) < kSlow)
         return true;
-    if (!input->pad_primary_.right_side_.held_down_ && !input->pad_primary_.left_side_.held_down_)
+    if (!input->pad_primary_.right_side().held_down_ && !input->pad_primary_.left_side().held_down_)
         return true;
     const objects::GameEntity* object = object_of(this);
     const maths::Vec4& v = object->vel_;
@@ -116,9 +116,9 @@ bool SkaterPhysicsModule::can_push_off()
     const objects::PadInputModule* input = input_;
     if (no_kick_)
         return false;
-    if (!auto_kick_ && !input->pad_primary_.button_box_.held_down_)
+    if (!auto_kick_ && !input->pad_primary_.button_box().held_down_)
         return false;
-    if (input->pad_primary_.btn_down_.held_down_)
+    if (input->pad_primary_.btn_down().held_down_)
         return false;
     auto speed = static_cast<float>(speed_of(entity_->vel_));
     const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || crouch_stats_;
@@ -205,7 +205,7 @@ void SkaterPhysicsModule::apply_wheel_drag()
 // 0x004FE860
 void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
 {
-    if (park_editing::ParkBuilderMode::sole()->cur_phase_ != kOff && normal.y > 0.0f) {
+    if (park_editing::ParkBuilderMode::sole()->cur_phase() != kOff && normal.y > 0.0f) {
         const maths::Vec4& position = entity_->at_point_;
         maths::Vec4 end;
         end.x = static_cast<float>(static_cast<float>(normal.x * static_cast<double>(kNormalFeeler)) + position.x);

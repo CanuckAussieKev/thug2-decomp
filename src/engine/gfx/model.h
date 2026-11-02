@@ -218,6 +218,20 @@ public:
     // 0x00494BA0: every geom deleted (their scenes too, if the model's) and the list emptied.
     void drop_geoms();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int bone_total() const { return bone_total_; }
+    [[nodiscard]] maths::Mat4* skin_palette() const { return skin_palette_; }
+    lists::PointerRing<ModelGeom>& geom_ring() { return geom_ring_; }
+    [[nodiscard]] const lists::PointerRing<ModelGeom>& geom_ring() const { return geom_ring_; }
+    maths::Vec4& size_factor() { return size_factor_; }
+    [[nodiscard]] const maths::Vec4& size_factor() const { return size_factor_; }
+    std::unique_ptr<ModelLights>& lights_ptr() { return lights_ptr_; }
+    [[nodiscard]] const std::unique_ptr<ModelLights>& lights_ptr() const { return lights_ptr_; }
+    [[nodiscard]] uint32_t source_path() const { return source_path_; }
+    [[nodiscard]] uint8_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] int16_t geom_total() const { return geom_total_; }
+
+private:
     int display_mode_;           // +0x04
     int bone_total_;             // +0x08
     maths::Mat4* skin_palette_;  // +0x0C: the bones' matrices
@@ -232,11 +246,15 @@ public:
     int16_t geom_total_;      // +0x46
     int16_t num_file_geoms_{};  // +0x48: geoms with a scene of their own
     int16_t num_asset_geoms_{}; // +0x4A: geoms with the asset manager's scene
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(RenderModel, geom_ring_) == 0x10 && offsetof(RenderModel, size_factor_) == 0x1C &&
+                          offsetof(RenderModel, lights_ptr_) == 0x2C && offsetof(RenderModel, enclosing_ball_) == 0x34 &&
+                          offsetof(RenderModel, flag_bits_) == 0x44 && offsetof(RenderModel, num_asset_geoms_) == 0x4A && offsetof(RenderModel, geom_total_) == 0x46 &&
+                          sizeof(RenderModel) == 0x4C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(RenderModel, geom_ring_) == 0x10 && offsetof(RenderModel, size_factor_) == 0x1C &&
-                  offsetof(RenderModel, lights_ptr_) == 0x2C && offsetof(RenderModel, enclosing_ball_) == 0x34 &&
-                  offsetof(RenderModel, flag_bits_) == 0x44 && offsetof(RenderModel, num_asset_geoms_) == 0x4A &&
-                  sizeof(RenderModel) == 0x4C,
-              "layout must match the original");
 
 } // namespace render

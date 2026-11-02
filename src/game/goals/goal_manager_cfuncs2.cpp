@@ -60,12 +60,12 @@ uint32_t get_goal_name(script::Struct* params)
 Objective* manager_then_goal(script::Struct* params)
 {
     GoalManager* manager = get_objective_board();
-    return manager->goals_.get_pull(get_goal_name(params));
+    return manager->goals().get_pull(get_goal_name(params));
 }
 Objective* name_then_goal(script::Struct* params)
 {
     const uint32_t name = get_goal_name(params);
-    return get_objective_board()->goals_.get_pull(name);
+    return get_objective_board()->goals().get_pull(name);
 }
 
 } // namespace
@@ -104,7 +104,7 @@ bool cfunc_goal_manager_set_graffiti_mode(script::Struct* params, script::Script
     GoalManager* manager = get_objective_board();
     int mode = 1;
     params->fetch_int_value(0u, &mode, 0);
-    manager->tagging_style_ = mode;
+    manager->set_tagging_style(mode);
     return true;
 }
 
@@ -151,7 +151,7 @@ bool cfunc_goal_manager_got_counter_object(script::Struct* params, script::Scrip
     uint32_t name = 0;
     if (!params->read_hash_value(kName, &name, 0))
         return false;
-    Objective* goal = get_objective_board()->goals_.get_pull(name);
+    Objective* goal = get_objective_board()->goals().get_pull(name);
     if (goal->is_operative())
         goal->picked_up_countable();
     return true;
@@ -167,8 +167,8 @@ bool cfunc_goal_manager_counter_goal_done(script::Struct* params, script::Script
 bool cfunc_goal_manager_add_goal_point(script::Struct*, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    ++manager->objective_score_;
-    ++manager->total_goal_points_;
+    ++manager->objective_score();
+    ++manager->total_goal_points();
     script::launch_script(kShowGoalPoints, nullptr, nullptr, false, nullptr);
     return true;
 }
@@ -179,7 +179,7 @@ bool cfunc_goal_manager_spend_goal_points(script::Struct* params, script::Script
     GoalManager* manager = get_objective_board();
     int points = 0;
     params->fetch_int_value(0u, &points, 1);
-    manager->objective_score_ -= points;
+    manager->objective_score() -= points;
     return true;
 }
 
@@ -189,15 +189,15 @@ bool cfunc_goal_manager_has_goal_points(script::Struct* params, script::Script*)
     const GoalManager* manager = get_objective_board();
     int points = 0;
     params->fetch_int_value(0u, &points, 1);
-    return manager->objective_score_ >= points;
+    return manager->objective_score() >= points;
 }
 
 // 0x00559E30
 bool cfunc_goal_manager_clear_goal_points(script::Struct*, script::Script*)
 {
     GoalManager* manager = get_objective_board();
-    manager->objective_score_ = 0;
-    manager->total_goal_points_ = 0;
+    manager->objective_score() = 0;
+    manager->total_goal_points() = 0;
     return true;
 }
 
@@ -205,7 +205,7 @@ bool cfunc_goal_manager_clear_goal_points(script::Struct*, script::Script*)
 bool cfunc_goal_manager_get_number_of_goal_points(script::Struct* params, script::Script* script)
 {
     const GoalManager* manager = get_objective_board();
-    const int points = params->has_bare_flag(kTotal) ? manager->total_goal_points_ : manager->objective_score_;
+    const int points = params->has_bare_flag(kTotal) ? manager->total_goal_points() : manager->objective_score();
     script->args()->put_int(kGoalScoreValue, points);
     return true;
 }
@@ -298,28 +298,28 @@ bool cfunc_goal_manager_check_distance_record(script::Struct* params, script::Sc
 // 0x0055A160: the goal's pro's start stream (with the command's parameters).
 bool cfunc_goal_manager_play_goal_start_stream(script::Struct* params, script::Script*)
 {
-    manager_then_goal(params)->ped_->play_opening_voice_line(params);
+    manager_then_goal(params)->ped()->play_opening_voice_line(params);
     return true;
 }
 
 // 0x0055A1B0: the goal's pro's wait stream.
 bool cfunc_goal_manager_play_goal_wait_stream(script::Struct* params, script::Script*)
 {
-    name_then_goal(params)->ped_->play_idle_voice_line();
+    name_then_goal(params)->ped()->play_idle_voice_line();
     return true;
 }
 
 // 0x0055A200: the goal's pro's win stream (with the command's parameters).
 bool cfunc_goal_manager_play_goal_win_stream(script::Struct* params, script::Script*)
 {
-    manager_then_goal(params)->ped_->play_victory_voice_line(params);
+    manager_then_goal(params)->ped()->play_victory_voice_line(params);
     return true;
 }
 
 // 0x0055A250: the goal's pro's stream stopped.
 bool cfunc_goal_manager_stop_current_stream(script::Struct* params, script::Script*)
 {
-    name_then_goal(params)->ped_->cut_voice_line();
+    name_then_goal(params)->ped()->cut_voice_line();
     return true;
 }
 
@@ -381,8 +381,8 @@ bool cfunc_goal_manager_get_goal_animations(script::Struct* params, script::Scri
     const uint32_t name = get_goal_name(params);
     const char* type = nullptr;
     params->fetch_text(kType, &type, 0);
-    Objective* goal = get_objective_board()->goals_.get_pull(name);
-    const uint32_t animations = goal->ped_->get_objective_anim_sets(type);
+    const Objective* goal = get_objective_board()->goals().get_pull(name);
+    const uint32_t animations = goal->ped()->get_objective_anim_sets(type);
     script->args()->erase_module(kProStuff);
     if (animations)
         script->args()->put_name_key(kProStuff, animations);

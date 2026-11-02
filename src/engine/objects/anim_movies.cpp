@@ -97,7 +97,7 @@ void cross_into(std::span<float, 3> out, std::span<const float, 3> a, std::span<
 // Play: the asset's length (its first word) from 0, or backwards from a frame before its end to 0.
 void play_on(AnimTimeline* t, void* anim, int loop_type, bool backwards)
 {
-    const float length = static_cast<gfx::JointClipFrames*>(anim)->duration_;
+    const float length = static_cast<gfx::JointClipFrames*>(anim)->duration();
     if (backwards)
         play_anim(t, 0, static_cast<float>(static_cast<double>(length) - seconds_per_frame()), 0.0f, loop_type, 0.0f,
                   1.0f);
@@ -280,7 +280,7 @@ void CameraAnimMovie::place_camera()
     maths::Mat4* mat = viewer_->fetch_mat();
     const std::span<float, 16> m(mat->data(), 16);
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
-    for (const auto& handler : modules::front_end_instance()->pad_listeners_) {
+    for (const auto& handler : modules::front_end_instance()->pad_listeners()) {
         if (handler->control_data_->makes_ & 0x40)
             check_done(true);
     }
@@ -389,7 +389,7 @@ void ObjectAnimMovie::tick_frame()
         step_asset(anim_, from, timeline_.ongoing_, viewer_, false);
     // Every object the asset moves: its frame's rotation and position.
     auto* frames = static_cast<gfx::JointClipFrames*>(anim_);
-    const int count = frames->bone_count_;
+    const int count = frames->bone_count();
     auto* quat_memory = static_cast<float*>(memory::alloc(count * 16));
     const auto bones = static_cast<size_t>(count);
     const std::span<float> quats(quat_memory, bones * 4);
@@ -398,11 +398,11 @@ void ObjectAnimMovie::tick_frame()
         core::at(quat, 0) = core::at(quat, 1) = core::at(quat, 2) = 0.0f;
         core::at(quat, 3) = 1.0f;
     }
-    auto* position_memory = static_cast<float*>(memory::alloc(frames->bone_count_ * 16));
+    auto* position_memory = static_cast<float*>(memory::alloc(frames->bone_count() * 16));
     const std::span<float> positions(position_memory, bones * 4);
-    auto* flags = static_cast<bool*>(memory::alloc(frames->bone_count_));
+    auto* flags = static_cast<bool*>(memory::alloc(frames->bone_count()));
     static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quats, positions, flags, timeline_.ongoing_, 0);
-    for (int i = 0; i < frames->bone_count_; ++i) {
+    for (int i = 0; i < frames->bone_count(); ++i) {
         const uint32_t name = static_cast<gfx::JointClipFrames*>(anim_)->fetch_joint_name(i);
         auto* object = core::down_cast<GameEntity>(objects::find_object(name));
         if (!object) {

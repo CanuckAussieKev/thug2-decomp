@@ -234,7 +234,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     game.fields.push_back({.key = "scene", .value = scene ? get_name_of(scene) : ""});
     game.fields.push_back({.key = "game mode", .value = active_ruleset_label()});
     const modules::FrontEnd* front_end = the_front_end();
-    game.fields.push_back({.key = "paused", .value = front_end ? (front_end->is_halted_ ? "yes" : "no") : ""});
+    game.fields.push_back({.key = "paused", .value = front_end ? (front_end->is_halted() ? "yes" : "no") : ""});
     game.fields.push_back({.key = "loading screen", .value = loading ? "yes" : "no"});
     game.fields.push_back({.key = "level editor", .value = frontend::level_editor::live_now() ? "open" : "closed"});
     game.fields.push_back({.key = "frames run", .value = std::to_string(frame_loop::frames_run())});

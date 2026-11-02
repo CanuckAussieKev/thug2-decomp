@@ -60,6 +60,14 @@ struct WadStream {
     // The status word status_index_ picks (E_PENDING 0x8000000A: still going).
     [[nodiscard]] uint32_t get_standing() const { return core::at(cur_standing_, status_index_); }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] _OVERLAPPED* async_ctl() const { return async_ctl_; }
+    void set_unknown5f(bool value) { unknown5f_ = value; }
+    void set_stop_requested(bool value) { stop_requested_ = value; }
+    [[nodiscard]] bool finished() const { return finished_; }
+    [[nodiscard]] bool stop_requested() const { return stop_requested_; }
+
+private:
     Hdl file_ref_{platform::all_ones_pointer()}; // +0x00 INVALID_HANDLE_VALUE when closed
     uint32_t unknown04_{0};                   // +0x04
     _OVERLAPPED* async_ctl_{}; // +0x08 (from the ring, 0x004535E0; never set for these on PC)
@@ -91,14 +99,18 @@ struct WadStream {
     int cur_phase_{};     // +0xA0 1: preloading
     bool stop_requested_{}; // +0xA4 freed by the update once ready_to_free
     std::array<uint8_t, 3> pada5_{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(WadStream, async_ctl_) == 0x08 && offsetof(WadStream, from_wad_) == 0x14 &&
+                          offsetof(WadStream, shift_) == 0x18 && offsetof(WadStream, cur_standing_) == 0x2C &&
+                          offsetof(WadStream, unknown50_) == 0x50 && offsetof(WadStream, status_index_) == 0x58 &&
+                          offsetof(WadStream, unknown5f_) == 0x5F && offsetof(WadStream, octets_) == 0x94 &&
+                          offsetof(WadStream, cur_phase_) == 0xA0 && offsetof(WadStream, stop_requested_) == 0xA4 &&
+                          sizeof(WadStream) == 0xA8,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(WadStream, async_ctl_) == 0x08 && offsetof(WadStream, from_wad_) == 0x14 &&
-                  offsetof(WadStream, shift_) == 0x18 && offsetof(WadStream, cur_standing_) == 0x2C &&
-                  offsetof(WadStream, unknown50_) == 0x50 && offsetof(WadStream, status_index_) == 0x58 &&
-                  offsetof(WadStream, unknown5f_) == 0x5F && offsetof(WadStream, octets_) == 0x94 &&
-                  offsetof(WadStream, cur_phase_) == 0xA0 && offsetof(WadStream, stop_requested_) == 0xA4 &&
-                  sizeof(WadStream) == 0xA8,
-              "layout must match the original");
 
 // A Bink file played for its sound (0x1C0 bytes): opened from a path (the music) or from a file handle into
 // pcm.wad (the streams; 0x00452C60). Pausing closes the Bink and notes the frame; resuming reopens it there.
@@ -134,6 +146,17 @@ struct BinkStream {
     // 0x00454440 (WadStream::set_channel_volumes, linker-folded: empty).
     void set_channel_volumes(float, float, float, float, float) {}
 
+    // The fields other code reads and sets.
+    [[nodiscard]] _OVERLAPPED* async_ctl() const { return async_ctl_; }
+    [[nodiscard]] render::Bink* bink() const { return bink_; }
+    bool& finished() { return finished_; }
+    [[nodiscard]] bool finished() const { return finished_; }
+    void set_unknown6b(bool value) { unknown6b_ = value; }
+    bool& stop_requested() { return stop_requested_; }
+    [[nodiscard]] bool stop_requested() const { return stop_requested_; }
+    void set_stop_requested(bool value) { stop_requested_ = value; }
+
+private:
     Hdl file_ref_{platform::all_ones_pointer()}; // +0x00 INVALID_HANDLE_VALUE: none
     uint32_t unknown04_{0};                   // +0x04
     _OVERLAPPED* async_ctl_; // +0x08 (from the ring, 0x004535E0)
@@ -166,17 +189,24 @@ struct BinkStream {
     bool stop_requested_{}; // +0x1BC freed by the update once ready_to_free
     std::array<uint8_t, 3> pad1bd_{};
 
+public:
+
     // The status word status_index_ picks (0x8000000A: still fine).
     [[nodiscard]] uint32_t get_standing() const { return core::at(status_words_, status_index_); }
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(BinkStream, wad_entry_) == 0x0C && offsetof(BinkStream, shared_file_) == 0x18 &&
+                          offsetof(BinkStream, plays_) == 0x24 && offsetof(BinkStream, bink_) == 0x28 &&
+                          offsetof(BinkStream, pause_requested_) == 0x60 && offsetof(BinkStream, status_index_) == 0x64 &&
+                          offsetof(BinkStream, unknown6b_) == 0x6B && offsetof(BinkStream, loudness_) == 0x80 &&
+                          offsetof(BinkStream, from_handle_) == 0x88 && offsetof(BinkStream, from_where_) == 0x89 &&
+                          offsetof(BinkStream, unknown1a8_) == 0x1A8 && offsetof(BinkStream, stop_requested_) == 0x1BC &&
+                          sizeof(BinkStream) == 0x1C0,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(BinkStream, wad_entry_) == 0x0C && offsetof(BinkStream, shared_file_) == 0x18 &&
-                  offsetof(BinkStream, plays_) == 0x24 && offsetof(BinkStream, bink_) == 0x28 &&
-                  offsetof(BinkStream, pause_requested_) == 0x60 && offsetof(BinkStream, status_index_) == 0x64 &&
-                  offsetof(BinkStream, unknown6b_) == 0x6B && offsetof(BinkStream, loudness_) == 0x80 &&
-                  offsetof(BinkStream, from_handle_) == 0x88 && offsetof(BinkStream, from_where_) == 0x89 &&
-                  offsetof(BinkStream, unknown1a8_) == 0x1A8 && offsetof(BinkStream, stop_requested_) == 0x1BC &&
-                  sizeof(BinkStream) == 0x1C0,
-              "layout must match the original");
 
 // A stream's place (0x14 bytes): the music's at 0x006EDFF4, the three sound streams' at 0x006EDFB8. Playing
 // while it holds a stream of either class.

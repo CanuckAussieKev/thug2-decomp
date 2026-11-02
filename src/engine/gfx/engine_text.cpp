@@ -203,17 +203,17 @@ gsl::owner<GlyphString*> new_text()
 {
     GlyphString* text = screen_2d().free_list();
     if (text)
-        screen_2d().free_list() = text->next_free_;
+        screen_2d().free_list() = text->next_free();
     return text;
 }
 
 // 0x0048D5F0
 void free_text(GlyphString* text)
 {
-    text->invisible_ = true;
+    text->set_invisible(true);
     text->update_hidden();
     text->free_buffers();
-    text->next_free_ = screen_2d().free_list();
+    text->set_next_free(screen_2d().free_list());
     screen_2d().free_list() = text;
 }
 

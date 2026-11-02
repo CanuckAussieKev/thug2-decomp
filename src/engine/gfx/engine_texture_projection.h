@@ -58,6 +58,17 @@ public:
     // collision - in the grids the line from it along the range reaches - touches that line's box grown by 2.5 sizes.
     void tick_frame(objects::GameEntity* object);
 
+    // The fields other code reads and sets.
+    memory::ListNode& list_link() { return list_link_; }
+    [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
+    void set_label(uint32_t value) { label_ = value; }
+    [[nodiscard]] BitmapTexture* bitmap() const { return bitmap_; }
+    [[nodiscard]] uint32_t blend_mode() const { return blend_mode_; }
+    maths::Mat4& projection() { return projection_; }
+    [[nodiscard]] const maths::Mat4& projection() const { return projection_; }
+    [[nodiscard]] uint32_t fineness() const { return fineness_; }
+
+private:
     memory::ListNode list_link_{}; // +0x04 in its component's list (data = this)
     uint32_t label_{0};            // +0x14: the structure's 0x1EE8B7B9 (the component sets it)
     BitmapTexture* bitmap_{nullptr}; // +0x18
@@ -77,11 +88,15 @@ public:
     float unknownbc_{0.0f};       // +0xBC: 0xE979B3D3 (100000)
     float view_distance_{0.0f};   // +0xC0: 0x7FCAEAB1 (15000)
     uint32_t flag_bits_{0};       // +0xC4
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(TextureProjection, list_link_) == 0x04 && offsetof(TextureProjection, projection_) == 0x20 &&
+                          offsetof(TextureProjection, fineness_) == 0x6C &&
+                          offsetof(TextureProjection, anchor_point_) == 0x90 && offsetof(TextureProjection, shift_) == 0xA8 &&
+                          offsetof(TextureProjection, flag_bits_) == 0xC4 && sizeof(TextureProjection) == 0xC8,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(TextureProjection, list_link_) == 0x04 && offsetof(TextureProjection, projection_) == 0x20 &&
-                  offsetof(TextureProjection, fineness_) == 0x6C &&
-                  offsetof(TextureProjection, anchor_point_) == 0x90 && offsetof(TextureProjection, shift_) == 0xA8 &&
-                  offsetof(TextureProjection, flag_bits_) == 0xC4 && sizeof(TextureProjection) == 0xC8,
-              "layout must match the original");
 
 } // namespace render

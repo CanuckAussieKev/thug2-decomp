@@ -133,7 +133,7 @@ void AutomobileDynamicsModule::seal()
     ObjectModule* skeleton = entity_->fetch_module(kSkeleton);
     if (!skeleton)
         return;
-    mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity_->fetch_module(kModel))->mesh_instance_.get();
+    mesh_instance_ = core::down_cast<objects::MeshInstanceModule>(entity_->fetch_module(kModel))->mesh_instance().get();
     bone_rig_ = core::down_cast<objects::BoneRigModule>(skeleton)->bone_rig_;
     const std::span<const render::HierarchyNode> bones = model_bones(mesh_instance_);
     maths::Mat4 a = core::at(bones, 2).matrix;
@@ -175,12 +175,12 @@ void AutomobileDynamicsModule::update_angles()
         steer_ = 0.0f;
     } else {
         // (the original's +0xE0 / +0x04 / +0xB0: the follower's last arc step, its position and the arc's centre)
-        const float turn = follower->step_;
+        const float turn = follower->step();
         if (turn == 0.0f) {
             target_steer_ = 0.0f;
         } else {
-            const auto& point = follower->at_point_;
-            const auto& from = follower->center_;
+            const auto& point = follower->at_point();
+            const auto& from = follower->center();
             const double dx = static_cast<double>(point[0]) - from[0];
             const double dy = static_cast<double>(point[1]) - from[1];
             const double dz = static_cast<double>(point[2]) - from[2];

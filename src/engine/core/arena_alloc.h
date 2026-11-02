@@ -185,6 +185,31 @@ public:
     // Slot 8: a block given back.
     virtual void dealloc(ChunkPrefix* header) = 0;
 
+    // The fields other code reads and sets.
+    int& used_blocks() { return used_blocks_; }
+    [[nodiscard]] int used_blocks() const { return used_blocks_; }
+    int& max_used_blocks() { return max_used_blocks_; }
+    [[nodiscard]] int max_used_blocks() const { return max_used_blocks_; }
+    int& free_blocks() { return free_blocks_; }
+    [[nodiscard]] int free_blocks() const { return free_blocks_; }
+    int& max_free_blocks() { return max_free_blocks_; }
+    [[nodiscard]] int max_free_blocks() const { return max_free_blocks_; }
+    int& used_size() { return used_size_; }
+    [[nodiscard]] int used_size() const { return used_size_; }
+    int& max_used_size() { return max_used_size_; }
+    [[nodiscard]] int max_used_size() const { return max_used_size_; }
+    int& free_size() { return free_size_; }
+    [[nodiscard]] int free_size() const { return free_size_; }
+    int& max_free_size() { return max_free_size_; }
+    [[nodiscard]] int max_free_size() const { return max_free_size_; }
+    [[nodiscard]] Zone* region() const { return region_; }
+    [[nodiscard]] int direction() const { return direction_; }
+    uint32_t& top_side() { return top_side_; }
+    [[nodiscard]] uint32_t top_side() const { return top_side_; }
+    [[nodiscard]] CtxInfo* context() const { return context_; }
+    [[nodiscard]] const char* label() const { return label_; }
+
+private:
     // Statistics: block counts and sizes in use and free, and the most there have been.
     int used_blocks_;
     int max_used_blocks_;

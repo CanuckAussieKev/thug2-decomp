@@ -58,6 +58,34 @@ public:
     bool script_set_snow_active(script::Struct* params, script::Script* script);       // 0x004A14A0: rain off
     bool script_set_rain_active(script::Struct* params, script::Script* script);       // 0x004A14B0
 
+    // The fields other code reads and sets.
+    [[nodiscard]] float rain_height() const { return rain_height_; }
+    [[nodiscard]] int rain_frames() const { return rain_frames_; }
+    [[nodiscard]] float rain_length() const { return rain_length_; }
+    float& rain_rate() { return rain_rate_; }
+    [[nodiscard]] float rain_rate() const { return rain_rate_; }
+    [[nodiscard]] const std::array<uint8_t, 4>& rain_top() const { return rain_top_; }
+    [[nodiscard]] const std::array<uint8_t, 4>& rain_bottom() const { return rain_bottom_; }
+    [[nodiscard]] float splash_rate() const { return splash_rate_; }
+    [[nodiscard]] int splash_life() const { return splash_life_; }
+    [[nodiscard]] float splash_size() const { return splash_size_; }
+    [[nodiscard]] const std::array<uint8_t, 4>& splash_colour() const { return splash_colour_; }
+    int& drops() { return drops_; }
+    [[nodiscard]] int drops() const { return drops_; }
+    [[nodiscard]] bool active() const { return active_; }
+    void set_active(bool value) { active_ = value; }
+    [[nodiscard]] float snow_height() const { return snow_height_; }
+    [[nodiscard]] int snow_frames() const { return snow_frames_; }
+    [[nodiscard]] float snow_size() const { return snow_size_; }
+    float& snow_rate() { return snow_rate_; }
+    [[nodiscard]] float snow_rate() const { return snow_rate_; }
+    [[nodiscard]] const std::array<uint8_t, 4>& snow_colour() const { return snow_colour_; }
+    [[nodiscard]] float camera_x() const { return camera_x_; }
+    [[nodiscard]] float camera_z() const { return camera_z_; }
+    bool& rain_on() { return rain_on_; }
+    [[nodiscard]] bool rain_on() const { return rain_on_; }
+
+private:
     float rain_height_{2000.0f}; // +0x04
     int rain_frames_{40};        // +0x08
     float rain_length_{100.0f};  // +0x0C
@@ -81,9 +109,13 @@ public:
     float camera_z_{};         // +0x50
     std::array<uint8_t, 4> unknown54_{};   // +0x54
     bool rain_on_{true};       // +0x58
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(WeatherSystem, active_) == 0x30 && offsetof(WeatherSystem, snow_colour_) == 0x44 &&
+                          offsetof(WeatherSystem, rain_on_) == 0x58,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(WeatherSystem, active_) == 0x30 && offsetof(WeatherSystem, snow_colour_) == 0x44 &&
-                  offsetof(WeatherSystem, rain_on_) == 0x58,
-              "layout must match the original");
 
 } // namespace render

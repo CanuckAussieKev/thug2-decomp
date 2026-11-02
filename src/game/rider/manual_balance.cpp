@@ -93,14 +93,14 @@ bool get_held(PadInputModule* input, uint32_t button)
 
 void reset_state(Balance* b)
 {
-    b->cheese_ = 0.0f;
-    b->clock_ = 0.0f;
-    b->on_rail_seconds_ = 0.0f;
-    b->lean_ = 0.0f;
-    b->lean_speed_ = 0.0f;
-    b->pushed_ = false;
-    b->show_meter_ = false;
-    b->rail_ = -1;
+    b->set_cheese(0.0f);
+    b->set_clock(0.0f);
+    b->set_on_rail_seconds(0.0f);
+    b->set_lean(0.0f);
+    b->set_lean_speed(0.0f);
+    b->set_pushed(false);
+    b->set_show_meter(false);
+    b->set_rail(-1);
 }
 
 } // namespace

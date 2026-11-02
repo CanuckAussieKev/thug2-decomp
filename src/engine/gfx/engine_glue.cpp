@@ -200,8 +200,8 @@ gsl::owner<PcScene*> make_empty_scene(const char* /*name*/, TextureSet* /*textur
 {
     auto scene = memory::make_owned<PcScene>(10);
     // (no check: a failed allocation writes through null, as the original)
-    scene->builds_collision_grid_ = with_super_sectors;
-    scene->is_sky_ = false;
+    scene->set_builds_collision_grid(with_super_sectors);
+    scene->set_is_sky(false);
     void* memory = memory::alloc(sizeof(SceneRef));
     scene->meshes = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
     return scene;

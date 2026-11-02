@@ -111,7 +111,7 @@ void ParagraphWidget::change_typeface(uint32_t font)
     float width = 0.0f, height = 0.0f;
     read_string_param(get_font(font), sizing_text(), &width, &height);
     const int line_height = get_truncated(static_cast<double>(height) * internal_scale_);
-    line_capacity_ = get_truncated(level_y_) / line_height;
+    line_capacity_ = get_truncated(level_y()) / line_height;
     object_flags_ |= kVisibleNow;
 }
 
@@ -128,7 +128,7 @@ void ParagraphWidget::add_words(const char* text)
         float width = 0.0f, height = 0.0f;
         read_string_param(font, word.data(), &width, &height);
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
-        const bool full = line_width_ > 0.0f && static_cast<double>(width) + line_width_ > span_;
+        const bool full = line_width_ > 0.0f && static_cast<double>(width) + line_width_ > span();
         if (full || previous == 1 || std::strlen(word.data()) + static_cast<size_t>(line_length_) >= kLineChars) {
             // (the byte before the line: with an empty line, the end of the line before it - and before the first
             // line, the byte before the block, which the original read and maybe wrote; here nothing)
@@ -156,10 +156,10 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
     set_focus_sent(0);
     {
         ElementPtr child;
-        child.assign_value(eldest_.get_pull());
+        child.assign_value(eldest().get_pull());
         while (child) {
             ElementPtr next;
-            next.assign_value(child->following_.get_pull());
+            next.assign_value(child->following().get_pull());
             manager->dismantle_part(child->ident_, 1, 0, nullptr);
             child.assign_value(next.get_pull());
         }
@@ -179,7 +179,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
     line_ = 0;
     line_width_ = 0.0f;
     if (may_grow_) {
-        level_y_ = 0.0f;
+        set_level_y(0.0f);
         line_capacity_ = 0;
     }
     for (const char* text : texts)
@@ -197,7 +197,7 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
             read_string_param(get_font(font_name_), sizing_text(), &width, &height);
             const double line_height = static_cast<double>(line_spacing_) * internal_scale_ * height;
             const double total = static_cast<double>(num_lines_) * line_height;
-            level_y_ = static_cast<float>(total);
+            set_level_y(static_cast<float>(total));
             const int max_lines = get_truncated(total) / get_truncated(line_height);
             line_length_ = 0;
             num_lines_ = 0;
@@ -226,13 +226,13 @@ void ParagraphWidget::change_caption(std::span<const char* const> texts)
             self.assign_value(this);
             manager->change_owner(&self, &child, 1);
         }
-        line->font_name_ = font_name_;
-        line->typeface_ = get_font(font_name_);
+        line->set_font_name(font_name_);
+        line->set_typeface(get_font(font_name_));
         line->object_flags_ |= kVisibleNow;
         line->change_caption(line_buffer(lines_, first).data());
         line->change_scale(internal_scale_, internal_scale_, false, 0);
         lines_height_ =
-            static_cast<float>(static_cast<double>(line->level_y_) * internal_scale_ * line_spacing_ + lines_height_);
+            static_cast<float>(static_cast<double>(line->level_y()) * internal_scale_ * line_spacing_ + lines_height_);
         if (++first >= line_capacity_)
             first = 0;
     }
@@ -248,11 +248,11 @@ bool ParagraphWidget::fetch_caption(char* out, int size)
     *out = 0;
     int total = 0;
     ElementPtr child;
-    child.assign_value(eldest_.get_pull());
+    child.assign_value(eldest().get_pull());
     while (child) {
         ElementPtr next;
-        next.assign_value(child->following_.get_pull());
-        const char* text = as_text(child.get_pull())->chars_;
+        next.assign_value(child->following().get_pull());
+        const char* text = as_text(child.get_pull())->chars();
         total += static_cast<int>(std::strlen(text));
         if (next)
             ++total;
@@ -271,11 +271,11 @@ int ParagraphWidget::fetch_magnitude()
 {
     int total = 0;
     ElementPtr child;
-    child.assign_value(eldest_.get_pull());
+    child.assign_value(eldest().get_pull());
     while (child) {
         ElementPtr next;
-        next.assign_value(child->following_.get_pull());
-        total += static_cast<int>(std::strlen(as_text(child.get_pull())->chars_));
+        next.assign_value(child->following().get_pull());
+        total += static_cast<int>(std::strlen(as_text(child.get_pull())->chars()));
         if (next)
             ++total;
         child.assign_value(next.get_pull());
@@ -315,7 +315,7 @@ bool ParagraphWidget::join_onto(const char* text, bool enforce_max_width, bool l
         float width = 0.0f, height = 0.0f;
         read_string_param(font, word.data(), &width, &height);
         width = static_cast<float>(static_cast<double>(width) * internal_scale_);
-        if (width > span_) {
+        if (width > span()) {
             memory::dealloc(joined);
             return false;
         }
@@ -330,7 +330,7 @@ bool ParagraphWidget::join_onto(const char* text, bool enforce_max_width, bool l
 void ParagraphWidget::update_lines()
 {
     ElementPtr child;
-    child.assign_value(eldest_.get_pull());
+    child.assign_value(eldest().get_pull());
     while (child) {
         LabelWidget* line = as_text(child.get_pull());
         if (blur_)
@@ -338,19 +338,19 @@ void ParagraphWidget::update_lines()
         else
             line->disable_blur();
         if (shadow_) {
-            if (!line->shadow_) {
-                line->shadow_ = true;
-                line->make_text_objects(line->num_, true);
+            if (!line->shadow()) {
+                line->set_shadow(true);
+                line->make_text_objects(line->num(), true);
             }
-        } else if (line->shadow_) {
-            line->shadow_ = false;
+        } else if (line->shadow()) {
+            line->set_shadow(false);
             line->free_text_objects(true);
         }
-        line->shadow_x_ = shadow_x_;
-        line->shadow_y_ = shadow_y_;
-        std::memcpy(line->shadow_rgba_.data(), shadow_rgba_.data(), 4);
-        line->override_rgba_ = override_rgba_;
-        child.assign_value(child->following_.get_pull());
+        line->set_shadow_x(shadow_x_);
+        line->set_shadow_y(shadow_y_);
+        std::memcpy(line->shadow_rgba().data(), shadow_rgba_.data(), 4);
+        line->set_override_rgba(override_rgba_);
+        child.assign_value(child->following().get_pull());
     }
 }
 
@@ -382,7 +382,7 @@ void ParagraphWidget::change_traits(Struct* params)
         memory::Hub* memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->front_end_heap());
         blur_ = static_cast<SmearEffect*>(memory::alloc(sizeof(SmearEffect)));
-        std::memcpy(&blur_->rgba_value_, shown_.rgba.data(), 4);
+        std::memcpy(&blur_->rgba_value_, shown().rgba.data(), 4);
         memory::Hub::get_pull()->leave_heap_scope();
     } else if (params->has_bare_flag(kNoBlurEffect) && blur_) {
         delete_blur(blur_);
@@ -425,18 +425,18 @@ void ParagraphWidget::blend_towards(Struct* params)
         int ms = 0;
         const SmearEffect::Settings* target = blur_->set_from_params(params, &ms);
         ElementPtr child;
-        child.assign_value(eldest_.get_pull());
+        child.assign_value(eldest().get_pull());
         while (child) {
             // each line's blur displaced towards the block's middle by how far its middle is from it
             SmearEffect::Settings settings = *target;
             float x = 0.0f, y = 0.0f;
             child->fetch_location(&x, &y);
-            y = static_cast<float>(static_cast<double>(child->level_y_) * get_half() + y);
-            const double offset = static_cast<double>(level_y_) * get_half() - y;
+            y = static_cast<float>(static_cast<double>(child->level_y()) * get_half() + y);
+            const double offset = static_cast<double>(level_y()) * get_half() - y;
             core::at(settings.max_displacement_, 1) =
                 static_cast<float>(offset * core::at(target->bottom_scales_, 1) - offset + core::at(settings.max_displacement_, 1));
-            as_text(child.get_pull())->blur_->set_target(&settings, ms);
-            child.assign_value(child->following_.get_pull());
+            as_text(child.get_pull())->blur()->set_target(&settings, ms);
+            child.assign_value(child->following().get_pull());
         }
     }
     UiWidget::blend_towards(params);
@@ -447,19 +447,19 @@ void ParagraphWidget::tick_frame()
 {
     if (!(object_flags_ & kVisibleNow))
         return;
-    auto y = static_cast<float>((static_cast<double>(level_y_) - lines_height_) *
+    auto y = static_cast<float>((static_cast<double>(level_y()) - lines_height_) *
                                 (static_cast<double>(inner_align_v_) + get_one()) * get_half());
     ElementPtr child;
-    child.assign_value(eldest_.get_pull());
+    child.assign_value(eldest().get_pull());
     for (int i = 0; i < rows_filled_; ++i) {
         child->change_alignment(inner_align_h_, -1.0f);
         uint32_t rgba = 0;
-        std::memcpy(&rgba, shown_.rgba.data(), 4);
+        std::memcpy(&rgba, shown().rgba.data(), 4);
         child->change_rgba(rgba, 1);
-        auto x = static_cast<float>((static_cast<double>(inner_align_h_) + get_one()) * span_ * get_half());
+        auto x = static_cast<float>((static_cast<double>(inner_align_h_) + get_one()) * span() * get_half());
         child->change_location(x, y, 0);
-        y = static_cast<float>(static_cast<double>(child->level_y_) * internal_scale_ * line_spacing_ + y);
-        child.assign_value(child->following_.get_pull());
+        y = static_cast<float>(static_cast<double>(child->level_y()) * internal_scale_ * line_spacing_ + y);
+        child.assign_value(child->following().get_pull());
     }
     update_lines();
 }

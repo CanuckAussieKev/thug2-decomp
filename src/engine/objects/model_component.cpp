@@ -63,7 +63,7 @@ int model_test_collision(render::RenderModel* model, const maths::Seg* line, gfx
 {
     return model->test_bone_volumes(line, skeleton, matrix, test);
 }
-void* model_lights(render::RenderModel* model) { return model->lights_ptr_.get(); }
+void* model_lights(render::RenderModel* model) { return model->lights_ptr().get(); }
 // The model's lights (not rewritten yet): their brightness from the level's (0x0048E660), set at once (0x0048E8A0)
 // or lerped towards (0x0048E830); without model lights, the global brightness (0x0048EDB0).
 void lights_update_brightness(void* lights) { static_cast<render::ModelLights*>(lights)->get_update_brightness(); }

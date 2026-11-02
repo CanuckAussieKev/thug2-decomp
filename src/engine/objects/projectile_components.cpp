@@ -146,7 +146,7 @@ void ShotImpactModule::tick_frame()
         modules::PointTally* score = get_score_of(skater);
         if (projectile_type_ == kFireball && score->get_total_score() <= 0)
             continue;
-        if (team_game && owner->team_ == victim->team_ &&
+        if (team_game && owner->team() == victim->team() &&
             net->get_online_settings()->get_preference_checksum(kFriendlyFire, kChecksum) != kBooleanTrue)
             continue;
         const GameEntity* object = entity_;

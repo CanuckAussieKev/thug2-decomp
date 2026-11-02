@@ -661,7 +661,7 @@ void link_record(modules::FrontEnd* front_end)
     const int load = layout::level_loads();
     if (level_editor_playtest_state().rec_.open && (level_editor_playtest_state().rec_.load != load || !recording()))
         close_run(level_editor_playtest_state().rec_.load != load ? "another level loaded" : "recording turned off");
-    const bool paused = front_end && front_end->is_halted_;
+    const bool paused = front_end && front_end->is_halted();
     auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
     if (!recording() || paused || !skater || render::current_level() == 0 || !layout::editing_copy()) {
         level_editor_playtest_state().rec_.last_ticks_ = 0;
@@ -737,7 +737,7 @@ void restart_step(modules::FrontEnd* front_end)
         level_editor_playtest_state().restart_ = 0;
         return;
     }
-    const bool paused = front_end && front_end->is_halted_;
+    const bool paused = front_end && front_end->is_halted();
     if (paused || level_editor_playtest_state().restart_frames_ < 4 || !objects::find_object(kSkater) || render::current_level() == 0)
         return;
     const uint32_t restart = level_editor_playtest_state().restart_;
@@ -812,7 +812,7 @@ void start_simulation()
     modules::FrontEnd* front_end = modules::front_end_instance().get();
     if (simulation().simulating_ || !front_end)
         return;
-    if (!front_end->is_halted_) {
+    if (!front_end->is_halted()) {
         hud::get_message("Simulate unavailable here");
         return;
     }

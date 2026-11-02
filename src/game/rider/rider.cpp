@@ -516,10 +516,10 @@ void Rider::update_shadow_light()
     }
     // The model's light, reversed; kept at least 0.65 below the horizon.
     if (fetch_module(kModelModuleName) &&
-        core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->mesh_instance_.get()) {
+        core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->mesh_instance().get()) {
         // (the model's +0x2C - read through the folded getter 0x00532EB0 - and its virtual slot 5 - through the jump
         // 0x00456B30)
-        void* lights = core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->mesh_instance_->lights_ptr_.get();
+        void* lights = core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->mesh_instance()->lights_ptr().get();
         if (lights) {
             const maths::Vec4& aim = *static_cast<render::ModelLights*>(lights)->read_light_aim(0);
             const double x = aim.x * -1.0;
@@ -657,7 +657,7 @@ void Rider::reset_state()
     tricks->clear_queue();
     tricks->reset_trick_objects();
     core::down_cast<RiderPoseState>(fetch_module(0x43686585))->clear_doing_trick();
-    model_component_->flip_ = false;
+    model_component_->set_flip(false);
     balance_displays_off(score_holder_->points_held_);
     if (vibration_)
         vibration_->stop_all();
@@ -671,7 +671,7 @@ void Rider::set_up_network()
 {
     const net::AppHost* client = net_link()->fetch_patron(skater_number_);
     auto* flip_and_rotate = core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate));
-    flip_and_rotate->apply_board_turned(ident_, false, client->clock_, is_local_skater_ != 0);
+    flip_and_rotate->apply_board_turned(ident_, false, client->clock(), is_local_skater_ != 0);
     flip_and_rotate->apply_flip_to_anims();
     model_component_->conceal_mesh(0xA7A9D4B8, false, is_local_skater_ != 0);
     anim_blender_->reset_channels();
@@ -779,7 +779,7 @@ void Rider::show_skater()
 const char* Rider::fetch_shown_name()
 {
     if (net_link()->in_net_game())
-        return net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_))->label_.data();
+        return net_link()->find_player_slot_by_obj(static_cast<uint16_t>(ident_))->label().data();
     return shown_name_.c_str();
 }
 
@@ -836,7 +836,7 @@ void Rider::unpause()
     if (const PadInputModule* input = pad_input_)
         input->handler_->dev_->unpause_actuators();
     if (auto* component = core::down_cast<RiderRollingAudio>(fetch_module(0xB5F1E9D2)))
-        component->force_update_ = 1;
+        component->set_force_update(1);
 }
 
 namespace {
@@ -876,7 +876,7 @@ void Rider::prepare_all(RiderIdentity* profile)
             core::down_cast<RiderChaseView>(camera->fetch_module(0x5E43A604))->bind_rider(this); // skatercamera
             auto* walk_camera = core::down_cast<FootView>(camera->fetch_module(0xC7D37EC2));     // walkcamera
             walk_camera->bind_rider(this);
-            walk_camera->instant_frames_ = 3;
+            walk_camera->set_instant_frames(3);
         } else {
             gsl::owner<script::Struct*> memory = script::spawn_param_bag();
             script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
@@ -1025,7 +1025,7 @@ void Rider::init_from_profile(RiderIdentity* profile)
     if (is_local_skater_ && static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)) != 0) {
         // Its network messages.
         net::AppHost* client = net->fetch_patron(view_slot_);
-        net::Router* dispatcher = &client->dispatcher_;
+        net::Router* dispatcher = &client->dispatcher();
         struct HandlerEntry {
             uint8_t id;
             net::HandlerSlotValue code;
@@ -1418,7 +1418,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
                 break;
             }
         }
-        if (i == count && park_editing::ParkBuilderMode::sole()->cur_phase_ != 0xD443A2BC)
+        if (i == count && park_editing::ParkBuilderMode::sole()->cur_phase() != 0xD443A2BC)
             modules::Skate::sole()->teleport_to_spawn(this, 0, walking);
         return true;
     }

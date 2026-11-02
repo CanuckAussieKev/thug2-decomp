@@ -431,7 +431,7 @@ TileTemplate* PieceBlueprint::get_piece(uint32_t index)
 {
     if (index >= filled_slots_ || static_cast<int>(index) < 0)
         return nullptr;
-    return ParkLayout::singleton()->builder_->get_piece_source(slot(static_cast<int>(index)).piece);
+    return ParkLayout::singleton()->builder()->get_piece_source(slot(static_cast<int>(index)).piece);
 }
 
 void PieceBlueprint::commission(int count) { slots_.commission(count); }

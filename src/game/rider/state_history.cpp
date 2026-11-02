@@ -101,7 +101,7 @@ net::AppHost* manager_app() { return net_session_slot()->host(); }
 // 0x7800 a team - is_carrying_flag / get_flag_team). Its announcements: give_crown makes it "it", note_flag_returned tags it
 // on its own team, note_flag_steal converts it to another.
 online::PlayerRecord* details_of(online::PlayerRecord* player) { return player; }
-GameEntity* player_object(online::PlayerRecord* player) { return player->skater_; }
+GameEntity* player_object(online::PlayerRecord* player) { return player->skater(); }
 bool is_observing(online::PlayerRecord* player) { return details_of(player)->is_invulnerable(); }
 bool is_it(online::PlayerRecord* player) { return details_of(player)->holds_crown() != 0; }
 bool on_a_team(online::PlayerRecord* player) { return details_of(player)->is_carrying_flag() != 0; }
@@ -290,9 +290,9 @@ void RiderFrameLog::check_for_collisions(int first)
         online::PlayerRecord* them = find_player_slot_by_obj(static_cast<int>(skater->ident_));
         if (is_observing(them) || is_it(them))
             continue;
-        if (on_a_team(me) && on_a_team(them) && get_team(me) != them->team_)
+        if (on_a_team(me) && on_a_team(them) && get_team(me) != them->team())
             continue;
-        if (is_squad_play() && them->team_ == me->team_)
+        if (is_squad_play() && them->team() == me->team())
             continue;
 
         RiderFrameLog* their_history = core::down_cast<Rider>(skater)->state_history();
@@ -413,7 +413,7 @@ void RiderFrameLog::check_for_collisions(int first)
             std::array<uint8_t, 2> tagged{};
             core::at(tagged, 0) = static_cast<uint8_t>(skater->ident_);
             core::at(tagged, 1) = static_cast<uint8_t>(get_team(me));
-            const bool same_team = get_team(me) == them->team_;
+            const bool same_team = get_team(me) == them->team();
             online::PlayerSearch search;
             for (online::PlayerRecord* player = start_roster_sweep(&search); player;
                  player = step_roster_sweep(&search)) {

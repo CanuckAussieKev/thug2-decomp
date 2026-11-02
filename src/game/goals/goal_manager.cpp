@@ -73,15 +73,15 @@ void hide_goal_ped(ObjectiveNpc* ped, bool hide) { ped->conceal(hide); }
 template <typename F>
 Objective* walk_to_root(GoalManager* manager, Objective* goal, const F& on_parent)
 {
-    for (const GoalEdge* link = goal->parents_; link && link->objective_key_;) {
+    for (const GoalEdge* link = goal->parents(); link && link->objective_key_;) {
         on_parent(link->objective_key_);
-        goal = manager->goals_.get_pull(link->objective_key_);
-        link = goal->parents_;
+        goal = manager->goals().get_pull(link->objective_key_);
+        link = goal->parents();
     }
     return goal;
 }
 
-bool has_no_parent(Objective* goal) { return goal->parents_->objective_key_ == 0; }
+bool has_no_parent(Objective* goal) { return goal->parents()->objective_key_ == 0; }
 
 } // namespace
 
@@ -181,10 +181,10 @@ bool GoalManager::complete_objective(uint32_t id)
         return false;
     uint32_t root = id;
     walk_to_root(this, goal, [&](uint32_t parent) { root = parent; });
-    if (root == previous_objective_ && goal->sub_nodes_->objective_key_ == 0)
+    if (root == previous_objective_ && goal->sub_nodes()->objective_key_ == 0)
         previous_objective_ = 0;
     if (!goal->has_won()) {
-        if (goal->sub_nodes_->objective_key_ == 0 && net->in_net_game()) {
+        if (goal->sub_nodes()->objective_key_ == 0 && net->in_net_game()) {
             net::NetMessageInfo desc;
             net::AppHost* client = net->fetch_patron(0);
             // The message (wire/gamenet_messages.h): the game's id and the chain's first goal (the id's three
@@ -201,7 +201,7 @@ bool GoalManager::complete_objective(uint32_t id)
             desc.ident_ = kMsgGoalWon;
             desc.queue_ = net::NetMessageInfo::kLaneOrdered;
             core::down_cast<net::Guest>(client)->send_to_host(&desc);
-        } else if (goal->sub_nodes_->objective_key_ == 0 && !goal->fetch_args()->has_bare_flag(kEditedGoal)) {
+        } else if (goal->sub_nodes()->objective_key_ == 0 && !goal->fetch_args()->has_bare_flag(kEditedGoal)) {
             ++goals_beaten_;
         }
     }
@@ -279,7 +279,7 @@ void GoalManager::prepare_every_objective()
             continue;
         if (goal->has_won() && !goal->fetch_args()->has_bare_flag(kAlwaysInitializeGoal))
             continue;
-        const GoalEdge* parents = goal->parents_;
+        const GoalEdge* parents = goal->parents();
         script::Struct* params = goal->fetch_args();
         if (parents->objective_key_)
             continue;
@@ -518,16 +518,16 @@ void GoalManager::play_objective_voice_line(script::Struct* params)
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
-    Objective* goal = goals_.get_pull(name);
+    const Objective* goal = goals_.get_pull(name);
     uint32_t stream = 0;
     params->read_hash_value(kVo, &stream, 0);
     if (stream) {
-        goal->ped_->play_stream(stream, true, 0, false);
+        goal->ped()->play_stream(stream, true, 0, false);
         return;
     }
     const char* type = nullptr;
     if (params->fetch_text(kType, &type, 0))
-        goal->ped_->play_objective_voice_line(type, params);
+        goal->ped()->play_objective_voice_line(type, params);
 }
 
 // 0x00558D20
@@ -584,10 +584,10 @@ void GoalManager::build_goal_tree()
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
         const uint32_t id = goal->get_objective_key();
-        for (const GoalEdge* link = goal->sub_nodes_; link && link->objective_key_; link = link->succ_) {
+        for (const GoalEdge* link = goal->sub_nodes(); link && link->objective_key_; link = link->succ_) {
             Objective* child = goals_.get_pull(link->objective_key_); // (one not in the table is read through null)
             bool linked = false;
-            for (const GoalEdge* parent = child->parents_; parent && parent->objective_key_; parent = parent->succ_) {
+            for (const GoalEdge* parent = child->parents(); parent && parent->objective_key_; parent = parent->succ_) {
                 if (parent->objective_key_ == id) {
                     linked = true;
                     break;
@@ -637,7 +637,7 @@ int GoalManager::get_skill_tier(bool career)
 void GoalManager::conceal_every_objective_npc(bool hide)
 {
     for (int i = 0; i < goals_.num_; ++i)
-        hide_goal_ped(goals_.get_by_index(i)->ped_, hide);
+        hide_goal_ped(goals_.get_by_index(i)->ped(), hide);
 }
 
 // 0x00559110
@@ -665,7 +665,7 @@ void GoalManager::trick_object_hit(uint32_t cluster)
 bool GoalManager::drop_objective(uint32_t id)
 {
     gsl::owner<const Objective*> goal = goals_.get_pull(id);
-    remove_objective_npc(goal->ped_);
+    remove_objective_npc(goal->ped());
     goals_.drop_out(id);
     if (previous_objective_ == id)
         previous_objective_ = 0;
@@ -678,7 +678,7 @@ void GoalManager::wipe_objectives()
 {
     previous_objective_ = 0;
     for (int i = 0; i < goals_.num_; ++i)
-        remove_objective_npc(goals_.get_by_index(i)->ped_);
+        remove_objective_npc(goals_.get_by_index(i)->ped());
     lists::TableItemEraser destroyer = {&goals_};
     destroyer.empty_table_items([](void* goal) {
         gsl::owner<Objective*> objective = memory::adopt<Objective*>(goal); // (the table's)

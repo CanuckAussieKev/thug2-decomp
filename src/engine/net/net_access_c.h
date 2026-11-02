@@ -140,7 +140,7 @@ inline void destroy_conn(Conn* conn) { conn->~Conn(); }
 // The connection's latency test takes a measurement.
 inline void add_latency(Conn* conn, uint32_t latency)
 {
-    conn->ping_probe_.input_delay_amount(static_cast<int>(latency));
+    conn->ping_probe().input_delay_amount(static_cast<int>(latency));
 }
 // Message/packet metrics (0x00454550, 0x00454D90).
 inline void add_message_metric(void* metrics, uint8_t id, uint32_t size)

@@ -238,7 +238,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         if (-limit < approach)
             return false;
     }
-    if (entity_->vel_.y > 0.0f && input_->pad_primary_.button_wedge_.held_down_ && !wall_above_hit())
+    if (entity_->vel_.y > 0.0f && input_->pad_primary_.button_wedge().held_down_ && !wall_above_hit())
         return false;
     // (not original: THAW 0x005DBB9E - no sticker slap on the bike)
     if (!thaw_bmx::live_now(this))

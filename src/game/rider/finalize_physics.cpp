@@ -106,11 +106,11 @@ void RiderPhysicsCommit::tick_frame()
     auto speed = static_cast<float>(std::sqrt(x * x + z * z));
     auto fraction = static_cast<float>(speed / scaled_physics_value(entity_, kSkaterMaxMaxSpeedStat));
     set_looping_sound_speed(looping, fraction);
-    looping->no_rail_sound_ = pose_->flag(PoseFlag::kBailing).on;
-    uint8_t& changed = looping->sound_changed_;
-    get_note(looping->sliding_, pose_->flag(PoseFlag::kSlide).on, changed);
-    get_note(looping->surface_type_, pose_->surface_type_, changed);
-    get_note(looping->cur_phase_, pose_->cur_phase_, changed);
+    looping->set_no_rail_sound(pose_->flag(PoseFlag::kBailing).on);
+    uint8_t& changed = looping->sound_changed();
+    get_note(looping->sliding(), pose_->flag(PoseFlag::kSlide).on, changed);
+    get_note(looping->surface_type(), pose_->surface_type_, changed);
+    get_note(looping->cur_phase(), pose_->cur_phase_, changed);
 }
 
 } // namespace objects

@@ -234,7 +234,7 @@ render::StaticCollider* coll_of(render::WorldCell* sector)
 {
     return core::down_cast<render::StaticCollider>(sector->hit_body_);
 }
-void* grid_of(render::WorldScene* scene) { return scene->coll_grid_; }
+void* grid_of(render::WorldScene* scene) { return scene->coll_grid(); }
 
 // A face of a collision-only sector turned off for a companion, and its flags before.
 struct Taken {
@@ -278,14 +278,14 @@ void for_each_strip(render::PcGeom* geom, F fn)
     const uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096; ++i) {
         const render::MeshRef* mesh = core::at(meshes, i);
-        if (!mesh || mesh->billboard || (mesh->flags & 0x10))
+        if (!mesh || mesh->billboard_value() || (mesh->flags_value() & 0x10))
             continue;
-        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
-        const render::IdxStore* indices = core::at(mesh->index_buffers_, 0);
-        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
+        const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
+        const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
+        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride_value() < 12)
             continue;
-        fn(vertices->data, static_cast<uint32_t>(mesh->stride), static_cast<uint32_t>(mesh->vertex_count_),
-           indices->indices, static_cast<uint32_t>(core::at(mesh->index_counts_, 0)));
+        fn(vertices->data, static_cast<uint32_t>(mesh->stride_value()), static_cast<uint32_t>(mesh->vertex_count()),
+           indices->indices, static_cast<uint32_t>(core::at(mesh->index_counts(), 0)));
     }
 }
 

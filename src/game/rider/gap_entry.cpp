@@ -72,19 +72,19 @@ constexpr uint32_t kGapGround = 0x1, kGapAir = 0x2, kGapRail = 0x4, kGapWall = 0
 constexpr int kRequireShift = 16;
 
 // A gap in progress (the 0x64-byte TrickListEntry) and a gap trick (the 0x34-byte TrickNameEntry), by their fields.
-uint32_t& get_gap_id(TrickListEntry* gap) { return gap->gap_id_; }
-uint32_t& gap_option_labels(TrickListEntry* gap) { return gap->option_labels_; }
-int& gap_node(TrickListEntry* gap) { return gap->node_; }
-uint32_t& gap_key_combo(TrickListEntry* gap) { return gap->lookup_key_; }
-int& gap_trick_count(TrickListEntry* gap) { return gap->trick_count_; } // the score's count of the trick at the start
-uint32_t& gap_trick_script(TrickListEntry* gap) { return gap->trick_script_; }
-uint32_t& gap_trick_text(TrickListEntry* gap) { return gap->trick_text_; }
-int& gap_spin(TrickListEntry* gap) { return gap->spin_; }
-bool& gap_perfect(TrickListEntry* gap) { return gap->perfect_; }
-uint32_t& gap_tricks_count(TrickListEntry* gap) { return gap->tricks_count_; }
-int& gap_taps(TrickListEntry* gap) { return gap->taps_; }
-maths::Vec4& gap_start_pos(TrickListEntry* gap) { return gap->start_pos_; }
-maths::Vec4& gap_start_dir(TrickListEntry* gap) { return gap->start_dir_; }
+uint32_t& get_gap_id(TrickListEntry* gap) { return gap->gap_id(); }
+uint32_t& gap_option_labels(TrickListEntry* gap) { return gap->option_labels(); }
+int& gap_node(TrickListEntry* gap) { return gap->node(); }
+uint32_t& gap_key_combo(TrickListEntry* gap) { return gap->lookup_key(); }
+int& gap_trick_count(TrickListEntry* gap) { return gap->trick_count(); } // the score's count of the trick at the start
+uint32_t& gap_trick_script(TrickListEntry* gap) { return gap->trick_script(); }
+uint32_t& gap_trick_text(TrickListEntry* gap) { return gap->trick_text(); }
+int& gap_spin(TrickListEntry* gap) { return gap->spin(); }
+bool& gap_perfect(TrickListEntry* gap) { return gap->perfect(); }
+uint32_t& gap_tricks_count(TrickListEntry* gap) { return gap->tricks_count(); }
+int& gap_taps(TrickListEntry* gap) { return gap->taps(); }
+maths::Vec4& gap_start_pos(TrickListEntry* gap) { return gap->start_pos(); }
+maths::Vec4& gap_start_dir(TrickListEntry* gap) { return gap->start_dir(); }
 
 uint32_t& trick_gap_id(TrickNameEntry* trick) { return trick->gap_id_; }
 int& trick_node(TrickNameEntry* trick) { return trick->node_; }
@@ -106,7 +106,7 @@ T* get_first(memory::ListNode& head)
 template <typename T>
 T* get_next(T* entry)
 {
-    return entry_of<T>(entry->list_link_.next);
+    return entry_of<T>(entry->list_link().next);
 }
 // An entry deleted (its scalar deleting destructor).
 template <typename Entry>
@@ -368,7 +368,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     }
     void* memory = memory::alloc_zeroed(sizeof(TrickListEntry));
     auto* gap = memory ? memory::construct_in<TrickListEntry>(memory) : nullptr;
-    add_to_front(gaps_, &gap->list_link_);
+    add_to_front(gaps_, &gap->list_link());
     get_gap_id(gap) = gap_id;
     gap_node(gap) = script->list_link();
     gap_trick_text(gap) = 0;
@@ -406,7 +406,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
             read_spin();
             gap_trick_count(gap) = get_trick_count(points_held_, gap_trick_text(gap), gap_spin(gap), gap_taps(gap));
         } else if (params->fetch_list(kTricks, &tricks, 0)) {
-            script::duplicate_array(gap->element_list_, tricks);
+            script::duplicate_array(gap->element_list(), tricks);
             gap_tricks_count(gap) = static_cast<uint32_t>(points_held_->tricks());
         }
         start_gap_trick(params, script);
@@ -434,7 +434,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
 
     // Checked against the state now - unless gap checks are Off (the settings' +0x40), when driving can't matter.
     const bool driving_matters = state_of(physics_control_)->in_vehicle_ && (gap_option_labels(gap) & kGapDriving);
-    if (!driving_matters && park_editing::ParkBuilderMode::sole()->cur_phase_ == kOff)
+    if (!driving_matters && park_editing::ParkBuilderMode::sole()->cur_phase() == kOff)
         return;
     uint32_t cancel = 0, require = 0;
     fetch_gap_condition_masks(&cancel, &require);
@@ -488,7 +488,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         // Its gap trick done: no trick needed, or the trick was done since the gap started.
         if (gap_trick_script(gap)) {
             bool done = false;
-            if (!gap_key_combo(gap) && !gap_trick_text(gap) && gap->element_list_->extent_ == 0) {
+            if (!gap_key_combo(gap) && !gap_trick_text(gap) && gap->element_list()->extent_ == 0) {
                 done = true;
             } else {
                 done = false;
@@ -501,8 +501,8 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
                          gap_trick_count(gap) < get_trick_count(points_held_, gap_trick_text(gap), gap_spin(gap),
                                                                 gap_perfect(gap), gap_taps(gap)))
                     done = true;
-                else if (gap->element_list_->extent_ > 0 &&
-                         tricks_array_count(points_held_, gap->element_list_, gap_tricks_count(gap)) > 0)
+                else if (gap->element_list()->extent_ > 0 &&
+                         tricks_array_count(points_held_, gap->element_list(), gap_tricks_count(gap)) > 0)
                     done = true;
             }
             if (done) {

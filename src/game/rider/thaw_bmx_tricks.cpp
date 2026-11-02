@@ -276,9 +276,9 @@ bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::
 
 // --- the gates ---------------------------------------------------------------------------------------------------
 
-bool wallride_button(SkaterPhysicsModule* core) { return core->input()->pad_primary_.button_box_.held_down_ != 0; }
+bool wallride_button(SkaterPhysicsModule* core) { return core->input()->pad_primary_.button_box().held_down_ != 0; }
 
-bool wallplant_by_square(SkaterPhysicsModule* core) { return core->input()->pad_primary_.button_box_.held_down_ != 0; }
+bool wallplant_by_square(SkaterPhysicsModule* core) { return core->input()->pad_primary_.button_box().held_down_ != 0; }
 
 uint32_t wallplant_trick_list()
 {
@@ -286,7 +286,7 @@ uint32_t wallplant_trick_list()
     return script::fetch_list(bike) ? bike : kThugWallplantTrick;
 }
 
-objects::ControlButton* tow_button(SkaterPhysicsModule* core) { return &core->input()->pad_primary_.shoulder_right_b_; }
+objects::ControlButton* tow_button(SkaterPhysicsModule* core) { return &core->input()->pad_primary_.shoulder_right_b(); }
 
 // --- the tire tap ------------------------------------------------------------------------------------------------
 
@@ -315,7 +315,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     if (not_vert)
         state.tap_armed_ = false;
     const objects::PadSnapshot* pad = &core->input()->pad_primary_;
-    const bool held = pad->shoulder_right_a_.held_down_ && (state.stick_up_.down || state.stick_down_.down);
+    const bool held = pad->shoulder_right_a().held_down_ && (state.stick_up_.down || state.stick_down_.down);
     if (!state.tap_armed_ && !held)
         return;
     const objects::GameEntity* object = object_of(core);
@@ -404,7 +404,7 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     maths::Vec4& velocity = object->vel_;
     maths::Vec4& position = object->at_point_;
     const objects::PadSnapshot* pad = &core->input()->pad_primary_;
-    const bool held = pad->shoulder_right_a_.held_down_ && (state.stick_up_.down || state.stick_down_.down);
+    const bool held = pad->shoulder_right_a().held_down_ && (state.stick_up_.down || state.stick_down_.down);
     if (held || state.tap_ledge_) {
         velocity = bike::tire_tap_velocity(velocity);
         const bike::TapStep step = bike::tire_tap_step(position, state.tap_point_);
@@ -479,10 +479,10 @@ void manual_pose(SkaterPhysicsModule* core)
         const objects::Balance* balance = tricks ? tricks->at_hand() : nullptr; // (THAW 0x006207A8's)
         if (!balance)
             return;
-        bool flip = balance->flip_;
-        if (balance->mirrored_ && core->state()->flag(PoseFlag::kFlipped).on)
+        bool flip = balance->flip();
+        if (balance->mirrored() && core->state()->flag(PoseFlag::kFlipped).on)
             flip = !flip;
-        fraction = bike::balance_wobble(balance->lean_, flip);
+        fraction = bike::balance_wobble(balance->lean(), flip);
     }
     set_wobble(skater, fraction);
     if (bike)
@@ -518,10 +518,10 @@ void* shadow_companion(void* caster_model)
     objects::ObjectModule* bike_model = bike ? bike->fetch_module(kModel) : nullptr;
     if (!rider_model || !bike_model)
         return nullptr;
-    render::RenderModel* bike_renderer = core::down_cast<objects::MeshInstanceModule>(bike_model)->mesh_instance_.get();
+    render::RenderModel* bike_renderer = core::down_cast<objects::MeshInstanceModule>(bike_model)->mesh_instance().get();
     return bike::shadow_companion_of(caster_model,
-                                     core::down_cast<objects::MeshInstanceModule>(rider_model)->mesh_instance_.get(),
-                                     bike_renderer, bike_renderer ? bike_renderer->flag_bits_ : 0);
+                                     core::down_cast<objects::MeshInstanceModule>(rider_model)->mesh_instance().get(),
+                                     bike_renderer, bike_renderer ? bike_renderer->flag_bits() : 0);
 }
 
 // --- the flip ----------------------------------------------------------------------------------------------------

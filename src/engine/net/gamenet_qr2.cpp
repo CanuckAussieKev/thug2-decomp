@@ -180,8 +180,8 @@ void player_key_callback(int key, int index, void* buffer, void*)
         buffer_add(buffer, player_name(player));
         return;
     case kKeyPing: {
-        net::Conn* conn = player->conn_;
-        buffer_add_int(buffer, conn->is_host_local() ? 0 : conn->ping_probe_.average_latency_);
+        net::Conn* conn = player->conn();
+        buffer_add_int(buffer, conn->is_host_local() ? 0 : conn->ping_probe().average_latency_);
         return;
     }
     case kKeyTeam:

@@ -159,6 +159,56 @@ public:
     // failure kept. Returns 1.
     static int on_file_downloaded(void* request, int result, char* buffer, int64_t buffer_length, VaultMan* vault);
 
+    // The fields other code reads and sets.
+    std::unique_ptr<tasks::SchedulerTask>& task() { return task_; }
+    [[nodiscard]] const std::unique_ptr<tasks::SchedulerTask>& task() const { return task_; }
+    [[nodiscard]] int transfer() const { return transfer_; }
+    void set_transfer(int value) { transfer_ = value; }
+    void set_progress(int value) { progress_ = value; }
+    void set_outcome_val(int value) { outcome_val_ = value; }
+    void set_fault(int value) { fault_ = value; }
+    char*& octets() { return octets_; }
+    [[nodiscard]] char* octets() const { return octets_; }
+    void set_start_time(uint32_t value) { start_time_ = value; }
+    std::array<char, 0x80>& source_path() { return source_path_; }
+    [[nodiscard]] const std::array<char, 0x80>& source_path() const { return source_path_; }
+    std::array<char, 0x200>& summary_text() { return summary_text_; }
+    [[nodiscard]] const std::array<char, 0x200>& summary_text() const { return summary_text_; }
+    [[nodiscard]] void* semaphore() const { return semaphore_; }
+    [[nodiscard]] int req() const { return req_; }
+    script::Struct*& content() { return content_; }
+    [[nodiscard]] script::Struct* content() const { return content_; }
+    int& points_held() { return points_held_; }
+    [[nodiscard]] int points_held() const { return points_held_; }
+    int& span() { return span_; }
+    [[nodiscard]] int span() const { return span_; }
+    int& byte_count() { return byte_count_; }
+    [[nodiscard]] int byte_count() const { return byte_count_; }
+    int& num_pieces() { return num_pieces_; }
+    [[nodiscard]] int num_pieces() const { return num_pieces_; }
+    int& num_gaps() { return num_gaps_; }
+    [[nodiscard]] int num_gaps() const { return num_gaps_; }
+    int& num_goals() { return num_goals_; }
+    [[nodiscard]] int num_goals() const { return num_goals_; }
+    int& style_set() { return style_set_; }
+    [[nodiscard]] int style_set() const { return style_set_; }
+    uint32_t& tod_script() { return tod_script_; }
+    [[nodiscard]] uint32_t tod_script() const { return tod_script_; }
+    int& has_male_body() { return has_male_body_; }
+    [[nodiscard]] int has_male_body() const { return has_male_body_; }
+    memory::ListNode& categories() { return categories_; }
+    [[nodiscard]] const memory::ListNode& categories() const { return categories_; }
+    VaultSearch& search() { return search_; }
+    [[nodiscard]] const VaultSearch& search() const { return search_; }
+    [[nodiscard]] VaultCategory* category() const { return category_; }
+    void set_category(VaultCategory* value) { category_ = value; }
+    uint32_t& kind_tag() { return kind_tag_; }
+    [[nodiscard]] uint32_t kind_tag() const { return kind_tag_; }
+    std::array<char, 0x40>& folder() { return folder_; }
+    [[nodiscard]] const std::array<char, 0x40>& folder() const { return folder_; }
+    void set_fail_script(uint32_t value) { fail_script_ = value; }
+
+private:
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<VaultMan> (vault_task)
     int transfer_{kNone};                        // +0x004 Transfer
     int progress_{0};                            // +0x008 percent; 100 = finished

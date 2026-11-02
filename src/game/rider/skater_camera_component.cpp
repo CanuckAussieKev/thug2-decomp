@@ -190,13 +190,13 @@ void RiderChaseView::get_zoomed_offsets(float* height, float* distance)
     else if (state->cur_phase_ == 3)
         zoom_target_ = lip_trick_zoom_;
     const FreeLookModule* look_around = free_look_module_;
-    if (look_around->turning_ && std::bit_cast<uint32_t>(look_around->factor_) != 0x3F800000u)
-        zoom_target_ = static_cast<float>(static_cast<double>(look_around->factor_) * zoom_target_);
+    if (look_around->turning() && std::bit_cast<uint32_t>(look_around->factor()) != 0x3F800000u)
+        zoom_target_ = static_cast<float>(static_cast<double>(look_around->factor()) * zoom_target_);
     const double eased = (static_cast<double>(zoom_target_) - zoom_) * zoom_ease_rate_ + zoom_;
     zoom_ = static_cast<float>(eased);
     const double behind = eased * behind_;
     *distance = static_cast<float>(behind);
-    const float tilt = free_look_module_->lean_angle_;
+    const float tilt = free_look_module_->lean_angle();
     if (tilt < 0.0f)
         *distance = static_cast<float>(((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange + kTiltBase) *
                                        behind);

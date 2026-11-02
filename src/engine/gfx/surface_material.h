@@ -68,6 +68,58 @@ struct ColorAnim {
 };
 
 struct MaterialRef {
+    // The fields other code reads and sets.
+    [[nodiscard]] uint32_t checksum_value() const { return checksum; }
+    void set_checksum(uint32_t value) { checksum = value; }
+    [[nodiscard]] uint32_t name_hash() const { return name_hash_; }
+    void set_name_hash(uint32_t value) { name_hash_ = value; }
+    [[nodiscard]] uint32_t pass_count() const { return pass_count_; }
+    void set_pass_count(uint32_t value) { pass_count_ = value; }
+    [[nodiscard]] uint8_t sort_flag() const { return sort_flag_; }
+    void set_sort_flag(uint8_t value) { sort_flag_ = value; }
+    [[nodiscard]] uint8_t two_sided() const { return two_sided_; }
+    void set_two_sided(uint8_t value) { two_sided_ = value; }
+    void set_has_uv_wibble(bool value) { has_uv_wibble_ = value; }
+    void set_has_texture_anim(bool value) { has_texture_anim_ = value; }
+    [[nodiscard]] uint8_t alpha_ref() const { return alpha_ref_; }
+    void set_alpha_ref(uint8_t value) { alpha_ref_ = value; }
+    [[nodiscard]] uint8_t depth_bias() const { return depth_bias_; }
+    void set_depth_bias(uint8_t value) { depth_bias_ = value; }
+    [[nodiscard]] uint32_t unknown14_value() const { return unknown14; }
+    void set_unknown14(uint32_t value) { unknown14 = value; }
+    [[nodiscard]] uint32_t unknown18_value() const { return unknown18; }
+    void set_unknown18(uint32_t value) { unknown18 = value; }
+    [[nodiscard]] float sort_key() const { return sort_key_; }
+    void set_sort_key(float value) { sort_key_ = value; }
+    std::array<uint32_t, 4>& pass_flags() { return pass_flags_; }
+    [[nodiscard]] const std::array<uint32_t, 4>& pass_flags() const { return pass_flags_; }
+    std::array<TextureImage*, 4>& textures_value() { return textures; }
+    [[nodiscard]] const std::array<TextureImage*, 4>& textures_value() const { return textures; }
+    std::array<std::array<float, 4>, 4>& pass_color() { return pass_color_; }
+    [[nodiscard]] const std::array<std::array<float, 4>, 4>& pass_color() const { return pass_color_; }
+    std::array<uint32_t, 4>& blend_modes() { return blend_modes_; }
+    [[nodiscard]] const std::array<uint32_t, 4>& blend_modes() const { return blend_modes_; }
+    std::array<uint32_t, 4>& address_modes() { return address_modes_; }
+    [[nodiscard]] const std::array<uint32_t, 4>& address_modes() const { return address_modes_; }
+    std::array<std::array<float, 2>, 4>& reflection_tiling() { return reflection_tiling_; }
+    [[nodiscard]] const std::array<std::array<float, 2>, 4>& reflection_tiling() const { return reflection_tiling_; }
+    std::array<uint32_t, 4>& unknownc0() { return unknownc0_; }
+    [[nodiscard]] const std::array<uint32_t, 4>& unknownc0() const { return unknownc0_; }
+    std::array<UvOscillator*, 4>& uv_wibble() { return uv_wibble_; }
+    [[nodiscard]] const std::array<UvOscillator*, 4>& uv_wibble() const { return uv_wibble_; }
+    std::array<uint32_t, 4>& mip_lod_bias() { return mip_lod_bias_; }
+    [[nodiscard]] const std::array<uint32_t, 4>& mip_lod_bias() const { return mip_lod_bias_; }
+    void set_color_anim_count(uint32_t value) { color_anim_count_ = value; }
+    void set_color_anims(ColorAnim* value) { color_anims_ = value; }
+    void set_anim_colors(uint32_t* value) { anim_colors_ = value; }
+    [[nodiscard]] TextureAnim* texture_anim() const { return texture_anim_; }
+    void set_texture_anim(TextureAnim* value) { texture_anim_ = value; }
+    std::array<float, 3>& specular_value() { return specular; }
+    [[nodiscard]] const std::array<float, 3>& specular_value() const { return specular; }
+    [[nodiscard]] float specular_power() const { return specular_power_; }
+    void set_specular_power(float value) { specular_power_ = value; }
+
+private:
     uint32_t checksum{};
     uint32_t name_hash_{}; // passes are named relative to it (see pass_from_checksum)
     uint32_t pass_count_{0};
@@ -97,12 +149,17 @@ struct MaterialRef {
     ColorAnim* color_anims_{nullptr}; // +0xF4
     uint32_t* anim_colors_{nullptr};  // +0xF8: each animation's colour now
 
+public:
+
     // NOT ORIGINAL - the colour animations and their current colours as runs of color_anim_count_.
     [[nodiscard]] std::span<ColorAnim> color_anim_run() const { return {color_anims_, color_anim_count_}; }
     [[nodiscard]] std::span<uint32_t> anim_colour_run() const { return {anim_colors_, color_anim_count_}; }
+private:
     TextureAnim* texture_anim_{nullptr}; // +0xFC
     std::array<float, 3> specular{};            // +0x100
     float specular_power_{};        // +0x10C
+
+public:
 
     // 0x004D1A90: construct - no passes, animations or wibbles; the per-pass defaults.
     MaterialRef();
@@ -126,12 +183,17 @@ struct MaterialRef {
     // 0x004D24D0: one pass set up on the fixed-function stages (0, and 1 for blending with the pass before), its
     // colour - or `color` (three floats), unless the pass's colour isn't to be changed - as the texture factor.
     void submit_pass(uint32_t pass, const float* color);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(MaterialRef, pass_flags_) == 0x20 && offsetof(MaterialRef, pass_color_) == 0x40 &&
+                          offsetof(MaterialRef, reflection_tiling_) == 0xA0 && offsetof(MaterialRef, uv_wibble_) == 0xD0 &&
+                          offsetof(MaterialRef, color_anim_count_) == 0xF0 && offsetof(MaterialRef, texture_anim_) == 0xFC &&
+                          offsetof(MaterialRef, specular_power_) == 0x10C && sizeof(MaterialRef) == 0x110,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(MaterialRef, pass_flags_) == 0x20 && offsetof(MaterialRef, pass_color_) == 0x40 &&
-                  offsetof(MaterialRef, reflection_tiling_) == 0xA0 && offsetof(MaterialRef, uv_wibble_) == 0xD0 &&
-                  offsetof(MaterialRef, color_anim_count_) == 0xF0 && offsetof(MaterialRef, texture_anim_) == 0xFC &&
-                  offsetof(MaterialRef, specular_power_) == 0x10C && sizeof(MaterialRef) == 0x110,
-              "layout must match the original");
 
 } // namespace render
 
@@ -157,7 +219,7 @@ lists::KeyMap* load_materials_from_file(scene_format::FileStream& in, const list
 // -1 when it names none (an index that may still be past the material's passes otherwise).
 inline int pass_from_checksum(const MaterialRef* material, uint32_t checksum, int pass)
 {
-    const uint32_t name = material->name_hash_;
+    const uint32_t name = material->name_hash();
     if (name == checksum)
         return pass;
     if (name < checksum || name - checksum > 0x7F)

@@ -142,75 +142,75 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
         return false;
     }
     for (int i = 0; i < scene_format::kIndexBuffers; ++i) {
-        core::at(mesh->index_counts_, i) = core::at(body.index_counts, i);
+        core::at(mesh->index_counts(), i) = core::at(body.index_counts, i);
         const uint16_t count = core::at(body.index_counts, i);
         if (!count)
             continue;
         gsl::owner<void*> memory = alloc_block(sizeof(IdxStore));
         IdxStore* ib = memory ? memory::construct_in<IdxStore>(memory, count * 2u, 0, D3DFMT_INDEX16) : nullptr;
-        core::at(mesh->index_buffers_, i) = ib;
+        core::at(mesh->index_buffers(), i) = ib;
         std::memcpy(ib->indices, core::at(body.indices, i).data(), count * 2u);
         ib->get_unlock();
     }
-    mesh->stride = body.stride;
-    mesh->vertex_count_ = body.vertex_count;
-    mesh->vertex_buffer_count_ = body.vertex_buffer_count;
+    mesh->set_stride(body.stride);
+    mesh->set_vertex_count(body.vertex_count);
+    mesh->set_vertex_buffer_count(body.vertex_buffer_count);
     if (!body.scaled.empty())
-        apply_scaled_positions(body.scaled, body.vertices.data(), mesh->stride);
-    mesh->fvf = vertex_format(core::at(body.vertex_types, 0));
-    mesh->second_fvf_ = vertex_format(core::at(body.vertex_types, 1));
-    mesh->normal_offset_ = core::at(body.offsets, 0);
-    mesh->color_offset_ = core::at(body.offsets, 1);
-    mesh->uv_offset_ = core::at(body.offsets, 2);
-    mesh->buffer_usage_ = 0;
-    mesh->buffer_flags_ = 0;
+        apply_scaled_positions(body.scaled, body.vertices.data(), mesh->stride_value());
+    mesh->set_fvf(vertex_format(core::at(body.vertex_types, 0)));
+    mesh->set_second_fvf(vertex_format(core::at(body.vertex_types, 1)));
+    mesh->set_normal_offset(core::at(body.offsets, 0));
+    mesh->set_color_offset(core::at(body.offsets, 1));
+    mesh->set_uv_offset(core::at(body.offsets, 2));
+    mesh->set_buffer_usage(0);
+    mesh->buffer_flags() = 0;
     if (body.has_vertex_bytes) {
-        mesh->per_vertex_bytes_ = static_cast<uint8_t*>(memory::alloc(mesh->vertex_count_));
-        std::memcpy(mesh->per_vertex_bytes_, body.vertex_bytes.data(), body.vertex_bytes.size());
-        mesh->buffer_flags_ |= 2;
+        mesh->set_per_vertex_bytes(static_cast<uint8_t*>(memory::alloc(mesh->vertex_count())));
+        std::memcpy(mesh->per_vertex_bytes(), body.vertex_bytes.data(), body.vertex_bytes.size());
+        mesh->buffer_flags() |= 2;
         arena = nullptr; // (written each frame: a buffer of its own)
-        mesh->buffer_usage_ = D3DUSAGE_DYNAMIC;
+        mesh->set_buffer_usage(D3DUSAGE_DYNAMIC);
     }
     if (dynamic)
-        mesh->buffer_usage_ = D3DUSAGE_DYNAMIC;
+        mesh->set_buffer_usage(D3DUSAGE_DYNAMIC);
     if (body.level_count > 1) {
-        mesh->unknown48 = memory::alloc(static_cast<uint32_t>(body.level_count) * 4);
-        std::memcpy(mesh->unknown48, body.levels.data(), body.levels.size() * 4);
+        mesh->set_unknown48(memory::alloc(static_cast<uint32_t>(body.level_count) * 4));
+        std::memcpy(mesh->unknown48_value(), body.levels.data(), body.levels.size() * 4);
     }
     auto* material = static_cast<MaterialRef*>(scene->find_material(material_checksum));
-    mesh->material = material;
-    if (material && (core::at(material->pass_flags_, 0) & 0x10))
-        mesh->flags |= 0x100;
-    mesh->vertex_buffer_count_ = 1;
+    mesh->set_material(material);
+    if (material && (core::at(material->pass_flags(), 0) & 0x10))
+        mesh->flags_value() |= 0x100;
+    mesh->set_vertex_buffer_count(1);
     // Not original - the vertices the mesh draws (or, without a vertex format, unpacks) within its buffer: a count
     // past them is cut to what is there (the original read past the buffer).
-    const uint32_t sets = material ? material->pass_count_ : 0;
-    const uint32_t vertex_bytes = mesh->fvf ? mesh->stride : 0x20 + sets * 8;
+    const uint32_t sets = material ? material->pass_count() : 0;
+    const uint32_t vertex_bytes = mesh->fvf_value() ? mesh->stride_value() : 0x20 + sets * 8;
     if (!scene_format::vertices_fit(body, vertex_bytes)) {
         uint32_t fit = 0;
         if (body.vertices.size() >= vertex_bytes)
-            fit = mesh->stride ? static_cast<uint32_t>((body.vertices.size() - vertex_bytes) / mesh->stride) + 1 : 0;
-        debug::printf("scene mesh damaged: %u vertices, %u fit their buffer\n", mesh->vertex_count_, fit);
-        mesh->vertex_count_ = static_cast<uint16_t>(fit);
+            fit = mesh->stride_value() ? static_cast<uint32_t>((body.vertices.size() - vertex_bytes) / mesh->stride_value()) + 1 : 0;
+        debug::printf("scene mesh damaged: %u vertices, %u fit their buffer\n", mesh->vertex_count(), fit);
+        mesh->set_vertex_count(static_cast<uint16_t>(fit));
     }
     auto size = static_cast<uint32_t>(body.vertices.size());
-    if (mesh->fvf) {
+    if (mesh->fvf_value()) {
         mesh->create_vertex_buffer(body.vertices.data(), size, arena);
     } else if (material) {
-        mesh->buffer_usage_ = D3DUSAGE_DYNAMIC;
+        mesh->set_buffer_usage(D3DUSAGE_DYNAMIC);
         mesh->set_up_skinning(body.vertices.data(), size, nullptr);
     } else {
         // Not original - no material to unpack with (the original read it through null).
         debug::printf("scene mesh damaged: a skinned mesh without its material %08x\n", material_checksum);
-        mesh->buffer_usage_ = D3DUSAGE_DYNAMIC;
-        mesh->vertex_count_ = 0;
+        mesh->set_buffer_usage(D3DUSAGE_DYNAMIC);
+        mesh->set_vertex_count(0);
     }
     if (body.shader == 1) {
-        mesh->pixel_shader_ = nullptr; // (the chunk skipped)
+        mesh->pixel_shader() = nullptr; // (the chunk skipped)
         if (renderer().shaders_available())
-            material_pixel_shader(material, &mesh->pixel_shader_);
+            material_pixel_shader(material, &mesh->pixel_shader());
     } else {
-        mesh->pixel_shader_ = pixel_shader_from_index(body.shader);
+        mesh->pixel_shader() = pixel_shader_from_index(body.shader);
     }
     return true;
 }
@@ -220,7 +220,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
 // 0x004D5940
 void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena* arena)
 {
-    const uint32_t sets = material->pass_count_; // (a texture coordinate set a pass)
+    const uint32_t sets = material->pass_count(); // (a texture coordinate set a pass)
     auto* out_bytes = static_cast<uint8_t*>(alloc_block(vertex_count_ * 0x4Cu));
     per_vertex_data_ = out_bytes;
     // Each vertex: the position, the normal (float3s), the colour, the texture coordinates (a float2 a set), the

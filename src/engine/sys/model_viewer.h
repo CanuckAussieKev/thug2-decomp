@@ -46,6 +46,25 @@ struct Viewer final : public PartUnit {
     static constexpr uint32_t kCommandShoulderA = 0x2;
     static constexpr uint32_t kCommandShoulderB = 0x4;
 
+    // The fields other code reads and sets.
+    float& pad_rx() { return pad_rx_; }
+    [[nodiscard]] float pad_rx() const { return pad_rx_; }
+    float& pad_ry() { return pad_ry_; }
+    [[nodiscard]] float pad_ry() const { return pad_ry_; }
+    float& pad_lx() { return pad_lx_; }
+    [[nodiscard]] float pad_lx() const { return pad_lx_; }
+    float& pad_ly() { return pad_ly_; }
+    [[nodiscard]] float pad_ly() const { return pad_ly_; }
+    uint32_t& actions() { return actions_; }
+    [[nodiscard]] uint32_t actions() const { return actions_; }
+    uint32_t& shift_makes() { return shift_makes_; }
+    [[nodiscard]] uint32_t shift_makes() const { return shift_makes_; }
+    [[nodiscard]] int mode_sel() const { return mode_sel_; }
+    void set_mode_sel(int value) { mode_sel_ = value; }
+    std::unique_ptr<objects::PreviewEntity>& entity() { return entity_; }
+    [[nodiscard]] const std::unique_ptr<objects::PreviewEntity>& entity() const { return entity_; }
+
+private:
     std::unique_ptr<ViewerInputHandler> pad_listener_;  // +0x14 (process_pad_input, priority 0)
     std::unique_ptr<ViewerInputHandler> shift_handler_; // +0x18 (HandleShift, priority 1000)
     std::unique_ptr<ViewerTask> task_1c_;               // +0x1C free_camera_task (0x00577870)
@@ -61,6 +80,8 @@ struct Viewer final : public PartUnit {
     int mode_sel_{};                                // +0x4C 0: object mode, 1: ...
     std::unique_ptr<net::AppHost> net_handler_;     // +0x50 the PC tool's message handler (a server app)
     std::unique_ptr<objects::PreviewEntity> entity_; // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
+
+public:
 
     // 0x00577F20: the constructor (only cfunc_launch_viewer 0x005A54E0 makes one): the module, no commands; unless
     // the debug checks are on (0x00684FA8 - they are in this exe), the PC tool's app server "THUG2 Viewer" (port

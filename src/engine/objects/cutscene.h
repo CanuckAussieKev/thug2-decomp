@@ -191,6 +191,18 @@ public:
     void load_from_bundle();
     void ingest_mesh(int index, file::AssetBundle::TableRow* entry, void* data);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] bool ready() const { return ready_; }
+    [[nodiscard]] bool can_skip() const { return can_skip_; }
+    void set_unknown3474(uint8_t value) { unknown3474_ = value; }
+    float& clock() { return clock_; }
+    [[nodiscard]] float clock() const { return clock_; }
+    void set_clock(float value) { clock_ = value; }
+    void set_loop_start(float value) { loop_start_ = value; }
+    void set_unknown348c(float value) { unknown348c_ = value; }
+    [[nodiscard]] uint8_t flag_34b_0() const { return flag_34b_0_; }
+
+private:
     uint32_t unknown4_{};
     std::unique_ptr<file::AssetBundle> bundle_ptr_; // +0x08: the cutscene's loaded bundle
     bool ready_flag_{};                             // +0x0C
@@ -286,6 +298,7 @@ public:
     // global integer 0xA2A4F02F.
     void update_option_state() override;
 
+private:
     CinematicTable* content_{nullptr}; // +0x2C
     uint32_t asset_{0};                // +0x30
     uint32_t begin_script_{}; // +0x34: the cutscene's name + "_begin"
@@ -301,11 +314,15 @@ public:
     bool flag_5d_{false};  // +0x5D
     std::array<uint8_t, 2> unknown5e_{};
     int unknown60_{-1}; // +0x60
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(CinematicEntry, content_) == 0x2C && offsetof(CinematicEntry, flag_5d_) == 0x5D &&
+                          offsetof(CinematicEntry, unknown60_) == 0x60,
+                      "layout must match the original");
+    }
 };
 
 static_assert(sizeof(CinematicTable::ObjectEntry) == 0x20, "layout must match the original");
-static_assert(offsetof(CinematicEntry, content_) == 0x2C && offsetof(CinematicEntry, flag_5d_) == 0x5D &&
-                  offsetof(CinematicEntry, unknown60_) == 0x60,
-              "layout must match the original");
 
 } // namespace objects

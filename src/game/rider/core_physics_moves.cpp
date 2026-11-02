@@ -282,7 +282,7 @@ void SkaterPhysicsModule::get_along_facing(maths::Vec4* velocity)
 // 0x004FF670
 bool SkaterPhysicsModule::wall_push_off()
 {
-    if (!input_->pad_primary_.button_wedge_.held_down_)
+    if (!input_->pad_primary_.button_wedge().held_down_)
         return false;
     auto since_last = static_cast<float>(get_seconds(get_since(last_push_off_)));
     if (script::fetch_float(kPushOffWait) > since_last)
@@ -379,7 +379,7 @@ void SkaterPhysicsModule::turn_round_if_backwards()
 bool SkaterPhysicsModule::jump_released()
 {
     objects::RiderPoseState* flags = state_;
-    objects::ControlButton* button = &input_->pad_primary_.pos_x_;
+    objects::ControlButton* button = &input_->pad_primary_.pos_x();
     if (!flags->flag(PoseFlag::kCrouched).on || button->held_down_)
         return false;
     jump_charge_ms_ = static_cast<int>(get_since(static_cast<uint32_t>(flags->flag(PoseFlag::kCrouched).changed_at)));
@@ -397,7 +397,7 @@ void SkaterPhysicsModule::check_flip_spin()
     const objects::PadInputModule* input = input_;
     if (model_rotating_)
         return;
-    if (!input->pad_primary_.button_round_.held_down_ && !input->pad_primary_.button_box_.held_down_)
+    if (!input->pad_primary_.button_round().held_down_ && !input->pad_primary_.button_box().held_down_)
         return;
     model_flipped_ = 0;
     auto* trick = core::down_cast<objects::MoveExecutor>(get_composite(object_of(this))->fetch_module(kTrickModuleKey));
@@ -410,7 +410,7 @@ void SkaterPhysicsModule::check_flip_spin()
         std::array<uint32_t, 3> sequence{}; // (an entry without the two buttons leaves them unset, as the original does)
         spin->read_hash_value(kSpinButton1, &core::at(sequence, 0), 0);
         spin->read_hash_value(kSpinButton2, &core::at(sequence, 1), 0);
-        core::at(sequence, 2) = input->pad_primary_.button_round_.held_down_ ? 0x2B489A86u : 0x321C9756u;
+        core::at(sequence, 2) = input->pad_primary_.button_round().held_down_ ? 0x2B489A86u : 0x321C9756u;
         if (trick->check_spin_sequence(sequence, flip_spin_started_ != 0)) {
             found = true;
             break;

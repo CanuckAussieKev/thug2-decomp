@@ -40,6 +40,39 @@ struct ProximNode {
     // a shape (or an unknown one) leaves `out` as the original's stack held it - here, as it was.
     maths::Vec4* nearest_point_on(maths::Vec4* out, const maths::Vec4* point);
 
+    // The fields other code reads and sets.
+    uint32_t& label() { return label_; }
+    [[nodiscard]] uint32_t label() const { return label_; }
+    maths::Vec4& at_point() { return at_point_; }
+    [[nodiscard]] const maths::Vec4& at_point() const { return at_point_; }
+    [[nodiscard]] const maths::Mat4& to_sector() const { return to_sector_; }
+    [[nodiscard]] bool active() const { return active_; }
+    void set_active(bool value) { active_ = value; }
+    uint32_t& entity_key() { return entity_key_; }
+    [[nodiscard]] uint32_t entity_key() const { return entity_key_; }
+    uint32_t& entities() { return entities_; }
+    [[nodiscard]] uint32_t entities() const { return entities_; }
+    uint32_t& get_is_within() { return is_within_; }
+    [[nodiscard]] uint32_t get_is_within() const { return is_within_; }
+    uint32_t& outside() { return outside_; }
+    [[nodiscard]] uint32_t outside() const { return outside_; }
+    [[nodiscard]] int kind_tag() const { return kind_tag_; }
+    void set_kind_tag(int value) { kind_tag_ = value; }
+    [[nodiscard]] int form() const { return form_; }
+    void set_form(int value) { form_ = value; }
+    float& radius() { return radius_; }
+    [[nodiscard]] float radius() const { return radius_; }
+    void set_reach_sq(float value) { reach_sq_ = value; }
+    [[nodiscard]] void* sector() const { return sector_; }
+    void assign_sector(void* value) { sector_ = value; }
+    maths::BBox& box() { return box_; }
+    [[nodiscard]] const maths::BBox& box() const { return box_; }
+    uint32_t& own_script() { return own_script_; }
+    [[nodiscard]] uint32_t own_script() const { return own_script_; }
+    [[nodiscard]] ProximNode* succ() const { return succ_; }
+    void set_succ(ProximNode* value) { succ_ = value; }
+
+private:
     uint32_t label_{};        // +0x00
     maths::Vec4 at_point_{};  // +0x04
     maths::Mat4 to_sector_{}; // +0x14: the sector's world matrix, inverted
@@ -58,11 +91,15 @@ struct ProximNode {
     uint32_t unknown9c_{};
     uint32_t own_script_{}; // +0xA0
     ProximNode* succ_{};    // +0xA4
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ProximNode, to_sector_) == 0x14 && offsetof(ProximNode, active_) == 0x54 &&
+                          offsetof(ProximNode, kind_tag_) == 0x68 && offsetof(ProximNode, box_) == 0x7C &&
+                          offsetof(ProximNode, own_script_) == 0xA0 && sizeof(ProximNode) == 0xA8,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ProximNode, to_sector_) == 0x14 && offsetof(ProximNode, active_) == 0x54 &&
-                  offsetof(ProximNode, kind_tag_) == 0x68 && offsetof(ProximNode, box_) == 0x7C &&
-                  offsetof(ProximNode, own_script_) == 0xA0 && sizeof(ProximNode) == 0xA8,
-              "layout must match the original");
 
 // The node list (0x006F2268 points to it).
 struct ProximityRegistry {

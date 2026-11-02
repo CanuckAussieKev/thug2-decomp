@@ -119,7 +119,7 @@ SkaterVehicleSoundComponent::~SkaterVehicleSoundComponent() = default;
 // 0x0051AE60
 void SkaterVehicleSoundComponent::configure_from_data(script::Struct*)
 {
-    park_editor_level_ = park_editing::ParkBuilderMode::sole()->cur_phase_ != kParkEditorOff;
+    park_editor_level_ = park_editing::ParkBuilderMode::sole()->cur_phase() != kParkEditorOff;
 }
 
 // 0x0051B8E0
@@ -171,7 +171,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     auto speed = static_cast<float>(get_pace(entity_->vel_) * kToMph);
-    if (!input_->pad_primary_.pos_x_.held_down_ || input_->pad_primary_.btn_down_.held_down_)
+    if (!input_->pad_primary_.pos_x().held_down_ || input_->pad_primary_.btn_down().held_down_)
         speed = static_cast<float>(get_rate(0xEC67BC97) * static_cast<double>(speed));
 
     // The speed eased towards the object's, each step limited by the rates (as the original compares them, a step
@@ -251,7 +251,7 @@ void SkaterVehicleSoundComponent::tick_engine()
 void SkaterVehicleSoundComponent::update_skid()
 {
     float skid = 0.0f;
-    if (input_->pad_primary_.btn_down_.held_down_ && core_physics_->state()->cur_phase_ == 0) {
+    if (input_->pad_primary_.btn_down().held_down_ && core_physics_->state()->cur_phase_ == 0) {
         const double speed = get_pace(entity_->vel_);
         if (!(0.0 > speed))
             skid = static_cast<float>(speed);

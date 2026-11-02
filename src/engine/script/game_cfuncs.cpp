@@ -332,8 +332,8 @@ bool cfunc_controller_pressed(script::Struct* params, script::Script*)
         return false;
     int controller = 0;
     if (params->fetch_int_value(0u, &controller, 0))
-        return controller_pressed(core::at(front_end->pad_listeners_, controller).get(), button);
-    for (const auto& pad_listener : front_end->pad_listeners_) {
+        return controller_pressed(core::at(front_end->pad_listeners(), controller).get(), button);
+    for (const auto& pad_listener : front_end->pad_listeners()) {
         if (controller_pressed(pad_listener.get(), button))
             return true;
     }
@@ -347,16 +347,16 @@ bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
     const modules::FrontEnd* front_end = modules::front_end_instance().get();
     int controller = 0;
     params->fetch_int_value(kController, &controller, 0);
-    const modules::FrontEndInputHandler* handler = core::at(front_end->pad_listeners_, controller).get();
+    const modules::FrontEndInputHandler* handler = core::at(front_end->pad_listeners(), controller).get();
     objects::PadSnapshot pad;
     pad.tick_frame(handler->control_data_);
     auto* device = handler->dev_;
-    if (!device->is_attached() || !device->is_usable_)
+    if (!device->is_attached() || !device->is_usable())
         return false;
-    script->args()->push_float(kLeftX, core::at(pad.scaled_stick_, 2));
-    script->args()->push_float(kLeftY, core::at(pad.scaled_stick_, 3));
-    script->args()->push_float(kRightX, core::at(pad.scaled_stick_, 0));
-    script->args()->push_float(kRightY, core::at(pad.scaled_stick_, 1));
+    script->args()->push_float(kLeftX, core::at(pad.scaled_stick(), 2));
+    script->args()->push_float(kLeftY, core::at(pad.scaled_stick(), 3));
+    script->args()->push_float(kRightX, core::at(pad.scaled_stick(), 0));
+    script->args()->push_float(kRightY, core::at(pad.scaled_stick(), 1));
     return true;
 }
 

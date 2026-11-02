@@ -133,7 +133,7 @@ void Hub::leave_heap_scope()
 }
 
 // 0x005BB150
-const char* Hub::current_heap_name() { return (*ongoing_)->label_; }
+const char* Hub::current_heap_name() { return (*ongoing_)->label(); }
 
 // 0x005BAC10
 MemSource* Hub::first_zone() { return heap_count_ ? core::at(heaps_, 0) : nullptr; }

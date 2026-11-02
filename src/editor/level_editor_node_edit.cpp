@@ -191,7 +191,7 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
     const nodes::Family family = node ? node->family : nodes::Family::kOther;
     if (family == nodes::Family::kFireOff && objects::proximity_hub() != nullptr) {
         if (objects::ProximNode* proxim = objects::proxim_get_node(name))
-            proxim->at_point_ = pos;
+            proxim->at_point() = pos;
     }
     if (family == nodes::Family::kSound && objects::emitter_table()) {
         if (objects::EmitterNode* emitter = objects::emitter_get_node(name))

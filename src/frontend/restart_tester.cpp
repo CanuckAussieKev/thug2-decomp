@@ -196,7 +196,7 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool pressed = down && restart_tester_state().key_up_;
     restart_tester_state().key_up_ = !down;
     if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||
-        (front_end && front_end->is_halted_) || render::current_level() == 0)
+        (front_end && front_end->is_halted()) || render::current_level() == 0)
         return;
     get_next();
 }

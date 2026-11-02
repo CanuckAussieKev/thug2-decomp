@@ -72,7 +72,7 @@ uint16_t with_users(uint16_t flags, int delta)
 // Every slot cleared and given back (Release and the destructor).
 void free_slots(AnimCacheEntry* entry)
 {
-    for (AnimCacheSlot*& slot : entry->slots_ptr_) {
+    for (AnimCacheSlot*& slot : entry->slots_ptr()) {
         if (slot) {
             slot->get_clear();
             if (slot)
@@ -85,14 +85,14 @@ void free_slots(AnimCacheEntry* entry)
 // The fields Release and the destructor empty.
 void vacant(AnimCacheEntry* entry)
 {
-    entry->rotation_keys_ptr_ = nullptr;
-    entry->translation_keys_ptr_ = nullptr;
-    entry->lookup_key_ = nullptr;
-    entry->bones_ = 0;
-    entry->rotation_key_size_ = 0;
-    entry->translation_key_size_ = 0;
-    entry->extent_ = 0;
-    entry->allocated_ = 0;
+    entry->set_rotation_keys_ptr(nullptr);
+    entry->set_translation_keys_ptr(nullptr);
+    entry->set_lookup_key(nullptr);
+    entry->set_bones(0);
+    entry->set_rotation_key_size(0);
+    entry->set_translation_key_size(0);
+    entry->set_extent(0);
+    entry->set_allocated(0);
 }
 
 // The original's REP MOVSD / MOVSB copy: dwords forwards, then the odd bytes - kept for overlapping blocks (an entry
@@ -112,11 +112,11 @@ void copy_forwards(std::span<uint8_t> to, std::span<const uint8_t> from)
 
 void free_data(AnimCacheEntry* entry)
 {
-    if (entry->payload_) {
+    if (entry->payload()) {
         push_anim_heap();
-        hub()->dealloc(entry->payload_);
+        hub()->dealloc(entry->payload());
         pop_heap();
-        entry->payload_ = nullptr;
+        entry->set_payload(nullptr);
     }
 }
 
@@ -366,9 +366,9 @@ AnimCacheEntry* ClipStore::add_row(const void* key, int16_t bones, int rotation_
     int i = 0;
     for (;; ++i) {
         const AnimCacheEntry* entry = core::at(slot_array_, i);
-        if (entry->lookup_key_ == key)
+        if (entry->lookup_key() == key)
             return nullptr;
-        if (entry->kind_tag_ == 0)
+        if (entry->kind_tag() == 0)
             break;
         if (i + 1 >= kEntries)
             return nullptr;
@@ -387,10 +387,10 @@ const void* ClipStore::find_oldest(uint32_t size, uint32_t* users)
     const void* key = nullptr;
     uint32_t oldest = frame_clock::get_time();
     for (const AnimCacheEntry* entry : slot_array_) {
-        if (entry->allocated_ >= size && entry->last_used_ < oldest && !(entry->flag_bits_ & AnimCacheEntry::kKeep)) {
-            *users = entry->flag_bits_ & AnimCacheEntry::kUserMask;
-            oldest = entry->last_used_;
-            key = entry->lookup_key_;
+        if (entry->allocated() >= size && entry->last_used() < oldest && !(entry->flag_bits() & AnimCacheEntry::kKeep)) {
+            *users = entry->flag_bits() & AnimCacheEntry::kUserMask;
+            oldest = entry->last_used();
+            key = entry->lookup_key();
         }
     }
     return key;
@@ -412,7 +412,7 @@ bool ClipStore::free_oldest(uint32_t max_users, uint32_t size)
 void ClipStore::drain(bool unused_only)
 {
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->kind_tag_ && (!unused_only || !(entry->flag_bits_ & AnimCacheEntry::kUserMask)))
+        if (entry->kind_tag() && (!unused_only || !(entry->flag_bits() & AnimCacheEntry::kUserMask)))
             taken_count_ -= entry->get_release();
     }
 }
@@ -421,7 +421,7 @@ void ClipStore::drain(bool unused_only)
 void ClipStore::drop_out(const void* key)
 {
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->lookup_key_ == key) {
+        if (entry->lookup_key() == key) {
             --num_;
             taken_count_ -= entry->get_release();
         }
@@ -432,11 +432,11 @@ void ClipStore::drop_out(const void* key)
 int ClipStore::add_user(const void* key)
 {
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->lookup_key_ == key) {
+        if (entry->lookup_key() == key) {
             const int slot = entry->new_slot();
             if (slot == -1)
                 return -1;
-            entry->flag_bits_ = with_users(entry->flag_bits_, 1);
+            entry->flag_bits() = with_users(entry->flag_bits(), 1);
             return slot;
         }
     }
@@ -447,9 +447,9 @@ int ClipStore::add_user(const void* key)
 void ClipStore::remove_user(const void* key, int slot)
 {
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->lookup_key_ == key) {
+        if (entry->lookup_key() == key) {
             entry->free_slot(slot);
-            if (!(entry->flag_bits_ & AnimCacheEntry::kUserMask) && evict_unused_)
+            if (!(entry->flag_bits() & AnimCacheEntry::kUserMask) && evict_unused_)
                 drop_out(key);
         }
     }
@@ -459,14 +459,14 @@ void ClipStore::remove_user(const void* key, int slot)
 int ClipStore::defragment()
 {
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->kind_tag_ && !(entry->flag_bits_ & AnimCacheEntry::kUserMask))
+        if (entry->kind_tag() && !(entry->flag_bits() & AnimCacheEntry::kUserMask))
             taken_count_ -= entry->get_release();
     }
     uint32_t total = 0;
     int with_data = 0;
     for (const AnimCacheEntry* entry : slot_array_) {
-        if (entry->payload_) {
-            total += entry->allocated_;
+        if (entry->payload()) {
+            total += entry->allocated();
             ++with_data;
         }
     }
@@ -476,7 +476,7 @@ int ClipStore::defragment()
         if (copy)
             memory::dealloc(copy);
         for (AnimCacheEntry* entry : slot_array_) {
-            if (entry->kind_tag_)
+            if (entry->kind_tag())
                 taken_count_ -= entry->get_release();
         }
         return 0;
@@ -487,10 +487,10 @@ int ClipStore::defragment()
     size_t to = 0;
     size_t old = 0;
     for (const AnimCacheEntry* entry : slot_array_) {
-        if (entry->payload_) {
-            copy_forwards(copied.subspan(to, entry->allocated_), std::span<const uint8_t>(entry->payload_, entry->allocated_));
-            to += entry->allocated_;
-            core::at(old_blocks, old) = entry->payload_;
+        if (entry->payload()) {
+            copy_forwards(copied.subspan(to, entry->allocated()), std::span<const uint8_t>(entry->payload(), entry->allocated()));
+            to += entry->allocated();
+            core::at(old_blocks, old) = entry->payload();
             ++old;
         }
     }
@@ -498,31 +498,31 @@ int ClipStore::defragment()
     uint32_t offset = 0;
     push_anim_heap();
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->kind_tag_) {
-            hub()->dealloc(entry->payload_);
-            entry->payload_ = nullptr;
-            for (AnimCacheSlot* slot : entry->slots_ptr_) {
+        if (entry->kind_tag()) {
+            hub()->dealloc(entry->payload());
+            entry->set_payload(nullptr);
+            for (AnimCacheSlot* slot : entry->slots_ptr()) {
                 if (slot)
                     slot->get_clear();
             }
         }
     }
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->kind_tag_)
-            entry->payload_ = static_cast<uint8_t*>(memory::alloc(entry->allocated_));
+        if (entry->kind_tag())
+            entry->set_payload(static_cast<uint8_t*>(memory::alloc(entry->allocated())));
     }
     pop_heap();
     // ...and the keys copied back, the pointers into them moved with them.
     old = 0;
     for (AnimCacheEntry* entry : slot_array_) {
-        if (entry->kind_tag_) {
-            const std::span<uint8_t> block(entry->payload_, entry->allocated_);
-            copy_forwards(block, copied.subspan(offset, entry->allocated_));
-            offset += entry->allocated_;
+        if (entry->kind_tag()) {
+            const std::span<uint8_t> block(entry->payload(), entry->allocated());
+            copy_forwards(block, copied.subspan(offset, entry->allocated()));
+            offset += entry->allocated();
             // (the keys' places in the block kept)
             const uint8_t* was = core::at(old_blocks, old++);
-            entry->rotation_keys_ptr_ = block.subspan(static_cast<size_t>(entry->rotation_keys_ptr_ - was)).data();
-            entry->translation_keys_ptr_ = block.subspan(static_cast<size_t>(entry->translation_keys_ptr_ - was)).data();
+            entry->set_rotation_keys_ptr(block.subspan(static_cast<size_t>(entry->rotation_keys_ptr() - was)).data());
+            entry->set_translation_keys_ptr(block.subspan(static_cast<size_t>(entry->translation_keys_ptr() - was)).data());
         }
     }
     memory::dealloc(copy);

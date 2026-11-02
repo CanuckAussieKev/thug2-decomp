@@ -212,6 +212,7 @@ public:
     // die timer started (1.5 s) once 48 or more from where it woke.
     void check_sleep();
 
+private:
     float mass_over_moment_{0.003000000026077032f}; // +0x18 mass_over_moment (0.003)
     maths::Vec4 steady_accel_{};       // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
     float restitution_{0.4000000059604645f}; // +0x2C coeff_restitution (0.4)
@@ -228,12 +229,18 @@ public:
     float linear_sleep_squared_{100.0f};               // +0x58 linear_velocity_sleep_point squared (100)
     float angular_sleep_squared_{0.1600000113248825f}; // +0x5C angular_velocity_sleep_point squared (0.16)
     maths::Vec4* contacts_{};          // +0x60 the shape's points (body space)
+
+public:
     // NOT ORIGINAL: the shape's points, as many as contact_count_.
     [[nodiscard]] std::span<maths::Vec4> contact_run() const { return {contacts_, contact_count_}; }
     [[nodiscard]] std::span<Sphere> sphere_run() const { return {spheres_, sphere_count_}; }
     [[nodiscard]] std::span<Spring> spring_run() const { return {springs_, spring_count_}; }
+private:
     maths::Capsule capsule_;           // +0x64
+
+public:
     [[nodiscard]] std::span<const DirectedFriction> steer_friction_run() const { return {steer_friction_, contact_count_}; }
+private:
     DirectedFriction* steer_friction_{}; // +0x88 one per contact (directed_friction=)
     uint16_t contact_count_{};           // +0x8C
     uint16_t pad8e_{};

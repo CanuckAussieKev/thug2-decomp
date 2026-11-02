@@ -178,24 +178,24 @@ void MenuBase::arrange()
     const bool regular = regular_space_ > regular_space_minimum();
     {
         ElementPtr item;
-        item.assign_value(eldest_.get_pull());
+        item.assign_value(eldest().get_pull());
         if (regular) {
-            for (; item; item.assign_value(item->following_.get_pull())) {
-                const double across = vertical_ ? static_cast<double>(item->span_) * item->shown_.scale_x_
-                                                : static_cast<double>(item->level_y_) * item->shown_.scale_y_;
+            for (; item; item.assign_value(item->following().get_pull())) {
+                const double across = vertical_ ? static_cast<double>(item->span()) * item->shown().scale_x_
+                                                : static_cast<double>(item->level_y()) * item->shown().scale_y_;
                 total = static_cast<float>(static_cast<double>(total) + regular_space_);
                 if (across > largest)
                     largest = static_cast<float>(across);
             }
         } else {
-            for (; item; item.assign_value(item->following_.get_pull())) {
+            for (; item; item.assign_value(item->following().get_pull())) {
                 double across = 0.0, along = 0.0;
                 if (vertical_) {
-                    across = static_cast<double>(item->span_) * margin_factor_;
-                    along = item->level_y_;
+                    across = static_cast<double>(item->span()) * margin_factor_;
+                    along = item->level_y();
                 } else {
-                    across = static_cast<double>(item->level_y_) * margin_factor_;
-                    along = item->span_;
+                    across = static_cast<double>(item->level_y()) * margin_factor_;
+                    along = item->span();
                 }
                 total = static_cast<float>(along * margin_factor_ + item_gap_ + total);
                 if (across > largest)
@@ -207,58 +207,58 @@ void MenuBase::arrange()
     if (object_flags_ & kDimsLocked) {
         // the size only grows
         if (vertical_) {
-            if (total > level_y_)
-                level_y_ = total;
-        } else if (total > span_) {
-            span_ = total;
+            if (total > level_y())
+                set_level_y(total);
+        } else if (total > span()) {
+            set_span(total);
         }
     } else if (vertical_) {
-        span_ = largest;
-        level_y_ = total;
+        set_span(largest);
+        set_level_y(total);
     } else {
-        level_y_ = largest;
-        span_ = total;
+        set_level_y(largest);
+        set_span(total);
     }
-    place_top_left(&aim_point_);
+    place_top_left(&aim_point());
     object_flags_ |= kDirty;
     // where the first item goes: the free space split by internal_just
-    float offset = vertical_ ? static_cast<float>((static_cast<double>(level_y_) - total) *
+    float offset = vertical_ ? static_cast<float>((static_cast<double>(level_y()) - total) *
                                                   (static_cast<double>(inner_align_v_) + 1.0) * 0.5)
-                             : static_cast<float>((static_cast<double>(span_) - total) *
+                             : static_cast<float>((static_cast<double>(span()) - total) *
                                                   (static_cast<double>(inner_align_h_) + 1.0) * 0.5);
     {
         ElementPtr item;
-        item.assign_value(eldest_.get_pull());
+        item.assign_value(eldest().get_pull());
         if (regular) {
             offset = static_cast<float>(static_cast<double>(regular_space_) * 0.5 + offset);
-            for (; item; item.assign_value(item->following_.get_pull())) {
+            for (; item; item.assign_value(item->following().get_pull())) {
                 if (vertical_) {
                     item->change_alignment(inner_align_h_, 0.0f);
-                    item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span_ * 0.5),
+                    item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * 0.5),
                                           offset, 1);
                 } else {
                     item->change_alignment(0.0f, inner_align_v_);
                     item->change_location(
-                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y_ * 0.5), 1);
+                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * 0.5), 1);
                 }
                 offset = static_cast<float>(static_cast<double>(offset) + regular_space_);
             }
         } else {
-            for (; item; item.assign_value(item->following_.get_pull())) {
+            for (; item; item.assign_value(item->following().get_pull())) {
                 // half the item's padded length; the offset moves by the unrounded half, then by the rounded one
                 const double half =
-                    (vertical_ ? static_cast<double>(item->level_y_) : static_cast<double>(item->span_)) *
+                    (vertical_ ? static_cast<double>(item->level_y()) : static_cast<double>(item->span())) *
                     margin_factor_ * 0.5;
                 auto half_stored = static_cast<float>(half);
                 offset = static_cast<float>(half + offset);
                 if (vertical_) {
                     item->change_alignment(inner_align_h_, 0.0f);
-                    item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span_ * 0.5),
+                    item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span() * 0.5),
                                           offset, 1);
                 } else {
                     item->change_alignment(0.0f, inner_align_v_);
                     item->change_location(
-                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y_ * 0.5), 1);
+                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y() * 0.5), 1);
                 }
                 offset = static_cast<float>(static_cast<double>(half_stored) + offset + item_gap_);
                 if (item->object_flags_ & kDirty)
@@ -266,7 +266,7 @@ void MenuBase::arrange()
             }
         }
     }
-    if (chosen_item_id_ == 0 && eldest_ && focused_) {
+    if (chosen_item_id_ == 0 && eldest() && focused_) {
         selected_index_ = 0;
         move_selection(1, true, true);
         if (chosen_item_id_)
@@ -325,13 +325,13 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         if (event->payload_ && event->payload_->fetch_int_value(kGridIndex, &grid, 0)) {
             grid_index_ = grid;
             ElementPtr item;
-            item.assign_value(eldest_.get_pull());
+            item.assign_value(eldest().get_pull());
             int found = -1;
             for (int i = 0; item; ++i) {
                 int x = -1;
                 if (item->read_int_tag(kTagGridX, &x) && x <= grid)
                     found = i;
-                item.assign_value(item->following_.get_pull());
+                item.assign_value(item->following().get_pull());
             }
             if (found != -1) {
                 selected_index_ = found;
@@ -341,14 +341,14 @@ bool MenuBase::pass_event_to_script(objects::Signal* event)
         uint32_t child_id = 0;
         if (event->payload_ && event->payload_->read_hash_value(kChildId, &child_id, 0)) {
             ElementPtr item;
-            item.assign_value(eldest_.get_pull());
+            item.assign_value(eldest().get_pull());
             for (int i = 0; item; ++i) {
                 if (child_id == item->ident_) {
                     chosen_item_id_ = child_id;
                     selected_index_ = i;
                     break;
                 }
-                item.assign_value(item->following_.get_pull());
+                item.assign_value(item->following().get_pull());
             }
         }
         focused_ = true;

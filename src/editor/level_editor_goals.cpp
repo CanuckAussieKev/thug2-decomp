@@ -551,32 +551,32 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
     };
     // decode_from_struct (0x004E96D0): init_edited_goal, used, not won, level, level_goal_index, the type (change_species: the
     // points' kinds, the counts; the pro's / start's height 0), then the fields.
-    g.taken_count_ = true;
-    g.won_ = false;
-    g.level_ = level;
-    g.level_goal_number_ = level_goal_index;
-    g.kind_tag_ = get_kind_hash(goal.type);
+    g.set_taken_count(true);
+    g.set_won(false);
+    g.set_level(level);
+    g.set_level_goal_number(level_goal_index);
+    g.set_kind_tag(get_kind_hash(goal.type));
     for (int i = 0; i < kMaxPoints; ++i) {
-        park_editing::EditedGoalPoint& point = core::at(g.path_vertices_, i);
+        park_editing::EditedGoalPoint& point = core::at(g.path_vertices(), i);
         point.kind = point_kind(goal.type, i);
         point.height = 0.0f;
     }
-    g.min_points_ = static_cast<uint8_t>(min_points(goal.type));
-    g.max_points_ = static_cast<uint8_t>(max_points(goal.type));
+    g.set_min_points(static_cast<uint8_t>(min_points(goal.type)));
+    g.set_max_points(static_cast<uint8_t>(max_points(goal.type)));
     if (goal.type == KindTag::kTrickBeat)
-        g.twist_rate_ = 0;
-    g.points_held_ = goal.score;
-    g.time_limit_ = goal.time;
-    g.control_type_ = goal.walk ? 0x726E85AAu : 0x54166ACDu; // (control_type: Walk / Skate)
-    text(g.label_, goal.name, 0x32);
-    text(g.summary_text_, goal.text, 0x64);
-    text(g.win_message_, goal.win, 0x64);
-    text(g.ped_name_, goal.ped, 0x15);
+        g.set_twist_rate(0);
+    g.set_points_held(goal.score);
+    g.set_time_limit(goal.time);
+    g.set_control_type(goal.walk ? 0x726E85AAu : 0x54166ACDu); // (control_type: Walk / Skate)
+    text(g.label(), goal.name, 0x32);
+    text(g.summary_text(), goal.text, 0x64);
+    text(g.win_message(), goal.win, 0x64);
+    text(g.ped_name(), goal.ped, 0x15);
     const int count = std::min(static_cast<int>(goal.points.size()), max_points(goal.type));
-    g.vertex_total_ = static_cast<uint8_t>(count);
+    g.set_vertex_total(static_cast<uint8_t>(count));
     for (int i = 0; i < count; ++i) {
         const Point& p = core::at(goal.points, i);
-        park_editing::EditedGoalPoint& point = core::at(g.path_vertices_, i);
+        park_editing::EditedGoalPoint& point = core::at(g.path_vertices(), i);
         point.pos = {.x = p.pos.x, .y = p.pos.y, .z = p.pos.z, .w = 1.0f};
         point.height = p.height;
         point.angle = get_image_angle(p.heading);
@@ -584,18 +584,18 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
     // The type's own (set_goal_specific_params' fields, 0x004E7590).
     switch (goal.type) {
     case KindTag::kRace:
-        g.race_total_laps_ = goal.laps;
-        g.race_per_checkpoint_time_ = goal.checkpoint_time_;
+        g.set_race_total_laps(goal.laps);
+        g.set_race_per_checkpoint_time(goal.checkpoint_time_);
         break;
     case KindTag::kGap: {
-        text(g.required_trick_, goal.trick, g.required_trick_.size());
+        text(g.required_trick(), goal.trick, g.required_trick().size());
         int n = 0;
         for (const int number : gap_numbers) {
             if (n >= 10 || number < 0 || number > 255)
                 continue;
-            core::at(g.gaps_, n++) = static_cast<uint8_t>(number);
+            core::at(g.gaps(), n++) = static_cast<uint8_t>(number);
         }
-        g.num_gaps_ = static_cast<uint8_t>(n);
+        g.set_num_gaps(static_cast<uint8_t>(n));
         break;
     }
     default:
@@ -606,21 +606,21 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
         // Skate-Tricks the shared ones (0x004E74F0); every trick goal its key combo sets (0x004E73F0) - Trick to the
         // Beat only those, its spin staying change_species's 0)
         if (goal.type == KindTag::kComboSkatetris) {
-            g.chain_length_ = goal.combo_size_;
+            g.set_chain_length(goal.combo_size_);
             if (goal.single_combo_)
-                g.single_combo_ = true;
+                g.set_single_combo(true);
         }
         if (goal.type == KindTag::kTrickTris) {
-            g.stack_block_span_ = goal.block_size_;
-            g.tricktris_total_to_win_ = goal.to_win_;
+            g.set_stack_block_span(goal.block_size_);
+            g.set_tricktris_total_to_win(goal.to_win_);
         }
         if (goal.type != KindTag::kTrickBeat) {
-            g.acceleration_interval_ = goal.accel_interval_;
-            g.acceleration_percent_ = goal.accel_percent_;
-            g.trick_time_ = goal.combo_time_;
-            g.time_to_stop_adding_tricks_ = goal.stop_at_;
-            g.max_tricks_ = goal.max_tricks_;
-            g.twist_rate_ = goal.spin;
+            g.set_acceleration_interval(goal.accel_interval_);
+            g.set_acceleration_percent(goal.accel_percent_);
+            g.set_trick_time(goal.combo_time_);
+            g.set_time_to_stop_adding_tricks(goal.stop_at_);
+            g.set_max_tricks(goal.max_tricks_);
+            g.set_twist_rate(goal.spin);
         }
         // (the key combo sets as AddKeyComboSet set_index=<i> adds them - 0x004E6C40: {set, require_perfect 0, spin
         // 0, num_taps 0})
@@ -628,10 +628,10 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
         for (int i = 0; i < combo_set_count(goal.type) && sets < 10; ++i) {
             if (!(goal.sets & (1u << i)))
                 continue;
-            core::at(g.key_combo_sets_, sets).set = static_cast<uint8_t>(i);
+            core::at(g.key_combo_sets(), sets).set = static_cast<uint8_t>(i);
             ++sets;
         }
-        g.num_key_combo_sets_ = sets;
+        g.set_num_key_combo_sets(sets);
     }
 }
 
@@ -1253,9 +1253,9 @@ bool export_goal(const std::string& id, std::string* message)
     // a level - MaxEditedGoalsReached)
     constexpr int kSlots = 50;
     auto& slots = component->goals_;
-    auto used = [&](int s) { return core::at(slots, s).taken_count_; };
-    auto level_of = [&](int s) { return core::at(slots, s).level_; };
-    auto index_of = [&](int s) { return core::at(slots, s).level_goal_number_; };
+    auto used = [&](int s) { return core::at(slots, s).taken_count(); };
+    auto level_of = [&](int s) { return core::at(slots, s).level(); };
+    auto index_of = [&](int s) { return core::at(slots, s).level_goal_number(); };
     int index = -1;
     for (int candidate = 0; candidate < kMaxGoals && index < 0; ++candidate) {
         bool taken = false;

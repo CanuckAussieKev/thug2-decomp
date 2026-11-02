@@ -121,7 +121,7 @@ void parse_node_array() { commands::cfunc_parse_node_array(nullptr, nullptr); }
 
 assets::NodeTableResource* node_table_resource(ParkAssembler& d)
 {
-    return &*d.node_table_;
+    return &*d.node_table();
 }
 Struct* elem(Array* nodes, int index)
 {

@@ -176,7 +176,7 @@ void CarView::apply_to_camera()
 // 0x00524780
 void CarView::update_orientation()
 {
-    const double heading = free_look_->heading_;
+    const double heading = free_look_->heading();
     double rotated_x = 0.0, rotated_z = 0.0;
     maths::spin_by(heading, direction_.x, direction_.z, &rotated_x, &rotated_z);
     auto right = static_cast<float>(rotated_z);
@@ -199,9 +199,9 @@ void CarView::update_orientation()
 // 0x00524B40
 void CarView::get_reset()
 {
-    free_look_->heading_ = 0.0f;
-    free_look_->lean_angle_ = 0.0f;
-    free_look_->locked_ = false;
+    free_look_->set_heading(0.0f);
+    free_look_->set_lean_angle(0.0f);
+    free_look_->assign_locked(false);
     const maths::Vec4& at = core::at(subject_->basis_frame_.row, 2);
     target_direction_ = {.x = -at.x, .y = -at.y, .z = -at.z, .w = -at.w};
     target_direction_.y = 0.0f;

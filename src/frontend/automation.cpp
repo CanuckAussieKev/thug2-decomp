@@ -697,9 +697,9 @@ using mouse_menus::selected_index;
 uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::sole()->level() : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
 
-UiWidget* first_child(const UiWidget* element) { return element->eldest_.get_pull(); }
-UiWidget* next_sibling(const UiWidget* element) { return element->following_.get_pull(); }
-UiWidget* current_parent(const UiWidget* element) { return element->container_.get_pull(); }
+UiWidget* first_child(const UiWidget* element) { return element->eldest().get_pull(); }
+UiWidget* next_sibling(const UiWidget* element) { return element->following().get_pull(); }
+UiWidget* current_parent(const UiWidget* element) { return element->container().get_pull(); }
 uint32_t ident_no(const UiWidget* element) { return element->ident_; }
 
 UiWidget* child_at(const UiWidget* menu, int index)
@@ -1175,9 +1175,9 @@ void send_step(void* context, int direction)
 // mapping inactive, menu input blocked, no input device.
 bool menu_input_blocked(modules::FrontEnd* front_end)
 {
-    if (!front_end || ::core::at(front_end->pad_mappings_, 0).mapping_ == 0 || front_end->block_menu_input_)
+    if (!front_end || ::core::at(front_end->pad_mappings(), 0).mapping_ == 0 || front_end->block_menu_input())
         return true;
-    const modules::FrontEndInputHandler* handler = ::core::at(front_end->pad_listeners_, 0).get();
+    const modules::FrontEndInputHandler* handler = ::core::at(front_end->pad_listeners(), 0).get();
     return !handler || !handler->dev_;
 }
 
@@ -1185,7 +1185,7 @@ bool menu_input_blocked(modules::FrontEnd* front_end)
 // menu has the focus but none of the focused menus takes pad events (a menu still coming in).
 bool menus_ignore_pad(modules::FrontEnd* front_end)
 {
-    if (!in_front_end() && !(front_end && front_end->is_halted_))
+    if (!in_front_end() && !(front_end && front_end->is_halted()))
         return false;
     if (menu_input_blocked(front_end))
         return true;
@@ -1313,7 +1313,7 @@ bool condition_holds(const OrderCode& command)
         return frontend::new_frontend::automation_screen_up(command.target);
     case Condition::kInGame: {
         auto* front_end = modules::front_end_instance().get();
-        return current_load_state() && !in_front_end() && skater_present() && !(front_end && front_end->is_halted_);
+        return current_load_state() && !in_front_end() && skater_present() && !(front_end && front_end->is_halted());
     }
     case Condition::kStageMap: {
         std::string name = command.target;
@@ -1674,7 +1674,7 @@ void write_status(Runner& runner)
     status.ready = runner.ready;
     status.main_menu_ = runner.menu_settled_;
     auto* front_end = modules::front_end_instance().get();
-    status.paused = front_end && front_end->is_halted_;
+    status.paused = front_end && front_end->is_halted();
     status.loading = loading_screen_up();
     const uint32_t load = current_load_state();
     status.where = !load ? "starting" : load == kLoadMainMenu ? "front_end" : "level";

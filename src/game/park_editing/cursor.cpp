@@ -134,12 +134,12 @@ void BuildPointer::shift_by(int dx, int dz)
     if (gap_.halves_placed_ > 0) {
         park_owner_->highlight_gap_pieces(true, &gap_);
     } else {
-        ParkLayout* manager = park_owner_;
-        for (MapListNode* node = manager->concrete_metas_; node; node = node->following_) {
+        const ParkLayout* manager = park_owner_;
+        for (MapListNode* node = manager->concrete_metas(); node; node = node->following_) {
             if (node->get_placed_piece()->flag_bits_ & PieceGroup::kHighlightable)
                 node->get_placed_piece()->spotlight(1, 1);
         }
-        manager->builder_->set_pieces_highlighted(0);
+        manager->builder()->set_pieces_highlighted(0);
     }
 }
 
@@ -340,7 +340,7 @@ void BuildPointer::destroy_cursor_meta()
         return;
     piece_group_->flag_bits_ &= ~PieceGroup::kCursor;
     park_owner_->free_placed_piece(piece_group_, 0);
-    park_owner_->builder_->clean_up_out_refs();
+    park_owner_->builder()->clean_up_out_refs();
     piece_group_ = nullptr;
 }
 
@@ -356,17 +356,17 @@ void BuildPointer::switch_to_clipboard()
     // The clipboard set (its menu index counts the sets with menus before it). Without one, the original
     // writes through a null set.
     PieceFamily* set = nullptr;
-    const int sets = park_owner_->num_sets_;
+    const int sets = park_owner_->num_sets();
     for (int i = 0; i < sets; ++i) {
         int menu_index = 0;
         for (int j = 0; j < i; ++j) {
-            if (core::at(park_owner_->sets_, j).is_displayed_)
+            if (core::at(park_owner_->sets(), j).is_displayed_)
                 ++menu_index;
         }
         menu_index_ = menu_index;
-        if (core::at(park_owner_->sets_, i).is_clipboard_) {
+        if (core::at(park_owner_->sets(), i).is_clipboard_) {
             paste_set_index_ = i;
-            set = &core::at(park_owner_->sets_, i);
+            set = &core::at(park_owner_->sets(), i);
             break;
         }
     }

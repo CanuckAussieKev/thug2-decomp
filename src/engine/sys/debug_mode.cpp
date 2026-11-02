@@ -124,7 +124,7 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool pressed_tab = tab.squeezed(keys);
     const bool pressed_t = t.squeezed(keys);
     const bool pressed_home = home.squeezed(keys);
-    if (frontend::level_editor::live_now() || (front_end && front_end->is_halted_) || render::current_level() == 0)
+    if (frontend::level_editor::live_now() || (front_end && front_end->is_halted()) || render::current_level() == 0)
         return;
     if (!started()) {
         // In the first level (start-up long over; not the early self-tests, which run the front end's input logic

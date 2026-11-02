@@ -90,12 +90,12 @@ float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
     net::Conn* conn = nullptr;
     if (net->get_on_server()) {
         const online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_));
-        conn = player->conn_;
+        conn = player->conn();
     } else {
         net::ConnSearch search;
         conn = app->begin_conn_walk(&search);
     }
-    const int latency = conn->is_host_local() ? 0 : conn->ping_probe_.average_latency_;
+    const int latency = conn->is_host_local() ? 0 : conn->ping_probe().average_latency_;
     if (frame_ms == 0)
         return 0.0f;
     return static_cast<float>(static_cast<double>(static_cast<uint32_t>(latency - frame_ms)) /
@@ -114,7 +114,7 @@ void RiderRemoteSync::interpolate()
     if (sync_frame_ == 0) {
         // Playback starts at the newest state, a fixed time behind it.
         const int newest = (past_frames_->state_count_ - 1) % kHistory;
-        sync_frame_ = app->clock_;
+        sync_frame_ = app->clock();
         const int delay = static_cast<int>(static_cast<double>(kMsPerSecond) / frame_rate());
         SkaterStateHistoryFrame* frame = history_frame(past_frames_, newest);
         play_idx_ = newest;
@@ -139,7 +139,7 @@ void RiderRemoteSync::interpolate()
         player->set_finished_joining();
     const int count = past_frames_->state_count_;
     const int oldest = count % kHistory; // (the next to be written)
-    uint32_t now = app->clock_ - sync_frame_ + sync_time_;
+    uint32_t now = app->clock() - sync_frame_ + sync_time_;
     SkaterStateHistoryFrame* last = history_frame(past_frames_, (count - 1) % kHistory);
     if (now > history_frame_stamp(last)) {
         // Past the newest state: the playback falls back (by a second's frames, or to the state when further).
@@ -149,7 +149,7 @@ void RiderRemoteSync::interpolate()
         else
             adjust = -1000 / frame_rate();
         sync_time_ += adjust;
-        now = app->clock_ - sync_frame_ + sync_time_;
+        now = app->clock() - sync_frame_ + sync_time_;
     }
     // The first state not yet reached, from the oldest (none: nothing played this frame).
     int entry = oldest;
@@ -256,8 +256,8 @@ void RiderRemoteSync::get_extrapolate()
     // How well the move lines up with this machine's skater's (0 to 1; 0 without one).
     double alignment = 0.0;
     const online::PlayerRecord* local = net->get_own_player();
-    if (local && local->skater_) {
-        maths::Vec4 theirs = local->skater_->vel_;
+    if (local && local->skater()) {
+        maths::Vec4 theirs = local->skater()->vel_;
         maths::Vec4 mine = {.x = dx, .y = dy, .z = dz, .w = dw};
         theirs.make_unit();
         mine.make_unit();
@@ -487,7 +487,7 @@ void RiderRemoteSync::extrapolate_on_rail()
     double alignment = 0.0;
     const online::PlayerRecord* local = net->get_own_player();
     if (local) { // (its skater isn't checked here)
-        maths::Vec4 theirs = local->skater_->vel_;
+        maths::Vec4 theirs = local->skater()->vel_;
         maths::Vec4 mine = {.x = dx, .y = dy, .z = dz, .w = dw};
         theirs.make_unit();
         mine.make_unit();
@@ -536,7 +536,7 @@ void RiderRemoteSync::play_history_events()
     if (!app || past_frames_->state_count_ < kHistory)
         return;
     const int first = past_frames_->message_count_ % kHistory;
-    const uint32_t now = app->clock_ - sync_frame_ + sync_time_;
+    const uint32_t now = app->clock() - sync_frame_ + sync_time_;
     auto& messages = past_frames_->messages_;
     auto* blender = core::down_cast<AnimBlenderComponent>(anim_blender_);
     int i = first;
@@ -579,11 +579,11 @@ void RiderRemoteSync::play_history_events()
                     channel->set_speed(msg->speed_, false, false, false);
                 break;
             case 0x76: { // the model's three parts set going, by the message's bits
-                mesh_set_->pivot_ = {.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 1.0f};
+                mesh_set_->set_pivot({.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 1.0f});
                 const int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
                     if (msg->spin_axes_ & (1u << bit))
-                        core::at(mesh_set_->twist_rate_, bit).append_one(
+                        core::at(mesh_set_->twist_rate(), bit).append_one(
                             static_cast<float>(msg->spin_period_), static_cast<uint32_t>(time), msg->spin_start_,
                             msg->spin_range_, msg->spin_power_, msg->spin_hold_, false);
                 }
@@ -610,7 +610,7 @@ void RiderRemoteSync::play_history_events()
                     ->destroy_item(msg->item_slot_);
                 break;
             case 0x8C:
-                for (ModelSpinAxis& axis : mesh_set_->twist_rate_)
+                for (ModelSpinAxis& axis : mesh_set_->twist_rate())
                     axis.get_clear();
                 break;
             default:

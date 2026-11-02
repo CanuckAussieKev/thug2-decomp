@@ -58,8 +58,8 @@ constexpr uint8_t kGroupGame = 8;
 Hub* net_session_slot() { return online::net_game_state().online_hub(); }
 
 // A hunt player's placed objects: how many (+0x34) and where (+0x180, 16 bytes each).
-int& placed_count(online::PlayerRecord* player) { return player->num_placed_; }
-auto& placed_positions(online::PlayerRecord* player) { return player->placed_; }
+int& placed_count(online::PlayerRecord* player) { return player->num_placed(); }
+auto& placed_positions(online::PlayerRecord* player) { return player->placed(); }
 
 // The player whose skater the script runs on (null without an object or a player).
 online::PlayerRecord* script_player(script::Script* script)
@@ -232,7 +232,7 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
              player = online::detail::step_roster_sweep(manager, &others, false)) {
             if (player == receiver)
                 continue;
-            msg.player_id = static_cast<int8_t>(player->skater_->ident_);
+            msg.player_id = static_cast<int8_t>(player->skater()->ident_);
             msg.count = placed_count(player);
             // (NOT ORIGINAL: no more than the message holds - the original wrote a player's sixth on past it)
             for (int i = 0; i < placed_count(player) && i < online::kHuntPlacements; ++i) {

@@ -65,7 +65,7 @@ constexpr uint32_t kMetrics = 0xDD755518;      // "Metrics"
 
 // The loaded scenes' list (0x006FA7EC, ended by a node whose scene is -1): walked by the engine's helpers.
 // A scene's flag at +0x8D: a sky. 0x0048C7B0: the first scene that is one.
-bool is_sky_backdrop(const render::WorldScene* scene) { return scene->is_sky_; }
+bool is_sky_backdrop(const render::WorldScene* scene) { return scene->is_sky(); }
 render::WorldScene* first_sky_scene() { return render::get_sky_scene(); }
 
 // A sector's geometry (0x004A2BA0: +0x14) and the geometry's vertex count / positions / colours (0x0048DF70,
@@ -111,7 +111,7 @@ uint8_t channel_byte(double value)
 template <typename Fn>
 void for_each_sector_geometry(render::WorldScene* scene, uint32_t light_group, Fn fn)
 {
-    lists::KeyMap* sectors = scene->sectors_;
+    lists::KeyMap* sectors = scene->sectors();
     if (!sectors)
         return;
     sectors->iter_bucket_ = -1;

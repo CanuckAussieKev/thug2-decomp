@@ -271,7 +271,7 @@ void FootMovement::update_control()
         forward_x = static_cast<float>(forward_x * inverse);
         forward_z = static_cast<float>(forward_z * inverse);
     }
-    float angle = core::at(pad->polar_, 1).angle;
+    float angle = core::at(pad->polar(), 1).angle;
     if (walk_parameter(kForwardTolerance) * static_cast<double>(kRadiansPerDegree) > std::fabs(angle))
         angle = 0.0f;
     double turned_z = 0.0, turned_x = 0.0;
@@ -282,10 +282,10 @@ void FootMovement::update_control()
 
     float& magnitude = stick_deflection_;
     bool& full = control_full_;
-    if (!(core::at(pad->stick_, 2) == 0.0f) || !(core::at(pad->stick_, 3) == 0.0f)) {
+    if (!(core::at(pad->stick(), 2) == 0.0f) || !(core::at(pad->stick(), 3) == 0.0f)) {
         // The stick: its push, full from 85 %.
         stick_steers_ = true;
-        const double push = stick_length(core::at(pad->stick_, 2), core::at(pad->stick_, 3), core::at(pad->polar_, 1).angle) * kStickScale;
+        const double push = stick_length(core::at(pad->stick(), 2), core::at(pad->stick(), 3), core::at(pad->polar(), 1).angle) * kStickScale;
         magnitude = static_cast<float>(push);
         if (push < kOne || std::isnan(push)) {
             full = false;
@@ -296,10 +296,10 @@ void FootMovement::update_control()
     } else {
         // The d-pad: on the ground without X held, walk_point (the original calls 0x0043DA70 for it); else full.
         stick_steers_ = false;
-        if (core::at(pad->polar_, 1).length == 0.0f) {
+        if (core::at(pad->polar(), 1).length == 0.0f) {
             magnitude = 0.0f;
             full = false;
-        } else if (state_ == 0 && !pad->pos_x_.held_down_) {
+        } else if (state_ == 0 && !pad->pos_x().held_down_) {
             magnitude = walk_parameter(kWalkPoint);
             full = true;
         } else {
@@ -616,8 +616,8 @@ void FootMovement::copy_to_object()
     }
     // The model raised along the up vector by the display offset.
     const float offset = model_lift_;
-    model_->shift_ = {.x = core::at(matrix.row, 1).x * offset, .y = core::at(matrix.row, 1).y * offset, .z = core::at(matrix.row, 1).z * offset,
-                      .w = core::at(matrix.row, 1).w * offset};
+    model_->set_shift({.x = core::at(matrix.row, 1).x * offset, .y = core::at(matrix.row, 1).y * offset, .z = core::at(matrix.row, 1).z * offset,
+                      .w = core::at(matrix.row, 1).w * offset});
 }
 
 } // namespace objects

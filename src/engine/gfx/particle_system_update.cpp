@@ -61,7 +61,7 @@ int sphere_hidden(const maths::Vec4* centre, float radius)
 
 std::span<float, 3> position_of(EmitterInstance* system, int particle, int step)
 {
-    return place_at(system->position_array_, system->max_particles_, step, particle);
+    return place_at(system->position_array(), system->max_particles(), step, particle);
 }
 
 // The member functions' names and parameters.
@@ -136,15 +136,15 @@ void get_vector_or_xyz(script::Struct* params, uint32_t name, float& x, float& y
 // Sizes from the system's, scaled (unless the scale is exactly 1).
 void set_sizes(EmitterInstance* system, FlexibleParticle& p)
 {
-    core::at(p.start_size_, 0) = core::at(system->extent_, 0);
-    core::at(p.start_size_, 1) = core::at(system->extent_, 1);
-    core::at(p.end_size_, 0) = core::at(system->extent_, 2);
-    core::at(p.end_size_, 1) = core::at(system->extent_, 3);
-    if (std::bit_cast<uint32_t>(system->size_scale_) != 0x3F800000) {
-        core::at(p.start_size_, 0) *= system->size_scale_;
-        core::at(p.start_size_, 1) *= system->size_scale_;
-        core::at(p.end_size_, 0) *= system->size_scale_;
-        core::at(p.end_size_, 1) *= system->size_scale_;
+    core::at(p.start_size_, 0) = core::at(system->extent(), 0);
+    core::at(p.start_size_, 1) = core::at(system->extent(), 1);
+    core::at(p.end_size_, 0) = core::at(system->extent(), 2);
+    core::at(p.end_size_, 1) = core::at(system->extent(), 3);
+    if (std::bit_cast<uint32_t>(system->size_scale()) != 0x3F800000) {
+        core::at(p.start_size_, 0) *= system->size_scale();
+        core::at(p.start_size_, 1) *= system->size_scale();
+        core::at(p.end_size_, 0) *= system->size_scale();
+        core::at(p.end_size_, 1) *= system->size_scale();
     }
 }
 
@@ -570,8 +570,8 @@ void EmitterInstance::tick_frame(float time, bool skip)
 // 0x00499EE0
 uint32_t* ModelParticles::lerp_colour(uint32_t* out, const colour::Bytes& from, const colour::Bytes& to, float t)
 {
-    const double green = static_cast<double>(core::at(colour_scale_, 1)) * brightness_;
-    auto blue = static_cast<float>(static_cast<double>(core::at(colour_scale_, 2)) * brightness_);
+    const double green = static_cast<double>(core::at(colour_scale(), 1)) * brightness();
+    auto blue = static_cast<float>(static_cast<double>(core::at(colour_scale(), 2)) * brightness());
     auto lerp = [&](int k) {
         return static_cast<uint8_t>(truncate(static_cast<double>(core::at(to, k) - core::at(from, k)) * t) +
                                     core::at(from, k));
@@ -580,7 +580,7 @@ uint32_t* ModelParticles::lerp_colour(uint32_t* out, const colour::Bytes& from, 
     const uint8_t g = lerp(1);
     const uint8_t b = lerp(2);
     const uint8_t a = lerp(3);
-    const double red = static_cast<double>(core::at(colour_scale_, 0)) * brightness_;
+    const double red = static_cast<double>(core::at(colour_scale(), 0)) * brightness();
     auto clamp = [](double value) {
         if (value < 0.0)
             value = 0.0;

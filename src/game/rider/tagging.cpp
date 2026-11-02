@@ -395,7 +395,7 @@ bool TaggingControlComponent::try_tagging()
     uint32_t bone = core->state()->flag(PoseFlag::kFlipped).on ? 0x82B37CBCu : 0x78BC41DFu;
     if (core::down_cast<Rider>(entity_)->label() == 0xFC3A8D7F)
         bone = 0xDDEC28AF;
-    auto* button = &core::down_cast<PadInputModule>(input_)->pad_primary_.button_wedge_;
+    auto* button = &core::down_cast<PadInputModule>(input_)->pad_primary_.button_wedge();
     const bool tapped = button->held_down_ && static_cast<uint32_t>(button->get_held_millis()) < 100u;
     if (!tapped && (!pending_ || countdown_ != 0))
         return true;

@@ -205,8 +205,8 @@ void SkaterPhysicsModule::set_physics_state(int state)
         if (old != kWallRide)
             air_start_ = get_now();
         trick_->spin_total() = 0.0f;
-        take_press(&input_->pad_primary_.shoulder_left_a_);
-        take_press(&input_->pad_primary_.shoulder_right_a_);
+        take_press(&input_->pad_primary_.shoulder_left_a());
+        take_press(&input_->pad_primary_.shoulder_right_a());
         queued_spin_ = 0.0f;
     }
     state_->change_phase(state);

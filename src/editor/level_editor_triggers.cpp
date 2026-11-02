@@ -1487,12 +1487,12 @@ int proxim_index(uint32_t node)
 
 void put_proxim_back(objects::ProximNode* p, const ProximOriginal& o)
 {
-    p->own_script_ = o.script;
-    p->form_ = o.shape;
-    p->radius_ = o.radius;
-    p->reach_sq_ = o.radius * o.radius;
-    p->box_.min = {.x = o.min.x, .y = o.min.y, .z = o.min.z, .w = 1.0f};
-    p->box_.max = {.x = o.max.x, .y = o.max.y, .z = o.max.z, .w = 1.0f};
+    p->own_script() = o.script;
+    p->set_form(o.shape);
+    p->radius() = o.radius;
+    p->set_reach_sq(o.radius * o.radius);
+    p->box().min = {.x = o.min.x, .y = o.min.y, .z = o.min.z, .w = 1.0f};
+    p->box().max = {.x = o.max.x, .y = o.max.y, .z = o.max.z, .w = 1.0f};
 }
 
 // Every frame (Guard): each edited node's ProximNode as its edit says - its script (defined here), its shape - and those
@@ -1510,11 +1510,11 @@ void sync_proxims()
             continue;
         auto o = proxim_originals().find(e.node);
         if (o == proxim_originals().end()) {
-            const ProximOriginal original = {.script = p->own_script_,
-                                             .shape = p->form_,
-                                             .radius = p->radius_,
-                                             .min = {.x = p->box_.min.x, .y = p->box_.min.y, .z = p->box_.min.z},
-                                             .max = {.x = p->box_.max.x, .y = p->box_.max.y, .z = p->box_.max.z}};
+            const ProximOriginal original = {.script = p->own_script(),
+                                             .shape = p->form(),
+                                             .radius = p->radius(),
+                                             .min = {.x = p->box().min.x, .y = p->box().min.y, .z = p->box().min.z},
+                                             .max = {.x = p->box().max.x, .y = p->box().max.y, .z = p->box().max.z}};
             o = proxim_originals().emplace(e.node, original).first;
         }
         if (!e.enter.empty() || !e.exit.empty())
@@ -1543,25 +1543,25 @@ void sync_proxims()
         const ProximOriginal& o = proxim_originals()[e.node];
         const uint32_t script =
             !e.enter.empty() || !e.exit.empty() ? get_checksums(proxim_script_name(e.node).c_str()) : o.script;
-        if (p->own_script_ != script)
-            p->own_script_ = script;
+        if (p->own_script() != script)
+            p->own_script() = script;
         if (!e.shape) {
-            p->form_ = o.shape;
-            p->radius_ = o.radius;
-            p->reach_sq_ = o.radius * o.radius;
-            p->box_.min = {.x = o.min.x, .y = o.min.y, .z = o.min.z, .w = 1.0f};
-            p->box_.max = {.x = o.max.x, .y = o.max.y, .z = o.max.z, .w = 1.0f};
+            p->set_form(o.shape);
+            p->radius() = o.radius;
+            p->set_reach_sq(o.radius * o.radius);
+            p->box().min = {.x = o.min.x, .y = o.min.y, .z = o.min.z, .w = 1.0f};
+            p->box().max = {.x = o.max.x, .y = o.max.y, .z = o.max.z, .w = 1.0f};
         } else if (e.box) {
             // (kProximShapeBox: the world's axes; its middle kept at the node's place plus the offset)
-            const V3 centre = V3{.x = p->at_point_.x, .y = p->at_point_.y, .z = p->at_point_.z} + e.offset;
+            const V3 centre = V3{.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z} + e.offset;
             const V3 half = e.size * 0.5f;
-            p->form_ = objects::kProximShapeBox;
-            p->box_.min = {.x = centre.x - half.x, .y = centre.y - half.y, .z = centre.z - half.z, .w = 1.0f};
-            p->box_.max = {.x = centre.x + half.x, .y = centre.y + half.y, .z = centre.z + half.z, .w = 1.0f};
+            p->set_form(objects::kProximShapeBox);
+            p->box().min = {.x = centre.x - half.x, .y = centre.y - half.y, .z = centre.z - half.z, .w = 1.0f};
+            p->box().max = {.x = centre.x + half.x, .y = centre.y + half.y, .z = centre.z + half.z, .w = 1.0f};
         } else {
-            p->form_ = objects::kProximShapeSphere;
-            p->radius_ = e.radius;
-            p->reach_sq_ = e.radius * e.radius;
+            p->set_form(objects::kProximShapeSphere);
+            p->radius() = e.radius;
+            p->set_reach_sq(e.radius * e.radius);
         }
     }
 }
@@ -2475,29 +2475,29 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
         const objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
         if (!p)
             return;
-        const V3 at = {.x = p->at_point_.x, .y = p->at_point_.y, .z = p->at_point_.z};
+        const V3 at = {.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z};
         const V3 d = at - camera;
         if (!is_selected && get_dot(d, d) > 6000.0f * 6000.0f)
             return;
         const uint32_t colour = is_selected ? 0xFFFFB060u : 0xC0F08A3Cu;
         V3 top = at;
-        if (p->form_ == objects::kProximShapeSphere && p->radius_ > 0.0f) {
+        if (p->form() == objects::kProximShapeSphere && p->radius() > 0.0f) {
             constexpr int kSides = 32;
             const std::array<std::array<V3, 2>, 3> axes = {{{{{.x = 1, .y = 0, .z = 0}, {.x = 0, .y = 0, .z = 1}}}, {{{.x = 1, .y = 0, .z = 0}, {.x = 0, .y = 1, .z = 0}}}, {{{.x = 0, .y = 1, .z = 0}, {.x = 0, .y = 0, .z = 1}}}}};
             for (const auto& plane : axes) {
-                V3 previous = at + core::at(plane, 0) * p->radius_;
+                V3 previous = at + core::at(plane, 0) * p->radius();
                 for (int i = 1; i <= kSides; ++i) {
                     const float angle = 2.0f * 3.14159265f * static_cast<float>(i) / kSides;
                     const V3 next =
-                        at + core::at(plane, 0) * (p->radius_ * std::cos(angle)) + core::at(plane, 1) * (p->radius_ * std::sin(angle));
+                        at + core::at(plane, 0) * (p->radius() * std::cos(angle)) + core::at(plane, 1) * (p->radius() * std::sin(angle));
                     paint.get_seg(previous, next, colour, 1.0f);
                     previous = next;
                 }
             }
-            top = at + up * p->radius_;
-        } else if (p->form_ == objects::kProximShapeBox) {
-            const V3 min = {.x = p->box_.min.x, .y = p->box_.min.y, .z = p->box_.min.z};
-            const V3 max = {.x = p->box_.max.x, .y = p->box_.max.y, .z = p->box_.max.z};
+            top = at + up * p->radius();
+        } else if (p->form() == objects::kProximShapeBox) {
+            const V3 min = {.x = p->box().min.x, .y = p->box().min.y, .z = p->box().min.z};
+            const V3 max = {.x = p->box().max.x, .y = p->box().max.y, .z = p->box().max.z};
             const OrientedBox box = {
                 .origin = {.x = 0.0f, .y = 0.0f, .z = 0.0f}, .axes = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f}}}, .min = min, .max = max};
             paint.cuboid(box, colour, 1.5f);
@@ -2682,7 +2682,7 @@ bool shape_for(uint32_t node, HandleShape* s)
     const objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
     if (!p)
         return false;
-    const V3 at = {.x = p->at_point_.x, .y = p->at_point_.y, .z = p->at_point_.z};
+    const V3 at = {.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z};
     const ProximEdit* e = proxim_of(node);
     if (e && e->shape) {
         s->sphere = !e->box;
@@ -2690,15 +2690,15 @@ bool shape_for(uint32_t node, HandleShape* s)
         s->size = e->box ? e->size : V3{.x = e->radius * 2.0f, .y = e->radius * 2.0f, .z = e->radius * 2.0f};
         return true;
     }
-    if (p->form_ == objects::kProximShapeSphere) {
+    if (p->form() == objects::kProximShapeSphere) {
         s->sphere = true;
         s->pos = at;
-        s->size = {.x = p->radius_ * 2.0f, .y = p->radius_ * 2.0f, .z = p->radius_ * 2.0f};
-        return p->radius_ > 0.0f;
+        s->size = {.x = p->radius() * 2.0f, .y = p->radius() * 2.0f, .z = p->radius() * 2.0f};
+        return p->radius() > 0.0f;
     }
-    if (p->form_ == objects::kProximShapeBox) {
-        const V3 min = {.x = p->box_.min.x, .y = p->box_.min.y, .z = p->box_.min.z};
-        const V3 max = {.x = p->box_.max.x, .y = p->box_.max.y, .z = p->box_.max.z};
+    if (p->form() == objects::kProximShapeBox) {
+        const V3 min = {.x = p->box().min.x, .y = p->box().min.y, .z = p->box().min.z};
+        const V3 max = {.x = p->box().max.x, .y = p->box().max.y, .z = p->box().max.z};
         s->pos = (min + max) * 0.5f;
         s->size = max - min;
         return s->size.x > 0.0f && s->size.y > 0.0f && s->size.z > 0.0f;
@@ -2801,7 +2801,7 @@ void rescale(V3 origin, V3 dir, bool snap)
             e.radius = std::max(kProximMin, std::min(kProximMax, size0 * 0.5f + along));
         } else {
             e.size = size;
-            e.offset = pos - V3{.x = p->at_point_.x, .y = p->at_point_.y, .z = p->at_point_.z};
+            e.offset = pos - V3{.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z};
         }
         set_proxim(e, false);
         return;

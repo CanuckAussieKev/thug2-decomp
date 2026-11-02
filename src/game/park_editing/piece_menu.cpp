@@ -106,7 +106,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     if (set->is_clipboard_) {
         clipboards = true;
         BuildPointer* cursor = BuildPointer::sole();
-        for (const Clipboard* clipboard = cursor->copy_buffers_; clipboard; clipboard = clipboard->following_)
+        for (const Clipboard* clipboard = cursor->copy_buffers(); clipboard; clipboard = clipboard->following_)
             ++clipboard_count;
         cursor->drop_area_marquee();
     }

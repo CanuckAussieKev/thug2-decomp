@@ -8,7 +8,6 @@
 #include <array>
 
 #include "engine/core/manager.h"
-#include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
@@ -99,7 +98,7 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
     PlayerSearch search;
     int index = 0;
     PlayerRecord* player = start_roster_sweep(manager, &search, true);
-    for (; player && !(player->flag_bits_ & kPlayerMarked); player = step_roster_sweep(manager, &search, true))
+    for (; player && !(player->flag_bits() & kPlayerMarked); player = step_roster_sweep(manager, &search, true))
         ++index;
     if (!player)
         return;
@@ -150,7 +149,7 @@ bool cfunc_player_captured_flag(script::Struct* params, script::Script*)
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 0);
     PlayerRecord* capturer = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
-    if (!capturer || (capturer->flag_bits_ & kPlayerCaptureBlocked))
+    if (!capturer || (capturer->flag_bits() & kPlayerCaptureBlocked))
         return true;
     int team = capturer->get_flag_team(); // the flag it carries
     send_flag_message(manager, kMsgCapturedFlag, player, team, [&] {
@@ -216,13 +215,11 @@ bool cfunc_exit_surveyor_mode(script::Struct*, script::Script*)
     PlayerRecord* local = find_own_player_record(manager);
     if (!local)
         return false;
-    if (local->flag_bits_ & kPlayerSurveying) {
+    if (local->flag_bits() & kPlayerSurveying) {
         manager->spectate_player(local);
-        gsl::owner<decltype(local->observer_task_)> observer = memory::owned_element(local->observer_task_);
-        delete observer; // the observer task (the player's)
-        local->observer_task_ = nullptr;
+        local->delete_observer_task(); // the observer task (the player's)
         manager->delete_spectator_pad_listener();
-        local->flag_bits_ &= ~kPlayerSurveying;
+        local->flag_bits() &= ~kPlayerSurveying;
     }
     return true;
 }
@@ -283,12 +280,12 @@ bool cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
     Hub* manager = net_game_state().net_session_slot();
     pad_input::Hub* input = pad_input::get_input_manager();
     PlayerRecord* local = find_own_player_record(manager);
-    if (is_observer(local) || (local->flag_bits_ & kPlayerSurveying))
+    if (is_observer(local) || (local->flag_bits() & kPlayerSurveying))
         return false;
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap());
     add_observer_controls(manager, local, tasks, input);
-    local->flag_bits_ |= kPlayerSurveying;
+    local->flag_bits() |= kPlayerSurveying;
     memory::Hub::get_pull()->leave_heap_scope();
     return true;
 }

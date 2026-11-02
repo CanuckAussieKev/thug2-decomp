@@ -443,7 +443,7 @@ void FriendsManager::fill_prospective_buddy_list()
     push_top_down();
     for (PlayerRecord* player = detail::start_roster_sweep(manager, &search, true); player;
          player = detail::step_roster_sweep(manager, &search, true)) {
-        const int profile = player->profile_id_;
+        const int profile = player->profile_id();
         if (detail::is_own_player(player) || profile == 0 || is_buddy(profile))
             continue;
         const char* name = detail::player_name(player);

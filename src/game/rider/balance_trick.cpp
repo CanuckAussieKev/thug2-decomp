@@ -172,15 +172,15 @@ void RiderTeeterMoves::get_buttons(int* count, std::span<uint32_t> buttons) cons
         return;
     }
     *count = 2;
-    core::at(buttons, 0) = balance->left_button_;
-    core::at(buttons, 1) = balance->right_press_;
+    core::at(buttons, 0) = balance->left_button();
+    core::at(buttons, 1) = balance->right_press();
 }
 
 // 0x004F8F20
 float RiderTeeterMoves::get_lean() const
 {
     const Balance* balance = at_hand();
-    return balance ? balance->lean_ : 0.0f;
+    return balance ? balance->lean() : 0.0f;
 }
 
 // 0x004F90A0
@@ -282,16 +282,15 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
         params->fetch_float(kSpeedMult, &speed_mult, 0);
         // (an unknown type has no balance: the original crashes here)
         Balance* balance = at_hand();
-        const double time = static_cast<double>(time_mult) * balance->on_rail_seconds_ + time_add;
-        balance->on_rail_seconds_ = time < 0.0 ? 0.0f : static_cast<float>(time);
+        const double time = static_cast<double>(time_mult) * balance->on_rail_seconds() + time_add;
+        balance->set_on_rail_seconds(time < 0.0 ? 0.0f : static_cast<float>(time));
         // The lean and its speed scaled, then pushed further the way they lean.
-        const double lean = static_cast<double>(lean_mult) * balance->lean_;
-        balance->lean_ = static_cast<float>(lean);
-        balance->lean_ = static_cast<float>((lean < 0.0 ? -1.0f : 1.0f) * static_cast<double>(lean_add) + lean);
-        const double speed = static_cast<double>(speed_mult) * balance->lean_speed_;
-        balance->lean_speed_ = static_cast<float>(speed);
-        balance->lean_speed_ =
-            static_cast<float>((speed < 0.0 ? -1.0f : 1.0f) * static_cast<double>(speed_add) + speed);
+        const double lean = static_cast<double>(lean_mult) * balance->lean();
+        balance->set_lean(static_cast<float>(lean));
+        balance->set_lean(static_cast<float>((lean < 0.0 ? -1.0f : 1.0f) * static_cast<double>(lean_add) + lean));
+        const double speed = static_cast<double>(speed_mult) * balance->lean_speed();
+        balance->set_lean_speed(static_cast<float>(speed));
+        balance->set_lean_speed(static_cast<float>((speed < 0.0 ? -1.0f : 1.0f) * static_cast<double>(speed_add) + speed));
         return 1;
     }
     case kSetWobbleDetails: {

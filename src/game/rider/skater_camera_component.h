@@ -91,6 +91,16 @@ public:
     // down). Nothing without a skater.
     void get_zoomed_offsets(float* height, float* distance);
 
+    // The fields other code reads and sets.
+    void set_skater_matrix(const maths::Mat4& value) { skater_matrix_ = value; }
+    [[nodiscard]] float behind() const { return behind_; }
+    [[nodiscard]] float above() const { return above_; }
+    [[nodiscard]] float lerp_xz() const { return lerp_xz_; }
+    [[nodiscard]] float lerp_y() const { return lerp_y_; }
+    [[nodiscard]] float zoom_ease_rate() const { return zoom_ease_rate_; }
+    [[nodiscard]] float lean_angle() const { return lean_angle_; }
+
+private:
     std::array<uint8_t, 0x24 - 0x18> unknown18_{};
     int mode_sel_{0};            // +0x24 the camera mode (an index of Skater_Camera_Array)
     int instant_frames_{};       // +0x28 frames that jump straight to the target

@@ -77,23 +77,23 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint3
         texture = image_of(entry);
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
-    core::at(m->pass_flags_, 0) = (texture ? 4 : 0) | 0x40;
+    core::at(m->pass_flags(), 0) = (texture ? 4 : 0) | 0x40;
     const int first = get_rand();
-    m->checksum = static_cast<uint32_t>(first * get_rand()); // the sort key
-    m->pass_count_ = 1;                                      // one pass
-    core::at(m->textures, 0) = texture;
-    core::at(m->blend_modes_, 0) = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha) << 24;
-    core::at(core::at(m->pass_color_, 0), 0) = 0.5f; // the colour
-    core::at(core::at(m->pass_color_, 0), 1) = 0.5f;
-    core::at(core::at(m->pass_color_, 0), 2) = 0.5f;
-    core::at(core::at(m->pass_color_, 0), 3) = static_cast<float>(static_cast<double>(fixed_alpha) * (1.0 / 128)); // 0x0064A2FC
-    core::at(m->address_modes_, 0) = 0;
-    core::at(m->mip_lod_bias_, 0) = 0;
-    m->alpha_ref_ = 1;
-    m->two_sided_ = 1;
-    m->has_uv_wibble_ = false;
+    m->set_checksum(static_cast<uint32_t>(first * get_rand())); // the sort key
+    m->set_pass_count(1);                                      // one pass
+    core::at(m->textures_value(), 0) = texture;
+    core::at(m->blend_modes(), 0) = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha) << 24;
+    core::at(core::at(m->pass_color(), 0), 0) = 0.5f; // the colour
+    core::at(core::at(m->pass_color(), 0), 1) = 0.5f;
+    core::at(core::at(m->pass_color(), 0), 2) = 0.5f;
+    core::at(core::at(m->pass_color(), 0), 3) = static_cast<float>(static_cast<double>(fixed_alpha) * (1.0 / 128)); // 0x0064A2FC
+    core::at(m->address_modes(), 0) = 0;
+    core::at(m->mip_lod_bias(), 0) = 0;
+    m->set_alpha_ref(1);
+    m->set_two_sided(1);
+    m->set_has_uv_wibble(false);
     material = m;
-    const uint32_t mode = core::at(m->blend_modes_, 0) & 0xFFFFFF;
+    const uint32_t mode = core::at(m->blend_modes(), 0) & 0xFFFFFF;
     shader = core::at(pixel_shaders(), mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964);
 }
 

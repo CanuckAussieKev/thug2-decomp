@@ -369,38 +369,38 @@ int PadInputModule::player_input_is_disabled(script::Struct*, script::Script*)
 // 0x0041EA20
 int PadInputModule::left_pressed(script::Struct*, script::Script*)
 {
-    return pad_primary_.left_side_.held_down_ != 0 ? 1 : 0;
+    return pad_primary_.left_side().held_down_ != 0 ? 1 : 0;
 }
 
 // 0x0041EA30
 int PadInputModule::right_pressed(script::Struct*, script::Script*)
 {
-    return pad_primary_.right_side_.held_down_ != 0 ? 1 : 0;
+    return pad_primary_.right_side().held_down_ != 0 ? 1 : 0;
 }
 
 // 0x0041EA40
 int PadInputModule::up_pressed(script::Struct*, script::Script*)
 {
-    return pad_primary_.up_dir_.held_down_ != 0 ? 1 : 0;
+    return pad_primary_.up_dir().held_down_ != 0 ? 1 : 0;
 }
 
 // 0x0041EA50
 int PadInputModule::down_pressed(script::Struct*, script::Script*)
 {
-    return pad_primary_.btn_down_.held_down_ != 0 ? 1 : 0;
+    return pad_primary_.btn_down().held_down_ != 0 ? 1 : 0;
 }
 
 // 0x0041EA60
 int PadInputModule::get_sticks(script::Struct*, script::Script* script)
 {
-    script->args()->push_float(0x737F15CF, core::at(pad_primary_.polar_, 1).angle * kDegreesPerRadian);
+    script->args()->push_float(0x737F15CF, core::at(pad_primary_.polar(), 1).angle * kDegreesPerRadian);
     script->args()->push_float(
         0x686AD1C2,
-        static_cast<float>(stick_length(core::at(pad_primary_.stick_, 2), core::at(pad_primary_.stick_, 3), core::at(pad_primary_.polar_, 1).angle)));
-    script->args()->push_float(0xD6030CEA, core::at(pad_primary_.polar_, 0).angle * kDegreesPerRadian);
+        static_cast<float>(stick_length(core::at(pad_primary_.stick(), 2), core::at(pad_primary_.stick(), 3), core::at(pad_primary_.polar(), 1).angle)));
+    script->args()->push_float(0xD6030CEA, core::at(pad_primary_.polar(), 0).angle * kDegreesPerRadian);
     script->args()->push_float(
         0xC94777AC,
-        static_cast<float>(stick_length(core::at(pad_primary_.stick_, 0), core::at(pad_primary_.stick_, 1), core::at(pad_primary_.polar_, 0).angle)));
+        static_cast<float>(stick_length(core::at(pad_primary_.stick(), 0), core::at(pad_primary_.stick(), 1), core::at(pad_primary_.polar(), 0).angle)));
     return 1;
 }
 

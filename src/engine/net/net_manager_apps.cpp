@@ -113,18 +113,18 @@ gsl::owner<HostEnd*> Hub::make_server_app(int id, const char* name, int max_clie
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
         address = static_cast<int>(inet_addr(local_ip_.data()));
     auto server = memory::make_owned<HostEnd>(flags);
-    server->supervisor_ = this;
+    server->set_supervisor(this);
     server->prepare_all();
-    server->unknown1eb4_ = static_cast<uint32_t>(id);
-    copy_name(server->label_.data(), name);
-    server->peer_cap_ = max_clients;
-    append_last(&hosts_, &server->list1414_);
+    server->set_unknown1eb4(static_cast<uint32_t>(id));
+    copy_name(server->label().data(), name);
+    server->set_peer_cap(max_clients);
+    append_last(&hosts_, &server->list1414());
     if (server->is_host_local()) {
-        server->linked_up_ = true;
+        server->set_linked_up(true);
     } else {
         server->get_bind(static_cast<uint32_t>(address), port);
         if (flags & 1)
-            server->linked_up_ = true;
+            server->set_linked_up(true);
     }
     add_app_tasks(server);
     in_addr ip{};
@@ -143,12 +143,12 @@ gsl::owner<Guest*> Hub::make_client_app(int id, const char* name, uint16_t port,
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
         address = static_cast<int>(inet_addr(local_ip_.data()));
     auto client = memory::make_owned<Guest>(flags);
-    copy_name(client->label_.data(), name);
-    client->supervisor_ = this;
+    copy_name(client->label().data(), name);
+    client->set_supervisor(this);
     client->prepare_all();
-    client->unknown1eb4_ = static_cast<uint32_t>(id);
-    client->peer_cap_ = kClientMaxConnections;
-    append_last(&clients_, &client->list1414_);
+    client->set_unknown1eb4(static_cast<uint32_t>(id));
+    client->set_peer_cap(kClientMaxConnections);
+    append_last(&clients_, &client->list1414());
     if (!client->is_host_local())
         client->get_bind(static_cast<uint32_t>(address), port);
     add_app_tasks(client);
@@ -161,7 +161,7 @@ gsl::owner<Guest*> Hub::make_client_app(int id, const char* name, uint16_t port,
 // 0x00455550
 void Hub::release_app(AppHost* app)
 {
-    memory::ListNode& node = app->list1414_;
+    memory::ListNode& node = app->list1414();
     node.prev->next = node.next;
     node.next->prev = node.prev;
     node.next = &node;

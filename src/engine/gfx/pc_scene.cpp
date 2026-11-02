@@ -118,7 +118,7 @@ gsl::owner<WorldCell*> PcScene::plat_create_sector() { return new PcSector(); }
 // 0x004C6200
 void PcScene::unload_sectors()
 {
-    lists::KeyMap* table = sectors_;
+    lists::KeyMap* table = sectors();
     for (const void* sector = first_sector(table); sector; sector = next_sector(table)) {
     }
 }
@@ -127,15 +127,15 @@ void PcScene::unload_sectors()
 void PcScene::post_load(void* arena_word)
 {
     auto* arena = static_cast<VertexArena*>(arena_word);
-    lists::KeyMap* table = sectors_;
+    lists::KeyMap* table = sectors();
     void* sector = first_sector(table);
     if (arena) {
         renderer().d3d_device()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
                                          &arena->buffer, nullptr);
         arena->buffer->Lock(0, 0, &arena->data, 0);
         arena->used = 0;
-        meshes->arena_buffer_ = arena->buffer;
-        meshes->unknown80 = arena->size;
+        meshes->set_arena_buffer(arena->buffer);
+        meshes->set_unknown80(arena->size);
     }
     for (; sector; sector = next_sector(table)) {
         PcGeom* geom = geometry_of(sector);
@@ -198,7 +198,7 @@ void set_mesh_sphere_and_box(MeshRef* mesh, std::span<const float, 3> centre, fl
 void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboard_type, const maths::Vec4* pivot,
                  const maths::Vec4* axis, const maths::Vec4* min, const maths::Vec4* max, uint8_t light_group)
 {
-    maths::BBox* bounds = &geom->scene->meshes->bounds;
+    maths::BBox* bounds = &geom->scene->meshes->bounds_value();
     bounds->append_spot(*min);
     bounds->append_spot(*max);
     if (sector->flags & 0x800000) {
@@ -206,9 +206,9 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
         billboard_pool().append_mesh(mesh);
     }
     if (sector->flags & 0x200000)
-        mesh->flags |= 0x200;
+        mesh->flags_value() |= 0x200;
     geom->append_mesh(mesh);
-    mesh->bone_ = light_group; // (the bone slot)
+    mesh->set_bone(light_group); // (the bone slot)
     make_grass(geom, mesh);
 }
 // The meshes the load put on the list, counted (to a node that is the head, data -1, or null).
@@ -262,11 +262,11 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
         std::memcpy(&min, fields.min.data(), sizeof(fields.min));
         std::memcpy(&max, fields.max.data(), sizeof(fields.max));
         if (fields.flags & 0x400)
-            mesh->flags |= 2;
+            mesh->flags_value() |= 2;
         if (fields.flags & 0x20000)
-            mesh->flags |= 0x20000;
+            mesh->flags_value() |= 0x20000;
         // (the index lists: read and dropped - the PC's are built from the vertices' own)
-        mesh->load_index_ = static_cast<uint16_t>(i);
+        mesh->set_load_index(static_cast<uint16_t>(i));
         if (!load_body(mesh, fields.material, geometry->scene->meshes)) {
             memory::Hub::get_pull()->dealloc(mesh); // (nothing of it made yet)
             break;

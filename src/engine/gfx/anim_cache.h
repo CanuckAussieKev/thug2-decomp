@@ -80,6 +80,35 @@ struct AnimCacheEntry {
     int find_quat_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
     int find_trans_keys_backwards(int bone, float frame, uint8_t** first, uint8_t** second, int slot);
 
+    // The fields other code reads and sets.
+    const void*& lookup_key() { return lookup_key_; }
+    [[nodiscard]] const void* lookup_key() const { return lookup_key_; }
+    void set_lookup_key(const void* value) { lookup_key_ = value; }
+    [[nodiscard]] uint32_t last_used() const { return last_used_; }
+    void set_last_used(uint32_t value) { last_used_ = value; }
+    [[nodiscard]] int kind_tag() const { return kind_tag_; }
+    [[nodiscard]] uint8_t* payload() const { return payload_; }
+    void set_payload(uint8_t* value) { payload_ = value; }
+    [[nodiscard]] uint32_t allocated() const { return allocated_; }
+    void set_allocated(uint32_t value) { allocated_ = value; }
+    void set_extent(uint32_t value) { extent_ = value; }
+    [[nodiscard]] uint8_t* rotation_keys_ptr() const { return rotation_keys_ptr_; }
+    void set_rotation_keys_ptr(uint8_t* value) { rotation_keys_ptr_ = value; }
+    [[nodiscard]] uint8_t* translation_keys_ptr() const { return translation_keys_ptr_; }
+    void set_translation_keys_ptr(uint8_t* value) { translation_keys_ptr_ = value; }
+    std::array<AnimCacheSlot*, 18>& slots_ptr() { return slots_ptr_; }
+    [[nodiscard]] const std::array<AnimCacheSlot*, 18>& slots_ptr() const { return slots_ptr_; }
+    void set_rotation_key_size(uint8_t value) { rotation_key_size_ = value; }
+    void set_translation_key_size(uint8_t value) { translation_key_size_ = value; }
+    std::array<uint16_t, 60>& rotation_offsets() { return rotation_offsets_; }
+    [[nodiscard]] const std::array<uint16_t, 60>& rotation_offsets() const { return rotation_offsets_; }
+    std::array<uint16_t, 60>& translation_offsets() { return translation_offsets_; }
+    [[nodiscard]] const std::array<uint16_t, 60>& translation_offsets() const { return translation_offsets_; }
+    void set_bones(int16_t value) { bones_ = value; }
+    uint16_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint16_t flag_bits() const { return flag_bits_; }
+
+private:
     const void* lookup_key_{nullptr};  // +0x000 the animation's frame data (null: free)
     uint32_t last_used_{};             // +0x004
     int kind_tag_{0};                  // +0x008 (0: not in use)
@@ -98,11 +127,15 @@ struct AnimCacheEntry {
     int16_t bones_{0};                   // +0x162
     uint16_t flag_bits_{};             // +0x164
     uint16_t pad166_{};
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(AnimCacheEntry, slots_ptr_) == 0x28 && offsetof(AnimCacheEntry, rotation_key_size_) == 0x70 &&
+                          offsetof(AnimCacheEntry, translation_offsets_) == 0xEA &&
+                          offsetof(AnimCacheEntry, flag_bits_) == 0x164 && sizeof(AnimCacheEntry) == 0x168,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(AnimCacheEntry, slots_ptr_) == 0x28 && offsetof(AnimCacheEntry, rotation_key_size_) == 0x70 &&
-                  offsetof(AnimCacheEntry, translation_offsets_) == 0xEA &&
-                  offsetof(AnimCacheEntry, flag_bits_) == 0x164 && sizeof(AnimCacheEntry) == 0x168,
-              "layout must match the original");
 
 class ClipStore {
 public:

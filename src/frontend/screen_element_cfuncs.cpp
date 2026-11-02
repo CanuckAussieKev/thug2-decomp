@@ -308,9 +308,9 @@ bool cfunc_get_screen_element_dims(script::Struct* params, script::Script* scrip
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
     const int width =
-        static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown_.scale_x_) * element->span_));
+        static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown().scale_x_) * element->span()));
     const int height =
-        static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown_.scale_y_) * element->level_y_));
+        static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown().scale_y_) * element->level_y()));
     script->args()->put_int(kWidth, width);
     script->args()->put_int(kHeight, height);
     return true;
@@ -414,7 +414,7 @@ bool cfunc_get_text_element_string(script::Struct* params, script::Script* scrip
         if (text_block_string(element.get_pull(), text.data(), sizeof(text)))
             script->args()->append_word(kString, text.data());
     } else if (element->kind_tag_ == kTextElement) {
-        if (const char* string = core::down_cast<LabelWidget>(element.get_pull())->chars_)
+        if (const char* string = core::down_cast<LabelWidget>(element.get_pull())->chars())
             script->args()->append_word(kString, string);
     }
     return false;

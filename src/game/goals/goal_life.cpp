@@ -120,7 +120,7 @@ inline void destroy_goal_ped_body(ObjectiveNpc*) {}
 
 // lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's begin_player_walk / step_player_walk.
 using PlayerSearch = online::PlayerSearch;
-objects::GameEntity* player_skater(void* player) { return static_cast<online::PlayerRecord*>(player)->skater_; }
+objects::GameEntity* player_skater(void* player) { return static_cast<online::PlayerRecord*>(player)->skater(); }
 // A skater's score (its SkaterScore component's modules::PointTally) reset (0x00564A10) / its total (0x00561B40).
 void* get_score_of(objects::GameEntity* skater)
 {
@@ -132,7 +132,7 @@ int total_score(void* score) { return static_cast<modules::PointTally*>(score)->
 Objective* root_of(void* manager, GoalEdge* parents)
 {
     Objective* root = nullptr;
-    for (const GoalEdge* link = parents; link && link->objective_key_; link = root->parents_)
+    for (const GoalEdge* link = parents; link && link->objective_key_; link = root->parents())
         root = get_goal(manager, link->objective_key_, 1);
     return root;
 }

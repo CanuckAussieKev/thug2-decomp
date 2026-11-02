@@ -138,7 +138,7 @@ void mark_as_occluder(uint32_t name, int on) { render::flag_debug_lines(name, on
 void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, float angle_y, float angle_z, uint32_t only)
 {
     maths::BBox box;
-    lists::KeyMap* sectors = scene->sectors_;
+    lists::KeyMap* sectors = scene->sectors();
     if (sectors) {
         sectors->iter_bucket_ = -1;
         sectors->iter_item_ = nullptr;
@@ -438,7 +438,7 @@ constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // ParkBuilderMode::kStateOff
 
 // The sector named `name` in any scene (0x0048C510; null if none).
 render::WorldCell* find_sector(uint32_t name) { return render::engine::look_up_sector(name); }
-bool park_editor_off() { return park_editing::ParkBuilderMode::sole()->cur_phase_ == kParkEditorOff; }
+bool park_editor_off() { return park_editing::ParkBuilderMode::sole()->cur_phase() == kParkEditorOff; }
 
 } // namespace
 

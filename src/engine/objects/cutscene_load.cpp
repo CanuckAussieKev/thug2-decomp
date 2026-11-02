@@ -68,13 +68,13 @@ gsl::owner<script::Struct*> make_struct()
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 
-void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get(); }
-bool stands_in(ObjectModule* model) { return core::down_cast<MeshInstanceModule>(model)->level_object_; }
+void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get(); }
+bool stands_in(ObjectModule* model) { return core::down_cast<MeshInstanceModule>(model)->level_object(); }
 uint32_t stand_in_id(ObjectModule* model) { return core::down_cast<MeshInstanceModule>(model)->get_linked_entity_name(); }
 } // namespace
 
 // (no address: the getters folded at 0x00576E60 / 0x00532EB0 - cutscene.h)
-void* model_fader(void* model) { return static_cast<render::RenderModel*>(model)->lights_ptr_.get(); }
+void* model_fader(void* model) { return static_cast<render::RenderModel*>(model)->lights_ptr().get(); }
 gfx::FaceSkin* appearance_face(gfx::ModelLook* appearance) { return appearance->face_skin_; }
 
 namespace {
@@ -237,7 +237,7 @@ void CinematicTable::add_objects(script::Struct* params)
                     if (!lent_saved_) {
                         maths::Vec4 saved{};
                         lent_sphere_ = *static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(&saved);
-                        const uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits_;
+                        const uint8_t flags = static_cast<render::RenderModel*>(model2)->flag_bits();
                         lent_3c_ = flags >> 2 & 1;
                         lent_3d_ = flags >> 3 & 1;
                         lent_pos_ = level->at_point_;
@@ -318,7 +318,7 @@ void CinematicTable::add_objects(script::Struct* params)
             if (parent->active)
                 apply_skater_look(entry);
         }
-        for (int j = 0; j < anim_list_->bone_count_; ++j) {
+        for (int j = 0; j < anim_list_->bone_count(); ++j) {
             if (entry.name == anim_list_->fetch_joint_name(j)) {
                 entry.anim_index_ = j;
                 break;

@@ -37,6 +37,26 @@ public:
     static constexpr int kGroupsPerLevel = 10;
     static constexpr int kLevels = 21;
 
+    // The fields other code reads and sets.
+    lists::TypedLookupTable<Objective>& goals() { return goals_; }
+    [[nodiscard]] const lists::TypedLookupTable<Objective>& goals() const { return goals_; }
+    [[nodiscard]] script::Struct* goal_data() const { return goal_data_; }
+    [[nodiscard]] uint32_t previous_objective() const { return previous_objective_; }
+    void set_previous_objective(uint32_t value) { previous_objective_ = value; }
+    void set_tagging_style(int value) { tagging_style_ = value; }
+    int& objective_score() { return objective_score_; }
+    [[nodiscard]] int objective_score() const { return objective_score_; }
+    int& total_goal_points() { return total_goal_points_; }
+    [[nodiscard]] int total_goal_points() const { return total_goal_points_; }
+    [[nodiscard]] bool all_unlocked() const { return all_unlocked_; }
+    [[nodiscard]] bool start_allowed() const { return start_allowed_; }
+    void set_start_allowed(bool value) { start_allowed_ = value; }
+    [[nodiscard]] uint32_t backer() const { return backer_; }
+    void set_backer(uint32_t value) { backer_ = value; }
+    [[nodiscard]] script::Struct* team() const { return team_; }
+    [[nodiscard]] script::Struct* args() const { return args_; }
+
+private:
     lists::TypedLookupTable<Objective> goals_{};    // +0x00
     script::Struct* goal_data_{};                   // +0x14: each goal's saved state (a structure by goal id), and the
                                                     // GoalManager_Params component (the manager's difficulty_levels)
@@ -53,6 +73,8 @@ public:
     script::Struct* team_{};                        // +0x4C: the team (a component per member: 1 if used)
     std::array<int, kLevels * kGroupsPerLevel> group_unlocked_{}; // +0x50: level * 10 + group - 1 (groups are numbered from 1)
     script::Struct* args_{};                          // +0x398: the difficulty level by game mode name
+
+public:
 
     // 0x0055D9C0: empty tables and list, three new structures, every group locked.
     GoalManager();

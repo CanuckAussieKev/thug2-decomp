@@ -58,9 +58,9 @@ constexpr uint8_t kServerColor = 7;
 using ::net::NetMessageInfo;
 void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
 
-const char* player_name(PlayerRecord* player) { return player->label_.data(); }
-bool is_observer(PlayerRecord* player) { return (player->flag_bits_ >> 2) & 1; }
-uint8_t team_color(PlayerRecord* player) { return static_cast<uint8_t>(player->skater_->ident_); }
+const char* player_name(PlayerRecord* player) { return player->label().data(); }
+bool is_observer(PlayerRecord* player) { return (player->flag_bits() >> 2) & 1; }
+uint8_t team_color(PlayerRecord* player) { return static_cast<uint8_t>(player->skater()->ident_); }
 
 
 // Scripts::CStruct (8 bytes, from the current script struct pool when there is one).

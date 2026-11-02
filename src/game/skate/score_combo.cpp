@@ -239,20 +239,20 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     meter_offset_.x = static_cast<float>((static_cast<double>(to.x) - from.x) * steps * part + from.x);
     meter_offset_.y = static_cast<float>((static_cast<double>(to.y) - from.y) * steps * part + from.y);
     meter_rotation_ = static_cast<float>(static_cast<double>(lean) * -45.0);
-    auto* arrow = core::down_cast<frontend::ImageWidget>(meter->eldest_.get_pull());
+    auto* arrow = core::down_cast<frontend::ImageWidget>(meter->eldest().get_pull());
     const bool left = !(lean >= 0.0f); // (as the FPU compares: a NaN counts as below)
     double x = 0.0;
     double y = 0.0;
     if (manual) {
         meter->change_location(core::at(bars_, 1).x, core::at(bars_, 1).y, 1);
         meter->set_sprite_rotation(-90.0f, 1);
-        y = static_cast<double>(meter->level_y_) * 0.5 + meter_offset_.y + 50.0;
-        x = static_cast<double>(meter->span_) * 0.5 - 80.0;
+        y = static_cast<double>(meter->level_y()) * 0.5 + meter_offset_.y + 50.0;
+        x = static_cast<double>(meter->span()) * 0.5 - 80.0;
     } else {
         meter->change_location(core::at(bars_, 0).x, core::at(bars_, 0).y, 1);
         meter->set_sprite_rotation(0.0f, 1);
-        y = static_cast<double>(meter->level_y_) * 0.5 + meter_offset_.y;
-        x = static_cast<double>(meter->span_) * 0.5;
+        y = static_cast<double>(meter->level_y()) * 0.5 + meter_offset_.y;
+        x = static_cast<double>(meter->span()) * 0.5;
     }
     x = left ? x - meter_offset_.x : x + meter_offset_.x;
     arrow->change_location(static_cast<float>(x), static_cast<float>(y), 1);
@@ -333,7 +333,7 @@ void PointTally::tick_frame()
     else if (size < 0.0f)
         size = 0.0f;
     frontend::UiWidget* element = bar.get_pull(); // (no check: as the original)
-    element->change_scale(size, element->shown_.scale_y_, false, 0);
+    element->change_scale(size, element->shown().scale_y_, false, 0);
     std::array<uint8_t, 4> rgba{};
     std::memcpy(rgba.data(), core::at(bar_colors_, 0).data(), 4);
     if (special_active_) {

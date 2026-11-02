@@ -91,6 +91,14 @@ public:
     // look-around's factor while it turns (else 1) at the skater camera's +0x110.
     void get_zoomed_offsets(float* height, float* distance);
 
+    // The fields other code reads and sets.
+    void set_instant_frames(int value) { instant_frames_ = value; }
+    void set_override(bool value) { override_ = value; }
+    maths::Vec4& forced_heading() { return forced_heading_; }
+    [[nodiscard]] const maths::Vec4& forced_heading() const { return forced_heading_; }
+    void set_override_rate(float value) { override_rate_ = value; }
+
+private:
     int instant_frames_{}; // +0x18 frames left that jump straight to the target (3 after a teleport)
     bool flush_{};         // +0x1C a flush requested
     bool snap_next_{};     // +0x1D (reset_now)

@@ -150,9 +150,9 @@ void fill_elimination_ranking()
         online::ScoreEntry* entry = new_entry();
         text::copy_unbounded(entry->text_.data(), info->rider()->fetch_shown_name());
         entry->team_score_ =
-            reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater_->ident_);
-        entry->shade_ = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? info->team_ + 2 : 0;
-        entry->priority = info->eliminated_time_ ? static_cast<int>(info->eliminated_time_) : 100000;
+            reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater()->ident_);
+        entry->shade_ = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? info->team() + 2 : 0;
+        entry->priority = info->eliminated_time() ? static_cast<int>(info->eliminated_time()) : 100000;
         lists::append_vertex(list.head_, entry); // (inlined there)
     }
     uint32_t id = kFirstLine;
@@ -188,8 +188,8 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
     auto score_of = [&](online::PlayerRecord* info) -> uint32_t {
         if (goal_attack)
             return static_cast<uint32_t>(
-                goals::get_objective_board()->count_cleared_by_player(static_cast<int>(info->skater_->ident_)));
-        return static_cast<uint32_t>(net->get_entrant_points(info->skater_->ident_));
+                goals::get_objective_board()->count_cleared_by_player(static_cast<int>(info->skater()->ident_)));
+        return static_cast<uint32_t>(net->get_entrant_points(info->skater()->ident_));
     };
     if (static_cast<uint8_t>(goals::game_mode()->is_squad_match())) {
         // The teams with players, by their scores; under each its players, then its total.
@@ -216,13 +216,13 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             for (void* player = net->begin_player_walk(&search, false); player;
                  player = net->step_player_walk(&search, false)) {
                 online::PlayerRecord* info = as_player(player);
-                if (ints::as_unsigned(info->team_) != entry->unknown44_)
+                if (ints::as_unsigned(info->team()) != entry->unknown44_)
                     continue;
                 uint32_t score = score_of(info);
                 std::array<char, 0x40> text{};
                 // "\c%d> %s" (the own player's) / "\c%d%s"
                 text::format_to(text, "\\c%d%s%s", entry->shade_,
-                                static_cast<uint8_t>(info->is_own_player()) ? "> " : "", info->label_.data());
+                                static_cast<uint8_t>(info->is_own_player()) ? "> " : "", info->label().data());
                 add_player_line(text.data(), false);
                 add_score_line([&](std::span<char> shown) { format_score(shown, score, 0, false); }, kFirstLine + line,
                                false, true);

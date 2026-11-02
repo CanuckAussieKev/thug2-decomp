@@ -103,9 +103,9 @@ void SkaterPhysicsModule::turn_for_rail_jump()
                 static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kMinusDegreesToRadians);
         else
             return;
-    } else if (input->pad_primary_.left_side_.held_down_)
+    } else if (input->pad_primary_.left_side().held_down_)
         angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kRadiansPerDegree);
-    else if (input->pad_primary_.right_side_.held_down_)
+    else if (input->pad_primary_.right_side().held_down_)
         angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kMinusDegreesToRadians);
     else
         return;
@@ -128,13 +128,13 @@ void SkaterPhysicsModule::turn_on_ground()
     objects::ControlButton* button = nullptr;
     bool sharp = false;
     double rate = 0.0;
-    if (pad->left_side_.held_down_) {
-        button = &pad->left_side_;
-        sharp = pad->btn_down_.held_down_ != 0;
+    if (pad->left_side().held_down_) {
+        button = &pad->left_side();
+        sharp = pad->btn_down().held_down_ != 0;
         rate = tuning_float_lookup(sharp ? kGroundSharpRotation : kGroundRotation, object);
-    } else if (pad->right_side_.held_down_) {
-        button = &pad->right_side_;
-        sharp = pad->btn_down_.held_down_ != 0;
+    } else if (pad->right_side().held_down_) {
+        button = &pad->right_side();
+        sharp = pad->btn_down().held_down_ != 0;
         rate = -static_cast<double>(tuning_float_lookup(sharp ? kGroundSharpRotation : kGroundRotation, object));
     } else {
         return;
@@ -214,8 +214,8 @@ void SkaterPhysicsModule::natas_spin()
         // (the perfect rail cheat: the balance held)
         career = modules::Skate::sole()->career().get();
         career->set_global_flag(script::fetch_int_value(kPerfectRail));
-        balance_->lip_.lean_ = 0.0f;
-        balance_->lip_.lean_speed_ = 0.0f;
+        balance_->lip_.set_lean(0.0f);
+        balance_->lip_.set_lean_speed(0.0f);
         online::net_game_state().set_cheat_flag(true);
     }
     balance_->lip_.tick_frame();
@@ -254,17 +254,17 @@ void SkaterPhysicsModule::lean_in_air()
         flags->flag(PoseFlag::kVertAir).on)
         return;
     objects::PadSnapshot* pad = &input_->pad_primary_;
-    if (pad->button_round_.held_down_ || pad->button_box_.held_down_)
+    if (pad->button_round().held_down_ || pad->button_box().held_down_)
         return;
     float lean = 0.0f;
     int held = 0;
-    if (pad->up_dir_.held_down_) {
+    if (pad->up_dir().held_down_) {
         lean = static_cast<float>(stat_value(object_of(this), kAirLeanStat));
-        held = time_since_press(&pad->up_dir_);
+        held = time_since_press(&pad->up_dir());
     }
-    if (pad->btn_down_.held_down_) {
+    if (pad->btn_down().held_down_) {
         lean = static_cast<float>(-stat_value(object_of(this), kAirLeanStat));
-        held = time_since_press(&pad->btn_down_);
+        held = time_since_press(&pad->btn_down());
     }
     // None for a while after the button is pressed, then ramping up to full.
     const float start = script::fetch_float(kAirNoLeanTime);

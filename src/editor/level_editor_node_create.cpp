@@ -725,9 +725,9 @@ void make_live(const Spec& spec, script::Struct* node)
     if (kind == Kind::kProximityNode && have_proxim()) {
         if (objects::ProximNode* proxim = objects::proxim_get_node(name)) {
             // (made before and removed: the game can't free one - used again)
-            proxim->at_point_ = pos;
-            proxim->radius_ = spec.radius;
-            proxim->reach_sq_ = spec.radius * spec.radius;
+            proxim->at_point() = pos;
+            proxim->radius() = spec.radius;
+            proxim->set_reach_sq(spec.radius * spec.radius);
             objects::proximity_node_enable(name, 1);
         } else {
             objects::nearby_zone_add_node(name, true);
@@ -1120,7 +1120,7 @@ bool conceal(uint32_t name, bool hide)
         node->put_name_key(kType, nodes::hidden_marker());
         if (cls == kProxim && have_proxim()) {
             if (const objects::ProximNode* proxim = objects::proxim_get_node(name)) {
-                h.proxim_active_ = proxim->active_;
+                h.proxim_active_ = proxim->active();
                 objects::proximity_node_enable(name, 0);
             }
         }

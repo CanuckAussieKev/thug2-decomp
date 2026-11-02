@@ -74,13 +74,13 @@ uint32_t path_node(const KinematicsModule* motion)
 {
     if (!(motion->motion_flags() & kMotionFollowingPath) || !motion->path_follower())
         return 0;
-    return motion->path_follower()->list_link_;
+    return motion->path_follower()->list_link();
 }
 uint32_t path_last_node(const KinematicsModule* motion)
 {
     if (!(motion->motion_flags() & kMotionFollowingPath) || !motion->path_follower())
         return 0;
-    return motion->path_follower()->last_node_;
+    return motion->path_follower()->last_node();
 }
 
 } // namespace
@@ -205,7 +205,7 @@ void KinematicsModule::update_path()
             }
         }
         const float height = entity_->at_point_.y;
-        entity_->at_point_ = path_follower_->at_point_;
+        entity_->at_point_ = path_follower_->at_point();
         if (motion_flags2_ & kMotion2StickToGround) {
             entity_->at_point_.y = height;
             stick_to_ground();
@@ -372,7 +372,7 @@ bool KinematicsModule::obj_set_path_turn_dist(script::Struct* params, script::Sc
         if (!params->has_bare_flag(kInches))
             distance = static_cast<float>(static_cast<double>(distance) * 12.0f);
         init_path_follower(entity_);
-        path_follower_->corner_distance_ = distance;
+        path_follower_->set_corner_distance(distance);
     }
     return true;
 }

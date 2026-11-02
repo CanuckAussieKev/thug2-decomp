@@ -185,12 +185,12 @@ void HostEnd::poll_input_sinks()
         return;
     }
     const sio::InputPort* device = dev_;
-    if (!device || !device->is_usable_)
+    if (!device || !device->is_usable())
         return;
     Hub* manager = sole().get();
     if (data_out_)
         data_out_->is_usable_ = 0;
-    const auto& control = device->control_data_;
+    const auto& control = device->control_data();
     if (core::at(control, 0) != 0) // no pad
         return;
     const int type = core::at(control, 1) >> 4;
@@ -208,7 +208,7 @@ void HostEnd::poll_input_sinks()
             content_.pad_follows_stick();
         break;
     case 7: // the sticks, and pressures if the device reads them
-        if (device->unknownc8_ == 1) {
+        if (device->unknownc8() == 1) {
             std::memcpy(content_.incident_.data(), std::span(control).subspan(4, Payload::kQueueCapacity).data(), Payload::kQueueCapacity);
             break;
         }
@@ -226,9 +226,9 @@ void HostEnd::poll_input_sinks()
         data_out_ = std::next(data_out_);
     }
     if (dev_) {
-        core::at(device_buttons(), dev_->ordinal_) = content_.buttons_;
-        core::at(device_makes(), dev_->ordinal_) = content_.makes_;
-        core::at(device_breaks(), dev_->ordinal_) = content_.breaks_;
+        core::at(device_buttons(), dev_->ordinal()) = content_.buttons_;
+        core::at(device_makes(), dev_->ordinal()) = content_.makes_;
+        core::at(device_breaks(), dev_->ordinal()) = content_.breaks_;
     }
     handlers_.work_on(nullptr);
 }

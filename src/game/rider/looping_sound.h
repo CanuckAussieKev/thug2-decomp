@@ -67,6 +67,24 @@ public:
     // 0x00513AB0: the sound stopped (called by the skater).
     void stop_sound();
 
+    // The fields other code reads and sets.
+    uint8_t& surface_type() { return surface_type_; }
+    [[nodiscard]] uint8_t surface_type() const { return surface_type_; }
+    void set_surface_type(uint8_t value) { surface_type_ = value; }
+    int& cur_phase() { return cur_phase_; }
+    [[nodiscard]] int cur_phase() const { return cur_phase_; }
+    void set_cur_phase(int value) { cur_phase_ = value; }
+    uint8_t& sound_changed() { return sound_changed_; }
+    [[nodiscard]] uint8_t sound_changed() const { return sound_changed_; }
+    void set_force_update(uint8_t value) { force_update_ = value; }
+    void set_no_rail_sound(uint8_t value) { no_rail_sound_ = value; }
+    uint8_t& sliding() { return sliding_; }
+    [[nodiscard]] uint8_t sliding() const { return sliding_; }
+    void set_sliding(uint8_t value) { sliding_ = value; }
+    [[nodiscard]] uint8_t on() const { return on_; }
+    void set_on(uint8_t value) { on_ = value; }
+
+private:
     uint32_t sound_id_{};                // +0x18 the playing sound's unique id (0: none)
     uint32_t playing_checksum_{};        // +0x1C
     float lean_pitch_angle_{};           // +0x20 the pitch worked out

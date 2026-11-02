@@ -35,15 +35,15 @@ namespace {
 
 constexpr size_t kMaxStreamStartData = wire::kStreamPieceSize; // the first piece of a stream, in its start message
 
-uint32_t get_timestamp(AppHost* app) { return app->clock_; }
-Router* get_dispatcher(AppHost* app) { return &app->dispatcher_; }
+uint32_t get_timestamp(AppHost* app) { return app->clock(); }
+Router* get_dispatcher(AppHost* app) { return &app->dispatcher(); }
 
 void construct_context(InboundMsgCtx* context) { *context = InboundMsgCtx(); }
 
 // NOT ORIGINAL: the room left in the packet being built (the writers checked first that the message fits).
 size_t packet_space_left(Conn* conn)
 {
-    return static_cast<size_t>(kMaxPacketSize) - conn->outgoing_.used;
+    return static_cast<size_t>(kMaxPacketSize) - conn->outgoing().used;
 }
 
 // NOT ORIGINAL: a received message's data.
@@ -112,17 +112,17 @@ void free_queued_msg(PendingMsg* msg)
 // A normal or important message into the packet: its id, its length (unless the id has none), its data.
 bool append_message(AppHost* app, Conn* conn, PendingMsg* msg)
 {
-    const uint8_t flags = message_flags(app->supervisor_, msg->ident_);
+    const uint8_t flags = message_flags(app->supervisor(), msg->ident_);
     auto size = static_cast<uint16_t>(msg->byte_count_ + ((~flags & kMsgNoLength) ? 3 : 1));
-    if (size + static_cast<int>(conn->outgoing_.used) >= static_cast<int>(kMaxPacketSize))
+    if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize))
         return false;
-    util::ByteWriter writer(conn->outgoing_.vacant().first(packet_space_left(conn)));
+    util::ByteWriter writer(conn->outgoing().vacant().first(packet_space_left(conn)));
     writer.u8(msg->ident_);
-    if (!(message_flags(app->supervisor_, msg->ident_) & kMsgNoLength))
+    if (!(message_flags(app->supervisor(), msg->ident_) & kMsgNoLength))
         writer.u16(msg->byte_count_);
     writer.bytes(msg->content_, msg->byte_count_);
-    conn->outgoing_.used += writer.position();
-    add_message_metric(&conn->send_metrics_, msg->ident_, msg->byte_count_);
+    conn->outgoing().used += writer.position();
+    add_message_metric(&conn->send_metrics(), msg->ident_, msg->byte_count_);
     return true;
 }
 
@@ -132,15 +132,15 @@ bool append_sequenced_message(Conn* conn, OrderedMsgNode* link)
     const SeqQueuedMsg* msg = link->shared_msg_;
     const uint16_t length = msg->byte_count_;
     auto size = static_cast<uint16_t>(length + 9);
-    if (size + static_cast<int>(conn->outgoing_.used) >= static_cast<int>(kMaxPacketSize))
+    if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize))
         return false;
-    util::ByteWriter writer(conn->outgoing_.vacant().first(packet_space_left(conn)));
+    util::ByteWriter writer(conn->outgoing().vacant().first(packet_space_left(conn)));
     writer.u8(kMsgSequenced);
     writer.u16(static_cast<uint16_t>(length + wire::kSequencedHeaderSize));
     wire::write_sequenced_header(writer, {.group = link->bundle_id_, .sequence = link->order_index_, .id = msg->ident_});
     writer.bytes(msg->content_, msg->byte_count_);
-    conn->outgoing_.used += writer.position();
-    add_message_metric(&conn->send_metrics_, msg->ident_, msg->byte_count_);
+    conn->outgoing().used += writer.position();
+    add_message_metric(&conn->send_metrics(), msg->ident_, msg->byte_count_);
     return true;
 }
 
@@ -181,7 +181,7 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
     case kQueueNormal: {
         lists::Hunt<MsgNormalLink> search;
         MsgNormalLink* next = nullptr;
-        for (MsgNormalLink* link = search.head_element(&conn->normal_msgs_); link; link = next) {
+        for (MsgNormalLink* link = search.head_element(&conn->normal_msgs()); link; link = next) {
             next = search.following_item();
             if (get_timestamp(this) < link->due_time_)
                 continue;
@@ -199,7 +199,7 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
     }
     case kLanePriority: {
         lists::Hunt<ReliableMsgNode> search;
-        for (ReliableMsgNode* link = search.head_element(&conn->important_msgs_); link;
+        for (ReliableMsgNode* link = search.head_element(&conn->important_msgs()); link;
              link = search.following_item()) {
             if (get_timestamp(this) < link->due_time_)
                 continue;
@@ -221,13 +221,13 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
             if (link->stamp_ms_ != 0)
                 ++link->retry_count_;
             link->stamp_ms_ = get_timestamp(this);
-            link->packet_clock_ = conn->timestamp_out_;
+            link->packet_clock_ = conn->timestamp_out();
         }
         break;
     }
     case kLaneOrdered: {
         lists::Hunt<OrderedMsgNode> search;
-        for (OrderedMsgNode* link = search.head_element(&conn->sequenced_msgs_); link; link = search.following_item()) {
+        for (OrderedMsgNode* link = search.head_element(&conn->sequenced_msgs()); link; link = search.following_item()) {
             if (get_timestamp(this) < link->due_time_)
                 continue;
             if (net::over_bandwidth_budget(this, conn))
@@ -248,7 +248,7 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
             if (link->stamp_ms_ != 0)
                 ++link->retry_count_;
             link->stamp_ms_ = get_timestamp(this);
-            link->packet_clock_ = conn->timestamp_out_;
+            link->packet_clock_ = conn->timestamp_out();
         }
         break;
     }
@@ -267,8 +267,8 @@ int AppHost::on_ping_reply_msg(InboundMsgCtx* context)
     // (NOT ORIGINAL: a reply too short for the time is ignored)
     if (reader.ok() && !net::is_host_local(conn)) {
         const uint32_t now = get_timestamp(context->receiver_app_);
-        if (sent_time == conn->ping_probe_.probe_sent_at_) {
-            conn->ping_probe_.echo_seen_at_ = sent_time;
+        if (sent_time == conn->ping_probe().probe_sent_at_) {
+            conn->ping_probe().echo_seen_at_ = sent_time;
             uint32_t latency = now - sent_time;
             if (latency > max_latency())
                 latency = max_latency();
@@ -290,7 +290,7 @@ int AppHost::on_ping_probe_msg(InboundMsgCtx* context)
     desc.content_ = &sent_time;
     desc.byte_count_ = sizeof(sent_time);
     desc.ident_ = kMsgLatencyResponse;
-    net::put_on_outbox(context->receiver_app_, context->sender_conn_->hdl_, &desc);
+    net::put_on_outbox(context->receiver_app_, context->sender_conn_->hdl(), &desc);
     return kResultPassOn;
 }
 
@@ -384,7 +384,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
         return kResultConsumed;
     const uint32_t sequence = header.sequence;
     const uint8_t group = header.group;
-    if (sequence < core::at(conn->sequence_numbers_, group))
+    if (sequence < core::at(conn->sequence_numbers(), group))
         return kResultPassOn; // handled already
 
     memory::Hub* manager = memory::Hub::get_pull();
@@ -406,7 +406,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
     link->order_index_ = sequence;
     memory::Hub::get_pull()->leave_heap_scope();
 
-    if (!lists::insert_by_unique_order(core::at(context->sender_conn_->received_queues_, group), &link->list_link_)) { // a duplicate
+    if (!lists::insert_by_unique_order(core::at(context->sender_conn_->received_queues(), group), &link->list_link_)) { // a duplicate
         if (SeqQueuedMsg* duplicate = link->shared_msg_) {
             destroy_queued_msg(duplicate);
             memory::Hub::get_pull()->dealloc(duplicate);
@@ -432,7 +432,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
     {
         lists::Hunt<ReliableMsgNode> search;
         ReliableMsgNode* next = nullptr;
-        for (ReliableMsgNode* link = search.head_element(&context->sender_conn_->important_msgs_); link; link = next) {
+        for (ReliableMsgNode* link = search.head_element(&context->sender_conn_->important_msgs()); link; link = next) {
             next = search.following_item();
             if (packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
                 free_queued_msg(link->shared_msg_);
@@ -444,7 +444,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
     {
         lists::Hunt<OrderedMsgNode> search;
         OrderedMsgNode* next = nullptr;
-        for (OrderedMsgNode* link = search.head_element(&context->sender_conn_->sequenced_msgs_); link; link = next) {
+        for (OrderedMsgNode* link = search.head_element(&context->sender_conn_->sequenced_msgs()); link; link = next) {
             next = search.following_item();
             if (packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
                 SeqQueuedMsg* msg = link->shared_msg_;
@@ -459,10 +459,10 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
     }
 
     Conn* conn = context->sender_conn_;
-    if (is_off_machine(conn) && (conn->cur_standing_ & kConnStatus1) && sent_time) {
+    if (is_off_machine(conn) && (conn->cur_standing() & kConnStatus1) && sent_time) {
         uint32_t latency = get_timestamp(context->receiver_app_) - sent_time;
         const uint32_t current =
-            net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe_.average_latency_);
+            net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency_);
         if (latency > current) {
             if (latency > max_latency())
                 latency = max_latency();
@@ -485,7 +485,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         if (!reader.ok()) // NOT ORIGINAL: too short for the stream id - dropped
             break;
         lists::Hunt<BulkStreamNode> search;
-        for (BulkStreamNode* link = search.head_element(&context->sender_conn_->received_streams_); link;
+        for (BulkStreamNode* link = search.head_element(&context->sender_conn_->received_streams()); link;
              link = search.following_item()) {
             StreamDesc* desc = link->msg_meta_;
             if (desc->stream_id_ != stream_id)
@@ -514,7 +514,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         }
         const int stream_id = start.stream_id;
         lists::Hunt<BulkStreamNode> search;
-        for (const BulkStreamNode* link = search.head_element(&context->sender_conn_->received_streams_); link;
+        for (const BulkStreamNode* link = search.head_element(&context->sender_conn_->received_streams()); link;
              link = search.following_item()) {
             if (link->msg_meta_->stream_id_ == stream_id) { // started already
                 memory::Hub::get_pull()->leave_heap_scope();
@@ -544,7 +544,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         void* link_memory = memory::alloc_zeroed(sizeof(BulkStreamNode));
         BulkStreamNode* link = link_memory ? construct_stream_link(link_memory, desc) : nullptr;
         // at the end of the connection's streams
-        memory::ListNode* head = &context->sender_conn_->received_streams_;
+        memory::ListNode* head = &context->sender_conn_->received_streams();
         link->list_link_.next = head;
         link->list_link_.prev = head->prev;
         head->prev->next = &link->list_link_;

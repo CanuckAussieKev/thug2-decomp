@@ -78,9 +78,9 @@ void freeze_stream(StreamSlot& slot)
 void set_started(StreamSlot& slot, bool started)
 {
     if (slot.wad)
-        slot.wad->unknown5f_ = started;
+        slot.wad->set_unknown5f(started);
     else if (slot.bink)
-        slot.bink->unknown6b_ = started;
+        slot.bink->set_unknown6b(started);
 }
 
 // Freed now if it may go, else asked to stop (update_streams frees it later).
@@ -92,9 +92,9 @@ void halt(StreamSlot& slot)
         if (ready)
             slot.dealloc();
         else if (slot.wad)
-            slot.wad->stop_requested_ = true;
+            slot.wad->set_stop_requested(true);
         else if (slot.bink)
-            slot.bink->stop_requested_ = true;
+            slot.bink->set_stop_requested(true);
     }
     ReleaseMutex(stream_lock());
 }
@@ -207,7 +207,7 @@ void sync_music_to_time(float seconds)
     if (!music_slot().get_playing())
         return;
     WaitForSingleObject(stream_lock(), INFINITE);
-    render::Bink* bink = music_slot().bink->bink_; // (a WadStream, or a paused Bink stream, would crash here)
+    render::Bink* bink = music_slot().bink->bink(); // (a WadStream, or a paused Bink stream, would crash here)
     const int frame =
         ftol(static_cast<double>(bink->frame_rate_) * seconds / static_cast<double>(bink->frame_rate_div_));
     uint32_t off = bink->frame_num_ - static_cast<uint32_t>(frame);

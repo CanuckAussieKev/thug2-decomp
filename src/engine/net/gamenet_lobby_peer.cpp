@@ -212,13 +212,13 @@ void RoomManager::player_key_callback(void*, int key, int index, void* buffer, v
     NewPlayerSearch new_search;
     for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
          p = step_roster_sweep(manager, &search, true)) {
-        if (is_observer(p) && !(p->flag_bits_ & kPlayerObserverCounted))
+        if (is_observer(p) && !(p->flag_bits() & kPlayerObserverCounted))
             continue;
         if (count == index) {
             if (key == kKeyForPlayer)
                 buffer_add(buffer, player_name(p));
             else
-                buffer_add_int(buffer, p->skill_points_); // its rating
+                buffer_add_int(buffer, p->skill_points()); // its rating
             return;
         }
         ++count;

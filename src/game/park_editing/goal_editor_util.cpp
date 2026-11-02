@@ -184,42 +184,42 @@ int goal_editor_constant82() { return 0x82; }
 // 0x004E69D0
 void init_edited_goal(EditedGoal* goal)
 {
-    goal->acceleration_interval_ = 5;
-    goal->time_to_stop_adding_tricks_ = 5;
-    goal->taken_count_ = false;
-    goal->level_ = 0;
-    goal->label_.front() = 0;
-    goal->summary_text_.front() = 0;
-    goal->win_message_.front() = 0;
-    goal->ped_name_.front() = 0;
-    goal->kind_tag_ = 0;
-    goal->vertex_total_ = 0;
-    goal->min_points_ = 0;
-    goal->max_points_ = 0;
-    goal->current_point_ = 0;
-    goal->last_point_placed_ = false;
-    goal->won_ = false;
-    goal->points_held_ = 100;
-    goal->time_limit_ = 120;
-    goal->race_total_laps_ = 1;
-    goal->race_per_checkpoint_time_ = 0;
-    goal->acceleration_percent_ = 0.1f;
-    goal->trick_time_ = 3000;
-    goal->max_tricks_ = 11;
-    goal->twist_rate_ = 360;
-    goal->single_combo_ = false;
-    goal->chain_length_ = 2;
-    goal->stack_block_span_ = 3;
-    goal->tricktris_total_to_win_ = 8;
-    goal->num_key_combo_sets_ = 0;
-    goal->control_type_ = kSkate;
-    goal->num_gaps_ = 0;
-    goal->required_trick_.front() = 0;
-    for (EditedGoalPoint& point : goal->path_vertices_) { // (each point's kind and height)
+    goal->set_acceleration_interval(5);
+    goal->set_time_to_stop_adding_tricks(5);
+    goal->set_taken_count(false);
+    goal->set_level(0);
+    goal->label().front() = 0;
+    goal->summary_text().front() = 0;
+    goal->win_message().front() = 0;
+    goal->ped_name().front() = 0;
+    goal->set_kind_tag(0);
+    goal->set_vertex_total(0);
+    goal->set_min_points(0);
+    goal->set_max_points(0);
+    goal->set_current_point(0);
+    goal->set_last_point_placed(false);
+    goal->set_won(false);
+    goal->set_points_held(100);
+    goal->set_time_limit(120);
+    goal->set_race_total_laps(1);
+    goal->set_race_per_checkpoint_time(0);
+    goal->set_acceleration_percent(0.1f);
+    goal->set_trick_time(3000);
+    goal->set_max_tricks(11);
+    goal->set_twist_rate(360);
+    goal->set_single_combo(false);
+    goal->set_chain_length(2);
+    goal->set_stack_block_span(3);
+    goal->set_tricktris_total_to_win(8);
+    goal->set_num_key_combo_sets(0);
+    goal->set_control_type(kSkate);
+    goal->set_num_gaps(0);
+    goal->required_trick().front() = 0;
+    for (EditedGoalPoint& point : goal->path_vertices()) { // (each point's kind and height)
         point.kind = 0;
         point.height = 0.0f;
     }
-    goal->level_goal_number_ = 0;
+    goal->set_level_goal_number(0);
 }
 
 // 0x004E6AE0

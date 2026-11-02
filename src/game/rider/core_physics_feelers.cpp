@@ -157,7 +157,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
     } else if (!same_rail()) {
         // Another rail. In a created park, only if its ends are all more than 6 from the last one's (pieces' rails
         // meet end to end).
-        if (park_editing::ParkBuilderMode::sole()->cur_phase_ == kOff || !last->last_value_ || !node->last_value_) {
+        if (park_editing::ParkBuilderMode::sole()->cur_phase() == kOff || !last->last_value_ || !node->last_value_) {
             new_rail = true;
         } else {
             // (Each pair in the original's order: this rail's end first, then the last one's.)
@@ -524,12 +524,12 @@ void SkaterPhysicsModule::check_side_feelers()
 bool SkaterPhysicsModule::apply_model_rotations()
 {
     auto* model = core::down_cast<objects::MeshInstanceModule>(object_of(this)->fetch_module(0x286A8D26)); // (Model)
-    if (!core::at(model->twist_rate_, 0).active_ && !core::at(model->twist_rate_, 1).active_ && !core::at(model->twist_rate_, 2).active_)
+    if (!core::at(model->twist_rate(), 0).active_ && !core::at(model->twist_rate(), 1).active_ && !core::at(model->twist_rate(), 2).active_)
         return false;
     objects::GameEntity* object = object_of(this);
     maths::Vec4 axis = core::at(object->basis_frame_.row, 1);
     model->get_draw_matrix(&object->basis_frame_);
-    objects::ModelSpinAxis* y_rotation = &core::at(model->twist_rate_, 1);
+    objects::ModelSpinAxis* y_rotation = &core::at(model->twist_rate(), 1);
     const float angle = y_rotation->bearing();
     if (angle != 0.0f) {
         // The velocity turned with the model about the up axis.
@@ -540,9 +540,9 @@ bool SkaterPhysicsModule::apply_model_rotations()
         velocity = *quat->spin_by(&axis, velocity);
     }
     display_matrix_ = entity_->basis_frame_;
-    core::at(model->twist_rate_, 0).get_clear();
+    core::at(model->twist_rate(), 0).get_clear();
     y_rotation->get_clear();
-    core::at(model->twist_rate_, 2).get_clear();
+    core::at(model->twist_rate(), 2).get_clear();
     return true;
 }
 

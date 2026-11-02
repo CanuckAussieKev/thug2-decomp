@@ -49,7 +49,7 @@ float gap_grid_offset() { return kParkGapGridOffset; }
 // The park editor object (0x007CE5D8, 0x7C bytes): the value at +0x78 goes into the compressed map.
 uint32_t editor_value78()
 {
-    return park_editing_state().park_editor()->lighting_script_;
+    return park_editing_state().park_editor()->lighting_script();
 }
 uint8_t generator_max_players(ParkAssembler* generator) { return static_cast<uint8_t>(generator->get_player_limit()); }
 

@@ -244,19 +244,19 @@ void PcParticleSystem::initialise()
     material = memory ? construct_material(memory) : nullptr;
     // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
     std::memset(material, 0, sizeof(MaterialRef));
-    core::at(material->pass_flags_, 0) = 0x44; // (its flags)
-    material->pass_count_ = 1;       // (a pass)
-    material->alpha_ref_ = 1;
-    material->two_sided_ = 1;
+    core::at(material->pass_flags(), 0) = 0x44; // (its flags)
+    material->set_pass_count(1);       // (a pass)
+    material->set_alpha_ref(1);
+    material->set_two_sided(1);
     for (int k = 0; k < 3; ++k)
-        core::at(core::at(material->pass_color_, 0), k) = 0.5f;
-    core::at(core::at(material->pass_color_, 0), 3) = static_cast<float>(static_cast<double>(args_.alpha_cut_off_) * (1.0f / 128.0f));
-    core::at(material->address_modes_, 0) = 0x10001;
-    core::at(material->unknownc0_, 0) = 0x10001;
-    core::at(material->blend_modes_, 0) = blend_mode_from_name(args_.blend_mode_);
-    core::at(material->textures, 0) = nullptr;
+        core::at(core::at(material->pass_color(), 0), k) = 0.5f;
+    core::at(core::at(material->pass_color(), 0), 3) = static_cast<float>(static_cast<double>(args_.alpha_cut_off_) * (1.0f / 128.0f));
+    core::at(material->address_modes(), 0) = 0x10001;
+    core::at(material->unknownc0(), 0) = 0x10001;
+    core::at(material->blend_modes(), 0) = blend_mode_from_name(args_.blend_mode_);
+    core::at(material->textures_value(), 0) = nullptr;
     if (const BitmapTexture* found = find_texture(args_.texture_))
-        core::at(material->textures, 0) = image_of(found);
+        core::at(material->textures_value(), 0) = image_of(found);
 
     // The spread: the boxes and their radii.
     std::array<float, 4> start = {{core::at(args_.box_, 0).x, core::at(args_.box_, 0).y, core::at(args_.box_, 0).z, core::at(args_.radius_, 0)}};

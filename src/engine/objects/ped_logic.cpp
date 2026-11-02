@@ -230,8 +230,8 @@ void PedestrianBrainModule::push_position()
 void PedestrianBrainModule::set_sound_state(int state)
 {
     if (auto* looping = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound))) {
-        looping->sound_changed_ |= looping->cur_phase_ != state;
-        looping->cur_phase_ = state;
+        looping->sound_changed() |= looping->cur_phase() != state;
+        looping->set_cur_phase(state);
     }
     if (auto* sound = core::down_cast<RiderSfxPlayer>(entity_->fetch_module(kSkaterSound)))
         sound->cur_phase_ = state;
@@ -241,8 +241,8 @@ void PedestrianBrainModule::set_sound_state(int state)
 void PedestrianBrainModule::set_sound_terrain(uint8_t terrain)
 {
     if (auto* looping = core::down_cast<RiderRollingAudio>(entity_->fetch_module(kSkaterLoopingSound))) {
-        looping->sound_changed_ |= looping->surface_type_ != terrain;
-        looping->surface_type_ = terrain;
+        looping->sound_changed() |= looping->surface_type() != terrain;
+        looping->set_surface_type(terrain);
     }
     if (auto* sound = core::down_cast<RiderSfxPlayer>(entity_->fetch_module(kSkaterSound))) {
         sound->surface_type_ = terrain;

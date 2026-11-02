@@ -176,7 +176,7 @@ bool is_multiplayer() { return modules::Skate::is_multiplayer() & 1; }
 // The game mode's name (modules::Skate's game mode 0x007CE470).
 uint32_t active_ruleset_label() { return goals::game_mode()->get_name_key(); }
 // The front end (0x007CE464): +0x30 paused.
-bool is_game_halted() { return modules::front_end_instance()->is_halted_; }
+bool is_game_halted() { return modules::front_end_instance()->is_halted(); }
 // Obj's create_from_node (0x005A32A0): the object of node `name` made.
 void create_from_node(uint32_t name) { commands::create_from_node_name(name); }
 
@@ -567,7 +567,7 @@ void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint32_t li
                           int start_percent, int end_percent)
 {
     // The scene's sectors: their light group and geometry (change_tint: its colour).
-    lists::KeyMap* table = scene->sectors_;
+    lists::KeyMap* table = scene->sectors();
     if (!table)
         return;
     auto colour = [](render::WorldCell* sector, uint32_t value) {
@@ -642,7 +642,7 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
     for (const SceneNode* node = first_scene(); node;) {
         const SceneNode* next = is_end(node->next) ? nullptr : node->next;
         render::WorldScene* scene = scene_of(node);
-        if (!scene->is_sky_) {
+        if (!scene->is_sky()) {
             apply_color_to_scene(scene, color, light_group, reset_light_group, start_percent, end_percent);
             if (whole_level && !part_only)
                 set_scene_color_of(scene, color);

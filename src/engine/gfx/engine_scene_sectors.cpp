@@ -98,10 +98,10 @@ void delete_nodes(memory::ListNode* head)
 template <typename Body>
 void for_each_sector(WorldScene* scene, Body body)
 {
-    scene->sectors_->iter_bucket_ = -1;
-    scene->sectors_->iter_item_ = nullptr;
+    scene->sectors()->iter_bucket_ = -1;
+    scene->sectors()->iter_item_ = nullptr;
     for (;;) {
-        lists::KeyMap* table = scene->sectors_;
+        lists::KeyMap* table = scene->sectors();
         if (!table->step_iterator() || !table->iter_item_ || !table->iter_item_->value)
             break;
         body(static_cast<WorldCell*>(table->iter_item_->value));
@@ -111,7 +111,7 @@ void for_each_sector(WorldScene* scene, Body body)
 void put_sector(WorldScene* scene, WorldCell* sector)
 {
     const uint32_t key = sector->checksum_;
-    scene->sectors_->store_entry(key, sector);
+    scene->sectors()->store_entry(key, sector);
 }
 
 // A geom's counts (the engine's CGeom calls: 0x0048DF70, the slot-33 dispatcher, 0x0049C6F0).

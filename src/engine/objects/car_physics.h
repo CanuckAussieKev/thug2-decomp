@@ -75,6 +75,7 @@ public:
     // 0x0041BA20 [0xC9F0DB4B]: nothing. 1.
     int do_nothing(script::Struct* params, script::Script* script);
 
+private:
     float wheel_spin_{0.0f};   // +0x18 degrees, 0-360
     float steer_{0.0f};        // +0x1C
     float target_steer_{0.0f}; // +0x20
@@ -92,13 +93,17 @@ public:
     void* bone_rig_{};      // +0x4C the skeleton component's skeleton (+0x18)
     KinematicsModule* motion_{}; // +0x50 the motion component
     DormancyModule* suspend_{};  // +0x54 the suspend component
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(AutomobileDynamicsModule, wheel_spin_) == 0x18 &&
+                          offsetof(AutomobileDynamicsModule, last_speed_) == 0x30 &&
+                          offsetof(AutomobileDynamicsModule, tilt_divisor_) == 0x40 &&
+                          offsetof(AutomobileDynamicsModule, body_shown_) == 0x44 &&
+                          offsetof(AutomobileDynamicsModule, suspend_) == 0x54 && sizeof(AutomobileDynamicsModule) == 0x58,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(AutomobileDynamicsModule, wheel_spin_) == 0x18 &&
-                  offsetof(AutomobileDynamicsModule, last_speed_) == 0x30 &&
-                  offsetof(AutomobileDynamicsModule, tilt_divisor_) == 0x40 &&
-                  offsetof(AutomobileDynamicsModule, body_shown_) == 0x44 &&
-                  offsetof(AutomobileDynamicsModule, suspend_) == 0x54 && sizeof(AutomobileDynamicsModule) == 0x58,
-              "layout must match the original");
 
 } // namespace objects
 

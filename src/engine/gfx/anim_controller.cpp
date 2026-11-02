@@ -199,7 +199,7 @@ StandardAnimController::~StandardAnimController()
 bool StandardAnimController::fetch_pose(Stance* pose)
 {
     if (frame_index_ == -1) {
-        if (static_cast<JointClipFrames*>(frame_source_)->cache_slot_) // (in the animation cache)
+        if (static_cast<JointClipFrames*>(frame_source_)->cache_slot()) // (in the animation cache)
             frame_index_ = frame_index(frame_source_);
         else
             frame_source_ = source_frame(blend_source_, false);

@@ -44,55 +44,55 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
 {
     void* at = memory::alloc(sizeof(MaterialRef));
     MaterialRef* m = at ? memory::construct_in<MaterialRef>(at) : nullptr;
-    m->checksum = record.checksum;
-    m->name_hash_ = record.name_hash;
-    m->pass_count_ = record.pass_count;
-    m->alpha_ref_ = static_cast<uint8_t>(record.alpha_ref);
-    m->sort_flag_ = record.sort_flag;
-    m->sort_key_ = record.sort_key;
+    m->set_checksum(record.checksum);
+    m->set_name_hash(record.name_hash);
+    m->set_pass_count(record.pass_count);
+    m->set_alpha_ref(static_cast<uint8_t>(record.alpha_ref));
+    m->set_sort_flag(record.sort_flag);
+    m->set_sort_key(record.sort_key);
     const bool keep_culling = record.keep_culling != 0; // (else a blended pass 0 turns culling off)
-    m->two_sided_ = record.two_sided;
-    m->depth_bias_ = static_cast<uint8_t>(record.depth_bias > 0x10 ? 0x10 : record.depth_bias);
+    m->set_two_sided(record.two_sided);
+    m->set_depth_bias(static_cast<uint8_t>(record.depth_bias > 0x10 ? 0x10 : record.depth_bias));
     if (record.has_extra) {
-        m->unknown14 = core::at(record.extra, 0);
-        m->unknown18 = core::at(record.extra, 1);
+        m->set_unknown14(core::at(record.extra, 0));
+        m->set_unknown18(core::at(record.extra, 1));
     }
-    m->specular_power_ = record.specular_power;
-    if (m->specular_power_ > 0.0f)
-        std::memcpy(m->specular.data(), record.specular.data(), sizeof(m->specular));
+    m->set_specular_power(record.specular_power);
+    if (m->specular_power() > 0.0f)
+        std::memcpy(m->specular_value().data(), record.specular.data(), sizeof(m->specular_value()));
     bool all_half = true;
-    for (uint32_t pass = 0; pass < m->pass_count_; ++pass) {
+    for (uint32_t pass = 0; pass < m->pass_count(); ++pass) {
         const scene_format::MaterialPass& in = core::at(record.passes, pass);
-        core::at(m->pass_flags_, pass) = in.flags;
-        std::memcpy(core::at(m->pass_color_, pass).data(), in.color.data(), sizeof(in.color));
+        core::at(m->pass_flags(), pass) = in.flags;
+        std::memcpy(core::at(m->pass_color(), pass).data(), in.color.data(), sizeof(in.color));
         const uint32_t half = 0x3F000000;
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        if (all_half && (std::memcmp(&core::at(core::at(m->pass_color_, pass), 0), &half, 4) != 0 ||
+        if (all_half && (std::memcmp(&core::at(core::at(m->pass_color(), pass), 0), &half, 4) != 0 ||
                          // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-                         std::memcmp(&core::at(core::at(m->pass_color_, pass), 1), &half, 4) != 0 ||
+                         std::memcmp(&core::at(core::at(m->pass_color(), pass), 1), &half, 4) != 0 ||
                          // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-                         std::memcmp(&core::at(core::at(m->pass_color_, pass), 2), &half, 4) != 0))
+                         std::memcmp(&core::at(core::at(m->pass_color(), pass), 2), &half, 4) != 0))
             all_half = false;
-        core::at(m->blend_modes_, pass) = (in.blend_mode & 0xFFFFFF) | in.fixed_alpha << 24;
-        core::at(core::at(m->pass_color_, pass), 3) =
+        core::at(m->blend_modes(), pass) = (in.blend_mode & 0xFFFFFF) | in.fixed_alpha << 24;
+        core::at(core::at(m->pass_color(), pass), 3) =
             static_cast<float>(static_cast<double>(in.fixed_alpha) * (1.0f / 128)); // the fixed alpha
-        if (pass == 0 && !keep_culling && (core::at(m->blend_modes_, 0) & 0xFFFFFF))
-            m->two_sided_ = 1;
-        core::at(m->address_modes_, pass) = in.address_v << 16 | in.address_u;
-        std::memcpy(core::at(m->reflection_tiling_, pass).data(), in.reflection_tiling.data(), sizeof(in.reflection_tiling));
-        core::at(m->unknownc0_, pass) = in.unknown_c0;
+        if (pass == 0 && !keep_culling && (core::at(m->blend_modes(), 0) & 0xFFFFFF))
+            m->set_two_sided(1);
+        core::at(m->address_modes(), pass) = in.address_v << 16 | in.address_u;
+        std::memcpy(core::at(m->reflection_tiling(), pass).data(), in.reflection_tiling.data(), sizeof(in.reflection_tiling));
+        core::at(m->unknownc0(), pass) = in.unknown_c0;
         if (in.flags & scene_format::kPassUvWibble) {
-            m->has_uv_wibble_ = true;
+            m->set_has_uv_wibble(true);
             void* w = memory::alloc(sizeof(UvOscillator));
             UvOscillator* wibble = w ? memory::construct_in<UvOscillator>(w) : nullptr;
-            core::at(m->uv_wibble_, pass) = wibble;
+            core::at(m->uv_wibble(), pass) = wibble;
             std::memcpy(wibble, in.uv_wibble.data(), sizeof(in.uv_wibble));
         }
         if (pass == 0 && (in.flags & scene_format::kPassColorAnims)) {
             auto anims = static_cast<uint32_t>(record.color_anims.size());
-            m->color_anim_count_ = anims;
-            m->color_anims_ = static_cast<ColorAnim*>(memory::alloc(anims * sizeof(ColorAnim)));
-            m->anim_colors_ = static_cast<uint32_t*>(memory::alloc(anims * 4));
+            m->set_color_anim_count(anims);
+            m->set_color_anims(static_cast<ColorAnim*>(memory::alloc(anims * sizeof(ColorAnim))));
+            m->set_anim_colors(static_cast<uint32_t*>(memory::alloc(anims * 4)));
             for (uint32_t i = 0; i < anims; ++i) {
                 const scene_format::ColorAnimTrack& track = core::at(record.color_anims, i);
                 ColorAnim& anim = core::at(m->color_anim_run(), i);
@@ -103,38 +103,38 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
             }
         }
         if (in.flags & scene_format::kPassTextureAnim) {
-            if (!m->texture_anim_) {
-                m->texture_anim_ = static_cast<TextureAnim*>(memory::alloc(sizeof(TextureAnim)));
-                std::memset(m->texture_anim_, 0, sizeof(TextureAnim));
-                m->has_texture_anim_ = true;
+            if (!m->texture_anim()) {
+                m->set_texture_anim(static_cast<TextureAnim*>(memory::alloc(sizeof(TextureAnim))));
+                std::memset(m->texture_anim(), 0, sizeof(TextureAnim));
+                m->set_has_texture_anim(true);
             }
             const int keys = in.texture_key_count;
-            core::at(m->texture_anim_->key_counts_, pass) = static_cast<uint32_t>(keys);
-            core::at(m->texture_anim_->phases, pass) = in.texture_phase;
-            core::at(m->texture_anim_->loops, pass) = in.texture_loops;
-            core::at(m->texture_anim_->keys, pass) = static_cast<TextureKey*>(memory::alloc(static_cast<uint32_t>(keys) * 8));
+            core::at(m->texture_anim()->key_counts_, pass) = static_cast<uint32_t>(keys);
+            core::at(m->texture_anim()->phases, pass) = in.texture_phase;
+            core::at(m->texture_anim()->loops, pass) = in.texture_loops;
+            core::at(m->texture_anim()->keys, pass) = static_cast<TextureKey*>(memory::alloc(static_cast<uint32_t>(keys) * 8));
             for (int k = 0; k < keys; ++k) {
                 const scene_format::TextureFrame& frame = core::at(in.texture_keys, static_cast<size_t>(k));
-                TextureKey& key = core::at(m->texture_anim_->key_run(static_cast<size_t>(pass)), k);
+                TextureKey& key = core::at(m->texture_anim()->key_run(static_cast<size_t>(pass)), k);
                 key.time = frame.time;
                 key.texture = find_texture(textures, frame.texture);
             }
         }
         if (!in.texture) { // (with a texture animation, its first key's)
-            core::at(m->textures, pass) = nullptr;
+            core::at(m->textures_value(), pass) = nullptr;
             continue;
         }
-        core::at(m->textures, pass) = find_texture(textures, in.texture);
+        core::at(m->textures_value(), pass) = find_texture(textures, in.texture);
         const double lod = static_cast<double>(in.mip_lod_bias) + 8.0f;
         auto stored = static_cast<float>(lod);
-        std::memcpy(&core::at(m->mip_lod_bias_, pass), &stored, 4);
+        std::memcpy(&core::at(m->mip_lod_bias(), pass), &stored, 4);
         if (lod > 0.0)
-            core::at(m->mip_lod_bias_, pass) = 0; // (no more than 0)
+            core::at(m->mip_lod_bias(), pass) = 0; // (no more than 0)
     }
     if (all_half)
-        core::at(m->pass_flags_, 0) |= 0x10000000; // (no pass changes its colour)
-    if (m->specular_power_ > 0.0f)
-        core::at(m->pass_flags_, 0) |= 0x100;
+        core::at(m->pass_flags(), 0) |= 0x10000000; // (no pass changes its colour)
+    if (m->specular_power() > 0.0f)
+        core::at(m->pass_flags(), 0) |= 0x100;
     return m;
 }
 
@@ -156,8 +156,8 @@ lists::KeyMap* read_materials(Stream& in, const lists::KeyMap* textures)
             break;
         }
         MaterialRef* m = make_material(record, textures);
-        if (!table->fetch_entry(m->checksum))
-            table->store_entry(m->checksum, m);
+        if (!table->fetch_entry(m->checksum_value()))
+            table->store_entry(m->checksum_value(), m);
     }
     return table;
 }

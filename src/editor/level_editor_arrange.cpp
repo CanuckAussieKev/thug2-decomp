@@ -870,23 +870,23 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
     const uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; !meshes.empty() && i < count && i < 4096 && out->size() < 600000; ++i) {
         render::MeshRef* mesh = core::at(meshes, i);
-        if (!mesh || mesh->billboard || (mesh->flags & 0x10))
+        if (!mesh || mesh->billboard_value() || (mesh->flags_value() & 0x10))
             continue;
-        render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
-        const render::IdxStore* indices = core::at(mesh->index_buffers_, 0);
-        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
+        render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
+        const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
+        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride_value() < 12)
             continue;
         auto at = [&](uint16_t k) {
-            const auto f = gpu::VertexView(vertices->data, mesh->stride, mesh->vertex_count_).float3(k);
+            const auto f = gpu::VertexView(vertices->data, mesh->stride_value(), mesh->vertex_count()).float3(k);
             return V3{.x = core::at(f, 0), .y = core::at(f, 1), .z = core::at(f, 2)};
         };
-        const std::span<const uint16_t> index(indices->indices, core::at(mesh->index_counts_, 0));
+        const std::span<const uint16_t> index(indices->indices, core::at(mesh->index_counts(), 0));
         for (uint32_t k = 2; k < index.size(); ++k) {
             const uint16_t a = core::at(index, k - 2);
             const uint16_t b = core::at(index, k - 1);
             const uint16_t c = core::at(index, k);
-            if (a == b || b == c || a == c || a >= mesh->vertex_count_ || b >= mesh->vertex_count_ ||
-                c >= mesh->vertex_count_)
+            if (a == b || b == c || a == c || a >= mesh->vertex_count() || b >= mesh->vertex_count() ||
+                c >= mesh->vertex_count())
                 continue;
             out->push_back(at(a));
             out->push_back(at(b));

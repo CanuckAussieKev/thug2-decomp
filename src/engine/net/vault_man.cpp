@@ -709,33 +709,33 @@ bool download_file(script::Struct* params, script::Script*)
 bool upload_file(script::Struct* params, script::Script*)
 {
     VaultMan* vault = get_vault();
-    vault->transfer_ = VaultMan::kUpload;
-    vault->outcome_val_ = 0;
-    get_logic_tasks()->queue_job(vault->task_.get());
-    vault->progress_ = 0;
-    vault->start_time_ = frame_clock::get_time();
-    vault->fail_script_ = kFailScript;
-    params->read_hash_value("type", &vault->kind_tag_, 1);
-    params->read_sub_struct("data", &vault->content_, 0);
+    vault->set_transfer(VaultMan::kUpload);
+    vault->set_outcome_val(0);
+    get_logic_tasks()->queue_job(vault->task().get());
+    vault->set_progress(0);
+    vault->set_start_time(frame_clock::get_time());
+    vault->set_fail_script(kFailScript);
+    params->read_hash_value("type", &vault->kind_tag(), 1);
+    params->read_sub_struct("data", &vault->content(), 0);
     const char* description = nullptr;
     const char* file_name = nullptr;
     params->fetch_text("description", &description, 1);
     params->fetch_text("filename", &file_name, 1);
-    text_tools::dup_from(vault->source_path_.data(), file_name);
-    text_tools::dup_from(vault->summary_text_.data(), description);
-    params->fetch_int_value("score", &vault->points_held_, 0);
-    params->fetch_int_value("width", &vault->span_, 0);
-    params->fetch_int_value("length", &vault->byte_count_, 0);
-    params->fetch_int_value("num_pieces", &vault->num_pieces_, 0);
-    params->fetch_int_value("num_gaps", &vault->num_gaps_, 0);
-    params->fetch_int_value("num_goals", &vault->num_goals_, 0);
-    params->fetch_int_value("theme", &vault->style_set_, 0);
-    params->read_hash_value("tod_script", &vault->tod_script_, 0);
-    params->fetch_int_value("is_male", &vault->has_male_body_, 0);
+    text_tools::dup_from(vault->source_path().data(), file_name);
+    text_tools::dup_from(vault->summary_text().data(), description);
+    params->fetch_int_value("score", &vault->points_held(), 0);
+    params->fetch_int_value("width", &vault->span(), 0);
+    params->fetch_int_value("length", &vault->byte_count(), 0);
+    params->fetch_int_value("num_pieces", &vault->num_pieces(), 0);
+    params->fetch_int_value("num_gaps", &vault->num_gaps(), 0);
+    params->fetch_int_value("num_goals", &vault->num_goals(), 0);
+    params->fetch_int_value("theme", &vault->style_set(), 0);
+    params->read_hash_value("tod_script", &vault->tod_script(), 0);
+    params->fetch_int_value("is_male", &vault->has_male_body(), 0);
     HANDLE thread = start_thread(&VaultMan::upload_thread, vault);
-    get_stall(vault->semaphore_);
+    get_stall(vault->semaphore());
     ResumeThread(thread);
-    get_release(vault->semaphore_);
+    get_release(vault->semaphore());
     return true;
 }
 
@@ -743,11 +743,11 @@ bool upload_file(script::Struct* params, script::Script*)
 bool cancel_file_transfer(script::Struct*, script::Script*)
 {
     VaultMan* vault = get_vault();
-    if (vault->transfer_ != VaultMan::kNone) {
-        ram_stats()->dealloc(vault->octets_);
-        ghttp_cancel_request(vault->req_);
-        vault->transfer_ = VaultMan::kNone;
-        vault->task_->drop_out();
+    if (vault->transfer() != VaultMan::kNone) {
+        ram_stats()->dealloc(vault->octets());
+        ghttp_cancel_request(vault->req());
+        vault->set_transfer(VaultMan::kNone);
+        vault->task()->drop_out();
     }
     return true;
 }
@@ -759,9 +759,9 @@ bool download_directory_list(script::Struct* params, script::Script*)
     const Hub* manager = net_game_state().net_session_slot();
     VaultMan* vault = manager->vault_man().get();
     const FriendsManager* buddies = manager->presence_service().get();
-    params->read_hash_value(0u, &vault->kind_tag_, 1);
-    if (const char* folder = type_folder(vault->kind_tag_)) // (an unknown type keeps the folder)
-        text::format_to(vault->folder_, "%s", folder);
+    params->read_hash_value(0u, &vault->kind_tag(), 1);
+    if (const char* folder = type_folder(vault->kind_tag())) // (an unknown type keeps the folder)
+        text::format_to(vault->folder(), "%s", folder);
     if (buddies->account_ != kUploadsProfile) {
         vault->list_categories();
         return true;
@@ -770,15 +770,15 @@ bool download_directory_list(script::Struct* params, script::Script*)
     void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
     VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
     category->skip_ = true;
-    prepend(&vault->categories_, &category->list_link_);
+    prepend(&vault->categories(), &category->list_link_);
     std::memcpy(category->label_.data(), "Uploads", 8);
-    vault->category_ = static_cast<VaultCategory*>(vault->search_.head_element(&vault->categories_));
-    vault->transfer_ = VaultMan::kUploads;
-    vault->outcome_val_ = 0;
+    vault->set_category(static_cast<VaultCategory*>(vault->search().head_element(&vault->categories())));
+    vault->set_transfer(VaultMan::kUploads);
+    vault->set_outcome_val(0);
     std::array<char, 128> url{};
-    text::format_to(url, "http://www.thugonline.com/%s/uploads.txt", vault->folder_.data());
+    text::format_to(url, "http://www.thugonline.com/%s/uploads.txt", vault->folder().data());
     vault->start_list(url.data());
-    get_logic_tasks()->queue_job(vault->task_.get());
+    get_logic_tasks()->queue_job(vault->task().get());
     pop_heap();
     return true;
 }
@@ -796,7 +796,7 @@ bool fill_vault_menu(script::Struct*, script::Script*)
 {
     const VaultMan* vault = get_vault();
     push_top_down();
-    for (memory::ListNode* node = get_next_node(&vault->category_->items_); node; node = get_next_node(node)) {
+    for (memory::ListNode* node = get_next_node(&vault->category()->items_); node; node = get_next_node(node)) {
         auto* item = static_cast<VaultItem*>(node->data);
         if (!item)
             break;
@@ -818,7 +818,7 @@ bool fill_vault_menu(script::Struct*, script::Script*)
         choose->append_word("file", item->url_.data());
         params->put_sub_struct("pad_choose_params", choose);
         const char* script = nullptr;
-        switch (vault->kind_tag_) {
+        switch (vault->kind_tag()) {
         case kVaultParks:
             script = "net_vault_menu_add_park";
             break;
@@ -848,17 +848,17 @@ namespace {
 void move_category(script::Script* script, bool forward)
 {
     VaultMan* vault = get_vault();
-    memory::ListNode*& node = vault->search_.list_link_;
+    memory::ListNode*& node = vault->search().list_link_;
     memory::ListNode* step = forward ? node->next : node->prev;
     node = step->data == memory::ListNode::head_marker() ? nullptr : step;
-    vault->category_ = node ? static_cast<VaultCategory*>(node->data) : nullptr;
-    if (!vault->category_) {
-        node = &vault->categories_;
+    vault->set_category(node ? static_cast<VaultCategory*>(node->data) : nullptr);
+    if (!vault->category()) {
+        node = &vault->categories();
         step = forward ? node->next : node->prev;
         node = step->data == memory::ListNode::head_marker() ? nullptr : step;
-        vault->category_ = node ? static_cast<VaultCategory*>(node->data) : nullptr;
+        vault->set_category(node ? static_cast<VaultCategory*>(node->data) : nullptr);
     }
-    script->args()->append_word("category", vault->category_->label_.data());
+    script->args()->append_word("category", vault->category()->label_.data());
 }
 } // namespace
 

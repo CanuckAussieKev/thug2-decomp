@@ -252,8 +252,8 @@ void add_scene(WorldScene* scene, const char* name, void* textures, bool loaded,
 {
     std::array<char, 0x80> file{};
     text::format_to(file, kSceneFileFormat, name, name, "", platform_suffix());
-    scene->checksum_ = checksums::hash_from_text(name);
-    scene->texture_set_ = static_cast<TextureSet*>(textures);
+    scene->set_checksum(checksums::hash_from_text(name));
+    scene->set_texture_set(static_cast<TextureSet*>(textures));
     if (!loaded)
         scene->finish_load(file.data(), arena);
     memory::push_mem_profile("Asset Overhead");
@@ -302,7 +302,7 @@ WorldScene* find_scene(uint32_t checksum)
 {
     for (memory::ListNode* node = first_scene(); node;) {
         memory::ListNode* next = next_scene(node);
-        if (scene_of(node)->checksum_ == checksum)
+        if (scene_of(node)->checksum() == checksum)
             return scene_of(node);
         node = next;
     }

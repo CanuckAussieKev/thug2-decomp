@@ -126,18 +126,18 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
     InboundMsgCtx context;
     std::array<uint8_t, kConnReceiveBufferSize> buffer{};
     construct_context(&context);
-    context.receiver_app_ = conn->owner_app_;
+    context.receiver_app_ = conn->owner_app();
     context.sender_conn_ = conn;
     context.wire_options_ = flags;
     context.body_ = buffer.data();
     context.body_size_ = 0;
-    void* metrics = &conn->receive_metrics_;
+    void* metrics = &conn->receive_metrics();
 
     // (the messages one after another: net_wire.h)
-    util::ByteReader packet(std::span<const uint8_t>(conn->incoming_.filled()));
+    util::ByteReader packet(std::span<const uint8_t>(conn->incoming().filled()));
     for (; packet.ok() && packet.remaining() > 0; packet.skip(context.body_size_)) {
         context.type_code_ = packet.u8();
-        Hub* table = fetch_hub(conn->owner_app_);
+        Hub* table = fetch_hub(conn->owner_app());
         const bool has_length = !(message_flags(table, context.type_code_) & kMsgNoLength);
         if (has_length) {
             context.body_size_ = packet.u16();
@@ -161,7 +161,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
             context.wire_options_ |= kPacketForeign;
         const int result = dispatch_msg(&context);
         if (result == kResultFailed || result == kResultStop) {
-            conn->incoming_.used = 0;
+            conn->incoming().used = 0;
             return kResultStop;
         }
         if (result == kResultMsgFreed)
@@ -179,10 +179,10 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
             desc.content_ = &sequence;
             desc.byte_count_ = sizeof(sequence);
             desc.ident_ = kMsgAck;
-            put_on_outbox(context.receiver_app_, context.sender_conn_->hdl_, &desc);
+            put_on_outbox(context.receiver_app_, context.sender_conn_->hdl(), &desc);
         }
     }
-    conn->incoming_.used = 0;
+    conn->incoming().used = 0;
     return kResultPassOn;
 }
 

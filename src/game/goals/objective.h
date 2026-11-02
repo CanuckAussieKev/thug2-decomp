@@ -67,6 +67,26 @@ public:
         kStateNoTimeLimit = 0x10,
     };
 
+    // The fields other code reads and sets.
+    [[nodiscard]] ObjectiveNpc* ped() const { return static_cast<ObjectiveNpc*>(ped_); } // (a view: it stays the owner's)
+    script::StructPtr& args() { return args_; }
+    [[nodiscard]] const script::StructPtr& args() const { return args_; }
+    [[nodiscard]] script::Struct* goal_flags() const { return static_cast<script::Struct*>(goal_flags_); } // (a view: it stays the owner's)
+    [[nodiscard]] int run_ending() const { return run_ending_; }
+    void set_run_ending(int value) { run_ending_ = value; }
+    [[nodiscard]] GoalEdge* sub_nodes() const { return sub_nodes_; }
+    [[nodiscard]] GoalEdge* parents() const { return parents_; }
+    [[nodiscard]] uint32_t skater() const { return skater_; }
+    [[nodiscard]] int record_points() const { return record_points_; }
+    void set_record_points(int value) { record_points_ = value; }
+    [[nodiscard]] int seconds_remaining() const { return seconds_remaining_; }
+    [[nodiscard]] int num_flags_set() const { return num_flags_set_; }
+    uint8_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint8_t flag_bits() const { return flag_bits_; }
+    uint8_t& cur_phase() { return cur_phase_; }
+    [[nodiscard]] uint8_t cur_phase() const { return cur_phase_; }
+
+private:
     // +0x04: the goal's node in the goal manager's list of active goals (data this, priority 0, linked to itself while
     // not in the list; Deactivate unlinks it). (The original's goal was its own node: the node's table word was the
     // goal's vtable; here the vptr is at +0 and the node follows it, in the original's place.)
@@ -96,6 +116,8 @@ public:
     uint8_t flag_bits_; // +0x6C (Flags)
     uint8_t cur_phase_; // +0x6D (State)
     std::array<uint8_t, 2> pad6e_{};
+
+public:
 
     // 0x00556FE0: a copy of `params` (the goal's own), its pro, an empty flags structure, the links' first entries,
     // the career's level, group_number, the goal flags, single_timer / retry_stage (passed to the children), skater,

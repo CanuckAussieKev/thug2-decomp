@@ -226,25 +226,25 @@ void FootMovement::update_camera_override()
     const maths::Vec4& facing = facing_;
     switch (anim_state_) {
     case kAnimWait: {
-        camera->override_ = true;
+        camera->set_override(true);
         // (while hang-moving, the hang move's facing)
-        camera->forced_heading_ = anim_waiting_ ? transition_facing_ : facing;
-        camera->override_rate_ = kCameraRate;
+        camera->forced_heading() = anim_waiting_ ? transition_facing_ : facing;
+        camera->set_override_rate(kCameraRate);
         return;
     }
     case kHangMoveRight: {
         // The facing turned 0.95 radians about y (sin / cos stored as floats, the sums rounded once).
         auto sine = static_cast<float>(std::sin(kHangTurn));
         auto cosine = static_cast<float>(std::cos(kHangTurn));
-        camera->override_ = true;
-        maths::Vec4& target = camera->forced_heading_;
+        camera->set_override(true);
+        maths::Vec4& target = camera->forced_heading();
         const float x = facing.x;
         const float z = facing.z;
         target.x = static_cast<float>(static_cast<double>(z) * sine + static_cast<double>(cosine) * x);
         target.y = facing.y;
         target.z = static_cast<float>(-(static_cast<double>(x) * sine) + static_cast<double>(z) * cosine);
         target.w = facing.w;
-        camera->override_rate_ = kCameraRate;
+        camera->set_override_rate(kCameraRate);
         return;
     }
     case kHangMoveLeft: {
@@ -259,12 +259,12 @@ void FootMovement::update_camera_override()
     case kLadderMoveUp:
     case kLadder:
     case kLadderMoveDown:
-        camera->override_ = true;
-        camera->forced_heading_ = facing;
-        camera->override_rate_ = kCameraRate;
+        camera->set_override(true);
+        camera->forced_heading() = facing;
+        camera->set_override_rate(kCameraRate);
         return;
     default:
-        camera->override_ = false;
+        camera->set_override(false);
         return;
     }
 }
@@ -438,7 +438,7 @@ void FootMovement::go_to_air_for(void*) { go_to_air(); }
 // 0x0052D4B0
 void FootMovement::tick_frame()
 {
-    if (jump_held_ && !input_->pad_primary_.stick_click_left_.held_down_)
+    if (jump_held_ && !input_->pad_primary_.stick_click_left().held_down_)
         jump_held_ = false;
     const uint32_t previous_anim = anim_state_;
     previous_anim_state_ = previous_anim;
@@ -596,7 +596,7 @@ void FootMovement::update_air()
         return;
 
     // Grabbing a ledge or a ladder (not again within rehang_delay of letting go of one).
-    if (pad->shoulder_right_a_.held_down_ && !jump_held_) {
+    if (pad->shoulder_right_a().held_down_ && !jump_held_) {
         const int previous = previous_state_;
         bool grab = true;
         if (previous == 2 || previous == 3 || previous == 4) {
@@ -610,7 +610,7 @@ void FootMovement::update_air()
         }
     }
     clear_current_cache();
-    if (pad->button_wedge_.held_down_ && try_grind())
+    if (pad->button_wedge().held_down_ && try_grind())
         return;
     if (skater::try_walk_acid_drop(this)) // (an acid drop)
         return;
@@ -777,7 +777,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         if (stop)
             velocity = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         critical_point_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-        input_->pad_primary_.pos_x_.forget_let_go(); // (a button's release taken)
+        input_->pad_primary_.pos_x().forget_let_go(); // (a button's release taken)
         anim_state_ = kLand;
     }
     release_hit(feeler);
@@ -841,7 +841,7 @@ void FootMovement::settle_onto_floor()
             return;
         }
     }
-    if (input_->pad_primary_.button_wedge_.held_down_) {
+    if (input_->pad_primary_.button_wedge().held_down_) {
         maths::Vec4& old_position = old_pos_;
         if (position == old_position)
             old_position.y += kNudge; // (so the two differ)
@@ -944,7 +944,7 @@ void FootMovement::get_jump()
     case 0:
     case 1: {
         const float hold = walk_parameter(kHoldTimeForMaxJump);
-        auto* button = &input_->pad_primary_.pos_x_;
+        auto* button = &input_->pad_primary_.pos_x();
         const double held = static_cast<uint32_t>(button->get_held_millis()) / static_cast<double>(hold);
         const float t = held > 1.0 ? 1.0f : static_cast<float>(held);
         const float minimum = walk_parameter(kMinJumpFactor);
@@ -1263,7 +1263,7 @@ bool FootMovement::update_contacts()
         } else {
             barrier_timed_ = false;
         }
-        if (input_->pad_primary_.shoulder_right_a_.held_down_ && !jump_held_ && climb_onto_bottom(true)) {
+        if (input_->pad_primary_.shoulder_right_a().held_down_ && !jump_held_ && climb_onto_bottom(true)) {
             release_hit(feeler);
             return false;
         }

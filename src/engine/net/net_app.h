@@ -251,6 +251,42 @@ struct AppHost {
     // 0x0045B2F0 (ids 0xE, 0xF): a stream's start and its pieces; the whole message is dispatched when complete.
     static int drain_stream_msgs(InboundMsgCtx* context);
 
+    // The fields other code reads and sets.
+    uint32_t& clock() { return clock_; }
+    [[nodiscard]] uint32_t clock() const { return clock_; }
+    Router& dispatcher() { return dispatcher_; }
+    [[nodiscard]] const Router& dispatcher() const { return dispatcher_; }
+    int& outbound_byte_total() { return outbound_byte_total_; }
+    [[nodiscard]] int outbound_byte_total() const { return outbound_byte_total_; }
+    int& inbound_byte_total() { return inbound_byte_total_; }
+    [[nodiscard]] int inbound_byte_total() const { return inbound_byte_total_; }
+    int& skipped_stamps() { return skipped_stamps_; }
+    [[nodiscard]] int skipped_stamps() const { return skipped_stamps_; }
+    int& stale_arrivals() { return stale_arrivals_; }
+    [[nodiscard]] int stale_arrivals() const { return stale_arrivals_; }
+    int& repeat_arrivals() { return repeat_arrivals_; }
+    [[nodiscard]] int repeat_arrivals() const { return repeat_arrivals_; }
+    [[nodiscard]] int frame_count() const { return frame_count_; }
+    memory::ListNode& list1414() { return list1414_; }
+    [[nodiscard]] const memory::ListNode& list1414() const { return list1414_; }
+    [[nodiscard]] uint32_t sock() const { return sock_; }
+    [[nodiscard]] bool linked_up() const { return linked_up_; }
+    void set_linked_up(bool value) { linked_up_ = value; }
+    [[nodiscard]] Hub* supervisor() const { return supervisor_; }
+    void set_supervisor(Hub* value) { supervisor_ = value; }
+    void set_send_task(std::unique_ptr<tasks::SchedulerTask> value); // (net_app.cpp: the task type is complete there)
+    void set_peer_cap(int value) { peer_cap_ = value; }
+    std::array<uint8_t, 0x514>& receive_buffer() { return receive_buffer_; }
+    [[nodiscard]] const std::array<uint8_t, 0x514>& receive_buffer() const { return receive_buffer_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] const UnknownPacketCallback& unknown_packet_sink() const { return unknown_packet_sink_; }
+    memory::ListNode& circuits() { return circuits_; }
+    [[nodiscard]] const memory::ListNode& circuits() const { return circuits_; }
+    void set_unknown1eb4(uint32_t value) { unknown1eb4_ = value; }
+    std::array<char, 0x48>& label() { return label_; }
+    [[nodiscard]] const std::array<char, 0x48>& label() const { return label_; }
+
+private:
     uint32_t unknown4_{};     // +0x0004
     uint32_t clock_;          // +0x0008 the current time (ms)
     Router dispatcher_{};     // +0x000C (wt/netC)

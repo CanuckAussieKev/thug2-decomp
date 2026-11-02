@@ -35,7 +35,7 @@ bool SkateLineGoal::land()
 {
     if (!requires_combo())
         return false;
-    if (!args_->has_bare_flag(kRequiresLine))
+    if (!args()->has_bare_flag(kRequiresLine))
         return false;
     GoalManager* manager = get_objective_board();
     if (has_every_bit())
@@ -48,16 +48,16 @@ bool SkateLineGoal::land()
 void SkateLineGoal::next_cluster()
 {
     script::Array* objects = nullptr;
-    args_->fetch_list(kGoalObjects, &objects, 1);
-    auto* cluster = objects->struct_at(static_cast<uint32_t>(num_flags_set_));
+    args()->fetch_list(kGoalObjects, &objects, 1);
+    auto* cluster = objects->struct_at(static_cast<uint32_t>(num_flags_set()));
     int time = 0;
     if (cluster->fetch_int_value(kTime, &time, 1))
         set_seconds_remaining(time);
     const script::StructPtr params = script::make_struct();
-    params->append_structure_if_any(args_.get());
+    params->append_structure_if_any(args().get());
     params->append_structure_if_any(cluster);
-    params->put_int(kGoalObjectsIndex, num_flags_set_);
-    if (num_flags_set_ == 1)
+    params->put_int(kGoalObjectsIndex, num_flags_set());
+    if (num_flags_set() == 1)
         params->put_sub_struct(kFirstSpotParams, objects->struct_at(0));
     script::launch_script(kNextCluster, params.get(), nullptr, false, nullptr);
 }
@@ -70,9 +70,9 @@ bool SkateLineGoal::set_flag(uint32_t flag, int value, uint32_t sub)
     if (has_every_bit() && requires_combo())
         return false;
     script::Array* objects = nullptr;
-    args_->fetch_list(kGoalObjects, &objects, 1);
+    args()->fetch_list(kGoalObjects, &objects, 1);
     uint32_t cluster_flag = 0;
-    objects->struct_at(static_cast<uint32_t>(num_flags_set_))
+    objects->struct_at(static_cast<uint32_t>(num_flags_set()))
         ->read_hash_value(kFlag, &cluster_flag, 1);
     bool set = false;
     if (cluster_flag != flag)

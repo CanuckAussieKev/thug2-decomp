@@ -53,8 +53,8 @@ void perfect_cheat(uint32_t cheat, objects::Balance& balance)
     if (!get_career()->is_code_on(cheat))
         return;
     get_career()->set_global_flag(script::fetch_int_value(cheat));
-    balance.lean_ = 0.0f;
-    balance.lean_speed_ = 0.0f;
+    balance.set_lean(0.0f);
+    balance.set_lean_speed(0.0f);
     online::net_game_state().set_cheat_flag(true);
 }
 

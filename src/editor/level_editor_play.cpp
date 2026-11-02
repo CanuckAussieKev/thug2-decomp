@@ -122,7 +122,7 @@ void tick_frame(modules::FrontEnd* front_end)
     const bool down = get_key_down(keys);
     const bool pressed = down && play_start().key_up_;
     play_start().key_up_ = !down;
-    const bool paused = front_end && front_end->is_halted_;
+    const bool paused = front_end && front_end->is_halted();
     const bool in_level = render::current_level() != 0 && objects::find_object(kSkater) != nullptr;
     switch (play_start().phase_) {
     case Phase::kUnpause:

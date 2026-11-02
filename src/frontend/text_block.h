@@ -53,6 +53,7 @@ public:
     // 0x004B1540: each line takes the block's blur, shadow (offset, colour) and encoded colour override.
     void update_lines();
 
+private:
     uint32_t font_name_{0};               // +0x178
     char** lines_{};                      // +0x17C (while the lines are made: 30 of 0x60 characters)
     int num_lines_{};                     // +0x180 lines made

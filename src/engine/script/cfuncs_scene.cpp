@@ -290,7 +290,7 @@ bool cfunc_unload_scene(Struct* params, Script*)
         else
             scene = first_scene();
         if (scene) {
-            void* textures = static_cast<render::WorldScene*>(scene)->texture_set_;
+            void* textures = static_cast<render::WorldScene*>(scene)->texture_set();
             unload_scene(scene, 1);
             if (textures)
                 unload_tex_dict(textures);

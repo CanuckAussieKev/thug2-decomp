@@ -57,6 +57,11 @@ public:
     // the 9 field bits, the changed fields; recorded as sent.
     void send_update();
 
+    // The fields other code reads and sets.
+    [[nodiscard]] RiderPoseState* pose() const { return pose_; }
+    [[nodiscard]] skater::SkaterPhysicsModule* board() const { return board_; }
+
+private:
     uint32_t last_transmit_at_{0}; // +0x18 the client app's time when the last update went
     uint8_t sent_value_7c_{0xFF};  // +0x1C (the core component's +0xE1)
     uint8_t pad1d_{};

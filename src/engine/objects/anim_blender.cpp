@@ -59,7 +59,7 @@ constexpr float kMinWeight = 0.00001f;
 bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 
 using Channel = gfx::BlendChannel;
-memory::ListNode* get_link(Channel* channel) { return &channel->list_link_; }
+memory::ListNode* get_link(Channel* channel) { return &channel->list_link(); }
 // (a channel's node's data is the channel - the original took the node's address as it)
 Channel* as_channel(memory::ListNode* node) { return static_cast<Channel*>(node->data); }
 // A node as the original masks it: null when it's the head.
@@ -69,7 +69,7 @@ memory::ListNode* get_next(Channel* channel) { return get_link(channel)->next; }
 // The walks' end test: the head or null.
 bool is_over(memory::ListNode* node) { return is_head(node) || !node; }
 
-uint32_t& ident_no(Channel* channel) { return channel->ident_; }
+uint32_t& ident_no(Channel* channel) { return channel->ident(); }
 
 // A bool read from a 32-bit argument slot as the callee does: its low byte (the callers pass raw words).
 bool bool_arg(uint32_t word) { return (word & 0xFF) != 0; }
@@ -121,19 +121,19 @@ void AnimBlenderComponent::tick_frame()
     if (!channel)
         return;
     for (;;) {
-        if (!(channel->ongoing_ >= kMinWeight) && count != 0) {
+        if (!(channel->ongoing() >= kMinWeight) && count != 0) {
             // a channel after the first with (next to) no weight: only reset
             channel->update_blend();
             channel->update_timelines();
-            core::at(gfx::blend_sets(), count) = static_cast<uint32_t>(channel->rank_);
+            core::at(gfx::blend_sets(), count) = static_cast<uint32_t>(channel->rank());
             if (!(highest_set > core::at(gfx::blend_sets(), count)))
                 highest_set = core::at(gfx::blend_sets(), count);
             core::at(gfx::blend_weights(), count) = 0.0f;
         } else {
             if (channel->tick_frame(count, ready))
                 changed = true;
-            core::at(gfx::blend_weights(), count) = channel->ongoing_;
-            core::at(gfx::blend_sets(), count) = static_cast<uint32_t>(channel->rank_);
+            core::at(gfx::blend_weights(), count) = channel->ongoing();
+            core::at(gfx::blend_sets(), count) = static_cast<uint32_t>(channel->rank());
             if (!(highest_set > core::at(gfx::blend_sets(), count)))
                 highest_set = core::at(gfx::blend_sets(), count);
         }
@@ -222,7 +222,7 @@ int AnimBlenderComponent::add_channel_from_script(uint32_t, script::Struct* para
     uint32_t id = 0;
     const Channel* first = masked(lanes_.next);
     params->read_hash_value(kId, &id, 0);
-    params->put_name_key(0x52A864B0, first->lookup_key_);
+    params->put_name_key(0x52A864B0, first->lookup_key());
     const bool at_front = params->has_bare_flag(0x580C0963);
     Channel* channel = add_channel(id, at_front);
     channel->configure_from_data(params);
@@ -412,17 +412,17 @@ bool AnimBlenderComponent::all_channels_flag29()
 {
     bool all = true;
     for (memory::ListNode* node = lanes_.next; !is_over(node); node = node->next)
-        all = all && ((as_channel(node)->flag_bits_ >> 29) & 1);
+        all = all && ((as_channel(node)->flag_bits() >> 29) & 1);
     return all;
 }
 
 // 0x00419CA0
 bool AnimBlenderComponent::model_ready()
 {
-    const render::RenderModel* thing = core::down_cast<MeshInstanceModule>(mesh_instance_)->mesh_instance_.get();
+    const render::RenderModel* thing = core::down_cast<MeshInstanceModule>(mesh_instance_)->mesh_instance().get();
     if (!thing)
         return false;
-    const uint8_t flags = thing->flag_bits_;
+    const uint8_t flags = thing->flag_bits();
     return (flags & 2) && !(flags & 4);
 }
 
@@ -488,14 +488,14 @@ void AnimBlenderComponent::set_flag_4c(bool value)
 uint32_t AnimBlenderComponent::get_anim_set()
 {
     const Channel* channel = masked(lanes_.next);
-    return channel ? channel->lookup_key_ : 0;
+    return channel ? channel->lookup_key() : 0;
 }
 
 // 0x00419AD0
 uint32_t AnimBlenderComponent::get_first_channel58()
 {
     const Channel* channel = masked(lanes_.next);
-    return channel ? channel->event_table_ : 0;
+    return channel ? channel->event_table() : 0;
 }
 
 // 0x00419AF0
@@ -525,7 +525,7 @@ float AnimBlenderComponent::get_timeline18()
     const Channel* channel = masked(lanes_.next);
     if (!channel)
         return 0.0f;
-    memory::ListNode* timeline = channel->timelines_.next;
+    memory::ListNode* timeline = channel->timelines().next;
     if (is_over(timeline))
         return 0.0f;
     return static_cast<gfx::AnimTimeline*>(timeline->data)->ongoing_;
@@ -537,7 +537,7 @@ uint32_t AnimBlenderComponent::get_timeline30()
     const Channel* channel = masked(lanes_.next);
     if (!channel)
         return 0;
-    memory::ListNode* timeline = channel->timelines_.next;
+    memory::ListNode* timeline = channel->timelines().next;
     if (is_over(timeline))
         return 0;
     return static_cast<gfx::AnimTimeline*>(timeline->data)->anim_;
@@ -550,7 +550,7 @@ void AnimBlenderComponent::get_times(float* start, float* current, float* end)
     if (!channel)
         return;
     float s = 0.0f, c = 0.0f, e = 0.0f;
-    memory::ListNode* timeline = channel->timelines_.next;
+    memory::ListNode* timeline = channel->timelines().next;
     if (!is_over(timeline))
         static_cast<gfx::AnimTimeline*>(timeline->data)->get_times(&s, &c, &e);
     *start = s;
@@ -564,7 +564,7 @@ void get_channel_times(gfx::BlendChannel* channel, float* start, float* current,
     *start = 0.0f;
     *current = 0.0f;
     *end = 0.0f;
-    memory::ListNode* timeline = channel->timelines_.next;
+    memory::ListNode* timeline = channel->timelines().next;
     if (!is_over(timeline))
         static_cast<gfx::AnimTimeline*>(timeline->data)->get_times(start, current, end);
 }

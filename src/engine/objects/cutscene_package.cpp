@@ -193,16 +193,16 @@ bool CinematicEntry::read_in(script::Struct* params)
                 CinematicTable* data = content_;
                 auto seconds = static_cast<float>(start * static_cast<double>(0.0010000000474974513f));
                 audio::pause_music(1);
-                data->unknown3474_ = 1;
-                data->clock_ = seconds;
+                data->set_unknown3474(1);
+                data->set_clock(seconds);
             }
             float loop = 0.0f;
             if (params->fetch_float(kLoopLength, &loop, 0)) {
                 loop = static_cast<float>(loop * static_cast<double>(0.0010000000474974513f));
                 CinematicTable* data = content_;
-                data->unknown3474_ = 1;
-                data->loop_start_ = data->clock_;
-                data->unknown348c_ = static_cast<float>(static_cast<double>(loop) + data->clock_);
+                data->set_unknown3474(1);
+                data->set_loop_start(data->clock());
+                data->set_unknown348c(static_cast<float>(static_cast<double>(loop) + data->clock()));
                 audio::pause_music(1);
             }
             if (script::Array* subtitles = script::fetch_list(checksums::fold_text_into_checksum(name, "_subtitles")))
@@ -369,7 +369,7 @@ void CinematicTable::load_from_bundle()
         bundle_ptr_->free_asset(entry->name, entry->type);
     }
     if (!call_args_->fetch_float(kEndTime, &end_time_, 0))
-        end_time_ = (flag_34b_0_ ? camera_anim_ : anim_list_)->duration_;
+        end_time_ = (flag_34b_0_ ? camera_anim_ : anim_list_)->duration();
 }
 
 // A model in the bundle (with its textures, a skinned model's colours): loaded unless it's a skin variant that

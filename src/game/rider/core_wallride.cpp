@@ -320,7 +320,7 @@ void SkaterPhysicsModule::step_wall_ride()
             return;
     }
 
-    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary_.pos_x_.held_down_)
+    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary_.pos_x().held_down_)
         set_flag(this, PoseFlag::kCrouched, 1);
     // Jumping off: out from the wall and up, upright.
     if (jump_released()) {

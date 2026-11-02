@@ -424,9 +424,9 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
             return found(objects::get_spawn_node(kTeam, 0, 0));
         if (goals::game_mode()->get_name_key() == kNetCtf) {
             auto* local = as_player(net->get_own_player());
-            if (!local || static_cast<uint32_t>(local->team_) > 3)
+            if (!local || static_cast<uint32_t>(local->team()) > 3)
                 return generic();
-            return core::at(kTeamRestarts, local->team_);
+            return core::at(kTeamRestarts, local->team());
         }
         if (goals::game_mode()->get_name_key() == kNetScavengerHunt) {
             auto* local = as_player(net->get_own_player());
@@ -434,7 +434,7 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
                 return generic();
             goals::Objective* hunt = goals::get_objective_board()->get_goal(kScavenger, 1);
             const int team =
-                hunt->is_operative() ? local->team_ : (local->team_ + 1) % goals::game_mode()->current_num_teams();
+                hunt->is_operative() ? local->team() : (local->team() + 1) % goals::game_mode()->current_num_teams();
             if (static_cast<uint32_t>(team) > 3)
                 return generic();
             return core::at(kTeamRestarts, team);
@@ -698,9 +698,9 @@ void Skate::update_records()
     new_record_ |= high_scores->try_insert_entry(score->get_total_score(), 0) != -1;
     new_record_ |= records->best_combos_->try_insert_entry(score->top_chain(), 0) != -1;
     auto* balance = core::down_cast<objects::RiderTeeterMoves>(skater->fetch_module(kSkaterBalanceTrick));
-    const float grind = balance->grind_.best_time_; // (the longest grind, manual and lip trick: seconds)
-    const float manual = balance->manual_.best_time_;
-    const float lip_trick = balance->lip_.best_time_;
+    const float grind = balance->grind_.best_time(); // (the longest grind, manual and lip trick: seconds)
+    const float manual = balance->manual_.best_time();
+    const float lip_trick = balance->lip_.best_time();
     const int tricks = score->best_tricks();
     new_record_ |= records->grind_record_->try_beat_record(ftol(static_cast<double>(grind) * 100.0), 0);
     new_record_ |= records->longest_manual_->try_beat_record(ftol(static_cast<double>(manual) * 100.0), 0);
@@ -945,7 +945,7 @@ void Skate::run_frame_logic()
                     net->disconnect_clients();
                 }
             }
-            params->put_int(kDeviceNum, device->dev_->port_no_);
+            params->put_int(kDeviceNum, device->dev_->port_no());
             script::launch_script(kControllerUnplugged, params, nullptr, false, nullptr);
             script::free_struct(params);
             ++unplugged_frames_;
@@ -979,7 +979,7 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     score->set_grand_total(total -
                            ftol(frame_clock::get_slomo_frame_seconds() * 60.0 * static_cast<double>(-16.666666f)));
     const int target = goals::game_mode()->get_first_condition_value();
-    const int current = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? net->get_squad_points(king->team_)
+    const int current = static_cast<uint8_t>(goals::game_mode()->is_squad_match()) ? net->get_squad_points(king->team())
                                                                                 : score->get_total_score();
     skate->timer_beep(static_cast<float>(static_cast<double>(target - current) * static_cast<double>(0.001f)), 10.0f,
                       10.0f, "timer_runout_beep"); // "timer_runout_beep"

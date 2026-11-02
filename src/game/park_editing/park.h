@@ -813,6 +813,16 @@ public:
     // 0x00594C70: unload_pieces, and the source rails freed (the argument unused)
     void sweep_up(int type);
 
+    // The fields other code reads and sets.
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] ParkTile* pieces() const { return pieces_; }
+    void set_pieces(ParkTile* value) { pieces_ = value; }
+    [[nodiscard]] render::WorldScene* scene_handle() const { return scene_handle_; }
+    std::optional<assets::NodeTableResource>& node_table() { return node_table_; }
+    [[nodiscard]] const std::optional<assets::NodeTableResource>& node_table() const { return node_table_; }
+
+private:
     uint32_t flag_bits_; // +0x000
     uint32_t field_04_;
     ParkTile* pieces_;      // +0x008
@@ -837,12 +847,16 @@ public:
     // +0x440: the node array's owner (made by the constructor, destroyed first by the destructor - the original made
     // it in place in its storage)
     std::optional<assets::NodeTableResource> node_table_;
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ParkAssembler, source_rails_) == 0x24 && offsetof(ParkAssembler, rails_) == 0x58 &&
+                          offsetof(ParkAssembler, node_info_) == 0x8C && offsetof(ParkAssembler, restarts_) == 0x98 &&
+                          offsetof(ParkAssembler, light_total_) == 0x320 && offsetof(ParkAssembler, lights_) == 0x33C &&
+                          offsetof(ParkAssembler, field_43c_) == 0x43C,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ParkAssembler, source_rails_) == 0x24 && offsetof(ParkAssembler, rails_) == 0x58 &&
-                  offsetof(ParkAssembler, node_info_) == 0x8C && offsetof(ParkAssembler, restarts_) == 0x98 &&
-                  offsetof(ParkAssembler, light_total_) == 0x320 && offsetof(ParkAssembler, lights_) == 0x33C &&
-                  offsetof(ParkAssembler, field_43c_) == 0x43C,
-              "layout must match the original");
 
 // What rebuild_floor_piece is asked (0x1C bytes): the cell and its floor height; it says where the top piece went.
 struct FloorPieceRequest {
@@ -1082,6 +1096,18 @@ public:
     uint32_t& current_flags() { return flag_bits_; }
     int& num_sets() { return num_sets_; }
 
+    // The fields other code reads and sets.
+    [[nodiscard]] ParkAssembler* builder() const { return builder_; }
+    [[nodiscard]] MapListNode* concrete_metas() const { return concrete_metas_; }
+    CellBox& build_area() { return build_area_; }
+    [[nodiscard]] const CellBox& build_area() const { return build_area_; }
+    [[nodiscard]] const CellBox& shell_bounds() const { return shell_bounds_; }
+    std::array<PieceFamily, kMaxSets>& sets() { return sets_; }
+    [[nodiscard]] const std::array<PieceFamily, kMaxSets>& sets() const { return sets_; }
+    [[nodiscard]] int num_sets() const { return num_sets_; }
+    [[nodiscard]] const std::array<uint32_t, kNumRestartPieces>& restart_pieces() const { return restart_pieces_; }
+
+private:
     ParkAssembler* builder_; // +0x00
     bool park_built_;        // +0x04: the park is built (its changes go into the map when asked)
     bool field_05_;          // +0x05: the floor is built
@@ -1116,17 +1142,21 @@ public:
 
 private:
     void read_compressed_map(script::Array* names, bool current);
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(ParkLayout, shell_blocks_) == 0x14 && offsetof(ParkLayout, concrete_metas_) == 0x7C &&
+                          offsetof(ParkLayout, cell_metas_) == 0x8C && offsetof(ParkLayout, shell_size_) == 0x351C &&
+                          offsetof(ParkLayout, floor_) == 0x352C && offsetof(ParkLayout, sets_) == 0x1076C &&
+                          offsetof(ParkLayout, num_sets_) == 0x13C8C && offsetof(ParkLayout, map_) == 0x13C90 &&
+                          offsetof(ParkLayout, flag_bits_) == 0x17728 && offsetof(ParkLayout, blocked_areas_) == 0x1776C &&
+                          offsetof(ParkLayout, num_blocked_areas_) == 0x1779C &&
+                          offsetof(ParkLayout, restart_pieces_) == 0x177A4 && offsetof(ParkLayout, gap_registry_) == 0x177C4 &&
+                          sizeof(ParkLayout) == 0x177CC,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(ParkLayout, shell_blocks_) == 0x14 && offsetof(ParkLayout, concrete_metas_) == 0x7C &&
-                  offsetof(ParkLayout, cell_metas_) == 0x8C && offsetof(ParkLayout, shell_size_) == 0x351C &&
-                  offsetof(ParkLayout, floor_) == 0x352C && offsetof(ParkLayout, sets_) == 0x1076C &&
-                  offsetof(ParkLayout, num_sets_) == 0x13C8C && offsetof(ParkLayout, map_) == 0x13C90 &&
-                  offsetof(ParkLayout, flag_bits_) == 0x17728 && offsetof(ParkLayout, blocked_areas_) == 0x1776C &&
-                  offsetof(ParkLayout, num_blocked_areas_) == 0x1779C &&
-                  offsetof(ParkLayout, restart_pieces_) == 0x177A4 && offsetof(ParkLayout, gap_registry_) == 0x177C4 &&
-                  sizeof(ParkLayout) == 0x177CC,
-              "layout must match the original");
-inline std::span<PieceFamily> get_sets(ParkLayout* manager) { return manager->sets_; }
+inline std::span<PieceFamily> get_sets(ParkLayout* manager) { return manager->sets(); }
 
 // The cursor (200 bytes): the box the player moves over the grid, with the piece to place (or the copy to paste).
 
@@ -1264,6 +1294,19 @@ public:
     int& visible_set_slot() { return menu_index_; } // the set's place among the visible ones
     int& get_mode() { return mode_sel_; }           // 4: area selection, 5: clipboard
 
+    // The fields other code reads and sets.
+    [[nodiscard]] const CellBox& cell_footprint() const { return cell_footprint_; }
+    maths::Vec4& at_point() { return at_point_; }
+    [[nodiscard]] const maths::Vec4& at_point() const { return at_point_; }
+    [[nodiscard]] int quarter_turns() const { return quarter_turns_; }
+    [[nodiscard]] Clipboard* copy_buffers() const { return copy_buffers_; }
+    [[nodiscard]] int clipboard_height() const { return clipboard_height_; }
+    [[nodiscard]] int paste_set_index() const { return paste_set_index_; }
+    [[nodiscard]] int menu_index() const { return menu_index_; }
+    [[nodiscard]] int mode_sel() const { return mode_sel_; }
+    [[nodiscard]] const GapDetails& gap() const { return gap_; }
+
+private:
     ParkLayout* park_owner_; // +0x00
     CellBox cell_footprint_{}; // +0x04
     std::array<uint8_t, 2> pad0a_{};
@@ -1289,12 +1332,16 @@ public:
     int mode_sel_{kModeNone}; // +0x6C
     GapDetails gap_;          // +0x70
     uint32_t gap_counter_;    // +0xC4: names the next gap
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(BuildPointer, aim_point_) == 0x14 && offsetof(BuildPointer, piece_group_) == 0x44 &&
+                          offsetof(BuildPointer, area_start_) == 0x49 && offsetof(BuildPointer, area_highlighted_) == 0x55 &&
+                          offsetof(BuildPointer, copy_buffers_) == 0x58 && offsetof(BuildPointer, mode_sel_) == 0x6C &&
+                          offsetof(BuildPointer, gap_) == 0x70 && sizeof(BuildPointer) == 200,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(BuildPointer, aim_point_) == 0x14 && offsetof(BuildPointer, piece_group_) == 0x44 &&
-                  offsetof(BuildPointer, area_start_) == 0x49 && offsetof(BuildPointer, area_highlighted_) == 0x55 &&
-                  offsetof(BuildPointer, copy_buffers_) == 0x58 && offsetof(BuildPointer, mode_sel_) == 0x6C &&
-                  offsetof(BuildPointer, gap_) == 0x70 && sizeof(BuildPointer) == 200,
-              "layout must match the original");
 
 // Park editor script commands (park_cfuncs.cpp).
 // 0x0058E120 GetParkEditorMaxPlayers: <MaxPlayers> = the park's player count.

@@ -74,7 +74,7 @@ LetterGameObjective::~LetterGameObjective() = default;
 bool LetterGameObjective::wants_to_end()
 {
     int done = 0;
-    args_->fetch_int_value(kHorseRunDone, &done, 1);
+    args()->fetch_int_value(kHorseRunDone, &done, 1);
     return done == 1 ? false : Objective::wants_to_end();
 }
 
@@ -82,7 +82,7 @@ bool LetterGameObjective::wants_to_end()
 bool LetterGameObjective::has_run_out()
 {
     int done = 0;
-    args_->fetch_int_value(kHorseRunDone, &done, 1);
+    args()->fetch_int_value(kHorseRunDone, &done, 1);
     return done == 1 ? false : Objective::has_run_out();
 }
 
@@ -93,7 +93,7 @@ void LetterGameObjective::expire() { Objective::expire(); }
 void LetterGameObjective::land()
 {
     script::Array* spots = nullptr;
-    args_->fetch_list(kLetterSpots, &spots, 1);
+    args()->fetch_list(kLetterSpots, &spots, 1);
     const int count = static_cast<int>(spots->extent_);
     int i = 0;
     int score = 0; // (both set before they're read)
@@ -102,11 +102,11 @@ void LetterGameObjective::land()
         auto* spot = spots->struct_at(static_cast<uint32_t>(i));
         spot->read_hash_value(kFlag, &flag, 1);
         int set = 0;
-        goal_flags_->fetch_int_value(flag, &set, 1);
+        goal_flags()->fetch_int_value(flag, &set, 1);
         if (set)
             continue;
         if (!spot->fetch_int_value(kScore, &score, 0))
-            args_->fetch_int_value(kScore, &score, 1);
+            args()->fetch_int_value(kScore, &score, 1);
         break;
     }
     if (i == count)
@@ -124,19 +124,19 @@ void LetterGameObjective::land()
             manager->fail_objective(id);
         }
     }
-    args_->put_int(kHorseRunDone, 0);
+    args()->put_int(kHorseRunDone, 0);
 }
 
 // --- OnlineObjective -------------------------------------------------------------------------------------------------------
 
 // 0x00560AC0
-OnlineObjective::OnlineObjective(script::Struct* params) : Objective(params) { run_ending_ = 1; }
+OnlineObjective::OnlineObjective(script::Struct* params) : Objective(params) { set_run_ending(1); }
 
 // 0x00560AF0
 OnlineObjective::~OnlineObjective() = default;
 
 // 0x00560B00
-bool OnlineObjective::shows_clock() { return !(cur_phase_ & kStateNoTimeLimit); }
+bool OnlineObjective::shows_clock() { return !(cur_phase() & kStateNoTimeLimit); }
 
 // 0x00560B10
 bool OnlineObjective::timer_beeps()
@@ -188,25 +188,25 @@ bool OnlineObjective::wants_to_end()
     if (active_ruleset_label() == kNetGoalAttack)
         return goals_completed() && all_skaters_run_done();
     if (timed)
-        return seconds_remaining_ <= 0;
+        return seconds_remaining() <= 0;
     online::Hub* net = net_session_slot();
     PlayerSearch search;
     if (!net->count_players())
         return true;
-    if (cur_phase_ & kStateNoTimeLimit)
+    if (cur_phase() & kStateNoTimeLimit)
         return false;
     if (!net->final_scores_received() && net->in_net_game() && !scavenger)
         return false;
-    if (run_ending_ == 2)
-        return seconds_remaining_ <= 0;
-    if (all_skaters_run_done() && seconds_remaining_ <= 0)
+    if (run_ending() == 2)
+        return seconds_remaining() <= 0;
+    if (all_skaters_run_done() && seconds_remaining() <= 0)
         return true;
     for (void* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
         objects::Rider* skater = static_cast<online::PlayerRecord*>(player)->rider();
         auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
-        if (!end_run->run_done() && !skater->is_halted() && run_ending_ != 2 && seconds_remaining_ <= 0) {
-            flag_bits_ |= kFlagEndOfRunStarted;
+        if (!end_run->run_done() && !skater->is_halted() && run_ending() != 2 && seconds_remaining() <= 0) {
+            flag_bits() |= kFlagEndOfRunStarted;
             end_run->end_run(false);
         }
     }
@@ -217,7 +217,7 @@ bool OnlineObjective::wants_to_end()
 void OnlineObjective::expire()
 {
     online::Hub* net = net_session_slot();
-    if (!args_->has_bare_flag(kGameContinues))
+    if (!args()->has_bare_flag(kGameContinues))
         net->mark_match_ended();
     set_seconds_remaining(0);
     Objective::expire();
@@ -245,12 +245,12 @@ bool RaceObjective::activate()
 }
 
 // 0x00560F00
-bool RaceObjective::has_run_out() { return !(cur_phase_ & kStateNoTimeLimit) && seconds_remaining_ <= 0; }
+bool RaceObjective::has_run_out() { return !(cur_phase() & kStateNoTimeLimit) && seconds_remaining() <= 0; }
 
 // 0x00560F20
 bool RaceObjective::wants_to_end()
 {
-    if ((cur_phase_ & kStateNoTimeLimit) || seconds_remaining_ > 0)
+    if ((cur_phase() & kStateNoTimeLimit) || seconds_remaining() > 0)
         return false;
     Objective::wants_to_end();
     return true;
@@ -271,7 +271,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         return false;
     }
     script::Array* waypoints = nullptr;
-    args_->fetch_list(kRaceWaypoints, &waypoints, 1);
+    args()->fetch_list(kRaceWaypoints, &waypoints, 1);
     for (uint32_t i = 0; i < waypoints->extent_; ++i) {
         auto* waypoint = waypoints->struct_at(i);
         uint32_t flag = 0;
@@ -290,7 +290,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
             params->put_int(kStartLap, lap_);
         if (i == waypoints->extent_ - 1 && lap_ == laps_)
             params->put_name_key(kLastWaypoint, 1);
-        if (args_->has_bare_flag(kQuickStart))
+        if (args()->has_bare_flag(kQuickStart))
             params->put_name_key(0u, kQuickStart);
         else
             params->remove_flag(kQuickStart);
@@ -298,7 +298,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
             params->put_int(kFirstWaypoint, 1);
         } else {
             params->put_name_key(kScr, kCheckpointMessage);
-            if (!(cur_phase_ & kStateNoTimeLimit) && add_time_) {
+            if (!(cur_phase() & kStateNoTimeLimit) && add_time_) {
                 int time = 0;
                 waypoint->fetch_int_value(kTime, &time, 0);
                 advance_clock(time);
@@ -307,7 +307,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         }
         params->append_structure_if_any(waypoint);
         const char* goal_name = nullptr;
-        args_->fetch_text(kGoalName, &goal_name, 1);
+        args()->fetch_text(kGoalName, &goal_name, 1);
         std::array<char, 0x100> script_name{};
         text::format_to(script_name, "%s_next_waypoint_script_id",
                         goal_name); // "%s_next_waypoint_script_id"

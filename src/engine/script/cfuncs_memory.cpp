@@ -243,17 +243,17 @@ bool cfunc_dump_heaps(Struct* params, Script*)
         debug::printf("------------------------- ----- ----- ---- ------ ------\n");
     }
     for (memory::MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
-        memory::Zone* region = heap->region_;
+        memory::Zone* region = heap->region();
         const int minimum = region->min_available_; // (read before free_byte_count)
-        const int blocks = heap->used_blocks_;
+        const int blocks = heap->used_blocks();
         const int available = region->free_byte_count();
         if (bytes)
-            debug::printf("%23s: %8d %7d %7d %7d  %5d \n", heap->label_, heap->used_size_, heap->free_size_, available,
+            debug::printf("%23s: %8d %7d %7d %7d  %5d \n", heap->label(), heap->used_size(), heap->free_size(), available,
                           minimum,
                           blocks); // "%23s: %8d %7d %7d %7d  %5d \n"
         else
-            debug::printf("%23s: %5dK %4dK %4dK %4dK  %5d \n", heap->label_, heap->used_size_ / 1024,
-                          heap->free_size_ / 1024, available / 1024, minimum / 1024,
+            debug::printf("%23s: %5dK %4dK %4dK %4dK  %5d \n", heap->label(), heap->used_size() / 1024,
+                          heap->free_size() / 1024, available / 1024, minimum / 1024,
                           blocks); // "%23s: %5dK %4dK %4dK %4dK  %5d \n"
     }
     const int sound_free = free_sound_memory();

@@ -61,7 +61,7 @@ render::BlobShadow* as_blob(render::ShadowBase* shadow) { return core::down_cast
 // simple shadow's first scale), its checksum (+0x30) and its +0x2C object (vtable slot 5 gives a vector).
 render::RenderModel* model_of(ObjectModule* component)
 {
-    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get();
+    return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
 }
 // 0x004949B0 (not rewritten yet): whether the model casts a shadow (its flag 0x10).
 void set_model_shadow(render::RenderModel* model, bool on) { model->activate_shadow(on); }
@@ -96,7 +96,7 @@ GroundShadowModule::~GroundShadowModule()
 void GroundShadowModule::seal()
 {
     mesh_instance_ = entity_->fetch_module(kModel);
-    const uint32_t checksum = model_of(mesh_instance_)->source_path_;
+    const uint32_t checksum = model_of(mesh_instance_)->source_path();
     const void* asset = assets::asset_manager()->get_asset_data(checksum, 0);
     if (shadow_handle_)
         shadow_handle_->change_mesh(model_of(mesh_instance_), static_cast<const render::SubMesh*>(asset));
@@ -110,7 +110,7 @@ void GroundShadowModule::refresh_shadow()
     const render::RenderModel* model = model_of(mesh_instance_);
     if (!model)
         return;
-    const uint8_t flags = model->flag_bits_;
+    const uint8_t flags = model->flag_bits();
     if (!(flags & 0x2) || (flags & 0x4)) {
         shadow_handle_->hide();
         return;
@@ -121,7 +121,7 @@ void GroundShadowModule::refresh_shadow()
         const maths::Vec4 above = object->at_point_ + core::at(object->basis_frame_.row, 1) * kDetailedHeight;
         // (the model's lights' first direction - their slot 5 -, turned round - and not used)
         if (auto* lights =
-                (model->lights_ptr_.get())) {
+                (model->lights_ptr().get())) {
             const maths::Vec4* v = lights->read_light_aim(0);
             const maths::Vec4 unused = *v * -1.0f;
             (void)unused;
@@ -130,7 +130,7 @@ void GroundShadowModule::refresh_shadow()
         break;
     }
     case kShadowSimple:
-        as_blob(shadow_handle_.get())->size_factor_ = model->size_factor_.x;
+        as_blob(shadow_handle_.get())->size_factor_ = model->size_factor().x;
         [[fallthrough]];
     case kShadowVolume:
         shadow_handle_->tick_frame(&at_point_, &entity_->basis_frame_, surface_dir_);
@@ -167,7 +167,7 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     case kShadowSimple: {
         auto shadow = memory::make_owned_value<render::BlobShadow>();
         // (no shadow - out of memory - is written through regardless, as the original)
-        shadow->size_factor_ = model->size_factor_.x;
+        shadow->size_factor_ = model->size_factor().x;
         shadow->load_mesh(model_name);
         shadow_handle_.reset(shadow);
         break;

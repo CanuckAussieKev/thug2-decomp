@@ -70,9 +70,9 @@ void add_bone(std::span<float, 6> blended, const SkinVertex& v, uint8_t bone, fl
 // exactly 1 - scaled by it and the others' added (the third's only when its weight isn't 0).
 void get_skin(MeshRef* mesh, uint8_t* out, int bones)
 {
-    const gpu::VertexView vertices(mesh->per_vertex_data_, sizeof(SkinVertex), mesh->vertex_count_); // (the CPU copy: SkinVertex records)
-    const gpu::VertexWriter written(out, mesh->stride, mesh->vertex_count_);
-    for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
+    const gpu::VertexView vertices(mesh->per_vertex_data(), sizeof(SkinVertex), mesh->vertex_count()); // (the CPU copy: SkinVertex records)
+    const gpu::VertexWriter written(out, mesh->stride_value(), mesh->vertex_count());
+    for (uint32_t i = 0; i < mesh->vertex_count(); ++i) {
         const auto vertex = vertices.value<SkinVertex>(i, 0);
         const SkinVertex* v = &vertex;
         std::array<float, 6> blended{};
@@ -87,15 +87,15 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
         }
         written.set_floats<6>(i, 0, blended); // the position and normal
         written.set_word(i, 0x18, v->color);
-        for (uint32_t k = 0; k < 2 * mesh->unknowna4_; ++k)
+        for (uint32_t k = 0; k < 2 * mesh->unknowna4(); ++k)
             written.set_value(i, 0x1C + 4 * k, core::at(v->uv, k));
     }
 }
 
 // The index buffers and their counts by level (the original read a level past the eighth on into the fields after
 // them: here it stops the game with a report).
-IdxStore* index_buffer_at(MeshRef* mesh, int level) { return core::at(mesh->index_buffers_, level); }
-uint16_t index_count_at(MeshRef* mesh, int level) { return core::at(mesh->index_counts_, level); }
+IdxStore* index_buffer_at(MeshRef* mesh, int level) { return core::at(mesh->index_buffers(), level); }
+uint16_t index_count_at(MeshRef* mesh, int level) { return core::at(mesh->index_counts(), level); }
 
 void count_draw(uint32_t primitives)
 {
@@ -139,7 +139,7 @@ void MeshRef::render()
     if (renderer().shaders_available()) {
         mat->hand_in();
         if (!renderer().instance_colour_on() && !(flags & 4))
-            set_pixel_shader_with_constants(pixel_shader_, mat->pass_count_);
+            set_pixel_shader_with_constants(pixel_shader_, mat->pass_count());
         else
             set_pixel_shader_colored();
     } else {
@@ -208,7 +208,7 @@ void MeshRef::render()
         renderer().d3d_device()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
                                            primitives);
     } else {
-        for (uint32_t pass = 0; pass < mat->pass_count_; ++pass) {
+        for (uint32_t pass = 0; pass < mat->pass_count(); ++pass) {
             std::array<float, 3> instance{};
             const float* tint = nullptr;
             if (renderer().instance_colour_on()) {

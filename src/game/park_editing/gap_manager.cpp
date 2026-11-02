@@ -93,7 +93,7 @@ void GapRegistry::drop_gap_entry(int index, bool forget)
     Gap* gap = core::at(gaps_ptr_, index);
     for (ParkTile* piece : gap->pieces_) {
         if (piece)
-            park_owner_->builder_->destroy_piece(piece);
+            park_owner_->builder()->destroy_piece(piece);
     }
     if (forget) {
         const int checklist_index = skate_checklist()->find_gap(gap->details_.text_.data());

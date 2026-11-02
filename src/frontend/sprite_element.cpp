@@ -56,11 +56,11 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 uint32_t shown_colour(const UiWidget* e)
 {
     uint32_t rgba = 0;
-    std::memcpy(&rgba, e->shown_.rgba.data(), 4);
+    std::memcpy(&rgba, e->shown().rgba.data(), 4);
     uint8_t alpha = 0;
-    if (e->summed_.alpha >= minimum_alpha()) // (NaN: transparent)
+    if (e->summed().alpha >= minimum_alpha()) // (NaN: transparent)
         alpha =
-            static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(rgba >> 24)) * e->summed_.alpha));
+            static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(rgba >> 24)) * e->summed().alpha));
     return (rgba & 0x00FFFFFFu) | (static_cast<uint32_t>(alpha) << 24);
 }
 
@@ -117,7 +117,7 @@ void TextureElement::change_traits(Struct* params)
 void TextureElement::get_properties(Struct* out)
 {
     std::array<uint8_t, 4> rgba{};
-    std::memcpy(rgba.data(), summed_.rgba.data(), 4);
+    std::memcpy(rgba.data(), summed().rgba.data(), 4);
     gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         array = new (array) script::Array;
@@ -135,7 +135,7 @@ void TextureElement::get_properties(Struct* out)
 void TextureElement::tick_frame()
 {
     piece_->change_concealed(false);
-    piece_->change_rank(z_priority_);
+    piece_->change_rank(z_priority());
     piece_->change_rgba(shown_colour(this));
 }
 
@@ -171,14 +171,14 @@ void ImageWidget::set_sprite_rotation(float degrees, int now)
 {
     const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
     auto angle = static_cast<float>(radians);
-    if (radians != aim_point_.angle) {
-        aim_point_.angle = angle;
+    if (radians != aim_point().angle) {
+        aim_point().angle = angle;
         object_flags_ |= kDirty;
     }
-    if (now && angle != shown_.angle) {
+    if (now && angle != shown().angle) {
         quad_->change_spin(angle);
         object_flags_ |= kDirty;
-        shown_.angle = angle;
+        shown().angle = angle;
     }
 }
 
@@ -206,7 +206,7 @@ void ImageWidget::change_traits(Struct* params)
 void ImageWidget::get_properties(Struct* out)
 {
     UiWidget::get_properties(out);
-    out->push_float(kRotAngle, shown_.angle);
+    out->push_float(kRotAngle, shown().angle);
     out->put_name_key(kTexture, texture_);
 }
 
@@ -217,8 +217,8 @@ void ImageWidget::blend_towards(Struct* params)
     float degrees = 0.0f;
     if (params->fetch_float(kRotAngle, &degrees, 0)) {
         const double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
-        if (radians != aim_point_.angle) {
-            aim_point_.angle = static_cast<float>(radians);
+        if (radians != aim_point().angle) {
+            aim_point().angle = static_cast<float>(radians);
             object_flags_ |= kDirty;
         }
     }
@@ -227,31 +227,31 @@ void ImageWidget::blend_towards(Struct* params)
 // 0x004AF2C0
 void ImageWidget::tick_frame()
 {
-    const float top = summed_.top;
+    const float top = summed().top;
     const bool outside = top < layout_top() || top > layout_bottom();
     const bool hidden = is_concealed();
     quad_->change_concealed(outside || hidden);
     if (!(object_flags_ & (kChildrenDirty | kVisibleNow)))
         return;
     const uint32_t rgba = shown_colour(this);
-    quad_->change_location(summed_.x, summed_.y);
+    quad_->change_location(summed().x, summed().y);
     // (the size truncated: the height first)
-    const int height = get_truncated(level_y_);
-    const int width = get_truncated(span_);
+    const int height = get_truncated(level_y());
+    const int width = get_truncated(span());
     quad_->change_extent(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
     quad_->set_flip(static_cast<bool>((object_flags_ >> 25) & 1), static_cast<bool>((object_flags_ >> 26) & 1));
-    quad_->change_spin((object_flags_ & kFlag1000000) ? shown_.angle : summed_.angle);
-    quad_->set_hot_spot(just_x_, just_y_);
-    quad_->change_scale(summed_.scale_x_, summed_.scale_y_);
+    quad_->change_spin((object_flags_ & kFlag1000000) ? shown().angle : summed().angle);
+    quad_->set_hot_spot(just_x(), just_y());
+    quad_->change_scale(summed().scale_x_, summed().scale_y_);
     if (object_flags_ & kPos3d) {
         // the depth's bits, 5000 more with kKeepScale (an integer added to the float's bits, as the original)
         uint32_t depth = 0;
-        std::memcpy(&depth, &summed_.z, 4);
+        std::memcpy(&depth, &summed().z, 4);
         depth += (object_flags_ & kKeepScale) ? 5000u : 0u;
         quad_->set_depth(depth);
         quad_->change_concealed((object_flags_ & kOffScreen) != 0 || hidden);
     } else {
-        quad_->change_rank(z_priority_);
+        quad_->change_rank(z_priority());
         quad_->change_concealed(outside || hidden);
     }
     quad_->set_z_write(z_write_);
@@ -283,11 +283,11 @@ void PanelWidget::tick_frame()
 {
     if (!(object_flags_ & (kChildrenDirty | kVisibleNow)))
         return;
-    const int top = get_truncated(summed_.y - (static_cast<double>(just_y_) + get_one()) * get_half() * level_y_);
-    const int left = get_truncated(summed_.x - (static_cast<double>(just_x_) + get_one()) * get_half() * span_);
+    const int top = get_truncated(summed().y - (static_cast<double>(just_y()) + get_one()) * get_half() * level_y());
+    const int left = get_truncated(summed().x - (static_cast<double>(just_x()) + get_one()) * get_half() * span());
     static_cast<render::ScreenWindow*>(screen_region_)->change_location(left, top);
-    const int height = get_truncated(level_y_);
-    const int width = get_truncated(span_);
+    const int height = get_truncated(level_y());
+    const int width = get_truncated(span());
     static_cast<render::ScreenWindow*>(screen_region_)->change_extent(width, height);
 }
 

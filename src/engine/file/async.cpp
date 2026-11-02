@@ -25,11 +25,6 @@
 
 namespace file {
 
-static_assert(offsetof(AsyncFileHandle, callback_mask_) == 0x14 && offsetof(AsyncFileHandle, is_blocking_) == 0x21 &&
-                  offsetof(AsyncFileHandle, payload_bytes_) == 0x2C &&
-                  offsetof(AsyncFileHandle, in_flight_ops_) == 0x38,
-              "layout must match the original");
-
 namespace {
 
 constexpr int kMaxHandles = 16;
@@ -75,29 +70,29 @@ int& current_list() { return async_state().current_list_; }
 // The handle fields every allocation resets (as the original's Init and get_file_handle do).
 void reset_fields(AsyncFileHandle* file)
 {
-    file->payload_bytes_ = -1;
-    file->anchor_point_ = -1;
-    file->callback_mask_ = 0xFFFFFFFF;
-    file->in_flight_ops_ = 0;
-    file->callback_ = nullptr;
-    file->arg0_ = nullptr;
-    file->arg1_ = nullptr;
-    file->operation_ = kAsyncIdle;
-    file->unknown1c_ = 0;
-    file->feed_ = false;
-    file->is_blocking_ = true;
-    file->buffer_size_ = 0x10000;
-    file->rank_ = 100;
-    file->outcome_val_ = 0;
-    file->pre_file_ = nullptr;
+    file->set_payload_bytes(-1);
+    file->anchor_point() = -1;
+    file->callback_mask() = 0xFFFFFFFF;
+    file->in_flight_ops() = 0;
+    file->set_callback(nullptr);
+    file->set_arg0(nullptr);
+    file->set_arg1(nullptr);
+    file->set_operation(kAsyncIdle);
+    file->set_unknown1c(0);
+    file->set_feed(false);
+    file->set_is_blocking(true);
+    file->set_buffer_size(0x10000);
+    file->set_rank(100);
+    file->set_outcome_val(0);
+    file->set_pre_file(nullptr);
 }
 
 // Report an operation served from a .pre archive, as the platform does when its I/O completes.
 void complete_from_archive(AsyncFileHandle* file)
 {
     pending_io_counter() = pending_io_counter() + 1;
-    file->in_flight_ops_ = file->in_flight_ops_ + 1;
-    file->io_done_handler(file->operation_, false, file->outcome_val_, 0);
+    file->in_flight_ops() = file->in_flight_ops() + 1;
+    file->io_done_handler(file->operation(), false, file->outcome_val(), 0);
 }
 
 // The platform (PC) side, below.
@@ -270,11 +265,11 @@ void async_execute_callbacks()
     for (int i = 0; i < count; ++i) {
         const PendingCallback& pending = core::at(core::at(callback_lists(), list), i);
         AsyncFileHandle* file = pending.file;
-        file->callback_(file, pending.event, pending.value, file->arg0_, file->arg1_);
+        file->callback()(file, pending.event, pending.value, file->arg0(), file->arg1());
         pending_io_counter() = pending_io_counter() - 1;
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
-        if ((file->in_flight_ops_ = file->in_flight_ops_ - 1) == 0)
-            file->operation_ = kAsyncIdle;
+        if ((file->in_flight_ops() = file->in_flight_ops() - 1) == 0)
+            file->set_operation(kAsyncIdle);
     }
     core::at(callback_counts(), list) = 0;
 }
@@ -293,7 +288,7 @@ void async_wait_for_io(bool all)
         if (!all)
             return;
         int busy = 0;
-        while (busy < kMaxHandles && core::at(slab_bank(), busy)->in_flight_ops_ <= 0)
+        while (busy < kMaxHandles && core::at(slab_bank(), busy)->in_flight_ops() <= 0)
             ++busy;
         if (busy == kMaxHandles)
             return;
@@ -308,9 +303,9 @@ AsyncFileHandle* async_get_handle()
     if (first_free >= kMaxHandles)
         return nullptr;
     // The next handle may still be finishing an operation: use a later idle one instead, or wait.
-    if (core::at(slab_bank(), first_free)->in_flight_ops_ > 0) {
+    if (core::at(slab_bank(), first_free)->in_flight_ops() > 0) {
         int idle = first_free + 1;
-        while (idle < kMaxHandles && core::at(slab_bank(), idle)->in_flight_ops_ > 0)
+        while (idle < kMaxHandles && core::at(slab_bank(), idle)->in_flight_ops() > 0)
             ++idle;
         if (idle < kMaxHandles) {
             AsyncFileHandle* swap = core::at(slab_bank(), idle);
@@ -318,7 +313,7 @@ AsyncFileHandle* async_get_handle()
             core::at(slab_bank(), first_free) = swap;
         } else {
             const AsyncFileHandle* busy = core::at(slab_bank(), first_free);
-            for (bool again = true; again; again = busy->in_flight_ops_ > 0) {
+            for (bool again = true; again; again = busy->in_flight_ops() > 0) {
                 async_execute_callbacks();
                 first_free = handles_in_use();
             }
@@ -432,7 +427,7 @@ void PcAsyncFileHandle::io_done_handler(int event, bool error, int value, int ex
         return;
     case kAsyncOpen:
         if (value >= 0 && !error)
-            payload_bytes_ = extra;
+            set_payload_bytes(extra);
         break;
     case 2:
     case kOpReadFile:
@@ -442,7 +437,7 @@ void PcAsyncFileHandle::io_done_handler(int event, bool error, int value, int ex
     case 4:
         if (value >= 0) {
             if (!error)
-                anchor_point_ += value;
+                anchor_point() += value;
             if (staging_bytes_) {
                 memory::dealloc(staging_bytes_);
                 destination_ = nullptr;
@@ -452,7 +447,7 @@ void PcAsyncFileHandle::io_done_handler(int event, bool error, int value, int ex
         break;
     case 5:
         if (value >= 0 && !error)
-            anchor_point_ = value;
+            anchor_point() = value;
         break;
     default:
         break;
@@ -477,24 +472,24 @@ bool PcAsyncFileHandle::os_open_setup()
 // 0x005B97E0
 bool PcAsyncFileHandle::os_open_file(const char* name)
 {
-    anchor_point_ = 0;
+    anchor_point() = 0;
     std::array<char, 260> path{};
     // Not original - the data overlay: a file of it is opened there.
     // Original behaviour: the data folder's file.
     if (!frontend::data_overlay::get_overlay_path(name, path))
         make_disk_path(std::span<char, 260>(path).first<256>(), name);
     pending_io_counter() = pending_io_counter() + 1;
-    in_flight_ops_ = in_flight_ops_ + 1;
+    in_flight_ops() = in_flight_ops() + 1;
     const bool overlapped = use_overlapped_io();
     file_ref_ =
         CreateFileA(path.data(), GENERIC_READ, overlapped ? FILE_SHARE_READ : 0, nullptr, OPEN_EXISTING,
                     overlapped ? FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING : FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file_ref_ == INVALID_HANDLE_VALUE)
         return false; // (the busy counts stay raised, as in the original)
-    payload_bytes_ = static_cast<int>(::GetFileSize(file_ref_, nullptr));
-    payload_bytes_ = (payload_bytes_ + 0x7FF) & ~0x7FF; // whole 2 KB sectors (unbuffered reads)
+    set_payload_bytes(static_cast<int>(::GetFileSize(file_ref_, nullptr)));
+    set_payload_bytes((payload_bytes() + 0x7FF) & ~0x7FF); // whole 2 KB sectors (unbuffered reads)
     // (the original passed the handle's value as the result: only checked for a sign, and the next operation sets it)
-    io_done_handler(operation_, false, 0, static_cast<int>(payload_bytes_));
+    io_done_handler(operation(), false, 0, static_cast<int>(payload_bytes()));
     return true;
 }
 
@@ -504,10 +499,10 @@ bool PcAsyncFileHandle::os_close_file()
     if (file_ref_ == INVALID_HANDLE_VALUE)
         return false;
     pending_io_counter() = pending_io_counter() + 1;
-    in_flight_ops_ = in_flight_ops_ + 1;
+    in_flight_ops() = in_flight_ops() + 1;
     CloseHandle(file_ref_);
     file_ref_ = INVALID_HANDLE_VALUE;
-    io_done_handler(operation_, false, 0, 0);
+    io_done_handler(operation(), false, 0, 0);
     return true;
 }
 
@@ -515,27 +510,27 @@ bool PcAsyncFileHandle::os_close_file()
 bool PcAsyncFileHandle::os_read_finished()
 {
     if (!use_overlapped_io()) {
-        outcome_val_ = 0;
+        set_outcome_val(0);
         return true;
     }
     bool done = false;
-    if (outcome_val_ == kErrorIoPending) {
+    if (outcome_val() == kErrorIoPending) {
         done = async_ctl_.Internal != kStatusPending;
         if (done) {
             DWORD bytes = 0;
             GetOverlappedResult(file_ref_, &async_ctl_, &bytes, FALSE);
-            outcome_val_ = 0;
-            io_done_handler(operation_, false, static_cast<int>(bytes), 0);
+            set_outcome_val(0);
+            io_done_handler(operation(), false, static_cast<int>(bytes), 0);
         }
     }
     return done;
 }
 
 // 0x005B9700
-bool PcAsyncFileHandle::os_read_pending() { return outcome_val_ == kErrorIoPending; }
+bool PcAsyncFileHandle::os_read_pending() { return outcome_val() == kErrorIoPending; }
 
 // 0x005B9710
-bool PcAsyncFileHandle::os_at_end() { return outcome_val_ == kErrorHandleEof; }
+bool PcAsyncFileHandle::os_at_end() { return outcome_val() == kErrorHandleEof; }
 
 // 0x005B9720: read the whole file from the start
 int PcAsyncFileHandle::os_load_whole(void* buffer)
@@ -553,11 +548,11 @@ int PcAsyncFileHandle::os_read_chunk(void* buffer, int size, int count)
 {
     auto length = static_cast<DWORD>((size * count + 0x7FF) & ~0x7FF); // whole sectors
     pending_io_counter() = pending_io_counter() + 1;
-    in_flight_ops_ = in_flight_ops_ + 1;
+    in_flight_ops() = in_flight_ops() + 1;
     DWORD bytes = 0;
     if (!ReadFile(file_ref_, buffer, length, &bytes, use_overlapped_io() ? &async_ctl_ : nullptr)) {
-        outcome_val_ = static_cast<int>(GetLastError());
-        if (outcome_val_ == kErrorIoPending && is_blocking_) {
+        set_outcome_val(static_cast<int>(GetLastError()));
+        if (outcome_val() == kErrorIoPending && is_blocking()) {
             while (!os_read_finished()) {
             }
         }
@@ -565,7 +560,7 @@ int PcAsyncFileHandle::os_read_chunk(void* buffer, int size, int count)
     }
     // Finished at once: counted done here, without a callback (as in the original).
     pending_io_counter() = pending_io_counter() - 1;
-    in_flight_ops_ = in_flight_ops_ - 1;
+    in_flight_ops() = in_flight_ops() - 1;
     return 0;
 }
 

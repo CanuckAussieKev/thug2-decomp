@@ -112,7 +112,7 @@ void RiderOverheadTag::tick_frame()
         new (params) script::Struct;
     params->put_name_key(kId, label_id_);
     // The text's colour: the player's team's in a team game, else the skater's own.
-    const uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team_) : entity_->ident_;
+    const uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team()) : entity_->ident_;
     std::array<char, 64> text{};
     text::format_to(text, "\\c%d%s", static_cast<int>(colour + 2), skater->fetch_shown_name());
     params->append_word(kText, text.data());

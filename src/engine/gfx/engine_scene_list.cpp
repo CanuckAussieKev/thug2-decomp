@@ -53,7 +53,7 @@ WorldScene* first_scene(bool sky)
         return nullptr;
     for (;;) {
         const memory::ListNode* next = get_next_node(node);
-        if (scene_of(node)->is_sky_ == sky)
+        if (scene_of(node)->is_sky() == sky)
             return scene_of(node);
         if (!next)
             return nullptr;
@@ -120,7 +120,7 @@ bool unload_all_scenes()
         for (bool again = true; again; again = node) {
             const memory::ListNode* next = get_next_node(node);
             WorldScene* scene = scene_of(node);
-            TextureSet* textures = scene->texture_set_;
+            TextureSet* textures = scene->texture_set();
             unload_engine_scene(scene, 1);
             if (textures)
                 unload_tex_dict(textures);
@@ -148,7 +148,7 @@ void print_coll_statics()
         for (bool again = true; again; again = node) {
             const memory::ListNode* next = get_next_node(node);
             WorldScene* scene = scene_of(node);
-            if (!scene->is_sky_)
+            if (!scene->is_sky())
                 scene->print_coll_statics();
             node = next;
         }
@@ -164,7 +164,7 @@ CollGrid* get_first_coll_grid()
         return nullptr;
     for (bool again = true; again; again = node) {
         const memory::ListNode* next = get_next_node(node);
-        if (CollGrid* grid = scene_of(node)->coll_grid_)
+        if (CollGrid* grid = scene_of(node)->coll_grid())
             return grid;
         node = next;
     }
@@ -201,7 +201,7 @@ std::span<CollGrid* const> get_coll_grids_on_line(const maths::Seg* line)
     for (bool again = true; again; again = node) {
         const memory::ListNode* next = get_next_node(node);
         WorldScene* scene = scene_of(node);
-        CollGrid* grid = scene->coll_grid_;
+        CollGrid* grid = scene->coll_grid();
         // (each "past" test as the original: NaN doesn't rule a grid out)
         if (grid && !(grid->box_.min.x > box.max.x) && !(box.min.x > grid->box_.max.x) &&
             !(grid->box_.min.z > box.max.z) && !(box.min.z > grid->box_.max.z) && !(grid->box_.min.y > box.max.y) &&
@@ -312,7 +312,7 @@ WorldScene* add_scene(const char* scene_name, const char* add_name)
     build_scene_file_path(file.data(), sizeof(file), add_name);
     text::format_to(tex_file, "levels\\%s\\%s.tex", add_name, add_name);
     WorldScene* scene = look_up_scene(checksums::hash_from_text(scene_name));
-    if (std::strcmp(scene->add_name_.data(), file.data()) == 0) {
+    if (std::strcmp(scene->add_name().data(), file.data()) == 0) {
         scene->unload_added_scene();
         if (TextureSet* old = find_tex_dict(checksums::hash_from_text(tex_file.data())))
             unload_tex_dict(old);
@@ -329,8 +329,8 @@ bool reload_scene(const char* name)
     WorldScene* scene = look_up_scene(checksums::hash_from_text(name));
     if (!scene)
         return false;
-    const bool is_sky = scene->is_sky_;
-    TextureSet* textures = scene->texture_set_;
+    const bool is_sky = scene->is_sky();
+    TextureSet* textures = scene->texture_set();
     unload_engine_scene(scene, 1);
     load_scene(name, textures, !is_sky, is_sky, false, 0);
     return true;

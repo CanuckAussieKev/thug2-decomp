@@ -194,7 +194,7 @@ bool KinematicsModule::obj_store_pos(script::Struct*, script::Script*)
 // 0x00423810
 bool KinematicsModule::obj_store_node(script::Struct*, script::Script*)
 {
-    saved_node_id_ = path_follower_->list_link_;
+    saved_node_id_ = path_follower_->list_link();
     return true;
 }
 

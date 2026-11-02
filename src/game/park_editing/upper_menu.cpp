@@ -43,8 +43,8 @@ void TopBarMenus::turn_on()
 {
     run_menu_script(0x4693636A); // parked_make_piece_menu
     run_menu_script(0xED885B50); // parked_make_set_menu
-    for (int i = 0; i < park_owner_->num_sets_; ++i) {
-        const PieceFamily& set = core::at(park_owner_->sets_, i);
+    for (int i = 0; i < park_owner_->num_sets(); ++i) {
+        const PieceFamily& set = core::at(park_owner_->sets(), i);
         if (!set.is_displayed_)
             continue;
         script::Struct params;

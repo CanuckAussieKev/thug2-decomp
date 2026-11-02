@@ -376,8 +376,8 @@ bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* /*
     FrontEnd* front_end = front_end_instance().get();
     const int rate = ftol(static_cast<double>(times.y) * 1000.0);
     const int delay = ftol(static_cast<double>(times.x) * 1000.0);
-    front_end->auto_repeat_rate_ = rate;
-    front_end->hold_repeat_ms_ = delay;
+    front_end->set_auto_repeat_rate(rate);
+    front_end->set_hold_repeat_ms(delay);
     return true;
 }
 
@@ -396,7 +396,7 @@ bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*scrip
             else if (mapping == kUseAsFirst)
                 value = 2;
         }
-        core::at(front_end->pad_mappings_, i).mapping_ = value;
+        core::at(front_end->pad_mappings(), i).mapping_ = value;
     }
     return true;
 }
@@ -407,9 +407,9 @@ bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* /*s
     FrontEnd* front_end = front_end_instance().get();
     front_end->update_button_event_mappings(params);
     if (params->has_bare_flag(kBlockMenuInput))
-        front_end->block_menu_input_ = true;
+        front_end->set_block_menu_input(true);
     else if (params->has_bare_flag(kUnblockMenuInput))
-        front_end->block_menu_input_ = false;
+        front_end->set_block_menu_input(false);
     return true;
 }
 
@@ -628,7 +628,7 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
         if (core::at(front_end->pad_mappings_, handler->ordinal_).mapping_ == 0 || front_end->block_menu_input_)
             continue;
         script::Struct params;
-        params.put_int(kDeviceNum, handler->dev_->port_no_);
+        params.put_int(kDeviceNum, handler->dev_->port_no());
         params.put_int(kController, 0); // (the original loads the mapping, then passes 0)
         tracker->launch_event(event, kMenuEvent, kMenuEvent, &params, false,
                                                                      -1.0f);

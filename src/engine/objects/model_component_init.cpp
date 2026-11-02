@@ -78,7 +78,7 @@ gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects:
 // (0x00493410).
 gsl::owner<render::RenderModel*> spawn_render_model(int arg) { return (void)arg, render::spawn_model(); }
 void delete_model(gsl::owner<render::RenderModel*> model) { delete model; }
-render::ModelLights* model_lights(render::RenderModel* model) { return model->lights_ptr_.get(); }
+render::ModelLights* model_lights(render::RenderModel* model) { return model->lights_ptr().get(); }
 render::Geom* clone_model_geom(render::Geom* geom, render::RenderModel* to)
 {
     return geom->clone_for_model(1, to);
@@ -175,7 +175,7 @@ void MeshInstanceModule::tick_frame()
         model->copy_bones(skeleton_of(skeleton));
         return;
     }
-    const uint8_t model_flags = mesh_instance_.get() ? mesh_instance_->flag_bits_ : 0;
+    const uint8_t model_flags = mesh_instance_.get() ? mesh_instance_->flag_bits() : 0;
     if (!mesh_instance_.get() || !(model_flags & 2) || (model_flags & 4))
         return; // (not active, or hidden)
     get_draw_matrix(&matrix);

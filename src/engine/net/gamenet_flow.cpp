@@ -230,9 +230,9 @@ void Hub::start_network_game()
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
     for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true)) {
-        p->best_combo_ = 0;
+        p->set_best_combo(0);
         p->clear_flags(); // carries no flag
-        p->flag_bits_ &= ~kPlayerCaptureBlocked;
+        p->flag_bits() &= ~kPlayerCaptureBlocked;
         server->put_on_outbox(player_handle(p), &desc);
         if (!in_net_game())
             break; // (split screen: the first player only)
@@ -263,7 +263,7 @@ void Hub::cancel_join()
     remove_all_new_players();
     if (presence_service_->authenticated_) // (logged in to the presence)
         presence_service_->change_standing(kHomieStatusChatting, script::fetch_text("homie_status_chatting"),
-                                           lobby_service_->room_name_.data());
+                                           lobby_service_->room_name().data());
 }
 
 // 0x0053BED0
@@ -416,10 +416,10 @@ void Hub::connection_task(tasks::Task<Hub>* task)
         PlayerRecord* player = start_roster_sweep(manager, &search, true);
         while (player) {
             PlayerRecord* next = step_roster_sweep(manager, &search, true);
-            net::Conn* conn = player->conn_;
+            net::Conn* conn = player->conn();
             if (!conn->is_host_local()) {
                 int reason = -1;
-                if (conn->cur_standing_ & 1) { // (in the game)
+                if (conn->cur_standing() & 1) { // (in the game)
                     if (conn->get_silence_duration() > kSilentTimeout)
                         reason = kDropTimedOut;
                     else if (conn->get_highest_resend_count() > kMaxResends)

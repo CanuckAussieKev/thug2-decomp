@@ -55,7 +55,7 @@ bool is_own_player(online::PlayerRecord* player) { return player->is_own_player(
 int player_skater_index(online::PlayerRecord* player) { return static_cast<int>(player->get_skater_view_slot()); }
 net::Guest* client_app(int index) { return core::down_cast<net::Guest>(net_session_slot()->fetch_patron(index)); }
 // A client app's +0x08 (passed to the animation blender and to apply_board_turned, which doesn't use it).
-uint32_t app_value8(net::Guest* app) { return app->clock_; }
+uint32_t app_value8(net::Guest* app) { return app->clock(); }
 
 // The core physics component's (not rewritten yet): the skater turned around (0x004FE120) and whether the flip is
 // needed (0x004FC440).
@@ -160,7 +160,7 @@ void RiderSpinAndFlip::do_after_anim()
         apply_board_turned(entity_->ident_, !deck_turned_, app_value8(app), true);
         board_rotate_after_ = false;
     }
-    mesh_set_->flip_ = false;
+    mesh_set_->set_flip(false);
 }
 
 // 0x00511600

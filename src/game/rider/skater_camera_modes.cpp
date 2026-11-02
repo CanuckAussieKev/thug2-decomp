@@ -68,8 +68,8 @@ void RiderChaseView::change_phase(const WalkCameraState* state)
     zoom_ = state->zoom;
     settle_time_ = 0.0f;
     instant_frames_ = 0;
-    free_look_module_->heading_ = 0.0f;
-    free_look_module_->locked_ = false;
+    free_look_module_->set_heading(0.0f);
+    free_look_module_->assign_locked(false);
 }
 
 // 0x004F9970
@@ -169,7 +169,7 @@ void RiderChaseView::change_regime(int mode, float time)
         heading = 0.0f;
         break;
     }
-    free_look_module_->mode_heading_ = heading;
+    free_look_module_->set_mode_heading(heading);
 }
 
 } // namespace objects

@@ -506,14 +506,14 @@ void draw_viewport(int index)
         sys::screenshot::note_view(index, at, forward);
     }
     for_each_scene([&](PcScene* scene) {
-        if (scene->is_sky_)
+        if (scene->is_sky())
             return;
         collect_occluders(viewer_location(camera), index);
         set_render_state(1, 1);
         set_render_state(2, 1);
         SceneRef* group = scene->meshes;
-        if (!(group->flags & 0x100)) {
-            group->flags |= 0x100;
+        if (!(group->flags_value() & 0x100)) {
+            group->flags_value() |= 0x100;
             for (MeshRef* mesh : group->mesh_run())
                 mesh->build_collision();
         }
@@ -545,7 +545,7 @@ void draw_viewport(int index)
     set_render_state(1, 0);
     set_render_state(2, 1);
     for_each_scene([&](PcScene* scene) {
-        if (!scene->is_sky_)
+        if (!scene->is_sky())
             return;
         // (with distance clipping and fog both on, there's no sky)
         if (view_setup().distance_clipping() && view_setup().fog_setting())
@@ -582,7 +582,7 @@ void draw_viewport(int index)
     set_render_state(1, 1);
     set_render_state(2, 1);
     for_each_scene([&](PcScene* scene) {
-        if (!scene->is_sky_)
+        if (!scene->is_sky())
             draw_scene_group(scene, 0x46, index);
     });
     set_pass(0x102);

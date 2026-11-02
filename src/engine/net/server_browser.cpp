@@ -127,21 +127,21 @@ int rank_of(int rating)
 // A server's details from GameSpy (the add and update messages alike): level, mode, counts, flags, skill.
 void read_server_keys(HostListing* server, void* sb)
 {
-    std::strcpy(server->level_.data(), game_spy::server_get_string_value(sb, "mapname", "...")); // (string keys)
-    std::strcpy(server->mode_sel_.data(), game_spy::server_get_string_value(sb, "gametype", "..."));
-    server->num_players_ = game_spy::server_get_int_value(sb, "numplayers", 1); // (integer keys)
-    server->max_players_ = game_spy::server_get_int_value(sb, "maxplayers", 8);
-    server->num_observers_ = game_spy::server_get_int_value(sb, "numobservers", 0);
-    server->max_observers_ = game_spy::server_get_int_value(sb, "maxobservers", 1);
-    server->password_ = game_spy::server_get_bool_value(sb, "password", 0) != 0; // (boolean keys)
-    server->started_ = game_spy::server_get_bool_value(sb, "started", 0) != 0;
-    server->host_mode_ = game_spy::server_get_int_value(sb, "hostmode", 0);
-    server->ranked_ = game_spy::server_get_int_value(sb, "ranked", 0) != 0;
-    server->skill_level_ = static_cast<int8_t>(game_spy::server_get_int_value(sb, "skilllevel", 2));
+    std::strcpy(server->level().data(), game_spy::server_get_string_value(sb, "mapname", "...")); // (string keys)
+    std::strcpy(server->mode_sel().data(), game_spy::server_get_string_value(sb, "gametype", "..."));
+    server->set_num_players(game_spy::server_get_int_value(sb, "numplayers", 1)); // (integer keys)
+    server->set_max_players(game_spy::server_get_int_value(sb, "maxplayers", 8));
+    server->set_num_observers(game_spy::server_get_int_value(sb, "numobservers", 0));
+    server->set_max_observers(game_spy::server_get_int_value(sb, "maxobservers", 1));
+    server->set_password(game_spy::server_get_bool_value(sb, "password", 0) != 0); // (boolean keys)
+    server->set_started(game_spy::server_get_bool_value(sb, "started", 0) != 0);
+    server->set_host_mode(game_spy::server_get_int_value(sb, "hostmode", 0));
+    server->set_ranked(game_spy::server_get_int_value(sb, "ranked", 0) != 0);
+    server->set_skill_level(static_cast<int8_t>(game_spy::server_get_int_value(sb, "skilllevel", 2)));
 }
 void read_server_players(HostListing* server, void* sb)
 {
-    for (int i = 0; i < server->num_players_; ++i) {
+    for (int i = 0; i < server->num_players(); ++i) {
         const int rating = game_spy::server_get_player_int_value(sb, i, "rating", 0);        // (a player's integer key)
         const char* name = game_spy::server_get_player_string_value(sb, i, "player", "..."); // (a player's string key)
         server->enroll_player(name, rating);
@@ -159,7 +159,7 @@ HostListing* find_by_sb(Hub* manager, void* sb)
         memory::ListNode* node = next->data == memory::ListNode::head_marker() ? nullptr : next;
         search.list_link_ = node;
         auto* following = node ? static_cast<HostListing*>(node->data) : nullptr;
-        if (server->sb_server_ == sb)
+        if (server->sb_server() == sb)
             return server;
         server = following;
     }
@@ -180,47 +180,47 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
     auto* server = static_cast<HostListing*>(manager->fetch_host(id));
     get_run(kDestroyDescChildren);
     ram_stats()->enter_heap_scope(ram_stats()->front_end_heap());
-    if (server->started_)
+    if (server->started())
         info_line(kMidGameText, no_value);
-    if (server->host_mode_ == 1)
+    if (server->host_mode() == 1)
         info_line(kAutoServe, no_value);
-    else if (server->host_mode_ == 2)
+    else if (server->host_mode() == 2)
         info_line(kFcfs, no_value);
     info_line(kTitlePing, [server](char* text) {
-        if (server->ping_ == kNoPing)
+        if (server->ping() == kNoPing)
             crt::get_sprintf(text, "...");
         else
-            crt::get_sprintf(text, "%d", server->ping_);
+            crt::get_sprintf(text, "%d", server->ping());
         return text;
     });
     info_line(kTitleMode, [server](char* text) {
-        crt::get_sprintf(text, "%s", server->mode_sel_.data());
+        crt::get_sprintf(text, "%s", server->mode_sel().data());
         return text;
     });
     const char* skill = nullptr;
     script::Array* skills = script::fetch_list(kSkillLevelInfo);
-    skills->struct_at(server->skill_level_)->fetch_text(kName, &skill, 0);
+    skills->struct_at(server->skill_level())->fetch_text(kName, &skill, 0);
     info_line(kTitleSkill, [skill](char* text) {
         crt::get_sprintf(text, "%s", skill);
         return text;
     });
     info_line(kTitleLevel, [server](char* text) {
-        crt::get_sprintf(text, "%s", server->level_.data());
+        crt::get_sprintf(text, "%s", server->level().data());
         return text;
     });
     if (manager->in_internet_mode()) {
         info_line(kTitleRanked, [server](char* text) {
-            crt::get_sprintf(text, "%s", script::fetch_text(server->ranked_ ? kYes : kNo));
+            crt::get_sprintf(text, "%s", script::fetch_text(server->ranked() ? kYes : kNo));
             return text;
         });
     }
     std::array<char, 128> value{};
     script::StructPtr title = script::make_struct();
-    text::format_to(value, ": %d/%d", server->num_players_, server->max_players_);
+    text::format_to(value, ": %d/%d", server->num_players(), server->max_players());
     title->append_word(kText, value.data());
     get_run(kUpdatePlayerTitle, title.get());
     title.reset();
-    for (int i = 0; i < server->num_players_; ++i) {
+    for (int i = 0; i < server->num_players(); ++i) {
         const int rank = rank_of(server->get_entrant_rank(i));
         const script::StructPtr player = script::make_struct();
         text::format_to(value, "%d:", i + 1);
@@ -247,10 +247,10 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
     auto* server = static_cast<HostListing*>(manager->fetch_host(id));
     uint32_t refused = 0;
     if (manager->get_entry_mode() == 0) {
-        if (server->num_players_ >= server->max_players_)
+        if (server->num_players() >= server->max_players())
             refused = kReasonFull;
     } else if (manager->get_entry_mode() == 1) {
-        if (server->num_observers_ >= server->max_observers_)
+        if (server->num_observers() >= server->max_observers())
             refused = kReasonFullObservers;
     }
     script::StructPtr reply = script::make_struct();
@@ -261,13 +261,13 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
         get_run(kJoinRefusedDialog, reply.get());
     } else {
         if (manager->presence_service()->authenticated_) // (0x005480B0: logged in to presence)
-            manager->lobby_service()->change_host_name(server->label_.data());
-        const char* ip = crt::get_inet_ntoa(server->remote_ip_);
-        if (!server->can_reach_)
+            manager->lobby_service()->change_host_name(server->label().data());
+        const char* ip = crt::get_inet_ntoa(server->remote_ip());
+        if (!server->can_reach())
             reply->add_component_of_type(kCookie, script::kQbvalName, maths::rnd(0x7FFF) * maths::rnd(0x7FFF));
-        reply->add_component_of_type(0, script::kQbvalInteger, server->port_no_);
+        reply->add_component_of_type(0, script::kQbvalInteger, server->port_no());
         reply->append_word(0, script::kQbvalString, ip);
-        reply->put_int(kMaxPlayers, server->max_players_);
+        reply->put_int(kMaxPlayers, server->max_players());
         get_run(kChosenJoinServer, reply.get());
     }
     reply.reset();
@@ -286,11 +286,11 @@ bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
     params->read_hash_value(kId, &id, 0);
     auto* server = static_cast<HostListing*>(manager->fetch_host(id));
     manager->clear_chosen_servers();
-    server->chosen_ = true;
-    if (server->detailed_)
+    server->set_chosen(true);
+    if (server->detailed())
         return true;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
-    game_spy::peer_update_game(manager->lobby_service().get()->remote_, server->sb_server_, 1); // (the game's details updated)
+    game_spy::peer_update_game(manager->lobby_service().get()->remote(), server->sb_server(), 1); // (the game's details updated)
     ram_stats()->leave_heap_scope();
     return false;
 }
@@ -303,7 +303,7 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->content_);
     if (net_game_state().asked_for()) {
-        net_game_state().set_asked_for(context->sender_conn_->remote_ip_);
+        net_game_state().set_asked_for(context->sender_conn_->remote_ip());
         net_game_state().set_join_server_ip_succeeded(true);
     }
     if (context->body_size_ != kServerResponseSize)
@@ -313,27 +313,27 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     util::ByteReader reader(context->body_, context->body_size_);
     auto reply = std::make_unique<ServerInfo>();
     read_server_info(reader, reply.get());
-    if (manager->has_server(reply->name.data(), context->sender_conn_->remote_ip_))
+    if (manager->has_server(reply->name.data(), context->sender_conn_->remote_ip()))
         return kDone;
     ram_stats()->enter_heap_scope(ram_stats()->network_heap());
     void* block = memory::alloc_zeroed(sizeof(HostListing));
     HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
-    text::format_to(server->label_, "%s", reply->name.data());
-    server->remote_ip_ = context->sender_conn_->remote_ip_;
-    server->ping_ = static_cast<int>(frame_clock::get_time() - reply->time);
-    text::format_to(server->level_, "%s", reply->level.data());
-    text::format_to(server->mode_sel_, "%s", reply->mode.data());
-    server->max_players_ = int{reply->max_players};
-    server->num_players_ = int{reply->num_players};
-    server->max_observers_ = int{reply->max_observers};
-    server->num_observers_ = int{reply->num_observers};
-    server->password_ = reply->password;
-    server->started_ = reply->in_game;
-    server->host_mode_ = int{static_cast<int8_t>(reply->host_mode)};
-    server->ranked_ = reply->logged_in;
-    server->skill_level_ = static_cast<int8_t>(reply->skill_level);
-    server->port_no_ = kPort;
-    for (int i = 0; i < server->num_players_ && i < kServerInfoPlayers; ++i)
+    text::format_to(server->label(), "%s", reply->name.data());
+    server->set_remote_ip(context->sender_conn_->remote_ip());
+    server->set_ping(static_cast<int>(frame_clock::get_time() - reply->time));
+    text::format_to(server->level(), "%s", reply->level.data());
+    text::format_to(server->mode_sel(), "%s", reply->mode.data());
+    server->set_max_players(int{reply->max_players});
+    server->set_num_players(int{reply->num_players});
+    server->set_max_observers(int{reply->max_observers});
+    server->set_num_observers(int{reply->num_observers});
+    server->set_password(reply->password);
+    server->set_started(reply->in_game);
+    server->set_host_mode(int{static_cast<int8_t>(reply->host_mode)});
+    server->set_ranked(reply->logged_in);
+    server->set_skill_level(static_cast<int8_t>(reply->skill_level));
+    server->set_port_no(kPort);
+    for (int i = 0; i < server->num_players() && i < kServerInfoPlayers; ++i)
         server->enroll_player(core::at(reply->players, i).data(), 0);
     get_append(&manager->waiting_servers(), server);
     ram_stats()->leave_heap_scope();
@@ -361,28 +361,28 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
         void* block = memory::alloc_zeroed(sizeof(HostListing));
         HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
-        server->sb_server_ = sb;
-        std::strncpy(server->label_.data(), name, 15);
-        core::at(server->label_, 15) = '\0';
-        server->ping_ = game_spy::server_get_ping(sb); // (its ping)
+        server->set_sb_server(sb);
+        std::strncpy(server->label().data(), name, 15);
+        core::at(server->label(), 15) = '\0';
+        server->set_ping(game_spy::server_get_ping(sb)); // (its ping)
         bool same_network = false;
         if (game_spy::server_direct_connect(sb)) {                             // (it answered directly)
             const uint32_t ours = game_spy::peer_get_public_ip(peer);          // (our public address)
             if (game_spy::server_get_public_address(sb) == ours) {             // (its public address)
-                server->remote_ip_ = game_spy::server_get_private_address(sb); // (its private address)
-                server->port_no_ = kPort;
+                server->set_remote_ip(game_spy::server_get_private_address(sb)); // (its private address)
+                server->set_port_no(kPort);
                 same_network = true;
             }
         }
         if (!same_network) {
             const bool has_private = game_spy::server_has_private_address(sb) != 0; // (it has a private address)
-            server->remote_ip_ = game_spy::server_get_public_address(sb);
+            server->set_remote_ip(game_spy::server_get_public_address(sb));
             auto port = static_cast<uint16_t>(game_spy::server_get_public_query_port(sb)); // (its public port)
             if (!has_private) {
-                server->can_reach_ = false;
-                server->ping_ = kNoPing;
+                server->set_can_reach(false);
+                server->set_ping(kNoPing);
             }
-            server->port_no_ = port;
+            server->set_port_no(port);
         }
         read_server_keys(server, sb);
         read_server_players(server, sb);
@@ -392,7 +392,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
             const int index = gfx::count_list_items(list) - 1; // (the list's count)
             manager->show_server_in_menu(server, index);
             get_run(kUpdateServerList);
-            server->in_list_ = true;
+            server->set_in_list(true);
         }
         ram_stats()->leave_heap_scope();
         break;
@@ -400,7 +400,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
     case kListingRemove: {
         HostListing* server = find_by_sb(manager, sb);
         script::StructPtr params = script::make_struct();
-        params->put_name_key(kServerId, server ? server->id_ : 0); // (the original: the SBServer's address)
+        params->put_name_key(kServerId, server ? server->id() : 0); // (the original: the SBServer's address)
         get_run(kDestroyLobbyServer, params.get());
         params.reset();
         if (server)
@@ -418,23 +418,23 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         HostListing* server = find_by_sb(manager, sb);
         if (!server)
             break;
-        std::strncpy(server->label_.data(), name, 15);
-        core::at(server->label_, 15) = '\0';
-        if (server->can_reach_)
-            server->ping_ = game_spy::server_get_ping(sb);
+        std::strncpy(server->label().data(), name, 15);
+        core::at(server->label(), 15) = '\0';
+        if (server->can_reach())
+            server->set_ping(game_spy::server_get_ping(sb));
         read_server_keys(server, sb);
         server->clear_players();
         read_server_players(server, sb);
-        if (!server->in_list_ && game_spy::server_has_basic_keys(sb)) {
+        if (!server->in_list() && game_spy::server_has_basic_keys(sb)) {
             manager->show_server_in_menu(server, 0);
             get_run(kUpdateServerList);
-            server->in_list_ = true;
+            server->set_in_list(true);
         }
-        if (!server->detailed_ && game_spy::server_has_full_keys(sb)) {
-            server->detailed_ = true;
-            if (server->chosen_) {
+        if (!server->detailed() && game_spy::server_has_full_keys(sb)) {
+            server->set_detailed(true);
+            if (server->chosen()) {
                 const script::StructPtr params = script::make_struct();
-                params->put_name_key(kId, server->id_);
+                params->put_name_key(kId, server->id());
                 get_run(kDescribeSelectedServer, params.get());
             }
         }

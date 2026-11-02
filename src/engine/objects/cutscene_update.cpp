@@ -67,7 +67,7 @@ float vblank_seconds(uint64_t vblanks, int rate) { return static_cast<float>(sta
 
 gsl::owner<render::FrameSource*> new_anim_source() { return new render::FrameSource; }
 void delete_source(gsl::owner<render::FrameSource*> source) { delete source; }
-void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance_.get(); }
+void* model_of(ObjectModule* component) { return core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get(); }
 // The model's fader (cutscene.h) fading to `target` by 0.02 a frame.
 void* fader_of(void* model) { return model_fader(model); }
 void fade_model(void* model, float target)
@@ -140,7 +140,7 @@ void CinematicTable::update_time() // (the original was passed the camera, not r
     if (!flag_34b_0_)
         return;
     // the camera and object animations come in parts: the next part when this one's over
-    const float length = camera_anim_->duration_;
+    const float length = camera_anim_->duration();
     if (!(clock_ >= static_cast<double>(kPartEnd) + length)) { // (unordered too)
         camera_start_ = static_cast<float>(clock_ / (static_cast<double>(length) + kFrame) * kFrame);
         return;
@@ -195,9 +195,9 @@ void CinematicTable::update_stand_in(GameEntity* object)
 {
     if (ObjectModule* component = object->fetch_module(kModelModuleName)) {
         void* model = model_of(component);
-        if (static_cast<render::RenderModel*>(model)->flag_bits_ & 4) // (hidden)
+        if (static_cast<render::RenderModel*>(model)->flag_bits() & 4) // (hidden)
             return;
-        if (core::down_cast<MeshInstanceModule>(component)->level_object_) {
+        if (core::down_cast<MeshInstanceModule>(component)->level_object()) {
             // the level object it stands in for: faded out, moved along
             auto* level = core::down_cast<GameEntity>(
                 find_object(core::down_cast<MeshInstanceModule>(component)->get_linked_entity_name()));
@@ -234,7 +234,7 @@ void CinematicTable::update_object_transforms()
                                    static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                                    0); // (the original passed the animation source's address: not read)
     // the animated objects of the level (not the cutscene's own)
-    for (int j = 0; j < anim_list_->bone_count_; ++j) {
+    for (int j = 0; j < anim_list_->bone_count(); ++j) {
         const uint32_t name = anim_list_->fetch_joint_name(j);
         bool own = false;
         for (int k = object_count_ - 1; k >= 0; --k) {

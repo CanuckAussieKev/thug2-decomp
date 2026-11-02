@@ -65,7 +65,7 @@ maths::Mat4* model_get(render::RenderModel* model) { return model->fetch_skinnin
 void model_set(render::RenderModel* model, maths::Mat4* palette) { model->upload_skinning_palette(palette); }
 void follow_position(render::RenderModel* model, maths::Vec4* position)
 {
-    model->lights_ptr_->bind_position_source(position);
+    model->lights_ptr()->bind_position_source(position);
 }
 
 // The model component's change_mesh (the original's slot 14).
@@ -137,8 +137,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
     }
 
     // the renderable models swapped
-    render::RenderModel* nx_a = model_a->mesh_instance_.get();
-    render::RenderModel* nx_b = model_b->mesh_instance_.get();
+    render::RenderModel* nx_a = model_a->mesh_instance().get();
+    render::RenderModel* nx_b = model_b->mesh_instance().get();
     maths::Mat4* value_a = model_get(nx_a);
     model_set(nx_a, model_get(nx_b));
     model_set(nx_b, value_a);
@@ -154,8 +154,8 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
 
     if (skater) {
         // (each component's model as it is now)
-        follow_position(model_a->mesh_instance_.get(), &a->at_point_);
-        follow_position(model_b->mesh_instance_.get(), &b->at_point_);
+        follow_position(model_a->mesh_instance().get(), &a->at_point_);
+        follow_position(model_b->mesh_instance().get(), &b->at_point_);
         bool found = false;
         for (int i = 0; i < kSwapCount; ++i) {
             if (core::at(commands::swap_table(), i).used && core::at(commands::swap_table(), i).value == 0) {

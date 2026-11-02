@@ -69,31 +69,31 @@ BitmapTexture* look_up_texture(TextureSet* dictionary, uint32_t checksum) { retu
 // 0x004D08A0
 void set_up_animated_grass_material(MaterialRef* m)
 {
-    core::at(m->textures, 0) = &pc_grass_state().grass_texture0_;
-    core::at(m->textures, 1) = &pc_grass_state().grass_texture1_;
-    core::at(m->blend_modes_, 0) = 0x40000006;
-    core::at(core::at(m->pass_color_, 0), 3) = 0.5f;
-    m->pass_count_ = 2;
-    core::at(m->pass_flags_, 1) = 0x400;
-    m->has_uv_wibble_ = false;
-    core::at(m->mip_lod_bias_, 0) = 0;
-    core::at(m->mip_lod_bias_, 1) = 0;
-    core::at(m->address_modes_, 0) = 0;
-    core::at(m->address_modes_, 1) = 0;
-    m->sort_flag_ = 0;
-    m->sort_key_ = 1501.0f;
-    m->has_texture_anim_ = true;
-    core::at(m->pass_flags_, 0) = (core::at(m->pass_flags_, 0) & ~9u) | 0xA40;
+    core::at(m->textures_value(), 0) = &pc_grass_state().grass_texture0_;
+    core::at(m->textures_value(), 1) = &pc_grass_state().grass_texture1_;
+    core::at(m->blend_modes(), 0) = 0x40000006;
+    core::at(core::at(m->pass_color(), 0), 3) = 0.5f;
+    m->set_pass_count(2);
+    core::at(m->pass_flags(), 1) = 0x400;
+    m->set_has_uv_wibble(false);
+    core::at(m->mip_lod_bias(), 0) = 0;
+    core::at(m->mip_lod_bias(), 1) = 0;
+    core::at(m->address_modes(), 0) = 0;
+    core::at(m->address_modes(), 1) = 0;
+    m->set_sort_flag(0);
+    m->set_sort_key(1501.0f);
+    m->set_has_texture_anim(true);
+    core::at(m->pass_flags(), 0) = (core::at(m->pass_flags(), 0) & ~9u) | 0xA40;
     auto* anim = static_cast<TextureAnim*>(memory::alloc(sizeof(TextureAnim)));
-    m->texture_anim_ = anim;
+    m->set_texture_anim(anim);
     core::at(anim->key_counts_, 0) = 18;
-    core::at(m->texture_anim_->phases, 0) = 0;
-    core::at(m->texture_anim_->loops, 0) = 0;
-    core::at(m->texture_anim_->keys, 0) = static_cast<TextureKey*>(memory::alloc(18 * sizeof(TextureKey)));
-    core::at(m->texture_anim_->keys, 1) = nullptr;
-    core::at(m->texture_anim_->keys, 2) = nullptr;
-    core::at(m->texture_anim_->keys, 3) = nullptr;
-    const std::span<TextureKey> keys(core::at(m->texture_anim_->keys, 0), 18);
+    core::at(m->texture_anim()->phases, 0) = 0;
+    core::at(m->texture_anim()->loops, 0) = 0;
+    core::at(m->texture_anim()->keys, 0) = static_cast<TextureKey*>(memory::alloc(18 * sizeof(TextureKey)));
+    core::at(m->texture_anim()->keys, 1) = nullptr;
+    core::at(m->texture_anim()->keys, 2) = nullptr;
+    core::at(m->texture_anim()->keys, 3) = nullptr;
+    const std::span<TextureKey> keys(core::at(m->texture_anim()->keys, 0), 18);
     for (int k = 0; k < 18; ++k) { // (a frame every 1000 / 30 ms, through 17 textures)
         core::at(keys, k).time = k * 1000 / 30;
         core::at(keys, k).texture = &core::at(pc_grass_state().grass_texture_animation_, k % 17);
@@ -103,38 +103,38 @@ void set_up_animated_grass_material(MaterialRef* m)
 // 0x004D0B60
 bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
 {
-    TextureSet* dictionary = get_sky_scene()->texture_set_; // the sky's
+    TextureSet* dictionary = get_sky_scene()->texture_set(); // the sky's
     const BitmapTexture* entry = look_up_texture(dictionary, 0x96D0BF08);
     if (!entry)
         return false;
     pc_grass_state().grass_texture1_ = *image_of(entry); // (a copy of the record, as the original)
-    if ((mesh->stride - mesh->uv_offset_) / 8 == 1) { // (one texture coordinate set: room made for a second)
-        gsl::owner<VertexBuffer*> wider = new_vertex_buffer((mesh->stride + 8u) * mesh->vertex_count_, 0, 0);
+    if ((mesh->stride_value() - mesh->uv_offset()) / 8 == 1) { // (one texture coordinate set: room made for a second)
+        gsl::owner<VertexBuffer*> wider = new_vertex_buffer((mesh->stride_value() + 8u) * mesh->vertex_count(), 0, 0);
         uint8_t* from = nullptr;
         uint8_t* to = nullptr;
         mesh->fetch_vertex_store(0)->get_lock(0, 0, &from, D3DLOCK_READONLY);
         wider->get_lock(0, 0, &to, 0);
-        const std::span<const uint8_t> source_vertices(from, size_t{mesh->vertex_count_} * mesh->stride);
-        const std::span<uint8_t> wide_vertices(to, size_t{mesh->vertex_count_} * (mesh->stride + 8));
-        for (size_t i = 0; i < mesh->vertex_count_; ++i)
-            std::memcpy(wide_vertices.subspan(i * (mesh->stride + 8)).data(), source_vertices.subspan(i * mesh->stride).data(), mesh->stride);
+        const std::span<const uint8_t> source_vertices(from, size_t{mesh->vertex_count()} * mesh->stride_value());
+        const std::span<uint8_t> wide_vertices(to, size_t{mesh->vertex_count()} * (mesh->stride_value() + 8));
+        for (size_t i = 0; i < mesh->vertex_count(); ++i)
+            std::memcpy(wide_vertices.subspan(i * (mesh->stride_value() + 8)).data(), source_vertices.subspan(i * mesh->stride_value()).data(), mesh->stride_value());
         mesh->fetch_vertex_store(0)->teardown();
-        mesh->buffer_usage_ = 0;
+        mesh->set_buffer_usage(0);
         mesh->set_vertex_buffer(0, wider);
-        mesh->stride = static_cast<uint8_t>(mesh->stride + 8);
-        mesh->fvf = (mesh->fvf & ~0x100u) | 0x200; // (D3DFVF_TEX1 -> TEX2)
+        mesh->set_stride(static_cast<uint8_t>(mesh->stride_value() + 8));
+        mesh->set_fvf((mesh->fvf_value() & ~0x100u) | 0x200); // (D3DFVF_TEX1 -> TEX2)
     }
-    set_up_animated_grass_material(mesh->material);
-    mesh->flags |= 0x402;
-    mesh->pixel_shader_ = core::at(pixel_shaders(), kPixelShader924);
+    set_up_animated_grass_material(mesh->material_value());
+    mesh->flags_value() |= 0x402;
+    mesh->pixel_shader() = core::at(pixel_shaders(), kPixelShader924);
     uint8_t* vertices = nullptr;
     mesh->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
-    const gpu::VertexWriter grass(vertices, mesh->stride, mesh->vertex_count_);
-    for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
+    const gpu::VertexWriter grass(vertices, mesh->stride_value(), mesh->vertex_count());
+    for (uint32_t i = 0; i < mesh->vertex_count(); ++i) {
         const auto v = grass.view().point<maths::Vec4>(i);
         const float x = v.x;
         const float z = v.z;
-        grass.set_floats<4>(i, mesh->uv_offset_,
+        grass.set_floats<4>(i, mesh->uv_offset(),
                             {static_cast<float>(static_cast<double>(x) * kGrassUvScale),
                              static_cast<float>(static_cast<double>(z) * kGrassUvScale),
                              static_cast<float>(static_cast<double>(x) * kGrassDetailUvScale),
@@ -146,51 +146,51 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
 // 0x004D0D30
 bool make_grass(PcGeom* geom, MeshRef* mesh)
 {
-    MaterialRef* m = mesh->material;
+    MaterialRef* m = mesh->material_value();
     if (!m)
         return false;
-    if (core::at(m->pass_flags_, 0) & kAnimatedGrass)
+    if (core::at(m->pass_flags(), 0) & kAnimatedGrass)
         return make_animated_grass(geom, mesh);
-    int layers = static_cast<int>(m->unknown18);
+    int layers = static_cast<int>(m->unknown18_value());
     if (!layers)
         return false;
     if (layers > kMaxLayers)
         layers = kMaxLayers;
-    auto step = static_cast<float>(std::bit_cast<float>(m->unknown14) / static_cast<double>(layers));
+    auto step = static_cast<float>(std::bit_cast<float>(m->unknown14_value()) / static_cast<double>(layers));
     for (int layer = 0; layer < layers; ++layer) {
         memory::Hub::get_pull()->enter_heap_scope(memory::bottom_up_heap());
         MeshRef* copy = mesh->replicate(false);
         memory::Hub::get_pull()->leave_heap_scope();
-        copy->flags |= 0x182;
+        copy->flags_value() |= 0x182;
         std::array<char, 64> name{};
         text::format_to(name, "Grass-Grass_Layer%d", layer);
         const uint32_t checksum = checksums::generate_crc_from_buffer(name.data(), static_cast<int>(std::strlen(name.data())));
         const SceneRef* scene = geom->scene->meshes;
         auto* material = static_cast<MaterialRef*>(scene->find_material(checksum));
-        copy->material = material;
-        material_pixel_shader(material, &copy->pixel_shader_);
+        copy->set_material(material);
+        material_pixel_shader(material, &copy->pixel_shader());
         auto height = static_cast<float>(layer) * 0.1f + 1100.0f; // (drawn after the ground, in order)
-        core::at(material->pass_flags_, 0) |= 0x40;
-        core::at(material->mip_lod_bias_, 0) = 0xC0000000; // (-2)
-        material->sort_flag_ = 0;
-        material->sort_key_ = height;
+        core::at(material->pass_flags(), 0) |= 0x40;
+        core::at(material->mip_lod_bias(), 0) = 0xC0000000; // (-2)
+        material->set_sort_flag(0);
+        material->set_sort_key(height);
         uint8_t* vertices = nullptr;
         copy->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked)
-        const gpu::VertexWriter layer_vertices(vertices, copy->stride, copy->vertex_count_);
+        const gpu::VertexWriter layer_vertices(vertices, copy->stride_value(), copy->vertex_count());
         const double lift = static_cast<double>(layer + 1) * step;
-        for (uint32_t i = 0; i < copy->vertex_count_; ++i) {
+        for (uint32_t i = 0; i < copy->vertex_count(); ++i) {
             auto v = layer_vertices.view().point<maths::Vec4>(i);
             v.y = static_cast<float>(lift + v.y);
             layer_vertices.set_point(i, 0, v);
             const float x = v.x;
             const float z = v.z;
-            layer_vertices.set_floats<2>(i, copy->uv_offset_,
+            layer_vertices.set_floats<2>(i, copy->uv_offset(),
                                          {static_cast<float>(static_cast<double>(x) * kGrassCopyUvScale),
                                           static_cast<float>(static_cast<double>(z) * kGrassCopyUvScale)});
         }
         geom->append_mesh(copy);
     }
-    mesh->flags |= 0x80; // (the ground mesh itself isn't drawn as grass)
+    mesh->flags_value() |= 0x80; // (the ground mesh itself isn't drawn as grass)
     return true;
 }
 
