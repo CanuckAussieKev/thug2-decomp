@@ -1,6 +1,7 @@
 // Shattering on PC: see shatter.h.
 
 #include "engine/gfx/shatter.h"
+#include "engine/core/cursor.h"
 #include "engine/gfx/geom.h"
 #include "platform/d3dx.h"
 
@@ -10,6 +11,7 @@
 
 #include <bit>
 #include <cmath>
+#include <span>
 #include <cstdint>
 #include <cstring>
 #include <utility>
@@ -98,10 +100,10 @@ void kill_all_shatters()
 namespace {
 
 // x' = (z m20 + y m10) + x m00 and so on, each rounded to a float (the original's order of operations).
-void get_turn(const maths::Mat4& m, double x, double y, double z, float* out)
+void get_turn(const maths::Mat4& m, double x, double y, double z, std::span<float, 3> out)
 {
     for (int k = 0; k < 3; ++k)
-        out[k] = static_cast<float>(z * core::at(m.row, 2)[k] + y * core::at(m.row, 1)[k] + x * core::at(m.row, 0)[k]);
+        core::at(out, k) = static_cast<float>(z * core::at(m.row, 2)[k] + y * core::at(m.row, 1)[k] + x * core::at(m.row, 0)[k]);
 }
 
 int get_rand() { return crt::get_rand(); }                          // (the game's C runtime's)
@@ -138,8 +140,8 @@ void update_shatter(PcShatter* shatter, float step)
         const auto v0 = static_cast<size_t>(3 * i);
         const size_t v1 = v0 + 1;
         const size_t v2 = v0 + 2;
-        const maths::Vec4& c = shatter->centres[i];
-        const maths::Mat4& m = shatter->rotations[i];
+        const maths::Vec4& c = core::at(shatter->centre_run(), i);
+        const maths::Mat4& m = core::at(shatter->rotation_run(), i);
         const auto p0 = in.float3(v0);
         const auto p1 = in.float3(v1);
         const auto p2 = in.float3(v2);
@@ -155,11 +157,11 @@ void update_shatter(PcShatter* shatter, float step)
         std::array<float, 3> r0{};
         std::array<float, 3> r1{};
         std::array<float, 3> r2{};
-        get_turn(m, core::at(d0, 0), core::at(d0, 1), core::at(d0, 2), r0.data());
-        get_turn(m, core::at(d1, 0), core::at(d1, 1), core::at(d1, 2), r1.data());
-        get_turn(m, core::at(d2, 0), core::at(d2, 1), core::at(d2, 2), r2.data());
+        get_turn(m, core::at(d0, 0), core::at(d0, 1), core::at(d0, 2), r0);
+        get_turn(m, core::at(d1, 0), core::at(d1, 1), core::at(d1, 2), r1);
+        get_turn(m, core::at(d2, 0), core::at(d2, 1), core::at(d2, 2), r2);
         static_cast<Shatter*>(shatter)->Shatter::get_step(i, step); // (the centre moved)
-        const maths::Vec4& moved = shatter->centres[i];
+        const maths::Vec4& moved = core::at(shatter->centre_run(), i);
         std::array<float, 3> q0{};
         std::array<float, 3> q1{};
         std::array<float, 3> q2{};
@@ -177,12 +179,12 @@ void update_shatter(PcShatter* shatter, float step)
     if (!normal_offset)
         return;
     for (int i = 0; std::cmp_less(i, shatter->triangle_count_); ++i) {
-        const maths::Mat4& m = shatter->rotations[i];
+        const maths::Mat4& m = core::at(shatter->rotation_run(), i);
         for (int v = 0; v < 3; ++v) {
             const auto vertex = static_cast<size_t>((3 * i) + v);
             const auto n = in.float3(vertex, normal_offset);
             std::array<float, 3> turned{};
-            get_turn(m, core::at(n, 0), core::at(n, 1), core::at(n, 2), turned.data());
+            get_turn(m, core::at(n, 0), core::at(n, 1), core::at(n, 2), turned);
             out.set_floats(vertex, normal_offset, turned);
         }
     }
@@ -191,10 +193,7 @@ void update_shatter(PcShatter* shatter, float step)
 // 0x004BA7A0
 void shatter_geom(PcGeom* geom)
 {
-    MeshRef* const* meshes = geom->meshes;
-    const uint32_t mesh_count = geom->mesh_count_;
-    for (uint32_t m = 0; m < mesh_count; ++m) {
-        MeshRef* mesh = meshes[m];
+    for (MeshRef* const mesh : geom->mesh_run()) {
         if (core::at(mesh->index_counts_, 0) < 3)
             continue;
         const uint32_t stride = mesh->stride;
@@ -202,20 +201,20 @@ void shatter_geom(PcGeom* geom)
         VertexBuffer* vertex_buffer = mesh->fetch_vertex_store(0);
         const uint8_t* vertices = lock_vertices(vertex_buffer);
         const gpu::VertexView view(vertices, stride, mesh->vertex_count_);
-        const uint16_t* indices = lock_indices(core::at(mesh->index_buffers_, 0));
+        const std::span<const uint16_t> indices(lock_indices(core::at(mesh->index_buffers_, 0)), core::at(mesh->index_counts_, 0));
         // the strip's triangles onto the stack, counted with what their splitting will make of them
         int count = 0;
-        uint32_t a = indices[0], b = indices[1];
+        uint32_t a = core::at(indices, 0), b = core::at(indices, 1);
         for (uint32_t k = 2; k < core::at(mesh->index_counts_, 0); ++k) {
-            const uint32_t c = indices[k];
+            const uint32_t c = core::at(indices, k);
             if (a != b && a != c && b != c) {
                 ++count;
                 const auto pa = view.float3(a);
                 const auto pb = view.float3(b);
                 const auto pc = view.float3(c);
-                push_vertex(vertices + stride * a);
-                push_vertex(vertices + stride * b);
-                push_vertex(vertices + stride * c);
+                push_vertex(view.vertex_bytes(a).data());
+                push_vertex(view.vertex_bytes(b).data());
+                push_vertex(view.vertex_bytes(c).data());
                 const double e1x = static_cast<double>(core::at(pb, 0)) - core::at(pa, 0);
                 const double e1y = static_cast<double>(core::at(pb, 1)) - core::at(pa, 1);
                 const double e1z = static_cast<double>(core::at(pb, 2)) - core::at(pa, 2);
@@ -243,7 +242,7 @@ void shatter_geom(PcGeom* geom)
             continue; // (the buffers left locked, as the original)
         auto shatter = memory::make_owned<PcShatter>(count, mesh, 0);
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
-        const auto* direction = g_glass_burst_velocity.data();
+        const maths::Vec4& direction = g_glass_burst_velocity;
         const double scale = -static_cast<double>(g_shatter_velocity_scale);
         const double back_x = scale * direction[0];
         auto back_y = static_cast<float>(scale * direction[1]);
@@ -257,14 +256,14 @@ void shatter_geom(PcGeom* geom)
                                static_cast<float>(static_cast<double>(core::at(mesh->centre, 2)) + back_z),
                                static_cast<float>(static_cast<double>(back_w) + 1.0f)}};
         g_shatters.insert(shatter);
-        uint8_t* cursor = shatter->vertices;
-        while (split_next_triangle(&cursor, mesh))
+        core::Cursor<uint8_t> cursor(std::span<uint8_t>(shatter->vertices, 3 * static_cast<size_t>(stride) * static_cast<size_t>(count)));
+        while (split_next_triangle(cursor, mesh))
             ;
-        const auto piece_count = static_cast<size_t>(cursor - shatter->vertices) / stride;
+        const auto piece_count = static_cast<size_t>(cursor.position()) / stride;
         const gpu::VertexView pieces(shatter->vertices, stride, piece_count);
         int j = 0;
         for (size_t t = 0; t < piece_count; t += 3, ++j) {
-            maths::Vec4& centre = shatter->centres[j];
+            maths::Vec4& centre = core::at(shatter->centre_run(), j);
             const auto q0 = pieces.float3(t);
             const auto q1 = pieces.float3(t + 1);
             const auto q2 = pieces.float3(t + 2);
@@ -285,7 +284,7 @@ void shatter_geom(PcGeom* geom)
                 dy *= f;
                 dz = static_cast<float>(dz * f);
             }
-            shatter->velocities[j] = {static_cast<float>(dx), static_cast<float>(dy), dz, dw};
+            core::at(shatter->velocity_run(), j) = {static_cast<float>(dx), static_cast<float>(dy), dz, dw};
             // a turn about a random axis
             auto a1 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
             auto a2 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
@@ -299,7 +298,7 @@ void shatter_geom(PcGeom* geom)
                 axis.y = static_cast<float>(a2 * inverse);
                 axis.z = static_cast<float>(inverse * a1);
             }
-            maths::Mat4& rotation = shatter->rotations[j];
+            maths::Mat4& rotation = core::at(shatter->rotation_run(), j);
             std::memset(&rotation, 0, sizeof(rotation));
             core::at(rotation.row, 0).x = core::at(rotation.row, 1).y = core::at(rotation.row, 2).z = core::at(rotation.row, 3).w = 1.0f;
             auto angle = static_cast<float>(get_rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)

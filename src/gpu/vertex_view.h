@@ -59,6 +59,11 @@ public:
     }
     // The 32-bit word at `offset` in vertex `index` (a packed colour).
     [[nodiscard]] uint32_t word(size_t index, size_t offset) const { return value<uint32_t>(index, offset); }
+    // Vertex `index`'s bytes (`stride` of them).
+    [[nodiscard]] std::span<const uint8_t> vertex_bytes(size_t index) const
+    {
+        return detail::vertex_bytes(bytes_, stride_, index, 0, stride_);
+    }
     // The value of type T (a plain number or record) at `offset` in vertex `index`.
     template <typename T>
     [[nodiscard]] T value(size_t index, size_t offset) const

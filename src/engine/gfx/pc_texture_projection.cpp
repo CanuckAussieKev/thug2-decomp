@@ -2,6 +2,7 @@
 // where it keeps values in registers, floats where it stores them.
 
 #include "engine/gfx/pc_texture_projection.h"
+#include "engine/core/cursor.h"
 #include "engine/gfx/geom.h"
 #include "platform/d3dx.h"
 
@@ -10,6 +11,7 @@
 #include <d3d9.h>
 
 #include <cstdint>
+#include <span>
 #include <cstring>
 #include <array>
 
@@ -52,7 +54,7 @@ constexpr uint32_t kBatchVertices = 0x600;
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DDevice9* draw_device() { return g_draw_device; } // (the same device, kept twice)
 uint32_t& batch_count() { return g_projection_batch_count; }
-ProjectionBatch* get_batches() { return projection_batches().data(); }
+std::span<ProjectionBatch> get_batches() { return projection_batches(); }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 
 void transform_coord(float* out, const float* v, const maths::Mat4* m)
@@ -78,14 +80,14 @@ float from_uv(float uv)
 using Triangle = std::array<ProjectedVertex, 3>;
 
 // A triangle copied: positions, texture coordinates, then the colours made opaque.
-void copy_triangle(ProjectedVertex* into, const Triangle& from)
+void copy_triangle(std::span<ProjectedVertex> into, const Triangle& from)
 {
     for (int k = 0; k < 3; ++k)
-        into[k].position = core::at(from, k).position;
+        core::at(into, k).position = core::at(from, k).position;
     for (int k = 0; k < 3; ++k)
-        into[k].uv = core::at(from, k).uv;
+        core::at(into, k).uv = core::at(from, k).uv;
     for (int k = 0; k < 3; ++k)
-        into[k].argb = opaque(core::at(from, k).argb);
+        core::at(into, k).argb = opaque(core::at(from, k).argb);
 }
 
 } // namespace
@@ -105,14 +107,14 @@ ProjectionBatch* get_projection_batch(TextureImage* texture, uint32_t blend_name
 {
     const uint32_t count = batch_count();
     for (uint32_t i = 0; i < count; ++i) {
-        if (get_batches()[i].texture == texture)
-            return &get_batches()[i];
+        if (core::at(get_batches(), i).texture == texture)
+            return &core::at(get_batches(), i);
     }
     if (count >= kBatchLimit) {
         debug::printf("hmmm\n");
         return nullptr;
     }
-    ProjectionBatch* batch = &get_batches()[count];
+    ProjectionBatch* batch = &core::at(get_batches(), count);
     MaterialRef* material = &batch->material;
     core::at(material->pass_flags_, 0) = 0x44; // (the pass's flags)
     const int a = get_rand();
@@ -144,7 +146,7 @@ void draw_projection_batches()
     input_port()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     for (uint32_t i = 0; i < batch_count(); ++i) {
-        ProjectionBatch* batch = &get_batches()[i];
+        ProjectionBatch* batch = &core::at(get_batches(), i);
         batch->material.hand_in(); // (the material's set-up)
         set_pixel_shader(batch->pixel_shader_, &batch->material);
         draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices.data(),
@@ -160,23 +162,23 @@ void draw_projection_batches()
 void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
 {
     ProjectionBatch* batch = nullptr;
-    for (; *sectors; ++sectors) {
-        auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(*sectors)->geom_handle_); // (the sector's geom)
+    for (void* const sector : core::null_terminated(sectors)) {
+        auto* geom = static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom_handle_); // (the sector's geom)
         if (!geom)
             continue;
-        MeshRef* const* meshes = geom->meshes;
-        for (uint32_t m = 0; m < geom->mesh_count_; ++m) {
-            MeshRef* mesh = meshes[m];
+        for (MeshRef* const mesh : geom->mesh_run()) {
             if (mesh->flags & 2)
                 continue;
             uint8_t* vertices = nullptr;
             core::at(mesh->vertex_buffers_, 0)->get_lock(0, 0, &vertices, 0x10);
             const gpu::VertexView mesh_vertices(vertices, mesh->stride, mesh->vertex_count_);
-            uint16_t* indices = nullptr;
-            core::at(mesh->index_buffers_, 0)->get_lock(0, 0, &indices, 0x10);
-            uint32_t a = indices[0], b = indices[1];
+            uint16_t* locked_indices = nullptr;
+            core::at(mesh->index_buffers_, 0)->get_lock(0, 0, &locked_indices, 0x10);
+            const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts_, 0));
+            // (a strip of fewer than two indices has no triangle: the first two are only read, as the original did)
+            uint32_t a = indices.size() > 0 ? core::at(indices, 0) : 0u, b = indices.size() > 1 ? core::at(indices, 1) : 0u;
             for (uint32_t strip = 2; strip < core::at(mesh->index_counts_, 0); ++strip) {
-                const uint32_t c = indices[strip];
+                const uint32_t c = core::at(indices, strip);
                 const uint32_t ia = a;
                 const uint32_t ib = b;
                 const uint32_t ic = c;
@@ -201,10 +203,12 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     batch = get_projection_batch(image_of(bitmap_), blend_mode_);
                 // the triangle written at the batch's next slot (the pieces' scratch: the first piece kept goes there)
                 uint32_t count = batch->triangle_count_;
-                ProjectedVertex* slot = &core::at(batch->vertices, 3 * count);
-                ProjectedVertex& v0 = slot[0];
-                ProjectedVertex& v1 = slot[1];
-                ProjectedVertex& v2 = slot[2];
+                // (a batch left full by the last projection: the original wrote the triangle past its vertices)
+                if (3 * count + 2 >= kBatchVertices)
+                    return; // (the buffers left locked, as for a batch filled by this one)
+                ProjectedVertex& v0 = core::at(batch->vertices, 3 * count);
+                ProjectedVertex& v1 = core::at(batch->vertices, (3 * count) + 1);
+                ProjectedVertex& v2 = core::at(batch->vertices, (3 * count) + 2);
                 v0.position = a0;
                 v1.position = a1;
                 v2.position = a2;
@@ -216,7 +220,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 v1.argb = opaque(mesh_vertices.word(ib, colour_offset));
                 v2.argb = opaque(mesh_vertices.word(ic, colour_offset));
                 uint8_t* pieces = nullptr;
-                uint8_t* end = nullptr;
+                core::Cursor<uint8_t> end;
                 MeshRef* format = nullptr;
                 if (fineness_) {
                     // how fine to split it: the cross product of its edges, squared, over 16 times the fineness
@@ -245,8 +249,8 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                     format = memory ? memory::construct_in<MeshRef>(memory) : nullptr;
                     format->color_offset_ = offsetof(ProjectedVertex, argb); // (no check: as the original)
                     format->uv_offset_ = offsetof(ProjectedVertex, uv);
-                    end = pieces;
-                    while (split_next_triangle(&end, format))
+                    end = core::Cursor<uint8_t>(std::span<uint8_t>(pieces, 0x2000));
+                    while (split_next_triangle(end, format))
                         ;
                 }
                 // the pieces inside the projection's square, each into the batch's next triangle
@@ -256,13 +260,13 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                                                   from_uv(core::at(core::at(piece, 1).uv, 0)), from_uv(core::at(core::at(piece, 1).uv, 1)),
                                                   from_uv(core::at(core::at(piece, 2).uv, 0)), from_uv(core::at(core::at(piece, 2).uv, 1))))
                         return;
-                    copy_triangle(&core::at(batch->vertices, 3 * count), piece);
+                    copy_triangle(std::span<ProjectedVertex>(batch->vertices).subspan(3 * static_cast<size_t>(count), 3), piece);
                     ++count;
                     full = 3 * count + 2 >= kBatchVertices;
                 };
                 if (fineness_) {
                     // the pieces (made by the splitter as bytes, a projected vertex each)
-                    const auto made_count = static_cast<size_t>(end - pieces) / sizeof(ProjectedVertex);
+                    const auto made_count = static_cast<size_t>(end.position()) / sizeof(ProjectedVertex);
                     const gpu::VertexView made(pieces, sizeof(ProjectedVertex), made_count);
                     for (size_t first = 0; first + 2 < made_count && !full; first += 3)
                         place({{made.value<ProjectedVertex>(first, 0), made.value<ProjectedVertex>(first + 1, 0),

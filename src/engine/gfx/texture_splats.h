@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/core/cursor.h"
 #include "engine/gfx/projected_vertex.h"
 
 // Texture splats on PC (Nx engine): textures projected onto the world (skid marks, splashes) - per texture a set of
@@ -70,7 +71,7 @@ bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, 
 // (pushed back) when the cross product of its edges, squared, is above the limit (0x0067DDF0: 82944 as loaded; the
 // splat maker sets it for each triangle), else copied to *out (moved past it). False when the stack is empty.
 // `format`: the mesh whose vertex format the stack holds (its colour's and texture coordinates' offsets; 0 none).
-bool split_next_triangle(uint8_t** out, const MeshRef* format);
+bool split_next_triangle(core::Cursor<uint8_t>& out, const MeshRef* format);
 
 // What a splat is made from (create_texture_splat's): a ray from `start` to `end` (the texture projected along it,
 // `size` wide, a square or the distance from `up` high), how far its faces may turn from it (`coneAngle`), how long

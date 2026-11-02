@@ -2,6 +2,7 @@
 
 #include <concepts>
 #include <cstddef>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
@@ -159,5 +160,17 @@ private:
     std::span<const char> run_;
     std::size_t position_ = 0;
 };
+
+// The elements of a null-terminated array of pointers (a list that ends at the first null), as a run: the terminator is
+// left out. The array has no extent of its own, so the run's search is bounded by the address space only.
+template <typename T>
+[[nodiscard]] std::span<T* const> null_terminated(T* const* list)
+{
+    const std::span<T* const> all(list, static_cast<std::size_t>(std::numeric_limits<std::ptrdiff_t>::max()) / sizeof(T*));
+    std::size_t count = 0;
+    while (gsl::at(all, static_cast<std::ptrdiff_t>(count)))
+        ++count;
+    return all.first(count);
+}
 
 } // namespace core
