@@ -23,8 +23,8 @@ class Script;
 // script-only menus work.
 //
 // thug2-decomp.ini [features] debug_mode=1 makes CD false and NotCD true (default 0: as the game) - except for the
-// start-up scripts (default_system_startup, autolaunch, startup_loading_screen): with CD false they'd take the
-// developers' start-up (their loose files instead of the retail data's archives, the viewer instead of the main
+// start-up scripts (default_system_startup, autolaunch, startup_loading_screen) and LoadPermSongs (its playlist is
+// filled only with CD true: no music otherwise): with CD false they'd take the developers' start-up (their loose files instead of the retail data's archives, the viewer instead of the main
 // menu). Once the front end runs, debug mode does what that start-up did that still works: select_shift on (the
 // Select combos) and LaunchViewer (the viewer module, modules::Viewer - engine/sys/model_viewer.h - and its free camera
 // viewer_cam). The data overlay's pause menu (tools/pipeline/menu_level/make_menu_level.ts) gets a DEBUG OPTIONS item while CD

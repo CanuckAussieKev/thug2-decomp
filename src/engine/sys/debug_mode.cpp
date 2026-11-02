@@ -28,7 +28,8 @@ uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 // The start-up scripts, which keep the disc build's CD: false there makes default_system_startup take the
 // developers' path - no UsePreFilesForLevelLoading (their loose files: the retail data's archives aren't loaded, the
 // front end's peds lose their animations - a crash at 0x00482BA0), auto_launch_viewer, the script debugger -
-// instead of the main menu; autolaunch and startup_loading_screen run with it.
+// instead of the main menu; autolaunch and startup_loading_screen run with it. LoadPermSongs (called by LoadPermSounds
+// at start-up) fills the music playlist only when CD is true (or TestMusicFromHost): with CD false there's no music.
 bool is_startup_script(const script::Script* script)
 {
     if (!script)
@@ -36,7 +37,7 @@ bool is_startup_script(const script::Script* script)
     // (the script it's running now: CScript +0xC8)
     const uint32_t name = script->script_title_;
     static const auto kStartup = std::to_array<uint32_t>({name_hash("default_system_startup"), name_hash("autolaunch"),
-                                        name_hash("startup_loading_screen")});
+                                        name_hash("startup_loading_screen"), name_hash("LoadPermSongs")});
     for (const uint32_t startup : kStartup) {
         if (name == startup)
             return true;
