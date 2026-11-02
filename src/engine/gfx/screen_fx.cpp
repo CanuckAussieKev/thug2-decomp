@@ -120,20 +120,20 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, float du, floa
         auto u1 = static_cast<float>(static_cast<double>(right) + half_x);
         auto v1 = static_cast<float>((static_cast<double>(dv) + 1.0) + half_y);
         std::array<TexturedVertex, 4> quad = {{
-            {0.0f, 0.0f, 0.0f, 1.0f, colour, u0, v0},
-            {width, 0.0f, 0.0f, 1.0f, colour, u1, v0},
-            {0.0f, height, 0.0f, 1.0f, colour, u0, v1},
-            {width, height, 0.0f, 1.0f, colour, u1, v1},
+            {.x = 0.0f, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .colour = colour, .u = u0, .v = v0},
+            {.x = width, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .colour = colour, .u = u1, .v = v0},
+            {.x = 0.0f, .y = height, .z = 0.0f, .rhw = 1.0f, .colour = colour, .u = u0, .v = v1},
+            {.x = width, .y = height, .z = 0.0f, .rhw = 1.0f, .colour = colour, .u = u1, .v = v1},
         }};
         device_copy()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(TexturedVertex));
     } else {
         set_pixel_shader(get_shader(kPixelShader94c), nullptr);
         // (the vertex format is left as it was)
         std::array<FlatVertex, 4> quad = {{
-            {0.0f, 0.0f, 0.0f, 1.0f, colour},
-            {width, 0.0f, 0.0f, 1.0f, colour},
-            {0.0f, height, 0.0f, 1.0f, colour},
-            {width, height, 0.0f, 1.0f, colour},
+            {.x = 0.0f, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .colour = colour},
+            {.x = width, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .colour = colour},
+            {.x = 0.0f, .y = height, .z = 0.0f, .rhw = 1.0f, .colour = colour},
+            {.x = width, .y = height, .z = 0.0f, .rhw = 1.0f, .colour = colour},
         }};
         device_copy()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(FlatVertex));
     }
@@ -256,15 +256,15 @@ void get_bloom()
         auto half_x_float = static_cast<float>(half_x), half_y_float = static_cast<float>(half_y);
         auto width = static_cast<float>(g_back_buffer_width);
         auto height = static_cast<float>(g_back_buffer_height);
-        uint32_t colour = alpha << 24 | 0x808080;
+        const uint32_t colour = alpha << 24 | 0x808080;
         // (as the original builds them: z 1, the second vertex's u 1, the last vertex half a texel short of the bottom)
         std::array<TexturedVertex, 4> quad = {{
-            {0.0f, 0.0f, 1.0f, 1.0f, colour, half_x_float, half_y_float},
-            {width, 0.0f, 1.0f, 1.0f, colour, 1.0f, half_y_float},
-            {0.0f, height, 1.0f, 1.0f, colour, half_x_float,
-             static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
-            {width, static_cast<float>(static_cast<double>(height) - half_y_float), 1.0f, 1.0f, colour,
-             static_cast<float>(half_x + 1.0), static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
+            {.x = 0.0f, .y = 0.0f, .z = 1.0f, .rhw = 1.0f, .colour = colour, .u = half_x_float, .v = half_y_float},
+            {.x = width, .y = 0.0f, .z = 1.0f, .rhw = 1.0f, .colour = colour, .u = 1.0f, .v = half_y_float},
+            {.x = 0.0f, .y = height, .z = 1.0f, .rhw = 1.0f, .colour = colour, .u = half_x_float,
+             .v = static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
+            {.x = width, .y = static_cast<float>(static_cast<double>(height) - half_y_float), .z = 1.0f, .rhw = 1.0f, .colour = colour,
+             .u = static_cast<float>(half_x + 1.0), .v = static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
         }};
         set_texture(0, nullptr);
         set_texture(0, blurred);

@@ -118,7 +118,7 @@ maths::Mat4& static_orientation()
 } // namespace
 
 // 0x004B4460
-PcGeom::PcGeom() { scale = {1.0f, 1.0f, 1.0f, 1.0f}; }
+PcGeom::PcGeom() { scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f}; }
 
 // 0x004B5EE0
 PcGeom::~PcGeom()
@@ -470,9 +470,9 @@ maths::Vec4* PcGeom::plat_get_bounding_sphere(maths::Vec4* out)
 {
     if (instance && instance->scene) {
         const SceneRef* list = instance->scene;
-        *out = {core::at(list->centre, 0), core::at(list->centre, 1), core::at(list->centre, 2), list->radius};
+        *out = {.x = core::at(list->centre, 0), .y = core::at(list->centre, 1), .z = core::at(list->centre, 2), .w = list->radius};
     } else {
-        *out = {0.0f, 0.0f, 0.0f, 10000.0f};
+        *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 10000.0f};
     }
     return out;
 }
@@ -480,7 +480,7 @@ maths::Vec4* PcGeom::plat_get_bounding_sphere(maths::Vec4* out)
 // 0x004B55D0
 void PcGeom::place_at_absolute_point(const maths::Vec4* position)
 {
-    const maths::Vec4 pos = {position->x, position->y, position->z, 1.0f};
+    const maths::Vec4 pos = {.x = position->x, .y = position->y, .z = position->z, .w = 1.0f};
     if (instance) {
         core::at(instance->transform.row, 3) = pos;
         return;
@@ -497,7 +497,7 @@ maths::Vec4* PcGeom::get_absolute_point()
         pos = core::at(instance->transform.row, 3);
         return &pos;
     }
-    pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (core::at(mesh_run(), 0)) // (no check of the array itself, as the original)
         mesh_position(core::at(mesh_run(), 0), &pos);
     return &pos;
@@ -524,7 +524,7 @@ maths::Mat4* PcGeom::fetch_facing()
         m = instance->transform;
     else
         get_identity(&m);
-    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     return &m;
 }
 
@@ -540,7 +540,7 @@ void PcGeom::rotate_y(int turns)
     }
     maths::Mat4 m{};
     m = instance->transform;
-    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::Mat4 rotation{};
     maths::make_yaw_matrix(rotation, static_cast<float>(static_cast<double>(turns) * kQuarterTurn));
     // D3DX (linked library code): rotation = m * rotation
@@ -557,7 +557,7 @@ void PcGeom::change_scale(const maths::Vec4* new_scale)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         MeshRef* mesh = core::at(mesh_run(), i);
-        maths::Vec4 centre = {0.0f, 0.0f, 0.0f, 1.0f};
+        maths::Vec4 centre = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         mesh_position(mesh, &centre);
         VertexBuffer* buffer = get_vertex_buffer(mesh, 0);
         const gpu::VertexWriter vertices(get_lock(buffer, 0), mesh->stride, mesh->vertex_count_);

@@ -193,10 +193,10 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
     const double bottom = glyph->h * scale_y * yscale + top;
     const uint32_t vertex_color = get_vertex_color(color);
     const core::Cursor<TextVertex> v = next_quad();
-    v[0] = {left, static_cast<float>(top), z, 1.0f, vertex_color, glyph->u0, glyph->v0};
-    v[1] = {left, static_cast<float>(bottom), z, 1.0f, vertex_color, glyph->u0, glyph->v1};
-    v[2] = {right, static_cast<float>(bottom), z, 1.0f, vertex_color, glyph->u1, glyph->v1};
-    v[3] = {right, static_cast<float>(top), z, 1.0f, vertex_color, glyph->u1, glyph->v0};
+    v[0] = {.x = left, .y = static_cast<float>(top), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v0};
+    v[1] = {.x = left, .y = static_cast<float>(bottom), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v1};
+    v[2] = {.x = right, .y = static_cast<float>(bottom), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v1};
+    v[3] = {.x = right, .y = static_cast<float>(top), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v0};
     get_vertex_count() += 4;
     if (get_vertex_count() >= kVertexLimit) {
         close_sketch();
@@ -366,10 +366,10 @@ void GlyphRun::draw()
             }
 
             auto at = [](int i) { return static_cast<float>(i); };
-            v[0] = {at(x0), at(y0), z, 1.0f, vertex_color, glyph->u0, glyph->v0};
-            v[1] = {at(x2), at(y2), z, 1.0f, vertex_color, glyph->u0, glyph->v1};
-            v[2] = {at(x3), at(y3), z, 1.0f, vertex_color, glyph->u1, glyph->v1};
-            v[3] = {at(x1), at(y1), z, 1.0f, vertex_color, glyph->u1, glyph->v0};
+            v[0] = {.x = at(x0), .y = at(y0), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v0};
+            v[1] = {.x = at(x2), .y = at(y2), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u0, .v = glyph->v1};
+            v[2] = {.x = at(x3), .y = at(y3), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v1};
+            v[3] = {.x = at(x1), .y = at(y1), .z = z, .rhw = 1.0f, .color = vertex_color, .u = glyph->u1, .v = glyph->v0};
             get_vertex_count() += 4;
             if (get_vertex_count() >= kVertexLimit) {
                 close_sketch();

@@ -89,10 +89,10 @@ constexpr uint32_t kBarVertexFormat = D3DFVF_XYZRHW | D3DFVF_DIFFUSE; // 0x44
 void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t right)
 {
     // (a strip: top left, bottom left, top right, bottom right)
-    std::array<BarVertex, 4> quad = {{{x0, y0, 1.0f, 1.0f, left},
-                         {x0, y1, 1.0f, 1.0f, left},
-                         {x1, y0, 1.0f, 1.0f, right},
-                         {x1, y1, 1.0f, 1.0f, right}}};
+    std::array<BarVertex, 4> quad = {{{.x = x0, .y = y0, .z = 1.0f, .rhw = 1.0f, .color = left},
+                         {.x = x0, .y = y1, .z = 1.0f, .rhw = 1.0f, .color = left},
+                         {.x = x1, .y = y0, .z = 1.0f, .rhw = 1.0f, .color = right},
+                         {.x = x1, .y = y1, .z = 1.0f, .rhw = 1.0f, .color = right}}};
     input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(BarVertex));
 }
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, its low half (NaN and infinities: 0).
@@ -104,8 +104,8 @@ uint32_t opaque(const Rgb& c) { return 0xFF000000u | (c.r & 0xFF) << 16 | (c.g &
 // 0x004B6B80
 void update_loading_bar_colors()
 {
-    gradient_start() = {core::at(start_color(), 0), core::at(start_color(), 1), core::at(start_color(), 2)};
-    gradient_end() = {core::at(end_color(), 0), core::at(end_color(), 1), core::at(end_color(), 2)};
+    gradient_start() = {.r = core::at(start_color(), 0), .g = core::at(start_color(), 1), .b = core::at(start_color(), 2)};
+    gradient_end() = {.r = core::at(end_color(), 0), .g = core::at(end_color(), 1), .b = core::at(end_color(), 2)};
     gradient_width() =
         static_cast<int>(static_cast<double>(get_screen_width()) * progress_bar_pixels() * (1.0f / 640.0f));
     border_argb() = 0x80000000u | core::at(border_color(), 0) << 16 | core::at(border_color(), 1) << 8 | core::at(border_color(), 2);
@@ -116,7 +116,7 @@ void update_loading_bar_colors()
     // at the start of the buffer. Nothing reads the table.
     const int steps = static_cast<int>(static_cast<double>(gradient_width()) * horiz_screen_ratio());
     const Rgb start = gradient_start();
-    const Rgb delta = {gradient_end().r - start.r, gradient_end().g - start.g, gradient_end().b - start.b};
+    const Rgb delta = {.r = gradient_end().r - start.r, .g = gradient_end().g - start.g, .b = gradient_end().b - start.b};
     auto& table = gradient_table();
     for (int i = 0; i < steps; ++i) {
         Rgb& entry = core::at(table, i);

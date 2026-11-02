@@ -119,7 +119,7 @@ void MeshRef::fetch_place(maths::Vec4* out) const
         return;
     }
     const std::span<float, 16> t = transform_floats();
-    *out = {core::at(t, 12), core::at(t, 13), core::at(t, 14), core::at(t, 15)}; // (the last row)
+    *out = {.x = core::at(t, 12), .y = core::at(t, 13), .z = core::at(t, 14), .w = core::at(t, 15)}; // (the last row)
 }
 
 // 0x004D5760

@@ -240,7 +240,7 @@ void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const ma
     core::at(poly.normal, 1) = static_cast<float>(b2 * a0 - static_cast<double>(a2) * b0);
     core::at(poly.normal, 2) = static_cast<float>(static_cast<double>(b0) * a1 - b1 * a0);
     core::at(poly.normal, 3) = 0.0f;
-    maths::Vec4 normal = {core::at(poly.normal, 0), core::at(poly.normal, 1), core::at(poly.normal, 2), 0.0f};
+    maths::Vec4 normal = {.x = core::at(poly.normal, 0), .y = core::at(poly.normal, 1), .z = core::at(poly.normal, 2), .w = 0.0f};
     normal.make_unit();
     poly.normal = {normal.x, normal.y, normal.z, normal.w};
     ++poly_count();

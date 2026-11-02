@@ -179,7 +179,7 @@ bool Geom::is_operative()
 }
 namespace {
 // (all zero at start, as the original's: the first PlatGetBoundingBox makes it empty)
-maths::BBox g_plat_bounding_box{maths::BBox(maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f})};
+maths::BBox g_plat_bounding_box{maths::BBox(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f})};
 uint32_t g_plat_bounding_box_guard; // (bit 0: made)
 } // namespace
 

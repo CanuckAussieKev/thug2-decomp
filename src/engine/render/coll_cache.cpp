@@ -38,8 +38,8 @@ std::span<HitMesh* const> objects_along(CollGrid* list, maths::Seg* line)
 
 void get_clear(HitMeshCache* cache)
 {
-    cache->box_.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
-    cache->box_.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
+    cache->box_.min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
+    cache->box_.max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
     cache->num_ = 0;
     cache->statics_ = 0;
     cache->movables_ = 0;
@@ -68,8 +68,8 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
     box_ = box;
     // The box the objects are tested against: grown by half a unit each way.
     maths::BBox grown;
-    grown.append_spot({box.max.x + 0.5f, box.max.y + 0.5f, box.max.z + 0.5f, box.max.w});
-    grown.append_spot({box.min.x - 0.5f, box.min.y - 0.5f, box.min.z - 0.5f, box.min.w});
+    grown.append_spot({.x = box.max.x + 0.5f, .y = box.max.y + 0.5f, .z = box.max.z + 0.5f, .w = box.max.w});
+    grown.append_spot({.x = box.min.x - 0.5f, .y = box.min.y - 0.5f, .z = box.min.z - 0.5f, .w = box.min.w});
     for (CollGrid* const list : lists) {
         for (HitMesh* const object : objects_along(list, &line)) {
             if (!object->inside_bounds(&grown))

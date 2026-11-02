@@ -128,14 +128,14 @@ bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, s
                 rotation_to_quat_b(decoded.data(), key.data());
                 maths::QuatRotation added = rotation;
                 const FloatKey decoded_key = anim_format::float_key_at(decoded.data());
-                const maths::QuatRotation turn{std::get<0>(decoded_key.value), std::get<1>(decoded_key.value), std::get<2>(decoded_key.value),
-                                               std::get<3>(decoded_key.value)};
+                const maths::QuatRotation turn{.x = std::get<0>(decoded_key.value), .y = std::get<1>(decoded_key.value), .z = std::get<2>(decoded_key.value),
+                                               .w = std::get<3>(decoded_key.value)};
                 added *= turn;
                 maths::QuatRotation to = added;
                 std::array<float, 4> blended{};
                 interpolate_rotation(blended, std::span<const float, 4>(rotation.data(), 4), std::span<float, 4>(to.data(), 4),
                                      weight);
-                rotation = {std::get<0>(blended), std::get<1>(blended), std::get<2>(blended), std::get<3>(blended)};
+                rotation = {.x = std::get<0>(blended), .y = std::get<1>(blended), .z = std::get<2>(blended), .w = std::get<3>(blended)};
             }
             const uint32_t flags = flag_bits_;
             if (!(flags & kTranslationKeys) || core::at(trans_sizes, i)) {

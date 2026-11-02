@@ -55,8 +55,8 @@ struct LineQuery {
         grown.y -= 0.5f;
         grown.z -= 0.5f;
         box.append_spot(grown);
-        direction = {line->end.x - line->start.x, line->end.y - line->start.y, line->end.z - line->start.z,
-                     line->end.w - line->start.w};
+        direction = {.x = line->end.x - line->start.x, .y = line->end.y - line->start.y, .z = line->end.z - line->start.z,
+                     .w = line->end.w - line->start.w};
     }
 };
 

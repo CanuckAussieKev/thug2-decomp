@@ -134,8 +134,8 @@ void EmitterInstance::get_reset()
     lod_min_particles_ = 0;
     lod_near_ = 0.0f;
     lod_far_ = 0.0f;
-    at_point_ = maths::Vec4{2048.0f, 144.0f, -928.0f, 0.0f};
-    last_pos_ = maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+    at_point_ = maths::Vec4{.x = 2048.0f, .y = 144.0f, .z = -928.0f, .w = 0.0f};
+    last_pos_ = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     size_scale_ = 1.0f;
     core::at(emit_range_, 0) = 1.0f;
     core::at(emit_range_, 1) = 1.0f;
@@ -269,12 +269,12 @@ void EmitterInstance::get_emit_matrix(maths::Mat4* out)
         *out = *xform_ref_;
         return;
     }
-    core::at(out->row, 0) = maths::Vec4{1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(out->row, 1) = maths::Vec4{0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(out->row, 2) = maths::Vec4{0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(out->row, 3) = maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(out->row, 0) = maths::Vec4{.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(out->row, 1) = maths::Vec4{.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(out->row, 2) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(out->row, 3) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::Vec4& at = core::at(out->row, 2);
-    at = maths::Vec4{core::at(emit_target_, 0), core::at(emit_target_, 1), core::at(emit_target_, 2), 1.0f};
+    at = maths::Vec4{.x = core::at(emit_target_, 0), .y = core::at(emit_target_, 1), .z = core::at(emit_target_, 2), .w = 1.0f};
     at.make_unit();
     // across: up x the target (along x when the target is nearly up); then the second row across both (x87, 53 bits)
     double up = 1.0, along = 0.0;
@@ -411,7 +411,7 @@ void EmitterInstance::set_wants_time(uint8_t on)
 // 0x00497AB0
 maths::Mat4* EmitterInstance::build_emitter_orientation(maths::Mat4* out)
 {
-    const maths::Vec4 angles{core::at(orientation_turn_, 0), core::at(orientation_turn_, 1), core::at(orientation_turn_, 2), 1.0f};
+    const maths::Vec4 angles{.x = core::at(orientation_turn_, 0), .y = core::at(orientation_turn_, 1), .z = core::at(orientation_turn_, 2), .w = 1.0f};
     maths::Mat4 rotation{};
     rotation.init_from_angles(angles);
     *out = rotation;

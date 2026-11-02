@@ -130,7 +130,7 @@ void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
         std::memset(edges_->edges, 0, size);
     }
     int count = 0;
-    EdgeStore store{std::span<ShadowSilhouetteEdge>(edges_->edges, estimate >= 1 ? static_cast<size_t>(estimate) : 0), {}};
+    EdgeStore store{.room = std::span<ShadowSilhouetteEdge>(edges_->edges, estimate >= 1 ? static_cast<size_t>(estimate) : 0), .beyond = {}};
     if (model_key_) {
         const std::span<const TriMeshSource> mesh_run(meshes, static_cast<size_t>(get_mesh_count(asset_data)));
         for (int m = 0; m < get_mesh_count(asset_data); ++m) {

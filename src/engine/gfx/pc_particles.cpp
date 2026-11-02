@@ -254,9 +254,9 @@ void PcParticleSystem::initialise()
     std::array<float, 4> middle = {{core::at(args_.box_, 1).x, core::at(args_.box_, 1).y, core::at(args_.box_, 1).z, core::at(args_.radius_, 1)}};
     std::array<float, 4> last = {{core::at(args_.box_, 2).x, core::at(args_.box_, 2).y, core::at(args_.box_, 2).z, core::at(args_.radius_, 2)}};
     const Fit fit = get_fit(start, middle, last, args_.lifetime_, get_mid_time(this), args_.use_mid_, true);
-    spread.a = {core::at(start, 0), core::at(start, 1), core::at(start, 2), core::at(start, 3)};
-    spread.b = {static_cast<float>(fit.bx), fit.by, fit.bz, fit.bw};
-    spread.c = {core::at(fit.c, 0), core::at(fit.c, 1), core::at(fit.c, 2), core::at(fit.c, 3)};
+    spread.a = {.x = core::at(start, 0), .y = core::at(start, 1), .z = core::at(start, 2), .w = core::at(start, 3)};
+    spread.b = {.x = static_cast<float>(fit.bx), .y = fit.by, .z = fit.bz, .w = fit.bw};
+    spread.c = {.x = core::at(fit.c, 0), .y = core::at(fit.c, 1), .z = core::at(fit.c, 2), .w = core::at(fit.c, 3)};
     // The path (the original works it out here as well, then again in update_path to the same values).
     update_path();
     std::memset(&matrix, 0, sizeof(matrix));
@@ -275,12 +275,12 @@ void PcParticleSystem::update_path()
         const double offset = static_cast<double>(spread_value) * 1.5f;
         return static_cast<float>(value - (rounded ? static_cast<double>(static_cast<float>(offset)) : offset));
     };
-    path.a = {less(core::at(start, 0), spread.a.x, false), less(core::at(start, 1), spread.a.y, true), less(core::at(start, 2), spread.a.z, true),
-              less(core::at(start, 3), spread.a.w, false)};
-    path.b = {less(fit.bx, spread.b.x, false), less(fit.by, spread.b.y, true), less(fit.bz, spread.b.z, true),
-              less(fit.bw, spread.b.w, false)};
-    path.c = {less(core::at(fit.c, 0), spread.c.x, false), less(core::at(fit.c, 1), spread.c.y, true), less(core::at(fit.c, 2), spread.c.z, true),
-              less(core::at(fit.c, 3), spread.c.w, false)};
+    path.a = {.x = less(core::at(start, 0), spread.a.x, false), .y = less(core::at(start, 1), spread.a.y, true), .z = less(core::at(start, 2), spread.a.z, true),
+              .w = less(core::at(start, 3), spread.a.w, false)};
+    path.b = {.x = less(fit.bx, spread.b.x, false), .y = less(fit.by, spread.b.y, true), .z = less(fit.bz, spread.b.z, true),
+              .w = less(fit.bw, spread.b.w, false)};
+    path.c = {.x = less(core::at(fit.c, 0), spread.c.x, false), .y = less(core::at(fit.c, 1), spread.c.y, true), .z = less(core::at(fit.c, 2), spread.c.z, true),
+              .w = less(core::at(fit.c, 3), spread.c.w, false)};
 }
 
 // 0x004BC240
@@ -351,7 +351,7 @@ void PcParticleSystem::draw(bool advance)
         }
     }
     if (!args_.local_positions_) {
-        const maths::Vec4 centre = {bound_ball_.x, bound_ball_.y, bound_ball_.z, 0.0f};
+        const maths::Vec4 centre = {.x = bound_ball_.x, .y = bound_ball_.y, .z = bound_ball_.z, .w = 0.0f};
         const bool visible = args_.cull_outside_ ? sphere_outside_view(&centre, bound_ball_.w) != 0
                                                  : sphere_in_view(&centre, bound_ball_.w);
         if (!visible)
@@ -476,30 +476,30 @@ void PcParticleSystem::draw(bool advance)
                     auto left_x = static_cast<float>(centre_x - across_x);
                     auto left_y = static_cast<float>(static_cast<double>(centre_y) - across_y);
                     auto left_z = static_cast<float>(static_cast<double>(centre_z) - across_z);
-                    vertex[0] = {static_cast<float>(static_cast<double>(up_x) + left_x),
-                                 static_cast<float>(static_cast<double>(up_y) + left_y),
-                                 static_cast<float>(static_cast<double>(up_z) + left_z),
-                                 colour,
-                                 0.0f,
-                                 0.0f};
-                    vertex[1] = {static_cast<float>(static_cast<double>(centre_x) + up_x + across_x),
-                                 static_cast<float>(static_cast<double>(centre_y) + up_y + across_y),
-                                 static_cast<float>(static_cast<double>(centre_z) + up_z + across_z),
-                                 colour,
-                                 1.0f,
-                                 0.0f};
-                    vertex[2] = {static_cast<float>(static_cast<double>(centre_x) + across_x - up_x),
-                                 static_cast<float>(static_cast<double>(centre_y) + across_y - up_y),
-                                 static_cast<float>(static_cast<double>(centre_z) + across_z - up_z),
-                                 colour,
-                                 1.0f,
-                                 1.0f};
-                    vertex[3] = {static_cast<float>(static_cast<double>(left_x) - up_x),
-                                 static_cast<float>(static_cast<double>(left_y) - up_y),
-                                 static_cast<float>(static_cast<double>(left_z) - up_z),
-                                 colour,
-                                 0.0f,
-                                 1.0f};
+                    vertex[0] = {.x = static_cast<float>(static_cast<double>(up_x) + left_x),
+                                 .y = static_cast<float>(static_cast<double>(up_y) + left_y),
+                                 .z = static_cast<float>(static_cast<double>(up_z) + left_z),
+                                 .colour = colour,
+                                 .u = 0.0f,
+                                 .v = 0.0f};
+                    vertex[1] = {.x = static_cast<float>(static_cast<double>(centre_x) + up_x + across_x),
+                                 .y = static_cast<float>(static_cast<double>(centre_y) + up_y + across_y),
+                                 .z = static_cast<float>(static_cast<double>(centre_z) + up_z + across_z),
+                                 .colour = colour,
+                                 .u = 1.0f,
+                                 .v = 0.0f};
+                    vertex[2] = {.x = static_cast<float>(static_cast<double>(centre_x) + across_x - up_x),
+                                 .y = static_cast<float>(static_cast<double>(centre_y) + across_y - up_y),
+                                 .z = static_cast<float>(static_cast<double>(centre_z) + across_z - up_z),
+                                 .colour = colour,
+                                 .u = 1.0f,
+                                 .v = 1.0f};
+                    vertex[3] = {.x = static_cast<float>(static_cast<double>(left_x) - up_x),
+                                 .y = static_cast<float>(static_cast<double>(left_y) - up_y),
+                                 .z = static_cast<float>(static_cast<double>(left_z) - up_z),
+                                 .colour = colour,
+                                 .u = 0.0f,
+                                 .v = 1.0f};
                     vertex += 4;
                     t = t - burst->period;
                     ++quads;

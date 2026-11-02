@@ -69,7 +69,7 @@ bool beyond_clip_distance(const void* bounds);
 // (where the original's Vec4 view of the centre found it as w).
 inline maths::Vec4 sphere_of(const std::array<float, 3>& centre, float radius)
 {
-    return {std::get<0>(centre), std::get<1>(centre), std::get<2>(centre), radius};
+    return {.x = std::get<0>(centre), .y = std::get<1>(centre), .z = std::get<2>(centre), .w = radius};
 }
 
 extern float g_last_sphere_distance;

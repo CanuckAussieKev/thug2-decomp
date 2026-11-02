@@ -151,10 +151,10 @@ double get_dot(const maths::Vec4& a, const maths::Vec4& b)
 {
     return static_cast<double>(a.z) * b.z + static_cast<double>(a.y) * b.y + static_cast<double>(a.x) * b.x;
 }
-script::VectorValue get_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}; }
+script::VectorValue get_value(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z, .w = v.w}; }
 gsl::owner<script::Struct*> new_params() { return script::new_struct(); }
 // The screen centre lens flares are placed from.
-maths::Vec4 screen_centre() { return {320.0f, 240.0f, 0.0f, 1.0f}; }
+maths::Vec4 screen_centre() { return {.x = 320.0f, .y = 240.0f, .z = 0.0f, .w = 1.0f}; }
 
 // The sun's colour scaled into bytes for each of the quad's four corners.
 void corner_colors(std::array<std::array<uint8_t, 4>, 4>& colors, double scale)
@@ -211,7 +211,7 @@ void set_sun(const Settings* settings, uint32_t mask)
 void query_sun_visibility(uint32_t /*data*/, uint32_t slot)
 {
     const auto query = static_cast<uint8_t>(slot); // (the original's callback took the slot as a byte)
-    maths::Vec4 screen = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 screen = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     render::ViewRegion* camera = viewport_camera();
     float z = 1.401298464e-45f; // (an int 1 in the original, overwritten)
     cast_onto(camera, &get_position(), &screen[0], &screen[1], &z);
@@ -265,13 +265,13 @@ void prepare_all(float theta, float phi, float radius, float size, uint32_t text
         gsl::owner<Struct*> morph = new_params(); // (the same)
         element.morph = morph;
         element.morph->put_name_key(kId, element.id);
-        element.morph->put_vec3(kPos, script::VectorValue{0.0f, 0.0f, 0.0f, 1.0f});
+        element.morph->put_vec3(kPos, script::VectorValue{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f});
         element.morph->push_float(kTime, 0.0f);
     }
     morph_in_time() = script::fetch_float(kMorphIn);
     morph_out_time() = script::fetch_float(kMorphOut);
     sun_burst_out_time() = script::fetch_float(kSunBurstOut);
-    get_color() = {255.0f, 255.0f, 255.0f, 128.0f};
+    get_color() = {.x = 255.0f, .y = 255.0f, .z = 255.0f, .w = 128.0f};
 }
 
 // 0x00442D70
@@ -283,8 +283,8 @@ void update_flare(Struct* params, script::Script*)
     params->fetch_float(kMorphTime, &time, 0);
     script::VectorValue sun{}; // (unset if there's none: the getter asserts)
     params->fetch_vec(kSunPos, &sun, 1);
-    const maths::Vec4 sun_pos = {sun.x, sun.y, sun.z, sun.w};
-    const maths::Vec4 centre_pos = {centre.x, centre.y, centre.z, centre.w};
+    const maths::Vec4 sun_pos = {.x = sun.x, .y = sun.y, .z = sun.z, .w = sun.w};
+    const maths::Vec4 centre_pos = {.x = centre.x, .y = centre.y, .z = centre.z, .w = centre.w};
     place_flare_elements(time, &sun_pos, &centre_pos);
 }
 
@@ -356,12 +356,12 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
     if (g_flare_sun_texture)
         quad->set_texture(g_flare_sun_texture, 0, 0);
     const float size = camera->unknownb4_ * get_size(); // (0x004426B0 reads the factor)
-    float half = size / 2.0f;
+    const float half = size / 2.0f;
     std::array<maths::Vec4, 4> quad_corners = {{
-        {-half, -half, 0.0f, 1.0f},
-        {half, -half, 0.0f, 1.0f},
-        {half, half, 0.0f, 1.0f},
-        {-half, half, 0.0f, 1.0f},
+        {.x = -half, .y = -half, .z = 0.0f, .w = 1.0f},
+        {.x = half, .y = -half, .z = 0.0f, .w = 1.0f},
+        {.x = half, .y = half, .z = 0.0f, .w = 1.0f},
+        {.x = -half, .y = half, .z = 0.0f, .w = 1.0f},
     }};
     for (maths::Vec4& corner : quad_corners)
         transform_in_place(&corner, &facing);
@@ -414,10 +414,10 @@ void render(gfx::ViewCam* camera)
     maths::Mat4 rotation{};
     rotation.reset_to_identity();
     rotation.rotate_y(get_theta());
-    maths::Vec4 direction = {0.0f, 0.0f, 1.0f, 1.0f};
+    maths::Vec4 direction = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
     direction = direction * rotation;
     rotation.reset_to_identity();
-    maths::Vec4 axis = maths::cross_vec(direction, maths::Vec4{0.0f, 1.0f, 0.0f, 1.0f});
+    maths::Vec4 axis = maths::cross_vec(direction, maths::Vec4{.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f});
     axis.make_unit();
     rotation.spin_by(axis, get_phi());
     direction = direction * rotation;
@@ -434,7 +434,7 @@ void render(gfx::ViewCam* camera)
         hide_flare(nullptr, nullptr);
         return;
     }
-    maths::Vec4 screen = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 screen = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     float z = 1.401298464e-45f; // (an int 1 in the original, overwritten)
     cast_onto(viewport_camera(), &sun_pos, &screen[0], &screen[1], &z);
     if (screen[0] == 0.0f && screen[1] == 0.0f) {

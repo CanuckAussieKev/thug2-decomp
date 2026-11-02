@@ -27,7 +27,7 @@ std::array<DynamicLightBase*, 256> g_dynamic_lights;
 std::span<float> g_intensities;
 uint32_t g_model_light_count;
 float g_ambient_intensity{1.0f};
-LightingState g_active_lighting{0, {}, {}, 0.5f, 0.0f, {}, {}};
+LightingState g_active_lighting{.ambient = 0, .directions = {}, .colours = {}, .ambient_low_ = 0.5f, .ambient_high_ = 0.0f, .light_low_ = {}, .light_high_ = {}};
 namespace {
 std::array<LightingState, 4> g_world_light_stack; // (the saved ones: PushLights / PopLights)
 
@@ -122,7 +122,7 @@ void init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
         saved.colours = {static_cast<uint32_t*>(memory::alloc(max_lights * 4)), max_lights};
         saved.light_low_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
         saved.light_high_ = {static_cast<float*>(memory::alloc(max_lights * 4)), max_lights};
-        std::ranges::fill(saved.directions, maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f});
+        std::ranges::fill(saved.directions, maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f});
         std::ranges::fill(saved.colours, 0u);
         std::ranges::fill(saved.light_low_, 0.0f);
         std::ranges::fill(saved.light_high_, 0.0f);

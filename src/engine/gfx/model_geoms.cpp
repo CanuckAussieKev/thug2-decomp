@@ -144,7 +144,7 @@ RenderModel::RenderModel()
     geom_total_ = 0;
     source_path_ = kNone;
     flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kModelHidden) | kModelEnabledBit);
-    size_factor_ = {1.0f, 1.0f, 1.0f, 1.0f};
+    size_factor_ = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
     flag_bits_ &= ~(kModelSphereValid | kModelScaled | kModelShadow | kModelShadowVolume);
     lights_ptr_ = nullptr;
 }
@@ -391,8 +391,8 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton)
         // A box about the position (compiled out).
         maths::Mat4 orientation = *matrix;
         const maths::Vec4 position = (*matrix)[3];
-        orientation[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-        std::array<maths::Vec4, 2> box = {{{10.0f, 10.0f, 10.0f, 1.0f}, {-10.0f, -10.0f, -10.0f, 1.0f}}};
+        orientation[3] = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        std::array<maths::Vec4, 2> box = {{{.x = 10.0f, .y = 10.0f, .z = 10.0f, .w = 1.0f}, {.x = -10.0f, .y = -10.0f, .z = -10.0f, .w = 1.0f}}};
         gfx::draw_debug_cube(&orientation, &position, box.data(), 0, 1, 0, 0xFF0000C8);
         break;
     }

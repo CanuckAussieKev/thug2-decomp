@@ -59,8 +59,8 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
     const float e1x = get_difference(v1.x, v0.x);
     const float e1y = get_difference(v1.y, v0.y);
     const double e1z = static_cast<double>(v1.z) - v0.z;
-    maths::Vec4 normal{static_cast<float>(e1y * e2z - e1z * e2y), static_cast<float>(e1z * e2x - e2z * e1x),
-                       static_cast<float>(e2y * e1x - e1y * e2x), 0.0f};
+    maths::Vec4 normal{.x = static_cast<float>(e1y * e2z - e1z * e2y), .y = static_cast<float>(e1z * e2x - e2z * e1x),
+                       .z = static_cast<float>(e2y * e1x - e1y * e2x), .w = 0.0f};
     hit.normal = normal.make_unit();
     const double length_squared =
         (static_cast<double>(hit.normal.x) * hit.normal.x + static_cast<double>(hit.normal.y) * hit.normal.y) +
@@ -73,8 +73,8 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
     core::at(hit.ends, 1).point = core::at(points, 1);
     if (placed) {
         for (RectHitEnd& end : hit.ends) {
-            const maths::Vec4 scaled{end.point.x * placed->size_factor_.x, placed->size_factor_.y * end.point.y,
-                                     placed->size_factor_.z * end.point.z, placed->size_factor_.w * end.point.w};
+            const maths::Vec4 scaled{.x = end.point.x * placed->size_factor_.x, .y = placed->size_factor_.y * end.point.y,
+                                     .z = placed->size_factor_.z * end.point.z, .w = placed->size_factor_.w * end.point.w};
             placed->basis_frame_.carry_point_through(end.point, scaled);
         }
         maths::Vec4 turned{};
@@ -87,15 +87,15 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
         maths::Vec4 edge{};
         switch (core::at(kinds, e)) {
         case 1:
-            edge = {e1x, e1y, static_cast<float>(e1z), get_difference(v1.w, v0.w)};
+            edge = {.x = e1x, .y = e1y, .z = static_cast<float>(e1z), .w = get_difference(v1.w, v0.w)};
             break;
         case 2:
-            edge = {get_difference(v2.x, v1.x), get_difference(v2.y, v1.y), get_difference(v2.z, v1.z),
-                    get_difference(v2.w, v1.w)};
+            edge = {.x = get_difference(v2.x, v1.x), .y = get_difference(v2.y, v1.y), .z = get_difference(v2.z, v1.z),
+                    .w = get_difference(v2.w, v1.w)};
             break;
         case 3:
-            edge = {get_difference(v0.x, v2.x), get_difference(v0.y, v2.y), get_difference(v0.z, v2.z),
-                    get_difference(v0.w, v2.w)};
+            edge = {.x = get_difference(v0.x, v2.x), .y = get_difference(v0.y, v2.y), .z = get_difference(v0.z, v2.z),
+                    .w = get_difference(v0.w, v2.w)};
             break;
         default:
             continue;
@@ -188,10 +188,10 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     const maths::Vec4& a = rect->side_a_;
     const maths::Vec4& b = rect->side_b_;
     maths::BBox box(o);
-    box.append_spot({a.x + o.x, a.y + o.y, a.z + o.z, a.w + o.w});
-    box.append_spot({o.x + b.x, b.y + o.y, b.z + o.z, b.w + o.w});
-    box.append_spot({static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
-                     static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), (a.z + o.z) + b.z, (a.w + o.w) + b.w});
+    box.append_spot({.x = a.x + o.x, .y = a.y + o.y, .z = a.z + o.z, .w = a.w + o.w});
+    box.append_spot({.x = o.x + b.x, .y = b.y + o.y, .z = b.z + o.z, .w = b.w + o.w});
+    box.append_spot({.x = static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
+                     .y = static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), .z = (a.z + o.z) + b.z, .w = (a.w + o.w) + b.w});
     const bool use_cache = cache && cache->box_.get_holds(box);
     if (!use_cache) {
         CollGrid* grid = grid_of(rect);
@@ -200,8 +200,8 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
         grid->objects_in_box(&box); // (the answer isn't used)
     }
     maths::BBox grown;
-    grown.min = {box.min.x - 0.5f, box.min.y - 0.5f, box.min.z - 0.5f, box.min.w - 1.0f};
-    grown.max = {box.max.x + 0.5f, box.max.y + 0.5f, box.max.z + 0.5f, box.max.w + 1.0f};
+    grown.min = {.x = box.min.x - 0.5f, .y = box.min.y - 0.5f, .z = box.min.z - 0.5f, .w = box.min.w - 1.0f};
+    grown.max = {.x = box.max.x + 0.5f, .y = box.max.y + 0.5f, .z = box.max.z + 0.5f, .w = box.max.w + 1.0f};
     hits->count = 0;
     if (use_cache) {
         for (int i = 0; i < cache->statics_; ++i) {
@@ -214,8 +214,8 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     // the rect's diagonal
     maths::Seg diagonal;
     diagonal.start = o;
-    diagonal.end = {static_cast<float>((static_cast<double>(a.x) + o.x) + b.x), (a.y + o.y) + b.y, (a.z + o.z) + b.z,
-                    (a.w + o.w) + b.w};
+    diagonal.end = {.x = static_cast<float>((static_cast<double>(a.x) + o.x) + b.x), .y = (a.y + o.y) + b.y, .z = (a.z + o.z) + b.z,
+                    .w = (a.w + o.w) + b.w};
     const std::span<CollGrid* const> grids = grids_along(&diagonal);
     if (grids.empty())
         return false;
@@ -244,10 +244,10 @@ bool CollStaticInstance::collide_with_rect(const CollRect* rect, const maths::BB
     const maths::Vec4& a = local.side_a_;
     const maths::Vec4& b = local.side_b_;
     maths::BBox box(o);
-    box.append_spot({a.x + o.x, a.y + o.y, a.z + o.z, a.w + o.w});
-    box.append_spot({b.x + o.x, b.y + o.y, b.z + o.z, b.w + o.w});
-    box.append_spot({static_cast<float>(b.x + (static_cast<double>(a.x) + o.x)),
-                     static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), (a.z + o.z) + b.z, (a.w + o.w) + b.w});
+    box.append_spot({.x = a.x + o.x, .y = a.y + o.y, .z = a.z + o.z, .w = a.w + o.w});
+    box.append_spot({.x = b.x + o.x, .y = b.y + o.y, .z = b.z + o.z, .w = b.w + o.w});
+    box.append_spot({.x = static_cast<float>(b.x + (static_cast<double>(a.x) + o.x)),
+                     .y = static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), .z = (a.z + o.z) + b.z, .w = (a.w + o.w) + b.w});
     return rect_against_faces(this, &local, &box, hits, this);
 }
 
@@ -258,13 +258,13 @@ void CollScaled::rect_to_local(const CollRect* rect, CollRect* out) const
     maths::Vec4 corner{};
     const maths::Vec4& o = rect->origin;
     inverse_.carry_point_through(
-        corner, {o.x + rect->side_a_.x, rect->side_a_.y + o.y, rect->side_a_.z + o.z, rect->side_a_.w + o.w});
-    out->side_a_ = {corner.x - out->origin.x, corner.y - out->origin.y, corner.z - out->origin.z,
-                    corner.w - out->origin.w};
+        corner, {.x = o.x + rect->side_a_.x, .y = rect->side_a_.y + o.y, .z = rect->side_a_.z + o.z, .w = rect->side_a_.w + o.w});
+    out->side_a_ = {.x = corner.x - out->origin.x, .y = corner.y - out->origin.y, .z = corner.z - out->origin.z,
+                    .w = corner.w - out->origin.w};
     inverse_.carry_point_through(
-        corner, {rect->side_b_.x + o.x, rect->side_b_.y + o.y, rect->side_b_.z + o.z, rect->side_b_.w + o.w});
-    out->side_b_ = {corner.x - out->origin.x, corner.y - out->origin.y, corner.z - out->origin.z,
-                    corner.w - out->origin.w};
+        corner, {.x = rect->side_b_.x + o.x, .y = rect->side_b_.y + o.y, .z = rect->side_b_.z + o.z, .w = rect->side_b_.w + o.w});
+    out->side_b_ = {.x = corner.x - out->origin.x, .y = corner.y - out->origin.y, .z = corner.z - out->origin.z,
+                    .w = corner.w - out->origin.w};
 }
 
 // 0x0040FEC0
@@ -312,8 +312,8 @@ void BoxProbe::join_hits()
         const maths::Vec4& p0 = core::at(core::at(hits, i).ends, 0).point;
         const maths::Vec4& p1 = core::at(core::at(hits, i).ends, 1).point;
         maths::Vec4& d = core::at(direction, i);
-        d = {get_difference(p1.x, p0.x), get_difference(p1.y, p0.y), get_difference(p1.z, p0.z),
-             get_difference(p1.w, p0.w)};
+        d = {.x = get_difference(p1.x, p0.x), .y = get_difference(p1.y, p0.y), .z = get_difference(p1.z, p0.z),
+             .w = get_difference(p1.w, p0.w)};
         const double length = std::sqrt((static_cast<double>(d.y) * d.y + static_cast<double>(d.x) * d.x) +
                                         static_cast<double>(d.z) * d.z);
         if (length > 0.0) {
@@ -384,9 +384,9 @@ void BoxProbe::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
     const maths::Vec4& a = rect_.side_a_;
     const maths::Vec4& s = rect_.side_b_;
     const uint32_t colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
-    const maths::Vec4 oa{o.x + a.x, a.y + o.y, a.z + o.z, a.w + o.w};
-    const maths::Vec4 oab{oa.x + s.x, oa.y + s.y, oa.z + s.z, oa.w + s.w};
-    const maths::Vec4 ob{o.x + s.x, s.y + o.y, s.z + o.z, s.w + o.w};
+    const maths::Vec4 oa{.x = o.x + a.x, .y = a.y + o.y, .z = a.z + o.z, .w = a.w + o.w};
+    const maths::Vec4 oab{.x = oa.x + s.x, .y = oa.y + s.y, .z = oa.z + s.z, .w = oa.w + s.w};
+    const maths::Vec4 ob{.x = o.x + s.x, .y = s.y + o.y, .z = s.z + o.z, .w = s.w + o.w};
     gfx::push_diag_line(&o, &oa, colour, colour, frames);
     gfx::push_diag_line(&oa, &oab, colour, colour, frames);
     gfx::push_diag_line(&oab, &ob, colour, colour, frames);

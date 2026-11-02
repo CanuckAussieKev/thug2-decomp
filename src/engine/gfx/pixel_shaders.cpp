@@ -132,12 +132,12 @@ void compile_pixel_shaders()
             int handle;
         };
         static const auto kFixed = std::to_array<Fixed>({
-            {kTextureVertexX4.data(), kPixelShader964},
-            {kVertexFactor.data(), kPixelShader95c},
-            {kBloomCutoff.data(), kPixelShader948},
-            {kVertexAlphaTextureAlpha.data(), kPixelShader944},
-            {kConstantAlphaTextureAlpha.data(), kPixelShader940},
-            {kTextureConstantAlpha.data(), kPixelShader960},
+            {.source = kTextureVertexX4.data(), .handle = kPixelShader964},
+            {.source = kVertexFactor.data(), .handle = kPixelShader95c},
+            {.source = kBloomCutoff.data(), .handle = kPixelShader948},
+            {.source = kVertexAlphaTextureAlpha.data(), .handle = kPixelShader944},
+            {.source = kConstantAlphaTextureAlpha.data(), .handle = kPixelShader940},
+            {.source = kTextureConstantAlpha.data(), .handle = kPixelShader960},
         });
         for (const Fixed& f : kFixed) {
             assemble_shader(f.source, static_cast<uint32_t>(std::strlen(f.source)), &shader, &errors);

@@ -102,8 +102,8 @@ HitMesh* StaticCollider::replicate(int argument)
 void StaticCollider::place_at_absolute_point(const maths::Vec4* position)
 {
     const maths::Vec4* current = get_absolute_point();
-    const maths::Vec4 delta{position->x - current->x, position->y - current->y, position->z - current->z,
-                            position->w - current->w};
+    const maths::Vec4 delta{.x = position->x - current->x, .y = position->y - current->y, .z = position->z - current->z,
+                            .w = position->w - current->w};
     translate_geometry(geometry_, &delta);
 }
 
@@ -117,7 +117,7 @@ const maths::Mat4* StaticCollider::fetch_facing() { return &g_shared_orientation
 maths::Vec4 StaticCollider::read_vertex_point(int index) const
 {
     const maths::Vec4 raw = geometry_->read_stored_vertex(index);
-    return {raw.x, raw.y, raw.z, 1.0f};
+    return {.x = raw.x, .y = raw.y, .z = raw.z, .w = 1.0f};
 }
 
 // 0x00410C70
@@ -185,14 +185,14 @@ void CollStaticInstance::change_scale(const maths::Vec4* scale)
 // 0x004113B0
 void CollStaticInstance::recompute_world_bounds()
 {
-    world_box_.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
-    world_box_.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
+    world_box_.min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
+    world_box_.max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
     const int count = geometry_->num_vertices_;
     for (int i = 0; i < count; ++i) {
         maths::Vec4 raw{};
         geometry_->read_stored_vertex(i, &raw);
-        const maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z,
-                                 raw.w * size_factor_.w};
+        const maths::Vec4 scaled{.x = raw.x * size_factor_.x, .y = raw.y * size_factor_.y, .z = raw.z * size_factor_.z,
+                                 .w = raw.w * size_factor_.w};
         maths::Vec4 placed{};
         basis_frame_.carry_point_through(placed, scaled);
         world_box_.append_spot(placed);
@@ -211,8 +211,8 @@ void CollStaticInstance::scale_about(const maths::Vec4* position, const maths::V
     const maths::Vec4& at = core::at(basis_frame_.row, 3);
     if (!(position->x == at.x) || !(position->y == at.y) || !(position->z == at.z))
         return;
-    const maths::Vec4 scaled{scale->x * size_factor_.x, scale->y * size_factor_.y, scale->z * size_factor_.z,
-                             scale->w * size_factor_.w};
+    const maths::Vec4 scaled{.x = scale->x * size_factor_.x, .y = scale->y * size_factor_.y, .z = scale->z * size_factor_.z,
+                             .w = scale->w * size_factor_.w};
     change_scale(&scaled);
 }
 
@@ -297,8 +297,8 @@ maths::BBox* HitMovingTriangles::get_local_bounds()
 // 0x0040B390
 void HitMovingTriangles::update_b_box()
 {
-    box_.min = {anchor_point_.x - radius_, anchor_point_.y - radius_, anchor_point_.z - radius_, 1.0f};
-    box_.max = {radius_ + anchor_point_.x, anchor_point_.y + radius_, anchor_point_.z + radius_, 1.0f};
+    box_.min = {.x = anchor_point_.x - radius_, .y = anchor_point_.y - radius_, .z = anchor_point_.z - radius_, .w = 1.0f};
+    box_.max = {.x = radius_ + anchor_point_.x, .y = anchor_point_.y + radius_, .z = anchor_point_.z + radius_, .w = 1.0f};
 }
 
 // 0x00413130

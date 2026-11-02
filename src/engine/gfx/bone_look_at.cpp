@@ -174,14 +174,14 @@ BoneLookAt::BoneLookAt(AnimTimeline* owner, void* object) : AnimDriver(owner)
         bone.active_ = false;
         bone.clamp_ = true;
         bone.bone_ = kNoBone;
-        bone.lower_limit_ = {0.0f, 0.0f, 0.0f, 1.0f};
-        bone.upper_limit_ = {0.0f, 0.0f, 0.0f, 1.0f};
-        bone.look_goal_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        bone.lower_limit_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        bone.upper_limit_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        bone.look_goal_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         bone.weight_ = 1.0f;
         bone.fixed_pos_ = true;
         bone.aim_point_ = 0;
         bone.pivot_dir_ = 0;
-        bone.orientation_turn_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        bone.orientation_turn_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     }
 }
 
@@ -234,7 +234,7 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
         axis.w = 0.0f;
         normalize_xzy(axis.x, axis.y, axis.z);
         // The axis turned to the bone's own way of looking
-        maths::QuatRotation turn = {0.0f, 0.0f, 0.0f, 1.0f};
+        maths::QuatRotation turn = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         const int axis_code = bone.pivot_dir_;
         auto which = static_cast<unsigned int>(axis_code < 0 ? -axis_code : axis_code);
         if (which <= 3) {
@@ -298,7 +298,7 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
             auto t = static_cast<float>(std::fabs(closeness) * kEaseFactor);
             std::array<float, 4> eased{};
             interpolate_rotation(eased, std::span<const float, 4>(last.data(), 4), std::span<float, 4>(pose.data(), 4), t);
-            pose = {std::get<0>(eased), std::get<1>(eased), std::get<2>(eased), std::get<3>(eased)};
+            pose = {.x = std::get<0>(eased), .y = std::get<1>(eased), .z = std::get<2>(eased), .w = std::get<3>(eased)};
         }
         last = pose;
     }
@@ -323,7 +323,7 @@ void BoneLookAt::configure(bool all, int index, Struct* params)
     params->read_hash_value(kBone, &bone.bone_, 0);
     if (params->read_hash_value(kTargetObject, &bone.aim_point_, 0)) {
         bone.fixed_pos_ = false;
-        bone.shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        bone.shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     }
     if (params->fetch_vec(kAimPointHash, &bone.look_goal_, 0))
         bone.fixed_pos_ = true;

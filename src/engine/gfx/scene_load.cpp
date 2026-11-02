@@ -141,7 +141,7 @@ void free_hierarchy(HierarchyNode* nodes)
 // 0x004B2D30
 HierarchyNode::HierarchyNode()
 {
-    matrix.row = {{{1.0f, 0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}}};
+    matrix.row = {{{.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f}, {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f}, {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}}};
 }
 
 // 0x004B3490

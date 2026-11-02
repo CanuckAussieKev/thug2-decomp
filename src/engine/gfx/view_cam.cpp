@@ -37,10 +37,10 @@ int g_draw_distance_setting;
 ViewCam::ViewCam() : h_fov_(render::get_screen_angle())
 {
     refresh_effective_h_fov();
-    core::at(basis_frame_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(basis_frame_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(basis_frame_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(basis_frame_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(basis_frame_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(basis_frame_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     near_dist_ = 12.0f;
     far_clip_ = 12000.0f;
@@ -55,8 +55,8 @@ ViewCam::ViewCam() : h_fov_(render::get_screen_angle())
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h).
     far_clip_ =
         render::graphics_options::get_scaled(far_clip_, render::graphics_options::get_pull().draw_distance_scale_);
-    at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    old_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    old_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x00485AA0: the angle as drawn is the 4:3 one widened by the screen's angle factor (and divided by unknownc0_);

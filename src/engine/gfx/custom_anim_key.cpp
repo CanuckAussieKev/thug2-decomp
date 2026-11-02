@@ -116,8 +116,8 @@ bool KillObjectKey::work_on(void*)
 CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths::Vec4* pos, bool cut)
     : UserClipKey(frame)
 {
-    orientation_turn_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    const maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
+    orientation_turn_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    const maths::Vec4 axis = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::QuatRotation quarter_turn{};
     quarter_turn.init_from_axis_angle(axis, 1.57079637f); // (0x3FC90FDB)
     maths::QuatRotation turned = *rotation;
@@ -205,8 +205,8 @@ gsl::owner<UserClipKey*> create_custom_anim_key(util::ByteReader& reader)
         return new CameraFovKey(key.frame, core::at(key.values, 0));
     case 2:
     case 7: {
-        const maths::Vec4 pos = {core::at(key.values, 0), core::at(key.values, 1), core::at(key.values, 2), core::at(key.values, 3)};
-        const maths::QuatRotation rotation = {core::at(key.values, 4), core::at(key.values, 5), core::at(key.values, 6), core::at(key.values, 7)};
+        const maths::Vec4 pos = {.x = core::at(key.values, 0), .y = core::at(key.values, 1), .z = core::at(key.values, 2), .w = core::at(key.values, 3)};
+        const maths::QuatRotation rotation = {.x = core::at(key.values, 4), .y = core::at(key.values, 5), .z = core::at(key.values, 6), .w = core::at(key.values, 7)};
         return new CameraKey(key.frame, &rotation, &pos, key.kind == 7);
     }
     case 3:

@@ -224,7 +224,7 @@ TodSystem& system_at(CtodManager* manager, int index)
 
 BloomParams bloom_of(const TodParams& params)
 {
-    return {params.bloom_on_, params.bloom1, params.bloom2, params.bloom_strength_, params.bloom_color_};
+    return {.on = params.bloom_on_, .bloom1 = params.bloom1, .bloom2 = params.bloom2, .strength = params.bloom_strength_, .color = params.bloom_color_};
 }
 
 // NOT ORIGINAL - set_tod_params_filter's (null: none).
@@ -554,8 +554,8 @@ void CtodManager::update_sun()
     sun::Settings sun = {};
     sun.theta = blend(a.sun_theta_, b.sun_theta_);
     sun.phi = blend(a.sun_phi_, b.sun_phi_);
-    sun.color = {blend(a.sun_red_, b.sun_red_), blend(a.sun_green_, b.sun_green_), blend(a.sun_blue_, b.sun_blue_),
-                 128.0f};
+    sun.color = {.x = blend(a.sun_red_, b.sun_red_), .y = blend(a.sun_green_, b.sun_green_), .z = blend(a.sun_blue_, b.sun_blue_),
+                 .w = 128.0f};
     sun.shown = system.state != kNight;
     sun::set_sun(&sun, kSunAngles | kSunColor | kSunShown);
 }

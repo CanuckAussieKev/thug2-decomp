@@ -156,7 +156,7 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     const uint32_t color =
         static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * g_float255)) << 24 | 0x808080;
     std::array<MovieVertex, 4> vertices{};
-    core::at(vertices, 0) = {x, y, 0.0f, 1.0f, color, 0.0f, 0.0f};
+    core::at(vertices, 0) = {.x = x, .y = y, .z = 0.0f, .w = 1.0f, .color = color, .u = 0.0f, .v = 0.0f};
     core::at(vertices, 1) = core::at(vertices, 0);
     core::at(vertices, 1).x = static_cast<float>(static_cast<double>(g_movie_back_buffer_width) * width + x);
     core::at(vertices, 1).u = 1.0f;

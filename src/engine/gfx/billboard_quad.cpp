@@ -158,10 +158,10 @@ void QuadSprite::draw()
         core::at(vertices, 0).y = core::at(vertices, 2).y = y0;
         core::at(vertices, 1).y = core::at(vertices, 3).y = static_cast<float>(y1);
     } else {
-        std::array<Vector4, 4> corners = {{{static_cast<float>(left), top, 0.0f, 0.0f},
-                              {static_cast<float>(left), bottom, 0.0f, 0.0f},
-                              {right, top, 0.0f, 0.0f},
-                              {right, bottom, 0.0f, 0.0f}}};
+        std::array<Vector4, 4> corners = {{{.x = static_cast<float>(left), .y = top, .z = 0.0f, .w = 0.0f},
+                              {.x = static_cast<float>(left), .y = bottom, .z = 0.0f, .w = 0.0f},
+                              {.x = right, .y = top, .z = 0.0f, .w = 0.0f},
+                              {.x = right, .y = bottom, .z = 0.0f, .w = 0.0f}}};
         // (in the original's order: top left, top right, bottom left, bottom right)
         for (const int i : {0, 2, 1, 3})
             spin_around_z(core::at(corners, i), rotation);

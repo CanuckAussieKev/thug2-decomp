@@ -38,7 +38,7 @@ void PcModel::plat_set_bounding_sphere(const maths::Vec4* sphere)
 maths::Vec4* PcModel::plat_get_bounding_sphere(maths::Vec4* out)
 {
     if (geom_total_ == 0) {
-        *out = {0.0f, 0.0f, 0.0f, 0.0f};
+        *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
         return out;
     }
     const ModelGeomNode* head = geom_ring_.head;

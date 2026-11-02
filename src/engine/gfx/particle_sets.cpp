@@ -38,7 +38,7 @@ maths::Vec4* max_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* out
 maths::Vec4* curve_extremes(maths::Vec4* destination, const maths::Vec4& start, const maths::Vec4& mid,
                             const maths::Vec4& end, float mid_time, float life)
 {
-    const QuadraticPoints points{start, mid, end, mid_time, life};
+    const QuadraticPoints points{.start = start, .p1 = mid, .p2 = end, .t1 = mid_time, .t2 = life};
     return quadratic_lowest(destination, &points);
 }
 
@@ -54,9 +54,9 @@ SparkleConfig::SparkleConfig()
     for (int i = 0; i < 3; ++i) {
         core::at(extent_, i) = 1.0f;
         core::at(radius_, i) = 0.0f;
-        core::at(at_point_, i) = maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
-        core::at(box_, i) = maths::Vec4{20.0f, 20.0f, 20.0f, 0.0f};
-        core::at(offset_pos_, i) = maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+        core::at(at_point_, i) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+        core::at(box_, i) = maths::Vec4{.x = 20.0f, .y = 20.0f, .z = 20.0f, .w = 0.0f};
+        core::at(offset_pos_, i) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
         for (int k = 0; k < 4; ++k)
             core::at(core::at(shade_, i), k) = 0x80;
     }

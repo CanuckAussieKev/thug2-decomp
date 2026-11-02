@@ -239,7 +239,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
             return true;
         }
         maths::Vec4 scale = built_model()->size_factor_;
-        maths::Vec4 factor = {1.0f, 1.0f, 1.0f, 1.0f};
+        maths::Vec4 factor = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
         if (!fetch_magnification(&factor, body_shape))
             return true;
         scale.x = factor.x * scale.x;
@@ -514,7 +514,7 @@ bool ModelAssembler::seal()
 // 0x0048A9E0
 bool ModelAssembler::restore_scale()
 {
-    const maths::Vec4 one = {1.0f, 1.0f, 1.0f, 1.0f};
+    const maths::Vec4 one = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
     built_model()->change_scale(&one);
     if (!built_skeleton())
         return false;
@@ -578,7 +578,7 @@ bool ModelAssembler::apply_bone_sizing(uint32_t part, uint32_t cast_part)
 // 0x0048AC40
 bool ModelAssembler::apply_object_scale()
 {
-    maths::Vec4 scale = {1.0f, 1.0f, 1.0f, 1.0f};
+    maths::Vec4 scale = {.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 1.0f};
     if (fetch_magnification(&scale, &built_appearance()->structure_)) {
         built_model()->change_scale(&scale);
         return true;
@@ -598,7 +598,7 @@ bool ModelAssembler::apply_object_scale()
         return false;
     int x = 0, y = 0, z = 0;
     if (slot->fetch_int_value(kX, &x, 0) && slot->fetch_int_value(kY, &y, 0) && slot->fetch_int_value(kZ, &z, 0)) {
-        const maths::Vec4 object_scale = {get_percent(x), get_percent(y), get_percent(z), 1.0f};
+        const maths::Vec4 object_scale = {.x = get_percent(x), .y = get_percent(y), .z = get_percent(z), .w = 1.0f};
         built_model()->change_scale(&object_scale);
     }
     return true;
@@ -682,12 +682,12 @@ bool ModelAssembler::choose_uv_shift(uint32_t part, uint32_t material, int pass)
     core::at(uv.row, 3).x = static_cast<float>(static_cast<double>(core::at(uv.row, 3).x) - kHalf);
     core::at(uv.row, 3).y = static_cast<float>(static_cast<double>(core::at(uv.row, 3).y) - kHalf);
     const float size = percent_of(scale);
-    uv.scale_tool(maths::Vec4{size, size, size, 1.0f});
-    uv.spin_by(maths::Vec4{0.0f, 0.0f, 1.0f, 1.0f}, static_cast<float>(static_cast<double>(rotation) * kDegrees));
+    uv.scale_tool(maths::Vec4{.x = size, .y = size, .z = size, .w = 1.0f});
+    uv.spin_by(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f}, static_cast<float>(static_cast<double>(rotation) * kDegrees));
     core::at(uv.row, 3).x = static_cast<float>(static_cast<double>(core::at(uv.row, 3).x) + kHalf);
     core::at(uv.row, 3).y = static_cast<float>(static_cast<double>(core::at(uv.row, 3).y) + kHalf);
-    uv.offset_local(maths::Vec4{static_cast<float>(static_cast<double>(u) * kPercent),
-                                static_cast<float>(static_cast<double>(v) * kPercent), 0.0f, 0.0f});
+    uv.offset_local(maths::Vec4{.x = static_cast<float>(static_cast<double>(u) * kPercent),
+                                .y = static_cast<float>(static_cast<double>(v) * kPercent), .z = 0.0f, .w = 0.0f});
     built_model()->choose_uv_matrix(material, pass, &uv);
     return true;
 }

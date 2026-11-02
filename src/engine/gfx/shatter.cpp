@@ -284,12 +284,12 @@ void shatter_geom(PcGeom* geom)
                 dy *= f;
                 dz = static_cast<float>(dz * f);
             }
-            core::at(shatter->velocity_run(), j) = {static_cast<float>(dx), static_cast<float>(dy), dz, dw};
+            core::at(shatter->velocity_run(), j) = {.x = static_cast<float>(dx), .y = static_cast<float>(dy), .z = dz, .w = dw};
             // a turn about a random axis
             auto a1 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
             auto a2 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
             auto a3 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
-            maths::Vec4 axis = {a3, a2, a1, 1.0f};
+            maths::Vec4 axis = {.x = a3, .y = a2, .z = a1, .w = 1.0f};
             const double axis_length =
                 std::sqrt(static_cast<double>(a3) * a3 + static_cast<double>(a2) * a2 + static_cast<double>(a1) * a1);
             if (axis_length > 0.0) {

@@ -110,10 +110,10 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     const double top = height * -0.5;
     const double right = width * 0.5;
     const double bottom = height * 0.5;
-    std::array<maths::Vec4, 4> corners = {{{static_cast<float>(left), static_cast<float>(top), 0.0f, 0.0f},
-                              {static_cast<float>(right), static_cast<float>(top), 0.0f, 0.0f},
-                              {static_cast<float>(right), static_cast<float>(bottom), 0.0f, 0.0f},
-                              {static_cast<float>(left), static_cast<float>(bottom), 0.0f, 0.0f}}};
+    std::array<maths::Vec4, 4> corners = {{{.x = static_cast<float>(left), .y = static_cast<float>(top), .z = 0.0f, .w = 0.0f},
+                              {.x = static_cast<float>(right), .y = static_cast<float>(top), .z = 0.0f, .w = 0.0f},
+                              {.x = static_cast<float>(right), .y = static_cast<float>(bottom), .z = 0.0f, .w = 0.0f},
+                              {.x = static_cast<float>(left), .y = static_cast<float>(bottom), .z = 0.0f, .w = 0.0f}}};
     place_corners(poly, corners);
     PcPrimitive* primitive = poly->primitive;
     primitive->blend_mode_ = poly->blend_mode_;
@@ -174,12 +174,12 @@ void update_spawned_polys()
             y_offset = core::at(poly->dims, 1);
         else if (poly->align_v_ == 0.0f)
             y_offset = core::at(poly->dims, 1) * 0.5;
-        float left = -x_offset;
+        const float left = -x_offset;
         auto top = static_cast<float>(-y_offset);
         auto right = static_cast<float>(static_cast<double>(left) + core::at(poly->dims, 0));
         auto bottom = static_cast<float>(static_cast<double>(top) + core::at(poly->dims, 1));
         std::array<maths::Vec4, 4> corners = {{
-            {left, top, 0.0f, 0.0f}, {right, top, 0.0f, 0.0f}, {right, bottom, 0.0f, 0.0f}, {left, bottom, 0.0f, 0.0f}}};
+            {.x = left, .y = top, .z = 0.0f, .w = 0.0f}, {.x = right, .y = top, .z = 0.0f, .w = 0.0f}, {.x = right, .y = bottom, .z = 0.0f, .w = 0.0f}, {.x = left, .y = bottom, .z = 0.0f, .w = 0.0f}}};
         place_corners(poly, corners);
         for (int c = 0; c < 4; ++c)
             set_corner(poly->primitive, c, core::at(corners, c));

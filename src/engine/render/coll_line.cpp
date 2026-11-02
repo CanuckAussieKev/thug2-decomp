@@ -132,10 +132,10 @@ bool HitMovingBox::collide_with_line(const maths::Seg* line, const maths::Vec4* 
     maths::Vec4 turned{};
     orientation_.rotate_vector(turned, point);
     FaceHit face{};
-    face.point = {static_cast<float>(static_cast<double>(turned.x) + anchor_point_.x),
-                  static_cast<float>(static_cast<double>(turned.y) + anchor_point_.y),
-                  static_cast<float>(static_cast<double>(turned.z) + anchor_point_.z),
-                  static_cast<float>(static_cast<double>(turned.w) + anchor_point_.w)};
+    face.point = {.x = static_cast<float>(static_cast<double>(turned.x) + anchor_point_.x),
+                  .y = static_cast<float>(static_cast<double>(turned.y) + anchor_point_.y),
+                  .z = static_cast<float>(static_cast<double>(turned.z) + anchor_point_.z),
+                  .w = static_cast<float>(static_cast<double>(turned.w) + anchor_point_.w)};
     orientation_.rotate_vector(face.normal, normal);
     face.face = 0;
     auto distance = static_cast<float>(
@@ -199,9 +199,9 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
         const double e1z_exact = static_cast<double>(v2.z) - v0.z;
         auto e1z = static_cast<float>(e1z_exact);
         FaceHit face_hit{};
-        face_hit.normal = {static_cast<float>(e1z_exact * e0y - static_cast<double>(e1y) * e0z),
-                           static_cast<float>(static_cast<double>(e0z) * e1x - e1z * e0x),
-                           static_cast<float>(e1y * e0x - static_cast<double>(e0y) * e1x), 0.0f};
+        face_hit.normal = {.x = static_cast<float>(e1z_exact * e0y - static_cast<double>(e1y) * e0z),
+                           .y = static_cast<float>(static_cast<double>(e0z) * e1x - e1z * e0x),
+                           .z = static_cast<float>(e1y * e0x - static_cast<double>(e0y) * e1x), .w = 0.0f};
         face_hit.point = v0;
         face_hit.face = face;
         face_hit.normal.make_unit();
@@ -217,8 +217,8 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
 {
     maths::Seg local{}; // (its constructor, 0x005902E0, does nothing)
     line_to_local(line, &local);
-    const maths::Vec4 way{get_difference(local.end.x, local.start.x), get_difference(local.end.y, local.start.y),
-                          get_difference(local.end.z, local.start.z), get_difference(local.end.w, local.start.w)};
+    const maths::Vec4 way{.x = get_difference(local.end.x, local.start.x), .y = get_difference(local.end.y, local.start.y),
+                          .z = get_difference(local.end.z, local.start.z), .w = get_difference(local.end.w, local.start.w)};
     maths::BBox around(local.start);
     around.append_spot(local.end);
     std::array<uint16_t, 0x800> buffer{};
@@ -254,19 +254,19 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
             nz = static_cast<float>(nz_exact * inverse);
         }
         // the corner scaled and placed, the normal turned
-        const maths::Vec4 scaled{static_cast<float>(static_cast<double>(v0.x) * size_factor_.x),
-                                 static_cast<float>(static_cast<double>(v0.y) * size_factor_.y),
-                                 static_cast<float>(static_cast<double>(v0.z) * size_factor_.z),
-                                 static_cast<float>(static_cast<double>(v0.w) * size_factor_.w)};
+        const maths::Vec4 scaled{.x = static_cast<float>(static_cast<double>(v0.x) * size_factor_.x),
+                                 .y = static_cast<float>(static_cast<double>(v0.y) * size_factor_.y),
+                                 .z = static_cast<float>(static_cast<double>(v0.z) * size_factor_.z),
+                                 .w = static_cast<float>(static_cast<double>(v0.w) * size_factor_.w)};
         basis_frame_.carry_point_through(face_hit.point, scaled);
         const auto& r = basis_frame_.row;
-        face_hit.normal = {static_cast<float>((static_cast<double>(nz) * core::at(r, 2).x + static_cast<double>(ny) * core::at(r, 1).x) +
+        face_hit.normal = {.x = static_cast<float>((static_cast<double>(nz) * core::at(r, 2).x + static_cast<double>(ny) * core::at(r, 1).x) +
                                               static_cast<double>(nx) * core::at(r, 0).x),
-                           static_cast<float>((static_cast<double>(nx) * core::at(r, 0).y + static_cast<double>(nz) * core::at(r, 2).y) +
+                           .y = static_cast<float>((static_cast<double>(nx) * core::at(r, 0).y + static_cast<double>(nz) * core::at(r, 2).y) +
                                               static_cast<double>(ny) * core::at(r, 1).y),
-                           static_cast<float>((static_cast<double>(nx) * core::at(r, 0).z + static_cast<double>(nz) * core::at(r, 2).z) +
+                           .z = static_cast<float>((static_cast<double>(nx) * core::at(r, 0).z + static_cast<double>(nz) * core::at(r, 2).z) +
                                               static_cast<double>(ny) * core::at(r, 1).z),
-                           0.0f};
+                           .w = 0.0f};
         if (report_hit(*line, this, face_hit, t, hit))
             any = true;
     }
@@ -279,8 +279,8 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
 {
     maths::Seg local{}; // (its constructor, 0x005902E0, does nothing)
     segment_to_local(line, &local);
-    const maths::Vec4 way{get_difference(local.end.x, local.start.x), get_difference(local.end.y, local.start.y),
-                          get_difference(local.end.z, local.start.z), get_difference(local.end.w, local.start.w)};
+    const maths::Vec4 way{.x = get_difference(local.end.x, local.start.x), .y = get_difference(local.end.y, local.start.y),
+                          .z = get_difference(local.end.z, local.start.z), .w = get_difference(local.end.w, local.start.w)};
     maths::BBox around(local.start);
     around.append_spot(local.end);
     TriMeshSource* geometry = geometry_;
@@ -345,15 +345,15 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
                                 static_cast<double>(v0.x) * core::at(r, 0).y;
         auto placed_z = static_cast<float>((static_cast<double>(v0.z) * core::at(r, 2).z + static_cast<double>(v0.y) * core::at(r, 1).z) +
                                            static_cast<double>(v0.x) * core::at(r, 0).z);
-        face_hit.point = {static_cast<float>(placed_x + anchor_point_.x),
-                          static_cast<float>(placed_y + anchor_point_.y),
-                          static_cast<float>(static_cast<double>(placed_z) + anchor_point_.z),
-                          static_cast<float>(static_cast<double>(v0.w) + anchor_point_.w)};
+        face_hit.point = {.x = static_cast<float>(placed_x + anchor_point_.x),
+                          .y = static_cast<float>(placed_y + anchor_point_.y),
+                          .z = static_cast<float>(static_cast<double>(placed_z) + anchor_point_.z),
+                          .w = static_cast<float>(static_cast<double>(v0.w) + anchor_point_.w)};
         face_hit.normal = {
-            static_cast<float>((static_cast<double>(nz) * core::at(r, 2).x + static_cast<double>(ny) * core::at(r, 1).x) + unit_x * core::at(r, 0).x),
-            static_cast<float>((unit_x * core::at(r, 0).y + static_cast<double>(nz) * core::at(r, 2).y) + static_cast<double>(ny) * core::at(r, 1).y),
-            static_cast<float>((unit_x * core::at(r, 0).z + static_cast<double>(nz) * core::at(r, 2).z) + static_cast<double>(ny) * core::at(r, 1).z),
-            0.0f};
+            .x = static_cast<float>((static_cast<double>(nz) * core::at(r, 2).x + static_cast<double>(ny) * core::at(r, 1).x) + unit_x * core::at(r, 0).x),
+            .y = static_cast<float>((unit_x * core::at(r, 0).y + static_cast<double>(nz) * core::at(r, 2).y) + static_cast<double>(ny) * core::at(r, 1).y),
+            .z = static_cast<float>((unit_x * core::at(r, 0).z + static_cast<double>(nz) * core::at(r, 2).z) + static_cast<double>(ny) * core::at(r, 1).z),
+            .w = 0.0f};
         if (report_hit(*line, this, face_hit, t, hit))
             any = true;
     }

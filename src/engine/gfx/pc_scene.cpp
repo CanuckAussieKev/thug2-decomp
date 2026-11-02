@@ -47,7 +47,7 @@ namespace {
 uint32_t g_screen_effect_unknown5724;
 uint32_t g_screen_effect_unknown5728;
 // The empty bounding box (all zero at start, as the original's) and its guard.
-maths::BBox g_empty_bounding_box{maths::BBox(maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f})};
+maths::BBox g_empty_bounding_box{maths::BBox(maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f})};
 uint32_t g_empty_bounding_box_guard;
 } // namespace
 
@@ -236,13 +236,13 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
     sector->flags = record.flags;
     geometry->mesh_count_ = read ? record.mesh_count : 0;
     // (the box's corners kept: the meshes' are read over them, their w still 1)
-    maths::Vec4 min = {core::at(record.box, 0), core::at(record.box, 1), core::at(record.box, 2), 1.0f};
-    maths::Vec4 max = {core::at(record.box, 3), core::at(record.box, 4), core::at(record.box, 5), 1.0f};
+    maths::Vec4 min = {.x = core::at(record.box, 0), .y = core::at(record.box, 1), .z = core::at(record.box, 2), .w = 1.0f};
+    maths::Vec4 max = {.x = core::at(record.box, 3), .y = core::at(record.box, 4), .z = core::at(record.box, 5), .w = 1.0f};
     geometry->bounds.min = min;
     geometry->bounds.max = max;
     const uint32_t billboard_type = record.billboard_type;
-    const maths::Vec4 pivot = {core::at(record.pivot, 0), core::at(record.pivot, 1), -core::at(record.pivot, 2), 0.0f};
-    const maths::Vec4 axis = {core::at(record.axis, 0), core::at(record.axis, 1), core::at(record.axis, 2), 0.0f};
+    const maths::Vec4 pivot = {.x = core::at(record.pivot, 0), .y = core::at(record.pivot, 1), .z = -core::at(record.pivot, 2), .w = 0.0f};
+    const maths::Vec4 axis = {.x = core::at(record.axis, 0), .y = core::at(record.axis, 1), .z = core::at(record.axis, 2), .w = 0.0f};
     if (!read) {
         debug::printf("scene sector %08x damaged: cut short\n", record.checksum);
         in.fail();

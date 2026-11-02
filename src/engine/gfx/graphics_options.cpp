@@ -146,8 +146,8 @@ void choose_multisample(IDirect3D9* d3d, uint32_t back_buffer_format, uint32_t d
     s_quality = 0;
     if (!s_options.msaa || !d3d)
         return;
-    SupportQuery query = {d3d, static_cast<D3DFORMAT>(back_buffer_format), static_cast<D3DFORMAT>(depth_format),
-                          windowed ? TRUE : FALSE, 0};
+    SupportQuery query = {.d3d = d3d, .colour = static_cast<D3DFORMAT>(back_buffer_format), .depth = static_cast<D3DFORMAT>(depth_format),
+                          .windowed = windowed ? TRUE : FALSE, .quality = 0};
     s_samples = pick_samples(s_options.msaa, &get_supported, &query);
     if (s_samples)
         s_quality = query.quality - 1; // (the highest)

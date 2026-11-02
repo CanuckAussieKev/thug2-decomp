@@ -179,11 +179,11 @@ void draw_2d_with_black_bars()
         const uint32_t bar_width = (back_buffer_width - width) / 2;
         set_texture(0, nullptr);
         std::array<BarVertex, 4> bar = {{
-            {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {-0.5f, static_cast<float>(back_buffer_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {static_cast<float>(bar_width) + 0.5f, static_cast<float>(back_buffer_height) + 0.5f, 0.0f, 1.0f, kBlack,
-             0.0f, 0.0f},
-            {static_cast<float>(bar_width) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {.x = -0.5f, .y = -0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = -0.5f, .y = static_cast<float>(back_buffer_height) + 0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = static_cast<float>(bar_width) + 0.5f, .y = static_cast<float>(back_buffer_height) + 0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack,
+             .u = 0.0f, .v = 0.0f},
+            {.x = static_cast<float>(bar_width) + 0.5f, .y = -0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
         }};
         draw_primitive_up(6 /* D3DPT_TRIANGLEFAN */, 2, bar.data(), sizeof(BarVertex));
         for (BarVertex& corner : bar)
@@ -195,11 +195,11 @@ void draw_2d_with_black_bars()
         const uint32_t bar_height = (back_buffer_height - height) / 2;
         set_texture(0, nullptr);
         std::array<BarVertex, 4> bar = {{
-            {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {-0.5f, static_cast<float>(bar_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {static_cast<float>(back_buffer_width) + 0.5f, static_cast<float>(bar_height) + 0.5f, 0.0f, 1.0f, kBlack,
-             0.0f, 0.0f},
-            {static_cast<float>(back_buffer_width) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {.x = -0.5f, .y = -0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = -0.5f, .y = static_cast<float>(bar_height) + 0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
+            {.x = static_cast<float>(back_buffer_width) + 0.5f, .y = static_cast<float>(bar_height) + 0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack,
+             .u = 0.0f, .v = 0.0f},
+            {.x = static_cast<float>(back_buffer_width) + 0.5f, .y = -0.5f, .z = 0.0f, .w = 1.0f, .color = kBlack, .u = 0.0f, .v = 0.0f},
         }};
         draw_primitive_up(6, 2, bar.data(), sizeof(BarVertex));
         for (BarVertex& corner : bar)
@@ -234,7 +234,7 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     core::at(camera.up, 2) = core::at(orientation->row, 1).z;
     std::array<float, 3> target = {{core::at(camera.position, 0) - core::at(camera.backward, 0), core::at(camera.position, 1) - core::at(camera.backward, 1),
                        core::at(camera.position, 2) - core::at(camera.backward, 2)}};
-    world = maths::Mat4{{{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}}};
+    world = maths::Mat4{{{{.x = 1, .y = 0, .z = 0, .w = 0}, {.x = 0, .y = 1, .z = 0, .w = 0}, {.x = 0, .y = 0, .z = 1, .w = 0}, {.x = 0, .y = 0, .z = 0, .w = 1}}}};
     matrix_look_at(&view, camera.position.data(), target.data(), camera.up.data());
 
     // (not original: s_near_z - the original: camera.nearZ = 2.0f;)
@@ -344,10 +344,10 @@ void draw_screen_blur()
     auto screen_height = static_cast<float>(g_present_parameters.BackBufferHeight);
     uint32_t color = 0x80808080;
     std::array<ScreenVertex, 4> quad = {{
-        {0, 0, 0, 1, color, static_cast<float>(inset_u), inset_v},
-        {screen_width, 0, 0, 1, color, static_cast<float>(1.0 - inset_u), inset_v},
-        {0, screen_height, 0, 1, color, static_cast<float>(inset_u), 1.0f - inset_v},
-        {screen_width, screen_height, 0, 1, color, static_cast<float>(1.0 - inset_u), 1.0f - inset_v},
+        {.x = 0, .y = 0, .z = 0, .w = 1, .color = color, .u = static_cast<float>(inset_u), .v = inset_v},
+        {.x = screen_width, .y = 0, .z = 0, .w = 1, .color = color, .u = static_cast<float>(1.0 - inset_u), .v = inset_v},
+        {.x = 0, .y = screen_height, .z = 0, .w = 1, .color = color, .u = static_cast<float>(inset_u), .v = 1.0f - inset_v},
+        {.x = screen_width, .y = screen_height, .z = 0, .w = 1, .color = color, .u = static_cast<float>(1.0 - inset_u), .v = 1.0f - inset_v},
     }};
     // Originally from PartyMod Fixes (its JMP at 0x004DF63A): no letterbox adjustment - PartyMod's letterbox is a viewport. The
     // original, when letterboxed (0x00786CBE), moved the quad in by an eighth of the back buffer's height:
@@ -433,7 +433,7 @@ DeviceViewport& the_viewport() { return g_device_viewport; }
 void set_viewport()
 {
     const DeviceViewport& vp = the_viewport();
-    const D3DVIEWPORT9 viewport = {vp.x, vp.y, vp.width, vp.height, vp.min_z_, vp.max_z_};
+    const D3DVIEWPORT9 viewport = {.X = vp.x, .Y = vp.y, .Width = vp.width, .Height = vp.height, .MinZ = vp.min_z_, .MaxZ = vp.max_z_};
     g_d3d_device->SetViewport(&viewport);
 }
 // The device's render state directly (not the renderer's cached one).
@@ -445,8 +445,8 @@ void set_device_render_state(int state, uint32_t value)
 void full_screen_viewport()
 {
     the_viewport() = {
-        0,    0,   static_cast<uint32_t>(g_back_buffer_width), static_cast<uint32_t>(g_back_buffer_height),
-        0.0f, 1.0f};
+        .x = 0,    .y = 0,   .width = static_cast<uint32_t>(g_back_buffer_width), .height = static_cast<uint32_t>(g_back_buffer_height),
+        .min_z_ = 0.0f, .max_z_ = 1.0f};
 }
 
 // The camera (a game object).
@@ -543,7 +543,7 @@ void draw_viewport(int index)
 
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
-        const maths::Vec4 origin = {0.0f, 0.0f, 0.0f, 1.0f};
+        const maths::Vec4 origin = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         const float angle = frontend::level_editor::adjust_view_angle(editor_camera, camera_angle(camera));
         s_near_z = 2.0f;
         choose_camera(cam_orientation(camera), &origin, angle, aspect, 1.0f, true);

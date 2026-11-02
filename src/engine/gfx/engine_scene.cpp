@@ -202,9 +202,9 @@ bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, gsl
         }
     }
     if (!any_vertices) {
-        const maths::Vec4 low = {-100.0f, -100.0f, -100.0f, 1.0f};
+        const maths::Vec4 low = {.x = -100.0f, .y = -100.0f, .z = -100.0f, .w = 1.0f};
         box->append_spot(low);
-        const maths::Vec4 high = {100.0f, 100.0f, 100.0f, 1.0f};
+        const maths::Vec4 high = {.x = 100.0f, .y = 100.0f, .z = 100.0f, .w = 1.0f};
         box->append_spot(high);
     }
     return true;

@@ -132,7 +132,7 @@ struct ColourSpan {
 ColourSpan colour_span(const EmitterInstance& system, float life)
 {
     const float colour_mid = system.colour_mid_;
-    ColourSpan span{core::Cursor<const uint32_t>(system.start_colour_), core::Cursor<const uint32_t>(system.end_colour_), life};
+    ColourSpan span{.from = core::Cursor<const uint32_t>(system.start_colour_), .to = core::Cursor<const uint32_t>(system.end_colour_), .t = life};
     if (colour_mid >= 0.0f) {
         if (life < colour_mid) {
             span.t = static_cast<float>(static_cast<double>(life) / colour_mid);
@@ -242,25 +242,25 @@ gsl::owner<EmitterInstance*> create_flexible_particles(uint32_t name, uint32_t t
         EmitterInstance* (*construct)(const ConstructArgs&); // a new one of the class (null if no memory)
     };
     static constexpr auto kTypes = std::to_array<EmitterType>({
-        {0x15834EEA, &make_plain<PcGlowParticles>},                   // glow
-        {0x0EE6FC5B, &make_with_history<PcRibbonParticles>},          // ribbon
-        {0x097CB7A9, &make_plain<PcSmoothStarParticles>},             // smoothstar
-        {0x286A8D26, &make_model},                                    // (the engine's model class)
-        {0x3624A5EB, &make_plain<PcStarParticles>},                   // star
-        {0x2EEB4B09, &make_plain<PcLineParticles>},                   // line
-        {0x3D56A7A6, &make_with_history<PcFlatRibbonParticles>},      // (a flat ribbon)
-        {0x8ADDAC1F, &make_plain<PcSmoothParticles>},                 // smooth
-        {0x7EC7252D, &make_with_history<PcGlowRibbonTrailParticles>}, // glowribbontrail
-        {0x3F109FCC, &make_with_history<PcSmoothRibbonParticles>},    // smoothribbon
-        {0xC4D5A4CB, &make_with_history<PcRibbonTrailParticles>},     // ribbontrail
-        {0xF4D8D486, &make_five<PcShadedParticles>},                  // shaded
-        {0xDEDFC057, &make_plain<PcNewFlatParticles>},                // newflat
+        {.type = 0x15834EEA, .construct = &make_plain<PcGlowParticles>},                   // glow
+        {.type = 0x0EE6FC5B, .construct = &make_with_history<PcRibbonParticles>},          // ribbon
+        {.type = 0x097CB7A9, .construct = &make_plain<PcSmoothStarParticles>},             // smoothstar
+        {.type = 0x286A8D26, .construct = &make_model},                                    // (the engine's model class)
+        {.type = 0x3624A5EB, .construct = &make_plain<PcStarParticles>},                   // star
+        {.type = 0x2EEB4B09, .construct = &make_plain<PcLineParticles>},                   // line
+        {.type = 0x3D56A7A6, .construct = &make_with_history<PcFlatRibbonParticles>},      // (a flat ribbon)
+        {.type = 0x8ADDAC1F, .construct = &make_plain<PcSmoothParticles>},                 // smooth
+        {.type = 0x7EC7252D, .construct = &make_with_history<PcGlowRibbonTrailParticles>}, // glowribbontrail
+        {.type = 0x3F109FCC, .construct = &make_with_history<PcSmoothRibbonParticles>},    // smoothribbon
+        {.type = 0xC4D5A4CB, .construct = &make_with_history<PcRibbonTrailParticles>},     // ribbontrail
+        {.type = 0xF4D8D486, .construct = &make_five<PcShadedParticles>},                  // shaded
+        {.type = 0xDEDFC057, .construct = &make_plain<PcNewFlatParticles>},                // newflat
     });
     const EmitterType* chosen = &core::at(kTypes, 12); // (any other type: newflat)
     for (const EmitterType& t : kTypes)
         if (t.type == type)
             chosen = &t;
-    const ConstructArgs args{name, particle_cap, texture, blend_mode, fixed_alpha, segments, unknown, history, model};
+    const ConstructArgs args{.name = name, .particle_cap_ = particle_cap, .texture = texture, .blend_mode_ = blend_mode, .fixed_alpha_ = fixed_alpha, .segments = segments, .unknown = unknown, .history = history, .model = model};
     return chosen->construct(args); // (zeroed memory on the current heap, with the assert flag: the system's new)
 }
 
@@ -330,30 +330,30 @@ void PcNewFlatParticles::render()
                     const double sz = static_cast<double>(rz) + cz;
                     auto fsx = static_cast<float>(static_cast<double>(rx) + cx),
                          fsy = static_cast<float>(static_cast<double>(ry) + cy), fsz = static_cast<float>(sz);
-                    vertex[0] = {static_cast<float>(static_cast<double>(fdx) + ux),
-                                 static_cast<float>(static_cast<double>(fdy) + uy),
-                                 static_cast<float>(dz + uz),
-                                 colour,
-                                 0.0f,
-                                 0.0f};
-                    vertex[1] = {static_cast<float>(static_cast<double>(fsx) + ux),
-                                 static_cast<float>(static_cast<double>(fsy) + uy),
-                                 static_cast<float>(sz + uz),
-                                 colour,
-                                 1.0f,
-                                 0.0f};
-                    vertex[2] = {static_cast<float>(static_cast<double>(fsx) - ux),
-                                 static_cast<float>(static_cast<double>(fsy) - uy),
-                                 static_cast<float>(static_cast<double>(fsz) - uz),
-                                 colour,
-                                 1.0f,
-                                 1.0f};
-                    vertex[3] = {static_cast<float>(static_cast<double>(fdx) - ux),
-                                 static_cast<float>(static_cast<double>(fdy) - uy),
-                                 static_cast<float>(static_cast<double>(fdz) - uz),
-                                 colour,
-                                 0.0f,
-                                 1.0f};
+                    vertex[0] = {.x = static_cast<float>(static_cast<double>(fdx) + ux),
+                                 .y = static_cast<float>(static_cast<double>(fdy) + uy),
+                                 .z = static_cast<float>(dz + uz),
+                                 .colour = colour,
+                                 .u = 0.0f,
+                                 .v = 0.0f};
+                    vertex[1] = {.x = static_cast<float>(static_cast<double>(fsx) + ux),
+                                 .y = static_cast<float>(static_cast<double>(fsy) + uy),
+                                 .z = static_cast<float>(sz + uz),
+                                 .colour = colour,
+                                 .u = 1.0f,
+                                 .v = 0.0f};
+                    vertex[2] = {.x = static_cast<float>(static_cast<double>(fsx) - ux),
+                                 .y = static_cast<float>(static_cast<double>(fsy) - uy),
+                                 .z = static_cast<float>(static_cast<double>(fsz) - uz),
+                                 .colour = colour,
+                                 .u = 1.0f,
+                                 .v = 1.0f};
+                    vertex[3] = {.x = static_cast<float>(static_cast<double>(fdx) - ux),
+                                 .y = static_cast<float>(static_cast<double>(fdy) - uy),
+                                 .z = static_cast<float>(static_cast<double>(fdz) - uz),
+                                 .colour = colour,
+                                 .u = 0.0f,
+                                 .v = 1.0f};
                     vertex += 4;
                     ++quads;
                     if (quads >= room - 4)
@@ -516,10 +516,10 @@ void PcFlatRibbonParticles::render()
                     std::array<float, 3> next_a = {{static_cast<float>(static_cast<double>(o0) + core::at(p1, 0)),
                                        static_cast<float>(static_cast<double>(o1) + core::at(p1, 1)),
                                        static_cast<float>(static_cast<double>(o2) + core::at(p1, 2))}};
-                    vertex[0] = {core::at(previous_a, 0), core::at(previous_a, 1), core::at(previous_a, 2), previous_colour};
-                    vertex[1] = {core::at(previous_b, 0), core::at(previous_b, 1), core::at(previous_b, 2), previous_colour};
-                    vertex[2] = {core::at(next_a, 0), core::at(next_a, 1), core::at(next_a, 2), colour};
-                    vertex[3] = {core::at(next_b, 0), core::at(next_b, 1), core::at(next_b, 2), colour};
+                    vertex[0] = {.x = core::at(previous_a, 0), .y = core::at(previous_a, 1), .z = core::at(previous_a, 2), .colour = previous_colour};
+                    vertex[1] = {.x = core::at(previous_b, 0), .y = core::at(previous_b, 1), .z = core::at(previous_b, 2), .colour = previous_colour};
+                    vertex[2] = {.x = core::at(next_a, 0), .y = core::at(next_a, 1), .z = core::at(next_a, 2), .colour = colour};
+                    vertex[3] = {.x = core::at(next_b, 0), .y = core::at(next_b, 1), .z = core::at(next_b, 2), .colour = colour};
                     vertex += 4;
                     std::memcpy(previous_a.data(), next_a.data(), sizeof(next_a));
                     std::memcpy(previous_b.data(), next_b.data(), sizeof(next_b));
@@ -588,30 +588,30 @@ void PcFlatRibbonParticles::render()
                 auto g1f = static_cast<float>(g1);
                 const ColourSpan span = colour_span(*this, life);
                 const uint32_t colour = get_colour(*this, *span.from, *span.to, span.t);
-                vertex[0] = {static_cast<float>(e0 - u0),
-                             static_cast<float>(static_cast<double>(e1) - u1),
-                             static_cast<float>(e2 - u2),
-                             colour,
-                             0.0f,
-                             0.0f};
-                vertex[1] = {static_cast<float>(static_cast<double>(g0) - u0),
-                             static_cast<float>(static_cast<double>(g1f) - u1),
-                             static_cast<float>(g2 - u2),
-                             colour,
-                             1.0f,
-                             0.0f};
-                vertex[2] = {static_cast<float>(static_cast<double>(g0) + u0),
-                             static_cast<float>(static_cast<double>(g1f) + u1),
-                             static_cast<float>(g2 + u2),
-                             colour,
-                             1.0f,
-                             1.0f};
-                vertex[3] = {static_cast<float>(static_cast<double>(static_cast<float>(e0)) + u0),
-                             static_cast<float>(static_cast<double>(e1) + u1),
-                             static_cast<float>(e2 + u2),
-                             colour,
-                             0.0f,
-                             1.0f};
+                vertex[0] = {.x = static_cast<float>(e0 - u0),
+                             .y = static_cast<float>(static_cast<double>(e1) - u1),
+                             .z = static_cast<float>(e2 - u2),
+                             .colour = colour,
+                             .u = 0.0f,
+                             .v = 0.0f};
+                vertex[1] = {.x = static_cast<float>(static_cast<double>(g0) - u0),
+                             .y = static_cast<float>(static_cast<double>(g1f) - u1),
+                             .z = static_cast<float>(g2 - u2),
+                             .colour = colour,
+                             .u = 1.0f,
+                             .v = 0.0f};
+                vertex[2] = {.x = static_cast<float>(static_cast<double>(g0) + u0),
+                             .y = static_cast<float>(static_cast<double>(g1f) + u1),
+                             .z = static_cast<float>(g2 + u2),
+                             .colour = colour,
+                             .u = 1.0f,
+                             .v = 1.0f};
+                vertex[3] = {.x = static_cast<float>(static_cast<double>(static_cast<float>(e0)) + u0),
+                             .y = static_cast<float>(static_cast<double>(e1) + u1),
+                             .z = static_cast<float>(e2 + u2),
+                             .colour = colour,
+                             .u = 0.0f,
+                             .v = 1.0f};
                 vertex += 4;
                 vertices += 4;
                 triangles += 2;
@@ -747,15 +747,15 @@ void PcGlowParticles::render()
                     static_cast<float>(static_cast<double>(static_cast<float>(uy * static_cast<double>(cosine))) + y);
                 core::at(next_inner, 2) =
                     static_cast<float>(static_cast<double>(static_cast<float>(uz * static_cast<double>(cosine))) + z);
-                vertex[0] = {core::at(p, 0), core::at(p, 1), core::at(p, 2), core::at(colours, 0)};
-                vertex[1] = {core::at(outer, 0), core::at(outer, 1), core::at(outer, 2), core::at(colours, 1)};
-                vertex[2] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(colours, 1)};
-                vertex[3] = {core::at(outer, 0), core::at(outer, 1), core::at(outer, 2), core::at(colours, 1)};
-                vertex[4] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(colours, 1)};
-                vertex[5] = {core::at(inner, 0), core::at(inner, 1), core::at(inner, 2), core::at(colours, 2)};
-                vertex[6] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(colours, 1)};
-                vertex[7] = {core::at(inner, 0), core::at(inner, 1), core::at(inner, 2), core::at(colours, 2)};
-                vertex[8] = {core::at(next_inner, 0), core::at(next_inner, 1), core::at(next_inner, 2), core::at(colours, 2)};
+                vertex[0] = {.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2), .colour = core::at(colours, 0)};
+                vertex[1] = {.x = core::at(outer, 0), .y = core::at(outer, 1), .z = core::at(outer, 2), .colour = core::at(colours, 1)};
+                vertex[2] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(colours, 1)};
+                vertex[3] = {.x = core::at(outer, 0), .y = core::at(outer, 1), .z = core::at(outer, 2), .colour = core::at(colours, 1)};
+                vertex[4] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(colours, 1)};
+                vertex[5] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
+                vertex[6] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(colours, 1)};
+                vertex[7] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
+                vertex[8] = {.x = core::at(next_inner, 0), .y = core::at(next_inner, 1), .z = core::at(next_inner, 2), .colour = core::at(colours, 2)};
                 vertex += 9;
                 std::memcpy(outer.data(), next_outer.data(), sizeof(outer));
                 std::memcpy(inner.data(), next_inner.data(), sizeof(inner));
@@ -816,8 +816,8 @@ void PcLineParticles::render()
             std::array<uint32_t, 2> colours{};
             for (int k = 0; k < 2; ++k)
                 core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
-            vertex[0] = {core::at(p0, 0), core::at(p0, 1), core::at(p0, 2), core::at(colours, 0)};
-            vertex[1] = {core::at(p1, 0), core::at(p1, 1), core::at(p1, 2), core::at(colours, 1)};
+            vertex[0] = {.x = core::at(p0, 0), .y = core::at(p0, 1), .z = core::at(p0, 2), .colour = core::at(colours, 0)};
+            vertex[1] = {.x = core::at(p1, 0), .y = core::at(p1, 1), .z = core::at(p1, 2), .colour = core::at(colours, 1)};
             vertex += 2;
             vertices += 2;
             ++lines;
@@ -932,13 +932,13 @@ void PcRibbonParticles::render()
             for (int k = 0; k < 4; ++k) {
                 const uint32_t colour = core::at(colours, k / 2);
                 if (textured) {
-                    const QuadVertex vertex = {core::at(core::at(corners, k), 0), core::at(core::at(corners, k), 1),
-                                               core::at(core::at(corners, k), 2), colour, core::at(core::at(kUv, k), 0),
-                                               core::at(core::at(kUv, k), 1)};
+                    const QuadVertex vertex = {.x = core::at(core::at(corners, k), 0), .y = core::at(core::at(corners, k), 1),
+                                               .z = core::at(core::at(corners, k), 2), .colour = colour, .u = core::at(core::at(kUv, k), 0),
+                                               .v = core::at(core::at(kUv, k), 1)};
                     out.set_value(vertices + static_cast<size_t>(k), 0, vertex);
                 } else {
-                    const TrailVertex vertex = {core::at(core::at(corners, k), 0), core::at(core::at(corners, k), 1),
-                                                core::at(core::at(corners, k), 2), colour};
+                    const TrailVertex vertex = {.x = core::at(core::at(corners, k), 0), .y = core::at(core::at(corners, k), 1),
+                                                .z = core::at(core::at(corners, k), 2), .colour = colour};
                     out.set_value(vertices + static_cast<size_t>(k), 0, vertex);
                 }
             }
@@ -1082,10 +1082,10 @@ void PcRibbonTrailParticles::render()
                 std::array<float, 3> minus = {{static_cast<float>(static_cast<double>(core::at(p1, 0)) - f0),
                                   static_cast<float>(static_cast<double>(core::at(p1, 1)) - f1),
                                   static_cast<float>(static_cast<double>(core::at(p1, 2)) - f2)}};
-                vertex[0] = {core::at(previous_plus, 0), core::at(previous_plus, 1), core::at(previous_plus, 2), previous_colour};
-                vertex[1] = {core::at(previous_minus, 0), core::at(previous_minus, 1), core::at(previous_minus, 2), previous_colour};
-                vertex[2] = {core::at(minus, 0), core::at(minus, 1), core::at(minus, 2), colour};
-                vertex[3] = {core::at(plus, 0), core::at(plus, 1), core::at(plus, 2), colour};
+                vertex[0] = {.x = core::at(previous_plus, 0), .y = core::at(previous_plus, 1), .z = core::at(previous_plus, 2), .colour = previous_colour};
+                vertex[1] = {.x = core::at(previous_minus, 0), .y = core::at(previous_minus, 1), .z = core::at(previous_minus, 2), .colour = previous_colour};
+                vertex[2] = {.x = core::at(minus, 0), .y = core::at(minus, 1), .z = core::at(minus, 2), .colour = colour};
+                vertex[3] = {.x = core::at(plus, 0), .y = core::at(plus, 1), .z = core::at(plus, 2), .colour = colour};
                 vertex += 4;
                 previous_colour = colour;
                 std::memcpy(p0.data(), p1.data(), sizeof(p1));
@@ -1203,30 +1203,30 @@ void PcShadedParticles::render()
                 const double g1 = static_cast<double>(core::at(p, 1)) - ry;
                 const double g2 = static_cast<double>(core::at(p, 2)) - rz;
                 auto g0f = static_cast<float>(g0), g1f = static_cast<float>(g1), g2f = static_cast<float>(g2);
-                vertex[0] = {static_cast<float>(static_cast<double>(e0f) - ux),
-                             static_cast<float>(static_cast<double>(e1f) - uy),
-                             static_cast<float>(e2 - uz),
-                             core::at(colours, 0),
-                             u0,
-                             v0};
-                vertex[1] = {static_cast<float>(static_cast<double>(g0f) - ux),
-                             static_cast<float>(static_cast<double>(g1f) - uy),
-                             static_cast<float>(g2 - uz),
-                             core::at(colours, 1),
-                             u1,
-                             v0};
-                vertex[2] = {static_cast<float>(static_cast<double>(g0f) + ux),
-                             static_cast<float>(static_cast<double>(g1f) + uy),
-                             static_cast<float>(static_cast<double>(g2f) + uz),
-                             core::at(colours, 2),
-                             u1,
-                             v1};
-                vertex[3] = {static_cast<float>(static_cast<double>(e0f) + ux),
-                             static_cast<float>(static_cast<double>(e1f) + uy),
-                             static_cast<float>(static_cast<double>(e2f) + uz),
-                             core::at(colours, 3),
-                             u0,
-                             v1};
+                vertex[0] = {.x = static_cast<float>(static_cast<double>(e0f) - ux),
+                             .y = static_cast<float>(static_cast<double>(e1f) - uy),
+                             .z = static_cast<float>(e2 - uz),
+                             .colour = core::at(colours, 0),
+                             .u = u0,
+                             .v = v0};
+                vertex[1] = {.x = static_cast<float>(static_cast<double>(g0f) - ux),
+                             .y = static_cast<float>(static_cast<double>(g1f) - uy),
+                             .z = static_cast<float>(g2 - uz),
+                             .colour = core::at(colours, 1),
+                             .u = u1,
+                             .v = v0};
+                vertex[2] = {.x = static_cast<float>(static_cast<double>(g0f) + ux),
+                             .y = static_cast<float>(static_cast<double>(g1f) + uy),
+                             .z = static_cast<float>(static_cast<double>(g2f) + uz),
+                             .colour = core::at(colours, 2),
+                             .u = u1,
+                             .v = v1};
+                vertex[3] = {.x = static_cast<float>(static_cast<double>(e0f) + ux),
+                             .y = static_cast<float>(static_cast<double>(e1f) + uy),
+                             .z = static_cast<float>(static_cast<double>(e2f) + uz),
+                             .colour = core::at(colours, 3),
+                             .u = u0,
+                             .v = v1};
                 vertex += 4;
                 vertices += 4;
                 triangles += 2;
@@ -1334,9 +1334,9 @@ void PcSmoothParticles::render()
                 core::at(colours, i) = get_colour(*this, span.from[i], span.to[i], span.t);
             for (int corner = 0; corner < 4; ++corner) {
                 const int next = (corner + 1) % 4;
-                vertex[0] = {core::at(p, 0), core::at(p, 1), core::at(p, 2), core::at(colours, 0), 0.0f, 0.0f};
-                vertex[1] = {core::at(core::at(k, corner), 0), core::at(core::at(k, corner), 1), core::at(core::at(k, corner), 2), core::at(colours, 1), core::at(core::at(kUv, corner), 0), core::at(core::at(kUv, corner), 1)};
-                vertex[2] = {core::at(core::at(k, next), 0), core::at(core::at(k, next), 1), core::at(core::at(k, next), 2), core::at(colours, 1), core::at(core::at(kUv, next), 0), core::at(core::at(kUv, next), 1)};
+                vertex[0] = {.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2), .colour = core::at(colours, 0), .u = 0.0f, .v = 0.0f};
+                vertex[1] = {.x = core::at(core::at(k, corner), 0), .y = core::at(core::at(k, corner), 1), .z = core::at(core::at(k, corner), 2), .colour = core::at(colours, 1), .u = core::at(core::at(kUv, corner), 0), .v = core::at(core::at(kUv, corner), 1)};
+                vertex[2] = {.x = core::at(core::at(k, next), 0), .y = core::at(core::at(k, next), 1), .z = core::at(core::at(k, next), 2), .colour = core::at(colours, 1), .u = core::at(core::at(kUv, next), 0), .v = core::at(core::at(kUv, next), 1)};
                 vertex += 3;
             }
             vertices += 12;
@@ -1448,14 +1448,14 @@ void PcSmoothRibbonParticles::render()
                 for (int k = 0; k < 4; ++k)
                     core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
                 // Two quads along the middle: to the plus side and to the minus side.
-                vertex[0] = {core::at(h, 0), core::at(h, 1), core::at(h, 2), core::at(colours, 0)};
-                vertex[1] = {core::at(t, 0), core::at(t, 1), core::at(t, 2), core::at(colours, 3)};
-                vertex[2] = {core::at(plus_tail, 0), core::at(plus_tail, 1), core::at(plus_tail, 2), core::at(colours, 2)};
-                vertex[3] = {core::at(plus_head, 0), core::at(plus_head, 1), core::at(plus_head, 2), core::at(colours, 1)};
-                vertex[4] = {core::at(h, 0), core::at(h, 1), core::at(h, 2), core::at(colours, 0)};
-                vertex[5] = {core::at(t, 0), core::at(t, 1), core::at(t, 2), core::at(colours, 3)};
-                vertex[6] = {core::at(minus_tail, 0), core::at(minus_tail, 1), core::at(minus_tail, 2), core::at(colours, 2)};
-                vertex[7] = {core::at(minus_head, 0), core::at(minus_head, 1), core::at(minus_head, 2), core::at(colours, 1)};
+                vertex[0] = {.x = core::at(h, 0), .y = core::at(h, 1), .z = core::at(h, 2), .colour = core::at(colours, 0)};
+                vertex[1] = {.x = core::at(t, 0), .y = core::at(t, 1), .z = core::at(t, 2), .colour = core::at(colours, 3)};
+                vertex[2] = {.x = core::at(plus_tail, 0), .y = core::at(plus_tail, 1), .z = core::at(plus_tail, 2), .colour = core::at(colours, 2)};
+                vertex[3] = {.x = core::at(plus_head, 0), .y = core::at(plus_head, 1), .z = core::at(plus_head, 2), .colour = core::at(colours, 1)};
+                vertex[4] = {.x = core::at(h, 0), .y = core::at(h, 1), .z = core::at(h, 2), .colour = core::at(colours, 0)};
+                vertex[5] = {.x = core::at(t, 0), .y = core::at(t, 1), .z = core::at(t, 2), .colour = core::at(colours, 3)};
+                vertex[6] = {.x = core::at(minus_tail, 0), .y = core::at(minus_tail, 1), .z = core::at(minus_tail, 2), .colour = core::at(colours, 2)};
+                vertex[7] = {.x = core::at(minus_head, 0), .y = core::at(minus_head, 1), .z = core::at(minus_head, 2), .colour = core::at(colours, 1)};
                 vertex += 8;
                 vertices += 8;
                 triangles += 4;
@@ -1617,14 +1617,14 @@ void PcSmoothStarParticles::render()
                         core::at(inner, 1) = static_cast<float>(static_cast<double>(uy) + iy);
                         core::at(inner, 2) = static_cast<float>(static_cast<double>(uz) + iz);
                     }
-                    vertex[0] = {core::at(tip, 0), core::at(tip, 1), core::at(tip, 2), core::at(colours, 1)};
-                    vertex[1] = {core::at(p, 0), core::at(p, 1), core::at(p, 2), core::at(colours, 0)};
-                    vertex[2] = {core::at(next, 0), core::at(next, 1), core::at(next, 2), core::at(colours, 2)};
-                    vertex[3] = {core::at(inner, 0), core::at(inner, 1), core::at(inner, 2), core::at(colours, 2)};
-                    vertex[4] = {core::at(tip, 0), core::at(tip, 1), core::at(tip, 2), core::at(colours, 1)};
-                    vertex[5] = {core::at(p, 0), core::at(p, 1), core::at(p, 2), core::at(colours, 0)};
-                    vertex[6] = {core::at(outer, 0), core::at(outer, 1), core::at(outer, 2), core::at(colours, 2)};
-                    vertex[7] = {core::at(inner, 0), core::at(inner, 1), core::at(inner, 2), core::at(colours, 2)};
+                    vertex[0] = {.x = core::at(tip, 0), .y = core::at(tip, 1), .z = core::at(tip, 2), .colour = core::at(colours, 1)};
+                    vertex[1] = {.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2), .colour = core::at(colours, 0)};
+                    vertex[2] = {.x = core::at(next, 0), .y = core::at(next, 1), .z = core::at(next, 2), .colour = core::at(colours, 2)};
+                    vertex[3] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
+                    vertex[4] = {.x = core::at(tip, 0), .y = core::at(tip, 1), .z = core::at(tip, 2), .colour = core::at(colours, 1)};
+                    vertex[5] = {.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2), .colour = core::at(colours, 0)};
+                    vertex[6] = {.x = core::at(outer, 0), .y = core::at(outer, 1), .z = core::at(outer, 2), .colour = core::at(colours, 2)};
+                    vertex[7] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
                     vertex += 8;
                     std::memcpy(outer.data(), next.data(), sizeof(next));
                     vertices += 8;
@@ -1766,10 +1766,10 @@ void PcStarParticles::render()
                         core::at(inner, 1) = static_cast<float>(static_cast<double>(uy) + iy);
                         core::at(inner, 2) = static_cast<float>(static_cast<double>(uz) + iz);
                     }
-                    vertex[0] = {core::at(p, 0), core::at(p, 1), core::at(p, 2), core::at(colours, 0)};
-                    vertex[1] = {core::at(outer, 0), core::at(outer, 1), core::at(outer, 2), core::at(colours, 1)};
-                    vertex[2] = {core::at(inner, 0), core::at(inner, 1), core::at(inner, 2), core::at(colours, 2)};
-                    vertex[3] = {core::at(next, 0), core::at(next, 1), core::at(next, 2), core::at(colours, 1)};
+                    vertex[0] = {.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2), .colour = core::at(colours, 0)};
+                    vertex[1] = {.x = core::at(outer, 0), .y = core::at(outer, 1), .z = core::at(outer, 2), .colour = core::at(colours, 1)};
+                    vertex[2] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
+                    vertex[3] = {.x = core::at(next, 0), .y = core::at(next, 1), .z = core::at(next, 2), .colour = core::at(colours, 1)};
                     vertex += 4;
                     std::memcpy(outer.data(), next.data(), sizeof(next));
                     vertices += 4;
@@ -1954,12 +1954,12 @@ void PcGlowRibbonTrailParticles::render()
                 std::array<float, 3> next_d = {{static_cast<float>(static_cast<double>(core::at(p1, 0)) - o0),
                                    static_cast<float>(static_cast<double>(core::at(p1, 1)) - o1),
                                    static_cast<float>(static_cast<double>(core::at(p1, 2)) - o2)}};
-                vertex[0] = {core::at(previous_a, 0), core::at(previous_a, 1), core::at(previous_a, 2), previous_colour};
-                vertex[1] = {core::at(previous_b, 0), core::at(previous_b, 1), core::at(previous_b, 2), previous_colour};
-                vertex[2] = {core::at(next_c, 0), core::at(next_c, 1), core::at(next_c, 2), colour};
-                vertex[3] = {core::at(previous_b, 0), core::at(previous_b, 1), core::at(previous_b, 2), previous_colour};
-                vertex[4] = {core::at(next_d, 0), core::at(next_d, 1), core::at(next_d, 2), colour};
-                vertex[5] = {core::at(next_c, 0), core::at(next_c, 1), core::at(next_c, 2), colour};
+                vertex[0] = {.x = core::at(previous_a, 0), .y = core::at(previous_a, 1), .z = core::at(previous_a, 2), .colour = previous_colour};
+                vertex[1] = {.x = core::at(previous_b, 0), .y = core::at(previous_b, 1), .z = core::at(previous_b, 2), .colour = previous_colour};
+                vertex[2] = {.x = core::at(next_c, 0), .y = core::at(next_c, 1), .z = core::at(next_c, 2), .colour = colour};
+                vertex[3] = {.x = core::at(previous_b, 0), .y = core::at(previous_b, 1), .z = core::at(previous_b, 2), .colour = previous_colour};
+                vertex[4] = {.x = core::at(next_d, 0), .y = core::at(next_d, 1), .z = core::at(next_d, 2), .colour = colour};
+                vertex[5] = {.x = core::at(next_c, 0), .y = core::at(next_c, 1), .z = core::at(next_c, 2), .colour = colour};
                 vertex += 6;
                 std::memcpy(previous_a.data(), next_c.data(), sizeof(next_c));
                 std::memcpy(previous_b.data(), next_d.data(), sizeof(next_d));
@@ -2035,15 +2035,15 @@ void PcGlowRibbonTrailParticles::render()
                 core::at(next_inner, 0) = static_cast<float>(static_cast<double>(static_cast<float>(u0c)) + ix);
                 core::at(next_inner, 1) = static_cast<float>(static_cast<double>(static_cast<float>(u1c)) + iy);
                 core::at(next_inner, 2) = static_cast<float>(static_cast<double>(u2c) + iz);
-                vertex[0] = {core::at(p0, 0), core::at(p0, 1), core::at(p0, 2), core::at(glow, 0)};
-                vertex[1] = {core::at(outer, 0), core::at(outer, 1), core::at(outer, 2), core::at(glow, 1)};
-                vertex[2] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(glow, 1)};
-                vertex[3] = {core::at(outer, 0), core::at(outer, 1), core::at(outer, 2), core::at(glow, 1)};
-                vertex[4] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(glow, 1)};
-                vertex[5] = {core::at(inner, 0), core::at(inner, 1), core::at(inner, 2), core::at(glow, 2)};
-                vertex[6] = {core::at(next_outer, 0), core::at(next_outer, 1), core::at(next_outer, 2), core::at(glow, 1)};
-                vertex[7] = {core::at(inner, 0), core::at(inner, 1), core::at(inner, 2), core::at(glow, 2)};
-                vertex[8] = {core::at(next_inner, 0), core::at(next_inner, 1), core::at(next_inner, 2), core::at(glow, 2)};
+                vertex[0] = {.x = core::at(p0, 0), .y = core::at(p0, 1), .z = core::at(p0, 2), .colour = core::at(glow, 0)};
+                vertex[1] = {.x = core::at(outer, 0), .y = core::at(outer, 1), .z = core::at(outer, 2), .colour = core::at(glow, 1)};
+                vertex[2] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(glow, 1)};
+                vertex[3] = {.x = core::at(outer, 0), .y = core::at(outer, 1), .z = core::at(outer, 2), .colour = core::at(glow, 1)};
+                vertex[4] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(glow, 1)};
+                vertex[5] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(glow, 2)};
+                vertex[6] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(glow, 1)};
+                vertex[7] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(glow, 2)};
+                vertex[8] = {.x = core::at(next_inner, 0), .y = core::at(next_inner, 1), .z = core::at(next_inner, 2), .colour = core::at(glow, 2)};
                 vertex += 9;
                 std::memcpy(outer.data(), next_outer.data(), sizeof(outer));
                 std::memcpy(inner.data(), next_inner.data(), sizeof(inner));

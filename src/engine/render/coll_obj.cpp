@@ -157,7 +157,7 @@ const maths::Mat4* HitMeshGroup::fetch_facing()
 }
 
 // 0x00410960
-maths::Vec4 HitMeshGroup::read_vertex_point(int /*index*/) const { return {0.0f, 0.0f, 0.0f, 0.0f}; }
+maths::Vec4 HitMeshGroup::read_vertex_point(int /*index*/) const { return {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f}; }
 
 // 0x00411E80
 bool HitMeshGroup::inside_bounds(const maths::BBox* box)
@@ -201,8 +201,8 @@ maths::BBox* HitMeshGroup::get_local_bounds()
 void HitMeshGroup::recompute_b_box()
 {
     box_valid_ = true;
-    box_.min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
-    box_.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
+    box_.min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
+    box_.max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
     for (const memory::ListNode* node = sub_nodes_->next; node->data != kHeadData && node; node = node->next) {
         const maths::BBox* box = static_cast<HitMesh*>(node->data)->get_local_bounds();
         if (!box) {

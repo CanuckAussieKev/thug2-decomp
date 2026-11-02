@@ -81,7 +81,7 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
         each->drop_geoms();
         const int percent = get_rand() % 100;
         auto scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * 2.0 + 1.0);
-        const maths::Vec4 scales = {scale, scale, scale, 1.0f};
+        const maths::Vec4 scales = {.x = scale, .y = scale, .z = scale, .w = 1.0f};
         each->change_scale(&scales);
         if (!each->add_file_geom(file_name.data(), 0, true, 0, false, true, assert_flag() != 0, true))
             return;
@@ -89,7 +89,7 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
     auto* rotations = static_cast<maths::QuatRotation*>(carve(model_count_ * sizeof(maths::QuatRotation)));
     const std::span<maths::QuatRotation> turns(rotations, rotations ? model_count_ : 0);
     for (maths::QuatRotation& turn : turns)
-        turn = {0.0f, 0.0f, 0.0f, 1.0f}; // (the constructor 0x00464340)
+        turn = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // (the constructor 0x00464340)
     unknown_13c_ptr_ = rotations;
     if (!rotations)
         return;
@@ -178,7 +178,7 @@ void ModelParticles::render()
                 core::at(matrix.row, r)[c] = r == c ? 1.0f : 0.0f;
         q.fetch_mat(&matrix);
         const std::span<const float, 3> position = place_at(position_array_, max_particles_, 0, p);
-        core::at(matrix.row, 3) = {core::at(position, 0), core::at(position, 1), core::at(position, 2), 1.0f};
+        core::at(matrix.row, 3) = {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 1.0f};
         const double shrink = static_cast<double>(p % 4) * kSizeStep;
         const double size = static_cast<double>(core::at(particle.start_size_, 0)) - shrink;
         for (int k = 0; k < 3; ++k)

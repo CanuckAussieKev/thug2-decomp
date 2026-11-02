@@ -47,8 +47,8 @@ constexpr uint32_t kFacePoints = 0xAC3CD84C;   // face_points
 constexpr uint32_t kNoPaletteGen = 0x5905256B; // no_palette_gen
 constexpr uint32_t kNoColour = 0x80808080;
 
-FaceAnchors g_stock_face_anchors{{49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128};
-FaceAnchors g_active_face_anchors{{49, 54}, {76, 54}, {64, 75}, {64, 89}, false, {0, 0, 0}, 0.0f, 1.0f, 1.0f, 128, 128};
+FaceAnchors g_stock_face_anchors{.left_eye_ = {49, 54}, .right_eye_ = {76, 54}, .nose_slot_ = {64, 75}, .mouth_part_ = {64, 89}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = 128, .level_y_ = 128};
+FaceAnchors g_active_face_anchors{.left_eye_ = {49, 54}, .right_eye_ = {76, 54}, .nose_slot_ = {64, 75}, .mouth_part_ = {64, 89}, .has_hsv_ = false, .pad21 = {0, 0, 0}, .h_ = 0.0f, .s_ = 1.0f, .v_ = 1.0f, .span_ = 128, .level_y_ = 128};
 render::BitmapTexture* g_face_overlay;
 
 FaceAnchors& stock_face_anchors() { return g_stock_face_anchors; }

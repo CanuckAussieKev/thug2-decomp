@@ -220,8 +220,8 @@ void build_font()
         const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(c));
         if (!glyph)
             continue;
-        core::at(g_glyphs, c) = {glyph->X0, glyph->Y0, glyph->X1, glyph->Y1,       glyph->U0,
-                       glyph->V0, glyph->U1, glyph->V1, glyph->AdvanceX, glyph->Visible != 0};
+        core::at(g_glyphs, c) = {.x0 = glyph->X0, .y0 = glyph->Y0, .x1 = glyph->X1, .y1 = glyph->Y1,       .u0 = glyph->U0,
+                       .v0 = glyph->V0, .u1 = glyph->U1, .v1 = glyph->V1, .advance = glyph->AdvanceX, .visible = glyph->Visible != 0};
     }
     g_advance = core::at(g_glyphs, 'M').advance;
     g_line_height = std::round(pixels * 1.2f);
@@ -247,8 +247,8 @@ double g_laid_out = -1.0;
 
 void rect2(float x0, float y0, float x1, float y1, uint32_t color)
 {
-    const Vertex a{x0, y0, 0.0f, 1.0f, color, g_white_u, g_white_v}, b{x1, y0, 0.0f, 1.0f, color, g_white_u, g_white_v},
-        c{x0, y1, 0.0f, 1.0f, color, g_white_u, g_white_v}, d{x1, y1, 0.0f, 1.0f, color, g_white_u, g_white_v};
+    const Vertex a{.x = x0, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = g_white_u, .v = g_white_v}, b{.x = x1, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = g_white_u, .v = g_white_v},
+        c{.x = x0, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = g_white_u, .v = g_white_v}, d{.x = x1, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = g_white_u, .v = g_white_v};
     g_vertices.insert(g_vertices.end(), {a, b, c, b, d, c});
 }
 
@@ -264,9 +264,9 @@ void draw_text(float x, float y, const char* text, size_t columns, uint32_t colo
             const float y0 = y + glyph.y0 - 0.5f;
             const float x1 = x + glyph.x1 - 0.5f;
             const float y1 = y + glyph.y1 - 0.5f;
-            const Vertex a{x0, y0, 0.0f, 1.0f, color, glyph.u0, glyph.v0},
-                b{x1, y0, 0.0f, 1.0f, color, glyph.u1, glyph.v0}, cc{x0, y1, 0.0f, 1.0f, color, glyph.u0, glyph.v1},
-                d{x1, y1, 0.0f, 1.0f, color, glyph.u1, glyph.v1};
+            const Vertex a{.x = x0, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u0, .v = glyph.v0},
+                b{.x = x1, .y = y0, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u1, .v = glyph.v0}, cc{.x = x0, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u0, .v = glyph.v1},
+                d{.x = x1, .y = y1, .z = 0.0f, .rhw = 1.0f, .color = color, .u = glyph.u1, .v = glyph.v1};
             g_vertices.insert(g_vertices.end(), {a, b, cc, b, d, cc});
         }
         x += g_advance;

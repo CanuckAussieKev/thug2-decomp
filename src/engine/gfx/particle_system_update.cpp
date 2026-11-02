@@ -454,8 +454,8 @@ void EmitterInstance::update_ground_brightness(bool movables)
 {
     ProbeRay feeler;
     const float y = at_point_.y;
-    feeler.line_.start = {at_point_.x, static_cast<float>(static_cast<double>(y) + 1.0), at_point_.z, at_point_.w};
-    feeler.line_.end = {at_point_.x, static_cast<float>(static_cast<double>(y) - 4800.0), at_point_.z, at_point_.w};
+    feeler.line_.start = {.x = at_point_.x, .y = static_cast<float>(static_cast<double>(y) + 1.0), .z = at_point_.z, .w = at_point_.w};
+    feeler.line_.end = {.x = at_point_.x, .y = static_cast<float>(static_cast<double>(y) - 4800.0), .z = at_point_.z, .w = at_point_.w};
     if (feeler.get_hit_shape(movables, false)) {
         const double value = feeler.get_hit_vertex_value();
         brightness_ = static_cast<float>(value + value);

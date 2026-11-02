@@ -152,10 +152,10 @@ void draw_loading_screen_picture()
         }
     }
     const std::array<PictureVertex, 4> quad = {{
-        {0.0f, 0.0f, 0.0f, 1.0f, u0, v1},
-        {0.0f, height, 0.0f, 1.0f, u0, v0},
-        {width, 0.0f, 0.0f, 1.0f, u1, v1},
-        {width, height, 0.0f, 1.0f, u1, v0},
+        {.x = 0.0f, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .u = u0, .v = v1},
+        {.x = 0.0f, .y = height, .z = 0.0f, .rhw = 1.0f, .u = u0, .v = v0},
+        {.x = width, .y = 0.0f, .z = 0.0f, .rhw = 1.0f, .u = u1, .v = v1},
+        {.x = width, .y = height, .z = 0.0f, .rhw = 1.0f, .u = u1, .v = v0},
     }};
     input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(PictureVertex));
     set_texture(0, nullptr);

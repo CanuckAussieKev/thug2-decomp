@@ -117,7 +117,7 @@ uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_
     input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     begin_query_draw(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     for (QueryPointVertex& vertex : g_query_point_strip)
-        vertex = {point->x, point->y, point->z, 0xFFFFFFFF};
+        vertex = {.x = point->x, .y = point->y, .z = point->z, .colour = 0xFFFFFFFF};
     input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, g_query_point_strip.data(), sizeof(QueryPointVertex));
     end_query_draw(query);
     return query;
@@ -132,10 +132,10 @@ uint8_t PcViewport::query_rect(float x0, float y0, float x1, float y1, uint32_t 
     change_phase(kZWrite, 0);
     begin_query_draw(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
     auto depth = static_cast<float>(static_cast<double>(z));
-    g_query_rect_strip = {{{x0, y0, depth, 1.0f, 0xFFFFFFFF},
-                           {x0, y1, depth, 1.0f, 0xFFFFFFFF},
-                           {x1, y0, depth, 1.0f, 0xFFFFFFFF},
-                           {x1, y1, depth, 1.0f, 0xFFFFFFFF}}};
+    g_query_rect_strip = {{{.x = x0, .y = y0, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
+                           {.x = x0, .y = y1, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
+                           {.x = x1, .y = y0, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF},
+                           {.x = x1, .y = y1, .z = depth, .rhw = 1.0f, .colour = 0xFFFFFFFF}}};
     input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, g_query_rect_strip.data(), sizeof(QueryRectVertex));
     end_query_draw(query);
     return query;

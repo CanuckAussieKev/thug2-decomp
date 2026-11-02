@@ -70,7 +70,7 @@ float largest_scale(const Joint* bone)
 // The capsule from `from` to `to` (all four components), of `radius`.
 maths::Capsule get_between(const maths::Vec4& from, const maths::Vec4& to, float radius)
 {
-    const maths::Vec4 offset = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
+    const maths::Vec4 offset = {.x = to.x - from.x, .y = to.y - from.y, .z = to.z - from.z, .w = to.w - from.w};
     return {from, offset, radius};
 }
 

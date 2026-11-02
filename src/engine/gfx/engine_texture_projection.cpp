@@ -57,13 +57,13 @@ std::array<void*, 128>& projected_collision() { return g_projected_collision; }
 TextureProjection::TextureProjection()
 {
     list_link_.make_node(this);
-    core::at(projection_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(projection_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(projection_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(projection_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
-    direction_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    anchor_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(projection_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(projection_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(projection_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(projection_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    direction_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    anchor_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x004A04A0
@@ -82,7 +82,7 @@ void TextureProjection::configure_from_data(script::Struct* params)
     extent_ = 0.0f;
     field_of_view_ = 60.0f;
     aspect_ = 1.0f;
-    direction_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    direction_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(0xB1DE1E91, vector(&direction_), 1);
     direction_.make_unit();
     world_direction_ = direction_;
@@ -96,7 +96,7 @@ void TextureProjection::configure_from_data(script::Struct* params)
     }
     unknowna4_ = 0;
     params->read_hash_value(0xDC46BA66, &unknowna4_, 0);
-    shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(0xA6F5352F, vector(&shift_), 0);
     angle_ = 0.0f;
     params->fetch_float(0xFF7EBAF6, &angle_, 0);
@@ -125,11 +125,11 @@ void TextureProjection::configure_from_data(script::Struct* params)
 // 0x0049FEF0
 void TextureProjection::update_matrix()
 {
-    const maths::Vec4 target = {get_f(static_cast<double>(world_direction_.x) + anchor_point_.x),
-                                get_f(static_cast<double>(world_direction_.y) + anchor_point_.y),
-                                get_f(static_cast<double>(world_direction_.z) + anchor_point_.z),
-                                get_f(static_cast<double>(world_direction_.w) + anchor_point_.w)};
-    const maths::Vec4 up = {0.0f, 1.0f, 0.0f, 0.0f};
+    const maths::Vec4 target = {.x = get_f(static_cast<double>(world_direction_.x) + anchor_point_.x),
+                                .y = get_f(static_cast<double>(world_direction_.y) + anchor_point_.y),
+                                .z = get_f(static_cast<double>(world_direction_.z) + anchor_point_.z),
+                                .w = get_f(static_cast<double>(world_direction_.w) + anchor_point_.w)};
+    const maths::Vec4 up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
     maths::Mat4 view{};
     maths::create_look_at_matrix(view, anchor_point_, target, up);
     maths::Mat4 lens{};
@@ -163,7 +163,7 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     const float y = get_f(static_cast<double>(rounded(1)) + get_f(static_cast<double>(core::at(m.row, 2).y) * oz));
     const float z = get_f(static_cast<double>(rounded(2)) + get_f(static_cast<double>(core::at(m.row, 2).z) * oz));
     const float w = get_f(static_cast<double>(rounded(3)) + static_cast<double>(core::at(m.row, 2).w) * oz);
-    anchor_point_ = {get_f(x), y, z, w};
+    anchor_point_ = {.x = get_f(x), .y = y, .z = z, .w = w};
     world_direction_ = direction_ * m;
 
     if (modules::g_viewport_count == 1 && first_camera()) {
@@ -177,28 +177,28 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
         // a sphere half the range ahead - along the object-space direction, as the original -, as big as that plus
         // the size
         const double half = static_cast<double>(range_) * 0.5f;
-        const maths::Vec4 centre = {get_f(static_cast<double>(get_f(half * direction_.x)) + anchor_point_.x),
-                                    get_f(static_cast<double>(get_f(half * direction_.y)) + anchor_point_.y),
-                                    get_f(static_cast<double>(get_f(half * direction_.z)) + anchor_point_.z),
-                                    get_f(half * direction_.w + anchor_point_.w)};
+        const maths::Vec4 centre = {.x = get_f(static_cast<double>(get_f(half * direction_.x)) + anchor_point_.x),
+                                    .y = get_f(static_cast<double>(get_f(half * direction_.y)) + anchor_point_.y),
+                                    .z = get_f(static_cast<double>(get_f(half * direction_.z)) + anchor_point_.z),
+                                    .w = get_f(half * direction_.w + anchor_point_.w)};
         if (sphere_out_of_view(&centre, get_f(half + extent_)))
             return;
     }
     update_matrix();
     // the line along the range, its box grown by 2.5 sizes
     const double range = range_;
-    const maths::Vec4 end = {get_f(range * world_direction_.x + anchor_point_.x),
-                             get_f(static_cast<double>(get_f(range * world_direction_.y)) + anchor_point_.y),
-                             get_f(static_cast<double>(get_f(range * world_direction_.z)) + anchor_point_.z),
-                             get_f(static_cast<double>(get_f(range * world_direction_.w)) + anchor_point_.w)};
+    const maths::Vec4 end = {.x = get_f(range * world_direction_.x + anchor_point_.x),
+                             .y = get_f(static_cast<double>(get_f(range * world_direction_.y)) + anchor_point_.y),
+                             .z = get_f(static_cast<double>(get_f(range * world_direction_.z)) + anchor_point_.z),
+                             .w = get_f(static_cast<double>(get_f(range * world_direction_.w)) + anchor_point_.w)};
     const maths::Seg line(anchor_point_, end);
     maths::BBox box(line.start);
     box.append_spot(line.end);
     double grow = static_cast<double>(extent_) * 2.5f; // (0x00649C1C)
     maths::BBox reach;
-    reach.min = {get_f(box.min.x - grow), get_f(box.min.y - grow), get_f(box.min.z - grow), 1.0f};
+    reach.min = {.x = get_f(box.min.x - grow), .y = get_f(box.min.y - grow), .z = get_f(box.min.z - grow), .w = 1.0f};
     grow = static_cast<double>(extent_) * 2.5f;
-    reach.max = {get_f(box.max.x + grow), get_f(box.max.y + grow), get_f(box.max.z + grow), 1.0f};
+    reach.max = {.x = get_f(box.max.x + grow), .y = get_f(box.max.y + grow), .z = get_f(box.max.z + grow), .w = 1.0f};
     const std::span<CollGrid* const> grids = grids_along_line(&line);
     int count = 0;
     for (CollGrid* const grid : grids) {

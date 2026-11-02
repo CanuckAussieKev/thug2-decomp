@@ -35,8 +35,8 @@
 namespace render {
 
 namespace {
-D3DLIGHT9 g_device_light1{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}};
-D3DLIGHT9 g_device_light0{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f}};
+D3DLIGHT9 g_device_light1{.Type = D3DLIGHT_DIRECTIONAL, .Diffuse = {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f}};
+D3DLIGHT9 g_device_light0{.Type = D3DLIGHT_DIRECTIONAL, .Diffuse = {.r = 0.0f, .g = 0.0f, .b = 0.0f, .a = 1.0f}, .Specular = {.r = 1.0f, .g = 1.0f, .b = 1.0f, .a = 0.0f}};
 } // namespace
 namespace {
 maths::Mat4* g_palette_base;

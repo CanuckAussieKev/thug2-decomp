@@ -57,12 +57,12 @@ maths::Vec4 edge_crossing_scaled(const maths::Vec4& a, const maths::Vec4& b, flo
         return a;
     const float ez = get_difference(b.z, a.z);
     const float ew = get_difference(b.w, a.w);
-    const maths::Vec4 scaled{static_cast<float>((static_cast<double>(b.x) - a.x) * da),
-                             static_cast<float>((static_cast<double>(b.y) - a.y) * da),
-                             static_cast<float>(static_cast<double>(ez) * da),
-                             static_cast<float>(static_cast<double>(ew) * da)};
+    const maths::Vec4 scaled{.x = static_cast<float>((static_cast<double>(b.x) - a.x) * da),
+                             .y = static_cast<float>((static_cast<double>(b.y) - a.y) * da),
+                             .z = static_cast<float>(static_cast<double>(ez) * da),
+                             .w = static_cast<float>(static_cast<double>(ew) * da)};
     const maths::Vec4 r = maths::operator/(scaled, static_cast<float>(difference));
-    return {a.x + r.x, r.y + a.y, r.z + a.z, r.w + a.w};
+    return {.x = a.x + r.x, .y = r.y + a.y, .z = r.z + a.z, .w = r.w + a.w};
 }
 
 // Whether a point is on the rect's side of a side's line: the line value at or above 0 when the rect lies towards
@@ -75,8 +75,8 @@ bool get_inside(bool towards_positive, double value) { return towards_positive ?
 bool ray_hits_triangle(const maths::Vec4& start, const maths::Vec4& direction, const maths::Vec4& v0,
                        const maths::Vec4& v1, const maths::Vec4& v2, float* t)
 {
-    const maths::Vec4 leg_alpha{get_difference(v1.x, v0.x), get_difference(v1.y, v0.y), get_difference(v1.z, v0.z),
-                                get_difference(v1.w, v0.w)};
+    const maths::Vec4 leg_alpha{.x = get_difference(v1.x, v0.x), .y = get_difference(v1.y, v0.y), .z = get_difference(v1.z, v0.z),
+                                .w = get_difference(v1.w, v0.w)};
     const float e2x = get_difference(v2.x, v0.x);
     const float e2y = get_difference(v2.y, v0.y);
     const float e2z = get_difference(v2.z, v0.z);
@@ -89,8 +89,8 @@ bool ray_hits_triangle(const maths::Vec4& start, const maths::Vec4& direction, c
         return false;
     auto det = static_cast<float>(determinant);
     auto bound = static_cast<float>(static_cast<double>(det) * kBoundSlack);
-    const maths::Vec4 offset{get_difference(start.x, v0.x), get_difference(start.y, v0.y),
-                             get_difference(start.z, v0.z), get_difference(start.w, v0.w)};
+    const maths::Vec4 offset{.x = get_difference(start.x, v0.x), .y = get_difference(start.y, v0.y),
+                             .z = get_difference(start.z, v0.z), .w = get_difference(start.w, v0.w)};
     auto u = static_cast<float>((offset.z * pz + offset.y * py) + offset.x * px);
     if (u < 0.0f || u > bound)
         return false;
@@ -685,15 +685,15 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
         return second;
     };
     if (segments_cross_2d(o1, o2, a1, a2, p1, p2, dq1, dq2, &s)) {
-        maths::Vec4 point{s * a.x, s * a.y, s * a.z, s * a.w};
-        point = {o.x + point.x, point.y + o.y, point.z + o.z, o.w + point.w};
+        maths::Vec4 point{.x = s * a.x, .y = s * a.y, .z = s * a.z, .w = s * a.w};
+        point = {.x = o.x + point.x, .y = point.y + o.y, .z = point.z + o.z, .w = o.w + point.w};
         if (take(point))
             return true;
     }
     if (segments_cross_2d(far1, far2, a1, a2, p1, p2, dq1, dq2, &s)) {
-        maths::Vec4 point{s * a.x, s * a.y, s * a.z, s * a.w};
-        point = {o.x + point.x, point.y + o.y, point.z + o.z, o.w + point.w};
-        point = {b.x + point.x, b.y + point.y, b.z + point.z, b.w + point.w};
+        maths::Vec4 point{.x = s * a.x, .y = s * a.y, .z = s * a.z, .w = s * a.w};
+        point = {.x = o.x + point.x, .y = point.y + o.y, .z = point.z + o.z, .w = o.w + point.w};
+        point = {.x = b.x + point.x, .y = b.y + point.y, .z = b.z + point.z, .w = b.w + point.w};
         if (take(point))
             return true;
     }

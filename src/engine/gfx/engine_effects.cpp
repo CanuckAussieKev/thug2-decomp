@@ -159,7 +159,7 @@ void Shatter::get_step(int index, float step)
         auto a1 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
         auto a2 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
         auto a3 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
-        maths::Vec4 axis = {a3, a2, a1, 1.0f};
+        maths::Vec4 axis = {.x = a3, .y = a2, .z = a1, .w = 1.0f};
         axis.make_unit();
         maths::Mat4& rotation = core::at(rotation_run(), index);
         std::memset(&rotation, 0, sizeof(rotation));
@@ -392,12 +392,12 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
     maths::BBox line_box(line.start);
     line_box.append_spot(line.end);
     maths::BBox box;
-    box.min = {static_cast<float>(static_cast<double>(line_box.min.x) - size),
-               static_cast<float>(static_cast<double>(line_box.min.y) - size),
-               static_cast<float>(static_cast<double>(line_box.min.z) - size), 1.0f};
-    box.max = {static_cast<float>(static_cast<double>(line_box.max.x) + size),
-               static_cast<float>(static_cast<double>(line_box.max.y) + size),
-               static_cast<float>(static_cast<double>(line_box.max.z) + size), 1.0f};
+    box.min = {.x = static_cast<float>(static_cast<double>(line_box.min.x) - size),
+               .y = static_cast<float>(static_cast<double>(line_box.min.y) - size),
+               .z = static_cast<float>(static_cast<double>(line_box.min.z) - size), .w = 1.0f};
+    box.max = {.x = static_cast<float>(static_cast<double>(line_box.max.x) + size),
+               .y = static_cast<float>(static_cast<double>(line_box.max.y) + size),
+               .z = static_cast<float>(static_cast<double>(line_box.max.z) + size), .w = 1.0f};
     const auto grids = get_coll_grids_on_line(&line);
     if (grids.empty())
         return false;

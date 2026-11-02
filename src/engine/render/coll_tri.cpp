@@ -46,12 +46,12 @@ maths::Vec4 TriMeshSource::read_stored_vertex(int index) const
 {
     if (compressed_) {
         const std::span<uint16_t, 3> v = packed_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
-        return {static_cast<float>(core::at(v, 0)) * 0.0625f + bounds_.min.x,
-                static_cast<float>(core::at(v, 1)) * 0.0625f + bounds_.min.y,
-                static_cast<float>(core::at(v, 2)) * 0.0625f + bounds_.min.z, 0.0f};
+        return {.x = static_cast<float>(core::at(v, 0)) * 0.0625f + bounds_.min.x,
+                .y = static_cast<float>(core::at(v, 1)) * 0.0625f + bounds_.min.y,
+                .z = static_cast<float>(core::at(v, 2)) * 0.0625f + bounds_.min.z, .w = 0.0f};
     }
     const std::span<float, 3> v = float_vertices().subspan(3 * static_cast<size_t>(index)).first<3>();
-    return {core::at(v, 0), core::at(v, 1), core::at(v, 2), 0.0f};
+    return {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2), .w = 0.0f};
 }
 
 // 0x0040B2D0 (the uncompressed vertex copied as raw words)
@@ -102,8 +102,8 @@ void TriMeshSource::get_stored_vertex_array(std::span<maths::Vec4> out) const
 void TriMeshSource::choose_raw_verts(std::span<const maths::Vec4> positions)
 {
     maths::BBox* box = &bounds_;
-    box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
-    box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
+    box->min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
+    box->max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
         box->append_spot(core::at(positions, i));
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
@@ -133,7 +133,7 @@ maths::Vec4 TriMeshSource::get_triangle_normal(int face) const
         ny *= inverse;
         nz *= inverse;
     }
-    return {static_cast<float>(nx), static_cast<float>(ny), static_cast<float>(nz), 0.0f};
+    return {.x = static_cast<float>(nx), .y = static_cast<float>(ny), .z = static_cast<float>(nz), .w = 0.0f};
 }
 
 // 0x00415B70
@@ -224,10 +224,10 @@ void TriMeshSource::get_slide(const maths::Vec4* delta)
         }
     }
     auto moved = [delta](const maths::Vec4& p) {
-        return maths::Vec4{static_cast<float>(static_cast<double>(p.x) + delta->x),
-                           static_cast<float>(static_cast<double>(p.y) + delta->y),
-                           static_cast<float>(static_cast<double>(p.z) + delta->z),
-                           static_cast<float>(static_cast<double>(p.w) + delta->w)};
+        return maths::Vec4{.x = static_cast<float>(static_cast<double>(p.x) + delta->x),
+                           .y = static_cast<float>(static_cast<double>(p.y) + delta->y),
+                           .z = static_cast<float>(static_cast<double>(p.z) + delta->z),
+                           .w = static_cast<float>(static_cast<double>(p.w) + delta->w)};
     };
     const maths::Vec4 min = moved(bounds_.min);
     const maths::Vec4 max = moved(bounds_.max);
@@ -239,7 +239,7 @@ void TriMeshSource::get_slide(const maths::Vec4* delta)
 // original; the array's element constructor, 0x005902E0, does nothing)
 void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
 {
-    const maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+    const maths::Vec4 back{.x = -centre->x, .y = -centre->y, .z = -centre->z, .w = -centre->w};
     get_slide(&back);
     if (bsp_)
         bsp_->rotate_y(centre, quarter_turns, false);
@@ -270,8 +270,8 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
     min.turn_quarter_about_y(quarter_turns);
     max.turn_quarter_about_y(quarter_turns);
     maths::BBox* box = &bounds_;
-    box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
-    box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
+    box->min = {.x = 10000000.0f, .y = 10000000.0f, .z = 10000000.0f, .w = 1.0f};
+    box->max = {.x = -10000000.0f, .y = -10000000.0f, .z = -10000000.0f, .w = 1.0f};
     box->append_spot(min);
     box->append_spot(max);
     if (positions) {
@@ -286,7 +286,7 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
 // 0x00416730 (a failed allocation crashes, as in RotateY)
 void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* scale)
 {
-    const maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+    const maths::Vec4 back{.x = -centre->x, .y = -centre->y, .z = -centre->z, .w = -centre->w};
     get_slide(&back);
     if (bsp_)
         bsp_->scale_tool(centre, scale, false);
@@ -312,8 +312,8 @@ void TriMeshSource::scale_tool(const maths::Vec4* centre, const maths::Vec4* sca
             core::at(v, 2) *= scale->z;
         }
     }
-    bounds_.min = {bounds_.min.x * scale->x, bounds_.min.y * scale->y, bounds_.min.z * scale->z, bounds_.min.w};
-    bounds_.max = {bounds_.max.x * scale->x, bounds_.max.y * scale->y, bounds_.max.z * scale->z, bounds_.max.w};
+    bounds_.min = {.x = bounds_.min.x * scale->x, .y = bounds_.min.y * scale->y, .z = bounds_.min.z * scale->z, .w = bounds_.min.w};
+    bounds_.max = {.x = bounds_.max.x * scale->x, .y = bounds_.max.y * scale->y, .z = bounds_.max.z * scale->z, .w = bounds_.max.w};
     if (positions) {
         for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
             write_stored_vertex(i, &core::at(position_run, i));
@@ -566,7 +566,7 @@ void HitTreeNode::get_slide(const maths::Vec4* delta)
 void HitTreeNode::rotate_y(const maths::Vec4* centre, int quarter_turns, bool move_to_centre)
 {
     if (move_to_centre) {
-        const maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+        const maths::Vec4 back{.x = -centre->x, .y = -centre->y, .z = -centre->z, .w = -centre->w};
         get_slide(&back);
     }
     if (!is_end_node()) {
@@ -606,7 +606,7 @@ void HitTreeNode::rotate_y(const maths::Vec4* centre, int quarter_turns, bool mo
 void HitTreeNode::scale_tool(const maths::Vec4* centre, const maths::Vec4* scale, bool move_to_centre)
 {
     if (move_to_centre) {
-        const maths::Vec4 back{-centre->x, -centre->y, -centre->z, -centre->w};
+        const maths::Vec4 back{.x = -centre->x, .y = -centre->y, .z = -centre->z, .w = -centre->w};
         get_slide(&back);
     }
     if (!is_end_node()) {

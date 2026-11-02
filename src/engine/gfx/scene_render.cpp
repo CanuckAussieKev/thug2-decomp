@@ -117,7 +117,7 @@ int compare_distances(const void* a, const void* b)
 // 0x004DC700
 void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
 {
-    Lap pass{scene, flags, 0, (flags & kRenderNoCulling) != 0};
+    Lap pass{.scene = scene, .flags = flags, .viewport_bit_ = 0, .no_culling_ = (flags & kRenderNoCulling) != 0};
     if (scene->unknown40)
         return;
     // Not original - the level editor's Collision only view (engine/gfx/view_mode.h): no scene drawn in the 3D passes.

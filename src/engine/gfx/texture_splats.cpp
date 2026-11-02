@@ -121,7 +121,7 @@ void light_texture_splats(TextureSplats* splats)
         const auto& at = core::at(triangle, 0).position;
         std::array<maths::Vec4, 3> points{};
         for (auto& point : points)
-            point = {core::at(at, 0), core::at(at, 1), core::at(at, 2), 0.0f};
+            point = {.x = core::at(at, 0), .y = core::at(at, 1), .z = core::at(at, 2), .w = 0.0f};
         light_vertex_colours(base, colors, points, nullptr, 3);
         for (int k = 0; k < 3; ++k)
             core::at(triangle, k).argb = to_argb(core::at(colors, k));

@@ -364,9 +364,9 @@ void PcWeather::render_splashes(float x, float z)
         // 2048 either side - alternately - nearer in), its landing the splash's.
         ProbeRay feeler;
         const auto& camera = g_camera.position;
-        maths::Vec4 heading = {static_cast<float>(static_cast<double>(x) - core::at(camera, 0)), 0.0f,
-                               static_cast<float>(static_cast<double>(z) - core::at(camera, 2)), 1.0f};
-        maths::Vec4 at = {core::at(camera, 0), 50000.0f, core::at(camera, 2), 1.0f};
+        maths::Vec4 heading = {.x = static_cast<float>(static_cast<double>(x) - core::at(camera, 0)), .y = 0.0f,
+                               .z = static_cast<float>(static_cast<double>(z) - core::at(camera, 2)), .w = 1.0f};
+        maths::Vec4 at = {.x = core::at(camera, 0), .y = 50000.0f, .z = core::at(camera, 2), .w = 1.0f};
         heading.make_unit();
         auto along = static_cast<float>(maths::rnd(0x8000) * (1.0 / 32768.0));
         const double out = static_cast<double>(along) * 2048.0f;
@@ -421,12 +421,12 @@ void PcWeather::render_splashes(float x, float z)
         const uint32_t colour = static_cast<uint32_t>(core::at(c, 3)) << 24 | static_cast<uint32_t>(core::at(c, 2)) << 16 |
                                 static_cast<uint32_t>(core::at(c, 1)) << 8 | core::at(c, 0);
         const float y = core::at(splash_y_, i);
-        out[0] = {x0, y, z0, colour, 0.0f, 0.0f};
-        out[1] = {x1, y, z0, colour, 1.0f, 0.0f};
-        out[2] = {x1, y, z1, colour, 1.0f, 1.0f};
-        out[3] = {x0, y, z1, colour, 0.0f, 1.0f};
-        out[4] = {x0, y, z0, colour, 0.0f, 0.0f};
-        out[5] = {x1, y, z1, colour, 1.0f, 1.0f};
+        out[0] = {.x = x0, .y = y, .z = z0, .colour = colour, .u = 0.0f, .v = 0.0f};
+        out[1] = {.x = x1, .y = y, .z = z0, .colour = colour, .u = 1.0f, .v = 0.0f};
+        out[2] = {.x = x1, .y = y, .z = z1, .colour = colour, .u = 1.0f, .v = 1.0f};
+        out[3] = {.x = x0, .y = y, .z = z1, .colour = colour, .u = 0.0f, .v = 1.0f};
+        out[4] = {.x = x0, .y = y, .z = z0, .colour = colour, .u = 0.0f, .v = 0.0f};
+        out[5] = {.x = x1, .y = y, .z = z1, .colour = colour, .u = 1.0f, .v = 1.0f};
         used += 0x24;
         out += 6;
         core::at(splash_frames_, i) = frames - 1;
@@ -480,7 +480,7 @@ void PcWeather::tick_grid()
         auto at_z = static_cast<float>(z << 7);
         for (int x = min_x; x <= max_x; ++x) {
             const int index = width * r - min_x + x;
-            maths::Vec4 at = {static_cast<float>(x << 7), 50000.0f, at_z, 1.0f};
+            maths::Vec4 at = {.x = static_cast<float>(x << 7), .y = 50000.0f, .z = at_z, .w = 1.0f};
             feeler.change_origin(&at);
             at.y = -50000.0f;
             feeler.change_finish(&at);
@@ -542,11 +542,11 @@ void PcWeather::tick_grid()
             }
         }
         if (first < last) {
-            core::at(rows, r) = {first, last, static_cast<uint16_t>(offset)};
+            core::at(rows, r) = {.first = first, .last = last, .offset = static_cast<uint16_t>(offset)};
             for (int c = first; std::cmp_less_equal(c, last); ++c)
                 core::at(columns, static_cast<uint16_t>(offset++)) = core::at(grid, width * r + c);
         } else {
-            core::at(rows, r) = {0x4000, 0, 0};
+            core::at(rows, r) = {.first = 0x4000, .last = 0, .offset = 0};
         }
     }
     memory::Hub::get_pull()->dealloc(grid_block);

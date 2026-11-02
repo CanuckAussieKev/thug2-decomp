@@ -21,10 +21,10 @@ namespace {
 
 void set_identity(maths::Mat4& m)
 {
-    core::at(m.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(m.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(m.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(m.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(m.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x0048D090: a box drawn with a transform (debug rendering; not rewritten yet).
@@ -37,7 +37,7 @@ void draw_box(const maths::BBox* box, const maths::Mat4* transform, uint32_t col
 } // namespace
 
 // 0x00411FA0
-HitMovingMesh::HitMovingMesh() : anchor_point_{0.0f, 0.0f, 0.0f, 1.0f}
+HitMovingMesh::HitMovingMesh() : anchor_point_{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}
 {
     set_identity(orientation_);
     set_identity(inverse_);
@@ -71,8 +71,8 @@ maths::Vec4 HitMovingMesh::read_vertex_point(int index) const
     raw.w = 0.0f;
     maths::Vec4 turned{};
     orientation_.rotate_vector(turned, raw);
-    return {turned.x + anchor_point_.x, turned.y + anchor_point_.y, turned.z + anchor_point_.z,
-            turned.w + anchor_point_.w};
+    return {.x = turned.x + anchor_point_.x, .y = turned.y + anchor_point_.y, .z = turned.z + anchor_point_.z,
+            .w = turned.w + anchor_point_.w};
 }
 
 // 0x004122C0
@@ -121,8 +121,8 @@ void MatrixTranspose::transpose_in_place()
 // 0x00412550
 HitMovingBox::HitMovingBox()
 {
-    box_.min = {-50.0f, -20.0f, -90.0f, 1.0f};
-    box_.max = {30.0f, 36.0f, 90.0f, 1.0f};
+    box_.min = {.x = -50.0f, .y = -20.0f, .z = -90.0f, .w = 1.0f};
+    box_.max = {.x = 30.0f, .y = 36.0f, .z = 90.0f, .w = 1.0f};
 }
 
 // 0x00413700
@@ -167,7 +167,7 @@ void HitMovingBox::draw_diagnostic(int /*a*/, int /*b*/)
 }
 
 // 0x004123C0
-CollScaled::CollScaled() : size_factor_{1.0f, 1.0f, 1.0f, 0.0f}
+CollScaled::CollScaled() : size_factor_{.x = 1.0f, .y = 1.0f, .z = 1.0f, .w = 0.0f}
 {
     set_identity(basis_frame_);
     set_identity(inverse_);
@@ -233,7 +233,7 @@ maths::Vec4* CollScaled::get_absolute_point() { return &core::at(basis_frame_.ro
 maths::Vec4 CollScaled::read_vertex_point(int index) const
 {
     const maths::Vec4 raw = geometry_->read_stored_vertex(index);
-    const maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z, size_factor_.w};
+    const maths::Vec4 scaled{.x = raw.x * size_factor_.x, .y = raw.y * size_factor_.y, .z = raw.z * size_factor_.z, .w = size_factor_.w};
     maths::Vec4 out{};
     basis_frame_.xform(out, scaled);
     return out;

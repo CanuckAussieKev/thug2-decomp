@@ -89,7 +89,7 @@ PcModelLights::PcModelLights()
     switch_ambient_light(false);
     for (uint32_t i = 0; i < model_light_count(); ++i) {
         switch_diffuse_light(static_cast<int>(i), false);
-        core::at(directions_of(*this), i) = {0.0f, 1.0f, 0.0f, 1.0f};
+        core::at(directions_of(*this), i) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     }
     first_dynamic_ = 2;
 }
@@ -308,7 +308,7 @@ maths::Vec4* get_light_direction(int light)
     g_scene_light_direction_guard |= 1; // (the static's initialisation guard)
     maths::Vec4& out = g_scene_light_direction;
     const maths::Vec4& direction = core::at(scene_directions(), light);
-    out = {direction.x, direction.y, direction.z, 1.0f};
+    out = {.x = direction.x, .y = direction.y, .z = direction.z, .w = 1.0f};
     return &out;
 }
 
