@@ -39,7 +39,7 @@ CheckOptions:
   # the GameSpy SDK, D3DX9), SDL2's include folder, the Windows SDK (windows.h, d3d9, dsound, dinput, winsock - the
   # headers that must follow one another), the build's generated headers and the embedded editor fonts. The check
   # would name the SDKs' internal headers (or ask for a different one than the umbrella the SDK documents).
-  misc-include-cleaner.IgnoreHeaders: '.*[/\]_deps[/\].*;.*[/\]sdl2-include[/\].*;.*Windows Kits.*;.*[/\]generated[/\].*;.*[/\]editor_fonts[/\].*'
+  misc-include-cleaner.IgnoreHeaders: '.*[/\\]_deps[/\\].*;.*[/\\]sdl2-include[/\\].*;.*Windows Kits.*;.*[/\\]generated[/\\].*;.*[/\\]editor_fonts[/\\].*'
   # An allocation failure ends the game whether or not it leaves a noexcept function (no handler anywhere: the
   # game has no exception handling); the debug runtime's container moves allocate, so every move of a container
   # would otherwise be "may throw". Every other exception still counts.
