@@ -120,7 +120,7 @@ const char* no_value(char*) { return nullptr; }
 // A rating's rank (as the lobby's: rating * 1/3500 * 10, truncated, at most 10).
 int rank_of(int rating)
 {
-    const double rank = static_cast<double>(rating) * g_rank_scale * render::g_float_ten;
+    const double rank = static_cast<double>(rating) * kRankScale * render::kFloatTen;
     const int shown = static_cast<int>(rank);
     return shown > kMaxRank ? kMaxRank : shown;
 }

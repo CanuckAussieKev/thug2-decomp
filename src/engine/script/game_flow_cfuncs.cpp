@@ -456,7 +456,7 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
     int viewport = -1;
     const char* texture = nullptr;
     params->fetch_float("duration", &duration, 0); // "duration"
-    if (!(duration > objects::g_float_zero))       // (0.0)
+    if (!(duration > objects::kFloatZero))       // (0.0)
         return true;
     params->fetch_text("texture", &texture, 0); // "texture"
     params->fetch_float("z", &z, 0);            // "z"

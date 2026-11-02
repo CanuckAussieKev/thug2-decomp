@@ -33,6 +33,6 @@ extern float g_elapsed_seconds;
 
 extern float g_total_seconds;
 
-extern float g_float_ten;
+inline constexpr float kFloatTen{10.0f};
 extern void* g_screen_mutex;
 } // namespace render

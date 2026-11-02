@@ -201,5 +201,5 @@ static_assert(offsetof(JointClipFrames, cache_slot_) == 0x24 && offsetof(JointCl
                   sizeof(JointClipFrames) == 0x3C,
               "layout must match the original");
 
-extern float g_tiny_length;
+inline constexpr float kTinyLength{0.00001f};
 } // namespace gfx

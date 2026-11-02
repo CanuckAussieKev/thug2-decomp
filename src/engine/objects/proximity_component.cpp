@@ -24,7 +24,7 @@ namespace objects {
 
 namespace {
 GameEntity* g_proximity_skater;
-float g_proximity_skater_radius;
+constexpr float kProximitySkaterRadius{0.0f};
 
 constexpr uint32_t kSkaterId = 0x0AE89B6C; // (its name unknown): the skater's id, for the scripts
 constexpr uint32_t kInactive = 0x742CF11F; // kClockIdle
@@ -32,7 +32,7 @@ constexpr uint32_t kDelay = 0x9D02737D;    // (its name unknown): seconds
 
 // The skater the component watches and the radius added to its outer one (globals no code here sets).
 GameEntity* get_skater() { return g_proximity_skater; }
-float skater_radius() { return g_proximity_skater_radius; }
+float skater_radius() { return kProximitySkaterRadius; }
 
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 

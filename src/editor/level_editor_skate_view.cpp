@@ -23,12 +23,12 @@
 #include "engine/render/coll_tri.h"
 #include "engine/objects/rail_manager.h"
 #include "engine/script/param_struct.h"
-#include "frontend/screen_constants.h"
 #include "imgui.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/sector.h"
 #include "engine/core/checked_index.h"
 #include "editor/level_editor_gui_text.h"
+#include "engine/gfx/cag_cfuncs.h"
 
 namespace frontend::level_editor::skate_view {
 
@@ -146,7 +146,7 @@ float game_threshold()
     if (g_threshold < 0.0f) {
         // (0x005003A0: the script float 0x3EEDE4D3 - 0x00478F00 with its assert on, as it asks - times 0x00645464)
         const float angle = script::fetch_float(0x3EEDE4D3u); // (the original also passes 1, unused)
-        const float factor = ::commands::g_degree_to_radian_ratio;
+        const float factor = ::commands::kDegreeToRadianRatio;
         g_threshold = get_threshold(angle, factor);
     }
     return g_threshold;

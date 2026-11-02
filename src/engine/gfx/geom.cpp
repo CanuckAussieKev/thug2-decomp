@@ -98,9 +98,9 @@ maths::Vec4 g_static_position;
 uint32_t g_static_position_guard;
 maths::Mat4 g_static_orientation;
 uint32_t g_static_orientation_guard;
-uint32_t g_vertex_shader_uv58;
-uint32_t g_vertex_shader_uv_5c;
-uint32_t g_vertex_shader_uv60;
+constexpr uint32_t kVertexShaderUv58{0};
+constexpr uint32_t kVertexShaderUv5c{0};
+constexpr uint32_t kVertexShaderUv60{0};
 
 // The static results of get_absolute_point / fetch_facing (with their initialisation guards' bits).
 maths::Vec4& static_position()
@@ -800,11 +800,11 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
         // the vertex shader for the UV matrix (0x00775B70-78 -> 0x00775B58-60)
         uint32_t& shader = mesh_vertex_shader(mesh);
         if (shader == core::at(g_vertex_shaders, 5))
-            shader = g_vertex_shader_uv60;
+            shader = kVertexShaderUv60;
         else if (shader == core::at(g_vertex_shaders, 4))
-            shader = g_vertex_shader_uv_5c;
+            shader = kVertexShaderUv5c;
         else if (shader == core::at(g_vertex_shaders, 3))
-            shader = g_vertex_shader_uv58;
+            shader = kVertexShaderUv58;
         UvOscillator* wibble = core::at(material->uv_wibble_, index);
         core::at(wibble->matrix, 0) = core::at(matrix->row, 0).x;
         core::at(wibble->matrix, 1) = core::at(matrix->row, 0).y;

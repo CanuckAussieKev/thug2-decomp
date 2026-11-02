@@ -24,7 +24,7 @@ static_assert(offsetof(ValueResolver, fault_) == 0x1F0, "layout must match the o
 static_assert(offsetof(ValueResolver, unknown1f4_) == 0x1F4, "layout must match the original");
 
 namespace {
-float g_eval_divisor_minimum{0.000001f};
+constexpr float kEvalDivisorMinimum{0.000001f};
 Component g_eval_result;
 
 // The operators' precedences, by operator.
@@ -752,7 +752,7 @@ void ValueResolver::execute()
                 break;
             }
         } else if (type_b == kQbvalFloat) {
-            if (std::fabs(b->value.real()) < g_eval_divisor_minimum) {
+            if (std::fabs(b->value.real()) < kEvalDivisorMinimum) {
                 error("Float division by zero"); // "Float division by zero"
                 break;
             }

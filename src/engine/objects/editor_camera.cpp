@@ -36,7 +36,7 @@ namespace objects {
 
 namespace {
 std::array<uint32_t, 4> g_editor_camera_skip_names{{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205}};
-uint32_t g_editor_camera_name{0x43BFAB74};
+constexpr uint32_t kEditorCameraName{0x43BFAB74};
 std::array<uint32_t, 20> g_editor_camera_seen;
 uint8_t g_editor_camera_flagged;
 int g_editor_camera_seen_count;
@@ -100,7 +100,7 @@ bool script_flagged(uint32_t name)
             return false;
     }
     core::at(get_seen(), get_seen_count()++) = name;
-    if (name == g_editor_camera_name)
+    if (name == kEditorCameraName)
         return false;
     for (const uint32_t skip_name : g_editor_camera_skip_names) {
         if (name == skip_name)

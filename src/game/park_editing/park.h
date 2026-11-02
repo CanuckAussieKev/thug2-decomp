@@ -1306,9 +1306,9 @@ bool cfunc_get_park_editor_max_players(script::Struct* params, script::Script* s
 // 0x0058E140 GetParkEditorMaxPlayersPossible: <MaxPlayersPossible> = how many players the park has room for.
 bool cfunc_get_park_editor_max_players_possible(script::Struct* params, script::Script* script);
 
-extern float g_park_cell_size_x;
-extern float g_park_cell_size_y;
-extern float g_park_cell_size_z;
+inline constexpr float kParkCellSizeX{120.0f};
+inline constexpr float kParkCellSizeY{48.0f};
+inline constexpr float kParkCellSizeZ{120.0f};
 extern maths::Vec4 g_rail_origin;
 extern memory::PoolPair g_rail_pools;
 extern memory::PoolPair g_clipboard_pools;

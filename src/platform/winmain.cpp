@@ -319,7 +319,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     if (!game_window())
         return 0;
     // Originally from PartyMod Fixes: the window isn't shown here (SDL shows it). The original did
-    //     ShowWindow(game_window(), render::g_show_window_flag ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
+    //     ShowWindow(game_window(), render::kShowWindowFlag ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
     get_srand(get_instant());
 
     // The command line split at spaces (made terminators) into at most 20 arguments. The first is the command

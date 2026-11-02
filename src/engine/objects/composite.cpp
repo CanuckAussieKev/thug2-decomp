@@ -38,11 +38,11 @@ using script::Script;
 using script::Struct;
 
 namespace {
-float g_composite_acos_a0{1.5707288f};
-float g_composite_acos_a1{0.2121144f};
-float g_composite_acos_a2{0.074261f};
-float g_composite_acos_a3{-0.0187293f};
-float g_composite_feet_to_inches{12.0f};
+constexpr float kCompositeAcosA0{1.5707288f};
+constexpr float kCompositeAcosA1{0.2121144f};
+constexpr float kCompositeAcosA2{0.074261f};
+constexpr float kCompositeAcosA3{-0.0187293f};
+constexpr float kCompositeFeetToInches{12.0f};
 
 // Names (checksums).
 constexpr uint32_t kUnnamed = 0;
@@ -107,10 +107,10 @@ memory::ListNode* manager_object_list(ObjectHubBase* manager) { return manager->
 // maths::fast_a_cos (0x00403EF0) as its callers here see it: the x87 result is used before it is rounded to a float.
 double fast_a_cos_unrounded(float value)
 {
-    const double a0 = g_composite_acos_a0;
-    const double a1 = g_composite_acos_a1;
-    const double a2 = g_composite_acos_a2;
-    const double a3 = g_composite_acos_a3;
+    const double a0 = kCompositeAcosA0;
+    const double a1 = kCompositeAcosA1;
+    const double a2 = kCompositeAcosA2;
+    const double a3 = kCompositeAcosA3;
     const double pi = g_pi;
     if (value < 0.0f) {
         const double x = -static_cast<double>(value);
@@ -171,7 +171,7 @@ private:
     render::ProbeRay ray_;
 };
 
-float feet_as_inches() { return g_composite_feet_to_inches; } // 12
+float feet_as_inches() { return kCompositeFeetToInches; } // 12
 
 } // namespace
 

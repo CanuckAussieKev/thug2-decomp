@@ -281,7 +281,7 @@ bool ShootVideoObjective::tick_frame()
         return Objective::tick_frame();
     if (recording_shot_) {
         if (target_in_view()) {
-            shot_hold_time_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::g_thousand); // (1000)
+            shot_hold_time_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand); // (1000)
             args_->put_int(kTimeOnCamera, static_cast<int>(shot_hold_time_));
         }
         if (shot_hold_time_ >= time_needed_) {

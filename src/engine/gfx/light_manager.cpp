@@ -41,14 +41,14 @@ float g_light_brightness{1.0f};
 float g_light_brightness_target{1.0f};
 std::array<int, 32> g_near_light_indexes{{-1}};      // get_dynamic_lights_near's indexes
 std::array<float, 31> g_near_light_falloffs{{1.0f}}; // get_dynamic_lights_near's falloffs
-float g_min_intensity;
+constexpr float kMinIntensity{0.0f};
 
 int& stack_top() { return g_light_stack_top; }
 uint32_t& light_count() { return g_light_count; }
 float& get_brightness() { return g_light_brightness; }
 float& light_gain_goal() { return g_light_brightness_target; }
 float& ambient_intensity() { return g_ambient_intensity; }
-float min_intensity() { return g_min_intensity; }
+float min_intensity() { return kMinIntensity; }
 std::span<float>& get_intensities() { return g_intensities; }
 
 std::array<DynamicLightBase*, 256>& dynamic_lights() { return g_dynamic_lights; }

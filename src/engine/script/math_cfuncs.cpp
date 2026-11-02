@@ -14,7 +14,6 @@
 
 namespace commands {
 
-float g_script_radians_to_degrees{57.295776f};
 
 namespace {
 
@@ -43,8 +42,8 @@ constexpr uint32_t kRx = 0xFDF10F7A;         // "rx"
 constexpr uint32_t kRy = 0x8AF63FEC;         // "ry"
 constexpr uint32_t kRz = 0x13FF6E56;         // "rz"
 
-float degree_to_radian_conv() { return g_degree_to_radian_ratio; } // pi / 180
-float convert_to_degrees() { return g_script_radians_to_degrees; } // 180 / pi
+float degree_to_radian_conv() { return kDegreeToRadianRatio; } // pi / 180
+float convert_to_degrees() { return kScriptRadiansToDegrees; } // 180 / pi
 
 // D3DX's matrix product (linked library code; stdcall): out = a * b.
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }

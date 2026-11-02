@@ -23,8 +23,8 @@
 namespace park_editing {
 
 namespace {
-double g_park_memory_full_usage{0.95};
-double g_park_memory_nearly_full_usage{0.9};
+constexpr double kParkMemoryFullUsage{0.95};
+constexpr double kParkMemoryNearlyFullUsage{0.9};
 MemoryStats g_park_memory_stats;
 gsl::owner<memory::Zone*> g_park_region; // 0x007CE684 (power_down deletes it)
 } // namespace
@@ -334,7 +334,7 @@ bool main_heap_has_room(int count, int size)
 {
     const int free = get_attributes().main_heap_free_ - count * size * kFloorPieceMem;
     const double usage = get_usage(1.0f, free, get_memory_value("main_heap_base", -1)); // "main_heap_base"
-    return !(usage >= g_park_memory_full_usage);                                  // 0.95 (unordered: true)
+    return !(usage >= kParkMemoryFullUsage);                                  // 0.95 (unordered: true)
 }
 
 // 0x0059EB30
@@ -352,7 +352,7 @@ bool pieces_fit(int first, int last)
         return false;
     const double usage = get_usage(1.0f, get_attributes().main_heap_free_ - main,
                                    get_memory_value("main_heap_base", -1)); // "main_heap_base"
-    return !(usage >= g_park_memory_nearly_full_usage);               // 0.9 (unordered: true)
+    return !(usage >= kParkMemoryNearlyFullUsage);               // 0.9 (unordered: true)
 }
 
 // 0x0059EC00

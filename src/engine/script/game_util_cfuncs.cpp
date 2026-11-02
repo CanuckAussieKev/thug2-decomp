@@ -36,9 +36,9 @@
 namespace commands {
 
 namespace {
-float g_game_util_whole_turn{360.0f};
-float g_game_util_half_turn{180.0f};
-float g_game_util_minus_degrees_to_radians{-0.017453292f};
+constexpr float kGameUtilWholeTurn{360.0f};
+constexpr float kGameUtilHalfTurn{180.0f};
+constexpr float kGameUtilMinusDegreesToRadians{-0.017453292f};
 
 using script::Array;
 using script::Component;
@@ -91,8 +91,8 @@ park_editing::RailAuthoring* get_rail_editor() { return park_editing::RailAuthor
 // its x87 result unrounded; ours is the float it returns (the last bits can differ when it adds or takes a turn).
 double wrapped_degrees(float angle) { return commands::wrap_angle(angle); }
 // The half and whole turns compared and turned with (0x0064B278 180, 0x00645EA8 360).
-float half_turn() { return g_game_util_half_turn; }
-float whole_turn() { return g_game_util_whole_turn; }
+float half_turn() { return kGameUtilHalfTurn; }
+float whole_turn() { return kGameUtilWholeTurn; }
 
 // Whether `array` (if any) has the element `name`.
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
@@ -324,8 +324,8 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
     params->fetch_float(kHeading, &heading, 1);
     float pitch = 0.0f;
     params->fetch_float(kPitch, &pitch, 1);
-    pitch = static_cast<float>(pitch * static_cast<double>(g_game_util_minus_degrees_to_radians)); // -pi / 180
-    heading = static_cast<float>((90.0 - heading) * g_degree_to_radian_ratio);                     // pi / 180
+    pitch = static_cast<float>(pitch * static_cast<double>(kGameUtilMinusDegreesToRadians)); // -pi / 180
+    heading = static_cast<float>((90.0 - heading) * kDegreeToRadianRatio);                     // pi / 180
     int r = 0;
     params->fetch_int_value(kR, &r, 1);
     int g = 0;

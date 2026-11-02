@@ -53,7 +53,7 @@ constexpr float kQuarterTurn = 1.57079637f; // 0x00645484
 constexpr float kEaseBelow = 0.923879027f;  // 0x006488F8: a turn this close to the last one isn't eased
 constexpr float kEaseFactor = 0.216478556f; // 0x006488F4
 
-float epsilon() { return objects::g_float_zero; }
+float epsilon() { return objects::kFloatZero; }
 
 // x, y and z of a vector scaled to length 1 when longer than the epsilon (from the sum (x x + z z) + y y, the
 // reciprocal unrounded).

@@ -38,7 +38,7 @@ namespace render {
 
 constexpr uint32_t kShadowTriangleBytes = 20480; // the original's triangle buffer (0x00796640)
 namespace {
-bool g_two_sided_stencil;
+constexpr bool kTwoSidedStencil{false};
 std::array<float, 4> g_shadow_viewport{{256.0f, 256.0f, 256.0f, 256.0f}};
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
@@ -52,7 +52,7 @@ uint32_t& get_fog() { return g_fog_active; }
 uint32_t& depth_bias() { return g_depth_bias; }
 uint32_t& cull_mode() { return g_cull_mode; }
 const void*& pixel_shader_locked() { return g_pixel_shader_locked; }
-bool two_sided_stencil() { return g_two_sided_stencil; }
+bool two_sided_stencil() { return kTwoSidedStencil; }
 
 // The projection buffer (project_shadow_vertices) and the triangle buffer (clip_shadow_triangles).
 struct ProjectedVertex {

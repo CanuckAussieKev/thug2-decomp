@@ -223,8 +223,8 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     }
     params->put_name_key(kPadChooseScript, script);
     // (x87: the rating times two floats, truncated)
-    int rank = static_cast<int>(static_cast<double>(player->skill_points_) * static_cast<double>(g_rank_scale) *
-                                static_cast<double>(render::g_float_ten));
+    int rank = static_cast<int>(static_cast<double>(player->skill_points_) * static_cast<double>(kRankScale) *
+                                static_cast<double>(render::kFloatTen));
     if (rank > kMaxRank)
         rank = kMaxRank;
     params->put_int(kRank, rank);

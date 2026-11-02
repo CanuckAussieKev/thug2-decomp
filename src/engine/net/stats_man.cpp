@@ -41,7 +41,6 @@
 
 namespace online {
 
-float g_rank_scale{0.00028571428f};
 
 namespace {
 
@@ -54,8 +53,8 @@ constexpr int kMaxRank = 10;
 constexpr int kStatsPort = 0x1421;
 
 // The rank's factors (0x0064CC1C, 0x00646710).
-float rank_scale() { return g_rank_scale; }        // 0.000286
-float rank_times() { return render::g_float_ten; } // 10
+float rank_scale() { return kRankScale; }        // 0.000286
+float rank_times() { return render::kFloatTen; } // 10
 // rating * 0.000286 * 10 truncated, at most 10 (x87 at 53 bits: each product rounded to double).
 int current_rank(double rating)
 {

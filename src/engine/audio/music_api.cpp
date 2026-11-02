@@ -48,7 +48,7 @@ constexpr int kMusicStreamPreload = 2;
 int& frame_count() { return music_api_state().frame_count_; }
 float& default_stream_volume() { return music_state().music_volume_; }
 float& base_music_gain() { return music_state().music_stream_volume_; }
-float get_zero() { return objects::g_float_zero; }
+float get_zero() { return objects::kFloatZero; }
 int& current_track_index() { return music_api_state().current_track_index_; }
 
 // The three streams (music_player.h).

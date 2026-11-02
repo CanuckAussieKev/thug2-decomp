@@ -153,7 +153,7 @@ void delete_all(memory::ListNode* head)
 void update_rank(LobbyPlayer* player, const char* value)
 {
     player->skill_points_ = text::to_int(value);
-    const double rank = static_cast<double>(player->skill_points_) * g_rank_scale * render::g_float_ten;
+    const double rank = static_cast<double>(player->skill_points_) * kRankScale * render::kFloatTen;
     int shown = static_cast<int>(rank); // (truncated, as _ftol)
     if (shown > kMaxRank)
         shown = kMaxRank;

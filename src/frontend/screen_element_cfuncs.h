@@ -30,5 +30,5 @@ bool cfunc_menu_selected_index_is(script::Struct* params, script::Script* script
 bool cfunc_screen_element_exists(script::Struct* params, script::Script* script);         // 0x004ADC10
 bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script* script); // 0x004ADC80
 
-extern uint32_t g_unassigned_id;
+inline constexpr uint32_t kUnassignedId{0xFFFFFFFF};
 } // namespace frontend

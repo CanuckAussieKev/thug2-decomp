@@ -34,9 +34,6 @@
 
 namespace objects {
 
-float g_anim_movies_one{1.0f};
-float g_anim_movies_seconds_per_frame{0.016666668f};
-float g_float_zero;
 
 namespace {
 
@@ -74,7 +71,7 @@ void step_asset(void* anim, float from, float to, gfx::ViewCam* camera, bool fir
     static_cast<gfx::JointClipFrames*>(anim)->fire_events(from, to, camera, first);
 }
 
-float seconds_per_frame() { return g_anim_movies_seconds_per_frame; } // 1/60
+float seconds_per_frame() { return kAnimMoviesSecondsPerFrame; } // 1/60
 
 constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point (the target offset), not an object
 
@@ -216,7 +213,7 @@ void CameraAnimMovie::load_target(script::Struct* params)
     goal_shift_.x = goal_shift_.y = goal_shift_.z = 0.0f;
     goal_shift_.w = 1.0f;
     params->fetch_vec(0x906642BF, &goal_shift_, 0);
-    const float zero = g_float_zero;
+    const float zero = kFloatZero;
     // (not equal, or unordered: a NaN counts as set)
     target_offset_set_ = !(goal_shift_.x == zero) || !(goal_shift_.y == zero) || !(goal_shift_.z == zero);
     look_offset_.x = look_offset_.y = look_offset_.z = 0.0f;
@@ -304,7 +301,7 @@ void CameraAnimMovie::place_camera()
         core::at(pos, 3) = 1.0f;
         set_identity(m);
         float fov = field_of_view_;
-        if (fov == g_float_zero)
+        if (fov == kFloatZero)
             fov = script::fetch_float(0x99529205);
         viewer_->change_h_fov(fov);
     }
@@ -355,8 +352,8 @@ void CameraAnimMovie::place_camera()
         const double z_exact = static_cast<double>(core::at(pos, 2)) - goal_shift_.z;
         auto z = static_cast<float>(z_exact);
         const double length = std::sqrt(z_exact * z + y * y + x * x);
-        if (length > g_float_zero) {
-            const double inverse = g_anim_movies_one / length;
+        if (length > kFloatZero) {
+            const double inverse = kAnimMoviesOne / length;
             x *= inverse;
             y *= inverse;
             z = static_cast<float>(z * inverse);
@@ -372,8 +369,8 @@ void CameraAnimMovie::place_camera()
         const double b = core::at(m, 1);
         const double c = core::at(m, 2);
         const double size = std::sqrt(a * a + b * b + c * c);
-        if (size > g_float_zero) {
-            const double inverse = g_anim_movies_one / size;
+        if (size > kFloatZero) {
+            const double inverse = kAnimMoviesOne / size;
             core::at(m, 0) = static_cast<float>(inverse * core::at(m, 0));
             core::at(m, 1) = static_cast<float>(inverse * core::at(m, 1));
             core::at(m, 2) = static_cast<float>(core::at(m, 2) * inverse);

@@ -27,7 +27,6 @@ float g_tick_seconds;
 float g_elapsed_seconds;
 float g_total_seconds;
 
-float g_float_ten{10.0f};
 std::array<int, 2> g_bar_position{{258, 400}};
 int g_progress_width{140};
 int g_progress_height{8};
@@ -44,11 +43,11 @@ struct Rgb {
 };
 std::array<Rgb, 100000 / sizeof(Rgb)> s_gradient_buffer;
 
-float g_float_five{5.0f};
-float g_float_twenty{20.0f};
-float g_per640{0.0015625f};
-float g_float420{420.0f};
-float g_per480{0.0020833334f};
+constexpr float kFloatFive{5.0f};
+constexpr float kFloatTwenty{20.0f};
+constexpr float kPer640{0.0015625f};
+constexpr float kFloat420{420.0f};
+constexpr float kPer480{0.0020833334f};
 uint32_t g_border_argb;
 Rgb g_gradient_end;
 Rgb g_gradient_start;
@@ -141,19 +140,19 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
 
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
     // are floats)
-    const double x_scale = static_cast<double>(get_screen_width()) * g_per640;               // 1 / 640
-    auto y_scale = static_cast<float>(static_cast<double>(get_screen_height()) * g_per480);  // 1 / 480
+    const double x_scale = static_cast<double>(get_screen_width()) * kPer640;               // 1 / 640
+    auto y_scale = static_cast<float>(static_cast<double>(get_screen_height()) * kPer480);  // 1 / 480
     const double elapsed = static_cast<double>(tick_seconds()) + elapsed_seconds();
     elapsed_seconds() = static_cast<float>(elapsed);
     double fraction = elapsed / get_total_seconds();
     if (fraction > 1.0)
         fraction = 1.0;
     const int left = (get_screen_width() - gradient_width()) / 2;
-    const int frame_left = ftol(static_cast<double>(static_cast<float>(left)) - x_scale * g_float_five); // 5
+    const int frame_left = ftol(static_cast<double>(static_cast<float>(left)) - x_scale * kFloatFive); // 5
     const int filled = ftol(gradient_width() * fraction) + left;
-    const int frame_right = ftol((gradient_width() + frame_left) + x_scale * g_float_ten); // 10
-    const int top = ftol(y_scale * static_cast<double>(g_float420));                       // 420
-    const int bottom = ftol(top + y_scale * static_cast<double>(g_float_twenty));          // 20
+    const int frame_right = ftol((gradient_width() + frame_left) + x_scale * kFloatTen); // 10
+    const int top = ftol(y_scale * static_cast<double>(kFloat420));                       // 420
+    const int bottom = ftol(top + y_scale * static_cast<double>(kFloatTwenty));          // 20
     auto top_f = static_cast<float>(top), bottom_f = static_cast<float>(bottom);
     auto frame_left_f = static_cast<float>(frame_left), frame_right_f = static_cast<float>(frame_right);
 
@@ -172,7 +171,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     }
     draw_quad(frame_left_f, top_f, frame_right_f, bottom_f, border_argb(), border_argb());
     // the gradient, inset 5/480 of the screen's height top and bottom
-    const double inset = y_scale * static_cast<double>(g_float_five); // 5
+    const double inset = y_scale * static_cast<double>(kFloatFive); // 5
     auto gradient_top = static_cast<float>(top_f + inset);
     auto gradient_bottom = static_cast<float>(bottom_f - static_cast<double>(static_cast<float>(inset)));
     draw_quad(static_cast<float>(left), gradient_top, static_cast<float>(gradient_width() + left), gradient_bottom,

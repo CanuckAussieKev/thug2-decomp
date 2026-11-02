@@ -34,7 +34,6 @@
 
 namespace frontend {
 
-uint32_t g_unassigned_id{0xFFFFFFFF};
 namespace {
 
 // A new screen element of type T in `element` (the screen element manager owns it: it deletes the element when
@@ -70,7 +69,7 @@ constexpr uint32_t kHeapBottomUp = 0xC80BF12D, kHeapInternetTopDown = 0xE3F81B18
 
 UiTree* hub() { return UiTree::sole(); }
 
-uint32_t unassigned_id() { return g_unassigned_id; }
+uint32_t unassigned_id() { return kUnassignedId; }
 
 // The text elements' pieces.
 ParagraphWidget* text_block(UiWidget* e) { return core::down_cast<ParagraphWidget>(e); }

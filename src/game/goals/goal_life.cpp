@@ -29,7 +29,6 @@
 
 namespace goals {
 
-float g_goal_life_seconds_per_millisecond{0.001f};
 
 namespace {
 
@@ -270,7 +269,7 @@ bool Objective::activate()
     if (root) {
         if (inherited_ & 2)
             seconds_remaining_ =
-                truncate(root->seconds_remaining_ * static_cast<double>(g_goal_life_seconds_per_millisecond)) * 1000;
+                truncate(root->seconds_remaining_ * static_cast<double>(kGoalLifeSecondsPerMillisecond)) * 1000;
         else
             reset_timer();
         if (root->is_prepared()) {

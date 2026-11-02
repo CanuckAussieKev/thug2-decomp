@@ -376,7 +376,6 @@ void interpolate_short_trans(std::span<float, 4> out, const ShortKey* a, const S
     std::memcpy(out.data(), lerped, sizeof(maths::Vec4));
 }
 
-float g_tiny_length{0.00001f};
 namespace {
 uint32_t g_cache_use_counter;
 } // namespace
@@ -412,7 +411,7 @@ void interpolate_float_quat(std::span<float, 4> out, FloatKey* a, const FloatKey
     sum += x * x;
     double length = std::sqrt(sum);
     if (length == 0.0)
-        length = static_cast<double>(g_tiny_length); // 0.00001f
+        length = static_cast<double>(kTinyLength); // 0.00001f
     const double scale = 1.0 / length;
     core::at(out, 0) = static_cast<float>(scale * x);
     core::at(out, 1) = static_cast<float>(y * scale);

@@ -95,9 +95,9 @@ public:
     void place_camera();
 };
 
-extern float g_float_zero;
+inline constexpr float kFloatZero{0.0f};
 
-extern float g_anim_movies_one;
-extern float g_anim_movies_seconds_per_frame; // 0x006463B8
+inline constexpr float kAnimMoviesOne{1.0f};
+inline constexpr float kAnimMoviesSecondsPerFrame{0.016666668f}; // 0x006463B8
 
 } // namespace objects

@@ -58,8 +58,8 @@ DIMOUSESTATE2 g_mouse_state;
 IDirectInputDevice8A* g_mouse;
 int g_pad_mode_setting;
 int g_default_enter_control;
-uint8_t g_mouse_invert_x;
-uint8_t g_mouse_invert_y;
+constexpr uint8_t kMouseInvertX{0};
+constexpr uint8_t kMouseInvertY{0};
 
 IDirectInputDevice8A*& get_mouse() { return g_mouse; }
 std::array<IDirectInputDevice8A*, kPorts>& joysticks() { return g_joysticks; }
@@ -515,8 +515,8 @@ int& pad_mode_setting() { return g_pad_mode_setting; }
 int& default_enter_control() { return g_default_enter_control; }
 int& default_escape_control() { return g_default_escape_control; }
 // The mouse's x / y sticks reversed (nothing sets them).
-bool mouse_invert_x() { return g_mouse_invert_x != 0; }
-bool mouse_invert_y() { return g_mouse_invert_y != 0; }
+bool mouse_invert_x() { return kMouseInvertX != 0; }
+bool mouse_invert_y() { return kMouseInvertY != 0; }
 
 constexpr float kStickMax = 32767.0f;                 // 0x0065BF80
 constexpr float kStickMin = -32768.0f;                // 0x00666B00

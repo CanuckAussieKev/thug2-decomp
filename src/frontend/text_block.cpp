@@ -19,9 +19,10 @@
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
 #include "frontend/screen_element.h"
-#include "frontend/screen_constants.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/tod_manager.h"
+#include "engine/objects/anim_movies.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -54,8 +55,8 @@ std::span<char> line_buffer(char* const* lines, int line)
     return line_block(lines).subspan(static_cast<std::size_t>(line) * kLineChars, kLineChars);
 }
 
-float get_half() { return ::gfx::g_half; }
-float get_one() { return ::objects::g_anim_movies_one; }
+float get_half() { return ::gfx::kHalf; }
+float get_one() { return ::objects::kAnimMoviesOne; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

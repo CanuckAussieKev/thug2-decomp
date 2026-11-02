@@ -30,7 +30,6 @@
 
 namespace net {
 
-uint32_t g_max_latency{2000};
 
 namespace {
 

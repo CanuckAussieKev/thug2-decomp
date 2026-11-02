@@ -30,7 +30,7 @@
 namespace park_editing {
 
 namespace {
-float g_park_gap_grid_offset{28.0f};
+constexpr float kParkGapGridOffset{28.0f};
 } // namespace
 std::unique_ptr<park_editing::ParkBuilderMode> g_park_editor;
 
@@ -39,10 +39,10 @@ namespace {
 memory::Arena* park_heap() { return g_park_heap; }
 
 // The cell size (120, 48, 120) and the grid's offset in cells used by the gap pieces (28).
-float cell_size_x() { return g_park_cell_size_x; }
-float cell_size_y() { return g_park_cell_size_y; }
-float cell_size_z() { return g_park_cell_size_z; }
-float gap_grid_offset() { return g_park_gap_grid_offset; }
+float cell_size_x() { return kParkCellSizeX; }
+float cell_size_y() { return kParkCellSizeY; }
+float cell_size_z() { return kParkCellSizeZ; }
+float gap_grid_offset() { return kParkGapGridOffset; }
 
 // The park editor object (0x007CE5D8, 0x7C bytes): the value at +0x78 goes into the compressed map.
 uint32_t editor_value78()

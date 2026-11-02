@@ -26,7 +26,7 @@
 namespace commands {
 
 namespace {
-float g_script_frame_milliseconds{16.666666f};
+constexpr float kScriptFrameMilliseconds{16.666666f};
 bool g_script_printf_enabled{true};
 bool g_first_time_not_called{true};
 std::array<char, 1004> g_format_text_buffer;
@@ -323,12 +323,12 @@ bool cfunc_wait(script::Struct* params, script::Script* script)
     params->fetch_float(0u, &value, 0);
     const bool real_time = params->has_bare_flag(kRealTime);
     if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond)) {
-        wait_ms(script, real_time, truncate(static_cast<double>(value) * gfx::g_thousand)); // 1000
+        wait_ms(script, real_time, truncate(static_cast<double>(value) * gfx::kThousand)); // 1000
     } else if (params->has_bare_flag(kGameFrame) || params->has_bare_flag(kGameFrames) ||
                params->has_bare_flag(kGame)) {
         script->get_stall(truncate(value));
     } else if (params->has_bare_flag(kFrame) || params->has_bare_flag(kFrames)) {
-        wait_ms(script, real_time, truncate(static_cast<double>(value) * g_script_frame_milliseconds)); // 16.67
+        wait_ms(script, real_time, truncate(static_cast<double>(value) * kScriptFrameMilliseconds)); // 16.67
     } else if (params->has_bare_flag(kOnePerFrame)) {
         script->suspend_until_next_frame(truncate(value));
     } else {

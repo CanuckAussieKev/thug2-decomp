@@ -47,7 +47,7 @@ namespace {
 float g_shatter_value_2e_1c{1.0f};
 float g_shatter_value_c483_squared{360.0f};
 int g_splat_reserve{128};
-int g_splat_fade{8};
+constexpr int kSplatFade{8};
 float g_fog_distance{3000.0f};
 float g_fog_exponent{10.0f};
 float g_glass_life_span{4.0f};
@@ -278,7 +278,7 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
         if (core::at(splats->alive, i) != core::at(splats->alive, furthest) ||
             core::at(splats->correction_steps_, i) != core::at(splats->correction_steps_, furthest))
             continue;
-        const int fade = g_splat_fade;
+        const int fade = kSplatFade;
         auto& base = core::at(splats->base_colors_, i);
         auto& triangle = core::at(splats->vertices, i);
         const std::array<uint32_t*, 6> colours = {{&core::at(base, 0), &core::at(base, 1), &core::at(base, 2),

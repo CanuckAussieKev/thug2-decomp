@@ -24,6 +24,6 @@ bool cfunc_linear_map(script::Struct* params, script::Script* script);       // 
 bool cfunc_clamp(script::Struct* params, script::Script* script);            // 0x00448E60
 bool cfunc_rotate_vector(script::Struct* params, script::Script* script);    // 0x00448EF0
 
-extern float g_script_radians_to_degrees; // 0x00645468
+inline constexpr float kScriptRadiansToDegrees{57.295776f}; // 0x00645468
 
 } // namespace commands

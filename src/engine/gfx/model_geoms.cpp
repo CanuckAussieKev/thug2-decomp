@@ -66,7 +66,7 @@ ModelGeom* new_entry(bool default_heap)
 {
     if (default_heap)
         return static_cast<ModelGeom*>(memory::alloc(sizeof(ModelGeom)));
-    return static_cast<ModelGeom*>(memory::Hub::get_pull()->carve(sizeof(ModelGeom), g_alloc_assert_flag, nullptr));
+    return static_cast<ModelGeom*>(memory::Hub::get_pull()->carve(sizeof(ModelGeom), kAllocAssertFlag, nullptr));
 }
 
 // A geom's own mesh deleted with its textures.

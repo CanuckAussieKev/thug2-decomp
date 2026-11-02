@@ -42,8 +42,8 @@ THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat into its f
 namespace goals {
 
 namespace {
-double g_trick_goals_three_quarters{0.75};
-float g_trick_goals_beat_milliseconds{15000.0f};
+constexpr double kTrickGoalsThreeQuarters{0.75};
+constexpr float kTrickGoalsBeatMilliseconds{15000.0f};
 
 // Names.
 constexpr uint32_t kTrialRunFlag = 0x54D3CAC1;         // testing_goal
@@ -128,7 +128,7 @@ constexpr uint32_t kSkaterState = 0x43686585;   // SkaterState (the component)
 constexpr uint32_t kSkaterScore = 0xD262802F;   // SkaterScore (the component)
 
 // The red-tricks threshold (0x0064E918): three quarters of max_tricks.
-double three_quarters() { return g_trick_goals_three_quarters; }
+double three_quarters() { return kTrickGoalsThreeQuarters; }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -817,7 +817,7 @@ bool TimedScoreRunGoal::shows_clock() { return is_operative() && !is_frozen(); }
 void TrickBeatGoal::set_beat_pattern(script::Array* pattern, int tempo)
 {
     script::duplicate_array(pattern_, pattern);
-    beat_length_ = static_cast<float>(g_trick_goals_beat_milliseconds / static_cast<double>(tempo)); // 15000 / tempo
+    beat_length_ = static_cast<float>(kTrickGoalsBeatMilliseconds / static_cast<double>(tempo)); // 15000 / tempo
 }
 
 // 0x00574990
@@ -923,7 +923,7 @@ TrickBeatGoal::TrickBeatGoal(script::Struct* params) : Objective(params)
     int tempo = 0;
     params->fetch_int_value(kTempo, &tempo, 1);
     script::duplicate_array(pattern_, pattern);
-    beat_length_ = static_cast<float>(g_trick_goals_beat_milliseconds / static_cast<double>(tempo));
+    beat_length_ = static_cast<float>(kTrickGoalsBeatMilliseconds / static_cast<double>(tempo));
 }
 
 // 0x00574D50
@@ -999,7 +999,7 @@ void TrickBeatGoal::update_beat()
     last_time_ += elapsed;
     auto time = static_cast<double>(beat_time_);
     if (beat_time_ < 0)
-        time += gfx::g_two_to32; // (unsigned)
+        time += gfx::kTwoTo32; // (unsigned)
     const double inverse = 1.0 / slomo;
     auto scale = static_cast<float>(inverse); // (kept as a float; the beat's length uses the unrounded value)
     auto beat = static_cast<float>(inverse * beat_length_);

@@ -44,7 +44,7 @@ struct FlexibleParticle {
 struct EmitterInstance : objects::SharedBase {
     EmitterInstance(const EmitterInstance&) = delete;
     EmitterInstance& operator=(const EmitterInstance&) = delete;
-    // On the current heap, zeroed, with the particle manager's assert flag (g_alloc_assert_flag); null when it's full.
+    // On the current heap, zeroed, with the particle manager's assert flag (kAllocAssertFlag); null when it's full.
     static void* operator new(std::size_t size) noexcept;
     static void operator delete(void* memory);
 
@@ -302,7 +302,7 @@ struct ModelParticles final : EmitterInstance {
     uint32_t* lerp_colour(uint32_t* out, const colour::Bytes& from, const colour::Bytes& to, float t);
 };
 
-extern uint8_t g_alloc_assert_flag;
+inline constexpr uint8_t kAllocAssertFlag{0};
 
 // A particle's place (three floats) at a history step in the step-major positions: checked against the array's extent.
 inline std::span<float, 3> place_at(std::span<float> positions, int max_particles, int step, int particle)

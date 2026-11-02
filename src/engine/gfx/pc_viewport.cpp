@@ -40,8 +40,8 @@ struct QueryPointVertex {
 std::array<QueryRectVertex, 4> g_query_rect_strip;
 std::array<QueryPointVertex, 4> g_query_point_strip;
 
-float g_virtual_screen_height{448.0f};
-float g_virtual_screen_width{640.0f};
+constexpr float kVirtualScreenHeight{448.0f};
+constexpr float kVirtualScreenWidth{640.0f};
 } // namespace
 float g_scale_2d_in_3d_numerator{300.0f};
 float g_scale_2d_in_3d_max{3.0f};
@@ -92,8 +92,8 @@ float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y
         core::at(clip, 1) = static_cast<float>(core::at(clip, 1) * inverse);
         core::at(clip, 2) = static_cast<float>(inverse * core::at(clip, 2));
     }
-    *x = static_cast<float>((static_cast<double>(core::at(clip, 0)) + 1.0f) * 0.5f * g_virtual_screen_width);
-    *y = static_cast<float>((1.0f - static_cast<double>(core::at(clip, 1))) * 0.5f * g_virtual_screen_height);
+    *x = static_cast<float>((static_cast<double>(core::at(clip, 0)) + 1.0f) * 0.5f * kVirtualScreenWidth);
+    *y = static_cast<float>((1.0f - static_cast<double>(core::at(clip, 1))) * 0.5f * kVirtualScreenHeight);
     if (!(core::at(clip, 2) < 1.0f))
         return -1.0f;
     const float most = g_scale_2d_in_3d_max;

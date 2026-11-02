@@ -47,7 +47,7 @@ std::array<script::MemberFunctionEntry, 17> g_object_member_functions{{
     {.callsign_ = 0, .owner_kind_ = 0x57525413}}};
 
 namespace {
-int g_composite_mgr_block_header_size{16};
+constexpr int kCompositeMgrBlockHeaderSize{16};
 int g_coim_integer0{4};
 int g_coim_integer1{2};
 int g_coim_a;
@@ -361,7 +361,7 @@ bool create_coim_heap(uint32_t size)
         coim_region() = std::make_unique<memory::MemoryArena>(size);
         coim_heap() = memory::Hub::get_pull()->add_heap(coim_region().get(), 1, "COIMHeap");
         coim_heap()->unknown64_ = true;
-        coim_heap()->unknown68_ = coim_b() - g_composite_mgr_block_header_size; // (16: a block header)
+        coim_heap()->unknown68_ = coim_b() - kCompositeMgrBlockHeaderSize; // (16: a block header)
         script::fetch_int_value(0xBA2C7CCB);                                    // (the result isn't used)
     }
     return false;

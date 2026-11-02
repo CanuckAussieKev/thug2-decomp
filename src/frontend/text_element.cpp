@@ -24,6 +24,11 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
+#include "engine/gfx/cag_cfuncs.h"
+#include "engine/gfx/movie.h"
+#include "engine/gfx/tod_manager.h"
+#include "engine/objects/anim_movies.h"
+#include "game/goals/objective.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -53,22 +58,22 @@ void*& object_at(void** table, int count, int index)
 using text::append_unbounded;
 using text::copy_unbounded;
 
-float get_degrees() { return ::commands::g_degree_to_radian_ratio; } // pi / 180
+float get_degrees() { return ::commands::kDegreeToRadianRatio; } // pi / 180
 float rotation_offset()
 {
-    return ::goals::g_goal_life_seconds_per_millisecond;
+    return ::goals::kGoalLifeSecondsPerMillisecond;
 } // 0.001 (added to a rotation in radians)
-float minimum_alpha() { return ::modules::g_competition_tiny; } // 0.0001: below it, transparent
-float layout_top() { return frontend::g_layout_top; }           // -200: text whose top is above it is hidden
-float layout_bottom() { return frontend::g_layout_bottom; }     // 648: ... or below it
-float get_zero() { return ::objects::g_float_zero; }
-float get_half() { return ::gfx::g_half; }
-float get_one() { return ::objects::g_anim_movies_one; }
-float shadow_behind() { return frontend::g_shadow_behind; } // 0.005: the shadow's priority below the text's
-float blur_behind() { return ::render::g_one_percent; }     // 0.01: each blur copy's below the one before
-float sixteenth() { return frontend::g_sixteenth; }         // 1/16
-float get_milliseconds() { return ::gfx::g_thousand; }      // 1000
-double two_to32() { return ::gfx::g_two_to32; }             // (unsigned to floating point)
+float minimum_alpha() { return ::modules::kCompetitionTiny; } // 0.0001: below it, transparent
+float layout_top() { return frontend::kLayoutTop; }           // -200: text whose top is above it is hidden
+float layout_bottom() { return frontend::kLayoutBottom; }     // 648: ... or below it
+float get_zero() { return ::objects::kFloatZero; }
+float get_half() { return ::gfx::kHalf; }
+float get_one() { return ::objects::kAnimMoviesOne; }
+float shadow_behind() { return frontend::kShadowBehind; } // 0.005: the shadow's priority below the text's
+float blur_behind() { return ::render::kOnePercent; }     // 0.01: each blur copy's below the one before
+float sixteenth() { return frontend::kSixteenth; }         // 1/16
+float get_milliseconds() { return ::gfx::kThousand; }      // 1000
+double two_to32() { return ::gfx::kTwoTo32; }             // (unsigned to floating point)
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

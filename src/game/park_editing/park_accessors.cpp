@@ -22,18 +22,15 @@
 
 namespace park_editing {
 
-float g_park_cell_size_x{120.0f};
-float g_park_cell_size_y{48.0f};
-float g_park_cell_size_z{120.0f};
 GapRegistry* g_gap_registry;
 ParkLayout* g_park_layout;
 
 namespace {
 
 // The size of a cell in world units (0x0064F41C, 0x0064F420, 0x0064F424: 120, 48, 120).
-float cell_size_x() { return g_park_cell_size_x; }
-float cell_size_y() { return g_park_cell_size_y; }
-float cell_size_z() { return g_park_cell_size_z; }
+float cell_size_x() { return kParkCellSizeX; }
+float cell_size_y() { return kParkCellSizeY; }
+float cell_size_z() { return kParkCellSizeZ; }
 
 // The grid's centre cell (world x and z are 0 at the corner of cell 29).
 constexpr int kGridCentre = 29;

@@ -66,7 +66,7 @@ namespace modules {
 
 namespace {
 uint8_t g_net_relay_object_id;
-float g_relay_time_scale{0.000244140625f}; // (2^-12: the relayed times and positions)
+constexpr float kRelayTimeScale{0.000244140625f}; // (2^-12: the relayed times and positions)
 
 using online::PlayerRecord;
 
@@ -781,7 +781,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         target = object(sent.object_id);
         if (!target)
             return 1;
-        float scaled_time = get_scaled(sent.blend_period, g_relay_time_scale);
+        float scaled_time = get_scaled(sent.blend_period, kRelayTimeScale);
         online::Hub* net = net_link();
         if (net->in_net_game()) {
             // (only the camera's own player's)
@@ -792,12 +792,12 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         }
         message = new_message(get_history(target), online::kMsgPlayAnim);
         message->name_ = sent.anim;
-        message->from_ = get_scaled(sent.from, g_relay_time_scale);
+        message->from_ = get_scaled(sent.from, kRelayTimeScale);
         message->object_id_ = sent.object_id;
         message->blend_period_ = scaled_time;
         message->loop_type_ = sent.loop_type;
-        message->to_ = get_scaled(sent.to, g_relay_time_scale);
-        message->speed_ = get_scaled(sent.speed, g_relay_time_scale);
+        message->to_ = get_scaled(sent.to, kRelayTimeScale);
+        message->speed_ = get_scaled(sent.speed, kRelayTimeScale);
         break;
     }
     case online::kMsgWobbleTarget: {
@@ -809,7 +809,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
             return 1;
         message = new_message(get_history(target), online::kMsgWobbleTarget);
         message->object_id_ = sent.first;
-        message->wobble_target_ = get_scaled(sent.second, gfx::g_one_over255);
+        message->wobble_target_ = get_scaled(sent.second, gfx::kOneOver255);
         break;
     }
     case online::kMsgBoardRotated: {
@@ -1136,7 +1136,7 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
         time += conn->is_host_local() ? 0 : static_cast<uint32_t>(conn->ping_probe_.average_latency_);
     }
     // where it is now: moved along its direction for the time it took (x87: unrounded until stored)
-    const double seconds = static_cast<double>(time) * static_cast<double>(goals::g_goal_life_seconds_per_millisecond);
+    const double seconds = static_cast<double>(time) * static_cast<double>(goals::kGoalLifeSecondsPerMillisecond);
     position.x = static_cast<float>(velocity.x * seconds + position.x);
     position.y = static_cast<float>(position.y + velocity.y * seconds);
     position.z = static_cast<float>(position.z + velocity.z * seconds);

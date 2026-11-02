@@ -62,7 +62,7 @@
 namespace commands {
 
 namespace {
-float g_node_object_minimum_area{5000.0f};
+constexpr float kNodeObjectMinimumArea{5000.0f};
 } // namespace
 gfx::CtodManager* g_tod_manager;
 
@@ -175,7 +175,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
         return;
     const maths::Vec4& lo = box.min;
     const maths::Vec4& hi = box.max;
-    const double half = gfx::g_half; // (0.5)
+    const double half = gfx::kHalf; // (0.5)
     maths::Vec4 centre;
     centre.x = static_cast<float>((static_cast<double>(hi.x) + lo.x) * half);
     centre.y = static_cast<float>((static_cast<double>(hi.y) + lo.y) * half);
@@ -186,7 +186,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
     const double dz = static_cast<double>(hi.z) - lo.z;
     const double size = std::sqrt(dz * dz + dy * dy + dx * dx);
     auto distance = static_cast<float>(size);
-    if (size < gfx::g_thousand) // (1000)
+    if (size < gfx::kThousand) // (1000)
         distance = 1000.0f;
     maths::Mat4& m = camera->basis_frame_;
     for (int row = 0; row < 4; ++row) {
@@ -194,7 +194,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, float angle_x, fl
         for (int column = 0; column < 4; ++column)
             r[column] = row == column ? 1.0f : 0.0f;
     }
-    const double to_radians = g_degree_to_radian_ratio;
+    const double to_radians = kDegreeToRadianRatio;
     auto turn = [&](maths::Mat4& (*create)(maths::Mat4&, float), float degrees) {
         maths::Mat4 rotation;
         create(rotation, static_cast<float>(degrees * to_radians));
@@ -904,7 +904,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     params->fetch_int_value(0x33DF5E27u, &value_33d_f, 0);
     float minimum_area = 2000.0f;
     if (modules::Skate::is_multiplayer())
-        minimum_area = g_node_object_minimum_area; // (5000)
+        minimum_area = kNodeObjectMinimumArea; // (5000)
     if (area < minimum_area)
         area = minimum_area;
     render::engine::change_breakup_settings(&velocity, &vector, value_c483, area,

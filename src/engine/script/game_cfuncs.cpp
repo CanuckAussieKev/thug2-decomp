@@ -552,7 +552,7 @@ bool cfunc_debounce(script::Struct* params, script::Script*)
         core::down_cast<objects::PadInputModule>(input)->lock_button(button, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
     auto until = static_cast<float>(static_cast<double>(frame_clock::get_time()) +
-                                    static_cast<double>(time) * static_cast<double>(gfx::g_thousand));
+                                    static_cast<double>(time) * static_cast<double>(gfx::kThousand));
     for (objects::ObjectModule* trick = objects->find_first_module_of_kind(0x270F56E1); trick;
          trick = trick->next_of_type_)
         core::down_cast<objects::MoveExecutor>(trick)->hold_off_button(pad_input::glyph_for_button_tag(button), until);

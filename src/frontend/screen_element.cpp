@@ -21,23 +21,12 @@
 #include "frontend/screen_constants.h"
 #include "engine/gfx/weather.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/cag_cfuncs.h"
+#include "game/goals/objective.h"
 
 namespace frontend {
 
-float g_aspect_to_layout{0.75000006f};
-float g_wide_screen{0.9f};
-float g_minus_inv448{-0.002232143f};
-float g_inv448{0.002232143f};
-float g_inv896{0.0011160715f};
-float g_inv1280{0.00078125f};
-float g_inv_two_pi{0.15915494f};
-float g_two_pi{6.2831855f};
 float g_pi{3.1415927f};
-float g_layout_top{-2e+02f};
-float g_layout_bottom{648.0f};
-float g_shadow_behind{0.005f};
-float g_sixteenth{0.0625f};
-float g_frames_per_second{6e+01f};
 
 namespace {
 
@@ -62,12 +51,12 @@ constexpr uint32_t kWindowElement = 0xA13ADBB7;
 constexpr uint32_t kSystem = 0x36B2EE74, kFocusSentEvent = 0x3056434F, kFocusClearedEvent = 0x4A57316B;
 constexpr uint32_t kDeadBeef = 0xDEADBEEF;
 
-float get_degrees() { return ::commands::g_degree_to_radian_ratio; } // pi / 180
+float get_degrees() { return ::commands::kDegreeToRadianRatio; } // pi / 180
 float rotation_offset()
 {
-    return ::goals::g_goal_life_seconds_per_millisecond;
+    return ::goals::kGoalLifeSecondsPerMillisecond;
 } // 0.001 (added to a rotation in radians)
-float convert_to_degrees() { return ::commands::g_script_radians_to_degrees; }
+float convert_to_degrees() { return ::commands::kScriptRadiansToDegrees; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

@@ -24,17 +24,16 @@
 
 namespace modules {
 
-float g_competition_tiny{0.0001f};
 namespace {
-float g_competition_two{2.0f};
-float g_competition_third{0.33333334f};
-float g_competition_three{3.0f};
-float g_competition_eighth{0.125f};
-float g_competition_nearly_half{0.499999f};
-float g_competition_ninety_nine{99.0f};
-float g_competition_over_half{0.500099f};
-float g_competition_max_judge{99.85f};
-float g_competition_max_points{99.9f};
+constexpr float kCompetitionTwo{2.0f};
+constexpr float kCompetitionThird{0.33333334f};
+constexpr float kCompetitionThree{3.0f};
+constexpr float kCompetitionEighth{0.125f};
+constexpr float kCompetitionNearlyHalf{0.499999f};
+constexpr float kCompetitionNinetyNine{99.0f};
+constexpr float kCompetitionOverHalf{0.500099f};
+constexpr float kCompetitionMaxJudge{99.85f};
+constexpr float kCompetitionMaxPoints{99.9f};
 
 constexpr uint32_t kNoName = 0;                    // (an unnamed component: a flag)
 constexpr uint32_t kLeaderBoardNames = 0x1CC6F48D; // leader_board_names
@@ -50,21 +49,21 @@ constexpr std::array<uint32_t, Contest::kJudges> kJudgeNames = {{
 }};
 
 // The constants, as the original reads them.
-float tenth() { return script::g_parse_nudge; }           // 0.1
-float eighth() { return g_competition_eighth; }           // 0.125
-float two() { return g_competition_two; }                 // 2.0
-float nearly_half() { return g_competition_nearly_half; } // 0.4999990 (rounding to the nearest)
-float hundred() { return gfx::g_hundred; }                // 100
-float max_points() { return g_competition_max_points; }   // 99.9
-float get_half() { return gfx::g_half; }                  // 0.5
-float get_zero() { return objects::g_float_zero; }        // 0
-float max_judge() { return g_competition_max_judge; }     // 99.85
-float three() { return g_competition_three; }             // 3
-float ten() { return render::g_float_ten; }               // 10
-float tiny() { return g_competition_tiny; }               // 0.0001
-float over_half() { return g_competition_over_half; }     // 0.500099
-float ninety_nine() { return g_competition_ninety_nine; } // 99
-float get_third() { return g_competition_third; }         // 1/3
+float tenth() { return script::kParseNudge; }           // 0.1
+float eighth() { return kCompetitionEighth; }           // 0.125
+float two() { return kCompetitionTwo; }                 // 2.0
+float nearly_half() { return kCompetitionNearlyHalf; } // 0.4999990 (rounding to the nearest)
+float hundred() { return gfx::kHundred; }                // 100
+float max_points() { return kCompetitionMaxPoints; }   // 99.9
+float get_half() { return gfx::kHalf; }                  // 0.5
+float get_zero() { return objects::kFloatZero; }        // 0
+float max_judge() { return kCompetitionMaxJudge; }     // 99.85
+float three() { return kCompetitionThree; }             // 3
+float ten() { return render::kFloatTen; }               // 10
+float tiny() { return kCompetitionTiny; }               // 0.0001
+float over_half() { return kCompetitionOverHalf; }     // 0.500099
+float ninety_nine() { return kCompetitionNinetyNine; } // 99
+float get_third() { return kCompetitionThird; }         // 1/3
 constexpr float kScoreSpread = 1.9f;                      // (0x3FF33333, pushed as an immediate)
 
 // The x87 code's conversions: truncation toward zero (_ftol).

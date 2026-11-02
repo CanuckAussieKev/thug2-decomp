@@ -320,7 +320,7 @@ bool cfunc_orient(script::Struct* params, script::Script*)
     if (!params->fetch_vec(kAngles, &angles, 0))
         angles = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (params->has_bare_flag(kDegrees)) {
-        const float degrees = g_degree_to_radian_ratio; // pi / 180
+        const float degrees = kDegreeToRadianRatio; // pi / 180
         angles.x *= degrees;
         angles.y *= degrees;
         angles.z *= degrees;

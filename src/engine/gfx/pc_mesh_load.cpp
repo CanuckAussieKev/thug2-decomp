@@ -38,8 +38,8 @@
 namespace render {
 
 namespace {
-float g_unpack_z_scale{0.0019569471f};
-float g_unpack11_scale{0.0009775171f};
+constexpr float kUnpackZScale{0.0019569471f};
+constexpr float kUnpack11Scale{0.0009775171f};
 std::array<uint32_t, 5> g_fvf_by_set_count{{0, 0x100, 0x200, 0x300, 0x400}};
 } // namespace
 std::array<uint32_t, 6> g_vertex_shaders;
@@ -238,10 +238,10 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
         const uint32_t normal = in.word(n, 0x18);
         const uint32_t z = normal >> 22;
         out.set_floats<3>(n, 0xC,
-                          {static_cast<float>(unpack11(normal) * static_cast<double>(g_unpack11_scale)),
-                           static_cast<float>(unpack11(normal >> 11) * static_cast<double>(g_unpack11_scale)),
+                          {static_cast<float>(unpack11(normal) * static_cast<double>(kUnpack11Scale)),
+                           static_cast<float>(unpack11(normal >> 11) * static_cast<double>(kUnpack11Scale)),
                            static_cast<float>(static_cast<int>(z & 0x200 ? z - 0x400 : z) *
-                                              static_cast<double>(g_unpack_z_scale))});
+                                              static_cast<double>(kUnpackZScale))});
         out.set_word(n, 0x18, in.word(n, 0x1C)); // the colour
         for (uint32_t set = 0; set < sets; ++set)
             out.set_floats<2>(n, 0x1C + 8 * set, in.float2(n, 0x20 + 8 * set));
@@ -249,10 +249,10 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
             out.set_value(n, 0x3C + k, static_cast<uint8_t>(in.value<int16_t>(n, 0x10 + 2 * k) / 3));
         const uint32_t weights = in.word(n, 0xC);
         const uint32_t w = weights >> 22;
-        const double third = static_cast<int>(w & 0x200 ? w - 0x400 : w) * static_cast<double>(g_unpack_z_scale);
-        const auto second = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(g_unpack11_scale));
+        const double third = static_cast<int>(w & 0x200 ? w - 0x400 : w) * static_cast<double>(kUnpackZScale);
+        const auto second = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(kUnpack11Scale));
         out.set_floats<3>(n, 0x40,
-                          {static_cast<float>(unpack11(weights) * static_cast<double>(g_unpack11_scale)), second,
+                          {static_cast<float>(unpack11(weights) * static_cast<double>(kUnpack11Scale)), second,
                            static_cast<float>(third)});
         if (bones < 2 && !(second == 0.0f))
             bones = 2;

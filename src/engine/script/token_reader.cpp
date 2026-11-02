@@ -29,9 +29,8 @@
 
 namespace script {
 
-float g_parse_nudge{0.1f};
 namespace {
-float g_parse_random_scale{0.000030525032f};
+constexpr float kParseRandomScale{0.000030525032f};
 } // namespace
 StoredRandom* g_stored_randoms_newest;
 namespace {
@@ -279,8 +278,8 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
     float a = get_as_float(fetch_word32(token + 1));
     float b = get_as_float(fetch_word32(token + 5));
     // (rounded with the game's 0.1 nudge, as the x87 does it)
-    const double nudge = g_parse_nudge;
-    const double tolerance = gfx::g_tiny_length;
+    const double nudge = kParseNudge;
+    const double tolerance = gfx::kTinyLength;
     auto nearest = [&](float f) {
         return static_cast<int>(f >= 0.0f || std::isnan(f) ? static_cast<double>(f) + nudge
                                                            : static_cast<double>(f) - nudge);
@@ -308,7 +307,7 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
     }
     const int pick = deterministic ? maths::roll_side_stream(0x7FF9) : maths::rnd(0x7FF9);
     change_species(out, kQbvalFloat);
-    const double scale = g_parse_random_scale;
+    const double scale = kParseRandomScale;
     out->value.set_real(static_cast<float>((static_cast<double>(b) - a) * pick * scale + a));
     return token + 9;
 }
@@ -461,7 +460,7 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
         const float y = get_as_float(fetch_word32(token + 5));
         const float z = get_as_float(fetch_word32(token + 9));
         // (a zero vector named 0x9D2D0915 isn't added)
-        const float tolerance = render::g_one_percent;
+        const float tolerance = render::kOnePercent;
         if (name != 0x9D2D0915 || !(std::fabs(x) < tolerance) || !(std::fabs(y) < tolerance) ||
             !(std::fabs(z) < tolerance))
             dest->put_vec3(name, x, y, z);

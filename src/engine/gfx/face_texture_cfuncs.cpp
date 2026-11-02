@@ -169,7 +169,7 @@ bool cfunc_rotate_texture(script::Struct* params, script::Script*)
     render::BitmapTexture* texture = find_texture(name);
     if (texture) {
         // x87: degrees * (pi / 180, 0x00645464) in double, rounded once
-        auto radians = static_cast<float>(static_cast<double>(angle) * g_degree_to_radian_ratio);
+        auto radians = static_cast<float>(static_cast<double>(angle) * kDegreeToRadianRatio);
         texture->spin_by(radians, -1.0f, -1.0f);
     }
     return true;

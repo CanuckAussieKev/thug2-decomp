@@ -34,8 +34,8 @@
 namespace goals {
 
 namespace {
-float g_goal_run_minus_milliseconds{-1000.0f};
-float g_goal_run_inches_to_feet{0.083333336f};
+constexpr float kGoalRunMinusMilliseconds{-1000.0f};
+constexpr float kGoalRunInchesToFeet{0.083333336f};
 
 using namespace goal_calls;
 using namespace goal_names;
@@ -205,8 +205,8 @@ bool Objective::tick_frame()
     if (has_time_limit() && seconds_remaining_ >= 1) {
         const int before = seconds_remaining_;
         seconds_remaining_ +=
-            truncate(frame_clock::get_slomo_frame_seconds() * g_goal_run_minus_milliseconds); // (-1000)
-        elapsed_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::g_thousand);       // (1000)
+            truncate(frame_clock::get_slomo_frame_seconds() * kGoalRunMinusMilliseconds); // (-1000)
+        elapsed_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand);       // (1000)
         // The last ten seconds beep each second.
         if (seconds_remaining_ < 10000 && before / 1000 > seconds_remaining_ / 1000 && timer_beeps() &&
             game_mode_timer_beeps())
@@ -453,7 +453,7 @@ bool Objective::test_longest_jump()
     const double down = static_cast<double>(to[1]) - from.y;
     const double distance = std::sqrt(dz * dz + dx * dx + dy * dy - down * down);
     auto rounded = static_cast<float>(distance);
-    const int feet = truncate(distance * g_goal_run_inches_to_feet); // (1/12)
+    const int feet = truncate(distance * kGoalRunInchesToFeet); // (1/12)
     const int whole = truncate(rounded);
     const int inches = whole % 12;
     args_->put_int(kCurrentDistanceFeet, feet);

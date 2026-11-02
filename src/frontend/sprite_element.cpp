@@ -20,6 +20,10 @@
 #include "engine/gfx/engine_texture.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/cag_cfuncs.h"
+#include "engine/gfx/tod_manager.h"
+#include "engine/objects/anim_movies.h"
+#include "game/goals/objective.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -33,16 +37,16 @@ constexpr uint32_t kTextureElement = 0x118F6383, kSpriteElement = 0xB12B510A, kW
 constexpr uint32_t kTexture = 0x7D99F28D, kRotAngle = 0xED344E1B, kBlend = 0x54628ED7, kNoZWrite = 0x40F139CB;
 constexpr uint32_t kRgba = 0x3F6BCDBA;
 
-float get_degrees() { return ::commands::g_degree_to_radian_ratio; } // pi / 180
+float get_degrees() { return ::commands::kDegreeToRadianRatio; } // pi / 180
 float rotation_offset()
 {
-    return ::goals::g_goal_life_seconds_per_millisecond;
+    return ::goals::kGoalLifeSecondsPerMillisecond;
 } // 0.001 (added to a rotation in radians)
-float minimum_alpha() { return ::modules::g_competition_tiny; } // 0.0001: below it, transparent
-float layout_top() { return frontend::g_layout_top; }           // -200: a sprite whose top is above it is hidden
-float layout_bottom() { return frontend::g_layout_bottom; }     // 648: ... or below it
-float get_one() { return ::objects::g_anim_movies_one; }
-float get_half() { return ::gfx::g_half; }
+float minimum_alpha() { return ::modules::kCompetitionTiny; } // 0.0001: below it, transparent
+float layout_top() { return frontend::kLayoutTop; }           // -200: a sprite whose top is above it is hidden
+float layout_bottom() { return frontend::kLayoutBottom; }     // 648: ... or below it
+float get_one() { return ::objects::kAnimMoviesOne; }
+float get_half() { return ::gfx::kHalf; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

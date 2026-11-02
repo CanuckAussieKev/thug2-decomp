@@ -39,8 +39,8 @@ using script::Script;
 using script::Struct;
 
 namespace {
-float g_render_default_far_plane{12.0f};
-float g_render_default_near_plane{12000.0f};
+constexpr float kRenderDefaultFarPlane{12.0f};
+constexpr float kRenderDefaultNearPlane{12000.0f};
 int g_render_mode;
 
 constexpr uint32_t kIgnore1 = 0xD12347A6;        // "ignore_1"
@@ -373,8 +373,8 @@ bool cfunc_get_dynamic_light_modulation_factor(Struct* params, Script* script)
 // in the original). Always true.
 bool cfunc_set_clipping_distances(Struct* params, Script*)
 {
-    float near_plane = g_render_default_near_plane;
-    float far_plane = g_render_default_far_plane;
+    float near_plane = kRenderDefaultNearPlane;
+    float far_plane = kRenderDefaultFarPlane;
     params->fetch_float("Near", &near_plane, 0);
     params->fetch_float("Far", &far_plane, 0);
     for (int i = 0; i < 2; ++i) {

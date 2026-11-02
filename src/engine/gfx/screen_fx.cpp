@@ -26,7 +26,7 @@ namespace render {
 
 bool g_screen_copy_in_use;
 namespace {
-bool g_blur_second_pass{true};
+constexpr bool kBlurSecondPass{true};
 std::array<float, 4> g_blur_tap_weights{{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f}};
 std::array<float, 4> g_blur_tap_offsets{{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f}};
 
@@ -234,7 +234,7 @@ void get_bloom()
     for (int tap = 0; tap < 4; ++tap)
         draw_screen_quad(tap > 0, a, b, tap_offset(tap), 0.0f, tap_colour(tap_weight(tap)), true);
     set_target(current_screen_copy(), z_buffer_surface());
-    if (!g_blur_second_pass)
+    if (!kBlurSecondPass)
         return;
     // Both blurred copies added over the frame.
     change_phase(kZWrite, 0);

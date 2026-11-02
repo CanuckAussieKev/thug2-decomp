@@ -67,8 +67,8 @@ constexpr uint8_t kMsgBulkChunk = 0xF;
 constexpr uint8_t kMsgCompressed = 0x12;
 
 // The longest round trip counted as latency (0x00647588: 2000 ms).
-extern uint32_t g_max_latency;
-inline uint32_t max_latency() { return g_max_latency; }
+inline constexpr uint32_t kMaxLatency{2000};
+inline uint32_t max_latency() { return kMaxLatency; }
 
 // --- Functions of other classes, by address ---
 

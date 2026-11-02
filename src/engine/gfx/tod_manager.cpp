@@ -50,11 +50,6 @@ namespace {
 uint32_t g_tod_references;
 } // namespace
 
-float g_two_to32{4294967300.0f};
-float g_half{0.5f};
-float g_thousand{1000.0f};
-float g_one_over255{0.003921569f};
-float g_hundred{100.0f};
 
 namespace {
 
@@ -124,15 +119,15 @@ constexpr uint32_t kBloomOn = 0x400681B6, kBloomStrength = 0x743D0048, kBloomCol
 constexpr uint32_t kNeutralColor = 0x81808080;
 
 // The exe's constants.
-float degree_to_radian_conv() { return commands::g_degree_to_radian_ratio; } // 0.017453292
-float get_zero() { return objects::g_float_zero; }                           // 0.0
-float one_percent() { return render::g_one_percent; }                        // 0.01
-float one_over255() { return g_one_over255; }                                // 1 / 255
-float two_to32() { return g_two_to32; }                // 4294967296: unsigned integers' correction
-float get_one() { return objects::g_anim_movies_one; } // 1.0
-float get_half() { return g_half; }                    // 0.5
-float hundred() { return g_hundred; }                  // 100.0
-float thousand() { return g_thousand; }                // 1000.0
+float degree_to_radian_conv() { return commands::kDegreeToRadianRatio; } // 0.017453292
+float get_zero() { return objects::kFloatZero; }                           // 0.0
+float one_percent() { return render::kOnePercent; }                        // 0.01
+float one_over255() { return kOneOver255; }                                // 1 / 255
+float two_to32() { return kTwoTo32; }                // 4294967296: unsigned integers' correction
+float get_one() { return objects::kAnimMoviesOne; } // 1.0
+float get_half() { return kHalf; }                    // 0.5
+float hundred() { return kHundred; }                  // 100.0
+float thousand() { return kThousand; }                // 1000.0
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

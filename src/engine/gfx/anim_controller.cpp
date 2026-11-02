@@ -58,9 +58,9 @@ constexpr uint32_t kAnimBlender = 0x7149B753, kSkeleton = 0x222756D5;
 
 constexpr int kNotMine = 2;
 
-float frames_per_second() { return frontend::g_frames_per_second; }              // 60
-float seconds_per_frame() { return ::objects::g_anim_movies_seconds_per_frame; } // 1/60
-float two_pi() { return frontend::g_two_pi; }
+float frames_per_second() { return frontend::kFramesPerSecond; }              // 60
+float seconds_per_frame() { return ::objects::kAnimMoviesSecondsPerFrame; } // 1/60
+float two_pi() { return frontend::kTwoPi; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

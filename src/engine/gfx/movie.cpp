@@ -105,17 +105,16 @@ void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* v
     device->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
 }
 
-float g_one_percent{0.01f};
 namespace {
-float g_float255{255.0f};
-float g_float16384{16384.0f};
-uint32_t g_movie_surface_type{3};
+constexpr float kFloat255{255.0f};
+constexpr float kFloat16384{16384.0f};
+constexpr uint32_t kMovieSurfaceType{3};
 float g_movie_back_buffer_width{640.0f};
 float g_movie_back_buffer_height{480.0f};
 float g_movie_picture_width{640.0f};
 float g_movie_picture_height{480.0f};
-float g_movie_draw_width{1.0f};
-float g_movie_draw_height{1.0f};
+constexpr float kMovieDrawWidth{1.0f};
+constexpr float kMovieDrawHeight{1.0f};
 uint32_t g_saved_min_filter;
 uint32_t g_saved_antialias;
 uint32_t g_saved_cull_mode;
@@ -152,7 +151,7 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
 
     // (x87: alpha * 255 truncated; each corner is position + size * the screen scale, rounded once)
     const uint32_t color =
-        static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * g_float255)) << 24 | 0x808080;
+        static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * kFloat255)) << 24 | 0x808080;
     std::array<MovieVertex, 4> vertices{};
     core::at(vertices, 0) = {.x = x, .y = y, .z = 0.0f, .w = 1.0f, .color = color, .u = 0.0f, .v = 0.0f};
     core::at(vertices, 1) = core::at(vertices, 0);
@@ -260,7 +259,7 @@ void draw_movie(Bink* bink, void* texture)
 {
     g_d3d_device->BeginScene();
     g_d3d_device->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0); // the target, to black (Z 1.0)
-    draw_movie_frame(texture, 0.0f, 0.0f, g_movie_draw_width, g_movie_draw_height, 1.0f);
+    draw_movie_frame(texture, 0.0f, 0.0f, kMovieDrawWidth, kMovieDrawHeight, 1.0f);
     g_d3d_device->EndScene();
     g_d3d_device->Present(nullptr, nullptr, nullptr, nullptr);
     bink::next_frame(bink);
@@ -338,8 +337,8 @@ void play_movie_file(const char* name)
         std::array<uint16_t, 4> seen_up = {};
         bink::set_sound_on_off(current_movie(), 1);
         video_set_loudness(current_movie(), 0,
-                           static_cast<int>(static_cast<double>(volume) * g_one_percent // 0.01
-                                            * g_float16384));                           // 16384
+                           static_cast<int>(static_cast<double>(volume) * kOnePercent // 0.01
+                                            * kFloat16384));                           // 16384
         int frames = 0;
         for (;;) {
             if (screen_saver_timeout && screen_saver_frames++ >= 200) {
@@ -377,7 +376,7 @@ void play_movie_file(const char* name)
             D3DLOCKED_RECT locked;
             if (SUCCEEDED(d3d_texture->LockRect(0, &locked, nullptr, 0))) {
                 bink::copy_to_buffer(bink, locked.pBits, locked.Pitch, bink->height, 0, 0,
-                                 g_movie_surface_type | 0x80000000); // the surface type, copy all
+                                 kMovieSurfaceType | 0x80000000); // the surface type, copy all
                 d3d_texture->UnlockRect(0);
             }
             draw_movie(current_movie(), texture);

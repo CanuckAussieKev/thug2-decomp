@@ -32,8 +32,8 @@ int g_screen_mode;
 std::array<ViewRegion*, 10> g_viewports;
 
 namespace {
-float g_minus_one{-1.0f};
-float g_half_degree_radians{0.008726646f};
+constexpr float kMinusOne{-1.0f};
+constexpr float kHalfDegreeRadians{0.008726646f};
 std::array<float, 40> g_split_layouts{{0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f,
                           0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.5f, 0.0f, 0.5f, 1.0f, 0.5f, 0.0f, 0.0f, 0.5f, 0.5f,
                           0.5f, 0.0f, 0.5f, 0.5f, 0.0f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f}};
@@ -119,7 +119,7 @@ ViewRegion::~ViewRegion() { viewer_.get_release(); }
 float ViewRegion::project_to_screen(const maths::Vec4*, float*, float*, int*)
 {
     debug::printf("STUB: PlatTransformToScreenCoord\n");
-    return g_minus_one; // -1
+    return kMinusOne; // -1
 }
 
 // 0x004A0CF0
@@ -252,7 +252,7 @@ void set_screen_mode(int mode)
         float angle = 0.0f;
         if (mode == 1)
             angle = static_cast<float>(static_cast<double>(script::fetch_float("Skater_Cam_Horiz_FOV")) *
-                                       gfx::g_half); // (0.5: split_vertical)
+                                       gfx::kHalf); // (0.5: split_vertical)
         else
             angle = script::fetch_float("Skater_Cam_Horiz_FOV");
         camera->change_h_fov(angle);
@@ -266,8 +266,8 @@ void set_screen_field_of_view(float degrees)
         degrees = get_screen_angle();
     g_screen_angle = degrees;
     // tan(degrees / 2) / tan(default / 2)
-    g_angle_factor = static_cast<float>(std::tan(static_cast<double>(degrees) * g_half_degree_radians) /
-                                        std::tan(static_cast<double>(g_base_fov_angle) * g_half_degree_radians));
+    g_angle_factor = static_cast<float>(std::tan(static_cast<double>(degrees) * kHalfDegreeRadians) /
+                                        std::tan(static_cast<double>(g_base_fov_angle) * kHalfDegreeRadians));
     for (int i = 0; i < active_viewport_count(); ++i) {
         const ViewRegion* viewport = current_view_slot(i);
         if (viewport && viewport->viewer_.get_pull())

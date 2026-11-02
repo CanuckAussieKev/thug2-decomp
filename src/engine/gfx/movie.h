@@ -61,7 +61,7 @@ bool button_pressed_again(const std::array<uint8_t, 32>& control_data, uint16_t*
 
 extern Bink* g_current_movie; // a Bink movie playing
 
-extern float g_one_percent;
+inline constexpr float kOnePercent{0.01f};
 extern bool g_quit_requested;
 extern bool g_movie_playing;
 extern bool g_device_lost;

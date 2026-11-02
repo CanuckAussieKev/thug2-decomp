@@ -35,7 +35,6 @@ namespace render {
 IDirect3DDevice9* g_d3d_device;
 D3DPRESENT_PARAMETERS g_present_parameters;
 bool g_stream_offset_supported;
-bool g_show_window_flag;         // (the original showed the window maximised / minimised by it)
 uint32_t g_loading_bar_timer;    // the timer's id (timeSetEvent)
 float g_display_factor_x;        // 640x480 -> back buffer scale
 IDirect3DDevice9* g_draw_device; // the same device, kept twice
@@ -102,7 +101,7 @@ void init_direct_3d()
     g_depth_texture_target = nullptr;
     g_screen_copy_index = 0;
     // Originally from PartyMod Fixes (its jump at 0x004D869C): the window is never maximised. The original:
-    //   if (g_show_window_flag) ShowWindow(Pane(), SW_MAXIMIZE);
+    //   if (kShowWindowFlag) ShowWindow(Pane(), SW_MAXIMIZE);
 
     // (Direct3DCreate9 and MessageBoxA through the exe's imports)
     IDirect3D9* d3d = Direct3DCreate9(31); // the game's D3D_SDK_VERSION

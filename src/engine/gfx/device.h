@@ -42,7 +42,7 @@ extern IDirect3DDevice9* g_d3d_device;
 extern IDirect3DDevice9* g_draw_device; // the same device, kept twice
 extern D3DPRESENT_PARAMETERS g_present_parameters;
 extern std::array<IDirect3DSurface9*, 9> g_screen_surfaces;
-extern bool g_show_window_flag;
+inline constexpr bool kShowWindowFlag{false}; // (the original showed the window maximised / minimised by it)
 extern bool g_stream_offset_supported;
 extern std::array<IDirect3DTexture9*, 9> g_screen_textures;
 extern uint32_t g_loading_bar_timer; // the timer's id (timeSetEvent)

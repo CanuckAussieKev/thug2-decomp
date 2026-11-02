@@ -75,7 +75,6 @@ modules::Skate* get_skate() { return modules::Skate::sole(); }
 
 } // namespace
 
-float g_degree_to_radian_ratio{0.017453292f}; // pi / 180
 
 // 0x005B3A90: GenerateCAGTexture info_array=[{texture_id scale flip_h flip_v rot pos_x pos_y rgba layer_id}...]
 // player=n [Test=1]: the custom tag texture composed from its layers: cleared, then each layer's texture drawn into a
@@ -123,7 +122,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
             workspace->flip_vertically();
         float rot = 0.0f;
         info->fetch_float(kRot, &rot, 1);
-        auto radians = static_cast<float>(static_cast<double>(rot) * g_degree_to_radian_ratio); // pi / 180
+        auto radians = static_cast<float>(static_cast<double>(rot) * kDegreeToRadianRatio); // pi / 180
         workspace->spin_by(radians, -1.0f, -1.0f);
         float x = 0.0f;
         info->fetch_float(kPosX, &x, 1);
@@ -230,7 +229,7 @@ bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script
         y = magnitude;
         negate_y = true;
     } else {
-        auto radians = static_cast<float>(static_cast<double>(theta) * g_degree_to_radian_ratio); // pi / 180
+        auto radians = static_cast<float>(static_cast<double>(theta) * kDegreeToRadianRatio); // pi / 180
         y = static_cast<float>(static_cast<double>(maths::fast_sin(radians)) * magnitude);
         x = static_cast<float>(static_cast<double>(maths::fast_cos(radians)) * magnitude);
     }

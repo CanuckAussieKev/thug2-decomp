@@ -23,7 +23,7 @@
 namespace objects {
 
 namespace {
-float g_lock_obj_update_wobble_step{0.0061359233f};
+constexpr float kLockObjUpdateWobbleStep{0.0061359233f};
 
 constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kModel = 0x286A8D26;
@@ -31,7 +31,7 @@ constexpr uint32_t kFirstNonSkaterId = 8; // (objects with smaller ids are the s
 
 // The wobble's step: 2 pi / 1024 as the update's own float (0x0064611C; configure_from_data's, 0x00646118, is one bit
 // smaller).
-float update_wobble_step() { return g_lock_obj_update_wobble_step; }
+float update_wobble_step() { return kLockObjUpdateWobbleStep; }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
 void* skeleton_of(ObjectModule* component) { return core::down_cast<objects::BoneRigModule>(component)->bone_rig_; }

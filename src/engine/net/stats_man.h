@@ -199,6 +199,6 @@ bool get_rank(script::Struct* params, script::Script* script);                  
 bool clean_up_top_stats(script::Struct* params, script::Script* script);         // 0x0054EA40
 bool fill_stats_arrays(script::Struct* params, script::Script* script);          // 0x0054EB00
 
-extern float g_rank_scale;
+inline constexpr float kRankScale{0.00028571428f};
 
 } // namespace online

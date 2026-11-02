@@ -49,7 +49,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result);
 // A checksum-name token (0x2B) at `token`: its checksum and its text (in place); the token after it.
 Tokens read_name_token(Tokens token, uint32_t* checksum, const char** name);
 
-extern float g_parse_nudge;
+inline constexpr float kParseNudge{0.1f};
 extern StoredRandom* g_stored_randoms_newest;
 
 // The script parser's expression evaluator (script/parse.cpp).

@@ -31,7 +31,7 @@ constexpr float kScaleStep = 0.01f;              // 0x0064544C
 constexpr float kSizeStep = 0.25f;               // 0x006467AC
 const char* const kModelExtension = ".mdl";      // ".mdl"
 
-uint8_t assert_flag() { return g_alloc_assert_flag; }
+uint8_t assert_flag() { return kAllocAssertFlag; }
 void* carve(unsigned int size) { return memory::Hub::get_pull()->carve(size, assert_flag(), nullptr); }
 void* allocate_zeroed(unsigned int size)
 {

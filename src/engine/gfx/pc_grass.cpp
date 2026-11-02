@@ -41,9 +41,9 @@
 namespace render {
 
 namespace {
-float g_grass_detail_uv_scale{0.010416667f};
-float g_grass_uv_scale{0.0052083335f};
-float g_grass_copy_uv_scale{0.020833334f};
+constexpr float kGrassDetailUvScale{0.010416667f};
+constexpr float kGrassUvScale{0.0052083335f};
+constexpr float kGrassCopyUvScale{0.020833334f};
 TextureImage g_grass_texture0; // the grass materials' two textures (listed among the textures; see below)
 TextureImage g_grass_texture1;
 std::array<TextureImage, 17> g_grass_texture_animation; // (17 textures)
@@ -124,10 +124,10 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
         const float x = v.x;
         const float z = v.z;
         grass.set_floats<4>(i, mesh->uv_offset_,
-                            {static_cast<float>(static_cast<double>(x) * g_grass_uv_scale),
-                             static_cast<float>(static_cast<double>(z) * g_grass_uv_scale),
-                             static_cast<float>(static_cast<double>(x) * g_grass_detail_uv_scale),
-                             static_cast<float>(static_cast<double>(z) * g_grass_detail_uv_scale)});
+                            {static_cast<float>(static_cast<double>(x) * kGrassUvScale),
+                             static_cast<float>(static_cast<double>(z) * kGrassUvScale),
+                             static_cast<float>(static_cast<double>(x) * kGrassDetailUvScale),
+                             static_cast<float>(static_cast<double>(z) * kGrassDetailUvScale)});
     }
     return true;
 }
@@ -174,8 +174,8 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
             const float x = v.x;
             const float z = v.z;
             layer_vertices.set_floats<2>(i, copy->uv_offset_,
-                                         {static_cast<float>(static_cast<double>(x) * g_grass_copy_uv_scale),
-                                          static_cast<float>(static_cast<double>(z) * g_grass_copy_uv_scale)});
+                                         {static_cast<float>(static_cast<double>(x) * kGrassCopyUvScale),
+                                          static_cast<float>(static_cast<double>(z) * kGrassCopyUvScale)});
         }
         geom->append_mesh(copy);
     }

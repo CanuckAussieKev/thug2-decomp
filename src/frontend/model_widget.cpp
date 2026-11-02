@@ -32,6 +32,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/core/checked_index.h"
+#include "engine/gfx/cag_cfuncs.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -63,17 +64,17 @@ constexpr uint32_t kKillScript = 0xA66C1C31;          // KillElement3d
 constexpr uint32_t kModelModuleName = 0x286A8D26;
 
 // The originals' float constants (read from the exe).
-float aspect_to_layout() { return frontend::g_aspect_to_layout; } // 0.75000006 (3/4, a bit over)
-float wide_screen() { return frontend::g_wide_screen; }           // 0.9
-float minus_inv448() { return frontend::g_minus_inv448; }         // -1/448
-float inv448() { return frontend::g_inv448; }                     // 1/448
-float inv896() { return frontend::g_inv896; }                     // 1/896
-float inv1280() { return frontend::g_inv1280; }                   // 1/1280
-float inv_two_pi() { return frontend::g_inv_two_pi; }
-float two_pi() { return frontend::g_two_pi; }
+float aspect_to_layout() { return frontend::kAspectToLayout; } // 0.75000006 (3/4, a bit over)
+float wide_screen() { return frontend::kWideScreen; }           // 0.9
+float minus_inv448() { return frontend::kMinusInv448; }         // -1/448
+float inv448() { return frontend::kInv448; }                     // 1/448
+float inv896() { return frontend::kInv896; }                     // 1/896
+float inv1280() { return frontend::kInv1280; }                   // 1/1280
+float inv_two_pi() { return frontend::kInvTwoPi; }
+float two_pi() { return frontend::kTwoPi; }
 float get_pi() { return frontend::g_pi; }
-float get_degrees() { return ::commands::g_degree_to_radian_ratio; } // pi / 180
-float visible_alpha() { return ::modules::g_competition_tiny; }      // 0.0001
+float get_degrees() { return ::commands::kDegreeToRadianRatio; } // pi / 180
+float visible_alpha() { return ::modules::kCompetitionTiny; }      // 0.0001
 
 // UiWidget's pieces.
 void base_set_properties(UiWidget* e, Struct* params) { e->UiWidget::change_traits(params); }

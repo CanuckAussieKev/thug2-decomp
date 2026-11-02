@@ -18,7 +18,7 @@
 namespace objects {
 
 namespace {
-float g_lock_obj_wobble_step{0.006135923f};
+constexpr float kLockObjWobbleStep{0.006135923f};
 
 constexpr uint32_t kObjLockToObject = 0x785E57C7; // Obj_LockToObject
 constexpr uint32_t kOff = 0xD443A2BC;             // off
@@ -34,7 +34,7 @@ constexpr uint32_t kKeepOrientation = 0xD74A6981; // no_rotate
 
 // The wobble's step: 2 pi / 1024 as the float the original multiplies by (0x00646118; the update's own, 0x0064611C,
 // is one bit larger).
-float wobble_step() { return g_lock_obj_wobble_step; }
+float wobble_step() { return kLockObjWobbleStep; }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -49,7 +49,7 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
 {
     entity_label_ = 0;
     bone_ = 0;
-    target_id_ = frontend::g_unassigned_id;
+    target_id_ = frontend::kUnassignedId;
     shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     // (NOT ORIGINAL: kLockFlagNoRotate cleared with the original's kLockFlagAngles)
     lock_flags_ &= ~(kLockFlagAngles | kLockFlagNoRotate);

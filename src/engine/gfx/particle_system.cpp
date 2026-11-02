@@ -29,7 +29,6 @@
 
 namespace render {
 
-uint8_t g_alloc_assert_flag;
 
 namespace {
 
@@ -43,10 +42,10 @@ gfx::ViewCam* viewport_camera(int viewport) { return fetch_live_camera(viewport)
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The allocations of the types' constructors: the manager's, its assert flag the global byte 0x00658555.
-void* carve(unsigned int size) { return memory::Hub::get_pull()->carve(size, g_alloc_assert_flag, nullptr); }
+void* carve(unsigned int size) { return memory::Hub::get_pull()->carve(size, kAllocAssertFlag, nullptr); }
 void* allocate_zeroed(unsigned int size)
 {
-    return memory::Hub::get_pull()->allocate_zeroed(size, g_alloc_assert_flag, nullptr);
+    return memory::Hub::get_pull()->allocate_zeroed(size, kAllocAssertFlag, nullptr);
 }
 
 
