@@ -137,7 +137,7 @@ void BoneVolumes::get_fill(RigData* data)
 {
     script::Array* descriptions = script::fetch_list(kBoneDescriptions);
     for (uint32_t i = 1; i < num_; ++i) {
-        if (volumes_[i])
+        if (core::at(volume_run(), i))
             continue;
         for (uint32_t j = 0; j < descriptions->extent_; ++j) {
             uint32_t bone = 0;
@@ -148,9 +148,9 @@ void BoneVolumes::get_fill(RigData* data)
             auto* volume = static_cast<BoneVolume*>(memory::alloc(sizeof(BoneVolume)));
             if (volume)
                 new (&volume->capsule_) maths::Capsule();
-            volumes_[i] = volume;
+            core::at(volume_run(), i) = volume;
             descriptions->struct_at(j)->fetch_float(kRadius, &radius, 1);
-            volumes_[i]->capsule_.radius = radius;
+            core::at(volume_run(), i)->capsule_.radius = radius;
         }
     }
 }
@@ -169,7 +169,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         world_matrix(&at, core::at(inverse_binds, index), pose, world);
         pose = *bone_state->parent;
         parent_world_matrix(&parent, data, inverse_binds, index, pose, world);
-        const BoneVolume* volume = volumes_[index];
+        const BoneVolume* volume = core::at(volume_run(), index);
         const float radius = volume ? volume->capsule_.radius : 0.0f;
         const maths::Capsule capsule = get_between(core::at(at.row, 3), core::at(parent.row, 3), radius);
         float distance_squared = 0.0f;
@@ -191,7 +191,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         if (i == 0)
             continue;
         const maths::Vec4 parent = core::at(positions, data->fetch_parent_slot(i));
-        const BoneVolume* volume = volumes_[i];
+        const BoneVolume* volume = core::at(volume_run(), i);
         if (!volume)
             continue;
         double radius = static_cast<double>(largest_scale(bone_state)) * volume->capsule_.radius;
@@ -228,7 +228,7 @@ bool BoneVolumes::get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint3
     pose = *bone_state->parent;
     parent_world_matrix(&parent, data, inverse_binds, index, pose, world);
     float radius = 0.0f;
-    if (const BoneVolume* own = volumes_[index])
+    if (const BoneVolume* own = core::at(volume_run(), index))
         radius = largest_scale(bone_state) * own->capsule_.radius;
     *volume = static_cast<float>(capsule_volume(get_between(core::at(at.row, 3), core::at(parent.row, 3), radius)));
     return true;

@@ -212,7 +212,8 @@ void PcPrimitive::render()
 }
 
 // 0x004C55D0
-void PcPrimitive::blit(const float* positions, const uint32_t* colours, const float* uvs, const float* normals)
+void PcPrimitive::blit(std::span<const float> positions, std::span<const uint32_t> colours, std::span<const float> uvs,
+                       std::span<const float> normals)
 {
     int size = 0;
     switch (vertex_format_) {
@@ -239,13 +240,13 @@ void PcPrimitive::blit(const float* positions, const uint32_t* colours, const fl
         vertices_ = g_primitive_vertex_buffer.data(); // (a buffer of the game's)
     }
     for (int i = 0; i < vertex_count_; ++i) {
-        change_place(i, positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]);
-        if (colours)
-            set_vertex_colour(i, colours[i]);
-        if (uvs)
-            set_uv(i, uvs[2 * i], uvs[2 * i + 1]);
-        if (normals)
-            set_normal(i, normals[3 * i], normals[3 * i + 1], normals[3 * i + 2]);
+        change_place(i, core::at(positions, 3 * i), core::at(positions, 3 * i + 1), core::at(positions, 3 * i + 2));
+        if (!colours.empty())
+            set_vertex_colour(i, core::at(colours, i));
+        if (!uvs.empty())
+            set_uv(i, core::at(uvs, 2 * i), core::at(uvs, 2 * i + 1));
+        if (!normals.empty())
+            set_normal(i, core::at(normals, 3 * i), core::at(normals, 3 * i + 1), core::at(normals, 3 * i + 2));
     }
     render();
 }

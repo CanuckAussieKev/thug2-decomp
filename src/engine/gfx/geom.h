@@ -201,7 +201,8 @@ static_assert(offsetof(PcGeom, bounds) == 0x14 && offsetof(PcGeom, scene) == 0x3
                   offsetof(PcGeom, instance) == 0x4C && offsetof(PcGeom, scale) == 0x54 && sizeof(PcGeom) == 0x64,
               "layout must match the original");
 
-extern maths::Mat4* g_palette_base;
+// The bone matrices of the instance being drawn by the vertex shader (its bones counted; empty between instances).
+std::span<maths::Mat4> bone_palette();
 extern Singleton* g_current_instance;
 
 } // namespace render

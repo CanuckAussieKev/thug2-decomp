@@ -53,7 +53,8 @@ void Primitive::render_if_ready()
 }
 
 // 0x0049C6E0
-void Primitive::draw_if_ready(const float* positions, const uint32_t* colours, const float* uvs, const float* normals)
+void Primitive::draw_if_ready(std::span<const float> positions, std::span<const uint32_t> colours, std::span<const float> uvs,
+                              std::span<const float> normals)
 {
     if (ready_)
         blit(positions, colours, uvs, normals);
@@ -66,7 +67,7 @@ void Primitive::change_colour(uint32_t) { debug::printf("STUB: plat_set_base_col
 void Primitive::prepare_all(uint32_t, int, int) { debug::printf("STUB: plat_begin\n"); }
 void Primitive::end_setup() { debug::printf("STUB: plat_end\n"); }
 void Primitive::render() { debug::printf("STUB: plat_draw\n"); }
-void Primitive::blit(const float*, const uint32_t*, const float*, const float*)
+void Primitive::blit(std::span<const float>, std::span<const uint32_t>, std::span<const float>, std::span<const float>)
 {
     debug::printf("STUB: plat_render\n");
 }

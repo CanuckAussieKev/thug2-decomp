@@ -39,7 +39,8 @@ public:
     void render() override;
     // 0x004C55D0 (vtable slot 6): drawn from arrays (positions, and optional colours, texture coordinates and normals),
     // through the static buffer 0x00705620.
-    void blit(const float* positions, const uint32_t* colours, const float* uvs, const float* normals) override;
+    void blit(std::span<const float> positions, std::span<const uint32_t> colours, std::span<const float> uvs,
+              std::span<const float> normals) override;
     // 0x004C5B20 / 0x004C5B60 / 0x004C5B80 / 0x004C5BA0 (vtable slots 7 - 10): a vertex's position.
     void change_place(int index, float x, float y, float z) override;
     void set_x(int index, float x) override;

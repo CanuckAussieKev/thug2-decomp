@@ -49,7 +49,7 @@ struct SkinVertex {
 };
 static_assert(sizeof(SkinVertex) == 0x4C, "layout must match the original");
 
-const maths::Mat4& skin_matrix(uint8_t bone) { return g_palette_base[bone]; }
+const maths::Mat4& skin_matrix(uint8_t bone) { return core::at(bone_palette(), bone); }
 
 // Another bone's share added: its transformed position and normal times the weight, onto what's there (each sum
 // rounded to a float as the original stores it).
@@ -129,7 +129,7 @@ void MeshRef::render()
     if (unknown98 != -1) { // (one bone: its matrix before the world's)
         input_port()->GetTransform(D3DTS_WORLD, &world);
         D3DMATRIX boned;
-        matrix_multiply(&boned, &g_palette_base[unknown98], &world);
+        matrix_multiply(&boned, &core::at(bone_palette(), unknown98), &world);
         input_port()->SetTransform(D3DTS_WORLD, &boned);
     }
     apply_vertex_colors();

@@ -59,7 +59,7 @@ Glow* next_glow()
 }
 
 // The glow's quad of half-size `size` facing the camera (across `u`, up `v`).
-void set_quad(const Glow* glow, const float* u, const float* v, float size, uint32_t colour)
+void set_quad(const Glow* glow, const std::array<float, 3>& u, const std::array<float, 3>& v, float size, uint32_t colour)
 {
     std::array<GlowVertex, 4>& q = glow_quad();
     auto set = [](GlowVertex& corner, int axis, double value) {
@@ -67,8 +67,8 @@ void set_quad(const Glow* glow, const float* u, const float* v, float size, uint
         to = static_cast<float>(value);
     };
     for (int i = 0; i < 3; ++i) {
-        const double across = static_cast<double>(u[i]) * size;
-        const double up = static_cast<double>(v[i]) * size;
+        const double across = static_cast<double>(core::at(u, i)) * size;
+        const double up = static_cast<double>(core::at(v, i)) * size;
         set(core::at(q, 0), i, (core::at(glow->position, i) - across) - up);
         set(core::at(q, 1), i, (core::at(glow->position, i) - across) + up);
         set(core::at(q, 2), i, (up + across) + core::at(glow->position, i));
@@ -96,13 +96,15 @@ void update_glows(bool queries)
     core::at(v, 0) = static_cast<float>(core::at(u, 1) * c - core::at(u, 2) * b);
     core::at(v, 1) = static_cast<float>(core::at(u, 2) * a - c * core::at(u, 0));
     core::at(v, 2) = static_cast<float>(b * core::at(u, 0) - core::at(u, 1) * a);
-    for (float* w : {u.data(), v.data()}) {
-        const double length = std::sqrt((static_cast<double>(w[2]) * w[2] + static_cast<double>(w[1]) * w[1]) +
-                                        static_cast<double>(w[0]) * w[0]);
+    for (std::array<float, 3>* w : {&u, &v}) {
+        const double w0 = core::at(*w, 0);
+        const double w1 = core::at(*w, 1);
+        const double w2 = core::at(*w, 2);
+        const double length = std::sqrt((w2 * w2 + w1 * w1) + w0 * w0);
         if (length > 0.0) {
             const double inverse = 1.0 / length;
-            for (int i = 0; i < 3; ++i)
-                w[i] = static_cast<float>(w[i] * inverse);
+            for (float& component : *w)
+                component = static_cast<float>(component * inverse);
         }
     }
     lists::KeyMap& table = glows();
@@ -134,7 +136,7 @@ void update_glows(bool queries)
                 query = 0x3FF; // (none free: the last, not marked)
             core::at(glow->queries, glow->query_count_++) = query;
             if (query > 0)
-                set_quad(glow, u.data(), v.data(), glow->query_size_, 0xFFFFFFFF);
+                set_quad(glow, u, v, glow->query_size_, 0xFFFFFFFF);
         }
         input_port()->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
         input_port()->SetRenderState(D3DRS_ZWRITEENABLE, TRUE);
@@ -169,7 +171,7 @@ void update_glows(bool queries)
         else
             glow->size = static_cast<float>(glow->size - static_cast<double>(glow->rate) * glow->size);
         if (glow->size > 0.0f)
-            set_quad(glow, u.data(), v.data(), glow->size, 0x40FFFFFF);
+            set_quad(glow, u, v, glow->size, 0x40FFFFFF);
     }
     input_port()->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);

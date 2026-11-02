@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <span>
 
 #include "engine/core/mem.h"
 
@@ -29,7 +30,8 @@ public:
     // 0x0049C6D0: drawn (render) when readied.
     void render_if_ready();
     // 0x0049C6E0: drawn from arrays (blit) when readied.
-    void draw_if_ready(const float* positions, const uint32_t* colours, const float* uvs, const float* normals);
+    void draw_if_ready(std::span<const float> positions, std::span<const uint32_t> colours, std::span<const float> uvs,
+                       std::span<const float> normals);
 
     // The virtual functions (vtable slots 1 - 35): the base's bodies print "STUB: plat_..." - the getters return 0.
     virtual void set_texture(const BitmapTexture* texture, int unused1, int unused2);     // 0x0049C390
@@ -37,8 +39,8 @@ public:
     virtual void prepare_all(uint32_t layout_flags, int primitive_type, int count); // 0x0049C3B0
     virtual void end_setup();                                                       // 0x0049C3C0
     virtual void render();                                                          // 0x0049C3D0
-    virtual void blit(const float* positions, const uint32_t* colours, const float* uvs,
-                      const float* normals);                         // 0x0049C3E0
+    virtual void blit(std::span<const float> positions, std::span<const uint32_t> colours, std::span<const float> uvs,
+                      std::span<const float> normals);                         // 0x0049C3E0
     virtual void change_place(int index, float x, float y, float z); // 0x0049C3F0
     virtual void set_x(int index, float x);                          // 0x0049C400
     virtual void set_y(int index, float y);                          // 0x0049C410

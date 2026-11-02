@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <span>
 #include <array>
 
 #include "engine/gfx/sub_mesh.h"
@@ -41,7 +42,8 @@ void MeshRef::move_into_arena(VertexArena* arena)
         return; // (the original adds 0x1F & ~0x1F - nothing - to the arena's offset)
     vb->buffer = arena->buffer;
     vb->arena_offset_ = arena->used;
-    std::memcpy(static_cast<uint8_t*>(arena->data) + arena->used, vb->data, vb->size);
+    const std::span<uint8_t> locked(static_cast<uint8_t*>(arena->data), arena->size); // (the buffer, locked)
+    std::memcpy(locked.subspan(arena->used, vb->size).data(), vb->data, vb->size);
     static_cast<IDirect3DVertexBuffer9*>(arena->buffer)->AddRef();
     arena->used += (vb->size + 0x1F) & ~0x1Fu;
 }
@@ -66,10 +68,12 @@ void MeshRef::set_pixel_shader_colored()
     for (uint32_t pass = 0; pass < material->pass_count_; ++pass) {
         if (core::at(material->pass_flags_, pass) & 0x80) // (the colour isn't to be changed)
             continue;
-        float* c = constants.data() + 4 * pass;
-        c[0] = static_cast<float>(r * c[0]);
-        c[1] = static_cast<float>(g * c[1]);
-        c[2] = static_cast<float>(b * c[2]);
+        float& c0 = core::at(constants, 4 * pass);
+        float& c1 = core::at(constants, 4 * pass + 1);
+        float& c2 = core::at(constants, 4 * pass + 2);
+        c0 = static_cast<float>(r * c0);
+        c1 = static_cast<float>(g * c1);
+        c2 = static_cast<float>(b * c2);
     }
     g_pixel_shader_changed = 1; // (the constants changed)
     set_pixel_shader_with_constants(pixel_shader_, material->pass_count_);

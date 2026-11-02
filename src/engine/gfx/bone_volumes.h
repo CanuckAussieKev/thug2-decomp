@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include "engine/maths/shape_tests.h"
 
@@ -34,6 +35,8 @@ struct BoneVolumes {
 
     // 0x0048B350: `count` bones, none with a volume yet, no users.
     explicit BoneVolumes(uint32_t count);
+    // The per-bone slots as a run (the bones counted by `num_`).
+    [[nodiscard]] std::span<BoneVolume*> volume_run() { return {volumes_, num_}; }
     // 0x0048BEA0: one more user; `count` bones, none with a volume yet (the old array dropped); registered under
     // `count`.
     void enrol(uint32_t count);

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <span>
 
 #include "engine/core/mem.h"
 #include "frontend/screen_element_cfuncs.h"
@@ -86,6 +87,7 @@ bool& get_shown() { return g_flare_shown; }
 bool& flare_hidden() { return g_flare_hidden; }
 render::BitmapTexture*& get_corona_texture() { return g_flare_corona_texture; }
 FlareElement*& get_elements() { return g_flare_elements; }
+std::span<FlareElement> element_run() { return {g_flare_elements, g_flare_element_count}; }
 uint32_t& element_count() { return g_flare_element_count; }
 uint32_t& visible_time() { return g_flare_visible_time; } // when the sun was last seen
 uint32_t& hidden_time() { return g_flare_hidden_time; }   // when it was last not seen
@@ -125,12 +127,12 @@ uint8_t issue_query(render::ViewRegion* camera, float left, float top, float rig
 // mode (+0x0C: the folded setter 0x00428270), +0x14 set (the folded setter 0x00407A50), readied and drawn from arrays
 // - corners, colours, texture coordinates (draw_if_ready).
 using Prim = render::PcPrimitive;
-void blit_quad(Prim* quad, const float* corners, const std::array<colour::Bytes, 4>& colors, const float* uvs)
+void blit_quad(Prim* quad, const std::array<float, 12>& corners, const std::array<colour::Bytes, 4>& colors, const std::array<float, 8>& uvs)
 {
     std::array<uint32_t, 4> packed{};
     for (size_t i = 0; i < packed.size(); ++i)
         core::at(packed, i) = colour::packed_of(core::at(colors, i));
-    quad->draw_if_ready(corners, packed.data(), uvs, nullptr);
+    quad->draw_if_ready(corners, packed, uvs, {});
 }
 // A render state for the primitives (0x0049C700).
 void set_prim_state(int state, int value) { render::set_primitive_state(state, value); }
@@ -221,7 +223,7 @@ void place_flare_elements(float time, const maths::Vec4* sun, const maths::Vec4*
 {
     const maths::Vec4 line = *sun - *centre;
     for (uint32_t i = 0; i < element_count(); ++i) {
-        FlareElement& element = get_elements()[i];
+        FlareElement& element = core::at(element_run(), i);
         const maths::Vec4 pos = *centre + element.pos_scale_ * line;
         element.morph->push_float(kTime, time);
         element.morph->put_vec3(kPos, get_value(pos));
@@ -248,7 +250,7 @@ void prepare_all(float theta, float phi, float radius, float size, uint32_t text
     for (uint32_t i = 0; i < element_count(); ++i) {
         auto* item = data->struct_at(i);
         Array* rgba = nullptr;
-        FlareElement& element = get_elements()[i];
+        FlareElement& element = core::at(element_run(), i);
         item->fetch_float(kPosScale, &element.pos_scale_, 1);
         item->fetch_float(kScale, &element.scale, 1);
         item->fetch_list(kRgba, &rgba, 1);
@@ -311,7 +313,7 @@ void hide_flare(Struct* params, script::Script* script)
         script::VectorValue sun{};
         if (params->fetch_vec(kSunPos, &sun, 0)) {
             for (uint32_t i = 0; i < element_count(); ++i) {
-                FlareElement& element = get_elements()[i];
+                FlareElement& element = core::at(element_run(), i);
                 element.morph->put_vec3(kPos, sun);
                 element.morph->push_float(kTime, time);
                 frontend::cfunc_do_screen_element_morph(element.morph, script);
@@ -343,7 +345,7 @@ void unhide_flare(Struct*, script::Script* script)
 }
 
 // 0x00443180
-void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position, float* corners)
+void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position, std::array<float, 12>& corners)
 {
     // facing the camera: its right axis reversed, then up and back from cross products
     maths::Mat4 facing{};
@@ -369,9 +371,9 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
         corner.z += position->z;
     }
     for (int i = 0; i < 4; ++i) {
-        corners[i * 3 + 0] = core::at(quad_corners, i).x;
-        corners[i * 3 + 1] = core::at(quad_corners, i).y;
-        corners[i * 3 + 2] = core::at(quad_corners, i).z;
+        core::at(corners, i * 3 + 0) = core::at(quad_corners, i).x;
+        core::at(corners, i * 3 + 1) = core::at(quad_corners, i).y;
+        core::at(corners, i * 3 + 2) = core::at(quad_corners, i).z;
     }
     quad->blend_mode_ = kBlend;
     quad->prepare_all(3, 4, 4);
@@ -444,8 +446,8 @@ void render(gfx::ViewCam* camera)
     Prim sun(2);
     std::array<float, 12> corners = {};
     const std::array<float, 8> uvs = {{0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f}};
-    build_sun_quad(camera, &sun, &sun_pos, corners.data());
-    blit_quad(&sun, corners.data(), colors, uvs.data());
+    build_sun_quad(camera, &sun, &sun_pos, corners);
+    blit_quad(&sun, corners, colors, uvs);
     render::OcclusionRequest request{};
     request.callback = query_sun_visibility;
     request.data = 0;
@@ -465,12 +467,12 @@ void render(gfx::ViewCam* camera)
             Prim corona(2);
             std::array<float, 12> corona_corners = {};
             const std::array<float, 8> corona_uvs = {{0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f}};
-            build_sun_quad(camera, &corona, &sun_pos, corona_corners.data());
+            build_sun_quad(camera, &corona, &sun_pos, corona_corners);
             if (get_corona_texture())
                 corona.set_texture(get_corona_texture(), 0, 0);
             set_prim_state(1, 2);
             set_prim_state(4, 0);
-            blit_quad(&corona, corona_corners.data(), colors, corona_uvs.data());
+            blit_quad(&corona, corona_corners, colors, corona_uvs);
         }
         if (!flare_hidden()) {
             gsl::owner<Struct*> params = new_params();
@@ -491,7 +493,7 @@ void render(gfx::ViewCam* camera)
         if (get_corona_texture())
             sun.set_texture(get_corona_texture(), 0, 0);
         sun.blend_mode_ = kAdd;
-        blit_quad(&sun, corners.data(), colors, uvs.data());
+        blit_quad(&sun, corners, colors, uvs);
         if (static_cast<double>(morph_in_time()) * 1000.0f < static_cast<double>(unseen))
             show_flare(&screen, 0.0f);
         else

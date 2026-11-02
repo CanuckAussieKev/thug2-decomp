@@ -38,10 +38,14 @@ namespace {
 D3DLIGHT9 g_device_light1{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}};
 D3DLIGHT9 g_device_light0{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f}};
 } // namespace
-maths::Mat4* g_palette_base;
 namespace {
+maths::Mat4* g_palette_base;
 int g_bone_count;
 } // namespace
+std::span<maths::Mat4> bone_palette()
+{
+    return {g_palette_base, static_cast<std::size_t>(g_bone_count)};
+}
 Singleton* g_current_instance;
 const maths::Mat4* g_last_bones;
 namespace {
