@@ -109,9 +109,9 @@ void SkaterPhysicsModule::get_reset()
         entity_->old_pos_ = entity_->at_point_;
         safe_pos_ = entity_->at_point_;
     }
-    lip_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    lip_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     state_changed_at_ = get_now();
-    entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    entity_->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     physics::change_phase(this, 0);
     old_state_ = 0;
     // Every timed flag (23 down to 0) set, then cleared; flag 7 tells +0x1514's +0x1E each time.
@@ -172,8 +172,8 @@ void SkaterPhysicsModule::refresh_hit_cache()
 {
     const maths::Vec4& position = entity_->at_point_;
     maths::BBox box;
-    box.min = {position.x - kCacheReach, position.y - kCacheBelow, position.z - kCacheReach, position.w};
-    box.max = {position.x + kCacheReach, position.y + kCacheAbove, position.z + kCacheReach, position.w};
+    box.min = {.x = position.x - kCacheReach, .y = position.y - kCacheBelow, .z = position.z - kCacheReach, .w = position.w};
+    box.max = {.x = position.x + kCacheReach, .y = position.y + kCacheAbove, .z = position.z + kCacheReach, .w = position.w};
     render::HitMeshCache& cache = hit_cache_;
     cache.tick_frame(box);
     render::g_current_cache = &cache; // the feelers' current cache

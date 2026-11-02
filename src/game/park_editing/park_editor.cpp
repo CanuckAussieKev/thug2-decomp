@@ -432,10 +432,10 @@ void ParkBuilderMode::tick_frame()
 {
     // The camera: (0, 0, distance) tilted down, turned round y, put over the cursor 300 up.
     maths::Mat4 camera{};
-    core::at(camera.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(camera.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(camera.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(camera.row, 3) = {0.0f, 0.0f, orbit_radius_, 1.0f};
+    core::at(camera.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(camera.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(camera.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(camera.row, 3) = {.x = 0.0f, .y = 0.0f, .z = orbit_radius_, .w = 1.0f};
     maths::Mat4 rotation{};
     matrix_multiply(
         &camera, &camera,

@@ -97,7 +97,7 @@ void RailAuthoring::tick_frame()
         uint32_t script;
     };
     static const std::array<Press, 4> kPresses = {{
-        {0x1A0, kRailEditorX}, {0x180, kRailEditorTriangle}, {0x160, kRailEditorSquare}, {0x140, kRailEditorCircle}}};
+        {.button = 0x1A0, .script = kRailEditorX}, {.button = 0x180, .script = kRailEditorTriangle}, {.button = 0x160, .script = kRailEditorSquare}, {.button = 0x140, .script = kRailEditorCircle}}};
     for (const Press& press : kPresses) {
         objects::ControlButton* button = get_button(input_ptr_, press.button);
         if (button->fired_) {
@@ -261,7 +261,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         return 1;
     }
     case kAddNewPosition: {
-        Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
+        Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         params->fetch_vec(kPos, &pos, 0);
         if (!active_node_)
             return 0;

@@ -192,9 +192,9 @@ void ParkAssembler::set_up_bounds()
 {
     // The most the park can take up: 56 x 56 cells, 16 steps down and 66 up.
     maths::BBox box;
-    const maths::Vec4 low = {-3360.0f, -768.0f, -3360.0f, 1.0f};
+    const maths::Vec4 low = {.x = -3360.0f, .y = -768.0f, .z = -3360.0f, .w = 1.0f};
     box.append_spot(low);
-    const maths::Vec4 high = {3360.0f, 3168.0f, 3360.0f, 1.0f};
+    const maths::Vec4 high = {.x = 3360.0f, .y = 3168.0f, .z = 3360.0f, .w = 1.0f};
     box.append_spot(high);
     scene::assign_scene_bounds(scene_handle_, &box);
 }
@@ -217,8 +217,8 @@ void ParkAssembler::update_bounds(uint32_t /*unused*/)
     if (!shell)
         return;
     // The shell's first box: as big as can be.
-    const maths::Vec4 far = {200000.0f, 200000.0f, 200000.0f, 1.0f};
-    const maths::Vec4 near = {-200000.0f, -200000.0f, -200000.0f, 1.0f};
+    const maths::Vec4 far = {.x = 200000.0f, .y = 200000.0f, .z = 200000.0f, .w = 1.0f};
+    const maths::Vec4 near = {.x = -200000.0f, .y = -200000.0f, .z = -200000.0f, .w = 1.0f};
     maths::Seg everything(near, far);
     scene::set_box(shell, &everything, 1, 0);
     // The second: the park's bounds, from the middle of its first cell to the middle of its last, every height.

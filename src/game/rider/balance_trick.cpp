@@ -28,7 +28,7 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 2> g_balance_trick_member_functions{{
-    {0x6DF82E70, 0x589E5FB3}, {0, 0x589E5FB3}}};
+    {.callsign_ = 0x6DF82E70, .owner_kind_ = 0x589E5FB3}, {.callsign_ = 0, .owner_kind_ = 0x589E5FB3}}};
 
 namespace {
 

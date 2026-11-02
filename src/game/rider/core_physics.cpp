@@ -109,7 +109,7 @@ int SkaterPhysicsModule::lip_push_off(script::Struct*, script::Script*)
 {
     objects::GameEntity* object = entity_;
     const maths::Vec4& facing = core::at(object->basis_frame_.row, 2);
-    maths::Vec4 forward = {facing.x, 0.0f, facing.z, facing.w};
+    maths::Vec4 forward = {.x = facing.x, .y = 0.0f, .z = facing.z, .w = facing.w};
     const double length =
         std::sqrt(static_cast<double>(forward.z) * forward.z + static_cast<double>(forward.x) * forward.x);
     if (length > 0.0) {
@@ -117,7 +117,7 @@ int SkaterPhysicsModule::lip_push_off(script::Struct*, script::Script*)
         forward.x = static_cast<float>(forward.x * scale);
         forward.z = static_cast<float>(forward.z * scale);
     }
-    const maths::Vec4 side = {forward.z, 0.0f, -forward.x, 0.0f};
+    const maths::Vec4 side = {.x = forward.z, .y = 0.0f, .z = -forward.x, .w = 0.0f};
 
     objects::PadInputModule* input = input_;
     if (input->pad_primary_.right_side_.held_down_)
@@ -306,7 +306,7 @@ void SkaterPhysicsModule::check_for_ground()
                 maths::Vec4 facing = core::at(object->basis_frame_.row, 2);
                 if (bike &&
                     thaw_bmx::rolling_backwards(this)) // (not original: THAW 0x005DEB08, rolling back on the bike)
-                    facing = {-facing.x, -facing.y, -facing.z, -facing.w};
+                    facing = {.x = -facing.x, .y = -facing.y, .z = -facing.z, .w = -facing.w};
                 maths::Vec4 in_hit_plane = facing;
                 maths::Vec4 in_ground_plane = facing;
                 auto facing_into_hit = static_cast<float>(static_cast<double>(facing.x) * normal.x +
@@ -506,7 +506,7 @@ void SkaterPhysicsModule::do_air_physics()
     }
 
     // What the skater rides on (+0x152C's +0x18, if it's still under the skater) carries it along.
-    maths::Vec4 carried = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 carried = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     {
         objects::MovingSurfaceModule* ride = ride_;
         objects::RideTracker* rider = ride->ride_.get();
@@ -669,7 +669,7 @@ void SkaterPhysicsModule::do_air_physics()
             position.y += py;
             position.z += pz;
             position.w += pw;
-            maths::Vec4 flat = {new_wall.x, 0.0f, new_wall.z, new_wall.w};
+            maths::Vec4 flat = {.x = new_wall.x, .y = 0.0f, .z = new_wall.z, .w = new_wall.w};
             flat.make_unit();
             turn_to_normal(flat);
             entity_->vel_.align_to_plane(flat);

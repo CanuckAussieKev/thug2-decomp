@@ -385,7 +385,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
     }
     if (!params->has_bare_flag(kNoReset)) {
         floor_feeler_.hit_.face_flag40_ = 0;
-        entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        entity_->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         physics::change_phase(this, 0);
         set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity_)->goofy_);
         core::down_cast<objects::RiderSpinAndFlip>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
@@ -416,7 +416,7 @@ void SkaterPhysicsModule::find_nearest_wall_side()
         uint32_t axis;
         float distance;
     };
-    static const auto kSides = std::to_array<FeelerSide>({{kNose, kAxisZ, 12.0f}, {kTail, kAxisZ, -12.0f}, {kLeft, kAxisX, 12.0f}, {kRight, kAxisX, -12.0f}});
+    static const auto kSides = std::to_array<FeelerSide>({{.side = kNose, .axis = kAxisZ, .distance = 12.0f}, {.side = kTail, .axis = kAxisZ, .distance = -12.0f}, {.side = kLeft, .axis = kAxisX, .distance = 12.0f}, {.side = kRight, .axis = kAxisX, .distance = -12.0f}});
     for (const auto& side : kSides) {
         const maths::Vec4& row = side.axis == kAxisX ? core::at(entity_->basis_frame_.row, 0) : core::at(entity_->basis_frame_.row, 2);
         const maths::Vec4& start = feeler.line_.start;
@@ -461,7 +461,7 @@ void SkaterPhysicsModule::check_side_feelers()
 {
     if (side_reach_ == 0.0f || side_push_ == 0.0f)
         return;
-    side_normal_sum_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    side_normal_sum_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     side_nearest_ = 1.0f;
     // The feelers start at the side collision height up the skater.
     const objects::GameEntity* object = object_of(this);

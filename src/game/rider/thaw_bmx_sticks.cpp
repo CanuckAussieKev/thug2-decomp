@@ -219,7 +219,7 @@ bool get_right_stick_centred(const void* trick_component)
 LookInputs d_pad_look_inputs(bool up, bool down, bool left, bool right, bool invert)
 {
     // THAW 0x5B08F0 (its constants 0x6DD0A0 1.5, 0x6DB3DC -1.0, 0x6ED5F4 -1.5): up before down, left before right
-    LookInputs in{up ? 1.5f : (down ? -1.0f : 0.0f), left ? -1.5f : (right ? 1.5f : 0.0f)};
+    LookInputs in{.tilt = up ? 1.5f : (down ? -1.0f : 0.0f), .heading = left ? -1.5f : (right ? 1.5f : 0.0f)};
     if (invert) {
         in.tilt *= -1.0f;
         in.heading *= -1.0f;

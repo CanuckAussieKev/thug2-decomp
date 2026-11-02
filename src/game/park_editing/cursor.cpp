@@ -221,10 +221,10 @@ void BuildPointer::tick_frame(float offset_cell_x, float offset_cell_z, int turn
     }
 
     // Show the paste, or the piece (the rail tool shows none), a little in from the corner.
-    const maths::Vec4 shown = {static_cast<float>(static_cast<double>(at_point_.x) - kShowInset),
-                               static_cast<float>(static_cast<double>(at_point_.y) + kShowInset),
-                               static_cast<float>(static_cast<double>(at_point_.z) - kShowInset),
-                               static_cast<float>(static_cast<double>(at_point_.w) + 1.0)};
+    const maths::Vec4 shown = {.x = static_cast<float>(static_cast<double>(at_point_.x) - kShowInset),
+                               .y = static_cast<float>(static_cast<double>(at_point_.y) + kShowInset),
+                               .z = static_cast<float>(static_cast<double>(at_point_.z) - kShowInset),
+                               .w = static_cast<float>(static_cast<double>(at_point_.w) + 1.0)};
     if (mode_sel_ == kModePaste) {
         if (clipboard_)
             clipboard_->preview_pieces(shown, angle_, clipboard_height_);
@@ -427,8 +427,8 @@ void BuildPointer::change_piece(uint32_t checksum)
 BuildPointer::BuildPointer()
 {
     cell_footprint_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
-    aim_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    aim_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     area_start_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     area_last_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     // (gap_ made first by its constructor)

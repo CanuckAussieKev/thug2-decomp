@@ -56,8 +56,8 @@ script::Struct* structure_element(script::Array* array, uint32_t index)
 void EditedGoal::drop_point_to_ground(int index)
 {
     maths::Vec4& pos = core::at(path_vertices_, index).pos;
-    maths::Vec4 start = {pos.x, pos.y + kDropHeight, pos.z, pos.w};
-    const maths::Vec4 end = {pos.x, pos.y - kDropHeight, pos.z, pos.w};
+    maths::Vec4 start = {.x = pos.x, .y = pos.y + kDropHeight, .z = pos.z, .w = pos.w};
+    const maths::Vec4 end = {.x = pos.x, .y = pos.y - kDropHeight, .z = pos.z, .w = pos.w};
     render::ProbeRay feeler;
     feeler.change_origin(&start);
     feeler.change_finish(&end);

@@ -34,9 +34,9 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 10> g_stats_manager_member_functions{{
-    {0x82CE30CE, 0x4FF8DAC6}, {0x57879C96, 0x4FF8DAC6}, {0xEE59073C, 0x4FF8DAC6}, {0xF1745991, 0x4FF8DAC6},
-    {0x78E7D855, 0x4FF8DAC6}, {0xB341B5A5, 0x4FF8DAC6}, {0xB7FAC894, 0x4FF8DAC6}, {0x629D29FA, 0x4FF8DAC6},
-    {0xB1652DEC, 0x4FF8DAC6}, {0, 0x4FF8DAC6}}};
+    {.callsign_ = 0x82CE30CE, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0x57879C96, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xEE59073C, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xF1745991, .owner_kind_ = 0x4FF8DAC6},
+    {.callsign_ = 0x78E7D855, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xB341B5A5, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0xB7FAC894, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0x629D29FA, .owner_kind_ = 0x4FF8DAC6},
+    {.callsign_ = 0xB1652DEC, .owner_kind_ = 0x4FF8DAC6}, {.callsign_ = 0, .owner_kind_ = 0x4FF8DAC6}}};
 
 namespace {
 
@@ -126,10 +126,10 @@ void AttributeTracker::publish_method_table()
 AttributeTracker::AttributeTracker()
 {
     kind_tag_ = kType;
-    air_start_ = {0.0f, 0.0f, 0.0f, 0.0f};
-    air_end_ = {0.0f, 0.0f, 0.0f, 0.0f};
-    jump_start_ = {0.0f, 0.0f, 0.0f, 0.0f};
-    jump_end_ = {0.0f, 0.0f, 0.0f, 0.0f};
+    air_start_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    air_end_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    jump_start_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    jump_end_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
 }
 
 // 0x0051C460 (0x0051C640 the deleting one)
@@ -507,8 +507,8 @@ void AttributeTracker::tick_frame()
         }
         case kLeapReach:
             if (jump_phase_ == 2) {
-                const maths::Vec4 start = {jump_start_.x, 0.0f, jump_start_.z, 1.0f};
-                const maths::Vec4 end = {jump_end_.x, 0.0f, jump_end_.z, 1.0f};
+                const maths::Vec4 start = {.x = jump_start_.x, .y = 0.0f, .z = jump_start_.z, .w = 1.0f};
+                const maths::Vec4 end = {.x = jump_end_.x, .y = 0.0f, .z = jump_end_.z, .w = 1.0f};
                 const double distance = span_to(end, start);
                 meets = goal.aim_point_ * static_cast<double>(kFeet) <= distance;
             }

@@ -291,7 +291,7 @@ EditedRailPoint* EditedRail::append_rail_vertex()
         return nullptr;
     auto* point = pools.allocate<EditedRailPoint>();
     if (point) {
-        point->at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        point->at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         point->has_post_ = false;
         point->highlighted_ = false;
         point->level_y_ = 0.0f;
@@ -696,7 +696,7 @@ bool RailAuthoring::find_nearest_point(const maths::Vec4* position, maths::Vec4*
     // The original keeps the callee's results in locals it never initialises: a rail whose only point is skipped
     // still "finds" one - the distance left from an earlier rail (or, for the first, the bits of the `index` pointer
     // the slot held), the point unset (here zero: what a cleared stack holds).
-    maths::Vec4 nearest = {0.0f, 0.0f, 0.0f, 0.0f};
+    maths::Vec4 nearest = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     float distance = 0.0f;
     std::memcpy(&distance, static_cast<const void*>(&index), sizeof(distance));
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {

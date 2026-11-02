@@ -31,9 +31,9 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 11> g_physics_control_member_functions{{
-    {0x3522D612, 0xD9151D4D}, {0x0595627C, 0xD9151D4D}, {0x9569D5B1, 0xD9151D4D}, {0xA887285A, 0xD9151D4D},
-    {0x9366A509, 0xD9151D4D}, {0x04830E80, 0xD9151D4D}, {0xD5A9F889, 0xD9151D4D}, {0x27FDDEB7, 0xD9151D4D},
-    {0x174A6AD9, 0xD9151D4D}, {0x246322C9, 0xD9151D4D}, {0, 0xD9151D4D}}};
+    {.callsign_ = 0x3522D612, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x0595627C, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x9569D5B1, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0xA887285A, .owner_kind_ = 0xD9151D4D},
+    {.callsign_ = 0x9366A509, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x04830E80, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0xD5A9F889, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x27FDDEB7, .owner_kind_ = 0xD9151D4D},
+    {.callsign_ = 0x174A6AD9, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0x246322C9, .owner_kind_ = 0xD9151D4D}, {.callsign_ = 0, .owner_kind_ = 0xD9151D4D}}};
 
 namespace {
 

@@ -407,7 +407,7 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
                     script::VectorValue pos{}, dir{};
                     gap->fetch_vec(kGapPos, &pos, 0);
                     gap->fetch_vec(kGapDir, &dir, 0);
-                    checklist->set_gap_positions(name, {pos.x, pos.y, pos.z, pos.w}, {dir.x, dir.y, dir.z, dir.w});
+                    checklist->set_gap_positions(name, {.x = pos.x, .y = pos.y, .z = pos.z, .w = pos.w}, {.x = dir.x, .y = dir.y, .z = dir.z, .w = dir.w});
                 }
             }
         }
@@ -508,7 +508,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                 gap->append_word(kGapName, checklist->get_gap_title(i));
                 gap->put_int(kGapCount, checklist->count_gaps_found(i));
                 gap->put_int(kGapScore, checklist->get_gap_points(i));
-                maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f}, dir = {0.0f, 0.0f, 0.0f, 1.0f};
+                maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}, dir = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
                 if (checklist->count_gaps_found(i))
                     checklist->get_gap_positions(i, &pos, &dir);
                 gap->put_vec3(kGapPos, pos.x, pos.y, pos.z);

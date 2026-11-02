@@ -102,20 +102,20 @@ void FootMovement::update_curb_float()
     // A feeler from half a unit above the feet, curb_float_feeler_length ahead.
     render::ProbeRay feeler;
     const maths::Vec4& pos = pos_;
-    feeler.line_.start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kHalf), pos.z, 0.0f};
+    feeler.line_.start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kHalf), .z = pos.z, .w = 0.0f};
     const float reach = walk_parameter(kCurbFloatFeelerLength);
     const float reach_y = ahead.y * reach;
     const float reach_x = reach * ahead.x;
-    feeler.line_.end = {reach_x + pos.x, static_cast<float>((static_cast<double>(reach_y) + pos.y) + kHalf),
-                        static_cast<float>(static_cast<double>(ahead.z) * reach + pos.z), 0.0f};
+    feeler.line_.end = {.x = reach_x + pos.x, .y = static_cast<float>((static_cast<double>(reach_y) + pos.y) + kHalf),
+                        .z = static_cast<float>(static_cast<double>(ahead.z) * reach + pos.z), .w = 0.0f};
     if (!feeler.get_hit_shape(true, false))
         return;
     const float distance = feeler.reach_;
 
     // Something ahead: straight down onto it from snap_up_height, half a unit past where it was hit.
-    const maths::Vec4 over = {ahead.x * kHalf + feeler.contact_pos_.x, ahead.y * kHalf + feeler.contact_pos_.y,
-                              ahead.z * kHalf + feeler.contact_pos_.z,
-                              static_cast<float>(static_cast<double>(ahead.w) * kHalf + feeler.contact_pos_.w)};
+    const maths::Vec4 over = {.x = ahead.x * kHalf + feeler.contact_pos_.x, .y = ahead.y * kHalf + feeler.contact_pos_.y,
+                              .z = ahead.z * kHalf + feeler.contact_pos_.z,
+                              .w = static_cast<float>(static_cast<double>(ahead.w) * kHalf + feeler.contact_pos_.w)};
     feeler.line_.end = over;
     feeler.line_.start = over;
     feeler.line_.start.y = static_cast<float>(static_cast<double>(walk_parameter(kSnapUpHeight)) + pos.y);
@@ -155,8 +155,8 @@ void FootMovement::check_ceiling()
     // A feeler up from just above the feet to the head.
     render::ProbeRay feeler;
     maths::Vec4& pos = pos_;
-    feeler.line_.start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kHeadClearance), pos.z, pos.w};
-    feeler.line_.end = {pos.x, static_cast<float>(static_cast<double>(pos.y) + top), pos.z, pos.w};
+    feeler.line_.start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kHeadClearance), .z = pos.z, .w = pos.w};
+    feeler.line_.end = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + top), .z = pos.z, .w = pos.w};
     if (!feeler.get_hit_shape(true, false))
         return;
 
@@ -169,15 +169,15 @@ void FootMovement::check_ceiling()
         0.0)
         vel.flatten_onto_plane(normal);
     const maths::Vec4& end = feeler.line_.end;
-    maths::Vec4 back = {feeler.contact_pos_.x - end.x, feeler.contact_pos_.y - end.y, feeler.contact_pos_.z - end.z,
-                        feeler.contact_pos_.w - end.w};
+    maths::Vec4 back = {.x = feeler.contact_pos_.x - end.x, .y = feeler.contact_pos_.y - end.y, .z = feeler.contact_pos_.z - end.z,
+                        .w = feeler.contact_pos_.w - end.w};
     up_speed_ = vel.y;
     vel.y = 0.0f;
     back.project_onto(normal);
-    feeler.line_.end = {back.x + pos.x, back.y + pos.y, back.z + pos.z, back.w + pos.w};
+    feeler.line_.end = {.x = back.x + pos.x, .y = back.y + pos.y, .z = back.z + pos.z, .w = back.w + pos.w};
     if (feeler.get_hit_shape(true, false))
-        pos = {feeler.contact_pos_.x + feeler.surface_dir_.x, feeler.contact_pos_.y + feeler.surface_dir_.y,
-               feeler.contact_pos_.z + feeler.surface_dir_.z, feeler.contact_pos_.w + feeler.surface_dir_.w};
+        pos = {.x = feeler.contact_pos_.x + feeler.surface_dir_.x, .y = feeler.contact_pos_.y + feeler.surface_dir_.y,
+               .z = feeler.contact_pos_.z + feeler.surface_dir_.z, .w = feeler.contact_pos_.w + feeler.surface_dir_.w};
     else
         pos = feeler.line_.end;
     entity_->post_own_event(kCeilingEvent, nullptr);
@@ -200,8 +200,8 @@ void FootMovement::check_sticker_slap()
     start = pos_;
     start.y = static_cast<float>(static_cast<double>(start.y) + walk_parameter(kProbeElevation));
     const float reach = walk_parameter(kFeelerLength);
-    feeler.line_.end = {reach * facing.x + start.x, reach * facing.y + start.y, reach * facing.z + start.z,
-                        static_cast<float>(static_cast<double>(reach) * facing.w + start.w)};
+    feeler.line_.end = {.x = reach * facing.x + start.x, .y = reach * facing.y + start.y, .z = reach * facing.z + start.z,
+                        .w = static_cast<float>(static_cast<double>(reach) * facing.w + start.w)};
     if (!feeler.get_hit_shape(false, false))
         return;
 
@@ -233,22 +233,22 @@ void FootMovement::update_ground_below()
     // Down from the critical point: the ground below.
     render::ProbeRay down;
     const float y = pos.y + offset.y;
-    const maths::Vec4 point = {pos.x + offset.x, y, pos.z + offset.z, pos.w + offset.w};
-    down.line_.start = {point.x, static_cast<float>(static_cast<double>(y) + kOne), point.z, point.w};
-    down.line_.end = {point.x, static_cast<float>(static_cast<double>(y) - depth), point.z, point.w};
+    const maths::Vec4 point = {.x = pos.x + offset.x, .y = y, .z = pos.z + offset.z, .w = pos.w + offset.w};
+    down.line_.start = {.x = point.x, .y = static_cast<float>(static_cast<double>(y) + kOne), .z = point.z, .w = point.w};
+    down.line_.end = {.x = point.x, .y = static_cast<float>(static_cast<double>(y) - depth), .z = point.z, .w = point.w};
     const bool below = down.get_hit_shape(true, false);
 
     // From 12 higher (faces flagged 0x20 only): down to just under that ground, or as deep.
     render::ProbeRay shade;
     shade.set_excluded(0, 0x20);
-    shade.line_.start = {point.x, static_cast<float>((static_cast<double>(pos.y) + offset.y) + kTwelve), point.z,
-                         point.w};
+    shade.line_.start = {.x = point.x, .y = static_cast<float>((static_cast<double>(pos.y) + offset.y) + kTwelve), .z = point.z,
+                         .w = point.w};
     if (below)
-        shade.line_.end = {down.contact_pos_.x, static_cast<float>(static_cast<double>(down.contact_pos_.y) - kOne),
-                           down.contact_pos_.z, down.contact_pos_.w};
+        shade.line_.end = {.x = down.contact_pos_.x, .y = static_cast<float>(static_cast<double>(down.contact_pos_.y) - kOne),
+                           .z = down.contact_pos_.z, .w = down.contact_pos_.w};
     else
-        shade.line_.end = {point.x, static_cast<float>(static_cast<double>(shade.line_.start.y) - depth), point.z,
-                           point.w};
+        shade.line_.end = {.x = point.x, .y = static_cast<float>(static_cast<double>(shade.line_.start.y) - depth), .z = point.z,
+                           .w = point.w};
     // The model shaded by the face hit (its vertex value).
     auto shade_model = [this](render::ProbeRay* feeler) { model_->apply_brightness(feeler, true, kOne); };
     if (shade.get_hit_shape(true, false))
@@ -274,13 +274,13 @@ void FootMovement::update_ground_below()
     vel.x = vel.x * kMinus;
     vel.z = vel.z * kMinus;
     maths::Vec4& facing = facing_;
-    facing = {facing.x * kMinus, facing.y * kMinus, facing.z * kMinus, facing.w * kMinus};
+    facing = {.x = facing.x * kMinus, .y = facing.y * kMinus, .z = facing.z * kMinus, .w = facing.w * kMinus};
     up_speed_ = 0.0f;
     locked_to_heading_ = true;
     unknown710_ = 60;
     change_phase(0);
     feeler_hit_ = false;
-    floor_normal_ = {0.0f, 1.0f, 0.0f, 1.0f};
+    floor_normal_ = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     anim_state_ = kLand;
 }
 
@@ -312,7 +312,7 @@ void FootMovement::ease_critical_point_offset()
         offset.z = static_cast<float>(offset.z - kz);
         offset.w = static_cast<float>(offset.w - kw);
     } else {
-        offset = {0.0f, 0.0f, 0.0f, 1.0f};
+        offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     }
     if (state == 3)
         return;
@@ -321,8 +321,8 @@ void FootMovement::ease_critical_point_offset()
     render::ProbeRay feeler;
     const maths::Vec4& old_pos = old_pos_;
     maths::Vec4& pos = pos_;
-    feeler.line_.start = {old.x + old_pos.x, old.y + old_pos.y, old.z + old_pos.z, old.w + old_pos.w};
-    feeler.line_.end = {pos.x + offset.x, pos.y + offset.y, pos.z + offset.z, pos.w + offset.w};
+    feeler.line_.start = {.x = old.x + old_pos.x, .y = old.y + old_pos.y, .z = old.z + old_pos.z, .w = old.w + old_pos.w};
+    feeler.line_.end = {.x = pos.x + offset.x, .y = pos.y + offset.y, .z = pos.z + offset.z, .w = pos.w + offset.w};
     if (feeler.get_hit_shape(true, false)) {
         const maths::Vec4 adjustment =
             (feeler.contact_pos_ + kAdjustClearance * feeler.surface_dir_) - feeler.line_.end;
@@ -382,7 +382,7 @@ void FootMovement::plan_jump_over_obstruction()
     const double time = (rise - std::sqrt(static_cast<double>(static_cast<float>(discriminant)))) * inverse;
     const double speed = -(back / time);
     auto speed_f = static_cast<float>(speed);
-    jump_velocity_ = {speed_f * facing.x, speed_f * facing.y, speed_f * facing.z, static_cast<float>(speed * facing.w)};
+    jump_velocity_ = {.x = speed_f * facing.x, .y = speed_f * facing.y, .z = speed_f * facing.z, .w = static_cast<float>(speed * facing.w)};
     jump_target_height_ = static_cast<float>(static_cast<double>(height) + pos_.y);
     leap_duration_ = static_cast<float>((inverse * rise + inverse * rise) - time);
 }
@@ -432,7 +432,7 @@ void FootMovement::try_wallplant()
     const float least = walk_parameter(kMinJumpFactor);
     up_speed_ = static_cast<float>(((kOne - static_cast<double>(least)) * strength + least) * rise);
     const float across = walk_parameter(kHorizWallJumpSpeed);
-    vel_ = {across * direction.x, direction.y * across, direction.z * across, direction.w * across};
+    vel_ = {.x = across * direction.x, .y = direction.y * across, .z = direction.z * across, .w = direction.w * across};
     leap_heading_ = facing_;
     // Off a moving object: its velocity added.
     auto& feeler = contact->feeler;

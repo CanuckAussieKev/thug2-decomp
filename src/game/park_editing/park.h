@@ -74,7 +74,7 @@ struct CellBox {
 
     static CellBox get_make(uint8_t x, int8_t y, uint8_t z, uint8_t w, uint8_t h, uint8_t l)
     {
-        return {x, y, z, w, h, l};
+        return {.x = x, .y = y, .z = z, .w = w, .h = h, .l = l};
     }
     // 0x005901B0 (the constructor): returns this. (park_pieces.cpp, like the rest.)
     CellBox* assign_value(uint8_t cell_x, int8_t cell_y, uint8_t cell_z, uint8_t width, uint8_t height, uint8_t length);
@@ -231,7 +231,7 @@ public:
     maths::Vec4* measure_span(maths::Vec4* out) override;
 
     TileTemplate* following_ = nullptr;    // +0x0C
-    maths::Vec4 extent_ = {0, 0, 0, 1.0f}; // +0x10: in world units (x and z whole cells); w = 1
+    maths::Vec4 extent_ = {.x = 0, .y = 0, .z = 0, .w = 1.0f}; // +0x10: in world units (x and z whole cells); w = 1
     int field_20_ = 1;                     // +0x20
     uint32_t trigger_script_ = 0;          // +0x24
     int rail_point_total_ = 0;             // +0x28: the points of the rails its node array gives it
@@ -293,7 +293,7 @@ public:
     // 0x00590AD0: room for `count` pieces (the extra ones kept when it grows)
     virtual void commission(int count) = 0;
 
-    CellBox cell_footprint_ = {0, 0, 0, 0, 0, 0}; // +0x04 (the offsets are the original's: the vtable at +0x00)
+    CellBox cell_footprint_ = {.x = 0, .y = 0, .z = 0, .w = 0, .h = 0, .l = 0}; // +0x04 (the offsets are the original's: the vtable at +0x00)
     std::array<uint8_t, 2> pad0a_{};
     uint32_t flag_bits_ = 0;               // +0x0C
     int quarter_turns_{};                  // +0x10: quarter turns

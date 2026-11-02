@@ -215,8 +215,8 @@ maths::Vec4* PieceGroup::get_relative_position(maths::Vec4* out, uint32_t index)
 
 void PieceGroup::get_bounds(maths::Vec4* max, maths::Vec4* min)
 {
-    *min = {kFarAway, kFarAway, kFarAway, 0.0f};
-    *max = {-kFarAway, -kFarAway, -kFarAway, 0.0f};
+    *min = {.x = kFarAway, .y = kFarAway, .z = kFarAway, .w = 0.0f};
+    *max = {.x = -kFarAway, .y = -kFarAway, .z = -kFarAway, .w = 0.0f};
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         auto* piece = placed_piece(i);
         maths::Vec4 size;

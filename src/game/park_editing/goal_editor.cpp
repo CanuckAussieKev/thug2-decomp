@@ -33,15 +33,15 @@
 namespace park_editing {
 
 std::array<script::MemberFunctionEntry, 36> g_goal_editor_member_functions{{
-    {0x0AB710F3, 0x81F01058}, {0x5C155A29, 0x81F01058}, {0xFB279560, 0x81F01058}, {0xCCA11C78, 0x81F01058},
-    {0x1D30A7B6, 0x81F01058}, {0xE5ED63B7, 0x81F01058}, {0x03EBD2C9, 0x81F01058}, {0x47208C6D, 0x81F01058},
-    {0x769309E1, 0x81F01058}, {0x88D54A10, 0x81F01058}, {0xFF9E8752, 0x81F01058}, {0x259C59DD, 0x81F01058},
-    {0x1F80B5AE, 0x81F01058}, {0x26848221, 0x81F01058}, {0xFDB2C514, 0x81F01058}, {0x98ABBD09, 0x81F01058},
-    {0x66A33157, 0x81F01058}, {0x7AABBC09, 0x81F01058}, {0x69B872E3, 0x81F01058}, {0x96F11BD3, 0x81F01058},
-    {0x96874358, 0x81F01058}, {0x5BD8050A, 0x81F01058}, {0x5408AC04, 0x81F01058}, {0xB525B113, 0x81F01058},
-    {0x4A569426, 0x81F01058}, {0x410821DF, 0x81F01058}, {0x60288ABE, 0x81F01058}, {0x831ECA10, 0x81F01058},
-    {0xDBA8E3FC, 0x81F01058}, {0xD7258335, 0x81F01058}, {0x9E5A634A, 0x81F01058}, {0x7D5073F6, 0x81F01058},
-    {0xEC316A9C, 0x81F01058}, {0x20B566B1, 0x81F01058}, {0xD5F6EA3B, 0x81F01058}, {0, 0x81F01058}}};
+    {.callsign_ = 0x0AB710F3, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5C155A29, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFB279560, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xCCA11C78, .owner_kind_ = 0x81F01058},
+    {.callsign_ = 0x1D30A7B6, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xE5ED63B7, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x03EBD2C9, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x47208C6D, .owner_kind_ = 0x81F01058},
+    {.callsign_ = 0x769309E1, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x88D54A10, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFF9E8752, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x259C59DD, .owner_kind_ = 0x81F01058},
+    {.callsign_ = 0x1F80B5AE, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x26848221, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xFDB2C514, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x98ABBD09, .owner_kind_ = 0x81F01058},
+    {.callsign_ = 0x66A33157, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x7AABBC09, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x69B872E3, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x96F11BD3, .owner_kind_ = 0x81F01058},
+    {.callsign_ = 0x96874358, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5BD8050A, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x5408AC04, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xB525B113, .owner_kind_ = 0x81F01058},
+    {.callsign_ = 0x4A569426, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x410821DF, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x60288ABE, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x831ECA10, .owner_kind_ = 0x81F01058},
+    {.callsign_ = 0xDBA8E3FC, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xD7258335, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x9E5A634A, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x7D5073F6, .owner_kind_ = 0x81F01058},
+    {.callsign_ = 0xEC316A9C, .owner_kind_ = 0x81F01058}, {.callsign_ = 0x20B566B1, .owner_kind_ = 0x81F01058}, {.callsign_ = 0xD5F6EA3B, .owner_kind_ = 0x81F01058}, {.callsign_ = 0, .owner_kind_ = 0x81F01058}}};
 
 namespace {
 

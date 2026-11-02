@@ -351,7 +351,7 @@ float steer_in(float in, bool on, float frame_length)
 
 ManualOutput manual_step(const ManualInput& in)
 {
-    ManualOutput out = {in.manual, in.nose, in.endo, in.angle, in.no_balance_frames_, ManualEvent::kNone};
+    ManualOutput out = {.manual = in.manual, .nose = in.nose, .endo = in.endo, .angle = in.angle, .no_balance_frames_ = in.no_balance_frames_, .event = ManualEvent::kNone};
     if (!out.manual) {
         // Steering: no manual. The stick held back (forward) longer than Physics_Ground_No_Lean_Time: a manual (a nose
         // manual); the front brake at speed going forwards: an endo (a nose manual on the front brake).
@@ -460,11 +460,11 @@ bool vert_window(float since, float window, bool* raise)
 
 maths::Vec4 wheel_base_normal(const maths::Vec4& normal, const maths::Vec4& front, const maths::Vec4& rear)
 {
-    maths::Vec4 base = {front.x - rear.x, front.y - rear.y, front.z - rear.z, front.w - rear.w};
+    maths::Vec4 base = {.x = front.x - rear.x, .y = front.y - rear.y, .z = front.z - rear.z, .w = front.w - rear.w};
     base.make_unit();
     auto along = static_cast<float>(dot3(base, normal));
-    maths::Vec4 result = {normal.x - base.x * along, normal.y - base.y * along, normal.z - base.z * along,
-                          normal.w - base.w * along};
+    maths::Vec4 result = {.x = normal.x - base.x * along, .y = normal.y - base.y * along, .z = normal.z - base.z * along,
+                          .w = normal.w - base.w * along};
     result.make_unit();
     return result;
 }
@@ -472,26 +472,26 @@ maths::Vec4 wheel_base_normal(const maths::Vec4& normal, const maths::Vec4& fron
 maths::Vec4 wheel_base_up(const maths::Vec4& right, const maths::Vec4& front, const maths::Vec4& rear,
                           const maths::Vec4& hit)
 {
-    maths::Vec4 d = {front.x - rear.x, front.y - rear.y, front.z - rear.z, 0.0f};
+    maths::Vec4 d = {.x = front.x - rear.x, .y = front.y - rear.y, .z = front.z - rear.z, .w = 0.0f};
     if (length3(d) > 0.0)
         d.make_unit();
-    maths::Vec4 r = {right.x, right.y, right.z, 0.0f};
+    maths::Vec4 r = {.x = right.x, .y = right.y, .z = right.z, .w = 0.0f};
     if (length3(r) > 0.0)
         r.make_unit();
-    maths::Vec4 up = {r.y * d.z - r.z * d.y, r.z * d.x - d.z * r.x, d.y * r.x - r.y * d.x, 0.0f};
+    maths::Vec4 up = {.x = r.y * d.z - r.z * d.y, .y = r.z * d.x - d.z * r.x, .z = d.y * r.x - r.y * d.x, .w = 0.0f};
     if (length3(up) > 0.0)
         up.make_unit();
     // The way that's nearer the ground's own normal.
     auto flip = [](float u, float n) { return std::fabs(n - u) > std::fabs(u + n); };
     if (flip(up.x, hit.x) || flip(up.y, hit.y) || flip(up.z, hit.z))
-        up = {-up.x, -up.y, -up.z, 0.0f};
+        up = {.x = -up.x, .y = -up.y, .z = -up.z, .w = 0.0f};
     return up;
 }
 
 WheelFeelResult feel_wheel_on(const WheelFeel& in)
 {
     // THAW 0x005D4EF0.
-    WheelFeelResult out = {false, false, in.wheel, 1, 0.0f, 0.0f, 0.0f, 0.0f};
+    WheelFeelResult out = {.ground = false, .move_wheel_ = false, .wheel = in.wheel, .why = 1, .distance = 0.0f, .reach = 0.0f, .turn = 0.0f, .limit = 0.0f};
     // (THAW: the differences and `along` in SSE floats, the distance on the x87)
     const float dx = in.wheel.x - in.point.x;
     const float dy = in.wheel.y - in.point.y;
@@ -499,8 +499,8 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     auto distance = static_cast<float>(
         std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx));
     const float along = in.up.z * dz + in.up.y * dy + in.up.x * dx; // (how far above the hit, along up)
-    const maths::Vec4 on_hit = {in.point.x + in.normal.x, in.point.y + in.normal.y, in.point.z + in.normal.z,
-                                in.point.w + in.normal.w};
+    const maths::Vec4 on_hit = {.x = in.point.x + in.normal.x, .y = in.point.y + in.normal.y, .z = in.point.z + in.normal.z,
+                                .w = in.point.w + in.normal.w};
     if (!in.skatable) {
         if (along < 0.001f) { // 0x006DBD98
             out.move_wheel_ = true;
@@ -510,7 +510,7 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     }
     maths::Vec4 direction = in.facing;
     if (in.backwards)
-        direction = {-direction.x, -direction.y, -direction.z, -direction.w};
+        direction = {.x = -direction.x, .y = -direction.y, .z = -direction.z, .w = -direction.w};
     auto into = static_cast<float>(static_cast<double>(direction.z) * in.normal.z +
                                    static_cast<double>(direction.y) * in.normal.y +
                                    static_cast<double>(direction.x) * in.normal.x);
@@ -564,7 +564,7 @@ StallSlipStep stall_slip(uint32_t elapsed, float slip_time, const maths::Vec4& v
 {
     // THAW 0x005E7092: the time since the state changed (unsigned) against stall_slip_time; under it, the kept
     // velocity x (1 / stall_slip_time) taken off - every component, w too.
-    StallSlipStep out = {false, velocity};
+    StallSlipStep out = {.stall = false, .velocity = velocity};
     if (static_cast<double>(elapsed) > static_cast<double>(slip_time)) {
         out.stall = true;
         return out;
@@ -597,7 +597,7 @@ maths::Vec4 stall_facing(const maths::Vec4& facing, const maths::Vec4& direction
     // the direction the other way (w too).
     const float dot = facing.z * direction.z + facing.y * direction.y + facing.x * direction.x;
     const float sign = dot >= 0.0f ? 1.0f : -1.0f;
-    return {direction.x * sign, direction.y * sign, direction.z * sign, direction.w * sign};
+    return {.x = direction.x * sign, .y = direction.y * sign, .z = direction.z * sign, .w = direction.w * sign};
 }
 
 } // namespace bike
@@ -782,7 +782,7 @@ void get_brake(SkaterPhysicsModule* core)
     const float slowing = get_frame_length(core) * tuning_float_lookup(core::at(kNames, choice), core);
     maths::Vec4& velocity = object_of(core)->vel_;
     if (length3(velocity) < static_cast<double>(slowing) * 2.0) {
-        velocity = {0.0f, 0.0f, 0.0f, 1.0f};
+        velocity = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         return;
     }
     maths::Vec4 slow = velocity;
@@ -937,7 +937,7 @@ void manual_pitch(SkaterPhysicsModule* core)
         back.y = 0.0f;
         back.make_unit();
         maths::Vec4& velocity = object->vel_;
-        velocity = {-back.x * kEndoBack, -back.y * kEndoBack, -back.z * kEndoBack, back.w};
+        velocity = {.x = -back.x * kEndoBack, .y = -back.y * kEndoBack, .z = -back.z * kEndoBack, .w = back.w};
         run_bike_script(core, kExitEndoScript);
         break;
     }
@@ -1095,8 +1095,8 @@ void air_rotation(SkaterPhysicsModule* core)
         const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
         const float head = tuning_float_lookup(kEyeLevelStat, core);
         core->probe_start_ = position;
-        core->probe_end_ = {position.x + up.x * head, position.y + up.y * head, position.z + up.z * head,
-                            position.w + up.w * head};
+        core->probe_end_ = {.x = position.x + up.x * head, .y = position.y + up.y * head, .z = position.z + up.z * head,
+                            .w = position.w + up.w * head};
         if (static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(0x10, 0))
             run_bike_script(core, kForceBailScript);
     }
@@ -1119,10 +1119,10 @@ WheelHit feel_wheel(SkaterPhysicsModule* core, maths::Vec4& wheel, const maths::
                     float above)
 {
     WheelHit result;
-    core->probe_start_ = {wheel.x + up.x * above, wheel.y + up.y * above, wheel.z + up.z * above,
-                          wheel.w + up.w * above};
-    core->probe_end_ = {wheel.x + up.x * kWheelFeelDown, wheel.y + up.y * kWheelFeelDown,
-                        wheel.z + up.z * kWheelFeelDown, wheel.w + up.w * kWheelFeelDown};
+    core->probe_start_ = {.x = wheel.x + up.x * above, .y = wheel.y + up.y * above, .z = wheel.z + up.z * above,
+                          .w = wheel.w + up.w * above};
+    core->probe_end_ = {.x = wheel.x + up.x * kWheelFeelDown, .y = wheel.y + up.y * kWheelFeelDown,
+                        .z = wheel.z + up.z * kWheelFeelDown, .w = wheel.w + up.w * kWheelFeelDown};
     if (!static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(0x10, 0))
         return result;
     const maths::Vec4 point = core->feeler_.contact_pos_;
@@ -1179,18 +1179,18 @@ void snap_wheels(SkaterPhysicsModule* core, BikeState& state, WheelHit& front, W
         state.rear_wheel_ = rear.point;
     // Under the skater (the component's own feeler, kept for the ground check after).
     const maths::Vec4 position = object->at_point_;
-    core->probe_start_ = {position.x + up.x * above, position.y + up.y * above, position.z + up.z * above,
-                          position.w + up.w * above};
-    core->probe_end_ = {position.x + up.x * kWheelFeelDown, position.y + up.y * kWheelFeelDown,
-                        position.z + up.z * kWheelFeelDown, position.w + up.w * kWheelFeelDown};
+    core->probe_start_ = {.x = position.x + up.x * above, .y = position.y + up.y * above, .z = position.z + up.z * above,
+                          .w = position.w + up.w * above};
+    core->probe_end_ = {.x = position.x + up.x * kWheelFeelDown, .y = position.y + up.y * kWheelFeelDown,
+                        .z = position.z + up.z * kWheelFeelDown, .w = position.w + up.w * kWheelFeelDown};
     main_hit = static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(0x10, 0);
     if (main_hit && tuning_float_lookup(kGroundSnapDown, core) < core->feeler_.reach_)
         main_hit = false;
     const maths::Vec4 main_point = core->feeler_.contact_pos_;
     // One wheel down: the other a wheel base from it - towards the ground under the skater, else along the facing.
     auto towards = [&](const maths::Vec4& from) {
-        maths::Vec4 d = main_hit ? maths::Vec4{main_point.x - from.x, main_point.y - from.y, main_point.z - from.z,
-                                               main_point.w - from.w}
+        maths::Vec4 d = main_hit ? maths::Vec4{.x = main_point.x - from.x, .y = main_point.y - from.y, .z = main_point.z - from.z,
+                                               .w = main_point.w - from.w}
                                  : facing;
         if (main_hit)
             d.make_unit();
@@ -1198,29 +1198,29 @@ void snap_wheels(SkaterPhysicsModule* core, BikeState& state, WheelHit& front, W
     };
     if (rear.hit && !front.hit) {
         const maths::Vec4 d = towards(state.rear_wheel_);
-        state.front_wheel_ = {state.rear_wheel_.x + d.x * kWheelBase, state.rear_wheel_.y + d.y * kWheelBase,
-                              state.rear_wheel_.z + d.z * kWheelBase, state.rear_wheel_.w + d.w * kWheelBase};
+        state.front_wheel_ = {.x = state.rear_wheel_.x + d.x * kWheelBase, .y = state.rear_wheel_.y + d.y * kWheelBase,
+                              .z = state.rear_wheel_.z + d.z * kWheelBase, .w = state.rear_wheel_.w + d.w * kWheelBase};
     } else if (front.hit && !rear.hit) {
         // (THAW subtracts here too - the rear a wheel base on from the front, past it, when the ground under the
         // skater was found: its slip; the rear goes back from the front, as the other case.)
         const maths::Vec4 d =
-            main_hit ? towards(state.front_wheel_) : maths::Vec4{-facing.x, -facing.y, -facing.z, -facing.w};
-        state.rear_wheel_ = {state.front_wheel_.x + d.x * kWheelBase, state.front_wheel_.y + d.y * kWheelBase,
-                             state.front_wheel_.z + d.z * kWheelBase, state.front_wheel_.w + d.w * kWheelBase};
+            main_hit ? towards(state.front_wheel_) : maths::Vec4{.x = -facing.x, .y = -facing.y, .z = -facing.z, .w = -facing.w};
+        state.rear_wheel_ = {.x = state.front_wheel_.x + d.x * kWheelBase, .y = state.front_wheel_.y + d.y * kWheelBase,
+                             .z = state.front_wheel_.z + d.z * kWheelBase, .w = state.front_wheel_.w + d.w * kWheelBase};
     }
     // Something between the rider and a wheel: the wheel there (out by its normal); nearly stopped, the bike pushed
     // back.
     for (maths::Vec4* wheel : {&state.front_wheel_, &state.rear_wheel_}) {
         render::ProbeRay feeler;
-        feeler.line_.start = {position.x + up.x * kWheelOffset, position.y + up.y * kWheelOffset,
-                              position.z + up.z * kWheelOffset, position.w + up.w * kWheelOffset};
-        feeler.line_.end = {wheel->x + up.x, wheel->y + up.y, wheel->z + up.z, wheel->w + up.w};
+        feeler.line_.start = {.x = position.x + up.x * kWheelOffset, .y = position.y + up.y * kWheelOffset,
+                              .z = position.z + up.z * kWheelOffset, .w = position.w + up.w * kWheelOffset};
+        feeler.line_.end = {.x = wheel->x + up.x, .y = wheel->y + up.y, .z = wheel->z + up.z, .w = wheel->w + up.w};
         if (feeler.get_hit_shape(true, false)) {
-            *wheel = {feeler.contact_pos_.x + feeler.surface_dir_.x, feeler.contact_pos_.y + feeler.surface_dir_.y,
-                      feeler.contact_pos_.z + feeler.surface_dir_.z, feeler.contact_pos_.w + feeler.surface_dir_.w};
+            *wheel = {.x = feeler.contact_pos_.x + feeler.surface_dir_.x, .y = feeler.contact_pos_.y + feeler.surface_dir_.y,
+                      .z = feeler.contact_pos_.z + feeler.surface_dir_.z, .w = feeler.contact_pos_.w + feeler.surface_dir_.w};
             maths::Vec4& velocity = object->vel_;
             if (length3(velocity) < kSlow)
-                velocity = {-velocity.x, -velocity.y, -velocity.z, -velocity.w};
+                velocity = {.x = -velocity.x, .y = -velocity.y, .z = -velocity.z, .w = -velocity.w};
         }
     }
 }
@@ -1319,8 +1319,8 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
     // On it: midway between the wheels, the ground normal across the wheel base.
     maths::Vec4& position = object->at_point_;
     position = {
-        (state.front_wheel_.x + state.rear_wheel_.x) * 0.5f, (state.front_wheel_.y + state.rear_wheel_.y) * 0.5f,
-        (state.front_wheel_.z + state.rear_wheel_.z) * 0.5f, (state.front_wheel_.w + state.rear_wheel_.w) * 0.5f};
+        .x = (state.front_wheel_.x + state.rear_wheel_.x) * 0.5f, .y = (state.front_wheel_.y + state.rear_wheel_.y) * 0.5f,
+        .z = (state.front_wheel_.z + state.rear_wheel_.z) * 0.5f, .w = (state.front_wheel_.w + state.rear_wheel_.w) * 0.5f};
     const maths::Vec4 up = bike::wheel_base_up(core::at(object->basis_frame_.row, 0), state.front_wheel_, state.rear_wheel_,
                                                core->feeler_.surface_dir_);
     static_cast<SkaterPhysicsModule*>(core)->turn_to_normal(up); // (THAW's 0x005D0BD0: THUG2's own)
@@ -1348,8 +1348,8 @@ bool lerp_display_normal(SkaterPhysicsModule* core)
                 t = 0.0f;
                 display = target;
             } else {
-                display = {(old.x - target.x) * t + target.x, (old.y - target.y) * t + target.y,
-                           (old.z - target.z) * t + target.z, (old.w - target.w) * t + target.w};
+                display = {.x = (old.x - target.x) * t + target.x, .y = (old.y - target.y) * t + target.y,
+                           .z = (old.z - target.z) * t + target.z, .w = (old.w - target.w) * t + target.w};
                 display.make_unit();
             }
         }
@@ -1390,14 +1390,14 @@ bool grind_side(SkaterPhysicsModule*, bool left_side, bool bad_ledge_on_that_sid
 bool acid_drop_direction(SkaterPhysicsModule* core, maths::Vec4* direction)
 {
     const maths::Vec4& facing = core::at(object_of(core)->basis_frame_.row, 2);
-    maths::Vec4 d = {facing.x, 0.0f, facing.z, facing.w};
+    maths::Vec4 d = {.x = facing.x, .y = 0.0f, .z = facing.z, .w = facing.w};
     const double length = std::sqrt(static_cast<double>(d.x) * d.x + static_cast<double>(d.z) * d.z);
     if (length > 0.0) {
         auto inverse = static_cast<float>(1.0 / length);
-        d = {d.x * inverse, 0.0f, d.z * inverse, d.w * inverse};
+        d = {.x = d.x * inverse, .y = 0.0f, .z = d.z * inverse, .w = d.w * inverse};
     }
     if (stick_raw(core, 1) > kAcidDropBack)
-        d = {-d.x, -d.y, -d.z, d.w};
+        d = {.x = -d.x, .y = -d.y, .z = -d.z, .w = d.w};
     *direction = d;
     return true;
 }
@@ -1463,7 +1463,7 @@ int enter_wheelie_from_air(SkaterPhysicsModule* core, script::Struct* params)
     state.nose_manual_ = params && params->has_bare_flag(kNose);
     const objects::PadSnapshot* pad = &core->input_->pad_primary_;
     if ((state.nose_manual_ ? pad->shoulder_left_a_ : pad->shoulder_right_a_).held_down_)
-        object_of(core)->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        object_of(core)->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     state.tire_tap_ = false;
     return 1;
 }

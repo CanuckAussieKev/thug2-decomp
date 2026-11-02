@@ -236,12 +236,12 @@ void SkaterPhysicsModule::step_grind_move()
     auto segment_length = static_cast<float>(std::sqrt((dx * dx + dy * dy) + dz * dz));
     const double inverse = 1.0 / segment_length;
     auto inverse_rounded = static_cast<float>(inverse);
-    const maths::Vec4 along = {static_cast<float>(inverse * dx), static_cast<float>(inverse_rounded * dy),
-                               static_cast<float>(inverse_rounded * dz), static_cast<float>(inverse_rounded * dw)};
+    const maths::Vec4 along = {.x = static_cast<float>(inverse * dx), .y = static_cast<float>(inverse_rounded * dy),
+                               .z = static_cast<float>(inverse_rounded * dz), .w = static_cast<float>(inverse_rounded * dw)};
 
     // The rail's gravity along it; turned back by it: the other way round (+0x34C).
     const float before = sign_of(dot3(along, entity_->vel_));
-    maths::Vec4 gravity = {0.0f, tuning_float_lookup(kRailGravity, object), 0.0f, 1.0f};
+    maths::Vec4 gravity = {.x = 0.0f, .y = tuning_float_lookup(kRailGravity, object), .z = 0.0f, .w = 1.0f};
     gravity.project_onto(along);
     {
         const float t = frame_length_;
@@ -395,7 +395,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     const objects::GrindPoint* next = node->succ_;
     const maths::Vec4 from = grind_point_in_world(this, node);
     const maths::Vec4 to = grind_point_in_world(this, next);
-    maths::Vec4 direction = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
+    maths::Vec4 direction = {.x = to.x - from.x, .y = to.y - from.y, .z = to.z - from.z, .w = to.w - from.w};
     direction.make_unit();
     const float sign = sign_of(dot3(direction, entity_->vel_));
     rail_time_ = get_now();
@@ -409,7 +409,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     // The facing: along the rail (the other way round with +0x34C); the display facing (+0x38) turned 0.3 of the way
     // to it, the display and the object's matrices built around them (level rights).
     const float way = rail_backwards_ ? -sign : sign;
-    const maths::Vec4 facing = {direction.x * way, direction.y * way, direction.z * way, way * direction.w};
+    const maths::Vec4 facing = {.x = direction.x * way, .y = direction.y * way, .z = direction.z * way, .w = way * direction.w};
     maths::Vec4& display = core::at(display_matrix_.row, 2);
     maths::Vec4 turned;
     walk::get_lerp(&turned, &display, &facing, kTurnFacing);
@@ -471,7 +471,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
         q.w = q.w + 1.0f;
     }
     const maths::Vec4& now = entity_->at_point_;
-    const maths::Vec4 move = {now.x - old.x, now.y - old.y, now.z - old.z, now.w - old.w};
+    const maths::Vec4 move = {.x = now.x - old.x, .y = now.y - old.y, .z = now.z - old.z, .w = now.w - old.w};
     maths::Vec4 move_direction = move;
     move_direction.make_unit();
 
@@ -574,13 +574,13 @@ void SkaterPhysicsModule::do_bike_stall_physics()
         const objects::GrindPoint* next = node->succ_;
         if (!next)
             return;
-        entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        entity_->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         if (state_of(this) == kBikeStall) {
             // 0x005E34AE: the facing along the segment the way it points, the display facing turned 0.3 of the way
             // to it and the matrices built round them as a grind's (grind_along); no move.
             const maths::Vec4 from = grind_point_in_world(this, node);
             const maths::Vec4 to = grind_point_in_world(this, next);
-            maths::Vec4 direction = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
+            maths::Vec4 direction = {.x = to.x - from.x, .y = to.y - from.y, .z = to.z - from.z, .w = to.w - from.w};
             direction.make_unit();
             rail_time_ = get_now();
             const maths::Vec4 facing = thaw_bmx::bike::stall_facing(core::at(entity_->basis_frame_.row, 2), direction);
@@ -609,7 +609,7 @@ void SkaterPhysicsModule::do_bike_stall_physics()
             object_right.make_unit();
             core::at(object->basis_frame_.row, 1) = maths::cross_vec(core::at(object->basis_frame_.row, 2), object_right);
             core::at(object->basis_frame_.row, 1).make_unit();
-            object->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+            object->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         }
     }
     // 0x005E37FE: on a rail too steep, grinding again; the ground normal the up, the score's rail time, the node's name.

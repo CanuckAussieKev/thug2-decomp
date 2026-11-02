@@ -119,7 +119,7 @@ void RiderRemoteSync::interpolate()
         skater->display_matrix_ = snapshot_orientation(frame);
         skater->at_point_ = frame_position(frame);
         skater->mark_jumped_ahead(true);
-        skater->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        skater->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         if (skater->get_flag_2c_4())
             return;
         skater->show_skater();
@@ -191,7 +191,7 @@ void RiderRemoteSync::interpolate()
                                       static_cast<double>(move.z) * move.z);
     if (distance > kTeleportDistance) {
         skater->at_point_ = frame_position(to);
-        skater->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        skater->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         skater->mark_jumped_ahead(true);
     } else {
         move = frame_position(from) + move * t; // (the move's storage now holds the position)
@@ -233,7 +233,7 @@ void RiderRemoteSync::interpolate()
     if (pose_->flag(PoseFlag::kAcidDrop).on)
         pose_->drop_velocity_ = skater->vel_;
     else
-        pose_->drop_velocity_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        pose_->drop_velocity_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x00515360
@@ -254,7 +254,7 @@ void RiderRemoteSync::get_extrapolate()
     const online::PlayerRecord* local = net->get_own_player();
     if (local && local->skater_) {
         maths::Vec4 theirs = local->skater_->vel_;
-        maths::Vec4 mine = {dx, dy, dz, dw};
+        maths::Vec4 mine = {.x = dx, .y = dy, .z = dz, .w = dw};
         theirs.make_unit();
         mine.make_unit();
         alignment = ((static_cast<double>(mine.x) * theirs.x + static_cast<double>(mine.z) * theirs.z) +
@@ -305,9 +305,9 @@ void RiderRemoteSync::get_extrapolate()
     const float raise_z = height * up.z;
     const float raise_y = height * up.y;
     const float raise_x = height * up.x;
-    const maths::Vec4 from = {raise_x + play_pos_.x, raise_y + play_pos_.y, raise_z + play_pos_.z,
-                              raise_w + play_pos_.w};
-    const maths::Vec4 to = {raise_x + pos.x, raise_y + pos.y, raise_z + pos.z, raise_w + pos.w};
+    const maths::Vec4 from = {.x = raise_x + play_pos_.x, .y = raise_y + play_pos_.y, .z = raise_z + play_pos_.z,
+                              .w = raise_w + play_pos_.w};
+    const maths::Vec4 to = {.x = raise_x + pos.x, .y = raise_y + pos.y, .z = raise_z + pos.z, .w = raise_w + pos.w};
     render::ProbeRay feeler;
     const double ex = static_cast<double>(from.x) - to.x;
     const double ey = static_cast<double>(from.y) - to.y;
@@ -338,11 +338,11 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     auto length = static_cast<float>(std::sqrt((sx * sx + sy * sy) + sz * sz));
     const double inverse = static_cast<double>(kOne) / length;
     auto rounded = static_cast<float>(inverse);
-    const maths::Vec4 along = {static_cast<float>(inverse * sx), static_cast<float>(rounded * sy),
-                               static_cast<float>(rounded * sz), static_cast<float>(rounded * sw)};
+    const maths::Vec4 along = {.x = static_cast<float>(inverse * sx), .y = static_cast<float>(rounded * sy),
+                               .z = static_cast<float>(rounded * sz), .w = static_cast<float>(rounded * sw)};
     // The rail's gravity along it.
     const float gravity = read_tuning_float(kRailGravity, 1, skater);
-    maths::Vec4 pull = {0.0f, gravity, 0.0f, 1.0f};
+    maths::Vec4 pull = {.x = 0.0f, .y = gravity, .z = 0.0f, .w = 1.0f};
     pull.project_onto(along);
     maths::Vec4& vel = skater->vel_;
     vel.x = static_cast<float>(static_cast<double>(pull.x) * seconds + vel.x);
@@ -430,7 +430,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     const GrindPoint* end = node->succ_;
     rails->get_absolute_pos(&p1, node);
     rails->get_absolute_pos(&p2, end);
-    maths::Vec4 segment = {p2.x - p1.x, p2.y - p1.y, p2.z - p1.z, p2.w - p1.w};
+    maths::Vec4 segment = {.x = p2.x - p1.x, .y = p2.y - p1.y, .z = p2.z - p1.z, .w = p2.w - p1.w};
     segment.make_unit();
     sign = -1.0f;
     if (!((static_cast<double>(segment.z) * vel.z + static_cast<double>(segment.y) * vel.y) +
@@ -442,18 +442,18 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     vel.y *= sign;
     vel.z *= sign;
     vel.w *= sign;
-    const maths::Vec4 heading = {segment.x * sign, segment.y * sign, segment.z * sign, segment.w * sign};
+    const maths::Vec4 heading = {.x = segment.x * sign, .y = segment.y * sign, .z = segment.z * sign, .w = segment.w * sign};
     maths::Mat4& m = skater->basis_frame_;
     core::at(m.row, 2) = heading;
     core::at(m.row, 2).make_unit();
-    core::at(m.row, 0) = {core::at(m.row, 2).z, 0.0f, -core::at(m.row, 2).x, 0.0f};
+    core::at(m.row, 0) = {.x = core::at(m.row, 2).z, .y = 0.0f, .z = -core::at(m.row, 2).x, .w = 0.0f};
     core::at(m.row, 0).make_unit();
     const maths::Vec4& r = core::at(m.row, 0);
     const maths::Vec4& at = core::at(m.row, 2);
     auto up_x = static_cast<float>(static_cast<double>(r.z) * at.y - static_cast<double>(r.y) * at.z);
     auto up_y = static_cast<float>(static_cast<double>(r.x) * at.z - static_cast<double>(at.x) * r.z);
     auto up_z = static_cast<float>(static_cast<double>(at.x) * r.y - static_cast<double>(r.x) * at.y);
-    core::at(m.row, 1) = {up_x, up_y, up_z, 0.0f};
+    core::at(m.row, 1) = {.x = up_x, .y = up_y, .z = up_z, .w = 0.0f};
     core::at(m.row, 1).make_unit();
     maths::Vec4& p = skater->at_point_;
     p.x = static_cast<float>(static_cast<double>(seconds) * vel.x + p.x);
@@ -484,7 +484,7 @@ void RiderRemoteSync::extrapolate_on_rail()
     const online::PlayerRecord* local = net->get_own_player();
     if (local) { // (its skater isn't checked here)
         maths::Vec4 theirs = local->skater_->vel_;
-        maths::Vec4 mine = {dx, dy, dz, dw};
+        maths::Vec4 mine = {.x = dx, .y = dy, .z = dz, .w = dw};
         theirs.make_unit();
         mine.make_unit();
         alignment = ((static_cast<double>(mine.z) * theirs.z + static_cast<double>(mine.y) * theirs.y) +
@@ -575,7 +575,7 @@ void RiderRemoteSync::play_history_events()
                     channel->set_speed(msg->speed_, false, false, false);
                 break;
             case 0x76: { // the model's three parts set going, by the message's bits
-                mesh_set_->pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
+                mesh_set_->pivot_ = {.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 1.0f};
                 const int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
                     if (msg->spin_axes_ & (1u << bit))

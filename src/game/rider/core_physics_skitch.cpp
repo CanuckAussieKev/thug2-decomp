@@ -81,7 +81,7 @@ void SkaterPhysicsModule::try_start_skitch()
         objects::GameEntity* car = skitch->entity_;
         if (car == object_of(this))
             continue;
-        maths::Vec4 point = {0.0f, 0.0f, 0.0f, 1.0f};
+        maths::Vec4 point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         const int index = closest_tow_point(skitch, &point, &entity_->at_point_);
         if (index == -1)
             continue;
@@ -153,7 +153,7 @@ void SkaterPhysicsModule::get_skitch()
             target.z = z + position.z;
             target.y = y + position.y;
             target.x = x + position.x;
-            maths::Vec4 point = {0.0f, 0.0f, 0.0f, 1.0f};
+            maths::Vec4 point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             const int index = closest_tow_point(skitch, &point, &target);
             if (index != skitch_point_) {
                 skitch_point_ = index;

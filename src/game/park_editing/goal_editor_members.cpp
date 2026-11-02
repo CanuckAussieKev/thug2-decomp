@@ -337,7 +337,7 @@ bool ObjectiveAuthoring::refresh_goal_cursor_position(script::Struct* /*params*/
 {
     if (!active_node_)
         return true;
-    maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 0.0f};
+    maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     float height = 0.0f, angle = 0.0f;
     active_node_->get_current_point(&pos, &height, &angle);
     script::Struct cursor;

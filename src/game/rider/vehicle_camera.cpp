@@ -31,7 +31,7 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 2> g_vehicle_camera_member_functions{{
-    {0x000469FD, 0x2C747D8A}, {0, 0x2C747D8A}}};
+    {.callsign_ = 0x000469FD, .owner_kind_ = 0x2C747D8A}, {.callsign_ = 0, .owner_kind_ = 0x2C747D8A}}};
 
 namespace {
 
@@ -66,7 +66,7 @@ maths::Vec4 get_behind(const maths::Vec4& position, float distance, const maths:
     const float y = distance * at.y;
     const float z = distance * at.z;
     const float w = distance * at.w;
-    return {static_cast<float>(position.x - x), position.y - y, position.z - z, position.w - w};
+    return {.x = static_cast<float>(position.x - x), .y = position.y - y, .z = position.z - z, .w = position.w - w};
 }
 
 } // namespace
@@ -134,7 +134,7 @@ void CarView::update_target_direction()
     }
     if (vehicle_->wheels_in_contact_ < 2) {
         if (!(speed < kMinFlatSpeed))
-            target_direction_ = {x, y, z, w};
+            target_direction_ = {.x = x, .y = y, .z = z, .w = w};
         return;
     }
     double scale = static_cast<double>(speed) * kSpeedScale;
@@ -145,7 +145,7 @@ void CarView::update_target_direction()
     const double b = -at.y;
     const double c = -at.z;
     auto along = static_cast<float>((c * z + b * y + a * x) * scale);
-    target_direction_ = {-at.x, -at.y, -at.z, -at.w};
+    target_direction_ = {.x = -at.x, .y = -at.y, .z = -at.z, .w = -at.w};
     target_direction_.y = 0.0f;
     target_direction_.make_unit();
     if (along > 0.0f) {
@@ -177,10 +177,10 @@ void CarView::update_orientation()
     maths::spin_by(heading, direction_.x, direction_.z, &rotated_x, &rotated_z);
     auto right = static_cast<float>(rotated_z);
     auto forward = static_cast<float>(rotated_x);
-    core::at(orientation_.row, 0) = {right, 0.0f, -forward, 1.0f};
-    core::at(orientation_.row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
-    core::at(orientation_.row, 2) = {forward, direction_.y, right, direction_.w};
-    core::at(orientation_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(orientation_.row, 0) = {.x = right, .y = 0.0f, .z = -forward, .w = 1.0f};
+    core::at(orientation_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
+    core::at(orientation_.row, 2) = {.x = forward, .y = direction_.y, .z = right, .w = direction_.w};
+    core::at(orientation_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     const maths::Vec4& subject = subject_->at_point_;
     const float back = right * reach_;
     anchor_point_.x = static_cast<float>(static_cast<double>(forward) * reach_ + subject.x);
@@ -199,7 +199,7 @@ void CarView::get_reset()
     free_look_->lean_angle_ = 0.0f;
     free_look_->locked_ = false;
     const maths::Vec4& at = core::at(subject_->basis_frame_.row, 2);
-    target_direction_ = {-at.x, -at.y, -at.z, -at.w};
+    target_direction_ = {.x = -at.x, .y = -at.y, .z = -at.z, .w = -at.w};
     target_direction_.y = 0.0f;
     target_direction_.make_unit();
     update_target_direction();

@@ -774,10 +774,10 @@ const char* Rider::fetch_shown_name()
 // 0x005815C0
 void Rider::glide_to_node(uint32_t name)
 {
-    core::at(basis_frame_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
-    core::at(basis_frame_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-    core::at(basis_frame_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
-    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(basis_frame_.row, 0) = {.x = 1.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(basis_frame_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+    core::at(basis_frame_.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 0.0f};
+    core::at(basis_frame_.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (!name)
         return;
     script::Struct* node = level_nodes::fetch_vertex(name, !net_link()->in_net_game());
@@ -1019,9 +1019,9 @@ void Rider::init_from_profile(RiderIdentity* profile)
             net::HandlerSlotValue code;
         };
         const auto handlers = std::to_array<HandlerEntry>({
-            {0x3B, &modules::PointTally::on_score_msg},        {0x44, &RiderFrameLog::handle_collision_messages},
-            {0x43, &RiderFrameLog::handle_collision_messages}, {0x85, &RiderFrameLog::handle_hit_messages},
-            {0x84, &RiderFrameLog::handle_hit_messages},       {0x4B, &RiderHostSync::handle_graffiti_steal}});
+            {.id = 0x3B, .code = &modules::PointTally::on_score_msg},        {.id = 0x44, .code = &RiderFrameLog::handle_collision_messages},
+            {.id = 0x43, .code = &RiderFrameLog::handle_collision_messages}, {.id = 0x85, .code = &RiderFrameLog::handle_hit_messages},
+            {.id = 0x84, .code = &RiderFrameLog::handle_hit_messages},       {.id = 0x4B, .code = &RiderHostSync::handle_graffiti_steal}});
         for (const auto& handler : handlers)
             dispatcher->append_listener(handler.id, handler.code, 0, this, 0x80);
     }
@@ -1122,10 +1122,10 @@ void Rider::launch_projectile()
     maths::Vec4 bone, rotated;
     core::down_cast<BoneRigModule>(fetch_module(0x222756D5))->get_local_bone_position(wrist, &bone);
     const maths::Vec4* turned = &basis_frame_.rotate_vector(rotated, bone);
-    const maths::Vec4 origin = {static_cast<float>(static_cast<double>(turned->x) + at_point_.x),
-                                static_cast<float>(static_cast<double>(turned->y) + at_point_.y),
-                                static_cast<float>(static_cast<double>(turned->z) + at_point_.z),
-                                static_cast<float>(static_cast<double>(turned->w) + at_point_.w)};
+    const maths::Vec4 origin = {.x = static_cast<float>(static_cast<double>(turned->x) + at_point_.x),
+                                .y = static_cast<float>(static_cast<double>(turned->y) + at_point_.y),
+                                .z = static_cast<float>(static_cast<double>(turned->z) + at_point_.z),
+                                .w = static_cast<float>(static_cast<double>(turned->w) + at_point_.w)};
     // The nearest projectile target (projectileproximity) ahead within the targeting distance and angle; a ped
     // that's been shot is left out, and a ped is aimed at a bone it chooses.
     float to_target_x = 0.0f, to_target_z = 0.0f;
@@ -1179,10 +1179,10 @@ void Rider::launch_projectile()
             maths::Vec4 turned_at;
             object->basis_frame_.rotate_vector(turned_at, at);
             at = turned_at;
-            aim = {static_cast<float>(static_cast<double>(at.x) + object->at_point_.x),
-                   static_cast<float>(static_cast<double>(at.y) + object->at_point_.y),
-                   static_cast<float>(static_cast<double>(at.z) + object->at_point_.z),
-                   static_cast<float>(static_cast<double>(at.w) + object->at_point_.w)};
+            aim = {.x = static_cast<float>(static_cast<double>(at.x) + object->at_point_.x),
+                   .y = static_cast<float>(static_cast<double>(at.y) + object->at_point_.y),
+                   .z = static_cast<float>(static_cast<double>(at.z) + object->at_point_.z),
+                   .w = static_cast<float>(static_cast<double>(at.w) + object->at_point_.w)};
         } else {
             aim = object->at_point_;
         }
@@ -1190,12 +1190,12 @@ void Rider::launch_projectile()
     // LaunchProjectile from there (at the target, when there is one beyond 100).
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-    params->put_vec3("pos", {origin.x, origin.y, origin.z, origin.w});
+    params->put_vec3("pos", {.x = origin.x, .y = origin.y, .z = origin.z, .w = origin.w});
     if (target && best > 100.0f) {
         params->push_float("ped_dist", best);
         params->push_float("heading_x", to_target_x);
         params->push_float("heading_z", to_target_z);
-        params->put_vec3("ped_pos", {aim.x, aim.y, aim.z, aim.w});
+        params->put_vec3("ped_pos", {.x = aim.x, .y = aim.y, .z = aim.z, .w = aim.w});
     }
     run_sub_script(0x86919CB6, params); // LaunchProjectile
     if (params) {

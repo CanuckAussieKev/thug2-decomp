@@ -436,7 +436,7 @@ void load_once()
         for (auto [array, at] : top_level_arrays(data, size)) {
             script::Array* ours = script::fetch_list(array);
             if (is_part_list(ours))
-                targets.push_back({array, ours, at});
+                targets.push_back({.name = array, .ours = ours, .theirs = at});
         }
     }
     for (const Target& target : targets) {

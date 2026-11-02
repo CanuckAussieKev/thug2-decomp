@@ -88,8 +88,8 @@ gsl::owner<ObjectModule*> RiderRemoteSync::fabricate() { return new RiderRemoteS
 RiderRemoteSync::RiderRemoteSync()
 {
     kind_tag_ = kSkaterNonLocalNetLogic;
-    play_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    last_play_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    play_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    last_play_pos_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x005144B0 (0x00514550 the deleting one)

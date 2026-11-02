@@ -96,7 +96,7 @@ gsl::owner<ObjectModule*> FootView::fabricate() { return new FootView; }
 FootView::FootView()
 {
     kind_tag_ = kWalkCamera;
-    aim_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    aim_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x00524C20 (0x00524F20 the deleting one)
@@ -278,10 +278,10 @@ void FootView::tick_frame()
 
     // Where to look: along the camera's flat facing, swung round to the skater's.
     const maths::Vec4& at = core::at(entity_->basis_frame_.row, 2);
-    maths::Vec4 facing = {-at.x, 0.0f, -at.z, -at.w};
+    maths::Vec4 facing = {.x = -at.x, .y = 0.0f, .z = -at.z, .w = -at.w};
     facing.make_unit();
     const maths::Vec4& skater_at = core::at(skater_->basis_frame_.row, 2);
-    maths::Vec4 skater_facing = {skater_at.x, 0.0f, skater_at.z, skater_at.w};
+    maths::Vec4 skater_facing = {.x = skater_at.x, .y = 0.0f, .z = skater_at.z, .w = skater_at.w};
     skater_facing.make_unit();
     if (flush_) {
         facing = skater_facing;
@@ -334,15 +334,15 @@ void FootView::tick_frame()
 
     // The orientation that looks along it, tilted down; its right and at rows negated.
     maths::Mat4 look{};
-    core::at(look.row, 0) = {facing.z, 0.0f, -facing.x, 1.0f};
-    core::at(look.row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
+    core::at(look.row, 0) = {.x = facing.z, .y = 0.0f, .z = -facing.x, .w = 1.0f};
+    core::at(look.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     core::at(look.row, 2) = facing;
-    core::at(look.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(look.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     maths::Mat4 tilt{};
     maths::make_pitch_matrix(tilt, free_look_->lean_angle_ + skater_camera_->lean_angle_);
     matrix_multiply(&look, &tilt, &look);
-    core::at(look.row, 0) = {-core::at(look.row, 0).x, -core::at(look.row, 0).y, -core::at(look.row, 0).z, -core::at(look.row, 0).w};
-    core::at(look.row, 2) = {-core::at(look.row, 2).x, -core::at(look.row, 2).y, -core::at(look.row, 2).z, -core::at(look.row, 2).w};
+    core::at(look.row, 0) = {.x = -core::at(look.row, 0).x, .y = -core::at(look.row, 0).y, .z = -core::at(look.row, 0).z, .w = -core::at(look.row, 0).w};
+    core::at(look.row, 2) = {.x = -core::at(look.row, 2).x, .y = -core::at(look.row, 2).y, .z = -core::at(look.row, 2).z, .w = -core::at(look.row, 2).w};
     const maths::Vec4 skater_up = core::at(skater_->basis_frame_.row, 1);
     maths::Mat4& matrix = entity_->basis_frame_;
     if (instant) {
@@ -420,43 +420,43 @@ void FootView::tick_frame()
     target.z = static_cast<float>(target.z + step_z);
     target.w = static_cast<float>(target.w + step_w);
     const maths::Vec4& skater_pos = skater_->at_point_;
-    const maths::Vec4 focus = {up_xf + skater_pos.x, static_cast<float>(up_y + skater_pos.y), up_zf + skater_pos.z,
-                               up_wf + skater_pos.w};
+    const maths::Vec4 focus = {.x = up_xf + skater_pos.x, .y = static_cast<float>(up_y + skater_pos.y), .z = up_zf + skater_pos.z,
+                               .w = up_wf + skater_pos.w};
 
     maths::Mat4 aim{};
     maths::Vec4& aim_at = core::at(aim.row, 2);
-    aim_at = {focus.x - target.x, focus.y - target.y, focus.z - target.z, focus.w - target.w};
+    aim_at = {.x = focus.x - target.x, .y = focus.y - target.y, .z = focus.z - target.z, .w = focus.w - target.w};
     aim_at.make_unit();
     const maths::Vec4 up = core::at(matrix.row, 1);
     maths::Vec4& right = core::at(aim.row, 0);
-    right = {static_cast<float>(static_cast<double>(up.y) * aim_at.z - static_cast<double>(up.z) * aim_at.y),
-             static_cast<float>(static_cast<double>(up.z) * aim_at.x - static_cast<double>(up.x) * aim_at.z),
-             static_cast<float>(static_cast<double>(up.x) * aim_at.y - static_cast<double>(up.y) * aim_at.x), 0.0f};
+    right = {.x = static_cast<float>(static_cast<double>(up.y) * aim_at.z - static_cast<double>(up.z) * aim_at.y),
+             .y = static_cast<float>(static_cast<double>(up.z) * aim_at.x - static_cast<double>(up.x) * aim_at.z),
+             .z = static_cast<float>(static_cast<double>(up.x) * aim_at.y - static_cast<double>(up.y) * aim_at.x), .w = 0.0f};
     right.make_unit();
     maths::Vec4& aim_up = core::at(aim.row, 1);
-    aim_up = {static_cast<float>(static_cast<double>(right.z) * aim_at.y - static_cast<double>(right.y) * aim_at.z),
-              static_cast<float>(static_cast<double>(right.x) * aim_at.z - static_cast<double>(right.z) * aim_at.x),
-              static_cast<float>(static_cast<double>(right.y) * aim_at.x - static_cast<double>(right.x) * aim_at.y),
-              0.0f};
+    aim_up = {.x = static_cast<float>(static_cast<double>(right.z) * aim_at.y - static_cast<double>(right.y) * aim_at.z),
+              .y = static_cast<float>(static_cast<double>(right.x) * aim_at.z - static_cast<double>(right.z) * aim_at.x),
+              .z = static_cast<float>(static_cast<double>(right.y) * aim_at.x - static_cast<double>(right.x) * aim_at.y),
+              .w = 0.0f};
     aim_up.make_unit();
-    core::at(matrix.row, 0) = {-right.x, -right.y, -right.z, -right.w};
+    core::at(matrix.row, 0) = {.x = -right.x, .y = -right.y, .z = -right.z, .w = -right.w};
     core::at(matrix.row, 1) = aim_up;
-    core::at(matrix.row, 2) = {-aim_at.x, -aim_at.y, -aim_at.z, -aim_at.w};
+    core::at(matrix.row, 2) = {.x = -aim_at.x, .y = -aim_at.y, .z = -aim_at.z, .w = -aim_at.w};
     core::at(matrix.row, 0).w = 0.0f;
     core::at(matrix.row, 1).w = 0.0f;
     core::at(matrix.row, 2).w = 0.0f;
-    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 
     // The collision check pulls the camera toward the point `distance` ahead of it (and the walk's offset).
     const double ahead_x = static_cast<double>(distance) * core::at(matrix.row, 2).x;
     const double ahead_y = static_cast<double>(distance) * core::at(matrix.row, 2).y;
     const float ahead_z = distance * core::at(matrix.row, 2).z;
     const float ahead_w = distance * core::at(matrix.row, 2).w;
-    const maths::Vec4 clear = {static_cast<float>(target.x - ahead_x), static_cast<float>(target.y - ahead_y),
-                               target.z - ahead_z, target.w - ahead_w};
+    const maths::Vec4 clear = {.x = static_cast<float>(target.x - ahead_x), .y = static_cast<float>(target.y - ahead_y),
+                               .z = target.z - ahead_z, .w = target.w - ahead_w};
     maths::Vec4 offset{};
     walk_->get_camera_offset(&offset);
-    const maths::Vec4 pull = {clear.x + offset.x, clear.y + offset.y, clear.z + offset.z, clear.w + offset.w};
+    const maths::Vec4 pull = {.x = clear.x + offset.x, .y = clear.y + offset.y, .z = clear.z + offset.z, .w = clear.w + offset.w};
     avoid_camera_collisions(&target, &matrix, &pull, &focus, true, true);
     target.w = 1.0f;
     entity_->at_point_ = target;

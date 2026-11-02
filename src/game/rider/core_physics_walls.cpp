@@ -209,19 +209,19 @@ void SkaterPhysicsModule::lean_push_off_wall()
     // Moved along the wall's normal to where it is (one up from the skater's position), unless that's blocked.
     const maths::Vec4& point = feeler_.contact_pos_;
     const maths::Vec4 normal = feeler_.surface_dir_;
-    maths::Vec4 along = {point.x - end.x, point.y - end.y, point.z - end.z, point.w - end.w};
+    maths::Vec4 along = {.x = point.x - end.x, .y = point.y - end.y, .z = point.z - end.z, .w = point.w - end.w};
     along.project_onto(normal);
     object = object_of(this);
     const maths::Vec4& up2 = core::at(object->basis_frame_.row, 1);
     const maths::Vec4& position2 = object->at_point_;
-    start = {up2.x + position2.x, up2.y + position2.y, up2.z + position2.z, up2.w + position2.w};
-    end = {along.x + start.x, along.y + start.y, along.z + start.z, along.w + start.w};
+    start = {.x = up2.x + position2.x, .y = up2.y + position2.y, .z = up2.z + position2.z, .w = up2.w + position2.w};
+    end = {.x = along.x + start.x, .y = along.y + start.y, .z = along.z + start.z, .w = along.w + start.w};
     if (probe_touches_zone(0x10, 0))
         return;
     object = object_of(this);
     maths::Vec4& p = object->at_point_;
     const maths::Vec4& u = core::at(object->basis_frame_.row, 1);
-    p = {end.x - u.x, end.y - u.y, end.z - u.z, end.w - u.w};
+    p = {.x = end.x - u.x, .y = end.y - u.y, .z = end.z - u.z, .w = end.w - u.w};
 }
 
 // 0x00504EE0
@@ -255,11 +255,11 @@ bool SkaterPhysicsModule::keep_off_ceiling()
         return false;
     // A ceiling: the skater slid along it to below it, its velocity into its plane.
     const maths::Vec4& point = feeler_.contact_pos_;
-    maths::Vec4 along = {point.x - end.x, point.y - end.y, point.z - end.z, point.w - end.w};
+    maths::Vec4 along = {.x = point.x - end.x, .y = point.y - end.y, .z = point.z - end.z, .w = point.w - end.w};
     along.project_onto(normal);
     start = entity_->at_point_;
     const maths::Vec4& position = entity_->at_point_;
-    end = {along.x + position.x, along.y + position.y, along.z + position.z, along.w + position.w};
+    end = {.x = along.x + position.x, .y = along.y + position.y, .z = along.z + position.z, .w = along.w + position.w};
     if (probe_touches_zone(0x10, 0)) // (nudged along the new hit's normal)
         entity_->at_point_ = feeler_.contact_pos_ + kCeilingNudge * feeler_.surface_dir_;
     else
@@ -295,16 +295,16 @@ bool SkaterPhysicsModule::keep_off_ceiling_at_wall()
     if (normal.y > kCeilingSteepest)
         return false;
     const maths::Vec4& point = feeler_.contact_pos_;
-    maths::Vec4 along = {point.x - end.x, point.y - end.y, point.z - end.z, point.w - end.w};
+    maths::Vec4 along = {.x = point.x - end.x, .y = point.y - end.y, .z = point.z - end.z, .w = point.w - end.w};
     along.project_onto(normal);
     start = entity_->at_point_;
     const maths::Vec4& p = entity_->at_point_;
-    end = {along.x + p.x, along.y + p.y, along.z + p.z, along.w + p.w};
+    end = {.x = along.x + p.x, .y = along.y + p.y, .z = along.z + p.z, .w = along.w + p.w};
     maths::Vec4& position2 = entity_->at_point_;
     if (probe_touches_zone(0x10, 0)) {
         const maths::Vec4& hit = feeler_.contact_pos_;
         const maths::Vec4& n = feeler_.surface_dir_;
-        position2 = {n.x + hit.x, n.y + hit.y, n.z + hit.z, n.w + hit.w};
+        position2 = {.x = n.x + hit.x, .y = n.y + hit.y, .z = n.z + hit.z, .w = n.w + hit.w};
     } else {
         position2 = end;
     }
@@ -324,13 +324,13 @@ void SkaterPhysicsModule::check_wall_ahead()
         return;
     // A feeler Skater_First_Forward_Collision_Length along the move, from Skater_First_Forward_Collision_Height up
     // the skater at its last position to that height at its new one.
-    maths::Vec4 move = {position.x - old.x, position.y - old.y, position.z - old.z, position.w - old.w};
+    maths::Vec4 move = {.x = position.x - old.x, .y = position.y - old.y, .z = position.z - old.z, .w = position.w - old.w};
     move.make_unit();
     object = object_of(this);
     const double height = tuning_float_lookup(kForwardHeight, object);
     const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
-    const maths::Vec4 lift = {static_cast<float>(height * up.x), static_cast<float>(height * up.y),
-                              static_cast<float>(height * up.z), static_cast<float>(height * up.w)};
+    const maths::Vec4 lift = {.x = static_cast<float>(height * up.x), .y = static_cast<float>(height * up.y),
+                              .z = static_cast<float>(height * up.z), .w = static_cast<float>(height * up.w)};
     const maths::Vec4& last = entity_->old_pos_;
     maths::Vec4& start = probe_start_;
     start.z = lift.z + last.z;
@@ -360,8 +360,8 @@ void SkaterPhysicsModule::check_wall_ahead()
         const double into = static_cast<double>(normal.z) * ground.z + static_cast<double>(normal.y) * ground.y +
                             static_cast<double>(normal.x) * ground.x;
         if (!(std::fabs(into) < kWallFlat)) {
-            const maths::Vec4 out = {normal.x * kWallPushOut, normal.y * kWallPushOut, normal.z * kWallPushOut,
-                                     normal.w * kWallPushOut};
+            const maths::Vec4 out = {.x = normal.x * kWallPushOut, .y = normal.y * kWallPushOut, .z = normal.z * kWallPushOut,
+                                     .w = normal.w * kWallPushOut};
             entity_->at_point_ = feeler_.contact_pos_;
             entity_->at_point_ += out;
             collision_events::note_path(this, collision_events::RouteWay::kWallAheadClimb,
@@ -387,14 +387,14 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     const maths::Vec4& position = object->at_point_;
     const maths::Vec4& old = object->old_pos_;
     // The move (rounded), and its direction.
-    const maths::Vec4 move = {position.x - old.x, position.y - old.y, position.z - old.z, 0.0f};
-    maths::Vec4 direction = {move.x, move.y, move.z, position.w - old.w};
+    const maths::Vec4 move = {.x = position.x - old.x, .y = position.y - old.y, .z = position.z - old.z, .w = 0.0f};
+    maths::Vec4 direction = {.x = move.x, .y = move.y, .z = move.z, .w = position.w - old.w};
     direction.make_unit();
     object = object_of(this);
     const double height = tuning_float_lookup(kForwardHeight, object);
     const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
-    const maths::Vec4 lift = {static_cast<float>(height * up.x), static_cast<float>(height * up.y),
-                              static_cast<float>(height * up.z), static_cast<float>(height * up.w)};
+    const maths::Vec4 lift = {.x = static_cast<float>(height * up.x), .y = static_cast<float>(height * up.y),
+                              .z = static_cast<float>(height * up.z), .w = static_cast<float>(height * up.w)};
     float turn = 0.0f;
     const float angle = deflect_from_wall(normal, &turn, 1.0f);
 
@@ -452,7 +452,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
                                      static_cast<double>(move.y) * move.y));
     maths::Vec4 heading = object->vel_;
     heading.make_unit();
-    const maths::Vec4 travel = {heading.x * moved, heading.y * moved, heading.z * moved, heading.w * moved};
+    const maths::Vec4 travel = {.x = heading.x * moved, .y = heading.y * moved, .z = heading.z * moved, .w = heading.w * moved};
     maths::Vec4& start = probe_start_;
     const maths::Vec4& here = object->at_point_;
     start.z = lift.z + here.z;
@@ -472,8 +472,8 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     const double by = static_cast<double>(lift.y) + now.y;
     const float bz = lift.z + now.z;
     const float bw = lift.w + now.w;
-    const maths::Vec4 base = {static_cast<float>(bx + travel.x), static_cast<float>(by + travel.y), bz + travel.z,
-                              bw + travel.w};
+    const maths::Vec4 base = {.x = static_cast<float>(bx + travel.x), .y = static_cast<float>(by + travel.y), .z = bz + travel.z,
+                              .w = bw + travel.w};
     maths::Vec4& end = probe_end_;
     end.x = static_cast<float>(static_cast<double>(base.x) + ax);
     end.y = static_cast<float>(static_cast<double>(base.y) + ay);

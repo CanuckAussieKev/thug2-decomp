@@ -240,8 +240,8 @@ void get_reset()
 // A probe line: as the skater's feelers see (faces flagged 0x10 skipped), or every face.
 Face get_probe(const std::array<float, 3>& from, const std::array<float, 3>& to, bool everything)
 {
-    const maths::Vec4 start = {std::get<0>(from), std::get<1>(from), std::get<2>(from), 1.0f};
-    const maths::Vec4 end = {std::get<0>(to), std::get<1>(to), std::get<2>(to), 1.0f};
+    const maths::Vec4 start = {.x = std::get<0>(from), .y = std::get<1>(from), .z = std::get<2>(from), .w = 1.0f};
+    const maths::Vec4 end = {.x = std::get<0>(to), .y = std::get<1>(to), .z = std::get<2>(to), .w = 1.0f};
     render::ProbeRay ray_storage(&start, &end);
     render::ProbeRay* feeler = &ray_storage;
     feeler->set_excluded(everything ? 0 : 0x10, 0);

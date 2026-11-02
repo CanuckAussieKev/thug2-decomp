@@ -164,7 +164,7 @@ float SkaterPhysicsModule::deflect_from_wall(const maths::Vec4* normal, float* t
     // Not original: THAW 0x005CCBF0 (the on-bike flag tested first, 0x005CCBF6) - on the bike rolling backwards into a
     // wall: stopped, no bounce (`turn` left as it is).
     if (thaw_bmx::live_now(this) && thaw_bmx::rolling_backwards(this)) {
-        entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        entity_->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         return 0.0f;
     }
     const maths::Vec4& side = core::at(entity_->basis_frame_.row, 0);
@@ -194,7 +194,7 @@ bool SkaterPhysicsModule::turn_down_slope()
     // Along the velocity, or the facing when hardly moving: turned towards straight down the slope.
     const maths::Vec4 heading =
         length_unrounded(object->vel_) < kSlopeTurnSpeed ? core::at(object->basis_frame_.row, 2) : object->vel_;
-    maths::Vec4 down = {0.0f, -1.0f, 0.0f, 1.0f};
+    maths::Vec4 down = {.x = 0.0f, .y = -1.0f, .z = 0.0f, .w = 1.0f};
     down.flatten_onto_plane(floor_normal_);
     object = object_of(this);
     const double off = maths::get_turn_around_axis(heading, down, core::at(object->basis_frame_.row, 1));
@@ -335,9 +335,9 @@ void SkaterPhysicsModule::recover_in_air()
     auto rate = static_cast<float>(stat_value(object, kRecoverRateStat));
     object = object_of(this);
     const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
-    maths::Vec4 flat = {up.x, 0.0f, up.z, up.w};
+    maths::Vec4 flat = {.x = up.x, .y = 0.0f, .z = up.z, .w = up.w};
     flat.make_unit();
-    const maths::Vec4 axis = {-flat.z, 0.0f, flat.x, 0.0f};
+    const maths::Vec4 axis = {.x = -flat.z, .y = 0.0f, .z = flat.x, .w = 0.0f};
     object->basis_frame_.spin_by(axis, rate * frame_length_);
     display_matrix_ = entity_->basis_frame_;
 }

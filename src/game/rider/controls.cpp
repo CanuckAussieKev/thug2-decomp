@@ -88,7 +88,7 @@ bool try_walk_acid_drop(objects::FootMovement* walk)
 {
     if (!buttons_held(walk))
         return false;
-    maths::Vec4 velocity = {walk->vel_.x, walk->up_speed_, walk->vel_.z, 1.0f};
+    maths::Vec4 velocity = {.x = walk->vel_.x, .y = walk->up_speed_, .z = walk->vel_.z, .w = 1.0f};
     if (!find_acid_drop(walk, &velocity))
         return false;
     walk->ride_->start_riding(&walk->feeler_);

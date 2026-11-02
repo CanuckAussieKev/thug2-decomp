@@ -93,13 +93,13 @@ void RiderPhysicsTweaks::keep_above_ground()
             if (uber_frig_tries_ < 5) {
                 const auto& offset = core::at(kUberFrigOffsets, uber_frig_tries_++);
                 const maths::Vec4& from = core->safe_pos_;
-                position = {core::at(offset, 0) + from.x, from.y + core::at(offset, 1), from.z + core::at(offset, 2),
-                            from.w + core::at(offset, 3)};
+                position = {.x = core::at(offset, 0) + from.x, .y = from.y + core::at(offset, 1), .z = from.z + core::at(offset, 2),
+                            .w = from.w + core::at(offset, 3)};
             } else {
                 uber_frig_tries_ = 0;
             }
             maths::Vec4& velocity = object->vel_;
-            velocity = {-velocity.x + kNudgeXy, -velocity.y + kNudgeXy, -velocity.z + kNudgeZ, -velocity.w + kOne};
+            velocity = {.x = -velocity.x + kNudgeXy, .y = -velocity.y + kNudgeXy, .z = -velocity.z + kNudgeZ, .w = -velocity.w + kOne};
             state = state_of(core);
             if (state != 0 && state != 1)
                 change_phase(core, 1);
@@ -148,31 +148,31 @@ void RiderPhysicsTweaks::keep_above_ground()
         // at half the speed the other way (a lip: out of it, into the air, 2 up); hardly moved: onto it.
         render::ProbeRay feeler;
         feeler.set_excluded(0x810, 0);
-        const maths::Vec4 from = {position.x, static_cast<float>(static_cast<double>(position.y) + kFloorProbeHeight),
-                                  position.z, position.w};
+        const maths::Vec4 from = {.x = position.x, .y = static_cast<float>(static_cast<double>(position.y) + kFloorProbeHeight),
+                                  .z = position.z, .w = position.w};
         feeler.change_origin(&from);
-        maths::Vec4 to = {up.x + position.x, position.y + up.y, position.z + up.z, position.w + up.w};
+        maths::Vec4 to = {.x = up.x + position.x, .y = position.y + up.y, .z = position.z + up.z, .w = position.w + up.w};
         // Not original: on the bike as far up as the ground check's start (thaw_bmx_physics.cpp stuck_check_raise).
         if (raise != 0.0f)
             to.y += raise;
         feeler.change_finish(&to);
         if (feeler.get_hit_shape(true, false)) {
-            const maths::Vec4 off = {position.x - feeler.contact_pos_.x, position.y - feeler.contact_pos_.y,
-                                     position.z - feeler.contact_pos_.z, position.w - feeler.contact_pos_.w};
+            const maths::Vec4 off = {.x = position.x - feeler.contact_pos_.x, .y = position.y - feeler.contact_pos_.y,
+                                     .z = position.z - feeler.contact_pos_.z, .w = position.w - feeler.contact_pos_.w};
             const double near = static_cast<double>(off.x) * off.x + static_cast<double>(off.y) * off.y +
                                 static_cast<double>(off.z) * off.z;
             if (near < kFloorNear) {
                 position = feeler.contact_pos_;
             } else {
                 const maths::Vec4& began = core->safe_pos_;
-                const maths::Vec4 moved = {position.x - began.x, position.y - began.y, position.z - began.z,
-                                           position.w - began.w};
+                const maths::Vec4 moved = {.x = position.x - began.x, .y = position.y - began.y, .z = position.z - began.z,
+                                           .w = position.w - began.w};
                 const double moved_sqr = static_cast<double>(moved.x) * moved.x +
                                          static_cast<double>(moved.y) * moved.y +
                                          static_cast<double>(moved.z) * moved.z;
                 position = moved_sqr < kOne ? feeler.contact_pos_ : began;
                 maths::Vec4& velocity = object->vel_;
-                velocity = {kBounce * velocity.x, kBounce * velocity.y, kBounce * velocity.z, kBounce * velocity.w};
+                velocity = {.x = kBounce * velocity.x, .y = kBounce * velocity.y, .z = kBounce * velocity.z, .w = kBounce * velocity.w};
                 if (state_of(core) == 4) {
                     change_phase(core, 1);
                     static_cast<Entity*>(object)->post_own_event(kUnderTheFloor, nullptr);

@@ -446,7 +446,7 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
         // NOT ORIGINAL: no positions past the message's end (the original read on)
         if (!online::read_hunt_position(reader, at))
             break;
-        const script::VectorValue position = {core::at(at, 0), core::at(at, 1), core::at(at, 2), core::at(at, 3)};
+        const script::VectorValue position = {.x = core::at(at, 0), .y = core::at(at, 1), .z = core::at(at, 2), .w = core::at(at, 3)};
         const script::StructPtr params = script::make_struct();
         params->put_int(kIndex, i);
         params->put_int(kObjId, static_cast<int>(player_skater(player)->ident_));
@@ -831,7 +831,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         maths::Mat4 matrix{};
         matrix.set_from_euler_angles(core::at(angles, 0), core::at(angles, 1), core::at(angles, 2));
         cur.matrix = matrix;
-        cur.position = {core::at(position, 0), core::at(position, 1), core::at(position, 2), 0.0f};
+        cur.position = {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 0.0f};
         if (!(fields & 0x40)) {
             state = static_cast<uint8_t>(prev.state);
             flag74 = prev.flag74;
@@ -1057,8 +1057,8 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     matrix.set_from_euler_angles(core::at(angles, 0), core::at(angles, 1), core::at(angles, 2));
     cur.matrix = matrix;
     // (TP-R6: whole units in a big level)
-    cur.position = {thugpro::unpack_horizontal(core::at(pos, 0)), thugpro::unpack_height(core::at(pos, 1)),
-                    thugpro::unpack_horizontal(core::at(pos, 2)), 0.0f};
+    cur.position = {.x = thugpro::unpack_horizontal(core::at(pos, 0)), .y = thugpro::unpack_height(core::at(pos, 1)),
+                    .z = thugpro::unpack_horizontal(core::at(pos, 2)), .w = 0.0f};
     cur.time = static_cast<uint16_t>(time);
     cur.wraps = static_cast<uint16_t>(time >> 16);
     for (int k = 0; k < 3; ++k) {

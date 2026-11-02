@@ -49,11 +49,11 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 19> g_walk_member_functions{{
-    {0x893213E5, 0x726E85AA}, {0x5012082E, 0x726E85AA}, {0x9A3CA853, 0x726E85AA}, {0x19702CA8, 0x726E85AA},
-    {0x8FE2B013, 0x726E85AA}, {0xCE64576C, 0x726E85AA}, {0x83E4BD70, 0x726E85AA}, {0xAF04B983, 0x726E85AA},
-    {0x56112C03, 0x726E85AA}, {0x9D3EEBE8, 0x726E85AA}, {0xC6CD659E, 0x726E85AA}, {0x55BF1CD6, 0x726E85AA},
-    {0xE9B1CDE8, 0x726E85AA}, {0xAC7B36C8, 0x726E85AA}, {0x7E01B923, 0x726E85AA}, {0x492EBA50, 0x726E85AA},
-    {0xF8F754EF, 0x726E85AA}, {0x8BC2C0EC, 0x726E85AA}, {0, 0x726E85AA}}};
+    {.callsign_ = 0x893213E5, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x5012082E, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x9A3CA853, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x19702CA8, .owner_kind_ = 0x726E85AA},
+    {.callsign_ = 0x8FE2B013, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xCE64576C, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x83E4BD70, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xAF04B983, .owner_kind_ = 0x726E85AA},
+    {.callsign_ = 0x56112C03, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x9D3EEBE8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xC6CD659E, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x55BF1CD6, .owner_kind_ = 0x726E85AA},
+    {.callsign_ = 0xE9B1CDE8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0xAC7B36C8, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x7E01B923, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x492EBA50, .owner_kind_ = 0x726E85AA},
+    {.callsign_ = 0xF8F754EF, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0x8BC2C0EC, .owner_kind_ = 0x726E85AA}, {.callsign_ = 0, .owner_kind_ = 0x726E85AA}}};
 
 namespace {
 
@@ -169,7 +169,7 @@ void FootMovement::change_phase(int state)
     }
     if (previous == 1) {
         leap_duration_ = 0.0f;
-        jump_velocity_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        jump_velocity_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         off_vert_ = false;
     }
     if (state == 0) {
@@ -177,7 +177,7 @@ void FootMovement::change_phase(int state)
         unknown1874_ = true;
     }
     if (state == 4)
-        climb_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        climb_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (state != 1)
         pushing_ = false;
     if (state == 0 || previous_state_ != 1)
@@ -198,7 +198,7 @@ void FootMovement::change_phase(int state)
 }
 
 // 0x005260C0
-void FootMovement::clear_model_offset() { model_->shift_ = {0.0f, 0.0f, 0.0f, 1.0f}; }
+void FootMovement::clear_model_offset() { model_->shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; }
 
 // 0x00524E10
 bool FootMovement::using_dpad()
@@ -222,11 +222,11 @@ maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
         offset = state > 1 && state <= 4;
     }
     if (!offset) {
-        *out = {0.0f, 0.0f, 0.0f, 1.0f};
+        *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         return out;
     }
     const maths::Vec4& facing = facing_;
-    *out = {facing.x * kCameraOffset, facing.y * kCameraOffset, facing.z * kCameraOffset, facing.w * kCameraOffset};
+    *out = {.x = facing.x * kCameraOffset, .y = facing.y * kCameraOffset, .z = facing.z * kCameraOffset, .w = facing.w * kCameraOffset};
     return out;
 }
 

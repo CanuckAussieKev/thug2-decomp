@@ -223,7 +223,7 @@ maths::Vec4 ParkLayout::cell_to_world_pos(const CellBox& area, maths::Vec4* dime
         dimensions->y = static_cast<float>(area.h) * cell_size_y();
         dimensions->z = static_cast<float>(area.l) * cell_size_z();
     }
-    return {x, y, z, 1.0f};
+    return {.x = x, .y = y, .z = z, .w = 1.0f};
 }
 
 bool ParkLayout::is_area_blocked(CellBox area)

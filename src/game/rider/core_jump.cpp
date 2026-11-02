@@ -319,7 +319,7 @@ int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script*)
     if (state_of(this) != kLip && state == kLipName)
         rail_node_ = nullptr;
     if (state_of(this) == kWallRide) {
-        turn_to_normal(maths::Vec4{0.0f, 1.0f, 0.0f, 1.0f});
+        turn_to_normal(maths::Vec4{.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f});
         display_matrix_ = entity_->basis_frame_;
     }
     switch (state) {

@@ -575,7 +575,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
         }
         copy_name(name, get_skater_name(player_object(player)));
     }
-    const script::VectorValue push = {core::at(ran_into.push, 0), core::at(ran_into.push, 1), core::at(ran_into.push, 2), core::at(ran_into.push, 3)};
+    const script::VectorValue push = {.x = core::at(ran_into.push, 0), .y = core::at(ran_into.push, 1), .z = core::at(ran_into.push, 2), .w = core::at(ran_into.push, 3)};
     send_event(skater, 0x915E5E39, name.data(), 0x2F679251, other_driving, &push);
     return net::kResultPassOn;
 }

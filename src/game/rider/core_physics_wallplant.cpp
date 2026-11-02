@@ -102,7 +102,7 @@ bool wall_above_hit(SkaterPhysicsModule* component)
 {
     maths::Vec4 point = component->feeler_.contact_pos_;
     const maths::Vec4 normal = component->feeler_.surface_dir_;
-    maths::Vec4 rise = {0.0f, object_of(component)->vel_.y * kRiseScale, 0.0f, 1.0f};
+    maths::Vec4 rise = {.x = 0.0f, .y = object_of(component)->vel_.y * kRiseScale, .z = 0.0f, .w = 1.0f};
     rise.align_to_plane(normal);
     point += rise;
     const maths::Vec4 end = point - normal * kProbe;
@@ -166,7 +166,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             late_pos_ = entity_->at_point_;
             objects::GameEntity* o = object_of(this);
             const maths::Vec4& v = o->vel_;
-            maths::Vec4 back = {-v.x, 0.0f, -v.z, v.w};
+            maths::Vec4 back = {.x = -v.x, .y = 0.0f, .z = -v.z, .w = v.w};
             back.make_unit();
             maths::Vec4& p = o->at_point_;
             const float y = back.y * kBackOff;
@@ -186,7 +186,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             objects::GameEntity* o = object_of(this);
             const maths::Vec4& position = o->at_point_;
             const maths::Vec4& old = o->old_pos_;
-            maths::Vec4 move = {position.x - old.x, position.y - old.y, position.z - old.z, position.w - old.w};
+            maths::Vec4 move = {.x = position.x - old.x, .y = position.y - old.y, .z = position.z - old.z, .w = position.w - old.w};
             move.make_unit();
             const double height = tuning_float_lookup(kForwardHeight, o);
             const maths::Vec4& up = core::at(o->basis_frame_.row, 1);
@@ -194,7 +194,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
                  hy = static_cast<float>(height * up.y), hx = static_cast<float>(height * up.x);
             const maths::Vec4& last = entity_->old_pos_;
             maths::Vec4& start = probe_start_;
-            start = {hx + last.x, hy + last.y, hz + last.z, hw + last.w};
+            start = {.x = hx + last.x, .y = hy + last.y, .z = hz + last.z, .w = hw + last.w};
             const double length = tuning_float_lookup(kForwardLength, object_of(this));
             auto lw = static_cast<float>(move.w * length), lz = static_cast<float>(move.z * length),
                  ly = static_cast<float>(move.y * length), lx = static_cast<float>(length * move.x);
@@ -204,7 +204,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             const float y = hy + now.y;
             const float x = hx + now.x;
             maths::Vec4& end = probe_end_;
-            end = {x + lx, y + ly, z + lz, static_cast<float>(w + lw)};
+            end = {.x = x + lx, .y = y + ly, .z = z + lz, .w = static_cast<float>(w + lw)};
             if (!probe_touches_zone(0x10, 0))
                 return false;
         }
@@ -212,7 +212,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         // Walking: a feeler 36 the other way from the facing, at the forward collision height.
         objects::GameEntity* object = object_of(this);
         const maths::Vec4& facing = core::at(object->basis_frame_.row, 2);
-        maths::Vec4 direction = {-facing.x, facing.y, -facing.z, facing.w};
+        maths::Vec4 direction = {.x = -facing.x, .y = facing.y, .z = -facing.z, .w = facing.w};
         direction.make_unit();
         const float height = tuning_float_lookup(kForwardHeight, object);
         const maths::Vec4 lift = core::at(object->basis_frame_.row, 1) * height;
@@ -308,7 +308,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     forward = object->vel_;
     core::at(entity_->basis_frame_.row, 2).y = 0.0f;
     core::at(entity_->basis_frame_.row, 2).make_unit();
-    core::at(entity_->basis_frame_.row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
+    core::at(entity_->basis_frame_.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     object = object_of(this);
     core::at(object->basis_frame_.row, 0) = maths::cross_vec(core::at(object->basis_frame_.row, 1), core::at(object->basis_frame_.row, 2));
     display_matrix_ = entity_->basis_frame_;
@@ -344,13 +344,13 @@ bool SkaterPhysicsModule::start_wall_ride()
     // Fast enough along the wall, not upside down, not head-on, not tilted too far.
     maths::Vec4& wall = wall_normal_;
     wall = feeler_.surface_dir_;
-    maths::Vec4 flat_wall = {wall.x, 0.0f, wall.z, wall.w};
+    maths::Vec4 flat_wall = {.x = wall.x, .y = 0.0f, .z = wall.z, .w = wall.w};
     flat_wall.make_unit();
     objects::GameEntity* object = object_of(this);
     const maths::Vec4& v = object->vel_;
-    maths::Vec4 heading = {v.x, 0.0f, v.z, v.w};
+    maths::Vec4 heading = {.x = v.x, .y = 0.0f, .z = v.z, .w = v.w};
     heading.make_unit();
-    maths::Vec4 along = {v.x, 0.0f, v.z, v.w};
+    maths::Vec4 along = {.x = v.x, .y = 0.0f, .z = v.z, .w = v.w};
     along.flatten_onto_plane(flat_wall);
     auto speed = static_cast<float>(length_unrounded(along));
     if (script::fetch_float(kWallRideMinSpeed) > speed)

@@ -229,7 +229,7 @@ ParkRailPoint* ParkRailSet::append_rail_vertex()
     lend_pool(pair, point_pool_);
     auto* point = pair.allocate<ParkRailPoint>();
     if (point) {
-        point->at_point_ = {0.0f, 0.0f, 0.0f, 0.0f};
+        point->at_point_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
         point->following_ = nullptr;
     }
     take_back_pool(pair);

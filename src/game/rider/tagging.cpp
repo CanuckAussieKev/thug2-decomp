@@ -335,12 +335,12 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     const float back_y = facing.y * kInch;
     const float back_z = facing.z * kInch;
     const double back_w = static_cast<double>(facing.w) * kInch;
-    feeler.line_.start = {from.x - back_x, from.y - back_y, from.z - back_z, static_cast<float>(from.w - back_w)};
+    feeler.line_.start = {.x = from.x - back_x, .y = from.y - back_y, .z = from.z - back_z, .w = static_cast<float>(from.w - back_w)};
     const float ahead_x = facing.x * reach;
     const float ahead_y = facing.y * reach;
     const float ahead_z = facing.z * reach;
     const double ahead_w = static_cast<double>(facing.w) * reach;
-    feeler.line_.end = {from.x + ahead_x, from.y + ahead_y, from.z + ahead_z, static_cast<float>(ahead_w + from.w)};
+    feeler.line_.end = {.x = from.x + ahead_x, .y = from.y + ahead_y, .z = from.z + ahead_z, .w = static_cast<float>(ahead_w + from.w)};
     if (!feeler.get_hit_shape(true, false)) {
         debug::printf("No contact found for sticker?\n"); // "No contact found for sticker?"
         return false;
@@ -355,13 +355,13 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     auto nxf = static_cast<float>(static_cast<double>(normal.x) * kInch);
     auto nwf = static_cast<float>(nw);
     auto nyf = static_cast<float>(ny);
-    const maths::Vec4 inside = {static_cast<float>(point.x - static_cast<double>(nxf)),
-                                static_cast<float>(point.y - ny), static_cast<float>(point.z - nz),
-                                static_cast<float>(point.w - static_cast<double>(nwf))};
-    const maths::Vec4 outside = {static_cast<float>((point.x + static_cast<double>(nxf)) + 1.0),
-                                 static_cast<float>(point.y + static_cast<double>(nyf)),
-                                 static_cast<float>(static_cast<float>(point.z + nz) + 1.0),
-                                 static_cast<float>(point.w + static_cast<double>(nwf))};
+    const maths::Vec4 inside = {.x = static_cast<float>(point.x - static_cast<double>(nxf)),
+                                .y = static_cast<float>(point.y - ny), .z = static_cast<float>(point.z - nz),
+                                .w = static_cast<float>(point.w - static_cast<double>(nwf))};
+    const maths::Vec4 outside = {.x = static_cast<float>((point.x + static_cast<double>(nxf)) + 1.0),
+                                 .y = static_cast<float>(point.y + static_cast<double>(nyf)),
+                                 .z = static_cast<float>(static_cast<float>(point.z + nz) + 1.0),
+                                 .w = static_cast<float>(point.w + static_cast<double>(nwf))};
     if (!pending_) {
         if (sticker) {
             pending_ = true;
@@ -428,12 +428,12 @@ bool TaggingControlComponent::try_tagging()
         feeler.set_excluded(0x3000, 0);
         const float back_z = dz * kInch;
         const float back_x = dx * kInch;
-        feeler.line_.start = {joint_world.x - back_x, joint_world.y, joint_world.z - back_z,
-                              static_cast<float>(joint_world.w - 12.0)};
+        feeler.line_.start = {.x = joint_world.x - back_x, .y = joint_world.y, .z = joint_world.z - back_z,
+                              .w = static_cast<float>(joint_world.w - 12.0)};
         const float ahead_z = dz * reach;
         const float ahead_x = dx * reach;
-        feeler.line_.end = {joint_world.x + ahead_x, joint_world.y + rise, joint_world.z + ahead_z,
-                            static_cast<float>(static_cast<double>(reach) + joint_world.w)};
+        feeler.line_.end = {.x = joint_world.x + ahead_x, .y = joint_world.y + rise, .z = joint_world.z + ahead_z,
+                            .w = static_cast<float>(static_cast<double>(reach) + joint_world.w)};
         if (feeler.get_hit_shape(true, false)) {
             core::at(hits, i) = feeler.contact_pos_;
             core::at(distances, i) = std::fabs(feeler.reach_);
@@ -464,13 +464,13 @@ bool TaggingControlComponent::try_tagging()
     const float back_x = dx * kInch;
     for (int j = 0; j < 5; ++j) {
         feeler.set_excluded(0x3000, 0);
-        feeler.line_.start = {joint_world.x - back_x, joint_world.y, joint_world.z - back_z,
-                              static_cast<float>(joint_world.w - 12.0)};
+        feeler.line_.start = {.x = joint_world.x - back_x, .y = joint_world.y, .z = joint_world.z - back_z,
+                              .w = static_cast<float>(joint_world.w - 12.0)};
         const float ahead_z = dz * distance;
         const auto ahead_y = static_cast<float>(distance * 0.0);
         const float ahead_x = dx * distance;
-        feeler.line_.end = {joint_world.x + ahead_x, joint_world.y + ahead_y, joint_world.z + ahead_z,
-                            static_cast<float>(static_cast<double>(distance) + joint_world.w)};
+        feeler.line_.end = {.x = joint_world.x + ahead_x, .y = joint_world.y + ahead_y, .z = joint_world.z + ahead_z,
+                            .w = static_cast<float>(static_cast<double>(distance) + joint_world.w)};
         if (feeler.get_hit_shape(true, false))
             break;
         distance = static_cast<float>(distance + 10.0);

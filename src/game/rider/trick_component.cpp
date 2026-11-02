@@ -31,7 +31,7 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 4> g_trick_component_member_functions{{
-    {0xE4AB4785, 0x270F56E1}, {0x46D49242, 0x270F56E1}, {0x1FC98415, 0x270F56E1}, {0, 0x270F56E1}}};
+    {.callsign_ = 0xE4AB4785, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0x46D49242, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0x1FC98415, .owner_kind_ = 0x270F56E1}, {.callsign_ = 0, .owner_kind_ = 0x270F56E1}}};
 
 namespace {
 
@@ -763,7 +763,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
         return true;
     }
     case 0x7FA5CDBB: { // Tap: the button pressed, then released (the button map left alone)
-        static const auto kSteps = std::to_array<Step>({{2, 0}, {1, 0}});
+        static const auto kSteps = std::to_array<Step>({{.type = 2, .button = 0}, {.type = 1, .button = 0}});
         const Scan scan = match_steps(this, kSteps, buttons, read_trigger(node, 1, buttons), mask);
         if (scan != Scan::kFound)
             return scan == Scan::kStopped ? false : fail();
@@ -771,23 +771,23 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
         return true;
     }
     case 0x7D482318: { // InOrder: the first pressed, then the second
-        static const auto kSteps = std::to_array<Step>({{1, 1}, {1, 0}});
+        static const auto kSteps = std::to_array<Step>({{.type = 1, .button = 1}, {.type = 1, .button = 0}});
         return finish(match_steps(this, kSteps, buttons, read_trigger(node, 2, buttons), mask));
     }
     case 0xFFB718BD: { // PressAndRelease: the first pressed, then the second released
-        static const auto kSteps = std::to_array<Step>({{2, 1}, {1, 0}});
+        static const auto kSteps = std::to_array<Step>({{.type = 2, .button = 1}, {.type = 1, .button = 0}});
         return finish(match_steps(this, kSteps, buttons, read_trigger(node, 2, buttons), mask));
     }
     case 0x2C434C90: { // TapTwiceRelease: the first pressed twice, then the second released
-        static const auto kSteps = std::to_array<Step>({{2, 1}, {1, 0}, {1, 0}});
+        static const auto kSteps = std::to_array<Step>({{.type = 2, .button = 1}, {.type = 1, .button = 0}, {.type = 1, .button = 0}});
         return finish(match_steps(this, kSteps, buttons, read_trigger(node, 2, buttons), mask));
     }
     case 0xC1AD35C0: { // TripleInOrderSloppy: the first, second and third pressed in turn
-        static const auto kSteps = std::to_array<Step>({{1, 2}, {1, 1}, {1, 0}});
+        static const auto kSteps = std::to_array<Step>({{.type = 1, .button = 2}, {.type = 1, .button = 1}, {.type = 1, .button = 0}});
         return finish(match_steps(this, kSteps, buttons, read_trigger(node, 3, buttons), mask));
     }
     case 0x3FE7C311: { // TripleInOrderStrict: the first tapped, the second tapped, then the third pressed
-        static const auto kSteps = std::to_array<Step>({{1, 2}, {2, 1}, {1, 1}, {2, 0}, {1, 0}});
+        static const auto kSteps = std::to_array<Step>({{.type = 1, .button = 2}, {.type = 2, .button = 1}, {.type = 1, .button = 1}, {.type = 2, .button = 0}, {.type = 1, .button = 0}});
         return finish(match_steps(this, kSteps, buttons, read_trigger(node, 3, buttons), mask));
     }
     case 0xA2E042D7: { // TripleInOrder: the first tapped, then the second and third pressed (in either order)

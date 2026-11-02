@@ -210,12 +210,12 @@ maths::Vec4 tire_tap_velocity(const maths::Vec4& velocity)
 
 TapStep tire_tap_step(const maths::Vec4& position, const maths::Vec4& tap)
 {
-    TapStep step = {position, false, false};
-    const maths::Vec4 toward = {tap.x - position.x, 0.0f, tap.z - position.z, 0.0f};
+    TapStep step = {.position = position, .ends = false, .lands = false};
+    const maths::Vec4 toward = {.x = tap.x - position.x, .y = 0.0f, .z = tap.z - position.z, .w = 0.0f};
     const double distance = std::sqrt(dot3(toward, toward));
     if (distance < kTapReach) {
         if (tap.y > position.y) {
-            step.position = {tap.x, tap.y, tap.z, position.w};
+            step.position = {.x = tap.x, .y = tap.y, .z = tap.z, .w = position.w};
             step.lands = true;
         } else {
             step.position.x = tap.x;
@@ -335,12 +335,12 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
         }
         // (phase 7: THAW's search direction is the bike's down flattened - THAW 0x005DC290 zeroes its y - out
         // over the deck; phase 4 took the down itself)
-        maths::Vec4 down = {-up.x, 0.0f, -up.z, -up.w};
+        maths::Vec4 down = {.x = -up.x, .y = 0.0f, .z = -up.z, .w = -up.w};
         down.make_unit();
         // NOLINTNEXTLINE(bugprone-float-loop-counter): a float step, as intended
         for (float depth = kTapSearchStart; depth > kTapSearchEnd; depth -= kTapSearchStep) {
             const maths::Vec4 from = position + depth * down;
-            const maths::Vec4 to = {from.x, from.y - kTapDrop, from.z, from.w};
+            const maths::Vec4 to = {.x = from.x, .y = from.y - kTapDrop, .z = from.z, .w = from.w};
             core->probe_start_ = from;
             core->probe_end_ = to;
             if (!physics->probe_touches_zone(0x10, 0) || (core->feeler_.hit_.face_flags_ & 8))
@@ -360,7 +360,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     direction.w = 0.0f;
     if (dot3(direction, direction) > 0.0)
         direction.make_unit();
-    maths::Vec4 end = {position.x, position.y - kTapDrop, position.z, 1.0f};
+    maths::Vec4 end = {.x = position.x, .y = position.y - kTapDrop, .z = position.z, .w = 1.0f};
     if (not_vert)
         end = position + kTapAhead * direction;
     // A ledge (phase 7, THAW 0x005DC290: looked for in vert too, and taken over a surface found below unless it's
@@ -424,8 +424,8 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
             state.landed_from_tire_tap_ = state.tap_ledge_;
         }
     } else {
-        maths::Vec4 pull = {state.tap_point_.x - state.tap_start_.x, 0.0f, state.tap_point_.z - state.tap_start_.z,
-                            0.0f};
+        maths::Vec4 pull = {.x = state.tap_point_.x - state.tap_start_.x, .y = 0.0f, .z = state.tap_point_.z - state.tap_start_.z,
+                            .w = 0.0f};
         if (dot3(pull, pull) > 0.0)
             pull.make_unit();
         velocity.x += pull.x * kTapPull;

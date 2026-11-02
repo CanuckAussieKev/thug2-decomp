@@ -87,22 +87,22 @@ struct BikeState {
     bool tap_ledge_ = false;     // +0x54D the tap point is a ledge's (a rail's), not a surface below
     float tap_pitch_ = 0.0f;     // (ours) how far the bike has turned over for the tire tap so far (radians)
     bool landed_from_tire_tap_ = false;                 // +0x70D (THAW: +0x54E copied at the landing)
-    maths::Vec4 tap_point_{0.0f, 0.0f, 0.0f, 1.0f};     // +0x52C where the wheel taps
-    maths::Vec4 tap_start_{0.0f, 0.0f, 0.0f, 1.0f};     // +0x53C where the bike was then
+    maths::Vec4 tap_point_{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};     // +0x52C where the wheel taps
+    maths::Vec4 tap_start_{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};     // +0x53C where the bike was then
     bool skid = false;                                  // +0x550 BikeEnterSkid / BikeExitSkid
     bool can_skid_ = true;                              // +0x558 (THAW's constructor sets it)
     int skid_timer_ = 0;                                // +0x554
     bool endo = false;                                  // +0x4D0 / +0x4E4 (exitbikeendo clears them)
-    maths::Vec4 endo_velocity_{0.0f, 0.0f, 0.0f, 1.0f}; // +0x4D4 the velocity the endo began with
+    maths::Vec4 endo_velocity_{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // +0x4D4 the velocity the endo began with
     float manual_angle_ = kManualAngleReset;            // +0x56C
     int no_balance_frames_ = 0;                         // +0x18CC frames the manual pitch waits after a manual starts
     bool over_grind_ = false;                           // +0x18C8
     float air_pitch_ = 0.0f;                            // +0x66C the pitch in the air so far (degrees; 0 on the ground)
     float last_air_pitch_ = 0.0f; // +0x18C0 air_pitch_ as the last air frame began (PitchingForward / PitchingBackward)
-    maths::Vec4 front_wheel_{0.0f, 0.0f, 0.0f, 1.0f};              // +0x18D0
-    maths::Vec4 rear_wheel_{0.0f, 0.0f, 0.0f, 1.0f};               // +0x18E0
-    maths::Vec4 last_front_wheel_{0.0f, 0.0f, 0.0f, 1.0f};         // +0x18F0 (at the frame's start)
-    maths::Vec4 last_rear_wheel_{0.0f, 0.0f, 0.0f, 1.0f};          // +0x1900
+    maths::Vec4 front_wheel_{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};              // +0x18D0
+    maths::Vec4 rear_wheel_{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};               // +0x18E0
+    maths::Vec4 last_front_wheel_{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};         // +0x18F0 (at the frame's start)
+    maths::Vec4 last_rear_wheel_{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};          // +0x1900
     StickButton stick_up_, stick_down_, stick_left_, stick_right_; // (THAW's pad +0x280 / +0x2A0 / +0x2C0 / +0x2E0)
     bool vert_ground_noted_ = false; // (ours: THAW's constructor 0x005CF6A0 sets +0x6F8 - never on vert ground yet)
     int vert_ground_time_ = 0;       // +0x6F8 the game clock (with its offset) last on vert ground
@@ -110,7 +110,7 @@ struct BikeState {
     bool steer_anim_ = false;        // (ours) bike_playturnanim's turn animation on (the member ThawBmxSteerAnim)
     float steer_in_ = 0.0f;          // (ours) how far THAW's tree has blended the turn branch in (0 .. 1)
     bool stall_script_ = false;      // +0x49D ShouldRunStallScript (R1 held as the grind started)
-    maths::Vec4 stall_velocity_{0.0f, 0.0f, 0.0f, 1.0f}; // +0x4A0 the velocity the grind began with
+    maths::Vec4 stall_velocity_{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}; // +0x4A0 the velocity the grind began with
     int stall_steep_frames_ = 0; // +0x724 frames stalled on a steep rail (never reset but by the constructor)
     // (THAW's trick component, thaw_bmx_sticks.cpp) each stick's exclusive direction (0 none, 1-8: left, right) and
     // +0x1C14, the right stick centred since BikePress last counted (1 after a reset)

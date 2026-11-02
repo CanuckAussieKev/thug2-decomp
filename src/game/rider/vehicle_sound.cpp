@@ -32,7 +32,7 @@
 namespace objects {
 
 std::array<script::MemberFunctionEntry, 4> g_vehicle_sound_member_functions{{
-    {0xB8451886, 0x1859F772}, {0x0F6E8120, 0x1859F772}, {0xF876FAE9, 0x1859F772}, {0, 0x1859F772}}};
+    {.callsign_ = 0xB8451886, .owner_kind_ = 0x1859F772}, {.callsign_ = 0x0F6E8120, .owner_kind_ = 0x1859F772}, {.callsign_ = 0xF876FAE9, .owner_kind_ = 0x1859F772}, {.callsign_ = 0, .owner_kind_ = 0x1859F772}}};
 
 namespace {
 

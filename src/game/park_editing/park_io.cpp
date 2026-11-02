@@ -468,7 +468,7 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         return false;
     // The trigger's position (x87 arithmetic: x is stored as a float on the way, z isn't). For a rotation past 3
     // the previous half's position is used again (the original's are left unset before the first half).
-    maths::Vec4 at = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 at = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     for (int half = 0; half < gap->halves_placed_; ++half) {
         CellBox& pos = core::at(gap->at_point_, half);
         pos.w = 1;

@@ -86,9 +86,9 @@ void SkaterPhysicsModule::do_ground_physics()
     if (length_of(object->vel_) > kMoving)
         object->vel_.align_to_plane(floor_normal_);
     // Gravity along the ground (+0x360's instead going up while +0x350 is set).
-    maths::Vec4 gravity = {0.0f, tuning_float_lookup(kGroundGravity, object_of(this)), 0.0f, 1.0f};
+    maths::Vec4 gravity = {.x = 0.0f, .y = tuning_float_lookup(kGroundGravity, object_of(this)), .z = 0.0f, .w = 1.0f};
     if (!(limits_time_ == 0.0f) && entity_->vel_.y > 0.0f)
-        gravity = {0.0f, limits_gravity_, 0.0f, 1.0f};
+        gravity = {.x = 0.0f, .y = limits_gravity_, .z = 0.0f, .w = 1.0f};
     gravity.flatten_onto_plane(floor_normal_);
     const bool bike = thaw_bmx::live_now(this); // (not original: THAW's bike branches, thaw_bmx_physics.cpp)
     if (bike)
@@ -140,7 +140,7 @@ void SkaterPhysicsModule::do_ground_physics()
     {
         const float t = frame_length_;
         const maths::Vec4& v = entity_->vel_;
-        step = {t * v.x, t * v.y, t * v.z, t * v.w};
+        step = {.x = t * v.x, .y = t * v.y, .z = t * v.z, .w = t * v.w};
     }
     if (bit_mark(this, PoseFlag::kSkitching)) {
         const objects::RideTracker* tracker = get_tracker(this);
@@ -148,9 +148,9 @@ void SkaterPhysicsModule::do_ground_physics()
             void* skitched = tracker->entity_.get_pull();
             const float match = script::fetch_float(kSkitchSpeedMatch);
             const maths::Vec4& theirs = static_cast<objects::GameEntity*>(skitched)->vel_;
-            entity_->vel_ = {match * theirs.x, match * theirs.y, match * theirs.z, match * theirs.w};
+            entity_->vel_ = {.x = match * theirs.x, .y = match * theirs.y, .z = match * theirs.z, .w = match * theirs.w};
         }
-        step = {0.0f, 0.0f, 0.0f, 1.0f};
+        step = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         get_skitch();
     }
     // Carried by what the skater rides on (not while skitching - that's the ride).

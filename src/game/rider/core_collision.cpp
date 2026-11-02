@@ -54,7 +54,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     const double dz = static_cast<double>(position.z) - from->z;
     const float dy = position.y - from->y;
     const float dx = position.x - from->x;
-    maths::Vec4 direction = {dx, dy, static_cast<float>(dz), 0.0f};
+    maths::Vec4 direction = {.x = dx, .y = dy, .z = static_cast<float>(dz), .w = 0.0f};
     const double length = std::sqrt((static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + dz * dz);
     if (length > 0.0) {
         const double scale = 1.0 / length;
@@ -67,7 +67,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     // move.
     const float height = tuning_float_lookup(kForwardHeight, object);
     const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
-    const maths::Vec4 raise = {height * up.x, height * up.y, height * up.z, height * up.w};
+    const maths::Vec4 raise = {.x = height * up.x, .y = height * up.y, .z = height * up.z, .w = height * up.w};
     maths::Vec4& start = probe_start_;
     start.x = raise.x + from->x;
     start.y = raise.y + from->y;
@@ -287,7 +287,7 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
         // Pushed out of it by a tenth of how far into it the skater is (the hit's distance under the reach, less
         // the extra air reach).
         const maths::Vec4& point = feeler_.contact_pos_;
-        maths::Vec4 into = {point.x - start.x, point.y - start.y, point.z - start.z, point.w - start.w};
+        maths::Vec4 into = {.x = point.x - start.x, .y = point.y - start.y, .z = point.z - start.z, .w = point.w - start.w};
         const double distance =
             std::sqrt((static_cast<double>(into.z) * into.z + static_cast<double>(into.y) * into.y) +
                       static_cast<double>(into.x) * into.x);

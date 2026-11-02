@@ -64,15 +64,15 @@ objects::Rider* local_skater()
     return core::down_cast<objects::Rider>(skate_calls::get_home_rider());
 }
 
-Point point_of(const maths::Vec4& v) { return {v.x, v.y, v.z}; }
+Point point_of(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z}; }
 
 // The game's collision ray (static collision, the nearest hit): true and the point when something is hit.
 bool get_hit(Point from, Point to, Point* at)
 {
     render::ProbeRay ray_storage;
     render::ProbeRay* feeler = &ray_storage;
-    const maths::Vec4 start = {from.x, from.y, from.z, 1.0f};
-    const maths::Vec4 end = {to.x, to.y, to.z, 1.0f};
+    const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
+    const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0f};
     if (!feeler->get_collision_along(&start, &end, false))
         return false;
     if (at)
@@ -82,7 +82,7 @@ bool get_hit(Point from, Point to, Point* at)
 
 bool get_clear(Point a, Point b)
 {
-    return !get_hit({a.x, a.y + kEyeHeight, a.z}, {b.x, b.y + kEyeHeight, b.z}, nullptr);
+    return !get_hit({.x = a.x, .y = a.y + kEyeHeight, .z = a.z}, {.x = b.x, .y = b.y + kEyeHeight, .z = b.z}, nullptr);
 }
 
 // The start spot: the first candidate with ground near the start's height and a clear line from the start.
@@ -92,11 +92,11 @@ Kickoff find_start_spot(Point pos, float heading)
     start_spot_candidates(pos, heading, kStartSpotDistance, candidates);
     for (const Point& c : candidates) {
         Point ground{};
-        if (!get_hit({c.x, pos.y + kGroundAbove, c.z}, {c.x, pos.y - kGroundBelow, c.z}, &ground))
+        if (!get_hit({.x = c.x, .y = pos.y + kGroundAbove, .z = c.z}, {.x = c.x, .y = pos.y - kGroundBelow, .z = c.z}, &ground))
             continue;
         if (std::fabs(ground.y - pos.y) > kGroundStep || !get_clear(pos, ground))
             continue;
-        return {true, ground, heading};
+        return {.valid = true, .pos = ground, .heading = heading};
     }
     return {};
 }
@@ -125,7 +125,7 @@ bool thaw_spot(Point* pos, float* heading)
         if (!bike || !bike->read_hash_value("level", &level_name, 0) || level_name != want ||
             !bike->fetch_vec("pos", &p, 0))
             continue;
-        *pos = {p.x, p.y, p.z};
+        *pos = {.x = p.x, .y = p.y, .z = p.z};
         *heading = 0.0f;
         bike->fetch_float("heading", heading, 0);
         return true;
@@ -147,13 +147,13 @@ void place_skater(objects::Rider* skater, Point pos, float heading)
     const double h = static_cast<double>(heading) * kPi / 180.0;
     auto s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
     for (maths::Mat4* m : {&skater->basis_frame_, &skater->display_matrix_}) {
-        core::at(m->row, 0) = {c, 0.0f, -s, 0.0f};
-        core::at(m->row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
-        core::at(m->row, 2) = {s, 0.0f, c, 0.0f};
+        core::at(m->row, 0) = {.x = c, .y = 0.0f, .z = -s, .w = 0.0f};
+        core::at(m->row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 0.0f};
+        core::at(m->row, 2) = {.x = s, .y = 0.0f, .z = c, .w = 0.0f};
     }
     if (skater->core_physics_)
         skater->core_physics_->display_matrix_ = skater->basis_frame_; // (its display matrix)
-    skater->at_point_ = {pos.x, pos.y, pos.z, 1.0f};
+    skater->at_point_ = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
     skater->old_pos_ = skater->at_point_;
 }
 
@@ -226,7 +226,7 @@ bool step_toward(Point from, Point to, float step, Point* out)
         return true;
     }
     const float t = step / distance;
-    *out = {from.x + dx * t, from.y + (to.y - from.y) * t, from.z + dz * t};
+    *out = {.x = from.x + dx * t, .y = from.y + (to.y - from.y) * t, .z = from.z + dz * t};
     return false;
 }
 
@@ -260,18 +260,18 @@ void start_spot_candidates(Point pos, float heading, float distance, std::span<P
     auto ax = static_cast<float>(std::sin(h)), az = static_cast<float>(std::cos(h));  // (at)
     const float rx = az;
     const float rz = -ax; // (right: up x at)
-    core::at(out, 0) = {pos.x + rx * distance, pos.y, pos.z + rz * distance};
-    core::at(out, 1) = {pos.x - rx * distance, pos.y, pos.z - rz * distance};
-    core::at(out, 2) = {pos.x - ax * distance, pos.y, pos.z - az * distance};
-    core::at(out, 3) = {pos.x + ax * distance, pos.y, pos.z + az * distance};
+    core::at(out, 0) = {.x = pos.x + rx * distance, .y = pos.y, .z = pos.z + rz * distance};
+    core::at(out, 1) = {.x = pos.x - rx * distance, .y = pos.y, .z = pos.z - rz * distance};
+    core::at(out, 2) = {.x = pos.x - ax * distance, .y = pos.y, .z = pos.z - az * distance};
+    core::at(out, 3) = {.x = pos.x + ax * distance, .y = pos.y, .z = pos.z + az * distance};
 }
 
 void register_parked_functions()
 {
     static const auto kFunctions = std::to_array<script::NativeCommand>({
-        {"ThawBmx_HomeSpot", &cfunc_home_spot},
-        {"ThawBmx_WalkToBike", &cfunc_walk_to_bike},
-        {"ThawBmx_BikeReachable", &cfunc_bike_reachable},
+        {.name = "ThawBmx_HomeSpot", .function = &cfunc_home_spot},
+        {.name = "ThawBmx_WalkToBike", .function = &cfunc_walk_to_bike},
+        {.name = "ThawBmx_BikeReachable", .function = &cfunc_bike_reachable},
     });
     script::install_script_functions(kFunctions);
 }

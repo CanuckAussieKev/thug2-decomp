@@ -108,7 +108,7 @@ void SkaterPhysicsModule::get_brake()
     const double slowing = static_cast<double>(tuning_float_lookup(kBrakeAcceleration, object)) * frame_length_;
     if (slowing + slowing > speed) {
         // Less than two frames' worth left: stopped.
-        entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        entity_->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         return;
     }
     maths::Vec4 slow = entity_->vel_;

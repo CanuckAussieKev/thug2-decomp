@@ -195,8 +195,8 @@ void MoveExecutor::update_buttons()
         int button;
         int bit;
     };
-    static const auto kButtonBits = std::to_array<ButtonBit>({{9, 9},      {0xA, 0xB},  {0xC, 8},     {0xB, 0xA},   {0xD, 0xC},   {0xE, 0xE},  {0xF, 0x10},
-                       {0x10, 0xD}, {0x11, 0xF}, {0x12, 0x11}, {0x13, 0x16}, {0x14, 0x17}, {0x15, 0x18}});
+    static const auto kButtonBits = std::to_array<ButtonBit>({{.button = 9, .bit = 9},      {.button = 0xA, .bit = 0xB},  {.button = 0xC, .bit = 8},     {.button = 0xB, .bit = 0xA},   {.button = 0xD, .bit = 0xC},   {.button = 0xE, .bit = 0xE},  {.button = 0xF, .bit = 0x10},
+                       {.button = 0x10, .bit = 0xD}, {.button = 0x11, .bit = 0xF}, {.button = 0x12, .bit = 0x11}, {.button = 0x13, .bit = 0x16}, {.button = 0x14, .bit = 0x17}, {.button = 0x15, .bit = 0x18}});
     for (const auto& b : kButtonBits)
         set_button(this, b.button, bit(b.bit));
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick directions as events while the skater rides the bike

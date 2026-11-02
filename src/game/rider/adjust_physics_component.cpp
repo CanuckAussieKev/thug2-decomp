@@ -93,9 +93,9 @@ void RiderPhysicsTweaks::check_inside_moving_object()
                   "found to be inside a moving object");
     render::ProbeRay feeler;
     const maths::Vec4& pos = entity_->at_point_;
-    const maths::Vec4 start = {pos.x, static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), pos.z, pos.w};
+    const maths::Vec4 start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) + kFeelerReach), .z = pos.z, .w = pos.w};
     feeler.change_origin(&start);
-    const maths::Vec4 end = {pos.x, static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), pos.z, pos.w};
+    const maths::Vec4 end = {.x = pos.x, .y = static_cast<float>(static_cast<double>(pos.y) - kFeelerReach), .z = pos.z, .w = pos.w};
     feeler.change_finish(&end);
     if (feeler.get_hit_shape(true, false) && feeler.hit_object_alive())
         ride_->ride_on(feeler.get_hit_object());
@@ -103,7 +103,7 @@ void RiderPhysicsTweaks::check_inside_moving_object()
         change_phase(core_ptr_, 1);
         entity_->post_own_event(kUnderTheFloor, nullptr);
     } else if (entity_->at_point_ == frame_start) {
-        entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+        entity_->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     }
     feeler.entity_.get_release();
 }
@@ -117,9 +117,9 @@ void RiderPhysicsTweaks::get_update_brightness(render::ProbeRay* ground)
     feeler.set_excluded(0, 0x20);
     feeler.line_.start.y = static_cast<float>(static_cast<double>(feeler.line_.start.y) + kBrightnessAbove);
     if (hit)
-        feeler.line_.end = {ground->contact_pos_.x,
-                            static_cast<float>(static_cast<double>(ground->contact_pos_.y) - 1.0f),
-                            ground->contact_pos_.z, ground->contact_pos_.w};
+        feeler.line_.end = {.x = ground->contact_pos_.x,
+                            .y = static_cast<float>(static_cast<double>(ground->contact_pos_.y) - 1.0f),
+                            .z = ground->contact_pos_.z, .w = ground->contact_pos_.w};
     else
         feeler.line_.end = feeler.line_.start;
     if (feeler.get_hit_shape(false, false))

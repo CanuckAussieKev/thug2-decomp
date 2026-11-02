@@ -145,7 +145,7 @@ bool should_log(const void* what, int face)
             return true;
         }
     }
-    core::at(g_recent, g_next_recent) = {what, face, now};
+    core::at(g_recent, g_next_recent) = {.what = what, .face = face, .time = now};
     g_next_recent = static_cast<int>((g_next_recent + 1) % (sizeof(g_recent) / sizeof(core::at(g_recent, 0))));
     ++g_lines_this_second;
     return true;

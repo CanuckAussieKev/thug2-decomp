@@ -96,11 +96,11 @@ void ParkLayout::generate_node_array()
         point.z = static_cast<float>((pos.z - 29) * static_cast<double>(kGridStepAlong) + kGridStepAlong * 0.5);
         point.w = 1.0f;
         render::ProbeRay feeler;
-        const maths::Vec4 start = {point.x, static_cast<float>(static_cast<double>(point.y) + 10000.0), point.z,
-                                   static_cast<float>(static_cast<double>(point.w) + 1.0)};
+        const maths::Vec4 start = {.x = point.x, .y = static_cast<float>(static_cast<double>(point.y) + 10000.0), .z = point.z,
+                                   .w = static_cast<float>(static_cast<double>(point.w) + 1.0)};
         feeler.change_origin(&start);
-        const maths::Vec4 end = {point.x, static_cast<float>(static_cast<double>(point.y) - 1000.0), point.z,
-                                 static_cast<float>(static_cast<double>(point.w) + 1.0)};
+        const maths::Vec4 end = {.x = point.x, .y = static_cast<float>(static_cast<double>(point.y) - 1000.0), .z = point.z,
+                                 .w = static_cast<float>(static_cast<double>(point.w) + 1.0)};
         feeler.change_finish(&end);
         if (feeler.get_hit_shape(true, false)) {
             if (i >= 2 && i <= 5)

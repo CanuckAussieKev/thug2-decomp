@@ -124,7 +124,7 @@ Struct* elem(Array* nodes, int index)
 {
     return nodes->struct_at(static_cast<uint32_t>(index));
 }
-script::VectorValue get_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}; }
+script::VectorValue get_value(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z, .w = v.w}; }
 script::VectorValue* get_out(maths::Vec4* v) { return v; }
 // A restart's angles: (rot + 2) quarter turns about y.
 float restart_angle(int rot) { return static_cast<float>((rot + 2.0) * static_cast<double>(kHalfPi)); }

@@ -41,7 +41,7 @@ constexpr float kTopFacesUp = 0.9f; // 0x00649FE4: a hit ahead facing up this mu
 constexpr float kPushOff = 18.0f;   // 0x0064AAAC
 constexpr float kPushAway = 100.0f; // 0x006463D4
 
-const maths::Vec4 kUpAxis = {0.0f, 1.0f, 0.0f, 1.0f};
+const maths::Vec4 kUpAxis = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
 
 void change_state(SkaterPhysicsModule* component, int state)
 {
@@ -89,7 +89,7 @@ void SkaterPhysicsModule::step_wall_ride()
     wall_ride_start_ = get_now();
 
     // What the skater rides on carries it (its turn too).
-    maths::Vec4 carried = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 carried = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     if (objects::RideTracker* tracker = get_tracker(this)) {
         if (!tracker->entity_.get_pull() || !tracker->tick_frame(&entity_->at_point_)) {
             stop_riding(this);
@@ -198,7 +198,7 @@ void SkaterPhysicsModule::step_wall_ride()
         const objects::GameEntity* o = object_of(this);
         const maths::Vec4& p = o->at_point_;
         const maths::Vec4& old = o->old_pos_;
-        maths::Vec4 move = {p.x - old.x, p.y - old.y, p.z - old.z, p.w - old.w};
+        maths::Vec4 move = {.x = p.x - old.x, .y = p.y - old.y, .z = p.z - old.z, .w = p.w - old.w};
         const double moved = std::sqrt((static_cast<double>(move.z) * move.z + static_cast<double>(move.y) * move.y) +
                                        static_cast<double>(move.x) * move.x);
         if (moved > 0.0) {
@@ -274,13 +274,13 @@ void SkaterPhysicsModule::step_wall_ride()
         const float snap = tuning_float_lookup(kGroundSnapUp, o);
         const maths::Vec4& up = core::at(entity_->basis_frame_.row, 1);
         maths::Vec4& start = probe_start_;
-        start = {snap * up.x, snap * up.y, snap * up.z, snap * up.w};
+        start = {.x = snap * up.x, .y = snap * up.y, .z = snap * up.z, .w = snap * up.w};
         const maths::Vec4& p = entity_->at_point_;
         start.x = start.x + p.x, start.y = p.y + start.y, start.z = p.z + start.z, start.w = p.w + start.w;
         const float down = script::fetch_float(kDownCheckLength);
         const maths::Vec4& up2 = core::at(entity_->basis_frame_.row, 1);
         maths::Vec4& end = probe_end_;
-        end = {down * up2.x, down * up2.y, down * up2.z, down * up2.w};
+        end = {.x = down * up2.x, .y = down * up2.y, .z = down * up2.z, .w = down * up2.w};
         const maths::Vec4& q = entity_->at_point_;
         end.x = end.x + q.x, end.y = q.y + end.y, end.z = q.z + end.z, end.w = q.w + end.w;
     }

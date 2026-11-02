@@ -193,10 +193,10 @@ bool Objective::swap_move_caption()
         uint32_t original;
         uint32_t text;
     };
-    static constexpr auto kKept = std::to_array<Original>({{kOriginalViewGoalsText, kViewGoalsText},
-                                         {kOriginalViewGoalsTip, kViewGoalsTip},
-                                         {kOriginalGoalText, kGoalText},
-                                         {kOriginalKeyComboText, kKeyComboText}});
+    static constexpr auto kKept = std::to_array<Original>({{.original = kOriginalViewGoalsText, .text = kViewGoalsText},
+                                         {.original = kOriginalViewGoalsTip, .text = kViewGoalsTip},
+                                         {.original = kOriginalGoalText, .text = kGoalText},
+                                         {.original = kOriginalKeyComboText, .text = kKeyComboText}});
     for (const Original& kept : kKept) {
         if (!args_->has_entry_named(kept.original) && args_->fetch_text(kept.text, &text, 0))
             args_->append_word(kept.original, text);

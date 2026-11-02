@@ -23,7 +23,7 @@ bool is_structure(const script::Component* component) { return component->kind_t
 
 script::Array* game_part_list(uint32_t slot) { return script::fetch_list(slot); }
 script::Struct* game_defaults() { return script::read_sub_struct(kDefaultAppearance); }
-const Catalog kGameCatalog = {game_part_list, game_defaults};
+const Catalog kGameCatalog = {.part_list_ = game_part_list, .defaults = game_defaults};
 Catalog s_catalog = kGameCatalog;
 
 // The slot's part list: the global array named after it, of structures (null if there's none).
@@ -107,7 +107,7 @@ int sanitise(script::Struct* appearance)
             remove.push_back(c->name);
             continue;
         }
-        changes.push_back({c->value.structure(), c->name, desc, to});
+        changes.push_back({.part = c->value.structure(), .slot = c->name, .from = desc, .to = to});
     }
     if (reset_body) {
         script::Struct* defaults = s_catalog.defaults();

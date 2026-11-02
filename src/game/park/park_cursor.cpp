@@ -363,7 +363,7 @@ bool BuildPointer::raise_lower(int dir)
         return false;
     int top = area.h + height + dir;
     // The pieces standing on the area (any height) widen it, and the highest sets the top.
-    const CellBox above = {area.x, area.y, area.z, area.w, 16, area.l};
+    const CellBox above = {.x = area.x, .y = area.y, .z = area.z, .w = area.w, .h = 16, .l = area.l};
     MapListNode* list = metas_within(ParkLayout::sole(), above);
     for (const MapListNode* node = list; node; node = node->following_) {
         PieceGroup* meta = node->get_piece_group();

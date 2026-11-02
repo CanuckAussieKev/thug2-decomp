@@ -80,7 +80,7 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
         return nearest;
     place_nodes(nodes, object);
     auto nearest_distance = std::bit_cast<float>(0x56B5E621u); // (far enough)
-    maths::Vec4 nearest_point = {0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4 nearest_point = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     int index = 0;
     for (const ClassNodeList::TableRow* node = nodes->entries_; node; node = node->next, ++index) {
         maths::Vec4 point;

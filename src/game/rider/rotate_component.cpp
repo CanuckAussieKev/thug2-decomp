@@ -131,7 +131,7 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
             maths::Vec4 pos;
             level_nodes::fetch_place(level_nodes::fetch_vertex(node, true), &pos);
             const maths::Vec4& at = entity_->at_point_;
-            const maths::Vec4 to_node = {pos.x - at.x, pos.y - at.y, pos.z - at.z, pos.w - at.w};
+            const maths::Vec4 to_node = {.x = pos.x - at.x, .y = pos.y - at.y, .z = pos.z - at.z, .w = pos.w - at.w};
             const double degrees =
                 static_cast<double>(maths::get_angle_in_plane(entity_->basis_frame_, to_node, 2, 1)) *
                 kDegreesPerRadian;

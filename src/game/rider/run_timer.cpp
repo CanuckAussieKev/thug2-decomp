@@ -29,8 +29,8 @@ namespace {
 std::array<uint32_t, 4> g_run_timer_state_names{{0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA}};
 } // namespace
 std::array<script::MemberFunctionEntry, 7> g_run_timer_member_functions{{
-    {0x82445966, 0x8BCE7E66}, {0x956236B1, 0x8BCE7E66}, {0xAB04CBF9, 0x8BCE7E66}, {0x96D81D8E, 0x8BCE7E66},
-    {0x81AAA6DD, 0x8BCE7E66}, {0x37CC7691, 0x8BCE7E66}, {0, 0x8BCE7E66}}};
+    {.callsign_ = 0x82445966, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x956236B1, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0xAB04CBF9, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x96D81D8E, .owner_kind_ = 0x8BCE7E66},
+    {.callsign_ = 0x81AAA6DD, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0x37CC7691, .owner_kind_ = 0x8BCE7E66}, {.callsign_ = 0, .owner_kind_ = 0x8BCE7E66}}};
 
 namespace {
 

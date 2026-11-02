@@ -190,7 +190,7 @@ float hang_plane(const FootMovement* walk)
 // Stopped by what it walks into: no velocity, the run animation's speed down to min_anim_run_speed, blocked.
 void halt(FootMovement* walk)
 {
-    walk->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    walk->vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     const float minimum = walk_parameter(kMinAnimRunSpeed);
     float& speed = walk->speed_;
     speed = minimum < speed ? minimum : speed;
@@ -216,8 +216,8 @@ FootMovement::FootMovement()
 {
     // (the contacts, the cache and the feeler made first by their constructors)
     kind_tag_ = 0x726E85AA; // Walk
-    stick_heading_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    jump_velocity_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    stick_heading_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+    jump_velocity_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
 }
 
 // 0x00529F80
@@ -383,7 +383,7 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
     } else {
         if (tracker)
             static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
-        carried = {0.0f, 0.0f, 0.0f, 1.0f};
+        carried = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     }
     // The ride let go.
     ride = ride_;
@@ -589,7 +589,7 @@ void FootMovement::update_air()
     position.y = static_cast<float>((vertical * frame - frame * frame * gravity * 0.5) + position.y);
     vertical = static_cast<float>(vertical - gravity * frame);
     if (position.y > jump_target_height_)
-        extra = {0.0f, 0.0f, 0.0f, 1.0f};
+        extra = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     static_cast<skater::SkaterPhysicsModule*>(core_physics_)->update_projectiles();
     const maths::Vec4& old_position = old_pos_;
     collide_air_move(&old_position, &position);
@@ -632,14 +632,14 @@ void FootMovement::update_air()
     report_inside(0x74B, "WALKING_AIR, within moving object");
     render::ProbeRay storage;
     render::ProbeRay* feeler = &storage;
-    const maths::Vec4 up = {0.0f, 30.0f, 0.0f, 0.0f};
+    const maths::Vec4 up = {.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 0.0f};
     const maths::Vec4 top = entity_->at_point_ + up;
     feeler->change_origin(&top);
     const maths::Vec4 bottom = entity_->at_point_ - up;
     feeler->change_finish(&bottom);
     if (feeler->get_hit_shape(true, false) && feeler->hit_object_alive())
         ride_->ride_on(feeler->get_hit_object());
-    vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     vertical = 0.0f;
     collide_air_move(&position, &start);
 }
@@ -725,7 +725,7 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         auto dy = line.end.y - line.start.y;
         auto dz = line.end.z - line.start.z;
         const double dw = static_cast<double>(line.end.w) - line.start.w;
-        maths::Vec4 rest = {dx * left, dy * left, dz * left, static_cast<float>(dw * left)};
+        maths::Vec4 rest = {.x = dx * left, .y = dy * left, .z = dz * left, .w = static_cast<float>(dw * left)};
         rest.flatten_onto_plane(feeler->surface_dir_);
         feeler->line_.start = position;
         feeler->line_.end = rest + position;
@@ -776,8 +776,8 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
             }
         }
         if (stop)
-            velocity = {0.0f, 0.0f, 0.0f, 1.0f};
-        critical_point_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};
+            velocity = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
+        critical_point_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         input_->pad_primary_.pos_x_.forget_let_go(); // (a button's release taken)
         anim_state_ = kLand;
     }
@@ -869,7 +869,7 @@ void FootMovement::get_begin(bool on_ground)
     state_time_ = get_now();
     if (on_ground) {
         change_phase(0);
-        floor_normal_ = {0.0f, 1.0f, 0.0f, 1.0f};
+        floor_normal_ = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
         feeler_hit_ = false;
         entity_->vel_.y = 0.0f;
         off_vert_ = false;
@@ -928,7 +928,7 @@ void FootMovement::get_begin(bool on_ground)
     leave_for_ = 0;
     previous_anim_state_ = 0;
     jump_held_ = true;
-    critical_point_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};
+    critical_point_offset_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     model_lift_ = 0.0f;
     tagging_->countdown_ = 0;
     locked_to_heading_ = false;
@@ -1057,10 +1057,10 @@ bool FootMovement::try_barrier_jump()
     const maths::Vec4& position = pos_;
     auto side = static_cast<float>(static_cast<double>(reach) + 1.0);
     maths::BBox box;
-    box.max = {side + position.x, static_cast<float>(static_cast<double>(highest) + 1.0) + position.y,
-               side + position.z, static_cast<float>(static_cast<double>(position.w) + 1.0)};
-    box.min = {position.x - side, position.y, position.z - side,
-               static_cast<float>(static_cast<double>(position.w) - 1.0)};
+    box.max = {.x = side + position.x, .y = static_cast<float>(static_cast<double>(highest) + 1.0) + position.y,
+               .z = side + position.z, .w = static_cast<float>(static_cast<double>(position.w) + 1.0)};
+    box.min = {.x = position.x - side, .y = position.y, .z = position.z - side,
+               .w = static_cast<float>(static_cast<double>(position.w) - 1.0)};
     render::HitMeshCache cache_storage;
     render::HitMeshCache* cache = &cache_storage;
     cache->tick_frame(box);
@@ -1184,12 +1184,12 @@ bool FootMovement::update_contacts()
             const float y = position.y + offset.y;
             const float x = offset.x + position.x;
             const double w = static_cast<double>(position.w) + offset.w;
-            start = {x, y, z, static_cast<float>(w)};
+            start = {.x = x, .y = y, .z = z, .w = static_cast<float>(w)};
             const float move_w = frame * velocity.w;
             const float move_z = frame * velocity.z;
             const float move_y = frame * velocity.y;
             const float move_x = frame * velocity.x;
-            end = {move_x + x, move_y + y, move_z + z, static_cast<float>(w + move_w)};
+            end = {.x = move_x + x, .y = move_y + y, .z = move_z + z, .w = static_cast<float>(w + move_w)};
             const float fall = up_speed_ * frame;
             const double gravity = static_cast<float>(get_gravity());
             end.y = static_cast<float>((fall - gravity * (static_cast<double>(frame) * frame) * kSteepGround) + end.y);
@@ -1202,8 +1202,8 @@ bool FootMovement::update_contacts()
             auto x = static_cast<float>(c * facing.x - s * facing.z);
             auto z = static_cast<float>((s * facing.x + c * facing.z) * reach);
             const float y = static_cast<float>(static_cast<double>(reach) * 0.0) + position.y;
-            end = {static_cast<float>(static_cast<double>(x) * reach) + position.x, y + feeler_height, z + position.z,
-                   reach + position.w};
+            end = {.x = static_cast<float>(static_cast<double>(x) * reach) + position.x, .y = y + feeler_height, .z = z + position.z,
+                   .w = reach + position.w};
         }
         auto& contact = contact_at(this, i);
         contact.hit = feeler->get_hit_shape(true, false);
@@ -1427,7 +1427,7 @@ bool FootMovement::update_contacts()
         const double after = (new_x * new_x + static_cast<double>(new_z) * new_z) + static_cast<double>(new_y) * new_y;
         blocked_ = after / before < kMostlyStopped;
     }
-    velocity = {static_cast<float>(new_x), new_y, new_z, new_w};
+    velocity = {.x = static_cast<float>(new_x), .y = new_y, .z = new_z, .w = new_w};
 
     // The run animation's speed follows (kept at least min_anim_run_speed) unless it is already that slow.
     auto speed = static_cast<float>(

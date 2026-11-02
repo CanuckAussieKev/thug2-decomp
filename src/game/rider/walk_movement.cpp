@@ -115,7 +115,7 @@ double FootMovement::adjust_speed_for_slope(float speed, const maths::Vec4* dire
     if (speed <= walk_parameter(kWalkSpeed))
         return speed;
     // On a steep slope, faster than walking: slowed by how much the direction runs up or down it.
-    maths::Vec4 downhill = {normal.x, 0.0f, normal.z, normal.w};
+    maths::Vec4 downhill = {.x = normal.x, .y = 0.0f, .z = normal.z, .w = normal.w};
     downhill.make_unit();
     const double along =
         std::fabs((static_cast<double>(downhill.z) * direction->z + static_cast<double>(downhill.y) * direction->y) +
@@ -130,14 +130,14 @@ void FootMovement::update_upright()
     if (up_.y == 1.0f) // (up.y exactly 1)
         return;
     if (up.y > kNearlyUpright) {
-        up = {0.0f, 1.0f, 0.0f, 1.0f};
+        up = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
         upright_time_ = 0.0f;
         return;
     }
     if (!(upright_time_ == 0.0f))
         return;
     const float rate = walk_parameter(kLerpUprightRate);
-    const maths::Vec4 upright = {0.0f, 1.0f, 0.0f, 1.0f};
+    const maths::Vec4 upright = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     maths::Vec4 eased{};
     up = *get_lerp(&eased, &up, &upright, static_cast<float>(frame_clock::get_slomo_frame_seconds() * rate));
     up.make_unit();
@@ -165,9 +165,9 @@ void FootMovement::refresh_hit_cache()
     auto above = static_cast<float>(static_cast<double>(height) + kOne);
     const maths::Vec4& pos = static_cast<GameEntity*>(entity_)->at_point_;
     maths::BBox box;
-    box.max = {pos.x + reach, pos.y + above, pos.z + reach, pos.w};
+    box.max = {.x = pos.x + reach, .y = pos.y + above, .z = pos.z + reach, .w = pos.w};
     below = static_cast<float>(static_cast<double>(below) + kOne);
-    box.min = {pos.x - reach, pos.y - below, pos.z - reach, pos.w};
+    box.min = {.x = pos.x - reach, .y = pos.y - below, .z = pos.z - reach, .w = pos.w};
     render::HitMeshCache& cache = hit_cache_;
     cache.tick_frame(box);
     render::g_current_cache = &cache; // the feelers' current cache
@@ -241,7 +241,7 @@ void FootMovement::copy_from_object()
     if (length < kMinFacingLength) {
         // Facing straight up or down: the way the up row leans, backwards; the up row nudged upright.
         const maths::Vec4& object_up = core::at(object->basis_frame_.row, 1);
-        facing = {-object_up.x, -object_up.y, -object_up.z, -object_up.w};
+        facing = {.x = -object_up.x, .y = -object_up.y, .z = -object_up.z, .w = -object_up.w};
         facing.y = 0.0f;
         facing.make_unit();
         up.y = static_cast<float>(static_cast<double>(up.y) + kUprightNudge);
@@ -348,7 +348,7 @@ void FootMovement::steer_jump()
     // the jump's direction and along it.
     maths::Vec4& vel = vel_;
     const maths::Vec4& carried = jump_base_vel_;
-    vel = {vel.x - carried.x, vel.y - carried.y, vel.z - carried.z, vel.w - carried.w};
+    vel = {.x = vel.x - carried.x, .y = vel.y - carried.y, .z = vel.z - carried.z, .w = vel.w - carried.w};
     const maths::Vec4& dir = leap_heading_;
     const maths::Vec4& control = stick_heading_;
     const float magnitude = stick_deflection_;
@@ -394,7 +394,7 @@ void FootMovement::steer_jump()
     vel.y = forward * dir.y + side_y;
     vel.z = forward * dir.z + side_zpart;
     vel.w = forward * dir.w + side;
-    vel = {carried.x + vel.x, carried.y + vel.y, carried.z + vel.z, carried.w + vel.w};
+    vel = {.x = carried.x + vel.x, .y = carried.y + vel.y, .z = carried.z + vel.z, .w = carried.w + vel.w};
 }
 
 // 0x00528950
@@ -415,7 +415,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
     if (speed > walk_parameter(kIgnoreVelocityThreshold)) {
         const double inverse = kOne / static_cast<double>(speed);
         auto inverse_f = static_cast<float>(inverse);
-        direction = {inverse_f * velocity->x, inverse_f * velocity->y, inverse_f * velocity->z, 0.0f};
+        direction = {.x = inverse_f * velocity->x, .y = inverse_f * velocity->y, .z = inverse_f * velocity->z, .w = 0.0f};
         direction_w = inverse * velocity->w;
     } else if (!(magnitude == 0.0f)) {
         direction = stick_heading_;
@@ -465,8 +465,8 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                 start.y = static_cast<float>(static_cast<double>(start.y) + walk_parameter(kProbeElevation));
                 const float reach = walk_parameter(kFeelerLength);
                 const float none = reach * 0.0f;
-                feeler.line_.end = {ahead_x * reach + start.x, none + start.y, ahead_z * reach + start.z,
-                                    none + start.w};
+                feeler.line_.end = {.x = ahead_x * reach + start.x, .y = none + start.y, .z = ahead_z * reach + start.z,
+                                    .w = none + start.w};
                 // (the original reads wall_rotate_factor through 0x0043DA70)
                 if (feeler.get_hit_shape(false, false))
                     turn = static_cast<float>(static_cast<double>(walk_parameter(kWallRotateFactor)) * turn);
@@ -520,8 +520,8 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
         if (new_speed > allowed)
             new_speed = allowed;
     }
-    *velocity = {static_cast<float>(result.x * new_speed), static_cast<float>(result.y * new_speed),
-                 static_cast<float>(result.z * new_speed), static_cast<float>(result.w * new_speed)};
+    *velocity = {.x = static_cast<float>(result.x * new_speed), .y = static_cast<float>(result.y * new_speed),
+                 .z = static_cast<float>(result.z * new_speed), .w = static_cast<float>(result.w * new_speed)};
 }
 
 // 0x00529800
@@ -549,14 +549,14 @@ void FootMovement::apply_transition()
     auto* object = static_cast<GameEntity*>(entity_);
     const maths::Vec4& at = transition_pos_;
     const maths::Vec4& offset = climb_offset_;
-    object->at_point_ = {at.x + offset.x, at.y + offset.y, at.z + offset.z, at.w + offset.w};
+    object->at_point_ = {.x = at.x + offset.x, .y = at.y + offset.y, .z = at.z + offset.z, .w = at.w + offset.w};
     // Upright, facing the transition's facing (row 0's w 1, as the original).
     const maths::Vec4& facing = transition_facing_;
     maths::Mat4 matrix{};
-    core::at(matrix.row, 0) = {facing.z, 0.0f, -facing.x, 1.0f};
-    core::at(matrix.row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 0) = {.x = facing.z, .y = 0.0f, .z = -facing.x, .w = 1.0f};
+    core::at(matrix.row, 1) = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     core::at(matrix.row, 2) = facing;
-    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     object->basis_frame_ = matrix;
     model_lift_ = transition_display_offset_;
     // Then the transition's member function, if any (+0x1948, this adjusted by +0x194C).
@@ -573,23 +573,23 @@ void FootMovement::copy_to_object()
     const double flat = kOne - static_cast<double>(facing_y) * facing_y;
     const double k = flat > 0.0 ? std::sqrt(flat) : static_cast<double>(kNoFlat);
     maths::Vec4& facing = facing_;
-    facing = {static_cast<float>(k * facing.x), static_cast<float>(k * facing.y), static_cast<float>(k * facing.z),
-              static_cast<float>(k * facing.w)};
+    facing = {.x = static_cast<float>(k * facing.x), .y = static_cast<float>(k * facing.y), .z = static_cast<float>(k * facing.z),
+              .w = static_cast<float>(k * facing.w)};
     facing.y = facing_y;
     // The orientation from the up vector and the facing.
     const maths::Vec4& up = up_;
     maths::Mat4 matrix{};
     maths::Vec4& right = core::at(matrix.row, 0);
-    right = {static_cast<float>(static_cast<double>(up.y) * facing.z - static_cast<double>(up.z) * facing.y),
-             static_cast<float>(static_cast<double>(up.z) * facing.x - static_cast<double>(up.x) * facing.z),
-             static_cast<float>(static_cast<double>(up.x) * facing.y - static_cast<double>(up.y) * facing.x), 0.0f};
+    right = {.x = static_cast<float>(static_cast<double>(up.y) * facing.z - static_cast<double>(up.z) * facing.y),
+             .y = static_cast<float>(static_cast<double>(up.z) * facing.x - static_cast<double>(up.x) * facing.z),
+             .z = static_cast<float>(static_cast<double>(up.x) * facing.y - static_cast<double>(up.y) * facing.x), .w = 0.0f};
     right.make_unit();
     core::at(matrix.row, 1) = up;
-    core::at(matrix.row, 2) = {static_cast<float>(static_cast<double>(up.z) * right.y - static_cast<double>(up.y) * right.z),
-                     static_cast<float>(static_cast<double>(up.x) * right.z - static_cast<double>(up.z) * right.x),
-                     static_cast<float>(static_cast<double>(up.y) * right.x - static_cast<double>(up.x) * right.y),
-                     0.0f};
-    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 2) = {.x = static_cast<float>(static_cast<double>(up.z) * right.y - static_cast<double>(up.y) * right.z),
+                     .y = static_cast<float>(static_cast<double>(up.x) * right.z - static_cast<double>(up.z) * right.x),
+                     .z = static_cast<float>(static_cast<double>(up.y) * right.x - static_cast<double>(up.x) * right.y),
+                     .w = 0.0f};
+    core::at(matrix.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     auto* object = static_cast<GameEntity*>(entity_);
     object->at_point_ = pos_;
     object->basis_frame_ = matrix;
@@ -604,20 +604,20 @@ void FootMovement::copy_to_object()
         break;
     case 2: { // hanging: sideways along the ledge
         const float scale = climb_scale_;
-        vel = {scale * -facing.z, scale * 0.0f, scale * facing.x, scale * 1.0f};
+        vel = {.x = scale * -facing.z, .y = scale * 0.0f, .z = scale * facing.x, .w = scale * 1.0f};
         break;
     }
     case 3: // climbing: up at its speed
-        vel = {0.0f, speed_, 0.0f, 1.0f};
+        vel = {.x = 0.0f, .y = speed_, .z = 0.0f, .w = 1.0f};
         break;
     default:
-        vel = {0.0f, 0.0f, 0.0f, 1.0f};
+        vel = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         break;
     }
     // The model raised along the up vector by the display offset.
     const float offset = model_lift_;
-    model_->shift_ = {core::at(matrix.row, 1).x * offset, core::at(matrix.row, 1).y * offset, core::at(matrix.row, 1).z * offset,
-                      core::at(matrix.row, 1).w * offset};
+    model_->shift_ = {.x = core::at(matrix.row, 1).x * offset, .y = core::at(matrix.row, 1).y * offset, .z = core::at(matrix.row, 1).z * offset,
+                      .w = core::at(matrix.row, 1).w * offset};
 }
 
 } // namespace objects

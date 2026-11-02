@@ -551,7 +551,7 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
     if (!online::read_hunt_position(reader, position)) // NOT ORIGINAL: too short - dropped
         return 4;
     if (!dropper->is_own_player())
-        core::at(dropper->placed_, dropper->num_placed_) = {core::at(position, 0), core::at(position, 1), core::at(position, 2), core::at(position, 3)};
+        core::at(dropper->placed_, dropper->num_placed_) = {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = core::at(position, 3)};
     if (!dropper->is_own_player())
         ++dropper->num_placed_;
     int dropped = 0;
@@ -1041,8 +1041,8 @@ int SkateNet::handle_place_tag(net::InboundMsgCtx* context)
     auto* tagging = core::down_cast<objects::TaggingComponent>(skater_of(player)->fetch_module(kTagging));
     if (!tagging)
         return 4;
-    const maths::Vec4 start = {core::at(message.start, 0), core::at(message.start, 1), core::at(message.start, 2), core::at(message.start, 3)};
-    const maths::Vec4 end = {core::at(message.end, 0), core::at(message.end, 1), core::at(message.end, 2), core::at(message.end, 3)};
+    const maths::Vec4 start = {.x = core::at(message.start, 0), .y = core::at(message.start, 1), .z = core::at(message.start, 2), .w = core::at(message.start, 3)};
+    const maths::Vec4 end = {.x = core::at(message.end, 0), .y = core::at(message.end, 1), .z = core::at(message.end, 2), .w = core::at(message.end, 3)};
     tagging->place_tag(message.sticker, start, end, message.size, false);
     return 1;
 }
@@ -1126,8 +1126,8 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     objects::Rider* skater = skate->get_rider_by_number(static_cast<uint32_t>(message.owner_id));
     if (!skater)
         return 4;
-    maths::Vec4 velocity = {core::at(message.velocity, 0), core::at(message.velocity, 1), core::at(message.velocity, 2), core::at(message.velocity, 3)};
-    maths::Vec4 position = {core::at(message.position, 0), core::at(message.position, 1), core::at(message.position, 2), core::at(message.position, 3)};
+    maths::Vec4 velocity = {.x = core::at(message.velocity, 0), .y = core::at(message.velocity, 1), .z = core::at(message.velocity, 2), .w = core::at(message.velocity, 3)};
+    maths::Vec4 position = {.x = core::at(message.position, 0), .y = core::at(message.position, 1), .z = core::at(message.position, 2), .w = core::at(message.position, 3)};
     velocity.make_unit();
     uint32_t time = message.time;
     if (!net_link()->get_on_server()) {
@@ -1152,8 +1152,8 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     params->put_int(kScaledZ, static_cast<int>(core::at(message.velocity, 2)));
     params->put_int(kRadius, message.radius);
     params->push_float(kScale, message.scale);
-    params->put_vec3(kPos, {core::at(message.position, 0), core::at(message.position, 1), core::at(message.position, 2), core::at(message.position, 3)});
-    params->put_vec3(kVel, {core::at(message.velocity, 0), core::at(message.velocity, 1), core::at(message.velocity, 2), core::at(message.velocity, 3)});
+    params->put_vec3(kPos, {.x = core::at(message.position, 0), .y = core::at(message.position, 1), .z = core::at(message.position, 2), .w = core::at(message.position, 3)});
+    params->put_vec3(kVel, {.x = core::at(message.velocity, 0), .y = core::at(message.velocity, 1), .z = core::at(message.velocity, 2), .w = core::at(message.velocity, 3)});
     const uint32_t launch = message.type == kFireball ? kClientLaunchFireball : kClientLaunchProjectile;
     script::launch_script(launch, params.get(), static_cast<objects::Entity*>(skater), false, nullptr);
     params.reset();

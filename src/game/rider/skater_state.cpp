@@ -31,11 +31,11 @@ namespace {
 std::array<uint32_t, 1> g_powerup_names{{0xD039432C}};
 } // namespace
 std::array<script::MemberFunctionEntry, 19> g_skater_state_member_functions{{
-    {0x5EA287F2, 0x43686585}, {0x3527FC07, 0x43686585}, {0xA32C1A15, 0x43686585}, {0x5CB1FBD8, 0x43686585},
-    {0xE9851E62, 0x43686585}, {0xA64DCF8B, 0x43686585}, {0x1AB2389B, 0x43686585}, {0x57BFBAE8, 0x43686585},
-    {0xF2813EE5, 0x43686585}, {0xEE584CBC, 0x43686585}, {0xB32E9EAE, 0x43686585}, {0x953A7B6D, 0x43686585},
-    {0x58AD903F, 0x43686585}, {0xB07AC662, 0x43686585}, {0x0E11B7CA, 0x43686585}, {0x44BA5FCE, 0x43686585},
-    {0xE0645004, 0x43686585}, {0xEF7A8687, 0x43686585}, {0, 0x43686585}}};
+    {.callsign_ = 0x5EA287F2, .owner_kind_ = 0x43686585}, {.callsign_ = 0x3527FC07, .owner_kind_ = 0x43686585}, {.callsign_ = 0xA32C1A15, .owner_kind_ = 0x43686585}, {.callsign_ = 0x5CB1FBD8, .owner_kind_ = 0x43686585},
+    {.callsign_ = 0xE9851E62, .owner_kind_ = 0x43686585}, {.callsign_ = 0xA64DCF8B, .owner_kind_ = 0x43686585}, {.callsign_ = 0x1AB2389B, .owner_kind_ = 0x43686585}, {.callsign_ = 0x57BFBAE8, .owner_kind_ = 0x43686585},
+    {.callsign_ = 0xF2813EE5, .owner_kind_ = 0x43686585}, {.callsign_ = 0xEE584CBC, .owner_kind_ = 0x43686585}, {.callsign_ = 0xB32E9EAE, .owner_kind_ = 0x43686585}, {.callsign_ = 0x953A7B6D, .owner_kind_ = 0x43686585},
+    {.callsign_ = 0x58AD903F, .owner_kind_ = 0x43686585}, {.callsign_ = 0xB07AC662, .owner_kind_ = 0x43686585}, {.callsign_ = 0x0E11B7CA, .owner_kind_ = 0x43686585}, {.callsign_ = 0x44BA5FCE, .owner_kind_ = 0x43686585},
+    {.callsign_ = 0xE0645004, .owner_kind_ = 0x43686585}, {.callsign_ = 0xEF7A8687, .owner_kind_ = 0x43686585}, {.callsign_ = 0, .owner_kind_ = 0x43686585}}};
 
 namespace {
 
