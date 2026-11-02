@@ -31,6 +31,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::object_edit {
 namespace {
@@ -90,7 +91,7 @@ bool add_copy_node(script::Struct* node)
     if (index < 0) {
         if (manager->num_ >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays))
             return false;
-        g_copy_nodes = new (script::alloc_script_array()) script::Array;
+        g_copy_nodes = script::new_array();
         g_copy_node_list.clear();
         index = static_cast<int>(manager->num_);
         core::at(manager->arrays_, index).label_ = name;
@@ -463,7 +464,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
         script::note_qb_name(name, (caption(source) + " copy").c_str());
     // The node's structure copied, named and placed anew, made a node (add_copy_node), then created from it as the
     // level's objects are (CreateFromStructure's 0x005A2E50).
-    auto* copy = new (script::spawn_param_bag()) script::Struct;
+    gsl::owner<script::Struct*> copy = script::new_struct();
     copy->merge_structure(node);
     copy->erase_module(kName);
     copy->put_name_key(kName, name);

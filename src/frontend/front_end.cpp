@@ -148,7 +148,7 @@ struct InputManagerRef {
 
 script::Struct* new_params()
 {
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
     return params;

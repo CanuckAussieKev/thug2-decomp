@@ -21,6 +21,7 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace park_editing {
 
@@ -427,7 +428,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
     while (sectors->step_iterator() && sectors->iter_item_ &&
            (sector = static_cast<render::WorldCell*>(sectors->iter_item_->value)) != nullptr) {
         memory::enter_heap_scope(get_park_heap());
-        auto* source = new TemplateTile;
+        auto source = memory::make_owned<TemplateTile>();
         memory::leave_heap_scope();
         source->following_ = sources_;
         sources_ = source;

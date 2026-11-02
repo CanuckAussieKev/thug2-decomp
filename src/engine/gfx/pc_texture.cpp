@@ -969,9 +969,9 @@ bool PcTexDict::destroy_texture(BitmapTexture* texture)
 }
 
 // 0x004C9C80
-BitmapTexture* PcTexDict::duplicate_texture(uint32_t checksum, BitmapTexture* source)
+gsl::owner<BitmapTexture*> PcTexDict::duplicate_texture(uint32_t checksum, BitmapTexture* source)
 {
-    auto* texture = new PcTexture(core::down_cast<const PcTexture>(source));
+    auto texture = memory::make_owned<PcTexture>(core::down_cast<const PcTexture>(source));
     texture->get_texture()->checksum = checksum; // (no check, as the original)
     return texture;
 }
@@ -1032,13 +1032,13 @@ uint32_t pixel_layout(uint8_t compression, uint8_t depth, uint32_t last)
 // The texture under its checksum in the table.
 void add_to_table(lists::KeyMap* table, TextureRef* texture)
 {
-    auto* holder = new PcTexture;
+    auto holder = memory::make_owned<PcTexture>();
     holder->image_ = texture; // (no check, as the original)
     holder->checksum_ = texture->checksum;
     table->store_entry(texture->checksum, holder);
 }
 
-TextureRef* new_engine_texture()
+gsl::owner<TextureRef*> new_engine_texture()
 {
     void* memory = memory::alloc(sizeof(TextureRef));
     return memory ? memory::construct_in<TextureRef>(memory) : nullptr;
@@ -1077,7 +1077,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
             debug::printf("%s: cut short at texture %d of %d\n", name, i, count);
             break;
         }
-        TextureRef* texture = new_engine_texture();
+        gsl::owner<TextureRef*> texture = new_engine_texture();
         texture->checksum = header.checksum; // (no check, as the original)
         texture->width = static_cast<uint16_t>(header.width);
         texture->height = static_cast<uint16_t>(header.height);
@@ -1162,7 +1162,7 @@ lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, li
             debug::printf("texture dictionary: cut short\n");
             break;
         }
-        TextureRef* texture = new_engine_texture();
+        gsl::owner<TextureRef*> texture = new_engine_texture();
         texture->checksum = header.checksum;
         texture->levels = static_cast<uint8_t>(header.levels);
         texture->width = static_cast<uint16_t>(header.width);
@@ -1251,9 +1251,9 @@ PcTexDict::PcTexDict(const char* name) : TextureSet(name, true) { ingest_file(na
 gsl::owner<PcTexDict*> load_tex_dict_file(const char* name) { return new PcTexDict(name); }
 
 // 0x004C72E0
-PcTexDict* load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size)
+gsl::owner<PcTexDict*> load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size)
 {
-    auto* dict = new PcTexDict(checksum);
+    auto dict = memory::make_owned<PcTexDict>(checksum);
     dict->load_memory(data, size); // (called on null without memory, as the original)
     return dict;
 }

@@ -44,6 +44,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace gfx {
 
@@ -1267,7 +1268,7 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
     params->fetch_int_value(kSystemIndex, &index, 0);
     CtodManager* manager = tod_manager();
     const TodParams p = manager->get_tod_params(index);
-    script::Struct* out = script::new_struct();
+    gsl::owner<script::Struct*> out = script::new_struct();
     out->put_int(kActive, manager->active_);
     int current = 0;
     while (current < CtodManager::kSystems && core::at(manager->systems_, current).sky)

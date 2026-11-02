@@ -10,6 +10,7 @@
 #include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
 #include "engine/lists/object_set.h"
+#include <gsl/pointers>
 
 namespace gfx {
 class ViewCam;
@@ -99,7 +100,7 @@ public:
     void hide() override;
     void show() override;
 
-    RenderModel* mesh_instance_{nullptr}; // +0x08
+    gsl::owner<RenderModel*> mesh_instance_{nullptr}; // +0x08
     float size_factor_{1.0f};             // +0x0C
     float shift_{1.0f};                   // +0x10
 };

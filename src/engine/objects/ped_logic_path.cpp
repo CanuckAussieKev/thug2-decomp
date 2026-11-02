@@ -24,6 +24,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -255,7 +256,7 @@ script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, 
     vert_rotation_ = 0.0f;
     vert_rotation_target_ = 0.0f;
     twist_rate_ = 0.0f;
-    script::Struct* out = get_state_params(params);
+    gsl::owner<script::Struct*> out = get_state_params(params);
     // (The height is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
     float height = 0.0f; // (missing: 0 - the original read an argument's stack slot, an address)
     params->fetch_float(kJumpHeight, &height, 1);
@@ -415,7 +416,7 @@ void PedestrianBrainModule::start_grind(script::Struct* node)
     uint32_t terrain = 0;
     if (node->read_hash_value(kSurfaceKindKey, &terrain, 0))
         set_sound_terrain(surface_kind::get_terrain_index(terrain));
-    script::Struct* params = get_state_params(node);
+    gsl::owner<script::Struct*> params = get_state_params(node);
     change_phase(kStateGrind, kTable, nullptr); // (the parameters aren't passed)
     script::free_struct(params);
 }
@@ -458,7 +459,7 @@ void PedestrianBrainModule::get_lip_trick(script::Struct* node)
 {
     flag_bits_ &= ~(kPedFlagMoving | kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
     lip_trick_update();
-    script::Struct* params = get_state_params(node);
+    gsl::owner<script::Struct*> params = get_state_params(node);
     change_phase(kStateLip, kTable, params);
     script::free_struct(params);
 }
@@ -467,7 +468,7 @@ void PedestrianBrainModule::get_lip_trick(script::Struct* node)
 void PedestrianBrainModule::get_manual(script::Struct* node)
 {
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
-    script::Struct* params = get_state_params(node);
+    gsl::owner<script::Struct*> params = get_state_params(node);
     change_phase(kStateManual, kTable, params);
     script::free_struct(params);
 }
@@ -476,7 +477,7 @@ void PedestrianBrainModule::get_manual(script::Struct* node)
 void PedestrianBrainModule::manual_down(script::Struct* node)
 {
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
-    script::Struct* params = get_state_params(node);
+    gsl::owner<script::Struct*> params = get_state_params(node);
     change_phase(kStateManualDown, kTable, params);
     script::free_struct(params);
 }
@@ -508,7 +509,7 @@ void PedestrianBrainModule::grab_trick(script::Struct* node, bool vert)
 void PedestrianBrainModule::halt(script::Struct* node)
 {
     flag_bits_ = (flag_bits_ & ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating)) | kPedFlagStopping;
-    script::Struct* params = get_state_params(node);
+    gsl::owner<script::Struct*> params = get_state_params(node);
     change_phase(kStateStop, kTable, params);
     script::free_struct(params);
 }
@@ -521,7 +522,7 @@ void PedestrianBrainModule::flip_trick(script::Struct* node, bool vert)
 {
     flag_bits_ &= ~(kPedFlagGrinding | kPedFlagSpinning | kPedFlagVertRotating);
     const KinematicsModule* motion = get_motion(entity_);
-    script::Struct* params = get_state_params(node);
+    gsl::owner<script::Struct*> params = get_state_params(node);
     script::Struct* jump = leap_node_params(node, vert);
     params->append_structure_if_any(jump);
     script::free_struct(jump);

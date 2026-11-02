@@ -13,6 +13,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -381,7 +382,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
     for (int i = 0; i < num_; ++i, ++entry) {
         if (entry->type == event->kind_tag_ && entry->script != kNullScript) {
             // The event's data is added over the handler's own parameters, in a structure of its own.
-            Struct* merged = nullptr;
+            gsl::owner<Struct*> merged = nullptr;
             Struct* params = nullptr;
             if (event->payload_) {
                 merged = script::new_struct();
@@ -397,7 +398,7 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                 // An exception: first the script's OnExceptionRun script (once) as an interrupt, given an
                 // unnamed checksum 1 (the exception bit); then the handler replaces what the script runs.
                 if (script->get_on_exception_script()) {
-                    Struct* exception_params = script::new_struct();
+                    gsl::owner<Struct*> exception_params = script::new_struct();
                     exception_params->add_component_of_type(0, script::kQbvalName,
                                                             entry->flags & TableRow::kFlagReplacesRunning);
                     const uint32_t on_exception = script->get_on_exception_script();

@@ -23,6 +23,7 @@
 #include "platform/stopwatch.h"
 #include "engine/sys/game_config.h"
 #include "engine/core/pointer_cell.h"
+#include <gsl/pointers>
 
 namespace audio {
 // (stream.h; not included here: its SetMusicVolume clashes with music_player.h's)
@@ -208,7 +209,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
     if (!flag_34b_0_)
         return;
     if (script::fetch_int_value(kDiagnosticsHash) != 0 || fixed) {
-        script::Struct* info = script::new_struct();
+        gsl::owner<script::Struct*> info = script::new_struct();
         const int frame = fixed_frame();
         std::array<char, 128> line{};
         std::snprintf(line.data(), sizeof(line), "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);

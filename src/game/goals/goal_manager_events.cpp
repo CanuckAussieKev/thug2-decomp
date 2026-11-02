@@ -19,6 +19,7 @@
 #include "game/skate/point_tally.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include <gsl/pointers>
 
 namespace goals {
 
@@ -168,8 +169,8 @@ void GoalManager::get_bail()
 // 0x0055CD70
 void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
 {
-    script::Struct* by_pro = script::new_struct(); // each pro: its goals' info by id, and their number
-    script::Struct* info = script::new_struct();
+    gsl::owner<script::Struct*> by_pro = script::new_struct(); // each pro: its goals' info by id, and their number
+    gsl::owner<script::Struct*> info = script::new_struct();
     const int count = goals_.num_; // (read once)
     for (int i = 0; i < count; ++i) {
         uint32_t key = 0;
@@ -225,12 +226,12 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         int number = 0;
         goals->fetch_int_value(kNumGoals, &number, 1);
         goals->erase_module(kNumGoals);
-        script::Array* list = script::new_array();
+        gsl::owner<script::Array*> list = script::new_array();
         list->configure_size_kind(static_cast<uint32_t>(number), script::kQbvalStruct);
         uint32_t index = 0;
         for (script::Component* element = goals->step_to_entry(nullptr); element;) {
             script::Component* next = goals->step_to_entry(element);
-            script::Struct* copy = script::new_struct();
+            gsl::owner<script::Struct*> copy = script::new_struct();
             copy->append_structure_if_any(element->value.structure());
             list->set_cell(index++, script::Cell::of(copy));
             element = next;
@@ -320,7 +321,7 @@ bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
     list->configure_size_kind(static_cast<uint32_t>(manager->goals_.num_), script::kQbvalStruct);
     for (int i = 0; i < manager->goals_.num_; ++i) {
         Objective* goal = manager->goals_.get_by_index(i);
-        script::Struct* entry = script::new_struct();
+        gsl::owner<script::Struct*> entry = script::new_struct();
         entry->put_name_key(kGoalIdKey, goal->get_objective_key());
         entry->put_int(kAlreadyWon, goal->has_won() ? 1 : 0);
         list->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));

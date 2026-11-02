@@ -33,6 +33,7 @@
 #include <bit>
 #include "gpu/vertex_view.h"
 #include "engine/gfx/pc_scene.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -93,7 +94,7 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
         return false;
     g_grass_texture1 = *image_of(entry); // (a copy of the record, as the original)
     if ((mesh->stride - mesh->uv_offset_) / 8 == 1) { // (one texture coordinate set: room made for a second)
-        VertexBuffer* wider = new_vertex_buffer((mesh->stride + 8u) * mesh->vertex_count_, 0, 0);
+        gsl::owner<VertexBuffer*> wider = new_vertex_buffer((mesh->stride + 8u) * mesh->vertex_count_, 0, 0);
         uint8_t* from = nullptr;
         uint8_t* to = nullptr;
         mesh->fetch_vertex_store(0)->get_lock(0, 0, &from, D3DLOCK_READONLY);

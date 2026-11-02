@@ -8,6 +8,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/smtptr.h"
+#include <gsl/pointers>
 
 namespace script {
 class Script;
@@ -92,7 +93,7 @@ struct EmitterInstance : objects::SharedBase {
     FlexibleParticle* particle_list_{}; // +0xF8 (max_particles_ of them, after their count)
     script::Script* emit_script_ptr_{}; // +0xFC emitscript (run each emit... update)
     script::Script* tick_script_{};     // +0x100 UpdateScript
-    script::Struct* script_args_{};     // +0x104 their params
+    gsl::owner<script::Struct*> script_args_{};     // +0x104 their params
     float colour_mid_{};       // +0x108 setColor midTime: when the mid colour is, a fraction of a life (below 0: none)
     uint8_t* start_colour_{};  // +0x10C (RGBA; the types with segments: one a segment and three more)
     uint8_t* mid_colour_{};    // +0x110

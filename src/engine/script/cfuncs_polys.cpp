@@ -348,7 +348,7 @@ bool cfunc_set_light_direction(Struct* params, Script*)
 // Metrics. Always true.
 bool cfunc_get_metrics(Struct*, Script* script)
 {
-    Struct* metrics = script::spawn_param_bag();
+    gsl::owner<Struct*> metrics = script::spawn_param_bag();
     if (metrics)
         metrics = new (metrics) script::Struct;
     render::get_scene_debug_info(metrics);

@@ -94,7 +94,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     tag->modulate(0u, false);
     const uint32_t size = tag->fetch_breadth();
     const int width = static_cast<uint16_t>(size);
-    render::BitmapTexture* workspace = alloc_pc_texture(kWorkspace, width, width, 4, 0x20);
+    gsl::owner<render::BitmapTexture*> workspace = alloc_pc_texture(kWorkspace, width, width, 4, 0x20);
     workspace->begin_edit(false, false);
 
     const uint32_t count = layers->extent_;
@@ -171,7 +171,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     int test = 0;
     params->fetch_int_value(kTest, &test, 0);
     if (test) {
-        render::BitmapTexture* sprite = alloc_pc_texture(kWorkspaceSprite, 0x80, 0x80, 8, 0x20);
+        gsl::owner<render::BitmapTexture*> sprite = alloc_pc_texture(kWorkspaceSprite, 0x80, 0x80, 8, 0x20);
         sprite->copy_from(tag);
     }
     return true;

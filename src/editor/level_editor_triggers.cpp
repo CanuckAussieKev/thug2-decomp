@@ -57,6 +57,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/mem.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -1270,7 +1271,7 @@ void read_level_gaps()
 
 gsl::owner<render::HitMovingBox*> make_box(uint32_t name)
 {
-    auto* box = new render::HitMovingBox();
+    auto box = memory::make_owned_value<render::HitMovingBox>();
     if (!box)
         return nullptr;
     box->checksum_ = name;

@@ -6,6 +6,7 @@
 
 #include "engine/maths/vec4.h"
 #include "gpu/vertex_buffers.h"
+#include <gsl/pointers>
 
 namespace scene_format {
 class MemoryStream;
@@ -157,7 +158,7 @@ static_assert(offsetof(MeshRef, material) == 0x14 && offsetof(MeshRef, vertex_bu
               "layout must match the original");
 
 // 0x004D5760: a new vertex buffer (from the C runtime's heap; null if none).
-VertexBuffer* new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags);
+gsl::owner<VertexBuffer*> new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags);
 // 0x004D67F0 / 0x004D68C0: before / after a device reset - every vertex buffer's, scene arena's and index buffer's
 // card buffer let go of (the vertex buffers keep the old pointers, to find the shares by), then made again and
 // filled from the copies (the shares moved to their arena's new buffer).

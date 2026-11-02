@@ -46,9 +46,9 @@ public:
     // 0x00455270: a new server (in the network heap), named and told its manager, initialised and (unless it's
     // local) bound to `port` on `address` - the local IP when DHCP is set and the connection type isn't 1 or 3;
     // flags bit 0: its socket counts as connected. Null memory isn't checked (a crash).
-    HostEnd* make_server_app(int id, const char* name, int max_clients, uint16_t port, int address, int flags);
+    gsl::owner<HostEnd*> make_server_app(int id, const char* name, int max_clients, uint16_t port, int address, int flags);
     // 0x004553F0: the same for a client (one connection: the server).
-    Guest* make_client_app(int id, const char* name, uint16_t port, int address, int flags);
+    gsl::owner<Guest*> make_client_app(int id, const char* name, uint16_t port, int address, int flags);
     // 0x00455550: `app` out of its list, deinitialised (virtual slot 5) and deleted.
     void release_app(AppHost* app);
 

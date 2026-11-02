@@ -200,7 +200,7 @@ PcMesh* load_model_from_memory(uint32_t checksum, const uint8_t* data, int size,
                                TextureSet* textures, int, uint32_t, uint32_t)
 {
     memory::push_mem_profile("model_data_buffer");
-    PcMesh* model = load_mesh_from_memory(checksum, data, static_cast<size_t>(size), skin, skin_size, textures);
+    gsl::owner<PcMesh*> model = load_mesh_from_memory(checksum, data, static_cast<size_t>(size), skin, skin_size, textures);
     memory::pop_mem_profile();
     return model;
 }
@@ -222,7 +222,7 @@ PcMesh* load_model_file(const char* file_name, TextureSet* textures, int, bool)
     memory::push_mem_profile(path.data());
     // (the original also passes the texture dictionary offset, whether it's skinned and the shadow volume flag: the
     // mesh load doesn't read them)
-    PcMesh* mesh = load_mesh_file(path.data(), textures);
+    gsl::owner<PcMesh*> mesh = load_mesh_file(path.data(), textures);
     memory::pop_mem_profile();
     return mesh;
 }

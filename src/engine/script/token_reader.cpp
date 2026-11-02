@@ -20,6 +20,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/pointer_cell.h"
+#include <gsl/pointers>
 
 
 namespace script {
@@ -73,7 +74,7 @@ int& stored_random_count() { return g_stored_random_count; }
 // An expression parameter of a structure / call: merged if it gives a structure, added (unnamed) otherwise.
 const uint8_t* add_expression(const uint8_t* token, Struct* dest, Struct* args)
 {
-    Component* value = new_component();
+    gsl::owner<Component*> value = new_component();
     token = parse_expression(token, args, value);
     if (value->kind_tag() == kQbvalStruct) {
         dest->append_structure_if_any(value->value.structure());
@@ -91,7 +92,7 @@ const uint8_t* add_expression(const uint8_t* token, Struct* dest, Struct* args)
 // A `name = (expression)` parameter.
 const uint8_t* add_named_expression(const uint8_t* token, uint32_t name, Struct* dest, Struct* args)
 {
-    Component* value = new_component();
+    gsl::owner<Component*> value = new_component();
     token = parse_expression(token, args, value);
     if (value->type_and_flag_ & 0xFE) {
         value->name = name;
@@ -340,7 +341,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
     const uint8_t* p = token + 1;
     switch (*token) {
     case 0x03: {
-        Struct* structure = script::new_struct();
+        gsl::owner<Struct*> structure = script::new_struct();
         p = parse_structure(structure, token, args);
         change_species(out, kQbvalStruct);
         out->value.set_structure(structure);
@@ -348,7 +349,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
     }
     case 0x05: {
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
-        Array* array = script::new_array();
+        gsl::owner<Array*> array = script::new_array();
         memory::leave_heap_scope();
         p = parse_array(array, token, args);
         change_species(out, kQbvalArray);
@@ -411,7 +412,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
     }
     case 0x2C: // <...>: all the caller's parameters
         if (args) {
-            Struct* structure = script::new_struct();
+            gsl::owner<Struct*> structure = script::new_struct();
             structure->get_assign(args);
             change_species(out, kQbvalStruct);
             out->value.set_structure(structure);
@@ -474,14 +475,14 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
         return token + 5 + length;
     }
     case 0x03: {
-        Struct* structure = script::new_struct();
+        gsl::owner<Struct*> structure = script::new_struct();
         p = parse_structure(structure, token, args);
         dest->append_struct_ref(name, structure);
         return p;
     }
     case 0x05: {
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
-        Array* array = script::new_array();
+        gsl::owner<Array*> array = script::new_array();
         memory::leave_heap_scope();
         p = parse_array(array, token, args);
         dest->append_array_ref(name, array);
@@ -506,7 +507,7 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
             dest->append_structure_if_any(found->value.structure());
             return p;
         }
-        Component* copy = new_component();
+        gsl::owner<Component*> copy = new_component();
         duplicate_component(copy, found, 0);
         copy->name = name;
         dest->attach_module(copy);
@@ -515,7 +516,7 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
     case 0x2C: // <...>
         if (args) {
             if (name) {
-                Struct* structure = script::new_struct();
+                gsl::owner<Struct*> structure = script::new_struct();
                 structure->get_assign(args);
                 dest->append_struct_ref(name, structure);
             } else {
@@ -527,7 +528,7 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
         deterministic = true;
         [[fallthrough]];
     case 0x30: {
-        Component* value = new_component();
+        gsl::owner<Component*> value = new_component();
         p = parse_random_range(p, value, deterministic);
         value->name = name;
         dest->attach_module(value);
@@ -722,7 +723,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             } else if (t == 0x02) {
                 p += 5;
             } else if (t == 0x03) {
-                Struct* structure = script::new_struct();
+                gsl::owner<Struct*> structure = script::new_struct();
                 p = parse_structure(structure, p, args);
                 *element = Cell::of(structure);
                 ++element;
@@ -733,7 +734,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x05) {
-                Array* array = script::new_array();
+                gsl::owner<Array*> array = script::new_array();
                 p = parse_array(array, p - 1, args);
                 *element = Cell::of(array);
                 ++element;
@@ -930,7 +931,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
                     // Called now, with the arguments that follow.
                     Script* script = get_running_script();
                     change_species(&value, kQbvalInteger);
-                    Struct* params = script::new_struct();
+                    gsl::owner<Struct*> params = script::new_struct();
                     p = parse_arguments(params, p, args);
                     // (the byte the function returns, as it is)
                     using Routine = uint8_t (*)(Struct*, Script*);

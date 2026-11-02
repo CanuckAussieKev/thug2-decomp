@@ -19,6 +19,7 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_appearance.h"
 #include "engine/core/raw_view.h"
+#include <gsl/pointers>
 
 namespace commands {
 
@@ -104,7 +105,7 @@ void preload_meshes(uint32_t array_name)
         if (!entry->fetch_text(0x1E90C5A9u, &mesh, 0)) // mesh
             continue;
         // a model made (0x0048BFA0), the mesh added to it (0x004935E0), the model deleted (0x0048C3C0)
-        render::RenderModel* model = render::spawn_model();
+        gsl::owner<render::RenderModel*> model = render::spawn_model();
         model->add_file_geom(mesh, 0, true, 0, false, false, true, false);
         delete model;
     }

@@ -26,6 +26,7 @@
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace save_cards {
 
@@ -115,8 +116,8 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
         pause_music(1);
         freeze_stream(1);
     }
-    script::Struct* header = script::new_struct();   // the file's first structure (read, then dropped)
-    script::Struct* contents = script::new_struct(); // the second: what's loaded
+    gsl::owner<script::Struct*> header = script::new_struct();   // the file's first structure (read, then dropped)
+    gsl::owner<script::Struct*> contents = script::new_struct(); // the second: what's loaded
     const char* name = "";                   // ""
     uint32_t type = 0;
     uint8_t* data = nullptr;
@@ -192,7 +193,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                             apply_loaded_contents(type, contents, script, params);
                         } else {
                             // (a null structure here would crash, as in the original; the previous one leaks)
-                            script::Struct* kept = script::new_struct();
+                            gsl::owner<script::Struct*> kept = script::new_struct();
                             g_kept_params = kept;
                             kept->append_structure_if_any(contents);
                             g_kept_type = type;

@@ -465,7 +465,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
             continue;
         }
         if (params->has_entry_named(kNeedsCleanLanding)) {
-            script::Struct* results = script::spawn_param_bag();
+            gsl::owner<script::Struct*> results = script::spawn_param_bag();
             if (results)
                 results = new (results) script::Struct;
             script::run_script_once(kDoPerfectCheck2, nullptr, entity_, results);

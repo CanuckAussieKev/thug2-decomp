@@ -8,6 +8,7 @@
 #include "engine/script/cfuncs_engine.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace memory {
 
@@ -32,7 +33,7 @@ uint32_t round_up16(uint32_t size) { return (size + 15) & ~15u; }
 
 uint8_t* end_of(ChunkPrefix* header) { return static_cast<uint8_t*>(header->gate_off()) + header->size; }
 // A block's header made in the memory at `place`.
-ChunkPrefix* header_at(uint8_t* place) { return memory::construct_in<ChunkPrefix>(place); }
+gsl::owner<ChunkPrefix*> header_at(uint8_t* place) { return memory::construct_in<ChunkPrefix>(place); }
 
 // The memory manager's heap lookup by name checksum, and the heap dump (the script command, without parameters).
 Arena* find_heap(uint32_t name) { return Hub::get_pull()->fetch_heap_by_key(name, 0); }
@@ -75,7 +76,7 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
         // Split off what isn't needed, as a free block of its own.
         const int rest = static_cast<int>(best->size - kBlockHeaderSize - rounded);
         if (rest > 0) {
-            auto* tail = header_at(static_cast<uint8_t*>(best->gate_off()) + rounded);
+            gsl::owner<ChunkPrefix*> tail = header_at(static_cast<uint8_t*>(best->gate_off()) + rounded);
             best->size = rounded;
             tail->allocator = this;
             tail->size = static_cast<uint32_t>(rest);
@@ -183,7 +184,7 @@ void* Arena::trim_block_end(uint32_t new_size, void* block)
         heap_busy() = 0;
         return block;
     }
-    auto* tail = header_at(static_cast<uint8_t*>(block) + (header->size - cut));
+    gsl::owner<ChunkPrefix*> tail = header_at(static_cast<uint8_t*>(block) + (header->size - cut));
     tail->size = cut - kBlockHeaderSize;
     tail->allocator = this;
     debug_track_block(tail);

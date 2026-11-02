@@ -51,11 +51,11 @@ PcScene* load_scene_from_file(const char* name, const TextureSet* textures, bool
 gsl::owner<void*> create_frame_source();
 // 0x004B3A20: a mesh (0xC8 bytes) from a scene file: the scene named by the file's name checksum (+0x84) with its
 // texture dictionary (+0x88), its sectors set up (0x0049C910) and the 2D clip turned off.
-PcMesh* load_mesh_file(const char* name, TextureSet* textures);
+gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures);
 // 0x004B3AD0: a mesh from geometry in memory, the scene named by `checksum` as a decimal number and a line feed; the skin data, when
 // there is any, loaded into the mesh first (0x004B7EB0). `size` / `skin_size`: their bytes (the original's `size`
 // went unused).
-PcMesh* load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin, size_t skin_size,
+gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin, size_t skin_size,
                               TextureSet* textures);
 
 extern memory::PoolPair g_frame_source_pools;

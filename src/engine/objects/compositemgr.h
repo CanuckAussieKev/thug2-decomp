@@ -53,7 +53,7 @@ public:
 
     // 0x0045F330: a new composite object (0x108 bytes, GameEntity's constructor 0x0045E510), of type
     // 0xCDEB9229, registered with this manager. Out of memory: crash (change_species on null).
-    GameEntity* create_composite_object();
+    gsl::owner<GameEntity*> create_composite_object();
     // 0x0045F3A0: a new composite object set up from `node_data` (0x0045DAD0), with the components `components`
     // names (0x0045DA90, each with `node_data`), then, with `finalize`, its vtable +0x20 (Finalize).
     GameEntity* spawn_entity_from_node(script::Array* components, script::Struct* node_data, bool finalize);

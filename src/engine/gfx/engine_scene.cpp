@@ -103,9 +103,9 @@ void WorldScene::print_coll_statics()
 StaticCollider* WorldScene::fetch_static_collision(int index) { return &coll_statics_[index]; }
 
 // 0x0049CA10
-WorldCell* WorldScene::spawn_sector()
+gsl::owner<WorldCell*> WorldScene::spawn_sector()
 {
-    WorldCell* sector = plat_create_sector();
+    gsl::owner<WorldCell*> sector = plat_create_sector();
     sector->geom_handle_ = nullptr;
     sector->hit_body_ = nullptr;
     return sector;

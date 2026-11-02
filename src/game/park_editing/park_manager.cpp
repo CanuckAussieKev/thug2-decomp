@@ -271,7 +271,7 @@ void ParkLayout::teardown(int keep_rails)
         write_compressed_map();
     gap_registry_->clear_gap_entries();
     while (abstract_metas_) {
-        PieceGroup* meta = abstract_metas_->get_piece_group();
+        gsl::owner<PieceGroup*> meta = abstract_metas_->get_piece_group();
         remove_meta_from_list(meta, &abstract_metas_);
         delete meta;
     }

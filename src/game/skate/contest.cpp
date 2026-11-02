@@ -20,6 +20,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace modules {
 
@@ -331,7 +332,7 @@ void Contest::show_leader_board()
     }
     for (int i = 0; i < 5; ++i) {
         const Leader& leader = core::at(leaders_, i);
-        script::Struct* entry = script::new_struct();
+        gsl::owner<script::Struct*> entry = script::new_struct();
         entry->append_word(kName, leader.label_.c_str());
         debug::printf("m_current_round: %i\n", runs_);
         entry->put_int(kScore, leader.best_two(runs_ + 1));
@@ -471,7 +472,7 @@ void Contest::end_run(int score)
     scores->configure_size_kind(5, script::kQbvalStruct);
     debug::printf("\nJudgement Day\n\n");
     for (int i = 0; i < kJudges; ++i) {
-        script::Struct* entry = script::new_struct();
+        gsl::owner<script::Struct*> entry = script::new_struct();
         entry->put_int("score", current_round(judges[i])); // "score"
         if (is_leading_scorer(i))
             entry->put_name_key(kNoName, kTopJudge);

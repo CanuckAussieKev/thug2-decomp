@@ -503,7 +503,7 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, 
 // 0x0042B040
 bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* script)
 {
-    script::Struct* result = script::spawn_param_bag();
+    gsl::owner<script::Struct*> result = script::spawn_param_bag();
     if (result)
         result = new (result) script::Struct;
     // (the name, two floats and the colours read straight from the system's +4; the rest through the getter, once

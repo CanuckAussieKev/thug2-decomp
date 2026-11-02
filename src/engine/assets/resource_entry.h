@@ -6,6 +6,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
+#include <gsl/pointers>
 
 namespace file {
 class AsyncFileHandle;
@@ -241,7 +242,7 @@ static_assert(sizeof(SceneLoadParams) == 0x48 && sizeof(SceneCollisionLoadParams
 struct SceneAsset final : Resource {
     // 0x00409220 (vtable 0x00645700)
     SceneAsset();
-    SceneLoadParams* args_{nullptr};
+    gsl::owner<SceneLoadParams*> args_{nullptr};
     // 0x004093D0
     // (0x0049B8C0, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kScene; }
@@ -261,7 +262,7 @@ struct SceneAsset final : Resource {
 struct SceneCollisionAsset final : Resource {
     // 0x004095F0 (vtable 0x00645778)
     SceneCollisionAsset();
-    SceneCollisionLoadParams* args_{nullptr};
+    gsl::owner<SceneCollisionLoadParams*> args_{nullptr};
     // 0x00409750
     // (0x0049BB70, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kSceneCollision; }
@@ -340,7 +341,7 @@ struct SkinResource final : Resource {
 struct SkinCollisionAsset final : Resource {
     // 0x0040A210 (vtable 0x00645928)
     SkinCollisionAsset();
-    SkinCollisionLoadParams* args_{nullptr};
+    gsl::owner<SkinCollisionLoadParams*> args_{nullptr};
     // 0x0040A290 / 0x0040A280
     [[nodiscard]] int fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
@@ -357,7 +358,7 @@ struct SkinCollisionAsset final : Resource {
 struct TexDictAsset final : Resource {
     // 0x0040A580 (vtable 0x006459A8)
     TexDictAsset();
-    TexDictLoadParams* args_{nullptr};
+    gsl::owner<TexDictLoadParams*> args_{nullptr};
     // 0x0040A710
     // (0x0049C0F0, shared: a constant)
     [[nodiscard]] int fetch_kind() const override { return kResTexDict; }

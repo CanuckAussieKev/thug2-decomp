@@ -16,6 +16,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
+#include <gsl/pointers>
 
 namespace script {
 class Array;
@@ -68,10 +69,10 @@ public:
     // not in the list; Deactivate unlinks it). (The original's goal was its own node: the node's table word was the
     // goal's vtable; here the vptr is at +0 and the node follows it, in the original's place.)
     memory::ListNode list_link_{};
-    ObjectiveNpc* ped_;          // +0x14: the goal's pro (0x14 bytes)
+    gsl::owner<ObjectiveNpc*> ped_;          // +0x14: the goal's pro (0x14 bytes)
     uint32_t inherited_{};       // +0x18: passed to the children (2: single_timer, 4: retry_stage)
     script::Struct* args_;       // +0x1C
-    script::Struct* goal_flags_; // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
+    gsl::owner<script::Struct*> goal_flags_; // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
     int run_ending_;             // +0x24: 0 the goal's own end of run (goal_run_done...), 1 the normal one
     GoalEdge* sub_nodes_;        // +0x28
     GoalEdge* parents_;          // +0x2C

@@ -20,6 +20,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "game/rider/rider.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -409,22 +410,22 @@ bool RiderIdentity::get_reset(script::Struct* params)
 // 0x00586B00
 void RiderIdentity::write_to_save(script::Struct* save)
 {
-    script::Struct* mine = script::new_struct();
+    gsl::owner<script::Struct*> mine = script::new_struct();
     mine->add_component_of_type(0x1902C8F0, script::kQbvalInteger, 2); // the version
     int pro = 0; // (the original's: the slot's last value - a structure's address)
     details_params()->fetch_int_value(kIsPro, &pro, 1);
     if (!pro) {
-        script::Struct* appearance = script::new_struct();
+        gsl::owner<script::Struct*> appearance = script::new_struct();
         appearance->append_structure_if_any(&this->appearance()->structure_);
         mine->append_struct_ref(kAppearance, appearance);
     }
     void* face = appearance()->face_skin_; // (the appearance's face: 0x00576E60, a folded getter)
     if (face && static_cast<gfx::FaceSkin*>(face)->is_sound()) {
-        script::Struct* texture = script::new_struct();
+        gsl::owner<script::Struct*> texture = script::new_struct();
         static_cast<gfx::FaceSkin*>(face)->save_to_structure(texture);
         mine->append_struct_ref(0xF0D3BC94, texture);
     }
-    script::Struct* info = script::new_struct();
+    gsl::owner<script::Struct*> info = script::new_struct();
     info->append_structure_if_any(details_params());
     mine->append_struct_ref(kInfo, info);
     uint32_t name = 0;
@@ -498,7 +499,7 @@ int RiderIdentity::emit_into_buffer(uint8_t* buffer, int size, int flags)
 // 0x00586E70: the info's names sent over the network (strings, checksums, integers); the rest stays here.
 int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
 {
-    script::Struct* sent = script::new_struct();
+    gsl::owner<script::Struct*> sent = script::new_struct();
     script::Struct* mine = details_params();
     for (script::Component* c = mine->step_to_entry(nullptr); c;) {
         script::Component* next = mine->step_to_entry(c);

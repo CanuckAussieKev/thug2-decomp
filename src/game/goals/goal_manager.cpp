@@ -665,7 +665,7 @@ void GoalManager::trick_object_hit(uint32_t cluster)
 // 0x0055BEA0
 bool GoalManager::drop_objective(uint32_t id)
 {
-    const Objective* goal = goals_.get_pull(id);
+    gsl::owner<const Objective*> goal = goals_.get_pull(id);
     remove_objective_npc(goal->ped_);
     goals_.drop_out(id);
     if (previous_objective_ == id)

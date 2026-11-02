@@ -20,6 +20,7 @@
 #include "engine/objects/movie_manager.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -229,7 +230,7 @@ void Sparkle::set_emit_script(uint32_t script, uint32_t object_id)
         script::stop_scripts_by_tag(args_.emit_script_);
     args_.emit_script_ = script;
     args_.entity_key_ = object_id;
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(kObjectIdParam, args_.entity_key_); // (not checked for null, as the original)
     script::spawn_script(args_.emit_script_, params, 0, nullptr, 0, 0, false, false, false, false);
     if (params) {

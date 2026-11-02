@@ -313,12 +313,12 @@ bool get_save_info(Struct* params, Script* script)
 {
     uint32_t type = 0;
     params->read_hash_value(0x7321A8D6u, &type, 0); // type
-    Struct* contents = script::spawn_param_bag();
+    gsl::owner<Struct*> contents = script::spawn_param_bag();
     if (contents)
         contents = new (contents) script::Struct;
     write_save_contents(contents, type);
     const int main_size = static_cast<int>(script::measure_buffer_bytes(contents, 100000));
-    Struct* summary = script::spawn_param_bag();
+    gsl::owner<Struct*> summary = script::spawn_param_bag();
     if (summary)
         summary = new (summary) script::Struct;
     write_summary(contents, summary, type);
@@ -447,7 +447,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             continue;
         if (listed >= kMaxFiles)
             continue;
-        Struct* entry = script::spawn_param_bag();
+        gsl::owner<Struct*> entry = script::spawn_param_bag();
         if (entry)
             entry = new (entry) script::Struct;
         entry->put_name_key(0xFADDC0B8u, type);     // file_type
@@ -484,7 +484,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             if (bad || listed_header.version != type_version(type)) {
                 mark_corrupt(entry, os_layer() == 5 ? kNgcDamagedFile : kDamagedFile);
             } else {
-                Struct* summary = script::spawn_param_bag();
+                gsl::owner<Struct*> summary = script::spawn_param_bag();
                 if (summary)
                     summary = new (summary) script::Struct;
                 script::decode_from_bytes(summary, listed_summary, reader.remaining());
@@ -529,7 +529,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
                 }
             }
         } while (swapped);
-        script::Array* listing = script::alloc_script_array();
+        gsl::owner<script::Array*> listing = script::alloc_script_array();
         if (listing)
             listing = new (listing) script::Array;
         listing->configure_size_kind(static_cast<uint32_t>(listed), script::kQbvalStruct);
@@ -581,14 +581,14 @@ bool save_to_memory_card(Struct* params, Script*)
         ++vector_pools().current;
         switched = true;
     }
-    Struct* contents = script::spawn_param_bag();
+    gsl::owner<Struct*> contents = script::spawn_param_bag();
     if (contents)
         contents = new (contents) script::Struct;
     if (vault_data)
         contents->append_structure_if_any(g_kept_params);
     else
         write_save_contents(contents, type);
-    Struct* summary = script::spawn_param_bag();
+    gsl::owner<Struct*> summary = script::spawn_param_bag();
     if (summary)
         summary = new (summary) script::Struct;
     write_summary(contents, summary, type);

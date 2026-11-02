@@ -168,7 +168,7 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
                                                           int perm, bool use_level_colour, const char* model)
 {
     memory::Hub::get_pull()->enter_heap_scope(static_cast<memory::MemSource*>(temp_heap_ ? temp_heap_ : arena_));
-    EmitterInstance* system = (create_flexible_particles(name, type, particle_cap, max_streams, texture, blend_mode,
+    gsl::owner<EmitterInstance*> system = (create_flexible_particles(name, type, particle_cap, max_streams, texture, blend_mode,
                                                          fixed_alpha, segments, unknown, history, model));
     memory::Hub::get_pull()->leave_heap_scope();
     if (!system)
@@ -225,7 +225,7 @@ void FlexibleParticleManager::destroy_system_when_empty(uint32_t name)
 // 0x0049ADE0
 void FlexibleParticleManager::destroy_group(uint32_t group)
 {
-    EmitterInstance* system = first_system(systems_ptr_);
+    gsl::owner<EmitterInstance*> system = first_system(systems_ptr_);
     while (system) {
         EmitterInstance* next = next_system(system);
         if (system->group_id_ == group)
@@ -237,7 +237,7 @@ void FlexibleParticleManager::destroy_group(uint32_t group)
 // 0x0049AE30
 void FlexibleParticleManager::destroy_non_persistent()
 {
-    EmitterInstance* system = first_system(systems_ptr_);
+    gsl::owner<EmitterInstance*> system = first_system(systems_ptr_);
     while (system) {
         EmitterInstance* next = next_system(system);
         if (!system->unknown12e_)

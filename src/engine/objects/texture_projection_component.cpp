@@ -62,7 +62,7 @@ void TextureProjectionComponent::configure_from_data(script::Struct* params)
         auto* settings = projections->struct_at(i);
         uint32_t name = 0; // (read into the parameters' own argument slot)
         settings->read_hash_value(0x1EE8B7B9, &name, 1);
-        render::TextureProjection* projection = new_projection();
+        gsl::owner<render::TextureProjection*> projection = new_projection();
         // (out of memory: written through null, as the original)
         projection->label_ = name;
         projection->configure_from_data(settings);

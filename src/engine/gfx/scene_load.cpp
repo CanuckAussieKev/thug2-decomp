@@ -38,9 +38,9 @@ memory::PoolPair g_frame_source_pools;
 namespace {
 
 // A PC geom for a scene's sector (zeroed; its scene set).
-PcGeom* new_sector_geom(PcScene* scene)
+gsl::owner<PcGeom*> new_sector_geom(PcScene* scene)
 {
-    auto* geom = new PcGeom;
+    auto geom = memory::make_owned<PcGeom>();
     // (no check: a failed allocation writes through null, as the original)
     geom->scene = scene;
     return geom;
@@ -71,9 +71,9 @@ SceneRef* new_mesh_list(bool mesh_flag)
     return list;
 }
 
-PcScene* build_world_scene(int sectors, bool with_super_sectors, bool flag_8d, SceneRef* list)
+gsl::owner<PcScene*> build_world_scene(int sectors, bool with_super_sectors, bool flag_8d, SceneRef* list)
 {
-    auto* scene = new PcScene(table_bit_width(sectors));
+    auto scene = memory::make_owned<PcScene>(table_bit_width(sectors));
     scene->builds_collision_grid_ = with_super_sectors;
     scene->is_sky_ = flag_8d;
     scene->meshes = list;
@@ -94,10 +94,10 @@ PcScene* read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool 
     int sectors = scene_format::take<int>(in);
     if (sectors < 0 || !in.fits(static_cast<uint64_t>(sectors) * 0x38)) // (each sector at least its fields)
         sectors = 0;
-    PcScene* scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
+    gsl::owner<PcScene*> scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
     for (int i = sectors; i > 0 && in.ok(); --i) {
-        WorldCell* sector = scene->spawn_sector();
-        PcGeom* geom = new_sector_geom(scene);
+        gsl::owner<WorldCell*> sector = scene->spawn_sector();
+        gsl::owner<PcGeom*> geom = new_sector_geom(scene);
         sector->choose_geom(geom);
         geom->start_mesh_list();
         load_sector(core::down_cast<PcSector>(sector)); // (a damaged one keeps the meshes it made)
@@ -177,21 +177,21 @@ PcScene* load_scene_from_file(const char* name, const TextureSet* textures, bool
 gsl::owner<void*> create_frame_source() { return new FrameSource; }
 
 // 0x004B3A20
-PcMesh* load_mesh_file(const char* name, TextureSet* textures)
+gsl::owner<PcMesh*> load_mesh_file(const char* name, TextureSet* textures)
 {
     PcScene* scene = load_scene_from_file(name, textures, false, false, false, nullptr);
     scene->checksum_ = checksums::hash_from_text(name);
     scene->texture_set_ = textures;
     scene->finish_load(name, nullptr);
     clear_screen_clip();
-    auto* mesh = new PcMesh(name);
+    auto mesh = memory::make_owned<PcMesh>(name);
     mesh->choose_scene(scene);
     mesh->textures_ = textures;
     return mesh;
 }
 
 // 0x004B3AD0
-PcMesh* load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin, size_t skin_size,
+gsl::owner<PcMesh*> load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin, size_t skin_size,
                               TextureSet* textures)
 {
     std::array<char, 16> name{};
@@ -200,7 +200,7 @@ PcMesh* load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t siz
     scene->checksum_ = checksums::hash_from_text(name.data());
     scene->texture_set_ = textures;
     scene->finish_load(name.data(), nullptr);
-    auto* mesh = new PcMesh;
+    auto mesh = memory::make_owned<PcMesh>();
     mesh->load_skin(static_cast<const uint8_t*>(skin), skin_size);
     clear_screen_clip();
     mesh->choose_scene(scene);

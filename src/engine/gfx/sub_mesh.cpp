@@ -18,6 +18,7 @@
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -36,9 +37,9 @@ uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
     return data;
 }
 // An index buffer of `bytes` (constructor not rewritten yet; thiscall), from the C runtime's malloc.
-IdxStore* new_index_buffer(uint32_t bytes)
+gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 {
-    void* memory = crt::alloc_block(0x18);
+    gsl::owner<void*> memory = crt::alloc_block(0x18);
     if (!memory)
         return nullptr;
     return memory::construct_in<IdxStore>(memory, bytes, 0, 0x65);
@@ -213,7 +214,7 @@ MeshRef* MeshRef::replicate(bool share)
         for (int k = 0; k < 8; ++k) {
             if (!core::at(copy->index_counts_, k))
                 continue;
-            IdxStore* buffer = new_index_buffer(core::at(copy->index_counts_, k) * 2);
+            gsl::owner<IdxStore*> buffer = new_index_buffer(core::at(copy->index_counts_, k) * 2);
             core::at(copy->index_buffers_, k) = buffer;
             std::memcpy(buffer->indices, core::at(index_buffers_, k)->indices, core::at(copy->index_counts_, k) * 2);
             upload_indices(core::at(index_buffers_, k)); // (the original's too)

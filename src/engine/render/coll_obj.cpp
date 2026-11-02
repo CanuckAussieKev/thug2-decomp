@@ -13,6 +13,7 @@
 #include "engine/render/coll_static.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -86,9 +87,9 @@ HitMeshGroup::~HitMeshGroup()
 }
 
 // 0x00413490
-HitMeshGroup* HitMeshGroup::replicate(int argument)
+gsl::owner<HitMeshGroup*> HitMeshGroup::replicate(int argument)
 {
-    auto* copy = new HitMeshGroup(*this);
+    auto copy = memory::make_owned<HitMeshGroup>(*this);
     copy->flag_bits_ |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
     copy->sub_nodes_ = new_head();
     for_each_child(sub_nodes_, [&](HitMesh* child) {

@@ -7,6 +7,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include "engine/maths/shape_tests.h"
+#include <gsl/pointers>
 
 namespace objects {
 class GameEntity;
@@ -156,7 +157,7 @@ public:
 
     [[nodiscard]] HitMeshKind kind() const override { return HitMeshKind::kGroup; }
     // 0x00413490 (slot 12): a copy owning its geometry flag, with a clone of each child.
-    HitMeshGroup* replicate(int argument) override;
+    gsl::owner<HitMeshGroup*> replicate(int argument) override;
     // 0x00411BE0: `child` onto the end of the list.
     void attach_child(HitMesh* child);
 

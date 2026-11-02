@@ -133,7 +133,7 @@ void create_node_object(script::Struct* params)
         create_game_object(params, 1);
         return;
     }
-    GameEntity* object = entity_hub_handle()->create_composite_object();
+    gsl::owner<GameEntity*> object = entity_hub_handle()->create_composite_object();
     object->configure_from_data(params);
     script::launch_script(kPlainObjectScript, params, object, false, nullptr);
     start_node_object(object, params);
@@ -191,7 +191,7 @@ void VideoEntry::configure_from_data(script::Struct* params)
 // 0x00469180
 script::Struct* VideoEntry::get_settings()
 {
-    script::Struct* settings = script::spawn_param_bag();
+    gsl::owner<script::Struct*> settings = script::spawn_param_bag();
     if (settings)
         settings = new (settings) script::Struct;
     settings->put_int(0x8DDE72C0, flag19_);

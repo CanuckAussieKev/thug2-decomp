@@ -8,6 +8,7 @@
 #include <cstdint>
 
 #include "engine/core/mem.h"
+#include <gsl/pointers>
 
 namespace script {
 class Array;
@@ -28,8 +29,8 @@ public:
     CreateATrick& operator=(const CreateATrick&) = delete;
 
     script::Struct* other_params_; // Default_CAT_other_info's to begin with
-    script::Array* spin_list_;     // six structures (Default_CAT_rotation_info's)
-    script::Array* animations_;    // six structures (Default_CAT_animation_info's)
+    gsl::owner<script::Array*> spin_list_;     // six structures (Default_CAT_rotation_info's)
+    gsl::owner<script::Array*> animations_;    // six structures (Default_CAT_animation_info's)
 };
 
 // The commands (each false without a local skater). trick_index= names the created trick.

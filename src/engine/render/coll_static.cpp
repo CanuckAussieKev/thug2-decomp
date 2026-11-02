@@ -17,6 +17,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -67,8 +68,8 @@ HitMesh* StaticCollider::replicate(int argument)
     TriMeshSource* geometry = instance ? geometry_ : clone_geometry(geometry_, 0, 1);
     if (!geometry)
         return nullptr;
-    CollStaticInstance* copy_instance = nullptr;
-    StaticCollider* copy = nullptr;
+    gsl::owner<CollStaticInstance*> copy_instance = nullptr;
+    gsl::owner<StaticCollider*> copy = nullptr;
     HitMesh* made = nullptr;
     if (instance) {
         copy_instance = new CollStaticInstance();
@@ -146,9 +147,9 @@ CollStaticInstance::~CollStaticInstance()
 }
 
 // 0x00414CD0
-CollStaticInstance* CollStaticInstance::replicate(int /*argument*/)
+gsl::owner<CollStaticInstance*> CollStaticInstance::replicate(int /*argument*/)
 {
-    auto* copy = new CollStaticInstance(*this);
+    auto copy = memory::make_owned<CollStaticInstance>(*this);
     copy->set_shared_geometry(geometry_); // (on a null copy too: a crash, as in the original)
     return copy;
 }
@@ -245,9 +246,9 @@ HitMovingTriangles::HitMovingTriangles(const HitMovingTriangles& other)
 {}
 
 // 0x00414400
-HitMovingTriangles* HitMovingTriangles::replicate(int argument)
+gsl::owner<HitMovingTriangles*> HitMovingTriangles::replicate(int argument)
 {
-    auto* copy = new HitMovingTriangles(*this);
+    auto copy = memory::make_owned<HitMovingTriangles>(*this);
     copy->flag_bits_ |= kOwnsGeometry; // (a failed allocation crashes here, as in the original)
     copy->geometry_ = clone_geometry(geometry_, argument, 0);
     return copy;
@@ -340,9 +341,9 @@ bool HitMesh::is_point_behind_faces(const maths::Vec4* point, int unused)
 // 0x00414990 (a failed allocation of the box crashes when there are geometries, as in the original)
 HitMesh* build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, objects::GameEntity* owner)
 {
-    HitMesh* made = nullptr;
+    gsl::owner<HitMesh*> made = nullptr;
     if (type == 1) {
-        auto* box = new HitMovingBox();
+        auto box = memory::make_owned_value<HitMovingBox>();
         if (count >= 1) {
             maths::BBox bounds;
             for (int i = 0; i < count; ++i) {
@@ -356,7 +357,7 @@ HitMesh* build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, 
         if (count == 1) {
             made = new HitMovingTriangles(geometries);
         } else if (count > 1) {
-            auto* multi = new HitMeshGroup();
+            auto multi = memory::make_owned_value<HitMeshGroup>();
             for (int i = 0; i < count; ++i)
                 multi->attach_child(new HitMovingTriangles(&geometries[i]));
             made = multi;

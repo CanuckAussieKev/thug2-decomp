@@ -29,6 +29,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -63,7 +64,7 @@ uint32_t& mesh_vertex_shader(MeshRef* mesh) { return mesh->fvf; }
 MeshRef** scene_meshes(SceneRef* scene) { return scene->meshes; }
 
 // A new instance (0x64 bytes from the heap) of its mesh list, transform and bones.
-Singleton* new_instance(SceneRef* scene, const maths::Mat4* transform, int bone_count, maths::Mat4* bones)
+gsl::owner<Singleton*> new_instance(SceneRef* scene, const maths::Mat4* transform, int bone_count, maths::Mat4* bones)
 {
     void* memory = memory::alloc(sizeof(Singleton));
     if (!memory)
@@ -71,7 +72,7 @@ Singleton* new_instance(SceneRef* scene, const maths::Mat4* transform, int bone_
     return memory::construct_in<Singleton>(memory, scene, transform, bone_count, bones);
 }
 // A new UV wibble (0x004D1A60, on 0x30 bytes from the heap).
-UvOscillator* new_uv_wibble()
+gsl::owner<UvOscillator*> new_uv_wibble()
 {
     void* memory = memory::alloc(sizeof(UvOscillator));
     return memory ? memory::construct_in<UvOscillator>(memory) : nullptr;
@@ -225,11 +226,11 @@ SceneRef* PcGeom::create_mesh_list()
 }
 
 // 0x004B58C0
-Geom* PcGeom::plat_replicate(int instance_flag, WorldScene* into)
+gsl::owner<Geom*> PcGeom::plat_replicate(int instance_flag, WorldScene* into)
 {
     const bool share = static_cast<uint8_t>(instance_flag) != 0;
     auto* new_scene = core::down_cast<PcScene>(into);
-    auto* geom = new PcGeom;
+    auto geom = memory::make_owned<PcGeom>();
     // (no check: a failed allocation writes through null, as the original)
     geom->meshes = static_cast<MeshRef**>(memory::alloc(4 * mesh_count_));
     geom->mesh_count_ = mesh_count_;
@@ -259,7 +260,7 @@ Geom* PcGeom::plat_replicate(int instance_flag, WorldScene* into)
         geom->change_live(true);
         maths::Mat4 identity{};
         get_identity(&identity);
-        Singleton* inst = new_instance(list, &identity, 1, nullptr);
+        gsl::owner<Singleton*> inst = new_instance(list, &identity, 1, nullptr);
         inst->flags |= 1;
         geom->instance = inst;
     }
@@ -267,13 +268,13 @@ Geom* PcGeom::plat_replicate(int instance_flag, WorldScene* into)
 }
 
 // 0x004B5B80
-Geom* PcGeom::clone_instance(int instance_flag, RenderModel* model)
+gsl::owner<Geom*> PcGeom::clone_instance(int instance_flag, RenderModel* model)
 {
     const bool share = static_cast<uint8_t>(instance_flag) != 0;
     auto scene_owner = std::make_unique<PcScene>(10); // (only for the copy)
     PcScene* temp_scene = scene_owner.get();
     temp_scene->meshes = instance->scene;
-    auto* geom = new PcGeom;
+    auto geom = memory::make_owned<PcGeom>();
     geom->scene = temp_scene;
     auto count = static_cast<uint32_t>(instance->scene->mesh_count_);
     geom->meshes = count ? static_cast<MeshRef**>(memory::alloc(4 * count)) : nullptr;
@@ -294,7 +295,7 @@ Geom* PcGeom::clone_instance(int instance_flag, RenderModel* model)
         get_identity(&bones[i]);
     maths::Mat4 identity{};
     get_identity(&identity);
-    Singleton* inst = new_instance(list, &identity, bone_count, bones);
+    gsl::owner<Singleton*> inst = new_instance(list, &identity, bone_count, bones);
     inst->flags |= 1;
     geom->instance = inst;
     return geom;
@@ -309,7 +310,7 @@ bool PcGeom::plat_init_instance(SubMesh* sub_mesh, RenderModel* model, int /*unu
     maths::Mat4 identity{};
     get_identity(&identity);
     void* memory = memory::alloc(sizeof(Singleton));
-    Singleton* inst = nullptr;
+    gsl::owner<Singleton*> inst = nullptr;
     if (memory) {
         SceneRef* list = mesh->scene->meshes;
         maths::Mat4* bones = model->skin_palette_; // (the model's bones: 0x00492E50)

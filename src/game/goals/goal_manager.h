@@ -12,6 +12,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/lists/lookup_table.h"
+#include <gsl/pointers>
 
 namespace script {
 class Struct;
@@ -190,7 +191,7 @@ public:
     // written) if a key combo has no trick.
     bool swap_move_caption(uint32_t id, const char* text, char* out, int size);
     // 0x0055C6E0: a new structure with the times the beaten goals were started (0xD023ADBE; not network goals).
-    script::Struct* get_objective_try_details();
+    gsl::owner<script::Struct*> get_objective_try_details();
 
     // --- goal_manager_events.cpp ---
     // 0x0055C7E0: the skater landed: the trick objects checked, then each active goal - a horse goal's own land (and

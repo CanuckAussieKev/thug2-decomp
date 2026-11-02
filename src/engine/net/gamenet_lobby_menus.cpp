@@ -24,6 +24,7 @@
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strncpy: the original's own)
 
@@ -197,7 +198,7 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     push_internet_heap();
     script::StructPtr choose = script::make_struct();
     script::StructPtr params = script::make_struct();
-    script::Array* rgba = script::new_array();
+    gsl::owner<script::Array*> rgba = script::new_array();
     script::StructPtr unfocus = script::make_struct();
     params->append_word(kText, player->nick_.data());
     rgba->configure_size_kind(4, script::kQbvalInteger);

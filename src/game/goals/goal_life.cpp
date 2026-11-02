@@ -25,6 +25,7 @@
 #include "game/rider/rider.h"
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
+#include <gsl/pointers>
 
 namespace goals {
 
@@ -111,7 +112,7 @@ void uncouple(memory::ListNode* node)
 
 // The goal's pro (goals::ObjectiveNpc, 0x14 bytes): 0x0055EB40 the constructor (its goal's parameters); its destructor
 // is empty (0x005480A0).
-ObjectiveNpc* new_goal_ped(script::Struct* params)
+gsl::owner<ObjectiveNpc*> new_goal_ped(script::Struct* params)
 {
     void* memory = memory::alloc(sizeof(ObjectiveNpc));
     return memory ? memory::construct_in<ObjectiveNpc>(memory, params) : nullptr;
@@ -375,7 +376,7 @@ bool Objective::get_win()
     }
     bool rewarded = false;
     if (!has_won() && !net->in_net_game()) {
-        script::Struct* rewards = script::new_struct();
+        gsl::owner<script::Struct*> rewards = script::new_struct();
         get_prize_struct(rewards);
         if (new_record)
             rewards->put_name_key(kNoName, kNewRecord);

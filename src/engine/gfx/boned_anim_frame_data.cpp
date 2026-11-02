@@ -23,6 +23,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace gfx {
 
@@ -779,7 +780,7 @@ bool JointClipFrames::read_events(const anim_format::AnimHeader& header, const a
     events_ptr_ = static_cast<UserClipKey**>(memory::alloc_block(header.custom_key_count * 4));
     util::ByteReader reader = anim_format::custom_key_reader(layout);
     for (uint32_t i = 0; i < header.custom_key_count; ++i) {
-        UserClipKey* event = create_custom_anim_key(reader);
+        gsl::owner<UserClipKey*> event = create_custom_anim_key(reader);
         if (!event)
             return false;
         events_ptr_[i] = event;

@@ -64,6 +64,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace commands {
 
@@ -578,7 +579,8 @@ bool cfunc_spawn_second_controller_check(script::Struct*, script::Script*)
     auto* main_loop = assets::g_main_loop_manager.get();
     if (second_controller_check())
         return true;
-    auto* task = new tasks::Task<void>(&second_pad_watch_tick, nullptr, 0);
+    const tasks::Task<void>::Code code = &second_pad_watch_tick;
+    auto task = memory::make_owned<tasks::Task<void>>(code, nullptr, 0);
     second_controller_check() = task;
     main_loop->logic_tasks_.queue_job(task);
     return true;
@@ -890,7 +892,7 @@ bool cfunc_add_warp_points_to_menu(script::Struct* params, script::Script*)
             name = "Unnamed restart"; // "Unnamed restart"
         item->append_word(kMenuText, name);
         item->put_name_key(kMenuScript, 0x54523C62);
-        script::Struct* choose = script::new_struct();
+        gsl::owner<script::Struct*> choose = script::new_struct();
         choose->put_name_key(0x9F92BA78, nodes->fetch_part(i));
         item->put_sub_struct(kMenuParams, choose);
         script::launch_script(0xBEED50B6, item.get(), nullptr, false, nullptr);

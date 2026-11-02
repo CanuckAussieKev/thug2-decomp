@@ -353,7 +353,7 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
     const int count = element->child_total();
     if (count == 0)
         return false;
-    script::Array* array = script::alloc_script_array();
+    gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         array = new (array) script::Array;
     array->configure_size_kind(count, script::kQbvalName);
@@ -495,7 +495,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
     int line_length = 0;
     int previous = 0;
     auto make_element = [&]() {
-        Struct* element_params = script::spawn_param_bag();
+        gsl::owner<Struct*> element_params = script::spawn_param_bag();
         if (element_params)
             element_params = new (element_params) script::Struct;
         element_params->append_structure_if_any(params);

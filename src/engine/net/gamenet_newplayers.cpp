@@ -49,6 +49,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -404,7 +405,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             if (!is_observer(player)) { // its skater; every other player asked whether it's ready
                 const int count = is_own_player(player) && manager->in_net_game() ? 0 : skater_count(skate);
                 const bool local_conn = player->conn_->is_host_local();
-                auto* skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(
+                gsl::owner<objects::Rider*> skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(
                     info->account_, local_conn, static_cast<int>(obj_id), count);
                 player->bind_rider(static_cast<objects::Rider*>(skater));
                 if (!is_own_player(player))

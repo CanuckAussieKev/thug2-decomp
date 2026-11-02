@@ -46,6 +46,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"
+#include <gsl/pointers>
 
 namespace modules {
 
@@ -179,7 +180,7 @@ Viewer::~Viewer()
 }
 
 // 0x00576E60
-void* Viewer::get_viewer_entity() { return entity_; }
+gsl::owner<void*> Viewer::get_viewer_entity() { return entity_; }
 
 // 0x00576E70
 void change_view_mode(int mode) { view_mode_value() = mode; }

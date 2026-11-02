@@ -28,6 +28,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -48,9 +49,9 @@ bool scene_load_collision_data(WorldScene* scene, uint8_t* data, size_t size, in
 bool scene_unload_collision(WorldScene* scene) { return scene->unload_collision(); }
 
 // The platform's new sector (slot 7), its geometry and collision cleared.
-WorldCell* alloc_sector(WorldScene* scene)
+gsl::owner<WorldCell*> alloc_sector(WorldScene* scene)
 {
-    WorldCell* sector = scene->plat_create_sector();
+    gsl::owner<WorldCell*> sector = scene->plat_create_sector();
     sector->geom_handle_ = nullptr;
     sector->hit_body_ = nullptr;
     return sector;
@@ -200,7 +201,7 @@ uint32_t WorldScene::duplicate_scene_sector(WorldCell* sector, WorldScene* scene
 {
     if (!scene)
         scene = this;
-    WorldCell* clone = sector->replicate(instance, flag, scene);
+    gsl::owner<WorldCell*> clone = sector->replicate(instance, flag, scene);
     if (!clone)
         return 0;
     if (name)

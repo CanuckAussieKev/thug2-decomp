@@ -275,7 +275,7 @@ int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
     } else {
         return net::kResultPassOn;
     }
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
     params->get_clear(); // (on the new structure, as the original)

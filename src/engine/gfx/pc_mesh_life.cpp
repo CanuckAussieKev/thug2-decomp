@@ -21,6 +21,7 @@
 #include "platform/crt.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -118,7 +119,7 @@ void MeshRef::fetch_place(float* out) const
 }
 
 // 0x004D5760
-VertexBuffer* new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags)
+gsl::owner<VertexBuffer*> new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags)
 {
     void* memory = alloc_block(sizeof(VertexBuffer));
     return memory ? memory::construct_in<VertexBuffer>(memory, bytes, usage, flags) : nullptr;

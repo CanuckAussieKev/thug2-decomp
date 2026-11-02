@@ -58,7 +58,7 @@ memory::HeapUnique<objects::ProfileRoster>& sole() { return g_profile_roster; }
 uint32_t& ref_tally() { return g_profile_manager_references; }
 
 // A new profile (constructed: its defaults).
-RiderIdentity* new_profile()
+gsl::owner<RiderIdentity*> new_profile()
 {
     void* memory = memory::alloc_zeroed(sizeof(RiderIdentity));
     return memory ? memory::construct_in<RiderIdentity>(memory) : nullptr;
@@ -246,7 +246,7 @@ bool ProfileRoster::add_template(script::Struct* params)
     memory::Hub::get_pull()->enter_heap_scope(profile_heap());
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
-    RiderIdentity* profile = new_profile();
+    gsl::owner<RiderIdentity*> profile = new_profile();
     profile->get_reset(params);
     templates_.place_in(name, profile);
     memory::Hub::get_pull()->leave_heap_scope();

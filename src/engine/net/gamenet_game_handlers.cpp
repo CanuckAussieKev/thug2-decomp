@@ -103,7 +103,7 @@ void* get_rail_editor() { return park_editing::RailAuthoring::sole(); }
 // Leaving for the main menu while the created data couldn't come: the join cancelled with a time-out notice.
 void cancel_join(Hub* manager, bool notify_first)
 {
-    script::Struct* params = nullptr;
+    gsl::owner<script::Struct*> params = nullptr;
     if (notify_first) {
         params = script::new_struct();
         params->put_name_key(0u, kShowTimeout);

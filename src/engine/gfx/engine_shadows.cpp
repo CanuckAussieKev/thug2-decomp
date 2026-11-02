@@ -19,6 +19,7 @@
 #include "engine/gfx/model_utils.h"
 #include "engine/lists/key_map.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -41,9 +42,9 @@ void add_extension(const char* name, const char* extension, char* out)
 
 // A new camera (null without memory: the original goes on with it) at the origin; turned to look along a direction
 // (normalised) by look_along: rows (z, -x, -y), (y, -z, -x), the direction.
-gfx::ViewCam* new_shadow_camera()
+gsl::owner<gfx::ViewCam*> new_shadow_camera()
 {
-    auto* camera = new gfx::ViewCam;
+    auto camera = memory::make_owned<gfx::ViewCam>();
     camera->change_location(maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f});
     return camera;
 }

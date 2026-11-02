@@ -37,6 +37,7 @@
 #include "game/rider/core_physics.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace commands {
 
@@ -602,7 +603,7 @@ void init_beenox_preferences()
     if (core::at(g_network_id, 0) != '\0')
         set_string_preference(prefs, "network_id", g_network_id.data()); // "network_id"
     game_net->set_max_players_preference(online::g_net_max_players);
-    script::Struct* teams = script::new_struct();
+    gsl::owner<script::Struct*> teams = script::new_struct();
     switch (online::g_network_team_mode) {
     case 0:
         set_choice_preference(teams, "None", "teams_none");
@@ -621,7 +622,7 @@ void init_beenox_preferences()
     }
     prefs->change_setting(get_checksums("team_mode"), teams); // "team_mode"
     script::free_struct(teams);
-    script::Struct* skill = script::new_struct();
+    gsl::owner<script::Struct*> skill = script::new_struct();
     switch (online::g_net_skill_level) {
     case 1:
         set_choice_preference(skill, "1: Baby Steps", "num_1");

@@ -28,6 +28,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace goals {
 
@@ -98,9 +99,9 @@ objects::GameEntity* object_named(uint32_t id)
 
 
 // The numbers 1..count shuffled (each slot swapped with a random one).
-script::Array* shuffled_numbers(int count)
+gsl::owner<script::Array*> shuffled_numbers(int count)
 {
-    script::Array* numbers = script::new_array();
+    gsl::owner<script::Array*> numbers = script::new_array();
     numbers->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalInteger);
     for (int i = 0; i < count; ++i)
         numbers->set_element(static_cast<uint32_t>(i), static_cast<uint32_t>(i + 1));
@@ -485,7 +486,7 @@ void ObjectiveNpc::play_pro_voice_line(const char* kind, int count, bool call_by
     std::array<char, 0x80> player{};
     read_leading_name(player.data(), &display, sizeof(player));
     const int total = call_by_name ? count + 20 : count;
-    script::Array* order = shuffled_numbers(total);
+    gsl::owner<script::Array*> order = shuffled_numbers(total);
     for (int i = 0; i < total; ++i) {
         const int n = static_cast<int>(order->fetch_part(static_cast<uint32_t>(i)));
         std::array<char, 0x80> name{};
@@ -529,7 +530,7 @@ void ObjectiveNpc::play_objective_voice_line(const char* type, script::Struct* p
         const char* pro = get_pro_given_name();
         std::array<char, 0x80> player{};
         get_skater_given_name(player.data(), sizeof(player));
-        script::Array* order = shuffled_numbers(5); // (shuffled, and not used: the names go in order)
+        gsl::owner<script::Array*> order = shuffled_numbers(5); // (shuffled, and not used: the names go in order)
         bool played = false;
         for (int n = 1; n <= 5; ++n) {
             std::array<char, 0x80> name{};

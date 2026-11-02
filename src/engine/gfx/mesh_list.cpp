@@ -24,6 +24,7 @@
 #include <d3d9.h>
 #include <span>
 #include <functional>
+#include <gsl/pointers>
 
 namespace render {
 
@@ -45,9 +46,9 @@ uint16_t* lock_indices(void* buffer)
 }
 void unlock_indices(void* buffer) { static_cast<IdxStore*>(buffer)->get_unlock(); }
 void release_index_buffer(void* buffer) { static_cast<IdxStore*>(buffer)->teardown(); }
-IdxStore* new_index_buffer(uint32_t bytes)
+gsl::owner<IdxStore*> new_index_buffer(uint32_t bytes)
 {
-    void* memory = crt::alloc_block(0x18); // (the renderer's operator new: a jump to the C runtime's malloc)
+    gsl::owner<void*> memory = crt::alloc_block(0x18); // (the renderer's operator new: a jump to the C runtime's malloc)
     if (!memory)
         return nullptr;
     return memory::construct_in<IdxStore>(memory, bytes, 0, 0x65);
@@ -316,7 +317,7 @@ void SceneRef::break_strips(uint32_t mask, const StripBreak* records, uint32_t c
         }
         release_index_buffer(index_buffer_of(mesh));
         get_index_count(mesh) = static_cast<uint16_t>(n);
-        IdxStore* buffer = new_index_buffer(n * 2);
+        gsl::owner<IdxStore*> buffer = new_index_buffer(n * 2);
         index_buffer_of(mesh) = buffer;
         uint16_t* rebuilt = lock_indices(buffer);
         std::memcpy(rebuilt, tri_strip_scratch(), get_index_count(mesh) * 2);

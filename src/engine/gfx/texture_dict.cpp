@@ -19,6 +19,7 @@
 #include "engine/gfx/pc_texture.h"
 #include "engine/lists/key_map.h"
 #include "engine/sys/startup_init.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -63,7 +64,7 @@ BitmapTexture* insert_texture(TextureSet* dict, BitmapTexture* texture, bool per
 }
 
 // A new table of 32 buckets (none without memory).
-lists::KeyMap* new_texture_table()
+gsl::owner<lists::KeyMap*> new_texture_table()
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     return memory ? memory::construct_in<lists::KeyMap>(memory, 5) : nullptr;
@@ -272,7 +273,7 @@ TextureSet* load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint
     std::snprintf(file.data(), sizeof(file), "%s.%s", path, platform_suffix());
     memory::push_mem_profile(path);
     const uint32_t key = checksums::hash_from_text(path) + offset;
-    TextureSet* dict = find_tex_dict(key);
+    gsl::owner<TextureSet*> dict = find_tex_dict(key);
     if (dict) {
         ++dict->share_count_;
     } else {
@@ -291,7 +292,7 @@ TextureSet* load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, ui
 {
     memory::push_mem_profile("TEX_data_buffer"); // "TEX_data_buffer"
     const uint32_t key = checksum + offset;
-    TextureSet* dict = find_tex_dict(key);
+    gsl::owner<TextureSet*> dict = find_tex_dict(key);
     if (!dict) {
         // (the original passes size, a3, offset, a5 and a6 too: the PC's reads the checksum and data alone - and,
         // not original, the size as its reader's bound)
@@ -340,14 +341,14 @@ namespace {
 lists::KeyMap g_spare_tex_dict_table{lists::KeyMap::Unconstructed{}};
 
 // The loaded dictionary named `name` (one more use of it), or a new one, made and listed.
-TextureSet* shared_tex_dict(const char* name)
+gsl::owner<TextureSet*> shared_tex_dict(const char* name)
 {
     const uint32_t checksum = checksums::hash_from_text(name);
     if (TextureSet* dict = find_tex_dict(checksum)) {
         ++dict->share_count_;
         return dict;
     }
-    auto* dict = create_tex_dict(checksum);
+    gsl::owner<PcTexDict*> dict = create_tex_dict(checksum);
     loaded_tex_dicts().store_entry(checksum, dict);
     return dict;
 }

@@ -22,6 +22,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -353,7 +354,7 @@ void proximity_notify(uint32_t mask, Entity* object, const maths::Vec4* point, i
             if (node->entity_key_ == 0) {
                 execute_node_script(manager, node, object, true);
             } else if (object) {
-                GameEntity* made = entity_hub_handle()->create_composite_object();
+                gsl::owner<GameEntity*> made = entity_hub_handle()->create_composite_object();
                 made->change_serial(node->entity_key_ + object->ident_);
                 made->at_point_ = node->at_point_;
                 node->entities_ |= 1u << object->ident_;

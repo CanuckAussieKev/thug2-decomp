@@ -55,6 +55,7 @@
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 
 namespace script {
@@ -222,7 +223,7 @@ bool Script::execute_command()
 
     uint32_t name = 0;
     if (*pc_ == 0x0E) {
-        Component* value = new_component();
+        gsl::owner<Component*> value = new_component();
         pc_ = parse_expression(pc_, args_, value);
         if (value->kind_tag() != kQbvalName) {
             const bool result = value->value.word() != 0;
@@ -276,7 +277,7 @@ bool Script::execute_command()
         const uint32_t target = fetch_word32(pc_);
         pc_ += 5;
         pc_ = resolve_random_jumps(pc_);
-        Component* value = new_component();
+        gsl::owner<Component*> value = new_component();
         if (*pc_ == 0x0E)
             pc_ = parse_expression(pc_, args_, value);
         else
@@ -372,7 +373,7 @@ void Script::run_multi_branch()
 {
     ++pc_;
     parse_function_params();
-    Component* value = new_component();
+    gsl::owner<Component*> value = new_component();
     if (const Component* first = stmt_args_->step_to_entry(nullptr))
         duplicate_component(value, first, 0);
     for (;;) {

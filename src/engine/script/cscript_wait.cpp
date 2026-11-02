@@ -24,6 +24,7 @@
 #include "engine/objects/control_pad.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 
 namespace script {
@@ -43,7 +44,7 @@ constexpr uint32_t kExceptionFlag = 0x80367192;
 using objects::SignalRouteTable;
 
 // A new event handler table (on the current heap).
-SignalRouteTable* new_event_handler_table()
+gsl::owner<SignalRouteTable*> new_event_handler_table()
 {
     void* memory = memory::alloc(sizeof(SignalRouteTable));
     return memory ? memory::construct_in<SignalRouteTable>(memory) : nullptr;

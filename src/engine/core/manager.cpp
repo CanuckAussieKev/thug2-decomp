@@ -530,9 +530,9 @@ Hub::Hub()
 }
 
 // 0x005BB4E0
-Arena* Hub::add_heap(Zone* region, int direction, const char* name)
+gsl::owner<Arena*> Hub::add_heap(Zone* region, int direction, const char* name)
 {
-    auto* heap = new Arena(region, direction, name);
+    auto heap = memory::make_owned<Arena>(region, direction, name);
     core::at(heaps_, heap_count_++) = heap;
     return heap;
 }

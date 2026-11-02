@@ -231,7 +231,7 @@ bool PadInputModule::is_input_blocked()
     if (find_element(kControllerUnpluggedDialog))
         return true;
     if (frontend::UiWidget* root = find_element(kRootWindow)) {
-        script::Struct* tags = script::spawn_param_bag();
+        gsl::owner<script::Struct*> tags = script::spawn_param_bag();
         if (tags)
             tags = new (tags) script::Struct;
         root->copy_tags_to(tags);

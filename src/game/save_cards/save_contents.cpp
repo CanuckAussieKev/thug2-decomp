@@ -34,6 +34,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace save_cards {
 
@@ -105,13 +106,13 @@ const modules::Skate::PlayerSettings& controller_flags(int controller)
 // 0x005A7560
 void write_global_info(Struct* global)
 {
-    Struct* options = script::new_struct();
+    gsl::owner<Struct*> options = script::new_struct();
     prefs::Preferences* split_screen = split_screen_preferences();
-    Struct* split_screen_copy = script::new_struct();
+    gsl::owner<Struct*> split_screen_copy = script::new_struct();
     split_screen_copy->append_structure_if_any(preferences_structure(split_screen));
     options->append_struct_ref(kSplitScreenPreferences, split_screen_copy);
 
-    Struct* sound = script::new_struct();
+    gsl::owner<Struct*> sound = script::new_struct();
     sound->push_float(kMasterGainKey, sound::fetch_master_loudness());
     sound->push_float(kMusicVolume, script::fetch_float(kMusicVolOutsideBox));
     std::array<uint64_t, 2> tracks_off{};
@@ -126,12 +127,12 @@ void write_global_info(Struct* global)
         sound->put_name_key(0u, kRandomMode);
     options->append_struct_ref(kSoundOptions, sound);
 
-    Array* controllers = script::alloc_script_array();
+    gsl::owner<Array*> controllers = script::alloc_script_array();
     if (controllers)
         controllers = new (controllers) script::Array;
     controllers->configure_size_kind(kControllers, script::kQbvalStruct);
     for (int i = 0; i < kControllers; ++i) {
-        Struct* controller = script::new_struct();
+        gsl::owner<Struct*> controller = script::new_struct();
         const modules::Skate::PlayerSettings& flags = controller_flags(i);
         if (flags.auto_kick_)
             controller->put_name_key(0u, kAutokickOn);
@@ -147,7 +148,7 @@ void write_global_info(Struct* global)
 
     get_career()->write_to_structure(global);
     game_records()->write_to_structure(global);
-    Struct* pros = script::new_struct();
+    gsl::owner<Struct*> pros = script::new_struct();
     get_profiles()->write_pros(pros);
     global->append_struct_ref(kPros, pros);
 }
@@ -264,20 +265,20 @@ void write_save_contents(Struct* contents, uint32_t type)
         contents->append_structure_if_any(preferences_structure(online_hub_handle()->get_online_settings()));
         return;
     case kSaveOptionsAndPros: {
-        Struct* global = script::new_struct();
+        gsl::owner<Struct*> global = script::new_struct();
         write_global_info(global);
         contents->append_struct_ref(kGlobalInfo, global);
-        Struct* story = script::new_struct();
+        gsl::owner<Struct*> story = script::new_struct();
         // the goal manager's parameters (the shared getter of +0x14)
         story->put_sub_struct(kGoalManagerParams, goals::get_objective_board()->goal_data_);
         contents->append_struct_ref(kStory, story);
-        Struct* story_skater = script::new_struct();
+        gsl::owner<Struct*> story_skater = script::new_struct();
         auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(0));
         skater->write_cat_info(story_skater);
         skater->write_list_44b_66a_9f(story_skater);
         skater->write_chapter_info(story_skater);
         contents->append_struct_ref(kStorySkater, story_skater);
-        Struct* custom_skater = script::new_struct();
+        gsl::owner<Struct*> custom_skater = script::new_struct();
         get_profiles()->write_custom_skaters(custom_skater);
         contents->append_struct_ref(kCustomSkater, custom_skater);
         // (on into CreatedGraphic's layer_infos, as the original does)

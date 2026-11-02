@@ -50,6 +50,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::play_test {
 
@@ -714,7 +715,7 @@ void restart_step(modules::FrontEnd* front_end)
         return;
     const uint32_t restart = g_restart;
     g_restart = 0;
-    auto* params = new (script::spawn_param_bag()) script::Struct;
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(checksums::hash_from_text("node_name"), restart);
     script::launch_script(checksums::hash_from_text("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->get_clear();

@@ -107,8 +107,8 @@ public:
     uint32_t events_{};         // +0x1C this frame's
     PadSnapshot pad_primary_;   // +0x20
     PadSnapshot pad_secondary_; // +0x258
-    Responder* handler_{nullptr}; // +0x490
-    Responder* handler2_{};     // +0x494
+    gsl::owner<Responder*> handler_{nullptr}; // +0x490
+    gsl::owner<Responder*> handler2_{};     // +0x494
     bool disabled_{};           // +0x498 disable_player_input
     bool net_disabled_{};       // +0x499 net_disable_player_input
     bool input_events_{};       // +0x49A EnableInputEvents

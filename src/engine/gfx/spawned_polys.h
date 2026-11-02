@@ -7,6 +7,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/core/slab_bank.h"
+#include <gsl/pointers>
 
 // The engine's spawned polygons (the SpawnPoly script command): textured or plain quads at a place, turned to face a
 // direction, their size and corner colours moved from a start to an end over their lifetime, each drawn by a PC
@@ -31,7 +32,7 @@ struct SpawnedPoly {
     float age{};                    // +0x9C: seconds
     float lifetime{};               // +0xA0
     BitmapTexture* texture{};       // +0xA4 (null: untextured)
-    PcPrimitive* primitive{};       // +0xA8
+    gsl::owner<PcPrimitive*> primitive{};       // +0xA8
     uint32_t blend_mode_;         // +0xAC
     float align_h_;               // +0xB0 (-1 left, 0 centre, 1 right)
     float align_v_;               // +0xB4 (-1 top, 0 centre, 1 bottom)

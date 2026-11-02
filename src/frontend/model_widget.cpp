@@ -34,6 +34,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend {
 
@@ -181,7 +182,7 @@ void ModelWidget::apply_viewport()
 // 0x004A6540
 void ModelWidget::attach_model(Struct* params, maths::Vec4 offset)
 {
-    objects::GameEntity* object = objects::object_hub_slot()->create_composite_object();
+    gsl::owner<objects::GameEntity*> object = objects::object_hub_slot()->create_composite_object();
     core::at(models_, model_total_).object.assign_value(object);
     script::launch_script(kAddComponentsScript, params, core::at(models_, model_total_).object.get_pull(), false, nullptr);
     seal(core::at(models_, model_total_).object.get_pull());

@@ -101,7 +101,7 @@ gsl::owner<Resource*> make_asset(int type, bool with_cutscene)
     case kNodeArray:
         return new NodeTableResource;
     case kOwnedNodeArray: {
-        auto* asset = new NodeTableResource;
+        auto asset = memory::make_owned<NodeTableResource>();
         asset->make_owner(); // (null if the allocation failed: a crash)
         return asset;
     }
@@ -169,7 +169,7 @@ void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, u
                                                   uint32_t size, bool permanent, bool copy, void* params, int extra)
 {
     memory::push_mem_profile("Asset Overhead");
-    Resource* asset = make_asset(type, false);
+    gsl::owner<Resource*> asset = make_asset(type, false);
     // (a type that isn't one leaves a null asset: the original crashes here)
     asset->pinned_ = permanent;
     asset->cur_phase_ = kUnloaded;
@@ -200,7 +200,7 @@ void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum
         checksum = checksums::hash_from_text(name);
     if (!type)
         type = get_type_from_extension(name);
-    Resource* asset = make_asset(type, true);
+    gsl::owner<Resource*> asset = make_asset(type, true);
     // (a type that isn't one leaves a null asset: the original crashes here)
     asset->pinned_ = permanent;
     asset->cur_phase_ = kUnloaded;
@@ -449,7 +449,7 @@ int ResourceRegistry::get_type_from_extension(const char* name)
 // 0x004088E0
 ResourceRegistry* create_asset_manager(bool create)
 {
-    ResourceRegistry* manager = asset_manager();
+    gsl::owner<ResourceRegistry*> manager = asset_manager();
     if (!manager && create) {
         manager = new ResourceRegistry;
         if (manager) {

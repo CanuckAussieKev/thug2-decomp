@@ -46,6 +46,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace online {
 
@@ -188,7 +189,7 @@ bool cfunc_team_flag_taken(Struct* params, Script*)
 bool cfunc_spawn_crown(Struct*, Script*)
 {
     Hub* manager = net_link();
-    auto* crown = new objects::CrownObject;
+    auto crown = memory::make_owned<objects::CrownObject>();
     const int spawn = manager->crown_start_;
     manager->crown_ = crown;
     std::array<uint32_t, kMaxCrownSpawns> names{};

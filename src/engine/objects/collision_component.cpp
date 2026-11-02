@@ -50,7 +50,7 @@ render::RenderModel* model_of(ObjectModule* model)
 
 // A level sector by name in any scene (0x0048C510) and its collision object (0x005480F0: +0x18).
 render::WorldCell* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
-render::HitMesh* sector_collision(const render::WorldCell* sector) { return sector->hit_body_; }
+gsl::owner<render::HitMesh*> sector_collision(const render::WorldCell* sector) { return sector->hit_body_; }
 
 // The model's bone matrix (0x00493040: a single-bone model's, from the asset manager; null otherwise): its rotation at
 // +0x10, its translation at +0x40 (the matrix's fourth row).

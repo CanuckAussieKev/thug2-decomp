@@ -19,6 +19,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace park_editing {
 
@@ -277,7 +278,7 @@ bool ParkAssembler::destroy_sector(uint32_t name, int /*unused*/)
     return deleted;
 }
 
-ParkTile* ParkAssembler::create_piece(ParkPiece* source, uint32_t flags)
+gsl::owner<ParkTile*> ParkAssembler::create_piece(ParkPiece* source, uint32_t flags)
 {
     flags &= ParkTile::kCursor | ParkTile::kNoNode20 | ParkTile::kNoRails | ParkTile::kDestroyNow;
     TileTemplate* from = (source->flag_bits_ & ParkPiece::kSource) ? core::down_cast<TileTemplate>(source)
@@ -295,7 +296,7 @@ ParkTile* ParkAssembler::create_piece(ParkPiece* source, uint32_t flags)
     cloning_piece() = 0;
     // The piece itself on the park editor's heap.
     memory::enter_heap_scope(get_park_heap());
-    auto* piece = new CopiedPiece;
+    auto piece = memory::make_owned<CopiedPiece>();
     memory::leave_heap_scope();
     piece->sector_ = clone; // (out of memory crashes, as in the original)
     piece->ident_ = next_piece_id_++;

@@ -84,7 +84,7 @@ struct Viewer final : public PartUnit {
     // 0x00577170: a new viewer object (in the debug heap, or the bottom-up one), set up from `data`.
     void create_viewer_object(void* data);
     // 0x00576E60
-    void* get_viewer_entity();
+    gsl::owner<void*> get_viewer_entity();
     // 0x00577260: commands added (OR).
     void add_commands(uint32_t commands);
 };

@@ -768,7 +768,7 @@ Hub::Hub()
     task_ = std::make_unique<tasks::Task<memory::ListNode>>(&process_task, &devs_, 0);
     int index = 0;
     for (int port = 0; port < 2; ++port) {
-        auto* device = new InputPort(index, port, 0);
+        auto device = memory::make_owned<InputPort>(index, port, 0);
         if (!device)
             continue;
         memory::ListNode* node = device->list_link_; // onto the end of the list

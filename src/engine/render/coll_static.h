@@ -8,6 +8,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/render/coll_movable.h"
 #include "engine/render/coll_obj.h"
+#include <gsl/pointers>
 
 namespace objects {
 class GameEntity;
@@ -117,7 +118,7 @@ public:
     [[nodiscard]] uint32_t get_triangle_attrs(int face) const override { return read_face_attrs(face); }
     [[nodiscard]] uint16_t get_face_terrain(int face) const override { return read_face_terrain(face); }
     // 0x00414CD0 (slot 12): a copy sharing the geometry.
-    CollStaticInstance* replicate(int argument) override;
+    gsl::owner<CollStaticInstance*> replicate(int argument) override;
     // 0x00411480: the geometry shared (flags 0xC000) and its box taken.
     void set_shared_geometry(TriMeshSource* geometry);
     // 0x00413F00 / 0x00413F30 (not a function in Ghidra) / 0x00413F50 (slots 5, 6, 24): set, the inverse and the
@@ -177,7 +178,7 @@ public:
     [[nodiscard]] uint32_t get_triangle_attrs(int face) const override { return read_face_attrs(face); }
     [[nodiscard]] uint16_t get_face_terrain(int face) const override { return read_face_terrain(face); }
     // 0x00414400 (slot 12): a copy with a copy of the geometry.
-    HitMovingTriangles* replicate(int argument) override;
+    gsl::owner<HitMovingTriangles*> replicate(int argument) override;
     // 0x00411780 (slot 4): the geometry and the radius from its vertices.
     void assign_shape_data(TriMeshSource* geometry) override;
     // 0x00412F90 (slot 5; not a function in Ghidra)

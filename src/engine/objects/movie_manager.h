@@ -7,6 +7,7 @@
 #include "engine/gfx/view_cam.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/node_objects.h"
+#include <gsl/pointers>
 
 // The movie manager (GameObjects::VideoHub, 0x0057A180-0x0057B240): the queue of camera animations and cutscenes
 // ("movies") the skate module plays (its +0x368). The first movie in the queue plays; its camera is the game's
@@ -64,7 +65,7 @@ public:
     // 0xE92ECAFE state) copied to viewer_, kept until the next render frame.
     void keep_camera(Movie* movie);
     // 0x0057A530: the camera to show: the playing movie's (if it has one), else the kept one, else null.
-    gfx::ViewCam* obtain_active_lens();
+    gsl::owner<gfx::ViewCam*> obtain_active_lens();
     // 0x0057A180: the game's camera this manager's own (0x004A0970).
     void use_kept_camera();
 

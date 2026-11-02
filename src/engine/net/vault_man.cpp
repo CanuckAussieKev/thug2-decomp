@@ -34,6 +34,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace online {
 
@@ -799,7 +800,7 @@ bool fill_vault_menu(script::Struct*, script::Script*)
         auto* item = static_cast<VaultItem*>(node->data);
         if (!item)
             break;
-        script::Struct* params = script::new_struct();
+        gsl::owner<script::Struct*> params = script::new_struct();
         params->append_word("name", item->label_.data());
         params->append_word("creator", item->creator_.data());
         params->append_word("size", item->extent_.data());
@@ -813,7 +814,7 @@ bool fill_vault_menu(script::Struct*, script::Script*)
         params->put_name_key("tod_script", item->tod_script_);
         params->put_int("is_male", item->has_male_body_);
         params->append_word("description", item->summary_text_.data());
-        script::Struct* choose = script::new_struct();
+        gsl::owner<script::Struct*> choose = script::new_struct();
         choose->append_word("file", item->url_.data());
         params->put_sub_struct("pad_choose_params", choose);
         const char* script = nullptr;

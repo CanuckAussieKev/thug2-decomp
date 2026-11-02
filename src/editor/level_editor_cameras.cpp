@@ -31,6 +31,7 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::cameras {
 
@@ -396,14 +397,14 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     const double now = get_now();
     if (now < g_shot_until) {
         // (the last shot still playing: killed first, as the goals kill theirs)
-        auto* kill = new (script::spawn_param_bag()) script::Struct;
+        gsl::owner<script::Struct*> kill = script::new_struct();
         kill->put_name_key(get_checksums("name"), shot);
         commands::cfunc_kill_skater_cam_anim(kill, script);
         kill->get_clear();
         script::delete_struct(kill);
     }
     // The game's own virtual_cam, as view_goals_menu.qb's play_single_view_goals_cam plays a goal's camera.
-    auto* anim = new (script::spawn_param_bag()) script::Struct;
+    gsl::owner<script::Struct*> anim = script::new_struct();
     anim->put_name_key(get_checksums("name"), shot);
     anim->put_name_key(0u, get_checksums("virtual_cam"));
     anim->put_name_key(get_checksums("targetid"), get_checksums("world"));

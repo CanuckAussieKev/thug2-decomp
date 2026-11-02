@@ -113,7 +113,7 @@ bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
     params->put_name_key(kGoalIdChecksum, id);
     if (params->has_bare_flag(kCareerOnly) && in_multiplayer_game())
         return false;
-    Objective* goal = make_goal(params);
+    gsl::owner<Objective*> goal = make_goal(params);
     goals_.place_in(id, goal);
     goal->merge_skill_tier_args(); // (a failed allocation is used through null, as the original)
     script::Struct* own = goal->fetch_args();
@@ -249,10 +249,10 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
 }
 
 // 0x0055C6E0
-script::Struct* GoalManager::get_objective_try_details()
+gsl::owner<script::Struct*> GoalManager::get_objective_try_details()
 {
     const int count = goals_.num_; // (read once)
-    script::Struct* info = script::new_struct();
+    gsl::owner<script::Struct*> info = script::new_struct();
     int attempts = 0;
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);

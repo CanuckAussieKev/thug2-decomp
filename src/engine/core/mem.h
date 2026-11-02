@@ -52,6 +52,29 @@ gsl::owner<Object*> construct_in(void* block, Args&&... args)
         return new (block) Object(std::forward<Args>(args)...);
     }
 }
+// NOT ORIGINAL - a new Object (its class's operator new, if it has one) for a holder that owns it: `new Object` with
+// no arguments (default-initialised), `new Object(args...)` with them; make_owned_value is `new Object()`. A call,
+// so the holder is spelt gsl::owner<Object*> (auto would drop the owner).
+template <typename Object, typename... Args>
+gsl::owner<Object*> make_owned(Args&&... args)
+{
+    if constexpr (sizeof...(Args) == 0) {
+        return new Object;
+    } else {
+        return new Object(std::forward<Args>(args)...);
+    }
+}
+// A block from an allocator that returns void* (the C runtime's, the heaps') taken as the T it is for, owned.
+template <typename T>
+gsl::owner<T> adopt(void* block)
+{
+    return static_cast<T>(block);
+}
+template <typename Object>
+gsl::owner<Object*> make_owned_value()
+{
+    return new Object();
+}
 // `new (block) Object()`: value-initialised.
 template <typename Object>
 gsl::owner<Object*> construct_value_in(void* block)

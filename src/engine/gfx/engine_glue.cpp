@@ -201,9 +201,9 @@ void finish_rendering()
 }
 
 // 0x004B28C0
-PcScene* make_empty_scene(const char* /*name*/, TextureSet* /*textures*/, bool with_super_sectors)
+gsl::owner<PcScene*> make_empty_scene(const char* /*name*/, TextureSet* /*textures*/, bool with_super_sectors)
 {
-    auto* scene = new PcScene(10);
+    auto scene = memory::make_owned<PcScene>(10);
     // (no check: a failed allocation writes through null, as the original)
     scene->builds_collision_grid_ = with_super_sectors;
     scene->is_sky_ = false;
@@ -235,9 +235,9 @@ gsl::owner<BillboardQuad*> build_sprite_quad() { return new PcSprite; }
 gsl::owner<TexturedQuad*> create_textured_quad() { return new TexturedQuad(nullptr); }
 
 // 0x004B2B60
-void* create_render_target(int width, int height, uint8_t depth, int unused)
+gsl::owner<void*> create_render_target(int width, int height, uint8_t depth, int unused)
 {
-    auto* target = new PcTexture;
+    auto target = memory::make_owned<PcTexture>();
     void* memory = memory::alloc(sizeof(TextureRef));
     TextureRef* texture = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
     target->set_texture(texture);

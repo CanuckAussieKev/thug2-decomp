@@ -6,6 +6,7 @@
 
 #include "engine/gfx/engine_text.h"
 #include "engine/gfx/font.h"
+#include <gsl/pointers>
 
 // The engine's fonts and texts on PC (Nx engine): the PC font (the engine's Typeface over a bitmap font, TypefaceData) and
 // the PC text (the engine's GlyphString over a piece of screen text, GlyphRun), the texts' free list, and the platform calls
@@ -72,6 +73,6 @@ void allocate_text_pool(uint32_t count);
 // 0x004B4090: the font's engine Unload (0x0048D040: unload_platform, then +4 cleared).
 void unload_pc_font(PcFont* font);
 // 0x004B40A0: a new PC font, loaded from `name`.
-PcFont* create_pc_font(const char* name);
+gsl::owner<PcFont*> create_pc_font(const char* name);
 
 } // namespace render

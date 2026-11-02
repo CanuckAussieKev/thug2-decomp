@@ -183,7 +183,7 @@ void change_sector_key(PcSector* sector, uint32_t checksum)
 {
     sector->checksum_ = checksum; // (the original calls a setter folded with Resource::set_checksum)
 }
-MeshRef* new_mesh()
+gsl::owner<MeshRef*> new_mesh()
 {
     void* memory = memory::alloc(sizeof(MeshRef));
     return memory ? memory::construct_in<MeshRef>(memory) : nullptr; // (its constructor)
@@ -253,7 +253,7 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
             in.fail();
             break;
         }
-        MeshRef* mesh = new_mesh();
+        gsl::owner<MeshRef*> mesh = new_mesh();
         std::memcpy(centre.data(), fields.centre.data(), sizeof(fields.centre));
         std::memcpy(&min, fields.min.data(), sizeof(fields.min));
         std::memcpy(&max, fields.max.data(), sizeof(fields.max));

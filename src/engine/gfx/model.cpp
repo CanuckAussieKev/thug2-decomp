@@ -13,6 +13,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/bone_volumes.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -34,7 +35,7 @@ uint32_t scene_b8(void* scene) { return static_cast<SubMesh*>(scene)->get_hierar
 HierarchyNode* scene_b4(void* scene) { return static_cast<SubMesh*>(scene)->fetch_bone_tree(); }
 
 // Lights made and deleted (the engine's 0x0048EA80 / 0x0048C080).
-ModelLights* new_lights() { return spawn_model_lights(); }
+gsl::owner<ModelLights*> new_lights() { return spawn_model_lights(); }
 
 } // namespace
 

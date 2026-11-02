@@ -6,6 +6,7 @@
 
 #include "engine/core/mem.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 // The skater's career (0x00584110-0x00584CF3; the rest of its code is later in the range): for each of 21 levels its
 // goals (256 bits) and flags (256 bits), the goals and flags as they were when the level started (to tell which were
@@ -113,7 +114,7 @@ public:
     int max_value634_{};               // +0x638
     std::array<goals::GapTally*, kLevels> gaps_{}; // +0x63C
     std::array<bool, kLevels> visited_{};          // +0x690
-    script::Struct* details_;        // +0x6A8
+    gsl::owner<script::Struct*> details_;        // +0x6A8
 };
 
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career (+0x20) written to the script's results.

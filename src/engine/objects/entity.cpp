@@ -15,6 +15,7 @@
 #include "engine/objects/entity.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -55,7 +56,7 @@ void launch_event(uint32_t type, uint32_t target, uint32_t source, Struct* data,
 // A copy of `component` (from the component pool) added to `dest`.
 void add_copy(Struct* dest, Component* component)
 {
-    Component* copy = script::new_component();
+    gsl::owner<Component*> copy = script::new_component();
     script::duplicate_component(copy, component, 0);
     dest->attach_module(copy);
 }
@@ -404,7 +405,7 @@ bool Entity::obj_get_tags(Struct* params, Script* script)
 {
     uint32_t name = 0;
     if (params->read_hash_value(kStructure, &name, 0)) {
-        Struct* copy = script::new_struct();
+        gsl::owner<Struct*> copy = script::new_struct();
         if (tag_table_)
             copy->append_structure_if_any(tag_table_);
         script->args_->append_struct_ref(name, copy);

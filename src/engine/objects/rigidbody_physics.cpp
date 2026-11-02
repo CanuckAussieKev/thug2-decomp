@@ -304,7 +304,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
     if (!(speed > bounce_callback_threshold_))
         return;
     if (bounce_script_) {
-        script::Struct* params = script::spawn_param_bag();
+        gsl::owner<script::Struct*> params = script::spawn_param_bag();
         if (params)
             params = new (params) script::Struct;
         if (callback_params_ptr_)

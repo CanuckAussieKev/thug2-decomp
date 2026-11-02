@@ -52,7 +52,7 @@ void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script)
 // A structure with one flag, given to `element`'s change_traits (Hide / UnHide).
 void set_flag_property(UiWidget* element, uint32_t flag)
 {
-    Struct* params = script::spawn_param_bag();
+    gsl::owner<Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
     params->put_name_key(0u, flag);
@@ -591,7 +591,7 @@ bool UiTree::push_priority(uint32_t id, uint32_t priority)
     entry.priority = priority;
     if (num_priorities_ > 0) {
         // the top one shown: the new one hidden unless it is the new top, then the old top is
-        Struct* params = script::spawn_param_bag();
+        gsl::owner<Struct*> params = script::spawn_param_bag();
         if (params)
             params = new (params) script::Struct;
         params->put_name_key(0u, kHide);

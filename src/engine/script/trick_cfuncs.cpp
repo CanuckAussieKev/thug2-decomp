@@ -30,6 +30,7 @@
 #include "game/goals/create_a_trick.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace commands {
 
@@ -320,13 +321,13 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
     }
     if (trick_count == 0)
         return false;
-    Array* trick_array = script::new_array();
+    gsl::owner<Array*> trick_array = script::new_array();
     trick_array->configure_size_kind(trick_count, script::kQbvalName);
     for (int i = 0; i < trick_count; ++i)
         trick_array->set_element(i, core::at(tricks, i));
     script->args_->append_array_ref(kEditableTrickList, trick_array);
     if (cat_count > 0) {
-        Array* cat_array = script::new_array();
+        gsl::owner<Array*> cat_array = script::new_array();
         cat_array->configure_size_kind(cat_count, script::kQbvalInteger);
         for (int i = 0; i < cat_count; ++i)
             cat_array->set_element(i, static_cast<uint32_t>(core::at(cats, i)));
@@ -585,7 +586,7 @@ bool cfunc_get_key_combo_array_from_trick_array(script::Struct* params, script::
     RiderIdentity* profile = profile_for(nullptr);
     Struct* mapping = profile->fetch_details_params(kTrickMapping);
     const int size = static_cast<int>(tricks->extent_);
-    Array* key_combos = script::new_array();
+    gsl::owner<Array*> key_combos = script::new_array();
     key_combos->configure_size_kind(size, script::kQbvalName);
     for (int i = 0; i < size; ++i) {
         const uint32_t trick = tricks->fetch_part(i);

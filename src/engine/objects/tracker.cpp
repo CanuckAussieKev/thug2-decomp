@@ -27,6 +27,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "platform/all_ones.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -91,7 +92,7 @@ double get_distance_squared(const float* a, const float* b)
 }
 
 // A new hash table of 2^bits buckets (null if there's no memory).
-lists::KeyMap* new_hash_table(int bits)
+gsl::owner<lists::KeyMap*> new_hash_table(int bits)
 {
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     return memory ? memory::construct_in<lists::KeyMap>(memory, bits) : nullptr;

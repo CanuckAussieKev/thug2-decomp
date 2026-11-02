@@ -13,6 +13,7 @@
 #include "engine/net/player_info.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace online::detail {
 
@@ -21,10 +22,10 @@ namespace online::detail {
 inline void add_observer_controls(Hub* manager, PlayerRecord* player, tasks::PileUp* tasks, pad_input::Hub* input,
                                   int handler_priority = -1000)
 {
-    auto* task = new tasks::Task<PlayerRecord>(&Hub::observer_task, player, 0);
+    auto task = memory::make_owned<tasks::Task<PlayerRecord>>(&Hub::observer_task, player, 0);
     player->observer_task_ = task;
     tasks->queue_job(task);
-    auto* handler = new pad_input::Responder<Hub>(&Hub::observer_input, manager, handler_priority, 0);
+    auto handler = memory::make_owned<pad_input::Responder<Hub>>(&Hub::observer_input, manager, handler_priority, 0);
     manager->spectator_pad_listener_ = handler;
     // (a null handler is read through, as in the original)
     pad_input::HostEnd& server = core::at(input->hosts_, handler->ordinal_);

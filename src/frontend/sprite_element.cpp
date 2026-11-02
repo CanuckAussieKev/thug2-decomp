@@ -23,6 +23,7 @@
 #include "engine/gfx/engine_texture.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend {
 
@@ -68,8 +69,8 @@ uint16_t texels_across(void* texture) { return render::texels_across(texture); }
 uint16_t texels_down(void* texture) { return render::texels_down(texture); }
 
 // The drawing pieces: made (cdecl), freed (cdecl), and their setters (thiscall).
-render::TexturedQuad* new_textured_piece() { return render::create_textured_quad(); }
-render::BillboardQuad* new_sprite(int unused) { return (void)unused, render::build_sprite_quad(); }
+gsl::owner<render::TexturedQuad*> new_textured_piece() { return render::create_textured_quad(); }
+gsl::owner<render::BillboardQuad*> new_sprite(int unused) { return (void)unused, render::build_sprite_quad(); }
 
 // The 2D windows (a free list, 0x004A1620 / 0x004A1670; cdecl) and their position / size (thiscall).
 void* new_window2d(int x, int y, int w, int h) { return render::allocate_window_2d(x, y, w, h); }
@@ -115,7 +116,7 @@ void TextureElement::get_properties(Struct* out)
 {
     std::array<uint8_t, 4> rgba{};
     std::memcpy(rgba.data(), summed_.rgba.data(), 4);
-    script::Array* array = script::alloc_script_array();
+    gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         array = new (array) script::Array;
     array->configure_size_kind(4, script::kQbvalInteger);

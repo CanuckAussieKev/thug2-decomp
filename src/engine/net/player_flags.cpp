@@ -35,6 +35,7 @@
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -231,7 +232,7 @@ void PlayerRecord::note_flag_returned()
     Hub* manager = the_manager();
     std::array<char, 64> key{};
     get_team_key(key.data(), team_);
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
         params->put_int(kTeam, team_);

@@ -17,6 +17,7 @@
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
 #include "platform/all_ones.h"
+#include <gsl/pointers>
 
 namespace goals {
 
@@ -144,7 +145,7 @@ void MatchFlow::tick_frame()
 // 0x00553DB0
 MatchRules* MatchRules::sole(bool create)
 {
-    MatchRules* mode = the_game_mode();
+    gsl::owner<MatchRules*> mode = the_game_mode();
     if (!mode && create) {
         mode = new MatchRules;
         the_game_mode() = mode;
@@ -228,7 +229,7 @@ void MatchRules::build_victory_conditions()
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);
     for (uint32_t i = 0; i < conditions->extent_; ++i) {
-        WinRule* condition = create_victory_condition(conditions->struct_at(i));
+        gsl::owner<WinRule*> condition = create_victory_condition(conditions->struct_at(i));
         auto* node = static_cast<ConditionNode*>(memory::alloc_zeroed(sizeof(ConditionNode)));
         if (node) {
             node->condition_ = condition;

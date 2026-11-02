@@ -509,7 +509,7 @@ const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, uint32_t t
         script::delete_struct(kept);
         kept_contents() = nullptr;
     }
-    Struct* contents = script::spawn_param_bag();
+    gsl::owner<Struct*> contents = script::spawn_param_bag();
     if (contents)
         contents = new (contents) script::Struct;
     kept_contents() = contents;

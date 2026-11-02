@@ -221,9 +221,9 @@ void EntityHub::detach_module_of_kind(ObjectModule* component)
 }
 
 // 0x0045F330
-GameEntity* EntityHub::create_composite_object()
+gsl::owner<GameEntity*> EntityHub::create_composite_object()
 {
-    auto* object = new GameEntity;
+    auto object = memory::make_owned<GameEntity>();
     object->change_species(kCompositeObjectType); // (no memory: a crash, as the original)
     enrol_subject(object);
     return object;
@@ -232,7 +232,7 @@ GameEntity* EntityHub::create_composite_object()
 // 0x0045F3A0
 GameEntity* EntityHub::spawn_entity_from_node(script::Array* components, script::Struct* node_data, bool finalize)
 {
-    GameEntity* object = create_composite_object();
+    gsl::owner<GameEntity*> object = create_composite_object();
     configure_from_data(object, node_data);
     build_modules_from_list(object, components, node_data);
     if (finalize)

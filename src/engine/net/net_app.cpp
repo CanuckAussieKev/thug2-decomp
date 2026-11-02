@@ -73,7 +73,7 @@ char*& send_buffer_start(Conn* conn) { return conn->outgoing_bytes_; }
 char*& send_buffer_end(Conn* conn) { return conn->write_ptr_; }
 
 // Conn's methods (net_conn.cpp).
-Conn* construct_conn(void* memory, int flags) { return new (memory) Conn(flags); }
+gsl::owner<Conn*> construct_conn(void* memory, int flags) { return new (memory) Conn(flags); }
 void destroy_conn_body(Conn* conn) { conn->~Conn(); }
 bool is_sound(Conn* conn) { return conn->is_sound(); }
 void mark_stale(Conn* conn) { conn->mark_stale(); }
@@ -100,7 +100,7 @@ int connection_type(void* manager) { return static_cast<Hub*>(manager)->get_net_
 // --- Messages ---------------------------------------------------------------------------------------------------
 // PendingMsg (0x0C) and SeqQueuedMsg (0x10, made by AppHost::new_queued_msg): a copy of a message shared by the
 // links that send it to each connection; freed with the last.
-PendingMsg* construct_queued_msg(void* memory, uint8_t id, uint16_t length, const void* data, uint8_t compression)
+gsl::owner<PendingMsg*> construct_queued_msg(void* memory, uint8_t id, uint16_t length, const void* data, uint8_t compression)
 {
     return new (memory) PendingMsg(id, length, data, compression);
 }
@@ -110,20 +110,20 @@ void destroy_queued_msg_body(void* message) { static_cast<PendingMsg*>(message)-
 // The links (net_messages.h): list nodes (+8 the priority) pointing at a queued message - the normal queue's (with
 // the time it may be sent), the important queue's (also when it was last sent, 0 = never) and the sequenced queue's
 // (also the group, whether it's a stream piece and the sequence id).
-MsgNormalLink* construct_msg_link(void* memory, PendingMsg* message) { return new (memory) MsgNormalLink(message); }
-ReliableMsgNode* construct_msg_important_link(void* memory, PendingMsg* message)
+gsl::owner<MsgNormalLink*> construct_msg_link(void* memory, PendingMsg* message) { return new (memory) MsgNormalLink(message); }
+gsl::owner<ReliableMsgNode*> construct_msg_important_link(void* memory, PendingMsg* message)
 {
     return new (memory) ReliableMsgNode(message);
 }
-OrderedMsgNode* construct_msg_seq_link(void* memory, SeqQueuedMsg* message)
+gsl::owner<OrderedMsgNode*> construct_msg_seq_link(void* memory, SeqQueuedMsg* message)
 {
     return new (memory) OrderedMsgNode(message);
 }
 
 // BulkStreamNode: a lists::Elem (data = itself) with its StreamDesc.
-BulkStreamNode* construct_stream_link(void* memory, StreamDesc* stream) { return new (memory) BulkStreamNode(stream); }
+gsl::owner<BulkStreamNode*> construct_stream_link(void* memory, StreamDesc* stream) { return new (memory) BulkStreamNode(stream); }
 StreamDesc* stream_of(const ListNode* link) { return static_cast<BulkStreamNode*>(link->data)->msg_meta_; }
-StreamDesc* construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
+gsl::owner<StreamDesc*> construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
 // ~StreamDesc: frees the data unless it was sent in place ("Destroying StreamDesc's Data").
 void destroy_stream_desc_body(StreamDesc* stream) { stream->~StreamDesc(); }
 
@@ -297,7 +297,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         break;
     }
     case NetMessageInfo::kLaneOrdered: {
-        SeqQueuedMsg* message =
+        gsl::owner<SeqQueuedMsg*> message =
             new_queued_msg(desc->ident_, desc->byte_count_, desc->content_, desc->group_id_, desc->compression_);
         for_each_target(not_disconnecting, [&](Conn* conn) {
             ++message->share_count_;

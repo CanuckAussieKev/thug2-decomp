@@ -215,7 +215,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
         return;
     script::ScriptStore* cache = script::g_script_store.get();
     const uint8_t* token = cache->fetch_script(script);
-    Struct* params = nullptr;
+    gsl::owner<Struct*> params = nullptr;
     if (void* memory = script::spawn_param_bag())
         params = memory::construct_in<script::Struct>(memory);
     token = script::skip_to_end_of_statement(token); // (past the script's first line)

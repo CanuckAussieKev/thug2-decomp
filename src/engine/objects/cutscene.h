@@ -20,6 +20,7 @@ class Struct;
 #include "engine/file/asset_bundle.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/node_objects.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -94,7 +95,7 @@ public:
     void load_animation(uint32_t name, uint32_t a2, uint32_t a3);
     // 0x00464000: a composite object for the cutscene (type 0xCDEB9229) made from `params` by scripts 0x1F29C5A5
     // and 0x2E20EA32.
-    GameEntity* create_object(script::Struct* params);
+    gsl::owner<GameEntity*> create_object(script::Struct* params);
     // 0x004641A0: (when +0x34B0) the objects listed in 0x67F08671 shown again.
     void show_hidden_objects();
     // 0x00464220: (when +0x34B0) the camera placed by the cutscene's camera animation at its time; the objects'
@@ -176,9 +177,9 @@ public:
     bool ready_flag_{};                             // +0x0C
     std::array<uint8_t, 3> unknownd_{};
     int camera_parts_{0};          // +0x10: the camera animation's parts (after the first)
-    void* camera_source_{nullptr}; // +0x14: its animation source
+    gsl::owner<void*> camera_source_{nullptr}; // +0x14: its animation source
     int object_parts_{0};          // +0x18: the object animation's parts
-    void* object_source_{nullptr}; // +0x1C
+    gsl::owner<void*> object_source_{nullptr}; // +0x1C
     void* object_anims_{};  // +0x20
     void* camera_anim_{};   // +0x24
     void* anim_list_{};     // +0x28: the object animations' names (count at +8, 0x00482F00 the n-th)

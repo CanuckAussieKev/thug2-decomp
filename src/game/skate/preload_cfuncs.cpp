@@ -33,6 +33,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace commands {
 
@@ -77,7 +78,7 @@ constexpr auto kPedPartLists = std::to_array<uint32_t>({0xF56A8CFB, 0x26D93E89, 
 
 // Nx (not rewritten yet): a new model (0x0048BFA0, cdecl) and its deletion (0x0048C3C0); a model loaded from a file
 // (0x004935E0, eight arguments); its geom count (0x00492E40) and a geom's texture dictionary (0x004946C0).
-render::RenderModel* spawn_render_model(int)
+gsl::owner<render::RenderModel*> spawn_render_model(int)
 {
     return render::spawn_model();
 } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
@@ -161,7 +162,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
             path = *made;
             made->~Chars();
         }
-        render::RenderModel* nx_model = spawn_render_model(1);
+        gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
         ingest_mesh(nx_model, path.c_str(), 0, 1, 0, node->has_bare_flag(kAllowReplaceTex), 0, 1, 0);
         if (!node->has_bare_flag(kNoCollision)) {
             const char* file = path.c_str();
@@ -221,7 +222,7 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
             text::Chars* made = model_path(storage.data(), model, ".skin");
             path = *made;
             made->~Chars();
-            render::RenderModel* nx_model = spawn_render_model(1);
+            gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
             ingest_mesh(nx_model, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
             delete_model(nx_model);
         }
@@ -231,7 +232,7 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
             text::Chars* made = model_path(storage.data(), model, ".mdl");
             path = *made;
             made->~Chars();
-            render::RenderModel* nx_model = spawn_render_model(1);
+            gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
             ingest_mesh(nx_model, path.c_str(), 0, 1, 8, 0, 0, 1, 0);
             delete_model(nx_model);
         }
@@ -241,7 +242,7 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
         script::Struct* profile = script::read_sub_struct(profile_name);
         if (!profile)
             continue;
-        render::RenderModel* nx_model = spawn_render_model(1);
+        gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
         // The pedestrian's appearance and a model builder (destroyed at the end of the loop: the builder first).
         gfx::ModelLook appearance;
         appearance.read_in(profile, false);

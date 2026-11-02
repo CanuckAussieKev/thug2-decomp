@@ -23,6 +23,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend {
 
@@ -112,7 +113,7 @@ void read_string_param(void* font, const char* text, float* width, float* height
 char button_glyph(const char* text) { return render::button_glyph(text); }
 
 // The text objects: made / freed (cdecl), and their setters (thiscall).
-void* new_text_object() { return render::new_text(); }
+gsl::owner<void*> new_text_object() { return render::new_text(); }
 void free_text_object(void* text) { render::free_text(static_cast<render::GlyphString*>(text)); }
 void text_hidden(void* t, bool hidden) { static_cast<render::GlyphString*>(t)->change_concealed(hidden); }
 void text_font(void* t, void* font)

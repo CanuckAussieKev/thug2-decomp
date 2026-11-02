@@ -34,6 +34,7 @@
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::scale_tool {
 
@@ -345,7 +346,7 @@ struct MeshCopy {
     std::vector<float> list_copy_;
 };
 
-render::HitMesh* coll_of(render::WorldCell* sector) { return sector->hit_body_; }
+gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body_; }
 render::TriMeshSource* collision_data(render::WorldCell* sector)
 {
     const render::HitMesh* coll = coll_of(sector);
@@ -527,7 +528,7 @@ render::RenderModel* model_of(objects::GameEntity* object)
                      : nullptr;
 }
 
-render::HitMesh* collision_of(objects::GameEntity* object)
+gsl::owner<render::HitMesh*> collision_of(objects::GameEntity* object)
 {
     auto* component =
         core::down_cast<objects::ContactShapeModule>(object->fetch_module(objects::ContactShapeModule::kType));

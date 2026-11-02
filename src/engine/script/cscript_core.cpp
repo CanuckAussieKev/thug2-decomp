@@ -19,6 +19,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
+#include <gsl/pointers>
 
 namespace script {
 
@@ -192,12 +193,12 @@ void Script::report_stopped()
 }
 
 // 0x004739D0
-Struct* Script::copy_params_if_owned(Struct* params)
+gsl::owner<Struct*> Script::copy_params_if_owned(Struct* params)
 {
     if (!params)
         return nullptr;
     if ((stmt_args_ && stmt_args_->ref_tally(params)) || (args_ && args_->ref_tally(params))) {
-        Struct* copy = script::new_struct();
+        gsl::owner<Struct*> copy = script::new_struct();
         copy->append_structure_if_any(params); // (no check for a full pool)
         return copy;
     }
@@ -208,7 +209,7 @@ Struct* Script::copy_params_if_owned(Struct* params)
 void Script::bind_script(uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object)
 {
     // reset_script_state frees this script's parameters: keep what `params` needs.
-    Struct* copy = copy_params_if_owned(params);
+    gsl::owner<Struct*> copy = copy_params_if_owned(params);
     reset_script_state();
     stmt_args_ = script::new_struct();
     script_title_ = name;
@@ -263,7 +264,7 @@ void Script::set_script_copy(ParamScript* script, Struct* params, objects::Entit
 // 0x004747F0
 void Script::relaunch()
 {
-    Struct* params = script::new_struct();
+    gsl::owner<Struct*> params = script::new_struct();
     uint32_t name = 0;
     objects::Entity* object = nullptr;
     if (call_depth_) {

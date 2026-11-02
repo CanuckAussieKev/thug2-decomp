@@ -590,7 +590,7 @@ void RiderRemoteSync::play_history_events()
                 auto* items = core::down_cast<PickupItemHandler>(entity_->fetch_module(PickupItemHandler::kType));
                 script::Struct* structure = script::read_sub_struct(msg->name_); // (the original also passes 1)
                 GameEntity* item = items->create_item(msg->item_slot_, structure);
-                script::Struct* params = script::spawn_param_bag();
+                gsl::owner<script::Struct*> params = script::spawn_param_bag();
                 if (params)
                     params = new (params) script::Struct;
                 params->put_name_key(kItemName, msg->bone_);

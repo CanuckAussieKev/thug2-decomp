@@ -13,6 +13,7 @@
 #include "engine/render/coll_obj.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -149,9 +150,9 @@ uint32_t HitMovingBox::get_triangle_attrs(int /*face*/) const { return poly_attr
 uint16_t HitMovingBox::get_face_terrain(int /*face*/) const { return surface_type_; }
 
 // 0x00414BE0
-HitMovingBox* HitMovingBox::replicate(int)
+gsl::owner<HitMovingBox*> HitMovingBox::replicate(int)
 {
-    auto* copy = new HitMovingBox(*this);
+    auto copy = memory::make_owned<HitMovingBox>(*this);
     copy->flag_bits_ |= 0x8000;
     copy->geometry_ = nullptr;
     return copy;

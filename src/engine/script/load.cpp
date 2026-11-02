@@ -22,6 +22,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include <gsl/pointers>
 
 
 namespace script {
@@ -62,7 +63,7 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
     case 0x1C:
     case 0x1E:
     case 0x1F: {
-        Component* value = new_component();
+        gsl::owner<Component*> value = new_component();
         const uint8_t* end =
             *token == 0x0E ? parse_expression(token, nullptr, value) : parse_value(token, nullptr, value);
         symbol->type = value->kind_tag();

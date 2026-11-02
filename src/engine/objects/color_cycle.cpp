@@ -82,7 +82,7 @@ void ColorCycleComponent::change_colors(script::Array* colors)
 void ColorCycleComponent::set_on(bool on)
 {
     if (on_ && !on) {
-        script::Struct* params = script::new_struct();
+        gsl::owner<script::Struct*> params = script::new_struct();
         params->put_name_key(kName, entity_->ident_);
         params->put_int(kColor, kNeutralColor);
         set_object_color(entity_->ident_, params);
@@ -104,7 +104,7 @@ void ColorCycleComponent::tick_frame()
 {
     if (!on_)
         return;
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     const maths::Vec4& color = core::at(colors_, ongoing_);
     uint32_t rgb = static_cast<uint32_t>(get_truncated(color.z)) << 8;
     rgb = (rgb + static_cast<uint32_t>(get_truncated(color.y))) << 8;

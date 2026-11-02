@@ -9,6 +9,7 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include <gsl/pointers>
 
 // The PC geom (Nx engine): a sector's or a model's renderable geometry - its meshes, or an instance of another
 // geom's meshes (a model drawn with its own transform and bones) - and what the engine asks of it: colours,
@@ -98,10 +99,10 @@ public:
     // 0x004B58C0 (vtable slot 2): a copy - its meshes cloned (sharing buffers with `share`, the low byte of
     // `instance`), else, without `share`, into `scene`'s mesh list instead of these ones, which stay; with `share` an
     // instance of its own over a new mesh list.
-    Geom* plat_replicate(int instance, WorldScene* scene) override;
+    gsl::owner<Geom*> plat_replicate(int instance, WorldScene* scene) override;
     // 0x004B5B80 (slot 1): a copy of an instance - its own scene and mesh list, the meshes cloned (sharing with the
     // low byte of `instance`), a new instance with bones for each of `model`'s (+8).
-    Geom* clone_instance(int instance, RenderModel* model) override;
+    gsl::owner<Geom*> clone_instance(int instance, RenderModel* model) override;
     // 0x004B54B0 (slot 3): made an instance of `mesh` for `model` (its bones: +8 the count, +0xC the matrices).
     bool plat_init_instance(SubMesh* mesh, RenderModel* model, int unused) override;
     // 0x004B45F0 (slot 4): the degenerate runs in the instance meshes' strips shortened (0x004D57D0).

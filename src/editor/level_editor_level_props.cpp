@@ -21,6 +21,7 @@
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::level_props {
 
@@ -460,7 +461,7 @@ void on_edited_copy_up(const Props& props)
             get_log("level editor: the edited copy's start %08X isn't a restart of this level - not used", props.start);
         return;
     }
-    auto* params = new (script::spawn_param_bag()) script::Struct;
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(checksums::hash_from_text("node_name"), props.start);
     script::launch_script(checksums::hash_from_text("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->get_clear();

@@ -38,6 +38,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::goal_edit {
 
@@ -814,7 +815,7 @@ uint32_t current_level()
 // A GoalManager_* script command with name=<goal> (they take no other parameter and don't use the script).
 bool goal_command(Function command, uint32_t goal)
 {
-    auto* params = new (script::spawn_param_bag()) script::Struct;
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(0xA1DC81F9u, goal); // name
     const bool result = command(params, nullptr);
     params->get_clear();

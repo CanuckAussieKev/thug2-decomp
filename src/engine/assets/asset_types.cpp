@@ -31,6 +31,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include <gsl/pointers>
 
 namespace assets {
 
@@ -41,7 +42,7 @@ using script::Struct;
 
 // --- the engine's loaders ---------------------------------------------------------------------------------
 // gfx::JointClipFrames (0x3C bytes): 0x00482AF0 the constructor, 0x00482B30 the destructor, 0x004856C0 Load.
-void* construct_anim_frames(void* frames) { return new (frames) gfx::JointClipFrames; }
+gsl::owner<void*> construct_anim_frames(void* frames) { return new (frames) gfx::JointClipFrames; }
 void destroy_anim_frames(void* frames) { static_cast<gfx::JointClipFrames*>(frames)->~JointClipFrames(); }
 bool load_anim_frames(void* frames, void* buffer, uint32_t size)
 {
@@ -324,7 +325,7 @@ const char* CutsceneResource::fetch_title() const { return "Cutscene"; }
 int CutsceneResource::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* /*structure*/)
 {
     memory::push_mem_profile(name);
-    auto* cutscene = new objects::CinematicTable;
+    auto cutscene = memory::make_owned<objects::CinematicTable>();
     std::array<char, 256> file{};
     platform_name(name, file.data());
     if (!cutscene->read_in(file.data(), 1, async, static_cast<const uint32_t*>(params)))
@@ -829,9 +830,9 @@ const char* SkinCollisionAsset::fetch_title() const { return "SkinColl"; }
 
 namespace {
 // The skin collision's parameters (0x44 bytes): from `params`, then the structure's checksum.
-SkinCollisionLoadParams* skin_collision_params(void* params, void* structure)
+gsl::owner<SkinCollisionLoadParams*> skin_collision_params(void* params, void* structure)
 {
-    auto* p = memory::construct_in<SkinCollisionLoadParams>(alloc_load_params(sizeof(SkinCollisionLoadParams)));
+    auto p = memory::construct_in<SkinCollisionLoadParams>(alloc_load_params(sizeof(SkinCollisionLoadParams)));
     p->checksum = 0;
     if (params)
         copy_words(p, params, 0x11);

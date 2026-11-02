@@ -111,7 +111,7 @@ public:
     // ends at once. Nothing for no script.
     void activate_aux_script(uint32_t script, script::Struct* params);
     // 0x004EFB10: a new structure with `params`, then the object's tags, appended (the caller deletes it).
-    script::Struct* get_state_params(script::Struct* params);
+    gsl::owner<script::Struct*> get_state_params(script::Struct* params);
     // 0x004ED4F0: the object's position pushed onto the position history (the oldest dropped).
     void push_position();
     // 0x004F1E10: a bail (STATE_bailgrind if grinding, else STATE_bail, of SkaterPed_StateTable; the stored max

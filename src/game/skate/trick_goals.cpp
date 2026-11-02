@@ -585,8 +585,8 @@ void FallingTricksGoal::add_tricks(int count)
         }
 
         // The trick's container in the stack, its text, and its key combo's text.
-        script::Struct* params = script::new_struct();
-        void* container = new_container();
+        gsl::owner<script::Struct*> params = script::new_struct();
+        gsl::owner<void*> container = new_container();
         set_id(container, objects::kUnassignedId);
         add_to_manager(manager, container);
         const int height = combo && remaining == 1 ? 40 : 20;
@@ -601,7 +601,7 @@ void FallingTricksGoal::add_tricks(int count)
         params->append_word(kText, text.data());
         params->put_name_key(kFont, kNewTrickFont);
         params->put_name_key(0u, kNotFocusable);
-        void* text_element = new_text();
+        gsl::owner<void*> text_element = new_text();
         set_id(text_element, objects::kUnassignedId);
         add_to_manager(manager, text_element);
         change_traits(text_element, params);
@@ -616,7 +616,7 @@ void FallingTricksGoal::add_tricks(int count)
             params->append_word(kText, key_combo_text);
             params->put_name_key(kFont, kSmall);
             params->put_name_key(0u, kNotFocusable);
-            void* key_text = new_text();
+            gsl::owner<void*> key_text = new_text();
             set_id(key_text, objects::kUnassignedId);
             add_to_manager(manager, key_text);
             change_traits(key_text, params);
@@ -1183,8 +1183,8 @@ void TrickBeatGoal::add_tricks(int count)
             t.trick = checksums::hash_from_text(trick_text); // (trick_landed matches by the trick's name)
         }
 
-        script::Struct* params = script::new_struct();
-        void* container = new_container();
+        gsl::owner<script::Struct*> params = script::new_struct();
+        gsl::owner<void*> container = new_container();
         set_id(container, objects::kUnassignedId);
         add_to_manager(manager, container);
         params->insert_pair(kDims, 100.0f, 20.0f);
@@ -1198,7 +1198,7 @@ void TrickBeatGoal::add_tricks(int count)
         params->append_word(kText, text.data());
         params->put_name_key(kFont, kNewTrickFont);
         params->put_name_key(0u, kNotFocusable);
-        void* text_element = new_text();
+        gsl::owner<void*> text_element = new_text();
         set_id(text_element, objects::kUnassignedId);
         add_to_manager(manager, text_element);
         change_traits(text_element, params);
@@ -1213,7 +1213,7 @@ void TrickBeatGoal::add_tricks(int count)
             params->append_word(kText, key_combo_text);
             params->put_name_key(kFont, kSmall);
             params->put_name_key(0u, kNotFocusable);
-            void* key_text = new_text();
+            gsl::owner<void*> key_text = new_text();
             set_id(key_text, objects::kUnassignedId);
             add_to_manager(manager, key_text);
             change_traits(key_text, params);

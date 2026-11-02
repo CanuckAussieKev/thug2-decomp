@@ -135,13 +135,13 @@ bool cfunc_preload_model(Struct* params, Script*)
 {
     const char* name = nullptr;
     params->fetch_text(kName, &name, true);
-    render::RenderModel* model = spawn_model(1);
+    gsl::owner<render::RenderModel*> model = spawn_model(1);
     const bool allow_replace_tex = params->has_bare_flag(kAllowReplaceTex);
     text::Chars file;
     {
         // <name>.mdl (0x004879D0 returns a String: made in `storage`)
         alignas(text::Chars) std::array<uint8_t, sizeof(text::Chars)> storage{};
-        auto* path = gfx::make_model_path(raw::as<text::Chars>(storage.data()), name, ".mdl");
+        gsl::owner<text::Chars*> path = gfx::make_model_path(raw::as<text::Chars>(storage.data()), name, ".mdl");
         file = *path;
         path->~Chars();
     }

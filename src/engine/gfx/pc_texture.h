@@ -143,7 +143,7 @@ public:
     bool destroy_texture(BitmapTexture* texture) override;
     // 0x004C9C80 (slot 8): a new texture copied from `source` (0x004C8450) under `checksum`. Returns it (the
     // original leaves it in EAX, and the engine's CopyTexture hands it on - the skater's graffiti texture is one).
-    BitmapTexture* duplicate_texture(uint32_t checksum, BitmapTexture* source) override;
+    gsl::owner<BitmapTexture*> duplicate_texture(uint32_t checksum, BitmapTexture* source) override;
 
     uint32_t unknown10_{}; // +0x10
 };
@@ -162,7 +162,7 @@ lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, li
 // 0x004C7270: a dictionary loaded from a file. 0x004C72E0: one made with a checksum and loaded from memory (called
 // on null without memory, as the original). 0x004C7360: an empty one.
 gsl::owner<PcTexDict*> load_tex_dict_file(const char* name);
-PcTexDict* load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size);
+gsl::owner<PcTexDict*> load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size);
 gsl::owner<PcTexDict*> create_tex_dict(uint32_t checksum);
 
 // The texture editing's image helpers, on 32-bit pixels (every caller's; the original took the bits a pixel and also

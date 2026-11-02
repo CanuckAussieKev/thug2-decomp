@@ -7,6 +7,7 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/render/coll_obj.h"
+#include <gsl/pointers>
 
 namespace objects {
 class GameEntity;
@@ -79,7 +80,7 @@ public:
     [[nodiscard]] uint32_t get_triangle_attrs(int face) const override;
     [[nodiscard]] uint16_t get_face_terrain(int face) const override;
     // 0x00414BE0 (slot 12): a copy (no geometry, flag 0x8000; a failed allocation crashes, as in the original).
-    HitMovingBox* replicate(int argument) override;
+    gsl::owner<HitMovingBox*> replicate(int argument) override;
     // (slot 13: the shared "true", folded with SaveCard::always_true)
     bool inside_bounds(const maths::BBox* /*box*/) override { return true; }
     // 0x004137B0 (slot 14): the line (world space) against the box, in the box's space; a hit is offered to

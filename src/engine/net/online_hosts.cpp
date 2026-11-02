@@ -16,6 +16,8 @@
 #include "platform/gamespy.h"
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
+#include <gsl/pointers>
+#include "engine/core/mem.h"
 
 namespace net {
 
@@ -24,11 +26,11 @@ namespace {
 const char* s_gamestats_host = nullptr;
 
 // `format` with the domain in place of its %s (other % signs are doubled in `format`). Never freed.
-char* get_host_name(const char* format, const char* domain)
+gsl::owner<char*> get_host_name(const char* format, const char* domain)
 {
     const size_t size = std::strlen(format) + std::strlen(domain) + 1; // (enough)
     // NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
-    auto* name = static_cast<char*>(std::malloc(size));
+    auto name = memory::adopt<char*>(std::malloc(size));
     std::snprintf(name, size, format, domain);
     debug_log::printf(debug_log::StageMap::kTrace, "ALLOC'D STRING %s\n", name);
     return name;

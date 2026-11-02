@@ -13,6 +13,8 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
+#include "engine/core/mem.h"
 
 namespace frontend::level_editor::hud {
 namespace {
@@ -47,7 +49,7 @@ void change_caption(const std::string& id, const std::string& full)
         return;
     shown()[id] = text;
     alignas(4) std::array<uint8_t, 8> memory{};
-    auto* params = new (memory.data()) script::Struct;
+    auto params = memory::construct_in<script::Struct>(memory.data());
     params->put_name_key(kId, checksums::hash_from_text(id.c_str()));
     params->append_word(kText, text.c_str());
     script::launch_script("level_editor_hud_set", params, nullptr, false);
@@ -95,7 +97,7 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
         return;
     if (!g_panel || g_panel_x != x || g_panel_y != y || g_panel_width != width || g_panel_lines != lines.size()) {
         alignas(4) std::array<uint8_t, 8> memory{};
-        auto* params = new (memory.data()) script::Struct;
+        auto params = memory::construct_in<script::Struct>(memory.data());
         const float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
         params->insert_pair(checksums::hash_from_text("pos"), x, y);
         params->insert_pair(checksums::hash_from_text("scale"), width / kSpriteUnit, height / kSpriteUnitDown);

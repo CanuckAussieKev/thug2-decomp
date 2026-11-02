@@ -236,7 +236,7 @@ GameEntity::~GameEntity()
 {
     composite_flags_ |= kCompositeFlagDestroying;
     while (attached_modules_) {
-        ObjectModule* component = attached_modules_;
+        gsl::owner<ObjectModule*> component = attached_modules_;
         attached_modules_ = component->following_;
         unregister_component(component);
         delete component;

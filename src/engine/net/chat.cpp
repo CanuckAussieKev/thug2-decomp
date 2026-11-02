@@ -35,6 +35,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "wire/net_wire.h"
+#include <gsl/pointers>
 
 namespace online {
 
@@ -69,7 +70,7 @@ using ParamBag = script::Struct;
 
 uint32_t g_prev_taunt_stamp;
 
-ParamBag* new_script_struct()
+gsl::owner<ParamBag*> new_script_struct()
 {
     const int current = script::g_struct_pools.current;
     memory::SlabBank* pool = core::at(script::g_struct_pools.pools, current);
@@ -105,7 +106,7 @@ void dup_from(char* out, size_t size, const char* in)
 
 void show_local_chat_line(const char* line)
 {
-    ParamBag* params = new_script_struct();
+    gsl::owner<ParamBag*> params = new_script_struct();
     append_word(params, kText, line);
     launch_script(kShowChatScript, params);
     delete_script_struct(params);
@@ -196,7 +197,7 @@ int on_chat_msg(net::InboundMsgCtx* context)
         std::snprintf(line.data(), sizeof(line), "\\c%i%s\\c0 : %s", static_cast<int8_t>(chat.color) + 2, chat.name.data(),
                       chat.text.data());
     }
-    ParamBag* params = new_script_struct();
+    gsl::owner<ParamBag*> params = new_script_struct();
     append_word(params, kText, line.data());
     launch_script(kShowChatScript, params);
     delete_script_struct(params);
@@ -280,7 +281,7 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
     if (key == kKeyEnter) {
         // Open the chat box - unless one of the dialogs (or the quit dialog's anchor) is up. (The parameters are
         // never freed: the original leaks them, 8 bytes a time.)
-        script::Struct* params = script::spawn_param_bag();
+        gsl::owner<script::Struct*> params = script::spawn_param_bag();
         if (params)
             params = new (params) script::Struct;
         params->put_name_key(kId, 0x31631B98);
@@ -324,7 +325,7 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
     }
     if (frame_clock::get_time() - previous_taunt_stamp() <= 2000)
         return;
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
     params->put_name_key(kTauntName, taunt);

@@ -674,7 +674,7 @@ gfx::BlendChannel* steer_channel(objects::GameEntity* object, objects::AnimBlend
 // The subset removed (Obj_RemoveAnimSubset SubsetId=ThawBmxTurn).
 void remove_steer_channel(objects::AnimBlenderComponent* blender)
 {
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (!params)
         return;
     params = new (params) script::Struct;

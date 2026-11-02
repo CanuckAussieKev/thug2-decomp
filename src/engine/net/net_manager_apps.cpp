@@ -97,12 +97,12 @@ Hub::~Hub()
 }
 
 // 0x00455270
-HostEnd* Hub::make_server_app(int id, const char* name, int max_clients, uint16_t port, int address, int flags)
+gsl::owner<HostEnd*> Hub::make_server_app(int id, const char* name, int max_clients, uint16_t port, int address, int flags)
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap_);
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
         address = static_cast<int>(inet_addr(local_ip_.data()));
-    auto* server = new HostEnd(flags);
+    auto server = memory::make_owned<HostEnd>(flags);
     server->supervisor_ = this;
     server->prepare_all();
     server->unknown1eb4_ = static_cast<uint32_t>(id);
@@ -127,12 +127,12 @@ HostEnd* Hub::make_server_app(int id, const char* name, int max_clients, uint16_
 }
 
 // 0x004553F0
-Guest* Hub::make_client_app(int id, const char* name, uint16_t port, int address, int flags)
+gsl::owner<Guest*> Hub::make_client_app(int id, const char* name, uint16_t port, int address, int flags)
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap_);
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
         address = static_cast<int>(inet_addr(local_ip_.data()));
-    auto* client = new Guest(flags);
+    auto client = memory::make_owned<Guest>(flags);
     copy_name(client->label_.data(), name);
     client->supervisor_ = this;
     client->prepare_all();

@@ -425,7 +425,7 @@ const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, 
 {
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     const uint8_t* end = script::decode_from_bytes(params, buffer, size);
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == level)
@@ -466,7 +466,7 @@ void ObjectiveAuthoring::write_goals(script::Struct* out)
     for (EditedGoal& goal : goals_) {
         if (!goal.taken_count_ || goal.level_ == kParkEditorLevel)
             continue;
-        script::Struct* entry = script::new_struct();
+        gsl::owner<script::Struct*> entry = script::new_struct();
         goal.export_to_struct(entry);
         goals->set_cell(index++, script::Cell::of(entry));
     }
@@ -485,7 +485,7 @@ void ObjectiveAuthoring::write_level_goals(uint32_t level, script::Struct* out)
     for (EditedGoal& goal : goals_) {
         if (!goal.taken_count_ || goal.level_ != level)
             continue;
-        script::Struct* entry = script::new_struct();
+        gsl::owner<script::Struct*> entry = script::new_struct();
         goal.export_to_struct(entry);
         goals->set_cell(index++, script::Cell::of(entry));
     }
@@ -588,7 +588,7 @@ void ObjectiveAuthoring::conceal(bool hide)
         script::launch_script(0xFCC60D8B, nullptr, nullptr, false, nullptr);
         return;
     }
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->put_int(0x67E6859A, 0);
     input_ptr_->configure_from_data(params);
     if (params) {
@@ -615,7 +615,7 @@ bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::S
     for (EditedGoal& goal : goals_) {
         if (!goal.taken_count_ || (level && goal.level_ != level) || goal.vertex_total_ < goal.min_points_)
             continue;
-        script::Struct* entry = script::new_struct();
+        gsl::owner<script::Struct*> entry = script::new_struct();
         goal.export_to_struct(entry);
         goals->set_cell(index++, script::Cell::of(entry));
     }

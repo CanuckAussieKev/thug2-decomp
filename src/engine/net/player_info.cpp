@@ -39,6 +39,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "game/rider/rider.h"
+#include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -64,7 +65,7 @@ objects::ObjectModule* skater_component(objects::Rider* skater, uint32_t type)
 }
 
 // A new skater profile on the skater info heap (null if out of memory).
-objects::RiderIdentity* new_profile()
+gsl::owner<objects::RiderIdentity*> new_profile()
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);
@@ -177,7 +178,7 @@ void PlayerRecord::bind_rider(objects::Rider* skater)
 // 0x00543270
 void PlayerRecord::set_profile(objects::RiderIdentity* profile)
 {
-    objects::RiderIdentity* copy = new_profile();
+    gsl::owner<objects::RiderIdentity*> copy = new_profile();
     account_ = copy;
     copy->copy_from(profile);
     memory::Hub::get_pull()->leave_heap_scope();

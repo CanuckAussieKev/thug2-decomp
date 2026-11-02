@@ -77,7 +77,7 @@ gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects:
 // skeleton (0x00492DD0), shadow volume (0x00492E90), bounding sphere (0x00492F30), lights (+0x2C) made (0x00493BD0) or
 // taken away (0x00493C10), bone volumes (0x00492FC0 / 0x00492F90), placed (0x00493090) and its skinning updated
 // (0x00493410).
-render::RenderModel* spawn_render_model(int arg) { return (void)arg, render::spawn_model(); }
+gsl::owner<render::RenderModel*> spawn_render_model(int arg) { return (void)arg, render::spawn_model(); }
 void delete_model(render::RenderModel* model) { delete model; }
 render::ModelLights* model_lights(render::RenderModel* model) { return model->lights_ptr_; }
 void* clone_model_geom(void* geom, render::RenderModel* to)
@@ -265,7 +265,7 @@ void MeshInstanceModule::init_bone_volumes()
         ++volumes->users_; // (another user)
     } else {
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
-        void* made = memory::alloc(0x0C);
+        gsl::owner<void*> made = memory::alloc(0x0C);
         if (made)
             made = new (made) gfx::BoneVolumes(0);
         static_cast<gfx::BoneVolumes*>(made)->enrol(static_cast<uint32_t>(skeleton->bone_total_));

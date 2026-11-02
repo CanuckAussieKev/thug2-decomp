@@ -370,7 +370,7 @@ void prepare_all(uint32_t level)
         direction = 1;
     }
     void* memory = memory::alloc_zeroed(sizeof(memory::MemoryArena));
-    memory::MemoryArena* region = nullptr;
+    gsl::owner<memory::MemoryArena*> region = nullptr;
     if (memory) {
         const int size = get_memory_value("park_heap_size", -1); // "park_heap_size"
         region = memory::construct_in<memory::MemoryArena>(memory, static_cast<uint32_t>(size));

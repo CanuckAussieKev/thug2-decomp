@@ -292,7 +292,7 @@ void AttributeTracker::announce_met_goals()
     if (!is_operative())
         return;
     RiderIdentity* profile = first_profile();
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     bool announced = false;
     for (Goal& goal : goals_) {
         if (goal.cur_standing_ != 0 || !goal.met_)

@@ -20,6 +20,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::fields {
 
@@ -803,7 +804,7 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
     case Kind::kNames:
     case Kind::kIntegers:
     case Kind::kFloats: {
-        auto* array = new (script::alloc_script_array()) script::Array;
+        gsl::owner<script::Array*> array = script::new_array();
         auto size = static_cast<uint32_t>(v.kind == Kind::kFloats ? v.floats.size() : v.list.size());
         array->configure_size_kind(size, v.kind == Kind::kNames      ? script::kQbvalName
                                          : v.kind == Kind::kIntegers ? script::kQbvalInteger

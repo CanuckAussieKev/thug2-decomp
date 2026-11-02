@@ -31,6 +31,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -70,7 +71,7 @@ constexpr uint32_t kPartA = 0x650FAB6D, kPartB = 0x0FC85BAE, kPartC = 0x6DF453B6
 memory::PoolPair& struct_pools() { return script::g_struct_pools; }
 memory::PoolPair& source_pools() { return render::g_frame_source_pools; }
 
-script::Struct* make_struct()
+gsl::owner<script::Struct*> make_struct()
 {
     void* memory = struct_pools().carve(8);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
@@ -123,7 +124,7 @@ void CinematicTable::refresh_objects()
 {
     if (!flag_34b_0_ || script::fetch_int_value(kRefreshGlobal) == 0)
         return;
-    script::Struct* params = make_struct();
+    gsl::owner<script::Struct*> params = make_struct();
     params->put_name_key(kUnnamed, kFlagParam);
     for (int i = 0; i < object_count_; ++i) {
         GameEntity* object = core::at(entities_, i).object;
@@ -148,7 +149,7 @@ void CinematicTable::add_objects(script::Struct* params)
     bool has_skater = false;   // (...unless a skater object was added)
     for (uint32_t i = 0; i < objects->extent_; ++i) {
         auto* object = objects->struct_at(i);
-        script::Struct* params2 = make_struct();
+        gsl::owner<script::Struct*> params2 = make_struct();
         uint32_t name = 0, kind = 0, model = 0, skeleton = 0, anim = 0;
         bool is_skater = false, is_skater2 = false, special = false;
         uint32_t model_file = 0;
@@ -388,7 +389,7 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
     if (!part->fetch_int_value(hue_name, &hue, 0) || !part->fetch_int_value(saturation_name, &saturation, 0) ||
         !part->fetch_int_value(value_name, &value, 0))
         return;
-    script::Struct* colour = make_struct();
+    gsl::owner<script::Struct*> colour = make_struct();
     colour->put_name_key(0xB6F08F39, 0);
     colour->put_name_key(0x83418A6A, 0xAA2206EF);
     colour->put_int(0x318F2BDB, 0);

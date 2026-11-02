@@ -81,7 +81,7 @@ void FamComponent::unload_fam()
     if (!fam_)
         return;
     script::stop_scripts_using_object_that_refer_to(entity_, kFamScript);
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(kTypeParam, kPartialAnim);
     params->put_name_key(kId, kJawRotation);
     if (entity_)
@@ -121,7 +121,7 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int pri
         audio::halt_stream(feed_);
         feed_ = 0;
     }
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(kStreamChecksum, name);
     if (volume)
         params->put_int(kVol, volume);

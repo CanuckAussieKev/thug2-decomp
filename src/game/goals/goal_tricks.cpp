@@ -19,6 +19,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace goals {
 
@@ -203,8 +204,8 @@ bool Objective::swap_move_caption()
     int premade_cat = -1;
     if (args_->has_bare_flag(kCreateATrick))
         args_->fetch_int_value(kPremadeCatIndex, &premade_cat, 1);
-    script::Array* key_texts = script::new_array();
-    script::Array* trick_texts = script::new_array();
+    gsl::owner<script::Array*> key_texts = script::new_array();
+    gsl::owner<script::Array*> trick_texts = script::new_array();
     const uint32_t count = combos->extent_;
     key_texts->configure_size_kind(count, script::kQbvalString);
     trick_texts->configure_size_kind(count, script::kQbvalString);
@@ -380,7 +381,7 @@ bool Objective::award_special_trick()
         args_->put_int(kShouldRemoveTrick, 1);
     }
     args_->erase_module(kButtonSequences);
-    script::Array* combos = script::new_array();
+    gsl::owner<script::Array*> combos = script::new_array();
     combos->configure_size_kind(1, script::kQbvalName);
     combos->set_element(0, keys);
     args_->append_array_ref(kButtonSequences, combos);

@@ -43,6 +43,7 @@
 #include "engine/gfx/scene_load.h"
 #include "engine/gfx/rig.h"
 #include "wire/net_wire.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -566,7 +567,7 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     add_base_components(this);
     change_species(kObjectTypeComposite);
     pad_input::Hub* input = input_manager();
-    auto* handler = new ViewerObjectInputHandler(&handle_viewer_object_input, this, 0, 0);
+    auto handler = memory::make_owned<ViewerObjectInputHandler>(&handle_viewer_object_input, this, 0, 0);
     task_ = handler;
     // Onto its controller's handlers (not null-checked: as the original).
     pad_input::HostEnd& controller = core::at(input->hosts_, handler->ordinal_);

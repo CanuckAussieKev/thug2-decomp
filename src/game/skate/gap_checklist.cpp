@@ -18,6 +18,7 @@
 #include "game/skate/skate_module.h"
 #include "platform/code_address.h"
 #include "engine/core/arena_alloc.h"
+#include <gsl/pointers>
 
 namespace goals {
 
@@ -296,7 +297,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
     for (GapEntry* gap = gap_of(gaps_.next); gap; gap = get_next(gap), ++index) {
         if (gap->num_)
             ++got;
-        script::Struct* item = script::new_struct();
+        gsl::owner<script::Struct*> item = script::new_struct();
         item->put_int("gap_score", gap->points_held_);
         item->append_word("gap_name", gap->label_.c_str());
         item->put_int("times", gap->num_);

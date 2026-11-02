@@ -41,13 +41,14 @@
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::ground {
 
 namespace {
 
 render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
-render::HitMesh* coll_of(render::WorldCell* sector) { return sector->hit_body_; }
+gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body_; }
 render::MeshRef** meshes_of(render::PcGeom* geom) { return geom->meshes; }
 uint32_t mesh_count_of(render::PcGeom* geom) { return geom->mesh_count_; }
 uint32_t vertex_format(const render::MeshRef* mesh) { return mesh->fvf; }
@@ -62,7 +63,7 @@ bool is_operative(render::WorldCell* sector) { return sector->is_operative(); }
 
 render::StaticCollider* static_of(render::WorldCell* sector)
 {
-    render::HitMesh* coll = coll_of(sector);
+    gsl::owner<render::HitMesh*> coll = coll_of(sector);
     if (!render::is_static_collider(coll))
         return nullptr;
     return core::down_cast<render::StaticCollider>(coll);
@@ -78,9 +79,9 @@ void upload_vertices(render::VertexBuffer* buffer)
     buffer->lock_flags_ = 0;
     buffer->get_unlock();
 }
-render::IdxStore* new_index_buffer(uint32_t bytes)
+gsl::owner<render::IdxStore*> new_index_buffer(uint32_t bytes)
 {
-    void* memory = crt::alloc_block(0x18);
+    gsl::owner<void*> memory = crt::alloc_block(0x18);
     if (!memory)
         return nullptr;
     return memory::construct_in<render::IdxStore>(memory, bytes, 0, 0x65);
@@ -215,7 +216,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     for (int k = 0; k < 8; ++k) {
         if (k > 0 && !core::at(first->index_counts_, k))
             continue;
-        render::IdxStore* buffer = new_index_buffer(static_cast<uint32_t>(strip.size() * 2));
+        gsl::owner<render::IdxStore*> buffer = new_index_buffer(static_cast<uint32_t>(strip.size() * 2));
         if (!buffer || !buffer->indices) {
             *why = "no index buffer";
             return false;

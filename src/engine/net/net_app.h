@@ -10,6 +10,7 @@
 #include "engine/net/net_conn.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_lists.h"
+#include <gsl/pointers>
 
 // NOLINTNEXTLINE(readability-identifier-naming): the library's own name (a forward declaration)
 struct sockaddr;
@@ -145,7 +146,7 @@ struct AppHost {
     // note the address it got. (`address` isn't used.) False (reported) on failure.
     bool get_bind(uint32_t address, uint16_t port);
     // 0x00456D90: a new SeqQueuedMsg (null if out of memory).
-    SeqQueuedMsg* new_queued_msg(uint8_t id, uint16_t length, const void* data, uint8_t arg4, uint8_t arg5);
+    gsl::owner<SeqQueuedMsg*> new_queued_msg(uint8_t id, uint16_t length, const void* data, uint8_t arg4, uint8_t arg5);
     // 0x00456E20: a datagram to ip:port (scrambled first if secure). True if sent or it would block.
     bool transmit_to(uint32_t ip, uint16_t port, const uint8_t* data, int length, int flags);
     // 0x00456F10: a packet on the connected socket (scrambled first if secure). False if not connected or
@@ -265,10 +266,10 @@ struct AppHost {
     void* supervisor_{};            // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // tasks::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
     // receive 0x004593C0 (1000), metrics 0x004593E0 (-2500).
-    tasks::SchedulerTask* process_task_; // +0x1444
-    tasks::SchedulerTask* send_task_{};  // +0x1448
-    tasks::SchedulerTask* receive_task_; // +0x144C
-    tasks::SchedulerTask* metrics_task_; // +0x1450
+    gsl::owner<tasks::SchedulerTask*> process_task_; // +0x1444
+    gsl::owner<tasks::SchedulerTask*> send_task_{};  // +0x1448
+    gsl::owner<tasks::SchedulerTask*> receive_task_; // +0x144C
+    gsl::owner<tasks::SchedulerTask*> metrics_task_; // +0x1450
     int open_links_{};                   // +0x1454 (zeroed by Init)
     int peer_cap_{};                     // +0x1458 (AppHost::opened_link makes no more; HostEnd::prepare_all clears it)
     std::array<uint8_t, 0x514> scrambled_{};         // +0x145C a secure packet being sent

@@ -19,6 +19,7 @@
 #include "engine/objects/entity.h"
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
+#include <gsl/pointers>
 
 namespace gfx {
 
@@ -81,7 +82,7 @@ script::Struct* cas_option_at(uint32_t part, int index, uint32_t random_set)
 bool face_texture_is_valid(FaceSkin* face) { return face->is_sound(); }
 void set_face_texture_valid(FaceSkin* face, bool valid) { face->mark_usable(valid); }
 
-FaceSkin* construct_face_texture(void* memory) { return new (memory) FaceSkin; }
+gsl::owner<FaceSkin*> construct_face_texture(void* memory) { return new (memory) FaceSkin; }
 
 // A temporary structure (from the structure pool; null if there's no memory) / cleared and given back.
 
@@ -189,7 +190,7 @@ bool ModelLook::has_face_texture() { return has_face_texture_; }
 // 0x004891F0
 void ModelLook::set_part(uint32_t part, uint32_t descriptor_id, script::Struct* params)
 {
-    script::Struct* slot = nullptr;
+    gsl::owner<script::Struct*> slot = nullptr;
     if (!structure_.read_sub_struct(part, &slot, 0)) {
         slot = script::new_struct();
         structure_.append_struct_ref(part, slot);

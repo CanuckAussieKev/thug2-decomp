@@ -107,12 +107,12 @@ bool cfunc_launch_viewer(Struct*, Script*)
     if (viewer_launched())
         return true;
     modules::Hub* modules = g_module_manager.get();
-    auto* viewer = new modules::Viewer;
+    auto viewer = memory::make_owned<modules::Viewer>();
     modules->enrol_unit(viewer);
     modules->launch_module(viewer);
     viewer_launched() = true;
 
-    Struct* node_data = script::spawn_param_bag();
+    gsl::owner<Struct*> node_data = script::spawn_param_bag();
     if (node_data)
         node_data = new (node_data) script::Struct;
     node_data->put_name_key("name", kViewerCam);

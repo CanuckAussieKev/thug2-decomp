@@ -104,7 +104,7 @@ void exit_combo(MoveExecutor* self)
     const modules::PointTally* score = self->score_;
     if (!truncate(static_cast<double>(score->pot_) * score->multiplier_))
         return;
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
     params->put_name_key(kSkaterId, self->entity_->ident_);

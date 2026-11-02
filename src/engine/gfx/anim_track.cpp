@@ -24,6 +24,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace gfx {
 
@@ -233,7 +234,7 @@ AnimDriver* AnimTrack::attach_controller(Struct* params)
     uint32_t type = 0;
     params->read_hash_value(kType, &type, 1);
     int priority = 500;
-    AnimDriver* controller = nullptr;
+    gsl::owner<AnimDriver*> controller = nullptr;
     switch (type) {
     case kWeightedController:
         controller = new WeightedAnimController(this, nullptr);
@@ -319,7 +320,7 @@ void AnimTrack::play_anim(uint32_t anim, float start, float end, int loop_type, 
     cur_phase_ = kPlaying;
     fade_rate_ = 1.0f / 60.0f; // (0x3C888889)
 
-    Struct* settings = script::new_struct();
+    gsl::owner<Struct*> settings = script::new_struct();
     settings->put_name_key(kType, loop_type == kLoopWobble ? kShakeController : kStandardController);
     attach_controller(settings);
     script::free_struct(settings);

@@ -27,6 +27,7 @@
 #include "engine/gfx/device.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -239,7 +240,7 @@ void shatter_geom(PcGeom* geom)
         }
         if (!count)
             continue; // (the buffers left locked, as the original)
-        auto* shatter = new PcShatter(count, mesh, 0);
+        auto shatter = memory::make_owned<PcShatter>(count, mesh, 0);
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
         const auto* direction = g_glass_burst_velocity.data();
         const double scale = -static_cast<double>(g_shatter_velocity_scale);

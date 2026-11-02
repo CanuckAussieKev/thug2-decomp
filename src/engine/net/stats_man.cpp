@@ -38,6 +38,7 @@
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace online {
 
@@ -371,7 +372,7 @@ void PersonalStats::get_fill()
         auto* line = static_cast<SortEntry*>(node->data);
         if (!line)
             break;
-        script::Struct* params = script::new_struct(); // (never freed - as in the original)
+        gsl::owner<script::Struct*> params = script::new_struct(); // (never freed - as in the original)
         params->put_int(0xCD66C8AE, line->points_held_);
         params->append_word(0x651533EC, RankingsManager::get_level_name(line->level_));
         get_run(0xA6111F30, params);

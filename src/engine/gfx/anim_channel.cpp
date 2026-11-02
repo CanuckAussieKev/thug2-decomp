@@ -43,6 +43,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace gfx {
 
@@ -165,7 +166,7 @@ void post_out(net::Guest* app, net::NetMessageInfo& message, uint8_t id, void* d
 }
 
 // A structure made and freed as the original's inlined new / delete do.
-Struct* spawn_param_bag()
+gsl::owner<Struct*> spawn_param_bag()
 {
     void* memory = struct_pools().carve(8);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
@@ -553,7 +554,7 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
     }
     if (!get_first(this))
         return;
-    Struct* params = spawn_param_bag();
+    gsl::owner<Struct*> params = spawn_param_bag();
     params->push_float(0x4D747FA0, target);
     pass_to_first(this, 0xD0209498, params); // choose_wobble_goal
     script::free_struct(params);
@@ -589,7 +590,7 @@ void BlendChannel::set_wobble_details(const float* details, bool send)
     }
     if (!get_first(this))
         return;
-    Struct* params = spawn_param_bag();
+    gsl::owner<Struct*> params = spawn_param_bag();
     params->push_float(0xFD266A26, details[0]); // wobbleAmpA
     params->push_float(0x642F3B9C, details[1]); // wobbleAmpB
     params->push_float(0x0F43FD49, details[2]); // wobbleK1
@@ -694,8 +695,8 @@ void BlendChannel::set_anim_tags(uint32_t anim)
     Struct* tags = nullptr;
     if (!all || !all->read_sub_struct(anim, &tags, 0))
         return;
-    Struct* params = spawn_param_bag();
-    Struct* copy = spawn_param_bag();
+    gsl::owner<Struct*> params = spawn_param_bag();
+    gsl::owner<Struct*> copy = spawn_param_bag();
     copy->append_structure_if_any(tags);
     params->append_struct_ref(0x5DB4115F, copy); // AnimTags
     get_owner(this)->set_tags_from_struct(params);
@@ -891,7 +892,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
 
     uint32_t partial = 0;
     if (params->read_hash_value(0x6C565F57, &partial, 0)) { // PartialAnimOverlay: a partial animation controller too
-        Struct* controller = script::spawn_param_bag();
+        gsl::owner<Struct*> controller = script::spawn_param_bag();
         if (controller)
             controller = new (controller) script::Struct;
         uint32_t id = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)

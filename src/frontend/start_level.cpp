@@ -30,6 +30,7 @@
 #include "platform/run_log.h"
 #include "platform/winmain.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::begin_level {
 
@@ -369,7 +370,7 @@ bool read_in(const char* name, std::string* why)
     }
     get_log("start level: %s (free skate)", level.c_str());
     script::launch_script(name_hash("EnableSun"), nullptr, nullptr, false, "EnableSun");
-    auto* params = new (script::spawn_param_bag()) script::Struct;
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(0u, name_hash("freeskate"));
     script::launch_script(name_hash("SetGameType"), params, nullptr, false, "SetGameType");
     params->get_clear();

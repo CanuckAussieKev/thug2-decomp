@@ -25,6 +25,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace goals {
 
@@ -123,8 +124,8 @@ void GoalManager::revoke_every_clear()
 void GoalManager::append_objective_list_entries()
 {
     const int count = goals_.num_; // (read once)
-    script::Array* ordered = script::new_array();
-    script::Array* unordered = script::new_array();
+    gsl::owner<script::Array*> ordered = script::new_array();
+    gsl::owner<script::Array*> unordered = script::new_array();
     ordered->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalName);
     unordered->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalName);
     // The goals with a place in the list first, then the others.
@@ -247,7 +248,7 @@ Objective* GoalManager::get_active_net_goal()
 void GoalManager::tick_frame()
 {
     for (int i = 0; i < goals_.num_; ++i) {
-        Objective* goal = goals_.get_by_index(i);
+        gsl::owner<Objective*> goal = goals_.get_by_index(i);
         if (goal->is_operative())
             goal->tick_frame();
         if (goal->state02()) {

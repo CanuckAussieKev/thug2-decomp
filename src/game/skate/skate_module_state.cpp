@@ -114,7 +114,7 @@ void Skate::discard_occurrence()
 // 0x005691A0
 Skate* Skate::spawn_occurrence(bool create)
 {
-    Skate* skate = sole();
+    gsl::owner<Skate*> skate = sole();
     if (!skate && create) {
         skate = new Skate;
         if (skate) {

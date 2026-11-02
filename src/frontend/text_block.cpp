@@ -22,6 +22,7 @@
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend {
 
@@ -209,7 +210,7 @@ void ParagraphWidget::change_caption(const char** texts, int count)
     for (int k = 0; k < rows_filled_; ++k) {
         memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->front_end_heap_);
-        auto* line = new LabelWidget;
+        auto line = memory::make_owned<LabelWidget>();
         memory::Hub::get_pull()->leave_heap_scope();
         manager->enrol_subject(line);
         {

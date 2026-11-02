@@ -76,7 +76,7 @@ void get_finish(TextureRef* texture)
 // The buffer the stored texels are read into. Not original - HD menu UI (engine/gfx/hd_ui.h): an upscaled image's
 // (up to 16 MB) comes from the C runtime's heap, not the game's - the game's heap in use while the front end loads its
 // sprites hasn't room for them (the first one made memory::alloc fail and the read end the game).
-void* new_texel_buffer(uint32_t size, [[maybe_unused]] const ImageHeader& header)
+gsl::owner<void*> new_texel_buffer(uint32_t size, [[maybe_unused]] const ImageHeader& header)
 {
     if (hd_ui::image_scale(header.unknown14) != 1)
         // NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
@@ -128,7 +128,7 @@ bool fits_its_texture(const ImageHeader& header, bool palettized, uint32_t palet
 } // namespace
 
 // 0x004E0790
-TextureRef* read_texture_file(const char* name)
+gsl::owner<TextureRef*> read_texture_file(const char* name)
 {
     file::Hdl file = file::unseal(name, "rb");
     if (!file)
@@ -139,7 +139,7 @@ TextureRef* read_texture_file(const char* name)
     ImageHeader header;
     image_format::read_image_header(header_reader, &header);
     if (is_hd_dxt(header)) { // (not original - hd_ui.h)
-        TextureRef* hd = alloc_pc_texture();
+        gsl::owner<TextureRef*> hd = alloc_pc_texture();
         hd->palette = nullptr;
         input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
                                     (&hd->texture), nullptr);
@@ -162,7 +162,7 @@ TextureRef* read_texture_file(const char* name)
         file::shut(file);
         return nullptr;
     }
-    TextureRef* texture = alloc_pc_texture();
+    gsl::owner<TextureRef*> texture = alloc_pc_texture();
     texture->palette = nullptr;
     std::array<uint8_t, image_format::kPaletteCapacity> palette{};
     if (palettized)
@@ -176,7 +176,7 @@ TextureRef* read_texture_file(const char* name)
     if (plain && !palettized) {
         file::get_take_in(locked.pBits, static_cast<int>(size), 1, file);
     } else {
-        void* buffer = new_texel_buffer(size, header);
+        gsl::owner<void*> buffer = new_texel_buffer(size, header);
         file::get_take_in(buffer, static_cast<int>(size), 1, file);
         void* indices = nullptr;
         void* texels = nullptr;
@@ -198,7 +198,7 @@ TextureRef* read_texture_file(const char* name)
 }
 
 // 0x004E0A90
-TextureRef* load_texture_memory(const uint8_t* data, size_t data_size)
+gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_size)
 {
     // Read through image_format's reader, bounded by the image's size (not original: the original read on past it;
     // texels cut short are filled with zeros, an image that doesn't fit its texture is refused).
@@ -209,7 +209,7 @@ TextureRef* load_texture_memory(const uint8_t* data, size_t data_size)
     if (is_hd_dxt(header)) { // (not original - hd_ui.h)
         if (reader.remaining() < hd_dxt_size(header))
             return nullptr;
-        TextureRef* hd = alloc_pc_texture();
+        gsl::owner<TextureRef*> hd = alloc_pc_texture();
         hd->palette = nullptr;
         input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
                                     (&hd->texture), nullptr);
@@ -231,7 +231,7 @@ TextureRef* load_texture_memory(const uint8_t* data, size_t data_size)
     if (!fits_its_texture(header, palettized, image_format::kPaletteCapacity, plain) ||
         (palettized && reader.remaining() < image_format::kPaletteCapacity))
         return nullptr;
-    TextureRef* texture = alloc_pc_texture();
+    gsl::owner<TextureRef*> texture = alloc_pc_texture();
     texture->palette = nullptr;
     std::array<uint8_t, image_format::kPaletteCapacity> palette{};
     if (palettized)
@@ -254,7 +254,7 @@ TextureRef* load_texture_memory(const uint8_t* data, size_t data_size)
     if (plain && !palettized) {
         copy_texels(locked.pBits);
     } else {
-        void* buffer = new_texel_buffer(size, header);
+        gsl::owner<void*> buffer = new_texel_buffer(size, header);
         copy_texels(buffer);
         void* indices = nullptr;
         void* texels = nullptr;

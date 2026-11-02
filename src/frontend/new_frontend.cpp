@@ -81,6 +81,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::new_frontend {
 
@@ -1696,7 +1697,7 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
             // (the pause menu's change of level, as its level select does it)
             get_log("new front end: change level to %s", action.load.c_str());
             hide_root(false);
-            auto* params = new (script::spawn_param_bag()) script::Struct;
+            gsl::owner<script::Struct*> params = script::new_struct();
             params->put_name_key(name_hash("level"), name_hash(action.load.c_str()));
             script::spawn_script(name_hash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false,
                                  false);

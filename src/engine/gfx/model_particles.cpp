@@ -19,6 +19,7 @@
 #include "platform/crt.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace render {
 
@@ -36,7 +37,7 @@ void* allocate_zeroed(unsigned int size)
     return memory::Hub::get_pull()->allocate_zeroed(size, assert_flag(), nullptr);
 }
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
-RenderModel* spawn_render_model(int) { return render::spawn_model(); }
+gsl::owner<RenderModel*> spawn_render_model(int) { return render::spawn_model(); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
 void model_path_for(const char* name, const char* ext, char* out) { gfx::make_model_file_name(name, ext, out); }
 

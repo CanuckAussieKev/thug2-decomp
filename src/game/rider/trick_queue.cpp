@@ -385,7 +385,7 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
     int created = 0;
     if (mappings->fetch_int_value(slot, &created, 0)) {
         // A created trick: CreateATrick with its index.
-        script::Struct* create_params = script::new_struct();
+        gsl::owner<script::Struct*> create_params = script::new_struct();
         create_params->put_int(kTrickIndex, created);
         create_params->append_structure_if_any(trick_params);
         Entity* object = entity_;

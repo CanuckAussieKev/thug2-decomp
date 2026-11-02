@@ -18,6 +18,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -475,7 +476,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     script::Array* gap_levels = alloc_script_array(kLevels, script::kQbvalStruct);
     for (int level = 0; level < kLevels; ++level) {
         goals::GapTally* checklist = core::at(gaps_, level);
-        script::Struct* entry = script::new_struct();
+        gsl::owner<script::Struct*> entry = script::new_struct();
         entry->put_int(kGapLevel, level);
         // NOT ORIGINAL: an edited copy's checklist (level_editor_career.h) is written as before the edited copy - never
         // the editor's gaps, nor gaps landed in it.
@@ -486,7 +487,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                 script::Array* list = alloc_script_array(static_cast<uint32_t>(view.gaps.size()), script::kQbvalStruct);
                 for (size_t i = 0; i < view.gaps.size(); ++i) {
                     const frontend::level_editor::career::Gap& g = core::at(view.gaps, i);
-                    script::Struct* gap = script::new_struct();
+                    gsl::owner<script::Struct*> gap = script::new_struct();
                     gap->append_word(kGapName, g.name.c_str());
                     gap->put_int(kGapCount, g.count);
                     gap->put_int(kGapScore, g.score);
@@ -503,7 +504,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
             const int count = checklist->total_of();
             script::Array* list = alloc_script_array(static_cast<uint32_t>(count), script::kQbvalStruct);
             for (int i = 0; i < count; ++i) {
-                script::Struct* gap = script::new_struct();
+                gsl::owner<script::Struct*> gap = script::new_struct();
                 gap->append_word(kGapName, checklist->get_gap_title(i));
                 gap->put_int(kGapCount, checklist->count_gaps_found(i));
                 gap->put_int(kGapScore, checklist->get_gap_points(i));
@@ -521,7 +522,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     script::Array* visited = alloc_script_array(kLevels, script::kQbvalInteger);
     for (int level = 0; level < kLevels; ++level)
         visited->set_element(static_cast<uint32_t>(level), core::at(visited_, level));
-    script::Struct* career = script::new_struct();
+    gsl::owner<script::Struct*> career = script::new_struct();
     career->append_array_ref(kGoalListName, goals);
     career->append_array_ref(kFlagsArray, flags);
     career->append_array_ref(kGlobalFlagsArray, globals);

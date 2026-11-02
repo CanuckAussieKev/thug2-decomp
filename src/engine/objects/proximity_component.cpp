@@ -38,7 +38,7 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 // 0x0042B620
 void ProximityComponent::launch_script(uint32_t script, Entity* skater)
 {
-    script::Struct* params = script::spawn_param_bag();
+    gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
     params->put_name_key(kSkaterId, skater->ident_);

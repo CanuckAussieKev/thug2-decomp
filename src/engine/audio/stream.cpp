@@ -17,6 +17,7 @@
 #include "engine/audio/stream_commands.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/raw_view.h"
+#include <gsl/pointers>
 
 namespace audio {
 
@@ -61,7 +62,7 @@ uint8_t* get_soundtrack(int index) { return g_soundtracks.data() + index * kSoun
 constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
 
 // The BinkStream constructor and its open of a pcm.wad entry (written over BinkStreamView, stream_commands.h).
-BinkStream* construct_bink_stream(void* memory, bool unknown, int plays)
+gsl::owner<BinkStream*> construct_bink_stream(void* memory, bool unknown, int plays)
 {
     return new (memory) BinkStream(unknown, plays);
 }

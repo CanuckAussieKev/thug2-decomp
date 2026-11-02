@@ -59,9 +59,9 @@ gsl::owner<WorldCell*> WorldCell::plat_clone(int, void*)
 }
 
 // 0x0049EAD0
-WorldCell* WorldCell::replicate(int instance, bool flag, WorldScene* scene)
+gsl::owner<WorldCell*> WorldCell::replicate(int instance, bool flag, WorldScene* scene)
 {
-    WorldCell* clone = plat_clone(instance, scene);
+    gsl::owner<WorldCell*> clone = plat_clone(instance, scene);
     if (!clone)
         return nullptr;
     clone->checksum_ = new_sector_name();

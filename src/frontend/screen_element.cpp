@@ -888,7 +888,7 @@ void UiWidget::get_properties(script::Struct* out)
     out->push_float(kAlpha, shown_.alpha);
     std::array<uint8_t, 4> rgba{};
     std::memcpy(rgba.data(), shown_.rgba.data(), 4);
-    script::Array* array = script::alloc_script_array();
+    gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         array = new (array) script::Array;
     array->configure_size_kind(4, script::kQbvalInteger);

@@ -52,6 +52,7 @@
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace sys::screenshot {
 
@@ -247,7 +248,7 @@ void show_message(const std::string& text)
     if (!current_load_state() || !script::script_exists(kScript))
         return;
     auto crc = [](const char* name) { return checksums::hash_from_text(name); };
-    auto* params = new (script::spawn_param_bag()) script::Struct;
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(crc("text"), text.c_str());
     params->put_name_key(crc("id"), crc("thug2_decomp_screenshot_message"));
     params->insert_pair(crc("pos"), 320.0f, g_message_y);

@@ -860,9 +860,9 @@ Component* construct_component(Component* component)
 
 namespace {
 
-Component* new_typed_component(uint32_t name, QbValueKind type)
+gsl::owner<Component*> new_typed_component(uint32_t name, QbValueKind type)
 {
-    Component* component = new_component();
+    gsl::owner<Component*> component = new_component();
     component->name = name;
     component->type_and_flag_ = static_cast<uint8_t>((component->type_and_flag_ & 1) | (type << 1));
     return component;
@@ -938,7 +938,7 @@ void Struct::attach_module(Component* added)
 // 0x004779D0
 void Struct::append_word(uint32_t name, const char* value)
 {
-    Component* component = new_typed_component(name, kQbvalString);
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalString);
     component->value.set_text(spawn_text(value));
     attach_module(component);
 }
@@ -949,7 +949,7 @@ void Struct::append_word(const char* name, const char* value) { append_word(chec
 // 0x00477AC0
 void Struct::append_inline_text(uint32_t name, const char* value)
 {
-    Component* component = new_typed_component(name, kQbvalInlineText);
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalInlineText);
     component->value.set_text(spawn_text(value));
     attach_module(component);
 }
@@ -966,7 +966,7 @@ void Struct::append_word(uint32_t name, uint32_t type, const char* value)
 // 0x00477B80
 void Struct::put_int(uint32_t name, int value)
 {
-    Component* component = new_typed_component(name, kQbvalInteger);
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalInteger);
     component->value.set_integer(value);
     attach_module(component);
 }
@@ -977,7 +977,7 @@ void Struct::put_int(const char* name, int value) { put_int(checksums::hash_from
 // 0x00477C60
 void Struct::push_float(uint32_t name, float value)
 {
-    Component* component = new_typed_component(name, kQbvalFloat);
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalFloat);
     component->value.set_real(value);
     attach_module(component);
 }
@@ -988,7 +988,7 @@ void Struct::push_float(const char* name, float value) { push_float(checksums::h
 // 0x00477D40
 void Struct::put_name_key(uint32_t name, uint32_t value)
 {
-    Component* component = new_typed_component(name, kQbvalName);
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalName);
     component->value.set_word(value);
     attach_module(component);
 }
@@ -999,7 +999,7 @@ void Struct::put_name_key(const char* name, uint32_t value) { put_name_key(check
 // 0x00477E20
 void Struct::put_vec3(uint32_t name, float x, float y, float z)
 {
-    Component* component = new_typed_component(name, kQbvalVector);
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalVector);
     auto* vector = vector_pools().allocate<Vector>();
     if (vector) {
         vector->z = 0.0f;
@@ -1032,7 +1032,7 @@ void Struct::put_vec3(const char* name, VectorValue value)
 // 0x00477FC0
 void Struct::insert_pair(uint32_t name, float x, float y)
 {
-    Component* component = new_typed_component(name, kQbvalPair);
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalPair);
     auto* pair = pair_pools().allocate<Pair>();
     if (pair) {
         pair->y = 0.0f;
@@ -1048,7 +1048,7 @@ void Struct::insert_pair(uint32_t name, float x, float y)
 // 0x004780D0
 void Struct::append_array_ref(uint32_t name, Array* value)
 {
-    Component* component = new_typed_component(name, kQbvalArray);
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalArray);
     component->value.set_array(value);
     attach_module(component);
 }
@@ -1062,7 +1062,7 @@ void Struct::append_array_ref(const char* name, Array* value)
 // 0x004781B0
 void Struct::append_struct_ref(uint32_t name, Struct* value)
 {
-    Component* component = new_typed_component(name, kQbvalStruct);
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalStruct);
     component->value.set_structure(value);
     attach_module(component);
 }
@@ -1076,7 +1076,7 @@ void Struct::append_struct_ref(const char* name, Struct* value)
 // 0x00478670
 void Struct::put_sub_struct(uint32_t name, Struct* value)
 {
-    Component* component = new_typed_component(name, kQbvalStruct);
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalStruct);
     Struct* copy = spawn_param_bag();
     if (copy)
         new (copy) script::Struct;
@@ -1094,7 +1094,7 @@ void Struct::put_sub_struct(const char* name, Struct* value) { put_sub_struct(ch
 // 0x00478290
 void Struct::append_script(uint32_t name, const uint8_t* code, uint32_t size)
 {
-    Component* component = new_typed_component(name, kQbvalScriptBody);
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalScriptBody);
     component->unknown2 = static_cast<uint16_t>(size);
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
     auto* copy = static_cast<uint8_t*>(memory::alloc_block(size));
@@ -1135,7 +1135,7 @@ void Struct::add_component_of_type(uint32_t name, uint32_t type, uint32_t value)
 Struct* Struct::merge_structure(Struct* source)
 {
     for (const Component* component = source->head_; component; component = component->next) {
-        Component* copy = new_component();
+        gsl::owner<Component*> copy = new_component();
         duplicate_component(copy, component, 0);
         attach_module(copy);
     }
@@ -1167,7 +1167,7 @@ void Struct::inline_into(Struct* dest, int depth)
             included->inline_into(dest, depth + 1);
             continue;
         }
-        Component* copy = new_component();
+        gsl::owner<Component*> copy = new_component();
         duplicate_component(copy, component, 0);
         dest->attach_module(copy);
     }
@@ -1340,7 +1340,7 @@ void copy_array_elements(Cell* dest, const Cell* source, uint32_t count, uint32_
             break;
         case kQbvalArray:
             if (!element.empty()) {
-                Array* array = alloc_script_array();
+                gsl::owner<Array*> array = alloc_script_array();
                 if (array)
                     array = new (array) script::Array;
                 duplicate_array(array, element.array());
@@ -1610,8 +1610,8 @@ bool components_equal(Component* a, Component* b)
 // 0x00478B00
 void Struct::append_array_value(uint32_t name, Array* value)
 {
-    Component* component = new_typed_component(name, kQbvalArray);
-    Array* array = alloc_script_array();
+    gsl::owner<Component*> component = new_typed_component(name, kQbvalArray);
+    gsl::owner<Array*> array = alloc_script_array();
     if (array)
         array = new (array) script::Array;
     component->value.set_array(array);

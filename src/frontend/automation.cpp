@@ -63,6 +63,8 @@ namespace {
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
+#include "engine/core/mem.h"
 
 constexpr uint32_t kSystem = 0x36B2EE74;     // "system" (the menus' pad events' target and source)
 constexpr uint32_t kFocusEvent = 0x9D3FB516; // "focus"
@@ -270,7 +272,7 @@ constexpr auto kButtonAliases = std::to_array<ButtonAlias>({
 std::unordered_map<uint32_t, std::string>& get_names()
 {
     static std::unordered_map<uint32_t, std::string>* names = [] {
-        auto* table = new std::unordered_map<uint32_t, std::string>;
+        auto table = memory::make_owned<std::unordered_map<uint32_t, std::string>>();
         auto add = [table](const char* name) { table->emplace(checksums::hash_from_text(name), name); };
         for (const char* name : kKnownNames)
             add(name);
@@ -299,7 +301,7 @@ uint32_t id_checksum(const std::string& id)
 const std::unordered_map<uint32_t, bool>& denied_checksums()
 {
     static const std::unordered_map<uint32_t, bool>* denied = [] {
-        auto* table = new std::unordered_map<uint32_t, bool>;
+        auto table = memory::make_owned<std::unordered_map<uint32_t, bool>>();
         for (const char* name : kDeniedScripts)
             (*table)[checksums::hash_from_text(name)] = true;
         for (const char* name : kDeniedIds)
@@ -1109,9 +1111,9 @@ bool get_timed_out(const Runner& runner, int seconds)
     return GetTickCount() - runner.started > static_cast<DWORD>(seconds) * 1000u;
 }
 
-script::Struct* make_params(const std::vector<Param>& params)
+gsl::owner<script::Struct*> make_params(const std::vector<Param>& params)
 {
-    auto* out = new (script::spawn_param_bag()) script::Struct;
+    gsl::owner<script::Struct*> out = script::new_struct();
     for (const Param& param : params) {
         switch (param.kind) {
         case Param::Kind::kBitMark:
@@ -1146,7 +1148,7 @@ std::string spawn_named(const std::string& name, const std::vector<Param>& param
     const uint32_t checksum = name_hash(name);
     if (!script_exists(checksum))
         return "no script " + name;
-    script::Struct* structure = make_params(params);
+    gsl::owner<script::Struct*> structure = make_params(params);
     script::spawn_script(checksum, structure, 0, nullptr, 0, 0, false, false, false, false);
     structure->get_clear();
     script::delete_struct(structure);

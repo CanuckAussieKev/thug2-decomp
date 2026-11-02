@@ -109,7 +109,7 @@ public:
     // or a new one on the next unused skater heap); its controllers bound, the created tricks and stat goals given
     // back. 0x00565790: a skater removed (its bail board; a client's left script; the local player's created tricks
     // and stat goals kept) and deleted.
-    objects::Rider* spawn_skater_entity(objects::RiderIdentity* profile, bool local, uint32_t id, int viewport);
+    gsl::owner<objects::Rider*> spawn_skater_entity(objects::RiderIdentity* profile, bool local, uint32_t id, int viewport);
     void drop_skater_from_roster(objects::Rider* skater);
     // 0x00565FF0: the first skater heap no skater uses (from 0 for a local skater, 1 for another).
     int find_free_rider_heap(bool local);

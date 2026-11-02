@@ -9,6 +9,7 @@
 
 #include "platform/code_address.h"
 #include "platform/compiler.h"
+#include <gsl/pointers>
 
 // The C runtime and the system libraries (Windows, DirectX, Winsock, Bink) the game calls: the linked library, or -
 // where the compiler's library behaves differently from the game's - our own version of the game's (qsort's order of
@@ -35,11 +36,11 @@ uint32_t host_first_address(const char* name);
 
 // --- The C runtime: its heap, files and exit ---
 // NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
-inline void* alloc_block(size_t size) { return std::malloc(size); }
+inline gsl::owner<void*> alloc_block(size_t size) { return std::malloc(size); }
 // NOLINTNEXTLINE(cppcoreguidelines-no-malloc): the C runtime's allocator, as the library / original wants
 inline void dealloc(void* memory) { std::free(memory); }
 THUG2_MSVC_WARNING(suppress : 4996) // (std::fopen: MSVC calls it unsafe)
-inline FILE* get_fopen(const char* path, const char* mode) { return std::fopen(path, mode); }
+inline gsl::owner<FILE*> get_fopen(const char* path, const char* mode) { return std::fopen(path, mode); }
 inline int get_fclose(FILE* file) { return std::fclose(file); }
 inline size_t get_fread(void* buffer, size_t size, size_t count, FILE* file)
 {

@@ -50,7 +50,7 @@ public:
     // 0x0049EAD0: a clone - the platform's new sector with a new name (0x0048CA80), these flags and kSectorClone,
     // the turn, a clone of the geometry (for `scene`) and of the collision (named as the clone, out of the grid,
     // kSectorAddToGrid with `flag`; the geometry given its faces). Null if the platform made none.
-    WorldCell* replicate(int instance, bool flag, WorldScene* scene);
+    gsl::owner<WorldCell*> replicate(int instance, bool flag, WorldScene* scene);
 
     // 0x0049E660: the geometry.
     void choose_geom(void* geom);

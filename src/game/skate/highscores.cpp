@@ -63,9 +63,9 @@ char* new_initials()
 
 
 // A record as a structure: value, number, initials.
-script::Struct* record_structure(const BestEntry* record)
+gsl::owner<script::Struct*> record_structure(const BestEntry* record)
 {
-    script::Struct* structure = script::new_struct();
+    gsl::owner<script::Struct*> structure = script::new_struct();
     structure->add_component_of_type(kValue, script::kQbvalInteger, static_cast<uint32_t>(record->val_));
     structure->add_component_of_type(kNumber, script::kQbvalInteger, static_cast<uint32_t>(record->slot_no_));
     structure->append_word(kInitials, script::kQbvalString, record->tag_);
@@ -279,7 +279,7 @@ void StageBests::decode_from_struct(script::Struct* params)
 // 0x0057F7B0
 void StageBests::write_to_structure(script::Struct* params)
 {
-    script::Struct* structure = script::new_struct();
+    gsl::owner<script::Struct*> structure = script::new_struct();
     high_scores_->write_to_structure(structure);
     params->append_struct_ref(kHighScores, structure);
     structure = script::new_struct();
@@ -343,7 +343,7 @@ void BestResults::write_to_structure(script::Struct* params)
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(level_count_, script::kQbvalStruct);
     for (int i = 0; i < level_count_; ++i) {
-        script::Struct* structure = script::new_struct();
+        gsl::owner<script::Struct*> structure = script::new_struct();
         levels_[i].write_to_structure(structure);
         array->set_cell(i, script::Cell::of(structure));
     }

@@ -166,7 +166,7 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
             std::make_unique<render::FullShadow>(model, kDown, kCastDistance);
         return;
     case kShadowSimple: {
-        auto* shadow = new render::BlobShadow();
+        auto shadow = memory::make_owned_value<render::BlobShadow>();
         // (no shadow - out of memory - is written through regardless, as the original)
         shadow->size_factor_ = model->size_factor_.x;
         shadow->load_mesh(model_name);

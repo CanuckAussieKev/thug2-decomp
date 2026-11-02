@@ -90,7 +90,7 @@ FloatingTextComponent::FloatingTextComponent()
 // 0x0041E5E0 (0x0041E6C0 the deleting one)
 FloatingTextComponent::~FloatingTextComponent()
 {
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(kId, ident_);
     script::launch_script(kDestroyScript, params, nullptr, false, nullptr);
     delete_params(params);
@@ -138,7 +138,7 @@ void FloatingTextComponent::tick_frame()
         core::at(text_, 0) = 0;
         end_time_ = 0;
     }
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->put_name_key(kId, ident_);
     // (the original: the game's sprintf, 0x006234FE, into 64 bytes - a text of more than about 60 characters overran
     // them into the stack cookie, ending the game; here it's cut short)

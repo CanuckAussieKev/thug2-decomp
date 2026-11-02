@@ -17,6 +17,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace commands {
 
@@ -157,7 +158,7 @@ bool cfunc_reset_all_to_default_stats(script::Struct*, script::Script*)
 {
     script::Array* list = script::fetch_list(kMasterSkaterList);
     for (uint32_t i = 0; i < list->extent_; ++i) {
-        script::Struct* stats = script::new_struct();
+        gsl::owner<script::Struct*> stats = script::new_struct();
         script::Struct* entry = table_row(list, i);
         uint32_t skater_name = 0; // (uninitialised in the original when missing, as the values below)
         entry->read_hash_value(kName, &skater_name, 1);

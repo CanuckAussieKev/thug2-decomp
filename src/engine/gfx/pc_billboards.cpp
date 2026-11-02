@@ -28,6 +28,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include <bit>
+#include <gsl/pointers>
 
 namespace render {
 
@@ -512,7 +513,7 @@ void BillboardSet::render(unsigned int which)
 void create_window_pool()
 {
     for (int i = 0; i < 10; ++i) {
-        auto* window = new PcWindow(0, 0, 640, 480);
+        auto window = memory::make_owned<PcWindow>(0, 0, 640, 480);
         window->following_ = g_free_windows; // (no check, as the original)
         g_free_windows = window;
     }

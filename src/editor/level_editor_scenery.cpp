@@ -47,6 +47,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor {
 
@@ -239,7 +240,7 @@ render::WorldCell* find_sector(uint32_t checksum, render::WorldScene** scene_out
 
 // (On PC every sector's geometry is a PcGeom - as PcSector reads it.)
 render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
-render::HitMesh* coll_of(render::WorldCell* sector) { return sector->hit_body_; }
+gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body_; }
 uint32_t& flags_of(render::WorldCell* sector) { return sector->flag_bits_; }
 int quarters_of(render::WorldCell* sector) { return sector->rot_y_; }
 
@@ -417,7 +418,7 @@ void apply_track(Track* track)
         // the level's tree again (as level_editor_walls.h keeps walls). The collision is then within 1/32 unit of the
         // meshes.
         const V3 collision_moved = walls::on_grid(position - track->position0);
-        render::HitMesh* coll = coll_of(track->sector);
+        gsl::owner<render::HitMesh*> coll = coll_of(track->sector);
         if (coll && !same_v3(collision_moved, track->collision_moved_)) {
             render::HitMesh* object = coll;
             const maths::Vec4* origin = object->get_absolute_point();
@@ -1619,7 +1620,7 @@ uint32_t get_duplicate(uint32_t source)
     geom->bounds.max.x = max.x, geom->bounds.max.y = max.y, geom->bounds.max.z = max.z;
     // (the collision's flags are copied with it: a source whose collision is switched off by itself - level_editor_walls.h
     // - gives a copy with collision on, as a layout makes copies again)
-    if (render::HitMesh* coll = coll_of(copy); coll && is_operative(copy))
+    if (gsl::owner<render::HitMesh*> coll = coll_of(copy); coll && is_operative(copy))
         coll->flag_bits_ &= static_cast<uint16_t>(~4);
     shared_collision::finish_copy(shared_faces, made, scene, copy, geom);
     mark_dirty(scene);

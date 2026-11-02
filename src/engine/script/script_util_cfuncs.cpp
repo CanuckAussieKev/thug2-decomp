@@ -22,6 +22,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/objects/entity.h"
+#include <gsl/pointers>
 
 
 namespace commands {
@@ -386,7 +387,7 @@ bool cfunc_for_each_in(Struct* params, Script* script)
     Struct* extra = nullptr;
     params->read_sub_struct(kParams, &extra, 0);
     if (extra) {
-        Struct* element_params = script::spawn_param_bag();
+        gsl::owner<Struct*> element_params = script::spawn_param_bag();
         if (element_params)
             element_params = new (element_params) script::Struct;
         for (uint32_t i = 0; i < array->extent_; ++i) {
@@ -429,7 +430,7 @@ bool cfunc_get_element(Struct* params, Script* script)
         script->args_->add_component_of_type(kElement, script::kQbvalInteger, array->fetch_part(index));
         break;
     case script::kQbvalStruct: {
-        Struct* copy = script::spawn_param_bag();
+        gsl::owner<Struct*> copy = script::spawn_param_bag();
         if (copy)
             copy = new (copy) script::Struct;
         copy->append_structure_if_any(array->struct_at(index));
@@ -461,7 +462,7 @@ bool cfunc_permute_array(Struct* params, Script* script)
     const bool make_copy = !params->has_bare_flag("PermuteSource"); // "PermuteSource"
     uint32_t new_name = 0;
     Array* copy = nullptr;
-    Array* array = source;
+    gsl::owner<Array*> array = source;
     if (make_copy) {
         params->read_hash_value("NewArrayName", &new_name, 0); // "NewArrayName"
         if (!new_name)
@@ -502,7 +503,7 @@ bool cfunc_goto_preserve_params(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
-    Struct* script_params = script::spawn_param_bag();
+    gsl::owner<Struct*> script_params = script::spawn_param_bag();
     if (script_params)
         script_params = new (script_params) script::Struct;
     script_params->append_structure_if_any(script->args_);
@@ -522,7 +523,7 @@ bool format_printf_text(char* out, Struct* params, Script*)
 {
     const char* text = "Default printf text"; // "Default printf text"
     if (params->fetch_text(0u, &text, 0)) {
-        Struct* format = script::spawn_param_bag();
+        gsl::owner<Struct*> format = script::spawn_param_bag();
         if (format)
             format = new (format) script::Struct;
         format->put_name_key(kTextName, kPrintfText);
@@ -551,7 +552,7 @@ bool cfunc_dump(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 1);
-    Struct* dump = script::spawn_param_bag();
+    gsl::owner<Struct*> dump = script::spawn_param_bag();
     if (dump)
         dump = new (dump) script::Struct;
     std::array<char, 0x400> text{};
@@ -560,7 +561,7 @@ bool cfunc_dump(Struct* params, Script* script)
         get_sprintf(text.data(), "%s=[!! DOES NOT EXIST !!]", script::find_checksum_name_or_unknown(name));
     } else {
         get_sprintf(text.data(), "%s=%%a", script::find_checksum_name_or_unknown(name)); // "%s=%%a"
-        Component* value = script::new_component();
+        gsl::owner<Component*> value = script::new_component();
         script::duplicate_component(value, component, 0);
         value->name = kA;
         dump->attach_module(value);
@@ -588,7 +589,7 @@ bool cfunc_create_index_array(Struct* params, Script* script)
 {
     int size = 0;
     params->fetch_int_value(0u, &size, 1);
-    Array* indexes = script::alloc_script_array();
+    gsl::owner<Array*> indexes = script::alloc_script_array();
     if (indexes)
         indexes = new (indexes) script::Array;
     indexes->configure_size_kind(static_cast<uint32_t>(size), script::kQbvalInteger);
@@ -614,7 +615,7 @@ bool cfunc_append_struct(Struct* params, Script*)
     params->read_hash_value(kStruct, &block_name, 1);
     params->read_hash_value(kField, &field, 1);
     params->read_sub_struct(kParams, &field_params, 1);
-    Struct* copy = script::spawn_param_bag();
+    gsl::owner<Struct*> copy = script::spawn_param_bag();
     if (copy)
         copy = new (copy) script::Struct;
     copy->append_structure_if_any(field_params);
@@ -629,7 +630,7 @@ bool cfunc_string_to_char_array(Struct* params, Script* script)
     const char* string = nullptr;
     params->fetch_text(kString, &string, 1);
     auto length = static_cast<uint32_t>(std::strlen(string));
-    Array* characters = script::alloc_script_array();
+    gsl::owner<Array*> characters = script::alloc_script_array();
     if (characters)
         characters = new (characters) script::Array;
     characters->configure_size_kind(length, script::kQbvalString);
@@ -658,7 +659,7 @@ bool cfunc_set_array_element(Struct* params, Script* script)
     params->fetch_int_value(kIndex, &index, 1);
     Component* new_value = params->find_last_component(kNewValue);
     script::evaluate_name_token(new_value);
-    Component* value = script::new_component();
+    gsl::owner<Component*> value = script::new_component();
     script::duplicate_component(value, new_value, 0);
     bool store = true; // the element becomes the value (whose own copy is handed over)
     switch (array->kind_tag_) {

@@ -34,6 +34,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -258,9 +259,9 @@ void CinematicTable::load_animation(uint32_t name, uint32_t a2, uint32_t a3)
 }
 
 // 0x00464000
-GameEntity* CinematicTable::create_object(script::Struct* params)
+gsl::owner<GameEntity*> CinematicTable::create_object(script::Struct* params)
 {
-    auto* object = new GameEntity;
+    auto object = memory::make_owned<GameEntity>();
     object->change_species(kCutsceneObjectType);
     g_composite_registry->enrol_subject(object);
     params->put_int(kFlagParam, flag_34b_0_);

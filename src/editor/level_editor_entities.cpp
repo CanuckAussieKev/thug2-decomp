@@ -43,6 +43,7 @@
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::entities {
 
@@ -735,7 +736,7 @@ uint32_t path_speed_script()
 
 void apply_speed(objects::GameEntity* object, float mph)
 {
-    auto* params = new (script::spawn_param_bag()) script::Struct;
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->push_float(get_key("speed"), mph);
     script::launch_script(path_speed_script(), params, object, false, nullptr);
     params->get_clear();

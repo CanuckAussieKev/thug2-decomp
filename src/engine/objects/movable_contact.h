@@ -64,7 +64,7 @@ public:
     // less the object's, through the object's inverted orientation.
     void update_contact_point();
 
-    RideTracker* ride_{nullptr};  // +0x18
+    gsl::owner<RideTracker*> ride_{nullptr};  // +0x18
     maths::Vec4 contact_point_{}; // +0x1C in the object's frame
     std::array<uint8_t, 0x40> unknown2c_{};   // +0x2C
     GameEntity* last_object_{};   // +0x6C the object last ridden

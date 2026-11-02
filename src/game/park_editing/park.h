@@ -22,6 +22,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
+#include <gsl/pointers>
 
 namespace render {
 struct WorldScene;
@@ -92,7 +93,7 @@ struct PieceGroupDesc {
                       //        these set the cells' floor heights (set_meta_in_cells), PieceGroup::intersects' precise
                       //        test leaves them out, and their metapiece is kFloorLocked
     std::array<uint8_t, 3> spare_slot5_;
-    void* piece; // +0x08: the scene piece (its +0x08 flags); in an abstract metapiece, the piece's name
+    gsl::owner<void*> piece; // +0x08: the scene piece (its +0x08 flags); in an abstract metapiece, the piece's name
 };
 static_assert(sizeof(PieceGroupDesc) == 12, "layout must match the original");
 
@@ -744,7 +745,7 @@ public:
     // 0x00592370: delete the park's sector `name`, then rebuild the collision (false if there was none)
     bool destroy_sector(uint32_t name, int unused);
     // 0x005923C0: a new placed piece of `source` (or of its source), with `flags` (0x324 of them)
-    ParkTile* create_piece(ParkPiece* source, uint32_t flags);
+    gsl::owner<ParkTile*> create_piece(ParkPiece* source, uint32_t flags);
     // 0x00592550: a placed piece onto the front of the generator's list (light_piece, 0x00594410, then lights it)
     void insert_tile(ParkTile* piece);
     // 0x00592570: a piece taken off the list (not the cursor's), its sector deleted (unless `keep_sector`), deleted

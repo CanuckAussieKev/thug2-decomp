@@ -424,7 +424,7 @@ void RiderRemoteSync::tick_frame()
     const uint8_t driving = pose_->in_vehicle_;
     const uint32_t steer_kind = past_frames_->vehicle_control_type_;
     if ((driving && steer_kind) || (!driving && was_driving_)) {
-        script::Struct* params = script::spawn_param_bag();
+        gsl::owner<script::Struct*> params = script::spawn_param_bag();
         if (params)
             params = new (params) script::Struct;
         params->put_name_key(kSkaterId, entity_->ident_);

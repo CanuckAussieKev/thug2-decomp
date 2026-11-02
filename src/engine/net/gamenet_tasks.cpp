@@ -37,6 +37,7 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "platform/compiler.h"
+#include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -125,7 +126,7 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
         shown = state;
         return;
     }
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     std::array<char, 128> line{};
     std::array<char, 128> line2{};
     switch (state) {

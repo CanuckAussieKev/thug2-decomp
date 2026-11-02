@@ -11,6 +11,8 @@
 #include "engine/core/str.h"
 #include "editor/level_editor_layout.h"
 #include "engine/script/params.h"
+#include <gsl/pointers>
+#include "engine/core/mem.h"
 
 namespace render {
 
@@ -59,7 +61,7 @@ bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
 
     // A structure describing the load is built here and never used (left from an older interface).
     alignas(4) std::array<uint8_t, 8> memory{};
-    auto* description = new (memory.data()) script::Struct;
+    auto description = memory::construct_in<script::Struct>(memory.data());
     description->put_name_key(kTexDict, checksums::hash_from_text(texture_path.data()));
     if (text::find_caseless(name, "_sky") || is_sky) {
         is_sky = true;

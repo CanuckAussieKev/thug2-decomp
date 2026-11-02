@@ -26,6 +26,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include <gsl/pointers>
 
 namespace objects {
 
@@ -163,7 +164,7 @@ void VideoHub::keep_camera(Movie* movie)
 VideoHub::VideoHub() { movies_.make_head(); }
 
 // 0x0057A530
-gfx::ViewCam* VideoHub::obtain_active_lens()
+gsl::owner<gfx::ViewCam*> VideoHub::obtain_active_lens()
 {
     if (total_of()) {
         Movie* playing = movie_at(&movies_, 0);
@@ -204,7 +205,7 @@ void VideoHub::clear_movies()
 void VideoHub::end_movie(Movie* movie)
 {
     const uint32_t end_script = movie->label_;
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->append_structure_if_any(movie->args_);
     if (total_of() == 1)
         keep_camera(movie);
@@ -326,7 +327,7 @@ bool VideoHub::kill_movie(uint32_t name)
 bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
 {
     const bool kept_camera = keep_camera_;
-    Movie* movie = nullptr;
+    gsl::owner<Movie*> movie = nullptr;
     keep_camera_ = false;
     // An object camera animation / skater camera's context: the skater's info (0x00564FC0) and its +0x5C.
     struct CameraContext {

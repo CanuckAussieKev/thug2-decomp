@@ -30,6 +30,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::level_editor::view {
 
@@ -205,7 +206,7 @@ std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, const std
 namespace {
 
 render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
-render::HitMesh* coll_of(render::WorldCell* sector) { return sector->hit_body_; }
+gsl::owner<render::HitMesh*> coll_of(render::WorldCell* sector) { return sector->hit_body_; }
 
 // The sector's collision geometry, whether its collision is on or off (StaticCollider; `off`: its flag 4 - the game's
 // switch, level_editor_walls.h).

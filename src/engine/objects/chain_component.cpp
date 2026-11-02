@@ -269,7 +269,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
             if (j >= chain->links_ - 1)
                 continue;
             // (a grey line to the next link)
-            auto* line = new render::PcPrimitive(1);
+            auto line = memory::make_owned<render::PcPrimitive>(1);
             link.line_ptr_ = line;
             line->blend_mode_ = kLineBlend;
             line->prepare_all(1, 0, 2); // (through the jump 0x004A10A0)

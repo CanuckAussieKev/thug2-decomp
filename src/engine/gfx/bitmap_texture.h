@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 #include "platform/d3d_forward.h"
+#include <gsl/pointers>
 
 // A texture (Nx engine, PC): its Direct3D texture and, for render targets, the surface. Every texture is on a list
 // (0x007CC254) so the render targets can be released and made again around a device reset.
@@ -59,10 +60,10 @@ static_assert(offsetof(TextureRef, texture) == 0x10 && offsetof(TextureRef, rend
 
 // 0x004E0790: a texture from an image file (opened "rb"), or null if there's no such file (or, not original, its
 // image doesn't fit its texture: image_format.h).
-TextureRef* read_texture_file(const char* name);
+gsl::owner<TextureRef*> read_texture_file(const char* name);
 // 0x004E0A90: a texture from an image in memory, or null if its Direct3D texture couldn't be made. (Not original:
 // `data_size` - the image's bytes, 0 if not known - bounds its reader; an image that doesn't fit its texture is null.)
-TextureRef* load_texture_memory(const uint8_t* data, size_t data_size);
+gsl::owner<TextureRef*> load_texture_memory(const uint8_t* data, size_t data_size);
 
 // 0x004E0320: before a device reset - every stage's texture unset, the render target textures released.
 void release_render_target_textures();

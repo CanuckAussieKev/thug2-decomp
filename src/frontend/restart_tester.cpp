@@ -22,6 +22,7 @@
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace frontend::restart_tester {
 
@@ -104,7 +105,7 @@ std::vector<Relaunch> level_restarts()
 // (A text element has no line breaks: a second line is a second message.)
 void get_message(const char* text, const char* id = "restart_tester_message", float y = 70.0f)
 {
-    auto* params = new (script::spawn_param_bag()) script::Struct;
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(name_hash("text"), text);
     params->put_name_key(name_hash("id"), name_hash(id));
     params->insert_pair(name_hash("pos"), 320.0f, y);
@@ -145,7 +146,7 @@ void get_next()
         if (visited_state().count(r.name))
             continue;
         visited_state().insert(r.name);
-        auto* params = new (script::spawn_param_bag()) script::Struct;
+        gsl::owner<script::Struct*> params = script::new_struct();
         params->put_name_key(name_hash("node_name"), r.name);
         script::launch_script(name_hash("ResetSkaters"), params, nullptr, false, "ResetSkaters");
         params->get_clear();

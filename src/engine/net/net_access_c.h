@@ -14,6 +14,7 @@
 #include "engine/net/net_metrics.h"
 #include "engine/net/net_messages.h"
 #include "engine/core/raw_view.h"
+#include <gsl/pointers>
 
 namespace net {
 
@@ -162,17 +163,17 @@ inline void add_packet_metric(void* metrics, uint32_t size, uint32_t time)
 
 // Queued messages: the destructor frees the data (0x004550F0).
 inline void destroy_queued_msg(void* msg) { static_cast<PendingMsg*>(msg)->~PendingMsg(); }
-inline SeqQueuedMsg* construct_seq_msg(void* memory, uint8_t id, uint16_t length, const uint8_t* data, uint8_t group,
+inline gsl::owner<SeqQueuedMsg*> construct_seq_msg(void* memory, uint8_t id, uint16_t length, const uint8_t* data, uint8_t group,
                                        bool compressed)
 {
     return new (memory) SeqQueuedMsg(id, length, data, group, compressed);
 }
-inline OrderedMsgNode* construct_msg_seq_link(void* memory, SeqQueuedMsg* msg)
+inline gsl::owner<OrderedMsgNode*> construct_msg_seq_link(void* memory, SeqQueuedMsg* msg)
 {
     return new (memory) OrderedMsgNode(msg);
 }
-inline StreamDesc* construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
-inline BulkStreamNode* construct_stream_link(void* memory, StreamDesc* desc)
+inline gsl::owner<StreamDesc*> construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
+inline gsl::owner<BulkStreamNode*> construct_stream_link(void* memory, StreamDesc* desc)
 {
     return new (memory) BulkStreamNode(desc);
 }

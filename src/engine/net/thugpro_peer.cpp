@@ -50,6 +50,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace script {
 class Struct;

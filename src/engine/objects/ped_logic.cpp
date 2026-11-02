@@ -272,9 +272,9 @@ bool PedestrianBrainModule::hide_board(int hide)
 }
 
 // 0x004EFB10
-script::Struct* PedestrianBrainModule::get_state_params(script::Struct* params)
+gsl::owner<script::Struct*> PedestrianBrainModule::get_state_params(script::Struct* params)
 {
-    script::Struct* out = script::new_struct();
+    gsl::owner<script::Struct*> out = script::new_struct();
     out->append_structure_if_any(params);
     out->append_structure_if_any(entity_->tag_table_);
     return out;

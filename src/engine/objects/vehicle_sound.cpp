@@ -171,7 +171,7 @@ void EngineAudioModule::tick_engine()
     // The slowest driven wheel (always four looked at, the last first).
     float slowest = kNoWheel;
     for (int i = 3; i >= 0; --i) {
-        const DrivableModule::Wheel& wheel = vehicle->wheels_[i];
+        const DrivableModule::Wheel& wheel = core::at(vehicle->wheels_, i);
         if (!wheel.drive)
             continue;
         auto speed = static_cast<float>(std::fabs(static_cast<double>(wheel.spin)) * wheel.radius);
@@ -260,7 +260,7 @@ void EngineAudioModule::update_skid()
     const DrivableModule* vehicle = vehicle_ptr_;
     if (vehicle->brake_ || vehicle->handbrake_) {
         for (int i = 3; i >= 0; --i) {
-            const DrivableModule::Wheel& wheel = vehicle->wheels_[i];
+            const DrivableModule::Wheel& wheel = core::at(vehicle->wheels_, i);
             const int state = wheel.state;
             const bool sliding =
                 state == DrivableModule::kWheelStaticToDynamic || state == DrivableModule::kWheelDynamic ||

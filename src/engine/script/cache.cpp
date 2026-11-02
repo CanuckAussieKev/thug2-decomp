@@ -159,7 +159,7 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     const uint32_t size = stored.size_;
     const uint32_t stored_size = stored.stored_size_;
     make_room(static_cast<int>(size), name);
-    auto* entry = new ScriptCacheEntry{};
+    auto entry = memory::make_owned_value<ScriptCacheEntry>();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     auto* code = static_cast<uint8_t*>(memory::alloc_block(size));

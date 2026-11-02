@@ -65,7 +65,7 @@ void start_engine();
 void finish_rendering();
 // 0x004B28C0: a new PC scene (0x284 bytes; its mesh list at +0x280); `with_super_sectors` kept at +0x8C. The name and
 // textures aren't used here.
-PcScene* make_empty_scene(const char* name, TextureSet* textures, bool with_super_sectors);
+gsl::owner<PcScene*> make_empty_scene(const char* name, TextureSet* textures, bool with_super_sectors);
 // 0x004B2990: a scene's sectors let go (0x004C6200) and its mesh list deleted. Always true.
 bool unload_scene(WorldScene* scene);
 // 0x004B29C0 / 0x004B2A20 / 0x004B2A80 / 0x004B2AF0: a new PC model (0x50 bytes, zeroed), geom (0x64, zeroed),
@@ -75,7 +75,7 @@ gsl::owner<Geom*> create_geom();
 gsl::owner<BillboardQuad*> build_sprite_quad();
 gsl::owner<TexturedQuad*> create_textured_quad();
 // 0x004B2B60: a new render target (0x14 bytes) with a texture of its own made a width x height render target.
-void* create_render_target(int width, int height, uint8_t depth, int unused);
+gsl::owner<void*> create_render_target(int width, int height, uint8_t depth, int unused);
 // 0x004B2C30 / 0x004B2C50 / 0x004B2D10: a texture's shadow caster (the key: its +0x10, through one more pointer
 // with its flag 1 of +0x08) added for `model`, aimed from the camera along its matrix's third row, and removed.
 void add_texture_shadow_caster(const BitmapTexture* texture, void* model, WorldScene* unused);

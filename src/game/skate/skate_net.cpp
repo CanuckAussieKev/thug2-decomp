@@ -55,6 +55,7 @@
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
 
@@ -378,7 +379,7 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return 4;
     online::Hub* net = net_session_slot();
-    Struct* params = nullptr;
+    gsl::owner<Struct*> params = nullptr;
     std::array<char, 128> text{};
     if ((get_game_mode()->is_squad_match() != 0)) { // teams
         int local_team = -1;
@@ -471,11 +472,11 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
     objects::TrickSpotHub* trick_objects = objects::g_trick_spot_hub.get();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
-    Struct* params = script::new_struct();
+    gsl::owner<Struct*> params = script::new_struct();
     for (int i = 0; i < skate_net::kGraffitiSkaters; ++i) {
         if (!counts[i])
             continue;
-        Array* array = script::new_array();
+        gsl::owner<Array*> array = script::new_array();
         array->configure_size_kind(counts[i], static_cast<script::QbValueKind>(kSymbolChecksum));
         // (NOT ORIGINAL: past the message's end the indexes read as 0 - the original read on)
         for (int j = 0; std::cmp_less(j, counts[i]); ++j)
@@ -673,7 +674,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     if (mode != kNetLobby) {
         if (brief.time_limit == 0 && mode != kNetCtf && mode != kNetGoalAttack) {
             if (mode != kFirefight && mode != kNetFirefight) {
-                Array* conditions = script::new_array();
+                gsl::owner<Array*> conditions = script::new_array();
                 script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
                 auto* condition = conditions->struct_at(0);
                 condition->add_component_of_type(kScore, script::kQbvalInteger, brief.target_score);
@@ -684,7 +685,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         } else {
             victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, brief.time_limit);
             if (brief.game_type == kNetCtf) {
-                Array* conditions = script::new_array();
+                gsl::owner<Array*> conditions = script::new_array();
                 script::duplicate_array(conditions, script::fetch_list(kHighestScoreArray));
                 victory->append_array_value(kVictoryConditions, conditions);
             }

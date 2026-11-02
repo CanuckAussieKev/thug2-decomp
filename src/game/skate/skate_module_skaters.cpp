@@ -72,6 +72,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
+#include <gsl/pointers>
 
 namespace modules {
 
@@ -237,7 +238,7 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
 }
 
 // 0x00567180
-objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool local, uint32_t id, int viewport)
+gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool local, uint32_t id, int viewport)
 {
     online::Hub* net = net_session_slot();
     if (local) {
@@ -280,8 +281,8 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
     memory::push_mem_profile("Skater"); // "Skater"
     const int heap = find_free_rider_heap(local);
     memory::enter_heap_scope(rider_heap_at(heap));
-    auto* skater =
-        new objects::Rider(viewport, core::down_cast<objects::EntityHub>(entity_hub_handle()), local, id, heap, 1);
+    auto skater = memory::make_owned<objects::Rider>(
+        viewport, core::down_cast<objects::EntityHub>(entity_hub_handle()), local, id, heap, 1);
     skater->init_from_profile(profile); // (no memory: a crash, as the original)
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
         const script::StructPtr params = script::make_struct();
@@ -514,7 +515,7 @@ void Skate::change_level(uint32_t level)
     debug::printf("-----------------------------------------Skate::ChangeLevel(%d)\n",
                   level); // "-----...Skate::ChangeLevel(%d)\n"
     memory::enter_heap_scope(memory::Hub::get_pull()->skater_info_heap_);
-    script::Struct* params = script::new_struct();
+    gsl::owner<script::Struct*> params = script::new_struct();
     params->get_clear();
     params->add_component_of_type(kLevel, script::kQbvalName, level);
     script::launch_script(kRequestLevel, params, nullptr, false, nullptr);
@@ -913,7 +914,7 @@ void Skate::run_frame_logic()
         unplugged = true;
         if (unplugged_frames_ > script::fetch_int_value(kUnpluggedFrameCount)) {
             unplugged_frames_ = 0;
-            script::Struct* params = script::spawn_param_bag();
+            gsl::owner<script::Struct*> params = script::spawn_param_bag();
             if (params)
                 params = new (params) script::Struct;
             online::Hub* net = net_session_slot();

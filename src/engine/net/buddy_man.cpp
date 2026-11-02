@@ -53,6 +53,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace online {
 
@@ -462,7 +463,7 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
     if (!allow_join && !allow_remove) {
         choose_script = "do_nothing";
     } else {
-        script::Struct* choose = script::new_struct();
+        gsl::owner<script::Struct*> choose = script::new_struct();
         choose->put_int("profile", buddy->account_);
         text::to_capitals(nick.data());
         choose->append_word("nick", nick.data());
@@ -553,11 +554,11 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             uint32_t i = 0;
             for (; i < old->extent_; ++i) {
                 auto* entry = old->struct_at(i);
-                script::Struct* copy = script::new_struct();
+                gsl::owner<script::Struct*> copy = script::new_struct();
                 copy->get_assign(entry);
                 buddies->set_cell(i, script::Cell::of(copy));
             }
-            script::Struct* entry = script::new_struct();
+            gsl::owner<script::Struct*> entry = script::new_struct();
             entry->put_int("profile", buddy->account_);
             entry->append_word("nick", buddy->nick_.data());
             buddies->set_cell(i, script::Cell::of(entry));

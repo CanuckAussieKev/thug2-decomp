@@ -17,6 +17,7 @@
 #include "engine/core/stubs.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include <gsl/pointers>
 
 namespace park_editing {
 
@@ -137,7 +138,7 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
         ++count;
     if (count) {
-        script::Array* rails = script::new_array();
+        gsl::owner<script::Array*> rails = script::new_array();
         rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
         uint32_t i = 0;
         for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
@@ -154,19 +155,19 @@ void RailAuthoring::write_to_structure(script::Struct* params)
     int count = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_)
         ++count;
-    script::Array* rails = script::new_array();
+    gsl::owner<script::Array*> rails = script::new_array();
     rails->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalStruct);
     uint32_t r = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following_) {
-        script::Struct* rail_info = script::new_struct();
+        gsl::owner<script::Struct*> rail_info = script::new_struct();
         uint32_t point_count = 0;
         for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_)
             ++point_count;
-        script::Array* points = script::new_array();
+        gsl::owner<script::Array*> points = script::new_array();
         points->configure_size_kind(point_count, script::kQbvalStruct);
         uint32_t i = 0;
         for (const EditedRailPoint* p = rail->point_chain_; p; p = p->following_) {
-            script::Struct* point = script::new_struct();
+            gsl::owner<script::Struct*> point = script::new_struct();
             point->put_vec3(kPos, p->at_point_.x, p->at_point_.y, p->at_point_.z);
             // (a post drawn, not has_post_)
             if (p->post_)
@@ -222,7 +223,7 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
             node->put_name_key(kSurfaceKindKey, kMetalSmooth);
             if (p->following_) {
                 // linked to the next point's node (the next one written)
-                script::Array* links = script::new_array();
+                gsl::owner<script::Array*> links = script::new_array();
                 links->configure_size_kind(1, script::kQbvalInteger);
                 links->set_element(0, static_cast<uint32_t>(next));
                 node->append_array_ref(kLinks, links);

@@ -9,6 +9,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/member_code.h"
 #include "engine/core/slab_bank.h"
+#include <gsl/pointers>
 
 // A running script (Scripts::CScript, 0xF4 bytes, pool 0x006F3548 of 300 - ours 1200, engine/core/memory_sizes.h) and the list of all of them.
 //
@@ -155,7 +156,7 @@ public:
     void report_stopped();
     // 0x004739D0: a copy of `params` if it is (or is inside) this script's own parameters or function
     // parameters, which reset_script_state is about to free; else null.
-    Struct* copy_params_if_owned(Struct* params);
+    gsl::owner<Struct*> copy_params_if_owned(Struct* params);
     // 0x00474540: run `name` from the start: `code`, or the cached code of `name` (if there is none: stop and
     // report_stopped). The parameters are the script's defaults (its first line) plus `params`.
     void bind_script(uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object);
@@ -255,8 +256,8 @@ public:
     Script* prior_entry_;           // +0x04 (newer; null for the head)
     uint8_t* code_copy_;            // +0x08 a private copy of the code (set_script_copy), freed by reset_script_state
     const uint8_t* pc_;             // +0x0C the next token; null: not running
-    Struct* stmt_args_;             // +0x10 the current statement's arguments (owned)
-    Struct* args_;                  // +0x14 the script's parameters (owned; CFunctions leave results here)
+    gsl::owner<Struct*> stmt_args_;             // +0x10 the current statement's arguments (owned)
+    gsl::owner<Struct*> args_;                  // +0x14 the script's parameters (owned; CFunctions leave results here)
     RepeatFrame* innermost_repeat_; // +0x18 the innermost begin ... repeat (null: none)
     RepeatFrame inline_loop_;       // +0x1C
     RepeatFrame* loops_;            // +0x2C inline_loop_, or 10 on the script heap
@@ -282,7 +283,7 @@ public:
     uint32_t spawn_id_;                        // +0xD4 SpawnScript's id
     uint32_t on_finish_script_;                // +0xD8 run when a spawned script ends
     Struct* callback_params_;                  // +0xDC (owned)
-    objects::SignalRouteTable* signal_routes_; // +0xE0 made on demand
+    gsl::owner<objects::SignalRouteTable*> signal_routes_; // +0xE0 made on demand
     uint32_t on_exception_script_;             // +0xE4 OnExceptionRun
     uint32_t on_exit_script_;                  // +0xE8 OnExitRun (this level's)
     objects::SharedBase shared_base_;          // +0xEC lets smart pointers point at the script (vtable 0x006478E4)

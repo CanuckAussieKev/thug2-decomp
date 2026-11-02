@@ -5,6 +5,7 @@
 #include <array>
 
 #include "engine/core/arena_alloc.h"
+#include <gsl/pointers>
 
 // The memory manager: owns the game's regions and heaps, keeps a stack of "current" heaps (where allocations
 // without an explicit heap go), and finds heaps by name checksum. One instance (0x007D1800).
@@ -14,8 +15,8 @@ class Hub {
 public:
     // A heap created at run time by name (cfunc_mem_init_heap and friends).
     struct LabeledZone {
-        Zone* region;
-        Arena* heap;
+        gsl::owner<Zone*> region;
+        gsl::owner<Arena*> heap;
         uint32_t name;   // checksum
         std::array<char, 0x80> text; // the name
         bool used;
@@ -33,7 +34,7 @@ public:
     // The rest of the standard heaps (front end, network, script, skater info, theme, skater, named texture heaps).
     void init_standard_heaps();
     // A new heap in `region`, registered.
-    Arena* add_heap(Zone* region, int direction, const char* name);
+    gsl::owner<Arena*> add_heap(Zone* region, int direction, const char* name);
     void create_net_scratch_zone();
     void init_internet_heaps();
     void init_cutscene_heaps(uint32_t size);
@@ -85,20 +86,20 @@ public:
     Zone* primary_zone_;
     Arena* top_down_heap_;
     Arena* bottom_up_heap_;
-    Zone* front_end_region_{};
-    Arena* front_end_heap_{};
-    Zone* script_region_{};
-    Arena* script_heap_{};
+    gsl::owner<Zone*> front_end_region_{};
+    gsl::owner<Arena*> front_end_heap_{};
+    gsl::owner<Zone*> script_region_{};
+    gsl::owner<Arena*> script_heap_{};
     Zone* multiplayer_zone_{};
-    Arena* network_heap_{};
-    Zone* network_extras_zone_;
-    Arena* net_misc_heap_{};
-    Zone* online_zone_;
-    Arena* internet_top_down_heap_{};
-    Arena* internet_bottom_up_heap_{};
-    Zone* cinematic_zone_;
-    Arena* cinematic_high_heap_;
-    Arena* cinematic_low_heap_;
+    gsl::owner<Arena*> network_heap_{};
+    gsl::owner<Zone*> network_extras_zone_;
+    gsl::owner<Arena*> net_misc_heap_{};
+    gsl::owner<Zone*> online_zone_;
+    gsl::owner<Arena*> internet_top_down_heap_{};
+    gsl::owner<Arena*> internet_bottom_up_heap_{};
+    gsl::owner<Zone*> cinematic_zone_;
+    gsl::owner<Arena*> cinematic_high_heap_;
+    gsl::owner<Arena*> cinematic_low_heap_;
     Zone* dev_tools_zone_{};
     Arena* debug_heap_{};
     Zone* unused_zone_{};    // (never made: its heap, below, is always null)
@@ -108,10 +109,10 @@ public:
     std::array<Zone*, kSkaterSlots> skater_geom_regions_{};
     std::array<Arena*, kSkaterSlots> skater_geom_heaps_{};
     std::array<LabeledZone, kMaxNamedHeaps> named_heaps_{};
-    Zone* skater_info_region_{};
-    Arena* skater_info_heap_{};
-    Zone* theme_region_{};
-    Arena* theme_heap_{};
+    gsl::owner<Zone*> skater_info_region_{};
+    gsl::owner<Arena*> skater_info_heap_{};
+    gsl::owner<Zone*> theme_region_{};
+    gsl::owner<Arena*> theme_heap_{};
     uint32_t unknown5e0_{0};
     uint32_t unknown5e4_{0};
 };

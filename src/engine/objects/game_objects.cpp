@@ -116,7 +116,7 @@ void add_node_components(GameEntity* object, script::Struct* node)
 // 0x0057B4E0
 void spawn_pedestrian(script::Struct* params)
 {
-    auto* ped = new GameEntity;
+    auto ped = memory::make_owned<GameEntity>();
     add_base_components(ped);
     add_motion_components(ped);
     ped->change_species(kObjectTypePed);
@@ -160,7 +160,7 @@ void set_up_automobile(GameEntity* car, script::Struct* params)
 // 0x00578170
 void spawn_automobile(script::Struct* params)
 {
-    auto* car = new GameEntity;
+    auto car = memory::make_owned<GameEntity>();
     add_base_components(car);
     car->change_species(kObjectTypeCar);
     car->attach_module(new_component<AutomobileDynamicsModule, 0x58>());
@@ -240,7 +240,7 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     {
         // The model's path (0x004879D0 returns a String: made in `storage`).
         alignas(text::Chars) std::array<uint8_t, sizeof(text::Chars)> storage{};
-        auto* path = gfx::make_model_path(raw::as<text::Chars>(storage.data()), "crown", ".mdl");
+        gsl::owner<text::Chars*> path = gfx::make_model_path(raw::as<text::Chars>(storage.data()), "crown", ".mdl");
         file = *path;
         path->~Chars();
     }
