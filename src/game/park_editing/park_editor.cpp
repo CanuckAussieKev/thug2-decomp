@@ -30,7 +30,6 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -649,7 +648,7 @@ void ParkBuilderMode::logic_update()
     if (flag_bits_ & kFlagPaused)
         return;
     // The rail editor's flags (+0x08): bit 0.
-    auto rail_bit = []() { return (raw::bytes(get_rail_editor())[8] & 1) != 0; };
+    auto rail_bit = []() { return (get_rail_editor()->flag_bits_ & 1) != 0; };
     if (get_cursor()->mode_sel_ == BuildPointer::kModeRailPlacement) {
         if (rail_bit())
             launch_script(kSwitchOnRailEditor);

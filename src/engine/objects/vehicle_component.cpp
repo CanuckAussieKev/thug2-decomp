@@ -42,7 +42,6 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"
 #include "engine/objects/input_component.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/scene_load.h"
@@ -507,19 +506,17 @@ void DrivableModule::configure_from_data(script::Struct* params)
         for (int k = count - 1; k >= 0; --k) {
             auto* points = colliders->array_at(static_cast<uint32_t>(k));
             Collider& c = core::at(colliders_, k);
-            auto point = [points](int i) {
-                return cell::pointer<const float>(points->fetch_part(static_cast<uint32_t>(i))) + 1; // (x, y, z)
-            };
-            const float* p = point(0);
-            c.corner.x = p[0];
-            c.corner.y = p[1];
-            c.corner.z = p[2];
+            auto point = [points](int i) { return points->vector_at(static_cast<uint32_t>(i)); }; // (x, y, z)
+            const script::Vector* p = point(0);
+            c.corner.x = p->x;
+            c.corner.y = p->y;
+            c.corner.z = p->z;
             for (int e = 0; e < 2; ++e) {
                 p = point(1 + e);
                 maths::Vec4& edge = core::at(c.edges, e);
-                edge.x = p[0];
-                edge.y = p[1];
-                edge.z = p[2];
+                edge.x = p->x;
+                edge.y = p->y;
+                edge.z = p->z;
                 edge.x = static_cast<float>(static_cast<double>(edge.x) - c.corner.x);
                 edge.y = static_cast<float>(static_cast<double>(edge.y) - c.corner.y);
                 edge.z = static_cast<float>(static_cast<double>(edge.z) - c.corner.z);

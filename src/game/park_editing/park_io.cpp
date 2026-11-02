@@ -22,8 +22,6 @@
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 
@@ -47,8 +45,7 @@ float gap_grid_offset() { return g_park_gap_grid_offset; }
 // The park editor object (0x007CE5D8, 0x7C bytes): the value at +0x78 goes into the compressed map.
 uint32_t editor_value78()
 {
-    auto* editor = raw::bytes(g_park_editor);
-    return *raw::field_at<uint32_t>(editor, 0x78);
+    return g_park_editor->lighting_script_;
 }
 uint8_t generator_max_players(void* generator) { return *(static_cast<uint8_t*>(generator) + 0x20); }
 
@@ -341,11 +338,11 @@ void ParkLayout::set_up_road_mask()
     for (uint32_t i = 4; i < num_blocked_areas_ + 4; ++i) {
         auto* rect = roads->array_at(i);
         CellBox& mask = (&core::at(blocked_areas_, 0))[i]; // (past the eighth: over the length itself, as in the original)
-        *mask.get_byte(0) = byte_at(rect, 0);
-        *mask.get_byte(2) = byte_at(rect, 1);
-        *mask.get_byte(3) = byte_at(rect, 2);
-        *mask.get_byte(5) = byte_at(rect, 3);
-        *mask.get_byte(1) = 0;
+        mask.x = byte_at(rect, 0);
+        mask.z = byte_at(rect, 1);
+        mask.w = byte_at(rect, 2);
+        mask.l = byte_at(rect, 3);
+        mask.y = 0;
         mask.stretch_vertically();
     }
     num_blocked_areas_ += 4;
@@ -370,11 +367,11 @@ void ParkLayout::set_up_lights()
                                  ambient.y * ambient_const, ambient.z * ambient_const, falloff.x * falloff_const,
                                  falloff.y * falloff_const, falloff.z * falloff_const, cursor_ambience);
     for (int i = 0; i < ints::as_signed(positions->extent_); ++i) {
-        auto* v = cell::pointer<float>(positions->fetch_part(static_cast<uint32_t>(i))); // a CVector (x at +4)
+        const script::Vector* v = positions->vector_at(static_cast<uint32_t>(i));
         maths::Vec4 pos;
-        pos.x = cell_size_x() * v[1];
-        pos.y = cell_size_y() * v[2];
-        pos.z = cell_size_z() * v[3];
+        pos.x = cell_size_x() * v->x;
+        pos.y = cell_size_y() * v->y;
+        pos.z = cell_size_z() * v->z;
         pos.w = 1.0f;
         builder_->move_light_source(&pos, i);
     }
@@ -382,11 +379,10 @@ void ParkLayout::set_up_lights()
 
 void ParkLayout::update_percent_bar()
 {
-    std::array<uint8_t, 0x6C> stats{};
     // 0x0059E730: the park's memory use (fills the stats at 0x007CE618, returns them)
-    auto* use = raw::bytes(get_memory_stats(raw::as<MemoryStats>(stats.data())));
-    float full = 0.0f;
-    std::memcpy(&full, use + 0x2C, 4);
+    MemoryStats stats_copy{};
+    const MemoryStats* use = get_memory_stats(&stats_copy);
+    const float full = use->max_usage_; // (its +0x2C: how full, 0-1)
     float percent = full;
     if (full < 0.0f)
         percent = 0.0f;

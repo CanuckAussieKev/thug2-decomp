@@ -21,7 +21,6 @@
 #include "engine/objects/signal.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
-#include "engine/core/raw_view.h"
 
 namespace pad_input {
 struct Payload;
@@ -161,10 +160,8 @@ public:
     // The editor's event listener (the original's vtable 0x0064F22C; its destructor slot, 0x0058DA90, deletes the
     // editor, which nothing does through the listener).
     struct Listener final : objects::SignalReceiver {
-        ParkBuilderMode* get_editor()
-        {
-            return raw::owner_of<ParkBuilderMode>(this, 0x14);
-        }
+        // The editor it's the member of: the one instance (the original found it 0x14 back from this).
+        static ParkBuilderMode* get_editor() { return sole(); }
         // 0x0058DE40: the menus' pad events (to root_window) while editing with a cursor, not paused: up / down the
         // previous / next set, left / right the previous / next piece.
         void receive(objects::Signal* event) override;

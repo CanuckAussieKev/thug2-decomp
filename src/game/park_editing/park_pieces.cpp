@@ -11,7 +11,6 @@
 #include "engine/core/mem.h"
 #include "game/park_editing/park_nx.h"
 #include "engine/maths/mat4.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 
 namespace park_editing {
@@ -48,7 +47,6 @@ CellBox* CellBox::assign_value(uint8_t cell_x, int8_t cell_y, uint8_t cell_z, ui
     return this;
 }
 
-uint8_t* CellBox::get_byte(int index) { return raw::bytes(this) + index; }
 
 void CellBox::stretch_vertically() { h = static_cast<uint8_t>(0x7F - y); }
 

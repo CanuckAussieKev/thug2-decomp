@@ -22,7 +22,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
-#include "engine/core/raw_view.h"
 
 namespace render {
 struct WorldScene;
@@ -73,9 +72,7 @@ struct CellBox {
     }
     // 0x005901B0 (the constructor): returns this. (park_pieces.cpp, like the rest.)
     CellBox* assign_value(uint8_t cell_x, int8_t cell_y, uint8_t cell_z, uint8_t width, uint8_t height, uint8_t length);
-    // 0x005901E0: byte `index` (x y z w h l)
-    uint8_t& operator[](int index) { return raw::bytes(this)[index]; }
-    uint8_t* get_byte(int index);
+    // (0x005901E0, byte `index` of x y z w h l, is the fields by name)
     // 0x005901F0: make the box reach the top of the world (h = 127 - y)
     void stretch_vertically();
     // 0x00590200: every height (-100 up 200)
@@ -1190,7 +1187,7 @@ public:
     bool destroy_selection();
     void flatten_selection();
     // 0x0059D9F0: raise / lower `area` (at most 10 x 10) to `height` + dir; undone if out of memory.
-    bool raise_area(CellBox area, int height, int dir, char level);
+    bool raise_area(CellBox area, int height, int dir, bool level);
     // 0x0059DAA0: raise / lower the cursor's area (the selection, the clipboard's), widened by the pieces on it;
     // not above 17 or below -16.
     bool raise_lower(int dir);

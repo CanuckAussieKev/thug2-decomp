@@ -18,7 +18,6 @@
 #include "game/park/park_memory.h"
 #include "engine/script/param_struct.h"
 #include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace park_editing {
@@ -30,16 +29,16 @@ constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
 constexpr uint32_t kHoldsClipboards = 0x45C6C158; // a piece set's flag: its entries are the clipboards
 constexpr uint32_t kMetaHasGap = 0x1000;          // a meta piece's flag
 
-uint32_t& get_meta_flags(void* meta) { return *raw::field_at<uint32_t>(static_cast<uint8_t*>(meta), 0xC); }
-uint32_t meta_type(void* meta) { return *raw::field_at<uint32_t>(static_cast<uint8_t*>(meta), 0x38); }
-CellBox& meta_footprint(void* meta) { return *raw::field_at<CellBox>(static_cast<uint8_t*>(meta), 0x4); }
+uint32_t& get_meta_flags(PieceGroup* meta) { return meta->flag_bits_; }
+uint32_t meta_type(const PieceGroup* meta) { return meta->name_key_; }
+CellBox& meta_footprint(PieceGroup* meta) { return meta->cell_footprint_; }
 
 // The memory profiler's markers (compiled out of this build: the empty function 0x005480A0).
 inline void memory_marker(const char* /*what*/) {}
 
-void* node_meta(MapListNode* node)
+PieceGroup* node_meta(MapListNode* node)
 {
-    void* meta = node->get_piece_group();
+    PieceGroup* meta = node->get_piece_group();
     return static_cast<PieceGroup*>(meta)->get_cast();
 }
 PieceGroup* as_meta(void* meta) { return static_cast<PieceGroup*>(meta); }
@@ -62,9 +61,9 @@ MapListNode* metas_within(ParkLayout* manager, CellBox area)
 }
 // The area selected.
 void selected_area(BuildPointer* cursor, CellBox* area) { cursor->get_marquee_bounds(area); }
-int ground_level_cell(ParkLayout* manager, CellBox area, char* level)
+int ground_level_cell(ParkLayout* manager, CellBox area, bool* level)
 {
-    return manager->get_ground_level(area, raw::as<bool>(level));
+    return manager->get_ground_level(area, level);
 }
 ParkBuilderMode* get_park_editor() { return ParkBuilderMode::fabricate(false); }
 bool park_full(ParkBuilderMode* editor) { return editor->is_park_full() != 0; }
@@ -158,7 +157,7 @@ bool BuildPointer::add_gap_half()
     CellChainScratch metas = {metas_within(hub(), get_area())};
     bool added = false;
     if (metas.list) {
-        void* meta = node_meta(metas.list);
+        PieceGroup* meta = node_meta(metas.list);
         get_area().dump_to_log();
         int half = 0;
         if (!gap_at(hub(), &get_area(), &half) && meta) {
@@ -325,11 +324,11 @@ void BuildPointer::flatten_selection()
 }
 
 // 0x0059D9F0
-bool BuildPointer::raise_area(CellBox area, int height, int dir, char level)
+bool BuildPointer::raise_area(CellBox area, int height, int dir, bool level)
 {
     if (area.w > 10 || area.l > 10)
         return false;
-    if (!hub()->raise_or_lower_floor(area, area.y, height, dir > 0, level == 0))
+    if (!hub()->raise_or_lower_floor(area, area.y, height, dir > 0, !level))
         return false;
     shift_by(0, 0);
     if (hub()->rebuild_area(&area, true)) {
@@ -357,7 +356,7 @@ bool BuildPointer::raise_lower(int dir)
     if (area.w > park.w || area.l > park.l)
         return false;
     // (the original has the level flag written over the copy's first byte)
-    char level = 0;
+    bool level = false;
     const int height = ground_level_cell(hub(), area, &level);
     if (height + dir <= -16)
         return false;
@@ -366,7 +365,7 @@ bool BuildPointer::raise_lower(int dir)
     const CellBox above = {area.x, area.y, area.z, area.w, 16, area.l};
     MapListNode* list = metas_within(ParkLayout::sole(), above);
     for (const MapListNode* node = list; node; node = node->following_) {
-        void* meta = node->get_piece_group();
+        PieceGroup* meta = node->get_piece_group();
         const CellBox at = meta_footprint(meta);
         if (at.h > area.h)
             top = at.h + height + dir;
@@ -449,10 +448,10 @@ void ParkLayout::commission(uint32_t level)
             end = index;
             for (int entry = 0; entry < set.entry_total_; ++entry) {
                 const int piece = index + entry;
-                void* meta = nullptr;
+                const PieceGroup* meta = nullptr;
                 int at = num_abstract_metas_ - 1;
                 for (auto* node = abstract_metas_; node; node = node->following_, --at) {
-                    void* candidate = node_meta(node);
+                    const PieceGroup* candidate = node_meta(node);
                     if (at == piece) {
                         meta = candidate;
                         break;
