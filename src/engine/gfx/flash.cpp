@@ -10,7 +10,7 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/viewport_list.h"
-#include "engine/core/raw_view.h"
+#include "engine/gfx/viewport.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
 
@@ -34,14 +34,14 @@ void set_sampler_state(int state, int value) { change_phase(state, static_cast<u
 void draw_flash(const Flash* flash)
 {
     // The viewport (fractions of the screen) the flash belongs to.
-    const auto* view = raw::as<const float>(fetch_current_view(flash->viewport));
+    const ViewRegion* view = fetch_current_view(flash->viewport);
     const double width = g_back_buffer_width;
     const double height = g_back_buffer_height;
     // (x87: each product is rounded once, each sum to float)
-    auto left = static_cast<float>(width * view[1]);
-    auto top = static_cast<float>(height * view[2]);
-    auto right = static_cast<float>(width * view[3] + left);
-    auto bottom = static_cast<float>(height * view[4] + top);
+    auto left = static_cast<float>(width * view->pos_x_);
+    auto top = static_cast<float>(height * view->y_);
+    auto right = static_cast<float>(width * view->span_ + left);
+    auto bottom = static_cast<float>(height * view->level_y_ + top);
     float z = flash->z;
     uint32_t color = static_cast<uint32_t>(flash->alpha) << 24 | static_cast<uint32_t>(flash->red) << 16 |
                      static_cast<uint32_t>(flash->green) << 8 | flash->blue;

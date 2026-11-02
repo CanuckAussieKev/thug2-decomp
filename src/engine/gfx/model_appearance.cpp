@@ -18,7 +18,6 @@
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 #include "engine/core/ints.h"
-#include "engine/core/pointer_cell.h"
 #include <gsl/pointers>
 
 namespace gfx {
@@ -199,8 +198,8 @@ void ModelLook::set_part(uint32_t part, uint32_t descriptor_id, script::Struct* 
     int use_default_hsv = 1;
     params->fetch_int_value(kUseDefaultHsv, &use_default_hsv, 0);
     if (!use_default_hsv) {
-        // (asserted; missing, h is what the original's stack slot held - `params` itself - and s / v garbage)
-        int h = static_cast<int>(cell::address(params)), s = 0, v = 0;
+        // (asserted; missing, 0 - the original's h was what its stack slot held, `params` itself, s / v garbage)
+        int h = 0, s = 0, v = 0;
         params->fetch_int_value(kH, &h, 1);
         params->fetch_int_value(kS, &s, 1);
         params->fetch_int_value(kV, &v, 1);
@@ -212,21 +211,20 @@ void ModelLook::set_part(uint32_t part, uint32_t descriptor_id, script::Struct* 
     slot->put_name_key(kDescId, descriptor_id);
 }
 
-// 0x004894D0. The names are asserted; a missing one is what the original's stack slot held (the `params` or
-// `script` argument's).
+// 0x004894D0. The names are asserted; a missing one is 0 (the original's was what its stack slot held: the `params`
+// or `script` argument's).
 bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
-    auto slot_of = [](const void* argument) { return static_cast<uint32_t>(cell::address(argument)); };
     switch (name) {
     case kSetPart: {
-        uint32_t part = slot_of(script), descriptor_id = slot_of(params);
+        uint32_t part = 0, descriptor_id = 0;
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kDescId, &descriptor_id, 1);
         set_part(part, descriptor_id, params);
         return true;
     }
     case kGetPart: {
-        uint32_t part = slot_of(params);
+        uint32_t part = 0;
         params->read_hash_value(kPart, &part, 1);
         script::Struct* slot = get_part(part);
         if (!slot)
@@ -235,18 +233,18 @@ bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, scr
         return true;
     }
     case kClearPart: {
-        uint32_t part = slot_of(params);
+        uint32_t part = 0;
         params->read_hash_value(kPart, &part, 1);
         structure_.erase_module(part);
         return true;
     }
     case kGotPart: {
-        uint32_t part = slot_of(params);
+        uint32_t part = 0;
         params->read_hash_value(kPart, &part, 1);
         return get_part_option(part) != nullptr;
     }
     case kPartGotFlag: {
-        uint32_t part = slot_of(params), flag = slot_of(script);
+        uint32_t part = 0, flag = 0;
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kFlag, &flag, 1);
         script::Struct* option = get_part_option(part);
@@ -255,7 +253,7 @@ bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, scr
         return option->has_bare_flag(flag);
     }
     case kSetChecksum: {
-        uint32_t field = slot_of(script), value = slot_of(params);
+        uint32_t field = 0, value = 0;
         params->read_hash_value(kField, &field, 1);
         params->read_hash_value(kValue, &value, 1);
         structure_.put_name_key(field, value);

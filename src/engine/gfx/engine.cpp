@@ -38,7 +38,6 @@
 #include <array>
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's file names, unbounded as it builds them)
 
@@ -155,7 +154,7 @@ void render_frame()
 void change_entity_hub(void* manager) { g_scene_objects = manager; }
 
 // 0x0048C0B0
-uint32_t* get_collision_scenes() { return raw::as<uint32_t>(g_collision_scenes.data()); }
+WorldScene** get_collision_scenes() { return g_collision_scenes.data(); }
 
 // 0x0048C0D0
 void toggle_render_mode()

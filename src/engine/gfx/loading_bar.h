@@ -9,8 +9,6 @@ namespace render {
 // border colour, and the per-pixel gradient table.
 void update_loading_bar_colors();
 
-// The gradient table's buffer on PC (100000 bytes, in place of the original's 0x00701688).
-uint8_t* loading_bar_gradient_buffer();
 
 // 0x004B6FF0: the loading screen's frame, a timeSetEvent callback (0x004B7400 starts it, every 29 ms, winmm's timer
 // thread): with the loading screen up (0x00786D04) and the timer's id set (0x00786D08), under the loading screen's

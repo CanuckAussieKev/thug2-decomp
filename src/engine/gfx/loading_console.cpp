@@ -30,7 +30,6 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/util/com_ptr.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace gfx::loading_console {
@@ -204,10 +203,12 @@ void build_font()
     if (FAILED(texture->LockRect(0, &locked, nullptr, 0)))
         return;
     for (int y = 0; y < height; ++y) {
-        auto* row = raw::field_at<uint32_t>(static_cast<uint8_t*>(locked.pBits), y * locked.Pitch);
+        uint8_t* row = static_cast<uint8_t*>(locked.pBits) + static_cast<ptrdiff_t>(y) * locked.Pitch;
         const unsigned char* in = rgba + static_cast<size_t>(y) * width * 4;
-        for (int x = 0; x < width; ++x)
-            row[x] = static_cast<uint32_t>(in[x * 4 + 3]) << 24 | 0x00FFFFFFu; // white, the glyph's coverage as alpha
+        for (int x = 0; x < width; ++x) {
+            const uint32_t texel = static_cast<uint32_t>(in[x * 4 + 3]) << 24 | 0x00FFFFFFu; // white, coverage as alpha
+            std::memcpy(row + static_cast<ptrdiff_t>(x) * 4, &texel, sizeof(texel));
+        }
     }
     texture->UnlockRect(0);
     for (int c = 0x20; c < 0x7F; ++c) {

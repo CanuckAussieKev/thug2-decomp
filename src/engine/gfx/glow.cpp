@@ -19,7 +19,6 @@
 #include "platform/platform_d3d.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -30,17 +29,25 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 lists::KeyMap g_glow_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
 lists::KeyMap& glows() { return g_glow_table; }
 std::array<uint8_t, 0x400> g_glow_queries_in_use; // (a byte per query: DrawGlows looks through 0x400)
-std::array<float, 16> g_glow_quad;
+// A glow's quad: four corners, each x, y, z and a colour.
+struct GlowVertex {
+    float x, y, z;
+    uint32_t colour;
+};
+std::array<GlowVertex, 4> g_glow_quad;
 
 // The occlusion queries in use (a byte each).
 uint8_t* queries_in_use() { return g_glow_queries_in_use.data(); }
 // The quad worked out for the last glow (four positions and colours; nothing draws it).
-float* glow_quad() { return g_glow_quad.data(); }
+std::array<GlowVertex, 4>& glow_quad() { return g_glow_quad; }
 
 // The number of pixels a query saw: 0 when it has the answer, 1 when not yet.
 int query_result(uint32_t query, uint32_t* pixels)
 {
-    return os_layer::get_occlusion_result(query, raw::as<DWORD>(pixels));
+    DWORD seen = *pixels;
+    const HRESULT result = os_layer::get_occlusion_result(query, &seen);
+    *pixels = seen;
+    return result;
 }
 
 Glow* next_glow()
@@ -54,20 +61,21 @@ Glow* next_glow()
 // The glow's quad of half-size `size` facing the camera (across `u`, up `v`).
 void set_quad(const Glow* glow, const float* u, const float* v, float size, uint32_t colour)
 {
-    float* q = glow_quad();
-    auto* colours = raw::as<uint32_t>(q);
+    std::array<GlowVertex, 4>& q = glow_quad();
+    auto set = [](GlowVertex& corner, int axis, double value) {
+        float& to = axis == 0 ? corner.x : axis == 1 ? corner.y : corner.z;
+        to = static_cast<float>(value);
+    };
     for (int i = 0; i < 3; ++i) {
         const double across = static_cast<double>(u[i]) * size;
         const double up = static_cast<double>(v[i]) * size;
-        q[i] = static_cast<float>((core::at(glow->position, i) - across) - up);
-        q[4 + i] = static_cast<float>((core::at(glow->position, i) - across) + up);
-        q[8 + i] = static_cast<float>((up + across) + core::at(glow->position, i));
-        q[12 + i] = static_cast<float>((across + core::at(glow->position, i)) - up);
+        set(core::at(q, 0), i, (core::at(glow->position, i) - across) - up);
+        set(core::at(q, 1), i, (core::at(glow->position, i) - across) + up);
+        set(core::at(q, 2), i, (up + across) + core::at(glow->position, i));
+        set(core::at(q, 3), i, (across + core::at(glow->position, i)) - up);
     }
-    colours[3] = colour;
-    colours[7] = colour;
-    colours[11] = colour;
-    colours[15] = colour;
+    for (GlowVertex& corner : q)
+        corner.colour = colour;
 }
 
 } // namespace

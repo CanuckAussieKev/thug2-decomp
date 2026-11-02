@@ -9,7 +9,6 @@
 #include "engine/gfx/engine_mesh.h"
 #include "engine/gfx/model_internal.h"
 #include "engine/gfx/pc_lights.h"
-#include "engine/core/raw_view.h"
 #include "engine/gfx/pc_mesh.h"
 #include "engine/gfx/bone_volumes.h"
 #include <gsl/pointers>
@@ -102,8 +101,8 @@ bool RenderModel::change_scale(const maths::Vec4* scale)
 {
     size_factor_ = *scale;
     // (compared as bit patterns)
-    const auto* bits = raw::as<const uint32_t>(scale);
-    const bool scaled = !(bits[0] == 0x3F800000 && bits[1] == 0x3F800000 && bits[2] == 0x3F800000);
+    auto is_one = [](float value) { return std::bit_cast<uint32_t>(value) == 0x3F800000; };
+    const bool scaled = !(is_one(scale->x) && is_one(scale->y) && is_one(scale->z));
     flag_bits_ = set_flag(flag_bits_, kModelScaled, scaled);
     return true;
 }

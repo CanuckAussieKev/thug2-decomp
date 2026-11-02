@@ -24,7 +24,6 @@
 #include "platform/stopwatch.h"
 #include "platform/code_address.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/gfx/pc_scene.h"
 
 namespace render {
@@ -304,9 +303,9 @@ WorldScene* add_scene(const char* scene_name, const char* add_name)
         if (TextureSet* old = find_tex_dict(checksums::hash_from_text(tex_file.data())))
             unload_tex_dict(old);
     }
-    const TextureSet* textures = load_tex_dict(tex_file.data(), 1, 0, 0, 0);
+    TextureSet* textures = load_tex_dict(tex_file.data(), 1, 0, 0, 0);
     plat_load_add_scene(scene, file.data());
-    scene->finish_add(file.data(), cell::of(textures));
+    scene->finish_add(file.data(), textures);
     return scene;
 }
 

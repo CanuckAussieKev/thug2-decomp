@@ -84,20 +84,20 @@ uint8_t clamped_byte(double value)
     return static_cast<uint8_t>(truncate(value));
 }
 
-// The colours as the PC code reads them: RGBA words.
-const uint32_t* as_rgba(const uint8_t* colours) { return raw::as<const uint32_t>(colours); }
 
 // 0x004BD470: the colour `t` of the way from `from` to `to` (RGBA bytes, each channel wrapping as a byte), its red,
 // green and blue then scaled by the colour scale x the brightness (clamped to 0-255) - into *out as a d_3d colour
 // (BGRA bytes). Returns out.
-uint32_t* lerp_colour(const EmitterInstance& system, uint32_t* out, const uint8_t* from, const uint8_t* to, float t)
+uint32_t* lerp_colour(const EmitterInstance& system, uint32_t* out, const colour::Bytes& from, const colour::Bytes& to,
+                      float t)
 {
     const float* colour_scale = system.colour_scale_.data();
     const float brightness = system.brightness_;
     const double red = static_cast<double>(colour_scale[0]) * brightness;
     const double green = static_cast<double>(colour_scale[1]) * brightness;
     auto lerp = [&](int k) {
-        return static_cast<uint8_t>(from[k] + truncate(static_cast<double>(to[k] - from[k]) * t));
+        return static_cast<uint8_t>(core::at(from, k) +
+                                    truncate(static_cast<double>(core::at(to, k) - core::at(from, k)) * t));
     };
     const uint8_t b = lerp(2);
     const uint8_t g = lerp(1);
@@ -131,15 +131,15 @@ struct ColourSpan {
 ColourSpan colour_span(const EmitterInstance& system, float life)
 {
     const float colour_mid = system.colour_mid_;
-    ColourSpan span{as_rgba(system.start_colour_), as_rgba(system.end_colour_), life};
+    ColourSpan span{system.start_colour_, system.end_colour_, life};
     if (colour_mid >= 0.0f) {
         if (life < colour_mid) {
             span.t = static_cast<float>(static_cast<double>(life) / colour_mid);
-            span.to = as_rgba(system.mid_colour_);
+            span.to = system.mid_colour_;
         } else {
             span.t =
                 static_cast<float>((static_cast<double>(life) - colour_mid) / (1.0f - static_cast<double>(colour_mid)));
-            span.from = as_rgba(system.mid_colour_);
+            span.from = system.mid_colour_;
         }
     }
     return span;
@@ -149,7 +149,7 @@ ColourSpan colour_span(const EmitterInstance& system, float life)
 uint32_t get_colour(const EmitterInstance& system, uint32_t from, uint32_t to, float t)
 {
     uint32_t colour = 0;
-    lerp_colour(system, &colour, raw::bytes(&from), raw::bytes(&to), t);
+    lerp_colour(system, &colour, colour::bytes_of(from), colour::bytes_of(to), t);
     return colour;
 }
 
@@ -1887,16 +1887,16 @@ void PcGlowRibbonTrailParticles::render()
                 static_cast<float>((static_cast<double>(core::at(particle->end_size_, 1)) - core::at(particle->start_size_, 1)) * life +
                                    core::at(particle->start_size_, 1));
             // The colours (unrounded fraction): the trail's from index 3 on.
-            const uint32_t* from = as_rgba(start_colour_);
-            const uint32_t* to = as_rgba(end_colour_);
+            const uint32_t* from = start_colour_;
+            const uint32_t* to = end_colour_;
             double t = life;
             if (colour_mid_ >= 0.0f) {
                 if (life < colour_mid_) {
                     t = life / colour_mid_;
-                    to = as_rgba(mid_colour_);
+                    to = mid_colour_;
                 } else {
                     t = (life - colour_mid_) / (1.0f - static_cast<double>(colour_mid_));
-                    from = as_rgba(mid_colour_);
+                    from = mid_colour_;
                 }
             }
             uint32_t previous_colour = fine_colour(from[3], to[3], t);
@@ -1973,15 +1973,15 @@ void PcGlowRibbonTrailParticles::render()
             const std::array<float, 3> uu = {{static_cast<float>(static_cast<double>(core::at(u, 0)) * size1),
                                  static_cast<float>(static_cast<double>(core::at(u, 1)) * size1),
                                  static_cast<float>(static_cast<double>(core::at(u, 2)) * size1)}};
-            const uint32_t* glow_from = as_rgba(start_colour_);
-            const uint32_t* glow_to = as_rgba(end_colour_);
+            const uint32_t* glow_from = start_colour_;
+            const uint32_t* glow_to = end_colour_;
             if (colour_mid_ >= 0.0f) {
                 if (t < colour_mid_) {
                     t = t / colour_mid_;
-                    glow_to = as_rgba(mid_colour_);
+                    glow_to = mid_colour_;
                 } else {
                     t = (t - colour_mid_) / (1.0f - static_cast<double>(colour_mid_));
-                    glow_from = as_rgba(mid_colour_);
+                    glow_from = mid_colour_;
                 }
             }
             std::array<uint32_t, 3> glow{};

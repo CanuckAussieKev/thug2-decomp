@@ -16,7 +16,6 @@
 #include "engine/script/param_struct.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace gfx {
@@ -195,54 +194,7 @@ bool AnimScriptKey::work_on(void* object)
 }
 
 // 0x00486680
-gsl::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor)
-{
-    auto* header = raw::as<const uint32_t>(*cursor);
-    const int frame = static_cast<int>(header[0]);
-    const uint32_t kind = header[1];
-    const uint32_t size = header[2];
-    const uint32_t* data = header + 3;
-    *cursor = raw::bytes(data);
-    switch (kind) {
-    case 1: {
-        const uint32_t fov = *data;
-        *cursor = raw::bytes(data + 1);
-        auto field_of_view = std::bit_cast<float>(fov);
-        return new CameraFovKey(frame, field_of_view);
-    }
-    case 2:
-    case 7: {
-        const maths::Vec4 pos = *raw::as<const maths::Vec4>(data);
-        *cursor = raw::bytes(data + 4);
-        const maths::QuatRotation rotation = *raw::as<const maths::QuatRotation>(data + 4);
-        *cursor = raw::bytes(data + 8);
-        return new CameraKey(frame, &rotation, &pos, kind == 7);
-    }
-    case 3: {
-        *cursor = raw::bytes(data + 8); // (32 bytes skipped)
-        return new MarkerKey(frame);
-    }
-    case 4:
-    case 5:
-    case 6: {
-        const uint32_t value = *data;
-        *cursor = raw::bytes(data + 1);
-        // (each kind's one word)
-        if (kind == 4)
-            return new ScriptKey(frame, value);
-        if (kind == 5)
-            return new StructureScriptKey(frame, value);
-        return new KillObjectKey(frame, value);
-    }
-    default:
-        *cursor = raw::bytes(data) + size;
-        return nullptr;
-    }
-}
-
-// NOT ORIGINAL - create_custom_anim_key in its reader form (the animation loader's): the key read through
-// anim_format::read_custom_key within the animation; null when it runs past the end, for unknown kinds (skipped) and
-// when memory runs out.
+// (NOT ORIGINAL: the key read through anim_format::read_custom_key within the animation)
 gsl::owner<UserClipKey*> create_custom_anim_key(util::ByteReader& reader)
 {
     anim_format::CustomKey key;

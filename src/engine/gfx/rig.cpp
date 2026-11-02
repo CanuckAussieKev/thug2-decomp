@@ -19,7 +19,6 @@
 #include "engine/gfx/debug_lines.h"
 #include "engine/objects/cutscene.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <bit>
 
@@ -290,8 +289,8 @@ bool Rig::change_bone_sizing(uint32_t name, const maths::Vec4* scale, bool local
         return false;
     bone->scale = *scale;
     // (exactly 1 compared as bit patterns)
-    const auto* bits = raw::as<const uint32_t>(scale);
-    const bool one = bits[0] == 0x3F800000 && bits[1] == 0x3F800000 && bits[2] == 0x3F800000;
+    auto is_one = [](float value) { return std::bit_cast<uint32_t>(value) == 0x3F800000; };
+    const bool one = is_one(scale->x) && is_one(scale->y) && is_one(scale->z);
     bone->flags &= ~(Joint::kScaled | Joint::kScaledLocal);
     if (!one)
         bone->flags |= local ? Joint::kScaledLocal : Joint::kScaled;

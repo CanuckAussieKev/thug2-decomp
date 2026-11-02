@@ -22,8 +22,8 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/packed_colour.h"
 #include <bit>
 
 namespace sun {
@@ -125,29 +125,19 @@ uint8_t issue_query(render::ViewRegion* camera, float left, float top, float rig
 // mode (+0x0C: the folded setter 0x00428270), +0x14 set (the folded setter 0x00407A50), readied and drawn from arrays
 // - corners, colours, texture coordinates (draw_if_ready).
 using Prim = render::PcPrimitive;
-void blit_quad(Prim* quad, const float* corners, const uint8_t* colors, const float* uvs)
+void blit_quad(Prim* quad, const float* corners, const std::array<colour::Bytes, 4>& colors, const float* uvs)
 {
-    quad->draw_if_ready(corners, raw::as<const uint32_t>(colors), uvs, nullptr);
+    std::array<uint32_t, 4> packed{};
+    for (size_t i = 0; i < packed.size(); ++i)
+        core::at(packed, i) = colour::packed_of(core::at(colors, i));
+    quad->draw_if_ready(corners, packed.data(), uvs, nullptr);
 }
 // A render state for the primitives (0x0049C700).
 void set_prim_state(int state, int value) { render::set_primitive_state(state, value); }
 // A query to issue this frame (0x004A0EB0 takes a copy and fills in its slot number), and a query's result - its
 // visible pixels (0x004A0F20).
-struct QueryRequest {
-    uint32_t slot{};
-    int (*callback)(void*, uint8_t){nullptr};
-    void* data{nullptr};
-    bool unknownc_{false};
-    std::array<uint8_t, 3> padd_{};
-
-    // 0x004426C0
-    QueryRequest();
-};
-static_assert(sizeof(QueryRequest) == 0x10, "the original keeps 0x10 bytes for it");
-void add_query(QueryRequest* request)
-{
-    render::request_occlusion_query(raw::as<render::OcclusionRequest>(request));
-}
+// (0x004426C0 constructs the request: cleared)
+void add_query(render::OcclusionRequest* request) { render::request_occlusion_query(request); }
 uint32_t query_result(uint8_t) { return render::occlusion_pixels(); } // (the original also passed the query: unused)
 // `v` times `m` in place (all four components; 0x00434200).
 void transform_in_place(maths::Vec4* v, const maths::Mat4* m) { v->multiply_by(*m); }
@@ -181,8 +171,6 @@ void corner_colors(std::array<std::array<uint8_t, 4>, 4>& colors, double scale)
 
 } // namespace
 
-// 0x004426C0
-QueryRequest::QueryRequest() = default;
 
 // 0x00442680
 float clamp_to_range(float value, float min, float max)
@@ -224,14 +212,14 @@ void set_sun(const Settings* settings, uint32_t mask)
 }
 
 // 0x00442810
-int query_sun_visibility(void*, uint8_t query)
+void query_sun_visibility(uint32_t /*data*/, uint32_t slot)
 {
+    const auto query = static_cast<uint8_t>(slot); // (the original's callback took the slot as a byte)
     maths::Vec4 screen = {0.0f, 0.0f, 0.0f, 1.0f};
     render::ViewRegion* camera = viewport_camera();
     float z = 1.401298464e-45f; // (an int 1 in the original, overwritten)
     cast_onto(camera, &get_position(), &screen[0], &screen[1], &z);
     get_query() = issue_query(camera, screen[0] - 5.0f, screen[1] - 5.0f, screen[0] + 5.0f, screen[1] + 5.0f, 1, query);
-    return get_query();
 }
 
 // 0x004428F0
@@ -461,10 +449,10 @@ void render(gfx::ViewCam* camera)
     std::array<float, 12> corners = {};
     const std::array<float, 8> uvs = {{0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f}};
     build_sun_quad(camera, &sun, &sun_pos, corners.data());
-    blit_quad(&sun, corners.data(), &core::at(core::at(colors, 0), 0), uvs.data());
-    QueryRequest request;
+    blit_quad(&sun, corners.data(), colors, uvs.data());
+    render::OcclusionRequest request{};
     request.callback = query_sun_visibility;
-    request.data = nullptr;
+    request.data = 0;
     add_query(&request);
     uint32_t visible = 0;
     // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
@@ -486,7 +474,7 @@ void render(gfx::ViewCam* camera)
                 corona.set_texture(get_corona_texture(), 0, 0);
             set_prim_state(1, 2);
             set_prim_state(4, 0);
-            blit_quad(&corona, corona_corners.data(), &core::at(core::at(colors, 0), 0), corona_uvs.data());
+            blit_quad(&corona, corona_corners.data(), colors, corona_uvs.data());
         }
         if (!flare_hidden()) {
             Struct* params = new_params();
@@ -507,7 +495,7 @@ void render(gfx::ViewCam* camera)
         if (get_corona_texture())
             sun.set_texture(get_corona_texture(), 0, 0);
         sun.blend_mode_ = kAdd;
-        blit_quad(&sun, corners.data(), &core::at(core::at(colors, 0), 0), uvs.data());
+        blit_quad(&sun, corners.data(), colors, uvs.data());
         if (static_cast<double>(morph_in_time()) * 1000.0f < static_cast<double>(unseen))
             show_flare(&screen, 0.0f);
         else
@@ -516,12 +504,3 @@ void render(gfx::ViewCam* camera)
 }
 
 } // namespace sun
-
-namespace {
-
-// 0x004426B0: a camera's +0xB4 (written out in the unoptimised lens flare code).
-struct CameraFactor {
-    float get_pull() { return raw::as<gfx::ViewCam>(this)->unknownb4_; }
-};
-
-} // namespace

@@ -50,7 +50,6 @@
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/weather.h"
 #include "game/skate/skate_module.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include "platform/d3d_matrix.h"
 
@@ -410,41 +409,10 @@ void draw_screen_blur()
 
 namespace {
 
-// The screen's viewports (0x004A06D0 returns one by index): fractions of the back buffer, and the camera.
-struct Viewport {
-    uint32_t unknown00;
-    float x, y, width, height; // +0x04
-    uint32_t unknown14;
-    void* camera; // +0x18 (null: nothing to draw)
-};
-static_assert(offsetof(Viewport, camera) == 0x18, "viewport layout");
-
-// A world scene's mesh group: flagged 0x100 once its meshes are prepared.
-struct MeshGroup {
-    uint32_t flags;
-    std::array<uint8_t, 0x18> unknown04;
-    void** meshes;   // +0x1C
-    int mesh_count_; // +0x20
-};
-static_assert(offsetof(MeshGroup, mesh_count_) == 0x20, "mesh group layout");
-
-// A loaded world scene (only what the render uses).
-struct Scene {
-    std::array<uint8_t, 0x84> unknown000;
-    uint32_t name;   // +0x84: the checksum of its name
-    void* tex_dict_; // +0x88
-    uint8_t unknown08c_;
-    bool sky; // +0x8D: drawn in the sky pass
-    std::array<uint8_t, 0x1F2> unknown08e_;
-    MeshGroup* group; // +0x280
-};
-static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D && offsetof(Scene, name) == 0x84,
-              "scene layout");
-
 // The list of loaded scenes (0x006FA7EC): ends at a node whose scene is -1.
 // A node of the scene list (memory::ListNode): its scene, and whether it is the list's head.
 using SceneNode = memory::ListNode;
-Scene* scene_of(const SceneNode* node) { return static_cast<Scene*>(node->data); }
+PcScene* scene_of(const SceneNode* node) { return static_cast<PcScene*>(node->data); }
 bool is_end(const SceneNode* node) { return node->is_head(); }
 
 // Calls fn(scene) for every scene in the list (the next node is taken before the call).
@@ -464,8 +432,9 @@ void for_each_scene(F fn)
 DeviceViewport& the_viewport() { return g_device_viewport; }
 void set_viewport()
 {
-    static_assert(sizeof(DeviceViewport) == sizeof(D3DVIEWPORT9));
-    g_d3d_device->SetViewport(raw::as<const D3DVIEWPORT9>(&the_viewport()));
+    const DeviceViewport& vp = the_viewport();
+    const D3DVIEWPORT9 viewport = {vp.x, vp.y, vp.width, vp.height, vp.min_z_, vp.max_z_};
+    g_d3d_device->SetViewport(&viewport);
 }
 // The device's render state directly (not the renderer's cached one).
 void set_device_render_state(int state, uint32_t value)
@@ -485,9 +454,9 @@ float camera_angle(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fe
 const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
 const maths::Mat4* cam_orientation(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_mat(); }
 
-void draw_scene_group(Scene* scene, int pass, int viewport)
+void draw_scene_group(PcScene* scene, int pass, int viewport)
 {
-    draw_scene(raw::as<SceneRef>(scene->group), static_cast<uint32_t>(pass), viewport);
+    draw_scene(scene->meshes, static_cast<uint32_t>(pass), viewport);
 }
 void set_pass(int pass) { draw_instance_batch(static_cast<uint32_t>(pass), 0); }
 // No world transform (set_world_transform's null: the original passes 0).
@@ -495,8 +464,8 @@ void clear_world_transform() { set_world_transform(nullptr); }
 
 void draw_viewport(int index)
 {
-    const auto* view = raw::as<const Viewport>(fetch_current_view(index));
-    void* camera = view->camera;
+    const ViewRegion* view = fetch_current_view(index);
+    void* camera = view->viewer_.get_pull();
     if (!camera)
         return;
     // Not original - the level editor (editor/level_editor.h): while it runs, the first viewport's camera is put
@@ -510,10 +479,10 @@ void draw_viewport(int index)
     const double width = g_back_buffer_width;
     const double height = static_cast<float>(g_back_buffer_height);
     DeviceViewport& vp = the_viewport();
-    vp.x = static_cast<int>(width * view->x);
-    vp.y = static_cast<int>(height * view->y);
-    vp.width = static_cast<int>(width * view->width);
-    vp.height = static_cast<int>(height * view->height);
+    vp.x = static_cast<int>(width * view->pos_x_);
+    vp.y = static_cast<int>(height * view->y_);
+    vp.width = static_cast<int>(width * view->span_);
+    vp.height = static_cast<int>(height * view->level_y_);
     vp.min_z_ = 0.0f;
     vp.max_z_ = 1.0f;
     if (g_camera.letterbox_active_ && !get_front_end_widescreen()) {
@@ -527,7 +496,7 @@ void draw_viewport(int index)
     }
     set_viewport();
     clear_world_transform();
-    const float aspect = raw::as<const ViewRegion>(view)->fetch_width_over_height();
+    const float aspect = view->fetch_width_over_height();
 
     // Not original - the level editor's ortho views (editor/level_editor_camera.h): its camera's field of view
     // narrowed and the near plane brought up for the world's passes (the sky's keeps the near plane).
@@ -550,17 +519,17 @@ void draw_viewport(int index)
         const std::array<float, 3> forward = {{-core::at(frame->row, 2).x, -core::at(frame->row, 2).y, -core::at(frame->row, 2).z}};
         sys::screenshot::note_view(index, at, forward);
     }
-    for_each_scene([&](Scene* scene) {
-        if (scene->sky)
+    for_each_scene([&](PcScene* scene) {
+        if (scene->is_sky_)
             return;
         collect_occluders(viewer_location(camera), index);
         set_render_state(1, 1);
         set_render_state(2, 1);
-        MeshGroup* group = scene->group;
+        SceneRef* group = scene->meshes;
         if (!(group->flags & 0x100)) {
             group->flags |= 0x100;
             for (int i = 0; i < group->mesh_count_; ++i)
-                static_cast<MeshRef*>(group->meshes[i])->build_collision();
+                group->meshes[i]->build_collision();
         }
         draw_scene_group(scene, 0x55, index);
     });
@@ -591,8 +560,8 @@ void draw_viewport(int index)
     change_fog(false);
     set_render_state(1, 0);
     set_render_state(2, 1);
-    for_each_scene([&](Scene* scene) {
-        if (!scene->sky)
+    for_each_scene([&](PcScene* scene) {
+        if (!scene->is_sky_)
             return;
         // (with distance clipping and fog both on, there's no sky)
         if (g_distance_clipping && g_fog_setting)
@@ -628,8 +597,8 @@ void draw_viewport(int index)
     set_pass(0x82);
     set_render_state(1, 1);
     set_render_state(2, 1);
-    for_each_scene([&](Scene* scene) {
-        if (!scene->sky)
+    for_each_scene([&](PcScene* scene) {
+        if (!scene->is_sky_)
             draw_scene_group(scene, 0x46, index);
     });
     set_pass(0x102);

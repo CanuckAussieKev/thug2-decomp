@@ -146,10 +146,9 @@ public:
 };
 static_assert(sizeof(AnimScriptKey) == 0x14, "the original's size");
 
-// 0x00486680 (cdecl): the next key from a frame data's key list (`*cursor` moved past it) {frame, kind, size} then
-// the kind's data. Unknown kinds are skipped (by size); null for them and when memory runs out.
-gsl::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor);
-// NOT ORIGINAL - the same read through util::ByteReader (anim_format.h), within its bounds.
+// 0x00486680 (cdecl): the next key from a frame data's key list {frame, kind, size} then the kind's data - read
+// through util::ByteReader (anim_format.h), within its bounds (not original: the original moved a pointer on). Unknown
+// kinds are skipped (by size); null for them, when it runs past the end and when memory runs out.
 gsl::owner<UserClipKey*> create_custom_anim_key(util::ByteReader& reader);
 
 } // namespace gfx

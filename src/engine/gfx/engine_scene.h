@@ -73,7 +73,7 @@ struct WorldScene : public memory::HeapObject {
         nullptr};                      // +0x15C (an array new; filled through an out parameter, read by offset)
     uint8_t* collision_blob_{nullptr}; // +0x160: the collision geometry (load_collision_data's)
     std::array<char, 0x80> add_name_{};     // +0x164: the scene added to it
-    uint32_t add_data_{0};      // +0x1E4: the added scene's texture dictionary (unloaded with the scene)
+    TextureSet* add_data_{nullptr}; // +0x1E4: the added scene's texture dictionary (unloaded with the scene)
     std::array<char, 0x80> add_pip_name_{}; // +0x1E8: the added scene's collision file
     int add_coll_static_count_{0}; // +0x268: the added scene's collision, as the base's
     gsl::owner<StaticCollider*> add_coll_statics_{
@@ -88,7 +88,7 @@ struct WorldScene : public memory::HeapObject {
     // 0x0049C910: the name kept, then post_load with `arena`.
     void finish_load(const char* name, void* arena);
     // 0x0049C940: an added scene's name and data kept, marked added, then post_add.
-    void finish_add(const char* name, uint32_t data);
+    void finish_add(const char* name, TextureSet* textures);
     // 0x0049C9A0: the static collision objects listed (each "%4d/%d " - the object's own print compiled out).
     void print_coll_statics();
     // 0x0049C9F0: static collision object `index`.

@@ -70,16 +70,15 @@ void delete_particles(FlexibleParticle* particles)
 // them), each allocated only if the one before was; all grey once the three are there. Whether they are.
 bool new_colours(EmitterInstance* system, int count)
 {
-    const std::array<uint8_t**, 3> colours = {{&system->start_colour_, &system->mid_colour_, &system->end_colour_}};
-    for (uint8_t** colour : colours) {
-        *colour = static_cast<uint8_t*>(carve(static_cast<unsigned int>(count) * 4));
+    const std::array<uint32_t**, 3> colours = {{&system->start_colour_, &system->mid_colour_, &system->end_colour_}};
+    for (uint32_t** colour : colours) {
+        *colour = static_cast<uint32_t*>(carve(static_cast<unsigned int>(count) * sizeof(uint32_t)));
         if (!*colour)
             return false;
     }
     for (int i = 0; i < count; ++i)
-        for (uint8_t* const* colour : colours)
-            for (int k = 0; k < 4; ++k)
-                (*colour)[i * 4 + k] = 0x80;
+        for (uint32_t* const* colour : colours)
+            (*colour)[i] = 0x80808080; // (each byte 0x80)
     return true;
 }
 

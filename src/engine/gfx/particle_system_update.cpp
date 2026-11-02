@@ -316,30 +316,33 @@ bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* param
             for (int i = first; i < last + 1; ++i) {
                 if (i >= get_num_colours())
                     continue;
-                uint8_t* end = end_colour_ + i * 4;
-                uint8_t* mid = mid_colour_ + i * 4;
-                uint8_t* start = start_colour_ + i * 4;
+                colour::Bytes end = colour::bytes_of(end_colour_[i]);
+                colour::Bytes mid = colour::bytes_of(mid_colour_[i]);
+                colour::Bytes start = colour::bytes_of(start_colour_[i]);
                 for (int k = 0; k < 4; ++k) {
                     if (params->fetch_int_value(core::at(kEndChannels, k), &value, 0)) {
-                        end[k] = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
-                                        : static_cast<uint8_t>(value);
+                        core::at(end, k) = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
+                                                  : static_cast<uint8_t>(value);
                         end_colour_set_ = true;
                     }
                 }
                 for (int k = 0; k < 4; ++k) {
                     if (params->fetch_int_value(core::at(kMidChannels, k), &value, 0))
-                        mid[k] = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
-                                        : static_cast<uint8_t>(value);
+                        core::at(mid, k) = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
+                                                  : static_cast<uint8_t>(value);
                 }
                 for (int k = 0; k < 4; ++k) { // (the end too, unless it was given)
                     if (params->fetch_int_value(core::at(kStartChannels, k), &value, 0)) {
                         const uint8_t byte = k == 3 ? static_cast<uint8_t>(static_cast<uint8_t>(value) >> 1)
                                                     : static_cast<uint8_t>(value);
-                        start[k] = byte;
+                        core::at(start, k) = byte;
                         if (!end_colour_set_)
-                            end[k] = byte;
+                            core::at(end, k) = byte;
                     }
                 }
+                end_colour_[i] = colour::packed_of(end);
+                mid_colour_[i] = colour::packed_of(mid);
+                start_colour_[i] = colour::packed_of(start);
             }
         }
         params->fetch_float(kMidTime, &colour_mid_, 0);
@@ -562,12 +565,13 @@ void EmitterInstance::tick_frame(float time, bool skip)
 }
 
 // 0x00499EE0
-uint32_t* ModelParticles::lerp_colour(uint32_t* out, const uint8_t* from, const uint8_t* to, float t)
+uint32_t* ModelParticles::lerp_colour(uint32_t* out, const colour::Bytes& from, const colour::Bytes& to, float t)
 {
     const double green = static_cast<double>(core::at(colour_scale_, 1)) * brightness_;
     auto blue = static_cast<float>(static_cast<double>(core::at(colour_scale_, 2)) * brightness_);
     auto lerp = [&](int k) {
-        return static_cast<uint8_t>(truncate(static_cast<double>(to[k] - from[k]) * t) + from[k]);
+        return static_cast<uint8_t>(truncate(static_cast<double>(core::at(to, k) - core::at(from, k)) * t) +
+                                    core::at(from, k));
     };
     const uint8_t r = lerp(0);
     const uint8_t g = lerp(1);

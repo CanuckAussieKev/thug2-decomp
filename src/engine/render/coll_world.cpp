@@ -14,7 +14,6 @@
 #include "engine/gfx/engine.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace render {
@@ -31,7 +30,7 @@ constexpr float kFarthestStart = -0.01f;
 // The scenes' collision grids the line passes near (null-terminated; null: none) and the scenes themselves in the
 // same order (0x0048C980 / 0x0048C0B0).
 CollGrid** grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
-uint32_t* grid_scenes() { return render::engine::get_collision_scenes(); }
+WorldScene* const* grid_scenes() { return render::engine::get_collision_scenes(); }
 
 // What every query starts with: the line's box (grown by 0.5 each way), whether the cache holds the unchanged box,
 // and the line's direction.
@@ -129,8 +128,8 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
     CollGrid** grids = grids_along(line);
     if (!grids)
         return false;
-    const uint32_t* scenes = grid_scenes();
-    hit->scene = 0;
+    WorldScene* const* scenes = grid_scenes();
+    hit->scene = nullptr;
     for (; *grids; ++grids, ++scenes) {
         int count = 0;
         for (HitMesh* const* objects = (*grids)->objects_along_line(line, &count); *objects; ++objects) {

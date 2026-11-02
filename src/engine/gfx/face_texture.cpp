@@ -16,7 +16,6 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/script/param_struct.h"
 #include "platform/compiler.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 
 namespace gfx {
@@ -286,10 +285,13 @@ const uint8_t* FaceSkin::read_from(const uint8_t* buffer, int /*size*/)
 {
     std::memcpy(image_.data(), buffer, kTexelEdge);
     std::memcpy(&path_vertices_, buffer + kTexelEdge, sizeof(path_vertices_));
-    const char* name = raw::chars(buffer + kTexelEdge + sizeof(path_vertices_));
-    const size_t length = std::strlen(name);
+    const uint8_t* name = buffer + kTexelEdge + sizeof(path_vertices_);
+    const uint8_t* end = name;
+    while (*end) // (the overlay's name: up to its NUL)
+        ++end;
+    const auto length = static_cast<size_t>(end - name);
     std::memcpy(overlay_name_.data(), name, length + 1);
-    return raw::bytes(name) + length + 1;
+    return end + 1;
 }
 
 // 0x00487510
@@ -325,9 +327,12 @@ void FaceSkin::load_from_structure(Struct* params)
 {
     Array* image = nullptr; // (uninitialised in the original when missing)
     params->fetch_list(kImageData, &image, 1);
-    auto* words = raw::as<uint32_t>(image_.data());
-    for (uint32_t i = 0; i < image->extent_; ++i)
-        words[i] = image->fetch_part(i);
+    // (NOT ORIGINAL: no more words than the image holds - the original wrote as many as the array had)
+    constexpr uint32_t kWords = kTexelEdge / 4;
+    for (uint32_t i = 0; i < image->extent_ && i < kWords; ++i) {
+        const uint32_t word = image->fetch_part(i);
+        std::memcpy(&core::at(image_, 4 * i), &word, sizeof(word));
+    }
     const char* overlay = nullptr; // (uninitialised in the original when missing)
     params->fetch_text(overlay, &overlay, 1);
     copy_string(overlay_name_.data(), overlay);
@@ -341,9 +346,11 @@ void FaceSkin::save_to_structure(Struct* params)
     Array* image = memory ? new (memory) script::Array : nullptr;
     constexpr uint32_t kWords = kTexelEdge / 4;
     image->configure_size_kind(kWords, script::kQbvalName);
-    auto* words = raw::as<uint32_t>(image_.data());
-    for (uint32_t i = 0; i < kWords; ++i)
-        image->set_element(i, words[i]);
+    for (uint32_t i = 0; i < kWords; ++i) {
+        uint32_t word = 0;
+        std::memcpy(&word, &core::at(image_, 4 * i), sizeof(word));
+        image->set_element(i, word);
+    }
     params->append_array_ref(kImageData, image);
     params->append_word(kOverlay, overlay_name_.data());
     write_face_points(&path_vertices_, params);

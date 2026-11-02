@@ -17,7 +17,6 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/sys/startup_init.h"
-#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -39,11 +38,10 @@ namespace {
 
 // PartyMod's gradient table: 100000 bytes, enough for high resolutions (PartyMod's resbuffer, which its
 // patchWindow pointed the table at).
-std::array<uint8_t, 100000> s_gradient_buffer;
-
 struct Rgb {
     int r, g, b;
 };
+std::array<Rgb, 100000 / sizeof(Rgb)> s_gradient_buffer;
 
 float g_float_five{5.0f};
 float g_float_twenty{20.0f};
@@ -68,7 +66,7 @@ Rgb& gradient_end() { return g_gradient_end; }
 int& gradient_width() { return g_gradient_width; }
 uint32_t& border_argb() { return g_border_argb; }
 
-Rgb* gradient_table() { return raw::as<Rgb>(s_gradient_buffer.data()); }
+Rgb* gradient_table() { return s_gradient_buffer.data(); }
 
 // The bar's timing (0x004B7400): seconds per tick, seconds so far, seconds for the whole bar.
 float& tick_seconds() { return g_tick_seconds; }
@@ -101,8 +99,6 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 uint32_t opaque(const Rgb& c) { return 0xFF000000u | (c.r & 0xFF) << 16 | (c.g & 0xFF) << 8 | (c.b & 0xFF); }
 
 } // namespace
-
-uint8_t* loading_bar_gradient_buffer() { return s_gradient_buffer.data(); }
 
 // 0x004B6B80
 void update_loading_bar_colors()

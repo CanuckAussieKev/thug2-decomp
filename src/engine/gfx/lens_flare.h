@@ -60,8 +60,8 @@ float clamp_to_range(float value, float min, float max);
 // for a new corona too, as the original).
 void set_sun(const Settings* settings, uint32_t mask);
 // 0x00442810: the occlusion query's callback: the sun's screen place, and a query over the 10 x 10 pixels round it
-// (its result's number in 0x00696894). Returns that number.
-int query_sun_visibility(void* data, uint8_t query);
+// (its result's number in 0x00696894; the original also returned it, unread).
+void query_sun_visibility(uint32_t data, uint32_t slot);
 // 0x004428F0: every flare element morphed (over `time`) to its place on the line from `centre` to `sun` (screen
 // positions); the lens flare marked shown.
 void place_flare_elements(float time, const maths::Vec4* sun, const maths::Vec4* centre);

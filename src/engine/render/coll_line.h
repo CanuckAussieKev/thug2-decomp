@@ -12,6 +12,7 @@ class GameEntity;
 namespace render {
 
 class HitMesh;
+struct WorldScene;
 struct CollisionHit;
 
 // Called (cdecl) with the record each time a line test accepts a hit.
@@ -38,7 +39,7 @@ struct CollisionHit {
     bool hit;                      // +0x48 a face was accepted
     uint8_t face_flag40_;          // +0x49 the hit face's flag 0x40 (0 or 0x40)
     std::array<uint8_t, 2> pad4a_;
-    uint32_t scene; // +0x4C the scene whose grid held the static object hit (collide_with_statics)
+    WorldScene* scene; // +0x4C the scene whose grid held the static object hit (collide_with_statics)
 
     // 0x004F8160: every field copied (not the padding). Returns this.
     CollisionHit* copy_from(const CollisionHit& other);

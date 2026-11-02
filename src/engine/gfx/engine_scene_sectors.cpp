@@ -25,7 +25,6 @@
 #include "engine/gfx/weather.h"
 #include "engine/gfx/pc_texture.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -163,7 +162,7 @@ WorldScene::~WorldScene()
     memory::ListNode::destroy(hidden_sectors_);
     memory::ListNode::destroy(add_scene_sectors_);
     if (add_data_)
-        unload_tex_dict(cell::pointer<TextureSet>(add_data_));
+        unload_tex_dict(add_data_);
 }
 
 // 0x0049D1A0 (the third count is added twice under the same name, as the original)

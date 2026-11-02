@@ -17,7 +17,6 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
 #include "platform/crt.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
@@ -87,13 +86,13 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
     unknown_13c_ptr_ = rotations;
     if (!rotations)
         return;
-    start_colour_ = static_cast<uint8_t*>(carve(4));
+    start_colour_ = static_cast<uint32_t*>(carve(4));
     if (!start_colour_)
         return;
-    mid_colour_ = static_cast<uint8_t*>(carve(4));
+    mid_colour_ = static_cast<uint32_t*>(carve(4));
     if (!mid_colour_)
         return;
-    end_colour_ = static_cast<uint8_t*>(carve(4));
+    end_colour_ = static_cast<uint32_t*>(carve(4));
     if (!end_colour_)
         return;
     for (unsigned int i = 0; i < model_count_; ++i) {
@@ -126,8 +125,8 @@ void ModelParticles::render()
         const FlexibleParticle& particle = particle_list_[p];
         model(static_cast<unsigned int>(p))->change_live(1);
         float life = particle.age / particle.lifetime;
-        const uint8_t* from = nullptr;
-        const uint8_t* to = nullptr;
+        const uint32_t* from = nullptr;
+        const uint32_t* to = nullptr;
         if (!(colour_mid_ >= 0.0f)) { // (no mid colour; NaN too)
             from = start_colour_;
             to = end_colour_;
@@ -141,11 +140,8 @@ void ModelParticles::render()
             from = mid_colour_;
             to = end_colour_;
         }
-        uint32_t from_colour = 0, to_colour = 0, colour = 0;
-        std::memcpy(&from_colour, from, 4);
-        std::memcpy(&to_colour, to, 4);
-        colour = *lerp_colour(&colour, raw::bytes(&from_colour),
-                              raw::bytes(&to_colour), life);
+        uint32_t colour = 0;
+        colour = *lerp_colour(&colour, colour::bytes_of(*from), colour::bytes_of(*to), life);
         model(static_cast<unsigned int>(p))
             ->change_tint(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> 8),
                           static_cast<uint8_t>(colour >> 16), static_cast<uint8_t>(colour >> 24));

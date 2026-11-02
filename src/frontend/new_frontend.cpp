@@ -77,8 +77,6 @@
 #include "engine/util/unique_handle.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/pointer_cell.h"
-#include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
@@ -1260,7 +1258,7 @@ std::string pad_button_label_for(char tag, char digit)
         const char mapped = render::button_glyph(&d);
         button = text::hex_digit_value(&mapped);
     } else {
-        auto d = static_cast<uint8_t>(digit);
+        const char d = digit;
         button = static_cast<int>(render::button_for_tag(&d));
     }
     switch (button) {

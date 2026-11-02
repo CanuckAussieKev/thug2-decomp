@@ -24,7 +24,6 @@
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
 #include <array>
-#include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
 
 namespace gfx {
@@ -167,8 +166,6 @@ void add_colour(script::Struct* slot, int h, int s, int v)
     slot->put_int(kUseDefaultHsv, 0);
 }
 
-uint32_t get_slot_of(const void* argument) { return static_cast<uint32_t>(cell::address(argument)); }
-
 } // namespace
 
 // 0x004897D0
@@ -194,14 +191,14 @@ void ModelAssembler::get_build(ModelLook* appearance, render::RenderModel* model
     memory::destroy_then_clear(built_appearance());
 }
 
-// 0x0048A3B0. The names are asserted; a missing one is what the original's stack slot held (an argument's: the
-// member function's name, `params` or `script`).
+// 0x0048A3B0. The names are asserted; a missing one is 0 (the original's was what its stack slot held: an argument's -
+// the member function's name, `params` or `script`).
 bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
     switch (name) {
     case kGeomSetUvOffset: {
-        uint32_t part = get_slot_of(script), material = name;
-        int pass = static_cast<int>(get_slot_of(params));
+        uint32_t part = 0, material = name;
+        int pass = 0;
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kMaterial, &material, 1);
         params->fetch_int_value(kPass, &pass, 1);
@@ -229,7 +226,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         return true;
     case kGeomAllocateUvMatrixParams: {
         uint32_t material = name;
-        int pass = static_cast<int>(get_slot_of(params));
+        int pass = 0;
         params->read_hash_value(kMaterial, &material, 1);
         params->fetch_int_value(kPass, &pass, 1);
         create_uv_anim_params(material, pass);
@@ -253,7 +250,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         return true;
     }
     case kModelAddGeom: {
-        uint32_t part = get_slot_of(params);
+        uint32_t part = 0;
         params->read_hash_value(kPart, &part, 1);
         add_geom(part);
         return true;
@@ -266,7 +263,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
     }
     case kModelHideGeom: {
         uint32_t geom = name;
-        int hide = static_cast<int>(get_slot_of(params));
+        int hide = 0;
         params->read_hash_value(kPart, &geom, 1);
         params->fetch_int_value(0u, &hide, 1); // (the unnamed integer)
         conceal_mesh(geom, hide != 0);
@@ -279,14 +276,14 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         FaceSkin* face = built_appearance()->face_skin_;
         if (!face || !face_texture_is_valid(face) || !built_model())
             return true;
-        const char* source = cell::pointer<const char>(static_cast<uintptr_t>(name));
+        const char* source = nullptr; // (asserted; the original's slot held the method's name)
         params->fetch_text(kSrc, &source, 1);
         uint32_t in = kAll;
         params->read_hash_value(kIn, &in, 0);
         return built_model()->replace_face_texture(face, source, in);
     }
     case kModelRemovePart: {
-        uint32_t part = get_slot_of(params);
+        uint32_t part = 0;
         params->read_hash_value(kPart, &part, 1);
         remove_part(part);
         return true;
@@ -298,13 +295,13 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         detach_polys();
         return true;
     case kGeomReplaceTexture: {
-        uint32_t part = get_slot_of(params);
+        uint32_t part = 0;
         params->read_hash_value(kPart, &part, 1);
         swap_texture(part);
         return true;
     }
     case kModelRunScript: {
-        uint32_t part = name, target = get_slot_of(params);
+        uint32_t part = name, target = 0;
         params->read_hash_value(kPart, &part, 1);
         params->read_hash_value(kTarget, &target, 1);
         launch_script(part, target);
@@ -330,7 +327,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         restore_scale();
         return true;
     case kGeomSetCreatedTexture: {
-        uint32_t part = get_slot_of(params);
+        uint32_t part = 0;
         params->read_hash_value(kPart, &part, 1);
         set_created_texture(part);
         detach_polys();
@@ -423,14 +420,15 @@ bool ModelAssembler::create_uv_anim_params(uint32_t material, int pass)
     return true;
 }
 
-// 0x00489C50. (A missing `with` is the previous one - the first time, the part's checksum: the original's stack slot.)
+// 0x00489C50. (A missing `with` is the previous one - the first time null: the original's stack slot held the part's
+// checksum.)
 bool ModelAssembler::swap_texture(uint32_t part)
 {
     bool result = false;
     script::Struct* option = built_appearance()->get_part_option(part);
     if (!option)
         return false;
-    const char* with = cell::pointer<const char>(static_cast<uintptr_t>(part));
+    const char* with = nullptr;
     for (const std::array<uint32_t, 3>& names : kReplacements) {
         const char* source = nullptr;
         if (!option->fetch_text(core::at(names, 0), &source, 0))

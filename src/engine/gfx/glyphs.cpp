@@ -6,7 +6,6 @@
 #include "engine/core/str.h"
 #include "engine/pad_input/sdl_input.h"
 #include "platform/platform_config.h"
-#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -29,7 +28,7 @@ void load_glyph_settings()
     s_glyph_style = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "GlyphStyle", 1));
 }
 
-uint32_t button_for_tag(const uint8_t* digit)
+uint32_t button_for_tag(const char* digit)
 {
     if (!key_names()) {
         switch (*digit) {
@@ -61,7 +60,7 @@ uint32_t button_for_tag(const uint8_t* digit)
             break;
         }
     }
-    return static_cast<uint32_t>(text::hex_digit_value(raw::chars(digit)));
+    return static_cast<uint32_t>(text::hex_digit_value(digit));
 }
 
 uint8_t should_use_glyph(uint8_t index)

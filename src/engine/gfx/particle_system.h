@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/core/packed_colour.h"
+
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -95,9 +97,9 @@ struct EmitterInstance : objects::SharedBase {
     script::Script* tick_script_{};     // +0x100 UpdateScript
     gsl::owner<script::Struct*> script_args_{};     // +0x104 their params
     float colour_mid_{};       // +0x108 setColor midTime: when the mid colour is, a fraction of a life (below 0: none)
-    uint8_t* start_colour_{};  // +0x10C (RGBA; the types with segments: one a segment and three more)
-    uint8_t* mid_colour_{};    // +0x110
-    uint8_t* end_colour_{};    // +0x114
+    uint32_t* start_colour_{}; // +0x10C RGBA words (r the low byte; the types with segments: one a segment and three more)
+    uint32_t* mid_colour_{};   // +0x110
+    uint32_t* end_colour_{};   // +0x114
     int history_length_{};     // +0x118 (the glow ribbon trail's history steps)
     float* position_array_{};  // +0x11C: three floats a particle a history step (step-major)
     uint32_t flag_bits_{0};    // +0x120 (bit 0 while the component updates it; 4 the system's set; 0x10 random
@@ -295,7 +297,7 @@ struct ModelParticles final : EmitterInstance {
     // 0x00499EE0: the colour `t` of the way from `from` to `to` (RGBA bytes, each channel wrapping as a byte), its red,
     // green and blue then scaled by the colour scale times the brightness (clamped to 0-255; the blue's scale rounded
     // to a float first, as the original) - into *out, RGBA. Returns out.
-    uint32_t* lerp_colour(uint32_t* out, const uint8_t* from, const uint8_t* to, float t);
+    uint32_t* lerp_colour(uint32_t* out, const colour::Bytes& from, const colour::Bytes& to, float t);
 };
 
 extern uint8_t g_alloc_assert_flag;

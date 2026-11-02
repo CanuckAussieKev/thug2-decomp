@@ -81,10 +81,10 @@ void WorldScene::finish_load(const char* name, void* arena)
 }
 
 // 0x0049C940
-void WorldScene::finish_add(const char* name, uint32_t data)
+void WorldScene::finish_add(const char* name, TextureSet* textures)
 {
     copy_string(add_name_.data(), name);
-    add_data_ = data;
+    add_data_ = textures;
     added_ = true;
     post_add();
 }
