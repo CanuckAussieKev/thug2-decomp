@@ -20,6 +20,7 @@
 #include "formats/rail_buffer_format.h"
 #include <gsl/pointers>
 #include <array>
+#include <span>
 
 namespace render {
 class WorldCell;
@@ -155,10 +156,10 @@ int rail_out_of_reach(const maths::Vec4* a, const maths::Vec4* b);
 // 0x004F3FB0: whether a segment from `a` to `b` is valid: at most 4000 long, at least
 // RailEditorMinimumPointSeparation, no steeper than RailEditorMaxSlope.
 bool rail_segment_valid(const maths::Vec4* a, const maths::Vec4* b);
-// 0x004F4B90: the `count` vertices `indices` picks turned about the first of them to face `direction` (its up kept
+// 0x004F4B90: the vertices `indices` picks turned about the first of them to face `direction` (its up kept
 // up; straight up or down: facing z), then moved by `translation`.
-void orient_rail_vertices(const maths::Vec4* direction, const maths::Vec4* translation, maths::Vec4* vertices,
-                          const int* indices, int count);
+void orient_rail_vertices(const maths::Vec4* direction, const maths::Vec4* translation, std::span<maths::Vec4> vertices,
+                          std::span<const int> indices);
 // 0x004F4E70: the source sector `source`'s vertices fitted between `from` and `to` (the start half turned towards
 // the previous segment's direction and that segment's end moved onto it when `previous_sector` is given) and given to
 // `sector`; with `update_collision`, its collision's vertices too.

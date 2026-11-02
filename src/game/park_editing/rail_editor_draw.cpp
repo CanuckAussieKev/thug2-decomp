@@ -10,6 +10,7 @@
 #include <cstring>
 #include <initializer_list>
 #include <array>
+#include <span>
 
 #include "engine/core/mem.h"
 #include "game/park_editing/park.h"
@@ -233,9 +234,9 @@ bool rail_segment_valid(const Vec4* a, const Vec4* b)
 }
 
 // 0x004F4B90
-void orient_rail_vertices(const Vec4* direction, const Vec4* translation, Vec4* vertices, const int* indices, int count)
+void orient_rail_vertices(const Vec4* direction, const Vec4* translation, std::span<Vec4> vertices, std::span<const int> indices)
 {
-    const Vec4 origin = vertices[indices[0]];
+    const Vec4 origin = core::at(vertices, core::at(indices, 0));
     float x = direction->x, y = direction->y, z = direction->z;
     const double length =
         std::sqrt((static_cast<double>(z) * z + static_cast<double>(y) * y) + static_cast<double>(x) * x);
@@ -276,8 +277,8 @@ void orient_rail_vertices(const Vec4* direction, const Vec4* translation, Vec4* 
     core::at(m.row, 2) = {side.x, side.y, side.z, side_w};
     // (the original leaves the last row's x, y, z unset - only its w is written; here 0)
     core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
-    for (int i = 0; i < count; ++i) {
-        Vec4& v = vertices[indices[i]];
+    for (const int index : indices) {
+        Vec4& v = core::at(vertices, index);
         Vec4 offset = {static_cast<float>(static_cast<double>(v.x) - origin.x),
                        static_cast<float>(static_cast<double>(v.y) - origin.y),
                        static_cast<float>(static_cast<double>(v.z) - origin.z),
@@ -297,8 +298,9 @@ void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous
     render::Geom* source_geometry = fetch_shape(look_up_sector(source));
     const int count = get_vertex_count(source_geometry);
     const uint32_t bytes = static_cast<uint32_t>(count) << 4;
-    auto* vertices = static_cast<Vec4*>(memory::alloc_block(bytes));
-    get_vertices(source_geometry, vertices);
+    auto* vertices_block = static_cast<Vec4*>(memory::alloc_block(bytes));
+    const std::span<Vec4> vertices(vertices_block, static_cast<size_t>(count));
+    get_vertices(source_geometry, vertices_block);
     const double dx = static_cast<double>(to->x) - from->x;
     const double dy = static_cast<double>(to->y) - from->y;
     auto dz = static_cast<float>(static_cast<double>(to->z) - from->z);
@@ -317,60 +319,63 @@ void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous
         Vec4 halfway = {static_cast<float>(static_cast<double>(sx) * 0.5f),
                         static_cast<float>(static_cast<double>(sy) * 0.5f), static_cast<float>(sz * 0.5f),
                         static_cast<float>(static_cast<double>(sw) * 0.5f)};
-        orient_rail_vertices(&halfway, from, vertices, kStartVertices.data(), 10);
+        orient_rail_vertices(&halfway, from, vertices, kStartVertices);
         render::Geom* previous_geometry = fetch_shape(previous_sector);
-        auto* previous_vertices =
+        auto* previous_block =
             static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(get_vertex_count(previous_geometry)) << 4));
-        get_vertices(previous_geometry, previous_vertices);
+        const std::span<Vec4> previous_vertices(previous_block, static_cast<size_t>(get_vertex_count(previous_geometry)));
+        get_vertices(previous_geometry, previous_block);
         for (int i = 0; i < 10; ++i)
-            previous_vertices[core::at(kEndVertices, i)] = vertices[core::at(kStartVertices, i)];
-        set_vertices(previous_geometry, previous_vertices);
-        memory::free_malloc(previous_vertices);
+            core::at(previous_vertices, core::at(kEndVertices, i)) = core::at(vertices, core::at(kStartVertices, i));
+        set_vertices(previous_geometry, previous_block);
+        memory::free_malloc(previous_block);
     } else {
         Vec4 direction = {static_cast<float>(dx), static_cast<float>(dy), dz, dw};
-        orient_rail_vertices(&direction, from, vertices, kStartVertices.data(), 10);
+        orient_rail_vertices(&direction, from, vertices, kStartVertices);
     }
     Vec4 direction = {static_cast<float>(static_cast<double>(to->x) - from->x),
                       static_cast<float>(static_cast<double>(to->y) - from->y),
                       static_cast<float>(static_cast<double>(to->z) - from->z),
                       static_cast<float>(static_cast<double>(to->w) - from->w)};
-    orient_rail_vertices(&direction, to, vertices, kEndVertices.data(), 10);
-    set_vertices(fetch_shape(sector), vertices);
+    orient_rail_vertices(&direction, to, vertices, kEndVertices);
+    set_vertices(fetch_shape(sector), vertices_block);
     if (update_collision) {
         // The collision's vertices moved as the drawn ones were: each found among the source geometry's (as read
         // back now) by its position - or by x and z alone, keeping its height over that vertex.
-        auto* before = static_cast<Vec4*>(memory::alloc_block(bytes));
-        get_vertices(source_geometry, before);
+        auto* before_block = static_cast<Vec4*>(memory::alloc_block(bytes));
+        const std::span<Vec4> before(before_block, static_cast<size_t>(count));
+        get_vertices(source_geometry, before_block);
         const render::TriMeshSource* collision = get_hit_shape(source_geometry);
         const int collision_count = collision_vertex_count(collision);
-        auto* raw = static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(collision_count) << 4));
-        collision->get_stored_vertex_array({raw, static_cast<size_t>(collision_count)});
+        auto* raw_block = static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(collision_count) << 4));
+        const std::span<Vec4> raw(raw_block, static_cast<size_t>(collision_count));
+        collision->get_stored_vertex_array(raw);
         for (int v = 0; v < collision_count; ++v) {
-            Vec4 vertex = raw[v];
+            Vec4 vertex = core::at(raw, v);
             bool found = false;
             for (int i = 0; i < count && !found; ++i) {
-                if (vertex.x == before[i].x && vertex.y == before[i].y && vertex.z == before[i].z) {
-                    raw[v] = vertices[i];
+                if (vertex.x == core::at(before, i).x && vertex.y == core::at(before, i).y && vertex.z == core::at(before, i).z) {
+                    core::at(raw, v) = core::at(vertices, i);
                     found = true;
                 }
             }
             for (int i = 0; i < count && !found; ++i) {
-                if (vertex.x == before[i].x && vertex.z == before[i].z) {
-                    const double above = static_cast<double>(vertex.y) - before[i].y;
-                    raw[v] = vertices[i];
-                    raw[v].y = static_cast<float>(above + vertices[i].y);
+                if (vertex.x == core::at(before, i).x && vertex.z == core::at(before, i).z) {
+                    const double above = static_cast<double>(vertex.y) - core::at(before, i).y;
+                    core::at(raw, v) = core::at(vertices, i);
+                    core::at(raw, v).y = static_cast<float>(above + core::at(vertices, i).y);
                     found = true;
                 }
             }
             if (!found)
                 vertex.echo_out();
         }
-        set_collision_vertices(sector, raw);
-        memory::free_malloc(raw);
-        memory::free_malloc(before);
+        set_collision_vertices(sector, raw_block);
+        memory::free_malloc(raw_block);
+        memory::free_malloc(before_block);
         ParkLayout::singleton()->builder_->rebuild_collision();
     }
-    memory::free_malloc(vertices);
+    memory::free_malloc(vertices_block);
 }
 
 // --- CEditedRailPoint ---------------------------------------------------------------------------------------------
@@ -425,11 +430,12 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
     }
     render::Geom* geometry = fetch_shape(look_up_sector(kPostSource));
     const int count = get_vertex_count(geometry);
-    auto* vertices = static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(count) << 4));
-    get_vertices(geometry, vertices);
+    auto* vertices_block = static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(count) << 4));
+    const std::span<Vec4> vertices(vertices_block, static_cast<size_t>(count));
+    get_vertices(geometry, vertices_block);
     float low = kFar, high = -kFar;
     for (int i = 0; i < count; ++i) {
-        const float y = vertices[i].y;
+        const float y = core::at(vertices, i).y;
         if (y < low)
             low = y;
         if (y > high)
@@ -459,7 +465,7 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
     transform_rail_point(&at, &at_point_, origin, position, angle);
     const double drop = static_cast<double>(width) + high;
     for (int i = 0; i < count; ++i) {
-        Vec4& v = vertices[i];
+        Vec4& v = core::at(vertices, i);
         v.x = static_cast<float>(static_cast<double>(at.x) + v.x);
         v.y = static_cast<float>(static_cast<double>(at.y) + v.y);
         v.z = static_cast<float>(static_cast<double>(at.z) + v.z);
@@ -469,7 +475,7 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
     // The foot's vertices down to the ground.
     const double foot = (static_cast<double>(level_y_) - drop) - high;
     for (const int i : {8, 9, 10, 11, 1, 2, 5, 6})
-        vertices[i].y = static_cast<float>(static_cast<double>(vertices[i].y) - foot);
+        core::at(vertices, i).y = static_cast<float>(static_cast<double>(core::at(vertices, i).y) - foot);
     if (following_) {
         // Turned to face along the rail.
         double dx = static_cast<double>(at_point_.x) - following_->at_point_.x;
@@ -482,7 +488,7 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
         }
         auto minus_z = static_cast<float>(-dz);
         for (int i = 0; i < count; ++i) {
-            Vec4& v = vertices[i];
+            Vec4& v = core::at(vertices, i);
             const double rx = static_cast<double>(v.x) - at.x;
             const double rz = static_cast<double>(v.z) - at.z;
             v.x = static_cast<float>((dx * rx + rz * minus_z) + at.x);
@@ -491,8 +497,8 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
     }
     if (!post_)
         post_ = duplicate_scene_sector(kPostSource);
-    set_vertices(fetch_shape(post_), vertices);
-    memory::free_malloc(vertices);
+    set_vertices(fetch_shape(post_), vertices_block);
+    memory::free_malloc(vertices_block);
 }
 
 // 0x004F5D10
