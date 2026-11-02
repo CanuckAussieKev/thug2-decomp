@@ -125,7 +125,8 @@ keep a check carry a `NOLINT` with their reason:
 - **Ownership**: an owner is a smart pointer by type - `std::unique_ptr<T>` for objects made with `new`
   (`std::make_unique`), `memory::HeapUnique<T>` (`engine/core/mem.h`) for objects constructed in a block from the
   game's heaps (`memory::construct_in`: its destructor, then the block given back). The singletons' globals are
-  owners; their accessors return the owner (`std::unique_ptr<T>&`), readers take `.get()`. Teardown in the original's
+  owners and so are members whose class frees what they hold (`std::unique_ptr` / `StructPtr` members); an accessor
+  or getter returns `.get()` - never the owner itself. Teardown in the original's
   order goes through `memory::destroy_then_clear` (the object destroyed while its owner still points at it); a
   custom teardown takes the object out with `release()`. `memory::construct_in` returns `gsl::owner<T*>` (a factory:
   the caller ends the object). Script structures and arrays: `script::new_struct()` / `free_struct()` (and the array
@@ -133,8 +134,16 @@ keep a check carry a `NOLINT` with their reason:
   factory. `gsl::owner<T*>` (Microsoft GSL) marks the raw owners left where a smart pointer can't be used yet: a
   holder of what it made (a local, a member, a function's result) is spelt `gsl::owner<T*>`; one made with `new` or
   a cast is made by a call instead - `memory::make_owned<T>(args)` (`new T` / `new T(args)`), `make_owned_value<T>()`
-  (`new T()`), `memory::adopt<T*>(block)` (an allocator's void*) - held with `auto`, which keeps the owner
-  (cppcoreguidelines-owning-memory is still off: .clang-tidy says why).
+  (`new T()`), `memory::adopt<T*>(block)` (an allocator's void*) - held with `auto`, which keeps the owner;
+  `memory::take_unique<T, Deleter>(made)` takes a just-made owner into a `std::unique_ptr`, `memory::let_go(owner)`
+  lets go of one without freeing it (where the original handed it on or leaked it). A function that makes something
+  returns `gsl::owner<T*>`; one that hands back what a list, table or object keeps returns a plain pointer.
+- **What containers own**: lists, tables, rings, pools and records free their elements, so the element slots are plain
+  pointers (links, `void*` values, template arguments can't carry `gsl::owner`). The container's own code gives an
+  element up where it frees it: `gsl::owner<T*> owned = memory::owned_element(element); delete owned;` (or passes
+  `memory::owned_element(element)` to the freeing function). Records that merely point at something (a sound's wave
+  slot, an instance's source mesh) aren't owners. A delete-expression takes a declared owner, never a call's result.
+- cppcoreguidelines-owning-memory is on (0 warnings).
 - **Sets of objects known by their address** (what the original kept in a KeyMap keyed by each object's address) are
   `lists::ObjectSet<T>` (`engine/lists/object_set.h`): exact pointer keys, in insertion order, a walk that may drop the
   object it visits.

@@ -34,14 +34,6 @@ Checks:
   # The original's signatures (x, y, z / width, height): to come on with strong types (Vec2 / Vec3, Rect, checksum and
   # id types) and parameter structs once the boundary layer keeps the layouts apart.
   - '-bugprone-easily-swappable-parameters'
-  # The singletons' owners are smart pointers (std::unique_ptr, memory::HeapUnique); the script structures and arrays
-  # have one factory / deleter and owner types (script::new_struct / free_struct, StructPtr / ArrayPtr); structures
-  # made and freed in one block are StructPtr / ArrayPtr; the holders of what they make (locals, members, results)
-  # are gsl::owner<T*>, made by memory::make_owned / adopt where a new or a cast made them; the script pools'
-  # allocators return owners. What is left (333, the check alone) wants structure, not annotation: owner members
-  # behind accessors (to become unique_ptr), generic void* deleters (to be typed), pool records whose containers free
-  # them, arrays of owners. To come on at 0.
-  - '-cppcoreguidelines-owning-memory'
   # The script interpreter, the screen element tree and the scene walks recurse by design.
   - '-misc-no-recursion'
   # The original's loop shapes, kept for comparison with the disassembly.
