@@ -85,7 +85,6 @@ constexpr int kHighWordShift = 32; // bits of the file time's low word
 constexpr int kTemporarySuffixRoom = 8; // room after the path for ".tmp"
 constexpr std::size_t kSummarySize = 360; // the layout-applied summary line
 constexpr std::size_t kRefusalTextSize = 256; // the "refused" message text
-constexpr float kRefusalPositionX = 320.0f; // where that message sits (640 x 448 screen units)
 constexpr float kRefusalPositionY = 70.0f;
 constexpr int kRefusalMilliseconds = 5000; // how long it stays
 
@@ -1558,7 +1557,7 @@ void panel_message(const char* text)
     gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(checksums::hash_from_text("text"), text);
     params->put_name_key(checksums::Name{checksums::hash_from_text("id")}, checksums::hash_from_text("level_editor_refused_message"));
-    params->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = kRefusalPositionX, .y = kRefusalPositionY});
+    params->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = render::kLayoutCentreX, .y = kRefusalPositionY});
     params->put_int(checksums::Name{checksums::hash_from_text("time")}, kRefusalMilliseconds);
     script::spawn_script(kScript, params);
     params->get_clear();

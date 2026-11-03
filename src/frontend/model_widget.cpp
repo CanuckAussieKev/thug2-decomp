@@ -41,11 +41,6 @@ namespace frontend {
 
 namespace {
 
-constexpr float kLayoutWidth = 640.0f;         // the menus are laid out on a 640 x 448 screen
-constexpr float kLayoutHeight = 448.0f;
-constexpr float kHalfLayoutWidth = 320.0f;
-constexpr float kHalfLayoutHeight = 224.0f;
-constexpr int kLayoutBackBufferWidth = 640;
 constexpr float kHalf = 0.5f;
 constexpr int kAngleOrderCount = 6;            // the Euler orders a model can be turned in
 constexpr int kAngleOrderZYX = 5;              // the order the sixth bare flag selects: spin z, turn y, spin x
@@ -249,8 +244,8 @@ void ModelWidget::scale_to_screen_dims()
     const double extent = extent_x > extent_z ? extent_x : extent_z;
     const double width = span();
     const double z = camera_z_;
-    auto horizontal = static_cast<float>(width * z / ((width * inv1280() + 1.0) * kLayoutWidth) / extent);
-    double vertical = z * level_y() / ((width * inv896() + 1.0) * kLayoutHeight) / extent_y;
+    auto horizontal = static_cast<float>(width * z / ((width * inv1280() + 1.0) * render::kLayoutWidth) / extent);
+    double vertical = z * level_y() / ((width * inv896() + 1.0) * render::kElementLayoutHeight) / extent_y;
     horizontal = -horizontal;
     vertical = -vertical;
     fit_scale_ = static_cast<float>(horizontal < vertical ? horizontal : vertical);
@@ -413,10 +408,10 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
 {
     const float x = layout.x;
     const float y = layout.y;
-    float down = y - kHalfLayoutHeight; // (stored: rounded to float)
+    float down = y - render::kElementLayoutCentreY; // (stored: rounded to float)
     double across =
-        (static_cast<double>(x) - kHalfLayoutWidth) * (static_cast<double>(render::fetch_view_ratio()) * aspect_to_layout());
-    if (static_cast<int32_t>(render::renderer().back_buffer_width()) > kLayoutBackBufferWidth) { // the back buffer's width
+        (static_cast<double>(x) - render::kLayoutCentreX) * (static_cast<double>(render::fetch_view_ratio()) * aspect_to_layout());
+    if (static_cast<int32_t>(render::renderer().back_buffer_width()) > render::kLayoutWidthPixels) { // the back buffer's width
         across *= wide_screen();
         down = static_cast<float>(static_cast<double>(down) * wide_screen());
     }

@@ -30,6 +30,7 @@
 #include "engine/gfx/engine_parts.h"
 #include "engine/core/checksums.h"
 #include "engine/maths/vec2.h"
+#include "engine/gfx/screen.h"
 #include <bit>
 #include <gsl/pointers>
 
@@ -37,8 +38,6 @@ namespace sun {
 
 constexpr std::size_t kQuadCornerFloats = 12;
 constexpr std::size_t kQuadUvFloats = 8;
-constexpr float kHalfWidth = 320.0f; // the middle of the 640 x 480 layout
-constexpr float kHalfHeight = 240.0f;
 constexpr float kIntOneAsFloat = 1.401298464e-45f;
 constexpr float kOcclusionProbeHalfSize = 5.0f;
 constexpr int kByte1Shift = 8;
@@ -183,7 +182,7 @@ double get_dot(const maths::Vec4& a, const maths::Vec4& b)
 script::VectorValue get_value(const maths::Vec4& v) { return {.x = v.x, .y = v.y, .z = v.z, .w = v.w}; }
 gsl::owner<script::Struct*> new_params() { return script::new_struct(); }
 // The screen centre lens flares are placed from.
-maths::Vec4 screen_centre() { return {.x = kHalfWidth, .y = kHalfHeight, .z = 0.0f, .w = 1.0f}; }
+maths::Vec4 screen_centre() { return {.x = render::kLayoutCentreX, .y = render::kLayoutCentreY, .z = 0.0f, .w = 1.0f}; }
 
 // The sun's colour scaled into bytes for each of the quad's four corners.
 void corner_colors(std::array<std::array<uint8_t, 4>, 4>& colors, double scale)

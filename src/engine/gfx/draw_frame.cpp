@@ -59,8 +59,6 @@
 
 namespace render {
 
-constexpr float kBaseWidth = 640.0f;  // the layout the screen sizes are scaled from
-constexpr float kBaseHeight = 480.0f;
 constexpr float kHalfPixel = 0.5f; // the bars' vertices sit on the pixel edges
 constexpr int kTriangleFan = 6;    // D3DPT_TRIANGLEFAN
 constexpr int kTriangleStrip = 5;  // D3DPT_TRIANGLESTRIP
@@ -170,8 +168,8 @@ void set_display_region()
 {
     auto& gfx = renderer();
     // the 640x480 layout's size on the back buffer (set_letterbox), centred
-    auto width = static_cast<uint32_t>(renderer().display_factor_x() * kBaseWidth);
-    auto height = static_cast<uint32_t>(renderer().display_factor_y() * kBaseHeight);
+    auto width = static_cast<uint32_t>(renderer().display_factor_x() * kLayoutWidth);
+    auto height = static_cast<uint32_t>(renderer().display_factor_y() * kLayoutHeight);
     // (the device viewport, 0x00786C90: x, y, width, height)
     DeviceViewport viewport = gfx.device_viewport();
     viewport.x = (static_cast<uint32_t>(gfx.back_buffer_width()) - width) / 2;
@@ -200,7 +198,7 @@ void draw_2d_with_black_bars()
     constexpr uint32_t kBlack = 0xFF000000;
     if (back_buffer_aspect > desired_aspect_ratio()) {
         // bars left and right
-        auto width = static_cast<uint32_t>(std::round(static_cast<double>(renderer().display_factor_x() * kBaseWidth)));
+        auto width = static_cast<uint32_t>(std::round(static_cast<double>(renderer().display_factor_x() * kLayoutWidth)));
         const uint32_t bar_width = (back_buffer_width - width) / 2;
         set_texture(0, nullptr);
         std::array<BarVertex, 4> bar = {{
@@ -216,7 +214,7 @@ void draw_2d_with_black_bars()
         draw_primitive_up(kTriangleFan, 2, bar.data(), sizeof(BarVertex));
     } else if (back_buffer_aspect < desired_aspect_ratio()) {
         // bars top and bottom
-        auto height = static_cast<uint32_t>(std::round(static_cast<double>(renderer().display_factor_y() * kBaseHeight)));
+        auto height = static_cast<uint32_t>(std::round(static_cast<double>(renderer().display_factor_y() * kLayoutHeight)));
         const uint32_t bar_height = (back_buffer_height - height) / 2;
         set_texture(0, nullptr);
         std::array<BarVertex, 4> bar = {{

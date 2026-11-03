@@ -20,6 +20,7 @@
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/gfx/screen.h"
 
 namespace render {
 
@@ -28,7 +29,6 @@ constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
 constexpr int kByteMask = 0xFF;
 constexpr int kByte1Shift = 8;
 constexpr int kByte2Shift = 16;
-constexpr float kLayoutWidth = 640.0f;
 constexpr uint32_t kBorderAlphaBits = 0x80000000u;
 constexpr uint32_t kFrameShadowColour = 0xFF0A0A0A;
 constexpr uint32_t kFrameRuleColour = 0xFFF2E205;

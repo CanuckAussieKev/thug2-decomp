@@ -31,6 +31,7 @@
 #include "engine/gfx/screen_2d.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/maths/rect.h"
+#include "engine/gfx/screen.h"
 #include <span>
 #include <bit>
 #include <gsl/pointers>
@@ -56,8 +57,6 @@ constexpr int kMatrixW = 15;
 constexpr std::size_t kZAxisOffset = 8;
 constexpr int kPassFlagBillboard = 0x40;
 constexpr int kWindowPoolSize = 10;
-constexpr int kLayoutWidth = 640;
-constexpr int kLayoutHeight = 480;
 
 namespace {
 // NOT ORIGINAL grouping - pc_billboards.cpp's state (the original's globals). Made on first use, never destroyed
@@ -562,7 +561,7 @@ void BillboardSet::render(unsigned int which)
 void create_window_pool()
 {
     for (int i = 0; i < kWindowPoolSize; ++i) {
-        auto window = memory::make_owned<PcWindow>(maths::PixelPoint{.x = 0, .y = 0}, maths::PixelSize{.width = kLayoutWidth, .height = kLayoutHeight});
+        auto window = memory::make_owned<PcWindow>(maths::PixelPoint{.x = 0, .y = 0}, maths::PixelSize{.width = kLayoutWidthPixels, .height = kLayoutHeightPixels});
         window->set_following(screen_2d().free_windows()); // (no check, as the original)
         screen_2d().set_free_windows(window);
     }

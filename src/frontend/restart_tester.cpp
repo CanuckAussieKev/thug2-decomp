@@ -33,7 +33,6 @@ namespace {
 
 constexpr std::size_t kHexTextSize = 16;
 constexpr float kMessageStartY = 70.0f;
-constexpr float kMessageCenterX = 320.0f;
 constexpr int kMessageMilliseconds = 4000;
 constexpr int kNameHashMultiplier = 31;        // a polynomial hash over the restarts' names
 constexpr std::size_t kMessageSize = 160;
@@ -127,7 +126,7 @@ void get_message(const char* text, MessagePlace place = {})
     gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(name_hash("text"), text);
     params->put_name_key(checksums::Name{name_hash("id")}, name_hash(id));
-    params->insert_pair(checksums::Name{name_hash("pos")}, {.x = kMessageCenterX, .y = y});
+    params->insert_pair(checksums::Name{name_hash("pos")}, {.x = render::kLayoutCentreX, .y = y});
     params->put_int(checksums::Name{name_hash("time")}, kMessageMilliseconds);
     script::spawn_script(name_hash("create_panel_message"), params);
     params->get_clear();

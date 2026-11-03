@@ -26,6 +26,7 @@
 #include "game/goals/objective.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/core/checksums.h"
+#include "engine/gfx/screen.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -37,10 +38,6 @@ constexpr std::uint32_t kRgbMask = 0x00FFFFFFu;
 constexpr int kFlipXBit = 25;                  // object_flags() bits for flipping the picture
 constexpr int kFlipYBit = 26;
 constexpr unsigned kKeepScaleDepth = 5000u;    // depth added to an element that keeps its scale
-constexpr int kLayoutWidthInt = 640;           // the 640 x 448 layout screen
-constexpr int kLayoutHeightInt = 448;
-constexpr float kLayoutWidth = 640.0f;
-constexpr float kLayoutHeight = 448.0f;
 
 using script::Struct;
 
@@ -276,11 +273,11 @@ PanelWidget::PanelWidget()
 {
     change_species(kWindowElement);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    screen_region_ = new_window2d(0, 0, kLayoutWidthInt, kLayoutHeightInt);
+    screen_region_ = new_window2d(0, 0, render::kLayoutWidthPixels, render::kElementLayoutHeightPixels);
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     change_alignment(-1.0f, -1.0f);
     change_location(0.0f, 0.0f, true);
-    fit_to_size(kLayoutWidth, kLayoutHeight, false);
+    fit_to_size(render::kLayoutWidth, render::kElementLayoutHeight, false);
 }
 
 // 0x004B2100

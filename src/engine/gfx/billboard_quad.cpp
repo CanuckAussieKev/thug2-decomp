@@ -36,8 +36,6 @@ namespace {
 // The 640x480 layout -> back buffer conversion (set_letterbox) and the back buffer's size.
 
 // The layout's size (the constants at 0x00649FD4 and 0x006484B4).
-constexpr float kLayoutWidth = 640.0f;
-constexpr float kLayoutHeight = 480.0f;
 
 void set_texture_stage_state(int stage, int type, int value)
 {

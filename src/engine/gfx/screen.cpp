@@ -22,8 +22,6 @@ namespace render {
 
 constexpr float kAspectWidth = 4.0f; // the game's own aspect ratio, 4:3
 constexpr float kAspectHeight = 3.0f;
-constexpr float kVirtualWidth = 640.0f; // the layout is made for 640 x 480
-constexpr float kVirtualHeight = 480.0f;
 constexpr float kLetterboxOffset = 16.0f;
 
 namespace {
@@ -150,15 +148,15 @@ void set_letterbox(bool letterbox)
     const float desired = desired_aspect_ratio();
     if (back_buffer_aspect > desired) {
         // wider: bars left and right
-        renderer().set_display_factor_x(desired / back_buffer_aspect * (static_cast<float>(get_back_buffer_width()) / kVirtualWidth));
-        renderer().set_display_factor_y(static_cast<float>(get_back_buffer_height()) / kVirtualHeight);
-        auto width = static_cast<uint32_t>(renderer().display_factor_x() * kVirtualWidth);
+        renderer().set_display_factor_x(desired / back_buffer_aspect * (static_cast<float>(get_back_buffer_width()) / kLayoutWidth));
+        renderer().set_display_factor_y(static_cast<float>(get_back_buffer_height()) / kLayoutHeight);
+        auto width = static_cast<uint32_t>(renderer().display_factor_x() * kLayoutWidth);
         set_screen_offset_x((get_back_buffer_width() - width) / 2);
         set_screen_offset_y(static_cast<uint32_t>(kLetterboxOffset * renderer().display_factor_y()));
     } else {
-        renderer().set_display_factor_x(static_cast<float>(get_back_buffer_width()) / kVirtualWidth);
-        renderer().set_display_factor_y(back_buffer_aspect / desired * (static_cast<float>(get_back_buffer_height()) / kVirtualHeight));
-        auto height = static_cast<uint32_t>(renderer().display_factor_y() * kVirtualHeight);
+        renderer().set_display_factor_x(static_cast<float>(get_back_buffer_width()) / kLayoutWidth);
+        renderer().set_display_factor_y(back_buffer_aspect / desired * (static_cast<float>(get_back_buffer_height()) / kLayoutHeight));
+        auto height = static_cast<uint32_t>(renderer().display_factor_y() * kLayoutHeight);
         set_screen_offset_x(0);
         set_screen_offset_y(static_cast<uint32_t>(kLetterboxOffset * renderer().display_factor_y() +
                                                   // NOLINTNEXTLINE(bugprone-integer-division): as the original

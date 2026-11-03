@@ -24,6 +24,7 @@
 #include "engine/gfx/view_setup.h"
 #include "engine/maths/vec2.h"
 #include "engine/maths/rect.h"
+#include "engine/gfx/screen.h"
 
 namespace render {
 
@@ -61,8 +62,6 @@ PcViewportState& pc_viewport_state()
     return state.get();
 }
 
-constexpr float kVirtualScreenHeight{448.0f};
-constexpr float kVirtualScreenWidth{640.0f};
 } // namespace
 
 namespace {
@@ -109,8 +108,8 @@ float PcViewport::project_to_screen(const maths::Vec4* point, maths::Vec2* at, i
         core::at(clip, 1) = static_cast<float>(core::at(clip, 1) * inverse);
         core::at(clip, 2) = static_cast<float>(inverse * core::at(clip, 2));
     }
-    *x = static_cast<float>((static_cast<double>(core::at(clip, 0)) + 1.0f) * kHalf * kVirtualScreenWidth);
-    *y = static_cast<float>((1.0f - static_cast<double>(core::at(clip, 1))) * kHalf * kVirtualScreenHeight);
+    *x = static_cast<float>((static_cast<double>(core::at(clip, 0)) + 1.0f) * kHalf * kLayoutWidth);
+    *y = static_cast<float>((1.0f - static_cast<double>(core::at(clip, 1))) * kHalf * kElementLayoutHeight);
     if (!(core::at(clip, 2) < 1.0f))
         return -1.0f;
     const float most = view_setup().scale_2d_in_3d_max();

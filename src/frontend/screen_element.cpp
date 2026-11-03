@@ -26,6 +26,7 @@
 #include "engine/maths/vec2.h"
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
+#include "engine/gfx/screen.h"
 
 namespace frontend {
 
@@ -33,8 +34,6 @@ namespace {
 
 constexpr double kHalf = 0.5;
 constexpr int kNeutralChannel = 0x80;          // a colour channel at half scale: the element's own colour unchanged
-constexpr float kHalfScreenWidth = 320.0f;     // the 640 x 448 layout screen
-constexpr float kHalfScreenHeight = 224.0f;
 constexpr int kMorphCurveShift = 8;            // object_flags() bits 8 and 9 pick a morph's curve
 constexpr double kSmoothstepThree = 3.0;
 constexpr std::uint32_t kByteMask = 0xFF;
@@ -582,8 +581,8 @@ void UiWidget::update_layout()
         const float x = at.x;
         const float y = at.y;
         if (scale < 0.0f) {
-            aim_point_.x = -kHalfScreenWidth;
-            aim_point_.y = -kHalfScreenHeight;
+            aim_point_.x = -render::kLayoutCentreX;
+            aim_point_.y = -render::kElementLayoutCentreY;
             object_flags() |= kOffScreen;
         } else {
             aim_point_.x = x;
