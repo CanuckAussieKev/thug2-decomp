@@ -1,6 +1,7 @@
 // The engine's 2D windows: see window2d.h.
 
 #include "engine/gfx/window2d.h"
+#include <gsl/assert>
 
 #include "engine/core/dbg.h"
 #include "engine/gfx/screen_2d.h"
@@ -46,6 +47,7 @@ ScreenWindow* allocate_window_2d(maths::PixelPoint at, maths::PixelSize size)
     ScreenWindow* window = screen_2d().free_windows();
     if (window)
         screen_2d().set_free_windows(window->following());
+    Expects(window != nullptr);
     window->set_pos_x(x);
     window->set_y(y);
     window->tick_engine();

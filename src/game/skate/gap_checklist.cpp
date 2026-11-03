@@ -21,6 +21,7 @@
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace goals {
 
@@ -126,6 +127,7 @@ void GapTally::register_gap_entry(const char* name, GapScore gap_score)
     manager->enter_heap_scope(manager->script_heap());
     void* memory = memory::alloc_zeroed(sizeof(GapEntry));
     GapEntry* gap = memory ? memory::construct_in<GapEntry>(memory) : nullptr;
+    Expects(gap != nullptr);
     gap->num() = 0;
     gap->label() = name;
     gap->num() = count;
@@ -299,6 +301,7 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
     }
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> list = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    Expects(list != nullptr);
     list->configure_size_kind(count, script::QbValueKind::kStruct);
     int got = 0;
     int index = 0;

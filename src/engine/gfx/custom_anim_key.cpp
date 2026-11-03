@@ -20,6 +20,7 @@
 #include "formats/byte_stream.h"
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 
@@ -83,6 +84,7 @@ bool CameraFovKey::work_on(void* camera)
     read_debug_global();
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
+    Expects(params != nullptr);
     params->push_float(checksums::Name{0u}, field_of_view_);
     script::launch_script(kSetHfovRadians, params, static_cast<objects::Entity*>(camera), false, nullptr);
     if (params) {
@@ -185,6 +187,7 @@ void AnimScriptKey::assign_value(int frame, checksums::Name event_name, script::
     kind_tag_ = event;
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     call_args_ = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
+    Expects(call_args_ != nullptr);
     call_args_->append_structure_if_any(params);
 }
 

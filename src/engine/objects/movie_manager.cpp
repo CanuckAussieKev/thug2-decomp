@@ -22,6 +22,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace objects {
 
@@ -63,7 +64,11 @@ bool is_head(const memory::ListNode* node) { return node->data() == memory::List
 
 void delete_movie(gsl::owner<Movie*> movie) { delete movie; }
 bool has_camera(Movie* movie) { return movie->has_camera(); }
-void halt(Movie* movie) { movie->stop(); }
+void halt(Movie* movie)
+{
+    Expects(movie != nullptr);
+    movie->stop();
+}
 // The movie details' (node_objects.h) part of a movie: the movie itself.
 VideoEntry* get_details(Movie* movie) { return movie; }
 uint32_t get_name_of(Movie* movie) { return movie_key_from_params(movie); }
@@ -446,6 +451,7 @@ gsl::owner<script::Struct*> VideoHub::movie_value(uint32_t name)
 bool VideoHub::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
     Movie* movie = total_of() ? movie_at(&movies_, 0) : nullptr;
+    Expects(movie != nullptr);
     if (movie->invoke_method_by_name(name, params, script))
         return true;
     return Entity::invoke_method_by_name(name, params, script);
@@ -486,6 +492,10 @@ VideoHub::~VideoHub()
 }
 
 // (no address: the getter folded at 0x00543150 - movie_manager.h)
-uint32_t movie_key_from_params(const void* movie) { return static_cast<const VideoEntry*>(movie)->value20(); }
+uint32_t movie_key_from_params(const void* movie)
+{
+    Expects(movie != nullptr);
+    return static_cast<const VideoEntry*>(movie)->value20();
+}
 
 } // namespace objects

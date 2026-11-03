@@ -28,6 +28,7 @@
 #include "engine/core/checksums.h"
 #include "engine/gfx/screen.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace frontend {
 
@@ -129,6 +130,7 @@ void TextureElement::get_properties(Struct* out)
     gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         array = new (array) script::Array;
+    Expects(array != nullptr);
     array->configure_size_kind(4, script::QbValueKind::kInteger);
     for (int i = 0; i < 4; ++i)
         array->set_element(i, core::at(rgba, i));

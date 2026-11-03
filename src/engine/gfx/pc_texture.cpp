@@ -39,6 +39,7 @@
 #include "engine/maths/rect.h"
 #include <span>
 #include <algorithm>
+#include <gsl/assert>
 
 namespace render {
 
@@ -234,6 +235,7 @@ PcTexture::PcTexture(const PcTexture* source) : unknownc_(source->unknownc_)
     if (edit) // (no check after: written through null, as the original)
         *edit = {};
     image_ = edit;
+    Expects(edit != nullptr);
     edit->texture = copy;
     const TextureEdit* from = get_edit(source);
     if (from->original) {
@@ -272,6 +274,7 @@ bool PcTexture::create_image(checksums::Name texture_name, ImageFormat image_for
     TextureRef* texture = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
     set_checksum(new_checksum);
     image_ = texture;                 // (an edit's place too)
+    Expects(texture != nullptr);
     texture->checksum = new_checksum; // (no check, as the original)
     texture->unknownf_ = 0;
     texture->image_width_ = static_cast<uint16_t>(width);
@@ -360,6 +363,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
     if (edit) // (no check after: written through null, as the original)
         *edit = {};
     image_ = edit;
+    Expects(edit != nullptr);
     edit->texture = texture;
     const uint32_t bytes = width * height * 4;
     edit->pixels = static_cast<uint32_t*>(memory::alloc(bytes));
@@ -390,6 +394,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
         void* memory = memory::alloc(sizeof(TextureRef));
         get_edit(this)->kept = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
         TextureRef* kept = get_edit(this)->kept; // (no check, as the original)
+        Expects(kept != nullptr);
         kept->image_width_ = static_cast<uint16_t>(width);
         kept->image_height_ = static_cast<uint16_t>(height);
         kept->depth = kDepth32;
@@ -1165,6 +1170,7 @@ void add_to_table(lists::KeyMap* table, TextureRef* texture)
     auto holder = memory::make_owned<PcTexture>();
     holder->set_image(texture); // (no check, as the original)
     holder->set_checksum(texture->checksum);
+    Expects(table != nullptr);
     table->store_entry(texture->checksum, holder);
 }
 

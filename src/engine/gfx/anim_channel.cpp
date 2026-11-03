@@ -47,6 +47,7 @@
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace gfx {
 
@@ -222,7 +223,11 @@ bool is_head(const memory::ListNode* node) { return node->data() == memory::List
 // A timeline's list node holds the timeline (its data).
 AnimTrack* track_of(memory::ListNode* node) { return core::down_cast<AnimTrack>(static_cast<AnimTimeline*>(node->data())); }
 AnimTrack* masked(memory::ListNode* node) { return is_head(node) ? nullptr : track_of(node); }
-memory::ListNode* elem(AnimTrack* timeline) { return &timeline->list_link(); }
+memory::ListNode* elem(AnimTrack* timeline)
+{
+    Expects(timeline != nullptr);
+    return &timeline->list_link();
+}
 
 // The playing timeline (the list's first), or null.
 AnimTrack* get_first(BlendChannel* channel)
@@ -1013,6 +1018,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         gsl::owner<Struct*> controller = script::spawn_param_bag();
         if (controller)
             controller = new (controller) script::Struct;
+        Expects(controller != nullptr);
         uint32_t id = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         if (params->read_hash_value(kPartialAnimId, &id, 0))
             controller->put_name_key(checksums::Name{kId}, id);

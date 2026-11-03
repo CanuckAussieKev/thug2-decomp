@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/gfx/viewport.h"
 #include "engine/gfx/viewport_list.h"
@@ -890,6 +891,7 @@ void UiWidget::get_properties(script::Struct* out)
     gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         array = new (array) script::Array;
+    Expects(array != nullptr);
     array->configure_size_kind(4, script::QbValueKind::kInteger);
     for (int i = 0; i < 4; ++i)
         array->set_element(i, core::at(rgba, i));

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
+#include <gsl/assert>
 
 #include "engine/core/mem.h"
 #include "engine/objects/entity.h"
@@ -336,6 +337,7 @@ void EngineAudioModule::update_collide_sound()
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* event = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     const float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
+    Expects(event != nullptr);
     event->push_float(checksums::Name{kStrength}, level);
     vehicle_ptr_->rider_ref()->post_own_event(kVehicleBodycollision, event);
     if (event) {

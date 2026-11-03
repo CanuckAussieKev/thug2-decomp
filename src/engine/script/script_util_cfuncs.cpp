@@ -27,6 +27,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 
 namespace commands {
@@ -401,6 +402,7 @@ bool cfunc_for_each_in(Struct* params, Script* script)
         if (element_params)
             element_params = new (element_params) script::Struct;
         for (uint32_t i = 0; i < array->extent(); ++i) {
+            Expects(element_params != nullptr);
             element_params->get_clear();
             if (auto* element = array->struct_at(i))
                 element_params->merge_structure(element);
@@ -443,6 +445,7 @@ bool cfunc_get_element(Struct* params, Script* script)
         gsl::owner<Struct*> copy = script::spawn_param_bag();
         if (copy)
             copy = new (copy) script::Struct;
+        Expects(copy != nullptr);
         copy->append_structure_if_any(array->struct_at(index));
         script->args()->append_struct_ref(kElement, copy);
         break;
@@ -511,6 +514,7 @@ bool cfunc_goto_preserve_params(Struct* params, Script* script)
     gsl::owner<Struct*> script_params = script::spawn_param_bag();
     if (script_params)
         script_params = new (script_params) script::Struct;
+    Expects(script_params != nullptr);
     script_params->append_structure_if_any(script->args().get());
     Struct* extra = nullptr;
     params->read_sub_struct(kParams, &extra, 0);
@@ -531,6 +535,7 @@ bool format_printf_text(char* out, Struct* params, Script*)
         gsl::owner<Struct*> format = script::spawn_param_bag();
         if (format)
             format = new (format) script::Struct;
+        Expects(format != nullptr);
         format->put_name_key(checksums::Name{kTextName}, kPrintfText);
         format->append_structure_if_any(params);
         if (format_text_into(format, format))
@@ -570,8 +575,10 @@ bool cfunc_dump(Struct* params, Script* script)
         gsl::owner<Component*> value = script::new_component();
         script::duplicate_component(value, component, 0);
         value->name = kA;
+        Expects(dump != nullptr);
         dump->attach_module(value);
     }
+    Expects(dump != nullptr);
     dump->append_word(0u, text.data());
     if (dump) {
         dump->get_clear();
@@ -599,6 +606,7 @@ bool cfunc_create_index_array(Struct* params, Script* script)
     gsl::owner<Array*> indexes = script::alloc_script_array();
     if (indexes)
         indexes = new (indexes) script::Array;
+    Expects(indexes != nullptr);
     indexes->configure_size_kind(static_cast<uint32_t>(size), script::QbValueKind::kInteger);
     for (int i = 0; i < size; ++i)
         indexes->set_element(i, static_cast<uint32_t>(i));
@@ -625,6 +633,7 @@ bool cfunc_append_struct(Struct* params, Script*)
     gsl::owner<Struct*> copy = script::spawn_param_bag();
     if (copy)
         copy = new (copy) script::Struct;
+    Expects(copy != nullptr);
     copy->append_structure_if_any(field_params);
     script::read_sub_struct(block_name)->append_struct_ref(field, copy);
     return true;
@@ -640,6 +649,7 @@ bool cfunc_string_to_char_array(Struct* params, Script* script)
     gsl::owner<Array*> characters = script::alloc_script_array();
     if (characters)
         characters = new (characters) script::Array;
+    Expects(characters != nullptr);
     characters->configure_size_kind(length, script::QbValueKind::kString);
     std::array<char, 2> one{};
     core::at(one, 1) = '\0';

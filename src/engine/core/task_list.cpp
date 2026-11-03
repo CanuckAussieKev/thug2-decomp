@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <new>
+#include <gsl/assert>
 
 #include "engine/core/task_list.h"
 
@@ -168,6 +169,7 @@ void PileUp::stack_on()
     void* memory = memory::alloc_zeroed(sizeof(StackList));
     auto* list = memory ? memory::construct_in<StackList>(memory) : nullptr;
     top_side_ = list;
+    Expects(list != nullptr);
     insert_front(&lists_, list->list_link()); // (a failed allocation crashes here, as in the original)
     pushed_ = true;
 }
@@ -190,6 +192,7 @@ void PileUp::stack_off()
             memory::Hub::get_pull()->dealloc(old);
         }
     } else {
+        Expects(old != nullptr);
         uncouple(old->list_link());
         insert_front(&popped_lists_, old->list_link());
     }

@@ -6,6 +6,7 @@
 #include <span>
 #include <utility>
 #include <vector>
+#include <gsl/assert>
 
 #include "engine/core/dbg.h"
 #include "engine/render/coll_obj.h"
@@ -37,7 +38,11 @@ void add_shadow_volume(ShadowVolume* volume)
 }
 
 // The meshes of the model's collision scene: their count (the array is the volumes' key).
-int get_mesh_count(const SubMesh* asset_data) { return asset_data->collision_count(); }
+int get_mesh_count(const SubMesh* asset_data)
+{
+    Expects(asset_data != nullptr);
+    return asset_data->collision_count();
+}
 
 // (the flag 0x40 - a trigger face - is also what keeps a face from casting a shadow edge)
 bool get_skipped(const TriMeshSource& mesh) { return core::any(mesh.face_flags(0) & render::FaceFlag::kTrigger); }

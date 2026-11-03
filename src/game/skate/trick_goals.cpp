@@ -33,6 +33,7 @@
 #include "game/rider/skater_state.h"
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/down_cast.h"
@@ -941,6 +942,7 @@ TrickBeatGoal::TrickBeatGoal(script::Struct* params) : Objective(params)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     pattern_ = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    Expects(pattern_ != nullptr);
     pattern_->configure_size_kind(kBeats, script::QbValueKind::kStruct);
     script::Array* pattern = nullptr;
     params->fetch_list(kBeatPattern, &pattern, 1);

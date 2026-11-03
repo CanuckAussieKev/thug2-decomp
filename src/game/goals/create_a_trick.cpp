@@ -15,6 +15,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace goals {
 
@@ -46,6 +47,7 @@ script::Struct* new_other_info()
     script::Struct* other = script::read_sub_struct("Default_CAT_other_info"); // "Default_CAT_other_info"
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     script::Struct* copy = params ? memory::construct_in<script::Struct>(params) : nullptr;
+    Expects(copy != nullptr);
     copy->append_structure_if_any(other);
     return copy;
 }

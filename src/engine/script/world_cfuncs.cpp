@@ -23,6 +23,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/net/net_game_state.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace commands {
 
@@ -117,6 +118,7 @@ bool cfunc_launch_viewer(Struct*, Script*)
     gsl::owner<Struct*> node_data = script::spawn_param_bag();
     if (node_data)
         node_data = new (node_data) script::Struct;
+    Expects(node_data != nullptr);
     node_data->put_name_key("name", kViewerCam);
     objects::GameEntity* camera = objects::object_hub_slot()->spawn_entity_from_node(
         script::fetch_list("viewercam_composite_structure"), node_data, true);

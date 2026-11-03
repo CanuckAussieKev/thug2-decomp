@@ -20,6 +20,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace goals {
 
@@ -366,9 +367,11 @@ bool Objective::award_special_trick()
             had = true;
             break;
         }
+        Expects(free != nullptr);
         free->remove_flag(special.keys());
     }
     if (!had) {
+        Expects(free != nullptr);
         keys = free->step_to_entry(nullptr)->value.word();
         profile->add_max_specials(1);
         if (cat) {

@@ -12,6 +12,7 @@
 #include <span>
 #include <utility>
 #include <array>
+#include <gsl/assert>
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copies into its fixed buffers)
 
@@ -414,6 +415,7 @@ void Hub::queue_script(ScriptCall script_call)
     if (queued) { // (a null one is written to anyway, as in the original)
         queued->make_node(queued);
     }
+    Expects(queued != nullptr);
     queued->set_list_link(node);
     queued->set_entity_key(object_id);
     queued->set_own_script(script);
@@ -695,6 +697,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     memory->enter_heap_scope(memory->network_heap());
     void* record_memory = memory::alloc_zeroed(kNewPlayerSize);
     auto* record = record_memory ? memory::construct_in<JoinerRecord>(record_memory) : nullptr;
+    Expects(record != nullptr);
     text::copy_into(record->label(), info->label().data());
     record->set_conn(info->conn());
     record->set_entity_key(info->entity_key());

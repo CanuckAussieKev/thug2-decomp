@@ -6,6 +6,7 @@
 #include <cstring>
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
@@ -106,6 +107,7 @@ void HookPointRegistryModule::configure_from_data(script::Struct*)
     }
     void* memory = memory::alloc_zeroed(sizeof(ClassNodeList));
     hooks_ptr_ = memory ? memory::construct_in<ClassNodeList>(memory) : nullptr;
+    Expects(hooks_ptr_ != nullptr);
     hooks_ptr_->set_nodes(node_array_of(node_array));
 }
 

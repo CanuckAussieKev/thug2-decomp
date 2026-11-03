@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/core/mem.h"
+#include <gsl/assert>
 
 // The game's std::list<T*> (MSVC 7.1's: an allocated sentinel node linked round with the elements, and a count; the
 // nodes from the memory manager's current heap). One template for the lists the original kept as separate copies
@@ -55,6 +56,7 @@ public:
         }
         ++size_;
         position->prev = node;
+        Expects(node != nullptr);
         node->prev->next = node; // (with no node, the original reads through null here)
     }
     void push_back(T* value) { insert(head_, value); }

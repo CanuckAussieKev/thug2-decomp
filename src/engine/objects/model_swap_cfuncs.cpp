@@ -25,6 +25,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace commands {
 
@@ -57,7 +58,11 @@ gfx::Rig* skeleton_of(objects::ObjectModule* component)
 {
     return core::down_cast<objects::BoneRigModule>(component)->bone_rig();
 }
-void copy_skeleton(gfx::Rig* to, gfx::Rig* from) { to->copy_bone_scales(from, true); }
+void copy_skeleton(gfx::Rig* to, gfx::Rig* from)
+{
+    Expects(to != nullptr);
+    to->copy_bone_scales(from, true);
+}
 
 // A model's +0xC (0x00492E50 / 0x00493460: the setter tells the model's parts) and its lights (+0x2C), whose
 // position follows a pointer (0x0048E4D0).
@@ -79,6 +84,7 @@ void remake_shadow(GameEntity* object, objects::GroundShadowModule* shadow, obje
 {
     if (object->fetch_module(kSkaterCorePhysics)) {
         memory::Hub* manager = memory::Hub::get_pull();
+        Expects(skater != nullptr);
         manager->enter_heap_scope(core::at(manager->skater_heaps(), skater->get_skater_number()));
         shadow->build_blob_shadow(1, kPedShadow);
         memory::Hub::get_pull()->leave_heap_scope();

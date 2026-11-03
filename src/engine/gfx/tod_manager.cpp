@@ -46,6 +46,7 @@
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace gfx {
 
@@ -794,6 +795,7 @@ void add_bloom_params(BloomParams bloom, script::Struct* out)
     out->put_int(checksums::Name{kBloom2}, bloom2);
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    Expects(array != nullptr);
     array->configure_size_kind(3, script::QbValueKind::kInteger);
     array->set_element(0, strength & kByteMask);
     array->set_element(1, strength >> kByte1Shift & kByteMask);

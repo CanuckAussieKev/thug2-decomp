@@ -10,6 +10,7 @@
 #include <span>
 #include <string_view>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -271,6 +272,7 @@ void ParkLayout::create_gap_manager_copy()
     void* memory = memory::alloc(sizeof(GapRegistry)); // (0xA8 bytes in the original)
     GapRegistry* copy = memory ? memory::construct_in<GapRegistry>(memory, nullptr) : nullptr;
     gap_manager_copy_ = copy;
+    Expects(copy != nullptr);
     copy->copy_from(current); // (null if out of memory)
     memory::leave_heap_scope();
     gap_manager_instance() = current; // (the constructor made the copy current)

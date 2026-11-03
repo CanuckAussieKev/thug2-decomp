@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <iterator>
 #include <span>
+#include <gsl/assert>
 
 namespace render {
 
@@ -167,6 +168,7 @@ TriMeshSource* TriMeshSource::replicate(int bsp_argument, bool need_vertices) co
     void* memory = memory::alloc(sizeof(TriMeshSource));
     TriMeshSource* copy = memory ? static_cast<TriMeshSource*>(memory)->copy_from(this) : nullptr;
     const uint32_t vertex_size = num_vertices_ * (compressed_ ? 6u : 12u);
+    Expects(copy != nullptr);
     copy->vertices_ = memory::alloc(vertex_size);
     const uint32_t face_size = tri_count_ * (small_faces_ ? 8u : 10u);
     copy->faces_ = static_cast<uint8_t*>(memory::alloc(face_size));

@@ -33,6 +33,7 @@
 #include "engine/core/checksums.h"
 #include "engine/maths/rect.h"
 #include <utility>
+#include <gsl/assert>
 
 namespace frontend {
 
@@ -373,6 +374,7 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
     gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         array = new (array) script::Array;
+    Expects(array != nullptr);
     array->configure_size_kind(count, script::QbValueKind::kName);
     for (int i = 0; i < count; ++i)
         array->set_element(i, element->find_child_at_slot(i)->ident());
@@ -513,6 +515,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
         gsl::owner<Struct*> element_params = script::spawn_param_bag();
         if (element_params)
             element_params = new (element_params) script::Struct;
+        Expects(element_params != nullptr);
         element_params->append_structure_if_any(params);
         element_params->append_word(kText, line.data());
         ElementPtr made;

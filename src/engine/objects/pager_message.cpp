@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -111,6 +112,7 @@ bool PagerMessageComponent::send_pager_message(script::Struct* params, script::S
     if (message)
         message->params = nullptr;
     gsl::owner<script::Struct*> made = script::new_struct(); // (the message's: freed with it)
+    Expects(message != nullptr);
     message->params = made;
     message->params->merge_structure(params);
     message->read = false;

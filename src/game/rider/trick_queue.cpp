@@ -9,6 +9,7 @@
 #include <utility>
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -499,6 +500,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
         script = scripts->fetch_part(which);
     } else {
         std::array<char, kNameBytes> name{};
+        Expects(templates != nullptr);
         crt::get_sprintf(name.data(), "%s%s", prefix, templates->find_inline_text(which));
         script = checksums::hash_from_text(name.data());
     }

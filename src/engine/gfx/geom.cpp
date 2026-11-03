@@ -36,6 +36,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace render {
 
@@ -250,6 +251,7 @@ SceneRef* PcGeom::create_mesh_list()
 {
     void* memory = memory::alloc(sizeof(SceneRef));
     SceneRef* list = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
+    Expects(list != nullptr);
     list->mesh_total(mesh_run());
     list->allocate_mesh_list();
     list->append_meshes(mesh_run());
@@ -353,6 +355,7 @@ bool PcGeom::plat_init_instance(SubMesh* sub_mesh, RenderModel* model, int /*unu
         inst = memory::construct_in<Singleton>(memory, list, &identity, bone_count, bones);
     }
     instance_ = inst;
+    Expects(inst != nullptr);
     inst->set_model(model); // (no check, as the original)
     return true;
 }

@@ -82,6 +82,7 @@
 #include "engine/maths/mat4.h"
 #include <gsl/pointers>
 #include <span>
+#include <gsl/assert>
 
 namespace modules {
 
@@ -950,6 +951,7 @@ void Skate::run_frame_logic()
                 goals::GoalManager* goals = goals::get_objective_board();
                 goals->disengage_every_objective(false);
                 goals->release_every_objective();
+                Expects(params != nullptr);
                 params->put_name_key(checksums::Name{0u}, kLeavingNetGame);
                 leave_server();
                 if (static_cast<uint8_t>(net->is_client_side())) {
@@ -957,6 +959,7 @@ void Skate::run_frame_logic()
                     net->disconnect_clients();
                 }
             }
+            Expects(params != nullptr);
             params->put_int(checksums::Name{kDeviceNum}, device->dev()->port_no());
             script::launch_script(kControllerUnplugged, params, nullptr, false, nullptr);
             script::free_struct(params);

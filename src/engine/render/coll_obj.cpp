@@ -13,6 +13,7 @@
 #include "engine/render/coll_static.h"
 #include "engine/core/arena_alloc.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace render {
 
@@ -97,6 +98,7 @@ gsl::owner<HitMeshGroup*> HitMeshGroup::replicate(int argument)
         if (node)
             node->make_node(child->replicate(argument));
         memory::ListNode* head = copy->sub_nodes_;
+        Expects(node != nullptr);
         node->set_prev(head->prev());
         node->set_next(head);
         head->prev()->set_next(node);

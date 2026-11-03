@@ -7,6 +7,7 @@
 #include <cstring>
 #include <iterator>
 #include <span>
+#include <gsl/assert>
 
 #include "wire/message_ids.h"
 #include "engine/core/enum_ops.h"
@@ -531,6 +532,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         StreamDesc* desc = memory ? construct_stream_desc(memory) : nullptr;
         // (the original copied the description with no limit: 32 bytes and a terminator here, the field's size)
         static_assert(sizeof(desc->desc()) == wire::kStreamDescSize);
+        Expects(desc != nullptr);
         std::memcpy(desc->desc().data(), start.desc.data(), sizeof(desc->desc()));
         core::at(desc->desc(), sizeof(desc->desc()) - 1) = '\0';
         desc->set_extent(start.total_size);

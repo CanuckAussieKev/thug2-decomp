@@ -14,6 +14,7 @@
 #include <memory>
 #include <array>
 #include <span>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -211,6 +212,13 @@ void relay(net::NetMessageInfo& desc, const net::InboundMsgCtx* context)
     desc.set_byte_count(static_cast<uint16_t>(context->body_size()));
     desc.set_content(context->body());
     desc.set_ident(context->type_code());
+}
+
+// The score's total, where the original read it without a check (no score: through null).
+int score_total(PointTally* score)
+{
+    Expects(score != nullptr);
+    return score->get_total_score();
 }
 
 } // namespace
@@ -508,7 +516,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             total += player->num_placed();
         goals::MatchRules* mode = goals::game_mode();
         const int collected =
-            mode->is_squad_match() ? net->get_squad_points(collector->team()) : score->get_total_score();
+            mode->is_squad_match() ? net->get_squad_points(collector->team()) : score_total(score);
         net::NetMessageInfo desc;
         std::array<uint8_t, 2> left{};
         if (collected == total) {
@@ -529,7 +537,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             uint8_t count = 0;
             if (collected == total - kHuntNearEnd && !commands::cfunc_in_split_screen_game(nullptr, nullptr))
                 count = kHuntNearEnd;
-            else if (score->get_total_score() == total - 1 && !commands::cfunc_in_split_screen_game(nullptr, nullptr))
+            else if (score_total(score) == total - 1 && !commands::cfunc_in_split_screen_game(nullptr, nullptr))
                 count = 1;
             if (count) {
                 desc = net::NetMessageInfo();
@@ -727,6 +735,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
     objects::Rider* skater = skater_of(player);
     if (!skater)
         return 4;
+    Expects(texture != nullptr);
     static_cast<gfx::FaceSkin*>(texture)->read_from(std::span<const uint8_t>(data, size));
     static_cast<gfx::FaceSkin*>(texture)->mark_usable(true);
     auto* model = skater->fetch_module(kModel);

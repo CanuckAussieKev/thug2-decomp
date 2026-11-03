@@ -88,6 +88,12 @@ FetchContent_Declare(stb
     URL_HASH SHA256=be9842d207353c89c0b970d618030fe98a944ab3fe1374534cba1b8e934bfdd7
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(stb)
+# Its implementation compiled on its own, as the other fetched code is: the game's file includes only its declarations.
+file(CONFIGURE OUTPUT ${CMAKE_BINARY_DIR}/stb_image_write_impl.cpp
+    CONTENT "#define STB_IMAGE_WRITE_IMPLEMENTATION\n#define STBI_WRITE_NO_STDIO\n#include \"stb_image_write.h\"\n")
+add_library(stb_image_write STATIC ${CMAKE_BINARY_DIR}/stb_image_write_impl.cpp)
+target_include_directories(stb_image_write PUBLIC ${stb_SOURCE_DIR})
+target_compile_options(stb_image_write PRIVATE /W0)
 
 # --- LZHAM 1.0 (Rich Geldreich; public domain, earlier releases MIT - see THIRD_PARTY_NOTICES.md) -----------------
 # THUGPRO's compression method 3 on the wire (src/engine/net/net_lzham.cpp: the THUGPRO peer mode, register TP-R11):
@@ -930,7 +936,7 @@ target_include_directories(thug2 PRIVATE src "${stb_SOURCE_DIR}" "${CMAKE_BINARY
 add_dependencies(thug2 editor_fonts build_info)
 # ws2_32: Winsock; dsound: DirectSoundCreate8 (platform/platform_system.cpp); dinput8 / dxguid: DirectInput's data
 # formats and effect GUIDs (platform/platform_input.cpp); d3d9, winmm: platform/crt.h's imports
-target_link_libraries(thug2 PRIVATE thug2_wire thug2_formats sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham gamespy_sdk d3dx9 d3d9 winmm)
+target_link_libraries(thug2 PRIVATE thug2_wire thug2_formats sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham stb_image_write gamespy_sdk d3dx9 d3d9 winmm)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md);
 # /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error
 target_compile_options(thug2 PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062 /we4150)

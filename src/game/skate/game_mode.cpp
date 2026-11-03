@@ -22,6 +22,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace goals {
 
@@ -268,6 +269,7 @@ void MatchRules::build_victory_conditions()
             node->prev = node;
         }
         // (at the end of the list; a failed allocation writes through null, as the original)
+        Expects(node != nullptr);
         node->prev = conditions_.prev;
         node->succ = &conditions_;
         conditions_.prev->succ = node;

@@ -20,6 +20,7 @@
 #include "engine/gfx/pc_texture.h"
 #include "engine/gfx/engine_parts.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace render {
 
@@ -101,6 +102,7 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, Mater
         texture = image_of(entry);
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
+    Expects(m != nullptr);
     core::at(m->pass_flags(), 0) = (texture ? 4 : 0) | kPassFlagLit;
     const int first = get_rand();
     m->set_checksum(static_cast<uint32_t>(first * get_rand())); // the sort key

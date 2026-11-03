@@ -11,6 +11,7 @@
 #include <string_view>
 #include <utility>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -131,6 +132,7 @@ void PrefixTable::append_one(checksums::Name prefix_name, uint16_t index)
 // 0x0045C240
 void PrefixTable::compact()
 {
+    Expects(slot_table_ != nullptr);
     slot_table_->set_iter_bucket(-1);
     slot_table_->set_iter_item(nullptr);
     while (slot_table_->step_iterator() && slot_table_->iter_item()) {
@@ -150,6 +152,7 @@ void PrefixTables::add_node_array(uint32_t name)
     // (The original first walks to the end of the list, and does nothing with it.)
     void* memory = memory::alloc_zeroed(sizeof(PrefixTable));
     PrefixTable* table = memory ? memory::construct_in<PrefixTable>(memory) : nullptr;
+    Expects(table != nullptr);
     table->set_following(first_ptr_);
     first_ptr_ = table;
     table->set_node_array(name);

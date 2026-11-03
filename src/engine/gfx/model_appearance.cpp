@@ -21,6 +21,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace gfx {
 
@@ -291,6 +292,7 @@ ModelLook* ModelLook::copy_from(ModelLook* other)
         free_face_texture();
         if (other->face_skin_) {
             make_face_texture();
+            Expects(face_skin_ != nullptr); // (out of memory: the original copied to address 0)
             std::memcpy(face_skin_, other->face_skin_, sizeof(FaceSkin));
         }
         has_face_texture_ = other->has_face_texture_;

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
+#include <gsl/assert>
 
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/anim_controller.h"
@@ -219,6 +220,7 @@ bool BoneLookAt::get_apply(std::span<maths::QuatRotation> rotations)
     for (Bone& bone : bones_) {
         if (bone.bone_ == kNoBone)
             continue;
+        Expects(skeleton != nullptr);
         const int index = skeleton->fetch_bone_slot(bone.bone_);
         if (index == -1)
             continue;

@@ -21,6 +21,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace render {
 
@@ -364,6 +365,7 @@ gsl::owner<HitMesh*> build_dynamic_hit_mesh(int type, TriMeshSource* geometry_ar
         made = box;
     } else if (type == 4) {
         if (count == 1) {
+            Expects(geometry_array != nullptr);
             made = new HitMovingTriangles(geometry_array);
         } else if (count > 1) {
             auto multi = memory::make_owned_value<HitMeshGroup>();

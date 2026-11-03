@@ -30,6 +30,7 @@
 #include <gsl/pointers>
 #include <array>
 #include <span>
+#include <gsl/assert>
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -265,6 +266,7 @@ bool PadInputModule::is_input_blocked()
             tags = new (tags) script::Struct;
         root->copy_tags_to(tags);
         uint32_t state = 0; // (uninitialised in the original: what was on the stack)
+        Expects(tags != nullptr);
         tags->read_hash_value(kMenuState, &state, 0);
         if (tags) {
             tags->get_clear(); // (the destructor)

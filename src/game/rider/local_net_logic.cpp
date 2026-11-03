@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -282,6 +283,7 @@ int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
+    Expects(params != nullptr);
     params->get_clear(); // (on the new structure, as the original)
     params->append_word(kString0, script::QbValueKind::kString, other->fetch_shown_name());
     script::launch_script(script, params, skater, false, nullptr);

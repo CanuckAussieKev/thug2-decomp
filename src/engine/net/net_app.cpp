@@ -31,6 +31,7 @@
 #include "platform/stopwatch.h"
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -271,6 +272,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             ++message->share_count();
             void* link_memory = memory::alloc_zeroed(sizeof(MsgNormalLink));
             MsgNormalLink* link = link_memory ? construct_msg_link(link_memory, message) : nullptr;
+            Expects(link != nullptr);
             link->list_link().set_priority(desc->rank());
             link->set_due_time(desc->delay() + clock_);
             add_link(normal_queue(conn), &link->list_link());
@@ -292,6 +294,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             ++message->share_count();
             void* link_memory = memory::alloc_zeroed(sizeof(ReliableMsgNode));
             ReliableMsgNode* link = link_memory ? construct_msg_important_link(link_memory, message) : nullptr;
+            Expects(link != nullptr);
             link->list_link().set_priority(desc->rank());
             link->set_due_time(desc->delay() + clock_);
             link->set_stamp_ms(0);
@@ -311,6 +314,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
             void* link_memory = memory::alloc_zeroed(sizeof(OrderedMsgNode));
             OrderedMsgNode* link = link_memory ? construct_msg_seq_link(link_memory, message) : nullptr;
             // The original's broadcast gives the links the queue number (2) as their priority instead.
+            Expects(link != nullptr);
             link->list_link().set_priority(handle == kHandleBroadcast ? desc->queue() : desc->rank());
             link->set_stamp_ms(0);
             link->set_due_time(desc->delay() + clock_);
@@ -397,6 +401,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const cha
             StreamDesc* stream = memory ? construct_stream_desc(memory) : nullptr;
             void* link_memory = memory::alloc_zeroed(sizeof(BulkStreamNode));
             BulkStreamNode* link = link_memory ? construct_stream_link(link_memory, stream) : nullptr;
+            Expects(stream != nullptr);
             stream->set_extent(size);
             stream->set_stream_id(alloc_stream_key(conn));
             stream->set_msg_id(msg_id);
@@ -677,6 +682,7 @@ Conn* AppHost::opened_link(LinkTarget link_target)
     if (open_links_ < peer_cap_) {
         void* memory = memory::alloc(kConnBytes);
         conn = memory ? construct_conn(memory, flags) : nullptr; // (not checked for null)
+        Expects(conn != nullptr);
         conn->set_remote_ip(static_cast<uint32_t>(ip));
         conn->set_port_no(port);
         conn->set_hdl(fetch_unused_slot_id());

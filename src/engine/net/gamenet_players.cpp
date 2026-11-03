@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/net/player_info.h"
@@ -262,6 +263,7 @@ PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, PlayerFl
     memory->enter_heap_scope(memory->network_heap());
     void* block = memory::alloc_zeroed(kPlayerInfoSize);
     PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, flags) : nullptr;
+    Expects(player != nullptr);
     player->set_skater(core::down_cast<objects::Rider>(skater)); // (out of memory: written through null, as the original)
     player->set_conn(conn);
     if (is_own_player(player)) {

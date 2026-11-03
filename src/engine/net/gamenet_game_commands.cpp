@@ -481,6 +481,7 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
         // with a profile (0, 128, 0, 128).
         gsl::owner<script::Array*> array_memory = script::alloc_script_array();
         script::Array* rgba = array_memory ? memory::construct_in<script::Array>(array_memory) : nullptr;
+        Expects(rgba != nullptr);
         rgba->configure_size_kind(4, script::QbValueKind::kInteger);
         uint32_t blue = 0;
         const int profile = player->profile_id();

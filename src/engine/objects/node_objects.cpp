@@ -23,6 +23,7 @@
 #include "engine/objects/car_physics.h"
 #include "engine/core/down_cast.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace objects {
 
@@ -75,6 +76,7 @@ void run_creation_script(GameEntity* object, script::Struct* params)
     gsl::owner<script::Struct*> data = script::spawn_param_bag();
     if (data)
         new (data) script::Struct;
+    Expects(data != nullptr);
     data->put_name_key(checksums::Name{kName}, name);
     data->put_int(checksums::Name{kCreationValue}, value);
     script::launch_script(kCreationScript, data, object, false, nullptr);
@@ -176,6 +178,7 @@ void VideoEntry::configure_from_data(script::Struct* params)
         gsl::owner<script::Struct*> created = script::spawn_param_bag();
         args_ = created ? memory::construct_in<script::Struct>(created) : nullptr;
     }
+    Expects(args_ != nullptr);
     args_->get_clear();
     if (params->read_hash_value(kExitScript, &label_, 0)) {
         script::Struct* movie_params = nullptr;
@@ -197,6 +200,7 @@ gsl::owner<script::Struct*> VideoEntry::get_settings()
     gsl::owner<script::Struct*> settings = script::spawn_param_bag();
     if (settings)
         settings = new (settings) script::Struct;
+    Expects(settings != nullptr);
     settings->put_int(checksums::Name{kSkippable}, flag19_);
     settings->put_int(checksums::Name{kAllowPause}, flag_1c_);
     return settings;

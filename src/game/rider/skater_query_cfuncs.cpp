@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/maths/vec4.h"
@@ -71,6 +72,7 @@ int last_score_landed(modules::PointTally* score) { return score->pot_score(); }
 // The score pot: the base score times the multiplier, truncated (x87 at 53 bits, then the original's _ftol).
 int score_pot(modules::PointTally* score)
 {
+    Expects(score != nullptr);
     const double pot = static_cast<double>(score->pot()) * score->multiplier();
     return static_cast<int>(static_cast<int64_t>(pot));
 }

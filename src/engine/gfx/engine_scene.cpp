@@ -26,6 +26,7 @@
 #include "engine/render/coll_line.h"
 #include "engine/render/coll_obj.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
 #include "platform/crt.h"
@@ -220,6 +221,7 @@ bool WorldScene::init_collision_grid(const maths::BBox* box)
     void* block = memory::alloc(sizeof(CollGrid));
     CollGrid* grid = block ? memory::construct_in<CollGrid>(block) : nullptr; // (its box and cells constructed)
     coll_grid_ = grid;
+    Expects(grid != nullptr);
     grid->prepare_all(&collision_box_); // (no check, as the original)
     return true;
 }

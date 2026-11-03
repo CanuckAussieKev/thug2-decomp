@@ -32,6 +32,7 @@
 #include "engine/script/script_startup.h"
 #include "engine/script/param_struct.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/core/gathered_call.h"
@@ -93,6 +94,7 @@ gsl::owner<void*> construct_anim_frames(void* frames) { return new (frames) gfx:
 void destroy_anim_frames(void* frames) { static_cast<gfx::JointClipFrames*>(frames)->~JointClipFrames(); }
 bool load_anim_frames(void* frames, void* buffer, uint32_t size)
 {
+    Expects(frames != nullptr);
     return static_cast<gfx::JointClipFrames*>(frames)->read_in(static_cast<const uint8_t*>(buffer), size, true);
 }
 // The skeleton data (0x598 bytes): 0x004A2C20 the constructor, 0x004A39C0 Load.
@@ -482,6 +484,7 @@ void* NodeTableResource::build_node_table(checksums::Name table_name, int count)
     gsl::owner<script::Array*> array = script::alloc_script_array();
     if (array)
         new (array) script::Array;
+    Expects(array != nullptr);
     array->configure_size_kind(count, script::QbValueKind::kStruct);
     for (int i = 0; i < count; ++i) {
         gsl::owner<Struct*> node = script::spawn_param_bag();

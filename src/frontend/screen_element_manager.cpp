@@ -8,6 +8,7 @@
 #include <cstring>
 #include <array>
 #include <memory>
+#include <gsl/assert>
 
 #include "engine/core/mem.h"
 #include "engine/objects/signal.h"
@@ -67,6 +68,7 @@ void set_flag_property(UiWidget* element, uint32_t flag)
     gsl::owner<Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
+    Expects(params != nullptr);
     params->put_name_key(checksums::Name{0u}, flag);
     element->change_traits(params);
     if (params) {

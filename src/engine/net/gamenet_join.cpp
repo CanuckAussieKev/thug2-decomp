@@ -10,6 +10,7 @@
 #include <cstring>
 #include <array>
 #include <span>
+#include <gsl/assert>
 
 #include "engine/core/checksums.h"
 #include "engine/core/enum_ops.h"
@@ -600,6 +601,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         auto* instance = static_cast<AuthInstance*>(memory::alloc(sizeof(AuthInstance)));
         if (instance)
             std::memset(instance, 0, sizeof(*instance));
+        Expects(instance != nullptr);
         instance->manager = manager;
         instance->app = context->receiver_app();
         instance->conn = joined;
@@ -684,6 +686,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     }
     void* memory = memory::alloc_zeroed(kPlayerInfoSize);
     auto* player = memory ? memory::construct_in<JoinerRecord>(memory) : nullptr;
+    Expects(player != nullptr);
     std::strncpy(player->label().data(), msg->name.data(), kNameSize - 1);
     core::at(player->label(), kNameSize - 1) = '\0';
     player->set_entity_key(static_cast<uint8_t>(manager->reserve_obj_id_for_player()));

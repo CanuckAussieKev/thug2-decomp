@@ -6,6 +6,7 @@
 #include <cstring>
 #include <span>
 #include <utility>
+#include <gsl/assert>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -317,6 +318,7 @@ void ClipStore::fabricate(uint32_t heap_size, ClipLayout clip_layout)
         cache->evict_unused_ = false;
     }
     get_cache() = cache;
+    Expects(cache != nullptr);
     cache->prepare_all({.granularity = granularity, .type = type});
 }
 

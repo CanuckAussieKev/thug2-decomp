@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdint>
 #include <new>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -170,6 +171,7 @@ void emitter_add_node(uint32_t name, bool active)
     auto* node = static_cast<EmitterNode*>(memory::alloc_zeroed(sizeof(EmitterNode)));
     if (node)
         new (&node->box_) maths::BBox();
+    Expects(node != nullptr);
     node->label_ = name;
     node->active_ = active;
     node->sector_ = nullptr;

@@ -21,6 +21,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace park_editing {
 
@@ -267,10 +268,12 @@ int get_memory_value(const char* name, int index)
     if (results)
         new (results) script::Struct;
     int value = 0;
+    Expects(params != nullptr);
     params->put_name_key(checksums::Name{kValueName}, checksums::hash_from_text(name));
     if (index > -1)
         params->put_int(checksums::Name{kValueIndex}, index);
     script::run_script_once(kMemoryValueScript, params, nullptr, results);
+    Expects(results != nullptr);
     results->fetch_int_value(kValueResult, &value, 1);
     if (results) {
         results->get_clear();

@@ -3,6 +3,7 @@
 #include "engine/script/array_cfuncs.h"
 
 #include <cstdint>
+#include <gsl/assert>
 #include "engine/script/cscript.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
@@ -134,6 +135,7 @@ bool cfunc_get_array_size(Struct* params, script::Script* script)
     if (!array)
         get_log("GetArraySize: no array in %s's parameters (or an index leading to none) - the next line crashes",
                 script::find_checksum_name_or_unknown(script->script_title()));
+    Expects(array != nullptr);
     script->args()->put_int(checksums::Name{kArraySize}, static_cast<int>(array->extent()));
     return true;
 }

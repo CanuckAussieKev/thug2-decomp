@@ -40,6 +40,7 @@
 #include "engine/core/checksums.h"
 #include "wire/message_ids.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace goals {
 
@@ -335,6 +336,7 @@ bool GoalManager::begin_objective_at_once(uint32_t id, bool check_exists)
     Objective* goal = goals_.get_pull(id);
     if (!goal && check_exists)
         return false;
+    Expects(goal != nullptr);
     goal->set_quick_start(); // (no such goal and not check_exists: written through null, as the original)
     const bool started = goal->activate();
     if (started && goal->may_try_again())
@@ -728,6 +730,7 @@ int GoalManager::count_live_goals(bool all)
         Objective* goal = count_active(&active_goals_.list_link())
                               ? static_cast<Objective*>(active_goals_.get_node_at(i)->data())
                               : nullptr;
+        Expects(goal != nullptr);
         const bool counts = goal->is_online_objective() ? all : all || goal->is_operative();
         if (counts)
             ++counted;

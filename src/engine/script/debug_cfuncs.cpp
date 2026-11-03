@@ -29,6 +29,7 @@
 #include "engine/core/language.h"
 #include <gsl/pointers>
 #include <span>
+#include <gsl/assert>
 
 namespace {
 // The record layout test: values the dumps are built from.
@@ -88,6 +89,7 @@ bool cfunc_display_free_mem(script::Struct*, script::Script*)
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     for (memory::MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
         memory::Zone* region = heap->region();
+        Expects(params != nullptr);
         params->get_clear();
         params->put_name_key(checksums::Name{kId}, checksums::hash_from_text(heap->label()));
         params->put_int(checksums::Name{kFreeMem}, region->free_byte_count());

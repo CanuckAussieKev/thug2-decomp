@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -270,6 +271,7 @@ void MeshInstanceModule::init_bone_volumes()
         gsl::owner<void*> made = memory::adopt<void*>(memory::alloc(kModelBlockBytes));
         if (made)
             made = new (made) gfx::BoneVolumes(0);
+        Expects(made != nullptr);
         static_cast<gfx::BoneVolumes*>(made)->enrol(static_cast<uint32_t>(skeleton->bone_total()));
         static_cast<gfx::BoneVolumes*>(made)->get_fill(data);
     }

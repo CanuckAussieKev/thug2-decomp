@@ -237,6 +237,7 @@ void MemSource::enter_heap_scope()
     if (context)
         context->node.make_node(context);
     // (an allocation failure crashes here, as in the original)
+    Expects(context != nullptr);
     context->free_list_ = nullptr;
     context->node.set_prev(&zone_chain_);
     context->node.set_next(zone_chain_.next());

@@ -23,6 +23,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace commands {
 
@@ -325,6 +326,7 @@ bool cfunc_get_player_appearance(script::Struct* params, script::Script* script)
     // (the original checked the appearance structure's address - the profile's +0x4C - for null: never true)
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     gsl::owner<script::Struct*> copy = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
+    Expects(copy != nullptr);
     copy->append_structure_if_any(appearance_structure(profile));
     script->args()->append_struct_ref("profile", copy);
     return true;

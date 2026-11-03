@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/dbg.h"
 #include "engine/core/format.h"
@@ -443,6 +444,7 @@ bool cfunc_start_pre_loaded_stream(Struct* params, Script*)
     gsl::owner<sound::VolumeRef*> volume = memory::adopt<sound::VolumeRef*>(memory::alloc(sizeof(sound::VolumeRef)));
     if (volume)
         volume = new (volume) sound::VolumeRef;
+    Expects(volume != nullptr);
     core::at(volume->lanes(), 0) = level;
     core::at(volume->lanes(), 1) = level;
     const bool started = audio::start_pre_loaded_stream(stream, volume, {.pitch = 100.0f, .priority = 0});

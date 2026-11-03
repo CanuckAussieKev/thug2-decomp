@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <span>
+#include <gsl/assert>
 
 #include "engine/gfx/engine_primitive.h"
 
@@ -182,6 +183,7 @@ void unlink_primitive(Primitive* primitive)
     }
     while (before && before->following() && before->following() != primitive)
         before = before->following();
+    Expects(before != nullptr);
     before->following() = before->following()->following(); // (not found: through null, as the original)
 }
 

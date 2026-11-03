@@ -30,6 +30,7 @@
 #include "engine/core/span_copy.h"
 #include "platform/sockets.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/format.h"
 #include "engine/net/net_address.h"
 #include "engine/net/net_manager.h"
@@ -321,6 +322,7 @@ void AppHost::block_connection(Conn* conn)
     auto* banned = static_cast<BlockedConnEntry*>(memory::alloc_zeroed(sizeof(BlockedConnEntry)));
     if (banned)
         banned->make_node(banned);
+    Expects(banned != nullptr);
     banned->set_remote_ip(conn->remote_ip()); // (an allocation failure crashes here, as in the original)
     // at the end of the list
     banned->set_prev(banned_.prev());

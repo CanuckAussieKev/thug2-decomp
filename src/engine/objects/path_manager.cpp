@@ -6,6 +6,7 @@
 #include <new>
 #include <ranges>
 #include <span>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -234,6 +235,7 @@ void PathManager::carve(PathPoolSizes pool_sizes)
     void* block = memory::alloc(sizeof(ObjectGroup));
     ObjectGroup* extra = block ? memory::construct_in<ObjectGroup>(block) : nullptr;
     extra_ = extra;
+    Expects(extra != nullptr);
     extra->prepare_all(extra_size);
     memory::Hub::get_pull()->leave_heap_scope();
 }

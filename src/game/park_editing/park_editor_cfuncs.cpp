@@ -28,6 +28,7 @@
 #include "engine/core/checksums.h"
 #include "engine/maths/vec4.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace park_editing {
 
@@ -546,6 +547,7 @@ bool cfunc_switch_to_park_editor_camera(script::Struct*, script::Script*)
         // The camera object, from parkedcam_composite_structure.
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
+        Expects(params != nullptr);
         params->put_name_key("name", kParkedCam);
         auto* composites = objects::object_hub_slot().get();
         composites->spawn_entity_from_node(script::fetch_list("parkedcam_composite_structure"), params, true);

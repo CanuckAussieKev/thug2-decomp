@@ -8,6 +8,7 @@
 #include <cstring>
 #include <memory>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -324,6 +325,7 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     ram_stats()->enter_heap_scope(ram_stats()->network_heap());
     void* block = memory::alloc_zeroed(sizeof(HostListing));
     HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
+    Expects(server != nullptr);
     text::format_to(server->label(), "%s", reply->name.data());
     server->set_remote_ip(context->sender_conn()->remote_ip());
     server->set_ping(static_cast<int>(frame_clock::get_time() - reply->time));
@@ -374,6 +376,7 @@ void listing_games_callback(const GamesListing& listing)
         ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap());
         void* block = memory::alloc_zeroed(sizeof(HostListing));
         HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
+        Expects(server != nullptr);
         server->set_sb_server(sb);
         std::strncpy(server->label().data(), name, kLabelLength);
         core::at(server->label(), kLabelLength) = '\0';

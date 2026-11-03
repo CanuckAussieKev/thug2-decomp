@@ -18,6 +18,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/core/same_bits.h"
 #include <array>
+#include <gsl/assert>
 
 namespace render {
 
@@ -56,6 +57,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
 {
     void* at = memory::alloc(sizeof(MaterialRef));
     MaterialRef* m = at ? memory::construct_in<MaterialRef>(at) : nullptr;
+    Expects(m != nullptr);
     m->set_checksum(record.checksum);
     m->set_name_hash(record.name_hash);
     m->set_pass_count(record.pass_count);

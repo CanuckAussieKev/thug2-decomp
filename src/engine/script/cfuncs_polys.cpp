@@ -29,6 +29,7 @@
 #include "engine/core/checksums.h"
 #include <span>
 #include <vector>
+#include <gsl/assert>
 namespace commands {
 
 using script::Array;
@@ -152,6 +153,7 @@ bool cfunc_spawn_poly(Struct* params, Script*)
     if (details)
         details = memory::construct_in<render::SpawnedPoly>(details);
     // (a failed allocation writes through null below, as in the original)
+    Expects(details != nullptr);
     params->fetch_vec(kPos, &details->pos(), 1);
     script::VectorValue vector1 = {.x = 0.0f, .y = 0.0f, .z = 1.0f, .w = 1.0f};
     script::VectorValue vector2 = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};

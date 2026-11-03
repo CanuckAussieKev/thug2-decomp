@@ -21,6 +21,7 @@
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
 
@@ -272,6 +273,7 @@ void RoomManager::group_room_callback(const GroupRoomInfo& info)
     memory->enter_heap_scope(memory->internet_bottom_up_heap());
     void* block = memory::alloc_zeroed(sizeof(LobbyRoom));
     auto* room = block ? memory::construct_in<LobbyRoom>(block) : nullptr;
+    Expects(room != nullptr);
     std::strncpy(room->label().data(), name, sizeof(room->label()) - 1);
     core::at(room->label(), sizeof(room->label()) - 1) = '\0';
     room->set_num_players(num_games);

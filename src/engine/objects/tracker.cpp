@@ -33,6 +33,7 @@
 #include "engine/core/checked_index.h"
 #include "platform/all_ones.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/objects/objects_shared.h"
@@ -153,6 +154,7 @@ void ScriptList::append_one(script::Script* script)
     }
     memory::leave_heap_scope();
     // At the end (no null check).
+    Expects(node != nullptr);
     node->set_preceding(preceding());
     node->set_following(this);
     preceding()->set_following(node);
@@ -408,6 +410,7 @@ void EventWaitBoard::add_listener(uint32_t type, script::Script* script)
         }
         listeners_->store_entry(type, list); // (null too, if there was no memory - then Add crashes)
     }
+    Expects(list != nullptr);
     list->append_one(script);
     memory::leave_heap_scope();
 }

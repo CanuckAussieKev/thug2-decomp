@@ -18,6 +18,7 @@
 #include "engine/core/checksums.h"
 #include <memory>
 #include <span>
+#include <gsl/assert>
 
 namespace memory {
 
@@ -656,6 +657,7 @@ void Hub::create_labeled_zone(checksums::Name zone_name, uint32_t size, const ch
         }
     }
     // (no free slot: crashes here, as in the original)
+    Expects(named != nullptr);
     named->name = name;
     std::memcpy(named->text.data(), text, std::strlen(text) + 1); // (unbounded, as in the original)
     named->region = memory::take_unique<Zone>(new_alloc_region(size));
@@ -671,6 +673,7 @@ void set_up_manager()
     void* memory = get_clear(sizeof(Hub), manager_state().manager_storage_.data());
     Hub* manager = memory ? memory::construct_in<Hub>(memory) : nullptr;
     Hub::sole() = manager;
+    Expects(manager != nullptr);
     manager->enter_heap_scope(manager->bottom_up_heap());
 }
 

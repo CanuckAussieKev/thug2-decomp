@@ -35,6 +35,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
 #include "engine/net/online_identity.h"
@@ -429,6 +430,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
             for (bool again = true; again; again = line) {
                 void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
                 VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
+                Expects(category != nullptr);
                 prepend(&vault->categories_, &category->list_link());
                 text_tools::dup_from(category->label().data(), line);
                 line = text_tools::get_token(nullptr, "\r\n");
@@ -458,6 +460,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
              line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
             VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
+            Expects(item != nullptr);
             prepend(&vault->category_->items(), &item->list_link());
             char* rest = line;
             constexpr size_t kFileSize = 1024;
@@ -509,6 +512,7 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
              line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
             VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
+            Expects(item != nullptr);
             prepend(&vault->category_->items(), &item->list_link());
             text::format_to(item->url(), "http://www.thugonline.com/%s/%s", vault->folder_.data(), line);
             char* rest = line;
@@ -789,6 +793,7 @@ bool download_directory_list(script::Struct* params, script::Script*)
     push_bottom_up();
     void* memory = memory::alloc_zeroed(sizeof(VaultCategory));
     VaultCategory* category = memory ? memory::construct_in<VaultCategory>(memory) : nullptr;
+    Expects(category != nullptr);
     category->set_skip(true);
     prepend(&vault->categories(), &category->list_link());
     std::memcpy(category->label().data(), "Uploads", kUploadsLabelBytes);

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -246,6 +247,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
         void* memory = carve(sizeof(Chain));
         Chain* chain = memory ? memory::construct_in<Chain>(memory) : nullptr;
         int value = 0;
+        Expects(chain != nullptr);
         chain->set_ident(id);
         chain->set_links(segments + 1);
         chain->set_move_with_object(description->has_bare_flag(kMoveWithObject));
@@ -294,6 +296,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
         }
         ++chains_.size();
         head->prev = node;
+        Expects(node != nullptr);
         node->prev->next = node;
     }
 }

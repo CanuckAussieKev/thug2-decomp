@@ -9,6 +9,7 @@
 #include <gsl/pointers>
 #include <array>
 #include <utility>
+#include <gsl/assert>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -478,6 +479,7 @@ EditedRail* RailAuthoring::get_new_rail()
     void* memory = new_rail_memory(sizeof(EditedRail));
     EditedRail* rail = memory ? memory::construct_in<EditedRail>(memory) : nullptr;
     // (out of rails: a crash here, as in the original)
+    Expects(rail != nullptr);
     rail->set_following(rail_groups_);
     rail->set_preceding(nullptr);
     if (rail_groups_)

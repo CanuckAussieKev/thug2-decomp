@@ -11,6 +11,7 @@
 #include <span>
 #include <utility>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -248,6 +249,7 @@ void HostListing::enroll_player(const char* name, int rating)
                                       : static_cast<memory::MemSource*>(ram_stats()->network_heap()));
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
     PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, PlayerFlag::kNone) : nullptr;
+    Expects(player != nullptr);
     player->set_skill_points(rating);
     std::strncpy(player->label().data(), name, kLabelLength);
     core::at(player->label(), kLabelLength) = '\0';

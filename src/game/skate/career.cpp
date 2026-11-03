@@ -20,6 +20,7 @@
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace objects {
 
@@ -349,6 +350,7 @@ gsl::owner<script::Array*> alloc_script_array(uint32_t size, script::QbValueKind
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    Expects(array != nullptr);
     array->configure_size_kind(size, type);
     return array;
 }

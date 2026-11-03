@@ -27,6 +27,7 @@
 #include "engine/gfx/sector.h"
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/texture_dict.h"
@@ -76,6 +77,7 @@ SceneRef* new_mesh_list(bool mesh_flag)
 {
     void* memory = memory::alloc(sizeof(SceneRef));
     SceneRef* list = memory ? memory::construct_in<SceneRef>(memory) : nullptr;
+    Expects(list != nullptr);
     list->set_unknown40(mesh_flag);
     return list;
 }

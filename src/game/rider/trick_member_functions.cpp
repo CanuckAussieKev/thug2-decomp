@@ -7,6 +7,7 @@
 #include <span>
 #include <string_view>
 #include <utility>
+#include <gsl/assert>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -117,6 +118,7 @@ void exit_combo(MoveExecutor* self)
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
+    Expects(params != nullptr);
     params->put_name_key(checksums::Name{kSkaterId}, self->entity()->ident());
     self->entity()->announce(kSkaterExitCombo, params, 0.0f);
     if (params) {

@@ -29,6 +29,7 @@
 #include "engine/net/net_game_state.h"
 #include <gsl/pointers>
 #include <string_view>
+#include <gsl/assert>
 
 namespace surface_kind {
 
@@ -444,6 +445,7 @@ bool load_terrain_sounds(uint32_t checksum)
         gsl::owner<Struct*> merged = script::spawn_param_bag();
         if (merged)
             new (merged) script::Struct;
+        Expects(merged != nullptr);
         merged->append_structure_if_any(default_actions);
         merged->append_structure_if_any(terrain_actions);
         for (uint32_t table = 0; table < ints::as_unsigned(get_terrain_actions().extent()); ++table)

@@ -27,6 +27,7 @@
 #include <gsl/pointers>
 #include <array>
 #include <utility>
+#include <gsl/assert>
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
@@ -598,6 +599,7 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     // (the name, two floats and the colours read straight from the system's +4; the rest through the getter, once
     // for each value)
     const ParticleParams* own = &effect_handle_->args();
+    Expects(result != nullptr);
     result->put_name_key(checksums::Name{kName}, own->label());
     result->push_float(checksums::Name{kEmitRate}, own->rate());
     result->push_float(checksums::Name{kLifeTime}, own->lifetime());

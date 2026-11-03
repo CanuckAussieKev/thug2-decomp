@@ -10,6 +10,7 @@
 #include <array>
 #include <span>
 #include <string_view>
+#include <gsl/assert>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -90,6 +91,7 @@ ArchiveFile::ArchiveFile(uint8_t* block, size_t size, bool bottom_up) : block_(b
         }
         auto* info = static_cast<FileInfo*>(memory::carve(sizeof(FileInfo), 1, get_file_heap(bottom_up_heap_)));
         const uint32_t checksum = checksums::hash_from_text(record.name);
+        Expects(files_ != nullptr);
         if (files_->fetch_entry(checksum)) {
             memory::dealloc(info); // the same name twice: the first one wins
         } else {

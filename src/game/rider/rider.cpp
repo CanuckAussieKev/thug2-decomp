@@ -97,6 +97,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
@@ -1050,6 +1051,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         } else {
             gsl::owner<script::Struct*> memory = script::spawn_param_bag();
             script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
+            Expects(params != nullptr);
             params->put_name_key(checksums::Name{kCameraTarget}, ident());
             params->put_name_key(checksums::Name{kNameChecksum}, camera_name);
             camera = object_hub_slot()->spawn_entity_from_node(script::fetch_list("skatercam_composite_structure"),
@@ -1072,12 +1074,14 @@ void Rider::prepare_all(RiderIdentity* profile)
         asset_info->read_hash_value(kSkaterSkeleton, &skeleton, 0);
     add_motion_components(this);
     add_component_from_structure(this, [skeleton](script::Struct* params) {
+        Expects(params != nullptr);
         params->put_name_key(checksums::Name{kPartHash}, kAnimBlender);  // animblender
         params->put_name_key(checksums::Name{kSkeletonName}, skeleton);   // skeletonName
         params->put_name_key(checksums::Name{kAnimEventTableName}, kSkaterAnimEventTable); // AnimEventTableName SkaterAnimEventTable
     });
     anim_blender_ = core::down_cast<AnimBlenderComponent>(fetch_module(kAnimBlender));
     add_component_from_structure(this, [skeleton](script::Struct* params) {
+        Expects(params != nullptr);
         params->put_name_key(checksums::Name{kPartHash}, kSkeleton2); // skeleton
         params->put_name_key(checksums::Name{kSkeleton2}, skeleton);
         params->put_int(checksums::Name{kMaxBoneSkipLod}, 0); // max_bone_skip_lod
@@ -1085,6 +1089,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     static_cast<AnimBlenderComponent*>(anim_blender_)->set_flag_4c(true);
     const bool local = is_local_skater() != 0;
     add_component_from_structure(this, [local](script::Struct* params) {
+        Expects(params != nullptr);
         params->put_name_key(checksums::Name{0u}, kUseModelLights); // UseModelLights
         params->put_int(checksums::Name{kMaxSceneLights}, 1);       // max_scene_lights
         params->put_int(checksums::Name{kShadowVolume}, local ? 1 : 0);
@@ -1226,6 +1231,7 @@ void Rider::run_state_script(bool walk, bool other)
     if (walk || other) {
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
+        Expects(params != nullptr);
         if (walk)
             params->put_name_key(checksums::Name{0u}, kWalk); // Walk
         if (other)
@@ -1257,6 +1263,7 @@ void Rider::write_cat_info(script::Struct* save)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> tricks = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    Expects(tricks != nullptr);
     tricks->configure_size_kind(kCatTrickCount, script::QbValueKind::kStruct);
     for (int i = 0; i < kCatTrickCount; ++i) {
         gsl::owner<script::Struct*> struct_memory = script::spawn_param_bag();
@@ -1275,6 +1282,7 @@ void Rider::write_list_44b_66a_9f(script::Struct* save)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> entries = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    Expects(entries != nullptr);
     entries->configure_size_kind(kGoalStatusCount, script::QbValueKind::kInteger);
     for (int i = 0; i < kGoalStatusCount; ++i)
         entries->set_element(i, static_cast<uint32_t>(static_cast<AttributeTracker*>(stats_)->get_goal_status(i)));
@@ -1425,6 +1433,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, RiderSlot rider_slot,
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     auto add = [this, params](uint32_t type) {
+        Expects(params != nullptr);
         params->put_name_key(checksums::Name{kPartHash}, type);
         create_component_from_structure(params, nullptr);
     };
@@ -1476,6 +1485,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, RiderSlot rider_slot,
     // The controls, told its skater number.
     gsl::owner<script::Struct*> extra_memory = script::spawn_param_bag();
     script::Struct* extra = extra_memory ? memory::construct_in<script::Struct>(extra_memory) : nullptr;
+    Expects(extra != nullptr);
     extra->put_int(checksums::Name{kUniqueID}, skater_number_);
     params->put_name_key(checksums::Name{kPartHash}, kTagging);
     create_component_from_structure(params, extra);
@@ -1516,6 +1526,7 @@ void Rider::relaunch(uint32_t a, uint32_t b)
         // Walking: back to skating first.
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
+        Expects(params != nullptr);
         params->put_name_key(checksums::Name{kNewScript}, kOnGroundAI);
         switch_to_script(kSwitchOnGroundAI, params);
         if (params) {

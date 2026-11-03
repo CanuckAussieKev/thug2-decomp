@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <gsl/assert>
 
 #include "engine/gfx/debug_lines.h"
 #include "engine/maths/maths.h"
@@ -322,8 +323,9 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
         if (params)
             params = new (params) script::Struct;
+        Expects(params != nullptr); // (out of memory: the original went on through null)
         if (callback_params_ptr_)
-            params->merge_structure(callback_params_ptr_); // (out of memory: through null, as the original)
+            params->merge_structure(callback_params_ptr_);
         params->put_vec3(checksums::Name{kBouncePos}, script::VectorValue{.x = point->x, .y = point->y, .z = point->z, .w = point->w});
         entity()->spawn_script(bounce_script_, params, 0, false)->tick_frame();
         if (params) {

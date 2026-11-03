@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/net/player_info.h"
 #include "engine/core/enum_ops.h"
@@ -463,11 +464,14 @@ int handle_goal_completed(net::InboundMsgCtx* context)
             next = last->sub_nodes();
         }
         last->get_win(); // (slot 0x3C)
-        if (last != current)
+        if (last != current) {
+            Expects(current != nullptr);
             current->disengage(false, true); // (slot 0x34)
+        }
     } else {
         objective->get_win();
     }
+    Expects(current != nullptr);
     static_cast<goals::ObjectiveNpc*>(current->ped())->remove_objective_npc();
     objective->mark_won(); // (slot 0x68)
     const int total = static_cast<goals::GoalManager*>(goals)->count_picked_objectives();

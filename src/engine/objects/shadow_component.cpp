@@ -6,6 +6,7 @@
 #include <memory>
 #include <cstdint>
 #include <gsl/pointers>
+#include <gsl/assert>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/mem.h"
@@ -169,6 +170,7 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     case kShadowSimple: {
         auto shadow = memory::make_owned_value<render::BlobShadow>();
         // (no shadow - out of memory - is written through regardless, as the original)
+        Expects(model != nullptr);
         shadow->set_size_factor(model->size_factor().x);
         shadow->load_mesh(model_name);
         shadow_handle_.reset(shadow);

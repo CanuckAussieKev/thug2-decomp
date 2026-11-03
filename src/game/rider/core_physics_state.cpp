@@ -36,6 +36,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/tagging.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/objects/ride_tracker.h"
@@ -244,6 +245,7 @@ void SkaterPhysicsModule::update_model_rotation()
     auto* model = core::down_cast<objects::MeshInstanceModule>(object_of(this)->fetch_module(kModel));
     const double left = static_cast<double>(model_rotation_left_) - slomo_speed_;
     model_rotation_left_ = static_cast<float>(left); // (compared below unrounded)
+    Expects(model != nullptr);
     auto reset_rotations = [model] { model->cancel_rotate_display(); };
     if (state_->cur_phase() != 1) {
         reset_rotations();

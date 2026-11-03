@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
@@ -323,6 +324,7 @@ void RiderGapTracker::start_gap_trick(script::Struct* params, script::Script* sc
 {
     void* memory = memory::alloc_zeroed(sizeof(TrickNameEntry));
     auto* trick = memory ? memory::construct_in<TrickNameEntry>(memory) : nullptr;
+    Expects(trick != nullptr);
     add_to_front(gap_move_chain_, &trick->list_link());
     trick_node(trick) = script->list_link();
     trick_done(trick) = 0;

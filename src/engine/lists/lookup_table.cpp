@@ -1,6 +1,7 @@
 // lists::ResolveMap's code (see lookup_table.h): 0x00557F10, 0x00561430, 0x005628B0, 0x00562970, 0x0055B990.
 
 #include <cstdint>
+#include <gsl/assert>
 
 #include "engine/lists/lookup_table.h"
 
@@ -59,6 +60,7 @@ bool ResolveMap::store_entry(const uint32_t* key, void* item)
         node->item = nullptr;
         node->next = nullptr;
     }
+    Expects(node != nullptr);
     node->item = item; // (a failed allocation writes through null, as the original)
     node->key = *key;
     if (!first_)

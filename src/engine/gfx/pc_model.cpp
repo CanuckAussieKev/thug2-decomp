@@ -3,6 +3,7 @@
 #include "engine/gfx/pc_model.h"
 
 #include <cmath>
+#include <gsl/assert>
 
 #include "engine/gfx/engine_geom.h"
 #include "engine/gfx/model.h"
@@ -13,7 +14,11 @@ constexpr float kHalf = 0.5f;
 
 namespace {
 
-void* geom_of(const ModelGeomNode* node) { return node->value->geom; }
+void* geom_of(const ModelGeomNode* node)
+{
+    Expects(node != nullptr);
+    return node->value->geom;
+}
 
 // The engine's CGeom calls (jumps through the geom's vtable).
 maths::Vec4* get_geom_bounding_sphere(void* geom, maths::Vec4* out)

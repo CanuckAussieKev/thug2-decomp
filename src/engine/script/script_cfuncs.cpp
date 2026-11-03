@@ -21,6 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/gfx/tod_manager.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 
@@ -324,6 +325,7 @@ bool cfunc_change(script::Struct* params, script::Script*)
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* structure = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         entry->value().set_structure(structure);
+        Expects(structure != nullptr);
         structure->append_structure_if_any(copy.value.structure());
         break;
     }

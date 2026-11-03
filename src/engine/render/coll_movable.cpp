@@ -16,6 +16,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace render {
 
@@ -150,6 +151,7 @@ void HitMovingBox::assign_shape_data(TriMeshSource* geometry)
     set_geometry(geometry);
     if (geometry)
         assign_checksum(geometry->checksum());
+    Expects(geometry != nullptr);
     box_.min = geometry->bounds().min;
     box_.max = geometry->bounds().max;
 }

@@ -6,6 +6,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <gsl/assert>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -48,7 +49,11 @@ constexpr uint32_t kVelocity = 0xAC;
 // --- the timed flags (offsets into the flags block) ---
 constexpr uint32_t kState = 0x18; // an int: 0 on the ground, 1 in the air, ...
 
-inline objects::GameEntity* object_of(const SkaterPhysicsModule* component) { return component->entity(); }
+inline objects::GameEntity* object_of(const SkaterPhysicsModule* component)
+{
+    Expects(component != nullptr);
+    return component->entity();
+}
 using objects::PoseFlag;
 
 // The game's clock (0x0044ECE0) plus the offset at 0x00696D60: the time a flag or button changed.

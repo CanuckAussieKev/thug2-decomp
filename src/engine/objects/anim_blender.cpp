@@ -7,6 +7,7 @@
 #include <gsl/pointers>
 #include <array>
 #include <span>
+#include <gsl/assert>
 
 #include "engine/core/checked_index.h"
 #include "engine/core/manager.h"
@@ -101,7 +102,11 @@ constexpr float kMinWeight = 0.00001f;
 bool is_head(const memory::ListNode* node) { return node->data() == memory::ListNode::head_marker(); }
 
 using Channel = gfx::BlendChannel;
-memory::ListNode* get_link(Channel* channel) { return &channel->list_link(); }
+memory::ListNode* get_link(Channel* channel)
+{
+    Expects(channel != nullptr);
+    return &channel->list_link();
+}
 // (a channel's node's data is the channel - the original took the node's address as it)
 Channel* as_channel(memory::ListNode* node) { return static_cast<Channel*>(node->data()); }
 // A node as the original masks it: null when it's the head.
@@ -111,7 +116,11 @@ memory::ListNode* get_next(Channel* channel) { return get_link(channel)->next();
 // The walks' end test: the head or null.
 bool is_over(memory::ListNode* node) { return is_head(node) || !node; }
 
-uint32_t& ident_no(Channel* channel) { return channel->ident(); }
+uint32_t& ident_no(Channel* channel)
+{
+    Expects(channel != nullptr);
+    return channel->ident();
+}
 
 // A bool read from a 32-bit argument slot as the callee does: its low byte (the callers pass raw words).
 bool bool_arg(uint32_t word) { return (word & kByteMask) != 0; }
@@ -365,6 +374,7 @@ int AnimBlenderComponent::pass_to_channel(uint32_t name, script::Struct* params,
         if (flip >= 0)
             channel->set_flipped(entity()->ident(), bool_arg(static_cast<uint32_t>(flip)), 0u, bool_arg(0u));
     }
+    Expects(channel != nullptr);
     return channel->invoke_method_by_name(name, params, script);
 }
 

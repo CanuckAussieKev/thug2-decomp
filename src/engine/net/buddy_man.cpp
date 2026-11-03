@@ -55,6 +55,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
@@ -273,6 +274,7 @@ void parse_location(Buddy* buddy, char* location, bool checked)
     }
     if (found == 4)
         name = whole.substr(colon + 1).data();
+    Expects(name != nullptr);
     text_tools::dup_from(buddy->location().data(), name);
     text_tools::get_token(location, ":"); // "10thug211"
     buddy->set_join_ip(static_cast<uint32_t>(text::to_int(text_tools::get_token(nullptr, ":"))));
@@ -658,6 +660,7 @@ void FriendsManager::on_buddy_message(void*, const void* argument, FriendsManage
     const size_t length = std::strlen(arg->message);
     void* memory = memory::alloc_zeroed(sizeof(FriendNote));
     FriendNote* message = memory ? memory::construct_in<FriendNote>(memory) : nullptr;
+    Expects(message != nullptr);
     message->set_account(arg->profile);
     const char* text = text_tools::get_token(arg->message, "\n");
     if (length == std::strlen(text)) {

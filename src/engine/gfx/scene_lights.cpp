@@ -30,6 +30,7 @@
 #include "engine/gfx/light_sets.h"
 #include "engine/maths/vec4.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace render {
 
@@ -423,6 +424,7 @@ void queue_scene_lights(std::span<const uint32_t> nodes, int frames, script::Str
     if (copy)
         new (copy) script::Struct;
     queue_params() = copy;
+    Expects(copy != nullptr);
     copy->append_structure_if_any(params);
     if (count) {
         queued_nodes() = static_cast<uint32_t*>(memory::alloc_block(count * 4));

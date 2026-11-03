@@ -28,6 +28,7 @@
 #include "game/park_editing/park_editing_state.h"
 #include "engine/maths/vec4.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 
 namespace park_editing {
 
@@ -217,6 +218,7 @@ void ParkLayout::set_up_abstract_metas()
                         break;
                     }
                 }
+                Expects(part != nullptr);
                 CellBox pos = part->cell_footprint(); // (an unknown name crashes, as in the original)
                 const uint8_t z = byte_at(at, 2);
                 const uint8_t y = byte_at(at, 1);
@@ -421,6 +423,7 @@ void ParkLayout::update_percent_bar()
         percent = 1.0f;
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
+    Expects(params != nullptr);
     params->push_float(checksums::Name{kParkPercent}, percent);  // park_percent (out of memory crashes, as in the original)
     if (get_attributes().max_usage_ >= 1.0f)   // (0x007CE644: the park memory stats' largest usage)
         params->put_name_key(checksums::Name{0u}, kParkFull); // park_full
@@ -444,6 +447,7 @@ void ParkLayout::export_to_struct(script::Struct* out)
     flag_bits_ &= ~kMapNotSavedLocal;
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> map = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    Expects(map != nullptr);
     map->configure_size_kind(kParkMapWords, script::QbValueKind::kInteger); // (out of memory crashes, as in the original)
     std::array<uint32_t, kParkMapWords> words{};
     park_map_to_words(map_.bytes(), words);

@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <new>
+#include <gsl/assert>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
@@ -291,6 +292,7 @@ bool BuildPointer::copy_area_to_clipboard()
 
     auto* memory = clipboard_pools().allocate<Clipboard>();
     Clipboard* copy = memory ? new (memory) Clipboard : nullptr;
+    Expects(copy != nullptr);
     // Without room for the copy, the oldest clipboards go one by one.
     while (!copy->copy_picked_to_clipboard(area) && copy_buffers_) {
         Clipboard* previous = nullptr;
@@ -376,6 +378,7 @@ void BuildPointer::switch_to_clipboard()
             break;
         }
     }
+    Expects(set != nullptr);
     set->selected_ = 0;
 
     for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())

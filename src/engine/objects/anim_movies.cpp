@@ -7,6 +7,7 @@
 #include <cstring>
 #include <array>
 #include <span>
+#include <gsl/assert>
 
 #include "engine/assets/resource_registry.h"
 #include "engine/core/dbg.h"
@@ -401,6 +402,7 @@ void ObjectAnimMovie::tick_frame()
         step_asset(anim_, from, timeline_.ongoing(), viewer(), false);
     // Every object the asset moves: its frame's rotation and position.
     auto* frames = static_cast<gfx::JointClipFrames*>(anim_);
+    Expects(frames != nullptr);
     const int count = frames->bone_count();
     auto* quat_memory = static_cast<float*>(memory::alloc(count * kQuadBytes));
     const auto bones = static_cast<size_t>(count);

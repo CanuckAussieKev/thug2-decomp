@@ -20,6 +20,7 @@
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/ints.h"
 #include "engine/core/no_destroy.h"
 
@@ -99,6 +100,7 @@ BestEntry* new_longest_record()
     auto* record = static_cast<BestEntry*>(memory::alloc_zeroed(sizeof(BestEntry)));
     if (record)
         new (record) BestEntry;
+    Expects(record != nullptr);
     record->set_val(0);
     return record;
 }
@@ -367,6 +369,7 @@ void BestResults::write_to_structure(script::Struct* params)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
+    Expects(array != nullptr);
     array->configure_size_kind(level_count_, script::QbValueKind::kStruct);
     for (int i = 0; i < level_count_; ++i) {
         gsl::owner<script::Struct*> structure = script::new_struct();

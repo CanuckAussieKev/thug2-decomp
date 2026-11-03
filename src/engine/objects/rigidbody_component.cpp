@@ -11,6 +11,7 @@
 #include <utility>
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -132,6 +133,7 @@ gsl::owner<script::Struct*> copy_of(script::Struct* source)
     gsl::owner<script::Struct*> copy = script::spawn_param_bag();
     if (copy)
         new (copy) script::Struct;
+    Expects(copy != nullptr);
     copy->merge_structure(source); // (out of memory: through null, as the original)
     return copy;
 }

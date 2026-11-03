@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
+#include <gsl/assert>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -342,6 +343,7 @@ void KinematicsModule::trail_behind_lead(script::Struct* params)
         void* memory = memory::alloc_zeroed(sizeof(FollowTrail));
         trail_ = memory ? memory::construct_in<FollowTrail>(memory) : nullptr;
     }
+    Expects(trail_ != nullptr);
     trail_->get_reset();
     float distance = 0.0f;
     params->fetch_float(kDistance, &distance, 0);

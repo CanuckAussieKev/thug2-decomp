@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <array>
 #include <span>
+#include <gsl/assert>
 #include "engine/core/checked_index.h"
 #include "engine/script/tokens.h"
 #include "platform/crt.h"
@@ -653,6 +654,7 @@ Cell* Array::find_array_value() { return extent_ == 1 ? &storage_ : storage_.blo
 // 0x00477140
 void release_array_storage(Array* array)
 {
+    Expects(array != nullptr);
     const uint32_t count = array->extent();
     const QbValueKind type = array->kind_tag();
     const std::span<Cell> elements = array->cells();
@@ -1060,6 +1062,7 @@ void Struct::put_vec3(checksums::Name name, VectorValue value)
         vector->set_unknown0(0);
     }
     component->value.set_vector(vector);
+    Expects(vector != nullptr);
     vector->x() = x;
     component->value.vector()->y() = y;
     component->value.vector()->z() = z;
@@ -1085,6 +1088,7 @@ void Struct::insert_pair(checksums::Name name, maths::Vec2 value)
         pair->set_unknown0(0);
     }
     component->value.set_pair(pair);
+    Expects(pair != nullptr);
     pair->x() = x;
     component->value.pair()->y() = y;
     attach_module(component);
@@ -1127,6 +1131,7 @@ void Struct::put_sub_struct(uint32_t name, Struct* value)
         new (copy) script::Struct;
     component->value.set_structure(copy);
     if (value != copy) {
+        Expects(copy != nullptr);
         copy->get_clear();
         copy->merge_structure(value);
     }
@@ -1507,6 +1512,7 @@ SymbolTableEntry* create_symbol(uint32_t name)
 {
     void* memory = symbol_pools().carve(sizeof(SymbolTableEntry));
     SymbolTableEntry* entry = memory ? memory::construct_in<script::SymbolTableEntry>(memory) : nullptr;
+    Expects(entry != nullptr);
     entry->set_name(name);
     entry->unknown0() |= 1;
     link_symbol(entry);

@@ -27,6 +27,7 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include <span>
+#include <gsl/assert>
 #include "engine/core/format.h"
 
 namespace render {
@@ -244,6 +245,7 @@ bool WorldScene::add_collision_data(uint8_t* data, size_t size, int flag)
             CollGrid* grid =
                 memory ? memory::construct_in<CollGrid>(memory) : nullptr; // (its box and cells constructed)
             coll_grid_ = grid;
+            Expects(grid != nullptr);
             grid->prepare_all(&collision_box_);
             coll_grid_->get_fill(std::span<StaticCollider>(coll_statics_, static_cast<size_t>(coll_static_count_)));
         }

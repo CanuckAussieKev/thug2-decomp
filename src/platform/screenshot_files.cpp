@@ -22,10 +22,8 @@
 #include "engine/maths/rect.h"
 
 THUG2_MSVC_WARNING(push, 0)
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_STATIC
 #define STBI_WRITE_NO_STDIO
-#include "stb_image_write.h"
+#include "stb_image_write.h" // (its implementation: the stb_image_write library, CMakeLists.txt)
 #include "engine/core/format.h"
 THUG2_MSVC_WARNING(pop)
 
@@ -41,6 +39,8 @@ constexpr int kRed555Shift = 10;
 constexpr int kGreenShift = 5;
 constexpr int kSixBitMask = 0x3F;
 constexpr int kFiveBitMask = 0x1F;
+// The largest picture side encoded (far above any window; keeps stb's byte counts - side * side * 3 - within an int).
+constexpr int kMaxPictureSide = 16384;
 
 int default_key(bool snipping_takes_print_screen) { return snipping_takes_print_screen ? kF12 : kPrintScreen; }
 
@@ -247,7 +247,7 @@ void append_bytes(const WriteCall& call)
 bool encode_png(const uint8_t* rgb, int width, int height, std::vector<uint8_t>* png)
 {
     png->clear();
-    if (!rgb || width <= 0 || height <= 0)
+    if (!rgb || width <= 0 || height <= 0 || width > kMaxPictureSide || height > kMaxPictureSide)
         return false;
     return stbi_write_png_to_func(&core::gathered<WriteCall, &append_bytes, void, void*, void*, int>, png, width, height, 3, rgb, width * 3) != 0 && !png->empty();
 }

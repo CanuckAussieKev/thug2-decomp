@@ -36,6 +36,7 @@
 #include "engine/objects/particle_component.h"
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 #include "engine/core/checked_index.h"
 #include "engine/core/down_cast.h"
 #include "platform/crt.h"
@@ -243,6 +244,7 @@ gsl::owner<void*> create_render_target(maths::PixelSize size, uint8_t depth, int
     TextureRef* texture = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
     target->set_texture(texture);
     // (no check: a failed allocation calls through null, as the original)
+    Expects(texture != nullptr);
     texture->create_render_target({.width = width, .height = height}, depth, unused);
     return target;
 }

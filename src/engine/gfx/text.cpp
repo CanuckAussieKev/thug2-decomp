@@ -14,6 +14,7 @@
 #include <string_view>
 #include <vector>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/core/cursor.h"
 #include "engine/core/dbg.h"
@@ -552,6 +553,7 @@ TypefaceData* TypefaceData::read_in(const char* name)
     auto* font = static_cast<TypefaceData*>(memory::alloc(sizeof(TypefaceData)));
     if (font)
         std::memset(font, 0, sizeof(TypefaceData));
+    Expects(font != nullptr);
     font->format = header.format;
     font->height_ = header.height;
     font->base_ = header.base;

@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
+#include <gsl/assert>
 
 #include "engine/maths/vec4.h"
 #include "frontend/screen_element.h"
@@ -69,6 +70,7 @@ void run_with_label_id(LabelRun label_run)
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         new (params) script::Struct;
+    Expects(params != nullptr);
     params->put_name_key(checksums::Name{kId}, label_id);
     script::launch_script(name, params, nullptr, false, nullptr);
     if (params) {
@@ -120,6 +122,7 @@ void RiderOverheadTag::tick_frame()
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         new (params) script::Struct;
+    Expects(params != nullptr);
     params->put_name_key(checksums::Name{kId}, label_id_);
     // The text's colour: the player's team's in a team game, else the skater's own.
     const uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team()) : entity()->ident();
