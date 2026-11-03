@@ -794,21 +794,21 @@ uint32_t path_speed_script()
             qb.push_back(static_cast<uint8_t>(v >> (kBitsPerByte * i)));
     };
     auto name4 = [&](uint32_t v) {
-        qb.push_back(script::kTokenName);
+        qb.push_back(script::token_byte(script::QbToken::kName));
         put4(v);
     };
-    qb.push_back(script::kTokenScriptStart); // script
+    qb.push_back(script::token_byte(script::QbToken::kScriptStart)); // script
     name4(kName);
     qb.push_back(0x01);
     name4(k_set_path_velocity());
-    qb.push_back(script::kTokenLocalArgument); // <speed>
+    qb.push_back(script::token_byte(script::QbToken::kLocalArgument)); // <speed>
     name4(get_key("speed"));
     name4(k_mph());
     qb.push_back(0x01);
-    qb.push_back(script::kTokenScriptEnd); // endscript
+    qb.push_back(script::token_byte(script::QbToken::kScriptEnd)); // endscript
     qb.push_back(0x01);
     for (const char* text : {"LevelEditor_PathSpeed", "Obj_SetPathVelocity", "speed", "mph"}) {
-        qb.push_back(script::kTokenChecksumName);
+        qb.push_back(script::token_byte(script::QbToken::kChecksumName));
         put4(get_key(text));
         qb.insert(qb.end(), std::string_view(text).begin(), std::string_view(text).end());
         qb.push_back(0x00);

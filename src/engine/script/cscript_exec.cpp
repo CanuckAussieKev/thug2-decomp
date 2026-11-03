@@ -161,17 +161,17 @@ void Script::parse_function_params(Tokens& pc)
 uint32_t Script::read_name(Tokens& pc)
 {
     uint32_t name = 0;
-    switch (*pc) {
-    case kTokenName:
+    switch (as_token(*pc)) {
+    case QbToken::kName:
         ++pc;
         name = fetch_word32(pc);
         pc += 4;
         break;
-    case kTokenAllArguments:
+    case QbToken::kAllArguments:
         ++pc;
         args_->read_hash_value(0u, &name, 0);
         break;
-    case kTokenLocalArgument: // 2D 16 <name>
+    case QbToken::kLocalArgument: // 2D 16 <name>
         pc += 2;
         {
             const uint32_t parameter = fetch_word32(pc);
@@ -202,8 +202,8 @@ uint32_t Script::read_name(Tokens& pc)
 // is called (what is called may move it: a script called, a Goto...).
 bool Script::execute_command(Tokens& pc)
 {
-    switch (*pc) {
-    case kTokenMemberFunctionName: {
+    switch (as_token(*pc)) {
+    case QbToken::kMemberFunctionName: {
         ++pc;
         const uint32_t name = fetch_word32(pc);
         pc += 4;
@@ -214,7 +214,7 @@ bool Script::execute_command(Tokens& pc)
         }
         return object_call_member_function(entity_.get_pull(), name, stmt_args_.get(), this);
     }
-    case kTokenMemberFunction: {
+    case QbToken::kMemberFunction: {
         ++pc;
         const MemberFunctionEntry* entry = member_entry_at(pc);
         pc += 4;
@@ -225,7 +225,7 @@ bool Script::execute_command(Tokens& pc)
         }
         return script::invoke_method_by_name(entry, stmt_args_.get(), entity_.get_pull(), this);
     }
-    case kTokenNativeFunction: {
+    case QbToken::kNativeFunction: {
         ++pc;
         const NativeFunction function = native_function_at(pc);
         pc += 4;
@@ -237,7 +237,7 @@ bool Script::execute_command(Tokens& pc)
     }
 
     uint32_t name = 0;
-    if (*pc == kTokenOpenParenthesis) {
+    if (as_token(*pc) == QbToken::kOpenParenthesis) {
         gsl::owner<Component*> value = new_component();
         pc_ = pc.address();
         pc = parse_expression(pc, args_.get(), value);
@@ -256,13 +256,13 @@ bool Script::execute_command(Tokens& pc)
     }
     pc_ = pc.address();
 
-    if (*pc == kTokenColon) { // name:
+    if (as_token(*pc) == QbToken::kColon) { // name:
         objects::Entity* object = find_object(name);
         if (!object)
             return true; // (pc_ left at the ':')
         ++pc;
         pc = resolve_random_jumps(pc);
-        if (*pc == kTokenMemberFunctionName) {
+        if (as_token(*pc) == QbToken::kMemberFunctionName) {
             ++pc;
             const uint32_t member = fetch_word32(pc);
             pc += 4;
@@ -290,14 +290,14 @@ bool Script::execute_command(Tokens& pc)
         }
     }
 
-    if (*pc == kTokenEquals) { // name = value
+    if (as_token(*pc) == QbToken::kEquals) { // name = value
         pc -= 4;
         const uint32_t target = fetch_word32(pc);
         pc += kTokenWithWordBytes;
         pc = resolve_random_jumps(pc);
         gsl::owner<Component*> value = new_component();
         pc_ = pc.address();
-        if (*pc == kTokenOpenParenthesis)
+        if (as_token(*pc) == QbToken::kOpenParenthesis)
             pc = parse_expression(pc, args_.get(), value);
         else
             pc = parse_value(pc, args_.get(), value);
@@ -357,7 +357,7 @@ void Script::run_conditional(Tokens& pc)
     const Tokens target = pc + fetch_word16(pc);
     pc += 2;
     bool negate = false;
-    if (*pc == kTokenNot) {
+    if (as_token(*pc) == QbToken::kNot) {
         ++pc;
         negate = true;
     }
@@ -375,8 +375,8 @@ void Script::run_conditional(Tokens& pc)
 // 0x00472A70: pc just after a 3C switch: past its 3D endswitch (switches inside skipped whole).
 void Script::skip_to_end_of_switch(Tokens& pc)
 {
-    while (*pc != kTokenEndSwitch) {
-        if (*pc == kTokenSwitch) {
+    while (as_token(*pc) != QbToken::kEndSwitch) {
+        if (as_token(*pc) == QbToken::kSwitch) {
             ++pc;
             skip_to_end_of_switch(pc);
         } else {
@@ -399,23 +399,23 @@ void Script::run_multi_branch(Tokens& pc)
     if (const Component* first = stmt_args_->step_to_entry(nullptr))
         duplicate_component(value, first, 0);
     for (;;) {
-        const uint8_t token = *pc;
-        if (token == kTokenScriptEnd) // '$': not moved past - the original loops for ever here (kept)
+        const QbToken token = as_token(*pc);
+        if (token == QbToken::kScriptEnd) // '$': not moved past - the original loops for ever here (kept)
             continue;
-        if (token == kTokenSwitch) { // a switch in a case not taken
+        if (token == QbToken::kSwitch) { // a switch in a case not taken
             ++pc;
             skip_to_end_of_switch(pc);
             continue;
         }
-        if (token == kTokenEndSwitch) {
+        if (token == QbToken::kEndSwitch) {
             ++pc;
             break;
         }
-        if (token == kTokenDefault) { // default: past 3F 49 xx xx
+        if (token == QbToken::kDefault) { // default: past 3F 49 xx xx
             pc += 4;
             break;
         }
-        if (token != kTokenCase) {
+        if (token != QbToken::kCase) {
             pc = step_over_token(pc);
             continue;
         }
@@ -429,7 +429,7 @@ void Script::run_multi_branch(Tokens& pc)
             continue;
         }
         pc = skip_newline_tokens(pc);
-        while (*pc == kTokenShortJump && pc[3] == kTokenCase) {
+        while (as_token(*pc) == QbToken::kShortJump && as_token(pc[3]) == QbToken::kCase) {
             pc += kShortJumpCaseBytes;
             parse_function_params(pc);
             pc = skip_newline_tokens(pc);
@@ -513,10 +513,10 @@ void Script::run_loop_exit(Tokens& pc)
     int depth = 0;
     bool searching = true;
     for (bool again = true; again; again = searching) {
-        const uint8_t token = *pc;
-        if (token == kTokenLoopStart) {
+        const QbToken token = as_token(*pc);
+        if (token == QbToken::kLoopStart) {
             ++depth;
-        } else if (token == kTokenLoopRepeat) {
+        } else if (token == QbToken::kLoopRepeat) {
             if (depth)
                 --depth;
             else
@@ -576,25 +576,25 @@ ScriptOutcome Script::tick_frame()
             pc = tokens_at(pc_);
             blocks_seen = code_blocks_generation();
         }
-        switch (*pc) {
-        case kTokenEndOfLine: // end of line
-        case kTokenEndIf:
-        case kTokenEndSwitch: // endswitch
+        switch (as_token(*pc)) {
+        case QbToken::kEndOfLine: // end of line
+        case QbToken::kEndIf:
+        case QbToken::kEndSwitch: // endswitch
             ++pc;
             break;
-        case kTokenEndOfLineNumbered: // end of line + line number
+        case QbToken::kEndOfLineNumbered: // end of line + line number
             pc += kTokenWithWordBytes;
             break;
-        case kTokenLoopStart:
+        case QbToken::kLoopStart:
             run_loop_open(pc);
             break;
-        case kTokenLoopRepeat:
+        case QbToken::kLoopRepeat:
             run_counted_loop(pc);
             break;
-        case kTokenLoopBreak:
+        case QbToken::kLoopBreak:
             run_loop_exit(pc);
             break;
-        case kTokenScriptEnd: // '$'
+        case QbToken::kScriptEnd: // '$'
             if (const uint32_t on_exit = on_exit_script_) {
                 on_exit_script_ = 0;
                 preempt(on_exit, nullptr);
@@ -602,7 +602,7 @@ ScriptOutcome Script::tick_frame()
             if (return_from_script(nullptr))
                 return kScriptOutcomeEndedByInterrupt;
             continue; // (pc_ is the caller's now, or null)
-        case kTokenReturn: // return [args]
+        case QbToken::kReturn: // return [args]
             if (const uint32_t on_exit = on_exit_script_) {
                 on_exit_script_ = 0;
                 preempt(on_exit, nullptr);
@@ -614,26 +614,26 @@ ScriptOutcome Script::tick_frame()
             if (return_from_script(stmt_args_.get()))
                 return kScriptOutcomeEndedByInterrupt;
             continue;
-        case kTokenIf:
-        case kTokenElse:
-        case kTokenCase: // case
-        case kTokenDefault: // default
+        case QbToken::kIf:
+        case QbToken::kElse:
+        case QbToken::kCase: // case
+        case QbToken::kDefault: // default
             break; // (not moved past: loops for ever, as in the original)
-        case kTokenLongJump:
-        case kTokenRandom:
-        case kTokenRandomSideStream:
-        case kTokenRandomNoRepeat:
-        case kTokenRandomPermute:
-        case kTokenShortJump:
+        case QbToken::kLongJump:
+        case QbToken::kRandom:
+        case QbToken::kRandomSideStream:
+        case QbToken::kRandomNoRepeat:
+        case QbToken::kRandomPermute:
+        case QbToken::kShortJump:
             pc = resolve_random_jumps(pc);
             break;
-        case kTokenSwitch:
+        case QbToken::kSwitch:
             run_multi_branch(pc);
             break;
-        case kTokenShortIf:
+        case QbToken::kShortIf:
             run_conditional(pc);
             continue; // (pc_ set by the statement it ran)
-        case kTokenShortElse: // else: jump to the endif
+        case QbToken::kShortElse: // else: jump to the endif
             ++pc;
             pc += fetch_word16(pc);
             break;

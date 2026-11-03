@@ -120,86 +120,86 @@ void create_pool(memory::PoolPair& pools, int item_size, int count, const char* 
 // 0x0046F690
 Tokens step_over_token(Tokens token)
 {
-    switch (*token) {
-    case kTokenEndOfLine:
-    case kTokenStructStart:
-    case kTokenStructEnd:
-    case kTokenArrayStart:
-    case kTokenArrayEnd:
-    case kTokenEquals:
-    case kTokenDot:
-    case kTokenComma:
-    case kTokenMinus:
-    case kTokenPlus:
-    case kTokenDivide:
-    case kTokenMultiply:
-    case kTokenOpenParenthesis:
-    case kTokenCloseParenthesis:
-    case kTokenEqualTo:
-    case kTokenLessThan:
-    case kTokenLessThanOrEqual:
-    case kTokenGreaterThan:
-    case kTokenGreaterThanOrEqual:
-    case kTokenLoopStart:
-    case kTokenLoopRepeat:
-    case kTokenLoopBreak:
-    case kTokenScriptStart:
-    case kTokenScriptEnd:
-    case kTokenIf:
-    case kTokenElse:
-    case kTokenUnknown27:
-    case kTokenEndIf:
-    case kTokenReturn:
-    case kTokenAllArguments:
-    case kTokenLocalArgument:
-    case kTokenRandomRange:
-    case kTokenOr:
-    case kTokenAnd:
-    case kTokenXor:
-    case kTokenUnknown35:
-    case kTokenUnknown36:
-    case kTokenRandomRangeSideStream:
-    case kTokenNot:
-    case kTokenUnknown3A:
-    case kTokenUnknown3B:
-    case kTokenSwitch:
-    case kTokenEndSwitch:
-    case kTokenCase:
-    case kTokenDefault:
-    case kTokenColon:
-    case kTokenSectionMarker:
+    switch (as_token(*token)) {
+    case QbToken::kEndOfLine:
+    case QbToken::kStructStart:
+    case QbToken::kStructEnd:
+    case QbToken::kArrayStart:
+    case QbToken::kArrayEnd:
+    case QbToken::kEquals:
+    case QbToken::kDot:
+    case QbToken::kComma:
+    case QbToken::kMinus:
+    case QbToken::kPlus:
+    case QbToken::kDivide:
+    case QbToken::kMultiply:
+    case QbToken::kOpenParenthesis:
+    case QbToken::kCloseParenthesis:
+    case QbToken::kEqualTo:
+    case QbToken::kLessThan:
+    case QbToken::kLessThanOrEqual:
+    case QbToken::kGreaterThan:
+    case QbToken::kGreaterThanOrEqual:
+    case QbToken::kLoopStart:
+    case QbToken::kLoopRepeat:
+    case QbToken::kLoopBreak:
+    case QbToken::kScriptStart:
+    case QbToken::kScriptEnd:
+    case QbToken::kIf:
+    case QbToken::kElse:
+    case QbToken::kUnknown27:
+    case QbToken::kEndIf:
+    case QbToken::kReturn:
+    case QbToken::kAllArguments:
+    case QbToken::kLocalArgument:
+    case QbToken::kRandomRange:
+    case QbToken::kOr:
+    case QbToken::kAnd:
+    case QbToken::kXor:
+    case QbToken::kUnknown35:
+    case QbToken::kUnknown36:
+    case QbToken::kRandomRangeSideStream:
+    case QbToken::kNot:
+    case QbToken::kUnknown3A:
+    case QbToken::kUnknown3B:
+    case QbToken::kSwitch:
+    case QbToken::kEndSwitch:
+    case QbToken::kCase:
+    case QbToken::kDefault:
+    case QbToken::kColon:
+    case QbToken::kSectionMarker:
         return token + 1;
-    case kTokenEndOfLineNumbered:
-    case kTokenName:
-    case kTokenInteger:
-    case kTokenHexInteger:
-    case kTokenFloat:
-    case kTokenLongJump:
-    case kTokenNativeFunction:
-    case kTokenMemberFunctionName:
-    case kTokenMemberFunction:
+    case QbToken::kEndOfLineNumbered:
+    case QbToken::kName:
+    case QbToken::kInteger:
+    case QbToken::kHexInteger:
+    case QbToken::kFloat:
+    case QbToken::kLongJump:
+    case QbToken::kNativeFunction:
+    case QbToken::kMemberFunctionName:
+    case QbToken::kMemberFunction:
         return token + kTokenWithWordBytes;
-    case kTokenString:
-    case kTokenLocalString: // strings: the length, then the text
+    case QbToken::kString:
+    case QbToken::kLocalString: // strings: the length, then the text
         return token + kTokenWithWordBytes + fetch_word32(token + 1);
-    case kTokenVector: // vector
+    case QbToken::kVector: // vector
         return token + kTokenWithVectorBytes;
-    case kTokenPair: // pair
+    case QbToken::kPair: // pair
         return token + kTokenWithPairBytes;
-    case kTokenChecksumName: { // a checksum's name: the checksum, then the text
+    case QbToken::kChecksumName: { // a checksum's name: the checksum, then the text
         Tokens p = token + kTokenWithWordBytes;
         while (*p)
             ++p;
         return p + 1;
     }
-    case kTokenRandom:
-    case kTokenRandomSideStream:
-    case kTokenRandomNoRepeat:
-    case kTokenRandomPermute: // tables of 6-byte entries
+    case QbToken::kRandom:
+    case QbToken::kRandomSideStream:
+    case QbToken::kRandomNoRepeat:
+    case QbToken::kRandomPermute: // tables of 6-byte entries
         return token + kTokenWithWordBytes + fetch_word32(token + 1) * kJumpTableEntryBytes;
-    case kTokenShortIf:
-    case kTokenShortElse:
-    case kTokenShortJump:
+    case QbToken::kShortIf:
+    case QbToken::kShortElse:
+    case QbToken::kShortJump:
         return token + 3;
     default: // (0x00, 0x10, 0x19, 0x1D, 0x2A, 0x31 and unknown tokens: no step)
         return token;
@@ -237,9 +237,9 @@ MutableTokens store_word16(MutableTokens p, uint16_t value)
 Tokens skip_newline_tokens(Tokens token)
 {
     for (;;) {
-        if (*token == kTokenEndOfLine)
+        if (as_token(*token) == QbToken::kEndOfLine)
             token += 1;
-        else if (*token == kTokenEndOfLineNumbered)
+        else if (as_token(*token) == QbToken::kEndOfLineNumbered)
             token += kTokenWithWordBytes;
         else
             return token;
@@ -251,20 +251,20 @@ Tokens skip_to_end_of_statement(Tokens token)
 {
     int braces = 0, brackets = 0, parentheses = 0;
     for (;;) {
-        const uint8_t t = *token;
-        if (t == kTokenStructStart)
+        const QbToken t = as_token(*token);
+        if (t == QbToken::kStructStart)
             ++braces;
-        if (t == kTokenStructEnd)
+        if (t == QbToken::kStructEnd)
             --braces;
-        if (t == kTokenArrayStart)
+        if (t == QbToken::kArrayStart)
             ++brackets;
-        if (t == kTokenArrayEnd)
+        if (t == QbToken::kArrayEnd)
             --brackets;
-        if (t == kTokenOpenParenthesis)
+        if (t == QbToken::kOpenParenthesis)
             ++parentheses;
-        if (t == kTokenCloseParenthesis)
+        if (t == QbToken::kCloseParenthesis)
             --parentheses;
-        if (braces == 0 && brackets == 0 && parentheses == 0 && (t == kTokenEndOfLine || t == kTokenEndOfLineNumbered || t == kTokenEndOfFile))
+        if (braces == 0 && brackets == 0 && parentheses == 0 && (t == QbToken::kEndOfLine || t == QbToken::kEndOfLineNumbered || t == QbToken::kEndOfFile))
             return step_over_token(token);
         token = step_over_token(token);
     }
@@ -273,12 +273,12 @@ Tokens skip_to_end_of_statement(Tokens token)
 // 0x0046F920
 Tokens skip_to_end_of_script(Tokens token)
 {
-    while (*token != kTokenScriptEnd)
+    while (as_token(*token) != QbToken::kScriptEnd)
         token = step_over_token(token);
     token = step_over_token(token);
     // (a script whose '$' ends its block - a structure's script body, a private copy - has no line number after it:
     // the original read the byte past the block)
-    if (token.remaining() > 0 && *token == kTokenEndOfLineNumbered)
+    if (token.remaining() > 0 && as_token(*token) == QbToken::kEndOfLineNumbered)
         return step_over_token(token);
     return token;
 }
@@ -287,9 +287,9 @@ Tokens skip_to_end_of_script(Tokens token)
 uint32_t calculate_script_checksum(Tokens token)
 {
     uint32_t checksum = kChecksumInitial;
-    while (*token != kTokenScriptEnd) {
+    while (as_token(*token) != QbToken::kScriptEnd) {
         const Tokens next = step_over_token(token);
-        if (*token != kTokenEndOfLine && *token != kTokenEndOfLineNumbered) {
+        if (as_token(*token) != QbToken::kEndOfLine && as_token(*token) != QbToken::kEndOfLineNumbered) {
             const std::span<const uint8_t> bytes = code_between(token, next);
             checksum = checksums::extend_crc_with_buffer(bytes, checksum);
         }
@@ -304,28 +304,28 @@ void prepare_script_tokens(std::span<uint8_t> code)
     // (the code is changed in place: its tokens walked as read-only, each rewritten through a writable cursor at the
     // same place)
     Tokens token = skip_to_end_of_statement(Tokens(code));
-    while (*token != kTokenScriptEnd) {
-        if (*token == kTokenName) {
+    while (as_token(*token) != QbToken::kScriptEnd) {
+        if (as_token(*token) == QbToken::kName) {
             // A statement starting with a name: a call?
             const MutableTokens name(code, token.position());
             token += kTokenWithWordBytes;
             if (const SymbolTableEntry* symbol = resolve_symbol(fetch_word32(name + 1))) {
                 if (symbol->type() == QbValueKind::kNativeFunc) {
-                    name[0] = kTokenNativeFunction;
+                    name[0] = token_byte(QbToken::kNativeFunction);
                     store_word32(name + 1, symbol->value().word());
                 } else if (symbol->type() == QbValueKind::kNativeMethod) {
                     if (symbol->value().word()) {
                         store_word32(name + 1, symbol->value().word());
-                        name[0] = kTokenMemberFunction;
+                        name[0] = token_byte(QbToken::kMemberFunction);
                     } else {
-                        name[0] = kTokenMemberFunctionName;
+                        name[0] = token_byte(QbToken::kMemberFunctionName);
                     }
                 }
             }
             token = skip_to_end_of_statement(token);
-        } else if (*token == kTokenShortIf) {
+        } else if (as_token(*token) == QbToken::kShortIf) {
             token = step_over_token(token);
-            if (*token == kTokenNot)
+            if (as_token(*token) == QbToken::kNot)
                 ++token;
         } else {
             token = skip_to_end_of_statement(token);

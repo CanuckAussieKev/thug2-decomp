@@ -173,15 +173,15 @@ bool script_flagged(uint32_t name)
         return false;
     script::Tokens token = script::tokens_at(code);
     token = script::skip_to_end_of_statement(token);
-    while (*token != script::kTokenScriptEnd) { // (end of script)
+    while (script::as_token(*token) != script::QbToken::kScriptEnd) { // (end of script)
         script::Tokens next;
-        if (*token == script::kTokenName) { // a name: a script called?
+        if (script::as_token(*token) == script::QbToken::kName) { // a name: a script called?
             uint32_t called = script::fetch_word32(token + 1);
             next = token + script::kTokenWithWordBytes;
             bool flagged = false;
-            if (*next == script::kTokenColon) { // (a name after a colon-like 0x42 token: the second name's the script)
+            if (script::as_token(*next) == script::QbToken::kColon) { // (a name after a colon-like 0x42 token: the second name's the script)
                 ++next;
-                if (*next == script::kTokenName) {
+                if (script::as_token(*next) == script::QbToken::kName) {
                     called = script::fetch_word32(next + 1);
                     next += script::kTokenWithWordBytes;
                     flagged = script_flagged(called);
@@ -197,9 +197,9 @@ bool script_flagged(uint32_t name)
                 return true;
             }
             token = script::skip_to_end_of_statement(next);
-        } else if (*token == script::kTokenShortIf) {
+        } else if (script::as_token(*token) == script::QbToken::kShortIf) {
             token = script::step_over_token(token);
-            if (*token == script::kTokenNot)
+            if (script::as_token(*token) == script::QbToken::kNot)
                 ++token;
         } else {
             token = script::skip_to_end_of_statement(token);

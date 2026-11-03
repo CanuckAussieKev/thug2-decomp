@@ -556,7 +556,7 @@ void get_put4(std::vector<uint8_t>* out, uint32_t value)
 }
 void put_name(std::vector<uint8_t>* out, uint32_t checksum)
 {
-    out->push_back(script::kTokenName);
+    out->push_back(script::token_byte(script::QbToken::kName));
     get_put4(out, checksum);
 }
 } // namespace
@@ -568,13 +568,13 @@ std::vector<uint8_t> speed_body(SpeedChange speed_change)
     std::vector<uint8_t> out;
     if (original) {
         put_name(&out, original);
-        out.push_back(script::kTokenAllArguments); // (<...>: its arguments passed on)
+        out.push_back(script::token_byte(script::QbToken::kAllArguments)); // (<...>: its arguments passed on)
         out.push_back(0x01);
     }
     put_name(&out, checksums::hash_from_text("ed_RailSpeed"));
     put_name(&out, checksums::hash_from_text("rate"));
-    out.push_back(script::kTokenEquals);
-    out.push_back(script::kTokenFloat);
+    out.push_back(script::token_byte(script::QbToken::kEquals));
+    out.push_back(script::token_byte(script::QbToken::kFloat));
     auto bits = std::bit_cast<uint32_t>(rate);
     get_put4(&out, bits);
     out.push_back(0x01);
@@ -585,17 +585,17 @@ std::vector<uint8_t> speed_qb_file(const std::vector<SpeedScript>& scripts)
 {
     std::vector<uint8_t> out;
     for (const SpeedScript& s : scripts) {
-        out.push_back(script::kTokenScriptStart);
+        out.push_back(script::token_byte(script::QbToken::kScriptStart));
         put_name(&out, checksums::hash_from_text(speed_script_name(s.node).c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = speed_body({.original = s.original, .rate = s.rate});
         out.insert(out.end(), body.begin(), body.end());
-        out.push_back(script::kTokenScriptEnd);
+        out.push_back(script::token_byte(script::QbToken::kScriptEnd));
         out.push_back(0x01);
     }
     for (const SpeedScript& s : scripts) {
         std::string name = speed_script_name(s.node);
-        out.push_back(script::kTokenChecksumName);
+        out.push_back(script::token_byte(script::QbToken::kChecksumName));
         get_put4(&out, checksums::hash_from_text(name.c_str()));
         out.insert(out.end(), name.begin(), name.end());
         out.push_back(0x00);

@@ -23,7 +23,7 @@ Tokens resolve_random_jumps(Tokens token);
 // Past one value token (structures and arrays included).
 Tokens skip_value(Tokens token);
 // The stored no-repeat / permute state of the random table `table` for the current script, or null.
-StoredRandom* look_up_saved_random(const uint8_t* table, uint32_t type, uint32_t count);
+StoredRandom* look_up_saved_random(const uint8_t* table, QbToken type, uint32_t count);
 // A new stored random state (at most 100 are kept: the oldest goes).
 StoredRandom* new_stored_random();
 // RandomRange(a, b) (`token` at the pair after the RandomRange token): an integer if both ends are whole

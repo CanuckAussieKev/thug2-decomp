@@ -337,26 +337,26 @@ std::vector<std::pair<uint32_t, script::Tokens>> top_level_arrays(std::span<cons
     while (std::cmp_less(p.position(), size)) {
         p = script::skip_newline_tokens(p);
         const script::Tokens before = p;
-        switch (*p) {
-        case 0x00:
+        switch (script::as_token(*p)) {
+        case script::QbToken::kEndOfFile:
             return arrays;
-        case script::kTokenName: { // name = value
+        case script::QbToken::kName: { // name = value
             const uint32_t name = script::fetch_word32(p + 1);
             script::Tokens q = script::skip_newline_tokens(p + script::kTokenWithWordBytes);
-            if (*q != script::kTokenEquals) {
+            if (script::as_token(*q) != script::QbToken::kEquals) {
                 p = script::step_over_token(p);
                 break;
             }
             q = script::skip_newline_tokens(q + 1);
-            if (*q == script::kTokenArrayStart)
+            if (script::as_token(*q) == script::QbToken::kArrayStart)
                 arrays.emplace_back(name, q);
             p = script::skip_value(q);
             break;
         }
-        case script::kTokenScriptStart:
+        case script::QbToken::kScriptStart:
             p = script::skip_to_end_of_script(p + script::kTokenWithNamedWordBytes);
             break; // script name ... endscript
-        case script::kTokenSectionMarker:
+        case script::QbToken::kSectionMarker:
             p += script::kTokenWithNamedWordBytes;
             break; // a section marker
         default:
