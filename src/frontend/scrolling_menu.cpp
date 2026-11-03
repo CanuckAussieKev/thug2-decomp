@@ -78,10 +78,7 @@ void WindowedList::find_menu()
         ElementPtr child;
         child.assign_value(eldest().get_pull());
         while (child) {
-            if (child->kind_tag() == v_menu_type() && vertical_)
-                // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-                menu_ = child.get_pull();
-            else if (child->kind_tag() == h_menu_type() && !vertical_)
+            if ((child->kind_tag() == v_menu_type() && vertical_) || (child->kind_tag() == h_menu_type() && !vertical_))
                 menu_ = child.get_pull();
             child.assign_value(child->following().get_pull());
         }

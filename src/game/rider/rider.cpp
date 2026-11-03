@@ -527,15 +527,12 @@ float Rider::fetch_tally(int index)
     if (online::online_hub()->in_net_game()) {
         auto* player =
             online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
-        if (!player)
-            // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-            stat = kOutOfGameStat;
-        else if (player->holds_crown())
+        if (player && player->holds_crown())
             stat = 1.0f;
-        else if (player->is_carrying_flag())
+        else if (player && player->is_carrying_flag())
             stat = kCarryingFlagStat;
         else
-            stat = kOutOfGameStat;
+            stat = kOutOfGameStat; // (no player, or neither)
     } else if (rule_5a_1180()) {
         auto* player =
             online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));

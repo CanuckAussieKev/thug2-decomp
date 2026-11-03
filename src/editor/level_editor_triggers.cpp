@@ -2489,10 +2489,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         }
         const V3 centre = (l.min + l.max) * 0.5f;
         V3 target{};
-        if (!l.off && l.kind == Kind::kJumpTo && get_node_pos(l.calls.target, &target))
-            // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
-            paint.get_arrow(centre, target, get_dim(kind_colour(l.kind), kLinkArrowAlpha));
-        else if (!l.off && l.kind == Kind::kViewCam && get_node_pos(l.calls.camera_node_, &target)) // (map4)
+        if (!l.off && ((l.kind == Kind::kJumpTo && get_node_pos(l.calls.target, &target)) ||
+                       (l.kind == Kind::kViewCam && get_node_pos(l.calls.camera_node_, &target)))) // (map4: the camera's)
             paint.get_arrow(centre, target, get_dim(kind_colour(l.kind), kLinkArrowAlpha));
         if (n.first <= kLabelRadius || inspected)
             label({.x = centre.x, .y = l.max.y, .z = centre.z}, colour,

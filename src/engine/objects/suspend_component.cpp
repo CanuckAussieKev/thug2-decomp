@@ -220,12 +220,8 @@ void DormancyModule::refresh_shown_state()
     bool visible = false;
     if (!(entity()->object_flags() & kEntityHiddenBit)) {
         render::RenderModel* model = model_of(mesh_instance_);
-        // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-        if (std::bit_cast<uint32_t>(core::at(lod_distances_, 2)) == core::at(kNoLodBits, 2)) {
-            visible = true;
-        } else if (modules::viewport_count() > 1) {
-            visible = true;
-        } else if (core::down_cast<MeshInstanceModule>(mesh_instance_)->level_object()) {
+        if (std::bit_cast<uint32_t>(core::at(lod_distances_, 2)) == core::at(kNoLodBits, 2) || modules::viewport_count() > 1 ||
+            core::down_cast<MeshInstanceModule>(mesh_instance_)->level_object()) {
             visible = true;
         } else {
             const double lod = core::at(lod_distances_, 1);

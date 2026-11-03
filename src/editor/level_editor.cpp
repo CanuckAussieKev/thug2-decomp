@@ -5883,11 +5883,8 @@ void tick_frame()
     // Escape: a drag put back, else the browser or the help closed, else the selection dropped.
     if (drag_state().cancel_requested_) {
         drag_state().cancel_requested_ = false;
-        // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
-        if (ux8::get_cancel()) {
-            // (UX8: a pie menu closed)
-        } else if (!drag_state().dragging_ && ux9::get_cancel()) {
-            // (UX9: the gap wizard / the ground tool given up first - level_editor_ux9.h)
+        if (ux8::get_cancel() || (!drag_state().dragging_ && ux9::get_cancel())) {
+            // (UX8: a pie menu closed; UX9: the gap wizard / the ground tool given up first - level_editor_ux9.h)
         } else if (triggers::resizing()) {
             triggers::end_resize(); // (kept as far as it went - Ctrl+Z puts the size back)
         } else if (drag_state().dragging_) {
@@ -6603,13 +6600,12 @@ void tick_frame()
                ux9::get_click(level_editor_state().pos_, make_unit(dir), back_x, back_y)) {
         // (UX9: the gap wizard's / the ground tool's pick - level_editor_ux9.h)
         note_action("ux9 tool click");
-    } else if (input.left_presses_ && have_ray && !drag_state().dragging_ && arrange::edge_picking() &&
-               // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
-               arrange::edge_click({.x = back_x, .y = back_y})) {
-        // (F7: a rail along the edge clicked - level_editor_arrange.h)
-    } else if (input.left_presses_ && have_ray && !drag_state().dragging_ && stored_browser().open && drag_state().hover_axis_ < 0 && !ctrl && !alt &&
-               arrange::place_click(shift)) {
-        // (the Add palette open with Click places: its piece where the ghost showed it - level_editor_arrange.h)
+    } else if ((input.left_presses_ && have_ray && !drag_state().dragging_ && arrange::edge_picking() &&
+                arrange::edge_click({.x = back_x, .y = back_y})) ||
+               (input.left_presses_ && have_ray && !drag_state().dragging_ && stored_browser().open && drag_state().hover_axis_ < 0 && !ctrl &&
+                !alt && arrange::place_click(shift))) {
+        // (F7: a rail along the edge clicked; or the Add palette open with Click places: its piece where the ghost
+        // showed it - level_editor_arrange.h)
     } else if (input.left_presses_ && have_ray && !drag_state().dragging_ && ruler::get_armed() && drag_state().hover_axis_ < 0) {
         // (the ruler armed: a click puts an end - level_editor_ruler.h)
         hud::get_message(ruler::get_click(), hud::kLongMessageSeconds);

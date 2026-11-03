@@ -136,13 +136,11 @@ void GoalManager::reset_goal_data(uint32_t flag)
     script::Component* component = goal_data_->step_to_entry(nullptr);
     while (component) {
         script::Component* next = goal_data_->step_to_entry(component);
-        // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-        if (!flag) {
-            goal_data_->erase_module(component->name);
-        } else if (component->name == kGoalManagerParams) {
+        // (no flag: every goal erased; with one, the goal manager's parameters refilled and the goals with the flag erased)
+        if (flag && component->name == kGoalManagerParams) {
             component->value.structure()->get_clear();
             component->value.structure()->put_sub_struct(kSkillTiers, args_);
-        } else if (component->value.structure() && component->value.structure()->has_bare_flag(flag)) {
+        } else if (!flag || (component->value.structure() && component->value.structure()->has_bare_flag(flag))) {
             goal_data_->erase_module(component->name);
         }
         component = next;

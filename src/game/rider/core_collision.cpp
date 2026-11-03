@@ -189,10 +189,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     // A bonk - unless a wallplant (not with +0x302) or 0x00508140 takes over.
     bool done = false;
     if (!state_->in_trick_move() && !bit_mark(this, PoseFlag::kBailing)) {
-        if (!motoskateboard_ && wall_plant(false, false, false))
-            // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-            done = true;
-        else if (start_wall_ride())
+        if ((!motoskateboard_ && wall_plant(false, false, false)) || start_wall_ride())
             done = true;
     }
     if (!done) {

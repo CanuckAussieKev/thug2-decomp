@@ -790,15 +790,12 @@ void key_pressed(SDL_Keycode key)
         return;
     }
     int typed = 0;
-    if (key == SDLK_RETURN)
-        // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
+    if (key == SDLK_RETURN || key == SDLK_KP_ENTER)
         typed = '\r';
     else if (key == SDLK_BACKSPACE)
         typed = '\b';
     else if (key == SDLK_ESCAPE)
         typed = kEscapeChar;
-    else if (key == SDLK_KP_ENTER)
-        typed = '\r';
     else
         typed = -1;
     if (typed != -1)

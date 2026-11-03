@@ -252,9 +252,7 @@ bool get_movable(const nodes::Elem& node)
     case nodes::Family::kRail:
     case nodes::Family::kLadder:
         return is_rail(node.name); // (a point of the rail manager: where skaters grind / climb)
-    // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
-    case nodes::Family::kRouteWay:
-        return true; // (a waypoint: its pos=, read when a ped or car heads for it - level_editor_chains.h)
+    case nodes::Family::kRouteWay: // (a waypoint: its pos=, read when a ped or car heads for it - level_editor_chains.h)
     case nodes::Family::kSpawn:
     case nodes::Family::kCrown:
     case nodes::Family::kBitMark:
@@ -275,9 +273,7 @@ const char* when_applied(const nodes::Elem& node)
     uint32_t shape = 0;
     const bool sector_shape = s && s->read_hash_value(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
     switch (node.family) {
-    // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
     case nodes::Family::kRail:
-        return "Live";
     case nodes::Family::kLadder:
         return "Live";
     case nodes::Family::kRouteWay:
@@ -290,9 +286,7 @@ const char* when_applied(const nodes::Elem& node)
         return "Live";
     case nodes::Family::kLight:
         return "Live; baked lighting on reload";
-    // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
     case nodes::Family::kSound:
-        return sector_shape ? "Live; area unchanged" : "Live";
     case nodes::Family::kFireOff:
         return sector_shape ? "Live; area unchanged" : "Live";
     case nodes::Family::kParticle:

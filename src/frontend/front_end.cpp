@@ -383,10 +383,7 @@ void FrontEnd::update_button_event_mappings(script::Struct* params)
         // (0, event) - the event moves to left_trigger_full; event null removes the button's pairs, then a free
         // slot gets (button, null).
         for (PadPressRecord& entry : pad_event_queue_) {
-            // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-            if (pad_button_label == kNull && entry.incident_ == event) {
-                entry.incident_ = 0;
-            } else if (event == kNull && entry.button_ == button) {
+            if ((pad_button_label == kNull && entry.incident_ == event) || (event == kNull && entry.button_ == button)) {
                 entry.incident_ = 0;
             } else if (entry.incident_ == 0) {
                 entry.button_ = button;

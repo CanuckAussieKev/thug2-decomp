@@ -425,10 +425,8 @@ bool VideoHub::tick_frame()
     Movie* movie = movie_at(&movies_, 0);
     if (!movie)
         return false;
-    if (!stored_simulation_halted() || stored_view_mode() != 0) // (not paused, or the view mode)
-        // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-        movie->tick_frame();
-    else if (!movie->flag_1b())
+    // (not paused, or the view mode; paused, only a movie without flag 0x1B)
+    if (!stored_simulation_halted() || stored_view_mode() != 0 || !movie->flag_1b())
         movie->tick_frame();
     if (movie->is_finished())
         end_movies(false);

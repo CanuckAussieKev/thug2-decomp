@@ -1640,13 +1640,12 @@ bool components_equal(Component* a, Component* b)
         const Vector* vb = value_b.vector();
         return va->x() == vb->x() && va->y() == vb->y() && va->z() == vb->z();
     }
-    // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
     case kQbvalScriptBody:
     case kQbvalName:
-        return type_b == type_a && value_a.word() == value_b.word();
     case kQbvalStruct:
     case kQbvalArray:
-        // (different arrays are never equal: their comparison 0x0049F4B0 just returns false)
+        // (structures and arrays by their address: different arrays are never equal - their comparison 0x0049F4B0
+        // just returns false)
         return type_b == type_a && value_a.word() == value_b.word();
     default:
         return false;

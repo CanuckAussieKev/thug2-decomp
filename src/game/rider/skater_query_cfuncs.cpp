@@ -464,10 +464,7 @@ bool cfunc_in_second_to_last_place(script::Struct*, script::Script* script)
         modules::PointTally* score = component_score_of(player->skater());
         if (total_score(score) < mine)
             ++worse;
-        if (lowest == -1)
-            // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-            lowest = total_score(score);
-        else if (total_score(score) < lowest)
+        if (lowest == -1 || total_score(score) < lowest)
             lowest = total_score(score);
     }
     if (in_game < 2 || worse != 1)

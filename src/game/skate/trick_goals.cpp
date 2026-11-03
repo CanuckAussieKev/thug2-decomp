@@ -687,10 +687,8 @@ void FallingTricksGoal::check_combos()
                 if (in_group && key_combo_count(score, t.key_combo_, t.spin, t.perfect, t.taps) > 0)
                     ++done;
             } else if (t.trick) {
-                if (in_group && get_trick_count(score, t.trick, t.spin, t.perfect, t.taps) > 0)
-                    // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-                    ++done;
-                else if (t.trick2 && in_group && get_trick_count(score, t.trick2, t.spin, t.perfect, t.taps) > 0)
+                if ((in_group && get_trick_count(score, t.trick, t.spin, t.perfect, t.taps) > 0) ||
+                    (t.trick2 && in_group && get_trick_count(score, t.trick2, t.spin, t.perfect, t.taps) > 0))
                     ++done;
             }
         }

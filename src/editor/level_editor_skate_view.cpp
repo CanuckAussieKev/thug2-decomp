@@ -75,13 +75,11 @@ Kind get_classify(FaceClass face_class)
         return Kind::kNone; // (passed through)
     bool skatable = false;
     const bool vert = (flags & 0x08) != 0;
-    if (flags & 0x01)
-        // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
+    // Skatable by its flag, or vert unless marked not skatable.
+    if ((flags & 0x01) || (!(flags & 0x02) && vert))
         skatable = true;
     else if (flags & 0x02)
         return Kind::kNotSkatable;
-    else if (vert)
-        skatable = true;
     else if (flags & 0x04)
         return Kind::kWallride;
     else

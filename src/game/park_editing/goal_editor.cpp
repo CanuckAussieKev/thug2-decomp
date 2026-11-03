@@ -616,10 +616,8 @@ void ObjectiveAuthoring::tick_frame()
         const maths::Vec4 pos = camera->cursor();
         const float height = camera->level_y();
         const float angle = camera->heading();
-        // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-        if (near_other_goals(this, pos, height)) {
-            script::launch_script(kGoalEditorPlayPlacementFailSound, nullptr, entity(), false, nullptr);
-        } else if (active_node_->place_point(pos, {.height = height, .angle = angle})) {
+        // (placed only away from the other goals)
+        if (!near_other_goals(this, pos, height) && active_node_->place_point(pos, {.height = height, .angle = angle})) {
             script::launch_script(kGoalEditorPlayPlacementSuccessSound, nullptr, entity(), false, nullptr);
             refresh_cursor();
             move_cursor_to_current_point();
