@@ -134,9 +134,7 @@ bool inside_frustum(const std::array<float, 4>& view, float radius)
         return false;
     const double c = static_cast<double>(vertical_cos()) * core::at(view, 2);
     const double d = static_cast<double>(vertical_sin()) * core::at(view, 1);
-    if (d + c > radius || radius < c - d)
-        return false;
-    return true;
+    return !(d + c > radius || radius < c - d);
 }
 
 } // namespace

@@ -26,6 +26,7 @@ Checks:
   - 'readability-redundant-smartptr-get'
   - 'readability-redundant-string-cstr'
   - 'readability-redundant-typename'
+  - 'readability-simplify-boolean-expr'
   - 'readability-static-definition-in-anonymous-namespace'
   - 'readability-use-concise-preprocessor-directives'
   - 'clang-analyzer-*'
@@ -103,6 +104,10 @@ CheckOptions:
   cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor: true
   cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions: true
   cppcoreguidelines-special-member-functions.AllowMissingMoveFunctionsWhenCopyIsDeleted: true
+  # Boolean simplifications, but not De Morgan's: `!(a < b && ...)` -> `a >= b || ...` is not the same test for floats
+  # (a NaN fails every comparison - the original's `!(min <= max)` box tests count NaN as not a box), so the
+  # original's negated comparisons stay as written.
+  readability-simplify-boolean-expr.SimplifyDeMorgan: false
   readability-identifier-naming.NamespaceCase: lower_case
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase

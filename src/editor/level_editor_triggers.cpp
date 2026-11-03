@@ -993,9 +993,7 @@ bool read_proxim_record(const std::string& line, ProximEdit* edit)
             return false;
     }
     // (a shape needs its measure: a sphere its radius, a box its size)
-    if (have_shape && (edit->box ? !have_size : !have_radius))
-        return false;
-    return true;
+    return !(have_shape && (edit->box ? !have_size : !have_radius));
 }
 
 std::string proxim_script_name(uint32_t node)
