@@ -66,7 +66,7 @@ void show_cursor(bool visible)
     BuildPointer::singleton()->on_mode_changed();
 }
 // Shown unless it's placing rails.
-bool cursor_shows() { return BuildPointer::singleton()->mode_sel() != BuildPointer::kModeRailPlacement; }
+bool cursor_shows() { return BuildPointer::singleton()->mode_sel() != BuildPointer::Mode::kRailPlacement; }
 
 } // namespace
 

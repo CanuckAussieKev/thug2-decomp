@@ -74,7 +74,7 @@ void swap_width_and_length(CellBox& area)
 // 0x00598A60
 void BuildPointer::glow_overlapping_pieces(int on)
 {
-    if (mode_sel_ == kModePaste) {
+    if (mode_sel_ == BuildPointer::Mode::kPaste) {
         if (clipboard_)
             clipboard_->glow_overlapping_pieces(this, on);
         return;
@@ -103,7 +103,7 @@ void BuildPointer::shift_by(int dx, int dz)
     clamp_to_park();
 
     // Stand on the floor: the paste at its own height, otherwise the higher of the new and the old cells.
-    if (mode_sel_ == kModePaste) {
+    if (mode_sel_ == BuildPointer::Mode::kPaste) {
         if (clipboard_) {
             clipboard_height_ = clipboard_->fetch_tallness(this);
             cell_footprint_.y = static_cast<int8_t>(clipboard_height_);
@@ -116,10 +116,10 @@ void BuildPointer::shift_by(int dx, int dz)
         cell_footprint_.y = static_cast<int8_t>(here > before ? here : before);
     }
 
-    if (mode_sel_ != kModeGap && mode_sel_ != kModeGapAdjust)
+    if (mode_sel_ != BuildPointer::Mode::kGap && mode_sel_ != BuildPointer::Mode::kGapAdjust)
         return;
     // The gap tool: adjusting when over a piece of a gap (taking that gap over unless one end is placed).
-    int mode = kModeGap;
+    BuildPointer::Mode mode = BuildPointer::Mode::kGap;
     const MapListHolder metas(park_owner_->get_intersecting_metas(cell_footprint_, 0, nullptr, 0));
     if (metas.list()) {
         CellBox pos = metas.list()->get_placed_piece()->cell_footprint();
@@ -127,7 +127,7 @@ void BuildPointer::shift_by(int dx, int dz)
         if (const GapDetails* gap = park_owner_->get_gap_info(&pos, &half)) {
             if (gap_.halves_placed() != 1)
                 gap_ = *gap;
-            mode = kModeGapAdjust;
+            mode = BuildPointer::Mode::kGapAdjust;
         }
     }
     if (mode_sel_ != mode) {
@@ -232,14 +232,14 @@ void BuildPointer::tick_frame(CursorStep cursor_step)
                                .y = static_cast<float>(static_cast<double>(at_point_.y) + kShowInset),
                                .z = static_cast<float>(static_cast<double>(at_point_.z) - kShowInset),
                                .w = static_cast<float>(static_cast<double>(at_point_.w) + 1.0)};
-    if (mode_sel_ == kModePaste) {
+    if (mode_sel_ == BuildPointer::Mode::kPaste) {
         if (clipboard_)
             clipboard_->preview_pieces(shown, angle_, clipboard_height_);
         return;
     }
     for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())
         clipboard->free_all_piece_groups();
-    if (mode_sel_ != kModeRailPlacement)
+    if (mode_sel_ != BuildPointer::Mode::kRailPlacement)
         piece_group_->change_place(shown, angle_);
 }
 
@@ -382,8 +382,8 @@ void BuildPointer::switch_to_clipboard()
         clipboard->free_all_piece_groups();
     clipboard_ = copy_buffers_;
     destroy_cursor_meta();
-    if (mode_sel_ != kModePaste) {
-        mode_sel_ = kModePaste;
+    if (mode_sel_ != BuildPointer::Mode::kPaste) {
+        mode_sel_ = BuildPointer::Mode::kPaste;
         on_mode_changed();
     }
     clamp_to_park();
@@ -412,17 +412,17 @@ void BuildPointer::change_piece(uint32_t checksum)
 
     const uint32_t flags = source->flag_bits();
     if (flags & PieceGroup::kGap) {
-        if (mode_sel_ != kModeGap) {
-            mode_sel_ = kModeGap;
+        if (mode_sel_ != BuildPointer::Mode::kGap) {
+            mode_sel_ = BuildPointer::Mode::kGap;
             on_mode_changed();
         }
         return;
     }
-    int mode = kModeRegular;
+    BuildPointer::Mode mode = BuildPointer::Mode::kRegular;
     if (flags & PieceGroup::kMarqueeTool)
-        mode = kModeAreaSelect;
+        mode = BuildPointer::Mode::kAreaSelect;
     else if (flags & PieceGroup::kRailPlacement)
-        mode = kModeRailPlacement;
+        mode = BuildPointer::Mode::kRailPlacement;
     if (mode_sel_ != mode) {
         mode_sel_ = mode;
         on_mode_changed();

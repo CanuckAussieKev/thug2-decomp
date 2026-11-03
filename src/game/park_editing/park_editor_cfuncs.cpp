@@ -558,7 +558,7 @@ bool cfunc_switch_to_park_editor_camera(script::Struct*, script::Script*)
     auto set_camera = [](uint32_t id, int viewport, int take_current_view) {
         commands::make_camera_active(checksums::Name{id}, viewport, take_current_view != 0);
     };
-    if (have_cursor() && get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement)
+    if (have_cursor() && get_cursor()->mode_sel() == BuildPointer::Mode::kRailPlacement)
         set_camera(kRailEditorCam, 0, 0);
     else
         set_camera(kParkedCam, 0, 0);

@@ -101,11 +101,11 @@ void BuildPointer::on_mode_changed()
 {
     script::Struct params;
     uint32_t mode = 0;
-    if (mode_sel_ == kModeGapAdjust)
+    if (mode_sel_ == BuildPointer::Mode::kGapAdjust)
         mode = kGapAdjust; // gap_adjust
-    else if (mode_sel_ == kModeGap)
+    else if (mode_sel_ == BuildPointer::Mode::kGap)
         mode = kGapRegular; // gap_regular
-    else if (mode_sel_ == kModeRailPlacement)
+    else if (mode_sel_ == BuildPointer::Mode::kRailPlacement)
         mode = kRailPlacement; // rail_placement
     else
         mode = kRegular;                                               // regular
@@ -169,7 +169,7 @@ void BuildPointer::clamp_to_park()
     if (pos.l + pos.z > bounds.l + bounds.z)
         pos.z = static_cast<uint8_t>(bounds.l - pos.l + bounds.z);
 
-    if (mode_sel_ != kModePaste || !clipboard_)
+    if (mode_sel_ != BuildPointer::Mode::kPaste || !clipboard_)
         return;
     // the pasted area (whose corner may be off the grid: signed) is pushed back inside too
     CellBox area{};
