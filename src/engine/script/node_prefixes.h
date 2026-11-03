@@ -14,6 +14,7 @@ class KeyMap;
 
 namespace level_nodes {
 
+constexpr size_t kPrefixNodesBytes = 0xC;
 // The nodes with one prefix in one node array: their indices (a block grown 100 at a time, memory::alloc_block).
 struct PrefixNodes {
     // 0x0045BDA0: `index` added at the end.
@@ -37,8 +38,10 @@ public:
 private:
     uint32_t name_prefix_;
 };
-static_assert(sizeof(PrefixNodes) == 0xC, "allocated as 0xC bytes");
+static_assert(sizeof(PrefixNodes) == kPrefixNodesBytes, "allocated as 0xC bytes");
 
+constexpr size_t kPrefixTableFollowingOffset = 8;
+constexpr size_t kPrefixTableBytes = 0xC;
 // One node array's prefixes: a hash table (2^8 buckets) from the prefix to its PrefixNodes.
 struct PrefixTable {
     // 0x0045C5D0: the constructor.
@@ -66,7 +69,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PrefixTable, following_) == 8 && sizeof(PrefixTable) == 0xC, "allocated as 0xC bytes");
+        static_assert(offsetof(PrefixTable, following_) == kPrefixTableFollowingOffset && sizeof(PrefixTable) == kPrefixTableBytes, "allocated as 0xC bytes");
     }
 };
 

@@ -41,6 +41,13 @@ enum Operator : uint8_t {
     kOperatorAnd = 51,
 };
 
+constexpr size_t kValueResolverValueTopOffset = 0x140;
+constexpr size_t kValueResolverOperatorsOffset = 0x144;
+constexpr size_t kValueResolverOperatorTopOffset = 0x1E4;
+constexpr size_t kValueResolverHasOperatorsOffset = 0x1E8;
+constexpr size_t kValueResolverTokenOffset = 0x1EC;
+constexpr size_t kValueResolverFaultOffset = 0x1F0;
+constexpr size_t kValueResolverUnknown1f4Offset = 0x1F4;
 class ValueResolver {
 public:
     ValueResolver* prepare_all(); // the constructor
@@ -84,13 +91,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ValueResolver, value_top_) == 0x140, "layout must match the original");
-        static_assert(offsetof(ValueResolver, operators_) == 0x144, "layout must match the original");
-        static_assert(offsetof(ValueResolver, operator_top_) == 0x1E4, "layout must match the original");
-        static_assert(offsetof(ValueResolver, has_operators_) == 0x1E8, "layout must match the original");
-        static_assert(offsetof(ValueResolver, token_) == 0x1EC, "layout must match the original");
-        static_assert(offsetof(ValueResolver, fault_) == 0x1F0, "layout must match the original");
-        static_assert(offsetof(ValueResolver, unknown1f4_) == 0x1F4, "layout must match the original");
+        static_assert(offsetof(ValueResolver, value_top_) == kValueResolverValueTopOffset, "layout must match the original");
+        static_assert(offsetof(ValueResolver, operators_) == kValueResolverOperatorsOffset, "layout must match the original");
+        static_assert(offsetof(ValueResolver, operator_top_) == kValueResolverOperatorTopOffset, "layout must match the original");
+        static_assert(offsetof(ValueResolver, has_operators_) == kValueResolverHasOperatorsOffset, "layout must match the original");
+        static_assert(offsetof(ValueResolver, token_) == kValueResolverTokenOffset, "layout must match the original");
+        static_assert(offsetof(ValueResolver, fault_) == kValueResolverFaultOffset, "layout must match the original");
+        static_assert(offsetof(ValueResolver, unknown1f4_) == kValueResolverUnknown1f4Offset, "layout must match the original");
     }
 };
 static_assert(sizeof(Component) * 20 == 0x140, "layout must match the original");

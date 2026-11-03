@@ -61,6 +61,10 @@ enum BlockReason : uint8_t {
     kSuspendOnFrame = 11, // like COUNTER, but at 0 only one such script per frame goes on (0x006F352C)
 };
 
+constexpr size_t kRepeatFrameBytes = 0x10;
+constexpr size_t kRepeatFrameArgsSeenOffset = 0x8;
+constexpr size_t kRepeatFrameArgsExpectedOffset = 0x9;
+constexpr size_t kRepeatFrameHeadcountOffset = 0xC;
 // A begin ... repeat loop (0x10 bytes). One is inside the script; the second nested loop moves them all to a
 // block of 10 on the script heap (no check beyond 10).
 struct RepeatFrame {
@@ -71,11 +75,22 @@ struct RepeatFrame {
     uint16_t unknowna_;
     int headcount_; // repeats left
 };
-static_assert(sizeof(RepeatFrame) == 0x10, "layout must match the original");
-static_assert(offsetof(RepeatFrame, tokens_end_) == 0x4 && offsetof(RepeatFrame, args_seen_) == 0x8 &&
-                  offsetof(RepeatFrame, args_expected_) == 0x9 && offsetof(RepeatFrame, headcount_) == 0xC,
+static_assert(sizeof(RepeatFrame) == kRepeatFrameBytes, "layout must match the original");
+static_assert(offsetof(RepeatFrame, tokens_end_) == 0x4 && offsetof(RepeatFrame, args_seen_) == kRepeatFrameArgsSeenOffset &&
+                  offsetof(RepeatFrame, args_expected_) == kRepeatFrameArgsExpectedOffset && offsetof(RepeatFrame, headcount_) == kRepeatFrameHeadcountOffset,
               "layout must match the original");
 
+constexpr size_t kCallFrameBytes = 0x30;
+constexpr size_t kCallFrameCallerFrameOffset = 0x08;
+constexpr size_t kCallFrameOwnerEntityOffset = 0x0C;
+constexpr size_t kCallFrameLoopStateOffset = 0x10;
+constexpr size_t kCallFrameOnExitScriptPtrOffset = 0x14;
+constexpr size_t kCallFrameSleepComponentOffset = 0x18;
+constexpr size_t kCallFrameSleepTimerOffset = 0x1C;
+constexpr size_t kCallFrameSuspendArgRefOffset = 0x20;
+constexpr size_t kCallFrameSuspendFramesRefOffset = 0x24;
+constexpr size_t kCallFrameSuspendKindOffset = 0x28;
+constexpr size_t kCallFrameTraitMaskOffset = 0x2C;
 // A return address (0x30 bytes): the calling level's state, saved by run_sub_script and restored by
 // return_from_script. Two are inside the script; the third call moves them to a block of 16 on the script
 // heap (no check beyond 16).
@@ -94,26 +109,28 @@ struct CallFrame {
     uint8_t trait_mask_;                     // +0x2C bit 0: suspend_clock_started_, bit 1: the level was an interrupt
     std::array<uint8_t, 3> unknown2d_;
 };
-static_assert(sizeof(CallFrame) == 0x30, "layout must match the original");
-static_assert(offsetof(CallFrame, arg_struct_) == 0x04 && offsetof(CallFrame, caller_frame_) == 0x08 &&
-                  offsetof(CallFrame, owner_entity_) == 0x0C && offsetof(CallFrame, loop_state_) == 0x10 &&
-                  offsetof(CallFrame, on_exit_script_ptr_) == 0x14 && offsetof(CallFrame, sleep_component_) == 0x18 &&
-                  offsetof(CallFrame, sleep_timer_) == 0x1C && offsetof(CallFrame, suspend_arg_ref_) == 0x20 &&
-                  offsetof(CallFrame, suspend_frames_ref_) == 0x24 && offsetof(CallFrame, suspend_kind_) == 0x28 &&
-                  offsetof(CallFrame, trait_mask_) == 0x2C,
+static_assert(sizeof(CallFrame) == kCallFrameBytes, "layout must match the original");
+static_assert(offsetof(CallFrame, arg_struct_) == 0x04 && offsetof(CallFrame, caller_frame_) == kCallFrameCallerFrameOffset &&
+                  offsetof(CallFrame, owner_entity_) == kCallFrameOwnerEntityOffset && offsetof(CallFrame, loop_state_) == kCallFrameLoopStateOffset &&
+                  offsetof(CallFrame, on_exit_script_ptr_) == kCallFrameOnExitScriptPtrOffset && offsetof(CallFrame, sleep_component_) == kCallFrameSleepComponentOffset &&
+                  offsetof(CallFrame, sleep_timer_) == kCallFrameSleepTimerOffset && offsetof(CallFrame, suspend_arg_ref_) == kCallFrameSuspendArgRefOffset &&
+                  offsetof(CallFrame, suspend_frames_ref_) == kCallFrameSuspendFramesRefOffset && offsetof(CallFrame, suspend_kind_) == kCallFrameSuspendKindOffset &&
+                  offsetof(CallFrame, trait_mask_) == kCallFrameTraitMaskOffset,
               "layout must match the original");
 constexpr uint32_t kReturnWaitTypeMask = 0xF;
 constexpr uint8_t kReturnFlagTimerStarted = 0x01;
 constexpr uint8_t kReturnFlagInterrupted = 0x02;
 
+constexpr size_t kParamScriptBytes = 8;
 // A script held by a structure component (8 bytes, filled by CStruct's 0x00476900): its name and its code.
 // (Group A: set_script_copy's argument.)
 struct ParamScript {
     uint32_t own_name_hash_;
     const uint8_t* code_stream_;
 };
-static_assert(sizeof(ParamScript) == 8, "allocated as 8 bytes by 0x0048B200");
+static_assert(sizeof(ParamScript) == kParamScriptBytes, "allocated as 8 bytes by 0x0048B200");
 
+constexpr size_t kMemberFunctionEntryBytes = 0x18;
 // A member function's table entry (the value of a kQbvalNativeMethod symbol, token 0x46), 0x18 bytes: the
 // tables at 0x00683550 (Entity's, filled in by 0x00642940) and 0x00683268 (GameEntity's, 0x006425D0).
 struct MemberFunctionEntry {
@@ -125,8 +142,39 @@ struct MemberFunctionEntry {
     int this_adjustment_;         // +0x0C
     std::array<int, 2> virtual_base_offsets_; // +0x10 (unused by single-inheritance classes)
 };
-static_assert(sizeof(MemberFunctionEntry) == 0x18, "a table entry is 0x18 bytes");
+static_assert(sizeof(MemberFunctionEntry) == kMemberFunctionEntryBytes, "a table entry is 0x18 bytes");
 
+constexpr size_t kScriptCodeCopyOffset = 0x08;
+constexpr size_t kScriptPcOffset = 0x0C;
+constexpr size_t kScriptStmtArgsOffset = 0x10;
+constexpr size_t kScriptArgsOffset = 0x14;
+constexpr size_t kScriptInnermostRepeatOffset = 0x18;
+constexpr size_t kScriptInlineLoopOffset = 0x1C;
+constexpr size_t kScriptLoopsOffset = 0x2C;
+constexpr size_t kScriptCallDepthOffset = 0x30;
+constexpr size_t kScriptInlineReturnAddressesOffset = 0x34;
+constexpr size_t kScriptFrameRecordsOffset = 0x94;
+constexpr size_t kScriptSuspendFramesLeftOffset = 0x98;
+constexpr size_t kScriptSuspendClockStartedOffset = 0x9C;
+constexpr size_t kScriptSuspendClockOffset = 0xA0;
+constexpr size_t kScriptSuspendReasonOffset = 0xA4;
+constexpr size_t kScriptSuspendArgOffset = 0xA8;
+constexpr size_t kScriptBlockingModuleOffset = 0xAC;
+constexpr size_t kScriptUniqueIdOffset = 0xB0;
+constexpr size_t kScriptFlagBitsOffset = 0xB4;
+constexpr size_t kScriptListLinkOffset = 0xB8;
+constexpr size_t kScriptEntityOffset = 0xBC;
+constexpr size_t kScriptScriptTitleOffset = 0xC8;
+constexpr size_t kScriptSpawnFlagsOffset = 0xCC;
+constexpr size_t kScriptSpawnerFileOffset = 0xD0;
+constexpr size_t kScriptSpawnIdOffset = 0xD4;
+constexpr size_t kScriptOnFinishScriptOffset = 0xD8;
+constexpr size_t kScriptCallbackParamsOffset = 0xDC;
+constexpr size_t kScriptSignalRoutesOffset = 0xE0;
+constexpr size_t kScriptOnExceptionScriptOffset = 0xE4;
+constexpr size_t kScriptOnExitScriptOffset = 0xE8;
+constexpr size_t kScriptSharedBaseOffset = 0xEC;
+constexpr size_t kScriptBytes = 0xF4;
 class Script {
 public:
     // --- life (group A: cscript_core.cpp) ---
@@ -353,28 +401,28 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(Script, prior_entry_) == 0x04 && offsetof(Script, code_copy_) == 0x08 &&
-                          offsetof(Script, pc_) == 0x0C && offsetof(Script, stmt_args_) == 0x10 &&
-                          offsetof(Script, args_) == 0x14 && offsetof(Script, innermost_repeat_) == 0x18 &&
-                          offsetof(Script, inline_loop_) == 0x1C && offsetof(Script, loops_) == 0x2C &&
-                          offsetof(Script, call_depth_) == 0x30 && offsetof(Script, inline_return_addresses_) == 0x34 &&
-                          offsetof(Script, frame_records_) == 0x94,
+        static_assert(offsetof(Script, prior_entry_) == 0x04 && offsetof(Script, code_copy_) == kScriptCodeCopyOffset &&
+                          offsetof(Script, pc_) == kScriptPcOffset && offsetof(Script, stmt_args_) == kScriptStmtArgsOffset &&
+                          offsetof(Script, args_) == kScriptArgsOffset && offsetof(Script, innermost_repeat_) == kScriptInnermostRepeatOffset &&
+                          offsetof(Script, inline_loop_) == kScriptInlineLoopOffset && offsetof(Script, loops_) == kScriptLoopsOffset &&
+                          offsetof(Script, call_depth_) == kScriptCallDepthOffset && offsetof(Script, inline_return_addresses_) == kScriptInlineReturnAddressesOffset &&
+                          offsetof(Script, frame_records_) == kScriptFrameRecordsOffset,
                       "layout must match the original");
-        static_assert(offsetof(Script, suspend_frames_left_) == 0x98 && offsetof(Script, suspend_clock_started_) == 0x9C &&
-                          offsetof(Script, suspend_clock_) == 0xA0 && offsetof(Script, suspend_reason_) == 0xA4 &&
-                          offsetof(Script, suspend_arg_) == 0xA8 && offsetof(Script, blocking_module_) == 0xAC &&
-                          offsetof(Script, unique_id_) == 0xB0 && offsetof(Script, flag_bits_) == 0xB4 &&
-                          offsetof(Script, list_link_) == 0xB8 && offsetof(Script, entity_) == 0xBC,
+        static_assert(offsetof(Script, suspend_frames_left_) == kScriptSuspendFramesLeftOffset && offsetof(Script, suspend_clock_started_) == kScriptSuspendClockStartedOffset &&
+                          offsetof(Script, suspend_clock_) == kScriptSuspendClockOffset && offsetof(Script, suspend_reason_) == kScriptSuspendReasonOffset &&
+                          offsetof(Script, suspend_arg_) == kScriptSuspendArgOffset && offsetof(Script, blocking_module_) == kScriptBlockingModuleOffset &&
+                          offsetof(Script, unique_id_) == kScriptUniqueIdOffset && offsetof(Script, flag_bits_) == kScriptFlagBitsOffset &&
+                          offsetof(Script, list_link_) == kScriptListLinkOffset && offsetof(Script, entity_) == kScriptEntityOffset,
                       "layout must match the original");
-        static_assert(offsetof(Script, script_title_) == 0xC8 && offsetof(Script, spawn_flags_) == 0xCC &&
-                          offsetof(Script, spawner_file_) == 0xD0 && offsetof(Script, spawn_id_) == 0xD4 &&
-                          offsetof(Script, on_finish_script_) == 0xD8 && offsetof(Script, callback_params_) == 0xDC &&
-                          offsetof(Script, signal_routes_) == 0xE0 && offsetof(Script, on_exception_script_) == 0xE4 &&
-                          offsetof(Script, on_exit_script_) == 0xE8 && offsetof(Script, shared_base_) == 0xEC,
+        static_assert(offsetof(Script, script_title_) == kScriptScriptTitleOffset && offsetof(Script, spawn_flags_) == kScriptSpawnFlagsOffset &&
+                          offsetof(Script, spawner_file_) == kScriptSpawnerFileOffset && offsetof(Script, spawn_id_) == kScriptSpawnIdOffset &&
+                          offsetof(Script, on_finish_script_) == kScriptOnFinishScriptOffset && offsetof(Script, callback_params_) == kScriptCallbackParamsOffset &&
+                          offsetof(Script, signal_routes_) == kScriptSignalRoutesOffset && offsetof(Script, on_exception_script_) == kScriptOnExceptionScriptOffset &&
+                          offsetof(Script, on_exit_script_) == kScriptOnExitScriptOffset && offsetof(Script, shared_base_) == kScriptSharedBaseOffset,
                       "layout must match the original");
     }
 };
-static_assert(sizeof(Script) == 0xF4, "allocated as 0xF4 bytes by the original");
+static_assert(sizeof(Script) == kScriptBytes, "allocated as 0xF4 bytes by the original");
 
 // flag_bits_ (+0xB4)
 constexpr uint8_t kScriptRunInterrupted = 0x01; // the top level was entered as an interrupt

@@ -33,6 +33,9 @@ constexpr uint32_t kPacketForeign = 0x1;          // from an address that isn't 
 constexpr uint32_t kPacketLate = 0x2;             // its timestamp is older than the newest
 constexpr uint32_t kPacketChecksumMismatch = 0x4; // a stream whose checksum doesn't match
 
+constexpr size_t kInboundMsgCtxSequencesToAckOffset = 0x1C;
+constexpr size_t kInboundMsgCtxNumSequencesToAckOffset = 0x9C;
+constexpr size_t kInboundMsgCtxBytes = 0xA4;
 // What a handler gets (0xA4 bytes, constructor 0x00454A20).
 struct InboundMsgCtx {
     // 0x00454A20 (net_descs.cpp): every field zeroed.
@@ -75,8 +78,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(InboundMsgCtx, sequences_to_ack_) == 0x1C &&
-                      offsetof(InboundMsgCtx, num_sequences_to_ack_) == 0x9C && sizeof(InboundMsgCtx) == 0xA4);
+        static_assert(offsetof(InboundMsgCtx, sequences_to_ack_) == kInboundMsgCtxSequencesToAckOffset &&
+                      offsetof(InboundMsgCtx, num_sequences_to_ack_) == kInboundMsgCtxNumSequencesToAckOffset && sizeof(InboundMsgCtx) == kInboundMsgCtxBytes);
     }
 };
 

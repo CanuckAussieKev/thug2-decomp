@@ -146,6 +146,7 @@ public:
     void* following_item();
 };
 
+constexpr size_t kDownloadRequestBytes = 0x118;
 // A file to download (Download: the top stats and DownloadFile build it on the stack).
 struct DownloadRequest {
     uint32_t buffer_size_;     // +0x000
@@ -156,7 +157,7 @@ struct DownloadRequest {
     uint32_t progress_script_; // +0x110
     uint32_t error_script_;    // +0x114 (run on failure with ghttp's result 11)
 };
-static_assert(sizeof(DownloadRequest) == 0x118, "built in the callers' stack frames");
+static_assert(sizeof(DownloadRequest) == kDownloadRequestBytes, "built in the callers' stack frames");
 
 class VaultMan {
 public:

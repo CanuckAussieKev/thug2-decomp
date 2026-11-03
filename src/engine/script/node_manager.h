@@ -37,6 +37,11 @@ struct NodeArrayEntry {
     std::array<uint8_t, 3> pad9;
 };
 
+constexpr size_t kNodeManagerWalkOffset = 0x10000;
+constexpr size_t kNodeManagerNumOffset = 0x10004;
+constexpr size_t kNodeManagerArraysOffset = 0x10008;
+constexpr size_t kNodeManagerOwnerPtrOffset = 0x100F8;
+constexpr size_t kNodeManagerBytes = 0x100FC;
 class NodeManager {
 public:
     static constexpr int kSlots = 0x4000;
@@ -109,9 +114,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(NodeManager, walk_) == 0x10000 && offsetof(NodeManager, num_) == 0x10004 &&
-                          offsetof(NodeManager, arrays_) == 0x10008 && offsetof(NodeManager, owner_ptr_) == 0x100F8 &&
-                          sizeof(NodeManager) == 0x100FC,
+        static_assert(offsetof(NodeManager, walk_) == kNodeManagerWalkOffset && offsetof(NodeManager, num_) == kNodeManagerNumOffset &&
+                          offsetof(NodeManager, arrays_) == kNodeManagerArraysOffset && offsetof(NodeManager, owner_ptr_) == kNodeManagerOwnerPtrOffset &&
+                          sizeof(NodeManager) == kNodeManagerBytes,
                       "layout must match the original (allocated as 0x100FC bytes)");
     }
 };
