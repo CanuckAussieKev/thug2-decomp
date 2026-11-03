@@ -41,6 +41,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
+#include "wire/message_ids.h"
 
 namespace objects {
 
@@ -673,11 +674,11 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
         desc.set_byte_count(static_cast<uint16_t>(writer.position()));
         desc.set_ident(online::kMsgTrickObjects);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(online::kGroupGame);
         for (online::PlayerRecord* info = net->begin_player_walk(&search, false); info;
              info = net->step_player_walk(&search, false))
             server->send_bulk_message(info->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()}, data.data(),
-                                      "TrickObj Buffer", kGroupGame, true, false);
+                                      "TrickObj Buffer", online::kGroupGame, true, false);
 
         util::ByteWriter observed_writer(data.data(), sizeof(data));
         online::write_observed_trick_objects(observed_writer, *all);
@@ -688,7 +689,7 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
              info = net->step_player_walk(&search, true)) {
             if (info->is_observer())
                 server->send_bulk_message(info->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()}, data.data(),
-                                          "TrickObj Buffer", kGroupGame, true, false);
+                                          "TrickObj Buffer", online::kGroupGame, true, false);
         }
         static_cast<modules::Skate*>(skate)->broadcast_points(false);
         if (conn->is_host_local()) // (no null check: as the original)

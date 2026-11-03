@@ -108,7 +108,6 @@ constexpr uint32_t kIsHorse = 0xD1993397;          // is_horse
 constexpr uint32_t kOff = 0xD443A2BC;              // off
 
 // Messages.
-constexpr uint8_t kGroupTag = 10;
 
 const char* const kTagPaletteDesc = "CAG Palette"; // "CAG Palette"
 const char* const kTagTextureDesc = "CAG Texture"; // "CAG Texture"
@@ -317,13 +316,13 @@ bool Hub::send_custom_tag_texture()
             desc.set_content(&logos);
             desc.set_byte_count(4);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-            desc.set_group_id(kGroupTag);
+            desc.set_group_id(kGroupGraffiti);
             void* palette = texture_palette(texture);
             client_app_->send_bulk_to_conn(server, {.msg_id_ = kMsgGraffitiPalette, .size = texture_palette_size(texture)}, palette,
-                                           kTagPaletteDesc, kGroupTag, false, true);
+                                           kTagPaletteDesc, kGroupGraffiti, false, true);
             void* pixels = texture_pixels(texture);
             client_app_->send_bulk_to_conn(server, {.msg_id_ = kMsgGraffitiTexture, .size = get_texture_size(texture)}, pixels, kTagTextureDesc,
-                                           kGroupTag, false, true);
+                                           kGroupGraffiti, false, true);
             send_to_server(client_app_, &desc);
         }
     }

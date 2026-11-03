@@ -54,7 +54,6 @@ constexpr int kNetErrorDhcp = 6;
 constexpr int kNetErrorChangedDevice = 7;
 constexpr int kMessageTypeCount = 256;
 // The message a local skater's client sends the host when its script says so; the sequenced group of the game's messages.
-constexpr uint8_t kGroupGame = 8;
 // "no server / no address" from the command line and from inet_addr.
 constexpr uint32_t kNoAddress = 0xFFFFFFFFu;
 
@@ -405,7 +404,7 @@ bool cfunc_notify_bail_done(script::Struct*, script::Script* script)
         net::NetMessageInfo desc;
         desc.set_ident(online::kMsgJoined);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(online::kGroupGame);
         core::down_cast<net::Guest>(client)->send_to_host(&desc);
     }
     return true;

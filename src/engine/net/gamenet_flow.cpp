@@ -45,6 +45,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include "wire/net_wire.h"
+#include "wire/message_ids.h"
 
 namespace online {
 

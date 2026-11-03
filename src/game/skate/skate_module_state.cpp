@@ -103,7 +103,6 @@ constexpr uint32_t kLoadCas = 0xA368B4F1;               // load_cas
 constexpr uint32_t kPrefs = 0xB58E6556;                 // prefs
 constexpr uint32_t kAbsentInNetGames = 0x68910AC6;      // AbsentInNetGames
 
-constexpr uint8_t kGroupGame = 8;
 
 
 int& get_refs() { return skate_module_state_state().skate_module_references_; }
@@ -376,26 +375,26 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
         if (!static_cast<uint8_t>(info->is_own_player()) && level == kLoadSk5EdGameplay) {
             void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
             int handle = info->get_link_handle();
-            server->send_bulk_message(handle, {.msg_id_ = online::kMsgParkMap, .size = kParkMapMessageBytes}, map, "level data", kGroupGame, false,
+            server->send_bulk_message(handle, {.msg_id_ = online::kMsgParkMap, .size = kParkMapMessageBytes}, map, "level data", online::kGroupGame, false,
                                       true);     // "level data"
             park_editing::RailAuthoring::sole(); // (the rail editor; this first answer unused, as the original)
             void* rails = park_editing::RailAuthoring::sole()->get_packed();
             handle = info->get_link_handle();
-            server->send_bulk_message(handle, {.msg_id_ = online::kMsgRailsData, .size = kParkRailsMessageBytes}, rails, "rail data", kGroupGame, false,
+            server->send_bulk_message(handle, {.msg_id_ = online::kMsgRailsData, .size = kParkRailsMessageBytes}, rails, "rail data", online::kGroupGame, false,
                                       true); // "rail data"
         }
         desc.set_content(&message);
         desc.set_byte_count(sizeof(message));
         desc.set_ident(online::kMsgLevelSwitch);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(online::kGroupGame);
         server->put_on_outbox(info->get_link_handle(), &desc);
         if (!static_cast<uint8_t>(info->is_own_player()) && net->has_created_goals()) {
             net->prepare_created_goals(level);
             void* goals = net->get_created_goals_message();
             const uint32_t size = net->get_created_goals_size();
             server->send_bulk_message(info->get_link_handle(), {.msg_id_ = online::kMsgGoalsData, .size = static_cast<uint16_t>(size)}, goals,
-                                      "goals data", kGroupGame, false, true); // "goals data"
+                                      "goals data", online::kGroupGame, false, true); // "goals data"
         }
         desc.set_content(&now);
         desc.set_byte_count(4);

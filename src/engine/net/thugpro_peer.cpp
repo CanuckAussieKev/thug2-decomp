@@ -52,6 +52,7 @@
 #include "engine/core/field_reader.h"
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace script {
 class Struct;
@@ -87,7 +88,6 @@ constexpr uint32_t kLoadSk5edGameplay = 0xB664035D; // load_sk5ed_gameplay (a cr
 constexpr uint32_t kWeatherRain = 0x48AD7552;       // rain
 constexpr uint32_t kWeatherSnow = 0xC97C5A4C;       // snow (and clear 0x1A4E0EF9 - or anything else: none)
 
-constexpr uint8_t kGroupPlayerMessages = 8; // the sequence group of chat and THUGPRO's messages
 constexpr int kHandleBroadcast = 0xFF;
 constexpr int kSettleFrames = 30;    // frames with the level up before the options are applied
 constexpr uint32_t kLoadGapMs = 400; // a frame this long: a level (re)load ran in it
@@ -497,7 +497,7 @@ void send_server_info(net::AppHost* app, int handle)
     desc.set_content(bytes.data());
     desc.set_rank(net::NetMessageInfo::kHighestRank);
     desc.set_queue(net::NetMessageInfo::kLanePriority);
-    desc.set_group_id(kGroupPlayerMessages);
+    desc.set_group_id(online::kGroupGame);
     app->put_on_outbox(handle, &desc);
 }
 
@@ -523,7 +523,7 @@ void get_broadcast(Broadcast broadcast)
     desc.set_byte_count(sizeof(bytes));
     desc.set_content(bytes.data());
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupPlayerMessages);
+    desc.set_group_id(online::kGroupGame);
     manager->host()->put_on_outbox(kHandleBroadcast, &desc);
 }
 

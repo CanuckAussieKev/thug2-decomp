@@ -69,6 +69,7 @@
 #include "engine/net/net_game_state.h"
 #include "engine/script/script_state.h"
 #include "engine/net/player_info.h"
+#include "wire/message_ids.h"
 
 namespace {
 
@@ -92,7 +93,6 @@ constexpr uint32_t kFlagBitMask = 31;
 constexpr int kAssetKindObjectCamera = 9;
 constexpr int kKilobyteShift = 10;
 constexpr int kFlashFlagValue = 8;
-constexpr uint8_t kGroupGame = 8;
 // The number SetScreenModeFromGameMode's debug message prints.
 constexpr int kScreenModeDebugNumber = 0x16C0;
 // A cheat text is at least this long; the check hashes it through this many rounds.
@@ -662,7 +662,7 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
         desc.set_ident(online::kMsgToggleCheat);
         desc.set_byte_count(sizeof(data));
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(online::kGroupGame);
         server->put_on_outbox(conn->hdl(), &desc);
         script::script_state().set_last_broadcasted_omnigon(omnigon);
     }

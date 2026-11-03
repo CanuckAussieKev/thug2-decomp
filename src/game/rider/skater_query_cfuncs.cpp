@@ -30,7 +30,6 @@
 namespace commands {
 
 namespace {
-constexpr int kGameGroup = 8;                      // the sequenced group of the game's messages
 constexpr uint32_t kAllBitsSet = 0xFFFFFFFF; // (text unknown)
 
 using namespace skate_calls;
@@ -97,7 +96,7 @@ void prepare_eliminated(net::NetMessageInfo* desc, uint32_t* data)
     desc->set_byte_count(4);
     desc->set_content(data);
     desc->set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc->set_group_id(kGameGroup);
+    desc->set_group_id(online::kGroupGame);
 }
 void send_to_players(online::Hub* manager, net::NetMessageInfo* desc, bool observers)
 {

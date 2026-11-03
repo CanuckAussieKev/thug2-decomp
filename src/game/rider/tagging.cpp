@@ -48,6 +48,7 @@
 #include "engine/gfx/engine_parts.h"
 #include "engine/net/net_game_state.h"
 #include "engine/maths/vec4.h"
+#include "wire/message_ids.h"
 
 namespace objects {
 
@@ -56,7 +57,6 @@ constexpr std::size_t kKeyBytes = 32;
 constexpr int kSplatSpinRange = 90;                // a splat's random spin: a range of degrees, centred on none
 constexpr int kSplatSpinHalfRange = 45;
 constexpr float kSplatLifetime = 5000.0f;
-constexpr int kTagMessageGroup = 0xA;
 constexpr int kTagIgnoreFlags = 0x3000;            // the faces a tag's rays pass through
 constexpr int kTagFirstCountdown = 10;
 constexpr int kTagSpreadFrames = 30;
@@ -274,7 +274,7 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     msg.set_content(data.data());
     msg.set_byte_count(sizeof(data));
     msg.set_ident(online::kMsgPlaceTag);
-    msg.set_group_id(kTagMessageGroup);
+    msg.set_group_id(online::kGroupGraffiti);
     msg.set_queue(net::NetMessageInfo::kLaneOrdered);
     core::down_cast<net::Guest>(manager->fetch_patron(0))->send_to_host(&msg);
 }

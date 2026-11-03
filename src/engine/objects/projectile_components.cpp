@@ -36,12 +36,12 @@
 #include "formats/byte_stream.h"
 #include "engine/core/down_cast.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace objects {
 
 namespace {
 constexpr int kScorePerSize = 10;
-constexpr int kGameGroup = 8;                      // the sequenced group of the game's messages
 
 constexpr uint32_t kRadius = 0xC48391A5;              // radius
 constexpr uint32_t kScale = 0x13B9DA7B;               // scale
@@ -182,7 +182,7 @@ void ShotImpactModule::tick_frame()
         msg.set_content(bytes.data());
         msg.set_byte_count(sizeof(bytes));
         msg.set_queue(net::NetMessageInfo::kLaneOrdered);
-        msg.set_group_id(kGameGroup);
+        msg.set_group_id(online::kGroupGame);
         victim->change_recent_hit_stamp(frame_clock::get_time());
         server->put_on_outbox(victim->get_link_handle(), &msg);
         hit.object_id = static_cast<uint8_t>(skater->ident());

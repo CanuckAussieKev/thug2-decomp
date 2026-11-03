@@ -51,7 +51,6 @@ constexpr uint32_t kRadius = 0xC48391A5;           // "radius"
 using online::kMsgBoardVehicle; // BroadcastEnterVehicle: the skater and the control type
 using online::kMsgHuntPlacements; // a player's placed objects (from the server) / one placed (to it)
 using online::kMsgProjectile;                                        // BroadcastProjectile
-constexpr uint8_t kGroupGame = 8;
 
 
 // A hunt player's placed objects: how many (+0x34) and where (+0x180, 16 bytes each).
@@ -80,7 +79,7 @@ void announce_to_players(uint8_t id, bool remote_only)
             continue;
         desc.set_ident(id);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(online::kGroupGame);
         server->put_on_outbox(online::detail::player_handle(player), &desc);
     }
 }
@@ -142,7 +141,7 @@ bool cfunc_report_object_pickup(script::Struct* params, script::Script*)
     uint32_t msg = id;
     desc.set_ident(online::kMsgHuntItemPickedUp);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(online::kGroupGame);
     desc.set_content(&msg);
     desc.set_byte_count(sizeof(msg));
     online::detail::send_to_server(app, &desc);
@@ -183,7 +182,7 @@ bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
         desc.set_ident(kMsgBoardVehicle);
         desc.set_byte_count(sizeof(data));
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(online::kGroupGame);
         online::detail::send_to_server(client, &desc);
     }
     return true;
@@ -223,7 +222,7 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
     desc.set_content(data.data());
     desc.set_byte_count(sizeof(data));
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(online::kGroupGame);
     for (online::PlayerRecord* receiver = online::detail::start_roster_sweep(manager, &receivers, true); receiver;
          receiver = online::detail::step_roster_sweep(manager, &receivers, true)) {
         for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &others, false); player;
@@ -268,7 +267,7 @@ bool cfunc_report_object_placement(script::Struct* params, script::Script*)
         desc.set_ident(kMsgHuntPlacements);
         desc.set_byte_count(sizeof(data));
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(online::kGroupGame);
         online::detail::send_to_server(app, &desc);
     }
     return true;
@@ -318,7 +317,7 @@ bool cfunc_broadcast_projectile(script::Struct* params, script::Script*)
     desc.set_content(data.data());
     desc.set_byte_count(sizeof(data));
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(online::kGroupGame);
     online::detail::send_to_server(client, &desc);
     return true;
 }

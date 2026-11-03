@@ -8,6 +8,12 @@
 // play_messages.h, skater_messages.h, skate_net_messages.h; the transport's own in net_wire.h.
 namespace online {
 
+// The sequenced groups the game's messages go in (the group byte of a sequenced message, net_wire.h): each group's
+// messages arrive in the order they were sent.
+constexpr uint8_t kGroupGame = 8;     // the game's messages
+constexpr uint8_t kGroupFaceData = 9; // a player's face texture
+constexpr uint8_t kGroupGraffiti = 10; // the graffiti tags: their placing and their art (the create-a-graphic data)
+
 constexpr uint8_t kMsgServerQuery = 0x11;     // a client asks the server for its description
 constexpr uint8_t kMsgObjectUpdates = 0x23;   // the skaters' states (the object-update stream, object_updates.h)
 constexpr uint8_t kMsgReadyQuery = 0x25;      // are you ready (a time stamp)

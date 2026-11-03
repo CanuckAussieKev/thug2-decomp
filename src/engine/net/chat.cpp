@@ -41,10 +41,10 @@
 #include "engine/core/format.h"
 #include "engine/gfx/renderer.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 
 namespace {
 constexpr unsigned kStructBytes = 8;
-constexpr uint8_t kGroupGame = 8;
 constexpr uint32_t kTauntRepeatDelay = 2000; // ms
 
 // Names (the checksums of their text).

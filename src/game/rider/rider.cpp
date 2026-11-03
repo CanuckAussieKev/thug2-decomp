@@ -139,7 +139,6 @@ constexpr int kSourceLineId = 0x43D;
 constexpr unsigned kByteMask = 0xFF;
 constexpr float kCameraBackOffset = 144.0f;
 constexpr float kRecoverSpeed = 10.0f;
-constexpr int kGameGroup = 8;                      // the sequenced group of the game's messages
 constexpr uint32_t kSegway = 0x3029FB1F; // Segway
 constexpr uint32_t kSegwayPhysics = 0x8B3B782B; // segway_physics
 constexpr uint32_t kMechbull = 0x61C62B2D; // mechbull
@@ -1759,7 +1758,7 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
             player->mark_face_texture_sent();
         message.set_ident(online::kMsgRiderReady);
         message.set_queue(net::NetMessageInfo::kLaneOrdered);
-        message.set_group_id(kGameGroup);
+        message.set_group_id(online::kGroupGame);
         client->send_to_host(&message);
     }
 }

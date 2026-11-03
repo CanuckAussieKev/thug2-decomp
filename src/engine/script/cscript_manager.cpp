@@ -38,6 +38,7 @@
 #include "wire/play_messages.h"
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
+#include "wire/message_ids.h"
 #include <gsl/pointers>
 
 namespace script {
@@ -47,7 +48,6 @@ namespace {
 constexpr int kSpawnFlagsKept = 0xF1;
 // A message with no object; the net group a spawn-script message goes in.
 constexpr uint32_t kNoObjectId = 0xFFFFFFFFu;
-constexpr int kSpawnScriptGroupId = 8;
 
 void bind_script(Script* script, uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object)
 {
@@ -294,7 +294,7 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
     desc.set_byte_count(static_cast<uint16_t>(size + online::kRunScriptHeaderSize));
     desc.set_ident(kNetopSpawnScript);
     desc.set_queue(NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kSpawnScriptGroupId);
+    desc.set_group_id(online::kGroupGame);
     send_to_host(client, &desc);
 }
 
@@ -320,7 +320,7 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
     desc.set_byte_count(sizeof(data));
     desc.set_ident(online::kMsgSpawnScript);
     desc.set_queue(NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kSpawnScriptGroupId);
+    desc.set_group_id(online::kGroupGame);
     send_to_host(client, &desc);
 }
 

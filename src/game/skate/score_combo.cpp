@@ -44,6 +44,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/str.h"
 #include "engine/core/format.h"
+#include "wire/message_ids.h"
 
 namespace modules {
 
@@ -95,7 +96,6 @@ constexpr uint32_t kCabTrick3 = 0x428485BB;
 
 using online::kMsgBestCombo;   // the best combo to the server
 using online::kMsgLandedScore; // a landed combo's points to the server
-constexpr uint8_t kGroupGame = 8;
 
 // The skater's adjust-physics component's uber-frig flag (the tricks' points are held while it's set).
 bool points_held(objects::Rider* skater)
@@ -127,7 +127,7 @@ void send_points(online::Hub* net, objects::Rider* skater, PointsMessage points_
     desc.set_content(data.data());
     desc.set_byte_count(sizeof(data));
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(online::kGroupGame);
     core::down_cast<net::Guest>(net->fetch_patron(skater->view_slot()))->send_to_host(&desc);
 }
 

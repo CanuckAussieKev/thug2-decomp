@@ -170,7 +170,6 @@ constexpr uint32_t kSkaterEndRun = 0xB1D5A3E1;                  // SkaterEndRun
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;             // SkaterCorePhysics
 constexpr uint32_t kFreeskate = 0x34861A16;                     // freeskate
 constexpr uint32_t kDefaultSplitscreenPreferences = 0x0076EAE3; // default_splitscreen_preferences
-constexpr uint8_t kGroupGame = 8;
 // The CTF / scavenger hunt restart points by team.
 constexpr std::array<uint32_t, 4> kTeamRestarts = {{0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}}; // TRG_CTF_Restart_<colour>
 
@@ -661,7 +660,7 @@ void Skate::test_rider_contacts()
         desc.set_byte_count(1);
         desc.set_ident(online::kMsgKing);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(online::kGroupGame);
         server->put_on_outbox(as_player(player)->get_link_handle(), &desc);
     }
 }

@@ -217,10 +217,6 @@ public:
     uint32_t log_trick_objects(std::span<uint32_t> objects, std::span<uint8_t> stolen, int player, uint32_t score);
 };
 
-// The graffiti messages' group (their formats: wire/skater_messages.h - sent by score_trick_objects and
-// modules::PointTally, score_net.cpp).
-constexpr uint8_t kGroupGame = 8;
-
 // The manager's table walks' callbacks (cdecl, the cluster and the walk's state). 0x00588430: a cluster's index (the
 // clusters before it counted until it's found); 0x00588450: the cluster at an index (counted down); 0x005884B0: a
 // player's held clusters written to the graffiti state.

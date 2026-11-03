@@ -80,7 +80,6 @@ constexpr int kHuntNearEnd = 5;                  // the hunt announces five obje
 constexpr int kHuntPlacementsPerPlayer = 5;
 constexpr int kPartDeckGraphic = 8;              // the graffiti parts bit of the deck's graphic
 constexpr std::size_t kFaceSkinBytes = 0x449C;
-constexpr uint8_t kFaceDataGroup = 9;
 constexpr uint32_t kWobble1On = 0x4121999Au;     // 10.1
 constexpr uint32_t kWobble1Off = 0x3D23D70Au;    // 0.04
 constexpr uint32_t kWobble2On = 0x41A00000u;     // 20
@@ -385,10 +384,10 @@ int SkateNet::handle_relay(net::InboundMsgCtx* context)
         case online::kMsgLookUpObjectB:
         case online::kMsgChat:
         case online::kMsgBoardVehicle:
-            get_sequence(desc, kGameGroup);
+            get_sequence(desc, online::kGroupGame);
             break;
         case online::kMsgPlaceTag:
-            get_sequence(desc, kCustomArtGroup);
+            get_sequence(desc, online::kGroupGraffiti);
             break;
         case online::kMsgProjectile: {
             // a projectile in firefight: its owner and the sender's latency put in (once in range)
@@ -463,7 +462,7 @@ int SkateNet::handle_relay_sequenced(net::InboundMsgCtx* context)
         if (player == sender)
             continue;
         relay(desc, context);
-        get_sequence(desc, kGameGroup);
+        get_sequence(desc, online::kGroupGame);
         enqueue(context->receiver_app(), player, &desc);
     }
     // a script run on every machine (0x49): the server queues its own (NOT ORIGINAL: not one too short - the original
@@ -517,7 +516,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             desc = net::NetMessageInfo();
             net::AppHost* server = server_app();
             desc.set_ident(online::kMsgHuntCollectEnd);
-            get_sequence(desc, kGameGroup);
+            get_sequence(desc, online::kGroupGame);
             for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
                 if (!player->is_own_player())
                     enqueue(server, player, &desc);
@@ -540,7 +539,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
                 core::at(left, 1) = count;
                 desc.set_content(left.data());
                 desc.set_ident(online::kMsgHuntItemsLeft);
-                get_sequence(desc, kGameGroup);
+                get_sequence(desc, online::kGroupGame);
                 desc.set_byte_count(2);
                 for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true))
                     enqueue(server, player, &desc);
@@ -556,7 +555,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
                 continue;
             desc.set_content(msg);
             desc.set_ident(online::kMsgHuntItemPickedUp);
-            get_sequence(desc, kGameGroup);
+            get_sequence(desc, online::kGroupGame);
             desc.set_byte_count(4);
             enqueue(server, player, &desc);
         }
@@ -593,7 +592,7 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
         net::AppHost* server = server_app();
         for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
             desc.set_ident(online::kMsgHuntEnd);
-            get_sequence(desc, kGameGroup);
+            get_sequence(desc, online::kGroupGame);
             enqueue(server, player, &desc);
         }
     }
@@ -674,23 +673,23 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             desc.set_content(&id);
             desc.set_ident(online::kMsgGraffitiPlayer);
             desc.set_byte_count(1);
-            get_sequence(desc, kCustomArtGroup);
+            get_sequence(desc, online::kGroupGraffiti);
             enqueue(app, other, &desc);
             // (the texture's palette and pixels: through the geoms' jumps 0x0048DF20 / 0x0048DF30 and 0x0048DF00 /
             // 0x0049F3A0 - the same stub in the engine's and the PC's tables: none)
             void* palette = texture->get_palette();
             const uint32_t palette_size = texture->get_palette_size();
-            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::kMsgGraffitiPalette, .size = static_cast<uint16_t>(palette_size)}, palette, "CAG Palette", kCustomArtGroup,
+            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::kMsgGraffitiPalette, .size = static_cast<uint16_t>(palette_size)}, palette, "CAG Palette", online::kGroupGraffiti,
                                    false, true); // "CAG Palette"
             void* pixels = texture->get_pixels();
             const uint32_t pixels_size = texture->get_pixels_size();
-            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::kMsgGraffitiTexture, .size = static_cast<uint16_t>(pixels_size)}, pixels, "CAG Texture", kCustomArtGroup,
+            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::kMsgGraffitiTexture, .size = static_cast<uint16_t>(pixels_size)}, pixels, "CAG Texture", online::kGroupGraffiti,
                                    false, true); // "CAG Texture"
             uint32_t sent_parts = parts;
             desc.set_content(&sent_parts);
             desc.set_ident(online::kMsgGraffitiParts);
             desc.set_byte_count(4);
-            get_sequence(desc, kCustomArtGroup);
+            get_sequence(desc, online::kGroupGraffiti);
             enqueue(app, other, &desc);
         }
         break;
@@ -746,7 +745,7 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
             // the face's size)
             const uint32_t kept = context->body_size() + 1 < 0x4499 ? context->body_size() + 1 : 0x4499;
             app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::kMsgFaceTexture, .size = static_cast<uint16_t>(kept)}, sender->get_face_texture_data(),
-                                   "Face Data", kFaceDataGroup, false, true); // "Face Data"
+                                   "Face Data", online::kGroupFaceData, false, true); // "Face Data"
         }
     }
     // (freed without its destructor, as the original)
@@ -1271,7 +1270,7 @@ void Skate::leave_server()
     if (client) {
         net::NetMessageInfo desc;
         desc.set_ident(net::wire::kMsgDisconnRequest);
-        get_sequence(desc, kGameGroup);
+        get_sequence(desc, online::kGroupGame);
         core::down_cast<net::Guest>(client)->send_to_host(&desc);
         client->transmit(false);
     }
@@ -1294,7 +1293,7 @@ void Skate::send_cheats(online::PlayerRecord* player)
     desc.set_content(data.data());
     desc.set_ident(online::kMsgCheats);
     desc.set_byte_count(static_cast<uint16_t>(writer.position()));
-    get_sequence(desc, kGameGroup);
+    get_sequence(desc, online::kGroupGame);
     const int handle = player->get_link_handle();
     net->host()->put_on_outbox(handle, &desc);
 }
@@ -1345,7 +1344,7 @@ void Skate::broadcast_points(bool final)
         desc.set_ident(skate_net::kMsgScores);
         desc.set_byte_count(static_cast<uint16_t>(writer.position()));
         if (final || cheats)
-            get_sequence(desc, kGameGroup);
+            get_sequence(desc, online::kGroupGame);
         enqueue(server_app(), player, &desc);
         if (player->is_own_player() || !player->has_finished_joining())
             continue;
@@ -1353,7 +1352,7 @@ void Skate::broadcast_points(bool final)
         std::array<uint32_t, 2> check = {{get_cheats() ^ skate_net::kCheatsCheckMask, 0}};
         desc.set_content(check.data());
         desc.set_ident(skate_net::kMsgCheatsCheck);
-        get_sequence(desc, kGameGroup);
+        get_sequence(desc, online::kGroupGame);
         desc.set_byte_count(kCheatsCheckBytes);
         enqueue(server_app(), player, &desc);
     }

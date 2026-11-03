@@ -43,7 +43,6 @@ constexpr int kHalt = net::kResultStop;
 constexpr int kDone = net::kResultConsumed;
 constexpr int kKeep = net::kHandlerKeep;
 
-constexpr uint8_t kGroupGame = 8; // the sequenced group of the game's messages
 
 inline Hub* manager_of(net::InboundMsgCtx* context) { return static_cast<Hub*>(context->content()); }
 inline const uint8_t* get_message(net::InboundMsgCtx* context)

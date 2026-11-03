@@ -38,6 +38,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
+#include "wire/message_ids.h"
 #include <gsl/pointers>
 
 namespace goals {
@@ -59,7 +60,6 @@ constexpr uint32_t kTrick = 0x270F56E1;                     // trick (the compon
 constexpr uint32_t kCreateGeometry = 0xF4EB5C60;            // create_geometry
 constexpr uint32_t kTrickObjects = 0xEFC35592;              // TrickObjects
 
-constexpr uint8_t kGroupGoals = 8;    // (its message group)
 
 const char* const kSpecialGap = "special_gap"; // "special_gap"
 
@@ -195,7 +195,7 @@ bool GoalManager::complete_objective(uint32_t id)
             util::ByteWriter writer(bytes.data(), sizeof(bytes));
             online::write_goal_message(writer, message);
             desc.set_byte_count(sizeof(bytes));
-            desc.set_group_id(kGroupGoals);
+            desc.set_group_id(online::kGroupGame);
             desc.set_content(bytes.data());
             desc.set_ident(online::kMsgGoalCompleted);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);

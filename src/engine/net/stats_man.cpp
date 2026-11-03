@@ -45,7 +45,6 @@
 namespace {
 constexpr int kStatsLevelCount = 15;
 constexpr SIZE_T kThreadStackBytes = 0x8000;
-constexpr uint8_t kGroupGame = 8;
 constexpr size_t kGcdBufferBytes = 0x100;
 constexpr int kStatsResultLateFailure = 5; // (text unknown) failed like 1-3
 constexpr int kLastPersonalStatsIndex = 14;

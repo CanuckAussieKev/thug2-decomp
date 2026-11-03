@@ -47,7 +47,6 @@ constexpr int kWrapShift = 16;
 constexpr float kNearbyDistance = 96.0f;
 constexpr int kDrivingBit = 0x80;                   // an object id's high bit: that skater was driving
 constexpr int kObjectIdMask = 0x7F;
-constexpr int kGameGroup = 8;                       // the sequenced group of the game's messages
 constexpr std::size_t kSomeoneBytes = 8;            // the stand-in name with its terminator
 constexpr int kEntriesBack = 19;                    // one back in the ring of states (plus its size, modulo)
 constexpr uint32_t kString0 = 0xA4B08520; // String0
@@ -388,7 +387,7 @@ void RiderFrameLog::check_for_collisions(int first)
             msg.set_content(ran_into_bytes.data());
             msg.set_byte_count(sizeof(ran_into_bytes));
             msg.set_queue(net::NetMessageInfo::kLaneOrdered);
-            msg.set_group_id(kGameGroup);
+            msg.set_group_id(online::kGroupGame);
             app->put_on_outbox(get_connection(me), &msg);
             auto ran_into_by = static_cast<uint8_t>(my_driving * kDrivingBit | static_cast<uint8_t>(entity()->ident()));
             msg.set_ident(online::kMsgRanIntoAck);
@@ -419,7 +418,7 @@ void RiderFrameLog::check_for_collisions(int first)
                 msg.set_ident(online::kMsgKing);
                 msg.set_byte_count(1);
                 msg.set_queue(net::NetMessageInfo::kLaneOrdered);
-                msg.set_group_id(kGameGroup);
+                msg.set_group_id(online::kGroupGame);
                 app->put_on_outbox(get_connection(player), &msg);
             }
         } else if (get_game_type() == kGameTeamTag) {
@@ -444,7 +443,7 @@ void RiderFrameLog::check_for_collisions(int first)
                 }
                 msg.set_ident(same_team ? online::kMsgTeamTagged : online::kMsgTeamConverted);
                 msg.set_content(tagged.data());
-                msg.set_group_id(kGameGroup);
+                msg.set_group_id(online::kGroupGame);
                 msg.set_queue(net::NetMessageInfo::kLaneOrdered);
                 msg.set_byte_count(2);
                 app->put_on_outbox(get_connection(player), &msg);

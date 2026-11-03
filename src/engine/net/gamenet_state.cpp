@@ -34,7 +34,6 @@ constexpr int kGoalsBufferSize = 6000;
 constexpr uint16_t kLanPort = 5153; // the LAN lobby's port
 
 // Messages.
-constexpr uint8_t kGroupGame = 8; // the sequenced group of the game's messages
 
 // Checksums.
 constexpr uint32_t kChecksum = 0x21902065;           // checksum
