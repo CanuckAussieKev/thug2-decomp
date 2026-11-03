@@ -125,8 +125,16 @@ void side_frame(const Spec& s, int side, V3* out, V3* e0, V3* e1)
 }
 
 struct Builder {
-    Mesh mesh;
+    // The fields other code reads and sets.
+    Mesh& mesh() { return mesh_; }
+    [[nodiscard]] const Mesh& mesh() const { return mesh_; }
+    void set_uv(float value) { uv = value; }
+
+private:
+    Mesh mesh_;
     float uv{};
+
+public:
 
     void get_corner(V3 p, V3 n)
     {
@@ -140,7 +148,7 @@ struct Builder {
             u = p.z, v = p.y;
         else
             u = p.x, v = p.y;
-        mesh.vertices.push_back({.pos = p, .normal = n, .u = u / uv, .v = -v / uv});
+        mesh_.vertices.push_back({.pos = p, .normal = n, .u = u / uv, .v = -v / uv});
     }
     // A triangle wound so that its normal points along `hint` (not added when it has no area).
     void get_tri(V3 a, V3 b, V3 c, V3 hint, uint16_t flags)
@@ -154,11 +162,11 @@ struct Builder {
             n = n * -1.0f;
         }
         n = n * (1.0f / length);
-        auto first = static_cast<uint16_t>(mesh.vertices.size());
+        auto first = static_cast<uint16_t>(mesh_.vertices.size());
         get_corner(a, n);
         get_corner(b, n);
         get_corner(c, n);
-        mesh.faces.push_back({.a = first, .b = static_cast<uint16_t>(first + 1), .c = static_cast<uint16_t>(first + 2), .flags = flags});
+        mesh_.faces.push_back({.a = first, .b = static_cast<uint16_t>(first + 1), .c = static_cast<uint16_t>(first + 2), .flags = flags});
     }
     // A quad (corners in order round it) as two triangles.
     void get_quad(V3 a, V3 b, V3 c, V3 d, V3 hint, uint16_t flags)
@@ -214,9 +222,9 @@ Mesh get_build(const Spec& spec)
 {
     Spec s = spec;
     Builder b;
-    b.uv = s.uv > 0.0f ? s.uv : 256.0f;
+    b.set_uv(s.uv > 0.0f ? s.uv : 256.0f);
     if (!normalise(&s))
-        return b.mesh;
+        return b.mesh();
     if (!s.lower) {
         const float top = s.base + s.height;
         const float bottom = s.base - kSink;
@@ -243,7 +251,7 @@ Mesh get_build(const Spec& spec)
                 add_ramp(&b, core::at(s.ramps, side), in, e0, e1, floor, s.base, ramp_length(s, side), false);
         }
     }
-    Mesh& m = b.mesh;
+    Mesh& m = b.mesh();
     if (!m.vertices.empty()) {
         m.min = m.max = core::at(m.vertices, 0).pos;
         for (const Vertex& v : m.vertices) {

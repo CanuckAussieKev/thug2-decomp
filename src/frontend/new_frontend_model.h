@@ -135,9 +135,15 @@ float ease_out(float t);                // cubic: 1 - (1 - t)^3, t clamped to 0.
 
 // A row's selection amount: moves toward 1 (selected) or 0 at 1 / kSelectSeconds a second; drawn eased.
 struct RowAnim {
-    float value = 0.0f;
+    // The fields other code reads and sets.
+    void set_value(float value) { value_ = value; }
+
+private:
+    float value_ = 0.0f;
+
+public:
     void tick(bool selected, float dt);
-    [[nodiscard]] float get_eased() const { return ease_out(value); }
+    [[nodiscard]] float get_eased() const { return ease_out(value_); }
 };
 
 // --- the menus -----------------------------------------------------------------------------------------------------

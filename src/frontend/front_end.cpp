@@ -561,7 +561,7 @@ void FrontEnd::get_pause_game(bool pause)
 
     // The skaters: their list's nodes (the head's data is -1; its data read before the null check, as the original).
     uint32_t count = 0;
-    for (const memory::ListNode* node = skate->riders().list_link_.next();
+    for (const memory::ListNode* node = skate->riders().list_link().next();
          !node->is_head() && node; node = node->next())
         ++count;
     for (uint32_t i = 0; i < count; ++i) {

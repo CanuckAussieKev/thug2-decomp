@@ -86,10 +86,18 @@ struct Sample {
 constexpr float kMinStep = 25.0f, kMaxStep = 150.0f, kTurnDegrees = 8.0f, kJump = 600.0f;
 constexpr size_t kMaxSamples = 40000; // (a run's; after that it isn't recorded further - `full`)
 struct Recorder {
-    std::vector<Sample> samples;
+    // The fields other code reads and sets.
+    std::vector<Sample>& samples() { return samples_; }
+    [[nodiscard]] const std::vector<Sample>& samples() const { return samples_; }
+    [[nodiscard]] bool full() const { return full_; }
+
+private:
+    std::vector<Sample> samples_;
     bool have_last_ = false, last_kept_ = false;
     Sample last; // the last frame fed
-    bool full = false;
+    bool full_ = false;
+
+public:
     void feed(V3 pos, Motion motion);
 };
 
@@ -117,8 +125,11 @@ struct GapChange {
     int score = 0;
 };
 struct GapTracker {
+private:
     bool known = false;
     std::vector<GapRead> last;
+
+public:
     std::vector<GapChange> tick_frame(const std::vector<GapRead>& now);
     void get_forget() { known = false, last.clear(); }
 };
@@ -131,21 +142,27 @@ struct ComboEnd {
     bool landed = false;
 };
 struct ComboTracker {
+    // The fields other code reads and sets.
+    [[nodiscard]] int ending() const { return ending_; }
+
+private:
     int pending = 0;                                               // the points pending last frame
-    int ending = 0;                                                // a combo that just ended: its points (0: none) ...
+    int ending_ = 0;                                                // a combo that just ended: its points (0: none) ...
     int settle = 0;                                                // ... and the frames left to see a bail
+
+public:
     bool tick_frame(int pending_now, bool bailing, ComboEnd* end); // true when `end` is a combo decided this frame
 };
 
 // A recorded run.
 struct Run {
     int number = 0;
-    std::vector<Sample> samples;
+    std::vector<Sample> samples_;
     std::vector<Occurrence> events;
     float seconds = 0.0f;
     std::array<float, kMotions> motion_seconds_ = {};
     bool visible = true;
-    bool full = false;
+    bool full_ = false;
 };
 
 [[nodiscard]] int gaps_landed(const Run& run_record);
@@ -157,9 +174,20 @@ struct Run {
 // A level's trails: its runs (the newest last, at most kMaxRuns) and the gaps landed in them.
 constexpr size_t kMaxRuns = 12;
 struct LevelTrails {
-    std::vector<Run> runs;
-    std::set<std::string> landed;
+    // The fields other code reads and sets.
+    std::vector<Run>& runs() { return runs_; }
+    [[nodiscard]] const std::vector<Run>& runs() const { return runs_; }
+    std::set<std::string>& landed() { return landed_; }
+    [[nodiscard]] const std::set<std::string>& landed() const { return landed_; }
+    [[nodiscard]] int next_number() const { return next_number_; }
+    void set_next_number(int value) { next_number_ = value; }
+
+private:
+    std::vector<Run> runs_;
+    std::set<std::string> landed_;
     int next_number_ = 1;
+
+public:
     void append_one(Run run); // (the oldest dropped past kMaxRuns)
 };
 

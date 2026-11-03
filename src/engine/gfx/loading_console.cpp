@@ -426,7 +426,7 @@ void screen_shown(bool freeze, bool blank)
     if (!loading_console_state().active_) {
         const double now = get_now();
         AcquireSRWLockExclusive(&loading_console_state().lock_);
-        loading_console_state().ring_.count = 0;
+        loading_console_state().ring_.set_count(0);
         loading_console_state().start_ = now;
         loading_console_state().last_activity_ = now;
         ReleaseSRWLockExclusive(&loading_console_state().lock_);

@@ -259,7 +259,7 @@ void* VaultSearch::following_item()
 VaultMan::VaultMan()
 {
     categories_.make_head();
-    search_.list_link_ = nullptr;
+    search_.set_list_link(nullptr);
     task_ = std::make_unique<tasks::Task<VaultMan>>(&vault_task, this, 0);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     semaphore_ = CreateSemaphoreA(nullptr, 1, 10, nullptr);
@@ -848,7 +848,7 @@ namespace {
 void move_category(script::Script* script, bool forward)
 {
     VaultMan* vault = get_vault();
-    memory::ListNode*& node = vault->search().list_link_;
+    memory::ListNode*& node = vault->search().list_link();
     memory::ListNode* step = forward ? node->next() : node->prev();
     node = step->data() == memory::ListNode::head_marker() ? nullptr : step;
     vault->set_category(node ? static_cast<VaultCategory*>(node->data()) : nullptr);

@@ -317,7 +317,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     trick->read_hash_value(kScr, &script, 0);
     if (script == kGrind) {
         const GrindPoint* rail = core_physics_->rail_node();
-        if (!rail || !rail->label_)
+        if (!rail || !rail->label())
             return false;
     }
     script::Struct* params = nullptr;

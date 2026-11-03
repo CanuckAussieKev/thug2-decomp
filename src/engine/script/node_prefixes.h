@@ -18,10 +18,22 @@ struct PrefixNodes {
     // 0x0045BDA0: `index` added at the end.
     void append_one(uint16_t index);
 
+    // The fields other code reads and sets.
+    [[nodiscard]] int num() const { return num_; }
+    void set_num(int value) { num_ = value; }
+    [[nodiscard]] uint16_t* indices() const { return indices_; }
+    void set_indices(uint16_t* value) { indices_ = value; }
+    [[nodiscard]] uint32_t name_prefix() const { return name_prefix_; }
+    void set_name_prefix(uint32_t value) { name_prefix_ = value; }
+
+private:
     int num_;
     uint16_t* indices_;
+
+public:
     // NOT ORIGINAL: the indices as a run of num_.
     [[nodiscard]] std::span<uint16_t> index_run() const { return {indices_, static_cast<std::size_t>(num_)}; }
+private:
     uint32_t name_prefix_;
 };
 static_assert(sizeof(PrefixNodes) == 0xC, "allocated as 0xC bytes");
@@ -67,6 +79,10 @@ struct PrefixTables {
     // many).
     std::span<const uint32_t> get_nodes(uint32_t prefix);
 
+    // The fields other code reads and sets.
+    void set_first_ptr(PrefixTable* value) { first_ptr_ = value; }
+
+private:
     PrefixTable* first_ptr_;
 };
 

@@ -108,7 +108,13 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare);
 int game_stricmp(const char* a, const char* b);
 // Its rand(): a linear congruential sequence per thread, seeded with 1.
 struct GameRandom {
+    // The fields other code reads and sets.
+    void set_state(uint32_t value) { state = value; }
+
+private:
     uint32_t state = 1;
+
+public:
     int get_next()
     {
         state = state * 214013u + 2531011u;

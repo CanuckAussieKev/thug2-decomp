@@ -141,12 +141,12 @@ bool find_ledge(const maths::Vec4& start, const maths::Vec4& end, const maths::V
     const float steepest = rail_ascent_sine();
     for (int index = 0; index < rails->num(); ++index) {
         const objects::GrindPoint* node = &core::at(rails->node_run(), index);
-        if ((node->flag_bits_ & objects::kRailFlagLadder) || !(node->flag_bits_ & objects::kRailFlagActive) ||
-            !node->succ_)
+        if ((node->flag_bits() & objects::kRailFlagLadder) || !(node->flag_bits() & objects::kRailFlagActive) ||
+            !node->succ())
             continue;
         maths::Vec4 a, b, at;
         rails->get_absolute_pos(&a, node);
-        rails->get_absolute_pos(&b, node->succ_);
+        rails->get_absolute_pos(&b, node->succ());
         float score = 0.0f;
         if (!bike::ledge_point(start, end, direction, a, b, kTapMargin, &at, &score) || score > best)
             continue;

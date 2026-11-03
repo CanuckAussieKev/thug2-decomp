@@ -130,7 +130,15 @@ public:
 // A walk over a list (lists::Hunt<VaultCategory> / <VaultItem>: their vtables, 0x0064D29C / 0x0064D2A0, hold only
 // destructors that reset them - 0x0054A770 / 0x0054A780, 0x0054A760 / 0x0054B280 - not kept): the walk's node.
 struct VaultSearch {
+    // The fields other code reads and sets.
+    memory::ListNode*& list_link() { return list_link_; }
+    [[nodiscard]] memory::ListNode* list_link() const { return list_link_; }
+    void set_list_link(memory::ListNode* value) { list_link_ = value; }
+
+private:
     memory::ListNode* list_link_ = nullptr;
+
+public:
 
     // 0x0054B6B0: the first item of the list `head` (null if none).
     void* head_element(memory::ListNode* head);

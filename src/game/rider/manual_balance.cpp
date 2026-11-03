@@ -185,7 +185,7 @@ void Balance::kickoff(uint32_t left_button, uint32_t right_button, uint32_t tric
                 cheese_ = 0.0f;
             }
         }
-        rail_ = static_cast<int>(static_cast<GrindPoint*>(rail)->label_);
+        rail_ = static_cast<int>(static_cast<GrindPoint*>(rail)->label());
         // A robot rail: a short run (under half a second) gets time and a nudge.
         const float run_time = score_display(points_held_)->robot_factor();
         if (run_time < 0.5f) {

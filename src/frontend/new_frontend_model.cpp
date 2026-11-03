@@ -519,7 +519,7 @@ float ease_out(float t)
 void RowAnim::tick(bool selected, float dt)
 {
     const float step = dt / kSelectSeconds;
-    value = selected ? std::min(1.0f, value + step) : std::max(0.0f, value - step);
+    value_ = selected ? std::min(1.0f, value_ + step) : std::max(0.0f, value_ - step);
 }
 
 // --- the menus ----------------------------------------------------------------------------------------------------
@@ -710,7 +710,7 @@ void Menu::reset_rows()
     rows_.assign(static_cast<size_t>(std::max(0, count)), RowAnim{});
     const int selected = get_selected();
     if (selected >= 0 && selected < count)
-        core::at(rows_, selected).value = 1.0f; // (a new list: its selection drawn at once)
+        core::at(rows_, selected).set_value(1.0f); // (a new list: its selection drawn at once)
 }
 
 void Menu::get_show(Screen screen)

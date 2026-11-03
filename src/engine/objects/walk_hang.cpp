@@ -270,7 +270,7 @@ void set_physics_flag_a0(objects::FootMovement* walk)
 // A ladder's other end: the node's next, else its previous.
 objects::GrindPoint* ladder_other_end(objects::GrindPoint* node)
 {
-    return node->succ_ ? node->succ_ : node->last_value_;
+    return node->succ() ? node->succ() : node->last_value();
 }
 
 // 0x006468F8: 60 degrees (a double)
@@ -470,37 +470,37 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
     };
     // a segment's flags are its first node's
     auto usable = [](const objects::GrindPoint* first) {
-        return (first->flag_bits_ & objects::kRailFlagActive) && !(first->flag_bits_ & objects::kRailFlagNoClimbing);
+        return (first->flag_bits() & objects::kRailFlagActive) && !(first->flag_bits() & objects::kRailFlagNoClimbing);
     };
     objects::GrindPoint* joining = nullptr;
     if (*t < 0.0f) {
         // back past the start: the segment before it
-        objects::GrindPoint* previous = start->last_value_;
+        objects::GrindPoint* previous = start->last_value();
         if (previous && usable(previous) && grabbable(previous, start)) {
             *new_end = start;
-            *new_start = start->last_value_;
+            *new_start = start->last_value();
             return true;
         }
         if (!rails->find_joining_rail(start, 0x28, &joining))
             return false;
     } else {
-        objects::GrindPoint* next = end->succ_;
+        objects::GrindPoint* next = end->succ();
         if (next && usable(end) && grabbable(end, next)) {
             *new_start = end;
-            *new_end = end->succ_;
+            *new_end = end->succ();
             return true;
         }
         if (!rails->find_joining_rail(end, 0x28, &joining))
             return false;
     }
     // a joining rail: does it run on the same way?
-    const bool same_way = objects::nodes_together(joining, end) || objects::nodes_together(joining->succ_, start);
+    const bool same_way = objects::nodes_together(joining, end) || objects::nodes_together(joining->succ(), start);
     maths::Vec4 a{}, b{};
     rails->get_absolute_pos(&a, start);
     rails->get_absolute_pos(&b, end);
     maths::Vec4 here = {.x = b.x - a.x, .y = b.y - a.y, .z = b.z - a.z, .w = b.w - a.w};
     here.make_unit();
-    const objects::GrindPoint* joined_next = joining->succ_;
+    const objects::GrindPoint* joined_next = joining->succ();
     rails->get_absolute_pos(&a, joining);
     rails->get_absolute_pos(&b, joined_next);
     maths::Vec4 there = {.x = b.x - a.x, .y = b.y - a.y, .z = b.z - a.z, .w = b.w - a.w};
@@ -519,7 +519,7 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
     if (!same_way)
         *t = 1.0f - *t;
     *new_start = joining;
-    *new_end = joining->succ_;
+    *new_end = joining->succ();
     debug::printf("M:%s:%i: %s\n", "omponents\\WalkHangUtil.cpp", 0x4FC, "FOUND COINCIDENT RAIL");
     return true;
 }
@@ -630,7 +630,7 @@ bool objects::FootMovement::drop_to_hang()
     if (!find_walk_rail(this, &old_pos_, &pos_, facing_away, kDropToClimbMaxSnap, &rail))
         return false;
     hang_node_ = rail.node;
-    hang_next_node_ = rail.node->succ_;
+    hang_next_node_ = rail.node->succ();
     up_speed_ = 0.0f;
     vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     along_ = rail.along;
@@ -667,7 +667,7 @@ bool objects::FootMovement::grab_rail(maths::Vec4 start, maths::Vec4 end)
     if (!find_walk_rail(this, &start, &end, current_facing, kClimbMaxSnap, &rail))
         return false;
     hang_node_ = rail.node;
-    hang_next_node_ = rail.node->succ_;
+    hang_next_node_ = rail.node->succ();
     pos_ = rail.point;
     facing_ = rail.facing;
     along_ = rail.along;
@@ -845,7 +845,7 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
     const GrindPoint* node = rail->node;
     const maths::Vec4 side = {.x = -rail->facing.z, .y = 0.0f, .z = rail->facing.x, .w = 1.0f};
     maths::Vec4 a{}, b{};
-    const maths::Vec4* next_pos = get_rails_of(this)->get_absolute_pos(&a, node->succ_);
+    const maths::Vec4* next_pos = get_rails_of(this)->get_absolute_pos(&a, node->succ());
     const maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&b, rail->node);
     const maths::Vec4 segment = {.x = node_pos->x - next_pos->x, .y = node_pos->y - next_pos->y, .z = node_pos->z - next_pos->z,
                                  .w = node_pos->w - next_pos->w};
@@ -862,9 +862,9 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
     rail->point.y = static_cast<float>(static_cast<double>(horiz) * rail->facing.y + rail->point.y);
     rail->point.z = static_cast<float>(static_cast<double>(horiz) * rail->facing.z + rail->point.z);
     rail->point.w = static_cast<float>(static_cast<double>(horiz) * rail->facing.w + rail->point.w);
-    if (shimmy_blocked(&rail->facing, rail->along, &rail->point, true, &side, segment, rail->node, rail->node->succ_))
+    if (shimmy_blocked(&rail->facing, rail->along, &rail->point, true, &side, segment, rail->node, rail->node->succ()))
         return false;
-    if (shimmy_blocked(&rail->facing, rail->along, &rail->point, false, &side, segment, rail->node, rail->node->succ_))
+    if (shimmy_blocked(&rail->facing, rail->along, &rail->point, false, &side, segment, rail->node, rail->node->succ()))
         return false;
     // nothing between the skater and the critical point - or, on the ground, over whatever is (up first)
     maths::Vec4 critical = rail->point + get_param(kHangCriticalPointHorizOffset) * rail->facing;
@@ -1014,7 +1014,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
         flip();
     // a one-sided rail (flag 0x80: hung from one side, 0x40: the other) turns it round
     bool on_right = static_cast<double>(direction.x) * out.z - static_cast<double>(direction.z) * out.x > 0.0;
-    const uint32_t flags = rail->node->flag_bits_;
+    const uint32_t flags = rail->node->flag_bits();
     if (((flags & 0x80) && on_right) || ((flags & 0x40) && !on_right)) {
         flip();
         on_right = !on_right;

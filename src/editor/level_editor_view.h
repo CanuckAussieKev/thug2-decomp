@@ -75,7 +75,10 @@ float distance_to_box(V3 point, V3 min, V3 max);
 
 // The editor-only hidden set: ids hidden; Isolate keeps `keep` shown and hides `all` but those.
 struct HiddenSet {
+private:
     std::vector<uint32_t> ids;
+
+public:
     [[nodiscard]] bool get_has(uint32_t id) const;
     // Added (false: already there).
     bool append_one(uint32_t id);

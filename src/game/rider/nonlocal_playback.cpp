@@ -328,7 +328,7 @@ void RiderRemoteSync::get_extrapolate()
 GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
 {
     GrindRailHub* rails = get_level_rails();
-    GrindPoint* next = node->succ_;
+    GrindPoint* next = node->succ();
     if (!next)
         return nullptr;
     GameEntity* skater = entity();
@@ -362,8 +362,8 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     // Whether the rail goes on round the corner ahead (else the skater stops at its end): the next segment there
     // active and turning less than Rail_Corner_Leave_Angle (both flattened).
     bool stopped = false;
-    GrindPoint* beyond = sign > 0.0f ? next->succ_ : node->last_value_;
-    if (!beyond || !(beyond->flag_bits_ & kRailActive)) {
+    GrindPoint* beyond = sign > 0.0f ? next->succ() : node->last_value();
+    if (!beyond || !(beyond->flag_bits() & kRailActive)) {
         stopped = true;
     } else {
         maths::Vec4 here{}, there{};
@@ -407,7 +407,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     if (distance > static_cast<double>(length) + kRailEndSlack) {
         overshoot = static_cast<float>(distance - length);
         // (quirk kept: going forward, the segment's own end is checked for being active, not the node beyond it)
-        if (!beyond || !((sign > 0.0f ? next : beyond)->flag_bits_ & kRailActive))
+        if (!beyond || !((sign > 0.0f ? next : beyond)->flag_bits() & kRailActive))
             return nullptr;
         if (sign > 0.0f) {
             maths::Vec4 to{}, from{};
@@ -431,7 +431,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     }
 
     // Along the segment it's on: the velocity and the matrix turned along it (the way it's going), the move.
-    const GrindPoint* end = node->succ_;
+    const GrindPoint* end = node->succ();
     rails->get_absolute_pos(&p1, node);
     rails->get_absolute_pos(&p2, end);
     maths::Vec4 segment = {.x = p2.x - p1.x, .y = p2.y - p1.y, .z = p2.z - p1.z, .w = p2.w - p1.w};

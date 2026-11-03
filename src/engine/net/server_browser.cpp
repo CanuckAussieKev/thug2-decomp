@@ -155,9 +155,9 @@ HostListing* find_by_sb(Hub* manager, void* sb)
     VaultSearch search;
     auto* server = static_cast<HostListing*>(search.head_element(&manager->servers())); // (the first)
     while (server) {
-        memory::ListNode* next = search.list_link_->next();
+        memory::ListNode* next = search.list_link()->next();
         memory::ListNode* node = next->data() == memory::ListNode::head_marker() ? nullptr : next;
-        search.list_link_ = node;
+        search.set_list_link(node);
         auto* following = node ? static_cast<HostListing*>(node->data()) : nullptr;
         if (server->sb_server() == sb)
             return server;

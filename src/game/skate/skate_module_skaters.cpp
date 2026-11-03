@@ -183,7 +183,7 @@ void unlink_skater_node(memory::ListNode* node)
 
 memory::ListNode* Skate::skater_node(uint32_t index)
 {
-    return lists::node_at(riders_.list_link_, static_cast<int>(index)); // (lists::Foremost's fetch_entry)
+    return lists::node_at(riders_.list_link(), static_cast<int>(index)); // (lists::Foremost's fetch_entry)
 }
 
 // 0x005665C0
@@ -990,7 +990,7 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
 // 0x00568DE0
 Skate::Skate()
 {
-    riders_.list_link_.make_head();
+    riders_.list_link().make_head();
     update_job_ = std::make_unique<tasks::Task<Skate>>(&front_end_tick, this, 0);
     SkateNet::create_network_tasks(this);
     objects::profile_roster()->reset_templates();
@@ -1045,7 +1045,7 @@ Skate::~Skate()
     memory::destroy_then_clear(splitscreen_preferences_);
     memory::destroy_then_clear(checksums_);
     script::Script::destroy(own_script_);
-    riders_.list_link_.uncouple(); // (0x00565730)
+    riders_.list_link().uncouple(); // (0x00565730)
 }
 
 // 0x00569580 / 0x00569590: around the network manager's queued scripts.

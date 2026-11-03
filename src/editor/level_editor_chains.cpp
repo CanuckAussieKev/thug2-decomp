@@ -822,7 +822,7 @@ objects::GrindPoint* rail_node_named(uint32_t name)
     if (!rails || !rails->nodes())
         return nullptr;
     for (int i = 0; i < rails->num(); ++i) {
-        if (core::at(rails->node_run(), i).label_ == name)
+        if (core::at(rails->node_run(), i).label() == name)
             return &core::at(rails->node_run(), i);
     }
     return nullptr;
@@ -1149,7 +1149,7 @@ std::vector<Point> added_points()
         }
         // (a rail point: where the rail manager has it - a sector moved with it takes it along)
         if (const objects::GrindPoint* node = rail_node_named(name_hash(spec.name)))
-            p.pos = {.x = node->at_point_.x, .y = node->at_point_.y, .z = node->at_point_.z};
+            p.pos = {.x = node->at_point().x, .y = node->at_point().y, .z = node->at_point().z};
         points.push_back(p);
     }
     return points;
@@ -1205,7 +1205,7 @@ float heading_of_climb(const maths::Vec4& climb)
 float facing_now(uint32_t name)
 {
     const objects::GrindPoint* node = rail_node_named(name);
-    return node && (node->flag_bits_ & objects::kRailFlagClimbing) ? heading_of_climb(node->climb_) : 0.0f;
+    return node && (node->flag_bits() & objects::kRailFlagClimbing) ? heading_of_climb(node->climb()) : 0.0f;
 }
 
 // A level ladder point's heading as the level has it.
@@ -1238,9 +1238,9 @@ void set_level_links(uint32_t name, const std::vector<uint32_t>& links)
 // The rail manager node's box: to its next node, or its own point.
 void cuboid(objects::GrindPoint* node)
 {
-    const maths::Vec4 here = node->at_point_;
-    const maths::Vec4 there = node->succ_ ? node->succ_->at_point_ : node->at_point_;
-    objects::box_of(&here, &there, &node->lower_limit_, &node->upper_limit_);
+    const maths::Vec4 here = node->at_point();
+    const maths::Vec4 there = node->succ() ? node->succ()->at_point() : node->at_point();
+    objects::box_of(&here, &there, &node->lower_limit(), &node->upper_limit());
 }
 
 void get_remake(uint32_t name)
@@ -1300,7 +1300,7 @@ void rebuild_rails()
     // moves of it stay), then the overlay's new rail points.
     std::vector<int> kept;
     for (int i = 0; i < old_count; ++i) {
-        if (look_up_node_params(core::at(old, i).label_))
+        if (look_up_node_params(core::at(old, i).label()))
             kept.push_back(i);
     }
     std::vector<std::pair<uint32_t, script::Struct*>> added;
@@ -1312,7 +1312,7 @@ void rebuild_rails()
             continue;
         bool there = false;
         for (const int i : kept)
-            there = there || core::at(old, i).label_ == name;
+            there = there || core::at(old, i).label() == name;
         if (!there)
             added.emplace_back(name, node);
     }
@@ -1342,17 +1342,17 @@ void rebuild_rails()
     std::unordered_map<uint32_t, int> index;
     for (int i = 0; i < count; ++i) {
         objects::GrindPoint* node = &core::at(nodes, i);
-        index.emplace(node->label_, i);
-        node->succ_ = node->last_value_ = nullptr;
-        const bool dropped = std::ranges::find(stored_dropped(), node->label_) != stored_dropped().end();
-        auto was = drop_active().find(node->label_);
+        index.emplace(node->label(), i);
+        node->set_succ(node->last_value() = nullptr);
+        const bool dropped = std::ranges::find(stored_dropped(), node->label()) != stored_dropped().end();
+        auto was = drop_active().find(node->label());
         if (dropped) {
             if (was == drop_active().end())
-                drop_active()[node->label_] = (node->flag_bits_ & objects::kRailFlagActive) != 0;
-            node->flag_bits_ &= ~objects::kRailFlagActive;
+                drop_active()[node->label()] = (node->flag_bits() & objects::kRailFlagActive) != 0;
+            node->flag_bits() &= ~objects::kRailFlagActive;
         } else if (was != drop_active().end()) {
-            node->flag_bits_ = was->second ? node->flag_bits_ | objects::kRailFlagActive
-                                           : node->flag_bits_ & ~objects::kRailFlagActive;
+            node->flag_bits() = was->second ? node->flag_bits() | objects::kRailFlagActive
+                                           : node->flag_bits() & ~objects::kRailFlagActive;
             drop_active().erase(was);
         }
     }
@@ -1361,17 +1361,17 @@ void rebuild_rails()
     auto is_dropped = [&](uint32_t name) { return std::ranges::find(stored_dropped(), name) != stored_dropped().end(); };
     for (int i = 0; i < count; ++i) {
         objects::GrindPoint* node = &core::at(nodes, i);
-        if (is_dropped(node->label_))
+        if (is_dropped(node->label()))
             continue;
-        for (const uint32_t link : own_links(look_up_node_params(node->label_))) {
+        for (const uint32_t link : own_links(look_up_node_params(node->label()))) {
             auto it = index.find(link);
             if (it == index.end() || is_dropped(link))
                 continue;
             objects::GrindPoint* other = &core::at(nodes, it->second);
-            if (!node->succ_ || (other->flag_bits_ & objects::kRailFlagDefaultLine))
-                node->succ_ = other;
-            if (!other->last_value_ || (node->flag_bits_ & objects::kRailFlagDefaultLine))
-                other->last_value_ = node;
+            if (!node->succ() || (other->flag_bits() & objects::kRailFlagDefaultLine))
+                node->set_succ(other);
+            if (!other->last_value() || (node->flag_bits() & objects::kRailFlagDefaultLine))
+                other->last_value() = node;
         }
     }
     for (int i = 0; i < count; ++i)
@@ -1381,29 +1381,29 @@ void rebuild_rails()
     for (size_t i = 0; i < kept.size(); ++i) {
         objects::GrindPoint* node = &core::at(nodes, i);
         uint32_t terrain = 0;
-        script::Struct* params = node_create::is_added(node->label_) ? look_up_node_params(node->label_) : nullptr;
-        if (params && !(node->flag_bits_ & objects::kRailFlagClimbing) &&
+        script::Struct* params = node_create::is_added(node->label()) ? look_up_node_params(node->label()) : nullptr;
+        if (params && !(node->flag_bits() & objects::kRailFlagClimbing) &&
             params->read_hash_value(kSurfaceKindKey, &terrain, 0) && known_terrain(terrain))
-            node->surface_type_ = surface_kind::get_terrain_index(terrain);
+            node->set_surface_type(surface_kind::get_terrain_index(terrain));
     }
     for (const auto& entry : terrains_state()) {
         auto it = index.find(entry.first);
         uint8_t value = 0;
         if (it != index.end() && terrain_byte(entry.second.terrain, &value))
-            core::at(nodes, it->second).surface_type_ = value;
+            core::at(nodes, it->second).set_surface_type(value);
     }
     // Ladders: an added point's orientation from its node's Angles (turned since it was made), a level point's as the
     // editor turned it.
     for (int i = 0; i < count; ++i) {
         objects::GrindPoint* node = &core::at(nodes, i);
-        if (!(node->flag_bits_ & objects::kRailFlagClimbing))
+        if (!(node->flag_bits() & objects::kRailFlagClimbing))
             continue;
-        if (node_create::is_added(node->label_)) {
+        if (node_create::is_added(node->label())) {
             maths::Vec4 angles;
-            level_nodes::read_turn_angles(look_up_node_params(node->label_), &angles);
-            node->climb_ = climb_of(angles.y);
-        } else if (facings_state().count(node->label_)) {
-            node->climb_ = climb_of(facings_state()[node->label_].facing);
+            level_nodes::read_turn_angles(look_up_node_params(node->label()), &angles);
+            node->set_climb(climb_of(angles.y));
+        } else if (facings_state().count(node->label())) {
+            node->set_climb(climb_of(facings_state()[node->label()].facing));
         }
     }
     if (!old.empty())
@@ -1514,7 +1514,7 @@ bool change_phase(const State& target)
             wanted = wanted || f.name == it->first;
         if (!wanted) {
             if (objects::GrindPoint* node = rail_node_named(it->first))
-                node->climb_ = it->second.original;
+                node->set_climb(it->second.original);
             it = facings_state().erase(it);
         } else {
             ++it;
@@ -1522,10 +1522,10 @@ bool change_phase(const State& target)
     }
     for (const FacingEdit& f : target.facings) {
         const objects::GrindPoint* node = rail_node_named(f.name);
-        if (!node || !(node->flag_bits_ & objects::kRailFlagClimbing) || node_create::is_added(f.name))
+        if (!node || !(node->flag_bits() & objects::kRailFlagClimbing) || node_create::is_added(f.name))
             continue;
         if (!facings_state().count(f.name))
-            facings_state()[f.name] = {.facing = f.facing, .original = node->climb_};
+            facings_state()[f.name] = {.facing = f.facing, .original = node->climb()};
         facings_state()[f.name].facing = f.facing;
     }
     level_flat().clear();
@@ -1573,7 +1573,7 @@ bool change_phase(const State& target)
             wanted = wanted || t.name == it->first;
         if (!wanted) {
             if (objects::GrindPoint* node = rail_node_named(it->first))
-                node->surface_type_ = it->second.original;
+                node->set_surface_type(it->second.original);
             it = terrains_state().erase(it);
         } else {
             ++it;
@@ -1585,7 +1585,7 @@ bool change_phase(const State& target)
         if (!node || !terrain_byte(t.terrain, &value))
             continue;
         if (!terrains_state().count(t.name))
-            terrains_state()[t.name] = {.terrain = t.terrain, .original = node->surface_type_};
+            terrains_state()[t.name] = {.terrain = t.terrain, .original = node->surface_type()};
         terrains_state()[t.name].terrain = t.terrain;
     }
     rebuild_rails();
@@ -1650,13 +1650,13 @@ void refresh_flat(objects::GrindRailHub* rails)
     static const uint32_t kFlag = name_hash("ed_grind_flat");
     for (int i = 0; i < rails->num(); ++i) {
         const objects::GrindPoint* node = &core::at(rails->node_run(), i);
-        if ((node->flag_bits_ & objects::kRailFlagClimbing) || !node->succ_)
+        if ((node->flag_bits() & objects::kRailFlagClimbing) || !node->succ())
             continue;
-        auto extras = extras_state().find(node->label_);
+        auto extras = extras_state().find(node->label());
         bool marked = (extras != extras_state().end() && extras->second.grind_flat_) ||
-                      std::ranges::find(level_flat(), node->label_) != level_flat().end();
+                      std::ranges::find(level_flat(), node->label()) != level_flat().end();
         if (!marked) {
-            script::Struct* params = look_up_node_params(node->label_);
+            script::Struct* params = look_up_node_params(node->label());
             marked = params && params->has_bare_flag(kFlag);
         }
         if (marked)
@@ -1774,24 +1774,24 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
         level_speed_cache().found.clear();
         for (int i = 0; i < rails->num(); ++i) {
             const objects::GrindPoint* node = &core::at(rails->node_run(), i);
-            script::Struct* params = node->succ_ ? look_up_node_params(node->label_) : nullptr;
+            script::Struct* params = node->succ() ? look_up_node_params(node->label()) : nullptr;
             uint32_t script = 0;
             if (!params || !params->read_hash_value(kTriggerScriptKey, &script, 0) || !script)
                 continue;
-            auto applied = speed_applied().find(node->label_);
+            auto applied = speed_applied().find(node->label());
             if (applied != speed_applied().end())
                 script = applied->second.original_script_; // (the level's own script, under ours)
             const triggers::Calls calls = triggers::script_calls(script);
             if (calls.rail_speed_)
-                level_speed_cache().found.emplace_back(node->label_, calls.rail_rate_);
+                level_speed_cache().found.emplace_back(node->label(), calls.rail_rate_);
         }
     }
     float r2 = radius * radius;
     auto add = [&](const objects::GrindPoint* node, float rate, bool level) {
-        if (!node || !node->succ_ || (node->flag_bits_ & objects::kRailFlagClimbing))
+        if (!node || !node->succ() || (node->flag_bits() & objects::kRailFlagClimbing))
             return;
-        const V3 a = {.x = node->at_point_.x, .y = node->at_point_.y, .z = node->at_point_.z};
-        const V3 b = {.x = node->succ_->at_point_.x, .y = node->succ_->at_point_.y, .z = node->succ_->at_point_.z};
+        const V3 a = {.x = node->at_point().x, .y = node->at_point().y, .z = node->at_point().z};
+        const V3 b = {.x = node->succ()->at_point().x, .y = node->succ()->at_point().y, .z = node->succ()->at_point().z};
         const V3 da = a - near;
         const V3 db = b - near;
         if (get_dot(da, da) > r2 && get_dot(db, db) > r2)
@@ -1821,9 +1821,9 @@ bool flat_grindable(V3 a, V3 b)
         return false;
     refresh_flat(rails);
     for (const objects::GrindPoint* node : flat_chains().flat_cache_.marked) {
-        const objects::GrindPoint* next = node->succ_;
-        if (next && same_segment(a, b, {.x = node->at_point_.x, .y = node->at_point_.y, .z = node->at_point_.z},
-                                 {.x = next->at_point_.x, .y = next->at_point_.y, .z = next->at_point_.z}, 0.01f))
+        const objects::GrindPoint* next = node->succ();
+        if (next && same_segment(a, b, {.x = node->at_point().x, .y = node->at_point().y, .z = node->at_point().z},
+                                 {.x = next->at_point().x, .y = next->at_point().y, .z = next->at_point().z}, 0.01f))
             return true;
     }
     return false;
@@ -1905,11 +1905,11 @@ bool move_added_point(uint32_t name, V3 pos)
     if (now.x != pos.x || now.y != pos.y || now.z != pos.z)
         write_pos(node, pos);
     if (objects::GrindPoint* rail = rail_node_named(name)) {
-        if (rail->at_point_.x != pos.x || rail->at_point_.y != pos.y || rail->at_point_.z != pos.z) {
-            rail->at_point_ = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
+        if (rail->at_point().x != pos.x || rail->at_point().y != pos.y || rail->at_point().z != pos.z) {
+            rail->at_point() = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0f};
             const objects::GrindRailHub* rails = get_rails();
             for (int i = 0; i < rails->num(); ++i) {
-                if (&core::at(rails->node_run(), i) == rail || core::at(rails->node_run(), i).succ_ == rail)
+                if (&core::at(rails->node_run(), i) == rail || core::at(rails->node_run(), i).succ() == rail)
                     cuboid(&core::at(rails->node_run(), i));
             }
             scenery::rails_rebuilt(); // (the node layer reads the places again)
@@ -2383,7 +2383,7 @@ bool apply_op(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t
         int changed = 0;
         for (uint32_t point : points) {
             const objects::GrindPoint* rail = rail_node_named(point);
-            if (op == kOpSpeedRail && (!rail || !rail->succ_))
+            if (op == kOpSpeedRail && (!rail || !rail->succ()))
                 continue; // (a rail's last point has no segment of its own)
             bool added = false;
             for (Point& p : state.points) {
@@ -2846,7 +2846,7 @@ View view_of(uint32_t name)
         if (const objects::GrindPoint* rail = rail_node_named(name)) {
             for (size_t i = 0; i < view.terrains.size(); ++i) {
                 uint8_t value = 0;
-                if (terrain_byte(core::at(view.terrains, i), &value) && value == rail->surface_type_) {
+                if (terrain_byte(core::at(view.terrains, i), &value) && value == rail->surface_type()) {
                     view.terrain = static_cast<int>(i);
                     break;
                 }

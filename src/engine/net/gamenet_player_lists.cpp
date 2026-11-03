@@ -288,7 +288,7 @@ void Hub::set_ready_state(bool ready)
         return;
     cleared_to_start_ = ready;
     modules::Skate* skate = modules::Skate::sole();
-    const unsigned int count = tally_nodes(skate->riders().list_link_.next());
+    const unsigned int count = tally_nodes(skate->riders().list_link().next());
     for (unsigned int i = 0; i < count; ++i) {
         auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
         if (skater) { // (the original's skater slots 12 / 11)
@@ -574,7 +574,7 @@ void Hub::disconnect_clients()
     if (cleared_to_start_) {
         cleared_to_start_ = false;
         modules::Skate* skate = modules::Skate::sole();
-        const unsigned int count = tally_nodes(skate->riders().list_link_.next());
+        const unsigned int count = tally_nodes(skate->riders().list_link().next());
         for (unsigned int i = 0; i < count; ++i) {
             auto* skater = core::down_cast<objects::Rider>(skate->get_rider_at(static_cast<int>(i)));
             if (skater)

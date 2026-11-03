@@ -34,6 +34,27 @@ constexpr uint32_t kRailFlagHangRight = 0x80;
 
 // A rail or climbing node (0x54 bytes).
 struct GrindPoint {
+    // The fields other code reads and sets.
+    maths::Vec4& lower_limit() { return lower_limit_; }
+    [[nodiscard]] const maths::Vec4& lower_limit() const { return lower_limit_; }
+    maths::Vec4& upper_limit() { return upper_limit_; }
+    [[nodiscard]] const maths::Vec4& upper_limit() const { return upper_limit_; }
+    maths::Vec4& at_point() { return at_point_; }
+    [[nodiscard]] const maths::Vec4& at_point() const { return at_point_; }
+    [[nodiscard]] const maths::Vec4& climb() const { return climb_; }
+    void set_climb(const maths::Vec4& value) { climb_ = value; }
+    [[nodiscard]] GrindPoint* succ() const { return succ_; }
+    void set_succ(GrindPoint* value) { succ_ = value; }
+    GrindPoint*& last_value() { return last_value_; }
+    [[nodiscard]] GrindPoint* last_value() const { return last_value_; }
+    uint32_t& flag_bits() { return flag_bits_; }
+    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    [[nodiscard]] uint32_t label() const { return label_; }
+    void set_label(uint32_t value) { label_ = value; }
+    [[nodiscard]] uint8_t surface_type() const { return surface_type_; }
+    void set_surface_type(uint8_t value) { surface_type_ = value; }
+
+private:
     maths::Vec4 lower_limit_; // +0x00 the box of its segment (to the next node; its own point with none)
     maths::Vec4 upper_limit_; // +0x10
     maths::Vec4 at_point_;    // +0x20
@@ -45,16 +66,23 @@ struct GrindPoint {
     uint8_t surface_type_;    // +0x50
     std::array<uint8_t, 3> pad51;
 
+public:
+
     // 0x0057C200: whether it's the node `name`.
     bool is_named(uint32_t name);
     // 0x0057CC30: which side of the rail has a wall: a feeler 8 long across the segment (horizontally), at a quarter
     // of the way to the next node and 6 below, cast both ways - a wall one way only: -1 or 1, flipped when the
     // segment runs against `direction`; else 0.
     int get_wall_side(const maths::Vec4* direction);
+private:
+    // The original's layout (checked inside the class: the members are private).
+    static void check_layout()
+    {
+        static_assert(offsetof(GrindPoint, at_point_) == 0x20 && offsetof(GrindPoint, succ_) == 0x40 &&
+                          offsetof(GrindPoint, label_) == 0x4C && sizeof(GrindPoint) == 0x54,
+                      "layout must match the original");
+    }
 };
-static_assert(offsetof(GrindPoint, at_point_) == 0x20 && offsetof(GrindPoint, succ_) == 0x40 &&
-                  offsetof(GrindPoint, label_) == 0x4C && sizeof(GrindPoint) == 0x54,
-              "layout must match the original");
 
 class GrindRailHub {
 public:

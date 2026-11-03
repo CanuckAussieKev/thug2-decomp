@@ -322,11 +322,11 @@ void add_overlay(const overlays::Painter& painter)
         int drawn = 0;
         for (int i = 0; i < rails->num(); ++i) {
             const objects::GrindPoint& node = core::at(rails->node_run(), i);
-            if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
-                !(node.flag_bits_ & objects::kRailFlagActive))
+            if (!node.succ() || (node.flag_bits() & objects::kRailFlagClimbing) ||
+                !(node.flag_bits() & objects::kRailFlagActive))
                 continue;
-            const V3 a = {.x = node.at_point_.x, .y = node.at_point_.y, .z = node.at_point_.z};
-            const V3 b = {.x = node.succ_->at_point_.x, .y = node.succ_->at_point_.y, .z = node.succ_->at_point_.z};
+            const V3 a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
+            const V3 b = {.x = node.succ()->at_point().x, .y = node.succ()->at_point().y, .z = node.succ()->at_point().z};
             if (painter.span_to(a) > kRadius && painter.span_to(b) > kRadius)
                 continue;
             if (painter.get_seg(a, b, kRail, 3.0f))

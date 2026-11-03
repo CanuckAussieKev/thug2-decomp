@@ -145,7 +145,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
     const auto* node = static_cast<const RailNode*>(rail);
     objects::RiderPoseState* flags = state_;
     const RailNode* last = rail_node_;
-    auto same_rail = [&] { return last == node || last == node->last_value_ || last == node->succ_; };
+    auto same_rail = [&] { return last == node || last == node->last_value() || last == node->succ(); };
     // In the air after a grind: not the same rail (or its neighbours) again.
     if (flags->cur_phase() == 1 && flags->flag(PoseFlag::kFromAcidDrop).on && flags->flag(PoseFlag::kJumpedOffRail).on &&
         same_rail())
@@ -157,7 +157,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
     } else if (!same_rail()) {
         // Another rail. In a created park, only if its ends are all more than 6 from the last one's (pieces' rails
         // meet end to end).
-        if (park_editing::ParkBuilderMode::sole()->editor_state() == kOff || !last->last_value_ || !node->last_value_) {
+        if (park_editing::ParkBuilderMode::sole()->editor_state() == kOff || !last->last_value() || !node->last_value()) {
             new_rail = true;
         } else {
             // (Each pair in the original's order: this rail's end first, then the last one's.)
@@ -167,11 +167,11 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
                 return b - a;
             };
             const maths::Vec4 d1 = between(node, rail_node_);
-            const maths::Vec4 d2 = between(node->last_value_, rail_node_);
-            const RailNode* last_previous = rail_node_->last_value_;
+            const maths::Vec4 d2 = between(node->last_value(), rail_node_);
+            const RailNode* last_previous = rail_node_->last_value();
             const maths::Vec4 d3 = between(node, last_previous);
-            last_previous = rail_node_->last_value_;
-            const maths::Vec4 d4 = between(node->last_value_, last_previous);
+            last_previous = rail_node_->last_value();
+            const maths::Vec4 d4 = between(node->last_value(), last_previous);
             new_rail = std::fabs(length_unrounded(d1)) > kRailEndDistance &&
                        std::fabs(length_unrounded(d2)) > kRailEndDistance &&
                        std::fabs(length_unrounded(d3)) > kRailEndDistance &&

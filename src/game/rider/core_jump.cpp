@@ -87,7 +87,7 @@ void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
         return;
     if (!rail_manager_)
         rail_manager_ = modules::Skate::sole()->rail_manager().get(); // (the skate module's)
-    script::Struct* script = level_nodes::fetch_vertex(node->label_, false);
+    script::Struct* script = level_nodes::fetch_vertex(node->label(), false);
     if (!script)
         return;
     // The node's TriggerScript, else the first one back along the rail (the walk stops at a loop: a second
@@ -96,13 +96,13 @@ void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
     if (!script->read_hash_value(kTriggerScript, &trigger_script, 0)) {
         const objects::GrindPoint* slow = node;
         bool step = false;
-        for (const objects::GrindPoint* p = node->last_value_; p && p != node && p != slow;) {
-            script = level_nodes::fetch_vertex(p->label_, true);
+        for (const objects::GrindPoint* p = node->last_value(); p && p != node && p != slow;) {
+            script = level_nodes::fetch_vertex(p->label(), true);
             if (script->read_hash_value(kTriggerScript, &trigger_script, 0)) // (a node without a script: a crash)
                 break;
-            p = p->last_value_;
+            p = p->last_value();
             if (step)
-                slow = slow->last_value_;
+                slow = slow->last_value();
             step = !step;
         }
     }

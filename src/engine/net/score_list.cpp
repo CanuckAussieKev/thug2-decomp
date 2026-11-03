@@ -106,10 +106,10 @@ uint32_t flag_bit(PlayerRecord* p) { return 1u << (static_cast<uint32_t>(p->get_
 // At the end of the list.
 void get_append(lists::Foremost* head, ScoreEntry* entry)
 {
-    entry->set_prev(head->list_link_.prev());
-    entry->set_next(&head->list_link_);
-    head->list_link_.prev()->set_next(entry);
-    head->list_link_.set_prev(entry);
+    entry->set_prev(head->list_link().prev());
+    entry->set_next(&head->list_link());
+    head->list_link().prev()->set_next(entry);
+    head->list_link().set_prev(entry);
 }
 
 } // namespace
@@ -148,7 +148,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     (void)elements;
     Hub* manager = task->content();
     lists::Foremost list{};
-    list.list_link_.make_head();
+    list.list_link().make_head();
     PlayerSearch search;
     const bool not_lobby = get_game_type() != kNetLobby;
     const bool hill_mode = get_game_type() == kNetKing || get_game_type() == kKing;
@@ -160,8 +160,8 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     }
     const uint32_t now = frame_clock::get_time();
     if (now - score_sync_stamp_slot() < kUpdateInterval) {
-        list.list_link_.prev()->set_next(list.list_link_.next()); // (the head's destructor)
-        list.list_link_.next()->set_prev(list.list_link_.prev());
+        list.list_link().prev()->set_next(list.list_link().next()); // (the head's destructor)
+        list.list_link().next()->set_prev(list.list_link().prev());
         return;
     }
     score_sync_stamp_slot() = now;
@@ -239,7 +239,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
 
     // The lines, best first.
     const memory::ListNode* cursor =
-        list.list_link_.next()->data() == memory::ListNode::head_marker() ? nullptr : list.list_link_.next();
+        list.list_link().next()->data() == memory::ListNode::head_marker() ? nullptr : list.list_link().next();
     auto* entry = cursor ? static_cast<ScoreEntry*>(cursor->data()) : nullptr;
     for (int line = 0; entry; ++line) {
         std::array<char, 64> prefix{}; // (16 bytes in the original: a long crown abbreviation overran it)
@@ -296,8 +296,8 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         entry->teardown(1); // (deleted: out of the list)
         entry = following;
     }
-    list.list_link_.prev()->set_next(list.list_link_.next()); // (the head's destructor)
-    list.list_link_.next()->set_prev(list.list_link_.prev());
+    list.list_link().prev()->set_next(list.list_link().next()); // (the head's destructor)
+    list.list_link().next()->set_prev(list.list_link().prev());
 }
 
 } // namespace online

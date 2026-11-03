@@ -89,7 +89,7 @@ void SkaterPhysicsModule::step_coping_move()
     }
     auto* node = rail_node_;
     if (node && rail_manager_->node_array()) {
-        script::Struct* script = level_nodes::fetch_vertex(node->label_, true);
+        script::Struct* script = level_nodes::fetch_vertex(node->label(), true);
         script->read_hash_value(kName, &rail_script_node_, 1);
         static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(rail_script_node_);
     }

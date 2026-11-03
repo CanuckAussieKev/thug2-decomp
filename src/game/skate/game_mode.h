@@ -47,10 +47,22 @@ public:
     // The victory conditions' list (an intrusive ring; the head's condition is -1). The original's list types have
     // a vtable each (the head's 0x0064DD90, the nodes' 0x0064DD54) holding only their destructors.
     struct ConditionNode {
+    // The fields other code reads and sets.
+    [[nodiscard]] WinRule* condition() const { return condition_; }
+    void set_condition(WinRule* value) { condition_ = value; }
+    void set_rank(int value) { rank_ = value; }
+    [[nodiscard]] ConditionNode* succ() const { return succ_; }
+    void set_succ(ConditionNode* value) { succ_ = value; }
+    [[nodiscard]] ConditionNode* last_value() const { return last_value_; }
+    void set_last_value(ConditionNode* value) { last_value_ = value; }
+
+private:
         WinRule* condition_; // (-1 for the head; the intrusive list's nodes own their conditions)
         int rank_;
         ConditionNode* succ_;
         ConditionNode* last_value_;
+
+public:
 
         // 0x00553710: out of its list (linked to itself).
         void unlink();

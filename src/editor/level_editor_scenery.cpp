@@ -525,7 +525,7 @@ std::span<RailNode> rail_nodes()
     return {manager->nodes(), static_cast<size_t>(manager->num())};
 }
 
-V3 rail_pos(const RailNode* node) { return {.x = node->at_point_.x, .y = node->at_point_.y, .z = node->at_point_.z}; }
+V3 rail_pos(const RailNode* node) { return {.x = node->at_point().x, .y = node->at_point().y, .z = node->at_point().z}; }
 
 // What we've done to a rail node: where it was when first touched, the placement since, where we put it.
 struct RailTrack {
@@ -561,7 +561,7 @@ RailNode* find_rail(uint32_t name)
         return nullptr;
     // (a ladder's point too - its moves are tracked as a rail's: level_editor_chains.h)
     for (int i = 0; i < count; ++i) {
-        if (core::at(nodes, i).label_ == name)
+        if (core::at(nodes, i).label() == name)
             return &core::at(nodes, i);
     }
     return nullptr;
@@ -579,7 +579,7 @@ RailTrack* rail_track_of(uint32_t name)
         rail_tracks().erase(it);
     }
     const RailTrack track = {
-        .node = node, .active0 = (node->flag_bits_ & 4) != 0, .pos0 = rail_pos(node), .placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}}, .pos = rail_pos(node)};
+        .node = node, .active0 = (node->flag_bits() & 4) != 0, .pos0 = rail_pos(node), .placement = {.quarters = 0, .offset = {.x = 0.0f, .y = 0.0f, .z = 0.0f}}, .pos = rail_pos(node)};
     return &rail_tracks().emplace(name, track).first->second;
 }
 
@@ -605,21 +605,21 @@ void apply_rails(const std::vector<uint32_t>& names)
             continue;
         RailTrack& track = it->second;
         const V3 pos = get_apply(track.placement, track.pos0);
-        track.node->at_point_.x = pos.x;
-        track.node->at_point_.y = pos.y;
-        track.node->at_point_.z = pos.z;
+        track.node->at_point().x = pos.x;
+        track.node->at_point().y = pos.y;
+        track.node->at_point().z = pos.z;
         track.pos = pos;
         moved.push_back(track.node);
     }
     auto is_moved = [&](const RailNode* node) { return node && std::ranges::find(moved, node) != moved.end(); };
     for (int i = 0; i < count; ++i) {
         RailNode* node = &core::at(nodes, i);
-        if (!is_moved(node) && !is_moved(node->succ_))
+        if (!is_moved(node) && !is_moved(node->succ()))
             continue;
         V3 min{}, max{};
-        segment_box(rail_pos(node), node->succ_ ? rail_pos(node->succ_) : rail_pos(node), &min, &max);
-        node->lower_limit_ = {.x = min.x, .y = min.y, .z = min.z, .w = 1.0f};
-        node->upper_limit_ = {.x = max.x, .y = max.y, .z = max.z, .w = 1.0f};
+        segment_box(rail_pos(node), node->succ() ? rail_pos(node->succ()) : rail_pos(node), &min, &max);
+        node->lower_limit() = {.x = min.x, .y = min.y, .z = min.z, .w = 1.0f};
+        node->upper_limit() = {.x = max.x, .y = max.y, .z = max.z, .w = 1.0f};
     }
 }
 
@@ -680,14 +680,14 @@ void select_rails()
     auto listed = [&](uint32_t c) { return c && std::ranges::find(clusters, c) != clusters.end(); };
     for (int i = 0; i < count; ++i) {
         const RailNode& node = core::at(nodes, i);
-        if (node.flag_bits_ & 0x10)
+        if (node.flag_bits() & 0x10)
             continue;
-        bool in = listed(node.label_) || listed(cluster_of(node.label_)) ||
-                  (within(rail_pos(&node)) && (!node.succ_ || within(rail_pos(node.succ_))));
-        if (in && std::ranges::find(scenery_rails().dropped_rails_, node.label_) != scenery_rails().dropped_rails_.end())
+        bool in = listed(node.label()) || listed(cluster_of(node.label())) ||
+                  (within(rail_pos(&node)) && (!node.succ() || within(rail_pos(node.succ()))));
+        if (in && std::ranges::find(scenery_rails().dropped_rails_, node.label()) != scenery_rails().dropped_rails_.end())
             in = false;
-        if (in && std::ranges::find(scenery_rails().rails_, node.label_) == scenery_rails().rails_.end())
-            scenery_rails().rails_.push_back(node.label_);
+        if (in && std::ranges::find(scenery_rails().rails_, node.label()) == scenery_rails().rails_.end())
+            scenery_rails().rails_.push_back(node.label());
     }
 }
 
@@ -1403,8 +1403,8 @@ std::vector<std::pair<V3, V3>> selected_rails()
     std::vector<std::pair<V3, V3>> segments;
     for (const uint32_t name : scenery_rails().rails_) {
         const RailNode* node = find_rail(name);
-        if (node && node->succ_)
-            segments.emplace_back(rail_pos(node), rail_pos(node->succ_));
+        if (node && node->succ())
+            segments.emplace_back(rail_pos(node), rail_pos(node->succ()));
     }
     return segments;
 }
@@ -1416,7 +1416,7 @@ int selected_rail_count() { return static_cast<int>(scenery_rails().rails_.size(
 bool get_rail_point(uint32_t name, V3* pos, bool climbing)
 {
     const RailNode* node = find_rail(name);
-    if (!node || ((node->flag_bits_ & 0x10) && !climbing))
+    if (!node || ((node->flag_bits() & 0x10) && !climbing))
         return false;
     *pos = rail_pos(node);
     return true;
@@ -1454,15 +1454,15 @@ std::vector<uint32_t> rail_of(uint32_t name)
     names.push_back(name);
     // (back to its first point, then along to its last - a closed rail stops where it started)
     const RailNode* first = node;
-    for (int steps = 0; first->last_value_ && first->last_value_ != node && steps < count; ++steps)
-        first = first->last_value_;
+    for (int steps = 0; first->last_value() && first->last_value() != node && steps < count; ++steps)
+        first = first->last_value();
     int steps = 0;
-    for (const RailNode* at = first; at && steps < count; at = at->succ_, ++steps) {
+    for (const RailNode* at = first; at && steps < count; at = at->succ(), ++steps) {
         // (a rail's points, or a ladder's: not the other kind)
-        if (at != node && (at->flag_bits_ & 0x10) == (node->flag_bits_ & 0x10) &&
-            std::ranges::find(names, at->label_) == names.end())
-            names.push_back(at->label_);
-        if (at->succ_ == first)
+        if (at != node && (at->flag_bits() & 0x10) == (node->flag_bits() & 0x10) &&
+            std::ranges::find(names, at->label()) == names.end())
+            names.push_back(at->label());
+        if (at->succ() == first)
             break;
     }
     return names;
@@ -1491,7 +1491,7 @@ void for_each_rail_point(void (*each)(void* context, uint32_t name, V3 pos), voi
     if (nodes.empty())
         return;
     for (int i = 0; i < count; ++i)
-        each(context, core::at(nodes, i).label_, rail_pos(&core::at(nodes, i)));
+        each(context, core::at(nodes, i).label(), rail_pos(&core::at(nodes, i)));
 }
 
 // --- the selection's state (undo / redo, reset, hiding) ---
@@ -1517,7 +1517,7 @@ State save_state()
     }
     for (const uint32_t name : scenery_rails().rails_) {
         if (const RailTrack* track = rail_track_of(name))
-            state.rails.push_back({.name = name, .placement = track->placement, .hidden = track->active0 && !(track->node->flag_bits_ & 4)});
+            state.rails.push_back({.name = name, .placement = track->placement, .hidden = track->active0 && !(track->node->flag_bits() & 4)});
     }
     return state;
 }
@@ -1547,7 +1547,7 @@ void apply_states(const std::vector<SectorState>& sectors, const std::vector<Rai
         if (RailTrack* track = rail_track_of(saved.name)) {
             track->placement = saved.placement;
             const bool active = track->active0 && !saved.hidden;
-            track->node->flag_bits_ = active ? track->node->flag_bits_ | 4u : track->node->flag_bits_ & ~4u;
+            track->node->flag_bits() = active ? track->node->flag_bits() | 4u : track->node->flag_bits() & ~4u;
             names.push_back(saved.name);
         }
     }
@@ -1590,7 +1590,7 @@ std::vector<RailState> changed_rails()
         const RailTrack& track = entry.second;
         if (find_rail(entry.first) != track.node)
             continue;
-        const bool hidden = track.active0 && !(track.node->flag_bits_ & 4);
+        const bool hidden = track.active0 && !(track.node->flag_bits() & 4);
         const Placement& p = track.placement;
         if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0f || p.offset.y != 0.0f ||
             p.offset.z != 0.0f)

@@ -54,7 +54,12 @@ struct TypedLookupTable : ResolveMap {
 // 0x0055B990 (TableItemEraser<Objective>::empty_table_items): the table's items taken out one by one (always the
 // first) and destroyed (their vtable's deleting destructor, with flag 1) - as many as the table had.
 struct TableItemEraser {
+    explicit TableItemEraser(ResolveMap* table) : lookup_table_(table) {}
+
+private:
     ResolveMap* lookup_table_;
+
+public:
     // (`destroy`: the item's deleting destructor - the original's slot 0)
     void empty_table_items(void (*destroy)(void* item));
     // 0x005633E0 (for plain items - the score's trick counts): each first item taken out and freed (memory::Dealloc).

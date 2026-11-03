@@ -95,8 +95,14 @@ void set_colours(Geom* geom, std::span<const uint32_t> in) { geom->change_colors
 // What a light adds at a vertex: (radius - distance) / radius x its intensity - when the vertex is within its radius
 // (the squared distance rounded to a float first); its colour's bytes times that summed into r, g, b.
 struct Sums {
+    // The fields other code reads and sets.
+    [[nodiscard]] bool lit() const { return lit_; }
+
+private:
     double r = 0.0, g = 0.0, b = 0.0;
-    bool lit = false;
+    bool lit_ = false;
+
+public:
     void append_one(const LevelLamp& light, double distance_squared)
     {
         auto d2 = static_cast<float>(distance_squared);
@@ -108,7 +114,7 @@ struct Sums {
         r += core::at(colour, 0) * f;
         g += core::at(colour, 1) * f;
         b += core::at(colour, 2) * f;
-        lit = true;
+        lit_ = true;
     }
     // A colour's RGB with the sums added (green and blue rounded to floats first, as the original stores them),
     // clamped at 255 and truncated (_ftol: the low byte).
@@ -261,7 +267,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
             const LevelLamp& light = core::at(lamps.level_lamps(), core::at(lights, l));
             sums.append_one(light, offset_squared_zxy(core::at(vertices, v), light.at_point()));
         }
-        if (sums.lit)
+        if (sums.lit())
             core::at(colours, v) = sums.get_apply(core::at(colours, v));
     }
     set_colours(geom, colours);
@@ -304,7 +310,7 @@ void light_vertex_colours(std::span<const uint32_t> in, std::span<uint32_t> out,
             const LevelLamp& light = core::at(lamps.level_lamps(), core::at(lights, l));
             sums.append_one(light, offset_squared_zyx(core::at(positions, v), light.at_point()));
         }
-        if (sums.lit)
+        if (sums.lit())
             core::at(out, v) = sums.get_apply(core::at(in, v));
     }
 }

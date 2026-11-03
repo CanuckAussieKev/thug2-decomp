@@ -679,7 +679,7 @@ void GoalManager::wipe_objectives()
     previous_objective_ = 0;
     for (int i = 0; i < goals_.num(); ++i)
         remove_objective_npc(goals_.get_by_index(i)->ped());
-    lists::TableItemEraser destroyer = {&goals_};
+    lists::TableItemEraser destroyer{&goals_};
     destroyer.empty_table_items([](void* goal) {
         gsl::owner<Objective*> objective = memory::adopt<Objective*>(goal); // (the table's)
         delete objective;

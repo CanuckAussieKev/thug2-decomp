@@ -35,7 +35,12 @@ public:
 };
 
 struct TableReleaser {
+    explicit TableReleaser(GrowableMap* table) : lookup_table_(table) {}
+
+private:
     GrowableMap* lookup_table_;
+
+public:
     // 0x00562920: each item freed (memory::Dealloc); the table left empty.
     void empty_table_items();
 };

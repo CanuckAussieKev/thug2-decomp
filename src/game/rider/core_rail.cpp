@@ -65,7 +65,7 @@ double dot3(const maths::Vec4& a, const maths::Vec4& v)
 }
 
 // A node rails go on from (flag 4 - its >> 2 & 1).
-bool continues(const objects::GrindPoint* node) { return (node->flag_bits_ >> 2) & 1; }
+bool continues(const objects::GrindPoint* node) { return (node->flag_bits() >> 2) & 1; }
 
 // The corner from segment `a` (to - from) into segment `b` (level): turning less than Rail_Corner_Leave_Angle.
 bool gentle_corner(maths::Vec4 a, maths::Vec4 b)
@@ -118,14 +118,14 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     maths::Vec4 point;
     objects::GrindPoint* found = nullptr;
     bool onto = rail_manager_->find_grind_rail(&start, &stop, &point, &found, rail_node_, alignment, side) && found &&
-                found != rail_node_ && found->succ_;
+                found != rail_node_ && found->succ();
     if (onto && !in_park_editor()) {
         // (Not this rail's next or last node.)
         auto* current = rail_node_;
-        onto = current->succ_ != found && current->last_value_ != found;
+        onto = current->succ() != found && current->last_value() != found;
     }
     if (onto) {
-        const objects::GrindPoint* next = found->succ_;
+        const objects::GrindPoint* next = found->succ();
         const maths::Vec4& p = entity()->at_point();
         const maths::Vec4 found_pos = grind_point_in_world(found);
         const maths::Vec4 to_found = found_pos - p;
@@ -164,7 +164,7 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
         return;
     }
     // Onto it: the velocity along it (the same way), the skater at the point.
-    const objects::GrindPoint* next = found->succ_;
+    const objects::GrindPoint* next = found->succ();
     const maths::Vec4 a = grind_point_in_world(found);
     const maths::Vec4 b = grind_point_in_world(next);
     maths::Vec4 direction = b - a;
@@ -181,7 +181,7 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     rail_node_ = found;
     entity()->at_point() = point;
     trigger_rail_script(kGrindEvents);
-    set_surface_kind(rail_node_->surface_type_);
+    set_surface_kind(rail_node_->surface_type());
 }
 
 // 0x0050DDF0
@@ -215,7 +215,7 @@ void SkaterPhysicsModule::step_grind_move()
 
     auto* node = rail_node_;
     objects::GrindPoint* const start_node = node;
-    objects::GrindPoint* next = node->succ_;
+    objects::GrindPoint* next = node->succ();
     objects::GrindPoint* go_on_to = nullptr;
     if (!next) {
         // The rail's last node.
@@ -258,7 +258,7 @@ void SkaterPhysicsModule::step_grind_move()
     // The segment to go on to that way (its node flagged 4, the corner gentle enough) - or none.
     bool no_next_segment = false;
     if (after < 0.0f) {
-        const objects::GrindPoint* prev = node->last_value_;
+        const objects::GrindPoint* prev = node->last_value();
         if (prev && continues(prev)) {
             const maths::Vec4 a = grind_point_in_world(node);
             const maths::Vec4 b = grind_point_in_world(next);
@@ -267,19 +267,19 @@ void SkaterPhysicsModule::step_grind_move()
             const maths::Vec4 d = grind_point_in_world(node);
             const maths::Vec4 behind = d - c;
             if (gentle_corner(ahead, behind))
-                go_on_to = node->last_value_;
+                go_on_to = node->last_value();
             else
                 no_next_segment = true;
         } else {
             no_next_segment = true;
         }
     } else {
-        const objects::GrindPoint* beyond = next->succ_;
+        const objects::GrindPoint* beyond = next->succ();
         if (beyond && continues(beyond)) {
             const maths::Vec4 a = grind_point_in_world(next);
             const maths::Vec4 b = grind_point_in_world(node);
             const maths::Vec4 back = b - a;
-            const maths::Vec4 c = grind_point_in_world(next->succ_);
+            const maths::Vec4 c = grind_point_in_world(next->succ());
             const maths::Vec4 d = grind_point_in_world(next);
             const maths::Vec4 back_further = d - c;
             if (gentle_corner(back, back_further))
@@ -305,9 +305,9 @@ void SkaterPhysicsModule::step_grind_move()
             overshoot = static_cast<float>(distance - segment_length);
             const objects::GrindPoint* corner = after < 0.0f ? node : next; // the node passed
             const objects::GrindPoint* onward =
-                after < 0.0f ? node->last_value_ : next->succ_; // the next segment's far node
+                after < 0.0f ? node->last_value() : next->succ(); // the next segment's far node
             const objects::GrindPoint* flagged =
-                after < 0.0f ? node->last_value_ : next; // the node whose flag says go on
+                after < 0.0f ? node->last_value() : next; // the node whose flag says go on
             bool clear = false;
             if (onward && continues(flagged)) {
                 const maths::Vec4 far = grind_point_in_world(onward);
@@ -316,8 +316,8 @@ void SkaterPhysicsModule::step_grind_move()
             }
             if (clear && !no_next_segment) {
                 entity()->at_point() = grind_point_in_world(corner);
-                rail_node_ = after < 0.0f ? node->last_value_ : next;
-                set_surface_kind(rail_node_->surface_type_);
+                rail_node_ = after < 0.0f ? node->last_value() : next;
+                set_surface_kind(rail_node_->surface_type());
                 trigger_rail_script(kGrindEvents);
             } else {
                 const maths::Vec4 end = grind_point_in_world(corner);
@@ -389,7 +389,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
                                       bool no_next_segment, float overshoot)
 {
     auto* node = rail_node_;
-    const objects::GrindPoint* next = node->succ_;
+    const objects::GrindPoint* next = node->succ();
     const maths::Vec4 from = grind_point_in_world(node);
     const maths::Vec4 to = grind_point_in_world(next);
     maths::Vec4 direction = {.x = to.x - from.x, .y = to.y - from.y, .z = to.z - from.z, .w = to.w - from.w};
@@ -477,10 +477,10 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
         if (in_park_editor())
             return;
         const maths::Vec4 c = grind_point_in_world(start_node);
-        const maths::Vec4 d = grind_point_in_world(start_node->succ_);
+        const maths::Vec4 d = grind_point_in_world(start_node->succ());
         maths::Vec4 this_way = d - c;
         const maths::Vec4 e = grind_point_in_world(go_on_to);
-        const maths::Vec4 f = grind_point_in_world(go_on_to->succ_);
+        const maths::Vec4 f = grind_point_in_world(go_on_to->succ());
         maths::Vec4 that_way = f - e;
         this_way.make_unit();
         that_way.make_unit();
@@ -533,7 +533,7 @@ void SkaterPhysicsModule::finish_rail()
     const int time = static_cast<int>(static_cast<double>(rail_adjust_) * score->robot_factor());
     score->tweak_trick(time);
     if (rail_manager_->node_array()) {
-        script::Struct* script = level_nodes::fetch_vertex(rail_node_->label_, true);
+        script::Struct* script = level_nodes::fetch_vertex(rail_node_->label(), true);
         // (0x00476EC0: read_hash_value with a bool for its last argument - the wrapper passes it on as 1)
         script->read_hash_value(kName, &rail_script_node_, 1);
         static_cast<objects::MoveExecutor*>(trick_)->pass_to_trick_objects(rail_script_node_);
@@ -568,7 +568,7 @@ void SkaterPhysicsModule::do_bike_stall_physics()
         update_grind_balance();
         // (THAW draws the segment here with rail_highlights on - a debug view of its own)
         auto* node = rail_node_;
-        const objects::GrindPoint* next = node->succ_;
+        const objects::GrindPoint* next = node->succ();
         if (!next)
             return;
         entity()->vel() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};

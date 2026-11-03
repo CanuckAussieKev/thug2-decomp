@@ -93,9 +93,9 @@ PrefixTable::~PrefixTable()
         PrefixNodes* next = nullptr;
         if (slot_table_->step_iterator() && slot_table_->iter_item())
             next = static_cast<PrefixNodes*>(slot_table_->iter_item()->value);
-        const uint32_t prefix = nodes->name_prefix_;
-        if (nodes->indices_)
-            memory::free_malloc(nodes->indices_);
+        const uint32_t prefix = nodes->name_prefix();
+        if (nodes->indices())
+            memory::free_malloc(nodes->indices());
         memory::Hub::get_pull()->dealloc(nodes);
         slot_table_->erase_entry(prefix);
         nodes = next;
@@ -115,11 +115,11 @@ void PrefixTable::append_one(uint32_t prefix, uint16_t index)
     }
     auto* nodes = static_cast<PrefixNodes*>(memory::alloc_zeroed(sizeof(PrefixNodes)));
     if (nodes) {
-        nodes->name_prefix_ = 0;
-        nodes->num_ = 0;
-        nodes->indices_ = static_cast<uint16_t*>(memory::alloc_block(kGrowBy * sizeof(uint16_t)));
+        nodes->set_name_prefix(0);
+        nodes->set_num(0);
+        nodes->set_indices(static_cast<uint16_t*>(memory::alloc_block(kGrowBy * sizeof(uint16_t))));
     }
-    nodes->name_prefix_ = prefix; // (no check that the allocation worked)
+    nodes->set_name_prefix(prefix); // (no check that the allocation worked)
     nodes->append_one(index);
     slot_table_->store_entry(prefix, nodes);
 }
@@ -133,9 +133,9 @@ void PrefixTable::compact()
         auto* nodes = static_cast<PrefixNodes*>(slot_table_->iter_item()->value);
         if (!nodes)
             break;
-        uint16_t* old = nodes->indices_;
-        nodes->indices_ = static_cast<uint16_t*>(memory::alloc_block(nodes->num_ * sizeof(uint16_t)));
-        std::ranges::copy(std::span<const uint16_t>(old, static_cast<std::size_t>(nodes->num_)), nodes->index_run().begin());
+        uint16_t* old = nodes->indices();
+        nodes->set_indices(static_cast<uint16_t*>(memory::alloc_block(nodes->num() * sizeof(uint16_t))));
+        std::ranges::copy(std::span<const uint16_t>(old, static_cast<std::size_t>(nodes->num())), nodes->index_run().begin());
         memory::free_malloc(old);
     }
 }
@@ -221,7 +221,7 @@ std::span<const uint32_t> PrefixTables::get_nodes(uint32_t prefix)
         const PrefixNodes* nodes = get_find(table->slot_table(), prefix);
         if (!nodes)
             continue;
-        auto n = static_cast<uint16_t>(nodes->num_);
+        auto n = static_cast<uint16_t>(nodes->num());
         const std::span<uint16_t> indices = nodes->index_run();
         if (!n)
             continue;
@@ -240,7 +240,7 @@ void add_node_array_prefixes(uint32_t name)
     if (!node_prefixes()) {
         auto* tables = static_cast<PrefixTables*>(memory::alloc_zeroed(sizeof(PrefixTables)));
         if (tables)
-            tables->first_ptr_ = nullptr;
+            tables->set_first_ptr(nullptr);
         node_prefixes() = tables;
     }
     node_prefixes()->add_node_array(name);

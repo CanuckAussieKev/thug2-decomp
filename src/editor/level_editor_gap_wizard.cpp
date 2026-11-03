@@ -208,11 +208,11 @@ bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot
     bool found = false;
     for (int i = 0; i < rails->num(); ++i) {
         const objects::GrindPoint& node = core::at(rails->node_run(), i);
-        if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
-            !(node.flag_bits_ & objects::kRailFlagActive))
+        if (!node.succ() || (node.flag_bits() & objects::kRailFlagClimbing) ||
+            !(node.flag_bits() & objects::kRailFlagActive))
             continue;
-        const V3 a = {.x = node.at_point_.x, .y = node.at_point_.y, .z = node.at_point_.z};
-        const V3 b = {.x = node.succ_->at_point_.x, .y = node.succ_->at_point_.y, .z = node.succ_->at_point_.z};
+        const V3 a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
+        const V3 b = {.x = node.succ()->at_point().x, .y = node.succ()->at_point().y, .z = node.succ()->at_point().z};
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
         if (!project_to_back(a, &ax, &ay) || !project_to_back(b, &bx, &by))
             continue;

@@ -92,7 +92,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
     gui::text_colored(get_colour(0xFFFFE040), "o pending");
     ImGui::SameLine();
     gui::text_colored(get_colour(0xFFFF3030), "x bail");
-    if (!trails || trails->runs.empty()) {
+    if (!trails || trails->runs().empty()) {
         gui::text_disabled("No runs recorded");
     } else if (ImGui::BeginTable("##runs", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
         ImGui::TableSetupColumn("");
@@ -103,7 +103,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
         ImGui::TableSetupColumn("Best combo", ImGuiTableColumnFlags_WidthStretch);
         ImGui::TableHeadersRow();
         int remove = 0;
-        for (auto it = trails->runs.rbegin(); it != trails->runs.rend(); ++it) {
+        for (auto it = trails->runs().rbegin(); it != trails->runs().rend(); ++it) {
             const Run& run = *it;
             ImGui::TableNextRow();
             ImGui::PushID(run.number);
@@ -112,7 +112,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
             if (ImGui::Checkbox("##v", &visible))
                 set_run_visible(run.number, visible);
             ImGui::TableNextColumn();
-            gui::text("%d%s", run.number, run.full ? "+" : "");
+            gui::text("%d%s", run.number, run.full_ ? "+" : "");
             if (ImGui::IsItemHovered()) {
                 std::string text;
                 std::array<char, 64> part{};
@@ -123,8 +123,8 @@ void pane(float scale, ImFont* heading, ImFont* small)
                                     core::at(run.motion_seconds_, m));
                     text += part.data();
                 }
-                gui::tooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples.size()),
-                                  run.full ? " (full)" : "");
+                gui::tooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples_.size()),
+                                  run.full_ ? " (full)" : "");
             }
             ImGui::TableNextColumn();
             gui::text("%.1f s", run.seconds);

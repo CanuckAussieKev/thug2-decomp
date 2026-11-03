@@ -103,6 +103,7 @@ struct ObjectSearch {
     // 0x00461ED0: the next one, or null.
     Entity* next_item_of_type();
 
+private:
     memory::ListNode* list_link_ = nullptr; // the current node (null at the end)
     uint32_t kind_tag_ = 0;
 };

@@ -106,23 +106,23 @@ Objective* get_goal(void* manager, uint32_t id, int assert)
 uint32_t count_conditions(MatchRules::ConditionNode* head)
 {
     uint32_t count = 0;
-    const MatchRules::ConditionNode* node = head->succ_;
-    if (node->condition_ == head_marker() || !node)
+    const MatchRules::ConditionNode* node = head->succ();
+    if (node->condition() == head_marker() || !node)
         return 0;
-    for (bool again = true; again; again = node->condition_ != head_marker() && node) {
-        node = node->succ_;
+    for (bool again = true; again; again = node->condition() != head_marker() && node) {
+        node = node->succ();
         ++count;
     }
     return count;
 }
 MatchRules::ConditionNode* condition_at(MatchRules::ConditionNode* head, uint32_t index)
 {
-    MatchRules::ConditionNode* node = head->succ_;
-    if (node->condition_ == head_marker() || !node)
+    MatchRules::ConditionNode* node = head->succ();
+    if (node->condition() == head_marker() || !node)
         return nullptr;
     for (uint32_t left = index; left; --left) {
-        node = node->succ_;
-        if (node->condition_ == head_marker() || !node)
+        node = node->succ();
+        if (node->condition() == head_marker() || !node)
             return nullptr;
     }
     return node;
@@ -186,10 +186,10 @@ void MatchRules::get_release()
 // 0x00553D30
 MatchRules::MatchRules()
 {
-    conditions_.condition_ = head_marker();
-    conditions_.rank_ = 0;
-    conditions_.succ_ = &conditions_;
-    conditions_.last_value_ = &conditions_;
+    conditions_.set_condition(head_marker());
+    conditions_.set_rank(0);
+    conditions_.set_succ(&conditions_);
+    conditions_.set_last_value(&conditions_);
     clear_victory_conditions();
     apply_match_style(kFreeskate);
 }
@@ -221,16 +221,16 @@ void MatchRules::get_reset()
 // 0x00553770
 void MatchRules::clear_victory_conditions()
 {
-    ConditionNode* node = conditions_.succ_;
-    if (node->condition_ == head_marker() || !node)
+    ConditionNode* node = conditions_.succ();
+    if (node->condition() == head_marker() || !node)
         return;
     while (node) {
-        ConditionNode* next = node->succ_->condition_ == head_marker() ? nullptr : node->succ_;
-        node->last_value_->succ_ = node->succ_;
-        node->succ_->last_value_ = node->last_value_;
-        node->succ_ = node;
-        node->last_value_ = node;
-        gsl::owner<WinRule*> condition = memory::owned_element(node->condition_); // (the node's)
+        ConditionNode* next = node->succ()->condition() == head_marker() ? nullptr : node->succ();
+        node->last_value()->set_succ(node->succ());
+        node->succ()->set_last_value(node->last_value());
+        node->set_succ(node);
+        node->set_last_value(node);
+        gsl::owner<WinRule*> condition = memory::owned_element(node->condition()); // (the node's)
         delete condition;
         memory::dealloc(node); // (its destructor only unlinks it again)
         node = next;
@@ -250,16 +250,16 @@ void MatchRules::build_victory_conditions()
         gsl::owner<WinRule*> condition = create_victory_condition(conditions->struct_at(i));
         auto* node = static_cast<ConditionNode*>(memory::alloc_zeroed(sizeof(ConditionNode)));
         if (node) {
-            node->condition_ = condition;
-            node->rank_ = 0;
-            node->succ_ = node;
-            node->last_value_ = node;
+            node->set_condition(condition);
+            node->set_rank(0);
+            node->set_succ(node);
+            node->set_last_value(node);
         }
         // (at the end of the list; a failed allocation writes through null, as the original)
-        node->last_value_ = conditions_.last_value_;
-        node->succ_ = &conditions_;
-        conditions_.last_value_->succ_ = node;
-        conditions_.last_value_ = node;
+        node->set_last_value(conditions_.last_value());
+        node->set_succ(&conditions_);
+        conditions_.last_value()->set_succ(node);
+        conditions_.set_last_value(node);
     }
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -285,7 +285,7 @@ bool MatchRules::finish_rules_reached()
     int complete = 0;
     for (uint32_t i = 0; i < count_conditions(&conditions_); ++i) {
         // (a node past the list would be read through null, as the original)
-        WinRule* condition = condition_at(&conditions_, i)->condition_;
+        WinRule* condition = condition_at(&conditions_, i)->condition();
         if (condition->is_terminal()) {
             ++terminal;
             if (condition->rule_satisfied())
@@ -299,7 +299,7 @@ bool MatchRules::finish_rules_reached()
 int MatchRules::get_first_condition_value()
 {
     for (uint32_t i = 0; i < count_conditions(&conditions_); ++i) {
-        const WinRule* condition = condition_at(&conditions_, i)->condition_;
+        const WinRule* condition = condition_at(&conditions_, i)->condition();
         if (condition)
             return condition->target_value();
     }

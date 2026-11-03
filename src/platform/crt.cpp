@@ -271,7 +271,7 @@ GameRandom& thread_random()
 }
 } // namespace
 
-void game_srand(unsigned seed) { thread_random().state = seed; }
+void game_srand(unsigned seed) { thread_random().set_state(seed); }
 int game_rand() { return thread_random().get_next(); }
 
 } // namespace crt

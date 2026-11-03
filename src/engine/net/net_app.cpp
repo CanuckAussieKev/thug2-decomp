@@ -161,13 +161,21 @@ void pop_heap() { ram_stats()->leave_heap_scope(); }
 // checksum of all the data, the message id and the first 256 bytes) and the pieces after it, each built in a buffer
 // of its own.
 struct StreamPieceMessage {
-    std::array<uint8_t, wire::kStreamPieceMaxSize> bytes{};
-    uint16_t size = 0;
+    // The fields other code reads and sets.
+    std::array<uint8_t, wire::kStreamPieceMaxSize>& bytes() { return bytes_; }
+    [[nodiscard]] const std::array<uint8_t, wire::kStreamPieceMaxSize>& bytes() const { return bytes_; }
+    [[nodiscard]] uint16_t size() const { return size_; }
+
+private:
+    std::array<uint8_t, wire::kStreamPieceMaxSize> bytes_{};
+    uint16_t size_ = 0;
+
+public:
     void build(int stream_id, const void* piece, int length)
     {
-        util::ByteWriter writer(bytes.data(), sizeof(bytes));
+        util::ByteWriter writer(bytes_.data(), sizeof(bytes_));
         wire::write_stream_piece(writer, stream_id, piece, static_cast<size_t>(length));
-        size = static_cast<uint16_t>(writer.position());
+        size_ = static_cast<uint16_t>(writer.position());
     }
 };
 
@@ -366,8 +374,8 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
                 if (length > kStreamPieceSize)
                     length = kStreamPieceSize;
                 piece.build(alloc_stream_key(conn), bytes.subspan(static_cast<size_t>(sent)).data(), length);
-                message.set_content(piece.bytes.data());
-                message.set_byte_count(piece.size);
+                message.set_content(piece.bytes().data());
+                message.set_byte_count(piece.size());
                 message.set_group_id(group_id);
                 message.set_ident(kMsgBulkChunk);
                 message.set_queue(NetMessageInfo::kLaneOrdered);
@@ -573,9 +581,9 @@ void AppHost::pump_stream_traffic()
                     length = kStreamPieceSize;
                 piece.build(stream->stream_id(), stream->succ(), length);
                 message.set_ident(kMsgBulkChunk);
-                message.set_byte_count(piece.size);
+                message.set_byte_count(piece.size());
                 message.set_queue(NetMessageInfo::kLaneOrdered);
-                message.set_content(piece.bytes.data());
+                message.set_content(piece.bytes().data());
                 message.set_group_id(stream->group_id());
                 message.set_feed(1);
                 message.set_fixed_seq_no(stream->order_number()++);

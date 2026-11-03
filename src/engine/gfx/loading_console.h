@@ -102,8 +102,14 @@ struct Ring {
         double time;     // seconds since the load began
         unsigned repeat; // the same text again: 1 = once
     };
+    // The fields other code reads and sets.
+    void set_count(unsigned value) { count = value; }
+
+private:
     std::array<Seg, kRingLines> lines{};
     unsigned count = 0; // lines ever added
+
+public:
     // Add `text` at `time`; the same text as the newest line counts that one up instead.
     void append_one(const char* text, double time);
     // The newest `n` lines' text ("[  1.2] text (x3)"), oldest first.

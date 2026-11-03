@@ -27,12 +27,25 @@ struct Contest {
 
     // One of the eight standings (0x20 bytes).
     struct Leader {
+    // The fields other code reads and sets.
+    text::Chars& label() { return label_; }
+    [[nodiscard]] const text::Chars& label() const { return label_; }
+    [[nodiscard]] int ident() const { return ident_; }
+    void set_ident(int value) { ident_ = value; }
+    std::array<int, kRuns>& scores() { return scores_; }
+    [[nodiscard]] const std::array<int, kRuns>& scores() const { return scores_; }
+    [[nodiscard]] bool unknown1c() const { return unknown1c_; }
+    void set_unknown1c(bool value) { unknown1c_ = value; }
+
+private:
         text::Chars label_; // +0x00
         int ident_{};       // +0x0C: 0 the player, 1-7 the pros (a random order)
         std::array<int, kRuns> scores_{}; // +0x10: each run's score
         bool unknown1c_{};    // +0x1C (copied with the leader, never set: the leader board's debug output reads it
                               // and its padding as a fourth score)
         std::array<uint8_t, 3> pad1d_{};
+
+public:
 
         // (0x0054FFD0, the constructor - the name's - and 0x0054FFE0, the destructor - a jump to TextUtil::Chars's
         // (text_store.cpp): the implicit ones)

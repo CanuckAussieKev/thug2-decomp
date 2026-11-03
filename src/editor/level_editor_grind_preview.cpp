@@ -175,11 +175,11 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     int start = -1;
     for (int i = 0; i < rails->num(); ++i) {
         const objects::GrindPoint& node = core::at(rails->node_run(), i);
-        core::at(positions, i) = {.x = node.at_point_.x, .y = node.at_point_.y, .z = node.at_point_.z};
-        if (node.label_ == name && !(node.flag_bits_ & objects::kRailFlagClimbing))
+        core::at(positions, i) = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
+        if (node.label() == name && !(node.flag_bits() & objects::kRailFlagClimbing))
             start = i;
-        if (node.succ_ && !(node.flag_bits_ & objects::kRailFlagClimbing)) {
-            const int next = static_cast<int>(node.succ_ - rails->nodes());
+        if (node.succ() && !(node.flag_bits() & objects::kRailFlagClimbing)) {
+            const int next = static_cast<int>(node.succ() - rails->nodes());
             if (next >= 0 && next < rails->num())
                 graph.links.emplace_back(i, next);
         }
@@ -187,7 +187,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     if (start < 0)
         return;
     const Rail rail = rail_of(graph, start);
-    const bool active = (core::at(rails->node_run(), start).flag_bits_ & objects::kRailFlagActive) != 0;
+    const bool active = (core::at(rails->node_run(), start).flag_bits() & objects::kRailFlagActive) != 0;
     // The segments with their direction; the points; the ends; branches.
     constexpr uint32_t kSegment = 0xF0FFFFFF, kChevron = 0xFF40E0FF, kInactive = 0xA0909090;
     const uint32_t segment_colour = active ? kSegment : kInactive;
@@ -250,7 +250,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     int transfers = 0;
     for (const int e : ends) {
         for (int q = 0; q < graph.count && transfers < 24; ++q) {
-            if (core::at(in_rail, q) || core::at(degree, q) != 1 || (core::at(rails->node_run(), q).flag_bits_ & objects::kRailFlagClimbing))
+            if (core::at(in_rail, q) || core::at(degree, q) != 1 || (core::at(rails->node_run(), q).flag_bits() & objects::kRailFlagClimbing))
                 continue;
             const V3 d = core::at(positions, q) - core::at(positions, e);
             const float distance = std::sqrt(get_dot(d, d));
