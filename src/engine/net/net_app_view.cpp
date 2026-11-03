@@ -1,6 +1,8 @@
 // NetLink::AppHost's socket I/O, connection list and message queues. See net_app.h.
 
 #include "engine/net/net_app.h"
+#include "wire/message_ids.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/task_list.h"
 
 #include <winsock2.h>
@@ -30,7 +32,6 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/net/net_address.h"
-#include "wire/net_wire.h"
 #include "engine/net/net_manager.h"
 
 namespace net {
@@ -76,10 +77,10 @@ void delete_msg(void* msg)
 // The Dispatcher (net_dispatcher.h) the App's handler lists are.
 void dispatcher_init(HandlerLists* dispatcher) { core::down_cast<Router>(dispatcher)->prepare_all(); }
 void dispatcher_deinit(HandlerLists* dispatcher) { core::down_cast<Router>(dispatcher)->tear_down_state(); }
-void append_listener(HandlerLists* dispatcher, uint32_t id, HandlerSlotValue handler, uint32_t flags, uint32_t priority)
+void append_listener(HandlerLists* dispatcher, wire::MessageId id, HandlerSlotValue handler, uint32_t flags, uint32_t priority)
 {
     core::down_cast<Router>(dispatcher)
-        ->append_listener(static_cast<uint8_t>(id), handler, flags, nullptr, static_cast<int>(priority));
+        ->append_listener(id, handler, flags, nullptr, static_cast<int>(priority));
 }
 int DispatchMessage(HandlerLists* dispatcher, InboundMsgCtx* context)
 {
@@ -198,13 +199,13 @@ bool AppHost::get_bind(uint32_t /*address*/, uint16_t port)
 }
 
 // 0x00456D90
-gsl::owner<SeqQueuedMsg*> AppHost::new_queued_msg(uint8_t id, uint16_t length, const void* data, uint8_t arg4, uint8_t arg5)
+gsl::owner<SeqQueuedMsg*> AppHost::new_queued_msg(wire::MessageId id, uint16_t length, const void* data, wire::MessageGroup group, uint8_t compression)
 {
     void* memory = memory::alloc(sizeof(SeqQueuedMsg));
     if (!memory)
         return nullptr;
     // SeqQueuedMsg's constructor (copies the data, compressing it if `arg5`)
-    return memory::construct_in<SeqQueuedMsg>(memory, id, length, data, SeqQueuedMsg::Options{.byte8 = arg4, .compression = arg5});
+    return memory::construct_in<SeqQueuedMsg>(memory, id, length, data, SeqQueuedMsg::Options{.group = group, .compression = compression});
 }
 
 // 0x00456E20
@@ -274,13 +275,13 @@ bool AppHost::prepare_all()
     frame_count_ = 0;
     dispatcher_init(&dispatcher_);
     // the handlers (net_app_messages.cpp)
-    append_listener(&dispatcher_, wire::kMsgAck, AppHost::on_receipt_msg, kHandleFlags3, kHighPriority);
-    append_listener(&dispatcher_, wire::kMsgSequenced, AppHost::on_ordered_msgs, kHandleFlags2, kHighPriority);
-    append_listener(&dispatcher_, wire::kMsgCompressed, AppHost::handle_compressed_messages, kHandleFlags3, kHighPriority);
-    append_listener(&dispatcher_, wire::kMsgBulkBegin, AppHost::drain_stream_msgs, kHandleFlags2, kHighPriority);
-    append_listener(&dispatcher_, wire::kMsgBulkChunk, AppHost::drain_stream_msgs, kHandleFlags2, kHighPriority);
-    append_listener(&dispatcher_, wire::kMsgLatencyTest, AppHost::on_ping_probe_msg, kHandleFlags2, kHighPriority);
-    append_listener(&dispatcher_, wire::kMsgLatencyResponse, AppHost::on_ping_reply_msg, kHandleFlags2, kHighPriority);
+    append_listener(&dispatcher_, wire::MessageId::kAck, AppHost::on_receipt_msg, kHandleFlags3, kHighPriority);
+    append_listener(&dispatcher_, wire::MessageId::kSequenced, AppHost::on_ordered_msgs, kHandleFlags2, kHighPriority);
+    append_listener(&dispatcher_, wire::MessageId::kCompressed, AppHost::handle_compressed_messages, kHandleFlags3, kHighPriority);
+    append_listener(&dispatcher_, wire::MessageId::kBulkBegin, AppHost::drain_stream_msgs, kHandleFlags2, kHighPriority);
+    append_listener(&dispatcher_, wire::MessageId::kBulkChunk, AppHost::drain_stream_msgs, kHandleFlags2, kHighPriority);
+    append_listener(&dispatcher_, wire::MessageId::kLatencyTest, AppHost::on_ping_probe_msg, kHandleFlags2, kHighPriority);
+    append_listener(&dispatcher_, wire::MessageId::kLatencyResponse, AppHost::on_ping_reply_msg, kHandleFlags2, kHighPriority);
     return true;
 }
 
@@ -292,7 +293,7 @@ bool AppHost::deliver_to(AppHost::BulkHead head, const void* data, net::Address 
     const auto ip = address.ip;
     const auto port = address.port;
     std::array<uint8_t, kMaxPacketSize> packet{};
-    core::at(packet, 0) = id;
+    core::at(packet, 0) = core::to_underlying(id);
     std::memcpy(std::span<uint8_t>(packet).subspan(1).data(), &length, sizeof(length));
     if (length > 0)
         std::memcpy(std::span<uint8_t>(packet).subspan(3).data(), data, length);
@@ -349,8 +350,8 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
         lists::Hunt<OrderedMsgNode> search;
         for (OrderedMsgNode *link = search.head_element(&queue), *next = nullptr; link; link = next) {
             next = search.following_item();
-            const uint8_t group = link->bundle_id();
-            if (link->order_index() != core::at(conn->sequence_numbers(), group))
+            const auto group = link->bundle_id();
+            if (link->order_index() != core::at(conn->sequence_numbers(), core::to_underlying(group)))
                 break; // not its turn yet
             SeqQueuedMsg* msg = link->shared_msg();
             context.set_sender_conn(static_cast<Conn*>(conn));
@@ -359,7 +360,7 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
             context.wire_options() = 0;
             context.set_type_code(msg->ident());
             context.set_body_size(msg->byte_count());
-            ++core::at(conn->sequence_numbers(), group);
+            ++core::at(conn->sequence_numbers(), core::to_underlying(group));
             const int result = DispatchMessage(&dispatcher_, &context);
             if (result == kHandlerKeep)
                 return true;

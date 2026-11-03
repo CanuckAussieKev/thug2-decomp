@@ -125,7 +125,7 @@ void RiderPoseState::change_phase(int state)
 }
 
 // 0x00519680
-void RiderPoseState::set_physics_mode(int mode)
+void RiderPoseState::set_physics_mode(PhysicsMode mode)
 {
     if (mode == physics_mode_)
         return;
@@ -161,9 +161,9 @@ bool RiderPoseState::in_wallplant(script::Struct*, script::Script*) { return cur
 // 0x005196D0
 bool RiderPoseState::in_bail_state(script::Struct*, script::Script*) { return is_on(PoseFlag::kBailing) != 0; }
 // 0x005194D0
-bool RiderPoseState::on_foot(script::Struct*, script::Script*) { return !in_vehicle_ && physics_mode_ == kWalking; }
+bool RiderPoseState::on_foot(script::Struct*, script::Script*) { return !in_vehicle_ && physics_mode_ == PhysicsMode::kWalking; }
 // 0x005194F0
-bool RiderPoseState::skating(script::Struct*, script::Script*) { return !in_vehicle_ && physics_mode_ == kSkating; }
+bool RiderPoseState::skating(script::Struct*, script::Script*) { return !in_vehicle_ && physics_mode_ == PhysicsMode::kSkating; }
 // 0x00519510
 bool RiderPoseState::get_driving(script::Struct*, script::Script*) { return in_vehicle_ != 0; }
 // 0x00519520

@@ -72,11 +72,11 @@ constexpr float kInfiniteDepthScale = 0.999999f;
 constexpr float kInfiniteDepthOffset = 1e-6f;
 constexpr int kTransformWorld = 0x100; // D3DTS_WORLD
 // The renderer's states (RenderStateId) the blur sets.
-constexpr int kDepthBiasState = kDepthBias;
-constexpr int kLightingState = kLighting;
-constexpr int kCullModeState = kCullMode;
-constexpr int kAlphaTestState = kAlphaTest;
-constexpr int kAlphaBlendState = kAlphaBlend;
+constexpr RenderStateId kDepthBiasState = RenderStateId::kDepthBias;
+constexpr RenderStateId kLightingState = RenderStateId::kLighting;
+constexpr RenderStateId kCullModeState = RenderStateId::kCullMode;
+constexpr RenderStateId kAlphaTestState = RenderStateId::kAlphaTest;
+constexpr RenderStateId kAlphaBlendState = RenderStateId::kAlphaBlend;
 // D3DSAMPLERSTATETYPE
 constexpr int kSamplerMagFilter = 5;
 constexpr int kSamplerMinFilter = 6;
@@ -101,7 +101,7 @@ namespace {
 // --- the renderer's state (render_state.h) ---------------------------------------------------------------------
 
 // A render state by the renderer's own numbering (1-0x24), cached.
-void set_render_state(int state, int value) { change_phase(static_cast<RenderStateId>(state), static_cast<uint32_t>(value)); }
+void set_render_state(RenderStateId state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
 // Fog on or off (the request is kept in 0x007004C8; the device's D3DRS_FOGENABLE follows).
 void change_fog(bool on) { engine::enable_fog(on); }
 
@@ -363,9 +363,9 @@ void draw_screen_blur()
     }
     if (effects_state().bloom_on())
         get_bloom();
-    set_render_state(4, kClampBothWays);
-    set_render_state(1, 0);
-    set_render_state(2, 0);
+    set_render_state(RenderStateId::kAddressMode0, kClampBothWays);
+    set_render_state(RenderStateId::kZWrite, 0);
+    set_render_state(RenderStateId::kZTest, 0);
     set_render_state(kAlphaTestState, 0);
     set_render_state(kAlphaBlendState, 1);
 
@@ -566,8 +566,8 @@ void draw_viewport(int index)
         if (scene->is_sky())
             return;
         collect_occluders(viewer_location(camera), index);
-        set_render_state(1, 1);
-        set_render_state(2, 1);
+        set_render_state(RenderStateId::kZWrite, 1);
+        set_render_state(RenderStateId::kZTest, 1);
         SceneRef* group = scene->meshes();
         if (!(group->flags() & kSceneCollisionBuiltFlag)) {
             group->flags() |= kSceneCollisionBuiltFlag;
@@ -576,10 +576,10 @@ void draw_viewport(int index)
         }
         draw_scene_group(scene, kMainScenePasses, index);
     });
-    set_render_state(1, 0);
+    set_render_state(RenderStateId::kZWrite, 0);
     draw_texture_splats();
     draw_projection_batches();
-    set_render_state(1, 1);
+    set_render_state(RenderStateId::kZWrite, 1);
     static_cast<ImposterManager*>(imposter_manager())->render();
     set_pass(1);
     clear_world_transform();
@@ -599,8 +599,8 @@ void draw_viewport(int index)
     set_device_render_state(kFogEndState, std::bit_cast<uint32_t>(renderer().fog_end()));            // D3DRS_FOGEND
     const bool fog = renderer().fog_active() != 0;
     change_fog(false);
-    set_render_state(1, 0);
-    set_render_state(2, 1);
+    set_render_state(RenderStateId::kZWrite, 0);
+    set_render_state(RenderStateId::kZTest, 1);
     for_each_scene([&](PcScene* scene) {
         if (!scene->is_sky())
             return;
@@ -615,12 +615,12 @@ void draw_viewport(int index)
         set_sampler_state(0, kSamplerMipFilter, mip_filter);
         set_sampler_state(0, kSamplerMinFilter, min_filter);
     });
-    set_render_state(1, 1);
-    set_render_state(1, 0);
+    set_render_state(RenderStateId::kZWrite, 1);
+    set_render_state(RenderStateId::kZWrite, 0);
     if (renderer().radeon8500())
         sun::render(static_cast<gfx::ViewCam*>(camera));
-    set_render_state(1, 1);
-    set_render_state(2, 1);
+    set_render_state(RenderStateId::kZWrite, 1);
+    set_render_state(RenderStateId::kZTest, 1);
     renderer().set_fog_begin_distance(saved_fog_start);
     renderer().set_fog_end(saved_fog_end);
     set_device_render_state(kFogStartState, std::bit_cast<uint32_t>(renderer().fog_begin_distance()));
@@ -636,28 +636,28 @@ void draw_viewport(int index)
         stored_near_z() = kDefaultNearZ;
     }
     set_pass(kOpaquePass);
-    set_render_state(1, 1);
-    set_render_state(2, 1);
+    set_render_state(RenderStateId::kZWrite, 1);
+    set_render_state(RenderStateId::kZTest, 1);
     for_each_scene([&](PcScene* scene) {
         if (!scene->is_sky())
             draw_scene_group(scene, kSkyFreeScenePasses, index);
     });
     set_pass(kOcclusionPass);
     issue_occlusion_queries();
-    set_render_state(1, 0);
+    set_render_state(RenderStateId::kZWrite, 0);
     static_cast<FlexibleParticleManager*>(flexible_particle_manager())->render_systems(index > 0);
     objects::particle_hub()->draw_particles();
     weather()->render(); // (through the jump 0x004A10A0)
-    set_render_state(1, 1);
+    set_render_state(RenderStateId::kZWrite, 1);
     engine::draw_shatters();
-    set_render_state(1, 0);
+    set_render_state(RenderStateId::kZWrite, 0);
     if (!renderer().radeon8500())
         sun::render(static_cast<gfx::ViewCam*>(camera));
-    set_render_state(1, 1);
-    set_render_state(2, 1);
+    set_render_state(RenderStateId::kZWrite, 1);
+    set_render_state(RenderStateId::kZTest, 1);
     render_primitives();
-    set_render_state(1, 1);
-    set_render_state(2, 1);
+    set_render_state(RenderStateId::kZWrite, 1);
+    set_render_state(RenderStateId::kZTest, 1);
     update_glows(false);
     engine::draw_flashes(index, 0);
 }
@@ -674,8 +674,8 @@ void draw_world()
     renderer().count_frame(); // frames rendered
     if (!engine_parts().loading_screen_up()) { // (nothing while the device is lost)
         renderer().set_step_seconds(static_cast<int>(frame_clock::get_time()));
-        set_render_state(1, 1);
-        set_render_state(2, 1);
+        set_render_state(RenderStateId::kZWrite, 1);
+        set_render_state(RenderStateId::kZTest, 1);
         render_shadow_textures();
         begin_screen_effects();
         const int count = modules::viewport_count();

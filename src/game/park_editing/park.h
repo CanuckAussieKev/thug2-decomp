@@ -1469,14 +1469,15 @@ constexpr std::size_t kBuildPointerGapOffset = 0x70;
 constexpr std::size_t kBuildPointerByteSize = 200;
 class BuildPointer {
 public:
-    using Mode = uint8_t;
-    static constexpr int kModeNone = 0;
-    static constexpr int kModeRegular = 1;
-    static constexpr int kModeGap = 2;           // "gap_regular": the gap tool
-    static constexpr int kModeGapAdjust = 3;     // "gap_adjust": over a gap's piece
-    static constexpr int kModeAreaSelect = 4;    // selecting an area to copy
-    static constexpr int kModePaste = 5;         // pasting the clipboard
-    static constexpr int kModeRailPlacement = 6; // "rail_placement"
+    enum class Mode : uint8_t {
+        kNone = 0,
+        kRegular = 1,
+        kGap = 2, // "gap_regular": the gap tool
+        kGapAdjust = 3, // "gap_adjust": over a gap's piece
+        kAreaSelect = 4, // selecting an area to copy
+        kPaste = 5, // pasting the clipboard
+        kRailPlacement = 6, // "rail_placement"
+    };
 
     // The one instance.
     static BuildPointer*& sole();
@@ -1611,8 +1612,8 @@ public:
     void set_active_copy_buffer(Clipboard* value) { clipboard_ = value; }
     int& paste_set_index() { return paste_set_index_; }
     int& visible_set_slot() { return menu_index_; } // the set's place among the visible ones
-    [[nodiscard]] int mode() const { return mode_sel_; }           // 4: area selection, 5: clipboard
-    void set_mode(int value) { mode_sel_ = value; }
+    [[nodiscard]] Mode mode() const { return mode_sel_; }           // 4: area selection, 5: clipboard
+    void set_mode(Mode value) { mode_sel_ = value; }
 
     // The fields other code reads and sets.
     [[nodiscard]] const CellBox& cell_footprint() const { return cell_footprint_; }
@@ -1623,7 +1624,7 @@ public:
     [[nodiscard]] int clipboard_height() const { return clipboard_height_; }
     [[nodiscard]] int paste_set_index() const { return paste_set_index_; }
     [[nodiscard]] int menu_index() const { return menu_index_; }
-    [[nodiscard]] int mode_sel() const { return mode_sel_; }
+    [[nodiscard]] Mode mode_sel() const { return mode_sel_; }
     [[nodiscard]] const GapDetails& current_gap() const { return gap_; }
 
 private:
@@ -1649,7 +1650,8 @@ private:
     int clipboard_height_{};  // +0x60
     int paste_set_index_{0};  // +0x64: the clipboard set's index
     int menu_index_{0};       // +0x68
-    int mode_sel_{kModeNone}; // +0x6C
+    Mode mode_sel_{Mode::kNone}; // +0x6C (the original's int: the rest is zero)
+    std::array<uint8_t, 3> unknown6d_{};
     GapDetails gap_;          // +0x70
     uint32_t gap_counter_{1}; // +0xC4: names the next gap
     // The original's layout (checked inside the class: the members are private).

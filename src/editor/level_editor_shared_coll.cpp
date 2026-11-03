@@ -217,7 +217,7 @@ void Companion::change_live(bool active)
 
 bool Companion::live_now() const { return !(entity_.flag_bits() & 4); }
 
-void Companion::change_tri_flags(int face, uint16_t flags)
+void Companion::change_tri_flags(int face, render::FaceFlag flags)
 {
     if (face >= 0 && std::cmp_less(face, geometry_.tri_count()))
         std::memcpy(&core::at(faces_, static_cast<size_t>(face) * kFaceRecordBytes), &flags, 2);
@@ -251,7 +251,7 @@ void* grid_of(render::WorldScene* scene) { return scene->coll_grid(); }
 struct Taken {
     render::TriMeshSource* geometry;
     int face;
-    uint16_t flags;
+    render::FaceFlag flags;
 };
 
 struct TableRow {
@@ -589,7 +589,7 @@ void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell*
         entry.companion = std::make_unique<Companion>(checksum, faces);
         entry.companion->get_object()->geometry()->set_up_all_faces(); // (the shared no-tree face list, 0x0067C6B8)
         for (const Taken& t : taken)
-            t.geometry->set_face_flags(t.face, static_cast<uint16_t>(t.flags | render::kFaceNotCollidable));
+            t.geometry->set_face_flags(t.face, t.flags | render::FaceFlag::kNotCollidable);
         entry.taken = std::move(taken);
         ++generation();
     }
@@ -718,7 +718,7 @@ std::vector<int> taken_faces(const render::TriMeshSource* geometry)
 
 uint32_t get_generation() { return generation(); }
 
-bool taken_face(const render::TriMeshSource* geometry, int face, uint32_t* piece, int* index, uint16_t* flags)
+bool taken_face(const render::TriMeshSource* geometry, int face, uint32_t* piece, int* index, render::FaceFlag* flags)
 {
     for (const auto& entry : entries()) {
         const std::vector<Taken>& taken = entry.second.taken;
@@ -767,7 +767,7 @@ bool set_taken_flags(const render::TriMeshSource* geometry, FaceFlags face_flags
             core::at(taken, i).flags = flags;
             if (entry.second.companion)
                 entry.second.companion->change_tri_flags(static_cast<int>(i), flags);
-            core::at(taken, i).geometry->set_face_flags(core::at(taken, i).face, static_cast<uint16_t>(flags | render::kFaceNotCollidable));
+            core::at(taken, i).geometry->set_face_flags(core::at(taken, i).face, flags | render::FaceFlag::kNotCollidable);
             ++generation();
             return true;
         }

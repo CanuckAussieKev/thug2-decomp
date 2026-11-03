@@ -129,9 +129,9 @@ public:
     ~Feeler() = default;
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
-    void set_excluded(uint32_t skip, uint32_t need)
+    void set_excluded(render::FaceFlag skip, render::FaceFlag need)
     {
-        as_feeler()->set_excluded({.ignore = static_cast<uint16_t>(skip), .require = static_cast<uint16_t>(need)});
+        as_feeler()->set_excluded({.ignore = skip, .require = need});
     }
     void change_origin(const maths::Vec4& v) { as_feeler()->change_origin(&v); }
     void change_finish(const maths::Vec4& v) { as_feeler()->change_finish(&v); }
@@ -173,15 +173,15 @@ bool script_flagged(uint32_t name)
         return false;
     script::Tokens token = script::tokens_at(code);
     token = script::skip_to_end_of_statement(token);
-    while (*token != script::kTokenScriptEnd) { // (end of script)
+    while (script::as_token(*token) != script::QbToken::kScriptEnd) { // (end of script)
         script::Tokens next;
-        if (*token == script::kTokenName) { // a name: a script called?
+        if (script::as_token(*token) == script::QbToken::kName) { // a name: a script called?
             uint32_t called = script::fetch_word32(token + 1);
             next = token + script::kTokenWithWordBytes;
             bool flagged = false;
-            if (*next == script::kTokenColon) { // (a name after a colon-like 0x42 token: the second name's the script)
+            if (script::as_token(*next) == script::QbToken::kColon) { // (a name after a colon-like 0x42 token: the second name's the script)
                 ++next;
-                if (*next == script::kTokenName) {
+                if (script::as_token(*next) == script::QbToken::kName) {
                     called = script::fetch_word32(next + 1);
                     next += script::kTokenWithWordBytes;
                     flagged = script_flagged(called);
@@ -197,9 +197,9 @@ bool script_flagged(uint32_t name)
                 return true;
             }
             token = script::skip_to_end_of_statement(next);
-        } else if (*token == script::kTokenShortIf) {
+        } else if (script::as_token(*token) == script::QbToken::kShortIf) {
             token = script::step_over_token(token);
-            if (*token == script::kTokenNot)
+            if (script::as_token(*token) == script::QbToken::kNot)
                 ++token;
         } else {
             token = script::skip_to_end_of_statement(token);
@@ -236,7 +236,7 @@ bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end)
     Feeler feeler;
     feeler.kickoff() = start;
     feeler.get_end() = end;
-    feeler.set_excluded(0, render::kTriggerVolumeFaceFlags);
+    feeler.set_excluded(render::kNoFaceFlags, render::kTriggerVolumeFaceFlags);
     feeler.hook_fn() = &flag_scripted_hit;
     feeler.get_hit_shape(1, 0);
     return get_flagged() != 0;
@@ -355,7 +355,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
         clear = false;
     if (!no_wall_check_) {
         Feeler feeler;
-        feeler.set_excluded(render::kDefaultIgnoredFaceFlags, 0);
+        feeler.set_excluded(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags);
         feeler.change_origin(from);
         feeler.change_finish(to);
         if (feeler.get_hit_shape(1, 0))

@@ -48,21 +48,27 @@ struct GoalEdge {
 class Objective : public memory::HeapObject {
 public:
     // +0x6C (flag_bits_)
-    using Flags = uint8_t;
-    static constexpr int kFlagInitialized = 0x01;  // Init / Uninitialize
-    static constexpr int kFlagSeen = 0x02;         // the player has started it (hasSeen)
-    static constexpr int kFlagWon = 0x04;          // beaten (out of the goal attack / lobby net games)
-    static constexpr int kFlagWonInNetGame = 0x08; // beaten in a goal attack / net lobby game
-    static constexpr int kFlagSelected = 0x10;     // chosen for a net game
-    static constexpr int kFlagLocked = 0x20; // locked until another goal unlocks it (unlocked_by_another, pro_goal)
-    static constexpr int kFlagDeactivateOnExpire = 0x40;
-    static constexpr int kFlagEndOfRunStarted = 0x80; // the skater's end of run started by the goal (has_run_out)
+    enum class Flags : uint8_t {
+        kNone = 0,
+        kInitialized = 0x01, // Init / Uninitialize
+        kSeen = 0x02, // the player has started it (hasSeen)
+        kWon = 0x04, // beaten (out of the goal attack / lobby net games)
+        kWonInNetGame = 0x08, // beaten in a goal attack / net lobby game
+        kSelected = 0x10, // chosen for a net game
+        kLocked = 0x20, // locked until another goal unlocks it (unlocked_by_another, pro_goal)
+        kDeactivateOnExpire = 0x40,
+        kEndOfRunStarted = 0x80, // the skater's end of run started by the goal (has_run_out)
+    };
+    friend constexpr bool enable_flag_operators(Flags) { return true; }
     // +0x6D (cur_phase_)
-    using State = uint8_t;
-    static constexpr int kStateActive = 0x01;
-    static constexpr int kState02 = 0x02; // (read by 0x005543E0, never set in this range)
-    static constexpr int kStatePaused = 0x04;
-    static constexpr int kStateNoTimeLimit = 0x10;
+    enum class State : uint8_t {
+        kNone = 0,
+        kActive = 0x01,
+        kUnknown02 = 0x02, // (read by 0x005543E0, never set in this range)
+        kPaused = 0x04,
+        kNoTimeLimit = 0x10,
+    };
+    friend constexpr bool enable_flag_operators(State) { return true; }
 
     // The fields other code reads and sets.
     [[nodiscard]] ObjectiveNpc* ped() const { return static_cast<ObjectiveNpc*>(ped_); } // (a view: it stays the owner's)
@@ -78,10 +84,10 @@ public:
     void set_record_points(int value) { record_points_ = value; }
     [[nodiscard]] int seconds_remaining() const { return seconds_remaining_; }
     [[nodiscard]] int num_flags_set() const { return num_flags_set_; }
-    uint8_t& flag_bits() { return flag_bits_; }
-    [[nodiscard]] uint8_t flag_bits() const { return flag_bits_; }
-    uint8_t& cur_phase() { return cur_phase_; }
-    [[nodiscard]] uint8_t cur_phase() const { return cur_phase_; }
+    Flags& flag_bits() { return flag_bits_; }
+    [[nodiscard]] Flags flag_bits() const { return flag_bits_; }
+    State& cur_phase() { return cur_phase_; }
+    [[nodiscard]] State cur_phase() const { return cur_phase_; }
 
 private:
     // The constructor's step: the goal's parameters (a copy of `params`), its pro and its flags, in the original's
@@ -116,8 +122,8 @@ private:
     int elapsed_{0};       // +0x60: ms since activated
     int unknown64_{-1};    // +0x64 (-1)
     int unknown68_{-1};    // +0x68 (-1)
-    uint8_t flag_bits_; // +0x6C (Flags)
-    uint8_t cur_phase_; // +0x6D (State)
+    Flags flag_bits_; // +0x6C
+    State cur_phase_; // +0x6D
     std::array<uint8_t, 2> pad6e_{};
 
 public:
@@ -294,7 +300,7 @@ public:
     bool did_trick_string();
     // 0x00555540: the topmost parent's goal_id (this goal's if it has none).
     uint32_t get_top_objective_key();
-    // 0x00555590 (vtable +0x54): beaten (in a goal attack or net lobby game: kFlagWonInNetGame).
+    // 0x00555590 (vtable +0x54): beaten (in a goal attack or net lobby game: Flags::kWonInNetGame).
     virtual bool has_won();
     // 0x005555E0 (vtable +0x68): beaten - and every parent.
     virtual void mark_won();

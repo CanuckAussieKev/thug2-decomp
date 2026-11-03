@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <array>
 
+#include "wire/message_ids.h"
+
 namespace util {
 class ByteReader;
 class ByteWriter;
@@ -34,18 +36,6 @@ class ByteWriter;
 //   0x8C cancel spins (1)      the object id (u8)
 namespace online {
 
-constexpr uint8_t kMsgPlayAnim = 0x29;
-constexpr uint8_t kMsgBoardRotated = 0x2A;
-constexpr uint8_t kMsgWobbleTarget = 0x2B;
-constexpr uint8_t kMsgFlip = 0x2C;
-constexpr uint8_t kMsgWobbleDetails = 0x3C;
-constexpr uint8_t kMsgLoopType = 0x3D;
-constexpr uint8_t kMsgHideGeom = 0x3E;
-constexpr uint8_t kMsgAnimSpeed = 0x41;
-constexpr uint8_t kMsgSpinModel = 0x76;
-constexpr uint8_t kMsgCreateSpecialItem = 0x77;
-constexpr uint8_t kMsgDestroySpecialItem = 0x78;
-constexpr uint8_t kMsgCancelSpins = 0x8C;
 
 constexpr size_t kPlayAnimSize = 14;
 // Fields the THUGPRO guards (net_guards.cpp) check in place.
@@ -122,11 +112,6 @@ bool write_special_item(util::ByteWriter& writer, const SpecialItemMessage& mess
 //                              bits are the player's object id), the count (u32), the names (u32) - to observers
 //   0x4B tag stolen (12)       the game id (u8), (0) x3, the thief's and the victim's object ids (u32 each)
 //   0x52 landed score / 0x86 best combo (8)  the game id (u8), (0) x3, the points (i32)
-constexpr uint8_t kMsgTrickObjects = 0x3B;
-constexpr uint8_t kMsgObservedTrickObjects = 0x5B;
-constexpr uint8_t kMsgTagStolen = 0x4B;
-constexpr uint8_t kMsgLandedScore = 0x52;
-constexpr uint8_t kMsgBestCombo = 0x86;
 constexpr uint32_t kMaxTrickObjects = 0x200; // (the senders' buffers: the cluster log's capacity)
 constexpr size_t kTrickObjectsHeaderSize = 0x18;
 constexpr size_t kObservedTrickObjectsHeaderSize = 0xC;

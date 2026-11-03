@@ -50,7 +50,7 @@ void draw_geometry(TriMeshSource* geometry, const maths::Mat4* transform, int a,
 } // namespace
 
 // 0x00410BF0
-uint32_t HitMesh::read_face_attrs(int face) const
+FaceFlag HitMesh::read_face_attrs(int face) const
 {
     return geometry_->face_flags(face);
 }

@@ -2,6 +2,7 @@
 // renderer are level_editor_ui_backend.cpp's.
 
 #include "editor/level_editor_actions.h"
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor_adjust.h"
 #include "editor/level_editor_arrange.h"
 #include "editor/level_editor_ui.h"
@@ -583,17 +584,17 @@ std::string row_tag_of(const nodes::Elem& node)
     switch (node.family) {
     case nodes::Family::kSpawn: {
         std::string tags;
-        auto add = [&](uint32_t bit, const char* tag) {
-            if (node.restart_types_ & bit)
+        auto add = [&](nodes::SpawnPointKind bit, const char* tag) {
+            if (core::any(node.restart_types_ & bit))
                 tags += tags.empty() ? tag : std::string(" ") + tag;
         };
-        add(nodes::kPlayer1, "P1");
-        add(nodes::kPlayer2, "P2");
-        add(nodes::kMultiplayer, "MP");
-        add(nodes::kHorse, "H");
-        add(nodes::kCtf, "CTF");
-        add(nodes::kTeam, "Team");
-        add(nodes::kKing, "KotH");
+        add(nodes::SpawnPointKind::kPlayer1, "P1");
+        add(nodes::SpawnPointKind::kPlayer2, "P2");
+        add(nodes::SpawnPointKind::kMultiplayer, "MP");
+        add(nodes::SpawnPointKind::kHorse, "H");
+        add(nodes::SpawnPointKind::kCtf, "CTF");
+        add(nodes::SpawnPointKind::kTeam, "Team");
+        add(nodes::SpawnPointKind::kKing, "KotH");
         return tags;
     }
     case nodes::Family::kCrown:
@@ -929,17 +930,17 @@ void node_section(const ShapeMesh& model, int index)
         if (node.family == nodes::Family::kSpawn) {
             field_label("Types");
             struct TypeName {
-                uint32_t bit;
+                nodes::SpawnPointKind bit;
                 const char* name;
             };
             static constexpr auto kTypes = std::to_array<TypeName>(
-                {{.bit = nodes::kPlayer1, .name = "Player1"},    {.bit = nodes::kPlayer2, .name = "Player2"}, {.bit = nodes::kMultiplayer, .name = "Multiplayer"},
-                 {.bit = nodes::kHorse, .name = "Horse"},        {.bit = nodes::kCtf, .name = "CTF"},         {.bit = nodes::kTeam, .name = "Team"},
-                 {.bit = nodes::kKing, .name = "KingOfTheHill"}, {.bit = nodes::kGeneric, .name = "Generic"}});
+                {{.bit = nodes::SpawnPointKind::kPlayer1, .name = "Player1"},    {.bit = nodes::SpawnPointKind::kPlayer2, .name = "Player2"}, {.bit = nodes::SpawnPointKind::kMultiplayer, .name = "Multiplayer"},
+                 {.bit = nodes::SpawnPointKind::kHorse, .name = "Horse"},        {.bit = nodes::SpawnPointKind::kCtf, .name = "CTF"},         {.bit = nodes::SpawnPointKind::kTeam, .name = "Team"},
+                 {.bit = nodes::SpawnPointKind::kKing, .name = "KingOfTheHill"}, {.bit = nodes::SpawnPointKind::kGeneric, .name = "Generic"}});
             ImGui::PushFont(level_editor_ui_state().small_);
             bool any = false;
             for (const auto& t : kTypes) {
-                if (node.restart_types_ & t.bit) {
+                if (core::any(node.restart_types_ & t.bit)) {
                     badge(t.name, get_colour((node.colour & kColourRgbMask) | kHalfAlpha));
                     any = true;
                 }

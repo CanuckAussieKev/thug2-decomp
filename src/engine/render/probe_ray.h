@@ -43,8 +43,8 @@ public:
 
     // The face flags a probe ignores and those it requires.
     struct FaceMasks {
-        uint16_t ignore{};
-        uint16_t require{};
+        FaceFlag ignore{};
+        FaceFlag require{};
     };
 
     // 0x004170F0: faces with any of `ignore` set, or without all of `require`, are passed over.

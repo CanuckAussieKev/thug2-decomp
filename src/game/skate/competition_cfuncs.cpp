@@ -122,7 +122,7 @@ bool cfunc_apply_split_screen_options(script::Struct*, script::Script*)
         // (the string is passed by value: the horse's code destroys it)
         the_horse()->set_letters(text::Chars(word));
         const script::StructPtr options = script::make_struct();
-        options->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, static_cast<uint32_t>(time_limit));
+        options->add_component_of_type(kDefaultTimeLimit, script::QbValueKind::kInteger, static_cast<uint32_t>(time_limit));
         override_game_mode_options(options.get());
         set_countdown_seconds(time_limit);
     }

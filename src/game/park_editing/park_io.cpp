@@ -444,7 +444,7 @@ void ParkLayout::export_to_struct(script::Struct* out)
     flag_bits_ &= ~kMapNotSavedLocal;
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> map = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-    map->configure_size_kind(kParkMapWords, script::kQbvalInteger); // (out of memory crashes, as in the original)
+    map->configure_size_kind(kParkMapWords, script::QbValueKind::kInteger); // (out of memory crashes, as in the original)
     std::array<uint32_t, kParkMapWords> words{};
     park_map_to_words(map_.bytes(), words);
     for (uint32_t i = 0; i < kParkMapWords; ++i)

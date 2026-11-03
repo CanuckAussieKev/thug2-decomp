@@ -12,6 +12,8 @@
 #include <vector>
 #include <array>
 
+#include "engine/render/coll_obj.h"
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_overlays.h"
@@ -82,7 +84,7 @@ SpotKind kind_of_face(FaceKindOf face)
 {
     const auto normal_y = face.normal_y_;
     const auto face_flags = face.face_flags_;
-    const bool vert = (face_flags & 0x08) != 0;
+    const bool vert = core::any(face_flags & render::FaceFlag::kVert);
     if (!vert && normal_y >= kFloorNormalY)
         return SpotKind::kArea;
     if (!vert && std::fabs(normal_y) < kWallNormalY)
@@ -206,7 +208,7 @@ LevelEditorGapWizardState& level_editor_gap_wizard_state()
 
 struct Hit {
     V3 point, normal;
-    uint16_t flags;
+    render::FaceFlag flags;
 };
 
 // The game's collision ray (a ProbeRay, as level_editor_ruler.cpp's): the point, the face's normal and flags.

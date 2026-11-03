@@ -9,6 +9,7 @@
 #include <initializer_list>
 #include <array>
 
+#include "engine/core/enum_ops.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -230,7 +231,7 @@ bool cfunc_test_net_setup(script::Struct* params, script::Script*)
         text = "net_error_invalid_irx";
     else
         text = "net_error_general_error";
-    params->append_word(kNetSetupError, script::kQbvalString, script::fetch_text(text));
+    params->append_word(kNetSetupError, script::QbValueKind::kString, script::fetch_text(text));
     script::launch_script(kNetSetupFailedScript, params, nullptr, false, nullptr);
     return ok;
 }
@@ -315,8 +316,8 @@ bool cfunc_is_observing(script::Struct*, script::Script*)
         return player->is_observer() != 0;
     for (const online::JoinerRecord* player = game_net->begin_joiner_walk(&search); player;
          player = game_net->step_joiner_walk(&search)) {
-        const uint32_t flags = player->flag_bits();
-        if ((flags & 1) && (flags & 4))
+        const online::PlayerFlag flags = player->flag_bits();
+        if (core::any(flags & online::PlayerFlag::kLocal) && core::any(flags & online::PlayerFlag::kObserver))
             return true;
     }
     return game_net->get_entry_mode() == 1;
@@ -402,9 +403,9 @@ bool cfunc_notify_bail_done(script::Struct*, script::Script* script)
         return true;
     if (net::AppHost* client = game_net->fetch_patron(skater->view_slot())) {
         net::NetMessageInfo desc;
-        desc.set_ident(online::kMsgJoined);
+        desc.set_ident(online::MessageId::kJoined);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(online::kGroupGame);
+        desc.set_group_id(online::MessageGroup::kGame);
         core::down_cast<net::Guest>(client)->send_to_host(&desc);
     }
     return true;
@@ -444,11 +445,11 @@ bool cfunc_start_server_list(script::Struct*, script::Script*)
 bool cfunc_start_lobby_list(script::Struct*, script::Script*)
 {
     online::Hub* game_net = online::online_hub();
-    if (game_net->get_service_state() == 2) {
-        game_net->set_next_service_state(online::kServiceStateLobbyListStart);
-        game_net->set_service_state(1);
+    if (game_net->get_service_state() == online::ServiceState::kStopped) {
+        game_net->set_next_service_state(online::ServiceState::kLobbyListStart);
+        game_net->set_service_state(online::ServiceState::kWake);
     } else {
-        game_net->set_service_state(online::kServiceStateLobbyListStart);
+        game_net->set_service_state(online::ServiceState::kLobbyListStart);
     }
     return true;
 }
@@ -626,7 +627,7 @@ uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name
 void set_string_preference(prefs::Preferences* prefs, uint32_t name, const char* text)
 {
     const script::StructPtr preference = script::make_struct();
-    preference->append_word(get_checksums("ui_string"), script::kQbvalString, text); // "ui_string"
+    preference->append_word(get_checksums("ui_string"), script::QbValueKind::kString, text); // "ui_string"
     prefs->change_setting(name, preference.get());
 }
 // ... set to {ui_string="<text>" checksum=<the checksum of `value`>}.

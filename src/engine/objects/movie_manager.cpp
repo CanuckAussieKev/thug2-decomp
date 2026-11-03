@@ -26,8 +26,6 @@
 namespace objects {
 
 namespace {
-constexpr int kAssetKindObjectAnim = 5;
-constexpr int kAssetKindObjectCamera = 9;
 constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // Load_MainMenu
 
 bool& stored_simulation_halted()
@@ -375,10 +373,10 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
             return false; // (keep_camera_ stays cleared)
         while (kill_movie(name)) {
         }
-        const int kind = asset->fetch_kind(); // (the original's slot 0)
-        if (kind == kAssetKindObjectAnim) {
+        const assets::ResourceKind kind = asset->fetch_kind(); // (the original's slot 0)
+        if (kind == assets::ResourceKind::kAnimation) {
             movie = new ObjectAnimMovie;
-        } else if (kind == kAssetKindObjectCamera) {
+        } else if (kind == assets::ResourceKind::kCutscene) {
             const CutsceneSkater context = skater_context(false);
             movie = new_object_camera(&context);
         }

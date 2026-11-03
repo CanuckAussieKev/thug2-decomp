@@ -717,7 +717,7 @@ bool ModelAssembler::launch_script(checksums::Name part_name, uint32_t target)
     if (fetch_script(option, target, held, 0)) {
         script::Script* script = script::Script::create();
         script->set_script_copy(held, nullptr, built_appearance().get()); // (no memory: a crash, as the original)
-        while (script->tick_frame()) {
+        while (script->tick_frame() != script::ScriptOutcome::kFinished) {
         }
         if (script) {
             script::Script::destroy(script);

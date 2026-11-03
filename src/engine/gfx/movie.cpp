@@ -175,7 +175,7 @@ void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alp
     if (!texture)
         return;
     choose_blend_mode(0);
-    change_phase(kAddressMode0, kClampBothWays); // (clamp)
+    change_phase(RenderStateId::kAddressMode0, kClampBothWays); // (clamp)
     set_vertex_format(kScreenVertexFormat);
     renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
     renderer().d3d_device()->SetFVF(kScreenVertexFormat);
@@ -250,7 +250,7 @@ uint32_t& saved_cull_mode() { return movie_saved_states().saved_cull_mode_; }
 uint32_t& saved_antialias() { return movie_saved_states().saved_antialias_; }
 uint32_t& get_saved_min_filter() { return movie_saved_states().saved_min_filter_; }
 // The renderer's cached states (change_phase: 1 the z write, 2 the z test).
-void set_renderer_sampler(int state, int value) { change_phase(static_cast<RenderStateId>(state), static_cast<uint32_t>(value)); }
+void set_renderer_sampler(RenderStateId state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
 
 } // namespace
 
@@ -262,8 +262,8 @@ void* begin_movie(uint32_t width, uint32_t height)
     get_render_state(kRsMultisample, &saved_antialias());
     put_render_state(kRsMultisample, 0);
     put_render_state(kD3dLighting, 0);
-    set_renderer_sampler(1, 0);
-    set_renderer_sampler(2, 0);
+    set_renderer_sampler(RenderStateId::kZWrite, 0);
+    set_renderer_sampler(RenderStateId::kZTest, 0);
     get_sampler_state(0, kMinFilter, &get_saved_min_filter());
     set_sampler_state(0, kMinFilter, 2); // linear
     // (x87: unsigned to float through FILD and +2^32)
@@ -288,8 +288,8 @@ void end_movie(void* texture)
     put_render_state(kD3dCullMode, saved_cull_mode());
     put_render_state(kRsMultisample, saved_antialias());
     set_sampler_state(0, kMinFilter, get_saved_min_filter());
-    set_renderer_sampler(1, 1);
-    set_renderer_sampler(2, 1);
+    set_renderer_sampler(RenderStateId::kZWrite, 1);
+    set_renderer_sampler(RenderStateId::kZTest, 1);
     if (texture)
         static_cast<IDirect3DTexture9*>(texture)->Release();
     set_texture(0, nullptr);                                                   // (the original also passes 0, unused)

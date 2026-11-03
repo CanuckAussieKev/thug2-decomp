@@ -17,10 +17,6 @@
 namespace objects {
 namespace {
 constexpr uint32_t kMotionFlagRotatingAlt = 0x40u;
-constexpr int kBlockReasonJumpFinished = 7;
-constexpr int kBlockReasonRotate = 9;
-constexpr int kBlockReasonMove = 5;
-constexpr int kBlockReasonStop = 8;
 constexpr uint32_t kObjIsMoving = 0x21ACCF0D; // Obj_IsMoving
 constexpr uint32_t kMotion = 0x0A015E17; // Motion
 constexpr uint32_t kObjIsRotating = 0x7BC461AE; // Obj_IsRotating
@@ -285,25 +281,25 @@ int KinematicsModule::start_along_path(script::Struct*, script::Script*)
 // 0x00423490
 int KinematicsModule::wait_jump_finished(script::Struct*, script::Script* script)
 {
-    return wait_on(script, this, static_cast<script::BlockReason>(kBlockReasonJumpFinished));
+    return wait_on(script, this, script::BlockReason::kJump);
 }
 
 // 0x004234B0
 int KinematicsModule::wait_rotate(script::Struct*, script::Script* script)
 {
-    return wait_on(script, this, static_cast<script::BlockReason>(kBlockReasonRotate));
+    return wait_on(script, this, script::BlockReason::kRotate);
 }
 
 // 0x004234D0
 int KinematicsModule::wait_move(script::Struct*, script::Script* script)
 {
-    return wait_on(script, this, static_cast<script::BlockReason>(kBlockReasonMove));
+    return wait_on(script, this, script::BlockReason::kMove);
 }
 
 // 0x004234F0
 int KinematicsModule::wait_stop(script::Struct*, script::Script* script)
 {
-    return wait_on(script, this, static_cast<script::BlockReason>(kBlockReasonStop));
+    return wait_on(script, this, script::BlockReason::kPathStop);
 }
 
 } // namespace objects

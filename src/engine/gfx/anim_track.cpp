@@ -131,7 +131,7 @@ AnimDriver* AnimTrack::find_controller(uint32_t id)
 void AnimTrack::tick_track()
 {
     set_complete(false);
-    if (cur_phase_ == kFading) {
+    if (cur_phase_ == AnimTrack::State::kFading) {
         // (x87 at 53 bits: the frame's share of the rate, taken off the weight left; the comparisons use the
         // unrounded result)
         double step = frame_clock::get_slomo_frame_seconds() * kFramesPerSecond;
@@ -139,9 +139,9 @@ void AnimTrack::tick_track()
         const double left = static_cast<double>(fade_left_) - step;
         fade_left_ = static_cast<float>(left);
         if (left <= 0.0 || left * fade_scale_ < 0.0)
-            cur_phase_ = kOff;
+            cur_phase_ = AnimTrack::State::kOff;
     }
-    if (cur_phase_ == kPlaying || cur_phase_ == kFading) {
+    if (cur_phase_ == AnimTrack::State::kPlaying || cur_phase_ == AnimTrack::State::kFading) {
         for (int i = 0; i < controller_count_; ++i)
             core::at(controller_list_, i)->tick_frame();
     }
@@ -151,10 +151,10 @@ void AnimTrack::tick_track()
 bool AnimTrack::start_fade(float period)
 {
     if (period == 0.0f)
-        cur_phase_ = kOff;
-    if (cur_phase_ != kPlaying)
+        cur_phase_ = AnimTrack::State::kOff;
+    if (cur_phase_ != AnimTrack::State::kPlaying)
         return false;
-    cur_phase_ = kFading;
+    cur_phase_ = AnimTrack::State::kFading;
     fade_left_ = period;
     return true;
 }
@@ -163,13 +163,14 @@ bool AnimTrack::start_fade(float period)
 double AnimTrack::get_weight()
 {
     switch (cur_phase_) {
-    case kFading:
+    case AnimTrack::State::kFading:
         return static_cast<double>(fade_scale_) * fade_left_;
-    case kPlaying:
+    case AnimTrack::State::kPlaying:
         return 1.0;
-    default:
-        return 0.0;
+    case AnimTrack::State::kOff:
+        break;
     }
+    return 0.0;
 }
 
 // 0x00481BB0
@@ -215,7 +216,7 @@ void AnimTrack::load_events(uint32_t anim)
 // 0x00481E10
 void AnimTrack::fire_events(float from, float to)
 {
-    if (!events_on_ || cur_phase_ != kPlaying)
+    if (!events_on_ || cur_phase_ != AnimTrack::State::kPlaying)
         return;
     // (frames: compared unrounded, passed on as floats)
     const double first = static_cast<double>(from) * 60.0;
@@ -329,7 +330,7 @@ void AnimTrack::play_anim(uint32_t anim, AnimPlay anim_play,
     const auto speed = anim_play.speed;
     delete_events();
     load_events(anim);
-    cur_phase_ = kPlaying;
+    cur_phase_ = AnimTrack::State::kPlaying;
     fade_rate_ = 1.0f / kFramesPerSecondFloat; // (0x3C888889)
 
     gsl::owner<Struct*> settings = script::new_struct();

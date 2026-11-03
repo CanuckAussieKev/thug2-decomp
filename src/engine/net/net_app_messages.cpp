@@ -8,6 +8,8 @@
 #include <iterator>
 #include <span>
 
+#include "wire/message_ids.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -122,7 +124,7 @@ bool append_message(AppHost* app, Conn* conn, PendingMsg* msg)
     if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize))
         return false;
     util::ByteWriter writer(vacant(conn->outgoing()).first(packet_space_left(conn)));
-    writer.u8(msg->ident());
+    writer.u8(core::to_underlying(msg->ident()));
     if (!(message_flags(app->supervisor(), msg->ident()) & kMsgNoLength))
         writer.u16(msg->byte_count());
     writer.bytes(msg->content(), msg->byte_count());
@@ -140,7 +142,7 @@ bool append_sequenced_message(Conn* conn, OrderedMsgNode* link)
     if (size + static_cast<int>(conn->outgoing().used) >= static_cast<int>(kMaxPacketSize))
         return false;
     util::ByteWriter writer(vacant(conn->outgoing()).first(packet_space_left(conn)));
-    writer.u8(wire::kMsgSequenced);
+    writer.u8(core::to_underlying(wire::MessageId::kSequenced));
     writer.u16(static_cast<uint16_t>(length + wire::kSequencedHeaderSize));
     wire::write_sequenced_header(writer, {.group = link->bundle_id(), .sequence = link->order_index(), .id = msg->ident()});
     writer.bytes(msg->content(), msg->byte_count());
@@ -294,7 +296,7 @@ int AppHost::on_ping_probe_msg(InboundMsgCtx* context)
         return kResultConsumed;
     desc.set_content(&sent_time);
     desc.set_byte_count(sizeof(sent_time));
-    desc.set_ident(wire::kMsgLatencyResponse);
+    desc.set_ident(wire::MessageId::kLatencyResponse);
     net::put_on_outbox(context->receiver_app(), context->sender_conn()->hdl(), &desc);
     return kResultPassOn;
 }
@@ -359,7 +361,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
     util::ByteReader expanded(data, static_cast<size_t>(expected_size));
     wire::MessageHeader inner_header;
     wire::read_message_header(expanded, &inner_header);
-    const uint8_t id = inner_header.id;
+    const auto id = inner_header.id;
     const uint16_t length = inner_header.length;
     if (length > expanded.remaining()) { // NOT ORIGINAL: a length past the expanded data (the original copies on)
         memory::Hub::get_pull()->dealloc(data);
@@ -388,13 +390,13 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
     if (!wire::read_sequenced_header(reader, &header)) // NOT ORIGINAL: too short for its header - dropped
         return kResultConsumed;
     const uint32_t sequence = header.sequence;
-    const uint8_t group = header.group;
-    if (sequence < core::at(conn->sequence_numbers(), group))
+    const auto group = header.group;
+    if (sequence < core::at(conn->sequence_numbers(), core::to_underlying(group)))
         return kResultPassOn; // handled already
 
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->network_heap());
-    const uint8_t id = header.id;
+    const auto id = header.id;
     auto length = static_cast<uint16_t>(reader.remaining());
     void* memory = memory::alloc(sizeof(SeqQueuedMsg));
     SeqQueuedMsg* seq_msg =
@@ -483,7 +485,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->network_heap());
     switch (context->type_code()) {
-    case wire::kMsgBulkChunk: {
+    case wire::MessageId::kBulkChunk: {
         // stream id (4 bytes), then the piece (net_wire.h)
         util::ByteReader reader = body_reader(context);
         const int stream_id = reader.i32();
@@ -508,7 +510,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         }
         break;
     }
-    case wire::kMsgBulkBegin: {
+    case wire::MessageId::kBulkBegin: {
         // name (0x20 bytes), size, stream id, checksum, message id, then the first piece (net_wire.h)
         util::ByteReader reader = body_reader(context);
         wire::StreamStart start;

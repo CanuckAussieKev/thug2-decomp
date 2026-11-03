@@ -1,5 +1,6 @@
 #pragma once
 
+#include "wire/message_ids.h"
 #include <cstdint>
 #include <span>
 
@@ -23,6 +24,6 @@ int rle_decompress(std::span<const uint8_t> input, std::span<uint8_t> output, in
 // THUGPRO's, net_lzham.h; and in the THUGPRO peer mode 2 goes as 3) into a new buffer
 // (the default heap), *msg_id then 0x12 and *length the new length; null (nothing changed) if it came out no
 // smaller than the data. Debug output gives the sizes.
-uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, char method);
+uint8_t* compress_message(wire::MessageId* msg_id, uint16_t* length, const void* data, char method);
 
 } // namespace net

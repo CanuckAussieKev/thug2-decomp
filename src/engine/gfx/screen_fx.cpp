@@ -122,8 +122,8 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, maths::Vec2 uv
     set_texture(0, nullptr);
     renderer().draw_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
     renderer().draw_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
-    change_phase(kAddressMode0, kClampBothWays);
-    change_phase(kPhaseAlphaTest, 0);
+    change_phase(RenderStateId::kAddressMode0, kClampBothWays);
+    change_phase(RenderStateId::kPhaseAlphaTest, 0);
     auto width = static_cast<float>(as_unsigned(target_desc.Width));
     auto height = static_cast<float>(as_unsigned(target_desc.Height));
     choose_blend_mode(blend);
@@ -200,19 +200,19 @@ void copy_screen_quarter()
     IDirect3DTexture9* quarter = screen_copy(2);
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the frame so far resolved into the copy first.
     graphics_options::resolve_scene_target(source);
-    change_phase(kDepthBias, 0);
-    change_phase(kLighting, 0);
-    change_phase(kZWrite, 0);
-    change_phase(kZTest, 0);
-    change_phase(kAlphaTest, 0);
-    change_phase(kAlphaBlend, 0);
-    change_phase(kCullMode, D3DCULL_NONE);
+    change_phase(RenderStateId::kDepthBias, 0);
+    change_phase(RenderStateId::kLighting, 0);
+    change_phase(RenderStateId::kZWrite, 0);
+    change_phase(RenderStateId::kZTest, 0);
+    change_phase(RenderStateId::kAlphaTest, 0);
+    change_phase(RenderStateId::kAlphaBlend, 0);
+    change_phase(RenderStateId::kCullMode, D3DCULL_NONE);
     draw_screen_quad(0, quarter, source, {.x = 0.0f, .y = 0.0f}, kNeutralColour, true);
     set_target(current_screen_copy(), renderer().z_buffer_surface());
-    change_phase(kZWrite, 1);
-    change_phase(kZTest, 1);
-    change_phase(kAlphaTest, 1);
-    change_phase(kAlphaBlend, 1);
+    change_phase(RenderStateId::kZWrite, 1);
+    change_phase(RenderStateId::kZTest, 1);
+    change_phase(RenderStateId::kAlphaTest, 1);
+    change_phase(RenderStateId::kAlphaBlend, 1);
 }
 
 // 0x004DEB70
@@ -220,10 +220,10 @@ void get_bloom()
 {
     if (!renderer().shaders_available())
         return;
-    change_phase(kZWrite, 0);
-    change_phase(kZTest, 0);
-    change_phase(kAlphaTest, 0);
-    change_phase(kAlphaBlend, 0);
+    change_phase(RenderStateId::kZWrite, 0);
+    change_phase(RenderStateId::kZTest, 0);
+    change_phase(RenderStateId::kAlphaTest, 0);
+    change_phase(RenderStateId::kAlphaBlend, 0);
     IDirect3DTexture9* quarter = screen_copy(2);
     IDirect3DTexture9* bright = screen_copy(3);
     set_pixel_shader(get_shader(kPixelShader948), nullptr); // the cut-off
@@ -237,7 +237,7 @@ void get_bloom()
     // Blur: vertically into the eighth, back horizontally; then the same at a sixteenth.
     IDirect3DTexture9* a = screen_copy(3);
     IDirect3DTexture9* b = screen_copy(4);
-    change_phase(kAlphaBlend, 1);
+    change_phase(RenderStateId::kAlphaBlend, 1);
     D3DSURFACE_DESC unused;
     b->GetLevelDesc(0, &unused);
     for (int tap = 0; tap < 4; ++tap)
@@ -260,12 +260,12 @@ void get_bloom()
     if (!kBlurSecondPass)
         return;
     // Both blurred copies added over the frame.
-    change_phase(kZWrite, 0);
-    change_phase(kZTest, 0);
-    change_phase(kAlphaTest, 0);
-    change_phase(kAlphaBlend, 1);
-    change_phase(kPhaseAlphaTest, 0);
-    change_phase(kAddressMode0, kClampBothWays);
+    change_phase(RenderStateId::kZWrite, 0);
+    change_phase(RenderStateId::kZTest, 0);
+    change_phase(RenderStateId::kAlphaTest, 0);
+    change_phase(RenderStateId::kAlphaBlend, 1);
+    change_phase(RenderStateId::kPhaseAlphaTest, 0);
+    change_phase(RenderStateId::kAddressMode0, kClampBothWays);
     set_pixel_shader(get_shader(kPixelShader950), nullptr);
     set_vertex_format(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     choose_blend_mode(1);
@@ -297,10 +297,10 @@ void get_bloom()
         renderer().draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad.data(), sizeof(TexturedVertex));
         count_draw(2);
     }
-    change_phase(kAlphaTest, 1);
-    change_phase(kAlphaBlend, 1);
-    change_phase(kZWrite, 1);
-    change_phase(kZTest, 1);
+    change_phase(RenderStateId::kAlphaTest, 1);
+    change_phase(RenderStateId::kAlphaBlend, 1);
+    change_phase(RenderStateId::kZWrite, 1);
+    change_phase(RenderStateId::kZTest, 1);
     for (int stage = 0; stage < 4; ++stage)
         set_texture(stage, nullptr);
     set_pixel_shader(nullptr, nullptr);

@@ -781,16 +781,16 @@ UiWidget* find_element(uint32_t id, ElementPtr* holder)
 // Whether a script's parameters name a denied script or id (structures and arrays too).
 bool struct_denied(script::Struct* params, int depth);
 
-bool value_denied(uint32_t type, script::Cell value, int depth)
+bool value_denied(script::QbValueKind type, script::Cell value, int depth)
 {
     switch (type) {
-    case script::kQbvalName:
+    case script::QbValueKind::kName:
         return checksum_denied(value.word());
-    case script::kQbvalStruct:
-    case script::kQbvalStructRef:
+    case script::QbValueKind::kStruct:
+    case script::QbValueKind::kStructRef:
         return struct_denied(value.structure(), depth + 1);
-    case script::kQbvalArray:
-    case script::kEsymboltypeArraypointer: {
+    case script::QbValueKind::kArray:
+    case script::QbValueKind::kArrayRef: {
         script::Array* array = value.array();
         if (!array || depth > kMaxStructureDepth)
             return false;
@@ -950,7 +950,7 @@ void trace_frame()
     if (skater) {
         auto* state = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kStateModuleKey));
         const int where = state ? state->cur_phase() : -1;
-        const int physics = state ? state->physics_mode() : -1;
+        const int physics = state ? static_cast<int>(state->physics_mode()) : -1;
         const int bailing = state ? state->is_on(objects::PoseFlag::kBailing) : -1;
         const int trick = state ? state->in_trick_move() : -1;
         // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)
@@ -961,7 +961,7 @@ void trace_frame()
         const int landed = score ? score->pot_score() : -1;
         // the core physics' last ground hit (its feeler copy at +0x158): the face's flags and the object's checksum
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysicsComponent));
-        const unsigned ground_flags = core ? core->floor_feeler().hit().face_flags_ : 0;
+        const unsigned ground_flags = core ? static_cast<unsigned>(core->floor_feeler().hit().face_flags_) : 0;
         const unsigned ground_object = core ? core->floor_feeler().hit().object_checksum_ : 0;
         text::print_to(trace.file.get(), "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
                        frame_loop::frames_run(), static_cast<double>(skater->at_point().x),
@@ -1183,7 +1183,7 @@ gsl::owner<script::Struct*> make_params(const std::vector<Param>& params)
 bool script_exists(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    return symbol && (symbol->type() == script::kQbvalScriptBody || symbol->type() == script::kQbvalNativeFunc);
+    return symbol && (symbol->type() == script::QbValueKind::kScriptBody || symbol->type() == script::QbValueKind::kNativeFunc);
 }
 
 // Spawn a script (run's and -run's); "" if it ran, else why not.

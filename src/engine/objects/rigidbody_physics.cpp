@@ -193,16 +193,14 @@ void BodyDynamicsModule::debug_draw()
 {
     uint32_t colour = 0;
     switch (cur_phase_) {
-    case kStateAsleep:
+    case BodyDynamicsModule::State::kAsleep:
         colour = kHashFFC80000;
         break;
-    case kStateAwake:
+    case BodyDynamicsModule::State::kAwake:
         colour = push_cooldown_ > kZero ? kHashFF00C800 : kHashFF0000C8;
         break;
-    case kStateDisabled:
+    case BodyDynamicsModule::State::kDisabled:
         colour = kHashFF640064;
-        break;
-    default:
         break;
     }
     auto at = [this](const maths::Vec4& p) {
@@ -548,7 +546,7 @@ void BodyDynamicsModule::collide(render::ProbeRay* feeler)
 // 0x00430E20
 void BodyDynamicsModule::tick_frame()
 {
-    if (cur_phase_ == kStateDisabled)
+    if (cur_phase_ == BodyDynamicsModule::State::kDisabled)
         return;
     const float frame = get_narrow(frame_clock::get_slomo_frame_seconds());
     if (push_cooldown_ > kZero)
@@ -561,7 +559,7 @@ void BodyDynamicsModule::tick_frame()
         else
             die_timer_ = get_sub(die_timer_, frame);
     }
-    if (cur_phase_ == kStateAsleep) {
+    if (cur_phase_ == BodyDynamicsModule::State::kAsleep) {
         entity()->display_matrix() = basis_frame_;
         return;
     }

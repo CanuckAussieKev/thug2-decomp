@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <array>
 #include <span>
+#include "engine/core/enum_ops.h"
 #include "engine/core/slab_bank.h"
 #include "engine/script/cell.h"
 #include "engine/script/tokens.h"
@@ -33,76 +34,81 @@ class Script;
 // The token bytes of compiled scripts. Names for the plain operators and brackets are the symbol our NeverScript
 // decompiler prints for the byte (0x07 prints `=`, 0x42 `:` ...); the others are named for what the interpreter does with
 // them. "Meaning unknown": stepped over as one byte, nothing in the game's code acts on them.
-constexpr uint8_t kTokenEndOfFile = 0x00;
-constexpr uint8_t kTokenEndOfLine = 0x01;
-constexpr uint8_t kTokenEndOfLineNumbered = 0x02; // + a 4-byte line number
-constexpr uint8_t kTokenStructStart = 0x03;       // prints `{`
-constexpr uint8_t kTokenStructEnd = 0x04;         // `}`
-constexpr uint8_t kTokenArrayStart = 0x05;        // `[`
-constexpr uint8_t kTokenArrayEnd = 0x06;          // `]`
-constexpr uint8_t kTokenEquals = 0x07;            // `=`
-constexpr uint8_t kTokenDot = 0x08;               // `.`
-constexpr uint8_t kTokenComma = 0x09;             // `,`
-constexpr uint8_t kTokenMinus = 0x0A;             // `-`
-constexpr uint8_t kTokenPlus = 0x0B;              // `+`
-constexpr uint8_t kTokenDivide = 0x0C;            // `/`
-constexpr uint8_t kTokenMultiply = 0x0D;          // `*`
-constexpr uint8_t kTokenOpenParenthesis = 0x0E;   // `(`
-constexpr uint8_t kTokenCloseParenthesis = 0x0F;  // `)`
-constexpr uint8_t kTokenUnknown10 = 0x10;         // meaning unknown
-constexpr uint8_t kTokenEqualTo = 0x11;           // prints `=` too (a comparison)
-constexpr uint8_t kTokenLessThan = 0x12;          // `<`
-constexpr uint8_t kTokenLessThanOrEqual = 0x13;   // `<=`
-constexpr uint8_t kTokenGreaterThan = 0x14;       // `>`
-constexpr uint8_t kTokenGreaterThanOrEqual = 0x15; // `>=`
-constexpr uint8_t kTokenName = 0x16;              // + a 4-byte checksum
-constexpr uint8_t kTokenInteger = 0x17;           // + 4 bytes
-constexpr uint8_t kTokenHexInteger = 0x18;        // + 4 bytes
-constexpr uint8_t kTokenFloat = 0x1A;             // + 4 bytes
-constexpr uint8_t kTokenString = 0x1B;            // + a 4-byte length, the text
-constexpr uint8_t kTokenLocalString = 0x1C;       // the same, localised text
-constexpr uint8_t kTokenVector = 0x1E;            // + 3 floats
-constexpr uint8_t kTokenPair = 0x1F;              // + 2 floats
-constexpr uint8_t kTokenLoopStart = 0x20;         // Begin (a loop's start)
-constexpr uint8_t kTokenLoopRepeat = 0x21;        // Repeat (a loop's end)
-constexpr uint8_t kTokenLoopBreak = 0x22;         // Break
-constexpr uint8_t kTokenScriptStart = 0x23;       // a script: + name checksum (after one byte), the code
-constexpr uint8_t kTokenScriptEnd = 0x24;         // the end of a script
-constexpr uint8_t kTokenIf = 0x25;                // an if with a long jump
-constexpr uint8_t kTokenElse = 0x26;
-constexpr uint8_t kTokenUnknown27 = 0x27; // meaning unknown
-constexpr uint8_t kTokenEndIf = 0x28;
-constexpr uint8_t kTokenReturn = 0x29;
-constexpr uint8_t kTokenChecksumName = 0x2B;  // + a checksum and its text, in the file's name table
-constexpr uint8_t kTokenAllArguments = 0x2C;  // the caller's whole parameter list
-constexpr uint8_t kTokenLocalArgument = 0x2D; // one of the caller's parameters, by name
-constexpr uint8_t kTokenLongJump = 0x2E;      // + a 4-byte offset
-constexpr uint8_t kTokenRandom = 0x2F;        // weighted choice among branches
-constexpr uint8_t kTokenRandomRange = 0x30;   // a random number between two floats
-constexpr uint8_t kTokenOr = 0x32;
-constexpr uint8_t kTokenAnd = 0x33;
-constexpr uint8_t kTokenXor = 0x34; // prints `^`
-constexpr uint8_t kTokenUnknown35 = 0x35; // meaning unknown
-constexpr uint8_t kTokenUnknown36 = 0x36; // meaning unknown
-constexpr uint8_t kTokenRandomSideStream = 0x37; // Random, from the second random stream
-constexpr uint8_t kTokenRandomRangeSideStream = 0x38; // RandomRange, from the second random stream
-constexpr uint8_t kTokenNot = 0x39;                   // prints `!`
-constexpr uint8_t kTokenUnknown3A = 0x3A;             // meaning unknown
-constexpr uint8_t kTokenUnknown3B = 0x3B;             // meaning unknown
-constexpr uint8_t kTokenSwitch = 0x3C;
-constexpr uint8_t kTokenEndSwitch = 0x3D;
-constexpr uint8_t kTokenCase = 0x3E;
-constexpr uint8_t kTokenDefault = 0x3F;
-constexpr uint8_t kTokenRandomNoRepeat = 0x40; // a choice that is never the last one's
-constexpr uint8_t kTokenRandomPermute = 0x41;  // choices in a shuffled order
-constexpr uint8_t kTokenColon = 0x42;          // prints `:`
-constexpr uint8_t kTokenNativeFunction = 0x43; // a name looked up: a C function (+ 4 bytes)
-constexpr uint8_t kTokenMemberFunctionName = 0x44; // a member function without a table entry (+ its name)
-constexpr uint8_t kTokenSectionMarker = 0x45;      // + one byte, a 4-byte section name
-constexpr uint8_t kTokenMemberFunction = 0x46;     // a name looked up: a member function's table entry (+ 4 bytes)
-constexpr uint8_t kTokenShortIf = 0x47;            // an if with a 2-byte jump
-constexpr uint8_t kTokenShortElse = 0x48;
-constexpr uint8_t kTokenShortJump = 0x49;
+enum class QbToken : uint8_t {
+    kEndOfFile = 0x00,
+    kEndOfLine = 0x01,
+    kEndOfLineNumbered = 0x02, // + a 4-byte line number
+    kStructStart = 0x03, // prints `{`
+    kStructEnd = 0x04, // `}`
+    kArrayStart = 0x05, // `[`
+    kArrayEnd = 0x06, // `]`
+    kEquals = 0x07, // `=`
+    kDot = 0x08, // `.`
+    kComma = 0x09, // `,`
+    kMinus = 0x0A, // `-`
+    kPlus = 0x0B, // `+`
+    kDivide = 0x0C, // `/`
+    kMultiply = 0x0D, // `*`
+    kOpenParenthesis = 0x0E, // `(`
+    kCloseParenthesis = 0x0F, // `)`
+    kUnknown10 = 0x10, // meaning unknown
+    kEqualTo = 0x11, // prints `=` too (a comparison)
+    kLessThan = 0x12, // `<`
+    kLessThanOrEqual = 0x13, // `<=`
+    kGreaterThan = 0x14, // `>`
+    kGreaterThanOrEqual = 0x15, // `>=`
+    kName = 0x16, // + a 4-byte checksum
+    kInteger = 0x17, // + 4 bytes
+    kHexInteger = 0x18, // + 4 bytes
+    kFloat = 0x1A, // + 4 bytes
+    kString = 0x1B, // + a 4-byte length, the text
+    kLocalString = 0x1C, // the same, localised text
+    kVector = 0x1E, // + 3 floats
+    kPair = 0x1F, // + 2 floats
+    kLoopStart = 0x20, // Begin (a loop's start)
+    kLoopRepeat = 0x21, // Repeat (a loop's end)
+    kLoopBreak = 0x22, // Break
+    kScriptStart = 0x23, // a script: + name checksum (after one byte), the code
+    kScriptEnd = 0x24, // the end of a script
+    kIf = 0x25, // an if with a long jump
+    kElse = 0x26,
+    kUnknown27 = 0x27, // meaning unknown
+    kEndIf = 0x28,
+    kReturn = 0x29,
+    kChecksumName = 0x2B, // + a checksum and its text, in the file's name table
+    kAllArguments = 0x2C, // the caller's whole parameter list
+    kLocalArgument = 0x2D, // one of the caller's parameters, by name
+    kLongJump = 0x2E, // + a 4-byte offset
+    kRandom = 0x2F, // weighted choice among branches
+    kRandomRange = 0x30, // a random number between two floats
+    kOr = 0x32,
+    kAnd = 0x33,
+    kXor = 0x34, // prints `^`
+    kUnknown35 = 0x35, // meaning unknown
+    kUnknown36 = 0x36, // meaning unknown
+    kRandomSideStream = 0x37, // Random, from the second random stream
+    kRandomRangeSideStream = 0x38, // RandomRange, from the second random stream
+    kNot = 0x39, // prints `!`
+    kUnknown3A = 0x3A, // meaning unknown
+    kUnknown3B = 0x3B, // meaning unknown
+    kSwitch = 0x3C,
+    kEndSwitch = 0x3D,
+    kCase = 0x3E,
+    kDefault = 0x3F,
+    kRandomNoRepeat = 0x40, // a choice that is never the last one's
+    kRandomPermute = 0x41, // choices in a shuffled order
+    kColon = 0x42, // prints `:`
+    kNativeFunction = 0x43, // a name looked up: a C function (+ 4 bytes)
+    kMemberFunctionName = 0x44, // a member function without a table entry (+ its name)
+    kSectionMarker = 0x45, // + one byte, a 4-byte section name
+    kMemberFunction = 0x46, // a name looked up: a member function's table entry (+ 4 bytes)
+    kShortIf = 0x47, // an if with a 2-byte jump
+    kShortElse = 0x48,
+    kShortJump = 0x49,
+};
+// A byte of code read as the token it is (bytes no token has stay representable), and a token written as its byte.
+[[nodiscard]] constexpr QbToken as_token(uint8_t byte) { return static_cast<QbToken>(byte); }
+[[nodiscard]] constexpr uint8_t token_byte(QbToken token) { return core::to_underlying(token); }
 
 // Token sizes: the byte and what follows it.
 constexpr int kTokenWithWordBytes = 5;      // name, integer, float, long jump, tables' header, resolved names

@@ -9,6 +9,7 @@
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fixed fields)
 
+#include "engine/net/service.h"
 #include "engine/core/task_list.h"
 #include "platform/gamespy.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -107,7 +108,7 @@ bool get_filled(const char* text) { return text && *text; }
 void set_preference_text(prefs::Preferences* preferences, uint32_t name, const char* text)
 {
     const script::StructPtr values = script::make_struct();
-    values->append_word(kUiString, script::kQbvalString, text);
+    values->append_word(kUiString, script::QbValueKind::kString, text);
     preferences->change_setting(name, values.get());
 }
 
@@ -328,7 +329,7 @@ void Hub::disconnect_from_internet(uint32_t script)
     if (script)
         online_fail_script_ = script;
     tasks->queue_job(dialup_job_.get());
-    set_service_state(2);
+    set_service_state(ServiceState::kStopped);
     net->disconnect_from_internet();
 }
 
@@ -344,7 +345,7 @@ void Hub::cancel_connect_to_internet()
         task->drop_out();
         manager->modem_state_shown_ = -1;
         get_logic_tasks()->queue_job(manager->dialup_job_.get());
-        manager->set_service_state(2);
+        manager->set_service_state(ServiceState::kStopped);
         net::Hub::sole()->disconnect_from_internet();
         break;
     case 2:
@@ -380,7 +381,7 @@ void Hub::find_server_at(uint32_t ip)
         core::at(request, 0) = frame_clock::get_time();
         core::at(request, 1) = core::at(request, 2) = 0;
         net_game_state().set_asked_for(ip);
-        browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(request)}, request.data(), {.ip = ip, .port = kLanPort}, 0);
+        browser_client_->deliver_to({.msg_id_ = MessageId::kServerQuery, .size = sizeof(request)}, request.data(), {.ip = ip, .port = kLanPort}, 0);
     }
 }
 

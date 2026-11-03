@@ -76,10 +76,11 @@ public:
         std::array<uint8_t, 3> pad11;
     };
 
-    using State = uint8_t;
-    static constexpr int kStateAsleep = 0;
-    static constexpr int kStateAwake = 1;
-    static constexpr int kStateDisabled = 2;
+    enum class State : uint8_t {
+        kAsleep = 0,
+        kAwake = 1,
+        kDisabled = 2,
+    };
     // flag_bits_ (+0xF4)
     static constexpr uint32_t kFlagDieUponSettling = 0x1;
     static constexpr uint32_t kFlagNoPlayerCollision = 0x2;
@@ -302,7 +303,8 @@ private:
     uint32_t flag_bits_{0};               // +0xF4 FLAG_*
     maths::Vec4 wake_pos_{};              // +0xF8 where it last woke
     float die_timer_{-1.0f};              // +0x108 (-1: none)
-    int cur_phase_{};                     // +0x10C State (rigidbody_state=)
+    State cur_phase_{};                   // +0x10C State (rigidbody_state=; the original's int: the rest is zero)
+    std::array<uint8_t, 3> unknown10d_{};
     maths::Vec4 at_point_{};              // +0x110 its centre of mass
     maths::Vec4 vel_{};                   // +0x120
     maths::QuatRotation orientation_{};   // +0x130

@@ -168,7 +168,7 @@ void change_phase(RenderStateId state, uint32_t value)
 {
     auto& gfx = renderer();
     switch (state) {
-    case kZWrite:
+    case RenderStateId::kZWrite:
         if (value) {
             if (!gfx.z_write()) {
                 render::set_render_state(D3DRS_ZWRITEENABLE, TRUE);
@@ -179,7 +179,7 @@ void change_phase(RenderStateId state, uint32_t value)
             gfx.set_z_write(0);
         }
         return;
-    case kZTest:
+    case RenderStateId::kZTest:
         if (value) {
             if (!get_z_test()) {
                 render::set_render_state(D3DRS_ZFUNC, D3DCMP_LESSEQUAL);
@@ -190,7 +190,7 @@ void change_phase(RenderStateId state, uint32_t value)
             get_z_test() = 0;
         }
         return;
-    case kPhaseAlphaTest:
+    case RenderStateId::kPhaseAlphaTest:
         if (value == alpha_test_level())
             return;
         alpha_test_level() = value;
@@ -205,11 +205,11 @@ void change_phase(RenderStateId state, uint32_t value)
             alpha_test() = 0;
         }
         return;
-    case kAddressMode0:
-    case kAddressMode0 + 1:
-    case kAddressMode0 + 2:
-    case kAddressMode0 + 3: {
-        const int sampler = state - kAddressMode0;
+    case RenderStateId::kAddressMode0:
+    case RenderStateId::kAddressMode1:
+    case RenderStateId::kAddressMode2:
+    case RenderStateId::kAddressMode3: {
+        const int sampler = sampler_of(state, RenderStateId::kAddressMode0);
         uint32_t& cached = core::at(address_modes(), sampler);
         const uint32_t u = value & 0xFFFF;
         if (u != (cached & kLowHalfMask)) {
@@ -227,49 +227,49 @@ void change_phase(RenderStateId state, uint32_t value)
         cached = (cached & kLowHalfMask) | v;
         return;
     }
-    case kMipLodBias0:
-    case kMipLodBias0 + 1:
-    case kMipLodBias0 + 2:
-    case kMipLodBias0 + 3: {
-        const int sampler = state - kMipLodBias0;
+    case RenderStateId::kMipLodBias0:
+    case RenderStateId::kMipLodBias1:
+    case RenderStateId::kMipLodBias2:
+    case RenderStateId::kMipLodBias3: {
+        const int sampler = sampler_of(state, RenderStateId::kMipLodBias0);
         if (value != core::at(mip_lod_biases(), sampler)) {
             set_sampler(sampler, D3DSAMP_MIPMAPLODBIAS, value);
             core::at(mip_lod_biases(), sampler) = value;
         }
         return;
     }
-    case kCullMode:
+    case RenderStateId::kCullMode:
         if (value != renderer().cull_mode()) {
             gfx.set_cull_mode(value);
             render::set_render_state(D3DRS_CULLMODE, value);
         }
         return;
-    case kAlphaBlend:
+    case RenderStateId::kAlphaBlend:
         if (value != alpha_blend()) {
             alpha_blend() = value;
             render::set_render_state(D3DRS_ALPHABLENDENABLE, value != 0);
         }
         return;
-    case kAlphaTest:
+    case RenderStateId::kAlphaTest:
         if (value != alpha_test()) {
             alpha_test() = value;
             render::set_render_state(D3DRS_ALPHATESTENABLE, value != 0);
         }
         return;
-    case kSpecular:
+    case RenderStateId::kSpecular:
         if (value != gfx.specular_state()) {
             gfx.set_specular(value);
             render::set_render_state(D3DRS_SPECULARENABLE, value != 0);
             render::set_render_state(D3DRS_LOCALVIEWER, value != 0);
         }
         return;
-    case kFog:
+    case RenderStateId::kFog:
         if (value != gfx.fog_active()) {
             gfx.set_fog_active(value);
             render::set_render_state(D3DRS_FOGENABLE, value != 0);
         }
         return;
-    case kDepthBias:
+    case RenderStateId::kDepthBias:
         if (value != renderer().depth_bias()) {
             gfx.set_depth_bias(value);
             // (unsigned, scaled; x87 at double precision, stored as a float)
@@ -277,17 +277,17 @@ void change_phase(RenderStateId state, uint32_t value)
             render::set_render_state(D3DRS_DEPTHBIAS, std::bit_cast<uint32_t>(bias));
         }
         return;
-    case kLighting:
+    case RenderStateId::kLighting:
         if (value != get_lighting()) {
             get_lighting() = value;
             render::set_render_state(D3DRS_LIGHTING, value != 0);
         }
         return;
-    case kFilter0:
-    case kFilter0 + 1:
-    case kFilter0 + 2:
-    case kFilter0 + 3: {
-        const int sampler = state - kFilter0;
+    case RenderStateId::kFilter0:
+    case RenderStateId::kFilter1:
+    case RenderStateId::kFilter2:
+    case RenderStateId::kFilter3: {
+        const int sampler = sampler_of(state, RenderStateId::kFilter0);
         uint32_t& cached = core::at(filters(), sampler);
         const uint32_t mag = value & 0xFFFF0000;
         if (mag != (cached & kHighHalfMask)) {
@@ -304,15 +304,14 @@ void change_phase(RenderStateId state, uint32_t value)
         }
         return;
     }
-    case kLocalViewer:
+    case RenderStateId::kLocalViewer:
         if (value != local_viewer()) {
             local_viewer() = value != 0;
             render::set_render_state(D3DRS_LOCALVIEWER, value);
         }
         return;
-    default: // (0xC-0xF, 0x17-0x1F: nothing)
-        return;
     }
+    // (0xC-0xF, 0x17-0x1F: nothing)
 }
 
 // 0x004D9DB0

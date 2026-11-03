@@ -120,7 +120,7 @@ bool BodyDynamicsModule::rigid_body_ignore_skater(script::Struct* params, script
 // 0x0042BBB0
 bool BodyDynamicsModule::rigid_body_disable(script::Struct*, script::Script*)
 {
-    cur_phase_ = kStateDisabled;
+    cur_phase_ = BodyDynamicsModule::State::kDisabled;
     return true;
 }
 
@@ -170,7 +170,7 @@ void BodyDynamicsModule::sleep()
         entity()->spawn_script(settle_script_, callback_params_ptr_, 0, false)->tick_frame();
     vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     rot_vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    cur_phase_ = kStateAsleep;
+    cur_phase_ = BodyDynamicsModule::State::kAsleep;
 }
 
 // 0x0042BF00 (each array from its last element back)

@@ -5,6 +5,7 @@
 // where an arc can't be made; the owner's component 0x0A015E17 picks the next link (at random or the first) and
 // is told of each node passed.
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -18,11 +19,13 @@ class GameEntity;
 
 class PathFollower : public memory::HeapObject {
 public:
-    static constexpr int kStateStart = 0;        // the segment set up on the next update
-    static constexpr int kStateStraight = 1;     // along the segment
-    static constexpr int kStateArc = 2;          // round the corner on the arc
-    static constexpr int kStateBlend = 3;        // into the next segment, the heading blended (no arc)
-    static constexpr int kStateDone = 4;         // at the end of the path
+    enum class Phase : uint8_t {
+        kStart = 0, // the segment set up on the next update
+        kStraight = 1, // along the segment
+        kArc = 2, // round the corner on the arc
+        kBlend = 3, // into the next segment, the heading blended (no arc)
+        kDone = 4, // at the end of the path
+    };
     static constexpr uint32_t kFlagCorner = 1;   // the corner is cut (cut_ short of the node)
     static constexpr uint32_t kFlagLastNode = 2; // the node has no links: the path ends there
     static constexpr uint32_t kFlagTellNode =
@@ -94,7 +97,8 @@ private:
     float arc_angle_{};        // +0xD0
     float arc_length_{};       // +0xD4
     float radius_{};           // +0xD8
-    int cur_phase_{};          // +0xDC
+    Phase cur_phase_{};        // +0xDC (the original's int: the rest is zero)
+    std::array<uint8_t, 3> unknowndd_{};
     float step_{};             // +0xE0: the last arc step's angle
 };
 

@@ -64,7 +64,7 @@ bool call_member_function_of(const MemberFunctionEntry* entry, Struct* params, o
     return invoke_method_by_name(entry, params, object, script);
 }
 
-// A C function (the value of an kQbvalNativeFunc symbol).
+// A C function (the value of an QbValueKind::kNativeFunc symbol).
 using Function = bool (*)(Struct* params, Script* script);
 
 // Run the member function `name` on a game object.
@@ -92,7 +92,6 @@ int emit_into_buffer(Struct* params, uint8_t* buffer, int size)
 {
     return static_cast<int>(script::emit_into_buffer(params, buffer, static_cast<uint32_t>(size), true, nullptr));
 }
-constexpr uint8_t kNetopSpawnScript = 0x48;
 
 // Whether `object` is the object of `script` at any level (null matches levels with no object).
 bool uses_object(const Script* script, objects::Entity* object)
@@ -121,7 +120,7 @@ void tick_child_scripts()
         bool run = (flags & kScriptFlagSpawned) && !((flags & kScriptFlagPaused) && script->pc());
         if (run && (flags & kScriptFlagPauseWithObject) && script->entity().get_pull())
             run = object_runs_scripts(script->entity().get_pull());
-        if (run && script->tick_frame() == kScriptOutcomeFinished) {
+        if (run && script->tick_frame() == ScriptOutcome::kFinished) {
             if (script->on_finish_script())
                 launch_script(script->on_finish_script(), script->callback_params().get(), script->entity().get_pull(), false,
                               nullptr);
@@ -163,7 +162,7 @@ Script* spawn_script(uint32_t name, Struct* params, const SpawnSetup& setup)
     const bool not_session_specific = setup.not_session_specific_;
     const bool pause_with_object = setup.pause_with_object_;
     const SymbolTableEntry* symbol = resolve_symbol(name);
-    if (symbol && symbol->type() == kQbvalNativeFunc) {
+    if (symbol && symbol->type() == QbValueKind::kNativeFunc) {
         // A C function is just called, with a temporary script (made on the script heap if not from the pool).
         memory::Hub* manager = memory::Hub::get_pull();
         manager->enter_heap_scope(manager->script_heap());
@@ -226,19 +225,19 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
     if (!symbol ||
-        (symbol->type() != kQbvalScriptBody && symbol->type() != kQbvalNativeFunc && symbol->type() != kQbvalNativeMethod))
+        (symbol->type() != QbValueKind::kScriptBody && symbol->type() != QbValueKind::kNativeFunc && symbol->type() != QbValueKind::kNativeMethod))
         return;
     if (replicate_flag)
         send_run_script_message(name, params, object);
     switch (symbol->type()) {
-    case kQbvalNativeMethod:
+    case QbValueKind::kNativeMethod:
         // (no check that there is an object)
         if (auto* entry = symbol->value().method())
             call_member_function_of(entry, params, object, nullptr);
         else
             call_member_function_by_name(object, name, params, nullptr);
         return;
-    case kQbvalNativeFunc:
+    case QbValueKind::kNativeFunc:
         symbol->value().function()(params, nullptr);
         return;
     default: {
@@ -248,7 +247,7 @@ void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool 
         bind_script(script, name, nullptr, params, object);
         memory::Hub::get_pull()->leave_heap_scope();
         // To the end now: waits on frames or time just spin; a script that blocks never returns (original).
-        while (script->tick_frame() != kScriptOutcomeFinished) {
+        while (script->tick_frame() != ScriptOutcome::kFinished) {
         }
         Script::destroy(script);
         return;
@@ -292,9 +291,9 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
     void* client = fetch_patron(net, 0);
     desc.set_content(data.data());
     desc.set_byte_count(static_cast<uint16_t>(size + online::kRunScriptHeaderSize));
-    desc.set_ident(kNetopSpawnScript);
+    desc.set_ident(online::MessageId::kSpawnScript);
     desc.set_queue(NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(online::kGroupGame);
+    desc.set_group_id(online::MessageGroup::kGame);
     send_to_host(client, &desc);
 }
 
@@ -318,9 +317,9 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
     void* client = fetch_patron(net, 0);
     desc.set_content(data.data());
     desc.set_byte_count(sizeof(data));
-    desc.set_ident(online::kMsgSpawnScript);
+    desc.set_ident(online::MessageId::kSpawnScript);
     desc.set_queue(NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(online::kGroupGame);
+    desc.set_group_id(online::MessageGroup::kGame);
     send_to_host(client, &desc);
 }
 
@@ -345,7 +344,7 @@ void resume_child_script(Script* script)
 bool script_exists(uint32_t name)
 {
     const SymbolTableEntry* symbol = resolve_symbol(name);
-    return symbol && symbol->type() == kQbvalScriptBody;
+    return symbol && symbol->type() == QbValueKind::kScriptBody;
 }
 
 // 0x00472E00

@@ -7,6 +7,7 @@
 #include "engine/core/raw_view.h"
 #include <cstring>
 #include <type_traits>
+#include "wire/message_ids.h"
 
 namespace util {
 class ByteReader;
@@ -45,21 +46,6 @@ T value_at(const uint8_t* body, size_t offset = 0)
     return value;
 }
 
-// The transport's message ids (the game's own: wire/message_ids.h and the message headers).
-constexpr uint8_t kMsgLatencyTest = 1;
-constexpr uint8_t kMsgLatencyResponse = 2;
-constexpr uint8_t kMsgConnectionRequest = 3;
-constexpr uint8_t kMsgConnectionAccepted = 4;
-constexpr uint8_t kMsgConnectionRefused = 5;
-constexpr uint8_t kMsgConnectionTerminated = 6;
-constexpr uint8_t kMsgSequenced = 7;
-constexpr uint8_t kMsgAck = 8;
-constexpr uint8_t kMsgClockStamp = 9;      // (the one default-queue message sent to a connection not yet ready)
-constexpr uint8_t kMsgDisconnRequest = 0xB; // a client leaves the server
-constexpr uint8_t kMsgDisconnAccepted = 0xC;
-constexpr uint8_t kMsgBulkBegin = 0xE;     // a stream's start (above)
-constexpr uint8_t kMsgBulkChunk = 0xF;     // a stream's piece
-constexpr uint8_t kMsgCompressed = 0x12;
 
 constexpr size_t kMessageHeaderSize = 3;
 constexpr size_t kSequencedHeaderSize = 6;
@@ -73,9 +59,9 @@ constexpr size_t kStreamPieceHeaderSize = 4;
 constexpr size_t kStreamPieceMaxSize = kStreamPieceHeaderSize + kStreamPieceSize;
 
 struct SequencedHeader {
-    uint8_t group = 0;
+    MessageGroup group{};
     uint32_t sequence = 0;
-    uint8_t id = 0;
+    MessageId id{};
 };
 bool read_sequenced_header(util::ByteReader& reader, SequencedHeader* header);
 bool write_sequenced_header(util::ByteWriter& writer, const SequencedHeader& header);
@@ -88,7 +74,7 @@ bool read_compressed_header(util::ByteReader& reader, CompressedHeader* header);
 
 // A message's id and length (the compressed message's expanded data starts with one).
 struct MessageHeader {
-    uint8_t id = 0;
+    MessageId id{};
     uint16_t length = 0;
 };
 bool read_message_header(util::ByteReader& reader, MessageHeader* header);
@@ -98,7 +84,7 @@ struct StreamStart {
     int32_t total_size = 0;
     int32_t stream_id = 0;
     uint32_t checksum = 0;
-    uint8_t msg_id = 0;
+    MessageId msg_id{};
 };
 // The start message's fields; the reader is left at the first piece.
 bool read_stream_start(util::ByteReader& reader, StreamStart* start);

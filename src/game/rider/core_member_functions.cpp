@@ -6,6 +6,7 @@
 #include <array>
 
 #include "engine/maths/mat4.h"
+#include "engine/core/enum_ops.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/camera_lookaround.h"
@@ -270,7 +271,7 @@ void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, fl
 // A wall the feeler hit: not vert, its normal's y within 0.1 of 0 (or not a number).
 bool hit_wall(const render::ProbeRay& feeler)
 {
-    if (feeler.hit().face_flags_ & render::kFaceVert)
+    if (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert))
         return false;
     return !(std::fabs(static_cast<double>(feeler.surface_dir().y)) > kWallNormalY);
 }
@@ -962,7 +963,7 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
 int SkaterPhysicsModule::is_facing_vert(script::Struct* params, script::Script*)
 {
     render::ProbeRay feeler;
-    if (feel_ahead(params, feeler, true) && (feeler.hit().face_flags_ & render::kFaceVert))
+    if (feel_ahead(params, feeler, true) && (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert)))
         return 1;
     return 0;
 }

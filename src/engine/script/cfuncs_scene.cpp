@@ -211,7 +211,7 @@ bool cfunc_load_asset(Struct* params, Script*)
     const bool async = params->has_bare_flag(kAsync);
     uint32_t desc = 0;
     params->read_hash_value(kDesc, &desc, false);
-    if (!assets->fetch_or_load_resource(name, 0, desc, parent, async, false, assets->get_permanent_by_default(),
+    if (!assets->fetch_or_load_resource(name, assets::ResourceKind::kNone, desc, parent, async, false, assets->get_permanent_by_default(),
                                         nullptr, params))
         script::fetch_int_value(kAssertOnMissingAssets); // (an assert on it compiled out)
     return true;
@@ -238,7 +238,7 @@ bool cfunc_load_skeleton(Struct* params, Script*)
     uint32_t checksum = 0;
     params->fetch_text(kName, &name, true);
     params->read_hash_value(0u, &checksum, 1);
-    assets->fetch_or_load_resource(name, 0, checksum, 0, false, false, assets->get_permanent_by_default(), nullptr, nullptr);
+    assets->fetch_or_load_resource(name, assets::ResourceKind::kNone, checksum, 0, false, false, assets->get_permanent_by_default(), nullptr, nullptr);
     return true;
 }
 

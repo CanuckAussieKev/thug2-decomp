@@ -269,7 +269,7 @@ bool cfunc_get_value_from_volume(Struct* params, Script* script)
     default:
         return true;
     }
-    script->args()->add_component_of_type(kValue, script::kQbvalInteger,
+    script->args()->add_component_of_type(kValue, script::QbValueKind::kInteger,
                                          static_cast<uint32_t>(static_cast<int>(volume) / kVolumeStep));
     return true;
 }

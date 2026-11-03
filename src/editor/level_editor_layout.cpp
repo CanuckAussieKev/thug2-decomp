@@ -1335,7 +1335,7 @@ std::unordered_map<uint32_t, LevelInfo> levels_by_load()
                           kQb = checksums::hash_from_text("qb");
     std::unordered_map<uint32_t, LevelInfo> levels;
     for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
-        if (e->type() != script::kQbvalStruct || !e->value().structure())
+        if (e->type() != script::QbValueKind::kStruct || !e->value().structure())
             continue;
         uint32_t load = 0;
         const char* level = nullptr;
@@ -1735,7 +1735,7 @@ bool cfunc_edited_levels(script::Struct*, script::Script* script)
     std::vector<uint32_t> done;
     for (const char* list : kLists) {
         script::Array* array = script::fetch_list(list);
-        if (!array || array->kind_tag() != script::kQbvalStruct)
+        if (!array || array->kind_tag() != script::QbValueKind::kStruct)
             continue;
         for (uint32_t i = 0; i < array->extent(); ++i) {
             auto* entry = array->struct_at(i);
@@ -1768,7 +1768,7 @@ bool cfunc_edited_levels(script::Struct*, script::Script* script)
     if (entries.empty())
         return false;
     gsl::owner<script::Array*> array = script::new_array();
-    array->configure_size_kind(static_cast<uint32_t>(entries.size()), script::kQbvalStruct);
+    array->configure_size_kind(static_cast<uint32_t>(entries.size()), script::QbValueKind::kStruct);
     for (size_t i = 0; i < entries.size(); ++i)
         array->set_cell(static_cast<uint32_t>(i), script::Cell::of(core::at(entries, i)));
     script->args()->append_array_ref("edited_list", array);

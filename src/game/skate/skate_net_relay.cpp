@@ -174,7 +174,7 @@ struct PlayerSearch : online::PlayerSearch {
 };
 
 // A message on the server app to `player`, sequenced in `group`.
-void get_sequence(net::NetMessageInfo& desc, uint8_t group)
+void get_sequence(net::NetMessageInfo& desc, online::MessageGroup group)
 {
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_group_id(group);
@@ -195,7 +195,7 @@ objects::RiderFrameLog* get_history(const objects::Entity* object)
 }
 int& message_count(objects::RiderFrameLog* history) { return history->message_count(); }
 // The newest message slot made a message of `id`, stamped with the newest state's time.
-objects::StateHistoryMessage* new_message(objects::RiderFrameLog* history, uint8_t id)
+objects::StateHistoryMessage* new_message(objects::RiderFrameLog* history, online::MessageId id)
 {
     objects::StateHistoryMessage* message = history->get_latest_message();
     message->ident_ = id;
@@ -269,7 +269,7 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
             net::NetMessageInfo desc;
             desc.set_content(buffer.data());
             desc.set_byte_count(static_cast<uint16_t>(size));
-            desc.set_ident(online::kMsgObjectUpdates);
+            desc.set_ident(online::MessageId::kObjectUpdates);
             enqueue(server, player, &desc);
         }
     }
@@ -381,15 +381,15 @@ int SkateNet::handle_relay(net::InboundMsgCtx* context)
             continue;
         relay(desc, context);
         switch (context->type_code()) {
-        case online::kMsgLookUpObjectB:
-        case online::kMsgChat:
-        case online::kMsgBoardVehicle:
-            get_sequence(desc, online::kGroupGame);
+        case online::MessageId::kLookUpObjectB:
+        case online::MessageId::kChat:
+        case online::MessageId::kBoardVehicle:
+            get_sequence(desc, online::MessageGroup::kGame);
             break;
-        case online::kMsgPlaceTag:
-            get_sequence(desc, online::kGroupGraffiti);
+        case online::MessageId::kPlaceTag:
+            get_sequence(desc, online::MessageGroup::kGraffiti);
             break;
-        case online::kMsgProjectile: {
+        case online::MessageId::kProjectile: {
             // a projectile in firefight: its owner and the sender's latency put in (once in range)
             const uint32_t mode = goals::game_mode()->get_name_key();
             if (mode != kFirefight && goals::game_mode()->get_name_key() != kNetFirefight)
@@ -462,12 +462,12 @@ int SkateNet::handle_relay_sequenced(net::InboundMsgCtx* context)
         if (player == sender)
             continue;
         relay(desc, context);
-        get_sequence(desc, online::kGroupGame);
+        get_sequence(desc, online::MessageGroup::kGame);
         enqueue(context->receiver_app(), player, &desc);
     }
     // a script run on every machine (0x49): the server queues its own (NOT ORIGINAL: not one too short - the original
     // read past its end)
-    if (context->type_code() == online::kMsgSpawnScript) {
+    if (context->type_code() == online::MessageId::kSpawnScript) {
         util::ByteReader reader(context->body(), context->body_size());
         online::SpawnScript script;
         if (online::read_spawn_script(reader, &script) && script.permanent)
@@ -515,8 +515,8 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             // all collected: the collect period over everywhere
             desc = net::NetMessageInfo();
             net::AppHost* server = server_app();
-            desc.set_ident(online::kMsgHuntCollectEnd);
-            get_sequence(desc, online::kGroupGame);
+            desc.set_ident(online::MessageId::kHuntCollectEnd);
+            get_sequence(desc, online::MessageGroup::kGame);
             for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
                 if (!player->is_own_player())
                     enqueue(server, player, &desc);
@@ -538,8 +538,8 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
                                                             : static_cast<uint8_t>(skater_of(collector)->ident());
                 core::at(left, 1) = count;
                 desc.set_content(left.data());
-                desc.set_ident(online::kMsgHuntItemsLeft);
-                get_sequence(desc, online::kGroupGame);
+                desc.set_ident(online::MessageId::kHuntItemsLeft);
+                get_sequence(desc, online::MessageGroup::kGame);
                 desc.set_byte_count(2);
                 for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true))
                     enqueue(server, player, &desc);
@@ -554,8 +554,8 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             if (player == collector || player->team() != collector->team())
                 continue;
             desc.set_content(msg);
-            desc.set_ident(online::kMsgHuntItemPickedUp);
-            get_sequence(desc, online::kGroupGame);
+            desc.set_ident(online::MessageId::kHuntItemPickedUp);
+            get_sequence(desc, online::MessageGroup::kGame);
             desc.set_byte_count(4);
             enqueue(server, player, &desc);
         }
@@ -591,8 +591,8 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
         net::NetMessageInfo desc;
         net::AppHost* server = server_app();
         for (PlayerRecord* player = search.get_first(true); player; player = search.get_next(true)) {
-            desc.set_ident(online::kMsgHuntEnd);
-            get_sequence(desc, online::kGroupGame);
+            desc.set_ident(online::MessageId::kHuntEnd);
+            get_sequence(desc, online::MessageGroup::kGame);
             enqueue(server, player, &desc);
         }
     }
@@ -616,20 +616,20 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
     auto load = [](void* /*texture*/, const void* /*texture_data*/, uint32_t /*texture_size*/, const void* /*palette*/,
                    uint32_t /*palette_size*/) {};
     switch (context->type_code()) {
-    case online::kMsgGraffitiPlayer: { // the player the next ones are for
+    case online::MessageId::kGraffitiPlayer: { // the player the next ones are for
         const uint8_t id = reader.u8();
         if (!reader.ok()) // NOT ORIGINAL: empty - dropped
             return 4;
         net_relay_object_id() = id;
         break;
     }
-    case online::kMsgGraffitiPalette: { // the palette
+    case online::MessageId::kGraffitiPalette: { // the palette
         PlayerRecord* player = from();
         if (player)
             load(player->get_graffiti_texture(), nullptr, 0, msg, context->body_size());
         break;
     }
-    case online::kMsgGraffitiTexture: { // the texture
+    case online::MessageId::kGraffitiTexture: { // the texture
         PlayerRecord* player = from();
         if (!player)
             break;
@@ -637,7 +637,7 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
         player->set_custom_tag(true);
         break;
     }
-    case online::kMsgGraffitiParts: { // which board parts show it - the last: passed on to the others by a server
+    case online::MessageId::kGraffitiParts: { // which board parts show it - the last: passed on to the others by a server
         bool on_server = false;
         PlayerRecord* player = nullptr;
         if (net->get_on_server()) {
@@ -671,25 +671,25 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
                 continue;
             auto id = static_cast<uint8_t>(skater_of(player)->ident());
             desc.set_content(&id);
-            desc.set_ident(online::kMsgGraffitiPlayer);
+            desc.set_ident(online::MessageId::kGraffitiPlayer);
             desc.set_byte_count(1);
-            get_sequence(desc, online::kGroupGraffiti);
+            get_sequence(desc, online::MessageGroup::kGraffiti);
             enqueue(app, other, &desc);
             // (the texture's palette and pixels: through the geoms' jumps 0x0048DF20 / 0x0048DF30 and 0x0048DF00 /
             // 0x0049F3A0 - the same stub in the engine's and the PC's tables: none)
             void* palette = texture->get_palette();
             const uint32_t palette_size = texture->get_palette_size();
-            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::kMsgGraffitiPalette, .size = static_cast<uint16_t>(palette_size)}, palette, "CAG Palette", online::kGroupGraffiti,
+            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::MessageId::kGraffitiPalette, .size = static_cast<uint16_t>(palette_size)}, palette, "CAG Palette", online::MessageGroup::kGraffiti,
                                    false, true); // "CAG Palette"
             void* pixels = texture->get_pixels();
             const uint32_t pixels_size = texture->get_pixels_size();
-            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::kMsgGraffitiTexture, .size = static_cast<uint16_t>(pixels_size)}, pixels, "CAG Texture", online::kGroupGraffiti,
+            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::MessageId::kGraffitiTexture, .size = static_cast<uint16_t>(pixels_size)}, pixels, "CAG Texture", online::MessageGroup::kGraffiti,
                                    false, true); // "CAG Texture"
             uint32_t sent_parts = parts;
             desc.set_content(&sent_parts);
-            desc.set_ident(online::kMsgGraffitiParts);
+            desc.set_ident(online::MessageId::kGraffitiParts);
             desc.set_byte_count(4);
-            get_sequence(desc, online::kGroupGraffiti);
+            get_sequence(desc, online::MessageGroup::kGraffiti);
             enqueue(app, other, &desc);
         }
         break;
@@ -744,8 +744,8 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
             // (NOT ORIGINAL: no more than the kept copy holds - the original streamed 0x4499 bytes of it whatever
             // the face's size)
             const uint32_t kept = context->body_size() + 1 < 0x4499 ? context->body_size() + 1 : 0x4499;
-            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::kMsgFaceTexture, .size = static_cast<uint16_t>(kept)}, sender->get_face_texture_data(),
-                                   "Face Data", online::kGroupFaceData, false, true); // "Face Data"
+            app->send_bulk_to_conn(other->conn(), {.msg_id_ = online::MessageId::kFaceTexture, .size = static_cast<uint16_t>(kept)}, sender->get_face_texture_data(),
+                                   "Face Data", online::MessageGroup::kFaceData, false, true); // "Face Data"
         }
     }
     // (freed without its destructor, as the original)
@@ -801,7 +801,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
     objects::StateHistoryMessage* message = nullptr;
     int result = 1;
     switch (context->type_code()) {
-    case online::kMsgPlayAnim: {
+    case online::MessageId::kPlayAnim: {
         online::PlayAnimMessage sent;
         if (!online::read_play_anim(reader, &sent))
             return 4;
@@ -817,7 +817,7 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
             if (!camera || player != camera)
                 scaled_time = 0.0f;
         }
-        message = new_message(get_history(target), online::kMsgPlayAnim);
+        message = new_message(get_history(target), online::MessageId::kPlayAnim);
         message->name_ = sent.anim;
         message->from_ = get_scaled(sent.from, kRelayTimeScale);
         message->object_id_ = sent.object_id;
@@ -827,38 +827,38 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         message->speed_ = get_scaled(sent.speed, kRelayTimeScale);
         break;
     }
-    case online::kMsgWobbleTarget: {
+    case online::MessageId::kWobbleTarget: {
         online::PairMessage sent; // (the object id, the target x 255)
         if (!online::read_pair(reader, &sent))
             return 4;
         target = object(sent.first);
         if (!target)
             return 1;
-        message = new_message(get_history(target), online::kMsgWobbleTarget);
+        message = new_message(get_history(target), online::MessageId::kWobbleTarget);
         message->object_id_ = sent.first;
         message->wobble_target_ = get_scaled(sent.second, gfx::kOneOver255);
         break;
     }
-    case online::kMsgBoardRotated: {
+    case online::MessageId::kBoardRotated: {
         online::PairMessage sent; // (the object id, rotated)
         if (!online::read_pair(reader, &sent))
             return 4;
         target = object(sent.first);
         if (!target)
             return 1;
-        message = new_message(get_history(target), online::kMsgBoardRotated);
+        message = new_message(get_history(target), online::MessageId::kBoardRotated);
         message->object_id_ = sent.first;
         message->rotated_ = sent.second != 0;
         break;
     }
-    case online::kMsgWobbleDetails: {
+    case online::MessageId::kWobbleDetails: {
         online::PairMessage sent; // (the details' bits, the object id)
         if (!online::read_pair(reader, &sent))
             return 4;
         target = object(sent.second);
         if (!target)
             return 1;
-        message = new_message(get_history(target), online::kMsgWobbleDetails);
+        message = new_message(get_history(target), online::MessageId::kWobbleDetails);
         message->object_id_ = sent.second;
         const uint32_t bits = sent.first;
         // five settings picked by the bits: two bits, then one each
@@ -880,44 +880,44 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
                                           : std::bit_cast<float>(kWobble4Off); // 1 / 1.5 (0x006453A8 / 0x00646744)
         break;
     }
-    case online::kMsgLoopType: {
+    case online::MessageId::kLoopType: {
         online::PairMessage sent; // (the object id, the loop type)
         if (!online::read_pair(reader, &sent))
             return 4;
         target = object(sent.first);
         if (!target)
             return 1;
-        message = new_message(get_history(target), online::kMsgLoopType);
+        message = new_message(get_history(target), online::MessageId::kLoopType);
         message->object_id_ = sent.first;
         message->loop_type_ = sent.second;
         break;
     }
-    case online::kMsgHideGeom: {
+    case online::MessageId::kHideGeom: {
         online::HideGeomMessage sent;
         if (!online::read_hide_geom(reader, &sent))
             return 4;
         target = object(sent.object_id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), online::kMsgHideGeom);
+        message = new_message(get_history(target), online::MessageId::kHideGeom);
         message->object_id_ = sent.object_id;
         message->name_ = sent.name;
         message->hidden_ = sent.hide;
         break;
     }
-    case online::kMsgAnimSpeed: {
+    case online::MessageId::kAnimSpeed: {
         online::AnimSpeedMessage sent;
         if (!online::read_anim_speed(reader, &sent))
             return 4;
         target = object(sent.object_id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), online::kMsgAnimSpeed);
+        message = new_message(get_history(target), online::MessageId::kAnimSpeed);
         message->object_id_ = sent.object_id;
         message->speed_ = std::bit_cast<float>(sent.speed_bits);
         break;
     }
-    case online::kMsgFlip: {
+    case online::MessageId::kFlip: {
         // (also handled by 0x0056C8C0: 4 lets that run)
         online::PairMessage sent; // (the object id, flipped)
         if (!online::read_pair(reader, &sent))
@@ -925,20 +925,20 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         target = skater(sent.first);
         if (!target)
             return 1;
-        message = new_message(get_history(target), online::kMsgFlip);
+        message = new_message(get_history(target), online::MessageId::kFlip);
         message->flipped_ = sent.second != 0;
         message->object_id_ = sent.first;
         result = 4;
         break;
     }
-    case online::kMsgSpinModel: {
+    case online::MessageId::kSpinModel: {
         online::SpinModelMessage sent;
         if (!online::read_spin_model(reader, &sent))
             return 4;
         target = skater(sent.object_id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), online::kMsgSpinModel);
+        message = new_message(get_history(target), online::MessageId::kSpinModel);
         message->object_id_ = sent.object_id;
         message->spin_period_ = sent.period;
         message->spin_power_ = sent.power;
@@ -948,39 +948,39 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         message->spin_axes_ = sent.axes;
         break;
     }
-    case online::kMsgCancelSpins: {
+    case online::MessageId::kCancelSpins: {
         const uint8_t id = reader.u8();
         if (!reader.ok())
             return 4;
         target = skater(id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), online::kMsgCancelSpins);
+        message = new_message(get_history(target), online::MessageId::kCancelSpins);
         message->object_id_ = id;
         break;
     }
-    case online::kMsgCreateSpecialItem: {
+    case online::MessageId::kCreateSpecialItem: {
         online::SpecialItemMessage sent;
         if (!online::read_special_item(reader, &sent))
             return 4;
         target = skater(sent.object_id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), online::kMsgCreateSpecialItem);
+        message = new_message(get_history(target), online::MessageId::kCreateSpecialItem);
         message->object_id_ = sent.object_id;
         message->bone_ = sent.bone;
         message->item_slot_ = int{sent.slot};
         message->name_ = sent.params;
         break;
     }
-    case online::kMsgDestroySpecialItem: {
+    case online::MessageId::kDestroySpecialItem: {
         online::SpecialItemMessage sent;
         if (!online::read_special_item(reader, &sent))
             return 4;
         target = skater(sent.object_id);
         if (!target)
             return 1;
-        message = new_message(get_history(target), online::kMsgDestroySpecialItem);
+        message = new_message(get_history(target), online::MessageId::kDestroySpecialItem);
         message->object_id_ = sent.object_id;
         message->item_slot_ = int{sent.slot};
         break;
@@ -1083,9 +1083,9 @@ int SkateNet::on_sparks_msg(net::InboundMsgCtx* context)
     auto* object = core::down_cast<objects::Rider>(entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id)));
     if (!object)
         return 1;
-    if (context->type_code() == online::kMsgSparksOn)
+    if (context->type_code() == online::MessageId::kSparksOn)
         object->sparks_on();
-    else if (context->type_code() == online::kMsgSparksOff)
+    else if (context->type_code() == online::MessageId::kSparksOff)
         object->sparks_off();
     return 1;
 }
@@ -1255,7 +1255,7 @@ void Skate::leave_server()
         net::AppHost* server = server_app();
         if (net->get_hosting_role() == 1)
             net->remove_host_task();
-        desc.set_ident(online::kMsgServerQuit);
+        desc.set_ident(online::MessageId::kServerQuit);
         desc.set_rank(kBroadcastRank);
         server->put_on_outbox(kBroadcastRank, &desc);
         server->transmit(false);
@@ -1269,8 +1269,8 @@ void Skate::leave_server()
     net::AppHost* client = net->fetch_patron(0);
     if (client) {
         net::NetMessageInfo desc;
-        desc.set_ident(net::wire::kMsgDisconnRequest);
-        get_sequence(desc, online::kGroupGame);
+        desc.set_ident(net::wire::MessageId::kDisconnRequest);
+        get_sequence(desc, online::MessageGroup::kGame);
         core::down_cast<net::Guest>(client)->send_to_host(&desc);
         client->transmit(false);
     }
@@ -1291,9 +1291,9 @@ void Skate::send_cheats(online::PlayerRecord* player)
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_cheats(writer, message);
     desc.set_content(data.data());
-    desc.set_ident(online::kMsgCheats);
+    desc.set_ident(online::MessageId::kCheats);
     desc.set_byte_count(static_cast<uint16_t>(writer.position()));
-    get_sequence(desc, online::kGroupGame);
+    get_sequence(desc, online::MessageGroup::kGame);
     const int handle = player->get_link_handle();
     net->host()->put_on_outbox(handle, &desc);
 }
@@ -1341,18 +1341,18 @@ void Skate::broadcast_points(bool final)
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
         skate_net::write_scores(writer, *message);
         desc.set_content(bytes.data());
-        desc.set_ident(skate_net::kMsgScores);
+        desc.set_ident(skate_net::MessageId::kScores);
         desc.set_byte_count(static_cast<uint16_t>(writer.position()));
         if (final || cheats)
-            get_sequence(desc, online::kGroupGame);
+            get_sequence(desc, online::MessageGroup::kGame);
         enqueue(server_app(), player, &desc);
         if (player->is_own_player() || !player->has_finished_joining())
             continue;
         // the cheats' check (0x80): 8 bytes, the second word whatever the stack held (zero here)
         std::array<uint32_t, 2> check = {{get_cheats() ^ skate_net::kCheatsCheckMask, 0}};
         desc.set_content(check.data());
-        desc.set_ident(skate_net::kMsgCheatsCheck);
-        get_sequence(desc, online::kGroupGame);
+        desc.set_ident(skate_net::MessageId::kCheatsCheck);
+        get_sequence(desc, online::MessageGroup::kGame);
         desc.set_byte_count(kCheatsCheckBytes);
         enqueue(server_app(), player, &desc);
     }

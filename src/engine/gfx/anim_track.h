@@ -40,10 +40,11 @@ using TimedClipEvent = AnimScriptKey;
 
 class AnimTrack : public AnimTimeline {
 public:
-    using State = uint8_t;
-    static constexpr int kOff = 0;
-    static constexpr int kFading = 1;
-    static constexpr int kPlaying = 2;
+    enum class State : uint8_t {
+        kOff = 0,
+        kFading = 1,
+        kPlaying = 2,
+    };
 
     // 0x00481EE0 / 0x00482360: the class's operator new / delete (its item pools 0x006F92C8).
     static void* operator new(size_t size);
@@ -126,7 +127,8 @@ public:
 
 private:
     uint32_t unknown34_{};
-    int cur_phase_{kPlaying};           // +0x38 State
+    State cur_phase_{State::kPlaying};  // +0x38 (the original's int: the rest is zero)
+    std::array<uint8_t, 3> unknown39_{};
     std::array<AnimDriver*, kControllerCount> controller_list_{};  // +0x3C (by priority, highest first)
     int controller_count_{0};           // +0x54
     float fade_rate_{};                 // +0x58 (1/60 when played)

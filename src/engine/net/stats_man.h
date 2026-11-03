@@ -190,14 +190,15 @@ constexpr size_t kRankingsManagerTopListsSize = 5;
 class RankingsManager {
 public:
     // cur_phase_.
-    using State = uint8_t;
-    static constexpr int kNone = 0;
-    static constexpr int kLoggingIn = 1; // the login thread runs
-    static constexpr int kAuthDone = 2;  // (the thread's answer: the task makes it 4)
-    static constexpr int kLoginFailed = 3;
-    static constexpr int kReady = 4;
-    static constexpr int kGettingStats = 5; // RetrievePersonalStats: waiting for the 15 answers
-    static constexpr int kReporting = 6;    // a game being reported
+    enum class State : uint8_t {
+        kNone = 0,
+        kLoggingIn = 1, // the login thread runs
+        kAuthDone = 2, // (the thread's answer: the task makes it 4)
+        kLoginFailed = 3,
+        kReady = 4,
+        kGettingStats = 5, // RetrievePersonalStats: waiting for the 15 answers
+        kReporting = 6, // a game being reported
+    };
 
     // 0x0054DBD0: no stats, five empty top lists, the task (stats_task) on the network heap; the top stats are
     // needed.
@@ -267,7 +268,7 @@ public:
     static void generate_auth(const char* challenge, const char* password, char* response);
 
     // The fields other code reads and sets.
-    void set_cur_phase(int value) { cur_phase_ = value; }
+    void set_cur_phase(State value) { cur_phase_ = value; }
     PersonalStats& personal() { return personal_; }
     [[nodiscard]] const PersonalStats& personal() const { return personal_; }
     int& top_file() { return top_file_; }
@@ -281,7 +282,8 @@ private:
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<RankingsManager> (stats_task)
     bool authenticated_{false};                  // +0x004
     std::array<uint8_t, 3> pad5_{};
-    int cur_phase_{kNone};   // +0x008 State
+    State cur_phase_{State::kNone}; // +0x008 (the original's int: the rest is zero)
+    std::array<uint8_t, 3> unknown009_{};
     void* game_{nullptr};    // +0x00C the SDK's game being reported
     uint32_t last_report_{}; // +0x010
     PersonalStats personal_{}; // +0x014

@@ -111,10 +111,10 @@ gsl::owner<Array*> new_colour_array(Array* source)
 {
     gsl::owner<Array*> colour = script::new_array();
     if (source->extent() == 4) {
-        colour->configure_size_kind(4, script::kQbvalInteger);
+        colour->configure_size_kind(4, script::QbValueKind::kInteger);
         colour->set_element(3, source->fetch_part(3));
     } else {
-        colour->configure_size_kind(3, script::kQbvalInteger);
+        colour->configure_size_kind(3, script::QbValueKind::kInteger);
     }
     return colour;
 }

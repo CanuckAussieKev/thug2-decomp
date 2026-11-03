@@ -85,7 +85,7 @@ void Hub::launch_module(PartUnit* module)
 {
     if (module->locked())
         return;
-    module->set_queued_op(PartUnit::kStart);
+    module->set_queued_op(PartUnit::OrderCode::kStart);
     command_pending_ = true;
 }
 
@@ -96,10 +96,10 @@ void Hub::halt_every_module()
     PartUnit* next = search.head_element(&modules_);
     while (PartUnit* module = next) {
         next = search.following_item();
-        if (!module->locked() && module->cur_phase() == PartUnit::kRunning) {
+        if (!module->locked() && module->cur_phase() == PartUnit::State::kRunning) {
             module->stop_callback();
-            module->set_queued_op(PartUnit::kNone);
-            module->set_cur_phase(PartUnit::kStopped);
+            module->set_queued_op(PartUnit::OrderCode::kNone);
+            module->set_cur_phase(PartUnit::State::kStopped);
         }
     }
 }
@@ -116,25 +116,23 @@ void Hub::tick_modules(tasks::Task<Hub>* task)
     while (PartUnit* module = next) {
         next = search.following_item();
         switch (module->cur_phase()) {
-        case PartUnit::kStopped:
-            if (module->queued_op() == PartUnit::kStart || module->queued_op() == PartUnit::kRestart) {
+        case PartUnit::State::kStopped:
+            if (module->queued_op() == PartUnit::OrderCode::kStart || module->queued_op() == PartUnit::OrderCode::kRestart) {
                 module->start_callback();
-                module->set_cur_phase(PartUnit::kRunning);
-                module->set_queued_op(PartUnit::kNone);
+                module->set_cur_phase(PartUnit::State::kRunning);
+                module->set_queued_op(PartUnit::OrderCode::kNone);
             }
             break;
-        case PartUnit::kRunning:
-            if (module->queued_op() == PartUnit::kStop) {
+        case PartUnit::State::kRunning:
+            if (module->queued_op() == PartUnit::OrderCode::kStop) {
                 module->stop_callback();
-                module->set_cur_phase(PartUnit::kStopped);
-                module->set_queued_op(PartUnit::kNone);
-            } else if (module->queued_op() == PartUnit::kRestart) {
+                module->set_cur_phase(PartUnit::State::kStopped);
+                module->set_queued_op(PartUnit::OrderCode::kNone);
+            } else if (module->queued_op() == PartUnit::OrderCode::kRestart) {
                 module->stop_callback();
                 module->start_callback();
-                module->set_queued_op(PartUnit::kNone);
+                module->set_queued_op(PartUnit::OrderCode::kNone);
             }
-            break;
-        default:
             break;
         }
     }

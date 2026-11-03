@@ -47,20 +47,22 @@ public:
     static constexpr int kMaxGears = 6;
 
     // The wheels' grip states (Wheel::state).
-    using WheelState = uint8_t;
-    static constexpr int kWheelOnGround = 0; // touching, grip not worked out yet this step
-    static constexpr int kWheelInAir = 1;
-    static constexpr int kWheelStaticSlow = 2;      // static friction below min_static_grip_velocity (scaled down to 0)
-    static constexpr int kWheelStatic = 3;          // static friction
-    static constexpr int kWheelStaticToDynamic = 4; // between max_static_grip_velocity and min_dynamic_grip_velocity
-    static constexpr int kWheelDynamic = 5;         // dynamic friction
-    static constexpr int kWheelHandbrakeThrottle = 6;
-    static constexpr int kWheelHandbrakeLocked = 7;
+    enum class WheelState : uint8_t {
+        kOnGround = 0, // touching, grip not worked out yet this step
+        kInAir = 1,
+        kStaticSlow = 2, // static friction below min_static_grip_velocity (scaled down to 0)
+        kStatic = 3, // static friction
+        kStaticToDynamic = 4, // between max_static_grip_velocity and min_dynamic_grip_velocity
+        kDynamic = 5, // dynamic friction
+        kHandbrakeThrottle = 6,
+        kHandbrakeLocked = 7,
+    };
 
     // A wheel (0x1C8 bytes; the array at wheels_, made by configure_from_data; its parameters read by 0x00434F20).
     struct Wheel {
         float y{};                     // +0x00 the suspension's extension (the wheel's height in the body)
-        int state{};                   // +0x04 WheelState
+        WheelState state{};            // +0x04 (the original's int: the rest is zero)
+        std::array<uint8_t, 3> unknown05_{};
         float spin{};                  // +0x08 the tyre's angular velocity (radians a second)
         float rotation{};              // +0x0C the tyre's roll angle (kept within -pi..pi)
         float steering{};              // +0x10 the steering angle (Ackermann)

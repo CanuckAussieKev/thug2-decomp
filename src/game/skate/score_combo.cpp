@@ -94,8 +94,7 @@ constexpr uint32_t kFakieOllie = 0x28C6399C;
 constexpr uint32_t kCabTrick2 = 0x8BF1B0CB;
 constexpr uint32_t kCabTrick3 = 0x428485BB;
 
-using online::kMsgBestCombo;   // the best combo to the server
-using online::kMsgLandedScore; // a landed combo's points to the server
+using online::MessageId;
 
 // The skater's adjust-physics component's uber-frig flag (the tricks' points are held while it's set).
 bool points_held(objects::Rider* skater)
@@ -106,7 +105,7 @@ bool points_held(objects::Rider* skater)
 
 // The points sent and the message id.
 struct PointsMessage {
-    uint8_t id{};
+    MessageId id{};
     int points{};
 };
 
@@ -127,7 +126,7 @@ void send_points(online::Hub* net, objects::Rider* skater, PointsMessage points_
     desc.set_content(data.data());
     desc.set_byte_count(sizeof(data));
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(online::kGroupGame);
+    desc.set_group_id(online::MessageGroup::kGame);
     core::down_cast<net::Guest>(net->fetch_patron(skater->view_slot()))->send_to_host(&desc);
 }
 
@@ -632,7 +631,7 @@ void PointTally::land()
     combo_tricks_ = 0;
     if (combo > best_combo_sent_) {
         if (net->in_net_game() && mode->get_name_key() != kNetLobby)
-            send_points(net, skater, {.id = kMsgBestCombo, .points = pot_score_});
+            send_points(net, skater, {.id = MessageId::kBestCombo, .points = pot_score_});
         best_combo_sent_ = pot_score_;
     }
     if (!mode->repeats_lose_points()) {
@@ -669,7 +668,7 @@ void PointTally::land()
             send = true;
         if (send) {
             if (!net->get_on_server())
-                send_points(net, skater, {.id = kMsgLandedScore, .points = points});
+                send_points(net, skater, {.id = MessageId::kLandedScore, .points = points});
             set_grand_total(mode->keeps_best_chain() ? points : sum_ + points);
         } else if (!mode->keeps_best_chain() && !static_cast<uint8_t>(mode->is_scoring_paused())) {
             set_grand_total(points);

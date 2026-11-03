@@ -239,7 +239,7 @@ void read_override_keys(script::Struct* level, Props* out)
                           kFog = checksums::hash_from_text("ed_fog");
     auto read = [&](uint32_t key, std::span<int> values, uint32_t count) {
         script::Array* array = nullptr;
-        if (!level || !level->fetch_list(key, &array, 0) || !array || array->kind_tag() != script::kQbvalInteger ||
+        if (!level || !level->fetch_list(key, &array, 0) || !array || array->kind_tag() != script::QbValueKind::kInteger ||
             array->extent() != count)
             return false;
         for (uint32_t i = 0; i < count; ++i)
@@ -316,7 +316,7 @@ script::Struct* current_level_structure()
     static const uint32_t kLoadScript = checksums::hash_from_text("load_script");
     for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
         uint32_t value = 0;
-        if (e->type() == script::kQbvalStruct && e->value().structure() && e->value().structure()->read_hash_value(kLoadScript, &value, 0) &&
+        if (e->type() == script::QbValueKind::kStruct && e->value().structure() && e->value().structure()->read_hash_value(kLoadScript, &value, 0) &&
             value == load)
             return e->value().structure();
     }
@@ -443,7 +443,7 @@ const std::vector<std::string>& skies()
         const char* sky = nullptr;
         uint32_t load = 0;
         // (a level structure: it names its load script - not some other structure with a sky=)
-        if (e->type() != script::kQbvalStruct || !e->value().structure() || !e->value().structure()->read_hash_value(kLoadScript, &load, 0) ||
+        if (e->type() != script::QbValueKind::kStruct || !e->value().structure() || !e->value().structure()->read_hash_value(kLoadScript, &load, 0) ||
             !e->value().structure()->fetch_text(kSky, &sky, 0) || !sky || !valid_sky(sky))
             continue;
         bool there = false;

@@ -8,6 +8,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/smtptr.h"
+#include "game/rider/skater_state.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
 
@@ -301,7 +302,7 @@ public:
     // 0x005003A0: the feeler (+0xA8) along its line (+0x208 to +0x218), faces with any of `ignore` or without all of
     // `require` passed over, movables too. On a hit: +0x228 skatable (face flag 1, or 8 vert, or neither 2 nor 4 and
     // no steeper than Wall_Non_Skatable_Angle), +0x229 vert (flag 8), +0x22A a wall (flag 4). Whether it hit.
-    bool probe_touches_zone(uint32_t ignore, uint32_t require);
+    bool probe_touches_zone(render::FaceFlag ignore, render::FaceFlag require);
     // 0x00500020: whether the skater may grind `rail` (a rail node; +0x40 / +0x44 its neighbours) now: not the
     // last one (+0x22C) or its neighbours again while still in the air after it; a new rail sets flag +0x50 (in a
     // created park: one whose ends are all more than 6 from the last's); the same one only after +0x23C ms since
@@ -994,7 +995,7 @@ private:
     uint32_t time_aloft();
     bool feel_ahead(script::Struct* params, render::ProbeRay& feeler, bool raise);
     // (core_physics_acid_drop.cpp)
-    bool walking_state(int state);
+    bool walking_state(objects::RiderPoseState::PhysicsMode state);
     double fall_time(float height, float upward);
     bool find_transfer_target(maths::Vec4* look, maths::Vec4* normal, bool* hip,
                           VertTarget* target, bool* object_hit);

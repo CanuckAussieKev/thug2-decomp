@@ -22,6 +22,7 @@
 #include <vector>
 #include <utility>
 
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
 #include "engine/maths/vec2.h"
@@ -238,14 +239,14 @@ void get_put4(std::vector<uint8_t>* out, uint32_t value)
 }
 void put_name(std::vector<uint8_t>* out, uint32_t checksum)
 {
-    out->push_back(script::kTokenName);
+    out->push_back(script::token_byte(script::QbToken::kName));
     get_put4(out, checksum);
 }
 // name=value (a name)
 void put_name_value(std::vector<uint8_t>* out, uint32_t key, uint32_t value)
 {
     put_name(out, key);
-    out->push_back(script::kTokenEquals);
+    out->push_back(script::token_byte(script::QbToken::kEquals));
     put_name(out, value);
 }
 
@@ -596,14 +597,14 @@ std::vector<uint8_t> get_body(const Spec& spec)
         put_name_value(&out, get_gap_id(), checksum_of(spec.gap));
         if (!spec.flags.empty()) {
             put_name(&out, current_flags());
-            out.push_back(script::kTokenEquals);
-            out.push_back(script::kTokenArrayStart);
+            out.push_back(script::token_byte(script::QbToken::kEquals));
+            out.push_back(script::token_byte(script::QbToken::kArrayStart));
             for (size_t i = 0; i < spec.flags.size(); ++i) {
                 if (i)
-                    out.push_back(script::kTokenComma);
+                    out.push_back(script::token_byte(script::QbToken::kComma));
                 put_name(&out, checksum_of(core::at(spec.flags, i)));
             }
-            out.push_back(script::kTokenArrayEnd);
+            out.push_back(script::token_byte(script::QbToken::kArrayEnd));
         }
         out.push_back(0x01);
         break;
@@ -611,12 +612,12 @@ std::vector<uint8_t> get_body(const Spec& spec)
         put_name(&out, end_gap());
         put_name_value(&out, get_gap_id(), checksum_of(spec.gap));
         put_name(&out, get_score());
-        out.push_back(script::kTokenEquals);
-        out.push_back(script::kTokenInteger);
+        out.push_back(script::token_byte(script::QbToken::kEquals));
+        out.push_back(script::token_byte(script::QbToken::kInteger));
         get_put4(&out, static_cast<uint32_t>(spec.score));
         put_name(&out, get_text());
-        out.push_back(script::kTokenEquals);
-        out.push_back(script::kTokenString);
+        out.push_back(script::token_byte(script::QbToken::kEquals));
+        out.push_back(script::token_byte(script::QbToken::kString));
         std::string text = clean_text(spec.text);
         get_put4(&out, static_cast<uint32_t>(text.size() + 1));
         out.insert(out.end(), text.begin(), text.end());
@@ -630,8 +631,8 @@ std::vector<uint8_t> get_body(const Spec& spec)
         // trigger_jump_boost speed=<n> (skutils.qb: the skater's upward velocity set to n)
         put_name(&out, get_checksums("trigger_jump_boost"));
         put_name(&out, get_checksums("speed"));
-        out.push_back(script::kTokenEquals);
-        out.push_back(script::kTokenInteger);
+        out.push_back(script::token_byte(script::QbToken::kEquals));
+        out.push_back(script::token_byte(script::QbToken::kInteger));
         get_put4(&out, static_cast<uint32_t>(std::max(kBoostMin, std::min(kBoostMax, spec.strength))));
         out.push_back(0x01);
         break;
@@ -647,14 +648,14 @@ std::vector<uint8_t> get_body(const Spec& spec)
         }
         auto integer = [&](const char* key, int32_t value) {
             put_name(&out, get_checksums(key));
-            out.push_back(script::kTokenEquals);
-            out.push_back(script::kTokenInteger);
+            out.push_back(script::token_byte(script::QbToken::kEquals));
+            out.push_back(script::token_byte(script::QbToken::kInteger));
             get_put4(&out, static_cast<uint32_t>(value));
         };
         auto real = [&](const char* key, float value) {
             put_name(&out, get_checksums(key));
-            out.push_back(script::kTokenEquals);
-            out.push_back(script::kTokenFloat);
+            out.push_back(script::token_byte(script::QbToken::kEquals));
+            out.push_back(script::token_byte(script::QbToken::kFloat));
             auto bits = std::bit_cast<uint32_t>(value);
             get_put4(&out, bits);
         };
@@ -680,8 +681,8 @@ std::vector<uint8_t> get_body(const Spec& spec)
         put_name(&out, get_checksums("LevelEditor_PlayCamera"));
         put_name_value(&out, get_checksums("camera"), checksum_of(spec.target));
         put_name(&out, get_checksums("time"));
-        out.push_back(script::kTokenEquals);
-        out.push_back(script::kTokenFloat);
+        out.push_back(script::token_byte(script::QbToken::kEquals));
+        out.push_back(script::token_byte(script::QbToken::kFloat));
         const float seconds = clamp_seconds(spec.seconds);
         auto bits = std::bit_cast<uint32_t>(seconds);
         get_put4(&out, bits);
@@ -708,13 +709,13 @@ std::vector<uint8_t> qb_file(const std::vector<Spec>& specs)
         names.emplace_back(checksum, name);
     };
     for (const Spec& spec : specs) {
-        out.push_back(script::kTokenScriptStart);
+        out.push_back(script::token_byte(script::QbToken::kScriptStart));
         const std::string script = get_script_name(spec);
         put_name(&out, get_checksums(script.c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = get_body(spec);
         out.insert(out.end(), body.begin(), body.end());
-        out.push_back(script::kTokenScriptEnd);
+        out.push_back(script::token_byte(script::QbToken::kScriptEnd));
         out.push_back(0x01);
         note(script);
         if (!body.empty()) {
@@ -735,7 +736,7 @@ std::vector<uint8_t> qb_file(const std::vector<Spec>& specs)
         }
     }
     for (const auto& n : names) {
-        out.push_back(script::kTokenChecksumName);
+        out.push_back(script::token_byte(script::QbToken::kChecksumName));
         get_put4(&out, n.first);
         out.insert(out.end(), n.second.begin(), n.second.end());
         out.push_back(0x00);
@@ -1019,20 +1020,20 @@ std::vector<uint8_t> proxim_body(ProximScripts scripts)
             out.push_back(0x01);
         } else if (own) {
             put_name(&out, own);
-            out.push_back(script::kTokenAllArguments); // (<...>: its arguments passed on)
+            out.push_back(script::token_byte(script::QbToken::kAllArguments)); // (<...>: its arguments passed on)
             out.push_back(0x01);
         }
     };
     // if Inside {enter} else {exit}: 47 <offset> ... 48 <offset> 01 ... 28 01; each offset counted from its own first
     // byte - the if's to the else's body, the else's to the end of line after endif.
-    out.push_back(script::kTokenShortIf);
+    out.push_back(script::token_byte(script::QbToken::kShortIf));
     const size_t if_offset = out.size();
     out.push_back(0);
     out.push_back(0);
     put_name(&out, get_checksums("Inside"));
     out.push_back(0x01);
     branch(enter);
-    out.push_back(script::kTokenShortElse);
+    out.push_back(script::token_byte(script::QbToken::kShortElse));
     const size_t else_offset = out.size();
     out.push_back(0);
     out.push_back(0);
@@ -1041,7 +1042,7 @@ std::vector<uint8_t> proxim_body(ProximScripts scripts)
     core::at(out, if_offset) = static_cast<uint8_t>(to_else);
     core::at(out, if_offset + 1) = static_cast<uint8_t>(to_else >> kBitsPerByte);
     branch(exit);
-    out.push_back(script::kTokenEndIf);
+    out.push_back(script::token_byte(script::QbToken::kEndIf));
     auto to_end = static_cast<uint16_t>(out.size() - else_offset);
     core::at(out, else_offset) = static_cast<uint8_t>(to_end);
     core::at(out, else_offset + 1) = static_cast<uint8_t>(to_end >> kBitsPerByte);
@@ -1053,17 +1054,17 @@ std::vector<uint8_t> proxim_qb_file(const std::vector<ProximScript>& scripts)
 {
     std::vector<uint8_t> out;
     for (const ProximScript& s : scripts) {
-        out.push_back(script::kTokenScriptStart);
+        out.push_back(script::token_byte(script::QbToken::kScriptStart));
         put_name(&out, get_checksums(proxim_script_name(s.node).c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = proxim_body({.enter = s.enter, .exit = s.exit, .own = s.own});
         out.insert(out.end(), body.begin(), body.end());
-        out.push_back(script::kTokenScriptEnd);
+        out.push_back(script::token_byte(script::QbToken::kScriptEnd));
         out.push_back(0x01);
     }
     for (const ProximScript& s : scripts) {
         std::string name = proxim_script_name(s.node);
-        out.push_back(script::kTokenChecksumName);
+        out.push_back(script::token_byte(script::QbToken::kChecksumName));
         get_put4(&out, get_checksums(name.c_str()));
         out.insert(out.end(), name.begin(), name.end());
         out.push_back(0x00);
@@ -1255,7 +1256,7 @@ const Calls& calls_of(uint32_t script)
 bool is_script(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = name ? script::resolve_symbol(name) : nullptr;
-    return symbol && symbol->type() == script::kQbvalScriptBody;
+    return symbol && symbol->type() == script::QbValueKind::kScriptBody;
 }
 
 Calls get_walk(uint32_t script)
@@ -1313,8 +1314,8 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
     t->bounds_high_ = {.x = tri->bounds().max.x, .y = tri->bounds().max.y, .z = tri->bounds().max.z};
     bool any = false;
     for (int f = 0; std::cmp_less(f, tri->tri_count()); ++f) {
-        const uint16_t flags = tri->face_flags(f);
-        if (!(flags & render::kFaceTrigger)) {
+        const render::FaceFlag flags = tri->face_flags(f);
+        if (!core::any(flags & render::FaceFlag::kTrigger)) {
             t->all_trigger_ = false;
             continue;
         }
@@ -1567,7 +1568,7 @@ std::vector<ProximEdit>& stored_proxims()
 }
 struct ProximOriginal {
     uint32_t script;
-    int shape;
+    objects::ProximShape shape;
     float radius;
     V3 min, max;
 };
@@ -1660,14 +1661,14 @@ void sync_proxims()
             p->box().min = {.x = o.min.x, .y = o.min.y, .z = o.min.z, .w = 1.0f};
             p->box().max = {.x = o.max.x, .y = o.max.y, .z = o.max.z, .w = 1.0f};
         } else if (e.box) {
-            // (kProximShapeBox: the world's axes; its middle kept at the node's place plus the offset)
+            // (objects::ProximShape::kBox: the world's axes; its middle kept at the node's place plus the offset)
             const V3 centre = V3{.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z} + e.offset;
             const V3 half = e.size * 0.5f;
-            p->set_form(objects::kProximShapeBox);
+            p->set_form(objects::ProximShape::kBox);
             p->box().min = {.x = centre.x - half.x, .y = centre.y - half.y, .z = centre.z - half.z, .w = 1.0f};
             p->box().max = {.x = centre.x + half.x, .y = centre.y + half.y, .z = centre.z + half.z, .w = 1.0f};
         } else {
-            p->set_form(objects::kProximShapeSphere);
+            p->set_form(objects::ProximShape::kSphere);
             p->radius() = e.radius;
             p->set_reach_sq(e.radius * e.radius);
         }
@@ -1920,7 +1921,7 @@ std::string nearest_restart(V3 pos)
     std::string name;
     for (const nodes::Elem& node : nodes::get_all()) {
         if (node.family != nodes::Family::kSpawn || node.hidden || !node.has_pos_ ||
-            !(node.restart_types_ & (nodes::kPlayer1 | nodes::kMultiplayer)))
+            !core::any(node.restart_types_ & (nodes::SpawnPointKind::kPlayer1 | nodes::SpawnPointKind::kMultiplayer)))
             continue;
         const V3 d = node.pos - pos;
         const float distance = get_dot(d, d);
@@ -2588,7 +2589,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
             return;
         const uint32_t colour = is_selected ? 0xFFFFB060u : 0xC0F08A3Cu;
         V3 top = at;
-        if (p->form() == objects::kProximShapeSphere && p->radius() > 0.0f) {
+        if (p->form() == objects::ProximShape::kSphere && p->radius() > 0.0f) {
             constexpr int kSides = 32;
             const std::array<std::array<V3, 2>, 3> axes = {{{{{.x = 1, .y = 0, .z = 0}, {.x = 0, .y = 0, .z = 1}}}, {{{.x = 1, .y = 0, .z = 0}, {.x = 0, .y = 1, .z = 0}}}, {{{.x = 0, .y = 1, .z = 0}, {.x = 0, .y = 0, .z = 1}}}}};
             for (const auto& plane : axes) {
@@ -2602,7 +2603,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
                 }
             }
             top = at + up * p->radius();
-        } else if (p->form() == objects::kProximShapeBox) {
+        } else if (p->form() == objects::ProximShape::kBox) {
             const V3 min = {.x = p->box().min.x, .y = p->box().min.y, .z = p->box().min.z};
             const V3 max = {.x = p->box().max.x, .y = p->box().max.y, .z = p->box().max.z};
             const OrientedBox box = {
@@ -2797,13 +2798,13 @@ bool shape_for(uint32_t node, HandleShape* s)
         s->size = e->box ? e->size : V3{.x = e->radius * kDiameterFactor, .y = e->radius * kDiameterFactor, .z = e->radius * kDiameterFactor};
         return true;
     }
-    if (p->form() == objects::kProximShapeSphere) {
+    if (p->form() == objects::ProximShape::kSphere) {
         s->sphere = true;
         s->pos = at;
         s->size = {.x = p->radius() * kDiameterFactor, .y = p->radius() * kDiameterFactor, .z = p->radius() * kDiameterFactor};
         return p->radius() > 0.0f;
     }
-    if (p->form() == objects::kProximShapeBox) {
+    if (p->form() == objects::ProximShape::kBox) {
         const V3 min = {.x = p->box().min.x, .y = p->box().min.y, .z = p->box().min.z};
         const V3 max = {.x = p->box().max.x, .y = p->box().max.y, .z = p->box().max.z};
         s->pos = (min + max) * kHalf;

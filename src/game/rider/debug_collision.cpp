@@ -55,6 +55,7 @@
 #include <span>
 
 #include "game/rider/debug_collision.h"
+#include "engine/core/enum_ops.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/probe_ray.h"
 #include "game/rider/core_physics.h"
@@ -182,7 +183,7 @@ void log_hit(const void* feeler, uint32_t caller)
     const auto& normal = ray->hit().normal;
     const auto& point = ray->hit().point;
     const int face = static_cast<int>(ray->hit().face);
-    const uint16_t flags = ray->hit().face_flags_;
+    const uint16_t flags = core::to_underlying(ray->hit().face_flags_);
     const uint8_t terrain = ray->hit().terrain;
     const bool static_hit = ray->hit().hit;
     const render::HitMesh* coll_object = ray->hit().object;

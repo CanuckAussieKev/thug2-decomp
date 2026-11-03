@@ -6,6 +6,7 @@
 #include <cstring>
 #include <span>
 
+#include "engine/core/enum_ops.h"
 #include "engine/core/cursor.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
@@ -24,9 +25,7 @@ constexpr int kMillisecondsPerSecond = 1000;
 constexpr int kMillisecondsPerCentisecond = 10;
 constexpr int kCentisecondsPerSecond = 100;
 constexpr int kClockSlackMilliseconds = 20;    // a time limit runs this much past its seconds
-constexpr int kTypeMask = 0xFE;                // the kind of a component without its flag bit
 constexpr int kDecimalBase = 10;
-constexpr int kDeactivateOnExpireShift = 6;
 
 using namespace goal_calls;
 
@@ -77,7 +76,7 @@ void Objective::reset_timer()
     if (args_->fetch_int_value(kTime, &seconds, 0))
         seconds_remaining_ = seconds;
     seconds_remaining_ = seconds_remaining_ * kMillisecondsPerSecond + kClockSlackMilliseconds;
-    cur_phase_ &= ~kStateNoTimeLimit;
+    cur_phase_ &= ~Objective::State::kNoTimeLimit;
 }
 
 // 0x00553F10
@@ -90,10 +89,10 @@ int Objective::get_seconds_remaining() { return seconds_remaining_; }
 void Objective::advance_clock(int seconds) { seconds_remaining_ += seconds * kMillisecondsPerSecond + kClockSlackMilliseconds; }
 
 // 0x00553F50
-void Objective::change_live() { cur_phase_ |= kStateActive; }
+void Objective::change_live() { cur_phase_ |= Objective::State::kActive; }
 
 // 0x00553F60
-void Objective::clear_engaged_bit() { cur_phase_ &= ~kStateActive; }
+void Objective::clear_engaged_bit() { cur_phase_ &= ~Objective::State::kActive; }
 
 // 0x00553F70
 bool Objective::rewrite_args(script::Struct* params)
@@ -103,16 +102,16 @@ bool Objective::rewrite_args(script::Struct* params)
 }
 
 // 0x00553F90
-bool Objective::is_operative() { return (cur_phase_ & kStateActive) != 0; }
+bool Objective::is_operative() { return core::any(cur_phase_ & Objective::State::kActive); }
 
 // 0x00553FA0
-bool Objective::has_seen() { return (flag_bits_ & kFlagSeen) != 0; }
+bool Objective::has_seen() { return core::any(flag_bits_ & Objective::Flags::kSeen); }
 
 // 0x00553FB0
-void Objective::get_freeze() { cur_phase_ |= kStatePaused; }
+void Objective::get_freeze() { cur_phase_ |= Objective::State::kPaused; }
 
 // 0x00553FC0
-void Objective::un_pause() { cur_phase_ &= ~kStatePaused; }
+void Objective::un_pause() { cur_phase_ &= ~Objective::State::kPaused; }
 
 // 0x00553FD0
 bool Objective::bit_matches(checksums::Name flag_name, int value, checksums::Name sub_goal)
@@ -155,7 +154,7 @@ void Objective::zero_objective_bits()
         script::Component* component = goal_flags_->step_to_entry(nullptr);
         while (component) {
             script::Component* next = goal_flags_->step_to_entry(component);
-            if ((component->type_and_flag_ & kTypeMask) == (script::kQbvalStruct << 1)) {
+            if (value_kind(*component) == script::QbValueKind::kStruct) {
                 script::Struct* skater = component->value.structure();
                 script::Component* flag = skater->step_to_entry(nullptr);
                 while (flag) {
@@ -184,7 +183,7 @@ bool Objective::has_every_bit()
     if (goal_flags_->has_bare_flag(kSkaterTraits)) {
         for (script::Component* component = goal_flags_->step_to_entry(nullptr); component;) {
             script::Component* next = goal_flags_->step_to_entry(component);
-            if ((component->type_and_flag_ & kTypeMask) == (script::kQbvalStruct << 1)) {
+            if (value_kind(*component) == script::QbValueKind::kStruct) {
                 script::Struct* skater = component->value.structure();
                 int set = 0;
                 int count = 0;
@@ -223,7 +222,7 @@ bool Objective::bit_is_on(GoalBit goal_bit)
 bool Objective::is_latched()
 {
     void* manager = objective_board();
-    return (flag_bits_ & kFlagLocked) || is_group_locked(manager, bundle_, level_);
+    return core::any(flag_bits_ & Objective::Flags::kLocked) || is_group_locked(manager, bundle_, level_);
 }
 
 // 0x00554250
@@ -262,9 +261,9 @@ bool Objective::has_won_goal_or_child()
 }
 
 // 0x005542F0
-bool Objective::is_picked() { return (flag_bits_ & kFlagSelected) != 0; }
+bool Objective::is_picked() { return core::any(flag_bits_ & Objective::Flags::kSelected); }
 // 0x005519F0
-bool Objective::is_prepared() { return (flag_bits_ & kFlagInitialized) != 0; }
+bool Objective::is_prepared() { return core::any(flag_bits_ & Objective::Flags::kInitialized); }
 
 // 0x00554320
 void Objective::picked_up_countable()
@@ -288,7 +287,7 @@ bool Objective::tally_objective_finished()
 }
 
 // 0x005543E0
-bool Objective::state02() { return (cur_phase_ & kState02) != 0; }
+bool Objective::state02() { return core::any(cur_phase_ & Objective::State::kUnknown02); }
 
 // 0x005543F0
 bool Objective::has_proset_prefix(const char* prefix)
@@ -300,13 +299,13 @@ bool Objective::has_proset_prefix(const char* prefix)
 }
 
 // 0x00554430
-void Objective::mark_viewed() { flag_bits_ |= kFlagSeen; }
+void Objective::mark_viewed() { flag_bits_ |= Objective::Flags::kSeen; }
 
 // 0x00554440
-void Objective::choose_one() { flag_bits_ |= kFlagSelected; }
+void Objective::choose_one() { flag_bits_ |= Objective::Flags::kSelected; }
 
 // 0x00554450
-void Objective::unpick() { flag_bits_ &= ~kFlagSelected; }
+void Objective::unpick() { flag_bits_ &= ~Objective::Flags::kSelected; }
 
 // 0x00554460
 bool Objective::may_try_again() { return args_->has_bare_flag(kCanRetryGoal); }
@@ -345,13 +344,13 @@ bool Objective::is_online_objective() { return args_->has_entry_named(kNet); }
 bool Objective::is_contest_objective() { return args_->has_bare_flag(kCompetition); }
 
 // 0x00554560
-bool Objective::is_frozen() { return (cur_phase_ & kStatePaused) != 0; }
+bool Objective::is_frozen() { return core::any(cur_phase_ & Objective::State::kPaused); }
 
 // 0x00554570
 bool Objective::get_objective_list_caption(const char** text) { return args_->fetch_text(kViewGoalsTextName, text, 0); }
 
 // 0x00554590
-bool Objective::end_of_run_started() { return (flag_bits_ & kFlagEndOfRunStarted) != 0; }
+bool Objective::end_of_run_started() { return core::any(flag_bits_ & Objective::Flags::kEndOfRunStarted); }
 
 // 0x005545A0
 bool Objective::has_time_limit()
@@ -376,11 +375,11 @@ void Objective::restore_save_block(script::Struct* data)
     int locked = 1;
     data->fetch_int_value(kIsLocked, &locked, 1);
     if (!locked)
-        flag_bits_ &= ~kFlagLocked;
+        flag_bits_ &= ~Objective::Flags::kLocked;
     int seen = 0;
     data->fetch_int_value(kHasSeen, &seen, 1);
     if (seen)
-        flag_bits_ |= kFlagSeen;
+        flag_bits_ |= Objective::Flags::kSeen;
     int record = 0;
     data->fetch_int_value(kWinRecord, &record, 1);
     args_->put_int(checksums::Name{kWinRecord}, record);
@@ -413,9 +412,9 @@ void Objective::capture_save_block(script::Struct* data)
 {
     data->put_int(checksums::Name{kLevelNum}, level_);
     void* manager = objective_board();
-    const bool locked = (flag_bits_ & kFlagLocked) || is_group_locked(manager, bundle_, level_);
+    const bool locked = core::any(flag_bits_ & Objective::Flags::kLocked) || is_group_locked(manager, bundle_, level_);
     data->put_int(checksums::Name{kIsLocked}, locked);
-    data->put_int(checksums::Name{kHasSeen}, (flag_bits_ & kFlagSeen) ? 1 : 0);
+    data->put_int(checksums::Name{kHasSeen}, core::any(flag_bits_ & Objective::Flags::kSeen) ? 1 : 0);
     data->put_int(checksums::Name{kAlreadyWon}, has_won());
     int record = 0;
     uint32_t type = 0;
@@ -496,8 +495,7 @@ void Objective::choose_run_ending(int type) { run_ending_ = type; }
 // 0x00554A20
 void Objective::change_ends_on_timeout(bool deactivate)
 {
-    flag_bits_ =
-        static_cast<uint8_t>((flag_bits_ & ~kFlagDeactivateOnExpire) | ((deactivate << kDeactivateOnExpireShift) & kFlagDeactivateOnExpire));
+    flag_bits_ = (flag_bits_ & ~Objective::Flags::kDeactivateOnExpire) | (deactivate ? Objective::Flags::kDeactivateOnExpire : Objective::Flags::kNone);
 }
 
 // 0x00554A40
@@ -507,7 +505,7 @@ bool Objective::is_horse() { return args_->has_bare_flag(kHorse); }
 bool Objective::is_find_gaps() { return args_->has_bare_flag(kFindGaps); }
 
 // 0x00554A60
-bool Objective::has_no_time_limit() { return (cur_phase_ & kStateNoTimeLimit) != 0; }
+bool Objective::has_no_time_limit() { return core::any(cur_phase_ & Objective::State::kNoTimeLimit); }
 
 // 0x00554A70
 bool Objective::requires_combo() { return args_->has_bare_flag(kRequireCombo); }

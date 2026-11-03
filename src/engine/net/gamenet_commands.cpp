@@ -99,14 +99,14 @@ tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->log
 bool in_group_room(Hub* manager) { return manager->lobby_service()->in_group_room(); }
 
 // A message for the server through client 0, sequenced in the game's group.
-void send_request(Hub* manager, uint8_t id, void* data, uint16_t length)
+void send_request(Hub* manager, MessageId id, void* data, uint16_t length)
 {
     net::NetMessageInfo desc;
     desc.set_ident(id);
     desc.set_content(data);
     desc.set_byte_count(length);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     send_to_server(manager->client_app(), &desc);
 }
 
@@ -195,7 +195,7 @@ bool cfunc_cancel_motd_download(Struct*, Script*)
 // 0x00535F40: DownloadMotd - the lobby's state 6.
 bool cfunc_download_motd(Struct*, Script*)
 {
-    net_game_state().online_hub()->set_service_state(online::kServiceStateNewsMessage);
+    net_game_state().online_hub()->set_service_state(online::ServiceState::kNewsMessage);
     return true;
 }
 
@@ -206,13 +206,13 @@ bool cfunc_services_are_available(Struct*, Script*)
     Hub* manager = net_game_state().online_hub();
     if (manager->services_available() == 1) {
         if (!manager->motd_received()) {
-            manager->set_next_service_state(0);
-            manager->set_service_state(1);
+            manager->set_next_service_state(ServiceState::kWaiting);
+            manager->set_service_state(ServiceState::kWake);
         }
         return true;
     }
-    manager->set_next_service_state(3);
-    manager->set_service_state(1);
+    manager->set_next_service_state(ServiceState::kStart);
+    manager->set_service_state(ServiceState::kWake);
     return false;
 }
 
@@ -252,7 +252,7 @@ bool cfunc_fcfs_request_start_game(Struct*, Script*)
     std::array<uint8_t, kStartRequestSize> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_start_request(writer, request);
-    send_request(manager, kMsgStartRequest, bytes.data(), sizeof(bytes));
+    send_request(manager, MessageId::kStartRequest, bytes.data(), sizeof(bytes));
     manager->set_match_being_set_up(true);
     return true;
 }
@@ -267,12 +267,12 @@ bool cfunc_fcfs_request_change_level(Struct* params, Script*)
     auto* client = core::down_cast<net::Guest>(manager->client_app());
     if (level == kCreatedPark) {
         void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
-        client->send_bulk_to_host(kMsgParkMap, kParkMapSize, map, kParkMapDesc, kGroupGame, true, false);
+        client->send_bulk_to_host(MessageId::kParkMap, kParkMapSize, map, kParkMapDesc, MessageGroup::kGame, true, false);
         park_editing::RailAuthoring::sole(); // (the rail editor looked up once for nothing)
         void* rails = static_cast<park_editing::RailAuthoring*>(park_editing::RailAuthoring::sole())->get_packed();
-        client->send_bulk_to_host(kMsgRailsData, kRailsDataSize, rails, kRailsDesc, kGroupGame, true, false);
+        client->send_bulk_to_host(MessageId::kRailsData, kRailsDataSize, rails, kRailsDesc, MessageGroup::kGame, true, false);
     }
-    send_request(manager, kMsgChangeLevelRequest, &level, 4);
+    send_request(manager, MessageId::kChangeLevelRequest, &level, 4);
     return true;
 }
 
@@ -297,7 +297,7 @@ bool cfunc_fcfs_request_toggle_pro_set(Struct* params, Script*)
         uint8_t bit;
         std::array<uint8_t, 3> pad; // (the original's stack)
     } request = {.id = id, .bit = static_cast<uint8_t>(bit), .pad = {0, 0, 0}};
-    send_request(manager, kMsgToggleProSetRequest, &request, sizeof(request));
+    send_request(manager, MessageId::kToggleProSetRequest, &request, sizeof(request));
     return true;
 }
 
@@ -308,7 +308,7 @@ bool cfunc_fcfs_request_toggle_goal_selection(Struct* params, Script*)
     uint32_t goal = 0; // (uninitialised in the original: a missing name sends what its slot held)
     params->read_hash_value(kName, &goal, 1);
     uint32_t request = goal;
-    send_request(manager, kMsgToggleGoalRequest, &request, 4);
+    send_request(manager, MessageId::kToggleGoalRequest, &request, 4);
     return true;
 }
 

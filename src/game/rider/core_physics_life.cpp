@@ -271,7 +271,7 @@ int MovingSurfaceModule::time_since_stop() { return static_cast<int>(skater::phy
 bool RiderBoardPhysics::is_on_foot()
 {
     auto* state = pose_;
-    return !state->in_vehicle() && state->physics_mode() == 1;
+    return !state->in_vehicle() && state->physics_mode() == objects::RiderPoseState::PhysicsMode::kWalking;
 }
 
 } // namespace objects

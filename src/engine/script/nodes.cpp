@@ -214,23 +214,23 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
     token = script::skip_to_end_of_statement(token); // (past the script's first line)
     for (;;) {
         const script::Tokens call = token;
-        switch (*token) {
-        case script::kTokenName:
-        case script::kTokenMemberFunctionName:
-        case script::kTokenMemberFunction: {
+        switch (script::as_token(*token)) {
+        case script::QbToken::kName:
+        case script::QbToken::kMemberFunctionName:
+        case script::QbToken::kMemberFunction: {
             // A name at the start of a statement (or one already looked up): a script is followed into, a C or
             // member function that is `target` handed to the callback; EndGap's gapscript= is followed too.
-            const uint32_t name = *token == script::kTokenMemberFunction
+            const uint32_t name = script::as_token(*token) == script::QbToken::kMemberFunction
                                       ? script::member_entry_at(token + 1)->callsign_
                                       : script::fetch_word32(token + 1);
             token += script::kTokenWithWordBytes;
-            if (*token == script::kTokenEquals)
+            if (script::as_token(*token) == script::QbToken::kEquals)
                 break;
             const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
             if (!symbol)
                 break;
             switch (symbol->type()) {
-            case script::kQbvalScriptBody:
+            case script::QbValueKind::kScriptBody:
                 params->get_clear();
                 token = script::parse_arguments(params, token, parent_params);
                 if (name == target)
@@ -239,7 +239,7 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
                     token = script::skip_to_end_of_statement(token);
                 for_each_script_call({.script = name, .target = target}, callback, params, depth + 1);
                 break;
-            case script::kQbvalNativeFunc:
+            case script::QbValueKind::kNativeFunc:
                 if (name != target) {
                     token = script::skip_to_end_of_statement(token);
                     break;
@@ -248,7 +248,7 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
                 token = script::parse_arguments(params, token, parent_params);
                 callback(params, call.address());
                 break;
-            case script::kQbvalNativeMethod:
+            case script::QbValueKind::kNativeMethod:
                 if (name != target) {
                     token = script::skip_to_end_of_statement(token);
                     break;
@@ -267,7 +267,7 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
             }
             break;
         }
-        case script::kTokenNativeFunction: {
+        case script::QbToken::kNativeFunction: {
             // A C function already looked up: SetEventHandler's scr= is followed.
             const script::NativeFunction function = script::native_function_at(token + 1);
             token += script::kTokenWithWordBytes;
@@ -283,17 +283,17 @@ void for_each_script_call(CallSearch search, ScriptCallCallback callback, Struct
                 for_each_script_call({.script = handler, .target = target}, callback, nullptr, depth + 1);
             break;
         }
-        case script::kTokenLoopRepeat:
+        case script::QbToken::kLoopRepeat:
             token = script::skip_to_end_of_statement(script::step_over_token(token));
             break;
-        case script::kTokenShortIf:
+        case script::QbToken::kShortIf:
             token = script::step_over_token(token);
-            if (*token == script::kTokenNot)
+            if (script::as_token(*token) == script::QbToken::kNot)
                 token = script::step_over_token(token);
-            if (*token == script::kTokenOpenParenthesis)
+            if (script::as_token(*token) == script::QbToken::kOpenParenthesis)
                 token = script::skip_to_end_of_statement(token);
             break;
-        case script::kTokenScriptEnd:
+        case script::QbToken::kScriptEnd:
             cache->release_script(script);
             if (params) {
                 params->get_clear();

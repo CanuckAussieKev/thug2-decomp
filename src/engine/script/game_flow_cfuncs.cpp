@@ -16,6 +16,7 @@
 #include <string_view>
 #include <array>
 
+#include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
 #include "engine/net/net_app.h"
@@ -90,7 +91,6 @@ namespace {
 
 constexpr uint32_t kParams = 0x7031F10C;           // "params"
 constexpr uint32_t kFlagBitMask = 31;
-constexpr int kAssetKindObjectCamera = 9;
 constexpr int kKilobyteShift = 10;
 constexpr int kFlashFlagValue = 8;
 // The number SetScreenModeFromGameMode's debug message prints.
@@ -193,7 +193,7 @@ bool cfunc_cleanup(script::Struct* params, script::Script* script)
     compiled_out_debug_call();
     render::uninit_light_manager();
     sound::get_audio_mixer()->sweep_up();
-    assets->unload_all_assets_of_type(false, kAssetKindObjectCamera);
+    assets->unload_all_assets_of_type(false, assets::ResourceKind::kCutscene);
     debug::printf("unloading assman tables ...........\n"); // "unloading assman tables ...........\n"
     assets->unload_all_assets(false);
     debug::printf("done unloading assman ...........\n"); // "done unloading assman ...........\n"
@@ -554,7 +554,7 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
 {
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
-        if (component->name == 0 && value_kind(*component) == script::kQbvalName &&
+        if (component->name == 0 && value_kind(*component) == script::QbValueKind::kName &&
             game_mode_object()->is_true(component->value.word()))
             return true;
     }
@@ -566,7 +566,7 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
 bool cfunc_get_current_level(script::Struct*, script::Script* script)
 {
     const modules::Skate* skate = modules::Skate::sole();
-    script->args()->add_component_of_type(kLEVEL, script::kQbvalName, modules::Skate::sole()->pending_level());
+    script->args()->add_component_of_type(kLEVEL, script::QbValueKind::kName, modules::Skate::sole()->pending_level());
     script->args()->put_name_key(checksums::Name{kLevelStructure}, modules::Skate::sole()->level_params());
     return true;
 }
@@ -659,10 +659,10 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_toggle_cheat(writer, message);
         desc.set_content(data.data());
-        desc.set_ident(online::kMsgToggleCheat);
+        desc.set_ident(online::MessageId::kToggleCheat);
         desc.set_byte_count(sizeof(data));
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(online::kGroupGame);
+        desc.set_group_id(online::MessageGroup::kGame);
         server->put_on_outbox(conn->hdl(), &desc);
         script::script_state().set_last_broadcasted_omnigon(omnigon);
     }

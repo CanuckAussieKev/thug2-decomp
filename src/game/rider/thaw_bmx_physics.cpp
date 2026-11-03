@@ -19,6 +19,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
+#include "engine/core/enum_ops.h"
 #include "engine/gfx/anim_blend.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -282,7 +283,7 @@ void update_stick_button(StickButton& button, bool down)
 struct WheelHit {
     bool hit = false;
     maths::Vec4 point{}, normal{};
-    uint16_t flags = 0;
+    render::FaceFlag flags{};
     int why = -1; // ([debug] thaw_bmx_wheels's log: -1 no hit, else Bike::WheelFeelResult's)
     float distance = 0.0f, reach = 0.0f, turn = 0.0f, limit = 0.0f;
 };
@@ -1113,7 +1114,7 @@ void air_rotation(SkaterPhysicsModule* core)
         core->probe_start() = position;
         core->probe_end() = {.x = position.x + up.x * head, .y = position.y + up.y * head, .z = position.z + up.z * head,
                             .w = position.w + up.w * head};
-        if (static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
+        if (static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
             run_bike_script(core, kForceBailScript);
     }
 }
@@ -1139,7 +1140,7 @@ WheelHit feel_wheel(SkaterPhysicsModule* core, maths::Vec4& wheel, const maths::
                           .w = wheel.w + up.w * above};
     core->probe_end() = {.x = wheel.x + up.x * kWheelFeelDown, .y = wheel.y + up.y * kWheelFeelDown,
                         .z = wheel.z + up.z * kWheelFeelDown, .w = wheel.w + up.w * kWheelFeelDown};
-    if (!static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
+    if (!static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
         return result;
     const maths::Vec4 point = core->feeler().contact_pos();
     const maths::Vec4 normal = core->feeler().surface_dir();
@@ -1199,7 +1200,7 @@ void snap_wheels(SkaterPhysicsModule* core, BikeState& state, WheelHit& front, W
                           .w = position.w + up.w * above};
     core->probe_end() = {.x = position.x + up.x * kWheelFeelDown, .y = position.y + up.y * kWheelFeelDown,
                         .z = position.z + up.z * kWheelFeelDown, .w = position.w + up.w * kWheelFeelDown};
-    main_hit = static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0);
+    main_hit = static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags);
     if (main_hit && tuning_float_lookup(kGroundSnapDown, core) < core->feeler().reach())
         main_hit = false;
     const maths::Vec4 main_point = core->feeler().contact_pos();
@@ -1315,7 +1316,7 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
     snap_wheels(core, state, front, rear, main_hit);
     // (THAW's flag +0x40, vert under a wheel; THAW also sets its +0x58 from face flag 0x100 - THUG2's equivalent isn't
     // known: not here.)
-    const uint8_t vert = (front.hit && (front.flags & 8)) || (rear.hit && (rear.flags & 8));
+    const uint8_t vert = (front.hit && core::any(front.flags & render::FaceFlag::kVert)) || (rear.hit && core::any(rear.flags & render::FaceFlag::kVert));
     core->state()->set_flag(PoseFlag::kOnVert, vert);
     // Off the ground: no wheel down, or only the trailing one (the leading wheel over an edge).
     const bool backwards = moving_backwards(core);

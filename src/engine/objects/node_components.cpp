@@ -7,6 +7,7 @@
 #include <gsl/pointers>
 #include <array>
 
+#include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -67,7 +68,7 @@ void WaypointListModule::configure_from_data(script::Struct* params)
     else
         text::format_to(std::span(path).subspan(std::strlen(path.data())), ".qb");
     nodes_ = static_cast<script::Array*>(
-        assets::asset_manager()->fetch_or_load_resource(path.data(), 0, 0, 0, false, false, false, nullptr, nullptr));
+        assets::asset_manager()->fetch_or_load_resource(path.data(), assets::ResourceKind::kNone, 0, 0, false, false, false, nullptr, nullptr));
 }
 
 // 0x00427EB0

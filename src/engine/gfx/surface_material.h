@@ -178,11 +178,11 @@ private:
     std::array<TextureImage*, 4> textures_{}; // +0x30
     std::array<std::array<float, 4>, 4> pass_color_{};        // +0x40: r, g, b (0.5: unchanged) and a fourth value
     std::array<uint32_t, 4> blend_modes_{};       // +0x80 (choose_blend_mode's)
-    std::array<uint32_t, 4> address_modes_{};     // +0x90 (kAddressMode0's)
+    std::array<uint32_t, 4> address_modes_{};     // +0x90 (RenderStateId::kAddressMode0's)
     std::array<std::array<float, 2>, 4> reflection_tiling_{}; // +0xA0 (3, 3 when constructed)
     std::array<uint32_t, 4> unknownc0_{};         // +0xC0 (0x10001 when constructed)
     std::array<UvOscillator*, 4> uv_wibble_{};    // +0xD0
-    std::array<uint32_t, 4> mip_lod_bias_{};      // +0xE0 (kMipLodBias0's: float bits)
+    std::array<uint32_t, 4> mip_lod_bias_{};      // +0xE0 (RenderStateId::kMipLodBias0's: float bits)
     uint32_t color_anim_count_{0};    // +0xF0
     ColorAnim* color_anims_{nullptr}; // +0xF4
     uint32_t* anim_colors_{nullptr};  // +0xF8: each animation's colour now

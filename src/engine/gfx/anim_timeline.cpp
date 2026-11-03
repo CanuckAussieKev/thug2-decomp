@@ -178,7 +178,7 @@ AnimTrack::AnimTrack(objects::GameEntity* object) : owner_object_(object) {}
 void AnimTrack::reset_track()
 {
     AnimTimeline::get_reset();
-    cur_phase_ = kOff;
+    cur_phase_ = AnimTrack::State::kOff;
     fade_left_ = 0.0f;
     fade_scale_ = 0.0f;
 }
@@ -223,10 +223,10 @@ bool AnimTrack::get_poses(Stance* pose)
 }
 
 // 0x00481980
-bool AnimTrack::is_operative() { return cur_phase_ != kOff; }
+bool AnimTrack::is_operative() { return cur_phase_ != AnimTrack::State::kOff; }
 
 // 0x00481990
-bool AnimTrack::is_fading() { return cur_phase_ == kFading; }
+bool AnimTrack::is_fading() { return cur_phase_ == AnimTrack::State::kFading; }
 
 // 0x004819A0
 void AnimTrack::arm_events()

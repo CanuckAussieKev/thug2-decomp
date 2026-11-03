@@ -5,6 +5,7 @@
 #include <array>
 
 #include "engine/net/gamenet_handler_util.h"
+#include "engine/core/enum_ops.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
@@ -74,7 +75,7 @@ constexpr uint32_t kNewKingOther = 0xB0CF4C93;       // NewKingOther
 constexpr uint32_t kJoinSettleTime = 1000; // ms
 constexpr uint32_t kJustJoinedTime = 5000; // ms
 
-uint32_t flag_of(int team) { return kPlayerCarryingFlag0 << (static_cast<uint32_t>(team) & kBitMask); }
+PlayerFlag flag_of(int team) { return carrying_flag_of(static_cast<int>(static_cast<uint32_t>(team) & kBitMask)); }
 
 // "team_<team + 1>_name" (the original's sprintf).
 void get_team_key(char* key, int team) { crt::get_sprintf(key, "team_%d_name", team + 1); }
@@ -88,11 +89,11 @@ void take_flag_from_carriers(Hub* manager, int team, bool stop_at_first)
         if (p->get_flag_team() != team)
             continue;
         if (stop_at_first) {
-            p->flag_bits() &= ~kPlayerCarryingFlags;
+            p->flag_bits() &= ~PlayerFlag::kCarryingFlags;
             return;
         }
         p->flag_bits() &= ~flag_of(team);
-        p->flag_bits() &= ~kPlayerCarryingFlags;
+        p->flag_bits() &= ~PlayerFlag::kCarryingFlags;
     }
 }
 
@@ -117,8 +118,8 @@ bool PlayerRecord::is_invulnerable()
     if (is_eliminated() || (skater_->composite_flags() >> 2) & 1)
         return true;
     if (frame_clock::get_time() - join_time_ <= kJustJoinedTime)
-        return (flag_bits_ >> 1) & 1;
-    flag_bits_ &= ~kPlayerJustJoined;
+        return core::any(flag_bits_ & PlayerFlag::kJustJoined);
+    flag_bits_ &= ~PlayerFlag::kJustJoined;
     return false;
 }
 
@@ -126,16 +127,16 @@ bool PlayerRecord::is_invulnerable()
 void PlayerRecord::set_finished_joining()
 {
     Hub* manager = net_game_state().online_hub();
-    flag_bits_ |= kPlayerFullyIn;
-    if (!manager->in_net_game() || !manager->get_on_server() || (flag_bits_ & kPlayerLocal))
+    flag_bits_ |= PlayerFlag::kFullyIn;
+    if (!manager->in_net_game() || !manager->get_on_server() || core::any(flag_bits_ & PlayerFlag::kLocal))
         return;
     switch (manager->get_hosting_role()) {
     case 1: {
         net::NetMessageInfo desc;
         net::AppHost* server = manager->host(); // (0x005480C0, a getter folded there)
-        desc.set_ident(kMsgPlayerFullyIn);
+        desc.set_ident(MessageId::kPlayerFullyIn);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         server->put_on_outbox(conn_ ? conn_->hdl() : 0, &desc);
         break;
     }
@@ -156,22 +157,22 @@ void PlayerRecord::score_flag_capture(int team)
     get_team_key(key.data(), team);
     const PlayerRecord* local = find_own_player_record(net_game_state().online_hub());
     const script::StructPtr params = script::make_struct();
-    if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
+    if (core::any(flag_bits_ & PlayerFlag::kLocal)) {
+        params->append_word(kString0, script::QbValueKind::kString, get_team_name(key.data()));
         params->put_int(checksums::Name{kTeam}, team);
         get_run(kCapturedFlagYou, params.get());
-    } else if (!(local->flag_bits_ & kPlayerObserver) && local->team_ == team) {
-        params->append_word(kString0, script::kQbvalString, label_.data());
+    } else if (!core::any(local->flag_bits_ & PlayerFlag::kObserver) && local->team_ == team) {
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
         params->put_int(checksums::Name{kTeam}, team);
         get_run(kHideCtfArrow);
         get_run(kCapturedYourFlag, params.get());
     } else {
-        params->append_word(kString0, script::kQbvalString, label_.data());
-        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
+        params->append_word(kString1, script::QbValueKind::kString, get_team_name(key.data()));
         params->put_int(checksums::Name{kTeam}, team);
         get_run(kCapturedFlagOther, params.get());
     }
-    flag_bits_ &= ~kPlayerCarryingFlags;
+    flag_bits_ &= ~PlayerFlag::kCarryingFlags;
 }
 
 // 0x00543C70
@@ -183,13 +184,13 @@ void PlayerRecord::note_flag_steal(int team)
     get_team_key(key.data(), team);
     script::StructPtr params = script::make_struct();
     PlayerRecord* local = find_own_player_record(manager);
-    if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
+    if (core::any(flag_bits_ & PlayerFlag::kLocal)) {
+        params->append_word(kString0, script::QbValueKind::kString, get_team_name(key.data()));
         get_run(kStoleFlagYou, params.get());
     } else {
-        params->append_word(kString0, script::kQbvalString, label_.data());
-        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
-        const bool from_local = !(local->flag_bits_ & kPlayerObserver) && local->get_flag_team() == team;
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
+        params->append_word(kString1, script::QbValueKind::kString, get_team_name(key.data()));
+        const bool from_local = !core::any(local->flag_bits_ & PlayerFlag::kObserver) && local->get_flag_team() == team;
         get_run(from_local ? kStoleFlagFromYou : kStoleFlagOther, params.get());
     }
     params.reset();
@@ -206,19 +207,19 @@ void PlayerRecord::note_flag_pickup(int team)
     get_team_key(key.data(), team);
     script::StructPtr params = script::make_struct();
     const PlayerRecord* local = find_own_player_record(manager);
-    if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
+    if (core::any(flag_bits_ & PlayerFlag::kLocal)) {
+        params->append_word(kString0, script::QbValueKind::kString, get_team_name(key.data()));
         get_run(kTookFlagYou, params.get());
-    } else if (!(local->flag_bits_ & kPlayerObserver) && team == local->team_) {
+    } else if (!core::any(local->flag_bits_ & PlayerFlag::kObserver) && team == local->team_) {
         script::StructPtr arrow = script::make_struct();
         arrow->put_int(checksums::Name{kTeam}, local->team_);
         get_run(kShowCtfArrow, arrow.get());
         arrow.reset();
-        params->append_word(kString0, script::kQbvalString, label_.data());
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
         get_run(kTookFlagYours, params.get());
     } else {
-        params->append_word(kString0, script::kQbvalString, label_.data());
-        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
+        params->append_word(kString1, script::QbValueKind::kString, get_team_name(key.data()));
         get_run(kTookFlagOther, params.get());
     }
     params.reset();
@@ -233,17 +234,17 @@ void PlayerRecord::note_flag_returned()
     std::array<char, kKeySize> key{};
     get_team_key(key.data(), team_);
     gsl::owner<script::Struct*> params = script::new_struct();
-    if (flag_bits_ & kPlayerLocal) {
-        params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
+    if (core::any(flag_bits_ & PlayerFlag::kLocal)) {
+        params->append_word(kString0, script::QbValueKind::kString, get_team_name(key.data()));
         params->put_int(checksums::Name{kTeam}, team_);
         get_run(kHideCtfArrow);
         get_run(kRetrievedFlagYou, params);
     } else {
         const PlayerRecord* local = find_own_player_record(manager);
-        if (local && !(local->flag_bits_ & kPlayerObserver) && local->team_ == team_)
+        if (local && !core::any(local->flag_bits_ & PlayerFlag::kObserver) && local->team_ == team_)
             get_run(kHideCtfArrow);
-        params->append_word(kString0, script::kQbvalString, label_.data());
-        params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
+        params->append_word(kString0, script::QbValueKind::kString, label_.data());
+        params->append_word(kString1, script::QbValueKind::kString, get_team_name(key.data()));
         params->put_int(checksums::Name{kTeam}, team_);
         get_run(kRetrievedFlagOther, params);
     }
@@ -256,22 +257,22 @@ void PlayerRecord::give_crown(bool king)
 {
     Hub* manager = net_game_state().online_hub();
     if (!king) {
-        if (!(flag_bits_ & kPlayerKing))
+        if (!core::any(flag_bits_ & PlayerFlag::kKing))
             return;
-        if ((flag_bits_ & kPlayerLocal) && (get_game_type() == kNetKing || get_game_type() == kKing)) {
+        if (core::any(flag_bits_ & PlayerFlag::kLocal) && (get_game_type() == kNetKing || get_game_type() == kKing)) {
             const script::StructPtr params = script::make_struct();
             params->put_name_key(checksums::Name{kPlayer1}, kPlayer1);
             params->put_name_key(checksums::Name{kPlayer2}, kPlayer2);
             get_run(kShowCrownArrow, params.get());
         }
-        flag_bits_ &= ~kPlayerKing;
+        flag_bits_ &= ~PlayerFlag::kKing;
         return;
     }
     if (auto* previous = is_crown_rule_active(manager))
         previous->give_crown(false);
-    if (!(flag_bits_ & kPlayerKing)) {
-        flag_bits_ |= kPlayerKing;
-        if (flag_bits_ & kPlayerLocal) {
+    if (!core::any(flag_bits_ & PlayerFlag::kKing)) {
+        flag_bits_ |= PlayerFlag::kKing;
+        if (core::any(flag_bits_ & PlayerFlag::kLocal)) {
             script::StructPtr params = script::make_struct();
             const uint32_t player = rider()->get_skater_number() == 0 ? kPlayer1 : kPlayer2; // (its skater number)
             params->put_name_key(checksums::Name{player}, player);
@@ -291,7 +292,7 @@ void PlayerRecord::give_crown(bool king)
             params->append_word(kString0, rider()->fetch_shown_name()); // (its display name)
             get_run(kNewKingOther, params.get());
         }
-        flag_bits_ |= kPlayerKing;
+        flag_bits_ |= PlayerFlag::kKing;
     }
     if (void* crown = manager->get_crown_holder())
         static_cast<objects::CrownObject*>(crown)->put_on(skater_); // (worn by the skater)

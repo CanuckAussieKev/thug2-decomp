@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <array>
 
+#include "wire/message_ids.h"
+
 namespace util {
 class ByteReader;
 class ByteWriter;
@@ -33,8 +35,6 @@ class ByteWriter;
 //     +0x24 i8 the crown's start slot, (0) x3                +0x28 u32 x8 the start points
 namespace online {
 
-constexpr uint8_t kMsgSessionBrief = 0x33;
-constexpr uint8_t kMsgStartGame = 0x34;
 constexpr size_t kSessionBriefSize = 0x50;
 constexpr size_t kStartGameSize = 0x48;
 constexpr int kStartPoints = 8;
@@ -43,7 +43,6 @@ constexpr uint32_t kSessionBriefGameTypeAt = 0x0C;
 constexpr uint32_t kSessionBriefLevelAt = 0x10;
 constexpr uint32_t kStartGameTypeAt = 0x00;
 
-constexpr uint8_t kMsgServerInfo = 0x10;
 constexpr size_t kServerInfoSize = 0xE0;
 constexpr int kServerInfoPlayers = 8;
 constexpr size_t kServerInfoNameSize = 16;
@@ -183,14 +182,6 @@ bool write_proceed_info(util::ByteWriter& writer, const ProceedInfo& message);
 //     (u8: the game id from a client, the player's object id from the server), (0) x3, the goal's name (u32)
 //   0x46 level switch / 0x6B request game data (8): the level (u32), a flag (u8: 0x6B's 'F' asks for the level
 //     change too; 0x46's 0 - on_level_switch_msg acts on a non-zero one only), (0) x3
-constexpr uint8_t kMsgPlayerArrived = 0x22;
-constexpr uint8_t kMsgHudNotice = 0x3F;
-constexpr uint8_t kMsgStartRequest = 0x60;
-constexpr uint8_t kMsgKickRequest = 0x61;
-constexpr uint8_t kMsgLevelSwitch = 0x46;
-constexpr uint8_t kMsgRequestGameData = 0x6B;
-constexpr uint8_t kMsgGoalCompleted = 0x6E;
-constexpr uint8_t kMsgGoalStarted = 0x6F;
 constexpr size_t kPlayerArrivedHeaderSize = 0x30;
 constexpr size_t kHudNoticeSize = 0x2C;
 constexpr size_t kHudNoticeTextSize = 16;
@@ -270,7 +261,6 @@ bool write_level_switch(util::ByteWriter& writer, const LevelSwitch& message);
 //   0x4C chat (0x12 + the text's length; at most 0x94): the sender's colour (u8: its skater's object id, 8 for an
 //     observer), the name (char[16]), the text and its NUL (at most 131 bytes) - the server relays it as it is
 //     (THUGPRO's peers put a machine id in front: thugpro::ChatMessage below)
-constexpr uint8_t kMsgChat = 0x4C;
 constexpr size_t kChatNameSize = 16;
 constexpr size_t kChatTextSize = 131;
 constexpr size_t kChatHeaderSize = 1 + kChatNameSize;

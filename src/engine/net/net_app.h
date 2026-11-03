@@ -1,5 +1,6 @@
 #pragma once
 
+#include "wire/message_ids.h"
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -47,8 +48,8 @@ struct NetMessageInfo {
     NetMessageInfo();
 
     // The fields other code reads and sets.
-    [[nodiscard]] uint8_t ident() const { return ident_; }
-    void set_ident(uint8_t value) { ident_ = value; }
+    [[nodiscard]] wire::MessageId ident() const { return ident_; }
+    void set_ident(wire::MessageId value) { ident_ = value; }
     [[nodiscard]] uint8_t feed() const { return feed_; }
     void set_feed(uint8_t value) { feed_ = value; }
     [[nodiscard]] uint16_t byte_count() const { return byte_count_; }
@@ -59,8 +60,8 @@ struct NetMessageInfo {
     void set_rank(int value) { rank_ = value; }
     [[nodiscard]] int queue() const { return queue_; }
     void set_queue(int value) { queue_ = value; }
-    [[nodiscard]] uint8_t group_id() const { return group_id_; }
-    void set_group_id(uint8_t value) { group_id_ = value; }
+    [[nodiscard]] wire::MessageGroup group_id() const { return group_id_; }
+    void set_group_id(wire::MessageGroup value) { group_id_ = value; }
     [[nodiscard]] bool singular() const { return singular_; }
     void set_singular(bool value) { singular_ = value; }
     [[nodiscard]] int delay() const { return delay_; }
@@ -73,13 +74,13 @@ struct NetMessageInfo {
     static constexpr int kDefaultRank = 0x80;
     static constexpr int kHighestRank = 0xFF;
 private:
-    uint8_t ident_{0};             // 0x00
+    wire::MessageId ident_{};      // 0x00
     uint8_t feed_{0};              // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
     uint16_t byte_count_{0};       // 0x02
     const void* content_{nullptr}; // 0x04 (copied when the message is queued)
     int rank_{kDefaultRank};               // 0x08 (kDefaultRank by default)
     int queue_{kLaneNormal};       // 0x0C
-    uint8_t group_id_{0};          // 0x10 sequenced messages: each group has its own sequence
+    wire::MessageGroup group_id_{}; // 0x10 sequenced messages: each group has its own sequence
     bool singular_{false};         // 0x11 drop the connection's queued messages with the same id first
     int delay_{0};                 // 0x14 added to the app's timestamp: when the message may go
     uint32_t fixed_seq_no_{0};     // 0x18 sequenced: this id instead of the group's next one (0 = the next)
@@ -104,16 +105,16 @@ struct StreamDesc {
     void set_extent(int value) { extent_ = value; }
     [[nodiscard]] int stream_id() const { return stream_id_; }
     void set_stream_id(int value) { stream_id_ = value; }
-    [[nodiscard]] uint8_t msg_id() const { return msg_id_; }
-    void set_msg_id(uint8_t value) { msg_id_ = value; }
+    [[nodiscard]] wire::MessageId msg_id() const { return msg_id_; }
+    void set_msg_id(wire::MessageId value) { msg_id_ = value; }
     std::array<char, kStreamDescDescSize>& desc() { return desc_; }
     [[nodiscard]] const std::array<char, kStreamDescDescSize>& desc() const { return desc_; }
     [[nodiscard]] uint8_t* content() const { return content_; }
     void set_content(uint8_t* value) { content_ = value; }
     [[nodiscard]] uint8_t* succ() const { return succ_; }
     void set_succ(uint8_t* value) { succ_ = value; }
-    [[nodiscard]] uint8_t group_id() const { return group_id_; }
-    void set_group_id(uint8_t value) { group_id_ = value; }
+    [[nodiscard]] wire::MessageGroup group_id() const { return group_id_; }
+    void set_group_id(wire::MessageGroup value) { group_id_ = value; }
     uint32_t& order_number() { return order_number_; }
     [[nodiscard]] uint32_t order_number() const { return order_number_; }
     uint32_t& checksum() { return checksum_; }
@@ -124,12 +125,12 @@ struct StreamDesc {
 private:
     int extent_{0};    // 0x00
     int stream_id_{};  // 0x04
-    uint8_t msg_id_{}; // 0x08
+    wire::MessageId msg_id_{}; // 0x08
     std::array<char, kStreamDescDescSize> desc_{};  // 0x09 the sender's description of the data
     std::array<uint8_t, 3> pad29_{};
     uint8_t* content_{nullptr}; // 0x2C
     uint8_t* succ_{nullptr};    // 0x30 the first byte not sent yet
-    uint8_t group_id_{0};       // 0x34
+    wire::MessageGroup group_id_{}; // 0x34
     uint32_t order_number_{}; // 0x38 the next piece's sequence id (reserved when the stream was queued)
     uint32_t checksum_{};     // 0x3C received streams: the whole message's checksum
     bool borrowed_payload_{false}; // 0x40 content_ is the caller's (not freed)
@@ -205,7 +206,7 @@ struct AppHost {
     // note the address it got. (`address` isn't used.) False (reported) on failure.
     bool get_bind(uint32_t address, uint16_t port);
     // 0x00456D90: a new SeqQueuedMsg (null if out of memory).
-    gsl::owner<SeqQueuedMsg*> new_queued_msg(uint8_t id, uint16_t length, const void* data, uint8_t arg4, uint8_t arg5);
+    gsl::owner<SeqQueuedMsg*> new_queued_msg(wire::MessageId id, uint16_t length, const void* data, wire::MessageGroup group, uint8_t compression);
     // 0x00456E20: a datagram to ip:port (scrambled first if secure). True if sent or it would block.
     bool transmit_to(net::Address address, const uint8_t* data, int length, int flags);
     // 0x00456F10: a packet on the connected socket (scrambled first if secure). False if not connected or
@@ -213,7 +214,7 @@ struct AppHost {
     bool post_out(const uint8_t* data, int length, int flags);
     // A bulk message's id and its size in bytes.
     struct BulkHead {
-        uint8_t msg_id_{};
+        wire::MessageId msg_id_{};
         uint16_t size{};
     };
     // 0x00457280: a message (id, 16-bit length, data) as one datagram to ip:port.
@@ -242,7 +243,7 @@ struct AppHost {
     // Which of a connection's queues and the message id freed from it.
     struct QueueMessages {
         int queue{};
-        uint8_t id{};
+        wire::MessageId id{};
     };
 
     // 0x00457C80: the messages with id `id` taken out of one of `conn`'s queues (0 normal, 1 important,
@@ -255,10 +256,10 @@ struct AppHost {
 
     // 0x00458740: send `size` bytes in pieces (a start message with the first 256, then data messages).
     // queue_all_pieces: queue every piece now; else a few each frame (the data copied unless borrow_caller_buffer).
-    void send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const char* desc, uint8_t group_id,
+    void send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const char* desc, wire::MessageGroup group_id,
                            bool queue_all_pieces, bool borrow_caller_buffer);
     // 0x00458AB0: the same for `handle`'s connection or every valid one (0xFF).
-    void send_bulk_message(int handle, AppHost::BulkHead head, void* data, const char* desc, uint8_t group_id,
+    void send_bulk_message(int handle, AppHost::BulkHead head, void* data, const char* desc, wire::MessageGroup group_id,
                            bool queue_all_pieces, bool borrow_caller_buffer);
     // 0x00458BE0
     Conn* begin_conn_walk(ConnSearch* search);

@@ -372,8 +372,8 @@ int handle_add_to_scene(net::InboundMsgCtx* context)
 {
     const char* message = net::wire::text_of(context->body());
     script::StructPtr params = script::make_struct();
-    params->append_word(kScene, script::kQbvalString, message);
-    params->append_word(kAdd, script::kQbvalString, net::wire::text_at(context->body(), viewer_message::kSecondTextOffset));
+    params->append_word(kScene, script::QbValueKind::kString, message);
+    params->append_word(kAdd, script::QbValueKind::kString, net::wire::text_at(context->body(), viewer_message::kSecondTextOffset));
     script::launch_script(kAddToScene, params.get(), nullptr, false, nullptr);
     params.reset();
     return 1;
@@ -516,7 +516,7 @@ int handle_reload_scene(net::InboundMsgCtx* context)
 {
     const char* message = net::wire::text_of(context->body());
     script::StructPtr params = script::make_struct();
-    params->append_word(kScene, script::kQbvalString, message);
+    params->append_word(kScene, script::QbValueKind::kString, message);
     script::launch_script(kReloadScene, params.get(), nullptr, false, nullptr);
     params.reset();
     return 1;

@@ -16,6 +16,8 @@
 #include <array>
 #include <vector>
 
+#include "engine/render/coll_obj.h"
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_hud.h"
@@ -62,14 +64,14 @@ constexpr std::size_t kLabelTextSize = 96;
 constexpr std::size_t kButtonLabelSize = 64;
 
 const std::array<FlagInfo, kFlagCount> kFlags = {{
-    {.bit = 0x0001, .name = "Skatable", .what = "Skatable at any slope"},
-    {.bit = 0x0002, .name = "Not Skatable", .what = "Not skatable unless Skatable or Vert is set"},
-    {.bit = 0x0004, .name = "Wallride", .what = "Wallride only"},
-    {.bit = 0x0008, .name = "Vert", .what = "Launches like a quarter pipe"},
-    {.bit = 0x0010, .name = "Not Collidable", .what = "Skater, camera and objects pass through"},
-    {.bit = 0x0040, .name = "Trigger", .what = "Runs its node's TriggerScript when crossed"},
-    {.bit = 0x0080, .name = "Camera Pass-Through", .what = "Camera passes through"},
-    {.bit = 0x2000, .name = "Not Taggable", .what = "Can't be tagged with graffiti"},
+    {.bit = render::FaceFlag::kSkatable, .name = "Skatable", .what = "Skatable at any slope"},
+    {.bit = render::FaceFlag::kNotSkatable, .name = "Not Skatable", .what = "Not skatable unless Skatable or Vert is set"},
+    {.bit = render::FaceFlag::kWall, .name = "Wallride", .what = "Wallride only"},
+    {.bit = render::FaceFlag::kVert, .name = "Vert", .what = "Launches like a quarter pipe"},
+    {.bit = render::FaceFlag::kNotCollidable, .name = "Not Collidable", .what = "Skater, camera and objects pass through"},
+    {.bit = render::FaceFlag::kTrigger, .name = "Trigger", .what = "Runs its node's TriggerScript when crossed"},
+    {.bit = render::FaceFlag::kCameraPasses, .name = "Camera Pass-Through", .what = "Camera passes through"},
+    {.bit = render::FaceFlag::kNoTagging, .name = "Not Taggable", .what = "Can't be tagged with graffiti"},
 }};
 
 int hex_digit(char c)
@@ -87,18 +89,18 @@ int hex_digit(char c)
 
 const FlagInfo& bit_mark(int index) { return core::at(kFlags, std::clamp(index, 0, kFlagCount - 1)); }
 
-uint16_t get_applied(uint16_t flags, uint16_t set, uint16_t clear)
+render::FaceFlag get_applied(render::FaceFlag flags, render::FaceFlag set, render::FaceFlag clear)
 {
-    return static_cast<uint16_t>((flags | set) & ~clear);
+    return (flags | set) & ~clear;
 }
 
-int get_combined(const std::vector<uint16_t>& flags, uint16_t bit)
+int get_combined(const std::vector<render::FaceFlag>& flags, render::FaceFlag bit)
 {
     if (flags.empty())
         return -1;
     size_t on = 0;
-    for (const uint16_t f : flags)
-        on += (f & bit) ? 1 : 0;
+    for (const render::FaceFlag f : flags)
+        on += core::any(f & bit) ? 1 : 0;
     return on == 0 ? 0 : on == flags.size() ? 1 : 2;
 }
 
@@ -128,7 +130,7 @@ std::string write_records(const std::vector<SectorFaces>& sectors)
         out += text.data();
         for (size_t i = 0; i < s.faces.size(); ++i) {
             text::format_to(text, "%s%u:%04X", i ? "," : "", static_cast<unsigned>(core::at(s.faces, i).first),
-                            static_cast<unsigned>(core::at(s.faces, i).second));
+                            static_cast<unsigned>(core::to_underlying(core::at(s.faces, i).second)));
             out += text.data();
         }
         out += '\n';
@@ -175,7 +177,7 @@ bool read_record(std::istringstream& in, SectorFaces* out)
         for (const auto& f : s.faces)
             if (f.first == face)
                 return false; // (a face twice: not a record we wrote)
-        s.faces.emplace_back(static_cast<uint16_t>(face), static_cast<uint16_t>(flags));
+        s.faces.emplace_back(static_cast<uint16_t>(face), static_cast<render::FaceFlag>(flags));
         if (comma == std::string::npos)
             break;
         at = comma + 1;
@@ -190,7 +192,7 @@ bool read_record(std::istringstream& in, SectorFaces* out)
 
 std::vector<SectorFaces> group_set(const std::vector<Change>& changes)
 {
-    std::map<uint32_t, std::vector<std::pair<uint16_t, uint16_t>>> by_sector;
+    std::map<uint32_t, std::vector<std::pair<uint16_t, render::FaceFlag>>> by_sector;
     for (const Change& c : changes) {
         if (c.now != c.origin)
             by_sector[c.key.checksum].emplace_back(c.key.face, c.now);
@@ -225,9 +227,9 @@ LevelEditorFacesState& level_editor_faces_state()
     return state.get();
 }
 
-std::map<FaceKey, uint16_t>& origins()
+std::map<FaceKey, render::FaceFlag>& origins()
 {
-    static std::map<FaceKey, uint16_t> value; // (each face the editor changed: its flags as the level has them)
+    static std::map<FaceKey, render::FaceFlag> value; // (each face the editor changed: its flags as the level has them)
     return value;
 }
 
@@ -243,13 +245,13 @@ render::TriMeshSource* get_geometry(uint32_t checksum)
 }
 
 // The face's flags written (a taken face: in its companion - the original keeps 0x10); its level's flags noted first.
-bool emit_out(FaceKey key, uint16_t flags)
+bool emit_out(FaceKey key, render::FaceFlag flags)
 {
     render::TriMeshSource* tri = get_geometry(key.checksum);
     if (!tri || key.face >= tri->tri_count())
         return false;
     if (!origins().count(key)) {
-        uint16_t origin = 0;
+        render::FaceFlag origin{};
         if (!get_take_in(key, &origin))
             return false;
         origins()[key] = origin;
@@ -317,7 +319,7 @@ bool get_key_of(const view::FaceHit& hit, FaceKey* key, std::string* why)
 }
 
 struct Step : ModuleStep {
-    std::vector<std::pair<FaceKey, uint16_t>> flags;
+    std::vector<std::pair<FaceKey, render::FaceFlag>> flags;
     std::vector<FaceKey> selection;
     void get_restore() override
     {
@@ -330,7 +332,7 @@ struct Step : ModuleStep {
     {
         auto now = std::make_shared<Step>();
         for (const auto& f : flags) {
-            uint16_t value = f.second;
+            render::FaceFlag value = f.second;
             get_take_in(f.first, &value);
             now->flags.emplace_back(f.first, value);
         }
@@ -343,7 +345,7 @@ std::shared_ptr<Step> get_capture(const std::vector<FaceKey>& keys)
 {
     auto step = std::make_shared<Step>();
     for (const FaceKey& key : keys) {
-        uint16_t value = 0;
+        render::FaceFlag value{};
         if (get_take_in(key, &value))
             step->flags.emplace_back(key, value);
     }
@@ -415,11 +417,11 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
         return false;
     }
     const bool selected = get_click(&level_editor_faces_state().selection_, key, add);
-    uint16_t flags = 0;
+    render::FaceFlag flags{};
     get_take_in(key, &flags);
     std::array<char, kListTextSize> text{};
     text::format_to(text, "Face %u of %s %s - flags 0x%04X (%u selected)", static_cast<unsigned>(key.face),
-                    piece_label(key.checksum).c_str(), selected ? "selected" : "dropped", flags,
+                    piece_label(key.checksum).c_str(), selected ? "selected" : "dropped", core::to_underlying(flags),
                     static_cast<unsigned>(level_editor_faces_state().selection_.size()));
     hud::get_message(text.data());
     if (debug_enabled())
@@ -467,7 +469,7 @@ bool select_piece(uint32_t checksum, bool add)
     return true;
 }
 
-bool get_take_in(FaceKey key, uint16_t* flags)
+bool get_take_in(FaceKey key, render::FaceFlag* flags)
 {
     const render::TriMeshSource* tri = get_geometry(key.checksum);
     if (!tri || key.face >= tri->tri_count())
@@ -477,7 +479,7 @@ bool get_take_in(FaceKey key, uint16_t* flags)
     return true;
 }
 
-bool set_flag(uint16_t bit, bool on)
+bool set_flag(render::FaceFlag bit, bool on)
 {
     if (level_editor_faces_state().selection_.empty())
         return false;
@@ -485,10 +487,10 @@ bool set_flag(uint16_t bit, bool on)
     bool changed = false;
     int faces = 0;
     for (const FaceKey& key : level_editor_faces_state().selection_) {
-        uint16_t flags = 0;
+        render::FaceFlag flags{};
         if (!get_take_in(key, &flags))
             continue;
-        const uint16_t now = on ? get_applied(flags, bit, 0) : get_applied(flags, 0, bit);
+        const render::FaceFlag now = on ? get_applied(flags, bit, render::kNoFaceFlags) : get_applied(flags, render::kNoFaceFlags, bit);
         if (now != flags && emit_out(key, now)) {
             changed = true;
             ++faces;
@@ -499,7 +501,7 @@ bool set_flag(uint16_t bit, bool on)
     push_module_undo(before);
     view::stale_cache();
     std::array<char, kTipTextSize> text{};
-    text::format_to(text, "Face flag 0x%04X %s on %d face%s", bit, on ? "set" : "cleared", faces,
+    text::format_to(text, "Face flag 0x%04X %s on %d face%s", core::to_underlying(bit), on ? "set" : "cleared", faces,
                     faces == 1 ? "" : "s");
     hud::get_message(text.data());
     get_log("level editor: %s", text.data());
@@ -514,7 +516,7 @@ bool home_selection()
     int faces = 0;
     for (const FaceKey& key : level_editor_faces_state().selection_) {
         auto origin = origins().find(key);
-        uint16_t now = 0;
+        render::FaceFlag now{};
         if (origin != origins().end() && get_take_in(key, &now) && now != origin->second &&
             emit_out(key, origin->second))
             ++faces;
@@ -531,7 +533,7 @@ std::vector<SectorFaces> get_changed()
 {
     std::vector<Change> changes;
     for (const auto& origin : origins()) {
-        uint16_t now = 0;
+        render::FaceFlag now{};
         if (get_take_in(origin.first, &now))
             changes.push_back({.key = origin.first, .origin = origin.second, .now = now});
     }
@@ -559,7 +561,7 @@ int get_apply(const std::vector<SectorFaces>& sectors)
 void reset_all()
 {
     for (const auto& origin : origins()) {
-        uint16_t now = 0;
+        render::FaceFlag now{};
         if (get_take_in(origin.first, &now) && now != origin.second)
             emit_out(origin.first, origin.second);
     }
@@ -583,7 +585,7 @@ void tick_frame()
         action();
     // (faces of a level gone: dropped from the selection)
     std::erase_if(level_editor_faces_state().selection_, [](const FaceKey& key) {
-        uint16_t flags = 0;
+        render::FaceFlag flags{};
         return !get_take_in(key, &flags);
     });
 }
@@ -645,10 +647,10 @@ void inspector_section(ImFont* mono, ImFont* small_font)
         gui::text_disabled("No faces selected");
         return;
     }
-    std::vector<uint16_t> flags;
+    std::vector<render::FaceFlag> flags;
     std::vector<uint32_t> pieces;
     for (const FaceKey& key : level_editor_faces_state().selection_) {
-        uint16_t f = 0;
+        render::FaceFlag f{};
         if (get_take_in(key, &f))
             flags.push_back(f);
         if (std::ranges::find(pieces, key.checksum) == pieces.end())
@@ -657,7 +659,7 @@ void inspector_section(ImFont* mono, ImFont* small_font)
     ImGui::PushFont(mono);
     if (level_editor_faces_state().selection_.size() == 1 && !flags.empty())
         gui::text("face %u of %s: 0x%04X", static_cast<unsigned>(core::at(level_editor_faces_state().selection_, 0).face),
-                    piece_label(core::at(level_editor_faces_state().selection_, 0).checksum).c_str(), core::at(flags, 0));
+                    piece_label(core::at(level_editor_faces_state().selection_, 0).checksum).c_str(), core::to_underlying(core::at(flags, 0)));
     else
         gui::text("%u faces in %u piece%s", static_cast<unsigned>(level_editor_faces_state().selection_.size()),
                     static_cast<unsigned>(pieces.size()), pieces.size() == 1 ? "" : "s");
@@ -669,7 +671,7 @@ void inspector_section(ImFont* mono, ImFont* small_font)
         std::array<char, kButtonLabelSize> label{};
         text::format_to(label, "%s%s##face%d", info.name, state == 2 ? " (some)" : "", i);
         if (ImGui::Checkbox(label.data(), &on)) {
-            const uint16_t bit = info.bit;
+            const render::FaceFlag bit = info.bit;
             const bool set = state != 1; // (mixed or clear: set on all; all set: clear)
             level_editor_faces_state().queue_.emplace_back([bit, set] { set_flag(bit, set); });
         }

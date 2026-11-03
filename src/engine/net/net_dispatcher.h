@@ -3,6 +3,7 @@
 // The network library's message dispatcher (NetLink::Router, an App's +0x0C): handler lists per message id,
 // and the context a handler gets.
 
+#include "wire/message_ids.h"
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -45,8 +46,8 @@ struct InboundMsgCtx {
     // The fields other code reads and sets.
     [[nodiscard]] uint8_t* body() const { return body_; }
     void set_body(uint8_t* value) { body_ = value; }
-    [[nodiscard]] uint8_t type_code() const { return type_code_; }
-    void set_type_code(uint8_t value) { type_code_ = value; }
+    [[nodiscard]] wire::MessageId type_code() const { return type_code_; }
+    void set_type_code(wire::MessageId value) { type_code_ = value; }
     [[nodiscard]] uint32_t body_size() const { return body_size_; }
     void set_body_size(uint32_t value) { body_size_ = value; }
     [[nodiscard]] AppHost* receiver_app() const { return receiver_app_; }
@@ -66,7 +67,7 @@ struct InboundMsgCtx {
 
 private:
     uint8_t* body_{nullptr}; // the message (its body_size_ bytes; read through wire/)
-    uint8_t type_code_{0};
+    wire::MessageId type_code_{};
     std::array<uint8_t, 3> spare_slot5_{};
     uint32_t body_size_{0};
     AppHost* receiver_app_{nullptr};
@@ -125,7 +126,7 @@ public:
     // 0x0045A690: every handler deleted (walked by item).
     void tear_down_state();
     // 0x0045A5C0: a handler for message `id`, in the network heap.
-    NoteHandler* append_listener(uint8_t id, HandlerSlotValue code, uint32_t flags, void* data, int priority);
+    NoteHandler* append_listener(wire::MessageId id, HandlerSlotValue code, uint32_t flags, void* data, int priority);
     // 0x0045A750: the message's handlers, in order, until one stops; HandlerResult (4 comes back as 1).
     int dispatch_msg(InboundMsgCtx* context);
     // 0x0045A830: every message in the connection's read buffer, then the acks they asked for. 1, or 2 (a

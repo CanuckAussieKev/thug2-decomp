@@ -9,6 +9,7 @@
 #include <span>
 
 #include "engine/net/player_info.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_commands.h"
@@ -56,7 +57,7 @@
 #include "wire/message_ids.h"
 
 namespace {
-// Requests a client sends the host (wire/ has kMsgStartRequest 0x60 and kMsgKickRequest 0x61 of this family).
+// Requests a client sends the host (wire/ has MessageId::kStartRequest 0x60 and MessageId::kKickRequest 0x61 of this family).
 constexpr uint32_t kServerQueryBodyBytes = 0xC;
 constexpr size_t kServerInfoIdCount = 8;
 constexpr int kMillisecondsPerSecond = 1000;
@@ -210,8 +211,8 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     }
     for (const JoinerRecord* added = first_new_player(manager, &new_players); added && named < kServerInfoPlayers;
          added = next_new_player(manager, &new_players)) {
-        const uint32_t flags = added->flag_bits();
-        if (!(flags & kPlayerCountedFlags) && (flags & kPlayerObserver))
+        const PlayerFlag flags = added->flag_bits();
+        if (!core::any(flags & kPlayerCountedFlags) && core::any(flags & PlayerFlag::kObserver))
             continue;
         bool known = false;
         for (int i = 0; i < id_count; ++i) {
@@ -228,7 +229,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     std::array<uint8_t, kServerInfoSize> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_server_info(writer, info);
-    server->deliver_to({.msg_id_ = kMsgServerInfo, .size = static_cast<uint16_t>(writer.position())}, bytes.data(), {.ip = context->sender_conn()->remote_ip(), .port = context->sender_conn()->port_no()}, 0);
+    server->deliver_to({.msg_id_ = MessageId::kServerInfo, .size = static_cast<uint16_t>(writer.position())}, bytes.data(), {.ip = context->sender_conn()->remote_ip(), .port = context->sender_conn()->port_no()}, 0);
     return kContinue;
 }
 
@@ -248,7 +249,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         return manager->get_choice_integer({.list = list, .choice = value}, field);
     };
     switch (context->type_code()) {
-    case kMsgStartRequest: {
+    case MessageId::kStartRequest: {
         StartRequest request;
         if (!read_start_request(reader, &request))
             return kDone;
@@ -270,8 +271,8 @@ int handle_host_options(net::InboundMsgCtx* context)
             const char* text = option_text(list, value);
             if (fireball)
                 option_field(list, value, kFireballLevel); // (looked up for nothing)
-            params->append_word(kUiString, script::kQbvalString, text);
-            params->add_component_of_type(kChecksum, script::kQbvalName, value);
+            params->append_word(kUiString, script::QbValueKind::kString, text);
+            params->add_component_of_type(kChecksum, script::QbValueKind::kName, value);
             prefs->change_setting(preference, params.get());
         };
         set({.preference = kGameType, .list = kNetGameTypeInfo, .value = request.game_type});            // game_type: net_game_type_info
@@ -288,9 +289,9 @@ int handle_host_options(net::InboundMsgCtx* context)
             const script::StructPtr params = script::make_struct();
             const char* text = option_text(kTimeLimitOptions, request.time_limit);
             const int time = option_field(0x834A7C01, request.time_limit, kTime);
-            params->append_word(kUiString, script::kQbvalString, text);
-            params->add_component_of_type(kChecksum, script::kQbvalName, request.time_limit);
-            params->add_component_of_type(kTime, script::kQbvalInteger, static_cast<uint32_t>(time));
+            params->append_word(kUiString, script::QbValueKind::kString, text);
+            params->add_component_of_type(kChecksum, script::QbValueKind::kName, request.time_limit);
+            params->add_component_of_type(kTime, script::QbValueKind::kInteger, static_cast<uint32_t>(time));
             prefs->change_setting(kTimeLimit, params.get());
         }
         { // target_score: target_score_options, else capture_options, else time_limit_options (its time, in ms)
@@ -305,16 +306,16 @@ int handle_host_options(net::InboundMsgCtx* context)
                     score = option_field(kTimeLimitOptions, request.target_score, kTime) * kMillisecondsPerSecond;
                 }
             }
-            params->append_word(kUiString, script::kQbvalString, text);
-            params->add_component_of_type(kChecksum, script::kQbvalName, request.target_score);
+            params->append_word(kUiString, script::QbValueKind::kString, text);
+            params->add_component_of_type(kChecksum, script::QbValueKind::kName, request.target_score);
             if (score > 0)
-                params->add_component_of_type(kScore, script::kQbvalInteger, static_cast<uint32_t>(score));
+                params->add_component_of_type(kScore, script::QbValueKind::kInteger, static_cast<uint32_t>(score));
             prefs->change_setting(kTargetScore, params.get());
         }
         get_run(kChosenStartGame);
         break;
     }
-    case kMsgKickRequest: {
+    case MessageId::kKickRequest: {
         // Kick (1) or ban the index'th player, whose name it must be.
         KickRequest request;
         if (!read_kick_request(reader, &request))
@@ -337,34 +338,34 @@ int handle_host_options(net::InboundMsgCtx* context)
             get_skate()->drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
         break;
     }
-    case kMsgChangeLevelRequest: {
+    case MessageId::kChangeLevelRequest: {
         const uint32_t level = reader.u32();
         if (!reader.ok())
             return kDone;
         script::StructPtr params = script::make_struct();
-        params->add_component_of_type(kLevel, script::kQbvalName, level);
+        params->add_component_of_type(kLevel, script::QbValueKind::kName, level);
         params->put_name_key(checksums::Name{kChangeLevelFlag}, kChangeLevelFlag);
         params->put_name_key(checksums::Name{kShowWarning}, kShowWarning);
         get_run(kChangeLevel, params.get());
         params.reset();
         break;
     }
-    case kMsgToggleGoalRequest: {
+    case MessageId::kToggleGoalRequest: {
         const uint32_t goal = reader.u32();
         if (!reader.ok())
             return kDone;
         objective_board()->flip_objective_pick(goal);
         break;
     }
-    case kMsgEndGameRequest: {
+    case MessageId::kEndGameRequest: {
         // End the game: everyone else told.
         PlayerSearch search;
         net::NetMessageInfo desc;
         net::AppHost* server = manager->host();
         get_run(kEndGameSelected);
-        desc.set_ident(kMsgGameEnded);
+        desc.set_ident(MessageId::kGameEnded);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
              p = step_roster_sweep(manager, &search, true)) {
             if (!is_own_player(p))
@@ -372,7 +373,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         }
         break;
     }
-    case kMsgTeamCountRequest: {
+    case MessageId::kTeamCountRequest: {
         // The number of teams.
         const int teams = int{reader.i8()};
         if (!reader.ok())
@@ -425,8 +426,8 @@ int on_level_switch_msg(net::InboundMsgCtx* context)
     net_game_state().level_change_time() = frame_clock::get_time() + kLevelChangeDelay; // when to change
     if (manager->get_on_server()) {
         script::StructPtr params = script::make_struct();
-        params->append_word(kUiString, script::kQbvalString, manager->get_map_name(false));
-        params->add_component_of_type(kChecksum, script::kQbvalName, manager->level());
+        params->append_word(kUiString, script::QbValueKind::kString, manager->get_map_name(false));
+        params->add_component_of_type(kChecksum, script::QbValueKind::kName, manager->level());
         manager->get_online_settings()->change_setting(kLevel, params.get());
         params.reset();
         if (manager->level() == kLoadSk5edGameplay)
@@ -471,25 +472,25 @@ int handle_start_game(net::InboundMsgCtx* context)
     // The victory conditions.
     script::StructPtr victory = script::make_struct();
     if (start.time_limit == 0 && start.game_type != kNetGoalAttack) {
-        victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, 0);
+        victory->add_component_of_type(kDefaultTimeLimit, script::QbValueKind::kInteger, 0);
         if (start.game_type != kFirefight && start.game_type != kNetFirefight) {
             gsl::owner<script::Array*> conditions = script::new_array();
             script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
             auto* condition = conditions->struct_at(0);
-            condition->add_component_of_type(kScore, script::kQbvalInteger, start.target_score);
+            condition->add_component_of_type(kScore, script::QbValueKind::kInteger, start.target_score);
             victory->append_array_value(kVictoryConditions, conditions);
         }
     } else {
-        victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, start.time_limit);
+        victory->add_component_of_type(kDefaultTimeLimit, script::QbValueKind::kInteger, start.time_limit);
         if (start.game_type == kNetCtf) {
             gsl::owner<script::Array*> conditions = script::new_array();
             script::duplicate_array(conditions, script::fetch_list(kHighestScoreArray));
             victory->append_array_value(kVictoryConditions, conditions);
         }
     }
-    victory->add_component_of_type(kFireballLevel, script::kQbvalInteger, start.fireball_level);
-    victory->add_component_of_type(kStopAtZero, script::kQbvalInteger, static_cast<uint32_t>(start.stop_at_zero));
-    victory->add_component_of_type(kShouldResetScores, script::kQbvalInteger,
+    victory->add_component_of_type(kFireballLevel, script::QbValueKind::kInteger, start.fireball_level);
+    victory->add_component_of_type(kStopAtZero, script::QbValueKind::kInteger, static_cast<uint32_t>(start.stop_at_zero));
+    victory->add_component_of_type(kShouldResetScores, script::QbValueKind::kInteger,
                                    static_cast<uint32_t>(start.reset_scores));
     static_cast<modules::Skate*>(skate)->set_unknown370(static_cast<int>(start.time_limit));
     get_game_mode()->force_match_settings(victory.get());
@@ -555,11 +556,11 @@ int handle_send_game_state(net::InboundMsgCtx* context)
     auto* skate = get_skate();
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
-    if (!player || (player->flag_bits() & kPlayerToldGameState))
+    if (!player || core::any(player->flag_bits() & PlayerFlag::kToldGameState))
         return kContinue;
     net::NetMessageInfo desc;
     frame_clock::get_time();    // (not used)
-    player->flag_bits() |= kPlayerToldGameState; // told
+    player->flag_bits() |= PlayerFlag::kToldGameState; // told
     // (the message: gamenet_messages.h)
     SessionBrief info;
     info.max_players = static_cast<uint8_t>(manager->get_player_limit());
@@ -606,15 +607,15 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         write_session_brief(writer, info);
         desc.set_content(bytes.data());
         desc.set_byte_count(static_cast<uint16_t>(writer.position()));
-        desc.set_ident(kMsgSessionBrief);
+        desc.set_ident(MessageId::kSessionBrief);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         server->put_on_outbox(player_handle(player), &desc);
         if (manager->has_created_goals()) {
             manager->prepare_created_goals(manager->fetch_stage());
             void* goals = manager->get_created_goals_message();
             auto size = static_cast<uint16_t>(manager->get_created_goals_size());
-            server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgGoalsData, .size = size}, goals, "goals data", kGroupGame,
+            server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kGoalsData, .size = size}, goals, "goals data", MessageGroup::kGame,
                                       false, true);
         }
         // The scripts spawned so far (the list at +0x144): 0x49 each.
@@ -631,9 +632,9 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             write_spawn_script(spawned_writer, queued);
             desc.set_content(spawned.data());
             desc.set_byte_count(sizeof(spawned));
-            desc.set_ident(kMsgSpawnScript);
+            desc.set_ident(MessageId::kSpawnScript);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-            desc.set_group_id(kGroupGame);
+            desc.set_group_id(MessageGroup::kGame);
             server->put_on_outbox(player_handle(player), &desc);
             node = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
             if (!node)
@@ -648,8 +649,8 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             constexpr size_t kBufferSize = 0x1100;
             static std::array<uint8_t, kBufferSize> buffer; // (the original's is on its stack)
             const int size = objects::trick_spot_hub()->write_graffiti_state(buffer);
-            server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgGraffitiColors, .size = static_cast<uint16_t>(size)}, buffer.data(),
-                                      "TrickObj Buffer", kGroupGame, true, false);
+            server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kGraffitiColors, .size = static_cast<uint16_t>(size)}, buffer.data(),
+                                      "TrickObj Buffer", MessageGroup::kGame, true, false);
         }
         // The goals chosen (goal attack): a byte, then the selected goals' names, then 0.
         desc = net::NetMessageInfo();
@@ -669,27 +670,27 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         }
         std::memset(std::span<uint8_t>(selected).subspan(out, 4).data(), 0, 4);
         desc.set_content(selected.data());
-        desc.set_ident(kMsgSelectedGoals);
+        desc.set_ident(MessageId::kSelectedGoals);
         desc.set_byte_count(static_cast<uint16_t>(out + 4));
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         server->put_on_outbox(player_handle(player), &desc);
         if (const PlayerRecord* king = is_crown_rule_active(manager)) {
             desc = net::NetMessageInfo();
             auto id = static_cast<uint8_t>(get_skater_id(player_skater(king)));
             desc.set_content(&id);
             desc.set_byte_count(1);
-            desc.set_ident(kMsgKing);
+            desc.set_ident(MessageId::kKing);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-            desc.set_group_id(kGroupGame);
+            desc.set_group_id(MessageGroup::kGame);
             server->put_on_outbox(player_handle(player), &desc);
         }
     }
     // The end of the game's state (0x42).
     net::NetMessageInfo done;
-    done.set_ident(kMsgGameStateSent);
+    done.set_ident(MessageId::kGameStateSent);
     done.set_queue(net::NetMessageInfo::kLaneOrdered);
-    done.set_group_id(kGroupGame);
+    done.set_group_id(MessageGroup::kGame);
     server->put_on_outbox(player_handle(player), &done);
     if (manager->in_net_game()) {
         manager->send_faces_to(player);

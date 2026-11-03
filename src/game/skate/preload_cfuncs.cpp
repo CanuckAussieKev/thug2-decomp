@@ -8,6 +8,7 @@
 #include <array>
 #include <span>
 
+#include "engine/assets/resource_entry.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
@@ -40,8 +41,6 @@ namespace commands {
 
 namespace {
 constexpr std::size_t kNameBytes = 0x100;
-constexpr int kResourceTypeCollision = 8;  // the asset manager's kind of a .col file
-constexpr int kResourceTypeScript = 0xA;   // ... of a .qb script
 constexpr int kTexDictOffset = 8;          // the texture dictionary offset the pedestrians' and vehicles' models are made with
 constexpr std::size_t kMatchingCapacity = 64;
 constexpr int kSeenTextureLimit = 32;      // car texture sets remembered (the original's stack room)
@@ -173,7 +172,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
                 text::append_unbounded(name.data(), ".col");
                 assets::ResourceRegistry* assets = assets::asset_manager();
                 const bool permanent = assets->get_permanent_by_default();
-                assets->fetch_or_load_resource(name.data(), kResourceTypeCollision, 0, checksums::hash_from_text(file), false, false, permanent,
+                assets->fetch_or_load_resource(name.data(), assets::ResourceKind::kSkinCollision, 0, checksums::hash_from_text(file), false, false, permanent,
                                                nullptr, nullptr);
             }
         }
@@ -183,7 +182,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
             text::append_unbounded(script.data(), ".qb");
             assets::ResourceRegistry* assets = assets::asset_manager();
             const bool permanent = assets->get_permanent_by_default();
-            assets->fetch_or_load_resource(script.data(), kResourceTypeScript, 0, 0, false, false, permanent, nullptr, nullptr);
+            assets->fetch_or_load_resource(script.data(), assets::ResourceKind::kNodeArray, 0, 0, false, false, permanent, nullptr, nullptr);
         }
         delete_model(nx_model);
     }

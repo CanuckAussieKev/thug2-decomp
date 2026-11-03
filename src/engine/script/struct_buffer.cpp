@@ -13,6 +13,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/ints.h"
 #include "engine/core/checksums.h"
+#include "engine/core/enum_ops.h"
 #include <gsl/pointers>
 
 
@@ -26,13 +27,25 @@ constexpr uint32_t kMediumNames = 0x25231F42;
 // What a script component is written as (a name component of this value).
 constexpr uint32_t kScriptPlaceholder = 0xB9C4F664;
 
-// The buffer's own types beyond the component types.
-constexpr uint8_t kSignedByte = 0x0E;
-constexpr uint8_t kSignedShort = 0x0F;
-constexpr uint8_t kUnsignedByte = 0x10;
-constexpr uint8_t kUnsignedShort = 0x11;
-constexpr uint8_t kZeroInteger = 0x12;
-constexpr uint8_t kTagZeroF = 0x13;
+// What a component is stored as (the low six bits of its type byte): the component types the buffer holds, and the
+// buffer's own forms of integers and of a zero real.
+enum class StoredType : uint8_t {
+    kInteger = 1,
+    kFloat = 2,
+    kString = 3,
+    kInlineText = 4,
+    kPair = 5,
+    kVector = 6,
+    kStruct = 10,
+    kArray = 12,
+    kName = 13,
+    kSignedByte = 0x0E,
+    kSignedShort = 0x0F,
+    kUnsignedByte = 0x10,
+    kUnsignedShort = 0x11,
+    kZeroInteger = 0x12,
+    kZeroFloat = 0x13,
+};
 // A component's type byte also says how its name is written: an index in the short names (bit 7), in the medium names
 // (bit 6), or the name's checksum following; the rest is the type.
 constexpr uint8_t kShortNameFlag = 0x80;
@@ -68,16 +81,15 @@ uint32_t written_since(const util::ByteWriter& out, size_t start)
     return static_cast<uint32_t>(out.position() - start);
 }
 
-} // namespace
-
-// 0x00479840
-void write_name_and_type(util::ByteWriter& out, uint8_t type, checksums::Name component)
+// 0x00479840: the type byte and the name (shortened when the name is in one of the two arrays).
+void write_name_and_type(util::ByteWriter& out, StoredType stored, checksums::Name component)
 {
     const uint32_t name = component.value();
+    const uint8_t type = core::to_underlying(stored);
     Array* short_names = fetch_list(kShortNames);
     for (int i = 0; i < ints::as_signed(short_names->extent()); ++i) {
         if (short_names->fetch_part(i) == name) {
-            out.u8(type | kShortNameFlag);
+            out.u8(static_cast<uint8_t>(type | kShortNameFlag));
             out.u8(static_cast<uint8_t>(i));
             return;
         }
@@ -85,7 +97,7 @@ void write_name_and_type(util::ByteWriter& out, uint8_t type, checksums::Name co
     Array* medium_names = fetch_list(kMediumNames);
     for (int i = 0; i < ints::as_signed(medium_names->extent()); ++i) {
         if (medium_names->fetch_part(i) == name) {
-            out.u8(type | kMediumNameFlag);
+            out.u8(static_cast<uint8_t>(type | kMediumNameFlag));
             out.u16(static_cast<uint16_t>(i));
             return;
         }
@@ -94,35 +106,37 @@ void write_name_and_type(util::ByteWriter& out, uint8_t type, checksums::Name co
     out.u32(name);
 }
 
+} // namespace
+
 // 0x004798F0
 uint32_t emit_int(util::ByteWriter& out, checksums::Name name, int value)
 {
-    uint8_t type = kQbvalInteger;
+    StoredType type = StoredType::kInteger;
     if (value == 0)
-        type = kZeroInteger;
+        type = StoredType::kZeroInteger;
     else if (value > 0 && value <= kUnsignedByteMax)
-        type = kUnsignedByte;
+        type = StoredType::kUnsignedByte;
     else if (value > 0 && value <= kUnsignedShortMax)
-        type = kUnsignedShort;
+        type = StoredType::kUnsignedShort;
     else if (value >= kSignedByteMin && value <= kSignedByteMax)
-        type = kSignedByte;
+        type = StoredType::kSignedByte;
     else if (value >= kSignedShortMin && value <= kSignedShortMax)
-        type = kSignedShort;
+        type = StoredType::kSignedShort;
     // written in a scratch buffer first, then copied if it fits
     constexpr size_t kScratchSize = 0x14;
     std::array<uint8_t, kScratchSize> scratch{};
     util::ByteWriter component(scratch.data(), sizeof(scratch));
     write_name_and_type(component, type, name);
     switch (type) {
-    case kQbvalInteger:
+    case StoredType::kInteger:
         component.u32(static_cast<uint32_t>(value));
         break;
-    case kSignedByte:
-    case kUnsignedByte:
+    case StoredType::kSignedByte:
+    case StoredType::kUnsignedByte:
         component.u8(static_cast<uint8_t>(value));
         break;
-    case kSignedShort:
-    case kUnsignedShort:
+    case StoredType::kSignedShort:
+    case StoredType::kUnsignedShort:
         component.u16(static_cast<uint16_t>(value));
         break;
     default:
@@ -144,19 +158,19 @@ uint32_t emit_real(util::ByteWriter& out, checksums::Name name, float value)
     if (magnitude < kTinyRealMagnitude) {
         if (out.remaining() < kNameFormBytes)
             return 0;
-        write_name_and_type(out, kTagZeroF, name);
+        write_name_and_type(out, StoredType::kZeroFloat, name);
         return written_since(out, start);
     }
     if (out.remaining() < kNamedWordBytes)
         return 0;
-    write_name_and_type(out, kQbvalFloat, name);
+    write_name_and_type(out, StoredType::kFloat, name);
     out.u32(float_bits(value));
     return written_since(out, start);
 }
 
 namespace {
 
-uint32_t write_string_of_type(util::ByteWriter& out, const char* string, uint32_t name, uint8_t type)
+uint32_t write_string_of_type(util::ByteWriter& out, const char* string, uint32_t name, StoredType type)
 {
     auto length = static_cast<uint32_t>(std::strlen(string));
     if (out.remaining() < length + kStringRoomBytes) // (room for the longest name form, as the original)
@@ -172,13 +186,13 @@ uint32_t write_string_of_type(util::ByteWriter& out, const char* string, uint32_
 // 0x00479AC0
 uint32_t write_string(util::ByteWriter& out, const char* string, uint32_t name)
 {
-    return write_string_of_type(out, string, name, kQbvalString);
+    return write_string_of_type(out, string, name, StoredType::kString);
 }
 
 // 0x00479B20
 uint32_t write_local_string(util::ByteWriter& out, const char* string, uint32_t name)
 {
-    return write_string_of_type(out, string, name, kQbvalInlineText);
+    return write_string_of_type(out, string, name, StoredType::kInlineText);
 }
 
 namespace {
@@ -193,29 +207,29 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
     if (out.remaining() < 3)
         return 0;
     const size_t start = out.position();
-    const uint8_t type = array->kind_tag();
+    const QbValueKind type = array->kind_tag();
     const uint32_t count = array->extent();
-    out.u8(type);
+    out.u8(core::to_underlying(type));
     out.u16(static_cast<uint16_t>(count));
     switch (type) {
-    case kQbvalInteger:
-    case kQbvalFloat:
-    case kQbvalName: {
+    case QbValueKind::kInteger:
+    case QbValueKind::kFloat:
+    case QbValueKind::kName: {
         if (uint64_t{count} * 4 > out.remaining())
             return 0;
         for (uint32_t i = 0; i < count; ++i)
             out.u32(array->fetch_part(i));
         break;
     }
-    case kQbvalString:
-    case kQbvalInlineText: {
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText: {
         for (uint32_t i = 0; i < count; ++i) {
             if (!out.c_string(array->fetch_text(i)))
                 return 0;
         }
         break;
     }
-    case kQbvalPair: {
+    case QbValueKind::kPair: {
         if (uint64_t{count} * kPairBytes > out.remaining())
             return 0;
         for (uint32_t i = 0; i < count; ++i) {
@@ -225,7 +239,7 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
         }
         break;
     }
-    case kQbvalVector: {
+    case QbValueKind::kVector: {
         if (uint64_t{count} * kVectorBytes > out.remaining())
             return 0;
         for (uint32_t i = 0; i < count; ++i) {
@@ -236,14 +250,14 @@ uint32_t write_array_to_buffer(util::ByteWriter& out, Array* array, int assert)
         }
         break;
     }
-    case kQbvalStruct: {
+    case QbValueKind::kStruct: {
         for (uint32_t i = 0; i < count; ++i) {
             if (emit_structure(out, array->struct_at(i), assert, nullptr) == 0)
                 return 0;
         }
         break;
     }
-    case kQbvalArray: {
+    case QbValueKind::kArray: {
         for (uint32_t i = 0; i < count; ++i) {
             if (write_array_to_buffer(out, array->array_at(i), assert) == 0)
                 return 0;
@@ -271,59 +285,59 @@ uint32_t emit_structure(util::ByteWriter& out, Struct* structure, int assert, vo
             uint32_t written = 0;
             const size_t at = out.position();
             switch (value_kind(*component)) {
-            case kQbvalInteger:
+            case QbValueKind::kInteger:
                 written = emit_int(out, checksums::Name{component->name}, component->value.integer());
                 break;
-            case kQbvalFloat:
+            case QbValueKind::kFloat:
                 written = emit_real(out, checksums::Name{component->name}, component->value.real());
                 break;
-            case kQbvalString:
+            case QbValueKind::kString:
                 written = write_string(out, component->value.text(), component->name);
                 break;
-            case kQbvalInlineText:
+            case QbValueKind::kInlineText:
                 written = write_local_string(out, component->value.text(), component->name);
                 break;
-            case kQbvalPair:
+            case QbValueKind::kPair:
                 if (out.remaining() < kNamedPairBytes)
                     return 0;
-                write_name_and_type(out, kQbvalPair, checksums::Name{component->name});
+                write_name_and_type(out, StoredType::kPair, checksums::Name{component->name});
                 out.f32(component->value.pair()->x());
                 out.f32(component->value.pair()->y());
                 written = written_since(out, at);
                 break;
-            case kQbvalVector:
+            case QbValueKind::kVector:
                 if (out.remaining() < kNamedVectorBytes)
                     return 0;
-                write_name_and_type(out, kQbvalVector, checksums::Name{component->name});
+                write_name_and_type(out, StoredType::kVector, checksums::Name{component->name});
                 out.f32(component->value.vector()->x());
                 out.f32(component->value.vector()->y());
                 out.f32(component->value.vector()->z());
                 written = written_since(out, at);
                 break;
-            case kQbvalScriptBody:
+            case QbValueKind::kScriptBody:
                 // (a script can't be sent: a placeholder name instead)
                 if (out.remaining() < kNamedWordBytes)
                     return 0;
-                write_name_and_type(out, kQbvalName, checksums::Name{component->name});
+                write_name_and_type(out, StoredType::kName, checksums::Name{component->name});
                 out.u32(kScriptPlaceholder);
                 written = written_since(out, at);
                 break;
-            case kQbvalStruct:
+            case QbValueKind::kStruct:
                 if (out.remaining() < kNameFormBytes)
                     return 0;
-                write_name_and_type(out, kQbvalStruct, checksums::Name{component->name});
+                write_name_and_type(out, StoredType::kStruct, checksums::Name{component->name});
                 written = emit_structure(out, component->value.structure(), assert, nullptr);
                 break;
-            case kQbvalArray:
+            case QbValueKind::kArray:
                 if (out.remaining() < kNameFormBytes)
                     return 0;
-                write_name_and_type(out, kQbvalArray, checksums::Name{component->name});
+                write_name_and_type(out, StoredType::kArray, checksums::Name{component->name});
                 written = write_array_to_buffer(out, component->value.array(), assert);
                 break;
-            case kQbvalName:
+            case QbValueKind::kName:
                 if (out.remaining() < kNamedWordBytes)
                     return 0;
-                write_name_and_type(out, kQbvalName, checksums::Name{component->name});
+                write_name_and_type(out, StoredType::kName, checksums::Name{component->name});
                 out.u32(component->value.word());
                 written = written_since(out, at);
                 break;
@@ -392,33 +406,33 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
         const uint32_t name = read_name(reader, type);
         if (!reader.ok())
             break;
-        switch (type & kTypeBits) {
-        case kQbvalInteger:
+        switch (static_cast<StoredType>(type & kTypeBits)) {
+        case StoredType::kInteger:
             structure->put_int(checksums::Name{name}, reader.i32());
             break;
-        case kQbvalFloat:
+        case StoredType::kFloat:
             structure->push_float(checksums::Name{name}, reader.f32());
             break;
-        case kQbvalString:
+        case StoredType::kString:
             structure->append_word(name, read_text(reader));
             break;
-        case kQbvalInlineText:
+        case StoredType::kInlineText:
             structure->append_inline_text(name, read_text(reader));
             break;
-        case kQbvalPair: {
+        case StoredType::kPair: {
             const float x = reader.f32();
             const float y = reader.f32();
             structure->insert_pair(checksums::Name{name}, {.x = x, .y = y});
             break;
         }
-        case kQbvalVector: {
+        case StoredType::kVector: {
             const float x = reader.f32();
             const float y = reader.f32();
             const float z = reader.f32();
             structure->put_vec3(checksums::Name{name}, {.x = x, .y = y, .z = z});
             break;
         }
-        case kQbvalStruct: {
+        case StoredType::kStruct: {
             gsl::owner<Struct*> inner = spawn_param_bag();
             if (inner)
                 new (inner) script::Struct;
@@ -426,7 +440,7 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
             structure->append_struct_ref(name, inner);
             break;
         }
-        case kQbvalArray: {
+        case StoredType::kArray: {
             gsl::owner<Array*> inner = alloc_script_array();
             if (inner)
                 new (inner) script::Array;
@@ -434,30 +448,29 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
             structure->append_array_ref(name, inner);
             break;
         }
-        case kQbvalName:
+        case StoredType::kName:
             structure->put_name_key(checksums::Name{name}, reader.u32());
             break;
-        case kSignedByte:
+        case StoredType::kSignedByte:
             structure->put_int(checksums::Name{name}, reader.i8());
             break;
-        case kSignedShort:
+        case StoredType::kSignedShort:
             structure->put_int(checksums::Name{name}, reader.i16());
             break;
-        case kUnsignedByte:
+        case StoredType::kUnsignedByte:
             structure->put_int(checksums::Name{name}, reader.u8());
             break;
-        case kUnsignedShort:
+        case StoredType::kUnsignedShort:
             structure->put_int(checksums::Name{name}, reader.u16());
             break;
-        case kZeroInteger:
+        case StoredType::kZeroInteger:
             structure->put_int(checksums::Name{name}, 0);
             break;
-        case kTagZeroF:
+        case StoredType::kZeroFloat:
             structure->push_float(checksums::Name{name}, 0.0f);
             break;
-        default:
-            break; // (no value: just the name was read)
         }
+        // (another type: no value - just the name was read)
     }
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -467,28 +480,28 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
 void decode_array(Array* array, util::ByteReader& reader)
 {
     release_array_storage(array);
-    const uint8_t type = reader.u8();
+    const auto type = static_cast<QbValueKind>(reader.u8());
     const uint32_t count = reader.u16();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap());
-    array->configure_size_kind(count, static_cast<QbValueKind>(type));
+    array->configure_size_kind(count, type);
     memory::Hub::get_pull()->leave_heap_scope();
     switch (type) {
-    case kQbvalInteger:
-    case kQbvalName:
+    case QbValueKind::kInteger:
+    case QbValueKind::kName:
         for (uint32_t i = 0; i < count; ++i)
             array->set_element(i, reader.u32());
         break;
-    case kQbvalFloat:
+    case QbValueKind::kFloat:
         for (uint32_t i = 0; i < count; ++i)
             array->change_float(i, reader.f32());
         break;
-    case kQbvalString:
-    case kQbvalInlineText:
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText:
         for (uint32_t i = 0; i < count; ++i)
             array->set_text(i, spawn_text(read_text(reader)));
         break;
-    case kQbvalPair:
+    case QbValueKind::kPair:
         for (uint32_t i = 0; i < count; ++i) {
             Pair* pair = new_pair();
             if (pair)
@@ -498,7 +511,7 @@ void decode_array(Array* array, util::ByteReader& reader)
             array->set_pair(i, pair);
         }
         break;
-    case kQbvalVector:
+    case QbValueKind::kVector:
         for (uint32_t i = 0; i < count; ++i) {
             Vector* vector = alloc_script_vector();
             if (vector)
@@ -509,7 +522,7 @@ void decode_array(Array* array, util::ByteReader& reader)
             array->set_vector(i, vector);
         }
         break;
-    case kQbvalStruct:
+    case QbValueKind::kStruct:
         for (uint32_t i = 0; i < count; ++i) {
             gsl::owner<Struct*> inner = spawn_param_bag();
             if (inner)
@@ -518,7 +531,7 @@ void decode_array(Array* array, util::ByteReader& reader)
             array->set_cell(i, Cell::of(inner));
         }
         break;
-    case kQbvalArray:
+    case QbValueKind::kArray:
         for (uint32_t i = 0; i < count; ++i) {
             gsl::owner<Array*> inner = alloc_script_array();
             if (inner)

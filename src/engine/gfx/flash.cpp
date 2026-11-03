@@ -28,7 +28,7 @@ constexpr std::size_t kFlashVertexBytes = 0x1C;
 static_assert(sizeof(FlashVertex) == kFlashVertexBytes, "the draw's stride");
 
 // A render state by the renderer's numbering (change_phase).
-void set_sampler_state(int state, int value) { change_phase(static_cast<RenderStateId>(state), static_cast<uint32_t>(value)); }
+void set_sampler_state(RenderStateId state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
 
 } // namespace
 
@@ -54,13 +54,13 @@ void draw_flash(const Flash* flash)
     // (without a texture the original leaves u/v unset; they aren't used then)
     if (const BitmapTexture* texture = flash->texture) {
         set_texture(0, image_of(texture)->texture); // (the original also passes 0, unused)
-        set_sampler_state(4, kClampBothWays);
+        set_sampler_state(RenderStateId::kAddressMode0, kClampBothWays);
     } else {
         set_texture(0, nullptr);
     }
     choose_blend_mode(kBlendModeAlpha);
-    set_sampler_state(1, 0);
-    set_sampler_state(2, 0);
+    set_sampler_state(RenderStateId::kZWrite, 0);
+    set_sampler_state(RenderStateId::kZTest, 0);
     set_pixel_shader(nullptr, nullptr); // (no pixel shader)
     set_vertex_format(kScreenVertexFormat);
     renderer().count_draw(2); // the frame's draw calls and triangles

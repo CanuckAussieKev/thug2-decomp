@@ -47,7 +47,7 @@ public:
     // 0x00408060: an asset of `type` from data in memory (load_from_buffer with `data`, `size`, `copy`, `params`,
     // `structure`); `group` is the checksum of an asset it depends on. Returns the asset's data, or null if it failed
     // (the asset deleted - unless the script integer 0x25DC7904 is set, a debug leftover).
-    void* read_resource_from_stream(checksums::Name resource, int type, checksums::Name group_name, void* data, uint32_t size,
+    void* read_resource_from_stream(checksums::Name resource, ResourceKind type, checksums::Name group_name, void* data, uint32_t size,
                                     bool permanent, bool copy, void* params, void* structure);
     // An asset's checksum and its group.
     struct AssetKey {
@@ -57,10 +57,10 @@ public:
 
     // 0x00408440: an asset loaded from a file (Load with `name`, `async`, `use_archive`, `params`, `structure`). A zero
     // checksum is the name's, a zero type the extension's. An async one goes on the pending list.
-    void* load_asset(const char* name, int type, AssetKey asset_key, bool async, bool use_archive,
+    void* load_asset(const char* name, ResourceKind type, AssetKey asset_key, bool async, bool use_archive,
                      bool permanent, void* params, void* structure);
     // 0x004087B0: the asset's data if it's there (waiting for it to load), else LoadAsset.
-    void* fetch_or_load_resource(const char* name, int type, uint32_t checksum, uint32_t group, bool async,
+    void* fetch_or_load_resource(const char* name, ResourceKind type, uint32_t checksum, uint32_t group, bool async,
                                  bool use_archive, bool permanent, void* params, void* structure);
     // 0x00408870: an animation by name (its checksum `base` + `offset` if `base` isn't zero); false if one with
     // that checksum is there already or loading failed.
@@ -74,11 +74,11 @@ public:
     // 0x00407F20: every asset (or only those not permanent) unloaded, both lists from the tail.
     void unload_all_assets(bool all);
     // 0x00407F50: the same for one type.
-    void unload_all_assets_of_type(bool all, int type);
+    void unload_all_assets_of_type(bool all, ResourceKind type);
     // 0x00407CF0 / 0x00407D40: one list's (from its tail round to `head`). The second gathers first (at most 100:
     // more would overrun the original's array).
     void unload_assets_in_list(Resource* head, bool all);
-    void unload_assets_of_type(Resource* head, bool all, int type);
+    void unload_assets_of_type(Resource* head, bool all, ResourceKind type);
 
     // 0x00407B90: the asset, waiting for it to finish loading (null if there's none).
     Resource* obtain_loaded_item(uint32_t checksum, int unused);
@@ -103,7 +103,7 @@ public:
     // 0x00407A80: `asset` out of the circular list `*head` (false if it isn't in it).
     static bool remove_from_list(Resource** head, Resource* asset);
     // 0x004079C0: the type of a file name's extension (0 if none matches; thiscall, the manager unused).
-    int get_type_from_extension(const char* name);
+    ResourceKind get_type_from_extension(const char* name);
 
     // The fields other code reads and sets.
     [[nodiscard]] int unknown18() const { return unknown18_; }

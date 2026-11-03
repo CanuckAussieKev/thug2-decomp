@@ -182,7 +182,8 @@ target_link_libraries(thug2_options INTERFACE Microsoft.GSL::GSL)
 target_compile_definitions(thug2_options INTERFACE WIN32_LEAN_AND_MEAN NOMINMAX DIRECTINPUT_VERSION=0x0800)
 target_include_directories(thug2_options INTERFACE src)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md)
-target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
+# /w14062: an enumerator that a switch over its enum leaves out (a switch that lists every case has no default)
+target_compile_options(thug2_options INTERFACE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
 
 # The file formats: readers and writers of the game's data files, saves and custom parks (round-trip checked by
 # thug2_format_check).
@@ -932,7 +933,7 @@ add_dependencies(thug2 editor_fonts build_info)
 target_link_libraries(thug2 PRIVATE thug2_wire thug2_formats sdl2 ws2_32 dsound dinput8 dxguid ole32 imgui lzham gamespy_sdk d3dx9 d3d9 winmm)
 # /w14456 /w14457 /w14458: a local or parameter that hides a local, a parameter or a member (docs/style-guide.md);
 # /we4150: deleting a pointer to an incomplete type (no destructor runs, the global operator delete frees it) is an error
-target_compile_options(thug2 PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /we4150)
+target_compile_options(thug2 PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062 /we4150)
 # The DLLs the exe needs, next to it: d3dx9_43.dll (the package's Microsoft-distributable runtime; see
 # THIRD_PARTY_NOTICES.md), SDL2.dll and SDL's controller mappings.
 add_custom_command(TARGET thug2 POST_BUILD
@@ -949,21 +950,21 @@ add_executable(thug2_format_check
     src/formats/check/format_check_files.cpp)
 target_link_libraries(thug2_format_check PRIVATE thug2_wire thug2_formats)
 target_include_directories(thug2_format_check PRIVATE src)
-target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
+target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
 
 # NOT ORIGINAL - thug2_maths_check.exe: the plain C++ that replaced the x87 inline assembly compared with that
 # assembly over many inputs (src/tests/maths_check.cpp; the reference half needs MSVC for 32-bit x86).
 add_executable(thug2_maths_check src/tests/maths_check.cpp)
 target_include_directories(thug2_maths_check PRIVATE src)
 target_link_libraries(thug2_maths_check PRIVATE thug2_formats Microsoft.GSL::GSL)
-target_compile_options(thug2_maths_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
+target_compile_options(thug2_maths_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
 
 # NOT ORIGINAL - thug2_parse_check.exe: the number parsing that replaced atoi / atol / atof (engine/core/
 # parse_number.h) compared with the C runtime's over many texts (src/tests/parse_check.cpp).
 add_executable(thug2_parse_check src/tests/parse_check.cpp)
 target_include_directories(thug2_parse_check PRIVATE src)
 target_link_libraries(thug2_parse_check PRIVATE thug2_formats Microsoft.GSL::GSL)
-target_compile_options(thug2_parse_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
+target_compile_options(thug2_parse_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458 /w14062)
 
 # NOT ORIGINAL - thug2_printf_check.exe: the printf-style formatting without C varargs (engine/core/format.h) compared
 # with the C runtime's snprintf over every conversion, flag, width, precision and edge value (src/tests/printf_check.cpp).

@@ -360,7 +360,7 @@ void RiderChaseView::tick_frame()
             auto reach_x = static_cast<float>(side.x * static_cast<double>(kLipReach));
             const maths::Vec4 end(start.x - reach_x, start.y - reach_y, static_cast<float>(start_z) - reach_z,
                                   static_cast<float>(start_w - reach_w));
-            feeler.set_excluded({.ignore = render::kCameraIgnoredFaceFlags, .require = 0});
+            feeler.set_excluded({.ignore = render::kCameraIgnoredFaceFlags, .require = render::kNoFaceFlags});
             if (feeler.get_collision_along(&start, &end, true)) {
                 const float first_distance = feeler.reach();
                 orient.rotate_y(lip_turn() * -kLipTurnFactor);

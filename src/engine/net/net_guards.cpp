@@ -7,6 +7,7 @@
 #include <span>
 #include <unordered_set>
 
+#include "engine/core/enum_ops.h"
 #include "wire/gamenet_messages.h"
 #include "wire/skater_messages.h"
 #include "engine/net/net_dispatcher.h"
@@ -61,13 +62,13 @@ bool game_mode_exists(uint32_t mode)
 bool script_exists(uint32_t name)
 {
     const script::SymbolTableEntry* symbol = script::resolve_symbol(name);
-    return symbol && symbol->type() == script::kQbvalScriptBody;
+    return symbol && symbol->type() == script::QbValueKind::kScriptBody;
 }
 
 int leave_server(net::InboundMsgCtx* context)
 {
     net::InboundMsgCtx moved = *context;
-    moved.set_type_code(online::kMsgMovedOn);
+    moved.set_type_code(online::MessageId::kMovedOn);
     return modules::SkateNet::handle_server_removed_you(&moved);
 }
 
@@ -79,9 +80,10 @@ Lookups& current_lookups()
 }
 
 // Each name logged once (a THUGPRO player can send the same animation many times a second).
-void log_once(uint8_t id, uint32_t name, const char* what)
+void log_once(net::wire::MessageId message, uint32_t name, const char* what)
 {
     static std::unordered_set<uint64_t> logged;
+    const uint8_t id = core::to_underlying(message);
     if (logged.size() < kLoggedLimit && logged.insert(static_cast<uint64_t>(id) << kIdShift | name).second)
         get_log("network guard (THUGPRO, TP-R8): message 0x%02X %s 0x%08X", id, what, name);
 }
@@ -107,24 +109,24 @@ void set_lookups(const Lookups& lookups) { current_lookups() = lookups; }
 
 int check_received_message(net::InboundMsgCtx* context)
 {
-    const uint8_t id = context->type_code();
+    const auto id = context->type_code();
     // How many bytes each check reads.
     uint32_t needed = 0;
     switch (id) {
-    case kMsgPlayAnim:
+    case MessageId::kPlayAnim:
         needed = kAnimOffset + 4;
         break;
-    case kMsgCreateSpecialItem:
-    case kMsgDestroySpecialItem:
+    case MessageId::kCreateSpecialItem:
+    case MessageId::kDestroySpecialItem:
         needed = kSpecialItemDetails + 4;
         break;
-    case kMsgSessionBrief:
+    case MessageId::kSessionBrief:
         needed = kSessionBriefLevelAt + 4;
         break;
-    case kMsgStartGame:
+    case MessageId::kStartGame:
         needed = kStartGameTypeAt + 4;
         break;
-    case kMsgLevelSwitch:
+    case MessageId::kLevelSwitch:
         needed = kChangeLevelLevel + 4;
         break;
     default:
@@ -136,7 +138,7 @@ int check_received_message(net::InboundMsgCtx* context)
         return kDispatch;
     }
     switch (id) {
-    case kMsgPlayAnim: {
+    case MessageId::kPlayAnim: {
         const uint32_t animation = read32(context, kAnimOffset);
         if (!current_lookups().animation_loaded_(animation)) {
             log_once(id, animation, "names an animation that isn't loaded, played as default:");
@@ -144,8 +146,8 @@ int check_received_message(net::InboundMsgCtx* context)
         }
         return kDispatch;
     }
-    case kMsgCreateSpecialItem:
-    case kMsgDestroySpecialItem: {
+    case MessageId::kCreateSpecialItem:
+    case MessageId::kDestroySpecialItem: {
         const uint32_t details = read32(context, kSpecialItemDetails);
         if (!current_lookups().structure_exists_(details)) {
             log_once(id, details, "names special item details that don't exist, dropped:");
@@ -153,7 +155,7 @@ int check_received_message(net::InboundMsgCtx* context)
         }
         return kDispatch;
     }
-    case kMsgSessionBrief: {
+    case MessageId::kSessionBrief: {
         const uint32_t level = read32(context, kSessionBriefLevelAt);
         if (!current_lookups().script_exists_(level)) {
             log_once(id, level, "names a level we haven't, leaving the server: load script");
@@ -166,7 +168,7 @@ int check_received_message(net::InboundMsgCtx* context)
         }
         return kDispatch;
     }
-    case kMsgStartGame: {
+    case MessageId::kStartGame: {
         const uint32_t mode = read32(context, kStartGameTypeAt);
         if (!current_lookups().game_mode_exists_(mode)) {
             log_once(id, mode, "names a game mode we haven't, played as free skate:");
@@ -174,7 +176,7 @@ int check_received_message(net::InboundMsgCtx* context)
         }
         return kDispatch;
     }
-    case kMsgLevelSwitch: {
+    case MessageId::kLevelSwitch: {
         const uint32_t level = read32(context, kChangeLevelLevel);
         if (!current_lookups().script_exists_(level)) {
             log_once(id, level, "names a level we haven't, leaving the server: load script");

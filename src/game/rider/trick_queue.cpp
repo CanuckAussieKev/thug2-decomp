@@ -51,7 +51,6 @@ constexpr int kDefaultSqueezeDuration = 15;
 constexpr std::size_t kNameBytes = 100;
 constexpr int kTriggerLookback = 5;              // a trigger counts if it was pressed this long ago (the window is negative)
 constexpr int kTriggerKindHeld = 8;
-constexpr unsigned kTypeBitsMask = 0xFE;         // a component's type with the flag bit off
 constexpr float kBlendInRate = 2.0f;
 
 constexpr uint32_t kTrick = 0x270F56E1;
@@ -193,7 +192,7 @@ void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
         RiderIdentity::SpecialTrick special;
         profile->get_special_trick(&special, i);
         if (!special.is_vacant())
-            mappings->add_component_of_type(special.keys(), special.flag() ? script::kQbvalInteger : script::kQbvalName,
+            mappings->add_component_of_type(special.keys(), special.flag() ? script::QbValueKind::kInteger : script::QbValueKind::kName,
                                             special.trick());
     }
     mappings->append_structure_if_any(profile->fetch_details_params(kTrickMapping));
@@ -678,7 +677,7 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
         core::at(extra_.arrays_, 0) = tricks;
     } else {
         for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-            if (c->name == 0 && (c->type_and_flag_ & kTypeBitsMask) == script::kQbvalName << 1)
+            if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName)
                 core::at(extra_.arrays_, count++) = c->value.word();
         }
     }

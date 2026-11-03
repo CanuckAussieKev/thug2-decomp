@@ -24,10 +24,11 @@ namespace objects {
 constexpr std::size_t kUnknown14Bytes = 0x10;
 constexpr std::size_t kPathRingSize = 64;
 
-using EmitterShape = uint8_t;
-constexpr int kEmitterShapeBox = 0;    // the sector's box (Shape 0xE460ABDE)
-constexpr int kEmitterShapeOther = 1;  // (Shape 0x03F1E5A7: never inside, no nearest point)
-constexpr int kEmitterShapeSphere = 2; // (the default, and Shape 0xAA069978)
+enum class EmitterShape : uint8_t {
+    kBox = 0, // the sector's box (Shape 0xE460ABDE)
+    kOther = 1, // (Shape 0x03F1E5A7: never inside, no nearest point)
+    kSphere = 2, // (the default, and Shape 0xAA069978)
+};
 
 struct EmitterNode {
 
@@ -35,7 +36,8 @@ struct EmitterNode {
     maths::Vec4 at_point_{}; // +0x04
     std::array<uint8_t, kUnknown14Bytes> unknown14_{};
     bool active_{};    // +0x24
-    int form_{};       // +0x28 EmitterShape
+    EmitterShape form_{}; // +0x28 (the original's int: the rest is zero)
+    std::array<uint8_t, 3> unknown29_{};
     float radius_{};   // +0x2C
     float reach_sq_{}; // +0x30
     void* sector_{};   // +0x34

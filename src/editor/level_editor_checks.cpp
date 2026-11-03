@@ -24,6 +24,7 @@
 #include <utility>
 #include <array>
 
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_clusters.h"
@@ -820,9 +821,9 @@ MpCounts count_multiplayer(bool shipped)
         if (shipped ? n.added : n.hidden)
             continue;
         if (n.family == nodes::Family::kSpawn) {
-            counts.player1 += (n.restart_types_ & nodes::kPlayer1) != 0;
-            counts.multiplayer += (n.restart_types_ & nodes::kMultiplayer) != 0;
-            counts.horse += (n.restart_types_ & nodes::kHorse) != 0;
+            counts.player1 += core::any(n.restart_types_ & nodes::SpawnPointKind::kPlayer1);
+            counts.multiplayer += core::any(n.restart_types_ & nodes::SpawnPointKind::kMultiplayer);
+            counts.horse += core::any(n.restart_types_ & nodes::SpawnPointKind::kHorse);
         }
         if (n.type == kCrown)
             ++counts.crowns;

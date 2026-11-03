@@ -81,7 +81,7 @@ void end_query_draw(uint8_t query)
 {
     os_layer::end_occlusion_query(query);
     renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
-    change_phase(kZWrite, 1);
+    change_phase(RenderStateId::kZWrite, 1);
 }
 
 } // namespace
@@ -128,7 +128,7 @@ uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_
 {
     if (renderer().radeon8500() || !query)
         return 0;
-    change_phase(kZWrite, 0);
+    change_phase(RenderStateId::kZWrite, 0);
     renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
     begin_query_draw(D3DFVF_XYZ | D3DFVF_DIFFUSE);
     for (QueryPointVertex& vertex : pc_viewport_state().query_point_strip_)
@@ -150,7 +150,7 @@ uint8_t PcViewport::query_rect(maths::Rect box, RectQuery rect_query)
     if (renderer().radeon8500() || !query)
         return 0;
     renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);
-    change_phase(kZWrite, 0);
+    change_phase(RenderStateId::kZWrite, 0);
     begin_query_draw(D3DFVF_XYZRHW | D3DFVF_DIFFUSE);
     auto depth = static_cast<float>(static_cast<double>(z));
     pc_viewport_state().query_rect_strip_ = {{{.x = x0, .y = y0, .z = depth, .rhw = 1.0f, .colour = kWhiteVertex},

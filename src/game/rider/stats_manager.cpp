@@ -461,7 +461,7 @@ void AttributeTracker::tick_frame()
     cur_phase_ = kStateOther;
     const RiderPoseState* control_state = physics_control_->pose();
     const maths::Vec4& pos = entity()->at_point();
-    if (!control_state->in_vehicle() && control_state->physics_mode() == 0) {
+    if (!control_state->in_vehicle() && control_state->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating) {
         if (skater_state_->flag(PoseFlag::kVertAir).on) {
             cur_phase_ = kStateLaunched;
             if (last_state_ != kStateLaunched) {

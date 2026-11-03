@@ -79,7 +79,6 @@
 
 namespace {
 constexpr size_t kPasswordStarsBytes = 32;
-constexpr int kAssetKindNodeArray = 11;
 // The tracking lines of a camera dump: "\nTracking", a digit and a line end; the line types' colours and reach.
 constexpr int kTrackingMarkerLength = 9;
 constexpr size_t kTrackingLineSkip = 11;
@@ -437,7 +436,7 @@ bool cfunc_node_array_man_load(script::Struct* params, script::Script*)
     const char* file = nullptr;
     params->fetch_text(0u, &file, 1);
     text::copy_unbounded(script::script_state().node_list_name().data(), file);
-    assets::asset_manager()->load_asset(file, kAssetKindNodeArray, {.checksum = 0, .group = 0}, false, false, false, nullptr, nullptr);
+    assets::asset_manager()->load_asset(file, assets::ResourceKind::kOwnedNodeArray, {.checksum = 0, .group = 0}, false, false, false, nullptr, nullptr);
     debug::printf("p_file = %s\n", file); // "p_file = %s\n"
     return true;
 }

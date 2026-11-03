@@ -37,25 +37,32 @@ namespace script {
 class Script;
 
 // What Update returns.
-using ScriptOutcome = uint8_t;
-constexpr int kScriptOutcomeFinished = 0;  // no code left (the script has ended or was never set)
-constexpr int kScriptOutcomeBlocked = 1;   // waiting with kSuspendOnBlock or kWaitTypeRealTimer
-constexpr int kScriptOutcomeSuspended = 2; // any other wait
-// (3 and 4 are never returned by this build)
-constexpr int kScriptOutcomeEndedByInterrupt = 5; // an interrupt (Interrupt / OnExitRun script) returned
+enum class ScriptOutcome : uint8_t {
+    kFinished = 0,  // no code left (the script has ended or was never set)
+    kBlocked = 1,   // waiting with BlockReason::kBlock or kRealTimer
+    kSuspended = 2, // any other wait
+    // (3 and 4 are never returned by this build)
+    kEndedByInterrupt = 5, // an interrupt (Interrupt / OnExitRun script) returned
+};
 
 // suspend_reason_: what the script waits for before its next statement (checked by update_wait, 0x00473050).
-using BlockReason = uint8_t;
-constexpr int kSuspendOnNothing = 0;
-constexpr int kSuspendOnCount = 1; // suspend_frames_left_ more Updates (Wait n frames: 0x00472BD0)
-constexpr int kSuspendOnTimer = 2; // suspend_clock_ seconds of slomo frame time (Wait n seconds: 0x00472C10)
-constexpr int kSuspendOnBlock = 3; // until unblocked - by an event of type suspend_arg_ (Block: 0x00472FD0) or by hand
-constexpr int kWaitTypeRealTimer = 4; // suspend_clock_ ms of the game clock since suspend_arg_ (0x00473310)
-// 5-10: waiting on blocking_module_, which is asked every Update (its vtable +0x18) - the object waits
-// (move, anim, jump, stop, rotate, stream finished...; set by set_wait_on_component 0x004739A0).
-constexpr int kWaitTypeObjectFirst = 5;
-constexpr int kWaitTypeObjectLast = 10;
-constexpr int kSuspendOnFrame = 11; // like COUNTER, but at 0 only one such script per frame goes on (0x006F352C)
+// A word in the script (a call frame keeps its low 4 bits); 12-15 are never set.
+enum class BlockReason : uint8_t {
+    kNothing = 0,
+    kCount = 1,     // suspend_frames_left_ more Updates (Wait n frames: 0x00472BD0)
+    kTimer = 2,     // suspend_clock_ seconds of slomo frame time (Wait n seconds: 0x00472C10)
+    kBlock = 3,     // until unblocked - by an event of type suspend_arg_ (Block: 0x00472FD0) or by hand
+    kRealTimer = 4, // suspend_clock_ ms of the game clock since suspend_arg_ (0x00473310)
+    // 5-10: waiting on blocking_module_, which is asked every Update (its vtable +0x18) - the object waits
+    // (move, anim, jump, stop, rotate...; set by set_wait_on_component 0x004739A0).
+    kMove = 5,
+    kAnimDone = 6,
+    kJump = 7,
+    kPathStop = 8,
+    kRotate = 9,
+    kOtherObject = 10, // (nothing here sets it; the component is asked all the same)
+    kFrame = 11,       // like COUNTER, but at 0 only one such script per frame goes on (0x006F352C)
+};
 
 constexpr size_t kRepeatFrameBytes = 0x10;
 constexpr size_t kRepeatFrameArgsSeenOffset = 0x8;
@@ -127,7 +134,7 @@ struct ParamScript {
 static_assert(sizeof(ParamScript) == kParamScriptBytes, "allocated as 8 bytes by 0x0048B200");
 
 constexpr size_t kMemberFunctionEntryBytes = 0x18;
-// A member function's table entry (the value of a kQbvalNativeMethod symbol, token 0x46), 0x18 bytes: the
+// A member function's table entry (the value of a QbValueKind::kNativeMethod symbol, token 0x46), 0x18 bytes: the
 // tables at 0x00683550 (Entity's, filled in by 0x00642940) and 0x00683268 (GameEntity's, 0x006425D0).
 struct MemberFunctionEntry {
     uint32_t callsign_;
@@ -337,7 +344,7 @@ public:
     StructPtr& args() { return args_; }
     [[nodiscard]] const StructPtr& args() const { return args_; }
     [[nodiscard]] int call_depth() const { return call_depth_; }
-    [[nodiscard]] uint32_t suspend_reason() const { return suspend_reason_; }
+    [[nodiscard]] BlockReason suspend_reason() const { return suspend_reason_; }
     [[nodiscard]] uint32_t unique_id() const { return unique_id_; }
     [[nodiscard]] int list_link() const { return list_link_; }
     void set_list_link(int value) { list_link_ = value; }
@@ -375,7 +382,8 @@ private:
     bool suspend_clock_started_;           // +0x9C kSuspendOnTimer: the first Update has been
     std::array<uint8_t, 3> unknown9d_;
     float suspend_clock_;     // +0xA0 kSuspendOnTimer seconds left / REAL_TIMER ms
-    uint32_t suspend_reason_; // +0xA4 BlockReason
+    BlockReason suspend_reason_; // +0xA4 (the original's u32: the rest is zero)
+    std::array<uint8_t, 3> unknowna5_;
     uint32_t suspend_arg_;    // +0xA8 BLOCKED: the event type; REAL_TIMER: the start; 5-10: for the component
     objects::ObjectModule* blocking_module_; // +0xAC types 5-10
     uint32_t unique_id_;                     // +0xB0 from 0x006F3540

@@ -113,7 +113,7 @@ void ActivationZoneModule::tick_frame()
     render::ProbeRay feeler;
     feeler.line().start = last_pos_;
     feeler.line().end = entity()->at_point();
-    feeler.set_excluded({.ignore = 0, .require = render::kTriggerVolumeFaceFlags});
+    feeler.set_excluded({.ignore = render::kNoFaceFlags, .require = render::kTriggerVolumeFaceFlags});
     feeler.set_callback([](render::ProbeRay* hit) { (void)feeler_hit(hit); });
     feeler.set_user_data(this);
     feeler.get_hit_shape(true, false);
@@ -131,14 +131,14 @@ int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* p
     // One integer array, or an array of them - any one of which may match.
     script::Array* arrays = nullptr;
     uint32_t count = 1;
-    if (array->kind_tag() == script::kQbvalArray) {
+    if (array->kind_tag() == script::QbValueKind::kArray) {
         count = array->extent();
         arrays = array;
     }
     for (uint32_t i = 0; i < count; ++i) {
         if (arrays)
             array = arrays->array_at(i);
-        if (array->kind_tag() != script::kQbvalInteger)
+        if (array->kind_tag() != script::QbValueKind::kInteger)
             return 0;
         uint32_t wanted = 0;
         for (int k = 0; k < ints::as_signed(array->extent()); ++k) {

@@ -3,6 +3,7 @@
 // The messages a NetLink::Conn's queues share (PendingMsg, SeqQueuedMsg) and the queue links' common part. NetLink::AppHost's
 // methods 0x00456910-0x00457EB0 are defined in net_app_view.cpp (App: net_app.h; Conn: net_conn.h).
 
+#include "wire/message_ids.h"
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -18,21 +19,21 @@ namespace net {
 struct PendingMsg {
     // 0x00454FA0: a copy of `data` (`length` bytes; none if 0). With a compression method (1 RLE, 2 LZSS) the
     // copy is compressed if that makes it smaller: the id becomes 0x12 (compressed) and the length shrinks.
-    PendingMsg(uint8_t id, uint16_t length, const void* data, uint8_t compression);
+    PendingMsg(wire::MessageId id, uint16_t length, const void* data, uint8_t compression);
     // 0x004550F0 (SeqQueuedMsg's too): the data freed.
     ~PendingMsg();
     PendingMsg(const PendingMsg&) = delete;
     PendingMsg& operator=(const PendingMsg&) = delete;
 
     // The fields other code reads and sets.
-    [[nodiscard]] uint8_t ident() const { return ident_; }
+    [[nodiscard]] wire::MessageId ident() const { return ident_; }
     [[nodiscard]] uint16_t byte_count() const { return byte_count_; }
     [[nodiscard]] uint8_t* content() const { return content_; }
     int& share_count() { return share_count_; }
     [[nodiscard]] int share_count() const { return share_count_; }
 
 private:
-    uint8_t ident_;       // +0x00
+    wire::MessageId ident_; // +0x00
     uint16_t byte_count_; // +0x02
     uint8_t* content_{nullptr}; // +0x04
     int share_count_{0};        // +0x08
@@ -41,27 +42,27 @@ struct SeqQueuedMsg {
     // 0x00455040: as PendingMsg's, with the +0x08 byte.
     // A sequenced message's group byte and whether it is compressed.
     struct Options {
-        uint8_t byte8{};
+        wire::MessageGroup group{};
         uint8_t compression{};
     };
-    SeqQueuedMsg(uint8_t id, uint16_t length, const void* data, Options options);
+    SeqQueuedMsg(wire::MessageId id, uint16_t length, const void* data, Options options);
     // (0x004550F0: PendingMsg's destructor - the data freed)
     ~SeqQueuedMsg();
     SeqQueuedMsg(const SeqQueuedMsg&) = delete;
     SeqQueuedMsg& operator=(const SeqQueuedMsg&) = delete;
 
     // The fields other code reads and sets.
-    [[nodiscard]] uint8_t ident() const { return ident_; }
+    [[nodiscard]] wire::MessageId ident() const { return ident_; }
     [[nodiscard]] uint16_t byte_count() const { return byte_count_; }
     [[nodiscard]] uint8_t* content() const { return content_; }
     int& share_count() { return share_count_; }
     [[nodiscard]] int share_count() const { return share_count_; }
 
 private:
-    uint8_t ident_;       // +0x00
+    wire::MessageId ident_; // +0x00
     uint16_t byte_count_; // +0x02
     uint8_t* content_{nullptr}; // +0x04
-    uint8_t byte8_;       // +0x08 (the constructor's 4th argument)
+    wire::MessageGroup group_; // +0x08 (the constructor's 4th argument: the group)
     int share_count_{0};  // +0x0C
 };
 

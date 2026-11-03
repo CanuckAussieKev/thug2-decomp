@@ -9,6 +9,8 @@
 #include <iterator>
 #include <span>
 
+#include "wire/message_ids.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/lists/chain_start.h"
@@ -76,7 +78,7 @@ void Router::tear_down_state()
 }
 
 // 0x0045A5C0
-NoteHandler* Router::append_listener(uint8_t id, HandlerSlotValue code, uint32_t flags, void* data, int priority)
+NoteHandler* Router::append_listener(wire::MessageId id, HandlerSlotValue code, uint32_t flags, void* data, int priority)
 {
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->network_heap());
@@ -88,7 +90,7 @@ NoteHandler* Router::append_listener(uint8_t id, HandlerSlotValue code, uint32_t
         handler->set_mode_bits(flags);
     }
     // (a failed allocation reaches append_vertex as null and crashes there, as in the original)
-    lists::append_vertex(link_chain(id), handler ? &handler->list_link() : nullptr);
+    lists::append_vertex(link_chain(core::to_underlying(id)), handler ? &handler->list_link() : nullptr);
     memory::Hub::get_pull()->leave_heap_scope();
     return handler;
 }
@@ -102,7 +104,7 @@ int Router::dispatch_msg(InboundMsgCtx* context)
         return guarded;
     lists::Hunt<NoteHandler> search;
     const NoteHandler* next = nullptr;
-    for (const NoteHandler* handler = search.head_element(&link_chain(context->type_code())); handler;
+    for (const NoteHandler* handler = search.head_element(&link_chain(core::to_underlying(context->type_code()))); handler;
          handler = next) {
         next = search.following_item();
         if ((handler->mode_bits() & context->wire_options()) != context->wire_options())
@@ -140,7 +142,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
     // (the messages one after another: net_wire.h)
     util::ByteReader packet(std::span<const uint8_t>(filled(conn->incoming())));
     for (; packet.ok() && packet.remaining() > 0; packet.skip(context.body_size())) {
-        context.set_type_code(packet.u8());
+        context.set_type_code(static_cast<wire::MessageId>(packet.u8()));
         Hub* table = fetch_hub(conn->owner_app());
         const bool has_length = !(message_flags(table, context.type_code()) & kMsgNoLength);
         if (has_length) {
@@ -150,8 +152,8 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
                 break;
         } // (else the length stays what the previous message had)
         const uint8_t* p = packet.cursor();
-        if (context.type_code() == wire::kMsgSequenced) // counted by the message inside
-            add_message_metric(metrics, *std::next(p, kSequencedInnerIdOffset), context.body_size());
+        if (context.type_code() == wire::MessageId::kSequenced) // counted by the message inside
+            add_message_metric(metrics, static_cast<wire::MessageId>(*std::next(p, kSequencedInnerIdOffset)), context.body_size());
         if (has_length) {
             if (context.body_size())
                 std::memcpy(buffer.data(), p, context.body_size());
@@ -170,7 +172,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
         }
         if (result == kResultMsgFreed)
             return kResultMsgFreed; // (the connection is gone)
-        if (context.type_code() != wire::kMsgSequenced)
+        if (context.type_code() != wire::MessageId::kSequenced)
             add_message_metric(metrics, context.type_code(), context.body_size());
         // (handlers may have changed the length: the timestamp and ack handlers set it)
     }
@@ -182,7 +184,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
             auto sequence = static_cast<uint16_t>(core::at(context.sequences_to_ack(), i));
             desc.set_content(&sequence);
             desc.set_byte_count(sizeof(sequence));
-            desc.set_ident(wire::kMsgAck);
+            desc.set_ident(wire::MessageId::kAck);
             put_on_outbox(context.receiver_app(), context.sender_conn()->hdl(), &desc);
         }
     }

@@ -556,7 +556,7 @@ void get_put4(std::vector<uint8_t>* out, uint32_t value)
 }
 void put_name(std::vector<uint8_t>* out, uint32_t checksum)
 {
-    out->push_back(script::kTokenName);
+    out->push_back(script::token_byte(script::QbToken::kName));
     get_put4(out, checksum);
 }
 } // namespace
@@ -568,13 +568,13 @@ std::vector<uint8_t> speed_body(SpeedChange speed_change)
     std::vector<uint8_t> out;
     if (original) {
         put_name(&out, original);
-        out.push_back(script::kTokenAllArguments); // (<...>: its arguments passed on)
+        out.push_back(script::token_byte(script::QbToken::kAllArguments)); // (<...>: its arguments passed on)
         out.push_back(0x01);
     }
     put_name(&out, checksums::hash_from_text("ed_RailSpeed"));
     put_name(&out, checksums::hash_from_text("rate"));
-    out.push_back(script::kTokenEquals);
-    out.push_back(script::kTokenFloat);
+    out.push_back(script::token_byte(script::QbToken::kEquals));
+    out.push_back(script::token_byte(script::QbToken::kFloat));
     auto bits = std::bit_cast<uint32_t>(rate);
     get_put4(&out, bits);
     out.push_back(0x01);
@@ -585,17 +585,17 @@ std::vector<uint8_t> speed_qb_file(const std::vector<SpeedScript>& scripts)
 {
     std::vector<uint8_t> out;
     for (const SpeedScript& s : scripts) {
-        out.push_back(script::kTokenScriptStart);
+        out.push_back(script::token_byte(script::QbToken::kScriptStart));
         put_name(&out, checksums::hash_from_text(speed_script_name(s.node).c_str()));
         out.push_back(0x01);
         std::vector<uint8_t> body = speed_body({.original = s.original, .rate = s.rate});
         out.insert(out.end(), body.begin(), body.end());
-        out.push_back(script::kTokenScriptEnd);
+        out.push_back(script::token_byte(script::QbToken::kScriptEnd));
         out.push_back(0x01);
     }
     for (const SpeedScript& s : scripts) {
         std::string name = speed_script_name(s.node);
-        out.push_back(script::kTokenChecksumName);
+        out.push_back(script::token_byte(script::QbToken::kChecksumName));
         get_put4(&out, checksums::hash_from_text(name.c_str()));
         out.insert(out.end(), name.begin(), name.end());
         out.push_back(0x00);
@@ -866,7 +866,7 @@ std::vector<uint32_t> own_links(script::Struct* node)
         return links;
     for (const script::Component* c = node->head(); c; c = c->next) {
         if (c->name == kLinks &&
-            (value_kind(*c) == script::kQbvalArray || value_kind(*c) == script::kEsymboltypeArraypointer) && c->value.array()) {
+            (value_kind(*c) == script::QbValueKind::kArray || value_kind(*c) == script::QbValueKind::kArrayRef) && c->value.array()) {
             links.clear();
             for (uint32_t i = 0; i < c->value.array()->extent(); ++i)
                 links.push_back(c->value.array()->fetch_part(i));
@@ -881,7 +881,7 @@ void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
     const script::Component* own = nullptr;
     for (const script::Component* c = node->head(); c; c = c->next) {
         if (c->name == kLinks &&
-            (value_kind(*c) == script::kQbvalArray || value_kind(*c) == script::kEsymboltypeArraypointer) && c->value.array())
+            (value_kind(*c) == script::QbValueKind::kArray || value_kind(*c) == script::QbValueKind::kArrayRef) && c->value.array())
             own = c;
     }
     if (links.empty()) {
@@ -890,7 +890,7 @@ void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
         return;
     }
     if (own) {
-        own->value.array()->configure_size_kind(static_cast<uint32_t>(links.size()), script::kQbvalName);
+        own->value.array()->configure_size_kind(static_cast<uint32_t>(links.size()), script::QbValueKind::kName);
         for (size_t i = 0; i < links.size(); ++i)
             own->value.array()->set_element(static_cast<uint32_t>(i), core::at(links, i));
         return;
@@ -899,7 +899,7 @@ void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
     if (!array)
         return;
     new (array) script::Array;
-    array->configure_size_kind(static_cast<uint32_t>(links.size()), script::kQbvalName);
+    array->configure_size_kind(static_cast<uint32_t>(links.size()), script::QbValueKind::kName);
     for (size_t i = 0; i < links.size(); ++i)
         array->set_element(static_cast<uint32_t>(i), core::at(links, i));
     node->append_array_ref(kLinks, array);
@@ -910,7 +910,7 @@ void write_pos(script::Struct* node, V3 pos)
 {
     const script::Component* own = nullptr;
     for (const script::Component* c = node->head(); c; c = c->next) {
-        if (c->name == kPos && value_kind(*c) == script::kQbvalVector && c->value.vector())
+        if (c->name == kPos && value_kind(*c) == script::QbValueKind::kVector && c->value.vector())
             own = c;
     }
     if (own) {
@@ -928,7 +928,7 @@ void write_angles(script::Struct* node, V3 angles)
     constexpr uint32_t kAngles = 0x9D2D0915; // angles
     const script::Component* own = nullptr;
     for (const script::Component* c = node->head(); c; c = c->next) {
-        if (c->name == kAngles && value_kind(*c) == script::kQbvalVector && c->value.vector())
+        if (c->name == kAngles && value_kind(*c) == script::QbValueKind::kVector && c->value.vector())
             own = c;
     }
     if (own) {
@@ -980,7 +980,7 @@ bool known_terrain(uint32_t terrain)
 {
     static const uint32_t kChecksumKey = name_hash("checksum");
     script::Array* types = script::fetch_list("Terrain_Types");
-    if (!types || types->kind_tag() != script::kQbvalStruct)
+    if (!types || types->kind_tag() != script::QbValueKind::kStruct)
         return false;
     for (uint32_t i = 0; i < types->extent(); ++i) {
         auto* entry = types->struct_at(i);
@@ -1040,7 +1040,7 @@ struct LevelEditorChainsState {
     // Drawing: the kind, the last point drawn (0: none yet). An armed pick: what for, and from which node.
     Blit draw_ = Blit::kNone;
     uint32_t draw_last_{};
-    ChainOp pick_ = kOpCancel;
+    ChainOp pick_ = ChainOp::kCancel;
     uint32_t pick_from_{};
     // Drawing a ladder: its foot (once the first click found a wall) and its heading.
     bool ladder_have_foot_{};
@@ -1643,7 +1643,7 @@ void forget_level()
     level_editor_chains_state().remake_.clear();
     level_editor_chains_state().draw_ = Blit::kNone;
     level_editor_chains_state().draw_last_ = 0;
-    level_editor_chains_state().pick_ = kOpCancel;
+    level_editor_chains_state().pick_ = ChainOp::kCancel;
     level_editor_chains_state().ladder_have_foot_ = false;
     // (the rail manager and the trick object manager are the level's: they go with it)
     extras_state().clear();
@@ -1764,7 +1764,7 @@ void apply_speeds()
     // The scripts: the fixed two (once - they stay defined), the points' when they change.
     static const uint32_t kRailSpeed = name_hash("ed_RailSpeed");
     const script::SymbolTableEntry* fixed = script::resolve_symbol(kRailSpeed);
-    if (!fixed || fixed->type() != script::kQbvalScriptBody) {
+    if (!fixed || fixed->type() != script::QbValueKind::kScriptBody) {
         std::vector<uint8_t> qb = rail_speed_qb(); // (the loader may relocate a pre-compiled file in place)
         script::load_qb_data("editor\\thug2_decomp_railspeed.qb", qb, 0, 0, 0);
     }
@@ -2142,7 +2142,7 @@ bool ladder_op(ChainOp op, uint32_t name, const nodes::Elem& node, uint32_t arg,
         }
     }
     switch (op) {
-    case kOpDelete: {
+    case ChainOp::kDelete: {
         bool level = false;
         for (uint32_t point : points) {
             auto added = std::ranges::find_if(state.points, [&](const Point& p) { return name_hash(p.name) == point; });
@@ -2158,7 +2158,7 @@ bool ladder_op(ChainOp op, uint32_t name, const nodes::Elem& node, uint32_t arg,
         std::ranges::sort(state.dropped);
         return get_apply(state, message, level ? "Ladder hidden" : "Ladder deleted");
     }
-    case kOpTurn: {
+    case ChainOp::kTurn: {
         const int notches = static_cast<int>(arg);
         const float facing =
             node_edit::wrap_angle(facing_now(name) + static_cast<float>(notches) * (15.0f * 3.14159265f / 180.0f));
@@ -2171,7 +2171,7 @@ bool ladder_op(ChainOp op, uint32_t name, const nodes::Elem& node, uint32_t arg,
         const std::string done = text.data();
         return get_apply(state, message, done.c_str());
     }
-    case kOpFacingHome: {
+    case ChainOp::kFacingHome: {
         bool any = false;
         for (uint32_t point : points) {
             auto it = std::ranges::find_if(state.facings, [&](const FacingEdit& f) { return f.name == point; });
@@ -2209,9 +2209,9 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
 {
     *select = 0;
     message->clear();
-    if (op == kOpCancel) {
+    if (op == ChainOp::kCancel) {
         stop_drawing();
-        level_editor_chains_state().pick_ = kOpCancel;
+        level_editor_chains_state().pick_ = ChainOp::kCancel;
         *message = "Stopped";
         return false;
     }
@@ -2225,13 +2225,13 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
     const nodes::Elem node = core::at(nodes::get_all(), index);
     const nodes::Family family = node.family;
     const bool object = node.cls == pedestrian_class() || node.cls == vehicle_class();
-    if (op == kOpAssignArm || op == kOpUnassign) {
+    if (op == ChainOp::kAssignArm || op == ChainOp::kUnassign) {
         if (!object) {
             *message = "Only peds and cars have paths";
             return false;
         }
-        if (op == kOpAssignArm) {
-            level_editor_chains_state().pick_ = kOpAssignArm;
+        if (op == ChainOp::kAssignArm) {
+            level_editor_chains_state().pick_ = ChainOp::kAssignArm;
             level_editor_chains_state().pick_from_ = name;
             *message = "Click the first waypoint (Esc: cancel)";
             return false;
@@ -2261,7 +2261,7 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
     State state = at_hand();
     Graph graph = graph_of(family);
     switch (op) {
-    case kOpInsert: {
+    case ChainOp::kInsert: {
         const std::vector<uint32_t>& links = graph[name];
         if (links.empty()) {
             *message = "Last point: use Extend";
@@ -2277,7 +2277,7 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
         *select = made;
         return get_apply(state, message, "A point put halfway to the next (Ctrl+Z takes it away)");
     }
-    case kOpDelete: {
+    case ChainOp::kDelete: {
         drop_out(&graph, name);
         put_graph(&state, graph);
         if (node.added) {
@@ -2290,7 +2290,7 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
         }
         return get_apply(state, message, node.added ? "Point deleted" : "Point hidden");
     }
-    case kOpUnlink: {
+    case ChainOp::kUnlink: {
         if (!uncouple(&graph, name)) {
             *message = "It has no next point";
             return false;
@@ -2299,7 +2299,7 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
         *select = name;
         return get_apply(state, message, "Unlinked from its next point: the chain is split there");
     }
-    case kOpTerrain: {
+    case ChainOp::kTerrain: {
         if (family != nodes::Family::kRail) {
             *message = "Only rails have a terrain";
             return false;
@@ -2333,18 +2333,18 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
         *select = name;
         return get_apply(state, message, ("The rail's terrain is " + terrain + " now").c_str());
     }
-    case kOpExtend: {
+    case ChainOp::kExtend: {
         if (!is_last(graph, name) && !is_first(graph, name)) {
             *message = "Select an end point to extend";
             return false;
         }
         level_editor_chains_state().draw_ = family == nodes::Family::kRouteWay ? Blit::kRouteWay : ledge ? Blit::kLedge : Blit::kRail;
         level_editor_chains_state().draw_last_ = name;
-        level_editor_chains_state().pick_ = kOpCancel;
+        level_editor_chains_state().pick_ = ChainOp::kCancel;
         *message = "Click to add points (Enter: finish)";
         return false;
     }
-    case kOpTrickObject: {
+    case ChainOp::kTrickObject: {
         if (family != nodes::Family::kRail) {
             *message = "Only rails can be trick objects";
             return false;
@@ -2372,7 +2372,7 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
         *select = name;
         return get_apply(state, message, arg ? "Trick object on" : "Trick object off");
     }
-    case kOpGrindFlat: {
+    case ChainOp::kGrindFlat: {
         if (family != nodes::Family::kRail) {
             *message = "Only rails are ground";
             return false;
@@ -2402,18 +2402,18 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
         return get_apply(state, message,
                          arg ? "Grind on flat ground on" : "Ground beside it checked again, as the game does");
     }
-    case kOpSpeed:
-    case kOpSpeedRail: {
+    case ChainOp::kSpeed:
+    case ChainOp::kSpeedRail: {
         if (family != nodes::Family::kRail) {
             *message = "Only rails have speed-ups";
             return false;
         }
         const float rate = arg ? clamp_speed(static_cast<float>(arg) / 10000.0f) : 0.0f;
-        const std::vector<uint32_t> points = op == kOpSpeedRail ? chain_of(name) : std::vector<uint32_t>{name};
+        const std::vector<uint32_t> points = op == ChainOp::kSpeedRail ? chain_of(name) : std::vector<uint32_t>{name};
         int changed = 0;
         for (uint32_t point : points) {
             const objects::GrindPoint* rail = rail_node_named(point);
-            if (op == kOpSpeedRail && (!rail || !rail->succ()))
+            if (op == ChainOp::kSpeedRail && (!rail || !rail->succ()))
                 continue; // (a rail's last point has no segment of its own)
             bool added = false;
             for (Point& p : state.points) {
@@ -2443,7 +2443,7 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
             text::format_to(text, "Speed-up removed from %d segment%s", changed, changed == 1 ? "" : "s");
         return get_apply(state, message, text.data());
     }
-    case kOpHang: {
+    case ChainOp::kHang: {
         if (!ledge) {
             *message = "Only ledges have a side to hang from";
             return false;
@@ -2469,12 +2469,12 @@ bool apply_op(ChainOp op, uint32_t name, uint32_t arg, std::string* message, uin
                          : arg == static_cast<uint32_t>(kHangRight) ? "The ledge is hung from its right side"
                                                                     : "The game decides the ledge's side");
     }
-    case kOpLinkArm: {
+    case ChainOp::kLinkArm: {
         if (!is_last(graph, name) && !is_first(graph, name)) {
             *message = "Select an end point to link";
             return false;
         }
-        level_editor_chains_state().pick_ = kOpLinkArm;
+        level_editor_chains_state().pick_ = ChainOp::kLinkArm;
         level_editor_chains_state().pick_from_ = name;
         *message = "Click the end to link to (Esc: cancel)";
         return false;
@@ -2488,7 +2488,7 @@ void start_drawing(Blit kind)
 {
     level_editor_chains_state().draw_ = kind;
     level_editor_chains_state().draw_last_ = 0;
-    level_editor_chains_state().pick_ = kOpCancel;
+    level_editor_chains_state().pick_ = ChainOp::kCancel;
     level_editor_chains_state().ladder_have_foot_ = false;
 }
 Blit get_drawing() { return level_editor_chains_state().draw_; }
@@ -2720,15 +2720,15 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
     return true;
 }
 
-bool wants_pick() { return level_editor_chains_state().pick_ == kOpLinkArm || level_editor_chains_state().pick_ == kOpAssignArm; }
+bool wants_pick() { return level_editor_chains_state().pick_ == ChainOp::kLinkArm || level_editor_chains_state().pick_ == ChainOp::kAssignArm; }
 
 bool get_picked(uint32_t name, std::string* message, uint32_t* select)
 {
     *select = 0;
     const ChainOp pick = level_editor_chains_state().pick_;
-    level_editor_chains_state().pick_ = kOpCancel;
+    level_editor_chains_state().pick_ = ChainOp::kCancel;
     const uint32_t from = level_editor_chains_state().pick_from_;
-    if (pick == kOpLinkArm) {
+    if (pick == ChainOp::kLinkArm) {
         const nodes::Family family = family_of_name(from);
         if (family_of_name(name) != family) {
             *message = "Can only link chains of the same kind";
@@ -2744,7 +2744,7 @@ bool get_picked(uint32_t name, std::string* message, uint32_t* select)
         *select = from;
         return get_apply(state, message, "Linked");
     }
-    if (pick == kOpAssignArm) {
+    if (pick == ChainOp::kAssignArm) {
         if (family_of_name(name) != nodes::Family::kRouteWay) {
             *message = "Click a path's waypoint";
             return false;
@@ -2764,9 +2764,9 @@ bool get_picked(uint32_t name, std::string* message, uint32_t* select)
 
 const char* get_waiting()
 {
-    if (level_editor_chains_state().pick_ == kOpLinkArm)
+    if (level_editor_chains_state().pick_ == ChainOp::kLinkArm)
         return "Click the end to link to (Esc: cancel)";
-    if (level_editor_chains_state().pick_ == kOpAssignArm)
+    if (level_editor_chains_state().pick_ == ChainOp::kAssignArm)
         return "Click the first waypoint (Esc: cancel)";
     if (level_editor_chains_state().draw_ == Blit::kRail)
         return level_editor_chains_state().draw_last_ ? "Rail: click the next point (Enter: finish)" : "Rail: click the first point";

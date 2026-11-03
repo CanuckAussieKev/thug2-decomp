@@ -262,8 +262,8 @@ void BuildPointer::step_piece_family(int dir)
         update_pieces(park_owner()->builder());
         piece_group() = nullptr;
     }
-    if (mode() != BuildPointer::kModePaste) {
-        set_mode(BuildPointer::kModePaste);
+    if (mode() != BuildPointer::Mode::kPaste) {
+        set_mode(BuildPointer::Mode::kPaste);
         on_mode_changed();
     }
 }

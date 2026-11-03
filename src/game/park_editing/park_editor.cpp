@@ -109,7 +109,7 @@ BuildPointer* get_cursor() { return BuildPointer::singleton(); }
 bool have_cursor() { return BuildPointer::singleton() != nullptr; } // (the original asks the getter with 0)
 bool is_gap_tool(BuildPointer* cursor)
 {
-    return cursor->mode_sel() == BuildPointer::kModeGap || cursor->mode_sel() == BuildPointer::kModeGapAdjust;
+    return cursor->mode_sel() == BuildPointer::Mode::kGap || cursor->mode_sel() == BuildPointer::Mode::kGapAdjust;
 }
 
 void launch_script(uint32_t name) { script::launch_script(name, nullptr, nullptr, false, nullptr); }
@@ -317,7 +317,7 @@ void ParkBuilderMode::switch_camera()
     auto set_camera = [](uint32_t id, int viewport, int take_current_view) {
         commands::make_camera_active(checksums::Name{id}, viewport, take_current_view != 0);
     };
-    if (have_cursor() && get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement) {
+    if (have_cursor() && get_cursor()->mode_sel() == BuildPointer::Mode::kRailPlacement) {
         set_camera(kRailEditorCam, 0, 0);
         return;
     }
@@ -481,7 +481,7 @@ void ParkBuilderMode::tick_frame()
     if (flag_bits_ & kFlagPaused)
         return;
 
-    if (get_cursor()->mode_sel() != BuildPointer::kModeAreaSelect)
+    if (get_cursor()->mode_sel() != BuildPointer::Mode::kAreaSelect)
         get_cursor()->glow_overlapping_pieces(0);
     const uint32_t now = frame_clock::get_time();
     const int elapsed = static_cast<int>(now - static_cast<uint32_t>(last_time_));
@@ -545,7 +545,7 @@ void ParkBuilderMode::tick_frame()
                 launch_script(kPlayEdBuzzSound);
             }
             action_finished_ = true;
-        } else if (get_cursor()->mode_sel() == BuildPointer::kModeAreaSelect) {
+        } else if (get_cursor()->mode_sel() == BuildPointer::Mode::kAreaSelect) {
             switch (get_cursor()->advance_area_selection()) {
             case 1:
                 launch_script(kPlayEdPlaceSound);
@@ -558,7 +558,7 @@ void ParkBuilderMode::tick_frame()
                 launch_script(kPlayEdBuzzSound);
                 break;
             }
-        } else if (get_cursor()->mode_sel() == BuildPointer::kModePaste) {
+        } else if (get_cursor()->mode_sel() == BuildPointer::Mode::kPaste) {
             get_cursor()->show_clipboard();
             action_finished_ = true;
         } else {
@@ -572,7 +572,7 @@ void ParkBuilderMode::tick_frame()
         if (is_gap_tool(get_cursor())) {
             launch_script(get_cursor()->remove_gap_half() ? kPlayEdEraseSound : kPlayEdBuzzSound);
         } else {
-            if (get_cursor()->mode_sel() == BuildPointer::kModeAreaSelect)
+            if (get_cursor()->mode_sel() == BuildPointer::Mode::kAreaSelect)
                 get_cursor()->drop_area_marquee();
             else
                 launch_script(get_cursor()->destroy_under_cursor() ? kPlayEdEraseSound : kPlayEdBuzzSound);
@@ -629,9 +629,9 @@ void ParkBuilderMode::tick_frame()
     }
 
     get_cursor()->tick_frame({.offset_cell_x_ = offset_cell_x, .offset_cell_z_ = offset_cell_z, .turn_step_ = rotation90});
-    if (get_cursor()->mode_sel() == BuildPointer::kModeAreaSelect)
+    if (get_cursor()->mode_sel() == BuildPointer::Mode::kAreaSelect)
         get_cursor()->update_area_selection_highlight();
-    else if (get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement)
+    else if (get_cursor()->mode_sel() == BuildPointer::Mode::kRailPlacement)
         get_cursor()->destroy_cursor_meta();
     else
         get_cursor()->glow_overlapping_pieces(1);
@@ -679,18 +679,18 @@ void ParkBuilderMode::logic_update()
         return;
     // The rail editor's flags (+0x08): bit 0.
     auto rail_bit = []() { return (get_rail_editor()->flag_bits() & 1) != 0; };
-    if (get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement) {
+    if (get_cursor()->mode_sel() == BuildPointer::Mode::kRailPlacement) {
         if (rail_bit())
             launch_script(kSwitchOnRailEditor);
         if (!(flag_bits_ & kFlagPaused))
             move_selection_cursor();
-        if (get_cursor()->mode_sel() != BuildPointer::kModeRailPlacement)
+        if (get_cursor()->mode_sel() != BuildPointer::Mode::kRailPlacement)
             launch_script(kSwitchOffRailEditor);
     } else {
         if (!rail_bit())
             launch_script(kSwitchOffRailEditor);
         tick_frame();
-        if (get_cursor()->mode_sel() == BuildPointer::kModeRailPlacement)
+        if (get_cursor()->mode_sel() == BuildPointer::Mode::kRailPlacement)
             launch_script(kSwitchOnRailEditor);
     }
     ParkLayout::update_percent_bar();

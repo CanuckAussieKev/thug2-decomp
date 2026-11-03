@@ -22,27 +22,30 @@ class AsyncFileHandle;
 namespace assets {
 
 // The asset types (each file extension maps to one, 0x0067C650).
-using ResourceKind = uint8_t;
-constexpr int kBinary = 1;         // .BIN
-constexpr int kScene = 2;          // .SCN, .GEOM
-constexpr int kResTexDict = 3;     // .TEX
-constexpr int kSceneCollision = 4; // .COL
-constexpr int kAnimation = 5;      // .SKA, .FAM
-constexpr int kSkeleton = 6;       // .SKE
-constexpr int kSkinnedModel = 7;   // .MDL, .SKIN
-constexpr int kSkinCollision = 8;
-constexpr int kCutscene = 9;        // .CUT
-constexpr int kNodeArray = 10;      // .QB
-constexpr int kOwnedNodeArray = 11; // a node array that the node manager's owner (made by LoadAsset with this type)
+enum class ResourceKind : uint8_t {
+    kNone = 0, // (none given: the file name's extension says)
+    kBinary = 1, // .BIN
+    kScene = 2, // .SCN, .GEOM
+    kResTexDict = 3, // .TEX
+    kSceneCollision = 4, // .COL
+    kAnimation = 5, // .SKA, .FAM
+    kSkeleton = 6, // .SKE
+    kSkinnedModel = 7, // .MDL, .SKIN
+    kSkinCollision = 8,
+    kCutscene = 9, // .CUT
+    kNodeArray = 10, // .QB
+    kOwnedNodeArray = 11, // a node array that the node manager's owner (made by LoadAsset with this type)
+};
 
 // The load states (+0x08).
-using AssetState = uint8_t;
-constexpr int kUnloaded = 0;
-constexpr int kLoading = 1; // the file is being read
-constexpr int kRead = 2;    // the file is read (the async read's callback)
-constexpr int kProcessing = 3;
-constexpr int kLoaded = 4;
-constexpr int kAborted = 5;
+enum class AssetState : uint8_t {
+    kUnloaded = 0,
+    kLoading = 1, // the file is being read
+    kRead = 2, // the file is read (the async read's callback)
+    kProcessing = 3,
+    kLoaded = 4,
+    kAborted = 5,
+};
 
 class Resource;
 // Called when an asset the manager loaded asynchronously is ready: (the asset, its file's size, the two values).
@@ -69,7 +72,7 @@ public:
     Resource& operator=(const Resource&) = delete;
 
     // Vtable slot 0: the type (ResourceKind); the base's 0.
-    [[nodiscard]] virtual int fetch_kind() const { return 0; }
+    [[nodiscard]] virtual ResourceKind fetch_kind() const { return ResourceKind::kNone; }
     // Slots 4 and 5: loaded from a buffer (data, size, copy, params, structure) / from a file (name, async,
     // use_archive, params, structure) - see the types below. 0x004075F0 (both, the base's): loading; 0.
     virtual int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure);
@@ -138,9 +141,9 @@ public:
 
     // The fields other code reads and sets.
     [[nodiscard]] uint32_t checksum() const { return checksum_; }
-    int& cur_phase() { return cur_phase_; }
-    [[nodiscard]] int cur_phase() const { return cur_phase_; }
-    void set_cur_phase(int value) { cur_phase_ = value; }
+    AssetState& cur_phase() { return cur_phase_; }
+    [[nodiscard]] AssetState cur_phase() const { return cur_phase_; }
+    void set_cur_phase(AssetState value) { cur_phase_ = value; }
     [[nodiscard]] bool pinned() const { return pinned_; }
     void set_pinned(bool value) { pinned_ = value; }
     LoadCallback& callback() { return callback_; }
@@ -163,7 +166,8 @@ public:
 
 private:
     uint32_t checksum_{}; // +0x04
-    int cur_phase_{kUnloaded}; // +0x08 AssetState
+    AssetState cur_phase_{AssetState::kUnloaded}; // +0x08 (the original's int: the rest is zero)
+    std::array<uint8_t, 3> unknown09_{};
     bool pinned_{};     // +0x0C not unloaded by unload_all_assets(false)
     std::array<uint8_t, 3> pad0d_{};
     void* content_{};                 // +0x10 what was loaded (a scene, a texture dictionary...)
@@ -202,7 +206,7 @@ private:
 
 public:
     // 0x004072E0 / 0x004072D0
-    [[nodiscard]] int fetch_kind() const override;
+    [[nodiscard]] ResourceKind fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
     // 0x004071C0 / 0x00407300 (an archive file: through Pip, the lowercased name's checksum kept)
     int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
@@ -221,7 +225,7 @@ struct CutsceneResource final : Resource {
     // 0x00407A30 (vtable 0x00645600)
     CutsceneResource();
     // 0x00408AC0 / 0x00408AB0
-    [[nodiscard]] int fetch_kind() const override;
+    [[nodiscard]] ResourceKind fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
     // 0x00408AD0: the cutscene data made and loaded from "<name>.<platform extension>" (the data leaks if that
     // fails, as in the original).
@@ -250,8 +254,8 @@ private:
     std::array<uint8_t, 3> pad61{};
 
 public:
-    // 0x00408BE0: kNodeArray, or kOwnedNodeArray when owned; 0x00408BD0
-    [[nodiscard]] int fetch_kind() const override;
+    // 0x00408BE0: ResourceKind::kNodeArray, or ResourceKind::kOwnedNodeArray when owned; 0x00408BD0
+    [[nodiscard]] ResourceKind fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
     // 0x00408EA0 / 0x00408D10 (the file read on the top-down heap)
     int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
@@ -312,7 +316,7 @@ private:
 public:
     // 0x004093D0
     // (0x0049B8C0, shared: a constant)
-    [[nodiscard]] int fetch_kind() const override { return kScene; }
+    [[nodiscard]] ResourceKind fetch_kind() const override { return ResourceKind::kScene; }
     [[nodiscard]] const char* fetch_title() const override;
 
     // 0x004092D0: the parameters from the pool (from `params`, then `structure`'s values).
@@ -336,7 +340,7 @@ private:
 public:
     // 0x00409750
     // (0x0049BB70, shared: a constant)
-    [[nodiscard]] int fetch_kind() const override { return kSceneCollision; }
+    [[nodiscard]] ResourceKind fetch_kind() const override { return ResourceKind::kSceneCollision; }
     [[nodiscard]] const char* fetch_title() const override;
     // 0x00409690
     void set_up_params(LoadParams load_params);
@@ -354,7 +358,7 @@ struct RigResource final : Resource {
     // 0x00409970 (vtable 0x00645810)
     RigResource();
     // 0x00409A40 / 0x00409A30
-    [[nodiscard]] int fetch_kind() const override;
+    [[nodiscard]] ResourceKind fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
     // 0x00409990 / 0x00409A50 (the buffer from the top-down heap)
     int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
@@ -395,7 +399,7 @@ private:
 
 public:
     // 0x00409E00 / 0x00409DF0
-    [[nodiscard]] int fetch_kind() const override;
+    [[nodiscard]] ResourceKind fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
     // 0x00409E10
     void set_up_params(LoadParams load_params);
@@ -421,7 +425,7 @@ private:
 
 public:
     // 0x0040A290 / 0x0040A280
-    [[nodiscard]] int fetch_kind() const override;
+    [[nodiscard]] ResourceKind fetch_kind() const override;
     [[nodiscard]] const char* fetch_title() const override;
     // 0x0040A400 / 0x0040A2A0
     int load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure) override;
@@ -442,7 +446,7 @@ private:
 public:
     // 0x0040A710
     // (0x0049C0F0, shared: a constant)
-    [[nodiscard]] int fetch_kind() const override { return kResTexDict; }
+    [[nodiscard]] ResourceKind fetch_kind() const override { return ResourceKind::kResTexDict; }
     [[nodiscard]] const char* fetch_title() const override;
     // 0x0040A620
     void set_up_params(LoadParams load_params);

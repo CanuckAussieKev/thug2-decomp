@@ -151,8 +151,8 @@ uint16_t texture_palette_size(void* texture)
 void set_count_preference(Hub* manager, uint32_t preference, const char* ui_string, uint32_t checksum)
 {
     gsl::owner<script::Struct*> values = script::new_struct();
-    values->append_word(kUiString, script::kQbvalString, ui_string);
-    values->add_component_of_type(kChecksum, script::kQbvalName, checksum);
+    values->append_word(kUiString, script::QbValueKind::kString, ui_string);
+    values->add_component_of_type(kChecksum, script::QbValueKind::kName, checksum);
     manager->get_online_settings()->change_setting(preference, values);
 }
 
@@ -312,17 +312,17 @@ bool Hub::send_custom_tag_texture()
         void* texture = tagging->graffiti();
         if (texture) {
             net::NetMessageInfo desc;
-            desc.set_ident(kMsgGraffitiParts);
+            desc.set_ident(MessageId::kGraffitiParts);
             desc.set_content(&logos);
             desc.set_byte_count(4);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-            desc.set_group_id(kGroupGraffiti);
+            desc.set_group_id(MessageGroup::kGraffiti);
             void* palette = texture_palette(texture);
-            client_app_->send_bulk_to_conn(server, {.msg_id_ = kMsgGraffitiPalette, .size = texture_palette_size(texture)}, palette,
-                                           kTagPaletteDesc, kGroupGraffiti, false, true);
+            client_app_->send_bulk_to_conn(server, {.msg_id_ = MessageId::kGraffitiPalette, .size = texture_palette_size(texture)}, palette,
+                                           kTagPaletteDesc, MessageGroup::kGraffiti, false, true);
             void* pixels = texture_pixels(texture);
-            client_app_->send_bulk_to_conn(server, {.msg_id_ = kMsgGraffitiTexture, .size = get_texture_size(texture)}, pixels, kTagTextureDesc,
-                                           kGroupGraffiti, false, true);
+            client_app_->send_bulk_to_conn(server, {.msg_id_ = MessageId::kGraffitiTexture, .size = get_texture_size(texture)}, pixels, kTagTextureDesc,
+                                           MessageGroup::kGraffiti, false, true);
             send_to_server(client_app_, &desc);
         }
     }

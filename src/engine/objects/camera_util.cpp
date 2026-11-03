@@ -3,7 +3,6 @@
 #include "engine/objects/camera_util.h"
 
 #include <cmath>
-#include <cstdint>
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -24,9 +23,9 @@ public:
     Feeler(const Feeler&) = delete;
     Feeler& operator=(const Feeler&) = delete;
     // 0x004170F0: faces with any of `skip` (or without all of `need`) are passed through.
-    void set_excluded(uint32_t skip, uint32_t need)
+    void set_excluded(render::FaceFlag skip, render::FaceFlag need)
     {
-        as_feeler()->set_excluded({.ignore = static_cast<uint16_t>(skip), .require = static_cast<uint16_t>(need)});
+        as_feeler()->set_excluded({.ignore = skip, .require = need});
     }
     // 0x004171D0
     void change_strand(const maths::Vec4& start, const maths::Vec4& end) { as_feeler()->change_strand(&start, &end); }
@@ -92,7 +91,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         dir_z = static_cast<float>(dz * inverse);
     }
     Feeler feeler;
-    feeler.set_excluded(render::kCameraIgnoredFaceFlags, 0);
+    feeler.set_excluded(render::kCameraIgnoredFaceFlags, render::kNoFaceFlags);
     // From the target to 2 beyond the camera.
     maths::Vec4 beyond{};
     beyond.x = static_cast<float>(dir_x + dir_x) + pos.x;

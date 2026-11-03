@@ -42,11 +42,11 @@ uint32_t get_machine_id();
 // --- Message ids and layouts (THUGPRO's GameMsg.h) ---
 
 // (THUGPRO's level switch 0x46, lobby details 0x33 and chat 0x4C are the game's own: wire/gamenet_messages.h.) Its own:
-constexpr uint8_t kMsgServerInfo = 155;        // S->C
-constexpr uint8_t kMsgUpdateTimeOfDay = 156;   // S->C
-constexpr uint8_t kMsgUpdateWeather = 157;     // S->C
-constexpr uint8_t kMsgUpdateLevelOption = 158; // S->C (no sender, a no-op handler in THUGPRO)
-constexpr uint8_t kMsgModsAllowed = 159;       // S->C
+constexpr MessageId kThugproServerInfo = static_cast<MessageId>(155);        // S->C
+constexpr MessageId kThugproUpdateTimeOfDay = static_cast<MessageId>(156);   // S->C
+constexpr MessageId kThugproUpdateWeather = static_cast<MessageId>(157);     // S->C
+constexpr MessageId kThugproUpdateLevelOption = static_cast<MessageId>(158); // S->C (no sender, a no-op handler in THUGPRO)
+constexpr MessageId kThugproModsAllowed = static_cast<MessageId>(159);       // S->C
 
 constexpr int kNameSize = 16;      // vMAX_PLAYER_NAME_LEN + 1
 constexpr int kChatTextSize = 128; // vMAX_CHAT_MSG_LEN + 1 (THUGPRO drops longer text)

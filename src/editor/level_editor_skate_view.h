@@ -4,6 +4,7 @@
 #include <string>
 
 #include "editor/level_editor.h"
+#include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::overlays {
 struct Painter;
@@ -31,7 +32,7 @@ enum class Kind : uint8_t { kNone, kFloor, kBank, kVert, kWallride, kNotSkatable
 constexpr int kKinds = static_cast<int>(Kind::kCount);
 // What a face is classified by: its flags, its normal's y, the steepness threshold and the trigger flag.
 struct FaceClass {
-    uint16_t flags{};
+    render::FaceFlag flags{};
     float normal_y_{};
     float threshold{};
     int trigger{};

@@ -104,7 +104,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     end.y = raised_y + ahead_y;
     end.z = raised_z + ahead_z;
     end.w = static_cast<float>(raised_w + ahead_w);
-    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, 0))
+    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
         return false;
 
     const maths::Vec4 normal = feeler_.surface_dir();
@@ -291,7 +291,7 @@ bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
     end.y = out_y + start.y;
     end.z = out_z + start.z;
     end.w = out_w + start.w;
-    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, 0))
+    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
         return false;
 
     const maths::Vec4 normal = feeler_.surface_dir();

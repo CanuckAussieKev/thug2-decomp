@@ -185,7 +185,7 @@ void Script::reset_script_state()
         memory::free_malloc(loops_);
     loops_ = &inline_loop_;
     suspend_frames_left_ = 0;
-    suspend_reason_ = kSuspendOnNothing;
+    suspend_reason_ = BlockReason::kNothing;
     blocking_module_ = nullptr;
     suspend_arg_ = 0;
     entity_.get_release();
@@ -349,7 +349,7 @@ void Script::object_destroyed(objects::Entity* object)
         if (core::at(call_stack(), i).owner_entity_ == object)
             core::at(call_stack(), i).owner_entity_ = nullptr;
     }
-    suspend_reason_ = kSuspendOnNothing; // (whatever it was waiting for)
+    suspend_reason_ = BlockReason::kNothing; // (whatever it was waiting for)
 }
 
 // 0x00472ED0 / 0x00472EE0 / 0x00472EF0

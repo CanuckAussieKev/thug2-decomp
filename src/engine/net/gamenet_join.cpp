@@ -12,6 +12,7 @@
 #include <span>
 
 #include "engine/core/checksums.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/format.h"
 #include "engine/net/net_server.h" // IWYU pragma: keep - the complete HostEnd type (converted to AppHost* here)
 #include "platform/gamespy.h"
@@ -132,7 +133,6 @@ constexpr int kBottomRank = 0;
 
 // The player info being made (online::JoinerRecord, player_info.h; flags: 1 local player, 4 observer, 8 pending).
 static_assert(sizeof(JoinerRecord) == kPlayerInfoSize);
-constexpr uint32_t kPlayerPending = kPlayerPendingObserver; // (kPlayerLocal, kPlayerObserver: player_info.h)
 
 // GameSpy CD-key's instance data for client_authorized (12 bytes, operator new).
 // (the join request being sent: the original's is on its stack)
@@ -215,7 +215,7 @@ void send_connection_request(net::Guest* client, const ConnectInfo& info, thugpr
         desc.set_byte_count(static_cast<uint16_t>(writer.position()));
     }
     desc.set_content(request->bytes.data());
-    desc.set_ident(net::wire::kMsgConnectionRequest);
+    desc.set_ident(net::wire::MessageId::kConnectionRequest);
     client->send_to_host(&desc);
 }
 
@@ -223,94 +223,94 @@ net::Guest* as_client(AppHost* app) { return core::down_cast<net::Guest>(app); }
 
 // The handlers a joining client adds (0x00534480): on every client, then on client 0 only.
 struct HandlerEntry {
-    uint8_t id;
+    MessageId id;
     HandlerSlotValue code;
     uint32_t flags;
     bool manager_data_;
     int priority;
 };
 constexpr auto kClientHandlers = std::to_array<HandlerEntry>({
-    {.id = 0x42, .code = &online::handle_ready_to_play, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},  // proceed to play
-    {.id = 0x4D, .code = &online::on_spectate_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},       // observe proceed
-    {.id = 0x4E, .code = &online::handle_observers_full, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // observe refused
-    {.id = kMsgJoinRefused, .code = &Hub::on_turned_away_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
-    {.id = kMsgJoinProceed, .code = &Hub::on_go_ahead_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
-    {.id = 0x25, .code = &online::on_ready_ask_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},          // ready query
-    {.id = 0x26, .code = &online::on_ready_reply_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // ready response
-    {.id = 0x53, .code = &online::on_admitted_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},           // player info ack request
-    {.id = 0x58, .code = &online::handle_crown_spawn, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                   // the king dropped the crown
-    {.id = 0x75, .code = &online::handle_flag_returned, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                 // a player dropped a flag
-    {.id = 0x3F, .code = &online::on_hud_notice_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},         // panel message
-    {.id = 0x5E, .code = &online::handle_auto_server_notice, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // auto server notification
-    {.id = 0x5F, .code = &online::handle_fcfs_notice, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // first-come-first-served assignment
-    {.id = 0x68, .code = &online::handle_joined_team, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // team change
-    {.id = 0x69, .code = &online::handle_choose_team, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // number of teams
-    {.id = 0x4C, .code = &online::on_chat_msg, .flags = kRunWhenLate, .manager_data_ = false, .priority = kMidPriority},              // chat
-    {.id = 0x7C, .code = &online::handle_cd_key_challenge, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},   // challenge
+    {.id = MessageId::kGameStateSent, .code = &online::handle_ready_to_play, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},  // proceed to play
+    {.id = MessageId::kObserve, .code = &online::on_spectate_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},       // observe proceed
+    {.id = MessageId::kObserversFull, .code = &online::handle_observers_full, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // observe refused
+    {.id = MessageId::kJoinRefused, .code = &Hub::on_turned_away_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = MessageId::kJoinProceed, .code = &Hub::on_go_ahead_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = MessageId::kReadyQuery, .code = &online::on_ready_ask_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},          // ready query
+    {.id = MessageId::kReadyResponse, .code = &online::on_ready_reply_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // ready response
+    {.id = MessageId::kJoinAccepted, .code = &online::on_admitted_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},           // player info ack request
+    {.id = MessageId::kCrownSpawn, .code = &online::handle_crown_spawn, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                   // the king dropped the crown
+    {.id = MessageId::kFlagReturned, .code = &online::handle_flag_returned, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                 // a player dropped a flag
+    {.id = MessageId::kHudNotice, .code = &online::on_hud_notice_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},         // panel message
+    {.id = MessageId::kPlayerFullyIn, .code = &online::handle_auto_server_notice, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // auto server notification
+    {.id = MessageId::kFcfsNotice, .code = &online::handle_fcfs_notice, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // first-come-first-served assignment
+    {.id = MessageId::kTeamChange, .code = &online::handle_joined_team, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // team change
+    {.id = MessageId::kTeamCount, .code = &online::handle_choose_team, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},        // number of teams
+    {.id = MessageId::kChat, .code = &online::on_chat_msg, .flags = kRunWhenLate, .manager_data_ = false, .priority = kMidPriority},              // chat
+    {.id = MessageId::kStatsChallenge, .code = &online::handle_cd_key_challenge, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},   // challenge
 });
 constexpr auto kGameClientHandlers = std::to_array<HandlerEntry>({
-    {.id = 0x6D, .code = &online::handle_selected_goals, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // selected goals
-    {.id = 0x34, .code = &online::handle_start_game, .flags = 0, .manager_data_ = true, .priority = kMidPriority},        // game info
-    {.id = 0x7A, .code = &online::handle_kill_team_flags, .flags = 0, .manager_data_ = true, .priority = kMidPriority},   // kill the team flags
-    {.id = 0x6E, .code = &online::handle_goal_completed, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // a goal beaten (relayed)
-    {.id = 0x6F, .code = &online::handle_goal_started, .flags = 0, .manager_data_ = true, .priority = kMidPriority},      // a goal started (relayed)
-    {.id = 0x70, .code = &online::handle_nothing, .flags = 0, .manager_data_ = true, .priority = kMidPriority},           // toggle pro set (nothing)
-    {.id = 0x46, .code = &online::on_level_switch_msg, .flags = 0, .manager_data_ = true, .priority = kTopRank},          // change level
-    {.id = 0x46, .code = &online::handle_nothing, .flags = 0, .manager_data_ = true, .priority = kTopRank},               // (and nothing)
-    {.id = 0x6C, .code = &online::handle_park_map, .flags = 0, .manager_data_ = true, .priority = kTopRank},              // level data
-    {.id = 0x88, .code = &online::handle_rails_data, .flags = kRunOnBadCrc, .manager_data_ = true, .priority = kTopRank}, // rail data
-    {.id = 0x87, .code = &online::on_goal_sync_msg, .flags = kRunOnBadCrc, .manager_data_ = true, .priority = kTopRank},  // goals data
-    {.id = 0x80, .code = &online::handle_checksum_request, .flags = 0, .manager_data_ = true, .priority = kMidPriority},  // cheat checksum request
+    {.id = MessageId::kSelectedGoals, .code = &online::handle_selected_goals, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // selected goals
+    {.id = MessageId::kStartGame, .code = &online::handle_start_game, .flags = 0, .manager_data_ = true, .priority = kMidPriority},        // game info
+    {.id = MessageId::kTeamGame, .code = &online::handle_kill_team_flags, .flags = 0, .manager_data_ = true, .priority = kMidPriority},   // kill the team flags
+    {.id = MessageId::kGoalCompleted, .code = &online::handle_goal_completed, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // a goal beaten (relayed)
+    {.id = MessageId::kGoalStarted, .code = &online::handle_goal_started, .flags = 0, .manager_data_ = true, .priority = kMidPriority},      // a goal started (relayed)
+    {.id = MessageId::kFlipProSetting, .code = &online::handle_nothing, .flags = 0, .manager_data_ = true, .priority = kMidPriority},           // toggle pro set (nothing)
+    {.id = MessageId::kLevelSwitch, .code = &online::on_level_switch_msg, .flags = 0, .manager_data_ = true, .priority = kTopRank},          // change level
+    {.id = MessageId::kLevelSwitch, .code = &online::handle_nothing, .flags = 0, .manager_data_ = true, .priority = kTopRank},               // (and nothing)
+    {.id = MessageId::kParkMap, .code = &online::handle_park_map, .flags = 0, .manager_data_ = true, .priority = kTopRank},              // level data
+    {.id = MessageId::kRailsData, .code = &online::handle_rails_data, .flags = kRunOnBadCrc, .manager_data_ = true, .priority = kTopRank}, // rail data
+    {.id = MessageId::kGoalsData, .code = &online::on_goal_sync_msg, .flags = kRunOnBadCrc, .manager_data_ = true, .priority = kTopRank},  // goals data
+    {.id = MessageId::kCheatsCheck, .code = &online::handle_checksum_request, .flags = 0, .manager_data_ = true, .priority = kMidPriority},  // cheat checksum request
 });
 constexpr auto kRemoteGameClientHandlers = std::to_array<HandlerEntry>({
-    {.id = 0x22, .code = &online::on_player_added_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // player create
-    {.id = 0x79, .code = &online::handle_flush_important, .flags = 0, .manager_data_ = true, .priority = kMidPriority}, // join accepted
+    {.id = MessageId::kPlayerArrived, .code = &online::on_player_added_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // player create
+    {.id = MessageId::kFlushImportant, .code = &online::handle_flush_important, .flags = 0, .manager_data_ = true, .priority = kMidPriority}, // join accepted
 });
 constexpr auto kGameClientHandlers2 = std::to_array<HandlerEntry>({
-    {.id = 0x7B, .code = &online::handle_keep_alive, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // wait n seconds
-    {.id = 0x55, .code = &online::on_crown_change_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},  // new king
-    {.id = 0x72, .code = &online::on_flag_scored_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},   // captured flag
-    {.id = 0x74, .code = &online::on_flag_swiped_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},   // stole flag
-    {.id = 0x71, .code = &online::on_flag_grabbed_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},  // took flag
-    {.id = 0x73, .code = &online::on_flag_returned_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority}, // retrieved flag
-    {.id = 0x5A, .code = &online::on_match_end_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},     // game over
-    {.id = 0x6A, .code = &online::handle_game_ended, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // end game
-    {.id = 0x23, .code = &online::handle_object_update_length, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true,
+    {.id = MessageId::kKeepAlive, .code = &online::handle_keep_alive, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // wait n seconds
+    {.id = MessageId::kKing, .code = &online::on_crown_change_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},  // new king
+    {.id = MessageId::kCapturedFlag, .code = &online::on_flag_scored_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},   // captured flag
+    {.id = MessageId::kTeamConverted, .code = &online::on_flag_swiped_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},   // stole flag
+    {.id = MessageId::kTookFlag, .code = &online::on_flag_grabbed_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},  // took flag
+    {.id = MessageId::kTeamTagged, .code = &online::on_flag_returned_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority}, // retrieved flag
+    {.id = MessageId::kGameOver, .code = &online::on_match_end_msg, .flags = 0, .manager_data_ = true, .priority = kMidPriority},     // game over
+    {.id = MessageId::kGameEnded, .code = &online::handle_game_ended, .flags = 0, .manager_data_ = true, .priority = kMidPriority},    // end game
+    {.id = MessageId::kObjectUpdates, .code = &online::handle_object_update_length, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true,
      .priority = kTopRank},                                                // object updates (their length)
-    {.id = 0x8D, .code = &online::handle_eliminated, .flags = 0, .manager_data_ = true, .priority = kMidPriority}, // a skater eliminated
-    {.id = 0x8E, .code = &online::handle_eliminated, .flags = 0, .manager_data_ = true, .priority = kMidPriority},
+    {.id = MessageId::kEliminated, .code = &online::handle_eliminated, .flags = 0, .manager_data_ = true, .priority = kMidPriority}, // a skater eliminated
+    {.id = MessageId::kEliminatedB, .code = &online::handle_eliminated, .flags = 0, .manager_data_ = true, .priority = kMidPriority},
 });
 // The server's lobby handlers (0x0053C380; taken out once the game starts).
 constexpr auto kServerHandlers = std::to_array<HandlerEntry>({
-    {.id = net::wire::kMsgConnectionRequest, .code = &Hub::on_link_established, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true, .priority = kBottomRank},
-    {.id = 0x90, .code = &online::handle_team_object, .flags = 0, .manager_data_ = true, .priority = kTopRank}, // a scavenger-hunt object picked up
-    {.id = kMsgJoinRequest, .code = &Hub::on_admission_ask_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
-    {.id = 0x11, .code = &online::on_server_query_msg, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // find server
-    {.id = 0x0B, .code = &online::on_peer_left_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},                     // disconnection request
-    {.id = 0x4A, .code = &online::handle_observe_request, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},               // observe
-    {.id = 0x26, .code = &online::on_ready_reply_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},                   // ready response
-    {.id = 0x54, .code = &online::handle_send_game_state, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                          // player info ack
-    {.id = 0x57, .code = &online::handle_drop_carried, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                             // moved to a restart
-    {.id = 0x59, .code = &online::handle_game_ended_report, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                        // the run ended
-    {.id = 0x60, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true,
+    {.id = net::wire::MessageId::kConnectionRequest, .code = &Hub::on_link_established, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true, .priority = kBottomRank},
+    {.id = MessageId::kHuntItemPickedUp, .code = &online::handle_team_object, .flags = 0, .manager_data_ = true, .priority = kTopRank}, // a scavenger-hunt object picked up
+    {.id = MessageId::kJoinRequest, .code = &Hub::on_admission_ask_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = MessageId::kServerQuery, .code = &online::on_server_query_msg, .flags = kRunForForeign | kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // find server
+    {.id = MessageId::kDisconnRequest, .code = &online::on_peer_left_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},                     // disconnection request
+    {.id = MessageId::kObserveRequest, .code = &online::handle_observe_request, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},               // observe
+    {.id = MessageId::kReadyResponse, .code = &online::on_ready_reply_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},                   // ready response
+    {.id = MessageId::kReadyToReceive, .code = &online::handle_send_game_state, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                          // player info ack
+    {.id = MessageId::kRiderReady, .code = &online::handle_drop_carried, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                             // moved to a restart
+    {.id = MessageId::kRunEnded, .code = &online::handle_game_ended_report, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                        // the run ended
+    {.id = MessageId::kStartRequest, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true,
      .priority = kMidPriority}, // first-come-first-served requests: start game,
-    {.id = 0x61, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true,
+    {.id = MessageId::kKickRequest, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true,
      .priority = kMidPriority}, // ban player, change level, toggle pro set, goal
-    {.id = 0x62, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // selection, end game, number of teams
-    {.id = 0x63, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
-    {.id = 0x64, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
-    {.id = 0x65, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
-    {.id = 0x66, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
-    {.id = 0x67, .code = &online::on_switch_squad_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},          // team change request
-    {.id = 0x6B, .code = &online::handle_request_game_data, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},     // level request
-    {.id = 0x6E, .code = &online::handle_goal_completed_report, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // a goal beaten
-    {.id = 0x6F, .code = &online::handle_goal_started_report, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},   // a goal started
-    {.id = 0x6C, .code = &online::handle_park_map, .flags = 0, .manager_data_ = true, .priority = kTopRank},                             // level data
-    {.id = 0x88, .code = &online::handle_rails_data, .flags = 0, .manager_data_ = true, .priority = kTopRank},                           // rail data
-    {.id = 0x7D, .code = &online::handle_cd_key_answer, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                    // challenge response
-    {.id = 0x81, .code = &online::handle_checksum_response, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                // cheat checksum response
-    {.id = 0x8B, .code = &online::handle_created_data_request, .flags = 0, .manager_data_ = true, .priority = kMidPriority},             // rails / goals data requests
-    {.id = 0x8A, .code = &online::handle_created_data_request, .flags = 0, .manager_data_ = true, .priority = kMidPriority},
+    {.id = MessageId::kChangeLevelRequest, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // selection, end game, number of teams
+    {.id = MessageId::kToggleProSetRequest, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = MessageId::kToggleGoalRequest, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = MessageId::kEndGameRequest, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = MessageId::kTeamCountRequest, .code = &online::handle_host_options, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},
+    {.id = MessageId::kJoinTeamRequest, .code = &online::on_switch_squad_msg, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},          // team change request
+    {.id = MessageId::kRequestGameData, .code = &online::handle_request_game_data, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},     // level request
+    {.id = MessageId::kGoalCompleted, .code = &online::handle_goal_completed_report, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority}, // a goal beaten
+    {.id = MessageId::kGoalStarted, .code = &online::handle_goal_started_report, .flags = kRunWhenLate, .manager_data_ = true, .priority = kMidPriority},   // a goal started
+    {.id = MessageId::kParkMap, .code = &online::handle_park_map, .flags = 0, .manager_data_ = true, .priority = kTopRank},                             // level data
+    {.id = MessageId::kRailsData, .code = &online::handle_rails_data, .flags = 0, .manager_data_ = true, .priority = kTopRank},                           // rail data
+    {.id = MessageId::kCdKeyAnswer, .code = &online::handle_cd_key_answer, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                    // challenge response
+    {.id = MessageId::kDigest, .code = &online::handle_checksum_response, .flags = 0, .manager_data_ = true, .priority = kMidPriority},                // cheat checksum response
+    {.id = MessageId::kRequestRails, .code = &online::handle_created_data_request, .flags = 0, .manager_data_ = true, .priority = kMidPriority},             // rails / goals data requests
+    {.id = MessageId::kRequestGoals, .code = &online::handle_created_data_request, .flags = 0, .manager_data_ = true, .priority = kMidPriority},
 });
 
 template <size_t N>
@@ -323,30 +323,30 @@ void add_handlers(AppHost* app, Hub* manager, const std::array<HandlerEntry, N>&
 
 void send_refused(AppHost* app, Conn* conn, const char* data)
 {
-    app->deliver_to({.msg_id_ = kMsgJoinRefused, .size = kJoinRefusedSize}, data, {.ip = conn->remote_ip(), .port = conn->port_no()}, 0);
+    app->deliver_to({.msg_id_ = MessageId::kJoinRefused, .size = kJoinRefusedSize}, data, {.ip = conn->remote_ip(), .port = conn->port_no()}, 0);
 }
 
 } // namespace
 
 // 0x0052F560
-bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_password, bool check_version,
+bool Hub::joins_accepted(JoinRefusedReason& reason, ConnectInfo* msg, Conn* conn, bool check_password, bool check_version,
                          bool check_cd_key)
 {
     if (host_->is_conn_blocked(conn)) {
-        reason = kRefusedBanned;
+        reason = JoinRefusedReason::kBanned;
         return false;
     }
     if (msg->observer) {
         if (count_observers() >= get_spectator_limit()) {
-            reason = kRefusedFullObservers;
+            reason = JoinRefusedReason::kFullObservers;
             return false;
         }
     } else if (count_players() >= get_player_limit()) {
-        reason = kRefusedFull;
+        reason = JoinRefusedReason::kFull;
         return false;
     }
     if (check_version && msg->version != kVersion) {
-        reason = kRefusedVersion;
+        reason = JoinRefusedReason::kVersion;
         return false;
     }
     if (conn->is_off_machine()) {
@@ -354,22 +354,22 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
         const int test = get_rank_test();
         if (test == kRankTestGreater) {
             if (msg->rank <= limit) {
-                reason = kRefusedRankLow;
+                reason = JoinRefusedReason::kRankLow;
                 return false;
             }
         } else if (test == kRankTestLess && msg->rank >= limit) {
-            reason = kRefusedRankHigh;
+            reason = JoinRefusedReason::kRankHigh;
             return false;
         }
     }
     if (!msg->can_queue_up_ && !msg->observer && (active_ruleset_label() != kNetLobby && !match_ended_)) {
-        reason = kRefusedInProgress;
+        reason = JoinRefusedReason::kInProgress;
         return false;
     }
     if (check_password) {
         const char* password = fetch_secret();
         if (*password && std::strcmp(password, msg->password.data()) != 0) {
-            reason = kRefusedPassword;
+            reason = JoinRefusedReason::kPassword;
             return false;
         }
     }
@@ -378,7 +378,7 @@ bool Hub::joins_accepted(int& reason, ConnectInfo* msg, Conn* conn, bool check_p
     // read past a message without one.)
     if (check_cd_key && !thugpro::peer_mode() &&
         strnlen(msg->cd_key_response_.data(), sizeof(msg->cd_key_response_)) != kCdKeyResponseLength) {
-        reason = kRefusedCdKey;
+        reason = JoinRefusedReason::kCdKey;
         return false;
     }
     return true;
@@ -405,7 +405,7 @@ void Hub::join_server(net::Address address, int index)
         client->opened_link({.ip = static_cast<int>(ip), .port = port, .flags = Conn::kFlagRemote});
         join_began_at_ = milli_seconds();
         get_logic_tasks()->queue_job(join_expiry_job_.get());
-        join_phase_ = kJoinStateConnecting;
+        set_join_phase(EntryPhase::kConnecting);
         get_logic_tasks()->queue_job(join_phase_job_.get());
         join_port_ = port;
         join_ip_ = ip;
@@ -455,7 +455,7 @@ void Hub::retry_entry(AppHost* client)
     client->transmit(false);
     join_began_at_ = milli_seconds();
     get_logic_tasks()->queue_job(join_expiry_job_.get());
-    join_phase_ = kJoinStateJoining;
+    set_join_phase(EntryPhase::kJoining);
 }
 
 // 0x00534BD0
@@ -476,7 +476,7 @@ void Hub::retry_entry_with_key(const char* password)
     send_connection_request(as_client(client_app_), info, &request);
     join_began_at_ = milli_seconds();
     get_logic_tasks()->queue_job(join_expiry_job_.get());
-    join_phase_ = kJoinStateJoiningWithPassword;
+    set_join_phase(EntryPhase::kJoiningWithPassword);
 }
 
 const std::array<char, 10> kUiStringText{{"ui_string"}};
@@ -514,7 +514,7 @@ AppHost* Hub::start_matchmaking_client()
     net::Hub* net = net::Hub::sole();
     AppHost* client = net->make_client_app(0, kMatchAppName.data(), kJoinPort, {.address = static_cast<int>(current_local_address()), .flags = kAppBroadcast | kAppDynamicResend | kAppForeign | kAppSecure});
     browser_client_ = client;
-    client->dispatcher().append_listener(kMsgServerInfo, &on_server_reply_msg, kRunForForeign | kRunWhenLate, this,
+    client->dispatcher().append_listener(MessageId::kServerInfo, &on_server_reply_msg, kRunForForeign | kRunWhenLate, this,
                                         kMidPriority);
     return browser_client_;
 }
@@ -557,7 +557,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
         write_proceed_info(writer, proceed);
         desc.set_content(proceed_bytes.data());
-        desc.set_ident(kMsgJoinProceed);
+        desc.set_ident(MessageId::kJoinProceed);
         desc.set_byte_count(sizeof(proceed_bytes));
         context->receiver_app()->put_on_outbox(conn->hdl(), &desc);
         return net::kResultPassOn;
@@ -579,12 +579,12 @@ int Hub::on_link_established(InboundMsgCtx* context)
                 "machine %08X",
                 trailer.version, trailer.release, trailer.scripts_hash_, trailer.modified_scripts_ ? " (modified)" : "",
                 trailer.machine_id_);
-    int reason = 0;
+    JoinRefusedReason reason = JoinRefusedReason::kFull;
     if (!manager->joins_accepted(reason, msg, conn, true, true, true)) {
         constexpr size_t kRefusedSize = 32;
-        std::array<char, kRefusedSize> refused = {}; // (10 sent: the reason, and the challenge for kRefusedCdKey)
-        core::at(refused, 0) = static_cast<char>(reason);
-        if (reason == kRefusedCdKey)
+        std::array<char, kRefusedSize> refused = {}; // (10 sent: the reason, and the challenge for kCdKey)
+        core::at(refused, 0) = static_cast<char>(core::to_underlying(reason));
+        if (reason == JoinRefusedReason::kCdKey)
             std::strcpy(std::span<char>(refused).subspan(1).data(), manager->challenge_.data());
         send_refused(context->receiver_app(), conn, refused.data());
         return net::kResultStop;
@@ -620,7 +620,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
     std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
     util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
     write_proceed_info(writer, proceed);
-    context->receiver_app()->deliver_to({.msg_id_ = kMsgJoinProceed, .size = sizeof(proceed_bytes)}, proceed_bytes.data(), {.ip = joined->remote_ip(), .port = joined->port_no()}, 0);
+    context->receiver_app()->deliver_to({.msg_id_ = MessageId::kJoinProceed, .size = sizeof(proceed_bytes)}, proceed_bytes.data(), {.ip = joined->remote_ip(), .port = joined->port_no()}, 0);
     return net::kResultPassOn;
 }
 
@@ -632,7 +632,7 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         return;
     if (!authenticated) {
         std::array<char, kJoinRefusedSize> refused = {};
-        core::at(refused, 0) = kRefusedCdKey;
+        core::at(refused, 0) = static_cast<char>(core::to_underlying(JoinRefusedReason::kCdKey));
         send_refused(instance->app, instance->conn, refused.data());
         instance->conn->mark_stale();
     } else {
@@ -651,7 +651,7 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
         util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
         write_proceed_info(writer, proceed);
-        instance->app->deliver_to({.msg_id_ = kMsgJoinProceed, .size = sizeof(proceed_bytes)}, proceed_bytes.data(), {.ip = instance->conn->remote_ip(), .port = instance->conn->port_no()}, 0);
+        instance->app->deliver_to({.msg_id_ = MessageId::kJoinProceed, .size = sizeof(proceed_bytes)}, proceed_bytes.data(), {.ip = instance->conn->remote_ip(), .port = instance->conn->port_no()}, 0);
     }
     memory::Hub::get_pull()->dealloc(instance);
 }
@@ -669,14 +669,14 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     if (!read_join_request(reader, &request))
         return net::kResultConsumed;
     JoinRequestHeader* msg = &request;
-    int reason = 0;
+    JoinRefusedReason reason = JoinRefusedReason::kFull;
     if (conn->is_off_machine() && !manager->joins_accepted(reason, msg, conn, false, false, false)) {
         NetMessageInfo desc = new_desc();
         std::array<char, kJoinRefusedSize> refused = {};
-        core::at(refused, 0) = static_cast<char>(reason);
+        core::at(refused, 0) = static_cast<char>(core::to_underlying(reason));
         desc.set_content(refused.data());
         desc.set_byte_count(kJoinRefusedSize);
-        desc.set_ident(kMsgJoinRefused);
+        desc.set_ident(MessageId::kJoinRefused);
         context->receiver_app()->put_on_outbox(conn->hdl(), &desc);
         context->sender_conn()->mark_stale();
         return net::kResultStop;
@@ -687,15 +687,15 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     core::at(player->label(), kNameSize - 1) = '\0';
     player->set_entity_key(static_cast<uint8_t>(manager->reserve_obj_id_for_player()));
     player->set_conn(context->sender_conn());
-    player->flag_bits() = 0;
+    player->flag_bits() = PlayerFlag::kNone;
     player->set_profile_id(msg->profile);
     player->set_skill_points(msg->rating);
     player->set_drive_control_mode(msg->drive_scheme_);
     player->set_score(0);
     if (msg->observer)
-        player->flag_bits() = kPlayerObserver;
+        player->flag_bits() = PlayerFlag::kObserver;
     else if (active_ruleset_label() != kNetLobby && !manager->match_ended_)
-        player->flag_bits() |= kPlayerPending | kPlayerObserver;
+        player->flag_bits() |= PlayerFlag::kPendingObserver | PlayerFlag::kObserver;
     if (context->sender_conn()->is_host_local()) {
         // The host's own player: its profile copied through a buffer.
         if (!memory::manager_ready_flag())
@@ -706,7 +706,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         profile->emit_into_buffer(buffer, kAppearanceSize, 0);
         player->account()->decode_from_bytes(buffer, kAppearanceSize);
         memory::Hub::get_pull()->dealloc(buffer);
-        player->flag_bits() = kPlayerLocal;
+        player->flag_bits() = PlayerFlag::kLocal;
         manager->add_joining_player(player, 0);
         player->~JoinerRecord();
         memory::Hub::get_pull()->dealloc(player);
@@ -806,12 +806,12 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     writer.bytes(info->appearance.data(), static_cast<size_t>(size));
     desc.set_content(request_bytes.data());
     desc.set_byte_count(static_cast<uint16_t>(writer.position()));
-    desc.set_ident(kMsgJoinRequest);
+    desc.set_ident(MessageId::kJoinRequest);
     desc.set_compression(2); // LZSS (in the peer mode it goes as THUGPRO's LZHAM: compress_message)
     if (context->sender_conn()->is_off_machine())
         desc.set_queue(NetMessageInfo::kLaneOrdered);
     as_client(context->receiver_app())->send_to_host(&desc);
-    manager->join_phase_ = kJoinStateJoining;
+    manager->set_join_phase(EntryPhase::kJoining);
     return net::kResultConsumed;
 }
 
@@ -819,19 +819,19 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
 int Hub::on_turned_away_msg(InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->content());
-    const int reason = int{net::wire::value_at<int8_t>(context->body())};
+    const auto reason = static_cast<JoinRefusedReason>(net::wire::value_at<int8_t>(context->body()));
     switch (reason) {
-    case kRefusedBanned:
+    case JoinRefusedReason::kBanned:
         manager->refused_reason_ = kReasonBanned;
         break;
-    case kRefusedFull:
+    case JoinRefusedReason::kFull:
         manager->refused_reason_ = kReasonFull;
         break;
-    case kRefusedFullObservers:
+    case JoinRefusedReason::kFullObservers:
         manager->refused_reason_ = kReasonFullObservers;
         break;
-    case kRefusedCdKey: {
-        if (manager->join_phase_ == kJoinStateCdKey) {
+    case JoinRefusedReason::kCdKey: {
+        if (manager->join_phase() == EntryPhase::kCdKey) {
             // Answered already: refused.
             manager->refused_reason_ = checksums::hash_from_text(kNetReasonGeneral.data());
             break;
@@ -862,11 +862,11 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         std::strcpy(info.password.data(), join_password().data());
         thugpro::ConnectRequest request{};
         send_connection_request(as_client(manager->client_app_), info, &request);
-        manager->join_phase_ = kJoinStateCdKey;
+        manager->set_join_phase(EntryPhase::kCdKey);
         return net::kResultPassOn;
     }
-    case kRefusedPassword:
-        if (manager->join_phase_ == kJoinStateTryingPassword) {
+    case JoinRefusedReason::kPassword:
+        if (manager->join_phase() == EntryPhase::kTryingPassword) {
             manager->refused_reason_ = kReasonWrongPassword;
             break;
         }
@@ -876,26 +876,26 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         manager->join_expiry_job_->drop_out();
         memory::Hub::get_pull()->leave_heap_scope();
         return net::kResultPassOn;
-    case kRefusedInProgress:
+    case JoinRefusedReason::kInProgress:
         script::launch_script(kCreateGameInProgressDialog, nullptr, nullptr, false, nullptr);
         manager->join_expiry_job_->drop_out();
         return net::kResultPassOn;
-    case kRefusedRankLow:
+    case JoinRefusedReason::kRankLow:
         manager->refused_reason_ = kReasonRankLow;
         break;
-    case kRefusedRankHigh:
+    case JoinRefusedReason::kRankHigh:
         manager->refused_reason_ = kReasonRankHigh;
         break;
     default:
         // (the wrong version too.) NOT ORIGINAL: THUGPRO's reasons 31-37 in words (TP-R13).
-        if (const uint32_t text = thugpro::refused_reason_text(reason))
+        if (const uint32_t text = thugpro::refused_reason_text(core::to_underlying(reason)))
             manager->refused_reason_ = text;
         else
             manager->refused_reason_ = kReasonDefault;
         break;
     }
     manager->cancel_join();
-    manager->join_phase_ = kJoinStateRefused;
+    manager->set_join_phase(EntryPhase::kRefused);
     return net::kResultMsgFreed;
 }
 

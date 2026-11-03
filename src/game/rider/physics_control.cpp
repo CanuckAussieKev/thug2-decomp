@@ -60,7 +60,6 @@ constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29, kSkaterState = 0x43686585, k
 constexpr uint32_t kCmdWalkToSkate = 0x5C038F9B, kCmdSkateToWalk = 0x6E8E39B3;
 constexpr uint32_t kTimeSincePhysicsSwitch = 0x27F48E93, kPreviousPhysicsStateDuration = 0x24D061BA;
 
-constexpr int kSkating = 0, kWalking = 1; // the state component's physics mode (+0x1C)
 constexpr float kSecondsPerMs = 0.001f;   // 0x006461D8
 
 int get_clock() { return frame_clock::game_clock_elapsed() + clock_offset(); }
@@ -80,7 +79,7 @@ void core_returning(skater::SkaterPhysicsModule* core, bool on_ground, const Foo
 {
     core->resume_skating(on_ground, grind_from, acid_drop);
 }
-void set_walking(RiderPoseState* state, bool walking) { state->set_physics_mode(walking ? 1 : 0); }
+void set_walking(RiderPoseState* state, bool walking) { state->set_physics_mode(walking ? RiderPoseState::PhysicsMode::kWalking : RiderPoseState::PhysicsMode::kSkating); }
 void walk_starting(ObjectModule* walk, bool from_ground) { core::down_cast<FootMovement>(walk)->get_begin(from_ground); }
 void walk_leaving(ObjectModule* walk) { core::down_cast<FootMovement>(walk)->clear_model_offset(); }
 // The skater camera's 0x004FA420 (save) / 0x004F9A40 (set), the walk camera's 0x00525060 (save) / 0x00524FF0 (restore).
@@ -126,7 +125,7 @@ void RiderBoardPhysics::seal()
 {
     core_physics_ = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
     pose_ = core::down_cast<RiderPoseState>(entity()->fetch_module(kSkaterState));
-    pose_->assign_physics_mode(-1);
+    pose_->assign_physics_mode(RiderPoseState::PhysicsMode::kUnset);
 }
 
 // 0x005178B0
@@ -136,13 +135,13 @@ void RiderBoardPhysics::set_frozen(bool paused)
     if (!paused && (entity()->composite_flags() & kCompositeFlagSuspended))
         return;
     switch (pose_->physics_mode()) {
-    case kSkating:
+    case RiderPoseState::PhysicsMode::kSkating:
         freeze_module(static_cast<ObjectModule*>(core_physics_), paused);
         freeze_module(entity()->fetch_module(kSkaterRotate), paused);
         freeze_module(entity()->fetch_module(kSkaterAdjustPhysics), paused);
         freeze_module(entity()->fetch_module(kSkaterFinalizePhysics), paused);
         break;
-    case kWalking:
+    case RiderPoseState::PhysicsMode::kWalking:
         freeze_module(entity()->fetch_module(kWalk), paused);
         break;
     default:
@@ -153,7 +152,7 @@ void RiderBoardPhysics::set_frozen(bool paused)
 // 0x00517940
 void RiderBoardPhysics::dismount_to_walk()
 {
-    if (pose_->physics_mode() == kWalking)
+    if (pose_->physics_mode() == RiderPoseState::PhysicsMode::kWalking)
         return;
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
@@ -182,7 +181,7 @@ void RiderBoardPhysics::dismount_to_walk()
 // 0x00517B20
 void RiderBoardPhysics::remount_board()
 {
-    if (pose_->physics_mode() == kSkating)
+    if (pose_->physics_mode() == RiderPoseState::PhysicsMode::kSkating)
         return;
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
@@ -218,10 +217,10 @@ void RiderBoardPhysics::tick_frame()
     if (!is_halted_)
         return;
     switch (pose_->physics_mode()) {
-    case kSkating:
+    case RiderPoseState::PhysicsMode::kSkating:
         entity()->display_matrix() = core_physics_->display_matrix();
         break;
-    case kWalking:
+    case RiderPoseState::PhysicsMode::kWalking:
         entity()->display_matrix() = entity()->basis_frame();
         break;
     default:

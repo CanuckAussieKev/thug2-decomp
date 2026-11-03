@@ -70,7 +70,7 @@ Hub::Hub()
     setup_list_sentinel(&servers_);        // the servers
     setup_list_sentinel(&waiting_servers_);
     tasks::PileUp* tasks = (&assets::get_main_loop_manager()->logic_tasks());
-    net::Hub::sole()->set_msg_options(kMsgObjectUpdates, 1); // (the object update message's)
+    net::Hub::sole()->set_msg_options(MessageId::kObjectUpdates, 1); // (the object update message's)
     net_options_.read_in(kNetSettingsKey);
     taunt_options_.read_in(kTauntSettingsKey);
     connection_job_ = std::make_unique<tasks::Task<Hub>>((&Hub::connection_task), this, kEarlyTaskPriority);

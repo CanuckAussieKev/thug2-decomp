@@ -713,7 +713,7 @@ void Rider::update_shadow_light()
     // In the air (or not on the ground): fade towards straight down; else back.
     bool fading = false;
     const RiderBoardPhysics* control = physics_control_;
-    if (control && !control->pose()->in_vehicle() && !static_cast<uint32_t>(control->pose()->physics_mode()))
+    if (control && !control->pose()->in_vehicle() && control->pose()->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating)
         fading = core_physics_->state()->cur_phase() == 0;
     else if (!walk_)
         fading = true;
@@ -1197,13 +1197,13 @@ void Rider::init_from_profile(RiderIdentity* profile)
         net::AppHost* client = net->fetch_patron(view_slot_);
         net::Router* dispatcher = &client->dispatcher();
         struct HandlerEntry {
-            uint8_t id;
+            online::MessageId id;
             net::HandlerSlotValue code;
         };
         const auto handlers = std::to_array<HandlerEntry>({
-            {.id = 0x3B, .code = &modules::PointTally::on_score_msg},        {.id = 0x44, .code = &RiderFrameLog::handle_collision_messages},
-            {.id = 0x43, .code = &RiderFrameLog::handle_collision_messages}, {.id = 0x85, .code = &RiderFrameLog::handle_hit_messages},
-            {.id = 0x84, .code = &RiderFrameLog::handle_hit_messages},       {.id = 0x4B, .code = &RiderHostSync::handle_graffiti_steal}});
+            {.id = online::MessageId::kTrickObjects, .code = &modules::PointTally::on_score_msg},        {.id = online::MessageId::kRanIntoAck, .code = &RiderFrameLog::handle_collision_messages},
+            {.id = online::MessageId::kRanInto, .code = &RiderFrameLog::handle_collision_messages}, {.id = online::MessageId::kHitOwner, .code = &RiderFrameLog::handle_hit_messages},
+            {.id = online::MessageId::kHit, .code = &RiderFrameLog::handle_hit_messages},       {.id = online::MessageId::kTagStolen, .code = &RiderHostSync::handle_graffiti_steal}});
         for (const auto& handler : handlers)
             dispatcher->append_listener(handler.id, handler.code, 0, this, kListenerPriority);
     }
@@ -1257,7 +1257,7 @@ void Rider::write_cat_info(script::Struct* save)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> tricks = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-    tricks->configure_size_kind(kCatTrickCount, script::kQbvalStruct);
+    tricks->configure_size_kind(kCatTrickCount, script::QbValueKind::kStruct);
     for (int i = 0; i < kCatTrickCount; ++i) {
         gsl::owner<script::Struct*> struct_memory = script::spawn_param_bag();
         script::Struct* trick = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;
@@ -1275,7 +1275,7 @@ void Rider::write_list_44b_66a_9f(script::Struct* save)
 {
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> entries = memory ? memory::construct_in<script::Array>(memory) : nullptr;
-    entries->configure_size_kind(kGoalStatusCount, script::kQbvalInteger);
+    entries->configure_size_kind(kGoalStatusCount, script::QbValueKind::kInteger);
     for (int i = 0; i < kGoalStatusCount; ++i)
         entries->set_element(i, static_cast<uint32_t>(static_cast<AttributeTracker*>(stats_)->get_goal_status(i)));
     save->append_array_ref(kList44b66a9f, entries);
@@ -1299,7 +1299,7 @@ void Rider::launch_projectile()
     // From a wrist (the right one, or the left by its stance and whether it's walking).
     const RiderPoseState* walking = physics_control_->pose();
     const bool flipped = core_physics_->state()->flag(PoseFlag::kFlipped).on != 0;
-    const bool walk = !walking->in_vehicle() && walking->physics_mode() == 1;
+    const bool walk = !walking->in_vehicle() && walking->physics_mode() == objects::RiderPoseState::PhysicsMode::kWalking;
     const uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
     maths::Vec4 bone, rotated;
     core::down_cast<BoneRigModule>(fetch_module(kSkeleton2))->get_local_bone_position(wrist, &bone);
@@ -1512,7 +1512,7 @@ void Rider::reset_components()
 void Rider::relaunch(uint32_t a, uint32_t b)
 {
     const RiderPoseState* walking = physics_control_->pose();
-    if (!walking->in_vehicle() && walking->physics_mode() == 1) {
+    if (!walking->in_vehicle() && walking->physics_mode() == objects::RiderPoseState::PhysicsMode::kWalking) {
         // Walking: back to skating first.
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
@@ -1748,9 +1748,9 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
         auto* client = core::down_cast<net::Guest>(net->fetch_patron(view_slot_));
         if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident())))
             player->mark_capture_blocked();
-        message.set_ident(online::kMsgRiderReady);
+        message.set_ident(online::MessageId::kRiderReady);
         message.set_queue(net::NetMessageInfo::kLaneOrdered);
-        message.set_group_id(online::kGroupGame);
+        message.set_group_id(online::MessageGroup::kGame);
         client->send_to_host(&message);
     }
 }

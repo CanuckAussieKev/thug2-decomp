@@ -25,6 +25,7 @@
 namespace script {
 class Array;
 class Script;
+enum class ScriptOutcome : uint8_t;
 class Struct;
 struct MemberFunctionEntry;
 } // namespace script
@@ -107,7 +108,7 @@ public:
     // Returns the script.
     script::Script* replace_script(uint32_t name, script::Struct* params);
     // 0x00461500: `name` runs now as an interrupt of its script (made if needed, from the current heap).
-    int run_sub_script(uint32_t name, script::Struct* params);
+    script::ScriptOutcome run_sub_script(uint32_t name, script::Struct* params);
     // 0x00461410: spawn `name` on the object (spawn id `id`). A C function name gives no script: crash.
     script::Script* spawn_script(uint32_t name, script::Struct* params, uint32_t id, bool pause_with_object);
     // 0x00461480: spawn `name` on the object and Update it once at once (`replicate_flag`: the other players are

@@ -453,10 +453,10 @@ void show_disc_error()
         gfx.d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
         choose_blend_mode(kBlendModeAlpha);
         set_texture(0, nullptr);
-        change_phase(kAddressMode0, kClampBothWays);
-        change_phase(kDepthBias, 0);
-        change_phase(kPhaseAlphaTest, 1);
-        change_phase(kZWrite, 0);
+        change_phase(RenderStateId::kAddressMode0, kClampBothWays);
+        change_phase(RenderStateId::kDepthBias, 0);
+        change_phase(RenderStateId::kPhaseAlphaTest, 1);
+        change_phase(RenderStateId::kZWrite, 0);
         gfx.d3d_device()->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
         gfx.d3d_device()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
         text->set_y(text->y() - kOffsetLines);

@@ -41,11 +41,6 @@ constexpr float kJumpProbeBelow = 6.0f;
 constexpr uint32_t kHash40490FDB = 0x40490FDB; // (text unknown)
 constexpr uint32_t kHash447A0000 = 0x447A0000; // (text unknown)
 
-// Script wait types a component decides (CScript::suspend_reason_ 5-10; cscript.h).
-constexpr uint32_t kWaitMove = 5;
-constexpr uint32_t kWaitJump = 7;
-constexpr uint32_t kWaitPathStop = 8;
-constexpr uint32_t kWaitRotate = 9;
 
 // The game clock with its offset (0x0044ECE0 + 0x00696D60).
 int game_clock() { return frame_clock::game_clock_elapsed() + clock_offset(); }
@@ -141,19 +136,19 @@ void KinematicsModule::configure_from_data(script::Struct* params)
 void KinematicsModule::step_wait_state(script::Script* script, uint32_t /*arg*/)
 {
     switch (script->suspend_reason()) {
-    case kWaitMove:
+    case script::BlockReason::kMove:
         if (!(motion_flags_ & kMotionMoveMask))
             script->stop_waiting();
         break;
-    case kWaitJump:
+    case script::BlockReason::kJump:
         if (!(motion_flags_ & kMotionJumping))
             script->stop_waiting();
         break;
-    case kWaitPathStop:
+    case script::BlockReason::kPathStop:
         if (!(path_speed_ > 0.0f)) // (a NaN stops it too)
             script->stop_waiting();
         break;
-    case kWaitRotate:
+    case script::BlockReason::kRotate:
         if (!(motion_flags_ & kMotionRotateMask))
             script->stop_waiting();
         break;

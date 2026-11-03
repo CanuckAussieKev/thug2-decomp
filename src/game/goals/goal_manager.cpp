@@ -193,9 +193,9 @@ bool GoalManager::complete_objective(uint32_t id)
             util::ByteWriter writer(bytes.data(), sizeof(bytes));
             online::write_goal_message(writer, message);
             desc.set_byte_count(sizeof(bytes));
-            desc.set_group_id(online::kGroupGame);
+            desc.set_group_id(online::MessageGroup::kGame);
             desc.set_content(bytes.data());
-            desc.set_ident(online::kMsgGoalCompleted);
+            desc.set_ident(online::MessageId::kGoalCompleted);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
             core::down_cast<net::Guest>(client)->send_to_host(&desc);
         } else if (goal->sub_nodes()->objective_key_ == 0 && !goal->fetch_args()->has_bare_flag(kEditedGoal)) {

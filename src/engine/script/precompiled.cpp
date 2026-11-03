@@ -74,8 +74,8 @@ uint32_t relocate_array(std::span<uint8_t> image, Array* array, uint32_t base)
     }
     const std::span<const Cell> elements = array->cells();
     switch (array->kind_tag()) {
-    case kQbvalString:
-    case kQbvalInlineText: {
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText: {
         relocate_array_elements(array, base);
         // (the texts one after another, padded once at the end)
         uint32_t total = 0;
@@ -83,18 +83,18 @@ uint32_t relocate_array(std::span<uint8_t> image, Array* array, uint32_t base)
             total += static_cast<uint32_t>(std::strlen(element.text())) + 1;
         return end + align4(total);
     }
-    case kQbvalPair:
+    case QbValueKind::kPair:
         relocate_array_elements(array, base);
         return end + size * static_cast<uint32_t>(sizeof(Pair));
-    case kQbvalVector:
+    case QbValueKind::kVector:
         relocate_array_elements(array, base);
         return end + size * static_cast<uint32_t>(sizeof(Vector));
-    case kQbvalStruct:
+    case QbValueKind::kStruct:
         relocate_array_elements(array, base);
         for (const Cell& element : elements)
             end = relocate_struct(image, element.structure(), base);
         return end;
-    case kQbvalArray:
+    case QbValueKind::kArray:
         relocate_array_elements(array, base);
         for (const Cell& element : elements)
             end = relocate_array(image, element.array(), base);
@@ -111,26 +111,26 @@ uint32_t relocate_component(std::span<uint8_t> image, Component* component, uint
         relocate(component->next, base);
     const uint32_t end = end_of(image, component);
     switch (value_kind(*component)) {
-    case kQbvalString:
-    case kQbvalInlineText:
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText:
         relocate(component->value, base);
         return end + stored_string_size(component->value.text());
-    case kQbvalPair:
+    case QbValueKind::kPair:
         relocate(component->value, base);
         return end + static_cast<uint32_t>(sizeof(Pair));
-    case kQbvalVector:
+    case QbValueKind::kVector:
         relocate(component->value, base);
         return end + static_cast<uint32_t>(sizeof(Vector));
-    case kQbvalScriptBody: {
+    case QbValueKind::kScriptBody: {
         // A script component: its tokens, up to and including the '$' (in the image).
         relocate(component->value, base);
         const Tokens code = Tokens(image).moved_to(component->value.code());
         return end + align4(static_cast<uint32_t>(code_between(code, skip_to_end_of_script(code)).size()));
     }
-    case kQbvalStruct:
+    case QbValueKind::kStruct:
         relocate(component->value, base);
         return relocate_struct(image, component->value.structure(), base);
-    case kQbvalArray:
+    case QbValueKind::kArray:
         relocate(component->value, base);
         return relocate_array(image, component->value.array(), base);
     default:
@@ -155,17 +155,17 @@ uint32_t relocate_symbol(std::span<uint8_t> image, SymbolTableEntry* symbol, uin
 {
     const uint32_t end = end_of(image, symbol);
     switch (symbol->type()) {
-    case kQbvalString:
-    case kQbvalInlineText:
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText:
         relocate(symbol->value(), base);
         return end + stored_string_size(symbol->value().text());
-    case kQbvalPair:
+    case QbValueKind::kPair:
         relocate(symbol->value(), base);
         return end + static_cast<uint32_t>(sizeof(Pair));
-    case kQbvalVector:
+    case QbValueKind::kVector:
         relocate(symbol->value(), base);
         return end + static_cast<uint32_t>(sizeof(Vector));
-    case kQbvalScriptBody: {
+    case QbValueKind::kScriptBody: {
         // {checksum, size, stored size, code}: the stored size is read from right after the entry (where the
         // script is), not through the value.
         util::ByteReader record(image.subspan(end, kStoredScriptHeader));
@@ -175,10 +175,10 @@ uint32_t relocate_symbol(std::span<uint8_t> image, SymbolTableEntry* symbol, uin
         relocate(symbol->value(), base);
         return end + static_cast<uint32_t>(kStoredScriptHeader) + align4(stored);
     }
-    case kQbvalStruct:
+    case QbValueKind::kStruct:
         relocate(symbol->value(), base);
         return relocate_struct(image, symbol->value().structure(), base);
-    case kQbvalArray:
+    case QbValueKind::kArray:
         relocate(symbol->value(), base);
         return relocate_array(image, symbol->value().array(), base);
     default: // (integers, floats, names, C functions...: the value is in the entry)

@@ -151,7 +151,7 @@ bool RiderIdentity::add_to_info_471f_c_4d_d(int amount)
 {
     int value = 0;
     details_params()->fetch_int_value(kPointsAvailable, &value, 1);
-    details_params()->add_component_of_type(kPointsAvailable, script::kQbvalInteger, static_cast<uint32_t>(value + amount));
+    details_params()->add_component_of_type(kPointsAvailable, script::QbValueKind::kInteger, static_cast<uint32_t>(value + amount));
     return true;
 }
 int RiderIdentity::get_info_471f_c_4d_d()
@@ -166,7 +166,7 @@ bool RiderIdentity::add_max_specials(int amount)
 {
     int value = 0;
     details_params()->fetch_int_value(kMaxSpecials, &value, 1);
-    details_params()->add_component_of_type(kMaxSpecials, script::kQbvalInteger, static_cast<uint32_t>(value + amount));
+    details_params()->add_component_of_type(kMaxSpecials, script::QbValueKind::kInteger, static_cast<uint32_t>(value + amount));
     return true;
 }
 int RiderIdentity::get_max_specials()
@@ -217,7 +217,7 @@ bool RiderIdentity::is_pro()
 bool RiderIdentity::has_flag_f_3149a_c5() { return details_params()->has_bare_flag(kIsSecret); }
 void RiderIdentity::set_value_09f_350e_5(uint8_t value)
 {
-    details_params()->add_component_of_type(kIsHeadLocked, script::kQbvalInteger, value);
+    details_params()->add_component_of_type(kIsHeadLocked, script::QbValueKind::kInteger, value);
 }
 
 // 0x005861C0 / 0x005861F0
@@ -275,8 +275,8 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
     if (trick->is_vacant())
         name = keys = kEmptyTrick;
     auto* slot = slots->struct_at(static_cast<uint32_t>(index));
-    slot->add_component_of_type(kTrickSlot, script::kQbvalName, name);
-    slot->add_component_of_type(kTrickKeys, script::kQbvalName, keys);
+    slot->add_component_of_type(kTrickSlot, script::QbValueKind::kName, name);
+    slot->add_component_of_type(kTrickKeys, script::QbValueKind::kName, keys);
     if (trick->flag())
         slot->put_int(checksums::Name{kTrickMarker}, 1);
     else
@@ -436,7 +436,7 @@ bool RiderIdentity::get_reset(script::Struct* params)
 void RiderIdentity::write_to_save(script::Struct* save)
 {
     gsl::owner<script::Struct*> mine = script::new_struct();
-    mine->add_component_of_type(kVersionNumber, script::kQbvalInteger, 2); // the version
+    mine->add_component_of_type(kVersionNumber, script::QbValueKind::kInteger, 2); // the version
     int pro = 0; // (the original's: the slot's last value - a structure's address)
     details_params()->fetch_int_value(kIsPro, &pro, 1);
     if (!pro) {
@@ -455,7 +455,7 @@ void RiderIdentity::write_to_save(script::Struct* save)
     mine->append_struct_ref(kInfo, info);
     uint32_t name = 0;
     details_params()->read_hash_value(kName, &name, 1);
-    mine->add_component_of_type(kDeckFlags, script::kQbvalInteger, 0);
+    mine->add_component_of_type(kDeckFlags, script::QbValueKind::kInteger, 0);
     save->append_struct_ref(name, mine);
 }
 
@@ -535,12 +535,12 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
         case kStickerTexture:
         case kFileName:
         case kFirstName:
-            sent->append_word(c->name, script::kQbvalString, c->value.text());
+            sent->append_word(c->name, script::QbValueKind::kString, c->value.text());
             break;
         case kStance:
         case kPushStyle:
         case kName:
-            sent->add_component_of_type(c->name, script::kQbvalName, c->value.word());
+            sent->add_component_of_type(c->name, script::QbValueKind::kName, c->value.word());
             break;
         case kOllie:
         case kIsMale:
@@ -555,7 +555,7 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
         case kIsPro:
         case kSpin:
         case kRailBalance:
-            sent->add_component_of_type(c->name, script::kQbvalInteger, c->value.word());
+            sent->add_component_of_type(c->name, script::QbValueKind::kInteger, c->value.word());
             break;
         default:
             break;

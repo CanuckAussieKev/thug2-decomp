@@ -160,7 +160,7 @@ bool cfunc_size_of(Struct* params, Script* script)
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
     const uint32_t size = array ? array->extent() : 0;
-    script->args()->add_component_of_type(kArraySize, script::kQbvalInteger, size);
+    script->args()->add_component_of_type(kArraySize, script::QbValueKind::kInteger, size);
     return true;
 }
 
@@ -191,25 +191,25 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
     script->args()->put_int(checksums::Name{kIndex}, index);
     Struct* own = script->args().get();
     switch (array->kind_tag()) {
-    case script::kQbvalInteger:
+    case script::QbValueKind::kInteger:
         own->put_int(checksums::Name{kElement}, static_cast<int>(array->fetch_part(index)));
         break;
-    case script::kQbvalFloat:
+    case script::QbValueKind::kFloat:
         own->push_float(checksums::Name{kElement}, array->fetch_float(index));
         break;
-    case script::kQbvalString:
+    case script::QbValueKind::kString:
         own->append_word(kElement, array->find_inline_text(index)); // (0x0046CB70: the same element read)
         break;
-    case script::kQbvalInlineText:
+    case script::QbValueKind::kInlineText:
         own->append_inline_text(kElement, array->fetch_text(index));
         break;
-    case script::kQbvalStruct:
+    case script::QbValueKind::kStruct:
         own->put_sub_struct(kElement, array->struct_at(index));
         break;
-    case script::kQbvalArray:
+    case script::QbValueKind::kArray:
         own->append_array_value(kElement, array->array_at(index));
         break;
-    case script::kQbvalName:
+    case script::QbValueKind::kName:
         own->put_name_key(checksums::Name{kElement}, array->fetch_part(index));
         break;
     default:
@@ -235,19 +235,19 @@ bool cfunc_get_random_array_element(Struct* params, Script* script)
     script->args()->put_int(checksums::Name{kIndex}, index);
     Struct* own = script->args().get();
     switch (array->kind_tag()) {
-    case script::kQbvalInteger:
+    case script::QbValueKind::kInteger:
         own->put_int(checksums::Name{kElement}, static_cast<int>(array->fetch_part(index)));
         break;
-    case script::kQbvalFloat:
+    case script::QbValueKind::kFloat:
         own->push_float(checksums::Name{kElement}, array->fetch_float(index));
         break;
-    case script::kQbvalStruct:
+    case script::QbValueKind::kStruct:
         own->put_sub_struct(kElement, array->struct_at(index));
         break;
-    case script::kQbvalArray:
+    case script::QbValueKind::kArray:
         own->append_array_value(kElement, array->array_at(index));
         break;
-    case script::kQbvalName:
+    case script::QbValueKind::kName:
         own->put_name_key(checksums::Name{kElement}, array->fetch_part(index));
         break;
     default:
@@ -284,7 +284,7 @@ bool cfunc_goto_random_script(Struct* params, Script* script)
 {
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
-    if (array && array->extent() && array->kind_tag() == script::kQbvalName) {
+    if (array && array->extent() && array->kind_tag() == script::QbValueKind::kName) {
         objects::Entity* object = script->entity().get_pull();
         const uint32_t name = array->fetch_part(maths::rnd(static_cast<int>(array->extent())));
         script->bind_script(name, nullptr, object);
@@ -436,10 +436,10 @@ bool cfunc_get_element(Struct* params, Script* script)
     if (index < 0 || index >= ints::as_signed(array->extent()))
         return false;
     switch (array->kind_tag()) {
-    case script::kQbvalInteger:
-        script->args()->add_component_of_type(kElement, script::kQbvalInteger, array->fetch_part(index));
+    case script::QbValueKind::kInteger:
+        script->args()->add_component_of_type(kElement, script::QbValueKind::kInteger, array->fetch_part(index));
         break;
-    case script::kQbvalStruct: {
+    case script::QbValueKind::kStruct: {
         gsl::owner<Struct*> copy = script::spawn_param_bag();
         if (copy)
             copy = new (copy) script::Struct;
@@ -447,7 +447,7 @@ bool cfunc_get_element(Struct* params, Script* script)
         script->args()->append_struct_ref(kElement, copy);
         break;
     }
-    case script::kQbvalArray:
+    case script::QbValueKind::kArray:
         script->args()->append_array_value(kElement, array->array_at(index));
         break;
     default:
@@ -599,7 +599,7 @@ bool cfunc_create_index_array(Struct* params, Script* script)
     gsl::owner<Array*> indexes = script::alloc_script_array();
     if (indexes)
         indexes = new (indexes) script::Array;
-    indexes->configure_size_kind(static_cast<uint32_t>(size), script::kQbvalInteger);
+    indexes->configure_size_kind(static_cast<uint32_t>(size), script::QbValueKind::kInteger);
     for (int i = 0; i < size; ++i)
         indexes->set_element(i, static_cast<uint32_t>(i));
     script->args()->append_array_value(kIndexArray, indexes);
@@ -640,7 +640,7 @@ bool cfunc_string_to_char_array(Struct* params, Script* script)
     gsl::owner<Array*> characters = script::alloc_script_array();
     if (characters)
         characters = new (characters) script::Array;
-    characters->configure_size_kind(length, script::kQbvalString);
+    characters->configure_size_kind(length, script::QbValueKind::kString);
     std::array<char, 2> one{};
     core::at(one, 1) = '\0';
     const std::string_view letters(string);
@@ -671,35 +671,35 @@ bool cfunc_set_array_element(Struct* params, Script* script)
     script::duplicate_component(value, new_value, 0);
     bool store = true; // the element becomes the value (whose own copy is handed over)
     switch (array->kind_tag()) {
-    case script::kQbvalInteger:
-    case script::kQbvalName:
+    case script::QbValueKind::kInteger:
+    case script::QbValueKind::kName:
         array->set_element(index, value->value.word());
         store = false;
         break;
-    case script::kQbvalFloat:
-        if (value_kind(*value) == script::kQbvalFloat)
+    case script::QbValueKind::kFloat:
+        if (value_kind(*value) == script::QbValueKind::kFloat)
             array->change_float(index, value->value.real());
         else
             array->change_float(index, static_cast<float>(value->value.integer()));
         store = false;
         break;
-    case script::kQbvalString:
-    case script::kQbvalInlineText:
+    case script::QbValueKind::kString:
+    case script::QbValueKind::kInlineText:
         script::free_string(array->find_inline_text(index));
         break;
-    case script::kQbvalPair:
+    case script::QbValueKind::kPair:
         script::free_pair(array->pair_at(index));
         break;
-    case script::kQbvalVector:
+    case script::QbValueKind::kVector:
         script::free_vector(array->vector_at(index));
         break;
-    case script::kQbvalStruct:
+    case script::QbValueKind::kStruct:
         if (auto* old = array->struct_at(index)) {
             old->get_clear();
             script::delete_struct(old);
         }
         break;
-    case script::kQbvalArray: {
+    case script::QbValueKind::kArray: {
         auto* old = array->array_at(index);
         script::release_array_storage(old);
         if (old) {

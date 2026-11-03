@@ -7,6 +7,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
 #include "engine/maths/shape_tests.h"
+#include "formats/collision_format.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -19,16 +20,14 @@ constexpr float kEmptyBoxExtent = 10000000.0f; // an empty box starts with min a
 constexpr float kQueryBoxMargin = 0.5f;        // a query's box is grown by this each way before it is matched
 constexpr int kUnlistedFlags = 6;              // an object with any of these flag bits is left out of the queries
 // A collision face's flags (the 16 bits each face stores) - the game's probes, the editor and the rider read them.
-constexpr uint16_t kFaceSkatable = 0x1;
-constexpr uint16_t kFaceNotSkatable = 0x2;    // not stood on
-constexpr uint16_t kFaceWall = 0x4;
-constexpr uint16_t kFaceVert = 0x8;           // a vert face (acid drops, wallplants and recoveries treat it so)
-constexpr uint16_t kFaceNotCollidable = 0x10; // passed through (a face the editor takes out carries it too)
-constexpr uint16_t kFaceTrigger = 0x40;       // a trigger: the one flag a hit record keeps (0 or 0x40)
+using FaceFlag = collision_format::FaceFlag;
+constexpr FaceFlag kNoFaceFlags = FaceFlag::kNone; // no ignore / require mask: every face counts
+// What a hit record keeps of the face's flags beside them: 0x40 when it is a trigger, else 0.
+[[nodiscard]] constexpr uint8_t trigger_marker(FaceFlag flags) { return static_cast<uint8_t>(core::to_underlying(flags & FaceFlag::kTrigger)); }
 // Masks of them a probe passes over (ignore) or looks for (require).
-constexpr uint16_t kDefaultIgnoredFaceFlags = kFaceNotCollidable; // a fresh probe's, the skater's, peds' and vehicles'
-constexpr uint16_t kCameraIgnoredFaceFlags = 0x90;                // the faces the cameras' probes pass through
-constexpr uint16_t kTriggerVolumeFaceFlags = 0x50;                // a trigger or not collidable: a trigger volume's faces
+constexpr FaceFlag kDefaultIgnoredFaceFlags = FaceFlag::kNotCollidable; // a fresh probe's, the skater's, peds' and vehicles'
+constexpr FaceFlag kCameraIgnoredFaceFlags = FaceFlag::kCameraPasses | FaceFlag::kNotCollidable; // the faces the cameras' probes pass through
+constexpr FaceFlag kTriggerVolumeFaceFlags = FaceFlag::kTrigger | FaceFlag::kNotCollidable;      // a trigger or not collidable: a trigger volume's faces
 constexpr std::size_t kFaceQueryBufferSize = 0x800; // the face indices one query lists
 
 // The geometry a collision object's faces come from (render::TriMeshSource; its methods are rewritten later).
@@ -76,7 +75,7 @@ public:
     // (slot 1) Whether its hits are triangles (the base's: no).
     virtual bool is_triangle_hit() { return false; }
     // (slots 2, 3) A face's flags and terrain.
-    [[nodiscard]] virtual uint32_t get_triangle_attrs(int face) const = 0;
+    [[nodiscard]] virtual FaceFlag get_triangle_attrs(int face) const = 0;
     [[nodiscard]] virtual uint16_t get_face_terrain(int face) const = 0;
     // 0x0040B370 (slot 4): the geometry, and its checksum (the sector's name) as the object's.
     virtual void assign_shape_data(TriMeshSource* geometry);
@@ -159,7 +158,7 @@ protected:
 
     // The triangle objects' slots 2 / 3 (sectors, instances, movable triangles): the face's flags / terrain from the
     // geometry (0x00410BF0 / 0x00411750).
-    [[nodiscard]] uint32_t read_face_attrs(int face) const;
+    [[nodiscard]] FaceFlag read_face_attrs(int face) const;
     [[nodiscard]] uint16_t read_face_terrain(int face) const;
     // 0x004110B0 / 0x004114E0 (a sector's slots 16 / 17, an instance's too: the faces taken as they are, unplaced):
     // see StaticCollider::collide_with_sphere / collide_with_capsule.
@@ -201,7 +200,7 @@ public:
     // 0x00411D90 (slot 1): whether every child is (stops asking at the first that isn't).
     bool is_triangle_hit() override;
     // (slot 2, the shared "return 0" stub) / 0x0040AE30 (slot 3): 0.
-    [[nodiscard]] uint32_t get_triangle_attrs(int /*face*/) const override { return 0; }
+    [[nodiscard]] FaceFlag get_triangle_attrs(int /*face*/) const override { return FaceFlag::kNone; }
     [[nodiscard]] uint16_t get_face_terrain(int /*face*/) const override { return 0; }
     // 0x00411CC0 / 0x00411C30 (slots 4, 5): passed to each child; the box to be recomputed. 0x00411C80 (slot 6):
     // passed to each child.

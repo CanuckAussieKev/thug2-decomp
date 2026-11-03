@@ -8,6 +8,7 @@
 #include <array>
 
 #include "engine/net/player_info.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -106,7 +107,7 @@ void cancel_join(Hub* manager, bool notify_first)
         params->put_name_key(checksums::Name{0u}, kShowTimeout);
     }
     manager->join_phase_job()->drop_out();
-    manager->set_entry_phase(2);
+    manager->set_entry_phase(EntryPhase::kJoining);
     if (!notify_first) {
         params = script::new_struct();
         params->put_name_key(checksums::Name{0u}, kShowTimeout);
@@ -134,14 +135,14 @@ int on_player_added_msg(net::InboundMsgCtx* context)
     std::memcpy(info->label().data(), arrived.name.data(), strnlen(arrived.name.data(), kPlayerNameLength));
     info->set_entity_key(static_cast<uint8_t>(arrived.object_id)); // the object id
     info->set_conn(nullptr);                                       // the connection
-    info->flag_bits() = arrived.flags;                            // flags
+    info->flag_bits() = core::flags_from<PlayerFlag>(arrived.flags); // flags
     info->set_team(int{arrived.team});                             // the team
     info->set_profile_id(arrived.profile_id);
     info->set_skill_points(arrived.rating);
     info->set_accumulated_score(arrived.accumulated_score);
     info->set_drive_control_mode(arrived.drive_scheme);
     info->set_score(arrived.score);
-    if (!(info->flag_bits() & (kPlayerLocal | kPlayerObserver))) {
+    if (!core::any(info->flag_bits() & (PlayerFlag::kLocal | PlayerFlag::kObserver))) {
         static std::array<uint8_t, kAppearanceSize> appearance;
         const size_t size = reader.remaining() < kAppearanceSize ? reader.remaining() : kAppearanceSize;
         std::memset(appearance.data(), 0, sizeof(appearance));
@@ -241,7 +242,7 @@ int handle_flag_returned(net::InboundMsgCtx* context)
     team_name_key(name, team);
     script::StructPtr params = script::make_struct();
     params->put_int(checksums::Name{kTeam}, team);
-    params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
+    params->append_word(kString0, script::QbValueKind::kString, script::fetch_text(name.data()));
     get_run(kFlagReturned, params.get());
     params.reset();
     if (is_own_player(player))
@@ -274,9 +275,9 @@ int handle_rails_data(net::InboundMsgCtx* context)
         cancel_join(manager, true);
         return kKeep;
     }
-    desc.set_ident(kMsgRequestRails); // again
+    desc.set_ident(MessageId::kRequestRails); // again
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     send_to_server(context->receiver_app(), &desc);
     return kDone;
 }
@@ -305,9 +306,9 @@ int on_goal_sync_msg(net::InboundMsgCtx* context)
         cancel_join(manager, false);
         return kKeep;
     }
-    desc.set_ident(kMsgRequestGoals); // again
+    desc.set_ident(MessageId::kRequestGoals); // again
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     send_to_server(context->receiver_app(), &desc);
     return kDone;
 }
@@ -328,8 +329,8 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
     } else {
         for (JoinerRecord* added = first_new_player(manager, &search); added;
              added = next_new_player(manager, &search)) {
-            if (added->flag_bits() & kPlayerKing) {
-                added->flag_bits() &= ~kPlayerKing;
+            if (core::any(added->flag_bits() & PlayerFlag::kKing)) {
+                added->flag_bits() &= ~PlayerFlag::kKing;
                 break;
             }
         }
@@ -341,7 +342,7 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
     }
     for (JoinerRecord* added = first_new_player(manager, &search); added; added = next_new_player(manager, &search)) {
         if (added->entity_key() == *msg) {
-            added->flag_bits() |= kPlayerKing;
+            added->flag_bits() |= PlayerFlag::kKing;
             break;
         }
     }
@@ -391,12 +392,12 @@ int handle_joined_team(net::InboundMsgCtx* context)
     script::StructPtr params = script::make_struct();
     if (is_own_player(player)) {
         if (is_squad_match()) {
-            params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
+            params->append_word(kString0, script::QbValueKind::kString, script::fetch_text(name.data()));
             get_run(kJoinedTeamYou, params.get());
         }
     } else if (is_squad_match()) {
-        params->append_word(kString0, script::kQbvalString, player_name(player));
-        params->append_word(kString1, script::kQbvalString, script::fetch_text(name.data()));
+        params->append_word(kString0, script::QbValueKind::kString, player_name(player));
+        params->append_word(kString1, script::QbValueKind::kString, script::fetch_text(name.data()));
         get_run(kJoinedTeamOther, params.get());
     }
     params.reset();
@@ -512,7 +513,7 @@ int handle_goal_started(net::InboundMsgCtx* context)
 // 0x00532280
 int handle_eliminated(net::InboundMsgCtx* context)
 {
-    if (context->type_code() != kMsgEliminated)
+    if (context->type_code() != MessageId::kEliminated)
         return kContinue;
     const int id = static_cast<int>(message_word(context, 0));
     if (id < 0) {

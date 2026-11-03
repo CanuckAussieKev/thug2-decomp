@@ -68,10 +68,10 @@ void PointTally::note_tagged_prop_ask(int score)
     // (the descriptor is filled and not used: the message goes by the stream's own arguments)
     desc.set_content(data.data());
     desc.set_byte_count(static_cast<uint16_t>(writer.position()));
-    desc.set_ident(online::kMsgTrickObjects);
+    desc.set_ident(online::MessageId::kTrickObjects);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(online::kGroupGame);
-    client->send_bulk_to_host(online::kMsgTrickObjects, desc.byte_count(), data.data(), kTrickObjBuffer, online::kGroupGame,
+    desc.set_group_id(online::MessageGroup::kGame);
+    client->send_bulk_to_host(online::MessageId::kTrickObjects, desc.byte_count(), data.data(), kTrickObjBuffer, online::MessageGroup::kGame,
                               true, false);
 }
 
@@ -113,7 +113,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
             net::NetMessageInfo desc;
             desc.set_content(stolen_data.data());
             desc.set_byte_count(sizeof(stolen_data));
-            desc.set_ident(online::kMsgTagStolen);
+            desc.set_ident(online::MessageId::kTagStolen);
             server->put_on_outbox(thief->get_link_handle(), &desc);
             if (robbed)
                 server->put_on_outbox(robbed->get_link_handle(), &desc);
@@ -136,22 +136,22 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
         net::NetMessageInfo desc;
         desc.set_byte_count(static_cast<uint16_t>(writer.position()));
         desc.set_content(data.data());
-        desc.set_ident(online::kMsgTrickObjects);
+        desc.set_ident(online::MessageId::kTrickObjects);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(online::kGroupGame);
+        desc.set_group_id(online::MessageGroup::kGame);
         for (void* info = net->begin_player_walk(&search, false); info; info = net->step_player_walk(&search, false))
             server->send_bulk_message(as_player(info)->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()}, data.data(),
-                                      kTrickObjBuffer, online::kGroupGame, true, false);
+                                      kTrickObjBuffer, online::MessageGroup::kGame, true, false);
 
         util::ByteWriter observed_writer(data.data(), sizeof(data));
         online::write_observed_trick_objects(observed_writer, *all);
         desc.set_content(data.data());
         desc.set_byte_count(static_cast<uint16_t>(observed_writer.position()));
-        desc.set_ident(online::kMsgObservedTrickObjects);
+        desc.set_ident(online::MessageId::kObservedTrickObjects);
         for (void* info = net->begin_player_walk(&search, true); info; info = net->step_player_walk(&search, true)) {
             if (static_cast<uint8_t>(as_player(info)->is_observer()))
                 server->send_bulk_message(as_player(info)->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()},
-                                          data.data(), kTrickObjBuffer, online::kGroupGame, true, false);
+                                          data.data(), kTrickObjBuffer, online::MessageGroup::kGame, true, false);
         }
         static_cast<modules::Skate*>(skate)->broadcast_points(false); // the skate module's score updates
         if (conn->is_host_local())                                    // (no check: as the original)

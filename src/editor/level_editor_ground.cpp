@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "engine/render/coll_obj.h"
 #include "editor/level_editor.h"
 #include "engine/core/checksums.h"
 #include "engine/core/ints.h"
@@ -192,7 +193,7 @@ public:
     };
 
     // A triangle wound so that its normal points along `hint` (not added when it has no area).
-    void get_tri(Triangle triangle, V3 hint, uint16_t flags)
+    void get_tri(Triangle triangle, V3 hint, render::FaceFlag flags)
     {
         auto a = triangle.a;
         auto b = triangle.b;
@@ -213,7 +214,7 @@ public:
         mesh_.faces.push_back({.a = first, .b = static_cast<uint16_t>(first + 1), .c = static_cast<uint16_t>(first + 2), .flags = flags});
     }
     // A quad (corners in order round it) as two triangles.
-    void get_quad(V3 a, V3 b, V3 c, V3 d, V3 hint, uint16_t flags)
+    void get_quad(V3 a, V3 b, V3 c, V3 d, V3 hint, render::FaceFlag flags)
     {
         get_tri({.a = a, .b = b, .c = c}, hint, flags);
         get_tri({.a = a, .b = c, .c = d}, hint, flags);
@@ -251,7 +252,7 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, RampHeights heights, 
         const float dy = y1 - y0;
         // (the surface's normal: out by the rise, up by the run)
         const V3 hint = out * dy + get_up() * -dd;
-        const uint16_t flags = ramp == Ramp::kQuarter && dy >= -dd ? kFlagVert : kFlagRamp;
+        const render::FaceFlag flags = ramp == Ramp::kQuarter && dy >= -dd ? kFlagVert : kFlagRamp;
         b->get_quad(get_at(e0 + out * d0, y0), get_at(e1 + out * d0, y0), get_at(e1 + out * d1, y1),
                     get_at(e0 + out * d1, y1), hint, flags);
     }

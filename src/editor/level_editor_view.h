@@ -7,6 +7,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
+#include "engine/render/coll_obj.h"
 
 // NOT ORIGINAL - the level editor's view options (ours; see level_editor.h): what the editor shows, never what the game
 // does. Nothing here is saved in a layout or changes play; everything is put back when the editor closes.
@@ -58,7 +59,7 @@ enum class Surface : uint8_t {
     kPlain,
     kCount
 };
-Surface get_classify(uint32_t face_flags, bool collision_only);
+Surface get_classify(render::FaceFlag face_flags, bool collision_only);
 // The colour drawn (ARGB, see-through) and the legend's name.
 uint32_t surface_colour(Surface surface);
 const char* surface_name(Surface surface);
@@ -98,7 +99,7 @@ uint32_t get_faded(uint32_t argb);
 //     dashed cyan; an invisible wall's magenta (the selected one white, the hovered one yellow, thicker), dashed while
 //     switched off; other faces none.
 struct FaceFacts {
-    uint32_t flags = 0;
+    render::FaceFlag flags{};
     bool collision_only_ = false; // (its sector has nothing drawn: an invisible wall)
     bool off = false;             // (its sector's collision switched off)
     bool taken = false;           // (turned off for a moved piece's shared collision)

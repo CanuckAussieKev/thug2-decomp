@@ -3,6 +3,7 @@
 // precision) until the original stores them as floats.
 
 #include "game/rider/nonlocal_net_logic.h"
+#include "engine/core/enum_ops.h"
 #include "platform/d3dx.h"
 
 #include <cmath>
@@ -171,7 +172,7 @@ void RiderRemoteSync::settle_onto_floor()
     end.z = static_cast<float>(static_cast<double>(down_z) + pos.z);
     end.w = static_cast<float>(static_cast<double>(down_w) + pos.w);
     feeler.change_strand(&start, &end);
-    feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = 0});
+    feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
     if (!feeler.get_hit_shape(true, false))
         return;
 
@@ -184,10 +185,10 @@ void RiderRemoteSync::settle_onto_floor()
     // How far above the hit the skater is, along its up row.
     auto height = static_cast<float>((dy * up.y + dz * up.z) + dx * up.x);
 
-    // (only its low byte is tested: skatable, vert, not "not skatable" and not wallride)
-    auto flags = static_cast<uint8_t>(feeler.hit().face_flags_);
+    // (skatable, vert, not "not skatable" and not wallride - all in the low byte, which is all the original tests)
+    const auto flags = feeler.hit().face_flags_;
     const bool skatable =
-        (flags & render::kFaceSkatable) && !(flags & render::kFaceNotSkatable) && (flags & render::kFaceVert) && !(flags & render::kFaceWall);
+        core::any(flags & render::FaceFlag::kSkatable) && !core::any(flags & render::FaceFlag::kNotSkatable) && core::any(flags & render::FaceFlag::kVert) && !core::any(flags & render::FaceFlag::kWall);
     if (skatable &&
         !(std::sin(static_cast<double>(script::fetch_float(kWallNonSkatableAngle)) * kRadiansPerDegree) > normal.y)) {
         // Ground: unless it turns the skater's heading too far from its last ground's, close enough to snap to.
@@ -353,7 +354,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     if (std::sqrt((ex * ex + ey * ey) + ez * ez) > kBounceReach)
         return;
     feeler.change_strand(&from, &to);
-    feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = 0});
+    feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
     if (!feeler.get_hit_shape(true, false) || !skater->is_local_skater())
         return;
     // Another wall: turned round by what's left of a half turn, and halved.
@@ -442,7 +443,7 @@ void RiderRemoteSync::tick_frame()
 
     // The looping sound: on while skating, its speed and state.
     auto* sound = core::down_cast<RiderRollingAudio>(entity()->fetch_module(kSkaterLoopingSound));
-    if (pose_->physics_mode() != 0) {
+    if (pose_->physics_mode() != objects::RiderPoseState::PhysicsMode::kSkating) {
         if (sound->on()) {
             sound->hold_off(true);
             sound->set_on(0);

@@ -6,6 +6,7 @@
 #include <gsl/pointers>
 #include <array>
 
+#include "wire/message_ids.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
@@ -26,7 +27,6 @@
 #include "game/rider/rider.h"
 #include "engine/core/down_cast.h"
 #include "engine/net/net_game_state.h"
-#include "wire/skater_messages.h"
 
 namespace objects {
 
@@ -99,7 +99,7 @@ bool RiderSpinAndFlip::apply_board_turned(uint32_t object_id, bool rotated, uint
             net::NetMessageInfo message;
             net::Guest* app = client_app(player_skater_index(player));
             std::array<uint8_t, 2> data = {{static_cast<uint8_t>(object_id), static_cast<uint8_t>(rotated)}};
-            message.set_ident(online::kMsgBoardRotated);
+            message.set_ident(online::MessageId::kBoardRotated);
             message.set_byte_count(2);
             message.set_content(data.data());
             app->send_to_host(&message);

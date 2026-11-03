@@ -116,14 +116,14 @@ void OverlayDraw::change_concealed(uint8_t new_hidden)
 void draw_2d()
 {
     choose_blend_mode(kBlendModeAlpha);
-    change_phase(kAddressMode0, kClampBothWays);
-    change_phase(kDepthBias, 0);
-    change_phase(kPhaseAlphaTest, 1);
-    change_phase(kZWrite, 0);
+    change_phase(RenderStateId::kAddressMode0, kClampBothWays);
+    change_phase(RenderStateId::kDepthBias, 0);
+    change_phase(RenderStateId::kPhaseAlphaTest, 1);
+    change_phase(RenderStateId::kZWrite, 0);
     set_texture(1, nullptr);
     set_texture(2, nullptr);
     set_texture(3, nullptr);
-    change_phase(kZTest, z_test_next_frame());
+    change_phase(RenderStateId::kZTest, z_test_next_frame());
     uint32_t z_test = 0;
     for (OverlayDraw* item = foremost(); item; item = item->next()) {
         if (item->hidden())

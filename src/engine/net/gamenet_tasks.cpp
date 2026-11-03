@@ -139,11 +139,11 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
             text::format_to(line, "%s", script::fetch_text(kConnecting));
         else
             text::format_to(line, "%s %s", script::fetch_text(kDialing), net->get_dialup_number());
-        params->append_word(kText, script::kQbvalString, line.data());
+        params->append_word(kText, script::QbValueKind::kString, line.data());
         get_run(kStateDialog, params);
         break;
     case 1:
-        params->append_word(kText, script::kQbvalString, script::fetch_text(kConnected));
+        params->append_word(kText, script::QbValueKind::kString, script::fetch_text(kConnected));
         get_run(kStateDialog, params);
         break;
     case 2: // logged in (with the speed on a modem)
@@ -151,21 +151,21 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
             text::format_to(line2, "%s %d bps", script::fetch_text(kAuthDone), net->get_dialup_speed());
         else
             text::format_to(line2, "%s", script::fetch_text(kAuthDone));
-        params->append_word(kText, script::kQbvalString, line2.data());
+        params->append_word(kText, script::QbValueKind::kString, line2.data());
         get_run(kFinalStateDialog, params);
         break;
     case 3:
     case 4:
-        params->append_word(kText, script::kQbvalString, script::fetch_text(state == 3 ? kDisconnecting : kHangingUp));
+        params->append_word(kText, script::QbValueKind::kString, script::fetch_text(state == 3 ? kDisconnecting : kHangingUp));
         get_run(kStatusDialog, params);
         break;
     case net::kDialupStatusDisconnected:
-        params->append_word(kText, script::kQbvalString, script::fetch_text(kDisconnected));
+        params->append_word(kText, script::QbValueKind::kString, script::fetch_text(kDisconnected));
         get_run(kFinalStateDialog, params);
         break;
     case net::kDialupStatusRedialPause: // redial in five seconds
         text::format_to(line, "%s", script::fetch_text(kRedialPause));
-        params->append_word(kText, script::kQbvalString, line.data());
+        params->append_word(kText, script::QbValueKind::kString, line.data());
         get_run(kStateDialog, params);
         modem_dialog_end() = frame_clock::get_time() + kRedialPauseTime;
         net->set_dialup_status(net::kDialupStatusRedialWaiting);
@@ -200,7 +200,7 @@ void net_metrics_task(tasks::Task<Hub>* task)
 void join_deadline_tick(tasks::Task<Hub>* task)
 {
     const Hub* manager = task_manager(task);
-    if (manager->join_phase() == kJoinStateOver ||
+    if (manager->join_phase() == EntryPhase::kOver ||
         frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at()) <= kJoinTimeout)
         return;
     manager->join_phase_job()->drop_out();

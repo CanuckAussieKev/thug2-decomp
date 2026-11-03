@@ -72,11 +72,12 @@ constexpr int kHardPressThreshold = 0x80;
 class InputPort : public memory::HeapObject {
 public:
     // The states Process steps through while a pad is found.
-    using State = uint8_t;
-    static constexpr int kIdle = 0;
-    static constexpr int kDetect = 1;
-    static constexpr int kReady = 2;
-    static constexpr int kSettle = 5;
+    enum class State : uint8_t {
+        kIdle = 0,
+        kDetect = 1,
+        kReady = 2,
+        kSettle = 5,
+    };
     // Capability bits.
     static constexpr uint32_t kHasActuators = 2;
     static constexpr uint32_t kAnalog = 4;
@@ -105,7 +106,7 @@ public:
     // 0x005BCCC0: one frame's wait, then the state after it.
     void get_settle();
 
-    // 0x005BD200: the original's pad read (Process, state kReady): the platform layer's pad state for this
+    // 0x005BD200: the original's pad read (Process, state State::kReady): the platform layer's pad state for this
     // port into PS2-format control data, with the menus deciding which port and keys count. PartyMod's
     // Process does its own reading, so this isn't run in the game.
     void pull_data(int unused);
@@ -142,7 +143,7 @@ public:
     void set_capabilities(uint32_t value) { capabilities_ = value; }
     [[nodiscard]] uint32_t unknownc8() const { return unknownc8_; }
     void set_rumble_motor_count(int value) { rumble_motor_count_ = value; }
-    void set_cur_phase(int value) { cur_phase_ = value; }
+    void set_cur_phase(State value) { cur_phase_ = value; }
     [[nodiscard]] int ordinal() const { return ordinal_; }
     void set_is_connected(bool value) { is_connected_ = value; }
     std::array<uint8_t, 3>& pade1() { return pade1_; }
@@ -173,8 +174,10 @@ private:
     uint32_t unknownc8_{};
     int rumble_motor_count_{0};
     uint32_t buffer_raw_{};
-    int cur_phase_{kIdle};
-    int next_state_{kIdle}; // after kSettle
+    State cur_phase_{State::kIdle}; // (the original's int: the rest is zero)
+    std::array<uint8_t, 3> unknown_phase_pad_{};
+    State next_state_{State::kIdle}; // after kSettle (the original's int)
+    std::array<uint8_t, 3> unknown_next_pad_{};
     int ordinal_;
     bool is_connected_{};
     std::array<uint8_t, 3> pade1_{};

@@ -15,6 +15,7 @@
 #include <utility>
 #include <array>
 
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_overlays.h"
@@ -93,11 +94,11 @@ constexpr V3 kUp = {.x = 0.0f, .y = 1.0f, .z = 0.0f};
 
 float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
-bool eligible(uint16_t flags)
+bool eligible(render::FaceFlag flags)
 {
-    if (flags & (render::kFaceNotCollidable | render::kFaceTrigger | 0x04)) // (not collidable, a trigger, wallride)
+    if (core::any(flags & (render::FaceFlag::kNotCollidable | render::FaceFlag::kTrigger | render::FaceFlag::kWall))) // (not collidable, a trigger, wallride)
         return false;
-    if ((flags & 0x02) && !(flags & (0x01 | render::kFaceVert))) // (not skatable)
+    if (core::any(flags & render::FaceFlag::kNotSkatable) && !core::any(flags & (render::FaceFlag::kSkatable | render::FaceFlag::kVert))) // (not skatable)
         return false;
     return true;
 }
@@ -222,7 +223,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             const V3 n = core::at(info, i).n * convention;
             const V3 t = make_unit(kUp - n * n.y);
             tangent = tangent + t * core::at(info, i).area;
-            vert_flag |= (f.flags & render::kFaceVert) != 0;
+            vert_flag |= core::any(f.flags & render::FaceFlag::kVert);
         }
         if (count == 0 || get_dot(tangent, tangent) < kTinyLengthSquared)
             continue;
@@ -435,7 +436,7 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
         }
         if (!ok)
             continue;
-        const uint16_t flags = tri->face_flags(f);
+        const render::FaceFlag flags = tri->face_flags(f);
         out->push_back({.a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .flags = flags});
     }
 }

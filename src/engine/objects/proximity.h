@@ -20,12 +20,13 @@ namespace objects {
 class Entity;
 
 // The node's shape (its Shape checksum, 0x22CF0027).
-using ProximShape = uint8_t;
-constexpr int kProximShapeSphere = 0;    // within Radius of the node
-constexpr int kProximShapeBox = 1;       // the sector's box (axis-aligned, in the world)
-constexpr int kProximShapeSectorBox = 2; // the sector's box, in the sector's own frame
-constexpr int kProximShapeNone = 3;      // (never inside)
-constexpr int kProximShapeSector = 4;    // the sector's collision
+enum class ProximShape : uint8_t {
+    kSphere = 0, // within Radius of the node
+    kBox = 1, // the sector's box (axis-aligned, in the world)
+    kSectorBox = 2, // the sector's box, in the sector's own frame
+    kNone = 3, // (never inside)
+    kSector = 4, // the sector's collision
+};
 
 constexpr std::size_t kProximNodeToSectorOffset = 0x14;
 constexpr std::size_t kProximNodeActiveOffset = 0x54;
@@ -63,8 +64,8 @@ struct ProximNode {
     [[nodiscard]] uint32_t outside() const { return outside_; }
     [[nodiscard]] int kind_tag() const { return kind_tag_; }
     void set_kind_tag(int value) { kind_tag_ = value; }
-    [[nodiscard]] int form() const { return form_; }
-    void set_form(int value) { form_ = value; }
+    [[nodiscard]] ProximShape form() const { return form_; }
+    void set_form(ProximShape value) { form_ = value; }
     float& radius() { return radius_; }
     [[nodiscard]] float radius() const { return radius_; }
     void set_reach_sq(float value) { reach_sq_ = value; }
@@ -88,7 +89,8 @@ private:
     uint32_t is_within_{};  // +0x60: the skaters whose enter script ran
     uint32_t outside_{};    // +0x64: the update masks outside the shape (bits as proximity_notify's `mask`)
     int kind_tag_{};        // +0x68: what it reacts to (ProximType: 0, 1, 2), proximity_notify's `type`
-    int form_{};            // +0x6C: ProximShape
+    ProximShape form_{};    // +0x6C (the original's int: the rest is zero)
+    std::array<uint8_t, 3> unknown6d_{};
     float radius_{};        // +0x70
     float reach_sq_{};      // +0x74
     void* sector_{};        // +0x78
@@ -114,7 +116,7 @@ struct ProximityRegistry {
 };
 
 // 0x0046AAC0: the shape named by `checksum` (sphere for any other).
-int proxim_shape_from_checksum(uint32_t checksum);
+ProximShape proxim_shape_from_checksum(uint32_t checksum);
 // 0x0046AB10: the manager made (no nodes yet; the in-script flag clear).
 void proxim_allocate_manager();
 // 0x0046AB30: the manager made if there is none, its list emptied.

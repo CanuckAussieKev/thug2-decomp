@@ -268,7 +268,7 @@ void SkaterPhysicsModule::step_wallplant()
         end = core::at(entity()->basis_frame().row, 2) * kFeelerBehind;
         start += entity()->at_point();
         end += entity()->at_point();
-        if (get_feel(this, render::kDefaultIgnoredFaceFlags, 0))
+        if (get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
             trigger_feeler(this, kWallplantEvents, &feeler_);
         return;
     }

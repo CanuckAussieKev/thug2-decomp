@@ -20,6 +20,7 @@
 #include <array>
 
 #include "editor/level_editor.h"
+#include "engine/core/enum_ops.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
@@ -322,7 +323,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     const std::span<uint16_t> leaf_run(leaf_faces, faces);
     for (uint32_t f = 0; f < faces; ++f) {
         const Face& face = core::at(mesh.faces, f);
-        std::array<uint16_t, kFaceWords> words = {{face.flags, spec.terrain, face.a, face.b, face.c}};
+        std::array<uint16_t, kFaceWords> words = {{core::to_underlying(face.flags), spec.terrain, face.a, face.b, face.c}};
         std::memcpy(&core::at(face_bytes, kFaceBytes * f), words.data(), kFaceBytes);
         core::at(leaf_run, f) = static_cast<uint16_t>(f);
     }
@@ -607,9 +608,9 @@ bool find_pit_tiles(Spec* spec, std::string* why)
             bool ground = false;
             const int faces = std::min<int>(tri->tri_count(), 60000);
             for (int f = 0; f < faces && !ground; ++f) {
-                const uint16_t flags =
+                const render::FaceFlag flags =
                     tri->face_flags(f);
-                if (flags & render::kFaceNotCollidable)
+                if (core::any(flags & render::FaceFlag::kNotCollidable))
                     continue;
                 std::array<V3, 3> c{};
                 bool ok = true;

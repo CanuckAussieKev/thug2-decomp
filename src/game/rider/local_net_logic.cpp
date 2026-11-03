@@ -97,7 +97,7 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
     out.state = static_cast<uint8_t>(core->cur_phase());
     out.value_7c_ = core->surface_type();
     out.flag74 = core->in_trick_move();
-    out.flag75 = core->physics_mode() == 1 ? 1 : 0;
+    out.flag75 = core->physics_mode() == objects::RiderPoseState::PhysicsMode::kWalking ? 1 : 0;
     out.flag76 = core->in_vehicle();
     const objects::GrindPoint* rail = self->board()->rail_node();
     out.value80 = rail ? rail->label() : 0;
@@ -220,7 +220,7 @@ void RiderHostSync::send_update()
     stream.drain();
     const int size = stream.get_byte_count();
     desc.set_content(buffer.data());
-    desc.set_ident(online::kMsgObjectUpdates);
+    desc.set_ident(online::MessageId::kObjectUpdates);
     desc.set_byte_count(static_cast<uint16_t>(size));
     desc.set_singular(true);
     desc.set_rank(kObjectUpdateRank);
@@ -283,7 +283,7 @@ int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
     if (params)
         params = new (params) script::Struct;
     params->get_clear(); // (on the new structure, as the original)
-    params->append_word(kString0, script::kQbvalString, other->fetch_shown_name());
+    params->append_word(kString0, script::QbValueKind::kString, other->fetch_shown_name());
     script::launch_script(script, params, skater, false, nullptr);
     if (params) {
         params->get_clear();

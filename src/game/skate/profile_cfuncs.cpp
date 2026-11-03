@@ -151,8 +151,8 @@ bool cfunc_get_goals_completed(Struct* params, Script* script)
     const int goals = get_career()->count_goals(level);
     std::array<char, kTextBufferBytes> text{};
     text::format_to(text, "%d/9", goals);
-    script->args().get()->append_word(kGoalsCompletedKey, script::kQbvalString, text.data());    // (name unknown)
-    script->args().get()->append_word(kGoalsCompletedKey2, script::kQbvalString, kNoText); // (name unknown)
+    script->args().get()->append_word(kGoalsCompletedKey, script::QbValueKind::kString, text.data());    // (name unknown)
+    script->args().get()->append_word(kGoalsCompletedKey2, script::QbValueKind::kString, kNoText); // (name unknown)
     return true;
 }
 
@@ -184,7 +184,7 @@ bool cfunc_get_next_level_requirements(Struct*, Script* script)
             break;
         }
     }
-    script->args().get()->append_word(kRequirementsKey, script::kQbvalString, text.data()); // (name unknown)
+    script->args().get()->append_word(kRequirementsKey, script::QbValueKind::kString, text.data()); // (name unknown)
     return true;
 }
 

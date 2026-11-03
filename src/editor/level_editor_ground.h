@@ -8,6 +8,7 @@
 
 #include "editor/level_editor.h"
 #include "engine/core/packed_colour.h"
+#include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::overlays {
 struct Painter;
@@ -82,7 +83,8 @@ constexpr float kMinSide = 50.0f, kMaxSide = 8000.0f;
 constexpr float kMaxLength = 4000.0f;
 constexpr float kSink = 4.0f;       // walls go this far below the ground (no seam on uneven ground)
 constexpr int kQuarterSegments = 8; // a quarter pipe's faces along its curve
-constexpr uint16_t kFlagDeck = 0x0001, kFlagRamp = 0x0001, kFlagVert = 0x0009, kFlagWall = 0x0004;
+constexpr render::FaceFlag kFlagDeck = render::FaceFlag::kSkatable, kFlagRamp = render::FaceFlag::kSkatable,
+                           kFlagVert = render::FaceFlag::kSkatable | render::FaceFlag::kVert, kFlagWall = render::FaceFlag::kWall;
 constexpr int kMaxFaces = 2048; // (a geometry with no tree lists every face through a table of 2048 - coll_tri.h)
 
 // The rectangle put in order, sizes and lengths kept within the limits, the uv scale sensible (false: not a number).
@@ -97,7 +99,7 @@ struct Vertex {
 };
 struct Face {
     uint16_t a, b, c;
-    uint16_t flags;
+    render::FaceFlag flags;
 };
 struct Mesh {
     std::vector<Vertex> vertices; // (each face its own corners: flat shaded)

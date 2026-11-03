@@ -39,7 +39,7 @@ int Resource::offload()
 bool Resource::reload(const char*) { return false; }
 
 // 0x00407610
-bool Resource::is_loaded() const { return cur_phase_ == kLoaded; }
+bool Resource::is_loaded() const { return cur_phase_ == AssetState::kLoaded; }
 
 // 0x00407620
 bool Resource::process_buffer() { return finish_loading(octets_, extent_); }
@@ -91,42 +91,42 @@ void Resource::change_hook(LoadCallback callback, HookWords hook_words)
 // 0x00407670
 int Resource::set_loading()
 {
-    cur_phase_ = kLoading;
+    cur_phase_ = AssetState::kLoading;
     return 1;
 }
 
 // 0x00407680
 bool Resource::set_read()
 {
-    cur_phase_ = kRead;
+    cur_phase_ = AssetState::kRead;
     return true;
 }
 
 // 0x00407690
 bool Resource::set_processing()
 {
-    cur_phase_ = kProcessing;
+    cur_phase_ = AssetState::kProcessing;
     return true;
 }
 
 // 0x004076A0
 bool Resource::set_loaded()
 {
-    cur_phase_ = kLoaded;
+    cur_phase_ = AssetState::kLoaded;
     return true;
 }
 
 // 0x004076B0
 bool Resource::set_unloaded()
 {
-    cur_phase_ = kUnloaded;
+    cur_phase_ = AssetState::kUnloaded;
     return true;
 }
 
 // 0x004076C0
 bool Resource::set_aborted()
 {
-    cur_phase_ = kAborted;
+    cur_phase_ = AssetState::kAborted;
     return true;
 }
 

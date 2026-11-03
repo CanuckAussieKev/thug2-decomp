@@ -76,15 +76,15 @@ Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename
 {
     SymbolTableEntry* symbol = create_symbol(name);
     symbol->set_unknown8(checksums::hash_from_text(filename));
-    switch (*token) {
-    case kTokenOpenParenthesis:
-    case kTokenName:
-    case kTokenInteger:
-    case kTokenFloat:
-    case kTokenString:
-    case kTokenLocalString:
-    case kTokenVector:
-    case kTokenPair: {
+    switch (as_token(*token)) {
+    case QbToken::kOpenParenthesis:
+    case QbToken::kName:
+    case QbToken::kInteger:
+    case QbToken::kFloat:
+    case QbToken::kString:
+    case QbToken::kLocalString:
+    case QbToken::kVector:
+    case QbToken::kPair: {
         gsl::owner<Component*> value = new_component();
         const Tokens end =
             *token == 0x0E ? parse_expression(token, nullptr, value) : parse_value(token, nullptr, value);
@@ -94,14 +94,14 @@ Tokens parse_symbol_definition(Tokens token, uint32_t name, const char* filename
         free_component(value);
         return end;
     }
-    case kTokenStructStart: {
-        symbol->set_type(kQbvalStruct);
+    case QbToken::kStructStart: {
+        symbol->set_type(QbValueKind::kStruct);
         gsl::owner<Struct*> structure = script::new_struct();
         symbol->value().set_structure(structure);
         return parse_structure(structure, token, nullptr);
     }
-    case kTokenArrayStart: {
-        symbol->set_type(kQbvalArray);
+    case QbToken::kArrayStart: {
+        symbol->set_type(QbValueKind::kArray);
         gsl::owner<Array*> array = script::new_array();
         symbol->value().set_array(array);
         return parse_array(array, token, nullptr);
@@ -118,7 +118,7 @@ SymbolTableEntry* define_script_symbol(std::span<const uint8_t> code, checksums:
     const uint32_t name = script.value();
     const auto size = static_cast<uint32_t>(code.size());
     SymbolTableEntry* symbol = create_symbol(name);
-    symbol->set_type(kQbvalScriptBody);
+    symbol->set_type(QbValueKind::kScriptBody);
     // (not original: room for LZSS's worst case - the original's 20000 bytes overflowed for a script past ~17.7 KB
     // that doesn't compress)
     const uint32_t room = size + size / 8 + 2 > 20000 ? size + size / 8 + 2 : 20000;
@@ -155,7 +155,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
 
     // First the checksums' names.
     for (Tokens p(file); *p;) {
-        if (*p == kTokenChecksumName) {
+        if (as_token(*p) == QbToken::kChecksumName) {
             uint32_t checksum = 0;
             const char* name = nullptr;
             const Tokens next = read_name_token(p, &checksum, &name);
@@ -177,12 +177,12 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
     Tokens p(file);
     for (;;) {
         p = skip_newline_tokens(p);
-        switch (*p) {
-        case kTokenEndOfFile:
+        switch (as_token(*p)) {
+        case QbToken::kEndOfFile:
             memory::leave_heap_scope();
             loading_file() = 0;
             return;
-        case kTokenName: { // name = value
+        case QbToken::kName: { // name = value
             const uint32_t name = fetch_word32(p + 1);
             p = skip_newline_tokens(p + kTokenWithWordBytes);
             p = skip_newline_tokens(p + 1); // (past the '=')
@@ -194,7 +194,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
                 remove_symbol_later(find_symbol(name));
             break;
         }
-        case kTokenScriptStart: { // script name ... endscript
+        case QbToken::kScriptStart: { // script name ... endscript
             const uint32_t name = fetch_word32(p + 2);
             const Tokens start = p + 6;
             p = skip_to_end_of_script(start);
@@ -203,7 +203,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {
                 // (an unchanged script is left as it is)
-                if (existing->type() == kQbvalScriptBody && checksum == read_stored_script(existing->value().code()).checksum_)
+                if (existing->type() == QbValueKind::kScriptBody && checksum == read_stored_script(existing->value().code()).checksum_)
                     break;
                 get_replace(existing, temporary);
                 define_script_symbol(code, checksums::Name{name}, checksum, filename);
@@ -214,10 +214,10 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
             }
             break;
         }
-        case kTokenChecksumName:
+        case QbToken::kChecksumName:
             p = step_over_token(p);
             break;
-        case kTokenSectionMarker: { // a section marker
+        case QbToken::kSectionMarker: { // a section marker
             const uint32_t marker = fetch_word32(p + 2);
             p += kTokenWithNamedWordBytes;
             if (marker == kScriptHeap) {
@@ -230,7 +230,7 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
                     memory::leave_heap_scope();
                     memory::enter_heap_scope(manager->debug_heap());
                 } else {
-                    while (*p != kTokenSectionMarker && *p != kTokenEndOfFile)
+                    while (as_token(*p) != QbToken::kSectionMarker && as_token(*p) != QbToken::kEndOfFile)
                         p = step_over_token(p);
                 }
             }
@@ -261,7 +261,7 @@ void restart_changed_scripts()
 {
     for (SymbolTableEntry* symbol = get_next_symbol(nullptr); symbol; symbol = get_next_symbol(symbol)) {
         // (byte 0 bit 0: new since the last time - create_symbol sets it)
-        if ((symbol->unknown0() & 1) && symbol->type() == kQbvalScriptBody) {
+        if ((symbol->unknown0() & 1) && symbol->type() == QbValueKind::kScriptBody) {
             for (Script* script = step_script_list(nullptr); script; script = step_script_list(script)) {
                 if (script_refers_to(script, symbol->name_value()))
                     script->relaunch();

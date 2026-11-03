@@ -170,7 +170,7 @@ Script* Entity::replace_script(uint32_t name, Struct* params)
 }
 
 // 0x00461500
-int Entity::run_sub_script(uint32_t name, Struct* params)
+script::ScriptOutcome Entity::run_sub_script(uint32_t name, Struct* params)
 {
     if (!own_script_) {
         Script* script = Script::create();
@@ -498,7 +498,7 @@ bool Entity::obj_set_tags(Struct* params, Script* /*script*/)
 bool Entity::obj_spawn_script(Struct* params, Script* script)
 {
     Component* first = params->step_to_entry(nullptr);
-    if (!first || value_kind(*first) != script::kQbvalName)
+    if (!first || value_kind(*first) != script::QbValueKind::kName)
         return true;
     const uint32_t name = first->value.word();
     uint32_t id = script::get_spawn_id(script);

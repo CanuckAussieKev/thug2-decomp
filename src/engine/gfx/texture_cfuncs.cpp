@@ -126,12 +126,12 @@ uint32_t find_name_of_value(Struct* structure, uint32_t value, int depth)
         Struct* named = script::read_sub_struct(raw_value(component));
         Component* next = structure->step_to_entry(component);
         if (!found) {
-            if (value_kind(*component) == script::kQbvalStruct)
+            if (value_kind(*component) == script::QbValueKind::kStruct)
                 found = find_name_of_value(component->value.structure(), value, depth + 1);
             else if (named)
                 found = find_name_of_value(named, value, depth + 1);
         }
-        if (value_kind(*component) == script::kQbvalName && component->value.word() == value)
+        if (value_kind(*component) == script::QbValueKind::kName && component->value.word() == value)
             found = component->name;
         component = next;
     }
@@ -144,7 +144,7 @@ uint32_t find_name_of_integer(Struct* structure, uint32_t value)
     uint32_t found = 0;
     for (Component* component = structure->step_to_entry(nullptr); component;) {
         Component* next = structure->step_to_entry(component);
-        if (value_kind(*component) == script::kQbvalInteger && component->value.word() == value) {
+        if (value_kind(*component) == script::QbValueKind::kInteger && component->value.word() == value) {
             debug::printf("s_find_cat_in_mapping found %i\n", value); // "s_find_cat_in_mapping found %i"
             found = component->name;
         }

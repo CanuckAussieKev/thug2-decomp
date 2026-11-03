@@ -2,6 +2,8 @@
 
 #include "wire/net_wire.h"
 
+#include "wire/message_ids.h"
+#include "engine/core/enum_ops.h"
 #include "formats/byte_stream.h"
 
 #include <cstddef>
@@ -11,17 +13,17 @@ namespace net::wire {
 
 bool read_sequenced_header(util::ByteReader& reader, SequencedHeader* header)
 {
-    header->group = reader.u8();
+    header->group = static_cast<MessageGroup>(reader.u8());
     header->sequence = reader.u32();
-    header->id = reader.u8();
+    header->id = static_cast<MessageId>(reader.u8());
     return reader.ok();
 }
 
 bool write_sequenced_header(util::ByteWriter& writer, const SequencedHeader& header)
 {
-    writer.u8(header.group);
+    writer.u8(core::to_underlying(header.group));
     writer.u32(header.sequence);
-    writer.u8(header.id);
+    writer.u8(core::to_underlying(header.id));
     return writer.ok();
 }
 
@@ -34,7 +36,7 @@ bool read_compressed_header(util::ByteReader& reader, CompressedHeader* header)
 
 bool read_message_header(util::ByteReader& reader, MessageHeader* header)
 {
-    header->id = reader.u8();
+    header->id = static_cast<MessageId>(reader.u8());
     header->length = reader.u16();
     return reader.ok();
 }
@@ -45,7 +47,7 @@ bool read_stream_start(util::ByteReader& reader, StreamStart* start)
     start->total_size = reader.i32();
     start->stream_id = reader.i32();
     start->checksum = reader.u32();
-    start->msg_id = reader.u8();
+    start->msg_id = static_cast<MessageId>(reader.u8());
     return reader.ok();
 }
 
@@ -55,7 +57,7 @@ bool write_stream_start(util::ByteWriter& writer, const StreamStart& start, cons
     writer.i32(start.total_size);
     writer.i32(start.stream_id);
     writer.u32(start.checksum);
-    writer.u8(start.msg_id);
+    writer.u8(core::to_underlying(start.msg_id));
     writer.bytes(piece, piece_size);
     writer.fill(0, kStreamStartTrailer);
     return writer.ok();

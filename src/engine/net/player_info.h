@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/enum_ops.h"
+
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/arena_alloc.h"
@@ -27,34 +29,38 @@ class SchedulerTask;
 namespace online {
 
 // The player's flags (PlayerRecord::flag_bits_).
-using PlayerFlag = uint32_t;
-constexpr uint32_t kPlayerLocal = 0x1;      // this machine's player
-constexpr uint32_t kPlayerJustJoined = 0x2; // (with join_time_) still settling in - see IsVulnerable
-constexpr uint32_t kPlayerObserver = 0x4;
-constexpr uint32_t kPlayerPendingObserver = 0x8; // joined to watch: not yet in the observers
-constexpr uint32_t kPlayerFullyIn = 0x20;        // in the game (set_finished_joining)
-constexpr uint32_t kPlayerToldGameState = 0x40;
-constexpr uint32_t kPlayerKing = 0x80; // has the crown (king of the hill)
-constexpr uint32_t kPlayerReady = 0x100;
-constexpr uint32_t kPlayerServer = 0x200;        // the host's own player
-constexpr uint32_t kPlayerCarryingFlag0 = 0x800; // carries team 0's flag (0x800 << team: the four teams' flags)
-constexpr uint32_t kPlayerCarryingFlags = 0x7800;
-constexpr uint32_t kPlayerCaptureBlocked =
-    0x8000; // restarted in a flag or crown game: may not capture until it drops what it carries
-constexpr uint32_t kPlayerSurveying = 0x10000;  // (the byte at +0x1D2, bit 0) watching from the surveyor camera
-constexpr uint32_t kPlayerEliminated = 0x20000; // out of the game (firefight), the time in eliminated_time_
-constexpr uint32_t kPlayerRejoining = 0x10;     // (a pending player added back)
+enum class PlayerFlag : uint32_t {
+    kNone = 0,
+    kLocal = 0x1, // this machine's player
+    kJustJoined = 0x2, // (with join_time_) still settling in - see IsVulnerable
+    kObserver = 0x4,
+    kPendingObserver = 0x8, // joined to watch: not yet in the observers
+    kRejoining = 0x10, // (a pending player added back)
+    kFullyIn = 0x20, // in the game (set_finished_joining)
+    kToldGameState = 0x40,
+    kKing = 0x80, // has the crown (king of the hill)
+    kReady = 0x100,
+    kServer = 0x200, // the host's own player
+    kMarked = 0x400, // chosen in the kick / ban menu (its options dialog is up)
+    kCarryingFlag0 = 0x800, // carries team 0's flag (0x800 << team: the four teams' flags)
+    kCarryingFlags = 0x7800,
+    kCaptureBlocked = 0x8000, // restarted in a flag or crown game: may not capture until it drops what it carries
+    kSurveying = 0x10000, // (the byte at +0x1D2, bit 0) watching from the surveyor camera
+    kEliminated = 0x20000, // out of the game (firefight), the time in eliminated_time_
+};
+// Team `team`'s flag carried (kCarryingFlag0 for team 0, the next bits for the others).
+[[nodiscard]] constexpr PlayerFlag carrying_flag_of(int team)
+{
+    return static_cast<PlayerFlag>(core::to_underlying(PlayerFlag::kCarryingFlag0) << team);
+}
+constexpr bool enable_flag_operators(PlayerFlag) { return true; }
 
 // The player slots of a network game: at most this many players, skater object ids 0 to 7 (the rider slots of
 // the skate module, the per-skater records a player keeps).
 constexpr int kPlayerSlotCount = 8;
 
 constexpr size_t kJoinerRecordLabelSize = 16;
-constexpr uint32_t kPlayerCountedFlags = 0x18; // pending observer or rejoining: counted among those joining
-// The bit numbers of flags read as 0 or 1.
-constexpr unsigned kPlayerKingBit = 7;
-constexpr unsigned kPlayerServerBit = 9;
-constexpr unsigned kPlayerSurveyingBit = 16;
+constexpr PlayerFlag kPlayerCountedFlags = PlayerFlag::kPendingObserver | PlayerFlag::kRejoining; // counted among those joining
 // A player not yet added (0x44 bytes, on the stack of the new-player handler 0x0052DB80): its name, object id,
 // connection, a skater profile (the appearance), flags, team and the numbers of the new-player message.
 struct JoinerRecord {
@@ -68,8 +74,8 @@ struct JoinerRecord {
     [[nodiscard]] int add_at_frame() const { return add_at_frame_; }
     void set_add_at_frame(int value) { add_at_frame_ = value; }
     [[nodiscard]] objects::RiderIdentity* account() const { return account_; }
-    uint32_t& flag_bits() { return flag_bits_; }
-    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    PlayerFlag& flag_bits() { return flag_bits_; }
+    [[nodiscard]] PlayerFlag flag_bits() const { return flag_bits_; }
     [[nodiscard]] int rejoin_group() const { return rejoin_group_; }
     void set_rejoin_group(int value) { rejoin_group_ = value; }
     [[nodiscard]] int team() const { return team_; }
@@ -94,7 +100,7 @@ private:
     net::Conn* conn_{};               // +0x14
     int add_at_frame_{};              // +0x18 the server app's frame from which it may be added
     objects::RiderIdentity* account_; // +0x1C
-    uint32_t flag_bits_{};            // +0x20 PlayerFlag
+    PlayerFlag flag_bits_{};          // +0x20
     int rejoin_group_{0};             // +0x24 (a player joining again: the server app's frame when it was listed)
     int team_{};                      // +0x28
     int32_t profile_id_{0};           // +0x2C the GameSpy profile
@@ -142,7 +148,7 @@ class PlayerRecord : public memory::ListNode {
 public:
     // 0x00543740: an empty player with `flags` (PlayerFlag): no skater, connection or profile,
     // "<No Name>", last_sent_skater_ 7 and the update records cleared (the per-skater ones to -1).
-    explicit PlayerRecord(uint32_t flags);
+    explicit PlayerRecord(PlayerFlag flags);
     // 0x00543810: the destructor: its profile (destroyed and freed), the observer task (deleted),
     // the face texture message (freed); then the node's (out of its list).
     ~PlayerRecord();
@@ -271,8 +277,8 @@ public:
     [[nodiscard]] const SentSkaterUpdates& sent() const { return sent_; }
     std::array<script::VectorValue, kPlayerRecordPlacedSize>& placed() { return placed_; }
     [[nodiscard]] const std::array<script::VectorValue, kPlayerRecordPlacedSize>& placed() const { return placed_; }
-    uint32_t& flag_bits() { return flag_bits_; }
-    [[nodiscard]] uint32_t flag_bits() const { return flag_bits_; }
+    PlayerFlag& flag_bits() { return flag_bits_; }
+    [[nodiscard]] PlayerFlag flag_bits() const { return flag_bits_; }
     [[nodiscard]] int rejoin_group() const { return rejoin_group_; }
     void set_rejoin_group(int value) { rejoin_group_ = value; }
     [[nodiscard]] uint8_t* face_texture_data() const { return face_texture_data_; }
@@ -302,7 +308,7 @@ private:
     objects::RiderIdentity* account_;     // +0x4C
     SentSkaterUpdates sent_{};            // +0x50 (the server's)
     std::array<script::VectorValue, kPlayerRecordPlacedSize> placed_{};     // +0x180 scavenger hunt: where its objects were placed (num_placed_)
-    uint32_t flag_bits_{0};                                                 // +0x1D0 PlayerFlag
+    PlayerFlag flag_bits_{};                                                // +0x1D0
     uint32_t ready_query_owed_{};         // +0x1D4
     int rejoin_group_;                    // +0x1D8 (JoinerRecord::rejoin_group_)
     uint32_t join_time_;                  // +0x1DC (mark_just_joined)

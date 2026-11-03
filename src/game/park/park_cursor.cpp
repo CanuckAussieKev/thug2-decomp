@@ -142,7 +142,7 @@ bool BuildPointer::commit_tile_placement()
 bool BuildPointer::destroy_under_cursor()
 {
     CellBox area = {};
-    if (mode() == BuildPointer::kModePaste) {
+    if (mode() == BuildPointer::Mode::kPaste) {
         if (!active_copy_buffer())
             return false;
         clipboard_area(active_copy_buffer(), this, &area);
@@ -354,10 +354,10 @@ bool BuildPointer::raise_area(CellBox area, int height, int dir, bool level)
 bool BuildPointer::raise_lower(int dir)
 {
     CellBox area = cell_footprint();
-    if (mode() == 4) {
+    if (mode() == BuildPointer::Mode::kAreaSelect) {
         if (selecting())
             selected_area(this, &area);
-    } else if (mode() == BuildPointer::kModePaste) {
+    } else if (mode() == BuildPointer::Mode::kPaste) {
         if (!active_copy_buffer())
             return false;
         clipboard_area(active_copy_buffer(), this, &area);
@@ -391,10 +391,10 @@ bool BuildPointer::raise_lower(int dir)
     MapListNode::free_node_chain(list);
     if (top > kMaxBuildHeight)
         return false;
-    if (mode() == BuildPointer::kModePaste && active_copy_buffer())
+    if (mode() == BuildPointer::Mode::kPaste && active_copy_buffer())
         as_clipboard(active_copy_buffer())->free_all_piece_groups();
     const bool raised = raise_area(area, height, dir, level);
-    if (mode() == 4)
+    if (mode() == BuildPointer::Mode::kAreaSelect)
         area_highlighted_ = false;
     return raised;
 }

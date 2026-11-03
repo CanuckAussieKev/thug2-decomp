@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include "engine/net/player_info.h"
+#include "engine/core/enum_ops.h"
 #include "engine/gfx/engine_texture.h"
 #include "platform/d3dx.h"
 #include "platform/compiler.h"
@@ -71,7 +72,7 @@ namespace online {
 using namespace detail;
 
 namespace {
-constexpr uint32_t kPlayerSessionFlags = 0x00020100u; // ready and eliminated: cleared when a game starts
+constexpr PlayerFlag kPlayerSessionFlags = PlayerFlag::kReady | PlayerFlag::kEliminated; // cleared when a game starts
 constexpr uint32_t kBitMask = 31;
 constexpr int kLogoDeckGraphic = 8;
 constexpr uint32_t kAppearanceBufferBytes = 0x1000;
@@ -138,8 +139,8 @@ constexpr float kQuarterTurn = 90.0f;                   // (make_pitch_matrix's 
 // A joining player who will play: flags 0x18, or not observing.
 bool will_play(const JoinerRecord* info)
 {
-    const uint32_t flags = info->flag_bits();
-    return (flags & kPlayerCountedFlags) || !(flags & 4);
+    const PlayerFlag flags = info->flag_bits();
+    return core::any(flags & kPlayerCountedFlags) || !core::any(flags & PlayerFlag::kObserver);
 }
 net::Conn* player_conn(const PlayerRecord* player) { return player->conn(); }
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
@@ -362,10 +363,10 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
         write_hud_notice(writer, message);
         desc.set_content(bytes.data());
         desc.set_byte_count(sizeof(bytes));
-        desc.set_ident(kMsgHudNotice);
+        desc.set_ident(MessageId::kHudNotice);
         if (important) {
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-            desc.set_group_id(kGroupGame);
+            desc.set_group_id(MessageGroup::kGame);
         }
         for (const memory::ListNode* node = get_next_node(&players_);
              auto* player = data_of<PlayerRecord>(node); node = get_next_node(node))
@@ -388,8 +389,8 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
         std::strcat(line.data(), std::next(slot, 3));
         shown = line.data();
     }
-    params->append_word(kText, script::kQbvalString, shown);
-    params->add_component_of_type(kId, script::kQbvalName, kNetPanelMsg);
+    params->append_word(kText, script::QbValueKind::kString, shown);
+    params->add_component_of_type(kId, script::QbValueKind::kName, kNetPanelMsg);
     params->put_int(checksums::Name{kMsgTime}, time);
     get_run(kCreateNetPanelMessage, params.get());
 }
@@ -454,7 +455,7 @@ void Hub::launch_queued_scripts()
         objects::Entity* object = objects::object_hub_slot()
                                       ->look_up_entity(queued->entity_key());
         script->entity().assign_value(object);
-        while (script->tick_frame() != script::kScriptOutcomeFinished) {
+        while (script->tick_frame() != script::ScriptOutcome::kFinished) {
         }
         script::kill_spawned_script(script);
         queued->destroy_record(1);
@@ -477,9 +478,9 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
     } message = {.param = param, .bit = bit, .pad = {0, 0, 0}};
     script_flag_bits_ ^= 1u << (bit & kBitMask);
     desc.set_byte_count(sizeof(message));
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     desc.set_content(&message);
-    desc.set_ident(kMsgFlipProSetting);
+    desc.set_ident(MessageId::kFlipProSetting);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     net::AppHost* server = host_;
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
@@ -516,7 +517,7 @@ int Hub::count_players()
     int count = 0;
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
-        if (!is_observer(player) || (player->flag_bits() & kPlayerPendingObserver)) {
+        if (!is_observer(player) || core::any(player->flag_bits() & PlayerFlag::kPendingObserver)) {
             if (const objects::Entity* skater = player_skater(player))
                 core::at(ids, noted++) = static_cast<uint8_t>(get_skater_id(skater));
             ++count;
@@ -546,8 +547,8 @@ int Hub::count_observers()
     }
     for (const memory::ListNode* node = get_next_node(&joiners_); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
-        const uint32_t flags = info->flag_bits();
-        if ((flags & 4) && !(flags & kPlayerPendingObserver))
+        const PlayerFlag flags = info->flag_bits();
+        if (core::any(flags & PlayerFlag::kObserver) && !core::any(flags & PlayerFlag::kPendingObserver))
             ++count;
     }
     return count;
@@ -611,22 +612,22 @@ void Hub::send_tag_textures_to(PlayerRecord* player)
         net::NetMessageInfo desc;
         auto skater_id = static_cast<uint8_t>(get_skater_id(player_skater(other)));
         desc.set_content(&skater_id);
-        desc.set_ident(kMsgGraffitiPlayer);
+        desc.set_ident(MessageId::kGraffitiPlayer);
         desc.set_byte_count(1);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGraffiti);
+        desc.set_group_id(MessageGroup::kGraffiti);
         host_->put_on_outbox(player_handle(player), &desc);
         void* palette = texture_palette(texture);
-        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgGraffitiPalette, .size = texture_palette_size(texture)}, palette,
-                                 kTagPaletteDesc, kGroupGraffiti, false, true);
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = MessageId::kGraffitiPalette, .size = texture_palette_size(texture)}, palette,
+                                 kTagPaletteDesc, MessageGroup::kGraffiti, false, true);
         void* pixels = texture_pixels(texture);
-        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgGraffitiTexture, .size = get_texture_size(texture)}, pixels,
-                                 kTagTextureDesc, kGroupGraffiti, false, true);
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = MessageId::kGraffitiTexture, .size = get_texture_size(texture)}, pixels,
+                                 kTagTextureDesc, MessageGroup::kGraffiti, false, true);
         desc.set_content(&logos);
-        desc.set_ident(kMsgGraffitiParts);
+        desc.set_ident(MessageId::kGraffitiParts);
         desc.set_byte_count(4);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGraffiti);
+        desc.set_group_id(MessageGroup::kGraffiti);
         host_->put_on_outbox(player_handle(player), &desc);
     }
 }
@@ -658,7 +659,7 @@ bool Hub::prepare_local_face()
         memory::Hub::get_pull()->leave_heap_scope();
         face->write_to({static_cast<uint8_t*>(data), kFaceSize});
         core::down_cast<net::Guest>(client_app_)
-            ->send_bulk_to_host(kMsgFaceTexture, kFaceSize, data, kFaceDesc, kGroupFaceData, false, false);
+            ->send_bulk_to_host(MessageId::kFaceTexture, kFaceSize, data, kFaceDesc, MessageGroup::kFaceData, false, false);
         memory::dealloc(data);
     }
     return true;
@@ -675,8 +676,8 @@ void Hub::send_faces_to(PlayerRecord* player)
             continue;
         if (!other->get_face_texture_data() && !(is_own_player(other) && prepare_local_face()))
             continue;
-        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgFaceTexture, .size = kFaceSize + 1}, other->get_face_texture_data(),
-                                 kFaceDesc, kGroupFaceData, false, true);
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = MessageId::kFaceTexture, .size = kFaceSize + 1}, other->get_face_texture_data(),
+                                 kFaceDesc, MessageGroup::kFaceData, false, true);
     }
 }
 
@@ -704,10 +705,10 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     record->set_accumulated_score(info->accumulated_score());
     record->set_eliminated_time(info->eliminated_time());
     record->set_drive_control_mode(info->drive_control_mode());
-    uint32_t flags = record->flag_bits();
-    if ((flags & kPlayerRejoining) && (flag_bits_ & 1))
+    PlayerFlag flags = record->flag_bits();
+    if (core::any(flags & PlayerFlag::kRejoining) && (flag_bits_ & 1))
         record->set_rejoin_group(host_->frame_count());
-    if (!(flags & 4) || (flags & kPlayerPendingObserver)) {
+    if (!core::any(flags & PlayerFlag::kObserver) || core::any(flags & PlayerFlag::kPendingObserver)) {
         // The appearance, through a buffer.
         if (!memory::manager_ready_flag())
             memory::ensure_manager();
@@ -719,10 +720,10 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     if (flag_bits_ & 1) {
         flags = record->flag_bits();
         record->set_add_at_frame(host_->frame_count() + timeout);
-        if (!(flags & 1)) {
+        if (!core::any(flags & PlayerFlag::kLocal)) {
             const char* name = info->label().data();
-            if (flags & 4)
-                build_net_notice(true, (flags & kPlayerPendingObserver) ? kNetMessageJoinPending : kNetMessageObserving, name, nullptr,
+            if (core::any(flags & PlayerFlag::kObserver))
+                build_net_notice(true, core::any(flags & PlayerFlag::kPendingObserver) ? kNetMessageJoinPending : kNetMessageObserving, name, nullptr,
                                  nullptr, nullptr, false, kJoinNoticeTime);
             else
                 build_net_notice(false, kNetMessageJoining, name, nullptr, nullptr, nullptr, false, kJoinNoticeTime);

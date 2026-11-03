@@ -2,6 +2,7 @@
 // collision_events.h).
 
 #include "game/rider/collision_events.h"
+#include "engine/core/enum_ops.h"
 #include "game/rider/core_physics.h"
 
 #include <windows.h>
@@ -195,7 +196,7 @@ Face face_of(const render::ProbeRay& feeler)
     face.object = feeler.entity().get_pull() != nullptr;
     face.checksum = face.object ? feeler.entity_key() : feeler.hit().object_checksum_;
     face.index = static_cast<int>(feeler.hit().face);
-    face.flags = feeler.hit().face_flags_;
+    face.flags = core::to_underlying(feeler.hit().face_flags_);
     face.terrain = feeler.hit().terrain;
     face.coll_obj_ = feeler.hit().object;
     copy3(face.point, feeler.contact_pos());
@@ -304,7 +305,7 @@ Face get_probe(const std::array<float, 3>& from, const std::array<float, 3>& to,
     const maths::Vec4 end = {.x = std::get<0>(to), .y = std::get<1>(to), .z = std::get<2>(to), .w = 1.0f};
     render::ProbeRay ray_storage(&start, &end);
     render::ProbeRay* feeler = &ray_storage;
-    feeler->set_excluded({.ignore = static_cast<uint16_t>(everything ? 0 : render::kDefaultIgnoredFaceFlags), .require = 0});
+    feeler->set_excluded({.ignore = everything ? render::kNoFaceFlags : render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
     feeler->get_hit_shape(true, false);
     return face_of(*feeler);
 }
@@ -800,7 +801,7 @@ void end_frame(SkaterPhysicsModule* component)
     Sample s = {};
     s.frame = frame_loop::frames_run();
     s.state = component->state()->cur_phase();
-    s.physics = component->state()->physics_mode();
+    s.physics = static_cast<int>(component->state()->physics_mode());
     s.trick = component->state()->in_trick_move() != 0;
     const objects::RiderTeeterMoves* balance = component->balance();
     s.balance = balance ? balance->trick() : 0;

@@ -378,7 +378,7 @@ void EmitterInstance::set_colour_scale(std::span<const float, 4> rgba)
 // 0x00496F60
 void EmitterInstance::run_emit_script()
 {
-    if (emit_script_ptr_ && emit_script_ptr_->tick_frame() == script::kScriptOutcomeFinished) {
+    if (emit_script_ptr_ && emit_script_ptr_->tick_frame() == script::ScriptOutcome::kFinished) {
         if (script::Script* script = emit_script_ptr_)
             script::Script::destroy(script);
         emit_script_ptr_ = nullptr;

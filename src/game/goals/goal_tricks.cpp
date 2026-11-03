@@ -92,7 +92,7 @@ int Objective::pick_key_combo(script::Array* combos)
     const uint32_t count = combos->extent();
     uint32_t combo = 0; // (kept from one look-up to the next, as the original's)
     auto combo_at = [combos, &combo](uint32_t index) {
-        if (combos->kind_tag() == script::kQbvalName)
+        if (combos->kind_tag() == script::QbValueKind::kName)
             combo = combos->fetch_part(index);
         else
             combos->struct_at(index)->read_hash_value(kKeyCombo, &combo, 1);
@@ -212,8 +212,8 @@ bool Objective::swap_move_caption()
     gsl::owner<script::Array*> key_texts = script::new_array();
     gsl::owner<script::Array*> trick_texts = script::new_array();
     const uint32_t count = combos->extent();
-    key_texts->configure_size_kind(count, script::kQbvalString);
-    trick_texts->configure_size_kind(count, script::kQbvalString);
+    key_texts->configure_size_kind(count, script::QbValueKind::kString);
+    trick_texts->configure_size_kind(count, script::QbValueKind::kString);
     if (!build_trick_texts({.key_combos_ = combos, .key_texts_ = key_texts, .trick_texts_ = trick_texts}, premade_cat)) {
         script::release_array_storage(key_texts);
         script::release_array_storage(trick_texts);
@@ -237,7 +237,7 @@ bool Objective::swap_move_caption()
     } else if (args_->fetch_list(kOriginalGoalDescription, &lines, 0)) {
         const uint32_t size = lines->extent();
         const script::ArrayPtr replaced = script::make_array();
-        replaced->configure_size_kind(size, script::kQbvalString);
+        replaced->configure_size_kind(size, script::QbValueKind::kString);
         for (uint32_t i = 0; i < size; ++i) {
             replace_trick_tokens(lines->find_inline_text(i), buffer, {.key_combos_ = key_texts, .tricks = trick_texts});
             replaced->set_text(i, script::spawn_text(buffer.data()));
@@ -387,7 +387,7 @@ bool Objective::award_special_trick()
     }
     args_->erase_module(kButtonSequences);
     gsl::owner<script::Array*> combos = script::new_array();
-    combos->configure_size_kind(1, script::kQbvalName);
+    combos->configure_size_kind(1, script::QbValueKind::kName);
     combos->set_element(0, keys);
     args_->append_array_ref(kButtonSequences, combos);
     swap_move_caption();

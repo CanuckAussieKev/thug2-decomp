@@ -134,8 +134,8 @@ void GoalManager::append_objective_list_entries()
     const int count = goals_.num(); // (read once)
     gsl::owner<script::Array*> ordered = script::new_array();
     gsl::owner<script::Array*> unordered = script::new_array();
-    ordered->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalName);
-    unordered->configure_size_kind(static_cast<uint32_t>(count), script::kQbvalName);
+    ordered->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kName);
+    unordered->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kName);
     // The goals with a place in the list first, then the others.
     int num_ordered = 0, num_unordered = 0;
     for (int i = 0; i < count; ++i) {

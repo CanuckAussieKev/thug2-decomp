@@ -9,6 +9,7 @@
 #include <array>
 #include <span>
 
+#include "engine/core/enum_ops.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/core/checksums.h"
@@ -75,7 +76,7 @@ using ::net::NetMessageInfo;
 void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
 
 const char* player_name(PlayerRecord* player) { return player->label().data(); }
-bool is_observer(PlayerRecord* player) { return (player->flag_bits() >> 2) & 1; }
+bool is_observer(PlayerRecord* player) { return core::any(player->flag_bits() & PlayerFlag::kObserver); }
 uint8_t team_color(PlayerRecord* player) { return static_cast<uint8_t>(player->skater()->ident()); }
 
 
@@ -139,11 +140,11 @@ void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
 
     NetMessageInfo desc;
     init_msg_desc(&desc);
-    desc.set_ident(kMsgChat);
+    desc.set_ident(MessageId::kChat);
     desc.set_byte_count(static_cast<uint16_t>(writer.position()));
     desc.set_content(bytes.data());
     desc.set_queue(NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     // NOT ORIGINAL - THUGPRO's layout in the THUGPRO peer mode (thugpro_peer.h): our machine id first, the text cut
     // to its 127 characters.
     std::array<uint8_t, thugpro::kChatMessageSize> thugpro_bytes{};

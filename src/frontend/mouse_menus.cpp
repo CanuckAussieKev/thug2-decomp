@@ -352,9 +352,9 @@ bool item_passed_over(const UiWidget* item)
     // The tags' own components (SetTags stores them there; no global names or included structures to follow).
     const script::Struct* tags = as_object(item)->tag_table();
     for (const script::Component* c = tags ? tags->head() : nullptr; c; c = c->next) {
-        if (c->name == 0 && value_kind(*c) == script::kQbvalName && c->value.word() == kTagBlank)
+        if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName && c->value.word() == kTagBlank)
             return true;
-        if (c->name == kTagActive && value_kind(*c) == script::kQbvalInteger && c->value.integer() == 0)
+        if (c->name == kTagActive && value_kind(*c) == script::QbValueKind::kInteger && c->value.integer() == 0)
             return true;
     }
     return false;

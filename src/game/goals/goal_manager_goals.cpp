@@ -234,8 +234,8 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
     script::ArrayPtr key_texts = script::make_array();
     script::ArrayPtr trick_texts = script::make_array();
     const uint32_t count = key_combos->extent();
-    key_texts->configure_size_kind(count, script::kQbvalString);
-    trick_texts->configure_size_kind(count, script::kQbvalString);
+    key_texts->configure_size_kind(count, script::QbValueKind::kString);
+    trick_texts->configure_size_kind(count, script::QbValueKind::kString);
     int premade = -1; // (the created trick's number, with create_a_trick)
     if (params->has_bare_flag(kCreateATrick))
         params->fetch_int_value(kTrickName, &premade, 1);

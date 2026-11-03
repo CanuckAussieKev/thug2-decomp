@@ -7,6 +7,7 @@
 #include <array>
 
 #include "editor/level_editor.h"
+#include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor::overlays {
 struct Painter;
@@ -46,7 +47,7 @@ constexpr float kDefaultStat = 5.0f; // a stat's default (the skater's speed and
 
 struct Face {
     V3 a, b, c;
-    uint16_t flags;
+    render::FaceFlag flags;
 };
 // A lip: the top edge of a run of skatable sloped faces facing one way. `point` the middle of the edge, `tangent` the
 // unit direction up the surface there (the launch direction), `heading` its horizontal part (unit), `across` the

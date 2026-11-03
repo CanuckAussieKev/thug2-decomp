@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "editor/level_editor_fields.h"
+#include "engine/core/enum_ops.h"
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_ui.h"
 #include "engine/script/param_struct.h"
@@ -37,7 +38,7 @@ void spawn_section(int node_index, std::vector<Request>* requests)
                 types.push_back(list->fetch_part(i));
         }
     }
-    bool horse = (node.restart_types_ & nodes::kHorse) != 0;
+    bool horse = core::any(node.restart_types_ & nodes::SpawnPointKind::kHorse);
     ImGui::BeginDisabled(node.added);
     if (ImGui::Checkbox("HORSE Spot", &horse)) {
         std::string text;

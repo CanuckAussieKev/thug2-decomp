@@ -505,7 +505,7 @@ void ParkAssembler::write_rail_nodes(Array* nodes, int* index)
             int link = *index + 1;
             if (!point->following_ && (rail->flag_bits() & Rail::kLoop))
                 link = rail_start;
-            gsl::owner<Array*> links = new_array_of(script::kQbvalInteger, static_cast<uint32_t>(link));
+            gsl::owner<Array*> links = new_array_of(script::QbValueKind::kInteger, static_cast<uint32_t>(link));
             node->append_array_value(kLinks, links);
             free_array(links);
         }
@@ -537,7 +537,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
         node->put_name_key(checksums::Name{kType}, kPlayerType);
         node->append_word(kRestartName, "High Score");
         node->put_name_key(checksums::Name{kFlag}, kCreatedAtStart);
-        gsl::owner<Array*> types = new_array_of(script::kQbvalName, kPlayer1);
+        gsl::owner<Array*> types = new_array_of(script::QbValueKind::kName, kPlayer1);
         node->append_array_value(kRestartTypes, types);
         free_array(types);
         ++*index;
@@ -571,11 +571,11 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                 const auto y = static_cast<float>(static_cast<double>(restart.at_point_.y) + 50.0);
                 node->put_vec3(checksums::Name{kPos}, {.x = restart.at_point_.x, .y = y, .z = restart.at_point_.z});
                 const uint32_t node_class = type == RestartPoint::kCrownRestart ? kGenericNode : kRestart;
-                node->add_component_of_type(kClass, script::kQbvalName, node_class);
+                node->add_component_of_type(kClass, script::QbValueKind::kName, node_class);
                 node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = restart_angle(restart.quarter_turns_), .z = 0.0f});
-                node->add_component_of_type(kName, script::kQbvalName, node_name);
-                node->add_component_of_type(kType, script::kQbvalName, restart_type);
-                node->add_component_of_type(kFlag, script::kQbvalName, kCreatedAtStart);
+                node->add_component_of_type(kName, script::QbValueKind::kName, node_name);
+                node->add_component_of_type(kType, script::QbValueKind::kName, restart_type);
+                node->add_component_of_type(kFlag, script::QbValueKind::kName, kCreatedAtStart);
                 if (type != RestartPoint::kCrownRestart) {
                     const char* label = "Multi Restart";
                     if (k == 0) {
@@ -599,8 +599,8 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                             break;
                         }
                     }
-                    node->append_word(kRestartName, script::kQbvalString, label);
-                    gsl::owner<Array*> types = new_array_of(script::kQbvalName, restart_type);
+                    node->append_word(kRestartName, script::QbValueKind::kString, label);
+                    gsl::owner<Array*> types = new_array_of(script::QbValueKind::kName, restart_type);
                     node->append_array_value(kRestartTypes, types);
                     free_array(types);
                 }
@@ -619,12 +619,12 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                 Struct* node = elem(nodes, *index);
                 node->put_vec3(checksums::Name{kPos}, {.x = restart.at_point_.x, .y = restart.at_point_.y, .z = restart.at_point_.z});
                 node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = restart_angle(restart.quarter_turns_), .z = 0.0f});
-                node->add_component_of_type(kName, script::kQbvalName, checksums::hash_from_text(flag_name.data()));
-                node->add_component_of_type(kClass, script::kQbvalName, kGameObject);
-                node->add_component_of_type(kType, script::kQbvalName, checksums::hash_from_text(flag_type.data()));
-                node->append_word(kModel, script::kQbvalString, model.data());
+                node->add_component_of_type(kName, script::QbValueKind::kName, checksums::hash_from_text(flag_name.data()));
+                node->add_component_of_type(kClass, script::QbValueKind::kName, kGameObject);
+                node->add_component_of_type(kType, script::QbValueKind::kName, checksums::hash_from_text(flag_type.data()));
+                node->append_word(kModel, script::QbValueKind::kString, model.data());
                 if (with_script)
-                    node->add_component_of_type(kTriggerScript, script::kQbvalName, checksums::hash_from_text(script.data()));
+                    node->add_component_of_type(kTriggerScript, script::QbValueKind::kName, checksums::hash_from_text(script.data()));
                 node->put_int("nodeIndex", *index);
                 node->put_int("SuspendDistance", 0);
                 node->put_int("lod_dist1", kLodDist1);

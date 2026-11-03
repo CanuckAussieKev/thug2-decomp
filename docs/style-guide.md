@@ -89,17 +89,16 @@ off in a `.clang-tidy`, the reason written beside it - those are the project's e
   (`platform/compiler.h`: a pragma inside a statement, the caller's return address - neither can be a function) by
   the macro check's `AllowedRegexp`; the game's time seed (`DisallowedSeedTypes`); the x87 reference's locals that
   inline assembly writes (`AsmFloat`... in `src/tests/maths_check.cpp`: clang-tidy can't see an `__asm` block's
-  writes; `AllowedTypes`); a script value's kind, a render state id and an editor chain operation next to a name or
-  value in a parameter list (the swappable-parameters check's `IgnoredParameterTypeSuffixes`); and the options
-  listed in `.clang-tidy` for the other checks.
+  writes; `AllowedTypes`); and the options listed in `.clang-tidy` for the other checks.
 - **What changed instead of an exception**, for the record: the original's integer divisions keep their quotient in
   a named integer; bit-for-bit float compares are `core::has_bits` / `same_bits` (`engine/core/same_bits.h`);
   repeated branches are merged; assignments and counts come out of conditions; switches say `default: break`;
   `value + 0.5` truncations are `maths::round_non_negative`; Direct3D's interfaces come from `<d3d9.h>` (a forward
   declaration of a COM interface is a second declaration of the SDK's class); the C runtime heap is
   `crt::alloc_block` / `dealloc`; configuration macros (`DIRECTINPUT_VERSION`, Winsock's deprecation switch) are
-  CMake definitions; plain enums held as integers (bit flags, table indexes, values fixed by a file, a script, the
-  wire or an SDK, the original's integer fields) are named `constexpr` constants with an alias for the field's type;
+  CMake definitions; plain enums held as integers (table indexes, values fixed by a file, a script, the wire or an
+  SDK, the original's integer fields used as numbers) are named `constexpr` constants with an alias for the field's
+  type, and the closed sets among them are scoped enums (below);
   the original's whole-object clears and copies of objects that aren't trivially copyable are `raw::zero_object` /
   `raw::copy_object` (`engine/core/raw_view.h`, with the other named views).
 - **The script values' cells** (`engine/script/cell.h`): one 32-bit word, read as the kind its holder says
@@ -252,6 +251,12 @@ off in a `.clang-tidy`, the reason written beside it - those are the project's e
   handed out: the getter is a view (`static_cast<T*>(owner_)`) and the class deletes it itself
   (`delete_observer_task()`). The original's `offsetof` checks of private members are in the class's private
   `static void check_layout()` (a base's members in the base's own check).
+- **Enums**: the values of one closed thing (kinds, states, ids, flags) are an `enum class` with the underlying type
+  the value always had, so layouts and code don't change; a value from a file or the wire that the enum doesn't list
+  stays representable - the boundary layer converts the byte once as it reads it and writes it with
+  `core::to_underlying`. Bit sets are flag enums (`enable_flag_operators` beside them gives |, &, ~; a test reads
+  `core::any(flags & Flags::kX)`) - `engine/core/enum_ops.h`. A switch over an enum lists every case and has no
+  `default:` then. Checksums, sizes, offsets, tunings and values used as numbers stay `constexpr` constants.
 - **Named constants**: a number that means something has a name, defined once by its owner - a file's in its unnamed
   namespace, a subsystem's in that subsystem's header, a value two layers share in the lower one (no central constants
   file). Which header holds which kind: [constants.md](constants.md).

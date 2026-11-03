@@ -55,21 +55,24 @@ enum class Shape : uint8_t { kPoint, kChain, kLoudness, kNone };
 Shape shape_of(Family family);
 
 // A restart's restart_types as bits.
-using SpawnPointKind = uint8_t;
-constexpr int kPlayer1 = 1;
-constexpr int kPlayer2 = 2;
-constexpr int kMultiplayer = 4;
-constexpr int kHorse = 8;
-constexpr int kCtf = 16;
-constexpr int kTeam = 32;
-constexpr int kKing = 64;
-constexpr int kGeneric = 128;
-uint32_t restart_type_bit(uint32_t kind_hash);
+enum class SpawnPointKind : uint8_t {
+    kNone = 0,
+    kPlayer1 = 1,
+    kPlayer2 = 2,
+    kMultiplayer = 4,
+    kHorse = 8,
+    kCtf = 16,
+    kTeam = 32,
+    kKing = 64,
+    kGeneric = 128,
+};
+constexpr bool enable_flag_operators(SpawnPointKind) { return true; }
+SpawnPointKind restart_type_bit(uint32_t kind_hash);
 // A team colour named in a node's name or type (_Red, _Blue, _Green, _Yellow; ARGB), 0 if none.
 uint32_t team_colour(const char* text);
 // A spawn's gizmo colour: its team's (CTF / team restarts), else by type - multiplayer blue, player 1 green, player 2
 // lime, horse orange, others grey.
-uint32_t spawn_colour(uint32_t types, uint32_t team);
+uint32_t spawn_colour(SpawnPointKind types, uint32_t team);
 
 // --- the level's nodes ---
 
@@ -84,7 +87,7 @@ struct Elem {
     uint32_t colour = kDefaultNodeColour;              // ARGB
     int order = -1;                            // crowns: the index among the crowns; spawns: among the restarts
     float radius = 0.0f, inner_radius_ = 0.0f; // a light's outer / inner radius, a proximity node's radius
-    uint32_t restart_types_ = 0;
+    SpawnPointKind restart_types_ = SpawnPointKind::kNone;
     uint32_t terrain = 0;
     bool trick_object_ = false;
     bool trigger_script_ = false;

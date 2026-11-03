@@ -8,6 +8,8 @@
 #include <vector>
 
 #include "engine/core/dbg.h"
+#include "engine/render/coll_obj.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_shadows.h"
@@ -20,7 +22,6 @@
 
 namespace render {
 
-constexpr int kFaceFlagSkipped = 0x40; // a face with this flag casts no shadow edge
 
 namespace {
 
@@ -38,7 +39,8 @@ void add_shadow_volume(ShadowVolume* volume)
 // The meshes of the model's collision scene: their count (the array is the volumes' key).
 int get_mesh_count(const SubMesh* asset_data) { return asset_data->collision_count(); }
 
-bool get_skipped(const TriMeshSource& mesh) { return (mesh.face_flags(0) & kFaceFlagSkipped) != 0; }
+// (the flag 0x40 - a trigger face - is also what keeps a face from casting a shadow edge)
+bool get_skipped(const TriMeshSource& mesh) { return core::any(mesh.face_flags(0) & render::FaceFlag::kTrigger); }
 
 // The edges of a model as they are found: the array made from Euler's estimate, and - when the estimate was short -
 // the edges the original wrote on past the end of that allocation (over the heap after it, and read back from there

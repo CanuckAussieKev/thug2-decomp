@@ -8,6 +8,7 @@
 #include <array>
 
 #include "engine/maths/vec4.h"
+#include "engine/render/coll_obj.h"
 #include "engine/render/coll_tests.h"
 
 namespace render {
@@ -52,8 +53,8 @@ struct RectHits {
 
     std::array<RectHit, kMost> hits;
     int count;               // +0xC00
-    uint16_t ignore_flags_;  // +0xC04
-    uint16_t require_flags_; // +0xC06
+    FaceFlag ignore_flags_;  // +0xC04
+    FaceFlag require_flags_; // +0xC06
 };
 constexpr std::size_t kRectHitsBytes = 0xC08;
 

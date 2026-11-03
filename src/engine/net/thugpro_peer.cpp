@@ -492,18 +492,18 @@ void send_server_info(net::AppHost* app, int handle)
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_server_info(writer, info);
     net::NetMessageInfo desc;
-    desc.set_ident(kMsgServerInfo);
+    desc.set_ident(kThugproServerInfo);
     desc.set_byte_count(sizeof(bytes));
     desc.set_content(bytes.data());
     desc.set_rank(net::NetMessageInfo::kHighestRank);
     desc.set_queue(net::NetMessageInfo::kLanePriority);
-    desc.set_group_id(online::kGroupGame);
+    desc.set_group_id(online::MessageGroup::kGame);
     app->put_on_outbox(handle, &desc);
 }
 
 // A broadcast message's id and its value.
 struct Broadcast {
-    uint8_t id{};
+    MessageId id{};
     uint32_t value{};
 };
 
@@ -523,7 +523,7 @@ void get_broadcast(Broadcast broadcast)
     desc.set_byte_count(sizeof(bytes));
     desc.set_content(bytes.data());
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(online::kGroupGame);
+    desc.set_group_id(online::MessageGroup::kGame);
     manager->host()->put_on_outbox(kHandleBroadcast, &desc);
 }
 
@@ -535,11 +535,11 @@ bool filter_outgoing(net::AppHost* app, int handle, net::NetMessageInfo* desc)
     Hub* manager = online::online_hub();
     if (!(manager && manager->in_net_game() && manager->get_on_server()) || app != manager->host())
         return false;
-    if (desc->ident() == kMsgSessionBrief) {
+    if (desc->ident() == MessageId::kSessionBrief) {
         send_server_info(app, handle);
         return false;
     }
-    if (desc->ident() == kMsgLevelSwitch && desc->byte_count() == kChangeLevelSize && desc->content()) {
+    if (desc->ident() == MessageId::kLevelSwitch && desc->byte_count() == kChangeLevelSize && desc->content()) {
         std::array<uint8_t, kChangeLevelThugproSize> message{};
         util::ByteReader reader(desc->content(), desc->byte_count());
         LevelSwitch change;
@@ -591,11 +591,11 @@ bool filter_outgoing_message(net::AppHost* app, int handle, net::NetMessageInfo*
 void add_client_handlers(net::AppHost* client, void* skate)
 {
     net::Router& dispatcher = client->dispatcher();
-    dispatcher.append_listener(kMsgServerInfo, handle_server_info, 0, skate, net::kListenerPriority);
-    dispatcher.append_listener(kMsgModsAllowed, handle_mods_allowed, 0, skate, net::kListenerPriority);
-    dispatcher.append_listener(kMsgUpdateTimeOfDay, handle_update_time_of_day, net::kPacketLate, skate, net::kListenerPriority);
-    dispatcher.append_listener(kMsgUpdateWeather, handle_update_weather, net::kPacketLate, skate, net::kListenerPriority);
-    dispatcher.append_listener(kMsgUpdateLevelOption, handle_update_level_option, net::kPacketLate, skate, net::kListenerPriority);
+    dispatcher.append_listener(kThugproServerInfo, handle_server_info, 0, skate, net::kListenerPriority);
+    dispatcher.append_listener(kThugproModsAllowed, handle_mods_allowed, 0, skate, net::kListenerPriority);
+    dispatcher.append_listener(kThugproUpdateTimeOfDay, handle_update_time_of_day, net::kPacketLate, skate, net::kListenerPriority);
+    dispatcher.append_listener(kThugproUpdateWeather, handle_update_weather, net::kPacketLate, skate, net::kListenerPriority);
+    dispatcher.append_listener(kThugproUpdateLevelOption, handle_update_level_option, net::kPacketLate, skate, net::kListenerPriority);
 }
 
 int handle_server_info(net::InboundMsgCtx* context)
@@ -649,7 +649,7 @@ int handle_mods_allowed(net::InboundMsgCtx* context)
         return 1;
     get_log("thugpro: the host allows no modified scripts (message 159) - leaving");
     net::InboundMsgCtx removed = *context;
-    removed.set_type_code('Q');
+    removed.set_type_code(MessageId::kRemovedYou);
     return modules::SkateNet::handle_server_removed_you(&removed);
 }
 
@@ -776,11 +776,11 @@ bool handle_chat_command(const char* text)
         }
         if (tod) {
             effects.set_time_of_day(state);
-            get_broadcast({.id = kMsgUpdateTimeOfDay, .value = state});
+            get_broadcast({.id = kThugproUpdateTimeOfDay, .value = state});
         } else {
             host().weather = state;
             effects.set_weather(state);
-            get_broadcast({.id = kMsgUpdateWeather, .value = state});
+            get_broadcast({.id = kThugproUpdateWeather, .value = state});
         }
         text::format_to(line, "\\c4thugpro:\\c0 %s %s%s", command.data(), first.data(),
                         (manager && manager->in_net_game() && manager->get_on_server()) ? " (sent to the players)" : "");

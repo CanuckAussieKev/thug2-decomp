@@ -143,10 +143,10 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
             continue;
         bool integer = true;
         float from = 0.0f;
-        const uint8_t type = component->type_and_flag_ >> 1;
-        if (type == script::kQbvalInteger) {
+        const script::QbValueKind type = value_kind(*component);
+        if (type == script::QbValueKind::kInteger) {
             from = static_cast<float>(component->value.integer());
-        } else if (type == script::kQbvalFloat) {
+        } else if (type == script::QbValueKind::kFloat) {
             from = component->value.real();
             integer = false;
         } else {
@@ -279,7 +279,7 @@ bool cfunc_get_initials_string(script::Struct*, script::Script* script)
 {
     auto* records = highscores::game_records();
     // (the initials through two getters folded with others: 0x005480C0, then 0x005902E0 - returns its argument)
-    script->args()->append_word(kString, script::kQbvalString, records->default_initials());
+    script->args()->append_word(kString, script::QbValueKind::kString, records->default_initials());
     return true;
 }
 
@@ -377,14 +377,14 @@ bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
     const char* field = nullptr;
     params->fetch_text("field", &field, 1);
     gsl::owner<Struct*> value = script::new_struct();
-    value->append_word(kUiString, script::kQbvalString, string);
+    value->append_word(kUiString, script::QbValueKind::kString, string);
     uint32_t checksum = 0;
     params->read_hash_value("checksum", &checksum, 0);
-    value->add_component_of_type(kChecksum, script::kQbvalName, checksum);
+    value->add_component_of_type(kChecksum, script::QbValueKind::kName, checksum);
     if (std::strcmp(field, "time_limit") == 0 || std::strcmp(field, "horse_time_limit") == 0) {
         int time = 0; // (uninitialised in the original without time)
         params->fetch_int_value("time", &time, 0);
-        value->add_component_of_type(kTime, script::kQbvalInteger, static_cast<uint32_t>(time));
+        value->add_component_of_type(kTime, script::QbValueKind::kInteger, static_cast<uint32_t>(time));
     }
     if (std::strcmp(field, "target_score") == 0) {
         int score = 0;
@@ -392,7 +392,7 @@ bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
             params->fetch_int_value(kTime, &score, 1);
             score *= kMillisecondsPerSecond;
         }
-        value->add_component_of_type(kScore, script::kQbvalInteger, static_cast<uint32_t>(score));
+        value->add_component_of_type(kScore, script::QbValueKind::kInteger, static_cast<uint32_t>(score));
     }
     preferences->change_setting(checksums::hash_from_text(field), value);
     if (value) {

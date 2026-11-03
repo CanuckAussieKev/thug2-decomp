@@ -740,7 +740,7 @@ void update_sounds()
         }
         const maths::Vec4 listener = *viewer_location(camera);
         maths::Vec4 heard = centre;
-        if (emitter->form_ != objects::kEmitterShapeOther)
+        if (emitter->form_ != objects::EmitterShape::kOther)
             nearest_point_on(*emitter, &heard, &listener);
         sound::VolumeRef volume;
         if (!m->fetch_loudness(&volume, &heard, {.dropoff = wave->dropoff, .falloff = 0}, camera, nullptr)) {
@@ -765,7 +765,7 @@ void apply_radius(const EmitterSound& e)
     if (e.radius <= 0.0f)
         return;
     if (objects::EmitterNode* emitter = get_emitter(e.name);
-        emitter && emitter->form_ == objects::kEmitterShapeSphere && emitter->radius_ != e.radius) {
+        emitter && emitter->form_ == objects::EmitterShape::kSphere && emitter->radius_ != e.radius) {
         emitter->radius_ = e.radius;
         emitter->reach_sq_ = e.radius * e.radius;
     }
@@ -794,21 +794,21 @@ uint32_t path_speed_script()
             qb.push_back(static_cast<uint8_t>(v >> (kBitsPerByte * i)));
     };
     auto name4 = [&](uint32_t v) {
-        qb.push_back(script::kTokenName);
+        qb.push_back(script::token_byte(script::QbToken::kName));
         put4(v);
     };
-    qb.push_back(script::kTokenScriptStart); // script
+    qb.push_back(script::token_byte(script::QbToken::kScriptStart)); // script
     name4(kName);
     qb.push_back(0x01);
     name4(k_set_path_velocity());
-    qb.push_back(script::kTokenLocalArgument); // <speed>
+    qb.push_back(script::token_byte(script::QbToken::kLocalArgument)); // <speed>
     name4(get_key("speed"));
     name4(k_mph());
     qb.push_back(0x01);
-    qb.push_back(script::kTokenScriptEnd); // endscript
+    qb.push_back(script::token_byte(script::QbToken::kScriptEnd)); // endscript
     qb.push_back(0x01);
     for (const char* text : {"LevelEditor_PathSpeed", "Obj_SetPathVelocity", "speed", "mph"}) {
-        qb.push_back(script::kTokenChecksumName);
+        qb.push_back(script::token_byte(script::QbToken::kChecksumName));
         put4(get_key(text));
         qb.insert(qb.end(), std::string_view(text).begin(), std::string_view(text).end());
         qb.push_back(0x00);
@@ -1483,7 +1483,7 @@ void change_emitter(const EmitterSound& e)
 float emitter_radius(uint32_t name, bool* sphere)
 {
     const objects::EmitterNode* emitter = get_emitter(name);
-    *sphere = emitter && emitter->form_ == objects::kEmitterShapeSphere;
+    *sphere = emitter && emitter->form_ == objects::EmitterShape::kSphere;
     return emitter ? emitter->radius_ : 0.0f;
 }
 std::vector<std::pair<uint32_t, std::string>> get_sounds()

@@ -158,34 +158,34 @@ double DrivableModule::get_tyre_friction(Wheel* wheel, float slip)
         double friction = 0.0;
         if (throttle_) {
             friction = wheel->parking_grip_powered_;
-            wheel->state = kWheelHandbrakeThrottle;
+            wheel->state = DrivableModule::WheelState::kHandbrakeThrottle;
         } else {
             friction = wheel->parking_grip_locked_;
-            wheel->state = kWheelHandbrakeLocked;
+            wheel->state = DrivableModule::WheelState::kHandbrakeLocked;
         }
         if (slip < wheel->min_static_grip_vel_) {
-            wheel->state = kWheelStaticSlow;
+            wheel->state = DrivableModule::WheelState::kStaticSlow;
             return friction / wheel->min_static_grip_vel_ * slip;
         }
         return friction;
     }
     const double scale = brake_ ? 2.0 : 1.0; // (0x00645448 / 0x006453A8)
     if (slip < wheel->min_static_grip_vel_) {
-        wheel->state = kWheelStaticSlow;
+        wheel->state = DrivableModule::WheelState::kStaticSlow;
         return static_cast<double>(wheel->static_friction_) / wheel->min_static_grip_vel_ * slip;
     }
     if (slip < wheel->max_static_grip_vel_) {
-        wheel->state = kWheelStatic;
+        wheel->state = DrivableModule::WheelState::kStatic;
         return scale * wheel->static_friction_;
     }
     if (slip < wheel->min_dynamic_grip_vel_) {
-        wheel->state = kWheelStaticToDynamic;
+        wheel->state = DrivableModule::WheelState::kStaticToDynamic;
         const double blend = (static_cast<double>(wheel->static_friction_) - wheel->dynamic_friction_) *
                              (static_cast<double>(slip) - wheel->max_static_grip_vel_) /
                              (static_cast<double>(wheel->min_dynamic_grip_vel_) - wheel->max_static_grip_vel_);
         return scale * wheel->dynamic_friction_ + blend;
     }
-    wheel->state = kWheelDynamic;
+    wheel->state = DrivableModule::WheelState::kDynamic;
     return scale * wheel->dynamic_friction_;
 }
 
@@ -696,7 +696,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = core::at(wheels_, i);
         wheel.y = wheel.rest_y_;
-        wheel.state = kWheelInAir;
+        wheel.state = DrivableModule::WheelState::kInAir;
         wheel.rotation = 0.0f;
         wheel.spin = 0.0f;
         wheel.steering = 0.0f;
@@ -971,22 +971,22 @@ void DrivableModule::debug_draw()
         const Wheel& wheel = core::at(wheels_, i);
         uint32_t colour = 0;
         switch (wheel.state) {
-        case kWheelStaticSlow:
+        case DrivableModule::WheelState::kStaticSlow:
             colour = kHashFF00FF00;
             break;
-        case kWheelStatic:
+        case DrivableModule::WheelState::kStatic:
             colour = kHashFF000000;
             break;
-        case kWheelStaticToDynamic:
+        case DrivableModule::WheelState::kStaticToDynamic:
             colour = kHashFF00C8FF;
             break;
-        case kWheelDynamic:
+        case DrivableModule::WheelState::kDynamic:
             colour = kHashFF0000FF;
             break;
-        case kWheelHandbrakeThrottle:
+        case DrivableModule::WheelState::kHandbrakeThrottle:
             colour = kHashFF960096;
             break;
-        case kWheelHandbrakeLocked:
+        case DrivableModule::WheelState::kHandbrakeLocked:
             colour = kHashFF969600;
             break;
         default:

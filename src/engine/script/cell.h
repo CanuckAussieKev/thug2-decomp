@@ -14,7 +14,7 @@ struct Vector;
 struct MemberFunctionEntry;
 class Script;
 
-// A native script function (a kQbvalNativeFunc symbol's value): run with its parameters and the running script.
+// A native script function (a QbValueKind::kNativeFunc symbol's value): run with its parameters and the running script.
 using NativeFunction = bool (*)(Struct* params, Script* script);
 
 // NOT ORIGINAL - one script value's 32 bits: a component's, a global symbol's or an array element's value. The kind

@@ -269,9 +269,9 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
             manager->lobby_service()->change_host_name(server->label().data());
         const char* ip = crt::get_inet_ntoa(server->remote_ip());
         if (!server->can_reach())
-            reply->add_component_of_type(kCookie, script::kQbvalName, maths::rnd(kCookieRange) * maths::rnd(kCookieRange));
-        reply->add_component_of_type(0, script::kQbvalInteger, server->port_no());
-        reply->append_word(0, script::kQbvalString, ip);
+            reply->add_component_of_type(kCookie, script::QbValueKind::kName, maths::rnd(kCookieRange) * maths::rnd(kCookieRange));
+        reply->add_component_of_type(0, script::QbValueKind::kInteger, server->port_no());
+        reply->append_word(0, script::QbValueKind::kString, ip);
         reply->put_int(checksums::Name{kMaxPlayers}, server->max_players());
         get_run(kChosenJoinServer, reply.get());
     }

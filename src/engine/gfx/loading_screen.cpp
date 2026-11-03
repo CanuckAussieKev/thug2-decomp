@@ -162,8 +162,8 @@ void draw_loading_screen_picture()
     renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
     renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
     renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-    change_phase(kAddressMode0, kClampBothWays); // (clamped both ways)
-    change_phase(kLighting, 0);
+    change_phase(RenderStateId::kAddressMode0, kClampBothWays); // (clamped both ways)
+    change_phase(RenderStateId::kLighting, 0);
     set_pixel_shader(nullptr, nullptr);
     set_vertex_format(D3DFVF_XYZRHW | D3DFVF_TEX1);
     choose_blend_mode(0);

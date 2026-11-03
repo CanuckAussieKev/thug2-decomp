@@ -72,17 +72,17 @@ float get_as_float(uint32_t bits)
     return value;
 }
 
-void change_species(Component* component, uint32_t type)
+void change_species(Component* component, QbValueKind type)
 {
-    component->type_and_flag_ = static_cast<uint8_t>((component->type_and_flag_ & 1) | (type << 1));
+    set_value_kind(*component, type);
 }
 
 Tokens skip_end_of_lines_in(Tokens p)
 {
     for (;;) {
-        if (*p == kTokenEndOfLine)
+        if (as_token(*p) == QbToken::kEndOfLine)
             p += 1;
-        else if (*p == kTokenEndOfLineNumbered)
+        else if (as_token(*p) == QbToken::kEndOfLineNumbered)
             p += kTokenWithWordBytes;
         else
             return p;
@@ -103,11 +103,11 @@ Tokens add_expression(Tokens token, Struct& dest, Struct* args)
 {
     gsl::owner<Component*> value = new_component();
     token = parse_expression(token, args, value);
-    if (value_kind(*value) == kQbvalStruct) {
+    if (value_kind(*value) == QbValueKind::kStruct) {
         dest.append_structure_if_any(value->value.structure());
         release_component(value);
         free_component(value);
-    } else if (value_kind(*value) != kQbvalNone) {
+    } else if (value_kind(*value) != QbValueKind::kNone) {
         value->name = 0;
         dest.attach_module(value);
     } else {
@@ -139,11 +139,11 @@ Script* get_running_script() { return current_script_var(); }
 Script* step_script_list(Script* script) { return script ? *raw::as<Script*>(script) : script_list_head(); }
 
 // 0x0046F7A0
-StoredRandom* look_up_saved_random(const uint8_t* table, uint32_t type, uint32_t count)
+StoredRandom* look_up_saved_random(const uint8_t* table, QbToken type, uint32_t count)
 {
     const Script* script = get_running_script();
     for (StoredRandom* stored = script_state().stored_randoms_newest(); stored; stored = stored->succ_) {
-        if (stored->lookup_table_ == table && stored->kind_tag_ == type && stored->num_ == count &&
+        if (stored->lookup_table_ == table && stored->kind_tag_ == token_byte(type) && stored->num_ == count &&
             (stored->owner_ == script || stored->owner_ == nullptr))
             return stored;
     }
@@ -183,18 +183,18 @@ StoredRandom* new_stored_random()
 Tokens resolve_random_jumps(Tokens token)
 {
     for (;;) {
-        switch (*token) {
-        case kTokenLongJump: // jump
+        switch (as_token(*token)) {
+        case QbToken::kLongJump: // jump
             token += kTokenWithWordBytes + fetch_word32(token + 1);
             break;
-        case kTokenRandom:   // Random(@a @b ...): weighted
-        case kTokenRandomSideStream: { // the same, from the second random stream
+        case QbToken::kRandom:   // Random(@a @b ...): weighted
+        case QbToken::kRandomSideStream: { // the same, from the second random stream
             const uint32_t count = fetch_word32(token + 1);
             const Tokens weights = token + 5;
             int total = 0;
             for (uint32_t i = 0; i < count; ++i)
                 total += static_cast<int16_t>(fetch_word16(weights + 2 * i));
-            int pick = *token == kTokenRandom ? maths::rnd(total) : maths::roll_side_stream(total);
+            int pick = as_token(*token) == QbToken::kRandom ? maths::rnd(total) : maths::roll_side_stream(total);
             int choice = 0;
             pick -= static_cast<int16_t>(fetch_word16(weights));
             while (pick >= 0) {
@@ -205,14 +205,14 @@ Tokens resolve_random_jumps(Tokens token)
             token = offset + fetch_word32(offset) + 4;
             break;
         }
-        case kTokenRandomNoRepeat: { // RandomNoRepeat
+        case QbToken::kRandomNoRepeat: { // RandomNoRepeat
             const uint32_t count = fetch_word32(token + 1);
             const Tokens table = token + 5 + 2 * count;
-            StoredRandom* stored = look_up_saved_random(table.address(), kTokenRandomNoRepeat, count);
+            StoredRandom* stored = look_up_saved_random(table.address(), QbToken::kRandomNoRepeat, count);
             if (!stored) {
                 stored = new_stored_random();
                 stored->lookup_table_ = table.address();
-                stored->kind_tag_ = kTokenRandomNoRepeat;
+                stored->kind_tag_ = token_byte(QbToken::kRandomNoRepeat);
                 stored->num_ = static_cast<uint16_t>(count);
                 stored->last_ = static_cast<uint32_t>(maths::rnd(static_cast<int>(count)));
             }
@@ -229,14 +229,14 @@ Tokens resolve_random_jumps(Tokens token)
             token = offset + fetch_word32(offset) + 4;
             break;
         }
-        case kTokenRandomPermute: { // RandomPermute
+        case QbToken::kRandomPermute: { // RandomPermute
             const uint32_t count = fetch_word32(token + 1);
             const Tokens table = token + 5 + 2 * count;
-            StoredRandom* stored = look_up_saved_random(table.address(), kTokenRandomPermute, count);
+            StoredRandom* stored = look_up_saved_random(table.address(), QbToken::kRandomPermute, count);
             if (!stored) {
                 stored = new_stored_random();
                 stored->lookup_table_ = table.address();
-                stored->kind_tag_ = kTokenRandomPermute;
+                stored->kind_tag_ = token_byte(QbToken::kRandomPermute);
                 stored->num_ = static_cast<uint16_t>(count);
                 stored->ordinal_ = 0;
                 for (uint16_t i = 0; i < stored->num_; ++i)
@@ -252,7 +252,7 @@ Tokens resolve_random_jumps(Tokens token)
             token = offset + fetch_word32(offset) + 4;
             break;
         }
-        case kTokenShortJump: // short jump
+        case QbToken::kShortJump: // short jump
             token += 1 + fetch_word16(token + 1);
             break;
         default:
@@ -264,32 +264,32 @@ Tokens resolve_random_jumps(Tokens token)
 // 0x0046FD60
 Tokens skip_value(Tokens token)
 {
-    switch (*token) {
-    case kTokenStructStart:
-    case kTokenArrayStart: {
-        const uint8_t open = *token;
-        const auto close = static_cast<uint8_t>(open + 1);
+    switch (as_token(*token)) {
+    case QbToken::kStructStart:
+    case QbToken::kArrayStart: {
+        const QbToken open = as_token(*token);
+        const QbToken close = open == QbToken::kStructStart ? QbToken::kStructEnd : QbToken::kArrayEnd;
         int depth = 1;
         for (bool again = true; again; again = depth) {
             token = step_over_token(token);
-            if (*token == open)
+            if (as_token(*token) == open)
                 ++depth;
-            else if (*token == close)
+            else if (as_token(*token) == close)
                 --depth;
         }
         return token + 1;
     }
-    case kTokenName:
-    case kTokenInteger:
-    case kTokenHexInteger:
-    case kTokenFloat:
+    case QbToken::kName:
+    case QbToken::kInteger:
+    case QbToken::kHexInteger:
+    case QbToken::kFloat:
         return token + kTokenWithWordBytes;
-    case kTokenString:
-    case kTokenLocalString:
+    case QbToken::kString:
+    case QbToken::kLocalString:
         return token + kTokenWithWordBytes + fetch_word32(token + 1);
-    case kTokenVector:
+    case QbToken::kVector:
         return token + kTokenWithVectorBytes;
-    case kTokenPair:
+    case QbToken::kPair:
         return token + kTokenWithPairBytes;
     default:
         return token;
@@ -321,7 +321,7 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
         const int range = high - low + 1;
         const int pick = deterministic ? maths::roll_side_stream(range) : maths::rnd(range);
         out->value.set_word(static_cast<uint32_t>(pick + low));
-        change_species(out, kQbvalInteger);
+        change_species(out, QbValueKind::kInteger);
         return token + kTokenWithPairBytes;
     }
     if (a > b) {
@@ -330,7 +330,7 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
         b = swapped;
     }
     const int pick = deterministic ? maths::roll_side_stream(0x7FF9) : maths::rnd(0x7FF9);
-    change_species(out, kQbvalFloat);
+    change_species(out, QbValueKind::kFloat);
     const double scale = kParseRandomScale;
     out->value.set_real(static_cast<float>((static_cast<double>(b) - a) * pick * scale + a));
     return token + kTokenWithPairBytes;
@@ -339,21 +339,21 @@ Tokens parse_random_range(Tokens token, Component* out, bool deterministic)
 // 0x00479730
 void evaluate_name_token(Component* component)
 {
-    if ((component->type_and_flag_ & kComponentTypeBits) != (kQbvalName << 1))
+    if (value_kind(*component) != QbValueKind::kName)
         return;
     const SymbolTableEntry* symbol = resolve_symbol(component->value.word());
     if (!symbol)
         return;
     switch (symbol->type()) {
-    case kQbvalInteger:
-    case kQbvalFloat:
-    case kQbvalString:
-    case kQbvalInlineText:
-    case kQbvalPair:
-    case kQbvalVector:
-    case kQbvalStruct:
-    case kQbvalArray:
-    case kQbvalName:
+    case QbValueKind::kInteger:
+    case QbValueKind::kFloat:
+    case QbValueKind::kString:
+    case QbValueKind::kInlineText:
+    case QbValueKind::kPair:
+    case QbValueKind::kVector:
+    case QbValueKind::kStruct:
+    case QbValueKind::kArray:
+    case QbValueKind::kName:
         change_species(component, symbol->type());
         component->value.set_word(symbol->value().word());
         break;
@@ -366,44 +366,44 @@ void evaluate_name_token(Component* component)
 Tokens parse_value(Tokens token, Struct* args, Component* out)
 {
     Tokens p = token + 1;
-    switch (*token) {
-    case kTokenStructStart: {
+    switch (as_token(*token)) {
+    case QbToken::kStructStart: {
         gsl::owner<Struct*> structure = script::new_struct();
         p = parse_structure(structure, token, args);
-        change_species(out, kQbvalStruct);
+        change_species(out, QbValueKind::kStruct);
         out->value.set_structure(structure);
         return p;
     }
-    case kTokenArrayStart: {
+    case QbToken::kArrayStart: {
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
         gsl::owner<Array*> array = script::new_array();
         memory::leave_heap_scope();
         p = parse_array(array, token, args);
-        change_species(out, kQbvalArray);
+        change_species(out, QbValueKind::kArray);
         out->value.set_array(array);
         return p;
     }
-    case kTokenName:
-        change_species(out, kQbvalName);
+    case QbToken::kName:
+        change_species(out, QbValueKind::kName);
         out->value.set_word(fetch_word32(p));
         return token + kTokenWithWordBytes;
-    case kTokenInteger:
-        change_species(out, kQbvalInteger);
+    case QbToken::kInteger:
+        change_species(out, QbValueKind::kInteger);
         out->value.set_word(fetch_word32(p));
         return token + kTokenWithWordBytes;
-    case kTokenFloat:
-        change_species(out, kQbvalFloat);
+    case QbToken::kFloat:
+        change_species(out, QbValueKind::kFloat);
         out->value.set_word(fetch_word32(p));
         return token + kTokenWithWordBytes;
-    case kTokenString:
-    case kTokenLocalString: {
-        change_species(out, *token == kTokenString ? kQbvalString : kQbvalInlineText);
+    case QbToken::kString:
+    case QbToken::kLocalString: {
+        change_species(out, as_token(*token) == QbToken::kString ? QbValueKind::kString : QbValueKind::kInlineText);
         const uint32_t length = fetch_word32(p);
         out->value.set_text(spawn_text(raw::chars((token + kTokenWithWordBytes).address())));
         return token + kTokenWithWordBytes + length;
     }
-    case kTokenVector: {
-        change_species(out, kQbvalVector);
+    case QbToken::kVector: {
+        change_species(out, QbValueKind::kVector);
         uint32_t x = fetch_word32(p), y = fetch_word32(token + kTokenWithWordBytes), z = fetch_word32(token + kTokenWithPairBytes);
         Vector* vector = alloc_script_vector();
         vector = vector ? new (vector) script::Vector : nullptr;
@@ -413,8 +413,8 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         std::memcpy(&out->value.vector()->z(), &z, 4);
         return token + kTokenWithVectorBytes;
     }
-    case kTokenPair: {
-        change_species(out, kQbvalPair);
+    case QbToken::kPair: {
+        change_species(out, QbValueKind::kPair);
         uint32_t x = fetch_word32(p), y = fetch_word32(token + kTokenWithWordBytes);
         Pair* pair = new_pair();
         pair = pair ? new (pair) script::Pair : nullptr;
@@ -423,11 +423,11 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         std::memcpy(&out->value.pair()->y(), &y, 4);
         return token + kTokenWithPairBytes;
     }
-    case kTokenScriptStart: { // a script: its name goes in the component's name
+    case QbToken::kScriptStart: { // a script: its name goes in the component's name
         out->name = fetch_word32(token + 2);
         const Tokens start = token + 6;
         Tokens end = skip_to_end_of_script(start);
-        change_species(out, kQbvalScriptBody);
+        change_species(out, QbValueKind::kScriptBody);
         const std::span<const uint8_t> script = code_between(start, end);
         const auto size = static_cast<uint32_t>(script.size());
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
@@ -439,15 +439,15 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         out->value.set_code(code);
         return end;
     }
-    case kTokenAllArguments: // <...>: all the caller's parameters
+    case QbToken::kAllArguments: // <...>: all the caller's parameters
         if (args) {
             gsl::owner<Struct*> structure = script::new_struct();
             structure->get_assign(args);
-            change_species(out, kQbvalStruct);
+            change_species(out, QbValueKind::kStruct);
             out->value.set_structure(structure);
         }
         return token + 1;
-    case kTokenLocalArgument: { // <name>: one of the caller's parameters
+    case QbToken::kLocalArgument: { // <name>: one of the caller's parameters
         const uint32_t name = fetch_word32(token + 2);
         if (args) {
             if (const Component* found = args->find_last_component(name))
@@ -455,9 +455,9 @@ Tokens parse_value(Tokens token, Struct* args, Component* out)
         }
         return token + kTokenWithNamedWordBytes;
     }
-    case kTokenRandomRange:
+    case QbToken::kRandomRange:
         return parse_random_range(p, out, false);
-    case kTokenRandomRangeSideStream:
+    case QbToken::kRandomRangeSideStream:
         return parse_random_range(p, out, true);
     default:
         return token + 1;
@@ -469,17 +469,17 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
 {
     Tokens p = token + 1;
     bool deterministic = false;
-    switch (*token) {
-    case kTokenName:
+    switch (as_token(*token)) {
+    case QbToken::kName:
         dest->put_name_key(checksums::Name{name}, fetch_word32(p));
         return token + kTokenWithWordBytes;
-    case kTokenInteger:
+    case QbToken::kInteger:
         dest->put_int(checksums::Name{name}, static_cast<int>(fetch_word32(p)));
         return token + kTokenWithWordBytes;
-    case kTokenFloat:
+    case QbToken::kFloat:
         dest->push_float(checksums::Name{name}, get_as_float(fetch_word32(p)));
         return token + kTokenWithWordBytes;
-    case kTokenVector: {
+    case QbToken::kVector: {
         const float x = get_as_float(fetch_word32(p));
         const float y = get_as_float(fetch_word32(token + 5));
         const float z = get_as_float(fetch_word32(token + 9));
@@ -490,26 +490,26 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
             dest->put_vec3(checksums::Name{name}, {.x = x, .y = y, .z = z});
         return token + kTokenWithVectorBytes;
     }
-    case kTokenPair:
+    case QbToken::kPair:
         dest->insert_pair(checksums::Name{name}, {.x = get_as_float(fetch_word32(p)), .y = get_as_float(fetch_word32(token + kTokenWithWordBytes))});
         return token + kTokenWithPairBytes;
-    case kTokenString: {
+    case QbToken::kString: {
         const uint32_t length = fetch_word32(p);
         dest->append_word(name, raw::chars((token + kTokenWithWordBytes).address()));
         return token + kTokenWithWordBytes + length;
     }
-    case kTokenLocalString: {
+    case QbToken::kLocalString: {
         const uint32_t length = fetch_word32(p);
         dest->append_inline_text(name, raw::chars((token + kTokenWithWordBytes).address()));
         return token + kTokenWithWordBytes + length;
     }
-    case kTokenStructStart: {
+    case QbToken::kStructStart: {
         gsl::owner<Struct*> structure = script::new_struct();
         p = parse_structure(structure, token, args);
         dest->append_struct_ref(name, structure);
         return p;
     }
-    case kTokenArrayStart: {
+    case QbToken::kArrayStart: {
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
         gsl::owner<Array*> array = script::new_array();
         memory::leave_heap_scope();
@@ -517,14 +517,14 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
         dest->append_array_ref(name, array);
         return p;
     }
-    case kTokenScriptStart: { // a script, under its own name
+    case QbToken::kScriptStart: { // a script, under its own name
         const uint32_t script_name = fetch_word32(token + 2);
         const Tokens start = token + 6;
         Tokens end = skip_to_end_of_script(start);
         dest->append_script(script_name, code_between(start, end));
         return end;
     }
-    case kTokenLocalArgument: { // <name>
+    case QbToken::kLocalArgument: { // <name>
         const uint32_t reference = fetch_word32(token + 2);
         p = token + kTokenWithNamedWordBytes;
         if (!args)
@@ -532,7 +532,7 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
         const Component* found = args->find_last_component(reference);
         if (!found)
             return p;
-        if (name == 0 && (found->type_and_flag_ & kComponentTypeBits) == (kQbvalStruct << 1)) {
+        if (name == 0 && value_kind(*found) == QbValueKind::kStruct) {
             dest->append_structure_if_any(found->value.structure());
             return p;
         }
@@ -542,7 +542,7 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
         dest->attach_module(copy);
         return p;
     }
-    case kTokenAllArguments: // <...>
+    case QbToken::kAllArguments: // <...>
         if (args) {
             if (name) {
                 gsl::owner<Struct*> structure = script::new_struct();
@@ -553,17 +553,17 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
             }
         }
         return p;
-    case kTokenRandomRangeSideStream:
+    case QbToken::kRandomRangeSideStream:
         deterministic = true;
         [[fallthrough]];
-    case kTokenRandomRange: {
+    case QbToken::kRandomRange: {
         gsl::owner<Component*> value = new_component();
         p = parse_random_range(p, value, deterministic);
         value->name = name;
         dest->attach_module(value);
         return p;
     }
-    case kTokenComma:
+    case QbToken::kComma:
         return p;
     default:
         return token;
@@ -575,41 +575,41 @@ Tokens parse_arguments(Struct* dest, Tokens token, Struct* args)
 {
     for (;;) {
         token = resolve_random_jumps(token);
-        const uint8_t t = *token;
-        if (t == kTokenEndOfLine || t == kTokenEndOfLineNumbered || t == kTokenEndOfFile || t == kTokenCloseParenthesis)
+        const QbToken t = as_token(*token);
+        if (t == QbToken::kEndOfLine || t == QbToken::kEndOfLineNumbered || t == QbToken::kEndOfFile || t == QbToken::kCloseParenthesis)
             return token;
         switch (t) {
-        case kTokenStructStart:
+        case QbToken::kStructStart:
             token = parse_structure(dest, token, args);
             break;
-        case kTokenComma:
+        case QbToken::kComma:
             ++token;
             break;
-        case kTokenAllArguments:
+        case QbToken::kAllArguments:
             ++token;
             if (args)
                 dest->merge_structure(args);
             break;
-        case kTokenLocalArgument:
+        case QbToken::kLocalArgument:
             token = add_parameter(token, 0, dest, args);
             break;
-        case kTokenName: {
+        case QbToken::kName: {
             const uint32_t name = fetch_word32(token + 1);
             Tokens next = resolve_random_jumps(token + kTokenWithWordBytes);
-            if (*next != kTokenEquals) {
+            if (as_token(*next) != QbToken::kEquals) {
                 // A bare name: a flag.
                 token = add_parameter(token, 0, dest, args);
                 break;
             }
             next = resolve_random_jumps(next + 1);
-            if (*next == kTokenOpenParenthesis)
+            if (as_token(*next) == QbToken::kOpenParenthesis)
                 token = add_named_expression(next, name, *dest, args);
             else
                 token = add_parameter(next, name, dest, args);
             break;
         }
         default:
-            if (t == kTokenOpenParenthesis)
+            if (t == QbToken::kOpenParenthesis)
                 token = add_expression(token, *dest, args);
             else
                 token = add_parameter(token, 0, dest, args);
@@ -625,36 +625,36 @@ Tokens parse_structure(Struct* dest, Tokens token, Struct* args)
     for (;;) {
         p = skip_end_of_lines_in(p);
         p = resolve_random_jumps(p);
-        const uint8_t t = *p;
-        if (t == kTokenStructEnd)
+        const QbToken t = as_token(*p);
+        if (t == QbToken::kStructEnd)
             return p + 1;
         switch (t) {
-        case kTokenEndOfLine:
-        case kTokenEndOfLineNumbered:
+        case QbToken::kEndOfLine:
+        case QbToken::kEndOfLineNumbered:
             p = skip_end_of_lines_in(p);
             break;
-        case kTokenStructStart:
+        case QbToken::kStructStart:
             p = parse_structure(dest, p, args);
             break;
-        case kTokenComma:
+        case QbToken::kComma:
             ++p;
             break;
-        case kTokenName: {
+        case QbToken::kName: {
             const uint32_t name = fetch_word32(p + 1);
             Tokens next = resolve_random_jumps(skip_end_of_lines_in(p + kTokenWithWordBytes));
-            if (*next != kTokenEquals) {
+            if (as_token(*next) != QbToken::kEquals) {
                 p = add_parameter(p, 0, dest, args);
                 break;
             }
             next = resolve_random_jumps(skip_end_of_lines_in(next + 1));
-            if (*next == kTokenOpenParenthesis)
+            if (as_token(*next) == QbToken::kOpenParenthesis)
                 p = add_named_expression(next, name, *dest, args);
             else
                 p = add_parameter(next, name, dest, args);
             break;
         }
         default:
-            if (t == kTokenOpenParenthesis)
+            if (t == QbToken::kOpenParenthesis)
                 p = add_expression(p, *dest, args);
             else
                 p = add_parameter(p, 0, dest, args);
@@ -668,61 +668,61 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
 {
     const Tokens first = token + 1;
     Tokens p = resolve_random_jumps(first);
-    uint32_t type = 0;
+    QbValueKind type = QbValueKind::kNone;
     uint32_t count = 0;
-    if (*p == kTokenArrayEnd)
+    if (as_token(*p) == QbToken::kArrayEnd)
         return p + 1;
-    for (bool again = true; again; again = *p != kTokenArrayEnd) {
-        const uint8_t t = *p;
+    for (bool again = true; again; again = as_token(*p) != QbToken::kArrayEnd) {
+        const QbToken t = as_token(*p);
         switch (t) {
-        case kTokenStructStart:
-            type = kQbvalStruct;
+        case QbToken::kStructStart:
+            type = QbValueKind::kStruct;
             break;
-        case kTokenArrayStart:
-            type = kQbvalArray;
+        case QbToken::kArrayStart:
+            type = QbValueKind::kArray;
             break;
-        case kTokenName:
-            type = kQbvalName;
+        case QbToken::kName:
+            type = QbValueKind::kName;
             break;
-        case kTokenInteger:
-        case kTokenHexInteger:
-            if (type != kQbvalFloat)
-                type = kQbvalInteger;
+        case QbToken::kInteger:
+        case QbToken::kHexInteger:
+            if (type != QbValueKind::kFloat)
+                type = QbValueKind::kInteger;
             break;
-        case kTokenFloat:
-            type = kQbvalFloat;
+        case QbToken::kFloat:
+            type = QbValueKind::kFloat;
             break;
-        case kTokenString:
-            type = kQbvalString;
+        case QbToken::kString:
+            type = QbValueKind::kString;
             break;
-        case kTokenLocalString:
-            type = kQbvalInlineText;
+        case QbToken::kLocalString:
+            type = QbValueKind::kInlineText;
             break;
-        case kTokenVector:
-            type = kQbvalVector;
+        case QbToken::kVector:
+            type = QbValueKind::kVector;
             break;
-        case kTokenPair:
-            type = kQbvalPair;
+        case QbToken::kPair:
+            type = QbValueKind::kPair;
             break;
         default:
             break;
         }
         switch (t) {
-        case kTokenEndOfLine:
-        case kTokenEndOfLineNumbered:
-        case kTokenComma:
+        case QbToken::kEndOfLine:
+        case QbToken::kEndOfLineNumbered:
+        case QbToken::kComma:
             p = step_over_token(p);
             break;
-        case kTokenStructStart:
-        case kTokenArrayStart:
-        case kTokenName:
-        case kTokenInteger:
-        case kTokenHexInteger:
-        case kTokenFloat:
-        case kTokenString:
-        case kTokenLocalString:
-        case kTokenVector:
-        case kTokenPair:
+        case QbToken::kStructStart:
+        case QbToken::kArrayStart:
+        case QbToken::kName:
+        case QbToken::kInteger:
+        case QbToken::kHexInteger:
+        case QbToken::kFloat:
+        case QbToken::kString:
+        case QbToken::kLocalString:
+        case QbToken::kVector:
+        case QbToken::kPair:
             ++count;
             p = skip_value(p);
             break;
@@ -732,88 +732,88 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
         }
         p = resolve_random_jumps(p);
     }
-    if (type == 0)
+    if (type == QbValueKind::kNone)
         return p + 1;
 
     memory::enter_heap_scope(memory::Hub::get_pull()->script_heap());
-    dest->configure_size_kind(count, static_cast<QbValueKind>(type));
+    dest->configure_size_kind(count, type);
     memory::leave_heap_scope();
-    if (type == kQbvalScriptBody || type == kQbvalNativeFunc || type == kQbvalNativeMethod || type == kQbvalStructHandedOver)
+    if (type == QbValueKind::kScriptBody || type == QbValueKind::kNativeFunc || type == QbValueKind::kNativeMethod || type == QbValueKind::kStructHandedOver)
         return token;
     uint32_t element = 0; // (the next element written)
     p = resolve_random_jumps(first);
-    while (*p != kTokenArrayEnd) {
-        const uint8_t t = *p;
+    while (as_token(*p) != QbToken::kArrayEnd) {
+        const QbToken t = as_token(*p);
         switch (type) {
-        case kQbvalStruct:
+        case QbValueKind::kStruct:
             // (no step first; unknown tokens don't move on: the original loops here)
-            if (t == kTokenEndOfLine || t == kTokenComma) {
+            if (t == QbToken::kEndOfLine || t == QbToken::kComma) {
                 ++p;
-            } else if (t == kTokenEndOfLineNumbered) {
+            } else if (t == QbToken::kEndOfLineNumbered) {
                 p += kTokenWithWordBytes;
-            } else if (t == kTokenStructStart) {
+            } else if (t == QbToken::kStructStart) {
                 gsl::owner<Struct*> structure = script::new_struct();
                 p = parse_structure(structure, p, args);
                 dest->set_cell(element++, Cell::of(structure));
             }
             break;
-        case kQbvalArray:
+        case QbValueKind::kArray:
             ++p;
-            if (t == kTokenEndOfLineNumbered) {
+            if (t == QbToken::kEndOfLineNumbered) {
                 p += 4;
-            } else if (t == kTokenArrayStart) {
+            } else if (t == QbToken::kArrayStart) {
                 gsl::owner<Array*> array = script::new_array();
                 p = parse_array(array, p - 1, args);
                 dest->set_cell(element++, Cell::of(array));
             }
             break;
-        case kQbvalInteger:
+        case QbValueKind::kInteger:
             ++p;
-            if (t == kTokenEndOfLineNumbered) {
+            if (t == QbToken::kEndOfLineNumbered) {
                 p += 4;
-            } else if (t == kTokenInteger || t == kTokenHexInteger) {
+            } else if (t == QbToken::kInteger || t == QbToken::kHexInteger) {
                 dest->set_cell(element++, Cell::of_word(fetch_word32(p)));
                 p += 4;
             }
             break;
-        case kQbvalFloat:
+        case QbValueKind::kFloat:
             ++p;
-            if (t == kTokenEndOfLineNumbered) {
+            if (t == QbToken::kEndOfLineNumbered) {
                 p += 4;
-            } else if (t == kTokenInteger || t == kTokenHexInteger) {
+            } else if (t == QbToken::kInteger || t == QbToken::kHexInteger) {
                 dest->set_cell(element++, Cell::of_real(static_cast<float>(static_cast<int32_t>(fetch_word32(p)))));
                 p += 4;
-            } else if (t == kTokenFloat) {
+            } else if (t == QbToken::kFloat) {
                 dest->set_cell(element++, Cell::of_word(fetch_word32(p)));
                 p += 4;
             }
             break;
-        case kQbvalName:
+        case QbValueKind::kName:
             ++p;
-            if (t == kTokenEndOfLineNumbered) {
+            if (t == QbToken::kEndOfLineNumbered) {
                 p += 4;
-            } else if (t == kTokenName) {
+            } else if (t == QbToken::kName) {
                 dest->set_cell(element++, Cell::of_word(fetch_word32(p)));
                 p += 4;
             }
             break;
-        case kQbvalString:
-        case kQbvalInlineText:
+        case QbValueKind::kString:
+        case QbValueKind::kInlineText:
             ++p;
-            if (t == kTokenEndOfLineNumbered) {
+            if (t == QbToken::kEndOfLineNumbered) {
                 p += 4;
-            } else if (t == (type == kQbvalString ? kTokenString : kTokenLocalString)) {
+            } else if (t == (type == QbValueKind::kString ? QbToken::kString : QbToken::kLocalString)) {
                 const uint32_t length = fetch_word32(p);
                 p += 4;
                 dest->set_cell(element++, Cell::of_text(spawn_text(raw::chars(p.address()))));
                 p += length;
             }
             break;
-        case kQbvalVector:
+        case QbValueKind::kVector:
             ++p;
-            if (t == kTokenEndOfLineNumbered) {
+            if (t == QbToken::kEndOfLineNumbered) {
                 p += 4;
-            } else if (t == kTokenVector) {
+            } else if (t == QbToken::kVector) {
                 Vector* vector = alloc_script_vector();
                 vector = vector ? new (vector) script::Vector : nullptr;
                 uint32_t x = fetch_word32(p), y = fetch_word32(p + 4), z = fetch_word32(p + kVectorZOffset);
@@ -824,11 +824,11 @@ Tokens parse_array(Array* dest, Tokens token, Struct* args)
                 dest->set_cell(element++, Cell::of(vector));
             }
             break;
-        case kQbvalPair:
+        case QbValueKind::kPair:
             ++p;
-            if (t == kTokenEndOfLineNumbered) {
+            if (t == QbToken::kEndOfLineNumbered) {
                 p += 4;
-            } else if (t == kTokenPair) {
+            } else if (t == QbToken::kPair) {
                 Pair* pair = new_pair();
                 pair = pair ? new (pair) script::Pair : nullptr;
                 uint32_t x = fetch_word32(p), y = fetch_word32(p + 4);
@@ -864,21 +864,21 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
     };
     for (;;) {
         p = resolve_random_jumps(p);
-        const uint8_t t = *p;
+        const QbToken t = as_token(*p);
         switch (t) {
-        case kTokenEndOfLine:
-        case kTokenArrayEnd:
+        case QbToken::kEndOfLine:
+        case QbToken::kArrayEnd:
             ++p;
             continue;
-        case kTokenEndOfLineNumbered:
+        case QbToken::kEndOfLineNumbered:
             p += kTokenWithWordBytes;
             continue;
-        case kTokenStructStart:
-        case kTokenString:
-        case kTokenLocalString:
-        case kTokenVector:
-        case kTokenPair:
-        case kTokenRandomRange:
+        case QbToken::kStructStart:
+        case QbToken::kString:
+        case QbToken::kLocalString:
+        case QbToken::kVector:
+        case QbToken::kPair:
+        case QbToken::kRandomRange:
             if (!expect_value)
                 break;
             p = parse_value(p, args, &value);
@@ -886,24 +886,24 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             release_component(&value);
             pushed();
             continue;
-        case kTokenArrayStart:
-        case kTokenEquals:
-        case kTokenDot:
-        case kTokenMinus:
-        case kTokenPlus:
-        case kTokenDivide:
-        case kTokenMultiply:
-        case kTokenLessThan:
-        case kTokenGreaterThan:
-        case kTokenOr:
-        case kTokenAnd: // operators
-            evaluator.intake(static_cast<int>(t));
+        case QbToken::kArrayStart:
+        case QbToken::kEquals:
+        case QbToken::kDot:
+        case QbToken::kMinus:
+        case QbToken::kPlus:
+        case QbToken::kDivide:
+        case QbToken::kMultiply:
+        case QbToken::kLessThan:
+        case QbToken::kGreaterThan:
+        case QbToken::kOr:
+        case QbToken::kAnd: // operators
+            evaluator.intake(t);
             ++p;
-            after_dot = t == kTokenDot;
+            after_dot = t == QbToken::kDot;
             have_value = false;
             expect_value = true;
             continue;
-        case kTokenOpenParenthesis:
+        case QbToken::kOpenParenthesis:
             if (!expect_value)
                 break;
             ++p;
@@ -912,7 +912,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             have_value = false;
             expect_value = true;
             continue;
-        case kTokenCloseParenthesis:
+        case QbToken::kCloseParenthesis:
             ++p;
             if (parentheses == 0)
                 break;
@@ -921,7 +921,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             --parentheses;
             have_value = true;
             continue;
-        case kTokenName: {
+        case QbToken::kName: {
             if (!expect_value)
                 break;
             p = parse_value(p, args, &value);
@@ -929,28 +929,28 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             if (symbol) {
                 bool push = true;
                 switch (symbol->type()) {
-                case kQbvalInteger:
-                case kQbvalFloat:
-                case kQbvalString:
-                case kQbvalInlineText:
-                case kQbvalPair:
-                case kQbvalVector:
-                case kQbvalName:
+                case QbValueKind::kInteger:
+                case QbValueKind::kFloat:
+                case QbValueKind::kString:
+                case QbValueKind::kInlineText:
+                case QbValueKind::kPair:
+                case QbValueKind::kVector:
+                case QbValueKind::kName:
                     change_species(&value, symbol->type());
                     value.value.set_word(symbol->value().word());
                     break;
-                case kQbvalStruct:
-                    change_species(&value, kQbvalStructRef);
+                case QbValueKind::kStruct:
+                    change_species(&value, QbValueKind::kStructRef);
                     value.value.set_word(symbol->value().word());
                     break;
-                case kQbvalArray:
-                    change_species(&value, kEsymboltypeArraypointer);
+                case QbValueKind::kArray:
+                    change_species(&value, QbValueKind::kArrayRef);
                     value.value.set_word(symbol->value().word());
                     break;
-                case kQbvalNativeFunc: {
+                case QbValueKind::kNativeFunc: {
                     // Called now, with the arguments that follow.
                     Script* script = get_running_script();
-                    change_species(&value, kQbvalInteger);
+                    change_species(&value, QbValueKind::kInteger);
                     gsl::owner<Struct*> params = script::new_struct();
                     p = parse_arguments(params, p, args);
                     // (the byte the function returns, as it is)
@@ -963,7 +963,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
                     }
                     break;
                 }
-                case kQbvalNativeMethod:
+                case QbValueKind::kNativeMethod:
                     push = false;
                     break;
                 default:
@@ -979,8 +979,8 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             pushed();
             continue;
         }
-        case kTokenInteger:
-        case kTokenFloat: {
+        case QbToken::kInteger:
+        case QbToken::kFloat: {
             if (expect_value) {
                 p = parse_value(p, args, &value);
                 evaluator.intake(&value);
@@ -990,11 +990,11 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             }
             // A negative number right after a value: a subtraction ("a -1" is compiled as "a" "-1").
             const Tokens next = parse_value(p, args, &value);
-            const bool negative = t == 0x17 ? value.value.integer() < 0 : value.value.real() < 0.0f;
+            const bool negative = t == QbToken::kInteger ? value.value.integer() < 0 : value.value.real() < 0.0f;
             if (!negative || !have_value)
                 break;
-            evaluator.intake(static_cast<int>(kOperatorMinus));
-            if (t == kTokenInteger)
+            evaluator.intake(QbToken::kMinus);
+            if (t == QbToken::kInteger)
                 value.value.set_integer(-value.value.integer());
             else
                 value.value.set_real(-value.value.real());
@@ -1004,26 +1004,25 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             pushed();
             continue;
         }
-        case kTokenAllArguments: // <...>
+        case QbToken::kAllArguments: // <...>
             if (!expect_value)
                 break;
             ++p;
             if (args) {
-                change_species(&value, kQbvalStructRef);
+                change_species(&value, QbValueKind::kStructRef);
                 value.value.set_structure(args);
                 evaluator.intake(&value);
             }
             pushed();
             continue;
-        case kTokenLocalArgument: { // <name>
+        case QbToken::kLocalArgument: { // <name>
             if (!expect_value)
                 break;
             const uint32_t name = fetch_word32(p + 2);
             p += kTokenWithNamedWordBytes;
             const Component* found = args ? args->find_last_component(name) : nullptr;
             if (found) {
-                value.type_and_flag_ =
-                    static_cast<uint8_t>((value.type_and_flag_ & 1) | (found->type_and_flag_ & kComponentTypeBits));
+                copy_value_kind(value, *found);
                 value.value.set_word(found->value.word());
                 evaluate_name_token(&value);
                 make_reference(&value);

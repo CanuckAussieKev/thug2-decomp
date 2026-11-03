@@ -246,7 +246,7 @@ void HostListing::enroll_player(const char* name, int rating)
                                       ? static_cast<memory::MemSource*>(ram_stats()->internet_bottom_up_heap())
                                       : static_cast<memory::MemSource*>(ram_stats()->network_heap()));
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
-    PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, 0) : nullptr;
+    PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, PlayerFlag::kNone) : nullptr;
     player->set_skill_points(rating);
     std::strncpy(player->label().data(), name, kLabelLength);
     core::at(player->label(), kLabelLength) = '\0';
@@ -297,18 +297,18 @@ int HostListing::get_entrant_rank(int index)
 // --- The manager's server list ---
 
 // 0x005451B0 / 0x005451C0
-void Hub::set_next_service_state(int state) { next_service_state_ = state; }
-int Hub::get_service_state() { return service_state_; }
+void Hub::set_next_service_state(ServiceState state) { assign_next_service_state(state); }
+ServiceState Hub::get_service_state() { return service_state(); }
 
 // 0x005453E0
-void Hub::set_service_state(int state)
+void Hub::set_service_state(ServiceState state)
 {
-    service_state_ = state;
-    if (state == kServiceStateWake) {
+    assign_service_state(state);
+    if (state == ServiceState::kWake) {
         get_logic_tasks()->queue_job(service_job_.get());
-        set_service_state(next_service_state_);
+        set_service_state(next_service_state());
         net_game_state().set_news_message_count(0);
-    } else if (state == kServiceStateStopped) {
+    } else if (state == ServiceState::kStopped) {
         service_job_->drop_out();
     }
 }
@@ -529,7 +529,7 @@ unsigned long __stdcall news_thread(void* argument)
     auto* manager = static_cast<Hub*>(argument);
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap());
     game_spy::get_msleep(kListingPollMilliseconds);
-    manager->assign_service_state(kServiceStateNewsDownload);
+    manager->assign_service_state(ServiceState::kNewsDownload);
     manager->set_request_started_at(frame_clock::get_time());
     auto& buffer = manager->news_buffer();
     std::memset(buffer.data(), 0, kNewsClearBytes);
@@ -553,7 +553,7 @@ unsigned long __stdcall motd_thread(void* argument)
     manager->get_online_settings()->fetch_setting(kUniqueId)->fetch_text(kUiString, &unique_id, 0); // (not used)
     manager->set_request_started_at(frame_clock::get_time());
     manager->set_request(game_spy::track_usage(0, net::kGameSpyProductId, "1.0", 0, 0)); // (the usage report: the SDK's MOTD request)
-    manager->assign_service_state(kServiceStateMotdShow);
+    manager->assign_service_state(ServiceState::kMotdShow);
     ram_stats()->leave_heap_scope();
     return 0;
 }
@@ -565,7 +565,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     (void)param;
     Hub* manager = net_game_state().online_hub();
     if (result != 0) {
-        manager->assign_service_state(kServiceStateNewsEnded);
+        manager->assign_service_state(ServiceState::kNewsEnded);
         return 1;
     }
     int64_t size = (static_cast<int64_t>(size_high) << kHighWordShift) | size_low;
@@ -581,7 +581,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     News news;
     if (!read_news(reader, &news) ||
         news.checksum != checksums::generate_crc_caseless(news.motd, news.size)) { // (motd: the data's start)
-        manager->assign_service_state(kServiceStateNewsEnded);
+        manager->assign_service_state(ServiceState::kNewsEnded);
         return 1;
     }
     const auto text_at = static_cast<size_t>(news.data - buffer);
@@ -589,7 +589,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     manager->set_pending_data_size(news.size - news.motd_size);
     manager->set_pending_data(downloaded.subspan(text_at + news.motd_size).data());
     manager->set_motd_received(true);
-    manager->assign_service_state(kServiceStateMotdStart);
+    manager->assign_service_state(ServiceState::kMotdStart);
     return 1;
 }
 

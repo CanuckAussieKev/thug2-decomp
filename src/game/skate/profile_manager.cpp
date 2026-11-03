@@ -197,9 +197,9 @@ void ProfileRoster::write_pros(script::Struct* save)
         if (profile->is_pro())
             profile->write_to_save(save);
     }
-    save->add_component_of_type(kCurrentSkater, script::kQbvalName, core::at(profiles_, cursor_pos_)->fetch_title());
+    save->add_component_of_type(kCurrentSkater, script::QbValueKind::kName, core::at(profiles_, cursor_pos_)->fetch_title());
     const text::Chars display_name(core::at(profiles_, cursor_pos_)->fetch_shown_name());
-    save->append_word(kDisplayName, script::kQbvalString, display_name.c_str());
+    save->append_word(kDisplayName, script::QbValueKind::kString, display_name.c_str());
 }
 
 // 0x0057B920

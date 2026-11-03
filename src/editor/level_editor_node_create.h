@@ -127,7 +127,7 @@ struct Counts {
 const char* limit_message(Kind kind, const Counts& counts);
 // Hiding a restart of `types` (Nodes::SpawnPointKind bits) leaves none of Player1 / Multiplayer when `others` (the bits of
 // the other restarts counted) lacks one of those it has.
-bool hide_leaves_no_restart(uint32_t types, uint32_t others);
+bool hide_leaves_no_restart(nodes::SpawnPointKind types, nodes::SpawnPointKind others);
 
 // The overlay's nodes in array order, and what undo / redo do to them.
 using LinkChain = std::vector<Spec>;

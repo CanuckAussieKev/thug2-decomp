@@ -4,6 +4,7 @@
 // the net library: flags and sizes, message ids, short names for App's and Conn's calls, and the message
 // classes' functions not decompiled yet by address. (App: net_app.h; Conn: net_conn.h; links: net_messages.h.)
 
+#include "wire/message_ids.h"
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -93,7 +94,7 @@ inline Conn* opened_link(AppHost* app, uint32_t ip, uint16_t port, int flags)
 // A received packet into the connection's read buffer (false: not valid; secure packets lose their checksum).
 inline bool pull_datagram(AppHost* app, std::span<const uint8_t> packet, std::span<uint8_t> to) { return app->decrypt(packet, to); }
 // A message straight to ip:port, not through a connection.
-inline void deliver_to(AppHost* app, uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
+inline void deliver_to(AppHost* app, wire::MessageId id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
                        int flags)
 {
     app->deliver_to({.msg_id_ = id, .size = length}, data, {.ip = ip, .port = port}, flags);
@@ -102,7 +103,7 @@ inline void sever_link(AppHost* app, Conn* conn) { app->sever_link(conn); }
 inline void report_socket_error(AppHost* app) { app->raise_fault(); }
 inline Hub* fetch_hub(AppHost* app) { return app->supervisor(); }
 // NetLink::Hub's flags for a message id (0x00454980).
-inline uint8_t message_flags(Hub* manager, uint8_t id) { return static_cast<uint8_t>(manager->get_msg_options(id)); }
+inline uint8_t message_flags(Hub* manager, wire::MessageId id) { return static_cast<uint8_t>(manager->get_msg_options(id)); }
 
 // Conn's methods (net_conn.cpp). Its flags (+0x64): 1 local (the App's own client/server in this process),
 // 2 remote, 4 foreign (created for a packet from an unknown address: opened_link's flags 6).
@@ -130,9 +131,9 @@ inline void add_latency(Conn* conn, uint32_t latency)
     conn->ping_probe().input_delay_amount(static_cast<int>(latency));
 }
 // Message/packet metrics (0x00454550, 0x00454D90).
-inline void add_message_metric(void* metrics, uint8_t id, uint32_t size)
+inline void add_message_metric(void* metrics, wire::MessageId id, uint32_t size)
 {
-    static_cast<Gauges*>(metrics)->append_note(id, static_cast<int>(size));
+    static_cast<Gauges*>(metrics)->append_note(core::to_underlying(id), static_cast<int>(size));
 }
 inline void add_packet_metric(void* metrics, uint32_t size, uint32_t time)
 {
@@ -141,10 +142,10 @@ inline void add_packet_metric(void* metrics, uint32_t size, uint32_t time)
 
 // Queued messages: the destructor frees the data (0x004550F0).
 inline void destroy_queued_msg(void* msg) { static_cast<PendingMsg*>(msg)->~PendingMsg(); }
-inline gsl::owner<SeqQueuedMsg*> construct_seq_msg(void* memory, uint8_t id, uint16_t length, const uint8_t* data, uint8_t group,
+inline gsl::owner<SeqQueuedMsg*> construct_seq_msg(void* memory, wire::MessageId id, uint16_t length, const uint8_t* data, wire::MessageGroup group,
                                        bool compressed)
 {
-    return new (memory) SeqQueuedMsg(id, length, data, {.byte8 = group, .compression = compressed});
+    return new (memory) SeqQueuedMsg(id, length, data, {.group = group, .compression = compressed});
 }
 inline gsl::owner<OrderedMsgNode*> construct_msg_seq_link(void* memory, SeqQueuedMsg* msg)
 {

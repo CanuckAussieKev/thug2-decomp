@@ -9,6 +9,7 @@
 #include <array>
 
 #include "engine/maths/maths.h"
+#include "engine/core/enum_ops.h"
 #include "platform/d3dx.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
@@ -103,27 +104,27 @@ maths::Vec4 rail_node_position(void* manager, const void* node)
 } // namespace
 
 // 0x005003A0
-bool SkaterPhysicsModule::probe_touches_zone(uint32_t ignore, uint32_t require)
+bool SkaterPhysicsModule::probe_touches_zone(render::FaceFlag ignore, render::FaceFlag require)
 {
     auto* feeler = &feeler_;
     feeler->change_strand(&probe_start_, &probe_end_);
-    feeler->set_excluded({.ignore = static_cast<uint16_t>(ignore), .require = static_cast<uint16_t>(require)});
+    feeler->set_excluded({.ignore = ignore, .require = require});
     auto hit = static_cast<uint8_t>(feeler->get_hit_shape(true, false));
     if (!hit)
         return false;
     if (feeler_.hit().object_checksum_ && feeler_.hit().face_flag40_)
         feeler_.hit().unknown38 = 0;
-    const uint16_t flags = feeler_.hit().face_flags_;
+    const render::FaceFlag flags = feeler_.hit().face_flags_;
     const float normal_y = feeler_.surface_dir().y;
     hit_wall_ = 0;
-    hit_vert_ = (flags & render::kFaceVert) ? 1 : 0;
+    hit_vert_ = core::any(flags & render::FaceFlag::kVert) ? 1 : 0;
     bool skatable = false;
     // Skatable by its flag, or vert unless marked not skatable.
-    if ((flags & render::kFaceSkatable) || (!(flags & render::kFaceNotSkatable) && (flags & render::kFaceVert))) {
+    if (core::any(flags & render::FaceFlag::kSkatable) || (!core::any(flags & render::FaceFlag::kNotSkatable) && core::any(flags & render::FaceFlag::kVert))) {
         skatable = true;
-    } else if (flags & render::kFaceNotSkatable) {
+    } else if (core::any(flags & render::FaceFlag::kNotSkatable)) {
         skatable = false;
-    } else if (flags & render::kFaceWall) {
+    } else if (core::any(flags & render::FaceFlag::kWall)) {
         hit_skatable_ = 0;
         hit_wall_ = 1;
         return true;
@@ -226,7 +227,7 @@ int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script*)
     start.y = start.y + kNearGroundHeight;
     end = start;
     end.y = end.y - kNearGroundHeight;
-    return probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0) ? 1 : 0;
+    return probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags) ? 1 : 0;
 }
 
 // 0x00500F10
@@ -247,7 +248,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
         start.y = end.y - back * up.y;
         start.z = end.z - back * up.z;
         start.w = end.w - back * up.w;
-        if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0)) {
+        if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
             back = tuning_float_lookup(kLipExtraHorizOffset, object);
             down = tuning_float_lookup(kLipExtraDownOffset, object);
             const maths::Vec4& position = entity()->at_point();
@@ -258,7 +259,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
             start.w = position.w - back * up2.w;
             end = start;
             end.y = end.y - down;
-            if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
+            if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
                 return 0;
         }
         return hit_vert_ ? 1 : 0;
@@ -288,7 +289,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
         start = far_side;
         end = near_side;
     }
-    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
         return 0;
     return hit_vert_ ? 1 : 0;
 }
@@ -437,7 +438,7 @@ void SkaterPhysicsModule::check_side_feeler(const maths::Vec4* start, const math
     }
     probe_start_ = *start;
     probe_end_ = *end;
-    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, 0))
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
         return;
     maths::Vec4& sum = side_normal_sum_;
     const maths::Vec4& normal = feeler_.surface_dir();

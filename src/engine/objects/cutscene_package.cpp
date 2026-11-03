@@ -70,8 +70,6 @@ constexpr uint32_t kIsMale = 0x3F813177; // is_male
 constexpr std::size_t kSkinColourCount = 20;
 constexpr std::size_t kFileNameBytes = 256;
 constexpr float kMillisecondsToSeconds = 0.0010000000474974513f;
-constexpr int kResourceKindImage = 6;
-constexpr int kResourceKindModel = 7;
 constexpr int kTypeIndexBase = 200;
 constexpr int kMinSkinDataBytes = 0x96;
 constexpr std::size_t kColourBytes = 16;
@@ -128,7 +126,7 @@ constexpr std::array<uint32_t, 4> kColourNames = {{0xA28FAB7F, 0xB90F08D0, 0x1DB
 
 assets::ResourceRegistry* get_assets() { return assets::asset_manager(); }
 // The asset manager's load (0x00408060: not permanent, copied), unload (0x00407B90 + 0x00407B20) and find.
-void* load_asset_data(uint32_t name, int type, uint32_t textures, void* data, uint32_t size, void* params)
+void* load_asset_data(uint32_t name, assets::ResourceKind type, uint32_t textures, void* data, uint32_t size, void* params)
 {
     return get_assets()->read_resource_from_stream(checksums::Name{name}, type, checksums::Name{textures}, data, size, false, true,
                                                    params, nullptr);
@@ -216,7 +214,7 @@ bool CinematicEntry::read_in(script::Struct* params)
             gfx::hide_models_for_cutscene();
             get_run(kPreCutscene, args_);
             content_ =
-                static_cast<CinematicTable*>(assets->load_asset(file_name.data(), 0, {.checksum = 0, .group = 0}, false, false, false, &skater_, nullptr));
+                static_cast<CinematicTable*>(assets->load_asset(file_name.data(), assets::ResourceKind::kNone, {.checksum = 0, .group = 0}, false, false, false, &skater_, nullptr));
             float start = 0.0f;
             if (params->fetch_float(kStartTime, &start, 0)) {
                 CinematicTable* data = content_;
@@ -371,7 +369,7 @@ void CinematicTable::load_from_bundle()
         }
         case kTypeImage: {
             const uint32_t name = entry->name;
-            load_asset_data(name, kResourceKindImage, 0, data, entry->size, nullptr);
+            load_asset_data(name, assets::ResourceKind::kSkeleton, 0, data, entry->size, nullptr);
             core::at(assets_, asset_count_) = name;
             ++asset_count_;
             break;
@@ -481,8 +479,8 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         params.cas_data_ = bundle_ptr_->find_asset(entry->name, kTypeExtra, 0);
         if (params.cas_data_)
             params.cas_size_ = bundle_ptr_->find_entry(entry->name, kTypeExtra, 1)->size;
-        static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{textures_name}, 3, checksums::Name{0}, texture_data, texture_size, false, true, &texture_params, nullptr);
-        static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{model_name}, kResourceKindModel, checksums::Name{textures_name}, data,
+        static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{textures_name}, assets::ResourceKind::kResTexDict, checksums::Name{0}, texture_data, texture_size, false, true, &texture_params, nullptr);
+        static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(checksums::Name{model_name}, assets::ResourceKind::kSkinnedModel, checksums::Name{textures_name}, data,
                                                                                   entry->size, false, true, &params, nullptr);
         core::at(assets_, asset_count_) = model_name;
         ++asset_count_;

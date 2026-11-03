@@ -695,15 +695,15 @@ std::unordered_map<uint32_t, std::string>& names_state()
 
 script::Struct* get_included(const script::Component* c)
 {
-    if (c->name != 0 || value_kind(*c) != script::kQbvalName)
+    if (c->name != 0 || value_kind(*c) != script::QbValueKind::kName)
         return nullptr;
     const script::SymbolTableEntry* symbol = script::resolve_symbol(c->value.word());
-    return symbol && symbol->type() == script::kQbvalStruct ? symbol->value().structure() : nullptr;
+    return symbol && symbol->type() == script::QbValueKind::kStruct ? symbol->value().structure() : nullptr;
 }
 
 bool is_flag(const script::Component* c)
 {
-    return c->name == 0 && value_kind(*c) == script::kQbvalName && !get_included(c);
+    return c->name == 0 && value_kind(*c) == script::QbValueKind::kName && !get_included(c);
 }
 
 // The key a component goes by: its name, a bare flag's name.
@@ -718,34 +718,34 @@ Value value_of(const script::Component* c)
         return v;
     }
     switch (value_kind(*c)) {
-    case script::kQbvalInteger:
+    case script::QbValueKind::kInteger:
         v.kind = Kind::kInteger;
         v.integer = c->value.integer();
         break;
-    case script::kQbvalFloat:
+    case script::QbValueKind::kFloat:
         v.kind = Kind::kFloat;
         core::at(v.numbers, 0) = c->value.real();
         break;
-    case script::kQbvalName:
+    case script::QbValueKind::kName:
         v.kind = Kind::kName;
         v.checksum = c->value.word();
         break;
-    case script::kQbvalString:
+    case script::QbValueKind::kString:
         v.kind = Kind::kChars;
         v.text = c->value.text() ? c->value.text() : "";
         break;
-    case script::kQbvalInlineText:
+    case script::QbValueKind::kInlineText:
         v.kind = Kind::kLocalisedText;
         v.text = c->value.text() ? c->value.text() : "";
         break;
-    case script::kQbvalPair:
+    case script::QbValueKind::kPair:
         v.kind = Kind::kPair;
         if (c->value.pair()) {
             core::at(v.numbers, 0) = c->value.pair()->x();
             core::at(v.numbers, 1) = c->value.pair()->y();
         }
         break;
-    case script::kQbvalVector:
+    case script::QbValueKind::kVector:
         v.kind = Kind::kVec4;
         if (c->value.vector()) {
             core::at(v.numbers, 0) = c->value.vector()->x();
@@ -753,20 +753,20 @@ Value value_of(const script::Component* c)
             core::at(v.numbers, 2) = c->value.vector()->z();
         }
         break;
-    case script::kQbvalArray:
-    case script::kEsymboltypeArraypointer: {
+    case script::QbValueKind::kArray:
+    case script::QbValueKind::kArrayRef: {
         script::Array* array = c->value.array();
         const uint32_t size = array ? array->extent() : 0;
-        const uint8_t type = array ? static_cast<uint8_t>(array->kind_tag()) : 0;
-        if (size == 0 || type == script::kQbvalName) {
+        const script::QbValueKind type = array ? array->kind_tag() : script::QbValueKind::kNone;
+        if (size == 0 || type == script::QbValueKind::kName) {
             v.kind = Kind::kNames;
             for (uint32_t i = 0; i < size; ++i)
                 v.list.push_back(array->fetch_part(i));
-        } else if (type == script::kQbvalInteger) {
+        } else if (type == script::QbValueKind::kInteger) {
             v.kind = Kind::kIntegers;
             for (uint32_t i = 0; i < size; ++i)
                 v.list.push_back(array->fetch_part(i));
-        } else if (type == script::kQbvalFloat) {
+        } else if (type == script::QbValueKind::kFloat) {
             v.kind = Kind::kFloats;
             for (uint32_t i = 0; i < size; ++i)
                 v.floats.push_back(array->fetch_float(i));
@@ -776,12 +776,12 @@ Value value_of(const script::Component* c)
         }
         break;
     }
-    case script::kQbvalStruct:
-    case script::kQbvalStructRef:
+    case script::QbValueKind::kStruct:
+    case script::QbValueKind::kStructRef:
         v.kind = Kind::kOther;
         v.text = "{a structure}";
         break;
-    case script::kQbvalScriptBody:
+    case script::QbValueKind::kScriptBody:
         v.kind = Kind::kOther;
         v.text = "(a script)";
         break;
@@ -827,9 +827,9 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
     case Kind::kFloats: {
         gsl::owner<script::Array*> array = script::new_array();
         auto size = static_cast<uint32_t>(v.kind == Kind::kFloats ? v.floats.size() : v.list.size());
-        array->configure_size_kind(size, v.kind == Kind::kNames      ? script::kQbvalName
-                                         : v.kind == Kind::kIntegers ? script::kQbvalInteger
-                                                                     : script::kQbvalFloat);
+        array->configure_size_kind(size, v.kind == Kind::kNames      ? script::QbValueKind::kName
+                                         : v.kind == Kind::kIntegers ? script::QbValueKind::kInteger
+                                                                     : script::QbValueKind::kFloat);
         for (uint32_t i = 0; i < size; ++i) {
             if (v.kind == Kind::kFloats)
                 array->change_float(i, core::at(v.floats, i));
