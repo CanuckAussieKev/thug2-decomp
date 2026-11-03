@@ -191,10 +191,10 @@ objects::RiderFrameLog* history_of(objects::Entity* object)
     return core::down_cast<objects::Rider>(object)->state_history();
 }
 
-void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint32_t flags, void* data,
+void append_listener(net::AppHost* app, online::MessageId id, net::HandlerSlotValue code, uint32_t flags, void* data,
                      int priority = kDefaultListenerPriority)
 {
-    app->dispatcher().append_listener(static_cast<uint8_t>(id), code, flags, data, priority);
+    app->dispatcher().append_listener(id, code, flags, data, priority);
 }
 
 } // namespace
@@ -228,95 +228,95 @@ void SkateNet::launch_host(Skate* skate)
         return;
     mlp->logic_tasks().queue_job(core::at(skate->server_tasks(), 0).get());
     mlp->logic_tasks().queue_job(core::at(skate->server_tasks(), 1).get());
-    append_listener(server, online::kMsgTrickObjects, handle_trick_objects, 0, nullptr);
-    append_listener(server, online::kMsgLandedScore, handle_combo_score, 0, skate);
-    append_listener(server, online::kMsgBestCombo, handle_game_stats, 0, skate);
-    append_listener(server, online::kMsgChat, handle_relay, 2, nullptr);
-    append_listener(server, online::kMsgJoined, handle_joined, 2, nullptr);
-    append_listener(server, online::kMsgObjectUpdates, &SkateNet::handle_client_object_update, 3, nullptr);
-    append_listener(server, online::kMsgHuntPlacements, handle_scavenger_dropped, 0, skate);
-    append_listener(server, online::kMsgHuntItemPickedUp, handle_scavenger_collected, 0, skate);
+    append_listener(server, online::MessageId::kTrickObjects, handle_trick_objects, 0, nullptr);
+    append_listener(server, online::MessageId::kLandedScore, handle_combo_score, 0, skate);
+    append_listener(server, online::MessageId::kBestCombo, handle_game_stats, 0, skate);
+    append_listener(server, online::MessageId::kChat, handle_relay, 2, nullptr);
+    append_listener(server, online::MessageId::kJoined, handle_joined, 2, nullptr);
+    append_listener(server, online::MessageId::kObjectUpdates, &SkateNet::handle_client_object_update, 3, nullptr);
+    append_listener(server, online::MessageId::kHuntPlacements, handle_scavenger_dropped, 0, skate);
+    append_listener(server, online::MessageId::kHuntItemPickedUp, handle_scavenger_collected, 0, skate);
     if (server->is_host_local())
         return;
     // The messages a server relays for its clients.
-    append_listener(server, online::kMsgFaceTexture, handle_face_texture, 0, nullptr);
-    append_listener(server, online::kMsgGraffitiTexture, handle_graffiti_texture, 0, skate);
-    append_listener(server, online::kMsgGraffitiPalette, handle_graffiti_texture, 0, skate);
-    append_listener(server, online::kMsgGraffitiParts, handle_graffiti_texture, 0, skate);
-    append_listener(server, online::kMsgProjectile, handle_relay, 0, skate);
-    for (const int id : {0x99, 0x89})
+    append_listener(server, online::MessageId::kFaceTexture, handle_face_texture, 0, nullptr);
+    append_listener(server, online::MessageId::kGraffitiTexture, handle_graffiti_texture, 0, skate);
+    append_listener(server, online::MessageId::kGraffitiPalette, handle_graffiti_texture, 0, skate);
+    append_listener(server, online::MessageId::kGraffitiParts, handle_graffiti_texture, 0, skate);
+    append_listener(server, online::MessageId::kProjectile, handle_relay, 0, skate);
+    for (const online::MessageId id : {online::MessageId::kPlaceTag, online::MessageId::kBoardVehicle})
         append_listener(server, id, handle_relay, 0, nullptr);
-    append_listener(server, online::kMsgBoardVehicle, handle_player_value48, 0, nullptr);
-    append_listener(server, online::kMsgPlayAnim, handle_relay, 0, nullptr);
-    append_listener(server, online::kMsgWobbleTarget, handle_relay_nearby, 0, nullptr);
-    for (const int id : {0x2A, 0x76, 0x8C, 0x77, 0x78, 0x2C})
+    append_listener(server, online::MessageId::kBoardVehicle, handle_player_value48, 0, nullptr);
+    append_listener(server, online::MessageId::kPlayAnim, handle_relay, 0, nullptr);
+    append_listener(server, online::MessageId::kWobbleTarget, handle_relay_nearby, 0, nullptr);
+    for (const online::MessageId id : {online::MessageId::kBoardRotated, online::MessageId::kSpinModel, online::MessageId::kCancelSpins, online::MessageId::kCreateSpecialItem, online::MessageId::kDestroySpecialItem, online::MessageId::kFlip})
         append_listener(server, id, handle_relay, 0, nullptr);
-    append_listener(server, online::kMsgWobbleDetails, handle_relay_nearby, 0, nullptr);
-    for (const int id : {0x3D, 0x3E, 0x41})
+    append_listener(server, online::MessageId::kWobbleDetails, handle_relay_nearby, 0, nullptr);
+    for (const online::MessageId id : {online::MessageId::kLoopType, online::MessageId::kHideGeom, online::MessageId::kAnimSpeed})
         append_listener(server, id, handle_relay, 0, nullptr);
-    append_listener(server, online::kMsgTerrainSound, handle_relay_nearby, 0, nullptr);
-    for (const int id : {0x36, 0x39, 0x3A, 0x37})
+    append_listener(server, online::MessageId::kTerrainSound, handle_relay_nearby, 0, nullptr);
+    for (const online::MessageId id : {online::MessageId::kTerrainSoundB, online::MessageId::kLookUpObjectA, online::MessageId::kLookUpObjectB, online::MessageId::kSparksOn})
         append_listener(server, id, handle_relay, 0, nullptr);
-    append_listener(server, online::kMsgSparksOff, handle_relay, 2, nullptr);
-    append_listener(server, online::kMsgRunScript, handle_relay_sequenced, 2, nullptr);
-    append_listener(server, online::kMsgSpawnScript, handle_relay_sequenced, 2, nullptr);
+    append_listener(server, online::MessageId::kSparksOff, handle_relay, 2, nullptr);
+    append_listener(server, online::MessageId::kRunScript, handle_relay_sequenced, 2, nullptr);
+    append_listener(server, online::MessageId::kSpawnScript, handle_relay_sequenced, 2, nullptr);
 }
 
 // 0x0056EB50
 void SkateNet::add_client_handlers(Skate* skate, net::AppHost* client, int index)
 {
-    append_listener(client, online::kMsgSessionBrief, on_run_start_msg, 0, skate);
-    append_listener(client, online::kMsgObjectUpdates, handle_object_updates, 3, skate);
-    append_listener(client, online::kMsgPlayAnim, handle_skater_messages, 0, skate);
-    append_listener(client, online::kMsgToggleCheat, handle_toggle_cheat, 0, skate);
-    for (const int id : {0x2B, 0x76, 0x8C, 0x77, 0x78, 0x2A})
+    append_listener(client, online::MessageId::kSessionBrief, on_run_start_msg, 0, skate);
+    append_listener(client, online::MessageId::kObjectUpdates, handle_object_updates, 3, skate);
+    append_listener(client, online::MessageId::kPlayAnim, handle_skater_messages, 0, skate);
+    append_listener(client, online::MessageId::kToggleCheat, handle_toggle_cheat, 0, skate);
+    for (const online::MessageId id : {online::MessageId::kWobbleTarget, online::MessageId::kSpinModel, online::MessageId::kCancelSpins, online::MessageId::kCreateSpecialItem, online::MessageId::kDestroySpecialItem, online::MessageId::kBoardRotated})
         append_listener(client, id, handle_skater_messages, 0, skate);
-    append_listener(client, online::kMsgFlip, handle_skater_messages, 0, skate, kSkaterMessagePriority);
-    append_listener(client, online::kMsgFlip, handle_skater_channel, 0, skate);
-    for (const int id : {0x3C, 0x3D, 0x3E, 0x41})
+    append_listener(client, online::MessageId::kFlip, handle_skater_messages, 0, skate, kSkaterMessagePriority);
+    append_listener(client, online::MessageId::kFlip, handle_skater_channel, 0, skate);
+    for (const online::MessageId id : {online::MessageId::kWobbleDetails, online::MessageId::kLoopType, online::MessageId::kHideGeom, online::MessageId::kAnimSpeed})
         append_listener(client, id, handle_skater_messages, 0, skate);
-    append_listener(client, online::kMsgPlayerGone, handle_player_left, 2, skate);
-    append_listener(client, online::kMsgServerQuit, handle_server_quit, 2, skate);
-    append_listener(client, online::kMsgTerrainSound, handle_terrain_sound, 0, skate);
-    append_listener(client, online::kMsgTerrainSoundB, handle_terrain_sound, 0, skate);
-    append_listener(client, online::kMsgSparksOn, on_sparks_msg, 0, skate);
-    append_listener(client, online::kMsgSparksOff, on_sparks_msg, 0, skate);
-    append_listener(client, online::kMsgLookUpObjectA, handle_look_up_object, 0, skate);
-    append_listener(client, online::kMsgLookUpObjectB, handle_look_up_object, 0, skate);
-    append_listener(client, skate_net::kMsgScores, handle_scores, 2, skate);
-    append_listener(client, online::kMsgLevelSwitch, on_level_switch_msg, 0, skate);
-    append_listener(client, online::kMsgRunScript, on_remote_script_msg, 2, skate);
-    append_listener(client, online::kMsgSpawnScript, handle_run_script_now, 2, skate);
-    append_listener(client, online::kMsgRemovedYou, handle_server_removed_you, 2, skate);
-    append_listener(client, online::kMsgMovedOn, handle_server_removed_you, 2, skate);
-    append_listener(client, online::kMsgObservedTrickObjects, handle_graffiti_objects, 0, skate);
-    append_listener(client, online::kMsgGraffitiColors, handle_graffiti_colors, 0, skate);
-    append_listener(client, online::kMsgFaceTexture, handle_face_texture, 0, skate);
-    for (const int id : {0x96, 0x97, 0x98, 0x9A})
+    append_listener(client, online::MessageId::kPlayerGone, handle_player_left, 2, skate);
+    append_listener(client, online::MessageId::kServerQuit, handle_server_quit, 2, skate);
+    append_listener(client, online::MessageId::kTerrainSound, handle_terrain_sound, 0, skate);
+    append_listener(client, online::MessageId::kTerrainSoundB, handle_terrain_sound, 0, skate);
+    append_listener(client, online::MessageId::kSparksOn, on_sparks_msg, 0, skate);
+    append_listener(client, online::MessageId::kSparksOff, on_sparks_msg, 0, skate);
+    append_listener(client, online::MessageId::kLookUpObjectA, handle_look_up_object, 0, skate);
+    append_listener(client, online::MessageId::kLookUpObjectB, handle_look_up_object, 0, skate);
+    append_listener(client, skate_net::MessageId::kScores, handle_scores, 2, skate);
+    append_listener(client, online::MessageId::kLevelSwitch, on_level_switch_msg, 0, skate);
+    append_listener(client, online::MessageId::kRunScript, on_remote_script_msg, 2, skate);
+    append_listener(client, online::MessageId::kSpawnScript, handle_run_script_now, 2, skate);
+    append_listener(client, online::MessageId::kRemovedYou, handle_server_removed_you, 2, skate);
+    append_listener(client, online::MessageId::kMovedOn, handle_server_removed_you, 2, skate);
+    append_listener(client, online::MessageId::kObservedTrickObjects, handle_graffiti_objects, 0, skate);
+    append_listener(client, online::MessageId::kGraffitiColors, handle_graffiti_colors, 0, skate);
+    append_listener(client, online::MessageId::kFaceTexture, handle_face_texture, 0, skate);
+    for (const online::MessageId id : {online::MessageId::kGraffitiPlayer, online::MessageId::kGraffitiTexture, online::MessageId::kGraffitiPalette, online::MessageId::kGraffitiParts})
         append_listener(client, id, handle_graffiti_texture, 0, skate);
-    append_listener(client, online::kMsgCheats, on_cheat_state_msg, 0, skate);
-    append_listener(client, online::kMsgProjectile, on_projectile_msg, 0, skate);
-    append_listener(client, online::kMsgHuntPlacements, handle_scavenger_drop_objects, 0, skate);
-    append_listener(client, online::kMsgBoardVehicle, handle_history_value, 0, skate);
-    append_listener(client, online::kMsgHuntItemsLeft, handle_scavenger_hunt, 0, skate);
-    append_listener(client, online::kMsgHuntStarted, handle_scavenger_hunt, 0, skate);
-    append_listener(client, online::kMsgHuntItemPickedUp, handle_scavenger_kill_object, 0, skate);
-    append_listener(client, online::kMsgPlaceTag, handle_place_tag, 0, skate);
+    append_listener(client, online::MessageId::kCheats, on_cheat_state_msg, 0, skate);
+    append_listener(client, online::MessageId::kProjectile, on_projectile_msg, 0, skate);
+    append_listener(client, online::MessageId::kHuntPlacements, handle_scavenger_drop_objects, 0, skate);
+    append_listener(client, online::MessageId::kBoardVehicle, handle_history_value, 0, skate);
+    append_listener(client, online::MessageId::kHuntItemsLeft, handle_scavenger_hunt, 0, skate);
+    append_listener(client, online::MessageId::kHuntStarted, handle_scavenger_hunt, 0, skate);
+    append_listener(client, online::MessageId::kHuntItemPickedUp, handle_scavenger_kill_object, 0, skate);
+    append_listener(client, online::MessageId::kPlaceTag, handle_place_tag, 0, skate);
     // The handlers of skate client's own skaters.
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         auto* skater =
             core::down_cast<objects::Rider>(skate->get_rider_at(i));
         if (!skater || !skater->is_local_skater() || skater->get_skater_number() != index)
             continue;
-        append_listener(client, online::kMsgTrickObjects, &modules::PointTally::on_score_msg, 0, skater);
-        append_listener(client, online::kMsgRanIntoAck, &objects::RiderFrameLog::handle_collision_messages, 0, skater);
-        append_listener(client, online::kMsgRanInto, &objects::RiderFrameLog::handle_collision_messages, 0, skater);
-        append_listener(client, online::kMsgHitOwner, &objects::RiderFrameLog::handle_hit_messages, 0, skater);
-        append_listener(client, online::kMsgHit, &objects::RiderFrameLog::handle_hit_messages, 0, skater);
-        append_listener(client, online::kMsgTagStolen, &objects::RiderHostSync::handle_graffiti_steal, 0, skater);
+        append_listener(client, online::MessageId::kTrickObjects, &modules::PointTally::on_score_msg, 0, skater);
+        append_listener(client, online::MessageId::kRanIntoAck, &objects::RiderFrameLog::handle_collision_messages, 0, skater);
+        append_listener(client, online::MessageId::kRanInto, &objects::RiderFrameLog::handle_collision_messages, 0, skater);
+        append_listener(client, online::MessageId::kHitOwner, &objects::RiderFrameLog::handle_hit_messages, 0, skater);
+        append_listener(client, online::MessageId::kHit, &objects::RiderFrameLog::handle_hit_messages, 0, skater);
+        append_listener(client, online::MessageId::kTagStolen, &objects::RiderHostSync::handle_graffiti_steal, 0, skater);
     }
     if (index == 0) {
-        for (const int id : {0x91, 0x92, 0x94})
+        for (const online::MessageId id : {online::MessageId::kHuntNeedToPlace, online::MessageId::kHuntEnd, online::MessageId::kHuntCollectEnd})
             append_listener(client, id, handle_scavenger_hunt, 0, skate);
     }
     // NOT ORIGINAL - the THUGPRO peer mode's messages, 155-159 (engine/net/thugpro_peer.h)
@@ -334,9 +334,9 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
     params->add_component_of_type(kWidth, script::QbValueKind::kInteger, kDialogWidth);
     params->add_component_of_type(kTitle, script::QbValueKind::kName, kNetNoticeMsg);
     // (the dialogs get no parameters: the structure isn't passed)
-    if (context->type_code() == 'Q')
+    if (context->type_code() == online::MessageId::kRemovedYou)
         get_run(kServerRemovedYouDialog);
-    else if (context->type_code() == 'V')
+    else if (context->type_code() == online::MessageId::kMovedOn)
         get_run(kServerMovedOnDialog);
     params.reset();
     if (skate->pending_level() == kLoadMainMenu) {
@@ -353,16 +353,16 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
 int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
 {
     switch (context->type_code()) {
-    case online::kMsgHuntNeedToPlace:
+    case online::MessageId::kHuntNeedToPlace:
         get_run(kScavengerAddTime);
         return 1;
-    case online::kMsgHuntEnd: {
+    case online::MessageId::kHuntEnd: {
         goals::Objective* goal = get_goal(objective_board(), kScavenger);
         if (goal_active(goal))
             expire_goal(goal);
         return 1;
     }
-    case online::kMsgHuntStarted: {
+    case online::MessageId::kHuntStarted: {
         goals::GoalManager* manager = objective_board();
         goals::Objective* interval = get_goal(manager, kScavengerInterval);
         if (goal_active(interval)) {
@@ -372,13 +372,13 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
         }
         return 1;
     }
-    case online::kMsgHuntCollectEnd: {
+    case online::MessageId::kHuntCollectEnd: {
         goals::Objective* goal = get_goal(objective_board(), kScavengerCollectPeriod);
         if (goal_active(goal))
             expire_goal(goal);
         return 1;
     }
-    case online::kMsgHuntItemsLeft:
+    case online::MessageId::kHuntItemsLeft:
         break;
     default:
         return 1;

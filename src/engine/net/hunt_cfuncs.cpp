@@ -48,9 +48,7 @@ constexpr uint32_t kRadius = 0xC48391A5;           // "radius"
 
 // The messages (game group 8, sequenced).
 // (their formats: wire/play_messages.h)
-using online::kMsgBoardVehicle; // BroadcastEnterVehicle: the skater and the control type
-using online::kMsgHuntPlacements; // a player's placed objects (from the server) / one placed (to it)
-using online::kMsgProjectile;                                        // BroadcastProjectile
+using online::MessageId;
 
 
 // A hunt player's placed objects: how many (+0x34) and where (+0x180, 16 bytes each).
@@ -67,7 +65,7 @@ online::PlayerRecord* script_player(script::Script* script)
 }
 
 // A message without data to every player (or every remote one) through the server.
-void announce_to_players(uint8_t id, bool remote_only)
+void announce_to_players(MessageId id, bool remote_only)
 {
     Hub* manager = online::online_hub();
     net::NetMessageInfo desc;
@@ -79,7 +77,7 @@ void announce_to_players(uint8_t id, bool remote_only)
             continue;
         desc.set_ident(id);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(online::kGroupGame);
+        desc.set_group_id(online::MessageGroup::kGame);
         server->put_on_outbox(online::detail::player_handle(player), &desc);
     }
 }
@@ -103,14 +101,14 @@ bool cfunc_place_object(script::Struct* params, script::Script* script)
 // 0x005B1F70: AnnounceHuntStarted: the hunt-started message to every remote player. Always true.
 bool cfunc_announce_hunt_started(script::Struct*, script::Script*)
 {
-    announce_to_players(online::kMsgHuntStarted, true);
+    announce_to_players(online::MessageId::kHuntStarted, true);
     return true;
 }
 
 // 0x005B2030: AnnounceNeedToPlaceObjects: the need-to-place-objects message to every player. Always true.
 bool cfunc_announce_need_to_place_objects(script::Struct*, script::Script*)
 {
-    announce_to_players(online::kMsgHuntNeedToPlace, false);
+    announce_to_players(online::MessageId::kHuntNeedToPlace, false);
     return true;
 }
 
@@ -139,9 +137,9 @@ bool cfunc_report_object_pickup(script::Struct* params, script::Script*)
     params->read_hash_value(kId, &id, 0);
     net::AppHost* app = manager->fetch_patron(manager->in_net_game() ? 0 : static_cast<int>(client));
     uint32_t msg = id;
-    desc.set_ident(online::kMsgHuntItemPickedUp);
+    desc.set_ident(online::MessageId::kHuntItemPickedUp);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(online::kGroupGame);
+    desc.set_group_id(online::MessageGroup::kGame);
     desc.set_content(&msg);
     desc.set_byte_count(sizeof(msg));
     online::detail::send_to_server(app, &desc);
@@ -179,10 +177,10 @@ bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_board_vehicle(writer, msg);
         desc.set_content(data.data());
-        desc.set_ident(kMsgBoardVehicle);
+        desc.set_ident(MessageId::kBoardVehicle);
         desc.set_byte_count(sizeof(data));
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(online::kGroupGame);
+        desc.set_group_id(online::MessageGroup::kGame);
         online::detail::send_to_server(client, &desc);
     }
     return true;
@@ -218,11 +216,11 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
     net::AppHost* server = manager->host();
     online::HuntPlacements msg;
     std::array<uint8_t, online::kHuntPlacementsSize> data{};
-    desc.set_ident(kMsgHuntPlacements);
+    desc.set_ident(MessageId::kHuntPlacements);
     desc.set_content(data.data());
     desc.set_byte_count(sizeof(data));
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(online::kGroupGame);
+    desc.set_group_id(online::MessageGroup::kGame);
     for (online::PlayerRecord* receiver = online::detail::start_roster_sweep(manager, &receivers, true); receiver;
          receiver = online::detail::step_roster_sweep(manager, &receivers, true)) {
         for (online::PlayerRecord* player = online::detail::start_roster_sweep(manager, &others, false); player;
@@ -264,10 +262,10 @@ bool cfunc_report_object_placement(script::Struct* params, script::Script*)
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_hunt_position(writer, at);
         desc.set_content(data.data());
-        desc.set_ident(kMsgHuntPlacements);
+        desc.set_ident(MessageId::kHuntPlacements);
         desc.set_byte_count(sizeof(data));
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(online::kGroupGame);
+        desc.set_group_id(online::MessageGroup::kGame);
         online::detail::send_to_server(app, &desc);
     }
     return true;
@@ -313,11 +311,11 @@ bool cfunc_broadcast_projectile(script::Struct* params, script::Script*)
     std::array<uint8_t, online::kProjectileSize> data{};
     util::ByteWriter writer(data.data(), sizeof(data));
     online::write_projectile(writer, msg);
-    desc.set_ident(kMsgProjectile);
+    desc.set_ident(MessageId::kProjectile);
     desc.set_content(data.data());
     desc.set_byte_count(sizeof(data));
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(online::kGroupGame);
+    desc.set_group_id(online::MessageGroup::kGame);
     online::detail::send_to_server(client, &desc);
     return true;
 }

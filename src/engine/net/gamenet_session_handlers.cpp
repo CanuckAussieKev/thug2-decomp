@@ -56,7 +56,7 @@
 #include "wire/message_ids.h"
 
 namespace {
-// Requests a client sends the host (wire/ has kMsgStartRequest 0x60 and kMsgKickRequest 0x61 of this family).
+// Requests a client sends the host (wire/ has MessageId::kStartRequest 0x60 and MessageId::kKickRequest 0x61 of this family).
 constexpr uint32_t kServerQueryBodyBytes = 0xC;
 constexpr size_t kServerInfoIdCount = 8;
 constexpr int kMillisecondsPerSecond = 1000;
@@ -228,7 +228,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     std::array<uint8_t, kServerInfoSize> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     write_server_info(writer, info);
-    server->deliver_to({.msg_id_ = kMsgServerInfo, .size = static_cast<uint16_t>(writer.position())}, bytes.data(), {.ip = context->sender_conn()->remote_ip(), .port = context->sender_conn()->port_no()}, 0);
+    server->deliver_to({.msg_id_ = MessageId::kServerInfo, .size = static_cast<uint16_t>(writer.position())}, bytes.data(), {.ip = context->sender_conn()->remote_ip(), .port = context->sender_conn()->port_no()}, 0);
     return kContinue;
 }
 
@@ -248,7 +248,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         return manager->get_choice_integer({.list = list, .choice = value}, field);
     };
     switch (context->type_code()) {
-    case kMsgStartRequest: {
+    case MessageId::kStartRequest: {
         StartRequest request;
         if (!read_start_request(reader, &request))
             return kDone;
@@ -314,7 +314,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         get_run(kChosenStartGame);
         break;
     }
-    case kMsgKickRequest: {
+    case MessageId::kKickRequest: {
         // Kick (1) or ban the index'th player, whose name it must be.
         KickRequest request;
         if (!read_kick_request(reader, &request))
@@ -337,7 +337,7 @@ int handle_host_options(net::InboundMsgCtx* context)
             get_skate()->drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
         break;
     }
-    case kMsgChangeLevelRequest: {
+    case MessageId::kChangeLevelRequest: {
         const uint32_t level = reader.u32();
         if (!reader.ok())
             return kDone;
@@ -349,22 +349,22 @@ int handle_host_options(net::InboundMsgCtx* context)
         params.reset();
         break;
     }
-    case kMsgToggleGoalRequest: {
+    case MessageId::kToggleGoalRequest: {
         const uint32_t goal = reader.u32();
         if (!reader.ok())
             return kDone;
         objective_board()->flip_objective_pick(goal);
         break;
     }
-    case kMsgEndGameRequest: {
+    case MessageId::kEndGameRequest: {
         // End the game: everyone else told.
         PlayerSearch search;
         net::NetMessageInfo desc;
         net::AppHost* server = manager->host();
         get_run(kEndGameSelected);
-        desc.set_ident(kMsgGameEnded);
+        desc.set_ident(MessageId::kGameEnded);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
              p = step_roster_sweep(manager, &search, true)) {
             if (!is_own_player(p))
@@ -372,7 +372,7 @@ int handle_host_options(net::InboundMsgCtx* context)
         }
         break;
     }
-    case kMsgTeamCountRequest: {
+    case MessageId::kTeamCountRequest: {
         // The number of teams.
         const int teams = int{reader.i8()};
         if (!reader.ok())
@@ -606,15 +606,15 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         write_session_brief(writer, info);
         desc.set_content(bytes.data());
         desc.set_byte_count(static_cast<uint16_t>(writer.position()));
-        desc.set_ident(kMsgSessionBrief);
+        desc.set_ident(MessageId::kSessionBrief);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         server->put_on_outbox(player_handle(player), &desc);
         if (manager->has_created_goals()) {
             manager->prepare_created_goals(manager->fetch_stage());
             void* goals = manager->get_created_goals_message();
             auto size = static_cast<uint16_t>(manager->get_created_goals_size());
-            server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgGoalsData, .size = size}, goals, "goals data", kGroupGame,
+            server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kGoalsData, .size = size}, goals, "goals data", MessageGroup::kGame,
                                       false, true);
         }
         // The scripts spawned so far (the list at +0x144): 0x49 each.
@@ -631,9 +631,9 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             write_spawn_script(spawned_writer, queued);
             desc.set_content(spawned.data());
             desc.set_byte_count(sizeof(spawned));
-            desc.set_ident(kMsgSpawnScript);
+            desc.set_ident(MessageId::kSpawnScript);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-            desc.set_group_id(kGroupGame);
+            desc.set_group_id(MessageGroup::kGame);
             server->put_on_outbox(player_handle(player), &desc);
             node = node->next()->data() == memory::ListNode::head_marker() ? nullptr : node->next();
             if (!node)
@@ -648,8 +648,8 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             constexpr size_t kBufferSize = 0x1100;
             static std::array<uint8_t, kBufferSize> buffer; // (the original's is on its stack)
             const int size = objects::trick_spot_hub()->write_graffiti_state(buffer);
-            server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgGraffitiColors, .size = static_cast<uint16_t>(size)}, buffer.data(),
-                                      "TrickObj Buffer", kGroupGame, true, false);
+            server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kGraffitiColors, .size = static_cast<uint16_t>(size)}, buffer.data(),
+                                      "TrickObj Buffer", MessageGroup::kGame, true, false);
         }
         // The goals chosen (goal attack): a byte, then the selected goals' names, then 0.
         desc = net::NetMessageInfo();
@@ -669,27 +669,27 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         }
         std::memset(std::span<uint8_t>(selected).subspan(out, 4).data(), 0, 4);
         desc.set_content(selected.data());
-        desc.set_ident(kMsgSelectedGoals);
+        desc.set_ident(MessageId::kSelectedGoals);
         desc.set_byte_count(static_cast<uint16_t>(out + 4));
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         server->put_on_outbox(player_handle(player), &desc);
         if (const PlayerRecord* king = is_crown_rule_active(manager)) {
             desc = net::NetMessageInfo();
             auto id = static_cast<uint8_t>(get_skater_id(player_skater(king)));
             desc.set_content(&id);
             desc.set_byte_count(1);
-            desc.set_ident(kMsgKing);
+            desc.set_ident(MessageId::kKing);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-            desc.set_group_id(kGroupGame);
+            desc.set_group_id(MessageGroup::kGame);
             server->put_on_outbox(player_handle(player), &desc);
         }
     }
     // The end of the game's state (0x42).
     net::NetMessageInfo done;
-    done.set_ident(kMsgGameStateSent);
+    done.set_ident(MessageId::kGameStateSent);
     done.set_queue(net::NetMessageInfo::kLaneOrdered);
-    done.set_group_id(kGroupGame);
+    done.set_group_id(MessageGroup::kGame);
     server->put_on_outbox(player_handle(player), &done);
     if (manager->in_net_game()) {
         manager->send_faces_to(player);

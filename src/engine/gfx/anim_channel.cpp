@@ -13,6 +13,7 @@
 #include <array>
 #include <span>
 
+#include "wire/message_ids.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -187,11 +188,7 @@ constexpr float kStockCrossfade = 0.3f;                                         
 constexpr float kFixedPoint = 4096.0f;                                                  // 0x00648730
 
 // The network messages a channel sends (wire/skater_messages.h).
-using online::kMsgFlip;
-using online::kMsgLoopType;
-using online::kMsgPlayAnim;
-using online::kMsgWobbleDetails;
-using online::kMsgWobbleTarget;
+using online::MessageId;
 
 // NOT ORIGINAL grouping - anim_channel.cpp's state (the original's globals). Made on first use, never destroyed
 // (anim_channel_state()).
@@ -270,7 +267,7 @@ net::Guest* client_of(online::PlayerRecord* player)
     return core::down_cast<net::Guest>(online::online_hub()->fetch_patron(static_cast<int>(player->get_skater_view_slot())));
 }
 
-void post_out(net::Guest* app, net::NetMessageInfo& message, uint8_t id, void* data, uint16_t length, bool singular)
+void post_out(net::Guest* app, net::NetMessageInfo& message, online::MessageId id, void* data, uint16_t length, bool singular)
 {
     message.set_content(data);
     message.set_byte_count(length);
@@ -574,7 +571,7 @@ bool BlendChannel::set_flipped(uint32_t object_id, bool flip, uint32_t /*unused*
             net::NetMessageInfo message;
             net::Guest* app = client_of(player);
             std::array<uint8_t, 2> data = {{static_cast<uint8_t>(object_id), static_cast<uint8_t>(flip)}};
-            post_out(app, message, kMsgFlip, data.data(), 2, false);
+            post_out(app, message, MessageId::kFlip, data.data(), 2, false);
         }
     }
     const bool was = (flag_bits_ >> 29) & 1;
@@ -663,7 +660,7 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
             core::at(data, 0) = static_cast<uint8_t>(get_owner(this)->ident());
             if (last_wobble_target() != core::at(data, 1)) {
                 net::NetMessageInfo message;
-                post_out(app, message, kMsgWobbleTarget, data.data(), 2, true);
+                post_out(app, message, MessageId::kWobbleTarget, data.data(), 2, true);
                 last_wobble_target() = core::at(data, 1);
             }
         }
@@ -699,7 +696,7 @@ void BlendChannel::set_wobble_details(std::span<const float, kWobbleDetailCount>
             core::at(data, 1) = static_cast<uint8_t>(get_owner(this)->ident());
             if (last_wobble_details() != core::at(data, 0)) {
                 net::NetMessageInfo message;
-                post_out(app, message, kMsgWobbleDetails, data.data(), 2, true);
+                post_out(app, message, MessageId::kWobbleDetails, data.data(), 2, true);
                 last_wobble_details() = core::at(data, 0);
             }
         }
@@ -725,7 +722,7 @@ void BlendChannel::change_repeat_mode(int loop_type, bool send)
             std::array<uint8_t, 2> data = {{static_cast<uint8_t>(get_owner(this)->ident()), static_cast<uint8_t>(loop_type)}};
             if (last_loop_type() != loop_type) {
                 net::NetMessageInfo message;
-                post_out(app, message, kMsgLoopType, data.data(), 2, false);
+                post_out(app, message, MessageId::kLoopType, data.data(), 2, false);
                 last_loop_type() = static_cast<int8_t>(loop_type);
             }
         }
@@ -759,7 +756,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
                 std::array<uint8_t, online::kAnimSpeedSize> data{};
                 util::ByteWriter writer(data.data(), sizeof(data));
                 online::write_anim_speed(writer, sent);
-                post_out(app, message, online::kMsgAnimSpeed, data.data(), sizeof(data), false);
+                post_out(app, message, online::MessageId::kAnimSpeed, data.data(), sizeof(data), false);
             }
         }
     }
@@ -878,7 +875,7 @@ void BlendChannel::play_anim(uint32_t anim, bool send, float from, float to, int
             std::array<uint8_t, online::kPlayAnimSize> data{};
             util::ByteWriter writer(data.data(), sizeof(data));
             online::write_play_anim(writer, sent);
-            post_out(app, message, kMsgPlayAnim, data.data(), sizeof(data), false);
+            post_out(app, message, MessageId::kPlayAnim, data.data(), sizeof(data), false);
         }
     }
     if (blend_period == 0.0f || !flag_4c_)

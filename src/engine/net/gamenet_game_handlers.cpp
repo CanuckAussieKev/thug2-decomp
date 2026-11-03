@@ -274,9 +274,9 @@ int handle_rails_data(net::InboundMsgCtx* context)
         cancel_join(manager, true);
         return kKeep;
     }
-    desc.set_ident(kMsgRequestRails); // again
+    desc.set_ident(MessageId::kRequestRails); // again
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     send_to_server(context->receiver_app(), &desc);
     return kDone;
 }
@@ -305,9 +305,9 @@ int on_goal_sync_msg(net::InboundMsgCtx* context)
         cancel_join(manager, false);
         return kKeep;
     }
-    desc.set_ident(kMsgRequestGoals); // again
+    desc.set_ident(MessageId::kRequestGoals); // again
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     send_to_server(context->receiver_app(), &desc);
     return kDone;
 }
@@ -512,7 +512,7 @@ int handle_goal_started(net::InboundMsgCtx* context)
 // 0x00532280
 int handle_eliminated(net::InboundMsgCtx* context)
 {
-    if (context->type_code() != kMsgEliminated)
+    if (context->type_code() != MessageId::kEliminated)
         return kContinue;
     const int id = static_cast<int>(message_word(context, 0));
     if (id < 0) {

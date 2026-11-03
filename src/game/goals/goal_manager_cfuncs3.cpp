@@ -7,6 +7,7 @@
 #include <array>
 
 #include "engine/core/dbg.h"
+#include "wire/message_ids.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -319,7 +320,7 @@ bool cfunc_goal_manager_announce_goal_started(script::Struct* params, script::Sc
     online::write_goal_message(writer, message);
     desc.set_content(bytes.data());
     desc.set_byte_count(sizeof(bytes));
-    desc.set_ident(online::kMsgGoalStarted);
+    desc.set_ident(online::MessageId::kGoalStarted);
     core::down_cast<net::Guest>(client)->send_to_host(&desc);
     return true;
 }

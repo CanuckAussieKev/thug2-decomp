@@ -8,6 +8,7 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include "wire/message_ids.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -19,7 +20,6 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/net/shared_state.h"
-#include "wire/net_wire.h"
 #include "engine/net/net_access_c.h"
 
 namespace net {
@@ -78,8 +78,8 @@ Hub::Hub()
     setup_list_sentinel(&clients_);
     for (int id = 0; id < kMsgIdSpace; ++id)
         core::at(message_flags_, id) = 0;
-    core::at(message_flags_, wire::kMsgClockStamp) = kMsgNoLength;
-    core::at(message_flags_, wire::kMsgAck) = kMsgNoLength;
+    core::at(message_flags_, wire::MessageId::kClockStamp) = kMsgNoLength;
+    core::at(message_flags_, wire::MessageId::kAck) = kMsgNoLength;
     copy_string(local_ip_.data(), "<Unknown>");
     copy_string(router_addr_.data(), "192.168.55.99");
     copy_string(subnet_mask_.data(), "255.255.0.0");

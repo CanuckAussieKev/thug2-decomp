@@ -4,6 +4,7 @@
 // the links in net_access_c.h; their functions in net_messages.cpp). The links are their own list nodes (data = the
 // link).
 
+#include "wire/message_ids.h"
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -75,8 +76,8 @@ struct OrderedMsgNode {
     [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
     uint8_t& retry_count() { return retry_count_; }
     [[nodiscard]] uint8_t retry_count() const { return retry_count_; }
-    [[nodiscard]] uint8_t bundle_id() const { return bundle_id_; }
-    void set_bundle_id(uint8_t value) { bundle_id_ = value; }
+    [[nodiscard]] wire::MessageGroup bundle_id() const { return bundle_id_; }
+    void set_bundle_id(wire::MessageGroup value) { bundle_id_ = value; }
     [[nodiscard]] uint8_t bulk_msg() const { return bulk_msg_; }
     void set_bulk_msg(uint8_t value) { bulk_msg_ = value; }
     [[nodiscard]] uint32_t packet_clock() const { return packet_clock_; }
@@ -92,7 +93,7 @@ struct OrderedMsgNode {
 private:
     memory::ListNode list_link_{}; // priority: the sequence number
     uint8_t retry_count_{0};
-    uint8_t bundle_id_{};
+    wire::MessageGroup bundle_id_{};
     uint8_t bulk_msg_{0}; // a piece of a streamed message
     uint32_t packet_clock_{};
     uint32_t stamp_ms_{}; // when it was last sent (0: never)

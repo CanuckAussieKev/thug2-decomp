@@ -92,11 +92,11 @@ int integer_or_zero(script::Struct* params)
 // Message 0x8D (the eliminated player's object id, -1 for a tie) to the players.
 void prepare_eliminated(net::NetMessageInfo* desc, uint32_t* data)
 {
-    desc->set_ident(online::kMsgEliminated);
+    desc->set_ident(online::MessageId::kEliminated);
     desc->set_byte_count(4);
     desc->set_content(data);
     desc->set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc->set_group_id(online::kGroupGame);
+    desc->set_group_id(online::MessageGroup::kGame);
 }
 void send_to_players(online::Hub* manager, net::NetMessageInfo* desc, bool observers)
 {

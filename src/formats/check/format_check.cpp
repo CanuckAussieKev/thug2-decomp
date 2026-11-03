@@ -26,6 +26,8 @@
 #include <array>
 
 #include "engine/core/checksums.h"
+#include "wire/message_ids.h"
+#include "engine/core/enum_ops.h"
 #include "wire/gamenet_messages.h"
 #include "wire/net_wire.h"
 #include "formats/byte_stream.h"
@@ -515,12 +517,12 @@ constexpr int kPieceFillStride = 7;
 constexpr int kStreamTotalSizeSample = 0x1234;
 constexpr int kStreamIdSample = 77;
 constexpr uint32_t kStreamChecksumSample = 0xDEADBEEF;
-constexpr int kStreamMessageIdSample = 0x5A;
+constexpr auto kStreamMessageIdSample = static_cast<net::wire::MessageId>(0x5A);
 constexpr int kLongDescMessageBytes = 0x30;
 constexpr int kLongDescLastIndex = 31;
 constexpr int kLongDescEndIndex = 32;
 constexpr uint32_t kSequenceSample = 0x12345678;
-constexpr int kSequencedIdSample = 0x2A;
+constexpr auto kSequencedIdSample = static_cast<net::wire::MessageId>(0x2A);
 constexpr std::size_t kTruncatedHeaderBytes = 5; // fewer than the sequenced header needs
 // The stream start as the original built it: a struct on the stack, sent as its first 0x2D bytes, the piece and 3
 // bytes more (zeros: our sender clears the struct).
@@ -547,7 +549,7 @@ void check_wire_messages()
         reference.total_size = kStreamTotalSizeSample;
         reference.stream_id = kStreamIdSample;
         reference.checksum = kStreamChecksumSample;
-        reference.msg_id = kStreamMessageIdSample;
+        reference.msg_id = core::to_underlying(kStreamMessageIdSample);
         if (piece_size)
             std::memcpy(reference.content.data(), piece.data(), piece_size);
         const size_t reference_size = piece_size + 0x30;
@@ -601,7 +603,7 @@ void check_wire_messages()
     const auto sequenced = std::to_array<uint8_t>({0x03, 0x78, 0x56, 0x34, 0x12, 0x2A});
     util::ByteReader reader(sequenced.data(), sizeof(sequenced));
     net::wire::SequencedHeader header;
-    check(net::wire::read_sequenced_header(reader, &header) && header.group == 3 && header.sequence == kSequenceSample &&
+    check(net::wire::read_sequenced_header(reader, &header) && header.group == static_cast<net::wire::MessageGroup>(3) && header.sequence == kSequenceSample &&
               header.id == kSequencedIdSample,
           "sequenced header decoded");
     std::array<uint8_t, sizeof(sequenced)> again{};

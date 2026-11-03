@@ -3,6 +3,7 @@
 // The network library's client (NetLink::Guest: an App with a single connection, the server). vtable 0x006475CC:
 // the deleting destructor 0x0045B8E0, 0x00459690, pull_inbound, Transmit, Init, Deinit (0x0045B820).
 
+#include "wire/message_ids.h"
 #include <cstdint>
 #include <array>
 
@@ -30,7 +31,7 @@ public:
     void send_to_host(NetMessageInfo* desc);
     // 0x00459DC0: a message streamed to the server (AppHost::send_bulk_to_conn, 0x00458740, on the first
     // connection).
-    void send_bulk_to_host(uint8_t msg_id, uint16_t size, void* data, const char* desc, uint8_t group_id,
+    void send_bulk_to_host(wire::MessageId msg_id, uint16_t size, void* data, const char* desc, wire::MessageGroup group_id,
                            bool queue_all_pieces, bool borrow_caller_buffer);
 
     // 0x0045A300: everything waiting on the socket, into the server connection's read buffer (or, from an unknown

@@ -362,10 +362,10 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
         write_hud_notice(writer, message);
         desc.set_content(bytes.data());
         desc.set_byte_count(sizeof(bytes));
-        desc.set_ident(kMsgHudNotice);
+        desc.set_ident(MessageId::kHudNotice);
         if (important) {
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-            desc.set_group_id(kGroupGame);
+            desc.set_group_id(MessageGroup::kGame);
         }
         for (const memory::ListNode* node = get_next_node(&players_);
              auto* player = data_of<PlayerRecord>(node); node = get_next_node(node))
@@ -477,9 +477,9 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
     } message = {.param = param, .bit = bit, .pad = {0, 0, 0}};
     script_flag_bits_ ^= 1u << (bit & kBitMask);
     desc.set_byte_count(sizeof(message));
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     desc.set_content(&message);
-    desc.set_ident(kMsgFlipProSetting);
+    desc.set_ident(MessageId::kFlipProSetting);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     net::AppHost* server = host_;
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
@@ -611,22 +611,22 @@ void Hub::send_tag_textures_to(PlayerRecord* player)
         net::NetMessageInfo desc;
         auto skater_id = static_cast<uint8_t>(get_skater_id(player_skater(other)));
         desc.set_content(&skater_id);
-        desc.set_ident(kMsgGraffitiPlayer);
+        desc.set_ident(MessageId::kGraffitiPlayer);
         desc.set_byte_count(1);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGraffiti);
+        desc.set_group_id(MessageGroup::kGraffiti);
         host_->put_on_outbox(player_handle(player), &desc);
         void* palette = texture_palette(texture);
-        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgGraffitiPalette, .size = texture_palette_size(texture)}, palette,
-                                 kTagPaletteDesc, kGroupGraffiti, false, true);
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = MessageId::kGraffitiPalette, .size = texture_palette_size(texture)}, palette,
+                                 kTagPaletteDesc, MessageGroup::kGraffiti, false, true);
         void* pixels = texture_pixels(texture);
-        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgGraffitiTexture, .size = get_texture_size(texture)}, pixels,
-                                 kTagTextureDesc, kGroupGraffiti, false, true);
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = MessageId::kGraffitiTexture, .size = get_texture_size(texture)}, pixels,
+                                 kTagTextureDesc, MessageGroup::kGraffiti, false, true);
         desc.set_content(&logos);
-        desc.set_ident(kMsgGraffitiParts);
+        desc.set_ident(MessageId::kGraffitiParts);
         desc.set_byte_count(4);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGraffiti);
+        desc.set_group_id(MessageGroup::kGraffiti);
         host_->put_on_outbox(player_handle(player), &desc);
     }
 }
@@ -658,7 +658,7 @@ bool Hub::prepare_local_face()
         memory::Hub::get_pull()->leave_heap_scope();
         face->write_to({static_cast<uint8_t*>(data), kFaceSize});
         core::down_cast<net::Guest>(client_app_)
-            ->send_bulk_to_host(kMsgFaceTexture, kFaceSize, data, kFaceDesc, kGroupFaceData, false, false);
+            ->send_bulk_to_host(MessageId::kFaceTexture, kFaceSize, data, kFaceDesc, MessageGroup::kFaceData, false, false);
         memory::dealloc(data);
     }
     return true;
@@ -675,8 +675,8 @@ void Hub::send_faces_to(PlayerRecord* player)
             continue;
         if (!other->get_face_texture_data() && !(is_own_player(other) && prepare_local_face()))
             continue;
-        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = kMsgFaceTexture, .size = kFaceSize + 1}, other->get_face_texture_data(),
-                                 kFaceDesc, kGroupFaceData, false, true);
+        host_->send_bulk_to_conn(player_conn(player), {.msg_id_ = MessageId::kFaceTexture, .size = kFaceSize + 1}, other->get_face_texture_data(),
+                                 kFaceDesc, MessageGroup::kFaceData, false, true);
     }
 }
 

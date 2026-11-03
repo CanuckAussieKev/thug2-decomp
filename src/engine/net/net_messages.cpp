@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "wire/message_ids.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/net/net_app_view.h"
@@ -18,13 +19,13 @@ void release_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
 // `data` compressed with `method` (1 RLE, 2 LZSS) into a new block that starts with a message header; null (and
 // nothing changed) if that isn't smaller. Else *id = 0x12 and *length = its size. (net_compress.cpp)
-uint8_t* compress_message(uint8_t* id, uint16_t* length, const void* data, uint8_t method)
+uint8_t* compress_message(wire::MessageId* id, uint16_t* length, const void* data, uint8_t method)
 {
     return net::compress_message(id, length, data, static_cast<char>(method));
 }
 
 // The data a queued message keeps: a copy, compressed if asked and smaller (then the id and length change).
-uint8_t* copy_data(uint8_t* id, uint16_t* length, const void* data, uint8_t compression)
+uint8_t* copy_data(wire::MessageId* id, uint16_t* length, const void* data, uint8_t compression)
 {
     uint8_t* compressed = nullptr;
     if (compression) {
@@ -52,7 +53,7 @@ void init_node(Link* link)
 // --- Queued messages -----------------------------------------------------------------------------------------
 
 // 0x00454FA0
-PendingMsg::PendingMsg(uint8_t id, uint16_t length, const void* data, uint8_t compression)
+PendingMsg::PendingMsg(wire::MessageId id, uint16_t length, const void* data, uint8_t compression)
 {
     if (length > 0)
         content_ = copy_data(&id, &length, data, compression);
@@ -61,15 +62,15 @@ PendingMsg::PendingMsg(uint8_t id, uint16_t length, const void* data, uint8_t co
 }
 
 // 0x00455040
-SeqQueuedMsg::SeqQueuedMsg(uint8_t id, uint16_t length, const void* data, Options options)
+SeqQueuedMsg::SeqQueuedMsg(wire::MessageId id, uint16_t length, const void* data, Options options)
 {
-    const auto byte8 = options.byte8;
+    const auto group = options.group;
     const auto compression = options.compression;
     if (length > 0)
         content_ = copy_data(&id, &length, data, compression);
     ident_ = id;
     byte_count_ = length;
-    byte8_ = byte8;
+    group_ = group;
 }
 
 // 0x004550F0

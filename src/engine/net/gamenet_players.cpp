@@ -53,7 +53,6 @@
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
 #include "wire/message_ids.h"
-#include "wire/play_messages.h"
 #include "engine/net/online_identity.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
@@ -180,9 +179,9 @@ void Hub::send_observe_request()
     net::NetMessageInfo desc;
     if (is_observer(find_own_player_record(this))) // (no local player: the original reads through null too)
         return;
-    desc.set_ident(kMsgObserveRequest);
+    desc.set_ident(MessageId::kObserveRequest);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     send_to_server(client_app_, &desc);
 }
 
@@ -202,9 +201,9 @@ void Hub::assign_first_come_first_served()
             ->read_hash_value("Checksum", &text, 1);
         desc.set_content(&text);
         desc.set_byte_count(sizeof(text));
-        desc.set_ident(kMsgFcfsNotice);
+        desc.set_ident(MessageId::kFcfsNotice);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         host_->put_on_outbox(player_handle(player), &desc);
         return;
     }
@@ -330,9 +329,9 @@ void Hub::evict_player(PlayerRecord* player, int reason)
             std::array<uint8_t, 2> msg = {{static_cast<uint8_t>(get_skater_id(player_skater(player))), static_cast<uint8_t>(reason)}};
             desc.set_content(msg.data());
             desc.set_byte_count(sizeof(msg));
-            desc.set_ident(kMsgPlayerGone);
+            desc.set_ident(MessageId::kPlayerGone);
             desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-            desc.set_group_id(kGroupGame);
+            desc.set_group_id(MessageGroup::kGame);
             host_->put_on_outbox(player_handle(other), &desc);
         }
         if ((reason == kDropQuit || reason == kDropTimedOut || reason == kDropDropped) &&
@@ -342,12 +341,12 @@ void Hub::evict_player(PlayerRecord* player, int reason)
     bool close = true;
     if (reason == kDropBanned || reason == kDropKicked) {
         conn = player->conn();
-        host_->deliver_to({.msg_id_ = kMsgRemovedYou, .size = 0}, nullptr, {.ip = conn->remote_ip(), .port = conn->port_no()}, 0);
+        host_->deliver_to({.msg_id_ = MessageId::kRemovedYou, .size = 0}, nullptr, {.ip = conn->remote_ip(), .port = conn->port_no()}, 0);
         if (reason == kDropBanned)
             host_->block_connection(player->conn());
     } else if (reason == kDropLeftOut) {
         conn = player->conn();
-        host_->deliver_to({.msg_id_ = kMsgMovedOn, .size = 0}, nullptr, {.ip = conn->remote_ip(), .port = conn->port_no()}, 0);
+        host_->deliver_to({.msg_id_ = MessageId::kMovedOn, .size = 0}, nullptr, {.ip = conn->remote_ip(), .port = conn->port_no()}, 0);
     } else if (reason == kDropObserving) {
         close = false;
     }
@@ -384,9 +383,9 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         if (!(p->flag_bits() & kPlayerGameEnded))
             return;
     net::NetMessageInfo desc;
-    desc.set_ident(kMsgGameOver);
+    desc.set_ident(MessageId::kGameOver);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true))
         host_->put_on_outbox(player_handle(p), &desc);
 }

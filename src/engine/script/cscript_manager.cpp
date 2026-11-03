@@ -92,7 +92,6 @@ int emit_into_buffer(Struct* params, uint8_t* buffer, int size)
 {
     return static_cast<int>(script::emit_into_buffer(params, buffer, static_cast<uint32_t>(size), true, nullptr));
 }
-constexpr uint8_t kNetopSpawnScript = 0x48;
 
 // Whether `object` is the object of `script` at any level (null matches levels with no object).
 bool uses_object(const Script* script, objects::Entity* object)
@@ -292,9 +291,9 @@ void send_run_script_message(uint32_t name, Struct* params, objects::Entity* obj
     void* client = fetch_patron(net, 0);
     desc.set_content(data.data());
     desc.set_byte_count(static_cast<uint16_t>(size + online::kRunScriptHeaderSize));
-    desc.set_ident(kNetopSpawnScript);
+    desc.set_ident(online::MessageId::kSpawnScript);
     desc.set_queue(NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(online::kGroupGame);
+    desc.set_group_id(online::MessageGroup::kGame);
     send_to_host(client, &desc);
 }
 
@@ -318,9 +317,9 @@ void send_spawn_script_message(uint32_t name, objects::Entity* object, int node,
     void* client = fetch_patron(net, 0);
     desc.set_content(data.data());
     desc.set_byte_count(sizeof(data));
-    desc.set_ident(online::kMsgSpawnScript);
+    desc.set_ident(online::MessageId::kSpawnScript);
     desc.set_queue(NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(online::kGroupGame);
+    desc.set_group_id(online::MessageGroup::kGame);
     send_to_host(client, &desc);
 }
 

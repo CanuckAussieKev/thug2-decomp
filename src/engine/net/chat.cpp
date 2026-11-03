@@ -139,11 +139,11 @@ void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
 
     NetMessageInfo desc;
     init_msg_desc(&desc);
-    desc.set_ident(kMsgChat);
+    desc.set_ident(MessageId::kChat);
     desc.set_byte_count(static_cast<uint16_t>(writer.position()));
     desc.set_content(bytes.data());
     desc.set_queue(NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     // NOT ORIGINAL - THUGPRO's layout in the THUGPRO peer mode (thugpro_peer.h): our machine id first, the text cut
     // to its 127 characters.
     std::array<uint8_t, thugpro::kChatMessageSize> thugpro_bytes{};

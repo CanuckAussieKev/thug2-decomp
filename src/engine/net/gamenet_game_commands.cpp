@@ -130,12 +130,12 @@ void send_to_players(Hub* manager, net::AppHost* server, net::NetMessageInfo* de
         server->put_on_outbox(player_handle(player), desc);
     }
 }
-void init_desc(net::NetMessageInfo& desc, uint8_t id)
+void init_desc(net::NetMessageInfo& desc, MessageId id)
 {
     desc = net::NetMessageInfo();
     desc.set_ident(id);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
 }
 
 // The lobby's GameSpy peer told the game's state changed (connected and hosting), and GameSpy's reporting told the
@@ -231,7 +231,7 @@ bool cfunc_start_network_game(Struct*, Script*)
         if (is_squad_match()) {
             net::NetMessageInfo desc;
             net::AppHost* server = manager->host();
-            init_desc(desc, kMsgTeamGame);
+            init_desc(desc, MessageId::kTeamGame);
             send_to_players(manager, server, &desc, Recipients::kAll);
         }
     }
@@ -257,9 +257,9 @@ bool cfunc_start_network_game(Struct*, Script*)
         }
         std::memset(std::span<uint8_t>(buffer).subspan(end, 4).data(), 0, 4);
         desc.set_content(buffer.data());
-        desc.set_ident(kMsgSelectedGoals);
+        desc.set_ident(MessageId::kSelectedGoals);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         desc.set_byte_count(static_cast<uint16_t>(static_cast<uint16_t>(end) + 4));
         send_to_players(manager, server, &desc, Recipients::kRemote);
     }
@@ -273,7 +273,7 @@ bool cfunc_send_game_over_to_observers(Struct*, Script*)
     if (!(manager->flag_bits() & kFlagsServer))
         return true;
     net::NetMessageInfo desc;
-    init_desc(desc, kMsgGameOver);
+    init_desc(desc, MessageId::kGameOver);
     send_to_players(manager, manager->host(), &desc, Recipients::kObservers);
     return true;
 }
@@ -289,12 +289,12 @@ bool cfunc_end_network_game(Struct*, Script*)
         desc = net::NetMessageInfo();
         net::AppHost* server = manager->host();
         get_run(kDoBackendRetry);
-        desc.set_ident(kMsgGameEnded);
+        desc.set_ident(MessageId::kGameEnded);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         send_to_players(manager, server, &desc, Recipients::kRemote);
     } else {
-        init_desc(desc, kMsgEndGameRequest);
+        init_desc(desc, MessageId::kEndGameRequest);
         send_to_server(manager->client_app(), &desc);
     }
     return true;
@@ -325,9 +325,9 @@ bool cfunc_set_num_teams(Struct* params, Script*)
         auto count = static_cast<uint8_t>(teams);
         request.set_content(&count);
         request.set_byte_count(1);
-        request.set_ident(kMsgTeamCountRequest);
+        request.set_ident(MessageId::kTeamCountRequest);
         request.set_queue(net::NetMessageInfo::kLaneOrdered);
-        request.set_group_id(kGroupGame);
+        request.set_group_id(MessageGroup::kGame);
         send_to_server(manager->client_app(), &request);
         return true;
     }
@@ -347,16 +347,16 @@ bool cfunc_set_num_teams(Struct* params, Script*)
     auto count = static_cast<uint8_t>(teams);
     desc.set_content(&count);
     desc.set_byte_count(1);
-    desc.set_ident(kMsgTeamCount);
+    desc.set_ident(MessageId::kTeamCount);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     send_to_players(manager, server, &desc, Recipients::kRemote);
     std::array<uint8_t, 2> change{};
     desc.set_content(change.data());
     desc.set_byte_count(2);
-    desc.set_ident(kMsgTeamChange);
+    desc.set_ident(MessageId::kTeamChange);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     for (auto* player = manager->begin_player_walk(&search, false); player;
          player = manager->step_player_walk(&search, false)) {
         if (player_team(player) < teams)
@@ -388,9 +388,9 @@ bool cfunc_join_team(Struct* params, Script*)
         last_team_request() = frame_clock::get_time();
         desc.set_content(request.data());
         desc.set_byte_count(2);
-        desc.set_ident(kMsgJoinTeamRequest);
+        desc.set_ident(MessageId::kJoinTeamRequest);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         send_to_server(client, &desc);
     }
     return true;

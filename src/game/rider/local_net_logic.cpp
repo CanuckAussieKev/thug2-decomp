@@ -220,7 +220,7 @@ void RiderHostSync::send_update()
     stream.drain();
     const int size = stream.get_byte_count();
     desc.set_content(buffer.data());
-    desc.set_ident(online::kMsgObjectUpdates);
+    desc.set_ident(online::MessageId::kObjectUpdates);
     desc.set_byte_count(static_cast<uint16_t>(size));
     desc.set_singular(true);
     desc.set_rank(kObjectUpdateRank);

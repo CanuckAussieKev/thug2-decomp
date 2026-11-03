@@ -133,9 +133,9 @@ void PlayerRecord::set_finished_joining()
     case 1: {
         net::NetMessageInfo desc;
         net::AppHost* server = manager->host(); // (0x005480C0, a getter folded there)
-        desc.set_ident(kMsgPlayerFullyIn);
+        desc.set_ident(MessageId::kPlayerFullyIn);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         server->put_on_outbox(conn_ ? conn_->hdl() : 0, &desc);
         break;
     }

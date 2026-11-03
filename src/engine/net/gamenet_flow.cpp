@@ -229,9 +229,9 @@ void Hub::start_network_game()
     write_start_game(writer, info);
     desc.set_content(bytes.data());
     desc.set_byte_count(static_cast<uint16_t>(writer.position()));
-    desc.set_ident(kMsgStartGame);
+    desc.set_ident(MessageId::kStartGame);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     for (PlayerRecord* p = start_roster_sweep(this, &search, true); p; p = step_roster_sweep(this, &search, true)) {
         p->set_best_combo(0);
         p->clear_flags(); // carries no flag
@@ -258,7 +258,7 @@ void Hub::cancel_join()
     if (join_phase_ == kJoinStateCancelled || join_phase_ == kJoinStateOver || join_phase_ == kJoinStateRefused)
         return;
     net::AppHost* client = client_app_;
-    desc.set_ident(net::wire::kMsgDisconnRequest);
+    desc.set_ident(net::wire::MessageId::kDisconnRequest);
     send_to_server(client, &desc);
     client->transmit(false);
     disconnect_clients();

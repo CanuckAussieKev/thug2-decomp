@@ -1,6 +1,8 @@
 // The network library's message compression. See net_compress.h.
 
 #include "engine/net/net_compress.h"
+#include "wire/message_ids.h"
+#include "engine/core/enum_ops.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -18,7 +20,6 @@
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
-#include "wire/net_wire.h"
 
 namespace net {
 
@@ -148,7 +149,7 @@ int rle_decompress(std::span<const uint8_t> input, std::span<uint8_t> output, in
 }
 
 // 0x00454E30
-uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, char method)
+uint8_t* compress_message(wire::MessageId* msg_id, uint16_t* length, const void* data, char method)
 {
     // NOT ORIGINAL: in the THUGPRO peer mode LZSS goes as THUGPRO's LZHAM. THUGPRO's receivers don't expand LZSS
     // (its patch over handle_compressed_messages' method test), and its senders turn THUG2's two LZSS messages - the join
@@ -159,10 +160,10 @@ uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, c
     const int size = static_cast<uint16_t>(*length + 3); // (16 bits: wraps for a length of 0xFFFD up)
     int compressed_size = 0;
     const std::span<uint8_t> message(static_cast<uint8_t*>(memory::alloc(size)), static_cast<size_t>(size));
-    core::at(message, 0) = *msg_id;
+    core::at(message, 0) = core::to_underlying(*msg_id);
     std::memcpy(message.subspan(1, 2).data(), length, 2);
     std::memcpy(message.subspan(3, *length).data(), data, *length);
-    debug::printf("*** Sending compressed message %d. Old size : %d ", *msg_id, *length);
+    debug::printf("*** Sending compressed message %d. Old size : %d ", core::to_underlying(*msg_id), *length);
     const int max_size = size * 4 / 3 + size;
     const std::span<uint8_t> compressed(static_cast<uint8_t*>(memory::alloc(max_size + 3)), static_cast<size_t>(max_size) + 3);
     core::at(compressed, 0) = static_cast<uint8_t>(method);
@@ -185,7 +186,7 @@ uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, c
     memory::dealloc(message.data());
     if (ints::as_unsigned(compressed_size) < *length) {
         *length = static_cast<uint16_t>(compressed_size + 3);
-        *msg_id = wire::kMsgCompressed;
+        *msg_id = wire::MessageId::kCompressed;
         return compressed.data();
     }
     debug::printf("*** Compressed message was larger. Defaulting back to uncompressed version\n");

@@ -10,6 +10,7 @@
 #include <memory>
 #include <span>
 
+#include "wire/message_ids.h"
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
 #include "engine/lists/list_walk.h"
@@ -61,10 +62,10 @@ bool Guest::prepare_all()
     if (!AppHost::prepare_all())
         return false;
     Router* dispatcher = get_dispatcher(this);
-    dispatcher->append_listener(wire::kMsgConnectionAccepted, on_link_accepted_msg, 3, nullptr, kListenerPriority);
-    dispatcher->append_listener(wire::kMsgConnectionRefused, handle_connection_refused, 2, nullptr, kListenerPriority);
-    dispatcher->append_listener(wire::kMsgConnectionTerminated, handle_connection_refused, 2, nullptr, kListenerPriority);
-    dispatcher->append_listener(wire::kMsgClockStamp, on_clock_sync_msg, 3, nullptr, kListenerPriority);
+    dispatcher->append_listener(wire::MessageId::kConnectionAccepted, on_link_accepted_msg, 3, nullptr, kListenerPriority);
+    dispatcher->append_listener(wire::MessageId::kConnectionRefused, handle_connection_refused, 2, nullptr, kListenerPriority);
+    dispatcher->append_listener(wire::MessageId::kConnectionTerminated, handle_connection_refused, 2, nullptr, kListenerPriority);
+    dispatcher->append_listener(wire::MessageId::kClockStamp, on_clock_sync_msg, 3, nullptr, kListenerPriority);
     return true;
 }
 
@@ -90,7 +91,7 @@ bool Guest::dial_server(net::Address host)
 }
 
 // 0x00459DC0
-void Guest::send_bulk_to_host(uint8_t msg_id, uint16_t size, void* data, const char* desc, uint8_t group_id,
+void Guest::send_bulk_to_host(wire::MessageId msg_id, uint16_t size, void* data, const char* desc, wire::MessageGroup group_id,
                               bool queue_all_pieces, bool borrow_caller_buffer)
 {
     if (Conn* server = server_connection(this))
@@ -177,7 +178,7 @@ void Guest::flush_outbox(Conn* conn)
             auto timestamp = static_cast<uint16_t>(conn->timestamp_out());
             desc.set_content(&timestamp);
             desc.set_byte_count(sizeof(timestamp));
-            desc.set_ident(wire::kMsgClockStamp);
+            desc.set_ident(wire::MessageId::kClockStamp);
             desc.set_rank(kTopRank);
             net::put_on_outbox(this, conn->hdl(), &desc);
         }
@@ -198,7 +199,7 @@ void Guest::flush_outbox(Conn* conn)
                 }
                 sent = now;
                 desc.set_content(&now);
-                desc.set_ident(wire::kMsgLatencyTest);
+                desc.set_ident(wire::MessageId::kLatencyTest);
                 desc.set_byte_count(sizeof(now));
                 net::put_on_outbox(this, conn->hdl(), &desc);
             }

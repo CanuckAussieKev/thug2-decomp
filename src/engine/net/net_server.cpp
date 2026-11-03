@@ -8,6 +8,7 @@
 
 #include <winsock2.h>
 
+#include "wire/message_ids.h"
 #include "engine/core/manager.h"
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app.h"
@@ -46,9 +47,9 @@ bool HostEnd::prepare_all()
     if (!AppHost::prepare_all())
         return false;
     Router* dispatcher = get_dispatcher(this);
-    dispatcher->append_listener(wire::kMsgConnectionRequest, on_link_ask_msg, 3, nullptr, kTopRank);
-    dispatcher->append_listener(wire::kMsgClockStamp, on_clock_sync_msg, 3, nullptr, kListenerPriority);
-    dispatcher->append_listener(wire::kMsgDisconnRequest, on_link_drop_ask_msg, 2, nullptr, kTopRank);
+    dispatcher->append_listener(wire::MessageId::kConnectionRequest, on_link_ask_msg, 3, nullptr, kTopRank);
+    dispatcher->append_listener(wire::MessageId::kClockStamp, on_clock_sync_msg, 3, nullptr, kListenerPriority);
+    dispatcher->append_listener(wire::MessageId::kDisconnRequest, on_link_drop_ask_msg, 2, nullptr, kTopRank);
     return true;
 }
 
@@ -127,7 +128,7 @@ void HostEnd::flush_outbox(Conn* conn)
                 sent = now;
                 desc.set_content(&now);
                 desc.set_byte_count(sizeof(now));
-                desc.set_ident(wire::kMsgLatencyTest);
+                desc.set_ident(wire::MessageId::kLatencyTest);
                 net::put_on_outbox(this, conn->hdl(), &desc);
             }
         }
@@ -135,7 +136,7 @@ void HostEnd::flush_outbox(Conn* conn)
         auto timestamp = static_cast<uint16_t>(conn->timestamp_out());
         timestamp_desc.set_content(&timestamp);
         timestamp_desc.set_byte_count(sizeof(timestamp));
-        timestamp_desc.set_ident(wire::kMsgClockStamp);
+        timestamp_desc.set_ident(wire::MessageId::kClockStamp);
         timestamp_desc.set_rank(kTopRank);
         net::put_on_outbox(this, conn->hdl(), &timestamp_desc);
 
@@ -187,13 +188,13 @@ int HostEnd::on_link_ask_msg(InboundMsgCtx* context)
         if (!net::allows_outside_peers(context->receiver_app()))
             return kResultConsumed;
         const Conn* conn = context->sender_conn();
-        net::deliver_to(context->receiver_app(), wire::kMsgConnectionAccepted, 0, nullptr, conn->remote_ip(), conn->port_no(),
+        net::deliver_to(context->receiver_app(), wire::MessageId::kConnectionAccepted, 0, nullptr, conn->remote_ip(), conn->port_no(),
                         0);
         return kResultPassOn;
     }
     if (!net::is_host_local(context->sender_conn()))
         return kResultConsumed;
-    desc.set_ident(wire::kMsgConnectionAccepted);
+    desc.set_ident(wire::MessageId::kConnectionAccepted);
     desc.set_rank(kTopRank);
     desc.set_queue(kLanePriority);
     net::put_on_outbox(context->receiver_app(), context->sender_conn()->hdl(), &desc);
@@ -208,7 +209,7 @@ int HostEnd::on_link_drop_ask_msg(InboundMsgCtx* context)
     const Conn* conn = context->sender_conn();
     if (conn->cur_standing() & kConnDisconnAccepted)
         return kResultConsumed;
-    desc.set_ident(wire::kMsgDisconnAccepted);
+    desc.set_ident(wire::MessageId::kDisconnAccepted);
     net::put_on_outbox(context->receiver_app(), conn->hdl(), &desc);
     context->sender_conn()->cur_standing() |= kConnDisconnAccepted;
     return kResultPassOn;

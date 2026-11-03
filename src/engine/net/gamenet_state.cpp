@@ -178,14 +178,14 @@ void Hub::scan_local_network()
     // 12 bytes: the time, then 8 bytes the original leaves uninitialised (zeroed here).
     std::array<uint32_t, 3> message = {{frame_clock::get_time(), 0, 0}};
     if (const uint32_t asked_for = net_game_state().asked_for()) {
-        browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(message)}, message.data(), {.ip = asked_for, .port = kLanPort}, 0);
+        browser_client_->deliver_to({.msg_id_ = MessageId::kServerQuery, .size = sizeof(message)}, message.data(), {.ip = asked_for, .port = kLanPort}, 0);
         net_game_state().set_asked_for(0);
         return;
     }
-    browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(message)}, message.data(), {.ip = kBroadcastAddress, .port = kLanPort}, 0);
+    browser_client_->deliver_to({.msg_id_ = MessageId::kServerQuery, .size = sizeof(message)}, message.data(), {.ip = kBroadcastAddress, .port = kLanPort}, 0);
     const uint32_t command_line = net_game_state().command_line_server(); // (parse_network_params)
     if (command_line != kNoCommandLineServer)
-        browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(message)}, message.data(), {.ip = command_line, .port = kLanPort}, 0);
+        browser_client_->deliver_to({.msg_id_ = MessageId::kServerQuery, .size = sizeof(message)}, message.data(), {.ip = command_line, .port = kLanPort}, 0);
 }
 
 // 0x00532F70 / 0x00532F80
@@ -267,9 +267,9 @@ void Hub::send_game_ended()
     net::NetMessageInfo desc;
     desc.set_content(&game_id_);
     desc.set_byte_count(1);
-    desc.set_ident(kMsgRunEnded);
+    desc.set_ident(MessageId::kRunEnded);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     core::down_cast<net::Guest>(client_app_)->send_to_host(&desc);
     ended_game_id_ = game_id_;
 }
@@ -293,7 +293,7 @@ void Hub::send_ready_response()
     uint32_t id = last_ready_probe_id_;
     desc.set_content(&id);
     desc.set_byte_count(sizeof(id));
-    desc.set_ident(kMsgReadyResponse);
+    desc.set_ident(MessageId::kReadyResponse);
     desc.set_queue(net::NetMessageInfo::kLanePriority);
     for (int i = 0; i < 2; ++i) {
         if (net::AppHost* client = fetch_patron(i))

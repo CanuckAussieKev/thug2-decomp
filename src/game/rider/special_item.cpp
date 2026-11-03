@@ -6,6 +6,7 @@
 #include <gsl/pointers>
 #include <array>
 
+#include "wire/message_ids.h"
 #include "engine/core/mem.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
@@ -61,7 +62,7 @@ render::RenderModel* get_model_data(GameEntity* object)
 }
 
 // A message to the server, in a network game.
-void send_to_server(uint8_t id, const online::SpecialItemMessage& item)
+void send_to_server(online::MessageId id, const online::SpecialItemMessage& item)
 {
     auto* manager = online::net_game_state().online_hub();
     if (!manager->in_net_game())
@@ -176,7 +177,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         created.bone = bone;
         created.object_id = static_cast<uint8_t>(entity()->ident());
         created.slot = static_cast<int8_t>(slot);
-        send_to_server(online::kMsgCreateSpecialItem, created);
+        send_to_server(online::MessageId::kCreateSpecialItem, created);
         return 1;
     }
     case kDestroySpecialItem: {
@@ -186,7 +187,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         online::SpecialItemMessage destroyed; // (params and bone: not set by the original)
         destroyed.object_id = static_cast<uint8_t>(entity()->ident());
         destroyed.slot = static_cast<int8_t>(slot);
-        send_to_server(online::kMsgDestroySpecialItem, destroyed);
+        send_to_server(online::MessageId::kDestroySpecialItem, destroyed);
         return 1;
     }
     case kDestroyAllSpecialItems:

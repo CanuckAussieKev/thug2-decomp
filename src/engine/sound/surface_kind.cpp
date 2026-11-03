@@ -8,6 +8,7 @@
 #include <new>
 #include <array>
 
+#include "wire/message_ids.h"
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
 #include "engine/lists/key_map.h"
@@ -403,7 +404,7 @@ void play_terrain_sound(TableTerrain table_terrain, const maths::Vec4* position,
         online::write_terrain_sound(writer, message);
         desc.set_content(data.data());
         desc.set_byte_count(sizeof(data));
-        desc.set_ident(online::kMsgTerrainSound);
+        desc.set_ident(online::MessageId::kTerrainSound);
         client->send_to_host(&desc);
     }
     sound::VolumeRef volume;

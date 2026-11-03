@@ -86,7 +86,7 @@ int handle_observe_request(net::InboundMsgCtx* context)
     if (!is_own_player(player) &&
         manager->count_observers() >= manager->get_spectator_limit()) { // the observers so far
         desc = net::NetMessageInfo();
-        desc.set_ident(kMsgObserversFull);
+        desc.set_ident(MessageId::kObserversFull);
         manager->host()->put_on_outbox(context->sender_conn()->hdl(), &desc);
         return kContinue;
     }
@@ -109,7 +109,7 @@ int handle_observe_request(net::InboundMsgCtx* context)
             manager->spectate_player(manager->viewed_player());
         }
     }
-    desc.set_ident(kMsgObserve);
+    desc.set_ident(MessageId::kObserve);
     manager->host()->put_on_outbox(context->sender_conn()->hdl(), &desc);
     return kContinue;
 }
@@ -128,18 +128,18 @@ int handle_request_game_data(net::InboundMsgCtx* context)
     net::AppHost* app = context->receiver_app();
     int handle = context->sender_conn()->hdl();
     void* park_map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false)->bytes().data();
-    app->send_bulk_message(handle, {.msg_id_ = kMsgParkMap, .size = kParkMapSize}, park_map, "level data", kGroupGame, false, true);
+    app->send_bulk_message(handle, {.msg_id_ = MessageId::kParkMap, .size = kParkMapSize}, park_map, "level data", MessageGroup::kGame, false, true);
     handle = context->sender_conn()->hdl();
     auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
     rail_editor(); // (looked up once for nothing)
     void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed();
-    app->send_bulk_message(handle, {.msg_id_ = kMsgRailsData, .size = kRailDataSize}, rails, "rail data", kGroupGame, false, true);
+    app->send_bulk_message(handle, {.msg_id_ = MessageId::kRailsData, .size = kRailDataSize}, rails, "rail data", MessageGroup::kGame, false, true);
     if (manager->has_created_goals()) {
         manager->prepare_created_goals(request.level);
         handle = context->sender_conn()->hdl();
         void* goals = manager->get_created_goals_message();
         auto size = static_cast<uint16_t>(manager->get_created_goals_size());
-        app->send_bulk_message(handle, {.msg_id_ = kMsgGoalsData, .size = size}, goals, "goals data", kGroupGame, false, true);
+        app->send_bulk_message(handle, {.msg_id_ = MessageId::kGoalsData, .size = size}, goals, "goals data", MessageGroup::kGame, false, true);
     }
     if (request.flag != 'F')
         return kContinue;
@@ -154,13 +154,13 @@ int handle_request_game_data(net::InboundMsgCtx* context)
     uint32_t query = frame_clock::get_time();
     desc.set_content(level.data());
     desc.set_byte_count(sizeof(level));
-    desc.set_ident(kMsgLevelSwitch);
+    desc.set_ident(MessageId::kLevelSwitch);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     app->put_on_outbox(player_handle(player), &desc);
     desc.set_content(&query);
     desc.set_byte_count(4);
-    desc.set_ident(kMsgReadyQuery);
+    desc.set_ident(MessageId::kReadyQuery);
     app->put_on_outbox(player_handle(player), &desc);
     player->await_ready_response(query); // (the query it owes)
     app->transmit(false);
@@ -190,9 +190,9 @@ int handle_game_ended_report(net::InboundMsgCtx* context)
     // Everyone's game has ended: game over, to all (observers too).
     net::NetMessageInfo desc;
     net::AppHost* server = manager->host();
-    desc.set_ident(kMsgGameOver);
+    desc.set_ident(MessageId::kGameOver);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
          other = step_roster_sweep(manager, &search, true))
         server->put_on_outbox(player_handle(other), &desc);
@@ -219,9 +219,9 @@ int on_switch_squad_msg(net::InboundMsgCtx* context)
     net::AppHost* server = manager->host();
     desc.set_content(change.data());
     desc.set_byte_count(2);
-    desc.set_ident(kMsgTeamChange);
+    desc.set_ident(MessageId::kTeamChange);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
          other = step_roster_sweep(manager, &search, true))
         server->put_on_outbox(player_handle(other), &desc);
@@ -255,9 +255,9 @@ int handle_goal_completed_report(net::InboundMsgCtx* context)
         write_goal_message(writer, message);
         desc.set_content(bytes.data());
         desc.set_byte_count(sizeof(bytes));
-        desc.set_ident(kMsgGoalCompleted);
+        desc.set_ident(MessageId::kGoalCompleted);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
     };
     if (is_squad_match()) {
         // Already done by the sender's team: nothing.
@@ -311,7 +311,7 @@ int handle_goal_started_report(net::InboundMsgCtx* context)
     write_goal_message(writer, message);
     desc.set_content(bytes.data());
     desc.set_byte_count(sizeof(bytes));
-    desc.set_ident(kMsgGoalStarted);
+    desc.set_ident(MessageId::kGoalStarted);
     for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
          p = step_roster_sweep(manager, &search, false)) {
         if (p != sender && player_team(sender) == player_team(p))
@@ -386,9 +386,9 @@ int handle_drop_carried(net::InboundMsgCtx* context)
         player->clear_flags(); // carries no flag
         desc.set_content(returned.data());
         desc.set_byte_count(2);
-        desc.set_ident(kMsgFlagReturned);
+        desc.set_ident(MessageId::kFlagReturned);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(kGroupGame);
+        desc.set_group_id(MessageGroup::kGame);
         for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
              p = step_roster_sweep(manager, &search, true)) {
             if (!is_own_player(p))
@@ -408,9 +408,9 @@ int handle_drop_carried(net::InboundMsgCtx* context)
     auto message = static_cast<uint8_t>(spot);
     desc.set_content(&message);
     desc.set_byte_count(1);
-    desc.set_ident(kMsgCrownSpawn);
+    desc.set_ident(MessageId::kCrownSpawn);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true))
         context->receiver_app()->put_on_outbox(player_handle(p), &desc);
     return kContinue;

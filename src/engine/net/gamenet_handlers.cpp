@@ -226,9 +226,9 @@ int handle_cd_key_challenge(net::InboundMsgCtx* context)
     // 0x0054CA10: the answer to the challenge (the message itself). (Static: the original passes the online service,
     // +0x1C, in ECX, unused.)
     RankingsManager::generate_auth(net::wire::text_of(context->body()), password, answer.data());
-    desc.set_ident(kMsgCdKeyAnswer);
+    desc.set_ident(MessageId::kCdKeyAnswer);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     desc.set_content(answer.data());
     desc.set_byte_count(kCdKeyAnswerSize);
     send_to_server(context->receiver_app(), &desc);
@@ -249,9 +249,9 @@ int on_admitted_msg(net::InboundMsgCtx* context)
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
     manager->set_entry_phase(kJoinStateJoined);
-    desc.set_ident(kMsgReadyToReceive);
+    desc.set_ident(MessageId::kReadyToReceive);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     send_to_server(context->receiver_app(), &desc);
     if (!manager->get_on_server()) {
         for (int i = 0; i < 2; ++i) {
@@ -331,9 +331,9 @@ int handle_checksum_request(net::InboundMsgCtx* context)
     uint8_t* msg = context->body();
     const uint32_t cheats = static_cast<modules::Skate*>(skate)->get_cheats();
     std::memcpy(std::span(msg, kDigestBytes).last(4).data(), &cheats, sizeof(cheats)); // (its second word)
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     desc.set_byte_count(kDigestBytes);
-    desc.set_ident(kMsgDigest);
+    desc.set_ident(MessageId::kDigest);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
     desc.set_content(msg);
     send_to_server(context->receiver_app(), &desc);
@@ -375,20 +375,20 @@ int handle_cd_key_answer(net::InboundMsgCtx* context)
 // 0x0052F400
 int handle_created_data_request(net::InboundMsgCtx* context)
 {
-    const uint8_t id = context->type_code();
+    const auto id = context->type_code();
     net::AppHost* app = context->receiver_app();
     Hub* manager = manager_of(context);
-    if (id == kMsgRequestRails) {
+    if (id == MessageId::kRequestRails) {
         const int handle = context->sender_conn()->hdl();
         auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
         rail_editor(); // (looked up once for nothing)
         void* rails = static_cast<park_editing::RailAuthoring*>(rail_editor())->get_packed(); // the rails, packed
-        app->send_bulk_message(handle, {.msg_id_ = kMsgRailsData, .size = kRailDataSize}, rails, "rail data", kGroupGame, false, true);
-    } else if (id == kMsgRequestGoals && manager->has_created_goals()) {
+        app->send_bulk_message(handle, {.msg_id_ = MessageId::kRailsData, .size = kRailDataSize}, rails, "rail data", MessageGroup::kGame, false, true);
+    } else if (id == MessageId::kRequestGoals && manager->has_created_goals()) {
         const int handle = context->sender_conn()->hdl();
         void* goals = manager->get_created_goals_message();
         auto size = static_cast<uint16_t>(manager->get_created_goals_size());
-        app->send_bulk_message(handle, {.msg_id_ = kMsgGoalsData, .size = size}, goals, "goals data", kGroupGame, false, true);
+        app->send_bulk_message(handle, {.msg_id_ = MessageId::kGoalsData, .size = size}, goals, "goals data", MessageGroup::kGame, false, true);
     }
     return kContinue;
 }

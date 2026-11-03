@@ -4,6 +4,7 @@
 // worked in double.
 
 #include "engine/objects/model_component.h"
+#include "wire/message_ids.h"
 #include "platform/d3dx.h"
 
 #include <cmath>
@@ -104,7 +105,7 @@ net::Guest* client_app(void* manager, int index)
 
 // A message's id and its length in bytes.
 struct MessageHead {
-    uint8_t id{};
+    online::MessageId id{};
     uint16_t length{};
 };
 
@@ -311,7 +312,7 @@ bool MeshInstanceModule::conceal_mesh(uint32_t name, bool hide, bool send)
         std::array<uint8_t, online::kHideGeomSize> data{};
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_hide_geom(writer, sent);
-        send_to_server(entity(), {.id = online::kMsgHideGeom, .length = sizeof(data)}, data.data());
+        send_to_server(entity(), {.id = online::MessageId::kHideGeom, .length = sizeof(data)}, data.data());
     }
     if (mesh_instance_.get())
         model_hide_geom(mesh_instance_.get(), name, hide);
@@ -380,7 +381,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     online::write_spin_model(writer, sent);
     message.set_content(data.data());
     message.set_byte_count(sizeof(data));
-    message.set_ident(online::kMsgSpinModel);
+    message.set_ident(online::MessageId::kSpinModel);
     app->send_to_host(&message);
 }
 
@@ -393,7 +394,7 @@ void MeshInstanceModule::cancel_rotate_display()
         axis.active_ = false;
     }
     auto object = static_cast<uint8_t>(entity()->ident());
-    send_to_server(entity(), {.id = online::kMsgCancelSpins, .length = 1}, &object);
+    send_to_server(entity(), {.id = online::MessageId::kCancelSpins, .length = 1}, &object);
 }
 
 } // namespace objects

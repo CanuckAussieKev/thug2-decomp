@@ -402,9 +402,9 @@ bool cfunc_notify_bail_done(script::Struct*, script::Script* script)
         return true;
     if (net::AppHost* client = game_net->fetch_patron(skater->view_slot())) {
         net::NetMessageInfo desc;
-        desc.set_ident(online::kMsgJoined);
+        desc.set_ident(online::MessageId::kJoined);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(online::kGroupGame);
+        desc.set_group_id(online::MessageGroup::kGame);
         core::down_cast<net::Guest>(client)->send_to_host(&desc);
     }
     return true;

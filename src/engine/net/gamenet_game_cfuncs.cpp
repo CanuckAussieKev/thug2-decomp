@@ -69,7 +69,7 @@ tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->log
 
 // A flag and who has it: the flag's id, the player and the team.
 struct FlagHolder {
-    uint8_t id{};
+    MessageId id{};
     int player{};
     int team{};
 };
@@ -88,7 +88,7 @@ void send_flag_message(Hub* manager, FlagHolder flag_holder, Local local)
     desc.set_content(msg.data());
     desc.set_ident(id);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     net::AppHost* server = manager->host();
     PlayerSearch search;
     for (PlayerRecord* other = start_roster_sweep(manager, &search, true); other;
@@ -136,9 +136,9 @@ void kick_or_ban(Hub* manager, KickChoice kick_choice)
     write_kick_request(writer, msg);
     desc.set_content(bytes.data());
     desc.set_byte_count(sizeof(bytes));
-    desc.set_ident(kMsgKickRequest);
+    desc.set_ident(MessageId::kKickRequest);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     send_to_server(manager->client_app(), &desc);
 }
 
@@ -154,7 +154,7 @@ bool cfunc_player_took_flag(script::Struct* params, script::Script*)
     params->fetch_int_value(kFlagTeam, &team, 0);
     PlayerRecord* taker = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (taker)
-        send_flag_message(manager, {.id = kMsgTookFlag, .player = player, .team = team}, [&] { taker->note_flag_pickup(team); });
+        send_flag_message(manager, {.id = MessageId::kTookFlag, .player = player, .team = team}, [&] { taker->note_flag_pickup(team); });
     return true;
 }
 
@@ -168,7 +168,7 @@ bool cfunc_player_captured_flag(script::Struct* params, script::Script*)
     if (!capturer || (capturer->flag_bits() & kPlayerCaptureBlocked))
         return true;
     int team = capturer->get_flag_team(); // the flag it carries
-    send_flag_message(manager, {.id = kMsgCapturedFlag, .player = player, .team = team}, [&] {
+    send_flag_message(manager, {.id = MessageId::kCapturedFlag, .player = player, .team = team}, [&] {
         auto* skater = player_skater(capturer);
         modules::PointTally* score =
             core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore))->points_held();
@@ -188,7 +188,7 @@ bool cfunc_player_retrieved_flag(script::Struct* params, script::Script*)
     params->fetch_int_value("flag_team", &team, 0);
     PlayerRecord* retriever = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (retriever) // (as a capture: message 0x72 and 0x00543A90 - not 0x73 / 0x00544110, the retrieve's)
-        send_flag_message(manager, {.id = kMsgCapturedFlag, .player = player, .team = team}, [&] { retriever->score_flag_capture(team); });
+        send_flag_message(manager, {.id = MessageId::kCapturedFlag, .player = player, .team = team}, [&] { retriever->score_flag_capture(team); });
     return true;
 }
 

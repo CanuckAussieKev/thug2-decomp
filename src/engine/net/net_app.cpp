@@ -2,6 +2,8 @@
 // connection list and the app's tasks.
 
 #include "engine/net/net_app.h"
+#include "wire/message_ids.h"
+#include "engine/core/enum_ops.h"
 #include "engine/net/net_lists.h"
 
 #include <cstddef>
@@ -66,7 +68,7 @@ constexpr uint32_t kConnReady = Conn::kConnReady;
 constexpr uint32_t kConnClosing = 8;
 AppHost*& owner_app(Conn* conn) { return conn->owner_app(); }
 // The next sequence id of each message group.
-uint32_t& next_sequence_id(Conn* conn, uint8_t group) { return core::at(conn->next_sequence_ids(), group); }
+uint32_t& next_sequence_id(Conn* conn, wire::MessageGroup group) { return core::at(conn->next_sequence_ids(), core::to_underlying(group)); }
 int& alloc_stream_key(Conn* conn) { return conn->stream_counter(); }
 ListNode* get_streams(Conn* conn) { return &conn->send_streams(); } // lists::Foremost<BulkStreamNode>
 void* in_metrics(Conn* conn) { return &conn->receive_metrics(); }   // NetLink::Gauges (0x100C bytes)
@@ -98,7 +100,7 @@ int connection_type(void* manager) { return static_cast<Hub*>(manager)->get_net_
 // --- Messages ---------------------------------------------------------------------------------------------------
 // PendingMsg (0x0C) and SeqQueuedMsg (0x10, made by AppHost::new_queued_msg): a copy of a message shared by the
 // links that send it to each connection; freed with the last.
-gsl::owner<PendingMsg*> construct_queued_msg(void* memory, uint8_t id, uint16_t length, const void* data, uint8_t compression)
+gsl::owner<PendingMsg*> construct_queued_msg(void* memory, wire::MessageId id, uint16_t length, const void* data, uint8_t compression)
 {
     return new (memory) PendingMsg(id, length, data, compression);
 }
@@ -261,7 +263,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
         // To ready connections only (to a single connection, also message 9).
         auto ready = [&](Conn* conn) {
             return get_standing(conn) == kConnReady ||
-                   handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) && desc->ident() == wire::kMsgClockStamp;
+                   handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) && desc->ident() == wire::MessageId::kClockStamp;
         };
         for_each_target(ready, [&](Conn* conn) {
             if (desc->singular())
@@ -334,7 +336,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
 
 // 0x00458740
 void AppHost::send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const char* desc,
-                                uint8_t group_id, bool queue_all_pieces, bool borrow_caller_buffer)
+                                wire::MessageGroup group_id, bool queue_all_pieces, bool borrow_caller_buffer)
 {
     const auto msg_id = head.msg_id_;
     const auto size = head.size;
@@ -355,7 +357,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const cha
     message.set_byte_count(static_cast<uint16_t>(start_writer.position()));
     message.set_content(start_bytes.data());
     message.set_group_id(group_id);
-    message.set_ident(wire::kMsgBulkBegin);
+    message.set_ident(wire::MessageId::kBulkBegin);
     message.set_queue(NetMessageInfo::kLaneOrdered);
     message.set_feed(1);
     put_on_outbox(conn->hdl(), &message);
@@ -373,7 +375,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const cha
                 message.set_content(piece.bytes().data());
                 message.set_byte_count(piece.size());
                 message.set_group_id(group_id);
-                message.set_ident(wire::kMsgBulkChunk);
+                message.set_ident(wire::MessageId::kBulkChunk);
                 message.set_queue(NetMessageInfo::kLaneOrdered);
                 message.set_feed(1);
                 put_on_outbox(conn->hdl(), &message);
@@ -414,7 +416,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const cha
 
 // 0x00458AB0
 void AppHost::send_bulk_message(int handle, AppHost::BulkHead head, void* data, const char* desc,
-                                uint8_t group_id, bool queue_all_pieces, bool borrow_caller_buffer)
+                                wire::MessageGroup group_id, bool queue_all_pieces, bool borrow_caller_buffer)
 {
     const auto msg_id = head.msg_id_;
     const auto size = head.size;
@@ -578,7 +580,7 @@ void AppHost::pump_stream_traffic()
                 if (length > kStreamPieceSize)
                     length = kStreamPieceSize;
                 piece.build(stream->stream_id(), stream->succ(), length);
-                message.set_ident(wire::kMsgBulkChunk);
+                message.set_ident(wire::MessageId::kBulkChunk);
                 message.set_byte_count(piece.size());
                 message.set_queue(NetMessageInfo::kLaneOrdered);
                 message.set_content(piece.bytes().data());

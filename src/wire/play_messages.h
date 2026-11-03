@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+
+#include "wire/message_ids.h"
 #include <span>
 
 namespace util {
@@ -44,18 +46,6 @@ class ByteWriter;
 //   0x96 graffiti for (1)      the player's object id (u8); 0x9A graffiti parts (4): which board parts show it (u32)
 namespace online {
 
-constexpr uint8_t kMsgHuntPlacements = 0x8F;
-constexpr uint8_t kMsgHuntItemPickedUp = 0x90;
-constexpr uint8_t kMsgHuntItemsLeft = 0x95;
-constexpr uint8_t kMsgBoardVehicle = 0x89;
-constexpr uint8_t kMsgProjectile = 0x83;
-constexpr uint8_t kMsgPlaceTag = 0x99;
-constexpr uint8_t kMsgTerrainSound = 0x35;
-constexpr uint8_t kMsgToggleCheat = 0x7F;
-constexpr uint8_t kMsgCheats = 0x82;
-constexpr uint8_t kMsgRunScript = 0x48;
-constexpr uint8_t kMsgSpawnScript = 0x49;
-constexpr uint8_t kMsgPlayerGone = 0x2D;
 
 constexpr int kHuntPlacements = 5;
 constexpr size_t kHuntPlacementsSize = 0x58;
@@ -69,10 +59,6 @@ constexpr int kMaxCheats = 32;
 constexpr size_t kRunScriptHeaderSize = 8;
 constexpr size_t kRunScriptParamsSize = 0x400;
 constexpr size_t kSpawnScriptSize = 16;
-constexpr uint8_t kMsgHit = 0x84;
-constexpr uint8_t kMsgHitOwner = 0x85;
-constexpr uint8_t kMsgRanInto = 0x43;
-constexpr uint8_t kMsgRanIntoAck = 0x44;
 constexpr size_t kHitSize = 8;
 constexpr size_t kRanIntoSize = 20;
 // Fields the server rewrites in a projectile it relays (in place, before passing it on).

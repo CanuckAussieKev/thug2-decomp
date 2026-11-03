@@ -6,6 +6,7 @@
 #include <gsl/pointers>
 #include "engine/pad_input/input_hub.h"
 #include "engine/objects/entity.h"
+#include "wire/message_ids.h"
 
 // The model viewer's object (0x128 bytes, vtable 0x0064F138: a composite object with a model and animations, made by
 // Viewer::create_viewer_object with the viewer's net handler - constructor 0x0058ADB0). Its code is 0x005897B0-0x0058AFB7.
@@ -19,22 +20,22 @@ namespace script {
 class Struct;
 }
 
-// The model viewer's network messages (the ids the listeners are registered under) and where their texts / values sit in
-// the message body.
+// The model viewer's network messages (its link's own ids, outside MessageId's list: the listeners are registered
+// under them) and where their texts / values sit in the message body.
 namespace viewer_message {
-constexpr uint8_t kReloadScene = 0x20;
-constexpr uint8_t kNothing = 0x21;
-constexpr uint8_t kReloadScript = 0x22;
-constexpr uint8_t kCreateViewerObject = 0x23;
-constexpr uint8_t kRemoveViewerObject = 0x24;
-constexpr uint8_t kPlayAnimation = 0x25;
-constexpr uint8_t kClipRate = 0x26;
-constexpr uint8_t kStepAnimation = 0x27;
-constexpr uint8_t kReloadAnimation = 0x28;
-constexpr uint8_t kReloadCamAnimation = 0x29;
-constexpr uint8_t kAddToScene = 0x2A;
-constexpr uint8_t kRemoteScript = 0x2B;
-constexpr uint8_t kRunAnimViewScript = 0x2C;
+constexpr online::MessageId kReloadScene = static_cast<online::MessageId>(0x20);
+constexpr online::MessageId kNothing = static_cast<online::MessageId>(0x21);
+constexpr online::MessageId kReloadScript = static_cast<online::MessageId>(0x22);
+constexpr online::MessageId kCreateViewerObject = static_cast<online::MessageId>(0x23);
+constexpr online::MessageId kRemoveViewerObject = static_cast<online::MessageId>(0x24);
+constexpr online::MessageId kPlayAnimation = static_cast<online::MessageId>(0x25);
+constexpr online::MessageId kClipRate = static_cast<online::MessageId>(0x26);
+constexpr online::MessageId kStepAnimation = static_cast<online::MessageId>(0x27);
+constexpr online::MessageId kReloadAnimation = static_cast<online::MessageId>(0x28);
+constexpr online::MessageId kReloadCamAnimation = static_cast<online::MessageId>(0x29);
+constexpr online::MessageId kAddToScene = static_cast<online::MessageId>(0x2A);
+constexpr online::MessageId kRemoteScript = static_cast<online::MessageId>(0x2B);
+constexpr online::MessageId kRunAnimViewScript = static_cast<online::MessageId>(0x2C);
 constexpr int kListenerPriority = 0x80;
 constexpr int kSecondTextOffset = 0x80; // the second text / the value after the first 0x80 bytes of text
 constexpr int kSkeletonNameOffset = 0x84;

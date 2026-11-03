@@ -659,10 +659,10 @@ bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
         util::ByteWriter writer(data.data(), sizeof(data));
         online::write_toggle_cheat(writer, message);
         desc.set_content(data.data());
-        desc.set_ident(online::kMsgToggleCheat);
+        desc.set_ident(online::MessageId::kToggleCheat);
         desc.set_byte_count(sizeof(data));
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(online::kGroupGame);
+        desc.set_group_id(online::MessageGroup::kGame);
         server->put_on_outbox(conn->hdl(), &desc);
         script::script_state().set_last_broadcasted_omnigon(omnigon);
     }

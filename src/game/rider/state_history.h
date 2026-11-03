@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/objects/entity.h"
+#include "wire/message_ids.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/skater_state.h"
 #include <gsl/pointers>
@@ -28,7 +29,7 @@ constexpr std::size_t kWobbleDetailCount = 5;
 // id, its time stamp as two halves, then what the message said (wire/skater_messages.h; filled by
 // SkateNet::handle_skater_messages, played by RiderRemoteSync::play_history_events). Each kind uses its own fields.
 struct StateHistoryMessage {
-    uint8_t ident_;      // +0x00 the network message's id (0x29-0x8C: 0x00516180's switch)
+    online::MessageId ident_; // +0x00 the network message's id (0x29-0x8C: 0x00516180's switch)
     uint8_t object_id_;  // +0x01 the skater's object id (0x2A / 0x2C pass it on as the rotation's / flip's object)
     uint8_t loop_type_;  // +0x02 0x29 / 0x3D
     uint8_t spin_axes_;  // +0x03 0x76: the axes that spin (bit 0 x...)

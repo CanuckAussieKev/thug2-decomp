@@ -273,8 +273,8 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     online::write_place_tag(writer, tag);
     msg.set_content(data.data());
     msg.set_byte_count(sizeof(data));
-    msg.set_ident(online::kMsgPlaceTag);
-    msg.set_group_id(online::kGroupGraffiti);
+    msg.set_ident(online::MessageId::kPlaceTag);
+    msg.set_group_id(online::MessageGroup::kGraffiti);
     msg.set_queue(net::NetMessageInfo::kLaneOrdered);
     core::down_cast<net::Guest>(manager->fetch_patron(0))->send_to_host(&msg);
 }

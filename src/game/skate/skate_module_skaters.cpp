@@ -654,9 +654,9 @@ void Skate::test_rider_contacts()
         auto id = static_cast<uint8_t>(king->ident());
         desc.set_content(&id);
         desc.set_byte_count(1);
-        desc.set_ident(online::kMsgKing);
+        desc.set_ident(online::MessageId::kKing);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(online::kGroupGame);
+        desc.set_group_id(online::MessageGroup::kGame);
         server->put_on_outbox(as_player(player)->get_link_handle(), &desc);
     }
 }

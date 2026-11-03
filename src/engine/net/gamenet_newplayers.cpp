@@ -248,23 +248,23 @@ void send_new_player(net::AppHost* server, net::NetMessageInfo& desc, PlayerReco
     static std::array<uint8_t, kNewPlayerHeader + kAppearanceSize> bytes;
     desc.set_content(bytes.data());
     desc.set_byte_count(write_new_player(msg, length, bytes.data()));
-    desc.set_ident(kMsgPlayerArrived);
+    desc.set_ident(MessageId::kPlayerArrived);
     desc.set_rank(kMidPriority);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     desc.set_compression(kCompressionLzss);
     server->put_on_outbox(player_handle(to), &desc);
     desc.set_compression(0);
 }
 
-void send_word(net::AppHost* server, net::NetMessageInfo& desc, PlayerRecord* to, uint8_t id, uint32_t* word)
+void send_word(net::AppHost* server, net::NetMessageInfo& desc, PlayerRecord* to, MessageId id, uint32_t* word)
 {
     desc.set_content(word);
     desc.set_byte_count(sizeof(*word));
     desc.set_ident(id);
     desc.set_rank(kMidPriority);
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     server->put_on_outbox(player_handle(to), &desc);
 }
 
@@ -280,7 +280,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
     net::NetMessageInfo desc;
     net::Hub* net = net::Hub::sole();
     desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-    desc.set_group_id(kGroupGame);
+    desc.set_group_id(MessageGroup::kGame);
     auto* node = manager->joiners_.next(); // (the joining players' first node)
     if (node->data() != memory::ListNode::head_marker() && node) {
         while (node) {
@@ -330,7 +330,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                     msg.header.flags |= 4;
                 desc.set_content(nullptr);
                 desc.set_byte_count(0);
-                desc.set_ident(kMsgFlushImportant);
+                desc.set_ident(MessageId::kFlushImportant);
                 desc.set_rank(kTopRank);
                 server->put_on_outbox(player_handle(player), &desc);
                 std::array<uint8_t, kNewPlayerHeader> own{};
@@ -338,7 +338,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                 write_player_arrived(own_writer, msg.header);
                 desc.set_content(own.data());
                 desc.set_byte_count(kNewPlayerHeader);
-                desc.set_ident(kMsgPlayerArrived);
+                desc.set_ident(MessageId::kPlayerArrived);
                 desc.set_compression(kCompressionLzss);
                 server->put_on_outbox(player_handle(player), &desc);
                 desc.set_compression(0);
@@ -386,15 +386,15 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                 if (!is_own_player(player) && level == kLoadParkLevel) {
                     auto* park = park_editing::ParkBuilderMode::sole();
                     park->write_compressed_map_if_built();
-                    server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgParkMap, .size = kParkMapSize},
-                                              park->get_packed_park_data(false)->bytes().data(), "level data", kGroupGame, false, true);
+                    server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kParkMap, .size = kParkMapSize},
+                                              park->get_packed_park_data(false)->bytes().data(), "level data", MessageGroup::kGame, false, true);
                     park_editing::RailAuthoring::sole(); // (called twice, the first result unused)
                     void* rails =
                         static_cast<park_editing::RailAuthoring*>(park_editing::RailAuthoring::sole())->get_packed();
-                    server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgRailsData, .size = kRailsSize}, rails, "rail data",
-                                              kGroupGame, false, true);
+                    server->send_bulk_message(player_handle(player), {.msg_id_ = MessageId::kRailsData, .size = kRailsSize}, rails, "rail data",
+                                              MessageGroup::kGame, false, true);
                 }
-                send_word(server, desc, player, kMsgJoinAccepted, &level);
+                send_word(server, desc, player, MessageId::kJoinAccepted, &level);
             }
             if (!is_observer(player)) { // its skater; every other player asked whether it's ready
                 const int count = is_own_player(player) && manager->in_net_game() ? 0 : skater_count(skate);
@@ -408,14 +408,14 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                      other = step_roster_sweep(manager, &search, true)) {
                     if (other == player)
                         continue;
-                    send_word(server, desc, other, kMsgReadyQuery, &now);
+                    send_word(server, desc, other, MessageId::kReadyQuery, &now);
                     if (!is_own_player(other) && !is_observer(other)) {
                         core::down_cast<objects::Rider>(player_skater(other))->reset_27c(); // reset
                         other->await_ready_response(now);
                     }
                 }
             }
-            send_word(server, desc, player, kMsgReadyQuery, &now);
+            send_word(server, desc, player, MessageId::kReadyQuery, &now);
             player->await_ready_response(now);
             info->~JoinerRecord(); // (its destructor)
             memory::Hub::get_pull()->dealloc(info);

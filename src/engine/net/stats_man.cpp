@@ -518,9 +518,9 @@ void RankingsManager::start_game()
             // The player's client answers with its response to the challenge.
             desc.set_content(challenge);
             desc.set_byte_count(static_cast<uint16_t>(std::strlen(challenge) + 1));
-            desc.set_ident(kMsgStatsChallenge);
+            desc.set_ident(MessageId::kStatsChallenge);
             desc.set_queue(2);
-            desc.set_group_id(kGroupGame);
+            desc.set_group_id(MessageGroup::kGame);
             server->put_on_outbox(detail::player_handle(player), &desc);
         }
     }

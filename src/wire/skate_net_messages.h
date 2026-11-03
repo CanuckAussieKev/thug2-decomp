@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <array>
 
+#include "wire/message_ids.h"
+
 namespace util {
 class ByteReader;
 class ByteWriter;
@@ -19,8 +21,8 @@ class ByteWriter;
 //   0x5C graffiti colours 8 counts (u8, one a skater), then that many trick-object cluster indexes (u8)
 namespace skate_net {
 
-constexpr uint8_t kMsgScores = 0x40;
-constexpr uint8_t kMsgCheatsCheck = 0x80;
+using MessageId = online::MessageId; // (wire/message_ids.h)
+
 constexpr int kMaxScoreEntries = 127; // (the count is read signed)
 constexpr size_t kScoresHeaderSize = 10;
 constexpr size_t kScoreEntrySize = 5;

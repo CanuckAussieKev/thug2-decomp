@@ -1197,13 +1197,13 @@ void Rider::init_from_profile(RiderIdentity* profile)
         net::AppHost* client = net->fetch_patron(view_slot_);
         net::Router* dispatcher = &client->dispatcher();
         struct HandlerEntry {
-            uint8_t id;
+            online::MessageId id;
             net::HandlerSlotValue code;
         };
         const auto handlers = std::to_array<HandlerEntry>({
-            {.id = 0x3B, .code = &modules::PointTally::on_score_msg},        {.id = 0x44, .code = &RiderFrameLog::handle_collision_messages},
-            {.id = 0x43, .code = &RiderFrameLog::handle_collision_messages}, {.id = 0x85, .code = &RiderFrameLog::handle_hit_messages},
-            {.id = 0x84, .code = &RiderFrameLog::handle_hit_messages},       {.id = 0x4B, .code = &RiderHostSync::handle_graffiti_steal}});
+            {.id = online::MessageId::kTrickObjects, .code = &modules::PointTally::on_score_msg},        {.id = online::MessageId::kRanIntoAck, .code = &RiderFrameLog::handle_collision_messages},
+            {.id = online::MessageId::kRanInto, .code = &RiderFrameLog::handle_collision_messages}, {.id = online::MessageId::kHitOwner, .code = &RiderFrameLog::handle_hit_messages},
+            {.id = online::MessageId::kHit, .code = &RiderFrameLog::handle_hit_messages},       {.id = online::MessageId::kTagStolen, .code = &RiderHostSync::handle_graffiti_steal}});
         for (const auto& handler : handlers)
             dispatcher->append_listener(handler.id, handler.code, 0, this, kListenerPriority);
     }
@@ -1748,9 +1748,9 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
         auto* client = core::down_cast<net::Guest>(net->fetch_patron(view_slot_));
         if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident())))
             player->mark_capture_blocked();
-        message.set_ident(online::kMsgRiderReady);
+        message.set_ident(online::MessageId::kRiderReady);
         message.set_queue(net::NetMessageInfo::kLaneOrdered);
-        message.set_group_id(online::kGroupGame);
+        message.set_group_id(online::MessageGroup::kGame);
         client->send_to_host(&message);
     }
 }

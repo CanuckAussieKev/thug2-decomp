@@ -6,6 +6,7 @@
 #include <array>
 
 #include "engine/gfx/engine_model_lights.h"
+#include "wire/message_ids.h"
 #include "engine/gfx/model.h"
 #include "engine/gfx/model_appearance.h"
 #include "engine/maths/mat4.h"
@@ -277,7 +278,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             auto object = static_cast<uint8_t>(entity()->ident());
             message.set_content(&object);
             message.set_byte_count(1);
-            message.set_ident(online::kMsgCancelSpins);
+            message.set_ident(online::MessageId::kCancelSpins);
             app->send_to_host(&message);
         }
         break;
@@ -327,7 +328,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             online::write_spin_model(writer, sent);
             message.set_content(data.data());
             message.set_byte_count(sizeof(data));
-            message.set_ident(online::kMsgSpinModel);
+            message.set_ident(online::MessageId::kSpinModel);
             app->send_to_host(&message);
         }
         break;

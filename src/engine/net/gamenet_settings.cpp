@@ -380,7 +380,7 @@ void Hub::find_server_at(uint32_t ip)
         core::at(request, 0) = frame_clock::get_time();
         core::at(request, 1) = core::at(request, 2) = 0;
         net_game_state().set_asked_for(ip);
-        browser_client_->deliver_to({.msg_id_ = kMsgServerQuery, .size = sizeof(request)}, request.data(), {.ip = ip, .port = kLanPort}, 0);
+        browser_client_->deliver_to({.msg_id_ = MessageId::kServerQuery, .size = sizeof(request)}, request.data(), {.ip = ip, .port = kLanPort}, 0);
     }
 }
 

@@ -70,8 +70,7 @@ constexpr float kReach = 48.0f;    // 0x006461CC: added to the radius
 constexpr float kAbovePed = 30.0f; // 0x00646240: the ped's middle, above its position
 
 // The network message a hit sends (0x84 to the hit skater's player, 0x85 to the owner's: wire/play_messages.h).
-using online::kMsgHit;
-using online::kMsgHitOwner;
+using online::MessageId;
 
 
 // The skate module's local skater (0x00566520, a register stub on our side).
@@ -178,17 +177,17 @@ void ShotImpactModule::tick_frame()
         std::array<uint8_t, online::kHitSize> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
         online::write_hit(writer, hit);
-        msg.set_ident(kMsgHit);
+        msg.set_ident(MessageId::kHit);
         msg.set_content(bytes.data());
         msg.set_byte_count(sizeof(bytes));
         msg.set_queue(net::NetMessageInfo::kLaneOrdered);
-        msg.set_group_id(online::kGroupGame);
+        msg.set_group_id(online::MessageGroup::kGame);
         victim->change_recent_hit_stamp(frame_clock::get_time());
         server->put_on_outbox(victim->get_link_handle(), &msg);
         hit.object_id = static_cast<uint8_t>(skater->ident());
         util::ByteWriter owner_writer(bytes.data(), sizeof(bytes));
         online::write_hit(owner_writer, hit);
-        msg.set_ident(kMsgHitOwner);
+        msg.set_ident(MessageId::kHitOwner);
         server->put_on_outbox(owner->get_link_handle(), &msg);
         if (projectile_type_ != kFireball)
             return;

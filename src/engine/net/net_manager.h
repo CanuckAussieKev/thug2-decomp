@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wire/message_ids.h"
+#include "engine/core/enum_ops.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -125,8 +127,8 @@ public:
     // 0x00454970 (shown by the TestNetSetup script command: 2-7 are set-up errors)
     int get_last_error() { return last_error_; }
     // 0x00454980 / 0x00454990: a message id's flags.
-    char get_msg_options(uint8_t msg_id) { return static_cast<char>(core::at(message_flags_, msg_id)); }
-    void set_msg_options(uint8_t msg_id, char flags) { core::at(message_flags_, msg_id) = static_cast<uint8_t>(flags); }
+    char get_msg_options(wire::MessageId msg_id) { return static_cast<char>(core::at(message_flags_, core::to_underlying(msg_id))); }
+    void set_msg_options(wire::MessageId msg_id, char flags) { core::at(message_flags_, core::to_underlying(msg_id)) = static_cast<uint8_t>(flags); }
     // 0x004549A0 / 0x004549B0: the online state machine's state (0x00533810: 0-8; 5 at first).
     int get_dialup_status() { return dialup_phase_; }
     void set_dialup_status(int state) { dialup_phase_ = state; }

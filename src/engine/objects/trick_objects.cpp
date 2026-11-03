@@ -651,7 +651,7 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
             online::PlayerRecord* thief = net->find_player_slot_by_obj(static_cast<uint16_t>(player));
             stolen_desc.set_content(stolen_data.data());
             stolen_desc.set_byte_count(sizeof(stolen_data));
-            stolen_desc.set_ident(online::kMsgTagStolen);
+            stolen_desc.set_ident(online::MessageId::kTagStolen);
             server->put_on_outbox(thief->get_link_handle(), &stolen_desc);
             if (online::PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(victim)))
                 server->put_on_outbox(info->get_link_handle(), &desc); // (not stolen_desc: as the original)
@@ -672,24 +672,24 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
         online::write_trick_objects(writer, *all);
         desc.set_content(data.data());
         desc.set_byte_count(static_cast<uint16_t>(writer.position()));
-        desc.set_ident(online::kMsgTrickObjects);
+        desc.set_ident(online::MessageId::kTrickObjects);
         desc.set_queue(net::NetMessageInfo::kLaneOrdered);
-        desc.set_group_id(online::kGroupGame);
+        desc.set_group_id(online::MessageGroup::kGame);
         for (online::PlayerRecord* info = net->begin_player_walk(&search, false); info;
              info = net->step_player_walk(&search, false))
             server->send_bulk_message(info->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()}, data.data(),
-                                      "TrickObj Buffer", online::kGroupGame, true, false);
+                                      "TrickObj Buffer", online::MessageGroup::kGame, true, false);
 
         util::ByteWriter observed_writer(data.data(), sizeof(data));
         online::write_observed_trick_objects(observed_writer, *all);
         desc.set_content(data.data());
         desc.set_byte_count(static_cast<uint16_t>(observed_writer.position()));
-        desc.set_ident(online::kMsgObservedTrickObjects);
+        desc.set_ident(online::MessageId::kObservedTrickObjects);
         for (online::PlayerRecord* info = net->begin_player_walk(&search, true); info;
              info = net->step_player_walk(&search, true)) {
             if (info->is_observer())
                 server->send_bulk_message(info->get_link_handle(), {.msg_id_ = desc.ident(), .size = desc.byte_count()}, data.data(),
-                                          "TrickObj Buffer", online::kGroupGame, true, false);
+                                          "TrickObj Buffer", online::MessageGroup::kGame, true, false);
         }
         static_cast<modules::Skate*>(skate)->broadcast_points(false);
         if (conn->is_host_local()) // (no null check: as the original)
