@@ -30,7 +30,6 @@
 #include "engine/objects/car_physics.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/objects/node_components.h"
-#include "game/rider/core_physics.h"
 #include "game/rider/skater_sound.h"
 #include "engine/objects/movable_contact.h"
 #include "game/rider/skater_state.h"

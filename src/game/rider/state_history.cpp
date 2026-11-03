@@ -27,7 +27,6 @@
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
 #include "game/rider/core_physics.h"
-#include "game/rider/state_history.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_score.h"

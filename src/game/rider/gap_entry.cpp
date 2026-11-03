@@ -32,7 +32,6 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
-#include "game/rider/gap_entry.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/trick_component.h"
 #include "game/rider/walk_physics.h"

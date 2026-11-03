@@ -38,7 +38,6 @@
 #include "engine/script/struct_buffer.h"
 #include "engine/gfx/loading_console.h"
 #include "engine/gfx/engine.h"
-#include "engine/objects/cutscene.h"
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/checked_index.h"

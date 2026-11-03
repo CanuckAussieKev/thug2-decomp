@@ -21,7 +21,6 @@
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
-#include "engine/objects/entity_hub.h"
 #include "engine/core/down_cast.h"
 
 namespace objects {

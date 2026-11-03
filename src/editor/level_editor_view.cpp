@@ -37,7 +37,6 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 #include "engine/render/coll_obj.h"
-#include <span>
 
 namespace frontend::level_editor::view {
 

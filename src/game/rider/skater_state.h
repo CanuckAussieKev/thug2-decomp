@@ -4,8 +4,6 @@
 #include <cstdint>
 
 #include "engine/maths/mat4.h"
-#include "engine/maths/mat4.h"
-#include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
 #include "engine/core/checked_index.h"

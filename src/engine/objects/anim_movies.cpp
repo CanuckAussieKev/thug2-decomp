@@ -28,7 +28,6 @@
 #include "engine/objects/compositemgr.h"
 #include "frontend/front_end.h"
 #include "engine/gfx/viewport.h"
-#include "engine/gfx/viewport.h"
 #include "engine/objects/car_physics.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"

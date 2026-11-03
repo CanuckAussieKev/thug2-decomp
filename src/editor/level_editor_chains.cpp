@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <bit>
-#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstddef>

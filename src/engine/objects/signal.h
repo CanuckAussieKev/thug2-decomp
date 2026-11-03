@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
-#include <cstddef>
 #include <span>
 
 #include "engine/objects/smtptr.h"

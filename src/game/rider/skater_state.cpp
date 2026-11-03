@@ -18,7 +18,6 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
-#include "game/rider/state_history.h"
 #include "engine/objects/control_pad.h"
 #include "engine/core/checked_index.h"
 

@@ -6,7 +6,6 @@
 #include "engine/objects/entity.h"
 #include "wire/message_ids.h"
 #include "game/rider/skater_state.h"
-#include "game/rider/skater_state.h"
 #include <gsl/pointers>
 #include <array>
 

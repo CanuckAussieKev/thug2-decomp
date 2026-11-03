@@ -13,6 +13,8 @@ Checks:
   - 'modernize-*'
   - 'performance-*'
   - 'readability-identifier-naming'
+  # readability-* is turned on check by check as each reaches 0 (stage 10); the list becomes 'readability-*' at the end.
+  - 'readability-duplicate-include'
   - 'clang-analyzer-*'
 
   # --- off: they conflict with the project's decisions ---

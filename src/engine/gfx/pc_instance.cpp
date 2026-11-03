@@ -18,7 +18,6 @@
 #include "engine/gfx/geom.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/surface_material.h"
-#include "engine/gfx/surface_material.h"
 #include "engine/gfx/mesh_list.h"
 #include "engine/gfx/occlusion.h"
 #include "engine/gfx/pc_billboards.h"

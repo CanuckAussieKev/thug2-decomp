@@ -32,7 +32,6 @@
 #include "game/skate/skate_module.h"
 #include "game/rider/looping_sound.h"
 #include "platform/stopwatch.h"
-#include "engine/objects/entity_hub.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/checksums.h"

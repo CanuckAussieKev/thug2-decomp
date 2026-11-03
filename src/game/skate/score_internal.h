@@ -12,7 +12,6 @@
 #include "engine/objects/trick_objects.h"
 #include "game/skate/game_mode.h"
 #include "engine/script/param_struct.h"
-#include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"

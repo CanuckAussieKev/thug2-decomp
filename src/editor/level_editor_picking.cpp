@@ -11,7 +11,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <span>
 #include <vector>
 
 // NOT ORIGINAL - the level editor's picking rules (ours; level_editor_picking.h).

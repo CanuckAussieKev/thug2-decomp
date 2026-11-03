@@ -13,7 +13,6 @@
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/objects/entity.h"
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
 
