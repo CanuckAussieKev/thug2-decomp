@@ -40,7 +40,7 @@ constexpr float kMinDistance = 50.0f, kMaxDistance = 20000.0f;
 float clamp_distance(float d);
 // A node's angles for the editor's view (yaw / pitch as frame_from_yaw_pitch takes them), and back.
 V3 angles_for(float yaw, float pitch);
-void yaw_pitch_of(V3 angles, float* yaw, float* pitch);
+void yaw_pitch_of(V3 angles, YawPitchOut view);
 // Where it looks: the view direction of those angles.
 V3 get_forward(V3 angles);
 // The point looked at `distance` ahead, and the camera's place relative to it (virtual_cam's targetOffset /

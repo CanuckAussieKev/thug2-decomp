@@ -141,7 +141,7 @@ std::vector<std::string> carried_lines(const std::vector<std::string>& unresolve
 
 // The game's collision ray (static collision): the first face met from `from` to `to` (false: none) - where, its
 // normal, its collision object's checksum (0: none).
-bool get_cast(V3 from, V3 to, V3* hit, V3* normal = nullptr, uint32_t* sector = nullptr);
+bool get_cast(V3 from, V3 to, SurfaceOut surface, uint32_t* sector = nullptr);
 // The probes around a point (see the top): `reach` along each direction (probe_each: each its own).
 void probe_around(V3 point, float reach, std::span<Probe, 6> probes);
 void probe_each(V3 point, std::span<const float, 6> reach, std::span<Probe, 6> probes);

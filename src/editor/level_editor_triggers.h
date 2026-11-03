@@ -177,9 +177,15 @@ struct FaceDrag {
     float along{};
 };
 
+// A face resized: the trigger's new position and size.
+struct ResizedFace {
+    V3* new_pos_{};
+    V3* new_size_{};
+};
+
 // A handle dragged `along` units outwards (negative: inwards): the opposite face stays where it is - the size along
 // that axis grows by `along` (kept within clamp_size's limits) and the centre moves out by half of what it grew.
-void resize_face(V3 pos, float yaw, V3 size, FaceDrag face_drag, V3* new_pos, V3* new_size);
+void resize_face(V3 pos, float yaw, V3 size, FaceDrag face_drag, ResizedFace resized);
 
 // The compiled script: its statements (each ending with an end of line, 0x01) - e.g. StartGap GapID=x flags=[a, b]:
 // 16 <StartGap> 16 <GapID> 07 16 <x> 16 <flags> 07 05 16 <a> 09 16 <b> 06 01. Empty while Problem says why.

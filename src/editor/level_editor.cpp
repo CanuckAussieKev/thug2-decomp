@@ -121,8 +121,10 @@ TickCycle frame_from_yaw_pitch(float yaw, float pitch)
     return frame;
 }
 
-void yaw_pitch_from_back(V3 back, float* yaw, float* pitch)
+void yaw_pitch_from_back(V3 back, YawPitchOut view)
 {
+    auto* const yaw = view.yaw;
+    auto* const pitch = view.pitch;
     const V3 forward = make_unit(back * -1.0f);
     *yaw = static_cast<float>(std::atan2(static_cast<double>(forward.x), static_cast<double>(forward.z)));
     *pitch = static_cast<float>(std::asin(std::max(-1.0, std::min(1.0, static_cast<double>(forward.y)))));
@@ -138,8 +140,10 @@ V3 get_fly(V3 pos, const TickCycle& frame, const FlyInput& input, float distance
     return pos + make_unit(move) * distance;
 }
 
-void get_look(float* yaw, float* pitch, float dx, float dy, float radians_per_pixel)
+void get_look(YawPitchOut view, float dx, float dy, float radians_per_pixel)
 {
+    auto* const yaw = view.yaw;
+    auto* const pitch = view.pitch;
     constexpr float kLimit = 89.0f * 3.14159265f / 180.0f;
     // (yaw turns +z towards +x, which is to the left of a view along +z: right is -yaw)
     *yaw -= dx * radians_per_pixel;
@@ -1422,7 +1426,7 @@ void get_restore(UndoStep& step)
         scenery::clear_selection();
         drag_state().node_selected_ = false;
         if (step.reset)
-            layout::reset_level(&before, &message);
+            layout::reset_level({.before = &before, .message = &message});
         else
             layout::put_back(step.layout, &message);
         break;
@@ -2985,7 +2989,7 @@ void place_camera(gfx::ViewCam* camera)
         level_editor_state().saved_matrix_ = camera->basis_frame();
         level_editor_state().pos_ = {.x = camera->at_point().x, .y = camera->at_point().y, .z = camera->at_point().z};
         const maths::Vec4& back = core::at(camera->basis_frame().row, 2);
-        yaw_pitch_from_back({.x = back.x, .y = back.y, .z = back.z}, &level_editor_state().yaw_, &level_editor_state().pitch_);
+        yaw_pitch_from_back({.x = back.x, .y = back.y, .z = back.z}, {.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_});
         if (debug_enabled())
             get_log("level editor: camera %p at (%.1f, %.1f, %.1f), yaw %.1f, pitch %.1f degrees",
                     static_cast<void*>(camera), level_editor_state().pos_.x, level_editor_state().pos_.y, level_editor_state().pos_.z, level_editor_state().yaw_ * 180.0f / kPi,
@@ -4603,7 +4607,7 @@ void focus_on_selection()
     if (distance < 1.0f)
         return;
     level_editor_state().orbit_distance_ = std::max(kMinOrbit, std::min(kMaxOrbit, distance));
-    yaw_pitch_from_back(make_unit(back), &level_editor_state().yaw_, &level_editor_state().pitch_);
+    yaw_pitch_from_back(make_unit(back), {.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_});
 }
 
 // Occlusion for gizmos (level_editor_picking.h's gizmo_in_front): the first occluding surface under the cursor as a depth
@@ -4804,7 +4808,7 @@ void get_look_at(V3 target, float distance)
 {
     const TickCycle frame = frame_from_yaw_pitch(level_editor_state().yaw_, std::min(level_editor_state().pitch_, -0.35f));
     level_editor_state().pos_ = target + frame.back * distance;
-    yaw_pitch_from_back(make_unit(level_editor_state().pos_ - target), &level_editor_state().yaw_, &level_editor_state().pitch_);
+    yaw_pitch_from_back(make_unit(level_editor_state().pos_ - target), {.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_});
 }
 
 // A key's press (true once per press).
@@ -4971,7 +4975,7 @@ void reset_level_now()
     step.kind = UndoStep::Kind::kLevel;
     std::string message;
     pick_cycle().confirm_reset_ = false;
-    if (!layout::reset_level(&step.layout, &message)) {
+    if (!layout::reset_level({.before = &step.layout, .message = &message})) {
         hud::get_message(message, 4.0);
         return;
     }
@@ -5549,7 +5553,7 @@ void walk_frame(const Mouse& input, platform::KeyState keys, const ux8::Pad& pad
     const prefs::Values& prefs = prefs::get_pull();
     const float dx = input.rel_x_ + pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
     const float dy = input.rel_y_ - pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
-    get_look(&level_editor_state().yaw_, &level_editor_state().pitch_, dx, prefs.invert_y_ ? -dy : dy,
+    get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, dx, prefs.invert_y_ ? -dy : dy,
              kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0f);
     static bool g_jump_was;
     const bool jump_key = actions::get_held(keys, actions::kFlyUp);
@@ -5697,7 +5701,7 @@ void tick_frame()
         input.left_presses_ += pad.a_presses_;
         input.left_releases_ += pad.a_releases_;
         float cx = 0.0f, cy = 0.0f;
-        pad_cursor = ux8::get_pad_cursor(pad, input.rel_x_ != 0.0f || input.rel_y_ != 0.0f, &cx, &cy) && !input.right;
+        pad_cursor = ux8::get_pad_cursor(pad, input.rel_x_ != 0.0f || input.rel_y_ != 0.0f, {.x = &cx, .y = &cy}) && !input.right;
         if (pad_cursor) {
             input.x = cx;
             input.y = cy;
@@ -6032,7 +6036,7 @@ void tick_frame()
     set_relative(input.right || view_cam::get_orbiting());
     if (input.right) {
         const prefs::Values& prefs = prefs::get_pull(); // ([editor] look_pct, invert_y)
-        get_look(&level_editor_state().yaw_, &level_editor_state().pitch_, input.rel_x_, prefs.invert_y_ ? -input.rel_y_ : input.rel_y_,
+        get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, input.rel_x_, prefs.invert_y_ ? -input.rel_y_ : input.rel_y_,
                  kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0f);
     }
     const bool pad_sticks = pad.active && !ux8::pie_open();
@@ -6041,7 +6045,7 @@ void tick_frame()
         const prefs::Values& prefs = prefs::get_pull();
         const float px = pad.look_x_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
         const float py = -pad.look_y_ * kPadLookPixelsPerSecond * static_cast<float>(seconds);
-        get_look(&level_editor_state().yaw_, &level_editor_state().pitch_, px, prefs.invert_y_ ? -py : py,
+        get_look({.yaw = &level_editor_state().yaw_, .pitch = &level_editor_state().pitch_}, px, prefs.invert_y_ ? -py : py,
                  kLookRadiansPerPixel * static_cast<float>(prefs.look_pct_) / 100.0f);
     }
     view_cam::apply_orbit(rig_now());
@@ -7345,16 +7349,20 @@ bool get_ground(V3 from, V3* ground) { return ground_below(from, ground); }
 bool get_dragging() { return level_editor_state().active_ && drag_state().dragging_; }
 int drag_mode() { return static_cast<int>(drag_state().drag_mode_); }
 maths::Vec2 get_cursor() { return {.x = drag_state().cursor_x_, .y = drag_state().cursor_y_}; }
-bool get_ray(V3* origin, V3* dir)
+bool get_ray(RayOut ray)
 {
+    auto* const origin = ray.origin;
+    auto* const dir = ray.dir;
     if (!level_editor_state().active_ || !level_editor_state().last_have_ray_)
         return false;
     *origin = level_editor_state().pos_;
     *dir = level_editor_state().last_ray_;
     return true;
 }
-bool ground_mark(V3* base, V3* ground)
+bool ground_mark(GroundMark mark)
 {
+    auto* const base = mark.base;
+    auto* const ground = mark.ground;
     if (!drag_state().have_mark_ || !have_selection())
         return false;
     *base = drag_state().mark_base_;

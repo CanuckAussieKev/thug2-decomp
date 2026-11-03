@@ -75,7 +75,7 @@ void set_pad_mode(bool on); // (written to the ini)
 platform::KeyState pad_keys(platform::KeyState keys, const Pad& pad);
 // Whether the crosshair (the viewport's middle) is the cursor: since the controller was last used, the mouse hasn't
 // moved. `x`, `y`: where (window pixels).
-bool get_pad_cursor(const Pad& pad, bool mouse_moved, float* x, float* y);
+bool get_pad_cursor(const Pad& pad, bool mouse_moved, CursorOut cursor);
 // What the controller asks of the editor this frame, besides the mouse and keys: B (cancel), the turn / frame / undo
 // buttons (Actions::FireOff'ed here; a simulation stopped first - level_editor_playtest.h).
 bool pad_cancel(const Pad& pad);

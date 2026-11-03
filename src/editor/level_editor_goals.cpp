@@ -689,9 +689,17 @@ int index_of_goal_id(const std::string& id)
     return -1;
 }
 
+// Which goal a node belongs to and which of its points it is.
+struct GoalPoint {
+    int* goal{};
+    int* point{};
+};
+
 // The goal and point a node is (false: not one of ours).
-bool point_of(uint32_t node, int* goal, int* point)
+bool point_of(uint32_t node, GoalPoint goal_point)
 {
+    auto* const goal = goal_point.goal;
+    auto* const point = goal_point.point;
     for (size_t i = 0; i < level_editor_goals_state().goals_.size(); ++i) {
         for (size_t k = 0; k < core::at(level_editor_goals_state().goals_, i).points.size(); ++k) {
             if (get_checksums(point_node(core::at(level_editor_goals_state().goals_, i), static_cast<int>(k))) == node) {
@@ -1101,7 +1109,7 @@ std::vector<Goal> get_all()
 bool is_goal_point(uint32_t node)
 {
     int goal = 0, point = 0;
-    return point_of(node, &goal, &point);
+    return point_of(node, {.goal = &goal, .point = &point});
 }
 
 bool fabricate(KindTag type)
@@ -1364,7 +1372,7 @@ int get_missing(const std::string& id)
 bool point_of_node(uint32_t node, std::string* id, int* point)
 {
     int goal = 0;
-    if (!point_of(node, &goal, point))
+    if (!point_of(node, {.goal = &goal, .point = point}))
         return false;
     *id = core::at(level_editor_goals_state().goals_, goal).id;
     return true;

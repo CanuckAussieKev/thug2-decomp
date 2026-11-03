@@ -1609,8 +1609,10 @@ bool enter_edited_copy(std::string* message)
     return true;
 }
 
-bool reset_level(std::string* before, std::string* message)
+bool reset_level(ResetText reset_text)
 {
+    auto* const before = reset_text.before;
+    auto* const message = reset_text.message;
     FileLoad file;
     if (!get_capture(&file)) {
         *message = "Not in a level";

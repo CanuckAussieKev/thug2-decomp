@@ -122,8 +122,10 @@ float path_length(const std::vector<V3>& points, bool closed)
     return total;
 }
 
-bool path_sample(const std::vector<V3>& points, bool closed, float distance, V3* pos, V3* dir)
+bool path_sample(const std::vector<V3>& points, bool closed, float distance, RayOut sample)
 {
+    auto* const pos = sample.origin;
+    auto* const dir = sample.dir;
     const float total = path_length(points, closed);
     if (points.size() < 2 || !(total > 0.0f))
         return false;
@@ -881,7 +883,7 @@ void preview_place(float distance)
 {
     objects::GameEntity* object = live_object(entity_preview().preview_.id);
     V3 pos{}, dir{};
-    if (!object || !path_sample(entity_preview().preview_.points, entity_preview().preview_.closed, distance, &pos, &dir))
+    if (!object || !path_sample(entity_preview().preview_.points, entity_preview().preview_.closed, distance, {.origin = &pos, .dir = &dir}))
         return;
     object_edit::get_place(object, pos);
     if (dir.x != 0.0f || dir.z != 0.0f)

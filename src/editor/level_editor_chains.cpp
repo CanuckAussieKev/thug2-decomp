@@ -2566,8 +2566,10 @@ namespace {
 // The game's collision ray (as level_editor.cpp's: a ProbeRay, 0x00417760 / 0x00417710; the hit's normal at +0x24, its
 // point at +0x34, the collision object hit at +0x54 and its checksum - the scenery piece's - at +0x58, as
 // level_editor_scenery.cpp's cast_static reads them).
-bool cast_ray(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
+bool cast_ray(V3 from, V3 to, SurfaceOut surface, uint32_t* sector = nullptr)
 {
+    auto* const hit = surface.point;
+    auto* const normal = surface.normal;
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
@@ -2587,7 +2589,7 @@ bool cast_ray(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
 bool ground_below(V3 at, float* ground_y)
 {
     V3 h{}, n{};
-    if (!cast_ray(at, {.x = at.x, .y = at.y - 70.0f, .z = at.z}, &h, &n))
+    if (!cast_ray(at, {.x = at.x, .y = at.y - 70.0f, .z = at.z}, {.point = &h, .normal = &n}))
         return false;
     *ground_y = h.y;
     return true;
@@ -2602,7 +2604,7 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
         return false;
     if (!level_editor_chains_state().ladder_have_foot_) {
         V3 hit{}, normal{};
-        if (!cast_ray(from, from + dir * max_t, &hit, &normal)) {
+        if (!cast_ray(from, from + dir * max_t, {.point = &hit, .normal = &normal})) {
             *message = "Click on a wall";
             return false;
         }
@@ -2649,7 +2651,7 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
 {
     *end = 0;
     V3 hit{}, normal{};
-    if (!cast_ray(from, from + dir * max_t, &hit, &normal, &level_editor_chains_state().snap_sector_))
+    if (!cast_ray(from, from + dir * max_t, {.point = &hit, .normal = &normal}, &level_editor_chains_state().snap_sector_))
         return false;
     *point = hit;
     if (!free) {
@@ -2658,7 +2660,7 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
             hit, normal, 32.0f,
             [](V3 at, float* ground_y) {
                 V3 h{}, n{};
-                if (!cast_ray(at, {.x = at.x, .y = at.y - 60.0f, .z = at.z}, &h, &n))
+                if (!cast_ray(at, {.x = at.x, .y = at.y - 60.0f, .z = at.z}, {.point = &h, .normal = &n}))
                     return false;
                 *ground_y = h.y;
                 return true;

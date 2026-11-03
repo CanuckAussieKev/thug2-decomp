@@ -149,7 +149,7 @@ void render()
         return;
     // Window pixels -> back buffer pixels (the same unless the window shows a back buffer of another size).
     int back_width = 0, back_height = 0;
-    back_buffer_size(&back_width, &back_height);
+    back_buffer_size({.width = &back_width, .height = &back_height});
     if (back_width <= 0 || back_height <= 0 || data->DisplaySize.x <= 0.0f || data->DisplaySize.y <= 0.0f)
         return;
     const float sx = static_cast<float>(back_width) / data->DisplaySize.x;
@@ -226,8 +226,10 @@ void window_size(int* width, int* height)
         SDL_GetWindowSize(window, width, height);
 }
 
-void back_buffer_size(int* width, int* height)
+void back_buffer_size(SizeOut size)
 {
+    auto* const width = size.width;
+    auto* const height = size.height;
     *width = render::renderer().back_buffer_width();
     *height = render::renderer().back_buffer_height();
 }

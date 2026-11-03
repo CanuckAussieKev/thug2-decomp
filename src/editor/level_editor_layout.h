@@ -320,11 +320,17 @@ std::string level_title();
 // Entering the editor: the level becomes its edited copy - its saved layout put in place first if it wasn't (false,
 // `message` why: not in a level, or a network session - the editor doesn't start).
 bool enter_edited_copy(std::string* message);
+// What a level reset reports: the state before it and its message.
+struct ResetText {
+    std::string* before{};
+    std::string* message{};
+};
+
 // Reset level: everything the editor changed in this level put back as the level has it (moved scenery, objects,
 // rails, nodes; hidden things shown; copies and added nodes removed), and the saved layout and its autosave deleted.
 // `before`: the layout as it was (Write's text) - put_back puts it in place again (undo, this session; the files stay
 // deleted until saved again). False: not in a level.
-bool reset_level(std::string* before, std::string* message);
+bool reset_level(ResetText reset_text);
 bool put_back(const std::string& before, std::string* message);
 // The level's changes as they are now, as a layout's text (false: not in a level) - redo of an undone reset.
 bool capture_text(std::string* text);

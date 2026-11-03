@@ -74,7 +74,7 @@ float ortho_angle(OrthoAngle ortho);
 // The near plane for that eye (the default 2 when not ortho): 40% of the way to the pivot.
 float ortho_near(float equivalent);
 // An axis view's heading: yaw and pitch (top / bottom at +-89 degrees, the most the editor's frame takes).
-void axis_yaw_pitch(View view, float* yaw, float* pitch);
+void axis_yaw_pitch(View view, YawPitchOut out_view);
 const char* view_name(View view);
 
 // Camera bookmarks: nine a level, as their file's text (one line each: `<n> x y z yaw pitch view equivalent`, n 1..9;

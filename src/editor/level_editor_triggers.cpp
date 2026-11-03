@@ -465,8 +465,10 @@ V3 handle_point(V3 pos, float yaw, V3 size, int handle)
     return pos + handle_direction({.yaw = yaw, .handle = handle}) * half;
 }
 
-void resize_face(V3 pos, float yaw, V3 size, FaceDrag face_drag, V3* new_pos, V3* new_size)
+void resize_face(V3 pos, float yaw, V3 size, FaceDrag face_drag, ResizedFace resized)
 {
+    auto* const new_pos = resized.new_pos_;
+    auto* const new_size = resized.new_size_;
     const auto handle = face_drag.handle;
     const auto along = face_drag.along;
     const int axis = (handle >> 1) % 3;
@@ -1445,10 +1447,18 @@ bool is_sector_enabled(uint32_t checksum)
     return sector && sector->is_operative();
 }
 
+// Where a breakable goes: its position and its size.
+struct BreakPlace {
+    V3* pos{};
+    V3* size{};
+};
+
 // A breakable's box: the piece's box where it is now (axis-aligned), grown 6 each way so the skater meets it before
 // the piece (false: the piece isn't there).
-bool break_place(const Spec& spec, V3* pos, V3* size)
+bool break_place(const Spec& spec, BreakPlace place)
 {
+    auto* const pos = place.pos;
+    auto* const size = place.size;
     const uint32_t piece = checksum_of(spec.target);
     OrientedBox box{};
     if (!piece || !scenery::cuboid(piece, &box))
@@ -1589,7 +1599,7 @@ void get_sync()
         if (spec.kind == Kind::kBreak && a.alive) {
             // (its box is its piece's, wherever the piece is now; none while the piece is gone)
             V3 pos{}, size{};
-            if (break_place(spec, &pos, &size)) {
+            if (break_place(spec, {.pos = &pos, .size = &size})) {
                 a.pos = pos;
                 a.yaw = 0.0f;
                 a.spec.size = size;
@@ -2795,7 +2805,7 @@ void rescale(V3 origin, V3 dir, bool snap)
     if (snap)
         along = snap_to_grid(size0 + along, 25.0f) - size0;
     V3 pos{}, size{};
-    resize_face(resize_drag().pos0, resize_drag().yaw, resize_drag().size0, {.handle = resize_drag().handle, .along = along}, &pos, &size);
+    resize_face(resize_drag().pos0, resize_drag().yaw, resize_drag().size0, {.handle = resize_drag().handle, .along = along}, {.new_pos_ = &pos, .new_size_ = &size});
     if (resize_drag().proxim) {
         // (a proximity node: a sphere's radius grows by what the face moved, about its middle; a box as a trigger's -
         // its middle kept as an offset from the node)
@@ -2988,7 +2998,7 @@ std::vector<Placed> capture_added()
         if (!node_alive(spec.name) || !node_place(spec.name, &p.pos, &p.yaw))
             continue;
         V3 pos{}, size{};
-        if (spec.kind == Kind::kBreak && break_place(spec, &pos, &size)) {
+        if (spec.kind == Kind::kBreak && break_place(spec, {.pos = &pos, .size = &size})) {
             // (a breakable's box is its piece's where it is now - what the bake makes)
             p.pos = pos;
             p.yaw = 0.0f;
@@ -3120,7 +3130,7 @@ void set_breakable(uint32_t sector, bool on)
         p.spec.target = name_for(sector, script::kept_qb_name(sector));
         p.spec.sound = break_sounds().front();
         p.spec.replaces = sector; // (its collision off while it's breakable: the skater goes into it, as into glass)
-        if (!break_place(p.spec, &p.pos, &p.spec.size)) {
+        if (!break_place(p.spec, {.pos = &p.pos, .size = &p.spec.size})) {
             hud::get_message("Piece has no bounds", 4.0);
             return;
         }

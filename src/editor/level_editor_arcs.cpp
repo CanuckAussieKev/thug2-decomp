@@ -394,8 +394,10 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
 // The game's collision ray (a ProbeRay: constructor 0x00417760, cast 0x00417710 - static collision only, ignoring
 // faces flagged 0x10 as every feeler does; the hit's normal at +0x24, its point at +0x34, the collision object hit
 // at +0x54 and its checksum at +0x58).
-bool cast_feeler(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
+bool cast_feeler(V3 from, V3 to, SurfaceOut surface, uint32_t* sector)
 {
+    auto* const hit = surface.point;
+    auto* const normal = surface.normal;
     render::ProbeRay ray_storage;
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0f};
@@ -480,7 +482,7 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
             uint32_t* landed_on = &core::at(arcs.landed_on_, i);
             // (from just off the lip: 2 units up, so the lip's own edge isn't the first thing met)
             core::at(arcs.flights, i) = get_fly(lip.point + V3{.x = 0.0f, .y = 2.0f, .z = 0.0f}, v, {.gravity = physics_state().air_gravity_, .dt = 1.0f / 60.0f, .max_time_ = 6.0f, .skip = 1.0f / 60.0f}, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
-                                          return cast_feeler(from, to, hit, normal, landed_on);
+                                          return cast_feeler(from, to, {.point = hit, .normal = normal}, landed_on);
                                       });
         }
         cache().arcs.push_back(arcs);

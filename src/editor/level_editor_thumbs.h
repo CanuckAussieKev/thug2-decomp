@@ -59,8 +59,8 @@ public:
 };
 inline uint64_t get_key(int tab, uint32_t id) { return (static_cast<uint64_t>(tab + 1) << 32) | id; }
 // A cell's place in the atlas (pixels) and its uv rectangle.
-void cell_rect(int cell, int* x, int* y);
-void cell_uv(int cell, float* u0, float* v0, float* u1, float* v1);
+void cell_rect(int cell, CornerOut corner);
+void cell_uv(int cell, UvOut uv);
 
 // The lists' entries: "s:0000ABCD" (scenery: a sector's checksum) / "o:0000ABCD" (an object's id).
 std::string get_entry_name(int tab, uint32_t id);

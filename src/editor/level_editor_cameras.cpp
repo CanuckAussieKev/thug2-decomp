@@ -92,8 +92,10 @@ float clamp_distance(float d)
 // sin pitch, cos yaw cos pitch): x = -pitch, y = yaw.
 V3 angles_for(float yaw, float pitch) { return {.x = -pitch, .y = yaw, .z = 0.0f}; }
 
-void yaw_pitch_of(V3 angles, float* yaw, float* pitch)
+void yaw_pitch_of(V3 angles, YawPitchOut view)
 {
+    auto* const yaw = view.yaw;
+    auto* const pitch = view.pitch;
     *yaw = angles.y;
     *pitch = -angles.x;
 }
@@ -126,7 +128,7 @@ void frustum_corners(CameraPlace camera_place, float tan_x, float tan_y, float d
     const auto pos = camera_place.pos;
     const auto angles = camera_place.angles;
     float yaw = 0.0f, pitch = 0.0f;
-    yaw_pitch_of(angles, &yaw, &pitch);
+    yaw_pitch_of(angles, {.yaw = &yaw, .pitch = &pitch});
     const TickCycle f = frame_from_yaw_pitch(yaw, pitch);
     const V3 centre = pos - f.back * depth;
     const V3 right = f.right * (tan_x * depth);
@@ -323,7 +325,7 @@ void keep_offsets(const ViewCam& c)
 bool look_through(const ViewCam& c)
 {
     float yaw = 0.0f, pitch = 0.0f;
-    yaw_pitch_of(c.angles, &yaw, &pitch);
+    yaw_pitch_of(c.angles, {.yaw = &yaw, .pitch = &pitch});
     look_from(c.pos, {.yaw = yaw, .pitch = pitch});
     hud::get_message("Viewing through " + c.name);
     return true;
@@ -366,9 +368,17 @@ double get_now() { return std::chrono::duration<double>(std::chrono::steady_cloc
 
 using Function = bool (*)(script::Struct*, script::Script*);
 
+// A camera shot's offsets: its target's and its position's.
+struct ShotOffsets {
+    V3* target{};
+    V3* position{};
+};
+
 // The offsets of the camera `name` (false: no such node).
-bool shot_offsets(uint32_t name, V3* target, V3* position)
+bool shot_offsets(uint32_t name, ShotOffsets offsets)
 {
+    auto* const target = offsets.target;
+    auto* const position = offsets.position;
     const std::vector<ViewCam> all = get_all();
     if (const ViewCam* c = get_find(all, name)) {
         *target = target_of(c->pos, c->angles, c->distance);
@@ -409,7 +419,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     if (live_now())
         return false; // (the editor's own camera; Look through previews a camera there)
     V3 target{}, position{};
-    if (!shot_offsets(name, &target, &position)) {
+    if (!shot_offsets(name, {.target = &target, .position = &position})) {
         get_log("level editor: LevelEditor_PlayCamera - no node %s", nodes::caption(name).c_str());
         return false;
     }
@@ -629,7 +639,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         // (its up: a small triangle over the top edge; what it looks at: a line to the target and a cross there)
         const V3 top = (core::at(corners, 0) + core::at(corners, 1)) * 0.5f;
         float yaw = 0.0f, pitch = 0.0f;
-        yaw_pitch_of(c.angles, &yaw, &pitch);
+        yaw_pitch_of(c.angles, {.yaw = &yaw, .pitch = &pitch});
         const V3 up = frame_from_yaw_pitch(yaw, pitch).up * 30.0f;
         line(core::at(corners, 0) * 0.75f + core::at(corners, 1) * 0.25f, top + up, colour, thickness);
         line(core::at(corners, 1) * 0.75f + core::at(corners, 0) * 0.25f, top + up, colour, thickness);
@@ -653,7 +663,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (!ImGui::CollapsingHeader("Camera###camera", ImGuiTreeNodeFlags_DefaultOpen))
         return;
     float yaw = 0.0f, pitch = 0.0f;
-    yaw_pitch_of(c->angles, &yaw, &pitch);
+    yaw_pitch_of(c->angles, {.yaw = &yaw, .pitch = &pitch});
     float pitch_degrees = pitch * 180.0f / kPi;
     ImGui::PushFont(mono);
     ImGui::SetNextItemWidth(160.0f * ImGui::GetFontSize() / 13.0f);

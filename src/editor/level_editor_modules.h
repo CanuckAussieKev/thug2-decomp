@@ -175,8 +175,14 @@ bool get_ground(V3 from, V3* ground);
 bool get_dragging();
 int drag_mode(); // (xform::Mode)
 maths::Vec2 get_cursor();
-bool get_ray(V3* origin, V3* dir);
-bool ground_mark(V3* base, V3* ground);
+bool get_ray(RayOut ray);
+// A mark on the ground: the point it stands on and where the ground is.
+struct GroundMark {
+    V3* base{};
+    V3* ground{};
+};
+
+bool ground_mark(GroundMark mark);
 // The camera's yaw (radians; the heading new things face).
 float get_yaw();
 // The Add palette (B): open, its tab (0 scenery, 1 objects) and highlighted item's id; a copy of it placed at `at`

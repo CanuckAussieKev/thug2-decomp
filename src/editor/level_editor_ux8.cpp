@@ -387,8 +387,10 @@ platform::KeyState pad_keys(platform::KeyState keys, const Pad& pad)
     return merged;
 }
 
-bool get_pad_cursor(const Pad& pad, bool mouse_moved, float* x, float* y)
+bool get_pad_cursor(const Pad& pad, bool mouse_moved, CursorOut cursor)
 {
+    auto* const x = cursor.x;
+    auto* const y = cursor.y;
     if (!pad.active) {
         level_editor_ux8_state().pad_owns_ = false;
         return false;

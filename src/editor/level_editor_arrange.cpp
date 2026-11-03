@@ -1299,7 +1299,7 @@ void get_marker(const Painter& p, V3 at, MarkerLook marker_look)
 bool surface_normal(V3* normal)
 {
     V3 origin{}, dir{};
-    if (!edit::get_ray(&origin, &dir))
+    if (!edit::get_ray({.origin = &origin, .dir = &dir}))
         return false;
     snap::SurfaceHit hit;
     if (!snap::get_surface(origin, make_unit(dir), 30000.0f, {}, &hit))
@@ -1333,7 +1333,7 @@ void add_ghost(const Painter& p)
     if (!at_hand().ghost || edit::get_dragging())
         return;
     V3 origin{}, dir{};
-    if (!edit::get_ray(&origin, &dir))
+    if (!edit::get_ray({.origin = &origin, .dir = &dir}))
         return;
     int tab = 0;
     uint32_t id = 0;
@@ -1380,7 +1380,7 @@ void add_readout(const Painter& p)
     const V3 moved = edit::get_pos() - arrange_drag().drag_from_;
     r.moved = std::sqrt(get_dot(moved, moved));
     V3 base{}, ground{};
-    if (edit::ground_mark(&base, &ground)) {
+    if (edit::ground_mark({.base = &base, .ground = &ground})) {
         r.have_ground_ = true;
         r.above = base.y - ground.y;
     }

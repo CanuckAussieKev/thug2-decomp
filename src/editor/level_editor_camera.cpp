@@ -104,8 +104,10 @@ float ortho_angle(OrthoAngle ortho)
 
 float ortho_near(float equivalent) { return eye_distance(equivalent) * 0.4f; }
 
-void axis_yaw_pitch(View view, float* yaw, float* pitch)
+void axis_yaw_pitch(View view, YawPitchOut out_view)
 {
+    auto* const yaw = out_view.yaw;
+    auto* const pitch = out_view.pitch;
     *yaw = 0.0f;
     *pitch = 0.0f;
     switch (view) {
@@ -462,7 +464,7 @@ void apply_orbit(const Rig& rig)
     const float sensitivity = 0.0035f * static_cast<float>(prefs.look_pct_) / 100.0f;
     const float dy = prefs.invert_y_ ? -level_editor_camera_state().orbit_.dy : level_editor_camera_state().orbit_.dy;
     const TickCycle before = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
-    get_look(rig.yaw, rig.pitch, level_editor_camera_state().orbit_.dx, dy, sensitivity);
+    get_look({.yaw = rig.yaw, .pitch = rig.pitch}, level_editor_camera_state().orbit_.dx, dy, sensitivity);
     level_editor_camera_state().orbit_.dx = level_editor_camera_state().orbit_.dy = 0.0f;
     const int wheel = level_editor_camera_state().orbit_.wheel;
     level_editor_camera_state().orbit_.wheel = 0;
@@ -577,7 +579,7 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
         const V3 d = pivot - *rig.pos;
         const float equivalent = ortho() ? stored_ortho().equivalent : std::clamp(std::sqrt(get_dot(d, d)), 200.0f, 20000.0f);
         float yaw = 0.0f, pitch = 0.0f;
-        axis_yaw_pitch(view, &yaw, &pitch);
+        axis_yaw_pitch(view, {.yaw = &yaw, .pitch = &pitch});
         enter_ortho(rig, view, yaw, pitch, pivot, equivalent);
     }
 }

@@ -249,7 +249,7 @@ bool view_point(V3* point)
     const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
     const V3 dir = make_unit(frame.back * -1.0f);
     V3 hit{};
-    if (checks::get_cast(view.pos, view.pos + dir * 20000.0f, &hit))
+    if (checks::get_cast(view.pos, view.pos + dir * 20000.0f, {.point = &hit}))
         *point = hit;
     else
         *point = view.pos + dir * 800.0f;

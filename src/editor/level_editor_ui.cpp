@@ -1729,7 +1729,7 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     level_editor_ui_state().layout_ = ui_layout::compute({.width = io.DisplaySize.x, .height = io.DisplaySize.y}, level_editor_ui_state().scale_, true, true);
     // The lines and gizmos under the panels (back buffer pixels to the window's).
     int back_width = 0, back_height = 0;
-    ui_backend::back_buffer_size(&back_width, &back_height);
+    ui_backend::back_buffer_size({.width = &back_width, .height = &back_height});
     const float sx = back_width > 0 ? io.DisplaySize.x / static_cast<float>(back_width) : 1.0f;
     const float sy = back_height > 0 ? io.DisplaySize.y / static_cast<float>(back_height) : 1.0f;
     ImDrawList* background = ImGui::GetBackgroundDrawList();

@@ -76,7 +76,7 @@ V3 pin_anchor_point(const std::vector<V3>& places);
 // it (wrapping past the end: back to the start) with the direction it heads there. False: fewer than 2 points or no
 // length.
 float path_length(const std::vector<V3>& points, bool closed);
-bool path_sample(const std::vector<V3>& points, bool closed, float distance, V3* pos, V3* dir);
+bool path_sample(const std::vector<V3>& points, bool closed, float distance, RayOut sample);
 // Miles an hour in the game's units (inches) a second: 1 mph = 17.6 in/s.
 inline float mph_to_units(float mph) { return mph * 17.6f; }
 // The limits the editor accepts (the Inspector's fields clamp to them; a layout record outside them is refused).

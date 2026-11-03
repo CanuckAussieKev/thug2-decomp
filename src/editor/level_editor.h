@@ -226,6 +226,34 @@ struct PaneArea {
     float width;
     float height;
 };
+// Where results go: a yaw and a pitch, a ray's origin and direction, a hit point and its normal.
+struct YawPitchOut {
+    float* yaw{};
+    float* pitch{};
+};
+struct RayOut {
+    V3* origin{};
+    V3* dir{};
+};
+struct CursorOut {
+    float* x{};
+    float* y{};
+};
+struct CornerOut {
+    int* x{};
+    int* y{};
+};
+// (a cell's texture coordinates: left, top, right, bottom)
+struct UvOut {
+    float* x0{};
+    float* y0{};
+    float* x1{};
+    float* y1{};
+};
+struct SurfaceOut {
+    V3* point{};
+    V3* normal{};
+};
 // The overlays' near depth and the selected one (a node or an item).
 struct OverlayPick {
     float near_z_{};
@@ -262,7 +290,7 @@ struct TickCycle {
 // up = back x right.
 TickCycle frame_from_yaw_pitch(float yaw, float pitch);
 // The yaw and pitch of a frame's view direction (-back).
-void yaw_pitch_from_back(V3 back, float* yaw, float* pitch);
+void yaw_pitch_from_back(V3 back, YawPitchOut view);
 
 // The fly keys this frame: each -1, 0 or 1 (forward/back, right/left, up/down).
 struct FlyInput {
@@ -272,7 +300,7 @@ struct FlyInput {
 V3 get_fly(V3 pos, const TickCycle& frame, const FlyInput& input, float distance);
 // Mouse look: the yaw / pitch turned by a mouse movement (pixels; right turns right, up looks up), pitch kept within
 // +-89 degrees.
-void get_look(float* yaw, float* pitch, float dx, float dy, float radians_per_pixel);
+void get_look(YawPitchOut view, float dx, float dy, float radians_per_pixel);
 
 // The projection as the renderer sets it (render::choose_camera 0x004DB200: D3DX's look-at and perspective, the view's width at
 // the near plane 4 tan(angle / 2) and its height that / (aspect * 0.90909094)): tangents of the half-angles.

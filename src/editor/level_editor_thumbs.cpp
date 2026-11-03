@@ -28,6 +28,7 @@
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
 #include "engine/core/packed_colour.h"
+#include "editor/level_editor.h"
 
 namespace frontend::level_editor::thumbs {
 
@@ -78,17 +79,23 @@ void CellCache::get_clear()
     std::ranges::fill(drawn_, 0);
 }
 
-void cell_rect(int cell, int* x, int* y)
+void cell_rect(int cell, CornerOut corner)
 {
+    auto* const x = corner.x;
+    auto* const y = corner.y;
     constexpr int kPerRow = kAtlasPixels / kCellPixels;
     *x = (cell % kPerRow) * kCellPixels;
     *y = (cell / kPerRow) * kCellPixels;
 }
 
-void cell_uv(int cell, float* u0, float* v0, float* u1, float* v1)
+void cell_uv(int cell, UvOut uv)
 {
+    auto* const u0 = uv.x0;
+    auto* const v0 = uv.y0;
+    auto* const u1 = uv.x1;
+    auto* const v1 = uv.y1;
     int x = 0, y = 0;
-    cell_rect(cell, &x, &y);
+    cell_rect(cell, {.x = &x, .y = &y});
     constexpr auto kSize = static_cast<float>(kAtlasPixels);
     *u0 = static_cast<float>(x) / kSize;
     *v0 = static_cast<float>(y) / kSize;
@@ -268,7 +275,7 @@ void tick_cycle(const ui::ShapeMesh& model)
         if (failed != failed_state().end() && level_editor_thumbs_state().frame_ - failed->second < 300)
             continue;
         int x = 0, y = 0;
-        cell_rect(cell, &x, &y);
+        cell_rect(cell, {.x = &x, .y = &y});
         if (!ui_backend::begin_atlas_cell(kAtlasPixels, x, y, kCellPixels, colour::Packed{kBackground}))
             return; // (no atlas: logged once by the backend)
         const int tab = static_cast<int>(key >> 32) - 1;
@@ -555,7 +562,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 wanted.push_back(key);
                 if (c >= 0 && texture && core::at(cells_state().drawn(), c)) {
                     float u0 = 0.0f, v0 = 0.0f, u1 = 0.0f, v1 = 0.0f;
-                    cell_uv(c, &u0, &v0, &u1, &v1);
+                    cell_uv(c, {.x0 = &u0, .y0 = &v0, .x1 = &u1, .y1 = &v1});
                     draw->AddImage(static_cast<ImTextureID>(texture), a, b, ImVec2(u0, v0), ImVec2(u1, v1));
                 } else {
                     draw->AddRectFilled(a, b, IM_COL32(42, 44, 48, 255));

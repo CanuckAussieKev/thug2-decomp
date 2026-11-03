@@ -261,8 +261,10 @@ std::vector<std::string> carried_lines(const std::vector<std::string>& unresolve
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
-bool get_cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
+bool get_cast(V3 from, V3 to, SurfaceOut surface, uint32_t* sector)
 {
+    auto* const hit = surface.point;
+    auto* const normal = surface.normal;
     // (a ProbeRay: constructor 0x00417760; 0x00417710 casts it - thiscall, true on a hit; the hit's normal at +0x24, its
     // point at +0x34, the collision object at +0x54 and its checksum at +0x58 - as the editor's other modules read it)
     render::ProbeRay ray_storage;
@@ -295,12 +297,12 @@ void probe_each(V3 point, std::span<const float, 6> reach, std::span<Probe, 6> p
         const V3 far = point + core::at(kDirections, i) * core::at(reach, i);
         V3 hit{};
         core::at(probes, i) = {};
-        if (get_cast(point, far, &hit))
+        if (get_cast(point, far, {.point = &hit}))
             core::at(probes, i).out = span_to(hit, point);
         // Coming back in: the face facing away nearest to the point - the last met on the way in (cast again from just
         // past each hit; a few at most).
         V3 from = far;
-        for (int step = 0; step < 6 && get_cast(from, point, &hit); ++step) {
+        for (int step = 0; step < 6 && get_cast(from, point, {.point = &hit}); ++step) {
             core::at(probes, i).in = span_to(hit, point);
             const V3 on = hit + (point - far) * (0.5f / core::at(reach, i)); // (half a unit on, towards the point)
             if (span_to(on, point) < 0.5f)
@@ -456,7 +458,7 @@ const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
     placed.place = get_judge(probes);
     placed.up_in_ = core::at(probes, 2).in;
     V3 hit{};
-    placed.ground = core::at(probes, 3).out >= 0.0f || get_cast(point, point - V3{.x = 0.0f, .y = kGroundReach, .z = 0.0f}, &hit);
+    placed.ground = core::at(probes, 3).out >= 0.0f || get_cast(point, point - V3{.x = 0.0f, .y = kGroundReach, .z = 0.0f}, {.point = &hit});
     return placed;
 }
 

@@ -149,8 +149,16 @@ constexpr auto kPools = std::to_array<PoolInfo>({
 });
 constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(core::at(kPools, 0)));
 
-bool pool_use(memory::PoolPair& pools, int* used, int* count)
+// A pool's use: the slots used and its size.
+struct PoolUse {
+    int* used{};
+    int* count{};
+};
+
+bool pool_use(memory::PoolPair& pools, PoolUse pool_use_out)
 {
+    auto* const used = pool_use_out.used;
+    auto* const count = pool_use_out.count;
     const memory::SlabBank* pool = pools.current() == 0 || pools.current() == 1 ? core::at(pools.pools(), pools.current()) : nullptr;
     if (!pool)
         return false;
@@ -204,7 +212,7 @@ void take_baseline()
     }
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, count = 0;
-        core::at(base().pools, i) = pool_use(core::at(kPools, i).pair(), &used, &count) ? used : 0;
+        core::at(base().pools, i) = pool_use(core::at(kPools, i).pair(), {.used = &used, .count = &count}) ? used : 0;
     }
     base().taken = true;
 }
@@ -280,7 +288,7 @@ std::vector<Meter> get_meters()
           static_cast<double>(object_edit::get_copies().size()), "objects made from copies of their nodes");
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, total = 0;
-        if (!pool_use(core::at(kPools, i).pair(), &used, &total))
+        if (!pool_use(core::at(kPools, i).pair(), {.used = &used, .count = &total}))
             continue;
         Meter m;
         m.name = core::at(kPools, i).name;

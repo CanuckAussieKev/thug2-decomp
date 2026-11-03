@@ -33,7 +33,12 @@ void render();
 void invalidate_device_objects();
 // The window's size in pixels (ImGui's display size) and the back buffer's.
 void window_size(int* width, int* height);
-void back_buffer_size(int* width, int* height);
+// Where a width and a height go.
+struct SizeOut {
+    int* width{};
+    int* height{};
+};
+void back_buffer_size(SizeOut size);
 // The one place a renderer texture becomes an ImGui texture id.
 uint64_t get_texture_id(void* renderer_texture);
 
