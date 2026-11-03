@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "game/goals/objective.h"
@@ -153,9 +154,9 @@ Objective::Objective(script::Struct* params)
     : sub_nodes_(alloc_chain_link()), parents_(alloc_chain_link()), level_(skate_calls::get_career()->fetch_stage())
 {
     list_link_.make_node(this);
-    cur_phase_ = static_cast<uint8_t>((cur_phase_ & ~(kStateActive | kStatePaused)) | kStateNoTimeLimit);
-    flag_bits_ &= ~(kFlagSeen | kFlagWon | kFlagWonInNetGame);
-    flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~(kFlagInitialized | kFlagSelected)) | kFlagDeactivateOnExpire);
+    cur_phase_ = (cur_phase_ & ~(Objective::State::kActive | Objective::State::kPaused)) | Objective::State::kNoTimeLimit;
+    flag_bits_ &= ~(Objective::Flags::kSeen | Objective::Flags::kWon | Objective::Flags::kWonInNetGame);
+    flag_bits_ = (flag_bits_ & ~(Objective::Flags::kInitialized | Objective::Flags::kSelected)) | Objective::Flags::kDeactivateOnExpire;
     make_args_ped_and_flags(params);
     params->fetch_int_value(kGroupNumber, &bundle_, 0);
     alloc_objective_bits(params);
@@ -166,9 +167,9 @@ Objective::Objective(script::Struct* params)
     skater_ = kNone;
     params->read_hash_value(kSkater, &skater_, 0);
     if (params->has_bare_flag(kUnlockedByAnother) || params->has_bare_flag(kProGoal))
-        flag_bits_ |= kFlagLocked;
+        flag_bits_ |= Objective::Flags::kLocked;
     else
-        flag_bits_ &= ~kFlagLocked;
+        flag_bits_ &= ~Objective::Flags::kLocked;
 }
 
 // 0x00556110
@@ -224,13 +225,13 @@ void Objective::prepare_all()
     if (args_->read_hash_value(kInit, &script, 0))
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
     swap_move_caption();
-    flag_bits_ |= kFlagInitialized;
+    flag_bits_ |= Objective::Flags::kInitialized;
     int unlimited = 0;
     args_->fetch_int_value(kUnlimitedTime, &unlimited, 0);
     if (unlimited)
-        cur_phase_ |= kStateNoTimeLimit;
+        cur_phase_ |= Objective::State::kNoTimeLimit;
     if (args_->has_entry_named(kDontDeactivateOnExpiry))
-        flag_bits_ &= ~kFlagDeactivateOnExpire;
+        flag_bits_ &= ~Objective::Flags::kDeactivateOnExpire;
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -271,13 +272,13 @@ bool Objective::activate()
     }
     if (!is_prepared())
         prepare_all();
-    flag_bits_ &= ~kFlagEndOfRunStarted;
+    flag_bits_ &= ~Objective::Flags::kEndOfRunStarted;
     args_->remove_flag(kChainActiveFlag);
     uint32_t script = 0;
     if (args_->read_hash_value(kActivate, &script, 0))
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
     if (!net->in_net_game())
-        flag_bits_ |= kFlagSeen;
+        flag_bits_ |= Objective::Flags::kSeen;
     change_live();
     add_active_goal(manager, this);
     memory::Hub::get_pull()->leave_heap_scope();
@@ -405,9 +406,9 @@ bool Objective::get_win()
 // 0x00557A40
 void Objective::get_unlock()
 {
-    if (!(flag_bits_ & kFlagLocked))
+    if (!core::any(flag_bits_ & Objective::Flags::kLocked))
         return;
-    flag_bits_ &= ~kFlagLocked;
+    flag_bits_ &= ~Objective::Flags::kLocked;
     if (online::online_hub()->in_net_game())
         return;
     if (!has_won() || active_ruleset_label() == kClassic || args_->has_bare_flag(kAlwaysInitializeGoal) ||
@@ -507,7 +508,7 @@ bool Objective::set_flag(checksums::Name flag_name, int value, checksums::Name s
     if (!is_operative() && !silent)
         return false;
     void* manager = objective_board();
-    if ((flag_bits_ & kFlagLocked) || is_group_locked(manager, bundle_, level_))
+    if (core::any(flag_bits_ & Objective::Flags::kLocked) || is_group_locked(manager, bundle_, level_))
         return false;
     script::Struct* flags = goal_flags_;
     if (sub)

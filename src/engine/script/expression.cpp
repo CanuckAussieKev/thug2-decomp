@@ -1,5 +1,7 @@
 #include "engine/script/expression.h"
 
+#include "engine/script/qb.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/mem.h"
 #include "engine/core/checked_index.h"
 #include "engine/script/param_struct.h"
@@ -27,7 +29,7 @@ constexpr std::array<int, 74> kOperatorPrecedence{{-1, -1, -1, -1, -1, 100, -1, 
                               79, 78, 77, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1, -1, -1,
                               -1, -1, -1, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, 58, 60,  59, 90, 89, -1, -1,
                               -1, -1, -1, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1}};
-int precedence(int op) { return core::at(kOperatorPrecedence, op); }
+int precedence(QbToken op) { return core::at(kOperatorPrecedence, core::to_underlying(op)); }
 
 // Where an operation's result is built (a global component: only its type and value are taken).
 Component& get_result()
@@ -302,7 +304,7 @@ void ValueResolver::get_clear()
     value_top_ = 0;
     operator_top_ = 0;
     for (Operator& op : operators_) {
-        op.op = kOperatorNone;
+        op.op = kNoOperator;
         op.open_parentheses_ = 0;
     }
     has_operators_ = false;
@@ -324,7 +326,7 @@ void ValueResolver::change_fault(const char* error)
 }
 
 // 0x0046D2B0
-void ValueResolver::push_operator(int op)
+void ValueResolver::push_operator(QbToken op)
 {
     if (++operator_top_ >= kOperatorStackDepth) {
         get_clear();
@@ -354,11 +356,11 @@ void ValueResolver::intake(const Component* value)
 void ValueResolver::open_bracket() { ++core::at(operators_, operator_top_).open_parentheses_; }
 
 // 0x0046EB70
-void ValueResolver::intake(int op)
+void ValueResolver::intake(QbToken op)
 {
     if (has_operators_) {
         while (core::at(operators_, operator_top_).open_parentheses_ == 0) {
-            const int pending = core::at(operators_, operator_top_).op;
+            const QbToken pending = core::at(operators_, operator_top_).op;
             if (op != pending && precedence(op) > precedence(pending))
                 break;
             execute();
@@ -385,7 +387,7 @@ bool ValueResolver::fetch_verdict(Component* result)
 {
     while (core::at(operators_, operator_top_).open_parentheses_ == 0) {
         if (value_top_ == 0) {
-            if (core::at(operators_, 0).op != kOperatorNone || operator_top_ != 0) {
+            if (core::at(operators_, 0).op != kNoOperator || operator_top_ != 0) {
                 get_clear();
                 fault_ = "Too many operators in expression"; // "Too many operators in expression"
                 return false;
@@ -423,8 +425,8 @@ void ValueResolver::execute()
         fault_ = "Non-zero parentheses count"; // "Non-zero parentheses count"
         return;
     }
-    const int op = core::at(operators_, operator_top_).op;
-    if (op == kOperatorNone) {
+    const QbToken op = core::at(operators_, operator_top_).op;
+    if (op == kNoOperator) {
         get_clear();
         fault_ = "Tried to execute with no operator"; // "Tried to execute with no operator"
         return;
@@ -440,28 +442,28 @@ void ValueResolver::execute()
     auto error = [&](const char* message) { change_fault(message); };
 
     switch (op) {
-    case kOperatorOr:
+    case QbToken::kOr:
         set_result_type(QbValueKind::kInteger);
         result.value.set_word(static_cast<uint32_t>(fetch_flag(b) | fetch_flag(a)));
         break;
-    case kOperatorAnd:
+    case QbToken::kAnd:
         set_result_type(QbValueKind::kInteger);
         result.value.set_word(static_cast<uint32_t>(fetch_flag(b) & fetch_flag(a)));
         break;
-    case kOperatorEquals:
+    case QbToken::kEquals:
         set_result_type(QbValueKind::kInteger);
         result.value.set_word(components_equal(a, b) ? 1 : 0);
         break;
-    case kOperatorLessThan:
+    case QbToken::kLessThan:
         set_result_type(QbValueKind::kInteger);
         result.value.set_word(less_than(a, b) ? 1 : 0);
         break;
-    case kOperatorGreaterThan:
+    case QbToken::kGreaterThan:
         set_result_type(QbValueKind::kInteger);
         result.value.set_word(greater_than(a, b) ? 1 : 0);
         break;
 
-    case kOperatorAdd:
+    case QbToken::kPlus:
         switch (type_a) {
         case QbValueKind::kInteger:
             if (type_b == QbValueKind::kInteger)
@@ -561,7 +563,7 @@ void ValueResolver::execute()
         }
         break;
 
-    case kOperatorMinus:
+    case QbToken::kMinus:
         switch (type_a) {
         case QbValueKind::kInteger:
             if (type_b == QbValueKind::kInteger)
@@ -646,7 +648,7 @@ void ValueResolver::execute()
         }
         break;
 
-    case kOperatorMultiply:
+    case QbToken::kMultiply:
         switch (type_a) {
         case QbValueKind::kInteger:
             switch (type_b) {
@@ -743,7 +745,7 @@ void ValueResolver::execute()
         }
         break;
 
-    case kOperatorDivide:
+    case QbToken::kDivide:
         if (type_b == QbValueKind::kInteger) {
             if (b->value.integer() == 0) {
                 error("Integer division by zero"); // "Integer division by zero"
@@ -806,7 +808,7 @@ void ValueResolver::execute()
         }
         break;
 
-    case kOperatorDot:
+    case QbToken::kDot:
         switch (type_a) {
         case QbValueKind::kVector:
             if (type_b == QbValueKind::kVector) {
@@ -845,7 +847,7 @@ void ValueResolver::execute()
         }
         break;
 
-    case kOperatorArrayElement:
+    case QbToken::kArrayStart:
         if (!is_array(type_a)) {
             error(
                 "Array element operator not supported for this type"); // "Array element operator not supported for this type"
@@ -875,7 +877,7 @@ void ValueResolver::execute()
     result.type_and_flag_ &= 1;
     result.value.set_word(0);
     --value_top_;
-    core::at(operators_, operator_top_).op = kOperatorNone;
+    core::at(operators_, operator_top_).op = kNoOperator;
     if (operator_top_ == 0)
         has_operators_ = false;
     else

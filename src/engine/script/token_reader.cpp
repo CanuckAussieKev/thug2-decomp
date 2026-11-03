@@ -897,7 +897,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
         case QbToken::kGreaterThan:
         case QbToken::kOr:
         case QbToken::kAnd: // operators
-            evaluator.intake(static_cast<int>(t));
+            evaluator.intake(t);
             ++p;
             after_dot = t == QbToken::kDot;
             have_value = false;
@@ -993,7 +993,7 @@ Tokens parse_expression(Tokens token, Struct* args, Component* result)
             const bool negative = t == QbToken::kInteger ? value.value.integer() < 0 : value.value.real() < 0.0f;
             if (!negative || !have_value)
                 break;
-            evaluator.intake(static_cast<int>(kOperatorMinus));
+            evaluator.intake(QbToken::kMinus);
             if (t == QbToken::kInteger)
                 value.value.set_integer(-value.value.integer());
             else

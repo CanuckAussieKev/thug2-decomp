@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <array>
 
+#include "engine/core/enum_ops.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
 #include "game/goals/goal_manager.h"
@@ -137,7 +138,7 @@ OnlineObjective::OnlineObjective(script::Struct* params) : Objective(params) { s
 OnlineObjective::~OnlineObjective() = default;
 
 // 0x00560B00
-bool OnlineObjective::shows_clock() { return !(cur_phase() & kStateNoTimeLimit); }
+bool OnlineObjective::shows_clock() { return !(core::any(cur_phase() & Objective::State::kNoTimeLimit)); }
 
 // 0x00560B10
 bool OnlineObjective::timer_beeps()
@@ -194,7 +195,7 @@ bool OnlineObjective::wants_to_end()
     PlayerSearch search;
     if (!net->count_players())
         return true;
-    if (cur_phase() & kStateNoTimeLimit)
+    if (core::any(cur_phase() & Objective::State::kNoTimeLimit))
         return false;
     if (!net->final_scores_received() && net->in_net_game() && !scavenger)
         return false;
@@ -207,7 +208,7 @@ bool OnlineObjective::wants_to_end()
         objects::Rider* skater = static_cast<online::PlayerRecord*>(player)->rider();
         auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         if (!end_run->run_done() && !skater->is_halted() && run_ending() != 2 && seconds_remaining() <= 0) {
-            flag_bits() |= kFlagEndOfRunStarted;
+            flag_bits() |= Objective::Flags::kEndOfRunStarted;
             end_run->end_run(false);
         }
     }
@@ -244,12 +245,12 @@ bool RaceObjective::activate()
 }
 
 // 0x00560F00
-bool RaceObjective::has_run_out() { return !(cur_phase() & kStateNoTimeLimit) && seconds_remaining() <= 0; }
+bool RaceObjective::has_run_out() { return !core::any(cur_phase() & Objective::State::kNoTimeLimit) && seconds_remaining() <= 0; }
 
 // 0x00560F20
 bool RaceObjective::wants_to_end()
 {
-    if ((cur_phase() & kStateNoTimeLimit) || seconds_remaining() > 0)
+    if (core::any(cur_phase() & Objective::State::kNoTimeLimit) || seconds_remaining() > 0)
         return false;
     Objective::wants_to_end();
     return true;
@@ -297,7 +298,7 @@ bool RaceObjective::advance_race_gate(uint32_t id)
             params->put_int(checksums::Name{kFirstWaypoint}, 1);
         } else {
             params->put_name_key(checksums::Name{kScr}, kCheckpointMessage);
-            if (!(cur_phase() & kStateNoTimeLimit) && add_time_) {
+            if (!core::any(cur_phase() & Objective::State::kNoTimeLimit) && add_time_) {
                 int time = 0;
                 waypoint->fetch_int_value(kTime, &time, 0);
                 advance_clock(time);

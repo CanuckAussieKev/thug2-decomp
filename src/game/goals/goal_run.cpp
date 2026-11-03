@@ -7,6 +7,7 @@
 #include <array>
 
 #include "engine/core/checksums.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/maths/vec4.h"
@@ -139,7 +140,7 @@ void Objective::uninitialize(bool children, int depth)
     uint32_t script = 0;
     if (args_->read_hash_value(kUninit, &script, 0))
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
-    flag_bits_ &= ~kFlagInitialized;
+    flag_bits_ &= ~Objective::Flags::kInitialized;
     if (!children)
         return;
     void* manager = objective_board();
@@ -165,7 +166,7 @@ bool Objective::has_run_out()
     online::Hub* net = online::online_hub();
     if (!local_skater() || !net->count_players())
         return true;
-    if (cur_phase_ & kStateNoTimeLimit)
+    if (core::any(cur_phase_ & Objective::State::kNoTimeLimit))
         return false;
     return seconds_remaining_ <= 0;
 }
@@ -180,7 +181,7 @@ bool Objective::is_expired_at_end_of_run(bool force)
     objects::RiderSessionEnd* end_run = end_run_of(skater);
     if (!net->count_players())
         return true;
-    if (cur_phase_ & kStateNoTimeLimit)
+    if (core::any(cur_phase_ & Objective::State::kNoTimeLimit))
         return false;
     if (run_ending_ == 0 || run_ending_ == 1) {
         const bool done = run_ending_ == 1 ? end_run->run_done() : end_run->goal_run_done();
@@ -191,10 +192,10 @@ bool Objective::is_expired_at_end_of_run(bool force)
         return false;
     // Out of time: the run is ended, the goal expires once it's done.
     if (run_ending_ == 0) {
-        flag_bits_ |= kFlagEndOfRunStarted;
+        flag_bits_ |= Objective::Flags::kEndOfRunStarted;
         end_run->finish_objective_run(); // (the original passed `force`: not read)
     } else if (run_ending_ == 1) {
-        flag_bits_ |= kFlagEndOfRunStarted;
+        flag_bits_ |= Objective::Flags::kEndOfRunStarted;
         end_run->end_run(force);
     }
     return false;
@@ -241,7 +242,7 @@ void Objective::expire()
     uint32_t script = 0;
     if (args_->read_hash_value(kExpireScript, &script, 0))
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
-    if (flag_bits_ & kFlagDeactivateOnExpire)
+    if (core::any(flag_bits_ & Objective::Flags::kDeactivateOnExpire))
         disengage(false, true);
 }
 
@@ -291,7 +292,7 @@ bool Objective::step_to_next_waypoint()
             if (set == 1)
                 continue;
         }
-        cur_phase_ |= kStatePaused;
+        cur_phase_ |= Objective::State::kPaused;
         int time = 0;
         waypoint->fetch_int_value(kTime, &time, 1);
         if (args_->has_bare_flag(kAddTime)) {
@@ -380,17 +381,17 @@ bool Objective::has_won()
     // (NetLobby counts whether or not a network game is on)
     if ((online::online_hub()->in_net_game() && active_ruleset_label() == kNetGoalAttack) ||
         active_ruleset_label() == kNetLobby)
-        return (flag_bits_ & kFlagWonInNetGame) != 0;
-    return (flag_bits_ & kFlagWon) != 0;
+        return core::any(flag_bits_ & Objective::Flags::kWonInNetGame);
+    return core::any(flag_bits_ & Objective::Flags::kWon);
 }
 
 // 0x005555E0
 void Objective::mark_won()
 {
     if (online::online_hub()->in_net_game() && active_ruleset_label() == kNetGoalAttack)
-        flag_bits_ |= kFlagWonInNetGame;
+        flag_bits_ |= Objective::Flags::kWonInNetGame;
     else
-        flag_bits_ |= kFlagWon;
+        flag_bits_ |= Objective::Flags::kWon;
     void* manager = objective_board();
     for (const GoalEdge* link = parents_; link && link->objective_key_; link = link->succ_)
         get_goal(manager, link->objective_key_, 1)->mark_won();
@@ -481,12 +482,12 @@ bool Objective::un_beat()
     if (online::online_hub()->in_net_game()) {
         stage_flags_ = 0;
         net_stage_flags_ = 0;
-        if (flag_bits_ & kFlagWonInNetGame) {
-            flag_bits_ &= ~kFlagWonInNetGame;
+        if (core::any(flag_bits_ & Objective::Flags::kWonInNetGame)) {
+            flag_bits_ &= ~Objective::Flags::kWonInNetGame;
             return true;
         }
-    } else if (flag_bits_ & kFlagWon) {
-        flag_bits_ &= ~kFlagWon;
+    } else if (core::any(flag_bits_ & Objective::Flags::kWon)) {
+        flag_bits_ &= ~Objective::Flags::kWon;
         return true;
     }
     return false;
@@ -495,7 +496,7 @@ bool Objective::un_beat()
 // 0x00555970
 void Objective::end_of_run_done(script::Script* script)
 {
-    flag_bits_ &= ~kFlagEndOfRunStarted;
+    flag_bits_ &= ~Objective::Flags::kEndOfRunStarted;
     objects::GameEntity* skater = local_skater();
     objects::RiderSessionEnd* end_run = end_run_of(skater);
     if (run_ending_ == 0) {
@@ -523,7 +524,7 @@ bool Objective::run_started()
 {
     objects::RiderSessionEnd* end_run = end_run_of(local_skater());
     if (run_ending_ == 0)
-        return (flag_bits_ & kFlagEndOfRunStarted) != 0;
+        return core::any(flag_bits_ & Objective::Flags::kEndOfRunStarted);
     if (run_ending_ == 1)
         return end_run->end_of_run_started();
     return false;

@@ -279,11 +279,11 @@ void PathFollower::start_corner()
         // no arc: blend into the next segment from here
         center_ = at_point_;
         along_ = carry_;
-        cur_phase_ = kStateBlend;
+        cur_phase_ = PathFollower::Phase::kBlend;
         byte_count_ = static_cast<float>(span_to(at_point_, segment_origin_));
         break;
     case 1:
-        cur_phase_ = kStateArc;
+        cur_phase_ = PathFollower::Phase::kArc;
         break;
     case 2: {
         const uint32_t passed = last_node_;
@@ -292,7 +292,7 @@ void PathFollower::start_corner()
         flag_bits_ &= ~kFlagTellNode;
         start_segment();
         refresh_placement();
-        cur_phase_ = kStateStraight;
+        cur_phase_ = PathFollower::Phase::kStraight;
         break;
     }
     default:
@@ -303,7 +303,7 @@ void PathFollower::start_corner()
 // 0x0046A3F0
 void PathFollower::kickoff(uint32_t node, const maths::Vec4* position)
 {
-    cur_phase_ = kStateStart;
+    cur_phase_ = PathFollower::Phase::kStart;
     flag_bits_ = 0;
     carry_ = 0.0f;
     along_ = 0.0f;
@@ -324,19 +324,19 @@ void PathFollower::kickoff(uint32_t node, const maths::Vec4* position)
 // 0x0046A640
 bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
 {
-    if (cur_phase_ == kStateDone)
+    if (cur_phase_ == PathFollower::Phase::kDone)
         return true;
     if (direction) {
         const double along = get_dot(core::at(tick_.row, 2), *direction);
         distance = along == 0.0 ? 1.0f : static_cast<float>(along * distance);
     }
     switch (cur_phase_) {
-    case kStateStart:
+    case PathFollower::Phase::kStart:
         start_segment();
         step_ = 0.0f;
-        cur_phase_ = kStateStraight;
+        cur_phase_ = PathFollower::Phase::kStraight;
         [[fallthrough]];
-    case kStateStraight: {
+    case PathFollower::Phase::kStraight: {
         const double along = static_cast<double>(distance) + along_;
         along_ = static_cast<float>(along);
         if (flag_bits_ & kFlagLastNode) {
@@ -347,7 +347,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
             last_node_ = list_link_;
             segment_origin_ = end_point_;
             at_point_ = segment_origin_;
-            cur_phase_ = kStateDone;
+            cur_phase_ = PathFollower::Phase::kDone;
             return true;
         }
         if (!(along >= static_cast<double>(byte_count_) - cut_)) {
@@ -358,7 +358,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
             at_point_ = end_point_;
             node_passed(path_component(owner_), list_link_);
             if (get_next_node()) {
-                cur_phase_ = kStateStart;
+                cur_phase_ = PathFollower::Phase::kStart;
                 return false;
             }
             return true; // (the state isn't set to done)
@@ -369,7 +369,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
         start_corner();
         return false;
     }
-    case kStateArc: {
+    case PathFollower::Phase::kArc: {
         const double along = static_cast<double>(distance) + along_;
         along_ = static_cast<float>(along);
         if ((flag_bits_ & kFlagTellNode) && along >= static_cast<double>(arc_length_) * kHalf) {
@@ -388,10 +388,10 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
         start_segment();
         refresh_placement();
         step_ = 0.0f;
-        cur_phase_ = kStateStraight;
+        cur_phase_ = PathFollower::Phase::kStraight;
         return false;
     }
-    case kStateBlend: {
+    case PathFollower::Phase::kBlend: {
         const double along = static_cast<double>(distance) + along_;
         along_ = static_cast<float>(along);
         auto t = static_cast<float>(along / byte_count_);
@@ -418,7 +418,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
             blend = 1.0f;
             carry_ = 0.0f;
             start_segment();
-            cur_phase_ = kStateStraight;
+            cur_phase_ = PathFollower::Phase::kStraight;
         }
         maths::Vec4& heading = core::at(tick_.row, 2);
         heading = into * static_cast<float>(1.0 - blend);
@@ -426,9 +426,10 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
         heading.make_unit();
         return false;
     }
-    default:
-        return false;
+    case PathFollower::Phase::kDone:
+        break;
     }
+    return false;
 }
 
 // 0x0046A1B0

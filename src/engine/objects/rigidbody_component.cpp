@@ -312,15 +312,15 @@ void BodyDynamicsModule::set_sounds(uint32_t type)
 // 0x0042F050
 void BodyDynamicsModule::configure_from_data(script::Struct* params)
 {
-    cur_phase_ = kStateAsleep;
+    cur_phase_ = BodyDynamicsModule::State::kAsleep;
     uint32_t state = 0;
     if (params->read_hash_value(kRigidbodyState, &state, 0)) { // rigidbody_state
         if (state == kAsleep)                          // asleep
-            cur_phase_ = kStateAsleep;
+            cur_phase_ = BodyDynamicsModule::State::kAsleep;
         else if (state == kDisabled) // disabled
-            cur_phase_ = kStateDisabled;
+            cur_phase_ = BodyDynamicsModule::State::kDisabled;
         else if (state == kAwake) // awake
-            cur_phase_ = kStateAwake;
+            cur_phase_ = BodyDynamicsModule::State::kAwake;
     }
     vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     rot_vel_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
@@ -609,10 +609,10 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 // Awake (the inlined end of the member functions): unless it is already, where the object is now kept.
 void BodyDynamicsModule::wake()
 {
-    if (cur_phase_ == kStateAwake)
+    if (cur_phase_ == BodyDynamicsModule::State::kAwake)
         return;
     wake_pos_ = entity()->at_point();
-    cur_phase_ = kStateAwake;
+    cur_phase_ = BodyDynamicsModule::State::kAwake;
 }
 
 // 0x0042DCA0
@@ -664,7 +664,7 @@ bool BodyDynamicsModule::rigid_body_set_velocities(script::Struct* params, scrip
 // 0x0042EE30
 bool BodyDynamicsModule::rigid_body_enable(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    cur_phase_ = kStateAwake;
+    cur_phase_ = BodyDynamicsModule::State::kAwake;
     at_point_ = entity()->at_point();
     maths::QuatRotation orientation{};
     orientation.from_matrix(entity()->basis_frame());
@@ -709,7 +709,7 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
                 .z = static_cast<float>(factor * vel_.z), .w = static_cast<float>(factor * vel_.w)};
     }
     entity()->vel() = vel_;
-    if (cur_phase_ == kStateAsleep && std::fabs(vel_.y) < 1.0f)
+    if (cur_phase_ == BodyDynamicsModule::State::kAsleep && std::fabs(vel_.y) < 1.0f)
         vel_.y = 1.0f;
     if (auto* body = core::down_cast<BodyDynamicsModule>(other->fetch_module(kType))) {
         rot_vel_ = body->rot_vel_;

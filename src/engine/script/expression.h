@@ -4,6 +4,7 @@
 #include <array>
 
 #include "engine/script/param_struct.h"
+#include "engine/script/qb.h"
 
 // The script expression evaluator: a stack machine for the expressions in scripts' parentheses. Values and
 // operators are fed in as the expression is read; operators of higher precedence run first.
@@ -24,20 +25,9 @@ bool greater_than(Component* a, Component* b);
 // strings and other types leave `to` empty.
 void copy_array_element_to_component(Array* array, uint32_t index, Component* to, int reference);
 
-// The operators (the token values the parser gives them).
-using Operator = uint8_t;
-constexpr int kOperatorNone = 0;
-constexpr int kOperatorArrayElement = 5; // a[i]
-constexpr int kOperatorEquals = 7;
-constexpr int kOperatorDot = 8; // dot product, or a structure's member
-constexpr int kOperatorMinus = 10;
-constexpr int kOperatorAdd = 11;
-constexpr int kOperatorDivide = 12;
-constexpr int kOperatorMultiply = 13; // also the cross product of vectors
-constexpr int kOperatorLessThan = 18;
-constexpr int kOperatorGreaterThan = 20;
-constexpr int kOperatorOr = 50;
-constexpr int kOperatorAnd = 51;
+// The operators are the parser's token bytes: = . - + / * < > || && and a[i] (the array start token), with the
+// end-of-file byte for "no operator".
+constexpr QbToken kNoOperator = QbToken::kEndOfFile;
 
 constexpr size_t kValueResolverValueTopOffset = 0x140;
 constexpr size_t kValueResolverOperatorsOffset = 0x144;
@@ -61,7 +51,7 @@ public:
 
     void intake(const Component* value);
     // An operator: pending operators of higher or equal precedence (in the same parentheses) run first.
-    void intake(int op);
+    void intake(QbToken op);
     void open_bracket();
     // Runs the operators inside the parentheses.
     void close_bracket();
@@ -70,10 +60,11 @@ public:
 
     // Run the top operator on the top two values, leaving the result in their place.
     void execute();
-    void push_operator(int op);
+    void push_operator(QbToken op);
 
     struct Operator {
-        int op;
+        QbToken op; // (the original's word: the rest is zero)
+        std::array<uint8_t, 3> unknown1_;
         int open_parentheses_;
     };
 

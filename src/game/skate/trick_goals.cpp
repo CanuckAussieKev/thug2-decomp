@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "engine/core/enum_ops.h"
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
 #include "frontend/menu_element.h"
@@ -740,7 +741,7 @@ bool FallingTricksGoal::tick_frame()
     if (is_operative() && !is_frozen())
         update_alphas();
     if (is_trick_tris()) {
-        if (!(cur_phase() & kStateNoTimeLimit) && !(static_cast<double>(seconds_remaining()) > 0.0))
+        if (!core::any(cur_phase() & Objective::State::kNoTimeLimit) && !(static_cast<double>(seconds_remaining()) > 0.0))
             return base_update(this);
         if (is_frozen())
             return base_update(this);
@@ -763,7 +764,7 @@ bool FallingTricksGoal::tick_frame()
         add_tricks(count);
         return base_update(this);
     }
-    if (!is_operative() || (!(cur_phase() & kStateNoTimeLimit) && seconds_remaining() < stop_time) || is_frozen())
+    if (!is_operative() || (!core::any(cur_phase() & Objective::State::kNoTimeLimit) && seconds_remaining() < stop_time) || is_frozen())
         return base_update(this);
     stopwatch_ += ftol(frame_clock::get_slomo_frame_seconds() * kMillisecondsPerSecondF);
     if (is_single_combo()) {
@@ -1259,7 +1260,7 @@ bool TrickBeatGoal::tick_frame()
     }
     if (is_operative())
         is_frozen(); // (the result isn't used)
-    if (is_operative() && ((cur_phase() & kStateNoTimeLimit) || static_cast<double>(seconds_remaining()) > 0.0) &&
+    if (is_operative() && (core::any(cur_phase() & Objective::State::kNoTimeLimit) || static_cast<double>(seconds_remaining()) > 0.0) &&
         !is_frozen()) {
         update_beat();
         int used = 0;

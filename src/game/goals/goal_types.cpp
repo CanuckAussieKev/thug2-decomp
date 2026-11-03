@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "engine/core/enum_ops.h"
 #include "engine/core/mem.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
@@ -84,23 +85,23 @@ void ContestObjective::expire() { invoke_hook_script(kExpireScript); }
 void ContestObjective::change_live()
 {
     is_halted_ = false;
-    cur_phase() = static_cast<uint8_t>((cur_phase() & ~kStatePaused) | kStateActive);
+    cur_phase() = (cur_phase() & ~Objective::State::kPaused) | Objective::State::kActive;
 }
 
 // 0x00551830
 void ContestObjective::clear_engaged_bit()
 {
     is_halted_ = false;
-    cur_phase() &= ~(kStateActive | kStatePaused);
+    cur_phase() &= ~(Objective::State::kActive | Objective::State::kPaused);
 }
 
 // 0x00551840
-bool ContestObjective::has_won() { return (flag_bits() & kFlagWon) != 0; }
+bool ContestObjective::has_won() { return core::any(flag_bits() & Objective::Flags::kWon); }
 
 // 0x00551850
 bool ContestObjective::un_beat()
 {
-    flag_bits() &= ~kFlagWon;
+    flag_bits() &= ~Objective::Flags::kWon;
     has_third_place_ = false;
     has_second_place_ = false;
     if (!has_won())
@@ -116,11 +117,11 @@ void ContestObjective::freeze_contest() { is_halted_ = true; }
 void ContestObjective::thaw_contest()
 {
     is_halted_ = false;
-    flag_bits() &= ~kFlagEndOfRunStarted;
+    flag_bits() &= ~Objective::Flags::kEndOfRunStarted;
 }
 
 // 0x005518A0
-bool ContestObjective::is_frozen() { return (cur_phase() & kStatePaused) || is_halted_; }
+bool ContestObjective::is_frozen() { return core::any(cur_phase() & Objective::State::kPaused) || is_halted_; }
 
 // 0x005518C0
 void ContestObjective::restore_save_block(script::Struct* data)
@@ -170,7 +171,7 @@ void ContestObjective::mark_won()
     } else if (competition->place_is(3)) {
         has_third_place_ = true;
     }
-    flag_bits() |= kFlagWon;
+    flag_bits() |= Objective::Flags::kWon;
 }
 
 // 0x00551A90
