@@ -22,6 +22,7 @@ Checks:
   - 'readability-redundant-string-cstr'
   - 'readability-redundant-typename'
   - 'readability-static-definition-in-anonymous-namespace'
+  - 'readability-use-concise-preprocessor-directives'
   - 'clang-analyzer-*'
 
   # --- off: they conflict with the project's decisions ---

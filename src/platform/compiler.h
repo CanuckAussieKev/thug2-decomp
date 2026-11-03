@@ -3,7 +3,7 @@
 // NOT ORIGINAL - the few compiler-specific things the code needs, each behind one name here (MSVC, and GCC / Clang
 // for a MinGW build). Everything else is standard C++.
 
-#if defined(_MSC_VER)
+#ifdef _MSC_VER
 #include <intrin.h>
 
 // A function that must stay a real call (crash tests).
