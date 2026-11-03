@@ -20,12 +20,16 @@ namespace save_cards {
 
 namespace {
 
+constexpr size_t kPathBufferBytes = 128;
+constexpr size_t kFilenameBufferBytes = 320;
+constexpr int kCardPresent = 0x75; // what the save device's presence is set to
+
 // NOT ORIGINAL grouping - memcard.cpp's state (the original's globals). Made on first use, never destroyed
 // (memcard_state()).
 struct MemcardState {
-    std::array<char, 128> path_buffer_{};
+    std::array<char, kPathBufferBytes> path_buffer_{};
     int memcard_references_{};
-    std::array<char, 320> filename_buffer_{};
+    std::array<char, kFilenameBufferBytes> filename_buffer_{};
 };
 
 MemcardState& memcard_state()
@@ -35,8 +39,8 @@ MemcardState& memcard_state()
 }
 
 // The shared path buffers.
-std::array<char, 128>& path_buffer() { return memcard_state().path_buffer_; }
-std::array<char, 320>& filename_buffer() { return memcard_state().filename_buffer_; }
+std::array<char, kPathBufferBytes>& path_buffer() { return memcard_state().path_buffer_; }
+std::array<char, kFilenameBufferBytes>& filename_buffer() { return memcard_state().filename_buffer_; }
 
 int& ref_tally() { return memcard_state().memcard_references_; }
 
@@ -125,7 +129,7 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int)
         access = GENERIC_WRITE;
         disposition = CREATE_NEW;
         break;
-    case 6:
+    case kOpenWriteAlways:
         access = GENERIC_WRITE;
         disposition = OPEN_ALWAYS;
         break;
@@ -135,7 +139,7 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int)
     HANDLE handle = CreateFileA(path.data(), access, 0, nullptr, disposition, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (handle == INVALID_HANDLE_VALUE) {
         // (the error is always 0 here: this never happens)
-        if (fault_ == 0x70)
+        if (fault_ == kErrorDiskFull)
             fault_ = 2;
         return nullptr;
     }
@@ -163,7 +167,7 @@ int SaveCard::get_free_blocks()
     ULARGE_INTEGER available, total;
     if (!GetDiskFreeSpaceExA(nullptr, &available, &total, nullptr))
         return 0;
-    return static_cast<int>((available.LowPart >> 14) + (available.HighPart << 18));
+    return static_cast<int>((available.LowPart >> kBlockShift) + (available.HighPart << kHighPartBlockShift));
 }
 
 // 0x005BCAE0
@@ -215,7 +219,7 @@ Hub::Hub()
             core::at(core::at(slots_, port), slot).port = port;
         }
     }
-    save_device_.set_present(0x75);
+    save_device_.set_present(kCardPresent);
 }
 
 // 0x005BC730 (one card, whichever port and slot)

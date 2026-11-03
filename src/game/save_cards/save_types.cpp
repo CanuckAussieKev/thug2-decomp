@@ -36,6 +36,63 @@
 #include "engine/net/net_game_state.h"
 #include "game/save_cards/save_cards_state.h"
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kCATIconSpaceRequired = 0x46B0EF40u; // CATIconSpaceRequired
+constexpr uint32_t kCareer = 0x4DA4937Bu; // career
+constexpr uint32_t kCreatedGoalsIconSpaceRequired = 0x3205BC07u; // CreatedGoalsIconSpaceRequired
+constexpr uint32_t kCreatedGraphicIconSpaceRequired = 0xD85D78F9u; // CreatedGraphicIconSpaceRequired
+constexpr uint32_t kCustom = 0x0A7BE964u; // custom
+constexpr uint32_t kCustomSkater = 0x12BFAC82u; // CustomSkater
+constexpr uint32_t kDisplayName = 0x2AB66CB8u; // display_name
+constexpr uint32_t kGlobalInfo = 0xF55CBD13u; // GlobalInfo
+constexpr uint32_t kGoalManagerParamsName = 0x23D4170Au; // GoalManager_Params
+constexpr uint32_t kInfo = 0x3476CEA8u; // info
+constexpr uint32_t kLength = 0xFE82614Du; // length
+constexpr uint32_t kNetworkId = 0xCBED746Eu; // network_id
+constexpr uint32_t kNetworkSettingsIconSpaceRequired = 0xF3431F63u; // NetworkSettingsIconSpaceRequired
+constexpr uint32_t kNumGaps = 0xE6121ED0u; // num_gaps
+constexpr uint32_t kNumPieces = 0xFFF3DC35u; // num_pieces
+constexpr uint32_t kOptionsProsIconSpaceRequired = 0x4925ED9Eu; // OptionsProsIconSpaceRequired
+constexpr uint32_t kOtherParams = 0x4137CB14u; // other_params
+constexpr uint32_t kParkEditorGoals = 0xD8EB825Eu; // Park_editor_goals
+constexpr uint32_t kParkEditorMap = 0x337C5289u; // Park_editor_map
+constexpr uint32_t kParkIconSpaceRequired = 0x82AAF8DCu; // ParkIconSpaceRequired
+constexpr uint32_t kSaveSizeCat = 0x9EECDEC9u; // SaveSize_Cat
+constexpr uint32_t kSaveSizeCreatedGoals = 0x3308EFC0u; // SaveSize_CreatedGoals
+constexpr uint32_t kSaveSizeCreatedGraphic = 0x2E3F4E50u; // SaveSize_CreatedGraphic
+constexpr uint32_t kSaveSizeNetworkSettings = 0x651C978Du; // SaveSize_NetworkSettings
+constexpr uint32_t kSaveSizeOptionsAndPros = 0xE7F51FFEu; // SaveSize_OptionsAndPros
+constexpr uint32_t kSaveSizePark = 0x2CB071EDu; // SaveSize_Park
+constexpr uint32_t kStory = 0x14A9FBC7u; // Story
+constexpr uint32_t kTheme = 0x688A18F7u; // theme
+constexpr uint32_t kTodScript = 0x4C72ED98u; // tod_script
+constexpr uint32_t kUiString = 0x96875C0Fu; // ui_string
+constexpr uint32_t kWidth = 0x73E5BAD0u; // width
+
+} // namespace
+
+
+namespace {
+
+// The card block of each platform (in bytes), the file names' letters and a summary's date fields.
+constexpr int kBlockBytesPc = 0x400;
+constexpr int kBlockBytesXbox = 0x4000;
+constexpr int kBlockBytesGameCube = 0x2000;
+constexpr size_t kDateFieldCount = 6;
+constexpr int kNameLetterCount = 8;
+constexpr int kLetterCount = 26;
+constexpr int kTypeLetterIndex = 7;
+constexpr size_t kSaveFileNameStoreBytes = 0x68;
+constexpr size_t kFolderFileNameBytes = 0x100;
+// The career's totals (the texts are unknown): goals complete / possible, score and its potential.
+constexpr uint32_t kCareerGoalsComplete = 0x6C1A5E39u;
+constexpr uint32_t kCareerGoalsPossible = 0x7A6BF912u;
+constexpr uint32_t kCareerScore = 0x0444419Au;
+constexpr uint32_t kCareerScorePotential = 0x95947B61u;
+
+} // namespace
 namespace save_cards {
 
 namespace {
@@ -54,12 +111,12 @@ int card_block()
     case 1:
     case 2:
     case 3:
-    case 7:
-        return 0x400;
+    case game_config::kHardwareWin32:
+        return kBlockBytesPc;
     case 4:
-        return 0x4000;
-    case 5:
-        return 0x2000;
+        return kBlockBytesXbox;
+    case game_config::kHardwareGameCube:
+        return kBlockBytesGameCube;
     default:
         return 1;
     }
@@ -72,7 +129,7 @@ goals::GoalManager* objective_board() { return goals::get_objective_board(); }
 
 // A summary's date: year, month, day, hour, minutes, seconds (missing ones 0).
 struct SaveDate {
-    std::array<int, 6> fields;
+    std::array<int, kDateFieldCount> fields;
 };
 SaveDate read_stamped_date(Struct* summary)
 {
@@ -85,7 +142,7 @@ SaveDate read_stamped_date(Struct* summary)
         0xD029F619, // "seconds"
     }};
     SaveDate date = {};
-    for (int i = 0; i < 6; ++i)
+    for (size_t i = 0; i < kDateFieldCount; ++i)
         summary->fetch_int_value(core::at(kNames, i), &core::at(date.fields, i), 0);
     return date;
 }
@@ -96,33 +153,33 @@ SaveDate read_stamped_date(Struct* summary)
 char* make_file_name(const char* name, std::span<char> buffer, uint32_t type)
 {
     uint32_t value = checksums::hash_from_text(name);
-    for (int i = 0; i < 8; ++i) {
-        core::at(buffer, i) = static_cast<char>('a' + value % 26);
-        value /= 26;
+    for (int i = 0; i < kNameLetterCount; ++i) {
+        core::at(buffer, i) = static_cast<char>('a' + value % kLetterCount);
+        value /= kLetterCount;
     }
     switch (type) {
     case kSaveCreatedGoals:
-        core::at(buffer, 7) = 'g';
+        core::at(buffer, kTypeLetterIndex) = 'g';
         break;
     case kSaveCat:
-        core::at(buffer, 7) = 'f';
+        core::at(buffer, kTypeLetterIndex) = 'f';
         break;
     case kSavePark:
-        core::at(buffer, 7) = 'c';
+        core::at(buffer, kTypeLetterIndex) = 'c';
         break;
     case kSaveCreatedGraphic:
-        core::at(buffer, 7) = 'h';
+        core::at(buffer, kTypeLetterIndex) = 'h';
         break;
     case kSaveNetworkSettings:
-        core::at(buffer, 7) = 'e';
+        core::at(buffer, kTypeLetterIndex) = 'e';
         break;
     case kSaveOptionsAndPros:
-        core::at(buffer, 7) = 'a';
+        core::at(buffer, kTypeLetterIndex) = 'a';
         break;
     default:
         break;
     }
-    core::at(buffer, 8) = '\0';
+    core::at(buffer, kNameLetterCount) = '\0';
     return buffer.data();
 }
 
@@ -154,17 +211,17 @@ int icon_space_required(uint32_t type)
 {
     switch (type) {
     case kSaveCreatedGoals:
-        return script::fetch_int_value(0x3205BC07u); // CreatedGoalsIconSpaceRequired
+        return script::fetch_int_value(kCreatedGoalsIconSpaceRequired); // CreatedGoalsIconSpaceRequired
     case kSaveCat:
-        return script::fetch_int_value(0x46B0EF40u); // CATIconSpaceRequired
+        return script::fetch_int_value(kCATIconSpaceRequired); // CATIconSpaceRequired
     case kSavePark:
-        return script::fetch_int_value(0x82AAF8DCu); // ParkIconSpaceRequired
+        return script::fetch_int_value(kParkIconSpaceRequired); // ParkIconSpaceRequired
     case kSaveCreatedGraphic:
-        return script::fetch_int_value(0xD85D78F9u); // CreatedGraphicIconSpaceRequired
+        return script::fetch_int_value(kCreatedGraphicIconSpaceRequired); // CreatedGraphicIconSpaceRequired
     case kSaveNetworkSettings:
-        return script::fetch_int_value(0xF3431F63u); // NetworkSettingsIconSpaceRequired
+        return script::fetch_int_value(kNetworkSettingsIconSpaceRequired); // NetworkSettingsIconSpaceRequired
     case kSaveOptionsAndPros:
-        return script::fetch_int_value(0x4925ED9Eu); // OptionsProsIconSpaceRequired
+        return script::fetch_int_value(kOptionsProsIconSpaceRequired); // OptionsProsIconSpaceRequired
     default:
         return 0;
     }
@@ -192,9 +249,9 @@ int type_version(uint32_t type)
 }
 
 namespace {
-std::array<char, 0x68>& save_file_name()
+std::array<char, kSaveFileNameStoreBytes>& save_file_name()
 {
-    static std::array<char, 0x68> save_file_name{}; // (the cutscene list's flag follows)
+    static std::array<char, kSaveFileNameStoreBytes> save_file_name{}; // (the cutscene list's flag follows)
     return save_file_name;
 }
 } // namespace
@@ -237,11 +294,11 @@ const char* get_type_file_name(uint32_t type, const char* name)
 // 0x005A6390
 int make_folder_file_name(uint32_t type, const char* name, char* buffer)
 {
-    std::array<char, 20> file{};
+    std::array<char, kSaveFileNameBytes> file{};
     make_file_name(name, file, type);
     const char* folder = game_config::get_path_prefix();
     return static_cast<int>(
-        text::format_to(std::span(buffer, 0x100), "/%s%s", folder, file.data())); // (no limit in the original)
+        text::format_to(std::span(buffer, kFolderFileNameBytes), "/%s%s", folder, file.data())); // (no limit in the original)
 }
 
 // 0x005A63E0
@@ -249,7 +306,7 @@ bool is_later(Struct* first, Struct* second)
 {
     const SaveDate a = read_stamped_date(first);
     const SaveDate b = read_stamped_date(second);
-    for (int i = 0; i < 6; ++i) {
+    for (size_t i = 0; i < kDateFieldCount; ++i) {
         if (core::at(a.fields, i) != core::at(b.fields, i))
             return core::at(a.fields, i) > core::at(b.fields, i);
     }
@@ -271,27 +328,27 @@ int type_file_size(uint32_t type)
     int size = 0;
     switch (type) {
     case kSaveCreatedGoals:
-        size = script::fetch_int_value(0x3308EFC0u);
+        size = script::fetch_int_value(kSaveSizeCreatedGoals);
         break; // SaveSize_CreatedGoals
     case kSaveCat:
-        size = script::fetch_int_value(0x9EECDEC9u);
+        size = script::fetch_int_value(kSaveSizeCat);
         break; // SaveSize_Cat
     case kSavePark:
-        size = script::fetch_int_value(0x2CB071EDu);
+        size = script::fetch_int_value(kSaveSizePark);
         break; // SaveSize_Park
     case kSaveCreatedGraphic:
-        size = script::fetch_int_value(0x2E3F4E50u);
+        size = script::fetch_int_value(kSaveSizeCreatedGraphic);
         break; // SaveSize_CreatedGraphic
     case kSaveNetworkSettings:
-        size = script::fetch_int_value(0x651C978Du);
+        size = script::fetch_int_value(kSaveSizeNetworkSettings);
         break; // SaveSize_NetworkSettings
     case kSaveOptionsAndPros:
-        size = script::fetch_int_value(0xE7F51FFEu);
+        size = script::fetch_int_value(kSaveSizeOptionsAndPros);
         break; // SaveSize_OptionsAndPros
     default:
         break;
     }
-    return round_up_to_card_block(size + 0x14);
+    return round_up_to_card_block(size + kFileHeaderBytes);
 }
 
 // 0x005A8470
@@ -333,19 +390,19 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
         int width = 0;
         int length = 0;
         editor->get_map_info(map, {.num_gaps_ = &gaps, .num_metas_ = &pieces, .theme = &theme, .unknown18 = &tod_script, .width = &width, .length = &length});
-        summary->put_int(checksums::Name{0xE6121ED0u}, gaps);            // num_gaps
-        summary->put_int(checksums::Name{0xFFF3DC35u}, pieces);          // num_pieces
-        summary->put_int(checksums::Name{0x688A18F7u}, theme);           // theme
-        summary->put_name_key(checksums::Name{0x4C72ED98u}, tod_script); // tod_script
-        summary->put_int(checksums::Name{0x73E5BAD0u}, width);           // width
-        summary->put_int(checksums::Name{0xFE82614Du}, length);          // length
+        summary->put_int(checksums::Name{kNumGaps}, gaps);            // num_gaps
+        summary->put_int(checksums::Name{kNumPieces}, pieces);          // num_pieces
+        summary->put_int(checksums::Name{kTheme}, theme);           // theme
+        summary->put_name_key(checksums::Name{kTodScript}, tod_script); // tod_script
+        summary->put_int(checksums::Name{kWidth}, width);           // width
+        summary->put_int(checksums::Name{kLength}, length);          // length
     };
 
     if (saved) {
         switch (type) {
         case kSaveCat: {
             Struct* other = nullptr;
-            saved->read_sub_struct(0x4137CB14u, &other, 1); // other_params
+            saved->read_sub_struct(kOtherParams, &other, 1); // other_params
             const char* name = empty;
             other->fetch_text(kName, &name, 1);
             summary->append_word(kName, name);
@@ -353,7 +410,7 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
         }
         case kSavePark: {
             Struct* goals = nullptr;
-            saved->read_sub_struct(0xD8EB825Eu, &goals, 0); // Park_editor_goals
+            saved->read_sub_struct(kParkEditorGoals, &goals, 0); // Park_editor_goals
             int count = 0;
             if (goals) {
                 script::Array* array = nullptr;
@@ -366,7 +423,7 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
             saved->fetch_int_value(kMaxPlayers, &max_players, 0);
             summary->put_int(checksums::Name{kMaxPlayers}, max_players);
             script::Array* map = nullptr;
-            saved->fetch_list(0x337C5289u, &map, 1); // Park_editor_map
+            saved->fetch_list(kParkEditorMap, &map, 1); // Park_editor_map
             // (the map's words into a map of its own: NOT ORIGINAL - the original read the array's storage as
             // a map, past the end of a short one)
             auto copy = std::make_unique<park_editing::ParkMap>();
@@ -383,38 +440,38 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
         }
         case kSaveOptionsAndPros: {
             Struct* story = nullptr;
-            saved->read_sub_struct(0x14A9FBC7u, &story, 1); // Story
+            saved->read_sub_struct(kStory, &story, 1); // Story
             Struct* goal_manager = nullptr;
             story->read_sub_struct(kGoalManagerParams, &goal_manager, 1);
             Struct* goal_manager_params = nullptr;                               // (read, not used)
-            goal_manager->read_sub_struct(0x23D4170Au, &goal_manager_params, 1); // GoalManager_Params
+            goal_manager->read_sub_struct(kGoalManagerParamsName, &goal_manager_params, 1); // GoalManager_Params
             Struct* global = nullptr;
-            saved->read_sub_struct(0xF55CBD13u, &global, 0); // GlobalInfo
+            saved->read_sub_struct(kGlobalInfo, &global, 0); // GlobalInfo
             if (global) {
                 Struct* career = nullptr;
-                global->read_sub_struct(0x4DA4937Bu, &career, 0); // career
+                global->read_sub_struct(kCareer, &career, 0); // career
                 int value = 0; // (not initialised: a missing field after the first repeats the one before)
-                if (career && career->fetch_int_value(0x6C1A5E39u, &value, 0)) {
+                if (career && career->fetch_int_value(kCareerGoalsComplete, &value, 0)) {
                     summary->put_int(checksums::Name{kTotalGoalsComplete}, value);
-                    career->fetch_int_value(0x7A6BF912u, &value, 0);
+                    career->fetch_int_value(kCareerGoalsPossible, &value, 0);
                     summary->put_int(checksums::Name{kTotalGoalsPossible}, value);
-                    career->fetch_int_value(0x0444419Au, &value, 0);
+                    career->fetch_int_value(kCareerScore, &value, 0);
                     summary->put_int(checksums::Name{kTotalScore}, value);
-                    career->fetch_int_value(0x95947B61u, &value, 0);
+                    career->fetch_int_value(kCareerScorePotential, &value, 0);
                     summary->put_int(checksums::Name{kTotalScorePotential}, value);
                 }
             }
             Struct* custom_skater = nullptr;
-            saved->read_sub_struct(0x12BFAC82u, &custom_skater, 1); // CustomSkater
+            saved->read_sub_struct(kCustomSkater, &custom_skater, 1); // CustomSkater
             Struct* custom = nullptr;
-            custom_skater->read_sub_struct(0x0A7BE964u, &custom, 1); // custom
+            custom_skater->read_sub_struct(kCustom, &custom, 1); // custom
             Struct* info = nullptr;
-            custom->read_sub_struct(0x3476CEA8u, &info, 1); // info
+            custom->read_sub_struct(kInfo, &info, 1); // info
             int male = 0;
             info->fetch_int_value(kIsMale, &male, 0);
             summary->put_int(checksums::Name{kIsMale}, male);
             const char* name = empty;
-            info->fetch_text(0x2AB66CB8u, &name, 0); // display_name
+            info->fetch_text(kDisplayName, &name, 0); // display_name
             summary->append_word(kName, name);
             break;
         }
@@ -455,16 +512,16 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
     case kSaveNetworkSettings: {
         Struct* settings = &online::net_game_state().online_hub()->get_online_settings()->top_entry();
         Struct* network_id = nullptr;
-        settings->read_sub_struct(0xCBED746Eu, &network_id, 0); // network_id
+        settings->read_sub_struct(kNetworkId, &network_id, 0); // network_id
         const char* text = empty;
-        network_id->fetch_text(0x96875C0Fu, &text, 0); // ui_string
-        summary->append_word(0xCBED746Eu, text);
+        network_id->fetch_text(kUiString, &text, 0); // ui_string
+        summary->append_word(kNetworkId, text);
         break;
     }
     case kSaveOptionsAndPros: {
         Struct* own = objective_board()->goal_data(); // (the shared getter of +0x14)
         Struct* goal_manager_params = nullptr;       // (read, not used)
-        own->read_sub_struct(0x23D4170Au, &goal_manager_params, 0);
+        own->read_sub_struct(kGoalManagerParamsName, &goal_manager_params, 0);
         const objects::RiderStoryProgress* career = modules::Skate::sole()->career().get();
         summary->put_int(checksums::Name{kTotalScore}, career->lifetime_funds());
         summary->put_int(checksums::Name{kTotalScorePotential}, career->total_amount());

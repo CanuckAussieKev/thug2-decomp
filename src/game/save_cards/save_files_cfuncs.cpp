@@ -39,6 +39,43 @@
 #include "engine/core/format.h"
 #include "game/save_cards/save_cards_state.h"
 
+namespace {
+
+constexpr int kReserveComponentItemBytes = 0x10; // the temporary pools made for a save: item sizes and counts
+constexpr int kReserveComponentCount = 50000;
+constexpr int kReserveStructItemBytes = 0x08;
+constexpr int kReserveStructCount = 50000;
+constexpr int kReserveVectorItemBytes = 0x10;
+constexpr int kReserveVectorCount = 10000;
+constexpr int kMaxSummaryBytes = 100;        // MaxSummaryInfoSize
+constexpr int kTypeLetterOffset = 7;      // the type's letter in a file label, after the 7 characters of the folder's name
+constexpr int kHardwareUnlisted = 8;         // a platform number the tables don't list (treated like the PC's)
+
+// Names (the checksums of their text).
+constexpr uint32_t kActualFileName = 0x13C68F74u; // actual_file_name
+constexpr uint32_t kDay = 0x1A5FD66Fu; // day
+constexpr uint32_t kFileType = 0x11093FB5u; // FileType
+constexpr uint32_t kFileTypeName = 0xFADDC0B8u; // file_type
+constexpr uint32_t kHour = 0x8FE1EEB1u; // hour
+constexpr uint32_t kIndex = 0x7F8C98FEu; // index
+constexpr uint32_t kMainStructure = 0x671C9C00u; // MainStructure
+constexpr uint32_t kMainStructureSize = 0x172C1344u; // MainStructureSize
+constexpr uint32_t kMaxSummaryInfoSize = 0x6AFD2F7Fu; // MaxSummaryInfoSize
+constexpr uint32_t kMaxTotalSize = 0xB35EB1D1u; // MaxTotalSize
+constexpr uint32_t kMinutes = 0x5F94B55Cu; // minutes
+constexpr uint32_t kMonth = 0x7149EFF9u; // month
+constexpr uint32_t kSavevaultdata = 0xBB609E73u; // savevaultdata
+constexpr uint32_t kSeconds = 0xD029F619u; // seconds
+constexpr uint32_t kSpaceRequired = 0xEB3860C3u; // SpaceRequired
+constexpr uint32_t kSummaryInfo = 0x703E60CAu; // SummaryInfo
+constexpr uint32_t kSummaryInfoSize = 0x96635475u; // SummaryInfoSize
+constexpr uint32_t kTotalFileSize = 0x3D1BCFEDu; // total_file_size
+constexpr uint32_t kTotalSize = 0xECBB8262u; // TotalSize
+constexpr uint32_t kType = 0x7321A8D6u; // type
+constexpr uint32_t kYear = 0x447D8CC8u; // year
+
+} // namespace
+
 namespace save_cards {
 
 namespace {
@@ -111,13 +148,13 @@ bool delete_mem_card_file(Struct* params, Script*)
     params->fetch_text("UserFileName", &user_file_name, 0);
 
     bool removed = false;
-    std::array<char, 20> file{};
+    std::array<char, kSaveFileNameBytes> file{};
     switch (os_layer()) {
     case 1:
     case 2:
     case 3: {
         // the file in its folder: /<folder><file>/<folder><file>, the type from its last letter
-        std::array<char, 104> full_name{};
+        std::array<char, kSavePathBytes> full_name{};
         const char* path = card_file_name;
         if (!path) {
             const char* folder = save_folder();
@@ -128,7 +165,7 @@ bool delete_mem_card_file(Struct* params, Script*)
         const std::string_view path_text(path);
         const uint32_t file_type = type_from_letter(core::at(path_text, path_text.size() - 1));
         // the folder: the first character, then up to the next '/'
-        std::array<char, 100> directory{};
+        std::array<char, kSaveDirectoryBytes> directory{};
         core::at(directory, 0) = core::at(path_text, 0);
         int length = 1;
         for (const char c : path_text.substr(1)) {
@@ -139,7 +176,7 @@ bool delete_mem_card_file(Struct* params, Script*)
         core::at(directory, length) = '\0';
         if (!delete_card_file(card, path))
             deleted = false;
-        std::array<char, 104> icon{};
+        std::array<char, kSavePathBytes> icon{};
         text::format_to(icon, "%s/icon.sys", directory.data());
         if (!delete_card_file(card, icon.data()))
             deleted = false;
@@ -174,21 +211,21 @@ bool delete_mem_card_file(Struct* params, Script*)
         break;
     }
     case 4:
-    case 7:
+    case game_config::kHardwareWin32:
         if (!card_file_name) {
             deleted = false;
             break;
         }
         removed = card->remove_file(card_file_name);
         break;
-    case 5: {
+    case game_config::kHardwareGameCube: {
         if (card_file_name) {
             removed = delete_card_file(card, card_file_name);
             break;
         }
         const char* folder = save_folder();
         make_file_name(user_file_name, file, type);
-        std::array<char, 104> full_name{};
+        std::array<char, kSavePathBytes> full_name{};
         text::format_to(full_name, "%s%s%s%s", folder, file.data(), folder, file.data());
         removed = delete_card_file(card, full_name.data());
         break;
@@ -212,7 +249,7 @@ bool get_mem_card_space_required(Struct* params, Script* script)
     uint32_t type = 0;
     params->read_hash_value(0u, &type, 0);
     const int size = type_file_size(type);
-    script->args().get()->put_int(checksums::Name{0xEB3860C3u}, save_blocks(checksums::Name{type}, size)); // SpaceRequired
+    script->args().get()->put_int(checksums::Name{kSpaceRequired}, save_blocks(checksums::Name{type}, size)); // SpaceRequired
     return true;
 }
 
@@ -229,11 +266,11 @@ bool mem_card_file_exists(Struct* params, Script* script)
     if (!name || !type)
         return false;
     const char* type_file_name = nullptr; // (only made on the PC and platform 7)
-    std::array<char, 100> path{};
+    std::array<char, kSaveDirectoryBytes> path{};
     core::at(path, 0) = '\0';
     switch (os_layer()) {
     case 4:
-    case 7: {
+    case game_config::kHardwareWin32: {
         type_file_name = get_type_file_name(type, name);
         const char* converted = card->convert_filename(type_file_name);
         if (!converted)
@@ -244,9 +281,9 @@ bool mem_card_file_exists(Struct* params, Script* script)
     case 1:
     case 2:
     case 3:
-    case 5: {
+    case game_config::kHardwareGameCube: {
         const char* folder = save_folder();
-        std::array<char, 20> file{};
+        std::array<char, kSaveFileNameBytes> file{};
         make_file_name(name, file, type);
         text::format_to(path, "/%s%s/%s%s", folder, file.data(), folder, file.data());
         break;
@@ -290,13 +327,13 @@ bool create_temporary_mem_card_pools(Struct*, Script*)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
     memory::push_mem_profile("Mem card CComponent");
-    create_reserve_pool(script::component_pools(), 0x10, 50000, "Reserve CComponent");
+    create_reserve_pool(script::component_pools(), kReserveComponentItemBytes, kReserveComponentCount, "Reserve CComponent");
     memory::pop_mem_profile();
     memory::push_mem_profile("Mem card CStruct");
-    create_reserve_pool(script::struct_pools(), 0x08, 50000, "Reserve CStruct");
+    create_reserve_pool(script::struct_pools(), kReserveStructItemBytes, kReserveStructCount, "Reserve CStruct");
     memory::pop_mem_profile();
     memory::push_mem_profile("Mem card CVector");
-    create_reserve_pool(script::vector_pools(), 0x10, 10000, "Reserve CVector");
+    create_reserve_pool(script::vector_pools(), kReserveVectorItemBytes, kReserveVectorCount, "Reserve CVector");
     memory::pop_mem_profile();
     memory::Hub::get_pull()->leave_heap_scope();
     return true;
@@ -315,7 +352,7 @@ bool remove_temporary_mem_card_pools(Struct*, Script*)
 bool get_save_info(Struct* params, Script* script)
 {
     uint32_t type = 0;
-    params->read_hash_value(0x7321A8D6u, &type, 0); // type
+    params->read_hash_value(kType, &type, 0); // type
     gsl::owner<Struct*> contents = script::spawn_param_bag();
     if (contents)
         contents = new (contents) script::Struct;
@@ -327,13 +364,13 @@ bool get_save_info(Struct* params, Script* script)
     write_summary(contents, *summary, type);
     const int summary_size = static_cast<int>(script::measure_buffer_bytes(summary, 100000));
     Struct* results = script->args().get();
-    results->put_int(checksums::Name{0x172C1344u}, main_size);                       // MainStructureSize
-    results->put_int(checksums::Name{0x96635475u}, summary_size);                    // SummaryInfoSize
-    results->put_int(checksums::Name{0x6AFD2F7Fu}, 100);                             // MaxSummaryInfoSize
-    results->put_int(checksums::Name{0xECBB8262u}, main_size + summary_size + 0x14); // TotalSize
-    results->put_int(checksums::Name{0xB35EB1D1u}, type_file_size(type));            // MaxTotalSize
-    results->append_struct_ref(0x703E60CAu, summary);               // SummaryInfo
-    results->append_struct_ref(0x671C9C00u, contents);              // MainStructure
+    results->put_int(checksums::Name{kMainStructureSize}, main_size);                       // MainStructureSize
+    results->put_int(checksums::Name{kSummaryInfoSize}, summary_size);                    // SummaryInfoSize
+    results->put_int(checksums::Name{kMaxSummaryInfoSize}, kMaxSummaryBytes);                             // MaxSummaryInfoSize
+    results->put_int(checksums::Name{kTotalSize}, main_size + summary_size + kFileHeaderBytes); // TotalSize
+    results->put_int(checksums::Name{kMaxTotalSize}, type_file_size(type));            // MaxTotalSize
+    results->append_struct_ref(kSummaryInfo, summary);               // SummaryInfo
+    results->append_struct_ref(kMainStructure, contents);              // MainStructure
     return true;
 }
 
@@ -369,11 +406,11 @@ uint32_t listed_file_type(const FileLoad* file, int folder_length)
     case 1:
     case 2:
     case 3:
-    case 5:
-        return type_from_letter(core::at(file->label(), folder_length + 7));
+    case game_config::kHardwareGameCube:
+        return type_from_letter(core::at(file->label(), folder_length + kTypeLetterOffset));
     case 4:
-    case 7:
-    case 8: {
+    case game_config::kHardwareWin32:
+    case kHardwareUnlisted: {
         // (the music and sounds kept going while the files are read)
         audio::tick_frame();
         sound::update_voice_states();
@@ -417,7 +454,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     script->args().get()->erase_module(kFilesLimitReached);
     script->args().get()->erase_module(kTotalFiles);
     uint32_t wanted_type = 0;
-    params->read_hash_value(0x11093FB5u, &wanted_type, 0); // FileType
+    params->read_hash_value(kFileType, &wanted_type, 0); // FileType
     SaveCard* card = the_card();
     if (!card)
         return true;
@@ -458,20 +495,20 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         gsl::owner<Struct*> entry = script::spawn_param_bag();
         if (entry)
             entry = new (entry) script::Struct;
-        entry->put_name_key(checksums::Name{0xFADDC0B8u}, type);     // file_type
-        entry->put_int(checksums::Name{0x7F8C98FEu}, listed);        // index
-        entry->put_int(checksums::Name{0x447D8CC8u}, file->year());   // year
-        entry->put_int(checksums::Name{0x7149EFF9u}, file->month());  // month
-        entry->put_int(checksums::Name{0x1A5FD66Fu}, file->day());    // day
-        entry->put_int(checksums::Name{0x8FE1EEB1u}, file->hour());   // hour
-        entry->put_int(checksums::Name{0x5F94B55Cu}, file->minute()); // minutes
-        entry->put_int(checksums::Name{0xD029F619u}, file->second()); // seconds
-        std::array<char, 100> path{};
-        if (os_layer() == 5)
+        entry->put_name_key(checksums::Name{kFileTypeName}, type);     // file_type
+        entry->put_int(checksums::Name{kIndex}, listed);        // index
+        entry->put_int(checksums::Name{kYear}, file->year());   // year
+        entry->put_int(checksums::Name{kMonth}, file->month());  // month
+        entry->put_int(checksums::Name{kDay}, file->day());    // day
+        entry->put_int(checksums::Name{kHour}, file->hour());   // hour
+        entry->put_int(checksums::Name{kMinutes}, file->minute()); // minutes
+        entry->put_int(checksums::Name{kSeconds}, file->second()); // seconds
+        std::array<char, kSaveDirectoryBytes> path{};
+        if (os_layer() == game_config::kHardwareGameCube)
             text::format_to(path, "%s", file->label().data());
         else
             text::format_to(path, "Save/%s", file->label().data());
-        entry->append_word(0x13C68F74u, path.data()); // actual_file_name
+        entry->append_word(kActualFileName, path.data()); // actual_file_name
         constexpr uint32_t kDamagedFile = 0x2C7CD632, kNgcDamagedFile = 0xFD4AA64E;
         FileLoad* opened = card->unseal(path.data(), 1, 0);
         if (!opened) {
@@ -488,9 +525,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
                 summary_size > kMaxSummarySize ||
                 checksums::generate_crc_from_buffer(listed_summary, summary_size) != listed_header.summary_crc;
             const int size = static_cast<int>(opened->seek_to({.offset = 0, .origin = 2}));
-            entry->put_int(checksums::Name{0x3D1BCFEDu}, save_blocks(checksums::Name{type}, size)); // total_file_size
+            entry->put_int(checksums::Name{kTotalFileSize}, save_blocks(checksums::Name{type}, size)); // total_file_size
             if (bad || listed_header.version != type_version(type)) {
-                mark_corrupt(entry, os_layer() == 5 ? kNgcDamagedFile : kDamagedFile);
+                mark_corrupt(entry, os_layer() == game_config::kHardwareGameCube ? kNgcDamagedFile : kDamagedFile);
             } else {
                 gsl::owner<Struct*> summary = script::spawn_param_bag();
                 if (summary)
@@ -561,7 +598,7 @@ void keep_sound_going()
 // 0x005A97E0
 bool save_to_memory_card(Struct* params, Script*)
 {
-    if (os_layer() == 5)
+    if (os_layer() == game_config::kHardwareGameCube)
         create_temporary_mem_card_pools(nullptr, nullptr);
     if (os_layer() != 4) {
         audio::pause_music(1);
@@ -574,7 +611,7 @@ bool save_to_memory_card(Struct* params, Script*)
     uint32_t type = 0;
     params->read_hash_value("Type", &type, 0);
     int vault_data = 0;
-    params->fetch_int_value(0xBB609E73u, &vault_data, 0); // savevaultdata
+    params->fetch_int_value(kSavevaultdata, &vault_data, 0); // savevaultdata
     if (vault_data) {
         type = save_cards_state().kept_type();
     } else if (type == kSaveOptionsAndPros) {
@@ -611,7 +648,7 @@ bool save_to_memory_card(Struct* params, Script*)
     const uint32_t summary_size = script::measure_buffer_bytes(summary, kMaxSummarySize);
     const uint32_t total = main_size + summary_size + kSaveFileHeaderSize;
     const uint32_t padding_size = static_cast<uint32_t>(file_size) - total;
-    if (padding_size != 0 && os_layer() != 5) {
+    if (padding_size != 0 && os_layer() != game_config::kHardwareGameCube) {
         padding = static_cast<uint8_t*>(memory::alloc_block(padding_size));
         if (padding_size > 0)
             std::memset(padding, kSaveFileMask, padding_size);
@@ -619,17 +656,17 @@ bool save_to_memory_card(Struct* params, Script*)
     SaveCard* card = the_card();
     // (the second test is a card method that's the shared always-true stub, 0x005B9760)
     if (card && stubs::return_true()) {
-        std::array<char, 104> path{};
+        std::array<char, kSavePathBytes> path{};
         bool named = true;
         switch (os_layer()) {
-        case 5: {
-            std::array<char, 104> folder_name{};
+        case game_config::kHardwareGameCube: {
+            std::array<char, kSavePathBytes> folder_name{};
             make_folder_file_name(type, name, folder_name.data());
             text::format_to(path, "%s%s", folder_name.data(), folder_name.data());
             break;
         }
         case 4:
-        case 7: {
+        case game_config::kHardwareWin32: {
             core::at(path, 0) = '\0';
             text::copy_unbounded(path.data(), get_type_file_name(type, name));
             break;
@@ -639,13 +676,13 @@ bool save_to_memory_card(Struct* params, Script*)
             break;
         }
         if (named) {
-            file = card->unseal(path.data(), 6, file_size);
+            file = card->unseal(path.data(), kOpenWriteAlways, file_size);
             out_of_space = card->fault() == 2;
         }
         if (file) {
             header = static_cast<uint8_t*>(memory::alloc_block(total));
             std::memset(header, 0, kSaveFileHeaderSize);
-            if (os_layer() != 5) {
+            if (os_layer() != game_config::kHardwareGameCube) {
                 SaveFileHeader file_header;
                 file_header.version = type_version(type);
                 file_header.size = static_cast<int>(total);
@@ -668,7 +705,7 @@ bool save_to_memory_card(Struct* params, Script*)
                 int written = file->emit_out(header, static_cast<int>(total));
                 out_of_space = card->fault() == 2;
                 if (written == ints::as_signed(total)) {
-                    if (os_layer() == 5 || padding_size == 0) {
+                    if (os_layer() == game_config::kHardwareGameCube || padding_size == 0) {
                         saved = true;
                     } else {
                         written = file->emit_out(padding, static_cast<int>(padding_size));
@@ -707,7 +744,7 @@ bool save_to_memory_card(Struct* params, Script*)
         audio::pause_music(-1);
         audio::freeze_stream(-1);
     }
-    if (os_layer() == 5)
+    if (os_layer() == game_config::kHardwareGameCube)
         remove_temporary_mem_card_pools(nullptr, nullptr);
     return saved;
 }

@@ -32,6 +32,24 @@
 #include "game/save_cards/save_cards_state.h"
 #include "engine/core/checksums.h"
 
+namespace {
+
+constexpr int kFilesLeftNoLimit = 1000000; // (the files left on a card: always this)
+constexpr int kMaxSaveBytes = 500000;  // a save header claiming more is rejected
+constexpr int kMaxThps4Files = 75;
+constexpr uint32_t kApplyUnknownSection = 0xB39D7CC4u; // text unknown
+
+// Names (the checksums of their text).
+constexpr uint32_t kAll = 0xC4E78E22u; // all
+constexpr uint32_t kApplyCustomSkater = 0x16B506C0u; // ApplyCustomSkater
+constexpr uint32_t kApplyStory = 0x33EC233Fu; // ApplyStory
+constexpr uint32_t kApplyStorySkater = 0xDC7EA3CEu; // ApplyStorySkater
+constexpr uint32_t kMaxTHPS4FilesAllowed = 0x7CC9E431u; // MaxTHPS4FilesAllowed
+constexpr uint32_t kPostLoadFromMemoryCard = 0x0EB9402Du; // post_load_from_memory_card
+constexpr uint32_t kType = 0x7321A8D6u; // type
+
+} // namespace
+
 namespace save_cards {
 
 // PartyMod's free space (code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md): with a card
@@ -45,7 +63,7 @@ int32_t free_disk_blocks(SaveCard* card)
     ULARGE_INTEGER total_space;
     if (!GetDiskFreeSpaceExA(nullptr, &free_space, &total_space, nullptr))
         return 0;
-    uint64_t blocks = free_space.QuadPart >> 14;
+    uint64_t blocks = free_space.QuadPart >> kBlockShift;
     constexpr uint64_t kLimit = INT32_MAX - UINT16_MAX * 2; // (a number that leaves room for a bit of maths)
     if (blocks > kLimit)
         blocks = kLimit;
@@ -65,7 +83,7 @@ constexpr uint32_t kFilesLeft = 0x0855B2FC;      // "FilesLeft"
 bool get_mem_card_space_available(script::Struct*, script::Script* script)
 {
     script->args().get()->put_int(checksums::Name{kSpaceAvailable}, 0);
-    script->args().get()->put_int(checksums::Name{kFilesLeft}, 1000000);
+    script->args().get()->put_int(checksums::Name{kFilesLeft}, kFilesLeftNoLimit);
     SaveCard* card = save_cards_state().card_hub()->get_storage_slot(0, 0);
     if (!card)
         return false;
@@ -122,7 +140,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
     if (card && stubs::return_true()) {
         params->fetch_text("Name", &name, 0);
         params->read_hash_value("Type", &type, 0);
-        std::array<char, 104> path{};
+        std::array<char, kSavePathBytes> path{};
         core::at(path, 0) = '\0';
         bool named = true;
         switch (os_layer()) {
@@ -130,19 +148,19 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
         case 2:
         case 3: { // console folders: /<dir><file>/<dir><file>
             const char* folder = game_config::get_path_prefix();
-            std::array<char, 20> file{};
+            std::array<char, kSaveFileNameBytes> file{};
             make_file_name(name, file, type);
             text::format_to(path, "/%s%s/%s%s", folder, file.data(), folder, file.data());
             break;
         }
-        case 5: {
-            std::array<char, 104> file{};
+        case game_config::kHardwareGameCube: {
+            std::array<char, kSavePathBytes> file{};
             make_folder_file_name(type, name, file.data());
             text::format_to(path, "%s%s", file.data(), file.data());
             break;
         }
         case 4:
-        case 7: {
+        case game_config::kHardwareWin32: {
             const char* converted = card->convert_filename(get_type_file_name(type, name));
             if (!converted)
                 named = false;
@@ -170,7 +188,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                     // (with the checksum field cleared) - the test PartyMod NOPs (its patch at 0x005A8A01).
                     // NOT ORIGINAL: a header claiming more bytes than the file has is rejected too (the original
                     // then unmasked the NetworkSettings contents past the end of its buffer).
-                    bad = !reader.ok() || file_header.size > 500000 || file_header.size > size ||
+                    bad = !reader.ok() || file_header.size > kMaxSaveBytes || file_header.size > size ||
                           file_header.version != type_version(type);
                     if (!bad) {
                         auto end = static_cast<size_t>(file_header.size);
@@ -196,7 +214,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                         }
                         loaded = true;
                         if (no_apply == 0)
-                            script::launch_script(0x0EB9402Du, params, nullptr, false, nullptr);
+                            script::launch_script(kPostLoadFromMemoryCard, params, nullptr, false, nullptr);
                     }
                 }
             }
@@ -229,16 +247,16 @@ bool set_sections_to_apply_when_loading(script::Struct* params, script::Script*)
         "ScriptSetSectionsToApplyWhenLoading was called.........................\n"); // "ScriptSetSectionsToApplyWhenLoading was called..."
     uint32_t& sections = sections_to_apply_when_loading();
     sections = 0;
-    if (params->has_bare_flag(0x16B506C0u)) // ApplyCustomSkater
-        sections |= 8;
-    if (params->has_bare_flag(0xDC7EA3CEu)) // ApplyStorySkater
+    if (params->has_bare_flag(kApplyCustomSkater)) // ApplyCustomSkater
+        sections |= kSectionCustomSkater;
+    if (params->has_bare_flag(kApplyStorySkater)) // ApplyStorySkater
         sections |= 4;
-    if (params->has_bare_flag(0x33EC233Fu)) // ApplyStory
+    if (params->has_bare_flag(kApplyStory)) // ApplyStory
         sections |= 2;
-    if (params->has_bare_flag(0xB39D7CC4u)) // (name unknown)
+    if (params->has_bare_flag(kApplyUnknownSection)) // (name unknown)
         sections |= 1;
-    if (params->has_bare_flag(0xC4E78E22u)) // all
-        sections = 0xFFFFFFFF;
+    if (params->has_bare_flag(kAll)) // all
+        sections = kAllSections;
     return true;
 }
 
@@ -279,7 +297,7 @@ bool get_most_recent_save(script::Struct* params, script::Script* script)
         if (type != 0 && file_type != type) // (any type when none is asked for)
             continue;
         // a bad save only counts on the PC (4) and platform 5
-        if ((save->has_bare_flag("BadVersion") || save->has_bare_flag("Corrupt")) && os_layer() != 4 && os_layer() != 5)
+        if ((save->has_bare_flag("BadVersion") || save->has_bare_flag("Corrupt")) && os_layer() != 4 && os_layer() != game_config::kHardwareGameCube)
             continue;
         if (!best || is_later(save, best))
             best = save;
@@ -337,14 +355,14 @@ bool get_summary_info(script::Struct* params, script::Script* script)
 // 0x005A7430
 bool get_mem_card_data_for_upload(script::Struct*, script::Script* script)
 {
-    script->args().get()->put_name_key(checksums::Name{0x7321A8D6u}, save_cards_state().kept_type()); // type
+    script->args().get()->put_name_key(checksums::Name{kType}, save_cards_state().kept_type()); // type
     return true;
 }
 
 // 0x005A7450
 bool get_max_thps4_files_allowed(script::Struct*, script::Script* script)
 {
-    script->args().get()->put_int(checksums::Name{0x7CC9E431u}, 75); // MaxTHPS4FilesAllowed
+    script->args().get()->put_int(checksums::Name{kMaxTHPS4FilesAllowed}, kMaxThps4Files); // MaxTHPS4FilesAllowed
     return true;
 }
 

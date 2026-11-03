@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include "engine/core/checksums.h"
@@ -17,6 +18,12 @@ class Struct;
 namespace save_cards {
 
 // The save types' checksums (the type's name in the scripts).
+constexpr size_t kSaveFileNameBytes = 20;   // a save's file name (8 letters and the extension) in its buffer
+constexpr size_t kSavePathBytes = 104;      // a file's folder or full path buffer (the console forms)
+constexpr size_t kSaveDirectoryBytes = 100; // a directory or icon path buffer
+constexpr int kFileHeaderBytes = 0x14;      // a save's header, counted into its size
+constexpr int kSectionCustomSkater = 8;     // the sections a load applies (set_sections_to_apply_when_loading)
+constexpr uint32_t kAllSections = 0xFFFFFFFF;
 constexpr uint32_t kSaveOptionsAndPros = 0xB010F357;  // "OptionsAndPros" (.SKA, letter a)
 constexpr uint32_t kSaveCas = 0xFFC529F4;             // "Cas" (letter b)
 constexpr uint32_t kSavePark = 0x3BF882CC;            // "Park" (.PRK, letter c)
