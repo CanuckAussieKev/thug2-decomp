@@ -63,7 +63,6 @@ constexpr std::size_t kSummaryTextSize = 40;
 constexpr std::size_t kNumberTextSize = 32;
 constexpr std::size_t kChecksumTextSize = 12;
 constexpr std::size_t kChecksumDigits = 8;   // hex digits of a checksum
-constexpr int kHexBase = 16;
 constexpr int kBitsPerByte = 8;
 constexpr std::size_t kMaxPathPoints = 512;
 constexpr float kVehicleMph = 25.0f;         // preview speed of a vehicle on its path

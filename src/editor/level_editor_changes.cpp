@@ -17,6 +17,7 @@
 #include "editor/level_editor_fields.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "editor/level_editor.h"
 
 namespace frontend::level_editor::changes {
 
@@ -25,7 +26,6 @@ namespace {
 constexpr std::size_t kChecksumDigits = 8; // hex digits of a checksum
 constexpr std::size_t kNumberTextSize = 32; // a formatted number
 constexpr std::size_t kPrefixedChecksumLength = 10; // "0x" and a checksum's digits
-constexpr int kHexBase = 16;
 constexpr std::size_t kScaleKeyLength = 6; // "scale="
 constexpr int kDegreesPerQuarter = 90;
 constexpr double kHalfTurnDegrees = 180.0;

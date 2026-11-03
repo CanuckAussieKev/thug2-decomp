@@ -49,11 +49,8 @@ namespace {
 
 constexpr std::size_t kHexTextSize = 16; // an 8-digit hex id
 constexpr std::size_t kHexDigits = 8;
-constexpr int kHexBase = 16;
 constexpr std::size_t kMemberTextLength = 10; // "<o|s|n>:<8 hex digits>"
 constexpr std::size_t kMaxGroupNameLength = 40; // the longest group name accepted
-constexpr int kFirstPrintableChar = 0x20;
-constexpr int kDeleteChar = 0x7F;
 constexpr float kSizeTolerance = 0.5f; // two boxes this close in every axis count as the same size
 constexpr std::size_t kMaxSetNameLength = 32; // the longest saved selection name
 constexpr std::size_t kBoxStatusSize = 160; // the box select's status line

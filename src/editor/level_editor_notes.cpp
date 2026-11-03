@@ -35,12 +35,8 @@ namespace frontend::level_editor::notes {
 
 namespace {
 
-constexpr int kFirstPrintableChar = 0x20; // a note text is stored without control characters
-constexpr int kDeleteChar = 0x7F;
-constexpr int kHexBase = 16;
 constexpr std::size_t kMaxWordLength = 63; // the longest note name
 constexpr std::size_t kNoteLineSize = 160;
-constexpr std::uint32_t kRgbMask = 0xFFFFFF;
 constexpr std::size_t kColourDigits = 6; // a colour is written as 6 hex digits
 constexpr float kRayLength = 20000.0f; // how far the view ray is cast to find a point
 constexpr float kPlaceAheadDistance = 800.0f; // where a note goes when nothing is hit

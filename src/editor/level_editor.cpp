@@ -149,7 +149,6 @@ constexpr float kPennantBottom = 2.0f;
 constexpr float kSparkInner = 1.4f;         // the spark strokes start and end this many radii out
 constexpr float kSparkOuter = 2.1f;
 constexpr float kSparkWidth = 1.5f;
-constexpr uint32_t kRgbMask = 0x00FFFFFF;
 constexpr uint32_t kHalfAlpha = 0x80000000;
 constexpr float kSpeakerBack = 0.3f;        // the speaker box, in radii
 constexpr float kSpeakerConeSpread = 1.1f;

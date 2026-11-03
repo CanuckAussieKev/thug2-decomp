@@ -172,6 +172,18 @@ constexpr double kMaxFlySpeedDouble = 20000.0;
 constexpr float kFarDistance = 1e30f;           // farther than anything: a search's start
 constexpr double kFarDistanceDouble = 1e30;
 constexpr float kDegreesPerHalfTurn = 180.0f;
+// An ARGB colour's channels (0xAARRGGBB).
+constexpr int kRedShift = 16;
+constexpr int kGreenShift = 8;
+constexpr int kAlphaShift = 24;
+constexpr std::uint32_t kChannelMask = 0xFF;
+constexpr std::uint32_t kRgbMask = 0x00FFFFFFu;
+constexpr std::uint32_t kOpaqueAlpha = 0xFF000000u;
+// Text the editor reads and writes: hex numbers, the typed characters it keeps.
+constexpr int kHexBase = 16;
+constexpr int kFirstPrintableChar = 0x20; // below: control characters
+constexpr int kDeleteChar = 0x7F;
+constexpr int kMaxGeometries = 16;        // an object's geometries the editor looks at
 
 // The axes' letters, by index (0 X, 1 Y, 2 Z).
 inline constexpr std::string_view kAxisLetters = "XYZ";

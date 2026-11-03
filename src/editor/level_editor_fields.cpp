@@ -26,6 +26,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "editor/level_editor.h"
 
 namespace frontend::level_editor::fields {
 
@@ -103,7 +104,6 @@ constexpr std::size_t kHashColourLength = 9; // "#AARRGGBB"
 constexpr std::size_t kPrefixedHexLength = 10; // "0x" and eight digits
 constexpr std::size_t kMaxTextLength = 255; // the longest text value
 constexpr std::size_t kMaxListEntries = 256; // the most entries of a list value
-constexpr int kHexBase = 16;
 constexpr std::size_t kLineTextSize = 96;
 
 bool identifier_char(char c, bool first)

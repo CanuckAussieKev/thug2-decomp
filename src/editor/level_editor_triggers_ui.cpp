@@ -31,9 +31,6 @@ namespace frontend::level_editor::triggers {
 
 namespace {
 constexpr std::uint32_t kChannelByteMask = 0xFF;
-constexpr int kRedShift = 16; // a colour channels
-constexpr int kGreenShift = 8;
-constexpr int kAlphaShift = 24;
 constexpr std::size_t kTextBufferSize = 64; // the target, script, text and sound fields
 constexpr float kNewProximRadius = 200.0f; // a new proximity node default size
 constexpr float kNewProximWidth = 400.0f;

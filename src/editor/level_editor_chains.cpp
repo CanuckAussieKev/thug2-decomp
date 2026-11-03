@@ -68,7 +68,6 @@ namespace {
 
 constexpr std::size_t kNumberTextSize = 16;
 constexpr std::size_t kChecksumDigits = 8;   // hex digits of a checksum
-constexpr int kHexBase = 16;
 constexpr std::size_t kMaxNameLength = 63;   // the longest chain name
 constexpr std::size_t kPositionTextSize = 96;
 constexpr std::size_t kFacingTextSize = 48;

@@ -21,9 +21,6 @@ namespace frontend::level_editor::play_test {
 namespace {
 
 constexpr std::uint32_t kChannelByteMask = 0xFF;
-constexpr int kRedShift = 16; // a colour channels
-constexpr int kGreenShift = 8;
-constexpr int kAlphaShift = 24;
 constexpr float kWindowLeft = 0.30f; // the Playtest window starting place, as fractions of the display
 constexpr float kWindowTop = 0.18f;
 constexpr float kWindowWidth = 400.0f; // at scale 1

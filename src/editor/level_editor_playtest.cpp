@@ -80,7 +80,6 @@ constexpr float kBannerHalfWidth = 150.0f; // the SIMULATING banner is centred o
 constexpr float kBannerTop = 36.0f;
 constexpr std::uint32_t kBannerColour = 0xFFFFD040;
 constexpr std::size_t kLineBudget = 60000; // trail segments drawn per frame
-constexpr std::uint32_t kRgbMask = 0x00FFFFFF;
 constexpr float kRunMarkerRadius = 5.0f; // the dot at a run start
 constexpr float kRunMarkerThickness = 1.5f;
 constexpr std::uint32_t kRunMarkerColour = 0xFFFFFFFF;

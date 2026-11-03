@@ -60,8 +60,6 @@ constexpr std::uint32_t kName = 0xA1DC81F9u; // Name
 constexpr std::uint32_t kSkate = 0x54166ACDu; // Skate
 constexpr std::uint32_t kWalk = 0x726E85AAu; // Walk
 constexpr long kMaxFieldNumber = 100000000L; // a number field's range (plus and minus)
-constexpr char kFirstPrintable = 0x20;    // control characters are below this
-constexpr char kDeleteChar = 0x7F;
 constexpr std::size_t kLineTextSize = 200;
 constexpr std::size_t kGoalPrefixLength = 5; // "goal "
 constexpr std::size_t kMaxIdLength = 40;
@@ -377,7 +375,7 @@ std::string clean_text(const std::string& text, size_t limit)
     std::string out;
     for (const char c : text) {
         auto u = static_cast<unsigned char>(c);
-        if (u < kFirstPrintable || u == kDeleteChar || c == '"' || c == '#' || c == '|')
+        if (u < kFirstPrintableChar || u == kDeleteChar || c == '"' || c == '#' || c == '|')
             continue;
         if (out.size() >= limit)
             break;

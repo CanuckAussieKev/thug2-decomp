@@ -48,7 +48,6 @@ constexpr int kNotCulledFlag = 8; // draw_one_instance's flag: not culled
 constexpr uint32_t kMeshScanLimit = 4096; // meshes drawn per geometry
 constexpr uint32_t kMeshDrawnFlag = 0x40; // the mesh flag a drawn mesh has
 constexpr uint32_t kMeshSkipFlags = 0x210; // the mesh flags that keep a mesh out of the preview
-constexpr int kMaxGeometries = 16; // an object's geometries looked at
 constexpr double kLongestFrameSeconds = 0.1; // the orbit's turn uses at most this much of a frame
 constexpr float kBoundsPadding = 4.0f; // added around the object's bounds
 constexpr std::size_t kSizeTextSize = 96; // the "w x h x d" line

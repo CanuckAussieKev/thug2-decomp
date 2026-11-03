@@ -74,7 +74,6 @@ constexpr std::size_t kTripleLineSize = 96; // one "key=x,y,z" line
 constexpr std::size_t kNumberLineSize = 32; // one number
 constexpr std::size_t kHexLineSize = 16; // one 8-digit hex word
 constexpr std::size_t kMaxHexDigits = 8; // the digits of a 32-bit hex word
-constexpr int kHexBase = 16; // the base of the layout file's hex words
 constexpr float kColourChannelMax = 255.0f; // the largest colour channel
 constexpr std::size_t kLightLineSize = 96; // a light's brightness / inner / outer line
 constexpr std::size_t kRadiusLineSize = 32; // a radius line

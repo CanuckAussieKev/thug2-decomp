@@ -50,7 +50,6 @@ constexpr float kEdgeThickness = 2.0f;
 constexpr float kRailThickness = 3.0f;
 constexpr float kLegendInset = 12.0f; // the legend gap from the view corner, at scale 1
 constexpr float kLegendBackgroundAlpha = 0.8f;
-constexpr std::uint32_t kOpaqueAlpha = 0xFF000000u;
 
 } // namespace
 

@@ -37,7 +37,6 @@ namespace {
 
 constexpr std::size_t kEntryNameSize = 16; // "<s|o>:<8 hex digits>"
 constexpr std::size_t kEntryNameLength = 10; // that text's length
-constexpr int kHexBase = 16;
 constexpr std::size_t kIniValueSize = 4096; // one ini value read back
 constexpr int kRetryDelayFrames = 300; // frames before a thumbnail that failed is tried again
 constexpr int kStarPoints = 10; // the favourite star's outline: five tips and five notches
