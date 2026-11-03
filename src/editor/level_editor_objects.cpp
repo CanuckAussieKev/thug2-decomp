@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
@@ -41,6 +42,19 @@
 
 namespace frontend::level_editor::object_edit {
 namespace {
+
+constexpr std::uint32_t kEnvironmentObject = 0xDABD3086u; // EnvironmentObject
+constexpr int kCensusDetailLimit = 80; // objects are listed one by one in the census up to this many
+constexpr int kCensusPickableDetail = 8; // and pickable ones likewise
+constexpr std::size_t kCaptionSize = 96;
+constexpr float kStandInHalfWidth = 25.0f; // the person-sized box used where there is no geometry box
+constexpr float kStandInHeight = 80.0f;
+constexpr int kModelHasSizeFactor = 8; // the model flag that says its box must be scaled by its size factor
+constexpr float kCentreHeight = 40.0f; // the centre of a model with no box: this far above its position
+constexpr std::size_t kDescribeSize = 200;
+constexpr float kDegreesPerHalfTurn = 180.0f;
+constexpr int kMaxGeometries = 16;
+constexpr std::size_t kCopyNameSize = 64;
 
 constexpr uint32_t kModelModuleName = 0x286A8D26;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // (skaters aren't picked)
@@ -188,7 +202,7 @@ void count_one(objects::Entity* object, void* data)
     ++census->objects;
     OrientedBox box{};
     if (!model_box(composite, &box)) {
-        if (census->objects <= 80) {
+        if (census->objects <= kCensusDetailLimit) {
             objects::ObjectModule* component = composite->fetch_module(kModelModuleName);
             const render::RenderModel* model =
                 component ? core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get() : nullptr;
@@ -200,7 +214,7 @@ void count_one(objects::Entity* object, void* data)
         }
         return;
     }
-    if (++census->pickable <= 8)
+    if (++census->pickable <= kCensusPickableDetail)
         get_log("level editor:   pickable %s at (%.1f, %.1f, %.1f)", caption(composite->ident()).c_str(),
                 composite->at_point().x, composite->at_point().y, composite->at_point().z);
 }
@@ -228,7 +242,7 @@ const char* get_name_of(uint32_t checksum)
 
 std::string caption(uint32_t checksum)
 {
-    std::array<char, 96> text{};
+    std::array<char, kCaptionSize> text{};
     const char* name = get_name_of(checksum);
     if (name)
         text::format_to(text, "%s", name);
@@ -266,12 +280,12 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     const maths::BBox* bounds = geometry ? geometry->fetch_bounds() : nullptr;
 
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
-    V3 min = {.x = -25.0f, .y = 0.0f, .z = -25.0f}, max = {.x = 25.0f, .y = 80.0f, .z = 25.0f};
+    V3 min = {.x = -kStandInHalfWidth, .y = 0.0f, .z = -kStandInHalfWidth}, max = {.x = kStandInHalfWidth, .y = kStandInHeight, .z = kStandInHalfWidth};
     if (bounds && bounds->min.x <= bounds->max.x && bounds->min.y <= bounds->max.y && bounds->min.z <= bounds->max.z) {
         min = {.x = bounds->min.x, .y = bounds->min.y, .z = bounds->min.z};
         max = {.x = bounds->max.x, .y = bounds->max.y, .z = bounds->max.z};
     }
-    if (flags & 8) {
+    if (flags & kModelHasSizeFactor) {
         const maths::Vec4& scale = model->size_factor();
         min = {.x = min.x * scale.x, .y = min.y * scale.y, .z = min.z * scale.z};
         max = {.x = max.x * scale.x, .y = max.y * scale.y, .z = max.z * scale.z};
@@ -344,7 +358,7 @@ V3 current_centre(objects::GameEntity* object)
         return box.origin + core::at(box.axes, 0) * mid.x + core::at(box.axes, 1) * mid.y + core::at(box.axes, 2) * mid.z;
     }
     const V3 pos = pos_of(object);
-    return {.x = pos.x, .y = pos.y + 40.0f, .z = pos.z};
+    return {.x = pos.x, .y = pos.y + kCentreHeight, .z = pos.z};
 }
 
 void get_place(objects::GameEntity* object, V3 pos)
@@ -372,17 +386,17 @@ void turn_about(objects::GameEntity* object, V3 pivot, float angle)
 const char* class_of(uint32_t id)
 {
     switch (node_class_hash(node_of(id))) {
-    case 0xB7B3BD86:
+    case kLevelObject:
         return "LevelObject";
-    case 0xEF59C100:
+    case kGameObject:
         return "GameObject";
-    case 0xA0DFAC98:
+    case kPedestrian:
         return "Pedestrian";
-    case 0xE47F1B79:
+    case kVehicle:
         return "Vehicle";
-    case 0x9E7D469E:
+    case kParticleObject:
         return "ParticleObject";
-    case 0xDABD3086:
+    case kEnvironmentObject:
         return "EnvironmentObject";
     case 0:
         return is_copy(id) ? "copy" : "object";
@@ -396,10 +410,10 @@ std::string describe(objects::GameEntity* object)
     if (!object)
         return "-";
     const maths::Vec4& at = core::at(object->basis_frame().row, 2);
-    std::array<char, 200> text{};
+    std::array<char, kDescribeSize> text{};
     text::format_to(text, "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", class_of(object->ident()),
                     caption(object->ident()).c_str(), object->at_point().x, object->at_point().y, object->at_point().z,
-                    std::atan2(at.x, at.z) * 180.0f / kPi);
+                    std::atan2(at.x, at.z) * kDegreesPerHalfTurn / kPi);
     return text.data();
 }
 
@@ -424,7 +438,7 @@ bool get_restore(const State& state)
 
 void* get_geometry(objects::GameEntity* object, int index)
 {
-    return object && index >= 0 && index < 16 ? model_geometry(object, index) : nullptr;
+    return object && index >= 0 && index < kMaxGeometries ? model_geometry(object, index) : nullptr;
 }
 
 std::string get_model_file(uint32_t name)
@@ -441,7 +455,7 @@ std::string get_model_file(uint32_t name)
 bool get_tint(objects::GameEntity* object, uint32_t rgba)
 {
     bool any = false;
-    for (int i = 0; i < 16; ++i) {
+    for (int i = 0; i < kMaxGeometries; ++i) {
         void* geom = model_geometry(object, i);
         if (!geom)
             break;
@@ -475,7 +489,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
         return nullptr;
     if (!name) {
         // (a name no object has: "level_editor_copy_<source>_<n>", shown as "<source's name> copy <n>")
-        std::array<char, 64> text{};
+        std::array<char, kCopyNameSize> text{};
         for (bool again = true; again; again = objects::find_object(name)) {
             ++object_copies().copy_counter_;
             text::format_to(text, "level_editor_copy_%08X_%d", source, object_copies().copy_counter_);

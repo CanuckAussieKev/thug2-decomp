@@ -35,6 +35,39 @@ namespace frontend::level_editor::nodes {
 
 namespace {
 
+constexpr std::uint32_t kMultiplayerSpawnColour = 0xFF4F9DFF; // spawn node colours, by who they are for
+constexpr std::uint32_t kPlayer1SpawnColour = 0xFF5BD47A;
+constexpr std::uint32_t kPlayer2SpawnColour = 0xFFB5E36A;
+constexpr std::uint32_t kHorseSpawnColour = 0xFFF0943C;
+constexpr std::uint32_t kOtherSpawnColour = 0xFFB8BCC2;
+constexpr float kMinHeadingLength = 1e-4f; // a heading shorter than this has no direction
+constexpr std::uint32_t kCrownColour = 0xFFFFC233; // node colours, by family
+constexpr std::uint32_t kFlagFallbackColour = 0xFFE0E0E0; // a flag of no known team
+constexpr std::uint32_t kLadderColour = 0xFFB98CFF;
+constexpr std::uint32_t kMetalRailColour = 0xFF7FB2D9;
+constexpr std::uint32_t kWoodRailColour = 0xFFC9935A;
+constexpr std::uint32_t kConcreteRailColour = 0xFFC8C8C8;
+constexpr std::uint32_t kOtherRailColour = 0xFF9FE0E0;
+constexpr std::uint32_t kRouteWayColour = 0xFF8FD18F;
+constexpr int kChannelMax = 255;
+constexpr std::uint32_t kOpaqueAlpha = 0xFF000000u;
+constexpr int kRedShift = 16;
+constexpr int kGreenShift = 8;
+constexpr std::uint32_t kDefaultLightColour = 0xFFFFE9A8; // a light with no colour of its own
+constexpr std::uint32_t kSoundColour = 0xFF4FD1C5;
+constexpr std::uint32_t kParticleColour = 0xFFE07BE0;
+constexpr std::uint32_t kFireOffColour = 0xFFF08A3C;
+constexpr std::uint32_t kObjectColour = 0xFFA8B0BA;
+constexpr std::uint32_t kOtherNodeColour = 0xFF9AA0A6;
+constexpr std::size_t kHexTextSize = 16;
+constexpr std::size_t kNameBufferSize = 48;
+constexpr std::size_t kValueBufferSize = 96;
+constexpr float kDistanceTolerance = 0.5f; // two picks this close in depth count as at the same distance
+
+} // namespace
+
+namespace {
+
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
 // Colours (ARGB).
@@ -176,14 +209,14 @@ uint32_t spawn_colour(uint32_t types, uint32_t team)
     if (team && (types & (kCtf | kTeam)))
         return team;
     if (types & kMultiplayer)
-        return 0xFF4F9DFF;
+        return kMultiplayerSpawnColour;
     if (types & kPlayer1)
-        return 0xFF5BD47A;
+        return kPlayer1SpawnColour;
     if (types & kPlayer2)
-        return 0xFFB5E36A;
+        return kPlayer2SpawnColour;
     if (types & kHorse)
-        return 0xFFF0943C;
-    return 0xFFB8BCC2;
+        return kHorseSpawnColour;
+    return kOtherSpawnColour;
 }
 
 // --- the scan ---
@@ -270,7 +303,7 @@ V3 get_heading_of(V3 angles)
     matrix.init_from_angles(vector);
     const V3 at = {.x = core::at(matrix.row, 2).x, .y = 0.0f, .z = core::at(matrix.row, 2).z};
     const float length = std::sqrt(at.x * at.x + at.z * at.z);
-    return length > 1e-4f ? V3{.x = at.x / length, .y = 0.0f, .z = at.z / length} : V3{.x = 0.0f, .y = 0.0f, .z = 1.0f};
+    return length > kMinHeadingLength ? V3{.x = at.x / length, .y = 0.0f, .z = at.z / length} : V3{.x = 0.0f, .y = 0.0f, .z = 1.0f};
 }
 
 void get_scan()
@@ -335,13 +368,13 @@ void get_scan()
             }
             case Family::kCrown:
                 node.order = node.hidden ? -1 : crowns++;
-                node.colour = 0xFFFFC233;
+                node.colour = kCrownColour;
                 break;
             case Family::kBitMark: {
                 const uint32_t team = team_colour(object_edit::get_name_of(node.type));
                 node.colour = team ? team : team_colour(name);
                 if (!node.colour)
-                    node.colour = 0xFFE0E0E0;
+                    node.colour = kFlagFallbackColour;
                 break;
             }
             case Family::kRail:
@@ -350,15 +383,15 @@ void get_scan()
                 node.trick_object_ = s->has_bare_flag(kTrickObject);
                 static const uint32_t kMetal = name_hash("Metal"), kWood = name_hash("Wood"),
                                       kConcrete = name_hash("Concrete");
-                node.colour = node.family == Family::kLadder ? 0xFFB98CFF
-                              : node.type == kMetal          ? 0xFF7FB2D9
-                              : node.type == kWood           ? 0xFFC9935A
-                              : node.type == kConcrete       ? 0xFFC8C8C8
-                                                             : 0xFF9FE0E0;
+                node.colour = node.family == Family::kLadder ? kLadderColour
+                              : node.type == kMetal          ? kMetalRailColour
+                              : node.type == kWood           ? kWoodRailColour
+                              : node.type == kConcrete       ? kConcreteRailColour
+                                                             : kOtherRailColour;
                 break;
             }
             case Family::kRouteWay:
-                node.colour = 0xFF8FD18F;
+                node.colour = kRouteWayColour;
                 break;
             case Family::kLight: {
                 script::Array* colour = nullptr;
@@ -367,31 +400,31 @@ void get_scan()
                         const int value = colour->kind_tag() == script::kQbvalFloat
                                               ? static_cast<int>(colour->fetch_float(k))
                                               : static_cast<int>(colour->fetch_part(k));
-                        return static_cast<uint32_t>(std::max(0, std::min(255, value)));
+                        return static_cast<uint32_t>(std::max(0, std::min(kChannelMax, value)));
                     };
-                    node.colour = 0xFF000000u | (c(0) << 16) | (c(1) << 8) | c(2);
+                    node.colour = kOpaqueAlpha | (c(0) << kRedShift) | (c(1) << kGreenShift) | c(2);
                 } else {
-                    node.colour = 0xFFFFE9A8;
+                    node.colour = kDefaultLightColour;
                 }
                 s->fetch_float(kOuterRadius, &node.radius, 0);
                 s->fetch_float(kInnerRadius, &node.inner_radius_, 0);
                 break;
             }
             case Family::kSound:
-                node.colour = 0xFF4FD1C5;
+                node.colour = kSoundColour;
                 break;
             case Family::kParticle:
-                node.colour = 0xFFE07BE0;
+                node.colour = kParticleColour;
                 break;
             case Family::kFireOff:
-                node.colour = 0xFFF08A3C;
+                node.colour = kFireOffColour;
                 s->fetch_float(kRadius, &node.radius, 0);
                 break;
             case Family::kObject:
-                node.colour = 0xFFA8B0BA;
+                node.colour = kObjectColour;
                 break;
             default:
-                node.colour = 0xFF9AA0A6;
+                node.colour = kOtherNodeColour;
                 break;
             }
             node.trigger_script_ = s->has_entry_named(kTriggerScript);
@@ -569,7 +602,7 @@ std::string get_name_text(uint32_t checksum)
 {
     if (const char* name = object_edit::get_name_of(checksum))
         return name;
-    std::array<char, 16> hex{};
+    std::array<char, kHexTextSize> hex{};
     text::format_to(hex, "#%08X", checksum);
     return hex.data();
 }
@@ -585,7 +618,7 @@ std::string array_text(script::Array* array, int depth)
     for (uint32_t i = 0; i < shown; ++i) {
         if (i)
             text += " ";
-        std::array<char, 48> buffer{};
+        std::array<char, kNameBufferSize> buffer{};
         switch (array->kind_tag()) {
         case script::kQbvalInteger:
             text::format_to(buffer, "%d", static_cast<int>(array->fetch_part(i)));
@@ -616,7 +649,7 @@ std::string array_text(script::Array* array, int depth)
 
 std::string value_text(script::Component* c, int depth)
 {
-    std::array<char, 96> buffer{};
+    std::array<char, kValueBufferSize> buffer{};
     switch (value_kind(*c)) {
     case script::kQbvalInteger:
         text::format_to(buffer, "%d", c->value.integer());
@@ -750,7 +783,7 @@ int pick_nearest(const std::vector<Pickable>& pickables, maths::Vec2 at, float r
             better = true;
         else if (point != best_point)
             better = point; // (a point within reach beats any segment)
-        else if (std::fabs(d - best_distance) > 0.5f)
+        else if (std::fabs(d - best_distance) > kDistanceTolerance)
             better = d < best_distance;
         else
             better = p.depth < best_depth;

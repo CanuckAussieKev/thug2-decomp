@@ -23,6 +23,7 @@ namespace frontend::level_editor::ui_strip {
 namespace {
 constexpr unsigned char kUtf8ContinuationMask = 0xC0; // a UTF-8 continuation byte is 10xxxxxx
 constexpr unsigned char kUtf8ContinuationBits = 0x80;
+constexpr float kBothSides = 2.0f; // a padding counted on the left and right
 constexpr float kAccentButtonAlpha = 0.85f; // the accent-coloured button's alpha
 constexpr std::size_t kGridTextSize = 24; // "<grid>v###stripgrid"
 constexpr std::size_t kProblemsTextSize = 48; // "Problems <n>###stripproblems"
@@ -188,7 +189,7 @@ constexpr auto kDown = std::to_array(" \xE2\x96\xBC"); // (" ▼": a button that
 
 float button_width(const char* label)
 {
-    return ImGui::CalcTextSize(label, nullptr, true).x + ImGui::GetStyle().FramePadding.x * 2.0f;
+    return ImGui::CalcTextSize(label, nullptr, true).x + ImGui::GetStyle().FramePadding.x * kBothSides;
 }
 
 ImVec4 accent_button()

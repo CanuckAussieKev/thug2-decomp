@@ -35,6 +35,29 @@ namespace frontend::level_editor::skate_view {
 
 namespace {
 
+constexpr std::uint32_t kFaceNoCollide = 0x10; // a face flag: passed through
+constexpr std::uint32_t kFaceTrigger = 0x40; // a face flag: a trigger
+constexpr float kFloorNormalY = 0.97f; // a face whose normal is this upright is floor, flatter ones are banks
+constexpr std::uint32_t kFloorColour = 0x6840D850; // the surface kinds overlay colours (ARGB)
+constexpr std::uint32_t kBankColour = 0x7040C8C0;
+constexpr std::uint32_t kVertColour = 0x88FF8A20;
+constexpr std::uint32_t kWallrideColour = 0x78FFD830;
+constexpr std::uint32_t kNotSkatableColour = 0x70E03838;
+constexpr std::uint32_t kKillColour = 0x90FF1050;
+constexpr std::uint32_t kWaterColour = 0x903070FF;
+constexpr float kVertAngleDegrees = 45.0f; // the slope angle used when none is given
+constexpr float kPi = 3.14159265f;
+constexpr int kBoxCornerCount = 8;
+constexpr float kEdgeThickness = 2.0f;
+constexpr float kRailThickness = 3.0f;
+constexpr float kLegendInset = 12.0f; // the legend gap from the view corner, at scale 1
+constexpr float kLegendBackgroundAlpha = 0.8f;
+constexpr std::uint32_t kOpaqueAlpha = 0xFF000000u;
+
+} // namespace
+
+namespace {
+
 constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 constexpr float kHalf = 0.5f; // half
 
@@ -52,7 +75,7 @@ Kind get_classify(FaceClass face_class)
         return Kind::kKill;
     if (trigger == 2)
         return Kind::kWater;
-    if (flags & 0x10)
+    if (flags & kFaceNoCollide)
         return Kind::kNone; // (passed through)
     bool skatable = false;
     const bool vert = (flags & 0x08) != 0;
@@ -71,26 +94,26 @@ Kind get_classify(FaceClass face_class)
         return Kind::kNotSkatable;
     if (vert)
         return Kind::kVert;
-    return normal_y >= 0.97f ? Kind::kFloor : Kind::kBank;
+    return normal_y >= kFloorNormalY ? Kind::kFloor : Kind::kBank;
 }
 
 uint32_t get_colour(Kind kind)
 {
     switch (kind) {
     case Kind::kFloor:
-        return 0x6840D850;
+        return kFloorColour;
     case Kind::kBank:
-        return 0x7040C8C0;
+        return kBankColour;
     case Kind::kVert:
-        return 0x88FF8A20;
+        return kVertColour;
     case Kind::kWallride:
-        return 0x78FFD830;
+        return kWallrideColour;
     case Kind::kNotSkatable:
-        return 0x70E03838;
+        return kNotSkatableColour;
     case Kind::kKill:
-        return 0x90FF1050;
+        return kKillColour;
     case Kind::kWater:
-        return 0x903070FF;
+        return kWaterColour;
     default:
         return 0;
     }
@@ -121,7 +144,7 @@ const char* get_name(Kind kind)
 float get_threshold(float angle, float factor)
 {
     if (!std::isfinite(angle) || !std::isfinite(factor) || !(factor > 0.0f))
-        return std::sin(45.0f * 3.14159265f / kDegreesPerHalfTurn);
+        return std::sin(kVertAngleDegrees * kPi / kDegreesPerHalfTurn);
     return std::max(0.0f, std::min(1.0f, static_cast<float>(std::sin(static_cast<double>(angle) * factor))));
 }
 
@@ -210,7 +233,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
         const V3 n = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
         const float length = std::sqrt(get_dot(n, n));
         const float ny = length > 0.0f ? n.y / length : 0.0f;
-        Kind kind = get_classify({.flags = flags, .normal_y_ = ny, .threshold = threshold, .trigger = (flags & 0x40) ? trigger : 0});
+        Kind kind = get_classify({.flags = flags, .normal_y_ = ny, .threshold = threshold, .trigger = (flags & kFaceTrigger) ? trigger : 0});
         if (kind == Kind::kNone)
             continue;
         c.points.insert(c.points.end(), p.begin(), p.end());
@@ -318,13 +341,13 @@ void add_overlay(const overlays::Painter& painter)
         if (!a.alive || a.spec.kind != triggers::Kind::kKill)
             continue;
         OrientedBox box = triggers::box_of(a.pos, a.yaw, a.spec.size);
-        std::array<V3, 8> corner{};
+        std::array<V3, kBoxCornerCount> corner{};
         box_corners(box.origin, box.axes, box.min, box.max, corner);
         const std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                   {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
         const uint32_t colour = (get_colour(a.spec.water ? Kind::kWater : Kind::kKill) & 0x00FFFFFF) | 0xFF000000;
         for (const auto& e : edges)
-            (void)painter.get_seg(core::at(corner, core::at(e, 0)), core::at(corner, core::at(e, 1)), colour, 2.0f);
+            (void)painter.get_seg(core::at(corner, core::at(e, 0)), core::at(corner, core::at(e, 1)), colour, kEdgeThickness);
     }
     // Grind rails: the rail manager's active segments near the camera.
     const modules::Skate* skate = modules::Skate::sole();
@@ -340,7 +363,7 @@ void add_overlay(const overlays::Painter& painter)
             const V3 b = {.x = node.succ()->at_point().x, .y = node.succ()->at_point().y, .z = node.succ()->at_point().z};
             if (painter.span_to(a) > kRadius && painter.span_to(b) > kRadius)
                 continue;
-            if (painter.get_seg(a, b, kRail, 3.0f))
+            if (painter.get_seg(a, b, kRail, kRailThickness))
                 ++drawn;
         }
         level_editor_skate_view_state().rail_segments_ = drawn;
@@ -351,9 +374,9 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
 {
     if (!get_shown())
         return;
-    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - 12.0f * scale, view_y + view_height - 12.0f * scale),
+    ImGui::SetNextWindowPos(ImVec2(view_x + view_width - kLegendInset * scale, view_y + view_height - kLegendInset * scale),
                             ImGuiCond_Always, ImVec2(1.0f, 1.0f));
-    ImGui::SetNextWindowBgAlpha(0.8f);
+    ImGui::SetNextWindowBgAlpha(kLegendBackgroundAlpha);
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                    ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
@@ -366,7 +389,7 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
     auto row = [&](uint32_t argb, const char* name, int count) {
         const ImVec2 at = ImGui::GetCursorScreenPos();
         const uint32_t abgr = (argb & 0xFF00FF00u) | ((argb >> 16) & 0xFF) | ((argb & 0xFF) << 16);
-        ImGui::GetWindowDrawList()->AddRectFilled(at, ImVec2(at.x + box, at.y + box), abgr | 0xFF000000u);
+        ImGui::GetWindowDrawList()->AddRectFilled(at, ImVec2(at.x + box, at.y + box), abgr | kOpaqueAlpha);
         ImGui::Dummy(ImVec2(box, box));
         ImGui::SameLine();
         if (count >= 0)
