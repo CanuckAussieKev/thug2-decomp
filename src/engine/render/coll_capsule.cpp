@@ -46,7 +46,7 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
     normal->make_unit();
 
     float s = 0.0f, t = 0.0f, along = 0.0f;
-    const double distance = segment_triangle_distance_squared(capsule->line, *normal, *v0, *v1, *v2, &s, &t, &along);
+    const double distance = segment_triangle_distance_squared(capsule->line, *normal, *v0, *v1, *v2, {.out = &s, .t_out_ = &t, .along_out_ = &along});
 
     // The face's nearest point: v0 + s e1 + t e2.
     const auto e2t_x = static_cast<float>((static_cast<double>(v2->x) - v0->x) * t);

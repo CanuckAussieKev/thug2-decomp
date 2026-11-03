@@ -153,7 +153,7 @@ ColourSpan colour_span(const EmitterInstance& system, float life)
 gpu::VertexWriter locked_writer(uint32_t count, uint32_t stride, IDirect3DVertexBuffer9** buffer, uint32_t* first_vertex,
                                 uint32_t* room)
 {
-    void* where = os_layer::lock_dynamic_vertices(count, stride, buffer, first_vertex, room);
+    void* where = os_layer::lock_dynamic_vertices(count, stride, buffer, {.first_vertex_ = first_vertex, .room = room});
     return {static_cast<uint8_t*>(where), stride, *room};
 }
 

@@ -26,6 +26,7 @@
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/checked_index.h"
 #include "game/park_editing/park_editing_state.h"
+#include "engine/maths/vec4.h"
 
 namespace park_editing {
 
@@ -108,10 +109,28 @@ void set_collision_vertices(render::WorldCell* sector, Vec4* vertices)
     sector->choose_raw_verts(vertices);
 }
 
+// Where a turned x and z go.
+struct TurnedXz {
+    float* out_x_{};
+    double* out_z_{};
+};
+
+// A turn about y: the offset (x, z) and the angle.
+struct TurnInput {
+    double delta_x_{};
+    double delta_z_{};
+    float angle{};
+};
+
 // One point turned about y: x' = x cos + z sin, z' = z cos - x sin from the differences (in double), the sine
 // rounded to float, as the original computes it (x' rounded to float, z' kept in double).
-void turn_about_y(double delta_x, double delta_z, float angle, float* out_x, double* out_z)
+void turn_about_y(TurnInput turn_input, TurnedXz turned)
 {
+    const auto delta_x = turn_input.delta_x_;
+    const auto delta_z = turn_input.delta_z_;
+    const auto angle = turn_input.angle;
+    const auto out_x = turned.out_x_;
+    const auto out_z = turned.out_z_;
     const double radians = static_cast<double>(angle) * kAngleScaleToRad;
     const double sine = static_cast<float>(std::sin(radians));
     const double cosine = std::cos(radians);
@@ -159,7 +178,7 @@ Vec4* transform_rail_point(Vec4* out, const Vec4* point, const Vec4* origin, con
     const double dz = static_cast<double>(point->z) - origin->z;
     float x = 0.0f;
     double z = 0.0;
-    turn_about_y(dx, dz, angle, &x, &z);
+    turn_about_y({.delta_x_ = dx, .delta_z_ = dz, .angle = angle}, {.out_x_ = &x, .out_z_ = &z});
     // (w: the original adds an unset local - garbage - to the position's; here 0)
     out->x = static_cast<float>(static_cast<double>(x) + position->x);
     out->y = static_cast<float>(static_cast<double>(dy) + position->y);
@@ -584,7 +603,7 @@ void EditedRail::xform(const Vec4* origin, const Vec4* position, float angle)
         const double dz = static_cast<double>(p->at_point().z) - origin->z;
         float x = 0.0f;
         double z = 0.0;
-        turn_about_y(dx, dz, angle, &x, &z);
+        turn_about_y({.delta_x_ = dx, .delta_z_ = dz, .angle = angle}, {.out_x_ = &x, .out_z_ = &z});
         p->at_point().z = static_cast<float>(z + position->z);
         p->at_point().w = static_cast<float>(0.0 + position->w); // (the original adds an unset local - here 0)
         p->at_point().x = static_cast<float>(static_cast<double>(x) + position->x);

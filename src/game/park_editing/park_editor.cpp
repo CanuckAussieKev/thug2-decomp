@@ -135,10 +135,18 @@ double dead_zone(float value)
     return 0.0;
 }
 
+// Where a turned x and z go.
+struct XzOut {
+    float* x{};
+    float* z{};
+};
+
 // The left stick's move turned by the camera's angle (radians): x = cos * b + sin * a, z = cos * a - sin * b,
 // the sine rounded to float first - as the original computes them.
-void turn_move(double angle, double a, double b, float* x, float* z)
+void turn_move(double angle, double a, double b, XzOut xz)
 {
+    const auto x = xz.x;
+    const auto z = xz.z;
     const double sine = static_cast<float>(std::sin(angle));
     const double cosine = std::cos(angle);
     *x = static_cast<float>(cosine * b + sine * a);
@@ -244,10 +252,15 @@ void ParkBuilderMode::decode_from_struct(script::Struct* params, bool apply_to_e
 {
     hub()->decode_from_struct(params, apply_to_editor);
 }
-void ParkBuilderMode::get_map_info(const ParkMap* map, int* num_gaps, int* num_metas, uint16_t* shell_size,
-                                   uint32_t* theme, int* width, int* length)
+void ParkBuilderMode::get_map_info(const ParkMap* map, ParkLayout::MapInfoOut info)
 {
-    hub()->get_map_info(map, num_gaps, num_metas, shell_size, theme, width, length);
+    const auto num_gaps = info.num_gaps_;
+    const auto num_metas = info.num_metas_;
+    const auto shell_size = info.theme;
+    const auto theme = info.unknown18;
+    const auto width = info.width;
+    const auto length = info.length;
+    hub()->get_map_info(map, {.num_gaps_ = num_gaps, .num_metas_ = num_metas, .theme = shell_size, .unknown18 = theme, .width = width, .length = length});
 }
 void ParkBuilderMode::write_compressed_map_if_built() { hub()->write_compressed_map_if_built(); }
 ParkMap* ParkBuilderMode::get_packed_park_data(bool flag_clean)
@@ -472,7 +485,7 @@ void ParkBuilderMode::tick_frame()
     const double a = move_y * move_speed_ * seconds;
     float offset_cell_x = 0.0f;
     float offset_cell_z = 0.0f;
-    turn_move(static_cast<double>(camera_angle_) * kAngleScaleToRad, a, b, &offset_cell_x, &offset_cell_z);
+    turn_move(static_cast<double>(camera_angle_) * kAngleScaleToRad, a, b, {.x = &offset_cell_x, .z = &offset_cell_z});
 
     // The right stick turns (0-360) and tilts (10-90) the camera.
     const double turn_y = dead_zone(pad_ry_);

@@ -169,8 +169,10 @@ bool segments_cross_2d(Ray2 a, Ray2 b, float* s)
 // 0x0040B860 (a = |e0|^2, b = e0.e1, c = |e1|^2, d = e0.D, e = e1.D, f = |D|^2 with e0 = v1 - v0, e1 = v2 - v0,
 // D = v0 - point; rounded where the original's x87 code stores, a few terms kept unrounded as it keeps them)
 double point_triangle_distance_squared(const maths::Vec4& point, const maths::Vec4& v0, const maths::Vec4& v1,
-                                       const maths::Vec4& v2, float* out, float* t_out)
+                                       const maths::Vec4& v2, TriangleNearest nearest)
 {
+    const auto out = nearest.out;
+    const auto t_out = nearest.t_out_;
     const double dx = static_cast<double>(v0.x) - point.x;
     const double dy = static_cast<double>(v0.y) - point.y;
     const double dz = static_cast<double>(v0.z) - point.z;
@@ -336,9 +338,11 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
 // 0x0040BDC0 (with e1 = v1 - v0, e2 = v2 - v0, d = end - start, D = v0 - start: the 3x3 system for the segment's
 // t and the triangle's s, t solved by Cramer's rule; rounded where the original's x87 code stores)
 double segment_triangle_distance_squared(const maths::Seg& segment, const maths::Vec4& /*normal*/,
-                                         const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
-                                         float* out, float* t_out, float* along_out)
+                                         const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2, SegmentNearest nearest)
 {
+    const auto out = nearest.out;
+    const auto t_out = nearest.t_out_;
+    const auto along_out = nearest.along_out_;
     const maths::Vec4& start = segment.start;
     const double rel_x = static_cast<double>(v0.x) - start.x;
     const double rel_y = static_cast<double>(v0.y) - start.y;
@@ -381,7 +385,7 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
         return segment.distance_sqr_to_line(maths::Seg(a, b), segment_t, edge_t);
     };
     auto from_point = [&](const maths::Vec4& point, float* point_s, float* point_t) {
-        return point_triangle_distance_squared(point, v0, v1, v2, point_s, point_t);
+        return point_triangle_distance_squared(point, v0, v1, v2, {.out = point_s, .t_out_ = point_t});
     };
 
     float best = 0.0f;

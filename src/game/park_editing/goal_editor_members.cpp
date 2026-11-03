@@ -342,7 +342,7 @@ bool ObjectiveAuthoring::refresh_goal_cursor_position(script::Struct* /*params*/
         return true;
     maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     float height = 0.0f, angle = 0.0f;
-    active_node_->get_current_point(&pos, &height, &angle);
+    active_node_->get_current_point(&pos, {.height = &height, .angle = &angle});
     script::Struct cursor;
     cursor.put_vec3(checksums::Name{0x7F261953}, {.x = pos.x, .y = pos.y + height, .z = pos.z});
     cursor.push_float(checksums::Name{0xFF7EBAF6}, angle);

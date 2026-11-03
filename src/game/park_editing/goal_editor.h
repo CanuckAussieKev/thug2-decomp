@@ -106,8 +106,14 @@ public:
     // 0x004E77C0: the current point placed at `pos` (false if it can't go there): its marker made, the next point
     // current (starting where this one is).
     bool place_point(const maths::Vec4& pos, PointPose point_pose);
+    // Where a goal point's height and angle go.
+    struct PointPoseOut {
+        float* height{};
+        float* angle{};
+    };
+
     // 0x004E7960: the current point's place, height and heading. True.
-    bool get_current_point(maths::Vec4* pos, float* height, float* angle);
+    bool get_current_point(maths::Vec4* pos, PointPoseOut pose_out);
     // 0x004E79C0: point `index`'s node (`nodeName`) given the point's Pos and Angles (and a letter's type / model).
     void write_node_position(int index, checksums::Name node_label);
     // 0x004E7A80: every set point's node (TRG_EditedGoal<n>_Pro / _Restart / _Object_<k>) given its position.

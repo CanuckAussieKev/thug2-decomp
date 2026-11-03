@@ -157,8 +157,12 @@ void tick_frame(modules::FrontEnd* front_end)
     }
 }
 
-bool keyboard_viewer(float* left_x, float* left_y, float* right_x, float* right_y, uint32_t* commands)
+bool keyboard_viewer(ViewerSticks sticks, uint32_t* commands)
 {
+    const auto left_x = sticks.left_x_;
+    const auto left_y = sticks.left_y_;
+    const auto right_x = sticks.right_x_;
+    const auto right_y = sticks.right_y_;
     if (!is_switched_on() || frontend::level_editor::live_now())
         return false;
     const platform::KeyState keys = platform::keyboard_keys();

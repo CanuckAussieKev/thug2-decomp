@@ -227,7 +227,7 @@ void handle_viewer_input(ViewerInputHandler* handler)
     viewer->pad_lx() = stick(pad_input::Payload::kRawLeftX);
     viewer->pad_ly() = stick(pad_input::Payload::kRawLeftY);
     // Not original - debug mode's keyboard flying (engine/sys/debug_mode.h): held keys over the sticks, and up / down.
-    sys::debug_mode::keyboard_viewer(&viewer->pad_lx(), &viewer->pad_ly(), &viewer->pad_rx(), &viewer->pad_ry(),
+    sys::debug_mode::keyboard_viewer({.left_x_ = &viewer->pad_lx(), .left_y_ = &viewer->pad_ly(), .right_x_ = &viewer->pad_rx(), .right_y_ = &viewer->pad_ry()},
                                      &viewer->actions());
     if (!script::fetch_int_value(kViewerButtonsEnabled))
         return;

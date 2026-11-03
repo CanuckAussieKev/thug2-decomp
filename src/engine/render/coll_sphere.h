@@ -69,10 +69,15 @@ bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* spher
 bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const maths::Vec4* v1,
                                 const maths::Vec4* v2, float* t, float limit, const maths::Vec4* motion,
                                 maths::Vec4* point, maths::Vec4* normal);
+// Where a sphere's contact goes: its point and its normal.
+struct SphereContact {
+    maths::Vec4* point{};
+    maths::Vec4* normal{};
+};
+
 // 0x0040F9E0 (cdecl): the standing sphere against the triangle (from its front only): the face's unit normal to
 // `normal`, its nearest point to `point`; whether that's within the radius.
-bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const maths::Vec4* v1, const maths::Vec4* v2,
-                          maths::Vec4* point, maths::Vec4* normal);
+bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const maths::Vec4* v1, const maths::Vec4* v2, SphereContact contact);
 
 // 0x00410240 (cdecl): the sphere (moving, when `hits` has a sweep) against the static collision objects (slot 16),
 // as the rect query: its box (and the moved sphere's), through `cache` when it holds it, else the scenes' grids.

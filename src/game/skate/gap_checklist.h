@@ -100,7 +100,13 @@ public:
     const char* get_gap_title(int index);
     int count_gaps_found(int index);
     int get_gap_points(int index);
-    void get_gap_positions(int index, maths::Vec4* pos, maths::Vec4* dir);
+    // Where a gap's position and direction go.
+    struct GapPlaceOut {
+        maths::Vec4* pos{};
+        maths::Vec4* dir{};
+    };
+
+    void get_gap_positions(int index, GapPlaceOut place);
     // Where a gap is: its position and its direction.
     struct GapPlace {
         maths::Vec4 pos{};

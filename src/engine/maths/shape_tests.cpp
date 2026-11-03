@@ -473,8 +473,11 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
 }
 
 // 0x004032E0
-int Capsule::intersects_segment(const Seg& segment, float* s, float* t, float* squared_gap) const
+int Capsule::intersects_segment(const Seg& segment, SegmentParams params_out) const
 {
+    const auto s = params_out.s;
+    const auto t = params_out.t;
+    const auto squared_gap = params_out.squared_gap_;
     auto distance = static_cast<float>(line.distance_sqr_to_line(segment, s, t));
     if (squared_gap)
         *squared_gap = distance;

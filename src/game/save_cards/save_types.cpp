@@ -331,7 +331,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         uint32_t tod_script = 0;
         int width = 0;
         int length = 0;
-        editor->get_map_info(map, &gaps, &pieces, &theme, &tod_script, &width, &length);
+        editor->get_map_info(map, {.num_gaps_ = &gaps, .num_metas_ = &pieces, .theme = &theme, .unknown18 = &tod_script, .width = &width, .length = &length});
         summary->put_int(checksums::Name{0xE6121ED0u}, gaps);            // num_gaps
         summary->put_int(checksums::Name{0xFFF3DC35u}, pieces);          // num_pieces
         summary->put_int(checksums::Name{0x688A18F7u}, theme);           // theme

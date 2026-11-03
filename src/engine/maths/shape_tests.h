@@ -65,10 +65,17 @@ public:
     // closest point on the segment (whether or not the point is inside).
     bool contains_point(const Vec4& point, Vec4* offset) const;
 
+    // Where a capsule test's results go: the parameters along each segment and the squared gap.
+    struct SegmentParams {
+        float* s{};
+        float* t{};
+        float* squared_gap_{};
+    };
+
     // 1 if `segment` passes within the capsule, else 0. Optionally reports where (s on the capsule's line,
     // t on the segment, see Seg::distance_sqr_to_line) and the squared distance between them. Returns int, not
     // bool: the original sets all of EAX.
-    int intersects_segment(const Seg& segment, float* s, float* t, float* squared_gap) const;
+    [[nodiscard]] int intersects_segment(const Seg& segment, SegmentParams params_out) const;
 
     Seg line{};
     float radius;

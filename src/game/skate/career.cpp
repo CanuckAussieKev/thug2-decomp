@@ -514,7 +514,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
                 gap->put_int(checksums::Name{kGapScore}, checklist->get_gap_points(i));
                 maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}, dir = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
                 if (checklist->count_gaps_found(i))
-                    checklist->get_gap_positions(i, &pos, &dir);
+                    checklist->get_gap_positions(i, {.pos = &pos, .dir = &dir});
                 gap->put_vec3(checksums::Name{kGapPos}, {.x = pos.x, .y = pos.y, .z = pos.z});
                 gap->put_vec3(checksums::Name{kGapDir}, {.x = dir.x, .y = dir.y, .z = dir.z});
                 list->set_cell(static_cast<uint32_t>(i), script::Cell::of(gap));

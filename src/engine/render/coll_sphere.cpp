@@ -129,7 +129,7 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
                 .z = get_difference(motion->z, edge_motion->z) + centre.z,
                 .w = get_difference(motion->w, edge_motion->w) + centre.w};
     float s = 0.0f, u = 0.0f;
-    if (!capsule.intersects_segment(path, &s, &u, nullptr))
+    if (!capsule.intersects_segment(path, {.s = &s, .t = &u, .squared_gap_ = nullptr}))
         return false;
     if (within01(s)) {
         *count = within01(u) ? 2 : 1;
@@ -317,7 +317,7 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
                                    static_cast<double>(c20.y) * centre.y);
         if (in01 && in12 && in20) {
             float s = 0.0f, u = 0.0f;
-            point_triangle_distance_squared(centre, *v0, *v1, *v2, &s, &u);
+            point_triangle_distance_squared(centre, *v0, *v1, *v2, {.out = &s, .t_out_ = &u});
             const maths::Vec4 across2 = u * (*v2 - *v0);
             *point = (*v0 + s * (*v1 - *v0)) + across2;
             const maths::Capsule path(centre, *motion, sphere->radius);
@@ -389,9 +389,10 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
 }
 
 // 0x0040F9E0
-bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const maths::Vec4* v1, const maths::Vec4* v2,
-                          maths::Vec4* point, maths::Vec4* normal)
+bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const maths::Vec4* v1, const maths::Vec4* v2, SphereContact contact)
 {
+    const auto point = contact.point;
+    const auto normal = contact.normal;
     const double e2x = static_cast<double>(v2->x) - v0->x;
     const double e2y = static_cast<double>(v2->y) - v0->y;
     const double e2z = static_cast<double>(v2->z) - v0->z;
@@ -412,7 +413,7 @@ bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const
         return false; // (behind the face)
     normal->make_unit();
     float s = 0.0f, u = 0.0f;
-    const double distance2 = point_triangle_distance_squared(c, *v0, *v1, *v2, &s, &u);
+    const double distance2 = point_triangle_distance_squared(c, *v0, *v1, *v2, {.out = &s, .t_out_ = &u});
     // v0 + s (v1 - v0) + u (v2 - v0), rounded as the original
     const double f2x = static_cast<double>(v2->x) - v0->x;
     const double f2y = static_cast<double>(v2->y) - v0->y;
@@ -455,7 +456,7 @@ bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::B
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
         maths::Vec4 point{}, normal{};
         float t = 0.0f;
-        const bool hit = hits->sweep == 0.0f ? sphere_hits_triangle(sphere, &v0, &v1, &v2, &point, &normal)
+        const bool hit = hits->sweep == 0.0f ? sphere_hits_triangle(sphere, &v0, &v1, &v2, {.point = &point, .normal = &normal})
                                              : swept_sphere_hits_triangle(sphere, &v0, &v1, &v2, &t, hits->sweep,
                                                                           &hits->direction, &point, &normal);
         if (!hit)

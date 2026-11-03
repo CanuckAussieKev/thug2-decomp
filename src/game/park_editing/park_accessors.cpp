@@ -148,9 +148,14 @@ PieceFamily* ParkLayout::get_piece_family(int index, int* used_before)
     return &core::at(sets_, index);
 }
 
-void ParkLayout::get_map_info(const ParkMap* map, int* num_gaps, int* num_metas, uint16_t* theme,
-                              uint32_t* unknown18, int* width, int* length)
+void ParkLayout::get_map_info(const ParkMap* map, MapInfoOut info)
 {
+    const auto num_gaps = info.num_gaps_;
+    const auto num_metas = info.num_metas_;
+    const auto theme = info.theme;
+    const auto unknown18 = info.unknown18;
+    const auto width = info.width;
+    const auto length = info.length;
     *width = map->area_width();
     *length = map->area_length();
     *num_gaps = map->gap_count();

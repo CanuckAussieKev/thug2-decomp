@@ -195,7 +195,7 @@ void PcPrimitive::render()
     set_pixel_shader(core::at(pixel_shaders(), kPixelShader964), nullptr);
     if (type_ != 0 && type_ != 2 && type_ != 4)
         return;
-    void* out = os_layer::lock_dynamic_vertices(vertex_count_, stride_, &buffer, &first_vertex, &room);
+    void* out = os_layer::lock_dynamic_vertices(vertex_count_, stride_, &buffer, {.first_vertex_ = &first_vertex, .room = &room});
     std::memcpy(out, vertices_, static_cast<uint32_t>(vertex_count_ * stride_));
     os_layer::unlock_dynamic_vertices(vertex_count_, stride_);
     renderer().d3d_device()->SetStreamSource(0, buffer, 0, stride_);

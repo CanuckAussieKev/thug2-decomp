@@ -54,8 +54,16 @@ bool cfunc_not_cd(script::Struct* params, script::Script* script);
 void install();
 // Once a frame from the front end's input logic (mouse_menus::tick_frame): the viewer launched once, the F keys.
 void tick_frame(modules::FrontEnd* front_end);
+// Where the viewer's two sticks go (left and right, x and y).
+struct ViewerSticks {
+    float* left_x_{};
+    float* left_y_{};
+    float* right_x_{};
+    float* right_y_{};
+};
+
 // For the viewer's input handler (modules::handle_viewer_input, in the free camera): the movement keys as the sticks (raw,
 // -127..127) and the up / down commands (0x2 / 0x4). False when no key is held (the controller's values stand).
-bool keyboard_viewer(float* left_x, float* left_y, float* right_x, float* right_y, uint32_t* commands);
+bool keyboard_viewer(ViewerSticks sticks, uint32_t* commands);
 
 } // namespace sys::debug_mode

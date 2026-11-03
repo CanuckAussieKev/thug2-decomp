@@ -301,9 +301,17 @@ uint8_t is_controller_button_held(SDL_GameController* controller, PadButton butt
     return SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(button));
 }
 
+// Where a stick's axes go.
+struct StickOut {
+    uint8_t* x{};
+    uint8_t* y{};
+};
+
 // A stick into (x, y), where it's further from the centre than what's there (the keyboard's).
-void read_stick(SDL_GameController* controller, PadStick stick, uint8_t* x, uint8_t* y)
+void read_stick(SDL_GameController* controller, PadStick stick, StickOut stick_out)
 {
+    const auto x = stick_out.x;
+    const auto y = stick_out.y;
     uint8_t pad_axis_x = 0;
     uint8_t stick_y = 0;
     if (stick == kStickLeft) {
@@ -470,8 +478,8 @@ void poll_controller(InputPort* device, SDL_GameController* controller)
         core::at(data, 9) = 0xFF;
     }
 
-    read_stick(controller, sdl_input_state().pad_.camera, &core::at(data, 4), &core::at(data, 5));
-    read_stick(controller, sdl_input_state().pad_.movement, &core::at(data, 6), &core::at(data, 7));
+    read_stick(controller, sdl_input_state().pad_.camera, {.x = &core::at(data, 4), .y = &core::at(data, 5)});
+    read_stick(controller, sdl_input_state().pad_.movement, {.x = &core::at(data, 6), .y = &core::at(data, 7)});
 }
 
 // --- the keyboard -----------------------------------------------------------------------------------------------

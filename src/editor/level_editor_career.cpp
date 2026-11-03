@@ -92,7 +92,7 @@ Checklist get_take_in(goals::GapTally* checklist)
         gap.count = checklist->count_gaps_found(i);
         if (gap.count) {
             maths::Vec4 pos{}, dir{};
-            checklist->get_gap_positions(i, &pos, &dir);
+            checklist->get_gap_positions(i, {.pos = &pos, .dir = &dir});
             const std::array<float, 4> p = {{pos.x, pos.y, pos.z, pos.w}};
             const std::array<float, 4> d = {{dir.x, dir.y, dir.z, dir.w}};
             std::ranges::copy(p, gap.pos.begin());

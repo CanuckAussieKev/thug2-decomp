@@ -25,18 +25,23 @@ void release_quad_index_buffer();
 // 0x005F4690 (cdecl): the index buffer for `quads` quads, two triangles each (0 1 2, 2 3 0). Returns Unlock's
 // result.
 HRESULT create_quad_index_buffer(uint32_t quads);
+// Where the first vertex and the room left go.
+struct VertexRoom {
+    uint32_t* first_vertex_{};
+    uint32_t* room{};
+};
+
 // 0x005F4740 (cdecl): room for `count` vertices of `stride` bytes in the dynamic vertex buffer, locked: after the
 // last ones (rounded up to a whole vertex, the buffer locked with NOOVERWRITE), or - when they don't fit - from the
 // start (DISCARD). The buffer, the first vertex's index and (if asked) how many vertices fit from there are given
 // back. Returns where to write.
-void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuffer9** buffer, uint32_t* first_vertex,
-                            uint32_t* room);
+void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuffer9** buffer, VertexRoom vertex_room);
 // lock_dynamic_vertices for vertices of type V (the stride sizeof(V)): the vertices that fit, as a checked cursor at the
 // first. `room` is how many fit.
 template <typename V>
 core::Cursor<V> lock_vertices(uint32_t count, IDirect3DVertexBuffer9** buffer, uint32_t* first_vertex, uint32_t* room)
 {
-    void* where = lock_dynamic_vertices(count, sizeof(V), buffer, first_vertex, room);
+    void* where = lock_dynamic_vertices(count, sizeof(V), buffer, {.first_vertex_ = first_vertex, .room = room});
     return core::Cursor<V>(std::span<V>(static_cast<V*>(where), *room));
 }
 // 0x005F4800 (cdecl): unlocked after writing `count` vertices of `stride` bytes; the next go after them (32-byte

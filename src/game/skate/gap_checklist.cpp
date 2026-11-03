@@ -338,8 +338,10 @@ int GapTally::count_gaps_found(int index) { return get_gap(index)->num(); }
 int GapTally::get_gap_points(int index) { return get_gap(index)->points_held(); }
 
 // 0x00579460
-void GapTally::get_gap_positions(int index, maths::Vec4* pos, maths::Vec4* dir)
+void GapTally::get_gap_positions(int index, GapPlaceOut place)
 {
+    const auto pos = place.pos;
+    const auto dir = place.dir;
     const GapEntry* gap = get_gap(index);
     *pos = gap->skater_start_pos();
     *dir = gap->skater_start_dir();

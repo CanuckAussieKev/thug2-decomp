@@ -404,7 +404,7 @@ void PcParticleSystem::draw(bool advance)
             IDirect3DVertexBuffer9* buffer = nullptr;
             uint32_t first_vertex = 0, room = 0;
             auto* locked = static_cast<ParticleVertex*>(
-                os_layer::lock_dynamic_vertices(remaining * 4, sizeof(ParticleVertex), &buffer, &first_vertex, &room));
+                os_layer::lock_dynamic_vertices(remaining * 4, sizeof(ParticleVertex), &buffer, {.first_vertex_ = &first_vertex, .room = &room}));
             core::Cursor<ParticleVertex> vertex(std::span<ParticleVertex>(locked, room));
             room >>= 2;
             if (room > 0x1000)

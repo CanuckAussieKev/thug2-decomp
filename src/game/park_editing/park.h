@@ -1128,9 +1128,18 @@ public:
     MapListNode* get_cell_chain(int x, int z);
     // 0x00595210: piece set `index`; `menu_index` gets how many sets before it are shown.
     PieceFamily* get_piece_family(int index, int* menu_index);
+    // Where a park map's figures go: its gaps, meta pieces, theme, a word, width and length.
+    struct MapInfoOut {
+        int* num_gaps_{};
+        int* num_metas_{};
+        uint16_t* theme{};
+        uint32_t* unknown18{};
+        int* width{};
+        int* length{};
+    };
+
     // 0x00595250: header fields of a compressed map.
-    void get_map_info(const ParkMap* map, int* num_gaps, int* num_metas, uint16_t* shell_size, uint32_t* theme,
-                      int* width, int* length);
+    void get_map_info(const ParkMap* map, MapInfoOut info);
     // 0x005952B0: undo the marked floor changes (clamping every height to -16..15)
     void restore_floor_heights();
     // 0x00595300: which restart piece (1 to 8) has this name; 0 if none.

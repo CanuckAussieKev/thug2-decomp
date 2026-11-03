@@ -121,7 +121,7 @@ BoneVolume** new_volume_array(uint32_t count)
 // 0x0048B330
 int intersects_segment(BoneVolume& volume, const maths::Seg* segment, float* s)
 {
-    return volume.capsule_.intersects_segment(*segment, s, nullptr, nullptr);
+    return volume.capsule_.intersects_segment(*segment, {.s = s, .t = nullptr, .squared_gap_ = nullptr});
 }
 
 // 0x0048B350
@@ -198,7 +198,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         const float radius = volume ? volume->capsule_.radius : 0.0f;
         const maths::Capsule capsule = get_between(core::at(at.row, 3), core::at(parent.row, 3), radius);
         float distance_squared = 0.0f;
-        if (!capsule.intersects_segment(*segment, nullptr, bone_hit ? &bone_hit->t : nullptr, &distance_squared))
+        if (!capsule.intersects_segment(*segment, {.s = nullptr, .t = bone_hit ? &bone_hit->t : nullptr, .squared_gap_ = &distance_squared}))
             return 0;
         if (bone_hit)
             bone_hit->distance = static_cast<float>(std::sqrt(static_cast<double>(distance_squared)));
@@ -226,7 +226,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
             radius *= scale;
         const maths::Capsule capsule = get_between(core::at(at.row, 3), parent, static_cast<float>(radius + extra_radius));
         float hit_t = 0.0f, distance_squared = 0.0f;
-        if (capsule.intersects_segment(*segment, nullptr, &hit_t, &distance_squared) &&
+        if (capsule.intersects_segment(*segment, {.s = nullptr, .t = &hit_t, .squared_gap_ = &distance_squared}) &&
             (!hit || distance_squared < nearest)) {
             hit = bone_state->name;
             nearest = distance_squared;
