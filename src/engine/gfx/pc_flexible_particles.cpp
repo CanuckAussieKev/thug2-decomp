@@ -198,19 +198,6 @@ void aligned_axes(const EmitterInstance& system, maths::Vec4& r, maths::Vec4& u)
     u.make_unit();
 }
 
-// What a system's constructor is given: (name, max, texture, blend, alpha, segments, unknown), and some also the
-// history; the shaded class only the first five; the engine's model class its model name instead of the texture.
-struct ConstructArgs {
-    uint32_t name;
-    int particle_cap_;
-    uint32_t texture;
-    uint32_t blend_mode_;
-    int fixed_alpha_;
-    int segments;
-    float unknown;
-    int history;
-    const char* model;
-};
 template <typename T>
 gsl::owner<EmitterInstance*> make_plain(const ConstructArgs& a)
 {
@@ -228,17 +215,17 @@ gsl::owner<EmitterInstance*> make_five(const ConstructArgs& a)
 }
 gsl::owner<EmitterInstance*> make_model(const ConstructArgs& a)
 {
-    return new ModelParticles(a.name, a.particle_cap_, a.model, a.blend_mode_, a.fixed_alpha_, a.segments, a.unknown,
-                              a.history);
+    return new ModelParticles(a);
 }
 
 } // namespace
 
 // 0x004BCEF0
-gsl::owner<EmitterInstance*> create_flexible_particles(checksums::Name system_name, uint32_t type, int particle_cap, int, uint32_t texture,
+gsl::owner<EmitterInstance*> create_flexible_particles(checksums::Name system_name, checksums::Name kind, int particle_cap, int, uint32_t texture,
                                            uint32_t blend_mode, int fixed_alpha, int segments, float unknown,
                                            int history, const char* model)
 {
+    const uint32_t type = kind.value();
     const uint32_t name = system_name.value();
     struct EmitterType {
         uint32_t type;
@@ -641,7 +628,8 @@ void PcFlatRibbonParticles::render()
 // 0x004BED10
 PcGlowParticles::PcGlowParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
                                  int fixed_alpha, int segment_count, float unknown)
-    : GlowParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
+    : GlowParticles({.name = name, .particle_cap_ = particle_cap, .texture = texture, .blend_mode_ = blend_mode,
+                     .fixed_alpha_ = fixed_alpha, .segments = segment_count, .unknown = unknown, .history = 0})
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 4, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
@@ -1480,7 +1468,8 @@ void PcSmoothRibbonParticles::render()
 // 0x004C3D80
 PcSmoothStarParticles::PcSmoothStarParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
                                              int fixed_alpha, int segment_count, float unknown)
-    : SmoothStarParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
+    : SmoothStarParticles({.name = name, .particle_cap_ = particle_cap, .texture = texture, .blend_mode_ = blend_mode,
+                           .fixed_alpha_ = fixed_alpha, .segments = segment_count, .unknown = unknown, .history = 0})
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 6, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
@@ -1651,7 +1640,8 @@ void PcSmoothStarParticles::render()
 // 0x004C48C0
 PcStarParticles::PcStarParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
                                  int fixed_alpha, int segment_count, float unknown)
-    : StarParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
+    : StarParticles({.name = name, .particle_cap_ = particle_cap, .texture = texture, .blend_mode_ = blend_mode,
+                     .fixed_alpha_ = fixed_alpha, .segments = segment_count, .unknown = unknown, .history = 0})
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 5, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
@@ -1811,7 +1801,9 @@ uint32_t PcGlowRibbonTrailParticles::fine_colour(uint32_t from, uint32_t to, dou
 PcGlowRibbonTrailParticles::PcGlowRibbonTrailParticles(uint32_t name, int particle_cap, uint32_t texture,
                                                        uint32_t blend_mode, int fixed_alpha, int segment_count,
                                                        float unknown, int history)
-    : GlowRibbonTrailParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history)
+    : GlowRibbonTrailParticles({.name = name, .particle_cap_ = particle_cap, .texture = texture, .blend_mode_ = blend_mode,
+                                .fixed_alpha_ = fixed_alpha, .segments = segment_count, .unknown = unknown,
+                                .history = history})
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 10, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,

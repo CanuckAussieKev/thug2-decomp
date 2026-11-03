@@ -14,6 +14,7 @@
 #include "engine/core/mem.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/renderer.h"
+#include "engine/maths/rect.h"
 
 namespace render {
 
@@ -155,8 +156,10 @@ void TextureRef::get_unlock() { get_d3d(this)->UnlockRect(0); }
 TextureRef* TextureRef::palette_owner() { return palette ? this : nullptr; }
 
 // 0x004E0700
-bool TextureRef::create_render_target(int new_width, int new_height, uint8_t new_depth, int /*unused*/)
+bool TextureRef::create_render_target(maths::PixelSize size, uint8_t new_depth, int /*unused*/)
 {
+    const auto new_width = size.width;
+    const auto new_height = size.height;
     if (texture)
         get_d3d(this)->Release();
     const HRESULT result =

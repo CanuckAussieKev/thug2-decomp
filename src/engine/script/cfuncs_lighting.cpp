@@ -3,6 +3,7 @@
 
 #include "engine/script/cfuncs_engine.h"
 
+#include <array>
 #include <windows.h>
 
 #include <cstdint>
@@ -18,6 +19,7 @@
 #include "engine/sys/game_config.h"
 #include "platform/registry.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -61,7 +63,7 @@ render::WorldCell* look_up_sector(uint32_t name)
 }
 
 // The renderer's gamma (0x004B24D0 / 0x004B24C0 through the jumps 0x0048C140 / 0x0048C130).
-void get_gamma(float* red, float* green, float* blue) { render::get_gamma(red, green, blue); }
+std::array<float, 3> get_gamma() { return render::get_gamma(); }
 void set_gamma(float red, float green, float blue) { render::set_gamma(red, green, blue); }
 
 // Whether the frame buffer is cleared each frame - compiled out of this build (0x0048C1B0, a jump to the empty
@@ -173,8 +175,10 @@ void write_gamma(Gamma gamma)
 // does. Always true.
 bool cfunc_apply_change_gamma(Struct* params, Script*)
 {
-    float red = 0.0f, green = 0.0f, blue = 0.0f;
-    get_gamma(&red, &green, &blue);
+    const std::array<float, 3> gamma = get_gamma();
+    float red = core::at(gamma, 0);
+    float green = core::at(gamma, 1);
+    float blue = core::at(gamma, 2);
     uint32_t color = 0; // (uninitialised in the original: both are asserted)
     float change = 0.0f;
     params->read_hash_value("color", &color, 1);

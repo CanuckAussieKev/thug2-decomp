@@ -33,6 +33,7 @@
 #include "engine/core/format.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -352,8 +353,10 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script*)
 // Always true.
 bool cfunc_get_gamma_values(Struct*, Script* script)
 {
-    float red = 0.0f, green = 0.0f, blue = 0.0f;
-    render::get_gamma(&red, &green, &blue);
+    const std::array<float, 3> gamma = render::get_gamma();
+    const float red = core::at(gamma, 0);
+    const float green = core::at(gamma, 1);
+    const float blue = core::at(gamma, 2);
     Struct* out = script->args().get();
     out->erase_module(kRed);
     out->erase_module(kGreen);

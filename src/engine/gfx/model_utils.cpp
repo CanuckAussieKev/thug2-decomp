@@ -51,9 +51,17 @@ constexpr float kSixtieth = 0x1.111112p-6f; // 0x006463B8
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
+// A time now and the length it runs to.
+struct TimeRange {
+    float current{};
+    float duration{};
+};
+
 // A time given by name (others leave `time` as it is).
-void named_time(Struct* params, checksums::Name key, float current, float duration, float* time)
+void named_time(Struct* params, checksums::Name key, TimeRange time_range, float* time)
 {
+    const auto current = time_range.current;
+    const auto duration = time_range.duration;
     const uint32_t name = key.value();
     uint32_t which = 0;
     if (!params->read_hash_value(name, &which, 0))
@@ -114,8 +122,8 @@ bool fetch_anim_durations(float* start, float* end, float current, float duratio
 {
     float from = 0.0f;
     float to = duration;
-    named_time(params, checksums::Name{kFrom}, current, duration, &from);
-    named_time(params, checksums::Name{kTo}, current, duration, &to);
+    named_time(params, checksums::Name{kFrom}, {.current = current, .duration = duration}, &from);
+    named_time(params, checksums::Name{kTo}, {.current = current, .duration = duration}, &to);
     number_time(params, kFrom, &from);
     number_time(params, kTo, &to);
     if (params->has_bare_flag(kBackwards)) {

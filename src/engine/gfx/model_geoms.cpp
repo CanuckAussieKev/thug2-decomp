@@ -416,8 +416,12 @@ int RenderModel::test_bone_volumes(const maths::Seg* line, gfx::Rig* skeleton, c
         gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_;
         if (!volumes)
             continue;
-        float distance = nearest;
-        const int result = static_cast<int>(volumes->segment_hits_bone(line, skeleton, world, checksums::Name{test.bone}, {.scale = test.scale, .extra_radius_ = test.extra_radius_}, &distance, &extra));
+        gfx::BoneVolumes::BoneHit bone_hit{.distance = nearest, .t = extra};
+        const int result = static_cast<int>(volumes->segment_hits_bone(line, skeleton, world, checksums::Name{test.bone},
+                                                                       {.scale = test.scale, .extra_radius_ = test.extra_radius_},
+                                                                       &bone_hit));
+        const float distance = bone_hit.distance;
+        extra = bone_hit.t;
         if (!hit || distance < nearest) {
             nearest = distance;
             hit_extra = extra;

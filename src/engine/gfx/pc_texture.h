@@ -56,7 +56,7 @@ public:
     // 0x004C8830 (slot 3): a new texture of the size (one level per the device: the levels' 0), P8 for up to 8 bits a
     // pixel, X1R5G5B5 for 16, X8R8G8B8 for 32 (and below 8); the old one's Direct3D texture released. The texture's
     // size from the level's. True.
-    bool create_image(checksums::Name checksum, uint32_t width, uint32_t height, int bits_per_pixel, int unused1,
+    bool create_image(checksums::Name checksum, ImageFormat image_format, int unused1,
                       int unused2) override;
     // 0x004C86A0 (slot 4): its Direct3D texture made again as a copy of `source`'s (a PC texture), every level (exit()
     // if it can't be made). True.
@@ -188,14 +188,19 @@ gsl::owner<PcTexDict*> load_tex_dict_file(const char* name);
 gsl::owner<PcTexDict*> load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size);
 gsl::owner<PcTexDict*> create_tex_dict(uint32_t checksum);
 
+// An image's width and height in texels.
+struct ImageSize16 {
+    uint16_t width{};
+    uint16_t height{};
+};
+
 // The texture editing's image helpers, on 32-bit pixels (every caller's; the original took the bits a pixel and also
 // copied 8- and 4-bit images and resized 8-bit ones by nearest - nothing asked for those).
 // 0x004C80B0: an image's rows copied into another's at (x, y), clipped to it.
-void copy_sub_image(std::span<uint32_t> into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
-                    std::span<const uint32_t> from, uint16_t from_width, uint16_t from_height);
+void copy_sub_image(std::span<uint32_t> into, uint16_t x, uint16_t y, ImageSize16 into_size,
+                    std::span<const uint32_t> from, ImageSize16 from_size);
 // 0x004C9200: an image resized, bilinear in 1024ths.
-void resize_image(std::span<const uint32_t> from, uint16_t from_width, uint16_t from_height, std::span<uint32_t> into,
-                  uint16_t into_width, uint16_t into_height);
+void resize_image(std::span<const uint32_t> from, ImageSize16 from_size, std::span<uint32_t> into, ImageSize16 into_size);
 // 0x004C9520: an image zoomed about its centre (bilinear, clamped to the edges).
 void zoom_image(std::span<const uint32_t> from, uint16_t width, uint16_t height, std::span<uint32_t> into, float x_zoom,
                 float y_zoom);

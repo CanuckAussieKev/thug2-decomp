@@ -45,6 +45,7 @@
 #include "engine/gfx/effects_state.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/rect.h"
 
 namespace render {
 
@@ -122,7 +123,7 @@ const char* platform_suffix() { return "Xbx"; }
 void set_gamma(float red, float green, float blue) { set_device_gamma(red, green, blue); }
 
 // 0x004B24D0
-void get_gamma(float* red, float* green, float* blue) { get_device_gamma(red, green, blue); }
+std::array<float, 3> get_gamma() { return get_device_gamma(); }
 
 // 0x004B24E0
 void screen_shot(const char* name, int /*unused*/)
@@ -230,14 +231,16 @@ gsl::owner<BillboardQuad*> build_sprite_quad() { return new PcSprite; }
 gsl::owner<TexturedQuad*> create_textured_quad() { return new TexturedQuad(nullptr); }
 
 // 0x004B2B60
-gsl::owner<void*> create_render_target(int width, int height, uint8_t depth, int unused)
+gsl::owner<void*> create_render_target(maths::PixelSize size, uint8_t depth, int unused)
 {
+    const auto width = size.width;
+    const auto height = size.height;
     auto target = memory::make_owned<PcTexture>();
     void* memory = memory::alloc(sizeof(TextureRef));
     TextureRef* texture = memory ? memory::construct_in<TextureRef>(memory) : nullptr;
     target->set_texture(texture);
     // (no check: a failed allocation calls through null, as the original)
-    texture->create_render_target(width, height, depth, unused);
+    texture->create_render_target({.width = width, .height = height}, depth, unused);
     return target;
 }
 

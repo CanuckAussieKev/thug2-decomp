@@ -171,7 +171,7 @@ void BoneVolumes::get_fill(RigData* data)
 
 // 0x0048B580
 uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton, const maths::Mat4* world,
-                                        checksums::Name bone_name, BoneReach reach, float* distance, float* t)
+                                        checksums::Name bone_name, BoneReach reach, BoneHit* bone_hit)
 {
     const auto scale = reach.scale;
     const auto extra_radius = reach.extra_radius_;
@@ -190,10 +190,10 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         const float radius = volume ? volume->capsule_.radius : 0.0f;
         const maths::Capsule capsule = get_between(core::at(at.row, 3), core::at(parent.row, 3), radius);
         float distance_squared = 0.0f;
-        if (!capsule.intersects_segment(*segment, nullptr, t, &distance_squared))
+        if (!capsule.intersects_segment(*segment, nullptr, bone_hit ? &bone_hit->t : nullptr, &distance_squared))
             return 0;
-        if (distance)
-            *distance = static_cast<float>(std::sqrt(static_cast<double>(distance_squared)));
+        if (bone_hit)
+            bone_hit->distance = static_cast<float>(std::sqrt(static_cast<double>(distance_squared)));
         return bone;
     }
     float nearest = 0.0f;
@@ -225,10 +225,10 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
             nearest_t = hit_t;
         }
     }
-    if (distance)
-        *distance = static_cast<float>(std::sqrt(static_cast<double>(nearest)));
-    if (t)
-        *t = nearest_t;
+    if (bone_hit)
+        bone_hit->distance = static_cast<float>(std::sqrt(static_cast<double>(nearest)));
+    if (bone_hit)
+        bone_hit->t = nearest_t;
     return hit;
 }
 

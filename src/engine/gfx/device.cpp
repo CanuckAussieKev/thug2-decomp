@@ -30,6 +30,7 @@
 #include "platform/registry.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
+#include "engine/maths/rect.h"
 
 namespace render {
 
@@ -164,7 +165,7 @@ void init_direct_3d()
         for (unsigned i = first; i < 4; ++i) {
             device_width() = core::at(widths, i);
             device_height() = core::at(heights, i);
-            if (create_device(core::at(widths, i), core::at(heights, i), core::at(core::at(attempts, attempt), 0), core::at(core::at(attempts, attempt), 1)) >= 0) {
+            if (create_device({.width = core::at(widths, i), .height = core::at(heights, i)}, core::at(core::at(attempts, attempt), 0), core::at(core::at(attempts, attempt), 1)) >= 0) {
                 created = true;
                 break;
             }
@@ -240,8 +241,10 @@ BOOL CALLBACK sound_device_found(GUID* /*guid*/, const char* description, const 
 }
 
 // 0x004D7C80
-HRESULT create_device(int width, int height, bool hardware_vertices, bool multisample)
+HRESULT create_device(maths::PixelSize size, bool hardware_vertices, bool multisample)
 {
+    const auto width = size.width;
+    const auto height = size.height;
     auto& gfx = renderer();
     D3DPRESENT_PARAMETERS& pp = present_parameters();
     pp.BackBufferHeight = height;

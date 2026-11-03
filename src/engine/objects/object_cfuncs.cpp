@@ -26,6 +26,8 @@
 #include "engine/gfx/particle_sets.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec2.h"
 #include <bit>
 
 namespace commands {
@@ -74,10 +76,10 @@ objects::GameEntity* entity_for_id(uint32_t id)
 // vtable slot 1 of the camera: x, y and depth out; returns a scale, unused here).
 render::ViewRegion* viewport_camera(int index) { return render::fetch_current_view(index); }
 // (the depth is written as an integer into the float, as the original)
-float project_to_screen(render::ViewRegion* camera, const maths::Vec4* position, float* x, float* y, float* depth)
+float project_to_screen(render::ViewRegion* camera, const maths::Vec4* position, maths::Vec2* at, float* depth)
 {
     int whole = 0;
-    const float result = camera->project_to_screen(position, x, y, &whole);
+    const float result = camera->project_to_screen(position, at, &whole);
     *depth = std::bit_cast<float>(whole);
     return result;
 }
@@ -189,8 +191,11 @@ bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
     const objects::GameEntity* object = entity_for_id(id);
     if (!object)
         return false;
-    float x = 0.0f, y = 0.0f, depth = 0.0f;
-    project_to_screen(camera, &object->at_point(), &x, &y, &depth);
+    maths::Vec2 at{.x = 0.0f, .y = 0.0f};
+    float depth = 0.0f;
+    project_to_screen(camera, &object->at_point(), &at, &depth);
+    const float x = at.x;
+    const float y = at.y;
     script->args()->push_float(checksums::Name{kScreenX}, x);
     script->args()->push_float(checksums::Name{kScreenY}, y);
     return true;

@@ -59,7 +59,13 @@ public:
     // editing ones work on an edit begun with begin_edit (32-bit pixels) and written back with write_back.
     virtual bool ingest_file(const char*, int, int) { return false; }                                  // [1]
     virtual bool load_memory(const uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t) { return false; } // [2]
-    virtual bool create_image(checksums::Name, uint32_t, uint32_t, int, int, int) { return false; }           // [3]
+    // An image's width, height and bits per pixel.
+    struct ImageFormat {
+        uint32_t width{};
+        uint32_t height{};
+        int bits_per_pixel_{};
+    };
+    virtual bool create_image(checksums::Name, ImageFormat, int, int) { return false; }                // [3]
     virtual bool copy_from(const BitmapTexture*) { return false; }                                     // [4]
     virtual bool begin_edit(bool, bool) { return false; }                                              // [8]
     virtual bool write_back(int, const void*) { return false; }                                        // [9]

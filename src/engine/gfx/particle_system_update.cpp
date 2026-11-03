@@ -470,9 +470,7 @@ void EmitterInstance::remove_particle(int index, bool through_accessors)
     core::at(particle_list_, index) = core::at(particle_list_, particle_count_);
     for (int step = 0; step < get_num_vertex_lists(); ++step) {
         if (through_accessors) {
-            float x = 0.0f, y = 0.0f, z = 0.0f;
-            fetch_place(particle_count_, step, &x, &y, &z);
-            change_place(index, step, {.x = x, .y = y, .z = z});
+            change_place(index, step, fetch_place(particle_count_, step));
         } else {
             const std::span<const float, 3> from = position_of(this, particle_count_, step);
             const std::span<float, 3> to = position_of(this, index, step);

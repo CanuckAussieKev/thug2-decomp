@@ -19,6 +19,7 @@
 #include "engine/lists/object_set.h"
 #include "engine/maths/mat4.h"
 #include "engine/gfx/effects_state.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -70,7 +71,7 @@ maths::Vec4 back_along_light(const maths::Vec4& position, const maths::Vec4& dir
 FullShadow::FullShadow(RenderModel* model, maths::Vec4 direction, float distance) : ShadowBase(1)
 {
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    bitmap_ = static_cast<BitmapTexture*>(create_render_target(0x100, 0x100, 0x10, 0x10));
+    bitmap_ = static_cast<BitmapTexture*>(create_render_target({.width = 0x100, .height = 0x100}, 0x10, 0x10));
     add_shadow_caster(bitmap_, model);
     reach_ = distance;
     direction_ = direction;

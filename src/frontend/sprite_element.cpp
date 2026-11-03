@@ -76,7 +76,7 @@ gsl::owner<render::TexturedQuad*> new_textured_piece() { return render::create_t
 gsl::owner<render::BillboardQuad*> new_sprite(int unused) { return (void)unused, render::build_sprite_quad(); }
 
 // The 2D windows (a free list, 0x004A1620 / 0x004A1670; cdecl) and their position / size (thiscall).
-void* new_window2d(int x, int y, int w, int h) { return render::allocate_window_2d(x, y, w, h); }
+void* new_window2d(int x, int y, int w, int h) { return render::allocate_window_2d({.x = x, .y = y}, {.width = w, .height = h}); }
 void free_window2d(void* window) { render::free_window_2d(static_cast<render::ScreenWindow*>(window)); }
 
 } // namespace
@@ -286,10 +286,10 @@ void PanelWidget::tick_frame()
         return;
     const int top = get_truncated(summed().y - (static_cast<double>(just_y()) + get_one()) * get_half() * level_y());
     const int left = get_truncated(summed().x - (static_cast<double>(just_x()) + get_one()) * get_half() * span());
-    static_cast<render::ScreenWindow*>(screen_region_)->change_location(left, top);
+    static_cast<render::ScreenWindow*>(screen_region_)->change_location({.x = left, .y = top});
     const int height = get_truncated(level_y());
     const int width = get_truncated(span());
-    static_cast<render::ScreenWindow*>(screen_region_)->change_extent(width, height);
+    static_cast<render::ScreenWindow*>(screen_region_)->change_extent({.width = width, .height = height});
 }
 
 } // namespace frontend

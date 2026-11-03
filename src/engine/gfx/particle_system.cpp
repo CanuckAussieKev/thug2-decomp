@@ -85,9 +85,11 @@ bool new_colours(EmitterInstance* system, int count)
 
 // A type's constructor after the base's: the name and the maximum, no particles yet; the particles, then the
 // positions (`positions_zeroed`: zeroed memory), then the colours. Whether everything was allocated.
-bool construct_parts(EmitterInstance* system, checksums::Name system_name, int particle_cap, unsigned int positions_size,
+bool construct_parts(EmitterInstance* system, checksums::Name system_name, PartSizes part_sizes,
                      bool positions_zeroed, int colours)
 {
+    const auto particle_cap = part_sizes.particle_cap_;
+    const auto positions_size = part_sizes.positions_size_;
     const uint32_t name = system_name.value();
     system->set_label(name);
     system->set_max_particles(particle_cap);
@@ -257,12 +259,10 @@ void EmitterInstance::change_spin(const maths::Vec4& spin)
 }
 
 // 0x00496970
-void EmitterInstance::fetch_place(int particle, int step, float* x, float* y, float* z)
+maths::Vec4 EmitterInstance::fetch_place(int particle, int step)
 {
     const std::span<const float, 3> position = place_at(position_array_, max_particles_, step, particle);
-    *x = core::at(position, 0);
-    *y = core::at(position, 1);
-    *z = core::at(position, 2);
+    return {.x = core::at(position, 0), .y = core::at(position, 1), .z = core::at(position, 2), .w = 0.0f};
 }
 
 // 0x004969B0
@@ -452,7 +452,7 @@ int EmitterInstance::get_num_vertex_lists()
 // 0x00499010
 NewFlatParticles::NewFlatParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
 {
-    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>(particle_cap) * 12, false, 1)) {
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * 12}, false, 1)) {
         set_colour_mid(-1.0f);
         flag_bits() |= 4u;
     }
@@ -464,7 +464,7 @@ FlatRibbonParticles::FlatRibbonParticles(uint32_t name, int particle_cap, uint32
     : segments_(history + 1)
 {
     // (the colours' count read again as segments_ + 3 for each array and each step of the loop)
-    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>(particle_cap * segments_ * 12), true,
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * segments_ * 12)}, true,
                         segments_ + 3)) {
         set_colour_mid(-1.0f);
         flag_bits() |= 4u;
@@ -484,10 +484,13 @@ FlatRibbonParticles::~FlatRibbonParticles()
 int FlatRibbonParticles::get_num_colours() { return segments_ + 3; }
 
 // 0x004995B0
-GlowParticles::GlowParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int segments, float glow_width,
-                             int)
+GlowParticles::GlowParticles(const ConstructArgs& args)
 {
-    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>(particle_cap) * 12, false, 3)) {
+    const uint32_t name = args.name;
+    const int particle_cap = args.particle_cap_;
+    const int segments = args.segments;
+    const float glow_width = args.unknown;
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * 12}, false, 3)) {
         segments_ = segments;
         set_colour_mid(-1.0f);
         glow_width_ = glow_width;
@@ -496,11 +499,15 @@ GlowParticles::GlowParticles(uint32_t name, int particle_cap, uint32_t, uint32_t
 }
 
 // 0x00499880
-GlowRibbonTrailParticles::GlowRibbonTrailParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int,
-                                                   int segments, float width, int history)
+GlowRibbonTrailParticles::GlowRibbonTrailParticles(const ConstructArgs& args)
 {
+    const uint32_t name = args.name;
+    const int particle_cap = args.particle_cap_;
+    const int segments = args.segments;
+    const float width = args.unknown;
+    const int history = args.history;
     set_history_length(history + 1);
-    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>((history + 1) * particle_cap * 12), true,
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>((history + 1) * particle_cap * 12)}, true,
                         history_length() + 3)) {
         segments_ = segments;
         set_colour_mid(-1.0f);
@@ -517,7 +524,7 @@ int GlowRibbonTrailParticles::get_num_vertex_lists() { return history_length(); 
 LineParticles::LineParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int history)
     : steps_(history + 1)
 {
-    if (construct_parts(this, checksums::Name{name}, particle_cap, static_cast<unsigned int>(particle_cap * (history + 1) * 12), true,
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * (history + 1) * 12)}, true,
                         steps_)) {
         set_colour_mid(-1.0f);
         flag_bits() |= 4u;

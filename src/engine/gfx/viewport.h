@@ -8,6 +8,8 @@
 #include "engine/core/mem.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/smtptr.h"
+#include "engine/maths/vec2.h"
+#include "engine/maths/rect.h"
 
 namespace gfx {
 class ViewCam;
@@ -33,11 +35,17 @@ public:
     ViewRegion(const ViewRegion&) = delete;
     ViewRegion& operator=(const ViewRegion&) = delete;
     // 0x004A0CC0 (vtable slot 1): "STUB: PlatTransformToScreenCoord"; -1.
-    virtual float project_to_screen(const maths::Vec4* point, float* x, float* y, int* depth);
+    // (`at`: the screen x and y, written only where the projection succeeds)
+    virtual float project_to_screen(const maths::Vec4* point, maths::Vec2* at, int* depth);
     // 0x004A0CF0 (slot 2; the same code is in many vtables): no query, 0.
     virtual uint8_t query_point(const maths::Vec4* point, int unused, uint8_t query);
+    // An occlusion query's depth and its slot.
+    struct RectQuery {
+        uint32_t z{};
+        uint8_t query{};
+    };
     // 0x004A0CE0 (slot 3; also shared): no query, 0.
-    virtual uint8_t query_rect(float x0, float y0, float x1, float y1, uint32_t z, uint8_t query);
+    virtual uint8_t query_rect(maths::Rect box, RectQuery rect_query);
     // 0x004A0D00 (slot 4): "STUB: plat_get_visibility_test"; 0.
     virtual int fetch_shown(int unused);
 

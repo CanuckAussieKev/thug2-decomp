@@ -46,8 +46,8 @@ bool BitmapTexture::fabricate(uint32_t checksum, uint32_t width, uint32_t height
                               uint32_t a5)
 {
     checksum_ = checksum;
-    return create_image(checksums::Name{checksum}, width, height, static_cast<int>(bits_per_pixel), static_cast<int>(a4),
-                        static_cast<int>(a5));
+    return create_image(checksums::Name{checksum}, {.width = width, .height = height, .bits_per_pixel_ = static_cast<int>(bits_per_pixel)},
+                        static_cast<int>(a4), static_cast<int>(a5));
 }
 
 // 0x0049F3F0

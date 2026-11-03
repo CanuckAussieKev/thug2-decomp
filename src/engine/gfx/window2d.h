@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/mem.h"
+#include "engine/maths/rect.h"
 
 // The engine's 2D windows (Nx; the PC's PcWindow - pc_billboards.h - derives from it): a rectangle of the 640 x 448
 // screen the window screen elements clip their sprites to. Ten are made at start-up (the PC's create_window_pool) onto
@@ -22,8 +23,8 @@ public:
     // 0x004A1600 (vtable slot 1): the platform told of a change ("STUB: PlatUpdateEngine").
     virtual void tick_engine();
     // 0x004A15C0 / 0x004A15E0: the position / size set, then tick_engine.
-    void change_location(int x, int y);
-    void change_extent(int width, int height);
+    void change_location(maths::PixelPoint at);
+    void change_extent(maths::PixelSize extent);
 
     // The fields other code reads and sets.
     void set_pos_x(int value) { pos_x_ = value; }
@@ -47,7 +48,7 @@ private:
 
 // 0x004A1620: a window from the free list (none: written through null, as the original), placed and sized - each
 // with tick_engine.
-ScreenWindow* allocate_window_2d(int x, int y, int width, int height);
+ScreenWindow* allocate_window_2d(maths::PixelPoint at, maths::PixelSize size);
 // 0x004A1670: a window back onto the free list.
 void free_window_2d(ScreenWindow* window);
 

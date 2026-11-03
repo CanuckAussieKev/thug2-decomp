@@ -20,6 +20,7 @@
 #include "engine/maths/quat_rotation.h"
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec4.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -51,9 +52,12 @@ void model_path_for(const char* name, const char* ext, char* out) { gfx::make_mo
 } // namespace
 
 // 0x0049A0C0
-ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* model, uint32_t, int, int, float, int)
-    : model_count_(static_cast<unsigned int>(particle_cap)), drawn_models_(static_cast<unsigned int>(particle_cap))
+ModelParticles::ModelParticles(const ConstructArgs& args)
+    : model_count_(static_cast<unsigned int>(args.particle_cap_)), drawn_models_(static_cast<unsigned int>(args.particle_cap_))
 {
+    const uint32_t name = args.name;
+    const int particle_cap = args.particle_cap_;
+    const char* model = args.model;
     set_label(name);
     std::array<char, 512> file_name = {};
     position_array() = {};

@@ -241,8 +241,11 @@ PcTexture::PcTexture(const PcTexture* source)
 }
 
 // 0x004C8830
-bool PcTexture::create_image(checksums::Name texture_name, uint32_t width, uint32_t height, int bits_per_pixel, int, int)
+bool PcTexture::create_image(checksums::Name texture_name, ImageFormat image_format, int, int)
 {
+    const auto width = image_format.width;
+    const auto height = image_format.height;
+    auto bits_per_pixel = image_format.bits_per_pixel_;
     const uint32_t new_checksum = texture_name.value();
     const TextureRef* old = get_texture();
     if (old && old->texture) // (released, the old texture itself kept)
@@ -446,9 +449,12 @@ int ftol(double value) { return static_cast<int>(value); } // (the game's _ftol:
 } // namespace
 
 // 0x004C9200
-void resize_image(std::span<const uint32_t> from, uint16_t from_width, uint16_t from_height, std::span<uint32_t> into,
-                  uint16_t into_width, uint16_t into_height)
+void resize_image(std::span<const uint32_t> from, ImageSize16 from_size, std::span<uint32_t> into, ImageSize16 into_size)
 {
+    const auto into_width = into_size.width;
+    const auto into_height = into_size.height;
+    const auto from_width = from_size.width;
+    const auto from_height = from_size.height;
     const int x_step = ftol(static_cast<double>(static_cast<int>(from_width)) / static_cast<int>(into_width) * 1024.0f);
     const int y_step =
         ftol(static_cast<double>(static_cast<int>(from_height)) / static_cast<int>(into_height) * 1024.0f);
@@ -551,8 +557,7 @@ bool PcTexture::resize_from(const BitmapTexture* source_texture, int /*unused*/)
         return false;
     const TextureRef* into = get_edit(this)->texture;
     const TextureRef* from = get_edit(source)->texture;
-    resize_image(edit_pixels(source), from->image_width_, from->image_height_, edit_pixels(this), into->image_width_,
-                 into->image_height_);
+    resize_image(edit_pixels(source), {.width = from->image_width_, .height = from->image_height_}, edit_pixels(this), {.width = into->image_width_, .height = into->image_height_});
     return true;
 }
 
@@ -751,9 +756,8 @@ bool PcTexture::get_stretch(Stretch stretch)
     const std::span<uint32_t> stretched(stretched_block, static_cast<size_t>(new_height) * new_width);
     memory::Hub::get_pull()->leave_heap_scope();
     read_rect(part, {.x = read_x, .y = read_y, .width = read_width, .height = read_height});
-    resize_image(part, read_width, read_height, stretched, new_width, new_height);
-    copy_sub_image(part, 0, 0, read_width, read_height, stretched.subspan(static_cast<uint16_t>(offset)), new_width,
-                   new_height);
+    resize_image(part, {.width = read_width, .height = read_height}, stretched, {.width = new_width, .height = new_height});
+    copy_sub_image(part, 0, 0, {.width = read_width, .height = read_height}, stretched.subspan(static_cast<uint16_t>(offset)), {.width = new_width, .height = new_height});
     write_rect(part, {.x = read_x, .y = read_y, .width = read_width, .height = read_height});
     if (part_block)
         memory::Hub::get_pull()->dealloc(part_block);
@@ -977,12 +981,12 @@ bool PcTexture::squash(BitmapTexture::Stretch stretch, bool fill, uint32_t colou
     const std::span<uint32_t> squashed(squashed_block, static_cast<size_t>(new_height) * new_width);
     memory::Hub::get_pull()->leave_heap_scope();
     read_rect(part, {.x = read_x, .y = read_y, .width = read_width, .height = read_height});
-    resize_image(part, read_width, read_height, squashed, new_width, new_height);
+    resize_image(part, {.width = read_width, .height = read_height}, squashed, {.width = new_width, .height = new_height});
     if (fill) {
         for (int i = 0; i < count; ++i)
             core::at(part, i) = colour;
     }
-    copy_sub_image(part, into_x, into_y, read_width, read_height, squashed, new_width, new_height);
+    copy_sub_image(part, into_x, into_y, {.width = read_width, .height = read_height}, squashed, {.width = new_width, .height = new_height});
     write_rect(part, {.x = read_x, .y = read_y, .width = read_width, .height = read_height});
     if (!fill) { // (what was uncovered filled with the squashed part's edge column / row)
         if (!vertical) {
@@ -1366,9 +1370,13 @@ gsl::owner<PcTexDict*> load_tex_dict_memory(uint32_t checksum, const uint8_t* da
 gsl::owner<PcTexDict*> create_tex_dict(uint32_t checksum) { return new PcTexDict(checksum); }
 
 // 0x004C80B0
-void copy_sub_image(std::span<uint32_t> into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
-                    std::span<const uint32_t> from, uint16_t from_width, uint16_t from_height)
+void copy_sub_image(std::span<uint32_t> into, uint16_t x, uint16_t y, ImageSize16 into_size,
+                    std::span<const uint32_t> from, ImageSize16 from_size)
 {
+    const auto from_width = from_size.width;
+    const auto from_height = from_size.height;
+    const auto into_width = into_size.width;
+    const auto into_height = into_size.height;
     int columns = from_width;
     if (columns >= into_width - x)
         columns = into_width - x;

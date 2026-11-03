@@ -39,6 +39,20 @@ struct FlexibleParticle {
     float lifetime;       // +0x2C
 };
 
+// What a system's constructor is given: (name, max, texture, blend, alpha, segments, unknown), and some also the
+// history; the shaded class only the first five; the engine's model class its model name instead of the texture.
+struct ConstructArgs {
+    uint32_t name{};
+    int particle_cap_{};
+    uint32_t texture{};
+    uint32_t blend_mode_{};
+    int fixed_alpha_{};
+    int segments{};
+    float unknown{};
+    int history{};
+    const char* model{};
+};
+
 // The base of every type (0x134 bytes; vtable 0x00649428). Smart pointers point at it (the flexible particle
 // component's): a SharedBase. Its list node at +0x0C (the particle manager's list; the original's node had a table of
 // its own, the "second vtable" - the node here keeps its size: the types' fields are at the original's offsets).
@@ -200,7 +214,8 @@ public:
     void set_emit_target(const maths::Vec4& target);
     void change_spin(const maths::Vec4& spin);
     // 0x00496970 / 0x004969B0: particle `particle`'s position at history step `step` read / written.
-    void fetch_place(int particle, int step, float* x, float* y, float* z);
+    // (x, y, z; w 0)
+    maths::Vec4 fetch_place(int particle, int step);
     void change_place(int particle, int step, const maths::Vec4& place);
     // 0x004969F0: the matrix particles are emitted with: the one it follows, else rows from the emit target (the
     // third row; the first across it and up - or along x when the target is nearly up -, the second their cross).
@@ -308,9 +323,8 @@ private:
 
 public:
 
-    // 0x004995B0
-    GlowParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha, int segments,
-                  float glow_width, int history);
+    // 0x004995B0 (`unknown`: the glow's width)
+    explicit GlowParticles(const ConstructArgs& args);
     // 0x00499550 (0x00499580 the scalar deleting destructor; 0x00499570 through the node): the base's.
     ~GlowParticles() override = default;
     int get_num_vertex_lists() override { return 0; }
@@ -329,9 +343,8 @@ private:
 
 public:
 
-    // 0x00499880
-    GlowRibbonTrailParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                             int segments, float width, int history);
+    // 0x00499880 (`unknown`: the trail's width)
+    explicit GlowRibbonTrailParticles(const ConstructArgs& args);
     // 0x00499800 (0x00499850 the scalar deleting destructor; 0x00499840 through the node): the base's.
     ~GlowRibbonTrailParticles() override = default;
     // 0x00499830: history_length_. 0x00499820: history_length_ + 3.
@@ -374,8 +387,7 @@ public:
     // `particleCap` particles, positions and models - each from "<model>.mdl" (lower case) at a random scale 1 - 2.98 -
     // unless the memory left is under 0x1194 bytes a model; a random rotation each (only the first ever normalised, as
     // the original); one colour of each kind (not set); no mid colour, flag 4. Each step stops at the first that fails.
-    ModelParticles(uint32_t name, int particle_cap, const char* model, uint32_t blend_mode, int fixed_alpha,
-                   int segments, float unknown, int history);
+    explicit ModelParticles(const ConstructArgs& args);
     // 0x00499E10 (0x0049A090 the scalar deleting destructor; 0x00499E00 through the node): +0x13C freed, the models
     // deleted and their array freed (each forgotten), the base's.
     ~ModelParticles() override;

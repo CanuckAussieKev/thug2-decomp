@@ -22,6 +22,8 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/maths/vec2.h"
+#include "engine/maths/rect.h"
 
 namespace render {
 
@@ -87,8 +89,10 @@ gsl::owner<PcViewport*> create_viewport(const std::array<float, 4>* rect, gfx::V
 }
 
 // 0x004CB940
-float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y, int* depth)
+float PcViewport::project_to_screen(const maths::Vec4* point, maths::Vec2* at, int* depth)
 {
+    float* x = &at->x;
+    float* y = &at->y;
     std::array<float, 4> v = {{point->x, point->y, point->z, 1.0f}};
     std::array<float, 4> view{};
     std::array<float, 4> clip{};
@@ -131,8 +135,14 @@ uint8_t PcViewport::query_point(const maths::Vec4* point, int /*unused*/, uint8_
 }
 
 // 0x004CBA90
-uint8_t PcViewport::query_rect(float x0, float y0, float x1, float y1, uint32_t z, uint8_t query)
+uint8_t PcViewport::query_rect(maths::Rect box, RectQuery rect_query)
 {
+    const auto z = rect_query.z;
+    const auto query = rect_query.query;
+    const auto x0 = box.x0;
+    const auto y0 = box.y0;
+    const auto x1 = box.x1;
+    const auto y1 = box.y1;
     if (renderer().radeon8500() || !query)
         return 0;
     renderer().d3d_device()->SetRenderState(D3DRS_COLORWRITEENABLE, 0);

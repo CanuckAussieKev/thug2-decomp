@@ -26,7 +26,7 @@ struct SimpleMaterial;
 // 0x004BCEF0: a new system of `type` (glow, ribbon, smoothstar, star, line, smooth, glowribbontrail, smoothribbon,
 // ribbontrail, shaded, 0x3D56A7A6 - a flat ribbon -, newflat - and newflat for any other type -; 0x286A8D26 the engine's
 // own class 0x0049A0C0, without a PC one, from `model`), each from the parameters it uses. Null if no memory.
-gsl::owner<EmitterInstance*> create_flexible_particles(checksums::Name system_name, uint32_t type, int particle_cap, int max_streams,
+gsl::owner<EmitterInstance*> create_flexible_particles(checksums::Name system_name, checksums::Name kind, int particle_cap, int max_streams,
                                            uint32_t texture, uint32_t blend_mode, int fixed_alpha, int segments,
                                            float unknown, int history, const char* model);
 

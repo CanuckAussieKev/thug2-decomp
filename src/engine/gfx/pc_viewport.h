@@ -5,6 +5,8 @@
 
 #include "engine/gfx/viewport.h"
 #include "engine/maths/vec4.h"
+#include "engine/maths/vec2.h"
+#include "engine/maths/rect.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -23,12 +25,12 @@ public:
     // 0x004CB940 (vtable slot 1): a world point through the view (0x00786BD0) and projection (0x00786C10) matrices onto
     // the screen (*x, *y); in front of the far plane its depth in 65536ths into *depth and a size factor returned -
     // 300 / the view depth, kept within 0x0070137C and 3 (0x0067E54C) - else -1 returned.
-    float project_to_screen(const maths::Vec4* point, float* x, float* y, int* depth) override;
+    float project_to_screen(const maths::Vec4* point, maths::Vec2* at, int* depth) override;
     // 0x004CBC00 (slot 2): an occlusion query (under `query`) round a degenerate strip at a world point. Returns the
     // query (0 for none made: query 0, or a Radeon 8500).
     uint8_t query_point(const maths::Vec4* point, int unused, uint8_t query) override;
     // 0x004CBA90 (slot 3): the same over a screen rectangle at depth `z`.
-    uint8_t query_rect(float x0, float y0, float x1, float y1, uint32_t z, uint8_t query) override;
+    uint8_t query_rect(maths::Rect box, RectQuery rect_query) override;
     // (Slot 4: a shared "return 0".)
     int fetch_shown(int) override { return 0; }
 };

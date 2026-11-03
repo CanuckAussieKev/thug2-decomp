@@ -45,11 +45,11 @@ float clamp01(float value)
 } // namespace
 
 // 0x004D06A0
-void get_device_gamma(float* r, float* g, float* b)
+std::array<float, 3> get_device_gamma()
 {
-    *r = static_cast<float>((static_cast<double>(core::at(gammas(), 0)) - 0.5f) * 0.5f);
-    *g = static_cast<float>((static_cast<double>(core::at(gammas(), 1)) - 0.5f) * 0.5f);
-    *b = static_cast<float>((static_cast<double>(core::at(gammas(), 2)) - 0.5f) * 0.5f);
+    return {{static_cast<float>((static_cast<double>(core::at(gammas(), 0)) - 0.5f) * 0.5f),
+             static_cast<float>((static_cast<double>(core::at(gammas(), 1)) - 0.5f) * 0.5f),
+             static_cast<float>((static_cast<double>(core::at(gammas(), 2)) - 0.5f) * 0.5f)}};
 }
 
 // 0x004D06F0

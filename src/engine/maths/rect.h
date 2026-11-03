@@ -25,6 +25,13 @@ struct Size {
     bool operator==(const Size&) const = default;
 };
 
+// NOT ORIGINAL - a point in whole pixels (a window's or a texture's).
+struct PixelPoint {
+    int x;
+    int y;
+    bool operator==(const PixelPoint&) const = default;
+};
+
 // NOT ORIGINAL - an extent in whole pixels: a width and a height (a window's, a back buffer's, a texture's).
 struct PixelSize {
     int width;

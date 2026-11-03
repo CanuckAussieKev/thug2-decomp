@@ -163,7 +163,7 @@ EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_
                                                           bool perm, bool use_level_colour, const char* model)
 {
     memory::Hub::get_pull()->enter_heap_scope(static_cast<memory::MemSource*>(temp_heap_ ? temp_heap_ : arena_));
-    gsl::owner<EmitterInstance*> made = create_flexible_particles(checksums::Name{name}, type, particle_cap, max_streams, texture,
+    gsl::owner<EmitterInstance*> made = create_flexible_particles(checksums::Name{name}, checksums::Name{type}, particle_cap, max_streams, texture,
                                                                   blend_mode, fixed_alpha, segments, unknown, history, model);
     memory::Hub::get_pull()->leave_heap_scope();
     if (!made)

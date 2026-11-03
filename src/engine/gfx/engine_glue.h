@@ -6,6 +6,8 @@
 
 #include <gsl/pointers>
 #include <array>
+#include "engine/maths/rect.h"
+#include "engine/maths/vec4.h"
 
 namespace maths {
 class Vec4;
@@ -54,7 +56,8 @@ const char* platform_suffix();
 // 0x004B24C0 / 0x004B24D0: jumps to 0x004D07B0 / 0x004D06A0 - the gamma ramp set from / read back as three
 // factors.
 void set_gamma(float red, float green, float blue);
-void get_gamma(float* red, float* green, float* blue);
+// (red, green, blue)
+std::array<float, 3> get_gamma();
 // 0x004B24E0: the front buffer saved as a JPEG: "<name>.jpg" when the pending screenshot's name is to be used as
 // it is (0x00786E14), else the first "<name>NNN.jpg" with no file yet. The second argument isn't used.
 void screen_shot(const char* name, int unused);
@@ -76,7 +79,7 @@ gsl::owner<Geom*> create_geom();
 gsl::owner<BillboardQuad*> build_sprite_quad();
 gsl::owner<TexturedQuad*> create_textured_quad();
 // 0x004B2B60: a new render target (0x14 bytes) with a texture of its own made a width x height render target.
-gsl::owner<void*> create_render_target(int width, int height, uint8_t depth, int unused);
+gsl::owner<void*> create_render_target(maths::PixelSize size, uint8_t depth, int unused);
 // 0x004B2C30 / 0x004B2C50 / 0x004B2D10: a texture's shadow caster (the key: its +0x10, through one more pointer
 // with its flag 1 of +0x08) added for `model`, aimed from the camera along its matrix's third row, and removed.
 void add_texture_shadow_caster(const BitmapTexture* texture, void* model, WorldScene* unused);

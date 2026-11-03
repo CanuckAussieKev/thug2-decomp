@@ -21,6 +21,9 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/view_setup.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec2.h"
+#include "engine/maths/rect.h"
 namespace render {
 
 namespace {
@@ -120,7 +123,7 @@ ViewRegion::ViewRegion(const std::array<float, 4>* rect, gfx::ViewCam* camera)
 ViewRegion::~ViewRegion() { viewer_.get_release(); }
 
 // 0x004A0CC0
-float ViewRegion::project_to_screen(const maths::Vec4*, float*, float*, int*)
+float ViewRegion::project_to_screen(const maths::Vec4*, maths::Vec2*, int*)
 {
     debug::printf("STUB: PlatTransformToScreenCoord\n");
     return kMinusOne; // -1
@@ -130,7 +133,7 @@ float ViewRegion::project_to_screen(const maths::Vec4*, float*, float*, int*)
 uint8_t ViewRegion::query_point(const maths::Vec4*, int, uint8_t) { return 0; }
 
 // 0x004A0CE0
-uint8_t ViewRegion::query_rect(float, float, float, float, uint32_t, uint8_t) { return 0; }
+uint8_t ViewRegion::query_rect(maths::Rect /*box*/, RectQuery /*rect_query*/) { return 0; }
 
 // 0x004A0D00
 int ViewRegion::fetch_shown(int)

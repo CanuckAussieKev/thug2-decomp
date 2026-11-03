@@ -64,7 +64,13 @@ public:
     // positive, plus `extra_radius`; the bones' world positions kept in 0x006FA320). The distance to it (the square
     // root of the squared distance) into `distance` and where along the segment into `t`, when given. The bone's
     // name, 0 for none.
-    uint32_t segment_hits_bone(const maths::Seg* segment, Rig* skeleton, const maths::Mat4* world, checksums::Name bone_name, BoneReach reach, float* distance, float* t);
+    // Where a segment hits a bone: the distance and how far along the segment.
+    struct BoneHit {
+        float distance{};
+        float t{};
+    };
+    uint32_t segment_hits_bone(const maths::Seg* segment, Rig* skeleton, const maths::Mat4* world, checksums::Name bone_name,
+                               BoneReach reach, BoneHit* hit);
     // 0x0048BC40: the volume of the capsule round `bone` (radius times the bone's largest scale; none: 0) into
     // `volume`. True.
     bool get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint32_t bone, float* volume);

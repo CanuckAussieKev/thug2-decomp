@@ -29,6 +29,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/engine_parts.h"
 #include "engine/core/checksums.h"
+#include "engine/maths/vec2.h"
 #include <bit>
 #include <gsl/pointers>
 
@@ -124,16 +125,16 @@ uint32_t get_since(uint32_t time)
 // rectangle (the query's number, 0 if none).
 render::ViewRegion* viewport_camera() { return render::fetch_current_view(0); }
 // (the depth is written as an integer into the float, as the original)
-void cast_onto(render::ViewRegion* camera, const maths::Vec4* point, float* x, float* y, float* z)
+void cast_onto(render::ViewRegion* camera, const maths::Vec4* point, maths::Vec2* at, float* z)
 {
     int whole = 0;
-    camera->project_to_screen(point, x, y, &whole);
+    camera->project_to_screen(point, at, &whole);
     *z = std::bit_cast<float>(whole);
 }
 uint8_t issue_query(render::ViewRegion* camera, float left, float top, float right, float bottom, int unknown,
                     uint8_t query)
 {
-    return camera->query_rect(left, top, right, bottom, static_cast<uint32_t>(unknown), query);
+    return camera->query_rect({.x0 = left, .y0 = top, .x1 = right, .y1 = bottom}, {.z = static_cast<uint32_t>(unknown), .query = query});
 }
 
 // The sun's and the corona's quads: a PC primitive drawer on the stack (0x200 bytes kept for it), made with 2 (not
@@ -227,7 +228,10 @@ void query_sun_visibility(uint32_t /*data*/, uint32_t slot)
     maths::Vec4 screen = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     render::ViewRegion* camera = viewport_camera();
     float z = 1.401298464e-45f; // (an int 1 in the original, overwritten)
-    cast_onto(camera, &get_position(), &screen[0], &screen[1], &z);
+    maths::Vec2 at{.x = screen[0], .y = screen[1]};
+    cast_onto(camera, &get_position(), &at, &z);
+    screen[0] = at.x;
+    screen[1] = at.y;
     get_query() = issue_query(camera, screen[0] - 5.0f, screen[1] - 5.0f, screen[0] + 5.0f, screen[1] + 5.0f, 1, query);
 }
 
@@ -455,7 +459,10 @@ void render(gfx::ViewCam* camera)
     }
     maths::Vec4 screen = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     float z = 1.401298464e-45f; // (an int 1 in the original, overwritten)
-    cast_onto(viewport_camera(), &sun_pos, &screen[0], &screen[1], &z);
+    maths::Vec2 at{.x = screen[0], .y = screen[1]};
+    cast_onto(viewport_camera(), &sun_pos, &at, &z);
+    screen[0] = at.x;
+    screen[1] = at.y;
     if (screen[0] == 0.0f && screen[1] == 0.0f) {
         hide_flare(nullptr, nullptr);
         return;

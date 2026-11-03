@@ -101,8 +101,7 @@ private:
 public:
 
     // 0x0049BE80
-    SmoothStarParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                        int segments, float size, int history);
+    explicit SmoothStarParticles(const ConstructArgs& args); // (`unknown`: the stars' size)
     // 0x0049BE20 (0x0049BE50 the scalar deleting destructor; 0x0049BE40 through the node): the base's.
     ~SmoothStarParticles() override = default;
     int get_num_vertex_lists() override { return 0; }
@@ -122,8 +121,7 @@ private:
 public:
 
     // 0x0049C140
-    StarParticles(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha, int segments,
-                  float size, int history);
+    explicit StarParticles(const ConstructArgs& args); // (`unknown`: the stars' size)
     // 0x0049C0D0 (0x0049C110 the scalar deleting destructor; 0x0049C100 through the node): the base's.
     ~StarParticles() override = default;
     int get_num_vertex_lists() override { return 0; }

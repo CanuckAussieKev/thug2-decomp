@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <array>
+#include "engine/maths/rect.h"
 
 // The Direct3D 9 device (Nx engine, PC).
 namespace render {
@@ -19,7 +20,7 @@ void init_direct_3d();
 // 0x004D7C80: create the device at width x height (into 0x007D69E0) - hardware vertex processing if
 // `hardware_vertices` (else software), 2x multisampling if `multisample` - and note the adapter (a Radeon 8500;
 // an Intel 915G with Realtek audio). Returns the HRESULT.
-HRESULT create_device(int width, int height, bool hardware_vertices, bool multisample);
+HRESULT create_device(maths::PixelSize size, bool hardware_vertices, bool multisample);
 // 0x004D7C20: DirectSoundEnumerateA's callback - keeps each device's description (0x00786AC8). Returns TRUE.
 BOOL CALLBACK sound_device_found(GUID* guid, const char* description, const char* module, void* context);
 // 0x004D8420: the default-pool objects - the dynamic buffers, nine screen-copy render targets (full size to a

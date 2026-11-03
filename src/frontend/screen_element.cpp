@@ -24,6 +24,8 @@
 #include "game/goals/objective.h"
 #include "engine/maths/rect.h"
 #include "engine/maths/vec2.h"
+#include "engine/core/checksums.h"
+#include "engine/maths/vec4.h"
 
 namespace frontend {
 
@@ -559,10 +561,12 @@ void UiWidget::update_layout()
         // projected through the first viewport's camera (0x004A06D0; 0x004A1090 calls its vtable slot 1: the
         // depth scale in ST0, negative behind the camera)
         render::ViewRegion* camera = render::fetch_current_view(0);
-        float x = 0.0f, y = 0.0f;
+        maths::Vec2 at{.x = 0.0f, .y = 0.0f};
         int depth = 0;
         // (the depth is an integer the original keeps in the float z: its bits)
-        const float scale = camera->project_to_screen(&aim_point_.pos3d, &x, &y, &depth);
+        const float scale = camera->project_to_screen(&aim_point_.pos3d, &at, &depth);
+        const float x = at.x;
+        const float y = at.y;
         if (scale < 0.0f) {
             aim_point_.x = -320.0f;
             aim_point_.y = -224.0f;

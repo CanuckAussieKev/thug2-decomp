@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 #include "platform/d3d_forward.h"
+#include "engine/maths/rect.h"
 #include <gsl/pointers>
 
 // A texture (Nx engine, PC): its Direct3D texture and, for render targets, the surface. Every texture is on a list
@@ -52,7 +53,7 @@ struct TextureRef : TextureImage {
     // read the entries through it, from null). An empty span: a read of one stops the game with a report.
     [[nodiscard]] std::span<uint32_t> palette_entries() const { return {}; }
     // 0x004E0700: make it a width x height A8R8G8B8 render target (`depth` kept). Returns whether it was made.
-    bool create_render_target(int width, int height, uint8_t depth, int unused);
+    bool create_render_target(maths::PixelSize size, uint8_t depth, int unused);
 };
 static_assert(offsetof(TextureRef, texture) == 0x10 && offsetof(TextureRef, render_target_) == 0x1C &&
                   sizeof(TextureRef) == 0x20,
