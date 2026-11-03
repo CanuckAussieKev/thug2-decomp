@@ -24,6 +24,29 @@ namespace os_layer {
 
 constexpr int kPorts = 2;
 constexpr int kBindings = 24;
+// The actions' slots in a port's binding tables (the slots 12 and 19 are not named here).
+constexpr int kBindUp = 0;
+constexpr int kBindDown = 1;
+constexpr int kBindLeft = 2;
+constexpr int kBindRight = 3;
+constexpr int kBindCameraUp = 4;
+constexpr int kBindCameraDown = 5;
+constexpr int kBindCameraLeft = 6;
+constexpr int kBindCameraRight = 7;
+constexpr int kBindOllie = 8;
+constexpr int kBindGrab = 9;
+constexpr int kBindKick = 10;
+constexpr int kBindGrind = 11;
+constexpr int kBindCameraToggle = 13;
+constexpr int kBindLeftSpin = 14;
+constexpr int kBindRightSpin = 15;
+constexpr int kBindNollie = 16;
+constexpr int kBindSwitchRevert = 17;
+constexpr int kBindFocus = 18;
+constexpr int kBindItemUp = 20;
+constexpr int kBindItemDown = 21;
+constexpr int kBindItemLeft = 22;
+constexpr int kBindItemRight = 23;
 
 // A port's controls (0x130 bytes, 0x007D6770 + 0x130 * port; -1 = none). init_input sets them all to -1.
 struct PortControls {

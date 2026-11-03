@@ -79,7 +79,6 @@ constexpr std::size_t kServerNameSize = 256;
 constexpr std::size_t kCommandLineCopySize = 1024;
 constexpr int kAvailableCheckSleepMs = 5; // between the availability check's thinks
 // The input bindings and the keys' names.
-constexpr int kBindingCount = 24;
 constexpr std::size_t kBindingNameSize = 8;
 constexpr int kScanCodeCount = 256;
 constexpr int kAcuteAccent = 0xB4;
@@ -427,7 +426,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     find_cd_drive("THUG CD2");
     init_direct_sound(render::renderer().game_window());
     for (int device = 0; device < 3; ++device) {
-        for (int i = 0; i < kBindingCount; ++i) {
+        for (int i = 0; i < os_layer::kBindings; ++i) {
             std::array<char, kBindingNameSize> name = {};
             text::format_to(name, "%s%d", core::at(kBindingPrefixes, device), i);
             write_default_setting(name.data(), core::at(core::at(kDefaultBindings, device), i));

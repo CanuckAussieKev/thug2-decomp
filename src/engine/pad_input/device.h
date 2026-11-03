@@ -68,29 +68,6 @@ constexpr int kSnapshotRightTrigger = 7;
 constexpr size_t kSnapshotPressureCount = 8;
 constexpr int kPressedThreshold = 0x20;
 constexpr int kHardPressThreshold = 0x80;
-// The keyboard bindings' slots (port 0's table in the platform layer).
-constexpr int kBindUp = 0;
-constexpr int kBindDown = 1;
-constexpr int kBindLeft = 2;
-constexpr int kBindRight = 3;
-constexpr int kBindCameraUp = 4;
-constexpr int kBindCameraDown = 5;
-constexpr int kBindCameraLeft = 6;
-constexpr int kBindCameraRight = 7;
-constexpr int kBindOllie = 8;
-constexpr int kBindGrab = 9;
-constexpr int kBindKick = 10;
-constexpr int kBindGrind = 11;
-constexpr int kBindCameraToggle = 13;
-constexpr int kBindLeftSpin = 14;
-constexpr int kBindRightSpin = 15;
-constexpr int kBindNollie = 16;
-constexpr int kBindSwitchRevert = 17;
-constexpr int kBindFocus = 18;
-constexpr int kBindItemUp = 20;
-constexpr int kBindItemDown = 21;
-constexpr int kBindItemLeft = 22;
-constexpr int kBindItemRight = 23;
 
 class InputPort : public memory::HeapObject {
 public:

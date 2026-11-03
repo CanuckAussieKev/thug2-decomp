@@ -462,27 +462,27 @@ int get_menu_key(int button)
 {
     switch (button) {
     case 0:
-        return key_binding(kBindGrind);
+        return key_binding(os_layer::kBindGrind);
     case 1:
-        return key_binding(kBindKick);
+        return key_binding(os_layer::kBindKick);
     case 2:
-        return key_binding(kBindGrab);
+        return key_binding(os_layer::kBindGrab);
     case 3:
-        return key_binding(kBindOllie);
+        return key_binding(os_layer::kBindOllie);
     case kButtonStart:
         return 1; // Escape
     case kButtonSelect:
         return kScanSpace; // space
     case kButtonL2:
-        return key_binding(kBindNollie);
+        return key_binding(os_layer::kBindNollie);
     case kButtonR2:
-        return key_binding(kBindSwitchRevert);
+        return key_binding(os_layer::kBindSwitchRevert);
     case kButtonL1:
-        return key_binding(kBindLeftSpin);
+        return key_binding(os_layer::kBindLeftSpin);
     case kButtonR1:
-        return key_binding(kBindRightSpin);
+        return key_binding(os_layer::kBindRightSpin);
     case kButtonFocus:
-        return key_binding(kBindFocus);
+        return key_binding(os_layer::kBindFocus);
     case kButtonAccept:
         return kScanEnter; // Enter
     case kButtonCancel:
@@ -531,27 +531,27 @@ int play_key(int button)
 {
     switch (button) {
     case 0:
-        return key_binding(kBindGrind);
+        return key_binding(os_layer::kBindGrind);
     case 1:
-        return key_binding(kBindKick);
+        return key_binding(os_layer::kBindKick);
     case 2:
-        return key_binding(kBindGrab);
+        return key_binding(os_layer::kBindGrab);
     case 3:
-        return key_binding(kBindOllie);
+        return key_binding(os_layer::kBindOllie);
     case kButtonStart:
         return 1;
     case kButtonSelect:
-        return key_binding(kBindCameraToggle);
+        return key_binding(os_layer::kBindCameraToggle);
     case kButtonL2:
-        return key_binding(kBindNollie);
+        return key_binding(os_layer::kBindNollie);
     case kButtonR2:
-        return key_binding(kBindSwitchRevert);
+        return key_binding(os_layer::kBindSwitchRevert);
     case kButtonL1:
-        return key_binding(kBindLeftSpin);
+        return key_binding(os_layer::kBindLeftSpin);
     case kButtonR1:
-        return key_binding(kBindRightSpin);
+        return key_binding(os_layer::kBindRightSpin);
     case kButtonFocus:
-        return key_binding(kBindFocus);
+        return key_binding(os_layer::kBindFocus);
     default:
         return 0;
     }
@@ -590,9 +590,9 @@ const char* get_button_key_name(int button)
     text::format_to(key_name_result(), "%s", name_buffer().data());
     if (button == kButtonTwoKeys) {
         // two keys: "first+second"
-        convert_key_name(key_binding(kBindNollie));
+        convert_key_name(key_binding(os_layer::kBindNollie));
         text::format_to(key_name_result(), "%s+", name_buffer().data());
-        convert_key_name(key_binding(kBindSwitchRevert));
+        convert_key_name(key_binding(os_layer::kBindSwitchRevert));
         const size_t used = std::strlen(key_name_result().data()); // (the original's strcat is unbounded)
         size_t length = std::strlen(name_buffer().data());
         if (length > sizeof(key_name_result()) - 1 - used)

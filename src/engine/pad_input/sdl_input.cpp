@@ -918,32 +918,32 @@ int32_t direct_input_key(SDL_Scancode scan_code)
 void write_game_key_bindings()
 {
     std::array<int32_t, os_layer::kBindings>& binds = os_layer::get_controls().front().keys;
-    core::at(binds, kBindUp) = direct_input_key(sdl_input_state().keys_.up);
-    core::at(binds, kBindDown) = direct_input_key(sdl_input_state().keys_.down);
-    core::at(binds, kBindLeft) = direct_input_key(sdl_input_state().keys_.left);
-    core::at(binds, kBindRight) = direct_input_key(sdl_input_state().keys_.right);
+    core::at(binds, os_layer::kBindUp) = direct_input_key(sdl_input_state().keys_.up);
+    core::at(binds, os_layer::kBindDown) = direct_input_key(sdl_input_state().keys_.down);
+    core::at(binds, os_layer::kBindLeft) = direct_input_key(sdl_input_state().keys_.left);
+    core::at(binds, os_layer::kBindRight) = direct_input_key(sdl_input_state().keys_.right);
 
-    core::at(binds, kBindCameraUp) = direct_input_key(sdl_input_state().keys_.camera_up_);
-    core::at(binds, kBindCameraDown) = direct_input_key(sdl_input_state().keys_.camera_down_);
-    core::at(binds, kBindCameraLeft) = direct_input_key(sdl_input_state().keys_.camera_left_);
-    core::at(binds, kBindCameraRight) = direct_input_key(sdl_input_state().keys_.camera_right_);
+    core::at(binds, os_layer::kBindCameraUp) = direct_input_key(sdl_input_state().keys_.camera_up_);
+    core::at(binds, os_layer::kBindCameraDown) = direct_input_key(sdl_input_state().keys_.camera_down_);
+    core::at(binds, os_layer::kBindCameraLeft) = direct_input_key(sdl_input_state().keys_.camera_left_);
+    core::at(binds, os_layer::kBindCameraRight) = direct_input_key(sdl_input_state().keys_.camera_right_);
 
-    core::at(binds, kBindOllie) = direct_input_key(sdl_input_state().keys_.ollie);
-    core::at(binds, kBindGrab) = direct_input_key(sdl_input_state().keys_.grab);
-    core::at(binds, kBindKick) = direct_input_key(sdl_input_state().keys_.kick);
-    core::at(binds, kBindGrind) = direct_input_key(sdl_input_state().keys_.grind);
+    core::at(binds, os_layer::kBindOllie) = direct_input_key(sdl_input_state().keys_.ollie);
+    core::at(binds, os_layer::kBindGrab) = direct_input_key(sdl_input_state().keys_.grab);
+    core::at(binds, os_layer::kBindKick) = direct_input_key(sdl_input_state().keys_.kick);
+    core::at(binds, os_layer::kBindGrind) = direct_input_key(sdl_input_state().keys_.grind);
 
-    core::at(binds, kBindCameraToggle) = direct_input_key(sdl_input_state().keys_.camera_toggle_);
-    core::at(binds, kBindLeftSpin) = direct_input_key(sdl_input_state().keys_.left_spin_);
-    core::at(binds, kBindRightSpin) = direct_input_key(sdl_input_state().keys_.right_spin_);
-    core::at(binds, kBindNollie) = direct_input_key(sdl_input_state().keys_.nollie);
-    core::at(binds, kBindSwitchRevert) = direct_input_key(sdl_input_state().keys_.switch_revert_);
-    core::at(binds, kBindFocus) = direct_input_key(sdl_input_state().keys_.focus);
+    core::at(binds, os_layer::kBindCameraToggle) = direct_input_key(sdl_input_state().keys_.camera_toggle_);
+    core::at(binds, os_layer::kBindLeftSpin) = direct_input_key(sdl_input_state().keys_.left_spin_);
+    core::at(binds, os_layer::kBindRightSpin) = direct_input_key(sdl_input_state().keys_.right_spin_);
+    core::at(binds, os_layer::kBindNollie) = direct_input_key(sdl_input_state().keys_.nollie);
+    core::at(binds, os_layer::kBindSwitchRevert) = direct_input_key(sdl_input_state().keys_.switch_revert_);
+    core::at(binds, os_layer::kBindFocus) = direct_input_key(sdl_input_state().keys_.focus);
 
-    core::at(binds, kBindItemUp) = direct_input_key(sdl_input_state().keys_.item_up_);
-    core::at(binds, kBindItemDown) = direct_input_key(sdl_input_state().keys_.item_down_);
-    core::at(binds, kBindItemLeft) = direct_input_key(sdl_input_state().keys_.item_left_);
-    core::at(binds, kBindItemRight) = direct_input_key(sdl_input_state().keys_.item_right_);
+    core::at(binds, os_layer::kBindItemUp) = direct_input_key(sdl_input_state().keys_.item_up_);
+    core::at(binds, os_layer::kBindItemDown) = direct_input_key(sdl_input_state().keys_.item_down_);
+    core::at(binds, os_layer::kBindItemLeft) = direct_input_key(sdl_input_state().keys_.item_left_);
+    core::at(binds, os_layer::kBindItemRight) = direct_input_key(sdl_input_state().keys_.item_right_);
 }
 
 // --- reading the settings -----------------------------------------------------------------------------------------
