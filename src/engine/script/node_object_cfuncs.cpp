@@ -61,6 +61,28 @@
 #include "engine/net/net_game_state.h"
 #include "engine/script/script_state.h"
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kAREA = 0x286BC297u; // AREA
+constexpr uint32_t kBlend = 0x54628ED7u; // Blend
+constexpr uint32_t kBlendMode = 0xAF1A25F2u; // blend_mode
+constexpr uint32_t kBounce = 0x7DC30BA6u; // Bounce
+constexpr uint32_t kLIFE = 0xE632C101u; // LIFE
+constexpr uint32_t kLinks = 0x2E7D5EE7u; // Links
+constexpr uint32_t kMODEL = 0x286A8D26u; // MODEL
+constexpr uint32_t kOrigin = 0x210EA9E1u; // Origin
+constexpr uint32_t kPrefix = 0x6C4E7971u; // prefix
+constexpr uint32_t kRadius = 0xC48391A5u; // Radius
+constexpr uint32_t kSpread = 0x834A5F87u; // Spread
+constexpr uint32_t kTextureSwap = 0xB3DE2CACu; // texture_swap
+constexpr uint32_t kVariance = 0xBD309DD9u; // variance
+constexpr uint32_t kVelX = 0x6187906Du; // vel_x
+constexpr uint32_t kVelY = 0x1680A0FBu; // vel_y
+constexpr uint32_t kVelZ = 0x8F89F141u; // vel_z
+
+} // namespace
+
 namespace commands {
 
 namespace {
@@ -726,7 +748,7 @@ bool set_node_color(uint32_t name, script::Struct* params)
             auto* object = core::down_cast<objects::GameEntity>(
                 static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get())->look_up_entity(object_name));
             // (neither checked for null, as in the original)
-            core::down_cast<objects::MeshInstanceModule>(object->fetch_module(0x286A8D26))
+            core::down_cast<objects::MeshInstanceModule>(object->fetch_module(kMODEL))
                 ->change_tint(rgba); // "model"
         }
         return true;
@@ -823,10 +845,10 @@ bool node_command(checksums::Name node, int action, script::Script* script, scri
 // false without either name.
 bool node_command_by_name(script::Struct* params, script::Script* script, int action)
 {
-    if (params->has_bare_flag(0x2E7D5EE7u) || params->has_bare_flag(0xBCEB479Au))
+    if (params->has_bare_flag(kLinks) || params->has_bare_flag(0xBCEB479Au))
         return true;
     uint32_t prefix = 0;
-    if (params->hash_from_name_or_text(0x6C4E7971u, &prefix, 0)) { // "prefix"
+    if (params->hash_from_name_or_text(kPrefix, &prefix, 0)) { // "prefix"
         const bool is_prefix = !params->has_bare_flag(0x80804991u);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
         for (const uint32_t node : level_nodes::collect_nodes_by_prefix(prefix)) {
@@ -869,40 +891,40 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     params->read_hash_value(kName, &name, true);
     maths::Vec4 velocity;
     if (params->has_bare_flag(0x9F98989Eu)) {
-        params->fetch_float(0x13B9DA7Bu, &scale, 0); // "scale"
+        params->fetch_float(kScale, &scale, 0); // "scale"
         const maths::Vec4& v = core::down_cast<objects::GameEntity>(script->entity().get_pull())->vel();
         velocity.x = static_cast<float>(static_cast<double>(scale) * v.x);
         velocity.y = static_cast<float>(static_cast<double>(scale) * v.y);
         velocity.z = static_cast<float>(static_cast<double>(scale) * v.z);
         velocity.w = static_cast<float>(static_cast<double>(scale) * v.w);
     } else {
-        params->fetch_float(0x6187906Du, &velocity.x, true);
-        params->fetch_float(0x1680A0FBu, &velocity.y, true);
-        params->fetch_float(0x8F89F141u, &velocity.z, true);
+        params->fetch_float(kVelX, &velocity.x, true);
+        params->fetch_float(kVelY, &velocity.y, true);
+        params->fetch_float(kVelZ, &velocity.z, true);
         velocity.w = 0.0f;
     }
     float area = 0.0f;
-    params->fetch_float(0x286BC297u, &area, 0);
+    params->fetch_float(kAREA, &area, 0);
     float value_bd30 = 0.0f;
-    params->fetch_float(0xBD309DD9u, &value_bd30, 0);
+    params->fetch_float(kVariance, &value_bd30, 0);
     float value_834a = 0.0f;
-    params->fetch_float(0x834A5F87u, &value_834a, 0);
+    params->fetch_float(kSpread, &value_834a, 0);
     float value_e632 = 0.0f;
-    params->fetch_float(0xE632C101u, &value_e632, 0);
+    params->fetch_float(kLIFE, &value_e632, 0);
     float value_7d_c3 = 0.0f;
-    params->fetch_float(0x7DC30BA6u, &value_7d_c3, 0);
+    params->fetch_float(kBounce, &value_7d_c3, 0);
     float value_f_01b = 0.0f;
     params->fetch_float(0xF01BFA01u, &value_f_01b, 0);
     uint32_t checksum_b_3d_e = 0;
-    params->read_hash_value(0xB3DE2CACu, &checksum_b_3d_e, 0);
-    uint32_t checksum_af_1a = 0x54628ED7;
-    params->read_hash_value(0xAF1A25F2u, &checksum_af_1a, 0);
+    params->read_hash_value(kTextureSwap, &checksum_b_3d_e, 0);
+    uint32_t checksum_af_1a = kBlend;
+    params->read_hash_value(kBlendMode, &checksum_af_1a, 0);
     float value_2e_1c = 1.0f;
     params->fetch_float(0x2E1C4A64u, &value_2e_1c, 0);
     script::VectorValue vector = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    params->fetch_vec(0x210EA9E1u, &vector, 0);
+    params->fetch_vec(kOrigin, &vector, 0);
     float value_c483 = 0.0f;
-    params->fetch_float(0xC48391A5u, &value_c483, 0);
+    params->fetch_float(kRadius, &value_c483, 0);
     int value_33d_f = 0;
     params->fetch_int_value(0x33DF5E27u, &value_33d_f, 0);
     float minimum_area = 2000.0f;

@@ -107,7 +107,8 @@ void get_append(memory::ListNode* head, memory::ListNode* node)
 template <typename F>
 void info_line(uint32_t title, F value)
 {
-    std::array<char, 128> text{};
+    constexpr size_t kTextSize = 128;
+    std::array<char, kTextSize> text{};
     const script::StructPtr params = script::make_struct();
     text::format_to(text, "%s:", script::fetch_text(title));
     params->append_word(kName, text.data());
@@ -215,7 +216,8 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
             return text;
         });
     }
-    std::array<char, 128> value{};
+    constexpr size_t kValueSize = 128;
+    std::array<char, kValueSize> value{};
     script::StructPtr title = script::make_struct();
     text::format_to(value, ": %d/%d", server->num_players(), server->max_players());
     title->append_word(kText, value.data());

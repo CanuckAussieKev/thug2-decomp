@@ -234,7 +234,8 @@ int handle_flag_returned(net::InboundMsgCtx* context)
     if (!player || !player->is_carrying_flag()) // (carrying a flag: 0 / 1)
         return kContinue;
     const int team = player->get_flag_team(); // the flag's team
-    std::array<char, 64> name{};
+    constexpr size_t kNameSize = 64;
+    std::array<char, kNameSize> name{};
     team_name_key(name, team);
     script::StructPtr params = script::make_struct();
     params->put_int(checksums::Name{kTeam}, team);
@@ -382,7 +383,8 @@ int handle_joined_team(net::InboundMsgCtx* context)
     if (!player)
         return kContinue;
     player->set_team(int{static_cast<int8_t>(core::at(msg, 1))});
-    std::array<char, 64> name{};
+    constexpr size_t kNameSize = 64;
+    std::array<char, kNameSize> name{};
     team_name_key(name, static_cast<int8_t>(core::at(msg, 1)));
     script::StructPtr params = script::make_struct();
     if (is_own_player(player)) {

@@ -27,8 +27,9 @@ namespace script {
 namespace {
 // NOT ORIGINAL grouping - names.cpp's state (the original's globals). Made on first use, never destroyed
 // (names_state()).
+constexpr size_t kChecksumNameBufferSize = 100;
 struct NamesState {
-    std::array<char, 100> checksum_name_buffer_{};
+    std::array<char, kChecksumNameBufferSize> checksum_name_buffer_{};
     char* names_start_{};
     std::size_t names_used_ = 0; // the bytes of the names' block taken
 };
@@ -150,7 +151,8 @@ void parse_checksum_names(const char* text, int size, void (*add)(uint32_t check
         for (int i = 0; i < 8; ++i)
             checksum = (checksum << 4) + static_cast<uint32_t>(hex_digit(at[i]));
         at += 8 + 1; // and the separator
-        std::array<char, 256> name{};
+        constexpr size_t kNameSize = 256;
+        std::array<char, kNameSize> name{};
         int length = 0;
         while (*at != '\r')
             core::at(name, length++) = *at++;
@@ -165,7 +167,8 @@ void load_checksum_names(const char* file)
 {
     if (!checksum_names_enabled())
         return;
-    std::array<char, 260> name{};
+    constexpr size_t kNameSize = 260;
+    std::array<char, kNameSize> name{};
     std::memcpy(name.data(), file, std::strlen(file) + 1);
     std::size_t extension = 0;
     while (core::at(name, extension) && core::at(name, extension) != '.')

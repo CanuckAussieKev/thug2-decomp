@@ -27,7 +27,8 @@ uint32_t& hash_override()
 
 uint32_t read_scripts_hash()
 {
-    std::array<char, 32> text{};
+    constexpr size_t kTextSize = 32;
+    std::array<char, kTextSize> text{};
     build_info::fetch_text("online", "thugpro_scripts_hash", "", text.data(), sizeof(text));
     auto hash = static_cast<uint32_t>(std::strtoul(text.data(), nullptr, 16));
     return hash ? hash : kReleaseScriptsHash;

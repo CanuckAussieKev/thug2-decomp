@@ -1,3 +1,4 @@
+#include <cstdint>
 // Online top stats.
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
@@ -24,6 +25,17 @@
 #include "engine/net/stats_man.h"
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
+
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kDoNothing = 0x74E0CD35u; // do_nothing
+constexpr uint32_t kDownloadMoreStats = 0xD932B07Bu; // download_more_stats
+constexpr uint32_t kFILE = 0x7360C9EFu; // FILE
+constexpr uint32_t kStatsRetrievalComplete = 0x7346E8E7u; // stats_retrieval_complete
+constexpr uint32_t kStatsRetrievalFailed = 0x1C049404u; // StatsRetrievalFailed
+
+} // namespace
 
 namespace net {
 
@@ -55,7 +67,7 @@ bool retrieve_top_stats(script::Struct* params, script::Script*)
     online::RankingsManager* stats = manager->rating_service().get();
     int& current = stats->top_file();
     int index = 0;
-    if (params->fetch_int_value(0x7360C9EF, &index, 0))
+    if (params->fetch_int_value(kFILE, &index, 0))
         current = index;
     else
         ++current;
@@ -66,12 +78,12 @@ bool retrieve_top_stats(script::Struct* params, script::Script*)
     // 0x0054DD14)
     const char* host = gamestats_host() ? gamestats_host() : "gamestats.gamespy.com";
     text::format_to(request.url, "http://%s/thug2pc/%s", host, stats_file(current));
-    request.error_script_ = 0x1C049404;
-    request.fail_script_ = 0x1C049404;
-    request.progress_script_ = 0x74E0CD35;
+    request.error_script_ = kStatsRetrievalFailed;
+    request.fail_script_ = kStatsRetrievalFailed;
+    request.progress_script_ = kDoNothing;
     request.buffer_size_ = 0x25800;
     request.callback = code_address(online::RankingsManager::on_top_stats);
-    request.done_script_ = current == 4 ? 0x7346E8E7 : 0xD932B07B; // (which reply: ratings or scores)
+    request.done_script_ = current == 4 ? kStatsRetrievalComplete : kDownloadMoreStats; // (which reply: ratings or scores)
     manager->vault_man()->download(&request);                       // (the vault, +0x14)
     // (the original's +0x1FC: need_top_stats_ - this cleared a byte past it, our layout lacking the lists' table words)
     stats->set_need_top_stats(false);

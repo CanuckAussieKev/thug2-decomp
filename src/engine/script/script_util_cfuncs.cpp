@@ -330,7 +330,8 @@ bool cfunc_get_upper_case_string(Struct* params, Script* script)
 {
     const char* text = nullptr;
     params->fetch_text(0u, &text, 1);
-    std::array<char, 0x80> upper{};
+    constexpr size_t kUpperSize = 0x80;
+    std::array<char, kUpperSize> upper{};
     copy_text(upper, text);
     text::to_capitals(upper.data());
     script->args()->append_word(kUpperCaseString, upper.data());
@@ -556,7 +557,8 @@ bool cfunc_dump(Struct* params, Script* script)
     gsl::owner<Struct*> dump = script::spawn_param_bag();
     if (dump)
         dump = new (dump) script::Struct;
-    std::array<char, 0x400> text{};
+    constexpr size_t kTextSize = 0x400;
+    std::array<char, kTextSize> text{};
     Component* component = script->args()->find_component(name);
     if (!component) {
         get_sprintf(text.data(), "%s=[!! DOES NOT EXIST !!]", script::find_checksum_name_or_unknown(name));
@@ -579,7 +581,8 @@ bool cfunc_dump(Struct* params, Script* script)
 // out. Always true.
 bool cfunc_script_assert(Struct* params, Script* script)
 {
-    std::array<char, 0x400> message{};
+    constexpr size_t kMessageSize = 0x400;
+    std::array<char, kMessageSize> message{};
     format_printf_text(message.data(), params, script);
     return true;
 }

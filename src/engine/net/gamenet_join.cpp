@@ -584,7 +584,8 @@ int Hub::on_link_established(InboundMsgCtx* context)
                 trailer.machine_id_);
     int reason = 0;
     if (!manager->joins_accepted(reason, msg, conn, true, true, true)) {
-        std::array<char, 32> refused = {}; // (10 sent: the reason, and the challenge for kRefusedCdKey)
+        constexpr size_t kRefusedSize = 32;
+        std::array<char, kRefusedSize> refused = {}; // (10 sent: the reason, and the challenge for kRefusedCdKey)
         core::at(refused, 0) = static_cast<char>(reason);
         if (reason == kRefusedCdKey)
             std::strcpy(std::span<char>(refused).subspan(1).data(), manager->challenge_.data());
@@ -715,8 +716,10 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         // On the internet the host checks its own CD key too: an answer nobody reads (no instance). NOT ORIGINAL:
         // not in the THUGPRO peer mode (TP-R12).
         if (manager->in_internet_mode() && !thugpro::peer_mode()) {
-            std::array<char, 0x80> key{};
-            std::array<char, 0x80> response{};
+            constexpr size_t kKeySize = 0x80;
+            std::array<char, kKeySize> key{};
+            constexpr size_t kResponseSize = 0x80;
+            std::array<char, kResponseSize> response{};
             get_cd_key(key.data());
             compute_cd_key_response(key.data(), manager->challenge_.data(), response.data());
             authenticate_user(0, context->sender_conn()->remote_ip(), manager->challenge_.data(), response.data(), nullptr);
@@ -762,7 +765,8 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
         manager->join_port_ = proceed->port;
         if (manager->presence_service_->authenticated()) {
             std::strcpy(manager->lobby_service_->server_name().data(), proceed->server_name_.data());
-            std::array<char, 0x1000> location{};
+            constexpr size_t kLocationSize = 0x1000;
+            std::array<char, kLocationSize> location{};
             get_sprintf(location.data(), kPresenceLocationFormat.data(), manager->join_ip_, manager->join_private_ip_,
                         manager->join_port_, manager->lobby_service_->server_name().data(), manager->lobby_service_->room_name().data());
             const char* status = script::fetch_text(manager->join_mode_ == 0 ? kStatusPlaying : kStatusObserving);
@@ -836,8 +840,10 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
             break;
         }
         // The host's challenge (after the reason): answered with our key, in a new connection request.
-        std::array<char, 0x80> key{};
-        std::array<char, 0x80> response{};
+        constexpr size_t kKeySize = 0x80;
+        std::array<char, kKeySize> key{};
+        constexpr size_t kResponseSize = 0x80;
+        std::array<char, kResponseSize> response{};
         // NOT ORIGINAL: the challenge read from the message's own 9 bytes (NUL-ended here).
         std::array<char, kJoinRefusedSize> challenge = {};
         const uint32_t challenge_size = context->body_size() > 1 ? context->body_size() - 1 : 0;

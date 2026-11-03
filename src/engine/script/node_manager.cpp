@@ -457,7 +457,8 @@ bool make_node_array_name(const char* path, std::span<char> out)
 // 0x0045D310
 uint32_t node_array_checksum(const char* path)
 {
-    std::array<char, 256> name = {};
+    constexpr size_t kNameSize = 256;
+    std::array<char, kNameSize> name = {};
     make_node_array_name(path, name);
     return checksums::hash_from_text(name.data());
 }

@@ -3,6 +3,7 @@
 
 #include "engine/script/trick_cfuncs.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -283,8 +284,10 @@ bool cfunc_update_trick_mappings(script::Struct* params, script::Script*)
 // skater's created trick slots (1-10) that are full. False if no trick matched.
 bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Script* script)
 {
-    std::array<uint32_t, 128> tricks{};
-    std::array<int, 128> cats{};
+    constexpr size_t kTricksSize = 128;
+    std::array<uint32_t, kTricksSize> tricks{};
+    constexpr size_t kCatsSize = 128;
+    std::array<int, kCatsSize> cats{};
     uint32_t type = 0;
     params->read_hash_value(kType, &type, 0);
     const bool special = params->has_bare_flag(kSpecial);

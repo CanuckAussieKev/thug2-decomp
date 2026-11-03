@@ -1,6 +1,7 @@
 // The network manager's tasks (tasks::Task<online::Hub>: the manager at the task's +0x1C) and its GameSpy query
 // callbacks. See gamenet_handlers.h.
 
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <array>
@@ -68,7 +69,8 @@ void show_connection_metrics(net::Conn* conn, int index)
     const int sent = conn->send_metrics().get_throughput();
     const int received = conn->receive_metrics().get_throughput();
     const int resends = conn->get_highest_resend_count();
-    std::array<char, 1024> line{};
+    constexpr size_t kLineSize = 1024;
+    std::array<char, kLineSize> line{};
     text::format_to(line, "(%d) Lag: %d Resends: %d Bps: %d %d", index, lag, resends, received, sent);
     const script::StructPtr params = script::make_struct();
     params->append_word(kText, line.data());
@@ -125,8 +127,10 @@ void dialup_progress_tick(tasks::Task<Hub>* task)
         return;
     }
     gsl::owner<script::Struct*> params = script::new_struct();
-    std::array<char, 128> line{};
-    std::array<char, 128> line2{};
+    constexpr size_t kLineSize = 128;
+    std::array<char, kLineSize> line{};
+    constexpr size_t kLine2Size = 128;
+    std::array<char, kLine2Size> line2{};
     switch (state) {
     case 0: // connecting / dialing
         if (net->get_net_link_kind() == 3)

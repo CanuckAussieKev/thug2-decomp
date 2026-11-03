@@ -373,8 +373,10 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
     }
     const script::StructPtr params = script::make_struct();
     const char* format = script::fetch_text(text);
-    std::array<char, 256> copy{};
-    std::array<char, 256> line{};
+    constexpr size_t kCopySize = 256;
+    std::array<char, kCopySize> copy{};
+    constexpr size_t kLineSize = 256;
+    std::array<char, kLineSize> line{};
     std::strcpy(copy.data(), format);
     const char* shown = format;
     // "%s0" in the text stands for string 1.
@@ -507,7 +509,8 @@ int Hub::count_team_players(int team)
 int Hub::count_players()
 {
     // The players' skater ids (zeroed first: the original's check below reads the byte after the last one noted).
-    std::array<uint8_t, 12> ids = {};
+    constexpr size_t kIdsSize = 12;
+    std::array<uint8_t, kIdsSize> ids = {};
     int noted = 0;
     int count = 0;
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);

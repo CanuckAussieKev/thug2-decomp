@@ -2,6 +2,7 @@
 // the team flags, the player / observer counts and password among the network preferences, the server's end and the
 // custom tag texture a client sends.
 
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <memory>
@@ -194,8 +195,10 @@ void Hub::build_team_flag_set(int num_teams)
 // 0x00534090
 void Hub::set_max_players_preference(int count)
 {
-    std::array<char, 32> num_name{};
-    std::array<char, 32> ui_string{};
+    constexpr size_t kNumNameSize = 32;
+    std::array<char, kNumNameSize> num_name{};
+    constexpr size_t kUiStringSize = 32;
+    std::array<char, kUiStringSize> ui_string{};
     text::format_to(num_name, "num_%d", count);
     const uint32_t checksum = checksums::hash_from_text(num_name.data());
     text::format_to(ui_string, "%d %s", count, script::fetch_text(kStrPlayers));
@@ -205,8 +208,10 @@ void Hub::set_max_players_preference(int count)
 // 0x005341B0
 void Hub::set_max_observers_preference(int count)
 {
-    std::array<char, 32> num_name{};
-    std::array<char, 32> ui_string{};
+    constexpr size_t kNumNameSize = 32;
+    std::array<char, kNumNameSize> num_name{};
+    constexpr size_t kUiStringSize = 32;
+    std::array<char, kUiStringSize> ui_string{};
     text::format_to(num_name, "num_%d", count);
     const uint32_t checksum = checksums::hash_from_text(num_name.data());
     if (count == 0)

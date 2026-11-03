@@ -99,7 +99,8 @@ void load_startup_qb_files()
     size_t p = 0;
     while (p < source.size()) {
         // One line (no length check, as in the original), and the character after it skipped.
-        std::array<char, 200> line{};
+        constexpr size_t kLineSize = 200;
+        std::array<char, kLineSize> line{};
         int length = 0;
         while (p < source.size() && core::at(source, p) != '\r' && core::at(source, p) != '\n')
             core::at(line, length++) = core::at(source, p++);

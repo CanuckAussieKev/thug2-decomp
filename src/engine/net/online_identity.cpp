@@ -60,7 +60,8 @@ bool valid_key(const char* key)
 
 std::array<char, 64>& name_setting()
 {
-    static std::array<char, 64> name_setting{};
+    constexpr size_t kNameSettingSize = 64;
+    static std::array<char, kNameSettingSize> name_setting{};
     return name_setting;
 }
 
@@ -74,7 +75,8 @@ const char* read_game_name()
 
 std::array<char, 64>& key_setting()
 {
-    static std::array<char, 64> key_setting{};
+    constexpr size_t kKeySettingSize = 64;
+    static std::array<char, kKeySettingSize> key_setting{};
     return key_setting;
 }
 
@@ -106,7 +108,8 @@ void set_up_online_identity()
     if (core::at(name_setting(), 0) != '\0' && name != name_setting().data())
         debug_log::printf(debug_log::StageMap::kWarn, "OnlineGameName \"%s\" ignored (1-31 letters or digits)\n",
                           name_setting().data());
-    std::array<char, 64> key{};
+    constexpr size_t kKeySize = 64;
+    std::array<char, kKeySize> key{};
     build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameKey", "", key.data(), sizeof(key));
     const char* use_key = nullptr;
     if (core::at(key, 0) != '\0') {

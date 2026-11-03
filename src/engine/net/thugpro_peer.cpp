@@ -100,7 +100,8 @@ bool read_peer_mode()
 
 uint32_t read_machine_id()
 {
-    std::array<char, 32> text{};
+    constexpr size_t kTextSize = 32;
+    std::array<char, kTextSize> text{};
     build_info::fetch_text("online", "thugpro_machine_id", "", text.data(), sizeof(text));
     auto id = static_cast<uint32_t>(std::strtoul(text.data(), nullptr, 16));
     std::random_device random;
@@ -297,7 +298,8 @@ void apply_server_info(const HostListing& info, const char* level_prefix, uint32
         for (int n = 1; n <= 8; ++n) {
             if (!(options & (1 << (n - 1))))
                 continue;
-            std::array<char, 96> name{};
+            constexpr size_t kNameSize = 96;
+            std::array<char, kNameSize> name{};
             text::format_to(name, "%s_LEVEL_CHANGE_0%d", level_prefix, n);
             effects.launch_script(checksums::hash_from_text(name.data()), true);
         }
@@ -718,9 +720,12 @@ bool handle_chat_command(const char* text)
 {
     if (!peer_mode() || *text != '/')
         return false;
-    std::array<char, 16> command = {};
-    std::array<char, 24> first = {};
-    std::array<char, 8> second = {};
+    constexpr size_t kCommandSize = 16;
+    std::array<char, kCommandSize> command = {};
+    constexpr size_t kFirstSize = 24;
+    std::array<char, kFirstSize> first = {};
+    constexpr size_t kSecondSize = 8;
+    std::array<char, kSecondSize> second = {};
     text::FieldReader fields(text); // "/%15s %23s %7s"
     (void)(fields.match('/') && fields.read_word(command) && fields.read_word(first) && fields.read_word(second));
     const int words = fields.scanned();
@@ -728,7 +733,8 @@ bool handle_chat_command(const char* text)
         return false;
     Hub* manager = online::online_hub();
     const bool client = manager && manager->in_net_game() && !manager->get_on_server();
-    std::array<char, 160> line{};
+    constexpr size_t kLineSize = 160;
+    std::array<char, kLineSize> line{};
     if (_stricmp(command.data(), "thugpro") == 0) {
         const HostListing& info = session().info;
         text::format_to(
@@ -787,7 +793,8 @@ bool handle_chat_command(const char* text)
     if (option) {
         host().level_options_ = static_cast<uint8_t>(on ? host().level_options_ | bit : host().level_options_ & ~bit);
         const char* prefix = current_level_prefix();
-        std::array<char, 96> name{};
+        constexpr size_t kNameSize = 96;
+        std::array<char, kNameSize> name{};
         text::format_to(name, "%s_LEVEL_CHANGE_0%d", prefix ? prefix : "", n);
         const bool ran = prefix && effects.launch_script(checksums::hash_from_text(name.data()), on);
         text::format_to(line, "\\c4thugpro:\\c0 level option %d %s%s", n, on ? "on" : "off",

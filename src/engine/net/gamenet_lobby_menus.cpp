@@ -125,7 +125,8 @@ void RoomManager::add_buddy_menu_item(LobbyPlayer* player)
 void RoomManager::room_message_callback(void*, int, const char* nick, const char* message, int, void*)
 {
     push_internet_heap();
-    std::array<char, 1024> text{};
+    constexpr size_t kTextSize = 1024;
+    std::array<char, kTextSize> text{};
     text::format_to(text, "%s: %s", nick, message);
     script::StructPtr params = script::make_struct();
     params->append_word(kText, text.data());
@@ -142,7 +143,8 @@ bool cfunc_send_message(script::Struct* params, script::Script*)
     if (!params->fetch_text(kText, &message, 0))
         return true;
     if (params->has_bare_flag(kSystemMessage)) {
-        std::array<char, 1024> text{};
+        constexpr size_t kTextSize = 1024;
+        std::array<char, kTextSize> text{};
         text::format_to(text, "<System> %s", message);
         script::StructPtr console = script::make_struct();
         console->append_word(kText, text.data());
@@ -161,7 +163,8 @@ bool cfunc_send_message(script::Struct* params, script::Script*)
 void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
 {
     push_internet_heap();
-    std::array<char, 64> text{};
+    constexpr size_t kTextSize = 64;
+    std::array<char, kTextSize> text{};
     if (room->full())
         text::format_to(text, "%s - %d/%d (%s)", room->label().data(), room->num_players(), room->max_players(),
                         script::fetch_text(kNetLobbyFull));

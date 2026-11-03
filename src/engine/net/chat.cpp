@@ -42,6 +42,19 @@
 #include "engine/gfx/renderer.h"
 #include "engine/net/net_game_state.h"
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kCurrentMenuAnchor = 0xF53D1D83u; // current_menu_anchor
+constexpr uint32_t kDialogBoxAnchor = 0x3B56E746u; // dialog_box_anchor
+constexpr uint32_t kGetSomeString = 0x4525ADBDu; // get_some_string
+constexpr uint32_t kKeyboardAnchor = 0x31631B98u; // keyboard_anchor
+constexpr uint32_t kNoWayString = 0xA36DBEE1u; // no_way_string
+constexpr uint32_t kPropsString = 0x0E5FD359u; // props_string
+constexpr uint32_t kYourDaddyString = 0xBEEA3518u; // your_daddy_string
+
+} // namespace
+
 namespace online {
 
 namespace {
@@ -140,7 +153,8 @@ void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
     core::down_cast<net::Guest>(manager->client_app())->send_to_host(&desc);
 
     // The server doesn't send our own line back to us, so show it here.
-    std::array<char, 256> line{};
+    constexpr size_t kLineSize = 256;
+    std::array<char, kLineSize> line{};
     text::format_to(line, "%s : %s", packet.name.data(), packet.text.data());
     show_local_chat_line(line.data());
 }
@@ -178,7 +192,8 @@ void run_script_with(uint32_t script, script::Struct* params)
 int on_chat_msg(net::InboundMsgCtx* context)
 {
     const char* message = net::wire::text_of(context->body());
-    std::array<char, 256> line{};
+    constexpr size_t kLineSize = 256;
+    std::array<char, kLineSize> line{};
     if (thugpro::peer_mode()) {
         // NOT ORIGINAL - THUGPRO's layout (machine id first); dropped when malformed, as THUGPRO does.
         thugpro::ChatLine chat{};
@@ -257,7 +272,8 @@ bool handle_chat_command(Hub* manager, const char* text)
         get_log("where: camera fov %.3f pos %.3f %.3f %.3f back %.6f %.6f %.6f up %.6f %.6f %.6f", camera.angle,
                 std::get<0>(camera.position), std::get<1>(camera.position), std::get<2>(camera.position), std::get<0>(camera.backward), std::get<1>(camera.backward),
                 std::get<2>(camera.backward), std::get<0>(camera.up), std::get<1>(camera.up), std::get<2>(camera.up));
-        std::array<char, 128> line{};
+        constexpr size_t kLineSize = 128;
+        std::array<char, kLineSize> line{};
         if (skater)
             text::format_to(line, "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
                             skater->at_point().x, skater->at_point().y, skater->at_point().z);
@@ -272,7 +288,8 @@ bool handle_chat_command(Hub* manager, const char* text)
 // 0x005334D0
 void keyboard_task(tasks::Task<Hub>* /*task*/)
 {
-    std::array<char, 256> keys{};
+    constexpr size_t kKeysSize = 256;
+    std::array<char, kKeysSize> keys{};
     if (sio::get_keyboard_chars(keys) <= 0)
         return;
     const char key = core::at(keys, 0);
@@ -282,15 +299,15 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
         if (params)
             params = new (params) script::Struct;
-        params->put_name_key(checksums::Name{kId}, 0x31631B98);
+        params->put_name_key(checksums::Name{kId}, kKeyboardAnchor);
         if (object_exists(params))
             return;
         params->get_clear();
-        params->put_name_key(checksums::Name{kId}, 0xF53D1D83);
+        params->put_name_key(checksums::Name{kId}, kCurrentMenuAnchor);
         if (object_exists(params))
             return;
         params->get_clear();
-        params->put_name_key(checksums::Name{kId}, 0x3B56E746);
+        params->put_name_key(checksums::Name{kId}, kDialogBoxAnchor);
         if (object_exists(params))
             return;
         params->get_clear();
@@ -307,16 +324,16 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
     uint32_t taunt = 0;
     switch (key) {
     case kKeyF1:
-        taunt = 0x0E5FD359;
+        taunt = kPropsString;
         break;
     case kKeyF2:
-        taunt = 0xBEEA3518;
+        taunt = kYourDaddyString;
         break;
     case kKeyF3:
-        taunt = 0x4525ADBD;
+        taunt = kGetSomeString;
         break;
     case kKeyF4:
-        taunt = 0xA36DBEE1;
+        taunt = kNoWayString;
         break;
     default:
         return;

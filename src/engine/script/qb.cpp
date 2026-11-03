@@ -501,13 +501,15 @@ void log_script_pool_use(const char* when)
             peak += pool->peak_used();
             count += pool->num();
         }
-        std::array<char, 96> part{};
+        constexpr size_t kPartSize = 96;
+        std::array<char, kPartSize> part{};
         text::format_to(part, "%s%s %d (peak %d) of %d", line.empty() ? "" : ", ", p.name, used, peak, count);
         line += part.data();
     }
     // (and the hash tables' items, Main's HashItem pool - memory_sizes.h hash_item_pool)
     if (const memory::SlabBank* items = memory::slot_pool_setup::get_pool(0)) {
-        std::array<char, 96> part{};
+        constexpr size_t kPartSize = 96;
+        std::array<char, kPartSize> part{};
         text::format_to(part, ", HashItem %d (peak %d) of %d", items->taken_count(), items->peak_used(), items->num());
         line += part.data();
     }

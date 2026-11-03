@@ -4,6 +4,7 @@
 
 #include "engine/script/game_cfuncs.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <array>
@@ -42,24 +43,44 @@
 #include "engine/script/script_state.h"
 #include <gsl/pointers>
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kAutoDns = 0x5DDFCAD3u; // auto_dns
+constexpr uint32_t kBooleanTrue = 0xF81BC89Bu; // boolean_true
+constexpr uint32_t kBroadbandType = 0xBB2EB924u; // broadband_type
+constexpr uint32_t kChecksum = 0x21902065u; // checksum
+constexpr uint32_t kDeviceNone = 0x09562A0Au; // device_none
+constexpr uint32_t kDeviceType = 0xFA187DECu; // device_type
+constexpr uint32_t kIpDhcp = 0x2189CFF8u; // ip_dhcp
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFEu; // Load_MainMenu
+constexpr uint32_t kNum4 = 0x1FA67C3Du; // num_4
+constexpr uint32_t kSTRING = 0x61414D56u; // STRING
+constexpr uint32_t kUseDefaultMasterServers = 0xE7A3CB08u; // use_default_master_servers
+
+} // namespace
+
 namespace commands {
 
 std::array<char, 16>& network_id()
 {
-    static std::array<char, 16> network_id{};
+    constexpr size_t kNetworkIdSize = 16;
+    static std::array<char, kNetworkIdSize> network_id{};
     return network_id;
 }
 
 std::array<char, 12>& network_password()
 {
-    static std::array<char, 12> network_password{};
+    constexpr size_t kNetworkPasswordSize = 12;
+    static std::array<char, kNetworkPasswordSize> network_password{};
     return network_password;
 }
 
 // The hosted game's name: "Beenox" unless -HOSTNAME gives another (winmain.cpp).
 std::array<char, 16>& hosted_game_name()
 {
-    static std::array<char, 16> hosted_game_name{{"Beenox"}};
+    constexpr size_t kHostedGameNameSize = 16;
+    static std::array<char, kHostedGameNameSize> hosted_game_name{{"Beenox"}};
     return hosted_game_name;
 }
 
@@ -459,7 +480,7 @@ bool cfunc_join_with_password(script::Struct* params, script::Script*)
 {
     online::Hub* game_net = online::online_hub();
     const char* password = nullptr; // (unset in the original when missing - an asserted parameter)
-    params->fetch_text(0x61414D56u, &password, true);
+    params->fetch_text(kSTRING, &password, true);
     game_net->retry_entry_with_key(password);
     return true;
 }
@@ -494,7 +515,7 @@ bool cfunc_num_players_allowed(script::Struct* params, script::Script*)
     if (net::net_core()->get_net_link_kind() != 1)
         return true;
     params->read_hash_value(0u, &players, 0);
-    return players != 0x1FA67C3D;
+    return players != kNum4;
 }
 
 namespace {
@@ -503,19 +524,19 @@ uint32_t network_preference(uint32_t name)
 {
     script::Struct* preference = online::online_hub()->get_online_settings()->fetch_setting(name);
     uint32_t value = 0; // (unset in the original when missing - an asserted parameter)
-    preference->read_hash_value(0x21902065u, &value, true); // "checksum"
+    preference->read_hash_value(kChecksum, &value, true); // "checksum"
     return value;
 }
 } // namespace
 
 // 0x005A1B30 / 0x005A1B70 / 0x005A1BB0: AutoDNS / UsingDefaultMasterServers / UsingDHCP: the network preferences
 // 0x5DDFCAD3 / 0xE7A3CB08 / 0xBB2EB924 are 0xF81BC89B / 0xF81BC89B / 0x2189CFF8.
-bool cfunc_auto_dns(script::Struct*, script::Script*) { return network_preference(0x5DDFCAD3) == 0xF81BC89B; }
+bool cfunc_auto_dns(script::Struct*, script::Script*) { return network_preference(kAutoDns) == kBooleanTrue; }
 bool cfunc_using_default_master_servers(script::Struct*, script::Script*)
 {
-    return network_preference(0xE7A3CB08) == 0xF81BC89B;
+    return network_preference(kUseDefaultMasterServers) == kBooleanTrue;
 }
-bool cfunc_using_dhcp(script::Struct*, script::Script*) { return network_preference(0xBB2EB924) == 0x2189CFF8; }
+bool cfunc_using_dhcp(script::Struct*, script::Script*) { return network_preference(kBroadbandType) == kIpDhcp; }
 
 // 0x005A1BF0: InInternetMode.
 bool cfunc_in_internet_mode(script::Struct*, script::Script*) { return online::online_hub()->in_internet_mode(); }
@@ -524,11 +545,11 @@ bool cfunc_in_internet_mode(script::Struct*, script::Script*) { return online::o
 bool cfunc_entering_net_game(script::Struct*, script::Script*)
 {
     online::Hub* game_net = online::online_hub();
-    return game_net->in_net_game() && modules::Skate::sole()->previous_level() == 0xE92ECAFE;
+    return game_net->in_net_game() && modules::Skate::sole()->previous_level() == kLoadMainMenu;
 }
 
 // 0x005A1C30: DeviceChosen: the network preference 0xFA187DEC isn't 0x09562A0A.
-bool cfunc_device_chosen(script::Struct*, script::Script*) { return network_preference(0xFA187DEC) != 0x09562A0A; }
+bool cfunc_device_chosen(script::Struct*, script::Script*) { return network_preference(kDeviceType) != kDeviceNone; }
 
 // 0x005A1C70: GameIsOver.
 bool cfunc_game_is_over(script::Struct*, script::Script*) { return online::online_hub()->has_match_ended(); }

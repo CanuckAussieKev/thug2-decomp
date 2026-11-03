@@ -188,7 +188,8 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             if (!has_score_line(p))
                 continue;
             if (p->flag_bits() & kPlayerLocal) {
-                std::array<char, 64> marked{};
+                constexpr size_t kMarkedSize = 64;
+                std::array<char, kMarkedSize> marked{};
                 text::format_to(marked, "> %s", core::at(teams, p->team())->text().data());
                 std::strcpy(core::at(teams, p->team())->text().data(), marked.data());
             }
@@ -242,7 +243,8 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         list.list_link().next()->data() == memory::ListNode::head_marker() ? nullptr : list.list_link().next();
     auto* entry = cursor ? static_cast<ScoreEntry*>(cursor->data()) : nullptr;
     for (int line = 0; entry; ++line) {
-        std::array<char, 64> prefix{}; // (16 bytes in the original: a long crown abbreviation overran it)
+        constexpr size_t kPrefixSize = 64;
+        std::array<char, kPrefixSize> prefix{}; // (16 bytes in the original: a long crown abbreviation overran it)
         core::at(prefix, 0) = '\0';
         if (entry->king()) {
             text::format_data_to(prefix,
@@ -262,7 +264,8 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         cursor = cursor->next()->data() == memory::ListNode::head_marker() ? nullptr : cursor->next();
         auto* following = cursor ? static_cast<ScoreEntry*>(cursor->data()) : nullptr;
 
-        std::array<char, 128> text{}; // (64 in the original: the longest king of the hill lines overran it)
+        constexpr size_t kTextSize = 128;
+        std::array<char, kTextSize> text{}; // (64 in the original: the longest king of the hill lines overran it)
         if (!not_lobby) {
             text::format_to(text, "\\c%d%s", entry->shade(), entry->text().data());
         } else if (hill_mode) {

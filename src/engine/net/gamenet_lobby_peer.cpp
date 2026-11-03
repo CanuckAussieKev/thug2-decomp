@@ -260,7 +260,8 @@ void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, voi
     manager->set_join_private_ip(peer_private_ip(lobby->remote_));
     const char* name = nullptr;
     manager->get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &name, 1);
-    std::array<char, 1024> location{};
+    constexpr size_t kLocationSize = 1024;
+    std::array<char, kLocationSize> location{};
     text::format_to(location, "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name,
                     lobby->room_name_.data());
     if (buddy->authenticated()) // (logged in to the presence)
@@ -272,7 +273,8 @@ void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, voi
 void RoomManager::get_nick_error_callback(void* peer, int type, const char* nick, int, const char**, void*)
 {
     push_internet_heap();
-    std::array<char, 128> retry{};
+    constexpr size_t kRetrySize = 128;
+    std::array<char, kRetrySize> retry{};
     if (type == kNickInUse) {
         const char* id = net_game_state().online_hub()->get_online_settings()->get_preference_string({.preference = kNetworkId, .field = kUiString});
         debug::printf("Nick Error. Nick %s In Use\n", nick);
@@ -426,7 +428,8 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->internet_bottom_up_heap());
     Hub* manager = net_game_state().online_hub();
-    std::array<char, 128> nick{};
+    constexpr size_t kNickSize = 128;
+    std::array<char, kNickSize> nick{};
     std::strcpy(nick.data(), manager->get_online_settings()->get_preference_string({.preference = kNetworkId, .field = kUiString}));
     auto* lobby = static_cast<RoomManager*>(lobby_data);
     lobby->connecting_ = true;
