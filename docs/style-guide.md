@@ -73,14 +73,17 @@ keep the namespaces their headers had). The layers and their rules: docs/archite
 ## Exceptions
 
 `.clang-tidy` enables the Guidelines' checks (`cppcoreguidelines-*`) with `bugprone-*`, `misc-*`, `modernize-*`,
-`performance-*` and the naming check, and runs them with zero warnings. **There is no `NOLINT` in `src/`** (`npm test`
-fails on one: `tools/no_nolint.test.ts`). A place that doesn't keep a check is changed so that it does; where the
-original's behaviour can't be kept without what a check flags, the check is configured by its own options or switched
-off in a `.clang-tidy`, the reason written beside it - those are the project's exceptions, all in one place:
+`performance-*`, the clang static analyzer (`clang-analyzer-*`) and the naming check, and runs them with zero warnings.
+**There is no `NOLINT` in `src/`** (`npm test` fails on one: `tools/no_nolint.test.ts`). A place that doesn't keep a
+check is changed so that it does; where the original's behaviour can't be kept without what a check flags, the check is
+configured by its own options or switched off in a `.clang-tidy`, the reason written beside it - those are the project's
+exceptions, all in one place:
 
 - **Off** (`.clang-tidy`): trailing return types (a style), recursion (the interpreter and the trees recurse by
   design), `misc-predictable-rand` (the game's numbers are the C runtime's `rand()` sequence, as the original's),
-  `cppcoreguidelines-pro-type-static-cast-downcast` (every downcast goes through `core::down_cast`, below).
+  `cppcoreguidelines-pro-type-static-cast-downcast` (every downcast goes through `core::down_cast`, below),
+  `clang-analyzer-optin.core.EnumCastOutOfRange` (flag enums hold combinations no enumerator names, and a value from
+  a file or the wire that an enum doesn't list stays representable - "Enums", below).
   `src/tests/.clang-tidy`: the reference programs call the C runtime's `atoi` / `sscanf_s` / `snprintf` to compare
   with, so the string-to-number and vararg checks are off there.
 - **Configured** (`CheckOptions`): public data is named as plain data, without the member suffix (the format
@@ -170,6 +173,14 @@ off in a `.clang-tidy`, the reason written beside it - those are the project's e
 - **The GameSpy SDK** takes non-const `char*` where it only reads (and copies what it keeps): it gets copies
   (`SdkText` in `platform/gamespy.cpp`), never a `const_cast`.
 - Narrowing conversions are written as `static_cast` where the original narrows.
+- **The original's unchecked pointers** (the static analyzer's null paths): where the original goes on through a
+  pointer that can be null - a failed allocation used without a check, a lookup that found nothing - the use is
+  preceded by `Expects(pointer != nullptr)` (GSL: the game ends there with a report, where the original crashed;
+  placed at the statement that goes through the pointer, so it ends on the same paths and no earlier). The original's
+  integer divisions by a count that can be 0 state it the same way. A one-line helper taking such a pointer checks it
+  itself. Texts copied into the game's buffers go through `text::copy_into` / `append_into` (a text that doesn't fit
+  ends the game) or, for texts from outside the game (other players, the online service), `text::copy_cut` (cut to
+  fit) - `engine/core/str.h`; no `strcpy` / `strcat`.
 - **`const` wherever nothing changes** (`misc-const-correctness`): locals and what pointers point at. Placement new
   goes through `memory::construct_in` / `construct_value_in` / `construct_global_in` (`engine/core/mem.h`) and the
   original's unbounded inline copies through `text::copy_unbounded` / `append_unbounded` (`engine/core/str.h`), so

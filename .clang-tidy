@@ -1,5 +1,5 @@
-# The project's checks (docs/style-guide.md): the C++ Core Guidelines' checks and the bug-finding, modernising and
-# performance groups, with the house naming rules. Zero warnings is the rule, and there is no NOLINT in src/ (npm test
+# The project's checks (docs/style-guide.md): the C++ Core Guidelines' checks, the bug-finding, modernising and
+# performance groups and the clang static analyzer, with the house naming rules. Zero warnings is the rule, and there is no NOLINT in src/ (npm test
 # fails on one: tools/no_nolint.test.ts). Code that doesn't keep a check is changed; where the original's behaviour
 # can't be kept without what a check flags, the check is configured by its own options (CheckOptions below) or
 # switched off here, the reason beside it - docs/style-guide.md "Exceptions". src/tests/.clang-tidy switches off two
@@ -13,6 +13,7 @@ Checks:
   - 'modernize-*'
   - 'performance-*'
   - 'readability-identifier-naming'
+  - 'clang-analyzer-*'
 
   # --- off: they conflict with the project's decisions ---
   # The project writes `int f()`; trailing return types are a style, not a Guideline.
@@ -28,6 +29,12 @@ Checks:
   # in Debug before its one static_cast; the check would flag that static_cast and has no option to name it.
   # (cppcoreguidelines-pro-type-static-cast-downcast)
   - '-cppcoreguidelines-pro-type-static-cast-downcast'
+  # --- off: it contradicts the project's enum rule ---
+  # Enum casts outside the listed values (an optional analyzer check): flag enums hold combinations no enumerator
+  # names (FaceFlag, PlayerFlag - engine/core/enum_ops.h), a value read from a file or the wire that the enum doesn't
+  # list stays representable (docs/style-guide.md "Enums"), and Direct3D's own D3DTS_WORLDMATRIX(n) is a cast past
+  # its enum's list. The check flags each, and the C++ library's own flag enums too; it has no options.
+  - '-clang-analyzer-optin.core.EnumCastOutOfRange'
 
 # SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
 ExtraArgs: ['-D__PRFCHWINTRIN_H']

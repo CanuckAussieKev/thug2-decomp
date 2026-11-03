@@ -24,6 +24,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/maths/mat4.h"
 #include <gsl/pointers>
+#include <gsl/assert>
 #include "engine/core/raw_view.h"
 
 namespace render {
@@ -31,7 +32,6 @@ namespace render {
 constexpr int kIdxStoreBytes = 0x18;
 constexpr int kIdxStoreKind = 0x65;
 constexpr int kTransformBytes = 0x40;
-constexpr int kIndexListCount = 8;
 constexpr uint32_t kUnpackedVertexBytes = 0x4C;
 constexpr uint32_t kTriangleIndexBytes = 6;
 constexpr uint32_t kPositionBytes = 12;
@@ -228,14 +228,18 @@ MeshRef* MeshRef::replicate(bool share)
         std::memcpy(data, source, copy->vertex_count_ * copy->stride_);
         get_unlock(core::at(vertex_buffers_, 0));
         get_unlock(core::at(copy->vertex_buffers_, 0));
-        for (int k = 0; k < kIndexListCount; ++k) {
+        int k = -1; // (each level of detail: the copy's buffer is stored through its slot)
+        for (IdxStore*& slot : copy->index_buffers_) {
+            ++k;
             if (!core::at(copy->index_counts_, k))
                 continue;
             gsl::owner<IdxStore*> buffer = new_index_buffer(core::at(copy->index_counts_, k) * 2);
-            core::at(copy->index_buffers_, k) = buffer;
-            std::memcpy(buffer->indices(), core::at(index_buffers_, k)->indices(), core::at(copy->index_counts_, k) * 2);
-            upload_indices(core::at(index_buffers_, k)); // (the original's too)
-            upload_indices(core::at(copy->index_buffers_, k));
+            slot = buffer;
+            Expects(buffer != nullptr); // (out of memory: the original copied to address 0)
+            IdxStore* from = core::at(index_buffers_, k);
+            std::memcpy(buffer->indices(), from->indices(), core::at(copy->index_counts_, k) * 2);
+            upload_indices(from); // (the original's too)
+            upload_indices(slot);
         }
         copy->unknowna4_ = unknowna4_;
         copy->unknowna8_ = unknowna8_;

@@ -138,6 +138,7 @@ LobbyPlayer* enroll_player(RoomManager* lobby, void* peer, const char* nick, boo
         player->skill_points_ = 0;
         player->listed_ = false;
     }
+    Expects(player != nullptr); // (out of memory: the original wrote through null)
     text::copy_cut(player->nick_, nick);
     game_spy::peer_get_player_info_no_wait(peer, nick, nullptr, &player->account_); // (the player's profile id)
     if (listed)
