@@ -35,6 +35,8 @@ void format_ends_inside_a_conversion() {}
 } // namespace format_detail
 
 namespace {
+constexpr size_t kRuntimeLineSize = 256;  // format_runtime's line buffer
+constexpr int kFloatDigitsSlack = 32;     // room beyond the digits for the point, the sign and an exponent
 
 constexpr int kDefaultPrecision = 6;
 constexpr int kDecimal = 10;
@@ -284,7 +286,7 @@ void put_wide_text(Sink& sink, const Spec& spec, const FormatArg* arg)
 std::string float_digits(double value, std::chars_format form, int precision)
 {
     // (the longest: 309 integer digits of DBL_MAX, the point, the places, an exponent)
-    std::string text(static_cast<size_t>(precision) + std::numeric_limits<double>::max_exponent10 + 32, '\0');
+    std::string text(static_cast<size_t>(precision) + std::numeric_limits<double>::max_exponent10 + kFloatDigitsSlack, '\0');
     const auto converted = std::to_chars(text.data(), std::next(text.data(), static_cast<std::ptrdiff_t>(text.size())),
                                          value, form, precision);
     text.resize(static_cast<size_t>(converted.ptr - text.data()));
@@ -552,7 +554,7 @@ size_t format_runtime_to(std::span<char> out, std::string_view format, std::span
 
 std::string format_runtime(std::string_view format, std::span<const FormatArg> args)
 {
-    std::array<char, 256> line{};
+    std::array<char, kRuntimeLineSize> line{};
     const size_t length = format_runtime_to(line, format, args);
     if (length < line.size())
         return {line.data(), length};

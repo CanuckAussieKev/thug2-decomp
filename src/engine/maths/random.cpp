@@ -26,6 +26,10 @@ RandomState& stream2()
 
 constexpr uint32_t kInitialMul = 0x12B9B0A1;
 constexpr uint32_t kInitialAdd = 0x0AA2FB3F;
+constexpr int kAddStep = 0x10101010;
+constexpr int kSampleMask = 0xFFFF; // a stream's sample is its low 16 bits
+constexpr int kSampleBits = 16;
+constexpr float kSpreadScale = 0.0002f; // 1 / 5000: the centred sample's range to +/-1
 
 // Advance a stream and return its new 16-bit sample.
 uint32_t get_next(RandomState& s)
@@ -33,11 +37,11 @@ uint32_t get_next(RandomState& s)
     s.value = s.mul * s.value + s.add;
     auto v = static_cast<int32_t>(s.value);
     s.mul = (s.mul ^ s.value) + static_cast<uint32_t>(v >> 4);
-    s.add = s.add - 0x10101010 + static_cast<uint32_t>(v >> 3);
-    return s.value & 0xFFFF;
+    s.add = s.add - kAddStep + static_cast<uint32_t>(v >> 3);
+    return s.value & kSampleMask;
 }
 
-int scale_tool(uint32_t sample, int n) { return static_cast<int>(sample * static_cast<uint32_t>(n)) >> 16; }
+int scale_tool(uint32_t sample, int n) { return static_cast<int>(sample * static_cast<uint32_t>(n)) >> kSampleBits; }
 
 } // namespace
 
@@ -62,7 +66,7 @@ double plus_or_minus_exact(float range)
 {
     // A sample in [0, 10000), centred on 0 and scaled so that +/-5000 maps to +/-range.
     const double centred = static_cast<double>(scale_tool(get_next(stream1()), 10000)) - 5000.0f;
-    return centred * range * 0.0002f;
+    return centred * range * kSpreadScale;
 }
 
 } // namespace maths

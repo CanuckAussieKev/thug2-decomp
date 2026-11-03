@@ -13,6 +13,9 @@
 namespace memory {
 
 namespace {
+constexpr int kAlign16 = 15;                  // rounding a size up to 16 bytes: add this, then mask it off
+constexpr unsigned kAlign16MaskUnsigned = 15u;
+constexpr uint32_t kTeammatePro = 0x502D3FD2; // TeammatePro (the heap whose frees the debug output reports)
 
 // Set while a heap is falling back on others or resizing a block, so a fallback heap doesn't fall back in turn.
 int& heap_busy()
@@ -34,7 +37,7 @@ void count_up(int& value, int& max, int amount)
         max = value;
 }
 
-uint32_t round_up16(uint32_t size) { return (size + 15) & ~15u; }
+uint32_t round_up16(uint32_t size) { return (size + kAlign16) & ~kAlign16MaskUnsigned; }
 
 // Where a block of the heap's region ends, in the region (the allocator's top is an offset there).
 uint32_t end_in_region(const Zone& region, ChunkPrefix* header) { return region.offset_of(header->gate_off()) + header->size(); }
@@ -98,7 +101,7 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
     if (!header) {
         if (use_fallbacks_ && !heap_busy()) {
             heap_busy() = 1;
-            for (int i = 0; i < 5; ++i) {
+            for (int i = 0; i < static_cast<int>(kFallbackCount); ++i) {
                 Arena* other = core::at(fallbacks_, i);
                 if (other && other->region()->free_byte_count() > core::at(fallback_reserve_, i) + static_cast<int>(size)) {
                     if (void* block = other->carve(size, false)) {
@@ -211,7 +214,7 @@ void Arena::dealloc(ChunkPrefix* header)
     count_up(free_size(), max_free_size(), static_cast<int>(header->size()));
     --used_blocks();
     used_size() -= static_cast<int>(header->size());
-    if (this == find_heap(0x502D3FD2))
+    if (this == find_heap(kTeammatePro))
         debug::printf(" *********************************************************************************** FREE %d\n",
                       header->size());
 

@@ -13,6 +13,11 @@
 #include "engine/maths/vec4.h"
 
 namespace maths {
+namespace {
+constexpr float kDegenerateLengthSquared = 0.0001f; // a vector shorter than this (squared) has no direction
+constexpr float kAxisLengthTolerance = 0.01f;       // an axis shorter than this has no angle
+constexpr float kClipSpaceExtent = 2.0f;            // the clip volume spans -1 to 1 on each axis
+} // namespace
 
 // 0x00404080
 Vec4& Mat4::operator[](int index) { return core::at(row, index); }
@@ -299,7 +304,7 @@ float get_angle_in_plane(const Mat4& m, const Vec4& v, int ref_axis, int normal_
 
     Vec4 in_plane = v;
     in_plane.flatten_onto_plane(normal);
-    if (in_plane.z * in_plane.z + in_plane.x * in_plane.x + in_plane.y * in_plane.y < 0.0001f)
+    if (in_plane.z * in_plane.z + in_plane.x * in_plane.x + in_plane.y * in_plane.y < kDegenerateLengthSquared)
         return 0.0f;
     in_plane.make_unit();
 
@@ -340,7 +345,7 @@ void Mat4::get_rotation_axis_angle(Vec4& axis, float& angle) const
     }
     angle = static_cast<float>(std::atan2(length, trace));
 
-    if (!(length <= 0.01f) || !(trace <= 0.0))
+    if (!(length <= kAxisLengthTolerance) || !(trace <= 0.0))
         return;
 
     // Near 180 degrees the differences above vanish: rebuild the axis from the largest diagonal element.
@@ -502,9 +507,9 @@ Mat4& create_orthographic_matrix(Mat4& m, Orthographic view)
     const auto height = view.height;
     const auto near_depth = view.near_depth_;
     const auto far_depth = view.far_depth_;
-    core::at(m.row, 0) = {.x = 2.0f / width, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-    core::at(m.row, 1) = {.x = 0.0f, .y = 2.0f / height, .z = 0.0f, .w = 0.0f};
-    core::at(m.row, 2) = {.x = 0.0f, .y = 0.0f, .z = 2.0f / (far_depth - near_depth), .w = 0.0f};
+    core::at(m.row, 0) = {.x = kClipSpaceExtent / width, .y = 0.0f, .z = 0.0f, .w = 0.0f};
+    core::at(m.row, 1) = {.x = 0.0f, .y = kClipSpaceExtent / height, .z = 0.0f, .w = 0.0f};
+    core::at(m.row, 2) = {.x = 0.0f, .y = 0.0f, .z = kClipSpaceExtent / (far_depth - near_depth), .w = 0.0f};
     core::at(m.row, 3) = {.x = 0.0f, .y = 0.0f, .z = -((near_depth + far_depth) / (far_depth - near_depth)), .w = 1.0f};
     return m;
 }

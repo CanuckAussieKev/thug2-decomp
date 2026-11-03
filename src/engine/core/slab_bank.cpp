@@ -17,6 +17,14 @@
 #include "engine/core/checked_index.h"
 
 namespace memory {
+namespace {
+constexpr size_t kReportedPoolSlots = 16;    // pools named in the log once when full
+constexpr size_t kNearlyFullPoolSlots = 32;
+constexpr int kFifths = 5;                   // a pool at four fifths is "80 % full"
+constexpr int kFourFifths = 4;
+constexpr int kMinNearlyFullItems = 50;      // smaller pools aren't reported as nearly full
+constexpr int kHashItemBytes = 12;
+} // namespace
 
 // 0x005BA420
 SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), slot_bytes_(item_size)
@@ -43,13 +51,13 @@ void* SlabBank::carve()
 {
     if (!free_list_) {
         // Not original - the log names a pool that ran dry, once per pool (most callers don't check for null).
-        static std::array<const SlabBank*, 16> reported;
+        static std::array<const SlabBank*, kReportedPoolSlots> reported;
         static int g_reported_count;
         bool seen = false;
         for (int i = 0; i < g_reported_count; ++i)
             seen = seen || core::at(reported, i) == this;
         // (a pool without a name is a self-test's: the game names every pool, "unnamed" for none)
-        if (!seen && g_reported_count < 16 && core::at(label_, 0) != '\0') {
+        if (!seen && g_reported_count < kReportedPoolSlots && core::at(label_, 0) != '\0') {
             core::at(reported, g_reported_count++) = this;
             get_log("pool %s full: all %d items (%d bytes each) in use", label_.data(), num_, slot_bytes_);
         }
@@ -60,14 +68,14 @@ void* SlabBank::carve()
         peak_used_ = taken_count_;
         // Not original either - a pool reaching 80 % is logged once per pool (which pools a big level comes near:
         // the script pools' sizes are ours, engine/core/memory_sizes.h).
-        if (static_cast<int64_t>(taken_count_) * 5 == static_cast<int64_t>(num_) * 4 && num_ >= 50 &&
+        if (static_cast<int64_t>(taken_count_) * kFifths == static_cast<int64_t>(num_) * kFourFifths && num_ >= kMinNearlyFullItems &&
             core::at(label_, 0) != '\0') {
-            static std::array<const SlabBank*, 32> g_nearly_full;
+            static std::array<const SlabBank*, kNearlyFullPoolSlots> g_nearly_full;
             static int g_nearly_full_count;
             bool seen = false;
             for (int i = 0; i < g_nearly_full_count; ++i)
                 seen = seen || core::at(g_nearly_full, i) == this;
-            if (!seen && g_nearly_full_count < 32) {
+            if (!seen && g_nearly_full_count < kNearlyFullPoolSlots) {
                 core::at(g_nearly_full, g_nearly_full_count++) = this;
                 get_log("pool %s 80%% full: %d of %d items in use", label_.data(), taken_count_, num_);
             }
@@ -114,7 +122,7 @@ void set_up(SlabRun slab_run)
     if (index != 0)
         return;
     void* memory = alloc(sizeof(SlabBank));
-    pool_at(0) = memory ? memory::construct_in<SlabBank>(memory, 12, count, static_cast<const char*>("HashItem")) : nullptr;
+    pool_at(0) = memory ? memory::construct_in<SlabBank>(memory, kHashItemBytes, count, static_cast<const char*>("HashItem")) : nullptr;
 }
 
 // 0x005BC450
@@ -123,7 +131,7 @@ void* create_item(int index)
     if (SlabBank* pool = pool_at(index))
         return pool->carve();
     // Only pool 0 has a known item size; the original asks for 0 bytes for the others.
-    return alloc(index == 0 ? 12 : 0);
+    return alloc(index == 0 ? kHashItemBytes : 0);
 }
 
 // 0x005BC3B0

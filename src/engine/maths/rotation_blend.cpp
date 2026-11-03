@@ -7,15 +7,22 @@
 
 namespace maths {
 
+namespace {
+constexpr size_t kAxisOffset = 0x80; // ArcRotationBlender's layout
+constexpr size_t kAngleOffset = 0x90;
+constexpr size_t kSmallRotationOffset = 0x94;
+} // namespace
+
 void ArcRotationBlender::check_layout()
 {
-    static_assert(offsetof(ArcRotationBlender, axis_) == 0x80 && offsetof(ArcRotationBlender, angle_) == 0x90 &&
-                      offsetof(ArcRotationBlender, small_rotation_) == 0x94,
+    static_assert(offsetof(ArcRotationBlender, axis_) == kAxisOffset && offsetof(ArcRotationBlender, angle_) == kAngleOffset &&
+                      offsetof(ArcRotationBlender, small_rotation_) == kSmallRotationOffset,
                   "layout must match the original");
 }
 
 namespace {
 constexpr float kSlerpSmallRotationThreshold{0.034906585f};
+constexpr float kFullTurn = 6.28318548f; // 2 pi
 
 // Below this angle the rotation counts as small. It lives in the exe's writable data (0x0067C648, 2 degrees
 // by default), so it is read from there rather than copied.
@@ -43,7 +50,7 @@ int ArcRotationBlender::set_matrices(const Mat4& from, const Mat4& to)
 void ArcRotationBlender::flip_heading()
 {
     axis_ = -axis_;
-    angle_ = 6.28318548f - angle_; // 2 pi
+    angle_ = kFullTurn - angle_; // 2 pi
 }
 
 // 0x00405A20

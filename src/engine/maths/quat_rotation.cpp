@@ -13,6 +13,7 @@
 namespace maths {
 
 namespace {
+constexpr double kHalfAngleScale = 0.5; // the quaternion's components are half-angle values
 
 // The matrix's element at row `r`, column `c`.
 double get_at(const Mat4& m, int r, int c) { return core::at(m.row, r)[c]; }
@@ -110,7 +111,7 @@ QuatRotation* QuatRotation::from_matrix(const Mat4& m)
     const double trace = (get_at(m, 1, 1) + get_at(m, 0, 0)) + get_at(m, 2, 2);
     if (trace > 0.0) {
         const double s = std::sqrt(trace + 1.0);
-        w = static_cast<float>(0.5 * s);
+        w = static_cast<float>(kHalfAngleScale * s);
         const auto f = static_cast<float>(0.5 / s);
         x = static_cast<float>((get_at(m, 2, 1) - get_at(m, 1, 2)) * f);
         y = static_cast<float>((get_at(m, 0, 2) - get_at(m, 2, 0)) * f);
@@ -124,7 +125,7 @@ QuatRotation* QuatRotation::from_matrix(const Mat4& m)
     const int j = (i + 1) % 3, k = (j + 1) % 3;
     const double s = std::sqrt((get_at(m, i, i) - (get_at(m, k, k) + get_at(m, j, j))) + 1.0);
     const std::array<float*, 3> q = {{&x, &y, &z}};
-    *core::at(q, i) = static_cast<float>(0.5 * s);
+    *core::at(q, i) = static_cast<float>(kHalfAngleScale * s);
     const double f = 0.5 / s;
     *core::at(q, j) = static_cast<float>((get_at(m, j, i) + get_at(m, i, j)) * f);
     *core::at(q, k) = static_cast<float>((get_at(m, k, i) + get_at(m, i, k)) * f);

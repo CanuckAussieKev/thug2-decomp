@@ -11,6 +11,10 @@ namespace {
 
 constexpr float kHuge = 10000000.0f;
 constexpr float kPi = 3.14159265f;
+constexpr float kMidpoint = 0.5f;            // halfway between a box's corners
+constexpr float kParallelRayStep = 1e-6f;    // stands in for a ray direction component of exactly zero
+constexpr float kSphereVolumeFactor = 4.0f / 3.0f;
+constexpr float kParallelDeterminant = 1e-6f; // segments with a smaller determinant are parallel
 
 } // namespace
 
@@ -67,7 +71,7 @@ Rect2::Rect2(const Edges& edges) : edges_(edges) {}
 // 0x00403BB0
 Vec4& BBox::get_center(Vec4& out) const
 {
-    out = {.x = (max.x - min.x) * 0.5f + min.x, .y = (max.y - min.y) * 0.5f + min.y, .z = (max.z - min.z) * 0.5f + min.z, .w = 1.0f};
+    out = {.x = (max.x - min.x) * kMidpoint + min.x, .y = (max.y - min.y) * kMidpoint + min.y, .z = (max.z - min.z) * kMidpoint + min.z, .w = 1.0f};
     return out;
 }
 
@@ -128,11 +132,11 @@ bool BBox::segment_crossing(const Seg& line, CrossingOut out) const
 
     float dx = e.x - s.x, dy = e.y - s.y, dz = e.z - s.z;
     if (dx == 0.0f)
-        dx = 1e-6f;
+        dx = kParallelRayStep;
     if (dy == 0.0f)
-        dy = 1e-6f;
+        dy = kParallelRayStep;
     if (dz == 0.0f)
-        dz = 1e-6f;
+        dz = kParallelRayStep;
 
     // Crossing a face at fraction k along the segment; the hit must be strictly inside the face. (k and the
     // crossing in double, rounded to floats where the original's x87 code stores them.)
@@ -252,7 +256,7 @@ Capsule::Capsule(const Seg& segment, float r) : line(segment), radius(r) {}
 float Capsule::get_loudness() const
 {
     const float length = (line.end - line.start).len_of();
-    return radius * radius * radius * (4.0f / 3.0f * kPi) + length * radius * radius * kPi;
+    return radius * radius * radius * (kSphereVolumeFactor * kPi) + length * radius * radius * kPi;
 }
 
 // 0x00403330
@@ -378,7 +382,7 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
     };
 
     // Comparisons are written so NaNs take the same branches as in the original.
-    if (!(det < 1e-6f)) {
+    if (!(det < kParallelDeterminant)) {
         // Not parallel: scaled by det, the unconstrained minimum is at (s, t).
         const float b1 = compute_b1();
         s = a01 * b1 - a11 * b0;

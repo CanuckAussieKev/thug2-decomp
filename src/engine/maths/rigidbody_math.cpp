@@ -14,6 +14,11 @@ namespace {
 
 double get_wide(float value) { return value; }
 float get_narrow(double value) { return static_cast<float>(value); }
+constexpr int kRow2Col0 = 8; // the matrix element at row 2, column 0 (row * 4 + column)
+constexpr int kRow1Col1 = 5;
+constexpr int kRow2Col1 = 9;
+constexpr int kRow1Col2 = 6;
+constexpr int kRow2Col2 = 10;
 
 } // namespace
 
@@ -52,13 +57,13 @@ Mat4* QuatRotation::fetch_mat(Mat4* out) const
     const std::span<float, 16> m = out->floats();
     core::at(m, 0) = get_narrow(1.0 - (yy + zz));
     core::at(m, 4) = get_narrow(xy + wz);
-    core::at(m, 8) = get_narrow(xz - wy);
+    core::at(m, kRow2Col0) = get_narrow(xz - wy);
     core::at(m, 1) = get_narrow(xy - wz);
-    core::at(m, 5) = get_narrow(1.0 - (zz + xx));
-    core::at(m, 9) = get_narrow(get_wide(yz) + wx);
+    core::at(m, kRow1Col1) = get_narrow(1.0 - (zz + xx));
+    core::at(m, kRow2Col1) = get_narrow(get_wide(yz) + wx);
     core::at(m, 2) = get_narrow(xz + wy);
-    core::at(m, 6) = get_narrow(get_wide(yz) - wx);
-    core::at(m, 10) = get_narrow(1.0 - (get_wide(yy) + xx));
+    core::at(m, kRow1Col2) = get_narrow(get_wide(yz) - wx);
+    core::at(m, kRow2Col2) = get_narrow(1.0 - (get_wide(yy) + xx));
     return out;
 }
 

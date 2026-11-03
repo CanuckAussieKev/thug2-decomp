@@ -11,6 +11,25 @@
 namespace memory::sizes {
 
 namespace {
+constexpr int kMinStringHeapBytes = 0x1000;
+constexpr int kMaxStringHeapBytes = 0x4000000;
+constexpr int kHashItemBytes = 12;          // the script runtime's pools: one item's size
+constexpr int kScriptCacheEntryBytes = 0x14;
+constexpr int kComponentBytes = 0x10;
+constexpr int kStructBytes = 8;
+constexpr int kVectorBytes = 0x10;
+constexpr int kPairBytes = 0xC;
+constexpr int kArrayBytes = 0xC;
+constexpr int kSymbolBytes = 0x14;
+constexpr int kScriptBytes = 0xF4;
+constexpr int kStoredRandomBytes = 0x60;
+constexpr int kStringEntryBytes = 8;
+constexpr uint32_t kScriptHeapOverhead = 0x1000; // the heap's block headers and alignment for the eleven allocations
+constexpr int kAlign16 = 15;                      // rounding up to 16 bytes
+constexpr unsigned kAlign16MaskUnsigned = 15u;
+constexpr int kMegabyteShift = 20;
+constexpr int kBlockGranuleMask = 0xFFFF;         // the main block is a whole number of 64 KB
+constexpr unsigned kBlockGranuleMaskUnsigned = 0xFFFFu;
 
 constexpr Pools kOriginal = {.script_cache_entries_ = 300, .components = 86000, .structs = 19800, .vectors = 9500, .pairs = 800, .arrays = 7000, .symbols = 12500, .scripts = 300, .stored_randoms_ = 100, .string_bytes_ = 190000, .strings = 7000, .hash_items_ = 10000};
 // THUGPRO's shipped thugpro.dll: the CreateScriptPools pushes 0x0046F559... 0x0046F667 and Main's HashItem push
@@ -47,7 +66,7 @@ Pools get_take_in()
     p.symbols = total_of("symbol_pool", p.symbols);
     p.scripts = total_of("script_pool", p.scripts);
     p.string_bytes_ = static_cast<uint32_t>(
-        std::clamp(config_int("memory", "string_heap", static_cast<int>(p.string_bytes_)), 0x1000, 0x4000000));
+        std::clamp(config_int("memory", "string_heap", static_cast<int>(p.string_bytes_)), kMinStringHeapBytes, kMaxStringHeapBytes));
     p.strings = static_cast<uint32_t>(total_of("string_count", static_cast<int>(p.strings)));
     p.hash_items_ = total_of("hash_item_pool", p.hash_items_);
     return p;
@@ -55,7 +74,7 @@ Pools get_take_in()
 
 uint32_t get_grown(uint32_t ours, uint32_t original) { return ours > original ? ours - original : 0; }
 
-uint32_t hash_item_bytes(const Pools& p) { return static_cast<uint32_t>(p.hash_items_) * 12; }
+uint32_t hash_item_bytes(const Pools& p) { return static_cast<uint32_t>(p.hash_items_) * kHashItemBytes; }
 
 } // namespace
 
@@ -73,19 +92,19 @@ const Pools& at_hand()
 
 uint32_t script_pool_bytes(const Pools& p)
 {
-    return static_cast<uint32_t>(p.script_cache_entries_) * 0x14 + static_cast<uint32_t>(p.components) * 0x10 +
-           static_cast<uint32_t>(p.structs) * 8 + static_cast<uint32_t>(p.vectors) * 0x10 +
-           static_cast<uint32_t>(p.pairs) * 0xC + static_cast<uint32_t>(p.arrays) * 0xC +
-           static_cast<uint32_t>(p.symbols) * 0x14 + static_cast<uint32_t>(p.scripts) * 0xF4 +
-           static_cast<uint32_t>(p.stored_randoms_) * 0x60 + p.string_bytes_ + p.strings * 8;
+    return static_cast<uint32_t>(p.script_cache_entries_) * kScriptCacheEntryBytes + static_cast<uint32_t>(p.components) * kComponentBytes +
+           static_cast<uint32_t>(p.structs) * kStructBytes + static_cast<uint32_t>(p.vectors) * kVectorBytes +
+           static_cast<uint32_t>(p.pairs) * kPairBytes + static_cast<uint32_t>(p.arrays) * kArrayBytes +
+           static_cast<uint32_t>(p.symbols) * kSymbolBytes + static_cast<uint32_t>(p.scripts) * kScriptBytes +
+           static_cast<uint32_t>(p.stored_randoms_) * kStoredRandomBytes + p.string_bytes_ + p.strings * kStringEntryBytes;
 }
 
 uint32_t script_region_size()
 {
     uint32_t extra = get_grown(script_pool_bytes(at_hand()), script_pool_bytes(kOriginal));
     if (extra)
-        extra += 0x1000; // (the heap's block headers and alignment for the eleven allocations)
-    return kOriginalScriptRegion + ((extra + 15) & ~15u) + script_heap_extra();
+        extra += kScriptHeapOverhead; // (the heap's block headers and alignment for the eleven allocations)
+    return kOriginalScriptRegion + ((extra + kAlign16) & ~kAlign16MaskUnsigned) + script_heap_extra();
 }
 
 uint32_t script_heap_extra()
@@ -96,7 +115,7 @@ uint32_t script_heap_extra()
         if (config_int("memory", "original_sizes", 0) != 0)
             return 0u;
         const int mb = std::clamp(config_int("memory", "script_heap_extra_mb", kScriptHeapExtraMb), 0, 256);
-        return static_cast<uint32_t>(mb) << 20;
+        return static_cast<uint32_t>(mb) << kMegabyteShift;
     }();
     return kExtra;
 }
@@ -105,7 +124,7 @@ uint32_t main_block_size()
 {
     const uint32_t extra = script_region_size() - kOriginalScriptRegion +
                            get_grown(hash_item_bytes(at_hand()), hash_item_bytes(kOriginal));
-    return kOriginalMainBlock + ((extra + 0xFFFF) & ~0xFFFFu);
+    return kOriginalMainBlock + ((extra + kBlockGranuleMask) & ~kBlockGranuleMaskUnsigned);
 }
 
 uint32_t node_hash_slots()

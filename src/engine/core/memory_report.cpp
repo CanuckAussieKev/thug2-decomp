@@ -21,8 +21,12 @@
 namespace memory {
 
 namespace {
+constexpr int kBytesPerKb = 1024;
+constexpr int kMegabyteShift = 20;
+constexpr int kSmallHeapKb = 64;      // heaps that never used more are left out of the report
+constexpr size_t kPartSize = 160;
 
-int kb(int64_t bytes) { return static_cast<int>(bytes / 1024); }
+int kb(int64_t bytes) { return static_cast<int>(bytes / kBytesPerKb); }
 
 // The process's free address space: the total and the largest free block.
 struct FreeSpace {
@@ -61,12 +65,12 @@ void log_memory_use(const char* when)
         return;
     Zone* main = manager->primary_zone();
     std::string line;
-    std::array<char, 160> part{};
+    std::array<char, kPartSize> part{};
     text::format_to(part, "main block %d KB, free %d KB (least %d KB); heaps:", kb(sizes::main_block_size()),
                     kb(main->free_byte_count()), kb(main->min_available()));
     line += part.data();
     for (MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
-        if (heap->max_used_size() < 64 * 1024)
+        if (heap->max_used_size() < kSmallHeapKb * kBytesPerKb)
             continue; // (the small ones: themes, skater info...)
         text::format_to(part, " %s %d KB (peak %d KB)", heap->label() ? heap->label() : "?", kb(heap->used_size()),
                         kb(heap->max_used_size()));
@@ -76,12 +80,12 @@ void log_memory_use(const char* when)
     counters.cb = sizeof(counters);
     const auto [total, largest] = address_space();
     if (K32GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters))) {
-        text::format_to(part, "; process: private %d MB (peak %d MB)", static_cast<int>(counters.PagefileUsage >> 20),
-                        static_cast<int>(counters.PeakPagefileUsage >> 20));
+        text::format_to(part, "; process: private %d MB (peak %d MB)", static_cast<int>(counters.PagefileUsage >> kMegabyteShift),
+                        static_cast<int>(counters.PeakPagefileUsage >> kMegabyteShift));
         line += part.data();
     }
-    text::format_to(part, ", address space free %d MB (largest %d MB)", static_cast<int>(total >> 20),
-                    static_cast<int>(largest >> 20));
+    text::format_to(part, ", address space free %d MB (largest %d MB)", static_cast<int>(total >> kMegabyteShift),
+                    static_cast<int>(largest >> kMegabyteShift));
     line += part.data();
     get_log("memory %s: %s", when, line.c_str());
 }

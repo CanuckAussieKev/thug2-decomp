@@ -12,6 +12,15 @@
 #include "engine/sys/game_config.h"
 
 namespace text {
+namespace {
+constexpr size_t kSeparatedNumberSize = 16;
+constexpr size_t kDigitsSize = 32;
+constexpr int kLanguageFrench = 3;        // the game's language numbers: 3 French, 4 Spanish, 5 German, 6 Italian
+constexpr int kLanguageSpanish = 4;
+constexpr int kLanguageGerman = 5;
+constexpr int kLanguageItalian = 6;
+constexpr int kLetterDigitOffset = 10;    // 'a' is the digit ten
+} // namespace
 
 // 0x00402080
 void to_lower_text(char* string)
@@ -61,9 +70,9 @@ const char* find_caseless(CaselessSearch search)
 }
 
 namespace {
-std::array<char, 16>& separated_number()
+std::array<char, kSeparatedNumberSize>& separated_number()
 {
-    static std::array<char, 16> separated_number{};
+    static std::array<char, kSeparatedNumberSize> separated_number{};
     return separated_number;
 }
 } // namespace
@@ -77,17 +86,17 @@ const char* format_with_separators(int value)
         value = static_cast<int>(0u - static_cast<unsigned>(value)); // INT_MIN stays negative, as in the original
     }
 
-    std::array<char, 32> digits{};
+    std::array<char, kDigitsSize> digits{};
     text::format_to(digits, "%d", value);
 
     char separator = 0;
     switch (game_config::get_language()) { // the game's language setting
-    case 3:
+    case kLanguageFrench:
         separator = ' ';
         break;
-    case 4:
-    case 5:
-    case 6:
+    case kLanguageSpanish:
+    case kLanguageGerman:
+    case kLanguageItalian:
         separator = '.';
         break;
     default:
@@ -131,9 +140,9 @@ int hex_digit_value(char digit)
     if (c >= '0' && c <= '9')
         return c - '0';
     if (c >= 'a' && c <= 'v')
-        return c - 'a' + 10;
+        return c - 'a' + kLetterDigitOffset;
     if (c >= 'A' && c <= 'V')
-        return c - 'A' + 10;
+        return c - 'A' + kLetterDigitOffset;
     return 0;
 }
 

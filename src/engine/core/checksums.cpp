@@ -10,15 +10,20 @@
 namespace checksums {
 
 namespace {
+constexpr uint32_t kByteValueCount = 256;
+constexpr int kBitsInByte = 8;
+constexpr uint32_t kByteMask = 0xFF;
+constexpr uint32_t kCrcPolynomial = 0xEDB88320u; // CRC-32's, bit-reversed
+constexpr uint32_t kInitialCrc = 0xFFFFFFFF;     // the register the checksum starts from (no final inversion)
 
 // The standard CRC-32 table. The exe has the same table at 0x0067C248.
-constexpr std::array<uint32_t, 256> make_table()
+constexpr std::array<uint32_t, kByteValueCount> make_table()
 {
-    std::array<uint32_t, 256> table{};
-    for (uint32_t i = 0; i < 256; ++i) {
+    std::array<uint32_t, kByteValueCount> table{};
+    for (uint32_t i = 0; i < kByteValueCount; ++i) {
         uint32_t c = i;
-        for (int bit = 0; bit < 8; ++bit)
-            c = (c & 1) ? 0xEDB88320u ^ (c >> 1) : c >> 1;
+        for (int bit = 0; bit < kBitsInByte; ++bit)
+            c = (c & 1) ? kCrcPolynomial ^ (c >> 1) : c >> 1;
         core::at(table, i) = c;
     }
     return table;
@@ -26,7 +31,7 @@ constexpr std::array<uint32_t, 256> make_table()
 
 constexpr std::array<uint32_t, 256> kTable = make_table();
 
-uint32_t get_step(uint32_t crc, uint8_t byte) { return (crc >> 8) ^ core::at(kTable, (crc ^ byte) & 0xFF); }
+uint32_t get_step(uint32_t crc, uint8_t byte) { return (crc >> kBitsInByte) ^ core::at(kTable, (crc ^ byte) & kByteMask); }
 
 // Names are case-insensitive and treat '/' and '\' as the same character.
 uint8_t name_char(char c)
@@ -45,7 +50,7 @@ uint32_t hash_from_text(const char* string)
 {
     if (!string)
         return 0;
-    return fold_text_into_checksum(0xFFFFFFFF, string);
+    return fold_text_into_checksum(kInitialCrc, string);
 }
 
 // 0x00401BE0
@@ -63,7 +68,7 @@ uint32_t generate_crc_from_buffer(const void* data, int size)
 {
     if (!data || size < 1)
         return 0;
-    uint32_t crc = 0xFFFFFFFF;
+    uint32_t crc = kInitialCrc;
     for (const uint8_t byte : std::span(static_cast<const uint8_t*>(data), static_cast<std::size_t>(size)))
         crc = get_step(crc, byte);
     return crc;
@@ -84,7 +89,7 @@ uint32_t generate_crc_caseless(const char* data, int size)
 {
     if (!data || size < 1)
         return 0;
-    uint32_t crc = 0xFFFFFFFF;
+    uint32_t crc = kInitialCrc;
     for (const char c : std::span(data, static_cast<std::size_t>(size)))
         crc = get_step(crc, name_char(c));
     return crc;

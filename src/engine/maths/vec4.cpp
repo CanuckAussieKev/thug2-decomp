@@ -7,6 +7,11 @@
 #include "engine/core/dbg.h"
 
 namespace maths {
+namespace {
+constexpr float kInchesPerFoot = 12.0f;
+constexpr double kShortestDirection = 0.5;           // a vector shorter than this has no direction to compare
+constexpr double kDegreesPerRadian = 57.2957763671875; // the float at 0x00645468
+} // namespace
 
 // 0x00402310 - the component at `index` (0 x, 1 y, 2 z, 3 w). Not original: an index outside 0-3 ends the game with
 // a report (the original read the memory after the vector).
@@ -208,9 +213,9 @@ void Vec4::convert_to_degrees()
 // 0x00405F50
 void Vec4::feet_as_inches()
 {
-    x *= 12.0f;
-    y *= 12.0f;
-    z *= 12.0f;
+    x *= kInchesPerFoot;
+    y *= kInchesPerFoot;
+    z *= kInchesPerFoot;
 }
 
 // 0x00405F80
@@ -291,13 +296,13 @@ bool is_angle_beyond(const Vec4& a, const Vec4& b, float degrees)
 {
     const double length_a =
         std::sqrt((static_cast<double>(a.x) * a.x + static_cast<double>(a.y) * a.y) + static_cast<double>(a.z) * a.z);
-    if (length_a < 0.5)
+    if (length_a < kShortestDirection)
         return false;
     double cosine =
         ((static_cast<double>(a.x) * b.x + static_cast<double>(b.z) * a.z) + static_cast<double>(a.y) * b.y) / length_a;
     const double length_b =
         std::sqrt((static_cast<double>(b.y) * b.y + static_cast<double>(b.z) * b.z) + static_cast<double>(b.x) * b.x);
-    if (length_b < 0.5)
+    if (length_b < kShortestDirection)
         return false;
     cosine /= length_b;
     const double limit = std::cos(static_cast<double>(degrees) * 0.01745329238474369); // (the float at 0x00645464)
@@ -339,7 +344,7 @@ double read_turn_angle(const Vec4& a, const Vec4& b)
         by *= scale;
         bz *= scale;
     }
-    return std::acos(clamped_cosine((bz * az + bx * ax) + by * ay)) * 57.2957763671875; // (the float at 0x00645468)
+    return std::acos(clamped_cosine((bz * az + bx * ax) + by * ay)) * kDegreesPerRadian; // (the float at 0x00645468)
 }
 
 // 0x00406630
