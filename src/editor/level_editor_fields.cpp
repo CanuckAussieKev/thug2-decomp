@@ -783,13 +783,13 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
 {
     switch (v.kind) {
     case Kind::kInteger:
-        s->put_int(key, v.integer);
+        s->put_int(checksums::Name{key}, v.integer);
         break;
     case Kind::kFloat:
-        s->push_float(key, core::at(v.numbers, 0));
+        s->push_float(checksums::Name{key}, core::at(v.numbers, 0));
         break;
     case Kind::kName:
-        s->put_name_key(key, v.checksum);
+        s->put_name_key(checksums::Name{key}, v.checksum);
         break;
     case Kind::kChars:
         s->append_word(key, v.text.c_str());
@@ -798,14 +798,14 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
         s->append_inline_text(key, v.text.c_str());
         break;
     case Kind::kPair:
-        s->insert_pair(key, core::at(v.numbers, 0), core::at(v.numbers, 1));
+        s->insert_pair(checksums::Name{key}, {.x = core::at(v.numbers, 0), .y = core::at(v.numbers, 1)});
         break;
     case Kind::kVec4:
-        s->put_vec3(key, core::at(v.numbers, 0), core::at(v.numbers, 1), core::at(v.numbers, 2));
+        s->put_vec3(checksums::Name{key}, {.x = core::at(v.numbers, 0), .y = core::at(v.numbers, 1), .z = core::at(v.numbers, 2)});
         break;
     case Kind::kBitMark:
         if (v.on)
-            s->put_name_key(0u, key);
+            s->put_name_key(checksums::Name{0u}, key);
         break;
     case Kind::kNames:
     case Kind::kIntegers:

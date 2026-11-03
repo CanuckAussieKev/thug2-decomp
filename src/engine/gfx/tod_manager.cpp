@@ -748,9 +748,9 @@ void CtodManager::get_reset()
 // 0x00573180
 void add_bloom_params(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color, script::Struct* out)
 {
-    out->put_int(kOn, on);
-    out->put_int(kBloom1, bloom1);
-    out->put_int(kBloom2, bloom2);
+    out->put_int(checksums::Name{kOn}, on);
+    out->put_int(checksums::Name{kBloom1}, bloom1);
+    out->put_int(checksums::Name{kBloom2}, bloom2);
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(3, script::kQbvalInteger);
@@ -821,7 +821,7 @@ void CtodManager::set_bloom(int on, int bloom1, int bloom2, uint32_t strength, u
     if (on)
         add_bloom_params(on, bloom1, bloom2, strength, color, params.get());
     else
-        params->put_int(kOn, 0);
+        params->put_int(checksums::Name{kOn}, 0);
     set_bloom_structure(params.get());
 }
 
@@ -898,12 +898,12 @@ void CtodManager::update_system(int index)
     if (!system.script_run_ && t > threshold) {
         system.script_run_ = true;
         const script::StructPtr script_params = script::make_struct();
-        script_params->put_name_key(kCurrentTod, system.state);
-        script_params->put_name_key(kNextTod, system.next_state_);
+        script_params->put_name_key(checksums::Name{kCurrentTod}, system.state);
+        script_params->put_name_key(checksums::Name{kNextTod}, system.next_state_);
         script_params->put_sub_struct(kTodStateParams, system.params);
         if (!sky) {
             if (transition_script_)
-                script_params->put_name_key(kTransitionScript, transition_script_);
+                script_params->put_name_key(checksums::Name{kTransitionScript}, transition_script_);
             script::spawn_script(kStateTransition, script_params.get(), 0, nullptr, 0, 0, false, false, false, false);
         }
     }
@@ -968,14 +968,14 @@ void CtodManager::refresh_all(bool temp_state)
         if (sky)
             continue;
         const script::StructPtr params = script::make_struct();
-        params->put_name_key(kCurrentTod, previous_tod_state(system.state));
-        params->put_name_key(kNextTod, system.state);
+        params->put_name_key(checksums::Name{kCurrentTod}, previous_tod_state(system.state));
+        params->put_name_key(checksums::Name{kNextTod}, system.state);
         params->put_sub_struct(kTodStateParams, system.params);
         if (transition_script_)
-            params->put_name_key(kTransitionScript, transition_script_);
-        params->put_name_key(0u, kInstantChange);
+            params->put_name_key(checksums::Name{kTransitionScript}, transition_script_);
+        params->put_name_key(checksums::Name{0u}, kInstantChange);
         if (temp_state)
-            params->put_name_key(0u, kTempState);
+            params->put_name_key(checksums::Name{0u}, kTempState);
         script::StructPtr bloom = script::make_struct();
         add_bloom_params(current.bloom_on_, current.bloom1, current.bloom2, current.bloom_strength_,
                          current.bloom_color_, bloom.get());
@@ -1196,7 +1196,7 @@ bool cfunc_tod_manager_get_number_of_days_passed(script::Struct* params, script:
     CtodManager* manager = tod_manager();
     int index = 0;
     params->fetch_int_value(kSystemIndex, &index, 0);
-    script->args()->put_int(kNumDaysPassed, system_at(manager, index).days_passed_);
+    script->args()->put_int(checksums::Name{kNumDaysPassed}, system_at(manager, index).days_passed_);
     return true;
 }
 
@@ -1216,7 +1216,7 @@ bool cfunc_tod_manager_get_time_multiplier(script::Struct* /*params*/, script::S
 {
     if (!tod_manager())
         return false;
-    script->args()->push_float(kTimeMultiplierName, tod_manager()->time_multiplier());
+    script->args()->push_float(checksums::Name{kTimeMultiplierName}, tod_manager()->time_multiplier());
     return true;
 }
 
@@ -1252,45 +1252,45 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
     CtodManager* manager = tod_manager();
     const TodParams p = manager->get_tod_params(index);
     gsl::owner<script::Struct*> out = script::new_struct();
-    out->put_int(kActive, manager->active());
+    out->put_int(checksums::Name{kActive}, manager->active());
     int current = 0;
     while (current < CtodManager::kSystems && core::at(manager->systems(), current).sky)
         ++current;
-    out->put_name_key(kCurrentStateName, system_at(manager, current).state);
-    out->put_int(kLevRed, p.lev_red_);
-    out->put_int(kLevGreen, p.lev_green_);
-    out->put_int(kLevBlue, p.lev_blue_);
-    out->put_int(kSkyRed, p.sky_red_);
-    out->put_int(kSkyGreen, p.sky_green_);
-    out->put_int(kSkyBlue, p.sky_blue_);
-    out->put_int(kFogOn, p.fog_on_);
-    out->put_int(kFogRed, p.fog_red_);
-    out->put_int(kFogGreen, p.fog_green_);
-    out->put_int(kFogBlue, p.fog_blue_);
-    out->put_int(kFogAlpha, p.fog_alpha_);
-    out->put_int(kFogDist, p.fog_dist_);
-    out->put_int(kAmbientRed, p.ambient_red_);
-    out->put_int(kAmbientGreen, p.ambient_green_);
-    out->put_int(kAmbientBlue, p.ambient_blue_);
-    out->push_float(kAmbientModLo, p.ambient_mod_lo_);
-    out->push_float(kAmbientModHi, p.ambient_mod_hi_);
-    out->push_float(kHeading0, p.heading0);
-    out->push_float(kPitch0, p.pitch0);
-    out->put_int(kRed0, p.red0);
-    out->put_int(kGreen0, p.green0);
-    out->put_int(kBlue0, p.blue0);
-    out->push_float(kModLo0, p.mod_lo0_);
-    out->push_float(kModHi0, p.mod_hi0_);
-    out->push_float(kHeading1, p.heading_a_);
-    out->push_float(kPitch1, p.pitch1);
-    out->put_int(kRed1, p.red1);
-    out->put_int(kGreen1, p.green1);
-    out->put_int(kBlue1, p.blue1);
-    out->push_float(kModLo1, p.mod_lo1_);
-    out->push_float(kModHi1, p.mod_hi1_);
-    out->put_int(kBloomOn, p.bloom_on_);
-    out->put_int(kBloom1, p.bloom1);
-    out->put_int(kBloom2, p.bloom2);
+    out->put_name_key(checksums::Name{kCurrentStateName}, system_at(manager, current).state);
+    out->put_int(checksums::Name{kLevRed}, p.lev_red_);
+    out->put_int(checksums::Name{kLevGreen}, p.lev_green_);
+    out->put_int(checksums::Name{kLevBlue}, p.lev_blue_);
+    out->put_int(checksums::Name{kSkyRed}, p.sky_red_);
+    out->put_int(checksums::Name{kSkyGreen}, p.sky_green_);
+    out->put_int(checksums::Name{kSkyBlue}, p.sky_blue_);
+    out->put_int(checksums::Name{kFogOn}, p.fog_on_);
+    out->put_int(checksums::Name{kFogRed}, p.fog_red_);
+    out->put_int(checksums::Name{kFogGreen}, p.fog_green_);
+    out->put_int(checksums::Name{kFogBlue}, p.fog_blue_);
+    out->put_int(checksums::Name{kFogAlpha}, p.fog_alpha_);
+    out->put_int(checksums::Name{kFogDist}, p.fog_dist_);
+    out->put_int(checksums::Name{kAmbientRed}, p.ambient_red_);
+    out->put_int(checksums::Name{kAmbientGreen}, p.ambient_green_);
+    out->put_int(checksums::Name{kAmbientBlue}, p.ambient_blue_);
+    out->push_float(checksums::Name{kAmbientModLo}, p.ambient_mod_lo_);
+    out->push_float(checksums::Name{kAmbientModHi}, p.ambient_mod_hi_);
+    out->push_float(checksums::Name{kHeading0}, p.heading0);
+    out->push_float(checksums::Name{kPitch0}, p.pitch0);
+    out->put_int(checksums::Name{kRed0}, p.red0);
+    out->put_int(checksums::Name{kGreen0}, p.green0);
+    out->put_int(checksums::Name{kBlue0}, p.blue0);
+    out->push_float(checksums::Name{kModLo0}, p.mod_lo0_);
+    out->push_float(checksums::Name{kModHi0}, p.mod_hi0_);
+    out->push_float(checksums::Name{kHeading1}, p.heading_a_);
+    out->push_float(checksums::Name{kPitch1}, p.pitch1);
+    out->put_int(checksums::Name{kRed1}, p.red1);
+    out->put_int(checksums::Name{kGreen1}, p.green1);
+    out->put_int(checksums::Name{kBlue1}, p.blue1);
+    out->push_float(checksums::Name{kModLo1}, p.mod_lo1_);
+    out->push_float(checksums::Name{kModHi1}, p.mod_hi1_);
+    out->put_int(checksums::Name{kBloomOn}, p.bloom_on_);
+    out->put_int(checksums::Name{kBloom1}, p.bloom1);
+    out->put_int(checksums::Name{kBloom2}, p.bloom2);
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     script::Array* array = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     array->configure_size_kind(3, script::kQbvalInteger);

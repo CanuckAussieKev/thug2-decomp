@@ -152,10 +152,10 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
     const uint32_t unique_id = spawned->unique_id();
 
     script::StructPtr entry = script::make_struct();
-    entry->put_name_key(kName, unique_id);
-    entry->put_name_key(kDestroyFunc, kKillSpawnedScript);
+    entry->put_name_key(checksums::Name{kName}, unique_id);
+    entry->put_name_key(checksums::Name{kDestroyFunc}, kKillSpawnedScript);
     script::StructPtr destroy_params = script::make_struct();
-    destroy_params->put_name_key(kId, unique_id);
+    destroy_params->put_name_key(checksums::Name{kId}, unique_id);
     entry->put_sub_struct(kDestroyParams, destroy_params.get());
     destroy_params.reset();
     cfunc_add_to_cutscene_destroy_list(entry.get(), nullptr);

@@ -76,9 +76,9 @@ bool cfunc_display_free_mem(script::Struct*, script::Script*)
     for (memory::MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
         memory::Zone* region = heap->region();
         params->get_clear();
-        params->put_name_key(kId, checksums::hash_from_text(heap->label()));
-        params->put_int(kFreeMem, region->free_byte_count());
-        params->put_int(kMinFreeMem, region->min_available());
+        params->put_name_key(checksums::Name{kId}, checksums::hash_from_text(heap->label()));
+        params->put_int(checksums::Name{kFreeMem}, region->free_byte_count());
+        params->put_int(checksums::Name{kMinFreeMem}, region->min_available());
         script::launch_script(kUpdateDisplayFreeMemory, params, nullptr, false, nullptr);
     }
     if (params) {

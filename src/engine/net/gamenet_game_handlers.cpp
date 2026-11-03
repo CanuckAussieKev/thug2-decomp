@@ -101,13 +101,13 @@ void cancel_join(Hub* manager, bool notify_first)
     gsl::owner<script::Struct*> params = nullptr;
     if (notify_first) {
         params = script::new_struct();
-        params->put_name_key(0u, kShowTimeout);
+        params->put_name_key(checksums::Name{0u}, kShowTimeout);
     }
     manager->join_phase_job()->drop_out();
     manager->set_entry_phase(2);
     if (!notify_first) {
         params = script::new_struct();
-        params->put_name_key(0u, kShowTimeout);
+        params->put_name_key(checksums::Name{0u}, kShowTimeout);
     }
     get_run(kCancelJoinServer, params);
     script::free_struct(params);
@@ -216,7 +216,7 @@ int handle_fcfs_notice(net::InboundMsgCtx* context)
         return kDone;
     local->set_host_player(); // (its flag 0x200 set)
     script::StructPtr params = script::make_struct();
-    params->put_name_key(kChecksum, checksum);
+    params->put_name_key(checksums::Name{kChecksum}, checksum);
     get_run(kLaunchFcfsNotification, params.get());
     params.reset();
     return kContinue;
@@ -237,7 +237,7 @@ int handle_flag_returned(net::InboundMsgCtx* context)
     std::array<char, 64> name{};
     team_name_key(name, team);
     script::StructPtr params = script::make_struct();
-    params->put_int(kTeam, team);
+    params->put_int(checksums::Name{kTeam}, team);
     params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
     get_run(kFlagReturned, params.get());
     params.reset();
@@ -293,7 +293,7 @@ int on_goal_sync_msg(net::InboundMsgCtx* context)
         park_editing::ObjectiveAuthoring::get_pull()->read_level_goals_from_buffer(level, reader.cursor(),
                                                                                    reader.remaining());
         script::StructPtr params = script::make_struct();
-        params->put_name_key(0u, kDoNotCreateGoalPeds);
+        params->put_name_key(checksums::Name{0u}, kDoNotCreateGoalPeds);
         get_run(kInitialiseCreatedGoals, params.get());
         params.reset();
         return kContinue;
@@ -362,7 +362,7 @@ int handle_selected_goals(net::InboundMsgCtx* context)
     }
     if (show == 1) {
         const script::StructPtr params = script::make_struct();
-        params->put_name_key(kGoalSummary, kGoalSummary);
+        params->put_name_key(checksums::Name{kGoalSummary}, kGoalSummary);
         script::spawn_script(kViewSelectedGoalsMenu, params.get(), 0, nullptr, 0, 0, false, false, false, false);
     }
     return kContinue;
@@ -438,7 +438,7 @@ int handle_goal_completed(net::InboundMsgCtx* context)
         const int done = static_cast<goals::GoalManager*>(goals)->count_objectives_cleared();
         if (total > done) {
             const script::StructPtr params = script::make_struct();
-            params->put_int(kNumGoalsLeft, total - done);
+            params->put_int(checksums::Name{kNumGoalsLeft}, total - done);
             get_run(kCompletedGoal, params.get());
         }
         static_cast<goals::ObjectiveNpc*>(goal->ped())->remove_objective_npc();
@@ -472,7 +472,7 @@ int handle_goal_completed(net::InboundMsgCtx* context)
         const char* text = nullptr;
         goal->get_objective_list_caption(&text);
         const script::StructPtr params = script::make_struct();
-        params->put_int(kNumGoalsLeft, total - done);
+        params->put_int(checksums::Name{kNumGoalsLeft}, total - done);
         params->append_word(kPlayerName, player_name(player));
         params->append_word(kGoalText, text);
         get_run(kCompletedGoalSameTeam, params.get());
@@ -536,8 +536,8 @@ int handle_eliminated(net::InboundMsgCtx* context)
 int handle_observers_full(net::InboundMsgCtx*)
 {
     script::StructPtr params = script::make_struct();
-    params->put_name_key(kReason, kFullObservers);
-    params->put_name_key(kJustDialog, 0);
+    params->put_name_key(checksums::Name{kReason}, kFullObservers);
+    params->put_name_key(checksums::Name{kJustDialog}, 0);
     get_run(kCreateJoinRefusedDialog, params.get());
     params.reset();
     return kContinue;

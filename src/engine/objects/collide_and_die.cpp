@@ -130,9 +130,9 @@ void ImpactDestructModule::tick_frame()
                 gsl::owner<script::Struct*> params = script::spawn_param_bag();
                 if (params)
                     new (params) script::Struct;
-                params->put_vec3(kPos, *&point);
-                params->put_vec3(kVel, *&vel_);
-                params->push_float(kScale, size_factor_);
+                params->put_vec3(checksums::Name{kPos}, *&point);
+                params->put_vec3(checksums::Name{kVel}, *&vel_);
+                params->push_float(checksums::Name{kScale}, size_factor_);
                 script::launch_script(on_collide_script_, params, nullptr, false, nullptr);
                 if (params) {
                     params->get_clear(); // (the destructor)

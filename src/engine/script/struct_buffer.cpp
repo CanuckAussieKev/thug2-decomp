@@ -369,10 +369,10 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
             break;
         switch (type & 0x3F) {
         case kQbvalInteger:
-            structure->put_int(name, reader.i32());
+            structure->put_int(checksums::Name{name}, reader.i32());
             break;
         case kQbvalFloat:
-            structure->push_float(name, reader.f32());
+            structure->push_float(checksums::Name{name}, reader.f32());
             break;
         case kQbvalString:
             structure->append_word(name, read_text(reader));
@@ -383,14 +383,14 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
         case kQbvalPair: {
             const float x = reader.f32();
             const float y = reader.f32();
-            structure->insert_pair(name, x, y);
+            structure->insert_pair(checksums::Name{name}, {.x = x, .y = y});
             break;
         }
         case kQbvalVector: {
             const float x = reader.f32();
             const float y = reader.f32();
             const float z = reader.f32();
-            structure->put_vec3(name, x, y, z);
+            structure->put_vec3(checksums::Name{name}, {.x = x, .y = y, .z = z});
             break;
         }
         case kQbvalStruct: {
@@ -410,25 +410,25 @@ void decode_structure(Struct* structure, util::ByteReader& reader)
             break;
         }
         case kQbvalName:
-            structure->put_name_key(name, reader.u32());
+            structure->put_name_key(checksums::Name{name}, reader.u32());
             break;
         case kSignedByte:
-            structure->put_int(name, reader.i8());
+            structure->put_int(checksums::Name{name}, reader.i8());
             break;
         case kSignedShort:
-            structure->put_int(name, reader.i16());
+            structure->put_int(checksums::Name{name}, reader.i16());
             break;
         case kUnsignedByte:
-            structure->put_int(name, reader.u8());
+            structure->put_int(checksums::Name{name}, reader.u8());
             break;
         case kUnsignedShort:
-            structure->put_int(name, reader.u16());
+            structure->put_int(checksums::Name{name}, reader.u16());
             break;
         case kZeroInteger:
-            structure->put_int(name, 0);
+            structure->put_int(checksums::Name{name}, 0);
             break;
         case kTagZeroF:
-            structure->push_float(name, 0.0f);
+            structure->push_float(checksums::Name{name}, 0.0f);
             break;
         default:
             break; // (no value: just the name was read)

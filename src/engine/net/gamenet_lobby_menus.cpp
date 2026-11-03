@@ -108,10 +108,10 @@ void RoomManager::add_buddy_menu_item(LobbyPlayer* player)
     push_internet_heap();
     script::StructPtr params = script::make_struct();
     params->append_word(kText, player->nick_.data());
-    params->put_name_key(kPadChooseScript, kLobbyAddBuddy);
-    params->put_name_key(kParentMenuId, kBuddyMenu);
+    params->put_name_key(checksums::Name{kPadChooseScript}, kLobbyAddBuddy);
+    params->put_name_key(checksums::Name{kParentMenuId}, kBuddyMenu);
     script::StructPtr choose = script::make_struct();
-    choose->put_int(kProfile, player->account_);
+    choose->put_int(checksums::Name{kProfile}, player->account_);
     choose->append_word(kNick, player->nick_.data());
     choose->append_word(kNetName, player->nick_.data());
     params->put_sub_struct(kPadChooseParams, choose.get());
@@ -171,14 +171,14 @@ void RoomManager::add_room_menu_item(LobbyRoom* room, int index)
     params->append_word(kText, text.data());
     const bool available = !room->full() && !room->out_of_range();
     if (available) {
-        params->put_name_key(kPadChooseScript, kChooseSelectedLobby);
-        params->put_name_key(kFocusScript, kRegionsMenuSetFocus);
+        params->put_name_key(checksums::Name{kPadChooseScript}, kChooseSelectedLobby);
+        params->put_name_key(checksums::Name{kFocusScript}, kRegionsMenuSetFocus);
     } else {
-        params->put_name_key(0u, kNotFocusable);
-        params->put_name_key(kPadChooseScript, kUnavailableLobby);
+        params->put_name_key(checksums::Name{0u}, kNotFocusable);
+        params->put_name_key(checksums::Name{kPadChooseScript}, kUnavailableLobby);
     }
     script::StructPtr choose = script::make_struct();
-    choose->put_int(kIndex, index);
+    choose->put_int(checksums::Name{kIndex}, index);
     if (available)
         params->put_sub_struct(kPadChooseParams, choose.get());
     get_run(kRegionsMenuAddItem, params.get());
@@ -204,7 +204,7 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
         if (player->account_ != own_profile(buddy) &&
             !static_cast<FriendsManager*>(buddy)->is_buddy(player->account_)) { // not a buddy yet
             set_rgba(rgba, 0, 128, 0, 128);
-            choose->put_int(kProfile, player->account_);
+            choose->put_int(checksums::Name{kProfile}, player->account_);
             choose->append_word(kNick, player->nick_.data());
             choose->append_word(kNetName, player->nick_.data());
             params->put_sub_struct(kPadChooseParams, choose.get());
@@ -221,16 +221,16 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
         set_rgba(rgba, 128, 128, 128, 128);
         script = mark_friend_online(buddy) ? kCantAddBuddyPrompt1 : kCantAddBuddyPrompt2;
     }
-    params->put_name_key(kPadChooseScript, script);
+    params->put_name_key(checksums::Name{kPadChooseScript}, script);
     // (x87: the rating times two floats, truncated)
     int rank = static_cast<int>(static_cast<double>(player->skill_points_) * static_cast<double>(kRankScale) *
                                 static_cast<double>(render::kFloatTen));
     if (rank > kMaxRank)
         rank = kMaxRank;
-    params->put_int(kRank, rank);
-    params->put_name_key(kId, checksums::hash_from_text(player->nick_.data()));
-    params->put_name_key(kParentMenuId, kLobbyPlayerListMenu);
-    params->push_float(kScale, kItemScale);
+    params->put_int(checksums::Name{kRank}, rank);
+    params->put_name_key(checksums::Name{kId}, checksums::hash_from_text(player->nick_.data()));
+    params->put_name_key(checksums::Name{kParentMenuId}, kLobbyPlayerListMenu);
+    params->push_float(checksums::Name{kScale}, kItemScale);
     unfocus->append_array_value(kRgba, rgba);
     params->append_array_value(kRgba, rgba);
     params->put_sub_struct(kUnfocusParams, unfocus.get());

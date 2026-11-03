@@ -158,8 +158,8 @@ void update_rank(LobbyPlayer* player, const char* value)
     if (shown > kMaxRank)
         shown = kMaxRank;
     const script::StructPtr params = script::make_struct();
-    params->put_name_key(kId, checksums::hash_from_text(player->nick_.data()));
-    params->put_int(kRank, shown);
+    params->put_name_key(checksums::Name{kId}, checksums::hash_from_text(player->nick_.data()));
+    params->put_int(checksums::Name{kRank}, shown);
     get_run(kUpdateRank, params.get());
 }
 
@@ -174,7 +174,7 @@ void console_message(const char* nick, uint32_t text_name, bool by_name)
         params->put_name_key("join", 0);
     } else {
         params->append_word(kText, line.data());
-        params->put_name_key(kLeft, 0);
+        params->put_name_key(checksums::Name{kLeft}, 0);
     }
     get_run(kConsoleMessage, params.get());
 }
@@ -394,7 +394,7 @@ void RoomManager::player_left_callback(void* peer, int room_type, const char* ni
     (void)reason;
     if (LobbyPlayer* player = find_player(lobby, nick)) {
         script::StructPtr params = script::make_struct();
-        params->put_name_key(kUserId, checksums::hash_from_text(nick));
+        params->put_name_key(checksums::Name{kUserId}, checksums::hash_from_text(nick));
         get_run(kDestroyUser, params.get());
         memory::ListNode::destroy(&player->list_link_); // (0x00541AC0)
         params.reset();
@@ -495,7 +495,7 @@ bool cfunc_num_players_in_lobby(script::Struct* params, script::Script* script)
     int count = 0;
     for (memory::ListNode* node = head_of_scene_list(&the_lobby()->participants()); node; node = get_next_node(node))
         ++count;
-    script->args()->put_int(kNumPlayers, count);
+    script->args()->put_int(checksums::Name{kNumPlayers}, count);
     return true;
 }
 

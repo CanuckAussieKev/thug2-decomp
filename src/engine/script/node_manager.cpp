@@ -395,7 +395,7 @@ bool NodeManager::add_node_array(uint32_t name, bool flag)
         script::VectorValue position = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
         if (node->fetch_vec(kPosition, &position, 0)) {
             node->erase_module(kPosition);
-            node->put_vec3(kPos, position.x, position.y, -position.z);
+            node->put_vec3(checksums::Name{kPos}, {.x = position.x, .y = position.y, .z = -position.z});
         }
     }
     resolve_links(nodes);

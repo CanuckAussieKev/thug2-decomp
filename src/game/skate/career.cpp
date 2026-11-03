@@ -156,7 +156,7 @@ int RiderStoryProgress::get_info_integer(uint32_t name)
 }
 bool RiderStoryProgress::set_info_integer(uint32_t name, int value)
 {
-    details_->put_int(name, value);
+    details_->put_int(checksums::Name{name}, value);
     return true;
 }
 
@@ -165,7 +165,7 @@ void RiderStoryProgress::add_to_info_471f_c_4d_d(int amount)
 {
     int value = 0;
     details_->fetch_int_value(0x471FC4DD, &value, 1);
-    details_->put_int(0x471FC4DD, value + amount);
+    details_->put_int(checksums::Name{0x471FC4DD}, value + amount);
 }
 
 // 0x005845C0
@@ -480,42 +480,42 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     for (int level = 0; level < kLevels; ++level) {
         goals::GapTally* checklist = core::at(gaps_, level);
         gsl::owner<script::Struct*> entry = script::new_struct();
-        entry->put_int(kGapLevel, level);
+        entry->put_int(checksums::Name{kGapLevel}, level);
         // NOT ORIGINAL: an edited copy's checklist (level_editor_career.h) is written as before the edited copy - never
         // the editor's gaps, nor gaps landed in it.
         frontend::level_editor::career::Checklist view;
         if (frontend::level_editor::career::save_view(checklist, &view)) {
-            entry->put_int(kGapsBuilt, view.built ? 1 : 0);
+            entry->put_int(checksums::Name{kGapsBuilt}, view.built ? 1 : 0);
             if (view.built) {
                 gsl::owner<script::Array*> list = alloc_script_array(static_cast<uint32_t>(view.gaps.size()), script::kQbvalStruct);
                 for (size_t i = 0; i < view.gaps.size(); ++i) {
                     const frontend::level_editor::career::Gap& g = core::at(view.gaps, i);
                     gsl::owner<script::Struct*> gap = script::new_struct();
                     gap->append_word(kGapName, g.name.c_str());
-                    gap->put_int(kGapCount, g.count);
-                    gap->put_int(kGapScore, g.score);
-                    gap->put_vec3(kGapPos, core::at(g.pos, 0), core::at(g.pos, 1), core::at(g.pos, 2));
-                    gap->put_vec3(kGapDir, core::at(g.dir, 0), core::at(g.dir, 1), core::at(g.dir, 2));
+                    gap->put_int(checksums::Name{kGapCount}, g.count);
+                    gap->put_int(checksums::Name{kGapScore}, g.score);
+                    gap->put_vec3(checksums::Name{kGapPos}, {.x = core::at(g.pos, 0), .y = core::at(g.pos, 1), .z = core::at(g.pos, 2)});
+                    gap->put_vec3(checksums::Name{kGapDir}, {.x = core::at(g.dir, 0), .y = core::at(g.dir, 1), .z = core::at(g.dir, 2)});
                     list->set_cell(static_cast<uint32_t>(i), script::Cell::of(gap));
                 }
                 entry->append_array_ref(kGapList, list);
             }
         } else if (!checklist->built()) {
-            entry->put_int(kGapsBuilt, 0);
+            entry->put_int(checksums::Name{kGapsBuilt}, 0);
         } else {
-            entry->put_int(kGapsBuilt, 1);
+            entry->put_int(checksums::Name{kGapsBuilt}, 1);
             const int count = checklist->total_of();
             gsl::owner<script::Array*> list = alloc_script_array(static_cast<uint32_t>(count), script::kQbvalStruct);
             for (int i = 0; i < count; ++i) {
                 gsl::owner<script::Struct*> gap = script::new_struct();
                 gap->append_word(kGapName, checklist->get_gap_title(i));
-                gap->put_int(kGapCount, checklist->count_gaps_found(i));
-                gap->put_int(kGapScore, checklist->get_gap_points(i));
+                gap->put_int(checksums::Name{kGapCount}, checklist->count_gaps_found(i));
+                gap->put_int(checksums::Name{kGapScore}, checklist->get_gap_points(i));
                 maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f}, dir = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
                 if (checklist->count_gaps_found(i))
                     checklist->get_gap_positions(i, &pos, &dir);
-                gap->put_vec3(kGapPos, pos.x, pos.y, pos.z);
-                gap->put_vec3(kGapDir, dir.x, dir.y, dir.z);
+                gap->put_vec3(checksums::Name{kGapPos}, {.x = pos.x, .y = pos.y, .z = pos.z});
+                gap->put_vec3(checksums::Name{kGapDir}, {.x = dir.x, .y = dir.y, .z = dir.z});
                 list->set_cell(static_cast<uint32_t>(i), script::Cell::of(gap));
             }
             entry->append_array_ref(kGapList, list);
@@ -531,8 +531,8 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     career->append_array_ref(kGlobalFlagsArray, globals);
     career->append_array_ref(kGapLevelList, gap_levels);
     career->append_array_ref(kVisitedArray, visited);
-    career->put_name_key(0xE3335D2F, modules::Skate::sole()->level());
-    career->put_name_key(0x2CC06F5E, goals::game_mode()->get_name_key());
+    career->put_name_key(checksums::Name{0xE3335D2F}, modules::Skate::sole()->level());
+    career->put_name_key(checksums::Name{0x2CC06F5E}, goals::game_mode()->get_name_key());
     // (both made first, then sized, as the original)
     gsl::owner<script::Array*> cash_memory = script::alloc_script_array();
     gsl::owner<script::Array*> cash = cash_memory ? memory::construct_in<script::Array>(cash_memory) : nullptr;
@@ -546,16 +546,16 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     }
     career->append_array_ref(kCashArray, cash);
     career->append_array_ref(kAmountArray, amounts);
-    career->put_int(kCashBalanceKey, lifetime_funds_);
-    career->put_int(kTotalAmount, total_amount_);
+    career->put_int(checksums::Name{kCashBalanceKey}, lifetime_funds_);
+    career->put_int(checksums::Name{kTotalAmount}, total_amount_);
     gsl::owner<script::Array*> counters = alloc_script_array(18, script::kQbvalInteger);
     for (int level = 0; level < 18; ++level)
         counters->set_element(static_cast<uint32_t>(level), core::at(counter_, level));
     career->append_array_ref(kCounterArray, counters);
-    career->put_int(kTotalCounter, total_counter_);
-    career->put_int(kFlag5eF, flag_5e_f_);
-    career->put_int(kValue634, value634_);
-    career->put_int(kMaxValue634, max_value634_);
+    career->put_int(checksums::Name{kTotalCounter}, total_counter_);
+    career->put_int(checksums::Name{kFlag5eF}, flag_5e_f_);
+    career->put_int(checksums::Name{kValue634}, value634_);
+    career->put_int(checksums::Name{kMaxValue634}, max_value634_);
     career->put_sub_struct(kCareerInfoKey, details_);
     save->append_struct_ref(kCareerStructure, career);
 }

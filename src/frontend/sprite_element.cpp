@@ -206,8 +206,8 @@ void ImageWidget::change_traits(Struct* params)
 void ImageWidget::get_properties(Struct* out)
 {
     UiWidget::get_properties(out);
-    out->push_float(kRotAngle, shown().angle);
-    out->put_name_key(kTexture, texture_);
+    out->push_float(checksums::Name{kRotAngle}, shown().angle);
+    out->put_name_key(checksums::Name{kTexture}, texture_);
 }
 
 // 0x004AF5E0

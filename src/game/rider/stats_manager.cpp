@@ -340,7 +340,7 @@ void AttributeTracker::announce_met_goals()
         }
         if (text)
             params->append_word(0xC4745838u, script::fetch_text(text));
-        params->put_int(0x2044BAAFu, 1);
+        params->put_int(checksums::Name{0x2044BAAFu}, 1);
         launch_script(0x55E516C8, params);
         if (raise_stats_)
             profile->set_ability_level(stat, profile->fetch_tally(stat) + 1);
@@ -367,10 +367,10 @@ void AttributeTracker::meet_goal(int index)
     const script::StructPtr params = script::make_struct();
     Goal& goal = core::at(goals_, index);
     params->append_word(0x61414D56u, goal.label_);
-    params->put_int(0xE288A7CBu, goal.aim_point_);
+    params->put_int(checksums::Name{0xE288A7CBu}, goal.aim_point_);
     if (goal.text_)
         params->append_word(0xC257D69Au, goal.text_);
-    params->put_int(0x7F8C98FEu, index);
+    params->put_int(checksums::Name{0x7F8C98FEu}, index);
     launch_script(0x55E516C8, params.get());
     goal.met_ = true;
 }
@@ -470,7 +470,7 @@ void AttributeTracker::tick_frame()
         case kAirCombo:
             if (air_phase_ == 2 && air_best_ >= goal.aim_point_) {
                 script::StructPtr params = script::make_struct();
-                params->put_int(0xCD66C8AEu, air_best_);
+                params->put_int(checksums::Name{0xCD66C8AEu}, air_best_);
                 launch_script(0x7C9C7232, params.get());
                 params.reset();
                 meets = true;
@@ -609,7 +609,7 @@ bool AttributeTracker::get_goal_status_member(script::Struct* params, script::Sc
 {
     int index = 0;
     params->fetch_int_value(0u, &index, 1);
-    script->args()->put_int(0x84FF9AE3u, core::at(goals_, index).cur_standing_);
+    script->args()->put_int(checksums::Name{0x84FF9AE3u}, core::at(goals_, index).cur_standing_);
     return true;
 }
 
@@ -634,7 +634,7 @@ bool AttributeTracker::unlock_pro_goals(script::Struct*, script::Script*)
 // 0x0051CB70
 bool AttributeTracker::get_last_air_combo_score(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(0x2D3B766Bu, last_air_combo_score_);
+    script->args()->put_int(checksums::Name{0x2D3B766Bu}, last_air_combo_score_);
     return true;
 }
 

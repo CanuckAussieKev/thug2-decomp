@@ -180,7 +180,7 @@ bool cfunc_home_spot(script::Struct*, script::Script* script)
         heading = stage_map().start.heading;
         from = "near the start";
     }
-    script->args()->put_vec3("pos", pos.x, pos.y, pos.z);
+    script->args()->put_vec3("pos", {.x = pos.x, .y = pos.y, .z = pos.z});
     script->args()->push_float("heading", heading);
     get_log("thaw_bmx: the level's bike at (%.0f, %.0f, %.0f) heading %.0f (%s)", pos.x, pos.y, pos.z, heading, from);
     return true;

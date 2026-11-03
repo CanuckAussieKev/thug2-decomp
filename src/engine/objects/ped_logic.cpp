@@ -421,7 +421,7 @@ bool PedestrianBrainModule::ped_set_logic_state(script::Struct* params, script::
 // 0x004EDD80
 bool PedestrianBrainModule::ped_get_logic_state(script::Struct*, script::Script* script)
 {
-    script->args()->put_name_key(kLogicState, cur_phase_);
+    script->args()->put_name_key(checksums::Name{kLogicState}, cur_phase_);
     return true;
 }
 
@@ -499,7 +499,7 @@ bool PedestrianBrainModule::ped_near_vert_node(script::Struct*, script::Script*)
 // 0x004EDDA0
 bool PedestrianBrainModule::ped_get_current_velocity(script::Struct*, script::Script* script)
 {
-    script->args()->push_float(kVelocity, get_motion(entity())->path_speed());
+    script->args()->push_float(checksums::Name{kVelocity}, get_motion(entity())->path_speed());
     return true;
 }
 
@@ -513,7 +513,7 @@ bool PedestrianBrainModule::ped_store_max_velocity(script::Struct*, script::Scri
 // 0x004EDE00
 bool PedestrianBrainModule::ped_get_original_max_velocity(script::Struct*, script::Script* script)
 {
-    script->args()->push_float(kOriginalMaxVelocity, stored_max_velocity_);
+    script->args()->push_float(checksums::Name{kOriginalMaxVelocity}, stored_max_velocity_);
     return true;
 }
 
@@ -577,16 +577,16 @@ bool PedestrianBrainModule::ped_play_land_sound(script::Struct*, script::Script*
 // 0x004EE1E0
 bool PedestrianBrainModule::ped_get_current_node_names(script::Struct*, script::Script* script)
 {
-    script->args()->put_name_key(kNodeTo, next_node_);
-    script->args()->put_name_key(kNodeFrom, list_link_);
-    script->args()->put_name_key(kNodeAfter, node_after_);
+    script->args()->put_name_key(checksums::Name{kNodeTo}, next_node_);
+    script->args()->put_name_key(checksums::Name{kNodeFrom}, list_link_);
+    script->args()->put_name_key(checksums::Name{kNodeAfter}, node_after_);
     return true;
 }
 
 // 0x004EE230
 bool PedestrianBrainModule::ped_get_gender(script::Struct*, script::Script* script)
 {
-    script->args()->put_name_key(kGender, female_ == 1 ? kFemale : kMale);
+    script->args()->put_name_key(checksums::Name{kGender}, female_ == 1 ? kFemale : kMale);
     return true;
 }
 

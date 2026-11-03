@@ -178,10 +178,10 @@ bool CinematicEntry::read_in(script::Struct* params)
                 music = 1;
                 streams = 1;
             }
-            args_->put_int(0xCDF2B13E, music);
-            args_->put_int(0x9A4BDFF5, streams);
-            args_->put_int(0xED064302, 1);
-            args_->put_int(0xBABF2DC9, 1);
+            args_->put_int(checksums::Name{0xCDF2B13E}, music);
+            args_->put_int(checksums::Name{0x9A4BDFF5}, streams);
+            args_->put_int(checksums::Name{0xED064302}, 1);
+            args_->put_int(checksums::Name{0xBABF2DC9}, 1);
             args_->append_structure_if_any(settings.get());
             get_run(0x722D9CA7);
             gfx::hide_models_for_cutscene();
@@ -241,7 +241,7 @@ void CinematicEntry::stop()
     auto* skater = static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
     if (skater) {
         const script::StructPtr flag = script::make_struct();
-        flag->put_name_key(kUnnamed, kFlagParam);
+        flag->put_name_key(checksums::Name{kUnnamed}, kFlagParam);
         get_run(0xABF617EE, flag.get(), static_cast<Entity*>(skater));
     }
     get_run(0xBCA1791C, args_);

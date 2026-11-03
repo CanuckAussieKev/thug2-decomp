@@ -139,10 +139,10 @@ bool cfunc_get_current_skater_cam_anim_name(script::Struct*, script::Script* scr
 {
     const uint32_t name = camera_movies()->get_playing_name();
     if (name) {
-        script->args()->put_name_key(kCurrentAnimName, name);
+        script->args()->put_name_key(checksums::Name{kCurrentAnimName}, name);
         return true;
     }
-    script->args()->put_name_key(kCurrentAnimName, kNone);
+    script->args()->put_name_key(checksums::Name{kCurrentAnimName}, kNone);
     return false;
 }
 

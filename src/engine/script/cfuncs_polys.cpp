@@ -25,6 +25,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/packed_colour.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/vec2.h"
 #include <span>
 #include <vector>
 namespace commands {
@@ -148,8 +149,14 @@ bool cfunc_spawn_poly(Struct* params, Script*)
     script::VectorValue vector2 = {.x = 0.0f, .y = 1.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(kSpawnVector1, &vector1, 0);
     params->fetch_vec(kSpawnVector2, &vector2, 0);
-    params->fetch_pair(kStartDims, &core::at(details->start_dims(), 0), &core::at(details->start_dims(), 1), 1);
-    params->fetch_pair(kEndDims, &core::at(details->end_dims(), 0), &core::at(details->end_dims(), 1), 1);
+    maths::Vec2 dims{.x = core::at(details->start_dims(), 0), .y = core::at(details->start_dims(), 1)};
+    params->fetch_pair(kStartDims, &dims, 1);
+    core::at(details->start_dims(), 0) = dims.x;
+    core::at(details->start_dims(), 1) = dims.y;
+    dims = {.x = core::at(details->end_dims(), 0), .y = core::at(details->end_dims(), 1)};
+    params->fetch_pair(kEndDims, &dims, 1);
+    core::at(details->end_dims(), 0) = dims.x;
+    core::at(details->end_dims(), 1) = dims.y;
     params->fetch_float(kLifetime, &details->lifetime(), 1);
     Array* start = nullptr; // (uninitialised in the original)
     Array* end = nullptr;

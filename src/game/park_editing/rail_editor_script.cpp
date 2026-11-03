@@ -122,7 +122,7 @@ void RailAuthoring::conceal(bool hide)
     manager->builder()->build_rails(manager->concrete_metas());
     // The camera told whose it is (the input component's configure_from_data: player 0), the pad's events dropped.
     script::StructPtr params = script::make_struct();
-    params->put_int(kPlayer, 0);
+    params->put_int(checksums::Name{kPlayer}, 0);
     static_cast<objects::ObjectModule*>(input_ptr_)->configure_from_data(params.get());
     params.reset();
     pad_of(input_ptr_)->get_clear();
@@ -131,12 +131,12 @@ void RailAuthoring::conceal(bool hide)
 // 0x004F6C10
 void RailAuthoring::fetch_diagnostics(script::Struct* info)
 {
-    info->put_int(kNumFreeRailPoints, free_points());
-    info->put_int(kNumFreeRails, kMaxRails - rail_pool_used());
+    info->put_int(checksums::Name{kNumFreeRailPoints}, free_points());
+    info->put_int(checksums::Name{kNumFreeRails}, kMaxRails - rail_pool_used());
     if (active_node_)
         info->append_struct_ref(kCurrentRail, script::new_struct());
     else
-        info->put_name_key(kCurrentRail, kNull);
+        info->put_name_key(checksums::Name{kCurrentRail}, kNull);
     int count = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following())
         ++count;
@@ -173,10 +173,10 @@ void RailAuthoring::write_to_structure(script::Struct* params)
         uint32_t i = 0;
         for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
             gsl::owner<script::Struct*> point = script::new_struct();
-            point->put_vec3(kPos, p->at_point().x, p->at_point().y, p->at_point().z);
+            point->put_vec3(checksums::Name{kPos}, {.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z});
             // (a post drawn, not has_post_)
             if (p->post())
-                point->put_name_key(0u, kHasPost);
+                point->put_name_key(checksums::Name{0u}, kHasPost);
             points->set_cell(i++, script::Cell::of(point));
         }
         rail_info->append_array_ref(kPoints, points);
@@ -218,14 +218,14 @@ void RailAuthoring::write_nodes(script::Array* nodes, int* index, uint32_t name)
         for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
             auto* node = nodes->struct_at(static_cast<uint32_t>(next));
             ++next;
-            node->put_vec3(kPos, p->at_point().x, p->at_point().y, p->at_point().z);
-            node->put_name_key(kName, name++);
-            node->put_name_key(0u, kRailNodeClass);
-            node->put_name_key(0u, kTrickObject);
+            node->put_vec3(checksums::Name{kPos}, {.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z});
+            node->put_name_key(checksums::Name{kName}, name++);
+            node->put_name_key(checksums::Name{0u}, kRailNodeClass);
+            node->put_name_key(checksums::Name{0u}, kTrickObject);
             std::array<char, 52> cluster{};
             text::format_to(cluster, "CreatedRailCluster%d", rail_index);
-            node->put_name_key(kCluster, checksums::hash_from_text(cluster.data()));
-            node->put_name_key(kSurfaceKindKey, kMetalSmooth);
+            node->put_name_key(checksums::Name{kCluster}, checksums::hash_from_text(cluster.data()));
+            node->put_name_key(checksums::Name{kSurfaceKindKey}, kMetalSmooth);
             if (p->following()) {
                 // linked to the next point's node (the next one written)
                 gsl::owner<script::Array*> links = script::new_array();
@@ -247,7 +247,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
     case kSetEditingMode: {
         params->read_hash_value(kMode, &mode_sel_, 0);
         script::StructPtr text = script::make_struct();
-        text->put_name_key(kMode, kRailPlacement);
+        text->put_name_key(checksums::Name{kMode}, kRailPlacement);
         script::launch_script(kHelperTextMode, text.get(), nullptr, false, nullptr);
         text.reset();
         return 1;
@@ -286,7 +286,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         return 0;
     }
     case kGetEditingMode:
-        script->args().get()->put_name_key(kMode, mode_sel_);
+        script->args().get()->put_name_key(checksums::Name{kMode}, mode_sel_);
         return 1;
     case kDeleteRailPoint: {
         uint32_t id = 0;
@@ -334,8 +334,8 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         const Vec4& target = viewer_location(view_camera_);
         auto y = static_cast<float>(static_cast<double>(target.y) + camera_height(view_camera_));
         script::Struct* results = script->args().get();
-        results->put_vec3(kPos, target.x, y, target.z);
-        results->push_float(kAngle,
+        results->put_vec3(checksums::Name{kPos}, {.x = target.x, .y = y, .z = target.z});
+        results->push_float(checksums::Name{kAngle},
                             static_cast<float>(static_cast<double>(camera_heading(view_camera_)) * kAngleScaleToDeg));
         return 1;
     }
@@ -375,8 +375,8 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
             rail = active_node_;
         if (!rail)
             return 0;
-        script->args().get()->put_name_key(kRailId, rail->ident());
-        script->args().get()->put_int(kNumPoints, rail->rail_point_total());
+        script->args().get()->put_name_key(checksums::Name{kRailId}, rail->ident());
+        script->args().get()->put_int(checksums::Name{kNumPoints}, rail->rail_point_total());
         return 1;
     }
     default:

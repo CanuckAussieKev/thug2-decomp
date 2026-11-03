@@ -285,7 +285,7 @@ bool cfunc_debug_line(Struct* params, Script*)
 bool cfunc_get_pause_pos_by_resolution(Struct*, Script* script)
 {
     const float x = render::present_parameters().BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
-    script->args()->insert_pair(checksums::hash_from_text("pos"), x, 240.0f);
+    script->args()->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = 240.0f});
     return true;
 }
 
@@ -345,9 +345,9 @@ bool cfunc_get_gamma_values(Struct*, Script* script)
     out->erase_module(kGreen);
     out->erase_module(kBlue);
     // x87: the product isn't rounded to a float before it's truncated
-    out->put_int(kRed, static_cast<int>(static_cast<double>(red) * 100.0));
-    out->put_int(kGreen, static_cast<int>(static_cast<double>(green) * 100.0));
-    out->put_int(kBlue, static_cast<int>(static_cast<double>(blue) * 100.0));
+    out->put_int(checksums::Name{kRed}, static_cast<int>(static_cast<double>(red) * 100.0));
+    out->put_int(checksums::Name{kGreen}, static_cast<int>(static_cast<double>(green) * 100.0));
+    out->put_int(checksums::Name{kBlue}, static_cast<int>(static_cast<double>(blue) * 100.0));
     return true;
 }
 
@@ -366,8 +366,8 @@ bool cfunc_get_dynamic_light_modulation_factor(Struct* params, Script* script)
         low = render::fetch_diffuse_scale(directional, true);
         high = render::fetch_diffuse_scale(directional, false);
     }
-    script->args()->push_float(kModValueLo, low);
-    script->args()->push_float(kModValueHi, high);
+    script->args()->push_float(checksums::Name{kModValueLo}, low);
+    script->args()->push_float(checksums::Name{kModValueHi}, high);
     return true;
 }
 
@@ -456,8 +456,8 @@ bool cfunc_get_light_direction(Struct* params, Script* script)
     params->fetch_int_value(kIndex, &index, 0);
     maths::Vec4 direction = *render::get_light_direction(index);
     direction.convert_to_degrees();
-    script->args()->push_float(kHeading, direction.y);
-    script->args()->push_float(kPitch, direction.x);
+    script->args()->push_float(checksums::Name{kHeading}, direction.y);
+    script->args()->push_float(checksums::Name{kPitch}, direction.x);
     return true;
 }
 
@@ -479,9 +479,9 @@ bool cfunc_get_light_current_color(Struct*, Script* script)
     Struct* out = script->args().get();
     uint32_t colour = 0;
     auto add = [&](uint32_t red, uint32_t green, uint32_t blue) {
-        out->put_int(red, static_cast<int>(colour & 0xFF));
-        out->put_int(green, static_cast<int>(colour >> 8 & 0xFF));
-        out->put_int(blue, static_cast<int>(colour >> 16 & 0xFF));
+        out->put_int(checksums::Name{red}, static_cast<int>(colour & 0xFF));
+        out->put_int(checksums::Name{green}, static_cast<int>(colour >> 8 & 0xFF));
+        out->put_int(checksums::Name{blue}, static_cast<int>(colour >> 16 & 0xFF));
     };
     uint32_t buffer = 0;
     colour = *render::get_light_ambient_color(&buffer);
@@ -509,9 +509,9 @@ bool cfunc_get_bone_position(Struct* params, Script* script)
         objects::ObjectModule* skeleton = core::down_cast<objects::GameEntity>(object)->fetch_module(kSkeleton);
         found = core::down_cast<objects::BoneRigModule>(skeleton)->get_bone_position(bone, &position);
     }
-    script->args()->push_float(kX, position.x);
-    script->args()->push_float(kY, position.y);
-    script->args()->push_float(kZ, position.z);
+    script->args()->push_float(checksums::Name{kX}, position.x);
+    script->args()->push_float(checksums::Name{kY}, position.y);
+    script->args()->push_float(checksums::Name{kZ}, position.z);
     return found;
 }
 

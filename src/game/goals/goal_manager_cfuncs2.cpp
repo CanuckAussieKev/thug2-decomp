@@ -84,7 +84,7 @@ bool cfunc_goal_manager_create_goal_name(script::Struct* params, script::Script*
         get_append(name.data(), "_classic"); // "_classic"
     get_append(name.data(), "_goal_");       // "_goal_"
     get_append(name.data(), type);
-    script->args()->put_name_key(kGoalIdChecksum, checksums::hash_from_text(name.data()));
+    script->args()->put_name_key(checksums::Name{kGoalIdChecksum}, checksums::hash_from_text(name.data()));
     script->args()->append_word(kGoalName, name.data());
     return true;
 }
@@ -206,7 +206,7 @@ bool cfunc_goal_manager_get_number_of_goal_points(script::Struct* params, script
 {
     const GoalManager* manager = get_objective_board();
     const int points = params->has_bare_flag(kTotal) ? manager->total_goal_points() : manager->objective_score();
-    script->args()->put_int(kGoalScoreValue, points);
+    script->args()->put_int(checksums::Name{kGoalScoreValue}, points);
     return true;
 }
 
@@ -371,7 +371,7 @@ bool cfunc_goal_manager_is_in_competition(script::Struct*, script::Script* scrip
     Objective* competition = get_objective_board()->get_active_competition();
     if (!competition)
         return false;
-    script->args()->put_name_key(kGoalIdChecksum, competition->get_objective_key());
+    script->args()->put_name_key(checksums::Name{kGoalIdChecksum}, competition->get_objective_key());
     return true;
 }
 
@@ -385,7 +385,7 @@ bool cfunc_goal_manager_get_goal_animations(script::Struct* params, script::Scri
     const uint32_t animations = goal->ped()->get_objective_anim_sets(type);
     script->args()->erase_module(kProStuff);
     if (animations)
-        script->args()->put_name_key(kProStuff, animations);
+        script->args()->put_name_key(checksums::Name{kProStuff}, animations);
     return true;
 }
 

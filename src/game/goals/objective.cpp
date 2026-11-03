@@ -162,7 +162,7 @@ void Objective::zero_objective_bits()
         clear_flag_values(goal_flags_);
     }
     num_flags_set_ = 0;
-    args_->put_int(kNumFlagsSet, 0);
+    args_->put_int(checksums::Name{kNumFlagsSet}, 0);
 }
 
 // 0x00554110
@@ -259,7 +259,7 @@ void Objective::picked_up_countable()
     int collected = 0;
     args_->fetch_int_value(kNumberCollected, &collected, 0);
     ++collected;
-    args_->put_int(kNumberCollected, collected);
+    args_->put_int(checksums::Name{kNumberCollected}, collected);
     if (args_->has_bare_flag(kUseHudCounter))
         script::launch_script(kGoalUpdateCounter, args_.get(), nullptr, false, nullptr);
 }
@@ -299,7 +299,7 @@ void Objective::unpick() { flag_bits_ &= ~kFlagSelected; }
 bool Objective::may_try_again() { return args_->has_bare_flag(kCanRetryGoal); }
 
 // 0x00554470
-void Objective::reset_current_time() { args_->put_int(kCurrentTime, 0); }
+void Objective::reset_current_time() { args_->put_int(checksums::Name{kCurrentTime}, 0); }
 
 // 0x00554480
 void Objective::update_current_time()
@@ -310,14 +310,14 @@ void Objective::update_current_time()
     int time = 0; // (missing: 0 - the original read an argument's stack slot, an address)
     args_->fetch_int_value(kCurrentTime, &time, 0);
     time += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand); // (1000)
-    args_->put_int(kCurrentTime, time);
+    args_->put_int(checksums::Name{kCurrentTime}, time);
     auto ms = static_cast<uint32_t>(time);
-    args_->put_int(kCurrentTimeSeconds, static_cast<int>(ms / 1000));
-    args_->put_int(kCurrentTimeFraction, static_cast<int>(ms / 10 % 100));
+    args_->put_int(checksums::Name{kCurrentTimeSeconds}, static_cast<int>(ms / 1000));
+    args_->put_int(checksums::Name{kCurrentTimeFraction}, static_cast<int>(ms / 10 % 100));
 }
 
 // 0x00554510
-void Objective::set_quick_start() { args_->put_name_key(kNoName, kQuickStart); }
+void Objective::set_quick_start() { args_->put_name_key(checksums::Name{kNoName}, kQuickStart); }
 
 // 0x00554520
 void Objective::unset_quick_start() { args_->remove_flag(kQuickStart); }
@@ -370,7 +370,7 @@ void Objective::restore_save_block(script::Struct* data)
         flag_bits_ |= kFlagSeen;
     int record = 0;
     data->fetch_int_value(kWinRecord, &record, 1);
-    args_->put_int(kWinRecord, record);
+    args_->put_int(checksums::Name{kWinRecord}, record);
     uint32_t type = 0;
     if (args_->read_hash_value(kRecordType, &type, 0)) {
         if (type == kTime)
@@ -398,12 +398,12 @@ void Objective::restore_save_block(script::Struct* data)
 // 0x00554770
 void Objective::capture_save_block(script::Struct* data)
 {
-    data->put_int(kLevelNum, level_);
+    data->put_int(checksums::Name{kLevelNum}, level_);
     void* manager = objective_board();
     const bool locked = (flag_bits_ & kFlagLocked) || is_group_locked(manager, bundle_, level_);
-    data->put_int(kIsLocked, locked);
-    data->put_int(kHasSeen, (flag_bits_ & kFlagSeen) ? 1 : 0);
-    data->put_int(kAlreadyWon, has_won());
+    data->put_int(checksums::Name{kIsLocked}, locked);
+    data->put_int(checksums::Name{kHasSeen}, (flag_bits_ & kFlagSeen) ? 1 : 0);
+    data->put_int(checksums::Name{kAlreadyWon}, has_won());
     int record = 0;
     uint32_t type = 0;
     if (args_->read_hash_value(kRecordType, &type, 0)) {
@@ -412,8 +412,8 @@ void Objective::capture_save_block(script::Struct* data)
         else if (type == kScore)
             record = record_points_;
     }
-    data->put_int(kWinRecord, record);
-    data->put_name_key(kNoName, args_->has_entry_named(kClassicModeGoal) ? kClassic : kCareer);
+    data->put_int(checksums::Name{kWinRecord}, record);
+    data->put_name_key(checksums::Name{kNoName}, args_->has_entry_named(kClassicModeGoal) ? kClassic : kCareer);
     if (args_->has_bare_flag(kSaveGoalFlags) && !goal_flags_->is_vacant())
         data->put_sub_struct(kGoalFlags, goal_flags_);
 }

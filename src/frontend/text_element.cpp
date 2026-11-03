@@ -29,6 +29,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/objects/anim_movies.h"
 #include "game/goals/objective.h"
+#include "engine/maths/vec2.h"
 #include <gsl/pointers>
 
 namespace frontend {
@@ -376,16 +377,16 @@ void LabelWidget::set_char_properties(script::Array* chars)
         if (c->fetch_float(kRotAngle, &degrees, 0))
             static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_rotation(
                 index, static_cast<float>(static_cast<double>(degrees) * get_degrees()));
-        float x = 0.0f, y = 0.0f;
-        if (c->fetch_pair(kOffset, &x, &y, 0)) {
-            const int iy = get_truncated(y);
-            const int ix = get_truncated(x);
+        maths::Vec2 offset{.x = 0.0f, .y = 0.0f};
+        if (c->fetch_pair(kOffset, &offset, 0)) {
+            const int iy = get_truncated(offset.y);
+            const int ix = get_truncated(offset.x);
             static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_offset(index, static_cast<int16_t>(ix),
                                                                           static_cast<int16_t>(iy));
         }
-        float scale_x = 0.0f, scale_y = 0.0f;
-        if (c->fetch_pair(kScale, &scale_x, &scale_y, 0))
-            static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_scale(index, scale_x, scale_y);
+        maths::Vec2 scale{.x = 0.0f, .y = 0.0f};
+        if (c->fetch_pair(kScale, &scale, 0))
+            static_cast<render::GlyphString*>(object_at(texts_, num_, 0))->set_char_scale(index, scale.x, scale.y);
     }
 }
 

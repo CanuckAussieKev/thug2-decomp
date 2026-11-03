@@ -413,7 +413,7 @@ bool cfunc_game_is_paused(script::Struct* params, script::Script*)
 {
     if (!objects::simulation_halted())
         return false;
-    params->put_name_key(kPausedAnswerKey, kPausedAnswerKey);
+    params->put_name_key(checksums::Name{kPausedAnswerKey}, kPausedAnswerKey);
     return true;
 }
 
@@ -541,7 +541,7 @@ bool cfunc_get_current_level(script::Struct*, script::Script* script)
 {
     const modules::Skate* skate = modules::Skate::sole();
     script->args()->add_component_of_type(0x651533EC, script::kQbvalName, modules::Skate::sole()->pending_level());
-    script->args()->put_name_key(0x16A0B364, modules::Skate::sole()->level_params());
+    script->args()->put_name_key(checksums::Name{0x16A0B364}, modules::Skate::sole()->level_params());
     return true;
 }
 
@@ -557,7 +557,7 @@ bool cfunc_set_level_structure_name(script::Struct* params, script::Script*)
 // 0x005A12A0: GetLevelStructureName: the skate module's +0x380 as the script's 0x63B1214E.
 bool cfunc_get_level_structure_name(script::Struct*, script::Script* script)
 {
-    script->args()->put_name_key(0x63B1214E, modules::Skate::sole()->level_params());
+    script->args()->put_name_key(checksums::Name{0x63B1214E}, modules::Skate::sole()->level_params());
     return true;
 }
 
@@ -760,7 +760,7 @@ bool cfunc_toggle_rails(script::Struct*, script::Script*)
 // 0x005A1FD0: GetTimeLimit: the game mode's time limit as the script's time_limit.
 bool cfunc_get_time_limit(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(0xC51BF6E3, game_mode_time_limit()); // "time_limit"
+    script->args()->put_int(checksums::Name{0xC51BF6E3}, game_mode_time_limit()); // "time_limit"
     return true;
 }
 
@@ -768,20 +768,20 @@ bool cfunc_get_time_limit(script::Struct*, script::Script* script)
 // 0x38DBE1D0 / 0x6835B854.
 bool cfunc_get_goals_mode(script::Struct*, script::Script* script)
 {
-    script->args()->put_name_key(0x38DBE1D0, game_mode_object()->get_goals_mode());
+    script->args()->put_name_key(checksums::Name{0x38DBE1D0}, game_mode_object()->get_goals_mode());
     return true;
 }
 
 bool cfunc_get_team_graffiti_mode(script::Struct*, script::Script* script)
 {
-    script->args()->put_name_key(0x6835B854, game_mode_object()->get_goals_mode());
+    script->args()->put_name_key(checksums::Name{0x6835B854}, game_mode_object()->get_goals_mode());
     return true;
 }
 
 // 0x005A2030: GetGameMode: the game mode's name (0x005532A0) as the script's 0x3E04B26B.
 bool cfunc_get_game_mode(script::Struct*, script::Script* script)
 {
-    script->args()->put_name_key(0x3E04B26B, game_mode_object()->get_name_key());
+    script->args()->put_name_key(checksums::Name{0x3E04B26B}, game_mode_object()->get_name_key());
     return true;
 }
 

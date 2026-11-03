@@ -323,7 +323,7 @@ void AnimTrack::play_anim(uint32_t anim, float start, float end, int loop_type, 
     fade_rate_ = 1.0f / 60.0f; // (0x3C888889)
 
     gsl::owner<Struct*> settings = script::new_struct();
-    settings->put_name_key(kType, loop_type == kLoopWobble ? kShakeController : kStandardController);
+    settings->put_name_key(checksums::Name{kType}, loop_type == kLoopWobble ? kShakeController : kStandardController);
     attach_controller(settings);
     script::free_struct(settings);
 
@@ -333,40 +333,40 @@ void AnimTrack::play_anim(uint32_t anim, float start, float end, int loop_type, 
         if (params->read_hash_value(kWeightedAnim, &weighted_anim, 0) || params->has_bare_flag(kWeightedFlag)) {
             params->fetch_float(kWeight, &weight, 0);
             settings = script::new_struct();
-            settings->put_name_key(kType, kWeightedController);
+            settings->put_name_key(checksums::Name{kType}, kWeightedController);
             attach_controller(settings);
             script::free_struct(settings);
         }
         Struct* controller_params = nullptr;
         if (params->read_sub_struct(kControllerParams, &controller_params, 0)) {
             settings = script::new_struct();
-            settings->put_name_key(kType, kProceduralController);
+            settings->put_name_key(checksums::Name{kType}, kProceduralController);
             settings->put_sub_struct(0u, controller_params); // (no name)
             attach_controller(settings);
             script::free_struct(settings);
         }
     }
     settings = script::new_struct();
-    settings->put_name_key(kType, kTumbleController);
-    settings->put_int(kFlipped, flipped);
+    settings->put_name_key(checksums::Name{kType}, kTumbleController);
+    settings->put_int(checksums::Name{kFlipped}, flipped);
     attach_controller(settings);
     script::free_struct(settings);
 
     settings = script::new_struct();
-    settings->push_float(kFraction, 0.0f);
+    settings->push_float(checksums::Name{kFraction}, 0.0f);
     for (int i = 0; i < controller_count_; ++i)
         core::at(controller_list_, i)->invoke_method_by_name(kSetTarget, settings, nullptr);
     script::free_struct(settings);
 
     settings = script::new_struct();
-    settings->put_name_key(kAnimName, anim);
-    settings->push_float(kStartTime, start);
-    settings->push_float(kEndTime, end);
-    settings->put_int(kRepeatMode, loop_type);
-    settings->push_float(kBlendPeriod, blend_period);
-    settings->push_float(kSpeed, speed);
-    settings->put_name_key(kWeightedAnim, weighted_anim);
-    settings->push_float(kWeight, weight);
+    settings->put_name_key(checksums::Name{kAnimName}, anim);
+    settings->push_float(checksums::Name{kStartTime}, start);
+    settings->push_float(checksums::Name{kEndTime}, end);
+    settings->put_int(checksums::Name{kRepeatMode}, loop_type);
+    settings->push_float(checksums::Name{kBlendPeriod}, blend_period);
+    settings->push_float(checksums::Name{kSpeed}, speed);
+    settings->put_name_key(checksums::Name{kWeightedAnim}, weighted_anim);
+    settings->push_float(checksums::Name{kWeight}, weight);
     for (int i = 0; i < controller_count_; ++i)
         core::at(controller_list_, i)->invoke_method_by_name(kPlayAnim, settings, nullptr);
     script::free_struct(settings);

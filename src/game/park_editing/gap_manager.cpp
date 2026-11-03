@@ -187,15 +187,15 @@ void GapRegistry::fire_gap(int index, script::Script* script)
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         const Gap* gap = core::at(gaps_ptr_, index);
-        params->put_name_key(kGapId, core::at(gap->ids_, half));
-        params->put_int(kScore, core::at(gaps_ptr_, index)->details_.points_held());
+        params->put_name_key(checksums::Name{kGapId}, core::at(gap->ids_, half));
+        params->put_int(checksums::Name{kScore}, core::at(gaps_ptr_, index)->details_.points_held());
         params->append_word(kText, core::at(gaps_ptr_, index)->label_.data());
         uint32_t name = kEndGap;
         if (i == 0) {
             uint32_t flags = core::at(gaps_ptr_, index)->details_.cancel_flags();
             if (!flags)
                 flags = static_cast<uint32_t>(script::fetch_int_value(kCancelGround));
-            params->put_name_key(kCombinedFlags, flags);
+            params->put_name_key(checksums::Name{kCombinedFlags}, flags);
             name = kStartGap;
         }
         invoke_method_by_name(script->entity().get_pull(), name, params, script);

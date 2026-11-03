@@ -252,7 +252,7 @@ int format_text(script::Struct* results, script::Struct* params)
     if (text_name)
         results->append_word(text_name, buffer.data());
     if (name_key_hash)
-        results->put_name_key(name_key_hash, checksums::hash_from_text(buffer.data()));
+        results->put_name_key(checksums::Name{name_key_hash}, checksums::hash_from_text(buffer.data()));
     return result;
 }
 
@@ -621,7 +621,7 @@ bool cfunc_cast_to_integer(script::Struct* params, script::Script* script)
     if (!script->args()->fetch_float(name, &value, 0))
         return false;
     script->args()->erase_module(name);
-    script->args()->put_int(name, truncate(value));
+    script->args()->put_int(checksums::Name{name}, truncate(value));
     return true;
 }
 
@@ -640,7 +640,7 @@ bool cfunc_string_to_integer(script::Struct* params, script::Script* script)
     int value = 0;
     for (const char digit : std::string_view(string))
         value = value * 10 + (digit - '0');
-    script->args()->put_int(name, value);
+    script->args()->put_int(checksums::Name{name}, value);
     return true;
 }
 

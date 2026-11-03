@@ -166,11 +166,11 @@ bool cfunc_reset_all_to_default_stats(script::Struct*, script::Script*)
             table_row(stat_names, j)->read_hash_value(kName, &stat_name, 1);
             int value = 0;
             entry->fetch_int_value(stat_name, &value, 1);
-            stats->put_int(stat_name, value);
+            stats->put_int(checksums::Name{stat_name}, value);
         }
         int points = 0;
         entry->fetch_int_value(kPointsAvailable, &points, 1);
-        stats->put_int(kPointsAvailable, points);
+        stats->put_int(checksums::Name{kPointsAvailable}, points);
         const uint32_t count = template_count();
         for (uint32_t k = 0; k < count; ++k) {
             objects::RiderIdentity* profile = template_at(k);
@@ -240,7 +240,7 @@ bool cfunc_for_each_skater_name(script::Struct* params, script::Script*)
         template_at(i)->details_params()->read_hash_value(kName, &name, 1);
         const script::StructPtr run = script::make_struct();
         run->append_structure_if_any(script_params);
-        run->put_name_key(kName, name);
+        run->put_name_key(checksums::Name{kName}, name);
         script::launch_script(script, run.get(), nullptr, false, nullptr);
     }
     return true;
@@ -486,7 +486,7 @@ bool cfunc_update_skater_stats(script::Struct* params, script::Script*)
 // 0x005AFFE0: GetCurrentSkaterProfileIndex - the profile manager's current index as currentSkaterProfileIndex.
 bool cfunc_get_current_skater_profile_index(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(kCurrentSkaterProfileIndex, objects::profile_roster()->cursor_pos());
+    script->args()->put_int(checksums::Name{kCurrentSkaterProfileIndex}, objects::profile_roster()->cursor_pos());
     return true;
 }
 
@@ -505,7 +505,7 @@ bool cfunc_get_current_ped_pro_name(script::Struct*, script::Script* script)
     const script::SymbolTableEntry* entry = script::resolve_symbol(kCurrentPedPro);
     if (entry->type() != script::kQbvalStruct) // (the original also tests for a name first)
         return false;
-    script->args()->put_name_key(kPedProName, entry->name_value());
+    script->args()->put_name_key(checksums::Name{kPedProName}, entry->name_value());
     return true;
 }
 
@@ -517,8 +517,8 @@ bool cfunc_get_stat_value(script::Struct* params, script::Script* script)
     const float forced = modules::Skate::sole()->forced_stat();
     if (forced != 0.0f) {
         const int value = static_cast<int>(static_cast<int64_t>(forced)); // (the original's _ftol)
-        script->args()->put_name_key(kOverridden, kOverridden);
-        script->args()->put_int(kStatValue, value);
+        script->args()->put_name_key(checksums::Name{kOverridden}, kOverridden);
+        script->args()->put_int(checksums::Name{kStatValue}, value);
         return true;
     }
     uint32_t stat = 0; // (uninitialised in the original when missing)
@@ -533,7 +533,7 @@ bool cfunc_get_stat_value(script::Struct* params, script::Script* script)
             params->read_hash_value(kSkater, &name, 0) ? manager->get_template(name) : manager->fetch_active_account();
         value = profile->fetch_tally(stat);
     }
-    script->args()->put_int(kStatValue, value);
+    script->args()->put_int(checksums::Name{kStatValue}, value);
     return true;
 }
 
@@ -556,7 +556,7 @@ bool cfunc_unlock_skater(script::Struct* params, script::Script*)
     int hidden = 1;
     info->fetch_int_value(kIsHidden, &hidden, 1);
     if (hidden)
-        info->put_int(kIsHidden, 0);
+        info->put_int(checksums::Name{kIsHidden}, 0);
     return true;
 }
 

@@ -122,7 +122,7 @@ int sanitise(script::Struct* appearance)
     for (const Change& change : changes) {
         get_log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours: 0x%08X instead", change.slot,
                 change.from, change.to);
-        change.part->put_name_key(kDescId, change.to);
+        change.part->put_name_key(checksums::Name{kDescId}, change.to);
     }
     for (const uint32_t slot : remove)
         appearance->erase_module(slot);

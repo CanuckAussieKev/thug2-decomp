@@ -219,7 +219,7 @@ bool Objective::tick_frame()
                 core::down_cast<objects::Rider>(skater)->get_points_total();
             // (the combo's points: its base score times its multiplier)
             if (score && truncate(score->pot() * static_cast<double>(score->multiplier())) > 0)
-                args_->put_name_key(kNoName, kChainActiveFlag);
+                args_->put_name_key(checksums::Name{kNoName}, kChainActiveFlag);
         }
     }
     if (has_time_limit() && wants_to_end())
@@ -289,16 +289,16 @@ bool Objective::step_to_next_waypoint()
         if (args_->has_bare_flag(kAddTime)) {
             seconds_remaining_ += time * 1000 + 20;
         } else {
-            args_->put_int(kTime, time);
+            args_->put_int(checksums::Name{kTime}, time);
             reset_timer();
         }
         uint32_t id = 0;
         args_->read_hash_value(kGoalIdName, &id, 1);
-        waypoint->put_name_key(kGoalIdChecksum, id);
+        waypoint->put_name_key(checksums::Name{kGoalIdChecksum}, id);
         if (!num_flags_set_)
-            waypoint->put_name_key(kNoName, kFirstSpot);
+            waypoint->put_name_key(checksums::Name{kNoName}, kFirstSpot);
         if (args_->has_bare_flag(kQuickStart))
-            waypoint->put_name_key(kNoName, kQuickStart);
+            waypoint->put_name_key(checksums::Name{kNoName}, kQuickStart);
         else
             waypoint->remove_flag(kQuickStart);
         script::spawn_script(args_->has_bare_flag(kHorse) ? kHorseSpotScript : kRaceSpotScript, waypoint, 0, nullptr, 0,
@@ -405,7 +405,7 @@ int Objective::net_stage_flag_set(int bit) { return (net_stage_flags_ & (1u << (
 void Objective::set_launch_altitude()
 {
     auto* state = core::down_cast<objects::RiderPoseState>(local_skater()->fetch_module(kSkaterState));
-    args_->put_int(kLaunchAltitude, truncate(state->height_above_ground()));
+    args_->put_int(checksums::Name{kLaunchAltitude}, truncate(state->height_above_ground()));
 }
 
 // 0x00555710
@@ -424,13 +424,13 @@ bool Objective::test_highest_air()
         height = 0;
     const int feet = height / 12;
     const int inches = height % 12;
-    args_->put_int(kCurrentHeightFeet, feet);
-    args_->put_int(kCurrentHeightInches, inches);
+    args_->put_int(checksums::Name{kCurrentHeightFeet}, feet);
+    args_->put_int(checksums::Name{kCurrentHeightInches}, inches);
     if (height <= record)
         return false;
-    args_->put_int(kRecord, height);
-    args_->put_int(kRecordFeet, feet);
-    args_->put_int(kRecordInches, inches);
+    args_->put_int(checksums::Name{kRecord}, height);
+    args_->put_int(checksums::Name{kRecordFeet}, feet);
+    args_->put_int(checksums::Name{kRecordInches}, inches);
     return true;
 }
 
@@ -456,15 +456,15 @@ bool Objective::test_longest_jump()
     const int feet = truncate(distance * kGoalRunInchesToFeet); // (1/12)
     const int whole = truncate(rounded);
     const int inches = whole % 12;
-    args_->put_int(kCurrentDistanceFeet, feet);
-    args_->put_int(kCurrentDistanceInches, inches);
+    args_->put_int(checksums::Name{kCurrentDistanceFeet}, feet);
+    args_->put_int(checksums::Name{kCurrentDistanceInches}, inches);
     int record = 0;
     args_->fetch_int_value(kRecord, &record, 0);
     if (!(static_cast<double>(record) < rounded))
         return false;
-    args_->put_int(kRecord, whole);
-    args_->put_int(kRecordFeet, feet);
-    args_->put_int(kRecordInches, inches);
+    args_->put_int(checksums::Name{kRecord}, whole);
+    args_->put_int(checksums::Name{kRecordFeet}, feet);
+    args_->put_int(checksums::Name{kRecordInches}, inches);
     return true;
 }
 

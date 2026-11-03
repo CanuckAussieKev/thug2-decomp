@@ -333,9 +333,9 @@ void Contest::show_leader_board()
         gsl::owner<script::Struct*> entry = script::new_struct();
         entry->append_word(kName, leader.label.c_str());
         debug::printf("m_current_round: %i\n", runs_);
-        entry->put_int(kScore, best_two(leader, runs_ + 1));
+        entry->put_int(checksums::Name{kScore}, best_two(leader, runs_ + 1));
         if (leader.ident == 0)
-            entry->put_name_key(kNoName, kPlayer);
+            entry->put_name_key(checksums::Name{kNoName}, kPlayer);
         board->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
     }
     params->append_array_value(kRankingList, board.get());
@@ -473,7 +473,7 @@ void Contest::end_run(int score)
         gsl::owner<script::Struct*> entry = script::new_struct();
         entry->put_int("score", current_round(core::at(judges, i))); // "score"
         if (is_leading_scorer(i))
-            entry->put_name_key(kNoName, kTopJudge);
+            entry->put_name_key(checksums::Name{kNoName}, kTopJudge);
         scores->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
         debug::printf("%d: %f Top=%d\n", i, static_cast<double>(core::at(judges, i)), static_cast<int>(is_leading_scorer(i)));
     }

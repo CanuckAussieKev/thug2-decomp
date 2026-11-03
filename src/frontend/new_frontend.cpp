@@ -695,7 +695,7 @@ void get_sound(const char* script, const char* flag = nullptr)
         return;
     script::Struct params;
     if (flag)
-        params.put_name_key(0u, name_hash(flag));
+        params.put_name_key(checksums::Name{0u}, name_hash(flag));
     script::launch_script(name, &params, nullptr, false, script);
     params.get_clear();
 }
@@ -1936,7 +1936,7 @@ void choose_net_level(const std::string& load)
     const char* script = server_options ? "level_select_menu_exit" : "level_select_change_level";
     get_log("new front end: the network game's level - %s (%s)", load.c_str(), script);
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(name_hash("level"), name_hash(load.c_str()));
+    params->put_name_key(checksums::Name{name_hash("level")}, name_hash(load.c_str()));
     params->append_word(name_hash("text"), level->name.c_str());
     script::spawn_script(name_hash(script), params, 0, nullptr, 0, 0, false, false, false, false);
     params->get_clear();
@@ -2095,7 +2095,7 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
             get_log("new front end: change level to %s", action.load.c_str());
             hide_root(false);
             gsl::owner<script::Struct*> params = script::new_struct();
-            params->put_name_key(name_hash("level"), name_hash(action.load.c_str()));
+            params->put_name_key(checksums::Name{name_hash("level")}, name_hash(action.load.c_str()));
             script::spawn_script(name_hash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false,
                                  false);
             params->get_clear();

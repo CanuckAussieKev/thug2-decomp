@@ -153,17 +153,17 @@ void PlayerRecord::score_flag_capture(int team)
     const script::StructPtr params = script::make_struct();
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
-        params->put_int(kTeam, team);
+        params->put_int(checksums::Name{kTeam}, team);
         get_run(kCapturedFlagYou, params.get());
     } else if (!(local->flag_bits_ & kPlayerObserver) && local->team_ == team) {
         params->append_word(kString0, script::kQbvalString, label_.data());
-        params->put_int(kTeam, team);
+        params->put_int(checksums::Name{kTeam}, team);
         get_run(kHideCtfArrow);
         get_run(kCapturedYourFlag, params.get());
     } else {
         params->append_word(kString0, script::kQbvalString, label_.data());
         params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
-        params->put_int(kTeam, team);
+        params->put_int(checksums::Name{kTeam}, team);
         get_run(kCapturedFlagOther, params.get());
     }
     flag_bits_ &= ~kPlayerCarryingFlags;
@@ -204,7 +204,7 @@ void PlayerRecord::note_flag_pickup(int team)
         get_run(kTookFlagYou, params.get());
     } else if (!(local->flag_bits_ & kPlayerObserver) && team == local->team_) {
         script::StructPtr arrow = script::make_struct();
-        arrow->put_int(kTeam, local->team_);
+        arrow->put_int(checksums::Name{kTeam}, local->team_);
         get_run(kShowCtfArrow, arrow.get());
         arrow.reset();
         params->append_word(kString0, script::kQbvalString, label_.data());
@@ -227,7 +227,7 @@ void PlayerRecord::note_flag_returned()
     gsl::owner<script::Struct*> params = script::new_struct();
     if (flag_bits_ & kPlayerLocal) {
         params->append_word(kString0, script::kQbvalString, get_team_name(key.data()));
-        params->put_int(kTeam, team_);
+        params->put_int(checksums::Name{kTeam}, team_);
         get_run(kHideCtfArrow);
         get_run(kRetrievedFlagYou, params);
     } else {
@@ -236,7 +236,7 @@ void PlayerRecord::note_flag_returned()
             get_run(kHideCtfArrow);
         params->append_word(kString0, script::kQbvalString, label_.data());
         params->append_word(kString1, script::kQbvalString, get_team_name(key.data()));
-        params->put_int(kTeam, team_);
+        params->put_int(checksums::Name{kTeam}, team_);
         get_run(kRetrievedFlagOther, params);
     }
     // (the structure is never deleted here: the original leaks it)
@@ -252,8 +252,8 @@ void PlayerRecord::give_crown(bool king)
             return;
         if ((flag_bits_ & kPlayerLocal) && (get_game_type() == kNetKing || get_game_type() == kKing)) {
             const script::StructPtr params = script::make_struct();
-            params->put_name_key(kPlayer1, kPlayer1);
-            params->put_name_key(kPlayer2, kPlayer2);
+            params->put_name_key(checksums::Name{kPlayer1}, kPlayer1);
+            params->put_name_key(checksums::Name{kPlayer2}, kPlayer2);
             get_run(kShowCrownArrow, params.get());
         }
         flag_bits_ &= ~kPlayerKing;
@@ -266,13 +266,13 @@ void PlayerRecord::give_crown(bool king)
         if (flag_bits_ & kPlayerLocal) {
             script::StructPtr params = script::make_struct();
             const uint32_t player = rider()->get_skater_number() == 0 ? kPlayer1 : kPlayer2; // (its skater number)
-            params->put_name_key(player, player);
+            params->put_name_key(checksums::Name{player}, player);
             get_run(kHideCrownArrow, params.get());
             params.reset();
             get_run(kNewKingYou);
         } else {
             const script::StructPtr params = script::make_struct();
-            params->put_name_key(kPlayer1, kPlayer1);
+            params->put_name_key(checksums::Name{kPlayer1}, kPlayer1);
             get_run(kShowCrownArrow, params.get());
             params->append_word(kString0, label_.data());
             get_run(kNewKingOther, params.get());

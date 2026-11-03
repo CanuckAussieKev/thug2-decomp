@@ -295,7 +295,7 @@ void PreviewEntity::scale_anim_rate(float speed)
     if (get_animation(this)) {
         get_animation(this)->first_channel_47e_850(speed_, 0.0f, 0.0f, 0.0f);
         const script::StructPtr params = script::make_struct();
-        params->push_float(kSpeed, speed_);
+        params->push_float(checksums::Name{kSpeed}, speed_);
         animation_base(this)->invoke_method_by_name(kSetSpeed, params.get(), nullptr);
     }
     is_halted_ = false;
@@ -314,7 +314,7 @@ void PreviewEntity::step_animation(bool forward)
             get_animation(this)->pass_to_each_channel(std::bit_cast<uint32_t>(kStepSeconds));
             get_animation(this)->visit_channels();
             const script::StructPtr params = script::make_struct();
-            params->push_float(kFrames, kStepSeconds);
+            params->push_float(checksums::Name{kFrames}, kStepSeconds);
             animation_base(this)->invoke_method_by_name(kStep, params.get(), nullptr);
         } else {
             // Reversed for a step forward, then turned round again.
@@ -324,7 +324,7 @@ void PreviewEntity::step_animation(bool forward)
             get_animation(this)->first_channel_47e_810(0);
             animation_base(this)->invoke_method_by_name(kReverse, nullptr, nullptr);
             script::StructPtr params = script::make_struct();
-            params->push_float(kFrames, -kStepSeconds);
+            params->push_float(checksums::Name{kFrames}, -kStepSeconds);
             animation_base(this)->invoke_method_by_name(kStep, params.get(), nullptr);
             params.reset();
             animation_base(this)->invoke_method_by_name(kReverse, nullptr, nullptr);
@@ -546,7 +546,7 @@ int handle_reload_cam_animation(net::InboundMsgCtx* context)
     const char* message = net::wire::text_of(context->body());
     script::StructPtr params = script::make_struct();
     params->append_word(0u, message);
-    params->put_name_key(0u, net::wire::value_at<uint32_t>(context->body(), 0x80));
+    params->put_name_key(checksums::Name{0u}, net::wire::value_at<uint32_t>(context->body(), 0x80));
     commands::cfunc_reload_skater_cam_anim(params.get(), nullptr);
     params.reset();
     return 1;

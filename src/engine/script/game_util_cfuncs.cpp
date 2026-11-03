@@ -167,9 +167,9 @@ bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script
             value = static_cast<float>((static_cast<double>(to) - from) * t + from);
         }
         if (integer)
-            result->put_int(name, ftol(value));
+            result->put_int(checksums::Name{name}, ftol(value));
         else
-            result->push_float(name, value);
+            result->push_float(checksums::Name{name}, value);
     }
     script->args()->append_struct_ref(kInterpolated, result);
     return true;
@@ -238,12 +238,12 @@ bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* scrip
     maths::Vec4 nearest;
     if (rail_distance_squared < geometry_distance_squared) {
         nearest = rail_point;
-        script->args()->put_name_key(kRailId, rail);
-        script->args()->put_int(kRailPointIndex, rail_index);
+        script->args()->put_name_key(checksums::Name{kRailId}, rail);
+        script->args()->put_int(checksums::Name{kRailPointIndex}, rail_index);
     } else {
         nearest = geometry_point;
     }
-    script->args()->put_vec3(kNearestPos, nearest.x, nearest.y, nearest.z);
+    script->args()->put_vec3(checksums::Name{kNearestPos}, {.x = nearest.x, .y = nearest.y, .z = nearest.z});
     return true;
 }
 
@@ -287,7 +287,7 @@ bool cfunc_set_initials_string(script::Struct* params, script::Script*)
 // 0x005B3230: GetFireballLevel: level, the game mode's fireball level. Always true.
 bool cfunc_get_fireball_level(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(kLevel, static_cast<goals::MatchRules*>(get_game_mode())->get_fireball_level());
+    script->args()->put_int(checksums::Name{kLevel}, static_cast<goals::MatchRules*>(get_game_mode())->get_fireball_level());
     return true;
 }
 

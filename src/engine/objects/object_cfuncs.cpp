@@ -175,7 +175,7 @@ bool cfunc_get_unique_composite_object_id(script::Struct* params, script::Script
     params->read_hash_value(kPreferredId, &id, 0);
     while (entity_for_id(id))
         ++id;
-    script->args()->put_name_key(kUniqueId, id);
+    script->args()->put_name_key(checksums::Name{kUniqueId}, id);
     return true;
 }
 
@@ -191,8 +191,8 @@ bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
         return false;
     float x = 0.0f, y = 0.0f, depth = 0.0f;
     project_to_screen(camera, &object->at_point(), &x, &y, &depth);
-    script->args()->push_float(kScreenX, x);
-    script->args()->push_float(kScreenY, y);
+    script->args()->push_float(checksums::Name{kScreenX}, x);
+    script->args()->push_float(checksums::Name{kScreenY}, y);
     return true;
 }
 
@@ -224,7 +224,7 @@ bool cfunc_transform_local_to_world(script::Struct* params, script::Script* scri
     const maths::Vec4 local = {.x = offset.x, .y = offset.y, .z = offset.z, .w = offset.w};
     maths::Vec4 world;
     object->display_matrix().xform(world, local);
-    script->args()->put_vec3(kWorldOffset, world.x, world.y, world.z);
+    script->args()->put_vec3(checksums::Name{kWorldOffset}, {.x = world.x, .y = world.y, .z = world.z});
     return true;
 }
 
@@ -263,7 +263,7 @@ bool cfunc_get_node_name(script::Struct*, script::Script* script)
     const objects::Entity* object = script->entity().get_pull();
     if (!object || !object->ident())
         return false;
-    script->args()->put_name_key(kNodeName, object->ident());
+    script->args()->put_name_key(checksums::Name{kNodeName}, object->ident());
     return true;
 }
 
@@ -272,7 +272,7 @@ bool cfunc_get_trigger_node_name(script::Struct*, script::Script* script)
 {
     if (!script->list_link())
         return false;
-    script->args()->put_name_key(kNodeName, static_cast<uint32_t>(script->list_link()));
+    script->args()->put_name_key(checksums::Name{kNodeName}, static_cast<uint32_t>(script->list_link()));
     return true;
 }
 

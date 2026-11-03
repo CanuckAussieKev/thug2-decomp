@@ -176,14 +176,14 @@ void add_timeline_info(AnimTimeline* timeline, script::Struct* info)
 {
     constexpr uint32_t kAnim = 0x98549BA4, kSpeed = 0xF0D90109, kRepeatMode = 0x6B888E80;
     constexpr uint32_t kStartTime = 0xD16B61E6, kCurrentTime = 0xD4FC8176, kEndTime = 0xAB81BB3D;
-    info->put_name_key(kAnim, timeline->anim());
-    info->push_float(kSpeed, timeline->speed());
-    info->put_name_key(kRepeatMode, core::at((loop_type_checksums()), timeline->repeat_mode()));
+    info->put_name_key(checksums::Name{kAnim}, timeline->anim());
+    info->push_float(checksums::Name{kSpeed}, timeline->speed());
+    info->put_name_key(checksums::Name{kRepeatMode}, core::at((loop_type_checksums()), timeline->repeat_mode()));
     float start = 0.0f, current = 0.0f, end = 0.0f;
     timeline->get_times(&start, &current, &end);
-    info->push_float(kStartTime, start);
-    info->push_float(kCurrentTime, current);
-    info->push_float(kEndTime, end);
+    info->push_float(checksums::Name{kStartTime}, start);
+    info->push_float(checksums::Name{kCurrentTime}, current);
+    info->push_float(checksums::Name{kEndTime}, end);
 }
 
 // 0x0047D420

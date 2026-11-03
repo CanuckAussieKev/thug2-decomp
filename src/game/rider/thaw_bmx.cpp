@@ -284,7 +284,7 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
                           kNose = name_hash("nose");
     auto nose = [&](bool set) {
         if (set && script && script->args())
-            script->args()->put_int(kNose, 1);
+            script->args()->put_int(checksums::Name{kNose}, 1);
     };
     if (name == kIsOn)
         return on_bike(core) ? 1 : 0;
@@ -324,7 +324,7 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
         return state.over_grind_ ? 1 : 0;
     if (name == kGetAngle) { // 0x005C74F0: manual_angle into the script's parameters
         if (script && script->args())
-            script->args()->push_float(kManualAngle, state.manual_angle_);
+            script->args()->push_float(checksums::Name{kManualAngle}, state.manual_angle_);
         return 1;
     }
     if (name == kResetAngle) { // 0x005C7510

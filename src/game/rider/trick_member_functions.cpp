@@ -110,7 +110,7 @@ void exit_combo(MoveExecutor* self)
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
-    params->put_name_key(kSkaterId, self->entity()->ident());
+    params->put_name_key(checksums::Name{kSkaterId}, self->entity()->ident());
     self->entity()->announce(kSkaterExitCombo, params, 0.0f);
     if (params) {
         params->get_clear();
@@ -149,7 +149,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return is_pad_held(this, button) ? 0 : 1;
     }
     case kGetSpazzFactor:
-        script->args()->put_int(kSpazzFactor, truncate(count_triangle_bashes()));
+        script->args()->put_int(checksums::Name{kSpazzFactor}, truncate(count_triangle_bashes()));
         return 1;
     case kUseEventsX:
         // Every event of the button x marked used (+0x14), in the buffer's order.
@@ -193,7 +193,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         quick_getup_done_ = false;
         return 1;
     case kGetActualSpin:
-        script->args()->push_float(kSpin, static_cast<float>(truncate(std::fabs(spin_total_))));
+        script->args()->push_float(checksums::Name{kSpin}, static_cast<float>(truncate(std::fabs(spin_total_))));
         return 1;
     case kSetManualTricks:
         collect_names(params, manual_.count_, manual_.arrays_);
@@ -226,7 +226,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         const float spin = spin_total_;
         const double slop = read_tuning_float(kSpinCountSlop, 1, static_cast<GameEntity*>(entity()));
         const int turns = truncate(slop + std::fabs(spin)) / 180;
-        script->args()->push_float(kSpin, static_cast<float>(turns * static_cast<double>(kHalfTurn)));
+        script->args()->push_float(checksums::Name{kSpin}, static_cast<float>(turns * static_cast<double>(kHalfTurn)));
         return 1;
     }
     case kClearTrickQueue:
@@ -321,7 +321,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         params->read_hash_value(kSlot, &slot, 0);
         uint32_t trick = 0;
         params->read_hash_value(kTrick, &trick, 0);
-        trick_lists_->insert_pair(slot, 13.0f, static_cast<float>(static_cast<double>(trick)));
+        trick_lists_->insert_pair(checksums::Name{slot}, {.x = 13.0f, .y = static_cast<float>(static_cast<double>(trick))});
         return 1;
     }
     case kClearPanelBailed: {

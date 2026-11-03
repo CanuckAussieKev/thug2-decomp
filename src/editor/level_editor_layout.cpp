@@ -1530,9 +1530,9 @@ void panel_message(const char* text)
         return;
     gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(checksums::hash_from_text("text"), text);
-    params->put_name_key(checksums::hash_from_text("id"), checksums::hash_from_text("level_editor_refused_message"));
-    params->insert_pair(checksums::hash_from_text("pos"), 320.0f, 70.0f);
-    params->put_int(checksums::hash_from_text("time"), 5000);
+    params->put_name_key(checksums::Name{checksums::hash_from_text("id")}, checksums::hash_from_text("level_editor_refused_message"));
+    params->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = 320.0f, .y = 70.0f});
+    params->put_int(checksums::Name{checksums::hash_from_text("time")}, 5000);
     script::spawn_script(kScript, params, 0, nullptr, 0, 0, false, false, false, false);
     params->get_clear();
     script::delete_struct(params);
@@ -1734,7 +1734,7 @@ bool cfunc_edited_levels(script::Struct*, script::Script* script)
                 copy->remove_flag(checksums::hash_from_text(flag));
             copy->append_word(kText, edited_title(text, named).c_str());
             copy->append_word(kSignLabel, sign_label(named).c_str());
-            copy->put_name_key(0u, kEditedLayout);
+            copy->put_name_key(checksums::Name{0u}, kEditedLayout);
             entries.push_back(copy);
         }
     }

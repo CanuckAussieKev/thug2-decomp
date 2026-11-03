@@ -83,7 +83,7 @@ void PagerMessageComponent::clear_messages(script::Struct* params)
         node = next;
     }
     const script::StructPtr data = script::make_struct();
-    data->put_name_key(0x14C4B1CC, 1u);
+    data->put_name_key(checksums::Name{0x14C4B1CC}, 1u);
     script::end_child_scripts_of_entity_by_name(entity(), kPagerScript, nullptr);
     entity()->spawn_script(kPagerScript, data.get(), 0, false);
 }
@@ -100,9 +100,9 @@ bool PagerMessageComponent::send_pager_message(script::Struct* params, script::S
     message->read = false;
     messages_.push_back(message);
     script::StructPtr data = script::make_struct();
-    data->put_name_key(0x34406F14, 1u);
+    data->put_name_key(checksums::Name{0x34406F14}, 1u);
     if (message->params->has_bare_flag(0x8E6DFA5D))
-        data->put_name_key(0u, 0x8E6DFA5Du);
+        data->put_name_key(checksums::Name{0u}, 0x8E6DFA5Du);
     script::end_child_scripts_of_entity_by_name(entity(), kPagerScript, nullptr);
     entity()->spawn_script(kPagerScript, data.get(), 0, false);
     data.reset();
@@ -127,7 +127,7 @@ bool PagerMessageComponent::get_pager_message(script::Struct* params, script::Sc
 // 0x004EC980
 bool PagerMessageComponent::get_pager_message_count(script::Struct* /*params*/, script::Script* script)
 {
-    script->args()->put_int(0xC4D8D79A, messages_.size());
+    script->args()->put_int(checksums::Name{0xC4D8D79A}, messages_.size());
     return true;
 }
 
@@ -146,7 +146,7 @@ bool PagerMessageComponent::get_first_unread_message_num(script::Struct* /*param
         if (index == count)
             --index;
     }
-    script->args()->put_int(0x8FD8B4C3, index + 1);
+    script->args()->put_int(checksums::Name{0x8FD8B4C3}, index + 1);
     return true;
 }
 

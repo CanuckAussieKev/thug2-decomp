@@ -521,9 +521,9 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     // (the name, two floats and the colours read straight from the system's +4; the rest through the getter, once
     // for each value)
     const ParticleParams* own = &effect_handle_->args();
-    result->put_name_key(0xA1DC81F9u, own->label());
-    result->push_float(0x35B65BD4u, own->rate());
-    result->push_float(0xC218CF77u, own->lifetime());
+    result->put_name_key(checksums::Name{0xA1DC81F9u}, own->label());
+    result->push_float(checksums::Name{0x35B65BD4u}, own->rate());
+    result->push_float(checksums::Name{0xC218CF77u}, own->lifetime());
     std::array<script::Array*, 3> colours{};
     for (script::Array*& array : colours) {
         gsl::owner<script::Array*> made = script::new_array();
@@ -541,14 +541,14 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
     result->append_array_value(0x0481113Du, core::at(colours, 2));
     auto get = [this] { return &effect_handle_->args(); };
     auto add_vector = [&](uint32_t name, const maths::Vec4& v) {
-        result->put_vec3(name, script::VectorValue{.x = v.x, .y = v.y, .z = v.z, .w = v.w});
+        result->put_vec3(checksums::Name{name}, script::VectorValue{.x = v.x, .y = v.y, .z = v.z, .w = v.w});
     };
     add_vector(0x7B5A25F8u, core::at(get()->at_point(), 0));
     add_vector(0xA5A9080Eu, core::at(get()->at_point(), 1));
     add_vector(0xFBDA5673u, core::at(get()->at_point(), 2));
-    result->push_float(0x3BEE67C8u, core::at(get()->extent(), 0));
-    result->push_float(0x8E39913Du, core::at(get()->extent(), 1));
-    result->push_float(0x3F243A3Cu, core::at(get()->extent(), 2));
+    result->push_float(checksums::Name{0x3BEE67C8u}, core::at(get()->extent(), 0));
+    result->push_float(checksums::Name{0x8E39913Du}, core::at(get()->extent(), 1));
+    result->push_float(checksums::Name{0x3F243A3Cu}, core::at(get()->extent(), 2));
     add_vector(0x9656F775u, core::at(get()->box(), 0));
     add_vector(0xC3CD20A2u, core::at(get()->box(), 1));
     add_vector(0x829FE7DDu, core::at(get()->box(), 2));

@@ -888,7 +888,7 @@ void write_pos(script::Struct* node, V3 pos)
         own->value.vector()->y() = pos.y;
         own->value.vector()->z() = pos.z;
     } else {
-        node->put_vec3(kPos, pos.x, pos.y, pos.z);
+        node->put_vec3(checksums::Name{kPos}, {.x = pos.x, .y = pos.y, .z = pos.z});
     }
 }
 
@@ -906,7 +906,7 @@ void write_angles(script::Struct* node, V3 angles)
         own->value.vector()->y() = angles.y;
         own->value.vector()->z() = angles.z;
     } else {
-        node->put_vec3(kAngles, angles.x, angles.y, angles.z);
+        node->put_vec3(checksums::Name{kAngles}, {.x = angles.x, .y = angles.y, .z = angles.z});
     }
 }
 

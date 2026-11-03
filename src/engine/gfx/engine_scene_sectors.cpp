@@ -184,14 +184,14 @@ void WorldScene::fetch_diagnostics(script::Struct* info)
             }
         });
     }
-    info->put_int(0x4A6BF967, sectors);
-    info->put_int(0x0AC30A9D, coll_static_count_);
-    info->put_int(0x969D3AF6, count70);
-    info->put_int(0xD576DF05, slot33);
-    info->put_int(0x1E3061EE, slot33_again);
-    info->put_int(0x1E3061EE, slot33_again);
-    info->put_int(0x78CAD2E8, count_c_6f_0);
-    info->put_int(0x5714C480, static_cast<int>(core::down_cast<PcTexDict>(texture_set_)->unknown10()));
+    info->put_int(checksums::Name{0x4A6BF967}, sectors);
+    info->put_int(checksums::Name{0x0AC30A9D}, coll_static_count_);
+    info->put_int(checksums::Name{0x969D3AF6}, count70);
+    info->put_int(checksums::Name{0xD576DF05}, slot33);
+    info->put_int(checksums::Name{0x1E3061EE}, slot33_again);
+    info->put_int(checksums::Name{0x1E3061EE}, slot33_again);
+    info->put_int(checksums::Name{0x78CAD2E8}, count_c_6f_0);
+    info->put_int(checksums::Name{0x5714C480}, static_cast<int>(core::down_cast<PcTexDict>(texture_set_)->unknown10()));
 }
 
 // 0x0049D4E0

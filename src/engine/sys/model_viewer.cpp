@@ -377,7 +377,7 @@ int handle_create_viewer_object(net::InboundMsgCtx* context)
     auto* viewer = static_cast<Viewer*>(context->content());
     script::StructPtr params = script::make_struct();
     params->append_word(kModelName, net::wire::text_of(context->body()));
-    params->put_name_key(kSkeletonName, net::wire::value_at<uint32_t>(context->body(), 0x84));
+    params->put_name_key(checksums::Name{kSkeletonName}, net::wire::value_at<uint32_t>(context->body(), 0x84));
     viewer->create_viewer_object(params.get());
     params.reset();
     return 1;

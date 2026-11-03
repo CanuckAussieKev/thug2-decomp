@@ -231,7 +231,7 @@ bool cfunc_create_screen_element(script::Struct* params, script::Script* script)
     params->read_hash_value(kId, &id, 0);
     ElementPtr element;
     hub()->spawn_part(&element, type, id, params);
-    script->args()->put_name_key(kId, element->ident());
+    script->args()->put_name_key(checksums::Name{kId}, element->ident());
     return true;
 }
 
@@ -311,8 +311,8 @@ bool cfunc_get_screen_element_dims(script::Struct* params, script::Script* scrip
         static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown().scale_x_) * element->span()));
     const int height =
         static_cast<int>(static_cast<int64_t>(static_cast<double>(element->shown().scale_y_) * element->level_y()));
-    script->args()->put_int(kWidth, width);
-    script->args()->put_int(kHeight, height);
+    script->args()->put_int(checksums::Name{kWidth}, width);
+    script->args()->put_int(checksums::Name{kHeight}, height);
     return true;
 }
 
@@ -334,9 +334,9 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
     element.get_pull()->get_properties(script->args().get());
     if (element->kind_tag() == kElement3d) {
         auto* e3d = core::down_cast<ModelWidget>(objects::get_tracker()->look_up_object(id));
-        script->args()->push_float(kAngleX, core::at(e3d->angle(), 0));
-        script->args()->push_float(kAngleY, core::at(e3d->angle(), 1));
-        script->args()->push_float(kAngleZ, core::at(e3d->angle(), 2));
+        script->args()->push_float(checksums::Name{kAngleX}, core::at(e3d->angle(), 0));
+        script->args()->push_float(checksums::Name{kAngleY}, core::at(e3d->angle(), 1));
+        script->args()->push_float(checksums::Name{kAngleZ}, core::at(e3d->angle(), 2));
     }
     return true;
 }
@@ -432,7 +432,7 @@ bool cfunc_get_text_element_length(script::Struct* params, script::Script* scrip
         length = get_text_length(element.get_pull());
     else
         return false;
-    script->args()->put_int(kLength, length);
+    script->args()->put_int(checksums::Name{kLength}, length);
     return true;
 }
 
@@ -443,7 +443,7 @@ bool cfunc_get_screen_element_position(script::Struct* params, script::Script* s
     hub()->resolve_element(&element, params, kId, 1);
     float x = 0.0f, y = 0.0f;
     element->get_top_left(&x, &y);
-    script->args()->insert_pair(kScreenElementPos, x, y);
+    script->args()->insert_pair(checksums::Name{kScreenElementPos}, {.x = x, .y = y});
     return true;
 }
 

@@ -91,7 +91,7 @@ inline void debug_draw_box(const void*, const void*, const float*, int, int, int
 bool objects_from_table(script::Struct* params, const uint32_t* table)
 {
     std::span<const uint32_t> words(table, 2);
-    params->put_int(kVersion, static_cast<int>(core::at(words, 0)));
+    params->put_int(checksums::Name{kVersion}, static_cast<int>(core::at(words, 0)));
     const int count = static_cast<int>(core::at(words, 1));
     words = std::span<const uint32_t>(table, 2 + (static_cast<size_t>(count) * 5)); // (a version, a count, 5 words each)
     gsl::owner<script::Array*> memory = script::alloc_script_array();
@@ -101,15 +101,15 @@ bool objects_from_table(script::Struct* params, const uint32_t* table)
         const std::span<const uint32_t, 5> entry = std::span<const uint32_t>(words).subspan(2 + (static_cast<size_t>(i) * 5)).first<5>();
         gsl::owner<script::Struct*> block = script::spawn_param_bag();
         script::Struct* object = block ? memory::construct_in<script::Struct>(block) : nullptr;
-        object->put_name_key(kName, core::at(entry, 0));
-        object->put_name_key(kModel, core::at(entry, 1));
-        object->put_name_key(kSkeleton, core::at(entry, 2));
-        object->put_name_key(kAnim, core::at(entry, 3));
+        object->put_name_key(checksums::Name{kName}, core::at(entry, 0));
+        object->put_name_key(checksums::Name{kModel}, core::at(entry, 1));
+        object->put_name_key(checksums::Name{kSkeleton}, core::at(entry, 2));
+        object->put_name_key(checksums::Name{kAnim}, core::at(entry, 3));
         const uint32_t flags = core::at(entry, 4);
         if (flags >> 30 & 1)
-            object->put_name_key(kUnnamed, kIsSkaterMarker);
+            object->put_name_key(checksums::Name{kUnnamed}, kIsSkaterMarker);
         if (flags >> 31 & 1)
-            object->put_name_key(kUnnamed, kSkaterFlag2);
+            object->put_name_key(checksums::Name{kUnnamed}, kSkaterFlag2);
         objects->set_cell(static_cast<uint32_t>(i), script::Cell::of(object));
     }
     params->append_array_ref(kObjects, objects);

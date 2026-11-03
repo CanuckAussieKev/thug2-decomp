@@ -246,9 +246,9 @@ int get_memory_value(const char* name, int index)
     if (results)
         new (results) script::Struct;
     int value = 0;
-    params->put_name_key(kValueName, checksums::hash_from_text(name));
+    params->put_name_key(checksums::Name{kValueName}, checksums::hash_from_text(name));
     if (index > -1)
-        params->put_int(kValueIndex, index);
+        params->put_int(checksums::Name{kValueIndex}, index);
     script::run_script_once(kMemoryValueScript, params, nullptr, results);
     results->fetch_int_value(kValueResult, &value, 1);
     if (results) {

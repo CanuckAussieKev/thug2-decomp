@@ -387,7 +387,7 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
 
     // SkaterAcidDropTriggered with DropHeight (how far above the hit's height the skater is).
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->push_float(kDropHeight, static_cast<float>(entity()->at_point().y - static_cast<double>(drop->hit_height_)));
+    params->push_float(checksums::Name{kDropHeight}, static_cast<float>(entity()->at_point().y - static_cast<double>(drop->hit_height_)));
     object_of(this)->start_script_task(kAcidDropTriggered, -1, false, false, params);
     if (params) {
         params->get_clear();

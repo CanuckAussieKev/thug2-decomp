@@ -113,7 +113,7 @@ void CinematicTable::refresh_objects()
     if (!flag_34b_0_ || script::fetch_int_value(kRefreshGlobal) == 0)
         return;
     gsl::owner<script::Struct*> params = make_struct();
-    params->put_name_key(kUnnamed, kFlagParam);
+    params->put_name_key(checksums::Name{kUnnamed}, kFlagParam);
     for (int i = 0; i < object_count_; ++i) {
         GameEntity* object = core::at(entities_, i).object;
         if (object->fetch_module(kModelModuleName))
@@ -179,9 +179,9 @@ void CinematicTable::add_objects(script::Struct* params)
         if (!special) {
             const void* asset = assets::asset_manager()->get_asset_data(model_file, 0);
             if (!asset && !skater)
-                params2->put_name_key(kUnnamed, kNoModelFile);
+                params2->put_name_key(checksums::Name{kUnnamed}, kNoModelFile);
             if (object->has_bare_flag(kKeepSkeleton)) {
-                params2->put_name_key(kUnnamed, kKeepSkeleton);
+                params2->put_name_key(checksums::Name{kUnnamed}, kKeepSkeleton);
             } else {
                 skeleton = 0;
                 anim = 0;
@@ -194,13 +194,13 @@ void CinematicTable::add_objects(script::Struct* params)
                 skater_details_->fetch_int_value(kMale, &male, 1);
                 if (male == 0)
                     model_file += 2;
-                params2->put_int(kMaleParam, male);
+                params2->put_int(checksums::Name{kMaleParam}, male);
             }
-            params2->put_name_key(kModelFile, model_file);
+            params2->put_name_key(checksums::Name{kModelFile}, model_file);
         } else if (!flag_34b_0_) {
             add = false;
         } else {
-            params2->put_name_key(kPlayingCutsceneKey, 0);
+            params2->put_name_key(checksums::Name{kPlayingCutsceneKey}, 0);
         }
         if (add && skater) {
             // the skater's object isn't made when a part of its appearance is hidden
@@ -219,8 +219,8 @@ void CinematicTable::add_objects(script::Struct* params)
         }
         if (add) {
             if (skeleton) {
-                params2->put_name_key(kSkeleton, skeleton);
-                params2->put_int(kSkeletonParam, 0);
+                params2->put_name_key(checksums::Name{kSkeleton}, skeleton);
+                params2->put_int(checksums::Name{kSkeletonParam}, 0);
             }
             ObjectEntry& entry = core::at(entities_, object_count_);
             auto made = create_object(params2); // (the entry's: the cutscene's end deletes it)
@@ -377,9 +377,9 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
         !part->fetch_int_value(value_name, &value, 0))
         return;
     gsl::owner<script::Struct*> colour = make_struct();
-    colour->put_name_key(0xB6F08F39, 0);
-    colour->put_name_key(0x83418A6A, 0xAA2206EF);
-    colour->put_int(0x318F2BDB, 0);
+    colour->put_name_key(checksums::Name{0xB6F08F39}, 0);
+    colour->put_name_key(checksums::Name{0x83418A6A}, 0xAA2206EF);
+    colour->put_int(checksums::Name{0x318F2BDB}, 0);
     static_cast<render::RenderModel*>(model)->set_color_from_script(
         colour, static_cast<float>(hue), static_cast<float>(saturation * static_cast<double>(0.0099999998f)),
         static_cast<float>(value * static_cast<double>(0.0099999998f)));

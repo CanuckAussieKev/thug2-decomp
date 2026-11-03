@@ -247,13 +247,13 @@ bool RiderBoardPhysics::un_pause_physics(script::Struct*, script::Script*)
 // 0x005177A0
 bool RiderBoardPhysics::get_time_since_physics_switch(script::Struct*, script::Script* script)
 {
-    script->args()->push_float(kTimeSincePhysicsSwitch, get_seconds(get_clock() - switch_time_));
+    script->args()->push_float(checksums::Name{kTimeSincePhysicsSwitch}, get_seconds(get_clock() - switch_time_));
     return true;
 }
 // 0x005177F0
 bool RiderBoardPhysics::get_previous_physics_state_duration(script::Struct*, script::Script* script)
 {
-    script->args()->push_float(kPreviousPhysicsStateDuration, get_seconds(previous_duration_));
+    script->args()->push_float(checksums::Name{kPreviousPhysicsStateDuration}, get_seconds(previous_duration_));
     return true;
 }
 // 0x005176E0

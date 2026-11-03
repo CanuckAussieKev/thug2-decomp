@@ -222,7 +222,7 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     manager->enrol_subject(this);
     add_motion_components(this);
     script::StructPtr model = script::make_struct();
-    model->put_name_key(kComponent, kModel);
+    model->put_name_key(checksums::Name{kComponent}, kModel);
     create_component_from_structure(model.get(), nullptr);
     model.reset();
     add_node_components(this, node);

@@ -162,9 +162,9 @@ void ShotImpactModule::tick_frame()
         if (on_collide_script_) {
             const maths::Vec4 pos = entity()->at_point();
             const script::StructPtr params = script::make_struct();
-            params->put_vec3(kPos, script::VectorValue{.x = pos.x, .y = pos.y, .z = pos.z, .w = pos.w});
-            params->put_vec3(kVel, script::VectorValue{.x = vel_.x, .y = vel_.y, .z = vel_.z, .w = vel_.w});
-            params->push_float(kScale, size_factor_);
+            params->put_vec3(checksums::Name{kPos}, script::VectorValue{.x = pos.x, .y = pos.y, .z = pos.z, .w = pos.w});
+            params->put_vec3(checksums::Name{kVel}, script::VectorValue{.x = vel_.x, .y = vel_.y, .z = vel_.z, .w = vel_.w});
+            params->push_float(checksums::Name{kScale}, size_factor_);
             script::launch_script(on_collide_script_, params.get(), nullptr, false, nullptr);
         }
         // (The original builds it over its loop counter's slot: the two bytes after the flag are the count's high
@@ -255,11 +255,10 @@ void ProjectileProximityComponent::tick_frame()
         // In reach: the ped is hit.
         entity()->post_own_event(kProjectileInAvoidRadius, nullptr);
         script::StructPtr params = script::make_struct();
-        params->put_name_key(kPedId, entity()->ident());
-        params->put_name_key(kProjectileId, projectile.name);
+        params->put_name_key(checksums::Name{kPedId}, entity()->ident());
+        params->put_name_key(checksums::Name{kProjectileId}, projectile.name);
         script::launch_script(kProjectileHitPed, params.get(), find_object(rider_ref_->ident()), false, nullptr);
-        params->put_name_key(
-            kAmmoType,
+        params->put_name_key(checksums::Name{kAmmoType},
             core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kSkaterCorePhysics))->ammo_type());
         script::launch_script(kHitPedScript, params.get(), entity(), false, nullptr);
         params.reset();

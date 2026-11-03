@@ -167,14 +167,14 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         uint32_t geom = 0;
         params->read_hash_value(0u, &geom, 1);
         const bool hidden = mesh_instance_->is_part_concealed(geom);
-        script->args()->put_int(kHidden, hidden ? 1 : 0);
+        script->args()->put_int(checksums::Name{kHidden}, hidden ? 1 : 0);
         break;
     }
     case kObjUpdateBrightness:
         update_lights_brightness(model_lights(mesh_instance_.get()));
         break;
     case kObjGetModelName:
-        script->args()->put_name_key(kFilename, model_file_checksum(mesh_instance_.get()));
+        script->args()->put_name_key(checksums::Name{kFilename}, model_file_checksum(mesh_instance_.get()));
         break;
     case kObjUpdateModel:
         tick_frame();
@@ -209,7 +209,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
     case kObjGetScaling:
         if (mesh_instance_.get()) {
             const maths::Vec4 scale = mesh_instance_->size_factor(); // (0x0041A680: its +0x1C)
-            script->args()->put_vec3(kScaling, script::VectorValue{.x = scale.x, .y = scale.y, .z = scale.z, .w = scale.w});
+            script->args()->put_vec3(checksums::Name{kScaling}, script::VectorValue{.x = scale.x, .y = scale.y, .z = scale.z, .w = scale.w});
         }
         break;
     case kObjSetLightAmbientColor: {
@@ -499,7 +499,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
                 line_params->fetch_vec(kEnd, &line.end, 1);
                 const int hit = test_collision(&line, render::BoneLineTest{.bone = arg});
                 if (hit)
-                    script->args()->put_name_key(kCollisionResult, static_cast<uint32_t>(hit));
+                    script->args()->put_name_key(checksums::Name{kCollisionResult}, static_cast<uint32_t>(hit));
             }
         }
         // (the line test goes on into the bone's volume)
@@ -509,7 +509,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         maths::Mat4 matrix;
         get_draw_matrix(&matrix);
         auto volume = static_cast<float>(mesh_instance_->get_bone_volume(skeleton, &matrix, bone));
-        script->args()->push_float(kBoneVolume, volume);
+        script->args()->push_float(checksums::Name{kBoneVolume}, volume);
         break;
     }
     default:

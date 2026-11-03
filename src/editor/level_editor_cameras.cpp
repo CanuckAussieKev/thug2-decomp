@@ -420,21 +420,21 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     if (now < shot_until()) {
         // (the last shot still playing: killed first, as the goals kill theirs)
         gsl::owner<script::Struct*> kill = script::new_struct();
-        kill->put_name_key(get_checksums("name"), shot);
+        kill->put_name_key(checksums::Name{get_checksums("name")}, shot);
         commands::cfunc_kill_skater_cam_anim(kill, script);
         kill->get_clear();
         script::delete_struct(kill);
     }
     // The game's own virtual_cam, as view_goals_menu.qb's play_single_view_goals_cam plays a goal's camera.
     gsl::owner<script::Struct*> anim = script::new_struct();
-    anim->put_name_key(get_checksums("name"), shot);
-    anim->put_name_key(0u, get_checksums("virtual_cam"));
-    anim->put_name_key(get_checksums("targetid"), get_checksums("world"));
-    anim->put_vec3(get_checksums("targetOffset"), target.x, target.y, target.z);
-    anim->put_vec3(get_checksums("positionOffset"), position.x, position.y, position.z);
+    anim->put_name_key(checksums::Name{get_checksums("name")}, shot);
+    anim->put_name_key(checksums::Name{0u}, get_checksums("virtual_cam"));
+    anim->put_name_key(checksums::Name{get_checksums("targetid")}, get_checksums("world"));
+    anim->put_vec3(checksums::Name{get_checksums("targetOffset")}, {.x = target.x, .y = target.y, .z = target.z});
+    anim->put_vec3(checksums::Name{get_checksums("positionOffset")}, {.x = position.x, .y = position.y, .z = position.z});
     const int frames = shot_frames(seconds);
-    anim->put_int(get_checksums("frames"), frames);
-    anim->put_int(get_checksums("skippable"), 1);
+    anim->put_int(checksums::Name{get_checksums("frames")}, frames);
+    anim->put_int(checksums::Name{get_checksums("skippable")}, 1);
     commands::cfunc_play_skater_cam_anim(anim, script);
     anim->get_clear();
     script::delete_struct(anim);

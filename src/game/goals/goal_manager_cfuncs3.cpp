@@ -117,7 +117,7 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
     if (!params->has_bare_flag(kSpecialFlag)) {
         int created = 0;
         if (mapping->fetch_int_value(key_combo, &created, 0)) {
-            script->args()->put_int(kCatNum, created);
+            script->args()->put_int(checksums::Name{kCatNum}, created);
             return true;
         }
         uint32_t trick = 0;
@@ -128,7 +128,7 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
         const char* name = nullptr;
         trick_params->fetch_text(kName, &name, 1);
         script->args()->append_word(kTrickString, name);
-        script->args()->put_name_key(kTrickNameKey, trick);
+        script->args()->put_name_key(checksums::Name{kTrickNameKey}, trick);
         uint32_t extra = 0;
         if (!trick_params->read_hash_value(kExtraTricks, &extra, 0)) {
             script::Array* extras = nullptr;
@@ -142,7 +142,7 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
             const char* extra_name = nullptr;
             extra_params->fetch_text(kName, &extra_name, 1);
             script->args()->append_word(kExtraTrickString, extra_name);
-            script->args()->put_name_key(kExtraTrickChecksum, extra);
+            script->args()->put_name_key(checksums::Name{kExtraTrickChecksum}, extra);
         }
         return true;
     }
@@ -164,10 +164,10 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
             script->args()->append_word(kTrickString, name);
         }
         if (special.flag())
-            script->args()->put_int(kTrickNameKey, static_cast<int>(special.trick()));
+            script->args()->put_int(checksums::Name{kTrickNameKey}, static_cast<int>(special.trick()));
         else
-            script->args()->put_name_key(kTrickNameKey, special.trick());
-        script->args()->put_int(kCurrentIndex, i);
+            script->args()->put_name_key(checksums::Name{kTrickNameKey}, special.trick());
+        script->args()->put_int(checksums::Name{kCurrentIndex}, i);
         return true;
     }
     return false;
@@ -222,7 +222,7 @@ bool cfunc_goal_manager_add_time(script::Struct* params, script::Script*)
 bool cfunc_goal_manager_get_number_collected(script::Struct* params, script::Script* script)
 {
     const int collected = name_then_goal(params)->count_picked_up();
-    script->args()->put_int(kNumberCollected, collected);
+    script->args()->put_int(checksums::Name{kNumberCollected}, collected);
     return true;
 }
 
@@ -232,7 +232,7 @@ bool cfunc_goal_manager_get_number_of_flags(script::Struct* params, script::Scri
     const int flags = name_then_goal(params)->get_num_flags_to_win();
     if (flags == -1)
         return false;
-    script->args()->put_int(kNumberOfFlags, flags);
+    script->args()->put_int(checksums::Name{kNumberOfFlags}, flags);
     return true;
 }
 
@@ -261,7 +261,7 @@ bool cfunc_goal_manager_color_trick_objects(script::Struct* params, script::Scri
 bool cfunc_goal_manager_get_number_of_times_goal_started(script::Struct* params, script::Script* script)
 {
     const int started = name_then_goal(params)->get_times_started();
-    script->args()->put_int(kTimesStarted, started);
+    script->args()->put_int(checksums::Name{kTimesStarted}, started);
     return true;
 }
 
@@ -287,7 +287,7 @@ bool cfunc_goal_manager_get_last_goal_id(script::Struct*, script::Script* script
     const uint32_t last = get_objective_board()->previous_objective();
     if (!last)
         return false;
-    script->args()->put_name_key(kGoalIdChecksum, last);
+    script->args()->put_name_key(checksums::Name{kGoalIdChecksum}, last);
     return true;
 }
 
@@ -387,7 +387,7 @@ bool cfunc_goal_manager_set_difficulty_level(script::Struct* params, script::Scr
     int level = 0;
     params->fetch_int_value(0u, &level, 1);
     const GoalManager* manager = get_objective_board();
-    manager->args()->put_int(game_mode()->get_name_key(), level);
+    manager->args()->put_int(checksums::Name{game_mode()->get_name_key()}, level);
     return level != 0;
 }
 
@@ -411,7 +411,7 @@ bool cfunc_goal_manager_get_difficulty_level(script::Struct*, script::Script* sc
         result = 1;
         break;
     }
-    script->args()->put_int(kSkillTier, result);
+    script->args()->put_int(checksums::Name{kSkillTier}, result);
     return true;
 }
 
@@ -476,7 +476,7 @@ bool cfunc_goal_manager_set_sponsor(script::Struct* params, script::Script*)
 // 0x0055B400
 bool cfunc_goal_manager_get_sponsor(script::Struct*, script::Script* script)
 {
-    script->args()->put_name_key(kSponsor, get_objective_board()->backer());
+    script->args()->put_name_key(checksums::Name{kSponsor}, get_objective_board()->backer());
     return true;
 }
 
@@ -488,7 +488,7 @@ bool cfunc_goal_manager_get_team(script::Struct*, script::Script* script)
     int members = 0;
     for (script::Component* member = team->step_to_entry(nullptr); member; member = team->step_to_entry(member))
         ++members;
-    script->args()->put_int(kNumTeamMembers, members);
+    script->args()->put_int(checksums::Name{kNumTeamMembers}, members);
     return true;
 }
 
@@ -503,7 +503,7 @@ bool cfunc_goal_manager_set_team_member(script::Struct* params, script::Script*)
     if (remove)
         manager->team()->erase_module(pro);
     else
-        manager->team()->put_int(pro, mark_used ? 1 : 0);
+        manager->team()->put_int(checksums::Name{pro}, mark_used ? 1 : 0);
     return true;
 }
 
@@ -599,8 +599,8 @@ bool cfunc_goal_manager_get_active_reward_points(script::Struct*, script::Script
             won += points;
         total += points;
     }
-    script->args()->put_int(kActivePoints, script::fetch_int_value(kTotalCheatPoints) + won);
-    script->args()->put_int(kTotalPoints, total);
+    script->args()->put_int(checksums::Name{kActivePoints}, script::fetch_int_value(kTotalCheatPoints) + won);
+    script->args()->put_int(checksums::Name{kTotalPoints}, total);
     return true;
 }
 
@@ -611,7 +611,7 @@ bool cfunc_goal_manager_get_goal_reward_points(script::Struct* params, script::S
     Objective* goal = manager->goals().get_pull(get_goal_name(params));
     if (!goal->get_reward_points())
         return false;
-    script->args()->put_int(kRewardPoints, goal->get_reward_points());
+    script->args()->put_int(checksums::Name{kRewardPoints}, goal->get_reward_points());
     return true;
 }
 

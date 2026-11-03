@@ -14,6 +14,7 @@
 #include "platform/stopwatch.h"
 #include "frontend/screen_element_cfuncs.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/vec2.h"
 
 namespace objects {
 
@@ -74,14 +75,16 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
         manager->set_entity_rank(static_cast<Entity*>(entity()), priority);
     }
     lock_flags_ &= ~kLockFlagLag;
-    lag_min_ = 1.0f;
-    lag_max_ = 1.0f;
-    if (params->fetch_pair(kLagRange, &lag_min_, &lag_max_, 0))
+    maths::Vec2 lag{.x = 1.0f, .y = 1.0f};
+    if (params->fetch_pair(kLagRange, &lag, 0))
         lock_flags_ |= kLockFlagLag;
-    core::at(wobble_, 0) = 0.0f;
-    core::at(wobble_, 1) = 0.0f;
-    if (params->fetch_pair(kLagWobble, &core::at(wobble_, 0), &core::at(wobble_, 1), 0))
+    lag_min_ = lag.x;
+    lag_max_ = lag.y;
+    maths::Vec2 wobble_pair{.x = 0.0f, .y = 0.0f};
+    if (params->fetch_pair(kLagWobble, &wobble_pair, 0))
         lock_flags_ |= kLockFlagLag;
+    core::at(wobble_, 0) = wobble_pair.x;
+    core::at(wobble_, 1) = wobble_pair.y;
     wobble_seed_ = maths::rnd(0x400);
     // (the masked time is never negative: the original's 2^32 correction for a negative one never applies)
     const int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);

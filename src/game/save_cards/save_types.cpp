@@ -331,12 +331,12 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         int width = 0;
         int length = 0;
         editor->get_map_info(map, &gaps, &pieces, &theme, &tod_script, &width, &length);
-        summary->put_int(0xE6121ED0u, gaps);            // num_gaps
-        summary->put_int(0xFFF3DC35u, pieces);          // num_pieces
-        summary->put_int(0x688A18F7u, theme);           // theme
-        summary->put_name_key(0x4C72ED98u, tod_script); // tod_script
-        summary->put_int(0x73E5BAD0u, width);           // width
-        summary->put_int(0xFE82614Du, length);          // length
+        summary->put_int(checksums::Name{0xE6121ED0u}, gaps);            // num_gaps
+        summary->put_int(checksums::Name{0xFFF3DC35u}, pieces);          // num_pieces
+        summary->put_int(checksums::Name{0x688A18F7u}, theme);           // theme
+        summary->put_name_key(checksums::Name{0x4C72ED98u}, tod_script); // tod_script
+        summary->put_int(checksums::Name{0x73E5BAD0u}, width);           // width
+        summary->put_int(checksums::Name{0xFE82614Du}, length);          // length
     };
 
     if (saved) {
@@ -359,10 +359,10 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
                 if (array)
                     count = static_cast<int>(array->extent());
             }
-            summary->put_int(kNumEditedGoals, count);
+            summary->put_int(checksums::Name{kNumEditedGoals}, count);
             int max_players = 1;
             saved->fetch_int_value(kMaxPlayers, &max_players, 0);
-            summary->put_int(kMaxPlayers, max_players);
+            summary->put_int(checksums::Name{kMaxPlayers}, max_players);
             script::Array* map = nullptr;
             saved->fetch_list(0x337C5289u, &map, 1); // Park_editor_map
             // (the map's words into a map of its own: NOT ORIGINAL - the original read the array's storage as
@@ -376,7 +376,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         case kSaveCreatedGoals: {
             script::Array* goals = nullptr;
             saved->fetch_list(kGoals, &goals, 0);
-            summary->put_int(kNumEditedGoals, goals ? static_cast<int>(goals->extent()) : 0);
+            summary->put_int(checksums::Name{kNumEditedGoals}, goals ? static_cast<int>(goals->extent()) : 0);
             break;
         }
         case kSaveOptionsAndPros: {
@@ -393,13 +393,13 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
                 global->read_sub_struct(0x4DA4937Bu, &career, 0); // career
                 int value = 0; // (not initialised: a missing field after the first repeats the one before)
                 if (career && career->fetch_int_value(0x6C1A5E39u, &value, 0)) {
-                    summary->put_int(kTotalGoalsComplete, value);
+                    summary->put_int(checksums::Name{kTotalGoalsComplete}, value);
                     career->fetch_int_value(0x7A6BF912u, &value, 0);
-                    summary->put_int(kTotalGoalsPossible, value);
+                    summary->put_int(checksums::Name{kTotalGoalsPossible}, value);
                     career->fetch_int_value(0x0444419Au, &value, 0);
-                    summary->put_int(kTotalScore, value);
+                    summary->put_int(checksums::Name{kTotalScore}, value);
                     career->fetch_int_value(0x95947B61u, &value, 0);
-                    summary->put_int(kTotalScorePotential, value);
+                    summary->put_int(checksums::Name{kTotalScorePotential}, value);
                 }
             }
             Struct* custom_skater = nullptr;
@@ -410,7 +410,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
             custom->read_sub_struct(0x3476CEA8u, &info, 1); // info
             int male = 0;
             info->fetch_int_value(kIsMale, &male, 0);
-            summary->put_int(kIsMale, male);
+            summary->put_int(checksums::Name{kIsMale}, male);
             const char* name = empty;
             info->fetch_text(0x2AB66CB8u, &name, 0); // display_name
             summary->append_word(kName, name);
@@ -441,10 +441,10 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         objects::ObjectModule* component = core::down_cast<objects::GameEntity>(object)->fetch_module(kGoalEditor);
         // its number of edited goals (0x004E7E00, no source yet)
         const int edited = core::down_cast<park_editing::ObjectiveAuthoring>(component)->count_used_goals();
-        summary->put_int(kNumEditedGoals, edited);
+        summary->put_int(checksums::Name{kNumEditedGoals}, edited);
         if (type != kSavePark)
             break;
-        summary->put_int(kMaxPlayers, park_editing::ParkBuilderMode::get_player_limit());
+        summary->put_int(checksums::Name{kMaxPlayers}, park_editing::ParkBuilderMode::get_player_limit());
         park_editing::ParkBuilderMode::sole()->write_compressed_map_if_built();
         editor = park_editing::ParkBuilderMode::sole();
         add_map_info(editor->get_packed_park_data(false));
@@ -464,10 +464,10 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         Struct* goal_manager_params = nullptr;       // (read, not used)
         own->read_sub_struct(0x23D4170Au, &goal_manager_params, 0);
         const objects::RiderStoryProgress* career = modules::Skate::sole()->career().get();
-        summary->put_int(kTotalScore, career->lifetime_funds());
-        summary->put_int(kTotalScorePotential, career->total_amount());
-        summary->put_int(kTotalGoalsComplete, career->total_counter());
-        summary->put_int(kTotalGoalsPossible, career->flag_5e_f());
+        summary->put_int(checksums::Name{kTotalScore}, career->lifetime_funds());
+        summary->put_int(checksums::Name{kTotalScorePotential}, career->total_amount());
+        summary->put_int(checksums::Name{kTotalGoalsComplete}, career->total_counter());
+        summary->put_int(checksums::Name{kTotalGoalsPossible}, career->flag_5e_f());
         break;
     }
     default:

@@ -1122,19 +1122,19 @@ gsl::owner<script::Struct*> make_params(const std::vector<Param>& params)
     for (const Param& param : params) {
         switch (param.kind) {
         case Param::Kind::kBitMark:
-            out->put_name_key(0u, name_hash(param.text));
+            out->put_name_key(checksums::Name{0u}, name_hash(param.text));
             break;
         case Param::Kind::kInteger:
-            out->put_int(name_hash(param.name), param.integer);
+            out->put_int(checksums::Name{name_hash(param.name)}, param.integer);
             break;
         case Param::Kind::kFloat:
-            out->push_float(name_hash(param.name), param.real);
+            out->push_float(checksums::Name{name_hash(param.name)}, param.real);
             break;
         case Param::Kind::kChars:
             out->append_word(name_hash(param.name), param.text.c_str());
             break;
         case Param::Kind::kName:
-            out->put_name_key(name_hash(param.name), id_checksum(param.text));
+            out->put_name_key(checksums::Name{name_hash(param.name)}, id_checksum(param.text));
             break;
         }
     }

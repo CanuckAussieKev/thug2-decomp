@@ -743,7 +743,7 @@ void restart_step(modules::FrontEnd* front_end)
     const uint32_t restart = level_editor_playtest_state().restart_;
     level_editor_playtest_state().restart_ = 0;
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(checksums::hash_from_text("node_name"), restart);
+    params->put_name_key(checksums::Name{checksums::hash_from_text("node_name")}, restart);
     script::launch_script(checksums::hash_from_text("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->get_clear();
     script::delete_struct(params);

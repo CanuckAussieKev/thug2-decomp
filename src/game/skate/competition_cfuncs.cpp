@@ -240,7 +240,7 @@ bool cfunc_apply_to_horse_panel_string(script::Struct* params, script::Script*)
     script::StructPtr panel = script::make_struct();
     panel->merge_structure(params);
     panel->append_word(kText, text->c_str());
-    panel->put_name_key(kId, id);
+    panel->put_name_key(checksums::Name{kId}, id);
     script::launch_script(kCreateHorsePanelMessage, panel.get(), skater, false, nullptr);
     panel.reset();
     text->~Chars();
@@ -333,7 +333,7 @@ bool cfunc_get_bonus_value(script::Struct* params, script::Script* script)
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_rider_at(index);
     if (skater->is_local_skater())
-        script->args()->put_int(kBonus, get_bonus(get_score_of(skater)));
+        script->args()->put_int(checksums::Name{kBonus}, get_bonus(get_score_of(skater)));
     return true;
 }
 

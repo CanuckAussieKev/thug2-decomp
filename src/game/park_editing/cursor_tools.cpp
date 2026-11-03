@@ -101,7 +101,7 @@ void BuildPointer::on_mode_changed()
         mode = 0xFFD81C08; // rail_placement
     else
         mode = 0xB58EFC2B;                                               // regular
-    params.put_name_key(0x6835B854, mode);                               // mode
+    params.put_name_key(checksums::Name{0x6835B854}, mode);                               // mode
     script::launch_script(0x9DB065AD, &params, nullptr, false, nullptr); // parked_set_helper_text_mode
     params.get_clear();
 }

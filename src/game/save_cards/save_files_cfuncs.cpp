@@ -212,7 +212,7 @@ bool get_mem_card_space_required(Struct* params, Script* script)
     uint32_t type = 0;
     params->read_hash_value(0u, &type, 0);
     const int size = type_file_size(type);
-    script->args().get()->put_int(0xEB3860C3u, save_blocks(type, size)); // SpaceRequired
+    script->args().get()->put_int(checksums::Name{0xEB3860C3u}, save_blocks(type, size)); // SpaceRequired
     return true;
 }
 
@@ -327,11 +327,11 @@ bool get_save_info(Struct* params, Script* script)
     write_summary(contents, summary, type);
     const int summary_size = static_cast<int>(script::measure_buffer_bytes(summary, 100000));
     Struct* results = script->args().get();
-    results->put_int(0x172C1344u, main_size);                       // MainStructureSize
-    results->put_int(0x96635475u, summary_size);                    // SummaryInfoSize
-    results->put_int(0x6AFD2F7Fu, 100);                             // MaxSummaryInfoSize
-    results->put_int(0xECBB8262u, main_size + summary_size + 0x14); // TotalSize
-    results->put_int(0xB35EB1D1u, type_file_size(type));            // MaxTotalSize
+    results->put_int(checksums::Name{0x172C1344u}, main_size);                       // MainStructureSize
+    results->put_int(checksums::Name{0x96635475u}, summary_size);                    // SummaryInfoSize
+    results->put_int(checksums::Name{0x6AFD2F7Fu}, 100);                             // MaxSummaryInfoSize
+    results->put_int(checksums::Name{0xECBB8262u}, main_size + summary_size + 0x14); // TotalSize
+    results->put_int(checksums::Name{0xB35EB1D1u}, type_file_size(type));            // MaxTotalSize
     results->append_struct_ref(0x703E60CAu, summary);               // SummaryInfo
     results->append_struct_ref(0x671C9C00u, contents);              // MainStructure
     return true;
@@ -403,7 +403,7 @@ uint32_t listed_file_type(const FileLoad* file, int folder_length)
 // The entry marked corrupt, with the damaged-file text as its FileName.
 void mark_corrupt(Struct* entry, uint32_t text)
 {
-    entry->put_name_key(0u, kCorrupt);
+    entry->put_name_key(checksums::Name{0u}, kCorrupt);
     entry->append_word(kFileName, script::fetch_text(text));
 }
 
@@ -458,14 +458,14 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         gsl::owner<Struct*> entry = script::spawn_param_bag();
         if (entry)
             entry = new (entry) script::Struct;
-        entry->put_name_key(0xFADDC0B8u, type);     // file_type
-        entry->put_int(0x7F8C98FEu, listed);        // index
-        entry->put_int(0x447D8CC8u, file->year());   // year
-        entry->put_int(0x7149EFF9u, file->month());  // month
-        entry->put_int(0x1A5FD66Fu, file->day());    // day
-        entry->put_int(0x8FE1EEB1u, file->hour());   // hour
-        entry->put_int(0x5F94B55Cu, file->minute()); // minutes
-        entry->put_int(0xD029F619u, file->second()); // seconds
+        entry->put_name_key(checksums::Name{0xFADDC0B8u}, type);     // file_type
+        entry->put_int(checksums::Name{0x7F8C98FEu}, listed);        // index
+        entry->put_int(checksums::Name{0x447D8CC8u}, file->year());   // year
+        entry->put_int(checksums::Name{0x7149EFF9u}, file->month());  // month
+        entry->put_int(checksums::Name{0x1A5FD66Fu}, file->day());    // day
+        entry->put_int(checksums::Name{0x8FE1EEB1u}, file->hour());   // hour
+        entry->put_int(checksums::Name{0x5F94B55Cu}, file->minute()); // minutes
+        entry->put_int(checksums::Name{0xD029F619u}, file->second()); // seconds
         std::array<char, 100> path{};
         if (os_layer() == 5)
             text::format_to(path, "%s", file->label().data());
@@ -488,7 +488,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
                 summary_size > kMaxSummarySize ||
                 checksums::generate_crc_from_buffer(listed_summary, summary_size) != listed_header.summary_crc;
             const int size = static_cast<int>(opened->seek_to(0, 2));
-            entry->put_int(0x3D1BCFEDu, save_blocks(type, size)); // total_file_size
+            entry->put_int(checksums::Name{0x3D1BCFEDu}, save_blocks(type, size)); // total_file_size
             if (bad || listed_header.version != type_version(type)) {
                 mark_corrupt(entry, os_layer() == 5 ? kNgcDamagedFile : kDamagedFile);
             } else {
@@ -520,9 +520,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         if (!node)
             break;
     }
-    script->args().get()->put_int(kTotalFiles, game_files);
+    script->args().get()->put_int(checksums::Name{kTotalFiles}, game_files);
     if (game_files >= kMaxFiles)
-        script->args().get()->put_name_key(0u, kFilesLimitReached);
+        script->args().get()->put_name_key(checksums::Name{0u}, kFilesLimitReached);
     if (listed) {
         // newest first (a bubble sort by the dates)
         bool swapped = false;

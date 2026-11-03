@@ -306,7 +306,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
             params = new (params) script::Struct;
         if (callback_params_ptr_)
             params->merge_structure(callback_params_ptr_); // (out of memory: through null, as the original)
-        params->put_vec3(0x43F454D0, script::VectorValue{.x = point->x, .y = point->y, .z = point->z, .w = point->w});
+        params->put_vec3(checksums::Name{0x43F454D0}, script::VectorValue{.x = point->x, .y = point->y, .z = point->z, .w = point->w});
         entity()->spawn_script(bounce_script_, params, 0, false)->tick_frame();
         if (params) {
             params->get_clear();
@@ -315,7 +315,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
     }
     if (audio_module_ && bounce_sfx_ && 48 - sound::count_playing_voices() > 12) {
         const float percent = maths::confine(get_narrow(get_wide(speed) / bounce_full_speed_ * 100.0f), 0.0f, 100.0f);
-        bounce_sfx_->push_float(0x9E497FC6, percent); // Percent
+        bounce_sfx_->push_float(checksums::Name{0x9E497FC6}, percent); // Percent
         audio_module_->emit_sound(bounce_sfx_);
     }
 }

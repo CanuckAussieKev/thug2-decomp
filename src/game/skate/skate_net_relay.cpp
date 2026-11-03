@@ -1142,18 +1142,18 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     position.y = static_cast<float>(position.y + velocity.y * seconds);
     position.z = static_cast<float>(position.z + velocity.z * seconds);
     script::StructPtr params = script::make_struct();
-    params->put_name_key(kOwnerId, static_cast<uint32_t>(message.owner_id));
-    params->put_name_key(kAmmoType, message.ammo_type);
-    params->put_int(kX, static_cast<int>(position.x));
-    params->put_int(kY, static_cast<int>(position.y));
-    params->put_int(kZ, static_cast<int>(position.z));
-    params->put_int(kScaledX, static_cast<int>(core::at(message.velocity, 0)));
-    params->put_int(kScaledY, static_cast<int>(core::at(message.velocity, 1)));
-    params->put_int(kScaledZ, static_cast<int>(core::at(message.velocity, 2)));
-    params->put_int(kRadius, message.radius);
-    params->push_float(kScale, message.scale);
-    params->put_vec3(kPos, {.x = core::at(message.position, 0), .y = core::at(message.position, 1), .z = core::at(message.position, 2), .w = core::at(message.position, 3)});
-    params->put_vec3(kVel, {.x = core::at(message.velocity, 0), .y = core::at(message.velocity, 1), .z = core::at(message.velocity, 2), .w = core::at(message.velocity, 3)});
+    params->put_name_key(checksums::Name{kOwnerId}, static_cast<uint32_t>(message.owner_id));
+    params->put_name_key(checksums::Name{kAmmoType}, message.ammo_type);
+    params->put_int(checksums::Name{kX}, static_cast<int>(position.x));
+    params->put_int(checksums::Name{kY}, static_cast<int>(position.y));
+    params->put_int(checksums::Name{kZ}, static_cast<int>(position.z));
+    params->put_int(checksums::Name{kScaledX}, static_cast<int>(core::at(message.velocity, 0)));
+    params->put_int(checksums::Name{kScaledY}, static_cast<int>(core::at(message.velocity, 1)));
+    params->put_int(checksums::Name{kScaledZ}, static_cast<int>(core::at(message.velocity, 2)));
+    params->put_int(checksums::Name{kRadius}, message.radius);
+    params->push_float(checksums::Name{kScale}, message.scale);
+    params->put_vec3(checksums::Name{kPos}, {.x = core::at(message.position, 0), .y = core::at(message.position, 1), .z = core::at(message.position, 2), .w = core::at(message.position, 3)});
+    params->put_vec3(checksums::Name{kVel}, {.x = core::at(message.velocity, 0), .y = core::at(message.velocity, 1), .z = core::at(message.velocity, 2), .w = core::at(message.velocity, 3)});
     const uint32_t launch = message.type == kFireball ? kClientLaunchFireball : kClientLaunchProjectile;
     script::launch_script(launch, params.get(), static_cast<objects::Entity*>(skater), false, nullptr);
     params.reset();
@@ -1171,8 +1171,8 @@ int SkateNet::on_cheat_state_msg(net::InboundMsgCtx* context)
     online::read_cheats(reader, &message);
     for (int i = 0; i < message.count; ++i) {
         const script::StructPtr params = script::make_struct();
-        params->put_name_key(kOn, 0);
-        params->put_name_key(kCheatFlag, core::at(message.cheats, i));
+        params->put_name_key(checksums::Name{kOn}, 0);
+        params->put_name_key(checksums::Name{kCheatFlag}, core::at(message.cheats, i));
         script::launch_script(kClientToggleCheat, params.get(), nullptr, false, nullptr);
     }
     return 1;
@@ -1187,8 +1187,8 @@ int SkateNet::handle_toggle_cheat(net::InboundMsgCtx* context)
         return 4;
     script::StructPtr params = script::make_struct();
     if (message.on)
-        params->put_name_key(kOn, 0);
-    params->put_name_key(kCheatFlag, message.cheat);
+        params->put_name_key(checksums::Name{kOn}, 0);
+    params->put_name_key(checksums::Name{kCheatFlag}, message.cheat);
     script::launch_script(kClientToggleCheat, params.get(), nullptr, false, nullptr);
     params.reset();
     return 1;

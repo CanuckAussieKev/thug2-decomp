@@ -23,6 +23,7 @@
 #include "platform/crt.h"
 #include "engine/core/no_destroy.h"
 #include "engine/script/script_state.h"
+#include "engine/maths/vec2.h"
 
 namespace script {
 
@@ -306,7 +307,7 @@ bool Struct::fetch_float(const char* name, float* out, int assert)
 }
 
 // 0x00476770
-bool Struct::fetch_pair(uint32_t name, float* x, float* y, int assert)
+bool Struct::fetch_pair(uint32_t name, maths::Vec2* out, int assert)
 {
     Cell value;
     if (!get_hunt(name, kQbvalPair, &value)) {
@@ -315,8 +316,8 @@ bool Struct::fetch_pair(uint32_t name, float* x, float* y, int assert)
         return false;
     }
     const Pair* pair = value.pair();
-    *x = pair->x();
-    *y = pair->y();
+    out->x = pair->x();
+    out->y = pair->y();
     return true;
 }
 
@@ -993,7 +994,7 @@ void Struct::append_inline_text(uint32_t name, const char* value)
 }
 
 // 0x00478390
-void Struct::append_word(uint32_t name, uint32_t type, const char* value)
+void Struct::append_word(uint32_t name, QbValueKind type, const char* value)
 {
     if (type == kQbvalString)
         append_word(name, value);
@@ -1002,42 +1003,48 @@ void Struct::append_word(uint32_t name, uint32_t type, const char* value)
 }
 
 // 0x00477B80
-void Struct::put_int(uint32_t name, int value)
+void Struct::put_int(checksums::Name name, int value)
 {
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalInteger);
+    gsl::owner<Component*> component = new_typed_component(name.value(), kQbvalInteger);
     component->value.set_integer(value);
     attach_module(component);
 }
 
 // 0x00477C30
-void Struct::put_int(const char* name, int value) { put_int(checksums::hash_from_text(name), value); }
+void Struct::put_int(const char* name, int value) { put_int(checksums::Name{checksums::hash_from_text(name)}, value); }
 
 // 0x00477C60
-void Struct::push_float(uint32_t name, float value)
+void Struct::push_float(checksums::Name name, float value)
 {
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalFloat);
+    gsl::owner<Component*> component = new_typed_component(name.value(), kQbvalFloat);
     component->value.set_real(value);
     attach_module(component);
 }
 
 // 0x00477D10
-void Struct::push_float(const char* name, float value) { push_float(checksums::hash_from_text(name), value); }
+void Struct::push_float(const char* name, float value) { push_float(checksums::Name{checksums::hash_from_text(name)}, value); }
 
 // 0x00477D40
-void Struct::put_name_key(uint32_t name, uint32_t value)
+void Struct::put_name_key(checksums::Name name, uint32_t value)
 {
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalName);
+    gsl::owner<Component*> component = new_typed_component(name.value(), kQbvalName);
     component->value.set_word(value);
     attach_module(component);
 }
 
 // 0x00477DF0
-void Struct::put_name_key(const char* name, uint32_t value) { put_name_key(checksums::hash_from_text(name), value); }
-
-// 0x00477E20
-void Struct::put_vec3(uint32_t name, float x, float y, float z)
+void Struct::put_name_key(const char* name, uint32_t value)
 {
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalVector);
+    put_name_key(checksums::Name{checksums::hash_from_text(name)}, value);
+}
+
+// 0x00477E20 (x, y, z) and 0x00477F70 (the vector by value, calling it)
+void Struct::put_vec3(checksums::Name name, VectorValue value)
+{
+    const float x = value.x;
+    const float y = value.y;
+    const float z = value.z;
+    gsl::owner<Component*> component = new_typed_component(name.value(), kQbvalVector);
     auto* vector = vector_pools().allocate<Vector>();
     if (vector) {
         vector->z() = 0.0f;
@@ -1052,25 +1059,18 @@ void Struct::put_vec3(uint32_t name, float x, float y, float z)
     attach_module(component);
 }
 
-// 0x00477F40
-void Struct::put_vec3(const char* name, float x, float y, float z)
-{
-    put_vec3(checksums::hash_from_text(name), x, y, z);
-}
-
-// 0x00477F70
-void Struct::put_vec3(uint32_t name, VectorValue value) { put_vec3(name, value.x, value.y, value.z); }
-
-// 0x00477F90
+// 0x00477F40 (x, y, z) and 0x00477F90 (the vector by value)
 void Struct::put_vec3(const char* name, VectorValue value)
 {
-    put_vec3(checksums::hash_from_text(name), value.x, value.y, value.z);
+    put_vec3(checksums::Name{checksums::hash_from_text(name)}, value);
 }
 
 // 0x00477FC0
-void Struct::insert_pair(uint32_t name, float x, float y)
+void Struct::insert_pair(checksums::Name name, maths::Vec2 value)
 {
-    gsl::owner<Component*> component = new_typed_component(name, kQbvalPair);
+    const float x = value.x;
+    const float y = value.y;
+    gsl::owner<Component*> component = new_typed_component(name.value(), kQbvalPair);
     auto* pair = script_state().pair_pools().allocate<Pair>();
     if (pair) {
         pair->y() = 0.0f;
@@ -1146,15 +1146,15 @@ void Struct::append_script(uint32_t name, std::span<const uint8_t> code)
 }
 
 // 0x004783C0
-void Struct::add_component_of_type(uint32_t name, uint32_t type, uint32_t value)
+void Struct::add_component_of_type(uint32_t name, QbValueKind type, uint32_t value)
 {
     switch (type) {
     case kQbvalInteger:
-        put_int(name, static_cast<int>(value));
+        put_int(checksums::Name{name}, static_cast<int>(value));
         break;
     case kQbvalFloat: {
         auto number = std::bit_cast<float>(value);
-        push_float(name, number);
+        push_float(checksums::Name{name}, number);
         break;
     }
     case 11:
@@ -1164,7 +1164,7 @@ void Struct::add_component_of_type(uint32_t name, uint32_t type, uint32_t value)
         append_array_ref(name, memory::owned_element(Cell::of_word(value).array())); // (handed over in the word)
         break;
     case kQbvalName:
-        put_name_key(name, value);
+        put_name_key(checksums::Name{name}, value);
         break;
     default:
         break;

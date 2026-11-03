@@ -421,7 +421,7 @@ bool cfunc_load_stream_header(Struct* params, Script*)
 // 0x0044E1E0: GetCurrentTrack: the track playing as the script's current_track. Always true.
 bool cfunc_get_current_track(Struct*, Script* script)
 {
-    script->args()->put_int(kCurrentTrack, audio::get_current_track());
+    script->args()->put_int(checksums::Name{kCurrentTrack}, audio::get_current_track());
     return true;
 }
 

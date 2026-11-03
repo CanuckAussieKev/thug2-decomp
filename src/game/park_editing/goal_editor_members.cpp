@@ -108,10 +108,10 @@ bool ObjectiveAuthoring::get_key_combo_set(script::Struct* params, script::Scrip
     const KeyComboSet* entry = goal->find_key_combo_set(set);
     if (!entry)
         return false;
-    script->args()->put_int(0xEDF5DB70, entry->spin * 180);
-    script->args()->put_int(0xA4BEE6A1, entry->tap_total_);
+    script->args()->put_int(checksums::Name{0xEDF5DB70}, entry->spin * 180);
+    script->args()->put_int(checksums::Name{0xA4BEE6A1}, entry->tap_total_);
     if (entry->must_be_flawless_)
-        script->args()->put_name_key(0u, 0x687E2C25u);
+        script->args()->put_name_key(checksums::Name{0u}, 0x687E2C25u);
     return true;
 }
 
@@ -295,7 +295,7 @@ bool ObjectiveAuthoring::nuke_all_goals(script::Struct* params, script::Script* 
 // 0x004E8D30
 bool ObjectiveAuthoring::get_max_goals_per_level(script::Struct* /*params*/, script::Script* script)
 {
-    script->args()->put_int(0x8BC2E0DB, 10);
+    script->args()->put_int(checksums::Name{0x8BC2E0DB}, 10);
     return true;
 }
 
@@ -344,8 +344,8 @@ bool ObjectiveAuthoring::refresh_goal_cursor_position(script::Struct* /*params*/
     float height = 0.0f, angle = 0.0f;
     active_node_->get_current_point(&pos, &height, &angle);
     script::Struct cursor;
-    cursor.put_vec3(0x7F261953, pos.x, pos.y + height, pos.z);
-    cursor.push_float(0xFF7EBAF6, angle);
+    cursor.put_vec3(checksums::Name{0x7F261953}, {.x = pos.x, .y = pos.y + height, .z = pos.z});
+    cursor.push_float(checksums::Name{0xFF7EBAF6}, angle);
     script::launch_script(0xDEA7FE56, &cursor, nullptr, false, nullptr);
     cursor.get_clear();
     return true;

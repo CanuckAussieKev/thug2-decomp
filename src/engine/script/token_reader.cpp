@@ -457,13 +457,13 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
     bool deterministic = false;
     switch (*token) {
     case 0x16:
-        dest->put_name_key(name, fetch_word32(p));
+        dest->put_name_key(checksums::Name{name}, fetch_word32(p));
         return token + 5;
     case 0x17:
-        dest->put_int(name, static_cast<int>(fetch_word32(p)));
+        dest->put_int(checksums::Name{name}, static_cast<int>(fetch_word32(p)));
         return token + 5;
     case 0x1A:
-        dest->push_float(name, get_as_float(fetch_word32(p)));
+        dest->push_float(checksums::Name{name}, get_as_float(fetch_word32(p)));
         return token + 5;
     case 0x1E: {
         const float x = get_as_float(fetch_word32(p));
@@ -473,11 +473,11 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
         const float tolerance = render::kOnePercent;
         if (name != 0x9D2D0915 || !(std::fabs(x) < tolerance) || !(std::fabs(y) < tolerance) ||
             !(std::fabs(z) < tolerance))
-            dest->put_vec3(name, x, y, z);
+            dest->put_vec3(checksums::Name{name}, {.x = x, .y = y, .z = z});
         return token + 13;
     }
     case 0x1F:
-        dest->insert_pair(name, get_as_float(fetch_word32(p)), get_as_float(fetch_word32(token + 5)));
+        dest->insert_pair(checksums::Name{name}, {.x = get_as_float(fetch_word32(p)), .y = get_as_float(fetch_word32(token + 5))});
         return token + 9;
     case 0x1B: {
         const uint32_t length = fetch_word32(p);

@@ -453,9 +453,9 @@ bool cfunc_create_player_options(Struct* params, Script*)
     script::StructPtr dialog = script::make_struct();
     const int profile = player->profile_id();
     if ((manager->flag_bits() & kFlagsInternet) && profile && manager->presence_service()->authenticated()) {
-        dialog->put_int(kProfile, player->profile_id());
+        dialog->put_int(checksums::Name{kProfile}, player->profile_id());
         dialog->append_word(kNick, player_name(player));
-        dialog->put_name_key(0u, is_buddy(manager, player->profile_id()) ? kAllowRemoveHomie : kAllowAddHomie);
+        dialog->put_name_key(checksums::Name{0u}, is_buddy(manager, player->profile_id()) ? kAllowRemoveHomie : kAllowAddHomie);
     }
     dialog->append_word(kName, script::kQbvalString, name);
     get_run(kCreatePlayerOptionsDialog, dialog.get());
@@ -504,15 +504,15 @@ bool cfunc_fill_player_list_menu(Struct*, Script*)
         rgba->set_element(3, 0x80);
         script::StructPtr item = script::make_struct();
         item->append_word(kText, player_name(player));
-        item->put_name_key(kCentered, kCentered);
-        item->put_name_key(kId, static_cast<uint32_t>(index + kPlayerMenuIdBase));
-        item->put_name_key(kPadChooseScript, kChooseSelectedPlayer);
+        item->put_name_key(checksums::Name{kCentered}, kCentered);
+        item->put_name_key(checksums::Name{kId}, static_cast<uint32_t>(index + kPlayerMenuIdBase));
+        item->put_name_key(checksums::Name{kPadChooseScript}, kChooseSelectedPlayer);
         script::StructPtr unfocus = script::make_struct();
         unfocus->append_array_value(kRgba, rgba);
         item->append_array_value(kRgba, rgba);
         item->put_sub_struct(kUnfocusParams, unfocus.get());
         script::StructPtr choose = script::make_struct();
-        choose->put_int(kIndex, index);
+        choose->put_int(checksums::Name{kIndex}, index);
         choose->append_word(kName, player_name(player));
         item->put_sub_struct(kPadChooseParams, choose.get());
         get_run(kThemeMenuAddItem, item.get());

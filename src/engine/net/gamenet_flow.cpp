@@ -347,7 +347,7 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
         break;
     case kJoinStateRefused: { // 9
         script::StructPtr params = script::make_struct();
-        params->put_name_key(kReason, manager->refused_reason_);
+        params->put_name_key(checksums::Name{kReason}, manager->refused_reason_);
         manager->join_phase_job_->drop_out();
         get_run(kCreateJoinRefusedDialog, params.get());
         params.reset();

@@ -234,7 +234,7 @@ void Skate::drop_skater_from_roster(objects::Rider* skater)
     }
     if (!skater->is_local_skater()) {
         const script::StructPtr params = script::make_struct();
-        params->put_name_key(kSkaterId, skater->ident());
+        params->put_name_key(checksums::Name{kSkaterId}, skater->ident());
         script::launch_script(kRemoveClientSkater, params.get(), nullptr, false, nullptr);
     }
     if (skater->is_local_skater() && skater->view_slot() == 0) {
@@ -303,7 +303,7 @@ gsl::owner<objects::Rider*> Skate::spawn_skater_entity(objects::RiderIdentity* p
     skater->init_from_profile(profile); // (no memory: a crash, as the original)
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
         const script::StructPtr params = script::make_struct();
-        params->put_int(kPlayer, 0);
+        params->put_int(checksums::Name{kPlayer}, 0);
         script::launch_script(kModelApplyCustomLogos, params.get(), nullptr, false, nullptr);
     }
     if (!skater->is_local_skater())
@@ -365,7 +365,7 @@ void Skate::set_skater_shadow(objects::Rider* skater)
     if (!skater->is_local_skater())
         type = 2;
     script::StructPtr params = script::make_struct();
-    params->push_float(kBlobSizeFactor, 1.0f);
+    params->push_float(checksums::Name{kBlobSizeFactor}, 1.0f);
     params->append_word(kShadowModel, "Ped_Shadow"); // "Ped_Shadow"
     shadow->configure_from_data(params.get());
     params.reset();
@@ -937,14 +937,14 @@ void Skate::run_frame_logic()
                 goals::GoalManager* goals = goals::get_objective_board();
                 goals->disengage_every_objective(false);
                 goals->release_every_objective();
-                params->put_name_key(0u, kLeavingNetGame);
+                params->put_name_key(checksums::Name{0u}, kLeavingNetGame);
                 leave_server();
                 if (static_cast<uint8_t>(net->is_client_side())) {
                     net->remove_players();
                     net->disconnect_clients();
                 }
             }
-            params->put_int(kDeviceNum, device->dev()->port_no());
+            params->put_int(checksums::Name{kDeviceNum}, device->dev()->port_no());
             script::launch_script(kControllerUnplugged, params, nullptr, false, nullptr);
             script::free_struct(params);
             ++unplugged_frames_;

@@ -142,7 +142,7 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
         return score_pot(points_held_) > value ? 1 : 0;
     }
     case kGetSpecialValue:
-        script->args()->put_int(kValue, points_held_->special());
+        script->args()->put_int(checksums::Name{kValue}, points_held_->special());
         return 1;
     case kSetSpecialValue: {
         // (no value: the params pointer, as number_parameter's)
@@ -157,10 +157,10 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
         get_score_of(points_held_)->fill_special();
         return 1;
     case kGetTotalScore:
-        script->args()->put_int(kTotalScore, total_score(points_held_));
+        script->args()->put_int(checksums::Name{kTotalScore}, total_score(points_held_));
         return 1;
     case kGetNumberOfNonGapTricks:
-        script->args()->put_int(kNumberOfNonGapTricks, get_score_of(points_held_)->count_non_gap_tricks());
+        script->args()->put_int(checksums::Name{kNumberOfNonGapTricks}, get_score_of(points_held_)->count_non_gap_tricks());
         return 1;
     case kTweakTrick: {
         int tweak = 0;

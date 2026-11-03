@@ -260,22 +260,22 @@ void ModelWidget::change_traits(Struct* params)
     } else if (params->has_entry_named(kSector)) {
         // level geometry: a LevelObject of that sector
         clear_models();
-        params->put_name_key(kClass, kLevelObject);
+        params->put_name_key(checksums::Name{kClass}, kLevelObject);
         uint32_t sector = 0;
         params->read_hash_value(kSector, &sector, 1);
-        params->put_name_key(kName, sector);
+        params->put_name_key(checksums::Name{kName}, sector);
         attach_model(params, offset);
     } else if (params->has_entry_named(kSectors)) {
         // several, each {sector (offset)}
         clear_models();
-        params->put_name_key(kClass, kLevelObject);
+        params->put_name_key(checksums::Name{kClass}, kLevelObject);
         script::Array* sectors = nullptr;
         params->fetch_list(kSectors, &sectors, 0);
         for (uint32_t i = 0; i < sectors->extent(); ++i) {
             auto* entry = sectors->struct_at(i);
             uint32_t sector = 0;
             entry->read_hash_value(0u, &sector, 0);
-            params->put_name_key(kName, sector);
+            params->put_name_key(checksums::Name{kName}, sector);
             entry->fetch_vec(0u, &offset, 0);
             attach_model(params, offset);
         }

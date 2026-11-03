@@ -157,7 +157,7 @@ void store_node_vector(script::Struct* node, uint32_t name, V3 value)
         c->value.vector()->z() = value.z;
         return;
     }
-    node->put_vec3(name, value.x, value.y, value.z);
+    node->put_vec3(checksums::Name{name}, {.x = value.x, .y = value.y, .z = value.z});
 }
 
 // The light lists 0x00490570 fills (by the node's name; read in 0x0048FCA0, which takes a light away): the dynamic

@@ -130,7 +130,7 @@ Struct* pick_random_cas_option(uint32_t part, uint32_t filter)
         }
     }
     Struct* option = core::at(options, maths::rnd(candidates));
-    option->put_int(kAlreadySelected, 1);
+    option->put_int(checksums::Name{kAlreadySelected}, 1);
     return option;
 }
 

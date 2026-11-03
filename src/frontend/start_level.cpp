@@ -404,11 +404,11 @@ bool read_in(const char* name, std::string* why)
     get_log("start level: %s (free skate)", level.c_str());
     script::launch_script(name_hash("EnableSun"), nullptr, nullptr, false, "EnableSun");
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(0u, name_hash("freeskate"));
+    params->put_name_key(checksums::Name{0u}, name_hash("freeskate"));
     script::launch_script(name_hash("SetGameType"), params, nullptr, false, "SetGameType");
     params->get_clear();
     script::launch_script(name_hash("SetCurrentGameType"), nullptr, nullptr, false, "SetCurrentGameType");
-    params->put_name_key(name_hash("level"), load);
+    params->put_name_key(checksums::Name{name_hash("level")}, load);
     script::spawn_script(name_hash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
     params->get_clear();
     script::delete_struct(params);

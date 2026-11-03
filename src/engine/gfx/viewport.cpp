@@ -339,7 +339,7 @@ bool cfunc_script_get_screen_mode(script::Struct*, script::Script* script)
 {
     script::Struct* results = script->args().get();
     auto mode = static_cast<uint32_t>(view_setup().screen_mode());
-    results->put_name_key(kScreenMode, mode <= 5 ? core::at(kModeNames, mode) : 0u);
+    results->put_name_key(checksums::Name{kScreenMode}, mode <= 5 ? core::at(kModeNames, mode) : 0u);
     return true;
 }
 

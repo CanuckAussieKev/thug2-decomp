@@ -78,7 +78,7 @@ void Objective::no_combo_sequence_left()
     const script::StructPtr params = script::make_struct();
     uint32_t id = 0;
     args_->read_hash_value(kGoalIdName, &id, 1);
-    params->put_name_key(kGoalIdChecksum, id);
+    params->put_name_key(checksums::Name{kGoalIdChecksum}, id);
     script::launch_script(kGoalNoValidKeyCombos, params.get(), nullptr, false, nullptr);
 }
 
@@ -277,7 +277,7 @@ void Objective::remove_reward_trick()
                 empty.trick() = kUnassigned;
                 empty.keys() = kUnassigned;
                 profile->set_special_trick(i, &empty, true);
-                args_->put_int(kShouldRemoveTrick, 0);
+                args_->put_int(checksums::Name{kShouldRemoveTrick}, 0);
                 break;
             }
         }
@@ -367,9 +367,9 @@ bool Objective::award_special_trick()
         profile->add_max_specials(1);
         if (cat) {
             const script::StructPtr params = script::make_struct();
-            params->put_name_key(kTrickslot, keys);
-            params->put_int(kIndex, premade);
-            params->put_int(kSpecialTrickIndex, slots);
+            params->put_name_key(checksums::Name{kTrickslot}, keys);
+            params->put_int(checksums::Name{kIndex}, premade);
+            params->put_int(checksums::Name{kSpecialTrickIndex}, slots);
             script::launch_script(kLoadPremadeCat, params.get(), nullptr, false, nullptr);
         } else {
             RiderIdentity::SpecialTrick special;
@@ -377,7 +377,7 @@ bool Objective::award_special_trick()
             special.keys() = keys;
             profile->set_special_trick(slots, &special, true);
         }
-        args_->put_int(kShouldRemoveTrick, 1);
+        args_->put_int(checksums::Name{kShouldRemoveTrick}, 1);
     }
     args_->erase_module(kButtonSequences);
     gsl::owner<script::Array*> combos = script::new_array();

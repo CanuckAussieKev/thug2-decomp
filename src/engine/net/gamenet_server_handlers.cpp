@@ -378,7 +378,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
         std::array<char, 64> name{};
         team_name_key(name, team);
         script::StructPtr params = script::make_struct();
-        params->put_int(kTeam, team);
+        params->put_int(checksums::Name{kTeam}, team);
         params->append_word(kString0, script::kQbvalString, script::fetch_text(name.data()));
         get_run(kFlagReturned, params.get());
         params.reset();

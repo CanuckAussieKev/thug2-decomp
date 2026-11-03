@@ -674,7 +674,7 @@ void remove_steer_channel(objects::AnimBlenderComponent* blender)
     if (!params)
         return;
     params = new (params) script::Struct;
-    params->put_name_key(kSubsetId, checksums::hash_from_text(kSteerSubset));
+    params->put_name_key(checksums::Name{kSubsetId}, checksums::hash_from_text(kSteerSubset));
     blender->remove_channel(kSubsetRemove, params, nullptr);
     params->get_clear();
     script::delete_struct(params);
@@ -915,7 +915,7 @@ void manual_pitch(SkaterPhysicsModule* core)
     case bike::ManualEvent::kEnterEndo: {
         state.endo_velocity_ = object->vel();
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
-        params->put_int(kEndo, 1);
+        params->put_int(checksums::Name{kEndo}, 1);
         run_bike_script(core, kEnterNoseManualScript, params);
         script::delete_struct(params);
         break;

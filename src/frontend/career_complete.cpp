@@ -69,12 +69,12 @@ void store_beaten_goal(script::Struct* saved, uint32_t name, int level, uint32_t
     script::Struct* goal = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     if (!goal)
         return;
-    goal->put_int(kLevelNum, level);
-    goal->put_int(kUnlocked, 1);
-    goal->put_int(kK2206b1e7, 0);
-    goal->put_int(kAlreadyWon, 1);
-    goal->put_int(kRecord, record);
-    goal->put_name_key(0u, mode);
+    goal->put_int(checksums::Name{kLevelNum}, level);
+    goal->put_int(checksums::Name{kUnlocked}, 1);
+    goal->put_int(checksums::Name{kK2206b1e7}, 0);
+    goal->put_int(checksums::Name{kAlreadyWon}, 1);
+    goal->put_int(checksums::Name{kRecord}, record);
+    goal->put_name_key(checksums::Name{0u}, mode);
     saved->put_sub_struct(name, goal); // (a copy; replaces one of the same name)
     goal->get_clear();
     script::delete_struct(goal);

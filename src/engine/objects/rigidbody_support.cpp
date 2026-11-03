@@ -401,7 +401,7 @@ void BodyDynamicsModule::feel_pushers()
             collide_sound_ptr_) {
             const double length = std::sqrt((get_wide(impulse.x) * impulse.x + get_wide(impulse.z) * impulse.z) +
                                             get_wide(impulse.y) * impulse.y);
-            collide_sound_ptr_->push_float(kPercent, get_narrow(length * kSoundScale));
+            collide_sound_ptr_->push_float(checksums::Name{kPercent}, get_narrow(length * kSoundScale));
             audio_module_->emit_sound(collide_sound_ptr_);
             unknownf0_ = static_cast<uint32_t>(mute_until(impact_quiet_ms_));
             next_collide_sound_time() = mute_until(global_collide_mute_delay_);

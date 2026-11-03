@@ -127,7 +127,7 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
     uint32_t id = 0;
     if (params->read_hash_value(kId, &id, 0)) {
         id += entity()->ident();
-        params->put_name_key(kId, id);
+        params->put_name_key(checksums::Name{kId}, id);
     }
     memory::push_mem_profile("Game Objects");
     GameEntity* item = create_game_object_from_node(params);
@@ -135,10 +135,10 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
     core::at(items_, slot) = item;
 
     script::StructPtr tags = script::make_struct();
-    tags->put_name_key(kOwner, entity()->ident());
+    tags->put_name_key(checksums::Name{kOwner}, entity()->ident());
     uint32_t script = 0;
     if (params->read_hash_value(kOnDestroyScript, &script, 0))
-        tags->put_name_key(kOnDestroyScript, script);
+        tags->put_name_key(checksums::Name{kOnDestroyScript}, script);
     core::at(items_, slot)->set_tags_from_struct(tags.get());
     tags.reset();
 
@@ -168,7 +168,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         GameEntity* item = create_item(slot, script::read_sub_struct(item_params));
         script::StructPtr lock = script::make_struct();
         lock->append_structure_if_any(params);
-        lock->put_name_key(kObjectId, entity()->ident());
+        lock->put_name_key(checksums::Name{kObjectId}, entity()->ident());
         item->fetch_module(kLockObj)->configure_from_data(lock.get());
         lock.reset();
         online::SpecialItemMessage created;

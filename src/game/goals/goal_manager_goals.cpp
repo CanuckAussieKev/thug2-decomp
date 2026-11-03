@@ -110,7 +110,7 @@ bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
         return false;
     if (game_mode()->is_true(kIsCreateGoals) && !params->has_bare_flag(kEditedGoal))
         return false;
-    params->put_name_key(kGoalIdChecksum, id);
+    params->put_name_key(checksums::Name{kGoalIdChecksum}, id);
     if (params->has_bare_flag(kCareerOnly) && in_multiplayer_game())
         return false;
     gsl::owner<Objective*> goal = make_goal(params);
@@ -214,11 +214,11 @@ void GoalManager::append_objective_options(bool selected_only, bool skip_edited,
         if (edited_only && !goal->is_edited_goal2())
             continue;
         const script::StructPtr choice = script::make_struct();
-        choice->put_name_key(kGoalIdChecksum, goal->get_objective_key());
-        choice->put_name_key(kParent, kCurrentMenu);
+        choice->put_name_key(checksums::Name{kGoalIdChecksum}, goal->get_objective_key());
+        choice->put_name_key(checksums::Name{kParent}, kCurrentMenu);
         choice->append_word(kText, text);
-        choice->put_name_key(kFont, kSmall);
-        choice->put_int(kScale, 0);
+        choice->put_name_key(checksums::Name{kFont}, kSmall);
+        choice->put_int(checksums::Name{kScale}, 0);
         script::launch_script(selected_only ? kViewSelectedGoalsMenuSetEvents : kChooseGoalsMenuSetEvents, choice.get(),
                               nullptr, false, nullptr);
     }
@@ -259,7 +259,7 @@ gsl::owner<script::Struct*> GoalManager::get_objective_try_details()
         if (!goal->is_online_objective() && goal->has_won())
             attempts += goal->get_times_started();
     }
-    info->put_int(kAttempts, attempts);
+    info->put_int(checksums::Name{kAttempts}, attempts);
     return info;
 }
 

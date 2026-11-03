@@ -168,10 +168,10 @@ float percent_of(float value) { return static_cast<float>(static_cast<double>(va
 // A colour added to a slot: h, s, v and use_default_hsv = 0.
 void add_colour(script::Struct* slot, int h, int s, int v)
 {
-    slot->put_int(kH, h);
-    slot->put_int(kS, s);
-    slot->put_int(kV, v);
-    slot->put_int(kUseDefaultHsv, 0);
+    slot->put_int(checksums::Name{kH}, h);
+    slot->put_int(checksums::Name{kS}, s);
+    slot->put_int(checksums::Name{kV}, v);
+    slot->put_int(checksums::Name{kUseDefaultHsv}, 0);
 }
 
 } // namespace

@@ -190,8 +190,8 @@ bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* sc
                 continue;
             any = true;
             gsl::owner<Struct*> swap = script::new_struct();
-            swap->put_name_key(kObj1, entry.key);
-            swap->put_name_key(kObj2, entry.value);
+            swap->put_name_key(checksums::Name{kObj1}, entry.key);
+            swap->put_name_key(checksums::Name{kObj2}, entry.value);
             cfunc_swap_object_models(swap, script);
             if (swap) {
                 // (delete inlined: the structure pool pair's Free)

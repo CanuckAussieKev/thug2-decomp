@@ -42,10 +42,10 @@ void add_element(Struct* results, Array* array, uint32_t index)
 {
     switch (array->kind_tag()) {
     case script::kQbvalInteger:
-        results->put_int(kVal, static_cast<int>(array->fetch_part(index)));
+        results->put_int(checksums::Name{kVal}, static_cast<int>(array->fetch_part(index)));
         break;
     case script::kQbvalFloat:
-        results->push_float(kVal, array->fetch_float(index));
+        results->push_float(checksums::Name{kVal}, array->fetch_float(index));
         break;
     case script::kQbvalString:
     case script::kQbvalInlineText:
@@ -53,12 +53,12 @@ void add_element(Struct* results, Array* array, uint32_t index)
         break;
     case script::kQbvalPair: {
         auto* pair = array->pair_at(index);
-        results->insert_pair(kVal, pair->x(), pair->y());
+        results->insert_pair(checksums::Name{kVal}, {.x = pair->x(), .y = pair->y()});
         break;
     }
     case script::kQbvalVector: {
         auto* vector = array->vector_at(index);
-        results->put_vec3(kVal, vector->x(), vector->y(), vector->z());
+        results->put_vec3(checksums::Name{kVal}, {.x = vector->x(), .y = vector->y(), .z = vector->z()});
         break;
     }
     case script::kQbvalStruct:
@@ -68,7 +68,7 @@ void add_element(Struct* results, Array* array, uint32_t index)
         results->append_array_value(kVal, element_array(array, index));
         break;
     case script::kQbvalName:
-        results->put_name_key(kVal, array->fetch_part(index));
+        results->put_name_key(checksums::Name{kVal}, array->fetch_part(index));
         break;
     default:
         break;
@@ -134,7 +134,7 @@ bool cfunc_get_array_size(Struct* params, script::Script* script)
     if (!array)
         get_log("GetArraySize: no array in %s's parameters (or an index leading to none) - the next line crashes",
                 script::find_checksum_name_or_unknown(script->script_title()));
-    script->args()->put_int(kArraySize, static_cast<int>(array->extent()));
+    script->args()->put_int(checksums::Name{kArraySize}, static_cast<int>(array->extent()));
     return true;
 }
 

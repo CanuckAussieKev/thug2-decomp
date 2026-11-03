@@ -228,23 +228,23 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     core::at(placed.row, 2).w = 0.0f;
     d3dx::matrix_multiply(&joint_mat, &joint_mat, &placed);
 
-    params->put_vec3(0x7F261953, to_value(core::at(joint_mat.row, 3))); // pos
+    params->put_vec3(checksums::Name{0x7F261953}, to_value(core::at(joint_mat.row, 3))); // pos
     maths::QuatRotation rotation{};
     rotation.from_matrix(joint_mat);
     const maths::Vec4 quat = {.x = rotation.x, .y = rotation.y, .z = rotation.z, .w = rotation.w};
     if (quat.w > 0.0f)
-        params->put_vec3(0xC97F3AA9, to_value(quat)); // Orientation (w kept positive)
+        params->put_vec3(checksums::Name{0xC97F3AA9}, to_value(quat)); // Orientation (w kept positive)
     else
-        params->put_vec3(0xC97F3AA9, {.x = -quat.x, .y = -quat.y, .z = -quat.z, .w = -quat.w});
+        params->put_vec3(checksums::Name{0xC97F3AA9}, {.x = -quat.x, .y = -quat.y, .z = -quat.z, .w = -quat.w});
     const maths::Vec4& object_vel = entity()->vel();
     const maths::Vec4 carried = {.x = velocity_scale * object_vel.x, .y = velocity_scale * object_vel.y,
                                  .z = velocity_scale * object_vel.z, .w = velocity_scale * object_vel.w};
     maths::Vec4 turned;
     entity()->basis_frame().rotate_vector(turned, *velocity);
-    params->put_vec3(0x0C4C809E,
+    params->put_vec3(checksums::Name{0x0C4C809E},
                      {.x = carried.x + turned.x, .y = carried.y + turned.y, .z = carried.z + turned.z, .w = carried.w + turned.w}); // vel
     entity()->basis_frame().rotate_vector(turned, *rotational_velocity);
-    params->put_vec3(0xFB1A83B2, to_value(turned)); // rotvel
+    params->put_vec3(checksums::Name{0xFB1A83B2}, to_value(turned)); // rotvel
     object_hub_slot()->spawn_entity_from_node(components, params, true);
 }
 
@@ -296,9 +296,9 @@ bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 1);
     const bool found = get_bone_position(bone, &pos);
-    script->args()->push_float(0x7323E97C, pos.x); // x
-    script->args()->push_float(0x0424D9EA, pos.y); // y
-    script->args()->push_float(0x9D2D8850, pos.z); // z
+    script->args()->push_float(checksums::Name{0x7323E97C}, pos.x); // x
+    script->args()->push_float(checksums::Name{0x0424D9EA}, pos.y); // y
+    script->args()->push_float(checksums::Name{0x9D2D8850}, pos.z); // z
     return found;
 }
 

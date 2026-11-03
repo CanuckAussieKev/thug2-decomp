@@ -832,7 +832,7 @@ uint32_t current_level()
 bool goal_command(Function command, uint32_t goal)
 {
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(0xA1DC81F9u, goal); // name
+    params->put_name_key(checksums::Name{0xA1DC81F9u}, goal); // name
     const bool result = command(params, nullptr);
     params->get_clear();
     script::delete_struct(params);

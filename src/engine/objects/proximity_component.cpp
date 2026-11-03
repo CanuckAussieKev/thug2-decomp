@@ -49,7 +49,7 @@ void ProximityComponent::launch_script(uint32_t script, Entity* skater)
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
-    params->put_name_key(kSkaterId, skater->ident());
+    params->put_name_key(checksums::Name{kSkaterId}, skater->ident());
     if (call_args_)
         params->merge_structure(call_args_);
     script::launch_script(script, params, entity(), false, nullptr);

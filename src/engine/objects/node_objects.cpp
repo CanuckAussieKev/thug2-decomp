@@ -65,8 +65,8 @@ void run_creation_script(GameEntity* object, script::Struct* params)
     gsl::owner<script::Struct*> data = script::spawn_param_bag();
     if (data)
         new (data) script::Struct;
-    data->put_name_key(kName, name);
-    data->put_int(kCreationValue, value);
+    data->put_name_key(checksums::Name{kName}, name);
+    data->put_int(checksums::Name{kCreationValue}, value);
     script::launch_script(kCreationScript, data, object, false, nullptr);
     if (data) {
         data->get_clear();
@@ -193,8 +193,8 @@ gsl::owner<script::Struct*> VideoEntry::get_settings()
     gsl::owner<script::Struct*> settings = script::spawn_param_bag();
     if (settings)
         settings = new (settings) script::Struct;
-    settings->put_int(0x8DDE72C0, flag19_);
-    settings->put_int(0xB8CA12C5, flag_1c_);
+    settings->put_int(checksums::Name{0x8DDE72C0}, flag19_);
+    settings->put_int(checksums::Name{0xB8CA12C5}, flag_1c_);
     return settings;
 }
 

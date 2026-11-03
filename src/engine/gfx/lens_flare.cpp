@@ -237,8 +237,8 @@ void place_flare_elements(float time, const maths::Vec4* sun, const maths::Vec4*
     for (uint32_t i = 0; i < element_count(); ++i) {
         FlareElement& element = core::at(element_run(), i);
         const maths::Vec4 pos = *centre + element.pos_scale_ * line;
-        element.morph->push_float(kTime, time);
-        element.morph->put_vec3(kPos, get_value(pos));
+        element.morph->push_float(checksums::Name{kTime}, time);
+        element.morph->put_vec3(checksums::Name{kPos}, get_value(pos));
         frontend::cfunc_do_screen_element_morph(element.morph, nullptr);
     }
     flare_hidden() = false;
@@ -271,14 +271,14 @@ void prepare_all(float theta, float phi, float radius, float size, uint32_t text
         item->read_hash_value(kId, &element.id, 1);
         gsl::owner<Struct*> create = new_params(); // (the element's for the flare's life: never freed, as the original)
         element.create = create;
-        element.create->put_name_key(kId, element.id);
-        element.create->push_float(kScale, element.scale);
+        element.create->put_name_key(checksums::Name{kId}, element.id);
+        element.create->push_float(checksums::Name{kScale}, element.scale);
         element.create->append_array_value(kRgba, rgba);
         gsl::owner<Struct*> morph = new_params(); // (the same)
         element.morph = morph;
-        element.morph->put_name_key(kId, element.id);
-        element.morph->put_vec3(kPos, script::VectorValue{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f});
-        element.morph->push_float(kTime, 0.0f);
+        element.morph->put_name_key(checksums::Name{kId}, element.id);
+        element.morph->put_vec3(checksums::Name{kPos}, script::VectorValue{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f});
+        element.morph->push_float(checksums::Name{kTime}, 0.0f);
     }
     morph_in_time() = script::fetch_float(kMorphIn);
     morph_out_time() = script::fetch_float(kMorphOut);
@@ -316,9 +316,9 @@ void hide_flare(Struct* params, script::Script* script)
         params->fetch_float(kMorphTime, &time, 0);
     }
     gsl::owner<Struct*> morph = new_params();
-    morph->put_name_key(kId, kContainer);
-    morph->push_float(kAlpha, 0.0f);
-    morph->push_float(kTime, time);
+    morph->put_name_key(checksums::Name{kId}, kContainer);
+    morph->push_float(checksums::Name{kAlpha}, 0.0f);
+    morph->push_float(checksums::Name{kTime}, time);
     frontend::cfunc_do_screen_element_morph(morph, script);
     script::free_struct(morph);
     if (params) {
@@ -326,8 +326,8 @@ void hide_flare(Struct* params, script::Script* script)
         if (params->fetch_vec(kSunPos, &sun, 0)) {
             for (uint32_t i = 0; i < element_count(); ++i) {
                 FlareElement& element = core::at(element_run(), i);
-                element.morph->put_vec3(kPos, sun);
-                element.morph->push_float(kTime, time);
+                element.morph->put_vec3(checksums::Name{kPos}, sun);
+                element.morph->push_float(checksums::Name{kTime}, time);
                 frontend::cfunc_do_screen_element_morph(element.morph, script);
             }
         }
@@ -347,9 +347,9 @@ void unhide_flare(Struct*, script::Script* script)
     }
     const float time = 0.2f;
     gsl::owner<Struct*> morph = new_params();
-    morph->put_name_key(kId, kContainer);
-    morph->push_float(kAlpha, 1.0f);
-    morph->push_float(kTime, time);
+    morph->put_name_key(checksums::Name{kId}, kContainer);
+    morph->push_float(checksums::Name{kAlpha}, 1.0f);
+    morph->push_float(checksums::Name{kTime}, time);
     frontend::cfunc_do_screen_element_morph(morph, script);
     script::free_struct(morph);
     flare_hidden() = false;
@@ -488,9 +488,9 @@ void render(gfx::ViewCam* camera)
         }
         if (!flare_hidden()) {
             gsl::owner<Struct*> params = new_params();
-            params->put_vec3(kSunPos, get_value(screen));
+            params->put_vec3(checksums::Name{kSunPos}, get_value(screen));
             if (!(static_cast<double>(morph_out_time()) * 1000.0f < static_cast<double>(unseen)))
-                params->push_float(kMorphTime, morph_out_time());
+                params->push_float(checksums::Name{kMorphTime}, morph_out_time());
             script::launch_script(kMaybeHideLensFlare, params, nullptr, false, nullptr);
             script::free_struct(params);
         }

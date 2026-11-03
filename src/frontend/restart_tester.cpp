@@ -110,9 +110,9 @@ void get_message(const char* text, const char* id = "restart_tester_message", fl
 {
     gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(name_hash("text"), text);
-    params->put_name_key(name_hash("id"), name_hash(id));
-    params->insert_pair(name_hash("pos"), 320.0f, y);
-    params->put_int(name_hash("time"), 4000);
+    params->put_name_key(checksums::Name{name_hash("id")}, name_hash(id));
+    params->insert_pair(checksums::Name{name_hash("pos")}, {.x = 320.0f, .y = y});
+    params->put_int(checksums::Name{name_hash("time")}, 4000);
     script::spawn_script(name_hash("create_panel_message"), params, 0, nullptr, 0, 0, false, false, false, false);
     params->get_clear();
     script::delete_struct(params);
@@ -161,7 +161,7 @@ void get_next()
             continue;
         visited_state().insert(r.name);
         gsl::owner<script::Struct*> params = script::new_struct();
-        params->put_name_key(name_hash("node_name"), r.name);
+        params->put_name_key(checksums::Name{name_hash("node_name")}, r.name);
         script::launch_script(name_hash("ResetSkaters"), params, nullptr, false, "ResetSkaters");
         params->get_clear();
         script::delete_struct(params);

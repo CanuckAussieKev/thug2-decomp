@@ -615,7 +615,7 @@ bool BodyDynamicsModule::rigid_body_enable_player_collision(script::Struct* /*pa
 // 0x0042DFD0
 bool BodyDynamicsModule::get_center_of_mass_pos(script::Struct* /*params*/, script::Script* script)
 {
-    script->args()->put_vec3(0x77808D3C, {.x = at_point_.x, .y = at_point_.y, .z = at_point_.z, .w = at_point_.w}); // CenterOfMassPos
+    script->args()->put_vec3(checksums::Name{0x77808D3C}, {.x = at_point_.x, .y = at_point_.y, .z = at_point_.z, .w = at_point_.w}); // CenterOfMassPos
     return true;
 }
 

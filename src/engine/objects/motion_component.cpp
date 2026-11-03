@@ -215,7 +215,7 @@ bool KinematicsModule::obj_get_random_link(script::Struct*, script::Script* scri
 {
     const uint32_t links = level_nodes::get_link_count(list_link_);
     if (links)
-        script->args()->put_int(kLink, maths::rnd(static_cast<int>(links)) + 1);
+        script->args()->put_int(checksums::Name{kLink}, maths::rnd(static_cast<int>(links)) + 1);
     return true;
 }
 

@@ -344,10 +344,10 @@ bool cfunc_set_player_appearance_color(script::Struct* params, script::Script*)
         params->fetch_float(kS, &s, 1);
         params->fetch_float(kV, &v, 1);
         params->fetch_int_value(kUseDefaultHsv, &use_default, 1);
-        slot->put_int(kH, truncate(h));
-        slot->put_int(kS, truncate(s));
-        slot->put_int(kV, truncate(v));
-        slot->put_int(kUseDefaultHsv, use_default);
+        slot->put_int(checksums::Name{kH}, truncate(h));
+        slot->put_int(checksums::Name{kS}, truncate(s));
+        slot->put_int(checksums::Name{kV}, truncate(v));
+        slot->put_int(checksums::Name{kUseDefaultHsv}, use_default);
     }
     return true;
 }
@@ -367,14 +367,14 @@ bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script*)
     }
     float value = 0.0f;
     if (params->fetch_float(kX, &value, 0))
-        slot->put_int(kX, truncate(value));
+        slot->put_int(checksums::Name{kX}, truncate(value));
     if (params->fetch_float(kY, &value, 0))
-        slot->put_int(kY, truncate(value));
+        slot->put_int(checksums::Name{kY}, truncate(value));
     if (params->fetch_float(kZ, &value, 0))
-        slot->put_int(kZ, truncate(value));
+        slot->put_int(checksums::Name{kZ}, truncate(value));
     int use_default = 0;
     if (params->fetch_int_value(kKeepStockScale, &use_default, 0))
-        slot->put_int(kKeepStockScale, use_default);
+        slot->put_int(checksums::Name{kKeepStockScale}, use_default);
     return true;
 }
 
@@ -394,11 +394,11 @@ bool cfunc_set_player_appearance_uv(script::Struct* params, script::Script*)
         params->fetch_float(kUvScale, &scale, 1);
         params->fetch_float(kUvRot, &rotation, 1);
         params->fetch_int_value(kUseDefaultUv, &use_default, 1);
-        slot->push_float(kUvU, u);
-        slot->push_float(kUvV, v);
-        slot->push_float(kUvScale, scale);
-        slot->push_float(kUvRot, rotation);
-        slot->put_int(kUseDefaultUv, use_default);
+        slot->push_float(checksums::Name{kUvU}, u);
+        slot->push_float(checksums::Name{kUvV}, v);
+        slot->push_float(checksums::Name{kUvScale}, scale);
+        slot->push_float(checksums::Name{kUvRot}, rotation);
+        slot->put_int(checksums::Name{kUseDefaultUv}, use_default);
     }
     return true;
 }

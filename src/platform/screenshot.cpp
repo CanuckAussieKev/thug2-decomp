@@ -285,9 +285,9 @@ void show_message(const std::string& text)
     auto crc = [](const char* name) { return checksums::hash_from_text(name); };
     gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(crc("text"), text.c_str());
-    params->put_name_key(crc("id"), crc("thug2_decomp_screenshot_message"));
-    params->insert_pair(crc("pos"), 320.0f, screenshot_job().message_y_);
-    params->put_int(crc("time"), static_cast<int>(kMessageMs));
+    params->put_name_key(checksums::Name{crc("id")}, crc("thug2_decomp_screenshot_message"));
+    params->insert_pair(checksums::Name{crc("pos")}, {.x = 320.0f, .y = screenshot_job().message_y_});
+    params->put_int(checksums::Name{crc("time")}, static_cast<int>(kMessageMs));
     script::spawn_script(kScript, params, 0, nullptr, 0, 0, false, false, false, false);
     params->get_clear();
     script::delete_struct(params);

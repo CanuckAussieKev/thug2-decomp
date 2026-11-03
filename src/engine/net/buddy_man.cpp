@@ -489,11 +489,11 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
         choose->put_int("join_private_ip", static_cast<int>(buddy->join_private_ip()));
         choose->put_int("join_port", buddy->join_port());
         if (allow_remove)
-            choose->put_name_key(0u, get_checksums("allow_remove"));
+            choose->put_name_key(checksums::Name{0u}, get_checksums("allow_remove"));
         if (allow_join) {
             if (buddy->cur_standing() == kStatusPlaying)
-                choose->put_name_key(0u, get_checksums("allow_join"));
-            choose->put_name_key(0u, get_checksums("in_lobby"));
+                choose->put_name_key(checksums::Name{0u}, get_checksums("allow_join"));
+            choose->put_name_key(checksums::Name{0u}, get_checksums("in_lobby"));
         } else {
             choose->put_name_key("back_script", get_checksums("back_from_shell_buddy_options"));
             choose->put_name_key("remove_script", get_checksums("shell_remove_buddy"));
@@ -853,7 +853,7 @@ bool show_next_buddy_message(script::Struct*, script::Script* script)
     script->args()->append_word(0xD6F4D0C8, message->nick().data());
     script->args()->append_word(0xD3A5478A, message->nick().data());
     script->args()->append_word(0x59EDEC1C, message->text().data());
-    script->args()->put_int(0x7EA855F0, message->account());
+    script->args()->put_int(checksums::Name{0x7EA855F0}, message->account());
     unlink_list_node(message);
     // (the original then counts the messages left and ignores the count)
     return true;

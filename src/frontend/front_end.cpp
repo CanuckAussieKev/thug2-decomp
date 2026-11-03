@@ -195,7 +195,7 @@ bool anchor_exists(script::Struct* params, uint32_t id, bool clear = true)
 {
     if (clear)
         params->get_clear();
-    params->put_name_key(kId, id);
+    params->put_name_key(checksums::Name{kId}, id);
     return object_exists(params);
 }
 
@@ -432,14 +432,14 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
             continue;
         gsl::owner<script::Struct*> params = new_params();
         if (core::at(keys, i) == kKeyEnter) {
-            params->put_name_key(0u, kEnterKey);
+            params->put_name_key(checksums::Name{0u}, kEnterKey);
         } else if (core::at(keys, i) == kKeyBackspace) {
-            params->put_name_key(0u, kBackspaceKey);
+            params->put_name_key(checksums::Name{0u}, kBackspaceKey);
         } else {
             std::array<char, 2> text = {{core::at(keys, i), '\0'}};
             params->append_word(kText, text.data());
         }
-        params->put_int(kKeyboardDeviceParam, front_end->keyboard_device_);
+        params->put_int(checksums::Name{kKeyboardDeviceParam}, front_end->keyboard_device_);
         script::launch_script(kHandleKeyboardInput, params, nullptr, false, nullptr);
         delete_params(params);
     }
@@ -593,7 +593,7 @@ void FrontEnd::get_pause_game(bool pause)
         return;
     // Back in the game with a skater: the camera's view mode back to the global's.
     gsl::owner<script::Struct*> params = new_params();
-    params->put_int(0u, script::fetch_int_value(0x968F7408u));
+    params->put_int(checksums::Name{0u}, script::fetch_int_value(0x968F7408u));
     commands::cfunc_set_view_mode(params, nullptr);
     delete_params(params);
 }
@@ -634,8 +634,8 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
         if (core::at(front_end->pad_mappings_, handler->ordinal()).mapping_ == 0 || front_end->block_menu_input_)
             continue;
         script::Struct params;
-        params.put_int(kDeviceNum, handler->dev()->port_no());
-        params.put_int(kController, 0); // (the original loads the mapping, then passes 0)
+        params.put_int(checksums::Name{kDeviceNum}, handler->dev()->port_no());
+        params.put_int(checksums::Name{kController}, 0); // (the original loads the mapping, then passes 0)
         tracker->launch_event(event, kMenuEvent, kMenuEvent, &params, false,
                                                                      -1.0f);
         params.get_clear();

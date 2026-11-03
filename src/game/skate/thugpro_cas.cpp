@@ -508,9 +508,9 @@ void load_once()
                 script::Struct* part = theirs->struct_at(core::at(picked, k));
                 theirs->set_struct(core::at(picked, k), nullptr); // (now ours: not freed with THUGPRO's array)
                 if (setting == 1 && !part->has_bare_flag(kHidden))
-                    part->put_name_key(0u, kHidden);
+                    part->put_name_key(checksums::Name{0u}, kHidden);
                 if (setting == 1 && !part->has_bare_flag(kNoRandom))
-                    part->put_name_key(0u, kNoRandom);
+                    part->put_name_key(checksums::Name{0u}, kNoRandom);
                 target.ours->set_struct(old + static_cast<uint32_t>(k), part);
             }
             ++lists;

@@ -167,7 +167,7 @@ void PathManager::number_paths()
                 path = existing;
                 node = start;
             }
-            node->put_int(kPathNum, path);
+            node->put_int(checksums::Name{kPathNum}, path);
             if (level_nodes::get_link_count(node) == 0)
                 break;
             node = level_nodes::fetch_neighbour_node(node, 0);

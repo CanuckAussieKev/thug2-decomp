@@ -44,7 +44,7 @@ bool cfunc_is_win32(Struct*, Script*) { return os_layer() == 7; }
 // 0x0044E3B0: GetPlatform: the script's platform=xbox. Always true.
 bool cfunc_get_platform(Struct*, Script* script)
 {
-    script->args()->put_name_key(kPlatform, kXbox);
+    script->args()->put_name_key(checksums::Name{kPlatform}, kXbox);
     return true;
 }
 
@@ -75,7 +75,7 @@ bool cfunc_time_greater_than(Struct* params, Script*)
 // 0x0044E460: GetStartTime: the script clock now as the script's StartTime. Always true.
 bool cfunc_get_start_time(Struct*, Script* script)
 {
-    script->args()->put_int(kStartTime, script_clock());
+    script->args()->put_int(checksums::Name{kStartTime}, script_clock());
     return true;
 }
 
@@ -85,7 +85,7 @@ bool cfunc_get_elapsed_time(Struct* params, Script* script)
 {
     int start = 0;
     params->fetch_int_value(kStartTime, &start, 0);
-    script->args()->put_int(kElapsedTime, frame_clock::game_clock_elapsed() + (objects::clock_offset() - start));
+    script->args()->put_int(checksums::Name{kElapsedTime}, frame_clock::game_clock_elapsed() + (objects::clock_offset() - start));
     return true;
 }
 

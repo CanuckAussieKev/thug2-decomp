@@ -492,9 +492,9 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
     gsl::owner<script::Struct*> copy = script::new_struct();
     copy->merge_structure(node);
     copy->erase_module(kName);
-    copy->put_name_key(kName, name);
+    copy->put_name_key(checksums::Name{kName}, name);
     copy->erase_module(kPos);
-    copy->put_vec3(kPos, pos.x, pos.y, pos.z);
+    copy->put_vec3(checksums::Name{kPos}, {.x = pos.x, .y = pos.y, .z = pos.z});
     if (node_class_hash(node) == kParticleObject) {
         // (a particle system's emitter has world places besides its pos=: moved with it - level_editor_entities.h)
         static const uint32_t kMid = checksums::hash_from_text("MidPosition"),
@@ -505,7 +505,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
             script::VectorValue v{};
             if (copy->fetch_vec(key, &v, 0)) {
                 copy->erase_module(key);
-                copy->put_vec3(key, v.x + pos.x - from.x, v.y + pos.y - from.y, v.z + pos.z - from.z);
+                copy->put_vec3(checksums::Name{key}, {.x = v.x + pos.x - from.x, .y = v.y + pos.y - from.y, .z = v.z + pos.z - from.z});
             }
         }
     }

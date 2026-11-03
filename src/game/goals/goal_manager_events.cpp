@@ -78,7 +78,7 @@ int total_with_pending(void* score)
 void lose_next_frame(Objective* goal)
 {
     const script::StructPtr params = script::make_struct();
-    params->put_name_key(kGoalIdChecksum, goal->get_objective_key());
+    params->put_name_key(checksums::Name{kGoalIdChecksum}, goal->get_objective_key());
     script::spawn_script(kGoalLoseNextFrame, params.get(), 0, nullptr, 0, 0, false, false, false, false);
 }
 
@@ -106,8 +106,8 @@ void GoalManager::land()
             if (score->pot_score() <= 0)
                 continue;
             const script::StructPtr check = script::make_struct();
-            check->put_name_key(kGoalIdChecksum, goal->get_objective_key());
-            check->put_int(kLastScoreLanded, score->pot_score());
+            check->put_name_key(checksums::Name{kGoalIdChecksum}, goal->get_objective_key());
+            check->put_int(checksums::Name{kLastScoreLanded}, score->pot_score());
             script::launch_script(kHighComboCheckScore, check.get(), nullptr, false, nullptr);
         } else if (goal->fetch_args()->has_bare_flag(kScoreGoal)) {
             auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
@@ -119,7 +119,7 @@ void GoalManager::land()
             if (total_with_pending(score) < needed)
                 continue;
             const int total = total_with_pending(score);
-            goal->fetch_args()->put_int(kWinningScore, total);
+            goal->fetch_args()->put_int(checksums::Name{kWinningScore}, total);
             complete_objective(goal->get_objective_key());
             goal->fetch_args()->erase_module(kWinningScore);
         } else if (goal->fetch_args()->has_bare_flag(kTrickObjects)) {
@@ -138,7 +138,7 @@ void GoalManager::land()
             if (total_with_pending(score) <= current)
                 continue;
             const int total = total_with_pending(score);
-            goal->fetch_args()->put_int(kArcadeCurrentScoreTotal, total);
+            goal->fetch_args()->put_int(checksums::Name{kArcadeCurrentScoreTotal}, total);
         } else if (goal->requires_combo() && goal->fetch_args()->has_bare_flag(kChainActiveFlag)) {
             lose_next_frame(goal);
         }
@@ -158,7 +158,7 @@ void GoalManager::get_bail()
         if (goal->is_tetris()) {
             int flag = 0;
             if (goal->fetch_args()->fetch_int_value(kTrickMarker, &flag, 0) && flag)
-                goal->fetch_args()->put_int(kTrickMarker, 0);
+                goal->fetch_args()->put_int(checksums::Name{kTrickMarker}, 0);
         } else if (goal->fetch_args()->has_bare_flag(kTrickBeat)) {
             core::down_cast<TrickBeatGoal>(goal)->clear_landed();
         }
@@ -184,10 +184,10 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         const char* text = nullptr;
         params->fetch_text(kViewGoalsText, &text, 1);
         script::StructPtr entry = script::make_struct();
-        entry->put_name_key(kGoalIdChecksum, id);
-        entry->put_int(kBeaten, beaten);
-        entry->put_int(kLocked, locked);
-        entry->put_int(kRewardPoints, goal->get_reward_points());
+        entry->put_name_key(checksums::Name{kGoalIdChecksum}, id);
+        entry->put_int(checksums::Name{kBeaten}, beaten);
+        entry->put_int(checksums::Name{kLocked}, locked);
+        entry->put_int(checksums::Name{kRewardPoints}, goal->get_reward_points());
         entry->append_word(kViewGoalsText, text);
         const char* description = nullptr;
         script::Array* descriptions = nullptr;
@@ -215,7 +215,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         entry.reset();
         int number = 0;
         goals->fetch_int_value(kNumGoals, &number, 0);
-        goals->put_int(kNumGoals, ++number);
+        goals->put_int(checksums::Name{kNumGoals}, ++number);
     }
     // Each pro's goals made an array of their structures: all as info's arrays by pro, or - for one skater - that
     // pro's array alone (the first pro's).
@@ -297,7 +297,7 @@ bool cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params, script
     params->fetch_int_value(0u, &level, 1);
     GoalManager* manager = get_objective_board();
     const int flag = params->has_bare_flag(kBeatenInLevelFlag);
-    script->args()->put_int(kClearedCount, manager->count_cleared_in_stage(level, flag));
+    script->args()->put_int(checksums::Name{kClearedCount}, manager->count_cleared_in_stage(level, flag));
     return true;
 }
 
@@ -321,8 +321,8 @@ bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
     for (int i = 0; i < manager->goals().num(); ++i) {
         Objective* goal = manager->goals().get_by_index(i);
         gsl::owner<script::Struct*> entry = script::new_struct();
-        entry->put_name_key(kGoalIdKey, goal->get_objective_key());
-        entry->put_int(kAlreadyWon, goal->has_won() ? 1 : 0);
+        entry->put_name_key(checksums::Name{kGoalIdKey}, goal->get_objective_key());
+        entry->put_int(checksums::Name{kAlreadyWon}, goal->has_won() ? 1 : 0);
         list->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
     }
     script->args()->append_array_value(kGoalList, list.get());

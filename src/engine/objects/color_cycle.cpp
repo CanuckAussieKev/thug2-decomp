@@ -85,8 +85,8 @@ void ColorCycleComponent::set_on(bool on)
 {
     if (on_ && !on) {
         gsl::owner<script::Struct*> params = script::new_struct();
-        params->put_name_key(kName, entity()->ident());
-        params->put_int(kColor, kNeutralColor);
+        params->put_name_key(checksums::Name{kName}, entity()->ident());
+        params->put_int(checksums::Name{kColor}, kNeutralColor);
         set_object_color(entity()->ident(), params);
         delete_params(params);
     }
@@ -111,8 +111,8 @@ void ColorCycleComponent::tick_frame()
     uint32_t rgb = static_cast<uint32_t>(get_truncated(color.z)) << 8;
     rgb = (rgb + static_cast<uint32_t>(get_truncated(color.y))) << 8;
     rgb += static_cast<uint32_t>(get_truncated(color.x));
-    params->put_int(kColor, static_cast<int>(rgb));
-    params->put_name_key(kName, entity()->ident());
+    params->put_int(checksums::Name{kColor}, static_cast<int>(rgb));
+    params->put_name_key(checksums::Name{kName}, entity()->ident());
     script::dump_to_log(params, 0);
     set_object_color(entity()->ident(), params);
     delete_params(params);

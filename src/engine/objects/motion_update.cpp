@@ -360,7 +360,7 @@ bool KinematicsModule::obj_get_next_obj_on_path(script::Struct* params, script::
     range = static_cast<float>(static_cast<double>(range) * 12.0f); // (feet)
     script->args()->erase_module(kOb);
     if (const GameEntity* next = get_next_obj_on_path(range))
-        script->args()->put_name_key(kOb, next->ident());
+        script->args()->put_name_key(checksums::Name{kOb}, next->ident());
     return true;
 }
 

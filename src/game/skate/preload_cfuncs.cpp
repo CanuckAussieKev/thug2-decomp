@@ -118,9 +118,9 @@ script::Struct* get_element(script::Array* array, uint32_t index)
 // A pedestrian part chosen at random: allowed, not to be picked again, its place among the random choices.
 void get_choose(script::Struct* option, int index)
 {
-    option->put_int(kAllowRandom, 1);
-    option->put_int(kPickPermitted, 0);
-    option->put_int(kShuffleIndex, index);
+    option->put_int(checksums::Name{kAllowRandom}, 1);
+    option->put_int(checksums::Name{kPickPermitted}, 0);
+    option->put_int(checksums::Name{kShuffleIndex}, index);
 }
 
 } // namespace
@@ -257,9 +257,9 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
     for (uint32_t i = 0; i < size; ++i) {
         script::Struct* option = get_element(list, i);
         option->erase_module(kPickPermitted);
-        option->put_int(kAllowRandom, 0);
-        option->put_int(kAlreadySelected, 0);
-        option->put_int(kShuffleIndex, -1);
+        option->put_int(checksums::Name{kAllowRandom}, 0);
+        option->put_int(checksums::Name{kAlreadySelected}, 0);
+        option->put_int(checksums::Name{kShuffleIndex}, -1);
     }
     int candidates = 0;
     for (uint32_t i = 0; i < size; ++i) {
@@ -279,9 +279,9 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
         }
         if (candidate) {
             ++candidates;
-            option->put_int(kPickPermitted, 1);
+            option->put_int(checksums::Name{kPickPermitted}, 1);
         } else {
-            option->put_int(kPickPermitted, 0);
+            option->put_int(checksums::Name{kPickPermitted}, 0);
             script::fetch_int_value(kCasArtist); // (read and not used)
         }
     }
@@ -307,9 +307,9 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
         if (!option || option->has_entry_named(kNoRandom))
             continue;
         script::fetch_int_value(kCasArtist); // (read and not used)
-        option->put_int(kAllowRandom, 1);
-        option->put_int(kPickPermitted, 1);
-        option->put_int(kAlreadySelected, 1);
+        option->put_int(checksums::Name{kAllowRandom}, 1);
+        option->put_int(checksums::Name{kPickPermitted}, 1);
+        option->put_int(checksums::Name{kAlreadySelected}, 1);
     }
     level_nodes::end_node_walk();
     int wanted = candidates;

@@ -58,7 +58,7 @@ void run_with_label_id(uint32_t name, uint32_t label_id)
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         new (params) script::Struct;
-    params->put_name_key(kId, label_id);
+    params->put_name_key(checksums::Name{kId}, label_id);
     script::launch_script(name, params, nullptr, false, nullptr);
     if (params) {
         params->get_clear();
@@ -109,14 +109,14 @@ void RiderOverheadTag::tick_frame()
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         new (params) script::Struct;
-    params->put_name_key(kId, label_id_);
+    params->put_name_key(checksums::Name{kId}, label_id_);
     // The text's colour: the player's team's in a team game, else the skater's own.
     const uint32_t colour = is_squad_match() ? static_cast<uint32_t>(player->team()) : entity()->ident();
     std::array<char, 64> text{};
     text::format_to(text, "\\c%d%s", static_cast<int>(colour + 2), skater->fetch_shown_name());
     params->append_word(kText, text.data());
     const maths::Vec4& pos = entity()->at_point();
-    params->put_vec3(kPos3d, pos.x, height + pos.y, pos.z);
+    params->put_vec3(checksums::Name{kPos3d}, {.x = pos.x, .y = height + pos.y, .z = pos.z});
     if (label) // (Entity's virtual change_traits: whatever object has the id)
         label->change_traits(params);
     else

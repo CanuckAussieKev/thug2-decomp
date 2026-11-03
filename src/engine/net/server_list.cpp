@@ -368,7 +368,7 @@ void Hub::show_no_servers_found(bool refocus)
 {
     const script::StructPtr params = script::make_struct();
     if (refocus)
-        params->put_name_key(kRefocus, kRefocus);
+        params->put_name_key(checksums::Name{kRefocus}, kRefocus);
     get_run(kDestroyServerChildren, params.get());
     get_run(kNoServersFound, params.get());
 }
@@ -412,12 +412,12 @@ void Hub::show_server_in_menu(void* item, int index)
     params->append_word(kMode, server->mode_sel().data());
     debug::printf("The game mode is: %s\n", server->mode_sel().data());
     const uint32_t id = server_id(server);
-    params->put_name_key(kId, id);
-    params->put_name_key(kParent, kServerListMenu);
-    params->put_name_key(kPadChooseScript, kChooseSelectedServer);
-    params->put_name_key(kFocusScript, kDescribeSelectedServer);
+    params->put_name_key(checksums::Name{kId}, id);
+    params->put_name_key(checksums::Name{kParent}, kServerListMenu);
+    params->put_name_key(checksums::Name{kPadChooseScript}, kChooseSelectedServer);
+    params->put_name_key(checksums::Name{kFocusScript}, kDescribeSelectedServer);
     script::StructPtr id_params = script::make_struct();
-    id_params->put_name_key(kId, id);
+    id_params->put_name_key(checksums::Name{kId}, id);
     params->put_sub_struct(kPadChooseParams, id_params.get());
     params->put_sub_struct(kFocusParams, id_params.get());
     get_run(kAddMenuItem, params.get());
@@ -610,7 +610,7 @@ bool cfunc_post_game(script::Struct* params, script::Script* script)
 bool cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script)
 {
     (void)params;
-    script->args()->put_int(kNumServers, total_of(&net_game_state().online_hub()->servers()));
+    script->args()->put_int(checksums::Name{kNumServers}, total_of(&net_game_state().online_hub()->servers()));
     return true;
 }
 

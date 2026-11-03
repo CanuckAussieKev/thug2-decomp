@@ -81,9 +81,9 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         auto heading = static_cast<float>(static_cast<double>(maths::fast_a_cos(facing.x)) * kDegreesPerRadian);
         if (facing.z < 0.0f)
             heading = kFullCircle - heading;
-        script->args()->push_float(kHeading, heading);
-        script->args()->push_float(kCosine, core::at(entity()->basis_frame().row, 2).x);
-        script->args()->push_float(kSine, core::at(entity()->basis_frame().row, 2).z);
+        script->args()->push_float(checksums::Name{kHeading}, heading);
+        script->args()->push_float(checksums::Name{kCosine}, core::at(entity()->basis_frame().row, 2).x);
+        script->args()->push_float(checksums::Name{kSine}, core::at(entity()->basis_frame().row, 2).z);
         return 1;
     }
     case kAbsolutePitchGreaterThan: {
@@ -98,8 +98,8 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         auto slope = static_cast<float>(maths::read_turn_angle(facing, flat));
         if (core::at(entity()->basis_frame().row, 2).y < 0.0f)
             slope = -slope;
-        script->args()->push_float(kSlope, slope);
-        script->args()->push_float(kChangeInSlope, slope - prev_gradient_);
+        script->args()->push_float(checksums::Name{kSlope}, slope);
+        script->args()->push_float(checksums::Name{kChangeInSlope}, slope - prev_gradient_);
         prev_gradient_ = slope;
         return 1;
     }

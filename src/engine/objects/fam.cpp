@@ -84,8 +84,8 @@ void FamComponent::unload_fam()
         return;
     script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(kTypeParam, kPartialAnim);
-    params->put_name_key(kId, kJawRotation);
+    params->put_name_key(checksums::Name{kTypeParam}, kPartialAnim);
+    params->put_name_key(checksums::Name{kId}, kJawRotation);
     if (entity())
         entity()->fetch_module(AnimBlenderComponent::kType)
             ->invoke_method_by_name(kRemoveAnimController, params, nullptr);
@@ -124,19 +124,19 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, int volume, int pri
         feed_ = 0;
     }
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(kStreamChecksum, name);
+    params->put_name_key(checksums::Name{kStreamChecksum}, name);
     if (volume)
-        params->put_int(kVol, volume);
+        params->put_int(checksums::Name{kVol}, volume);
     if (!stream_only) {
-        params->put_int(kUsePosInfo, 0);
+        params->put_int(checksums::Name{kUsePosInfo}, 0);
         auto* blender = core::down_cast<AnimBlenderComponent>(entity()->fetch_module(AnimBlenderComponent::kType));
         const uint32_t anim_set = blender->get_anim_set();
         load_anim_bank(name, anim_set);
         const uint32_t stream = audio::prime_stream(name, priority);
-        params->put_name_key(kStreamId, stream);
+        params->put_name_key(checksums::Name{kStreamId}, stream);
         feed_ = stream;
         if (asset_manager()->get_asset_data(anim_set + name, 0))
-            params->put_name_key(0u, kPlayAnim);
+            params->put_name_key(checksums::Name{0u}, kPlayAnim);
     }
     script::Script* script = script::spawn_script(kFamScript, params, 0, nullptr, 0, 0, false, false, false, false);
     script->entity().assign_value(entity());

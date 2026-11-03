@@ -154,8 +154,8 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
     if (static_cast<int>(player) > -1)
         team =
             (net->find_player_slot_by_obj(static_cast<uint16_t>(player)))->team();
-    results->put_int(kTeam, team);
-    results->put_int(kPlayer, static_cast<int>(player));
+    results->put_int(checksums::Name{kTeam}, team);
+    results->put_int(checksums::Name{kPlayer}, static_cast<int>(player));
     return true;
 }
 

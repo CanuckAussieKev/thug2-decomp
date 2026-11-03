@@ -96,7 +96,7 @@ bool cfunc_place_object(script::Struct* params, script::Script* script)
     online::PlayerRecord* player = script_player(script);
     if (!player)
         return false;
-    script->args()->put_int(kIndex, placed_count(player));
+    script->args()->put_int(checksums::Name{kIndex}, placed_count(player));
     script::VectorValue pos = {}; // (uninitialised in the original without pos)
     params->fetch_vec(kPos, &pos, 0);
     core::at(placed_positions(player), placed_count(player)++) = pos;
@@ -199,7 +199,7 @@ bool cfunc_lobby_check_keyboard(script::Struct*, script::Script*)
     std::array<char, 256> typed{};
     if (sio::get_keyboard_chars(typed) > 0 && core::at(typed, 0) == ' ') {
         const script::StructPtr check = script::make_struct();
-        check->put_name_key(kId, kKeyboardAnchor);
+        check->put_name_key(checksums::Name{kId}, kKeyboardAnchor);
         if (!objects::cfunc_object_exists(check.get(), nullptr)) {
             script::launch_script(kLobbyEnterKbChat, nullptr, nullptr, false, nullptr);
             sio::clear_keyboard_chars();

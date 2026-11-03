@@ -132,8 +132,8 @@ void EngineAudioModule::tick_frame()
 // 0x0043C540
 void EngineAudioModule::fetch_diagnostics(script::Struct* info)
 {
-    info->put_name_key(0x2A19E830, engine_sound_name_);
-    info->put_name_key(0xE798FE80, skid_sound_name_);
+    info->put_name_key(checksums::Name{0x2A19E830}, engine_sound_name_);
+    info->put_name_key(checksums::Name{0xE798FE80}, skid_sound_name_);
     info->put_sub_struct(0x36FA68D2, collide_sound_);
     // (then the base's fetch_diagnostics, which is empty: 0x005BAB90)
 }
@@ -309,7 +309,7 @@ void EngineAudioModule::update_collide_sound()
     const float cutoff = get_rate(0xF6981837);
     if (!(strength > cutoff))
         return;
-    collide_sound_->push_float(0x9E497FC6, static_cast<float>(strength * kPercent));
+    collide_sound_->push_float(checksums::Name{0x9E497FC6}, static_cast<float>(strength * kPercent));
     play_sound_from_structure(sound_ptr_, collide_sound_);
     collide_time_ = get_now(frame_clock::game_clock_elapsed());
 
@@ -317,7 +317,7 @@ void EngineAudioModule::update_collide_sound()
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* event = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     const float level = strength > 1.0f ? 1.0f : (strength < 0.0f ? 0.0f : strength);
-    event->push_float(0x29461E27, level);
+    event->push_float(checksums::Name{0x29461E27}, level);
     vehicle_ptr_->rider_ref()->post_own_event(0xC4A60423, event);
     if (event) {
         event->get_clear();

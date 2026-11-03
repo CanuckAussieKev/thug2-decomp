@@ -302,7 +302,7 @@ bool cfunc_cat_get_flip_skater(script::Struct*, script::Script* script)
     const objects::Rider* skater = local_skater();
     if (!skater)
         return false;
-    script->args().get()->put_int(kFlipSkater180, skater->cat_flip_180() ? 1 : 0);
+    script->args().get()->put_int(checksums::Name{kFlipSkater180}, skater->cat_flip_180() ? 1 : 0);
     return true;
 }
 // 0x005523A0

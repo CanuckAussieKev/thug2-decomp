@@ -63,14 +63,14 @@ constexpr uint32_t kFilesLeft = 0x0855B2FC;      // "FilesLeft"
 // (always 1000000). False without a card.
 bool get_mem_card_space_available(script::Struct*, script::Script* script)
 {
-    script->args().get()->put_int(kSpaceAvailable, 0);
-    script->args().get()->put_int(kFilesLeft, 1000000);
+    script->args().get()->put_int(checksums::Name{kSpaceAvailable}, 0);
+    script->args().get()->put_int(checksums::Name{kFilesLeft}, 1000000);
     SaveCard* card = save_cards_state().card_hub()->get_storage_slot(0, 0);
     if (!card)
         return false;
     // Originally from PartyMod Fixes (its call at 0x005A6E7E): the clamped disk count in place of the original's
     // card->get_free_blocks().
-    script->args().get()->put_int(kSpaceAvailable, free_disk_blocks(card));
+    script->args().get()->put_int(checksums::Name{kSpaceAvailable}, free_disk_blocks(card));
     return true;
 }
 
@@ -200,7 +200,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                 }
             }
             if (bad)
-                script->args().get()->put_name_key(0u, kLoadFailed);
+                script->args().get()->put_name_key(checksums::Name{0u}, kLoadFailed);
             file->shut();
             file->teardown(1); // delete
             if (data)
@@ -336,14 +336,14 @@ bool get_summary_info(script::Struct* params, script::Script* script)
 // 0x005A7430
 bool get_mem_card_data_for_upload(script::Struct*, script::Script* script)
 {
-    script->args().get()->put_name_key(0x7321A8D6u, save_cards_state().kept_type()); // type
+    script->args().get()->put_name_key(checksums::Name{0x7321A8D6u}, save_cards_state().kept_type()); // type
     return true;
 }
 
 // 0x005A7450
 bool get_max_thps4_files_allowed(script::Struct*, script::Script* script)
 {
-    script->args().get()->put_int(0x7CC9E431u, 75); // MaxTHPS4FilesAllowed
+    script->args().get()->put_int(checksums::Name{0x7CC9E431u}, 75); // MaxTHPS4FilesAllowed
     return true;
 }
 

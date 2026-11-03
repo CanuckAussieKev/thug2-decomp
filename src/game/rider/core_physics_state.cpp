@@ -274,7 +274,7 @@ void SkaterPhysicsModule::update_special_time()
         return;
     }
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(kTimeLimit, 1);
+    params->put_name_key(checksums::Name{kTimeLimit}, 1);
     script::launch_script(kKillSpecial, params, object_of(this), false, nullptr);
     if (params) {
         params->get_clear();
@@ -299,7 +299,7 @@ int SkaterPhysicsModule::get_air_time_left(script::Struct*, script::Script* scri
     } else {
         left = kNeverLands;
     }
-    script->args()->push_float(kAirTimeLeft, left);
+    script->args()->push_float(checksums::Name{kAirTimeLeft}, left);
     return 1;
 }
 

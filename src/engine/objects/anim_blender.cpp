@@ -222,7 +222,7 @@ int AnimBlenderComponent::add_channel_from_script(uint32_t, script::Struct* para
     uint32_t id = 0;
     const Channel* first = masked(lanes_.next());
     params->read_hash_value(kId, &id, 0);
-    params->put_name_key(0x52A864B0, first->lookup_key());
+    params->put_name_key(checksums::Name{0x52A864B0}, first->lookup_key());
     const bool at_front = params->has_bare_flag(0x580C0963);
     Channel* channel = add_channel(id, at_front);
     channel->configure_from_data(params);
@@ -292,7 +292,7 @@ int AnimBlenderComponent::channel_exists(uint32_t, script::Struct* params, scrip
     params->read_hash_value(kId, &id, 0);
     for (memory::ListNode* node = lanes_.next(); !is_over(node); node = node->next()) {
         if (ident_no(as_channel(node)) == id) {
-            script->args()->put_name_key(0u, 0xC7C6228C); // (an unnamed flag)
+            script->args()->put_name_key(checksums::Name{0u}, 0xC7C6228C); // (an unnamed flag)
             return 1;
         }
     }

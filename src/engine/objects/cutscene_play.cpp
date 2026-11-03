@@ -77,7 +77,7 @@ void CinematicTable::mark_loaded_models()
         uint32_t model = 0;
         if (object->read_hash_value(version >= 2 ? kName : kModel, &model, 0) &&
             bundle_ptr_->has_asset(model, kTypeModel))
-            object->put_name_key(kUnnamed, kKeepSkeleton);
+            object->put_name_key(checksums::Name{kUnnamed}, kKeepSkeleton);
     }
     if (flag_34b_0_)
         add_objects(call_args_);

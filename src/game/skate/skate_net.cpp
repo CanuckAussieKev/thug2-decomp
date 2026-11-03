@@ -128,8 +128,6 @@ constexpr uint32_t kElimiskateBreak = 0xA420A073;        // StartGoal_ElimiSkate
 constexpr uint32_t kScavengerIntervalGoal = 0x5DF0B0E0;  // StartGoal_Scavenger_Interval
 constexpr uint32_t kScavengerCollectGoal = 0x991E4ABE;   // StartGoal_Scavenger_Collect
 
-constexpr uint8_t kSymbolChecksum = 0xD; // kQbvalName
-constexpr uint8_t kSymbolString = 3;     // kQbvalString
 
 // The singletons (not rewritten): the skate module, the network manager (online::Hub), the game mode
 // (goals::MatchRules), the object manager, the goal manager, the profile manager (graffiti colours).
@@ -312,7 +310,7 @@ int SkateNet::handle_server_removed_you(net::InboundMsgCtx* context)
     script::kill_all_child_scripts();
     script::StructPtr params = script::make_struct();
     params->add_component_of_type(kWidth, script::kQbvalInteger, 300);
-    params->add_component_of_type(kTitle, kSymbolChecksum, kNetNoticeMsg);
+    params->add_component_of_type(kTitle, script::kQbvalName, kNetNoticeMsg);
     // (the dialogs get no parameters: the structure isn't passed)
     if (context->type_code() == 'Q')
         get_run(kServerRemovedYouDialog);
@@ -416,7 +414,7 @@ int SkateNet::handle_scavenger_kill_object(net::InboundMsgCtx* context)
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return 4;
     script::StructPtr params = script::make_struct();
-    params->put_name_key(kId, id);
+    params->put_name_key(checksums::Name{kId}, id);
     get_run(kRemoveHuntItem, params.get());
     params.reset();
     return 1;
@@ -440,10 +438,10 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
             break;
         const script::VectorValue position = {.x = core::at(at, 0), .y = core::at(at, 1), .z = core::at(at, 2), .w = core::at(at, 3)};
         const script::StructPtr params = script::make_struct();
-        params->put_int(kIndex, i);
-        params->put_int(kObjId, static_cast<int>(player_skater(player)->ident()));
-        params->put_vec3(kPos, position);
-        params->put_name_key(kShowNow, kShowNow);
+        params->put_int(checksums::Name{kIndex}, i);
+        params->put_int(checksums::Name{kObjId}, static_cast<int>(player_skater(player)->ident()));
+        params->put_vec3(checksums::Name{kPos}, position);
+        params->put_name_key(checksums::Name{kShowNow}, kShowNow);
         get_run(kDropObject, params.get(), player_skater(player));
     }
     return 1;
@@ -469,7 +467,7 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
         if (!core::at(counts, i))
             continue;
         gsl::owner<Array*> array = script::new_array();
-        array->configure_size_kind(core::at(counts, i), static_cast<script::QbValueKind>(kSymbolChecksum));
+        array->configure_size_kind(core::at(counts, i), script::kQbvalName);
         // (NOT ORIGINAL: past the message's end the indexes read as 0 - the original read on)
         for (int j = 0; std::cmp_less(j, core::at(counts, i)); ++j)
             array->set_element(static_cast<uint32_t>(j), trick_objects->get_cluster_name(reader.u8()));
@@ -568,7 +566,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
             text::format_to(text, "team_%d_name", best + 1);
             const script::StructPtr params = script::make_struct();
             params->get_clear();
-            params->append_word(kString0, kSymbolString, script::fetch_text(text.data()));
+            params->append_word(kString0, script::kQbvalString, script::fetch_text(text.data()));
             get_run(kLeaderOtherTeam, params.get(), player_skater(local));
         }
         net->set_last_leading_team(best);
@@ -609,7 +607,7 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     } else {
         const script::StructPtr params = script::make_struct();
         params->get_clear();
-        params->append_word(kString0, kSymbolString, best->label().data());
+        params->append_word(kString0, script::kQbvalString, best->label().data());
         get_run(kLeaderOther, params.get(), player_skater(local));
     }
     net->set_last_leader(best);
@@ -637,7 +635,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     net->set_start_info_words(brief.start_points.data());
     script::StructPtr params = script::make_struct();
     params->get_clear();
-    params->add_component_of_type(kLevel, kSymbolChecksum, brief.level);
+    params->add_component_of_type(kLevel, script::kQbvalName, brief.level);
     get_run(kRequestLevel, params.get());
     params.reset();
     get_run(kLeaveFrontEnd);
@@ -657,7 +655,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         if (!(static_cast<int>(static_cast<int8_t>(brief.pro_option_bits)) & (1 << i)))
             continue;
         const script::StructPtr flag = script::make_struct();
-        flag->put_int(kFlag, script::fetch_int_value(kProSetGeoFlag) + i);
+        flag->put_int(checksums::Name{kFlag}, script::fetch_int_value(kProSetGeoFlag) + i);
         get_run(kSetFlag, flag.get());
     }
     // The victory conditions.
@@ -696,9 +694,9 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         if (checksum != brief.game_type)
             continue;
         script::StructPtr goal_params = script::make_struct();
-        goal_params->put_int(kTime, static_cast<int>(brief.time_limit));
-        goal_params->put_int(kScore, static_cast<int>(brief.target_score));
-        goal_params->put_int(kUnlimitedTime, brief.time_limit == 0);
+        goal_params->put_int(checksums::Name{kTime}, static_cast<int>(brief.time_limit));
+        goal_params->put_int(checksums::Name{kScore}, static_cast<int>(brief.target_score));
+        goal_params->put_int(checksums::Name{kUnlimitedTime}, brief.time_limit == 0);
         // (the original keeps the script in its argument's slot: with no goal_script, the skate module's address)
         uint32_t script = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         const uint8_t variant = brief.variant;

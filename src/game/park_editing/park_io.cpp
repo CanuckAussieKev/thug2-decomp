@@ -392,9 +392,9 @@ void ParkLayout::update_percent_bar()
         percent = 1.0f;
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-    params->push_float(0x6D6C056Du, percent);  // park_percent (out of memory crashes, as in the original)
+    params->push_float(checksums::Name{0x6D6C056Du}, percent);  // park_percent (out of memory crashes, as in the original)
     if (get_attributes().max_usage_ >= 1.0f)   // (0x007CE644: the park memory stats' largest usage)
-        params->put_name_key(0u, 0x97A8E59Cu); // park_full
+        params->put_name_key(checksums::Name{0u}, 0x97A8E59Cu); // park_full
     script::launch_script(0xE2508960, params, nullptr, false, nullptr); // parked_update_percent_bar
     if (params) {
         params->get_clear();
@@ -428,7 +428,7 @@ void ParkLayout::export_to_struct(script::Struct* out)
     out->append_struct_ref(0xD8EB825Eu, goals); // Park_editor_goals
     // the rail editor (module RailEditor, 0x004F4970) writes the park's rails
     RailAuthoring::sole()->write_to_structure(out);
-    out->put_int(0xB7E39B53u, generator_max_players(builder_)); // MaxPlayers
+    out->put_int(checksums::Name{0xB7E39B53u}, generator_max_players(builder_)); // MaxPlayers
 }
 
 void ParkLayout::set_shell_size(int theme)

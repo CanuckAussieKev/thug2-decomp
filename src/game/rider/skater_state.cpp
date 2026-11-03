@@ -178,14 +178,14 @@ bool RiderPoseState::picked_up_powerup(script::Struct* params, script::Script*)
 // 0x005196F0
 bool RiderPoseState::get_surface_kind(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(kTerrain, surface_type_);
+    script->args()->put_int(checksums::Name{kTerrain}, surface_type_);
     return true;
 }
 
 // 0x00519720
 bool RiderPoseState::get_sparks_pos(script::Struct*, script::Script* script)
 {
-    script->args()->put_name_key(kSparksPos, sparks_pos_);
+    script->args()->put_name_key(checksums::Name{kSparksPos}, sparks_pos_);
     return true;
 }
 

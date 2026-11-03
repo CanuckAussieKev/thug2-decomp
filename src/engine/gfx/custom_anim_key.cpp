@@ -73,7 +73,7 @@ bool CameraFovKey::work_on(void* camera)
     read_debug_global();
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-    params->push_float(0u, field_of_view_);
+    params->push_float(checksums::Name{0u}, field_of_view_);
     script::launch_script(kSetHfovRadians, params, static_cast<objects::Entity*>(camera), false, nullptr);
     if (params) {
         params->get_clear();

@@ -605,23 +605,23 @@ gsl::owner<script::Struct*> get_build(const Spec& spec)
             node->erase_module(key);
         switch (f.type) {
         case Prop::kFlag:
-            node->put_name_key(0u, name_hash(f.text));
+            node->put_name_key(checksums::Name{0u}, name_hash(f.text));
             break;
         case Prop::kName:
-            node->put_name_key(key, name_hash(f.text));
+            node->put_name_key(checksums::Name{key}, name_hash(f.text));
             script::note_qb_name(name_hash(f.text), f.text.c_str());
             break;
         case Prop::kString:
             node->append_word(key, f.text.c_str());
             break;
         case Prop::kInteger:
-            node->put_int(key, f.integer);
+            node->put_int(checksums::Name{key}, f.integer);
             break;
         case Prop::kFloat:
-            node->push_float(key, core::at(f.value, 0));
+            node->push_float(checksums::Name{key}, core::at(f.value, 0));
             break;
         case Prop::kVector:
-            node->put_vec3(key, core::at(f.value, 0), core::at(f.value, 1), core::at(f.value, 2));
+            node->put_vec3(checksums::Name{key}, {.x = core::at(f.value, 0), .y = core::at(f.value, 1), .z = core::at(f.value, 2)});
             break;
         case Prop::kNames:
         case Prop::kIntegers: {
@@ -1114,10 +1114,10 @@ bool conceal(uint32_t name, bool hide)
         node->read_hash_value(kType, &type, 0);
         if (cls == nodes::hidden_marker())
             return false;
-        node->put_name_key(nodes::hidden_class_key(), cls);
-        node->put_name_key(nodes::hidden_type_key(), type);
-        node->put_name_key(kClass, nodes::hidden_marker());
-        node->put_name_key(kType, nodes::hidden_marker());
+        node->put_name_key(checksums::Name{nodes::hidden_class_key()}, cls);
+        node->put_name_key(checksums::Name{nodes::hidden_type_key()}, type);
+        node->put_name_key(checksums::Name{kClass}, nodes::hidden_marker());
+        node->put_name_key(checksums::Name{kType}, nodes::hidden_marker());
         if (cls == kProxim && have_proxim()) {
             if (const objects::ProximNode* proxim = objects::proxim_get_node(name)) {
                 h.proxim_active_ = proxim->active();
@@ -1151,9 +1151,9 @@ bool conceal(uint32_t name, bool hide)
         node->erase_module(nodes::hidden_type_key());
         node->erase_module(kClass);
         node->erase_module(kType);
-        node->put_name_key(kClass, cls);
+        node->put_name_key(checksums::Name{kClass}, cls);
         if (type)
-            node->put_name_key(kType, type);
+            node->put_name_key(checksums::Name{kType}, type);
         if (cls == kProxim && have_proxim() && h.proxim_active_)
             objects::proximity_node_enable(name, 1);
         if (cls == kEmitter && have_emitters() && h.emitter_active_)

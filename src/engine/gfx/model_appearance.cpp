@@ -154,7 +154,7 @@ void ModelLook::resolve_random_parts()
         component->value.structure()->get_clear();
         uint32_t descriptor_id = 0;
         option->read_hash_value(kDescId, &descriptor_id, 0);
-        component->value.structure()->put_name_key(kDescId, descriptor_id);
+        component->value.structure()->put_name_key(checksums::Name{kDescId}, descriptor_id);
     }
 }
 
@@ -204,12 +204,12 @@ void ModelLook::set_part(uint32_t part, uint32_t descriptor_id, script::Struct* 
         params->fetch_int_value(kH, &h, 1);
         params->fetch_int_value(kS, &s, 1);
         params->fetch_int_value(kV, &v, 1);
-        slot->put_int(kUseDefaultHsv, 0);
-        slot->put_int(kH, h);
-        slot->put_int(kS, s);
-        slot->put_int(kV, v);
+        slot->put_int(checksums::Name{kUseDefaultHsv}, 0);
+        slot->put_int(checksums::Name{kH}, h);
+        slot->put_int(checksums::Name{kS}, s);
+        slot->put_int(checksums::Name{kV}, v);
     }
-    slot->put_name_key(kDescId, descriptor_id);
+    slot->put_name_key(checksums::Name{kDescId}, descriptor_id);
 }
 
 // 0x004894D0. The names are asserted; a missing one is 0 (the original's was what its stack slot held: the `params`
@@ -257,7 +257,7 @@ bool ModelLook::invoke_method_by_name(uint32_t name, script::Struct* params, scr
         uint32_t field = 0, value = 0;
         params->read_hash_value(kField, &field, 1);
         params->read_hash_value(kValue, &value, 1);
-        structure_.put_name_key(field, value);
+        structure_.put_name_key(checksums::Name{field}, value);
         return true;
     }
     default:

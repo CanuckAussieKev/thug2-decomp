@@ -594,8 +594,8 @@ void RiderRemoteSync::play_history_events()
                 gsl::owner<script::Struct*> params = script::spawn_param_bag();
                 if (params)
                     params = new (params) script::Struct;
-                params->put_name_key(kItemName, msg->bone_);
-                params->put_name_key(kItemOwner, entity()->ident());
+                params->put_name_key(checksums::Name{kItemName}, msg->bone_);
+                params->put_name_key(checksums::Name{kItemOwner}, entity()->ident());
                 item->fetch_module(kItemComponent)->configure_from_data(params);
                 if (params) {
                     params->get_clear();

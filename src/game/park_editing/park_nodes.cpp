@@ -440,21 +440,21 @@ void ParkAssembler::write_piece_nodes(Array* nodes, int* index)
         if (piece->flag_bits() & (DuplicatedTile::kNoNode20 | DuplicatedTile::kNoNode80))
             continue;
         Struct* node = elem(nodes, *index);
-        node->put_vec3(kPos, get_value(piece->at_point()));
-        node->put_name_key(kName, piece->sector());
+        node->put_vec3(checksums::Name{kPos}, get_value(piece->at_point()));
+        node->put_name_key(checksums::Name{kName}, piece->sector());
         const uint32_t flags = piece->blend_source()->flag_bits();
         if (!(flags & TemplateTile::kGameObject)) {
-            node->put_name_key(kFlag, kPieceFlag);
-            node->put_name_key(kCluster, ~piece->ident());
+            node->put_name_key(checksums::Name{kFlag}, kPieceFlag);
+            node->put_name_key(checksums::Name{kCluster}, ~piece->ident());
         } else if (flags & TemplateTile::kAbsentInNetGames) {
-            node->put_name_key(kFlag, kNetAbsentFlag);
+            node->put_name_key(checksums::Name{kFlag}, kNetAbsentFlag);
         } else {
-            node->put_name_key(kFlag, kGameObjectFlag);
+            node->put_name_key(checksums::Name{kFlag}, kGameObjectFlag);
         }
         if (piece->flag_bits() & DuplicatedTile::kGap)
-            node->put_name_key(kTriggerScript, gap_fire_script(piece));
+            node->put_name_key(checksums::Name{kTriggerScript}, gap_fire_script(piece));
         else if (const uint32_t script = piece->blend_source()->trigger_script())
-            node->put_name_key(kTriggerScript, script);
+            node->put_name_key(checksums::Name{kTriggerScript}, script);
         ++*index;
     }
 }
@@ -473,20 +473,20 @@ void ParkAssembler::write_rail_nodes(Array* nodes, int* index)
     while (*index < end) {
         Struct* node = elem(nodes, *index);
         if (rail->get_class() == kRailNode) {
-            node->put_vec3(kPos, get_value(point->at_point_));
-            node->put_name_key(kName, name++);
-            node->put_name_key(kFlag, (rail->flag_bits() & Rail::kClimbable) ? kClimbableRailFlag : kRailFlag);
-            node->put_name_key(kSurfaceKindKey, point->surface_type_);
+            node->put_vec3(checksums::Name{kPos}, get_value(point->at_point_));
+            node->put_name_key(checksums::Name{kName}, name++);
+            node->put_name_key(checksums::Name{kFlag}, (rail->flag_bits() & Rail::kClimbable) ? kClimbableRailFlag : kRailFlag);
+            node->put_name_key(checksums::Name{kSurfaceKindKey}, point->surface_type_);
             if (point->cluster_) {
-                node->put_name_key(kFlag, kTrickObject);
-                node->put_name_key(kCluster, ~point->cluster_);
+                node->put_name_key(checksums::Name{kFlag}, kTrickObject);
+                node->put_name_key(checksums::Name{kCluster}, ~point->cluster_);
             }
         } else {
-            node->put_vec3(kPos, get_value(point->at_point_));
-            node->put_vec3(kAngles, get_value(point->headings_));
-            node->put_name_key(kName, name++);
-            node->put_name_key(kFlag, kClimbingFlag);
-            node->put_name_key(kType, point->kind_tag_);
+            node->put_vec3(checksums::Name{kPos}, get_value(point->at_point_));
+            node->put_vec3(checksums::Name{kAngles}, get_value(point->headings_));
+            node->put_name_key(checksums::Name{kName}, name++);
+            node->put_name_key(checksums::Name{kFlag}, kClimbingFlag);
+            node->put_name_key(checksums::Name{kType}, point->kind_tag_);
         }
         if (point->following_ || (rail->flag_bits() & Rail::kLoop)) {
             int link = *index + 1;
@@ -517,13 +517,13 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
         if (restart.kind_tag_ != RestartPoint::kPlayer1)
             continue;
         Struct* node = elem(nodes, *index);
-        node->put_vec3(kPos, get_value(restart.at_point_));
-        node->put_vec3(kAngles, 0.0f, restart_angle(restart.quarter_turns_), 0.0f);
-        node->put_name_key(kName, kHighScoreRestart);
-        node->put_name_key(kClass, kRestart);
-        node->put_name_key(kType, kPlayerType);
+        node->put_vec3(checksums::Name{kPos}, get_value(restart.at_point_));
+        node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = restart_angle(restart.quarter_turns_), .z = 0.0f});
+        node->put_name_key(checksums::Name{kName}, kHighScoreRestart);
+        node->put_name_key(checksums::Name{kClass}, kRestart);
+        node->put_name_key(checksums::Name{kType}, kPlayerType);
         node->append_word(kRestartName, "High Score");
-        node->put_name_key(kFlag, kCreatedAtStart);
+        node->put_name_key(checksums::Name{kFlag}, kCreatedAtStart);
         gsl::owner<Array*> types = new_array_of(script::kQbvalName, kPlayer1);
         node->append_array_value(kRestartTypes, types);
         free_array(types);
@@ -556,10 +556,10 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
             if (restart_type) {
                 Struct* node = elem(nodes, *index);
                 const auto y = static_cast<float>(static_cast<double>(restart.at_point_.y) + 50.0);
-                node->put_vec3(kPos, restart.at_point_.x, y, restart.at_point_.z);
+                node->put_vec3(checksums::Name{kPos}, {.x = restart.at_point_.x, .y = y, .z = restart.at_point_.z});
                 const uint32_t node_class = type == RestartPoint::kCrownRestart ? kGenericNode : kRestart;
                 node->add_component_of_type(kClass, script::kQbvalName, node_class);
-                node->put_vec3(kAngles, 0.0f, restart_angle(restart.quarter_turns_), 0.0f);
+                node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = restart_angle(restart.quarter_turns_), .z = 0.0f});
                 node->add_component_of_type(kName, script::kQbvalName, node_name);
                 node->add_component_of_type(kType, script::kQbvalName, restart_type);
                 node->add_component_of_type(kFlag, script::kQbvalName, kCreatedAtStart);
@@ -604,8 +604,8 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
             std::array<char, 256> flag_name{};
             auto add_flag_node = [&](bool with_script) {
                 Struct* node = elem(nodes, *index);
-                node->put_vec3(kPos, restart.at_point_.x, restart.at_point_.y, restart.at_point_.z);
-                node->put_vec3(kAngles, 0.0f, restart_angle(restart.quarter_turns_), 0.0f);
+                node->put_vec3(checksums::Name{kPos}, {.x = restart.at_point_.x, .y = restart.at_point_.y, .z = restart.at_point_.z});
+                node->put_vec3(checksums::Name{kAngles}, {.x = 0.0f, .y = restart_angle(restart.quarter_turns_), .z = 0.0f});
                 node->add_component_of_type(kName, script::kQbvalName, checksums::hash_from_text(flag_name.data()));
                 node->add_component_of_type(kClass, script::kQbvalName, kGameObject);
                 node->add_component_of_type(kType, script::kQbvalName, checksums::hash_from_text(flag_type.data()));

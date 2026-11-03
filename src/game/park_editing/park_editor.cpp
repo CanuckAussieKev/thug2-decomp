@@ -110,7 +110,7 @@ ObjectiveAuthoring* get_goal_editor() { return ObjectiveAuthoring::get_pull(); }
 void reload_park_level()
 {
     script::Struct params;
-    params.put_name_key(kLevel, kLoadSk5ed);
+    params.put_name_key(checksums::Name{kLevel}, kLoadSk5ed);
     script::launch_script(kChangeLevel, &params, nullptr, false, nullptr);
     params.get_clear();
 }
@@ -637,7 +637,7 @@ void ParkBuilderMode::logic_update()
     if (!(flag_bits_ & kFlagPaused)) {
         if (cur_phase_ == kStateEdit) {
             script::Struct params;
-            params.put_name_key(0u, kHide);
+            params.put_name_key(checksums::Name{0u}, kHide);
             commands::cfunc_pause_skaters(&params, nullptr);
             params.get_clear();
         } else if (cur_phase_ == kStateTestPlay) {

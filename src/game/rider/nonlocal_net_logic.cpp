@@ -425,10 +425,10 @@ void RiderRemoteSync::tick_frame()
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
         if (params)
             params = new (params) script::Struct;
-        params->put_name_key(kSkaterId, entity()->ident());
+        params->put_name_key(checksums::Name{kSkaterId}, entity()->ident());
         uint32_t script = kStopDrivingScript;
         if (driving) {
-            params->put_name_key(kControlType, steer_kind);
+            params->put_name_key(checksums::Name{kControlType}, steer_kind);
             script = kStartDrivingScript;
         }
         script::launch_script(script, params, nullptr, false, nullptr);

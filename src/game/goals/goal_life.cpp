@@ -329,7 +329,7 @@ bool Objective::disengage(bool, bool reset_tree)
 // 0x005576D0
 bool Objective::get_win()
 {
-    args_->put_int(kWinRecord, 0);
+    args_->put_int(checksums::Name{kWinRecord}, 0);
     GoalEdge* children = sub_nodes_;
     if (children->objective_key_) {
         // A goal of stages: the next one started.
@@ -341,7 +341,7 @@ bool Objective::get_win()
         children->won_ = true;
         return true;
     }
-    args_->put_name_key(kNoName, kJustWonGoal);
+    args_->put_name_key(checksums::Name{kNoName}, kJustWonGoal);
     online::Hub* net = online::online_hub();
     bool new_record = false;
     uint32_t type = 0;
@@ -368,7 +368,7 @@ bool Objective::get_win()
                 best_time_ = record;
         }
         if (better) {
-            args_->put_int(kWinRecord, record);
+            args_->put_int(checksums::Name{kWinRecord}, record);
             new_record = true;
         }
     }
@@ -377,7 +377,7 @@ bool Objective::get_win()
         gsl::owner<script::Struct*> rewards = script::new_struct();
         get_prize_struct(rewards);
         if (new_record)
-            rewards->put_name_key(kNoName, kNewRecord);
+            rewards->put_name_key(checksums::Name{kNoName}, kNewRecord);
         args_->append_struct_ref(kRewardParams, rewards);
         open_up_prize_objectives();
         rewarded = true;
@@ -385,7 +385,7 @@ bool Objective::get_win()
         args_->erase_module(kRewardParams);
     }
     if (new_record)
-        args_->put_name_key(kNoName, kNewRecord);
+        args_->put_name_key(checksums::Name{kNoName}, kNewRecord);
     else
         args_->remove_flag(kNewRecord);
     uint32_t script = 0;
@@ -401,7 +401,7 @@ bool Objective::get_win()
             if (skate_calls::game_mode_is_true(kIsCareer)) {
                 career->deposit_money(get_reward_points());
                 const script::StructPtr params = script::make_struct();
-                params->put_int(kRewardPointsName, get_reward_points());
+                params->put_int(checksums::Name{kRewardPointsName}, get_reward_points());
                 script::launch_script(kCheckChapterAdvancement, params.get(), nullptr, false, nullptr);
             } else if (skate_calls::game_mode_is_true(kIsClassic)) {
                 career->increment_counter();
@@ -435,7 +435,7 @@ void Objective::get_prize_struct(script::Struct* rewards)
     online::Hub* net = online::online_hub();
     if (!args_->has_bare_flag(kEditedGoal))
         show_goal_points(manager);
-    rewards->put_name_key(kNoName, kRewardsGiven);
+    rewards->put_name_key(checksums::Name{kNoName}, kRewardsGiven);
     if (net->in_net_game())
         return;
     // A special trick slot as the reward, while there's room for one.
@@ -446,9 +446,9 @@ void Objective::get_prize_struct(script::Struct* rewards)
             int remove = 0;
             args_->fetch_int_value(kShouldRemoveTrick, &remove, 0);
             if (remove == 1) {
-                args_->put_int(kShouldRemoveTrick, 0);
-                args_->put_name_key(kNoName, kAlreadyAddedTrickslot);
-                args_->put_int(kJustAddedTrickslot, 1);
+                args_->put_int(checksums::Name{kShouldRemoveTrick}, 0);
+                args_->put_name_key(checksums::Name{kNoName}, kAlreadyAddedTrickslot);
+                args_->put_int(checksums::Name{kJustAddedTrickslot}, 1);
             }
         }
     }
@@ -460,18 +460,18 @@ void Objective::get_prize_struct(script::Struct* rewards)
     if (own) {
         if (own->has_bare_flag(kRewardStat)) {
             own->erase_module(kRewardStat);
-            own->put_int(kRewardStat, 1);
+            own->put_int(checksums::Name{kRewardStat}, 1);
         }
         rewards->append_structure_if_any(own);
         return;
     }
     if (args_->has_bare_flag(kRewardStat)) {
-        rewards->put_int(kRewardStat, 1);
+        rewards->put_int(checksums::Name{kRewardStat}, 1);
         return;
     }
     int stat = 0;
     if (args_->fetch_int_value(kRewardStat, &stat, 0))
-        rewards->put_int(kRewardStat, stat);
+        rewards->put_int(checksums::Name{kRewardStat}, stat);
 }
 
 // 0x00555FB0
@@ -526,7 +526,7 @@ bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
     if (flags->has_entry_named(flag)) {
         int old = 0;
         flags->fetch_int_value(flag, &old, 1);
-        flags->put_int(flag, value);
+        flags->put_int(checksums::Name{flag}, value);
         if (old != value) {
             bool counted = false;
             if (sub) {
@@ -534,7 +534,7 @@ bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
                 flags->fetch_int_value(kNumFlagsSet, &set, 1);
                 counted = value != 0;
                 set += counted ? 1 : -1;
-                flags->put_int(kNumFlagsSet, set);
+                flags->put_int(checksums::Name{kNumFlagsSet}, set);
             } else {
                 counted = value != 0;
                 num_flags_set_ += counted ? 1 : -1;
@@ -543,7 +543,7 @@ bool Objective::set_flag(uint32_t flag, int value, uint32_t sub)
                 script::launch_script(kGoalGotFlagSound, nullptr, nullptr, false, nullptr);
             if (args_->has_bare_flag(kUseHudCounter))
                 script::launch_script(kGoalUpdateCounter, args_.get(), nullptr, false, nullptr);
-            args_->put_int(kNumFlagsSet, num_flags_set_);
+            args_->put_int(checksums::Name{kNumFlagsSet}, num_flags_set_);
         }
         changed = true;
     }
@@ -572,7 +572,7 @@ void Objective::alloc_objective_bits(script::Struct* params)
     if (params->fetch_list(kGoalFlags, &flags, 0)) {
         if (flags->kind_tag() == script::kQbvalStruct) {
             // One structure per skater: its own flags and counts.
-            goal_flags_->put_name_key(kNoName, kSkaterTraits);
+            goal_flags_->put_name_key(checksums::Name{kNoName}, kSkaterTraits);
             const int skaters = static_cast<int>(flags->extent());
             for (int i = 0; i < skaters; ++i) {
                 auto* entry = flags->struct_at(static_cast<uint32_t>(i));
@@ -583,19 +583,19 @@ void Objective::alloc_objective_bits(script::Struct* params)
                 entry->fetch_list(kGoalFlags, &names, 1);
                 const int count = static_cast<int>(names->extent());
                 for (int k = 0; k < count; ++k)
-                    own->put_int(names->fetch_part(static_cast<uint32_t>(k)), 0);
-                own->put_int(kNumFlags, count);
-                own->put_int(kNumFlagsSet, 0);
+                    own->put_int(checksums::Name{names->fetch_part(static_cast<uint32_t>(k))}, 0);
+                own->put_int(checksums::Name{kNumFlags}, count);
+                own->put_int(checksums::Name{kNumFlagsSet}, 0);
                 goal_flags_->put_sub_struct(skater, own.get());
             }
         } else {
             for (uint32_t i = 0; i < flags->extent(); ++i) {
-                goal_flags_->put_int(flags->fetch_part(i), 0);
+                goal_flags_->put_int(checksums::Name{flags->fetch_part(i)}, 0);
                 ++num_flags_;
             }
         }
     }
-    args_->put_int(kNumFlags, num_flags_);
+    args_->put_int(checksums::Name{kNumFlags}, num_flags_);
 }
 
 // 0x00556240

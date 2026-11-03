@@ -56,7 +56,7 @@ void SkateLineGoal::next_cluster()
     const script::StructPtr params = script::make_struct();
     params->append_structure_if_any(args().get());
     params->append_structure_if_any(cluster);
-    params->put_int(kGoalObjectsIndex, num_flags_set());
+    params->put_int(checksums::Name{kGoalObjectsIndex}, num_flags_set());
     if (num_flags_set() == 1)
         params->put_sub_struct(kFirstSpotParams, objects->struct_at(0));
     script::launch_script(kNextCluster, params.get(), nullptr, false, nullptr);

@@ -213,7 +213,7 @@ void Entity::change_serial(uint32_t id)
         park_owner_->reassign_object_id(this, id);
     ident_ = id;
     create_tags_if_needed();
-    tag_table_->put_name_key(kId, id);
+    tag_table_->put_name_key(checksums::Name{kId}, id);
 }
 
 // 0x00461970
@@ -221,7 +221,7 @@ void Entity::change_species(uint32_t type)
 {
     kind_tag_ = type;
     create_tags_if_needed();
-    tag_table_->put_name_key(kType, type);
+    tag_table_->put_name_key(checksums::Name{kType}, type);
 }
 
 // 0x004611E0
@@ -238,14 +238,14 @@ void Entity::create_tags_if_needed()
 void Entity::store_int_tag(uint32_t name, int value)
 {
     create_tags_if_needed();
-    tag_table_->put_int(name, value);
+    tag_table_->put_int(checksums::Name{name}, value);
 }
 
 // 0x004616D0
 void Entity::write_hash_tag(uint32_t name, uint32_t value)
 {
     create_tags_if_needed();
-    tag_table_->put_name_key(name, value);
+    tag_table_->put_name_key(checksums::Name{name}, value);
 }
 
 // 0x004616F0
@@ -394,7 +394,7 @@ bool Entity::obj_invisible(Struct* /*params*/, Script* /*script*/)
 // 0x00460940: ObjId = the object's id, in the calling script's parameters.
 bool Entity::obj_get_id(Struct* /*params*/, Script* script)
 {
-    script->args()->put_name_key(kObjId, ident_);
+    script->args()->put_name_key(checksums::Name{kObjId}, ident_);
     return true;
 }
 

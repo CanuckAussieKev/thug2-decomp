@@ -306,8 +306,8 @@ int handle_host_options(net::InboundMsgCtx* context)
             return kDone;
         script::StructPtr params = script::make_struct();
         params->add_component_of_type(kLevel, script::kQbvalName, level);
-        params->put_name_key(kChangeLevelFlag, kChangeLevelFlag);
-        params->put_name_key(kShowWarning, kShowWarning);
+        params->put_name_key(checksums::Name{kChangeLevelFlag}, kChangeLevelFlag);
+        params->put_name_key(checksums::Name{kShowWarning}, kShowWarning);
         get_run(kChangeLevel, params.get());
         params.reset();
         break;
@@ -341,13 +341,13 @@ int handle_host_options(net::InboundMsgCtx* context)
         if (!reader.ok())
             return kDone;
         script::StructPtr count = script::make_struct();
-        count->put_int(0u, teams);
+        count->put_int(checksums::Name{0u}, teams);
         script::StructPtr params = script::make_struct();
         static const auto kTexts = std::to_array<const char*>({"None", nullptr, "2", "3", "4"});
         static const auto kTeams = std::to_array<uint32_t>({kTeamsNone, 0, kTeamsTwo, kTeamsThree, kTeamsFour});
         if (teams >= 0 && teams <= 4 && teams != 1) {
             params->append_word(kUiString, core::at(kTexts, teams));
-            params->put_name_key(kChecksum, core::at(kTeams, teams));
+            params->put_name_key(checksums::Name{kChecksum}, core::at(kTeams, teams));
         }
         manager->get_online_settings()->change_setting(kTeamMode, params.get());
         params.reset();
@@ -497,9 +497,9 @@ int handle_start_game(net::InboundMsgCtx* context)
         if (checksum != start.game_type)
             continue;
         script::StructPtr params = script::make_struct();
-        params->put_int(kTime, static_cast<int>(start.time_limit));
-        params->put_int(kScore, static_cast<int>(start.target_score));
-        params->put_int(kUnlimitedTime, start.time_limit == 0 ? 1 : 0);
+        params->put_int(checksums::Name{kTime}, static_cast<int>(start.time_limit));
+        params->put_int(checksums::Name{kScore}, static_cast<int>(start.target_score));
+        params->put_int(checksums::Name{kUnlimitedTime}, start.time_limit == 0 ? 1 : 0);
         // (with no goal_script the original runs whatever its local held: the skate module's address)
         uint32_t script = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         type->read_hash_value(kGoalScript, &script, 1);

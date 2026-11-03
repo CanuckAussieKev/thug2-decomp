@@ -226,7 +226,7 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     meter->read_int_tag(kTagTurnedOn, &turned_on);
     if (on != (turned_on != 0)) {
         const script::StructPtr params = script::make_struct();
-        params->put_name_key(kId, kTheBalanceMeter + static_cast<uint32_t>(skater->get_skater_number()));
+        params->put_name_key(checksums::Name{kId}, kTheBalanceMeter + static_cast<uint32_t>(skater->get_skater_number()));
         script::launch_script(on ? kShowBalanceMeter : kHideBalanceMeter, params.get(), nullptr, false, nullptr);
     }
     meter->write_hash_tag(kTagMode, manual ? kManual : kBalance);

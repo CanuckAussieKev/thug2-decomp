@@ -88,8 +88,8 @@ void RiderRunClock::seal() { walk_ = core::down_cast<FootMovement>(entity()->fet
 // 0x00518270
 void RiderRunClock::fetch_diagnostics(script::Struct* params)
 {
-    params->put_name_key(kMState, core::at(mode_label_keys(), cur_phase_));
-    params->push_float(kMTimer, seconds_remaining_);
+    params->put_name_key(checksums::Name{kMState}, core::at(mode_label_keys(), cur_phase_));
+    params->push_float(checksums::Name{kMTimer}, seconds_remaining_);
     // (then the base's fetch_diagnostics, which is empty: 0x005BAB90)
 }
 
@@ -157,20 +157,20 @@ bool RiderRunClock::unpause(script::Struct*, script::Script*)
 // 0x00518500
 bool RiderRunClock::get_factor_complete(script::Struct*, script::Script* script)
 {
-    script->args()->push_float(kFactorComplete,
+    script->args()->push_float(checksums::Name{kFactorComplete},
                               static_cast<float>(seconds_remaining_ / physics_value(entity(), kDuration)));
     return true;
 }
 // 0x00518540
 bool RiderRunClock::fetch_run_clock_pad_id(script::Struct*, script::Script* script)
 {
-    script->args()->put_name_key(kClockCtlKey, timer_script_id(entity()));
+    script->args()->put_name_key(checksums::Name{kClockCtlKey}, timer_script_id(entity()));
     return true;
 }
 // 0x00518570
 bool RiderRunClock::get_run_timer_id(script::Struct*, script::Script* script)
 {
-    script->args()->put_name_key(kRunTimerId, get_skater_index(entity()) + kRunTimerIdBase);
+    script->args()->put_name_key(checksums::Name{kRunTimerId}, get_skater_index(entity()) + kRunTimerIdBase);
     return true;
 }
 // 0x005185A0

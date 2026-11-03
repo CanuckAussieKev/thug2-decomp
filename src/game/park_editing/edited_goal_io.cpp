@@ -94,7 +94,7 @@ void EditedGoal::place_points_on_ground()
         }
         params.put_name_key("Name", node);
         const EditedGoalPoint& point = core::at(path_vertices_, i);
-        params.put_vec3("Pos", point.pos.x, point.height + point.pos.y, point.pos.z);
+        params.put_vec3("Pos", {.x = point.pos.x, .y = point.height + point.pos.y, .z = point.pos.z});
         script::launch_script(0x79582240, &params, nullptr, false, nullptr);
         params.get_clear();
     }
@@ -115,7 +115,7 @@ bool EditedGoal::place_point_and_step_back(const maths::Vec4& pos, float height,
     run_marker_object_script(current_point_);
     if (current_point_ == 0) {
         gsl::owner<script::Struct*> params = script::new_struct();
-        params->put_name_key(0u, 0x7F1538E0u);
+        params->put_name_key(checksums::Name{0u}, 0x7F1538E0u);
         script::launch_script(0xD066A889, params, nullptr, false, nullptr);
         if (params) {
             params->get_clear();
@@ -177,11 +177,11 @@ void EditedGoal::write_key_combo_sets(script::Struct* out)
     for (int i = 0; i < num_key_combo_sets_; ++i) {
         const KeyComboSet& set = core::at(key_combo_sets_, i);
         gsl::owner<script::Struct*> entry = script::new_struct();
-        entry->put_int(0xEB7D6498, set.set);
+        entry->put_int(checksums::Name{0xEB7D6498}, set.set);
         if (set.must_be_flawless_)
-            entry->put_name_key(0u, 0x687E2C25u);
-        entry->put_int(0xEDF5DB70, set.spin * 180);
-        entry->put_int(0xA4BEE6A1, set.tap_total_);
+            entry->put_name_key(checksums::Name{0u}, 0x687E2C25u);
+        entry->put_int(checksums::Name{0xEDF5DB70}, set.spin * 180);
+        entry->put_int(checksums::Name{0xA4BEE6A1}, set.tap_total_);
         sets->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
     }
     out->append_array_ref(0x0490F171, sets);
@@ -192,7 +192,7 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
 {
     if (num_key_combo_sets_ == 0) {
         debug::printf("!!!!!!!! Warning! No combo sets specified, using emergency_key_combos\n");
-        out->put_name_key(0x7BE1E689, 0x6D641BCB);
+        out->put_name_key(checksums::Name{0x7BE1E689}, 0x6D641BCB);
         return;
     }
     script::Array* all_sets = script::fetch_list(0xDF1451EB);
@@ -212,15 +212,15 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
         for (uint32_t j = 0; j < combos->extent(); ++j) {
             gsl::owner<script::Struct*> entry = script::new_struct();
             if (combos->kind_tag() == kChecksumArray)
-                entry->put_name_key(0xACFDB27A, combos->fetch_part(j));
+                entry->put_name_key(checksums::Name{0xACFDB27A}, combos->fetch_part(j));
             else
                 entry->append_structure_if_any(structure_element(combos, j));
             if (set.tap_total_)
-                entry->put_int(0xA4BEE6A1, set.tap_total_);
+                entry->put_int(checksums::Name{0xA4BEE6A1}, set.tap_total_);
             if (set.must_be_flawless_)
-                entry->put_name_key(0u, 0x687E2C25u);
+                entry->put_name_key(checksums::Name{0u}, 0x687E2C25u);
             if (twist_rate_)
-                entry->put_int(0x8C8ABD19, twist_rate_);
+                entry->put_int(checksums::Name{0x8C8ABD19}, twist_rate_);
             result->set_cell(index++, script::Cell::of(entry));
         }
     }
@@ -230,16 +230,16 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
 // 0x004E9D60
 void EditedGoal::write_trick_settings(script::Struct* out, int for_goal_manager)
 {
-    out->put_int(0x01181B29, acceleration_interval_);
-    out->push_float(0x076F65C8, acceleration_percent_);
-    out->put_int(0xDED8540A, trick_time_);
-    out->put_int(0xA6D96603, time_to_stop_adding_tricks_);
-    out->put_int(0x89473DB7, max_tricks_);
+    out->put_int(checksums::Name{0x01181B29}, acceleration_interval_);
+    out->push_float(checksums::Name{0x076F65C8}, acceleration_percent_);
+    out->put_int(checksums::Name{0xDED8540A}, trick_time_);
+    out->put_int(checksums::Name{0xA6D96603}, time_to_stop_adding_tricks_);
+    out->put_int(checksums::Name{0x89473DB7}, max_tricks_);
     if (for_goal_manager == 1) {
         write_goal_key_combos(out);
         return;
     }
-    out->put_int(0xEDF5DB70, twist_rate_);
+    out->put_int(checksums::Name{0xEDF5DB70}, twist_rate_);
     write_key_combo_sets(out);
 }
 
@@ -251,17 +251,17 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
     case kGoalTypeRace:
         if (for_goal_manager == 1) {
             if (race_per_checkpoint_time_ > 0)
-                out->put_int(0xA4038EC9, race_per_checkpoint_time_);
+                out->put_int(checksums::Name{0xA4038EC9}, race_per_checkpoint_time_);
         } else {
-            out->put_int(0xD9426372, race_per_checkpoint_time_);
+            out->put_int(checksums::Name{0xD9426372}, race_per_checkpoint_time_);
         }
-        out->put_int(0x1DAAE95B, race_total_laps_);
+        out->put_int(checksums::Name{0x1DAAE95B}, race_total_laps_);
         break;
     case kGoalTypeComboTricks:
-        out->put_name_key(0u, static_cast<uint32_t>(kGoalTypeCombo));
-        out->put_int(0x67DD90CA, chain_length_);
+        out->put_name_key(checksums::Name{0u}, static_cast<uint32_t>(kGoalTypeCombo));
+        out->put_int(checksums::Name{0x67DD90CA}, chain_length_);
         if (single_combo_) {
-            out->put_name_key(0u, 0xDF47B144u);
+            out->put_name_key(checksums::Name{0u}, 0xDF47B144u);
             max_tricks_ = chain_length_;
         }
         write_trick_settings(out, for_goal_manager);
@@ -288,7 +288,7 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
         break;
     case kGoalTypeScore:
     case kGoalTypeHighCombo:
-        out->put_int(0xCD66C8AE, points_held_);
+        out->put_int(checksums::Name{0xCD66C8AE}, points_held_);
         if (for_goal_manager == 1) {
             const char* format = script::fetch_text(kind_tag_ == kGoalTypeHighCombo ? 0x3693BFE4 : 0xD6EFB1B5);
             crt::sprintf_from_data(text.data(), format, points_held_); // (the script's text is the format)
@@ -305,9 +305,9 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
             write_key_combo_sets(out);
         break;
     case kGoalTypeTricktris:
-        out->put_name_key(0u, static_cast<uint32_t>(kGoalTypeTricktris));
-        out->put_int(0x45A375C9, stack_block_span_);
-        out->put_int(0xBFD3A831, tricktris_total_to_win_);
+        out->put_name_key(checksums::Name{0u}, static_cast<uint32_t>(kGoalTypeTricktris));
+        out->put_int(checksums::Name{0x45A375C9}, stack_block_span_);
+        out->put_int(checksums::Name{0xBFD3A831}, tricktris_total_to_win_);
         max_tricks_ = stack_block_span_;
         write_trick_settings(out, for_goal_manager);
         break;
@@ -324,19 +324,19 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
     out->append_structure_if_any(goal_type_defaults(kind_tag_));
     core::at(name, 0) = '\0';
     get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", level_goal_number_);
-    out->put_name_key(0x02D7E03D, checksums::hash_from_text(name.data()));
+    out->put_name_key(checksums::Name{0x02D7E03D}, checksums::hash_from_text(name.data()));
     core::at(name, 0) = '\0';
     get_sprintf(name.data(), "TRG_EditedGoal%d_Restart", level_goal_number_);
-    out->put_name_key(0x3494F170, checksums::hash_from_text(name.data()));
-    out->put_name_key(0xA302D7CD, 1u);
-    out->put_name_key(0u, 0xDBEB46E2u);
+    out->put_name_key(checksums::Name{0x3494F170}, checksums::hash_from_text(name.data()));
+    out->put_name_key(checksums::Name{0xA302D7CD}, 1u);
+    out->put_name_key(checksums::Name{0u}, 0xDBEB46E2u);
     switch (kind_tag_) {
     case kGoalTypeSkate: {
         static const std::array<uint32_t, 5> kLetters = {{0xBA54BD5C, 0x150A97C2, 0x84CA8B0A, 0xB091B445, 0x008085F0}};
         for (int i = 0; i < 5; ++i) {
             core::at(name, 0) = '\0';
             get_sprintf(name.data(), "TRG_EditedGoal%d_Object_%d", level_goal_number_, i);
-            out->put_name_key(core::at(kLetters, i), checksums::hash_from_text(name.data()));
+            out->put_name_key(checksums::Name{core::at(kLetters, i)}, checksums::hash_from_text(name.data()));
         }
         break;
     }
@@ -347,7 +347,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
             gsl::owner<script::Struct*> letter = script::new_struct();
             core::at(name, 0) = '\0';
             get_sprintf(name.data(), "TRG_EditedGoal%d_Object_%d", level_goal_number_, i);
-            letter->put_name_key(0x99F6CCBB, checksums::hash_from_text(name.data()));
+            letter->put_name_key(checksums::Name{0x99F6CCBB}, checksums::hash_from_text(name.data()));
             letter->append_word(0xC4745838, core::at(kLetters, i));
             letters->set_cell(static_cast<uint32_t>(i), script::Cell::of(letter));
         }
@@ -361,13 +361,13 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         std::array<char, 0x64> flag{};
         for (int i = 0; i < count; ++i) {
             gsl::owner<script::Struct*> waypoint = script::new_struct();
-            waypoint->put_name_key(0x40C698AF, edited_goal_node_name(i + 2, level_goal_number_));
+            waypoint->put_name_key(checksums::Name{0x40C698AF}, edited_goal_node_name(i + 2, level_goal_number_));
             get_sprintf(flag.data(), "got_%d", i + 1);
             flags->set_element(static_cast<uint32_t>(i), checksums::hash_from_text(flag.data()));
-            waypoint->put_name_key(0x2E0B1465, checksums::hash_from_text(flag.data()));
+            waypoint->put_name_key(checksums::Name{0x2E0B1465}, checksums::hash_from_text(flag.data()));
             if (race_per_checkpoint_time_ > 0)
-                waypoint->put_int(0x906B67BA, race_per_checkpoint_time_);
-            waypoint->put_int(0xC48391A5, 5);
+                waypoint->put_int(checksums::Name{0x906B67BA}, race_per_checkpoint_time_);
+            waypoint->put_int(checksums::Name{0xC48391A5}, 5);
             waypoints->set_cell(static_cast<uint32_t>(i), script::Cell::of(waypoint));
         }
         out->append_array_ref(0xA77B1F07, waypoints);
@@ -389,7 +389,7 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         core::at(name, 0) = '\0';
         get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", level_goal_number_);
         const uint32_t pro = checksums::hash_from_text(name.data());
-        structure_element(dialog, 0)->put_name_key(0x531E4D28, pro);
+        structure_element(dialog, 0)->put_name_key(checksums::Name{0x531E4D28}, pro);
         out->append_array_ref(0x27CD32E1, dialog);
     }
     get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
@@ -398,31 +398,31 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         out->append_word(0x4BC5229D, label_.data());
     if (core::at(ped_name_, 0))
         out->append_word(0x243B9C3B, ped_name_.data());
-    out->put_int(0x906B67BA, time_limit_);
-    out->put_name_key(0x81CFF663, control_type_);
-    out->put_name_key(0u, 0x981D3AD0u);
+    out->put_int(checksums::Name{0x906B67BA}, time_limit_);
+    out->put_name_key(checksums::Name{0x81CFF663}, control_type_);
+    out->put_name_key(checksums::Name{0u}, 0x981D3AD0u);
 }
 
 // 0x004EB260
 void EditedGoal::export_to_struct(script::Struct* out)
 {
     std::array<char, 0x64> name{};
-    out->put_name_key(0u, 0x981D3AD0u);
-    out->put_name_key(0x651533EC, level_);
-    out->put_int(0x60CE75AE, level_goal_number_);
+    out->put_name_key(checksums::Name{0u}, 0x981D3AD0u);
+    out->put_name_key(checksums::Name{0x651533EC}, level_);
+    out->put_int(checksums::Name{0x60CE75AE}, level_goal_number_);
     get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
-    out->put_name_key(0x9982E501, checksums::hash_from_text(park_editing_state().created_goal_name().data()));
-    out->put_int(0xC51BF6E3, time_limit_);
-    out->put_int(0x14938611, won_);
-    out->put_name_key(0x81CFF663, control_type_);
+    out->put_name_key(checksums::Name{0x9982E501}, checksums::hash_from_text(park_editing_state().created_goal_name().data()));
+    out->put_int(checksums::Name{0xC51BF6E3}, time_limit_);
+    out->put_int(checksums::Name{0x14938611}, won_);
+    out->put_name_key(checksums::Name{0x81CFF663}, control_type_);
     out->append_word(0x4BC5229D, label_.data());
     out->append_word(0x0C5D7E6B, summary_text_.data());
     out->append_word(0x5DE57284, win_message_.data());
     out->append_word(0xB9426608, ped_name_.data());
-    out->put_name_key(0x6D11ED74, kind_tag_);
+    out->put_name_key(checksums::Name{0x6D11ED74}, kind_tag_);
     core::at(name, 0) = '\0';
     get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", level_goal_number_);
-    out->put_name_key(0x71FC348B, checksums::hash_from_text(name.data()));
+    out->put_name_key(checksums::Name{0x71FC348B}, checksums::hash_from_text(name.data()));
     write_specific_params(out, 0);
     if (!vertex_total_)
         return;
@@ -430,9 +430,9 @@ void EditedGoal::export_to_struct(script::Struct* out)
     for (uint32_t i = 0; i < vertex_total_; ++i) {
         const EditedGoalPoint& point = core::at(path_vertices_, i);
         gsl::owner<script::Struct*> entry = script::new_struct();
-        entry->put_vec3(0x7F261953, point.pos.x, point.pos.y, point.pos.z);
-        entry->push_float(0x0AB21AF0, point.height);
-        entry->push_float(0xFF7EBAF6, point.angle);
+        entry->put_vec3(checksums::Name{0x7F261953}, {.x = point.pos.x, .y = point.pos.y, .z = point.pos.z});
+        entry->push_float(checksums::Name{0x0AB21AF0}, point.height);
+        entry->push_float(checksums::Name{0xFF7EBAF6}, point.angle);
         points->set_cell(i, script::Cell::of(entry));
     }
     out->append_array_ref(0x32DF12E0, points);

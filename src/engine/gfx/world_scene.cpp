@@ -62,20 +62,20 @@ bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
     // A structure describing the load is built here and never used (left from an older interface).
     alignas(4) std::array<uint8_t, 8> memory{};
     auto description = memory::construct_in<script::Struct>(memory.data());
-    description->put_name_key(kTexDict, checksums::hash_from_text(texture_path.data()));
+    description->put_name_key(checksums::Name{kTexDict}, checksums::hash_from_text(texture_path.data()));
     if (text::find_caseless(name, "_sky") || is_sky) {
         is_sky = true;
         with_super_sectors = false;
-        description->put_name_key(0u, kIsSky);
+        description->put_name_key(checksums::Name{0u}, kIsSky);
     }
     if (is_dictionary) {
         with_super_sectors = false;
-        description->put_name_key(0u, kIsDictionary);
+        description->put_name_key(checksums::Name{0u}, kIsDictionary);
     } else if (with_super_sectors) {
-        description->put_name_key(0u, kEnableSuperSectors);
+        description->put_name_key(checksums::Name{0u}, kEnableSuperSectors);
     }
     if (is_net)
-        description->put_name_key(0u, kIsNet);
+        description->put_name_key(checksums::Name{0u}, kIsNet);
 
     load_scene_file(name, tex_dict, with_super_sectors, is_sky, is_dictionary, is_net);
     debug::printf("... done\n");

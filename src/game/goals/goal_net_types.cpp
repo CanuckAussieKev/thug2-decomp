@@ -123,7 +123,7 @@ void LetterGameObjective::land()
             manager->fail_objective(id);
         }
     }
-    args()->put_int(kHorseRunDone, 0);
+    args()->put_int(checksums::Name{kHorseRunDone}, 0);
 }
 
 // --- OnlineObjective -------------------------------------------------------------------------------------------------------
@@ -284,24 +284,24 @@ bool RaceObjective::advance_race_gate(uint32_t id)
             return advance_race_gate(id);
         }
         script::StructPtr params = script::make_struct();
-        params->put_name_key(kGoalIdChecksum, id);
+        params->put_name_key(checksums::Name{kGoalIdChecksum}, id);
         if (i == 0 && laps_ > 1)
-            params->put_int(kStartLap, lap_);
+            params->put_int(checksums::Name{kStartLap}, lap_);
         if (i == waypoints->extent() - 1 && lap_ == laps_)
-            params->put_name_key(kLastWaypoint, 1);
+            params->put_name_key(checksums::Name{kLastWaypoint}, 1);
         if (args()->has_bare_flag(kQuickStart))
-            params->put_name_key(0u, kQuickStart);
+            params->put_name_key(checksums::Name{0u}, kQuickStart);
         else
             params->remove_flag(kQuickStart);
         if (lap_ == 1 && i == 0) {
-            params->put_int(kFirstWaypoint, 1);
+            params->put_int(checksums::Name{kFirstWaypoint}, 1);
         } else {
-            params->put_name_key(kScr, kCheckpointMessage);
+            params->put_name_key(checksums::Name{kScr}, kCheckpointMessage);
             if (!(cur_phase() & kStateNoTimeLimit) && add_time_) {
                 int time = 0;
                 waypoint->fetch_int_value(kTime, &time, 0);
                 advance_clock(time);
-                params->put_int(kAddedTime, time);
+                params->put_int(checksums::Name{kAddedTime}, time);
             }
         }
         params->append_structure_if_any(waypoint);

@@ -131,8 +131,8 @@ void ObjectProximityComponent::tick_frame()
         if (local <= inner_radius_squared_) {
             // The local skater inside: the enter event, and the any-skater one.
             gsl::owner<script::Struct*> data = new_data();
-            data->put_name_key(0xF79C90AE, id);
-            data->put_int(0xDB1E28CD, static_cast<int>(id));
+            data->put_name_key(checksums::Name{0xF79C90AE}, id);
+            data->put_int(checksums::Name{0xDB1E28CD}, static_cast<int>(id));
             event(0x7048029A, data);
             if (!(entity()->object_flags() & kObjectFlagDead))
                 event(0xF5B2A042, data);
@@ -141,8 +141,8 @@ void ObjectProximityComponent::tick_frame()
             // Another skater inside: the any-skater event.
             if (nearest_skater_distance_squared(&id) <= inner_radius_squared_) {
                 gsl::owner<script::Struct*> data = new_data();
-                data->put_name_key(0xF79C90AE, id);
-                data->put_int(0xDB1E28CD, static_cast<int>(id));
+                data->put_name_key(checksums::Name{0xF79C90AE}, id);
+                data->put_int(checksums::Name{0xDB1E28CD}, static_cast<int>(id));
                 event(0xF5B2A042, data);
                 delete_data(data);
             }
@@ -154,8 +154,8 @@ void ObjectProximityComponent::tick_frame()
             distance = nearest_skater_distance_squared(&id);
         if (distance >= outer_radius_squared_ && !(entity()->object_flags() & kObjectFlagDead)) {
             gsl::owner<script::Struct*> data = new_data();
-            data->put_name_key(0x873A40D0, id);
-            data->put_int(0x5F3602F5, static_cast<int>(id));
+            data->put_name_key(checksums::Name{0x873A40D0}, id);
+            data->put_int(checksums::Name{0x5F3602F5}, static_cast<int>(id));
             event(0x91BCAD1D, data);
             delete_data(data);
         }
@@ -165,7 +165,7 @@ void ObjectProximityComponent::tick_frame()
             distance = static_cast<float>(local_skater_distance_squared(&id));
         if (distance <= inner_avoid_radius_squared_) {
             gsl::owner<script::Struct*> data = new_data();
-            data->put_name_key(0xF79C90AE, id);
+            data->put_name_key(checksums::Name{0xF79C90AE}, id);
             if (!(entity()->object_flags() & kObjectFlagDead))
                 event(0xD69BD3DE, data);
             delete_data(data);

@@ -103,9 +103,9 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
     float scale = 1.0f;
     float skew = 0.0f;
     params->fetch_float(kTiltDegrees, &skew, 0);
-    script->args()->put_int(kVelX, ftol(velocity.x));
-    script->args()->put_int(kVelY, ftol(velocity.y));
-    script->args()->put_int(kVelZ, ftol(velocity.z));
+    script->args()->put_int(checksums::Name{kVelX}, ftol(velocity.x));
+    script->args()->put_int(checksums::Name{kVelY}, ftol(velocity.y));
+    script->args()->put_int(checksums::Name{kVelZ}, ftol(velocity.z));
     params->fetch_float(kScale, &scale, 0);
     velocity.y = 0.0f;
     // x87: z * z + x * x and its root in double
@@ -144,9 +144,9 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
             z = core::at(m.row, 2).z;
         }
     }
-    script->args()->put_int(kScaledX, ftol(static_cast<double>(x) * scale));
-    script->args()->put_int(kScaledY, ftol(static_cast<double>(y) * scale));
-    script->args()->put_int(kScaledZ, ftol(static_cast<double>(z) * scale));
+    script->args()->put_int(checksums::Name{kScaledX}, ftol(static_cast<double>(x) * scale));
+    script->args()->put_int(checksums::Name{kScaledY}, ftol(static_cast<double>(y) * scale));
+    script->args()->put_int(checksums::Name{kScaledZ}, ftol(static_cast<double>(z) * scale));
     return true;
 }
 
@@ -214,7 +214,7 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
         if (!audio::stream_exists(checksums::hash_from_text(stream.data())))
             continue;
         gsl::owner<Struct*> stream_params = script::new_struct();
-        stream_params->put_name_key(kStreamChecksum, checksums::hash_from_text(stream.data()));
+        stream_params->put_name_key(checksums::Name{kStreamChecksum}, checksums::hash_from_text(stream.data()));
         script::launch_script(kSkaterPlayBailStream, stream_params, script->entity().get_pull(), false, nullptr);
         if (stream_params) {
             // (delete inlined: the structure pool pair's Free)

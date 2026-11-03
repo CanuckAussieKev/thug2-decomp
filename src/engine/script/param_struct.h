@@ -5,6 +5,8 @@
 #include <vector>
 #include "engine/core/slab_bank.h"
 #include <gsl/pointers>
+#include "engine/core/checksums.h"
+#include "engine/maths/vec2.h"
 #include "engine/maths/vec4.h"
 #include "engine/script/cell.h"
 #include <memory>
@@ -328,18 +330,19 @@ public:
     void append_word(uint32_t name, const char* value);
     void append_word(const char* name, const char* value);
     void append_inline_text(uint32_t name, const char* value);
-    void append_word(uint32_t name, uint32_t type, const char* value); // string or local string
-    void put_int(uint32_t name, int value);
+    void append_word(uint32_t name, QbValueKind type, const char* value); // string or local string
+    // The putters of a number, a name or a vector take the component's name as a checksums::Name: its value could
+    // otherwise be passed for it (I.24).
+    void put_int(checksums::Name name, int value);
     void put_int(const char* name, int value);
-    void push_float(uint32_t name, float value);
+    void push_float(checksums::Name name, float value);
     void push_float(const char* name, float value);
-    void put_name_key(uint32_t name, uint32_t value);
+    void put_name_key(checksums::Name name, uint32_t value);
     void put_name_key(const char* name, uint32_t value);
-    void put_vec3(uint32_t name, float x, float y, float z);
-    void put_vec3(const char* name, float x, float y, float z);
-    void put_vec3(uint32_t name, VectorValue value);
+    // x, y and z of `value` (its w not kept).
+    void put_vec3(checksums::Name name, VectorValue value);
     void put_vec3(const char* name, VectorValue value);
-    void insert_pair(uint32_t name, float x, float y);
+    void insert_pair(checksums::Name name, maths::Vec2 value);
     // Arrays and structures added by pointer (the structure takes them over).
     void append_array_ref(uint32_t name, gsl::owner<Array*> value);
     void append_array_ref(const char* name, gsl::owner<Array*> value);
@@ -353,7 +356,7 @@ public:
     // A compiled script, copied to the script heap.
     void append_script(uint32_t name, std::span<const uint8_t> code);
     // By type: integer, float, 11 structure pointer, 12 array pointer, 13 checksum (others are ignored).
-    void add_component_of_type(uint32_t name, uint32_t type, uint32_t value);
+    void add_component_of_type(uint32_t name, QbValueKind type, uint32_t value);
 
     // Copies of all `source`'s components, added.
     Struct* merge_structure(Struct* source);
@@ -379,7 +382,7 @@ public:
     bool fetch_int_value(const char* name, int* out, int assert);
     bool fetch_float(uint32_t name, float* out, int assert);
     bool fetch_float(const char* name, float* out, int assert);
-    bool fetch_pair(uint32_t name, float* x, float* y, int assert);
+    bool fetch_pair(uint32_t name, maths::Vec2* out, int assert);
     bool fetch_pair(uint32_t name, Pair* out, bool assert);
     bool read_sub_struct(uint32_t name, Struct** out, int assert);
     bool read_sub_struct(const char* name, Struct** out, int assert);

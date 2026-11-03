@@ -247,8 +247,8 @@ bool GapTally::get_gap_totals(script::Struct* /*params*/, script::Script* script
         if (gap->num())
             ++collected;
     }
-    script->args()->put_int(kNumGaps, total);
-    script->args()->put_int(kNumCollectedGaps, collected);
+    script->args()->put_int(checksums::Name{kNumGaps}, total);
+    script->args()->put_int(checksums::Name{kNumCollectedGaps}, collected);
     return true;
 }
 
@@ -262,16 +262,16 @@ bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script
         script::StructPtr item = script::make_struct();
         GapEntry* next = get_next(gap);
         if (index == 0)
-            item->put_name_key(0u, kFirstItem);
+            item->put_name_key(checksums::Name{0u}, kFirstItem);
         else if (!next)
-            item->put_name_key(0u, kLastItem);
-        item->put_int(kGapScore, gap->points_held());
+            item->put_name_key(checksums::Name{0u}, kLastItem);
+        item->put_int(checksums::Name{kGapScore}, gap->points_held());
         item->append_word(kGapName, gap->label().c_str());
-        item->put_int(kTimes, gap->num());
-        item->put_int(kGapNumber, index);
-        item->put_vec3(kSkaterStartPos, gap->skater_start_pos().x, gap->skater_start_pos().y, gap->skater_start_pos().z);
-        item->put_vec3(kSkaterStartDir, gap->skater_start_dir().x, gap->skater_start_dir().y, gap->skater_start_dir().z);
-        item->put_name_key(kChooseScript, choose_script);
+        item->put_int(checksums::Name{kTimes}, gap->num());
+        item->put_int(checksums::Name{kGapNumber}, index);
+        item->put_vec3(checksums::Name{kSkaterStartPos}, {.x = gap->skater_start_pos().x, .y = gap->skater_start_pos().y, .z = gap->skater_start_pos().z});
+        item->put_vec3(checksums::Name{kSkaterStartDir}, {.x = gap->skater_start_dir().x, .y = gap->skater_start_dir().y, .z = gap->skater_start_dir().z});
+        item->put_name_key(checksums::Name{kChooseScript}, choose_script);
         script::launch_script(kGapMenuAddItem, item.get(), nullptr, false, nullptr);
         item.reset();
         ++index;
@@ -286,9 +286,9 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
     int count = 0;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap))
         ++count;
-    script->args()->put_int(kArraySize, count);
+    script->args()->put_int(checksums::Name{kArraySize}, count);
     if (count == 0) {
-        script->args()->put_int(kGapsFoundCount, count);
+        script->args()->put_int(checksums::Name{kGapsFoundCount}, count);
         return false;
     }
     gsl::owner<script::Array*> memory = script::alloc_script_array();
@@ -304,12 +304,12 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
         item->append_word("gap_name", gap->label().c_str());
         item->put_int("times", gap->num());
         item->put_int("gap_number", index);
-        item->put_vec3(kSkaterStartPos, gap->skater_start_pos().x, gap->skater_start_pos().y, gap->skater_start_pos().z);
-        item->put_vec3(kSkaterStartDir, gap->skater_start_dir().x, gap->skater_start_dir().y, gap->skater_start_dir().z);
+        item->put_vec3(checksums::Name{kSkaterStartPos}, {.x = gap->skater_start_pos().x, .y = gap->skater_start_pos().y, .z = gap->skater_start_pos().z});
+        item->put_vec3(checksums::Name{kSkaterStartDir}, {.x = gap->skater_start_dir().x, .y = gap->skater_start_dir().y, .z = gap->skater_start_dir().z});
         list->set_cell(index, script::Cell::of(item));
     }
     script->args()->append_array_ref(kGapList, list);
-    script->args()->put_int(kGapsFoundCount, got);
+    script->args()->put_int(checksums::Name{kGapsFoundCount}, got);
     return true;
 }
 
@@ -353,7 +353,7 @@ void GapTally::pay_out_queued_gaps()
                 ++new_gaps;
                 const script::StructPtr params = script::make_struct();
                 if (new_gaps > 1)
-                    params->put_int(kMultipleNewGaps, new_gaps);
+                    params->put_int(checksums::Name{kMultipleNewGaps}, new_gaps);
                 params->append_word(kGapText, gap->label().c_str());
                 script::launch_script(kGotGapForFirstTime, params.get(), nullptr, false, nullptr);
             }

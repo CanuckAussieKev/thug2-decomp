@@ -186,9 +186,9 @@ bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Script*)
     Struct* mapping = profile->fetch_details_params(kTrickMapping);
     mapping->erase_module(key_combo);
     if (is_number)
-        mapping->put_int(key_combo, trick_number);
+        mapping->put_int(checksums::Name{key_combo}, trick_number);
     else
-        mapping->put_name_key(key_combo, trick_name);
+        mapping->put_name_key(checksums::Name{key_combo}, trick_name);
     return true;
 }
 
@@ -396,7 +396,7 @@ bool cfunc_get_trick_display_text(script::Struct* params, script::Script* script
         const char* extra_name = nullptr;
         extra_params->fetch_text(kName, &extra_name, 1);
         script->args()->append_word(kExtraTrickString, extra_name);
-        script->args()->put_name_key(kExtraTrickName, extra);
+        script->args()->put_name_key(checksums::Name{kExtraTrickName}, extra);
     }
     return true;
 }
@@ -409,12 +409,12 @@ bool cfunc_get_special_trick_info(script::Struct* params, script::Script* script
     params->fetch_int_value(kIndex, &index, 1);
     RiderIdentity::SpecialTrick trick;
     profile_for(nullptr)->get_special_trick(&trick, index);
-    script->args()->put_name_key(kSpecialTrickSlot, trick.keys());
+    script->args()->put_name_key(checksums::Name{kSpecialTrickSlot}, trick.keys());
     if (trick.flag())
-        script->args()->put_int(kSpecialTrickName, static_cast<int>(trick.trick()));
+        script->args()->put_int(checksums::Name{kSpecialTrickName}, static_cast<int>(trick.trick()));
     else
-        script->args()->put_name_key(kSpecialTrickName, trick.trick());
-    script->args()->put_int(kIsCat, trick.flag());
+        script->args()->put_name_key(checksums::Name{kSpecialTrickName}, trick.trick());
+    script->args()->put_int(checksums::Name{kIsCat}, trick.flag());
     return true;
 }
 
@@ -426,7 +426,7 @@ bool cfunc_get_trick_type(script::Struct* params, script::Script* script)
     params->read_hash_value(kTrick, &trick, 1);
     uint32_t type = 0;
     trick_type_of(script::read_sub_struct(trick), &type);
-    script->args()->put_name_key(kTrickTypeOut, type);
+    script->args()->put_name_key(checksums::Name{kTrickTypeOut}, type);
     return true;
 }
 
@@ -451,7 +451,7 @@ bool cfunc_get_index_of_item_containing(script::Struct* params, script::Script* 
         uint32_t found = 0;
         item->read_hash_value(name, &found, 1);
         if (value == found) {
-            script->args()->put_int(kIndex, index);
+            script->args()->put_int(checksums::Name{kIndex}, index);
             return true;
         }
     }
@@ -489,14 +489,14 @@ bool cfunc_get_number_of_trick_occurrences(script::Struct* params, script::Scrip
     const uint32_t trick = checksums::hash_from_text(text);
     void* score = skater_score(local_skater());
     const int count = static_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, 0, false, 1);
-    script->args()->put_int(kNumberOfOccurrences, count);
+    script->args()->put_int(checksums::Name{kNumberOfOccurrences}, count);
     return true;
 }
 
 // 0x005B1670: GetNumSoundtracks: numsoundtracks. Always true.
 bool cfunc_get_num_soundtracks(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(kNumSoundtracks, audio::get_num_soundtracks());
+    script->args()->put_int(checksums::Name{kNumSoundtracks}, audio::get_num_soundtracks());
     return true;
 }
 

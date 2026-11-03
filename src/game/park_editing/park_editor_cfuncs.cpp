@@ -275,7 +275,7 @@ bool cfunc_get_park_editor_time_of_day_script(script::Struct*, script::Script* s
     const uint32_t tod = get_editor()->lighting_script();
     if (!tod)
         return false;
-    script->args()->put_name_key(kTodScript, tod);
+    script->args()->put_name_key(checksums::Name{kTodScript}, tod);
     return true;
 }
 
@@ -290,7 +290,7 @@ bool cfunc_rebuild_park_node_array(script::Struct*, script::Script*)
 bool cfunc_get_park_editor_cursor_pos(script::Struct*, script::Script* script)
 {
     const maths::Vec4 pos = get_cursor()->at_point();
-    script->args()->put_vec3(kPos, pos.x, pos.y, pos.z);
+    script->args()->put_vec3(checksums::Name{kPos}, {.x = pos.x, .y = pos.y, .z = pos.z});
     return true;
 }
 
@@ -415,10 +415,10 @@ bool cfunc_resize_park(script::Struct* params, script::Script*)
 bool cfunc_get_current_park_bounds(script::Struct*, script::Script* script)
 {
     const CellBox bounds = hub()->build_area();
-    script->args()->put_int(kX, bounds.x);
-    script->args()->put_int(kZ, bounds.z);
-    script->args()->put_int(kW, bounds.w);
-    script->args()->put_int(kL, bounds.l);
+    script->args()->put_int(checksums::Name{kX}, bounds.x);
+    script->args()->put_int(checksums::Name{kZ}, bounds.z);
+    script->args()->put_int(checksums::Name{kW}, bounds.w);
+    script->args()->put_int(checksums::Name{kL}, bounds.l);
     return true;
 }
 
@@ -478,14 +478,14 @@ bool cfunc_get_edited_park_gap_name(script::Struct*, script::Script* script)
 // 0x0058EAA0
 bool cfunc_get_editor_theme(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(kTheme, hub()->get_shell_size());
+    script->args()->put_int(checksums::Name{kTheme}, hub()->get_shell_size());
     return true;
 }
 
 // 0x0058EAD0
 bool cfunc_get_editor_max_themes(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(kMaxThemes, 5);
+    script->args()->put_int(checksums::Name{kMaxThemes}, 5);
     return true;
 }
 

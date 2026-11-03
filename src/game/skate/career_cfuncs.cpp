@@ -71,11 +71,11 @@ bool cfunc_get_career_level_score(script::Struct* params, script::Script* script
     objects::RiderStoryProgress* career = get_career();
     int level = career->fetch_stage();
     params->fetch_int_value(kLevel, &level, 0);
-    script->args()->put_int(kLevelScore, core::at(career->funds(), level));
-    script->args()->put_int(kLevelScoreTotal, core::at(career->amount(), level));
+    script->args()->put_int(checksums::Name{kLevelScore}, core::at(career->funds(), level));
+    script->args()->put_int(checksums::Name{kLevelScoreTotal}, core::at(career->amount(), level));
     if (params->has_bare_flag(kGetTotal)) {
-        script->args()->put_int(kTotalScore, career->lifetime_funds());
-        script->args()->put_int(kTotalScorePotential, career->total_amount());
+        script->args()->put_int(checksums::Name{kTotalScore}, career->lifetime_funds());
+        script->args()->put_int(checksums::Name{kTotalScorePotential}, career->total_amount());
     }
     return true;
 }
@@ -97,10 +97,10 @@ bool cfunc_get_classic_level_goal_count(script::Struct* params, script::Script* 
     objects::RiderStoryProgress* career = get_career();
     int level = career->fetch_stage();
     params->fetch_int_value(kLevel, &level, 0);
-    script->args()->put_int(kClassicGoalCount, career->get_counter(level));
+    script->args()->put_int(checksums::Name{kClassicGoalCount}, career->get_counter(level));
     if (params->has_bare_flag(kGetTotal)) {
-        script->args()->put_int(kTotalGoalsComplete, career->total_counter());
-        script->args()->put_int(kTotalGoalsPossible, career->flag_5e_f());
+        script->args()->put_int(checksums::Name{kTotalGoalsComplete}, career->total_counter());
+        script->args()->put_int(checksums::Name{kTotalGoalsPossible}, career->flag_5e_f());
     }
     return true;
 }
@@ -118,7 +118,7 @@ bool cfunc_set_classic_total_goals(script::Struct* params, script::Script*)
 // 0x005AEC20: GetCurrentChapter - the career's chapter as chapter.
 bool cfunc_get_current_chapter(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(kChapter, get_career()->value634());
+    script->args()->put_int(checksums::Name{kChapter}, get_career()->value634());
     return true;
 }
 

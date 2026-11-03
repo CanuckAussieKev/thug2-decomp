@@ -93,7 +93,7 @@ FloatingTextComponent::FloatingTextComponent()
 FloatingTextComponent::~FloatingTextComponent()
 {
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(kId, ident_);
+    params->put_name_key(checksums::Name{kId}, ident_);
     script::launch_script(kDestroyScript, params, nullptr, false, nullptr);
     delete_params(params);
 }
@@ -141,14 +141,14 @@ void FloatingTextComponent::tick_frame()
         end_time_ = 0;
     }
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(kId, ident_);
+    params->put_name_key(checksums::Name{kId}, ident_);
     // (the original: the game's sprintf, 0x006234FE, into 64 bytes - a text of more than about 60 characters overran
     // them into the stack cookie, ending the game; here it's cut short)
     std::array<char, 0x40> text{};
     text::format_to(text, "\\c%d%s", tint_, text_.data());
     params->append_word(kText, text.data());
     const maths::Vec4& pos = entity()->at_point();
-    params->put_vec3(kPos3d, pos.x, pos.y + y_offset_, pos.z);
+    params->put_vec3(checksums::Name{kPos3d}, {.x = pos.x, .y = pos.y + y_offset_, .z = pos.z});
     frontend::ElementPtr found;
     frontend::UiTree::sole()->fetch_part(&found, ident_, 0);
     frontend::UiWidget* element = found.get_pull();

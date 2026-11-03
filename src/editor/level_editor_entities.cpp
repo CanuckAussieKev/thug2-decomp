@@ -730,7 +730,7 @@ void apply_radius(const EmitterSound& e)
         float now = 0.0f;
         if (!node->fetch_float(k_radius(), &now, 0) || now != e.radius) {
             node->erase_module(k_radius());
-            node->push_float(k_radius(), e.radius);
+            node->push_float(checksums::Name{k_radius()}, e.radius);
         }
     }
 }
@@ -778,7 +778,7 @@ uint32_t path_speed_script()
 void apply_speed(objects::GameEntity* object, float mph)
 {
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->push_float(get_key("speed"), mph);
+    params->push_float(checksums::Name{get_key("speed")}, mph);
     script::launch_script(path_speed_script(), params, object, false, nullptr);
     params->get_clear();
     script::delete_struct(params);
@@ -1189,7 +1189,7 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
         if (!has)
             return;
         node->erase_module(key);
-        node->put_vec3(key, v.x, v.y, v.z);
+        node->put_vec3(checksums::Name{key}, {.x = v.x, .y = v.y, .z = v.z});
     };
     put(kMid, now.has_mid_, now.mid);
     put(kEnd, now.has_end_, now.end);

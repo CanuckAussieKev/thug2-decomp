@@ -358,7 +358,7 @@ public:
         if (!script::script_exists(script))
             return false;
         gsl::owner<script::Struct*> params = new_params();
-        params->put_name_key(0u, on ? kOn : kOff);
+        params->put_name_key(checksums::Name{0u}, on ? kOn : kOff);
         script::launch_script(script, params, nullptr, false, nullptr);
         delete_params(params);
         return true;
@@ -402,7 +402,7 @@ private:
         if (text)
             params->append_word(key, text);
         else
-            params->put_name_key(key, checksum);
+            params->put_name_key(checksums::Name{key}, checksum);
         command(params, script);
         delete_params(params);
         script::kill_spawned_script(script);

@@ -499,7 +499,7 @@ void Hub::flag_returned(PlayerRecord* player)
     std::array<char, 64> key{};
     team_name_key(key, team);
     script::StructPtr params = script::make_struct();
-    params->put_int(kTeam, team);
+    params->put_int(checksums::Name{kTeam}, team);
     params->append_word(kString0, script::kQbvalString, script::fetch_text(key.data()));
     get_run(kFlagReturned, params.get());
     params.reset();
@@ -530,7 +530,7 @@ void Hub::enter_observe_mode()
         std::array<char, 64> key{};
         team_name_key(key, team);
         script::StructPtr params = script::make_struct();
-        params->put_int(kTeam, team);
+        params->put_int(checksums::Name{kTeam}, team);
         params->append_word(kString0, script::kQbvalString, script::fetch_text(key.data()));
         get_run(kFlagReturned, params.get());
         params.reset();

@@ -107,18 +107,18 @@ void write_global_info(Struct* global)
     options->append_struct_ref(kSplitScreenPreferences, split_screen_copy);
 
     gsl::owner<Struct*> sound = script::new_struct();
-    sound->push_float(kMasterGainKey, sound::fetch_master_loudness());
-    sound->push_float(kMusicVolume, script::fetch_float(kMusicVolOutsideBox));
+    sound->push_float(checksums::Name{kMasterGainKey}, sound::fetch_master_loudness());
+    sound->push_float(checksums::Name{kMusicVolume}, script::fetch_float(kMusicVolOutsideBox));
     std::array<uint64_t, 2> tracks_off{};
     audio::get_tracks_off(&core::at(tracks_off, 0), &core::at(tracks_off, 1));
-    sound->put_int(kForbiddenTracks1, static_cast<int>(core::at(tracks_off, 0) >> 32));
-    sound->put_int(kForbiddenTracks2, static_cast<int>(core::at(tracks_off, 0)));
-    sound->put_int(kForbiddenTracks3, static_cast<int>(core::at(tracks_off, 1) >> 32));
-    sound->put_int(kForbiddenTracks4, static_cast<int>(core::at(tracks_off, 1)));
+    sound->put_int(checksums::Name{kForbiddenTracks1}, static_cast<int>(core::at(tracks_off, 0) >> 32));
+    sound->put_int(checksums::Name{kForbiddenTracks2}, static_cast<int>(core::at(tracks_off, 0)));
+    sound->put_int(checksums::Name{kForbiddenTracks3}, static_cast<int>(core::at(tracks_off, 1) >> 32));
+    sound->put_int(checksums::Name{kForbiddenTracks4}, static_cast<int>(core::at(tracks_off, 1)));
     if (os_layer() == 4)
-        sound->put_name_key(kCurrentSoundtrack, script::get_symbol_value("current_soundtrack"));
+        sound->put_name_key(checksums::Name{kCurrentSoundtrack}, script::get_symbol_value("current_soundtrack"));
     if (audio::random_track_order())
-        sound->put_name_key(0u, kRandomMode);
+        sound->put_name_key(checksums::Name{0u}, kRandomMode);
     options->append_struct_ref(kSoundOptions, sound);
 
     gsl::owner<Array*> controllers = script::alloc_script_array();
@@ -129,11 +129,11 @@ void write_global_info(Struct* global)
         gsl::owner<Struct*> controller = script::new_struct();
         const modules::Skate::PlayerSettings& flags = controller_flags(i);
         if (flags.auto_kick_)
-            controller->put_name_key(0u, kAutokickOn);
+            controller->put_name_key(checksums::Name{0u}, kAutokickOn);
         if (flags.spin_taps_)
-            controller->put_name_key(0u, kSpinTapsOn);
+            controller->put_name_key(checksums::Name{0u}, kSpinTapsOn);
         if (flags.vibration_)
-            controller->put_name_key(0u, kVibrationOn);
+            controller->put_name_key(checksums::Name{0u}, kVibrationOn);
         controllers->set_cell(static_cast<uint32_t>(i), script::Cell::of(controller));
     }
     options->append_array_ref(kPadSettingsKey, controllers);
@@ -169,7 +169,7 @@ void read_save_header(Struct* global, Script* script)
     if (sound->fetch_float(kMusicVolume, &music_volume, 0)) {
         audio::set_music_volume(music_volume);
         const script::StructPtr change = script::make_struct();
-        change->push_float(kMusicVolOutsideBox, music_volume);
+        change->push_float(checksums::Name{kMusicVolOutsideBox}, music_volume);
         script::launch_script("Change", change.get(), nullptr, false);
     }
     std::array<int, 4> tracks = {};
@@ -190,7 +190,7 @@ void read_save_header(Struct* global, Script* script)
         if (script::SymbolTableEntry* symbol = script::find_symbol(kCurrentSoundtrack))
             symbol->value().set_word(soundtrack);
         const script::StructPtr change = script::make_struct();
-        change->put_name_key(0x8C465905u, soundtrack);                       // trackchecksum
+        change->put_name_key(checksums::Name{0x8C465905u}, soundtrack);                       // trackchecksum
         script::launch_script(0xD44400C2u, change.get(), nullptr, false, nullptr); // set_loaded_soundtrack
     }
 
@@ -222,9 +222,9 @@ void read_save_header(Struct* global, Script* script)
     }
     Struct* results = script->args().get();
     if (last_level)
-        results->put_name_key(kLastLevelLoadScript, last_level);
+        results->put_name_key(checksums::Name{kLastLevelLoadScript}, last_level);
     if (last_mode)
-        results->put_name_key(kLastGameMode, last_mode);
+        results->put_name_key(checksums::Name{kLastGameMode}, last_mode);
 
     // the first profile: a custom skater keeps its CAS file name
     // (0x00564F80, the overload taking the params - none: not fetch_account(int))

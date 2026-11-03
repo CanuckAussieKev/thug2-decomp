@@ -263,7 +263,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
     int spin = 0;
     if (!to_node && !params->has_bare_flag(kJumpToNextNode)) {
         // Straight up: the take-off speed for the height, and the time up and down.
-        out->push_float(kJumpSpeed, static_cast<float>(std::sqrt(static_cast<double>(gravity) * height * kMinusTwo)));
+        out->push_float(checksums::Name{kJumpSpeed}, static_cast<float>(std::sqrt(static_cast<double>(gravity) * height * kMinusTwo)));
         const double up = std::sqrt(static_cast<double>(gravity) * height * kMinusTwo);
         jump_time = static_cast<float>(up + up);
     } else {
@@ -300,11 +300,11 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         auto vel_x = static_cast<float>(vx), vel_y = static_cast<float>(vy), vel_z = static_cast<float>(vz);
         maths::Vec4 heading = {.x = vel_x, .y = vel_y, .z = vel_z, .w = static_cast<float>(up_speed + aw)};
         heading.make_unit();
-        out->put_vec3(kHeading, script::VectorValue{.x = heading.x, .y = heading.y, .z = heading.z, .w = heading.w});
-        out->push_float(kJumpSpeed, static_cast<float>(std::sqrt(
+        out->put_vec3(checksums::Name{kHeading}, script::VectorValue{.x = heading.x, .y = heading.y, .z = heading.z, .w = heading.w});
+        out->push_float(checksums::Name{kJumpSpeed}, static_cast<float>(std::sqrt(
                                         (static_cast<double>(vel_x) * vel_x + static_cast<double>(vel_z) * vel_z) +
                                         static_cast<double>(vel_y) * vel_y)));
-        out->push_float(kLeapDuration, jump_time);
+        out->push_float(checksums::Name{kLeapDuration}, jump_time);
     }
     // The spin.
     if (params->has_bare_flag(kRandomSpin)) {
@@ -343,9 +343,9 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         if (spine)
             turn = true;
         else
-            out->put_name_key(0u, kShouldFlip);
+            out->put_name_key(checksums::Name{0u}, kShouldFlip);
     } else if (spine) {
-        out->put_name_key(0u, kShouldFlip);
+        out->put_name_key(checksums::Name{0u}, kShouldFlip);
         turn = true;
     }
     if (turn) {
@@ -360,7 +360,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
         spin_time_ = static_cast<float>(static_cast<double>(script::fetch_float(kVertTimeSlop)) * jump_time);
     }
     if (params->has_bare_flag(kJumpToNextNode))
-        out->push_float(kLandHeight, next_node_pos_.y);
+        out->push_float(checksums::Name{kLandHeight}, next_node_pos_.y);
     return out;
 }
 
@@ -487,7 +487,7 @@ void PedestrianBrainModule::grab_trick(script::Struct* node, bool vert)
     if (vert) {
         flag_bits_ &= ~kPedFlagMoving;
         params = leap_node_params(node, vert);
-        params->put_name_key(0u, kIsVert);
+        params->put_name_key(checksums::Name{0u}, kIsVert);
     } else {
         params = get_state_params(node);
         const bool jumping = (get_motion(entity())->motion_flags() & 0x100) != 0;
@@ -495,9 +495,9 @@ void PedestrianBrainModule::grab_trick(script::Struct* node, bool vert)
             const float speed = script::fetch_float(kJumpSpeedGlobal);
             const double gravity = script::fetch_float(kLeapGravity);
             const double time = std::sqrt(static_cast<double>(speed) * speed / (gravity * gravity));
-            params->put_int(kLeapDuration, truncate(time + time));
+            params->put_int(checksums::Name{kLeapDuration}, truncate(time + time));
         }
-        params->put_int(kIsJumping, jumping ? 1 : 0);
+        params->put_int(checksums::Name{kIsJumping}, jumping ? 1 : 0);
     }
     change_phase(kStateGrab, kTable, params);
     script::free_struct(params);
@@ -526,9 +526,9 @@ void PedestrianBrainModule::flip_trick(script::Struct* node, bool vert)
     script::free_struct(jump);
     if (vert) {
         flag_bits_ &= ~kPedFlagMoving;
-        params->put_name_key(0u, kIsVert);
+        params->put_name_key(checksums::Name{0u}, kIsVert);
     }
-    params->put_int(kIsJumping, (motion->motion_flags() & 0x100) ? 1 : 0);
+    params->put_int(checksums::Name{kIsJumping}, (motion->motion_flags() & 0x100) ? 1 : 0);
     if (node->has_bare_flag(kJumpToNextNode))
         flag_bits_ = (flag_bits_ & ~kPedFlagMoving) | kPedFlagJumpingToNode;
     change_phase(kStateFlip, kTable, params);
@@ -745,9 +745,9 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
         hy = sy * inverse;
         hz = static_cast<float>(sz * inverse);
     }
-    script->args()->put_vec3(kHeading, script::VectorValue{.x = static_cast<float>(hx), .y = static_cast<float>(hy), .z = hz, .w = sw});
-    script->args()->push_float(kJumpSpeed, speed);
-    script->args()->push_float(kLeapDuration, time);
+    script->args()->put_vec3(checksums::Name{kHeading}, script::VectorValue{.x = static_cast<float>(hx), .y = static_cast<float>(hy), .z = hz, .w = sw});
+    script->args()->push_float(checksums::Name{kJumpSpeed}, speed);
+    script->args()->push_float(checksums::Name{kLeapDuration}, time);
     return true;
 }
 

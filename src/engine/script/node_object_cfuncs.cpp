@@ -281,7 +281,7 @@ bool create_from_node(script::Struct* node)
         if (gfx::tod_manager()->params_set()) {
             uint32_t colour = 0;
             gfx::tod_manager()->get_level_color(&colour);
-            node->put_int(kLevelColor, static_cast<int>(colour));
+            node->put_int(checksums::Name{kLevelColor}, static_cast<int>(colour));
         }
         objects::create_node_object(node);
         memory::pop_mem_profile();

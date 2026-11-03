@@ -123,18 +123,18 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
         for (int i = 0; i < set->entry_total_; ++i) {
             const uint32_t checksum = core::at(set->entries_, i).checksum;
             script::Struct params;
-            params.put_name_key(kMetapieceId, checksum);
+            params.put_name_key(checksums::Name{kMetapieceId}, checksum);
             if (clipboards) {
                 if (i < clipboard_count)
-                    params.put_int(kClipBoardIndex, i + 1);
+                    params.put_int(checksums::Name{kClipBoardIndex}, i + 1);
                 else
-                    params.put_name_key(0u, kEmptyClipBoard); // (a bare flag)
+                    params.put_name_key(checksums::Name{0u}, kEmptyClipBoard); // (a bare flag)
                 launch_script(kMakePieceMenuItem, &params);
             } else {
                 // (an entry with no metapiece is read through a null pointer, as in the original)
                 PieceGroup* meta = park_owner_->find_piece_template(checksum);
                 if (meta->flag_bits() & PieceGroup::kSector) {
-                    params.put_name_key(kSector, checksum);
+                    params.put_name_key(checksums::Name{kSector}, checksum);
                     launch_script(kMakePieceMenuItem, &params);
                 } else {
                     script::Array sectors;
@@ -149,8 +149,8 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
         }
         launch_script(kMakeSetMenu);
         script::Struct params;
-        params.put_int(kSetNumber, family_number);
-        params.put_int(kLastSetNumber, set_number_);
+        params.put_int(checksums::Name{kSetNumber}, family_number);
+        params.put_int(checksums::Name{kLastSetNumber}, set_number_);
         launch_script(kLockMenus, &params);
         point_group_ = set;
         set_number_ = family_number;

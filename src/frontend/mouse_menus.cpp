@@ -642,8 +642,8 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
     if (not_sent)
         return;
     script::Struct params;
-    params.put_int(kDeviceNum, handler->dev()->port_no());
-    params.put_int(kController, 0);
+    params.put_int(checksums::Name{kDeviceNum}, handler->dev()->port_no());
+    params.put_int(checksums::Name{kController}, 0);
     objects::get_tracker()
         ->launch_event(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
     params.get_clear();

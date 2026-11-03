@@ -67,7 +67,7 @@ void change_caption(const std::string& id, const std::string& full)
     shown()[id] = text;
     alignas(4) std::array<uint8_t, 8> memory{};
     auto params = memory::construct_in<script::Struct>(memory.data());
-    params->put_name_key(kId, checksums::hash_from_text(id.c_str()));
+    params->put_name_key(checksums::Name{kId}, checksums::hash_from_text(id.c_str()));
     params->append_word(kText, text.c_str());
     script::launch_script("level_editor_hud_set", params, nullptr, false);
     params->get_clear();
@@ -116,9 +116,9 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
         alignas(4) std::array<uint8_t, 8> memory{};
         auto params = memory::construct_in<script::Struct>(memory.data());
         const float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
-        params->insert_pair(checksums::hash_from_text("pos"), x, y);
-        params->insert_pair(checksums::hash_from_text("scale"), width / kSpriteUnit, height / kSpriteUnitDown);
-        params->put_int(checksums::hash_from_text("lines"), static_cast<int>(lines.size()));
+        params->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = y});
+        params->insert_pair(checksums::Name{checksums::hash_from_text("scale")}, {.x = width / kSpriteUnit, .y = height / kSpriteUnitDown});
+        params->put_int(checksums::Name{checksums::hash_from_text("lines")}, static_cast<int>(lines.size()));
         script::launch_script("level_editor_panel_show", params, nullptr, false);
         params->get_clear();
         for (auto it = shown().begin(); it != shown().end();)

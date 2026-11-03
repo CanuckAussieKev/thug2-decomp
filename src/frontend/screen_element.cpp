@@ -867,7 +867,7 @@ bool UiWidget::invoke_method_by_name(uint32_t name, script::Struct* params, scri
 // 0x004AA710
 void UiWidget::get_properties(script::Struct* out)
 {
-    out->push_float(kAlpha, shown_.alpha);
+    out->push_float(checksums::Name{kAlpha}, shown_.alpha);
     std::array<uint8_t, 4> rgba{};
     std::memcpy(rgba.data(), shown_.rgba.data(), 4);
     gsl::owner<script::Array*> array = script::alloc_script_array();
@@ -885,12 +885,12 @@ void UiWidget::get_properties(script::Struct* out)
     const float scale_x = shown_.scale_x_;
     const float scale_y = shown_.scale_y_;
     if (scale_x == scale_y)
-        out->push_float(kScale, scale_x);
+        out->push_float(checksums::Name{kScale}, scale_x);
     else
-        out->insert_pair(kScale, scale_x, scale_y);
-    out->insert_pair(kPos, shown_.x, shown_.y);
-    out->push_float(kRotAngle, static_cast<float>(static_cast<double>(shown_.angle) * convert_to_degrees()));
-    out->put_int(kInputLocked, input_suppressed() ? 1 : 0);
+        out->insert_pair(checksums::Name{kScale}, {.x = scale_x, .y = scale_y});
+    out->insert_pair(checksums::Name{kPos}, {.x = shown_.x, .y = shown_.y});
+    out->push_float(checksums::Name{kRotAngle}, static_cast<float>(static_cast<double>(shown_.angle) * convert_to_degrees()));
+    out->put_int(checksums::Name{kInputLocked}, input_suppressed() ? 1 : 0);
 }
 
 // 0x004A9AA0

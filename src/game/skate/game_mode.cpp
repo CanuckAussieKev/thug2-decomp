@@ -326,7 +326,7 @@ bool MatchRules::apply_match_style(uint32_t type)
         clear_victory_conditions();
         build_victory_conditions();
         if (net && net->in_net_game())
-            args_.put_int(kMaxPlayers, max_players);
+            args_.put_int(checksums::Name{kMaxPlayers}, max_players);
         return true;
     }
     return false;
@@ -366,22 +366,22 @@ bool MatchRules::keeps_best_chain()
 }
 
 // 0x00553000
-void MatchRules::set_score_accumulation(bool on) { args_.put_int(kAccumulateScore, on); }
+void MatchRules::set_score_accumulation(bool on) { args_.put_int(checksums::Name{kAccumulateScore}, on); }
 
 // 0x00553020
-void MatchRules::hold_points(bool on) { args_.put_int(kPointsHeldFlag, on); }
+void MatchRules::hold_points(bool on) { args_.put_int(checksums::Name{kPointsHeldFlag}, on); }
 
 // 0x00553040
-void MatchRules::set_score_degradation(bool on) { args_.put_int(kDegradeScore, on); }
+void MatchRules::set_score_degradation(bool on) { args_.put_int(checksums::Name{kDegradeScore}, on); }
 
 // 0x00553060
-void MatchRules::set_trick_score_tracking(bool on) { args_.put_int(kTrackTrickScore, on); }
+void MatchRules::set_trick_score_tracking(bool on) { args_.put_int(checksums::Name{kTrackTrickScore}, on); }
 
 // 0x00553080
-void MatchRules::set_team_graffiti_mode(uint32_t mode) { args_.put_name_key(kTeamGraffitiMode, mode); }
+void MatchRules::set_team_graffiti_mode(uint32_t mode) { args_.put_name_key(checksums::Name{kTeamGraffitiMode}, mode); }
 
 // 0x005530A0
-void MatchRules::set_goals_mode(uint32_t mode) { args_.put_name_key(kGoals, mode); }
+void MatchRules::set_goals_mode(uint32_t mode) { args_.put_name_key(checksums::Name{kGoals}, mode); }
 
 // 0x005530C0
 int MatchRules::is_scoring_paused()
@@ -440,7 +440,7 @@ int MatchRules::get_starting_rider_count()
 }
 
 // 0x005531B0
-void MatchRules::set_rider_ceiling(int players) { args_.put_int(kMaxPlayers, players); }
+void MatchRules::set_rider_ceiling(int players) { args_.put_int(checksums::Name{kMaxPlayers}, players); }
 
 // 0x005531D0
 int MatchRules::get_rider_ceiling()
@@ -467,7 +467,7 @@ bool MatchRules::is_true(uint32_t name)
 }
 
 // 0x00553250
-void MatchRules::set_round(int round) { args_.put_int(kRound, round); }
+void MatchRules::set_round(int round) { args_.put_int(checksums::Name{kRound}, round); }
 
 // 0x00553270
 int MatchRules::get_round()
@@ -581,7 +581,7 @@ bool MatchRules::clock_halts_at_zero()
 void MatchRules::set_num_teams(int teams)
 {
     online::Hub* net = online::online_hub();
-    args_.put_int(kNumTeams, teams);
+    args_.put_int(checksums::Name{kNumTeams}, teams);
     uint32_t name = 0;
     args_.read_hash_value(kName, &name, 0);
     if (name == kNetLobby)
@@ -621,7 +621,7 @@ void MatchRules::increment_round()
 {
     int round = 0;
     args_.fetch_int_value(kRound, &round, false);
-    args_.put_int(kRound, round + 1);
+    args_.put_int(checksums::Name{kRound}, round + 1);
 }
 
 // 0x00553C90

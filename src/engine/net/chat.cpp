@@ -282,20 +282,20 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
         if (params)
             params = new (params) script::Struct;
-        params->put_name_key(kId, 0x31631B98);
+        params->put_name_key(checksums::Name{kId}, 0x31631B98);
         if (object_exists(params))
             return;
         params->get_clear();
-        params->put_name_key(kId, 0xF53D1D83);
+        params->put_name_key(checksums::Name{kId}, 0xF53D1D83);
         if (object_exists(params))
             return;
         params->get_clear();
-        params->put_name_key(kId, 0x3B56E746);
+        params->put_name_key(checksums::Name{kId}, 0x3B56E746);
         if (object_exists(params))
             return;
         params->get_clear();
         const uint32_t anchor = checksums::hash_from_text("quit_dialog_anchor");
-        params->put_name_key(checksums::hash_from_text("id"), anchor);
+        params->put_name_key(checksums::Name{checksums::hash_from_text("id")}, anchor);
         if (object_exists(params))
             return;
         run_script_with(kOpenChatScript, nullptr);
@@ -326,7 +326,7 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
-    params->put_name_key(kTauntName, taunt);
+    params->put_name_key(checksums::Name{kTauntName}, taunt);
     run_script_with(kTauntScript, params);
     if (params) {
         params->get_clear();

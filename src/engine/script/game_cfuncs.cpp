@@ -353,10 +353,10 @@ bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
     auto* device = handler->dev();
     if (!device->is_attached() || !device->is_usable())
         return false;
-    script->args()->push_float(kLeftX, core::at(pad.scaled_stick(), 2));
-    script->args()->push_float(kLeftY, core::at(pad.scaled_stick(), 3));
-    script->args()->push_float(kRightX, core::at(pad.scaled_stick(), 0));
-    script->args()->push_float(kRightY, core::at(pad.scaled_stick(), 1));
+    script->args()->push_float(checksums::Name{kLeftX}, core::at(pad.scaled_stick(), 2));
+    script->args()->push_float(checksums::Name{kLeftY}, core::at(pad.scaled_stick(), 3));
+    script->args()->push_float(checksums::Name{kRightX}, core::at(pad.scaled_stick(), 0));
+    script->args()->push_float(checksums::Name{kRightY}, core::at(pad.scaled_stick(), 1));
     return true;
 }
 
@@ -438,7 +438,7 @@ bool cfunc_get_preference_checksum(script::Struct* params, script::Script* scrip
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     uint32_t value = 0; // (unset in the original when missing)
     preference->read_hash_value(kChecksum, &value, 0);
-    results->put_name_key(kChecksum, value);
+    results->put_name_key(checksums::Name{kChecksum}, value);
     return true;
 }
 
@@ -505,8 +505,8 @@ bool cfunc_get_viewer_object_id(script::Struct*, script::Script* script)
 {
     if (modules::Viewer* viewer = modules::get_live_viewer()) {
         const objects::PreviewEntity* object = viewer_target(viewer);
-        script->args()->put_name_key(0x0830ECAF, object->ident());
-        script->args()->put_name_key(0x52280066, object->ident());
+        script->args()->put_name_key(checksums::Name{0x0830ECAF}, object->ident());
+        script->args()->put_name_key(checksums::Name{0x52280066}, object->ident());
     }
     return true;
 }
@@ -659,7 +659,7 @@ bool cfunc_move_node(script::Struct* params, script::Script*)
         debug::printf("node is missing position\n"); // "node is missing position\n"
         return false;
     }
-    node->put_vec3(kPos, position.x, position.y, position.z);
+    node->put_vec3(checksums::Name{kPos}, {.x = position.x, .y = position.y, .z = position.z});
     if (objects::Entity* object = object_edit()->look_up_entity(name))
         std::memcpy(&core::down_cast<objects::GameEntity>(object)->at_point(), &position, sizeof(position));
     uint32_t node_class = 0;
@@ -848,9 +848,9 @@ constexpr uint32_t kFirstRestartId = 123456; // the restart items' ids, from her
 // A restart menu item's fixed parts.
 void add_restart_item_flags(script::Struct* item)
 {
-    item->put_name_key(0x9F67B2C8, 0x9F67B2C8); // (flags, names unknown)
-    item->put_name_key(0x2A434D05, 0x2A434D05);
-    item->put_name_key(kMenuScript, 0x506562D9);
+    item->put_name_key(checksums::Name{0x9F67B2C8}, 0x9F67B2C8); // (flags, names unknown)
+    item->put_name_key(checksums::Name{0x2A434D05}, 0x2A434D05);
+    item->put_name_key(checksums::Name{kMenuScript}, 0x506562D9);
 }
 
 } // namespace
@@ -869,14 +869,14 @@ bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
             name = "Unnamed restart";                   // "Unnamed restart"
         script::StructPtr item = script::make_struct();
         item->append_word(kMenuText, name);
-        item->put_name_key(kMenuId, kFirstRestartId + count);
+        item->put_name_key(checksums::Name{kMenuId}, kFirstRestartId + count);
         add_restart_item_flags(item.get());
         script::StructPtr choose = script::make_struct();
-        choose->put_name_key(0x66780C6F, restart);
+        choose->put_name_key(checksums::Name{0x66780C6F}, restart);
         item->put_sub_struct(kMenuParams, choose.get());
         float scale = 0.0f; // (unset in the original when missing - an asserted parameter)
         params->fetch_float(0x1B9E8272u, &scale, true);
-        item->push_float(0x13B9DA7B, scale); // "scale"
+        item->push_float(checksums::Name{0x13B9DA7B}, scale); // "scale"
         script::launch_script(0xC16BF7BD, item.get(), nullptr, false, nullptr);
         item.reset();
         choose.reset();
@@ -885,7 +885,7 @@ bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
     if (!count) {
         const script::StructPtr item = script::make_struct();
         item->append_word(kMenuText, "No restarts in level"); // "No restarts in level"
-        item->put_name_key(kMenuId, kFirstRestartId);
+        item->put_name_key(checksums::Name{kMenuId}, kFirstRestartId);
         add_restart_item_flags(item.get());
         script::launch_script(0xC16BF7BD, item.get(), nullptr, false, nullptr);
     }
@@ -906,9 +906,9 @@ bool cfunc_add_warp_points_to_menu(script::Struct* params, script::Script*)
         if (!node->fetch_text(0xFCD206E1u, &name, 0))
             name = "Unnamed restart"; // "Unnamed restart"
         item->append_word(kMenuText, name);
-        item->put_name_key(kMenuScript, 0x54523C62);
+        item->put_name_key(checksums::Name{kMenuScript}, 0x54523C62);
         gsl::owner<script::Struct*> choose = script::new_struct();
-        choose->put_name_key(0x9F92BA78, nodes->fetch_part(i));
+        choose->put_name_key(checksums::Name{0x9F92BA78}, nodes->fetch_part(i));
         item->put_sub_struct(kMenuParams, choose);
         script::launch_script(0xBEED50B6, item.get(), nullptr, false, nullptr);
     }

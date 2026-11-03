@@ -323,7 +323,7 @@ bool cfunc_reset_pro_set_flags(Struct*, Script*)
     const Hub* manager = net_game_state().online_hub();
     for (int bit = 0; bit < kProSetCount; ++bit) {
         const script::StructPtr params = script::make_struct();
-        params->put_int(kFlag, script::fetch_int_value(kFirstProSetFlag) + bit);
+        params->put_int(checksums::Name{kFlag}, script::fetch_int_value(kFirstProSetFlag) + bit);
         get_run((manager->script_flag_bits() & (1u << bit)) ? kSetFlag : kUnSetFlag, params.get());
     }
     return true;

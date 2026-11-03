@@ -205,29 +205,29 @@ void EditedGoal::place_goal_marker(int index)
     script::Struct params;
     switch (core::at(path_vertices_, index).kind) {
     case kPointPro:
-        params.put_name_key(0x7321A8D6, 0x061A741E);
+        params.put_name_key(checksums::Name{0x7321A8D6}, 0x061A741E);
         break;
     case kPointStart:
-        params.put_name_key(0x7321A8D6, 0x1806DDF8);
+        params.put_name_key(checksums::Name{0x7321A8D6}, 0x1806DDF8);
         params.append_word(0x286A8D26, "gameobjects\\p1_cursor\\p1_cursor.mdl");
         break;
     case kPointObject:
-        params.put_name_key(0x7321A8D6, 0x71FD11F5);
+        params.put_name_key(checksums::Name{0x7321A8D6}, 0x71FD11F5);
         params.append_word(0x286A8D26, goal_object_model(kind_tag_, index - 2));
-        params.put_name_key(0u, 0x3BD176D9u); // (a flag: no name)
+        params.put_name_key(checksums::Name{0u}, 0x3BD176D9u); // (a flag: no name)
         break;
     case kPointCheckpoint:
-        params.put_name_key(0x7321A8D6, 0xF0FF0841);
+        params.put_name_key(checksums::Name{0x7321A8D6}, 0xF0FF0841);
         params.append_word(0x286A8D26, goal_object_model(kind_tag_, index - 2));
         break;
     default:
         break;
     }
     get_sprintf(park_editing_state().goal_name_buffer().data(), "GoalEditorMarkerObject%d", index);
-    params.put_name_key(0xA1DC81F9, checksums::hash_from_text(park_editing_state().goal_name_buffer().data()));
+    params.put_name_key(checksums::Name{0xA1DC81F9}, checksums::hash_from_text(park_editing_state().goal_name_buffer().data()));
     const EditedGoalPoint& point = core::at(path_vertices_, index);
-    params.put_vec3(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
-    params.push_float(0xFF7EBAF6, point.angle * kDegreesPerRadian);
+    params.put_vec3(checksums::Name{0x7F261953}, {.x = point.pos.x, .y = point.height + point.pos.y, .z = point.pos.z});
+    params.push_float(checksums::Name{0xFF7EBAF6}, point.angle * kDegreesPerRadian);
     script::launch_script(0xEFC08BAE, &params, nullptr, false, nullptr);
     params.get_clear();
 }
@@ -327,10 +327,10 @@ void EditedGoal::write_node_position(int index, uint32_t node_name)
 {
     script::Struct* node = level_nodes::fetch_vertex(node_name, true);
     const EditedGoalPoint& point = core::at(path_vertices_, index);
-    node->put_vec3(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
-    node->put_vec3(0x9D2D0915, 0.0f, point.angle - kPi, 0.0f);
+    node->put_vec3(checksums::Name{0x7F261953}, {.x = point.pos.x, .y = point.height + point.pos.y, .z = point.pos.z});
+    node->put_vec3(checksums::Name{0x9D2D0915}, {.x = 0.0f, .y = point.angle - kPi, .z = 0.0f});
     if (static_cast<uint32_t>(index) >= 2) {
-        node->put_name_key(0x7321A8D6, goal_object_name(kind_tag_, index - 2));
+        node->put_name_key(checksums::Name{0x7321A8D6}, goal_object_name(kind_tag_, index - 2));
         node->append_word(0x286A8D26, goal_object_model(kind_tag_, index - 2));
     }
 }

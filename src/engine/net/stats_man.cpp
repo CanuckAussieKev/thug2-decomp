@@ -272,10 +272,10 @@ void TopList::fill_level_scores()
             if (!entry)
                 break;
             script::StructPtr params = script::make_struct();
-            params->put_int(0x2776D9DD, entry->skill_points());
-            params->put_int(0xCD66C8AE, entry->points_held());
+            params->put_int(checksums::Name{0x2776D9DD}, entry->skill_points());
+            params->put_int(checksums::Name{0xCD66C8AE}, entry->points_held());
             // (here the rating is read as unsigned)
-            params->put_int(0x7786171A, current_rank(static_cast<double>(static_cast<uint32_t>(entry->skill_points()))));
+            params->put_int(checksums::Name{0x7786171A}, current_rank(static_cast<double>(static_cast<uint32_t>(entry->skill_points()))));
             params->append_word(0xA1DC81F9, entry->label().data());
             params->append_word(0x651533EC, RankingsManager::get_level_name(level->level()));
             get_run(0x19F7BC28, params.get());
@@ -329,9 +329,9 @@ void TopList::fill_sorted_scores(bool ratings)
         if (!line || line->points_held() == 0 || shown == kMaxSorted)
             break;
         script::StructPtr params = script::make_struct();
-        params->put_int(0x2776D9DD, line->skill_points());
-        params->put_int(0xCD66C8AE, line->points_held());
-        params->put_int(0x7786171A, current_rank(static_cast<double>(line->skill_points())));
+        params->put_int(checksums::Name{0x2776D9DD}, line->skill_points());
+        params->put_int(checksums::Name{0xCD66C8AE}, line->points_held());
+        params->put_int(checksums::Name{0x7786171A}, current_rank(static_cast<double>(line->skill_points())));
         params->append_word(0xA1DC81F9, line->label().data());
         if (ratings) {
             get_run(0x0AC09E3B, params.get());
@@ -371,7 +371,7 @@ void get_fill(PersonalStats& stats)
         if (!line)
             break;
         gsl::owner<script::Struct*> params = script::new_struct(); // (never freed - as in the original)
-        params->put_int(0xCD66C8AE, line->points_held());
+        params->put_int(checksums::Name{0xCD66C8AE}, line->points_held());
         params->append_word(0x651533EC, RankingsManager::get_level_name(line->level()));
         get_run(0xA6111F30, params);
     }
@@ -804,7 +804,7 @@ bool raise_tallies(script::Struct* params, script::Script*)
 // 0x0054D6A0: the rank (0..10) into the script's parameters (0x7786171A).
 bool get_rank(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(0x7786171A, current_rank(static_cast<double>(get_attributes()->personal().skill_points_)));
+    script->args()->put_int(checksums::Name{0x7786171A}, current_rank(static_cast<double>(get_attributes()->personal().skill_points_)));
     return true;
 }
 

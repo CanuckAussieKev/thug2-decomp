@@ -235,11 +235,11 @@ FallingTricksGoal::~FallingTricksGoal() = default;
 bool FallingTricksGoal::get_win()
 {
     const bool testing = args()->has_bare_flag(kTrialRunFlag);
-    args()->put_name_key(0u, kJustWonGoal);
+    args()->put_name_key(checksums::Name{0u}, kJustWonGoal);
     disengage(false, true); // Deactivate
     args()->remove_flag(kJustWonGoal);
     if (testing)
-        args()->put_name_key(0u, kTrialRunFlag);
+        args()->put_name_key(checksums::Name{0u}, kTrialRunFlag);
     const bool won = Objective::get_win();
     args()->remove_flag(kTrialRunFlag);
     return won;
@@ -304,8 +304,8 @@ void FallingTricksGoal::prepare_all()
     stopwatch_ = 0;
     int combo_time = 0;
     args()->fetch_int_value(kTrickTime, &combo_time, 1);
-    args()->put_int(kCurrentTrickTime, combo_time);
-    args()->put_int(kTricksDoneCount, 0);
+    args()->put_int(checksums::Name{kCurrentTrickTime}, combo_time);
+    args()->put_int(checksums::Name{kTricksDoneCount}, 0);
     // The first trick comes 200 ms in (at once for a single combo).
     stopwatch_ = integer_or_flag(args().get(), kSingleCombo) ? 0 : combo_time - 200;
     for (int i = 0; i < kMaxTricks; ++i) {
@@ -399,7 +399,7 @@ void FallingTricksGoal::drop_move_entry(int index)
     ElementPtr element;
     hub(manager)->fetch_part(&element, id, 1);
     script::StructPtr params = script::make_struct();
-    params->put_name_key(kId, id);
+    params->put_name_key(checksums::Name{kId}, id);
     get_run(kResetContainer, params.get());
     params.reset();
 
@@ -407,7 +407,7 @@ void FallingTricksGoal::drop_move_entry(int index)
     int red = 0;
     args()->fetch_int_value(kRedTricks, &red, 0);
     if (red == 1 && static_cast<double>(trick_total_ - 1) < static_cast<double>(max_tricks) * three_quarters()) {
-        args()->put_int(kRedTricks, 0);
+        args()->put_int(checksums::Name{kRedTricks}, 0);
         for (const StackedTrickEntry& t : tricks_) {
             if (t.free)
                 continue;
@@ -418,7 +418,7 @@ void FallingTricksGoal::drop_move_entry(int index)
 
     script::StructPtr remove_params = script::make_struct();
     if (is_trick_tris())
-        remove_params->put_name_key(0u, kTrickTris);
+        remove_params->put_name_key(checksums::Name{0u}, kTrickTris);
     run_on(get_spawn(kDropTrickScript, remove_params.get()), element.get_pull());
     remove_params.reset();
 
@@ -434,9 +434,9 @@ void FallingTricksGoal::drop_move_entry(int index)
         int time = 0;
         args()->fetch_int_value(kCurrentTrickTime, &time, 1);
         time = ftol((1.0 - percent) * time);
-        args()->put_int(kCurrentTrickTime, time);
+        args()->put_int(checksums::Name{kCurrentTrickTime}, time);
     }
-    args()->put_int(kTricksDoneCount, completed);
+    args()->put_int(checksums::Name{kTricksDoneCount}, completed);
     --trick_total_;
     core::at(tricks_, index).free = true;
 }
@@ -586,7 +586,7 @@ void FallingTricksGoal::add_tricks(int count)
         set_id(container, objects::kUnassignedId);
         add_to_manager(manager, container);
         const int height = combo && remaining == 1 ? 40 : 20;
-        params->insert_pair(kDims, 100.0f, static_cast<float>(height));
+        params->insert_pair(checksums::Name{kDims}, {.x = 100.0f, .y = static_cast<float>(height)});
         change_traits(container, params);
         frontend::UiWidget* menu = element_by_id(manager, kTetrisMenu);
         menu->set_focus_sent(0);
@@ -595,8 +595,8 @@ void FallingTricksGoal::add_tricks(int count)
 
         params = script::new_struct();
         params->append_word(kText, text.data());
-        params->put_name_key(kFont, kNewTrickFont);
-        params->put_name_key(0u, kNotFocusable);
+        params->put_name_key(checksums::Name{kFont}, kNewTrickFont);
+        params->put_name_key(checksums::Name{0u}, kNotFocusable);
         gsl::owner<void*> text_element = new_text();
         set_id(text_element, objects::kUnassignedId);
         add_to_manager(manager, text_element);
@@ -610,8 +610,8 @@ void FallingTricksGoal::add_tricks(int count)
                 texts->fetch_text(key_combo, &key_combo_text, 0);
             params = script::new_struct();
             params->append_word(kText, key_combo_text);
-            params->put_name_key(kFont, kSmall);
-            params->put_name_key(0u, kNotFocusable);
+            params->put_name_key(checksums::Name{kFont}, kSmall);
+            params->put_name_key(checksums::Name{0u}, kNotFocusable);
             gsl::owner<void*> key_text = new_text();
             set_id(key_text, objects::kUnassignedId);
             add_to_manager(manager, key_text);
@@ -625,7 +625,7 @@ void FallingTricksGoal::add_tricks(int count)
         // The add script (red once the stack is three quarters full); then the stack's tricks turned red.
         params = script::new_struct();
         if (!key_combo_text)
-            params->put_name_key(0u, kNoKeyCombo);
+            params->put_name_key(checksums::Name{0u}, kNoKeyCombo);
         auto stack_full = [&]() {
             return !integer_or_flag(args().get(), kTrickTris) && !integer_or_flag(args().get(), kSingleCombo) &&
                    static_cast<double>(max_tricks) * three_quarters() < static_cast<double>(trick_total_);
@@ -634,7 +634,7 @@ void FallingTricksGoal::add_tricks(int count)
         run_on(get_spawn(add_script, params), container);
         script::free_struct(params);
         if (stack_full()) {
-            args()->put_int(kRedTricks, 1);
+            args()->put_int(checksums::Name{kRedTricks}, 1);
             for (const StackedTrickEntry& other : tricks_) {
                 if (other.free)
                     continue;
@@ -749,7 +749,7 @@ bool FallingTricksGoal::tick_frame()
         int combo_size = 0;
         args()->fetch_int_value(kChainLength, &combo_size, 1);
         add_tricks(combo_size);
-        args()->put_name_key(0u, kTricksAdded);
+        args()->put_name_key(checksums::Name{0u}, kTricksAdded);
         return base_update(this);
     }
     int combo_time = 0;
@@ -771,7 +771,7 @@ void FallingTricksGoal::check_tricks()
     if (args()->fetch_int_value(kNoAlphaCheck, &check, 0)) {
         if (!check)
             return;
-        args()->put_int(kNoAlphaCheck, 0);
+        args()->put_int(checksums::Name{kNoAlphaCheck}, 0);
     }
     const bool combo = integer_or_flag(args().get(), kSingleCombo) || is_combo();
     modules::PointTally* score = local_skater()->get_points_total();
@@ -860,7 +860,7 @@ void TrickBeatGoal::prepare_all()
     completed_ = 0;
     args()->fetch_int_value(kBeatWindowTime, &window_time_, 1);
     args()->fetch_int_value(kTotalToWin, &total_to_win_, 1);
-    args()->put_int(kTricksDoneCount, 0);
+    args()->put_int(checksums::Name{kTricksDoneCount}, 0);
     for (int i = 0; i < kMaxTricks; ++i) {
         BeatTrick& t = core::at(tricks_, i);
         t.free = true;
@@ -944,7 +944,7 @@ void TrickBeatGoal::pulse_tricks()
         frontend::UiWidget* element = element_by_id(frontend::UiTree::sole(), t.element);
         script::StructPtr params = script::make_struct();
         auto window = static_cast<float>(window_time_);
-        params->put_int(kWaitTime, ftol(window / static_cast<double>(frame_clock::get_time_scale())));
+        params->put_int(checksums::Name{kWaitTime}, ftol(window / static_cast<double>(frame_clock::get_time_scale())));
         script::Script* script = get_spawn(kPulseTrick, params.get());
         params.reset();
         run_on(script, element);
@@ -958,13 +958,13 @@ void TrickBeatGoal::drop_move_entry(int index)
     ElementPtr element;
     hub(frontend::UiTree::sole())->fetch_part(&element, id, 1);
     script::StructPtr params = script::make_struct();
-    params->put_name_key(kId, id);
+    params->put_name_key(checksums::Name{kId}, id);
     get_run(kBeatResetContainer, params.get());
     params.reset();
     int red = 0;
     args()->fetch_int_value(kRedTricks, &red, 0); // (unused)
     script::StructPtr remove_params = script::make_struct();
-    remove_params->put_name_key(0u, kTrickTris);
+    remove_params->put_name_key(checksums::Name{0u}, kTrickTris);
     run_on(get_spawn(kBeatRemoveTrick, remove_params.get()), element.get_pull());
     remove_params.reset();
     int completed = 0;
@@ -972,7 +972,7 @@ void TrickBeatGoal::drop_move_entry(int index)
     ++completed;
     int interval = 0;
     args()->fetch_int_value(kAccelerationInterval, &interval, 0); // (unused)
-    args()->put_int(kTricksDoneCount, completed);
+    args()->put_int(checksums::Name{kTricksDoneCount}, completed);
     --trick_total_;
     core::at(tricks_, index).free = true;
 }
@@ -1168,7 +1168,7 @@ void TrickBeatGoal::add_tricks(int count)
         gsl::owner<void*> container = new_container();
         set_id(container, objects::kUnassignedId);
         add_to_manager(manager, container);
-        params->insert_pair(kDims, 100.0f, 20.0f);
+        params->insert_pair(checksums::Name{kDims}, {.x = 100.0f, .y = 20.0f});
         change_traits(container, params);
         frontend::UiWidget* menu = element_by_id(manager, kBeatMenu);
         menu->set_focus_sent(0);
@@ -1177,8 +1177,8 @@ void TrickBeatGoal::add_tricks(int count)
 
         params = script::new_struct();
         params->append_word(kText, text.data());
-        params->put_name_key(kFont, kNewTrickFont);
-        params->put_name_key(0u, kNotFocusable);
+        params->put_name_key(checksums::Name{kFont}, kNewTrickFont);
+        params->put_name_key(checksums::Name{0u}, kNotFocusable);
         gsl::owner<void*> text_element = new_text();
         set_id(text_element, objects::kUnassignedId);
         add_to_manager(manager, text_element);
@@ -1192,8 +1192,8 @@ void TrickBeatGoal::add_tricks(int count)
                 texts->fetch_text(key_combo, &key_combo_text, 0);
             params = script::new_struct();
             params->append_word(kText, key_combo_text);
-            params->put_name_key(kFont, kSmall);
-            params->put_name_key(0u, kNotFocusable);
+            params->put_name_key(checksums::Name{kFont}, kSmall);
+            params->put_name_key(checksums::Name{0u}, kNotFocusable);
             gsl::owner<void*> key_text = new_text();
             set_id(key_text, objects::kUnassignedId);
             add_to_manager(manager, key_text);
@@ -1205,7 +1205,7 @@ void TrickBeatGoal::add_tricks(int count)
         ++trick_total_;
         params = script::new_struct();
         if (!key_combo_text)
-            params->put_name_key(0u, kNoKeyCombo);
+            params->put_name_key(checksums::Name{0u}, kNoKeyCombo);
         run_on(get_spawn(kBeatAddTrick, params), container);
         script::free_struct(params);
     }

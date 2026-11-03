@@ -115,7 +115,7 @@ bool RiderIdentity::set_ability_level(uint32_t name, int value)
 {
     if (value < 0 || value > 10)
         return false;
-    details_params()->put_int(name, value);
+    details_params()->put_int(checksums::Name{name}, value);
     return true;
 }
 
@@ -251,7 +251,7 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
     slot->add_component_of_type(kTrickSlot, script::kQbvalName, name);
     slot->add_component_of_type(kTrickKeys, script::kQbvalName, keys);
     if (trick->flag())
-        slot->put_int(kTrickMarker, 1);
+        slot->put_int(checksums::Name{kTrickMarker}, 1);
     else
         slot->erase_module(kTrickMarker);
     if (apply) {
@@ -312,17 +312,17 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
         }
         for (const uint32_t name : {kIsPro, 0x3F813177u, 0x09F350E5u, 0x4564BAB1u, 0x27EB9B9Du, 0x5ECFEF4Du}) {
             params->fetch_int_value(name, &number, name != 0x27EB9B9D);
-            mine->put_int(name, static_cast<int>(number));
+            mine->put_int(checksums::Name{name}, static_cast<int>(number));
         }
         params->read_hash_value(kName, &checksum, 1);
-        mine->put_name_key(kName, checksum);
+        mine->put_name_key(checksums::Name{kName}, checksum);
         if (checksum == kCustomSkater) {
             params->fetch_int_value(0xB78D4AAE, &number, 1);
-            mine->put_int(0xB78D4AAE, static_cast<int>(number));
+            mine->put_int(checksums::Name{0xB78D4AAE}, static_cast<int>(number));
         }
         for (const uint32_t name : {kStance, kPushStyle, 0xDFD4043Eu}) {
             params->read_hash_value(name, &checksum, 1);
-            mine->put_name_key(name, checksum);
+            mine->put_name_key(checksums::Name{name}, checksum);
         }
         // A custom skater (not a pro) gets a face texture, in the skater info heap.
         int pro = 0;
@@ -341,7 +341,7 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
         mine->put_sub_struct(kSpecials, special_tricks);
     int max_specials = 0;
     params->fetch_int_value(kMaxSpecials, &max_specials, 1);
-    mine->put_int(kMaxSpecials, max_specials);
+    mine->put_int(checksums::Name{kMaxSpecials}, max_specials);
     uint32_t style_name = 0;
     params->read_hash_value(kTrickStyleName, &style_name, 1);
     script::Struct* style = script::read_sub_struct(style_name);
@@ -356,11 +356,11 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
     for (uint32_t i = 0; i < stats->extent(); ++i) {
         stats->struct_at(i)->read_hash_value(kName, &stat_name, 1);
         params->fetch_int_value(stat_name, &stat, 1);
-        mine->put_int(stat_name, stat);
+        mine->put_int(checksums::Name{stat_name}, stat);
     }
     int points = 0;
     params->fetch_int_value(0x471FC4DD, &points, 1);
-    mine->put_int(0x471FC4DD, points);
+    mine->put_int(checksums::Name{0x471FC4DD}, points);
     return true;
 }
 

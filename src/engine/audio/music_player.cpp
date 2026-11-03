@@ -122,7 +122,7 @@ void start_track(Playlist& list, int track)
     play_track(core::at(list.tracks, track).data(), false);
     current_track() = track;
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_int(0x8D02705Du, current_track());
+    params->put_int(checksums::Name{0x8D02705Du}, current_track());
     script::launch_script(0x300CAD34u, params, nullptr, false, nullptr);
     if (params) {
         params->get_clear();

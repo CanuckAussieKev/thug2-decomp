@@ -62,7 +62,7 @@ float get_argument(script::Struct* params)
 bool cfunc_sin(script::Struct* params, script::Script* script)
 {
     const float angle = get_argument(params);
-    script->args()->push_float(kSin, static_cast<float>(std::sin(static_cast<double>(angle) * degree_to_radian_conv())));
+    script->args()->push_float(checksums::Name{kSin}, static_cast<float>(std::sin(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
@@ -70,7 +70,7 @@ bool cfunc_sin(script::Struct* params, script::Script* script)
 bool cfunc_cos(script::Struct* params, script::Script* script)
 {
     const float angle = get_argument(params);
-    script->args()->push_float(kCos, static_cast<float>(std::cos(static_cast<double>(angle) * degree_to_radian_conv())));
+    script->args()->push_float(checksums::Name{kCos}, static_cast<float>(std::cos(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
@@ -78,7 +78,7 @@ bool cfunc_cos(script::Struct* params, script::Script* script)
 bool cfunc_tan(script::Struct* params, script::Script* script)
 {
     const float angle = get_argument(params);
-    script->args()->push_float(kTan, static_cast<float>(std::tan(static_cast<double>(angle) * degree_to_radian_conv())));
+    script->args()->push_float(checksums::Name{kTan}, static_cast<float>(std::tan(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
@@ -86,7 +86,7 @@ bool cfunc_tan(script::Struct* params, script::Script* script)
 bool cfunc_a_sin(script::Struct* params, script::Script* script)
 {
     const float value = get_argument(params);
-    script->args()->push_float(kASin, static_cast<float>(std::asin(static_cast<double>(value)) * convert_to_degrees()));
+    script->args()->push_float(checksums::Name{kASin}, static_cast<float>(std::asin(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
 
@@ -94,7 +94,7 @@ bool cfunc_a_sin(script::Struct* params, script::Script* script)
 bool cfunc_a_cos(script::Struct* params, script::Script* script)
 {
     const float value = get_argument(params);
-    script->args()->push_float(kACos, static_cast<float>(std::acos(static_cast<double>(value)) * convert_to_degrees()));
+    script->args()->push_float(checksums::Name{kACos}, static_cast<float>(std::acos(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
 
@@ -102,7 +102,7 @@ bool cfunc_a_cos(script::Struct* params, script::Script* script)
 bool cfunc_a_tan(script::Struct* params, script::Script* script)
 {
     const float value = get_argument(params);
-    script->args()->push_float(kATan, static_cast<float>(std::atan(static_cast<double>(value)) * convert_to_degrees()));
+    script->args()->push_float(checksums::Name{kATan}, static_cast<float>(std::atan(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
 
@@ -110,7 +110,7 @@ bool cfunc_a_tan(script::Struct* params, script::Script* script)
 bool cfunc_sqrt(script::Struct* params, script::Script* script)
 {
     const float value = get_argument(params);
-    script->args()->push_float(kSqrt, static_cast<float>(std::sqrt(static_cast<double>(value))));
+    script->args()->push_float(checksums::Name{kSqrt}, static_cast<float>(std::sqrt(static_cast<double>(value))));
     return true;
 }
 
@@ -132,8 +132,8 @@ bool cfunc_normalize_vector(script::Struct* params, script::Script* script)
         v.z = static_cast<float>(v.z * scale);
         v.w = static_cast<float>(v.w * scale);
     }
-    script->args()->put_vec3(kNorm, v);
-    script->args()->push_float(kLength, length);
+    script->args()->put_vec3(checksums::Name{kNorm}, v);
+    script->args()->push_float(checksums::Name{kLength}, length);
     return true;
 }
 
@@ -155,7 +155,7 @@ bool cfunc_linear_map(script::Struct* params, script::Script* script)
         fraction = 0.0;
     else if (fraction > 1.0)
         fraction = 1.0;
-    script->args()->push_float(result, static_cast<float>((static_cast<double>(to) - from) * fraction + from));
+    script->args()->push_float(checksums::Name{result}, static_cast<float>((static_cast<double>(to) - from) * fraction + from));
     return true;
 }
 
@@ -170,7 +170,7 @@ bool cfunc_clamp(script::Struct* params, script::Script* script)
     float clamped = value > max ? max : value;
     if (clamped < min)
         clamped = min;
-    script->args()->push_float(kClamped, clamped);
+    script->args()->push_float(checksums::Name{kClamped}, clamped);
     return true;
 }
 
@@ -195,9 +195,9 @@ bool cfunc_rotate_vector(script::Struct* params, script::Script* script)
     matrix_multiply(&m, &maths::make_roll_matrix(rotation, rz * degree_to_radian_conv()), &m);
     maths::Vec4 turned{};
     m.xform(turned, point);
-    script->args()->push_float(kX, turned.x);
-    script->args()->push_float(kY, turned.y);
-    script->args()->push_float(kZ, turned.z);
+    script->args()->push_float(checksums::Name{kX}, turned.x);
+    script->args()->push_float(checksums::Name{kY}, turned.y);
+    script->args()->push_float(checksums::Name{kZ}, turned.z);
     return true;
 }
 

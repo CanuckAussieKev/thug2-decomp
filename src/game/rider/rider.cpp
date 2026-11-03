@@ -879,8 +879,8 @@ void Rider::prepare_all(RiderIdentity* profile)
         } else {
             gsl::owner<script::Struct*> memory = script::spawn_param_bag();
             script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-            params->put_name_key(0x4C48DA58, ident());
-            params->put_name_key(kNameChecksum, camera_name);
+            params->put_name_key(checksums::Name{0x4C48DA58}, ident());
+            params->put_name_key(checksums::Name{kNameChecksum}, camera_name);
             camera = object_hub_slot()->spawn_entity_from_node(script::fetch_list("skatercam_composite_structure"),
                                                                params, true);
             if (params) {
@@ -901,23 +901,23 @@ void Rider::prepare_all(RiderIdentity* profile)
         asset_info->read_hash_value(0xCEEFD662, &skeleton, 0);
     add_motion_components(this);
     add_component_from_structure(this, [skeleton](script::Struct* params) {
-        params->put_name_key(kPartHash, 0x7149B753);  // animblender
-        params->put_name_key(0x09794932, skeleton);   // skeletonName
-        params->put_name_key(0x5B8C6DC2, 0x3FEC31A6); // AnimEventTableName SkaterAnimEventTable
+        params->put_name_key(checksums::Name{kPartHash}, 0x7149B753);  // animblender
+        params->put_name_key(checksums::Name{0x09794932}, skeleton);   // skeletonName
+        params->put_name_key(checksums::Name{0x5B8C6DC2}, 0x3FEC31A6); // AnimEventTableName SkaterAnimEventTable
     });
     anim_blender_ = core::down_cast<AnimBlenderComponent>(fetch_module(0x7149B753));
     add_component_from_structure(this, [skeleton](script::Struct* params) {
-        params->put_name_key(kPartHash, 0x222756D5); // skeleton
-        params->put_name_key(0x222756D5, skeleton);
-        params->put_int(0xD3982061, 0); // max_bone_skip_lod
+        params->put_name_key(checksums::Name{kPartHash}, 0x222756D5); // skeleton
+        params->put_name_key(checksums::Name{0x222756D5}, skeleton);
+        params->put_int(checksums::Name{0xD3982061}, 0); // max_bone_skip_lod
     });
     static_cast<AnimBlenderComponent*>(anim_blender_)->set_flag_4c(true);
     const bool local = is_local_skater() != 0;
     add_component_from_structure(this, [local](script::Struct* params) {
-        params->put_name_key(0u, 0x10079F2D); // UseModelLights
-        params->put_int(0xD223B8BD, 1);       // max_scene_lights
-        params->put_int(0x2A1F92C0, local ? 1 : 0);
-        params->put_name_key(kPartHash, kModelModuleName);
+        params->put_name_key(checksums::Name{0u}, 0x10079F2D); // UseModelLights
+        params->put_int(checksums::Name{0xD223B8BD}, 1);       // max_scene_lights
+        params->put_int(checksums::Name{0x2A1F92C0}, local ? 1 : 0);
+        params->put_name_key(checksums::Name{kPartHash}, kModelModuleName);
     });
     model_component_ = core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName));
     // Its geometry, in its geometry heap, with the asset manager's flag off meanwhile.
@@ -929,23 +929,23 @@ void Rider::prepare_all(RiderIdentity* profile)
     assets->set_permanent_by_default(flag);
     memory::Hub::get_pull()->leave_heap_scope();
     add_component_from_structure(this, [](script::Struct* params) {
-        params->put_name_key(kPartHash, 0x8A897DD2);  // shadow
-        params->put_name_key(0x9AC24B18, 0x76A54CD1); // ShadowType
+        params->put_name_key(checksums::Name{kPartHash}, 0x8A897DD2);  // shadow
+        params->put_name_key(checksums::Name{0x9AC24B18}, 0x76A54CD1); // ShadowType
     });
     shadow_ = core::down_cast<GroundShadowModule>(fetch_module(0x8A897DD2));
     shadow_->set_follow_object(false);
     if (is_local_skater()) {
         add_component_from_structure(
-            this, [](script::Struct* params) { params->put_name_key(kPartHash, 0x404EB936); }); // vibration
+            this, [](script::Struct* params) { params->put_name_key(checksums::Name{kPartHash}, 0x404EB936); }); // vibration
         vibration_ = core::down_cast<PadRumbleModule>(fetch_module(0x404EB936));
         add_component_from_structure(
-            this, [](script::Struct* params) { params->put_name_key(kPartHash, 0x21FC3301); }); // SkaterStancePanel
+            this, [](script::Struct* params) { params->put_name_key(checksums::Name{kPartHash}, 0x21FC3301); }); // SkaterStancePanel
     } else {
         vibration_ = nullptr;
     }
     if (is_local_skater()) {
         add_component_from_structure(
-            this, [](script::Struct* params) { params->put_name_key(kPartHash, 0x187574FA); }); // skatersound
+            this, [](script::Struct* params) { params->put_name_key(checksums::Name{kPartHash}, 0x187574FA); }); // skatersound
         sound_ = core::down_cast<RiderSfxPlayer>(fetch_module(0x187574FA));
         vehicle_sound_ = core::down_cast<SkaterVehicleSoundComponent>(fetch_module(0x1859F772)); // SkaterVehicleSound
     }
@@ -1056,9 +1056,9 @@ void Rider::run_state_script(bool walk, bool other)
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         if (walk)
-            params->put_name_key(0u, 0x726E85AA); // Walk
+            params->put_name_key(checksums::Name{0u}, 0x726E85AA); // Walk
         if (other)
-            params->put_name_key(0u, 0x7B738580);
+            params->put_name_key(checksums::Name{0u}, 0x7B738580);
     }
     own_script()->bind_script(0xE740F458, params, this);
     if (is_local_skater())
@@ -1255,7 +1255,7 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     auto add = [this, params](uint32_t type) {
-        params->put_name_key(kPartHash, type);
+        params->put_name_key(checksums::Name{kPartHash}, type);
         create_component_from_structure(params, nullptr);
     };
     add(0x43686585);
@@ -1306,8 +1306,8 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, uint32_t id, int skat
     // The controls, told its skater number.
     gsl::owner<script::Struct*> extra_memory = script::spawn_param_bag();
     script::Struct* extra = extra_memory ? memory::construct_in<script::Struct>(extra_memory) : nullptr;
-    extra->put_int(0xA2B033FD, skater_number_);
-    params->put_name_key(kPartHash, 0x5B512EDC);
+    extra->put_int(checksums::Name{0xA2B033FD}, skater_number_);
+    params->put_name_key(checksums::Name{kPartHash}, 0x5B512EDC);
     create_component_from_structure(params, extra);
     add(0xD1515392);
     if (extra) {
@@ -1346,7 +1346,7 @@ void Rider::relaunch(uint32_t a, uint32_t b)
         // Walking: back to skating first.
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-        params->put_name_key(0x91D0D784, 0x1DDE4804);
+        params->put_name_key(checksums::Name{0x91D0D784}, 0x1DDE4804);
         switch_to_script(0x93A4E402, params);
         if (params) {
             params->get_clear();
@@ -1474,20 +1474,20 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         set_rigid_body_pusher_reach(this, 0.0f);
         return true;
     case 0x97C8285A: // GetCameraId
-        script->args().get()->put_name_key(0x7A039889, view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0);
+        script->args().get()->put_name_key(checksums::Name{0x7A039889}, view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0);
         return true;
     case 0x7915AA31: { // fetch_tally
         int stat = 0;
         params->fetch_int_value(0xDF4700DE, &stat, 1);
         script::Struct* results = script->args().get();
-        results->push_float(0x8EAF7ADD, fetch_tally(stat)); // stat_value
+        results->push_float(checksums::Name{0x8EAF7ADD}, fetch_tally(stat)); // stat_value
         return true;
     }
     case 0x9ABE8A21: { // GetScriptedStat
         script::Struct* stat = nullptr;
         params->read_sub_struct(0u, &stat, 1);
         script::Struct* results = script->args().get();
-        results->push_float(0x8EAF7ADD, get_scaled_value(stat));
+        results->push_float(checksums::Name{0x8EAF7ADD}, get_scaled_value(stat));
         return true;
     }
     case 0xBF450BAB: // MoveToRandomRestart
@@ -1523,7 +1523,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
     case 0xC6870028: // die
         return true;
     case 0xF4C52F72:                                             // GetSkaterNumber
-        script->args().get()->put_int(0xF3CF5755, view_slot_); // skaternumber
+        script->args().get()->put_int(checksums::Name{0xF3CF5755}, view_slot_); // skaternumber
         return true;
     default:
         return GameEntity::invoke_method_by_name(name, params, script);

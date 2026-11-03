@@ -187,7 +187,7 @@ void Hub::build_team_flag_set(int num_teams)
     if (!num_teams)
         return;
     const script::StructPtr params = script::make_struct();
-    params->put_int(kNumTeams, num_teams);
+    params->put_int(checksums::Name{kNumTeams}, num_teams);
     get_run(kCreateTeamFlags, params.get());
 }
 

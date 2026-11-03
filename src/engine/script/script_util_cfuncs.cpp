@@ -133,7 +133,7 @@ bool cfunc_get_random_value(Struct* params, Script* script)
             a = b;
             b = swap;
         }
-        script->args()->put_int(name, maths::rnd(b - a + 1) + a);
+        script->args()->put_int(checksums::Name{name}, maths::rnd(b - a + 1) + a);
         return true;
     }
     int resolution = 1000;
@@ -147,7 +147,7 @@ bool cfunc_get_random_value(Struct* params, Script* script)
     double value = static_cast<double>(step) * (static_cast<double>(b) - static_cast<double>(a));
     value /= static_cast<double>(resolution - 1);
     value += static_cast<double>(a);
-    script->args()->push_float(name, static_cast<float>(value));
+    script->args()->push_float(checksums::Name{name}, static_cast<float>(value));
     return true;
 }
 
@@ -185,14 +185,14 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
         if (index >= ints::as_signed(size))
             return false;
     }
-    script->args()->put_int(kIndex, index);
+    script->args()->put_int(checksums::Name{kIndex}, index);
     Struct* own = script->args().get();
     switch (array->kind_tag()) {
     case script::kQbvalInteger:
-        own->put_int(kElement, static_cast<int>(array->fetch_part(index)));
+        own->put_int(checksums::Name{kElement}, static_cast<int>(array->fetch_part(index)));
         break;
     case script::kQbvalFloat:
-        own->push_float(kElement, array->fetch_float(index));
+        own->push_float(checksums::Name{kElement}, array->fetch_float(index));
         break;
     case script::kQbvalString:
         own->append_word(kElement, array->find_inline_text(index)); // (0x0046CB70: the same element read)
@@ -207,7 +207,7 @@ bool cfunc_get_next_array_element(Struct* params, Script* script)
         own->append_array_value(kElement, array->array_at(index));
         break;
     case script::kQbvalName:
-        own->put_name_key(kElement, array->fetch_part(index));
+        own->put_name_key(checksums::Name{kElement}, array->fetch_part(index));
         break;
     default:
         debug::printf("GetNextArrayElement does not support arrays of type '%s'\n",
@@ -229,14 +229,14 @@ bool cfunc_get_random_array_element(Struct* params, Script* script)
     if (!array || array->extent() == 0)
         return false;
     const int index = maths::rnd(static_cast<int>(array->extent()));
-    script->args()->put_int(kIndex, index);
+    script->args()->put_int(checksums::Name{kIndex}, index);
     Struct* own = script->args().get();
     switch (array->kind_tag()) {
     case script::kQbvalInteger:
-        own->put_int(kElement, static_cast<int>(array->fetch_part(index)));
+        own->put_int(checksums::Name{kElement}, static_cast<int>(array->fetch_part(index)));
         break;
     case script::kQbvalFloat:
-        own->push_float(kElement, array->fetch_float(index));
+        own->push_float(checksums::Name{kElement}, array->fetch_float(index));
         break;
     case script::kQbvalStruct:
         own->put_sub_struct(kElement, array->struct_at(index));
@@ -245,7 +245,7 @@ bool cfunc_get_random_array_element(Struct* params, Script* script)
         own->append_array_value(kElement, array->array_at(index));
         break;
     case script::kQbvalName:
-        own->put_name_key(kElement, array->fetch_part(index));
+        own->put_name_key(checksums::Name{kElement}, array->fetch_part(index));
         break;
     default:
         debug::printf("GetRandomArrayElement does not support arrays of type '%s'\n",
@@ -306,7 +306,7 @@ bool cfunc_mangle_checksums(Struct* params, Script* script)
         params->fetch_int_value(kA, &a, 1);
     if (!params->read_hash_value(kB, &b, 0))
         params->fetch_int_value(kB, &b, 1);
-    script->args()->put_name_key(kMangledId, a + b);
+    script->args()->put_name_key(checksums::Name{kMangledId}, a + b);
     return true;
 }
 
@@ -319,7 +319,7 @@ bool cfunc_append_suffix_to_checksum(Struct* params, Script* script)
     const char* suffix = nullptr;
     params->read_hash_value(kBase, &base, 1);
     params->fetch_text(kSuffixString, &suffix, 1);
-    script->args()->put_name_key(kAppendedId, checksums::fold_text_into_checksum(base, suffix));
+    script->args()->put_name_key(checksums::Name{kAppendedId}, checksums::fold_text_into_checksum(base, suffix));
     return true;
 }
 
@@ -343,7 +343,7 @@ bool cfunc_add_flag(Struct* params, Script* script)
 {
     uint32_t flag = 0;
     params->read_hash_value(0u, &flag, 0);
-    script->args()->put_name_key(0u, flag);
+    script->args()->put_name_key(checksums::Name{0u}, flag);
     return true;
 }
 
@@ -527,7 +527,7 @@ bool format_printf_text(char* out, Struct* params, Script*)
         gsl::owner<Struct*> format = script::spawn_param_bag();
         if (format)
             format = new (format) script::Struct;
-        format->put_name_key(kTextName, kPrintfText);
+        format->put_name_key(checksums::Name{kTextName}, kPrintfText);
         format->append_structure_if_any(params);
         if (format_text_into(format, format))
             format->fetch_text("PrintfText", &text, 0); // "PrintfText"

@@ -65,7 +65,7 @@ void set_flag_property(UiWidget* element, uint32_t flag)
     gsl::owner<Struct*> params = script::spawn_param_bag();
     if (params)
         params = new (params) script::Struct;
-    params->put_name_key(0u, flag);
+    params->put_name_key(checksums::Name{0u}, flag);
     element->change_traits(params);
     if (params) {
         params->get_clear();
@@ -606,7 +606,7 @@ bool UiTree::push_priority(uint32_t id, uint32_t priority)
         gsl::owner<Struct*> params = script::spawn_param_bag();
         if (params)
             params = new (params) script::Struct;
-        params->put_name_key(0u, kHide);
+        params->put_name_key(checksums::Name{0u}, kHide);
         if (priority > highest)
             core::at(priorities_, highest_slot).element.get_pull()->change_traits(params);
         else

@@ -489,7 +489,7 @@ void on_edited_copy_up(const Props& props)
         return;
     }
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_name_key(checksums::hash_from_text("node_name"), props.start);
+    params->put_name_key(checksums::Name{checksums::hash_from_text("node_name")}, props.start);
     script::launch_script(checksums::hash_from_text("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->get_clear();
     script::delete_struct(params);

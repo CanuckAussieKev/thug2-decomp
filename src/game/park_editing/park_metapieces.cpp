@@ -293,10 +293,10 @@ void PieceGroup::get_piece_list(script::Array* out)
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         script::Struct* piece = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-        piece->put_name_key(0u, piece_name(i)); // (out of memory crashes, as in the original)
+        piece->put_name_key(checksums::Name{0u}, piece_name(i)); // (out of memory crashes, as in the original)
         maths::Vec4 position;
         get_relative_position(&position, i);
-        piece->put_vec3(0u, position.x, position.y, position.z);
+        piece->put_vec3(checksums::Name{0u}, {.x = position.x, .y = position.y, .z = position.z});
         out->set_cell(i, script::Cell::of(piece));
     }
 }

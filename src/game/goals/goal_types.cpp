@@ -172,7 +172,7 @@ void ContestObjective::mark_won()
 // 0x00551A90
 bool ContestObjective::get_win()
 {
-    args()->put_name_key(kNoName, kJustWonGoal);
+    args()->put_name_key(checksums::Name{kNoName}, kJustWonGoal);
     invoke_hook_script(kDeactivateScript);
     args()->remove_flag(kJustWonGoal);
     clear_engaged_bit();
@@ -224,7 +224,7 @@ bool ShootVideoObjective::activate()
     time_needed_ = 0;
     checkpoints_ = 0;
     recording_shot_ = false;
-    args()->put_int(kTimeOnCamera, 0);
+    args()->put_int(checksums::Name{kTimeOnCamera}, 0);
     int seconds = 0;
     if (args()->fetch_int_value(kTotalTimeRequired, &seconds, 0)) {
         time_needed_ = static_cast<uint32_t>(seconds * 1000);
@@ -277,13 +277,13 @@ bool ShootVideoObjective::target_in_view()
 // 0x00552A10
 bool ShootVideoObjective::tick_frame()
 {
-    args()->put_int(kLastTimeOnCamera, static_cast<int>(shot_hold_time_));
+    args()->put_int(checksums::Name{kLastTimeOnCamera}, static_cast<int>(shot_hold_time_));
     if (!is_operative() || is_frozen())
         return Objective::tick_frame();
     if (recording_shot_) {
         if (target_in_view()) {
             shot_hold_time_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand); // (1000)
-            args()->put_int(kTimeOnCamera, static_cast<int>(shot_hold_time_));
+            args()->put_int(checksums::Name{kTimeOnCamera}, static_cast<int>(shot_hold_time_));
         }
         if (shot_hold_time_ >= time_needed_) {
             void* manager = objective_board();
@@ -340,16 +340,16 @@ void HuntGapsObjective::scan_for_gaps()
         const uint32_t gap = score->get_trick_name(i);
         if (found->has_entry_named(gap))
             continue;
-        found->put_int(gap, 1);
+        found->put_int(checksums::Name{gap}, 1);
         ++count;
         found_new = true;
     }
-    args()->put_int(kNumGapsFound, count);
-    args()->put_int(kNumberCollected, count);
+    args()->put_int(checksums::Name{kNumGapsFound}, count);
+    args()->put_int(checksums::Name{kNumberCollected}, count);
     if (!found_new)
         return;
     const script::StructPtr params = script::make_struct();
-    params->put_name_key(kGoalIdChecksum, get_objective_key());
+    params->put_name_key(checksums::Name{kGoalIdChecksum}, get_objective_key());
     script::launch_script(kFindGapsFoundGap, params.get(), nullptr, false, nullptr);
 }
 
@@ -360,8 +360,8 @@ bool HuntGapsObjective::activate()
     script::StructPtr found = script::make_struct();
     args()->put_sub_struct(kGapsFound, found.get());
     found.reset();
-    args()->put_int(kNumGapsFound, 0);
-    args()->put_int(kNumberCollected, 0);
+    args()->put_int(checksums::Name{kNumGapsFound}, 0);
+    args()->put_int(checksums::Name{kNumberCollected}, 0);
     int to_find = 0;
     args()->fetch_int_value(kNumGapsToFind, &to_find, 1); // (read and not used)
     return Objective::activate();

@@ -224,7 +224,7 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
         const int rank = rank_of(server->get_entrant_rank(i));
         const script::StructPtr player = script::make_struct();
         text::format_to(value, "%d:", i + 1);
-        player->put_int(kRank, rank);
+        player->put_int(checksums::Name{kRank}, rank);
         player->append_word(kName, value.data());
         text::format_to(value, "%s", server->get_entrant_name(i));
         player->append_word(kValue, value.data());
@@ -255,8 +255,8 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
     }
     script::StructPtr reply = script::make_struct();
     if (refused) {
-        reply->put_name_key(kReason, refused);
-        reply->put_name_key(kJustDialog, 0);
+        reply->put_name_key(checksums::Name{kReason}, refused);
+        reply->put_name_key(checksums::Name{kJustDialog}, 0);
         manager->join_phase_job()->drop_out();
         get_run(kJoinRefusedDialog, reply.get());
     } else {
@@ -267,7 +267,7 @@ bool cfunc_choose_server(script::Struct* params, script::Script* script)
             reply->add_component_of_type(kCookie, script::kQbvalName, maths::rnd(0x7FFF) * maths::rnd(0x7FFF));
         reply->add_component_of_type(0, script::kQbvalInteger, server->port_no());
         reply->append_word(0, script::kQbvalString, ip);
-        reply->put_int(kMaxPlayers, server->max_players());
+        reply->put_int(checksums::Name{kMaxPlayers}, server->max_players());
         get_run(kChosenJoinServer, reply.get());
     }
     reply.reset();
@@ -400,7 +400,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
     case kListingRemove: {
         HostListing* server = find_by_sb(manager, sb);
         script::StructPtr params = script::make_struct();
-        params->put_name_key(kServerId, server ? server->id() : 0); // (the original: the SBServer's address)
+        params->put_name_key(checksums::Name{kServerId}, server ? server->id() : 0); // (the original: the SBServer's address)
         get_run(kDestroyLobbyServer, params.get());
         params.reset();
         if (server)
@@ -434,7 +434,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
             server->set_detailed(true);
             if (server->chosen()) {
                 const script::StructPtr params = script::make_struct();
-                params->put_name_key(kId, server->id());
+                params->put_name_key(checksums::Name{kId}, server->id());
                 get_run(kDescribeSelectedServer, params.get());
             }
         }

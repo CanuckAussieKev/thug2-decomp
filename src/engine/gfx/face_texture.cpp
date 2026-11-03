@@ -169,12 +169,12 @@ bool write_face_points(const FaceAnchors* points, Struct* params)
     params->append_array_ref(kNose, nose);
     params->append_array_ref(kLips, lips);
     if (points->has_hsv_) {
-        params->push_float(kH, points->h_);
-        params->push_float(kS, points->s_);
-        params->push_float(kV, points->v_);
+        params->push_float(checksums::Name{kH}, points->h_);
+        params->push_float(checksums::Name{kS}, points->s_);
+        params->push_float(checksums::Name{kV}, points->v_);
     }
-    params->put_int(kWidth, points->span_);
-    params->put_int(kHeight, points->level_y_);
+    params->put_int(checksums::Name{kWidth}, points->span_);
+    params->put_int(checksums::Name{kHeight}, points->level_y_);
     return true;
 }
 

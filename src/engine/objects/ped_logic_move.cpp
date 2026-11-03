@@ -1004,7 +1004,7 @@ void PedestrianBrainModule::chase_update()
         // Caught.
         face_along(&toward_player);
         script::StructPtr params = script::make_struct();
-        params->put_name_key(kChaser, skater->ident());
+        params->put_name_key(checksums::Name{kChaser}, skater->ident());
         change_phase(kStateChaseCatch, 0, params.get());
         params.reset();
         return;
@@ -1070,7 +1070,7 @@ void PedestrianBrainModule::blocker_update()
         // Bumped.
         face_along(&across);
         script::StructPtr params = script::make_struct();
-        params->put_vec3(kVelDir, script::VectorValue{.x = across.x, .y = across.y, .z = across.z, .w = across.w});
+        params->put_vec3(checksums::Name{kVelDir}, script::VectorValue{.x = across.x, .y = across.y, .z = across.z, .w = across.w});
         entity()->post_own_event(kBlockerBumpPlayer, params.get());
         params.reset();
         return;
@@ -1134,7 +1134,7 @@ void PedestrianBrainModule::blocker_update()
         face_along(&across);
         const script::StructPtr params = script::make_struct();
         const maths::Vec4 cross = maths::cross_vec(to_point, across);
-        params->put_name_key(kDir, cross.y < 0.0f ? kLeft : kRight);
+        params->put_name_key(checksums::Name{kDir}, cross.y < 0.0f ? kLeft : kRight);
         entity()->post_own_event(kBlockerShuffle, params.get());
     } else {
         face_along(&to_point);

@@ -387,7 +387,7 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
     }
     params->append_word(kText, script::kQbvalString, shown);
     params->add_component_of_type(kId, script::kQbvalName, kNetPanelMsg);
-    params->put_int(kMsgTime, time);
+    params->put_int(checksums::Name{kMsgTime}, time);
     get_run(kCreateNetPanelMessage, params.get());
 }
 

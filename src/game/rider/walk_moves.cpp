@@ -282,7 +282,7 @@ void FootMovement::update_anim_speed()
     // The animation component's member function 0xBD4EDD44 with speed = `speed`.
     auto tell = [animation](float speed) {
         gsl::owner<script::Struct*> params = script::new_struct();
-        params->push_float(kSpeedName, speed);
+        params->push_float(checksums::Name{kSpeedName}, speed);
         static_cast<ObjectModule*>(animation)->invoke_method_by_name(kSetAnimSpeed, params, nullptr);
         if (params) {
             params->get_clear();

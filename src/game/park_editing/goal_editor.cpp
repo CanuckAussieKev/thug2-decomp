@@ -320,8 +320,8 @@ void ObjectiveAuthoring::run_cursor_script()
     script::Struct params;
     const objects::EditorViewModule* camera = view_cam(view_camera_);
     const maths::Vec4& cursor = camera->cursor();
-    params.put_vec3(0x7F261953, cursor.x, cursor.y + camera->level_y(), cursor.z);
-    params.push_float(0xFF7EBAF6, camera->heading());
+    params.put_vec3(checksums::Name{0x7F261953}, {.x = cursor.x, .y = cursor.y + camera->level_y(), .z = cursor.z});
+    params.push_float(checksums::Name{0xFF7EBAF6}, camera->heading());
     script::launch_script(0xDEA7FE56, &params, nullptr, false, nullptr);
     params.get_clear();
 }
@@ -346,9 +346,9 @@ void ObjectiveAuthoring::refresh_cursor()
     goal = active_node_;
     kind = goal->vertex_total() ? core::at(goal->path_vertices(), goal->current_point()).kind : kPointPro;
     if (kind == kPointPro)
-        params.put_name_key(0x7321A8D6, 0x061A741E);
+        params.put_name_key(checksums::Name{0x7321A8D6}, 0x061A741E);
     else if (kind == kPointCheckpoint)
-        params.put_name_key(0x7321A8D6, 0xF0FF0841);
+        params.put_name_key(checksums::Name{0x7321A8D6}, 0xF0FF0841);
     params.append_word(0x286A8D26, model);
     script::launch_script(0x36791E3C, &params, entity(), false, nullptr);
     update_camera_collision();
@@ -592,7 +592,7 @@ void ObjectiveAuthoring::conceal(bool hide)
         return;
     }
     gsl::owner<script::Struct*> params = script::new_struct();
-    params->put_int(0x67E6859A, 0);
+    params->put_int(checksums::Name{0x67E6859A}, 0);
     input_ptr_->configure_from_data(params);
     if (params) {
         params->get_clear();

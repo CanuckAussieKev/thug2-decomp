@@ -158,7 +158,7 @@ bool cfunc_skater_get_last_score_landed(script::Struct*, script::Script* script)
     modules::PointTally* score = get_score_of(skater);
     if (!score)
         return false;
-    script->args()->put_int(kLastScoreLanded, last_score_landed(score));
+    script->args()->put_int(checksums::Name{kLastScoreLanded}, last_score_landed(score));
     return true;
 }
 
@@ -370,9 +370,9 @@ bool cfunc_skater_get_score_info(script::Struct*, script::Script* script)
 {
     objects::GameEntity* skater = get_home_rider();
     modules::PointTally* score = skater ? get_score_of(skater) : nullptr;
-    script->args()->put_int(kScorePot, score_pot(score));
-    script->args()->put_int(kTotalScore, total_score(score));
-    script->args()->put_int(kLastScoreLandedInfo, last_score_landed(score));
+    script->args()->put_int(checksums::Name{kScorePot}, score_pot(score));
+    script->args()->put_int(checksums::Name{kTotalScore}, total_score(score));
+    script->args()->put_int(checksums::Name{kLastScoreLandedInfo}, last_score_landed(score));
     return true;
 }
 
@@ -522,7 +522,7 @@ bool cfunc_get_skater_id(script::Struct* params, script::Script* script)
         params->fetch_int_value(kSkater, &index, 0) ? get_rider_at(index) : get_home_rider();
     if (!skater || !skater->is_local_skater())
         return false;
-    script->args()->put_name_key(kObjId, skater->ident());
+    script->args()->put_name_key(checksums::Name{kObjId}, skater->ident());
     return true;
 }
 
@@ -535,7 +535,7 @@ bool cfunc_skater_exists(script::Struct* params, script::Script* script)
     const objects::GameEntity* skater = get_rider_at(index);
     if (!skater)
         return false;
-    script->args()->put_name_key(kObjId, skater->ident());
+    script->args()->put_name_key(checksums::Name{kObjId}, skater->ident());
     return true;
 }
 
@@ -547,7 +547,7 @@ bool cfunc_get_skater_sex(script::Struct* params, script::Script* script)
     objects::RiderIdentity* profile = objects::profile_roster()->fetch_account(player);
     int male = 0;
     profile->details_params()->fetch_int_value(kIsMale, &male, 1);
-    script->args()->put_int(kIsMale, male);
+    script->args()->put_int(checksums::Name{kIsMale}, male);
     return true;
 }
 
@@ -559,8 +559,8 @@ bool cfunc_get_current_skater_id(script::Struct*, script::Script* script)
     if (!object || !object->is_local_skater())
         return false;
     const uint32_t id = object->ident();
-    script->args()->put_name_key(kObjId, id);
-    script->args()->put_int(kIntId, static_cast<int>(id));
+    script->args()->put_name_key(checksums::Name{kObjId}, id);
+    script->args()->put_int(checksums::Name{kIntId}, static_cast<int>(id));
     return true;
 }
 

@@ -352,8 +352,8 @@ void ObjectiveNpc::unload_anim_bank()
         objects::GameEntity* object = object_named(anim_object_);
         script::stop_scripts_using_object_that_refer_to(object, kGoalPlayStream);
         script::StructPtr params = script::make_struct();
-        params->put_name_key(kType, kPartialAnim);
-        params->put_name_key(kId, kJawRotation);
+        params->put_name_key(checksums::Name{kType}, kPartialAnim);
+        params->put_name_key(checksums::Name{kId}, kJawRotation);
         if (object)
             object->fetch_module(kAnimBlender)->invoke_method_by_name(kRemoveAnimController, params.get(), nullptr);
         params.reset();
@@ -378,7 +378,7 @@ void ObjectiveNpc::conceal(bool hide)
     if (auto* object = core::down_cast<objects::GameEntity>(objects::object_hub_slot()->look_up_entity(trigger)))
         object->conceal(hide);
     const script::StructPtr arrow = script::make_struct();
-    arrow->put_name_key(kGoalIdChecksum, objective_key_);
+    arrow->put_name_key(checksums::Name{kGoalIdChecksum}, objective_key_);
     if (hide) {
         script::launch_script(kGoalPedKillArrow, arrow.get(), nullptr, false, nullptr);
     } else {
@@ -414,18 +414,18 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
     if (!object)
         return;
     const script::StructPtr play_params = script::make_struct();
-    play_params->put_name_key(kStreamChecksum, stream);
+    play_params->put_name_key(checksums::Name{kStreamChecksum}, stream);
     if (!no_anim) {
-        play_params->put_int(kUsePosInfo, 0);
+        play_params->put_int(checksums::Name{kUsePosInfo}, 0);
         const uint32_t anim_set =
             core::down_cast<objects::AnimBlenderComponent>(object->fetch_module(kAnimBlender))->get_anim_set();
         if (load_fam)
             load_anim_bank(stream, anim_set);
         const uint32_t handle = audio::prime_stream(stream, 0x66);
-        play_params->put_name_key(kStreamId, handle);
+        play_params->put_name_key(checksums::Name{kStreamId}, handle);
         feed_ = handle;
         if (assets::asset_manager()->get_asset_data(anim_set + stream, 0)) {
-            play_params->put_name_key(0u, kPlayAnim);
+            play_params->put_name_key(checksums::Name{0u}, kPlayAnim);
             anim_object_ = id;
         }
     }

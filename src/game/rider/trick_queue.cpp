@@ -258,7 +258,7 @@ int MoveExecutor::squeezed(script::Struct* params, script::Script* /*script*/)
 int MoveExecutor::get_current_bail_endpose(script::Struct* /*params*/, script::Script* script)
 {
     const uint32_t endpose = bail_endpose_;
-    script->args()->put_name_key(kCurrentBailEndpose, endpose ? endpose : kNone);
+    script->args()->put_name_key(checksums::Name{kCurrentBailEndpose}, endpose ? endpose : kNone);
     return 1;
 }
 
@@ -335,7 +335,7 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     Entity* object = entity();
     object->replace_script(script, trick_params);
     if (flag)
-        object->own_script()->args()->put_name_key(0u, flag);
+        object->own_script()->args()->put_name_key(checksums::Name{0u}, flag);
     object->own_script()->args()->append_structure_if_any(extra_params);
     object->own_script()->tick_frame();
     trick_started(this);
@@ -390,7 +390,7 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
     if (mappings->fetch_int_value(slot, &created, 0)) {
         // A created trick: CreateATrick with its index.
         gsl::owner<script::Struct*> create_params = script::new_struct();
-        create_params->put_int(kTrickIndex, created);
+        create_params->put_int(checksums::Name{kTrickIndex}, created);
         create_params->append_structure_if_any(trick_params);
         Entity* object = entity();
         object->replace_script(kCreateATrick, create_params);

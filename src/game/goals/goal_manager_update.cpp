@@ -175,7 +175,7 @@ void GoalManager::append_objective_list_entries()
         if (goal->is_online_objective())
             continue;
         const script::StructPtr item = script::make_struct();
-        item->put_name_key(kGoalIdChecksum, goal->get_objective_key());
+        item->put_name_key(checksums::Name{kGoalIdChecksum}, goal->get_objective_key());
         item->append_word(kText, text);
         if (goal->has_won()) {
             std::array<char, 128> record{};
@@ -207,7 +207,7 @@ void GoalManager::append_objective_list_entries()
                         item->append_word(kRecordText, record.data());
                     }
                 } else {
-                    item->put_name_key(0u, kNoRecord);
+                    item->put_name_key(checksums::Name{0u}, kNoRecord);
                 }
             }
         }
