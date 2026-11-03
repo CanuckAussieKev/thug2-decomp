@@ -87,8 +87,9 @@ void LetterMatch::prepare_all()
     skater_ = 0;
     last_skater_ = 0;
     text::format_to(panel_, "%s", "unknown"); // "unknown"
-    for (int& letters : letters_)
+    for (int& letters : letters_) {
         letters = 0;
+    }
     restart_ = maths::rnd(horse_restarts());
 }
 
@@ -99,10 +100,12 @@ void LetterMatch::begin_timed_session() { cur_standing_ = core::at(statuses(), k
 bool LetterMatch::state_matches(script::Struct* params) const
 {
     for (const uint32_t status : statuses()) {
-        if (!status)
+        if (!status) {
             break;
-        if (params->has_bare_flag(status))
+        }
+        if (params->has_bare_flag(status)) {
             return cur_standing_ == status;
+        }
     }
     return false;
 }
@@ -121,9 +124,11 @@ text::Chars LetterMatch::get_letter_string(int player)
     dup_from(word.data(), word_.data());
     if (std::strlen(word.data())) {
         auto letters = static_cast<uint32_t>(core::at(letters_, player));
-        for (uint32_t i = 0; i < std::strlen(word.data()); ++i)
-            if (i >= letters)
+        for (uint32_t i = 0; i < std::strlen(word.data()); ++i) {
+            if (i >= letters) {
                 core::at(word, i) = '-';
+            }
+        }
     }
     return {word.data()};
 }
@@ -139,16 +144,20 @@ int LetterMatch::get_restart() const
 void LetterMatch::choose_next_spawn()
 {
     ++restart_;
-    if (static_cast<uint32_t>(restart_) >= static_cast<uint32_t>(horse_restarts()))
+    if (static_cast<uint32_t>(restart_) >= static_cast<uint32_t>(horse_restarts())) {
         restart_ = 0;
+    }
 }
 
 // 0x00560380
 bool LetterMatch::is_over()
 {
-    for (int i = 0; i < kPlayers; ++i)
-        if (get_skater(static_cast<uint32_t>(i)) && static_cast<uint32_t>(core::at(letters_, i)) >= std::strlen(word_.data()))
+    for (int i = 0; i < kPlayers; ++i) {
+        if (get_skater(static_cast<uint32_t>(i)) &&
+            static_cast<uint32_t>(core::at(letters_, i)) >= std::strlen(word_.data())) {
             return true;
+        }
+    }
     return false;
 }
 
@@ -158,12 +167,14 @@ int LetterMatch::fetch_next_live_rider() const
     int id = 0;
     for (int i = 0; i < kPlayers; ++i) {
         id = (skater_ + i + 1) % kPlayers;
-        if (get_skater(static_cast<uint32_t>(id)))
+        if (get_skater(static_cast<uint32_t>(id))) {
             break;
+        }
     }
     debug::printf("new skater id = %d\n", id);  // "new skater id = %d\n"
-    if (script::fetch_int_value("debug_horse")) // "debug_horse"
+    if (script::fetch_int_value("debug_horse")) { // "debug_horse"
         return 0;
+    }
     return id;
 }
 

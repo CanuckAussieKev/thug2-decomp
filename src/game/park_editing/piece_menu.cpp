@@ -89,8 +89,9 @@ void get_sector_names(PieceGroup* meta, script::Array* out) { meta->get_piece_li
 void TopBarMenus::discard_occurrence()
 {
     TopBarMenus* menu = sole();
-    if (!menu)
+    if (!menu) {
         return;
+    }
     launch_script(kDestroyPieceMenu);
     launch_script(kDestroySetMenu);
     menu->point_group_ = nullptr;
@@ -106,15 +107,17 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     if (set->is_clipboard_) {
         clipboards = true;
         BuildPointer* cursor = BuildPointer::sole();
-        for (const Clipboard* clipboard = cursor->copy_buffers(); clipboard; clipboard = clipboard->following())
+        for (const Clipboard* clipboard = cursor->copy_buffers(); clipboard; clipboard = clipboard->following()) {
             ++clipboard_count;
+        }
         cursor->drop_area_marquee();
     }
     void* tracker = get_tracker();
     if (point_group_) {
         const uint32_t id = core::at(point_group_->entries_, selected_).checksum;
-        if (object_exists(tracker, id))
+        if (object_exists(tracker, id)) {
             launch_event(tracker, kUnfocus, id, kSystem);
+        }
     }
 
     // A new set: its piece menu (each clipboard, sector or piece), the set menu, the menus locked.
@@ -125,10 +128,11 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
             script::Struct params;
             params.put_name_key(checksums::Name{kMetapieceId}, checksum);
             if (clipboards) {
-                if (i < clipboard_count)
+                if (i < clipboard_count) {
                     params.put_int(checksums::Name{kClipBoardIndex}, i + 1);
-                else
+                } else {
                     params.put_name_key(checksums::Name{0U}, kEmptyClipBoard); // (a bare flag)
+                }
                 launch_script(kMakePieceMenuItem, &params);
             } else {
                 // (an entry with no metapiece is read through a null pointer, as in the original)
@@ -158,8 +162,9 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     }
 
     const uint32_t id = core::at(set->entries_, set->selected_).checksum;
-    if (object_exists(tracker, id))
+    if (object_exists(tracker, id)) {
         launch_event(tracker, kFocus, id, kSystem);
+    }
     selected_ = set->selected_;
 
     // The slider: the seven entries round the selected one (all of them when there are no more).

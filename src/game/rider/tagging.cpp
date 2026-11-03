@@ -136,8 +136,9 @@ void put_on(void* texture, void* image)
 // One of the component's own textures given back.
 void free_texture(render::BitmapTexture*& texture)
 {
-    if (!texture)
+    if (!texture) {
         return;
+    }
     render::engine::kill_texture_splats_of_texture(texture->checksum());
     texture->pin_resident(false);
     release_texture(texture);
@@ -226,14 +227,16 @@ int TaggingComponent::invoke_method_by_name(uint32_t name, script::Struct* param
     switch (name) {
     case kSetGraffitiTexture: { // SetGraffitiTexture
         const char* texture = nullptr; // (the original read into its argument slot: the method's name)
-        if (params->fetch_text(0U, &texture, 0))
+        if (params->fetch_text(0U, &texture, 0)) {
             set_graffiti_texture(texture);
+        }
         return 1;
     }
     case kSetStickerTexture: { // SetStickerTexture
         const char* texture = nullptr; // (the original read into its argument slot: the method's name)
-        if (params->fetch_text(0U, &texture, 0))
+        if (params->fetch_text(0U, &texture, 0)) {
             set_sticker_texture(texture);
+        }
         return 1;
     }
     case kHasCustomTagTexture: // HasCustomTagTexture
@@ -251,16 +254,19 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
 {
     auto turn = static_cast<float>(script::fetch_float(kMaxStickerStreakAngle) * static_cast<double>(kRadiansPerDegree));
     float spin = 0.0F;
-    if (sticker)
+    if (sticker) {
         spin = static_cast<float>((maths::rnd(kSplatSpinRange) - kSplatSpinHalfRange) * static_cast<double>(kRadiansPerDegree));
+    }
     auto width = static_cast<float>(size);
     render::engine::create_texture_splat_at({.from = &start, .to = &end, .size = width, .depth = width, .angle = spin, .cone_angle_ = turn, .lifetime = kSplatLifetime, .image_label_ = "", .unknown38 = kBlend, .follow = 0, .unknown40 = 0, .texture = sticker ? sticker_ : graffiti_});
-    if (!send)
+    if (!send) {
         return;
+    }
     net::NetMessageInfo msg;
     online::Hub* manager = online::online_hub();
-    if (!manager->in_net_game())
+    if (!manager->in_net_game()) {
         return;
+    }
     online::PlaceTag tag;
     tag.object_id = static_cast<int8_t>(entity()->ident());
     tag.sticker = sticker != 0;
@@ -337,8 +343,9 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
         cooldown_ = static_cast<float>(cooldown_ - 1.0);
         return false;
     }
-    if (countdown_ > 0)
+    if (countdown_ > 0) {
         return false;
+    }
     render::ProbeRay feeler;
     script::Struct* settings = script::read_sub_struct(kWalkParameters);
     float reach = 0.0F;
@@ -422,33 +429,39 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
 bool TaggingControlComponent::try_tagging()
 {
     const RiderPoseState* state = core::down_cast<RiderBoardPhysics>(entity()->fetch_module(kSkaterPhysicsControl))->pose();
-    if (state->in_vehicle() || state->physics_mode() != objects::RiderPoseState::PhysicsMode::kWalking || blocked_)
+    if (state->in_vehicle() || state->physics_mode() != objects::RiderPoseState::PhysicsMode::kWalking || blocked_) {
         return false;
+    }
     if (cooldown_ > 0.0F) {
         cooldown_ = static_cast<float>(cooldown_ - 1.0);
         return false;
     }
-    if (countdown_ > 0)
+    if (countdown_ > 0) {
         return false;
+    }
     const int walk_state = walk_->get_state();
-    if (walk_state != 2 && walk_state != 0)
+    if (walk_state != 2 && walk_state != 0) {
         return false;
+    }
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
     ObjectModule* skeleton = entity()->fetch_module(kSkeleton);
     uint32_t bone = core->state()->flag(PoseFlag::kFlipped).on ? kBonePalmL : kBonePalmR;
-    if (core::down_cast<Rider>(entity())->label() == kSkaterShrek)
+    if (core::down_cast<Rider>(entity())->label() == kSkaterShrek) {
         bone = kBoneHead;
+    }
     auto* button = &core::down_cast<PadInputModule>(input_)->pad_primary().button_wedge();
     const bool tapped = button->held_down() && static_cast<uint32_t>(button->get_held_millis()) < 100U;
-    if (!tapped && (!pending_ || countdown_ != 0))
+    if (!tapped && (!pending_ || countdown_ != 0)) {
         return true;
+    }
 
     const float reach = tag_setting(0xDC98A1BE);
     render::ProbeRay feeler;
     maths::Vec4 joint_world;
     core::down_cast<BoneRigModule>(skeleton)->get_bone_position(bone, &joint_world);
-    if (walk_->get_state() == 2)
+    if (walk_->get_state() == 2) {
         joint_world.y = static_cast<float>(joint_world.y - kJointDrop); // 0x00646710
+    }
     std::array<maths::Vec4, kTagRayCount> hits{};
     std::array<float, kTagRayCount> distances{};
     auto rise = static_cast<float>(reach * 0.0);
@@ -514,8 +527,9 @@ bool TaggingControlComponent::try_tagging()
         const float ahead_x = dx * distance;
         feeler.line().end = {.x = joint_world.x + ahead_x, .y = joint_world.y + ahead_y, .z = joint_world.z + ahead_z,
                             .w = static_cast<float>(static_cast<double>(distance) + joint_world.w)};
-        if (feeler.get_hit_shape(true, false))
+        if (feeler.get_hit_shape(true, false)) {
             break;
+        }
         distance = static_cast<float>(distance + kDistanceBias);
     }
     const maths::Vec4 start = feeler.line().start;

@@ -198,8 +198,9 @@ void FootMovement::choose_camera(GameEntity* camera)
 // 0x005260E0
 void FootMovement::change_phase(int state)
 {
-    if (state == state_)
+    if (state == state_) {
         return;
+    }
     const int previous = state_;
     previous_state_ = previous;
     state_ = state;
@@ -217,12 +218,15 @@ void FootMovement::change_phase(int state)
         skid_time_ = kSkidTimeNever;
         unknown1874_ = true;
     }
-    if (state == 4)
+    if (state == 4) {
         climb_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    if (state != 1)
+    }
+    if (state != 1) {
         pushing_ = false;
-    if (state == 0 || previous_state_ != 1)
+    }
+    if (state == 0 || previous_state_ != 1) {
         blocked_ = false;
+    }
     if (state == 2) {
         climb_scale_ = 0.0F;
         if (previous_state_ == 1) {
@@ -245,8 +249,9 @@ void FootMovement::clear_model_offset() { model_->set_shift({.x = 0.0F, .y = 0.0
 bool FootMovement::using_dpad()
 {
     const objects::PadInputModule* input = input_;
-    if (!(core::at(input->pad_primary().stick(), 2) == 0.0F) || !(core::at(input->pad_primary().stick(), 3) == 0.0F))
+    if (!(core::at(input->pad_primary().stick(), 2) == 0.0F) || !(core::at(input->pad_primary().stick(), 3) == 0.0F)) {
         return false;
+    }
     return control_full_;
 }
 
@@ -303,16 +308,18 @@ void FootMovement::update_run_adjustment()
     }
     const float rate = walk_parameter(kRunAdjustRate);
     double adjustment = run_adjustment_ - (frame_clock::get_slomo_frame_seconds() * rate);
-    if (adjustment < 0.0)
+    if (adjustment < 0.0) {
         adjustment = 0.0F;
+    }
     run_adjustment_ = static_cast<float>(adjustment);
 }
 
 // 0x00528400
 void FootMovement::clamp_skater_speed(uint32_t stop_anim)
 {
-    if (state_ != 0)
+    if (state_ != 0) {
         return;
+    }
     if (static_cast<uint32_t>(clock_since(state_time_)) < kBriefStateMs) {
         last_speed_ = speed_;
         return;
@@ -322,16 +329,18 @@ void FootMovement::clamp_skater_speed(uint32_t stop_anim)
     const float limited = speed < last ? speed : last;
     speed_ = limited;
     last_speed_ = speed;
-    if (anim_state_ == kRun && limited == 0.0F)
+    if (anim_state_ == kRun && limited == 0.0F) {
         anim_state_ = stop_anim == kSkid ? kSkid : kStand;
+    }
 }
 
 // 0x005284C0
 double FootMovement::get_gravity()
 {
     RiderStoryProgress* career = get_career();
-    if (!career->is_code_on(kCheatMoon))
+    if (!career->is_code_on(kCheatMoon)) {
         return walk_parameter(kGravity);
+    }
     get_career()->set_global_flag(script::fetch_int_value(kCheatMoon));
     online::net_game_state().set_cheat_flag(true);
     return static_cast<double>(walk_parameter(kGravity)) * kHalf;
@@ -398,14 +407,15 @@ bool FootMovement::walk_get_speed_scale(script::Struct* /*params*/, script::Scri
 {
     const float speed = speed_;
     uint32_t scale = 0;
-    if (speed < walk_parameter(kMaxSlowWalkSpeed))
+    if (speed < walk_parameter(kMaxSlowWalkSpeed)) {
         scale = kWalkSlow;
-    else if (speed < walk_parameter(kMaxFastWalkSpeed))
+    } else if (speed < walk_parameter(kMaxFastWalkSpeed)) {
         scale = kWalkFast;
-    else if (speed < walk_parameter(kMaxSlowRunSpeed))
+    } else if (speed < walk_parameter(kMaxSlowRunSpeed)) {
         scale = kRunSlow;
-    else
+    } else {
         scale = kRunFast;
+    }
     script->args()->put_name_key(checksums::Name{kSpeedScale}, scale);
     return true;
 }

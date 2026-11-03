@@ -82,8 +82,9 @@ constexpr uint32_t kBailed = 0x13A8, kBailedPanel = 0x13A9, kTrickCount = 0x13AC
 void copy_text(std::span<char> to, const char* from)
 {
     size_t at = 0;
-    for (const char c : std::string_view(from))
+    for (const char c : std::string_view(from)) {
         core::at(to, at++) = c;
+    }
     core::at(to, at) = '\0';
 }
 // The original's _ftol (0x006236FC): truncated toward zero.
@@ -104,8 +105,9 @@ void collect_names(script::Struct* params, int& count, std::span<uint32_t> array
 {
     count = 0;
     for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-        if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName)
+        if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName) {
             core::at(arrays, count++) = c->value.word();
+        }
     }
 }
 
@@ -113,11 +115,13 @@ void collect_names(script::Struct* params, int& count, std::span<uint32_t> array
 void exit_combo(MoveExecutor* self)
 {
     const modules::PointTally* score = self->get_score();
-    if (!truncate(static_cast<double>(score->pot()) * score->multiplier()))
+    if (!truncate(static_cast<double>(score->pot()) * score->multiplier())) {
         return;
+    }
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
-    if (params)
+    if (params) {
         params = new (params) script::Struct;
+    }
     Expects(params != nullptr);
     params->put_name_key(checksums::Name{kSkaterId}, self->entity()->ident());
     self->entity()->announce(kSkaterExitCombo, params, 0.0F);
@@ -153,8 +157,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kReleased: {
         uint32_t button = 0;
         params->read_hash_value(0U, &button, 0);
-        if (!button)
+        if (!button) {
             return 0;
+        }
         return is_pad_held(this, button) ? 0 : 1;
     }
     case kGetSpazzFactor:
@@ -164,8 +169,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         // Every event of the button x marked used (+0x14), in the buffer's order.
         for (int i = 0; std::cmp_less(i, event_count_); ++i) {
             TrickEvent* event = &core::at(events_, i);
-            if (event->button == kX)
+            if (event->button == kX) {
                 event->flags = 1;
+            }
         }
         return 1;
     case kClearPanelLanded: {
@@ -190,8 +196,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             stats_manager_->announce_met_goals();
         }
         entity()->announce(kSkaterLanded, nullptr, 0.0F);
-        if (bailed_)
+        if (bailed_) {
             bailed_panel_ = true;
+        }
         trick_count_ = 0;
         balance_trick_->keep_best_times();
         balance_trick_->get_reset();
@@ -215,8 +222,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kPassToTrickObjects: {
         uint32_t value = 0;
         params->read_hash_value(0U, &value, 1);
-        if (trick_objects_on_)
+        if (trick_objects_on_) {
             trick_objects_.append_one(value);
+        }
         return 1;
     }
     case kNoQuickGetup:
@@ -225,10 +233,11 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kSetTrickName: {
         const char* text = nullptr;
         params->fetch_text(0U, &text, 0);
-        if (text)
+        if (text) {
             copy_text(trick_name_, text);
-        else
+        } else {
             core::at(trick_name_, 0) = 0;
+        }
         return 1;
     }
     case kGetSpin: {
@@ -269,12 +278,15 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         int index = event_head_;
         for (int i = 0; std::cmp_less(i, event_count_); ++i) {
             TrickEvent* event = &core::at(events_, index);
-            if (frame_clock::get_time() - event->time >= static_cast<uint32_t>(duration))
+            if (frame_clock::get_time() - event->time >= static_cast<uint32_t>(duration)) {
                 break;
-            if (event->flags & mask)
+            }
+            if (event->flags & mask) {
                 event->flags &= ~mask;
-            if (--index < 0)
+            }
+            if (--index < 0) {
                 index += kEventRing;
+            }
         }
         return 1;
     }
@@ -299,8 +311,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             int older_than = 0;
             params->fetch_int_value(kOlderThan, &older_than, 0);
             const int count = static_cast<int>(buttons->extent());
-            for (int i = 0; i < count; ++i)
+            for (int i = 0; i < count; ++i) {
                 expire_button(checksums::Name{buttons->fetch_part(i)}, static_cast<uint32_t>(older_than));
+            }
             return 1;
         }
         clear_event_buffer();
@@ -315,11 +328,13 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kReplaceBindings: {
         // The trick mappings replaced by the global structure the first (unnamed name) component names.
         const script::Component* c = params->step_to_entry(nullptr);
-        if (!c || c->name != 0 || value_kind(*c) != script::QbValueKind::kName)
+        if (!c || c->name != 0 || value_kind(*c) != script::QbValueKind::kName) {
             return 1;
+        }
         script::Struct* mappings = script::read_sub_struct(c->value.word());
-        if (!mappings)
+        if (!mappings) {
             return 1;
+        }
         trick_lists_->get_clear();
         trick_lists_->append_structure_if_any(mappings);
         return 1;
@@ -357,8 +372,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     }
     case kClearTricksFrom:
         for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-            if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName)
+            if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName) {
                 remove_trick_list(c->value.word());
+            }
         }
         return 1;
     case kSetTrickScore:
@@ -376,8 +392,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     case kSetQueueTricks:
         collect_names(params, extra_list_count_, extra_lists_);
-        if (extra_list_count_ == 1 && !script::fetch_list(core::at(extra_lists_, 0)))
+        if (extra_list_count_ == 1 && !script::fetch_list(core::at(extra_lists_, 0))) {
             core::at(extra_lists_, 0) = kNoQueue;
+        }
         manual_list_ = 0;
         params->read_hash_value(kSpecial, &manual_list_, 0);
         return 1;
@@ -398,20 +415,23 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 if (skater::thaw_bmx::is_switched_on()) {
                     const int held = skater::thaw_bmx::trick_stick_held(this, buttons->fetch_part(i));
                     if (held >= 0) {
-                        if (held)
+                        if (held) {
                             return 1;
+                        }
                         continue;
                     }
                 }
-                if (core::at(btn_down_, pad_input::glyph_for_button_tag(buttons->fetch_part(i))))
+                if (core::at(btn_down_, pad_input::glyph_for_button_tag(buttons->fetch_part(i)))) {
                     return 1;
+                }
             }
             return 0;
         }
         uint32_t button = 0;
         params->read_hash_value(0U, &button, 0);
-        if (!button)
+        if (!button) {
             return 0;
+        }
         return is_pad_held(this, button) ? 1 : 0;
     }
     case kDisplay: {
@@ -423,35 +443,45 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         if (params->has_bare_flag(kDeferred)) {
             copy_text(deferred_name_, trick_name_.data());
             deferred_score_ = trick_score_;
-            if (is_switch(this))
+            if (is_switch(this)) {
                 deferred_flags_ |= 4;
+            }
         } else if (params->fetch_int_value(kAddSpin, &add_spin, 0) && same_trick_shown(this, score)) {
             const double spin = static_cast<double>(add_spin) + spin_total_;
             spin_total_ = static_cast<float>(spin);
-            if (entity()->is_local_skater())
+            if (entity()->is_local_skater()) {
                 score->advance_turn(truncate(spin));
+            }
         } else {
             uint32_t flags = 0;
-            if (params->has_bare_flag(kBlockspin))
+            if (params->has_bare_flag(kBlockspin)) {
                 flags = 2;
-            if (params->has_bare_flag(kNoDegrade))
-                flags |= kTrickNoDegrade;
-            if (is_switch(this))
-                flags |= 4;
-            if (starting_special_) {
-                if (params->has_bare_flag(kNoSpecial))
-                    starting_special_ = false;
-                else
-                    flags |= modules::kTrickSpecial;
             }
-            if (params->has_bare_flag(kCat))
+            if (params->has_bare_flag(kNoDegrade)) {
+                flags |= kTrickNoDegrade;
+            }
+            if (is_switch(this)) {
+                flags |= 4;
+            }
+            if (starting_special_) {
+                if (params->has_bare_flag(kNoSpecial)) {
+                    starting_special_ = false;
+                } else {
+                    flags |= modules::kTrickSpecial;
+                }
+            }
+            if (params->has_bare_flag(kCat)) {
                 flags |= modules::kTrickColour3;
-            if (params->has_bare_flag(kNatas))
+            }
+            if (params->has_bare_flag(kNatas)) {
                 flags |= modules::kTrickSpinPlusOne;
-            if (params->has_bare_flag(kNoMult))
+            }
+            if (params->has_bare_flag(kNoMult)) {
                 flags |= modules::kTrickNoMultiplier;
-            if (params->has_bare_flag(kNoSwitch))
+            }
+            if (params->has_bare_flag(kNoSwitch)) {
                 flags |= modules::kTrickKindHigh;
+            }
             if (entity()->is_local_skater()) {
                 auto* core = core_physics_;
                 if (core->state()->cur_phase() == 4) {
@@ -469,16 +499,19 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                 if (*trick_name) {
                     entity()->announce(kSkaterTrickDisplayed, nullptr, 0.0F);
                     const bool special = core->state()->flag(PoseFlag::kVertAir).on;
-                    if ((!special && !static_cast<bool>(core->landed_from_air_vert())) || spin_counts(this, true))
+                    if ((!special && !static_cast<bool>(core->landed_from_air_vert())) || spin_counts(this, true)) {
                         score_spin(this, truncate(spin_total_));
+                    }
                 }
             }
-            if (params->has_bare_flag(kBlockspin))
+            if (params->has_bare_flag(kBlockspin)) {
                 spin_total_ = 0.0F;
+            }
             core::at(deferred_name_, 0) = 0;
         }
-        if (core::at(trick_name_, 0))
+        if (core::at(trick_name_, 0)) {
             starting_special_ = false;
+        }
         return 1;
     }
     default:

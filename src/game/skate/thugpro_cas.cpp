@@ -117,10 +117,12 @@ bool is_file(const std::string& path)
 std::string get_relative(const char* path)
 {
     std::string out;
-    for (const char c : std::string_view(path))
+    for (const char c : std::string_view(path)) {
         out += c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    if (out.starts_with("data\\"))
+    }
+    if (out.starts_with("data\\")) {
         out.erase(0, kDataPrefixLength);
+    }
     return out;
 }
 
@@ -139,10 +141,12 @@ std::vector<std::string> get_candidates(const char* path)
 bool game_has(const std::string& name)
 {
     std::array<char, file::kOverlayPathSize> overlay{};
-    if (frontend::data_overlay::get_overlay_path(name.c_str(), overlay))
+    if (frontend::data_overlay::get_overlay_path(name.c_str(), overlay)) {
         return true;
-    if (pre::hub() && pre::is_present(name.c_str()))
+    }
+    if (pre::hub() && pre::is_present(name.c_str())) {
         return true;
+    }
     std::array<char, file::kDiskPathSize> disk{};
     file::make_disk_path(disk, name.c_str());
     return is_file(game_folder_path(disk.data()));
@@ -153,14 +157,17 @@ bool game_has(const std::string& name)
 bool get_found(const char* path)
 {
     const std::string key = path_key(path);
-    if (their_files().contains(key))
+    if (their_files().contains(key)) {
         return true;
-    for (const std::string& candidate : get_candidates(path)) {
-        if (game_has(candidate))
-            return true;
     }
-    if (our_keys().contains(key))
+    for (const std::string& candidate : get_candidates(path)) {
+        if (game_has(candidate)) {
+            return true;
+        }
+    }
+    if (our_keys().contains(key)) {
         return false; // (one of our own parts' files: never taken from THUGPRO's install)
+    }
     for (const std::string& candidate : get_candidates(path)) {
         if (is_file(thugpro_cas_state().data_ + candidate)) {
             their_files().insert(key);
@@ -174,29 +181,34 @@ bool get_found(const char* path)
 void collect_paths(script::Struct* part, std::vector<const char*>* out, int depth = 0);
 void collect_array_paths(script::Array* array, std::vector<const char*>* out, int depth)
 {
-    if (!array || depth > 4)
+    if (!array || depth > 4) {
         return;
+    }
     for (uint32_t i = 0; i < array->extent(); ++i) {
         const script::Cell element = array->cell_at(i);
-        if (element.empty())
+        if (element.empty()) {
             continue;
-        if (array->kind_tag() == script::QbValueKind::kString && is_path(element.text()))
+        }
+        if (array->kind_tag() == script::QbValueKind::kString && is_path(element.text())) {
             out->push_back(element.text());
-        else if (array->kind_tag() == script::QbValueKind::kStruct)
+        } else if (array->kind_tag() == script::QbValueKind::kStruct) {
             collect_paths(element.structure(), out, depth + 1);
-        else if (array->kind_tag() == script::QbValueKind::kArray)
+        } else if (array->kind_tag() == script::QbValueKind::kArray) {
             collect_array_paths(element.array(), out, depth + 1);
+        }
     }
 }
 void collect_paths(script::Struct* part, std::vector<const char*>* out, int depth)
 {
-    if (!part || depth > 4)
+    if (!part || depth > 4) {
         return;
+    }
     for (script::Component* c = part->step_to_entry(nullptr); c; c = part->step_to_entry(c)) {
         switch (value_kind(*c)) {
         case script::QbValueKind::kString:
-            if (c->value.text() && is_path(c->value.text()))
+            if (c->value.text() && is_path(c->value.text())) {
                 out->push_back(c->value.text());
+            }
             break;
         case script::QbValueKind::kStruct:
             collect_paths(c->value.structure(), out, depth + 1);
@@ -213,8 +225,9 @@ void collect_paths(script::Struct* part, std::vector<const char*>* out, int dept
 // One of our part lists: a global array of structures whose first has a desc_id.
 bool is_part_list(script::Array* array)
 {
-    if (!array || array->kind_tag() != script::QbValueKind::kStruct || array->extent() == 0)
+    if (!array || array->kind_tag() != script::QbValueKind::kStruct || array->extent() == 0) {
         return false;
+    }
     auto* first = array->struct_at(0);
     uint32_t desc = 0;
     return first && first->read_hash_value(kDescId, &desc, 0);
@@ -225,14 +238,16 @@ std::vector<uint8_t> read_whole_file(const std::string& path)
     std::vector<uint8_t> data;
     const util::UniqueHandle file(
         CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr));
-    if (!file)
+    if (!file) {
         return data;
+    }
     const DWORD size = GetFileSize(file.get(), nullptr);
     if (size != INVALID_FILE_SIZE && size < kMaxFileMegabytes << kMegabyteShift) {
         data.resize(size);
         DWORD read = 0;
-        if (!ReadFile(file.get(), data.data(), size, &read, nullptr) || read != size)
+        if (!ReadFile(file.get(), data.data(), size, &read, nullptr) || read != size) {
             data.clear();
+        }
     }
     return data;
 }
@@ -242,12 +257,14 @@ std::string install_folder()
     std::array<char, MAX_PATH> folder = {};
     GetPrivateProfileStringA("features", "thugpro_folder", "", folder.data(), sizeof(folder),
                              game_folder_path("thug2-decomp.ini").c_str());
-    if (core::at(folder, 0))
+    if (core::at(folder, 0)) {
         return folder.data();
+    }
     std::array<char, MAX_PATH> local = {};
     const DWORD length = GetEnvironmentVariableA("LOCALAPPDATA", local.data(), sizeof(local));
-    if (!length || length >= sizeof(local))
+    if (!length || length >= sizeof(local)) {
         return "";
+    }
     return std::string(local.data()) + "\\THUG Pro";
 }
 
@@ -264,18 +281,21 @@ std::vector<uint8_t> expand_lzss(std::span<const uint8_t> in, size_t length, siz
     uint32_t flags = 0;
     while (out.size() < size && i < length) {
         flags >>= 1;
-        if (!(flags & kLzssFlagsMarker))
+        if (!(flags & kLzssFlagsMarker)) {
             flags = core::at(in, i++) | kLzssFlagsFill;
+        }
         if (flags & 1) {
-            if (i >= length)
+            if (i >= length) {
                 break;
+            }
             const uint8_t c = core::at(in, i++);
             out.push_back(c);
             core::at(window, r) = c;
             r = (r + 1) & kLzssWindowMask;
         } else {
-            if (i + 1 >= length)
+            if (i + 1 >= length) {
                 break;
+            }
             const uint32_t position = core::at(in, i) | ((core::at(in, i + 1) & 0xF0U) << 4);
             const uint32_t last = (core::at(in, i + 1) & 0x0FU) + 2;
             i += 2;
@@ -295,8 +315,9 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
 {
     // {total size, version, file count}, then each file: {size, compressed size (0: stored), name size (int16), use
     // count, checksum}, its name, its data padded to 4 bytes (src/engine/file/packs.cpp next_raw_entry).
-    if (archive.size() < kArchiveHeaderBytes)
+    if (archive.size() < kArchiveHeaderBytes) {
         return false;
+    }
     auto u32 = [&archive](size_t at) {
         uint32_t value = 0;
         std::memcpy(&value, std::span<const uint8_t>(archive).subspan(at, 4).data(), 4);
@@ -305,28 +326,32 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
     const uint32_t count = u32(8);
     size_t offset = kArchiveHeaderBytes;
     for (uint32_t k = 0; k < count; ++k) {
-        if (offset + kEntryHeaderBytes > archive.size())
+        if (offset + kEntryHeaderBytes > archive.size()) {
             return false;
+        }
         const uint32_t size = u32(offset);
         const uint32_t compressed = u32(offset + 4);
         uint16_t name_size = 0;
         std::memcpy(&name_size, std::span<const uint8_t>(archive).subspan(offset + kEntryNameSizeOffset, 2).data(), 2);
         const size_t body = offset + 16 + name_size;
         const size_t stored = compressed ? compressed : size;
-        if (body > archive.size() || stored > archive.size() - body)
+        if (body > archive.size() || stored > archive.size() - body) {
             return false;
+        }
         std::string name(name_size, char{});
         std::memcpy(name.data(), std::span<const uint8_t>(archive).subspan(offset + kEntryHeaderBytes, name_size).data(), name_size);
         name.resize(strnlen(name.c_str(), name_size));
         const std::string key = get_relative(name.c_str());
         for (const std::string& wanted : names) {
-            if (key != wanted)
+            if (key != wanted) {
                 continue;
+            }
             const std::span<const uint8_t> data = std::span<const uint8_t>(archive).subspan(body, stored);
             std::vector<uint8_t> file = compressed ? expand_lzss(data, stored, size)
                                                    : std::vector<uint8_t>(data.begin(), data.begin() + static_cast<std::ptrdiff_t>(size));
-            if (file.size() == size) // (a file that doesn't decompress to its size is left out)
+            if (file.size() == size) { // (a file that doesn't decompress to its size is left out)
                 out->emplace_back(key, std::move(file));
+            }
         }
         offset = body + ((stored + 3) & ~static_cast<size_t>(3));
     }
@@ -351,8 +376,9 @@ std::vector<std::pair<uint32_t, script::Tokens>> top_level_arrays(std::span<cons
                 break;
             }
             q = script::skip_newline_tokens(q + 1);
-            if (script::as_token(*q) == script::QbToken::kArrayStart)
+            if (script::as_token(*q) == script::QbToken::kArrayStart) {
                 arrays.emplace_back(name, q);
+            }
             p = script::skip_value(q);
             break;
         }
@@ -366,8 +392,9 @@ std::vector<std::pair<uint32_t, script::Tokens>> top_level_arrays(std::span<cons
             p = script::step_over_token(p);
             break;
         }
-        if (p <= before)
+        if (p <= before) {
             return arrays; // (a token we can't move past: stop)
+        }
     }
     return arrays;
 }
@@ -393,27 +420,32 @@ std::string path_key(const char* path)
 std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool (*found)(const char* path))
 {
     std::vector<uint32_t> picked;
-    if (!ours || !theirs || theirs->kind_tag() != script::QbValueKind::kStruct)
+    if (!ours || !theirs || theirs->kind_tag() != script::QbValueKind::kStruct) {
         return picked;
+    }
     std::set<uint32_t> descs;
     for (uint32_t i = 0; i < ours->extent(); ++i) {
         auto* part = ours->struct_at(i);
         uint32_t desc = 0;
-        if (part && part->read_hash_value(kDescId, &desc, 0))
+        if (part && part->read_hash_value(kDescId, &desc, 0)) {
             descs.insert(desc);
+        }
     }
     for (uint32_t i = 0; i < theirs->extent(); ++i) {
         auto* part = theirs->struct_at(i);
         uint32_t desc = 0;
-        if (!part || !part->read_hash_value(kDescId, &desc, 0) || descs.contains(desc))
+        if (!part || !part->read_hash_value(kDescId, &desc, 0) || descs.contains(desc)) {
             continue;
+        }
         std::vector<const char*> paths;
         collect_paths(part, &paths);
         bool all = true;
-        for (const char* path : paths)
+        for (const char* path : paths) {
             all = all && found(path);
-        if (!all)
+        }
+        if (!all) {
             continue;
+        }
         descs.insert(desc);
         picked.push_back(i);
     }
@@ -423,25 +455,30 @@ std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool 
 bool file_path(const char* relative, std::array<char, file::kOverlayPathSize>& path)
 {
     const std::set<std::string>* served = thugpro_cas_state().served_.load();
-    if (!served || !relative || !served->contains(path_key(relative)))
+    if (!served || !relative || !served->contains(path_key(relative))) {
         return false;
+    }
     const std::string full = thugpro_cas_state().data_ + relative;
-    if (full.size() >= sizeof(path) || !is_file(full))
+    if (full.size() >= sizeof(path) || !is_file(full)) {
         return false;
+    }
     std::memcpy(path.data(), full.c_str(), full.size() + 1);
     static std::set<std::string> logged;
-    if (logged.size() < kMaxLoggedFiles && logged.insert(full).second)
+    if (logged.size() < kMaxLoggedFiles && logged.insert(full).second) {
         get_log("THUGPRO CAS (TP-R10): %s read from THUGPRO's install (%s)", relative, full.c_str());
+    }
     return true;
 }
 
 void load_once()
 {
-    if (cas_check().done_)
+    if (cas_check().done_) {
         return;
+    }
     if (!script::fetch_list(kMasterEditableList)) {
-        if (++cas_check().frames_ > kWaitFrames)
+        if (++cas_check().frames_ > kWaitFrames) {
             cas_check().done_ = true;
+        }
         return;
     }
     cas_check().done_ = true;
@@ -480,16 +517,18 @@ void load_once()
         data.resize(size + kWalkPaddingBytes, 0); // (the walk stops at a 0 token)
         for (auto [array, at] : top_level_arrays(data, size)) {
             script::Array* ours = script::fetch_list(array);
-            if (is_part_list(ours))
+            if (is_part_list(ours)) {
                 targets.push_back({.name = array, .ours = ours, .theirs = at});
+            }
         }
     }
     for (const Target& target : targets) {
         for (uint32_t i = 0; i < target.ours->extent(); ++i) {
             std::vector<const char*> paths;
             collect_paths(target.ours->struct_at(i), &paths);
-            for (const char* path : paths)
+            for (const char* path : paths) {
                 our_keys().insert(path_key(path));
+            }
         }
     }
     int added = 0;
@@ -499,8 +538,9 @@ void load_once()
     memory::enter_heap_scope(manager->script_heap());
     for (const Target& target : targets) {
         gsl::owner<script::Array*> theirs = script::alloc_script_array();
-        if (!theirs)
+        if (!theirs) {
             break;
+        }
         new (theirs) script::Array;
         script::parse_array(theirs, target.theirs, nullptr);
         std::vector<uint32_t> picked = pick_new(target.ours, theirs, get_found);
@@ -510,14 +550,16 @@ void load_once()
             for (uint32_t i = 0; i < target.ours->extent(); ++i) {
                 uint32_t desc = 0;
                 auto* part = target.ours->struct_at(i);
-                if (part && part->read_hash_value(kDescId, &desc, 0))
+                if (part && part->read_hash_value(kDescId, &desc, 0)) {
                     descs.insert(desc);
+                }
             }
             for (uint32_t i = 0; i < theirs->extent(); ++i) {
                 uint32_t desc = 0;
                 auto* part = theirs->struct_at(i);
-                if (part && part->read_hash_value(kDescId, &desc, 0) && !descs.contains(desc))
+                if (part && part->read_hash_value(kDescId, &desc, 0) && !descs.contains(desc)) {
                     ++their_new;
+                }
             }
         }
         if (!picked.empty()) {
@@ -526,10 +568,12 @@ void load_once()
             for (size_t k = 0; k < picked.size(); ++k) {
                 script::Struct* part = theirs->struct_at(core::at(picked, k));
                 theirs->set_struct(core::at(picked, k), nullptr); // (now ours: not freed with THUGPRO's array)
-                if (setting == 1 && !part->has_bare_flag(kHidden))
+                if (setting == 1 && !part->has_bare_flag(kHidden)) {
                     part->put_name_key(checksums::Name{0U}, kHidden);
-                if (setting == 1 && !part->has_bare_flag(kNoRandom))
+                }
+                if (setting == 1 && !part->has_bare_flag(kNoRandom)) {
                     part->put_name_key(checksums::Name{0U}, kNoRandom);
+                }
                 target.ours->set_struct(old + static_cast<uint32_t>(k), part);
             }
             ++lists;

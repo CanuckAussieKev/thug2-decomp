@@ -65,8 +65,9 @@ render::RenderModel* get_model_data(GameEntity* object)
 void send_to_server(online::MessageId id, const online::SpecialItemMessage& item)
 {
     auto* manager = online::net_game_state().online_hub();
-    if (!manager->in_net_game())
+    if (!manager->in_net_game()) {
         return;
+    }
     net::NetMessageInfo msg;
     auto* client = core::down_cast<net::Guest>(manager->fetch_patron(0));
     std::array<uint8_t, online::kSpecialItemSize> data{};
@@ -94,20 +95,23 @@ PickupItemHandler::PickupItemHandler()
 // 0x0051BF20 (0x0051C130 the deleting one)
 PickupItemHandler::~PickupItemHandler()
 {
-    for (int slot = 0; slot < kItems; ++slot)
+    for (int slot = 0; slot < kItems; ++slot) {
         destroy_item(slot);
+    }
 }
 
 // 0x0051BE00
 void PickupItemHandler::destroy_item(int slot)
 {
-    if (!core::at(items_, slot))
+    if (!core::at(items_, slot)) {
         return;
+    }
     script::StructPtr tags = script::make_struct();
     core::at(items_, slot)->copy_tags_to(tags.get());
     uint32_t script = 0;
-    if (tags->read_hash_value(kOnDestroyScript, &script, 0))
+    if (tags->read_hash_value(kOnDestroyScript, &script, 0)) {
         script::launch_script(script, nullptr, core::at(items_, slot), false, nullptr);
+    }
     tags.reset();
     flag_as_dead(core::at(items_, slot));
     core::at(items_, slot) = nullptr;
@@ -116,15 +120,17 @@ void PickupItemHandler::destroy_item(int slot)
 // 0x0051BF00
 void PickupItemHandler::destroy_items()
 {
-    for (int slot = 0; slot < kItems; ++slot)
+    for (int slot = 0; slot < kItems; ++slot) {
         destroy_item(slot);
+    }
 }
 
 // 0x0051BF80
 GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
 {
-    if (core::at(items_, slot))
+    if (core::at(items_, slot)) {
         destroy_item(slot);
+    }
     uint32_t id = 0;
     if (params->read_hash_value(kId, &id, 0)) {
         id += entity()->ident();
@@ -138,8 +144,9 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
     script::StructPtr tags = script::make_struct();
     tags->put_name_key(checksums::Name{kOwner}, entity()->ident());
     uint32_t script = 0;
-    if (params->read_hash_value(kOnDestroyScript, &script, 0))
+    if (params->read_hash_value(kOnDestroyScript, &script, 0)) {
         tags->put_name_key(checksums::Name{kOnDestroyScript}, script);
+    }
     core::at(items_, slot)->set_tags_from_struct(tags.get());
     tags.reset();
 
@@ -195,11 +202,14 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         return 1;
     case kSpecialItemExists: {
         int slot = 0;
-        if (params->fetch_int_value(kIndex, &slot, 0))
+        if (params->fetch_int_value(kIndex, &slot, 0)) {
             return core::at(items_, slot) != nullptr;
-        for (const GameEntity* item : items_)
-            if (item)
+        }
+        for (const GameEntity* item : items_) {
+            if (item) {
                 return 1;
+            }
+        }
         return 0;
     }
     default:

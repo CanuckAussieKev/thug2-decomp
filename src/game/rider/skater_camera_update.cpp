@@ -115,8 +115,9 @@ double dot_zyx(const maths::Vec4& a, const maths::Vec4& b)
 void RiderChaseView::tick_frame()
 {
     auto* skater = rider_ref_;
-    if (!skater)
+    if (!skater) {
         return;
+    }
     const RiderBoardPhysics* control = control_;
     if (control && control->pose()->in_vehicle()) {
         // Driving: the camera object not updated.
@@ -172,12 +173,15 @@ void RiderChaseView::tick_frame()
                 const maths::Vec4& wall = wall_facing_;
                 double was = std::atan2(static_cast<double>(wall.z), static_cast<double>(wall.x));
                 double now = std::atan2(static_cast<double>(flat.z), static_cast<double>(flat.x));
-                if (was < 0.0)
+                if (was < 0.0) {
                     was += maths::kTwoPi;
-                if (now < 0.0)
+                }
+                if (now < 0.0) {
                     now += maths::kTwoPi;
-                if (std::fabs(now - was) > kTurnedAngle)
+                }
+                if (std::fabs(now - was) > kTurnedAngle) {
                     turned = true;
+                }
             }
             ++wall_ride_frames_;
         }
@@ -191,10 +195,11 @@ void RiderChaseView::tick_frame()
     }
     float& roll_now = roll_;
     if (roll_now != roll) {
-        if (instant)
+        if (instant) {
             roll_now = static_cast<float>(roll);
-        else
+        } else {
             roll_now = static_cast<float>(((roll - roll_now) * look_rate_) + roll_now);
+        }
     }
 
     // The up for the offsets: the orientation's (off the ground), else the state's ground normal (+0xF8).
@@ -209,10 +214,11 @@ void RiderChaseView::tick_frame()
         const double horizontal =
             std::sqrt((static_cast<double>(velocity_x) * velocity_x) + (static_cast<double>(velocity_z) * velocity_z));
         bool along = false;
-        if (horizontal > kSlowHorizontal)
+        if (horizontal > kSlowHorizontal) {
             along = !look_down;
-        else
+        } else {
             along = !look_down && state_ref_->flag(PoseFlag::kAcidDrop).on;
+        }
         const bool skip = !(horizontal > kSlowHorizontal) && !look_down && !state_ref_->flag(PoseFlag::kAcidDrop).on;
         if (!skip) {
             maths::Vec4& right = core::at(orient.row, 0);
@@ -235,13 +241,14 @@ void RiderChaseView::tick_frame()
                 double k = 0.0;
                 if (physics_state == 1) {
                     ux = 0.0, uy = 1.0, uz = 0.0, uw = 1.0;
-                    if (s->flag(PoseFlag::kAcidDrop).on && facing.y < 0.0F)
+                    if (s->flag(PoseFlag::kAcidDrop).on && facing.y < 0.0F) {
                         k = static_cast<float>(
                             (((static_cast<double>(facing.z) * 0.0) + (static_cast<double>(facing.x) * 0.0)) +
                              facing.y) *
                             kAirLookDown);
-                    else
+                    } else {
                         k = facing.y;
+                    }
                     up_row = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
                 } else if (physics_state == 2) {
                     ux = 0.0, uy = 1.0, uz = 0.0, uw = 1.0;
@@ -286,21 +293,24 @@ void RiderChaseView::tick_frame()
     if (physics_state == 1) {
         const double tilt = (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * air_tilt_rate()) + air_tilt;
         air_tilt = static_cast<float>(tilt);
-        if (tilt > kAirTiltMaxValue)
+        if (tilt > kAirTiltMaxValue) {
             air_tilt = std::bit_cast<float>(kAirTiltMax);
+        }
     } else {
         if (air_tilt > 0.0F) {
             const double tilt =
                 air_tilt - (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_recovery());
             air_tilt = static_cast<float>(tilt);
-            if (tilt < 0.0)
+            if (tilt < 0.0) {
                 air_tilt = 0.0F;
+            }
         } else if (air_tilt < 0.0F) {
             const double tilt =
                 (frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_recovery()) + air_tilt;
             air_tilt = static_cast<float>(tilt);
-            if (tilt > 0.0)
+            if (tilt > 0.0) {
                 air_tilt = 0.0F;
+            }
         }
         wall_ride = physics_state == 2;
     }
@@ -333,8 +343,9 @@ void RiderChaseView::tick_frame()
     }
     if (!lip_tilted) {
         const objects::RiderPoseState* s = state_ref_;
-        if (!vert_air(s))
+        if (!vert_air(s)) {
             get_multiply(&orient, &maths::make_pitch_matrix(rotation, lean_angle_ + air_tilt_), &orient);
+        }
     }
     if (physics_state != 2 || lip_tilted) {
         const float tilt = free_look_module_->lean_angle();
@@ -395,11 +406,12 @@ void RiderChaseView::tick_frame()
     // Blocked on a lip: the skater's script flag (bit 0x16B8E4CB) set, else cleared.
     {
         auto* s = rider_ref_;
-        if (s && lip_state_ == 2)
+        if (s && lip_state_ == 2) {
             s->flag_bits() |=
                 1U << (script::fetch_int_value(kHideFlagBit) & kShiftCountMask); // (SHL: the count's low 5 bits)
-        else
+        } else {
             rider_ref_->flag_bits() &= ~(1U << (script::fetch_int_value(kHideFlagBit) & kShiftCountMask));
+        }
     }
 
     // The view looking along the orientation (right and at reversed), slerped from the camera's.
@@ -413,8 +425,9 @@ void RiderChaseView::tick_frame()
         maths::Vec4(-core::at(orient.row, 2).x, -core::at(orient.row, 2).y, -core::at(orient.row, 2).z, 0.0F);
     core::at(goal.row, 3) = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
     core::at(view.row, 3) = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
-    if (instant)
+    if (instant) {
         view = goal;
+    }
     auto* slerp = arc_blender_;
     const bool aligned = ((static_cast<double>(core::at(goal.row, 0).x) * core::at(view.row, 0).x) +
                           (static_cast<double>(core::at(goal.row, 0).y) * core::at(view.row, 0).y) +
@@ -515,15 +528,17 @@ void RiderChaseView::tick_frame()
     core::at(view.row, 0) = maths::Vec4(-look_right.x, -look_right.y, -look_right.z, 0.0F);
     core::at(view.row, 1) = maths::Vec4(look_up.x, look_up.y, look_up.z, 0.0F);
     core::at(view.row, 2) = maths::Vec4(-look.x, -look.y, -look.z, 0.0F);
-    if (shake_left_ > 0.0F)
+    if (shake_left_ > 0.0F) {
         apply_shake(&target, &view);
+    }
 
     // Kept clear of the world (unless riding something on a lip).
     bool avoid = true;
     if (rider_ref_->is_local_skater()) {
         auto* physics = core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kCorePhysics));
-        if (physics->ride()->ride() && physics_state == 3)
+        if (physics->ride()->ride() && physics_state == 3) {
             avoid = false;
+        }
     }
     if (avoid) {
         const maths::Vec4& at = core::at(view.row, 2);
@@ -537,8 +552,9 @@ void RiderChaseView::tick_frame()
     }
     target.w = 1.0F;
     camera_component->entity()->at_point() = target;
-    if (instant)
+    if (instant) {
         core::down_cast<ViewpointModule>(camera_component)->view_camera()->remember_prev_pos();
+    }
 }
 
 } // namespace objects

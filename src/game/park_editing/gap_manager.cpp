@@ -71,12 +71,14 @@ bool invoke_method_by_name(objects::Entity* object, uint32_t name, script::Struc
 void GapRegistry::update_checklist()
 {
     goals::GapTally* checklist = get_career()->fetch_gap_list(-1);
-    if (!checklist)
+    if (!checklist) {
         return;
+    }
     checklist->get_clear();
     for (Gap* gap : gaps_ptr_) {
-        if (gap)
+        if (gap) {
             checklist->register_gap_entry(gap->details_.text().data(), {.count = 0, .score = gap->details_.points_held()});
+        }
     }
 }
 
@@ -93,17 +95,20 @@ void GapRegistry::drop_gap_entry(int index, bool forget)
 {
     Gap* gap = core::at(gaps_ptr_, index);
     for (ParkTile* piece : gap->pieces_) {
-        if (piece)
+        if (piece) {
             park_owner_->builder()->destroy_piece(piece);
+        }
     }
     if (forget) {
         const int checklist_index = skate_checklist()->find_gap(gap->details_.text().data());
-        if (checklist_index >= 0)
+        if (checklist_index >= 0) {
             remove_gap_from_goals(checklist_index);
+        }
     }
     for (Gap*& slot : gaps_ptr_) {
-        if (slot == gap)
+        if (slot == gap) {
             slot = nullptr;
+        }
     }
     memory::Hub::dealloc(gap);
 }
@@ -112,8 +117,9 @@ void GapRegistry::drop_gap_entry(int index, bool forget)
 void GapRegistry::clear_gap_entries()
 {
     for (int i = 0; i < kMaxGaps; ++i) {
-        if (core::at(gaps_ptr_, i))
+        if (core::at(gaps_ptr_, i)) {
             drop_gap_entry(i, false);
+        }
     }
 }
 
@@ -122,15 +128,17 @@ void GapRegistry::set_trigger_length(ParkTile* piece)
 {
     float length = 0.0F; // (the float at 0x0066D520)
     for (Gap* gap : gaps_ptr_) {
-        if (!gap)
+        if (!gap) {
             continue;
+        }
         int half = 0;
-        if (core::at(gap->pieces_, 0) == piece)
+        if (core::at(gap->pieces_, 0) == piece) {
             half = 0;
-        else if (core::at(gap->pieces_, 1) == piece)
+        } else if (core::at(gap->pieces_, 1) == piece) {
             half = 1;
-        else
+        } else {
             continue;
+        }
         length = gap->details_.fetch_magnitude(half);
         break;
     }
@@ -194,8 +202,9 @@ void GapRegistry::fire_gap(int index, script::Script* script)
         uint32_t name = kEndGap;
         if (i == 0) {
             uint32_t flags = core::at(gaps_ptr_, index)->details_.cancel_flags();
-            if (!flags)
+            if (!flags) {
                 flags = static_cast<uint32_t>(script::fetch_int_value(kCancelGround));
+            }
             params->put_name_key(checksums::Name{kCombinedFlags}, flags);
             name = kStartGap;
         }

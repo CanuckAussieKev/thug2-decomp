@@ -118,11 +118,13 @@ void RiderIdentity::read_from_save(uint32_t name, script::Struct* save)
 {
     script::Struct* mine = nullptr;
     save->read_sub_struct(name, &mine, 0);
-    if (!mine)
+    if (!mine) {
         return;
+    }
     script::Struct* part = nullptr;
-    if (mine->read_sub_struct(kAppearance, &part, 0))
+    if (mine->read_sub_struct(kAppearance, &part, 0)) {
         set_appearance(part, true);
+    }
     part = nullptr;
     mine->read_sub_struct(kInfo, &part, 0);
     details_params()->get_clear();
@@ -140,8 +142,9 @@ int RiderIdentity::fetch_tally(uint32_t name)
 }
 bool RiderIdentity::set_ability_level(uint32_t name, int value)
 {
-    if (value < 0 || value > kMaxAbilityLevel)
+    if (value < 0 || value > kMaxAbilityLevel) {
         return false;
+    }
     details_params()->put_int(checksums::Name{name}, value);
     return true;
 }
@@ -180,8 +183,9 @@ int RiderIdentity::get_max_specials()
 uint32_t RiderIdentity::get_name_key_field(uint32_t name)
 {
     uint32_t value = 0;
-    if (name == kStance || name == kPushStyle)
+    if (name == kStance || name == kPushStyle) {
         details_params()->read_hash_value(name, &value, 1);
+    }
     return value;
 }
 
@@ -256,8 +260,9 @@ RiderIdentity::SpecialTrick* RiderIdentity::get_special_trick(SpecialTrick* out,
     slot->read_hash_value(kTrickKeys, &trick.keys(), 1);
     int flag = 0;
     slot->fetch_int_value(kTrickMarker, &flag, 0);
-    if (flag)
+    if (flag) {
         trick.set_flag(true);
+    }
     *out = trick;
     return out;
 }
@@ -269,24 +274,28 @@ bool RiderIdentity::set_special_trick(int index, SpecialTrick* trick, bool apply
     details_params()->read_sub_struct(kSpecials, &specials, 1);
     script::Array* slots = nullptr;
     specials->fetch_list(0U, &slots, 1);
-    if (index < 0 || index >= ints::as_signed(slots->extent()))
+    if (index < 0 || index >= ints::as_signed(slots->extent())) {
         return false;
+    }
     uint32_t name = trick->trick();
     uint32_t keys = trick->keys();
-    if (trick->is_vacant())
+    if (trick->is_vacant()) {
         name = keys = kEmptyTrick;
+    }
     auto* slot = slots->struct_at(static_cast<uint32_t>(index));
     slot->add_component_of_type(kTrickSlot, script::QbValueKind::kName, name);
     slot->add_component_of_type(kTrickKeys, script::QbValueKind::kName, keys);
-    if (trick->flag())
+    if (trick->flag()) {
         slot->put_int(checksums::Name{kTrickMarker}, 1);
-    else
+    } else {
         slot->erase_module(kTrickMarker);
+    }
     if (apply) {
         // The current skater's trick state told.
         auto* skater = modules::Skate::sole()->get_home_rider();
-        if (skater)
+        if (skater) {
             core::down_cast<MoveExecutor>(skater->fetch_module(kTrick))->apply_trick_bindings(this);
+        }
     }
     return true;
 }
@@ -307,19 +316,22 @@ void ChecksumSet::get_fill()
         const uint32_t item = array->fetch_part(i);
         int j = 0;
         for (; j < num_; ++j) {
-            if (item == core::at(items_, j))
+            if (item == core::at(items_, j)) {
                 break;
+            }
         }
-        if (j == num_) // (not there yet)
+        if (j == num_) { // (not there yet)
             core::at(items_, num_++) = item;
+        }
     }
 }
 
 // 0x00586230
 bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool specials)
 {
-    if (!params)
+    if (!params) {
         return true;
+    }
     // (the original keeps its values in its argument slots: what a lookup that finds nothing leaves - the
     // parameters' address for the checksums; here 0)
     uint32_t checksum = 0;                                  // the checksums
@@ -361,12 +373,14 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
             pop_heap();
         }
     }
-    if (!specials)
+    if (!specials) {
         return true;
+    }
     script::Struct* special_tricks = nullptr; // (the original read it into the checksums' slot)
     params->read_sub_struct(kSpecials, &special_tricks, 1);
-    if (special_tricks)
+    if (special_tricks) {
         mine->put_sub_struct(kSpecials, special_tricks);
+    }
     int max_specials = 0;
     params->fetch_int_value(kMaxSpecials, &max_specials, 1);
     mine->put_int(checksums::Name{kMaxSpecials}, max_specials);
@@ -403,8 +417,9 @@ bool RiderIdentity::get_reset(script::Struct* params)
     mine->append_struct_ref(kTrickStyle, script::new_struct());
     mine->append_struct_ref(kSpecials, script::new_struct());
     pop_heap();
-    if (!params)
+    if (!params) {
         return true;
+    }
     uint32_t appearance = 0; // (the original's: the slot's last value - a structure's address)
     params->read_hash_value(kAppearanceName, &appearance, 1);
     load_appearance(this, appearance, true);

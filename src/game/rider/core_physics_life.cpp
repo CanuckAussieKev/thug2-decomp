@@ -75,8 +75,9 @@ constexpr int kRail = 4;
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
 void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b)
 {
-    if (!script::fetch_int_value(kTrackingName))
+    if (!script::fetch_int_value(kTrackingName)) {
         return;
+    }
     debug::printf("Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", index, static_cast<double>(a->x),
                   static_cast<double>(a->y), static_cast<double>(a->z), static_cast<double>(b->x),
                   static_cast<double>(b->y), static_cast<double>(b->z));
@@ -86,8 +87,9 @@ void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b)
 bool SkaterPhysicsModule::projectile_button_pressed()
 {
     const uint32_t button = script::get_symbol_value(kProjectileControl); // (the game's string)
-    if (!trick_->check_release_press(button, false, true))
+    if (!trick_->check_release_press(button, false, true)) {
         return false;
+    }
     projectile_input_ = -1;
     return true;
 }
@@ -96,8 +98,9 @@ bool SkaterPhysicsModule::projectile_button_pressed()
 int SkaterPhysicsModule::is_sides_swapped()
 {
     const uint8_t flipped = state_->flag(PoseFlag::kFlipped).on;
-    if (core::down_cast<objects::Rider>(entity())->goofy())
+    if (core::down_cast<objects::Rider>(entity())->goofy()) {
         return flipped;
+    }
     return flipped ? 0 : 1;
 }
 
@@ -157,11 +160,13 @@ void SkaterPhysicsModule::leave_skating()
         static_cast<objects::Entity*>(object_of(this))->announce(kGetOffEvent, nullptr, 0.0F);
     }
     rail_wait_ = static_cast<int>(ftol(script::fetch_float(kRailWaitName)));
-    if (static_cast<uint32_t>(lip_time_) > static_cast<uint32_t>(rail_time_))
+    if (static_cast<uint32_t>(lip_time_) > static_cast<uint32_t>(rail_time_)) {
         rail_time_ = lip_time_;
+    }
     objects::RiderPoseState* state = state_;
-    if (state->cur_phase() == kAir && old_state_ == kLip && state->flag(PoseFlag::kLipToAir).on)
+    if (state->cur_phase() == kAir && old_state_ == kLip && state->flag(PoseFlag::kLipToAir).on) {
         set_timed_flag(this, PoseFlag::kLipToAir, 0);
+    }
     state_->change_phase(kGround);
     state_->set_drawn_normal(maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F));
     state_->floor_normal() = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
@@ -174,14 +179,17 @@ void SkaterPhysicsModule::clear_flags()
 {
     // (Flags 23 down to 0 - the flags block's +0x20 + 8 each -, all but 1: flipped.)
     for (int flag = kLastPoseFlag; flag >= 0; --flag) {
-        if (flag == 1)
+        if (flag == 1) {
             continue;
+        }
         set_timed_flag(this, static_cast<PoseFlag>(flag), 1);
-        if (flag == kSlideFlag)
+        if (flag == kSlideFlag) {
             sound_->set_sliding(1);
+        }
         set_timed_flag(this, static_cast<PoseFlag>(flag), 0);
-        if (flag == kSlideFlag)
+        if (flag == kSlideFlag) {
             sound_->set_sliding(0);
+        }
     }
 }
 
@@ -199,10 +207,12 @@ void SkaterPhysicsModule::set_physics_state(int state)
         object->at_point() = lip;
         object->old_pos() = object->at_point();
     }
-    if (state != kLip)
+    if (state != kLip) {
         lip = maths::Vec4(0.0F, 0.0F, 0.0F, 1.0F);
-    if (state != kGround)
+    }
+    if (state != kGround) {
         trick_->set_trick_objects(true);
+    }
     if (state_->cur_phase() == kRail && state != kRail) {
         set_timed_flag(this, PoseFlag::kSlide, 0);
         sound_->set_sliding(0);
@@ -216,8 +226,9 @@ void SkaterPhysicsModule::set_physics_state(int state)
             set_timed_flag(this, PoseFlag::kJumped, 0);
         }
     } else if (state == kAir) {
-        if (old != kWallRide)
+        if (old != kWallRide) {
             air_start_ = get_now();
+        }
         trick_->spin_total() = 0.0F;
         take_press(&input_->pad_primary().shoulder_left_a());
         take_press(&input_->pad_primary().shoulder_right_a());
@@ -255,8 +266,9 @@ Vec4& Vec4::clamp_tiny_to_nothing(float length)
 {
     const double length_squared =
         ((static_cast<double>(x) * x) + (static_cast<double>(y) * y)) + (static_cast<double>(z) * z);
-    if (length_squared < static_cast<double>(length) * length)
+    if (length_squared < static_cast<double>(length) * length) {
         *this = Vec4(0.0F, 0.0F, 0.0F, 0.0F);
+    }
     return *this;
 }
 

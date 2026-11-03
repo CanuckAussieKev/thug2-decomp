@@ -70,10 +70,11 @@ void turn_about_y(maths::Mat4& m, float degrees, bool before)
     auto radians = static_cast<float>(static_cast<double>(degrees) * kDegreeToRadianRatio); // pi / 180
     maths::Mat4 rotation{};
     const maths::Mat4& turn = maths::make_yaw_matrix(rotation, radians);
-    if (before)
+    if (before) {
         matrix_multiply(&m, &turn, &m);
-    else
+    } else {
         matrix_multiply(&m, &m, &turn);
+    }
 }
 
 // strcpy (unbounded, as the original's).
@@ -100,8 +101,9 @@ bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script* /*s
 bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
 {
     auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
-    if (!object)
+    if (!object) {
         return false;
+    }
     maths::Vec4 velocity = object->vel();
     float scale = 1.0F;
     float skew = 0.0F;
@@ -173,8 +175,9 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     // the stream numbers 1..count, shuffled
     gsl::owner<Array*> order = script::new_array();
     order->configure_size_kind(count, script::QbValueKind::kInteger);
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         order->set_element(i, static_cast<uint32_t>(i + 1));
+    }
     for (int i = 0; i < count; ++i) {
         const int other = maths::rnd(count);
         const uint32_t a = order->fetch_part(other);
@@ -214,8 +217,9 @@ bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
     for (int i = 0; i < count; ++i) {
         // "%s_%s%02i" (the original's sprintf is unbounded)
         text::format_to(stream, "%s_%s%02i", voice.data(), type, static_cast<int>(order->fetch_part(i)));
-        if (!audio::stream_exists(checksums::hash_from_text(stream.data())))
+        if (!audio::stream_exists(checksums::hash_from_text(stream.data()))) {
             continue;
+        }
         gsl::owner<Struct*> stream_params = script::new_struct();
         stream_params->put_name_key(checksums::Name{kStreamChecksum}, checksums::hash_from_text(stream.data()));
         script::launch_script(kSkaterPlayBailStream, stream_params, script->entity().get_pull(), false, nullptr);

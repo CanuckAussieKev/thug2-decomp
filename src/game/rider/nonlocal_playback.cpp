@@ -102,8 +102,9 @@ float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
         conn = app->begin_conn_walk(&search);
     }
     const int latency = conn->is_host_local() ? 0 : conn->ping_probe().average_latency();
-    if (frame_ms == 0)
+    if (frame_ms == 0) {
         return 0.0F;
+    }
     return static_cast<float>(static_cast<double>(static_cast<uint32_t>(latency - frame_ms)) /
                               static_cast<double>(static_cast<uint32_t>(frame_ms)));
 }
@@ -114,8 +115,9 @@ float connection_lag(net::AppHost* app, GameEntity* skater, int frame_ms)
 void RiderRemoteSync::interpolate()
 {
     const net::AppHost* app = client_app();
-    if (!app || past_frames_->state_count() < kHistory)
+    if (!app || past_frames_->state_count() < kHistory) {
         return;
+    }
     auto* skater = core::down_cast<Rider>(entity());
     if (sync_frame_ == 0) {
         // Playback starts at the newest state, a fixed time behind it.
@@ -130,8 +132,9 @@ void RiderRemoteSync::interpolate()
         skater->at_point() = frame_position(frame);
         skater->mark_jumped_ahead(true);
         skater->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-        if (skater->get_flag_2c_4())
+        if (skater->get_flag_2c_4()) {
             return;
+        }
         skater->show_skater();
         script::launch_script(kSkaterAppeared, nullptr, skater, false, nullptr);
         online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())); // (its result unused)
@@ -141,8 +144,9 @@ void RiderRemoteSync::interpolate()
 
     // (the original's slerp interpolator is made here: its constructor 0x005902E0 does nothing)
     auto* player = (online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
-    if (!player->has_finished_joining())
+    if (!player->has_finished_joining()) {
         player->set_finished_joining();
+    }
     const int count = past_frames_->state_count();
     const int oldest = count % kHistory; // (the next to be written)
     uint32_t now = app->clock() - sync_frame_ + sync_time_;
@@ -150,10 +154,11 @@ void RiderRemoteSync::interpolate()
     if (now > history_frame_stamp(last)) {
         // Past the newest state: the playback falls back (by a second's frames, or to the state when further).
         int adjust = 0;
-        if (now - history_frame_stamp(last) > kMillisecondsPerSecond)
+        if (now - history_frame_stamp(last) > kMillisecondsPerSecond) {
             adjust = static_cast<int>(history_frame_stamp(last) - now);
-        else
+        } else {
             adjust = -kMillisecondsPerSecond / frame_rate();
+        }
         sync_time_ += adjust;
         now = app->clock() - sync_frame_ + sync_time_;
     }
@@ -161,16 +166,18 @@ void RiderRemoteSync::interpolate()
     int entry = oldest;
     while (now > history_frame_stamp(history_frame(past_frames_, entry))) {
         entry = (entry + 1) % kHistory;
-        if (entry == oldest)
+        if (entry == oldest) {
             return;
+        }
     }
     const int lag = (oldest - entry + kHistory) % kHistory;
     play_idx_ = entry;
     nonlocal_lag() = lag;
-    if (lag >= kCatchUpFrames)
+    if (lag >= kCatchUpFrames) {
         sync_time_ += kMillisecondsPerSecond / frame_rate() * kCatchUpFrames; // (far behind: ten frames on)
-    else if (lag == 0)
+    } else if (lag == 0) {
         skater->reset_27c();
+    }
     SkaterStateHistoryFrame* from = history_frame(past_frames_, (entry + kHistory - 1) % kHistory);
     SkaterStateHistoryFrame* to = history_frame(past_frames_, entry);
     auto elapsed = static_cast<float>(static_cast<int>(now - history_frame_stamp(from)));
@@ -239,12 +246,14 @@ void RiderRemoteSync::interpolate()
     core::down_cast<RiderSessionEnd>(run_over_)->set_flag_bits(to->value_6c_); // (0x00407A70)
     // The timed flags (each a bool and the time it last changed) from the state's bits.
     const uint32_t bits = to->value68;
-    for (int i = 0; i < kPoseFlagCount; ++i)
+    for (int i = 0; i < kPoseFlagCount; ++i) {
         pose_->set_flag(static_cast<PoseFlag>(i), (bits & (1U << i)) != 0);
-    if (pose_->flag(PoseFlag::kAcidDrop).on)
+    }
+    if (pose_->flag(PoseFlag::kAcidDrop).on) {
         pose_->drop_velocity() = skater->vel();
-    else
+    } else {
         pose_->drop_velocity() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    }
 }
 
 // 0x00515360
@@ -327,12 +336,14 @@ void RiderRemoteSync::get_extrapolate()
     const double ex = static_cast<double>(from.x) - to.x;
     const double ey = static_cast<double>(from.y) - to.y;
     const double ez = static_cast<double>(from.z) - to.z;
-    if (std::sqrt(((ez * ez) + (ey * ey)) + (ex * ex)) > kWallCheckReach)
+    if (std::sqrt(((ez * ez) + (ey * ey)) + (ex * ex)) > kWallCheckReach) {
         return;
+    }
     feeler.change_strand(&from, &to);
     feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
-    if (feeler.get_hit_shape(true, false))
+    if (feeler.get_hit_shape(true, false)) {
         deflect_from_wall(&feeler.surface_dir(), &feeler.contact_pos());
+    }
 }
 
 // 0x00516640
@@ -340,8 +351,9 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
 {
     GrindRailHub* rails = get_level_rails();
     GrindPoint* next = node->succ();
-    if (!next)
+    if (!next) {
         return nullptr;
+    }
     GameEntity* skater = entity();
     maths::Vec4 a{};
     maths::Vec4 b{};
@@ -370,8 +382,9 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     float sign = -1.0F;
     if (!(((static_cast<double>(along.y) * vel.y) + (static_cast<double>(along.z) * vel.z)) +
               (static_cast<double>(along.x) * vel.x) <
-          0.0))
+          0.0)) {
         sign = 1.0F;
+    }
 
     // Whether the rail goes on round the corner ahead (else the skater stops at its end): the next segment there
     // active and turning less than Rail_Corner_Leave_Angle (both flattened).
@@ -406,8 +419,9 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
                                (static_cast<double>(there.x) * here.x));
         const double limit =
             std::cos(static_cast<double>(read_tuning_float(checksums::Name{kRailCornerLeaveAngle}, 1, skater)) * kRadiansPerDegree);
-        if (limit > cosine)
+        if (limit > cosine) {
             stopped = true;
+        }
     }
 
     // Past the segment's end (further from its other end than its length): onto the next segment, if it's there,
@@ -422,15 +436,17 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     if (distance > static_cast<double>(length) + kRailEndSlack) {
         overshoot = static_cast<float>(distance - length);
         // (quirk kept: going forward, the segment's own end is checked for being active, not the node beyond it)
-        if (!beyond || !((sign > 0.0F ? next : beyond)->flag_bits() & kRailActive))
+        if (!beyond || !((sign > 0.0F ? next : beyond)->flag_bits() & kRailActive)) {
             return nullptr;
+        }
         if (sign > 0.0F) {
             maths::Vec4 to{};
             maths::Vec4 from{};
             rails->get_absolute_pos(&to, beyond);
             rails->get_absolute_pos(&from, next);
-            if (!rail_clear(from, to) || stopped)
+            if (!rail_clear(from, to) || stopped) {
                 return nullptr;
+            }
             rails->get_absolute_pos(&p1, next);
             skater->at_point() = p1;
             node = next;
@@ -439,8 +455,9 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
             maths::Vec4 from{};
             rails->get_absolute_pos(&to, beyond);
             rails->get_absolute_pos(&from, node);
-            if (!rail_clear(from, to) || stopped)
+            if (!rail_clear(from, to) || stopped) {
                 return nullptr;
+            }
             rails->get_absolute_pos(&p1, node);
             skater->at_point() = p1;
             node = beyond;
@@ -456,8 +473,9 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     sign = -1.0F;
     if (!(((static_cast<double>(segment.z) * vel.z) + (static_cast<double>(segment.y) * vel.y)) +
               (static_cast<double>(segment.x) * vel.x) <
-          0.0))
+          0.0)) {
         sign = 1.0F;
+    }
     vel.change_heading(segment);
     vel.x *= sign;
     vel.y *= sign;
@@ -530,12 +548,14 @@ void RiderRemoteSync::extrapolate_on_rail()
     // How far along the rail: the frame's length times the average alignment and lag (at most one second's worth).
     const double ahead = ((inverse * alignments) * (inverse * lags)) * frame_seconds_;
     auto left = static_cast<float>(ahead);
-    if (ahead > kOne)
+    if (ahead > kOne) {
         left = kOne;
+    }
 
     GrindPoint* node = rails->find_node(history_frame(past_frames_, play_idx_)->value80);
-    if (!node || !(left > 0.0F))
+    if (!node || !(left > 0.0F)) {
         return;
+    }
     for (bool again = true; again; again = left > 0.0F) {
         node = move_along_rail(node, left > frame_seconds_ ? frame_seconds_ : left);
         if (!node) {
@@ -552,8 +572,9 @@ void RiderRemoteSync::extrapolate_on_rail()
 void RiderRemoteSync::play_history_events()
 {
     const net::AppHost* app = client_app();
-    if (!app || past_frames_->state_count() < kHistory)
+    if (!app || past_frames_->state_count() < kHistory) {
         return;
+    }
     const int first = past_frames_->message_count() % kHistory;
     const uint32_t now = app->clock() - sync_frame_ + sync_time_;
     auto& messages = past_frames_->messages();
@@ -564,9 +585,10 @@ void RiderRemoteSync::play_history_events()
         if (get_time(*msg) > last_event_time_ && get_time(*msg) <= now) {
             switch (msg->ident_) {
             case online::MessageId::kPlayAnim: // an animation played (the primary channel)
-                if (gfx::BlendChannel* channel = blender->find_channel(0))
+                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
                     channel->play_anim(msg->name_, false, msg->from_, msg->to_, static_cast<int8_t>(msg->loop_type_),
                                        msg->blend_period_, msg->speed_, nullptr);
+                }
                 break;
             case online::MessageId::kBoardRotated: // the board rotated (the byte passed as it was sent)
                 core::down_cast<RiderSpinAndFlip>(flip_and_rotate_)
@@ -574,35 +596,41 @@ void RiderRemoteSync::play_history_events()
                                          false);
                 break;
             case online::MessageId::kWobbleTarget:
-                if (gfx::BlendChannel* channel = blender->find_channel(0))
+                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
                     channel->choose_wobble_goal(msg->wobble_target_, false);
+                }
                 break;
             case online::MessageId::kFlip:
-                if (gfx::BlendChannel* channel = blender->find_channel(0))
+                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
                     channel->set_flipped(static_cast<uint32_t>(static_cast<int8_t>(msg->object_id_)), msg->flipped_, 0,
                                          false); // (the byte passed as it was sent)
+                }
                 break;
             case online::MessageId::kWobbleDetails: // (the five details passed by address)
-                if (gfx::BlendChannel* channel = blender->find_channel(0))
+                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
                     channel->set_wobble_details(msg->wobble_details_, false);
+                }
                 break;
             case online::MessageId::kLoopType:
-                if (gfx::BlendChannel* channel = blender->find_channel(0))
+                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
                     channel->change_repeat_mode(static_cast<int8_t>(msg->loop_type_), false);
+                }
                 break;
             case online::MessageId::kHideGeom:
                 mesh_set_->conceal_mesh(msg->name_, msg->hidden_, false);
                 break;
             case online::MessageId::kAnimSpeed:
-                if (gfx::BlendChannel* channel = blender->find_channel(0))
+                if (gfx::BlendChannel* channel = blender->find_channel(0)) {
                     channel->set_speed(msg->speed_, false, false, false);
+                }
                 break;
             case online::MessageId::kSpinModel: { // the model's three parts set going, by the message's bits
                 mesh_set_->set_pivot({.x = 0.0F, .y = kModelPivotHeight, .z = 0.0F, .w = 1.0F});
                 const int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
-                    if (msg->spin_axes_ & (1U << bit))
+                    if (msg->spin_axes_ & (1U << bit)) {
                         append_one(core::at(mesh_set_->twist_rate(), bit), {.period = static_cast<float>(msg->spin_period_), .start = static_cast<uint32_t>(time), .base = msg->spin_start_, .range = msg->spin_range_, .power = msg->spin_power_}, msg->spin_hold_, false);
+                    }
                 }
                 break;
             }
@@ -611,8 +639,9 @@ void RiderRemoteSync::play_history_events()
                 script::Struct* structure = script::read_sub_struct(msg->name_); // (the original also passes 1)
                 GameEntity* item = items->create_item(msg->item_slot_, structure);
                 gsl::owner<script::Struct*> params = script::spawn_param_bag();
-                if (params)
+                if (params) {
                     params = new (params) script::Struct;
+                }
                 params->put_name_key(checksums::Name{kItemName}, msg->bone_);
                 params->put_name_key(checksums::Name{kItemOwner}, entity()->ident());
                 item->fetch_module(kItemComponent)->configure_from_data(params);
@@ -627,8 +656,9 @@ void RiderRemoteSync::play_history_events()
                     ->destroy_item(msg->item_slot_);
                 break;
             case online::MessageId::kCancelSpins:
-                for (ModelSpinAxis& axis : mesh_set_->twist_rate())
+                for (ModelSpinAxis& axis : mesh_set_->twist_rate()) {
                     get_clear(axis);
+                }
                 break;
             default:
                 break;

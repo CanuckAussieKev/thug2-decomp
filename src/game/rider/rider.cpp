@@ -341,10 +341,11 @@ bool rule_5a_1180() { return static_cast<uint8_t>(commands::cfunc_in_split_scree
 void Rider::set_stat_override(int index, float value)
 {
     if (rule_5a_1180()) {
-        if (value > kStatCeiling)
+        if (value > kStatCeiling) {
             value = kStatCeiling;
-        else if (value < 0.0F)
+        } else if (value < 0.0F) {
             value = 0.0F;
+        }
     }
     core::at(stat_overrides_, index) = value;
 }
@@ -356,21 +357,28 @@ int Rider::get_skater_number() const { return skater_number_; }
 // 0x0057FED0
 bool Rider::matches_params(script::Struct* params) const
 {
-    if (params->has_bare_flag(kIsPro) && !pro_)
+    if (params->has_bare_flag(kIsPro) && !pro_) {
         return false;
-    if (params->has_bare_flag(kIsCustom) && pro_)
+    }
+    if (params->has_bare_flag(kIsCustom) && pro_) {
         return false;
-    if (params->has_bare_flag(kIsMale) && !male_)
+    }
+    if (params->has_bare_flag(kIsMale) && !male_) {
         return false;
-    if (params->has_bare_flag(kIsFemale) && male_)
+    }
+    if (params->has_bare_flag(kIsFemale) && male_) {
         return false;
+    }
     uint32_t value = 0;
-    if (params->read_hash_value(kIsNamed, &value, 0) && value != label_)
+    if (params->read_hash_value(kIsNamed, &value, 0) && value != label_) {
         return false;
-    if (params->read_hash_value(kStance, &value, 0) && value != (goofy_ ? kGoofy : kRegular))
+    }
+    if (params->read_hash_value(kStance, &value, 0) && value != (goofy_ ? kGoofy : kRegular)) {
         return false;
-    if (params->read_hash_value(kStyle, &value, 0) && value != style_)
+    }
+    if (params->read_hash_value(kStyle, &value, 0) && value != style_) {
         return false;
+    }
     return true;
 }
 
@@ -382,8 +390,9 @@ void Rider::sparks_on()
 }
 void Rider::sparks_off()
 {
-    if (!sparks_)
+    if (!sparks_) {
         return;
+    }
     script::launch_script(kSparksOff, nullptr, this, false, nullptr);
     sparks_ = false;
 }
@@ -423,8 +432,9 @@ void Rider::load_list_44b_66a_9f(script::Struct* params)
     static_cast<AttributeTracker*>(stats_)->reapply_from_data(nullptr);
     script::Array* entries = nullptr;
     params->fetch_list(kList44b66a9f, &entries, 0);
-    for (int i = 0; i < kGoalStatusCount; ++i)
+    for (int i = 0; i < kGoalStatusCount; ++i) {
         static_cast<AttributeTracker*>(stats_)->set_goal_status(i, static_cast<int>(entries->fetch_part(i)));
+    }
 }
 
 // 0x005801B0
@@ -439,12 +449,15 @@ void Rider::write_chapter_info(script::Struct* save)
 void Rider::read_chapter_info(script::Struct* save)
 {
     script::Array* array = nullptr;
-    if (save->fetch_list(kSaveChapterStatus, &array, 0))
+    if (save->fetch_list(kSaveChapterStatus, &array, 0)) {
         script::duplicate_array(script::fetch_list(kChapterStatus), array);
-    if (save->fetch_list(kSaveChapterIntros, &array, 0))
+    }
+    if (save->fetch_list(kSaveChapterIntros, &array, 0)) {
         script::duplicate_array(script::fetch_list(kChapterIntros), array);
-    if (save->fetch_list(kSaveChapterOuttros, &array, 0))
+    }
+    if (save->fetch_list(kSaveChapterOuttros, &array, 0)) {
         script::duplicate_array(script::fetch_list(kChapterOuttros), array);
+    }
 }
 
 // 0x005802C0
@@ -453,15 +466,17 @@ void Rider::set_42b_d60(float value) { set_rigid_body_pusher_reach(this, value);
 // 0x005802E0
 script::Struct* get_physics_structure(GameEntity* skater)
 {
-    if (!skater || !skater->is_local_skater())
+    if (!skater || !skater->is_local_skater()) {
         return script::read_sub_struct(kSkaterPhysics);
+    }
     auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics));
     // Not original - on THAW's bike, THAW's bicycle_physics (thaw_bicycle_physics: game/rider/thaw_bmx.h), as
     // THAW's own get_physics_structure (0x0058ED90) picks it.
     // Original behaviour: the vehicle's, the chainsaw's or the skater's below.
     if (skater::thaw_bmx::is_switched_on()) {
-        if (script::Struct* bike = skater::thaw_bmx::physics_structure(core))
+        if (script::Struct* bike = skater::thaw_bmx::physics_structure(core)) {
             return bike;
+        }
     }
     if (core->on_vehicle()) {
         switch (core->vehicle()) { // what it rides
@@ -483,8 +498,9 @@ script::Struct* get_physics_structure(GameEntity* skater)
             return script::read_sub_struct(kSkaterPhysics); // (slalom, shoppingcart, anything else)
         }
     }
-    if (core->motoskateboard())
+    if (core->motoskateboard()) {
         return script::read_sub_struct(kChainsawPhysics);
+    }
     return script::read_sub_struct(kSkaterPhysics);
 }
 
@@ -494,8 +510,9 @@ float read_tuning_float(checksums::Name tuning_name, int assert, GameEntity* ska
     const uint32_t name = tuning_name.value();
     script::Struct* physics = get_physics_structure(skater);
     float value = 0.0F;
-    if (physics->fetch_float(name, &value, 0))
+    if (physics->fetch_float(name, &value, 0)) {
         return value;
+    }
     (void)assert;
     return script::fetch_float(name);
 }
@@ -506,8 +523,9 @@ int read_tuning_int(checksums::Name tuning_name, int assert, GameEntity* skater)
     const uint32_t name = tuning_name.value();
     script::Struct* physics = get_physics_structure(skater);
     int value = 0;
-    if (physics->fetch_int_value(name, &value, 0))
+    if (physics->fetch_int_value(name, &value, 0)) {
         return value;
+    }
     (void)assert;
     return script::fetch_int_value(name);
 }
@@ -528,22 +546,25 @@ float Rider::fetch_tally(int index)
     if (online::online_hub()->in_net_game()) {
         auto* player =
             online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
-        if (player && player->holds_crown())
+        if (player && player->holds_crown()) {
             stat = 1.0F;
-        else if (player && player->is_carrying_flag())
+        } else if (player && player->is_carrying_flag()) {
             stat = kCarryingFlagStat;
-        else
+        } else {
             stat = kOutOfGameStat; // (no player, or neither)
+        }
     } else if (rule_5a_1180()) {
         auto* player =
             online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()));
-        if (player && player->holds_crown())
+        if (player && player->holds_crown()) {
             stat = 1.0F;
+        }
     }
     RiderStoryProgress* cheats = modules::Skate::sole()->career().get();
     float result = cheats->is_code_on(static_cast<uint32_t>(script::fetch_int_value(kCheatStats13))) ? kCheatStat : stat;
-    if (score_holder_->points_held()->special_active())
+    if (score_holder_->points_held()->special_active()) {
         result = static_cast<float>(result + kSpecialStatBonus);
+    }
     return result;
 }
 
@@ -566,32 +587,37 @@ float Rider::get_scaled_value(script::Struct* params)
         const double s = fetch_tally(6);
         double scale =
             ((static_cast<double>(switch_range.y()) - switch_range.x()) * s * kStatToFraction) + switch_range.x();
-        if (scale < 0.0)
+        if (scale < 0.0) {
             scale = 0.0;
-        else if (scale > 1.0)
+        } else if (scale > 1.0) {
             scale = 1.0;
+        }
         result = static_cast<float>(scale * result);
     }
     // The game's difficulty (one more in classic mode): times the diff pair's first (0) or second (2).
     goals::GoalManager* mode = modules::Skate::sole()->get_objective_board();
     int difficulty = mode->get_skill_tier(false);
-    if (goals::game_mode()->is_true(kIsClassic))
+    if (goals::game_mode()->is_true(kIsClassic)) {
         ++difficulty;
+    }
     if (difficulty != 1) {
         script::Pair diff;
         if (params->fetch_pair(kDiff, &diff, false)) {
-            if (difficulty == 0)
+            if (difficulty == 0) {
                 result = static_cast<float>(static_cast<double>(diff.x()) * result);
-            else if (difficulty == 2)
+            } else if (difficulty == 2) {
                 result = static_cast<float>(static_cast<double>(diff.y()) * result);
+            }
         }
     }
     // The limit: a maximum for a rising range, a minimum otherwise.
     float limit = 0.0F;
-    if (!params->fetch_float(kLimit, &limit, 0))
+    if (!params->fetch_float(kLimit, &limit, 0)) {
         return result;
-    if (low < high)
+    }
+    if (low < high) {
         return result > limit ? limit : result;
+    }
     return result < limit ? limit : result;
 }
 
@@ -601,8 +627,9 @@ float Rider::get_scaled_physics(uint32_t name)
     script::Struct* params = nullptr;
     Entity* object = objects::EntityHub::look_up_entity(ident());
     script::Struct* physics = get_physics_structure(core::down_cast<GameEntity>(object));
-    if (!physics->read_sub_struct(name, &params, 0))
+    if (!physics->read_sub_struct(name, &params, 0)) {
         params = script::read_sub_struct(name);
+    }
     return get_scaled_value(params);
 }
 
@@ -625,8 +652,9 @@ void Rider::move_to_random_restart()
         ++tries;
     }
     last_restart_ = restart;
-    if (restart)
+    if (restart) {
         jump_to_spawn({.node = restart, .walking = 0});
+    }
 }
 
 // 0x00580880
@@ -639,8 +667,9 @@ Entity* Rider::get_skater_camera() const
 void Rider::set_pause_state(int state)
 {
     void* front_end = modules::front_end_instance().get();
-    if (pause_state_ == state || !fetch_module(kSkaterPhysicsControl))
+    if (pause_state_ == state || !fetch_module(kSkaterPhysicsControl)) {
         return;
+    }
     pause_state_ = state;
     auto pause_game = [front_end](bool pause) { static_cast<modules::FrontEnd*>(front_end)->get_pause_game(pause); };
     auto control = [](void* physics_control, int paused) {
@@ -665,8 +694,9 @@ void Rider::set_pause_state(int state)
     case 2:
         if (!read_tuning_int(checksums::Name{kPauseValue}, 0, nullptr)) {
             ObjectModule* physics_control = fetch_module(kSkaterPhysicsControl);
-            if (core::down_cast<RiderBoardPhysics>(physics_control)->is_halted())
+            if (core::down_cast<RiderBoardPhysics>(physics_control)->is_halted()) {
                 control(physics_control, 0);
+            }
         }
         break;
     default:
@@ -717,16 +747,19 @@ void Rider::update_shadow_light()
     // In the air (or not on the ground): fade towards straight down; else back.
     bool fading = false;
     const RiderBoardPhysics* control = physics_control_;
-    if (control && !control->pose()->in_vehicle() && control->pose()->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating)
+    if (control && !control->pose()->in_vehicle() &&
+        control->pose()->physics_mode() == objects::RiderPoseState::PhysicsMode::kSkating) {
         fading = core_physics_->state()->cur_phase() == 0;
-    else if (!walk_)
+    } else if (!walk_) {
         fading = true;
-    else
+    } else {
         fading = static_cast<uint32_t>(walk_->get_state()) != 1;
-    if (fading)
+    }
+    if (fading) {
         shadow_fade_ = shadow_fade_ > 0 ? shadow_fade_ - 1 : 0;
-    else
+    } else {
         shadow_fade_ = shadow_fade_ < kShadowFadeFrames ? shadow_fade_ + 1 : kShadowFadeFrames;
+    }
     maths::Vec4 direction;
     walk::get_lerp(&direction, &light, &down,
                    static_cast<float>(shadow_fade_) * kShadowFadeStep);
@@ -760,12 +793,14 @@ void Rider::set_stats_from_profile(RiderIdentity* profile)
 {
     RiderStoryProgress* classic_stats = modules::Skate::sole()->career().get();
     if (goals::game_mode()->is_true(kIsClassic)) {
-        for (int i = 0; i < kStatCount; ++i)
+        for (int i = 0; i < kStatCount; ++i) {
             set_stat_override(i, static_cast<float>(classic_stats->get_info_integer(core::at(kStatNames, i))));
+        }
         return;
     }
-    for (int i = 0; i < kStatCount; ++i)
+    for (int i = 0; i < kStatCount; ++i) {
         set_stat_override(i, static_cast<float>(profile->fetch_tally(core::at(kStatNames, i))));
+    }
 }
 
 // 0x00580EB0
@@ -787,8 +822,9 @@ void Rider::update_from_profile(RiderIdentity* profile)
     {
         // (copied inline, unchecked in the original: a name too long for the array ends the game with a report here)
         const std::string_view first(first_name);
-        for (size_t i = 0; i <= first.size(); ++i)
+        for (size_t i = 0; i <= first.size(); ++i) {
             core::at(given_name_, i) = i < first.size() ? core::at(first, i) : '\0';
+        }
     }
     label_ = profile->fetch_title();
     if (is_local_skater()) {
@@ -806,11 +842,13 @@ void Rider::reset_input()
     set_up_network();
     for (int i = 0; i < kLoopPoseFlags; ++i) {
         core_physics_->state()->set_flag(static_cast<PoseFlag>(i), 1);
-        if (i == kSlideFlag)
+        if (i == kSlideFlag) {
             core_physics_->sound()->set_sliding(1);
+        }
         core_physics_->state()->set_flag(static_cast<PoseFlag>(i), 0);
-        if (i == kSlideFlag)
+        if (i == kSlideFlag) {
             core_physics_->sound()->set_sliding(0);
+        }
     }
     pad_input_->pad_primary().get_clear();
     script::launch_script(kInitSkaterParticles, nullptr, this, false, nullptr);
@@ -820,8 +858,9 @@ void Rider::reset_input()
 void Rider::reset_state()
 {
     auto* physics_control = core::down_cast<RiderBoardPhysics>(fetch_module(kSkaterPhysicsControl));
-    if (physics_control->is_halted())
+    if (physics_control->is_halted()) {
         physics_control->set_frozen(false);
+    }
     core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate))->clear_after_flags();
     MoveExecutor* tricks = trick_;
     tricks->clear_extra_tricks();
@@ -833,8 +872,9 @@ void Rider::reset_state()
     core::down_cast<RiderPoseState>(fetch_module(kSkaterState))->clear_doing_trick();
     model_component_->set_flip(false);
     balance_displays_off(score_holder_->points_held());
-    if (vibration_)
+    if (vibration_) {
         vibration_->stop_all();
+    }
     shadow_->change_place(&at_point());
     shadow_->set_normal(&core::at(basis_frame().row, 1));
     core::down_cast<RiderStanceDisplay>(fetch_module(kSkaterStancePanel))->set_shown(-1);
@@ -872,8 +912,9 @@ void Rider::show_board_element(uint32_t type)
         return;
     }
     script::Struct* params = script::read_sub_struct(name);
-    if (!params)
+    if (!params) {
         return;
+    }
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap());
     uint32_t model_swap = 0;
     uint32_t model_swap2 = 0;
@@ -900,8 +941,9 @@ void Rider::show_board_element(uint32_t type)
     element->get_border(0); // (black)
     element->get_zoom(width, height);
     int flag = 0;
-    if (params->fetch_int_value(kRotate, &flag, 0))
+    if (params->fetch_int_value(kRotate, &flag, 0)) {
         element->spin_by(kQuarterTurnRadians, {.x = -1.0F, .y = -1.0F});
+    }
     bool second = false;
     render::BitmapTexture* overlay = nullptr;
     int unused = 0;
@@ -918,8 +960,9 @@ void Rider::show_board_element(uint32_t type)
     const char* model = nullptr;
     params->fetch_text(kLogoTexture, &model, 1);
     core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName))->swap_texture(model_swap, model, model_swap2);
-    if (second)
+    if (second) {
         static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())->unload_texture(overlay);
+    }
     static_cast<render::TextureSet*>(render::engine_parts().game_texture_dict())->unload_texture(element);
     parent->end_edit();
     memory::Hub::get_pull()->leave_heap_scope();
@@ -928,16 +971,18 @@ void Rider::show_board_element(uint32_t type)
 // 0x005814D0
 void Rider::reset_27c()
 {
-    if (!is_local_skater())
+    if (!is_local_skater()) {
         core::down_cast<RiderRemoteSync>(fetch_module(kSkaterNonLocalNetLogic))->reset_playback();
+    }
     state_history_->state_count() = 0;
 }
 
 // 0x00581510
 void Rider::conceal_skater()
 {
-    if (is_local_skater())
+    if (is_local_skater()) {
         core::down_cast<RiderRollingAudio>(fetch_module(kSkaterLoopingSound))->stop_sound();
+    }
     static_cast<GroundShadowModule*>(shadow_)->destroy_shadow();
     conceal(true);
     flag_2c_4_ = false;
@@ -954,8 +999,9 @@ void Rider::show_skater()
 // 0x00581580
 const char* Rider::fetch_shown_name()
 {
-    if (online::online_hub()->in_net_game())
+    if (online::online_hub()->in_net_game()) {
         return online::online_hub()->find_player_slot_by_obj(static_cast<uint16_t>(ident()))->label().data();
+    }
     return shown_name_.c_str();
 }
 
@@ -966,11 +1012,13 @@ void Rider::glide_to_node(uint32_t name)
     core::at(basis_frame().row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
     core::at(basis_frame().row, 2) = {.x = 0.0F, .y = 0.0F, .z = 1.0F, .w = 0.0F};
     core::at(basis_frame().row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
-    if (!name)
+    if (!name) {
         return;
+    }
     script::Struct* node = level_nodes::fetch_vertex(name, !online::online_hub()->in_net_game());
-    if (!node)
+    if (!node) {
         return;
+    }
     level_nodes::fetch_place(name, &at_point());
     old_pos() = at_point();
     core_physics_->safe_pos() = at_point();
@@ -991,28 +1039,33 @@ void Rider::glide_to_node(uint32_t name)
 // 0x00581760
 void Rider::get_freeze()
 {
-    if (is_halted_ || !is_local_skater())
+    if (is_halted_ || !is_local_skater()) {
         return;
+    }
     is_halted_ = true;
     composite_flags() |= 1;
     balance_displays_off(score_holder_->points_held());
     script::launch_script(kPauseRunTimer, nullptr, nullptr, false, nullptr);
-    if (const PadInputModule* input = pad_input_)
+    if (const PadInputModule* input = pad_input_) {
         input->handler()->dev()->pause_actuators();
+    }
     sound::AudioMixer::update_voice_volumes();
 }
 
 // 0x005817F0
 void Rider::unpause()
 {
-    if (!is_halted_ || !is_local_skater())
+    if (!is_halted_ || !is_local_skater()) {
         return;
+    }
     is_halted_ = false;
     composite_flags() &= ~1U;
-    if (const PadInputModule* input = pad_input_)
+    if (const PadInputModule* input = pad_input_) {
         input->handler()->dev()->unpause_actuators();
-    if (auto* component = core::down_cast<RiderRollingAudio>(fetch_module(kSkaterLoopingSound)))
+    }
+    if (auto* component = core::down_cast<RiderRollingAudio>(fetch_module(kSkaterLoopingSound))) {
         component->set_force_update(1);
+    }
 }
 
 namespace {
@@ -1075,8 +1128,9 @@ void Rider::prepare_all(RiderIdentity* profile)
     // Its script; its anim set (skater_asset_info's skater_skeleton, else thps6_human).
     set_own_script(script::Script::create());
     uint32_t skeleton = kTHPS6Human;
-    if (script::Struct* asset_info = script::read_sub_struct(kSkaterAssetInfo))
+    if (script::Struct* asset_info = script::read_sub_struct(kSkaterAssetInfo)) {
         asset_info->read_hash_value(kSkaterSkeleton, &skeleton, 0);
+    }
     add_motion_components(this);
     add_component_from_structure(this, [skeleton](script::Struct* params) {
         Expects(params != nullptr);
@@ -1136,8 +1190,9 @@ void Rider::prepare_all(RiderIdentity* profile)
         core_physics_->set_auto_kick(core::at(skate->participants(), view_slot_).auto_kick_);
         core_physics_->set_tap_spin(core::at(skate->participants(), view_slot_).spin_taps_);
         vibration_->change_live(core::at(skate->participants(), view_slot_).vibration_ != 0);
-        if (is_local_skater())
+        if (is_local_skater()) {
             own_script()->bind_script("SkaterInit", nullptr, this);
+        }
     }
     update_from_profile(profile);
     set_stats_from_profile(profile);
@@ -1154,19 +1209,22 @@ void Rider::prepare_all(RiderIdentity* profile)
         tricks->clear_block1280();
         trick_->set_score(score_holder_->points_held());
     }
-    if (RiderGapTracker* other = gap_tracker_)
+    if (RiderGapTracker* other = gap_tracker_) {
         other->set_points_held(score_holder_->points_held());
+    }
     if (ObjectModule* collision = fetch_module(kCollision)) {
         // (its +0x18, read through the folded getter 0x005480F0)
-        if (render::HitMesh* shape = core::down_cast<ContactShapeModule>(collision)->hit_shape())
+        if (render::HitMesh* shape = core::down_cast<ContactShapeModule>(collision)->hit_shape()) {
             shape->flag_bits() |= 2;
+        }
     }
     model_component_->jump_to(); // the model's update
     script::launch_script(kInitSkaterParticles, nullptr, this, false, nullptr);
     anim_blender_->play_animation(kDefaultName, std::bit_cast<uint32_t>(kDefaultAnimBlend)); // default
     if (is_local_skater()) {
-        for (std::unique_ptr<goals::CreateATrick>& trick : trick_slots_)
+        for (std::unique_ptr<goals::CreateATrick>& trick : trick_slots_) {
             trick = std::make_unique<goals::CreateATrick>();
+        }
         script::launch_script(kSpawnAddPremadeCatsToSkater, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
         GameEntity::invoke_method_by_name(kSkaterPhysicsControlSwitchWalkingToSkating, nullptr, nullptr);  // SkaterPhysicsControl_SwitchWalkingToSkating
         for (int i = 0; i < kProjectileCount; ++i) {
@@ -1185,16 +1243,18 @@ void Rider::prepare_all(RiderIdentity* profile)
     if (label_ == kCustomSkater) {
         int has_custom_tag = 0;
         info->fetch_int_value(kHasCustomTag, &has_custom_tag, 1);
-        if (has_custom_tag)
+        if (has_custom_tag) {
             core::down_cast<TaggingComponent>(controls)->apply_custom_tag_texture();
-        else
+        } else {
             core::down_cast<TaggingComponent>(controls)->set_graffiti_texture(tag);
+        }
     } else {
         core::down_cast<TaggingComponent>(controls)->set_graffiti_texture(tag);
     }
     const char* sticker = nullptr;
-    if (info->fetch_text(kStickerTexture, &sticker, 0)) // sticker_texture
+    if (info->fetch_text(kStickerTexture, &sticker, 0)) { // sticker_texture
         core::down_cast<TaggingComponent>(controls)->set_sticker_texture(sticker);
+    }
 }
 
 // 0x005822A0
@@ -1214,8 +1274,9 @@ void Rider::init_from_profile(RiderIdentity* profile)
             {.id = online::MessageId::kTrickObjects, .code = &modules::PointTally::on_score_msg},        {.id = online::MessageId::kRanIntoAck, .code = &RiderFrameLog::handle_collision_messages},
             {.id = online::MessageId::kRanInto, .code = &RiderFrameLog::handle_collision_messages}, {.id = online::MessageId::kHitOwner, .code = &RiderFrameLog::handle_hit_messages},
             {.id = online::MessageId::kHit, .code = &RiderFrameLog::handle_hit_messages},       {.id = online::MessageId::kTagStolen, .code = &RiderHostSync::handle_graffiti_steal}});
-        for (const auto& handler : handlers)
+        for (const auto& handler : handlers) {
             dispatcher->append_listener(handler.id, handler.code, 0, this, kListenerPriority);
+        }
     }
     // Never suspended (its suspend component's distances).
     if (auto* suspend = core::down_cast<DormancyModule>(fetch_module(kSuspend))) {
@@ -1237,14 +1298,17 @@ void Rider::run_state_script(bool walk, bool other)
         gsl::owner<script::Struct*> memory = script::spawn_param_bag();
         params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         Expects(params != nullptr);
-        if (walk)
+        if (walk) {
             params->put_name_key(checksums::Name{0U}, kWalk); // Walk
-        if (other)
+        }
+        if (other) {
             params->put_name_key(checksums::Name{0U}, kInCleanup);
+        }
     }
     own_script()->bind_script(kSkaterInit, params, this);
-    if (is_local_skater())
+    if (is_local_skater()) {
         own_script()->tick_frame();
+    }
     if (params) {
         params->get_clear();
         script::delete_struct(params);
@@ -1257,8 +1321,9 @@ void Rider::switch_to_script(uint32_t name, script::Struct* params)
     if (!own_script()) {
         set_own_script(script::Script::create());
     }
-    if (ObjectModule* flip_and_rotate = fetch_module(kSkaterFlipAndRotate))
+    if (ObjectModule* flip_and_rotate = fetch_module(kSkaterFlipAndRotate)) {
         core::down_cast<RiderSpinAndFlip>(flip_and_rotate)->do_after_anim();
+    }
     own_script()->bind_script(name, params, this);
     own_script()->tick_frame();
 }
@@ -1289,8 +1354,9 @@ void Rider::write_list_44b_66a_9f(script::Struct* save)
     gsl::owner<script::Array*> entries = memory ? memory::construct_in<script::Array>(memory) : nullptr;
     Expects(entries != nullptr);
     entries->configure_size_kind(kGoalStatusCount, script::QbValueKind::kInteger);
-    for (int i = 0; i < kGoalStatusCount; ++i)
+    for (int i = 0; i < kGoalStatusCount; ++i) {
         entries->set_element(i, static_cast<uint32_t>(static_cast<AttributeTracker*>(stats_)->get_goal_status(i)));
+    }
     save->append_array_ref(kList44b66a9f, entries);
 }
 
@@ -1332,15 +1398,17 @@ void Rider::launch_projectile()
     for (const ObjectModule* component = object_hub_slot()->find_first_module_of_kind(kProjectileproximity); component;
          component = component->next_of_type()) {
         GameEntity* object = component->entity();
-        if (!object)
+        if (!object) {
             continue;
+        }
         bool ped = false;
         if (object->fetch_module(kPedLogic)) { // PedLogic
             const uint32_t state =
                 core::down_cast<PedestrianBrainModule>(object->fetch_module(0x6EFDDFB8))->get_logic_state();
             ped = true;
-            if (state == kShot) // shot
+            if (state == kShot) { // shot
                 continue;
+            }
         }
         const double dz = static_cast<double>(object->at_point().z) - origin.z;
         const double dy = static_cast<double>(object->at_point().y) - origin.y;
@@ -1359,13 +1427,16 @@ void Rider::launch_projectile()
         }
         auto dot = static_cast<float>((static_cast<double>(to_z) * heading_z) + (to_y * heading_y) +
                                       (static_cast<double>(to_x) * heading_x));
-        if (!(script::fetch_float(kPhysicsProjectileTargetingDist) > distance)) // Physics_Projectile_Targeting_Dist
+        if (!(script::fetch_float(kPhysicsProjectileTargetingDist) > distance)) { // Physics_Projectile_Targeting_Dist
             continue;
+        }
         const double cone = std::cos(script::fetch_float(0x195A7DBA) * static_cast<double>(0.017453292F)); // ..._Angle
-        if (!(cone < dot))
+        if (!(cone < dot)) {
             continue;
-        if (!(distance < best))
+        }
+        if (!(distance < best)) {
             continue;
+        }
         target = object;
         best = distance;
         to_target_x = to_x;
@@ -1416,10 +1487,11 @@ Rider::Rider(int viewport, EntityHub* manager, bool local, RiderSlot rider_slot,
     set_kind_tag(kOBJECTTYPESKATER);
     skater_number_ = skater_number;
     set_ident(id);
-    if (skater_number == 0)
+    if (skater_number == 0) {
         get_tracker()->register_nickname(kSkater, this);
-    else if (skater_number == 1)
+    } else if (skater_number == 1) {
         get_tracker()->register_nickname(kSkater2, this);
+    }
     list_link().set_priority(-kListPriority);
     manager->enrol_subject(this);
     view_slot_ = viewport;
@@ -1524,8 +1596,9 @@ void Rider::reset_components()
         set_own_script(nullptr);
     }
     // Not original - the special items gone, THAW's bike with them: off the bike (game/rider/thaw_bmx.h).
-    if (skater::thaw_bmx::is_switched_on())
+    if (skater::thaw_bmx::is_switched_on()) {
         skater::thaw_bmx::on_skater_reset(this);
+    }
 }
 
 // 0x00583470
@@ -1544,8 +1617,9 @@ void Rider::relaunch(uint32_t a, uint32_t b)
             script::delete_struct(params);
         }
     }
-    if (own_script())
+    if (own_script()) {
         own_script()->run_on_exit_scripts();
+    }
     core_physics_->get_reset();
     auto* camera =
         core::down_cast<GameEntity>(objects::EntityHub::look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0));
@@ -1585,8 +1659,9 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         const uint32_t walking = params->has_entry_named(0xD6F06BF6) ? 1U : 0U;
         uint32_t prefix = 0;
         const char* text = nullptr;
-        if (!params->read_hash_value(kPrefix, &prefix, 0) && params->fetch_text(kPrefix, &text, 0)) // prefix
+        if (!params->read_hash_value(kPrefix, &prefix, 0) && params->fetch_text(kPrefix, &text, 0)) { // prefix
             prefix = checksums::hash_from_text(text);
+        }
         if (prefix) {
             script::Struct* node = level_nodes::find_closest_node_with_prefix(prefix, &at_point());
             jump_to_spawn({.node = (level_nodes::get_node_name(node)), .walking = walking});
@@ -1608,8 +1683,9 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
                 break;
             }
         }
-        if (i == count && park_editing::ParkBuilderMode::sole()->editor_state() != kOff)
+        if (i == count && park_editing::ParkBuilderMode::sole()->editor_state() != kOff) {
             modules::Skate::sole()->teleport_to_spawn(this, 0, walking);
+        }
         return true;
     }
     case kAddSkaterToWorld: // AddSkaterToWorld
@@ -1624,10 +1700,12 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         return named == label_;
     }
     case kShouldMongo: // ShouldMongo
-        if (!is_local_skater())
+        if (!is_local_skater()) {
             return false;
-        if (stroke_kind_ == kMongoWhenSwitch) // mongo_when_switch
+        }
+        if (stroke_kind_ == kMongoWhenSwitch) { // mongo_when_switch
             return (core_physics_->is_sides_swapped() & kByteMask) != 0;
+        }
         return stroke_kind_ == kAlwaysMongo; // always_mongo
     case kLaunchDirtyProjectile:                       // LaunchDirtyProjectile
         debug::printf("LaunchDirtyProjectile\n");
@@ -1685,8 +1763,9 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         move_to_random_restart();
         return true;
     case kPlaceBeforeCamera: { // PlaceBeforeCamera: 144 in front of the camera, facing it, moving away at 10
-        if (!render::fetch_live_camera(view_slot_))
+        if (!render::fetch_live_camera(view_slot_)) {
             return true;
+        }
         auto* camera = render::fetch_live_camera(view_slot_);
         const maths::Vec4* camera_pos = camera->fetch_location();
         camera = render::fetch_live_camera(view_slot_);
@@ -1731,17 +1810,20 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
     if (is_local_skater()) {
         pad_input_->set_disabled(false);
         unpause();
-        if (AttributeTracker* list = stats_)
+        if (AttributeTracker* list = stats_) {
             list->set_first_update(true);
+        }
         if (net->in_net_game()) {
             commands::cfunc_notify_bail_done(nullptr, nullptr);
             core_physics_->state()->set_flag(PoseFlag::kBailing, 0);
         }
     }
-    if (vibration_)
+    if (vibration_) {
         vibration_->reset_device();
-    if (node)
+    }
+    if (node) {
         glide_to_node(node);
+    }
     relaunch(walking, 0);
     if (is_local_skater()) {
         core::down_cast<RiderSpinAndFlip>(fetch_module(kSkaterFlipAndRotate))->apply_flip_to_anims();
@@ -1750,14 +1832,16 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
                 mark_jumped_ahead(false);
                 auto* camera = core::down_cast<GameEntity>(
                     objects::EntityHub::look_up_entity(view_slot_ == 1 ? kSkaterCam1 : kSkaterCam0));
-                if (camera)
+                if (camera) {
                     camera->tick_frame();
+                }
             }
             // The restart node's TriggerScript, run on it.
             if (node && level_nodes::fetch_vertex(node, !online::online_hub()->in_net_game())) {
                 uint32_t script = 0;
-                if (level_nodes::fetch_vertex(node, true)->read_hash_value(kTriggerScript, &script, 0))
+                if (level_nodes::fetch_vertex(node, true)->read_hash_value(kTriggerScript, &script, 0)) {
                     start_script_task(script, static_cast<int>(node), false, false, nullptr);
+                }
             }
         }
     }
@@ -1767,8 +1851,9 @@ void Rider::jump_to_spawn(SpawnChoice spawn_choice)
     if (mode() == kNetctf || mode() == kNetking || mode() == kKing) {
         net::NetMessageInfo message;
         auto* client = core::down_cast<net::Guest>(net->fetch_patron(view_slot_));
-        if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident())))
+        if (online::PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(ident()))) {
             player->mark_capture_blocked();
+        }
         message.set_ident(online::MessageId::kRiderReady);
         message.set_queue(net::NetMessageInfo::kLaneOrdered);
         message.set_group_id(online::MessageGroup::kGame);
@@ -1785,11 +1870,13 @@ Rider::~Rider()
     }
     reset_components();
     script::launch_script(kDestroySkaterParticles, nullptr, this, false, nullptr);
-    for (std::unique_ptr<goals::CreateATrick>& trick : trick_slots_)
+    for (std::unique_ptr<goals::CreateATrick>& trick : trick_slots_) {
         trick.reset();
+    }
     if (is_local_skater() && view_slot_ == 1) {
-        if (Entity* camera = objects::EntityHub::look_up_entity(kSkaterCam1))
+        if (Entity* camera = objects::EntityHub::look_up_entity(kSkaterCam1)) {
             camera->flag_as_dead();
+        }
     }
     // Out of the skater list.
     skater_link_.uncouple();

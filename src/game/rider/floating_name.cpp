@@ -68,8 +68,9 @@ void run_with_label_id(LabelRun label_run)
     const auto name = label_run.name;
     const auto label_id = label_run.label_id_;
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
-    if (params)
+    if (params) {
         new (params) script::Struct;
+    }
     Expects(params != nullptr);
     params->put_name_key(checksums::Name{kId}, label_id);
     script::launch_script(name, params, nullptr, false, nullptr);
@@ -94,8 +95,9 @@ RiderOverheadTag::~RiderOverheadTag() { run_with_label_id({.name = kDestroyObjec
 void RiderOverheadTag::configure_from_data(script::Struct* /*params*/)
 {
     const uint32_t id = entity()->ident();
-    if (id < online::kPlayerSlotCount)
+    if (id < online::kPlayerSlotCount) {
         label_id_ = core::at(kLabelIds, id);
+    }
 }
 
 // 0x00511870
@@ -114,14 +116,16 @@ void RiderOverheadTag::tick_frame()
     const online::PlayerRecord* player = find_player_slot_by_obj(entity()->ident());
     auto* skater = core::down_cast<Rider>(entity());
     if (!skater->get_flag_2c_4() || (entity()->composite_flags() & kCompositeFlagHidden)) {
-        if (label)
+        if (label) {
             run_with_label_id({.name = kDestroyObjectLabel, .label_id_ = label_id_});
+        }
         return;
     }
     const float height = find_own_player_record() == player ? kLocalHeight : kOtherHeight;
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
-    if (params)
+    if (params) {
         new (params) script::Struct;
+    }
     Expects(params != nullptr);
     params->put_name_key(checksums::Name{kId}, label_id_);
     // The text's colour: the player's team's in a team game, else the skater's own.
@@ -131,10 +135,11 @@ void RiderOverheadTag::tick_frame()
     params->append_word(kText, text.data());
     const maths::Vec4& pos = entity()->at_point();
     params->put_vec3(checksums::Name{kPos3d}, {.x = pos.x, .y = height + pos.y, .z = pos.z});
-    if (label) // (Entity's virtual change_traits: whatever object has the id)
+    if (label) { // (Entity's virtual change_traits: whatever object has the id)
         label->change_traits(params);
-    else
+    } else {
         script::launch_script(kCreateObjectLabel, params, nullptr, false, nullptr);
+    }
     if (params) {
         params->get_clear();
         script::delete_struct(params);

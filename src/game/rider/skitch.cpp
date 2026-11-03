@@ -63,8 +63,9 @@ void TowRideHandler::configure_from_data(script::Struct* /*params*/)
 // 0x0051B9D0
 int TowRideHandler::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
-    if (name != kAllowSkitching)
+    if (name != kAllowSkitching) {
         return 2;
+    }
     allowed_ = !params->has_bare_flag(kOff);
     return 1;
 }
@@ -74,11 +75,13 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
 {
     int nearest = -1;
     GameEntity* object = entity();
-    if (!hooks_ || !object)
+    if (!hooks_ || !object) {
         return nearest;
+    }
     ClassNodeList* nodes = hook_nodes(hooks_);
-    if (!nodes)
+    if (!nodes) {
         return nearest;
+    }
     place_nodes(nodes, object);
     auto nearest_distance = kFarEnough;
     maths::Vec4 nearest_point = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -114,16 +117,19 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
 bool TowRideHandler::get_hook_point(maths::Vec4* out, int index)
 {
     GameEntity* object = entity();
-    if (!hooks_ || !object)
+    if (!hooks_ || !object) {
         return false;
+    }
     ClassNodeList* nodes = hook_nodes(hooks_);
-    if (!nodes)
+    if (!nodes) {
         return false;
+    }
     place_nodes(nodes, object);
     int i = 0;
     for (const ClassNodeList::TableRow* node = nodes->entries(); node; node = node->next, ++i) {
-        if (i != index)
+        if (i != index) {
             continue;
+        }
         maths::Vec4 point;
         nodes->xform(&point, &node->pos);
         point -= object->at_point();

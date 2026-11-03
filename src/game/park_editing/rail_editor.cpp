@@ -44,13 +44,15 @@ memory::PoolPair& point_pools()
 
 void remove_scene_sector(render::WorldCell*& sector)
 {
-    if (!sector)
+    if (!sector) {
         return;
+    }
     ParkAssembler* generator = ParkLayout::singleton()->builder();
     generator->remove_scene_sector(sector_key_from_spec(sector), 0);
     set_counts_dirty();
-    if (park_editing_state().rail_editor_flag())
+    if (park_editing_state().rail_editor_flag()) {
         ParkLayout::singleton()->builder()->rebuild_collision();
+    }
     sector = nullptr;
 }
 
@@ -91,8 +93,9 @@ void make_pool(memory::PoolPair& pair, int item_size, int count, const char* nam
 void free_pool(memory::PoolPair& pair)
 {
     memory::SlabBank* pool = core::at(pair.pools(), pair.current());
-    if (!pool)
+    if (!pool) {
         return;
+    }
     if (get_owned(pair, pair.current())) {
         memory::dealloc(pool->memory().data());
         memory::Hub::dealloc(pool);
@@ -103,14 +106,18 @@ void free_pool(memory::PoolPair& pair)
 // A rail taken out of the editor's list (the head and the current rail moved on past it).
 void uncouple(RailAuthoring* editor, EditedRail* rail)
 {
-    if (editor->rail_groups() == rail)
+    if (editor->rail_groups() == rail) {
         editor->set_rail_groups(rail->following());
-    if (editor->active_node() == rail)
+    }
+    if (editor->active_node() == rail) {
         editor->set_active_node(rail->following());
-    if (rail->following())
+    }
+    if (rail->following()) {
         rail->following()->set_preceding(rail->preceding());
-    if (rail->preceding())
+    }
+    if (rail->preceding()) {
         rail->preceding()->set_following(rail->following());
+    }
 }
 
 bool get_inside(const EditedRailPoint* p, float x0, float z0, float x1, float z1)
@@ -125,22 +132,28 @@ bool get_inside(const EditedRailPoint* p, float x0, float z0, float x1, float z1
 // 0x004F3AD0
 void EditedRailPoint::clear_glow()
 {
-    if (!highlighted_)
+    if (!highlighted_) {
         return;
+    }
     auto restore = [](render::WorldCell* sector) {
         clear_sector_colour(sector);
         set_sector_visibility(sector, kAllVisible);
     };
-    if (post_)
+    if (post_) {
         restore(post_);
-    if (segment_)
+    }
+    if (segment_) {
         restore(segment_);
-    if (preceding_ && preceding_->segment_)
+    }
+    if (preceding_ && preceding_->segment_) {
         restore(preceding_->segment_);
-    if (following_ && !following_->following_ && following_->post_)
+    }
+    if (following_ && !following_->following_ && following_->post_) {
         restore(following_->post_);
-    if (preceding_ && !preceding_->preceding_ && preceding_->post_)
+    }
+    if (preceding_ && !preceding_->preceding_ && preceding_->post_) {
         restore(preceding_->post_);
+    }
     highlighted_ = false;
 }
 
@@ -154,10 +167,11 @@ void EditedRailPoint::delete_post() { remove_scene_sector(post_); }
 void EditedRailPoint::get_pack(std::array<uint16_t, kPackedPointWords>& record) const
 {
     core::at(record, 4) = has_post_;
-    if (level_y_ < 0.0F)
+    if (level_y_ < 0.0F) {
         core::at(record, 3) = 0;
-    else
+    } else {
         core::at(record, 3) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(level_y_) * kHeightPackScale));
+    }
     core::at(record, 0) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.x) * kPositionPackScale));
     core::at(record, 1) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.y) * kPositionPackScale));
     core::at(record, 2) = static_cast<uint16_t>(static_cast<int>(static_cast<double>(at_point_.z) * kPositionPackScale));
@@ -186,8 +200,9 @@ void EditedRail::get_clear()
 int EditedRail::rail_point_total() const
 {
     int count = 0;
-    for (const EditedRailPoint* p = point_chain_; p; p = p->following())
+    for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
         ++count;
+    }
     return count;
 }
 
@@ -196,8 +211,9 @@ EditedRailPoint* EditedRail::fetch_vertex_at(int index) const
 {
     EditedRailPoint* p = point_chain_;
     while (index != 0) {
-        if (!p)
+        if (!p) {
             return nullptr;
+        }
         p = p->following();
         --index;
     }
@@ -208,25 +224,29 @@ EditedRailPoint* EditedRail::fetch_vertex_at(int index) const
 void EditedRail::clear_colours()
 {
     for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
-        if (p->post())
+        if (p->post()) {
             clear_sector_colour(p->post());
-        if (p->segment())
+        }
+        if (p->segment()) {
             clear_sector_colour(p->segment());
+        }
     }
 }
 
 // 0x004F41C0
 void EditedRail::delete_segments()
 {
-    for (EditedRailPoint* p = point_chain_; p; p = p->following())
+    for (EditedRailPoint* p = point_chain_; p; p = p->following()) {
         remove_scene_sector(p->segment());
+    }
 }
 
 // 0x004F4220
 void EditedRail::delete_posts()
 {
-    for (EditedRailPoint* p = point_chain_; p; p = p->following())
+    for (EditedRailPoint* p = point_chain_; p; p = p->following()) {
         remove_scene_sector(p->post());
+    }
 }
 
 // 0x004F4280
@@ -234,12 +254,14 @@ bool EditedRail::find_nearest_point(const maths::Vec4* position, maths::Vec4* po
                                     int* index, int skip) const
 {
     const EditedRailPoint* p = point_chain_;
-    if (!p)
+    if (!p) {
         return false;
+    }
     float best = kFarthestDistanceSquared;
     for (int i = 0; p; p = p->following(), ++i) {
-        if (i == skip)
+        if (i == skip) {
             continue;
+        }
         const double dx = static_cast<double>(p->at_point().x) - position->x;
         const double dz = static_cast<double>(p->at_point().z) - position->z;
         const double d = (dx * dx) + (dz * dz);
@@ -258,8 +280,9 @@ int EditedRail::count_points_inside(float x0, float z0, float x1, float z1) cons
 {
     int count = 0;
     for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
-        if (get_inside(p, x0, z0, x1, z1))
+        if (get_inside(p, x0, z0, x1, z1)) {
             ++count;
+        }
     }
     return count;
 }
@@ -273,10 +296,12 @@ void EditedRail::change_colour(int index)
                           static_cast<uint8_t>(colour->fetch_part(1)) << 8 |
                           static_cast<uint32_t>(static_cast<uint8_t>(colour->fetch_part(2))) << 16 | 0x80000000U;
     for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
-        if (p->post())
+        if (p->post()) {
             set_sector_colour(p->post(), rgba);
-        if (p->segment())
+        }
+        if (p->segment()) {
             set_sector_colour(p->segment(), rgba);
+        }
     }
 }
 
@@ -284,8 +309,9 @@ void EditedRail::change_colour(int index)
 bool EditedRail::any_point_outside(float x0, float z0, float x1, float z1) const
 {
     for (const EditedRailPoint* p = point_chain_; p; p = p->following()) {
-        if (p->at_point().x < x0 || p->at_point().x > x1 || p->at_point().z < z0 || p->at_point().z > z1)
+        if (p->at_point().x < x0 || p->at_point().x > x1 || p->at_point().z < z0 || p->at_point().z > z1) {
             return true;
+        }
     }
     return false;
 }
@@ -294,8 +320,9 @@ bool EditedRail::any_point_outside(float x0, float z0, float x1, float z1) const
 EditedRailPoint* EditedRail::append_rail_vertex()
 {
     memory::PoolPair& pools = point_pools();
-    if (core::at(pools.pools(), pools.current())->taken_count() == RailAuthoring::kMaxPoints)
+    if (core::at(pools.pools(), pools.current())->taken_count() == RailAuthoring::kMaxPoints) {
         return nullptr;
+    }
     auto* point = pools.allocate<EditedRailPoint>();
     if (point) {
         point->at_point() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -309,8 +336,9 @@ EditedRailPoint* EditedRail::append_rail_vertex()
     }
     // (a failed allocation crashes here, as in the original)
     point->set_following(point_chain_);
-    if (point_chain_)
+    if (point_chain_) {
         point_chain_->set_preceding(point);
+    }
     point->set_preceding(nullptr);
     point_chain_ = point;
     return point;
@@ -328,18 +356,21 @@ void EditedRail::add_point_copy(const EditedRailPoint* source)
 // 0x004F6300
 EditedRailPoint* EditedRail::cut_at(EditedRailPoint* point)
 {
-    if (!point)
+    if (!point) {
         return nullptr;
+    }
     EditedRailPoint* prev = point->preceding();
     if (prev && point->following()) {
         const memory::PoolPair& rails = park_editing_state().rail_pools();
-        if (core::at(rails.pools(), rails.current())->taken_count() == RailAuthoring::kMaxRails)
+        if (core::at(rails.pools(), rails.current())->taken_count() == RailAuthoring::kMaxRails) {
             return nullptr;
+        }
     }
     if (point == point_chain_) {
         point_chain_ = point->following();
-        if (point->following())
+        if (point->following()) {
             point->following()->set_preceding(nullptr);
+        }
         point->delete_segment();
         point->delete_post();
         RailAuthoring::free_point(point);
@@ -351,8 +382,9 @@ EditedRailPoint* EditedRail::cut_at(EditedRailPoint* point)
     point->delete_segment();
     point->delete_post();
     RailAuthoring::free_point(point);
-    if (rest)
+    if (rest) {
         rest->set_preceding(nullptr);
+    }
     return rest;
 }
 
@@ -360,8 +392,9 @@ EditedRailPoint* EditedRail::cut_at(EditedRailPoint* point)
 void EditedRail::copy_from(const EditedRail* source)
 {
     get_clear();
-    for (const EditedRailPoint* p = source->point_chain_; p; p = p->following())
+    for (const EditedRailPoint* p = source->point_chain_; p; p = p->following()) {
         add_point_copy(p);
+    }
 }
 
 // 0x004F7100
@@ -482,8 +515,9 @@ EditedRail* RailAuthoring::get_new_rail()
     Expects(rail != nullptr);
     rail->set_following(rail_groups_);
     rail->set_preceding(nullptr);
-    if (rail_groups_)
+    if (rail_groups_) {
         rail_groups_->set_preceding(rail);
+    }
     rail_groups_ = rail;
     active_node_ = rail;
     return rail;
@@ -516,8 +550,9 @@ void RailAuthoring::delete_short_rails()
 bool RailAuthoring::cut_rail(EditedRail* rail, EditedRailPoint* point)
 {
     EditedRailPoint* rest = rail->cut_at(point);
-    if (!rest)
+    if (!rest) {
         return false;
+    }
     get_new_rail()->set_point_chain(rest);
     return true;
 }
@@ -558,8 +593,9 @@ void RailAuthoring::delete_points(float x0, float z0, float x1, float z1, int in
     for (bool again = true; again; again = changed) {
         changed = false;
         for (EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
-            if (cut_point_in_or_out(rail, x0, z0, x1, z1, inside))
+            if (cut_point_in_or_out(rail, x0, z0, x1, z1, inside)) {
                 changed = true;
+            }
         }
     }
     delete_short_rails();
@@ -569,8 +605,9 @@ void RailAuthoring::delete_points(float x0, float z0, float x1, float z1, int in
 EditedRail* RailAuthoring::find_rail(uint32_t id) const
 {
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
-        if (rail->ident() == id)
+        if (rail->ident() == id) {
             return rail;
+        }
     }
     return nullptr;
 }
@@ -582,8 +619,9 @@ EditedRail* RailAuthoring::find_rail_by_cluster(uint32_t name) const
     for (EditedRail* rail = rail_groups_; rail; rail = rail->following(), ++i) {
         std::array<char, kClusterNameSize> cluster{};
         text::format_to(cluster, "CreatedRailCluster%d", i);
-        if (name == checksums::hash_from_text(cluster.data()))
+        if (name == checksums::hash_from_text(cluster.data())) {
             return rail;
+        }
     }
     return nullptr;
 }
@@ -591,16 +629,18 @@ EditedRail* RailAuthoring::find_rail_by_cluster(uint32_t name) const
 // 0x004F3D10
 void RailAuthoring::clear_cluster_colours(uint32_t name) const
 {
-    if (EditedRail* rail = find_rail_by_cluster(name))
+    if (EditedRail* rail = find_rail_by_cluster(name)) {
         rail->clear_colours();
+    }
 }
 
 // 0x004F4950
 void RailAuthoring::set_cluster_colour(checksums::Name cluster, int colour_index) const
 {
     const uint32_t name = cluster.value();
-    if (EditedRail* rail = find_rail_by_cluster(name))
+    if (EditedRail* rail = find_rail_by_cluster(name)) {
         rail->change_colour(colour_index);
+    }
 }
 
 // 0x004F3C70
@@ -608,8 +648,9 @@ int RailAuthoring::rail_point_total() const
 {
     int count = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
-        for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following())
+        for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
             ++count;
+        }
     }
     return count;
 }
@@ -618,8 +659,9 @@ int RailAuthoring::rail_point_total() const
 void RailAuthoring::un_highlight_all()
 {
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
-        for (EditedRailPoint* p = rail->point_chain(); p; p = p->following())
+        for (EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
             p->clear_glow();
+        }
     }
 }
 
@@ -628,10 +670,12 @@ void RailAuthoring::change_live(bool active)
 {
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
-            if (p->post())
+            if (p->post()) {
                 enable_sector(p->post(), active);
-            if (p->segment())
+            }
+            if (p->segment()) {
                 enable_sector(p->segment(), active);
+            }
         }
     }
 }
@@ -639,15 +683,17 @@ void RailAuthoring::change_live(bool active)
 // 0x004F45C0
 void RailAuthoring::delete_all_segments()
 {
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following())
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         rail->delete_segments();
+    }
 }
 
 // 0x004F45E0
 void RailAuthoring::delete_all_posts()
 {
-    for (EditedRail* rail = rail_groups_; rail; rail = rail->following())
+    for (EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         rail->delete_posts();
+    }
 }
 
 // 0x004F4600
@@ -664,8 +710,9 @@ bool RailAuthoring::any_point_outside(float x0, float z0, float x1, float z1) co
         z1 = t;
     }
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
-        if (rail->any_point_outside(x0, z0, x1, z1))
+        if (rail->any_point_outside(x0, z0, x1, z1)) {
             return true;
+        }
     }
     return false;
 }
@@ -684,8 +731,9 @@ int RailAuthoring::count_points_inside(float x0, float z0, float x1, float z1) c
         z1 = t;
     }
     int count = 0;
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following())
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         count += rail->count_points_inside(x0, z0, x1, z1);
+    }
     return count;
 }
 
@@ -719,8 +767,9 @@ bool RailAuthoring::find_nearest_point(const maths::Vec4* position, maths::Vec4*
 // 0x004F48F0
 void RailAuthoring::delete_dotted_line()
 {
-    if (!dotted_line_)
+    if (!dotted_line_) {
         return;
+    }
     remove_scene_sector(dotted_line_);
     dotted_line_name_ = 0;
 }
@@ -731,28 +780,34 @@ void RailAuthoring::get_pack()
     // (packed as a record, then written as the buffer's bytes - rail_buffer_format.h)
     RailBuffer packed{};
     uint16_t rails = 0;
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following())
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         ++rails;
+    }
     packed.rail_count_ = rails;
     const EditedRail* rail = rail_groups_;
     if (rail) {
-        while (rail->following())
+        while (rail->following()) {
             rail = rail->following();
+        }
         int count = 0;
         int record = 0;
         // From the first rail laid (the tail) back to the head, each rail's points from its first laid.
         for (; rail; rail = rail->preceding()) {
             uint16_t points = 0;
-            for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following())
+            for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
                 ++points;
+            }
             core::at(packed.point_counts_, count++) = points;
             const EditedRailPoint* p = rail->point_chain();
-            if (!p)
+            if (!p) {
                 continue;
-            while (p->following())
+            }
+            while (p->following()) {
                 p = p->following();
-            for (; p; p = p->preceding())
+            }
+            for (; p; p = p->preceding()) {
                 p->get_pack(core::at(packed.records_, record++));
+            }
         }
     }
     util::ByteWriter out(packed_);
@@ -774,8 +829,9 @@ void RailAuthoring::set_packed(const void* data, size_t size)
     // more than 200 rails or 400 points).
     util::ByteReader reader(data, size);
     RailBuffer rails{};
-    if (!rail_buffer_format::read_rail_buffer(reader, &rails))
+    if (!rail_buffer_format::read_rail_buffer(reader, &rails)) {
         debug::printf("rail data damaged: cut short or more rails / points than the editor holds\n");
+    }
     util::ByteWriter out(packed_);
     rail_buffer_format::write_rail_buffer(out, rails); // (no rails when damaged)
 }
@@ -787,8 +843,9 @@ void RailAuthoring::unpack()
     // (the buffer's bytes decoded; Not original - counts past the arrays: no rails)
     RailBuffer packed{};
     util::ByteReader in(packed_);
-    if (!rail_buffer_format::read_rail_buffer(in, &packed))
+    if (!rail_buffer_format::read_rail_buffer(in, &packed)) {
         return;
+    }
     int record_index = 0;
     for (int index = 0; std::cmp_less(index, packed.rail_count_); ++index) {
         const uint16_t points = core::at(packed.point_counts_, index);
@@ -810,8 +867,9 @@ void RailAuthoring::unpack()
 EditedRail* RailAuthoring::copy_rails_inside(float x0, float z0, float x1, float z1) const
 {
     EditedRail* list = nullptr;
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following())
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         list = rail->copy_inside(x0, z0, x1, z1, list);
+    }
     return list;
 }
 

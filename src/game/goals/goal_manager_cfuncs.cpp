@@ -44,8 +44,9 @@ bool cfunc_goal_manager_edit_goal(script::Struct* params, script::Script* /*scri
     script::Struct* edits = nullptr;
     params->read_sub_struct(kParams, &edits, 1);
     Objective* goal = manager->goals().get_pull(name);
-    if (goal)
+    if (goal) {
         goal->rewrite_args(edits);
+    }
     return goal != nullptr;
 }
 
@@ -63,8 +64,9 @@ bool cfunc_goal_manager_deactivate_goal(script::Struct* params, script::Script* 
 {
     GoalManager* manager = get_objective_board();
     Objective* goal = manager->goals().get_pull(get_goal_name(params));
-    if (goal)
+    if (goal) {
         goal->disengage(false, true);
+    }
     return goal != nullptr;
 }
 
@@ -163,10 +165,11 @@ bool cfunc_goal_manager_set_goal_timer(script::Struct* params, script::Script* /
     params->fetch_int_value(kTime, &time, 0);
     Objective* goal = manager->goals().get_pull(name);
     if (goal) {
-        if (time == -1)
+        if (time == -1) {
             goal->reset_timer();
-        else
+        } else {
             goal->set_seconds_remaining(time);
+        }
     }
     return goal != nullptr;
 }
@@ -176,8 +179,9 @@ bool cfunc_goal_manager_zero_goal_timer(script::Struct* params, script::Script* 
 {
     GoalManager* manager = get_objective_board();
     Objective* goal = manager->goals().get_pull(get_goal_name(params));
-    if (goal)
+    if (goal) {
         goal->set_seconds_remaining(0);
+    }
     return goal != nullptr;
 }
 
@@ -207,8 +211,9 @@ bool cfunc_goal_manager_set_goal_flag(script::Struct* params, script::Script* /*
     uint32_t skater = 0;
     params->read_hash_value(kSkater, &skater, 0);
     Objective* goal = manager->goals().get_pull(name);
-    if (!goal)
+    if (!goal) {
         return false;
+    }
     return goal->set_flag(checksums::Name{flag}, value, checksums::Name{skater});
 }
 

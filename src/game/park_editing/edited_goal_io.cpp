@@ -147,8 +147,9 @@ void EditedGoal::drop_point_to_ground(int index)
         start.y = start.y + kDropHeight;
         feeler.change_origin(&start);
         feeler.change_finish(&end);
-        if (!feeler.get_hit_shape(true, false))
+        if (!feeler.get_hit_shape(true, false)) {
             return;
+        }
     }
     pos = feeler.contact_pos();
 }
@@ -181,14 +182,16 @@ bool EditedGoal::place_point_and_step_back(const maths::Vec4& pos, EditedGoal::P
 {
     const auto height = point_pose.height;
     const auto angle = point_pose.angle;
-    if (current_point_ == 0 || !can_place_point(pos, height))
+    if (current_point_ == 0 || !can_place_point(pos, height)) {
         return false;
+    }
     core::at(path_vertices_, current_point_).pos = pos;
     core::at(path_vertices_, current_point_).height = height;
     core::at(path_vertices_, current_point_).angle = angle;
     place_goal_marker(current_point_);
-    if (current_point_ == vertex_total_)
+    if (current_point_ == vertex_total_) {
         ++vertex_total_;
+    }
     --current_point_;
     run_marker_object_script(current_point_);
     if (current_point_ == 0) {
@@ -211,8 +214,9 @@ void EditedGoal::decode_from_struct(script::Struct* params)
     won_ = false;
     uint32_t level = 0;
     params->read_hash_value(kLevel, &level, 0);
-    if (level == kLoadSk5EdGameplay) // (Load_Sk5Ed_gameplay counts as the park editor's)
+    if (level == kLoadSk5EdGameplay) { // (Load_Sk5Ed_gameplay counts as the park editor's)
         level = kParkEditorLevel;
+    }
     level_ = level;
     params->fetch_int_value(kLevelGoalIndex, &level_goal_number_, 0);
     params->read_hash_value(kGoalType, &kind_tag_, 0);
@@ -249,15 +253,17 @@ void EditedGoal::decode_from_struct(script::Struct* params)
 // 0x004E9BC0
 void EditedGoal::write_key_combo_sets(script::Struct* out)
 {
-    if (num_key_combo_sets_ == 0)
+    if (num_key_combo_sets_ == 0) {
         return;
+    }
     gsl::owner<script::Array*> sets = new_array_of(static_cast<uint32_t>(num_key_combo_sets_), script::QbValueKind::kStruct);
     for (int i = 0; i < num_key_combo_sets_; ++i) {
         const KeyComboSet& set = core::at(key_combo_sets_, i);
         gsl::owner<script::Struct*> entry = script::new_struct();
         entry->put_int(checksums::Name{kSetIndex}, set.set);
-        if (set.must_be_flawless_)
+        if (set.must_be_flawless_) {
             entry->put_name_key(checksums::Name{0U}, kRequirePerfect);
+        }
         entry->put_int(checksums::Name{kSpin}, set.spin * kSpinUnitDegrees);
         entry->put_int(checksums::Name{kNumTaps}, set.tap_total_);
         sets->set_cell(static_cast<uint32_t>(i), script::Cell::of(entry));
@@ -289,16 +295,20 @@ void EditedGoal::write_goal_key_combos(script::Struct* out)
         structure_element(all_sets, set.set)->fetch_list(kKeyCombos, &combos, 0);
         for (uint32_t j = 0; j < combos->extent(); ++j) {
             gsl::owner<script::Struct*> entry = script::new_struct();
-            if (combos->kind_tag() == script::QbValueKind::kName)
+            if (combos->kind_tag() == script::QbValueKind::kName) {
                 entry->put_name_key(checksums::Name{kKeyCombo}, combos->fetch_part(j));
-            else
+            } else {
                 entry->append_structure_if_any(structure_element(combos, j));
-            if (set.tap_total_)
+            }
+            if (set.tap_total_) {
                 entry->put_int(checksums::Name{kNumTaps}, set.tap_total_);
-            if (set.must_be_flawless_)
+            }
+            if (set.must_be_flawless_) {
                 entry->put_name_key(checksums::Name{0U}, kRequirePerfect);
-            if (twist_rate_)
+            }
+            if (twist_rate_) {
                 entry->put_int(checksums::Name{kRandomSpin}, twist_rate_);
+            }
             result->set_cell(index++, script::Cell::of(entry));
         }
     }
@@ -328,8 +338,9 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
     switch (kind_tag_) {
     case kGoalTypeRace:
         if (for_goal_manager == 1) {
-            if (race_per_checkpoint_time_ > 0)
+            if (race_per_checkpoint_time_ > 0) {
                 out->put_int(checksums::Name{kGoalManagerCheckpointTime}, race_per_checkpoint_time_);
+            }
         } else {
             out->put_int(checksums::Name{kRacePerCheckpointTime}, race_per_checkpoint_time_);
         }
@@ -354,13 +365,15 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
             }
             out->append_array_ref(kGoalFlags, flags);
             gsl::owner<script::Array*> gaps = new_array_of(num_gaps_, script::QbValueKind::kInteger);
-            for (int i = 0; std::cmp_less(i, num_gaps_); ++i)
+            for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
                 gaps->set_element(static_cast<uint32_t>(i), core::at(gaps_, i));
+            }
             out->append_array_ref(kRequiredGaps, gaps);
         } else if (num_gaps_) {
             gsl::owner<script::Array*> gaps = new_array_of(num_gaps_, script::QbValueKind::kInteger);
-            for (int i = 0; std::cmp_less(i, num_gaps_); ++i)
+            for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
                 gaps->set_element(static_cast<uint32_t>(i), core::at(gaps_, i));
+            }
             out->append_array_ref(kGaps, gaps);
         }
         break;
@@ -377,10 +390,11 @@ void EditedGoal::write_specific_params(script::Struct* out, int for_goal_manager
         write_trick_settings(out, for_goal_manager);
         break;
     case kGoalTypeKeyCombo:
-        if (for_goal_manager == 1)
+        if (for_goal_manager == 1) {
             write_goal_key_combos(out);
-        else
+        } else {
             write_key_combo_sets(out);
+        }
         break;
     case kGoalTypeTricktris:
         out->put_name_key(checksums::Name{0U}, static_cast<uint32_t>(kGoalTypeTricktris));
@@ -443,8 +457,9 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
             get_sprintf(flag.data(), "got_%d", i + 1);
             flags->set_element(static_cast<uint32_t>(i), checksums::hash_from_text(flag.data()));
             waypoint->put_name_key(checksums::Name{kFlag}, checksums::hash_from_text(flag.data()));
-            if (race_per_checkpoint_time_ > 0)
+            if (race_per_checkpoint_time_ > 0) {
                 waypoint->put_int(checksums::Name{kTime}, race_per_checkpoint_time_);
+            }
             waypoint->put_int(checksums::Name{kRadius}, kWaypointDefaultValue);
             waypoints->set_cell(static_cast<uint32_t>(i), script::Cell::of(waypoint));
         }
@@ -456,8 +471,9 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
         break;
     }
     write_specific_params(out, 1);
-    if (core::at(summary_text_, 0))
+    if (core::at(summary_text_, 0)) {
         out->append_word(kGoalDeScription, summary_text_.data());
+    }
     if (core::at(win_message_, 0)) {
         // The win message's dialog: a copy of the global template array with the text and the pro's node.
         script::Array* source = script::fetch_list(kEditedGoalSuccessCamAnims);
@@ -472,10 +488,12 @@ void EditedGoal::write_goal_manager_params(script::Struct* out)
     }
     get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
     out->append_word(kGoalName, park_editing_state().created_goal_name().data());
-    if (core::at(label_, 0))
+    if (core::at(label_, 0)) {
         out->append_word(kViewGoalsText, label_.data());
-    if (core::at(ped_name_, 0))
+    }
+    if (core::at(ped_name_, 0)) {
         out->append_word(kFullName, ped_name_.data());
+    }
     out->put_int(checksums::Name{kTime}, time_limit_);
     out->put_name_key(checksums::Name{kControlType}, control_type_);
     out->put_name_key(checksums::Name{0U}, kEditedGoal);
@@ -502,8 +520,9 @@ void EditedGoal::export_to_struct(script::Struct* out)
     get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", level_goal_number_);
     out->put_name_key(checksums::Name{kProName}, checksums::hash_from_text(name.data()));
     write_specific_params(out, 0);
-    if (!vertex_total_)
+    if (!vertex_total_) {
         return;
+    }
     gsl::owner<script::Array*> points = new_array_of(vertex_total_, script::QbValueKind::kStruct);
     for (uint32_t i = 0; i < vertex_total_; ++i) {
         const EditedGoalPoint& point = core::at(path_vertices_, i);
@@ -527,10 +546,12 @@ void EditedGoal::add_to_goal_manager(bool unwin)
     get_sprintf(park_editing_state().created_goal_name().data(), "CreatedGoal%d", level_goal_number_);
     goals::Objective* goal = manager->get_goal(checksums::hash_from_text(park_editing_state().created_goal_name().data()), 1);
     goal->mark_viewed();
-    if (unwin)
+    if (unwin) {
         won_ = false;
-    if (won_)
+    }
+    if (won_) {
         goal->mark_won();
+    }
     if (params) {
         params->get_clear();
         script::delete_struct(params);

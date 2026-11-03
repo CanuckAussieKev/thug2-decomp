@@ -113,10 +113,12 @@ void for_each_event(MoveExecutor* trick, Visit visit)
 {
     int index = trick->event_head();
     for (int n = 0; std::cmp_less(n, trick->event_count()); ++n) {
-        if (!visit(index, core::at(trick->get_events(), index)))
+        if (!visit(index, core::at(trick->get_events(), index))) {
             return;
-        if (--index < 0)
+        }
+        if (--index < 0) {
             index += MoveExecutor::kEvents;
+        }
     }
 }
 
@@ -128,12 +130,15 @@ int compare_no_case(const char* a, const char* b)
     for (core::CStringCursor at_a(a), at_b(b);; ++at_a, ++at_b) {
         int x = static_cast<unsigned char>(*at_a);
         int y = static_cast<unsigned char>(*at_b);
-        if (x >= 'A' && x <= 'Z')
+        if (x >= 'A' && x <= 'Z') {
             x += 'a' - 'A';
-        if (y >= 'A' && y <= 'Z')
+        }
+        if (y >= 'A' && y <= 'Z') {
             y += 'a' - 'A';
-        if (x != y || !x)
+        }
+        if (x != y || !x) {
             return x - y;
+        }
     }
 }
 
@@ -264,10 +269,12 @@ void MoveExecutor::flag_spent(uint32_t flags)
 // 0x0051F570
 TrickEvent* MoveExecutor::append_incident(int type)
 {
-    if (++event_head_ >= kEvents)
+    if (++event_head_ >= kEvents) {
         event_head_ = 0;
-    if (event_count_ < kEvents)
+    }
+    if (event_count_ < kEvents) {
         ++event_count_;
+    }
     TrickEvent& e = core::at(events_, event_head_);
     e.type = type;
     e.time = get_now();
@@ -283,8 +290,9 @@ void MoveExecutor::expire_button(checksums::Name button_name, uint32_t ms)
     for_each_event(this, [&](int, TrickEvent& e) {
         if (e.button == button) {
             const uint32_t time = e.time;
-            if (!(get_now() - time < ms))
+            if (!(get_now() - time < ms)) {
                 e.flags = kAllBitsSet;
+            }
         }
         return true;
     });
@@ -299,8 +307,9 @@ bool MoveExecutor::find_press(checksums::Name button_name, PressWindow press_win
     bool found = false;
     for_each_event(this, [&](int, TrickEvent& e) {
         const uint32_t time = e.time;
-        if (get_now() - time >= ms)
+        if (get_now() - time >= ms) {
             return false;
+        }
         if (!(e.flags & mask) && e.type == 1 && e.button == button) {
             e.used = true;
             found = true;
@@ -322,10 +331,12 @@ bool MoveExecutor::find_press_both(uint32_t first, uint32_t second, MoveExecutor
     bool found = false;
     for_each_event(this, [&](int, TrickEvent& e) {
         const uint32_t time = e.time;
-        if (get_now() - time >= ms)
+        if (get_now() - time >= ms) {
             return false;
-        if ((e.flags & mask) || e.type != 1)
+        }
+        if ((e.flags & mask) || e.type != 1) {
             return true;
+        }
         if (e.button == first) {
             e.used = true;
             if (got_second) {
@@ -356,18 +367,23 @@ void MoveExecutor::update_button(int index, bool pressed)
     if (core::at(held_off_until_, index) != 0.0F) {
         if (pressed) {
             const uint32_t now = get_now();
-            if (static_cast<double>(now) <= core::at(held_off_until_, index) || core::at(held_off_until_, index) != core::at(held_off_until_, index))
+            if (static_cast<double>(now) <= core::at(held_off_until_, index) ||
+                core::at(held_off_until_, index) != core::at(held_off_until_, index)) {
                 return;
+            }
         }
         core::at(held_off_until_, index) = 0.0F;
     }
-    if (core::at(btn_down_, index) == pressed)
+    if (core::at(btn_down_, index) == pressed) {
         return;
+    }
     core::at(btn_down_, index) = pressed;
     const uint32_t button = pad_input::button_hash(index);
-    for (int i = 0; i < ignored_count_; ++i)
-        if (core::at(ignored_, i) == button)
+    for (int i = 0; i < ignored_count_; ++i) {
+        if (core::at(ignored_, i) == button) {
             return;
+        }
+    }
     append_incident(pressed ? 1 : 2)->button = button;
 }
 
@@ -424,8 +440,9 @@ bool MoveExecutor::check_spin_sequence(const std::array<uint32_t, 3>& buttons, b
         }
         return true;
     });
-    if (!found)
+    if (!found) {
         return false;
+    }
     flag_spent(kEventSpent);
     set_button_map(buttons);
     return true;
@@ -439,8 +456,9 @@ bool MoveExecutor::check_release_press(uint32_t button, bool twice, bool set_map
     bool found = false;
     for_each_event(this, [&](int, TrickEvent& e) {
         const uint32_t time = e.time;
-        if (get_now() - time >= kSecond)
+        if (get_now() - time >= kSecond) {
             return false;
+        }
         if (!twice) {
             if (state == 0) {
                 if (e.flags == 0 && e.type == 2 && e.button == button) {
@@ -471,8 +489,9 @@ bool MoveExecutor::check_release_press(uint32_t button, bool twice, bool set_map
         }
         return true;
     });
-    if (!found)
+    if (!found) {
         return false;
+    }
     if (set_map) {
         flag_spent(kAllBitsSet);
         // (the original hands its own three stack arguments over as the map)
@@ -487,17 +506,19 @@ uint32_t MoveExecutor::read_trigger(const script::Component* node, int count, st
 {
     for (int i = 0; i < count; ++i) {
         uint32_t button = node->value.word();
-        if (button == kButtonAlias1)
+        if (button == kButtonAlias1) {
             button = core::at(button_map_, 1);
-        else if (button == kButtonAlias2)
+        } else if (button == kButtonAlias2) {
             button = core::at(button_map_, 2);
-        else if (button == kButtonAlias0)
+        } else if (button == kButtonAlias0) {
             button = core::at(button_map_, 0);
+        }
         core::at(out, i) = button;
         node = node->next;
     }
-    if (script::value_kind(*node) == script::QbValueKind::kInteger)
+    if (script::value_kind(*node) == script::QbValueKind::kInteger) {
         return node->value.word();
+    }
     return static_cast<uint32_t>(script::fetch_int_value(node->value.word()));
 }
 
@@ -516,8 +537,9 @@ bool MoveExecutor::is_key_held(uint32_t button)
     // rightdownright - game/rider/thaw_bmx.h). Original behaviour: THUG2's buttons only.
     if (skater::thaw_bmx::is_switched_on()) {
         const int held = skater::thaw_bmx::trick_stick_held(this, button);
-        if (held >= 0)
+        if (held >= 0) {
             return held != 0;
+        }
     }
     return core::at(btn_down_, pad_input::glyph_for_button_tag(button));
 }
@@ -540,10 +562,12 @@ void MoveExecutor::queue_trick(checksums::Name list_name, int index, bool flag)
         queue_last_ = 0;
     } else {
         slot = queue_last_ + 1;
-        if (slot >= kMaxTrickSlots)
+        if (slot >= kMaxTrickSlots) {
             slot = 0;
-        if (slot == queue_first_)
+        }
+        if (slot == queue_first_) {
             return;
+        }
         queue_last_ = slot;
     }
     core::at(queue_, slot).list = list;
@@ -555,33 +579,41 @@ void MoveExecutor::queue_trick(checksums::Name list_name, int index, bool flag)
 void MoveExecutor::remove_trick_list(uint32_t list)
 {
     for (int i = 0; i < extra_list_count_; ++i) {
-        if (core::at(extra_lists_, i) != list)
+        if (core::at(extra_lists_, i) != list) {
             continue;
-        for (int j = i; j < extra_list_count_ - 1; ++j)
+        }
+        for (int j = i; j < extra_list_count_ - 1; ++j) {
             core::at(extra_lists_, j) = core::at(extra_lists_, j + 1);
+        }
         --extra_list_count_;
     }
-    for (QueuedTrick& queued : queue_)
-        if (queued.list == list)
+    for (QueuedTrick& queued : queue_) {
+        if (queued.list == list) {
             queued.list = 0;
+        }
+    }
 }
 
 // 0x0051EE10
 bool MoveExecutor::is_trick_entry(script::Struct* trick)
 {
     uint32_t checksum = 0;
-    if (trick->read_hash_value(kScr, &checksum, 0) || trick->read_hash_value(kScripts, &checksum, 0))
+    if (trick->read_hash_value(kScr, &checksum, 0) || trick->read_hash_value(kScripts, &checksum, 0)) {
         return true;
+    }
     script::Array* array = nullptr;
-    if (trick->fetch_list(kTemplate, &array, 0))
+    if (trick->fetch_list(kTemplate, &array, 0)) {
         return true;
+    }
     uint32_t name = 0;
-    if (!trick->read_hash_value(kTrickSlot, &name, 0))
+    if (!trick->read_hash_value(kTrickSlot, &name, 0)) {
         return false;
+    }
     uint32_t structure = 0;
     trick_lists_->read_hash_value(name, &structure, 0);
-    if (structure)
+    if (structure) {
         return script::read_sub_struct(structure) != nullptr;
+    }
     int value = 0;
     return trick_lists_->fetch_int_value(name, &value, 0);
 }
@@ -595,14 +627,16 @@ bool MoveExecutor::trick_named(script::Struct* trick, const char* name)
         trick_lists_->read_hash_value(alias, &structure, 0);
         if (structure) {
             trick = script::read_sub_struct(structure);
-            if (!trick)
+            if (!trick) {
                 return false;
+            }
         }
     }
     script::Struct* params = nullptr;
     trick->read_sub_struct(kParams, &params, 0);
-    if (!params)
+    if (!params) {
         return false;
+    }
     const char* trick_name = nullptr;
     params->fetch_text(kName, &trick_name, 0);
     return trick_name && compare_no_case(trick_name, name) == 0;
@@ -679,8 +713,9 @@ void MoveExecutor::dump_event_buffer()
         default:
             break;
         }
-        if (text)
+        if (text) {
             debug::printf_text(text);
+        }
         debug::printf(" Event=");
         switch (e.type) {
         case 0:
@@ -696,8 +731,9 @@ void MoveExecutor::dump_event_buffer()
             break;
         }
         debug::printf("\n");
-        if (--index < 0)
+        if (--index < 0) {
             index += kEvents;
+        }
     }
 }
 
@@ -777,11 +813,13 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
 {
     const auto mark_flags = trigger_masks.mark_flags_;
     const auto mask = trigger_masks.mask;
-    if (!trigger || input_->disabled() || input_->net_disabled())
+    if (!trigger || input_->disabled() || input_->net_disabled()) {
         return false;
+    }
     const script::Component* kind = trigger->step_to_entry(nullptr);
-    if (!kind)
+    if (!kind) {
         return false;
+    }
     const script::Component* node = kind->next;
     std::array<uint32_t, 3> buttons = {{0, 0, 0}};
     // The events marked used get `mark_flags`, the trigger's buttons become the map.
@@ -801,13 +839,15 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         uint32_t ms = read_trigger(node, 1, buttons);
         if (scaled) {
             const float rate = core_physics_->slomo_speed();
-            if (rate < 1.0F)
+            if (rate < 1.0F) {
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
+            }
         }
         TrickEvent* e = nullptr;
         const Scan scan = find_event(this, 1, checksums::Name{core::at(buttons, 0)}, {.ms = ms, .mask = mask}, e);
-        if (scan != Scan::kFound)
+        if (scan != Scan::kFound) {
             return scan == Scan::kStopped ? false : fail();
+        }
         e->flags |= mark_flags;
         set_button_map(buttons);
         return true;
@@ -816,22 +856,26 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         // (the time stretched the same way), but the same right-stick flick not twice: with the button map's first
         // button (the last trick's) this one, only once the right stick has been centred - the press found keeps
         // the flags all the same. Original behaviour: an unknown kind (the default below).
-        if (!skater::thaw_bmx::is_switched_on())
+        if (!skater::thaw_bmx::is_switched_on()) {
             return fail();
+        }
         uint32_t ms = read_trigger(node, 1, buttons);
         if (scaled) {
             const float rate = core_physics_->slomo_speed();
-            if (rate < 1.0F)
+            if (rate < 1.0F) {
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
+            }
         }
         TrickEvent* e = nullptr;
         const Scan scan = find_event(this, 1, checksums::Name{core::at(buttons, 0)}, {.ms = ms, .mask = mask}, e);
-        if (scan != Scan::kFound)
+        if (scan != Scan::kFound) {
             return scan == Scan::kStopped ? false : fail();
+        }
         e->flags |= mark_flags;
         if (!skater::thaw_bmx::bike_press_may_count(core::at(button_map_, 0), core::at(buttons, 0),
-                                                    skater::thaw_bmx::get_right_stick_centred(this)))
+                                                    skater::thaw_bmx::get_right_stick_centred(this))) {
             return false;
+        }
         set_button_map(buttons);
         return true;
     }
@@ -839,8 +883,9 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         const uint32_t ms = read_trigger(node, 1, buttons);
         TrickEvent* e = nullptr;
         const Scan scan = find_event(this, 2, checksums::Name{core::at(buttons, 0)}, {.ms = ms, .mask = mask}, e);
-        if (scan != Scan::kFound)
+        if (scan != Scan::kFound) {
             return scan == Scan::kStopped ? false : fail();
+        }
         e->flags |= mark_flags;
         set_button_map(buttons);
         return true;
@@ -848,8 +893,9 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
     case kTap: { // Tap: the button pressed, then released (the button map left alone)
         static const auto kSteps = std::to_array<Step>({{.type = 2, .button = 0}, {.type = 1, .button = 0}});
         const Scan scan = match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 1, buttons), .mask = mask});
-        if (scan != Scan::kFound)
+        if (scan != Scan::kFound) {
             return scan == Scan::kStopped ? false : fail();
+        }
         flag_spent(mark_flags);
         return true;
     }
@@ -883,8 +929,9 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
                 scan = Scan::kStopped;
                 return false;
             }
-            if (e.flags & mask)
+            if (e.flags & mask) {
                 return true;
+            }
             switch (state) {
             case 0:
                 if (e.type == 1 && e.button == core::at(buttons, 2)) {
@@ -930,8 +977,9 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
                 scan = Scan::kStopped;
                 return false;
             }
-            if (e.flags & mask)
+            if (e.flags & mask) {
                 return true;
+            }
             if (state == 0) {
                 if (e.type == 1 && e.button == core::at(buttons, 2)) {
                     e.used = true;
@@ -941,12 +989,15 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
             }
             // (1: either of the two; 2: the first still to come; 3: the second still to come)
             int next = -1;
-            if ((state == 1 || state == 2) && e.button == core::at(buttons, state == 1 ? 1 : 0))
+            if ((state == 1 || state == 2) && e.button == core::at(buttons, state == 1 ? 1 : 0)) {
                 next = state == 1 ? 2 : 4;
-            else if ((state == 1 && e.button == core::at(buttons, 0)) || (state == 3 && e.button == core::at(buttons, 1)))
+            } else if ((state == 1 && e.button == core::at(buttons, 0)) ||
+                       (state == 3 && e.button == core::at(buttons, 1))) {
                 next = state == 1 ? 3 : 4;
-            if (next < 0)
+            }
+            if (next < 0) {
                 return true;
+            }
             if (e.type == 1) {
                 e.used = true;
                 if (next == 4) {
@@ -1042,13 +1093,16 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
         Scan scan = Scan::kStopped;
         for_each_event(this, [&](int, TrickEvent& e) {
             const uint32_t time = e.time;
-            if (get_now() - time >= ms)
+            if (get_now() - time >= ms) {
                 return false;
-            if (e.flags & mask)
+            }
+            if (e.flags & mask) {
                 return true;
+            }
             for (int k = 0; k < 2; ++k) {
-                if (e.button != core::at(buttons, k))
+                if (e.button != core::at(buttons, k)) {
                     continue;
+                }
                 bool& mine = k == 0 ? got0 : got1;
                 const bool other = k == 0 ? got1 : got0;
                 if (e.type == 2) {
@@ -1083,8 +1137,9 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
     }
     case kPressTwo: { // PressTwo: both held, and both pressed
         const uint32_t ms = read_trigger(node, 2, buttons);
-        if (!is_key_held(core::at(buttons, 0)) || !is_key_held(core::at(buttons, 1)))
+        if (!is_key_held(core::at(buttons, 0)) || !is_key_held(core::at(buttons, 1))) {
             return fail();
+        }
         return find_press_both(core::at(buttons, 0), core::at(buttons, 1), {.ms = ms, .mask = mask}) ? succeed() : fail();
     }
     case kHoldThree: { // HoldThree: the three (as named, not mapped) held; nothing marked
@@ -1102,24 +1157,28 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
                        for_each_event(this, [&](int index, TrickEvent& e) {
                            if (!(e.flags & mask) && !is_straight_direction(e.button)) {
                                core::at(found, count++) = index;
-                               if (count == 3)
+                               if (count == 3) {
                                    return false;
+                               }
                            }
                            return true;
                        });
-                       if (core::at(found, 0) == -1 || core::at(found, 1) == -1 || core::at(found, 2) == -1)
+                       if (core::at(found, 0) == -1 || core::at(found, 1) == -1 || core::at(found, 2) == -1) {
                            return false;
+                       }
                        for (const int index : found) {
                            const uint32_t time = core::at(events_, index).time;
-                           if (get_now() - time >= ms)
+                           if (get_now() - time >= ms) {
                                return false;
+                           }
                        }
         TrickEvent& newest = core::at(events_, core::at(found, 0));
         TrickEvent& middle = core::at(events_, core::at(found, 1));
         TrickEvent& oldest = core::at(events_, core::at(found, 2));
-        if (newest.type != 2 || newest.button != core::at(buttons, 1) || middle.type != 1 || middle.button != core::at(buttons, 1) ||
-            oldest.type != 2 || oldest.button != core::at(buttons, 0))
+        if (newest.type != 2 || newest.button != core::at(buttons, 1) || middle.type != 1 ||
+            middle.button != core::at(buttons, 1) || oldest.type != 2 || oldest.button != core::at(buttons, 0)) {
             return fail();
+        }
         newest.used = true;
         middle.used = true;
         oldest.used = true;
@@ -1128,17 +1187,20 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
     case kExtraGrabTrickLogic: { // (name unknown) the button pressed, with no direction pressed but the map's (its last
                        // direction) - those marked used; the newest press gets the flags
         uint32_t direction = 0;
-        for (const uint32_t mapped : button_map_)
-            if (is_direction(mapped))
+        for (const uint32_t mapped : button_map_) {
+            if (is_direction(mapped)) {
                 direction = mapped;
+            }
+        }
         uint32_t ms = read_trigger(node, 1, buttons);
         bool found = false;
         int found_index = 0;
         bool refused = false;
         for_each_event(this, [&](int index, TrickEvent& e) {
             const uint32_t time = e.time;
-            if (get_now() - time >= ms)
+            if (get_now() - time >= ms) {
                 return false;
+            }
             if (!(e.flags & mask) && e.type == 1) {
                 if (e.button == core::at(buttons, 0)) {
                     found = true;
@@ -1153,10 +1215,12 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
             }
             return true;
         });
-        if (refused)
+        if (refused) {
             return false;
-        if (!found)
+        }
+        if (!found) {
             return fail();
+        }
         core::at(events_, found_index).flags |= mark_flags;
         return succeed();
     }
@@ -1169,29 +1233,35 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_m
 void MoveExecutor::queue_done_tricks(uint32_t list, bool flag, uint32_t used)
 {
     script::Array* tricks = script::fetch_list(list);
-    if (!tricks)
+    if (!tricks) {
         return;
+    }
     const int count = static_cast<int>(tricks->extent());
     const uint32_t mask = ~used & 0xFFFFFFFB;
     for (int i = 0; i < count; ++i) {
         auto* trick = tricks->struct_at(static_cast<uint32_t>(i));
-        if (!is_trick_entry(trick))
+        if (!is_trick_entry(trick)) {
             continue;
+        }
         script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alternate = nullptr;
         trick->read_sub_struct(kAltTrigger, &alternate, 0);
-        if (check_trigger(trigger, {.mark_flags_ = 1, .mask = mask}, false) || check_trigger(alternate, {.mark_flags_ = 1, .mask = mask}, false))
+        if (check_trigger(trigger, {.mark_flags_ = 1, .mask = mask}, false) ||
+            check_trigger(alternate, {.mark_flags_ = 1, .mask = mask}, false)) {
             queue_trick(checksums::Name{list}, i, flag);
+        }
     }
 }
 
 // 0x00521A10
 void MoveExecutor::queue_all_done_tricks()
 {
-    if (manual_list_ && score_->special_active())
+    if (manual_list_ && score_->special_active()) {
         queue_done_tricks(manual_list_, true, list_used_);
-    for (int i = 0; i < extra_list_count_; ++i)
+    }
+    for (int i = 0; i < extra_list_count_; ++i) {
         queue_done_tricks(core::at(extra_lists_, i), false, list_used_);
+    }
 }
 
 // 0x00521A80
@@ -1200,18 +1270,22 @@ void MoveExecutor::set_pending_trick(PendingList pending_list, bool flag)
     const auto list = pending_list.list;
     const auto mask = pending_list.mask;
     script::Array* tricks = script::fetch_list(list);
-    if (!tricks)
+    if (!tricks) {
         return;
+    }
     const int count = static_cast<int>(tricks->extent());
     for (int i = 0; i < count; ++i) {
         auto* trick = tricks->struct_at(static_cast<uint32_t>(i));
-        if (!is_trick_entry(trick))
+        if (!is_trick_entry(trick)) {
             continue;
+        }
         script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alternate = nullptr;
         trick->read_sub_struct(kAltTrigger, &alternate, 0);
-        if (!check_trigger(trigger, {.mark_flags_ = 4, .mask = mask}, false) && !check_trigger(alternate, {.mark_flags_ = 4, .mask = mask}, false))
+        if (!check_trigger(trigger, {.mark_flags_ = 4, .mask = mask}, false) &&
+            !check_trigger(alternate, {.mark_flags_ = 4, .mask = mask}, false)) {
             continue;
+        }
         manual_.array_ = list;
         manual_.index_ = i;
         manual_.time_ = static_cast<int>(static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
@@ -1227,8 +1301,9 @@ void MoveExecutor::set_pending_trick(PendingList pending_list, bool flag)
 bool MoveExecutor::set_current_bail_endpose(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t& endpose = bail_endpose_;
-    if (!params->read_hash_value(0U, &endpose, 0))
+    if (!params->read_hash_value(0U, &endpose, 0)) {
         endpose = 0;
+    }
     return true;
 }
 

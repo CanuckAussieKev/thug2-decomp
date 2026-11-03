@@ -105,10 +105,11 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
     // A bit per state flag (the state component's 24 timed flags): set while it's on.
     uint32_t controls = 0;
     for (int k = 0; k < kTimedFlagCount; ++k) {
-        if (core::at(core->timed_flags(), k).on)
+        if (core::at(core->timed_flags(), k).on) {
             controls |= 1U << k;
-        else
+        } else {
             controls &= ~(1U << k);
+        }
     }
     out.controls = controls;
     uint32_t value = 0;
@@ -129,8 +130,9 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
         // (TP-R6: whole units in a big level)
         const int16_t value =
             k == 1 ? thugpro::pack_height(entity()->at_point().y) : thugpro::pack_horizontal(entity()->at_point()[k]);
-        if (value != core::at(sent_pos_, k) || force)
+        if (value != core::at(sent_pos_, k) || force) {
             flags |= 1U << k;
+        }
     }
     for (int k = 0; k < 3; ++k) {
         const int16_t value = pack_angle(now.angles[k]);
@@ -140,12 +142,15 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
         }
     }
     if (now.state != sent_state_ || now.flag74 != sent_flag74_ || now.value_7c_ != sent_value_7c_ ||
-        now.flag75 != sent_flag75_ || now.flag76 != sent_flag76_ || force)
+        now.flag75 != sent_flag75_ || now.flag76 != sent_flag76_ || force) {
         flags |= online::kObjectUpdateHasState;
-    if (now.controls != sent_controls_ || now.value_6c_ != sent_value_6c_ || force)
+    }
+    if (now.controls != sent_controls_ || now.value_6c_ != sent_value_6c_ || force) {
         flags |= online::kObjectUpdateHasControls;
-    if (now.value80 != sent_value80_) // (not forced)
+    }
+    if (now.value80 != sent_value80_) { // (not forced)
         flags |= online::kObjectUpdateHasWord;
+    }
     return flags;
 }
 
@@ -161,8 +166,9 @@ void RiderHostSync::send_update()
         // Between the 15th frames: only once the connection's send interval has gone by.
         net::ConnSearch search;
         const net::Conn* conn = app->begin_conn_walk(&search);
-        if (app->clock() - last_transmit_at_ < conn->get_transmit_period())
+        if (app->clock() - last_transmit_at_ < conn->get_transmit_period()) {
             return;
+        }
     }
     last_transmit_at_ = app->clock();
     std::array<uint8_t, online::kObjectUpdateBytes> buffer{};
@@ -175,22 +181,25 @@ void RiderHostSync::send_update()
     if (on_server) {
         // (a copy of the server's own skater's position, written and never read: the original's static)
         uint32_t& guard = local_net_logic_state().local_net_guard_;
-        if (!(guard & 1))
+        if (!(guard & 1)) {
             guard |= 1;
+        }
         local_net_logic_state().local_net_position_ = entity()->at_point();
     }
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
             k == 1 ? thugpro::pack_height(entity()->at_point().y) : thugpro::pack_horizontal(entity()->at_point()[k]);
-        if (flags & (1U << k))
+        if (flags & (1U << k)) {
             stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = online::kObjectUpdatePoseBits});
+        }
         core::at(sent_pos_, k) = value;
     }
     for (int k = 0; k < 3; ++k) {
         const int16_t value = pack_angle(now.angles[k]);
-        if (flags & (online::kObjectUpdateAngleFieldBase << k))
+        if (flags & (online::kObjectUpdateAngleFieldBase << k)) {
             stream.write_bits({.value = static_cast<uint32_t>(static_cast<int>(value)), .count = online::kObjectUpdatePoseBits});
+        }
         core::at(sent_angles_, k) = value;
     }
     // (the bytes go out sign-extended: write_bits doesn't mask them, as the original)
@@ -247,8 +256,9 @@ void RiderHostSync::seal()
 // 0x005136C0
 void RiderHostSync::tick_frame()
 {
-    if (is_versus_session() && find_own_player_record())
+    if (is_versus_session() && find_own_player_record()) {
         send_update();
+    }
 }
 
 // 0x005136F0
@@ -257,18 +267,21 @@ int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
     util::ByteReader reader(context->body(), context->body_size());
     online::TagStolenMessage message;
     // (NOT ORIGINAL: too short - dropped)
-    if (!online::read_tag_stolen(reader, &message) || message.game_id != run_count())
+    if (!online::read_tag_stolen(reader, &message) || message.game_id != run_count()) {
         return net::kResultConsumed;
+    }
     // (the thief first, as the senders write it: score_trick_objects / PointTally::note_tagged_prop)
     const uint32_t thief_id = message.thief_id;
     const uint32_t victim_id = message.victim_id;
     auto* skater = static_cast<Rider*>(context->content());
     Rider* thief = rider_for_slot(thief_id);
-    if (!thief)
+    if (!thief) {
         return net::kResultPassOn;
+    }
     Rider* victim = rider_for_slot(victim_id);
-    if (!victim)
+    if (!victim) {
         return net::kResultPassOn;
+    }
     uint32_t script = 0;
     Rider* other = nullptr;
     if (skater->ident() == thief_id) {
@@ -281,8 +294,9 @@ int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
         return net::kResultPassOn;
     }
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
-    if (params)
+    if (params) {
         params = new (params) script::Struct;
+    }
     Expects(params != nullptr);
     params->get_clear(); // (on the new structure, as the original)
     params->append_word(kString0, script::QbValueKind::kString, other->fetch_shown_name());

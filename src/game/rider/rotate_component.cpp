@@ -67,8 +67,9 @@ RiderTurning::~RiderTurning() = default;
 // 0x00517CD0
 void RiderTurning::configure_from_data(script::Struct* /*params*/)
 {
-    for (int axis = 2; axis >= 0; --axis)
+    for (int axis = 2; axis >= 0; --axis) {
         core::at(turns_, axis).active = false;
+    }
 }
 
 // 0x00517D20
@@ -82,8 +83,9 @@ void RiderTurning::tick_frame()
 {
     for (int axis = 0; axis < 3; ++axis) {
         Turn& turn = core::at(turns_, axis);
-        if (!turn.active)
+        if (!turn.active) {
             continue;
+        }
         const double exact = frame_clock::get_slomo_frame_seconds() * turn.rate;
         auto step = static_cast<float>(exact);
         auto turned = static_cast<float>(std::fabs(exact) + turn.turned);
@@ -99,30 +101,36 @@ void RiderTurning::tick_frame()
         turn_by(entity()->basis_frame(), rotation);
         turn_by(core_matrix(core_physics_), rotation);
     }
-    if (!core::at(turns_, 0).active && !core::at(turns_, 1).active && !core::at(turns_, 2).active)
+    if (!core::at(turns_, 0).active && !core::at(turns_, 1).active && !core::at(turns_, 2).active) {
         hold_off(true);
+    }
 }
 
 // 0x00517EA0
 int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
-    if (name != kRotate)
+    if (name != kRotate) {
         return 2;
+    }
     float duration = 0.0F;
     if (params->fetch_float(kDuration, &duration, 0)) {
         // Over time: the duration in seconds (seconds / second), frames (frames / frame) or ms.
         if (!params->has_bare_flag(kSeconds) && !params->has_bare_flag(kSecond)) {
-            if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
+            if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame)) {
                 duration = static_cast<float>(static_cast<double>(duration) * kSecondsPerFrame);
-            else
+            } else {
                 duration = static_cast<float>(static_cast<double>(duration) * kSecondsPerMs);
+            }
         }
-        if (params->fetch_float(kX, &core::at(turns_, 0).remaining, 0))
+        if (params->fetch_float(kX, &core::at(turns_, 0).remaining, 0)) {
             start_turn(core::at(turns_, 0), core::at(turns_, 0).remaining, duration);
-        if (params->fetch_float(kY, &core::at(turns_, 1).remaining, 0))
+        }
+        if (params->fetch_float(kY, &core::at(turns_, 1).remaining, 0)) {
             start_turn(core::at(turns_, 1), core::at(turns_, 1).remaining, duration);
-        if (params->fetch_float(kZ, &core::at(turns_, 2).remaining, 0))
+        }
+        if (params->fetch_float(kZ, &core::at(turns_, 2).remaining, 0)) {
             start_turn(core::at(turns_, 2), core::at(turns_, 2).remaining, duration);
+        }
         // To face a node: about y by the angle to it in the skater's plane.
         uint32_t node = 0;
         if (params->read_hash_value(kNode, &node, 0)) {

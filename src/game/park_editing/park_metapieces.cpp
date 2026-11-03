@@ -77,8 +77,9 @@ void PieceSlots<Piece>::commission(int count)
         if (extra && extra_ && limit_ <= ints::as_unsigned(count) && limit_ > 2) {
             const std::span<Slot> to(extra.get(), static_cast<uint32_t>(count - 2));
             const std::span<Slot> from = this->extra();
-            for (uint32_t i = 2; i < limit_; ++i)
+            for (uint32_t i = 2; i < limit_; ++i) {
                 core::at(to, i - 2) = core::at(from, i - 2);
+            }
         }
     }
     extra_ = std::move(extra); // (the old array freed)
@@ -176,10 +177,11 @@ int PieceGroup::count_pieces()
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         const uint32_t name = piece_name(i);
         const PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(name, nullptr);
-        if (entry->flag_bits_ & kSector) // a single piece
+        if (entry->flag_bits_ & kSector) { // a single piece
             ++count;
-        else
+        } else {
             count += static_cast<int>(entry->filled_slots_);
+        }
     }
     return count;
 }
@@ -187,10 +189,12 @@ int PieceGroup::count_pieces()
 bool PieceGroup::fits_inside_region(CellBox* area)
 {
     const CellBox& cells = cell_footprint_;
-    if (cells.x < area->x || cells.x + cells.w > area->x + area->w)
+    if (cells.x < area->x || cells.x + cells.w > area->x + area->w) {
         return false;
-    if (cells.z < area->z || cells.z + cells.l > area->z + area->l)
+    }
+    if (cells.z < area->z || cells.z + cells.l > area->z + area->l) {
         return false;
+    }
     return true;
 }
 
@@ -241,18 +245,23 @@ void PieceGroup::get_bounds(maths::Vec4* max, maths::Vec4* min)
         const float y = piece->at_point().y;
         const double z = piece->at_point().z;
         const double half_x = static_cast<double>(size.x) * 0.5;
-        if (x - half_x < min->x)
+        if (x - half_x < min->x) {
             min->x = static_cast<float>(x - half_x);
-        if (half_x + x > max->x)
+        }
+        if (half_x + x > max->x) {
             max->x = static_cast<float>(half_x + x);
+        }
         const double half_z = static_cast<double>(size.z) * 0.5;
-        if (z - half_z < min->z)
+        if (z - half_z < min->z) {
             min->z = static_cast<float>(z - half_z);
-        if (half_z + z > max->z)
+        }
+        if (half_z + z > max->z) {
             max->z = static_cast<float>(half_z + z);
+        }
         min->y = std::min(min->y, y);
-        if (static_cast<double>(size.y) + y > max->y)
+        if (static_cast<double>(size.y) + y > max->y) {
             max->y = static_cast<float>(static_cast<double>(size.y) + y);
+        }
     }
 }
 
@@ -265,22 +274,28 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
     const int y_end = area.y + area.h;
     const int z_start = area.z;
     const int z_end = area.z + area.l;
-    if (cells.x + cells.w <= x_start || std::cmp_greater_equal(cells.x, x_end))
+    if (cells.x + cells.w <= x_start || std::cmp_greater_equal(cells.x, x_end)) {
         return false;
-    if (cells.y + cells.h <= y_start || cells.y >= y_end)
+    }
+    if (cells.y + cells.h <= y_start || cells.y >= y_end) {
         return false;
-    if (cells.z + cells.l <= z_start || std::cmp_greater_equal(cells.z, z_end))
+    }
+    if (cells.z + cells.l <= z_start || std::cmp_greater_equal(cells.z, z_end)) {
         return false;
-    if (!static_cast<uint8_t>(precise))
+    }
+    if (!static_cast<uint8_t>(precise)) {
         return true;
+    }
     // Precisely (when any piece is flagged setsFloor): by the cells of the pieces that are NOT flagged.
     bool any_sets_floor = false;
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        if (get_descriptor(static_cast<int>(i))->sets_floor_)
+        if (get_descriptor(static_cast<int>(i))->sets_floor_) {
             any_sets_floor = true;
+        }
     }
-    if (!any_sets_floor)
+    if (!any_sets_floor) {
         return true;
+    }
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         const PiecePlace* entry = get_descriptor(static_cast<int>(i));
         CellBox size{};
@@ -291,11 +306,13 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
         const auto x = static_cast<uint8_t>(entry->x + cells.x);
         const auto y = static_cast<int8_t>(entry->y + cells.y);
         const auto z = static_cast<uint8_t>(entry->z + cells.z);
-        if (entry->sets_floor_)
+        if (entry->sets_floor_) {
             continue;
+        }
         if (x + size.w > x_start && y + size.h > y_start && z + size.l > z_start && std::cmp_less(x, x_end) &&
-            y < y_end && std::cmp_less(z, z_end))
+            y < y_end && std::cmp_less(z, z_end)) {
             return true;
+        }
     }
     return false;
 }
@@ -318,8 +335,9 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
 {
     const auto half_w = static_cast<float>(static_cast<double>(cell_footprint_.w) * kGridPitch * 0.5);
     const auto half_l = static_cast<float>(static_cast<double>(cell_footprint_.l) * kGridStepAlong * 0.5);
-    if (!filled_slots_)
+    if (!filled_slots_) {
         return;
+    }
     const auto radians = static_cast<float>(static_cast<double>(angle) * kRadiansPerDegree);
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         const PiecePlace* entry = get_descriptor(static_cast<int>(i));
@@ -356,8 +374,9 @@ void PieceGroup::spotlight(int on, int gap)
 {
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         auto* piece = placed_piece(i);
-        if (piece->flag_bits() & ParkTile::kCloned)
+        if (piece->flag_bits() & ParkTile::kCloned) {
             piece->set_highlight(on != 0, gap != 0);
+        }
     }
 }
 
@@ -394,8 +413,9 @@ PlacedPieceGroup::PlacedPieceGroup()
 
 ParkTile* PlacedPieceGroup::get_piece(uint32_t index)
 {
-    if (index >= filled_slots() || static_cast<int>(index) < 0)
+    if (index >= filled_slots() || static_cast<int>(index) < 0) {
         return nullptr;
+    }
     return slot(static_cast<int>(index)).piece;
 }
 
@@ -440,8 +460,9 @@ PieceBlueprint::PieceBlueprint() { flag_bits() = kAbstract; }
 
 TileTemplate* PieceBlueprint::get_piece(uint32_t index)
 {
-    if (index >= filled_slots() || static_cast<int>(index) < 0)
+    if (index >= filled_slots() || static_cast<int>(index) < 0) {
         return nullptr;
+    }
     return ParkLayout::singleton()->builder()->get_piece_source(slot(static_cast<int>(index)).piece);
 }
 
@@ -452,8 +473,9 @@ void PieceBlueprint::turn_descriptors(int turn)
     slots_.turn({.filled = filled_slots(), .turn = turn}, cell_footprint(), [](const NamedSlot& from) {
         const PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(from.piece, nullptr);
         const CellBox size = entry->cell_footprint();
-        if (from.rot & 1)
+        if (from.rot & 1) {
             return SlotSize{.across = size.l, .along = size.w};
+        }
         return SlotSize{.across = size.w, .along = size.l};
     });
 }
@@ -466,12 +488,15 @@ void grow_to_take(CellBox& cells, const CellBox* pos)
     const int w = pos->x + pos->w;
     const int h = pos->y + pos->h;
     const int l = pos->z + pos->l;
-    if (std::cmp_greater(w, cells.w))
+    if (std::cmp_greater(w, cells.w)) {
         cells.w = static_cast<uint8_t>(w);
-    if (std::cmp_greater(h, cells.h))
+    }
+    if (std::cmp_greater(h, cells.h)) {
         cells.h = static_cast<uint8_t>(h);
-    if (std::cmp_greater(l, cells.l))
+    }
+    if (std::cmp_greater(l, cells.l)) {
         cells.l = static_cast<uint8_t>(l);
+    }
 }
 
 } // namespace
@@ -480,8 +505,9 @@ void PieceBlueprint::insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool s
 {
     auto* source = (piece->flag_bits() & ParkPiece::kSource) ? core::down_cast<TileTemplate>(piece) : nullptr;
     NamedSlot* entry = &slot(static_cast<int>(filled_slots()++));
-    if (!source)
+    if (!source) {
         return; // (counted all the same)
+    }
     entry->x = pos->x;
     entry->y = pos->y;
     entry->z = pos->z;
@@ -497,8 +523,9 @@ void PieceBlueprint::add_meta_piece(PieceGroup* meta, CellBox* pos, MetaPlacemen
     const auto rot = meta_placement.rot;
     const auto sets_floor = meta_placement.sets_floor_;
     NamedSlot* entry = &slot(static_cast<int>(filled_slots()++));
-    if (!meta)
+    if (!meta) {
         return;
+    }
     entry->x = pos->x;
     entry->y = pos->y;
     entry->z = pos->z;

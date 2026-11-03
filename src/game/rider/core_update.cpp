@@ -28,13 +28,15 @@ void SkaterPhysicsModule::tick_frame()
     frame_length_ = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     collision_events::checkpoint(this, "update-start"); // (not original)
     const bool bike = thaw_bmx::live_now(this);         // (not original: THAW's bike, thaw_bmx_physics.cpp)
-    if (bike)
+    if (bike) {
         thaw_bmx::begin_frame(this);
+    }
     landed_this_frame_ = 0;
     frame_began_in_lip_ = state_of(this) == kLip;
     frame_began_in_drop_ = bit_mark(this, PoseFlag::kAcidDrop);
-    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary().pos_x().held_down())
+    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary().pos_x().held_down()) {
         set_flag(this, PoseFlag::kCrouched, 1);
+    }
     clamp_skater_speed();
     set_flag(this, PoseFlag::kGroundSnapped, 0);
     set_flag(this, PoseFlag::kWallplanted, 0);
@@ -49,8 +51,9 @@ void SkaterPhysicsModule::tick_frame()
         break;
     case kAir:
         do_air_physics();
-        if (state_of(this) == kGround)
+        if (state_of(this) == kGround) {
             landed_this_frame_ = 1;
+        }
         break;
     case kWallRide:
         step_wall_ride();
@@ -65,8 +68,9 @@ void SkaterPhysicsModule::tick_frame()
         step_wallplant();
         break;
     case kBikeStall: // (not original: THAW's stall state - only THAW's bike gets into it, thaw_bmx.h)
-        if (thaw_bmx::is_switched_on())
+        if (thaw_bmx::is_switched_on()) {
             do_bike_stall_physics();
+        }
         break;
     default:
         break;
@@ -91,10 +95,12 @@ void SkaterPhysicsModule::tick_frame()
         air_from_jump = !air_from_jump;
         static_cast<objects::Entity*>(object_of(this))->announce(air_from_jump ? kEnteredAir : kLeftAir, nullptr, 0.0F);
     }
-    if (state_of(this) != kAir)
+    if (state_of(this) != kAir) {
         late_wallplant_frames_ = 0;
-    if (bike && thaw_bmx::live_now(this))
+    }
+    if (bike && thaw_bmx::live_now(this)) {
         thaw_bmx::end_frame(this); // (not original: THAW 0x005C9210, the x-up let go)
+    }
     render::set_current_cache(nullptr);
     collision_events::end_frame(this); // (not original: [debug] collision_events)
 }

@@ -79,11 +79,13 @@ void RiderPhysicsCommit::tick_frame()
     if (core->frame_began_in_lip() && state->cur_phase() != kStateLip) {
         state->set_lip_straight_up(0);
         if (state->cur_phase() == kStateAir && std::fabs(entity()->vel().x) < kStillSpeed &&
-            std::fabs(entity()->vel().z) < kStillSpeed)
+            std::fabs(entity()->vel().z) < kStillSpeed) {
             state->set_lip_straight_up(1);
+        }
     }
-    if (state->cur_phase() != kStateAir)
+    if (state->cur_phase() != kStateAir) {
         state->set_lip_straight_up(0);
+    }
     state->set_drawn_normal(core->drawn_normal());
     state->floor_normal() = core->floor_normal();
 
@@ -91,8 +93,9 @@ void RiderPhysicsCommit::tick_frame()
     entity()->basis_frame().square_up_axes(1);
     maths::Mat4& physics_matrix = core->display_matrix();
     physics_matrix.square_up_axes(1);
-    if (entity()->basis_frame().restore_right_angles())
+    if (entity()->basis_frame().restore_right_angles()) {
         physics_matrix = static_cast<ObjectModule*>(core)->entity()->basis_frame();
+    }
     entity()->display_matrix() = physics_matrix;
 
     // The sounds: terrain and state.

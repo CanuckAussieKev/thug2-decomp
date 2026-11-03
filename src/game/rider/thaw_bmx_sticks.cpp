@@ -52,9 +52,11 @@ std::unordered_map<const void*, PadSticks>& get_pads()
 PadSticks& sticks_of(const void* pad)
 {
     PadSticks& sticks = get_pads()[pad];
-    for (int i = 0; i < kStickButtonCount; ++i)
-        if (!core::at(sticks.buttons, i).label())
+    for (int i = 0; i < kStickButtonCount; ++i) {
+        if (!core::at(sticks.buttons, i).label()) {
             core::at(sticks.buttons, i).set_label(stick_button_name(i));
+        }
+    }
     return sticks;
 }
 
@@ -65,8 +67,9 @@ const void* trick_pad(const objects::MoveExecutor* trick) { return &trick->input
 BikeState* riding_state(const objects::MoveExecutor* trick)
 {
     const SkaterPhysicsModule* core = trick->core_physics();
-    if (!core || !live_now(core))
+    if (!core || !live_now(core)) {
         return nullptr;
+    }
     return state_of(core, false);
 }
 
@@ -74,9 +77,11 @@ BikeState* riding_state(const objects::MoveExecutor* trick)
 // buttons: not for an ignored button.
 void add_stick_event(objects::MoveExecutor* trick, uint32_t name, bool pressed)
 {
-    for (int i = 0; i < trick->ignored_count(); ++i)
-        if (core::at(trick->ignored(), i) == name)
+    for (int i = 0; i < trick->ignored_count(); ++i) {
+        if (core::at(trick->ignored(), i) == name) {
             return;
+        }
+    }
     trick->append_incident(pressed ? 1 : 2)->button = name;
 }
 
@@ -90,50 +95,59 @@ uint32_t stick_directions(std::span<const uint8_t> data)
     const uint8_t left_x = core::at(data, 2);
     const uint8_t left_y = core::at(data, 3);
     // the right stick (THAW 0x435530): x past 0xCB right, under 0x35 left; y under 0x35 up, past 0xCB down
-    if (right_x > kRightOver)
+    if (right_x > kRightOver) {
         bits |= 1U << kRightRight;
-    else if (right_x < kRightUnder)
+    } else if (right_x < kRightUnder) {
         bits |= 1U << kRightLeft;
-    if (right_y < kRightUnder)
+    }
+    if (right_y < kRightUnder) {
         bits |= 1U << kRightUp;
-    else if (right_y > kRightOver)
+    } else if (right_y > kRightOver) {
         bits |= 1U << kRightDown;
+    }
     // the movement stick (0x4355B0): any way off the middle (the bytes come centred within the dead band)
-    if (left_x > kMiddle)
+    if (left_x > kMiddle) {
         bits |= 1U << kLeftRight;
-    else if (left_x < kMiddle)
+    } else if (left_x < kMiddle) {
         bits |= 1U << kLeftLeft;
-    if (left_y < kMiddle)
+    }
+    if (left_y < kMiddle) {
         bits |= 1U << kLeftUp;
-    else if (left_y > kMiddle)
+    } else if (left_y > kMiddle) {
         bits |= 1U << kLeftDown;
+    }
     return bits;
 }
 
 uint32_t stick_button_name(int index)
 {
     static std::array<uint32_t, kStickButtonCount> names = {};
-    if (!core::at(names, index))
+    if (!core::at(names, index)) {
         core::at(names, index) = get_name(core::at(kPadNames, index));
+    }
     return core::at(names, index);
 }
 
 void update_pad_sticks(const void* pad, std::span<const uint8_t> data)
 {
-    if (data.empty() && !get_pads().contains(pad))
+    if (data.empty() && !get_pads().contains(pad)) {
         return;
+    }
     PadSticks& sticks = sticks_of(pad);
     const uint32_t bits = !data.empty() ? stick_directions(data) : 0;
     // (THAW 0x596CA0: each a button down while its byte is set - full pressure)
-    for (int i = 0; i < kStickButtonCount; ++i)
+    for (int i = 0; i < kStickButtonCount; ++i) {
         core::at(sticks.buttons, i).tick_frame((bits >> i) & 1 ? kPressedValue : 0);
+    }
 }
 
 void* pad_stick_button(const void* pad, uint32_t name)
 {
-    for (int i = 0; i < kStickButtonCount; ++i)
-        if (stick_button_name(i) == name)
+    for (int i = 0; i < kStickButtonCount; ++i) {
+        if (stick_button_name(i) == name) {
             return &core::at(sticks_of(pad).buttons, i);
+        }
+    }
     return nullptr;
 }
 
@@ -147,11 +161,13 @@ int stick_direction(uint32_t directions, bool right)
 uint32_t trick_stick_name(bool right, int direction)
 {
     static std::array<std::array<uint32_t, kDirectionCount>, 2> names = {};
-    if (direction < 1 || direction > kDirectionCount)
+    if (direction < 1 || direction > kDirectionCount) {
         return 0;
+    }
     uint32_t& name = core::at(core::at(names, right ? 1 : 0), direction - 1);
-    if (!name)
+    if (!name) {
         name = get_name(core::at(core::at(kStickTrickTable, right ? 1 : 0), direction - 1));
+    }
     return name;
 }
 
@@ -160,32 +176,40 @@ void update_trick_sticks(void* trick_component)
     auto* trick = static_cast<objects::MoveExecutor*>(trick_component);
     const SkaterPhysicsModule* core = trick->core_physics();
     BikeState* state = core ? state_of(core, false) : nullptr;
-    if (!state)
+    if (!state) {
         return;
+    }
     const bool riding = live_now(core);
     uint32_t bits = 0;
     if (riding) {
         const PadSticks& sticks = sticks_of(trick_pad(trick));
-        for (int i = 0; i < kStickButtonCount; ++i)
-            if (core::at(sticks.buttons, i).held_down())
+        for (int i = 0; i < kStickButtonCount; ++i) {
+            if (core::at(sticks.buttons, i).held_down()) {
                 bits |= 1U << i;
+            }
+        }
     }
     for (int s = 0; s < 2; ++s) {
         const int was = core::at(state->trick_stick_, s);
         const int now = stick_direction(bits, s == 1);
-        if (now == was)
+        if (now == was) {
             continue;
+        }
         core::at(state->trick_stick_, s) = now;
         // (off the bike: forgotten, no events - THUG2's buffer as before)
-        if (!riding)
+        if (!riding) {
             continue;
+        }
         // (THAW 0x471D20 sets the eight in order, as THUG2's d-pad: the lower-numbered change first)
-        if (was && (!now || was < now))
+        if (was && (!now || was < now)) {
             add_stick_event(trick, trick_stick_name(s == 1, was), false);
-        if (now)
+        }
+        if (now) {
             add_stick_event(trick, trick_stick_name(s == 1, now), true);
-        if (was && now && was > now)
+        }
+        if (was && now && was > now) {
             add_stick_event(trick, trick_stick_name(s == 1, was), false);
+        }
     }
 }
 
@@ -193,11 +217,13 @@ int trick_stick_held(const void* trick_component, uint32_t name)
 {
     for (int s = 0; s < 2; ++s) {
         for (int d = 1; d <= kDirectionCount; ++d) {
-            if (trick_stick_name(s == 1, d) != name)
+            if (trick_stick_name(s == 1, d) != name) {
                 continue;
+            }
             const BikeState* state = riding_state(static_cast<const objects::MoveExecutor*>(trick_component));
-            if (!state)
+            if (!state) {
                 return -1;
+            }
             return core::at(state->trick_stick_, s) == d ? 1 : 0;
         }
     }
@@ -208,8 +234,9 @@ void end_trick_update(void* trick_component)
 {
     // THAW 0x4723D0 (the end of the trick component's update): centred while none of the right stick's eight is down
     BikeState* state = riding_state(static_cast<const objects::MoveExecutor*>(trick_component));
-    if (state)
+    if (state) {
         state->right_stick_centred_ = core::at(state->trick_stick_, 1) == 0;
+    }
 }
 
 bool bike_press_may_count(uint32_t last_button, uint32_t button, bool right_stick_centred)

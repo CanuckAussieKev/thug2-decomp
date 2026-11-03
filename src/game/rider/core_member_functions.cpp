@@ -272,8 +272,9 @@ void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, fl
 // A wall the feeler hit: not vert, its normal's y within 0.1 of 0 (or not a number).
 bool hit_wall(const render::ProbeRay& feeler)
 {
-    if (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert))
+    if (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert)) {
         return false;
+    }
     return !(std::fabs(static_cast<double>(feeler.surface_dir().y)) > kWallNormalY);
 }
 
@@ -283,8 +284,9 @@ bool hit_wall(const render::ProbeRay& feeler)
 uint32_t SkaterPhysicsModule::time_aloft()
 {
     const int state = state_->cur_phase();
-    if (state == 1 || state == 2)
+    if (state == 1 || state == 2) {
         return get_since(air_start_);
+    }
     return air_end_ - air_start_;
 }
 
@@ -298,8 +300,9 @@ bool SkaterPhysicsModule::feel_ahead(script::Struct* params, render::ProbeRay& f
     objects::GameEntity* object = object_of(this);
     const maths::Vec4& position = object->at_point();
     feeler.line().start = position;
-    if (raise)
+    if (raise) {
         feeler.line().start.y = static_cast<float>(static_cast<double>(position.y) + kVertFeelerRaise);
+    }
     feeler.line().end = feeler.line().start;
     feel_along_facing(feeler, object, distance);
     return feeler.get_hit_shape(true, false) != 0;
@@ -316,10 +319,12 @@ int SkaterPhysicsModule::air_time_threshold(script::Struct* params)
 {
     float value = 0.0F;
     params->fetch_float(0U, &value, 0);
-    if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond))
+    if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond)) {
         return static_cast<int>(ftol(static_cast<double>(value) * kMillisecondsPerSecond));
-    if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
+    }
+    if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame)) {
         return static_cast<int>(ftol(static_cast<double>(value) * kMillisecondsPerFrame));
+    }
     return static_cast<int>(ftol(value));
 }
 
@@ -617,8 +622,9 @@ int SkaterPhysicsModule::get_flipped(script::Struct* /*params*/, script::Script*
 int SkaterPhysicsModule::get_switched(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
-    if (core::down_cast<objects::Rider>(entity())->goofy())
+    if (core::down_cast<objects::Rider>(entity())->goofy()) {
         return flipped ? 1 : 0;
+    }
     return flipped ? 0 : 1;
 }
 // 0x004FC7E0
@@ -727,8 +733,9 @@ int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script* 
 // 0x004FC340
 int SkaterPhysicsModule::doing_flip(script::Struct* /*params*/, script::Script* /*script*/) const
 {
-    if (model_rotating_ && model_rotation_left_ > kFlipLeftMin)
+    if (model_rotating_ && model_rotation_left_ > kFlipLeftMin) {
         return 1;
+    }
     return 0;
 }
 
@@ -780,8 +787,9 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct* /*params*/, script::
         const maths::Vec4& facing = core::at(object->basis_frame().row, 2);
         direction = maths::Vec4(facing.x, 0.0F, facing.z, facing.w);
         const double flat = (static_cast<double>(facing.z) * facing.z) + (static_cast<double>(facing.x) * facing.x);
-        if (flat < kStillSquared)
+        if (flat < kStillSquared) {
             direction = maths::Vec4(1.0F, 0.0F, 1.0F, 1.0F);
+        }
     }
     const double length =
         std::sqrt((static_cast<double>(direction.z) * direction.z) + (static_cast<double>(direction.x) * direction.x));
@@ -820,8 +828,9 @@ int SkaterPhysicsModule::change_wheel_drag(script::Struct* params, script::Scrip
     objects::GameEntity* object = object_of(this);
     float* friction = &rolling_friction_;
     params->fetch_float(0U, friction, 0);
-    if (params->has_bare_flag(kDefault) && special_friction_time_ == 0.0F)
+    if (params->has_bare_flag(kDefault) && special_friction_time_ == 0.0F) {
         *friction = tuning_float_lookup(kCoastDrag, object);
+    }
     return 1;
 }
 
@@ -850,8 +859,9 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct* /*params*/, scrip
     const double y = velocity.y;
     const double z = velocity.z;
     const double length_squared = ((x * x) + (y * y)) + (z * z);
-    if (length_squared < kStillSquared)
+    if (length_squared < kStillSquared) {
         return 1;
+    }
     maths::Vec4& right = core::at(object->basis_frame().row, 0);
     maths::Vec4& up = core::at(object->basis_frame().row, 1);
     maths::Vec4& facing = core::at(object->basis_frame().row, 2);
@@ -888,8 +898,9 @@ int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*
         time = 0.0F;
         return 1;
     }
-    if (limits_time_ == -kTimerForLevel) // for the level
+    if (limits_time_ == -kTimerForLevel) { // for the level
         return 1;
+    }
     if (params->has_bare_flag(kEnd)) {
         time = 0.0F;
         return 1;
@@ -907,10 +918,12 @@ int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*
     float* gravity = &limits_gravity_;
     *gravity = tuning_float_lookup(kGroundGravity, object);
     params->fetch_float(kGravity, gravity, 0);
-    if (params->has_bare_flag(kUntilCancelled))
+    if (params->has_bare_flag(kUntilCancelled)) {
         time = -1.0F;
-    if (params->has_bare_flag(kCurrentLevel))
+    }
+    if (params->has_bare_flag(kCurrentLevel)) {
         time = -kTimerForLevel;
+    }
     return 1;
 }
 
@@ -921,11 +934,13 @@ int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Sc
     params->fetch_list(0U, &frictions, 0);
     int& index = special_friction_index_;
     const int count = static_cast<int>(frictions->extent()); // (no array: the original reads through null too)
-    if (index >= count)
+    if (index >= count) {
         index = count - 1;
+    }
     rolling_friction_ = frictions->fetch_float(static_cast<uint32_t>(index));
-    if (index == 0)
+    if (index == 0) {
         special_friction_start_ = get_now();
+    }
     ++index;
     params->fetch_float(kDuration, &special_friction_time_, 0);
     return 1;
@@ -979,8 +994,9 @@ int SkaterPhysicsModule::get_pitch_bail_dir(script::Struct* /*params*/, script::
 int SkaterPhysicsModule::is_facing_wall(script::Struct* params, script::Script* /*script*/)
 {
     render::ProbeRay feeler;
-    if (feel_ahead(params, feeler, false) && hit_wall(feeler))
+    if (feel_ahead(params, feeler, false) && hit_wall(feeler)) {
         return 1;
+    }
     return 0;
 }
 
@@ -988,8 +1004,9 @@ int SkaterPhysicsModule::is_facing_wall(script::Struct* params, script::Script* 
 int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script* /*script*/)
 {
     render::ProbeRay feeler;
-    if (!feel_ahead(params, feeler, false) || !hit_wall(feeler))
+    if (!feel_ahead(params, feeler, false) || !hit_wall(feeler)) {
         return 0;
+    }
     entity()->vel().change_heading(feeler.surface_dir());
     core::at(entity()->basis_frame().row, 2).change_heading(feeler.surface_dir());
     core::down_cast<objects::RiderSpinAndFlip>(
@@ -1003,8 +1020,9 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script* 
 int SkaterPhysicsModule::is_facing_vert(script::Struct* params, script::Script* /*script*/)
 {
     render::ProbeRay feeler;
-    if (feel_ahead(params, feeler, true) && (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert)))
+    if (feel_ahead(params, feeler, true) && (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert))) {
         return 1;
+    }
     return 0;
 }
 
@@ -1023,8 +1041,9 @@ int SkaterPhysicsModule::focus_off(script::Struct* /*params*/, script::Script* /
 int SkaterPhysicsModule::get_focus_time_left(script::Struct* /*params*/, script::Script* script) const
 {
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
-    if (!score)
+    if (!score) {
         return 0;
+    }
     script->args().get()->push_float(checksums::Name{kFocusTime}, score->focus_time_limit());
     return 1;
 }
@@ -1032,8 +1051,9 @@ int SkaterPhysicsModule::get_focus_time_left(script::Struct* /*params*/, script:
 int SkaterPhysicsModule::get_focus_times_allowed(script::Struct* /*params*/, script::Script* script) const
 {
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
-    if (!score)
+    if (!score) {
         return 0;
+    }
     script->args().get()->put_int(checksums::Name{kFocusAllowed}, score->focus_max_times());
     return 1;
 }
@@ -1041,8 +1061,9 @@ int SkaterPhysicsModule::get_focus_times_allowed(script::Struct* /*params*/, scr
 int SkaterPhysicsModule::set_focus_times_allowed(script::Struct* params, script::Script* /*script*/) const
 {
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
-    if (!score)
+    if (!score) {
         return 0;
+    }
     params->fetch_int_value(0U, &score->focus_max_times(), 0);
     return 1;
 }

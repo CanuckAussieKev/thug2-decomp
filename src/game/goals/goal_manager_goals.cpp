@@ -76,28 +76,39 @@ bool in_multiplayer_game() { return static_cast<uint8_t>(commands::cfunc_in_mult
 // the types).
 gsl::owner<Objective*> make_goal(script::Struct* params)
 {
-    if (params->has_bare_flag(kCompetitionFlag))
+    if (params->has_bare_flag(kCompetitionFlag)) {
         return new ContestObjective(params);
-    if (params->has_bare_flag(kNetFlag))
+    }
+    if (params->has_bare_flag(kNetFlag)) {
         return new OnlineObjective(params);
-    if (params->has_bare_flag(kRaceFlag))
+    }
+    if (params->has_bare_flag(kRaceFlag)) {
         return new RaceObjective(params);
-    if (params->has_bare_flag(kTetrisFlag))
+    }
+    if (params->has_bare_flag(kTetrisFlag)) {
         return new FallingTricksGoal(params);
-    if (params->has_bare_flag(kHorseFlag))
+    }
+    if (params->has_bare_flag(kHorseFlag)) {
         return new LetterGameObjective(params);
-    if (params->has_bare_flag(kFindGapsFlag))
+    }
+    if (params->has_bare_flag(kFindGapsFlag)) {
         return new HuntGapsObjective(params);
-    if (params->has_bare_flag(kFilmFlag))
+    }
+    if (params->has_bare_flag(kFilmFlag)) {
         return new ShootVideoObjective(params);
-    if (params->has_bare_flag(kTrickObjectsFlag))
+    }
+    if (params->has_bare_flag(kTrickObjectsFlag)) {
         return new TrickObjectsGoal(params);
-    if (params->has_bare_flag(kSkateTheLine))
+    }
+    if (params->has_bare_flag(kSkateTheLine)) {
         return new SkateLineGoal(params);
-    if (params->has_bare_flag(kTimedScoreRun))
+    }
+    if (params->has_bare_flag(kTimedScoreRun)) {
         return new TimedScoreRunGoal(params);
-    if (params->has_bare_flag(kTrickBeat))
+    }
+    if (params->has_bare_flag(kTrickBeat)) {
         return new TrickBeatGoal(params);
+    }
     return new Objective(params);
 }
 
@@ -107,13 +118,16 @@ gsl::owner<Objective*> make_goal(script::Struct* params)
 bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
 {
     const bool free_skate = game_mode()->is_true(kIsFreeskate);
-    if (!in_multiplayer_game() && free_skate)
+    if (!in_multiplayer_game() && free_skate) {
         return false;
-    if (game_mode()->is_true(kIsCreateGoals) && !params->has_bare_flag(kEditedGoal))
+    }
+    if (game_mode()->is_true(kIsCreateGoals) && !params->has_bare_flag(kEditedGoal)) {
         return false;
+    }
     params->put_name_key(checksums::Name{kGoalIdChecksum}, id);
-    if (params->has_bare_flag(kCareerOnly) && in_multiplayer_game())
+    if (params->has_bare_flag(kCareerOnly) && in_multiplayer_game()) {
         return false;
+    }
     gsl::owner<Objective*> goal = make_goal(params);
     goals_.place_in(id, goal);
     goal->merge_skill_tier_args(); // (a failed allocation is used through null, as the original)
@@ -127,8 +141,9 @@ bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
         }
     } else {
         uint32_t child = 0;
-        if (own->read_hash_value(kChild, &child, 0))
+        if (own->read_hash_value(kChild, &child, 0)) {
             goal->attach_child(child);
+        }
     }
     if (in_multiplayer_game()) {
         goal->fetch_args()->append_word(kPro, kNetJudge);
@@ -141,8 +156,9 @@ bool GoalManager::enrol_objective(uint32_t id, script::Struct* params)
 // 0x0055BF40
 void GoalManager::retry_previous_objective()
 {
-    if (!previous_objective_)
+    if (!previous_objective_) {
         return;
+    }
     Objective* goal = goals_.get_pull(previous_objective_);
     goal->set_quick_start();
     disengage_every_objective(false);
@@ -161,16 +177,18 @@ void GoalManager::retry_previous_objective()
 // 0x0055C090
 void GoalManager::level_unload()
 {
-    if (online::online_hub()->in_net_game())
+    if (online::online_hub()->in_net_game()) {
         return;
+    }
     script::StructPtr own = script::make_struct();
     own->put_sub_struct(kSkillTiers, args_);
     goal_data_->put_sub_struct(kGoalManagerParams, own.get());
     own.reset();
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (goal->fetch_args()->has_bare_flag(kNullGoal) || goal->is_user_made_objective())
+        if (goal->fetch_args()->has_bare_flag(kNullGoal) || goal->is_user_made_objective()) {
             continue;
+        }
         const script::StructPtr data = script::make_struct();
         goal->capture_save_block(data.get());
         goal_data_->put_sub_struct(goal->get_objective_key(), data.get());
@@ -189,8 +207,9 @@ int GoalManager::count_cleared_in_stage(int level, int /*unused*/)
         if (component->value.structure()->fetch_int_value(kLevelNum, &goal_level, 0)) {
             int beaten = 0;
             component->value.structure()->fetch_int_value(kAlreadyWon, &beaten, 0);
-            if (goal_level == level && beaten)
+            if (goal_level == level && beaten) {
                 ++count;
+            }
         }
         component = next;
     }
@@ -205,15 +224,19 @@ void GoalManager::append_objective_options(bool selected_only, bool skip_edited,
         goal->swap_move_caption();
         const char* text = nullptr;
         goal->get_objective_list_caption(&text);
-        if (!text || goal->is_online_objective() || goal->parents()->objective_key_)
+        if (!text || goal->is_online_objective() || goal->parents()->objective_key_) {
             continue;
+        }
         online::cfunc_is_host(nullptr, nullptr); // (its answer isn't used)
-        if (selected_only && !goal->is_picked())
+        if (selected_only && !goal->is_picked()) {
             continue;
-        if (skip_edited && goal->is_edited_goal2())
+        }
+        if (skip_edited && goal->is_edited_goal2()) {
             continue;
-        if (edited_only && !goal->is_edited_goal2())
+        }
+        if (edited_only && !goal->is_edited_goal2()) {
             continue;
+        }
         const script::StructPtr choice = script::make_struct();
         choice->put_name_key(checksums::Name{kGoalIdChecksum}, goal->get_objective_key());
         choice->put_name_key(checksums::Name{kParent}, kCurrentMenu);
@@ -237,11 +260,13 @@ bool GoalManager::swap_move_caption(uint32_t id, const char* text, char* out, in
     key_texts->configure_size_kind(count, script::QbValueKind::kString);
     trick_texts->configure_size_kind(count, script::QbValueKind::kString);
     int premade = -1; // (the created trick's number, with create_a_trick)
-    if (params->has_bare_flag(kCreateATrick))
+    if (params->has_bare_flag(kCreateATrick)) {
         params->fetch_int_value(kTrickName, &premade, 1);
+    }
     const bool done = Objective::build_trick_texts({.key_combos_ = key_combos, .key_texts_ = key_texts.get(), .trick_texts_ = trick_texts.get()}, premade);
-    if (done)
+    if (done) {
         Objective::replace_trick_tokens(text, std::span<char>(out, static_cast<std::size_t>(size)), {.key_combos_ = key_texts.get(), .tricks = trick_texts.get()});
+    }
     script::release_array_storage(key_texts.get());
     script::release_array_storage(trick_texts.get());
     key_texts.reset();
@@ -257,8 +282,9 @@ gsl::owner<script::Struct*> GoalManager::get_objective_try_details()
     int attempts = 0;
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!goal->is_online_objective() && goal->has_won())
+        if (!goal->is_online_objective() && goal->has_won()) {
             attempts += goal->get_times_started();
+        }
     }
     info->put_int(checksums::Name{kAttempts}, attempts);
     return info;

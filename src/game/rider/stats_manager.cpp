@@ -205,8 +205,9 @@ int AttributeTracker::get_goal_status(int index) { return core::at(goals_, index
 void AttributeTracker::set_goal_status(int index, int status)
 {
     core::at(goals_, index).cur_standing_ = status;
-    if (status == 1)
+    if (status == 1) {
         goal_done_ = true;
+    }
 }
 
 // 0x0051C670
@@ -237,8 +238,9 @@ void AttributeTracker::configure_from_data(script::Struct* /*params*/)
     difficulty_ = static_cast<goals::GoalManager*>(game_flow())->get_skill_tier(true);
     debug::printf("STATSManager: difficulty ====================== %i\n",
                   difficulty_); // "STATSManager: difficulty ... %i"
-    if (script::fetch_int_value(kBUMPSTATS) == 1)
+    if (script::fetch_int_value(kBUMPSTATS) == 1) {
         raise_stats_ = true;
+    }
 
     script::Array* goals = script::fetch_list(kStatsGoals);
     const int count = static_cast<int>(goals->extent());
@@ -292,13 +294,16 @@ void AttributeTracker::configure_from_data(script::Struct* /*params*/)
 // 0x0051C950
 bool AttributeTracker::is_operative()
 {
-    if (!skater_)
+    if (!skater_) {
         return false;
+    }
     void* skate = skate_module();
-    if (!goals::game_mode()->is_true(kIsCareer))
+    if (!goals::game_mode()->is_true(kIsCareer)) {
         return false;
-    if (!activated_ || static_cast<modules::Skate*>(skate)->level() == kLoadMainMenu)
+    }
+    if (!activated_ || static_cast<modules::Skate*>(skate)->level() == kLoadMainMenu) {
         return false;
+    }
     // (Without a name the original compares what its slot held: this.)
     uint32_t name = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     first_profile()->details_params()->read_hash_value(kName, &name, 1);
@@ -308,19 +313,23 @@ bool AttributeTracker::is_operative()
 // 0x0051C9D0
 void AttributeTracker::set10(const char* text, int score, int /*unused*/)
 {
-    if (is_operative() && score != value14_)
+    if (is_operative() && score != value14_) {
         last_text_ = text;
+    }
 }
 
 // 0x0051CA00
 void AttributeTracker::get_reset()
 {
-    if (!is_operative())
+    if (!is_operative()) {
         return;
+    }
     launch_script(kStatsMessageBail);
-    for (Goal& goal : goals_)
-        if (goal.cur_standing_ == 0 && goal.met_)
+    for (Goal& goal : goals_) {
+        if (goal.cur_standing_ == 0 && goal.met_) {
             goal.met_ = false;
+        }
+    }
     air_phase_ = 0;
     jump_phase_ = 0;
     count_a80_ = 0;
@@ -332,32 +341,37 @@ void AttributeTracker::get_reset()
 // 0x0051CAC0
 void AttributeTracker::set_value58(float value)
 {
-    if (is_operative())
+    if (is_operative()) {
         value58_ = value;
+    }
 }
 
 // 0x0051CAE0
 void AttributeTracker::total_of(uint32_t name)
 {
-    if (!is_operative())
+    if (!is_operative()) {
         return;
-    if (name == kGrabTrick)
+    }
+    if (name == kGrabTrick) {
         ++count_a84_;
-    else if (name == kFlipTrick)
+    } else if (name == kFlipTrick) {
         ++count_a80_;
+    }
 }
 
 // 0x0051CBF0
 void AttributeTracker::announce_met_goals()
 {
-    if (!is_operative())
+    if (!is_operative()) {
         return;
+    }
     RiderIdentity* profile = first_profile();
     gsl::owner<script::Struct*> params = script::new_struct();
     bool announced = false;
     for (Goal& goal : goals_) {
-        if (goal.cur_standing_ != 0 || !goal.met_)
+        if (goal.cur_standing_ != 0 || !goal.met_) {
             continue;
+        }
         if (!announced) {
             launch_script(kStatsMessageLand);
             announced = true;
@@ -401,12 +415,14 @@ void AttributeTracker::announce_met_goals()
             text = 0;
             break;
         }
-        if (text)
+        if (text) {
             params->append_word(kTextName, script::fetch_text(text));
+        }
         params->put_int(checksums::Name{kGotIt}, 1);
         launch_script(kShowStatsMessage, params);
-        if (raise_stats_)
+        if (raise_stats_) {
             profile->set_ability_level(stat, profile->fetch_tally(stat) + 1);
+        }
     }
     if (announced) {
         debug::printf("updating skater stats\n"); // "updating skater stats"
@@ -425,14 +441,16 @@ void AttributeTracker::announce_met_goals()
 // 0x0051CE80
 void AttributeTracker::meet_goal(int index)
 {
-    if (!is_operative())
+    if (!is_operative()) {
         return;
+    }
     const script::StructPtr params = script::make_struct();
     Goal& goal = core::at(goals_, index);
     params->append_word(kString, goal.label_);
     params->put_int(checksums::Name{kValue}, goal.aim_point_);
-    if (goal.text_)
+    if (goal.text_) {
         params->append_word(kVstring, goal.text_);
+    }
     params->put_int(checksums::Name{kIndex}, index);
     launch_script(kShowStatsMessage, params.get());
     goal.met_ = true;
@@ -441,8 +459,9 @@ void AttributeTracker::meet_goal(int index)
 // 0x0051CF90
 void AttributeTracker::tick_frame()
 {
-    if (!is_operative())
+    if (!is_operative()) {
         return;
+    }
     if (first_update_) {
         air_phase_ = 0;
         jump_phase_ = 0;
@@ -472,8 +491,9 @@ void AttributeTracker::tick_frame()
                 air_best_ = 0;
             } else {
                 const double height = static_cast<double>(pos.y) - air_start_.y;
-                if (height > air_height_)
+                if (height > air_height_) {
                     air_height_ = static_cast<float>(height);
+                }
                 air_score_ = truncate((static_cast<double>(multiplier) - air_start_multiplier_) *
                                       get_minus(path_vertices_, air_start_points_));
                 air_best_ = std::max(air_best_, air_score_);
@@ -485,8 +505,9 @@ void AttributeTracker::tick_frame()
                 const int air_score = truncate(get_minus(path_vertices_, air_start_points_) * gained);
                 air_score_ = air_score;
                 air_phase_ = 2;
-                if (gained > 1.0F && air_score != 0)
+                if (gained > 1.0F && air_score != 0) {
                     last_air_combo_score_ = air_score;
+                }
             }
             air_score_ = 0;
         } else {
@@ -517,8 +538,9 @@ void AttributeTracker::tick_frame()
     bool met = false;
     for (int i = 0; i < kGoals; ++i) {
         const Goal& goal = core::at(goals_, i);
-        if (goal.cur_standing_ != 0 || goal.met_)
+        if (goal.cur_standing_ != 0 || goal.met_) {
             continue;
+        }
         bool meets = false;
         switch (goal.kind_) {
         case kRise:
@@ -596,8 +618,9 @@ void AttributeTracker::tick_frame()
             met = true;
         }
     }
-    if (met)
+    if (met) {
         launch_script(kShowedStatMessageSound);
+    }
     last_state_ = cur_phase_;
     value58_ = 0.0F;
     score_before_combo_ = points_held_;
@@ -609,30 +632,35 @@ void AttributeTracker::tick_frame()
 void AttributeTracker::check_balance_time(checksums::Name trick_type_name, float time, int /*unused*/)
 {
     const uint32_t trick_type = trick_type_name.value();
-    if (!is_operative())
+    if (!is_operative()) {
         return;
+    }
     bool met = false;
     for (int i = 0; i < kGoals; ++i) {
         const Goal& goal = core::at(goals_, i);
-        if (goal.cur_standing_ != 0 || goal.met_)
+        if (goal.cur_standing_ != 0 || goal.met_) {
             continue;
+        }
         const int target = goal.aim_point_;
         uint32_t kind = 0;
-        if (trick_type == kSlide || trick_type == kGrind)
+        if (trick_type == kSlide || trick_type == kGrind) {
             kind = kGrindTime;
-        else if (trick_type == kNoseManual || trick_type == kManual)
+        } else if (trick_type == kNoseManual || trick_type == kManual) {
             kind = kManualTime;
-        else if (trick_type == kLip)
+        } else if (trick_type == kLip) {
             kind = kLipTime;
-        else
+        } else {
             continue;
-        if (goal.kind_ != kind || !(static_cast<float>(target) <= time))
+        }
+        if (goal.kind_ != kind || !(static_cast<float>(target) <= time)) {
             continue;
+        }
         meet_goal(i);
         met = true;
     }
-    if (met)
+    if (met) {
         launch_script(kShowedStatMessageSound);
+    }
 }
 
 // --- member functions ---
@@ -679,18 +707,22 @@ bool AttributeTracker::get_goal_status_member(script::Struct* params, script::Sc
 // 0x0051C520
 bool AttributeTracker::unlock_am_goals(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    for (Goal& goal : goals_)
-        if (goal.cur_standing_ == 2)
+    for (Goal& goal : goals_) {
+        if (goal.cur_standing_ == 2) {
             goal.cur_standing_ = 0;
+        }
+    }
     return true;
 }
 
 // 0x0051C550
 bool AttributeTracker::unlock_pro_goals(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    for (Goal& goal : goals_)
-        if (goal.cur_standing_ == 3)
+    for (Goal& goal : goals_) {
+        if (goal.cur_standing_ == 3) {
             goal.cur_standing_ = 0;
+        }
+    }
     return true;
 }
 

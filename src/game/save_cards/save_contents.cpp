@@ -130,25 +130,31 @@ void write_global_info(Struct* global)
     sound->put_int(checksums::Name{kForbiddenTracks2}, static_cast<int>(core::at(tracks_off, 0)));
     sound->put_int(checksums::Name{kForbiddenTracks3}, static_cast<int>(core::at(tracks_off, 1) >> kUpperHalfShift));
     sound->put_int(checksums::Name{kForbiddenTracks4}, static_cast<int>(core::at(tracks_off, 1)));
-    if (os_layer() == 4)
+    if (os_layer() == 4) {
         sound->put_name_key(checksums::Name{kCurrentSoundtrack}, script::get_symbol_value("current_soundtrack"));
-    if (audio::random_track_order())
+    }
+    if (audio::random_track_order()) {
         sound->put_name_key(checksums::Name{0U}, kRandomMode);
+    }
     options->append_struct_ref(kSoundOptions, sound);
 
     gsl::owner<Array*> controllers = script::alloc_script_array();
-    if (controllers)
+    if (controllers) {
         controllers = new (controllers) script::Array;
+    }
     controllers->configure_size_kind(kControllers, script::QbValueKind::kStruct);
     for (int i = 0; i < kControllers; ++i) {
         gsl::owner<Struct*> controller = script::new_struct();
         const modules::Skate::PlayerSettings& flags = controller_flags(i);
-        if (flags.auto_kick_)
+        if (flags.auto_kick_) {
             controller->put_name_key(checksums::Name{0U}, kAutokickOn);
-        if (flags.spin_taps_)
+        }
+        if (flags.spin_taps_) {
             controller->put_name_key(checksums::Name{0U}, kSpinTapsOn);
-        if (flags.vibration_)
+        }
+        if (flags.vibration_) {
             controller->put_name_key(checksums::Name{0U}, kVibrationOn);
+        }
         controllers->set_cell(static_cast<uint32_t>(i), script::Cell::of(controller));
     }
     options->append_array_ref(kPadSettingsKey, controllers);
@@ -177,8 +183,9 @@ void read_save_header(Struct* global, Script* script)
     Struct* sound = nullptr;
     options->read_sub_struct(kSoundOptions, &sound, 0);
     float main_volume = 0.0F;
-    if (sound->fetch_float(kMasterGainKey, &main_volume, 0))
+    if (sound->fetch_float(kMasterGainKey, &main_volume, 0)) {
         sound::AudioMixer::change_master_loudness(main_volume);
+    }
     float music_volume = 0.0F;
     if (sound->fetch_float(kMusicVolume, &music_volume, 0)) {
         audio::set_music_volume(music_volume);
@@ -201,8 +208,9 @@ void read_save_header(Struct* global, Script* script)
     if (os_layer() == 4) {
         uint32_t soundtrack = kNoSoundtrack;
         sound->read_hash_value(kCurrentSoundtrack, &soundtrack, 0);
-        if (script::SymbolTableEntry* symbol = script::find_symbol(kCurrentSoundtrack))
+        if (script::SymbolTableEntry* symbol = script::find_symbol(kCurrentSoundtrack)) {
             symbol->value().set_word(soundtrack);
+        }
         const script::StructPtr change = script::make_struct();
         change->put_name_key(checksums::Name{kTrackchecksum}, soundtrack);                       // trackchecksum
         script::launch_script(kSetLoadedSoundtrack, change.get(), nullptr, false, nullptr); // set_loaded_soundtrack
@@ -236,10 +244,12 @@ void read_save_header(Struct* global, Script* script)
         career->read_hash_value(kLastGameMode, &last_mode, 0);
     }
     Struct* results = script->args().get();
-    if (last_level)
+    if (last_level) {
         results->put_name_key(checksums::Name{kLastLevelLoadScript}, last_level);
-    if (last_mode)
+    }
+    if (last_mode) {
         results->put_name_key(checksums::Name{kLastGameMode}, last_mode);
+    }
 
     // the first profile: a custom skater keeps its CAS file name
     // (0x00564F80, the overload taking the params - none: not fetch_account(int))
@@ -315,8 +325,9 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
     case kSaveCat: {
         // the local skater (0x00566520, no source yet)
         const objects::Rider* skater = get_skate()->get_home_rider();
-        if (!skater)
+        if (!skater) {
             return;
+        }
         // (its fields by name: these were the original's byte offsets +4 / +8 / +0xC on a CreateATrick*, which
         // stepped whole objects past it - and the class has no vtable word here)
         const goals::CreateATrick* trick_record = core::at(skater->trick_slots(), 0).get();

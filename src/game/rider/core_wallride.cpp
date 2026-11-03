@@ -62,8 +62,9 @@ void add_scaled(maths::Vec4& to, const maths::Vec4& normal, float scale)
 void SkaterPhysicsModule::off_wall_edge(bool reset_display)
 {
     turn_to_normal(kUpAxis);
-    if (reset_display)
+    if (reset_display) {
         display_matrix_ = entity()->basis_frame();
+    }
     add_scaled(entity()->at_point(), wall_normal_, kPushOff);
     set_physics_state(kAir);
     static_cast<objects::Entity*>(object_of(this))->announce(kOffEdge, nullptr, 0.0F);
@@ -164,8 +165,9 @@ void SkaterPhysicsModule::step_wall_ride()
         const maths::Vec4& right = core::at(entity()->basis_frame().row, 0);
         const double side = ((static_cast<double>(up_wall.z) * right.z) + (static_cast<double>(up_wall.y) * right.y)) +
                             (static_cast<double>(up_wall.x) * right.x);
-        if (side <= 0.0)
+        if (side <= 0.0) {
             turn = -turn;
+        }
         objects::GameEntity* o = object_of(this);
         o->vel().w = 1.0F;
         entity()->vel().rotate_about_axis(wall_normal_, turn); // (about the wall)
@@ -252,8 +254,9 @@ void SkaterPhysicsModule::step_wall_ride()
             drawn_normal_ = core::at(entity()->basis_frame().row, 1);
             floor_normal_ = core::at(entity()->basis_frame().row, 1);
             try_grind(true);
-            if (state_of(this) == kRail)
+            if (state_of(this) == kRail) {
                 return;
+            }
             set_physics_state(kGround);
             static_cast<objects::Entity*>(object_of(this))->post_own_event(kLanded, nullptr);
             return;
@@ -261,8 +264,9 @@ void SkaterPhysicsModule::step_wall_ride()
             off_wall_edge(false);
         }
     }
-    if (keep_off_ceiling_at_wall())
+    if (keep_off_ceiling_at_wall()) {
         off_wall_edge(false);
+    }
 
     // A feeler down the skater's up: still on the wall?
     {
@@ -300,38 +304,45 @@ void SkaterPhysicsModule::step_wall_ride()
             static_cast<objects::Entity*>(object_of(this))->announce(kOffEdge, nullptr, 0.0F);
             static_cast<objects::Entity*>(object_of(this))->post_own_event(kGroundGone, nullptr);
             trigger_feeler(this, kOtherFeelerLeaveEvents, &floor_feeler_);
-            if (trigger_took_over(this))
+            if (trigger_took_over(this)) {
                 return;
+            }
         } else {
             if (feeler_.hit().object != floor_feeler_.hit().object) {
                 trigger_feeler(this, kOtherFeelerLeaveEvents, &floor_feeler_);
-                if (trigger_took_over(this))
+                if (trigger_took_over(this)) {
                     return;
+                }
                 trigger_feeler(this, kSkaterEvents0064bBb0, &floor_feeler_);
-                if (trigger_took_over(this))
+                if (trigger_took_over(this)) {
                     return;
+                }
             }
             objects::MoveExecutor* skater = trick_;
-            if (!skater->trick_objects_on())
+            if (!skater->trick_objects_on()) {
                 skater->set_trick_objects(false);
+            }
             assign_feeler(&floor_feeler_, &feeler_);
             sound_->set_last_ground(floor_feeler_.hit().terrain);
         }
     } else {
         off_wall_edge(true);
         trigger_feeler(this, kOtherFeelerLeaveEvents, &floor_feeler_);
-        if (trigger_took_over(this))
+        if (trigger_took_over(this)) {
             return;
+        }
     }
 
-    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary().pos_x().held_down())
+    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary().pos_x().held_down()) {
         set_flag(this, PoseFlag::kCrouched, 1);
+    }
     // Jumping off: out from the wall and up, upright.
     if (jump_released()) {
         set_flag(this, PoseFlag::kJumped, 1);
         trigger_feeler(this, kJumpTriggerEvents, &floor_feeler_);
-        if (trigger_took_over(this))
+        if (trigger_took_over(this)) {
             return;
+        }
         const float out = script::fetch_float(kJumpOutSpeed);
         maths::Vec4& v = entity()->vel();
         const maths::Vec4& w = wall_normal_;

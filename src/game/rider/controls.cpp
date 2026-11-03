@@ -40,11 +40,13 @@ bool find_acid_drop(objects::FootMovement* walk, maths::Vec4* velocity)
 // The two buttons; PartyMod's PS2 controls skip the first (its NOP at 0x00527546 / 0x00527636).
 bool buttons_held(objects::FootMovement* walk)
 {
-    if (walk->off_vert() || walk->physics_control()->board_missing())
+    if (walk->off_vert() || walk->physics_control()->board_missing()) {
         return false;
+    }
     const objects::PadSnapshot& pad = walk->input()->pad_primary();
-    if (!ps2_controls() && !pad.shoulder_left_b().held_down())
+    if (!ps2_controls() && !pad.shoulder_left_b().held_down()) {
         return false;
+    }
     return pad.shoulder_right_b().held_down() != 0;
 }
 
@@ -70,13 +72,15 @@ script::Struct* platform_structure(script::Struct* params)
     script::Struct* found = nullptr;
     const int xbox = ps2_controls() ? 5 : 7; // (PartyMod's byte at 0x0051F4C8)
     if (os_layer() == xbox) {
-        if (!params->read_sub_struct(kXboxTrigger, &found, 0))
+        if (!params->read_sub_struct(kXboxTrigger, &found, 0)) {
             params->read_sub_struct(kTrigger, &found, 1);
+        }
         return found;
     }
     if (os_layer() == kOsLayerPs2Style) {
-        if (!params->read_sub_struct(kNGCTrigger, &found, 0))
+        if (!params->read_sub_struct(kNGCTrigger, &found, 0)) {
             params->read_sub_struct(kTrigger, &found, 1);
+        }
         return found;
     }
     params->read_sub_struct(kTrigger, &found, 1);
@@ -86,11 +90,13 @@ script::Struct* platform_structure(script::Struct* params)
 // 0x00527510
 bool try_walk_acid_drop(objects::FootMovement* walk)
 {
-    if (!buttons_held(walk))
+    if (!buttons_held(walk)) {
         return false;
+    }
     maths::Vec4 velocity = {.x = walk->vel().x, .y = walk->up_speed(), .z = walk->vel().z, .w = 1.0F};
-    if (!find_acid_drop(walk, &velocity))
+    if (!find_acid_drop(walk, &velocity)) {
         return false;
+    }
     walk->ride()->start_riding(&walk->get_feeler());
     begin_drop_in(walk, velocity);
     return true;
@@ -99,17 +105,20 @@ bool try_walk_acid_drop(objects::FootMovement* walk)
 // 0x00527600
 bool try_acid_drop(objects::FootMovement* walk)
 {
-    if (!buttons_held(walk))
+    if (!buttons_held(walk)) {
         return false;
+    }
     maths::Vec4 velocity = walk->vel();
     // (a physics value, 0xC0491D2E, as the second component)
     velocity.y = objects::FootMovement::get_param(kAcidDropJumpVelocity);
-    if (!find_acid_drop(walk, &velocity))
+    if (!find_acid_drop(walk, &velocity)) {
         return false;
+    }
     if (walk->feeler_hit()) {
         walk->trigger()->probe_touches_zone(kWalkEvents0064c63c, &walk->get_feeler());
-        if (walk->physics_control()->flag26())
+        if (walk->physics_control()->flag26()) {
             return true;
+        }
     }
     walk->change_phase(1);
     begin_drop_in(walk, velocity);

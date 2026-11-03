@@ -53,8 +53,9 @@ constexpr int kGridCentre = 29;
 void copy_text(std::span<char> to, const char* from)
 {
     size_t at = 0;
-    for (const char c : std::string_view(from))
+    for (const char c : std::string_view(from)) {
         core::at(to, at++) = c;
+    }
     core::at(to, at) = '\0';
 }
 
@@ -64,8 +65,9 @@ ParkLayout* ParkLayout::singleton() { return park_editing::ParkLayout::sole(); }
 
 ParkMap* ParkLayout::get_packed_park_data(bool flag_clean)
 {
-    if (flag_clean)
+    if (flag_clean) {
         flag_bits_ &= ~kMapNotSavedLocal;
+    }
     return &map_;
 }
 
@@ -73,8 +75,9 @@ void ParkLayout::set_packed_park_data(const ParkMap* map, bool flag_dirty)
 {
     map_ = *map;
     flag_bits_ |= kMapInSync | kMapNewerThanPark;
-    if (flag_dirty)
+    if (flag_dirty) {
         flag_bits_ |= kMapNotSavedLocal;
+    }
 }
 
 void ParkLayout::set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty)
@@ -82,8 +85,9 @@ void ParkLayout::set_packed_park_bytes(const uint8_t* bytes, bool flag_dirty)
     const std::span<const uint8_t, kParkMapBytes> received(bytes, kParkMapBytes);
     std::ranges::copy(received, map_.bytes().begin());
     flag_bits_ |= kMapInSync | kMapNewerThanPark;
-    if (flag_dirty)
+    if (flag_dirty) {
         flag_bits_ |= kMapNotSavedLocal;
+    }
 }
 
 bool ParkLayout::has_local_park_copy() const
@@ -93,22 +97,25 @@ bool ParkLayout::has_local_park_copy() const
 
 int ParkLayout::get_shell_size()
 {
-    if (flag_bits_ & kMapInSync)
+    if (flag_bits_ & kMapInSync) {
         return map_.shell_size();
+    }
     return 0;
 }
 
 const char* ParkLayout::get_park_name()
 {
-    if (map_.version() == kParkMapVersion)
+    if (map_.version() == kParkMapVersion) {
         return map_.name().data();
+    }
     return nullptr;
 }
 
 void ParkLayout::set_park_name(const char* name)
 {
-    if (map_.version() != kParkMapVersion)
+    if (map_.version() != kParkMapVersion) {
         return;
+    }
     copy_text(map_.name(), name);
     copy_text(park_name_, name);
 }
@@ -134,10 +141,11 @@ void ParkLayout::rebuild_park_geometry(int how)
 uint32_t ParkLayout::get_shell_checksum()
 {
     std::array<char, kShellNameSize> name{};
-    if ((flag_bits_ & kMapInSync) && map_.shell_size() != 0)
+    if ((flag_bits_ & kMapInSync) && map_.shell_size() != 0) {
         text::format_to(name, "sk5ed%d_shell", map_.shell_size() + 1); // 0x0064F650
-    else
+    } else {
         std::memcpy(name.data(), "sk5ed_shell", kShellNameBytes); // 0x0064F644
+    }
     return checksums::hash_from_text(name.data());
 }
 
@@ -147,11 +155,13 @@ PieceFamily* ParkLayout::get_piece_family(int index, int* used_before)
 {
     int used = 0;
     for (int i = 0; i < index; ++i) {
-        if (core::at(sets_, i).is_displayed_)
+        if (core::at(sets_, i).is_displayed_) {
             ++used;
+        }
     }
-    if (used_before)
+    if (used_before) {
         *used_before = used;
+    }
     return &core::at(sets_, index);
 }
 
@@ -179,10 +189,11 @@ void ParkLayout::restore_floor_heights()
                 cell.touched_ = false;
                 cell.level_y_ -= cell.delta_;
             }
-            if (cell.level_y_ > kFloorLevelMax)
+            if (cell.level_y_ > kFloorLevelMax) {
                 cell.level_y_ = kFloorLevelMax;
-            else if (cell.level_y_ < -kFloorLevelDepth)
+            } else if (cell.level_y_ < -kFloorLevelDepth) {
                 cell.level_y_ = -kFloorLevelDepth;
+            }
         }
     }
 }
@@ -190,8 +201,9 @@ void ParkLayout::restore_floor_heights()
 int ParkLayout::get_restart_index(uint32_t name)
 {
     for (int i = 1; i <= kNumRestartPieces; ++i) {
-        if (core::at(restart_pieces_, i - 1) == name)
+        if (core::at(restart_pieces_, i - 1) == name) {
             return i;
+        }
     }
     return 0;
 }
@@ -202,8 +214,9 @@ PieceGroup* ParkLayout::fetch_meta_template(uint32_t name, int* index)
     for (const MapListNode* node = abstract_metas_; node; node = node->following(), --position) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
         if (meta->name_key() == name) {
-            if (index)
+            if (index) {
                 *index = position;
+            }
             return meta;
         }
     }
@@ -218,15 +231,17 @@ bool ParkLayout::can_resize_to(CellBox area) const
 
 int ParkLayout::get_ground_level(CellBox area, bool* uniform)
 {
-    if (uniform)
+    if (uniform) {
         *uniform = true;
+    }
     const int first = core::at(core::at(floor_, area.x), area.z).level_y_;
     int highest = -kFarOutHeight;
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z) {
             const int height = core::at(core::at(floor_, x), z).level_y_;
-            if (uniform && height != first)
+            if (uniform && height != first) {
                 *uniform = false;
+            }
             highest = std::max(highest, height);
         }
     }
@@ -251,8 +266,9 @@ bool ParkLayout::is_area_blocked(CellBox area)
     for (uint32_t i = 0; i < num_blocked_areas_; ++i) {
         const CellBox& mask = core::at(blocked_areas_, i);
         if (area.x + area.w > mask.x && area.x < mask.x + mask.w && area.z + area.l > mask.z &&
-            area.z < mask.z + mask.l)
+            area.z < mask.z + mask.l) {
             return true;
+        }
     }
     return false;
 }
@@ -282,8 +298,9 @@ void ParkLayout::use_gap_manager_copy() { gap_manager_instance() = gap_manager_c
 void ParkLayout::destroy_gap_manager_copy()
 {
     GapRegistry* copy = gap_manager_copy_;
-    if (!copy)
+    if (!copy) {
         return;
+    }
     copy->~GapRegistry();
     memory::Hub::dealloc(copy);
     gap_manager_copy_ = nullptr;
@@ -292,13 +309,15 @@ void ParkLayout::destroy_gap_manager_copy()
 void ParkLayout::highlight_gap_pieces(bool on, GapDetails* gap)
 {
     for (const MapListNode* node = concrete_metas_; node; node = node->following()) {
-        if (node->get_piece_group()->get_cast()->flag_bits() & PieceGroup::kHighlightable)
+        if (node->get_piece_group()->get_cast()->flag_bits() & PieceGroup::kHighlightable) {
             node->get_piece_group()->get_cast()->spotlight(on, 1);
+        }
     }
     builder_->set_pieces_highlighted(0);
     if (on) {
-        if (gap && gap->slot_index() >= 0)
+        if (gap && gap->slot_index() >= 0) {
             gap_registry_->change_gap_in_progress(gap->slot_index());
+        }
     } else {
         builder_->set_pieces_highlighted(0);
     }
@@ -312,8 +331,9 @@ void ParkLayout::clear_floor_change_marks()
             core::at(core::at(floor_, x), z).delta_ = 0;
         }
     }
-    for (const MapListNode* node = concrete_metas_; node; node = node->following())
+    for (const MapListNode* node = concrete_metas_; node; node = node->following()) {
         node->get_piece_group()->get_cast()->flag_bits() &= ~PieceGroup::kFlag20;
+    }
 }
 
 } // namespace park_editing

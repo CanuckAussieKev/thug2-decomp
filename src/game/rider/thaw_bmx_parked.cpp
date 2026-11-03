@@ -72,8 +72,9 @@ StageMap& stage_map()
 
 objects::Rider* local_skater()
 {
-    if (!modules::Skate::sole())
+    if (!modules::Skate::sole()) {
         return nullptr;
+    }
     return core::down_cast<objects::Rider>(skate_calls::get_home_rider());
 }
 
@@ -86,10 +87,12 @@ bool get_hit(Point from, Point to, Point* at)
     render::ProbeRay* feeler = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!feeler->get_collision_along(&start, &end, false))
+    if (!feeler->get_collision_along(&start, &end, false)) {
         return false;
-    if (at)
+    }
+    if (at) {
         *at = point_of(feeler->contact_pos());
+    }
     return true;
 }
 
@@ -105,10 +108,13 @@ Kickoff find_start_spot(Point pos, float heading)
     start_spot_candidates(pos, {.heading = heading, .distance = kStartSpotDistance}, candidates);
     for (const Point& c : candidates) {
         Point ground{};
-        if (!get_hit({.x = c.x, .y = pos.y + kGroundAbove, .z = c.z}, {.x = c.x, .y = pos.y - kGroundBelow, .z = c.z}, &ground))
+        if (!get_hit({.x = c.x, .y = pos.y + kGroundAbove, .z = c.z}, {.x = c.x, .y = pos.y - kGroundBelow, .z = c.z},
+                     &ground)) {
             continue;
-        if (std::fabs(ground.y - pos.y) > kGroundStep || !get_clear(pos, ground))
+        }
+        if (std::fabs(ground.y - pos.y) > kGroundStep || !get_clear(pos, ground)) {
             continue;
+        }
         return {.valid = true, .pos = ground, .heading = heading};
     }
     return {};
@@ -125,19 +131,22 @@ bool thaw_spot(Point* pos, float* heading)
 {
     script::Struct* level = level_params_ref();
     const char* name = nullptr;
-    if (!level || !level->fetch_text("level", &name, 0) || !name)
+    if (!level || !level->fetch_text("level", &name, 0) || !name) {
         return false;
+    }
     script::Array* bikes = script::fetch_list(kHomeBikes);
-    if (!bikes || bikes->kind_tag() != script::QbValueKind::kStruct)
+    if (!bikes || bikes->kind_tag() != script::QbValueKind::kStruct) {
         return false;
+    }
     const uint32_t want = name_hash(name);
     for (uint32_t i = 0; i < bikes->extent(); ++i) {
         auto* bike = bikes->struct_at(i);
         uint32_t level_name = 0;
         script::VectorValue p = {};
         if (!bike || !bike->read_hash_value("level", &level_name, 0) || level_name != want ||
-            !bike->fetch_vec("pos", &p, 0))
+            !bike->fetch_vec("pos", &p, 0)) {
             continue;
+        }
         *pos = {.x = p.x, .y = p.y, .z = p.z};
         *heading = 0.0F;
         bike->fetch_float("heading", heading, 0);
@@ -149,8 +158,9 @@ bool thaw_spot(Point* pos, float* heading)
 objects::GameEntity* object_of(script::Struct* params)
 {
     uint32_t id = 0;
-    if (!params || !params->read_hash_value("id", &id, 0))
+    if (!params || !params->read_hash_value("id", &id, 0)) {
         return nullptr;
+    }
     return core::down_cast<objects::GameEntity>(objects::find_object(id));
 }
 
@@ -165,8 +175,9 @@ void place_skater(objects::Rider* skater, Point pos, float heading)
         core::at(m->row, 1) = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 0.0F};
         core::at(m->row, 2) = {.x = s, .y = 0.0F, .z = c, .w = 0.0F};
     }
-    if (skater->core_physics())
+    if (skater->core_physics()) {
         skater->core_physics()->display_matrix() = skater->basis_frame(); // (its display matrix)
+    }
     skater->at_point() = {.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0F};
     skater->old_pos() = skater->at_point();
 }
@@ -178,8 +189,9 @@ bool cfunc_home_spot(script::Struct* /*params*/, script::Script* script)
     float heading = 0.0F;
     const char* from = "THAW's place";
     if (!thaw_spot(&pos, &heading)) {
-        if (!stage_map().start.valid)
+        if (!stage_map().start.valid) {
             return false;
+        }
         pos = stage_map().start.pos;
         heading = stage_map().start.heading;
         from = "near the start";
@@ -195,8 +207,9 @@ bool cfunc_walk_to_bike(script::Struct* params, script::Script* /*script*/)
 {
     objects::Rider* skater = local_skater();
     const objects::GameEntity* bike = object_of(params);
-    if (!skater || !bike)
+    if (!skater || !bike) {
         return true;
+    }
     const Point from = point_of(skater->at_point());
     const Point to = point_of(bike->at_point());
     const float heading = get_heading_of(core::at(skater->basis_frame().row, 2).x, core::at(skater->basis_frame().row, 2).z);
@@ -207,8 +220,11 @@ bool cfunc_walk_to_bike(script::Struct* params, script::Script* /*script*/)
     }
     // (turned towards it first, then walked)
     float turned = heading;
-    if (!turn_toward({.heading = heading, .target = get_heading_of(to.x - from.x, to.z - from.z), .max_step_ = kWalkTurnDegrees}, &turned))
+    if (!turn_toward(
+            {.heading = heading, .target = get_heading_of(to.x - from.x, to.z - from.z), .max_step_ = kWalkTurnDegrees},
+            &turned)) {
         next = from;
+    }
     place_skater(skater, next, turned);
     return false;
 }
@@ -224,8 +240,9 @@ bool cfunc_bike_reachable(script::Struct* params, script::Script* /*script*/)
 void launch_script(const char* name)
 {
     const uint32_t checksum = name_hash(name);
-    if (script::script_exists(checksum))
+    if (script::script_exists(checksum)) {
         script::launch_script(checksum, nullptr, nullptr, false, name);
+    }
 }
 
 } // namespace
@@ -251,8 +268,9 @@ bool turn_toward(HeadingTurn heading_turn, float* out)
     const auto max_step = heading_turn.max_step_;
     auto wrap = [](float a) {
         a = std::fmod(a + kHalfTurnF, kTurnF);
-        if (a < 0.0F)
+        if (a < 0.0F) {
             a += kTurnF;
+        }
         return a - kHalfTurnF;
     };
     const float difference = wrap(target - heading);
@@ -266,8 +284,9 @@ bool turn_toward(HeadingTurn heading_turn, float* out)
 
 float get_heading_of(float x, float z)
 {
-    if (x == 0.0F && z == 0.0F)
+    if (x == 0.0F && z == 0.0F) {
         return 0.0F;
+    }
     return static_cast<float>(std::atan2(static_cast<double>(x), static_cast<double>(z)) * kHalfTurnD / std::numbers::pi);
 }
 
@@ -298,8 +317,9 @@ void register_parked_functions()
 
 void update_parked(modules::FrontEnd* front_end)
 {
-    if ((front_end && front_end->is_halted()) || frontend::level_editor::live_now())
+    if ((front_end && front_end->is_halted()) || frontend::level_editor::live_now()) {
         return;
+    }
     const objects::Rider* skater = local_skater();
     const uint32_t structure = modules::Skate::sole() ? modules::Skate::sole()->level_params() : 0;
     if (!skater || !structure || render::current_level() == 0) {
@@ -312,20 +332,23 @@ void update_parked(modules::FrontEnd* front_end)
     }
     ++stage_map().frames;
     if (!stage_map().noted) {
-        if (stage_map().frames < kSettleFrames)
+        if (stage_map().frames < kSettleFrames) {
             return;
+        }
         // (where the skater is now: where the level started it)
         const Point pos = point_of(skater->at_point());
         const float heading = get_heading_of(core::at(skater->basis_frame().row, 2).x, core::at(skater->basis_frame().row, 2).z);
         stage_map().start = find_start_spot(pos, heading);
         stage_map().noted = true;
-        if (!stage_map().start.valid)
+        if (!stage_map().start.valid) {
             get_log("thaw_bmx: no room for the level's bike near the start (%.0f, %.0f, %.0f)", pos.x, pos.y, pos.z);
+        }
         launch_script(kLevelStartScript);
     }
     if (stage_map().frames % kCheckFrames != 0 || on_bike(skater->core_physics()) ||
-        objects::find_object(name_hash(kHomeBike)))
+        objects::find_object(name_hash(kHomeBike))) {
         return;
+    }
     launch_script(kHomeScript);
 }
 

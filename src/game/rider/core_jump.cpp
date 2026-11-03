@@ -88,13 +88,16 @@ void SkaterPhysicsModule::play_jump_sound(uint8_t terrain)
 void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
 {
     auto* node = rail_node_;
-    if (!node)
+    if (!node) {
         return;
-    if (!rail_manager_)
+    }
+    if (!rail_manager_) {
         rail_manager_ = modules::Skate::sole()->rail_manager().get(); // (the skate module's)
+    }
     script::Struct* script = level_nodes::fetch_vertex(node->label(), false);
-    if (!script)
+    if (!script) {
         return;
+    }
     // The node's TriggerScript, else the first one back along the rail (the walk stops at a loop: a second
     // pointer going half as fast).
     uint32_t trigger_script = 0;
@@ -103,16 +106,19 @@ void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
         bool step = false;
         for (const objects::GrindPoint* p = node->last_value(); p && p != node && p != slow;) {
             script = level_nodes::fetch_vertex(p->label(), true);
-            if (script->read_hash_value(kTriggerScript, &trigger_script, 0)) // (a node without a script: a crash)
+            if (script->read_hash_value(kTriggerScript, &trigger_script, 0)) { // (a node without a script: a crash)
                 break;
+            }
             p = p->last_value();
-            if (step)
+            if (step) {
                 slow = slow->last_value();
+            }
             step = !step;
         }
     }
-    if (!trigger_script)
+    if (!trigger_script) {
         return;
+    }
     uint32_t name = 0; // (the original's is a stale stack word - a node pointer - if a node had no Name)
     script->read_hash_value(kName, &name, 1);
     set_flag(this, PoseFlag::kFirstTimeOnRail, name != last_rail_script_);
@@ -120,10 +126,11 @@ void SkaterPhysicsModule::trigger_rail_script(const std::array<int, 3>& events)
     last_rail_script_ = name;
     const objects::Entity* ride_object = nullptr;
     if (const objects::RideTracker* tracker = get_tracker(this)) {
-        if (tracker->entity().get_pull())
+        if (tracker->entity().get_pull()) {
             ride_object = tracker->entity().get_pull();
-        else
+        } else {
             stop_riding(this);
+        }
     }
     static_cast<objects::ActivationZoneModule*>(trigger_)->get_trigger_node(events, rail_script_node_, nullptr,
                                                                             ride_object);
@@ -136,21 +143,25 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     switch (state_of(this)) {
     case kGround:
         trigger_feeler(this, kJumpTriggerEvents, &floor_feeler_);
-        if (trigger_took_over(this))
+        if (trigger_took_over(this)) {
             return;
+        }
         std::memcpy(&last_ground_pos_, &entity()->at_point(), kPointBytes); // (where it jumped)
-        if (sound)
+        if (sound) {
             play_jump_sound(floor_feeler_.hit().terrain);
+        }
         start_vert_air();
         set_flag(this, PoseFlag::kLeftVert, 1);
         break;
     case kAir:
-        if (sound)
+        if (sound) {
             play_jump_sound(floor_feeler_.hit().terrain);
+        }
         break;
     case kRail:
-        if (sound)
+        if (sound) {
             play_jump_sound(state_->surface_type());
+        }
         break;
     default:
         break;
@@ -189,8 +200,9 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     }
     entity()->vel().y += speed;
     const bool bike = thaw_bmx::live_now(this); // (not original: THAW 0x005DDDC0's bike branches, thaw_bmx_physics.cpp)
-    if (bike)
+    if (bike) {
         thaw_bmx::jump_boost(this);
+    }
     object = object_of(this);
     if (core::at(object->basis_frame().row, 1).y < kSteepUp) {
         // A ramp too steep (upside down): less up, and lifted off it along the up.
@@ -206,12 +218,15 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         position.w += w;
     }
     const int state = state_of(this);
-    if (state == kRail || (state == kAir && old_state_ == kRail))
+    if (state == kRail || (state == kAir && old_state_ == kRail)) {
         turn_for_rail_jump();
-    if (point_rail_spin_)
+    }
+    if (point_rail_spin_) {
         trigger_rail_script(kJumpEvents);
-    if (bike)
+    }
+    if (bike) {
         thaw_bmx::jump_pitch(this);
+    }
     set_physics_state(kAir);
     leap_time_ = get_now();
     static_cast<objects::Entity*>(object_of(this))->announce(kSkaterJump, nullptr, 0.0F);
@@ -221,21 +236,24 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
 void SkaterPhysicsModule::begin_skitch()
 {
     auto* object = skitch_target_.get_pull();
-    if (!object)
+    if (!object) {
         return;
+    }
     ride_->ride_on(object);
     set_flag(this, PoseFlag::kSkitching, 1);
     skitch_moving_ = 1;
     get_skitch();
-    if (const objects::Entity* skitched = skitch_target_.get_pull())
+    if (const objects::Entity* skitched = skitch_target_.get_pull()) {
         skitched->post_own_event(kSkitchOn, nullptr);
+    }
 }
 
 // 0x00509990
 void SkaterPhysicsModule::end_skitch()
 {
-    if (!bit_mark(this, PoseFlag::kSkitching))
+    if (!bit_mark(this, PoseFlag::kSkitching)) {
         return;
+    }
     set_flag(this, PoseFlag::kSkitching, 0);
     auto& skitched = skitch_target_;
     if (skitched.get_pull()) {
@@ -268,16 +286,18 @@ void SkaterPhysicsModule::step_wallplant()
         end = core::at(entity()->basis_frame().row, 2) * kFeelerBehind;
         start += entity()->at_point();
         end += entity()->at_point();
-        if (get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
+        if (get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
             trigger_feeler(this, kWallplantEvents, &feeler_);
+        }
         return;
     }
     // Still on the wall: no rail; carried along by what the skater rides on (its turn too, when it turned).
     rail_node_ = nullptr;
     last_rail_script_ = 0;
     objects::RideTracker* tracker = get_tracker(this);
-    if (!tracker)
+    if (!tracker) {
         return;
+    }
     if (!tracker->entity().get_pull() || !tracker->tick_frame(&entity()->at_point())) {
         stop_riding(this);
         return;
@@ -318,10 +338,12 @@ int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script* /*
 {
     uint32_t state = 0;
     params->read_hash_value(0U, &state, 0);
-    if (state_of(this) == kLip && state != kLipName)
+    if (state_of(this) == kLip && state != kLipName) {
         trigger_rail_script(kOffLipEvents);
-    if (state_of(this) != kLip && state == kLipName)
+    }
+    if (state_of(this) != kLip && state == kLipName) {
         rail_node_ = nullptr;
+    }
     if (state_of(this) == kWallRide) {
         turn_to_normal(maths::Vec4{.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F});
         display_matrix_ = entity()->basis_frame();

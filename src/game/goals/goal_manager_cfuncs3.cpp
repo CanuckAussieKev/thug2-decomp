@@ -121,8 +121,9 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
             return true;
         }
         uint32_t trick = 0;
-        if (!mapping->read_hash_value(key_combo, &trick, 0) || trick == kUnassigned)
+        if (!mapping->read_hash_value(key_combo, &trick, 0) || trick == kUnassigned) {
             return false;
+        }
         script::Struct* trick_params = nullptr;
         script::read_sub_struct(trick)->read_sub_struct(kParams, &trick_params, 1);
         const char* name = nullptr;
@@ -132,8 +133,9 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
         uint32_t extra = 0;
         if (!trick_params->read_hash_value(kExtraTricks, &extra, 0)) {
             script::Array* extras = nullptr;
-            if (trick_params->fetch_list(kExtraTricks, &extras, 0))
+            if (trick_params->fetch_list(kExtraTricks, &extras, 0)) {
                 extra = extras->fetch_part(0);
+            }
         }
         if (extra) {
             auto* entry = script::fetch_list(extra)->struct_at(0);
@@ -146,16 +148,19 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
         }
         return true;
     }
-    if (!params->has_bare_flag(kSpecialFlag))
+    if (!params->has_bare_flag(kSpecialFlag)) {
         return false;
+    }
     const int slots = profile->get_max_specials();
     for (int i = 0; i < slots; ++i) {
         objects::RiderIdentity::SpecialTrick special;
         profile->get_special_trick(&special, i);
-        if (special.keys() != key_combo)
+        if (special.keys() != key_combo) {
             continue;
-        if (special.trick() == kUnassigned)
+        }
+        if (special.trick() == kUnassigned) {
             return false;
+        }
         if (script::Struct* structure = script::read_sub_struct(special.trick())) {
             script::Struct* trick_params = nullptr;
             structure->read_sub_struct(kParams, &trick_params, 1);
@@ -163,10 +168,11 @@ bool cfunc_goal_manager_get_trick_from_key_combo(script::Struct* params, script:
             trick_params->fetch_text(kName, &name, 1);
             script->args()->append_word(kTrickString, name);
         }
-        if (special.flag())
+        if (special.flag()) {
             script->args()->put_int(checksums::Name{kTrickNameKey}, static_cast<int>(special.trick()));
-        else
+        } else {
             script->args()->put_name_key(checksums::Name{kTrickNameKey}, special.trick());
+        }
         script->args()->put_int(checksums::Name{kCurrentIndex}, i);
         return true;
     }
@@ -230,8 +236,9 @@ bool cfunc_goal_manager_get_number_collected(script::Struct* params, script::Scr
 bool cfunc_goal_manager_get_number_of_flags(script::Struct* params, script::Script* script)
 {
     const int flags = name_then_goal(params)->get_num_flags_to_win();
-    if (flags == -1)
+    if (flags == -1) {
         return false;
+    }
     script->args()->put_int(checksums::Name{kNumberOfFlags}, flags);
     return true;
 }
@@ -288,8 +295,9 @@ bool cfunc_goal_manager_set_can_start_goal(script::Struct* params, script::Scrip
 bool cfunc_goal_manager_get_last_goal_id(script::Struct* /*params*/, script::Script* script)
 {
     const uint32_t last = get_objective_board()->previous_objective();
-    if (!last)
+    if (!last) {
         return false;
+    }
     script->args()->put_name_key(checksums::Name{kGoalIdChecksum}, last);
     return true;
 }
@@ -310,8 +318,9 @@ bool cfunc_goal_manager_announce_goal_started(script::Struct* params, script::Sc
     online::Hub* net = online::online_hub();
     GoalManager* manager = get_objective_board();
     Objective* goal = manager->goals().get_pull(get_goal_name(params));
-    if (goal->is_online_objective() || goal->parents()->objective_key_)
+    if (goal->is_online_objective() || goal->parents()->objective_key_) {
         return true;
+    }
     net::AppHost* client = net->fetch_patron(0);
     net::NetMessageInfo desc;
     net->get_own_player();
@@ -333,12 +342,13 @@ bool cfunc_goal_manager_set_end_run_type(script::Struct* params, script::Script*
 {
     const uint32_t name = get_goal_name(params);
     int type = 1;
-    if (params->has_bare_flag(kGoalEndOfRun))
+    if (params->has_bare_flag(kGoalEndOfRun)) {
         type = 0;
-    else if (params->has_bare_flag(kEndOfRun))
+    } else if (params->has_bare_flag(kEndOfRun)) {
         type = 1;
-    else if (params->has_bare_flag(kNone))
+    } else if (params->has_bare_flag(kNone)) {
         type = 2;
+    }
     get_objective_board()->goals().get_pull(name)->choose_run_ending(type);
     return true;
 }
@@ -400,8 +410,9 @@ bool cfunc_goal_manager_get_difficulty_level(script::Struct* /*params*/, script:
 {
     const GoalManager* manager = get_objective_board();
     int level = 0;
-    if (!manager->args()->fetch_int_value(game_mode()->get_name_key(), &level, 0))
+    if (!manager->args()->fetch_int_value(game_mode()->get_name_key(), &level, 0)) {
         level = 1;
+    }
     int result = 0;
     switch (level) {
     case 0:
@@ -489,8 +500,9 @@ bool cfunc_goal_manager_get_team(script::Struct* /*params*/, script::Script* scr
     script::Struct* team = get_objective_board()->team();
     script->args()->put_sub_struct(kTeam, team);
     int members = 0;
-    for (script::Component* member = team->step_to_entry(nullptr); member; member = team->step_to_entry(member))
+    for (script::Component* member = team->step_to_entry(nullptr); member; member = team->step_to_entry(member)) {
         ++members;
+    }
     script->args()->put_int(checksums::Name{kNumTeamMembers}, members);
     return true;
 }
@@ -503,10 +515,11 @@ bool cfunc_goal_manager_set_team_member(script::Struct* params, script::Script* 
     params->read_hash_value(kPro, &pro, 1);
     const bool remove = params->has_bare_flag(kRemove);
     const bool mark_used = params->has_bare_flag(kFlagAsUsed);
-    if (remove)
+    if (remove) {
         manager->team()->erase_module(pro);
-    else
+    } else {
         manager->team()->put_int(checksums::Name{pro}, mark_used ? 1 : 0);
+    }
     return true;
 }
 
@@ -598,8 +611,9 @@ bool cfunc_goal_manager_get_active_reward_points(script::Struct* /*params*/, scr
     for (int i = 0; i < manager->goals().num(); ++i) {
         Objective* goal = manager->goals().get_by_index(i);
         const int points = goal->get_reward_points();
-        if (goal->has_won())
+        if (goal->has_won()) {
             won += points;
+        }
         total += points;
     }
     script->args()->put_int(checksums::Name{kActivePoints}, script::fetch_int_value(kTotalCheatPoints) + won);
@@ -612,8 +626,9 @@ bool cfunc_goal_manager_get_goal_reward_points(script::Struct* params, script::S
 {
     GoalManager* manager = get_objective_board();
     Objective* goal = manager->goals().get_pull(get_goal_name(params));
-    if (!goal->get_reward_points())
+    if (!goal->get_reward_points()) {
         return false;
+    }
     script->args()->put_int(checksums::Name{kRewardPoints}, goal->get_reward_points());
     return true;
 }
@@ -625,8 +640,9 @@ bool cfunc_goal_collect_active(script::Struct* params, script::Script* /*script*
     uint32_t id = 0;
     params->read_hash_value(kGoalIdChecksum, &id, 1);
     GoalManager* manager = get_objective_board();
-    if (manager->goals().get_pull(id)->has_every_bit())
+    if (manager->goals().get_pull(id)->has_every_bit()) {
         manager->complete_objective(id);
+    }
     return true;
 }
 

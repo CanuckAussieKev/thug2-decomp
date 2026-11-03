@@ -113,8 +113,9 @@ double as_unsigned(int difference) { return difference < 0 ? difference + kTwoTo
 // A fraction kept to [0, 1] as both sounds do it: over 1 -> 1 (compared unrounded); then, rounded, under 0 -> 0.
 float get_fraction(double value)
 {
-    if (value > 1.0)
+    if (value > 1.0) {
         return 1.0F;
+    }
     auto rounded = static_cast<float>(value);
     return rounded < 0.0F ? 0.0F : rounded;
 }
@@ -154,8 +155,9 @@ void SkaterVehicleSoundComponent::seal()
 // 0x0051B920
 void SkaterVehicleSoundComponent::tick_frame()
 {
-    if (!static_cast<bool>(core_physics_->on_vehicle()) || silenced_ || !settings_)
+    if (!static_cast<bool>(core_physics_->on_vehicle()) || silenced_ || !settings_) {
         return;
+    }
     tick_engine();
     update_skid();
     update_unused();
@@ -191,8 +193,9 @@ void SkaterVehicleSoundComponent::tick_engine()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     auto speed = static_cast<float>(get_pace(entity()->vel()) * kToMph);
-    if (!input_->pad_primary().pos_x().held_down() || input_->pad_primary().btn_down().held_down())
+    if (!input_->pad_primary().pos_x().held_down() || input_->pad_primary().btn_down().held_down()) {
         speed = static_cast<float>(get_rate(kIdleEngineEffectiveSpeedFactor) * static_cast<double>(speed));
+    }
 
     // The speed eased towards the object's, each step limited by the rates (as the original compares them, a step
     // the wrong way is kept and one the right way isn't).
@@ -201,12 +204,14 @@ void SkaterVehicleSoundComponent::tick_engine()
     speed_ = static_cast<float>(eased);
     if (eased < speed) {
         const double step = static_cast<double>(speed_) + (static_cast<double>(get_rate(0xCA5EFD91)) * frame);
-        if (!(step > speed_))
+        if (!(step > speed_)) {
             speed_ = static_cast<float>(step);
+        }
     } else {
         const double step = static_cast<double>(speed_) - (static_cast<double>(get_rate(0x77C8E7C8)) * frame);
-        if (!(step < speed_))
+        if (!(step < speed_)) {
             speed_ = static_cast<float>(step);
+        }
     }
 
     // The gear: back to the first a while after driving stopped, else shifted at the gear's speeds.
@@ -214,8 +219,9 @@ void SkaterVehicleSoundComponent::tick_engine()
         const int last_driven = static_cast<int>(core_physics_->air_start());
         const float delay = get_rate(0xC0F451D4);
         const int clock = get_clock();
-        if (as_unsigned(get_since(clock, clock_offset(), last_driven)) > delay)
+        if (as_unsigned(get_since(clock, clock_offset(), last_driven)) > delay) {
             gear_ = 0;
+        }
     } else {
         const int gear = gear_;
         if (gear < gear_count_ - 1 && speed_ > core::at(gear_steps_, gear).up_at_) {
@@ -261,11 +267,12 @@ void SkaterVehicleSoundComponent::tick_engine()
     const float high_pitch = get_setting(settings_, 0x9F46344A);
     const float low_pitch = get_setting(settings_, 0x2660AF3B);
     auto pitch = static_cast<float>(((static_cast<double>(high_pitch) - low_pitch) * rpm) + low_pitch);
-    if (!engine_sound_)
+    if (!engine_sound_) {
         engine_sound_ =
             sound::AudioMixer::emit_sound(engine_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
-    else
+    } else {
         sound::AudioMixer::set_sound_params_scaled(engine_sound_, &volume, pitch);
+    }
     // (VolumeRef's destructor is empty: 0x005480A0)
 }
 
@@ -275,8 +282,9 @@ void SkaterVehicleSoundComponent::update_skid()
     float skid = 0.0F;
     if (input_->pad_primary().btn_down().held_down() && core_physics_->state()->cur_phase() == 0) {
         const double speed = get_pace(entity()->vel());
-        if (!(0.0 > speed))
+        if (!(0.0 > speed)) {
             skid = static_cast<float>(speed);
+        }
     }
     const float rate = get_rate(0x95FBE774);
     const double ease = frame_clock::get_slomo_frame_seconds() * rate;
@@ -296,11 +304,12 @@ void SkaterVehicleSoundComponent::update_skid()
     const float low_pitch = get_setting(settings_, 0x76F8F76E);
     auto pitch = static_cast<float>(((static_cast<double>(high_pitch) - low_pitch) * level) + low_pitch);
     if (!volume.is_audio_off()) {
-        if (!skid_sound_)
+        if (!skid_sound_) {
             skid_sound_ =
                 sound::AudioMixer::emit_sound(skid_sound_name_, &volume, {.pitch = pitch, .unique_id_ = 0}, nullptr, 0);
-        else
+        } else {
             sound::AudioMixer::set_sound_params_scaled(skid_sound_, &volume, pitch);
+        }
     } else if (skid_sound_) {
         sound::AudioMixer::stop_sound(skid_sound_);
         skid_sound_ = 0;
@@ -318,8 +327,9 @@ void SkaterVehicleSoundComponent::update_unused()
 bool SkaterVehicleSoundComponent::set_skater_vehicle_sounds(script::Struct* params, script::Script* /*script*/)
 {
     params->read_hash_value(0U, &settings_name_, 0);
-    if (engine_sound_)
+    if (engine_sound_) {
         sound::AudioMixer::stop_sound(engine_sound_);
+    }
     engine_sound_ = 0;
     engine_sound_name_ = 0;
     skid_sound_name_ = 0;
@@ -333,8 +343,9 @@ bool SkaterVehicleSoundComponent::set_skater_vehicle_sounds(script::Struct* para
 // 0x0051B820
 bool SkaterVehicleSoundComponent::no_skater_vehicle_sounds(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (engine_sound_)
+    if (engine_sound_) {
         sound::AudioMixer::stop_sound(engine_sound_);
+    }
     engine_sound_ = 0;
     engine_sound_name_ = 0;
     skid_sound_name_ = 0;
@@ -348,8 +359,9 @@ bool SkaterVehicleSoundComponent::no_skater_vehicle_sounds(script::Struct* /*par
 bool SkaterVehicleSoundComponent::stop_skater_vehicle_sounds(script::Struct* /*params*/,
                                                              script::Script* /*script*/) const
 {
-    if (engine_sound_)
+    if (engine_sound_) {
         sound::AudioMixer::stop_sound(engine_sound_);
+    }
     return true;
 }
 

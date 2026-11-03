@@ -80,13 +80,16 @@ bool vert_air(const objects::RiderPoseState* state)
 // 0x004F9EB0
 bool RiderChaseView::get_look_down()
 {
-    if (!rider_ref_)
+    if (!rider_ref_) {
         return false;
+    }
     const objects::RiderPoseState* state = state_ref_;
-    if (state->physics_mode() != objects::RiderPoseState::PhysicsMode::kSkating)
+    if (state->physics_mode() != objects::RiderPoseState::PhysicsMode::kSkating) {
         return false;
-    if (state->cur_phase() == 3 || vert_air(state))
+    }
+    if (state->cur_phase() == 3 || vert_air(state)) {
         return true;
+    }
     return state->lip_straight_up() != 0;
 }
 
@@ -119,8 +122,9 @@ void RiderChaseView::apply_shake(maths::Vec4* position, const maths::Mat4* orien
     position->w = static_cast<float>(w + (across * row1.w));
     const double now = shake_left_ - frame_clock::get_slomo_frame_seconds();
     shake_left_ = static_cast<float>(now);
-    if (now < 0.0)
+    if (now < 0.0) {
         shake_left_ = 0.0F;
+    }
 }
 
 // 0x004FA020
@@ -158,10 +162,12 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
             static_cast<float>(frame_blend(static_cast<float>(lerp_xz_ * static_cast<double>(rate_scale_)), seconds));
         up = frame_blend(static_cast<float>(lerp_y_ * static_cast<double>(rate_scale_)), seconds);
         state = state_ref_;
-        if (state->flag(PoseFlag::kGroundSnapped).on)
+        if (state->flag(PoseFlag::kGroundSnapped).on) {
             up = 1.0;
-        if (state->flag(PoseFlag::kWallplanted).on)
+        }
+        if (state->flag(PoseFlag::kWallplanted).on) {
             snap = true;
+        }
     }
     maths::Vec4& target = aim_point_;
     if (snap) {
@@ -183,37 +189,43 @@ RiderChaseView::ZoomOffsets RiderChaseView::get_zoomed_offsets()
     ZoomOffsets offsets{.height = 0.0F, .distance = 0.0F};
     float* height = &offsets.height;
     float* distance = &offsets.distance;
-    if (!rider_ref_)
+    if (!rider_ref_) {
         return offsets;
+    }
     zoom_target_ = 1.0F;
     const objects::RiderPoseState* state = state_ref_;
-    if (!vert_zoom_on_ && vert_air(state) && state->in_trick_move())
+    if (!vert_zoom_on_ && vert_air(state) && state->in_trick_move()) {
         vert_zoom_on_ = 1;
-    else if (!vert_air(state_ref_))
+    } else if (!vert_air(state_ref_)) {
         vert_zoom_on_ = 0;
+    }
     state = state_ref_;
-    if (vert_zoom_on_)
+    if (vert_zoom_on_) {
         zoom_target_ = big_air_trick_zoom_;
-    else if (state->cur_phase() == 4)
+    } else if (state->cur_phase() == 4) {
         zoom_target_ = rail_zoom_factor_;
-    else if (state->cur_phase() == 3)
+    } else if (state->cur_phase() == 3) {
         zoom_target_ = lip_trick_zoom_;
+    }
     const FreeLookModule* look_around = free_look_module_;
-    if (look_around->turning() && std::bit_cast<uint32_t>(look_around->factor()) != kFloatOneBits)
+    if (look_around->turning() && std::bit_cast<uint32_t>(look_around->factor()) != kFloatOneBits) {
         zoom_target_ = static_cast<float>(static_cast<double>(look_around->factor()) * zoom_target_);
+    }
     const double eased = ((static_cast<double>(zoom_target_) - zoom_) * zoom_ease_rate_) + zoom_;
     zoom_ = static_cast<float>(eased);
     const double behind = eased * behind_;
     *distance = static_cast<float>(behind);
     const float tilt = free_look_module_->lean_angle();
-    if (tilt < 0.0F)
+    if (tilt < 0.0F) {
         *distance = static_cast<float>(
             (((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange) + kTiltBase) * behind);
+    }
     const float above = state_ref_->cur_phase() == 3 ? lip_trick_above_ : above_;
-    if (zoom_ < 1.0F)
+    if (zoom_ < 1.0F) {
         *height = static_cast<float>(((static_cast<double>(above) - kZoomedHeight) * zoom_) + kZoomedHeight);
-    else
+    } else {
         *height = above;
+    }
     return offsets;
 }
 
@@ -245,8 +257,9 @@ void RiderChaseView::save_state(WalkCameraState* state)
 RiderChaseView::RiderChaseView()
 {
     set_kind_tag(kSkaterCamera);
-    if (!memory::manager_ready_flag())
+    if (!memory::manager_ready_flag()) {
         memory::ensure_manager();
+    }
     void* memory = memory::Hub::get_pull()->carve(kCameraBlockBytes, 1, nullptr);
     // (The interpolator's constructor does nothing: folded with many empty ones at 0x005902E0.)
     arc_blender_ = static_cast<maths::ArcRotationBlender*>(memory);
@@ -314,10 +327,12 @@ void RiderChaseView::restore_default_state() { change_regime({.mode = mode_sel_,
 // 0x004FA7D0
 void RiderChaseView::next_mode()
 {
-    if (mode_sel_ >= kModeCount)
+    if (mode_sel_ >= kModeCount) {
         return;
-    if (++mode_sel_ >= kModeCount)
+    }
+    if (++mode_sel_ >= kModeCount) {
         mode_sel_ = 1;
+    }
     change_regime({.mode = mode_sel_, .time = 1.0F});
 }
 

@@ -99,8 +99,9 @@ GoalManager::GoalManager()
         gsl::owner<script::Struct*> made = script::spawn_param_bag();
         *structure = made ? memory::construct_in<script::Struct>(made) : nullptr;
     }
-    for (int& unlocked : group_unlocked_)
+    for (int& unlocked : group_unlocked_) {
         unlocked = 0;
+    }
 }
 
 // 0x0055DB50
@@ -130,10 +131,11 @@ void GoalManager::show_goal_points()
 // 0x00557E70
 void GoalManager::reset_goal_data(uint32_t flag)
 {
-    if (flag)
+    if (flag) {
         args_->erase_module(flag);
-    else
+    } else {
         args_->get_clear();
+    }
     script::Component* component = goal_data_->step_to_entry(nullptr);
     while (component) {
         script::Component* next = goal_data_->step_to_entry(component);
@@ -162,11 +164,13 @@ Objective* GoalManager::get_objective_at(int index) { return goals_.get_by_index
 bool GoalManager::engage_objective(uint32_t id, bool /*unused*/)
 {
     Objective* goal = goals_.get_pull(id);
-    if (!goal || goal->is_latched())
+    if (!goal || goal->is_latched()) {
         return false;
+    }
     const bool started = goal->activate();
-    if (started && goal->may_try_again() && has_no_parent(goal))
+    if (started && goal->may_try_again() && has_no_parent(goal)) {
         previous_objective_ = id;
+    }
     return started;
 }
 
@@ -175,12 +179,14 @@ bool GoalManager::complete_objective(uint32_t id)
 {
     online::Hub* net = online::online_hub();
     Objective* goal = goals_.get_pull(id);
-    if (!goal)
+    if (!goal) {
         return false;
+    }
     uint32_t root = id;
     walk_to_root(this, goal, [&](uint32_t parent) { root = parent; });
-    if (root == previous_objective_ && goal->sub_nodes()->objective_key_ == 0)
+    if (root == previous_objective_ && goal->sub_nodes()->objective_key_ == 0) {
         previous_objective_ = 0;
+    }
     if (!goal->has_won()) {
         if (goal->sub_nodes()->objective_key_ == 0 && net->in_net_game()) {
             net::NetMessageInfo desc;
@@ -211,12 +217,14 @@ bool GoalManager::complete_objective(uint32_t id)
 bool GoalManager::fail_objective(uint32_t id)
 {
     Objective* goal = goals_.get_pull(id);
-    if (!goal)
+    if (!goal) {
         return false;
+    }
     goal->lose();
     if (game_mode()->get_name_key() == kClassic ||
-        (game_mode()->get_name_key() == kNetGoalAttack && game_mode()->get_goals_mode() == kGoalsClassic))
+        (game_mode()->get_name_key() == kNetGoalAttack && game_mode()->get_goals_mode() == kGoalsClassic)) {
         engage_objective(id, false);
+    }
     return true;
 }
 
@@ -224,9 +232,11 @@ bool GoalManager::fail_objective(uint32_t id)
 int GoalManager::count_picked_objectives()
 {
     int selected = 0;
-    for (int i = 0; i < goals_.num(); ++i)
-        if (goals_.get_by_index(i)->is_picked())
+    for (int i = 0; i < goals_.num(); ++i) {
+        if (goals_.get_by_index(i)->is_picked()) {
             ++selected;
+        }
+    }
     return selected;
 }
 
@@ -235,8 +245,9 @@ void GoalManager::disengage_every_objective(bool unused)
 {
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (goal->is_operative())
+        if (goal->is_operative()) {
             goal->disengage(unused, true);
+        }
     }
 }
 
@@ -245,8 +256,9 @@ void GoalManager::activate_all_goals()
 {
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!goal->is_operative() && !goal->has_won() && !goal->is_online_objective())
+        if (!goal->is_operative() && !goal->has_won() && !goal->is_online_objective()) {
             goal->activate();
+        }
     }
 }
 
@@ -260,8 +272,9 @@ void GoalManager::release_objective_tree(uint32_t id)
 // 0x00558380
 void GoalManager::release_every_objective()
 {
-    for (int i = 0; i < goals_.num(); ++i)
+    for (int i = 0; i < goals_.num(); ++i) {
         goals_.get_by_index(i)->uninitialize(false, 0);
+    }
 }
 
 // 0x005583C0
@@ -270,20 +283,25 @@ void GoalManager::prepare_every_objective()
     online::Hub* net = online::online_hub();
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (net->in_net_game() && !goal->is_online_objective())
+        if (net->in_net_game() && !goal->is_online_objective()) {
             continue;
+        }
         goal->merge_skill_tier_args();
-        if (goal->is_latched())
+        if (goal->is_latched()) {
             continue;
-        if (goal->has_won() && !goal->fetch_args()->has_bare_flag(kAlwaysInitializeGoal))
+        }
+        if (goal->has_won() && !goal->fetch_args()->has_bare_flag(kAlwaysInitializeGoal)) {
             continue;
+        }
         const GoalEdge* parents = goal->parents();
         script::Struct* params = goal->fetch_args();
-        if (parents->objective_key_)
+        if (parents->objective_key_) {
             continue;
+        }
         if (game_mode()->get_name_key() == kClassic || !goal->has_won() ||
-            params->has_bare_flag(kAlwaysInitializeGoal) || params->has_bare_flag(kEditedGoal))
+            params->has_bare_flag(kAlwaysInitializeGoal) || params->has_bare_flag(kEditedGoal)) {
             goal->prepare_all();
+        }
     }
 }
 
@@ -292,8 +310,9 @@ void GoalManager::prepare_picked_objectives()
 {
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!goal->is_picked())
+        if (!goal->is_picked()) {
             continue;
+        }
         script::launch_script(kGoalCreateProsetGeom, goal->fetch_args(), nullptr, false, nullptr);
         goal->prepare_all();
     }
@@ -304,43 +323,49 @@ void GoalManager::activate_all_selected_goals()
 {
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (goal->is_picked())
+        if (goal->is_picked()) {
             goal->activate();
+        }
     }
 }
 
 // 0x00558580
 void GoalManager::unpick_every_objective()
 {
-    for (int i = 0; i < goals_.num(); ++i)
+    for (int i = 0; i < goals_.num(); ++i) {
         goals_.get_by_index(i)->unpick();
+    }
 }
 
 // 0x005585C0
 void GoalManager::freeze_every_objective()
 {
-    for (int i = 0; i < goals_.num(); ++i)
+    for (int i = 0; i < goals_.num(); ++i) {
         goals_.get_by_index(i)->get_freeze();
+    }
 }
 
 // 0x00558600
 void GoalManager::thaw_every_objective()
 {
-    for (int i = 0; i < goals_.num(); ++i)
+    for (int i = 0; i < goals_.num(); ++i) {
         goals_.get_by_index(i)->un_pause();
+    }
 }
 
 // 0x00558640
 bool GoalManager::begin_objective_at_once(uint32_t id, bool check_exists)
 {
     Objective* goal = goals_.get_pull(id);
-    if (!goal && check_exists)
+    if (!goal && check_exists) {
         return false;
+    }
     Expects(goal != nullptr);
     goal->set_quick_start(); // (no such goal and not check_exists: written through null, as the original)
     const bool started = goal->activate();
-    if (started && goal->may_try_again())
+    if (started && goal->may_try_again()) {
         previous_objective_ = id;
+    }
     goal->unset_quick_start();
     return started;
 }
@@ -351,8 +376,9 @@ bool GoalManager::raise_bit(uint32_t id, checksums::Name flag_name, int value, c
     const uint32_t sub = sub_goal.value();
     const uint32_t flag = flag_name.value();
     Objective* goal = goals_.get_pull(id);
-    if (!goal)
+    if (!goal) {
         return false;
+    }
     return goal->set_flag(checksums::Name{flag}, value, checksums::Name{sub});
 }
 
@@ -360,8 +386,9 @@ bool GoalManager::raise_bit(uint32_t id, checksums::Name flag_name, int value, c
 bool GoalManager::register_gap_hit(uint32_t gap)
 {
     bool got = false;
-    for (int i = 0; i < goals_.num(); ++i)
+    for (int i = 0; i < goals_.num(); ++i) {
         got = goals_.get_by_index(i)->register_gap_hit(gap);
+    }
     return got;
 }
 
@@ -377,12 +404,14 @@ void GoalManager::kill_cluster(uint32_t cluster, int score)
     const int count = goals_.num(); // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!goal->is_operative() || goal->is_online_objective())
+        if (!goal->is_operative() || goal->is_online_objective()) {
             continue;
-        if (goal->is_graffiti())
+        }
+        if (goal->is_graffiti()) {
             goal->kill_cluster(cluster, score);
-        else
+        } else {
             stubs::ignore_argument(static_cast<int>(cluster));
+        }
     }
 }
 
@@ -391,12 +420,14 @@ void GoalManager::check_trick_goals()
 {
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!goal->is_operative() || goal->is_online_objective())
+        if (!goal->is_operative() || goal->is_online_objective()) {
             continue;
+        }
         script::Struct* params = goal->fetch_args();
         if (goal->is_special() || params->has_bare_flag(kCreateATrick)) {
-            if (!params->has_bare_flag(kSpecialGap) && goal->did_trick_string())
+            if (!params->has_bare_flag(kSpecialGap) && goal->did_trick_string()) {
                 complete_objective(goal->get_objective_key());
+            }
         } else if (goal->is_tetris()) {
             core::down_cast<FallingTricksGoal>(goal)->check_tricks();
         } else if (goal->is_find_gaps()) {
@@ -411,12 +442,14 @@ void GoalManager::open_up_objective(uint32_t id) { goals_.get_pull(id)->get_unlo
 // 0x005588F0
 int GoalManager::has_beaten_goal(uint32_t id)
 {
-    if (Objective* goal = goals_.get_pull(id))
+    if (Objective* goal = goals_.get_pull(id)) {
         return goal->has_won();
+    }
     int beaten = 0;
     script::Struct* data = nullptr;
-    if (goal_data_->read_sub_struct(id, &data, 0))
+    if (goal_data_->read_sub_struct(id, &data, 0)) {
         data->fetch_int_value(kAlreadyWon, &beaten, 1);
+    }
     return beaten != 0;
 }
 
@@ -424,10 +457,11 @@ int GoalManager::has_beaten_goal(uint32_t id)
 void GoalManager::flip_objective_pick(uint32_t id)
 {
     Objective* goal = goals_.get_pull(id);
-    if (goal->is_picked())
+    if (goal->is_picked()) {
         goal->unpick();
-    else
+    } else {
         goal->choose_one();
+    }
 }
 
 // 0x005589A0
@@ -435,8 +469,9 @@ bool GoalManager::has_won_proset_goal(const char* prefix)
 {
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (goal->has_won() && goal->has_proset_prefix(prefix))
+        if (goal->has_won() && goal->has_proset_prefix(prefix)) {
             return true;
+        }
     }
     return false;
 }
@@ -465,8 +500,9 @@ int GoalManager::count_cleared_by_player(int bit)
     int count = 0;
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (has_no_parent(goal) && goal->stage_flag_set(bit))
+        if (has_no_parent(goal) && goal->stage_flag_set(bit)) {
             ++count;
+        }
     }
     return count;
 }
@@ -477,8 +513,9 @@ int GoalManager::num_goals_net_beaten_by(int bit)
     int count = 0;
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (has_no_parent(goal) && goal->net_stage_flag_set(bit))
+        if (has_no_parent(goal) && goal->net_stage_flag_set(bit)) {
             ++count;
+        }
     }
     return count;
 }
@@ -489,8 +526,9 @@ int GoalManager::count_objectives_cleared()
     int count = 0;
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (has_no_parent(goal) && goal->has_won())
+        if (has_no_parent(goal) && goal->has_won()) {
             ++count;
+        }
     }
     return count;
 }
@@ -499,8 +537,9 @@ int GoalManager::count_objectives_cleared()
 void GoalManager::open_up_every_objective()
 {
     all_unlocked_ = true;
-    for (int i = 0; i < goals_.num(); ++i)
+    for (int i = 0; i < goals_.num(); ++i) {
         goals_.get_by_index(i)->mark_viewed();
+    }
 }
 
 // 0x00558C00
@@ -509,8 +548,9 @@ void GoalManager::unlock_all_pro_goals()
     all_unlocked_ = true;
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (goal->is_pro_challenge() && goal->is_latched())
+        if (goal->is_pro_challenge() && goal->is_latched()) {
             goal->get_unlock();
+        }
     }
 }
 
@@ -527,19 +567,22 @@ void GoalManager::play_objective_voice_line(script::Struct* params)
         return;
     }
     const char* type = nullptr;
-    if (params->fetch_text(kType, &type, 0))
+    if (params->fetch_text(kType, &type, 0)) {
         goal->ped()->play_objective_voice_line(type, params);
+    }
 }
 
 // 0x00558D20
 int GoalManager::is_goal_blocked(uint32_t id)
 {
-    if (Objective* goal = goals_.get_pull(id))
+    if (Objective* goal = goals_.get_pull(id)) {
         return goal->is_latched();
+    }
     int locked = 0;
     script::Struct* data = nullptr;
-    if (goal_data_->read_sub_struct(id, &data, 0))
+    if (goal_data_->read_sub_struct(id, &data, 0)) {
         data->fetch_int_value(kIsLocked, &locked, 1);
+    }
     return locked != 0;
 }
 
@@ -548,8 +591,9 @@ Objective* GoalManager::get_active_competition()
 {
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (goal->is_contest_objective() && goal->is_operative())
+        if (goal->is_contest_objective() && goal->is_operative()) {
             return goal;
+        }
     }
     return nullptr;
 }
@@ -558,8 +602,9 @@ Objective* GoalManager::get_active_competition()
 void GoalManager::replace_trick_text_all()
 {
     const int count = goals_.num(); // (read once)
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         goals_.get_by_index(i)->swap_move_caption();
+    }
 }
 
 // 0x00558E30
@@ -574,8 +619,9 @@ void GoalManager::test_tagged_props()
     // The combo's trick objects: up to 512 clusters, then their count (copied first, as the original).
     const objects::HitClusterLog objects = trick->trick_objects();
     const int count = objects.num() > 512 ? 512 : objects.num();
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         kill_cluster(core::at(objects.items(), i), player);
+    }
 }
 
 // 0x00558ED0
@@ -594,14 +640,16 @@ void GoalManager::build_goal_tree()
                     break;
                 }
             }
-            if (!linked)
+            if (!linked) {
                 child->attach_upper_link(id);
+            }
         }
     }
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (has_no_parent(goal))
+        if (has_no_parent(goal)) {
             goal->pass_inherited_flags(0);
+        }
     }
 }
 
@@ -610,10 +658,12 @@ void GoalManager::spawn_objective_props()
 {
     for (int i = 0; i < goals_.num(); ++i) {
         script::Array* nodes = nullptr;
-        if (!goals_.get_by_index(i)->fetch_args()->fetch_list(kCreateGeometry, &nodes, 0))
+        if (!goals_.get_by_index(i)->fetch_args()->fetch_list(kCreateGeometry, &nodes, 0)) {
             continue;
-        for (uint32_t n = 0; n < nodes->extent(); ++n)
+        }
+        for (uint32_t n = 0; n < nodes->extent(); ++n) {
             commands::create_from_node_name(nodes->fetch_part(n));
+        }
     }
 }
 
@@ -622,8 +672,9 @@ int GoalManager::get_skill_tier(bool career)
 {
     const uint32_t mode = career ? kCareer : game_mode()->get_name_key();
     int level = 0;
-    if (!args_->fetch_int_value(mode, &level, 0))
+    if (!args_->fetch_int_value(mode, &level, 0)) {
         level = 1;
+    }
     switch (level) {
     case 0:
         return 0;
@@ -637,17 +688,20 @@ int GoalManager::get_skill_tier(bool career)
 // 0x005590C0
 void GoalManager::conceal_every_objective_npc(bool hide)
 {
-    for (int i = 0; i < goals_.num(); ++i)
+    for (int i = 0; i < goals_.num(); ++i) {
         hide_goal_ped(goals_.get_by_index(i)->ped(), hide);
+    }
 }
 
 // 0x00559110
 bool GoalManager::is_group_locked(int group, int level)
 {
-    if (group == -1)
+    if (group == -1) {
         return false;
-    if (level == -1)
+    }
+    if (level == -1) {
         level = skate_calls::get_career()->fetch_stage();
+    }
     return core::at(group_unlocked_, (level * kGroupsPerLevel) + group - 1) == 0;
 }
 
@@ -657,8 +711,9 @@ void GoalManager::trick_object_hit(uint32_t cluster)
     const int count = goals_.num(); // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (goal->fetch_args()->has_bare_flag(kTrickObjects))
+        if (goal->fetch_args()->has_bare_flag(kTrickObjects)) {
             core::down_cast<TrickObjectsGoal>(goal)->get_object_hit(cluster);
+        }
     }
 }
 
@@ -668,8 +723,9 @@ bool GoalManager::drop_objective(uint32_t id)
     gsl::owner<const Objective*> goal = goals_.get_pull(id);
     remove_objective_npc(goal->ped());
     goals_.drop_out(id);
-    if (previous_objective_ == id)
+    if (previous_objective_ == id) {
         previous_objective_ = 0;
+    }
     delete goal;
     return true;
 }
@@ -678,8 +734,9 @@ bool GoalManager::drop_objective(uint32_t id)
 void GoalManager::wipe_objectives()
 {
     previous_objective_ = 0;
-    for (int i = 0; i < goals_.num(); ++i)
+    for (int i = 0; i < goals_.num(); ++i) {
         remove_objective_npc(goals_.get_by_index(i)->ped());
+    }
     lists::TableItemEraser destroyer{&goals_};
     destroyer.empty_table_items([](void* goal) {
         gsl::owner<Objective*> objective = memory::adopt<Objective*>(goal); // (the table's)
@@ -699,8 +756,9 @@ namespace {
 int count_active(memory::ListNode* head)
 {
     const memory::ListNode* node = head->next();
-    if (node->data() == memory::ListNode::head_marker() || !node)
+    if (node->data() == memory::ListNode::head_marker() || !node) {
         return 0;
+    }
     int count = 0;
     for (bool again = true; again; again = node->data() != memory::ListNode::head_marker() && node) {
         node = node->next();
@@ -716,8 +774,9 @@ memory::ListNode* GoalListHead::get_node_at(int index) { return lists::node_at(l
 // 0x0055DBF0
 Objective* GoalManager::get_engaged_objective(int index)
 {
-    if (!count_active(&active_goals_.list_link()))
+    if (!count_active(&active_goals_.list_link())) {
         return nullptr;
+    }
     return static_cast<Objective*>(active_goals_.get_node_at(index)->data());
 }
 
@@ -732,8 +791,9 @@ int GoalManager::count_live_goals(bool all)
                               : nullptr;
         Expects(goal != nullptr);
         const bool counts = goal->is_online_objective() ? all : all || goal->is_operative();
-        if (counts)
+        if (counts) {
             ++counted;
+        }
     }
     return counted;
 }

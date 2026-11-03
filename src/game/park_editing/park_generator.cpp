@@ -79,18 +79,21 @@ void CellChainScratch::dump_to_log()
 
 void CellChainScratch::teardown()
 {
-    if (list_)
+    if (list_) {
         MapListNode::free_node_chain(list_);
+    }
 }
 
 // --- ParkAssembler ---------------------------------------------------------------------------------------------
 
 ParkAssembler::~ParkAssembler()
 {
-    if (scene_handle_)
+    if (scene_handle_) {
         scene_handle_ = nullptr;
-    if (source_world_)
+    }
+    if (source_world_) {
         source_world_ = nullptr;
+    }
     node_table_.reset(); // (the node array's owner)
     destroy_empty_member(&rails_);
     destroy_empty_member(&source_rails_);
@@ -122,8 +125,9 @@ int ParkAssembler::get_player_cap_limit() const
 TileTemplate* ParkAssembler::get_piece_source(uint32_t name)
 {
     for (TileTemplate* source = sources_; source; source = source->following()) {
-        if (source->sector() == name)
+        if (source->sector() == name) {
             return source;
+        }
     }
     return nullptr;
 }
@@ -195,23 +199,26 @@ bool ParkAssembler::has_free_restart_slot(int type)
     int last = 0;
     fetch_spawn_slots(type, &first, &last);
     for (int i = first; i <= last; ++i) {
-        if (!core::at(restarts_, i).kind_tag_ || core::at(restarts_, i).automatic_)
+        if (!core::at(restarts_, i).kind_tag_ || core::at(restarts_, i).automatic_) {
             return true;
+        }
     }
     return false;
 }
 
 void ParkAssembler::clear_restarts()
 {
-    for (RestartPoint& slot : restarts_)
+    for (RestartPoint& slot : restarts_) {
         slot.kind_tag_ = RestartPoint::kFree;
+    }
 }
 
 void ParkAssembler::purge_auto_restart_points()
 {
     for (RestartPoint& slot : restarts_) {
-        if (slot.automatic_)
+        if (slot.automatic_) {
             slot.kind_tag_ = RestartPoint::kFree;
+        }
     }
 }
 
@@ -228,8 +235,9 @@ void ParkAssembler::set_up_bounds()
 
 void ParkAssembler::rebuild_collision()
 {
-    if (!park_editing_state().collision_allowed())
+    if (!park_editing_state().collision_allowed()) {
         return;
+    }
     flag_bits_ &= ~ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());
     scene::get_update_super_sectors(scene_handle_, nullptr);
@@ -241,8 +249,9 @@ void ParkAssembler::update_bounds(uint32_t /*unused*/)
 {
     ParkLayout* manager = ParkLayout::singleton();
     render::WorldScene* shell = scene::look_up_scene(manager->get_shell_checksum());
-    if (!shell)
+    if (!shell) {
         return;
+    }
     // The shell's first box: as big as can be.
     const maths::Vec4 far = {.x = 200000.0F, .y = 200000.0F, .z = 200000.0F, .w = 1.0F};
     const maths::Vec4 near = {.x = -200000.0F, .y = -200000.0F, .z = -200000.0F, .w = 1.0F};
@@ -270,8 +279,9 @@ void ParkAssembler::set_pieces_highlighted(int on)
 {
     for (ParkTile* piece = pieces_; piece;) {
         ParkTile* next = piece->following();
-        if (piece->flag_bits() & ParkTile::kGap)
+        if (piece->flag_bits() & ParkTile::kGap) {
             piece->set_visible(on != 0);
+        }
         piece = next;
     }
 }
@@ -280,8 +290,9 @@ void ParkAssembler::set_restart_pieces_active(bool active)
 {
     for (ParkTile* piece = pieces_; piece;) {
         ParkTile* next = piece->following();
-        if (ParkLayout::singleton()->get_restart_index(piece->blend_source()->sector()))
+        if (ParkLayout::singleton()->get_restart_index(piece->blend_source()->sector())) {
             piece->change_live(active);
+        }
         piece = next;
     }
 }
@@ -331,8 +342,9 @@ gsl::owner<ParkTile*> ParkAssembler::create_piece(ParkPiece* source, uint32_t fl
     uint32_t rgba = 0;
     if (get_piece_color(piece, &rgba)) { // (never)
         if (render::WorldCell* sector = scene::look_up_sector(clone)) {
-            if (render::Geom* geometry = scene::fetch_shape(sector))
+            if (render::Geom* geometry = scene::fetch_shape(sector)) {
                 scene::change_tint(geometry, rgba);
+            }
         }
     }
     set_counts_dirty();
@@ -353,22 +365,26 @@ void ParkAssembler::delete_piece(ParkTile* piece, int keep_sector)
     if (!(piece->flag_bits() & ParkTile::kCursor)) {
         ParkTile* previous = nullptr;
         for (ParkTile* p = pieces_; p; previous = p, p = p->following()) {
-            if (p != piece)
+            if (p != piece) {
                 continue;
-            if (previous)
+            }
+            if (previous) {
                 previous->set_following(p->following());
-            else
+            } else {
                 pieces_ = p->following();
+            }
             break;
         }
     }
-    if (!keep_sector)
+    if (!keep_sector) {
         destroy_sector(piece->sector(), static_cast<int>(piece->flag_bits()));
+    }
     set_counts_dirty();
     gsl::owner<decltype(piece)> owned = memory::owned_element(piece); // (the generator's list's)
     delete owned;
-    if (!pieces_)
+    if (!pieces_) {
         flag_bits_ &= ~ParkAssembler::kHasPieces;
+    }
 }
 
 void ParkAssembler::read_piece_flags(script::Array* nodes)
@@ -377,24 +393,29 @@ void ParkAssembler::read_piece_flags(script::Array* nodes)
         auto* node = nodes->struct_at(i);
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);         // Class
-        if (node_class != kLevelGeometry && node_class != kGameObject) // LevelGeometry, GameObject
+        if (node_class != kLevelGeometry && node_class != kGameObject) { // LevelGeometry, GameObject
             continue;
+        }
         uint32_t name = 0;
         node->read_hash_value(kName, &name, 0); // name
-        if (!name)
+        if (!name) {
             continue;
+        }
         TileTemplate* source = get_piece_source(name);
-        if (!source)
+        if (!source) {
             continue;
+        }
         if (node_class == kGameObject) {
             source->flag_bits() |= TileTemplate::kGameObject;
-            if (node->has_bare_flag(kAbsentInNetGames))
+            if (node->has_bare_flag(kAbsentInNetGames)) {
                 source->flag_bits() |= TileTemplate::kAbsentInNetGames;
+            }
         }
         uint32_t script = 0;
         node->read_hash_value(kTriggerScript, &script, 0); // TriggerScript
-        if (!script)
+        if (!script) {
             continue;
+        }
         source->set_trigger_script(script);
         switch (script) { // (four scripts that change their pieces: rebuilt by rebuild_marked)
         case kPieceChangingScript1:

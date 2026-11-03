@@ -239,8 +239,9 @@ bool cfunc_get_park_ed_mem_stats(script::Struct* /*params*/, script::Script* scr
 bool cfunc_park_ed_mem_snapshot(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t marker = 0;
-    if (params->read_hash_value(0U, &marker, 0))
+    if (params->read_hash_value(0U, &marker, 0)) {
         get_marker(marker);
+    }
     return true;
 }
 
@@ -249,8 +250,9 @@ bool cfunc_enable_park_ed_cursor(script::Struct* params, script::Script* /*scrip
 {
     int on = 0;
     params->fetch_int_value(0U, &on, 0);
-    if (have_cursor())
+    if (have_cursor()) {
         get_cursor()->toggle_shown(on != 0);
+    }
     return true;
 }
 
@@ -283,8 +285,9 @@ bool cfunc_set_park_editor_time_of_day(script::Struct* params, script::Script* /
 bool cfunc_get_park_editor_time_of_day_script(script::Struct* /*params*/, script::Script* script)
 {
     const uint32_t tod = get_editor()->lighting_script();
-    if (!tod)
+    if (!tod) {
         return false;
+    }
     script->args()->put_name_key(checksums::Name{kTodScript}, tod);
     return true;
 }
@@ -308,12 +311,15 @@ bool cfunc_get_park_editor_cursor_pos(script::Struct* /*params*/, script::Script
 bool cfunc_custom_park_mode(script::Struct* params, script::Script* /*script*/)
 {
     const ParkBuilderMode* editor = get_editor();
-    if (params->has_bare_flag("editing"))
+    if (params->has_bare_flag("editing")) {
         return editor->editor_state() == ParkBuilderMode::kStateEdit;
-    if (params->has_bare_flag("testing"))
+    }
+    if (params->has_bare_flag("testing")) {
         return editor->editor_state() == ParkBuilderMode::kStateTestPlay;
-    if (params->has_bare_flag("just_using"))
+    }
+    if (params->has_bare_flag("just_using")) {
         return editor->editor_state() != ParkBuilderMode::kStateOff;
+    }
     return false;
 }
 
@@ -336,10 +342,12 @@ CellBox* get_resize_area(CellBox* out, script::Struct* params)
     params->fetch_int_value("l", &l, 0);
     int inc_w = w - area.w;
     int inc_l = l - area.l;
-    if (params->fetch_int_value("inc_w", &inc_w, 0))
+    if (params->fetch_int_value("inc_w", &inc_w, 0)) {
         w = area.w + inc_w;
-    if (params->fetch_int_value("inc_l", &inc_l, 0))
+    }
+    if (params->fetch_int_value("inc_l", &inc_l, 0)) {
         l = area.l + inc_l;
+    }
     // (the corner moves by half the change, to keep the park centred)
     area.x = static_cast<uint8_t>(area.x - static_cast<uint8_t>(inc_w / 2));
     area.z = static_cast<uint8_t>(area.z - static_cast<uint8_t>(inc_l / 2));
@@ -354,21 +362,25 @@ bool cfunc_can_cleanly_resize_park(script::Struct* params, script::Script* /*scr
 {
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     script::Struct* structure = nullptr;
-    if (!params->read_sub_struct(kResizeArea, &structure, 0))
+    if (!params->read_sub_struct(kResizeArea, &structure, 0)) {
         return false;
+    }
     area = area_from_structure(structure);
     bool clean = true;
-    if (hub()->has_pieces_outside(area))
+    if (hub()->has_pieces_outside(area)) {
         clean = false;
+    }
     PanelRect rails{};
     PanelRect goals{};
     world_rectangles(area, &rails, &goals);
     // 0x004F4600: whether a rail point lies outside the rectangle
-    if (get_rail_editor()->any_point_outside(rails.x0, rails.z0, rails.x1, rails.z1))
+    if (get_rail_editor()->any_point_outside(rails.x0, rails.z0, rails.x1, rails.z1)) {
         clean = false;
+    }
     // 0x004E8300: whether a goal of the park lies outside the rectangle
-    if (get_goal_editor()->any_park_goal_outside(goals.x0, goals.z0, goals.x1, goals.z1))
+    if (get_goal_editor()->any_park_goal_outside(goals.x0, goals.z0, goals.x1, goals.z1)) {
         clean = false;
+    }
     return clean;
 }
 
@@ -386,10 +398,12 @@ void resize_to(CellBox area)
     get_rail_editor()->delete_points(rails.x0, rails.z0, rails.x1, rails.z1, 0);
     // 0x004E8390: the park's goals outside the rectangle removed
     get_goal_editor()->remove_park_goals_outside(goals.x0, goals.z0, goals.x1, goals.z1);
-    if (have_cursor())
+    if (have_cursor()) {
         get_cursor()->remove_clipboards_too_big();
-    if (have_cursor())
+    }
+    if (have_cursor()) {
         get_cursor()->toggle_shown(false);
+    }
     park_editing_state().set_collision_allowed(true);
     hub()->builder()->rebuild_collision();
     mark_progress("ResizePark END--------");
@@ -411,8 +425,9 @@ bool cfunc_resize_park(script::Struct* params, script::Script* /*script*/)
         saved = area;
         return true;
     }
-    if (params->has_bare_flag(kUseSavedArea))
+    if (params->has_bare_flag(kUseSavedArea)) {
         area = saved;
+    }
     if (!hub()->can_resize_to(area)) {
         script::launch_script(kResizeFailed, nullptr, nullptr, false, nullptr);
         return false;
@@ -445,8 +460,9 @@ bool cfunc_can_change_park_dimension(script::Struct* params, script::Script* /*s
         return w != bounds.w || l != bounds.l;
     }
     const bool up = params->has_bare_flag(kUp);
-    if (params->has_bare_flag(kWidth))
+    if (params->has_bare_flag(kWidth)) {
         return up ? bounds.w < shell.w : bounds.w > kMinShellSpan;
+    }
     return up ? bounds.l < shell.l : bounds.l > kMinShellSpan;
 }
 
@@ -511,8 +527,9 @@ bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script)
     }
     // The first `length` characters (no more than the buffer holds - as the original, which doesn't check).
     std::array<char, kShortenedNameSize> shortened{};
-    if (length > 0)
+    if (length > 0) {
         std::memcpy(shortened.data(), name, static_cast<size_t>(length));
+    }
     core::at(shortened, length) = 0;
     script->args()->append_word("name", shortened.data());
     return true;
@@ -562,10 +579,11 @@ bool cfunc_switch_to_park_editor_camera(script::Struct* /*params*/, script::Scri
     auto set_camera = [](uint32_t id, int viewport, int take_current_view) {
         commands::make_camera_active(checksums::Name{id}, viewport, take_current_view != 0);
     };
-    if (have_cursor() && get_cursor()->mode_sel() == BuildPointer::Mode::kRailPlacement)
+    if (have_cursor() && get_cursor()->mode_sel() == BuildPointer::Mode::kRailPlacement) {
         set_camera(kRailEditorCam, 0, 0);
-    else
+    } else {
         set_camera(kParkedCam, 0, 0);
+    }
     return true;
 }
 

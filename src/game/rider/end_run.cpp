@@ -60,8 +60,9 @@ void RiderSessionEnd::tick_frame()
         hold_off(true);
         return;
     }
-    if (is_local_skater(entity()) && (flag_bits_ & kEndRunDone) && !server_told_run_ended())
+    if (is_local_skater(entity()) && (flag_bits_ & kEndRunDone) && !server_told_run_ended()) {
         tell_server_run_ended();
+    }
 }
 
 // 0x00510DC0
@@ -113,8 +114,9 @@ void RiderSessionEnd::end_run(bool force)
     }
     if (!(flag_bits_ & kEndRunForced) && !(flag_bits_ & kEndRunDone)) {
         flag_bits_ |= kEndRunForced;
-        if (is_local_skater(entity()))
+        if (is_local_skater(entity())) {
             script::launch_script(kForceEndOfRun, nullptr, entity(), false, nullptr);
+        }
     }
 }
 

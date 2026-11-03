@@ -43,8 +43,9 @@ ParkLayout::ParkLayout()
 {
     build_area_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     shell_bounds_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
-    for (CellBox& area : blocked_areas_)
+    for (CellBox& area : blocked_areas_) {
         area = CellBox::get_make(0, 0, 0, 0, 0, 0);
+    }
     void* memory = memory::alloc(kParkAssemblerBytes);
     builder_ = memory ? memory::construct_in<ParkAssembler>(memory) : nullptr;
     std::memset(cell_metas_.data(), 0, sizeof(cell_metas_));
@@ -105,8 +106,9 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
     origin.z = static_cast<float>((((meta->cell_footprint().l * kHalf) + pos.z) * kGridStepAlong) -
                                   (static_cast<double>(kGridStepAlong) * kGridCells * kHalf));
     origin.y = static_cast<float>(pos.y * static_cast<double>(kGridStepUp));
-    if (meta->flag_bits() & PieceGroup::kRiserBelow)
+    if (meta->flag_bits() & PieceGroup::kRiserBelow) {
         origin.y = static_cast<float>(static_cast<double>(origin.y) - kRiserBelowDrop);
+    }
     origin.w = 1.0F; // (the original leaves w as it was on the stack)
     for (uint32_t i = 0; i < meta->filled_slots(); ++i) {
         maths::Vec4 relative;
@@ -130,8 +132,9 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
             break;
         }
     }
-    if (!(meta->flag_bits() & PieceGroup::kFence) && !(meta->flag_bits() & PieceGroup::kBuiltShell))
+    if (!(meta->flag_bits() & PieceGroup::kFence) && !(meta->flag_bits() & PieceGroup::kBuiltShell)) {
         flag_bits_ &= ~(kMapUpToDate | kMapSaved);
+    }
     add_piece_cost(meta);
 }
 
@@ -143,8 +146,9 @@ uint32_t ParkLayout::free_piece_groups_in_region(CellBox area, uint32_t flags)
     MapListNode* list = get_intersecting_metas(area, 0, nullptr, (flags >> 1) & kPieceKindMask);
     if (list) {
         for (MapListNode* node = list; node; node = node->following()) {
-            if ((flags & 4) && (node->get_placed_piece()->flag_bits() & PieceGroup::kFlag20))
+            if ((flags & 4) && (node->get_placed_piece()->flag_bits() & PieceGroup::kFlag20)) {
                 continue;
+            }
             ++metas;
             pieces = static_cast<uint16_t>(pieces + node->get_placed_piece()->filled_slots());
             free_placed_piece(node->get_placed_piece(), flags);
@@ -161,18 +165,21 @@ void ParkLayout::highlight_metas_within_area(CellBox area, int on)
     const MapListHolder metas(collect_pieces_in_region(area));
     for (MapListNode* node = metas.list(); node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group();
-        if (meta && (meta->flag_bits() & PieceGroup::kFlag1) && meta->fits_inside_region(&area))
+        if (meta && (meta->flag_bits() & PieceGroup::kFlag1) && meta->fits_inside_region(&area)) {
             node->get_placed_piece()->spotlight(on, 0);
+        }
     }
 }
 
 // 0x0059AE90
 void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
 {
-    if (meta->flag_bits() & PieceGroup::kCursor)
+    if (meta->flag_bits() & PieceGroup::kCursor) {
         return;
-    if (BuildPointer* cursor = BuildPointer::sole())
+    }
+    if (BuildPointer* cursor = BuildPointer::sole()) {
         cursor->forget_gap_at(meta);
+    }
     int gap = 0;
     if (gap_registry_->get_gap_index(meta, &gap)) {
         int half = 0;
@@ -181,8 +188,9 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
     // A change to the park the player made: the compressed map is out of date.
     const uint32_t meta_flags = meta->flag_bits();
     if (!(meta_flags & PieceGroup::kFence) && (meta_flags & PieceGroup::kInPark) &&
-        !(meta_flags & PieceGroup::kBuiltShell))
+        !(meta_flags & PieceGroup::kBuiltShell)) {
         flag_bits_ &= ~(kMapUpToDate | kMapSaved);
+    }
     // What stands on it goes too.
     if (!(meta->flag_bits() & PieceGroup::kBuiltShell) && (flags & 1)) {
         CellBox above = meta->cell_footprint();
@@ -199,8 +207,9 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
             break;
         }
     }
-    for (uint32_t i = 0; i < meta->filled_slots(); ++i)
+    for (uint32_t i = 0; i < meta->filled_slots(); ++i) {
         builder_->destroy_piece(core::down_cast<PlacedPieceGroup>(meta)->slot(static_cast<int>(i)).piece);
+    }
     remove_piece_cost(meta);
     gsl::owner<PieceGroup*> owned = memory::owned_element(meta); // (the list's)
     delete owned;
@@ -220,8 +229,9 @@ void ParkLayout::destroy_concrete_metas(int keep_rails)
     builder_->destroy_pieces(keep_rails);
     builder_->clear_restarts();
     park_editing_state().set_collision_allowed(true);
-    if (keep_rails)
+    if (keep_rails) {
         builder_->rebuild_collision();
+    }
 }
 
 // 0x0059B090
@@ -254,18 +264,21 @@ PieceGroup* ParkLayout::shift_placed_piece(PieceGroup* meta, int dx, int dy, int
     copy->set_quarter_turns(rot);
     copy->flag_bits() = flags & ~PieceGroup::kInPark;
     place_meta_piece_in_park(pos, copy);
-    if (had_gap)
+    if (had_gap) {
         register_gap_entry(&moved);
+    }
     return copy;
 }
 
 // 0x0059BD40
 void ParkLayout::teardown(int keep_rails)
 {
-    if (!park_built_)
+    if (!park_built_) {
         return;
-    if (!(flag_bits_ & (kMapUpToDate | kMapSaved)))
+    }
+    if (!(flag_bits_ & (kMapUpToDate | kMapSaved))) {
         write_compressed_map();
+    }
     gap_registry_->clear_gap_entries();
     while (abstract_metas_) {
         PieceGroup* meta = abstract_metas_->get_piece_group();
@@ -284,8 +297,9 @@ void ParkLayout::teardown(int keep_rails)
         memory::dealloc(gaps);
     }
     gap_registry_ = nullptr;
-    if (riser_list_)
+    if (riser_list_) {
         MapListNode::free_node_chain(riser_list_);
+    }
     riser_list_ = nullptr;
     destroy_park_pools();
 }

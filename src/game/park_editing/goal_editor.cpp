@@ -196,8 +196,9 @@ EditedGoal* ObjectiveAuthoring::find_goal_by_name(const char* name)
 {
     const uint32_t level = current_level();
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count() && goal.level() == level && compare_no_case(goal.label().data(), name) == 0)
+        if (goal.taken_count() && goal.level() == level && compare_no_case(goal.label().data(), name) == 0) {
             return &goal;
+        }
     }
     return nullptr;
 }
@@ -207,8 +208,9 @@ EditedGoal* ObjectiveAuthoring::find_goal_by_id(uint32_t id)
 {
     const uint32_t level = current_level();
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count() && goal.level() == level && created_goal_id(goal.level_goal_number()) == id)
+        if (goal.taken_count() && goal.level() == level && created_goal_id(goal.level_goal_number()) == id) {
             return &goal;
+        }
     }
     return nullptr;
 }
@@ -217,17 +219,20 @@ EditedGoal* ObjectiveAuthoring::find_goal_by_id(uint32_t id)
 EditedGoal* ObjectiveAuthoring::get_goal_from_params(script::Struct* params)
 {
     uint32_t id = 0;
-    if (params->read_hash_value(kGoalId, &id, 0))
+    if (params->read_hash_value(kGoalId, &id, 0)) {
         return find_goal_by_id(id);
+    }
     const char* name = nullptr;
-    if (params->fetch_text(kGoalName, &name, 0))
+    if (params->fetch_text(kGoalName, &name, 0)) {
         return find_goal_by_name(name);
+    }
     int index = 0;
     if (params->fetch_int_value(kGoalIndex, &index, 0)) {
         const uint32_t level = current_level();
         for (EditedGoal& goal : goals_) {
-            if (goal.taken_count() && goal.level() == level && goal.level_goal_number() == index)
+            if (goal.taken_count() && goal.level() == level && goal.level_goal_number() == index) {
                 return &goal;
+            }
         }
         return nullptr;
     }
@@ -239,8 +244,9 @@ int ObjectiveAuthoring::count_used_goals()
 {
     int count = 0;
     for (const EditedGoal& goal : goals_) {
-        if (goal.taken_count())
+        if (goal.taken_count()) {
             ++count;
+        }
     }
     return count;
 }
@@ -250,8 +256,9 @@ int ObjectiveAuthoring::count_complete_goals(uint32_t level)
 {
     int count = 0;
     for (const EditedGoal& goal : goals_) {
-        if (goal.taken_count() && (!level || goal.level() == level) && goal.vertex_total() >= goal.min_points())
+        if (goal.taken_count() && (!level || goal.level() == level) && goal.vertex_total() >= goal.min_points()) {
             ++count;
+        }
     }
     return count;
 }
@@ -265,15 +272,17 @@ bool ObjectiveAuthoring::point_near_any_goal(const maths::Vec4& pos, float heigh
     const float z = pos.z;
     const float radius = script::fetch_float(0x71B20276);
     for (const EditedGoal& goal : goals_) {
-        if (!goal.taken_count() || goal.level() != level || std::cmp_less_equal(goal.vertex_total(), index))
+        if (!goal.taken_count() || goal.level() != level || std::cmp_less_equal(goal.vertex_total(), index)) {
             continue;
+        }
         const EditedGoalPoint& point = core::at(goal.path_vertices(), index);
         // (x's difference rounded to a float; y's and z's not, as the original's x87 sums)
         auto dx = static_cast<float>(static_cast<double>(point.pos.x) - x);
         const double dy = (static_cast<double>(point.pos.y) + point.height) - y;
         const double dz = static_cast<double>(point.pos.z) - z;
-        if (std::sqrt(((dz * dz) + (dy * dy)) + (static_cast<double>(dx) * dx)) < radius)
+        if (std::sqrt(((dz * dz) + (dy * dy)) + (static_cast<double>(dx) * dx)) < radius) {
             return true;
+        }
     }
     return false;
 }
@@ -282,8 +291,9 @@ bool ObjectiveAuthoring::point_near_any_goal(const maths::Vec4& pos, float heigh
 void ObjectiveAuthoring::clear_level_goals()
 {
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count() && goal.level() != kParkEditorLevel)
+        if (goal.taken_count() && goal.level() != kParkEditorLevel) {
             init_edited_goal(&goal);
+        }
     }
     active_node_ = nullptr;
 }
@@ -292,8 +302,9 @@ void ObjectiveAuthoring::clear_level_goals()
 void ObjectiveAuthoring::clear_park_goals()
 {
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count() && goal.level() == kParkEditorLevel)
+        if (goal.taken_count() && goal.level() == kParkEditorLevel) {
             init_edited_goal(&goal);
+        }
     }
     active_node_ = nullptr;
 }
@@ -302,8 +313,9 @@ void ObjectiveAuthoring::clear_park_goals()
 void ObjectiveAuthoring::clear_incomplete_goals()
 {
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count() && goal.vertex_total() < goal.min_points())
+        if (goal.taken_count() && goal.vertex_total() < goal.min_points()) {
             init_edited_goal(&goal);
+        }
     }
 }
 
@@ -312,8 +324,10 @@ bool ObjectiveAuthoring::any_park_goal_outside(float x0, float z0, float x1, flo
 {
     for (const EditedGoal& goal : goals_) {
         if (goal.taken_count() && goal.level() == kParkEditorLevel && goal.vertex_total() > 1 &&
-            get_outside(core::at(goal.path_vertices(), 1).pos.x, core::at(goal.path_vertices(), 1).pos.z, x0, z0, x1, z1))
+            get_outside(core::at(goal.path_vertices(), 1).pos.x, core::at(goal.path_vertices(), 1).pos.z, x0, z0, x1,
+                        z1)) {
             return true;
+        }
     }
     return false;
 }
@@ -323,8 +337,10 @@ void ObjectiveAuthoring::remove_park_goals_outside(float x0, float z0, float x1,
 {
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count() && goal.level() == kParkEditorLevel && goal.vertex_total() > 1 &&
-            get_outside(core::at(goal.path_vertices(), 1).pos.x, core::at(goal.path_vertices(), 1).pos.z, x0, z0, x1, z1))
+            get_outside(core::at(goal.path_vertices(), 1).pos.x, core::at(goal.path_vertices(), 1).pos.z, x0, z0, x1,
+                        z1)) {
             drop_objective(&goal);
+        }
     }
 }
 
@@ -332,8 +348,9 @@ void ObjectiveAuthoring::remove_park_goals_outside(float x0, float z0, float x1,
 void ObjectiveAuthoring::remove_gap_from_park_goals(int gap)
 {
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count() && goal.level() == kParkEditorLevel && goal.kind_tag() == kGoalTypeGap)
+        if (goal.taken_count() && goal.level() == kParkEditorLevel && goal.kind_tag() == kGoalTypeGap) {
             goal.remove_gap_and_renumber(static_cast<uint8_t>(gap));
+        }
     }
 }
 
@@ -342,12 +359,14 @@ void ObjectiveAuthoring::drop_objective(EditedGoal* goal)
 {
     if (goal->taken_count()) {
         goals::GoalManager* manager = goals::get_objective_board();
-        if (manager->goal_exists(created_goal_id(goal->level_goal_number())))
+        if (manager->goal_exists(created_goal_id(goal->level_goal_number()))) {
             manager->drop_objective(created_goal_id(goal->level_goal_number()));
+        }
     }
     init_edited_goal(goal);
-    if (active_node_ == goal)
+    if (active_node_ == goal) {
         active_node_ = nullptr;
+    }
 }
 
 // 0x004E7B50
@@ -394,8 +413,9 @@ void ObjectiveAuthoring::refresh_cursor()
         model = "gameobjects\\p1_cursor\\p1_cursor.mdl";
     } else if (kind == kPointObject) {
         int letter = 0;
-        if (goal->kind_tag() == kGoalTypeCombo || goal->kind_tag() == kGoalTypeSkate)
+        if (goal->kind_tag() == kGoalTypeCombo || goal->kind_tag() == kGoalTypeSkate) {
             letter = goal->current_point() - 2;
+        }
         model = goal_object_model(checksums::Name{goal->kind_tag()}, letter);
     } else {
         model = "gameobjects\\goal_cursor\\goal_cursor.mdl";
@@ -403,10 +423,11 @@ void ObjectiveAuthoring::refresh_cursor()
     script::Struct params;
     goal = active_node_;
     kind = goal->vertex_total() ? core::at(goal->path_vertices(), goal->current_point()).kind : kPointPro;
-    if (kind == kPointPro)
+    if (kind == kPointPro) {
         params.put_name_key(checksums::Name{kType}, kPed);
-    else if (kind == kPointCheckpoint)
+    } else if (kind == kPointCheckpoint) {
         params.put_name_key(checksums::Name{kType}, kCheckpoint);
+    }
     params.append_word(kModel, model);
     script::launch_script(kGoalEditorCreateCursor, &params, entity(), false, nullptr);
     update_camera_collision();
@@ -432,8 +453,9 @@ void ObjectiveAuthoring::begin_fresh_objective()
         }
     }
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count())
+        if (goal.taken_count()) {
             continue;
+        }
         active_node_ = &goal;
         init_edited_goal(&goal);
         active_node_->set_taken_count(true);
@@ -448,30 +470,34 @@ void ObjectiveAuthoring::begin_fresh_objective()
 void ObjectiveAuthoring::place_park_goals_on_ground()
 {
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count() && goal.level() == kParkEditorLevel)
+        if (goal.taken_count() && goal.level() == kParkEditorLevel) {
             goal.place_points_on_ground();
+        }
     }
 }
 
 // 0x004EA470
 void ObjectiveAuthoring::read_goals(script::Struct* params, int park_only)
 {
-    if (park_only)
+    if (park_only) {
         clear_park_goals();
-    else
+    } else {
         clear_level_goals();
+    }
     script::Array* goals = nullptr;
     params->fetch_list(kGoalListName, &goals, 0);
-    if (!goals)
+    if (!goals) {
         return;
+    }
     const uint32_t count = goals->extent();
     for (uint32_t i = 0; i < count; ++i) {
         auto* entry = goals->struct_at(i);
         uint32_t level = 0;
         entry->read_hash_value(kLevel, &level, 0);
         const bool park = level == kParkEditorGameplayLevel || level == kParkEditorLevel;
-        if (park != (park_only != 0))
+        if (park != (park_only != 0)) {
             continue;
+        }
         for (EditedGoal& goal : goals_) {
             if (!goal.taken_count()) {
                 goal.decode_from_struct(entry);
@@ -485,13 +511,15 @@ void ObjectiveAuthoring::read_goals(script::Struct* params, int park_only)
 // 0x004EA2C0
 const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, const uint8_t* buffer, size_t size)
 {
-    if (level == kParkEditorGameplayLevel)
+    if (level == kParkEditorGameplayLevel) {
         level = kParkEditorLevel;
+    }
     gsl::owner<script::Struct*> params = script::new_struct();
     const uint8_t* end = script::decode_from_bytes(params, buffer, size);
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count() && goal.level() == level)
+        if (goal.taken_count() && goal.level() == level) {
             init_edited_goal(&goal);
+        }
     }
     active_node_ = nullptr;
     script::Array* goals = nullptr;
@@ -499,10 +527,12 @@ const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, 
     uint32_t left = goals ? goals->extent() : 0; // (Not original: none - the original read through null)
     uint32_t next = 0;
     for (EditedGoal& goal : goals_) {
-        if (!left)
+        if (!left) {
             break;
-        if (goal.taken_count())
+        }
+        if (goal.taken_count()) {
             continue;
+        }
         goal.decode_from_struct(goals->struct_at(next++));
         goal.set_level(level);
         --left;
@@ -516,17 +546,20 @@ void ObjectiveAuthoring::write_goals(script::Struct* out)
 {
     uint32_t count = 0;
     for (const EditedGoal& goal : goals_) {
-        if (goal.taken_count() && goal.level() != kParkEditorLevel)
+        if (goal.taken_count() && goal.level() != kParkEditorLevel) {
             ++count;
+        }
     }
-    if (!count)
+    if (!count) {
         return;
+    }
     gsl::owner<script::Array*> goals = script::new_array();
     goals->configure_size_kind(count, script::QbValueKind::kStruct);
     uint32_t index = 0;
     for (EditedGoal& goal : goals_) {
-        if (!goal.taken_count() || goal.level() == kParkEditorLevel)
+        if (!goal.taken_count() || goal.level() == kParkEditorLevel) {
             continue;
+        }
         gsl::owner<script::Struct*> entry = script::new_struct();
         goal.export_to_struct(entry);
         goals->set_cell(index++, script::Cell::of(entry));
@@ -543,8 +576,9 @@ void ObjectiveAuthoring::write_level_goals(uint32_t level, script::Struct* out)
     goals->configure_size_kind(count, script::QbValueKind::kStruct);
     uint32_t index = 0;
     for (EditedGoal& goal : goals_) {
-        if (!goal.taken_count() || goal.level() != level)
+        if (!goal.taken_count() || goal.level() != level) {
             continue;
+        }
         gsl::owner<script::Struct*> entry = script::new_struct();
         goal.export_to_struct(entry);
         goals->set_cell(index++, script::Cell::of(entry));
@@ -556,8 +590,9 @@ void ObjectiveAuthoring::write_level_goals(uint32_t level, script::Struct* out)
 uint32_t ObjectiveAuthoring::write_level_goals_to_buffer(uint32_t level, uint8_t* buffer, uint32_t size)
 {
     script::StructPtr params = script::make_struct();
-    if (level == kParkEditorGameplayLevel)
+    if (level == kParkEditorGameplayLevel) {
         level = kParkEditorLevel;
+    }
     write_level_goals(level, params.get());
     const uint32_t written = script::emit_into_buffer(params.get(), buffer, size, true, nullptr);
     params.reset();
@@ -581,11 +616,13 @@ bool near_other_goals(ObjectiveAuthoring* editor, const maths::Vec4& pos, float 
 {
     const EditedGoal* goal = editor->active_node();
     if (goal->vertex_total() && core::at(goal->path_vertices(), goal->current_point()).kind == kPointStart &&
-        editor->point_near_any_goal(pos, height, checksums::Name{goal->level()}, 0))
+        editor->point_near_any_goal(pos, height, checksums::Name{goal->level()}, 0)) {
         return true;
+    }
     goal = editor->active_node();
-    if (!goal->vertex_total() || core::at(goal->path_vertices(), goal->current_point()).kind == kPointPro)
+    if (!goal->vertex_total() || core::at(goal->path_vertices(), goal->current_point()).kind == kPointPro) {
         return editor->point_near_any_goal(pos, height, checksums::Name{goal->level()}, 1);
+    }
     return false;
 }
 
@@ -619,8 +656,9 @@ void ObjectiveAuthoring::tick_frame()
         } else {
             script::launch_script(kGoalEditorPlayPlacementFailSound, nullptr, entity(), false, nullptr);
         }
-        if (active_node_->last_point_placed())
+        if (active_node_->last_point_placed()) {
             script::launch_script(kGoalEditorFinishedPlacingObjects, nullptr, entity(), false, nullptr);
+        }
     }
     objects::ControlButton* back = get_button(input_ptr_, kBackButtonOffset);
     if (back->fired()) {
@@ -662,17 +700,20 @@ bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::S
 {
     uint32_t level = 0;
     params->read_hash_value(kLevel, &level, 0);
-    if (level == kParkEditorGameplayLevel)
+    if (level == kParkEditorGameplayLevel) {
         level = kParkEditorLevel;
+    }
     const int count = count_complete_goals(level);
-    if (!count)
+    if (!count) {
         return true;
+    }
     gsl::owner<script::Array*> goals = script::new_array();
     goals->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kStruct);
     uint32_t index = 0;
     for (EditedGoal& goal : goals_) {
-        if (!goal.taken_count() || (level && goal.level() != level) || goal.vertex_total() < goal.min_points())
+        if (!goal.taken_count() || (level && goal.level() != level) || goal.vertex_total() < goal.min_points()) {
             continue;
+        }
         gsl::owner<script::Struct*> entry = script::new_struct();
         goal.export_to_struct(entry);
         goals->set_cell(index++, script::Cell::of(entry));

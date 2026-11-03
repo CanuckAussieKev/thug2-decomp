@@ -142,8 +142,9 @@ SaveDate read_stamped_date(Struct* summary)
         0xD029F619, // "seconds"
     }};
     SaveDate date = {};
-    for (size_t i = 0; i < kDateFieldCount; ++i)
+    for (size_t i = 0; i < kDateFieldCount; ++i) {
         summary->fetch_int_value(core::at(kNames, i), &core::at(date.fields, i), 0);
+    }
     return date;
 }
 
@@ -286,8 +287,9 @@ const char* get_type_file_name(uint32_t type, const char* name)
     default:
         break;
     }
-    if (extension) // (no limit in the original: a longer name ran on into other globals)
+    if (extension) { // (no limit in the original: a longer name ran on into other globals)
         text::format_to(save_file_name(), "Save/%s.%s", name, extension);
+    }
     return buffer;
 }
 
@@ -307,8 +309,9 @@ bool is_later(Struct* first, Struct* second)
     const SaveDate a = read_stamped_date(first);
     const SaveDate b = read_stamped_date(second);
     for (size_t i = 0; i < kDateFieldCount; ++i) {
-        if (core::at(a.fields, i) != core::at(b.fields, i))
+        if (core::at(a.fields, i) != core::at(b.fields, i)) {
             return core::at(a.fields, i) > core::at(b.fields, i);
+        }
     }
     return false;
 }
@@ -317,8 +320,9 @@ bool is_later(Struct* first, Struct* second)
 int round_up_to_card_block(int size)
 {
     const int block = card_block();
-    if (size % block == 0)
+    if (size % block == 0) {
         return size;
+    }
     return ((size / block) + 1) * block;
 }
 
@@ -358,12 +362,15 @@ int save_blocks(checksums::Name save_type, int size)
     const int platform = os_layer();
     const int block = card_block();
     const int blocks = round_up_to_card_block(size) / block;
-    if (platform <= 0)
+    if (platform <= 0) {
         return blocks;
-    if (platform <= 3)
+    }
+    if (platform <= 3) {
         return blocks + icon_space_required(type) + 4;
-    if (platform == 4)
+    }
+    if (platform == 4) {
         return blocks + 3;
+    }
     return blocks;
 }
 
@@ -421,8 +428,9 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
             if (goals) {
                 script::Array* array = nullptr;
                 goals->fetch_list(kGoals, &array, 0);
-                if (array)
+                if (array) {
                     count = static_cast<int>(array->extent());
+                }
             }
             summary->put_int(checksums::Name{kNumEditedGoals}, count);
             int max_players = 1;
@@ -507,8 +515,9 @@ void write_summary(Struct* saved, Struct& into, uint32_t type)
         // its number of edited goals (0x004E7E00, no source yet)
         const int edited = core::down_cast<park_editing::ObjectiveAuthoring>(component)->count_used_goals();
         summary->put_int(checksums::Name{kNumEditedGoals}, edited);
-        if (type != kSavePark)
+        if (type != kSavePark) {
             break;
+        }
         summary->put_int(checksums::Name{kMaxPlayers}, park_editing::ParkBuilderMode::get_player_limit());
         park_editing::ParkBuilderMode::write_compressed_map_if_built();
         add_map_info(park_editing::ParkBuilderMode::get_packed_park_data(false));
@@ -579,8 +588,9 @@ const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, checksums:
         save_cards_state().kept_params() = nullptr;
     }
     gsl::owner<Struct*> contents = script::spawn_param_bag();
-    if (contents)
+    if (contents) {
         contents = new (contents) script::Struct;
+    }
     save_cards_state().kept_params() = contents;
     const uint8_t* end = script::decode_from_bytes(contents, data, size);
     save_cards_state().set_kept_type(type);

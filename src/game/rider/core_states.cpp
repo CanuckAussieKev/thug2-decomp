@@ -79,8 +79,9 @@ void SkaterPhysicsModule::step_coping_move()
         }
         balance_->lip().tick_frame();
     }
-    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary().pos_x().held_down())
+    if (!bit_mark(this, PoseFlag::kCrouched) && input_->pad_primary().pos_x().held_down()) {
         set_flag(this, PoseFlag::kCrouched, 1);
+    }
     // Off the lip (0x004FFB10): the rail's TriggerScript, twice.
     if (jump_released()) {
         set_flag(this, PoseFlag::kJumped, 1);
@@ -108,8 +109,9 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
         set_physics_state(kAir);
         old_state_ = kAir;
         set_flag(this, PoseFlag::kNoSecondSpin, 1);
-        if (static_cast<uint8_t>(walk_->off_vert()))
+        if (static_cast<uint8_t>(walk_->off_vert())) {
             set_flag(this, PoseFlag::kNoAcidDrop, 1);
+        }
     }
     state_changed_at_ = get_now();
     display_matrix_ = entity()->basis_frame();
@@ -129,8 +131,9 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     no_kick_ = 0;
     can_brake_ = 1;
     state_->set_lip_straight_up(0); // (without its time)
-    if (limits_time_ != -kTimerForLevel)
+    if (limits_time_ != -kTimerForLevel) {
         limits_time_ = 0.0F;
+    }
     speed_override_ = 1.0F;
     wallplant_time_ = 0;
     last_push_off_ = 0;
@@ -146,8 +149,9 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
             ride->ride() = nullptr;
             ride->set_stop_time(get_now());
         }
-        if (objects::GameEntity* object = grind_from->grind_object())
+        if (objects::GameEntity* object = grind_from->grind_object()) {
             ride_->ride_on(object);
+        }
         start_grind(&grind_from->grind_point(), grind_from->grind_node(), grind_from->grind_rails(), true, true);
         safe_pos_ = entity()->at_point();
         entity()->old_pos() = safe_pos_;

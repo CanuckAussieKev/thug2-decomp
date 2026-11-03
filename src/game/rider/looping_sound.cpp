@@ -127,8 +127,9 @@ void RiderRollingAudio::configure_from_data(script::Struct* params)
 void RiderRollingAudio::set_pace_ratio(float fraction)
 {
     speed_ratio_ = fraction;
-    if (fraction > 1.0F)
+    if (fraction > 1.0F) {
         speed_ratio_ = 1.0F;
+    }
 }
 
 // 0x00513970
@@ -141,10 +142,11 @@ void RiderRollingAudio::seal()
 void RiderRollingAudio::hold_off(bool suspend)
 {
     ObjectModule::hold_off(suspend);
-    if (suspend)
+    if (suspend) {
         stop_sound();
-    else
+    } else {
         sound_changed_ = 1;
+    }
 }
 
 // 0x005139E0
@@ -236,8 +238,9 @@ void RiderRollingAudio::tick_frame()
         sound::AudioMixer::stop_sound(sound_id_);
         sound_id_ = 0;
     }
-    if (!have_sound_)
+    if (!have_sound_) {
         return;
+    }
 
     // Its volume from where the skater is - stopped while the skater hasn't moved.
     const sound::AudioMixer* sfx = audio_mixer_handle();
@@ -264,8 +267,9 @@ void RiderRollingAudio::tick_frame()
     } else {
         // By the speed (half when the core physics' +0x2EC is set).
         auto* core = core::down_cast<skater::SkaterPhysicsModule>(entity()->fetch_module(kSkaterCorePhysics));
-        if (core && core->point_rail_spin())
+        if (core && core->point_rail_spin()) {
             speed_ratio_ = kCapsizedFraction;
+        }
         if (speed_ratio_ > 0.0F) {
             auto percent = static_cast<float>(static_cast<double>(volume_mult_) * speed_ratio_ * kPercent);
             volume.percent_tweak(static_cast<float>(sound_volume(&sound_, percent)));
@@ -289,15 +293,18 @@ void RiderRollingAudio::tick_frame()
         prev_pitch_value_ = pitch;
         sound_id_ = sound::AudioMixer::emit_sound(sound_name_key(&sound_), &volume, {.pitch = pitch, .unique_id_ = 0},
                                                   nullptr, 0); // (the original passed the entry's address: unused)
-        if (sound_id_)
+        if (sound_id_) {
             playing_checksum_ = sound_name_key(&sound_);
+        }
         return;
     }
     // Playing: updated when the volume (its first channel) or the pitch moved by more than a half.
     if (!force_update_ &&
-        !(std::fabs(static_cast<double>(core::at(volume.lanes(), 0)) - core::at(prev_levels_.lanes(), 0)) > kChangeThreshold) &&
-        !(std::fabs(static_cast<double>(pitch) - prev_pitch_value_) > kChangeThreshold))
+        !(std::fabs(static_cast<double>(core::at(volume.lanes(), 0)) - core::at(prev_levels_.lanes(), 0)) >
+          kChangeThreshold) &&
+        !(std::fabs(static_cast<double>(pitch) - prev_pitch_value_) > kChangeThreshold)) {
         return;
+    }
     core::down_cast<LoopingSoundVolume>(&prev_levels_)->get_assign(&volume);
     prev_pitch_value_ = pitch;
     force_update_ = 0;

@@ -66,8 +66,9 @@ void RiderPhysicsTweaks::keep_above_ground()
     maths::Vec4& position = object->at_point();
     const maths::Vec4& frame_start = core->safe_pos();
     if (position.x == frame_start.x && position.y == frame_start.y && position.z == frame_start.z &&
-        position.w == frame_start.w)
+        position.w == frame_start.w) {
         return; // (not moved this frame)
+    }
 
     // The ground below: a feeler from just over the skater (8 up) to uber_frig_current_height feet under it.
     maths::Vec4& start = core->probe_start();
@@ -84,8 +85,9 @@ void RiderPhysicsTweaks::keep_above_ground()
                                (static_cast<double>(script::fetch_float(kUberFrigCurrentHeight)) * kFeet));
     // Not original: THAW 0x005C2820 - on the bike the feeler starts higher (thaw_bmx_physics.cpp).
     const float raise = skater::thaw_bmx::live_now(core) ? skater::thaw_bmx::stuck_check_raise(core) : 0.0F;
-    if (raise != 0.0F)
+    if (raise != 0.0F) {
         start.y += raise;
+    }
     auto* physics = core;
     const park_editing::ParkBuilderMode* park_editor = park_editing::ParkBuilderMode::sole();
 
@@ -106,8 +108,9 @@ void RiderPhysicsTweaks::keep_above_ground()
             maths::Vec4& velocity = object->vel();
             velocity = {.x = -velocity.x + kNudgeXy, .y = -velocity.y + kNudgeXy, .z = -velocity.z + kNudgeZ, .w = -velocity.w + kOne};
             state = state_of(core);
-            if (state != 0 && state != 1)
+            if (state != 0 && state != 1) {
                 change_phase(core, 1);
+            }
         }
         state_ref_->set_height_above_ground(0.0F);
         return;
@@ -123,29 +126,34 @@ void RiderPhysicsTweaks::keep_above_ground()
             const int state = flags->cur_phase();
             if (state == 0 || state == 1) {
                 render::ProbeRay& feeler = core->feeler();
-                if (feeler.hit_object_alive() && feeler.get_hit_object() == ride->entity().get_pull())
+                if (feeler.hit_object_alive() && feeler.get_hit_object() == ride->entity().get_pull()) {
                     leave = false;
+                }
             } else {
                 leave = false;
             }
-            if (leave)
+            if (leave) {
                 object->vel() += ride_->ride()->entity().get_pull()->vel();
+            }
         }
-        if (leave)
+        if (leave) {
             ride_->stop_riding();
+        }
     }
 
     // Kept just over the ground.
     {
         const double over = static_cast<double>(position.y) - core->feeler().contact_pos().y;
         state_ref_->set_height_above_ground(static_cast<float>(over));
-        if (over < kLeastHeight)
+        if (over < kLeastHeight) {
             position.y = static_cast<float>(static_cast<double>(core->feeler().contact_pos().y) + kLeastHeight);
+        }
     }
     shadow_handle_->change_place(&core->feeler().contact_pos());
     shadow_handle_->set_normal(&core->feeler().surface_dir());
-    if (state_of(core) != 4)
+    if (state_of(core) != 4) {
         get_update_brightness(&core->feeler());
+    }
 
     if (park_editor->editor_state() != kParkEditorTestPlay) {
         // Under the floor: a feeler from far above down to a unit over the skater (faces flagged 0x800 - "under ok" -
@@ -158,8 +166,9 @@ void RiderPhysicsTweaks::keep_above_ground()
         feeler.change_origin(&from);
         maths::Vec4 to = {.x = up.x + position.x, .y = position.y + up.y, .z = position.z + up.z, .w = position.w + up.w};
         // Not original: on the bike as far up as the ground check's start (thaw_bmx_physics.cpp stuck_check_raise).
-        if (raise != 0.0F)
+        if (raise != 0.0F) {
             to.y += raise;
+        }
         feeler.change_finish(&to);
         if (feeler.get_hit_shape(true, false)) {
             const maths::Vec4 off = {.x = position.x - feeler.contact_pos().x, .y = position.y - feeler.contact_pos().y,

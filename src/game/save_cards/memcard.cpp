@@ -48,8 +48,9 @@ int& ref_tally() { return memcard_state().memcard_references_; }
 FileLoad* new_file(HANDLE handle, SaveCard* card)
 {
     auto* file = static_cast<FileLoad*>(memory::alloc_zeroed(sizeof(FileLoad)));
-    if (!file)
+    if (!file) {
         return nullptr;
+    }
     file->set_hdl(handle);
     file->list_link().make_node(file);
     file->set_save_device(card);
@@ -62,8 +63,9 @@ FileLoad* new_file(HANDLE handle, SaveCard* card)
 FileLoad* FileLoad::teardown(unsigned int flags)
 {
     list_link_.uncouple();
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -140,8 +142,9 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int /*unused*/)
     HANDLE handle = CreateFileA(path.data(), access, 0, nullptr, disposition, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (handle == INVALID_HANDLE_VALUE) {
         // (the error is always 0 here: this never happens)
-        if (fault_ == kErrorDiskFull)
+        if (fault_ == kErrorDiskFull) {
             fault_ = 2;
+        }
         return nullptr;
     }
     FileLoad* file = new_file(handle, this);
@@ -163,12 +166,14 @@ const char* SaveCard::convert_filename(const char* name)
 // 0x005BC790
 int SaveCard::get_free_blocks() const
 {
-    if (!present_)
+    if (!present_) {
         return 0;
+    }
     ULARGE_INTEGER available;
     ULARGE_INTEGER total;
-    if (!GetDiskFreeSpaceExA(nullptr, &available, &total, nullptr))
+    if (!GetDiskFreeSpaceExA(nullptr, &available, &total, nullptr)) {
         return 0;
+    }
     return static_cast<int>((available.LowPart >> kBlockShift) + (available.HighPart << kHighPartBlockShift));
 }
 
@@ -179,11 +184,13 @@ bool SaveCard::list_save_files(const char* pattern, memory::ListNode* list)
     text::format_to(path_buffer(), "Save\\%s", pattern); // (the original: up to MAX_PATH into the 128 bytes)
     WIN32_FIND_DATAA found;
     HANDLE search = FindFirstFileA(path, &found);
-    if (search == INVALID_HANDLE_VALUE)
+    if (search == INVALID_HANDLE_VALUE) {
         return true;
+    }
     for (bool again = true; again; again = FindNextFileA(search, &found)) {
-        if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
             continue;
+        }
         FileLoad* file = new_file(nullptr, this);
         // (no bounds: a long name runs into the fields after it, as in the original)
         std::memcpy(file->label().data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
@@ -251,8 +258,9 @@ void release_manager()
         --ref_tally();
         return;
     }
-    if (save_cards_state().card_hub())
+    if (save_cards_state().card_hub()) {
         memory::Hub::dealloc(save_cards_state().card_hub());
+    }
     save_cards_state().set_card_hub(nullptr);
     ref_tally() = 0;
 }

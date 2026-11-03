@@ -105,8 +105,9 @@ void ParkLayout::set_up_abstract_metas()
     for (uint32_t i = 0; i < all->extent(); ++i) {
         auto* desc = all->struct_at(i);
         uint32_t single = 0;
-        if (desc->read_hash_value("single", &single, 0))
+        if (desc->read_hash_value("single", &single, 0)) {
             piece_source(builder_, single); // (loads the piece)
+        }
     }
 
     std::array<uint32_t, kMaxPieceNames> piece_names{}; // every piece a metapiece uses
@@ -198,12 +199,14 @@ void ParkLayout::set_up_abstract_metas()
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
                 const int rot = at->extent() > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
-                if (entry->has_bare_flag(kRiser))
+                if (entry->has_bare_flag(kRiser)) {
                     unslidable = true;
+                }
                 meta->insert_tile(source, &pos, rot, entry->has_bare_flag(kRiser));
             }
-            if (unslidable)
+            if (unslidable) {
                 meta->flag_bits() |= PieceGroup::kFloorLocked;
+            }
         } else if (desc->fetch_list("ack", &pieces, 0)) { // made of other palette metapieces
             meta->commission(static_cast<int>(pieces->extent()));
             for (uint32_t i = 0; i < pieces->extent(); ++i) {
@@ -229,12 +232,15 @@ void ParkLayout::set_up_abstract_metas()
                 core::down_cast<PieceBlueprint>(meta)->add_meta_piece(part, &pos, {.rot = rot, .sets_floor_ = entry->has_bare_flag(kRiser)});
             }
         }
-        if (desc->read_hash_value("name", &meta->name_key(), 0))
+        if (desc->read_hash_value("name", &meta->name_key(), 0)) {
             meta->flag_bits() &= ~PieceGroup::kSector;
-        if (desc->has_bare_flag("is_riser"))
+        }
+        if (desc->has_bare_flag("is_riser")) {
             meta->flag_bits() |= PieceGroup::kBuiltShell;
-        if (desc->has_bare_flag("no_rails"))
+        }
+        if (desc->has_bare_flag("no_rails")) {
             meta->flag_bits() |= PieceGroup::kNoRails;
+        }
         MapListNode* node = MapListNode::fabricate();
         node->set_piece_group(meta); // (out of memory crashes, as in the original)
         node->set_following(abstract_metas_);
@@ -252,8 +258,9 @@ void ParkLayout::set_up_abstract_metas()
                 break;
             }
         }
-        if (found)
+        if (found) {
             continue;
+        }
         PieceGroup* meta = new_abstract_meta();
         meta->commission(1);
         TileTemplate* source = piece_source(builder_, name);
@@ -273,8 +280,9 @@ void ParkLayout::set_up_abstract_metas()
 
 void ParkLayout::write_compressed_map()
 {
-    if (flag_bits_ & kMapNewerThanPark)
+    if (flag_bits_ & kMapNewerThanPark) {
         return;
+    }
     ParkMap& map = map_;
     map = ParkMap{};
     script::Array* save_names = script::fetch_list("Ed_Save_Map"); // the palette names, by save index
@@ -286,10 +294,12 @@ void ParkLayout::write_compressed_map()
     map.set_theme(editor_value78());
     map.set_max_players(generator_max_players(builder_));
     text::copy_unbounded(map.name().data(), park_name_.data());
-    for (int x = 0; x < kFloorSize; ++x)
-        for (int z = 0; z < kFloorSize; ++z)
+    for (int x = 0; x < kFloorSize; ++x) {
+        for (int z = 0; z < kFloorSize; ++z) {
             map.set_floor_height(static_cast<size_t>((x * kFloorSize) + z),
                                  static_cast<int8_t>(core::at(core::at(floor_, x), z).level_y_));
+        }
+    }
     // the records after the header and the floor (park_map_format.h). NOT ORIGINAL: no further than the map's end
     // (the original wrote on past it)
     util::ByteWriter out(map.bytes());
@@ -299,22 +309,26 @@ void ParkLayout::write_compressed_map()
     for (const MapListNode* node = concrete_metas_; node; node = node->following()) {
         const PieceGroup* meta = node->get_piece_group()->get_cast();
         const uint32_t flags = meta->flag_bits();
-        if ((flags & PieceGroup::kBuiltShell) || (flags & PieceGroup::kFence) || !(flags & PieceGroup::kInPark))
+        if ((flags & PieceGroup::kBuiltShell) || (flags & PieceGroup::kFence) || !(flags & PieceGroup::kInPark)) {
             continue;
+        }
         const CellBox at = meta->cell_footprint();
         uint32_t index = 0;
-        while (index < name_total && save_names->fetch_part(index) != meta->name_key())
+        while (index < name_total && save_names->fetch_part(index) != meta->name_key()) {
             ++index;
-        if (index >= name_total)
+        }
+        if (index >= name_total) {
             continue;
+        }
         ParkMapPiece piece;
         piece.name_index = index;
         piece.x = at.x;
         piece.z = at.z;
         piece.y = at.y;
         piece.quarter_turns = static_cast<uint8_t>(meta->quarter_turns());
-        if (!write_park_map_piece(out, piece))
+        if (!write_park_map_piece(out, piece)) {
             break;
+        }
         ++num_metas;
     }
     map.set_piece_count(static_cast<uint16_t>(num_metas));
@@ -324,8 +338,9 @@ void ParkLayout::write_compressed_map()
     for (int i = 0; i < kGapCapacity; ++i) {
         int half = 0;
         GapDetails* gap = gap_registry_->get_gap_info(i, &half);
-        if (gap && half == 0 && gap->halves_placed() == 2)
+        if (gap && half == 0 && gap->halves_placed() == 2) {
             core::at(gaps, num_gaps++) = gap;
+        }
     }
     int gaps_written = 0;
     for (int i = 0; i < num_gaps; ++i) {
@@ -344,14 +359,16 @@ void ParkLayout::write_compressed_map()
         core::at(record.text, sizeof(gap->text())) = '\0';
         record.points = static_cast<uint16_t>(gap->points_held());
         record.cancel_flags = gap->cancel_flags();
-        if (!write_park_map_gap(out, record))
+        if (!write_park_map_gap(out, record)) {
             break;
+        }
         ++gaps_written;
     }
     map.set_gap_count(static_cast<uint16_t>(gaps_written));
     map.set_extent(static_cast<uint16_t>(out.position()));
-    if (!(flag_bits_ & (kMapValid | kMapNewerThanPark)))
+    if (!(flag_bits_ & (kMapValid | kMapNewerThanPark))) {
         flag_bits_ |= kMapNotSavedLocal;
+    }
     flag_bits_ = (flag_bits_ & ~kMapNewerThanPark) | kMapValid | kMapInSync;
     map.set_checksum(park_map_checksum(map.bytes()));
 }
@@ -420,16 +437,18 @@ void ParkLayout::update_percent_bar()
     const MemoryStats* use = get_memory_stats(&stats_copy);
     const float full = use->max_usage_; // (its +0x2C: how full, 0-1)
     float percent = full;
-    if (full < 0.0F)
+    if (full < 0.0F) {
         percent = 0.0F;
-    else if (full > 1.0F)
+    } else if (full > 1.0F) {
         percent = 1.0F;
+    }
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
     Expects(params != nullptr);
     params->push_float(checksums::Name{kParkPercent}, percent);  // park_percent (out of memory crashes, as in the original)
-    if (get_attributes().max_usage_ >= 1.0F)                     // (0x007CE644: the park memory stats' largest usage)
+    if (get_attributes().max_usage_ >= 1.0F) {                   // (0x007CE644: the park memory stats' largest usage)
         params->put_name_key(checksums::Name{0U}, kParkFull);    // park_full
+    }
     script::launch_script(kParkedUpdatePercentBar, params, nullptr, false, nullptr); // parked_update_percent_bar
     if (params) {
         params->get_clear();
@@ -439,14 +458,16 @@ void ParkLayout::update_percent_bar()
 
 void ParkLayout::write_compressed_map_if_built()
 {
-    if (park_built_)
+    if (park_built_) {
         write_compressed_map();
+    }
 }
 
 void ParkLayout::export_to_struct(script::Struct* out)
 {
-    if (park_built_)
+    if (park_built_) {
         write_compressed_map();
+    }
     flag_bits_ &= ~kMapNotSavedLocal;
     gsl::owner<script::Array*> memory = script::alloc_script_array();
     gsl::owner<script::Array*> map = memory ? memory::construct_in<script::Array>(memory) : nullptr;
@@ -454,8 +475,9 @@ void ParkLayout::export_to_struct(script::Struct* out)
     map->configure_size_kind(kParkMapWords, script::QbValueKind::kInteger); // (out of memory crashes, as in the original)
     std::array<uint32_t, kParkMapWords> words{};
     park_map_to_words(map_.bytes(), words);
-    for (uint32_t i = 0; i < kParkMapWords; ++i)
+    for (uint32_t i = 0; i < kParkMapWords; ++i) {
         map->set_element(i, core::at(words, i));
+    }
     out->append_array_ref(kParkEditorMap, map); // Park_editor_map
     gsl::owner<script::Struct*> struct_memory = script::spawn_param_bag();
     gsl::owner<script::Struct*> goals = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;
@@ -484,8 +506,9 @@ void ParkLayout::clear_compressed_map()
     map.set_theme(static_cast<void*>(park_editing_state().park_editor().get()) ? editor_value78() : 0);
     map.set_max_players(2);
     std::memcpy(map.name().data(), "Unnamed park", kUnnamedParkBytes); // "Unnamed park"
-    for (size_t cell = 0; cell < kParkMapFloorCells; ++cell)
+    for (size_t cell = 0; cell < kParkMapFloorCells; ++cell) {
         map.set_floor_height(cell, 0);
+    }
     map.set_piece_count(0);
     const uint32_t used = kParkMapRecordsStart;
     // (the checksum is taken before the size and the gap count are set, as in the original)
@@ -495,16 +518,18 @@ void ParkLayout::clear_compressed_map()
     map.set_extent(static_cast<uint16_t>(used));
     map.set_checksum(checksum);
     map.set_gap_count(0);
-    if (!(flag_bits_ & (kMapValid | kMapNewerThanPark)))
+    if (!(flag_bits_ & (kMapValid | kMapNewerThanPark))) {
         flag_bits_ |= kMapNotSavedLocal;
+    }
     flag_bits_ = (flag_bits_ & ~kMapNewerThanPark) | kMapValid | kMapInSync;
 }
 
 bool ParkLayout::register_gap_entry(GapDetails* gap)
 {
     const int tab = gap_registry_->find_empty_gap_slot();
-    if (tab == -1)
+    if (tab == -1) {
         return false;
+    }
     // The trigger's position (x87 arithmetic: x is stored as a float on the way, z isn't). For a rotation past 3
     // the previous half's position is used again (the original's are left unset before the first half).
     maths::Vec4 at = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
@@ -514,8 +539,9 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         pos.h = 1;
         pos.l = 1;
         const MapListHolder metas(get_intersecting_metas(pos, 0, nullptr, true));
-        if (!metas.list())
+        if (!metas.list()) {
             return false;
+        }
         PieceGroup* meta = metas.list()->get_piece_group()->get_cast();
         meta->flag_bits() |= PieceGroup::kHighlightable;
         pos = meta->cell_footprint();
@@ -560,10 +586,11 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         // The gap's trigger piece, its length in cells
         void* piece = builder_->make_gap_marker_piece(&at, length, along_x);
         static_cast<ParkTile*>(piece)->set_length(static_cast<float>(length / w));
-        if (half == 0)
+        if (half == 0) {
             gap_registry_->start_gap(piece, meta, tab);
-        else
+        } else {
             gap_registry_->end_gap(piece, meta, tab);
+        }
     }
     gap->set_slot_index(tab);
     gap_registry_->store_gap_details(tab, gap);
@@ -575,14 +602,17 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
     std::array<PieceGroup*, 2> halves{}; // (unset for a half with nothing there, as in the original)
     for (int half = 0; half < gap->halves_placed(); ++half) {
         const MapListHolder metas(get_intersecting_metas(core::at(gap->at_point(), half), 0, nullptr, true));
-        if (metas.list()->following())
+        if (metas.list()->following()) {
             print_map_list(metas.list());
+        }
         for (const MapListNode* node = metas.list(); node; node = node->following()) {
             PieceGroup* meta = node->get_piece_group()->get_cast();
             core::at(halves, half) = meta;
             const CellBox& d = meta->cell_footprint();
-            if (d.x == core::at(gap->at_point(), half).x && d.y == core::at(gap->at_point(), half).y && d.z == core::at(gap->at_point(), half).z)
+            if (d.x == core::at(gap->at_point(), half).x && d.y == core::at(gap->at_point(), half).y &&
+                d.z == core::at(gap->at_point(), half).z) {
                 break;
+            }
         }
         PieceGroup* meta = core::at(halves, half);
         meta->spotlight(false, 0);
@@ -590,8 +620,9 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
     }
     int index = 0;
     // The gap of the first half, removed
-    if (gap_registry_->get_gap_index(core::at(halves, 0), &index))
+    if (gap_registry_->get_gap_index(core::at(halves, 0), &index)) {
         gap_registry_->drop_gap_entry(index, true);
+    }
     gap->set_slot_index(-1);
     gap->set_cancel_flags(static_cast<uint32_t>(script::fetch_int_value(kCANCELGROUND))); // CANCEL_GROUND
 }

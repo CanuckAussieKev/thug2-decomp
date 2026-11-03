@@ -90,12 +90,14 @@ int get_mode()
 const char* get_name_of(uint32_t checksum, char* buffer, size_t size)
 {
     const char* name = script::kept_qb_name(checksum);
-    if (!name)
+    if (!name) {
         name = script::look_up_hash_name(checksum);
-    if (name)
+    }
+    if (name) {
         text::format_to(std::span(buffer, size), "%s (%08X)", name, checksum);
-    else
+    } else {
         text::format_to(std::span(buffer, size), "%08X", checksum);
+    }
     return buffer;
 }
 
@@ -104,22 +106,26 @@ const char* get_name_of(uint32_t checksum, char* buffer, size_t size)
 const objects::Rider* skater_of_feeler(const void* feeler)
 {
     modules::Skate* skate = modules::Skate::sole();
-    if (!skate)
+    if (!skate) {
         return nullptr;
+    }
     for (uint32_t i = 0; const objects::Rider* rider = skate->get_skater_at(i); ++i) {
         const skater::SkaterPhysicsModule* core = rider->core_physics();
-        if (core && (feeler == &core->feeler() || feeler == &core->floor_feeler()))
+        if (core && (feeler == &core->feeler() || feeler == &core->floor_feeler())) {
             return rider;
-        if (rider->walk() && feeler == &rider->walk()->get_feeler())
+        }
+        if (rider->walk() && feeler == &rider->walk()->get_feeler()) {
             return rider;
+        }
     }
     return nullptr;
 }
 
 bool get_skater_position(const objects::Rider* skater, std::array<float, 3>& position)
 {
-    if (!skater)
+    if (!skater) {
         return false;
+    }
     const objects::GameEntity* object = skater;
     core::at(position, 0) = object->at_point().x;
     core::at(position, 1) = object->at_point().y;
@@ -158,12 +164,14 @@ bool should_log(const void* what, int face)
         debug_collision_state().second_start_ = now;
         debug_collision_state().lines_this_second_ = 0;
     }
-    if (debug_collision_state().lines_this_second_ >= kLinesPerSecond)
+    if (debug_collision_state().lines_this_second_ >= kLinesPerSecond) {
         return false;
+    }
     for (Recent& recent : stored_recent()) {
         if (recent.what == what && recent.face == face) {
-            if (now - recent.time < kRecentWindowMs)
+            if (now - recent.time < kRecentWindowMs) {
                 return false;
+            }
             recent.time = now;
             ++debug_collision_state().lines_this_second_;
             return true;
@@ -192,26 +200,30 @@ void log_hit(const void* feeler, uint32_t caller)
     const uint32_t object_id = ray->entity_key();
 
     const objects::Rider* skater_feeler = skater_of_feeler(feeler);
-    if (get_mode() == 1 && (!skater_feeler || normal[1] > kFloorNormalY))
+    if (get_mode() == 1 && (!skater_feeler || normal[1] > kFloorNormalY)) {
         return;
-    if (!should_log(object ? object : static_cast<const void*>(coll_object), face))
+    }
+    if (!should_log(object ? object : static_cast<const void*>(coll_object), face)) {
         return;
+    }
 
     std::array<char, kWhatBytes> what{};
     std::array<char, kNameBytes> name{};
-    if (object)
+    if (object) {
         text::format_to(what, "object %s", get_name_of(object_id, name.data(), sizeof(name)));
-    else if (static_hit && coll_object)
+    } else if (static_hit && coll_object) {
         text::format_to(what, "sector %s obj flags %04X", get_name_of(sector, name.data(), sizeof(name)),
                         coll_object->flag_bits());
-    else
+    } else {
         text::format_to(what, "(nothing recorded)");
+    }
 
     std::array<char, kSkaterNameBytes> skater = {""};
     std::array<float, 3> position{};
-    if (get_skater_position(skater_feeler, position))
+    if (get_skater_position(skater_feeler, position)) {
         text::format_to(skater, " skater (%.1f %.1f %.1f)", core::at(position, 0), core::at(position, 1),
                         core::at(position, 2));
+    }
 
     get_log("collision: %s face %d flags %04X terrain %u at (%.1f %.1f %.1f) normal (%.2f %.2f %.2f) line (%.1f %.1f "
             "%.1f) -> (%.1f %.1f %.1f)%s caller %08X",
@@ -226,10 +238,12 @@ void note_feeler_query(const void* feeler, FeelerResult feeler_result)
 {
     const auto hit = feeler_result.hit;
     const auto caller = feeler_result.caller;
-    if (get_mode() == 0)
+    if (get_mode() == 0) {
         return;
-    if (hit)
+    }
+    if (hit) {
         log_hit(feeler, caller);
+    }
 }
 
 } // namespace collision_overlay

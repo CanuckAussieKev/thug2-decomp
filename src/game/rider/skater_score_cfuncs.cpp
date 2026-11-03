@@ -78,13 +78,15 @@ bool cfunc_reset_score(script::Struct* params, script::Script* /*script*/)
     const bool all = params->has_entry_named(kResetAll);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (!(skater->is_local_skater() != 0) && !all)
+        if (!(skater->is_local_skater() != 0) && !all) {
             continue;
+        }
         static_cast<modules::PointTally*>(skater->get_points_total())->get_reset();
-        if (active_ruleset_label() == kNetKing || active_ruleset_label() == kKing)
+        if (active_ruleset_label() == kNetKing || active_ruleset_label() == kKing) {
             frontend::set_score_text("0:00", skater->get_skater_number()); // "0:00"
-        else
+        } else {
             frontend::set_score_text("0", skater->get_skater_number()); // "0"
+        }
     }
     return true;
 }
@@ -94,8 +96,9 @@ bool cfunc_update_score(script::Struct* /*params*/, script::Script* /*script*/)
 {
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (!(skater->is_local_skater() != 0))
+        if (!(skater->is_local_skater() != 0)) {
             continue;
+        }
         void* score = skater->get_points_total();
         static_cast<modules::PointTally*>(score)->set_grand_total(
             static_cast<modules::PointTally*>(score)->get_total_score());
@@ -110,8 +113,9 @@ bool cfunc_reset_score_pot(script::Struct* params, script::Script* /*script*/)
     const bool bail_style = params->has_bare_flag(kUseBailStyle);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
-        if (skater->is_local_skater() != 0)
+        if (skater->is_local_skater() != 0) {
             static_cast<modules::PointTally*>(skater->get_points_total())->get_bail(!bail_style);
+        }
     }
     return true;
 }
@@ -135,15 +139,19 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
     online::Hub* net = online::net_game_state().online_hub();
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         const objects::Rider* skater = get_skater_at(i);
-        if (!skater)
+        if (!skater) {
             continue;
+        }
         auto* info = (net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())));
-        if (!info)
+        if (!info) {
             continue;
-        if (info->team() == exclude_team && !info->is_carrying_flag())
+        }
+        if (info->team() == exclude_team && !info->is_carrying_flag()) {
             continue;
-        if (info->team() != exclude_team && info->is_carrying_flag())
+        }
+        if (info->team() != exclude_team && info->is_carrying_flag()) {
             continue;
+        }
         const double dx = static_cast<double>(skater->at_point().x) - object->at_point().x;
         const double dy = static_cast<double>(skater->at_point().y) - object->at_point().y;
         const double dz = static_cast<double>(skater->at_point().z) - object->at_point().z;
@@ -153,9 +161,10 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
             player = skater->ident();
         }
     }
-    if (static_cast<int>(player) > -1)
+    if (static_cast<int>(player) > -1) {
         team =
             (net->find_player_slot_by_obj(static_cast<uint16_t>(player)))->team();
+    }
     results->put_int(checksums::Name{kTeam}, team);
     results->put_int(checksums::Name{kPlayer}, static_cast<int>(player));
     return true;

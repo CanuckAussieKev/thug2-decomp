@@ -134,8 +134,9 @@ int total_score(void* score) { return static_cast<modules::PointTally*>(score)->
 Objective* root_of(void* manager, GoalEdge* parents)
 {
     Objective* root = nullptr;
-    for (const GoalEdge* link = parents; link && link->objective_key_; link = root->parents())
+    for (const GoalEdge* link = parents; link && link->objective_key_; link = root->parents()) {
         root = get_goal(manager, link->objective_key_, 1);
+    }
     return root;
 }
 
@@ -160,24 +161,28 @@ Objective::Objective(script::Struct* params)
     make_args_ped_and_flags(params);
     params->fetch_int_value(kGroupNumber, &bundle_, 0);
     alloc_objective_bits(params);
-    if (params->has_bare_flag(kSingleTimer))
+    if (params->has_bare_flag(kSingleTimer)) {
         inherited_ |= 2;
-    if (params->has_bare_flag(kRetryStage))
+    }
+    if (params->has_bare_flag(kRetryStage)) {
         inherited_ |= 4;
+    }
     skater_ = kNone;
     params->read_hash_value(kSkater, &skater_, 0);
-    if (params->has_bare_flag(kUnlockedByAnother) || params->has_bare_flag(kProGoal))
+    if (params->has_bare_flag(kUnlockedByAnother) || params->has_bare_flag(kProGoal)) {
         flag_bits_ |= Objective::Flags::kLocked;
-    else
+    } else {
         flag_bits_ &= ~Objective::Flags::kLocked;
+    }
 }
 
 // 0x00556110
 Objective::~Objective()
 {
     uint32_t script = 0;
-    if (args_->read_hash_value(kDestroy, &script, 0))
+    if (args_->read_hash_value(kDestroy, &script, 0)) {
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
+    }
     if (ped_) {
         destroy_goal_ped_body(ped_);
         memory::dealloc(ped_);
@@ -201,8 +206,9 @@ Objective::~Objective()
 void Objective::merge_skill_tier_args()
 {
     script::Array* levels = nullptr;
-    if (!args_->fetch_list(kDifficultyLevelParams, &levels, 0))
+    if (!args_->fetch_list(kDifficultyLevelParams, &levels, 0)) {
         return;
+    }
     const int level = get_skill_tier(objective_board(), false);
     args_->append_structure_if_any(levels->struct_at(static_cast<uint32_t>(level)));
     alloc_objective_bits(args_.get());
@@ -222,24 +228,28 @@ void Objective::prepare_all()
         alloc_objective_bits(args_.get());
     }
     uint32_t script = 0;
-    if (args_->read_hash_value(kInit, &script, 0))
+    if (args_->read_hash_value(kInit, &script, 0)) {
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
+    }
     swap_move_caption();
     flag_bits_ |= Objective::Flags::kInitialized;
     int unlimited = 0;
     args_->fetch_int_value(kUnlimitedTime, &unlimited, 0);
-    if (unlimited)
+    if (unlimited) {
         cur_phase_ |= Objective::State::kNoTimeLimit;
-    if (args_->has_entry_named(kDontDeactivateOnExpiry))
+    }
+    if (args_->has_entry_named(kDontDeactivateOnExpiry)) {
         flag_bits_ &= ~Objective::Flags::kDeactivateOnExpire;
+    }
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
 // 0x00557360
 bool Objective::activate()
 {
-    if (is_operative())
+    if (is_operative()) {
         return false;
+    }
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->bottom_up_heap());
     void* manager = objective_board();
@@ -249,17 +259,19 @@ bool Objective::activate()
     PlayerSearch search;
     if (args_->has_bare_flag(kResetScore)) {
         for (void* player = net->begin_player_walk(&search, false); player;
-             player = net->step_player_walk(&search, false))
+             player = net->step_player_walk(&search, false)) {
             reset_score(get_score_of(player_skater(player)));
+        }
     }
     // A child goal: the timer passed down (single_timer: its root's, in whole seconds), the root's state for it.
     Objective* root = parents_->objective_key_ ? root_of(manager, parents_) : nullptr;
     if (root) {
-        if (inherited_ & 2)
+        if (inherited_ & 2) {
             seconds_remaining_ =
                 truncate(root->seconds_remaining_ * static_cast<double>(kGoalLifeSecondsPerMillisecond)) * kMillisecondsPerSecond;
-        else
+        } else {
             reset_timer();
+        }
         if (root->is_prepared()) {
             root->uninitialize(false, 0);
             if (is_prepared()) {
@@ -270,15 +282,18 @@ bool Objective::activate()
     } else {
         reset_timer();
     }
-    if (!is_prepared())
+    if (!is_prepared()) {
         prepare_all();
+    }
     flag_bits_ &= ~Objective::Flags::kEndOfRunStarted;
     args_->remove_flag(kChainActiveFlag);
     uint32_t script = 0;
-    if (args_->read_hash_value(kActivate, &script, 0))
+    if (args_->read_hash_value(kActivate, &script, 0)) {
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
-    if (!net->in_net_game())
+    }
+    if (!net->in_net_game()) {
         flag_bits_ |= Objective::Flags::kSeen;
+    }
     change_live();
     add_active_goal(manager, this);
     memory::Hub::get_pull()->leave_heap_scope();
@@ -288,27 +303,33 @@ bool Objective::activate()
 // 0x00557560
 bool Objective::disengage(bool /*unused*/, bool reset_tree)
 {
-    if (!is_operative())
+    if (!is_operative()) {
         return false;
-    if (args_->has_bare_flag(kSpecial))
+    }
+    if (args_->has_bare_flag(kSpecial)) {
         args_->erase_module(kButtonSequences);
+    }
     clear_engaged_bit();
-    if (!args_->has_bare_flag(kSaveGoalFlags))
+    if (!args_->has_bare_flag(kSaveGoalFlags)) {
         zero_objective_bits();
+    }
     clear_child_wins();
     uint32_t script = 0;
-    if (args_->read_hash_value(kDeactivate, &script, 0))
+    if (args_->read_hash_value(kDeactivate, &script, 0)) {
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
-    if (!args_->has_bare_flag(kQuickStart))
+    }
+    if (!args_->has_bare_flag(kQuickStart)) {
         args_->remove_flag(kTrialRunFlag);
+    }
     if (!args_->has_bare_flag(kJustWonGoal) && !args_->has_bare_flag(kQuickStart)) {
         script::launch_script(kReadySkaterForEarlyEnd, args_.get(), nullptr, false, nullptr);
         if (reset_tree && parents_ && parents_->objective_key_) {
             uninitialize(false, 0);
             void* manager = objective_board();
             Objective* root = root_of(manager, parents_);
-            if (root && !root->has_won())
+            if (root && !root->has_won()) {
                 root->prepare_all();
+            }
         }
     }
     uncouple(list_node());
@@ -348,13 +369,15 @@ bool Objective::get_win()
                                                           : total_score(score);
                 better = record > record_points_;
             }
-            if (better)
+            if (better) {
                 record_points_ = record;
+            }
         } else if (type == kTime) {
             record = elapsed_;
             better = static_cast<uint32_t>(record) < static_cast<uint32_t>(best_time_);
-            if (better)
+            if (better) {
                 best_time_ = record;
+            }
         }
         if (better) {
             args_->put_int(checksums::Name{kWinRecord}, record);
@@ -365,24 +388,28 @@ bool Objective::get_win()
     if (!has_won() && !net->in_net_game()) {
         gsl::owner<script::Struct*> rewards = script::new_struct();
         get_prize_struct(rewards);
-        if (new_record)
+        if (new_record) {
             rewards->put_name_key(checksums::Name{kNoName}, kNewRecord);
+        }
         args_->append_struct_ref(kRewardParams, rewards);
         open_up_prize_objectives();
         rewarded = true;
     } else {
         args_->erase_module(kRewardParams);
     }
-    if (new_record)
+    if (new_record) {
         args_->put_name_key(checksums::Name{kNoName}, kNewRecord);
-    else
+    } else {
         args_->remove_flag(kNewRecord);
+    }
     uint32_t script = 0;
-    if (args_->read_hash_value(kSuccess, &script, 0))
+    if (args_->read_hash_value(kSuccess, &script, 0)) {
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
+    }
     const bool testing = args_->has_bare_flag(kTrialRunFlag);
-    if (is_operative())
+    if (is_operative()) {
         disengage(false, true);
+    }
     if (!testing) {
         mark_won();
         if (rewarded) {
@@ -397,8 +424,9 @@ bool Objective::get_win()
             }
         }
     }
-    if (net->in_net_game())
+    if (net->in_net_game()) {
         uninitialize(false, 0);
+    }
     args_->remove_flag(kJustWonGoal);
     return true;
 }
@@ -406,14 +434,17 @@ bool Objective::get_win()
 // 0x00557A40
 void Objective::get_unlock()
 {
-    if (!core::any(flag_bits_ & Objective::Flags::kLocked))
+    if (!core::any(flag_bits_ & Objective::Flags::kLocked)) {
         return;
+    }
     flag_bits_ &= ~Objective::Flags::kLocked;
-    if (online::online_hub()->in_net_game())
+    if (online::online_hub()->in_net_game()) {
         return;
+    }
     if (!has_won() || active_ruleset_label() == kClassic || args_->has_bare_flag(kAlwaysInitializeGoal) ||
-        args_->has_bare_flag(kEditedGoal))
+        args_->has_bare_flag(kEditedGoal)) {
         prepare_all();
+    }
     invoke_hook_script(kUnlockScript);
 }
 
@@ -422,11 +453,13 @@ void Objective::get_prize_struct(script::Struct* rewards)
 {
     void* manager = objective_board();
     online::Hub* net = online::online_hub();
-    if (!args_->has_bare_flag(kEditedGoal))
+    if (!args_->has_bare_flag(kEditedGoal)) {
         show_goal_points(manager);
+    }
     rewards->put_name_key(checksums::Name{kNoName}, kRewardsGiven);
-    if (net->in_net_game())
+    if (net->in_net_game()) {
         return;
+    }
     // A special trick slot as the reward, while there's room for one.
     if (args_->has_bare_flag(kRewardTrickslot) && !args_->has_bare_flag(kCreateATrick)) {
         objects::RiderIdentity* profile = skate_calls::get_profile_from_params(nullptr);
@@ -459,8 +492,9 @@ void Objective::get_prize_struct(script::Struct* rewards)
         return;
     }
     int stat = 0;
-    if (args_->fetch_int_value(kRewardStat, &stat, 0))
+    if (args_->fetch_int_value(kRewardStat, &stat, 0)) {
         rewards->put_int(checksums::Name{kRewardStat}, stat);
+    }
 }
 
 // 0x00555FB0
@@ -473,13 +507,15 @@ void Objective::open_up_prize_objectives()
         return;
     }
     script::Array* goals = nullptr;
-    if (!args_->fetch_list(kRewardGoal, &goals, 0))
+    if (!args_->fetch_list(kRewardGoal, &goals, 0)) {
         return;
+    }
     const int count = static_cast<int>(goals->extent());
     for (int i = 0; i < count; ++i) {
         const uint32_t id = goals->fetch_part(static_cast<uint32_t>(i));
-        if (id)
+        if (id) {
             open_up_objective(manager, id);
+        }
     }
 }
 
@@ -487,13 +523,15 @@ void Objective::open_up_prize_objectives()
 int Objective::get_reward_points()
 {
     int points = 0;
-    if (args_->fetch_int_value(kRewardPoints, &points, 0))
+    if (args_->fetch_int_value(kRewardPoints, &points, 0)) {
         return points;
+    }
     script::Array* by_level = nullptr;
     if (args_->fetch_list(kRewardPoints, &by_level, 0)) {
         const int level = get_skill_tier(objective_board(), false);
-        if (level >= 0 && level < ints::as_signed(by_level->extent()))
+        if (level >= 0 && level < ints::as_signed(by_level->extent())) {
             return static_cast<int>(by_level->fetch_part(static_cast<uint32_t>(level)));
+        }
     }
     return 0;
 }
@@ -505,14 +543,17 @@ bool Objective::set_flag(checksums::Name flag_name, int value, checksums::Name s
     const uint32_t flag = flag_name.value();
     // A silently activated goal (not won yet) takes flags while inactive, and is won by them.
     const bool silent = args_->has_bare_flag(kSilentActivation) && !has_won();
-    if (!is_operative() && !silent)
+    if (!is_operative() && !silent) {
         return false;
+    }
     void* manager = objective_board();
-    if (core::any(flag_bits_ & Objective::Flags::kLocked) || is_group_locked(manager, bundle_, level_))
+    if (core::any(flag_bits_ & Objective::Flags::kLocked) || is_group_locked(manager, bundle_, level_)) {
         return false;
+    }
     script::Struct* flags = goal_flags_;
-    if (sub)
+    if (sub) {
         goal_flags_->read_sub_struct(sub, &flags, 1);
+    }
     bool changed = false;
     if (flags->has_entry_named(flag)) {
         int old = 0;
@@ -530,18 +571,22 @@ bool Objective::set_flag(checksums::Name flag_name, int value, checksums::Name s
                 counted = value != 0;
                 num_flags_set_ += counted ? 1 : -1;
             }
-            if (counted && !args_->has_bare_flag(kNoFlagSound))
+            if (counted && !args_->has_bare_flag(kNoFlagSound)) {
                 script::launch_script(kGoalGotFlagSound, nullptr, nullptr, false, nullptr);
-            if (args_->has_bare_flag(kUseHudCounter))
+            }
+            if (args_->has_bare_flag(kUseHudCounter)) {
                 script::launch_script(kGoalUpdateCounter, args_.get(), nullptr, false, nullptr);
+            }
             args_->put_int(checksums::Name{kNumFlagsSet}, num_flags_set_);
         }
         changed = true;
     }
-    if (!silent)
+    if (!silent) {
         return changed;
-    if (args_->has_bare_flag(kTrickObjects))
+    }
+    if (args_->has_bare_flag(kTrickObjects)) {
         return changed;
+    }
     if (has_every_bit()) {
         void* goals = objective_board();
         const uint32_t id = get_objective_key();
@@ -573,8 +618,9 @@ void Objective::alloc_objective_bits(script::Struct* params)
                 script::Array* names = nullptr;
                 entry->fetch_list(kGoalFlags, &names, 1);
                 const int count = static_cast<int>(names->extent());
-                for (int k = 0; k < count; ++k)
+                for (int k = 0; k < count; ++k) {
                     own->put_int(checksums::Name{names->fetch_part(static_cast<uint32_t>(k))}, 0);
+                }
                 own->put_int(checksums::Name{kNumFlags}, count);
                 own->put_int(checksums::Name{kNumFlagsSet}, 0);
                 goal_flags_->put_sub_struct(skater, own.get());
@@ -600,17 +646,20 @@ bool Objective::all_skaters_run_done() const
         auto* end_run = core::down_cast<objects::RiderSessionEnd>(skater->fetch_module(kSkaterEndRun));
         // (in horse, a skater not taking the turn doesn't count)
         if (active_ruleset_label() == kHorse &&
-            (core::down_cast<objects::Rider>(skater)->is_halted() || (skater->composite_flags() >> 2) & 1))
+            (core::down_cast<objects::Rider>(skater)->is_halted() || (skater->composite_flags() >> 2) & 1)) {
             continue;
+        }
         bool done = false;
-        if (run_ending_ == 0)
+        if (run_ending_ == 0) {
             done = end_run->goal_run_done();
-        else if (run_ending_ == 1)
+        } else if (run_ending_ == 1) {
             done = end_run->run_done();
-        else
+        } else {
             continue;
-        if (!done)
+        }
+        if (!done) {
             return false;
+        }
     }
     return true;
 }

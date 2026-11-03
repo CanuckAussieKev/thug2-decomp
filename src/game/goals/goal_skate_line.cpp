@@ -34,13 +34,16 @@ SkateLineGoal::~SkateLineGoal() = default;
 // 0x00569220
 bool SkateLineGoal::land()
 {
-    if (!requires_combo())
+    if (!requires_combo()) {
         return false;
-    if (!args()->has_bare_flag(kRequiresLine))
+    }
+    if (!args()->has_bare_flag(kRequiresLine)) {
         return false;
+    }
     GoalManager* manager = get_objective_board();
-    if (has_every_bit())
+    if (has_every_bit()) {
         return manager->complete_objective(get_objective_key());
+    }
     debug::printf("all flags not set\n"); // "all flags not set\n"
     return manager->fail_objective(get_objective_key());
 }
@@ -52,14 +55,16 @@ void SkateLineGoal::next_cluster()
     args()->fetch_list(kGoalObjects, &objects, 1);
     auto* cluster = objects->struct_at(static_cast<uint32_t>(num_flags_set()));
     int time = 0;
-    if (cluster->fetch_int_value(kTime, &time, 1))
+    if (cluster->fetch_int_value(kTime, &time, 1)) {
         set_seconds_remaining(time);
+    }
     const script::StructPtr params = script::make_struct();
     params->append_structure_if_any(args().get());
     params->append_structure_if_any(cluster);
     params->put_int(checksums::Name{kGoalObjectsIndex}, num_flags_set());
-    if (num_flags_set() == 1)
+    if (num_flags_set() == 1) {
         params->put_sub_struct(kFirstSpotParams, objects->struct_at(0));
+    }
     script::launch_script(kNextCluster, params.get(), nullptr, false, nullptr);
 }
 
@@ -68,29 +73,35 @@ bool SkateLineGoal::set_flag(checksums::Name flag_name, int value, checksums::Na
 {
     const uint32_t flag = flag_name.value();
     const uint32_t sub = sub_goal.value();
-    if (has_won() || is_latched())
+    if (has_won() || is_latched()) {
         return false;
-    if (has_every_bit() && requires_combo())
+    }
+    if (has_every_bit() && requires_combo()) {
         return false;
+    }
     script::Array* objects = nullptr;
     args()->fetch_list(kGoalObjects, &objects, 1);
     uint32_t cluster_flag = 0;
     objects->struct_at(static_cast<uint32_t>(num_flags_set()))
         ->read_hash_value(kFlag, &cluster_flag, 1);
     bool set = false;
-    if (cluster_flag != flag)
+    if (cluster_flag != flag) {
         return set; // (only the line's next cluster)
-    if (!is_operative())
+    }
+    if (!is_operative()) {
         get_objective_board()->engage_objective(get_objective_key(), false);
+    }
     set = Objective::set_flag(checksums::Name{flag}, value, checksums::Name{sub});
-    if (!is_operative())
+    if (!is_operative()) {
         return set;
+    }
     if (!has_every_bit()) {
         next_cluster();
         return set;
     }
-    if (!requires_combo())
+    if (!requires_combo()) {
         get_objective_board()->complete_objective(get_objective_key());
+    }
     return set;
 }
 

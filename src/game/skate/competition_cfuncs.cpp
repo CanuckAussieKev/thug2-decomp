@@ -151,8 +151,9 @@ bool cfunc_start_competition(script::Struct* params, script::Script* /*script*/)
     script::Struct* extra = nullptr;
     params->read_sub_struct(kExtraParams, &extra, 0);
     push_skater_info_heap();
-    if (extra)
+    if (extra) {
         the_competition()->rewrite_args(extra);
+    }
     the_competition()->kickoff({.bronze = bronze, .silver = silver, .gold = gold, .bronze_score_ = bronze_score, .silver_score_ = silver_score, .gold_score_ = gold_score, .bail_penalty_ = bail});
     pop_heap();
     return true;
@@ -276,8 +277,9 @@ bool cfunc_get_horse_string(script::Struct* params, script::Script* script)
 bool cfunc_is_current_horse_skater(script::Struct* params, script::Script* /*script*/)
 {
     int id = 0; // (uninitialised in the original)
-    if (params->fetch_int_value(0U, &id, 0))
+    if (params->fetch_int_value(0U, &id, 0)) {
         return current_horse_skater() == static_cast<uint32_t>(id);
+    }
     uint32_t name = 0; // (read into the same slot in the original: 0 here as the integer was)
     params->read_hash_value(0U, &name, 1);
     return current_horse_skater() == name;
@@ -345,8 +347,9 @@ bool cfunc_get_bonus_value(script::Struct* params, script::Script* script)
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_rider_at(index);
-    if (skater->is_local_skater())
+    if (skater->is_local_skater()) {
         script->args()->put_int(checksums::Name{kBonus}, get_bonus(get_score_of(skater)));
+    }
     return true;
 }
 

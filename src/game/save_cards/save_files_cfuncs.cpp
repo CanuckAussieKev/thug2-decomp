@@ -170,17 +170,20 @@ bool delete_mem_card_file(Struct* params, Script* /*script*/)
         core::at(directory, 0) = core::at(path_text, 0);
         int length = 1;
         for (const char c : path_text.substr(1)) {
-            if (c == '/')
+            if (c == '/') {
                 break;
+            }
             core::at(directory, length++) = c;
         }
         core::at(directory, length) = '\0';
-        if (!delete_card_file(card, path))
+        if (!delete_card_file(card, path)) {
             deleted = false;
+        }
         std::array<char, kSavePathBytes> icon{};
         text::format_to(icon, "%s/icon.sys", directory.data());
-        if (!delete_card_file(card, icon.data()))
+        if (!delete_card_file(card, icon.data())) {
             deleted = false;
+        }
         const char* icon_file = nullptr;
         switch (file_type) {
         case kSaveCreatedGoals:
@@ -204,10 +207,12 @@ bool delete_mem_card_file(Struct* params, Script* /*script*/)
         default:
             break; // (icon.sys a second time)
         }
-        if (icon_file)
+        if (icon_file) {
             text::format_to(icon, "%s/%s", directory.data(), icon_file); // ("%s/goals.ico" ...)
-        if (!delete_card_file(card, icon.data()))
+        }
+        if (!delete_card_file(card, icon.data())) {
             deleted = false;
+        }
         removed = save_cards::SaveCard::remove_file(directory.data());
         break;
     }
@@ -235,8 +240,9 @@ bool delete_mem_card_file(Struct* params, Script* /*script*/)
         deleted = false;
         break;
     }
-    if (deleted && !removed)
+    if (deleted && !removed) {
         deleted = false;
+    }
     if (os_layer() != 4) {
         audio::pause_music(-1);
         audio::freeze_stream(-1);
@@ -258,14 +264,16 @@ bool get_mem_card_space_required(Struct* params, Script* script)
 bool mem_card_file_exists(Struct* params, Script* script)
 {
     SaveCard* card = the_card();
-    if (!card)
+    if (!card) {
         return false;
+    }
     const char* name = nullptr;
     params->fetch_text("Name", &name, 0);
     uint32_t type = 0;
     params->read_hash_value("Type", &type, 0);
-    if (!name || !type)
+    if (!name || !type) {
         return false;
+    }
     const char* type_file_name = nullptr; // (only made on the PC and platform 7)
     std::array<char, kSaveDirectoryBytes> path{};
     core::at(path, 0) = '\0';
@@ -274,8 +282,9 @@ bool mem_card_file_exists(Struct* params, Script* script)
     case game_config::kHardwareWin32: {
         type_file_name = get_type_file_name(type, name);
         const char* converted = save_cards::SaveCard::convert_filename(type_file_name);
-        if (!converted)
+        if (!converted) {
             return false;
+        }
         text::format_to(path, "%s", converted);
         break;
     }
@@ -295,8 +304,9 @@ bool mem_card_file_exists(Struct* params, Script* script)
     FileLoad* file = card->unseal(path.data(), 1, 0);
     if (!file) {
         // (on the PC, the file that wouldn't open is removed - by the type's name made above)
-        if (os_layer() == 4)
+        if (os_layer() == 4) {
             save_cards::SaveCard::remove_file(type_file_name);
+        }
         return false;
     }
     const int size = static_cast<int>(file->seek_to({.offset = 0, .origin = 2}));
@@ -323,8 +333,9 @@ bool clear_mem_card_data_for_upload(Struct* /*params*/, Script* /*script*/)
 // 0x005A8DA0
 bool create_temporary_mem_card_pools(Struct* /*params*/, Script* /*script*/)
 {
-    if (core::at(script::component_pools().pools(), script::component_pools().current() + 1))
+    if (core::at(script::component_pools().pools(), script::component_pools().current() + 1)) {
         return true;
+    }
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
     memory::push_mem_profile("Mem card CComponent");
@@ -355,13 +366,15 @@ bool get_save_info(Struct* params, Script* script)
     uint32_t type = 0;
     params->read_hash_value(kType, &type, 0); // type
     gsl::owner<Struct*> contents = script::spawn_param_bag();
-    if (contents)
+    if (contents) {
         contents = new (contents) script::Struct;
+    }
     write_save_contents(contents, type);
     const int main_size = static_cast<int>(script::measure_buffer_bytes(contents, 100000));
     gsl::owner<Struct*> summary = script::spawn_param_bag();
-    if (summary)
+    if (summary) {
         summary = new (summary) script::Struct;
+    }
     Expects(summary != nullptr); // (out of memory: the original went on through null)
     write_summary(contents, *summary, type);
     const int summary_size = static_cast<int>(script::measure_buffer_bytes(summary, 100000));
@@ -396,8 +409,9 @@ std::array<uint8_t, kListedFileBytes>& listed_file()
 FileLoad* list_entry(memory::ListNode* head, int index)
 {
     const memory::ListNode* node = head->next();
-    for (int i = 0; i < index; ++i)
+    for (int i = 0; i < index; ++i) {
         node = node->next();
+    }
     return static_cast<FileLoad*>(node->data());
 }
 
@@ -418,20 +432,27 @@ uint32_t listed_file_type(const FileLoad* file, int folder_length)
         sound::update_voice_states();
         const std::string_view label(file->label().data());
         const char* extension = label.size() >= 4 ? label.substr(label.size() - 4).data() : label.data();
-        if (_stricmp(extension, ".NWS") == 0)
+        if (_stricmp(extension, ".NWS") == 0) {
             return kSaveNetworkSettings;
-        if (_stricmp(extension, ".SKA") == 0)
+        }
+        if (_stricmp(extension, ".SKA") == 0) {
             return kSaveOptionsAndPros;
-        if (_stricmp(extension, ".PRK") == 0)
+        }
+        if (_stricmp(extension, ".PRK") == 0) {
             return kSavePark;
-        if (_stricmp(extension, ".CAS") == 0)
+        }
+        if (_stricmp(extension, ".CAS") == 0) {
             return kSaveCas;
-        if (_stricmp(extension, ".CAT") == 0)
+        }
+        if (_stricmp(extension, ".CAT") == 0) {
             return kSaveCat;
-        if (_stricmp(extension, ".GOA") == 0)
+        }
+        if (_stricmp(extension, ".GOA") == 0) {
             return kSaveCreatedGoals;
-        if (_stricmp(extension, ".GRF") == 0)
+        }
+        if (_stricmp(extension, ".GRF") == 0) {
             return kSaveCreatedGraphic;
+        }
         return 0;
     }
     default:
@@ -460,8 +481,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     uint32_t wanted_type = 0;
     params->read_hash_value(kFileType, &wanted_type, 0); // FileType
     SaveCard* card = the_card();
-    if (!card)
+    if (!card) {
         return true;
+    }
 
     // the card's files (a lists::Foremost<File> on the stack)
     memory::ListNode head;
@@ -481,24 +503,29 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     const int folder_length = static_cast<int>(std::strlen(folder));
     int file_count = 0;
     for (const memory::ListNode* node = head.next(); node->data() != memory::ListNode::head_marker() && node;
-         node = node->next())
+         node = node->next()) {
         ++file_count;
+    }
     debug::printf(
         "ScriptGetMemCardDirectoryListing: DirList Start\n"); // "ScriptGetMemCardDirectoryListing: DirList Start\n"
     int game_files = 0;
     for (int i = 0; i < file_count; ++i) {
         FileLoad* file = list_entry(&head, i);
-        if (std::memcmp(file->label().data(), folder, static_cast<size_t>(folder_length)) != 0)
+        if (std::memcmp(file->label().data(), folder, static_cast<size_t>(folder_length)) != 0) {
             continue;
+        }
         ++game_files;
         const uint32_t type = listed_file_type(file, folder_length);
-        if (wanted_type && type != wanted_type)
+        if (wanted_type && type != wanted_type) {
             continue;
-        if (listed >= kMaxFiles)
+        }
+        if (listed >= kMaxFiles) {
             continue;
+        }
         gsl::owner<Struct*> entry = script::spawn_param_bag();
-        if (entry)
+        if (entry) {
             entry = new (entry) script::Struct;
+        }
         entry->put_name_key(checksums::Name{kFileTypeName}, type);     // file_type
         entry->put_int(checksums::Name{kIndex}, listed);        // index
         entry->put_int(checksums::Name{kYear}, file->year());   // year
@@ -508,10 +535,11 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         entry->put_int(checksums::Name{kMinutes}, file->minute()); // minutes
         entry->put_int(checksums::Name{kSeconds}, file->second()); // seconds
         std::array<char, kSaveDirectoryBytes> path{};
-        if (os_layer() == game_config::kHardwareGameCube)
+        if (os_layer() == game_config::kHardwareGameCube) {
             text::format_to(path, "%s", file->label().data());
-        else
+        } else {
             text::format_to(path, "Save/%s", file->label().data());
+        }
         entry->append_word(kActualFileName, path.data()); // actual_file_name
         constexpr uint32_t kDamagedFile = 0x2C7CD632;
         constexpr uint32_t kNgcDamagedFile = 0xFD4AA64E;
@@ -535,8 +563,9 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
                 mark_corrupt(entry, os_layer() == game_config::kHardwareGameCube ? kNgcDamagedFile : kDamagedFile);
             } else {
                 gsl::owner<Struct*> summary = script::spawn_param_bag();
-                if (summary)
+                if (summary) {
                     summary = new (summary) script::Struct;
+                }
                 script::decode_from_bytes(summary, listed_summary, reader.remaining());
                 entry->append_structure_if_any(summary);
                 if (summary) {
@@ -559,12 +588,14 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         const memory::ListNode* following = next->is_head() ? nullptr : next;
         static_cast<FileLoad*>(node->data())->teardown(1);
         node = following;
-        if (!node)
+        if (!node) {
             break;
+        }
     }
     script->args().get()->put_int(checksums::Name{kTotalFiles}, game_files);
-    if (game_files >= kMaxFiles)
+    if (game_files >= kMaxFiles) {
         script->args().get()->put_name_key(checksums::Name{0U}, kFilesLimitReached);
+    }
     if (listed) {
         // newest first (a bubble sort by the dates)
         bool swapped = false;
@@ -580,11 +611,13 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             }
         }
         gsl::owner<script::Array*> listing = script::alloc_script_array();
-        if (listing)
+        if (listing) {
             listing = new (listing) script::Array;
+        }
         listing->configure_size_kind(static_cast<uint32_t>(listed), script::QbValueKind::kStruct);
-        for (int j = 0; j < listed; ++j)
+        for (int j = 0; j < listed; ++j) {
             listing->set_cell(static_cast<uint32_t>(j), script::Cell::of(core::at(entries, j)));
+        }
         script->args().get()->append_array_ref(kDirectoryListing, listing);
     }
     // the head unlinked (its destructor's body)
@@ -603,8 +636,9 @@ void keep_sound_going()
 // 0x005A97E0
 bool save_to_memory_card(Struct* params, Script* /*script*/)
 {
-    if (os_layer() == game_config::kHardwareGameCube)
+    if (os_layer() == game_config::kHardwareGameCube) {
         create_temporary_mem_card_pools(nullptr, nullptr);
+    }
     if (os_layer() != 4) {
         audio::pause_music(1);
         audio::freeze_stream(1);
@@ -632,15 +666,18 @@ bool save_to_memory_card(Struct* params, Script* /*script*/)
         switched = true;
     }
     gsl::owner<Struct*> contents = script::spawn_param_bag();
-    if (contents)
+    if (contents) {
         contents = new (contents) script::Struct;
-    if (vault_data)
+    }
+    if (vault_data) {
         contents->append_structure_if_any(save_cards_state().kept_params());
-    else
+    } else {
         write_save_contents(contents, type);
+    }
     gsl::owner<Struct*> summary = script::spawn_param_bag();
-    if (summary)
+    if (summary) {
         summary = new (summary) script::Struct;
+    }
     Expects(summary != nullptr); // (out of memory: the original went on through null)
     write_summary(contents, *summary, type);
     summary->append_word("filename", name);
@@ -656,8 +693,9 @@ bool save_to_memory_card(Struct* params, Script* /*script*/)
     const uint32_t padding_size = static_cast<uint32_t>(file_size) - total;
     if (padding_size != 0 && os_layer() != game_config::kHardwareGameCube) {
         padding = static_cast<uint8_t*>(memory::alloc_block(padding_size));
-        if (padding_size > 0)
+        if (padding_size > 0) {
             std::memset(padding, kSaveFileMask, padding_size);
+        }
     }
     SaveCard* card = the_card();
     // (the second test is a card method that's the shared always-true stub, 0x005B9760)
@@ -700,8 +738,9 @@ bool save_to_memory_card(Struct* params, Script* /*script*/)
                 const std::span<uint8_t> main_part = body.subspan(summary_size);
                 script::emit_into_buffer(contents, main_part.data(), main_size, false, nullptr);
                 if (type == kSaveNetworkSettings) {
-                    for (uint8_t& byte : main_part.first(main_size))
+                    for (uint8_t& byte : main_part.first(main_size)) {
                         byte += kSaveFileMask; // (read back with the mask taken off)
+                    }
                 }
                 util::ByteWriter header_writer(header, kSaveFileHeaderSize);
                 write_save_file_header(header_writer, file_header);
@@ -722,15 +761,19 @@ bool save_to_memory_card(Struct* params, Script* /*script*/)
             }
         }
     }
-    if (padding)
+    if (padding) {
         memory::free_malloc(padding);
-    if (header)
+    }
+    if (header) {
         memory::free_malloc(header);
+    }
     if (file) {
-        if (!file->drain())
+        if (!file->drain()) {
             saved = false;
-        if (!file->shut())
+        }
+        if (!file->shut()) {
             saved = false;
+        }
         DeleteFile(file);
     }
     if (summary) {
@@ -750,8 +793,9 @@ bool save_to_memory_card(Struct* params, Script* /*script*/)
         audio::pause_music(-1);
         audio::freeze_stream(-1);
     }
-    if (os_layer() == game_config::kHardwareGameCube)
+    if (os_layer() == game_config::kHardwareGameCube) {
         remove_temporary_mem_card_pools(nullptr, nullptr);
+    }
     return saved;
 }
 

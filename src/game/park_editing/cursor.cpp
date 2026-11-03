@@ -77,14 +77,16 @@ void swap_width_and_length(CellBox& area)
 void BuildPointer::glow_overlapping_pieces(int on)
 {
     if (mode_sel_ == BuildPointer::Mode::kPaste) {
-        if (clipboard_)
+        if (clipboard_) {
             clipboard_->glow_overlapping_pieces(this, on);
+        }
         return;
     }
     const MapListHolder metas(park_owner_->get_intersecting_metas(cell_footprint_, 0, nullptr, 0));
     if (metas.list()) {
-        for (MapListNode* node = metas.list(); node; node = node->following())
+        for (MapListNode* node = metas.list(); node; node = node->following()) {
             node->get_placed_piece()->spotlight(on, 0);
+        }
     }
 }
 
@@ -118,8 +120,9 @@ void BuildPointer::shift_by(int dx, int dz)
         cell_footprint_.y = static_cast<int8_t>(here > before ? here : before);
     }
 
-    if (mode_sel_ != BuildPointer::Mode::kGap && mode_sel_ != BuildPointer::Mode::kGapAdjust)
+    if (mode_sel_ != BuildPointer::Mode::kGap && mode_sel_ != BuildPointer::Mode::kGapAdjust) {
         return;
+    }
     // The gap tool: adjusting when over a piece of a gap (taking that gap over unless one end is placed).
     BuildPointer::Mode mode = BuildPointer::Mode::kGap;
     const MapListHolder metas(park_owner_->get_intersecting_metas(cell_footprint_, 0, nullptr, 0));
@@ -127,8 +130,9 @@ void BuildPointer::shift_by(int dx, int dz)
         CellBox pos = metas.list()->get_placed_piece()->cell_footprint();
         int half = 0;
         if (const GapDetails* gap = park_owner_->get_gap_info(&pos, &half)) {
-            if (gap_.halves_placed() != 1)
+            if (gap_.halves_placed() != 1) {
                 gap_ = *gap;
+            }
             mode = BuildPointer::Mode::kGapAdjust;
         }
     }
@@ -141,8 +145,9 @@ void BuildPointer::shift_by(int dx, int dz)
     } else {
         const ParkLayout* manager = park_owner_;
         for (MapListNode* node = manager->concrete_metas(); node; node = node->following()) {
-            if (node->get_placed_piece()->flag_bits() & PieceGroup::kHighlightable)
+            if (node->get_placed_piece()->flag_bits() & PieceGroup::kHighlightable) {
                 node->get_placed_piece()->spotlight(1, 1);
+            }
         }
         manager->builder()->set_pieces_highlighted(0);
     }
@@ -212,21 +217,24 @@ void BuildPointer::tick_frame(CursorStep cursor_step)
         at_point_.y = aim_point_.y;
         const double time = static_cast<double>(move_time_) - kSlideStep;
         move_time_ = static_cast<float>(time);
-        if (time < 0.0)
+        if (time < 0.0) {
             move_time_ = 0.0F;
+        }
     }
 
     // The shown angle turns towards the target angle.
     if (angle_ < target_angle_) {
         const double angle = static_cast<double>(angle_) + kTurnStep;
         angle_ = static_cast<float>(angle);
-        if (angle > target_angle_)
+        if (angle > target_angle_) {
             angle_ = target_angle_;
+        }
     } else if (angle_ > target_angle_) {
         const double angle = static_cast<double>(angle_) - kTurnStep;
         angle_ = static_cast<float>(angle);
-        if (angle < target_angle_)
+        if (angle < target_angle_) {
             angle_ = target_angle_;
+        }
     }
 
     // Show the paste, or the piece (the rail tool shows none), a little in from the corner.
@@ -235,14 +243,17 @@ void BuildPointer::tick_frame(CursorStep cursor_step)
                                .z = static_cast<float>(static_cast<double>(at_point_.z) - kShowInset),
                                .w = static_cast<float>(static_cast<double>(at_point_.w) + 1.0)};
     if (mode_sel_ == BuildPointer::Mode::kPaste) {
-        if (clipboard_)
+        if (clipboard_) {
             clipboard_->preview_pieces(shown, angle_, clipboard_height_);
+        }
         return;
     }
-    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())
+    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following()) {
         clipboard->free_all_piece_groups();
-    if (mode_sel_ != BuildPointer::Mode::kRailPlacement)
+    }
+    if (mode_sel_ != BuildPointer::Mode::kRailPlacement) {
         piece_group_->change_place(shown, angle_);
+    }
 }
 
 // 0x0059A5A0
@@ -260,16 +271,18 @@ bool BuildPointer::is_area_selection_invalid() const
 {
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     get_marquee_bounds(&area);
-    if (area.w > kMaxMarqueeSpan || area.l > kMaxMarqueeSpan)
+    if (area.w > kMaxMarqueeSpan || area.l > kMaxMarqueeSpan) {
         return true;
+    }
     return !editor_allows_copy(area.w, area.l);
 }
 
 // 0x0059A6D0
 bool BuildPointer::copy_area_to_clipboard()
 {
-    if (is_area_selection_invalid())
+    if (is_area_selection_invalid()) {
         return false;
+    }
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     get_marquee_bounds(&area);
 
@@ -282,14 +295,17 @@ bool BuildPointer::copy_area_to_clipboard()
     auto x1 = static_cast<float>(static_cast<double>(size.x) + x0);
     auto z1 = static_cast<float>(static_cast<double>(size.z) + z0);
     const int rails = count_rail_points(x0, z0, x1, z1);
-    if (rails > free_rail_points())
+    if (rails > free_rail_points()) {
         return false;
+    }
 
     int count = 0;
-    for (const Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())
+    for (const Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following()) {
         ++count;
-    if (count == kClipboardLimit)
+    }
+    if (count == kClipboardLimit) {
         remove_oldest_clipboard();
+    }
 
     auto* memory = clipboard_pools().allocate<Clipboard>();
     Clipboard* copy = memory ? new (memory) Clipboard : nullptr;
@@ -304,10 +320,11 @@ bool BuildPointer::copy_area_to_clipboard()
         }
         last->teardown();
         free_clipboard(last);
-        if (previous)
+        if (previous) {
             previous->set_following(nullptr);
-        else
+        } else {
             copy_buffers_ = nullptr;
+        }
     }
     if (copy->is_vacant()) {
         if (copy) {
@@ -324,8 +341,9 @@ bool BuildPointer::copy_area_to_clipboard()
 // 0x0059A8D0
 void BuildPointer::update_area_selection_highlight()
 {
-    if (box_select_stage_ != 1)
+    if (box_select_stage_ != 1) {
         return;
+    }
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     if (!area_highlighted_) {
         get_marquee_bounds(&area);
@@ -345,8 +363,9 @@ void BuildPointer::update_area_selection_highlight()
 // 0x0059BAC0
 void BuildPointer::destroy_cursor_meta()
 {
-    if (!piece_group_)
+    if (!piece_group_) {
         return;
+    }
     piece_group_->flag_bits() &= ~PieceGroup::kCursor;
     park_owner_->free_placed_piece(piece_group_, 0);
     park_owner_->builder()->clean_up_out_refs();
@@ -357,10 +376,12 @@ void BuildPointer::destroy_cursor_meta()
 void BuildPointer::switch_to_clipboard()
 {
     int count = 0;
-    for (const Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())
+    for (const Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following()) {
         ++count;
-    if (count == 0)
+    }
+    if (count == 0) {
         return;
+    }
 
     // The clipboard set (its menu index counts the sets with menus before it). Without one, the original
     // writes through a null set.
@@ -369,8 +390,9 @@ void BuildPointer::switch_to_clipboard()
     for (int i = 0; i < sets; ++i) {
         int menu_index = 0;
         for (int j = 0; j < i; ++j) {
-            if (core::at(park_owner_->sets(), j).is_displayed_)
+            if (core::at(park_owner_->sets(), j).is_displayed_) {
                 ++menu_index;
+            }
         }
         menu_index_ = menu_index;
         if (core::at(park_owner_->sets(), i).is_clipboard_) {
@@ -382,8 +404,9 @@ void BuildPointer::switch_to_clipboard()
     Expects(set != nullptr);
     set->selected_ = 0;
 
-    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())
+    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following()) {
         clipboard->free_all_piece_groups();
+    }
     clipboard_ = copy_buffers_;
     destroy_cursor_meta();
     if (mode_sel_ != BuildPointer::Mode::kPaste) {
@@ -409,8 +432,9 @@ void BuildPointer::change_piece(uint32_t checksum)
         cell_footprint_.w = piece_group_->cell_footprint().w;
         cell_footprint_.h = piece_group_->cell_footprint().h;
         cell_footprint_.l = piece_group_->cell_footprint().l;
-        if (quarter_turns_ & 1)
+        if (quarter_turns_ & 1) {
             swap_width_and_length(cell_footprint_);
+        }
     }
     drop_area_marquee();
 
@@ -423,10 +447,11 @@ void BuildPointer::change_piece(uint32_t checksum)
         return;
     }
     BuildPointer::Mode mode = BuildPointer::Mode::kRegular;
-    if (flags & PieceGroup::kMarqueeTool)
+    if (flags & PieceGroup::kMarqueeTool) {
         mode = BuildPointer::Mode::kAreaSelect;
-    else if (flags & PieceGroup::kRailPlacement)
+    } else if (flags & PieceGroup::kRailPlacement) {
         mode = BuildPointer::Mode::kRailPlacement;
+    }
     if (mode_sel_ != mode) {
         mode_sel_ = mode;
         on_mode_changed();
@@ -452,8 +477,9 @@ BuildPointer::BuildPointer() : park_owner_(ParkLayout::sole())
 // 0x0059C860
 void BuildPointer::spawn_occurrence()
 {
-    if (sole())
+    if (sole()) {
         return;
+    }
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(editor_arena());
     void* memory = memory::alloc(sizeof(BuildPointer));

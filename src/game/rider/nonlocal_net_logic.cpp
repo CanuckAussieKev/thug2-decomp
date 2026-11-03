@@ -132,17 +132,19 @@ void RiderRemoteSync::update_ground_lighting()
     start.w = static_cast<float>((static_cast<double>(up.w) * kLightingRise) + start.w);
     start.y = static_cast<float>(static_cast<double>(start.y) + kLightingAbove);
     end.y = static_cast<float>(static_cast<double>(end.y) - kLightingBelow);
-    if (!feeler.get_hit_shape(true, false))
+    if (!feeler.get_hit_shape(true, false)) {
         return;
+    }
     if (pose_->cur_phase() != kStateRail && feeler.is_hit_triangle_collision()) {
         // The model's light from the face's vertex values (the model's light object, its +0x2C - read through the
         // folded getter 0x00532EB0; else the global).
         const render::RenderModel* model = mesh_set_->mesh_instance().get();
         void* light = model->lights_ptr().get();
-        if (light)
+        if (light) {
             static_cast<render::ModelLights*>(light)->move_brightness({.target = static_cast<float>(feeler.get_hit_vertex_value()), .step = kLightTime});
-        else
+        } else {
             render::set_world_brightness(static_cast<float>(feeler.get_hit_vertex_value()));
+        }
     }
     // The shadow at the hit.
     core::down_cast<GroundShadowModule>(shadow_)->change_place(&feeler.contact_pos());
@@ -174,8 +176,9 @@ void RiderRemoteSync::settle_onto_floor()
     end.w = static_cast<float>(static_cast<double>(down_w) + pos.w);
     feeler.change_strand(&start, &end);
     feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
-    if (!feeler.get_hit_shape(true, false))
+    if (!feeler.get_hit_shape(true, false)) {
         return;
+    }
 
     const maths::Vec4& point = feeler.contact_pos();
     const maths::Vec4& normal = feeler.surface_dir();
@@ -206,8 +209,9 @@ void RiderRemoteSync::settle_onto_floor()
             ((static_cast<double>(on_last.x) * on_ground.x) + (static_cast<double>(on_last.z) * on_ground.z)) +
             (static_cast<double>(on_last.y) * on_ground.y));
         auto stick = static_cast<float>(std::cos(get_physics(skater, kGroundStickAngleForward) * kRadiansPerDegree));
-        if (facing > 0.0F && turn > 0.0F && turn < stick)
+        if (facing > 0.0F && turn > 0.0F && turn < stick) {
             return;
+        }
         if (height > 0.0F) {
             // Above it: only within this frame's move times the slope between the two grounds (at least
             // Physics_Ground_Snap_Down).
@@ -220,10 +224,12 @@ void RiderRemoteSync::settle_onto_floor()
                           (static_cast<double>(move.z) * move.z));
             auto reach = static_cast<float>(length * slope);
             const double snap_down = get_physics(skater, kGroundSnapDown);
-            if (reach < snap_down)
+            if (reach < snap_down) {
                 reach = static_cast<float>(snap_down);
-            if (distance > reach)
+            }
+            if (distance > reach) {
                 return;
+            }
         }
         surface_up_ = ground;
         core::at(skater->basis_frame().row, 1) = ground;
@@ -246,14 +252,16 @@ double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
     const maths::Vec4& right = core::at(entity()->basis_frame().row, 0);
     auto cosine = static_cast<float>(((static_cast<double>(dir.z) * right.z) + (static_cast<double>(dir.y) * right.y)) +
                                      (static_cast<double>(dir.x) * right.x));
-    if (cosine > 1.0F)
+    if (cosine > 1.0F) {
         cosine = 1.0F;
-    else if (cosine < -1.0F)
+    } else if (cosine < -1.0F) {
         cosine = -1.0F;
+    }
     const double exact = std::acos(static_cast<double>(cosine));
     auto angle = static_cast<float>(exact);
-    if (exact > kHalfPi) // (the unrounded angle compared; the rounded one adjusted)
+    if (exact > kHalfPi) { // (the unrounded angle compared; the rounded one adjusted)
         angle = static_cast<float>(static_cast<double>(angle) - maths::kPi);
+    }
     const double rotation = static_cast<double>(script::fetch_float(kWallBounceAngleMultiplier)) * angle;
     *turn = static_cast<float>(rotation);
     // The velocity turned about y (sine / cosine unrounded), then the matrix by the rounded turn.
@@ -352,12 +360,14 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     const double ex = static_cast<double>(from.x) - to.x;
     const double ey = static_cast<double>(from.y) - to.y;
     const double ez = static_cast<double>(from.z) - to_z;
-    if (std::sqrt(((ex * ex) + (ey * ey)) + (ez * ez)) > kBounceReach)
+    if (std::sqrt(((ex * ex) + (ey * ey)) + (ez * ez)) > kBounceReach) {
         return;
+    }
     feeler.change_strand(&from, &to);
     feeler.set_excluded({.ignore = render::kDefaultIgnoredFaceFlags, .require = render::kNoFaceFlags});
-    if (!feeler.get_hit_shape(true, false) || !skater->is_local_skater())
+    if (!feeler.get_hit_shape(true, false) || !skater->is_local_skater()) {
         return;
+    }
     // Another wall: turned round by what's left of a half turn, and halved.
     const double around = static_cast<double>(maths::kPi) - turn;
     auto s = static_cast<float>(std::sin(around));
@@ -416,19 +426,22 @@ void RiderRemoteSync::tick_frame()
     if (was_lip && pose_->cur_phase() != kStateLip) {
         pose_->set_lip_straight_up(0);
         if (pose_->cur_phase() == kStateAir && std::fabs(entity()->vel().x) < 1.0F &&
-            std::fabs(entity()->vel().z) < 1.0F)
+            std::fabs(entity()->vel().z) < 1.0F) {
             pose_->set_lip_straight_up(1);
+        }
     }
-    if (pose_->cur_phase() != kStateAir)
+    if (pose_->cur_phase() != kStateAir) {
         pose_->set_lip_straight_up(0);
+    }
 
     // Driving in or out: the scripts told (with the vehicle's control type when it starts).
     const uint8_t driving = pose_->in_vehicle();
     const uint32_t steer_kind = past_frames_->vehicle_control_type();
     if ((driving && steer_kind) || (!driving && was_driving_)) {
         gsl::owner<script::Struct*> params = script::spawn_param_bag();
-        if (params)
+        if (params) {
             params = new (params) script::Struct;
+        }
         params->put_name_key(checksums::Name{kSkaterId}, entity()->ident());
         uint32_t script = kStopDrivingScript;
         if (driving) {

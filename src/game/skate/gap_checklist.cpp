@@ -91,8 +91,9 @@ GapEntry::~GapEntry()
 GapEntry* GapEntry::teardown(unsigned int flags)
 {
     this->~GapEntry();
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -102,8 +103,9 @@ GapTally::GapTally() { gaps_.make_head(); }
 // 0x00578840
 void GapTally::get_clear()
 {
-    while (GapEntry* gap = gap_of(gaps_.next()))
+    while (GapEntry* gap = gap_of(gaps_.next())) {
         gap->teardown(1);
+    }
     built_ = false;
 }
 
@@ -120,8 +122,9 @@ void GapTally::register_gap_entry(const char* name, GapScore gap_score)
             return;
         }
         if (gap->points_held() < score ||
-            (gap->points_held() == score && text::compare_caseless(gap->label().c_str(), name) < 0))
+            (gap->points_held() == score && text::compare_caseless(gap->label().c_str(), name) < 0)) {
             after = gap;
+        }
     }
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap());
@@ -151,8 +154,9 @@ void GapTally::add_gap_from_node(script::Struct* params, const uint8_t* /*call*/
         register_gap_entry(text, {.count = 0, .score = score});
         return;
     }
-    if (script::fetch_int_value(kPrintGaps))
+    if (script::fetch_int_value(kPrintGaps)) {
         debug::printf("(Name '%s' Score %d - not in checklist)\n", text, score);
+    }
 }
 
 // 0x00578AA0
@@ -168,8 +172,9 @@ void GapTally::get_build()
     manager->enter_heap_scope(manager->script_heap());
     building() = this;
     built_ = true;
-    if (script::fetch_int_value("PrintGaps"))
+    if (script::fetch_int_value("PrintGaps")) {
         debug::printf("\nGAP LIST\n--------------------------------------\n");
+    }
     level_nodes::for_each_node_script_call({.param = kTriggerScript, .target = kEndGap}, &add_gap_from_node_callback);
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -179,8 +184,9 @@ int GapTally::find_gap(const char* name)
 {
     int index = 0;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++index) {
-        if (std::strcmp(gap->label().c_str(), name) == 0)
+        if (std::strcmp(gap->label().c_str(), name) == 0) {
             return index;
+        }
     }
     return -1;
 }
@@ -213,16 +219,18 @@ void GapTally::register_gap_hit(const char* name)
 // 0x00578CF0
 void GapTally::clear_pending()
 {
-    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap))
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         gap->pending() = 0;
+    }
 }
 
 // 0x00578D20
 int GapTally::total_of()
 {
     int count = 0;
-    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap))
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         ++count;
+    }
     return count;
 }
 
@@ -230,8 +238,9 @@ int GapTally::total_of()
 bool GapTally::all_got()
 {
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
-        if (!gap->num())
+        if (!gap->num()) {
             return false;
+        }
     }
     return true;
 }
@@ -253,8 +262,9 @@ bool GapTally::get_gap_totals(script::Struct* /*params*/, script::Script* script
     int collected = 0;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         ++total;
-        if (gap->num())
+        if (gap->num()) {
             ++collected;
+        }
     }
     script->args()->put_int(checksums::Name{kNumGaps}, total);
     script->args()->put_int(checksums::Name{kNumCollectedGaps}, collected);
@@ -270,10 +280,11 @@ bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script
     for (GapEntry* gap = gap_of(gaps_.next()); gap;) {
         script::StructPtr item = script::make_struct();
         GapEntry* next = get_next(gap);
-        if (index == 0)
+        if (index == 0) {
             item->put_name_key(checksums::Name{0U}, kFirstItem);
-        else if (!next)
+        } else if (!next) {
             item->put_name_key(checksums::Name{0U}, kLastItem);
+        }
         item->put_int(checksums::Name{kGapScore}, gap->points_held());
         item->append_word(kGapName, gap->label().c_str());
         item->put_int(checksums::Name{kTimes}, gap->num());
@@ -293,8 +304,9 @@ bool GapTally::add_gaps_to_menu(script::Struct* params, script::Script* /*script
 bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* script)
 {
     int count = 0;
-    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap))
+    for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap)) {
         ++count;
+    }
     script->args()->put_int(checksums::Name{kArraySize}, count);
     if (count == 0) {
         script->args()->put_int(checksums::Name{kGapsFoundCount}, count);
@@ -307,8 +319,9 @@ bool GapTally::create_gap_list(script::Struct* /*params*/, script::Script* scrip
     int got = 0;
     int index = 0;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++index) {
-        if (gap->num())
+        if (gap->num()) {
             ++got;
+        }
         gsl::owner<script::Struct*> item = script::new_struct();
         item->put_int("gap_score", gap->points_held());
         item->append_word("gap_name", gap->label().c_str());
@@ -328,8 +341,9 @@ GapEntry* GapTally::get_gap(int index)
 {
     int i = 0;
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++i) {
-        if (i == index)
+        if (i == index) {
             return gap;
+        }
     }
     return nullptr;
 }
@@ -359,13 +373,15 @@ void GapTally::pay_out_queued_gaps()
     for (GapEntry* gap = gap_of(gaps_.next()); gap; gap = get_next(gap), ++index) {
         if (gap->pending()) {
             GoalManager* goals = get_objective_board(); // the goal manager
-            if (goals->has_active_gap_goal())
+            if (goals->has_active_gap_goal()) {
                 goals->register_gap_hit(index);
+            }
             if (gap->num() == 0) {
                 ++new_gaps;
                 const script::StructPtr params = script::make_struct();
-                if (new_gaps > 1)
+                if (new_gaps > 1) {
                     params->put_int(checksums::Name{kMultipleNewGaps}, new_gaps);
+                }
                 params->append_word(kGapText, gap->label().c_str());
                 script::launch_script(kGotGapForFirstTime, params.get(), nullptr, false, nullptr);
             }
@@ -401,11 +417,13 @@ bool cfunc_give_all_gaps(script::Struct* params, script::Script* /*script*/)
 {
     void* career = get_career();
     int level = 0;
-    if (!params->fetch_int_value(kLevel, &level, 0))
+    if (!params->fetch_int_value(kLevel, &level, 0)) {
         level = current_level(career);
+    }
     const GapTally* checklist = level_checklist(career, level);
-    for (GapEntry* gap = gap_of(checklist->gaps().next()); gap; gap = get_next(gap))
+    for (GapEntry* gap = gap_of(checklist->gaps().next()); gap; gap = get_next(gap)) {
         ++gap->num();
+    }
     return true;
 }
 

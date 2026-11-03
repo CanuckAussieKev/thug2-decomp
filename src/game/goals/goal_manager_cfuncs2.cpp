@@ -81,8 +81,9 @@ bool cfunc_goal_manager_create_goal_name(script::Struct* params, script::Script*
     level_params_ref()->fetch_text(kLevel, &level, 1);
     std::array<char, kNameSize> name{};
     dup_from(name.data(), level);
-    if (game_mode()->is_true(kIsClassicMode) || params->has_bare_flag(kClassicModeGoal))
+    if (game_mode()->is_true(kIsClassicMode) || params->has_bare_flag(kClassicModeGoal)) {
         get_append(name.data(), "_classic"); // "_classic"
+    }
     get_append(name.data(), "_goal_");       // "_goal_"
     get_append(name.data(), type);
     script->args()->put_name_key(checksums::Name{kGoalIdChecksum}, checksums::hash_from_text(name.data()));
@@ -126,10 +127,11 @@ bool cfunc_goal_manager_goal_is_selected(script::Struct* params, script::Script*
 bool cfunc_goal_manager_toggle_goal_selection(script::Struct* params, script::Script* /*script*/)
 {
     Objective* goal = manager_then_goal(params);
-    if (goal->is_picked())
+    if (goal->is_picked()) {
         goal->unpick();
-    else
+    } else {
         goal->choose_one();
+    }
     return true;
 }
 
@@ -150,11 +152,13 @@ bool cfunc_goal_manager_goals_are_selected(script::Struct* /*params*/, script::S
 bool cfunc_goal_manager_got_counter_object(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
-    if (!params->read_hash_value(kName, &name, 0))
+    if (!params->read_hash_value(kName, &name, 0)) {
         return false;
+    }
     Objective* goal = get_objective_board()->goals().get_pull(name);
-    if (goal->is_operative())
+    if (goal->is_operative()) {
         goal->picked_up_countable();
+    }
     return true;
 }
 
@@ -370,8 +374,9 @@ bool cfunc_goal_manager_goal_is_locked(script::Struct* params, script::Script* /
 bool cfunc_goal_manager_is_in_competition(script::Struct* /*params*/, script::Script* script)
 {
     Objective* competition = get_objective_board()->get_active_competition();
-    if (!competition)
+    if (!competition) {
         return false;
+    }
     script->args()->put_name_key(checksums::Name{kGoalIdChecksum}, competition->get_objective_key());
     return true;
 }
@@ -385,8 +390,9 @@ bool cfunc_goal_manager_get_goal_animations(script::Struct* params, script::Scri
     const Objective* goal = get_objective_board()->goals().get_pull(name);
     const uint32_t animations = goal->ped()->get_objective_anim_sets(type);
     script->args()->erase_module(kProStuff);
-    if (animations)
+    if (animations) {
         script->args()->put_name_key(checksums::Name{kProStuff}, animations);
+    }
     return true;
 }
 

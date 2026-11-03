@@ -78,8 +78,9 @@ void FootMovement::turn_facing_to_velocity()
     auto speed =
         static_cast<float>(std::sqrt(((static_cast<double>(vel.x) * vel.x) + (static_cast<double>(vel.y) * vel.y)) +
                                      (static_cast<double>(vel.z) * vel.z)));
-    if (speed < walk_parameter(kWallTurnSpeedThreshold))
+    if (speed < walk_parameter(kWallTurnSpeedThreshold)) {
         return;
+    }
     maths::Vec4 direction = vel;
     direction.make_unit();
     // The turn this frame: wall_turn_factor a second at max_wall_turn_speed_threshold and above, less from the
@@ -109,10 +110,12 @@ void FootMovement::turn_facing_to_velocity()
 double FootMovement::adjust_speed_for_slope(float speed, const maths::Vec4* direction)
 {
     const maths::Vec4& normal = floor_normal_;
-    if (normal.y > kSteepSlope)
+    if (normal.y > kSteepSlope) {
         return speed;
-    if (speed <= walk_parameter(kWalkSpeed))
+    }
+    if (speed <= walk_parameter(kWalkSpeed)) {
         return speed;
+    }
     // On a steep slope, faster than walking: slowed by how much the direction runs up or down it.
     maths::Vec4 downhill = {.x = normal.x, .y = 0.0F, .z = normal.z, .w = normal.w};
     downhill.make_unit();
@@ -126,15 +129,17 @@ double FootMovement::adjust_speed_for_slope(float speed, const maths::Vec4* dire
 void FootMovement::update_upright()
 {
     maths::Vec4& up = up_;
-    if (up_.y == 1.0F) // (up.y exactly 1)
+    if (up_.y == 1.0F) { // (up.y exactly 1)
         return;
+    }
     if (up.y > kNearlyUpright) {
         up = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
         upright_time_ = 0.0F;
         return;
     }
-    if (!(upright_time_ == 0.0F))
+    if (!(upright_time_ == 0.0F)) {
         return;
+    }
     const float rate = walk_parameter(kLerpUprightRate);
     const maths::Vec4 upright = {.x = 0.0F, .y = 1.0F, .z = 0.0F, .w = 1.0F};
     maths::Vec4 eased{};
@@ -149,8 +154,9 @@ void FootMovement::set_transition_facing(const maths::Vec4* facing, float rate)
     const double turn = std::atan2(static_cast<double>(facing->x), static_cast<double>(facing->z)) -
                         std::atan2(static_cast<double>(current.x), static_cast<double>(current.z));
     transition_turn_ = static_cast<float>(turn);
-    if (std::fabs(turn) > maths::kPi) // the shorter way round
+    if (std::fabs(turn) > maths::kPi) { // the shorter way round
         transition_turn_ = static_cast<float>(turn - ((turn < 0.0 ? -1.0F : kOne) * maths::kTwoPi));
+    }
     transition_facing_ = *facing;
     transition_rate_ = rate;
 }
@@ -176,8 +182,9 @@ void FootMovement::refresh_hit_cache()
 void FootMovement::restore_display_offset()
 {
     const int state = state_;
-    if (state == 2 || state == 4)
+    if (state == 2 || state == 4) {
         return;
+    }
     const float rate = walk_parameter(kDisplayOffsetRestoreRate);
     const double step = frame_clock::get_slomo_frame_seconds() * rate;
     float& offset = model_lift_;
@@ -187,8 +194,9 @@ void FootMovement::restore_display_offset()
 // 0x00527C50
 void FootMovement::update_push()
 {
-    if (!pushing_)
+    if (!pushing_) {
         return;
+    }
     maths::Vec4& pos = pos_;
     if (pos.y > push_height_) {
         pushing_ = false;
@@ -199,8 +207,9 @@ void FootMovement::update_push()
         static_cast<float>((((static_cast<double>(normal.z) * pos.z) + (static_cast<double>(normal.y) * pos.y)) +
                             (static_cast<double>(normal.x) * pos.x)) -
                            push_plane_distance_);
-    if (!(-walk_parameter(kPushFeelerLength) < distance))
+    if (!(-walk_parameter(kPushFeelerLength) < distance)) {
         return;
+    }
     // Within reach of the plane: pushed away from it, and the velocity into it taken away.
     const double push = static_cast<double>(walk_parameter(kPushStrength)) * get_frame_length(this);
     const double push_x = push * normal.x; // (x's kept unrounded, as the original's register)
@@ -214,8 +223,9 @@ void FootMovement::update_push()
     maths::Vec4& vel = vel_;
     const double into = ((static_cast<double>(normal.z) * vel.z) + (static_cast<double>(normal.y) * vel.y)) +
                         (static_cast<double>(vel.x) * normal.x);
-    if (into == 0.0)
+    if (into == 0.0) {
         return;
+    }
     vel -= maths::operator*(static_cast<float>(into), normal);
 }
 
@@ -271,8 +281,9 @@ void FootMovement::update_control()
         forward_z = static_cast<float>(forward_z * inverse);
     }
     float angle = core::at(pad->polar(), 1).angle;
-    if (walk_parameter(kForwardTolerance) * static_cast<double>(kRadiansPerDegree) > std::fabs(angle))
+    if (walk_parameter(kForwardTolerance) * static_cast<double>(kRadiansPerDegree) > std::fabs(angle)) {
         angle = 0.0F;
+    }
     double turned_z = 0.0;
     double turned_x = 0.0;
     maths::spin_by(angle, forward_z, forward_x, &turned_z, &turned_x);
@@ -307,16 +318,18 @@ void FootMovement::update_control()
             full = true;
         }
     }
-    if (state_ == 0 && locked_to_heading_)
+    if (state_ == 0 && locked_to_heading_) {
         control = facing_;
+    }
 }
 
 // 0x00528120
 double FootMovement::get_control_speed()
 {
     const float magnitude = stick_deflection_;
-    if (magnitude == 0.0F)
+    if (magnitude == 0.0F) {
         return 0.0;
+    }
     const float walk_point = walk_parameter(kWalkPoint);
     if (magnitude <= walk_point) {
         // Walking: from walk_start's push up to walk_point, up to walk_speed.
@@ -376,18 +389,21 @@ void FootMovement::steer_jump()
         forward = 0.0F;
         ease = true;
     } else {
-        if (jump_unsteered_)
+        if (jump_unsteered_) {
             side = 0.0F;
+        }
         // Faster ahead than asked: kept. Pushing back while moving ahead: from the speed there.
         ease = !(forward_target >= 0.0F && forward > forward_target);
-        if (ease && forward_target < 0.0F && forward > 0.0F)
+        if (ease && forward_target < 0.0F && forward > 0.0F) {
             forward_target = forward + forward_target;
+        }
     }
-    if (ease)
+    if (ease) {
         forward =
             static_cast<float>(((static_cast<double>(forward_target) - forward) *
                                 (static_cast<double>(walk_parameter(kJumpAccelFactor)) * get_frame_length(this))) +
                                forward);
+    }
     const float side_y = side * 0.0F;
     const float side_zpart = side_z * side;
     vel.x = static_cast<float>((static_cast<double>(side_x) * side) + (static_cast<double>(forward) * dir.x));
@@ -437,8 +453,9 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
         // Pushed against the way it's going: no speed asked for.
         if (((static_cast<double>(direction.z) * control.z) + (static_cast<double>(direction.y) * control.y)) +
                 (static_cast<double>(direction.x) * control.x) <=
-            0.0)
+            0.0) {
             target = 0.0F;
+        }
         const double cosine =
             ((static_cast<double>(direction.z) * facing.z) + (static_cast<double>(direction.y) * facing.y)) +
             (static_cast<double>(direction.x) * facing.x);
@@ -452,8 +469,9 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                                            kRadiansPerDegree);
             const bool left =
                 (static_cast<double>(facing.x) * control.z) - (static_cast<double>(control.x) * facing.z) < 0.0;
-            if (!running_)
+            if (!running_) {
                 turn = static_cast<float>(static_cast<double>(walk_parameter(kWalkRotateFactor)) * turn);
+            }
             if (blocked_) {
                 turn = static_cast<float>(static_cast<double>(walk_parameter(kWallRotateFactor)) * turn);
             } else {
@@ -473,8 +491,9 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                                      .z = (ahead_z * reach) + start.z,
                                      .w = none + start.w};
                 // (the original reads wall_rotate_factor through 0x0043DA70)
-                if (feeler.get_hit_shape(false, false))
+                if (feeler.get_hit_shape(false, false)) {
                     turn = static_cast<float>(static_cast<double>(walk_parameter(kWallRotateFactor)) * turn);
+                }
             }
             double new_x = 0.0;
             double new_z = 0.0;
@@ -483,8 +502,9 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
             facing.x = static_cast<float>(new_x);
             // Turned past the push: onto it.
             const bool still_left = (new_x * control.z) - (static_cast<double>(control.x) * facing.z) < 0.0;
-            if (left != still_left)
+            if (left != still_left) {
                 facing = control;
+            }
             result = control;
         } else {
             // Near the facing: the facing eased toward the push, the more the further off (worse_turn_factor to
@@ -517,8 +537,9 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
     double new_speed = 0.0;
     if (speed > allowed) {
         float factor = walk_parameter(kDecelFactor);
-        if (allowed == 0.0F && !(speed > walk_parameter(kWalkSpeed)))
+        if (allowed == 0.0F && !(speed > walk_parameter(kWalkSpeed))) {
             factor = walk_parameter(kLowSpeedDecelFactor);
+        }
         new_speed =
             ((static_cast<double>(allowed) - speed) * (frame_clock::get_slomo_frame_seconds() * factor)) + speed;
     } else {
@@ -534,8 +555,9 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
 void FootMovement::update_rotate_upright()
 {
     float& left = upright_time_;
-    if (left == 0.0F)
+    if (left == 0.0F) {
         return;
+    }
     // This frame's share of the turn (+0x730 about +0x734) over rotate_upright_duration.
     const float duration = walk_parameter(kRotateUprightDuration);
     auto angle = static_cast<float>(get_frame_length(this) / duration * upright_angle_);
@@ -567,8 +589,9 @@ void FootMovement::apply_transition()
     model_lift_ = transition_display_offset_;
     // Then the transition's member function, if any (+0x1948, this adjusted by +0x194C).
     script::ObjectCallback callback = anim_done_.code_;
-    if (callback)
+    if (callback) {
         callback(this); // (this_adjust_ is always 0: walk_hang sets it so)
+    }
 }
 
 // 0x00529CE0

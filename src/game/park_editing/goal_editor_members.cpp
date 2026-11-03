@@ -78,13 +78,15 @@ bool ObjectiveAuthoring::edited_goal_remove_gap(script::Struct* params, script::
 bool ObjectiveAuthoring::edited_goal_got_gap(script::Struct* params, script::Script* /*script*/)
 {
     const EditedGoal* goal = get_goal_from_params(params);
-    if (!goal)
+    if (!goal) {
         return false;
+    }
     int gap = 0;
     params->fetch_int_value(kGapNumber, &gap, 0);
     for (int i = 0; std::cmp_less(i, goal->num_gaps()); ++i) {
-        if (core::at(goal->gaps(), i) == static_cast<uint8_t>(gap))
+        if (core::at(goal->gaps(), i) == static_cast<uint8_t>(gap)) {
             return true;
+        }
     }
     return false;
 }
@@ -119,17 +121,20 @@ bool ObjectiveAuthoring::remove_key_combo_set(script::Struct* params, script::Sc
 bool ObjectiveAuthoring::get_key_combo_set(script::Struct* params, script::Script* script)
 {
     EditedGoal* goal = get_goal_from_params(params);
-    if (!goal)
+    if (!goal) {
         return true;
+    }
     int set = 0;
     params->fetch_int_value(kSetIndex, &set, 0);
     const KeyComboSet* entry = goal->find_key_combo_set(set);
-    if (!entry)
+    if (!entry) {
         return false;
+    }
     script->args()->put_int(checksums::Name{kSpin}, entry->spin * kSpinUnitDegrees);
     script->args()->put_int(checksums::Name{kNumTaps}, entry->tap_total_);
-    if (entry->must_be_flawless_)
+    if (entry->must_be_flawless_) {
         script->args()->put_name_key(checksums::Name{0U}, kRequirePerfect);
+    }
     return true;
 }
 
@@ -139,8 +144,9 @@ bool ObjectiveAuthoring::remove_goal_specific_flag(script::Struct* params, scrip
     if (EditedGoal* goal = get_goal_from_params(params)) {
         uint32_t flag = 0;
         params->read_hash_value(0U, &flag, 0);
-        if (goal->kind_tag() == kGoalTypeComboTricks && flag == kSingleCombo)
+        if (goal->kind_tag() == kGoalTypeComboTricks && flag == kSingleCombo) {
             goal->set_single_combo(false);
+        }
     }
     return true;
 }
@@ -148,16 +154,18 @@ bool ObjectiveAuthoring::remove_goal_specific_flag(script::Struct* params, scrip
 // 0x004E8780
 bool ObjectiveAuthoring::set_goal_specific_params(script::Struct* params, script::Script* /*script*/)
 {
-    if (EditedGoal* goal = get_goal_from_params(params))
+    if (EditedGoal* goal = get_goal_from_params(params)) {
         goal->read_specific_params(params);
+    }
     return true;
 }
 
 // 0x004E87A0
 bool ObjectiveAuthoring::flag_goal_as_won(script::Struct* params, script::Script* /*script*/)
 {
-    if (EditedGoal* goal = get_goal_from_params(params))
+    if (EditedGoal* goal = get_goal_from_params(params)) {
         goal->set_won(true);
+    }
     return true;
 }
 
@@ -168,8 +176,9 @@ bool ObjectiveAuthoring::find_unfinished_goal(script::Struct* params, script::Sc
     params->read_hash_value("type", &type, 0);
     active_node_ = nullptr;
     for (EditedGoal& goal : goals_) {
-        if (goal.taken_count() && goal.kind_tag() == type && goal.vertex_total() < goal.min_points())
+        if (goal.taken_count() && goal.kind_tag() == type && goal.vertex_total() < goal.min_points()) {
             active_node_ = &goal; // (the last one)
+        }
     }
     return active_node_ != nullptr;
 }
@@ -183,8 +192,9 @@ bool ObjectiveAuthoring::goal_exists(script::Struct* params, script::Script* /*s
 // 0x004E8920
 bool ObjectiveAuthoring::removed_created_goal(script::Struct* params, script::Script* /*script*/)
 {
-    if (EditedGoal* goal = get_goal_from_params(params))
+    if (EditedGoal* goal = get_goal_from_params(params)) {
         drop_objective(goal);
+    }
     return true;
 }
 
@@ -207,8 +217,9 @@ bool ObjectiveAuthoring::set_editor_goal_type(script::Struct* params, script::Sc
 {
     uint32_t type = 0;
     params->read_hash_value("type", &type, 0);
-    if (EditedGoal* goal = get_goal_from_params(params))
+    if (EditedGoal* goal = get_goal_from_params(params)) {
         goal->change_species(type);
+    }
     return true;
 }
 
@@ -217,8 +228,9 @@ bool ObjectiveAuthoring::set_editor_goal_description(script::Struct* params, scr
 {
     const char* text = vacant();
     params->fetch_text("text", &text, 0);
-    if (EditedGoal* goal = get_goal_from_params(params))
+    if (EditedGoal* goal = get_goal_from_params(params)) {
         text::copy_into(goal->summary_text(), text);
+    }
     return true;
 }
 
@@ -227,8 +239,9 @@ bool ObjectiveAuthoring::set_editor_goal_win_message(script::Struct* params, scr
 {
     const char* text = vacant();
     params->fetch_text("text", &text, 0);
-    if (EditedGoal* goal = get_goal_from_params(params))
+    if (EditedGoal* goal = get_goal_from_params(params)) {
         text::copy_into(goal->win_message(), text);
+    }
     return true;
 }
 
@@ -237,11 +250,13 @@ bool ObjectiveAuthoring::get_num_edited_goals(script::Struct* params, script::Sc
 {
     uint32_t level = 0;
     params->read_hash_value(kLevel, &level, 0);
-    if (level == kParkEditorGameplayLevel)
+    if (level == kParkEditorGameplayLevel) {
         level = kParkEditorLevel;
+    }
     int count = count_complete_goals(level);
-    if (!level && params->has_bare_flag(kExcludeParkEditorGoals))
+    if (!level && params->has_bare_flag(kExcludeParkEditorGoals)) {
         count -= count_complete_goals(kParkEditorLevel);
+    }
     script->args()->put_int("NumGoals", count);
     return true;
 }
@@ -261,8 +276,9 @@ bool ObjectiveAuthoring::get_current_edited_goal_id(script::Struct* /*params*/, 
 // 0x004E8B90
 bool ObjectiveAuthoring::write_edited_goal_node_positions(script::Struct* params, script::Script* /*script*/)
 {
-    if (EditedGoal* goal = get_goal_from_params(params))
+    if (EditedGoal* goal = get_goal_from_params(params)) {
         goal->emit_node_coords();
+    }
     return true;
 }
 
@@ -291,22 +307,25 @@ bool ObjectiveAuthoring::set_editor_ped_name(script::Struct* params, script::Scr
 // 0x004E8C90
 bool ObjectiveAuthoring::max_edited_goals_reached(script::Struct* params, script::Script* /*script*/)
 {
-    if (count_used_goals() == kEditedGoalLimit)
+    if (count_used_goals() == kEditedGoalLimit) {
         return true;
+    }
     uint32_t level = 0;
     params->read_hash_value(kLevel, &level, 0);
-    if (level == kParkEditorGameplayLevel)
+    if (level == kParkEditorGameplayLevel) {
         level = kParkEditorLevel;
+    }
     return count_complete_goals(level) >= kGoalsPerLevel;
 }
 
 // 0x004E8CF0
 bool ObjectiveAuthoring::nuke_all_goals(script::Struct* params, script::Script* /*script*/)
 {
-    if (params->has_bare_flag(kClearParkGoals))
+    if (params->has_bare_flag(kClearParkGoals)) {
         clear_park_goals();
-    else
+    } else {
         clear_level_goals();
+    }
     return true;
 }
 
@@ -323,8 +342,9 @@ bool ObjectiveAuthoring::set_goal_score(script::Struct* params, script::Script* 
     active_node_ = get_goal_from_params(params);
     if (active_node_) {
         int score = 0;
-        if (params->fetch_int_value(0U, &score, 0))
+        if (params->fetch_int_value(0U, &score, 0)) {
             active_node_->set_points_held(score);
+        }
     }
     return true;
 }
@@ -335,8 +355,9 @@ bool ObjectiveAuthoring::set_goal_time_limit(script::Struct* params, script::Scr
     active_node_ = get_goal_from_params(params);
     if (active_node_) {
         int seconds = kDefaultTimeLimitSeconds;
-        if (params->fetch_int_value(0U, &seconds, 0))
+        if (params->fetch_int_value(0U, &seconds, 0)) {
             active_node_->set_countdown_seconds(seconds);
+        }
     }
     return true;
 }
@@ -347,8 +368,9 @@ bool ObjectiveAuthoring::set_goal_control_type(script::Struct* params, script::S
     active_node_ = get_goal_from_params(params);
     if (active_node_) {
         uint32_t control = kGoalTypeSkate;
-        if (params->read_hash_value(0U, &control, 0))
+        if (params->read_hash_value(0U, &control, 0)) {
             active_node_->set_control_type(control);
+        }
     }
     return true;
 }
@@ -356,8 +378,9 @@ bool ObjectiveAuthoring::set_goal_control_type(script::Struct* params, script::S
 // 0x004E8E60
 bool ObjectiveAuthoring::refresh_goal_cursor_position(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (!active_node_)
+    if (!active_node_) {
         return true;
+    }
     maths::Vec4 pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     float height = 0.0F;
     float angle = 0.0F;
@@ -385,16 +408,18 @@ bool ObjectiveAuthoring::edit_goal(script::Struct* params, script::Script* /*scr
 // 0x004EBFF0
 bool ObjectiveAuthoring::get_current_edited_goal_info(script::Struct* /*params*/, script::Script* script)
 {
-    if (active_node_)
+    if (active_node_) {
         active_node_->export_to_struct(script->args().get());
+    }
     return true;
 }
 
 // 0x004EC1D0
 bool ObjectiveAuthoring::add_edited_goal_to_goal_manager(script::Struct* params, script::Script* /*script*/)
 {
-    if (EditedGoal* goal = get_goal_from_params(params))
+    if (EditedGoal* goal = get_goal_from_params(params)) {
         goal->add_to_goal_manager(params->has_bare_flag(kMarkUnbeaten));
+    }
     return true;
 }
 

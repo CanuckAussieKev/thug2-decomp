@@ -262,10 +262,12 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
     switch (core_state->cur_phase()) {
     case 0: { // the ground: plain (+0x90 and the balance trick's two clear) or a manual
         const bool balancing = balance_trick_->trick() != 0 || balance_trick_->started();
-        if (!core_state->flag(PoseFlag::kCancelGround).on && !balancing)
+        if (!core_state->flag(PoseFlag::kCancelGround).on && !balancing) {
             set(kGapGround);
-        if (balancing)
+        }
+        if (balancing) {
             set(kGapManual);
+        }
         break;
     }
     case 1:
@@ -344,8 +346,9 @@ void RiderGapTracker::check_gap_tricks(script::Struct* /*params*/)
 {
     for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;) {
         TrickNameEntry* next = get_next(trick);
-        if (trick_done(trick))
+        if (trick_done(trick)) {
             entity()->start_script_task(get_trick_script(trick), trick_node(trick), false, false, nullptr);
+        }
         trick = next;
     }
 }
@@ -356,8 +359,9 @@ void RiderGapTracker::clear_gap_tricks(script::Struct* params)
     const bool not_this_frame = params->has_bare_flag(kNotInSameFrame);
     for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;) {
         TrickNameEntry* next = get_next(trick);
-        if (!not_this_frame || trick_frame(trick) != tick_)
+        if (!not_this_frame || trick_frame(trick) != tick_) {
             erase_one(trick);
+        }
         trick = next;
     }
 }
@@ -365,15 +369,17 @@ void RiderGapTracker::clear_gap_tricks(script::Struct* params)
 // 0x00512360
 void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
 {
-    if (get_core_state(core_physics_)->flag(PoseFlag::kBailing).on)
+    if (get_core_state(core_physics_)->flag(PoseFlag::kBailing).on) {
         return;
+    }
     uint32_t gap_id = 0;
     params->read_hash_value(kGapId, &gap_id, 0);
     // A gap of the same GapID and node is started again.
     for (auto* gap = get_first<TrickListEntry>(gaps_); gap;) {
         TrickListEntry* next = get_next(gap);
-        if (get_gap_id(gap) == gap_id && gap_node(gap) == script->list_link())
+        if (get_gap_id(gap) == gap_id && gap_node(gap) == script->list_link()) {
             erase_one(gap);
+        }
         gap = next;
     }
     void* memory = memory::alloc_zeroed(sizeof(TrickListEntry));
@@ -427,25 +433,30 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     script::Array* flags = nullptr;
     params->fetch_list(kFlags, &flags, 0);
     if (flags) {
-        for (uint32_t i = 0; i < flags->extent(); ++i)
+        for (uint32_t i = 0; i < flags->extent(); ++i) {
             gap_option_labels(gap) |= script::fetch_int_value(flags->fetch_part(i));
+        }
     } else {
         uint32_t flag = 0;
-        if (params->read_hash_value(kFlags, &flag, 0))
+        if (params->read_hash_value(kFlags, &flag, 0)) {
             gap_option_labels(gap) |= script::fetch_int_value(flag);
+        }
     }
     uint32_t combined = 0;
-    if (params->read_hash_value(kCombinedFlags, &combined, 0))
+    if (params->read_hash_value(kCombinedFlags, &combined, 0)) {
         gap_option_labels(gap) |= combined;
-    if (params->has_bare_flag(kCarGap))
+    }
+    if (params->has_bare_flag(kCarGap)) {
         gap_option_labels(gap) |= kGapSkating | kGapWalking;
-    else if (!params->has_bare_flag(kNotOnlyCar) && !(gap_option_labels(gap) & (kGapSkating | kGapWalking)))
+    } else if (!params->has_bare_flag(kNotOnlyCar) && !(gap_option_labels(gap) & (kGapSkating | kGapWalking))) {
         gap_option_labels(gap) |= kGapDriving;
+    }
 
     // Checked against the state now - unless gap checks are Off (the settings' +0x40), when driving can't matter.
     const bool driving_matters = state_of(physics_control_)->in_vehicle() && (gap_option_labels(gap) & kGapDriving);
-    if (!driving_matters && park_editing::ParkBuilderMode::sole()->editor_state() == kOff)
+    if (!driving_matters && park_editing::ParkBuilderMode::sole()->editor_state() == kOff) {
         return;
+    }
     uint32_t cancel = 0;
     uint32_t require = 0;
     fetch_gap_condition_masks(&cancel, &require);
@@ -455,8 +466,9 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
 // 0x00512770
 void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
 {
-    if (get_core_state(core_physics_)->flag(PoseFlag::kBailing).on)
+    if (get_core_state(core_physics_)->flag(PoseFlag::kBailing).on) {
         return;
+    }
     uint32_t gap_id = 0;
     params->read_hash_value(kGapId, &gap_id, 0);
     for (auto* gap = get_first<TrickListEntry>(gaps_); gap;) {
@@ -475,8 +487,9 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         }
         if (params->has_entry_named(kNeedsCleanLanding)) {
             gsl::owner<script::Struct*> results = script::spawn_param_bag();
-            if (results)
+            if (results) {
                 results = new (results) script::Struct;
+            }
             script::run_script_once(kDoPerfectCheck2, nullptr, entity(), results);
             int perfect = 0; // (not initialised in the original: fetch_int_value asserts it's there)
             results->fetch_int_value(kPerfect, &perfect, 1);
@@ -491,8 +504,9 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
             }
         }
         const char* text = nullptr;
-        if (!params->fetch_text(kText, &text, 0))
+        if (!params->fetch_text(kText, &text, 0)) {
             text = "Unnamed Gap";
+        }
         std::array<char, kColouredBytes> coloured{};
         text::format_to(coloured, "\\c1%s\\c0", text);
 
@@ -510,8 +524,9 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
                      gap_trick_count(gap) < get_trick_count(points_held_, gap_trick_text(gap), gap_spin(gap),
                                                             gap_perfect(gap), gap_taps(gap))) ||
                     (gap->element_list()->extent() > 0 &&
-                     tricks_array_count(points_held_, gap->element_list(), gap_tricks_count(gap)) > 0))
+                     tricks_array_count(points_held_, gap->element_list(), gap_tricks_count(gap)) > 0)) {
                     done = true;
+                }
             }
             if (done) {
                 for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick; trick = get_next(trick)) {
@@ -537,8 +552,9 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
             entity()->start_script_task(gap_script, script->list_link(), replicate_flag, permanent, nullptr);
         }
         script::Struct* continuation = nullptr;
-        if (params->read_sub_struct(kContinue, &continuation, 0))
+        if (params->read_sub_struct(kContinue, &continuation, 0)) {
             start_gap(continuation, script);
+        }
         const uint32_t success = checksums::fold_text_into_checksum(gap_id, "_Success");
         get_tracker()->launch_event(success, kAllBitsSet, entity()->ident(), params, true, -1.0F);
         // The gap deleted if it's still in the list; then the walk begins again.
@@ -558,8 +574,9 @@ int RiderGapTracker::invoke_method_by_name(uint32_t name, script::Struct* params
     switch (name) {
     case kDuplicateTrigger: {
         const int node = script->list_link();
-        if (!node)
+        if (!node) {
             return 1;
+        }
         const int links = static_cast<int>(level_nodes::get_link_count(static_cast<uint32_t>(node)));
         for (int i = 0; i < links; ++i) {
             script::Struct* linked = level_nodes::fetch_neighbour_node(static_cast<uint32_t>(node), i);
@@ -598,8 +615,9 @@ void discard_queued_gaps() { gap_tally_ref()->clear_pending(); }
 void pay_out_queued_gaps()
 {
     gap_tally_ref()->pay_out_queued_gaps();
-    if (get_career()->all_gaps_got())
+    if (get_career()->all_gaps_got()) {
         script::spawn_script(kProcessAllGapsReward, nullptr);
+    }
 }
 
 } // namespace objects

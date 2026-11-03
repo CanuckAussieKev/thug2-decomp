@@ -97,8 +97,9 @@ void make_pool(memory::PoolPair& pair, int item_size, int count, const char* nam
 void delete_pool(memory::PoolPair& pair)
 {
     memory::SlabBank* pool = active_slab_pool(pair);
-    if (!pool)
+    if (!pool) {
         return;
+    }
     if (pool_made_here(pair)) {
         memory::dealloc(pool->memory().data()); // ~Pool (0x005BA4E0)
         memory::Hub::dealloc(pool);
@@ -122,8 +123,9 @@ void update_max(MemoryStats& stats, MaxSample sample)
 {
     const auto value = sample.value;
     const auto stored = sample.stored;
-    if (value > stats.max_usage_) // (compared before rounding)
+    if (value > stats.max_usage_) { // (compared before rounding)
         stats.max_usage_ = stored;
+    }
 }
 
 // A pool's figure: the park's items over the pool's room left (less a base the script gives); the pool is read
@@ -182,8 +184,9 @@ void remove_dma(uint32_t segment_kind)
 void add_piece_dma(const PieceGroup* meta)
 {
     // (the original read the metapiece's +0x0C flags and +0x38 name through a view of its own)
-    if (meta->flag_bits() & PieceGroup::kFence)
+    if (meta->flag_bits() & PieceGroup::kFence) {
         return;
+    }
     const uint32_t type = meta->name_key();
     script::Struct* table = script::read_sub_struct(kPieceDmaTable);
     int pieces = 1;
@@ -194,8 +197,9 @@ void add_piece_dma(const PieceGroup* meta)
 // 0x0059E1E0
 void remove_piece_dma(const PieceGroup* meta)
 {
-    if (!(meta->flag_bits() & PieceGroup::kFence) && (meta->flag_bits() & PieceGroup::kInPark))
+    if (!(meta->flag_bits() & PieceGroup::kFence) && (meta->flag_bits() & PieceGroup::kInPark)) {
         remove_dma(meta->name_key());
+    }
 }
 
 // 0x0059E210
@@ -263,16 +267,19 @@ void power_down()
 int get_memory_value(const char* name, int index)
 {
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
-    if (params)
+    if (params) {
         new (params) script::Struct;
+    }
     gsl::owner<script::Struct*> results = script::spawn_param_bag();
-    if (results)
+    if (results) {
         new (results) script::Struct;
+    }
     int value = 0;
     Expects(params != nullptr);
     params->put_name_key(checksums::Name{kValueName}, checksums::hash_from_text(name));
-    if (index > -1)
+    if (index > -1) {
         params->put_int(checksums::Name{kValueIndex}, index);
+    }
     script::run_script_once(kMemoryValueScript, params, nullptr, results);
     Expects(results != nullptr);
     results->fetch_int_value(kValueResult, &value, 1);
@@ -297,8 +304,9 @@ MemoryStats* get_memory_stats(MemoryStats* out)
         // fields - the park's components, vectors and arrays)
         std::array<int, kNodeCountEntries> counts{};
         park_assembler_ref()->get_node_counts(counts);
-        for (int i = 0; i < 3; ++i)
+        for (int i = 0; i < 3; ++i) {
             core::at(stats.piece_counts_, i) = core::at(counts, i);
+        }
         stats.components = core::at(counts, 3);
         stats.vectors = core::at(counts, 4);
         stats.arrays = core::at(counts, kArraysCountIndex);
@@ -344,10 +352,11 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     const double top_down =
         2.0 - (static_cast<double>(top_down_free) / get_memory_value("top_down_required", -1)); // "top_down_required"
     stats.top_down_usage_ = static_cast<float>(top_down);
-    if (top_down > stats.max_usage_)
+    if (top_down > stats.max_usage_) {
         stats.max_usage_ = stats.top_down_usage_;
-    else
+    } else {
         stats.top_down_usage_ = 0.0F;
+    }
 
     // The pools: compared after rounding.
     stats.component_usage_ =
@@ -380,14 +389,16 @@ bool pieces_fit(int first, int last)
 {
     const int dma = dma_pieces();
     const int pieces = last - first;
-    if (pieces > get_memory_value("max_dma_pieces", -1) - dma) // "max_dma_pieces"
+    if (pieces > get_memory_value("max_dma_pieces", -1) - dma) { // "max_dma_pieces"
         return false;
+    }
     const int park = get_memory_value("floor_piece_size_park", -1) * pieces; // "floor_piece_size_park"
     const int main = get_memory_value("floor_piece_size_main", -1) * pieces; // "floor_piece_size_main"
     MemoryStats stats{};
     get_memory_stats(&stats);
-    if (get_attributes().park_heap_free_ < park || get_attributes().main_heap_free_ < main)
+    if (get_attributes().park_heap_free_ < park || get_attributes().main_heap_free_ < main) {
         return false;
+    }
     const double usage = get_usage(1.0F, get_attributes().main_heap_free_ - main,
                                    get_memory_value("main_heap_base", -1)); // "main_heap_base"
     return !(usage >= kParkMemoryNearlyFullUsage);               // 0.9 (unordered: true)

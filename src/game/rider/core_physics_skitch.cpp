@@ -56,30 +56,36 @@ int closest_tow_point(void* skitch, maths::Vec4* point, maths::Vec4* from)
 // 0x00503EC0
 void SkaterPhysicsModule::try_start_skitch()
 {
-    if (on_vehicle_)
+    if (on_vehicle_) {
         return;
+    }
     objects::ControlButton* button = &input_->pad_primary().up_dir();
     // (not original: THAW 0x005D33A7 - on the bike R2 held, not up)
     objects::ControlButton* hold = thaw_bmx::live_now(this) ? thaw_bmx::tow_button(this) : button;
-    if (state_->flag(PoseFlag::kSkitching).on || !hold->held_down())
+    if (state_->flag(PoseFlag::kSkitching).on || !hold->held_down()) {
         return;
+    }
     auto held = static_cast<uint32_t>(time_since_press(hold));
-    if (held <= ints::as_unsigned(script::fetch_int_value(kSkitchHoldTime)) || state_->cur_phase() != 0)
+    if (held <= ints::as_unsigned(script::fetch_int_value(kSkitchHoldTime)) || state_->cur_phase() != 0) {
         return;
+    }
     // The nearest skitch point of any other object's skitch component (that's on), within Skitch_Max_Distance.
     float nearest = script::fetch_float(kSkitchMaxDistance);
     objects::GameEntity* found = nullptr;
     for (objects::ObjectModule* skitch = objects::object_hub_slot()->find_first_module_of_kind(kSkitch); skitch;
          skitch = skitch->next_of_type()) {
-        if (!core::down_cast<objects::TowRideHandler>(skitch)->allowed())
+        if (!core::down_cast<objects::TowRideHandler>(skitch)->allowed()) {
             continue;
+        }
         objects::GameEntity* car = skitch->entity();
-        if (car == object_of(this))
+        if (car == object_of(this)) {
             continue;
+        }
         maths::Vec4 point = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         const int index = closest_tow_point(skitch, &point, &entity()->at_point());
-        if (index == -1)
+        if (index == -1) {
             continue;
+        }
         const double distance = length_unrounded(point - entity()->at_point());
         if (distance < nearest) {
             nearest = static_cast<float>(distance);
@@ -87,8 +93,9 @@ void SkaterPhysicsModule::try_start_skitch()
             skitch_point_ = index;
         }
     }
-    if (!found)
+    if (!found) {
         return;
+    }
     take_press(&input_->pad_primary().shoulder_left_a());
     take_press(&input_->pad_primary().shoulder_right_a());
     // (0x0041D1D0: the smart pointer set)
@@ -164,11 +171,13 @@ void SkaterPhysicsModule::get_skitch()
 
     // Held at the skitch point, Skitch_Offset behind it along the car; while moving to a new one, pulled towards it
     // at skitch_suck_speed (let go of when 180 or more away).
-    if (!ride_->ride() || !state_->flag(PoseFlag::kSkitching).on)
+    if (!ride_->ride() || !state_->flag(PoseFlag::kSkitching).on) {
         return;
+    }
     maths::Vec4 point;
-    if (!static_cast<objects::TowRideHandler*>(skitch)->get_hook_point(&point, skitch_point_))
+    if (!static_cast<objects::TowRideHandler*>(skitch)->get_hook_point(&point, skitch_point_)) {
         return;
+    }
     objects::GameEntity* object = object_of(this);
     object->at_point().w = 0.0F;
     const maths::Vec4 back = -core::at(car->basis_frame().row, 2);

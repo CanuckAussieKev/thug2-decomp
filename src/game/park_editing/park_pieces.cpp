@@ -110,8 +110,9 @@ void ParkTile::set_quarter_turns(QuarterTurns quarter_turns)
     const auto rot = quarter_turns.rot;
     const auto update = quarter_turns.update;
     quarter_turns_ = rot;
-    if (update == 1)
+    if (update == 1) {
         scene::spin_around_up(scene::look_up_sector(sector()), rot);
+    }
 }
 
 void ParkTile::change_live(bool active) { scene::change_live(scene::look_up_sector(sector()), active); }
@@ -124,8 +125,9 @@ void ParkTile::change_place(maths::Vec4* position, int update)
     at_point_.y = position->y;
     at_point_.z = position->z;
     at_point_.w = position->w;
-    if (update == 1)
+    if (update == 1) {
         scene::place_at_absolute_point(scene::look_up_sector(sector()), position);
+    }
 }
 
 void ParkTile::set_length(float length)
@@ -140,8 +142,9 @@ void ParkTile::set_length(float length)
 void ParkTile::set_angle(float degrees)
 {
     render::Geom* geometry = scene::fetch_shape(scene::look_up_sector(sector()));
-    if (!geometry)
+    if (!geometry) {
         return;
+    }
     maths::Mat4 orientation{};
     orientation.reset_to_identity();
     maths::Mat4 turn{};
@@ -153,11 +156,13 @@ void ParkTile::set_angle(float degrees)
 void ParkTile::set_highlight(bool on, bool gap)
 {
     render::WorldCell* sector = scene::look_up_sector(this->sector());
-    if (!sector)
+    if (!sector) {
         return;
+    }
     render::Geom* geometry = scene::fetch_shape(sector);
-    if (!geometry)
+    if (!geometry) {
         return;
+    }
     if (!on) {
         scene::wipe_tint(geometry);
         return;

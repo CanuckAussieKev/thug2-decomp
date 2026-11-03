@@ -61,10 +61,12 @@ int RiderStanceDisplay::get_stance()
     const uint8_t flip = core_physics_->state()->flag(PoseFlag::kFlipped).on;
     const bool reversed = core::down_cast<Rider>(core->entity())->goofy() != 0;
     const bool flipped = reversed ? flip != 0 : flip == 0;
-    if (press_amount_)
+    if (press_amount_) {
         return flipped ? 3 : 4;
-    if (flipped)
+    }
+    if (flipped) {
         return nollie_ ? 1 : 2;
+    }
     return nollie_ ? 0 : kHidden;
 }
 
@@ -79,8 +81,9 @@ void RiderStanceDisplay::tick_frame()
         panel = found.get_pull();
     }
     const int stance = get_stance();
-    if (stance == shown_)
+    if (stance == shown_) {
         return;
+    }
     shown_ = stance;
     if (stance == kHidden) {
         panel->change_opacity(0.0F, true);

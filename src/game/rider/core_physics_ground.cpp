@@ -61,8 +61,9 @@ void SkaterPhysicsModule::apply_friction(float friction)
 {
     maths::Vec4& velocity = entity()->vel();
     auto length_squared = static_cast<float>(length_sqr_unrounded(velocity));
-    if (length_squared < kBarelyMovingSquared)
+    if (length_squared < kBarelyMovingSquared) {
         return;
+    }
     auto slowing =
         static_cast<float>(static_cast<double>(length_squared) * frame_length_ * friction * kFramesPerSecond);
     maths::Vec4 change = velocity;
@@ -84,14 +85,18 @@ void SkaterPhysicsModule::apply_friction(float friction)
 bool SkaterPhysicsModule::should_brake()
 {
     const objects::PadInputModule* input = input_;
-    if (!auto_kick_ && !input->pad_primary().button_box().held_down() && speed_of(entity()->vel()) < kSlow)
+    if (!auto_kick_ && !input->pad_primary().button_box().held_down() && speed_of(entity()->vel()) < kSlow) {
         return true;
-    if (!input->pad_primary().btn_down().held_down() || !can_brake_)
+    }
+    if (!input->pad_primary().btn_down().held_down() || !can_brake_) {
         return false;
-    if (speed_of(entity()->vel()) < kSlow)
+    }
+    if (speed_of(entity()->vel()) < kSlow) {
         return true;
-    if (!input->pad_primary().right_side().held_down() && !input->pad_primary().left_side().held_down())
+    }
+    if (!input->pad_primary().right_side().held_down() && !input->pad_primary().left_side().held_down()) {
         return true;
+    }
     const objects::GameEntity* object = object_of(this);
     const maths::Vec4& v = object->vel();
     const maths::Vec4& f = core::at(object->basis_frame().row, 2);
@@ -104,8 +109,9 @@ bool SkaterPhysicsModule::should_brake()
 bool SkaterPhysicsModule::may_turn_on_slope()
 {
     auto speed = static_cast<float>(speed_of(entity()->vel()));
-    if (!(script::fetch_float(kSlopeTurnSpeed) > speed))
+    if (!(script::fetch_float(kSlopeTurnSpeed) > speed)) {
         return false;
+    }
     return script::fetch_float(kSlopeTurnNormal) > floor_normal_.y;
 }
 
@@ -113,12 +119,15 @@ bool SkaterPhysicsModule::may_turn_on_slope()
 bool SkaterPhysicsModule::can_push_off()
 {
     const objects::PadInputModule* input = input_;
-    if (no_kick_)
+    if (no_kick_) {
         return false;
-    if (!auto_kick_ && !input->pad_primary().button_box().held_down())
+    }
+    if (!auto_kick_ && !input->pad_primary().button_box().held_down()) {
         return false;
-    if (input->pad_primary().btn_down().held_down())
+    }
+    if (input->pad_primary().btn_down().held_down()) {
         return false;
+    }
     auto speed = static_cast<float>(speed_of(entity()->vel()));
     const bool crouched = state_->flag(PoseFlag::kCrouched).on != 0 || crouch_stats_;
     auto limit = static_cast<float>(stat_value(object_of(this), crouched ? kPushSpeedCrouched : kKickoffSpeed));
@@ -135,10 +144,11 @@ void SkaterPhysicsModule::push_off()
         const maths::Vec4& v = direction;
         const double speed = std::sqrt(((static_cast<double>(v.z) * v.z) + (static_cast<double>(v.y) * v.y)) +
                                        (static_cast<double>(v.x) * v.x));
-        if (speed < kLockedSlow)
+        if (speed < kLockedSlow) {
             direction = core::at(object->basis_frame().row, 2);
-        else
+        } else {
             direction.make_unit();
+        }
     } else {
         direction = core::at(object->basis_frame().row, 2);
     }
@@ -212,8 +222,9 @@ void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
         end.z = static_cast<float>(static_cast<float>(normal.z * static_cast<double>(kNormalFeeler)) + position.z);
         end.w = static_cast<float>((normal.w * static_cast<double>(kNormalFeeler)) + position.w);
         render::ProbeRay feeler(&position, &end);
-        if (feeler.get_hit_shape(true, false))
+        if (feeler.get_hit_shape(true, false)) {
             normal = maths::Vec4(0.0F, 1.0F, 0.0F, 1.0F);
+        }
     }
     if (floor_normal_ != normal) {
         floor_normal_ = normal;

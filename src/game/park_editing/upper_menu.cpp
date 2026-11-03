@@ -32,8 +32,9 @@ TopBarMenus* TopBarMenus::singleton() { return sole(); }
 
 void TopBarMenus::fabricate()
 {
-    if (TopBarMenus::sole())
+    if (TopBarMenus::sole()) {
         return;
+    }
     memory::enter_heap_scope(memory::bottom_up_heap());
     auto* menu = static_cast<TopBarMenus*>(memory::alloc(sizeof(TopBarMenus)));
     if (menu) {
@@ -52,8 +53,9 @@ void TopBarMenus::turn_on()
     run_menu_script(kParkedMakeSetMenu); // parked_make_set_menu
     for (int i = 0; i < park_owner_->num_sets(); ++i) {
         const PieceFamily& set = core::at(park_owner_->sets(), i);
-        if (!set.is_displayed_)
+        if (!set.is_displayed_) {
             continue;
+        }
         script::Struct params;
         params.append_word(kSetName, set.label_); // set_name
         run_menu_script(kParkedMakeSetMenuItem, &params);       // parked_make_set_menu_item

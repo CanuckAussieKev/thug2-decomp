@@ -303,11 +303,13 @@ void FootMovement::update_anim_speed()
     };
     switch (anim_speed_scaling_) {
     case 1: { // running
-        if (!(standard_speed_ > 0.0F))
+        if (!(standard_speed_ > 0.0F)) {
             return;
+        }
         set_speed(speed_ / standard_speed_, 0);
-        if (!physics_control_->board_missing())
+        if (!physics_control_->board_missing()) {
             return;
+        }
         tell(speed_ / standard_speed_);
         return;
     }
@@ -339,8 +341,9 @@ void FootMovement::update_ride()
 {
     objects::MovingSurfaceModule* ride = ride_;
     auto* tracker = ride->ride().get();
-    if (!tracker)
+    if (!tracker) {
         return;
+    }
     maths::Vec4& position = pos_;
     if (!tracker->entity().get_pull() || !tracker->tick_frame(&position)) {
         static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
@@ -351,8 +354,9 @@ void FootMovement::update_ride()
     position.y = append_one(tracker->carried().y, position.y);
     position.z = append_one(tracker->carried().z, position.z);
     position.w = append_one(tracker->carried().w, position.w);
-    if (!ride->ride()->turned())
+    if (!ride->ride()->turned()) {
         return;
+    }
     maths::Vec4& facing = facing_;
     maths::Vec4 turned{};
     facing = ride->ride()->turn().rotate_vector(turned, facing);
@@ -392,15 +396,17 @@ void FootMovement::leave_ride(maths::Vec4* velocity, float* vertical)
         velocity->z = append_one(carried.z, velocity->z);
         velocity->w = append_one(carried.w, velocity->w);
     } else {
-        if (tracker)
+        if (tracker) {
             static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
+        }
         carried = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     }
     // The ride let go.
     ride = ride_;
     tracker = ride->ride().get();
-    if (!tracker)
+    if (!tracker) {
         return;
+    }
     ride->set_last_object(tracker->entity().get_pull());
     tracker->entity().get_release();
     memory::Hub::dealloc(tracker);
@@ -450,8 +456,9 @@ void FootMovement::go_to_air_for(void* /*unused*/) { go_to_air(); }
 // 0x0052D4B0
 void FootMovement::tick_frame()
 {
-    if (jump_held_ && !input_->pad_primary().stick_click_left().held_down())
+    if (jump_held_ && !input_->pad_primary().stick_click_left().held_down()) {
         jump_held_ = false;
+    }
     const uint32_t previous_anim = anim_state_;
     previous_anim_state_ = previous_anim;
     anim_state_ = 0;
@@ -483,8 +490,9 @@ void FootMovement::tick_frame()
     default:
         break;
     }
-    if (halted(this))
+    if (halted(this)) {
         return;
+    }
 
     // The step smoothing's height eases down unless held this frame.
     if (!curb_float_) {
@@ -496,13 +504,15 @@ void FootMovement::tick_frame()
 
     if (state_ == 0 && static_cast<uint32_t>(get_now() - state_time_) > kStateTimeoutMs) {
         skater::try_acid_drop(this); // (an acid drop)
-        if (halted(this))
+        if (halted(this)) {
             return;
+        }
     }
     ease_critical_point_offset();
     restore_display_offset();
-    if (state_ == 0 || state_ == 1)
+    if (state_ == 0 || state_ == 1) {
         update_ground_below();
+    }
     update_upright();
     copy_to_object();
     update_rotate_upright();
@@ -514,8 +524,9 @@ void FootMovement::tick_frame()
     int& countdown = unknown710_;
     if (countdown > 0) {
         --countdown;
-        if (countdown == 0)
+        if (countdown == 0) {
             locked_to_heading_ = false;
+        }
     }
 }
 
@@ -528,13 +539,15 @@ void FootMovement::update_ground()
     update_ground_velocity(&velocity);
     if (anim_state_ == kSkid) {
         const float pegged = walk_parameter(kPeggedDurationForSkid);
-        if (skid_time_ < pegged)
+        if (skid_time_ < pegged) {
             anim_state_ = kStand;
+        }
     }
-    if (update_contacts())
+    if (update_contacts()) {
         turn_facing_to_velocity();
-    else
+    } else {
         blocked_ = false;
+    }
     jump_unsteered_ = false;
     if (state_ != 0 || halted(this)) {
         clear_current_cache();
@@ -565,8 +578,9 @@ void FootMovement::update_ground()
             const double length_sqr = (static_cast<double>(velocity.x) * velocity.x) +
                                       (static_cast<double>(velocity.y) * velocity.y) +
                                       (static_cast<double>(velocity.z) * velocity.z);
-            if (length_sqr > 100.0)
+            if (length_sqr > 100.0) {
                 facing_ = velocity / static_cast<float>(std::sqrt(length_sqr));
+            }
         }
         static_cast<skater::SkaterPhysicsModule*>(core_physics_)->update_projectiles();
     }
@@ -580,10 +594,12 @@ void FootMovement::update_air()
     refresh_hit_cache();
     anim_state_ = kAir;
     steer_jump();
-    if (!update_contacts())
+    if (!update_contacts()) {
         blocked_ = false;
-    if (halted(this))
+    }
+    if (halted(this)) {
         return;
+    }
     update_push();
     check_ceiling();
     const double gravity = static_cast<float>(get_gravity());
@@ -593,21 +609,25 @@ void FootMovement::update_air()
     const double frame = frame_length_;
     maths::Vec4& position = pos_;
     const maths::Vec4& velocity = vel_;
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         position[i] = static_cast<float>((frame * velocity[i]) + position[i]);
+    }
     maths::Vec4& extra = jump_velocity_;
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         position[i] = static_cast<float>((frame * extra[i]) + position[i]);
+    }
     float& vertical = up_speed_;
     position.y = static_cast<float>(((vertical * frame) - (frame * frame * gravity * kHalf)) + position.y);
     vertical = static_cast<float>(vertical - (gravity * frame));
-    if (position.y > jump_target_height_)
+    if (position.y > jump_target_height_) {
         extra = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+    }
     static_cast<skater::SkaterPhysicsModule*>(core_physics_)->update_projectiles();
     const maths::Vec4& old_position = old_pos_;
     collide_air_move(&old_position, &position);
-    if (state_ != 1 || halted(this))
+    if (state_ != 1 || halted(this)) {
         return;
+    }
 
     // Grabbing a ledge or a ladder (not again within rehang_delay of letting go of one).
     if (pad->shoulder_right_a().held_down() && !jump_held_) {
@@ -624,14 +644,17 @@ void FootMovement::update_air()
         }
     }
     clear_current_cache();
-    if (pad->button_wedge().held_down() && try_grind())
+    if (pad->button_wedge().held_down() && try_grind()) {
         return;
-    if (skater::try_walk_acid_drop(this)) // (an acid drop)
+    }
+    if (skater::try_walk_acid_drop(this)) { // (an acid drop)
         return;
+    }
     check_sticker_slap();
     try_wallplant();
-    if (halted(this))
+    if (halted(this)) {
         return;
+    }
 
     // Inside a moving object: put back where it was, standing on it (a feeler 30 up and down through the object
     // finds it), stopped.
@@ -639,8 +662,9 @@ void FootMovement::update_air()
     const maths::Vec4& offset = critical_point_offset_;
     maths::Vec4 to = position + offset;
     maths::Vec4 from = old_position + offset;
-    if (!moving_object_around(ride_, &to, &from))
+    if (!moving_object_around(ride_, &to, &from)) {
         return;
+    }
     position = to - offset;
     report_inside(kReportInsideMovingAir, "WALKING_AIR, within moving object");
     render::ProbeRay storage;
@@ -650,8 +674,9 @@ void FootMovement::update_air()
     feeler->change_origin(&top);
     const maths::Vec4 bottom = entity()->at_point() - up;
     feeler->change_finish(&bottom);
-    if (feeler->get_hit_shape(true, false) && feeler->hit_object_alive())
+    if (feeler->get_hit_shape(true, false) && feeler->hit_object_alive()) {
         ride_->ride_on(feeler->get_hit_object());
+    }
     vel_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     vertical = 0.0F;
     collide_air_move(&position, &start);
@@ -741,10 +766,11 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         rest.flatten_onto_plane(feeler->surface_dir());
         feeler->line().start = position;
         feeler->line().end = rest + position;
-        if (feeler->get_hit_shape(true, false))
+        if (feeler->get_hit_shape(true, false)) {
             put_off(&position, feeler, kSlideGap);
-        else
+        } else {
             position = feeler->line().end;
+        }
         release_hit(feeler);
         return;
     }
@@ -788,8 +814,9 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
                 stop = get_param(kStickyLandThresholdSpeed) > speed;
             }
         }
-        if (stop)
+        if (stop) {
             velocity = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+        }
         critical_point_offset_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         input_->pad_primary().pos_x().forget_let_go(); // (a button's release taken)
         anim_state_ = kLand;
@@ -813,8 +840,9 @@ void FootMovement::settle_onto_floor()
         // the step smoothing's height.
         const float step = feeler->contact_pos().y - position.y;
         const float unnoticed = walk_parameter(kMaxUnnoticedGroundSnap);
-        if (std::fabs(step) > unnoticed)
+        if (std::fabs(step) > unnoticed) {
             entity()->post_own_event(step > 0.0F ? kSteppedUp : kSteppedDown, nullptr);
+        }
         position.y = feeler->contact_pos().y;
         if (step > 0.0F || step < kBigStepDown) {
             const double offset = static_cast<double>(curb_offset_) - step;
@@ -846,8 +874,9 @@ void FootMovement::settle_onto_floor()
     }
 
     // No ground (or only a wall): off the wall, then off the edge - unless a hang, a drop or a ladder takes over.
-    if (feeler->get_hit_shape(true, false))
+    if (feeler->get_hit_shape(true, false)) {
         put_off(&position, feeler, kWallGap);
+    }
     if (feeler_hit_) {
         static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c630, &feeler_);
         if (halted(this)) {
@@ -857,8 +886,9 @@ void FootMovement::settle_onto_floor()
     }
     if (input_->pad_primary().button_wedge().held_down()) {
         maths::Vec4& old_position = old_pos_;
-        if (position == old_position)
+        if (position == old_position) {
             old_position.y += kNudge; // (so the two differ)
+        }
         if (try_grind()) {
             release_hit(feeler);
             return;
@@ -902,8 +932,9 @@ void FootMovement::get_begin(bool on_ground)
             velocity.z += z;
             velocity.w += w;
         }
-        if (!core_physics_->state()->flag(PoseFlag::kVertAir).on)
+        if (!core_physics_->state()->flag(PoseFlag::kVertAir).on) {
             jump_unsteered_ = true;
+        }
         // The heading: the velocity flattened, else the forward axis flattened, else the up axis reversed and
         // flattened; made unit length.
         maths::Vec4& heading = leap_heading_;
@@ -975,8 +1006,9 @@ void FootMovement::get_jump()
     if (state_ == 0 && feeler_hit_) {
         static_cast<ActivationZoneModule*>(trigger_)->probe_touches_zone(kWalkEvents0064c63c,
                                                                          &feeler_); // (the ground's jump triggers)
-        if (halted(this))
+        if (halted(this)) {
             return;
+        }
     }
     entity()->vel().y = walk_parameter(kJumpVelocity) * factor;
 
@@ -1004,8 +1036,9 @@ void FootMovement::get_jump()
                 const double length = std::sqrt(
                     ((static_cast<double>(velocity.x) * velocity.x) + (static_cast<double>(velocity.y) * velocity.y)) +
                     (static_cast<double>(velocity.z) * velocity.z));
-                if (length < speed)
+                if (length < speed) {
                     velocity.set_length(speed);
+                }
             } else {
                 velocity = speed * direction;
             }
@@ -1057,8 +1090,9 @@ void FootMovement::get_jump()
 // 0x0052BC70
 bool FootMovement::try_barrier_jump()
 {
-    if (core_physics_->state()->flag(PoseFlag::kBailing).on)
+    if (core_physics_->state()->flag(PoseFlag::kBailing).on) {
         return false;
+    }
     static const std::array<int, 3> kAhead = {{0, 1, 6}}; // the contacts ahead: straight on and either side of it
 
     const float highest = walk_parameter(kBarrierJumpHighestBarrier);
@@ -1086,8 +1120,9 @@ bool FootMovement::try_barrier_jump()
     bool clear = false;
     for (const int index : kAhead) {
         auto& contact = contact_at(this, index);
-        if (!contact.hit || (core::any(contact.feeler.hit().face_flags_ & render::FaceFlag::kNotSkatable)))
+        if (!contact.hit || (core::any(contact.feeler.hit().face_flags_ & render::FaceFlag::kNotSkatable))) {
             continue;
+        }
         const double limit = std::cos(walk_parameter(kBarrierJumpMaxAngle) * kDegrees);
         const maths::Vec4& control = stick_heading_;
         const double facing_it = ((static_cast<double>(control.z) * contact.normal.z) +
@@ -1108,8 +1143,9 @@ bool FootMovement::try_barrier_jump()
         end.z = static_cast<float>(static_cast<double>(reach) * direction.z) + start.z;
         end.w = static_cast<float>((static_cast<double>(reach) * direction.w) + start.w);
         contact.clear = !feeler->get_hit_shape(true, false);
-        if (contact.clear)
+        if (contact.clear) {
             clear = true;
+        }
     }
     if (!clear) {
         release_hit(feeler);
@@ -1121,8 +1157,9 @@ bool FootMovement::try_barrier_jump()
     float top = highest + position.y;
     for (const int index : kAhead) {
         const auto& contact = contact_at(this, index);
-        if (!contact.hit || !contact.clear)
+        if (!contact.hit || !contact.clear) {
             continue;
+        }
         maths::Vec4& start = feeler->line().start;
         start = position;
         start.y = position.y + highest;
@@ -1222,8 +1259,9 @@ bool FootMovement::update_contacts()
         }
         auto& contact = contact_at(this, i);
         contact.hit = feeler->get_hit_shape(true, false);
-        if (!contact.hit)
+        if (!contact.hit) {
             continue;
+        }
         if (i == kFloorContact && feeler->surface_dir().y > kFloorBelow) { // (a floor below: not a contact)
             contact.hit = false;
             continue;
@@ -1248,10 +1286,11 @@ bool FootMovement::update_contacts()
             objects::MovingSurfaceModule* ride = ride_;
             bool ridden = false;
             if (auto* tracker = ride->ride().get()) {
-                if (!tracker->entity().get_pull())
+                if (!tracker->entity().get_pull()) {
                     static_cast<MovingSurfaceModule*>(ride)->stop_riding(); // (what it stood on is gone)
-                else
+                } else {
                     ridden = tracker->entity().get_pull() == feeler->get_hit_object();
+                }
             }
             if (!ridden) {
                 const maths::Vec4& moving = feeler->get_hit_object()->vel();
@@ -1316,8 +1355,9 @@ bool FootMovement::update_contacts()
     // Pushed out of what is close: within push_feeler_length (as a part of feeler_length) of a contact.
     for (int i = 0; i < objects::kWalkContactCount; ++i) {
         const auto& contact = contact_at(this, i);
-        if (!contact.hit)
+        if (!contact.hit) {
             continue;
+        }
         const float distance = contact.feeler.reach();
         if (walk_parameter(kPushFeelerLength) / static_cast<double>(reach) > distance) {
             const double push = static_cast<double>(walk_parameter(kPushStrength)) * frame_length_;
@@ -1332,15 +1372,17 @@ bool FootMovement::update_contacts()
     bool pressing = false;
     for (int i = 0; i < objects::kWalkContactCount; ++i) {
         auto& contact = contact_at(this, i);
-        if (!contact.hit)
+        if (!contact.hit) {
             continue;
+        }
         const double into = ((static_cast<double>(velocity.z) * contact.normal.z) +
                              (static_cast<double>(contact.normal.x) * velocity.x)) +
                             (static_cast<double>(velocity.y) * contact.normal.y);
-        if (into >= contact.object_speed_)
+        if (into >= contact.object_speed_) {
             contact.hit = false;
-        else
+        } else {
             pressing = true;
+        }
     }
     if (!pressing) {
         release_hit(feeler);
@@ -1350,12 +1392,14 @@ bool FootMovement::update_contacts()
     // In a corner (two of them facing apart): stopped.
     for (int a = 0; a < objects::kWalkContactCount; ++a) {
         const auto& first = contact_at(this, a);
-        if (!first.hit)
+        if (!first.hit) {
             continue;
+        }
         for (int b = a + 1; b < objects::kWalkContactCount; ++b) {
             const auto& second = contact_at(this, b);
-            if (!second.hit)
+            if (!second.hit) {
                 continue;
+            }
             const double apart = ((static_cast<double>(first.normal.z) * second.normal.z) +
                                   (static_cast<double>(first.normal.y) * second.normal.y)) +
                                  (static_cast<double>(second.normal.x) * first.normal.x);
@@ -1376,13 +1420,15 @@ bool FootMovement::update_contacts()
     double w = velocity.w;
     for (const int i : kOrder) {
         const auto& contact = contact_at(this, i);
-        if (!contact.hit)
+        if (!contact.hit) {
             continue;
+        }
         const maths::Vec4& normal = contact.normal;
         const double into =
             ((static_cast<double>(z) * normal.z) + (static_cast<double>(y) * normal.y)) + (x * normal.x);
-        if (into >= contact.object_speed_)
+        if (into >= contact.object_speed_) {
             continue;
+        }
         const double excess = into - contact.object_speed_;
         auto off_w = static_cast<float>(excess * normal.w);
         auto off_z = static_cast<float>(excess * normal.z);

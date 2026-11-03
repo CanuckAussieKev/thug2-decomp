@@ -147,8 +147,9 @@ bool cfunc_set_goal(script::Struct* params, script::Script* /*script*/)
 {
     int goal = 0;
     params->fetch_int_value("goal", &goal, 1);
-    if (game_mode_is_true(kIsCareer))
+    if (game_mode_is_true(kIsCareer)) {
         get_career()->set_goal(goal, -1);
+    }
     return true;
 }
 
@@ -206,8 +207,9 @@ bool cfunc_get_flag(script::Struct* params, script::Script* /*script*/)
     int level = 0;
     params->fetch_int_value(kLevel, &level, 0);
     objects::RiderStoryProgress* career = get_career();
-    if (level)
+    if (level) {
         return career->fetch_marker(flag, level);
+    }
     return career->fetch_marker(flag, -1);
 }
 
@@ -251,14 +253,17 @@ bool cfunc_profile_equals(script::Struct* params, script::Script* script)
 {
     if (script) {
         objects::Entity* object = script->entity().get_pull();
-        if (object && object->kind_tag() == kSkaterType)
+        if (object && object->kind_tag() == kSkaterType) {
             return core::down_cast<objects::Rider>(object)->matches_params(params);
+        }
     }
-    if (!is_multiplayer())
+    if (!is_multiplayer()) {
         return false;
+    }
     auto* skater = core::down_cast<objects::Rider>(get_rider_at(0));
-    if (!skater)
+    if (!skater) {
         return false;
+    }
     return skater->matches_params(params);
 }
 

@@ -79,8 +79,9 @@ void copy_initials(char* to, const char* from)
 char* new_initials()
 {
     auto* text = static_cast<char*>(memory::alloc_zeroed(4));
-    if (text)
+    if (text) {
         std::fill_n(text, 4, static_cast<char>(0));
+    }
     return text;
 }
 
@@ -98,8 +99,9 @@ gsl::owner<script::Struct*> record_structure(const BestEntry* record)
 BestEntry* new_longest_record()
 {
     auto* record = static_cast<BestEntry*>(memory::alloc_zeroed(sizeof(BestEntry)));
-    if (record)
+    if (record) {
         new (record) BestEntry;
+    }
     Expects(record != nullptr);
     record->set_val(0);
     return record;
@@ -122,8 +124,9 @@ void delete_record(BestEntry* record)
 
 void delete_table(BestEntryList* table)
 {
-    if (table)
+    if (table) {
         table->erase_one();
+    }
 }
 
 } // namespace
@@ -152,8 +155,9 @@ void BestEntry::set_player_tag(const char* initials) { copy_initials(tag_, initi
 void BestEntry::decode_from_struct(script::Struct* params)
 {
     params->fetch_int_value(kValue, &val_, 0);
-    if (!params->fetch_int_value(kNumber, &slot_no_, 0))
+    if (!params->fetch_int_value(kNumber, &slot_no_, 0)) {
         slot_no_ = 0;
+    }
     const char* initials = "XXX";
     params->fetch_text(kInitials, &initials, 0);
     set_player_tag(initials);
@@ -169,16 +173,18 @@ BestEntryList::BestEntryList(int count) : num_(count)
         return;
     }
     records_ = records;
-    for (BestEntry& entry : this->records())
+    for (BestEntry& entry : this->records()) {
         new (&entry) BestEntry;
+    }
 }
 
 void BestEntryList::erase_one()
 {
     if (BestEntry* records = records_) {
         const std::span<BestEntry> entries = this->records();
-        for (size_t i = entries.size(); i-- > 0;) // (as delete[]: the last first)
+        for (size_t i = entries.size(); i-- > 0;) { // (as delete[]: the last first)
             memory::dealloc(core::at(entries, i).tag());
+        }
         memory::Hub::dealloc(records);
     }
     memory::Hub::dealloc(this);
@@ -189,16 +195,19 @@ int BestEntryList::try_insert_entry(BestEntry::RecordTry record_try) const
 {
     const auto value = record_try.value;
     const auto number = record_try.number;
-    for (int i = 0; i < num_; ++i)
+    for (int i = 0; i < num_; ++i) {
         core::at(records(), i).set_is_fresh(false);
+    }
     const int count = num_;
     int index = 0;
     for (; index < count; ++index) {
-        if (value > core::at(records(), index).val())
+        if (value > core::at(records(), index).val()) {
             break;
+        }
     }
-    if (index >= count)
+    if (index >= count) {
         return -1;
+    }
     // The ones after it moved down (the last dropped).
     for (int i = count - 1; i > index; --i) {
         copy_initials(core::at(records(), i).tag(), core::at(records(), i - 1).tag());
@@ -216,8 +225,9 @@ int BestEntryList::try_insert_entry(BestEntry::RecordTry record_try) const
 void BestEntryList::update_initials(const char* initials) const
 {
     for (int i = 0; i < num_; ++i) {
-        if (core::at(records(), i).is_fresh())
+        if (core::at(records(), i).is_fresh()) {
             core::at(records(), i).set_player_tag(initials);
+        }
     }
 }
 
@@ -226,10 +236,12 @@ void BestEntryList::decode_from_struct(script::Struct* params) const
 {
     script::Array* array = nullptr;
     params->fetch_list("RecordTable", &array, 0);
-    if (num_ != ints::as_signed(array->extent()))
+    if (num_ != ints::as_signed(array->extent())) {
         return;
-    for (int i = 0; i < num_; ++i)
+    }
+    for (int i = 0; i < num_; ++i) {
         core::at(records(), i).decode_from_struct(array->struct_at(i));
+    }
 }
 
 // 0x0057F4E0
@@ -277,8 +289,9 @@ void StageBests::destroy_body()
 void StageBests::update_initials(const char* initials)
 {
     for (BestEntry* record : {longest_manual_, longest_lip_trick_, grind_record_, biggest_chain_}) {
-        if (record->is_fresh())
+        if (record->is_fresh()) {
             record->set_player_tag(initials);
+        }
     }
     best_combos_->update_initials(initials);
     high_scores_->update_initials(initials);
@@ -293,8 +306,9 @@ void StageBests::decode_from_struct(script::Struct* params)
     high_scores_->decode_from_struct(structure);
     params->read_sub_struct(kBestCombos, &structure, 0);
     best_combos_->decode_from_struct(structure);
-    if (params->read_sub_struct(kArcadeScores, &structure, 0))
+    if (params->read_sub_struct(kArcadeScores, &structure, 0)) {
         arcade_scores_->decode_from_struct(structure);
+    }
     params->read_sub_struct(kLongestCombo, &structure, 0);
     biggest_chain_->decode_from_struct(structure);
     params->read_sub_struct(kBestGrindKey, &structure, 0);
@@ -346,8 +360,9 @@ void BestResults::init_levels(int count)
         return;
     }
     levels_ = levels;
-    for (StageBests& stage : this->levels())
+    for (StageBests& stage : this->levels()) {
         new (&stage) StageBests;
+    }
 }
 
 // 0x0057F440
@@ -355,10 +370,12 @@ void BestResults::decode_from_struct(script::Struct* params)
 {
     script::Array* array = nullptr;
     params->fetch_list("GameRecords", &array, 0);
-    if (level_count_ != ints::as_signed(array->extent()))
+    if (level_count_ != ints::as_signed(array->extent())) {
         return;
-    for (int i = 0; i < level_count_; ++i)
+    }
+    for (int i = 0; i < level_count_; ++i) {
         core::at(levels(), i).decode_from_struct(array->struct_at(i));
+    }
     const char* initials = "ABC";
     params->fetch_text("DefaultInitials", &initials, 0);
     copy_initials(default_initials_, initials);
@@ -401,8 +418,9 @@ void BestResults::get_release()
     if (BestResults* records = stored_game_records().release()) { // (no destructor: its blocks given back)
         if (StageBests* levels = records->levels_) {
             const std::span<StageBests> stages = records->levels();
-            for (size_t i = stages.size(); i-- > 0;) // (as delete[]: the last first)
+            for (size_t i = stages.size(); i-- > 0;) { // (as delete[]: the last first)
                 core::at(stages, i).destroy_body();
+            }
             memory::Hub::dealloc(levels);
         }
         memory::Hub::dealloc(records->default_initials_);
@@ -415,8 +433,9 @@ bool update_records(bool edited_copy)
 {
     modules::Skate* skate = modules::Skate::sole();
     if (edited_copy) {
-        if (skate)
+        if (skate) {
             skate->set_new_record(false); // (no record new: as 0x00566F40 sets it before comparing)
+        }
         get_log("records: not updated - the level is the level editor's edited copy (nothing done in it reaches the "
                 "records or the save)");
         return true;
@@ -435,8 +454,9 @@ bool cfunc_update_records(script::Struct* /*params*/, script::Script* /*script*/
 bool cfunc_update_arcade_scores(script::Struct* params, script::Script* /*script*/)
 {
     int level = 0; // (uninitialised in the original; always set below)
-    if (!params->fetch_int_value("level", &level, 0))
+    if (!params->fetch_int_value("level", &level, 0)) {
         level = skate_calls::get_career()->fetch_stage();
+    }
     stored_game_records()->get_level_records(level)->arcade_scores()->decode_from_struct(params);
     return true;
 }

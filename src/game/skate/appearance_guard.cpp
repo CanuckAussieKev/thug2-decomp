@@ -34,8 +34,9 @@ Catalog& current_catalog()
 script::Array* part_list(uint32_t slot)
 {
     script::Array* list = current_catalog().part_list_(slot);
-    if (!list || list->extent() == 0 || list->kind_tag() != script::QbValueKind::kStruct)
+    if (!list || list->extent() == 0 || list->kind_tag() != script::QbValueKind::kStruct) {
         return nullptr;
+    }
     return list;
 }
 
@@ -44,8 +45,9 @@ bool list_has(script::Array* list, uint32_t desc)
     for (uint32_t i = 0; i < list->extent(); ++i) {
         auto* part = list->struct_at(i);
         uint32_t id = 0;
-        if (part && part->read_hash_value(kDescId, &id, 0) && id == desc)
+        if (part && part->read_hash_value(kDescId, &id, 0) && id == desc) {
             return true;
+        }
     }
     return false;
 }
@@ -53,19 +55,22 @@ bool list_has(script::Array* list, uint32_t desc)
 // What a slot falls back to (0: nothing fits).
 uint32_t get_fallback(uint32_t slot, script::Array* list)
 {
-    if (list_has(list, kNone))
+    if (list_has(list, kNone)) {
         return kNone;
+    }
     if (script::Struct* defaults = current_catalog().defaults()) {
         script::Struct* part = nullptr;
         uint32_t desc = 0;
         if (defaults->read_sub_struct(slot, &part, 0) && part && part->read_hash_value(kDescId, &desc, 0) &&
-            list_has(list, desc))
+            list_has(list, desc)) {
             return desc;
+        }
     }
     auto* first = list->struct_at(0);
     uint32_t desc = 0;
-    if (first && first->read_hash_value(kDescId, &desc, 0))
+    if (first && first->read_hash_value(kDescId, &desc, 0)) {
         return desc;
+    }
     return 0;
 }
 
@@ -76,8 +81,9 @@ void set_catalog(const Catalog& catalog) { current_catalog() = catalog; }
 
 int sanitise(script::Struct* appearance)
 {
-    if (!appearance)
+    if (!appearance) {
         return 0;
+    }
     std::vector<uint32_t> remove;
     struct Change {
         script::Struct* part;
@@ -86,19 +92,22 @@ int sanitise(script::Struct* appearance)
     std::vector<Change> changes;
     bool reset_body = false;
     for (script::Component* c = appearance->step_to_entry(nullptr); c; c = appearance->step_to_entry(c)) {
-        if (!is_structure(c) || !c->value.structure())
+        if (!is_structure(c) || !c->value.structure()) {
             continue;
+        }
         uint32_t desc = 0;
-        if (!c->value.structure()->read_hash_value(kDescId, &desc, 0))
+        if (!c->value.structure()->read_hash_value(kDescId, &desc, 0)) {
             continue; // (not a part)
+        }
         script::Array* list = part_list(c->name);
         if (!list) {
             get_log("appearance guard (TP-R9): slot 0x%08X isn't one of ours (part 0x%08X): taken out", c->name, desc);
             remove.push_back(c->name);
             continue;
         }
-        if (list_has(list, desc))
+        if (list_has(list, desc)) {
             continue;
+        }
         if (c->name == kBody) {
             get_log("appearance guard (TP-R9): body 0x%08X isn't one of ours: the default custom skater instead", desc);
             reset_body = true;
@@ -124,8 +133,9 @@ int sanitise(script::Struct* appearance)
                 change.from, change.to);
         change.part->put_name_key(checksums::Name{kDescId}, change.to);
     }
-    for (const uint32_t slot : remove)
+    for (const uint32_t slot : remove) {
         appearance->erase_module(slot);
+    }
     return static_cast<int>(changes.size() + remove.size());
 }
 

@@ -42,8 +42,9 @@ uint32_t skater_count(modules::Skate* skate)
 {
     const memory::ListNode* node = skate->riders().list_link().next();
     uint32_t count = 0;
-    if (node->is_head() || !node) // (read before the null check, as in the original)
+    if (node->is_head() || !node) { // (read before the null check, as in the original)
         return 0;
+    }
     for (bool again = true; again; again = !node->is_head() && node) {
         node = node->next();
         ++count;
@@ -80,13 +81,15 @@ bool WinRule::is_highest_score(uint32_t player)
 {
     modules::Skate* skate = modules::Skate::sole();
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
-        if (i == player)
+        if (i == player) {
             continue;
+        }
         auto* mine = get_rider_at(skate, player)->get_points_total();
         auto* theirs = get_rider_at(skate, i)->get_points_total();
         const int their_score = total_score(theirs);
-        if (total_score(mine) < their_score)
+        if (total_score(mine) < their_score) {
             return false;
+        }
     }
     return true;
 }
@@ -104,14 +107,16 @@ bool ScoreReachedVictoryCondition::rule_satisfied()
             core::at(totals, team) += total_score(score);
         }
         for (const int total : totals) {
-            if (total >= points_held_)
+            if (total >= points_held_) {
                 return true;
+            }
         }
         return false;
     }
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
-        if (total_score(get_rider_at(skate, i)->get_points_total()) >= points_held_)
+        if (total_score(get_rider_at(skate, i)->get_points_total()) >= points_held_) {
             return true;
+        }
     }
     return false;
 }
@@ -139,30 +144,35 @@ bool CompleteGoalsVictoryCondition::all_goals_complete()
     if (is_squad_match()) {
         const int needed = goals->count_picked_objectives();
         for (int team = 0; team < current_num_teams(); ++team) {
-            if (net->get_squad_points(team) >= needed)
+            if (net->get_squad_points(team) >= needed) {
                 return true;
+            }
         }
         return false;
     }
     const auto count = static_cast<uint32_t>(goals->goals().num()); // (the goals there are - 0x00469490, a folded getter)
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
         auto* skater = get_rider_at(skate, i);
-        if (count == 0)
+        if (count == 0) {
             return true;
+        }
         bool missing = false;
         for (uint32_t g = 0; g < count; ++g) {
             Objective* goal = goals->get_objective_at(static_cast<int>(g));
             // A goal that doesn't count (a parent: its first parent link's id set, or 0x005542F0 false) or that the
             // skater has won (its stage flag by the skater's id: the original's vtable +0x50).
-            if (goal->parents()->objective_key_ != 0 || !goal->is_picked())
+            if (goal->parents()->objective_key_ != 0 || !goal->is_picked()) {
                 continue;
-            if (goal->stage_flag_set(static_cast<int>(skater->ident())))
+            }
+            if (goal->stage_flag_set(static_cast<int>(skater->ident()))) {
                 continue;
+            }
             missing = true;
             break;
         }
-        if (!missing)
+        if (!missing) {
             return true;
+        }
     }
     return false;
 }
@@ -173,8 +183,9 @@ bool SoleSurvivorWin::rule_satisfied()
     PlayerRecord* player = find_own_player_record();
     if (player) {
         objects::Rider* skater = player->rider();
-        if (skater && total_score(skater->get_points_total()) <= 0)
+        if (skater && total_score(skater->get_points_total()) <= 0) {
             return true;
+        }
     }
     return false;
 }
@@ -198,8 +209,9 @@ bool EliminationVictoryCondition::has_won_match(uint32_t player)
 {
     online::Hub* net = online::online_hub();
     const objects::Rider* skater = get_rider_at(modules::Skate::sole(), player);
-    if (!skater)
+    if (!skater) {
         return false;
+    }
     PlayerRecord* info = net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident())); // the skater's player
     return !is_eliminated(info);
 }
@@ -209,13 +221,16 @@ bool CollectAllObjectsVictoryCondition::rule_satisfied()
 {
     int total = 0;
     PlayerSearch search;
-    for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search))
-        total += player->num_placed();
-    if (!total)
-        return false;
     for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
-        if (total_score(player->rider()->get_points_total()) == total)
+        total += player->num_placed();
+    }
+    if (!total) {
+        return false;
+    }
+    for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
+        if (total_score(player->rider()->get_points_total()) == total) {
             return true;
+        }
     }
     return false;
 }

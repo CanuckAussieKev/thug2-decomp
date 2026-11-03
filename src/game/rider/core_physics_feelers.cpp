@@ -111,10 +111,12 @@ bool SkaterPhysicsModule::probe_touches_zone(render::FaceFlag ignore, render::Fa
     feeler->change_strand(&probe_start_, &probe_end_);
     feeler->set_excluded({.ignore = ignore, .require = require});
     auto hit = static_cast<uint8_t>(feeler->get_hit_shape(true, false));
-    if (!hit)
+    if (!hit) {
         return false;
-    if (feeler_.hit().object_checksum_ && feeler_.hit().face_flag40_)
+    }
+    if (feeler_.hit().object_checksum_ && feeler_.hit().face_flag40_) {
         feeler_.hit().unknown38 = 0;
+    }
     const render::FaceFlag flags = feeler_.hit().face_flags_;
     const float normal_y = feeler_.surface_dir().y;
     hit_wall_ = 0;
@@ -148,9 +150,10 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
     const RailNode* last = rail_node_;
     auto same_rail = [&] { return last == node || last == node->last_value() || last == node->succ(); };
     // In the air after a grind: not the same rail (or its neighbours) again.
-    if (flags->cur_phase() == 1 && flags->flag(PoseFlag::kFromAcidDrop).on && flags->flag(PoseFlag::kJumpedOffRail).on &&
-        same_rail())
+    if (flags->cur_phase() == 1 && flags->flag(PoseFlag::kFromAcidDrop).on &&
+        flags->flag(PoseFlag::kJumpedOffRail).on && same_rail()) {
         return false;
+    }
 
     bool new_rail = false;
     if (!last) {
@@ -179,21 +182,26 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*
                        std::fabs(length_unrounded(d4)) > kRailEndDistance;
         }
     }
-    if (new_rail)
+    if (new_rail) {
         set_timed_flag(this, PoseFlag::kLipToAir, 1);
+    }
 
     // The same rail: only after the wait since leaving it.
     if (!state_->flag(PoseFlag::kLipToAir).on &&
-        get_since(static_cast<uint32_t>(rail_time_)) <= static_cast<uint32_t>(rail_wait_))
+        get_since(static_cast<uint32_t>(rail_time_)) <= static_cast<uint32_t>(rail_wait_)) {
         return false;
-    if (any_time)
+    }
+    if (any_time) {
         return true;
+    }
     flags = state_;
-    if (flags->cur_phase() == 4)
+    if (flags->cur_phase() == 4) {
         return false;
+    }
     // (On a vert wall, only while moving up.)
-    if (flags->flag(PoseFlag::kVertWall).on && !(entity()->vel().y > 0.0F))
+    if (flags->flag(PoseFlag::kVertWall).on && !(entity()->vel().y > 0.0F)) {
         return false;
+    }
     return true;
 }
 
@@ -261,8 +269,9 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /
             start.w = position.w - (back * up2.w);
             end = start;
             end.y = end.y - down;
-            if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
+            if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
                 return 0;
+            }
         }
         return hit_vert_ ? 1 : 0;
     }
@@ -291,8 +300,9 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /
         start = far_side;
         end = near_side;
     }
-    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         return 0;
+    }
     return hit_vert_ ? 1 : 0;
 }
 
@@ -353,14 +363,16 @@ int SkaterPhysicsModule::check_natas_exit_direction(script::Struct* params, scri
 // 0x00501600
 int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
-    if (name == kLedge)
+    if (name == kLedge) {
         return on_ledge_ ? 1 : 0;
+    }
     if (name != kObjMoveToNode) {
         // Not original - THAW's bike member functions (SkaterOnBike, IsSkaterOnBike...: game/rider/thaw_bmx.h)
         // while [features] thaw_bmx is on.
         // Original behaviour: any other name isn't this component's (2).
-        if (thaw_bmx::is_switched_on())
+        if (thaw_bmx::is_switched_on()) {
             return thaw_bmx::invoke_method_by_name(this, name, params, script);
+        }
         return 2;
     }
     // Obj_MoveToNode: the motion component moves the skater; then everything that follows the position is put there.
@@ -377,8 +389,9 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
     if (entity()->is_local_skater()) {
         // (the skater's camera follows at once)
         void* camera = core::down_cast<objects::Rider>(object_of(this))->get_skater_camera();
-        if (camera)
+        if (camera) {
             static_cast<objects::GameEntity*>(camera)->tick_frame();
+        }
     }
     if (!params->has_bare_flag(kNoReset)) {
         floor_feeler_.hit().face_flag40_ = 0;
@@ -438,13 +451,15 @@ void SkaterPhysicsModule::check_side_feeler(const maths::Vec4* start, const math
 {
     // (The original's loop over the other three sides checks the opposite side's time each time round.)
     for (uint32_t other = 0; other < 4; ++other) {
-        if (other != side && get_since(static_cast<uint32_t>(core::at(side_hit_times_, side ^ 1))) > kSideHitMs)
+        if (other != side && get_since(static_cast<uint32_t>(core::at(side_hit_times_, side ^ 1))) > kSideHitMs) {
             return;
+        }
     }
     probe_start_ = *start;
     probe_end_ = *end;
-    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
+    if (!probe_touches_zone(render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         return;
+    }
     maths::Vec4& sum = side_normal_sum_;
     const maths::Vec4& normal = feeler_.surface_dir();
     sum.x = normal.x + sum.x;
@@ -458,8 +473,9 @@ void SkaterPhysicsModule::check_side_feeler(const maths::Vec4* start, const math
 // 0x005055B0
 void SkaterPhysicsModule::check_side_feelers()
 {
-    if (side_reach_ == 0.0F || side_push_ == 0.0F)
+    if (side_reach_ == 0.0F || side_push_ == 0.0F) {
         return;
+    }
     side_normal_sum_ = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     side_nearest_ = 1.0F;
     // The feelers start at the side collision height up the skater.
@@ -495,8 +511,9 @@ void SkaterPhysicsModule::check_side_feelers()
         }
         check_side_feeler(&start, &end, side);
     }
-    if (side_nearest_ == 1.0F) // (nothing hit: still 1)
+    if (side_nearest_ == 1.0F) { // (nothing hit: still 1)
         return;
+    }
     // Pushed off by the walls hit, the nearer the harder; turned along a wall it faces into.
     maths::Vec4& push = side_normal_sum_;
     set_length(push, static_cast<float>((1.0 - side_nearest_) * side_push_));
@@ -511,16 +528,18 @@ void SkaterPhysicsModule::check_side_feelers()
     const maths::Vec4& normal = feeler_.surface_dir();
     const double into = (static_cast<double>(forward.z) * normal.z) + (static_cast<double>(forward.y) * normal.y) +
                         (static_cast<double>(forward.x) * normal.x);
-    if (!(into < 0.0))
+    if (!(into < 0.0)) {
         return;
+    }
     maths::Vec4 along = forward;
     along.align_to_plane(normal);
     auto angle = static_cast<float>(
         maths::get_turn_around_axis(core::at(entity()->basis_frame().row, 2), along, core::at(entity()->basis_frame().row, 1)));
     const double turn = static_cast<double>(maths::get_sign(angle)) * side_turn_ * frame_length_;
     auto step = static_cast<float>(turn);
-    if (std::fabs(static_cast<double>(angle)) < std::fabs(turn))
+    if (std::fabs(static_cast<double>(angle)) < std::fabs(turn)) {
         step = angle;
+    }
     entity()->basis_frame().yaw_locally(step);
     display_matrix_.yaw_locally(step);
 }
@@ -529,8 +548,10 @@ void SkaterPhysicsModule::check_side_feelers()
 bool SkaterPhysicsModule::apply_model_rotations()
 {
     auto* model = core::down_cast<objects::MeshInstanceModule>(object_of(this)->fetch_module(kModel)); // (Model)
-    if (!core::at(model->twist_rate(), 0).active_ && !core::at(model->twist_rate(), 1).active_ && !core::at(model->twist_rate(), 2).active_)
+    if (!core::at(model->twist_rate(), 0).active_ && !core::at(model->twist_rate(), 1).active_ &&
+        !core::at(model->twist_rate(), 2).active_) {
         return false;
+    }
     objects::GameEntity* object = object_of(this);
     maths::Vec4 axis = core::at(object->basis_frame().row, 1);
     model->get_draw_matrix(&object->basis_frame());

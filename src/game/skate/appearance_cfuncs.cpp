@@ -138,8 +138,9 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
     }
     gfx::FaceAnchors scratch{};
     const gfx::FaceAnchors copy = *face->get_points(&scratch);
-    if (!gfx::write_face_points(&copy, points))
+    if (!gfx::write_face_points(&copy, points)) {
         script::dump_to_log(params);
+    }
     if (made) {
         script->args()->put_sub_struct(kCurrentFacePoints, points);
         if (points) {
@@ -156,11 +157,13 @@ bool cfunc_set_player_face_points(script::Struct* params, script::Script* /*scri
 {
     gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
     script::Struct* from = nullptr;
-    if (!params->read_sub_struct("face_points", &from, 0))
+    if (!params->read_sub_struct("face_points", &from, 0)) {
         from = params;
+    }
     gfx::FaceAnchors points{};
-    if (!gfx::read_face_points(&points, from))
+    if (!gfx::read_face_points(&points, from)) {
         script::dump_to_log(params);
+    }
     face->set_points(&points);
     return true;
 }
@@ -298,11 +301,13 @@ bool cfunc_get_actual_player_appearance_part(script::Struct* params, script::Scr
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     uint32_t part = 0;
-    if (!params->read_hash_value(kPart, &part, 0))
+    if (!params->read_hash_value(kPart, &part, 0)) {
         return false;
+    }
     script::Struct* structure = actual_part(profile, part);
-    if (!structure)
+    if (!structure) {
         return false;
+    }
     script->args()->append_structure_if_any(structure);
     return true;
 }
@@ -311,11 +316,13 @@ bool cfunc_get_player_appearance_part(script::Struct* params, script::Script* sc
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     uint32_t part = 0;
-    if (!params->read_hash_value(kPart, &part, 0))
+    if (!params->read_hash_value(kPart, &part, 0)) {
         return false;
+    }
     script::Struct* structure = appearance_part(profile, part);
-    if (!structure)
+    if (!structure) {
         return false;
+    }
     script->args()->append_structure_if_any(structure);
     return true;
 }
@@ -372,15 +379,19 @@ bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script* /
         appearance_structure(profile)->append_struct_ref(part, made);
     }
     float value = 0.0F;
-    if (params->fetch_float(kX, &value, 0))
+    if (params->fetch_float(kX, &value, 0)) {
         slot->put_int(checksums::Name{kX}, truncate(value));
-    if (params->fetch_float(kY, &value, 0))
+    }
+    if (params->fetch_float(kY, &value, 0)) {
         slot->put_int(checksums::Name{kY}, truncate(value));
-    if (params->fetch_float(kZ, &value, 0))
+    }
+    if (params->fetch_float(kZ, &value, 0)) {
         slot->put_int(checksums::Name{kZ}, truncate(value));
+    }
     int use_default = 0;
-    if (params->fetch_int_value(kKeepStockScale, &use_default, 0))
+    if (params->fetch_int_value(kKeepStockScale, &use_default, 0)) {
         slot->put_int(checksums::Name{kKeepStockScale}, use_default);
+    }
     return true;
 }
 

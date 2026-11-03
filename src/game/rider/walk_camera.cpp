@@ -246,35 +246,40 @@ FootView::ZoomOffsets FootView::get_zoomed_offsets()
     float factor = 1.0F;
     uint32_t factor_bits = 0;
     std::memcpy(&factor_bits, &free_look_->factor(), 4);
-    if (free_look_->turning() && factor_bits != kFloatOneBits)
+    if (free_look_->turning() && factor_bits != kFloatOneBits) {
         factor = free_look_->factor();
+    }
     const double zoom = ((static_cast<double>(factor) - zoom_) * skater_camera_->zoom_ease_rate()) + zoom_;
     zoom_ = static_cast<float>(zoom);
     const double behind = zoom * skater_camera_->behind();
     *distance = static_cast<float>(behind);
     const float tilt = free_look_->lean_angle();
-    if (tilt < 0.0F)
+    if (tilt < 0.0F) {
         *distance = static_cast<float>(
             ((((static_cast<double>(tilt) + kTiltOffset) * kTiltScale) * kTiltRange) + kTiltBase) * behind);
+    }
     const float above = skater_camera_->above();
-    if (zoom_ < 1.0F)
+    if (zoom_ < 1.0F) {
         *height = static_cast<float>(((static_cast<double>(above) - kNearHeight) * zoom_) + kNearHeight);
-    else
+    } else {
         *height = above;
+    }
     return offsets;
 }
 
 // 0x005251D0
 void FootView::tick_frame()
 {
-    if (!skater_)
+    if (!skater_) {
         return;
+    }
     if (physics_control_ && physics_control_->pose()->in_vehicle()) {
         entity()->composite_flags() |= kCompositeFlagPaused;
         return;
     }
-    if (skater_->composite_flags() & kCompositeFlagTeleported)
+    if (skater_->composite_flags() & kCompositeFlagTeleported) {
         instant_frames_ = 3;
+    }
     bool instant = false;
     if (instant_frames_ > 0) {
         --instant_frames_;
@@ -325,11 +330,13 @@ void FootView::tick_frame()
                 }
             }
         }
-        if (swing || snap_next_)
+        if (swing || snap_next_) {
             facing = skater_facing;
+        }
     }
-    if (!(turn == 0.0F) && !flush_)
+    if (!(turn == 0.0F) && !flush_) {
         turn_by_stick(static_cast<double>(get_param(kFacingControl)) * turn, &facing);
+    }
     if (override_) {
         const float x = forced_heading_.x;
         facing.y = forced_heading_.y;
@@ -378,11 +385,13 @@ void FootView::tick_frame()
             float base = 0.0F;
             script::read_sub_struct(kParameters)->fetch_float(kMatrixSlerpRate, &base, 1);
             float rate = base;
-            if (walk_->running())
+            if (walk_->running()) {
                 rate = static_cast<float>(static_cast<double>(get_param(kRunSlerpFactor)) * base);
+            }
             const int state = walk_->get_state();
-            if (state == 4 || state == 3)
+            if (state == 4 || state == 3) {
                 rate = rate + rate;
+            }
             if (!(turn == 0.0F) && !flush_) {
                 const float control = get_param(kControlSlerpFactor);
                 rate = static_cast<float>(static_cast<double>(control) * std::fabs(turn) * rate);
@@ -478,8 +487,9 @@ void FootView::tick_frame()
     avoid_camera_collisions(&target, &matrix, &pull, &focus, true, true);
     target.w = 1.0F;
     entity()->at_point() = target;
-    if (instant)
+    if (instant) {
         viewer_->view_camera()->remember_prev_pos();
+    }
     skater_camera_->set_skater_matrix(matrix);
 }
 

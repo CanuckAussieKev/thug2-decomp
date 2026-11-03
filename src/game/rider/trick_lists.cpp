@@ -39,8 +39,9 @@ TrickListEntry::TrickListEntry()
 // 0x00579570
 TrickListEntry::~TrickListEntry()
 {
-    if (element_list_)
+    if (element_list_) {
         script::release_array_storage(element_list_);
+    }
     if (script::Array* array = element_list_) {
         array->get_clear();
         script::delete_array(array);
@@ -52,8 +53,9 @@ TrickListEntry::~TrickListEntry()
 TrickListEntry* TrickListEntry::teardown(unsigned int flags)
 {
     this->~TrickListEntry();
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 
@@ -73,8 +75,9 @@ TrickNameEntry::~TrickNameEntry()
 TrickNameEntry* TrickNameEntry::teardown(unsigned int flags)
 {
     this->~TrickNameEntry();
-    if (flags & 1)
+    if (flags & 1) {
         memory::Hub::dealloc(this);
+    }
     return this;
 }
 

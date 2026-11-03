@@ -53,15 +53,17 @@ void SkaterPhysicsModule::clamp_skater_speed()
     auto max = static_cast<float>(stat_value(object, kMaxSpeedStat));
     // Not original: THAW 0x005CA8F0 - on the bike, faster for a while after vert ground (thaw_bmx_physics.cpp).
     bool heavy_friction = true;
-    if (thaw_bmx::live_now(this))
+    if (thaw_bmx::live_now(this)) {
         heavy_friction = thaw_bmx::vert_speed_allowance(this, &max_max);
+    }
     float& timer = limits_time_;
     if (timer != 0.0F) {
         if (timer != -1.0F && timer != -kTimerForLevel) { // (-1: for good; -2: for the level)
             const double left = static_cast<double>(timer) - frame_length_;
             timer = static_cast<float>(left);
-            if (left < 0.0)
+            if (left < 0.0) {
                 limits_time_ = 0.0F;
+            }
         }
         max_max = limits_max_max_;
         max = limits_max_;
@@ -71,8 +73,9 @@ void SkaterPhysicsModule::clamp_skater_speed()
         set_length(entity()->vel(), max_max);
     }
     object = object_of(this);
-    if (speed > max && heavy_friction)
+    if (speed > max && heavy_friction) {
         apply_friction((script::fetch_float(kHeavyAirFriction)));
+    }
     entity()->vel().y = upward;
 
     float& rolling = special_friction_time_;
@@ -122,22 +125,26 @@ void SkaterPhysicsModule::apply_ground_friction()
     objects::GameEntity* object = object_of(this);
     // (Not original: THAW 0x005D46C0 - on the bike the friction always applies.)
     if (!auto_kick_ && !state_->flag(PoseFlag::kBailing).on &&
-        rolling_friction_ == tuning_float_lookup(kCoastDrag, object) && !thaw_bmx::live_now(this))
+        rolling_friction_ == tuning_float_lookup(kCoastDrag, object) && !thaw_bmx::live_now(this)) {
         return;
+    }
     apply_stance_friction(); // (the friction: crouched or standing)
-    if (turn_down_slope())   // (turned down the slope)
+    if (turn_down_slope()) { // (turned down the slope)
         return;
+    }
     apply_wheel_drag(); // (the rolling friction)
 }
 
 // 0x005021D0
 void SkaterPhysicsModule::start_riding_hit_object()
 {
-    if (state_->flag(PoseFlag::kSkitching).on)
+    if (state_->flag(PoseFlag::kSkitching).on) {
         return;
+    }
     objects::MovingSurfaceModule* ride = ride_;
-    if (!ride->start_riding(&feeler_))
+    if (!ride->start_riding(&feeler_)) {
         return;
+    }
     const objects::GameEntity* ride_object = ride_->ride()->entity().get_pull();
     const maths::Vec4& ride_velocity = ride_object->vel();
     maths::Vec4& velocity = entity()->vel();

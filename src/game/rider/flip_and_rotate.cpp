@@ -138,8 +138,9 @@ void RiderSpinAndFlip::get_flip()
     // NOT ORIGINAL - THAW's BMX ([features] thaw_bmx, on the bike): THAW's Flip turns the flag only - the animations
     // take it when they're played (game/rider/thaw_bmx.h flip_flag_only / play_flip). Original behaviour: every running
     // animation mirrored at once.
-    if (skater::thaw_bmx::flip_flag_only(core_physics_))
+    if (skater::thaw_bmx::flip_flag_only(core_physics_)) {
         return;
+    }
     apply_flip_to_anims();
 }
 
@@ -182,8 +183,9 @@ int RiderSpinAndFlip::invoke_method_by_name(uint32_t name, script::Struct* param
         get_flip();
         return 1;
     case kFlipIfNeeded:
-        if (flip_needed(core_physics_))
+        if (flip_needed(core_physics_)) {
             get_flip();
+        }
         return 1;
     case kFlipAndRotate:
         turn_around(core_physics_);

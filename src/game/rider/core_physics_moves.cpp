@@ -173,8 +173,9 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
         }
         const double next = static_cast<double>(distance) + kTargetStep;
         distance = static_cast<float>(next);
-        if (!(next < kTargetLast))
+        if (!(next < kTargetLast)) {
             break;
+        }
     }
     if (!found) {
         return false;
@@ -195,8 +196,9 @@ void SkaterPhysicsModule::update_speed_override()
         auto stat = static_cast<float>(stat_value(object, kOverrideStat));
         const double speed = length_unrounded(entity()->vel());
         auto speed_rounded = static_cast<float>(speed);
-        if (speed < static_cast<double>(stat) * kOverrideStart)
+        if (speed < static_cast<double>(stat) * kOverrideStart) {
             return;
+        }
         const float most = tuning_float_lookup(kOverrideMaxFactor, object);
         const double over = static_cast<double>(speed_rounded) / stat;
         factor = over < most ? static_cast<float>(over) : most;
@@ -237,8 +239,9 @@ void SkaterPhysicsModule::update_speed_override()
         }
     }
     factor = 1.0F;
-    if (limits_time_ == -kTimerForLevel) // (never: it was just set to -1)
+    if (limits_time_ == -kTimerForLevel) { // (never: it was just set to -1)
         return;
+    }
     limits_time_ = 0.0F;
 }
 
@@ -258,8 +261,9 @@ double SkaterPhysicsModule::get_gravity()
         online::net_game_state().set_cheat_flag(true);
     }
     const float scale = script::fetch_float(kFallScale);
-    if (scale != 0.0F && !(entity()->vel().y > 0.0F) && entity()->vel().y == entity()->vel().y)
+    if (scale != 0.0F && !(entity()->vel().y > 0.0F) && entity()->vel().y == entity()->vel().y) {
         return static_cast<double>(scale) * result;
+    }
     return result;
 }
 
@@ -267,8 +271,9 @@ double SkaterPhysicsModule::get_gravity()
 void SkaterPhysicsModule::get_along_facing(maths::Vec4* velocity)
 {
     const double length = length_unrounded(*velocity);
-    if (!(length > kBarelyMoving))
+    if (!(length > kBarelyMoving)) {
         return;
+    }
     const double inverse = 1.0 / length;
     velocity->x = static_cast<float>(inverse * velocity->x);
     velocity->y = static_cast<float>(inverse * velocity->y);
@@ -289,21 +294,25 @@ void SkaterPhysicsModule::get_along_facing(maths::Vec4* velocity)
 // 0x004FF670
 bool SkaterPhysicsModule::wall_push_off()
 {
-    if (!input_->pad_primary().button_wedge().held_down())
+    if (!input_->pad_primary().button_wedge().held_down()) {
         return false;
+    }
     auto since_last = static_cast<float>(get_seconds(get_since(last_push_off_)));
-    if (script::fetch_float(kPushOffWait) > since_last)
+    if (script::fetch_float(kPushOffWait) > since_last) {
         return false;
+    }
     const double angle = std::sin((script::fetch_float(kPushOffAngle) - 1.0) * kDegrees);
     const maths::Vec4& facing = core::at(entity()->basis_frame().row, 2);
     const maths::Vec4& wall = feeler_.surface_dir();
     const double into = ((static_cast<double>(facing.z) * wall.z) + (static_cast<double>(facing.y) * wall.y)) +
                         (static_cast<double>(facing.x) * wall.x);
-    if (-angle <= into)
+    if (-angle <= into) {
         return false;
+    }
     auto since_start = static_cast<float>(get_seconds(get_since(wallplant_time_)));
-    if (script::fetch_float(kPushOffWait) > since_start)
+    if (script::fetch_float(kPushOffWait) > since_start) {
         return false;
+    }
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kPushOffEvent, nullptr);
     if (state_->flag(PoseFlag::kCancelWallpush).on) {
         set_timed_flag(this, PoseFlag::kCancelWallpush, 0);
@@ -339,17 +348,20 @@ void SkaterPhysicsModule::turn_round_if_backwards()
 {
     objects::RiderPoseState* flags = state_;
     objects::GameEntity* object = object_of(this);
-    if (flags->flag(PoseFlag::kBailing).on || flags->flag(PoseFlag::kSkitching).on || braking_)
+    if (flags->flag(PoseFlag::kBailing).on || flags->flag(PoseFlag::kSkitching).on || braking_) {
         return;
+    }
     const maths::Vec4& v = object->vel();
     const maths::Vec4& f = core::at(object->basis_frame().row, 2);
     const double along =
         ((static_cast<double>(v.z) * f.z) + (static_cast<double>(v.y) * f.y)) + (static_cast<double>(v.x) * f.x);
-    if (!(along < 0.0))
+    if (!(along < 0.0)) {
         return;
+    }
     const double least = tuning_float_lookup(kBackwardsSpeed, object);
-    if (!(least * least < length_sqr_unrounded(v)))
+    if (!(least * least < length_sqr_unrounded(v))) {
         return;
+    }
     bool special = on_vehicle_;
     if (!special) {
         const uint32_t trick = balance_->trick();
@@ -358,11 +370,13 @@ void SkaterPhysicsModule::turn_round_if_backwards()
     if (special) {
         const uint32_t board = checksums::hash_from_text(trick_->trick_name().data());
         bool plain = false;
-        for (const uint32_t b : kBoards)
+        for (const uint32_t b : kBoards) {
             plain = plain || board == b;
+        }
         if (!plain) {
-            if (manual_turnaround_)
+            if (manual_turnaround_) {
                 return;
+            }
             manual_turnaround_ = 1;
             script::launch_script(kBackwardsScript, nullptr, static_cast<objects::Entity*>(object_of(this)), false,
                                   nullptr);
@@ -377,9 +391,10 @@ void SkaterPhysicsModule::turn_round_if_backwards()
     display_facing = -display_facing;
     maths::Vec4& display_right = core::at(display_matrix_.row, 0);
     display_right = -display_right;
-    if (!script::fetch_int_value(kNoTurnRoundScript))
+    if (!script::fetch_int_value(kNoTurnRoundScript)) {
         script::launch_script(kTurnRoundScript, nullptr, static_cast<objects::Entity*>(object_of(this)), false,
                               nullptr);
+    }
 }
 
 // 0x004FFB10
@@ -387,8 +402,9 @@ bool SkaterPhysicsModule::jump_released()
 {
     objects::RiderPoseState* flags = state_;
     objects::ControlButton* button = &input_->pad_primary().pos_x();
-    if (!flags->flag(PoseFlag::kCrouched).on || button->held_down())
+    if (!flags->flag(PoseFlag::kCrouched).on || button->held_down()) {
         return false;
+    }
     jump_charge_ms_ = static_cast<int>(get_since(static_cast<uint32_t>(flags->flag(PoseFlag::kCrouched).changed_at)));
     set_timed_flag(this, PoseFlag::kCrouched, 0);
     button->forget_let_go();
@@ -399,13 +415,16 @@ bool SkaterPhysicsModule::jump_released()
 // 0x004FFB90
 void SkaterPhysicsModule::check_flip_spin()
 {
-    if (state_->flag(PoseFlag::kBailing).on)
+    if (state_->flag(PoseFlag::kBailing).on) {
         return;
+    }
     const objects::PadInputModule* input = input_;
-    if (model_rotating_)
+    if (model_rotating_) {
         return;
-    if (!input->pad_primary().button_round().held_down() && !input->pad_primary().button_box().held_down())
+    }
+    if (!input->pad_primary().button_round().held_down() && !input->pad_primary().button_box().held_down()) {
         return;
+    }
     model_flipped_ = 0;
     auto* trick = core::down_cast<objects::MoveExecutor>(get_composite(object_of(this))->fetch_module(kTrickModuleKey));
     script::Array* spins = script::fetch_list(kFlipSpins);
@@ -423,8 +442,9 @@ void SkaterPhysicsModule::check_flip_spin()
             break;
         }
     }
-    if (!found)
+    if (!found) {
         return;
+    }
     model_rotating_ = 1;
     model_rotation_left_ = kFlipSpinTime;
     no_rail_tricks_ = 1;
@@ -434,23 +454,27 @@ void SkaterPhysicsModule::check_flip_spin()
     int x = 0;
     int y = 0;
     int z = 0;
-    if (spin->fetch_int_value(kSpinX, &x, 0) && x)
+    if (spin->fetch_int_value(kSpinX, &x, 0) && x) {
         model->rotate_display(model_rotation_left_, 0.0F, static_cast<float>(x), 0, true, true, false, false);
+    }
     if (spin->fetch_int_value(kSpinY, &y, 0) && y) {
-        if (y == kHalfTurnDegrees || y == -kHalfTurnDegrees)
+        if (y == kHalfTurnDegrees || y == -kHalfTurnDegrees) {
             model_flipped_ = 1;
+        }
         model->rotate_display(model_rotation_left_, 0.0F, static_cast<float>(y), 0, true, false, true, false);
     }
-    if (spin->fetch_int_value(kSpinZ, &z, 0) && z)
+    if (spin->fetch_int_value(kSpinZ, &z, 0) && z) {
         model->rotate_display(model_rotation_left_, 0.0F, static_cast<float>(z), 0, true, false, false, true);
+    }
     script::launch_script(kSpinScript, spin, static_cast<objects::Entity*>(object_of(this)), false, nullptr);
 }
 
 // 0x004FFDB0
 bool SkaterPhysicsModule::step_up(const maths::Vec4* point)
 {
-    if (state_->flag(PoseFlag::kBailing).on)
+    if (state_->flag(PoseFlag::kBailing).on) {
         return false;
+    }
     render::ProbeRay feeler;
     const float height = tuning_float_lookup(kStepUpHeight, object_of(this));
     const objects::GameEntity* object = object_of(this);
@@ -459,15 +483,19 @@ bool SkaterPhysicsModule::step_up(const maths::Vec4* point)
     feeler.line().start = position;
     feeler.line().start.y = static_cast<float>(static_cast<double>(position.y) + height);
     feeler.line().end = position;
-    if (point->y < position.y)
+    if (point->y < position.y) {
         feeler.line().end.y = point->y;
+    }
     const double above = static_cast<double>(height) + point->y;
-    if (above > feeler.line().start.y)
+    if (above > feeler.line().start.y) {
         feeler.line().start.y = static_cast<float>(above);
-    if (!feeler.get_hit_shape(true, false))
+    }
+    if (!feeler.get_hit_shape(true, false)) {
         return false;
-    if (!(feeler.surface_dir().y > kStepUpGround))
+    }
+    if (!(feeler.surface_dir().y > kStepUpGround)) {
         return false;
+    }
     // Across from above the point to above the hit (the normal added): nothing in the way.
     auto w = static_cast<float>(static_cast<double>(feeler.surface_dir().w) + feeler.contact_pos().w);
     auto z = static_cast<float>(static_cast<double>(feeler.surface_dir().z) + feeler.contact_pos().z);
@@ -476,8 +504,9 @@ bool SkaterPhysicsModule::step_up(const maths::Vec4* point)
     feeler.line().start =
         maths::Vec4(point->x, static_cast<float>(static_cast<double>(point->y) + height), point->z, point->w);
     feeler.line().end = maths::Vec4(x, static_cast<float>(static_cast<double>(y) + height), z, w);
-    if (feeler.get_hit_shape(true, false))
+    if (feeler.get_hit_shape(true, false)) {
         return false;
+    }
     maths::Vec4& moved = entity()->at_point();
     moved = maths::Vec4(x, y, z, w);
     moved.y = static_cast<float>(static_cast<double>(moved.y) + kStepUpLift);

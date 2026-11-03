@@ -113,8 +113,9 @@ objects::RiderIdentity* find_template(uint32_t name)
         objects::RiderIdentity* profile = template_at(i);
         uint32_t profile_name = 0;
         profile->details_params()->read_hash_value(kName, &profile_name, 1);
-        if (profile_name == name)
+        if (profile_name == name) {
             return profile;
+        }
     }
     return nullptr;
 }
@@ -203,15 +204,17 @@ bool cfunc_reset_to_default_profile(script::Struct* params, script::Script* /*sc
         script::Struct* entry = table_row(list, i);
         uint32_t entry_name = 0;
         entry->read_hash_value(kName, &entry_name, 1);
-        if (entry_name != name)
+        if (entry_name != name) {
             continue;
+        }
         objects::RiderIdentity* profile = objects::profile_roster()->get_template(name);
         uint32_t partial = 0;
         if (params->read_hash_value(kPartial, &partial, 0)) {
-            if (partial == kStatsAndTricks)
+            if (partial == kStatsAndTricks) {
                 profile->set_from_params(entry, false, true);
-            else
+            } else {
                 profile->set_from_params(entry, true, false);
+            }
         } else {
             profile->get_reset(entry);
         }
@@ -278,8 +281,9 @@ bool cfunc_get_skater_profile_info_by_name(script::Struct* params, script::Scrip
     uint32_t name = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kName, &name, 1);
     objects::RiderIdentity* profile = find_template(name);
-    if (!profile)
+    if (!profile) {
         return false;
+    }
     script->args()->append_structure_if_any(profile->details_params());
     return true;
 }
@@ -293,8 +297,9 @@ bool cfunc_set_skater_profile_info_by_name(script::Struct* params, script::Scrip
     script::Struct* values = nullptr;
     params->read_sub_struct(kParams, &values, 1);
     objects::RiderIdentity* profile = find_template(name);
-    if (!profile)
+    if (!profile) {
         return false;
+    }
     profile->details_params()->append_structure_if_any(values);
     return true;
 }
@@ -387,15 +392,17 @@ bool cfunc_toggle_always_special(script::Struct* params, script::Script* /*scrip
     const bool off = params->has_bare_flag(kOff);
     for (int i = 0; i < kSkaterSlotCount; ++i) {
         objects::GameEntity* skater = get_rider_at(i);
-        if (!skater)
+        if (!skater) {
             continue;
+        }
         bool& special = core::down_cast<objects::Rider>(skater)->always_special();
-        if (on)
+        if (on) {
             special = true;
-        else if (off)
+        } else if (off) {
             special = false;
-        else
+        } else {
             special = special == 0;
+        }
     }
     return true;
 }
@@ -449,16 +456,19 @@ bool cfunc_get_current_pro_display_info(script::Struct* /*params*/, script::Scri
 bool cfunc_select_current_skater(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (uninitialised in the original when missing)
-    if (!params->read_hash_value(kName, &name, 0))
+    if (!params->read_hash_value(kName, &name, 0)) {
         params->read_hash_value(0U, &name, 1);
+    }
     objects::ProfileRoster* manager = objects::profile_roster();
-    if (get_profile_from_params(nullptr)->fetch_title() == name)
+    if (get_profile_from_params(nullptr)->fetch_title() == name) {
         return false;
+    }
     manager->set_current_skater(name);
     objects::RiderIdentity* profile = get_profile_from_params(nullptr);
     auto* skater = core::down_cast<objects::Rider>(get_rider_at(manager->cursor_pos()));
-    if (skater)
+    if (skater) {
         skater->update_from_profile(profile);
+    }
     return true;
 }
 
@@ -488,9 +498,10 @@ bool cfunc_award_special_trick_slot(script::Struct* params, script::Script* /*sc
     objects::ProfileRoster* manager = objects::profile_roster();
     if (params->has_bare_flag(kAll)) {
         const int count = manager->templates().num();
-        for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
+        for (int i = 0; i < count; ++i) { // (0x00557FB0: the table's item by index)
             manager->get_template_at(i)
                 ->add_max_specials(1);
+        }
         return true;
     }
     if (params->has_entry_named(kProfile)) {
@@ -533,8 +544,9 @@ bool cfunc_get_custom_skater_name(script::Struct* /*params*/, script::Script* sc
 bool cfunc_get_current_ped_pro_name(script::Struct* /*params*/, script::Script* script)
 {
     const script::SymbolTableEntry* entry = script::resolve_symbol(kCurrentPedPro);
-    if (entry->type() != script::QbValueKind::kStruct) // (the original also tests for a name first)
+    if (entry->type() != script::QbValueKind::kStruct) { // (the original also tests for a name first)
         return false;
+    }
     script->args()->put_name_key(checksums::Name{kPedProName}, entry->name_value());
     return true;
 }
@@ -585,8 +597,9 @@ bool cfunc_unlock_skater(script::Struct* params, script::Script* /*script*/)
     script::Struct* info = objects::profile_roster()->get_template(name)->details_params();
     int hidden = 1;
     info->fetch_int_value(kIsHidden, &hidden, 1);
-    if (hidden)
+    if (hidden) {
         info->put_int(checksums::Name{kIsHidden}, 0);
+    }
     return true;
 }
 

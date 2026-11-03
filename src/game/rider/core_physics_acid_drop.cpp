@@ -81,10 +81,11 @@ double SkaterPhysicsModule::fall_time(float height, float upward)
     const double down = -current_gravity(this);
     const double discriminant = (static_cast<double>(upward) * upward) + (2.0 * (static_cast<double>(height) * down));
     double time = 0.0;
-    if (discriminant >= 0.0 || discriminant != discriminant)
+    if (discriminant >= 0.0 || discriminant != discriminant) {
         time = (std::sqrt(discriminant) + upward) / down;
-    else
+    } else {
         time = kNeverLands;
+    }
     set_timed_flag(this, PoseFlag::kAcidDrop, 0);
     return time;
 }
@@ -102,8 +103,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         const double x = velocity->x;
         const double z = velocity->z;
         const double length = std::sqrt((x * x) + (z * z));
-        if (length < kMinSpeed)
+        if (length < kMinSpeed) {
             return false;
+        }
         const double inverse = 1.0 / length;
         direction = {.x = static_cast<float>(inverse * x),
                      .y = static_cast<float>(0.0F * inverse),
@@ -113,8 +115,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         direction = walk_->facing();
     }
     maths::Vec4 base = *last_position;
-    if (position->y > last_position->y)
+    if (position->y > last_position->y) {
         base.y = position->y;
+    }
     float reach = kSearchReach;
     float lift = 0.0F;
     if (walking_state(objects::RiderPoseState::PhysicsMode::kWalking)) {
@@ -189,8 +192,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
             }
         }
         double next = step;
-        if (step > kFarStep)
+        if (step > kFarStep) {
             next += kFarStepExtra;
+        }
         next += kStep;
         step = static_cast<float>(next);
         searching = next < reach;
@@ -210,8 +214,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     distance = static_cast<float>(std::sqrt((dx_unrounded * dx) + (static_cast<double>(dz) * dz)));
     const double sideways = (static_cast<double>(direction.z) * dz) + (static_cast<double>(dx) * direction.x) +
                             (static_cast<double>(direction.y) * 0.0F);
-    if (sideways < 0.0)
+    if (sideways < 0.0) {
         distance = -distance;
+    }
     const double inverse = 1.0 / distance;
     saved = *velocity;
     auto inverse_float = static_cast<float>(inverse);
@@ -266,21 +271,25 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         const double top = (upward * upward / (static_cast<double>(gravity) * -2.0F)) + position->y;
         const double to_wall = std::fabs(static_cast<double>(distance)) / horizontal;
         const double to_top = -(upward / gravity);
-        if (to_wall < to_top)
+        if (to_wall < to_top) {
             peak = static_cast<float>(top);
+        }
     }
     auto fail = [&] {
         *velocity = saved;
         return false;
     };
-    if (peak < hit.y)
+    if (peak < hit.y) {
         return fail();
+    }
     auto air_time =
         static_cast<float>(fall_time(static_cast<float>(position->y - static_cast<double>(hit.y)), velocity->y));
-    if (script::fetch_float(kMinAirTime) > air_time)
+    if (script::fetch_float(kMinAirTime) > air_time) {
         return fail();
-    if (!(hit.y < peak))
+    }
+    if (!(hit.y < peak)) {
         return fail();
+    }
     // Up the wall from the hit, 24 at a time, for a point the arc reaches with nothing in the way.
     auto half_distance = static_cast<float>(static_cast<double>(distance) * kHalf);
     for (;;) {
@@ -312,8 +321,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         }
         const double higher = static_cast<double>(hit.y) + kRise;
         hit.y = static_cast<float>(higher);
-        if (!(higher < peak))
+        if (!(higher < peak)) {
             return fail();
+        }
     }
 }
 
@@ -331,8 +341,9 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     const maths::Vec4& velocity = object->vel();
     const double sideways = (static_cast<double>(dz) * velocity.z) + (static_cast<double>(dx) * velocity.x) +
                             (static_cast<double>(velocity.y) * 0.0F);
-    if (sideways < 0.0)
+    if (sideways < 0.0) {
         distance = -distance;
+    }
     const double inverse = 1.0 / distance;
     auto inverse_float = static_cast<float>(inverse);
     const maths::Vec4 direction = {.x = static_cast<float>(static_cast<double>(inverse_float) * dx),
@@ -487,8 +498,9 @@ bool SkaterPhysicsModule::try_spine_transfer()
                           .w = static_cast<float>(static_cast<double>(ahead.w) + position.w)};
     feeler.line().end = feeler.line().start;
     feeler.line().end.y = static_cast<float>(feeler.line().end.y - static_cast<double>(kFeelerDepth));
-    if (!feeler.get_hit_shape(true, false))
+    if (!feeler.get_hit_shape(true, false)) {
         return false;
+    }
     const float wall_x = feeler.contact_pos().x;
     const float wall_z = feeler.contact_pos().z;
     maths::Vec4 normal = {
@@ -506,8 +518,9 @@ bool SkaterPhysicsModule::try_spine_transfer()
     target_normal = aim.normal;
     if (!found) {
         const objects::PadInputModule* input = input_;
-        if (!input->pad_primary().left_side().held_down() == !input->pad_primary().right_side().held_down())
+        if (!input->pad_primary().left_side().held_down() == !input->pad_primary().right_side().held_down()) {
             return false;
+        }
         if (input->pad_primary().left_side().held_down()) {
             look = {.x = static_cast<float>(static_cast<double>(back.x) + -normal.z),
                     .y = back.y,
@@ -522,8 +535,9 @@ bool SkaterPhysicsModule::try_spine_transfer()
         found = find_transfer_target(&look, &normal, &hip, &aim, &object_hit);
         target = aim.point;
         target_normal = aim.normal;
-        if (!found)
+        if (!found) {
             return false;
+        }
     }
 
     // Found: how far the target is from the wall (flat), the target's normal flattened.
@@ -550,8 +564,9 @@ bool SkaterPhysicsModule::try_spine_transfer()
     auto per_second = static_cast<float>(inverse_time);
     if (reach > kFarTarget) { // (fast enough to get there in the time?)
         const double speed = inverse_time * reach;
-        if (length_sqr_unrounded(object_velocity) < speed * speed)
+        if (length_sqr_unrounded(object_velocity) < speed * speed) {
             return false;
+        }
     }
 
     // Nothing in the way to it: the transfer (blocked: flagged for break_vert, which tries again).
@@ -599,8 +614,9 @@ bool SkaterPhysicsModule::try_spine_transfer()
     core::at(end.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     drop_heading_ = forward;
     double turn = maths::get_turn_around_axis(core::at(object->basis_frame().row, 2), old_velocity, core::at(object->basis_frame().row, 1));
-    if (std::fabs(turn) < kLeastTurn)
+    if (std::fabs(turn) < kLeastTurn) {
         turn = 0.0;
+    }
     end.yaw_locally(static_cast<float>(-turn));
     maths::ArcRotationBlender& slerp = drop_slerp_;
     slerp.set_matrices(start, end);
@@ -609,8 +625,9 @@ bool SkaterPhysicsModule::try_spine_transfer()
     drop_last_matrix_ = start;
     maths::Mat4 halfway;
     slerp.fetch_mat(halfway, kHalf);
-    if (core::at(halfway.row, 1).y < 0.0F) // (the short way round turns upside down: the long way)
+    if (core::at(halfway.row, 1).y < 0.0F) { // (the short way round turns upside down: the long way)
         slerp.flip_heading();
+    }
 
     // The arc there in the fall's time: its horizontal velocity into the flags block, as the acid drop's.
     drop_target_height_ = height;

@@ -33,8 +33,9 @@ inline uint32_t sector_key_from_spec(const render::WorldCell* sector)
 inline void set_sector_colour(render::WorldCell* sector, uint32_t rgba)
 {
     void* geometry = sector->geom_handle();
-    if (geometry)
+    if (geometry) {
         static_cast<render::Geom*>(geometry)->change_tint(rgba);
+    }
 }
 inline void clear_sector_colour(render::WorldCell* sector) { sector->wipe_tint(); }
 inline void set_sector_visibility(render::WorldCell* sector, uint32_t mask)

@@ -57,8 +57,9 @@ void free_node_chain(CellChainScratch& temp) { temp.teardown(); }
 void ParkLayout::rebuild_park(uint32_t how)
 {
     set_up_lights();
-    if (!((flag_bits() & ParkLayout::kMapValid) | ParkLayout::kMapNewerThanPark) && floor_built())
+    if (!((flag_bits() & ParkLayout::kMapValid) | ParkLayout::kMapNewerThanPark) && floor_built()) {
         write_compressed_map();
+    }
     destroy_concrete_metas(0);
     clear_stats();
     if (how == kNewPark || !(flag_bits() & 2)) {
@@ -88,8 +89,9 @@ void ParkLayout::rebuild_park(uint32_t how)
     park_editing_state().set_collision_allowed(true);
     rebuild_scene(builder());
     set_floor_built(true);
-    if (how == kNewPark)
+    if (how == kNewPark) {
         flag_bits() |= 1;
+    }
     park_editing_state().set_collision_allowed(false);
     get_engine()->reassemble();
     park_editing_state().set_collision_allowed(true);
@@ -100,8 +102,9 @@ void ParkLayout::rebuild_park(uint32_t how)
 bool ParkLayout::rebuild_area(const CellBox* area, bool check_memory)
 {
     rebuild_floor_and_pieces(this, area, 0);
-    if (!check_memory)
+    if (!check_memory) {
         return true;
+    }
     MemoryStats stats{};
     get_memory_stats(&stats);
     // The park editor's singleton (a reference taken and dropped): is the park over its budget?
@@ -119,14 +122,18 @@ bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_resta
     if (metas.list()) {
         for (MapListNode* node = metas.list(); node; node = node->following()) {
             PieceGroup* meta = node_meta(node);
-            if (get_meta_flags(meta) & kMetaFloor)
+            if (get_meta_flags(meta) & kMetaFloor) {
                 continue;
-            if (skip_restarts && meta->is_spawn_marker())
+            }
+            if (skip_restarts && meta->is_spawn_marker()) {
                 continue;
-            if (only_within && !meta->fits_inside_region(&area))
+            }
+            if (only_within && !meta->fits_inside_region(&area)) {
                 continue;
-            if (skip_locked && (get_meta_flags(meta) & kMetaLocked))
+            }
+            if (skip_locked && (get_meta_flags(meta) & kMetaLocked)) {
                 continue;
+            }
             call_destroy_concrete_meta(this, meta, 1);
             destroyed = true;
         }
@@ -155,18 +162,21 @@ void ParkLayout::clear_area(CellBox area)
     CellChainScratch metas{get_metas_within(this, area)};
     for (MapListNode* node = metas.list(); node; node = node->following()) {
         PieceGroup* meta = node_meta(node);
-        if (get_meta_flags(meta) & kMetaFloor)
+        if (get_meta_flags(meta) & kMetaFloor) {
             continue;
+        }
         const CellBox at = meta_footprint(meta);
         shift_placed_piece(meta, 0, -at.y, 0);
         for (int x = at.x; x < at.x + at.w; ++x) {
-            for (int z = at.z; z < at.z + at.l; ++z)
+            for (int z = at.z; z < at.z + at.l; ++z) {
                 core::at(core::at(floor_, x), z).level_y_ = 0;
+            }
         }
     }
     for (int x = area.x; x < area.x + area.w; ++x) {
-        for (int z = area.z; z < area.z + area.l; ++z)
+        for (int z = area.z; z < area.z + area.l; ++z) {
             core::at(core::at(floor_, x), z).level_y_ = 0;
+        }
     }
     flag_bits() &= ~ParkLayout::kMapValid | ParkLayout::kMapNewerThanPark;
     rebuild_floor_and_pieces(this, &area, 0);
@@ -180,8 +190,9 @@ bool ParkLayout::raise_or_lower_floor(CellBox area, int dir)
     bool level = false;
     const int height = get_ground_level(area, &level);
     const bool changed = raise_or_lower_floor(area, area.y, height, dir > 0, !level);
-    if (!changed)
+    if (!changed) {
         return false;
+    }
     if (rebuild_area(&area, true)) {
         highlight_gap_pieces(false, nullptr);
         return true;
@@ -195,8 +206,9 @@ bool ParkLayout::raise_or_lower_floor(CellBox area, int dir)
 void BuildPointer::teardown()
 {
     BuildPointer* cursor = sole();
-    if (!cursor)
+    if (!cursor) {
         return;
+    }
     if (cursor->piece_group()) {
         get_meta_flags(cursor->piece_group()) &= ~kMetaInCursor;
         call_destroy_concrete_meta(cursor->park_owner(), cursor->piece_group(), 0);
@@ -211,15 +223,17 @@ void BuildPointer::step_piece_choice(int dir)
 {
     TileFamilyRef* set = park_owner()->get_piece_family(paste_set_index(), &visible_set_slot());
     int selected = set->selected_ + dir;
-    if (selected < 0)
+    if (selected < 0) {
         selected = set->entry_total_ - 1;
-    else if (selected >= set->entry_total_)
+    } else if (selected >= set->entry_total_) {
         selected = 0;
+    }
     set->selected_ = selected;
-    if (set->is_clipboard_)
+    if (set->is_clipboard_) {
         select_clipboard(selected);
-    else
+    } else {
         change_piece(core::at(set->entries_, selected).checksum);
+    }
 }
 
 // 0x0059C9B0
@@ -229,20 +243,24 @@ void BuildPointer::step_piece_family(int dir)
     auto count_visible = [this]() {
         int visible = 0;
         for (int i = 0; i < paste_set_index(); ++i) {
-            if (core::at(get_sets(park_owner()), i).is_displayed_)
+            if (core::at(get_sets(park_owner()), i).is_displayed_) {
                 ++visible;
+            }
         }
         visible_set_slot() = visible;
     };
     for (int tries = park_owner()->num_sets(); tries > 0; --tries) {
         paste_set_index() += dir;
-        if (paste_set_index() < 0)
+        if (paste_set_index() < 0) {
             paste_set_index() = park_owner()->num_sets() - 1;
-        if (paste_set_index() >= park_owner()->num_sets())
+        }
+        if (paste_set_index() >= park_owner()->num_sets()) {
             paste_set_index() = 0;
+        }
         count_visible();
-        if (core::at(get_sets(park_owner()), paste_set_index()).is_displayed_)
+        if (core::at(get_sets(park_owner()), paste_set_index()).is_displayed_) {
             break;
+        }
     }
     count_visible();
     const TileFamilyRef& set = core::at(get_sets(park_owner()), paste_set_index());
@@ -251,11 +269,13 @@ void BuildPointer::step_piece_family(int dir)
         return;
     }
     const int selected = set.selected_;
-    for (Clipboard* clipboard = copy_buffers(); clipboard; clipboard = clipboard->following())
+    for (Clipboard* clipboard = copy_buffers(); clipboard; clipboard = clipboard->following()) {
         clipboard->free_all_piece_groups();
+    }
     Clipboard* clipboard = copy_buffers();
-    for (int i = 0; i < selected && clipboard; ++i)
+    for (int i = 0; i < selected && clipboard; ++i) {
         clipboard = clipboard->following();
+    }
     set_active_copy_buffer(clipboard);
     if (piece_group()) {
         get_meta_flags(piece_group()) &= ~kMetaInCursor;

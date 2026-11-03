@@ -79,8 +79,9 @@ int get_sprintf(char* out, text::FormatFor<Args...> format, Args... args)
 const char* goal_object_model(checksums::Name goal_type, int index)
 {
     const uint32_t type = goal_type.value();
-    if (type == kCone)
+    if (type == kCone) {
         return "Mdl_Cone/mdl_cone.mdl";
+    }
     if (type == kCombo) {
         switch (index) {
         case 0:
@@ -158,12 +159,13 @@ uint32_t edited_goal_node_name(int which, int goal)
 {
     std::array<char, kNodeNameSize> name{};
     core::at(name, 0) = '\0';
-    if (which == 0)
+    if (which == 0) {
         get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", goal);
-    else if (which == 1)
+    } else if (which == 1) {
         get_sprintf(name.data(), "TRG_EditedGoal%d_Restart", goal);
-    else
+    } else {
         get_sprintf(name.data(), "TRG_EditedGoal%d_Object_%d", goal, which - 2);
+    }
     return checksums::hash_from_text(name.data());
 }
 

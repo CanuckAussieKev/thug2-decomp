@@ -141,8 +141,9 @@ void CarView::update_target_direction()
         z = static_cast<float>(z * inverse);
     }
     if (vehicle_->wheels_in_contact() < 2) {
-        if (!(speed < kMinFlatSpeed))
+        if (!(speed < kMinFlatSpeed)) {
             target_direction_ = {.x = x, .y = y, .z = z, .w = w};
+        }
         return;
     }
     double scale = static_cast<double>(speed) * kSpeedScale;
@@ -226,14 +227,16 @@ void CarView::tick_frame()
                        (static_cast<double>(direction_.y) * target_direction_.y) +
                        (static_cast<double>(direction_.x) * target_direction_.x);
     auto cosine = static_cast<float>(dot);
-    if (dot > 1.0)
+    if (dot > 1.0) {
         cosine = 1.0F;
-    else if (cosine < -1.0F)
+    } else if (cosine < -1.0F) {
         cosine = -1.0F;
+    }
     bool obtuse = false;
     float angle = maths::acos_f({.value = cosine, .limit = kHalfPi}, &obtuse);
-    if (obtuse)
+    if (obtuse) {
         angle = maths::kPi - angle;
+    }
     const bool left = (static_cast<double>(direction_.z) * target_direction_.x) -
                           (static_cast<double>(target_direction_.z) * direction_.x) >
                       0.0;

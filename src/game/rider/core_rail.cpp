@@ -212,8 +212,9 @@ void SkaterPhysicsModule::step_grind_move()
         maths::Vec4& p = entity()->at_point();
         p.y = p.y + 1.0F;
         finish_rail();
-        if (thaw_bmx::live_now(this))
+        if (thaw_bmx::live_now(this)) {
             thaw_bmx::rail_stall_slip(this); // (not original: THAW 0x005E7074 - the bike's stall)
+        }
         return;
     }
     update_grind_balance();
@@ -257,8 +258,9 @@ void SkaterPhysicsModule::step_grind_move()
         v.w = gw + v.w;
     }
     const float after = sign_of(dot3(along, entity()->vel()));
-    if (before != after)
+    if (before != after) {
         rail_backwards_ = !rail_backwards_;
+    }
 
     // The segment to go on to that way (its node flagged 4, the corner gentle enough) - or none.
     bool no_next_segment = false;
@@ -271,10 +273,11 @@ void SkaterPhysicsModule::step_grind_move()
             const maths::Vec4 c = grind_point_in_world(prev);
             const maths::Vec4 d = grind_point_in_world(node);
             const maths::Vec4 behind = d - c;
-            if (gentle_corner(ahead, behind))
+            if (gentle_corner(ahead, behind)) {
                 go_on_to = node->last_value();
-            else
+            } else {
                 no_next_segment = true;
+            }
         } else {
             no_next_segment = true;
         }
@@ -287,10 +290,11 @@ void SkaterPhysicsModule::step_grind_move()
             const maths::Vec4 c = grind_point_in_world(next->succ());
             const maths::Vec4 d = grind_point_in_world(next);
             const maths::Vec4 back_further = d - c;
-            if (gentle_corner(back, back_further))
+            if (gentle_corner(back, back_further)) {
                 go_on_to = next;
-            else
+            } else {
                 no_next_segment = true;
+            }
         } else {
             no_next_segment = true;
         }
@@ -332,15 +336,17 @@ void SkaterPhysicsModule::step_grind_move()
     }
     if (state_of(this) != kRail) {
         finish_rail();
-        if (thaw_bmx::live_now(this))
+        if (thaw_bmx::live_now(this)) {
             thaw_bmx::rail_stall_slip(this); // (not original, as above)
+        }
         return;
     }
 
     grind_along(start_node, go_on_to, no_next_segment, overshoot);
     finish_rail();
-    if (thaw_bmx::live_now(this))
+    if (thaw_bmx::live_now(this)) {
         thaw_bmx::rail_stall_slip(this); // (not original, as above)
+    }
 }
 
 // (Part of 0x0050DDF0) A moving rail: its matrix asked for (0x0042BA10 - not used), then carried along with it.
@@ -447,8 +453,9 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     const double sy = static_cast<double>(b.y) - a.y;
     const double sz = static_cast<double>(b.z) - a.z;
     const double length = std::sqrt(((sx * sx) + (sz * sz)) + (sy * sy));
-    if (length <= overshoot)
+    if (length <= overshoot) {
         overshoot = 0.0F;
+    }
 
     // The move: the velocity over the frame, plus the overshoot along the facing (x, y of both unrounded).
     maths::Vec4& p = entity()->at_point();
@@ -479,8 +486,9 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
 
     // Going on along the rail: only (not in the park editor) when the next segment climbs as this one does.
     if (!no_next_segment) {
-        if (in_park_editor())
+        if (in_park_editor()) {
             return;
+        }
         const maths::Vec4 c = grind_point_in_world(start_node);
         const maths::Vec4 d = grind_point_in_world(start_node->succ());
         maths::Vec4 this_way = d - c;
@@ -489,8 +497,9 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
         maths::Vec4 that_way = f - e;
         this_way.make_unit();
         that_way.make_unit();
-        if (!(std::fabs(static_cast<double>(this_way.y) - that_way.y) < kSameWayTolerance))
+        if (!(std::fabs(static_cast<double>(this_way.y) - that_way.y) < kSameWayTolerance)) {
             return;
+        }
     }
 
     // The feeler: from the last position to 6 past the new one along the move, raised by the up.
@@ -514,11 +523,13 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     start.x = up.x + start.x, start.y = up.y + start.y, start.z = up.z + start.z, start.w = up.w + start.w;
     const maths::Vec4& up2 = core::at(entity()->basis_frame().row, 1);
     end.x = end.x + up2.x, end.y = end.y + up2.y, end.z = end.z + up2.z, end.w = end.w + up2.w;
-    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags))
+    if (!get_feel(this, render::kDefaultIgnoredFaceFlags, render::kNoFaceFlags)) {
         return;
+    }
     // Something ahead: off the rail (not for faces flagged 0x10 at +0xF9, outside the park editor).
-    if (!in_park_editor() && core::any(feeler_.hit().face_flags_ & render::FaceFlag::kNoParkEdit))
+    if (!in_park_editor() && core::any(feeler_.hit().face_flags_ & render::FaceFlag::kNoParkEdit)) {
         return;
+    }
     trigger_rail_script(kGrindOffEvents);
     objects::GameEntity* o = object_of(this);
     o->at_point() = o->old_pos();
@@ -574,8 +585,9 @@ void SkaterPhysicsModule::do_bike_stall_physics()
         // (THAW draws the segment here with rail_highlights on - a debug view of its own)
         auto* node = rail_node_;
         const objects::GrindPoint* next = node->succ();
-        if (!next)
+        if (!next) {
             return;
+        }
         entity()->vel() = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         if (state_of(this) == kBikeStall) {
             // 0x005E34AE: the facing along the segment the way it points, the display facing turned 0.3 of the way

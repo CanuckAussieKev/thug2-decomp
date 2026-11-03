@@ -46,8 +46,9 @@ int allow_random(Struct* option)
 bool part_is_created_graphic(void* appearance, uint32_t part)
 {
     auto* option = static_cast<gfx::ModelLook*>(appearance)->get_part(part);
-    if (!option)
+    if (!option) {
         return false;
+    }
     uint32_t descriptor_id = 0;
     option->read_hash_value(kDescId, &descriptor_id, 0);
     return descriptor_id == kCreatedGraphic;
@@ -59,14 +60,16 @@ Struct* find_cas_option(CasPart cas_part, bool /*unused*/)
     const auto part = cas_part.part;
     const auto descriptor_id = cas_part.descriptor_id_;
     Array* list = script::fetch_list(part);
-    if (!descriptor_id)
+    if (!descriptor_id) {
         return nullptr;
+    }
     uint32_t found = descriptor_id; // (the argument's own word: kept from option to option)
     for (uint32_t i = 0; i < list->extent(); ++i) {
         Struct* option = current_option(list, i);
         option->read_hash_value(kDescId, &found, 1);
-        if (found == descriptor_id)
+        if (found == descriptor_id) {
             return option;
+        }
     }
     return nullptr;
 }
@@ -83,8 +86,9 @@ void get_matching_cas_options(CasFilter cas_filter, std::span<Struct*> out, int*
         Struct* option = current_option(list, static_cast<uint32_t>(i));
         int allowed = 0;
         option->fetch_int_value(kPickPermitted, &allowed, 1);
-        if (!allowed)
+        if (!allowed) {
             continue;
+        }
         uint32_t option_filter = 0;
         option->read_hash_value(kFilter, &option_filter, 0);
         if (option_filter == filter) {
@@ -110,11 +114,13 @@ Struct* pick_random_cas_option(CasFilter cas_filter)
         const int allow = allow_random(option);
         if (filter) {
             uint32_t option_filter = 0;
-            if (option->read_hash_value(kFilter, &option_filter, 0) && option_filter != filter)
+            if (option->read_hash_value(kFilter, &option_filter, 0) && option_filter != filter) {
                 continue;
+            }
         }
-        if (!allow)
+        if (!allow) {
             continue;
+        }
         core::at(options, count) = option;
         option->fetch_int_value(kAlreadySelected, &already_picked, 1);
         core::at(selected, count) = already_picked != 0;
@@ -123,12 +129,14 @@ Struct* pick_random_cas_option(CasFilter cas_filter)
     // Every one selected already: all of them again
     int fresh = 0;
     for (int i = 0; i < count; ++i) {
-        if (!core::at(selected, i))
+        if (!core::at(selected, i)) {
             ++fresh;
+        }
     }
     if (count > 0 && fresh == 0) {
-        for (int i = 0; i < count; ++i)
+        for (int i = 0; i < count; ++i) {
             core::at(selected, i) = false;
+        }
     }
     int candidates = 0;
     for (int i = 0; i < count; ++i) {
@@ -154,8 +162,9 @@ Struct* get_cas_option_by_index(checksums::Name part_name, int index, checksums:
         for (int i = 0; i < size; ++i) {
             Struct* option = current_option(list, static_cast<uint32_t>(i));
             int rolled_slot = -1;
-            if (option->fetch_int_value(kShuffleIndex, &rolled_slot, 1) && rolled_slot == index)
+            if (option->fetch_int_value(kShuffleIndex, &rolled_slot, 1) && rolled_slot == index) {
                 return option;
+            }
         }
         return nullptr;
     }
@@ -166,8 +175,9 @@ Struct* get_cas_option_by_index(checksums::Name part_name, int index, checksums:
             uint32_t option_filter = 0;
             option->read_hash_value(kFilter, &option_filter, 0);
             if (allow && (option_filter == filter || option_filter == 0)) {
-                if (index <= 0)
+                if (index <= 0) {
                     return option;
+                }
                 --index;
             }
         }

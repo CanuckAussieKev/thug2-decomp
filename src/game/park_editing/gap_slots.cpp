@@ -36,8 +36,9 @@ void highlight_piece(ParkTile* piece, bool on) { piece->set_visible(on); }
 int GapRegistry::find_empty_gap_slot()
 {
     for (int slot = 0; slot < kMaxGaps; ++slot) {
-        if (!core::at(gaps_ptr_, slot))
+        if (!core::at(gaps_ptr_, slot)) {
             return slot;
+        }
     }
     return -1;
 }
@@ -47,8 +48,9 @@ void GapRegistry::end_gap(void* piece, PieceGroup* meta, int index)
 {
     Gap* gap = core::at(gaps_ptr_, index);
     const int slot = find_empty_gap_slot();
-    if (slot < 0)
+    if (slot < 0) {
         return;
+    }
     core::at(gaps_ptr_, slot) = gap;
     core::at(gap->ids_, 1) = next_id_;
     ++next_id_;
@@ -64,8 +66,9 @@ bool GapRegistry::get_gap_index(PieceGroup* meta, int* index)
     for (int slot = 0; slot < kMaxGaps; ++slot) {
         const Gap* gap = core::at(gaps_ptr_, slot);
         if (gap && core::at(gap->metas_, get_half(this, slot)) == meta) {
-            if (index)
+            if (index) {
                 *index = slot;
+            }
             return true;
         }
     }
@@ -77,8 +80,9 @@ uint32_t GapRegistry::get_gap_trigger_name(ParkTile* piece)
 {
     for (int slot = 0; slot < kMaxGaps; ++slot) {
         const Gap* gap = core::at(gaps_ptr_, slot);
-        if (!gap || core::at(gap->pieces_, get_half(this, slot)) != piece)
+        if (!gap || core::at(gap->pieces_, get_half(this, slot)) != piece) {
             continue;
+        }
         if ((slot & 1) && script::fetch_int_value("PrintGaps")) {
             Gap* record = core::at(gaps_ptr_, slot);
             debug::printf("Editor Gap %d points: %s\n", record->details_.points_held(), record->details_.text().data());
@@ -94,8 +98,9 @@ uint32_t GapRegistry::get_gap_trigger_name(ParkTile* piece)
 GapDetails* GapRegistry::get_gap_info(int index, int* half)
 {
     const Gap* gap = core::at(gaps_ptr_, index);
-    if (!gap)
+    if (!gap) {
         return nullptr;
+    }
     *half = get_half(this, index);
     // The name copied over the text (unbounded: as the original's inline strcpy).
     text::copy_unbounded(core::at(gaps_ptr_, index)->details_.text().data(), core::at(gaps_ptr_, index)->label_.data());
@@ -105,12 +110,15 @@ GapDetails* GapRegistry::get_gap_info(int index, int* half)
 // 0x0058CB70
 void GapRegistry::change_gap_in_progress(int index)
 {
-    if (!core::at(gaps_ptr_, index))
+    if (!core::at(gaps_ptr_, index)) {
         return;
-    if (ParkTile* piece = core::at(core::at(gaps_ptr_, index)->pieces_, 0))
+    }
+    if (ParkTile* piece = core::at(core::at(gaps_ptr_, index)->pieces_, 0)) {
         highlight_piece(piece, true);
-    if (ParkTile* piece = core::at(core::at(gaps_ptr_, index)->pieces_, 1))
+    }
+    if (ParkTile* piece = core::at(core::at(gaps_ptr_, index)->pieces_, 1)) {
         highlight_piece(piece, true);
+    }
 }
 
 // 0x0058CBB0
@@ -119,16 +127,18 @@ GapRegistry* GapRegistry::singleton() { return sole(); }
 // 0x0058CCC0
 GapRegistry::GapRegistry(ParkLayout* manager) : park_owner_(manager)
 {
-    for (Gap*& gap : gaps_ptr_)
+    for (Gap*& gap : gaps_ptr_) {
         gap = nullptr;
+    }
     sole() = this;
 }
 
 // 0x0058CBC0
 GapDetails::GapDetails()
 {
-    for (CellBox& pos : at_point_)
+    for (CellBox& pos : at_point_) {
         pos.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
+    }
 }
 
 // 0x0058CBF0

@@ -191,8 +191,9 @@ Face face_of(const render::ProbeRay& feeler)
 {
     Face face;
     face.hit = feeler.hit().hit;
-    if (!face.hit)
+    if (!face.hit) {
         return face;
+    }
     face.object = feeler.entity().get_pull() != nullptr;
     face.checksum = face.object ? feeler.entity_key() : feeler.hit().object_checksum_;
     face.index = static_cast<int>(feeler.hit().face);
@@ -207,17 +208,20 @@ Face face_of(const render::ProbeRay& feeler)
 std::string get_name_of(uint32_t checksum)
 {
     const char* name = script::kept_qb_name(checksum);
-    if (!name)
+    if (!name) {
         name = script::look_up_hash_name(checksum);
+    }
     std::array<char, kShortTextBytes> text{};
     if (!name) {
         text::format_to(text, "0x%08X", checksum);
         return text.data();
     }
     std::string out = name;
-    for (char& c : out)
-        if (c == ' ' || c == '=' || c == ';')
+    for (char& c : out) {
+        if (c == ' ' || c == '=' || c == ';') {
             c = '_';
+        }
+    }
     return out;
 }
 
@@ -226,11 +230,13 @@ uint32_t current_load_state() { return modules::Skate::sole() ? modules::Skate::
 std::string get_level_name()
 {
     const uint32_t load = current_load_state();
-    if (!load)
+    if (!load) {
         return "-";
+    }
     std::string name = get_name_of(load);
-    if (name.size() > kLoadPrefixLength && _strnicmp(name.c_str(), "Load_", kLoadPrefixLength) == 0)
+    if (name.size() > kLoadPrefixLength && _strnicmp(name.c_str(), "Load_", kLoadPrefixLength) == 0) {
         name.erase(0, kLoadPrefixLength);
+    }
     return name;
 }
 
@@ -238,12 +244,14 @@ std::string get_level_name()
 std::string file_stamp(const std::string& path)
 {
     WIN32_FILE_ATTRIBUTE_DATA data = {};
-    if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data))
+    if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data)) {
         return {};
+    }
     FILETIME local;
     SYSTEMTIME t;
-    if (!FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &t))
+    if (!FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &t)) {
         return {};
+    }
     std::array<char, kFileTextBytes> text{};
     text::format_to(text, "%llu@%04u-%02u-%02uT%02u:%02u:%02u",
                     (static_cast<unsigned long long>(data.nFileSizeHigh) << kHighWordShift) | data.nFileSizeLow, t.wYear, t.wMonth,
@@ -258,8 +266,9 @@ std::string level_file_stamp(const std::string& level, const char* kind)
     const std::string packed = "Data\\pre\\" + level + kind + ".prx";
     for (const std::string& file : {overlay, packed}) {
         std::string stamp = file_stamp(game_folder_path(file.c_str()));
-        if (!stamp.empty())
+        if (!stamp.empty()) {
             return stamp;
+        }
     }
     return "-";
 }
@@ -316,13 +325,15 @@ bool quiet_spot(const std::array<float, 3>& at, int* repeats)
 {
     const DWORD now = GetTickCount();
     for (Spot& spot : spot_ring().spots_) {
-        if (!spot.time)
+        if (!spot.time) {
             continue;
+        }
         const float dx = core::at(spot.at, 0) - std::get<0>(at);
         const float dy = core::at(spot.at, 1) - std::get<1>(at);
         const float dz = core::at(spot.at, 2) - std::get<2>(at);
-        if ((dx * dx) + (dy * dy) + (dz * dz) >= kSameSpot * kSameSpot)
+        if ((dx * dx) + (dy * dy) + (dz * dz) >= kSameSpot * kSameSpot) {
             continue;
+        }
         if (now - spot.time < kSpotQuietMs) {
             ++spot.repeats;
             return true;
@@ -369,12 +380,14 @@ float to_segment(const std::array<float, 3>& p, const std::array<float, 3>& a, c
 // both its corners and a probe just beyond its middle finds nothing.
 void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* detail)
 {
-    if (!face.hit || face.object || !face.coll_obj_)
+    if (!face.hit || face.object || !face.coll_obj_) {
         return;
+    }
     auto* object = static_cast<render::HitMesh*>(face.coll_obj_);
     const render::TriMeshSource* geometry = object->geometry();
-    if (!geometry || face.index < 0 || std::cmp_greater_equal(face.index, geometry->tri_count()))
+    if (!geometry || face.index < 0 || std::cmp_greater_equal(face.index, geometry->tri_count())) {
         return;
+    }
     std::array<uint32_t, 3> index{};
     std::array<maths::Vec4, 3> raw{};
     for (int k = 0; k < 3; ++k) {
@@ -397,8 +410,9 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
     const int b = (a + 1) % 3;
     const int c = (a + 2) % 3;
     auto same = [&](uint32_t vertex, int k) {
-        if (vertex == core::at(index, k))
+        if (vertex == core::at(index, k)) {
             return true;
+        }
         const maths::Vec4 v = geometry->read_stored_vertex(static_cast<int>(vertex));
         const float dx = v.x - core::at(raw, k).x;
         const float dy = v.y - core::at(raw, k).y;
@@ -406,8 +420,9 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
         return (dx * dx) + (dy * dy) + (dz * dz) < kSamePointDistanceSq;
     };
     for (int j = 0; std::cmp_less(j, geometry->tri_count()); ++j) {
-        if (j == face.index)
+        if (j == face.index) {
             continue;
+        }
         bool has_a = false;
         bool has_b = false;
         for (int m = 0; m < 3; ++m) {
@@ -422,8 +437,9 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
     }
     // None in its object: for ground (a face facing up), anything (another object's) just beyond the edge's middle,
     // away from the third corner? (A wall's edges aren't judged: open stays unknown.)
-    if (core::at(face.normal, 1) < kFloorNormalMinY)
+    if (core::at(face.normal, 1) < kFloorNormalMinY) {
         return;
+    }
     const std::array<float, 3>& pa = core::at(detail->corners, a);
     const std::array<float, 3>& pb = core::at(detail->corners, b);
     const std::array<float, 3>& pc = core::at(detail->corners, c);
@@ -440,12 +456,14 @@ void face_geometry(const Face& face, const std::array<float, 3>& spot, Detail* d
                                        -(core::at(w, 2) - (core::at(e, 2) * t))}};
     const float length = std::sqrt((core::at(out, 0) * core::at(out, 0)) + (core::at(out, 1) * core::at(out, 1)) +
                                    (core::at(out, 2) * core::at(out, 2)));
-    if (length <= 0.0F)
+    if (length <= 0.0F) {
         return;
+    }
     std::array<float, 3> q{};
-    for (int k = 0; k < 3; ++k)
+    for (int k = 0; k < 3; ++k) {
         core::at(q, k) =
             ((core::at(pa, k) + core::at(pb, k)) * kHalf) + (core::at(out, k) / length * kProbeOffsetDistance);
+    }
     const std::array<float, 3> high = {core::at(q, 0), core::at(q, 1) + 24.0F, core::at(q, 2)};
     const std::array<float, 3> low = {core::at(q, 0), core::at(q, 1) - 48.0F, core::at(q, 2)};
     detail->edge_open_ = get_probe(high, low, false).hit ? 0 : 1;
@@ -499,20 +517,24 @@ void get_emit(int before)
     std::array<bool, static_cast<int>(RouteWay::kTotalOf)> seen = {};
     for (int i = 0; i < collision_events_state().path_count_; ++i) {
         const PathRecord& record = core::at(collision_events_state().paths_, (collision_events_state().path_next_ - collision_events_state().path_count_ + i + kPathRecords) % kPathRecords);
-        if (record.frame < old.frame || record.frame > now.frame)
+        if (record.frame < old.frame || record.frame > now.frame) {
             continue;
+        }
         const int p = static_cast<int>(record.path);
         if (!core::at(seen, p)) {
             core::at(seen, p) = true;
-            if (!event.paths.empty())
+            if (!event.paths.empty()) {
                 event.paths += ',';
+            }
             event.paths += path_name(record.path);
         }
-        if (!strongest || record.path <= strongest->path)
+        if (!strongest || record.path <= strongest->path) {
             strongest = &record;
+        }
     }
-    if (event.paths.empty())
+    if (event.paths.empty()) {
         event.paths = "-";
+    }
 
     // Between which checkpoints the velocity turned against the old direction (the first time).
     std::array<float, 2> dir_old{};
@@ -523,8 +545,9 @@ void get_emit(int before)
     event.flipped = "-";
     for (int i = 0; i < mark_ring().marker_total_; ++i) {
         const Mark& mark = core::at(mark_ring().marks_, (mark_ring().mark_next_ - mark_ring().marker_total_ + i + kMarks) % kMarks);
-        if (mark.frame < old.frame || mark.frame > now.frame)
+        if (mark.frame < old.frame || mark.frame > now.frame) {
             continue;
+        }
         const bool against =
             (core::at(mark.vel, 0) * core::at(dir_old, 0)) + (core::at(mark.vel, 2) * core::at(dir_old, 1)) < 0.0F;
         if (against && previous) {
@@ -544,8 +567,9 @@ void get_emit(int before)
                 size += core::at(previous->vel, k) * core::at(previous->vel, k);
             }
             if (std::strcmp(previous->label, "update-rest") == 0 && std::strcmp(mark.label, "update-start") == 0 &&
-                std::sqrt(sum) < (kJitterFraction * std::sqrt(size)) + 1.0F)
+                std::sqrt(sum) < (kJitterFraction * std::sqrt(size)) + 1.0F) {
                 uber_frig = true;
+            }
             break;
         }
         previous = against ? nullptr : &mark;
@@ -557,15 +581,18 @@ void get_emit(int before)
     for (int age = 0; age <= before; ++age) {
         const Sample& s = sample_at(age);
         held |= s.buttons;
-        if (s.state == 0 && core::at(s.ground_normal_, 1) < core::at(steepest->ground_normal_, 1))
+        if (s.state == 0 && core::at(s.ground_normal_, 1) < core::at(steepest->ground_normal_, 1)) {
             steepest = &s;
-        if (s.state == 0 && core::at(s.ground_normal_, 1) < event.ground_min_y_)
+        }
+        if (s.state == 0 && core::at(s.ground_normal_, 1) < event.ground_min_y_) {
             event.ground_min_y_ = core::at(s.ground_normal_, 1);
+        }
     }
     const char* reason =
         choose_reason(uber_frig, strongest ? path_name(strongest->path) : nullptr, event.ground_min_y_);
-    if (!reason)
+    if (!reason) {
         return; // (flat ground and no path: the player turned round)
+    }
     event.reason = reason;
     const Ray* ray = nullptr;
     if (uber_frig) {
@@ -578,17 +605,20 @@ void get_emit(int before)
         event.face = steepest->ground;
         ray = &steepest->ground_ray_;
     }
-    if (event.face.hit)
+    if (event.face.hit) {
         std::memcpy(event.spot.data(), event.face.point.data(), sizeof(event.spot));
-    else
+    } else {
         event.spot = now.pos;
-    if (quiet_spot(event.spot, &event.repeats))
+    }
+    if (quiet_spot(event.spot, &event.repeats)) {
         return;
+    }
 
     // The probes, along the travel before the reversal.
     std::array<float, 2> direction{};
-    if (get_horizontal(old.vel, direction) <= 0.0F)
+    if (get_horizontal(old.vel, direction) <= 0.0F) {
         get_horizontal(old.facing, direction);
+    }
     core::at(event.probe_dir_, 0) = core::at(direction, 0);
     core::at(event.probe_dir_, 2) = core::at(direction, 1);
     const std::array<float, 3>& at = event.spot;
@@ -642,8 +672,9 @@ void get_emit(int before)
     detail.scn_file_ = scn_file_stamp();
     detail.approach.clear();
     for (int age = kHistoryOldestAge; age >= 0; age -= kHistoryAgeStep) {
-        if (age >= collision_events_state().sample_total_)
+        if (age >= collision_events_state().sample_total_) {
             continue;
+        }
         const Sample& s = sample_at(age);
         std::array<char, kAgeTextBytes> text{};
         text::format_to(text, "%s%.0f,%.0f,%.0f,%c", detail.approach.empty() ? "" : ";", core::at(s.pos, 0),
@@ -671,8 +702,9 @@ void detect()
         core::at(frames, i).vel = s.vel;
     }
     const int index = find_reversal(std::span<const Motion>(frames).first(static_cast<std::size_t>(collision_events_state().sample_total_)));
-    if (index < 0)
+    if (index < 0) {
         return;
+    }
     get_emit(collision_events_state().sample_total_ - 1 - index);
     // (seen once - logged or not: the history starts again from this frame)
     const Sample last = sample_at(0);
@@ -716,22 +748,27 @@ const char* path_name(RouteWay path)
 int find_reversal(std::span<const Motion> frames)
 {
     const auto count = static_cast<int>(frames.size());
-    if (count < 2)
+    if (count < 2) {
         return -1;
+    }
     const Motion& now = core::at(frames, count - 1);
-    if (now.state != 0)
+    if (now.state != 0) {
         return -1;
+    }
     std::array<float, 2> dir_now{};
-    if (get_horizontal(now.vel, dir_now) < kMinSpeedNow)
+    if (get_horizontal(now.vel, dir_now) < kMinSpeedNow) {
         return -1;
+    }
     for (int i = 0; i < count - 1; ++i) { // (the oldest first: the speed the skater had before)
         const Motion& old = core::at(frames, i);
-        if (now.frame - old.frame > static_cast<uint32_t>(kWindow) || old.state != 0)
+        if (now.frame - old.frame > static_cast<uint32_t>(kWindow) || old.state != 0) {
             continue;
+        }
         std::array<float, 2> dir_old{};
         if (get_horizontal(old.vel, dir_old) < kMinSpeedBefore ||
-            (core::at(dir_old, 0) * core::at(dir_now, 0)) + (core::at(dir_old, 1) * core::at(dir_now, 1)) >= kOpposed)
+            (core::at(dir_old, 0) * core::at(dir_now, 0)) + (core::at(dir_old, 1) * core::at(dir_now, 1)) >= kOpposed) {
             continue;
+        }
         // A sudden change between, no rail / lip / wall, not long in the air.
         bool sudden = false;
         bool refused = false;
@@ -739,20 +776,23 @@ int find_reversal(std::span<const Motion> frames)
         for (int j = i + 1; j < count; ++j) {
             const Motion& s = core::at(frames, j);
             const Motion& p = core::at(frames, j - 1);
-            if (s.state == 1)
+            if (s.state == 1) {
                 ++air;
-            else if (s.state != 0)
+            } else if (s.state != 0) {
                 refused = true;
+            }
             std::array<float, 2> ds{};
             std::array<float, 2> dp{};
             const float vs = get_horizontal(s.vel, ds);
             const float vp = get_horizontal(p.vel, dp);
             if (vs < kStill || vp < kStill ||
-                (core::at(ds, 0) * core::at(dp, 0)) + (core::at(ds, 1) * core::at(dp, 1)) < kSudden)
+                (core::at(ds, 0) * core::at(dp, 0)) + (core::at(ds, 1) * core::at(dp, 1)) < kSudden) {
                 sudden = true;
+            }
         }
-        if (refused || air > kMostAirFrames || !sudden)
+        if (refused || air > kMostAirFrames || !sudden) {
             continue;
+        }
         return i;
     }
     return -1;
@@ -760,10 +800,12 @@ int find_reversal(std::span<const Motion> frames)
 
 const char* choose_reason(bool uber_frig, const char* path, float ground_min_y)
 {
-    if (uber_frig)
+    if (uber_frig) {
         return "uber-frig";
-    if (path)
+    }
+    if (path) {
         return path;
+    }
     return ground_min_y < kSlopeNormalY ? "slope" : nullptr;
 }
 
@@ -775,12 +817,15 @@ bool get_on()
 
 void note_path(SkaterPhysicsModule* component, RouteWay path, const maths::Vec4& /*unused*/)
 {
-    if (component != collision_events_state().component_ || !get_on()) // (collision_events_state().component_: set by end_frame, only while on)
+    if (component != collision_events_state().component_ ||
+        !get_on()) { // (collision_events_state().component_: set by end_frame, only while on)
         return;
+    }
     PathRecord& record = core::at(collision_events_state().paths_, collision_events_state().path_next_);
     collision_events_state().path_next_ = (collision_events_state().path_next_ + 1) % kPathRecords;
-    if (collision_events_state().path_count_ < kPathRecords)
+    if (collision_events_state().path_count_ < kPathRecords) {
         ++collision_events_state().path_count_;
+    }
     record.frame = frame_loop::frames_run();
     record.path = path;
     record.face = face_of(component->feeler());
@@ -789,12 +834,15 @@ void note_path(SkaterPhysicsModule* component, RouteWay path, const maths::Vec4&
 
 void checkpoint(SkaterPhysicsModule* component, const char* label)
 {
-    if (component != collision_events_state().component_ || !get_on()) // (collision_events_state().component_: set by end_frame, only while on)
+    if (component != collision_events_state().component_ ||
+        !get_on()) { // (collision_events_state().component_: set by end_frame, only while on)
         return;
+    }
     Mark& mark = core::at(mark_ring().marks_, mark_ring().mark_next_);
     mark_ring().mark_next_ = (mark_ring().mark_next_ + 1) % kMarks;
-    if (mark_ring().marker_total_ < kMarks)
+    if (mark_ring().marker_total_ < kMarks) {
         ++mark_ring().marker_total_;
+    }
     mark.frame = frame_loop::frames_run();
     mark.label = label;
     copy3(mark.vel, component->entity()->vel());
@@ -803,12 +851,14 @@ void checkpoint(SkaterPhysicsModule* component, const char* label)
 
 void end_frame(SkaterPhysicsModule* component)
 {
-    if (frame_loop::frames_run() == 0 || !get_on()) // (not in the early self-tests)
+    if (frame_loop::frames_run() == 0 || !get_on()) { // (not in the early self-tests)
         return;
+    }
     if (component != collision_events_state().component_) {
         // (only the local skater's component: not a self-test's stand-in)
-        if (object_of(component) != local_skater())
+        if (object_of(component) != local_skater()) {
             return;
+        }
         collision_events_state().component_ = component;
         get_reset();
     }
@@ -833,10 +883,13 @@ void end_frame(SkaterPhysicsModule* component)
     s.balance = balance ? balance->trick() : 0;
     if (objects::PadInputModule* input = component->input()) {
         // The pad's 16 buttons (0x20 bytes each from +0x20 - the first is up) and its scaled first stick.
-        for (int i = 0; i < kPadButtonCount; ++i)
-            if (const objects::ControlButton* button = input->pad_primary().button_at_offset(static_cast<uint32_t>(i) * kPadButtonStride);
-                button && button->held_down())
+        for (int i = 0; i < kPadButtonCount; ++i) {
+            if (const objects::ControlButton* button =
+                    input->pad_primary().button_at_offset(static_cast<uint32_t>(i) * kPadButtonStride);
+                button && button->held_down()) {
                 s.buttons = static_cast<uint16_t>(s.buttons | (1U << i));
+            }
+        }
         core::at(s.stick, 0) = core::at(input->pad_primary().scaled_stick(), 0);
         core::at(s.stick, 1) = core::at(input->pad_primary().scaled_stick(), 1);
     }
@@ -860,8 +913,9 @@ void end_frame(SkaterPhysicsModule* component)
     }
     core::at(collision_events_state().samples_, collision_events_state().next_) = s;
     collision_events_state().next_ = (collision_events_state().next_ + 1) % kHistory;
-    if (collision_events_state().sample_total_ < kHistory)
+    if (collision_events_state().sample_total_ < kHistory) {
         ++collision_events_state().sample_total_;
+    }
     detect();
 }
 
@@ -875,10 +929,12 @@ std::string flag_names(uint16_t flags)
                                            "invisible",      "0x2000",       "0x4000",         "0x8000"}};
     std::string out;
     for (int bit = 0; bit < kPadButtonCount; ++bit) {
-        if (!(flags & (1U << bit)))
+        if (!(flags & (1U << bit))) {
             continue;
-        if (!out.empty())
+        }
+        if (!out.empty()) {
             out += '|';
+        }
         out += core::at(kNames, bit);
     }
     return out.empty() ? "0" : out;
@@ -890,10 +946,12 @@ std::string pad_button_labels(uint16_t mask)
                                            "r2", "r3",   "circle", "square", "triangle", "x",  "start", "select"}};
     std::string out;
     for (int bit = 0; bit < kPadButtonCount; ++bit) {
-        if (!(mask & (1U << bit)))
+        if (!(mask & (1U << bit))) {
             continue;
-        if (!out.empty())
+        }
+        if (!out.empty()) {
             out += '+';
+        }
         out += core::at(kNames, bit);
     }
     return out.empty() ? "-" : out;
@@ -901,8 +959,9 @@ std::string pad_button_labels(uint16_t mask)
 
 std::string face_text(const Face& face, std::string (*name)(uint32_t))
 {
-    if (!face.hit)
+    if (!face.hit) {
         return "none";
+    }
     std::array<char, kReportBytes> text{};
     text::format_to(text, "%s:%s;face:%d;flags:0x%04X;decoded:%s;terrain:%u;n:%.2f,%.2f,%.2f;at:%.1f,%.1f,%.1f",
                     face.object ? "object" : "sector", name(face.checksum).c_str(), face.index, face.flags,
@@ -943,8 +1002,9 @@ std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
     text::format_to(text, " ground_min_y=%.2f", e.ground_min_y_);
     line += text.data();
     line += " face=" + face_text(e.face, name);
-    for (int i = 0; i < kProbeFaceLimit; ++i)
+    for (int i = 0; i < kProbeFaceLimit; ++i) {
         line += std::string(" ") + core::at(kProbes, i) + "=" + face_text(core::at(e.probes, i), name);
+    }
     line += " probe_dir=" + v3(e.probe_dir_, 2);
     line += " flipped=" + (e.flipped.empty() ? std::string("-") : e.flipped);
     line += " repeats=" + std::to_string(e.repeats);

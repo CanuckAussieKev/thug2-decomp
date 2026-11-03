@@ -60,8 +60,9 @@ void lend_pool(memory::PoolPair& pair, memory::SlabBank* pool)
 void take_back_pool(memory::PoolPair& pair)
 {
     if (memory::SlabBank* pool = core::at(pair.pools(), pair.current())) {
-        if (pool_owned(pair))
+        if (pool_owned(pair)) {
             delete_pool(pool);
+        }
         core::at(pair.pools(), pair.current()) = nullptr;
     }
 }
@@ -90,11 +91,13 @@ void ParkRailString::append_spot(ParkRailPoint* point)
 // 0x0058B040
 int ParkRailString::count_segments() const
 {
-    if (flag_bits_ & kLoop)
+    if (flag_bits_ & kLoop) {
         return vertex_total_;
+    }
     int points = 0;
-    for (const ParkRailPoint* point = point_chain_; point; point = point->following_)
+    for (const ParkRailPoint* point = point_chain_; point; point = point->following_) {
         ++points;
+    }
     return points > 1 ? points - 1 : 0;
 }
 
@@ -118,26 +121,30 @@ void ParkRailString::copy_from(const ParkRailString* source, const maths::Vec4* 
         case 1:
             x = from->at_point_.z;
             z = -from->at_point_.x;
-            if (climbing)
+            if (climbing) {
                 point->headings_.y = angle + kQuarterTurn;
+            }
             break;
         case 2:
             x = -from->at_point_.x;
             z = -from->at_point_.z;
-            if (climbing)
+            if (climbing) {
                 point->headings_.y = angle + kHalfTurn;
+            }
             break;
         case 3:
             x = -from->at_point_.z;
             z = from->at_point_.x;
-            if (climbing)
+            if (climbing) {
                 point->headings_.y = angle + kThreeQuarterTurn;
+            }
             break;
         default:
             x = from->at_point_.x;
             z = from->at_point_.z;
-            if (climbing)
+            if (climbing) {
                 point->headings_.y = angle;
+            }
             break;
         }
         point->at_point_.w = 1.0F;
@@ -190,8 +197,9 @@ void ParkRailSet::add_rail(ParkRailString* string)
 int ParkRailSet::rail_point_total() const
 {
     int points = 0;
-    for (const ParkRailString* string = rail_groups_; string; string = string->following())
+    for (const ParkRailString* string = rail_groups_; string; string = string->following()) {
         points += string->vertex_total();
+    }
     return points;
 }
 
@@ -202,8 +210,9 @@ ParkRailString* ParkRailSet::find_rail(checksums::Name rail_name, int index)
     int found = 0;
     for (ParkRailString* string = rail_groups_; string; string = string->following()) {
         if (string->label() == name) {
-            if (found == index)
+            if (found == index) {
                 return string;
+            }
             ++found;
         }
     }
@@ -215,10 +224,11 @@ void ParkRailSet::prepare_all(RailCounts rail_counts, bool in)
 {
     const auto points = rail_counts.points;
     const auto strings = rail_counts.strings;
-    if (in)
+    if (in) {
         std::memcpy(label_.data(), "In set", sizeof("In set"));
-    else
+    } else {
         std::memcpy(label_.data(), "Out set", sizeof("Out set"));
+    }
     std::array<char, kPointNameSize> point_name{};
     std::array<char, kPointNameSize> string_name{};
     text::format_to(point_name, "%s RailPoint", label_.data());
@@ -280,8 +290,9 @@ void ParkRailSet::free_rail(ParkRailString* string)
 {
     memory::PoolPair& pair = string_pools();
     lend_pool(pair, rail_pool_);
-    if (string)
+    if (string) {
         ParkRailString::dealloc(string);
+    }
     take_back_pool(pair);
 }
 

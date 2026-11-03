@@ -133,13 +133,15 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
 {
     info->put_int(checksums::Name{kNumFreeRailPoints}, free_points());
     info->put_int(checksums::Name{kNumFreeRails}, kMaxRails - rail_pool_used());
-    if (active_node_)
+    if (active_node_) {
         info->append_struct_ref(kCurrentRail, script::new_struct());
-    else
+    } else {
         info->put_name_key(checksums::Name{kCurrentRail}, kNull);
+    }
     int count = 0;
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following())
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         ++count;
+    }
     if (count) {
         gsl::owner<script::Array*> rails = script::new_array();
         rails->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kStruct);
@@ -158,16 +160,18 @@ void RailAuthoring::fetch_diagnostics(script::Struct* info)
 void RailAuthoring::write_to_structure(script::Struct* params)
 {
     int count = 0;
-    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following())
+    for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         ++count;
+    }
     gsl::owner<script::Array*> rails = script::new_array();
     rails->configure_size_kind(static_cast<uint32_t>(count), script::QbValueKind::kStruct);
     uint32_t r = 0;
     for (const EditedRail* rail = rail_groups_; rail; rail = rail->following()) {
         gsl::owner<script::Struct*> rail_info = script::new_struct();
         uint32_t point_count = 0;
-        for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following())
+        for (const EditedRailPoint* p = rail->point_chain(); p; p = p->following()) {
             ++point_count;
+        }
         gsl::owner<script::Array*> points = script::new_array();
         points->configure_size_kind(point_count, script::QbValueKind::kStruct);
         uint32_t i = 0;
@@ -175,8 +179,9 @@ void RailAuthoring::write_to_structure(script::Struct* params)
             gsl::owner<script::Struct*> point = script::new_struct();
             point->put_vec3(checksums::Name{kPos}, {.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z});
             // (a post drawn, not has_post_)
-            if (p->post())
+            if (p->post()) {
                 point->put_name_key(checksums::Name{0U}, kHasPost);
+            }
             points->set_cell(i++, script::Cell::of(point));
         }
         rail_info->append_array_ref(kPoints, points);
@@ -191,8 +196,9 @@ void RailAuthoring::decode_from_struct(script::Struct* params)
     get_clear();
     script::Array* rails = nullptr;
     params->fetch_list(kCreatedRails, &rails, 0);
-    if (!rails)
+    if (!rails) {
         return;
+    }
     for (uint32_t r = 0; r < rails->extent(); ++r) {
         auto* rail_info = rails->struct_at(r);
         get_new_rail();
@@ -203,8 +209,9 @@ void RailAuthoring::decode_from_struct(script::Struct* params)
             auto* point = points->struct_at(i);
             // (a full pool: written through null, as the original)
             point->fetch_vec(kPos, &p->at_point(), 0);
-            if (point->has_bare_flag(kHasPost))
+            if (point->has_bare_flag(kHasPost)) {
                 p->set_has_post(true);
+            }
         }
     }
 }
@@ -255,20 +262,24 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
     case kDeleteRail: {
         uint32_t id = 0;
         params->read_hash_value(kRailId, &id, 0);
-        if (EditedRail* rail = find_rail(id))
+        if (EditedRail* rail = find_rail(id)) {
             delete_rail(rail);
+        }
         return 1;
     }
     case kAddNewPosition: {
         Vec4 pos = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
         params->fetch_vec(kPos, &pos, 0);
-        if (!active_node_)
+        if (!active_node_) {
             return 0;
+        }
         const EditedRailPoint* head = active_node_->point_chain();
-        if (head && !rail_segment_valid(&pos, &head->at_point()))
+        if (head && !rail_segment_valid(&pos, &head->at_point())) {
             return 1;
-        if (!ParkBuilderMode::is_inside_park(pos, kRailPlacementMargin))
+        }
+        if (!ParkBuilderMode::is_inside_park(pos, kRailPlacementMargin)) {
             return head ? 1 : 0;
+        }
         ParkBuilderMode::fabricate(false);
         if (!park_editing::ParkBuilderMode::is_park_full()) {
             if (EditedRailPoint* p = active_node_->append_rail_vertex()) {
@@ -292,13 +303,15 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         uint32_t id = 0;
         params->read_hash_value(kRailId, &id, 0);
         EditedRail* rail = find_rail(id);
-        if (!rail)
+        if (!rail) {
             return 0;
+        }
         int index = 0;
         params->fetch_int_value(kRailPointIndex, &index, 0);
         EditedRailPoint* p = rail->fetch_vertex_at(index);
-        if (!p)
+        if (!p) {
             return 0;
+        }
         cut_rail(rail, p);
         delete_short_rails();
         return 1;
@@ -311,8 +324,9 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         Vec4 pos; // (left unset without a pos, as the original's)
         params->fetch_vec(kPos, &pos, 0);
         const EditedRail* rail = find_rail(id);
-        if (!rail)
+        if (!rail) {
             return 1;
+        }
         const bool update = params->has_bare_flag(kUpdateSuperSectors);
         return rail->move_point(index, &pos, update) ? 1 : 0;
     }
@@ -322,8 +336,9 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         int index = 0;
         params->fetch_int_value(kRailPointIndex, &index, 0);
         const EditedRail* rail = find_rail(id);
-        if (!rail)
+        if (!rail) {
             return 1;
+        }
         EditedRailPoint* p = rail->fetch_vertex_at(index);
         const bool include_end_posts = params->has_bare_flag(kIncludeEndPosts);
         const bool flash = params->has_bare_flag(kFlash);
@@ -352,8 +367,9 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         delete_dotted_line();
         return 1;
     case kNewRail:
-        if (free_points() == 0)
+        if (free_points() == 0) {
             return 0;
+        }
         get_new_rail();
         return 1;
     case kUnHighlightAllRails:
@@ -361,8 +377,9 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         return 1;
     case kDestroyEditedRailSectors:
         park_editing_state().set_rail_editor_flag(true);
-        if (params->has_bare_flag(kDoNotUpdateSuperSectors))
+        if (params->has_bare_flag(kDoNotUpdateSuperSectors)) {
             park_editing_state().set_rail_editor_flag(false);
+        }
         delete_all_segments();
         delete_all_posts();
         park_editing_state().set_rail_editor_flag(true);
@@ -371,10 +388,12 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         uint32_t id = 0;
         params->read_hash_value(kRailId, &id, 0);
         const EditedRail* rail = find_rail(id);
-        if (params->has_bare_flag(kCurrentRail))
+        if (params->has_bare_flag(kCurrentRail)) {
             rail = active_node_;
-        if (!rail)
+        }
+        if (!rail) {
             return 0;
+        }
         script->args().get()->put_name_key(checksums::Name{kRailId}, rail->ident());
         script->args().get()->put_int(checksums::Name{kNumPoints}, rail->rail_point_total());
         return 1;

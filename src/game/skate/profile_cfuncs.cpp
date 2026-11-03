@@ -68,17 +68,20 @@ void swap_mapping(uint32_t a, uint32_t b)
     int slot_a = -1;
     int slot_b = -1;
     for (int i = 0; i < kSwapSlots; ++i) {
-        if (!core::at(table, i).used)
+        if (!core::at(table, i).used) {
             continue;
-        if (core::at(table, i).key == a)
+        }
+        if (core::at(table, i).key == a) {
             slot_a = i;
-        else if (core::at(table, i).key == b)
+        } else if (core::at(table, i).key == b) {
             slot_b = i;
+        }
     }
     if (slot_a == -1 || slot_b == -1) {
         for (int i = 0; i < kSwapSlots; ++i) {
-            if (core::at(table, i).used)
+            if (core::at(table, i).used) {
                 continue;
+            }
             if (slot_a == -1) {
                 slot_a = i;
                 core::at(table, i).key = a;
@@ -98,14 +101,16 @@ void swap_mapping(uint32_t a, uint32_t b)
     SwapSlot& second = core::at(table, slot_b);
     const uint32_t first_value = first.value;
     const uint32_t second_value = second.value;
-    if (first.key == second_value)
+    if (first.key == second_value) {
         first.used = false;
-    else
+    } else {
         first.value = second_value;
-    if (second.key == first_value)
+    }
+    if (second.key == first_value) {
         second.used = false;
-    else
+    } else {
         second.value = first_value;
+    }
 }
 
 // 0x005AAAA0
@@ -116,11 +121,13 @@ void preload_meshes(uint32_t array_name)
         auto* entry = list->struct_at(i);
         int allow_random = 0;
         entry->fetch_int_value(kAllowRandom, &allow_random, 0); // allow_random
-        if (!allow_random)
+        if (!allow_random) {
             continue;
+        }
         const char* mesh = nullptr;
-        if (!entry->fetch_text(kMesh, &mesh, 0)) // mesh
+        if (!entry->fetch_text(kMesh, &mesh, 0)) { // mesh
             continue;
+        }
         // a model made (0x0048BFA0), the mesh added to it (0x004935E0), the model deleted (0x0048C3C0)
         gsl::owner<render::RenderModel*> model = render::spawn_model();
         model->add_file_geom(mesh, 0, true, 0, false, false, true, false);
@@ -169,10 +176,12 @@ bool cfunc_get_next_level_requirements(Struct* /*params*/, Script* script)
         auto* step = steps->struct_at(i);
         int goals_needed = 0;
         int medals_needed = 0;
-        if (step->has_bare_flag(kGoalsFlag) || step->has_bare_flag(kGoalFlag)) // goals / goal
+        if (step->has_bare_flag(kGoalsFlag) || step->has_bare_flag(kGoalFlag)) { // goals / goal
             step->fetch_int_value(0U, &goals_needed, 0);
-        if (step->has_bare_flag(kMedalsFlag) || step->has_bare_flag(kMedalFlag)) // (names unknown) medals
+        }
+        if (step->has_bare_flag(kMedalsFlag) || step->has_bare_flag(kMedalFlag)) { // (names unknown) medals
             step->fetch_int_value(0U, &medals_needed, 0);
+        }
         if (goals < goals_needed) {
             text::format_data_to(text, script::fetch_text(kGoalsForNextLevel),
                                  goals_needed - goals); // cfuncs_str_goalsfornextlevel (the text is the format)

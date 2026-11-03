@@ -138,8 +138,9 @@ int PointTally::tricks_since_no_spin()
 {
     int since = 0;
     for (int i = tricks_ - 1; i > 0; --i) {
-        if (get_trick(i)->flag_bits_ & kTrickNoSpin)
+        if (get_trick(i)->flag_bits_ & kTrickNoSpin) {
             break;
+        }
         ++since;
     }
     return since;
@@ -164,8 +165,9 @@ void PointTally::reset_robot(bool run)
 void PointTally::clear_combo()
 {
     const int count = log_.num();
-    for (int i = 0; i < count; ++i)
+    for (int i = 0; i < count; ++i) {
         memory::dealloc(core::at(log_.item_run(), i));
+    }
     log_.num() = 0;
     last_no_spin_ = -1;
     spin_trick_ = -1;
@@ -188,23 +190,27 @@ void PointTally::bank_combo_score()
     for (int i = 0; i < tricks_; ++i) {
         TrickLog* trick = get_trick(i);
         const uint32_t flags = trick->flag_bits_;
-        if (flags & kTrickNoSpin)
+        if (flags & kTrickNoSpin) {
             spin = 2;
-        else if (i == 0 || (get_trick(i - 1)->flag_bits_ & kTrickNoSpin))
+        } else if (i == 0 || (get_trick(i - 1)->flag_bits_ & kTrickNoSpin)) {
             spin = ((flags >> kTrickTwistFlagShift) & 1) ? trick->twist_rate_ + 1 : spin_multiplier(trick->twist_rate_);
+        }
         const int reduction = get_reduction(trick->repeats_);
         int points = reduction * spin * trick->points_held_ / kPointsDivisor; // (percent times half the multiplier)
-        if (trick->kind_)
+        if (trick->kind_) {
             points = points * kLandedKindBonusPercent / kPercentScale;
-        if (verbose_print_)
+        }
+        if (verbose_print_) {
             debug::printf("base %d reduction mult %.2f spin mult %.1f score = %i %s\n", trick->points_held_,
                           static_cast<double>(reduction) * static_cast<double>(kReductionToMultiplier), static_cast<double>(spin) * kSpinHalfStep,
                           points,
                           trick->text_.data()); // "base %d reduction mult %.2f spin mult %.1f score = %i %s\n"
+        }
         pot_ += points;
     }
-    if (verbose_print_)
+    if (verbose_print_) {
         debug::printf("   total %d\n", pot_); // "   total %d\n"
+    }
     if (script::fetch_int_value(kNewSpecial)) {
         const double points = static_cast<double>(pot_) * multiplier_;
         auto counted = static_cast<double>(pot_special_);
@@ -351,10 +357,11 @@ void PointTally::tick_frame()
     }
     const double full = static_cast<double>(special_) * static_cast<double>(1.0F / 3000.0F); // (0x0064E334)
     auto size = static_cast<float>(full);
-    if (full > 1.0)
+    if (full > 1.0) {
         size = 1.0F;
-    else if (size < 0.0F)
+    } else if (size < 0.0F) {
         size = 0.0F;
+    }
     frontend::UiWidget* element = bar.get_pull(); // (no check: as the original)
     element->change_scale(size, element->shown().scale_y_, false, false);
     std::array<uint8_t, 4> rgba{};
@@ -380,12 +387,14 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
     const auto flags = score_flash.flags;
     const bool unnamed = !*text;
     objects::Rider* skater = rider_for_slot(rider_no_);
-    if (!skater)
+    if (!skater) {
         return;
+    }
     auto* trick_component = core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick));
     auto* stats = core::down_cast<objects::AttributeTracker>(skater->fetch_module(kStatsManager));
-    if (*text)
+    if (*text) {
         trick_component->set_bailed(true);
+    }
     auto* physics = core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics));
     auto* physics_skater = core::down_cast<objects::Rider>(physics->entity());
     const uint8_t flipped = physics->state()->flag(objects::PoseFlag::kFlipped).on;
@@ -394,12 +403,14 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
     if (tricks_ > kMaxTricksBeforeTrim) {
         trim_log();
         if (tricks_ > kMaxTricksBeforeTrim) {
-            if (unnamed)
+            if (unnamed) {
                 return;
+            }
             debug::printf("Trick Limit (%d) Reached\n", kTrickLimit); // "Trick Limit (%d) Reached\n"
             newest_logged_trick()->points_held_ += score;
-            if (!(flags & kTrickNoMultiplier))
+            if (!(flags & kTrickNoMultiplier)) {
                 multiplier_ = static_cast<float>(static_cast<double>(multiplier_) + 1.0);
+            }
             bank_combo_score();
             return;
         }
@@ -429,18 +440,22 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
         for (int i = log_.num() - 2; i >= 0; --i) {
             auto& shown = get_trick(i)->shown_;
             const size_t length = std::strlen(shown.data());
-            if (core::at(shown, 0) == '.' || !length)
+            if (core::at(shown, 0) == '.' || !length) {
                 continue;
-            if (core::at(shown, length - 1) == ' ')
+            }
+            if (core::at(shown, length - 1) == ' ') {
                 core::at(shown, length - 1) = 0;
+            }
             text::append_unbounded(shown.data(), "\\_+ "); // "\_+ "
             break;
         }
     }
-    if (last_no_spin_ == tricks_ - 1)
+    if (last_no_spin_ == tricks_ - 1) {
         spin_trick_ = tricks_;
-    if (flags & kTrickNoSpin)
+    }
+    if (flags & kTrickNoSpin) {
         last_no_spin_ = tricks_;
+    }
     auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry(&name));
     bool not_counted = false;
     if (flags & kTrickNotCounted) {
@@ -472,14 +487,16 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
                 add_one = false;
                 const double added = 1.0 - ((times - degrade_start + 1) * 0.5);
                 auto added_f = static_cast<float>(added);
-                if (added > 0.0 && !(flags & kTrickNoMultiplier))
+                if (added > 0.0 && !(flags & kTrickNoMultiplier)) {
                     multiplier_ = static_cast<float>(static_cast<double>(added_f) + multiplier_);
+                }
             } else if (flags & kTrickNoMultiplier) {
                 add_one = false;
             }
         }
-        if (add_one)
+        if (add_one) {
             multiplier_ = static_cast<float>(static_cast<double>(multiplier_) + 1.0);
+        }
         if (multiplier_ == 1.0F) {
             auto* timer = core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer));
             timer->set_seconds_remaining(core::down_cast<objects::Rider>(timer->entity())->get_scaled_physics(kPhysicsRunTimerDuration));
@@ -491,8 +508,9 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
         }
         if (tricks_since_no_spin() > kMaxTricksSinceNoSpin) {
             newest_logged_trick()->points_held_ = 0;
-            if (multiplier_ > 1.0F)
+            if (multiplier_ > 1.0F) {
                 multiplier_ = static_cast<float>(static_cast<double>(multiplier_) - 1.0);
+            }
         }
         if (points_held(skater)) {
             newest_logged_trick()->points_held_ = 0;
@@ -510,8 +528,9 @@ void PointTally::fire_off(const char* text, ScoreFlash score_flash)
 // 0x00563F30
 void PointTally::change_spin_degrees(int degrees)
 {
-    if (!tricks_ || spin_trick_ < 0)
+    if (!tricks_ || spin_trick_ < 0) {
         return;
+    }
     objects::Rider* skater = rider_for_slot(rider_no_);
     const bool flipped =
         core::down_cast<objects::AnimBlenderComponent>(skater->fetch_module(kAnimBlender))->all_channels_flag29();
@@ -536,26 +555,32 @@ void PointTally::change_spin_degrees(int degrees)
             renamed = true;
         } else if (half_turns > 2) {
             core::at(get_trick(spin_trick_)->text_, 0) = 0;
-            if (side == "FS")
+            if (side == "FS") {
                 side = "FS Cab"; // "FS Cab"
-            if (side == "BS")
+            }
+            if (side == "BS") {
                 side = "BS Cab"; // "BS Cab"
+            }
         }
     }
-    if (get_trick(spin_trick_)->twist_rate_ >= half_turns)
+    if (get_trick(spin_trick_)->twist_rate_ >= half_turns) {
         return;
-    if (verbose_print_)
+    }
+    if (verbose_print_) {
         debug::printf("New spin value %d:\n", half_turns * kHalfTurnDegrees); // "New spin value %d:\n"
+    }
     TrickLog* trick = get_trick(spin_trick_);
     if (trick->label_ == kOllie && half_turns % 2 == 1) { // (an odd number of half turns: the other side)
-        if (side == "FS")
+        if (side == "FS") {
             side = "BS";
-        else if (side == "BS")
+        } else if (side == "BS") {
             side = "FS";
-        if (side == "FS Cab")
+        }
+        if (side == "FS Cab") {
             side = "BS Cab";
-        else if (side == "BS Cab")
+        } else if (side == "BS Cab") {
             side = "FS Cab";
+        }
     }
     const int shown_degrees = half_turns * 180;
     const bool joined = log_.num() - 1 > spin_trick_;
@@ -565,11 +590,12 @@ void PointTally::change_spin_degrees(int degrees)
     const char* colour = (flags & kTrickColour3) ? "\\c3" : (flags & kTrickSpecial) ? "\\c2" : "";
     const char* colour_end = *colour ? "\\c0" : "";
     const char* join = joined ? "\\_+ " : "";
-    if (!renamed)
+    if (!renamed) {
         text::format_to(trick->shown_, "%s%s\\_%d\\_%s%s%s", colour, side, shown_degrees, trick->text_.data(),
                         colour_end, join);
-    else
+    } else {
         text::format_to(trick->shown_, "%s%s\\_%s%s%s", colour, side, trick->text_.data(), colour_end, join);
+    }
     dispatch_trick_sequence(false);
     get_trick(spin_trick_)->twist_rate_ = half_turns;
     bank_combo_score();
@@ -583,17 +609,22 @@ void PointTally::change_spin_degrees(int degrees)
 // 0x00564270
 void PointTally::tweak_trick(int points)
 {
-    if (tricks_ <= 0)
+    if (tricks_ <= 0) {
         return;
+    }
     const TrickLog* trick = get_trick(tricks_ - 1);
-    if (!core::at(trick->text_, 0))
+    if (!core::at(trick->text_, 0)) {
         return;
-    if (tricks_since_no_spin() > kMaxTricksSinceNoSpin)
+    }
+    if (tricks_since_no_spin() > kMaxTricksSinceNoSpin) {
         return;
-    if (!(trick->flag_bits_ & kTrickNoSpin) && trick->points_held_ > kSpinTrickPointsLimit)
+    }
+    if (!(trick->flag_bits_ & kTrickNoSpin) && trick->points_held_ > kSpinTrickPointsLimit) {
         return;
-    if (points_held(rider_for_slot(rider_no_)))
+    }
+    if (points_held(rider_for_slot(rider_no_))) {
         return;
+    }
     get_trick(tricks_ - 1)->points_held_ += points;
     bank_combo_score();
     dispatch_trick_sequence(false);
@@ -611,8 +642,9 @@ void PointTally::land()
     objects::Rider* skater = rider_for_slot(rider_no_);
     const bool by_clusters = script::fetch_int_value(kScoreByClusters) != 0;
     goals::get_objective_board()->land();
-    if (by_clusters || (mode->is_true(kShouldModulateColor) && points > 0))
+    if (by_clusters || (mode->is_true(kShouldModulateColor) && points > 0)) {
         note_tagged_prop_ask(points);
+    }
     core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->set_trick_objects(false);
     if (!script::fetch_int_value(kNewSpecial)) {
         special_ += ftol(static_cast<double>(pot_) * multiplier_);
@@ -629,8 +661,9 @@ void PointTally::land()
     top_chain_ = std::max(top_chain_, combo);
     combo_tricks_ = 0;
     if (combo > best_combo_sent_) {
-        if (net->in_net_game() && mode->get_name_key() != kNetLobby)
+        if (net->in_net_game() && mode->get_name_key() != kNetLobby) {
             send_points(net, skater, {.id = MessageId::kBestCombo, .points = pot_score_});
+        }
         best_combo_sent_ = pot_score_;
     }
     if (!mode->repeats_lose_points()) {
@@ -663,11 +696,13 @@ void PointTally::land()
     const int before = get_total_score(); // (inlined there)
     if (!mode->is_true(kShouldModulateColor) && mode->keeps_move_points()) {
         bool send = mode->keeps_running_total();
-        if (!send && mode->keeps_best_chain() && get_total_score() < points)
+        if (!send && mode->keeps_best_chain() && get_total_score() < points) {
             send = true;
+        }
         if (send) {
-            if (!net->get_on_server())
+            if (!net->get_on_server()) {
                 send_points(net, skater, {.id = MessageId::kLandedScore, .points = points});
+            }
             set_grand_total(mode->keeps_best_chain() ? points : sum_ + points);
         } else if (!mode->keeps_best_chain() && !static_cast<uint8_t>(mode->is_scoring_paused())) {
             set_grand_total(points);
@@ -682,8 +717,9 @@ void PointTally::get_bail(bool clear)
 {
     for (int i = 0; i < seen_.num(); ++i) {
         auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr)); // (inlined there)
-        for (int& k : seen->ongoing_)
+        for (int& k : seen->ongoing_) {
             k = 0;
+        }
     }
     if (tricks_) {
         pot_state_ = 0;
@@ -707,8 +743,9 @@ void PointTally::get_bail(bool clear)
 // 0x00564A10
 void PointTally::get_reset()
 {
-    if (!skate_calls::get_skate())
+    if (!skate_calls::get_skate()) {
         return;
+    }
     objects::Rider* skater = rider_for_slot(rider_no_);
     debug::printf("Score::RESET ...............\n"); // "PointTally::RESET ...............\n"
     reset_robot(true);
@@ -730,15 +767,17 @@ void PointTally::get_reset()
     pot_state_ = 0;
     set_special_bar_colors();
     skater = rider_for_slot(rider_no_);
-    if (skater && skater->is_local_skater())
+    if (skater && skater->is_local_skater()) {
         core::down_cast<objects::RiderRunClock>(skater->fetch_module(kSkaterRunTimer))->halt();
+    }
 }
 
 // 0x00564BE0
 void PointTally::advance_turn(int degrees)
 {
-    if (tricks_ && spin_trick_ >= 0 && !(get_trick(spin_trick_)->flag_bits_ & kTrickNoSpin))
+    if (tricks_ && spin_trick_ >= 0 && !(get_trick(spin_trick_)->flag_bits_ & kTrickNoSpin)) {
         change_spin_degrees(degrees);
+    }
 }
 
 } // namespace modules
@@ -754,8 +793,9 @@ void TableItemEraser::free_table_contents()
         uint32_t key = 0;
         void* item = lookup_table_->fetch_entry_at(&index, &key);
         lookup_table_->erase_entry(&key);
-        if (item)
+        if (item) {
             memory::dealloc(item);
+        }
     }
 }
 

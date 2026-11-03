@@ -58,8 +58,9 @@ constexpr uint32_t kTrickBeat = 0xD0DD047B;            // TrickBeat
 int count_active(memory::ListNode* head)
 {
     const memory::ListNode* node = head->next();
-    if (node->data() == memory::ListNode::head_marker() || !node)
+    if (node->data() == memory::ListNode::head_marker() || !node) {
         return 0;
+    }
     int count = 0;
     for (bool again = true; again; again = node->data() != memory::ListNode::head_marker() && node) {
         node = node->next();
@@ -78,8 +79,9 @@ void GoalManager::update_time_display()
     const int count = count_active(&active_goals_.list_link());
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
-        if (!goal->shows_clock())
+        if (!goal->shows_clock()) {
             continue;
+        }
         const int time = goal->get_seconds_remaining();
         int minutes = 0;
         int seconds = 0;
@@ -92,8 +94,9 @@ void GoalManager::update_time_display()
     }
     frontend::ElementPtr element;
     frontend::UiTree::fetch_part(&element, kTheTime, 0);
-    if (element)
+    if (element) {
         core::down_cast<frontend::LabelWidget>(element.get_pull())->change_caption(text.data());
+    }
 }
 
 // 0x0055DEA0
@@ -102,11 +105,13 @@ bool GoalManager::has_active_gap_goal()
     const int count = count_active(&active_goals_.list_link());
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
-        if (!goal->is_operative())
+        if (!goal->is_operative()) {
             continue;
+        }
         script::Array* gaps = nullptr;
-        if (goal->fetch_args()->fetch_list(kNeededGapList, &gaps, 0))
+        if (goal->fetch_args()->fetch_list(kNeededGapList, &gaps, 0)) {
             return true;
+        }
     }
     return false;
 }
@@ -123,10 +128,12 @@ void GoalManager::revoke_every_clear()
             --total_goal_points_;
         }
     }
-    if (!net->in_net_game())
+    if (!net->in_net_game()) {
         goal_data_->get_clear();
-    if (count_live_goals(false) == 0 && !static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr)))
+    }
+    if (count_live_goals(false) == 0 && !static_cast<uint8_t>(commands::cfunc_in_multiplayer_game(nullptr, nullptr))) {
         script::launch_script(kShowGoalPoints, nullptr, nullptr, false, nullptr);
+    }
 }
 
 // 0x0055E050
@@ -143,10 +150,11 @@ void GoalManager::append_objective_list_entries()
     for (int i = 0; i < count; ++i) {
         uint32_t key = 0;
         Objective* goal = goals_.get_by_index(i, &key);
-        if (goal->fetch_args()->has_entry_named(kViewGoalsOrder))
+        if (goal->fetch_args()->has_entry_named(kViewGoalsOrder)) {
             ordered->set_element(static_cast<uint32_t>(num_ordered++), goal->get_objective_key());
-        else
+        } else {
             unordered->set_element(static_cast<uint32_t>(num_unordered++), goal->get_objective_key());
+        }
     }
     // Sorted by their places: for each slot the goal whose place is the slot's number (a goal not in the table is
     // read through null, as the original).
@@ -155,8 +163,9 @@ void GoalManager::append_objective_list_entries()
             const uint32_t id = ordered->fetch_part(static_cast<uint32_t>(k));
             int place = 0;
             goals_.get_pull(id)->fetch_args()->fetch_int_value(kViewGoalsOrder, &place, 1);
-            if (place - 1 != slot)
+            if (place - 1 != slot) {
                 continue;
+            }
             if (k != slot) {
                 const uint32_t other = ordered->fetch_part(static_cast<uint32_t>(slot));
                 int unused = 0;
@@ -167,8 +176,9 @@ void GoalManager::append_objective_list_entries()
             break;
         }
     }
-    for (int i = 0; i < num_unordered; ++i)
+    for (int i = 0; i < num_unordered; ++i) {
         ordered->set_element(static_cast<uint32_t>(num_ordered + i), unordered->fetch_part(static_cast<uint32_t>(i)));
+    }
     // A menu item for each goal with view_goals_text (not pro goals until the cheat, not network goals): its id,
     // its text, its record if won.
     for (int i = 0; i < count; ++i) {
@@ -176,12 +186,15 @@ void GoalManager::append_objective_list_entries()
         script::Struct* params = goal->fetch_args();
         const char* text = nullptr;
         goal->get_objective_list_caption(&text);
-        if (!text)
+        if (!text) {
             continue;
-        if (!all_unlocked_ && params->has_bare_flag(kProGoal))
+        }
+        if (!all_unlocked_ && params->has_bare_flag(kProGoal)) {
             continue;
-        if (goal->is_online_objective())
+        }
+        if (goal->is_online_objective()) {
             continue;
+        }
         const script::StructPtr item = script::make_struct();
         item->put_name_key(checksums::Name{kGoalIdChecksum}, goal->get_objective_key());
         item->append_word(kText, text);
@@ -237,8 +250,9 @@ void GoalManager::trick_landed(script::Struct* trick)
     const int count = count_active(&active_goals_.list_link());
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
-        if (goal->fetch_args()->has_bare_flag(kTrickBeat))
+        if (goal->fetch_args()->has_bare_flag(kTrickBeat)) {
             core::down_cast<TrickBeatGoal>(goal)->trick_landed(trick);
+        }
     }
 }
 
@@ -248,8 +262,9 @@ Objective* GoalManager::get_active_net_goal()
     const int count = count_active(&active_goals_.list_link());
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);
-        if (goal->is_online_objective())
+        if (goal->is_online_objective()) {
             return goal;
+        }
     }
     return nullptr;
 }
@@ -259,8 +274,9 @@ void GoalManager::tick_frame()
 {
     for (int i = 0; i < goals_.num(); ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (goal->is_operative())
+        if (goal->is_operative()) {
             goal->tick_frame();
+        }
         if (goal->state02()) {
             goals_.drop_out(goal->get_objective_key());
             gsl::owner<Objective*> owned = memory::owned_element(goal); // (the table's)
@@ -296,11 +312,13 @@ bool cfunc_goal_manager_add_view_goals_list(script::Struct* /*params*/, script::
 bool cfunc_goal_manager_goal_should_expire(script::Struct* /*params*/, script::Script* /*script*/)
 {
     GoalManager* manager = get_objective_board();
-    if (!manager)
+    if (!manager) {
         return false;
+    }
     for (int i = 0; i < manager->count_live_goals(true); ++i) {
-        if ((manager->get_engaged_objective(i))->has_run_out())
+        if ((manager->get_engaged_objective(i))->has_run_out()) {
             return true;
+        }
     }
     return false;
 }
@@ -315,8 +333,9 @@ bool cfunc_goal_manager_update_all_goals(script::Struct* /*params*/, script::Scr
 // 0x0055EAE0: the active network goal's time left (ms) as the script's time_left.
 bool cfunc_goal_manager_get_time_left_in_net_game(script::Struct* /*params*/, script::Script* script)
 {
-    if (const Objective* goal = get_objective_board()->get_active_net_goal())
+    if (const Objective* goal = get_objective_board()->get_active_net_goal()) {
         script->args()->put_int("time_left", goal->get_seconds_remaining()); // "time_left"
+    }
     return true;
 }
 

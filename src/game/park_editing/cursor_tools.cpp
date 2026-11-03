@@ -43,8 +43,9 @@ BuildPointer* BuildPointer::singleton() { return park_editing::BuildPointer::sol
 
 void BuildPointer::hide_clipboards()
 {
-    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following())
+    for (Clipboard* clipboard = copy_buffers_; clipboard; clipboard = clipboard->following()) {
         clipboard->free_all_piece_groups();
+    }
 }
 
 void BuildPointer::set_gap_label_and_points(const char* name, int score)
@@ -57,44 +58,51 @@ void BuildPointer::set_gap_label_and_points(const char* name, int score)
             text::copy_unbounded(gap_.text().data(), name); // (no length limit, as in the original)
         }
     }
-    if (score >= 0)
+    if (score >= 0) {
         gap_.set_points_held(score);
+    }
     store_gap_details(gap_.slot_index(), &gap_);
 }
 
 void BuildPointer::set_gap_void_mask(script::Struct* flags)
 {
-    if (!flags)
+    if (!flags) {
         return;
+    }
     uint32_t cancel = 0;
     for (script::Component* component = flags->step_to_entry(nullptr); component;
-         component = flags->step_to_entry(component))
+         component = flags->step_to_entry(component)) {
         cancel |= static_cast<uint32_t>(script::fetch_int_value(component->value.word()));
+    }
     gap_.set_cancel_flags(cancel);
     store_gap_details(gap_.slot_index(), &gap_);
 }
 
 void BuildPointer::show_clipboard()
 {
-    if (clipboard_)
+    if (clipboard_) {
         clipboard_->show_at(this);
+    }
 }
 
 void BuildPointer::select_clipboard(int index)
 {
     hide_clipboards();
     Clipboard* clipboard = copy_buffers_;
-    for (int i = 0; i < index && clipboard; ++i)
+    for (int i = 0; i < index && clipboard; ++i) {
         clipboard = clipboard->following();
+    }
     clipboard_ = clipboard;
 }
 
 void BuildPointer::toggle_shown(bool visible)
 {
-    if (piece_group_)
+    if (piece_group_) {
         piece_group_->toggle_shown(visible);
-    if (!visible && clipboard_)
+    }
+    if (!visible && clipboard_) {
         clipboard_->free_all_piece_groups();
+    }
     area_highlighted_ = false;
 }
 
@@ -102,14 +110,15 @@ void BuildPointer::on_mode_changed()
 {
     script::Struct params;
     uint32_t mode = 0;
-    if (mode_sel_ == BuildPointer::Mode::kGapAdjust)
+    if (mode_sel_ == BuildPointer::Mode::kGapAdjust) {
         mode = kGapAdjust; // gap_adjust
-    else if (mode_sel_ == BuildPointer::Mode::kGap)
+    } else if (mode_sel_ == BuildPointer::Mode::kGap) {
         mode = kGapRegular; // gap_regular
-    else if (mode_sel_ == BuildPointer::Mode::kRailPlacement)
+    } else if (mode_sel_ == BuildPointer::Mode::kRailPlacement) {
         mode = kRailPlacement; // rail_placement
-    else
+    } else {
         mode = kRegular;                                               // regular
+    }
     params.put_name_key(checksums::Name{kMode}, mode);                               // mode
     script::launch_script(kParkedSetHelperTextMode, &params, nullptr, false, nullptr); // parked_set_helper_text_mode
     params.get_clear();
@@ -145,18 +154,20 @@ void BuildPointer::remove_oldest_clipboard()
 {
     Clipboard* previous = nullptr;
     Clipboard* last = copy_buffers_;
-    if (!last)
+    if (!last) {
         return;
+    }
     while (last->following()) {
         previous = last;
         last = last->following();
     }
     last->teardown();
     Clipboard::dealloc(last);
-    if (previous)
+    if (previous) {
         previous->set_following(nullptr);
-    else
+    } else {
         copy_buffers_ = nullptr;
+    }
 }
 
 void BuildPointer::clamp_to_park()
@@ -164,33 +175,40 @@ void BuildPointer::clamp_to_park()
     const CellBox& bounds = park_owner_->build_area();
     CellBox& pos = cell_footprint_;
     pos.x = std::max(pos.x, bounds.x);
-    if (pos.w + pos.x > bounds.w + bounds.x)
+    if (pos.w + pos.x > bounds.w + bounds.x) {
         pos.x = static_cast<uint8_t>(bounds.w - pos.w + bounds.x);
+    }
     pos.z = std::max(pos.z, bounds.z);
-    if (pos.l + pos.z > bounds.l + bounds.z)
+    if (pos.l + pos.z > bounds.l + bounds.z) {
         pos.z = static_cast<uint8_t>(bounds.l - pos.l + bounds.z);
+    }
 
-    if (mode_sel_ != BuildPointer::Mode::kPaste || !clipboard_)
+    if (mode_sel_ != BuildPointer::Mode::kPaste || !clipboard_) {
         return;
+    }
     // the pasted area (whose corner may be off the grid: signed) is pushed back inside too
     CellBox area{};
     area.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
     clipboard_->fetch_extent(this, &area);
     int last = bounds.w + bounds.x - 1;
     int shift = 0;
-    if (std::cmp_less(static_cast<int8_t>(area.x), bounds.x))
+    if (std::cmp_less(static_cast<int8_t>(area.x), bounds.x)) {
         shift = bounds.x - static_cast<int8_t>(area.x);
+    }
     int end = int{static_cast<int8_t>(area.w + area.x - 1)};
-    if (end > last)
+    if (end > last) {
         shift = last - end;
+    }
     pos.x = static_cast<uint8_t>(pos.x + shift);
     last = bounds.l + bounds.z - 1;
     shift = 0;
-    if (std::cmp_less(static_cast<int8_t>(area.z), bounds.z))
+    if (std::cmp_less(static_cast<int8_t>(area.z), bounds.z)) {
         shift = bounds.z - static_cast<int8_t>(area.z);
+    }
     end = int{static_cast<int8_t>(area.l + area.z - 1)};
-    if (end > last)
+    if (end > last) {
         shift = last - end;
+    }
     pos.z = static_cast<uint8_t>(pos.z + shift);
 }
 
@@ -211,12 +229,14 @@ void BuildPointer::forget_gap_at(PieceGroup* meta)
     CellBox area = meta->cell_footprint();
     int half = 0;
     const GapDetails* gap = park_owner_->get_gap_info(&area, &half);
-    if (!gap)
+    if (!gap) {
         return;
-    if (gap_.halves_placed() != 1 ||
-        (core::at(gap->at_point(), 0).x == core::at(gap_.at_point(), 0).x && core::at(gap->at_point(), 0).y == core::at(gap_.at_point(), 0).y &&
-         core::at(gap->at_point(), 0).z == core::at(gap_.at_point(), 0).z))
+    }
+    if (gap_.halves_placed() != 1 || (core::at(gap->at_point(), 0).x == core::at(gap_.at_point(), 0).x &&
+                                      core::at(gap->at_point(), 0).y == core::at(gap_.at_point(), 0).y &&
+                                      core::at(gap->at_point(), 0).z == core::at(gap_.at_point(), 0).z)) {
         gap_.set_halves_placed(0);
+    }
 }
 
 int BuildPointer::advance_area_selection()
@@ -232,8 +252,9 @@ int BuildPointer::advance_area_selection()
         CellBox area{};
         area.assign_value({.cell_x_ = 0, .cell_y_ = 0, .cell_z_ = 0}, {.width = 0, .height = 0, .length = 0});
         get_marquee_bounds(&area);
-        if (area.w <= kMaxMarqueeSpan && area.l <= kMaxMarqueeSpan)
+        if (area.w <= kMaxMarqueeSpan && area.l <= kMaxMarqueeSpan) {
             box_select_stage_ = 2;
+        }
     }
     return box_select_stage_;
 }

@@ -193,8 +193,9 @@ float RiderTeeterMoves::get_lean() const
 // 0x004F90A0
 float RiderTeeterMoves::get_physics_value(uint32_t name)
 {
-    if (call_args_)
+    if (call_args_) {
         return skater_of(entity())->get_scaled_param(name, call_args_);
+    }
     uint32_t structure = 0;
     switch (trick_) {
     case kGrind:
@@ -231,8 +232,9 @@ void RiderTeeterMoves::clear_params()
 // 0x004F9370
 void RiderTeeterMoves::change_args(script::Struct* params)
 {
-    if (!call_args_)
+    if (!call_args_) {
         call_args_ = script::new_struct();
+    }
     call_args_->get_clear();
     call_args_->append_structure_if_any(params);
 }
@@ -278,8 +280,9 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
         started_ = true;
         return 1;
     case kAdjustBalance: {
-        if (!trick_)
+        if (!trick_) {
             return 1;
+        }
         float time_add = 0.0F;
         float lean_add = 0.0F;
         float speed_add = 0.0F;
@@ -324,8 +327,9 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
     case kDoBalanceTrick: {
         clear_params();
         script::Struct* balance_params = nullptr;
-        if (params->read_sub_struct(kEquilibriumArgs, &balance_params, 0))
+        if (params->read_sub_struct(kEquilibriumArgs, &balance_params, 0)) {
             change_args(balance_params);
+        }
         int tweak = 0;
         params->fetch_int_value(kTweak, &tweak, 0);
         uint32_t button_a = 0;
@@ -335,20 +339,25 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
         params->read_hash_value(kButtonB, &button_b, 1);
         params->read_hash_value(kTypeName, &type, 0);
         // The same trick (a manual and a nose manual count as one) or a tap: carried on.
-        if (trick_ == type || (trick_ == kManual && type == kNoseManual) || (trick_ == kNoseManual && type == kManual))
+        if (trick_ == type || (trick_ == kManual && type == kNoseManual) ||
+            (trick_ == kNoseManual && type == kManual)) {
             return 1;
+        }
         int tap = 0;
-        if (params->fetch_int_value(kIsATap, &tap, 0))
+        if (params->fetch_int_value(kIsATap, &tap, 0)) {
             return 1;
+        }
         trick_ = type;
         const bool do_flip = params->has_bare_flag(kDoFlipCheck);
         const bool backwards = params->has_bare_flag(kPlayRangeAnimBackwards);
         const bool clear_cheese = params->has_bare_flag(kClearCheese);
         Balance* balance = at_hand();
-        if (!balance)
+        if (!balance) {
             return 1;
-        if (clear_cheese)
+        }
+        if (clear_cheese) {
             balance->get_reset();
+        }
         balance->keep_best_time();
         balance->kickoff({.left_button_ = button_a, .right_button_ = button_b, .trick = static_cast<uint32_t>(tweak)}, do_flip, backwards);
         return 1;

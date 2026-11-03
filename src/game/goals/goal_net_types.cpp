@@ -105,14 +105,17 @@ void LetterGameObjective::land()
         spot->read_hash_value(kFlag, &flag, 1);
         int set = 0;
         goal_flags()->fetch_int_value(flag, &set, 1);
-        if (set)
+        if (set) {
             continue;
-        if (!spot->fetch_int_value(kScore, &score, 0))
+        }
+        if (!spot->fetch_int_value(kScore, &score, 0)) {
             args()->fetch_int_value(kScore, &score, 1);
+        }
         break;
     }
-    if (i == count)
+    if (i == count) {
         return;
+    }
     const int landed = static_cast<modules::PointTally*>(
                            core::down_cast<objects::Rider>(skate_calls::get_home_rider())->get_points_total())
                            ->pot_score();
@@ -156,8 +159,9 @@ bool OnlineObjective::activate()
 // 0x00560BE0
 bool OnlineObjective::disengage(bool force, bool reset_tree)
 {
-    if (!force && active_ruleset_label() == kNetGoalAttack)
+    if (!force && active_ruleset_label() == kNetGoalAttack) {
         return false;
+    }
     return Objective::disengage(force, reset_tree);
 }
 
@@ -180,29 +184,38 @@ bool OnlineObjective::wants_to_end()
 {
     bool timed = false;
     bool scavenger = false;
-    if (active_ruleset_label() == kNetElimiskate)
+    if (active_ruleset_label() == kNetElimiskate) {
         timed = true;
+    }
     if (active_ruleset_label() == kNetScavengerHunt || active_ruleset_label() == kScavengerHunt) {
         scavenger = true;
-        if (get_objective_key() != kScavengerCollectPeriod)
+        if (get_objective_key() != kScavengerCollectPeriod) {
             timed = true;
+        }
     }
-    if (active_ruleset_label() == kNetGoalAttack)
+    if (active_ruleset_label() == kNetGoalAttack) {
         return goals_completed() && all_skaters_run_done();
-    if (timed)
+    }
+    if (timed) {
         return seconds_remaining() <= 0;
+    }
     online::Hub* net = online::online_hub();
     PlayerSearch search;
-    if (!net->count_players())
+    if (!net->count_players()) {
         return true;
-    if (core::any(cur_phase() & Objective::State::kNoTimeLimit))
+    }
+    if (core::any(cur_phase() & Objective::State::kNoTimeLimit)) {
         return false;
-    if (!net->final_scores_received() && net->in_net_game() && !scavenger)
+    }
+    if (!net->final_scores_received() && net->in_net_game() && !scavenger) {
         return false;
-    if (run_ending() == 2)
+    }
+    if (run_ending() == 2) {
         return seconds_remaining() <= 0;
-    if (all_skaters_run_done() && seconds_remaining() <= 0)
+    }
+    if (all_skaters_run_done() && seconds_remaining() <= 0) {
         return true;
+    }
     for (void* player = net->begin_player_walk(&search, false); player;
          player = net->step_player_walk(&search, false)) {
         objects::Rider* skater = static_cast<online::PlayerRecord*>(player)->rider();
@@ -219,8 +232,9 @@ bool OnlineObjective::wants_to_end()
 void OnlineObjective::expire()
 {
     online::Hub* net = online::online_hub();
-    if (!args()->has_bare_flag(kGameContinues))
+    if (!args()->has_bare_flag(kGameContinues)) {
         net->mark_match_ended();
+    }
     set_seconds_remaining(0);
     Objective::expire();
 }
@@ -250,8 +264,9 @@ bool RaceObjective::has_run_out() { return !core::any(cur_phase() & Objective::S
 // 0x00560F20
 bool RaceObjective::wants_to_end()
 {
-    if (core::any(cur_phase() & Objective::State::kNoTimeLimit) || seconds_remaining() > 0)
+    if (core::any(cur_phase() & Objective::State::kNoTimeLimit) || seconds_remaining() > 0) {
         return false;
+    }
     Objective::wants_to_end();
     return true;
 }
@@ -277,23 +292,28 @@ bool RaceObjective::advance_race_gate(uint32_t id)
         uint32_t flag = 0;
         waypoint->read_hash_value(kFlag, &flag, 1);
         if (bit_matches(checksums::Name{flag}, 1, checksums::Name{0})) {
-            if (i != waypoints->extent() - 1)
+            if (i != waypoints->extent() - 1) {
                 continue;
-            if (lap_++ >= laps_)
+            }
+            if (lap_++ >= laps_) {
                 return true;
+            }
             zero_objective_bits();
             return advance_race_gate(id);
         }
         script::StructPtr params = script::make_struct();
         params->put_name_key(checksums::Name{kGoalIdChecksum}, id);
-        if (i == 0 && laps_ > 1)
+        if (i == 0 && laps_ > 1) {
             params->put_int(checksums::Name{kStartLap}, lap_);
-        if (i == waypoints->extent() - 1 && lap_ == laps_)
+        }
+        if (i == waypoints->extent() - 1 && lap_ == laps_) {
             params->put_name_key(checksums::Name{kLastWaypoint}, 1);
-        if (args()->has_bare_flag(kQuickStart))
+        }
+        if (args()->has_bare_flag(kQuickStart)) {
             params->put_name_key(checksums::Name{0U}, kQuickStart);
-        else
+        } else {
             params->remove_flag(kQuickStart);
+        }
         if (lap_ == 1 && i == 0) {
             params->put_int(checksums::Name{kFirstWaypoint}, 1);
         } else {

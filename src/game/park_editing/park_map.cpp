@@ -76,8 +76,9 @@ void read_structure(script::Struct* structure, void* buffer, size_t size)
 void copy_string(std::span<char> dest, const char* source)
 {
     size_t at = 0;
-    for (const char c : std::string_view(source))
+    for (const char c : std::string_view(source)) {
         core::at(dest, at++) = c;
+    }
     core::at(dest, at) = '\0';
 }
 
@@ -89,12 +90,14 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
     void* goal_editor = get_goal_editor();
     clear_goals(goal_editor);
     script::Struct* goals = nullptr;
-    if (params->read_sub_struct(kParkEditorGoals, &goals, 0))
+    if (params->read_sub_struct(kParkEditorGoals, &goals, 0)) {
         read_goals(goal_editor, goals, 1);
+    }
 
     const ParkBuilderMode* editor = ParkBuilderMode::fabricate(false);
-    if (editor->editor_state() != kEditLevel)
+    if (editor->editor_state() != kEditLevel) {
         park_editing_state().set_rail_editor_flag(false);
+    }
     read_rails(params);
     park_editing_state().set_rail_editor_flag(true);
 
@@ -103,8 +106,9 @@ void ParkLayout::decode_from_struct(script::Struct* params, bool apply_to_editor
     sole()->builder_->set_player_cap(max_players);
 
     const uint16_t map_size = (flag_bits_ & kMapLoaded) ? map_.shell_size() : 0;
-    if (park_built_)
+    if (park_built_) {
         write_compressed_map();
+    }
     script::Array* map = nullptr;
     if (params->fetch_list("Park_editor_map", &map, 1)) {
         // (NOT ORIGINAL: no more words than the array has - the original read a whole map's worth past a short one's
@@ -156,13 +160,15 @@ void ParkLayout::transfer_park_file(bool save, int slot)
         const int count = static_cast<int>(premade->extent());
         for (int i = 0; i < count; ++i) {
             auto* info = premade->struct_at(i);
-            if (!info)
+            if (!info) {
                 continue;
+            }
             int info_slot = 0;
             info->fetch_int_value(kSlot, &info_slot, 0);
             const char* park_name = nullptr;
-            if (slot == info_slot && info->fetch_text(kName, &park_name, 0))
+            if (slot == info_slot && info->fetch_text(kName, &park_name, 0)) {
                 set_park_name(park_name);
+            }
         }
     }
     builder_->set_player_cap(online::kPlayerSlotCount);
@@ -210,11 +216,13 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
     // The metapieces: the name's index, x, z; the height and rotation.
     for (int i = 0; std::cmp_less(i, map_.piece_count()); ++i) {
         ParkMapPiece piece;
-        if (!read_park_map_piece(in, &piece))
+        if (!read_park_map_piece(in, &piece)) {
             break;
+        }
         const uint32_t checksum = names->fetch_part(piece.name_index);
-        if (checksum == (current ? kDeadPiece : kOldDeadPiece))
+        if (checksum == (current ? kDeadPiece : kOldDeadPiece)) {
             continue;
+        }
         PieceGroup* meta = make_placed_piece(find_piece_template(checksum), 0);
         CellBox pos = CellBox::get_make(0, 0, 0, 0, 0, 0);
         pos.x = piece.x;
@@ -227,8 +235,9 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
     // The gaps (0x30 bytes each, 0x2C in older parks): both ends, their sides, the name and score.
     for (int i = 0; std::cmp_less(i, map_.gap_count()); ++i) {
         ParkMapGap record;
-        if (!read_park_map_gap(in, &record, current))
+        if (!read_park_map_gap(in, &record, current)) {
             break;
+        }
         GapDetails info = {};
         for (int end = 0; end < 2; ++end) {
             core::at(info.at_point(), end) = CellBox::get_make(0, 0, 0, 0, 0, 0);
@@ -243,8 +252,9 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
         text::format_to(info.text(), "%s", record.text.data());
         info.set_points_held(record.points);
         info.set_halves_placed(2);
-        if (current)
+        if (current) {
             info.set_cancel_flags(record.cancel_flags);
+        }
         register_gap_entry(&info);
     }
     flag_bits_ = (flag_bits_ & ~kMapSaved) | kMapUpToDate;

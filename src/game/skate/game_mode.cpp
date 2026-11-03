@@ -120,8 +120,9 @@ uint32_t count_conditions(MatchRules::ConditionNode* head)
 {
     uint32_t count = 0;
     const MatchRules::ConditionNode* node = head->succ;
-    if (node->condition == head_marker() || !node)
+    if (node->condition == head_marker() || !node) {
         return 0;
+    }
     for (bool again = true; again; again = node->condition != head_marker() && node) {
         node = node->succ;
         ++count;
@@ -131,12 +132,14 @@ uint32_t count_conditions(MatchRules::ConditionNode* head)
 MatchRules::ConditionNode* condition_at(MatchRules::ConditionNode* head, uint32_t index)
 {
     MatchRules::ConditionNode* node = head->succ;
-    if (node->condition == head_marker() || !node)
+    if (node->condition == head_marker() || !node) {
         return nullptr;
+    }
     for (uint32_t left = index; left; --left) {
         node = node->succ;
-        if (node->condition == head_marker() || !node)
+        if (node->condition == head_marker() || !node) {
             return nullptr;
+        }
     }
     return node;
 }
@@ -235,8 +238,9 @@ void MatchRules::get_reset()
 void MatchRules::clear_victory_conditions() const
 {
     ConditionNode* node = conditions_.succ;
-    if (node->condition == head_marker() || !node)
+    if (node->condition == head_marker() || !node) {
         return;
+    }
     while (node) {
         ConditionNode* next = node->succ->condition == head_marker() ? nullptr : node->succ;
         node->prev->succ = node->succ;
@@ -255,8 +259,9 @@ void MatchRules::build_victory_conditions()
 {
     clear_victory_conditions();
     script::Array* conditions = nullptr;
-    if (!args_.fetch_list(kVictoryConditions, &conditions, 0))
+    if (!args_.fetch_list(kVictoryConditions, &conditions, 0)) {
         return;
+    }
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap());
     for (uint32_t i = 0; i < conditions->extent(); ++i) {
@@ -291,8 +296,9 @@ bool MatchRules::finish_rules_reached()
         void* manager = objective_board();
         if (count_goals(manager, 1) > 0) {
             const Objective* goal = current_net_goal(manager);
-            if (goal && goal->get_seconds_remaining() <= 0)
+            if (goal && goal->get_seconds_remaining() <= 0) {
                 return true;
+            }
         }
     }
     int terminal = 0;
@@ -302,8 +308,9 @@ bool MatchRules::finish_rules_reached()
         WinRule* condition = condition_at(&conditions_, i)->condition;
         if (condition->is_terminal()) {
             ++terminal;
-            if (condition->rule_satisfied())
+            if (condition->rule_satisfied()) {
                 ++complete;
+            }
         }
     }
     return terminal && complete == terminal;
@@ -314,8 +321,9 @@ int MatchRules::get_first_condition_value()
 {
     for (uint32_t i = 0; i < count_conditions(&conditions_); ++i) {
         const WinRule* condition = condition_at(&conditions_, i)->condition;
-        if (condition)
+        if (condition) {
             return condition->target_value();
+        }
     }
     return 0;
 }
@@ -325,23 +333,26 @@ bool MatchRules::apply_match_style(uint32_t type)
 {
     int max_players = kDefaultMaxPlayers;
     online::Hub* net = online::online_hub();
-    if (net && net->in_net_game())
+    if (net && net->in_net_game()) {
         args_.fetch_int_value(kMaxPlayers, &max_players, true);
+    }
     args_.get_clear();
     script::Array* modes = script::fetch_list(kModeInfo);
     for (uint32_t i = 0; i < modes->extent(); ++i) {
         auto* mode = modes->struct_at(i);
         uint32_t name = 0;
         mode->read_hash_value(kChecksum, &name, true);
-        if (name != type)
+        if (name != type) {
             continue;
+        }
         const char* definition = nullptr;
         mode->fetch_text(kDefinition, &definition, true);
         args_.append_structure_if_any(script::read_sub_struct(definition));
         clear_victory_conditions();
         build_victory_conditions();
-        if (net && net->in_net_game())
+        if (net && net->in_net_game()) {
             args_.put_int(checksums::Name{kMaxPlayers}, max_players);
+        }
         return true;
     }
     return false;
@@ -353,8 +364,9 @@ bool MatchRules::force_match_settings(script::Struct* options)
     for (const char* name : {"time_limit_type",        // "time_limit_type"
                              "victory_condition_type", // "victory_condition_type"
                              "screenmode"}) {          // "screenmode"
-        if (options->has_entry_named(name))
+        if (options->has_entry_named(name)) {
             args_.erase_module(checksums::hash_from_text(name));
+        }
     }
     args_.append_structure_if_any(options);
     clear_victory_conditions();
@@ -375,8 +387,9 @@ bool MatchRules::keeps_running_total()
 bool MatchRules::keeps_best_chain()
 {
     int track = 0;
-    if (!args_.fetch_int_value(kTrackBestCombo, &track, false))
+    if (!args_.fetch_int_value(kTrackBestCombo, &track, false)) {
         return false;
+    }
     return track != 0;
 }
 
@@ -558,8 +571,9 @@ void MatchRules::set_goal_time_left(int seconds)
     uint32_t name = 0;
     args_.read_hash_value(kName, &name, 0);
     Objective* goal = get_goal(manager, remap_online_name_key(name), 0);
-    if (goal)
+    if (goal) {
         goal->set_seconds_remaining(seconds);
+    }
 }
 
 // 0x00553460
@@ -570,11 +584,13 @@ bool MatchRules::uses_countdown()
     for (const uint32_t clockless : {kKing, kNetKing, kScoreChallenge, kNetScoreChallenge}) {
         name = 0;
         args_.read_hash_value(kName, &name, 0);
-        if (name == clockless)
+        if (name == clockless) {
             return false;
+        }
     }
-    if (get_name_key() == kCreateGoals || get_name_key() == kFirefight || get_name_key() == kNetFirefight)
+    if (get_name_key() == kCreateGoals || get_name_key() == kFirefight || get_name_key() == kNetFirefight) {
         return false;
+    }
     int limit = static_cast<int>(name); // (the original's local is the name's)
     args_.fetch_int_value(kDefaultTimeLimit, &limit, true);
     return limit != 0;
@@ -583,10 +599,12 @@ bool MatchRules::uses_countdown()
 // 0x00553550
 bool MatchRules::clock_halts_at_zero()
 {
-    if (!modules::Skate::is_multiplayer()) // (the skate module's is_versus_session)
+    if (!modules::Skate::is_multiplayer()) { // (the skate module's is_versus_session)
         return false;
-    if (!uses_countdown())
+    }
+    if (!uses_countdown()) {
         return true;
+    }
     int stop = unset(this);
     args_.fetch_int_value(kStopAtZero, &stop, true);
     return stop == 1;
@@ -598,15 +616,17 @@ void MatchRules::set_num_teams(int teams)
     args_.put_int(checksums::Name{kNumTeams}, teams);
     uint32_t name = 0;
     args_.read_hash_value(kName, &name, 0);
-    if (name == kNetLobby)
+    if (name == kNetLobby) {
         online::Hub::build_team_flag_set(teams);
+    }
 }
 
 // 0x005535F0
 int MatchRules::is_squad_match()
 {
-    if (!online::online_hub()->in_net_game())
+    if (!online::online_hub()->in_net_game()) {
         return 0;
+    }
     int teams = unset(this);
     args_.fetch_int_value(kNumTeams, &teams, true);
     return teams > 0 ? 1 : 0;
@@ -621,12 +641,14 @@ int MatchRules::get_view_layout()
         auto* prefs = modules::Skate::sole()->get_split_view_settings();
         uint32_t viewport = 0;
         prefs->fetch_setting(kScreenLayoutKey)->read_hash_value(kChecksum, &viewport, true);
-        if (viewport == kViewportVertical)
+        if (viewport == kViewportVertical) {
             return 1;
+        }
         return viewport == kViewportHorizontal ? 2 : 1;
     }
-    if (mode == kSingle)
+    if (mode == kSingle) {
         return 0;
+    }
     return mode == kHorse ? 4 : 0;
 }
 

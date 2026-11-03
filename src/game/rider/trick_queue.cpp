@@ -131,11 +131,13 @@ script::Struct* mapped_trick(MoveExecutor* self, script::Struct* trick)
 {
     uint32_t slot = 0;
     trick->read_hash_value(kTrickSlot, &slot, 0);
-    if (!slot)
+    if (!slot) {
         return nullptr;
+    }
     const uint32_t mapped = self->mapped_slot(slot);
-    if (!mapped)
+    if (!mapped) {
         return nullptr;
+    }
     return script::read_sub_struct(mapped);
 }
 
@@ -146,11 +148,13 @@ void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
     int index = self->event_head();
     for (int i = 0; std::cmp_less(i, self->event_count()); ++i) {
         TrickEvent* event = &core::at(self->get_events(), index);
-        if (frame_clock::get_time() - event->time >= period)
+        if (frame_clock::get_time() - event->time >= period) {
             break;
+        }
         visit(event);
-        if (--index < 0)
+        if (--index < 0) {
             index += kEventRing;
+        }
     }
 }
 
@@ -178,23 +182,26 @@ MoveExecutor::MoveExecutor()
 // 0x005234F0 (0x005243F0 the deleting one)
 MoveExecutor::~MoveExecutor()
 {
-    if (trick_lists_)
+    if (trick_lists_) {
         free_struct(trick_lists_);
+    }
 }
 
 // 0x00522410
 void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
 {
     gsl::owner<script::Struct*>& mappings = trick_lists_;
-    if (!mappings)
+    if (!mappings) {
         mappings = script::new_struct();
+    }
     mappings->get_clear();
     for (int i = 0; i < kSpecialTrickSlots; ++i) {
         RiderIdentity::SpecialTrick special;
         profile->get_special_trick(&special, i);
-        if (!special.is_vacant())
+        if (!special.is_vacant()) {
             mappings->add_component_of_type(special.keys(), special.flag() ? script::QbValueKind::kInteger : script::QbValueKind::kName,
                                             special.trick());
+        }
     }
     mappings->append_structure_if_any(profile->fetch_details_params(kTrickMapping));
 }
@@ -205,20 +212,23 @@ void MoveExecutor::update_buttons()
     const uint32_t mask = input_->events();
     auto bit = [mask](int n) { return ((mask >> n) & 1) != 0; };
     const int direction = d_pad_direction(bit(6), bit(7), bit(5), bit(4));
-    for (int i = 1; i <= kDirections; ++i)
+    for (int i = 1; i <= kDirections; ++i) {
         set_button(this, i, direction == i);
+    }
     struct ButtonBit {
         int button;
         int bit;
     };
     static const auto kButtonBits = std::to_array<ButtonBit>({{.button = 9, .bit = 9},      {.button = 0xA, .bit = 0xB},  {.button = 0xC, .bit = 8},     {.button = 0xB, .bit = 0xA},   {.button = 0xD, .bit = 0xC},   {.button = 0xE, .bit = 0xE},  {.button = 0xF, .bit = 0x10},
                        {.button = 0x10, .bit = 0xD}, {.button = 0x11, .bit = 0xF}, {.button = 0x12, .bit = 0x11}, {.button = 0x13, .bit = 0x16}, {.button = 0x14, .bit = 0x17}, {.button = 0x15, .bit = 0x18}});
-    for (const auto& b : kButtonBits)
+    for (const auto& b : kButtonBits) {
         set_button(this, b.button, bit(b.bit));
+    }
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick directions as events while the skater rides the bike
     // (THAW 0x471D20's 16 more buttons - game/rider/thaw_bmx.h). Original behaviour: none.
-    if (skater::thaw_bmx::is_switched_on())
+    if (skater::thaw_bmx::is_switched_on()) {
         skater::thaw_bmx::update_trick_sticks(this);
+    }
 }
 
 // 0x00522030
@@ -260,8 +270,9 @@ int MoveExecutor::squeezed(script::Struct* params, script::Script* /*script*/)
     int duration = kDefaultSqueezeDuration;
     params->read_hash_value(0U, &button, 0);
     params->fetch_int_value("dur", &duration, 0);
-    if (!button)
+    if (!button) {
         return 0;
+    }
     return pressed_within(this, button, duration, -1) ? 1 : 0;
 }
 
@@ -276,15 +287,17 @@ int MoveExecutor::get_current_bail_endpose(script::Struct* /*params*/, script::S
 // 0x00522340
 void MoveExecutor::count_trick()
 {
-    if (++trick_count_ > 3)
+    if (++trick_count_ > 3) {
         entity()->announce(kTricksDone, nullptr, 0.0F);
+    }
 }
 
 // 0x00522370
 void MoveExecutor::pass_to_trick_objects(uint32_t value)
 {
-    if (trick_objects_on_)
+    if (trick_objects_on_) {
         trick_objects_.append_one(value);
+    }
 }
 
 // 0x005232A0
@@ -328,14 +341,17 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     trick->read_hash_value(kScr, &script, 0);
     if (script == kGrind) {
         const GrindPoint* rail = core_physics_->rail_node();
-        if (!rail || !rail->label())
+        if (!rail || !rail->label()) {
             return false;
+        }
     }
     script::Struct* params = nullptr;
-    if (trick->read_sub_struct(kParams, &params, 0) && !params->has_entry_named(kIsExtra))
+    if (trick->read_sub_struct(kParams, &params, 0) && !params->has_entry_named(kIsExtra)) {
         stats_manager_->total_of(script);
-    if (!script)
+    }
+    if (!script) {
         return false;
+    }
     ++busy_;
     manual_.pending_ = false;
     grind_.pending_ = false;
@@ -345,8 +361,9 @@ bool MoveExecutor::try_trick(script::Struct* trick, uint32_t flag, script::Struc
     prepare_flip_and_rotate(this);
     Entity* object = entity();
     object->replace_script(script, trick_params);
-    if (flag)
+    if (flag) {
         object->own_script()->args()->put_name_key(checksums::Name{0U}, flag);
+    }
     object->own_script()->args()->append_structure_if_any(extra_params);
     object->own_script()->tick_frame();
     trick_started(this);
@@ -364,8 +381,9 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
     starting_special_ = false;
     int& head = queue_first_;
     int& tail = queue_last_;
-    if (head == -1)
+    if (head == -1) {
         return;
+    }
     uint32_t array = 0;
     uint32_t index = 0;
     for (;;) {
@@ -382,22 +400,26 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
                 head = 0;
             }
         }
-        if (array)
+        if (array) {
             break;
-        if (head == -1)
+        }
+        if (head == -1) {
             return;
+        }
     }
     if (first) {
         entity()->create_script_if_needed();
         entity()->own_script()->preempt(first, params);
     }
     auto* trick = script::fetch_list(array)->struct_at(index);
-    if (try_trick(trick, 0, trick_params))
+    if (try_trick(trick, 0, trick_params)) {
         return;
+    }
     uint32_t slot = 0;
     trick->read_hash_value(kTrickSlot, &slot, 0);
-    if (!slot)
+    if (!slot) {
         return;
+    }
     script::Struct* mappings = trick_lists_;
     int created = 0;
     if (mappings->fetch_int_value(slot, &created, 0)) {
@@ -407,8 +429,9 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
         create_params->append_structure_if_any(trick_params);
         Entity* object = entity();
         object->replace_script(kCreateATrick, create_params);
-        if (create_params)
+        if (create_params) {
             free_struct(create_params);
+        }
         object->own_script()->tick_frame();
         trick_started(this);
         count_trick();
@@ -416,11 +439,13 @@ void MoveExecutor::do_next_trick(uint32_t first, TrickParams trick_params_in)
     }
     uint32_t mapped = 0;
     mappings->read_hash_value(slot, &mapped, 0);
-    if (!mapped)
+    if (!mapped) {
         return;
+    }
     script::Struct* structure = script::read_sub_struct(mapped);
-    if (!structure)
+    if (!structure) {
         return;
+    }
     tell_goal_manager(structure);
     try_trick(structure, 0, trick_params);
 }
@@ -433,8 +458,9 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
     params->read_hash_value(kScriptToRunFirst, &first, 0);
     params->read_sub_struct(kParams, &first_params, 0);
     starting_special_ = false;
-    if (!manual_.pending_)
+    if (!manual_.pending_) {
         return;
+    }
     manual_.pending_ = false;
     if (first) {
         script::Struct copy;
@@ -445,15 +471,18 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
         copy.get_clear();
     }
     script::Array* array = script::fetch_list(manual_.array_);
-    if (!array)
+    if (!array) {
         return;
+    }
     auto* trick = array->struct_at(manual_.index_);
-    if (script::Struct* mapped = mapped_trick(this, trick))
+    if (script::Struct* mapped = mapped_trick(this, trick)) {
         trick = mapped;
+    }
     uint32_t script = 0;
     trick->read_hash_value(kScr, &script, 0);
-    if (!script)
+    if (!script) {
         return;
+    }
     prepare_flip_and_rotate(this);
     starting_special_ = manual_.is_special_;
     script::Struct* trick_params = nullptr;
@@ -467,19 +496,22 @@ void MoveExecutor::do_next_manual_trick(script::Struct* params)
     }
     object->own_script()->tick_frame();
     trick_started(this);
-    if (++trick_count_ > 3)
+    if (++trick_count_ > 3) {
         entity()->announce(kTricksDone, nullptr, 0.0F);
+    }
 }
 
 // 0x00522E80
 bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
 {
-    if (!grind_.pending_)
+    if (!grind_.pending_) {
         return false;
+    }
     grind_.pending_ = false;
     script::Array* array = script::fetch_list(grind_.array_);
-    if (!array)
+    if (!array) {
         return false;
+    }
     auto* trick = array->struct_at(grind_.index_);
     script::Array* scripts = nullptr;
     script::Array* templates = nullptr;
@@ -507,15 +539,17 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
     script::Struct* trick_params = nullptr;
     trick->read_sub_struct(kParams, &trick_params, 0);
     Entity* object = entity();
-    if (object->kind_tag() == kSkaterType)
+    if (object->kind_tag() == kSkaterType) {
         core_physics_->set_rail_adjust(0);
+    }
     starting_special_ = grind_.is_special_;
     prepare_flip_and_rotate(this);
     object->replace_script(script, trick_params);
     object->own_script()->tick_frame();
     trick_started(this);
-    if (++trick_count_ > 3)
+    if (++trick_count_ > 3) {
         entity()->announce(kTricksDone, nullptr, 0.0F);
+    }
     return true;
 }
 
@@ -525,29 +559,35 @@ void MoveExecutor::update_manual_tricks()
     const uint32_t special = manual_.special_;
     if (special && score_->special_active()) {
         check_manual_tricks(this, special, -kTriggerLookback, true);
-        if (manual_.pending_)
+        if (manual_.pending_) {
             return;
+        }
     }
-    for (int i = 0; i < manual_.count_; ++i)
+    for (int i = 0; i < manual_.count_; ++i) {
         check_manual_tricks(this, core::at(manual_.arrays_, i), -1, false);
+    }
 }
 
 // 0x00521C10
 void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
 {
     script::Array* tricks = script::fetch_list(array);
-    if (!tricks)
+    if (!tricks) {
         return;
+    }
     const int count = static_cast<int>(tricks->extent());
     for (int i = 0; i < count; ++i) {
         auto* trick = tricks->struct_at(i);
-        if (!trick_has_script(this, trick))
+        if (!trick_has_script(this, trick)) {
             continue;
+        }
         script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alt_trigger = nullptr;
         trick->read_sub_struct(kAltTrigger, &alt_trigger, 0);
-        if (!trigger_done(this, trigger, kTriggerKindHeld, -kTriggerLookback, false) && !trigger_done(this, alt_trigger, kTriggerKindHeld, -kTriggerLookback, false))
+        if (!trigger_done(this, trigger, kTriggerKindHeld, -kTriggerLookback, false) &&
+            !trigger_done(this, alt_trigger, kTriggerKindHeld, -kTriggerLookback, false)) {
             continue;
+        }
         grind_.array_ = array;
         grind_.index_ = i;
         grind_.time_ = static_cast<int>(frame_clock::get_time());
@@ -562,10 +602,12 @@ void MoveExecutor::check_extra_grind_tricks(uint32_t array, bool special)
 void MoveExecutor::update_extra_grind_tricks()
 {
     const uint32_t special = grind_.special_;
-    if (special && score_->special_active())
+    if (special && score_->special_active()) {
         check_extra_grind_tricks(special, true);
-    for (int i = 0; i < grind_.count_; ++i)
+    }
+    for (int i = 0; i < grind_.count_; ++i) {
         check_extra_grind_tricks(core::at(grind_.arrays_, i), false);
+    }
 }
 
 // 0x00521D80
@@ -575,8 +617,9 @@ uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, const char* ignore)
     const int count = static_cast<int>(tricks->extent()); // (the original doesn't check the array exists)
     uint32_t mask = 0;
     for (int i = 0; i < count; ++i) {
-        if (matches_ignore(this, tricks->struct_at(i), ignore))
+        if (matches_ignore(this, tricks->struct_at(i), ignore)) {
             mask |= 1U << i;
+        }
     }
     return mask;
 }
@@ -584,10 +627,12 @@ uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, const char* ignore)
 // 0x00521DF0
 void MoveExecutor::ignore_tricks(const char* ignore)
 {
-    for (int i = 0; i < extra_.count_; ++i)
+    for (int i = 0; i < extra_.count_; ++i) {
         core::at(extra_.masks_, i) |= fetch_skip_mask(core::at(extra_.arrays_, i), ignore);
-    if (const uint32_t special = extra_.special_)
+    }
+    if (const uint32_t special = extra_.special_) {
         extra_.special_mask_ |= fetch_skip_mask(special, ignore);
+    }
 }
 
 // 0x00522AA0
@@ -597,15 +642,18 @@ bool MoveExecutor::try_extra_tricks(ExtraTrickCall extra_call)
     const auto skip = extra_call.skip;
     bool started = false;
     script::Array* tricks = script::fetch_list(array);
-    if (!tricks)
+    if (!tricks) {
         return false;
+    }
     const int count = static_cast<int>(tricks->extent());
     for (int i = 0; i < count; ++i) {
-        if (skip & (1U << i))
+        if (skip & (1U << i)) {
             continue;
+        }
         auto* trick = tricks->struct_at(i);
-        if (!trick_has_script(this, trick))
+        if (!trick_has_script(this, trick)) {
             continue;
+        }
         script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alt_trigger = nullptr;
         trick->read_sub_struct(kAltTrigger, &alt_trigger, 0);
@@ -620,14 +668,16 @@ bool MoveExecutor::try_extra_tricks(ExtraTrickCall extra_call)
                     trick_lists_->read_hash_value(slot, &mapped, 0);
                     if (mapped) {
                         script::Struct* structure = script::read_sub_struct(mapped);
-                        if (structure && try_trick(structure, kIsExtra, nullptr))
+                        if (structure && try_trick(structure, kIsExtra, nullptr)) {
                             started = true;
+                        }
                     }
                 }
             }
         }
-        if (!extra_.on_)
+        if (!extra_.on_) {
             return started;
+        }
     }
     return started;
 }
@@ -635,8 +685,9 @@ bool MoveExecutor::try_extra_tricks(ExtraTrickCall extra_call)
 // 0x00522C00
 void MoveExecutor::update_extra_tricks()
 {
-    if (!extra_.on_)
+    if (!extra_.on_) {
         return;
+    }
     if (!extra_.forever_ && frame_clock::get_time() - extra_.start_ > static_cast<uint32_t>(extra_.duration_)) {
         extra_.on_ = false;
         return;
@@ -644,19 +695,23 @@ void MoveExecutor::update_extra_tricks()
     if (const uint32_t special = extra_.special_) {
         if (score_->special_active()) {
             starting_special_ = true;
-            if (!try_extra_tricks({.array = special, .skip = extra_.special_mask_}))
+            if (!try_extra_tricks({.array = special, .skip = extra_.special_mask_})) {
                 starting_special_ = false;
-            if (!extra_.on_)
+            }
+            if (!extra_.on_) {
                 return;
+            }
         } else {
             starting_special_ = false;
         }
     }
     for (int i = 0; i < extra_.count_; ++i) {
-        if (try_extra_tricks({.array = core::at(extra_.arrays_, i), .skip = core::at(extra_.masks_, i)}))
+        if (try_extra_tricks({.array = core::at(extra_.arrays_, i), .skip = core::at(extra_.masks_, i)})) {
             starting_special_ = false;
-        if (!extra_.on_)
+        }
+        if (!extra_.on_) {
             return;
+        }
     }
 }
 
@@ -679,15 +734,17 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
         core::at(extra_.arrays_, 0) = tricks;
     } else {
         for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
-            if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName)
+            if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName) {
                 core::at(extra_.arrays_, count++) = c->value.word();
+            }
         }
     }
     uint32_t& special = extra_.special_;
     special = 0;
     params->read_hash_value(kSpecial, &special, 0);
-    for (unsigned int& mask : extra_.masks_)
+    for (unsigned int& mask : extra_.masks_) {
         mask = 0;
+    }
     extra_.special_mask_ = 0;
     const char* ignore = ""; // ("")
     if (params->fetch_text(kIgnore, &ignore, 0)) {
@@ -697,20 +754,23 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
     script::Array* ignored = nullptr;
     if (params->fetch_list(kIgnore, &ignored, 0)) {
         const int n = static_cast<int>(ignored->extent());
-        for (int i = 0; i < n; ++i)
+        for (int i = 0; i < n; ++i) {
             ignore_tricks(ignored->fetch_text(i));
+        }
     }
 }
 
 // 0x005230E0
 void MoveExecutor::update_bash()
 {
-    if (!bashing_)
+    if (!bashing_) {
         return;
+    }
     auto* blender = core::down_cast<AnimBlenderComponent>(entity()->fetch_module(kAnimBlender));
     if (blender->get_timeline30() != kRunOut && blender->get_timeline30() != kRunOutQuick) {
-        if (!(get_bash_speed() > kMashedFastEnough))
+        if (!(get_bash_speed() > kMashedFastEnough)) {
             return;
+        }
         if (static_cast<uint32_t>(skater_state_->physics_mode())) {
             float one = 0.0F;
             uint32_t bits = 1;
@@ -747,17 +807,20 @@ void MoveExecutor::tick_frame()
     update_manual_tricks();
     if (manual_.pending_ && manual_.duration_ != -1 &&
         static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (clock_offset() - manual_.time_)) >
-            static_cast<uint32_t>(manual_.duration_))
+            static_cast<uint32_t>(manual_.duration_)) {
         manual_.pending_ = false;
+    }
     update_extra_grind_tricks();
     if (grind_.pending_ && grind_.duration_ != -1 &&
-        frame_clock::get_time() - static_cast<uint32_t>(grind_.time_) > static_cast<uint32_t>(grind_.duration_))
+        frame_clock::get_time() - static_cast<uint32_t>(grind_.time_) > static_cast<uint32_t>(grind_.duration_)) {
         grind_.pending_ = false;
+    }
     update_bash();
     // NOT ORIGINAL - THAW's BMX (the feature on; THAW 0x4723D0 ends its update): the right stick centred or not, for
     // BikePress. Original behaviour: none.
-    if (skater::thaw_bmx::is_switched_on())
+    if (skater::thaw_bmx::is_switched_on()) {
         skater::thaw_bmx::end_trick_update(this);
+    }
 }
 
 // 0x00523350
@@ -777,8 +840,9 @@ bool cfunc_do_next_trick(script::Struct* params, script::Script* script)
     }
     gsl::owner<script::Struct*> copy = new_struct_copy(trick_params);
     trick->do_next_trick(first, {.params = first_params, .trick_params_ = copy});
-    if (copy)
+    if (copy) {
         free_struct(copy);
+    }
     return true;
 }
 

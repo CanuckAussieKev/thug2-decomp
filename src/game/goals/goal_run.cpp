@@ -96,8 +96,9 @@ objects::RiderSessionEnd* end_run_of(objects::GameEntity* skater)
 bool Objective::invoke_hook_script(uint32_t name)
 {
     uint32_t script = name;
-    if (!args_->read_hash_value(name, &script, 0))
+    if (!args_->read_hash_value(name, &script, 0)) {
         return false;
+    }
     script::launch_script(script, args_.get(), nullptr, false, nullptr);
     return true;
 }
@@ -123,8 +124,9 @@ void Objective::attach_child(uint32_t id)
         return;
     }
     for (const GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
-        if (link->objective_key_ == id)
+        if (link->objective_key_ == id) {
             return;
+        }
     }
     GoalEdge* link = alloc_chain_link();
     link->objective_key_ = id;
@@ -135,27 +137,33 @@ void Objective::attach_child(uint32_t id)
 // 0x00554BD0
 void Objective::uninitialize(bool children, int depth)
 {
-    if (is_operative())
+    if (is_operative()) {
         disengage(true, true);
+    }
     uint32_t script = 0;
-    if (args_->read_hash_value(kUninit, &script, 0))
+    if (args_->read_hash_value(kUninit, &script, 0)) {
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
+    }
     flag_bits_ &= ~Objective::Flags::kInitialized;
-    if (!children)
+    if (!children) {
         return;
+    }
     void* manager = objective_board();
-    for (const GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_)
+    for (const GoalEdge* link = sub_nodes_; link && link->objective_key_; link = link->succ_) {
         get_goal(manager, link->objective_key_, 1)->uninitialize(children, depth + 1);
+    }
 }
 
 // 0x00554C70
 bool Objective::lose()
 {
-    if (!is_operative())
+    if (!is_operative()) {
         return false;
+    }
     uint32_t script = 0;
-    if (args_->read_hash_value(kFail, &script, 0))
+    if (args_->read_hash_value(kFail, &script, 0)) {
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
+    }
     disengage(true, true);
     return true;
 }
@@ -164,10 +172,12 @@ bool Objective::lose()
 bool Objective::has_run_out()
 {
     online::Hub* net = online::online_hub();
-    if (!local_skater() || !net->count_players())
+    if (!local_skater() || !net->count_players()) {
         return true;
-    if (core::any(cur_phase_ & Objective::State::kNoTimeLimit))
+    }
+    if (core::any(cur_phase_ & Objective::State::kNoTimeLimit)) {
         return false;
+    }
     return seconds_remaining_ <= 0;
 }
 
@@ -176,20 +186,25 @@ bool Objective::is_expired_at_end_of_run(bool force)
 {
     online::Hub* net = online::online_hub();
     objects::GameEntity* skater = local_skater();
-    if (!skater)
+    if (!skater) {
         return true;
+    }
     objects::RiderSessionEnd* end_run = end_run_of(skater);
-    if (!net->count_players())
+    if (!net->count_players()) {
         return true;
-    if (core::any(cur_phase_ & Objective::State::kNoTimeLimit))
+    }
+    if (core::any(cur_phase_ & Objective::State::kNoTimeLimit)) {
         return false;
+    }
     if (run_ending_ == 0 || run_ending_ == 1) {
         const bool done = run_ending_ == 1 ? end_run->run_done() : end_run->goal_run_done();
-        if (done)
+        if (done) {
             return seconds_remaining_ <= 0;
+        }
     }
-    if (seconds_remaining_ > 0)
+    if (seconds_remaining_ > 0) {
         return false;
+    }
     // Out of time: the run is ended, the goal expires once it's done.
     if (run_ending_ == 0) {
         flag_bits_ |= Objective::Flags::kEndOfRunStarted;
@@ -207,19 +222,23 @@ bool Objective::wants_to_end() { return is_expired_at_end_of_run(false); }
 // 0x00554DD0
 bool Objective::tick_frame()
 {
-    if (is_operative() && !is_frozen())
+    if (is_operative() && !is_frozen()) {
         invoke_hook_script(kActiveScript);
-    if (!is_operative() || is_frozen())
+    }
+    if (!is_operative() || is_frozen()) {
         return true;
+    }
     if (has_time_limit() && seconds_remaining_ >= 1) {
         const int before = seconds_remaining_;
         seconds_remaining_ +=
             truncate(frame_clock::get_slomo_frame_seconds() * kGoalRunMinusMilliseconds); // (-1000)
         elapsed_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::kThousand);       // (1000)
         // The last ten seconds beep each second.
-        if (seconds_remaining_ < kBeepWindowMilliseconds && before / kMillisecondsPerSecond > seconds_remaining_ / kMillisecondsPerSecond && timer_beeps() &&
-            game_mode_timer_beeps())
+        if (seconds_remaining_ < kBeepWindowMilliseconds &&
+            before / kMillisecondsPerSecond > seconds_remaining_ / kMillisecondsPerSecond && timer_beeps() &&
+            game_mode_timer_beeps()) {
             script::launch_script(kTimerRunoutBeep, nullptr, nullptr, false, nullptr);
+        }
     }
     if (args_->has_bare_flag(kRequireCombo) && !args_->has_bare_flag(kChainActiveFlag)) {
         objects::GameEntity* skater = local_skater();
@@ -227,12 +246,14 @@ bool Objective::tick_frame()
             const auto* score =
                 core::down_cast<objects::Rider>(skater)->get_points_total();
             // (the combo's points: its base score times its multiplier)
-            if (score && truncate(score->pot() * static_cast<double>(score->multiplier())) > 0)
+            if (score && truncate(score->pot() * static_cast<double>(score->multiplier())) > 0) {
                 args_->put_name_key(checksums::Name{kNoName}, kChainActiveFlag);
+            }
         }
     }
-    if (has_time_limit() && wants_to_end())
+    if (has_time_limit() && wants_to_end()) {
         expire();
+    }
     return true;
 }
 
@@ -240,30 +261,35 @@ bool Objective::tick_frame()
 void Objective::expire()
 {
     uint32_t script = 0;
-    if (args_->read_hash_value(kExpireScript, &script, 0))
+    if (args_->read_hash_value(kExpireScript, &script, 0)) {
         script::launch_script(script, args_.get(), nullptr, false, nullptr);
-    if (core::any(flag_bits_ & Objective::Flags::kDeactivateOnExpire))
+    }
+    if (core::any(flag_bits_ & Objective::Flags::kDeactivateOnExpire)) {
         disengage(false, true);
+    }
 }
 
 // 0x00554F90
 bool Objective::register_gap_hit(uint32_t gap)
 {
     script::Array* gaps = nullptr;
-    if (!args_->fetch_list(kNeededGapList, &gaps, 0))
+    if (!args_->fetch_list(kNeededGapList, &gaps, 0)) {
         return false;
+    }
     const char* trick = kEmptyString;
     args_->fetch_text(kDemandedTrick, &trick, 0);
     if (*trick) {
         objects::GameEntity* skater = local_skater();
-        if (!skater)
+        if (!skater) {
             return false;
+        }
         void* score = core::down_cast<objects::Rider>(skater)->get_points_total();
         const uint32_t name = checksums::hash_from_text(trick);
         const uint32_t backside = checksums::fold_text_into_checksum(kBsPrefix, trick);
         const uint32_t frontside = checksums::fold_text_into_checksum(kFsPrefix, trick);
-        if (!get_trick_count(score, name) && !get_trick_count(score, backside) && !get_trick_count(score, frontside))
+        if (!get_trick_count(score, name) && !get_trick_count(score, backside) && !get_trick_count(score, frontside)) {
             return false;
+        }
     }
     for (uint32_t i = 0; i < gaps->extent(); ++i) {
         if (gaps->fetch_part(i) == gap) {
@@ -280,8 +306,9 @@ bool Objective::register_gap_hit(uint32_t gap)
 bool Objective::step_to_next_waypoint()
 {
     script::Array* waypoints = nullptr;
-    if (!args_->fetch_list(kWaypoints, &waypoints, 0))
+    if (!args_->fetch_list(kWaypoints, &waypoints, 0)) {
         args_->fetch_list(kWaypoints2, &waypoints, 1);
+    }
     for (uint32_t i = 0; i < waypoints->extent(); ++i) {
         auto* waypoint = waypoints->struct_at(i);
         uint32_t flag = 0;
@@ -289,8 +316,9 @@ bool Objective::step_to_next_waypoint()
         if (goal_flags_->has_entry_named(flag)) {
             int set = 0;
             goal_flags_->fetch_int_value(flag, &set, 1);
-            if (set == 1)
+            if (set == 1) {
                 continue;
+            }
         }
         cur_phase_ |= Objective::State::kPaused;
         int time = 0;
@@ -304,12 +332,14 @@ bool Objective::step_to_next_waypoint()
         uint32_t id = 0;
         args_->read_hash_value(kGoalIdName, &id, 1);
         waypoint->put_name_key(checksums::Name{kGoalIdChecksum}, id);
-        if (!num_flags_set_)
+        if (!num_flags_set_) {
             waypoint->put_name_key(checksums::Name{kNoName}, kFirstSpot);
-        if (args_->has_bare_flag(kQuickStart))
+        }
+        if (args_->has_bare_flag(kQuickStart)) {
             waypoint->put_name_key(checksums::Name{kNoName}, kQuickStart);
-        else
+        } else {
             waypoint->remove_flag(kQuickStart);
+        }
         script::spawn_script(args_->has_bare_flag(kHorse) ? kHorseSpotScript : kRaceSpotScript, waypoint);
         waypoint->remove_flag(kQuickStart);
         return true;
@@ -327,11 +357,13 @@ void Objective::kill_cluster(uint32_t cluster, int score)
         uint32_t id = 0;
         entry->read_hash_value(kIdName, &id, 1);
         int needed = 0;
-        if (!entry->fetch_int_value(kScore, &needed, 0))
+        if (!entry->fetch_int_value(kScore, &needed, 0)) {
             args_->fetch_int_value(kScore, &needed, 1);
+        }
         if (id == cluster && score > needed) {
-            if (!objects::trick_spot_hub()->set_object_graffiti_color(checksums::Name{cluster}, 0))
+            if (!objects::trick_spot_hub()->set_object_graffiti_color(checksums::Name{cluster}, 0)) {
                 debug::printf("ModulateTrickObjectColor didn't work\n"); // "ModulateTrickObjectColor didn't work\n"
+            }
             uint32_t flag = 0;
             entry->read_hash_value(kFlag, &flag, 1);
             set_flag(checksums::Name{flag}, 1, checksums::Name{0U});
@@ -352,11 +384,13 @@ bool Objective::did_trick_string()
         // (the original copies into its 128 bytes unbounded)
         std::array<char, kTrickNameSize> name{};
         text::format_to(name, "FS %s", trick);
-        if (get_trick_count(score, checksums::hash_from_text(name.data())))
+        if (get_trick_count(score, checksums::hash_from_text(name.data()))) {
             return true;
+        }
         text::format_to(name, "BS %s", trick);
-        if (get_trick_count(score, checksums::hash_from_text(name.data())))
+        if (get_trick_count(score, checksums::hash_from_text(name.data()))) {
             return true;
+        }
     }
     // (create_a_trick is looked at, but either way the trick string itself is counted)
     args_->has_bare_flag(kCreateATrick);
@@ -368,8 +402,9 @@ uint32_t Objective::get_top_objective_key()
 {
     void* manager = objective_board();
     const Objective* goal = this;
-    while (goal->parents_ && goal->parents_->objective_key_)
+    while (goal->parents_ && goal->parents_->objective_key_) {
         goal = get_goal(manager, goal->parents_->objective_key_, 1);
+    }
     uint32_t id = 0;
     goal->args_->read_hash_value(kGoalIdName, &id, 1);
     return id;
@@ -380,21 +415,24 @@ bool Objective::has_won()
 {
     // (NetLobby counts whether or not a network game is on)
     if ((online::online_hub()->in_net_game() && active_ruleset_label() == kNetGoalAttack) ||
-        active_ruleset_label() == kNetLobby)
+        active_ruleset_label() == kNetLobby) {
         return core::any(flag_bits_ & Objective::Flags::kWonInNetGame);
+    }
     return core::any(flag_bits_ & Objective::Flags::kWon);
 }
 
 // 0x005555E0
 void Objective::mark_won()
 {
-    if (online::online_hub()->in_net_game() && active_ruleset_label() == kNetGoalAttack)
+    if (online::online_hub()->in_net_game() && active_ruleset_label() == kNetGoalAttack) {
         flag_bits_ |= Objective::Flags::kWonInNetGame;
-    else
+    } else {
         flag_bits_ |= Objective::Flags::kWon;
+    }
     void* manager = objective_board();
-    for (const GoalEdge* link = parents_; link && link->objective_key_; link = link->succ_)
+    for (const GoalEdge* link = parents_; link && link->objective_key_; link = link->succ_) {
         get_goal(manager, link->objective_key_, 1)->mark_won();
+    }
 }
 
 // 0x00555650
@@ -419,8 +457,9 @@ void Objective::set_launch_altitude()
 // 0x00555710
 bool Objective::test_highest_air()
 {
-    if (is_frozen())
+    if (is_frozen()) {
         return false;
+    }
     int record = 0;
     args_->fetch_int_value(kRecord, &record, 0);
     objects::GameEntity* skater = local_skater();
@@ -433,8 +472,9 @@ bool Objective::test_highest_air()
     const int inches = height % 12;
     args_->put_int(checksums::Name{kCurrentHeightFeet}, feet);
     args_->put_int(checksums::Name{kCurrentHeightInches}, inches);
-    if (height <= record)
+    if (height <= record) {
         return false;
+    }
     args_->put_int(checksums::Name{kRecord}, height);
     args_->put_int(checksums::Name{kRecordFeet}, feet);
     args_->put_int(checksums::Name{kRecordInches}, inches);
@@ -448,8 +488,9 @@ bool Objective::test_longest_jump()
     args_->read_hash_value(kDistanceObject, &id, 1);
     objects::Entity* object = objects::ObjectHubBase::look_up_entity(id);
     const objects::GameEntity* skater = local_skater();
-    if (!skater || !object)
+    if (!skater || !object) {
         return false;
+    }
     // The distance across the ground: the height's square added and taken away again, as the original.
     const maths::Vec4& from = core::down_cast<objects::GameEntity>(object)->at_point();
     const auto& to = skater->at_point();
@@ -466,8 +507,9 @@ bool Objective::test_longest_jump()
     args_->put_int(checksums::Name{kCurrentDistanceInches}, inches);
     int record = 0;
     args_->fetch_int_value(kRecord, &record, 0);
-    if (!(static_cast<double>(record) < rounded))
+    if (!(static_cast<double>(record) < rounded)) {
         return false;
+    }
     args_->put_int(checksums::Name{kRecord}, whole);
     args_->put_int(checksums::Name{kRecordFeet}, feet);
     args_->put_int(checksums::Name{kRecordInches}, inches);
@@ -510,10 +552,12 @@ void Objective::end_of_run_done(script::Script* script)
 bool Objective::run_done() const
 {
     const objects::RiderSessionEnd* end_run = end_run_of(local_skater());
-    if (run_ending_ == 0)
+    if (run_ending_ == 0) {
         return end_run->goal_run_done();
-    if (run_ending_ == 1)
+    }
+    if (run_ending_ == 1) {
         return end_run->run_done();
+    }
     return false;
 }
 
@@ -521,10 +565,12 @@ bool Objective::run_done() const
 bool Objective::run_started()
 {
     const objects::RiderSessionEnd* end_run = end_run_of(local_skater());
-    if (run_ending_ == 0)
+    if (run_ending_ == 0) {
         return core::any(flag_bits_ & Objective::Flags::kEndOfRunStarted);
-    if (run_ending_ == 1)
+    }
+    if (run_ending_ == 1) {
         return end_run->end_of_run_started();
+    }
     return false;
 }
 

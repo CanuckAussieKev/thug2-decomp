@@ -101,8 +101,9 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*scrip
             TopBarMenus::singleton()->turn_on();
             park_editing::ParkBuilderMode::refresh_piece_menu();
         }
-        if (BuildPointer::singleton())
+        if (BuildPointer::singleton()) {
             show_cursor(cursor_shows());
+        }
         editor->update_menu_stick();
         return true;
     }
@@ -145,8 +146,9 @@ bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*scrip
             break;
         }
         BuildPointer::spawn_occurrence();
-        if (BuildPointer::singleton())
+        if (BuildPointer::singleton()) {
             BuildPointer::singleton()->clamp_to_park();
+        }
         editor->change_phase(ParkBuilderMode::kStateEdit);
         return true;
     default:
@@ -163,8 +165,9 @@ bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* /*
             script::launch_script(kPausedMenuScript, nullptr, nullptr, false, nullptr);
             TopBarMenus::singleton()->turn_off_now();
         }
-        if (BuildPointer::singleton())
+        if (BuildPointer::singleton()) {
             show_cursor(false);
+        }
         editor->update_menu_stick();
     } else if (params->has_bare_flag("unpause")) {
         editor->flag_bits() &= ~ParkBuilderMode::kFlagPaused;
@@ -172,8 +175,9 @@ bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* /*
             TopBarMenus::singleton()->turn_on();
             park_editing::ParkBuilderMode::refresh_piece_menu();
         }
-        if (BuildPointer::singleton())
+        if (BuildPointer::singleton()) {
             show_cursor(cursor_shows());
+        }
         editor->update_menu_stick();
     }
     return true;

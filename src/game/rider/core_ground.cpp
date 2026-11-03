@@ -52,8 +52,9 @@ objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->caree
 // A cheat that keeps a balance trick perfect: its global flag set, the balance's lean and its speed zeroed.
 void perfect_cheat(uint32_t cheat, objects::Balance& balance)
 {
-    if (!get_career()->is_code_on(cheat))
+    if (!get_career()->is_code_on(cheat)) {
         return;
+    }
     get_career()->set_global_flag(script::fetch_int_value(cheat));
     balance.set_lean(0.0F);
     balance.set_lean_speed(0.0F);
@@ -66,8 +67,9 @@ void perfect_cheat(uint32_t cheat, objects::Balance& balance)
 void SkaterPhysicsModule::do_ground_physics()
 {
     for (PoseFlag flag : {PoseFlag::kLeftVert, PoseFlag::kVertAir, PoseFlag::kVertWall, PoseFlag::kAcidDrop,
-                          PoseFlag::kFromAcidDrop, PoseFlag::kRecoverInAir, PoseFlag::kNoAcidDrop})
+                          PoseFlag::kFromAcidDrop, PoseFlag::kRecoverInAir, PoseFlag::kNoAcidDrop}) {
         set_flag(this, flag, 0);
+    }
     rail_node_ = nullptr;
     last_rail_script_ = 0;
     vert_wallplanted_ = 0;
@@ -79,22 +81,27 @@ void SkaterPhysicsModule::do_ground_physics()
     objects::GameEntity* object = object_of(this);
     const double heading = static_cast<double>(maths::fast_a_cos(core::at(object->basis_frame().row, 2).x)) * kDegreesPerRadian;
     last_heading_ = static_cast<float>(heading);
-    if (core::at(object->basis_frame().row, 2).z < 0.0F)
+    if (core::at(object->basis_frame().row, 2).z < 0.0F) {
         last_heading_ = static_cast<float>(kFullTurn - heading);
+    }
     if (thaw_bmx::live_now(
-            this)) // (not original: THAW 0x005E4579, the time on vert ground noted - thaw_bmx_physics.cpp)
+            this)) { // (not original: THAW 0x005E4579, the time on vert ground noted - thaw_bmx_physics.cpp)
         thaw_bmx::note_vert_ground(this);
+    }
     // Moving: the velocity turned into the ground's plane.
-    if (length_of(object->vel()) > kMoving)
+    if (length_of(object->vel()) > kMoving) {
         object->vel().align_to_plane(floor_normal_);
+    }
     // Gravity along the ground (+0x360's instead going up while +0x350 is set).
     maths::Vec4 gravity = {.x = 0.0F, .y = tuning_float_lookup(kGroundGravity, object_of(this)), .z = 0.0F, .w = 1.0F};
-    if (!(limits_time_ == 0.0F) && entity()->vel().y > 0.0F)
+    if (!(limits_time_ == 0.0F) && entity()->vel().y > 0.0F) {
         gravity = {.x = 0.0F, .y = limits_gravity_, .z = 0.0F, .w = 1.0F};
+    }
     gravity.flatten_onto_plane(floor_normal_);
     const bool bike = thaw_bmx::live_now(this); // (not original: THAW's bike branches, thaw_bmx_physics.cpp)
-    if (bike)
+    if (bike) {
         thaw_bmx::get_on_ground(this);
+    }
     if (!bike || thaw_bmx::ground_gravity_applies(this, gravity)) {
         const float t = frame_length_;
         maths::Vec4& v = entity()->vel();
@@ -115,8 +122,9 @@ void SkaterPhysicsModule::do_ground_physics()
             get_brake();
         } else {
             braking_ = 0;
-            if (bike ? thaw_bmx::can_kick(this) && thaw_bmx::may_accelerate(this) : can_push_off())
+            if (bike ? thaw_bmx::can_kick(this) && thaw_bmx::may_accelerate(this) : can_push_off()) {
                 push_off();
+            }
         }
     } else if (kind == kSkitch) {
         balance_->skitch().tick_frame();
@@ -125,8 +133,9 @@ void SkaterPhysicsModule::do_ground_physics()
         braking_ = 0;
         if (motoskateboard_) {
             crouch_stats_ = 1;
-            if (can_push_off())
+            if (can_push_off()) {
                 push_off();
+            }
         }
         balance_->manual().tick_frame();
         static_cast<objects::MoveExecutor*>(trick_)->set_trick_objects(true);
@@ -175,17 +184,21 @@ void SkaterPhysicsModule::do_ground_physics()
 
     move_on_ground(step);
     collision_events::checkpoint(this, "moved"); // (not original)
-    if (state_of(this) != kGround)
+    if (state_of(this) != kGround) {
         return;
+    }
 
     // Still on the ground.
-    if (!powerslide_)
+    if (!powerslide_) {
         turn_on_ground();
-    if (bike && state_of(this) == kGround)
+    }
+    if (bike && state_of(this) == kGround) {
         thaw_bmx::manual_pitch(this);             // (not original: THAW 0x005E54BA)
+    }
     collision_events::checkpoint(this, "turned"); // (not original)
-    if (!lock_velocity_)
+    if (!lock_velocity_) {
         get_along_facing(&entity()->vel());
+    }
     collision_events::checkpoint(this, "along-facing-4FF590"); // (not original)
     if (!bit_mark(this, PoseFlag::kSkitching)) {
         test_lateral_hits();
@@ -195,8 +208,9 @@ void SkaterPhysicsModule::do_ground_physics()
     // (not original: THAW 0x005CCDD0 returns at once on the bike: rolling backwards faster
     // than Skater_Flip_Speed (1) the skater is turned round to ride fakie, the bike isn't - it rolls on backwards in
     // THAW's backwards balance, bike_backwards_balance_trick)
-    if (!lock_velocity_ && !bike)
+    if (!lock_velocity_ && !bike) {
         turn_round_if_backwards();
+    }
     collision_events::checkpoint(this, "turn-round-4FF920"); // (not original)
     if (jump_released()) {
         start_vert_air();
@@ -220,8 +234,9 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         p.y = step.y + p.y;
         p.z = step.z + p.z;
         p.w = step.w + p.w;
-        if (!bit_mark(this, PoseFlag::kSkitching))
+        if (!bit_mark(this, PoseFlag::kSkitching)) {
             check_wall_ahead();
+        }
         collision_events::checkpoint(this, "wall-ahead-check"); // (not original)
         if (bit_mark(this, PoseFlag::kSkitching)) {
             // Skitching: a feeler from 36 above to 200 below, along the up, for the ground's terrain.
@@ -262,8 +277,9 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         auto step_length = static_cast<float>(
             std::sqrt(((static_cast<double>(step.z) * step.z) + (static_cast<double>(step.y) * step.y)) +
                       (static_cast<double>(step.x) * step.x)));
-        if (again || state_of(this) != kGround || !(moved < static_cast<double>(step_length) - kStepSlack))
+        if (again || state_of(this) != kGround || !(moved < static_cast<double>(step_length) - kStepSlack)) {
             return;
+        }
         // The rest: along the velocity (x, y the unrounded unit vector, z rounded), the step's length, scaled by
         // what's left of it.
         const maths::Vec4& v = entity()->vel();

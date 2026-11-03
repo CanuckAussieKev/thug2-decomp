@@ -93,8 +93,9 @@ void GoalManager::land()
     const int count = goals_.num(); // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!goal->is_operative())
+        if (!goal->is_operative()) {
             continue;
+        }
         if (goal->is_horse()) {
             core::down_cast<LetterGameObjective>(goal)->land(); // (the rest skipped)
             return;
@@ -102,24 +103,28 @@ void GoalManager::land()
         script::Struct* params = goal->fetch_args();
         if (params->has_bare_flag(kHighCombo)) {
             auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
-            if (!skater)
+            if (!skater) {
                 continue;
+            }
             auto* score = skater->get_points_total();
-            if (score->pot_score() <= 0)
+            if (score->pot_score() <= 0) {
                 continue;
+            }
             const script::StructPtr check = script::make_struct();
             check->put_name_key(checksums::Name{kGoalIdChecksum}, goal->get_objective_key());
             check->put_int(checksums::Name{kLastScoreLanded}, score->pot_score());
             script::launch_script(kHighComboCheckScore, check.get(), nullptr, false, nullptr);
         } else if (goal->fetch_args()->has_bare_flag(kScoreGoal)) {
             auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
-            if (!skater)
+            if (!skater) {
                 continue;
+            }
             void* score = skater->get_points_total();
             int needed = 0;
             goal->fetch_args()->fetch_int_value(kScore, &needed, 1);
-            if (total_with_pending(score) < needed)
+            if (total_with_pending(score) < needed) {
                 continue;
+            }
             const int total = total_with_pending(score);
             goal->fetch_args()->put_int(checksums::Name{kWinningScore}, total);
             complete_objective(goal->get_objective_key());
@@ -132,13 +137,15 @@ void GoalManager::land()
             core::down_cast<SkateLineGoal>(goal)->land();
         } else if (goal->fetch_args()->has_entry_named(kArcadeCurrentScoreTotal)) {
             auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
-            if (!skater)
+            if (!skater) {
                 continue;
+            }
             void* score = skater->get_points_total();
             int current = 0;
             goal->fetch_args()->fetch_int_value(kArcadeCurrentScoreTotal, &current, 0);
-            if (total_with_pending(score) <= current)
+            if (total_with_pending(score) <= current) {
                 continue;
+            }
             const int total = total_with_pending(score);
             goal->fetch_args()->put_int(checksums::Name{kArcadeCurrentScoreTotal}, total);
         } else if (goal->requires_combo() && goal->fetch_args()->has_bare_flag(kChainActiveFlag)) {
@@ -153,14 +160,17 @@ void GoalManager::get_bail()
     const int count = goals_.num(); // (read once)
     for (int i = 0; i < count; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!goal->is_operative())
+        if (!goal->is_operative()) {
             continue;
-        if (goal->requires_combo() && goal->fetch_args()->has_bare_flag(kChainActiveFlag))
+        }
+        if (goal->requires_combo() && goal->fetch_args()->has_bare_flag(kChainActiveFlag)) {
             lose_next_frame(goal);
+        }
         if (goal->is_tetris()) {
             int flag = 0;
-            if (goal->fetch_args()->fetch_int_value(kTrickMarker, &flag, 0) && flag)
+            if (goal->fetch_args()->fetch_int_value(kTrickMarker, &flag, 0) && flag) {
                 goal->fetch_args()->put_int(checksums::Name{kTrickMarker}, 0);
+            }
         } else if (goal->fetch_args()->has_bare_flag(kTrickBeat)) {
             core::down_cast<TrickBeatGoal>(goal)->clear_landed();
         }
@@ -177,8 +187,9 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         uint32_t key = 0;
         Objective* goal = goals_.get_by_index(i, &key);
         const uint32_t pro = goal->skater();
-        if (skater && pro != skater)
+        if (skater && pro != skater) {
             continue;
+        }
         const uint32_t id = goal->get_objective_key();
         const int beaten = goal->has_won() ? 1 : 0;
         const int locked = goal->is_latched() ? 1 : 0;
@@ -193,20 +204,23 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
         entry->append_word(kViewGoalsText, text);
         const char* description = nullptr;
         script::Array* descriptions = nullptr;
-        if (params->fetch_text(kGoalDescription, &description, 0))
+        if (params->fetch_text(kGoalDescription, &description, 0)) {
             entry->append_word(kGoalDescription, description);
-        else if (params->fetch_list(kGoalDescription, &descriptions, 0))
+        } else if (params->fetch_list(kGoalDescription, &descriptions, 0)) {
             entry->append_array_value(kGoalDescription, descriptions);
-        else
+        } else {
             entry->append_word(kGoalDescription, kNoDescription);
+        }
         const char* tip = nullptr;
         params->fetch_text(kViewGoalsTip, &tip, 0);
-        if (tip)
+        if (tip) {
             entry->append_word(kViewGoalsTip, tip);
+        }
         script::Array* cameras = nullptr;
         params->fetch_list(kViewGoalsCameras, &cameras, 0);
-        if (cameras)
+        if (cameras) {
             entry->append_array_value(kViewGoalsCameras, cameras);
+        }
         if (!by_pro->has_entry_named(pro)) {
             const script::StructPtr empty = script::make_struct();
             by_pro->put_sub_struct(pro, empty.get());
@@ -342,11 +356,13 @@ bool cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Scrip
         return true;
     }
     uint32_t name = 0;
-    if (!params->read_hash_value(kName, &name, 0))
+    if (!params->read_hash_value(kName, &name, 0)) {
         return true;
+    }
     const char* text = nullptr;
-    if (!params->fetch_text(kText, &text, 0))
+    if (!params->fetch_text(kText, &text, 0)) {
         return manager->goals().get_pull(name)->swap_move_caption();
+    }
     std::array<char, kCaptionSize> replaced{};
     if (manager->swap_move_caption(name, text, replaced.data(), sizeof(replaced))) {
         script->args()->erase_module(kTrickText);

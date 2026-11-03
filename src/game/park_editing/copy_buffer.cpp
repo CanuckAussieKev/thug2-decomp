@@ -176,18 +176,21 @@ void ClipboardEntry::graft(GraftPlace graft_place, BuildPointer* cursor)
     CellBox area = CellBox::get_make(0, 0, 0, 0, 0, 0);
     fetch_extent(&area, centre_x, centre_z, cursor);
     int top = y_ + height;
-    if (piece_group_ && (piece_group_->flag_bits() & PieceGroup::kBuiltShell))
+    if (piece_group_ && (piece_group_->flag_bits() & PieceGroup::kBuiltShell)) {
         top += piece_group_->cell_footprint().h;
-    if (top >= kFloorTopLimit)
+    }
+    if (top >= kFloorTopLimit) {
         top = kFloorLevelMax;
+    }
     area.y = static_cast<int8_t>(top);
     ParkLayout* manager = ParkLayout::singleton();
     // The floor raised to it (at most 41 steps; a flat floor already there stops it).
     bool flat = false;
     int floor = manager->get_ground_level(area, &flat);
     for (int steps = 0; floor <= top && steps <= kMaxFloorRaiseSteps; ++steps) {
-        if (flat && floor == top)
+        if (flat && floor == top) {
             break;
+        }
         manager->raise_or_lower_floor(area, 1);
         flat = false;
         floor = manager->get_ground_level(area, &flat);
@@ -217,16 +220,18 @@ void ClipboardEntry::glow_overlapping_pieces(uint8_t centre_x, uint8_t centre_z,
     const MapListHolder metas(ParkLayout::singleton()->collect_pieces_in_region(area));
     for (const MapListNode* node = metas.list(); node; node = node->following()) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
-        if (!(meta->flag_bits() & PieceGroup::kBuiltShell))
+        if (!(meta->flag_bits() & PieceGroup::kBuiltShell)) {
             meta->spotlight(on, 0);
+        }
     }
 }
 
 // 0x0058BCA0
 void ClipboardEntry::show_preview(uint8_t centre_x, int /*height*/, uint8_t centre_z, maths::Vec4 position, float angle)
 {
-    if (!piece_group_)
+    if (!piece_group_) {
         return;
+    }
     // The middle of its cells from the copy's centre (in the world's units), turned by `angle`.
     const int dx = pos_x_ - centre_x;
     const int dz = depth_cell_ - centre_z;
@@ -280,8 +285,9 @@ void Clipboard::glow_overlapping_pieces(BuildPointer* cursor, int on)
 {
     const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
     const auto centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
-    for (ClipboardEntry* entry = metas_; entry; entry = entry->following())
+    for (ClipboardEntry* entry = metas_; entry; entry = entry->following()) {
         entry->glow_overlapping_pieces(centre_x, centre_z, cursor, on);
+    }
 }
 
 // 0x0058BF10
@@ -357,8 +363,9 @@ void Clipboard::preview_pieces(maths::Vec4 position, float angle, int height)
 {
     const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
     const auto centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
-    for (ClipboardEntry* entry = metas_; entry; entry = entry->following())
+    for (ClipboardEntry* entry = metas_; entry; entry = entry->following()) {
         entry->show_preview(centre_x, height, centre_z, position, angle);
+    }
     maths::Vec4 centre;
     get_centre(&centre);
     for (void* rail = rail_groups_; rail; rail = follow_rail_link(rail)) {
@@ -371,11 +378,13 @@ void Clipboard::preview_pieces(maths::Vec4 position, float angle, int height)
 void Clipboard::free_all_piece_groups()
 {
     for (ClipboardEntry* entry = metas_; entry; entry = entry->following()) {
-        if (entry->preview())
+        if (entry->preview()) {
             destroy_preview(entry);
+        }
     }
-    for (void* rail = rail_groups_; rail; rail = follow_rail_link(rail))
+    for (void* rail = rail_groups_; rail; rail = follow_rail_link(rail)) {
         hide_rail(rail);
+    }
 }
 
 // 0x0058C270
@@ -388,13 +397,15 @@ bool Clipboard::add_row(PieceGroup* meta, int dy)
     for (const ClipboardEntry* entry = metas_; entry; entry = entry->following()) {
         if (entry->piece_group() == source && entry->pos_x() == area.x && entry->y() == y &&
             entry->depth_cell() == area.z && entry->w() == area.w && entry->l() == area.l &&
-            entry->quarter_turns() == meta->quarter_turns())
+            entry->quarter_turns() == meta->quarter_turns()) {
             return true;
+        }
     }
     memory::PoolPair& pools = clipboard_entry_pools();
     const memory::SlabBank* pool = core::at(pools.pools(), pools.current()); // (not null-checked: as the original)
-    if (pool->taken_count() == pool->num())
+    if (pool->taken_count() == pool->num()) {
         return false;
+    }
     auto* entry = pools.allocate<ClipboardEntry>();
     if (entry) {
         entry->set_piece_group(nullptr);
@@ -434,8 +445,9 @@ void Clipboard::teardown()
     memory::PoolPair& pools = clipboard_entry_pools();
     for (ClipboardEntry* entry = metas_; entry;) {
         ClipboardEntry* next = entry->following();
-        if (entry->preview())
+        if (entry->preview()) {
             destroy_preview(entry);
+        }
         pools.dealloc(entry);
         entry = next;
     }
@@ -466,10 +478,11 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
             for (const MapListNode* node = manager->get_cell_chain(x, z); node; node = node->following()) {
                 const PieceGroup* meta = node->get_piece_group()->get_cast();
                 int y = int{meta->cell_footprint().y};
-                if (meta->name_key() == kRiserBelow)
+                if (meta->name_key() == kRiserBelow) {
                     y += kRiserBelowShift;
-                else if (meta->name_key() == kRiserFloor)
+                } else if (meta->name_key() == kRiserFloor) {
                     y += 1;
+                }
                 lowest = std::min(lowest, y);
             }
         }
@@ -480,8 +493,9 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
         for (int z = area.z; z < area.z + area.l; ++z) {
             for (const MapListNode* node = manager->get_cell_chain(x, z); node; node = node->following()) {
                 PieceGroup* meta = node->get_piece_group()->get_cast();
-                if (meta->is_spawn_marker() || !meta->fits_inside_region(&area) || meta->name_key() == kRiserBelow)
+                if (meta->is_spawn_marker() || !meta->fits_inside_region(&area) || meta->name_key() == kRiserBelow) {
                     continue;
+                }
                 if (!add_row(meta, dy)) {
                     teardown();
                     return false;
@@ -516,14 +530,16 @@ bool Clipboard::show_at(BuildPointer* cursor)
         }
     }
     int rail_points = 0;
-    for (void* rail = rail_groups_; rail; rail = follow_rail_link(rail))
+    for (void* rail = rail_groups_; rail; rail = follow_rail_link(rail)) {
         rail_points += rail_point_count(rail);
+    }
     if (rail_points > free_rail_points(get_rail_editor())) {
         ParkBuilderMode::get_release();
         return false;
     }
-    for (ClipboardEntry* entry = metas_; entry; entry = entry->following())
+    for (ClipboardEntry* entry = metas_; entry; entry = entry->following()) {
         entry->graft({.centre_x_ = centre_x, .height = cursor->clipboard_height(), .centre_z_ = centre_z}, cursor);
+    }
     maths::Vec4 centre;
     get_centre(&centre);
     maths::Vec4 at = *park_editing::ParkBuilderMode::get_cursor_pos();

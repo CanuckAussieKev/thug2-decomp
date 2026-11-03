@@ -131,22 +131,25 @@ void RiderRunClock::tick_frame()
 // 0x00518390
 void RiderRunClock::halt()
 {
-    if (script::look_up_spawned_script(timer_script_id(entity())))
+    if (script::look_up_spawned_script(timer_script_id(entity()))) {
         tell_timer_script(entity(), kHideRunTimer);
+    }
     cur_phase_ = kClockIdle;
 }
 
 // 0x005183F0
 void RiderRunClock::get_resume()
 {
-    if (cur_phase_ == kClockIdle)
+    if (cur_phase_ == kClockIdle) {
         return;
+    }
     cur_phase_ = seconds_remaining_ > 0.0F ? kClockTicking : kActiveTimeUp;
     const int16_t resumes = resumes_;
     if (resumes < kMaxResumes) {
         const double cap = physics_value(entity(), kDuration) * (kMaxResumes - resumes) * kResumeShare;
-        if (!(seconds_remaining_ < cap))
+        if (!(seconds_remaining_ < cap)) {
             seconds_remaining_ = static_cast<float>(cap);
+        }
     }
     resumes_ = static_cast<int16_t>(resumes + 1);
     tell_timer_script(entity(), kShowRunTimer);

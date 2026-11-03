@@ -74,8 +74,9 @@ int find_powerup(script::Struct* params)
     uint32_t name = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(uint32_t{0}, &name, 1);
     for (int i = 0; i < kPowerups; ++i) {
-        if (core::at(kPowerupNames, i) == name)
+        if (core::at(kPowerupNames, i) == name) {
             return i;
+        }
     }
     return -1;
 }
@@ -105,8 +106,9 @@ RiderPoseState::~RiderPoseState() = default;
 void RiderPoseState::set_flag(PoseFlag f, uint8_t value)
 {
     TimedFlag& timed = flag(f);
-    if (timed.on == value)
+    if (timed.on == value) {
         return;
+    }
     timed.on = value;
     timed.changed_at = frame_clock::game_clock_elapsed() + clock_offset();
 }
@@ -117,8 +119,9 @@ void RiderPoseState::configure_from_data(script::Struct* /*params*/) { cur_phase
 // 0x00519660
 void RiderPoseState::change_phase(int state)
 {
-    if (state == cur_phase_)
+    if (state == cur_phase_) {
         return;
+    }
     cur_phase_ = state;
     entity()->post_own_event(kOnSkaterStateChange, nullptr);
 }
@@ -126,8 +129,9 @@ void RiderPoseState::change_phase(int state)
 // 0x00519680
 void RiderPoseState::set_physics_mode(PhysicsMode mode)
 {
-    if (mode == physics_mode_)
+    if (mode == physics_mode_) {
         return;
+    }
     physics_mode_ = mode;
     entity()->post_own_event(kOnSkaterPhysicsStateChange, nullptr);
 }
@@ -135,8 +139,9 @@ void RiderPoseState::set_physics_mode(PhysicsMode mode)
 // 0x005196A0
 void RiderPoseState::set_surface_kind(uint8_t terrain)
 {
-    if (terrain == surface_type_)
+    if (terrain == surface_type_) {
         return;
+    }
     surface_type_ = terrain;
     entity()->post_own_event(kOnSkaterTerrainChange, nullptr);
 }
@@ -215,8 +220,9 @@ bool RiderPoseState::has_powerup(script::Struct* params, script::Script* /*scrip
 bool RiderPoseState::picked_up_powerup(script::Struct* params, script::Script* /*script*/)
 {
     const int index = find_powerup(params);
-    if (index != -1)
+    if (index != -1) {
         core::at(boost_items_, index) = 1;
+    }
     return true;
 }
 

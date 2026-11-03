@@ -79,8 +79,9 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
     case kGetHeading: {
         const maths::Vec4& facing = core::at(entity()->basis_frame().row, 2);
         auto heading = static_cast<float>(static_cast<double>(maths::fast_a_cos(facing.x)) * kDegreesPerRadian);
-        if (facing.z < 0.0F)
+        if (facing.z < 0.0F) {
             heading = kFullCircle - heading;
+        }
         script->args()->push_float(checksums::Name{kHeading}, heading);
         script->args()->push_float(checksums::Name{kCosine}, core::at(entity()->basis_frame().row, 2).x);
         script->args()->push_float(checksums::Name{kSine}, core::at(entity()->basis_frame().row, 2).z);
@@ -96,8 +97,9 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         maths::Vec4 flat = facing;
         flat.y = 0.0F;
         auto slope = static_cast<float>(maths::read_turn_angle(facing, flat));
-        if (core::at(entity()->basis_frame().row, 2).y < 0.0F)
+        if (core::at(entity()->basis_frame().row, 2).y < 0.0F) {
             slope = -slope;
+        }
         script->args()->push_float(checksums::Name{kSlope}, slope);
         script->args()->push_float(checksums::Name{kChangeInSlope}, slope - prev_gradient_);
         prev_gradient_ = slope;
@@ -131,8 +133,9 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         params->fetch_pair(uint32_t{0}, &range, true);
         maths::Vec4 v = entity()->vel();
         v.align_to_plane(up);
-        if (!maths::is_angle_beyond(v, at, range.x()))
+        if (!maths::is_angle_beyond(v, at, range.x())) {
             return 0;
+        }
         return maths::is_angle_beyond(v, at, range.y()) ? 0 : 1;
     }
     default:

@@ -132,8 +132,9 @@ void RiderBoardPhysics::seal()
 void RiderBoardPhysics::set_frozen(bool paused)
 {
     is_halted_ = paused;
-    if (!paused && (entity()->composite_flags() & kCompositeFlagSuspended))
+    if (!paused && (entity()->composite_flags() & kCompositeFlagSuspended)) {
         return;
+    }
     switch (pose_->physics_mode()) {
     case RiderPoseState::PhysicsMode::kSkating:
         freeze_module(static_cast<ObjectModule*>(core_physics_), paused);
@@ -152,8 +153,9 @@ void RiderBoardPhysics::set_frozen(bool paused)
 // 0x00517940
 void RiderBoardPhysics::dismount_to_walk()
 {
-    if (pose_->physics_mode() == RiderPoseState::PhysicsMode::kWalking)
+    if (pose_->physics_mode() == RiderPoseState::PhysicsMode::kWalking) {
         return;
+    }
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
     auto* walk = core::down_cast<FootMovement>(entity()->fetch_module(kWalk));
@@ -174,15 +176,17 @@ void RiderBoardPhysics::dismount_to_walk()
     alignas(kCameraStateAlignment) std::array<uint8_t, kCameraStateBytes> camera_state{};
     skater_camera_save(skater_camera, camera_state.data());
     walk_camera_restore(walk_camera, camera_state.data());
-    if (is_halted_)
+    if (is_halted_) {
         set_frozen(is_halted_);
+    }
 }
 
 // 0x00517B20
 void RiderBoardPhysics::remount_board()
 {
-    if (pose_->physics_mode() == RiderPoseState::PhysicsMode::kSkating)
+    if (pose_->physics_mode() == RiderPoseState::PhysicsMode::kSkating) {
         return;
+    }
     previous_duration_ = get_clock() - switch_time_;
     switch_time_ = get_clock();
     auto* walk = core::down_cast<FootMovement>(entity()->fetch_module(kWalk));
@@ -206,16 +210,18 @@ void RiderBoardPhysics::remount_board()
     alignas(kCameraStateAlignment) std::array<uint8_t, kCameraStateBytes> camera_state{};
     walk_camera_save(walk_camera, camera_state.data());
     skater_camera_set(skater_camera, camera_state.data());
-    if (is_halted_)
+    if (is_halted_) {
         set_frozen(is_halted_);
+    }
 }
 
 // 0x00517AC0
 void RiderBoardPhysics::tick_frame()
 {
     flag26_ = 0;
-    if (!is_halted_)
+    if (!is_halted_) {
         return;
+    }
     switch (pose_->physics_mode()) {
     case RiderPoseState::PhysicsMode::kSkating:
         entity()->display_matrix() = core_physics_->display_matrix();
@@ -226,8 +232,9 @@ void RiderBoardPhysics::tick_frame()
     default:
         break;
     }
-    if (!(static_cast<ObjectModule*>(core_physics_)->flag_bits() & kComponentFlagSuspended))
+    if (!(static_cast<ObjectModule*>(core_physics_)->flag_bits() & kComponentFlagSuspended)) {
         set_frozen(true);
+    }
 }
 
 // 0x00517C80
@@ -248,15 +255,17 @@ int RiderBoardPhysics::invoke_method_by_name(uint32_t name, script::Struct* /*pa
 // 0x00517A80
 bool RiderBoardPhysics::pause_physics(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (!is_halted_)
+    if (!is_halted_) {
         set_frozen(true);
+    }
     return true;
 }
 // 0x00517AA0
 bool RiderBoardPhysics::un_pause_physics(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (is_halted_)
+    if (is_halted_) {
         set_frozen(false);
+    }
     return true;
 }
 // 0x005177A0

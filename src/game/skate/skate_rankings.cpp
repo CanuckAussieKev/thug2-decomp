@@ -89,8 +89,9 @@ public:
 online::ScoreEntry* new_entry()
 {
     auto* entry = static_cast<online::ScoreEntry*>(memory::alloc_zeroed(sizeof(online::ScoreEntry)));
-    if (!entry)
+    if (!entry) {
         return nullptr;
+    }
     entry->make_node(entry);
     return entry;
 }
@@ -101,8 +102,9 @@ void add_player_line(const char* text, bool team_score)
 {
     const script::StructPtr params = script::make_struct();
     params->append_word(kText, text);
-    if (team_score)
+    if (team_score) {
         params->put_name_key(checksums::Name{0U}, kTeamScore);
+    }
     params->put_name_key(checksums::Name{kParent}, kPlayerListMenu);
     script::launch_script(kPlayerMenuAddItem, params.get(), nullptr, false, nullptr);
 }
@@ -116,13 +118,16 @@ void add_score_line(Format format, uint32_t id, bool team_score, bool font_first
     std::array<char, kScoreTextBytes> text{};
     format(std::span<char>(text));
     params->append_word(kText, text.data());
-    if (font_first)
+    if (font_first) {
         params->put_name_key(checksums::Name{kFont}, kDialog);
+    }
     params->put_name_key(checksums::Name{kId}, id);
-    if (!font_first)
+    if (!font_first) {
         params->put_name_key(checksums::Name{kFont}, kDialog);
-    if (team_score)
+    }
+    if (team_score) {
         params->put_name_key(checksums::Name{0U}, kTeamScore);
+    }
     params->put_name_key(checksums::Name{kParent}, kRankingsListMenu);
     script::launch_script(kScoreMenuAddItem, params.get(), nullptr, false, nullptr);
 }
@@ -132,15 +137,17 @@ void format_score(std::span<char> out, uint32_t score, int colour, bool coloured
 {
     if (is_crown_rule_active()) {
         const uint32_t seconds = score / 1000;
-        if (coloured)
+        if (coloured) {
             text::format_to(out, "\\c%d%.2d:%.2d", colour, seconds / kSecondsPerMinute, seconds % kSecondsPerMinute); // "\c%d%.2d:%.2d"
-        else
+        } else {
             text::format_to(out, "%.2d:%.2d", seconds / kSecondsPerMinute, seconds % kSecondsPerMinute); // "%.2d:%.2d"
+        }
     } else {
-        if (coloured)
+        if (coloured) {
             text::format_to(out, "\\c%d%d", colour, score); // "\c%d%d"
-        else
+        } else {
             text::format_to(out, "%d", score); // "%d"
+        }
     }
 }
 
@@ -195,16 +202,18 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct* /*params*/, script::Script
     bool goal_attack = goals::game_mode()->get_name_key() == kNetGoalAttack;
     // A player's score: the goals beaten in goal attack.
     auto score_of = [&](online::PlayerRecord* info) -> uint32_t {
-        if (goal_attack)
+        if (goal_attack) {
             return static_cast<uint32_t>(
                 goals::get_objective_board()->count_cleared_by_player(static_cast<int>(info->skater()->ident())));
+        }
         return static_cast<uint32_t>(net->get_entrant_points(info->skater()->ident()));
     };
     if (static_cast<uint8_t>(goals::game_mode()->is_squad_match())) {
         // The teams with players, by their scores; under each its players, then its total.
         for (int team = 0; team < goals::game_mode()->current_num_teams(); ++team) {
-            if (!net->count_team_players(team))
+            if (!net->count_team_players(team)) {
                 continue;
+            }
             online::ScoreEntry* entry = new_entry();
             entry->set_king(false);
             entry->set_shade(team + 2);
@@ -225,8 +234,9 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct* /*params*/, script::Script
             for (void* player = net->begin_player_walk(&search, false); player;
                  player = net->step_player_walk(&search, false)) {
                 online::PlayerRecord* info = as_player(player);
-                if (ints::as_unsigned(info->team()) != entry->unknown44())
+                if (ints::as_unsigned(info->team()) != entry->unknown44()) {
                     continue;
+                }
                 uint32_t score = score_of(info);
                 std::array<char, kScoreTextBytes> text{};
                 // "\c%d> %s" (the own player's) / "\c%d%s"

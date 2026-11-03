@@ -139,27 +139,33 @@ bool cfunc_preload_models(script::Struct* /*params*/, script::Script* /*script*/
     memory::push_mem_profile("PreLoadModels");
     level_nodes::start_node_walk(0);
     for (script::Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
-        if (skip_node(node))
+        if (skip_node(node)) {
             continue;
+        }
         uint32_t node_class = 0;
         uint32_t type = 0;
         node->read_hash_value(kClass, &node_class, 0);
         node->read_hash_value(kType, &type, 0);
         if (!is_multiplayer()) {
             bool flag = false;
-            for (const uint32_t flag_type : kFlagTypes)
+            for (const uint32_t flag_type : kFlagTypes) {
                 flag = flag || type == flag_type;
-            if (flag)
+            }
+            if (flag) {
                 continue;
+            }
         }
-        if (node_class != kVehicle && node_class != kGameObject)
+        if (node_class != kVehicle && node_class != kGameObject) {
             continue;
+        }
         const char* model = nullptr;
-        if (!node->fetch_text(kModel, &model, 0))
+        if (!node->fetch_text(kModel, &model, 0)) {
             continue;
+        }
         node->fetch_text(kModel, &model, 1);
-        if (_stricmp("none", model) == 0)
+        if (_stricmp("none", model) == 0) {
             continue;
+        }
         text::Chars path;
         path = model_path(model, ".mdl");
         gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
@@ -198,14 +204,17 @@ bool cfunc_preload_models(script::Struct* /*params*/, script::Script* /*script*/
 // model its profile's appearance builds (preload_model_from_appearance) loaded and dropped.
 bool cfunc_preload_pedestrians(script::Struct* params, script::Script* /*script*/)
 {
-    if (online::net_game_state().online_hub()->in_net_game())
+    if (online::net_game_state().online_hub()->in_net_game()) {
         return false;
-    if (script::fetch_int_value(kNoPedestrians))
+    }
+    if (script::fetch_int_value(kNoPedestrians)) {
         return false;
+    }
     memory::push_mem_profile("Random Ped Parts");
     if (!params->has_bare_flag(kNoRandom)) {
-        for (const uint32_t list : kPedPartLists)
+        for (const uint32_t list : kPedPartLists) {
             preload_part_list(list);
+        }
     }
     memory::pop_mem_profile();
     memory::push_mem_profile("Unique Ped Parts");
@@ -213,8 +222,9 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script* /*script*
     for (script::Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);
-        if (node_class != kPedestrian)
+        if (node_class != kPedestrian) {
             continue;
+        }
         const char* model = nullptr;
         if (node->fetch_text(kModel, &model, 0) && checksums::hash_from_text(model) != kNone) {
             text::Chars path;
@@ -231,11 +241,13 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script* /*script*
             delete_model(nx_model);
         }
         uint32_t profile_name = 0;
-        if (!node->read_hash_value(kProfile, &profile_name, 0))
+        if (!node->read_hash_value(kProfile, &profile_name, 0)) {
             continue;
+        }
         script::Struct* profile = script::read_sub_struct(profile_name);
-        if (!profile)
+        if (!profile) {
             continue;
+        }
         gsl::owner<render::RenderModel*> nx_model = spawn_render_model(1);
         // The pedestrian's appearance and a model builder (destroyed at the end of the loop: the builder first).
         gfx::ModelLook appearance;
@@ -274,8 +286,9 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script* 
         script::Struct* levels = nullptr;
         bool candidate = false;
         if (option->has_entry_named(kNoRandom)) {
-            if (option->read_sub_struct(kLevelSpecific, &levels, 0))
+            if (option->read_sub_struct(kLevelSpecific, &levels, 0)) {
                 script::dump_to_log(option);
+            }
             candidate = false;
         } else if (option->read_sub_struct(kLevelSpecific, &levels, 0)) {
             candidate = levels->has_entry_named(level);
@@ -296,23 +309,29 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script* 
     for (script::Struct* node = level_nodes::get_next_node(); node; node = level_nodes::get_next_node()) {
         uint32_t node_class = 0;
         node->read_hash_value(kClass, &node_class, 0);
-        if (node_class != kPedestrian)
+        if (node_class != kPedestrian) {
             continue;
+        }
         uint32_t profile_name = 0;
-        if (!node->read_hash_value(kProfile, &profile_name, 0))
+        if (!node->read_hash_value(kProfile, &profile_name, 0)) {
             continue;
+        }
         script::Struct* profile = script::read_sub_struct(profile_name);
-        if (!profile)
+        if (!profile) {
             continue;
+        }
         script::Struct* slot = nullptr;
-        if (!profile->read_sub_struct(part, &slot, 0))
+        if (!profile->read_sub_struct(part, &slot, 0)) {
             continue;
+        }
         uint32_t descriptor_id = 0;
-        if (!slot->read_hash_value(kDescId, &descriptor_id, 0))
+        if (!slot->read_hash_value(kDescId, &descriptor_id, 0)) {
             continue;
+        }
         script::Struct* option = customise_choice(part, descriptor_id, false);
-        if (!option || option->has_entry_named(kNoRandom))
+        if (!option || option->has_entry_named(kNoRandom)) {
             continue;
+        }
         script::fetch_int_value(kCasArtist); // (read and not used)
         option->put_int(checksums::Name{kAllowRandom}, 1);
         option->put_int(checksums::Name{kPickPermitted}, 1);
@@ -360,24 +379,27 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
     int seen_count = 0;
     for (objects::ObjectModule* component = objects->find_first_module_of_kind(kModel); component;
          component = component->next_of_type()) {
-        if (component->entity()->kind_tag() != kCarType)
+        if (component->entity()->kind_tag() != kCarType) {
             continue;
+        }
         render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
         bool added = false;
         for (int i = 0; i < model->fetch_geom_total(); ++i) {
             const render::TextureSet* textures = model->get_geom_textures(i);
             bool found = false;
             for (int k = 0; k < seen_count; ++k) {
-                if (core::at(seen, k) == textures)
+                if (core::at(seen, k) == textures) {
                     found = true;
+                }
             }
             if (!found && seen_count < kSeenTextureLimit) {
                 core::at(seen, seen_count++) = textures;
                 added = true;
             }
         }
-        if (added)
+        if (added) {
             component->invoke_method_by_name(kObjReplaceTexture, params, script);
+        }
     }
     return true;
 }

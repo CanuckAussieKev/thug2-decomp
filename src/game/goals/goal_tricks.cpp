@@ -93,10 +93,11 @@ int Objective::pick_key_combo(script::Array* combos)
     const uint32_t count = combos->extent();
     uint32_t combo = 0; // (kept from one look-up to the next, as the original's)
     auto combo_at = [combos, &combo](uint32_t index) {
-        if (combos->kind_tag() == script::QbValueKind::kName)
+        if (combos->kind_tag() == script::QbValueKind::kName) {
             combo = combos->fetch_part(index);
-        else
+        } else {
             combos->struct_at(index)->read_hash_value(kKeyCombo, &combo, 1);
+        }
         return combo;
     };
     uint32_t trick = 0;
@@ -105,18 +106,21 @@ int Objective::pick_key_combo(script::Array* combos)
         picked = maths::rnd(static_cast<int>(count));
         combo_at(static_cast<uint32_t>(picked));
         mapping->read_hash_value(combo, &trick, 0);
-        if (trick)
+        if (trick) {
             return picked;
+        }
         int slot = 0;
-        if (mapping->fetch_int_value(combo, &slot, 0))
+        if (mapping->fetch_int_value(combo, &slot, 0)) {
             return picked;
+        }
         trick = 0;
     }
     // Then each in turn (one with a trick returns the last random pick, as the original).
     for (uint32_t i = 0; i < count; ++i) {
         mapping->read_hash_value(combo_at(i), &trick, 0);
-        if (trick)
+        if (trick) {
             return picked;
+        }
         trick = 0;
     }
     no_combo_sequence_left();
@@ -155,8 +159,9 @@ bool Objective::build_trick_texts(TrickTextArrays arrays,
                     break;
                 }
             }
-            if (k == specials)
+            if (k == specials) {
                 return false;
+            }
         }
         const char* key_text = nullptr;
         combo_texts->fetch_text(combo, &key_text, 1);
@@ -184,16 +189,18 @@ bool Objective::build_trick_texts(TrickTextArrays arrays,
 bool Objective::swap_move_caption()
 {
     script::Array* combos = nullptr;
-    if (!args_->fetch_list(kButtonSequences, &combos, 0))
+    if (!args_->fetch_list(kButtonSequences, &combos, 0)) {
         return false;
+    }
     // The texts as written, kept the first time.
     const char* text = nullptr;
     if (!args_->has_entry_named(kOriginalGoalDescription)) {
         script::Array* lines = nullptr;
-        if (args_->fetch_text(kGoalDescription, &text, 0))
+        if (args_->fetch_text(kGoalDescription, &text, 0)) {
             args_->append_word(kOriginalGoalDescription, text);
-        else if (args_->fetch_list(kGoalDescription, &lines, 0))
+        } else if (args_->fetch_list(kGoalDescription, &lines, 0)) {
             args_->append_array_value(kOriginalGoalDescription, lines);
+        }
     }
     struct Original {
         uint32_t original;
@@ -204,12 +211,14 @@ bool Objective::swap_move_caption()
                                          {.original = kOriginalGoalText, .text = kGoalText},
                                          {.original = kOriginalKeyComboText, .text = kKeyComboText}});
     for (const Original& kept : kKept) {
-        if (!args_->has_entry_named(kept.original) && args_->fetch_text(kept.text, &text, 0))
+        if (!args_->has_entry_named(kept.original) && args_->fetch_text(kept.text, &text, 0)) {
             args_->append_word(kept.original, text);
+        }
     }
     int premade_cat = -1;
-    if (args_->has_bare_flag(kCreateATrick))
+    if (args_->has_bare_flag(kCreateATrick)) {
         args_->fetch_int_value(kPremadeCatIndex, &premade_cat, 1);
+    }
     gsl::owner<script::Array*> key_texts = script::new_array();
     gsl::owner<script::Array*> trick_texts = script::new_array();
     const uint32_t count = combos->extent();
@@ -272,10 +281,11 @@ void Objective::remove_reward_trick()
     args_->fetch_int_value(kShouldRemoveTrick, &remove, 1);
     if (remove == 1) {
         uint32_t trick = 0;
-        if (args_->has_bare_flag(kCreateATrick))
+        if (args_->has_bare_flag(kCreateATrick)) {
             trick = 0;
-        else
+        } else {
             args_->read_hash_value(kTrickName, &trick, 1);
+        }
         for (int i = 0; i < kSpecialTrickSlots; ++i) {
             RiderIdentity::SpecialTrick special;
             profile->get_special_trick(&special, i);
@@ -299,17 +309,20 @@ void Objective::tint_tagged_props(int player, bool clear)
 {
     objects::TrickSpotHub* objects = objects::trick_spot_hub();
     script::Array* clusters = nullptr;
-    if (!args_->fetch_list(kKillClusters, &clusters, 0))
+    if (!args_->fetch_list(kKillClusters, &clusters, 0)) {
         return;
+    }
     const int count = static_cast<int>(clusters->extent());
     for (int i = 0; i < count; ++i) {
         uint32_t id = 0;
         clusters->struct_at(static_cast<uint32_t>(i))->read_hash_value(kId, &id, 1);
-        if (!objects->get_cluster(id))
+        if (!objects->get_cluster(id)) {
             continue;
+        }
         if (clear) {
-            if (objects::TrickObjectCluster* cluster = objects->get_cluster(id))
+            if (objects::TrickObjectCluster* cluster = objects->get_cluster(id)) {
                 cluster->clear_graffiti_color(player);
+            }
         } else {
             objects->get_cluster(id)->set_graffiti_color(player);
         }

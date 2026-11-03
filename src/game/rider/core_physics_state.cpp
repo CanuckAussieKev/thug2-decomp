@@ -96,8 +96,9 @@ SkaterPhysicsModule::SkaterPhysicsModule()
     // (+0x3F0: its constructor 0x005902E0 only returns it.)
     set_kind_tag(kSkaterCorePhysics);
     // Not original - a component made where an old one was starts off THAW's bike (game/rider/thaw_bmx.h).
-    if (thaw_bmx::is_switched_on())
+    if (thaw_bmx::is_switched_on()) {
         thaw_bmx::get_forget(this);
+    }
 }
 
 // 0x00506BE0
@@ -117,11 +118,13 @@ void SkaterPhysicsModule::get_reset()
     // Every timed flag (23 down to 0) set, then cleared; flag 7 tells +0x1514's +0x1E each time.
     for (int flag = kLastPoseFlag; flag >= 0; --flag) {
         set_timed_flag(this, static_cast<PoseFlag>(flag), 1);
-        if (flag == kSlideFlag)
+        if (flag == kSlideFlag) {
             sound_->set_sliding(1);
+        }
         set_timed_flag(this, static_cast<PoseFlag>(flag), 0);
-        if (flag == kSlideFlag)
+        if (flag == kSlideFlag) {
             sound_->set_sliding(0);
+        }
     }
     set_timed_flag(this, PoseFlag::kFlipped, !core::down_cast<objects::Rider>(entity())->goofy());
     // The ride let go of: its object kept at +0x6C, the smart pointer freed, the time noted.
@@ -144,8 +147,9 @@ void SkaterPhysicsModule::get_reset()
     can_brake_ = 1;
     state_->set_lip_straight_up(0);
     rail_node_ = nullptr;
-    if (limits_time_ != -kTimerForLevel) // (-2: kept)
+    if (limits_time_ != -kTimerForLevel) { // (-2: kept)
         limits_time_ = 0.0F;
+    }
     wallplant_time_ = 0;
     last_push_off_ = 0;
     leap_time_ = 0;
@@ -182,17 +186,20 @@ void SkaterPhysicsModule::refresh_hit_cache()
 // 0x00500710
 void SkaterPhysicsModule::update_free_revert()
 {
-    if (!special_friction_index_)
+    if (!special_friction_index_) {
         return;
+    }
     auto start = static_cast<uint32_t>(special_friction_start_);
     const uint32_t wait =
         ftol(static_cast<double>(script::fetch_float(kTimeBeforeFreeRevert)) * kMillisecondsPerSecond);
-    if (get_since(start) <= wait)
+    if (get_since(start) <= wait) {
         return;
+    }
     --special_friction_index_;
     debug::printf(kMessageFormat, kSourceFile, kFreeRevertLine, kFreeRevertText);
-    if (special_friction_index_)
+    if (special_friction_index_) {
         special_friction_start_ = get_now();
+    }
 }
 
 // 0x005007A0
@@ -200,12 +207,14 @@ void SkaterPhysicsModule::update_focus_button()
 {
     objects::ControlButton* button = &input_->pad_primary().stick_click_left();
     if (focus_held_) {
-        if (!button->held_down())
+        if (!button->held_down()) {
             focus_held_ = 0;
+        }
         return;
     }
-    if (!button->held_down())
+    if (!button->held_down()) {
         return;
+    }
     const int wait = script::fetch_int_value(kFocusButtonTime);
     if (time_since_press(button) > wait) {
         focus_held_ = 1;
@@ -216,20 +225,24 @@ void SkaterPhysicsModule::update_focus_button()
 // 0x00500820
 void SkaterPhysicsModule::update_projectiles()
 {
-    if (throwing_projectile_ || !projectiles_on_ || state_->flag(PoseFlag::kBailing).on)
+    if (throwing_projectile_ || !projectiles_on_ || state_->flag(PoseFlag::kBailing).on) {
         return;
+    }
     const objects::TaggingControlComponent* other = tagging_component_;
-    if (other->pending() || other->countdown() || !(other->cooldown() == 0.0F))
+    if (other->pending() || other->countdown() || !(other->cooldown() == 0.0F)) {
         return;
+    }
     int& wait = throw_wait_;
     if (wait) {
         --wait;
         return;
     }
-    if (ammo_ <= 0)
+    if (ammo_ <= 0) {
         return;
-    if (!projectile_button_pressed() || wait)
+    }
+    if (!projectile_button_pressed() || wait) {
         return;
+    }
     wait = kProjectileWaitFrames;
     // (0x004FC420: walking.)
     const bool walking = static_cast<objects::RiderBoardPhysics*>(physics_control_)->is_on_foot();
@@ -239,8 +252,9 @@ void SkaterPhysicsModule::update_projectiles()
 // 0x00500900
 void SkaterPhysicsModule::update_model_rotation()
 {
-    if (!model_rotating_)
+    if (!model_rotating_) {
         return;
+    }
     auto* model = core::down_cast<objects::MeshInstanceModule>(object_of(this)->fetch_module(kModel));
     const double left = static_cast<double>(model_rotation_left_) - slomo_speed_;
     model_rotation_left_ = static_cast<float>(left); // (compared below unrounded)
@@ -254,8 +268,9 @@ void SkaterPhysicsModule::update_model_rotation()
         flip_spin_started_ = 0;
         return;
     }
-    if (left <= kModelRotationEnd)
+    if (left <= kModelRotationEnd) {
         no_rail_tricks_ = 0;
+    }
     if (left <= 0.0) {
         model_rotating_ = 0;
         model_rotation_left_ = 0.0F;
@@ -270,11 +285,13 @@ void SkaterPhysicsModule::update_model_rotation()
 // 0x00500BC0
 void SkaterPhysicsModule::update_special_time() const
 {
-    if (!focus_on_)
+    if (!focus_on_) {
         return;
+    }
     modules::PointTally* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
-    if (!score)
+    if (!score) {
         return;
+    }
     if (score->focus_time_limit() > 0.0F) {
         score->set_focus_time_limit(score->focus_time_limit() - frame_length_);
         return;
@@ -339,12 +356,15 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
         const uint32_t index = rail_type <= 8 ? rail_type : 0;
         auto* tricks = script::fetch_list(kGrindTrickList)->array_at(index);
         uint32_t buttons = trick1 ? 1 : 0;
-        if (trick2)
+        if (trick2) {
             buttons |= 2;
-        if (trick3)
+        }
+        if (trick3) {
             buttons |= 4;
-        if (trick4)
+        }
+        if (trick4) {
             buttons |= kTrickButton4Bit;
+        }
         if (thaw_bmx::live_now(this)) {
             // Not original: THAW 0x005CF2F0 - on the bike BikeGrindTrickList by the stick's pitch (when the overlay
             // has it), the over-grind state.

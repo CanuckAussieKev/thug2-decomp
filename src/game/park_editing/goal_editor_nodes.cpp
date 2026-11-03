@@ -49,10 +49,11 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
         in_place = false;
         count = static_cast<int>(nodes->extent());
         index = &count;
-        if (!count)
+        if (!count) {
             nodes->configure_size_kind(kGoalNodeCount, script::QbValueKind::kStruct);
-        else
+        } else {
             nodes->rescale(nodes->extent() + kGoalNodeCount);
+        }
     }
     memory::Hub::get_pull()->enter_heap_scope(static_cast<memory::MemSource*>(heap));
     std::array<char, kNodeNameSize> name{};
@@ -69,12 +70,13 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
             static const std::array<uint32_t, 3> kKinds = {{0x8F0F67D7, 0xC9119673, 0x000B52B3}};
             node->append_structure_if_any(script::read_sub_struct(core::at(kKinds, which < 2 ? which : 2)));
             core::at(name, 0) = '\0';
-            if (which == 0)
+            if (which == 0) {
                 get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", goal);
-            else if (which == 1)
+            } else if (which == 1) {
                 get_sprintf(name.data(), "TRG_EditedGoal%d_Restart", goal);
-            else
+            } else {
                 get_sprintf(name.data(), "TRG_EditedGoal%d_Object_%d", goal, which - 2);
+            }
             node->put_name_key(checksums::Name{kName}, checksums::hash_from_text(name.data()));
             node->put_int(checksums::Name{kNodeIndex}, *index);
             if (!in_place) {

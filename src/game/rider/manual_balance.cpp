@@ -127,8 +127,9 @@ void Balance::prepare_all(GameEntity* skater)
 // 0x005798A0
 void Balance::get_reset()
 {
-    if (script::fetch_int_value(kShowBalanceIndicator))
+    if (script::fetch_int_value(kShowBalanceIndicator)) {
         script::launch_script(kResetBalanceIndicator, nullptr, nullptr, false, nullptr);
+    }
     reset_state(this);
 }
 
@@ -152,8 +153,9 @@ void Balance::show_meter() { show_meter_ = true; }
 // 0x00579950
 Balance::Balance()
 {
-    if (script::fetch_int_value(kShowBalanceIndicator))
+    if (script::fetch_int_value(kShowBalanceIndicator)) {
         script::launch_script(kResetBalanceIndicator, nullptr, nullptr, false, nullptr);
+    }
     reset_state(this);
 }
 
@@ -192,8 +194,9 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
             } else {
                 const double time = on_rail_seconds_ - get_physics(balance_trick_, kNewGrindSubTime);
                 on_rail_seconds_ = static_cast<float>(time);
-                if (time < 0.0)
+                if (time < 0.0) {
                     on_rail_seconds_ = 0.0F;
+                }
                 cheese_ = 0.0F;
             }
         }
@@ -205,8 +208,9 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
             on_rail_seconds_ = static_cast<float>(
                 (script::fetch_float(kRobotRailAddTime) * static_cast<double>(inverse) * kHalf) + on_rail_seconds_);
             float side = -1.0F;
-            if (!(lean_speed_ < 0.0F))
+            if (!(lean_speed_ < 0.0F)) {
                 side = 1.0F;
+            }
             lean_ = static_cast<float>(
                 (script::fetch_float(kRobotRailNudge) * static_cast<double>(inverse) * side * kHalf) + lean_);
         }
@@ -215,15 +219,17 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
     if (std::fabs(lean_speed_) != 0.0F) {
         const double speed = get_physics(balance_trick_, kRepeatMultiplier) * lean_speed_;
         lean_speed_ = static_cast<float>(speed);
-        if (std::fabs(speed) < repeat_min)
+        if (std::fabs(speed) < repeat_min) {
             lean_speed_ = static_cast<float>((speed < 0.0 ? -1.0 : 1.0) * repeat_min);
+        }
     } else {
         lean_speed_ = repeat_min;
         const uint32_t balance = get_trick_type(balance_trick_);
-        if (balance == kNosemanual)
+        if (balance == kNosemanual) {
             lean_speed_ = -repeat_min;
-        else if (balance != kManual && maths::rnd(2))
+        } else if (balance != kManual && maths::rnd(2)) {
             lean_speed_ = -lean_speed_;
+        }
     }
     const double lean = get_physics(balance_trick_, kLeanRepeatMultiplier) * lean_;
     lean_ = static_cast<float>(lean);
@@ -247,19 +253,22 @@ void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
 void Balance::tick_frame()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    if (!left_button_ || !right_press_)
+    if (!left_button_ || !right_press_) {
         return;
+    }
     auto* net = online::net_game_state().online_hub();
-    if (net->host())                                                           // (the folded getter 0x005480C0)
+    if (net->host()) {                                                         // (the folded getter 0x005480C0)
         net->find_player_slot_by_obj(static_cast<uint16_t>(skater_->ident())); // (its result unused)
+    }
     // The cheese wears off.
     if (cheese_ > kCheeseFloor) {
         auto cheese = static_cast<float>(get_physics(balance_trick_, kCheese));
         const double wear = cheese / get_physics(balance_trick_, kCheeseFrames) * frame * kFrames;
         const double left = cheese_ - wear;
         cheese_ = static_cast<float>(left);
-        if (left < 0.0)
+        if (left < 0.0) {
             cheese_ = 0.0F;
+        }
     }
     score_display(points_held_)->tweak_trick(static_cast<int>(trick_));
     clock_ = static_cast<float>(static_cast<double>(frame) + clock_);
@@ -275,12 +284,14 @@ void Balance::tick_frame()
     lean_ = static_cast<float>(grown + (instable * lean_speed_ * frame * kFrames));
     const bool left = get_held(input_, left_button_);
     const bool right = get_held(input_, right_press_);
-    if (!left && !right)
+    if (!left && !right) {
         pushed_ = true;
+    }
     auto safe_period = static_cast<uint32_t>(script::fetch_int_value(kBalanceSafeButtonPeriod));
     const uint32_t elapsed = get_clock() - start_time_;
-    if (!pushed_ && elapsed > ints::as_unsigned(script::fetch_int_value(kBalanceIgnoreButtonPeriod)))
+    if (!pushed_ && elapsed > ints::as_unsigned(script::fetch_int_value(kBalanceIgnoreButtonPeriod))) {
         pushed_ = true;
+    }
     if (left && pushed_) {
         // Pushing back - not at all before the safe period while leaning the other way (the original's ratio is an
         // integer division: 0 then).
@@ -326,8 +337,9 @@ void Balance::tick_frame()
         bool flip = flip_;
         if (mirrored_) {
             auto* core = core::down_cast<skater::SkaterPhysicsModule>(skater_->fetch_module(kSkaterCorePhysics));
-            if (core->state()->flag(PoseFlag::kFlipped).on)
+            if (core->state()->flag(PoseFlag::kFlipped).on) {
                 flip = !flip;
+            }
         }
         if (ObjectModule* blender = skater_->fetch_module(kAnimBlender)) {
             const double position = flip ? 4096.0 - lean_ : lean_ + 4096.0;
@@ -336,17 +348,20 @@ void Balance::tick_frame()
         }
     }
     auto shown = lean_ * -kLeanToUnits;
-    if (hide_display_ || !get_trick_type(balance_trick_))
+    if (hide_display_ || !get_trick_type(balance_trick_)) {
         return;
+    }
     const bool up_down =
         (left_button_ == kUp || left_button_ == kDown) && (right_press_ == kUp || right_press_ == kDown);
     void* score = score_display(points_held_);
-    if (!score)
+    if (!score) {
         return;
-    if (up_down)
+    }
+    if (up_down) {
         show_lean2(score, 1, shown);
-    else
+    } else {
         show_lean(score, 1, shown);
+    }
 }
 
 } // namespace objects

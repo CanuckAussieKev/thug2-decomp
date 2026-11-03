@@ -108,17 +108,20 @@ ProfileRoster::~ProfileRoster()
     // Every template (the first each time: dropped from the table as it goes; a null one dropped too).
     for (uint32_t left = templates_.num(); left != 0; --left) {
         uint32_t key = 0;
-        if (RiderIdentity* profile = templates_.get_by_index(0, &key))
+        if (RiderIdentity* profile = templates_.get_by_index(0, &key)) {
             profile->erase_one();
+        }
         templates_.drop_out(key);
     }
     // The second player's copy (the first player's is a template), and the extras.
-    if (RiderIdentity* copy = core::at(profiles_, 1))
+    if (RiderIdentity* copy = core::at(profiles_, 1)) {
         copy->erase_one();
+    }
     core::at(profiles_, 1) = nullptr;
     for (int i = 0; i < extra_count_; ++i) {
-        if (RiderIdentity* extra = core::at(extra_profiles_, i))
+        if (RiderIdentity* extra = core::at(extra_profiles_, i)) {
             extra->erase_one();
+        }
         core::at(extra_profiles_, i) = nullptr;
     }
     templates_.free_nodes();
@@ -133,8 +136,9 @@ RiderIdentity* ProfileRoster::fetch_account(int index) { return core::at(profile
 RiderIdentity* ProfileRoster::get_extra_profile(uint32_t name)
 {
     for (int i = 0; i < extra_count_; ++i) {
-        if (core::at(extra_names_, i) == name)
+        if (core::at(extra_names_, i) == name) {
             return core::at(extra_profiles_, i);
+        }
     }
     return nullptr;
 }
@@ -194,8 +198,9 @@ void ProfileRoster::write_pros(script::Struct* save)
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
-        if (profile->is_pro())
+        if (profile->is_pro()) {
             profile->write_to_save(save);
+        }
     }
     save->add_component_of_type(kCurrentSkater, script::QbValueKind::kName, core::at(profiles_, cursor_pos_)->fetch_title());
     const text::Chars display_name(core::at(profiles_, cursor_pos_)->fetch_shown_name());
@@ -209,8 +214,9 @@ void ProfileRoster::write_custom_skaters(script::Struct* save)
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
-        if (!profile->is_pro())
+        if (!profile->is_pro()) {
             profile->write_to_save(save);
+        }
     }
 }
 
@@ -228,10 +234,11 @@ bool ProfileRoster::add_extra_profile(uint32_t name)
 void ProfileRoster::set_current_skater(uint32_t name)
 {
     memory::Hub::get_pull()->enter_heap_scope(profile_heap());
-    if (cursor_pos_ == 0)
+    if (cursor_pos_ == 0) {
         core::at(profiles_, cursor_pos_) = templates_.get_pull(name);
-    else
+    } else {
         core::at(profiles_, cursor_pos_)->copy_from(templates_.get_pull(name));
+    }
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -243,8 +250,9 @@ void ProfileRoster::read_pros(script::Struct* save)
     for (uint32_t i = 0; i < count; ++i) {
         uint32_t key = 0;
         RiderIdentity* profile = templates_.get_by_index(static_cast<int>(i), &key);
-        if (profile->is_pro())
+        if (profile->is_pro()) {
             profile->read_from_save(profile->fetch_title(), save);
+        }
     }
     uint32_t current = 0;
     save->read_hash_value(kCurrentSkater, &current, 0);
@@ -273,10 +281,12 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     script::Struct* custom = nullptr;
     save->read_sub_struct(kCustom, &custom, 0);
     int version = 0;
-    if (!custom->fetch_int_value(kVersionNumber, &version, 0))
+    if (!custom->fetch_int_value(kVersionNumber, &version, 0)) {
         return false;
-    if (version != 2)
+    }
+    if (version != 2) {
         return true;
+    }
     // The appearance, and the face texture if the save has one.
     script::Struct* appearance = nullptr;
     custom->read_sub_struct(kAppearance, &appearance, 0);
@@ -295,8 +305,9 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     // The stats and specials as they are, the save's info read over them, then (unless the save's stats are kept)
     // put back.
     std::array<int, kStatCount> stats{};
-    for (int i = 0; i < kStatCount; ++i)
+    for (int i = 0; i < kStatCount; ++i) {
         core::at(stats, i) = profile->fetch_tally(core::at(kStats, i));
+    }
     const int max_specials = profile->get_max_specials();
     gsl::owner<script::Struct*> memory = script::spawn_param_bag();
     script::Struct* specials = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
@@ -306,8 +317,9 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     profile->details_params()->get_clear();
     profile->details_params()->append_structure_if_any(info);
     if (!keep_saved_stats) {
-        for (int i = 0; i < kStatCount; ++i)
+        for (int i = 0; i < kStatCount; ++i) {
             profile->set_ability_level(core::at(kStats, i), core::at(stats, i));
+        }
         profile->set_ability_level(kMaxSpecials, max_specials);
         profile->get_specials()->get_clear();
         profile->get_specials()->append_structure_if_any(specials);

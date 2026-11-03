@@ -58,12 +58,14 @@ namespace save_cards {
 // overflowing (the original's count, card->get_free_blocks(), is unclamped).
 int32_t free_disk_blocks(SaveCard* card)
 {
-    if (!card->present())
+    if (!card->present()) {
         return 0;
+    }
     ULARGE_INTEGER free_space;
     ULARGE_INTEGER total_space;
-    if (!GetDiskFreeSpaceExA(nullptr, &free_space, &total_space, nullptr))
+    if (!GetDiskFreeSpaceExA(nullptr, &free_space, &total_space, nullptr)) {
         return 0;
+    }
     uint64_t blocks = free_space.QuadPart >> kBlockShift;
     constexpr uint64_t kLimit = INT32_MAX - UINT16_MAX * 2; // (a number that leaves room for a bit of maths)
     blocks = std::min(blocks, kLimit);
@@ -85,8 +87,9 @@ bool get_mem_card_space_available(script::Struct* /*params*/, script::Script* sc
     script->args().get()->put_int(checksums::Name{kSpaceAvailable}, 0);
     script->args().get()->put_int(checksums::Name{kFilesLeft}, kFilesLeftNoLimit);
     SaveCard* card = save_cards_state().card_hub()->get_storage_slot(0, 0);
-    if (!card)
+    if (!card) {
         return false;
+    }
     // Originally from PartyMod Fixes (its call at 0x005A6E7E): the clamped disk count in place of the original's
     // card->get_free_blocks().
     script->args().get()->put_int(checksums::Name{kSpaceAvailable}, free_disk_blocks(card));
@@ -162,10 +165,11 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
         case 4:
         case game_config::kHardwareWin32: {
             const char* converted = save_cards::SaveCard::convert_filename(get_type_file_name(type, name));
-            if (!converted)
+            if (!converted) {
                 named = false;
-            else
+            } else {
                 text::format_to(path, "%s", converted);
+            }
             break;
         }
         default:
@@ -197,8 +201,9 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                         auto used = static_cast<size_t>(rest - data);
                         const size_t count = used < end ? end - used : 0;
                         if (type == kObfuscatedType && count != 0) {
-                            for (uint8_t& byte : file_bytes.subspan(used, count))
+                            for (uint8_t& byte : file_bytes.subspan(used, count)) {
                                 byte -= kSaveFileMask;
+                            }
                         }
                         read_structure(contents, rest, count);
                         if (no_apply == 0) {
@@ -209,21 +214,25 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
                             save_cards_state().kept_params() = kept;
                             kept->append_structure_if_any(contents);
                             save_cards_state().set_kept_type(type);
-                            if (type == kAlsoApplyType)
+                            if (type == kAlsoApplyType) {
                                 apply_loaded_contents(type, contents, script, nullptr);
+                            }
                         }
                         loaded = true;
-                        if (no_apply == 0)
+                        if (no_apply == 0) {
                             script::launch_script(kPostLoadFromMemoryCard, params, nullptr, false, nullptr);
+                        }
                     }
                 }
             }
-            if (bad)
+            if (bad) {
                 script->args().get()->put_name_key(checksums::Name{0U}, kLoadFailed);
+            }
             file->shut();
             file->teardown(1); // delete
-            if (data)
+            if (data) {
                 memory::free_malloc(data);
+            }
         }
     }
     script::free_struct(header);
@@ -250,16 +259,21 @@ bool set_sections_to_apply_when_loading(script::Struct* params, script::Script* 
         "ScriptSetSectionsToApplyWhenLoading was called.........................\n"); // "ScriptSetSectionsToApplyWhenLoading was called..."
     uint32_t& sections = sections_to_apply_when_loading();
     sections = 0;
-    if (params->has_bare_flag(kApplyCustomSkater)) // ApplyCustomSkater
+    if (params->has_bare_flag(kApplyCustomSkater)) { // ApplyCustomSkater
         sections |= kSectionCustomSkater;
-    if (params->has_bare_flag(kApplyStorySkater)) // ApplyStorySkater
+    }
+    if (params->has_bare_flag(kApplyStorySkater)) { // ApplyStorySkater
         sections |= 4;
-    if (params->has_bare_flag(kApplyStory)) // ApplyStory
+    }
+    if (params->has_bare_flag(kApplyStory)) { // ApplyStory
         sections |= 2;
-    if (params->has_bare_flag(kApplyUnknownSection)) // (name unknown)
+    }
+    if (params->has_bare_flag(kApplyUnknownSection)) { // (name unknown)
         sections |= 1;
-    if (params->has_bare_flag(kAll)) // all
+    }
+    if (params->has_bare_flag(kAll)) { // all
         sections = kAllSections;
+    }
     return true;
 }
 
@@ -291,8 +305,9 @@ bool get_most_recent_save(script::Struct* params, script::Script* script)
     script->args().get()->erase_module("MostRecentSave");
     script::Array* saves = nullptr;
     params->fetch_list(0U, &saves, 0);
-    if (!saves)
+    if (!saves) {
         return false;
+    }
     uint32_t type = 0;
     params->read_hash_value(0U, &type, 0);
     script::Struct* best = nullptr;
@@ -300,16 +315,21 @@ bool get_most_recent_save(script::Struct* params, script::Script* script)
         auto* save = saves->struct_at(i);
         uint32_t file_type = 0;
         save->read_hash_value("file_type", &file_type, 0);
-        if (type != 0 && file_type != type) // (any type when none is asked for)
+        if (type != 0 && file_type != type) { // (any type when none is asked for)
             continue;
+        }
         // a bad save only counts on the PC (4) and platform 5
-        if ((save->has_bare_flag("BadVersion") || save->has_bare_flag("Corrupt")) && os_layer() != 4 && os_layer() != game_config::kHardwareGameCube)
+        if ((save->has_bare_flag("BadVersion") || save->has_bare_flag("Corrupt")) && os_layer() != 4 &&
+            os_layer() != game_config::kHardwareGameCube) {
             continue;
-        if (!best || is_later(save, best))
+        }
+        if (!best || is_later(save, best)) {
             best = save;
+        }
     }
-    if (!best)
+    if (!best) {
         return false;
+    }
     script->args().get()->put_sub_struct("MostRecentSave", best);
     return true;
 }
@@ -320,8 +340,9 @@ bool format_card(script::Struct* /*params*/, script::Script* /*script*/)
     pause_music(1);
     freeze_stream(1);
     bool formatted = false;
-    if (the_card())
+    if (the_card()) {
         formatted = stubs::return_false(); // (the card's Format: the shared always-false stub, 0x005B9E50)
+    }
     pause_music(-1);
     freeze_stream(-1);
     return formatted;
@@ -333,8 +354,9 @@ bool card_is_in_slot(script::Struct* /*params*/, script::Script* /*script*/) { r
 // 0x005A7280
 bool card_is_formatted(script::Struct* /*params*/, script::Script* /*script*/)
 {
-    if (!the_card())
+    if (!the_card()) {
         return false;
+    }
     return stubs::return_true(); // (the card's IsFormatted: the shared always-true stub, 0x005B9760)
 }
 
@@ -378,9 +400,11 @@ bool switch_to_temp_pools_if_they_exist(script::Struct* /*params*/, script::Scri
     ++script::component_pools().current();
     ++script::struct_pools().current();
     ++script::vector_pools().current();
-    if (core::at(script::component_pools().pools(), script::component_pools().current()) && core::at(script::struct_pools().pools(), script::struct_pools().current()) &&
-        core::at(script::vector_pools().pools(), script::vector_pools().current()))
+    if (core::at(script::component_pools().pools(), script::component_pools().current()) &&
+        core::at(script::struct_pools().pools(), script::struct_pools().current()) &&
+        core::at(script::vector_pools().pools(), script::vector_pools().current())) {
         return true;
+    }
     --script::component_pools().current();
     --script::struct_pools().current();
     --script::vector_pools().current();
