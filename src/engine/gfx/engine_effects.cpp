@@ -41,6 +41,9 @@
 
 namespace render {
 
+// Checksums used in this file (the text each hashes).
+constexpr uint32_t kSplatCriticalRemainingPolys = 0x26FCB7BEu; // Splat_Critical_Remaining_Polys
+
 namespace {
 
 // NOT ORIGINAL grouping - engine_effects.cpp's state (the original's globals). Made on first use, never destroyed
@@ -402,7 +405,7 @@ bool create_texture_splat_at(const SplatSettings& settings)
     const auto follow = settings.follow;
     const auto unknown40 = settings.unknown40;
     auto texture = settings.texture;
-    engine_effects_state().splat_reserve_ = script::fetch_int_value(0x26FCB7BE); // (asserted)
+    engine_effects_state().splat_reserve_ = script::fetch_int_value(kSplatCriticalRemainingPolys); // (asserted)
     RecentSplat* recent = nullptr;
     if (follow) {
         // A recent position of the same id near enough: the splat is made from it. Old ones go.

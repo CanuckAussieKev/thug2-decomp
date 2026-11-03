@@ -18,6 +18,27 @@
 
 namespace commands {
 
+// Checksums used in this file (the text each hashes).
+constexpr uint32_t kAxis = 0x7AF07905u; // Axis
+constexpr uint32_t kBRIGHTNESS = 0x2689291Cu; // BRIGHTNESS
+constexpr uint32_t kBitdepth = 0xBA0F2AC5u; // bitdepth
+constexpr uint32_t kDontAssert = 0x3D92465Eu; // dont_assert
+constexpr uint32_t kEndPoint = 0x39C54BDEu; // end_point
+constexpr uint32_t kHoriz = 0xA04027C9u; // horiz
+constexpr uint32_t kNAME = 0xA1DC81F9u; // NAME
+constexpr uint32_t kNoPaletteGen = 0x5905256Bu; // no_palette_gen
+constexpr uint32_t kNumPixels = 0x88CF948Cu; // num_pixels
+constexpr uint32_t kPOINT = 0x485A0CDBu; // POINT
+constexpr uint32_t kPaletteBitdepth = 0x51533ECBu; // palette_bitdepth
+constexpr uint32_t kPaletteGen = 0xC313FDFFu; // palette_gen
+constexpr uint32_t kRenderable = 0xA5D7CFAAu; // Renderable
+constexpr uint32_t kSCALE = 0x13B9DA7Bu; // SCALE
+constexpr uint32_t kStoreOriginal = 0xEEFAF080u; // store_original
+constexpr uint32_t kTOP = 0xE126E035u; // TOP
+constexpr uint32_t kVERT = 0x94927839u; // VERT
+constexpr uint32_t kXpos = 0x0FA8972Eu; // xpos
+constexpr uint32_t kYpos = 0xB714F04Bu; // ypos
+
 namespace {
 
 // NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed (texture_flags()).
@@ -135,7 +156,7 @@ float wrap_angle(float degrees)
 bool cfunc_composite_object_exists(Struct* params, Script*)
 {
     uint32_t id = 0;
-    params->read_hash_value(0xA1DC81F9u, &id, 1); // name (asserted: the id is used as it is)
+    params->read_hash_value(kNAME, &id, 1); // name (asserted: the id is used as it is)
     return objects::find_object(id) != nullptr;
 }
 
@@ -161,8 +182,8 @@ bool cfunc_create_texture(Struct* params, Script*)
     int clut_bits = 0; // (not initialised in the original: only read when needed)
     bool valid = params->fetch_int_value(kWidth, &width, 0);
     valid = params->fetch_int_value(kHeight, &height, 0) && valid;
-    valid = params->fetch_int_value(0xBA0F2AC5u, &bit_depth, 0) && valid;       // bitdepth
-    if (bit_depth <= 8 && !params->fetch_int_value(0x51533ECBu, &clut_bits, 0)) // palette_bitdepth
+    valid = params->fetch_int_value(kBitdepth, &bit_depth, 0) && valid;       // bitdepth
+    if (bit_depth <= 8 && !params->fetch_int_value(kPaletteBitdepth, &clut_bits, 0)) // palette_bitdepth
         return false;
     if (!valid)
         return false;
@@ -184,7 +205,7 @@ bool cfunc_unload_texture(Struct* params, Script*)
         unload_texture_from(render::engine_parts().game_texture_dict(), texture);
         return true;
     }
-    params->has_bare_flag(0x3D92465Eu); // dont_assert (the assert is compiled out)
+    params->has_bare_flag(kDontAssert); // dont_assert (the assert is compiled out)
     return true;
 }
 
@@ -198,9 +219,9 @@ bool cfunc_generate32_bit_image(Struct* params, Script*)
         bool renderable = false;
         bool store_original = false;
         int value = 0;
-        if (params->fetch_int_value(0xA5D7CFAAu, &value, 0) && value == 1) // renderable
+        if (params->fetch_int_value(kRenderable, &value, 0) && value == 1) // renderable
             renderable = true;
-        if (params->fetch_int_value(0xEEFAF080u, &value, 0) && value == 1) // store_original
+        if (params->fetch_int_value(kStoreOriginal, &value, 0) && value == 1) // store_original
             store_original = true;
         texture->begin_edit(renderable, store_original);
     }
@@ -216,7 +237,7 @@ bool cfunc_put32_bit_image_into_texture(Struct* params, Script*)
     if (texture) {
         bool palette_gen = false;
         int value = 0;
-        params->fetch_int_value(0xC313FDFFu, &value, 0); // palette_gen
+        params->fetch_int_value(kPaletteGen, &value, 0); // palette_gen
         if (value == 1)
             palette_gen = true;
         texture->write_back(palette_gen, nullptr);
@@ -233,8 +254,8 @@ bool cfunc_flip_texture(Struct* params, Script*)
     int vertical = 0;
     render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id);
     if (texture) {
-        params->fetch_int_value(0xA04027C9u, &horizontal, 0); // horiz
-        params->fetch_int_value(0x94927839u, &vertical, 0);   // vert
+        params->fetch_int_value(kHoriz, &horizontal, 0); // horiz
+        params->fetch_int_value(kVERT, &vertical, 0);   // vert
         if (horizontal)
             texture->get_mirror();
         if (vertical)
@@ -264,7 +285,7 @@ bool cfunc_scale_texture(Struct* params, Script*)
     uint32_t id = 0;
     params->read_hash_value(0u, &id, 0);
     float scale = 0.0f; // (not initialised without scale=, as in the original)
-    params->fetch_float(0x13B9DA7Bu, &scale, 0);
+    params->fetch_float(kSCALE, &scale, 0);
     if (render::BitmapTexture* texture = fetch_skin(render::engine_parts().game_texture_dict(), id))
         texture->get_zoom(scale, scale);
     return true;
@@ -285,13 +306,13 @@ bool cfunc_adjust_texture_region(Struct* params, Script*)
         int value5 = 0;
         int value6 = 0;
         int value7 = 0;
-        params->fetch_int_value(0x0FA8972Eu, &x, 0); // xpos
-        params->fetch_int_value(0xB714F04Bu, &y, 0); // ypos
+        params->fetch_int_value(kXpos, &x, 0); // xpos
+        params->fetch_int_value(kYpos, &y, 0); // ypos
         params->fetch_int_value(kWidth, &width, 0);
         params->fetch_int_value(kHeight, &height, 0);
         params->fetch_int_value(0xE679982Eu, &value5, 0); // (names unknown)
         params->fetch_int_value(0x3D0F162Au, &value6, 0);
-        params->fetch_int_value(0x39C54BDEu, &value7, 0);
+        params->fetch_int_value(kEndPoint, &value7, 0);
         texture->adjust_region(x, y, width, height, value5, value6, value7);
     }
     return true;
@@ -307,9 +328,9 @@ bool cfunc_pull_texture_to_edge(Struct* params, Script*)
         int edge = 0;
         int axis = 0;
         int pixels = 0;
-        params->fetch_int_value(0x485A0CDBu, &edge, 0);   // (name unknown)
-        params->fetch_int_value(0x7AF07905u, &axis, 0);   // Axis
-        params->fetch_int_value(0x88CF948Cu, &pixels, 0); // num_pixels
+        params->fetch_int_value(kPOINT, &edge, 0);   // (name unknown)
+        params->fetch_int_value(kAxis, &axis, 0);   // Axis
+        params->fetch_int_value(kNumPixels, &pixels, 0); // num_pixels
         texture->get_stretch({.position = static_cast<uint16_t>(edge), .vertical = axis, .amount = pixels});
     }
     return true;
@@ -325,7 +346,7 @@ bool cfunc_adjust_texture_brightness(Struct* params, Script*)
         float brightness = 1.0f;
         int value = 0;
         bool flag = false;
-        params->fetch_float(0x2689291Cu, &brightness, 1); // Brightness
+        params->fetch_float(kBRIGHTNESS, &brightness, 1); // Brightness
         params->fetch_int_value(kSetsPaletteFlag, &value, 0);
         if (value == 1)
             flag = true;
@@ -379,9 +400,9 @@ bool cfunc_combine_textures(Struct* params, Script*)
     uint32_t combined = 0;
     bool palette_gen = true;
     params->read_hash_value(kSrc, &source, 0);
-    params->read_hash_value(0xE126E035u, &top, 0); // top
+    params->read_hash_value(kTOP, &top, 0); // top
     params->read_hash_value(kNew, &combined, 0);
-    if (params->has_bare_flag(0x5905256Bu)) // no_palette_gen
+    if (params->has_bare_flag(kNoPaletteGen)) // no_palette_gen
         palette_gen = false;
     render::BitmapTexture* source_texture = fetch_skin(render::engine_parts().game_texture_dict(), source);
     if (!source_texture)

@@ -49,6 +49,61 @@
 
 namespace gfx {
 
+// Checksums used in this file (the text each hashes).
+constexpr uint32_t kAddAnimController = 0x83654874u; // AddAnimController
+constexpr uint32_t kAnimEquals = 0x1A0F9646u; // AnimEquals
+constexpr uint32_t kAnimEventTableName = 0x5B8C6DC2u; // AnimEventTableName
+constexpr uint32_t kAnimExists = 0x9069F357u; // AnimExists
+constexpr uint32_t kAnimFinished = 0x76CC99D5u; // AnimFinished
+constexpr uint32_t kAnimName = 0x6C2BFB7Fu; // AnimName
+constexpr uint32_t kAnimTagTable = 0x95807202u; // AnimTagTable
+constexpr uint32_t kBlendPeriod = 0x8F0D24EDu; // BlendPeriod
+constexpr uint32_t kBlendPeriodOut = 0x68C86AECu; // BlendPeriodOut
+constexpr uint32_t kBlendWeight = 0x4D786F62u; // BlendWeight
+constexpr uint32_t kBlendperiodpercent = 0x4F3ABD6Cu; // blendperiodpercent
+constexpr uint32_t kDontInterrupt = 0x84F13067u; // DontInterrupt
+constexpr uint32_t kDuration = 0x79A07F3Fu; // Duration
+constexpr uint32_t kEffectivePreviousAnimDuration = 0x4B4A153Au; // EffectivePreviousAnimDuration
+constexpr uint32_t kEnableBlending = 0xCF466AA2u; // EnableBlending
+constexpr uint32_t kEnabled = 0xAF06447Bu; // Enabled
+constexpr uint32_t kFRAME = 0x4A07C332u; // FRAME
+constexpr uint32_t kFROM = 0x46E55E8Fu; // FROM
+constexpr uint32_t kFrameIs = 0x922E7D14u; // FrameIs
+constexpr uint32_t kFrames = 0x019176C5u; // Frames
+constexpr uint32_t kFromEnd = 0xE18CD075u; // FromEnd
+constexpr uint32_t kGetAnimLength = 0x42FFC3CEu; // GetAnimLength
+constexpr uint32_t kGetPartialAnimParams = 0xD63A1B81u; // GetPartialAnimParams
+constexpr uint32_t kLength = 0xFE82614Du; // Length
+constexpr uint32_t kNoRestart = 0xFE09FE09u; // NoRestart
+constexpr uint32_t kOBJEnableAnimBlending = 0x98A32669u; // OBJ_EnableAnimBlending
+constexpr uint32_t kOFF = 0xD443A2BCu; // OFF
+constexpr uint32_t kObjAnimEquals = 0xB5FB7EB6u; // Obj_AnimEquals
+constexpr uint32_t kObjAnimationFlipped = 0x6ECEB234u; // Obj_AnimationFlipped
+constexpr uint32_t kObjFlip = 0x27A98022u; // Obj_Flip
+constexpr uint32_t kObjGetAnimSpeed = 0x5195BCBBu; // Obj_GetAnimSpeed
+constexpr uint32_t kObjSetAnimCycleMode = 0x58C52F64u; // Obj_SetAnimCycleMode
+constexpr uint32_t kPartialAnim = 0x659BF355u; // PartialAnim
+constexpr uint32_t kPartialAnimOverlay = 0x6C565F57u; // PartialAnimOverlay
+constexpr uint32_t kPercent = 0x9E497FC6u; // Percent
+constexpr uint32_t kReferenceChecksum = 0x52A864B0u; // ReferenceChecksum
+constexpr uint32_t kRelative = 0x91A4C826u; // relative
+constexpr uint32_t kRemoveAnimController = 0x986D274Eu; // RemoveAnimController
+constexpr uint32_t kSTAGE = 0x3D836C96u; // STAGE
+constexpr uint32_t kSecond = 0x49E0EE96u; // Second
+constexpr uint32_t kSeconds = 0xD029F619u; // Seconds
+constexpr uint32_t kSetPartialAnimSpeed = 0xBD4EDD44u; // SetPartialAnimSpeed
+constexpr uint32_t kSetWobbleDetails = 0xEA6D0EFDu; // SetWobbleDetails
+constexpr uint32_t kSkeletonName = 0x09794932u; // SkeletonName
+constexpr uint32_t kSpazFactor = 0xF90B0824u; // SpazFactor
+constexpr uint32_t kSyncToPreviousAnim = 0x099371AEu; // SyncToPreviousAnim
+constexpr uint32_t kSyncToReversePreviousAnim = 0xFF5AC79Eu; // SyncToReversePreviousAnim
+constexpr uint32_t kTYPE = 0x7321A8D6u; // TYPE
+constexpr uint32_t kWaitAnim = 0x74CF5C94u; // WaitAnim
+constexpr uint32_t kWobbleAmpA = 0xFD266A26u; // WobbleAmpA
+constexpr uint32_t kWobbleAmpB = 0x642F3B9Cu; // WobbleAmpB
+constexpr uint32_t kWobbleK1 = 0x0F43FD49u; // WobbleK1
+constexpr uint32_t kWobbleK2 = 0x964AACF3u; // WobbleK2
+
 namespace {
 
 // NOT ORIGINAL grouping - the state the original kept in globals. Made on first use, never destroyed (blend_scratch()).
@@ -615,12 +670,12 @@ void BlendChannel::set_wobble_details(std::span<const float, 5> details, bool se
     if (!get_first(this))
         return;
     gsl::owner<Struct*> params = spawn_param_bag();
-    params->push_float(checksums::Name{0xFD266A26}, core::at(details, 0)); // wobbleAmpA
-    params->push_float(checksums::Name{0x642F3B9C}, core::at(details, 1)); // wobbleAmpB
-    params->push_float(checksums::Name{0x0F43FD49}, core::at(details, 2)); // wobbleK1
-    params->push_float(checksums::Name{0x964AACF3}, core::at(details, 3)); // wobbleK2
-    params->push_float(checksums::Name{0xF90B0824}, core::at(details, 4)); // spazFactor
-    pass_to_first(this, 0xEA6D0EFD, params);    // SetWobbleDetails
+    params->push_float(checksums::Name{kWobbleAmpA}, core::at(details, 0)); // wobbleAmpA
+    params->push_float(checksums::Name{kWobbleAmpB}, core::at(details, 1)); // wobbleAmpB
+    params->push_float(checksums::Name{kWobbleK1}, core::at(details, 2)); // wobbleK1
+    params->push_float(checksums::Name{kWobbleK2}, core::at(details, 3)); // wobbleK2
+    params->push_float(checksums::Name{kSpazFactor}, core::at(details, 4)); // spazFactor
+    pass_to_first(this, kSetWobbleDetails, params);    // SetWobbleDetails
     script::free_struct(params);
 }
 
@@ -715,7 +770,7 @@ void BlendChannel::set_events_on(bool on)
 // 0x0047F000
 void BlendChannel::set_anim_tags(uint32_t anim)
 {
-    Struct* all = script::read_sub_struct(0x95807202);
+    Struct* all = script::read_sub_struct(kAnimTagTable);
     Struct* tags = nullptr;
     if (!all || !all->read_sub_struct(anim, &tags, 0))
         return;
@@ -809,14 +864,14 @@ void BlendChannel::play_animation(uint32_t anim, float blend_period)
 void BlendChannel::configure_from_data(Struct* params)
 {
     params->read_hash_value(kSubsetId, &ident_, 0);
-    params->fetch_float(0x4D786F62, &ongoing_, 0); // BlendWeight
+    params->fetch_float(kBlendWeight, &ongoing_, 0); // BlendWeight
     int priority = 0;
-    params->fetch_int_value(0x3D836C96, &priority, 0);
+    params->fetch_int_value(kSTAGE, &priority, 0);
     rank_ = priority;
-    params->read_hash_value(0x5B8C6DC2, &event_table_, 0); // AnimEventTableName
+    params->read_hash_value(kAnimEventTableName, &event_table_, 0); // AnimEventTableName
     uint32_t anim_set = 0;                                 // (the original's is left as it was when neither is there)
-    if (!params->read_hash_value(0x52A864B0, &anim_set, 0))
-        params->read_hash_value(0x09794932, &anim_set, 1);
+    if (!params->read_hash_value(kReferenceChecksum, &anim_set, 0))
+        params->read_hash_value(kSkeletonName, &anim_set, 1);
     lookup_key_ = anim_set;
     play_anim(kDefault, false, 0.0f, 1000.0f, 0, kStockCrossfade, 1.0f, nullptr);
     get_reset();
@@ -825,7 +880,7 @@ void BlendChannel::configure_from_data(Struct* params)
     play_anim(anim, false, 0.0f, *anim_length(lookup_key_ + anim), 0, kStockCrossfade, 1.0f, nullptr);
     if (loop)
         change_repeat_mode(AnimTimeline::kCycle, true);
-    if (params->has_bare_flag(0xCF466AA2))
+    if (params->has_bare_flag(kEnableBlending))
         flag_4c_ = true;
     set_events_on(params->has_bare_flag(0xE1B3F630));
 }
@@ -852,7 +907,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     const uint32_t playing = first ? first->anim() : 0;
     if (anim == kCurrent) {
         anim = playing;
-    } else if (playing == anim && params->has_bare_flag(0xFE09FE09)) { // NoRestart
+    } else if (playing == anim && params->has_bare_flag(kNoRestart)) { // NoRestart
         return 0;
     }
     if (!anim_length(lookup_key_ + anim))
@@ -864,10 +919,10 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         has_next_blend_ = false;
     } else {
         float percent = 0.0f;
-        if (params->fetch_float(0x4F3ABD6C, &percent, 0)) // (of the anim's length)
+        if (params->fetch_float(kBlendperiodpercent, &percent, 0)) // (of the anim's length)
             blend = static_cast<float>(percent * static_cast<double>(0.01f) * *anim_length(lookup_key_ + anim));
         else
-            params->fetch_float(0x8F0D24ED, &blend, 0); // BlendPeriod
+            params->fetch_float(kBlendPeriod, &blend, 0); // BlendPeriod
     }
     const float length = *anim_length(lookup_key_ + anim);
     float to = length;
@@ -875,11 +930,11 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     float start = 0.0f; // the time the new one starts at
     bool sync = true;
     double fraction = 0.0;
-    if (params->has_bare_flag(0x099371AE)) { // SyncToPreviousAnim: as far through as the playing one
+    if (params->has_bare_flag(kSyncToPreviousAnim)) { // SyncToPreviousAnim: as far through as the playing one
         float current = 0.0f, ends = 0.0f;
         objects::get_channel_times(this, &ends, &current, &ends);
         float playing_length = *anim_length(lookup_key_ + playing);
-        params->fetch_float(0x4B4A153A, &playing_length, 0); // (read and not used here)
+        params->fetch_float(kEffectivePreviousAnimDuration, &playing_length, 0); // (read and not used here)
         auto through = static_cast<float>(current / *anim_length(lookup_key_ + playing));
         if (through > 1.0f)
             fraction = 1.0;
@@ -887,11 +942,11 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
             fraction = 0.0;
         else
             fraction = through;
-    } else if (params->has_bare_flag(0xFF5AC79E)) { // as far from the end as the playing one
+    } else if (params->has_bare_flag(kSyncToReversePreviousAnim)) { // as far from the end as the playing one
         float current = 0.0f, ends = 0.0f;
         objects::get_channel_times(this, &ends, &current, &ends);
         float playing_length = *anim_length(lookup_key_ + playing);
-        params->fetch_float(0x4B4A153A, &playing_length, 0);
+        params->fetch_float(kEffectivePreviousAnimDuration, &playing_length, 0);
         fraction = maths::confine(static_cast<float>((static_cast<double>(playing_length) - current) / playing_length),
                                   0.0f, 1.0f);
     } else {
@@ -910,7 +965,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     range_from_params(&from, &to, current, length, params, script);
     int loop_type = 0;
     loop_type_from_params(&loop_type, params);
-    flag_4e_ = params->has_bare_flag(0x84F13067); // (wait for the playing one to complete)
+    flag_4e_ = params->has_bare_flag(kDontInterrupt); // (wait for the playing one to complete)
     float duration = 0.0f;
     if (params->fetch_float(0x23272E4D, &duration, 0))
         speed = static_cast<float>(length / duration);
@@ -921,18 +976,18 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
     timeline->set_events_on(events_on_);
 
     uint32_t partial = 0;
-    if (params->read_hash_value(0x6C565F57, &partial, 0)) { // PartialAnimOverlay: a partial animation controller too
+    if (params->read_hash_value(kPartialAnimOverlay, &partial, 0)) { // PartialAnimOverlay: a partial animation controller too
         gsl::owner<Struct*> controller = script::spawn_param_bag();
         if (controller)
             controller = new (controller) script::Struct;
         uint32_t id = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         if (params->read_hash_value(0xF0CE9E0F, &id, 0))
             controller->put_name_key(checksums::Name{kId}, id);
-        controller->put_name_key(checksums::Name{0x7321A8D6}, 0x659BF355); // Type PartialAnim
-        controller->put_name_key(checksums::Name{0x6C2BFB7F}, partial);    // AnimName
-        controller->push_float(checksums::Name{0x46E55E8F}, from);         // From
+        controller->put_name_key(checksums::Name{kTYPE}, kPartialAnim); // Type PartialAnim
+        controller->put_name_key(checksums::Name{kAnimName}, partial);    // AnimName
+        controller->push_float(checksums::Name{kFROM}, from);         // From
         controller->push_float(checksums::Name{0x28782D3B}, to);           // To
-        controller->put_name_key(checksums::Name{0u}, 0xD029F619);         // Seconds
+        controller->put_name_key(checksums::Name{0u}, kSeconds);         // Seconds
         controller->push_float(checksums::Name{kCurrent}, start);
         controller->push_float(checksums::Name{kSpeed}, speed);
         switch (loop_type) {
@@ -975,7 +1030,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         }
         return 1;
     }
-    case 0x27A98022: { // Flip: flipped, and every timeline's (or timeline Index's) controllers told
+    case kObjFlip: { // Flip: flipped, and every timeline's (or timeline Index's) controllers told
         int index = 0;
         if (!params->fetch_int_value(kIndex, &index, 0)) {
             toggle_flipped();
@@ -995,7 +1050,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         return 1;
     }
     case 0x2889C6C9:
-    case 0x76CC99D5: // (whether the animation is complete)
+    case kAnimFinished: // (whether the animation is complete)
         return is_clip_done() ? 1 : 0;
     case kPlayAnim:
     case kObjPlayAnim: {
@@ -1003,15 +1058,15 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         memory::ListNode* node = timelines_.next();
         if (!is_head(node) && node && track_of(node)->repeat_mode() == AnimTimeline::kHold)
             owner_ptr_
-                ->invoke_method_by_name(0xEA6D0EFDu, params,
+                ->invoke_method_by_name(kSetWobbleDetails, params,
                                         script); // (the object's own member function: the original's slot 3)
         return 1;
     }
-    case 0x42FFC3CE: { // GetAnimLength: of anim, to the script's length
+    case kGetAnimLength: { // GetAnimLength: of anim, to the script's length
         uint32_t anim = 0;
         params->read_hash_value(kAnim, &anim, 0);
         if (has_value(anim))
-            script->args()->push_float(checksums::Name{0xFE82614D}, std::fabs(fetch_value(anim))); // length
+            script->args()->push_float(checksums::Name{kLength}, std::fabs(fetch_value(anim))); // length
         return 1;
     }
     case 0x4FAF61A9: { // every timeline's speed so its range takes 0x23272E4D seconds
@@ -1026,51 +1081,51 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
         }
         return 1;
     }
-    case 0x58C52F64: // the loop type: once with 0xD443A2BC, else cycling
-        change_repeat_mode(params->has_bare_flag(0xD443A2BC) ? AnimTimeline::kOnce : AnimTimeline::kCycle, true);
+    case kObjSetAnimCycleMode: // the loop type: once with 0xD443A2BC, else cycling
+        change_repeat_mode(params->has_bare_flag(kOFF) ? AnimTimeline::kOnce : AnimTimeline::kCycle, true);
         return 1;
-    case 0x5195BCBB: // the speed to the script's Speed
+    case kObjGetAnimSpeed: // the speed to the script's Speed
         script->args()->push_float(checksums::Name{kSpeed}, static_cast<float>(get_speed(params, script)));
         return 1;
-    case 0x68C86AEC: // the next play's blend period
+    case kBlendPeriodOut: // the next play's blend period
         params->fetch_float(0u, &next_blend_, 0);
         has_next_blend_ = true;
         return 1;
-    case 0x6ECEB234: // whether it's flipped
+    case kObjAnimationFlipped: // whether it's flipped
         return static_cast<int>((flag_bits_ >> 29) & 1);
-    case 0x74CF5C94: // wait_anim
+    case kWaitAnim: // wait_anim
         return wait_anim(params);
     case 0x80FDBDF2: // whether it cycles
         return is_cycling() ? 1 : 0;
-    case 0x9069F357: {                                      // AnimExists (the anim set's unnamed checksum)
+    case kAnimExists: {                                      // AnimExists (the anim set's unnamed checksum)
         uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         params->read_hash_value(0u, &anim, 0);
         return has_value(anim) ? 1 : 0;
     }
-    case 0x922E7D14: // whether the unnamed time (frames) was passed since the last frame
+    case kFrameIs: // whether the unnamed time (frames) was passed since the last frame
         return time_passed(params);
-    case 0x986D274E: // to every timeline
+    case kRemoveAnimController: // to every timeline
         for (const memory::ListNode* node = timelines_.next(); !is_head(node) && node; node = node->next())
             static_cast<AnimTrack*>(node->data())->invoke_method_by_name(name, params, script);
         return 1;
-    case 0x98A32669: {                                                       // flag4C from enabled
+    case kOBJEnableAnimBlending: {                                                       // flag4C from enabled
         int enabled = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
-        params->fetch_int_value(0xAF06447B, &enabled, 1);
+        params->fetch_int_value(kEnabled, &enabled, 1);
         flag_4c_ = enabled != 0;
         return 1;
     }
-    case 0x1A0F9646: // AnimEquals
-    case 0xB5FB7EB6:
+    case kAnimEquals: // AnimEquals
+    case kObjAnimEquals:
         return is_anim_one_of(params, script) ? 1 : 0;
     case 0xC68365EB: // anim (Default when there's none) to timeline Index's (the playing one's) controllers
         return pass_anim_to_timeline(params, script);
-    case 0xEA6D0EFD:
+    case kSetWobbleDetails:
         return 1;
     case 0x5E3F0F17:
     case 0x6AAEB76F:
-    case 0x83654874:
-    case 0xBD4EDD44: // SetPartialAnimSpeed
-    case 0xD63A1B81: // GetPartialAnimParams
+    case kAddAnimController:
+    case kSetPartialAnimSpeed: // SetPartialAnimSpeed
+    case kGetPartialAnimParams: // GetPartialAnimParams
     case 0xF5E2B871: {
         const memory::ListNode* node = timelines_.next();
         if (is_head(node) || !node)
@@ -1091,19 +1146,19 @@ int BlendChannel::wait_anim(Struct* params)
     objects::get_channel_times(this, &start, &current, &end);
     float time = 0.0f;
     params->fetch_float(0u, &time, 0);
-    if (params->has_bare_flag(0x4A07C332) || params->has_bare_flag(0x019176C5)) // Frame, Frames
+    if (params->has_bare_flag(kFRAME) || params->has_bare_flag(kFrames)) // Frame, Frames
         time = time * kSecondsPerFrame;
-    else if (params->has_bare_flag(0x9E497FC6)) // Percent
+    else if (params->has_bare_flag(kPercent)) // Percent
         time = static_cast<float>((static_cast<double>(end) - start) * time * static_cast<double>(0.01f) + start);
-    else if (!params->has_bare_flag(0x49E0EE96) && !params->has_bare_flag(0xD029F619)) // (Seconds: as it is)
+    else if (!params->has_bare_flag(kSecond) && !params->has_bare_flag(kSeconds)) // (Seconds: as it is)
         time = time * 0.001f;
     const bool forwards = start <= end;
     // (x87: rounded once to a float; a NaN kept as it is - not negated)
     auto sum = [](float a, float b) { return static_cast<float>(static_cast<double>(a) + b); };
     auto difference = [](float a, float b) { return static_cast<float>(static_cast<double>(a) - b); };
-    if (params->has_bare_flag(0x91A4C826))
+    if (params->has_bare_flag(kRelative))
         wait_time_ = forwards ? sum(time, current) : difference(current, time);
-    else if (params->has_bare_flag(0xE18CD075)) // FromEnd
+    else if (params->has_bare_flag(kFromEnd)) // FromEnd
         wait_time_ = forwards ? difference(end, time) : sum(time, start);
     else
         wait_time_ = time;
@@ -1156,7 +1211,7 @@ int BlendChannel::pass_anim_to_timeline(Struct* params, script::Script* script)
         anim = kDefault;
         params->put_name_key(checksums::Name{kAnim}, kDefault);
     }
-    params->push_float(checksums::Name{0x79A07F3F}, fetch_value(anim)); // Duration
+    params->push_float(checksums::Name{kDuration}, fetch_value(anim)); // Duration
     int index = 0;
     AnimTrack* timeline = masked(timelines_.next());
     if (params->fetch_int_value(kIndex, &index, 0)) {

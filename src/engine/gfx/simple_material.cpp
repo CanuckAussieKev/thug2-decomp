@@ -22,6 +22,22 @@
 
 namespace render {
 
+// Checksums used in this file (the text each hashes).
+constexpr uint32_t kADD = 0x02E58C18u; // ADD
+constexpr uint32_t kBlend = 0x54628ED7u; // Blend
+constexpr uint32_t kBrighten = 0x68E77F40u; // Brighten
+constexpr uint32_t kDIFFUSE = 0x515E298Eu; // DIFFUSE
+constexpr uint32_t kFixadd = 0xA86285A1u; // fixadd
+constexpr uint32_t kFixblend = 0x18B98905u; // fixblend
+constexpr uint32_t kFixbrighten = 0xB8AA03C9u; // fixbrighten
+constexpr uint32_t kFixmodulate = 0x90B93703u; // fixmodulate
+constexpr uint32_t kFixsub = 0x0D7A749Au; // fixsub
+constexpr uint32_t kFixsubtract = 0x0EEA99FFu; // fixsubtract
+constexpr uint32_t kModulate = 0x40F44B8Au; // modulate
+constexpr uint32_t kNONE = 0x806FFF30u; // NONE
+constexpr uint32_t kSub = 0xA7FD7D23u; // Sub
+constexpr uint32_t kSubtract = 0xDEA7E576u; // subtract
+
 namespace {
 
 // The texture dictionary's lookup (not rewritten yet; thiscall): the texture entry for a checksum, or null.
@@ -37,30 +53,30 @@ int get_rand() { return crt::get_rand(); }
 uint32_t blend_mode_from_name(uint32_t checksum)
 {
     switch (checksum) {
-    case 0x515E298E: // diffuse
-    case 0x806FFF30: // none
+    case kDIFFUSE: // diffuse
+    case kNONE: // none
         return 0;
-    case 0x02E58C18:
+    case kADD:
         return 1; // add
-    case 0xA86285A1:
+    case kFixadd:
         return 2;    // fixadd
-    case 0xDEA7E576: // subtract
-    case 0xA7FD7D23: // sub
+    case kSubtract: // subtract
+    case kSub: // sub
         return 3;
-    case 0x0D7A749A: // fixsubtract
-    case 0x0EEA99FF: // fixsub
+    case kFixsub: // fixsubtract
+    case kFixsubtract: // fixsub
         return 4;
-    case 0x54628ED7:
+    case kBlend:
         return 5; // blend
-    case 0x18B98905:
+    case kFixblend:
         return 6; // fixblend
-    case 0x40F44B8A:
+    case kModulate:
         return 7; // modulate
-    case 0x90B93703:
+    case kFixmodulate:
         return 8; // fixmodulate
-    case 0x68E77F40:
+    case kBrighten:
         return 9; // brighten
-    case 0xB8AA03C9:
+    case kFixbrighten:
         return 10; // fixbrighten
     default:
         return 0;

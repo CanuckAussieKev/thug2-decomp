@@ -33,6 +33,9 @@
 
 namespace render {
 
+// Checksums used in this file (the text each hashes).
+constexpr uint32_t kBlend = 0x54628ED7u; // Blend
+
 namespace {
 // The game's buffer for the vertices of a primitive drawn without one of its own.
 std::array<uint8_t, 0x100>& primitive_vertex_buffer()
@@ -97,7 +100,7 @@ PcPrimitive::PcPrimitive(int own) : Primitive(own)
     core::at(material_.textures(), 0) = nullptr;
     material_.set_two_sided(1);
     material_.set_depth_bias(4);
-    core::at(material_.blend_modes(), 0) = blend_mode_from_name(0x54628ED7);
+    core::at(material_.blend_modes(), 0) = blend_mode_from_name(kBlend);
     core::at(core::at(material_.pass_color(), 0), 0) = core::at(core::at(material_.pass_color(), 0), 1) = core::at(core::at(material_.pass_color(), 0), 2) = 0.5f;
     core::at(material_.address_modes(), 0) = 0;
     core::at(material_.mip_lod_bias(), 0) = 0;

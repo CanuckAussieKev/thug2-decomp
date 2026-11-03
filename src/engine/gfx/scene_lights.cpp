@@ -33,6 +33,20 @@
 
 namespace render {
 
+// Checksums used in this file (the text each hashes).
+constexpr uint32_t kBRIGHTNESS = 0x2689291Cu; // BRIGHTNESS
+constexpr uint32_t kBlue = 0x61C9354Bu; // Blue
+constexpr uint32_t kCOLOR = 0x99A9B716u; // COLOR
+constexpr uint32_t kCreatedAtStart = 0x7C2552B9u; // CreatedAtStart
+constexpr uint32_t kGreen = 0x2F6511DEu; // Green
+constexpr uint32_t kIndoor = 0xEC6542D3u; // Indoor
+constexpr uint32_t kInnerRadius = 0x8D2C287Fu; // InnerRadius
+constexpr uint32_t kLightType = 0xC2737050u; // light_type
+constexpr uint32_t kNolevellights = 0xED82767Bu; // nolevellights
+constexpr uint32_t kOuterRadius = 0x0999151Bu; // outer_radius
+constexpr uint32_t kPOINT = 0x485A0CDBu; // POINT
+constexpr uint32_t kRED = 0x059EA070u; // RED
+
 namespace {
 // NOT ORIGINAL grouping - scene_lights.cpp's state (the original's globals). Made on first use, never destroyed
 // (scene_lights_state()).
@@ -196,7 +210,7 @@ void LevelLamp::find_sectors(script::Array* excluded)
         return;
     for (auto* sector = static_cast<WorldCell*>(get_first_value(sectors)); sector;
          sector = static_cast<WorldCell*>(next_value(sectors))) {
-        if (sector->light_group() == 0xED82767B || sector->light_group() == 0xEC6542D3 || !sector->geom_handle())
+        if (sector->light_group() == kNolevellights || sector->light_group() == kIndoor || !sector->geom_handle())
             continue;
         const maths::BBox* box = sector->fetch_bounds();
         // The box's centre (x and y rounded to floats, z not), its half-diagonal, the distance to the light (its z
@@ -434,13 +448,13 @@ void update_scene_light(uint32_t name, script::Struct* params)
                     (*slot)->set_intensity(value);
             }
         }
-        if (params->fetch_float(0x0999151Bu, &value, 0)) {
+        if (params->fetch_float(kOuterRadius, &value, 0)) {
             light->set_reach(value);
             light->find_sectors(nullptr);
         }
-        if (params->fetch_int_value(0x059EA070u, &red, 0)) {
-            params->fetch_int_value(0x2F6511DEu, &green, 1);
-            params->fetch_int_value(0x61C9354Bu, &blue, 1);
+        if (params->fetch_int_value(kRED, &red, 0)) {
+            params->fetch_int_value(kGreen, &green, 1);
+            params->fetch_int_value(kBlue, &blue, 1);
             const uint32_t colour = static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << 8 |
                                     static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 | 0xFF000000u;
             light->set_shade(colour);
@@ -457,11 +471,11 @@ void update_scene_light(uint32_t name, script::Struct* params)
         value = static_cast<float>(value * static_cast<double>(kPercent));
         (*slot)->set_intensity(value);
     }
-    if (params->fetch_float(0x0999151Bu, &value, 0))
+    if (params->fetch_float(kOuterRadius, &value, 0))
         (*slot)->set_reach(value);
-    if (params->fetch_int_value(0x059EA070u, &red, 0)) {
-        params->fetch_int_value(0x2F6511DEu, &green, 1);
-        params->fetch_int_value(0x61C9354Bu, &blue, 1);
+    if (params->fetch_int_value(kRED, &red, 0)) {
+        params->fetch_int_value(kGreen, &green, 1);
+        params->fetch_int_value(kBlue, &blue, 1);
         (*slot)->set_colour(static_cast<uint8_t>(red) | static_cast<uint8_t>(green) << 8 |
                           static_cast<uint32_t>(static_cast<uint8_t>(blue)) << 16 | 0xFF000000u);
     }
@@ -507,13 +521,13 @@ void create_light_from_node(script::Struct* node)
     float brightness = 100.0f;
     float unused = 300.0f; // (read and not used)
     float radius = 300.0f;
-    node->fetch_float(0x2689291Cu, &brightness, 0);
-    node->fetch_float(0x8D2C287Fu, &unused, 0);
+    node->fetch_float(kBRIGHTNESS, &brightness, 0);
+    node->fetch_float(kInnerRadius, &unused, 0);
     node->fetch_float(0x833950CCu, &radius, 0);
-    node->has_bare_flag(0x7C2552B9u); // (the result isn't used)
+    node->has_bare_flag(kCreatedAtStart); // (the result isn't used)
     uint32_t colour = 0x00FFFFFF;
     script::Array* colour_array = nullptr;
-    node->fetch_list(0x99A9B716u, &colour_array, 0);
+    node->fetch_list(kCOLOR, &colour_array, 0);
     if (colour_array) {
         colour::Bytes bytes = colour::bytes_of(colour);
         core::at(bytes, 0) = static_cast<uint8_t>(colour_array->fetch_part(0));
@@ -521,10 +535,10 @@ void create_light_from_node(script::Struct* node)
         core::at(bytes, 2) = static_cast<uint8_t>(colour_array->fetch_part(2));
         colour = colour::packed_of(bytes);
     }
-    uint32_t type = 0x485A0CDB;
-    node->read_hash_value(0xC2737050u, &type, 0);
+    uint32_t type = kPOINT;
+    node->read_hash_value(kLightType, &type, 0);
     if (dynamic) {
-        if (DynamicLightBase* light = new_dynamic_light(type == 0x485A0CDB ? 1 : 0)) {
+        if (DynamicLightBase* light = new_dynamic_light(type == kPOINT ? 1 : 0)) {
             light->set_owner(name);
             std::memcpy(light->pos().data(), &pos, sizeof(light->pos()));
             light->set_intensity(static_cast<float>(brightness * static_cast<double>(kPercent)));

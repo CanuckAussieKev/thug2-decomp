@@ -29,6 +29,17 @@
 
 namespace render {
 
+// Checksums used in this file (the text each hashes).
+constexpr uint32_t kANGLE = 0xFF7EBAF6u; // ANGLE
+constexpr uint32_t kASPECT = 0x0F7C3CAAu; // ASPECT
+constexpr uint32_t kBlend = 0x54628ED7u; // Blend
+constexpr uint32_t kBlendMode = 0xDD6BB3D5u; // BlendMode
+constexpr uint32_t kEnabled = 0xAF06447Bu; // Enabled
+constexpr uint32_t kFov = 0x17E7321Eu; // Fov
+constexpr uint32_t kOffset = 0xA6F5352Fu; // Offset
+constexpr uint32_t kSIZE = 0x083FDB95u; // SIZE
+constexpr uint32_t kTexture = 0x7D99F28Du; // Texture
+
 namespace {
 
 float get_f(double value) { return static_cast<float>(value); }
@@ -100,29 +111,29 @@ void TextureProjection::configure_from_data(script::Struct* params)
     world_direction_ = direction_;
     range_ = 0.0f;
     params->fetch_float(0xDF61A4BD, &range_, 1);
-    if (params->fetch_float(0x083FDB95, &extent_, 0)) {
+    if (params->fetch_float(kSIZE, &extent_, 0)) {
         flag_bits_ = (flag_bits_ & ~kProjectionPerspective) | kProjectionOrthographic;
-    } else if (params->fetch_float(0x17E7321E, &field_of_view_, 0)) {
-        params->fetch_float(0x0F7C3CAA, &aspect_, 0);
+    } else if (params->fetch_float(kFov, &field_of_view_, 0)) {
+        params->fetch_float(kASPECT, &aspect_, 0);
         flag_bits_ = (flag_bits_ & ~kProjectionOrthographic) | kProjectionPerspective;
     }
     unknowna4_ = 0;
     params->read_hash_value(0xDC46BA66, &unknowna4_, 0);
     shift_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    params->fetch_vec(0xA6F5352F, vector(&shift_), 0);
+    params->fetch_vec(kOffset, vector(&shift_), 0);
     angle_ = 0.0f;
-    params->fetch_float(0xFF7EBAF6, &angle_, 0);
+    params->fetch_float(kANGLE, &angle_, 0);
     angle_ = get_f(static_cast<double>(angle_) * 0.0174532924f); // degrees to radians (0x00645464)
     uint32_t texture = 0;
-    params->read_hash_value(0x7D99F28D, &texture, 1);
-    blend_mode_ = 0x54628ED7; // "blend"
-    params->read_hash_value(0xDD6BB3D5, &blend_mode_, 0);
+    params->read_hash_value(kTexture, &texture, 1);
+    blend_mode_ = kBlend; // "blend"
+    params->read_hash_value(kBlendMode, &blend_mode_, 0);
     int fineness = 0;
     params->fetch_int_value(0x12602598, &fineness, 0);
     fineness_ = static_cast<uint32_t>(fineness);
     bitmap_ = engine_parts().particle_texture_dict()->fetch_skin(texture);
     int flag = 0;
-    params->fetch_int_value(0xAF06447B, &flag, 0);
+    params->fetch_int_value(kEnabled, &flag, 0);
     if (flag)
         flag_bits_ |= kProjectionFlag1;
     else

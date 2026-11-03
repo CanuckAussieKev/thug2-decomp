@@ -39,6 +39,11 @@
 
 namespace render {
 
+// Checksums used in this file (the text each hashes).
+constexpr uint32_t kFixadd = 0xA86285A1u; // fixadd
+constexpr uint32_t kSNOW = 0xC97C5A4Cu; // SNOW
+constexpr uint32_t kSPLASH = 0x45C7EB0Fu; // SPLASH
+
 namespace {
 // NOT ORIGINAL grouping - pc_weather.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_weather_state()).
@@ -105,9 +110,9 @@ PcWeather::PcWeather()
 {
     // (the snow's texture: zero - the original leaves it as it was)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    rain_blend_ = blend_mode_from_name(0xA86285A1) | 0x80000000;
-    splash_blend_ = blend_mode_from_name(0xA86285A1) | 0x80000000;
-    snow_blend_ = blend_mode_from_name(0xA86285A1) | 0x80000000;
+    rain_blend_ = blend_mode_from_name(kFixadd) | 0x80000000;
+    splash_blend_ = blend_mode_from_name(kFixadd) | 0x80000000;
+    snow_blend_ = blend_mode_from_name(kFixadd) | 0x80000000;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
@@ -574,9 +579,9 @@ void PcWeather::tick_grid()
     drops() = 0;
     next = 0x19B;
     splash_texture_ = nullptr;
-    if (const BitmapTexture* splash = engine_parts().particle_texture_dict()->fetch_skin(0x45C7EB0F))
+    if (const BitmapTexture* splash = engine_parts().particle_texture_dict()->fetch_skin(kSPLASH))
         splash_texture_ = image_of(splash);
-    if (const BitmapTexture* snow = engine_parts().particle_texture_dict()->fetch_skin(0xC97C5A4C))
+    if (const BitmapTexture* snow = engine_parts().particle_texture_dict()->fetch_skin(kSNOW))
         snow_texture_ = image_of(snow);
     set_active(true);
     std::memset(splash_frames_.data(), 0, sizeof(splash_frames_));

@@ -23,6 +23,9 @@
 
 namespace render {
 
+// Checksums used in this file (the text each hashes).
+constexpr uint32_t kFixadd = 0xA86285A1u; // fixadd
+
 namespace {
 
 constexpr float kByteToUnit = 1.0f / 255.0f;    // 0x00645D70 (the bit pattern 0x3B808081)
@@ -68,7 +71,7 @@ SparkleConfig::SparkleConfig()
     lifetime_ = 4.0f;
     brightness_ = 1.0f;
     colour_mid_percent_ = 50.0f;
-    blend_mode_ = 0xA86285A1;
+    blend_mode_ = kFixadd;
     unknown13c_ = 1;
     for (float& scale : colour_scale_)
         scale = 1.0f;
