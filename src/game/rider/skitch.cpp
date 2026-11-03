@@ -2,7 +2,6 @@
 
 #include "game/rider/skitch.h"
 
-#include <bit>
 #include <cstdint>
 #include <gsl/pointers>
 
