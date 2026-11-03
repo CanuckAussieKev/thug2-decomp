@@ -781,7 +781,7 @@ std::string link_record(const Placed& placed)
         text::format_to(number, " seconds=%.9g", clamp_seconds(s.seconds));
         out << number.data();
     }
-    const std::string text = clean_text(s.text.data());
+    const std::string text = clean_text(s.text);
     if (!text.empty())
         out << " text=\"" << text << '"';
     return out.str();

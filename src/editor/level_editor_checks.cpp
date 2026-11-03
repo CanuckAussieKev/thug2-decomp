@@ -930,14 +930,14 @@ void fix(const Issue& issue)
         node_edit::assign_value(issue.node, values);
         if (const int index = nodes::get_find(issue.node); index >= 0)
             nodes::reread(index);
-        hud::get_message(("Moved to surface: " + get_name(issue.node)).c_str());
+        hud::get_message("Moved to surface: " + get_name(issue.node));
         get_log("level editor: problems - %s put on the surface above it (%.0f, %.0f, %.0f)",
                 get_name(issue.node).c_str(), issue.fix_pos_.x, issue.fix_pos_.y, issue.fix_pos_.z);
         break;
     }
     case Rule::kHiddenCollision:
         shared_collision::change_live(issue.sector, false);
-        hud::get_message(("The collision taken along by " + get_name(issue.sector) + " turned off").c_str());
+        hud::get_message("The collision taken along by " + get_name(issue.sector) + " turned off");
         break;
     case Rule::kLayoutRecord: {
         push_module_undo(std::make_shared<LayoutRecords>(level_editor_checks_state().layout_issues_));

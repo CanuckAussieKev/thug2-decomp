@@ -307,7 +307,7 @@ void add_here()
     level_editor_notes_state().notes_.push_back(note);
     level_editor_notes_state().selected_ = note.name;
     level_editor_notes_state().edit_for_.clear();
-    hud::get_message(("Added note " + note.name).c_str());
+    hud::get_message("Added note " + note.name);
 }
 
 ImU32 get_colour(uint32_t rgb, int alpha = 255)
@@ -558,7 +558,7 @@ void pane(PaneArea area, float scale)
             push_undo();
             std::erase_if(level_editor_notes_state().notes_, [&](const Note& n) { return n.name == name; });
             level_editor_notes_state().selected_.clear();
-            hud::get_message(("Deleted note " + name).c_str());
+            hud::get_message("Deleted note " + name);
         });
     ImGui::End();
     if (!open)
