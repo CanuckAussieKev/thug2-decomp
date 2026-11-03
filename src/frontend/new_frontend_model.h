@@ -1,12 +1,14 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 #include <utility>
 
 #include "frontend/new_frontend_text.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/rect.h"
 
 // NOT ORIGINAL - the new front end's pure parts (ours; see new_frontend.h): its data file, its small state file, the
 // layout's frame, and the menus' state machine with their animation - no game, no renderer: they run
@@ -14,6 +16,18 @@
 namespace frontend::new_frontend {
 
 // --- the data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts) ----------------------------
+
+// Where a level is listed: its section and its index in the section.
+struct LevelPlace {
+    int section;
+    int level;
+};
+
+// A choice of an option clicked: the option's row and the choice's index.
+struct OptionChoice {
+    int row;
+    int choice;
+};
 
 struct StageMap {
     std::string name; // "BOSTON"
@@ -62,8 +76,8 @@ private:
 public:
     // The image for a menu item ("" if none).
     [[nodiscard]] std::string menu_art(const std::string& id) const;
-    // The level whose load script is `load` (any case): its section and index. False if none.
-    bool get_find(const std::string& load, int* section, int* level) const;
+    // The level whose load script is `load` (any case): its section and index. None if none.
+    [[nodiscard]] std::optional<LevelPlace> get_find(const std::string& load) const;
     // The level's next (`step` 1) or previous (-1) picture, wrapping. False when it has only one.
     bool cycle_art(const std::string& load, int step);
     // The saved picture choices applied / read back (only the levels not on their first picture).
@@ -118,12 +132,13 @@ public:
 TickCycle fit_frame(float window_width, float window_height);
 
 // The art over its box, as CSS's object-fit: cover - the part of the picture (texture coordinates u0 v0 u1 v1) that
-// fills a box of `box_width` x `box_height`, centred, and panned: `pan` 0..1 slides the visible part across `pan_range`
-// (a fraction of the picture, e.g. 0.03) - the picture is first zoomed by 1 + pan_range so there is room.
+// fills a box of `box`'s size, centred, and panned: `pan` 0..1 slides the visible part across kCoverPanRange (a
+// fraction of the picture) - the picture is first zoomed by 1 + kCoverPanRange so there is room.
 struct Uv {
     float u0, v0, u1, v1;
 };
-Uv cover_uv(float image_width, float image_height, float box_width, float box_height, float pan, float pan_range);
+constexpr float kCoverPanRange = 0.03f;
+Uv cover_uv(maths::Size image, maths::Size box, float pan);
 
 // --- motion --------------------------------------------------------------------------------------------------------
 
@@ -228,7 +243,7 @@ public:
     ActStep click_tab(int section);
     ActStep click_back();
     ActStep click_skate();
-    ActStep click_choice(int row, int choice);
+    ActStep click_choice(OptionChoice clicked);
     // The wheel: notches up (+) or down (-).
     ActStep get_wheel(int notches);
 

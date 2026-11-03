@@ -50,12 +50,17 @@ int choice_of(const Spec& spec, const std::string& value, bool present);
 // --- ini text (the file as GetPrivateProfileString reads it: [section] lines, key=value lines, ';' / '#' comment
 // lines; names in any case, spaces around them ignored) ---
 
-// The value of `key` in `section` (the first such line, as Windows reads it). False if there is none.
-bool ini_get(const std::string& text, const std::string& section, const std::string& key, std::string* value);
-// The text with `key`=`value` in `section`: the first such line's value replaced (its spacing before the '=' kept), or
+// A setting's place in an ini file: its [section] and its key.
+struct IniKey {
+    std::string section;
+    std::string key;
+};
+
+// The value of `at`'s key in its section (the first such line, as Windows reads it). False if there is none.
+bool ini_get(const std::string& text, const IniKey& at, std::string* value);
+// The text with `at`'s key = `value` in its section: the first such line's value replaced (its spacing before the '=' kept), or
 // a line added after the section's last line that isn't blank (a missing section added at the end) - every other
 // line, comment and unknown key as it was, the file's line ending kept (\r\n unless it only uses \n).
-std::string ini_set(const std::string& text, const std::string& section, const std::string& key,
-                    const std::string& value);
+std::string ini_set(const std::string& text, const IniKey& at, const std::string& value);
 
 } // namespace frontend::new_frontend::options

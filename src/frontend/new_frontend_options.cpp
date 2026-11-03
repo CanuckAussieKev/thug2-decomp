@@ -214,8 +214,10 @@ int choice_of(const Spec& spec, const std::string& value, bool present)
     return spec.fallback;
 }
 
-bool ini_get(const std::string& text, const std::string& section, const std::string& key, std::string* value)
+bool ini_get(const std::string& text, const IniKey& at, std::string* value)
 {
+    const std::string& section = at.section;
+    const std::string& key = at.key;
     bool in_section = false;
     for (const Seg& l : get_lines(text)) {
         const std::string line = text.substr(l.start, l.end - l.start);
@@ -234,9 +236,10 @@ bool ini_get(const std::string& text, const std::string& section, const std::str
     return false;
 }
 
-std::string ini_set(const std::string& text, const std::string& section, const std::string& key,
-                    const std::string& value)
+std::string ini_set(const std::string& text, const IniKey& at, const std::string& value)
 {
+    const std::string& section = at.section;
+    const std::string& key = at.key;
     const std::string eol =
         text.find("\r\n") != std::string::npos || text.find('\n') == std::string::npos ? "\r\n" : "\n";
     const std::vector<Seg> lines = get_lines(text);

@@ -261,7 +261,7 @@ std::string clean_text(const std::string& raw, bool newlines)
             }
             if ((e == 'b' || e == 'B' || e == 'm' || e == 'M') && i + 2 < raw.size()) {
                 // (a button: the key's name as the game spells it, between spaces when words touch it)
-                const std::string name = button_namer() ? button_namer()(e, core::at(raw, i + 2)) : std::string();
+                const std::string name = button_namer() ? button_namer()({.tag = e, .digit = core::at(raw, i + 2)}) : std::string();
                 if (!name.empty()) {
                     if (!out.empty() && out.back() != ' ' && out.back() != '/')
                         out += ' ';
@@ -613,10 +613,11 @@ View get_build(const MenuRead& read, const Policy& policy)
     return view;
 }
 
-void skater_colour(float hue, float sat_percent, float val_percent, std::span<float, 3> rgb)
+void skater_colour(const Hsv& colour, std::span<float, 3> rgb)
 {
-    const float s = sat_percent * 0.01f;
-    const float v = val_percent * 0.01f;
+    const float hue = colour.hue;
+    const float s = colour.sat * 0.01f;
+    const float v = colour.val * 0.01f;
     float r = v, g = v, b = v;
     if (s != 0.0f) {
         const float sector = hue * (1.0f / 60.0f);

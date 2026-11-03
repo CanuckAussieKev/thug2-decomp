@@ -41,6 +41,8 @@
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/engine_parts.h"
+#include "engine/maths/rect.h"
+#include "engine/maths/vec2.h"
 
 namespace render {
 
@@ -154,8 +156,12 @@ MovieSavedStates& movie_saved_states()
 } // namespace
 
 // 0x0044FA80
-void draw_movie_frame(void* texture, float x, float y, float width, float height, float alpha)
+void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alpha)
 {
+    const float x = at.x;
+    const float y = at.y;
+    const float width = size.width;
+    const float height = size.height;
     if (!texture)
         return;
     choose_blend_mode(0);
@@ -284,7 +290,7 @@ void draw_movie(Bink* bink, void* texture)
 {
     renderer().d3d_device()->BeginScene();
     renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0); // the target, to black (Z 1.0)
-    draw_movie_frame(texture, 0.0f, 0.0f, kMovieDrawWidth, kMovieDrawHeight, 1.0f);
+    draw_movie_frame(texture, {.x = 0.0f, .y = 0.0f}, {.width = kMovieDrawWidth, .height = kMovieDrawHeight}, 1.0f);
     renderer().d3d_device()->EndScene();
     renderer().d3d_device()->Present(nullptr, nullptr, nullptr, nullptr);
     bink::next_frame(bink);

@@ -6,6 +6,7 @@
 
 #include "frontend/screen_element.h"
 #include "engine/objects/signal.h"
+#include "engine/maths/rect.h"
 
 // The scrolling menus (VScrollingMenu / HScrollingMenu): an element holding a vmenu / hmenu that shows a window of
 // its items, scrolling to keep the focused item in view (items outside the window get alpha 0).
@@ -50,7 +51,7 @@ private:
     // shown items times the regular spacing, else the element's size).
     void find_menu();
     // 0x004AE450: an item's top left and size in the menu (scaled by the menu's scale).
-    void item_place(ElementPtr* item, float* x, float* y, float* w, float* h);
+    maths::Box item_place(ElementPtr* item);
 
 private:
     MenuListener listener_{this}; // +0x178

@@ -13,6 +13,7 @@
 #include "engine/objects/entity.h"
 #include "frontend/screen_element.h"
 #include "engine/core/down_cast.h"
+#include "engine/maths/rect.h"
 
 namespace frontend {
 
@@ -92,19 +93,21 @@ void WindowedList::find_menu()
 }
 
 // 0x004AE450 (the item's justification is read into the original's argument slots - no effect)
-void WindowedList::item_place(ElementPtr* item, float* x, float* y, float* w, float* h)
+maths::Box WindowedList::item_place(ElementPtr* item)
 {
-    item->get_pull()->fetch_location(x, y);
-    *x = static_cast<float>(static_cast<double>(menu_->shown().scale_x_) * *x);
-    *y = static_cast<float>(static_cast<double>(menu_->shown().scale_y_) * *y);
-    *w = static_cast<float>(static_cast<double>(menu_->shown().scale_x_) * item->get_pull()->span() *
-                            item->get_pull()->shown().scale_x_);
-    *h = static_cast<float>(static_cast<double>(menu_->shown().scale_y_) * item->get_pull()->level_y() *
-                            item->get_pull()->shown().scale_y_);
+    float x = 0.0f, y = 0.0f;
+    item->get_pull()->fetch_location(&x, &y);
+    x = static_cast<float>(static_cast<double>(menu_->shown().scale_x_) * x);
+    y = static_cast<float>(static_cast<double>(menu_->shown().scale_y_) * y);
+    const auto w = static_cast<float>(static_cast<double>(menu_->shown().scale_x_) * item->get_pull()->span() *
+                                      item->get_pull()->shown().scale_x_);
+    const auto h = static_cast<float>(static_cast<double>(menu_->shown().scale_y_) * item->get_pull()->level_y() *
+                                      item->get_pull()->shown().scale_y_);
     float align_h = 0.0f, align_v = 0.0f;
     item->get_pull()->fetch_alignment(&align_h, &align_v);
-    *x = static_cast<float>(*x - (static_cast<double>(align_h) + 1.0) * *w * 0.5);
-    *y = static_cast<float>(*y - (static_cast<double>(align_v) + 1.0) * *h * 0.5);
+    x = static_cast<float>(x - (static_cast<double>(align_h) + 1.0) * w * 0.5);
+    y = static_cast<float>(y - (static_cast<double>(align_v) + 1.0) * h * 0.5);
+    return {.at = {.x = x, .y = y}, .size = {.width = w, .height = h}};
 }
 
 // 0x004AE520 (reset_window_bottom: the last item's bottom - the vertical place, also for the horizontal one)
@@ -125,10 +128,9 @@ void WindowedList::change_traits(script::Struct* params)
     } else if (params->has_bare_flag(kResetWindowBottom)) {
         ElementPtr last;
         last.assign_value(menu_->fetch_youngest());
-        float x = 0.0f, y = 0.0f, w = 0.0f, h = 0.0f;
-        item_place(&last, &x, &y, &w, &h);
+        const maths::Box box = item_place(&last);
         rearrange_ = true;
-        window_start_ = static_cast<float>(static_cast<double>(y) + h - window_length_);
+        window_start_ = static_cast<float>(static_cast<double>(box.at.y) + box.size.height - window_length_);
     } else if (params->has_bare_flag(kRearrange)) {
         rearrange_ = true;
     }
@@ -228,11 +230,10 @@ void WindowedList::tick_frame()
     menu_->change_alignment(-1.0f, -1.0f);
     float menu_x = 0.0f, menu_y = 0.0f;
     menu_->fetch_location(&menu_x, &menu_y);
-    float place = 0.0f, length = 0.0f, other1 = 0.0f, other2 = 0.0f; // along the menu, and across it
-    if (vertical_)
-        item_place(&selected, &other1, &place, &other2, &length);
-    else
-        item_place(&selected, &place, &other1, &length, &other2);
+    // (along the menu)
+    const maths::Box selected_box = item_place(&selected);
+    float place = vertical_ ? selected_box.at.y : selected_box.at.x;
+    float length = vertical_ ? selected_box.size.height : selected_box.size.width;
     if (!(regular_space_ < 0.0f)) {
         length = regular_space_;
         place = static_cast<float>(static_cast<double>(index) * regular_space_);
@@ -266,10 +267,9 @@ void WindowedList::tick_frame()
     ElementPtr item;
     item.assign_value(menu_->eldest().get_pull());
     while (item) {
-        if (vertical_)
-            item_place(&item, &other1, &place, &other2, &length);
-        else
-            item_place(&item, &place, &other1, &length, &other2);
+        const maths::Box box = item_place(&item);
+        place = vertical_ ? box.at.y : box.at.x;
+        length = vertical_ ? box.size.height : box.size.width;
         if (!(regular_space_ < 0.0f)) {
             length = regular_space_;
             place = static_cast<float>(static_cast<double>(index) * regular_space_);

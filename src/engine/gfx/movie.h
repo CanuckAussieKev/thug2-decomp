@@ -4,16 +4,18 @@
 #include <cstdint>
 
 #include "platform/bink.h"
+#include "engine/maths/rect.h"
+#include "engine/maths/vec2.h"
 
 // NOLINTNEXTLINE(cppcoreguidelines-virtual-class-destructor): a COM interface: released, never deleted
 struct IDirect3DDevice9;
 
 namespace render {
 
-// 0x0044FA80: draw a movie frame's texture at (x, y), (width, height) in screen units, faded by alpha (0-1),
+// 0x0044FA80: draw a movie frame's texture at `at`, `size` in screen units, faded by alpha (0-1),
 // with PartyMod's 4:3 fit inside the back buffer (contains code from PartyMod
 // (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
-void draw_movie_frame(void* texture, float x, float y, float width, float height, float alpha);
+void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alpha);
 
 // PartyMod's two calls in draw_movie_frame. set_movie_texture (cdecl): the renderer's texture set (0x004DA730),
 // noting the texture's size first. draw_movie_quad (in place of the device's DrawPrimitiveUP):

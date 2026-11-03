@@ -19,8 +19,10 @@
 #include <initializer_list>
 #include <map>
 #include <set>
+#include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <SDL2/SDL.h>
@@ -211,7 +213,7 @@ std::string read_text(const std::string& path)
 }
 
 // The text written next to `path` and moved over it in one step (a crash part-way leaves the old file).
-bool write_atomically(const std::string& path, const std::string& text)
+bool write_atomically(const std::string& path, std::string_view text)
 {
     const std::string temporary = path + ".new";
     util::UniqueFile file = util::open_file(temporary.c_str(), "wb");
@@ -712,7 +714,7 @@ void load_option_values()
     }
     for (size_t i = 0; i < specs.size(); ++i) {
         std::string value;
-        const bool present = options::ini_get(text, core::at(specs, i).section, core::at(specs, i).key, &value);
+        const bool present = options::ini_get(text, {.section = core::at(specs, i).section, .key = core::at(specs, i).key}, &value);
         core::at(choices, i) = options::choice_of(core::at(specs, i), value, present);
         if (first)
             core::at(edit_session().start_values_, i) = core::at(core::at(specs, i).choices, core::at(choices, i)).value;
@@ -720,8 +722,10 @@ void load_option_values()
     menu_state().set_option_values(std::move(choices));
 }
 
-void apply_option(int option, int choice)
+void apply_option(const ActStep& action)
 {
+    const int option = action.option;
+    const int choice = action.value;
     const std::vector<options::Spec>& specs = options::get_specs();
     if (option < 0 || std::cmp_greater_equal(option, specs.size()))
         return;
@@ -729,7 +733,7 @@ void apply_option(int option, int choice)
     const char* value = core::at(spec.choices, choice).value;
     const std::string path = ini_path();
     const std::string text = read_text(path);
-    const std::string changed = options::ini_set(text, spec.section, spec.key, value);
+    const std::string changed = options::ini_set(text, {.section = spec.section, .key = spec.key}, value);
     if (!write_atomically(path, changed)) {
         get_log("new front end: couldn't write %s ([%s] %s=%s)", path.c_str(), spec.section, spec.key, value);
         edit_session().options_note_ = text_tools::kCouldntSave;
@@ -1381,9 +1385,11 @@ UiWidget* keyboard_of(UiWidget* menu)
 }
 
 // The keyboard read: its rows of keys (a key's words: the last that isn't a button tag, e.g. "Backspace"), the key
-// selected, the text typed (the first row that isn't keys - its text, the cursor's "_" left in).
-mirror::MenuRead read_keyboard(UiWidget* keys, UiWidget* active)
+// selected, the text typed (the first row that isn't keys - its text, the cursor's "_" left in). `active`: the menu
+// whose keyboard it is (keyboard_of).
+mirror::MenuRead read_keyboard(UiWidget* active)
 {
+    const UiWidget* keys = keyboard_of(active);
     mirror::MenuRead read;
     read.found = true;
     read.keyboard = true;
@@ -1430,8 +1436,10 @@ mirror::MenuRead read_keyboard(UiWidget* keys, UiWidget* active)
 
 // A button tag as the game spells it (gfx/text.cpp's): the explicit buttons through the controller map when one is in
 // use, the meta buttons through the meta map; the arrow glyphs Up / Down / Left / Right, else the key's name.
-std::string pad_button_label_for(char tag, char digit)
+std::string pad_button_label_for(mirror::ButtonTag button_tag)
 {
+    const char tag = button_tag.tag;
+    const char digit = button_tag.digit;
     int button = 0;
     if (tag == 'm' || tag == 'M') {
         button = text::hex_digit_value(render::button_glyph(digit));
@@ -1604,8 +1612,8 @@ mirror::View mirror_now()
     }
     mirror::Policy now = policy;
     now.editor = now.editor || menu_mirror().left_original_ != nullptr;
-    UiWidget* keyboard = in_dialog ? nullptr : keyboard_of(menu);
-    mirror::View view = mirror::get_build(keyboard ? read_keyboard(keyboard, menu) : read_menu(menu, in_dialog), now);
+    const UiWidget* keyboard = in_dialog ? nullptr : keyboard_of(menu);
+    mirror::View view = mirror::get_build(keyboard ? read_keyboard(menu) : read_menu(menu, in_dialog), now);
     // (each menu's decision logged once)
     std::array<char, 96> key{};
     text::format_to(key, "%08X %s %s", id_of_element(menu), mirror::kind_name(view.kind), view.why.c_str());
@@ -1657,15 +1665,23 @@ bool step_to(modules::FrontEnd* front_end, int row)
     return read_selection(nullptr) == target;
 }
 
-// The keyboard's key (row, col) selected with the game's own pad events (each step read back), then chosen.
-void choose_key(modules::FrontEnd* front_end, int row, int col)
+// A key of the on-screen keyboard: its row and its column.
+struct KeyPlace {
+    int row;
+    int col;
+};
+
+// The keyboard's key `key` selected with the game's own pad events (each step read back), then chosen.
+void choose_key(modules::FrontEnd* front_end, KeyPlace key)
 {
+    const int row = key.row;
+    const int col = key.col;
     for (int guard = 0; guard < 64; ++guard) {
         UiWidget* active = active_menu();
-        UiWidget* keys = keyboard_of(active);
+        const UiWidget* keys = keyboard_of(active);
         if (!keys)
             return;
-        const mirror::MenuRead now = read_keyboard(keys, active);
+        const mirror::MenuRead now = read_keyboard(active);
         if (now.key_row_ != row) {
             mouse_menus::send_menu_pad_event(front_end, now.key_row_ < row ? modules::FrontEnd::kPadDown
                                                                            : modules::FrontEnd::kPadUp);
@@ -1776,7 +1792,7 @@ void mirror_mouse(modules::FrontEnd* front_end)
                     stats_click(front_end, *hit);
                 } else if (hit->kind == paint::Hit::Kind::kStageMap &&
                            menu_mirror().mirror_.get_shown().kind == mirror::Kind::kKeyboard) {
-                    choose_key(front_end, hit->index / 64, hit->index % 64);
+                    choose_key(front_end, {.row = hit->index / 64, .col = hit->index % 64});
                 } else if (hit->kind == paint::Hit::Kind::kContinue) {
                     continue_last_level(front_end);
                 } else if (hit->kind == paint::Hit::Kind::kItem) {
@@ -1899,10 +1915,10 @@ void watch_net_level_select()
 // count checked there), ours back once it goes.
 void choose_net_level(const std::string& load)
 {
-    int section = -1, index = -1;
-    const StageMap* level = new_frontend_state().catalogue_.get_find(load, &section, &index)
-                                ? &core::at(core::at(new_frontend_state().catalogue_.sections(), section).levels, index)
-                                : nullptr;
+    const std::optional<LevelPlace> place = new_frontend_state().catalogue_.get_find(load);
+    const StageMap* level =
+        place ? &core::at(core::at(new_frontend_state().catalogue_.sections(), place->section).levels, place->level)
+              : nullptr;
     change_phase(State::kAway);
     new_frontend_state().shown_back_ = 0;
     if (!level || !net_level_select_up()) {
@@ -2065,7 +2081,7 @@ void run_action(modules::FrontEnd* front_end, const ActStep& action)
         }
     }
     case ActionKind::kOption:
-        apply_option(action.option, action.value);
+        apply_option(action);
         get_sound("generic_menu_up_or_down_sound", "up");
         return;
     case ActionKind::kSkate: {
@@ -2298,7 +2314,7 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
             case paint::Hit::Kind::kContinue:
                 break; // (the restyled main menu's - mirror_mouse)
             case paint::Hit::Kind::kChoice:
-                run_action(front_end, menu_state().click_choice(clicked.index / 16, clicked.index % 16));
+                run_action(front_end, menu_state().click_choice({.row = clicked.index / 16, .choice = clicked.index % 16}));
                 break;
             }
         }
@@ -2736,10 +2752,12 @@ paint::Extras pause_extras()
 // The last level played, as the data names it ("": none, or not in the data) - the main menu's Continue.
 std::string continue_level_name()
 {
-    int section = -1, level = -1;
-    if (new_frontend_state().saved_.last_level_.empty() || !new_frontend_state().catalogue_ok_ || !new_frontend_state().catalogue_.get_find(new_frontend_state().saved_.last_level_, &section, &level))
+    if (new_frontend_state().saved_.last_level_.empty() || !new_frontend_state().catalogue_ok_)
         return {};
-    return core::at(core::at(new_frontend_state().catalogue_.sections(), section).levels, level).name;
+    const std::optional<LevelPlace> place = new_frontend_state().catalogue_.get_find(new_frontend_state().saved_.last_level_);
+    if (!place)
+        return {};
+    return core::at(core::at(new_frontend_state().catalogue_.sections(), place->section).levels, place->level).name;
 }
 
 // Continue (the restyled main menu's X / R, or its hint clicked): the last level played, in free skate.

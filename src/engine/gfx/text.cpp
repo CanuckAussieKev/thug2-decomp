@@ -81,9 +81,17 @@ char meta_button(char digit) { return render::button_glyph(digit); }
 // The name of the key a button is mapped to.
 const char* button_key_name(int button) { return sio::get_button_key_name(button); }
 
-// "\b<d>" / "\m<d>" (d the digit): which button.
-int glyph_for_button_tag(char tag, char digit)
+// A button tag: "\b<d>" / "\m<d>" - its letter and its digit d.
+struct ButtonTag {
+    char tag;
+    char digit;
+};
+
+// Which button a tag names.
+int glyph_for_button_tag(ButtonTag button_tag)
 {
+    const char tag = button_tag.tag;
+    const char digit = button_tag.digit;
     if (tag == 'M' || tag == 'm') {
         const char mapped = meta_button(digit);
         return text::hex_digit_value(mapped);
@@ -137,7 +145,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
             case 'M':
             case 'm': {
                 ++p;
-                const int button = glyph_for_button_tag(tag, *p);
+                const int button = glyph_for_button_tag({.tag = tag, .digit = *p});
                 if (use_button_glyph(button)) {
                     font = screen_2d().glyph_typeface();
                     glyph = &font->glyph(core::at(font->special_map_, button));
@@ -268,7 +276,7 @@ void GlyphRun::draw()
             case 'M':
             case 'm': {
                 ++p;
-                const int button = glyph_for_button_tag(tag, *p);
+                const int button = glyph_for_button_tag({.tag = tag, .digit = *p});
                 if (use_button_glyph(button)) {
                     // drawn with the button font's texture: draw what's buffered first
                     TypefaceData* buttons = screen_2d().glyph_typeface();

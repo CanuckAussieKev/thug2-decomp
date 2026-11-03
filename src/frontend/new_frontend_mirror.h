@@ -177,15 +177,26 @@ struct View {
 // The colour a HSV the game stores (hue degrees, saturation / value percent) shows on the skater: the game's HSV -> RGB
 // (the same sector formula as the texture code's), as the part's vertex colour - which multiplies the texture with 0.5
 // neutral, so shown doubled (clamped) as a colour on a white texture. rgb 0 .. 1.
-void skater_colour(float hue, float sat_percent, float val_percent, std::span<float, 3> rgb);
+// A skater colour as the CAS menus hold it: hue in degrees, saturation and value in percent.
+struct Hsv {
+    float hue;
+    float sat;
+    float val;
+};
+void skater_colour(const Hsv& colour, std::span<float, 3> rgb);
 
 // The game's text escapes made plain: \n (a line end: a space, or kept with `newlines`), \c<x> (a colour) dropped,
 // \b<x> / \m<x> (a button) the key's name as the game spells it (ButtonNamer; dropped without one), \_ a space, \\ a
 // backslash; spaces collapsed and trimmed.
 std::string clean_text(const std::string& raw, bool newlines = false);
-// How a button tag is spelled (the tag letter b / B / m / M and its digit): the glue sets it to the game's own (the key
-// a button is on, Up / Down / Left / Right for the arrow glyphs); null: buttons dropped (the self-tests).
-using ButtonNamer = std::string (*)(char tag, char digit);
+// A button tag of a text: its letter (b / B / m / M) and its digit.
+struct ButtonTag {
+    char tag;
+    char digit;
+};
+// How a button tag is spelled: the glue sets it to the game's own (the key a button is on, Up / Down / Left / Right for
+// the arrow glyphs); null: buttons dropped (the self-tests).
+using ButtonNamer = std::string (*)(ButtonTag tag);
 void set_button_namer(ButtonNamer namer);
 
 // The view for what was read (kind None when nothing is restyled).

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -134,7 +136,11 @@ constexpr float kMainRowHeight = kMainType * 0.92f + 4.0f; // (line-height 0.92,
 constexpr float kLevelRowHeight = kLevelType * 1.05f;      // (line-height 1.05)
 
 // A TrueType file's vertical metrics as stb_truetype scales it: hhea's ascender / descender over head's units_per_em
-// (descent negative). False if it isn't a font file it can read.
-bool read_font_metrics(const uint8_t* data, size_t size, float* ascent, float* descent);
+// (descent negative). None if it isn't a font file it can read.
+struct FontMetrics {
+    float ascent;
+    float descent;
+};
+std::optional<FontMetrics> read_font_metrics(std::span<const uint8_t> data);
 
 } // namespace frontend::new_frontend::paint

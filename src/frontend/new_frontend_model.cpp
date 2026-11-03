@@ -5,6 +5,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/parse_number.h"
 #include "engine/core/checked_index.h"
+#include "engine/maths/rect.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -15,6 +16,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iterator>
+#include <optional>
 #include <string>
 #include <utility>
 #include <array>
@@ -271,18 +273,13 @@ std::string Catalogue::menu_art(const std::string& id) const
     return {};
 }
 
-bool Catalogue::get_find(const std::string& load, int* section, int* level) const
+std::optional<LevelPlace> Catalogue::get_find(const std::string& load) const
 {
     for (size_t s = 0; s < sections_.size(); ++s)
         for (size_t l = 0; l < core::at(sections_, s).levels.size(); ++l)
-            if (same_text(core::at(core::at(sections_, s).levels, l).load, load)) {
-                if (section)
-                    *section = static_cast<int>(s);
-                if (level)
-                    *level = static_cast<int>(l);
-                return true;
-            }
-    return false;
+            if (same_text(core::at(core::at(sections_, s).levels, l).load, load))
+                return LevelPlace{.section = static_cast<int>(s), .level = static_cast<int>(l)};
+    return std::nullopt;
 }
 
 uint32_t parse_colour(const std::string& text, uint32_t fallback)
@@ -374,10 +371,10 @@ bool parse_catalogue(const std::string& json, Catalogue* out, std::string* error
 
 bool Catalogue::cycle_art(const std::string& load, int step)
 {
-    int s = 0, l = 0;
-    if (!get_find(load, &s, &l))
+    const std::optional<LevelPlace> place = get_find(load);
+    if (!place)
         return false;
-    StageMap& level = core::at(core::at(sections_, s).levels, l);
+    StageMap& level = core::at(core::at(sections_, place->section).levels, place->level);
     const int count = static_cast<int>(level.art_variants_.size());
     if (count < 2)
         return false;
@@ -388,10 +385,10 @@ bool Catalogue::cycle_art(const std::string& load, int step)
 void Catalogue::apply_art_choices(const std::vector<std::pair<std::string, int>>& choices)
 {
     for (const auto& [load, variant] : choices) {
-        int s = 0, l = 0;
-        if (!get_find(load, &s, &l))
+        const std::optional<LevelPlace> place = get_find(load);
+        if (!place)
             continue;
-        StageMap& level = core::at(core::at(sections_, s).levels, l);
+        StageMap& level = core::at(core::at(sections_, place->section).levels, place->level);
         if (variant >= 0 && std::cmp_less(variant, level.art_variants_.size()))
             level.variant = variant;
     }
@@ -480,8 +477,13 @@ TickCycle fit_frame(float window_width, float window_height)
     return frame;
 }
 
-Uv cover_uv(float image_width, float image_height, float box_width, float box_height, float pan, float pan_range)
+Uv cover_uv(maths::Size image, maths::Size box, float pan)
 {
+    const float image_width = image.width;
+    const float image_height = image.height;
+    const float box_width = box.width;
+    const float box_height = box.height;
+    const float pan_range = kCoverPanRange;
     Uv uv = {.u0 = 0.0f, .v0 = 0.0f, .u1 = 1.0f, .v1 = 1.0f};
     if (image_width <= 0.0f || image_height <= 0.0f || box_width <= 0.0f || box_height <= 0.0f)
         return uv;
@@ -586,9 +588,11 @@ void Menu::get_reset(const Catalogue* catalogue, std::vector<SectionView> views,
     switched_ = false;
     launch_load_.clear();
     // The level select opens at the last level played when it's listed.
-    int section = 0, level = 0;
-    if (catalogue_ && !last_level_.empty() && catalogue_->get_find(last_level_, &section, &level) &&
-        std::cmp_less(section, views_.size())) {
+    const std::optional<LevelPlace> place =
+        catalogue_ && !last_level_.empty() ? catalogue_->get_find(last_level_) : std::nullopt;
+    const int section = place ? place->section : 0;
+    const int level = place ? place->level : 0;
+    if (place && std::cmp_less(section, views_.size())) {
         const std::vector<int>& rows = core::at(views_, section).levels;
         auto it = std::ranges::find(rows, level);
         if (it != rows.end()) {
@@ -1000,8 +1004,10 @@ ActStep Menu::click_skate()
     return get_confirm();
 }
 
-ActStep Menu::click_choice(int row, int choice)
+ActStep Menu::click_choice(OptionChoice clicked)
 {
+    const int row = clicked.row;
+    const int choice = clicked.choice;
     if (occupied() || shown_ != Screen::kOptions || row < 0 || std::cmp_greater_equal(row, option_rows().size()))
         return {};
     option_row_ = row;
