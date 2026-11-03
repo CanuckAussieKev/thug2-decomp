@@ -19,6 +19,11 @@ namespace park_editing {
 class PieceGroup;
 
 // The figures (0x007CE618, 0x6C bytes, copied out by get_memory_stats).
+constexpr size_t kStatsBytes = 0x6C;
+constexpr size_t kMaxUsageOffset = 0x2C;
+constexpr size_t kComponentsOffset = 0x3C;
+constexpr size_t kMarker48Offset = 0x48;
+constexpr size_t kVectorsUsedOffset = 0x68;
 struct MemoryStats {
     int park_bytes_in_use_;     // +0x00 the park heap's used size
     int park_heap_free_;        // +0x04 its region's space + its free blocks - park_heap_pad
@@ -47,9 +52,9 @@ struct MemoryStats {
     int components_used_at_marker_; // +0x64 (marker 0x9BF91DBE) the component pool's items in use
     int vectors_used_at_marker_;    // +0x68 the vector pool's
 };
-static_assert(sizeof(MemoryStats) == 0x6C && offsetof(MemoryStats, max_usage_) == 0x2C &&
-                  offsetof(MemoryStats, components) == 0x3C && offsetof(MemoryStats, marker48) == 0x48 &&
-                  offsetof(MemoryStats, vectors_used_at_marker_) == 0x68,
+static_assert(sizeof(MemoryStats) == kStatsBytes && offsetof(MemoryStats, max_usage_) == kMaxUsageOffset &&
+                  offsetof(MemoryStats, components) == kComponentsOffset && offsetof(MemoryStats, marker48) == kMarker48Offset &&
+                  offsetof(MemoryStats, vectors_used_at_marker_) == kVectorsUsedOffset,
               "layout must match the original");
 
 MemoryStats& get_attributes();       // 0x007CE618

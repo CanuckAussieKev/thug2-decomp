@@ -26,6 +26,16 @@ namespace {
 constexpr uint32_t kTopDownLevel = 0xCD3682C1; // the level whose park lives in the top-down heap
 constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
 constexpr uint32_t kHoldsClipboards = 0x45C6C158; // a piece set's flag: its entries are the clipboards
+constexpr int kMaxBuildHeight = 17;         // the most a piece's top may stand above the ground, in cells
+constexpr int kLowestBuildHeight = 16;      // the floor can't be lowered below this many cells under zero
+constexpr int kRestartSlotEnd = 9;          // restart points have slots 1 to 8
+constexpr int kNewGapPoints = 100;          // the points a gap starts with
+constexpr int kMaxReach = 6;                // how far a gap's halves can reach
+constexpr int kMaxRaiseSpan = 10;           // the widest area the floor tools raise or lower
+constexpr int kGapRegistryBytes = 0xA8;
+constexpr int kClipboardCount = 6;
+constexpr uint32_t kClipboardTitle = 0x4E677220u; // ClipboardTitle
+constexpr size_t kClipboardNameSize = 100;
 constexpr uint32_t kMetaHasGap = 0x1000;          // a meta piece's flag
 
 uint32_t& get_meta_flags(PieceGroup* meta) { return meta->flag_bits(); }
@@ -106,11 +116,11 @@ bool BuildPointer::commit_tile_placement()
     ParkLayout* manager = park_owner();
     if (!manager->can_change_floor_here(cell_footprint(), false))
         return false;
-    if (cell_footprint().h + ground_level_cell(manager, cell_footprint(), nullptr) > 17)
+    if (cell_footprint().h + ground_level_cell(manager, cell_footprint(), nullptr) > kMaxBuildHeight)
         return false;
     // A restart point needs a free slot of its type.
     const uint32_t type = meta_type(piece_group());
-    for (int slot = 1; slot < 9; ++slot) {
+    for (int slot = 1; slot < kRestartSlotEnd; ++slot) {
         if (type == core::at(manager->restart_pieces(), slot - 1)) {
             if (!as_generator(manager->builder())->has_free_restart_slot(slot)) {
                 debug::printf(
@@ -135,7 +145,7 @@ bool BuildPointer::commit_tile_placement()
 bool BuildPointer::destroy_under_cursor()
 {
     CellBox area = {};
-    if (mode() == 5) {
+    if (mode() == BuildPointer::kModePaste) {
         if (!active_copy_buffer())
             return false;
         clipboard_area(active_copy_buffer(), this, &area);
@@ -170,7 +180,7 @@ bool BuildPointer::add_gap_half()
             core::at(gap.quarter_turns(), n) = 0;
             core::at(gap.reach_left(), n) = 0;
             core::at(gap.reach_right(), n) = 0;
-            gap.set_points_held(100);
+            gap.set_points_held(kNewGapPoints);
             gap.set_halves_placed(n + 1);
             gap.set_slot_index(-1);
             if (n == 0) {
@@ -249,16 +259,16 @@ bool BuildPointer::change_gap(GapChange gap_change)
         core::at(copy.reach_left(), half) += left;
         if (core::at(copy.reach_left(), half) < 0)
             core::at(copy.reach_left(), half) = 0;
-        else if (core::at(copy.reach_left(), half) > 6)
-            core::at(copy.reach_left(), half) = 6;
+        else if (core::at(copy.reach_left(), half) > kMaxReach)
+            core::at(copy.reach_left(), half) = kMaxReach;
         changed = true;
     }
     if (right) {
         core::at(copy.reach_right(), half) += right;
         if (core::at(copy.reach_right(), half) < 0)
             core::at(copy.reach_right(), half) = 0;
-        if (core::at(copy.reach_right(), half) > 6)
-            core::at(copy.reach_right(), half) = 6;
+        if (core::at(copy.reach_right(), half) > kMaxReach)
+            core::at(copy.reach_right(), half) = kMaxReach;
     } else if (!changed) {
         return true;
     }
@@ -328,7 +338,7 @@ void BuildPointer::flatten_selection()
 // 0x0059D9F0
 bool BuildPointer::raise_area(CellBox area, int height, int dir, bool level)
 {
-    if (area.w > 10 || area.l > 10)
+    if (area.w > kMaxRaiseSpan || area.l > kMaxRaiseSpan)
         return false;
     if (!park_owner()->raise_or_lower_floor(area, area.y, height, dir > 0, !level))
         return false;
@@ -349,7 +359,7 @@ bool BuildPointer::raise_lower(int dir)
     if (mode() == 4) {
         if (selecting())
             selected_area(this, &area);
-    } else if (mode() == 5) {
+    } else if (mode() == BuildPointer::kModePaste) {
         if (!active_copy_buffer())
             return false;
         clipboard_area(active_copy_buffer(), this, &area);
@@ -360,7 +370,7 @@ bool BuildPointer::raise_lower(int dir)
     // (the original has the level flag written over the copy's first byte)
     bool level = false;
     const int height = ground_level_cell(park_owner(), area, &level);
-    if (height + dir <= -16)
+    if (height + dir <= -kLowestBuildHeight)
         return false;
     int top = area.h + height + dir;
     // The pieces standing on the area (any height) widen it, and the highest sets the top.
@@ -381,9 +391,9 @@ bool BuildPointer::raise_lower(int dir)
             area.l = at.l;
     }
     MapListNode::free_node_chain(list);
-    if (top > 17)
+    if (top > kMaxBuildHeight)
         return false;
-    if (mode() == 5 && active_copy_buffer())
+    if (mode() == BuildPointer::kModePaste && active_copy_buffer())
         as_clipboard(active_copy_buffer())->free_all_piece_groups();
     const bool raised = raise_area(area, height, dir, level);
     if (mode() == 4)
@@ -408,7 +418,7 @@ void ParkLayout::commission(uint32_t level)
     memory::Hub* memory = memory::Hub::get_pull();
     if (level == kTopDownLevel)
         memory->enter_heap_scope(memory->top_down_heap());
-    void* block = memory::alloc(0xA8);
+    void* block = memory::alloc(kGapRegistryBytes);
     gap_registry_ = block ? memory::construct_in<GapRegistry>(block, this) : nullptr;
     if (level == kTopDownLevel)
         memory::Hub::get_pull()->leave_heap_scope();
@@ -470,10 +480,10 @@ void ParkLayout::commission(uint32_t level)
         set.is_clipboard_ = false;
         if (description->has_bare_flag(kHoldsClipboards)) {
             set.is_clipboard_ = true;
-            set.entry_total_ = 6;
-            const char* text = script::fetch_text(0x4E677220u);
-            for (int k = 0; k < 6; ++k) {
-                std::array<char, 100> name{};
+            set.entry_total_ = kClipboardCount;
+            const char* text = script::fetch_text(kClipboardTitle);
+            for (int k = 0; k < kClipboardCount; ++k) {
+                std::array<char, kClipboardNameSize> name{};
                 text::format_to(name, "Clipboard%d", k); // "Clipboard%d"
                 core::at(set.entries_, k).name = text;
                 core::at(set.entries_, k).checksum = checksums::hash_from_text(name.data());

@@ -27,6 +27,23 @@ namespace park_editing {
 namespace {
 constexpr double kParkMemoryFullUsage{0.95};
 constexpr double kParkMemoryNearlyFullUsage{0.9};
+constexpr int kMapListNodeBytes = 0xC;       // the pools' item sizes
+constexpr int kClipboardEntryBytes = 0x18;
+constexpr int kClipboardBytes = 0x18;
+constexpr int kMapListNodePoolSize = 16000;
+constexpr int kClipboardEntryPoolSize = 1000;
+constexpr int kClipboardPoolSize = 6;
+constexpr uint32_t kReset = 0xAF6240B2;           // reset (the memory markers the park scripts send)
+constexpr uint32_t kStartOuterShell = 0x2D987043; // start_outer_shell
+constexpr uint32_t kEndOuterShell = 0x7DE18688;   // end_outer_shell
+constexpr uint32_t kStartNetAnims = 0xAFFF3067;   // text unknown
+constexpr uint32_t kEndNetAnims = 0x65B63305;     // text unknown
+constexpr uint32_t kStartLoad = 0x9BF91DBE;       // startload
+constexpr uint32_t kHeapTailMarker = 0xCC63F828;  // text unknown (records the heap's free blocks)
+constexpr uint32_t kEndLoad = 0xE113C765;         // endload
+constexpr size_t kNodeCountSlots = 6;
+constexpr int kArraysCountIndex = 5;              // the node counts' last: the park's arrays
+constexpr int kPerPlayerHeapPad = 0x8EF1C;        // the main heap's extra bytes for each player after the first
 // NOT ORIGINAL grouping - park_memory.cpp's state (the original's globals). Made on first use, never destroyed
 // (park_memory_state()).
 struct ParkMemoryState {
@@ -184,13 +201,13 @@ void remove_piece_dma(const PieceGroup* meta)
 }
 
 // 0x0059E210
-void create_map_list_node_pool(int count, const char* name) { make_pool(node_pools(), 0xC, count, name); }
+void create_map_list_node_pool(int count, const char* name) { make_pool(node_pools(), kMapListNodeBytes, count, name); }
 
 // 0x0059E290
-void create_clipboard_entry_pool(int count, const char* name) { make_pool(clipboard_entry_pools(), 0x18, count, name); }
+void create_clipboard_entry_pool(int count, const char* name) { make_pool(clipboard_entry_pools(), kClipboardEntryBytes, count, name); }
 
 // 0x0059E310
-void create_clipboard_pool(int count, const char* name) { make_pool(clipboard_pools(), 0x18, count, name); }
+void create_clipboard_pool(int count, const char* name) { make_pool(clipboard_pools(), kClipboardBytes, count, name); }
 
 // 0x0059E390
 void get_marker(uint32_t marker)
@@ -198,34 +215,34 @@ void get_marker(uint32_t marker)
     memory::Arena* heap = memory::Hub::get_pull()->bottom_up_heap();
     MemoryStats& stats = get_attributes();
     switch (marker) {
-    case 0xAF6240B2:
+    case kReset:
         clear_stats();
         break;
-    case 0x2D987043:
+    case kStartOuterShell:
         stats.outer_shell_mem_ = free_memory(heap);
         break;
-    case 0x7DE18688:
+    case kEndOuterShell:
         stats.outer_shell_mem_ -= free_memory(heap);
         debug::printf("OUTER SHELL MEM = %d !!!!!!!!!!!!!!!!!!!!!\n",
                       stats.outer_shell_mem_); // "OUTER SHELL MEM = %d !!!..."
         break;
-    case 0xAFFF3067:
+    case kStartNetAnims:
         stats.net_anims_mem_ = free_memory(heap);
         break;
-    case 0x65B63305:
+    case kEndNetAnims:
         stats.net_anims_mem_ -= free_memory(heap);
         debug::printf("NETANIMS MEM = %d !!!!!!!!!!!!!!!!!!!!!\n", stats.net_anims_mem_); // "NETANIMS MEM = %d !!!..."
         break;
-    case 0x9BF91DBE:
+    case kStartLoad:
         stats.marker48 = free_memory(heap);
         stats.components_used_at_marker_ = active_slab_pool(script::component_pools())->taken_count();
         stats.vectors_used_at_marker_ = active_slab_pool(script::vector_pools())->taken_count();
         break;
-    case 0xCC63F828:
+    case kHeapTailMarker:
         stats.marker_5c_ = free_memory(heap);
         stats.marker58_free_size_ = heap->free_size();
         break;
-    case 0xE113C765:
+    case kEndLoad:
         stats.marker_4c_ = free_memory(heap);
         break;
     default:
@@ -278,19 +295,19 @@ MemoryStats* get_memory_stats(MemoryStats* out)
         counts_dirty() = false;
         // (the original gave the counter the address of piece_counts_: its six counts ran on into the next three
         // fields - the park's components, vectors and arrays)
-        std::array<int, 6> counts{};
+        std::array<int, kNodeCountSlots> counts{};
         park_assembler_ref()->get_node_counts(counts);
         for (int i = 0; i < 3; ++i)
             core::at(stats.piece_counts_, i) = core::at(counts, i);
         stats.components = core::at(counts, 3);
         stats.vectors = core::at(counts, 4);
-        stats.arrays = core::at(counts, 5);
+        stats.arrays = core::at(counts, kArraysCountIndex);
     }
     memory::Arena* main_heap = memory::Hub::get_pull()->bottom_up_heap();
     memory::Zone* main_region = main_heap->region();
     // The main heap's pad grows by 0x8EF1C bytes for each player after the first.
     int main_pad = get_memory_value("main_heap_pad", -1); // "main_heap_pad"
-    main_pad += park_max_players() * 0x8EF1C - 0x8EF1C;
+    main_pad += park_max_players() * kPerPlayerHeapPad - kPerPlayerHeapPad;
     stats.main_heap_free_ = main_region->free_byte_count() + main_heap->free_size();
     stats.main_heap_free_ -= get_memory_value("anim_set_mem", -1) + main_pad; // "anim_set_mem"
     const int park_pad = get_memory_value("park_heap_pad", -1);               // "park_heap_pad"
@@ -400,10 +417,10 @@ void prepare_all(uint32_t level)
     }
     park_memory_state().park_region_ = memory::take_unique<memory::Zone>(region);
     park_heap() = manager->add_heap(park_memory_state().park_region_.get(), direction, name);
-    create_map_list_node_pool(16000, "CMapListNode");                          // "CMapListNode"
+    create_map_list_node_pool(kMapListNodePoolSize, "CMapListNode");                          // "CMapListNode"
     debug::printf("pool is at %p\n", active_slab_pool(node_pools())); // "pool is at %p\n"
-    create_clipboard_entry_pool(1000, "CClipboardEntry");                      // "CClipboardEntry"
-    create_clipboard_pool(6, "CClipboard");                                    // "CClipboard"
+    create_clipboard_entry_pool(kClipboardEntryPoolSize, "CClipboardEntry");                      // "CClipboardEntry"
+    create_clipboard_pool(kClipboardPoolSize, "CClipboard");                                    // "CClipboard"
     manager->leave_heap_scope();
     unknown_7c_e_68c() = 0;
     dma_pieces() = 0;

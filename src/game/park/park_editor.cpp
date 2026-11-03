@@ -57,7 +57,7 @@ void free_node_chain(CellChainScratch& temp) { temp.teardown(); }
 void ParkLayout::rebuild_park(uint32_t how)
 {
     set_up_lights();
-    if (!(flag_bits() & 5) && floor_built())
+    if (!(flag_bits() & ParkLayout::kMapValid | ParkLayout::kMapNewerThanPark) && floor_built())
         write_compressed_map();
     destroy_concrete_metas(0);
     clear_stats();
@@ -77,7 +77,7 @@ void ParkLayout::rebuild_park(uint32_t how)
             std::memcpy(map_.name().data(), unnamed, std::strlen(unnamed) + 1);
             std::memcpy(park_name_.data(), unnamed, std::strlen(unnamed) + 1);
         }
-        flag_bits() &= ~8u;
+        flag_bits() &= ~ParkLayout::kMapNotSavedLocal;
         how = kNewPark;
     } else {
         read_from_compressed_map(); // rebuilt from the saved map
@@ -167,7 +167,7 @@ void ParkLayout::clear_area(CellBox area)
         for (int z = area.z; z < area.z + area.l; ++z)
             core::at(core::at(floor_, x), z).level_y_ = 0;
     }
-    flag_bits() &= ~5u;
+    flag_bits() &= ~ParkLayout::kMapValid | ParkLayout::kMapNewerThanPark;
     rebuild_floor_and_pieces(this, &area, 0);
     free_node_chain(metas);
 }
@@ -262,8 +262,8 @@ void BuildPointer::step_piece_family(int dir)
         update_pieces(park_owner()->builder());
         piece_group() = nullptr;
     }
-    if (mode() != 5) {
-        set_mode(5);
+    if (mode() != BuildPointer::kModePaste) {
+        set_mode(BuildPointer::kModePaste);
         on_mode_changed();
     }
 }
