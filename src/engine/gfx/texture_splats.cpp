@@ -532,7 +532,7 @@ TextureSplats* create_texture_splat(void** sectors, HitMesh* const* /*objects*/,
             core::at(mesh->index_buffers(), 0)->get_lock(0, 0, &locked_indices, kLockReadOnly);
             const std::span<const uint16_t> indices(locked_indices, core::at(mesh->index_counts(), 0));
             // (a strip of fewer than two indices has no triangle: the first two are only read, as the original did)
-            uint32_t a = indices.size() > 0 ? core::at(indices, 0) : 0u, b = indices.size() > 1 ? core::at(indices, 1) : 0u;
+            uint32_t a = !indices.empty() ? core::at(indices, 0) : 0u, b = indices.size() > 1 ? core::at(indices, 1) : 0u;
             for (uint32_t strip = 2; strip < core::at(mesh->index_counts(), 0); ++strip) {
                 const uint32_t c = core::at(indices, strip);
                 const uint32_t ia = a;

@@ -241,7 +241,7 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
                         (words.empty() ? "?" : core::at(words, 0)) + " (" + cls + ")";
         } else if (keyword == "order") {
             e.summary =
-                "The added crowns' order: " + std::to_string(words.size() > 0 ? words.size() - 1 : 0) + " crowns";
+                "The added crowns' order: " + std::to_string(!words.empty() ? words.size() - 1 : 0) + " crowns";
         } else if (keyword == "hide" || keyword == "drop") {
             e.id = words.empty() ? 0 : id_of(core::at(words, 0));
             e.summary = name_of(e.id, words.empty() ? "?" : core::at(words, 0)) +
