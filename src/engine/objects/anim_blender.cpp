@@ -36,6 +36,9 @@
 
 namespace objects {
 namespace {
+constexpr unsigned kByteMask = 0xFF;
+constexpr int kBlockReasonAnimDone = 6;          // the script waits for the animation to finish
+constexpr int kAllChannelsFlagBit = 29;
 constexpr uint32_t kObjAddAnimSubset = 0xCABB44AE; // Obj_AddAnimSubset
 constexpr uint32_t kAnimBlender = 0x7149B753; // AnimBlender
 constexpr uint32_t kOBJWaitanimfinished = 0xB628A959; // OBJ_waitanimfinished
@@ -76,9 +79,9 @@ constexpr uint32_t kBlendDuration = 0xBF237659; // BlendDuration
 constexpr uint32_t kHashC7C6228C = 0xC7C6228C; // (text unknown)
 } // namespace
 
-std::array<script::MemberFunctionEntry, 30>& anim_blender_member_functions()
+std::array<script::MemberFunctionEntry, kAnimBlenderMemberFunctionCount>& anim_blender_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 30> anim_blender_member_functions{{
+    static std::array<script::MemberFunctionEntry, kAnimBlenderMemberFunctionCount> anim_blender_member_functions{{
         {.callsign_ = kObjAddAnimSubset, .owner_kind_ = kAnimBlender}, {.callsign_ = kOBJWaitanimfinished, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjRemoveAnimSubset, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjSetAnimSubsetWeight, .owner_kind_ = kAnimBlender},
         {.callsign_ = kObjAnimSubsetExists, .owner_kind_ = kAnimBlender}, {.callsign_ = kOBJEnableAnimBlending, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjSetAnimCycleMode, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjPlayAnimName, .owner_kind_ = kAnimBlender},
         {.callsign_ = kHash2889C6C9, .owner_kind_ = kAnimBlender}, {.callsign_ = kAnimFinished, .owner_kind_ = kAnimBlender}, {.callsign_ = kObjAnimEquals, .owner_kind_ = kAnimBlender}, {.callsign_ = kAnimEquals, .owner_kind_ = kAnimBlender},
@@ -112,7 +115,7 @@ bool is_over(memory::ListNode* node) { return is_head(node) || !node; }
 uint32_t& ident_no(Channel* channel) { return channel->ident(); }
 
 // A bool read from a 32-bit argument slot as the callee does: its low byte (the callers pass raw words).
-bool bool_arg(uint32_t word) { return (word & 0xFF) != 0; }
+bool bool_arg(uint32_t word) { return (word & kByteMask) != 0; }
 bool bool_arg(float word) { return bool_arg(std::bit_cast<uint32_t>(word)); }
 
 } // namespace
@@ -280,7 +283,7 @@ int AnimBlenderComponent::wait_on_channel(uint32_t, script::Struct* params, scri
         wait_for = id;
     else
         wait_for = ident_no(first);
-    script->set_wait_on_component(static_cast<script::BlockReason>(6), this, wait_for);
+    script->set_wait_on_component(static_cast<script::BlockReason>(kBlockReasonAnimDone), this, wait_for);
     return 1;
 }
 
@@ -452,7 +455,7 @@ bool AnimBlenderComponent::all_channels_flag29()
 {
     bool all = true;
     for (memory::ListNode* node = lanes_.next(); !is_over(node); node = node->next())
-        all = all && ((as_channel(node)->flag_bits() >> 29) & 1);
+        all = all && ((as_channel(node)->flag_bits() >> kAllChannelsFlagBit) & 1);
     return all;
 }
 
@@ -511,7 +514,7 @@ void AnimBlenderComponent::first_channel_47e_280(float a, uint32_t b)
 }
 
 // 0x00419BF0
-void AnimBlenderComponent::first_channel_47e_450(std::span<const float, 5> a, uint32_t b)
+void AnimBlenderComponent::first_channel_47e_450(std::span<const float, kBlendParamCount> a, uint32_t b)
 {
     if (Channel* channel = masked(lanes_.next()))
         channel->set_wobble_details(a, bool_arg(b));

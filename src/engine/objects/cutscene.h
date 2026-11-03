@@ -32,6 +32,10 @@ struct FrameSource;
 #include <gsl/pointers>
 
 namespace objects {
+constexpr std::size_t kMatrixFloats = 16;          // a 4 x 4 matrix
+constexpr std::size_t kEntityCapacity = 256;
+constexpr std::size_t kAnimationCapacity = 256;
+constexpr std::size_t kAssetCapacity = 512;
 
 class GameEntity;
 
@@ -44,7 +48,7 @@ void anim_source_free(void* item);
 
 // 0x00463AA0: a matrix from a rotation (quaternion: its x, y and z negated in place - the original's) and a
 // translation (w 1).
-void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translation, std::span<float, 16> matrix);
+void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translation, std::span<float, kMatrixFloats> matrix);
 // The skater appearance's face (its +0x54). No address of its own: the original reads it through the getter folded at
 // 0x00576E60 (modules::Viewer::get_viewer_entity).
 gfx::FaceSkin* appearance_face(gfx::ModelLook* appearance);
@@ -223,11 +227,11 @@ private:
                              // back to every one of them afterwards, as the original)
     bool lent_saved_{false}; // +0x50: it (and its model's settings, +0x2C-0x3D) saved
     std::array<uint8_t, 3> unknown51_{};
-    std::array<ObjectEntry, 256> entities_{};    // +0x54
+    std::array<ObjectEntry, kEntityCapacity> entities_{};    // +0x54
     int object_count_{0};            // +0x2054
-    std::array<AnimationEntry, 256> animations_{}; // +0x2058
+    std::array<AnimationEntry, kAnimationCapacity> animations_{}; // +0x2058
     int animation_count_{};            // +0x2C58
-    std::array<uint32_t, 512> assets_{};           // +0x2C5C
+    std::array<uint32_t, kAssetCapacity> assets_{};           // +0x2C5C
     int asset_count_{0};               // +0x345C
     bool ready_{false};                // +0x3460: the music started (or none to wait for)
     bool can_skip_{};                // +0x3461
@@ -261,6 +265,9 @@ private:
     script::Struct* call_args_; // +0x34CC
 };
 
+constexpr std::size_t kCinematicEntryContentOffset = 0x2C;
+constexpr std::size_t kCinematicEntryFlag5dOffset = 0x5D;
+constexpr std::size_t kCinematicEntryUnknown60Offset = 0x60;
 // The cutscene kind of the movie manager's movies (vtable 0x00647920).
 class CinematicEntry final : public VideoEntry {
 public:
@@ -318,12 +325,13 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(CinematicEntry, content_) == 0x2C && offsetof(CinematicEntry, flag_5d_) == 0x5D &&
-                          offsetof(CinematicEntry, unknown60_) == 0x60,
+        static_assert(offsetof(CinematicEntry, content_) == kCinematicEntryContentOffset && offsetof(CinematicEntry, flag_5d_) == kCinematicEntryFlag5dOffset &&
+                          offsetof(CinematicEntry, unknown60_) == kCinematicEntryUnknown60Offset,
                       "layout must match the original");
     }
 };
 
-static_assert(sizeof(CinematicTable::ObjectEntry) == 0x20, "layout must match the original");
+constexpr std::size_t kCinematicTableObjectEntryBytes = 0x20;
+static_assert(sizeof(CinematicTable::ObjectEntry) == kCinematicTableObjectEntryBytes, "layout must match the original");
 
 } // namespace objects

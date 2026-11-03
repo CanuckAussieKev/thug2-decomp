@@ -52,6 +52,17 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kContactSlots = 132;
+constexpr float kForwardSpread = 0.5f;
+constexpr float kUpSpread = 0.2f;
+constexpr float kYawSpread = 1.5f;
+constexpr float kRollSpread = 0.8f;
+constexpr int kSourceLineVehicle = 0xD78;          // the source lines the original reports its messages from
+constexpr int kSourceLineVehicleB = 0x2A0;
+constexpr int kLastLoadIndex = 9;
+constexpr int kMaxSteps = 6;
+constexpr int kLastSpoke = 11;
+constexpr int kProbeIterations = 60;
 constexpr uint32_t kHash3DB3FA83 = 0x3DB3FA83; // (text unknown)
 constexpr uint32_t kHash738500FD = 0x738500FD; // (text unknown)
 constexpr uint32_t kHash771922A6 = 0x771922A6; // (text unknown)
@@ -100,9 +111,9 @@ constexpr uint32_t kHashFF969600 = 0xFF969600; // (text unknown)
 constexpr uint32_t kAllBitsSet = 0xFFFFFFFF; // (text unknown)
 // The contacts of the colliders with the world (one array for every vehicle), up to the lens flare's globals at
 // 0x00696878: 132 of them.
-std::array<DrivableModule::Contact, 132>& vehicle_contacts()
+std::array<DrivableModule::Contact, kContactSlots>& vehicle_contacts()
 {
-    static core::NoDestroy<std::array<DrivableModule::Contact, 132>> vehicle_contacts;
+    static core::NoDestroy<std::array<DrivableModule::Contact, kContactSlots>> vehicle_contacts;
     return vehicle_contacts.get();
 }
 } // namespace
@@ -297,7 +308,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
 
     // The push: along the direction (0x3DB3FA83 * (1 + +-0.5)), sideways (0x39E99FEC * +-1.5), up
     // (0x738500FD * (1 + +-0.2)).
-    auto forward_scale = static_cast<float>(maths::signed_spread(0.5f) + 1.0);
+    auto forward_scale = static_cast<float>(maths::signed_spread(kForwardSpread) + 1.0);
     auto forward = static_cast<float>(script::fetch_float(kHash3DB3FA83) * static_cast<double>(forward_scale));
     const float side_scale = script::fetch_float(0x39E99FEC);
     const double side = static_cast<double>(maths::signed_spread(1.5f)) * side_scale;
@@ -312,14 +323,14 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dz) * forward)) + side_z);
     auto push_w =
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dw) * forward)) + side_w);
-    auto up_scale = static_cast<float>(maths::signed_spread(0.2f) + 1.0);
+    auto up_scale = static_cast<float>(maths::signed_spread(kUpSpread) + 1.0);
     push_y = static_cast<float>(static_cast<double>(push_y) +
                                 script::fetch_float(kHash738500FD) * static_cast<double>(up_scale));
 
     // The spin: about the up axis (0x14DDB3EF * +-1.5) and about the sideways one (0x4088E6EC * (1 + +-0.8)).
     const float yaw_scale = script::fetch_float(0x14DDB3EF);
-    auto yaw = static_cast<float>(static_cast<double>(maths::signed_spread(1.5f)) * yaw_scale);
-    auto roll_scale = static_cast<float>(maths::signed_spread(0.8f) + 1.0);
+    auto yaw = static_cast<float>(static_cast<double>(maths::signed_spread(kYawSpread)) * yaw_scale);
+    auto roll_scale = static_cast<float>(maths::signed_spread(kRollSpread) + 1.0);
     const double roll = static_cast<double>(script::fetch_float(0x4088E6EC)) * roll_scale;
     const double spin_x = sideways * roll;
     auto spin_y = static_cast<float>(roll * 0.0 + yaw);
@@ -401,7 +412,7 @@ bool DrivableModule::adjust_gravity(script::Struct* params, script::Script*)
     params->fetch_float(kPercent, &gravity_scale_, 1);
     gravity_scale_ = static_cast<float>(static_cast<double>(gravity_scale_) * kHundredth);
     params->fetch_float(kDuration, &gravity_time_, 1);
-    debug::printf(kDebugFormat, kDebugFile, 0xD78,
+    debug::printf(kDebugFormat, kDebugFile, kSourceLineVehicle,
                   "Initiating vehicle gravity override"); // "Initiating vehicle gravity override"
     return true;
 }
@@ -691,7 +702,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         wheel.steering = 0.0f;
         wheel.display_steering_ = 0.0f;
         wheel.torque = 0.0f;
-        for (int k = 9; k >= 0; --k)
+        for (int k = kLastLoadIndex; k >= 0; --k)
             core::at(wheel.load_history_, k) =
                 static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / as_unsigned(wheel_count_));
     }
@@ -829,7 +840,7 @@ void DrivableModule::tick_frame()
         const double left = static_cast<double>(gravity_time_) - frame;
         gravity_time_ = static_cast<float>(left);
         if (left <= 0.0 || static_cast<uint32_t>(wheels_in_contact_) > 1) {
-            debug::printf(kDebugFormat, kDebugFile, 0x2A0,
+            debug::printf(kDebugFormat, kDebugFile, kSourceLineVehicleB,
                           "Ending vehicle gravity override"); // "Ending vehicle gravity override"
             gravity_time_ = 0.0f;
             gravity_scale_ = 1.0f;
@@ -841,8 +852,8 @@ void DrivableModule::tick_frame()
         step_length_ = frame;
     } else {
         steps = static_cast<int>(static_cast<int64_t>(std::ceil(static_cast<double>(frame) * kStepsPerSecond)));
-        if (steps > 6)
-            steps = 6;
+        if (steps > kMaxSteps)
+            steps = kMaxSteps;
         step_length_ = static_cast<float>(frame / static_cast<double>(steps));
     }
     while (steps != 0) {
@@ -982,7 +993,7 @@ void DrivableModule::debug_draw()
             colour = kAllBitsSet;
             break;
         }
-        for (int spoke = 11; spoke >= 0; --spoke) {
+        for (int spoke = kLastSpoke; spoke >= 0; --spoke) {
             maths::Vec4 a, b;
             for (const bool outer : {true, false}) {
                 get_wheel_rim_point(&a, &wheel, spoke, outer);
@@ -1059,7 +1070,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
     clear_to_w1(rotmom_);
     // Settled by sixty updates without input, collision or debug drawing, the wheels kept from turning.
     passive_ = true;
-    for (int n = 60; n != 0; --n) {
+    for (int n = kProbeIterations; n != 0; --n) {
         for (int i = wheel_count_ - 1; i >= 0; --i)
             core::at(wheels_, i).spin = 0.0f;
         tick_frame();

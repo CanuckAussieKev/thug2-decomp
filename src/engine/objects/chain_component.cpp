@@ -31,6 +31,9 @@
 namespace objects {
 
 namespace {
+constexpr float kInitialLinkValue = 3.0f;
+constexpr double kUnsignedWrap = 4294967296.0;     // 2^32: a count taken as unsigned
+constexpr float kFullLinkValue = 255.0f;
 
 constexpr uint32_t kSuspend = 0xCE0CA665;  // the suspend component
 constexpr uint32_t kSkeleton = 0x222756D5; // the skeleton component
@@ -262,7 +265,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
         chain->set_collide_end(value);
         for (int j = 0; j < chain->links(); ++j) {
             ChainLink& link = core::at(chain->chain_link(), j);
-            link.set_value40(3.0f);
+            link.set_value40(kInitialLinkValue);
             link.set_byte_count(static_cast<float>(static_cast<double>(length) / segments));
             link.at_point() = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
             link.last_pos() = link.at_point();
@@ -483,10 +486,10 @@ void ChainComponent::tick_frame()
         step_time_ = get_rounded(done);
         auto iterations = static_cast<double>(chain->iterations());
         if (chain->iterations() < 0)
-            iterations += 4294967296.0;
+            iterations += kUnsignedWrap;
         auto steps = static_cast<double>(steps_);
         if (steps_ < 0)
-            steps += 4294967296.0;
+            steps += kUnsignedWrap;
         const int passes = static_cast<int>(static_cast<int64_t>(iterations * done - steps));
         steps_ += passes;
         if (done >= 1.0) {
@@ -556,7 +559,7 @@ void ChainComponent::tick_frame()
             }
             // The collision range kept to its side of the plane.
             for (int i = chain->collide_first(); i < chain->collide_end(); ++i) {
-                core::at(link, i).set_value40(255.0f);
+                core::at(link, i).set_value40(kFullLinkValue);
                 const double offset = chain->plane_offset();
                 const double px = static_cast<double>(core::at(axis, 0)) * offset + plane_point.x;
                 const double py = static_cast<double>(plane_point.y) + get_rounded(offset * core::at(axis, 1));

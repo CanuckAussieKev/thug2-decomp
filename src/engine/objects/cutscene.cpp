@@ -23,6 +23,8 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kNameBufferBytes = 256;
+constexpr std::size_t kTextBytes = 0x200;
 
 constexpr uint32_t kSubtitleScript = 0x625985F9; // run with each subtitle's structure (name unknown)
 constexpr uint32_t kTime = 0x906B67BA;           // a subtitle's start (name unknown)
@@ -34,9 +36,9 @@ constexpr uint32_t kSlot12Global = 0xA2A4F02F;   // CinematicEntry::update_optio
 constexpr uint32_t kButtonX = 0x40;
 constexpr uint32_t kButtonStart = 0x800;
 
-std::array<char, 256>& name_buffer()
+std::array<char, kNameBufferBytes>& name_buffer()
 {
-    static std::array<char, 256> cutscene_name_buffer{};
+    static std::array<char, kNameBufferBytes> cutscene_name_buffer{};
     return cutscene_name_buffer;
 }
 
@@ -61,7 +63,7 @@ uint32_t CinematicTable::hash_of_name(const char* suffix, int number)
 {
     if (number == -1)
         return checksums::fold_text_into_checksum(label_, suffix);
-    std::array<char, 0x200> text{};
+    std::array<char, kTextBytes> text{};
     text::format_to(text, "%s%d\n", suffix, number);
     return checksums::fold_text_into_checksum(label_, text.data());
 }

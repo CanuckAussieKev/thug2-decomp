@@ -26,6 +26,14 @@ constexpr uint8_t kLockFlagLocked = 0x4; // locked (Obj_LockToObject without `of
 // are ever used); set and cleared by configure_from_data, read by Update.
 constexpr uint8_t kLockFlagNoRotate = 0x8;
 
+constexpr std::size_t kPinnedObjectModuleEntityLabelOffset = 0x18;
+constexpr std::size_t kPinnedObjectModuleShiftOffset = 0x24;
+constexpr std::size_t kPinnedObjectModuleOrientationTurnOffset = 0x34;
+constexpr std::size_t kPinnedObjectModuleLagOffset = 0x74;
+constexpr std::size_t kPinnedObjectModuleWobbleOffset = 0x80;
+constexpr std::size_t kPinnedObjectModuleWobbleSeedOffset = 0x88;
+constexpr std::size_t kPinnedObjectModuleLockFlagsOffset = 0x8C;
+constexpr std::size_t kPinnedObjectModuleBytes = 0x90;
 // The lockobj component (type 0x5CB5CB7E "lockobj", vtable 0x006460E4, 0x90 bytes; the motion components each moving
 // object gets, add_motion_components): keeps its object locked to another object (Obj_LockToObject) - at the target's
 // position plus the offset turned by the target's orientation (or a bone of the target's skeleton), with the
@@ -88,11 +96,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PinnedObjectModule, entity_label_) == 0x18 && offsetof(PinnedObjectModule, shift_) == 0x24 &&
-                          offsetof(PinnedObjectModule, orientation_turn_) == 0x34 &&
-                          offsetof(PinnedObjectModule, lag_) == 0x74 && offsetof(PinnedObjectModule, wobble_) == 0x80 &&
-                          offsetof(PinnedObjectModule, wobble_seed_) == 0x88 &&
-                          offsetof(PinnedObjectModule, lock_flags_) == 0x8C && sizeof(PinnedObjectModule) == 0x90,
+        static_assert(offsetof(PinnedObjectModule, entity_label_) == kPinnedObjectModuleEntityLabelOffset && offsetof(PinnedObjectModule, shift_) == kPinnedObjectModuleShiftOffset &&
+                          offsetof(PinnedObjectModule, orientation_turn_) == kPinnedObjectModuleOrientationTurnOffset &&
+                          offsetof(PinnedObjectModule, lag_) == kPinnedObjectModuleLagOffset && offsetof(PinnedObjectModule, wobble_) == kPinnedObjectModuleWobbleOffset &&
+                          offsetof(PinnedObjectModule, wobble_seed_) == kPinnedObjectModuleWobbleSeedOffset &&
+                          offsetof(PinnedObjectModule, lock_flags_) == kPinnedObjectModuleLockFlagsOffset && sizeof(PinnedObjectModule) == kPinnedObjectModuleBytes,
                       "layout must match the original (0x0041FF20 allocates 0x90 bytes)");
     }
 };

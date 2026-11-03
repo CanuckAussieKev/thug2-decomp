@@ -24,6 +24,7 @@
 namespace objects {
 
 namespace {
+constexpr int kLightRequireFlags = 0x20;
 
 constexpr uint32_t kOnce = 0xE7375C4C;     // (its name isn't in THUG2's scripts)
 constexpr uint32_t kInterval = 0x470B8AE9; // (nor this one's)
@@ -90,7 +91,7 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
     const bool hit = down.get_hit_shape(false, false) != 0;
     // Again from higher up, to just under what it hit (or as far down), faces flagged 0x20 only.
     render::ProbeRay again;
-    again.set_excluded({.ignore = 0, .require = 0x20});
+    again.set_excluded({.ignore = 0, .require = kLightRequireFlags});
     again.line().start = {.x = start.x, .y = start.y + kSecondAbove, .z = start.z, .w = start.w};
     if (hit)
         again.line().end = {.x = down.contact_pos().x, .y = down.contact_pos().y - 1.0f, .z = down.contact_pos().z, .w = down.contact_pos().w};

@@ -16,6 +16,8 @@ class Struct;
 
 namespace objects {
 
+constexpr std::size_t kViewpointModuleViewCameraOffset = 0x18;
+constexpr std::size_t kViewpointModuleBytes = 0x1C;
 // The camera component (type 0xC4E311FA "camera", vtable 0x00645E34, 0x1C bytes; made by 0x0041B840): a gfx::ViewCam
 // of its own that follows its object - its position and orientation copied into the camera at Finalize and after each
 // of the object's updates (the object's orientation becoming its display matrix too).
@@ -53,7 +55,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ViewpointModule, view_camera_) == 0x18 && sizeof(ViewpointModule) == 0x1C,
+        static_assert(offsetof(ViewpointModule, view_camera_) == kViewpointModuleViewCameraOffset && sizeof(ViewpointModule) == kViewpointModuleBytes,
                       "layout must match the original");
     }
 };

@@ -1,5 +1,6 @@
 // Cutscenes: the data's constructor and the objects a cutscene adds (0x004645A0-0x00465502). See cutscene.h.
 
+#include <cstddef>
 #include <cstdint>
 #include "engine/gfx/boned_anim_frame_data.h"
 #include "engine/gfx/face_texture.h"
@@ -30,6 +31,8 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kCarveBytes = 8;
+constexpr float kPercentToFraction = 0.0099999998f;
 constexpr uint32_t kHash01815FB3 = 0x01815FB3; // (text unknown)
 constexpr uint32_t kHeadCasMale01 = 0x9954F90F; // Head_Cas_Male01
 constexpr uint32_t kHash6218C3C9 = 0x6218C3C9; // (text unknown)
@@ -83,7 +86,7 @@ constexpr uint32_t kPartA = 0x650FAB6D, kPartB = 0x0FC85BAE, kPartC = 0x6DF453B6
 
 gsl::owner<script::Struct*> make_struct()
 {
-    void* memory = script::struct_pools().carve(8);
+    void* memory = script::struct_pools().carve(kCarveBytes);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
 
@@ -400,8 +403,8 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
     colour->put_name_key(checksums::Name{kMaterial}, kCasheadHead);
     colour->put_int(checksums::Name{kPass}, 0);
     static_cast<render::RenderModel*>(model)->set_color_from_script(
-        colour, static_cast<float>(hue), static_cast<float>(saturation * static_cast<double>(0.0099999998f)),
-        static_cast<float>(value * static_cast<double>(0.0099999998f)));
+        colour, static_cast<float>(hue), static_cast<float>(saturation * static_cast<double>(kPercentToFraction)),
+        static_cast<float>(value * static_cast<double>(kPercentToFraction)));
     free_struct(colour);
 }
 

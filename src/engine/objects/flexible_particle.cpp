@@ -41,6 +41,10 @@ void EmitterInstance::set_flag(int bit, bool on)
 namespace objects {
 
 namespace {
+constexpr int kDefaultSegments = 8;
+constexpr float kDefaultUnknown4e0a65ee = 0.5f;
+constexpr uint32_t kFlagWorldSpace = 0x4000;       // the particle system's flag bits
+constexpr uint32_t kFlagLoop = 0x8000;
 constexpr uint32_t kSetSpeedRange = 0x63274395; // SetSpeedRange
 constexpr uint32_t kFlexibleParticle = 0xC5BCEB9E; // FlexibleParticle
 constexpr uint32_t kSetEmitRange = 0x8FFDEF38; // setEmitRange
@@ -80,9 +84,9 @@ uint32_t next_unnamed_label()
     return s_last;
 }
 } // namespace
-std::array<script::MemberFunctionEntry, 26>& flexible_particle_member_functions()
+std::array<script::MemberFunctionEntry, kFlexibleParticleMemberFunctionCount>& flexible_particle_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 26> flexible_particle_member_functions{{
+    static std::array<script::MemberFunctionEntry, kFlexibleParticleMemberFunctionCount> flexible_particle_member_functions{{
         {.callsign_ = kSetSpeedRange, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetEmitRange, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetAngleSpread, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kHashDB8621F7, .owner_kind_ = kFlexibleParticle},
         {.callsign_ = kSetCircularEmit, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetEmitterIndependent, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetLODParams, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetForce, .owner_kind_ = kFlexibleParticle},
         {.callsign_ = kSetParticleSize, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetParticleSizeScale, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetLife, .owner_kind_ = kFlexibleParticle}, {.callsign_ = kSetEmitTarget, .owner_kind_ = kFlexibleParticle},
@@ -247,9 +251,9 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
     params->read_hash_value(kUnknown184197d5, &unknown28_, 0);
     int unknowna605b89f = 0;
     params->fetch_int_value(kUnknownA605b89f, &unknowna605b89f, 0);
-    int segments = 8;
+    int segments = kDefaultSegments;
     params->fetch_int_value(kSegments, &segments, 0);
-    float unknown4e0a65ee = 0.5f;
+    float unknown4e0a65ee = kDefaultUnknown4e0a65ee;
     params->fetch_float(kUnknown4e0a65eE, &unknown4e0a65ee, 0);
     int history = 1;
     params->fetch_int_value(kHistory, &history, 0);
@@ -301,9 +305,9 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
             brightness_model_ = core::down_cast<GameEntity>(find_object(object_id))->fetch_module(kModel);
     }
     if (params->has_bare_flag(kUseRandomUvQuadrants))
-        system_.get_pull()->flag_bits() |= 0x4000;
+        system_.get_pull()->flag_bits() |= kFlagWorldSpace;
     if (params->has_bare_flag(kUnknown5446aF14))
-        system_.get_pull()->flag_bits() |= 0x8000;
+        system_.get_pull()->flag_bits() |= kFlagLoop;
     if (params->has_bare_flag(kFillPath))
         system_.get_pull()->set_fill_path(true);
     if (params->has_bare_flag(kUnknownDe45a90d))

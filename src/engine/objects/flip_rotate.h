@@ -12,6 +12,7 @@ class Struct;
 
 namespace objects {
 
+constexpr std::size_t kFlipRotateComponentMirroredOffset = 0x14;
 // The "FlipRotate" animation controller (made by the controller factory 0x00481FB0 for the type checksum 0xDF5C091A;
 // vtable 0x0064B1D4): an object's flipped / rotated state applied to its pose.
 class FlipRotateComponent final : public gfx::AnimDriver {
@@ -37,9 +38,10 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(FlipRotateComponent, mirrored_) == 0x14);
+        static_assert(offsetof(FlipRotateComponent, mirrored_) == kFlipRotateComponentMirroredOffset);
     }
 };
-static_assert(sizeof(FlipRotateComponent) == 0x18);
+constexpr std::size_t kFlipRotateComponentBytes = 0x18;
+static_assert(sizeof(FlipRotateComponent) == kFlipRotateComponentBytes);
 
 } // namespace objects

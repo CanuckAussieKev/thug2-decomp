@@ -2,6 +2,7 @@
 // to an orientation over time (Obj_Rotate's interpolation), to look at points, nodes and objects (Obj_LookAt*), and
 // to its node's angles.
 
+#include <cstddef>
 #include <cmath>
 #include <cstdint>
 
@@ -25,6 +26,9 @@ namespace objects {
 using namespace motion_detail;
 
 namespace {
+constexpr std::size_t kTurnBlenderBytes = 0x98;
+constexpr int kDefaultTurnSpeed = 360;               // degrees a second
+constexpr int kRotateForeverAxes = 7;                // the three axes' flags, as a multiplier of the first
 constexpr uint32_t kOBJECTTYPESKATER = 0xBAF9B341; // OBJECT_TYPE_SKATER
 constexpr uint32_t kOBJECTTYPEPED = 0xD2DB7F97; // OBJECT_TYPE_PED
 constexpr uint32_t kOBJECTTYPEGAMEOBJ = 0xBC0D91D8; // OBJECT_TYPE_GAME_OBJ
@@ -252,7 +256,7 @@ void KinematicsModule::start_rotation(script::Struct* params, const maths::Mat4*
         if (!memory::manager_ready_flag()) // (the memory manager not set up yet)
             memory::ensure_manager();
         // (its constructor, 0x005902E0, does nothing)
-        turn_ptr_ = static_cast<maths::ArcRotationBlender*>(memory::Hub::get_pull()->carve(0x98, 1, nullptr));
+        turn_ptr_ = static_cast<maths::ArcRotationBlender*>(memory::Hub::get_pull()->carve(kTurnBlenderBytes, 1, nullptr));
     }
     maths::Mat4 end;
     end = *target;
@@ -320,13 +324,13 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
         matrix_multiply(&matrix, &maths::make_yaw_matrix(rotation, angle), &matrix);
         return true;
     }
-    int speed = 360;
+    int speed = kDefaultTurnSpeed;
     int acceleration = 0;
     int axes = 2; // (y)
     float time = 0.0f;
     if (!(motion_flags_ & kMotionLookingAt)) {
         motion_flags_ = (motion_flags_ & ~kMotionRotateAxes) | kMotionLookingAt;
-        motion_flags2_ &= ~(kMotion2RotateForeverX * 7);
+        motion_flags2_ &= ~(kMotion2RotateForeverX * kRotateForeverAxes);
     }
     params->fetch_float(kTime, &time, 0);
     if (time == 0.0f) {

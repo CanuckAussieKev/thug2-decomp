@@ -22,6 +22,7 @@ class Struct;
 } // namespace script
 
 namespace objects {
+constexpr std::size_t kSpinCount = 6;
 
 // One turn of a model's display about an axis (RotateDisplay): from `base` by `range` degrees over `period`
 // milliseconds - linearly (power 0), eased in (power > 0: sin(pi/2 t) squared power - 1 times) or out (power < 0:
@@ -41,7 +42,8 @@ struct ModelSpin {
 // switched off (0), or held at base + range. The time is the game clock's (slow motion counted), or the real one
 // (kModelSpinRealTime).
 double bearing(ModelSpin& spin);
-static_assert(sizeof(ModelSpin) == 0x18, "layout must match the original");
+constexpr std::size_t kModelSpinBytes = 0x18;
+static_assert(sizeof(ModelSpin) == kModelSpinBytes, "layout must match the original");
 
 // ModelSpin::flag_bits_
 constexpr uint8_t kModelSpinOn = 0x1;
@@ -51,7 +53,7 @@ constexpr uint8_t kModelSpinRealTime = 0x4; // dontpause: the real time, not the
 // A model's turns about one axis: up to six at once, added up.
 struct ModelSpinAxis {
 
-    std::array<ModelSpin, 6> spins_; // +0x00
+    std::array<ModelSpin, kSpinCount> spins_; // +0x00
     bool active_;        // +0x90
 };
 
@@ -72,7 +74,8 @@ void append_one(ModelSpinAxis& axis, SpinWave spin_wave, bool hold, bool real_ti
 
 // 0x004213E0: the angles of the turns still on, added up (degrees). Inactive once none is.
 float bearing(ModelSpinAxis& axis);
-static_assert(sizeof(ModelSpinAxis) == 0x94, "layout must match the original");
+constexpr std::size_t kModelSpinAxisBytes = 0x94;
+static_assert(sizeof(ModelSpinAxis) == kModelSpinAxisBytes, "layout must match the original");
 
 // The model component (type 0x286A8D26 "model", vtable 0x00646128, 0x238 bytes; made by 0x00421490): an object's
 // renderable model (render::RenderModel, +0x208) - made from its structure (Obj_InitModel: a level object's sector, a clone of

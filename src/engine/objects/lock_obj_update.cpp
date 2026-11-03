@@ -23,6 +23,7 @@
 namespace objects {
 
 namespace {
+constexpr double kHalf = 0.5;
 constexpr float kLockObjUpdateWobbleStep{0.0061359233f};
 
 constexpr uint32_t kSkeleton = 0x222756D5;
@@ -178,7 +179,7 @@ void PinnedObjectModule::update_lock()
         const double step = update_wobble_step();
         const double wobble = std::sin(time * static_cast<double>(core::at(wobble_, 1)) * step) *
                               std::sin(time * static_cast<double>(core::at(wobble_, 0)) * step);
-        lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - lag_min_) * 0.5 + lag_min_);
+        lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - lag_min_) * kHalf + lag_min_);
     } else {
         object->at_point() = {.x = extra.x + pos.x, .y = extra.y + pos.y, .z = extra.z + pos.z, .w = extra.w + pos.w};
     }

@@ -34,6 +34,7 @@ private:
     SharedLink* head_ = nullptr;
 };
 
+constexpr std::size_t kSharedBaseBytes = 8;
 // The base of objects that smart pointers point at (vtable 0x006478E4): after the vptr, the list of the smart
 // pointers to it. Allocated zeroed from the current heap, as the game's objects are. (Not a memory::HeapObject: an
 // empty base would change the member-function-pointer form of the classes whose methods the scripts' member
@@ -69,7 +70,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(SharedBase, smart_pointers_) == 4 && sizeof(SharedBase) == 8, "layout must match the original");
+        static_assert(offsetof(SharedBase, smart_pointers_) == 4 && sizeof(SharedBase) == kSharedBaseBytes, "layout must match the original");
     }
 };
 

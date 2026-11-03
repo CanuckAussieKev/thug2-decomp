@@ -27,6 +27,11 @@
 namespace objects {
 
 namespace {
+constexpr int kSphereSegments = 12;
+constexpr float kMarkerSize = 36.0f;
+constexpr float kSpringMarkerSize = 24.0f;
+constexpr int kVoiceLimit = 48;
+constexpr int kVoiceReserve = 12;                  // voices left free for other sounds
 constexpr uint32_t kHashFFC80000 = 0xFFC80000; // (text unknown)
 constexpr uint32_t kHashFF00C800 = 0xFF00C800; // (text unknown)
 constexpr uint32_t kHashFF0000C8 = 0xFF0000C8; // (text unknown)
@@ -214,17 +219,17 @@ void BodyDynamicsModule::debug_draw()
     for (int i = sphere_count_; i != 0;) {
         --i;
         const maths::Vec4 center = at(core::at(centers, i));
-        gfx::add_debug_sphere(&center, core::at(sphere_run(), i).radius, &basis_frame_, 12, colour, 1);
+        gfx::add_debug_sphere(&center, core::at(sphere_run(), i).radius, &basis_frame_, kSphereSegments, colour, 1);
     }
     if (objects_shared().rigid_body_draw_details())
-        gfx::push_diag_marker(at_point_, 36.0f, kHashFFC800C8, 1);
+        gfx::push_diag_marker(at_point_, kMarkerSize, kHashFFC800C8, 1);
     const auto& springs = world_spring_points();
     for (int i = spring_count_; i != 0;) {
         --i;
         if (!core::at(spring_run(), i).active)
             continue;
-        gfx::push_diag_marker(at(core::at(springs, i)), 24.0f, kHashFFC86400, 1);
-        gfx::push_diag_marker(core::at(spring_run(), i).anchor, 24.0f, kHashFFC80064, 1);
+        gfx::push_diag_marker(at(core::at(springs, i)), kSpringMarkerSize, kHashFFC86400, 1);
+        gfx::push_diag_marker(core::at(spring_run(), i).anchor, kSpringMarkerSize, kHashFFC80064, 1);
     }
 }
 
@@ -327,7 +332,7 @@ void BodyDynamicsModule::on_bounce(float speed, const maths::Vec4* point)
             script::delete_struct(params);
         }
     }
-    if (audio_module_ && bounce_sfx_ && 48 - sound::count_playing_voices() > 12) {
+    if (audio_module_ && bounce_sfx_ && kVoiceLimit - sound::count_playing_voices() > kVoiceReserve) {
         const float percent = maths::confine(get_narrow(get_wide(speed) / bounce_full_speed_ * 100.0f), 0.0f, 100.0f);
         bounce_sfx_->push_float(checksums::Name{kPercent}, percent); // Percent
         audio_module_->emit_sound(bounce_sfx_);

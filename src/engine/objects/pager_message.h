@@ -69,5 +69,6 @@ private:
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 6>& pager_message_member_functions();
+constexpr std::size_t kPagerMessageMemberFunctionCount = 6;
+std::array<script::MemberFunctionEntry, kPagerMessageMemberFunctionCount>& pager_message_member_functions();
 } // namespace objects

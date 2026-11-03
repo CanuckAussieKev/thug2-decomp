@@ -13,6 +13,8 @@ class Struct;
 
 namespace objects {
 
+constexpr std::size_t kProximityComponentActiveOffset = 0x18;
+constexpr std::size_t kProximityComponentIsWithinOffset = 0x34;
 // The proximity component (member type 0xE54DB2EE "Proximity"; our name): runs its enter / exit scripts as the
 // skater (the global at 0x0069399C) comes within a capsule round it or leaves it. Only its script member functions
 // and its update are in the game - their table (0x007CEBF8, made by the dynamic initialiser 0x00644910: Proximity_Init,
@@ -49,7 +51,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ProximityComponent, active_) == 0x18 && offsetof(ProximityComponent, is_within_) == 0x34,
+        static_assert(offsetof(ProximityComponent, active_) == kProximityComponentActiveOffset && offsetof(ProximityComponent, is_within_) == kProximityComponentIsWithinOffset,
                       "layout must match the original");
     }
 };

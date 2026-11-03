@@ -26,6 +26,7 @@ class Struct;
 } // namespace script
 
 namespace objects {
+constexpr std::size_t kBlendParamCount = 5;
 
 class BlendObserver;
 
@@ -116,7 +117,7 @@ public:
     void first_channel_47e_850(float a, float b, float c, float d);
     void first_channel_47e_810(uint32_t a);
     void first_channel_47e_280(float a, uint32_t b);
-    void first_channel_47e_450(std::span<const float, 5> a, uint32_t b);
+    void first_channel_47e_450(std::span<const float, kBlendParamCount> a, uint32_t b);
     void set_flag_4c(bool value);
     // 0x00419AB0 / 0x00419AD0 (not a Ghidra function): its +0x50 (the anim set) / +0x58; 0 without one.
     uint32_t get_anim_set();
@@ -164,5 +165,6 @@ float larger_of(float a, float b);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 30>& anim_blender_member_functions();
+constexpr std::size_t kAnimBlenderMemberFunctionCount = 30;
+std::array<script::MemberFunctionEntry, kAnimBlenderMemberFunctionCount>& anim_blender_member_functions();
 } // namespace objects

@@ -30,6 +30,7 @@
 
 namespace objects {
 namespace {
+constexpr int kKilobyteShift = 10;
 constexpr uint32_t kObjGetPosition = 0xE90AAD2D; // Obj_GetPosition
 constexpr uint32_t kCompositeobject = 0x0ADA4E74; // compositeobject
 constexpr uint32_t kHashC2404947 = 0xC2404947; // (text unknown)
@@ -83,9 +84,9 @@ constexpr uint32_t kHashB5527B89 = 0xB5527B89; // (text unknown)
 constexpr uint32_t kHashD84C26CF = 0xD84C26CF; // (text unknown)
 } // namespace
 
-std::array<script::MemberFunctionEntry, 31>& composite_object_member_functions()
+std::array<script::MemberFunctionEntry, kCompositeObjectMemberFunctionCount>& composite_object_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 31> composite_object_member_functions{{
+    static std::array<script::MemberFunctionEntry, kCompositeObjectMemberFunctionCount> composite_object_member_functions{{
         {.callsign_ = kObjGetPosition, .owner_kind_ = kCompositeobject}, {.callsign_ = kHashC2404947, .owner_kind_ = kCompositeobject}, {.callsign_ = kCreateComponentFromStructure, .owner_kind_ = kCompositeobject}, {.callsign_ = kContainsComponent, .owner_kind_ = kCompositeobject},
         {.callsign_ = kObjSetPosition, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjSetOrientation, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjGetQuat, .owner_kind_ = kCompositeobject}, {.callsign_ = kObjForceUpdate, .owner_kind_ = kCompositeobject},
         {.callsign_ = kObjGetVelocity, .owner_kind_ = kCompositeobject}, {.callsign_ = kGetSpeed, .owner_kind_ = kCompositeobject}, {.callsign_ = kHide, .owner_kind_ = kCompositeobject}, {.callsign_ = kUnHide, .owner_kind_ = kCompositeobject},
@@ -97,9 +98,9 @@ std::array<script::MemberFunctionEntry, 31>& composite_object_member_functions()
     return composite_object_member_functions;
 }
 
-std::array<script::MemberFunctionEntry, 17>& object_member_functions()
+std::array<script::MemberFunctionEntry, kObjectMemberFunctionCount>& object_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 17> object_member_functions{{
+    static std::array<script::MemberFunctionEntry, kObjectMemberFunctionCount> object_member_functions{{
         {.callsign_ = kGetTags, .owner_kind_ = kObject}, {.callsign_ = kGetSingleTag, .owner_kind_ = kObject}, {.callsign_ = kHashEEEB7220, .owner_kind_ = kObject}, {.callsign_ = kSetTags, .owner_kind_ = kObject},
         {.callsign_ = kRemoveTags, .owner_kind_ = kObject}, {.callsign_ = kDisassociateFromObject, .owner_kind_ = kObject}, {.callsign_ = kObjGetID, .owner_kind_ = kObject}, {.callsign_ = kObjFlagSet, .owner_kind_ = kObject},
         {.callsign_ = kObjFlagNotSet, .owner_kind_ = kObject}, {.callsign_ = kObjClearFlag, .owner_kind_ = kObject}, {.callsign_ = kObjSetFlag, .owner_kind_ = kObject}, {.callsign_ = kObjKillSpawnedScript, .owner_kind_ = kObject},
@@ -456,7 +457,7 @@ void init_coim(int a, uint32_t heap_size, int b, int c)
     coim_integer1() = script::fetch_int_value(kHashD84C26CF);
     coim_c() = c;
     create_coim_heap(heap_size);
-    debug::printf("Initializing CCompositeObjectInstanceMgr at %dk\n", heap_size >> 10);
+    debug::printf("Initializing CCompositeObjectInstanceMgr at %dk\n", heap_size >> kKilobyteShift);
 }
 
 // 0x0045F1C0

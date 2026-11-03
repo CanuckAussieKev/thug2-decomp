@@ -33,6 +33,11 @@ void sync_music_to_time(float seconds);
 namespace objects {
 
 namespace {
+constexpr std::size_t kDummyNameBytes = 6;         // "dummy" with its terminator
+constexpr std::size_t kStreamNameBytes = 256;
+constexpr std::size_t kLineBytes = 128;
+constexpr int kFramesPerSecond = 30;               // a cutscene's frame rate
+constexpr int kSecondsPerMinute = 60;
 
 constexpr uint32_t kUnnamed = 0;
 constexpr uint32_t kVersion = 0x40E32C3C;
@@ -129,11 +134,11 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const Cut
     if (flag_34b_0_)
         std::memcpy(shot_name().data(), name, std::strlen(name) + 1);
     else
-        std::memcpy(shot_name().data(), "dummy", 6); // (the game's 0x0064799C)
+        std::memcpy(shot_name().data(), "dummy", kDummyNameBytes); // (the game's 0x0064799C)
     label_ = checksums::hash_from_text(name);
     if (flag_34b_0_) {
         // the music: the cutscene's for the skater's model, else the cutscene's own; else none to wait for
-        std::array<char, 256> stream{};
+        std::array<char, kStreamNameBytes> stream{};
         text::format_to(stream, "%s_%s", name, skater_model_name(skater_details_));
         if (!audio::prime_music_track(checksums::hash_from_text(stream.data()))) {
             audio::stop_music();
@@ -208,10 +213,10 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
     if (script::fetch_int_value(kDiagnosticsHash) != 0 || fixed) {
         gsl::owner<script::Struct*> info = script::new_struct();
         const int frame = objects_shared().cutscene_fixed_frame();
-        std::array<char, 128> line{};
-        text::format_to(line, "time = %02d : %02d : %02d", frame / 30 / 60, frame / 30 % 60, frame % 30);
+        std::array<char, kLineBytes> line{};
+        text::format_to(line, "time = %02d : %02d : %02d", frame / kFramesPerSecond / kSecondsPerMinute, frame / kFramesPerSecond % kSecondsPerMinute, frame % kFramesPerSecond);
         info->append_word("line1", line.data());
-        std::array<char, 128> line2{};
+        std::array<char, kLineBytes> line2{};
         text::format_to(line2, "time = %f sec. / %f sec.", static_cast<double>(clock_), static_cast<double>(end_time_));
         info->append_word("line2", line2.data());
         script::launch_script(kInfoScript, info, nullptr, false, nullptr);
@@ -220,7 +225,7 @@ void CinematicTable::tick_frame(void* camera, script::Struct* /*params*/)
             script::delete_struct(info);
         }
         if (fixed && objects_shared().cutscene_fixed_frame() > 0) {
-            std::array<char, 128> shot{};
+            std::array<char, kLineBytes> shot{};
             text::format_to(shot, "%s%04d", shot_name().data(), objects_shared().cutscene_fixed_frame() - 1);
             render::screen_shot(shot.data(), 1); // (a screenshot)
         }

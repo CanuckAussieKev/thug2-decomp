@@ -32,6 +32,12 @@ namespace objects {
 using namespace motion_detail;
 
 namespace {
+constexpr double kUnsignedWrap = 4294967296.0;      // 2^32: a count taken as unsigned
+constexpr int kBobSpreadDivisor = 10;               // the bob period varies by a tenth
+constexpr float kJumpSpeed = 150.0f;
+constexpr float kLeapPull = 360.0f;                 // (negated)
+constexpr float kJumpProbeAbove = 6.0f;
+constexpr float kJumpProbeBelow = 6.0f;
 constexpr uint32_t kHash40490FDB = 0x40490FDB; // (text unknown)
 constexpr uint32_t kHash447A0000 = 0x447A0000; // (text unknown)
 
@@ -175,7 +181,7 @@ void KinematicsModule::update_hover()
     const int doubled = static_cast<int>(in_period * 2);
     auto phase = static_cast<double>(doubled);
     if (doubled < 0)
-        phase += 4294967296.0; // (the count taken as unsigned)
+        phase += kUnsignedWrap; // (the count taken as unsigned)
     phase = phase * static_cast<double>(get_bits(kHash40490FDB)) / static_cast<double>(bob_period_); // (pi)
     auto offset = static_cast<float>(std::sin(phase) * static_cast<double>(bob_height_));
     bob_now_ = offset;
@@ -238,7 +244,7 @@ bool KinematicsModule::obj_hover(script::Struct* params, script::Script*)
     // (a tenth either way: period - period / 10 + Rnd(period * 2 / 10), in the original's 32-bit arithmetic)
     const int twice = static_cast<int>(static_cast<uint32_t>(period) * 20u);
     const int random = maths::rnd(twice / 10);
-    period = static_cast<int>(static_cast<uint32_t>(bob_period_ - bob_period_ / 10) + static_cast<uint32_t>(random));
+    period = static_cast<int>(static_cast<uint32_t>(bob_period_ - bob_period_ / kBobSpreadDivisor) + static_cast<uint32_t>(random));
     bob_period_ = period;
     if (period <= 0)
         bob_period_ = 1;
@@ -282,15 +288,15 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
 // 0x00423B30
 bool KinematicsModule::obj_jump(script::Struct* params, script::Script*)
 {
-    jump_speed_ = 150.0f;
+    jump_speed_ = kJumpSpeed;
     params->fetch_float(kSpeed, &jump_speed_, 0);
     jump_start_speed_ = jump_speed_;
-    leap_pull_ = -360.0f;
+    leap_pull_ = -kLeapPull;
     params->fetch_float(kGravity, &leap_pull_, 0);
     jump_start_ = entity()->at_point();
-    jump_col_above_ = 6.0f;
+    jump_col_above_ = kJumpProbeAbove;
     params->fetch_float(kColDistAbove, &jump_col_above_, 0);
-    jump_col_below_ = 6.0f;
+    jump_col_below_ = kJumpProbeBelow;
     params->fetch_float(kColDistBelow, &jump_col_below_, 0);
     bool heading = params->fetch_vec(kHeading, &leap_direction_, 0);
     if (!heading && params->has_bare_flag(kUseCurrentHeading)) {

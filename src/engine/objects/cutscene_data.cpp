@@ -39,12 +39,29 @@
 namespace objects {
 
 namespace {
+constexpr int kPoseCapacity = 128;                 // bones a cutscene object's pose holds
+constexpr int kStreamResourceKind = 5;
+constexpr double kQuaternionTwo = 2.0;             // the factor in the quaternion's matrix terms
+constexpr int kRow1Y = 5;                          // floats of a 4 x 4 matrix, by row and component
+constexpr int kRow1Z = 6;
+constexpr int kRow1W = 7;
+constexpr int kRow2X = 8;
+constexpr int kRow2Y = 9;
+constexpr int kRow2Z = 10;
+constexpr int kRow2W = 11;
+constexpr std::size_t kTranslationStart = 12;
+constexpr int kRow3W = 15;
+constexpr std::size_t kQuadBytes = 16;             // four floats
+constexpr float kPercentToFraction = 0.0099999998f;
+constexpr uint32_t kTempHeapBytes = 0x25800;
+constexpr uint32_t kCutsceneHeapReserve = 0x32000;
+constexpr float kMinFrameSeconds = 0.083333336f;   // a twelfth of a second
 // NOT ORIGINAL grouping - cutscene_data.cpp's state (the original's globals). Made on first use, never destroyed
 // (cutscene_data_state()).
 struct CutsceneDataState {
     // The objects' poses (the original used the two arrays above for them too, as floats).
-    std::array<maths::QuatRotation, 128> object_pose_rotations_{};
-    std::array<maths::Vec4, 128> object_pose_translations_{};
+    std::array<maths::QuatRotation, kPoseCapacity> object_pose_rotations_{};
+    std::array<maths::Vec4, kPoseCapacity> object_pose_translations_{};
 };
 
 CutsceneDataState& cutscene_data_state()
@@ -88,13 +105,13 @@ assets::ResourceRegistry* asset_manager() { return assets::asset_manager(); }
 // (from memory: not permanent, copied)
 void load_asset_file(uint32_t name, void* data, uint32_t size)
 {
-    asset_manager()->read_resource_from_stream(checksums::Name{name}, 5, checksums::Name{0}, data, size, false, true, nullptr, nullptr);
+    asset_manager()->read_resource_from_stream(checksums::Name{name}, kStreamResourceKind, checksums::Name{0}, data, size, false, true, nullptr, nullptr);
 }
 
 } // namespace
 
 // 0x00463AA0 (x87: the squares and w * z unrounded)
-void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translation, std::span<float, 16> matrix)
+void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translation, std::span<float, kMatrixFloats> matrix)
 {
     core::at(quat, 0) = -core::at(quat, 0);
     core::at(quat, 1) = -core::at(quat, 1);
@@ -108,20 +125,20 @@ void quat_to_matrix(std::span<float, 4> quat, std::span<const float, 4> translat
     auto wx = static_cast<float>(static_cast<double>(core::at(quat, 3)) * core::at(quat, 0));
     auto wy = static_cast<float>(static_cast<double>(core::at(quat, 3)) * core::at(quat, 1));
     const double wz = static_cast<double>(core::at(quat, 3)) * core::at(quat, 2);
-    core::at(matrix, 0) = static_cast<float>(1.0f - (zz + yy) * 2.0);
-    core::at(matrix, 1) = static_cast<float>((wz + yx) * 2.0);
-    core::at(matrix, 2) = static_cast<float>((zx - wy) * 2.0);
+    core::at(matrix, 0) = static_cast<float>(1.0f - (zz + yy) * kQuaternionTwo);
+    core::at(matrix, 1) = static_cast<float>((wz + yx) * kQuaternionTwo);
+    core::at(matrix, 2) = static_cast<float>((zx - wy) * kQuaternionTwo);
     core::at(matrix, 3) = 0.0f;
-    core::at(matrix, 4) = static_cast<float>((yx - wz) * 2.0);
-    core::at(matrix, 5) = static_cast<float>(1.0f - (zz + xx) * 2.0);
-    core::at(matrix, 6) = static_cast<float>((wx + zy) * 2.0);
-    core::at(matrix, 7) = 0.0f;
-    core::at(matrix, 8) = static_cast<float>((wy + zx) * 2.0);
-    core::at(matrix, 9) = static_cast<float>((zy - wx) * 2.0);
-    core::at(matrix, 10) = static_cast<float>(1.0f - (yy + xx) * 2.0);
-    core::at(matrix, 11) = 0.0f;
-    std::memcpy(matrix.subspan(12, 4).data(), translation.data(), 16);
-    core::at(matrix, 15) = 1.0f;
+    core::at(matrix, 4) = static_cast<float>((yx - wz) * kQuaternionTwo);
+    core::at(matrix, kRow1Y) = static_cast<float>(1.0f - (zz + xx) * kQuaternionTwo);
+    core::at(matrix, kRow1Z) = static_cast<float>((wx + zy) * kQuaternionTwo);
+    core::at(matrix, kRow1W) = 0.0f;
+    core::at(matrix, kRow2X) = static_cast<float>((wy + zx) * kQuaternionTwo);
+    core::at(matrix, kRow2Y) = static_cast<float>((zy - wx) * kQuaternionTwo);
+    core::at(matrix, kRow2Z) = static_cast<float>(1.0f - (yy + xx) * kQuaternionTwo);
+    core::at(matrix, kRow2W) = 0.0f;
+    std::memcpy(matrix.subspan(kTranslationStart, 4).data(), translation.data(), kQuadBytes);
+    core::at(matrix, kRow3W) = 1.0f;
 }
 
 // 0x00464340
@@ -169,9 +186,9 @@ std::span<float, 4> read_colour(std::span<float, 4> out, script::Struct* params,
             colour->fetch_int_value(kGreen, &green, 1);
             colour->fetch_int_value(kBlue, &blue, 1);
             core::at(out, 3) = 1.0f;
-            core::at(out, 0) = static_cast<float>(red * static_cast<double>(0.0099999998f));
-            core::at(out, 1) = static_cast<float>(green * static_cast<double>(0.0099999998f));
-            core::at(out, 2) = static_cast<float>(blue * static_cast<double>(0.0099999998f));
+            core::at(out, 0) = static_cast<float>(red * static_cast<double>(kPercentToFraction));
+            core::at(out, 1) = static_cast<float>(green * static_cast<double>(kPercentToFraction));
+            core::at(out, 2) = static_cast<float>(blue * static_cast<double>(kPercentToFraction));
             return out;
         }
     }
@@ -210,9 +227,9 @@ void set_up_cutscene_heaps()
 {
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap());
-    render::flexible_particle_manager()->create_temp_heap(0x25800);
+    render::flexible_particle_manager()->create_temp_heap(kTempHeapBytes);
     const uint32_t available = memory::Hub::get_pull()->obtainable();
-    memory::Hub::get_pull()->init_cutscene_heaps(available - 0x32000);
+    memory::Hub::get_pull()->init_cutscene_heaps(available - kCutsceneHeapReserve);
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -314,9 +331,9 @@ void CinematicTable::refresh_viewer(void* camera)
     camera_anim_->get_float_key_pose({.rotations = rotation, .translations = translation}, &flag,
                                      static_cast<float>(clock_ - static_cast<double>(camera_start_)),
                                      0); // (the original passed the animation source's address: not read)
-    std::memcpy(position, translation.data(), 16);
+    std::memcpy(position, translation.data(), kQuadBytes);
     std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    quat_to_matrix(rotation, origin, std::span<float, 16>(matrix, 16));
+    quat_to_matrix(rotation, origin, std::span<float, kMatrixFloats>(matrix, kMatrixFloats));
     if (skipped_)
         return;
     memory::Hub* manager = memory::Hub::get_pull();
@@ -346,9 +363,9 @@ void CinematicTable::update_object_poses()
         source->set_bone_masks(data ? data->lod_masks().data() : nullptr);
         source->set_mask_bit(static_cast<int>(rig->lod()));
         auto count = static_cast<uint32_t>(rig->get_num_bones());
-        std::memcpy(cutscene_data_state().object_pose_translations_.data(), rig->payload()->bind_translations(), count * 16);
+        std::memcpy(cutscene_data_state().object_pose_translations_.data(), rig->payload()->bind_translations(), count * kQuadBytes);
         // (within the first twelfth of a second, without the source)
-        if (clock_ - static_cast<double>(unknown3480_) < 0.083333336f)
+        if (clock_ - static_cast<double>(unknown3480_) < kMinFrameSeconds)
             source = nullptr;
         static_cast<gfx::JointClipFrames*>(animation)->get_frames(
             cutscene_data_state().object_pose_rotations_, cutscene_data_state().object_pose_translations_, objects_shared().cutscene_camera_slot(),
@@ -364,7 +381,7 @@ namespace objects {
 // 0x00640A30 (a static initialiser): the 128 cutscene bone rotations, each the quaternion (0, 0, 0, 1).
 void construct_cutscene_rotations()
 {
-    for (int i = 0; i < 128; ++i) {
+    for (int i = 0; i < kPoseCapacity; ++i) {
         core::at(objects_shared().cutscene_rotations(), 4 * i + 0) = 0.0f;
         core::at(objects_shared().cutscene_rotations(), 4 * i + 1) = 0.0f;
         core::at(objects_shared().cutscene_rotations(), 4 * i + 2) = 0.0f;

@@ -30,6 +30,8 @@
 
 namespace objects {
 namespace {
+constexpr int kMatrixRowBytes = 16;                // four floats
+constexpr int kLastContact = 7;
 constexpr uint32_t kRigidBodyIgnoreSkater = 0xCC12CF87; // RigidBody_IgnoreSkater
 constexpr uint32_t kRigidBody = 0xFFB39248; // RigidBody
 constexpr uint32_t kRigidBodyWake = 0x9599C10F; // RigidBody_Wake
@@ -45,9 +47,9 @@ constexpr uint32_t kHashD4A0946B = 0xD4A0946B; // (text unknown)
 constexpr uint32_t kRigidbodyMatchVelocityTo = 0x949BE8A9; // Rigidbody_MatchVelocityTo
 } // namespace
 
-std::array<script::MemberFunctionEntry, 13>& rigid_body_member_functions()
+std::array<script::MemberFunctionEntry, kRigidBodyMemberFunctionCount>& rigid_body_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 13> rigid_body_member_functions{{
+    static std::array<script::MemberFunctionEntry, kRigidBodyMemberFunctionCount> rigid_body_member_functions{{
         {.callsign_ = kRigidBodyIgnoreSkater, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodyWake, .owner_kind_ = kRigidBody}, {.callsign_ = kHashCD5BA67B, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodyKick, .owner_kind_ = kRigidBody},
         {.callsign_ = kRigidBodySetVelocities, .owner_kind_ = kRigidBody}, {.callsign_ = kHash8A3A6B5F, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidBodyEnable, .owner_kind_ = kRigidBody}, {.callsign_ = kHash92F5DB9A, .owner_kind_ = kRigidBody},
         {.callsign_ = kHash0A2BBB3A, .owner_kind_ = kRigidBody}, {.callsign_ = kHash49F44585, .owner_kind_ = kRigidBody}, {.callsign_ = kHashD4A0946B, .owner_kind_ = kRigidBody}, {.callsign_ = kRigidbodyMatchVelocityTo, .owner_kind_ = kRigidBody},
@@ -72,7 +74,7 @@ float get_narrow(double value) { return static_cast<float>(value); }
 // The 8 objects rigid bodies feel (smart pointers, 0x00695150) and each one's extra reach (0x006939B0).
 
 // The matrix's element at byte offset `offset` from its start (the original's: row offset / 16, column 4 bytes each).
-double get_m(const maths::Mat4& m, int offset) { return core::at(m.row, offset / 16)[(offset % 16) / 4]; }
+double get_m(const maths::Mat4& m, int offset) { return core::at(m.row, offset / kMatrixRowBytes)[(offset % kMatrixRowBytes) / 4]; }
 
 } // namespace
 
@@ -132,7 +134,7 @@ bool BodyDynamicsModule::rigid_body_reset(script::Struct* params, script::Script
 // 0x0042BD60
 void set_rigid_body_pusher_reach(GameEntity* object, float reach)
 {
-    for (int i = 7; i >= 0; --i) {
+    for (int i = kLastContact; i >= 0; --i) {
         if (core::at(objects_shared().rigid_body_pushers(), i).get_pull() == object) {
             core::at(objects_shared().rigid_body_pusher_reach(), i) = reach;
             return;
@@ -316,7 +318,7 @@ int mute_until(int delay)
 // the look at once - the pushers after it aren't felt.
 void BodyDynamicsModule::feel_pushers()
 {
-    for (int i = 7; i >= 0; --i) {
+    for (int i = kLastContact; i >= 0; --i) {
         const GameEntity* pusher = core::at(objects_shared().rigid_body_pushers(), i).get_pull();
         if (!pusher)
             continue;

@@ -25,6 +25,7 @@ using script::Script;
 using script::Struct;
 
 namespace {
+constexpr unsigned kShiftCountMask = 31;           // a left shift's count: the low 5 bits
 
 // Names (checksums) the object uses.
 constexpr uint32_t kUnnamed = 0;                  // an unnamed component
@@ -348,11 +349,11 @@ uint32_t Entity::get_flag_mask(Struct* params, Script* /*script*/)
     params->fetch_list(kUnnamed, &names, 0);
     if (names) {
         for (uint32_t i = 0; i < names->extent(); ++i)
-            mask |= 1u << (script::fetch_int_value(names->fetch_part(i)) & 31);
+            mask |= 1u << (script::fetch_int_value(names->fetch_part(i)) & kShiftCountMask);
         return mask;
     }
     if (params->fetch_int_value(kUnnamed, &bit, 0))
-        return 1u << (bit & 31);
+        return 1u << (bit & kShiftCountMask);
     return mask;
 }
 

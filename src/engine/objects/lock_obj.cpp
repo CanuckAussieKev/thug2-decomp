@@ -19,6 +19,8 @@
 namespace objects {
 
 namespace {
+constexpr int kWobbleSeedRange = 0x400;
+constexpr double kHalf = 0.5;
 constexpr float kLockObjWobbleStep{0.006135923f};
 
 constexpr uint32_t kObjLockToObject = 0x785E57C7; // Obj_LockToObject
@@ -85,14 +87,14 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
         lock_flags_ |= kLockFlagLag;
     core::at(wobble_, 0) = wobble_pair.x;
     core::at(wobble_, 1) = wobble_pair.y;
-    wobble_seed_ = maths::rnd(0x400);
+    wobble_seed_ = maths::rnd(kWobbleSeedRange);
     // (the masked time is never negative: the original's 2^32 correction for a negative one never applies)
     const int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
     auto time = static_cast<double>(t);
     auto step = static_cast<double>(wobble_step());
     const double wobble = std::sin(time * static_cast<double>(core::at(wobble_, 1)) * step) *
                           std::sin(time * static_cast<double>(core::at(wobble_, 0)) * step);
-    lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - static_cast<double>(lag_min_)) * 0.5 +
+    lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - static_cast<double>(lag_min_)) * kHalf +
                               static_cast<double>(lag_min_));
     if (params->has_entry_named(kAngles))
         lock_flags_ |= kLockFlagAngles;

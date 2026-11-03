@@ -43,6 +43,11 @@ GameEntity* create_game_object_from_node(script::Struct* params);
 // first), else a game object.
 void create_node_object(script::Struct* params);
 
+constexpr std::size_t kVideoEntryViewerOffset = 0x14;
+constexpr std::size_t kVideoEntryFlag1cOffset = 0x1C;
+constexpr std::size_t kVideoEntryLabelOffset = 0x24;
+constexpr std::size_t kVideoEntryArgsOffset = 0x28;
+constexpr std::size_t kVideoEntryBytes = 0x2C;
 // A movie the movie manager plays (the base class, vtable 0x00647A4C): an object or camera animation
 // (anim_movies.h) or a cutscene (cutscene.h). A node of the manager's queue (its list_link_, data = the movie; the
 // original's movie was its own node - the node's table word its vtable - so the node follows the vptr here, in the
@@ -131,13 +136,16 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(VideoEntry, list_link_) == 0x04 && offsetof(VideoEntry, viewer_) == 0x14 &&
-                          offsetof(VideoEntry, flag_1c_) == 0x1C && offsetof(VideoEntry, label_) == 0x24 &&
-                          offsetof(VideoEntry, args_) == 0x28 && sizeof(VideoEntry) == 0x2C,
+        static_assert(offsetof(VideoEntry, list_link_) == 0x04 && offsetof(VideoEntry, viewer_) == kVideoEntryViewerOffset &&
+                          offsetof(VideoEntry, flag_1c_) == kVideoEntryFlag1cOffset && offsetof(VideoEntry, label_) == kVideoEntryLabelOffset &&
+                          offsetof(VideoEntry, args_) == kVideoEntryArgsOffset && sizeof(VideoEntry) == kVideoEntryBytes,
                       "layout must match the original");
     }
 };
 
+constexpr std::size_t kClassNodeListPlacementMatOffset = 8;
+constexpr std::size_t kClassNodeListNodesOffset = 0x48;
+constexpr std::size_t kClassNodeListTableRowBytes = 0x18;
 // The nodes of one class (0xD18719D5) in a node array, with an optional transform (0x00469300-0x00469492).
 class ClassNodeList {
 public:
@@ -174,8 +182,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ClassNodeList, placement_mat_) == 8 && offsetof(ClassNodeList, nodes_) == 0x48 &&
-                          sizeof(ClassNodeList::TableRow) == 0x18,
+        static_assert(offsetof(ClassNodeList, placement_mat_) == kClassNodeListPlacementMatOffset && offsetof(ClassNodeList, nodes_) == kClassNodeListNodesOffset &&
+                          sizeof(ClassNodeList::TableRow) == kClassNodeListTableRowBytes,
                       "layout must match the original");
     }
 };

@@ -31,6 +31,7 @@
 
 namespace objects {
 namespace {
+constexpr uint32_t kMotionFlagBailing = 0x100;
 constexpr uint32_t kPedSetLogicState = 0x3685B765; // Ped_SetLogicState
 constexpr uint32_t kPedLogic = 0x6EFDDFB8; // PedLogic
 constexpr uint32_t kPedGetLogicState = 0x423B7B29; // Ped_GetLogicState
@@ -62,9 +63,9 @@ constexpr uint32_t kPedHideBoard = 0xC33754F7; // Ped_HideBoard
 constexpr uint32_t kPedGetVoicePrefix = 0x5F041C7D; // Ped_GetVoicePrefix
 } // namespace
 
-std::array<script::MemberFunctionEntry, 29>& ped_logic_member_functions()
+std::array<script::MemberFunctionEntry, kPedLogicMemberFunctionCount>& ped_logic_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 29> ped_logic_member_functions{{
+    static std::array<script::MemberFunctionEntry, kPedLogicMemberFunctionCount> ped_logic_member_functions{{
         {.callsign_ = kPedSetLogicState, .owner_kind_ = kPedLogic}, {.callsign_ = kPedGetLogicState, .owner_kind_ = kPedLogic}, {.callsign_ = kPedInitPath, .owner_kind_ = kPedLogic}, {.callsign_ = kPedStartMoving, .owner_kind_ = kPedLogic},
         {.callsign_ = kPedStopMoving, .owner_kind_ = kPedLogic}, {.callsign_ = kHash68D298B0, .owner_kind_ = kPedLogic}, {.callsign_ = kHash2CC086DD, .owner_kind_ = kPedLogic}, {.callsign_ = kPedSetIsGrinding, .owner_kind_ = kPedLogic},
         {.callsign_ = kPedGetCurrentVelocity, .owner_kind_ = kPedLogic}, {.callsign_ = kPedStoreMaxVelocity, .owner_kind_ = kPedLogic}, {.callsign_ = kPedGetOriginalMaxVelocity, .owner_kind_ = kPedLogic}, {.callsign_ = kPedApplySpeedBoost, .owner_kind_ = kPedLogic},
@@ -398,7 +399,7 @@ void PedestrianBrainModule::activate_aux_script(uint32_t script, script::Struct*
 // 0x004F1E10
 bool PedestrianBrainModule::get_bail()
 {
-    if (get_motion(entity())->motion_flags() & 0x100)
+    if (get_motion(entity())->motion_flags() & kMotionFlagBailing)
         return false;
     if (stored_max_velocity_ > 0.0f)
         get_motion(entity())->set_path_max_speed(stored_max_velocity_);

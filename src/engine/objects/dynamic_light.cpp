@@ -20,12 +20,15 @@
 #include "engine/core/packed_colour.h"
 
 namespace render {
+namespace {
+constexpr float kNoReachInverse = 1e10f;
+} // namespace
 
 // 0x0041CB90
 void DynamicLightBase::set_reach(float reach)
 {
     radius_ = reach;
-    inverse_radius_ = reach == 0.0f ? 1e10f : 1.0f / reach;
+    inverse_radius_ = reach == 0.0f ? kNoReachInverse : 1.0f / reach;
 }
 
 } // namespace render
@@ -33,6 +36,7 @@ void DynamicLightBase::set_reach(float reach)
 namespace objects {
 
 namespace {
+constexpr int kBitsPerByte = 8;
 
 constexpr uint32_t kStartRadius = 0x3BEE67C8, kMiddleRadius = 0x8E39913D, kEndRadius = 0x3F243A3C; // StartRadius...
 constexpr uint32_t kStartIntensity = 0x27A7443F, kMiddleIntensity = 0xCEF9F4FD, kEndIntensity = 0xE1CE9780;
@@ -151,7 +155,7 @@ void DynamicLightComponent::tick_frame()
         const int from = static_cast<int>((from_color >> (8 * i)) & 0xFF);
         const int to = static_cast<int>((to_color >> (8 * i)) & 0xFF);
         color |= static_cast<uint32_t>(static_cast<uint8_t>(get_truncated(static_cast<double>(to - from) * t + from)))
-                 << (8 * i);
+                 << (kBitsPerByte * i);
     }
     render::DynamicLightBase* light = light_;
     core::at(light->pos(), 0) = entity()->at_point().x;

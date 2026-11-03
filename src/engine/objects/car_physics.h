@@ -18,6 +18,12 @@ namespace objects {
 class KinematicsModule;
 class DormancyModule;
 
+constexpr std::size_t kAutomobileDynamicsModuleWheelSpinOffset = 0x18;
+constexpr std::size_t kAutomobileDynamicsModuleLastSpeedOffset = 0x30;
+constexpr std::size_t kAutomobileDynamicsModuleTiltDivisorOffset = 0x40;
+constexpr std::size_t kAutomobileDynamicsModuleBodyShownOffset = 0x44;
+constexpr std::size_t kAutomobileDynamicsModuleSuspendOffset = 0x54;
+constexpr std::size_t kAutomobileDynamicsModuleBytes = 0x58;
 // The car physics component (type 0xC695136D "carphysics", vtable 0x00645E6C, 0x58 bytes; made by 0x0041BD90, and by
 // spawn_automobile through 0x0041BAD0): a car's look - its wheels spinning with its speed, the steering wheels turned
 // towards its path, the body tilting with acceleration - written into its skeleton's bone matrices after each update.
@@ -109,11 +115,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(AutomobileDynamicsModule, wheel_spin_) == 0x18 &&
-                          offsetof(AutomobileDynamicsModule, last_speed_) == 0x30 &&
-                          offsetof(AutomobileDynamicsModule, tilt_divisor_) == 0x40 &&
-                          offsetof(AutomobileDynamicsModule, body_shown_) == 0x44 &&
-                          offsetof(AutomobileDynamicsModule, suspend_) == 0x54 && sizeof(AutomobileDynamicsModule) == 0x58,
+        static_assert(offsetof(AutomobileDynamicsModule, wheel_spin_) == kAutomobileDynamicsModuleWheelSpinOffset &&
+                          offsetof(AutomobileDynamicsModule, last_speed_) == kAutomobileDynamicsModuleLastSpeedOffset &&
+                          offsetof(AutomobileDynamicsModule, tilt_divisor_) == kAutomobileDynamicsModuleTiltDivisorOffset &&
+                          offsetof(AutomobileDynamicsModule, body_shown_) == kAutomobileDynamicsModuleBodyShownOffset &&
+                          offsetof(AutomobileDynamicsModule, suspend_) == kAutomobileDynamicsModuleSuspendOffset && sizeof(AutomobileDynamicsModule) == kAutomobileDynamicsModuleBytes,
                       "layout must match the original");
     }
 };

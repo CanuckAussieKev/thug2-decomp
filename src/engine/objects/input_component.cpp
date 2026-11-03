@@ -37,6 +37,7 @@
 
 namespace objects {
 namespace {
+constexpr int kSourceLineInputTime = 0x94;           // the source line the original reports the message from
 constexpr uint32_t kHashBF7D6C46 = 0xBF7D6C46; // (text unknown)
 constexpr uint32_t kInput = 0x27D7CD28; // Input
 constexpr uint32_t kDisablePlayerInput = 0x6E24F5FD; // DisablePlayerInput
@@ -58,9 +59,9 @@ constexpr uint32_t kHashD6030CEA = 0xD6030CEA; // (text unknown)
 constexpr uint32_t kHashC94777AC = 0xC94777AC; // (text unknown)
 } // namespace
 
-std::array<script::MemberFunctionEntry, 15>& input_component_member_functions()
+std::array<script::MemberFunctionEntry, kInputComponentMemberFunctionCount>& input_component_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 15> input_component_member_functions{{
+    static std::array<script::MemberFunctionEntry, kInputComponentMemberFunctionCount> input_component_member_functions{{
         {.callsign_ = kHashBF7D6C46, .owner_kind_ = kInput}, {.callsign_ = kDisablePlayerInput, .owner_kind_ = kInput}, {.callsign_ = kEnablePlayerInput, .owner_kind_ = kInput}, {.callsign_ = kNetDisablePlayerInput, .owner_kind_ = kInput},
         {.callsign_ = kNetEnablePlayerInput, .owner_kind_ = kInput}, {.callsign_ = kPlayerInputIsDisabled, .owner_kind_ = kInput}, {.callsign_ = kLeftPressed, .owner_kind_ = kInput}, {.callsign_ = kRightPressed, .owner_kind_ = kInput},
         {.callsign_ = kUpPressed, .owner_kind_ = kInput}, {.callsign_ = kDownPressed, .owner_kind_ = kInput}, {.callsign_ = kHashB2A022DE, .owner_kind_ = kInput}, {.callsign_ = kHeldLongerThan, .owner_kind_ = kInput},
@@ -336,7 +337,7 @@ int PadInputModule::lock_button_from_script(script::Struct* params, script::Scri
         float time = 1.0f;
         params->fetch_float(kTime, &time, 0);
         // (the original's file name: its __FILE__ from 12 characters in)
-        debug::printf("D:%s:%i: time = %g\n", "omponents\\InputComponent.cpp", 0x94, static_cast<double>(time));
+        debug::printf("D:%s:%i: time = %g\n", "omponents\\InputComponent.cpp", kSourceLineInputTime, static_cast<double>(time));
         int clear = 0;
         params->fetch_int_value(kClear, &clear, 0);
         lock_button(checksums::Name{name}, time, clear != 0);

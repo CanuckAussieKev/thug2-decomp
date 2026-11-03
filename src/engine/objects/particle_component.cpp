@@ -34,6 +34,9 @@
 
 namespace objects {
 namespace {
+constexpr int kMaxShadeAlpha = 0x80;
+constexpr double kGroundProbeDepth = 4800.0;
+constexpr double kVertexValueFactor = 2.0;
 constexpr uint32_t kSetStartPos = 0x88BE2262; // SetStartPos
 constexpr uint32_t kParticle = 0xA9DB601E; // Particle
 constexpr uint32_t kHashBB6018F4 = 0xBB6018F4; // (text unknown)
@@ -110,9 +113,9 @@ constexpr uint32_t kHashFBDA5673 = 0xFBDA5673u; // (text unknown)
 constexpr uint32_t kParticleParams = 0xB91EE381u; // ParticleParams
 } // namespace
 
-std::array<script::MemberFunctionEntry, 21>& particle_component_member_functions()
+std::array<script::MemberFunctionEntry, kParticleComponentMemberFunctionCount>& particle_component_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 21> particle_component_member_functions{{
+    static std::array<script::MemberFunctionEntry, kParticleComponentMemberFunctionCount> particle_component_member_functions{{
         {.callsign_ = kSetStartPos, .owner_kind_ = kParticle}, {.callsign_ = kHashBB6018F4, .owner_kind_ = kParticle}, {.callsign_ = kHashE5134689, .owner_kind_ = kParticle}, {.callsign_ = kHashF71D696E, .owner_kind_ = kParticle},
         {.callsign_ = kHash0AAB006D, .owner_kind_ = kParticle}, {.callsign_ = kHashE2B99038, .owner_kind_ = kParticle}, {.callsign_ = kHashC036F4D0, .owner_kind_ = kParticle}, {.callsign_ = kSetEmitRate, .owner_kind_ = kParticle},
         {.callsign_ = kHash31FCC8ED, .owner_kind_ = kParticle}, {.callsign_ = kHash19AF74D1, .owner_kind_ = kParticle}, {.callsign_ = kHash4AA40FB5, .owner_kind_ = kParticle}, {.callsign_ = kHash234CEABB, .owner_kind_ = kParticle},
@@ -481,7 +484,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     for (int i = 0; i < 3; ++i) {
         if (params->fetch_int_value(core::at(kAlphas, i), &value, 0)) {
             auto alpha = static_cast<uint8_t>(value);
-            core::at(core::at(p.shade(), i), 3) = alpha > 0x80 ? 0x80 : alpha;
+            core::at(core::at(p.shade(), i), 3) = alpha > kMaxShadeAlpha ? kMaxShadeAlpha : alpha;
         }
     }
     params->read_hash_value(kBlendMode, &p.blend_mode(), 0);
@@ -579,9 +582,9 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, 
         render::ProbeRay feeler;
         const maths::Vec4& at = core::at(effect_handle_->args().at_point(), 0);
         feeler.line().start = {.x = at.x, .y = static_cast<float>(at.y + 1.0f), .z = at.z, .w = at.w};
-        feeler.line().end = {.x = at.x, .y = static_cast<float>(static_cast<double>(at.y) - 4800.0), .z = at.z, .w = at.w};
+        feeler.line().end = {.x = at.x, .y = static_cast<float>(static_cast<double>(at.y) - kGroundProbeDepth), .z = at.z, .w = at.w};
         if (feeler.get_hit_shape(true, false))
-            value = static_cast<float>(feeler.get_hit_vertex_value() * 2.0);
+            value = static_cast<float>(feeler.get_hit_vertex_value() * kVertexValueFactor);
         if (effect_handle_)
             effect_handle_->set_brightness(value);
         return 1;

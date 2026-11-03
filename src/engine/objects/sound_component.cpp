@@ -25,6 +25,7 @@
 
 namespace objects {
 namespace {
+constexpr int kSoundTypeCount = 8;
 constexpr uint32_t kObjPlaySound = 0xAFA20E18; // Obj_PlaySound
 constexpr uint32_t kSound = 0x07713C7B; // Sound
 constexpr uint32_t kProximNode = 0x08470F2E; // ProximNode
@@ -280,7 +281,7 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
         // The sound set for a type (Obj_SetSound). (Read into the parameters' own argument slot.)
         int type = -1;
         params->fetch_int_value("Type", &type, 0);
-        if (type == -1 || type > 8)
+        if (type == -1 || type > kSoundTypeCount)
             return;
         sound = core::at(sound_cues_, type); // (type 8 reads the first waiting sound's checksum, as the original)
         if (!sound)
@@ -328,7 +329,7 @@ void AudioEmitterModule::assign_sound_cue(script::Struct* params)
     uint32_t sound = 0;
     params->fetch_int_value(kTypeName, &type, 0); // type
     params->read_hash_value(0u, &sound, 0);
-    if (type != -1 && sound && type <= 8)
+    if (type != -1 && sound && type <= kSoundTypeCount)
         core::at(sound_cues_, type) = sound; // (8 is the first waiting sound's checksum; a negative type writes before the slots)
 }
 

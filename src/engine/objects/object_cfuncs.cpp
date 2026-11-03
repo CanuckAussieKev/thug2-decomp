@@ -33,6 +33,7 @@
 namespace commands {
 
 namespace {
+constexpr uint32_t kDefaultId = 8;
 
 constexpr uint32_t kNode = 0x7A8017BA;         // "node"
 constexpr uint32_t kParams = 0x7031F10C;       // "params"
@@ -173,7 +174,7 @@ bool cfunc_create_composite_object(script::Struct* params, script::Script*)
 // 0x004495A0: GetUniqueCompositeObjectID [PreferredId=<id> (8)]: UniqueID = the first id from there no object has.
 bool cfunc_get_unique_composite_object_id(script::Struct* params, script::Script* script)
 {
-    uint32_t id = 8;
+    uint32_t id = kDefaultId;
     params->read_hash_value(kPreferredId, &id, 0);
     while (entity_for_id(id))
         ++id;

@@ -23,6 +23,10 @@ namespace objects {
 using namespace motion_detail;
 
 namespace {
+constexpr float kInchesPerFoot = 12.0f;
+constexpr double kStepDistance = 2.0;
+constexpr float kHalf = 0.5f;
+constexpr float kTwo = 2.0f;
 
 constexpr uint32_t kDistAbove = 0xA8A5A3C7;    // DistAbove
 constexpr uint32_t kDistBelow = 0x182D87A7;    // DistBelow
@@ -135,7 +139,7 @@ bool KinematicsModule::stick_to_ground()
         auto right_z = static_cast<float>(static_cast<double>(at.y) * up.x - static_cast<double>(up.y) * at.x);
         core::at(matrix.row, 0) = {.x = right_x, .y = right_y, .z = right_z, .w = 0.0f};
         core::at(matrix.row, 0).make_unit();
-        auto above = static_cast<float>(std::fabs(static_cast<double>(ground_above_)) * 12.0f);
+        auto above = static_cast<float>(std::fabs(static_cast<double>(ground_above_)) * kInchesPerFoot);
         const float below = -static_cast<float>(std::fabs(static_cast<double>(ground_below_)) * 12.0f);
         auto w = static_cast<float>(static_cast<double>(pos.w) + 1.0f);
         const maths::Vec4 start = {.x = pos.x, .y = static_cast<float>(static_cast<double>(above) + pos.y), .z = pos.z, .w = w};
@@ -179,15 +183,15 @@ bool KinematicsModule::stick_to_ground()
         const float y = pos.y;
         const float z = pos.z;
         const float w = pos.w;
-        *start = {.x = x, .y = static_cast<float>(static_cast<double>(ground_above_) * 12.0f + y), .z = z, .w = w};
-        *end = {.x = x, .y = static_cast<float>(static_cast<double>(y) - static_cast<double>(ground_below_) * 12.0f), .z = z, .w = w};
+        *start = {.x = x, .y = static_cast<float>(static_cast<double>(ground_above_) * kInchesPerFoot + y), .z = z, .w = w};
+        *end = {.x = x, .y = static_cast<float>(static_cast<double>(y) - static_cast<double>(ground_below_) * kInchesPerFoot), .z = z, .w = w};
     };
     maths::Vec4 start, end, back_right, back_left, front;
     move(ahead, -1.0);
     move(side, 1.0);
     line(&start, &end);
     const bool hit_right = get_ground_hit(core::at(ground_triangles_, 0), &end, &start, &back_right);
-    move(side, -2.0);
+    move(side, -kStepDistance);
     line(&start, &end);
     bool hit_left = false;
     if (get_ground_hit(core::at(ground_triangles_, 1), &end, &start, &back_left)) {
@@ -200,7 +204,7 @@ bool KinematicsModule::stick_to_ground()
             right.make_unit();
         }
     }
-    move(ahead, 2.0);
+    move(ahead, kStepDistance);
     move(side, 1.0);
     line(&start, &end);
     move(ahead, -1.0); // (back where it was)
@@ -209,16 +213,16 @@ bool KinematicsModule::stick_to_ground()
     // The height: half way between the back's middle and the front; at: towards the front from the back's
     // middle, half way from the old at; up: at x right.
     pos.y = static_cast<float>(static_cast<double>(back_left.y) + back_right.y);
-    pos.y = static_cast<float>(static_cast<double>(pos.y) * 0.5f);
+    pos.y = static_cast<float>(static_cast<double>(pos.y) * kHalf);
     pos.y = static_cast<float>(static_cast<double>(front.y) + pos.y);
-    pos.y = static_cast<float>(static_cast<double>(pos.y) * 0.5f);
+    pos.y = static_cast<float>(static_cast<double>(pos.y) * kHalf);
     maths::Vec4 back = back_right + back_left;
-    back /= 2.0f;
+    back /= kTwo;
     back -= front;
     back *= -1.0f;
     back.make_unit();
     at += back;
-    at /= 2.0f;
+    at /= kTwo;
     up = maths::cross_vec(at, right);
     up.make_unit();
     return true;
@@ -266,8 +270,8 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script*, maths::V
         move_acceleration_ =
             static_cast<float>(static_cast<double>(move_acceleration_) * kInchesPerMile * kHoursPerSecond);
     } else if (units == 1) {
-        inches = inches * 12.0f;
-        move_acceleration_ = static_cast<float>(static_cast<double>(move_acceleration_) * 12.0f);
+        inches = inches * kInchesPerFoot;
+        move_acceleration_ = static_cast<float>(static_cast<double>(move_acceleration_) * kInchesPerFoot);
     }
     if (move_acceleration_ == 0.0f) {
         move_speed_ = static_cast<float>(inches);

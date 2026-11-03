@@ -3,6 +3,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "platform/d3dx.h"
 
+#include <cstddef>
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
@@ -36,6 +37,11 @@
 
 namespace objects {
 namespace {
+constexpr std::size_t kBoneBlockBytes = 0x1C;
+constexpr uint32_t kFlagBoneRigHidden = 0x8000000;
+constexpr float kDropLifetime = 5.0f;
+constexpr float kDropdownLengthDefault = 3.0f;
+constexpr float kDropAngle = 180.0f;
 constexpr uint32_t kObjSetBoneActive = 0x20F7B992; // Obj_SetBoneActive
 constexpr uint32_t kSkeleton2 = 0x222756D5; // Skeleton
 constexpr uint32_t kObjSetBoneScale = 0x613831F2; // Obj_SetBoneScale
@@ -71,9 +77,9 @@ constexpr uint32_t kParams = 0x7031F10C; // Params
 constexpr uint32_t kObjectVelFactor = 0x8C6A6E08; // object_vel_factor
 } // namespace
 
-std::array<script::MemberFunctionEntry, 6>& skeleton_component_member_functions()
+std::array<script::MemberFunctionEntry, kSkeletonComponentMemberFunctionCount>& skeleton_component_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 6> skeleton_component_member_functions{{
+    static std::array<script::MemberFunctionEntry, kSkeletonComponentMemberFunctionCount> skeleton_component_member_functions{{
         {.callsign_ = kObjSetBoneActive, .owner_kind_ = kSkeleton2}, {.callsign_ = kObjSetBoneScale, .owner_kind_ = kSkeleton2}, {.callsign_ = kObjGetBonePosition, .owner_kind_ = kSkeleton2}, {.callsign_ = kTextureSplat, .owner_kind_ = kSkeleton2},
         {.callsign_ = kSkeletonSpawnCompositeObject, .owner_kind_ = kSkeleton2}, {.callsign_ = 0, .owner_kind_ = kSkeleton2}}};
     return skeleton_component_member_functions;
@@ -138,7 +144,7 @@ BoneRigModule::~BoneRigModule()
 void BoneRigModule::prepare_rig(uint32_t name)
 {
     void* asset = assets::asset_manager()->get_asset_data(name, 0);
-    void* memory = memory::alloc(0x1C);
+    void* memory = memory::alloc(kBoneBlockBytes);
     bone_rig_ = memory ? memory::construct_in<gfx::Rig>(memory, static_cast<gfx::RigData*>(asset)) : nullptr;
 }
 
@@ -149,7 +155,7 @@ void BoneRigModule::configure_from_data(script::Struct* params)
     if (params->read_hash_value(kCopySkeletonFrom, &from, 0)) {
         auto* other = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(from));
         auto* other_skeleton = core::down_cast<BoneRigModule>(other->fetch_module(kType));
-        void* memory = memory::alloc(0x1C);
+        void* memory = memory::alloc(kBoneBlockBytes);
         bone_rig_ = memory ? static_cast<gfx::Rig*>(memory)->construct_copy(other_skeleton->bone_rig_) : nullptr;
         return;
     }
@@ -324,7 +330,7 @@ bool BoneRigModule::obj_set_bone_scale(script::Struct* params, script::Script* /
         if (!data->is_descendant(i, index) && i != index)
             bone_rig_->change_bone_sizing(core::at(data->names(), i), &scales, true);
     }
-    bone_rig_->flag_bits() |= 0x8000000;
+    bone_rig_->flag_bits() |= kFlagBoneRigHidden;
     if (params->has_bare_flag(kForceUpdate)) // force_update
         bone_rig_->collapse_zero_scaled_bones();
     return true;
@@ -356,11 +362,11 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     params->fetch_float(kHash3786B657, &height, 0);
     float radius = 0.0f;
     params->fetch_float(kRadius, &radius, 0); // radius
-    float lifetime = 5.0f;
+    float lifetime = kDropLifetime;
     params->fetch_float(kLifeTime, &lifetime, 0); // lifetime
-    float dropdown_length = 3.0f;
+    float dropdown_length = kDropdownLengthDefault;
     params->fetch_float(kDropdownLength, &dropdown_length, 0); // dropdown_length
-    float angle = 180.0f;
+    float angle = kDropAngle;
     params->fetch_float(kHash78AAF97F, &angle, 0);
     uint32_t blend = kBlend;                    // blend
     params->read_hash_value(kBlendMode, &blend, 0); // blendmode

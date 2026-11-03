@@ -15,6 +15,7 @@ class Struct;
 } // namespace script
 
 namespace objects {
+constexpr std::size_t kPastFrameCount = 5;
 
 class ObjectGroup;
 
@@ -26,7 +27,8 @@ struct GroundTriangle {
 
 // 0x004EDC10 (not a Ghidra function): the copy assignment (ECX = this, RET 4; returns this).
 GroundTriangle& get_assign(GroundTriangle& triangle, const GroundTriangle& source);
-static_assert(sizeof(GroundTriangle) == 0x30, "layout must match the original");
+constexpr std::size_t kGroundTriangleBytes = 0x30;
+static_assert(sizeof(GroundTriangle) == kGroundTriangleBytes, "layout must match the original");
 
 // PedestrianBrainModule::flag_bits_ (+0x20)
 constexpr uint32_t kPedFlagBoardHideable = 0x1;   // its profile's board has a desc_id: hide_boardgeom hides it
@@ -46,6 +48,23 @@ constexpr uint32_t kPedFlagSoundState3 = 0x2000;  // (not set here) the sounds' 
 constexpr uint32_t kPedFlagVertLip = 0x8000;      // the node it's heading for has a Vert_Lip action
 constexpr uint32_t kPedFlagBoardHidden = 0x20000; // its board is hidden
 
+constexpr std::size_t kPedestrianBrainModuleKindOffset = 0x18;
+constexpr std::size_t kPedestrianBrainModuleFlagBitsOffset = 0x20;
+constexpr std::size_t kPedestrianBrainModuleAuxScriptOffset = 0x30;
+constexpr std::size_t kPedestrianBrainModuleAvoidOffset = 0x34;
+constexpr std::size_t kPedestrianBrainModuleBiasOffset = 0x44;
+constexpr std::size_t kPedestrianBrainModuleListLinkOffset = 0x54;
+constexpr std::size_t kPedestrianBrainModuleNodePosOffset = 0x60;
+constexpr std::size_t kPedestrianBrainModuleTurnFrameOffset = 0x90;
+constexpr std::size_t kPedestrianBrainModulePedsOffset = 0x98;
+constexpr std::size_t kPedestrianBrainModuleUpDirOffset = 0xA0;
+constexpr std::size_t kPedestrianBrainModuleUpBlendOffset = 0xD0;
+constexpr std::size_t kPedestrianBrainModuleSpinAngleOffset = 0xE4;
+constexpr std::size_t kPedestrianBrainModuleJumpMatrixOffset = 0xF4;
+constexpr std::size_t kPedestrianBrainModuleVertRotationOffset = 0x134;
+constexpr std::size_t kPedestrianBrainModuleSavedMatrixOffset = 0x13C;
+constexpr std::size_t kPedestrianBrainModulePastFramesOffset = 0x17C;
+constexpr std::size_t kPedestrianBrainModuleBytes = 0x1CC;
 // The PedLogic component (type 0x6EFDDFB8 "pedlogic", vtable 0x0064B7A8, 0x1CC bytes; made by 0x004F0B10): a ped's
 // brain - walkers and the skating peds. It runs a logic state from a state table (Ped_StateLogic_Table, the object's
 // UniqueStateTable tag, SkaterPed_StateTable...: each state a structure naming its script_ped_state, the script the
@@ -302,23 +321,23 @@ private:
     float vert_rotation_{};      // +0x134 how far it has turned over the spine (degrees)
     float vert_rotation_target_{}; // +0x138
     maths::Mat4 saved_matrix_{};   // +0x13C the display matrix kept
-    std::array<maths::Vec4, 5> past_frames_{}; // +0x17C its last positions (the newest last)
+    std::array<maths::Vec4, kPastFrameCount> past_frames_{}; // +0x17C its last positions (the newest last)
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(PedestrianBrainModule, kind_) == 0x18 && offsetof(PedestrianBrainModule, flag_bits_) == 0x20 &&
-                          offsetof(PedestrianBrainModule, aux_script_) == 0x30 &&
-                          offsetof(PedestrianBrainModule, avoid_) == 0x34 && offsetof(PedestrianBrainModule, bias_) == 0x44 &&
-                          offsetof(PedestrianBrainModule, list_link_) == 0x54 &&
-                          offsetof(PedestrianBrainModule, node_pos_) == 0x60 &&
-                          offsetof(PedestrianBrainModule, turn_frame_) == 0x90 &&
-                          offsetof(PedestrianBrainModule, peds_) == 0x98 && offsetof(PedestrianBrainModule, up_dir_) == 0xA0 &&
-                          offsetof(PedestrianBrainModule, up_blend_) == 0xD0 &&
-                          offsetof(PedestrianBrainModule, spin_angle_) == 0xE4 &&
-                          offsetof(PedestrianBrainModule, jump_matrix_) == 0xF4 &&
-                          offsetof(PedestrianBrainModule, vert_rotation_) == 0x134 &&
-                          offsetof(PedestrianBrainModule, saved_matrix_) == 0x13C &&
-                          offsetof(PedestrianBrainModule, past_frames_) == 0x17C && sizeof(PedestrianBrainModule) == 0x1CC,
+        static_assert(offsetof(PedestrianBrainModule, kind_) == kPedestrianBrainModuleKindOffset && offsetof(PedestrianBrainModule, flag_bits_) == kPedestrianBrainModuleFlagBitsOffset &&
+                          offsetof(PedestrianBrainModule, aux_script_) == kPedestrianBrainModuleAuxScriptOffset &&
+                          offsetof(PedestrianBrainModule, avoid_) == kPedestrianBrainModuleAvoidOffset && offsetof(PedestrianBrainModule, bias_) == kPedestrianBrainModuleBiasOffset &&
+                          offsetof(PedestrianBrainModule, list_link_) == kPedestrianBrainModuleListLinkOffset &&
+                          offsetof(PedestrianBrainModule, node_pos_) == kPedestrianBrainModuleNodePosOffset &&
+                          offsetof(PedestrianBrainModule, turn_frame_) == kPedestrianBrainModuleTurnFrameOffset &&
+                          offsetof(PedestrianBrainModule, peds_) == kPedestrianBrainModulePedsOffset && offsetof(PedestrianBrainModule, up_dir_) == kPedestrianBrainModuleUpDirOffset &&
+                          offsetof(PedestrianBrainModule, up_blend_) == kPedestrianBrainModuleUpBlendOffset &&
+                          offsetof(PedestrianBrainModule, spin_angle_) == kPedestrianBrainModuleSpinAngleOffset &&
+                          offsetof(PedestrianBrainModule, jump_matrix_) == kPedestrianBrainModuleJumpMatrixOffset &&
+                          offsetof(PedestrianBrainModule, vert_rotation_) == kPedestrianBrainModuleVertRotationOffset &&
+                          offsetof(PedestrianBrainModule, saved_matrix_) == kPedestrianBrainModuleSavedMatrixOffset &&
+                          offsetof(PedestrianBrainModule, past_frames_) == kPedestrianBrainModulePastFramesOffset && sizeof(PedestrianBrainModule) == kPedestrianBrainModuleBytes,
                       "layout must match the original");
     }
 };
@@ -331,5 +350,6 @@ const char* profile_voice();
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 29>& ped_logic_member_functions();
+constexpr std::size_t kPedLogicMemberFunctionCount = 29;
+std::array<script::MemberFunctionEntry, kPedLogicMemberFunctionCount>& ped_logic_member_functions();
 } // namespace objects

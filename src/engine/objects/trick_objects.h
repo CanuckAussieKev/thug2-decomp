@@ -20,6 +20,8 @@ class Struct;
 }
 
 namespace objects {
+constexpr std::size_t kPlayerSlotCount = 8;
+constexpr std::size_t kClusterObjectCapacity = 32;
 
 // 0x005880E0: one count of the trick object manager (0x007CE500, counted at 0x007CE504) released; the last deletes it
 // (its scalar deleting destructor, slot 0).
@@ -95,8 +97,8 @@ struct TrickObjectCluster {
     [[nodiscard]] uint32_t label() const { return label_; }
     [[nodiscard]] uint32_t record_points() const { return record_points_; }
     void set_record_points(uint32_t value) { record_points_ = value; }
-    std::array<uint32_t, 8>& scores() { return scores_; }
-    [[nodiscard]] const std::array<uint32_t, 8>& scores() const { return scores_; }
+    std::array<uint32_t, kPlayerSlotCount>& scores() { return scores_; }
+    [[nodiscard]] const std::array<uint32_t, kPlayerSlotCount>& scores() const { return scores_; }
     [[nodiscard]] int owner() const { return owner_; }
     void set_owner(int value) { owner_ = value; }
     [[nodiscard]] bool owned() const { return owned_; }
@@ -108,7 +110,7 @@ private:
     memory::ListNode list_link_{}; // +0x00 (data itself)
     uint32_t label_;             // +0x14
     uint32_t record_points_{0};  // +0x18
-    std::array<uint32_t, 8> scores_{};       // +0x1C
+    std::array<uint32_t, kPlayerSlotCount> scores_{};       // +0x1C
     int owner_{0};               // +0x3C (an object id)
     bool owned_{false};          // +0x40
     std::array<uint8_t, 3> pad41_{};
@@ -246,7 +248,7 @@ struct HeldClusterRelease {
     std::array<uint32_t, TrickSpotHub::kMaxLoggedClusters> names; // (THUG2's room: 128 - see release_player_clusters)
 };
 struct FreeClusterList {
-    std::array<uint32_t, 32> names;
+    std::array<uint32_t, kClusterObjectCapacity> names;
     uint32_t count; // +0x80
 };
 void release_held_cluster(TrickObjectCluster* cluster, HeldClusterRelease* release);

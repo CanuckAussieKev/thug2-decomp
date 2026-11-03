@@ -19,6 +19,9 @@
 namespace objects {
 
 namespace {
+constexpr int kGroupCount = 200;
+constexpr int kGroupSize = 20;
+constexpr int kExtraSize = 200;
 constexpr uint32_t kRailNode = 0x8E6B02AD; // RailNode
 constexpr uint32_t kClimbingNode = 0x30C19600; // ClimbingNode
 constexpr uint32_t kWaypoint = 0x4C23A77E; // Waypoint
@@ -239,11 +242,11 @@ void PathManager::carve(PathPoolSizes pool_sizes)
 bool cfunc_allocate_path_man_memory(script::Struct* params, script::Script* /*script*/)
 {
     PathManager* manager = PathManager::sole();
-    int groups = 200;
+    int groups = kGroupCount;
     params->fetch_int_value(kHash0C230B04, &groups, 0);
-    int group_size = 20;
+    int group_size = kGroupSize;
     params->fetch_int_value(kHashF6A4081D, &group_size, 0);
-    int extra_size = 200;
+    int extra_size = kExtraSize;
     params->fetch_int_value(kHash13AFFFF9, &extra_size, 0);
     manager->carve({.groups = groups, .group_size_ = group_size, .extra_size_ = extra_size});
     return true;

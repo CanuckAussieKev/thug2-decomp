@@ -30,6 +30,9 @@ namespace objects {
 using namespace motion_detail;
 
 namespace {
+constexpr double kHalf = 0.5;
+constexpr uint32_t kMaxPlayerIdent = 15;
+constexpr float kInchesPerFoot = 12.0f;
 
 constexpr uint32_t kSpawnObjScript = 0x3AEFE377;  // SpawnObjScript
 constexpr uint32_t kSwitchObjScript = 0x86125749; // switchobjscript
@@ -122,7 +125,7 @@ void KinematicsModule::tick_frame()
         if (up != (ground_speed_ > 0.0f))
             ground_speed_ = 0.0f;
         const double change = static_cast<double>(acceleration) * step_seconds_;
-        auto step = static_cast<float>((0.5 * change + ground_speed_) * step_seconds_);
+        auto step = static_cast<float>((kHalf * change + ground_speed_) * step_seconds_);
         ground_speed_ = static_cast<float>(change + ground_speed_);
         // (past the offset: the rest of it, and no more speed; a NaN step goes as it is)
         if (up ? step > ground_offset_ : step < ground_offset_) {
@@ -132,7 +135,7 @@ void KinematicsModule::tick_frame()
         entity()->at_point().y = static_cast<float>(static_cast<double>(step) + entity()->at_point().y);
         ground_offset_ = static_cast<float>(static_cast<double>(ground_offset_) - step);
     }
-    if (entity()->ident() > 15)
+    if (entity()->ident() > kMaxPlayerIdent)
         entity()->display_matrix() = entity()->basis_frame();
 }
 
@@ -357,7 +360,7 @@ bool KinematicsModule::obj_get_next_obj_on_path(script::Struct* params, script::
 {
     float range = 100.0f;
     params->fetch_float(kRange, &range, 0);
-    range = static_cast<float>(static_cast<double>(range) * 12.0f); // (feet)
+    range = static_cast<float>(static_cast<double>(range) * kInchesPerFoot); // (feet)
     script->args()->erase_module(kOb);
     if (const GameEntity* next = get_next_obj_on_path(range))
         script->args()->put_name_key(checksums::Name{kOb}, next->ident());
@@ -370,7 +373,7 @@ bool KinematicsModule::obj_set_path_turn_dist(script::Struct* params, script::Sc
     float distance = 0.0f; // (the original's is whatever its stack slot held: only read once found)
     if (params->fetch_float(0u, &distance, 0)) {
         if (!params->has_bare_flag(kInches))
-            distance = static_cast<float>(static_cast<double>(distance) * 12.0f);
+            distance = static_cast<float>(static_cast<double>(distance) * kInchesPerFoot);
         init_path_follower(entity());
         path_follower_->set_corner_distance(distance);
     }

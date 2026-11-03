@@ -15,6 +15,11 @@ namespace objects {
 
 class PadInputModule;
 
+constexpr std::size_t kFreeLookModuleLockedOffset = 0x18;
+constexpr std::size_t kFreeLookModuleFactorOffset = 0x1C;
+constexpr std::size_t kFreeLookModuleTargetTiltOffset = 0x2C;
+constexpr std::size_t kFreeLookModuleInputPtrOffset = 0x40;
+constexpr std::size_t kFreeLookModuleBytes = 0x44;
 // The CameraLookAround component (type 0x81C7122D, vtable 0x0064B28C, 0x44 bytes; made by 0x004E42E0): the
 // camera's look-around angles from the pad's right stick (heading and tilt eased toward the stick each frame), or
 // turned over a time to a heading and tilt a script asks for.
@@ -94,9 +99,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(FreeLookModule, locked_) == 0x18 && offsetof(FreeLookModule, factor_) == 0x1C &&
-                          offsetof(FreeLookModule, target_tilt_) == 0x2C && offsetof(FreeLookModule, input_ptr_) == 0x40 &&
-                          sizeof(FreeLookModule) == 0x44,
+        static_assert(offsetof(FreeLookModule, locked_) == kFreeLookModuleLockedOffset && offsetof(FreeLookModule, factor_) == kFreeLookModuleFactorOffset &&
+                          offsetof(FreeLookModule, target_tilt_) == kFreeLookModuleTargetTiltOffset && offsetof(FreeLookModule, input_ptr_) == kFreeLookModuleInputPtrOffset &&
+                          sizeof(FreeLookModule) == kFreeLookModuleBytes,
                       "layout must match the original");
     }
 };

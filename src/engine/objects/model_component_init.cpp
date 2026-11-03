@@ -2,6 +2,7 @@
 // model_component.cpp). From the disassembly of 0x0041FFA0-0x00420058, 0x00420270-0x0042028E, 0x00420350-0x004204ED,
 // 0x00420BF0-0x00421225, 0x00421230-0x004213D6, 0x00421490-0x004215DE and 0x004219F0-0x00421AD7.
 
+#include <cstddef>
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
@@ -37,6 +38,9 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kModelBlockBytes = 0x0C;
+constexpr int kDisplayModeShadow = 6;
+constexpr std::size_t kPathBytes = 0x200;
 
 constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kAnimBlender = 0x7149B753;
@@ -268,7 +272,7 @@ void MeshInstanceModule::init_bone_volumes()
         ++volumes->users(); // (another user)
     } else {
         // Made and registered for the skeleton - but not given to this model (the original's): the next one finds it.
-        gsl::owner<void*> made = memory::adopt<void*>(memory::alloc(0x0C));
+        gsl::owner<void*> made = memory::adopt<void*>(memory::alloc(kModelBlockBytes));
         if (made)
             made = new (made) gfx::BoneVolumes(0);
         static_cast<gfx::BoneVolumes*>(made)->enrol(static_cast<uint32_t>(skeleton->bone_total()));
@@ -301,7 +305,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             // A level object's model: its sector's (Update follows it).
             linked_entity_label_ = name;
             level_object_ = true;
-            mesh_instance_->set_display_mode(6);
+            mesh_instance_->set_display_mode(kDisplayModeShadow);
         } else if (params->read_hash_value(kAssetName, &name, 0)) {
             int multicolor = 0;
             params->fetch_int_value(kMulticolor, &multicolor, 0);
@@ -346,7 +350,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             if (params->fetch_text(kModel, &file, false) || params->fetch_text(kModelName, &file, false)) {
                 // A model file (unless it's the "none" name).
                 if (checksums::hash_from_text(file) != kNoModel) {
-                    std::array<char, 0x200> path{};
+                    std::array<char, kPathBytes> path{};
                     uint32_t skeleton_name = 0;
                     if (params->read_hash_value(kSkeletonName, &skeleton_name, 0))
                         model_path_for(file, ".skin", path.data());

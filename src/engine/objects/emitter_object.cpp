@@ -23,6 +23,8 @@
 namespace objects {
 
 namespace {
+constexpr int kPathRing = 64;                      // vertices kept in the path ring
+constexpr int kLastPathIndex = 63;
 constexpr uint32_t kHash03F1E5A7 = 0x03F1E5A7; // (text unknown)
 constexpr uint32_t kSphere = 0xAA069978; // Sphere
 constexpr uint32_t kBoundingBox = 0xE460ABDE; // BoundingBox
@@ -231,10 +233,10 @@ void FollowTrail::tick_frame()
     distance += static_cast<double>(dy) * dy;
     if (!(distance > kTrailSpacingSquared))
         return;
-    if (++head_ >= 64)
+    if (++head_ >= kPathRing)
         head_ = 0;
     core::at(path_vertices_, head_) = aim_point_;
-    if (num_ < 64)
+    if (num_ < kPathRing)
         ++num_;
 }
 
@@ -266,7 +268,7 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
         if (left == 0)
             break;
         if (--index < 0)
-            index = 63;
+            index = kLastPathIndex;
     }
     if (!(length > 0.0f))
         return;

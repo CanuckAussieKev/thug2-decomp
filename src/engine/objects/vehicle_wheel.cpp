@@ -37,9 +37,9 @@ constexpr uint32_t kBrakeTorque = 0x3BCCBADC; // brake_torque
 constexpr uint32_t kHandbrakeTorque = 0x9439D144; // handbrake_torque
 } // namespace
 
-std::array<script::MemberFunctionEntry, 10>& vehicle_wheel_member_functions()
+std::array<script::MemberFunctionEntry, kVehicleWheelMemberFunctionCount>& vehicle_wheel_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 10> vehicle_wheel_member_functions{{
+    static std::array<script::MemberFunctionEntry, kVehicleWheelMemberFunctionCount> vehicle_wheel_member_functions{{
         {.callsign_ = kVehicleKick, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleWake, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleMoveToRestart, .owner_kind_ = kVehicleName}, {.callsign_ = kVehiclePlaceBeforeCamera, .owner_kind_ = kVehicleName},
         {.callsign_ = kVehicleAdjustGravity, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleHandbrakeActive, .owner_kind_ = kVehicleName}, {.callsign_ = kVehicleAllWheelsAreInContact, .owner_kind_ = kVehicleName}, {.callsign_ = kHash4C73526B, .owner_kind_ = kVehicleName},
         {.callsign_ = kVehicleIsSkaterVisible, .owner_kind_ = kVehicleName}, {.callsign_ = 0, .owner_kind_ = kVehicleName}}};

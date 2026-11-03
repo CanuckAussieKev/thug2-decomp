@@ -24,6 +24,7 @@
 #include "engine/maths/vec4.h"
 namespace objects {
 namespace {
+constexpr int kDefaultPriority = 50;
 constexpr uint32_t kObjPlayStream = 0xDB05A233; // Obj_PlayStream
 constexpr uint32_t kStream = 0x0F1641E3; // Stream
 constexpr uint32_t kObjAddStream = 0xC66E1B17; // Obj_AddStream
@@ -43,9 +44,9 @@ constexpr uint32_t kAdd = 0x02E58C18; // Add
 constexpr uint32_t kRemove = 0x977FE2CF; // Remove
 } // namespace
 
-std::array<script::MemberFunctionEntry, 5>& stream_component_member_functions()
+std::array<script::MemberFunctionEntry, kStreamComponentMemberFunctionCount>& stream_component_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 5> stream_component_member_functions{{
+    static std::array<script::MemberFunctionEntry, kStreamComponentMemberFunctionCount> stream_component_member_functions{{
         {.callsign_ = kObjPlayStream, .owner_kind_ = kStream}, {.callsign_ = kObjAddStream, .owner_kind_ = kStream}, {.callsign_ = kObjRemoveStream, .owner_kind_ = kStream}, {.callsign_ = kObjStopStream, .owner_kind_ = kStream},
         {.callsign_ = 0, .owner_kind_ = kStream}}};
     return stream_component_member_functions;
@@ -118,7 +119,7 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
     if (!room)
         return false;
     float volume = 100.0f, pitch = 100.0f, dropoff = 0.0f;
-    int priority = 50, loops = 0, falloff = 0;
+    int priority = kDefaultPriority, loops = 0, falloff = 0;
     uint32_t id = 0;
     params->fetch_float(kVol, &volume, 0);       // vol
     params->fetch_float(kPitch, &pitch, 0);        // pitch

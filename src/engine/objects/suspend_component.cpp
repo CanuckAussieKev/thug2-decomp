@@ -33,6 +33,7 @@
 
 namespace objects {
 namespace {
+constexpr float kNearLodDistance = 50.0f;
 constexpr uint32_t kObjResetNoSuspendCount = 0xA0B7E09B; // Obj_ResetNoSuspendCount
 constexpr uint32_t kSuspend = 0xCE0CA665; // Suspend
 constexpr uint32_t kLOD0DistanceMultiplier = 0xD3D072F9; // LOD0DistanceMultiplier
@@ -144,7 +145,7 @@ void DormancyModule::configure_from_data(script::Struct* params)
         return;
     }
     auto& lod = lod_distances_;
-    core::at(lod, 0) = 50.0f;
+    core::at(lod, 0) = kNearLodDistance;
     core::at(lod, 2) = std::bit_cast<float>(core::at(kNoLodBits, 1));
     core::at(lod, 3) = std::bit_cast<float>(core::at(kNoLodBits, 2));
     params->fetch_float(core::at(kLodDist, 0), &core::at(lod, 0), 0);

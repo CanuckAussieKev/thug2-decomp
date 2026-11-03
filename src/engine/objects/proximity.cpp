@@ -2,6 +2,7 @@
 
 #include "engine/objects/proximity.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <new>
 #include <array>
@@ -29,6 +30,7 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kNameCapacity = 256;
 constexpr uint32_t kBoundingBox = 0xE460ABDE; // BoundingBox
 constexpr uint32_t kHash03F1E5A7 = 0x03F1E5A7; // (text unknown)
 constexpr uint32_t kCylinder = 0x64FBA415; // Cylinder
@@ -446,7 +448,7 @@ int get_restart_nodes(uint32_t type, std::span<uint32_t> out, uint32_t start)
 uint32_t get_spawn_node(checksums::Name spawn_type, int index, uint32_t start)
 {
     const uint32_t type = spawn_type.value();
-    std::array<uint32_t, 256> names{};
+    std::array<uint32_t, kNameCapacity> names{};
     const int count = get_restart_nodes(type, names, start);
     if (count <= 0)
         return 0;

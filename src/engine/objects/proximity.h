@@ -29,6 +29,12 @@ enum ProximShape : uint8_t {
     kProximShapeSector = 4,    // the sector's collision
 };
 
+constexpr std::size_t kProximNodeToSectorOffset = 0x14;
+constexpr std::size_t kProximNodeActiveOffset = 0x54;
+constexpr std::size_t kProximNodeKindTagOffset = 0x68;
+constexpr std::size_t kProximNodeBoxOffset = 0x7C;
+constexpr std::size_t kProximNodeOwnScriptOffset = 0xA0;
+constexpr std::size_t kProximNodeBytes = 0xA8;
 struct ProximNode {
     // 0x0046ABC0: active or not. A node going inactive ends what's inside it: its objects are killed, or (none)
     // its script runs as the exit for each skater it holds. Every skater counts as outside afterwards.
@@ -95,9 +101,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ProximNode, to_sector_) == 0x14 && offsetof(ProximNode, active_) == 0x54 &&
-                          offsetof(ProximNode, kind_tag_) == 0x68 && offsetof(ProximNode, box_) == 0x7C &&
-                          offsetof(ProximNode, own_script_) == 0xA0 && sizeof(ProximNode) == 0xA8,
+        static_assert(offsetof(ProximNode, to_sector_) == kProximNodeToSectorOffset && offsetof(ProximNode, active_) == kProximNodeActiveOffset &&
+                          offsetof(ProximNode, kind_tag_) == kProximNodeKindTagOffset && offsetof(ProximNode, box_) == kProximNodeBoxOffset &&
+                          offsetof(ProximNode, own_script_) == kProximNodeOwnScriptOffset && sizeof(ProximNode) == kProximNodeBytes,
                       "layout must match the original");
     }
 };

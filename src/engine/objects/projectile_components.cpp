@@ -40,6 +40,8 @@
 namespace objects {
 
 namespace {
+constexpr int kScorePerSize = 10;
+constexpr int kGameGroup = 8;                      // the sequenced group of the game's messages
 
 constexpr uint32_t kRadius = 0xC48391A5;              // radius
 constexpr uint32_t kScale = 0x13B9DA7B;               // scale
@@ -118,7 +120,7 @@ int ShotImpactModule::score_taken()
 {
     if (projectile_type_ != kFireball)
         return 0;
-    return static_cast<int>(size_factor_) * 10;
+    return static_cast<int>(size_factor_) * kScorePerSize;
 }
 
 // 0x004F3090
@@ -171,7 +173,7 @@ void ShotImpactModule::tick_frame()
         // bytes, 0.)
         online::Hit hit; // (the owner's object id / the hit skater's (low byte); what the hit takes: score_taken)
         hit.object_id = static_cast<uint8_t>(holder_key_);
-        hit.score = projectile_type_ == kFireball ? static_cast<int>(size_factor_) * 10 : 0;
+        hit.score = projectile_type_ == kFireball ? static_cast<int>(size_factor_) * kScorePerSize : 0;
         hit.fireball = projectile_type_ == kFireball;
         std::array<uint8_t, online::kHitSize> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
@@ -180,7 +182,7 @@ void ShotImpactModule::tick_frame()
         msg.set_content(bytes.data());
         msg.set_byte_count(sizeof(bytes));
         msg.set_queue(net::NetMessageInfo::kLaneOrdered);
-        msg.set_group_id(8);
+        msg.set_group_id(kGameGroup);
         victim->change_recent_hit_stamp(frame_clock::get_time());
         server->put_on_outbox(victim->get_link_handle(), &msg);
         hit.object_id = static_cast<uint8_t>(skater->ident());

@@ -6,6 +6,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "engine/gfx/engine_shadows.h"
 
+#include <cstddef>
 #include <memory>
 #include <cmath>
 #include <cstdint>
@@ -37,6 +38,30 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kSeenCapacity = 20;
+constexpr int kTokenEndOfScript = 0x24;
+constexpr int kTokenName = 0x16;
+constexpr int kNameTokenBytes = 5;                 // the token and its 4-byte checksum
+constexpr int kTokenAfterName = 0x42;
+constexpr int kTokenShortJump = 0x47;
+constexpr int kTokenAfterJump = 0x39;
+constexpr int kCameraRequireFlags = 0x50;
+constexpr int kCameraIgnoreFlags = 0x10;           // the faces the camera's probes pass through
+constexpr float kMaxZoom = 2000.0f;
+constexpr float kShadowSizeFactor = 1.2f;
+constexpr float kStartZoom = 700.0f;
+constexpr float kStartLean = 0.6f;
+constexpr int kControllerPs2Pad = 7;
+constexpr int kControllerXbox = 5;
+constexpr uint32_t kButtonZoomIn = 0x400000;
+constexpr uint32_t kButtonZoomOut = 0x800000;
+constexpr uint32_t kButtonRaiseA = 0x1000;
+constexpr uint32_t kButtonLowerA = 0x4000;
+constexpr uint32_t kButtonRaiseB = 0x2000;
+constexpr uint32_t kButtonLowerB = 0x1000;
+constexpr uint32_t kButtonShift = 0x1000000;
+constexpr float kRiseStep = 0.2f;
+constexpr float kMoveStep = 0.5f;
 constexpr uint32_t kSK3KillSkaterFinish = 0x0B38ED6B; // SK3_KillSkater_Finish
 constexpr uint32_t kSK3KillSkater = 0xDEA3057B; // SK3_KillSkater
 constexpr uint32_t kTeleportSkaterToNode = 0x9FBBD5F0; // TeleportSkaterToNode
@@ -73,7 +98,7 @@ constexpr uint32_t kEditorCameraName{0x43BFAB74};
 // NOT ORIGINAL grouping - editor_camera.cpp's state (the original's globals). Made on first use, never destroyed
 // (editor_camera_state()).
 struct EditorCameraState {
-    std::array<uint32_t, 20> editor_camera_seen_{};
+    std::array<uint32_t, kSeenCapacity> editor_camera_seen_{};
     uint8_t editor_camera_flagged_{};
     int editor_camera_seen_count_{};
 };
@@ -101,7 +126,7 @@ float get_global(uint32_t name) { return script::fetch_float(name); }
 
 uint8_t& get_flagged() { return editor_camera_state().editor_camera_flagged_; }
 int& get_seen_count() { return editor_camera_state().editor_camera_seen_count_; }
-std::array<uint32_t, 20>& get_seen() { return editor_camera_state().editor_camera_seen_; }
+std::array<uint32_t, kSeenCapacity>& get_seen() { return editor_camera_state().editor_camera_seen_; }
 
 // The collision feeler (render::ProbeRay): its line, a hit callback, the hit's point and normal; what it hit held by
 // a smart pointer (let go of by its destructor).
@@ -155,17 +180,17 @@ bool script_flagged(uint32_t name)
         return false;
     script::Tokens token = script::tokens_at(code);
     token = script::skip_to_end_of_statement(token);
-    while (*token != 0x24) { // (end of script)
+    while (*token != kTokenEndOfScript) { // (end of script)
         script::Tokens next;
-        if (*token == 0x16) { // a name: a script called?
+        if (*token == kTokenName) { // a name: a script called?
             uint32_t called = script::fetch_word32(token + 1);
-            next = token + 5;
+            next = token + kNameTokenBytes;
             bool flagged = false;
-            if (*next == 0x42) { // (a name after a colon-like 0x42 token: the second name's the script)
+            if (*next == kTokenAfterName) { // (a name after a colon-like 0x42 token: the second name's the script)
                 ++next;
-                if (*next == 0x16) {
+                if (*next == kTokenName) {
                     called = script::fetch_word32(next + 1);
-                    next += 5;
+                    next += kNameTokenBytes;
                     flagged = script_flagged(called);
                 } else {
                     token = script::skip_to_end_of_statement(next);
@@ -179,9 +204,9 @@ bool script_flagged(uint32_t name)
                 return true;
             }
             token = script::skip_to_end_of_statement(next);
-        } else if (*token == 0x47) {
+        } else if (*token == kTokenShortJump) {
             token = script::step_over_token(token);
-            if (*token == 0x39)
+            if (*token == kTokenAfterJump)
                 ++token;
         } else {
             token = script::skip_to_end_of_statement(token);
@@ -218,7 +243,7 @@ bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end)
     Feeler feeler;
     feeler.kickoff() = start;
     feeler.get_end() = end;
-    feeler.set_excluded(0, 0x50);
+    feeler.set_excluded(0, kCameraRequireFlags);
     feeler.hook_fn() = &flag_scripted_hit;
     feeler.get_hit_shape(1, 0);
     return get_flagged() != 0;
@@ -252,7 +277,7 @@ void EditorViewModule::configure_from_data(script::Struct* params)
     params->fetch_float(kMinHeight, &min_height_, 0); // min_height
     min_zoom_ = 100.0f;
     params->fetch_float(kMinRadius, &min_zoom_, 0);
-    max_zoom_ = 2000.0f;
+    max_zoom_ = kMaxZoom;
     params->fetch_float(kMaxRadius, &max_zoom_, 0);
     simple_collision_ = params->has_bare_flag(kSimpleCollision); // SimpleCollision
     no_wall_check_ = params->has_bare_flag(kHashF5680DEF);
@@ -267,7 +292,7 @@ void EditorViewModule::build_blob_shadow()
     if (shadow_handle_)
         return;
     shadow_handle_ = std::make_unique<render::BlobShadow>();
-    shadow_handle_->set_size_factor(1.2f); // (no null check)
+    shadow_handle_->set_size_factor(kShadowSizeFactor); // (no null check)
     shadow_handle_->load_mesh("Ped_Shadow");
 }
 
@@ -343,7 +368,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
         clear = false;
     if (!no_wall_check_) {
         Feeler feeler;
-        feeler.set_excluded(0x10, 0);
+        feeler.set_excluded(kCameraIgnoreFlags, 0);
         feeler.change_origin(from);
         feeler.change_finish(to);
         if (feeler.get_hit_shape(1, 0))
@@ -384,9 +409,9 @@ int EditorViewModule::invoke_method_by_name(uint32_t name, script::Struct* param
     if (name == kEditorCamInitialise) {
         params->fetch_vec(kPosition, &cursor_, 0);
         focus_ = cursor_;
-        zoom_ = 700.0f;
+        zoom_ = kStartZoom;
         params->fetch_float(kRadius, &zoom_, 0);
-        lean_angle_ = 0.6f;
+        lean_angle_ = kStartLean;
         params->fetch_float(kTilt, &lean_angle_, 0); // tilt
         level_y_ = 0.0f;
         params->fetch_float(kCursorHeight, &level_y_, 0);
@@ -431,23 +456,23 @@ void EditorViewModule::tick_frame()
     bool zoom_in = false, zoom_out = false, raise = false, lower = false;
     const int controller = game_config::hardware();
     const uint32_t buttons = input_ptr_->events();
-    if (controller == 4 || controller == 7) {
-        zoom_in = (buttons & 0x400000) != 0;
-        zoom_out = (buttons & 0x800000) != 0;
+    if (controller == 4 || controller == kControllerPs2Pad) {
+        zoom_in = (buttons & kButtonZoomIn) != 0;
+        zoom_out = (buttons & kButtonZoomOut) != 0;
         if (park_editing::ParkBuilderMode::sole()->editor_state() == kEdit) {
-            raise = (buttons & 0x1000) != 0;
-            lower = (buttons & 0x4000) != 0;
+            raise = (buttons & kButtonRaiseA) != 0;
+            lower = (buttons & kButtonLowerA) != 0;
         } else {
-            raise = (buttons & 0x2000) != 0;
-            lower = (buttons & 0x1000) != 0;
+            raise = (buttons & kButtonRaiseB) != 0;
+            lower = (buttons & kButtonLowerB) != 0;
         }
-    } else if (controller == 5) {
-        if (buttons & 0x1000000) {
-            zoom_in = (buttons & 0x2000) != 0;
-            zoom_out = (buttons & 0x1000) != 0;
+    } else if (controller == kControllerXbox) {
+        if (buttons & kButtonShift) {
+            zoom_in = (buttons & kButtonLowerB) != 0;
+            zoom_out = (buttons & kButtonRaiseA) != 0;
         } else {
-            lower = (buttons & 0x2000) != 0;
-            raise = (buttons & 0x1000) != 0;
+            lower = (buttons & kButtonLowerB) != 0;
+            raise = (buttons & kButtonRaiseA) != 0;
         }
     } else {
         zoom_in = pad.shoulder_right_a().held_down() != 0;
@@ -472,7 +497,7 @@ void EditorViewModule::tick_frame()
     auto rise =
         static_cast<float>((static_cast<double>(get_global(kEditorCamUpDownSpeedMax)) - near_rate) * zoom_fraction + near_rate);
     if (zoom_ < kNearZoom)
-        rise = 0.2f;
+        rise = kRiseStep;
     if (!raise) {
         if (!lower)
             rise = 0.0f;
@@ -543,15 +568,15 @@ void EditorViewModule::tick_frame()
     double ahead = static_cast<double>(core::at(pad.stick(), 3)) * kStickScale;
     if (std::fabs(side) < kDeadZone) {
         if (pad.left_side().held_down())
-            side = -0.5f;
+            side = -kMoveStep;
         if (pad.right_side().held_down())
-            side = 0.5f;
+            side = kMoveStep;
     }
     if (std::fabs(ahead) < kDeadZone) {
         if (pad.up_dir().held_down())
-            ahead = -0.5f;
+            ahead = -kMoveStep;
         if (pad.btn_down().held_down())
-            ahead = 0.5f;
+            ahead = kMoveStep;
     }
     auto a1 = static_cast<float>(ahead * forward_.w);
     auto a2 = static_cast<float>(ahead * forward_.z);

@@ -108,6 +108,8 @@ void resize_coim_heap(uint32_t size);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 31>& composite_object_member_functions();
-std::array<script::MemberFunctionEntry, 17>& object_member_functions();
+constexpr std::size_t kCompositeObjectMemberFunctionCount = 31;
+std::array<script::MemberFunctionEntry, kCompositeObjectMemberFunctionCount>& composite_object_member_functions();
+constexpr std::size_t kObjectMemberFunctionCount = 17;
+std::array<script::MemberFunctionEntry, kObjectMemberFunctionCount>& object_member_functions();
 } // namespace objects

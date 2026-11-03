@@ -31,6 +31,10 @@ class Struct;
 } // namespace script
 
 namespace objects {
+constexpr std::size_t kEntryCount = 0x400;
+constexpr std::size_t kEventNameBytes = 0x40;
+constexpr std::size_t kEventNameCount = 0x100;
+constexpr std::size_t kWaiterCount = 40;
 
 class Entity; // +0x08 flags (0x20: has a position), +0x14 id, +0x3C alias count, +0x4C position
 
@@ -129,10 +133,10 @@ public:
     void set_added_since_sweep(int value) { added_since_sweep_ = value; }
 
 private:
-    std::array<TableRow, 0x400> entries_;
+    std::array<TableRow, kEntryCount> entries_;
     int ordinal_;             // +0x7000 the next entry
     bool has_looped_;         // +0x7004 the ring is full
-    std::array<std::array<char, 0x40>, 0x100> names_; // +0x7005 the event names (no check that there are at most 256)
+    std::array<std::array<char, kEventNameBytes>, kEventNameCount> names_; // +0x7005 the event names (no check that there are at most 256)
     std::array<uint8_t, 3> unknownb005_;
     lists::KeyMap* names_ptr_; // +0xB008 (the trace's: teardown frees it) name checksum -> names_ entry (made on the first add_row)
     int layer_;                // +0xB00C how many launches are under way
@@ -211,7 +215,7 @@ private:
     int launch_depth_{0};      // +0x1C
     SignalTrace log_{};        // +0x20
     int launched_from_script_{0}; // +0xB034 for the next launch's log entry (set by the LaunchEvent Function)
-    std::array<Waiter, 40> waiters_{};     // +0xB038
+    std::array<Waiter, kWaiterCount> waiters_{};     // +0xB038
     bool unknownb218_{false};  // +0xB218 (cleared by the constructor only)
 };
 

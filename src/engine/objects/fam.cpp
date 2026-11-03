@@ -2,6 +2,7 @@
 
 #include "engine/objects/fam.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <gsl/pointers>
 #include <array>
@@ -27,6 +28,7 @@
 
 namespace objects {
 namespace {
+constexpr std::size_t kFileNameBytes = 32;
 constexpr uint32_t kObjPlayFam = 0xE5894C80; // Obj_PlayFam
 constexpr uint32_t kFAM = 0x0301D67C; // FAM
 constexpr uint32_t kHash48AC2139 = 0x48AC2139; // (text unknown)
@@ -105,7 +107,7 @@ void FamComponent::unload_fam()
 void FamComponent::load_anim_bank(uint32_t name, uint32_t anim_set)
 {
     unload_fam();
-    std::array<char, 32> file_name{};
+    std::array<char, kFileNameBytes> file_name{};
     text::format_to(file_name, "fam\\%08x.fam",
                     name); // (the original: the game's sprintf, 0x006234FE)
     debug::printf("loading %s\n", file_name.data());

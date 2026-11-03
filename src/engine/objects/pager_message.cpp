@@ -36,9 +36,9 @@ constexpr uint32_t kPagerMessageCount = 0xC4D8D79A; // PagerMessageCount
 constexpr uint32_t kFirstUnreadMessageNum = 0x8FD8B4C3; // FirstUnreadMessageNum
 } // namespace
 
-std::array<script::MemberFunctionEntry, 6>& pager_message_member_functions()
+std::array<script::MemberFunctionEntry, kPagerMessageMemberFunctionCount>& pager_message_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 6> pager_message_member_functions{{
+    static std::array<script::MemberFunctionEntry, kPagerMessageMemberFunctionCount> pager_message_member_functions{{
         {.callsign_ = kSendPagerMessage, .owner_kind_ = kPagerMessageName}, {.callsign_ = kGetPagerMessage, .owner_kind_ = kPagerMessageName}, {.callsign_ = kGetPagerMessageCount, .owner_kind_ = kPagerMessageName}, {.callsign_ = kGetFirstUnreadMessageNum, .owner_kind_ = kPagerMessageName},
         {.callsign_ = kClearPagerMessages, .owner_kind_ = kPagerMessageName}, {.callsign_ = 0, .owner_kind_ = kPagerMessageName}}};
     return pager_message_member_functions;

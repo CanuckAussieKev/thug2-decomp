@@ -230,6 +230,11 @@ void dispose_when_free(Entity* object, void* data);
 
 class GameEntity;
 
+constexpr std::size_t kObjectModuleFlagBitsOffset = 0x08;
+constexpr std::size_t kObjectModuleEntityOffset = 0x0C;
+constexpr std::size_t kObjectModuleFollowingOffset = 0x10;
+constexpr std::size_t kObjectModuleNextOfTypeOffset = 0x14;
+constexpr std::size_t kObjectModuleBytes = 0x18;
 // One of a composite object's components (GameObjects::ObjectModule, vtable 0x00647618 in the base; composite.cpp). A
 // component belongs to one object (entity_) and is linked into its list (+0x10) and into the composite object
 // manager's list of the components of its type (+0x14; 0x006F0FB8, wt/coim's 0x0045F3E0 / 0x0045F420).
@@ -323,9 +328,9 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ObjectModule, kind_tag_) == 0x04 && offsetof(ObjectModule, flag_bits_) == 0x08 &&
-                          offsetof(ObjectModule, entity_) == 0x0C && offsetof(ObjectModule, following_) == 0x10 &&
-                          offsetof(ObjectModule, next_of_type_) == 0x14 && sizeof(ObjectModule) == 0x18,
+        static_assert(offsetof(ObjectModule, kind_tag_) == 0x04 && offsetof(ObjectModule, flag_bits_) == kObjectModuleFlagBitsOffset &&
+                          offsetof(ObjectModule, entity_) == kObjectModuleEntityOffset && offsetof(ObjectModule, following_) == kObjectModuleFollowingOffset &&
+                          offsetof(ObjectModule, next_of_type_) == kObjectModuleNextOfTypeOffset && sizeof(ObjectModule) == kObjectModuleBytes,
                       "layout must match the original (the components' fields start at 0x18)");
     }
 };

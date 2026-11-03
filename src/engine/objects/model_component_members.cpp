@@ -33,6 +33,9 @@ namespace objects {
 using namespace model_nx;
 
 namespace {
+constexpr uint8_t kHalfAlpha = 0x80;
+constexpr float kPivotHeight = 30.0f;
+constexpr unsigned kFullByte = 0xFF;
 
 // The members (their names' checksums).
 constexpr uint32_t kSwitchOnAtomic = 0x07D0C128;
@@ -217,7 +220,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->fetch_int_value(kR, &r, 0);
         params->fetch_int_value(kG, &g, 0);
         params->fetch_int_value(kB, &b, 0);
-        std::array<uint8_t, 4> rgba = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80}};
+        std::array<uint8_t, 4> rgba = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), kHalfAlpha}};
         change_ambient_tint(model_lights(mesh_instance_.get()), rgba.data());
         enable_ambient(model_lights(mesh_instance_.get()), true);
         break;
@@ -234,7 +237,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->fetch_int_value(kR, &r, 0);
         params->fetch_int_value(kG, &g, 0);
         params->fetch_int_value(kB, &b, 0);
-        std::array<uint8_t, 4> rgba = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), 0x80}};
+        std::array<uint8_t, 4> rgba = {{static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), kHalfAlpha}};
         change_diffuse_hue(model_lights(mesh_instance_.get()), index, rgba.data());
         enable_diffuse(model_lights(mesh_instance_.get()), index, true);
         break;
@@ -292,7 +295,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->fetch_float(kEndAngle, &end, 0);
         int power = 0;
         params->fetch_int_value(kSinePower, &power, 0);
-        pivot_ = {.x = 0.0f, .y = 30.0f, .z = 0.0f, .w = 1.0f};
+        pivot_ = {.x = 0.0f, .y = kPivotHeight, .z = 0.0f, .w = 1.0f};
         params->fetch_vec(kRotationOffset, &pivot_, 0);
         const bool hold = params->has_bare_flag(kHoldOnLastAngle);
         const bool dont_pause = params->has_bare_flag(kDontPause);
@@ -425,7 +428,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             if (params->fetch_int_value(kR, &r, false) && params->fetch_int_value(kG, &g, false) &&
                 params->fetch_int_value(kB, &b, false))
                 mesh_instance_->change_tint(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b),
-                                            static_cast<uint8_t>(0xFF));
+                                            static_cast<uint8_t>(kFullByte));
         }
         break;
     case kObjHasModelLights:

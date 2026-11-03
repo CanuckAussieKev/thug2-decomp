@@ -26,9 +26,12 @@
 
 namespace objects {
 
-static_assert(sizeof(ClassNodeList) == 0x4C && sizeof(GrindRailHub) == 0x54, "the sizes allocated here");
+constexpr std::size_t kClassNodeListBytes = 0x4C;
+constexpr std::size_t kGrindRailHubBytes = 0x54;
+static_assert(sizeof(ClassNodeList) == kClassNodeListBytes && sizeof(GrindRailHub) == kGrindRailHubBytes, "the sizes allocated here");
 
 namespace {
+constexpr std::size_t kPathBytes = 0x100;
 
 constexpr uint32_t kModel = 0x286A8D26; // model
 
@@ -57,7 +60,7 @@ void WaypointListModule::configure_from_data(script::Struct* params)
     const char* model = nullptr;
     if (!params->fetch_text(kModel, &model, 0))
         return;
-    std::array<char, 0x100> path{};
+    std::array<char, kPathBytes> path{};
     text::format_to(path, "models\\%s", model); // (the original: strcpy / strcat, unbounded)
     if (char* dot = std::strstr(path.data(), "."))
         std::memcpy(dot, ".qb", 4);

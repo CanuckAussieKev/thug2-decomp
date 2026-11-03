@@ -16,6 +16,11 @@
 
 namespace objects {
 namespace {
+constexpr uint32_t kMotionFlagRotatingAlt = 0x40u;
+constexpr int kBlockReasonJumpFinished = 7;
+constexpr int kBlockReasonRotate = 9;
+constexpr int kBlockReasonMove = 5;
+constexpr int kBlockReasonStop = 8;
 constexpr uint32_t kObjIsMoving = 0x21ACCF0D; // Obj_IsMoving
 constexpr uint32_t kMotion = 0x0A015E17; // Motion
 constexpr uint32_t kObjIsRotating = 0x7BC461AE; // Obj_IsRotating
@@ -67,9 +72,9 @@ constexpr uint32_t kObjJump = 0x1AE46261; // Obj_Jump
 constexpr uint32_t kHash2FAD370D = 0x2FAD370D; // (text unknown)
 } // namespace
 
-std::array<script::MemberFunctionEntry, 49>& motion_path_member_functions()
+std::array<script::MemberFunctionEntry, kMotionPathMemberFunctionCount>& motion_path_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 49> motion_path_member_functions{{
+    static std::array<script::MemberFunctionEntry, kMotionPathMemberFunctionCount> motion_path_member_functions{{
         {.callsign_ = kObjIsMoving, .owner_kind_ = kMotion}, {.callsign_ = kObjIsRotating, .owner_kind_ = kMotion}, {.callsign_ = kObjStorePos, .owner_kind_ = kMotion}, {.callsign_ = kHashC8CC6820, .owner_kind_ = kMotion},
         {.callsign_ = kObjStopMoving, .owner_kind_ = kMotion}, {.callsign_ = kObjStopRotating, .owner_kind_ = kMotion}, {.callsign_ = kObjSetPathVelocity, .owner_kind_ = kMotion}, {.callsign_ = kObjSetPathMinStopVel, .owner_kind_ = kMotion},
         {.callsign_ = kObjSetPathAcceleration, .owner_kind_ = kMotion}, {.callsign_ = kObjSetPathDeceleration, .owner_kind_ = kMotion}, {.callsign_ = kObjRotate, .owner_kind_ = kMotion}, {.callsign_ = kObjRotX, .owner_kind_ = kMotion},
@@ -199,7 +204,7 @@ int KinematicsModule::stop_moving(script::Struct*, script::Script*)
 // 0x00423190
 int KinematicsModule::stop_rotating(script::Struct*, script::Script*)
 {
-    motion_flags_ &= ~(kMotionFlagRotating | 0x40u);
+    motion_flags_ &= ~(kMotionFlagRotating | kMotionFlagRotatingAlt);
     return 1;
 }
 
@@ -280,25 +285,25 @@ int KinematicsModule::start_along_path(script::Struct*, script::Script*)
 // 0x00423490
 int KinematicsModule::wait_jump_finished(script::Struct*, script::Script* script)
 {
-    return wait_on(script, this, static_cast<script::BlockReason>(7));
+    return wait_on(script, this, static_cast<script::BlockReason>(kBlockReasonJumpFinished));
 }
 
 // 0x004234B0
 int KinematicsModule::wait_rotate(script::Struct*, script::Script* script)
 {
-    return wait_on(script, this, static_cast<script::BlockReason>(9));
+    return wait_on(script, this, static_cast<script::BlockReason>(kBlockReasonRotate));
 }
 
 // 0x004234D0
 int KinematicsModule::wait_move(script::Struct*, script::Script* script)
 {
-    return wait_on(script, this, static_cast<script::BlockReason>(5));
+    return wait_on(script, this, static_cast<script::BlockReason>(kBlockReasonMove));
 }
 
 // 0x004234F0
 int KinematicsModule::wait_stop(script::Struct*, script::Script* script)
 {
-    return wait_on(script, this, static_cast<script::BlockReason>(8));
+    return wait_on(script, this, static_cast<script::BlockReason>(kBlockReasonStop));
 }
 
 } // namespace objects

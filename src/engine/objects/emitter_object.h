@@ -21,6 +21,8 @@ class KeyMap;
 }
 
 namespace objects {
+constexpr std::size_t kUnknown14Bytes = 0x10;
+constexpr std::size_t kPathRingSize = 64;
 
 // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 enum EmitterShape : uint8_t {
@@ -33,7 +35,7 @@ struct EmitterNode {
 
     uint32_t label_{};       // +0x00
     maths::Vec4 at_point_{}; // +0x04
-    std::array<uint8_t, 0x10> unknown14_{};
+    std::array<uint8_t, kUnknown14Bytes> unknown14_{};
     bool active_{};    // +0x24
     int form_{};       // +0x28 EmitterShape
     float radius_{};   // +0x2C
@@ -81,7 +83,7 @@ public:
     void set_free_facing(bool value) { free_facing_ = value; }
 
 private:
-    std::array<maths::Vec4, 64> path_vertices_{}; // +0x000: a ring, newest at head_
+    std::array<maths::Vec4, kPathRingSize> path_vertices_{}; // +0x000: a ring, newest at head_
     int num_{};                       // +0x400
     int head_{};                      // +0x404
     uint32_t entity_key_{};           // +0x408

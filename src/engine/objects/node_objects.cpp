@@ -52,14 +52,16 @@ EntityHub* entity_hub_handle() { return objects::object_hub_slot().get(); }
 void seal(GameEntity* object) { object->seal(); }
 
 // The two components a game object gets after its array's (not rewritten yet).
+constexpr std::size_t kPinnedObjectModuleBytes = 0x90;
 gsl::owner<ObjectModule*> new_game_object_component_a()
 {
-    static_assert(sizeof(PinnedObjectModule) == 0x90, "the original allocates 0x90 bytes");
+    static_assert(sizeof(PinnedObjectModule) == kPinnedObjectModuleBytes, "the original allocates 0x90 bytes");
     return new PinnedObjectModule;
 }
+constexpr std::size_t kCbBoxComponentBytes = 0x4C;
 gsl::owner<ObjectModule*> new_game_object_component_b()
 {
-    static_assert(sizeof(CbBoxComponent) == 0x4C, "the original allocates 0x4C bytes");
+    static_assert(sizeof(CbBoxComponent) == kCbBoxComponentBytes, "the original allocates 0x4C bytes");
     return new CbBoxComponent;
 }
 

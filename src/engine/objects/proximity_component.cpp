@@ -24,6 +24,7 @@
 namespace objects {
 
 namespace {
+constexpr float kMillisecondsPerSecond = 1000.0f;
 GameEntity*& proximity_skater()
 {
     static GameEntity* proximity_skater{};
@@ -117,7 +118,7 @@ bool ProximityComponent::proximity_set_active(script::Struct* params, script::Sc
         float delay = 0.0f;
         if (params->fetch_float(kDelay, &delay, 0)) {
             const int now = frame_clock::game_clock_elapsed();
-            reactivate_time_ = now + (clock_offset() - truncate(static_cast<double>(delay) * -1000.0f));
+            reactivate_time_ = now + (clock_offset() - truncate(static_cast<double>(delay) * -kMillisecondsPerSecond));
         } else {
             reactivate_time_ = 0;
         }

@@ -21,6 +21,8 @@
 namespace objects {
 
 namespace {
+constexpr double kHalf = 0.5;
+constexpr float kHalfF = 0.5f;
 
 constexpr uint32_t kPathComponent = 0x0A015E17; // the owner's component that picks links and hears of nodes
 
@@ -191,10 +193,10 @@ int PathFollower::compute_arc()
         return 2;
 
     // the arc's centre: on the bisector, through the middle of position - corner
-    auto mx = static_cast<float>((static_cast<double>(bend_point_.x) - at_point_.x) * 0.5);
+    auto mx = static_cast<float>((static_cast<double>(bend_point_.x) - at_point_.x) * kHalf);
     const double my = (static_cast<double>(bend_point_.y) - at_point_.y) * 0.5;
     const double mz = static_cast<double>(bend_point_.z - at_point_.z) * 0.5;
-    auto mw = static_cast<float>(static_cast<double>(bend_point_.w - at_point_.w) * 0.5);
+    auto mw = static_cast<float>(static_cast<double>(bend_point_.w - at_point_.w) * kHalf);
     auto half_chord = static_cast<float>(std::sqrt(static_cast<double>(mx) * mx + mz * mz + my * my));
     auto mid_x = static_cast<float>(static_cast<double>(mx) + at_point_.x);
     auto mid_y = static_cast<float>(my + at_point_.y);
@@ -370,7 +372,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
     case kStateArc: {
         const double along = static_cast<double>(distance) + along_;
         along_ = static_cast<float>(along);
-        if ((flag_bits_ & kFlagTellNode) && along >= static_cast<double>(arc_length_) * 0.5) {
+        if ((flag_bits_ & kFlagTellNode) && along >= static_cast<double>(arc_length_) * kHalf) {
             const uint32_t passed = last_node_;
             flag_bits_ &= ~kFlagTellNode;
             node_passed(path_component(owner_), passed);
@@ -406,8 +408,8 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
         at_point_ += offset;
         const maths::Vec4 into = segment_origin_ - center_;
         const maths::Vec4 next = bend_point_ - segment_origin_;
-        float blend = t * 0.5f;
-        if (blend >= 0.5f && (flag_bits_ & kFlagTellNode)) {
+        float blend = t * kHalfF;
+        if (blend >= kHalfF && (flag_bits_ & kFlagTellNode)) {
             const uint32_t passed = last_node_;
             flag_bits_ &= ~kFlagTellNode;
             node_passed(path_component(owner_), passed);

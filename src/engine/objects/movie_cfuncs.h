@@ -14,6 +14,8 @@ class Script;
 // whether the script's `if` should be taken (true where nothing is asked).
 namespace commands {
 
+constexpr std::size_t kCutsceneDestroyEntryBytes = 0xC;
+constexpr std::size_t kCutsceneDestroyEntryArgsOffset = 8;
 // An entry of the cutscene destroy list (AddToCutsceneDestroyList, 0x005B5320; 0xC bytes): the object's name, the
 // script that destroys it (destroy_func) and its parameters (destroy_params, a structure of the entry's own).
 struct CutsceneDestroyEntry {
@@ -37,7 +39,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(CutsceneDestroyEntry) == 0xC && offsetof(CutsceneDestroyEntry, args_) == 8,
+        static_assert(sizeof(CutsceneDestroyEntry) == kCutsceneDestroyEntryBytes && offsetof(CutsceneDestroyEntry, args_) == kCutsceneDestroyEntryArgsOffset,
                       "layout must match the original");
     }
 };

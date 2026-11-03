@@ -42,9 +42,9 @@ constexpr uint32_t kHash9C1CDE7A = 0x9C1CDE7A; // (text unknown)
 constexpr uint32_t kIfZero = 0xFD2EACAD; // ifZero
 } // namespace
 
-std::array<script::MemberFunctionEntry, 7>& object_proximity_member_functions()
+std::array<script::MemberFunctionEntry, kObjectProximityMemberFunctionCount>& object_proximity_member_functions()
 {
-    static std::array<script::MemberFunctionEntry, 7> object_proximity_member_functions{{
+    static std::array<script::MemberFunctionEntry, kObjectProximityMemberFunctionCount> object_proximity_member_functions{{
         {.callsign_ = kObjSetInnerRadius, .owner_kind_ = kObjectproximity}, {.callsign_ = kObjSetOuterRadius, .owner_kind_ = kObjectproximity}, {.callsign_ = kObjSetInnerAvoidRadius, .owner_kind_ = kObjectproximity}, {.callsign_ = kObjSetOuterAvoidRadius, .owner_kind_ = kObjectproximity},
         {.callsign_ = kObjSetAttentionRadius, .owner_kind_ = kObjectproximity}, {.callsign_ = kObjObjectInAttentionRadius, .owner_kind_ = kObjectproximity}, {.callsign_ = 0, .owner_kind_ = kObjectproximity}}};
     return object_proximity_member_functions;

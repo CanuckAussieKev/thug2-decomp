@@ -120,5 +120,6 @@ void set_particle_hub(std::unique_ptr<render::EffectsDirector> owned);
 
 namespace objects {
 // The script member table's records (their code is filled in by engine/script/member_function_code.cpp).
-std::array<script::MemberFunctionEntry, 21>& particle_component_member_functions();
+constexpr std::size_t kParticleComponentMemberFunctionCount = 21;
+std::array<script::MemberFunctionEntry, kParticleComponentMemberFunctionCount>& particle_component_member_functions();
 } // namespace objects

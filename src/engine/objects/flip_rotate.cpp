@@ -4,6 +4,7 @@
 #include "engine/gfx/anim_controller.h"
 #include "engine/gfx/rig.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -22,6 +23,7 @@
 namespace objects {
 
 namespace {
+constexpr std::size_t kPoseCapacity = 64;
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A; // SkaterFlipAndRotate
 
 constexpr uint32_t kFlipped = 0x0C7A712C; // "flipped"
@@ -66,8 +68,8 @@ bool FlipRotateComponent::fetch_pose(gfx::Stance* pose)
     if (!mirrored_)
         return true;
     // The pose as it was (rotations past the bone count: no turn), then each bone from its mirror image.
-    std::array<maths::QuatRotation, 64> rotations{};
-    std::array<maths::Vec4, 64> translations{};
+    std::array<maths::QuatRotation, kPoseCapacity> rotations{};
+    std::array<maths::Vec4, kPoseCapacity> translations{};
     for (auto& r : rotations)
         r = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     const int count = skeleton->get_num_bones();

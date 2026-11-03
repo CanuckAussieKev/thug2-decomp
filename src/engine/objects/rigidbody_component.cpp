@@ -35,9 +35,23 @@
 #include "engine/maths/vec4.h"
 
 namespace objects {
+namespace {
+constexpr float kGravity = 386.3999938964844f;    // inches a second squared
+constexpr int kBoxContacts = 8;                   // contact points of a box, plane and cylinder body
+constexpr int kPlaneContacts = 5;
+constexpr int kCylinderContacts = 6;
+constexpr float kBoxWidth = 32.0f;                // a default box body's size, in inches
+constexpr float kBoxDepth = 16.0f;
+constexpr float kBoxHeight = 42.0f;
+constexpr float kCylinderRadius = 12.0f;
+constexpr float kCylinderHeight = 60.0f;
+constexpr int kCylinderEdges = 6;
+constexpr float kPusherHeight = 77.0f;
+constexpr int kLastContact = 7;
+} // namespace
 
-std::array<maths::Vec4, 24>& BodyDynamicsModule::world_contact_points() { return objects_shared().rigid_body_world_contact_points(); }
-std::array<maths::Vec4, 24>& BodyDynamicsModule::world_sphere_centers() { return objects_shared().rigid_body_world_sphere_centers(); }
+std::array<maths::Vec4, kContactCount>& BodyDynamicsModule::world_contact_points() { return objects_shared().rigid_body_world_contact_points(); }
+std::array<maths::Vec4, kContactCount>& BodyDynamicsModule::world_sphere_centers() { return objects_shared().rigid_body_world_sphere_centers(); }
 std::array<maths::Vec4, 2>& BodyDynamicsModule::world_spring_points() { return objects_shared().rigid_body_world_spring_points(); }
 std::span<BodyDynamicsModule::Contact> BodyDynamicsModule::get_contacts() { return objects_shared().rigid_body_contacts(); }
 
@@ -150,7 +164,7 @@ BodyDynamicsModule::BodyDynamicsModule()
     // (capsule_ is constructed first, as a member)
     orientation_ = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     set_kind_tag(kType);
-    steady_accel_ = {.x = 0.0f, .y = -386.3999938964844f, .z = 0.0f, .w = 1.0f};
+    steady_accel_ = {.x = 0.0f, .y = -kGravity, .z = 0.0f, .w = 1.0f};
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     skater_assent_cos_ = static_cast<float>(std::cos(kAssent));
     skater_assent_sin_ = static_cast<float>(std::sin(kAssent));
@@ -184,7 +198,7 @@ void BodyDynamicsModule::set_contacts(script::Array* points)
 // 0x0042D560
 void BodyDynamicsModule::set_box(const maths::Vec4* top, const maths::Vec4* bottom)
 {
-    contact_count_ = 8;
+    contact_count_ = kBoxContacts;
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
     int n = 0;
     for (const bool right : {false, true}) {
@@ -203,7 +217,7 @@ void BodyDynamicsModule::set_pyramid(PyramidSize pyramid_size)
 {
     const auto half_height = pyramid_size.half_height_;
     const auto half_depth = pyramid_size.half_depth_;
-    contact_count_ = 5;
+    contact_count_ = kPlaneContacts;
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
     const float base = half_height * kPyramidBase;
     core::at(contact_run(), 0) = {.x = half_depth, .y = base, .z = half_depth, .w = 1.0f};
@@ -238,7 +252,7 @@ void BodyDynamicsModule::set_cylinder(CylinderShape cylinder)
 // 0x0042D8A0
 void BodyDynamicsModule::set_triangle(const maths::Vec4* dimensions)
 {
-    contact_count_ = 6;
+    contact_count_ = kCylinderContacts;
     contacts_ = reallocate(contacts_, contact_count_ * sizeof(maths::Vec4));
     const maths::Vec4& d = *dimensions;
     int n = 0;
@@ -409,7 +423,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         shape = 3;
     switch (shape) {
     case 0: {
-        maths::Vec4 top = {.x = 32.0f, .y = 32.0f, .z = 16.0f, .w = 1.0f};
+        maths::Vec4 top = {.x = kBoxWidth, .y = kBoxWidth, .z = kBoxDepth, .w = 1.0f};
         params->fetch_vec("dimensions", &top, 0);
         maths::Vec4 bottom = top;
         params->fetch_vec("top_dimensions", &top, 0);
@@ -420,7 +434,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         break;
     }
     case 1: {
-        float height = 42.0f, depth = 32.0f;
+        float height = kBoxHeight, depth = kBoxDepth;
         params->fetch_float(kHeight, &height, 0); // height
         params->fetch_float(kDepth, &depth, 0);  // depth
         height = height * kHalf;
@@ -429,8 +443,8 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         break;
     }
     case 2: {
-        float radius = 12.0f, height = 60.0f;
-        int edges = 6;
+        float radius = kCylinderRadius, height = kCylinderHeight;
+        int edges = kCylinderEdges;
         params->fetch_float(kRadius, &radius, 0); // radius
         float bottom_radius = radius;
         params->fetch_float(kTopRadius, &radius, 0);        // top_radius
@@ -442,7 +456,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         break;
     }
     case 3: {
-        maths::Vec4 dimensions = {.x = 32.0f, .y = 32.0f, .z = 16.0f, .w = 1.0f};
+        maths::Vec4 dimensions = {.x = kBoxWidth, .y = kBoxWidth, .z = kBoxDepth, .w = 1.0f};
         params->fetch_vec(kDimensions, &dimensions, 0); // Dimensions
         dimensions = {.x = dimensions.x * kHalf, .y = dimensions.y * kHalf, .z = dimensions.z * kHalf, .w = dimensions.w * kHalf};
         set_triangle(&dimensions);
@@ -554,7 +568,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     }
     if (params->has_bare_flag(kDisablePlayerCollision)) // disable_player_collision
         flag_bits_ |= kFlagNoPlayerCollision;
-    objects_shared().set_rigid_body_pusher_height(77.0f);
+    objects_shared().set_rigid_body_pusher_height(kPusherHeight);
 
     // The bounding radius (squared lengths compared unrounded).
     radius_ = 0.0f;
@@ -715,7 +729,7 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
 void add_rigid_body_pusher(GameEntity* object)
 {
     auto& pushers = objects_shared().rigid_body_pushers();
-    for (int i = 7; i >= 0; --i) {
+    for (int i = kLastContact; i >= 0; --i) {
         if (core::at(pushers, i).get_pull())
             continue;
         core::at(pushers, i).assign_value(object);

@@ -27,6 +27,7 @@
 namespace objects {
 
 namespace {
+constexpr float kShadowOffset = 0.2f;
 
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kShadowType = 0x9AC24B18;       // ShadowType
@@ -282,7 +283,7 @@ int GroundShadowModule::invoke_method_by_name(uint32_t name, script::Struct* par
         params->put_name_key(checksums::Name{kShadowType}, kSimple);
     configure_from_data(params);
     if (shadow_handle_.get() && shadow_kind_of(shadow_handle_.get()) == kShadowSimple) {
-        float offset = 0.2f; // (read into the name's argument slot)
+        float offset = kShadowOffset; // (read into the name's argument slot)
         params->fetch_float(kOffset, &offset, 0);
         as_blob(shadow_handle_.get())->set_shift(offset);
     }
