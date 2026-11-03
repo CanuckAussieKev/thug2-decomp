@@ -491,8 +491,10 @@ void apply_goal_manager_params(Struct* saved)
 }
 
 // 0x005A6C80
-bool apply_cat_and_custom_skater(Struct* loaded, Struct* custom_skater)
+bool apply_cat_and_custom_skater(LoadedSkater loaded_skater)
 {
+    const auto loaded = loaded_skater.loaded;
+    const auto custom_skater = loaded_skater.custom_skater_;
     objects::ProfileRoster* profiles = objects::profile_roster();
     modules::Skate* skate = modules::Skate::sole();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)

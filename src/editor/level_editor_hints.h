@@ -63,10 +63,15 @@ std::string leading_key_name(const std::string& keys_text);
 // Single plain keys run together for a cap ("W", "A", "S", "D" -> "WASD"; a key with modifiers or a long name: joined
 // with a space).
 std::string join_keys(const std::vector<std::string>& keys);
+// The modifiers held and the most hints shown.
+struct HintLimit {
+    uint8_t mods{};
+    size_t limit{};
+};
+
 // The registry's actions bound with exactly `mods` held (their first such chord), as (keys, name): Press and Toggle,
 // in the registry's order, at most `limit`.
-std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vector<actions::ActStep>& actions,
-                                                                uint8_t mods, size_t limit);
+std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vector<actions::ActStep>& actions, HintLimit hint_limit);
 
 // A hint's keys split into tokens ('+' between them; a key ending in '+' - "Keypad+" - kept whole).
 std::vector<std::string> get_tokens(const std::string& keys);

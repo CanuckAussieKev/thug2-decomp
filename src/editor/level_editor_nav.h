@@ -50,9 +50,21 @@ Walker walker_at(V3 camera);
 
 // --- click-to-teleport ----------------------------------------------------------------------------------------------
 
+// A click: when (milliseconds) and where (pixels).
+struct Click {
+    uint32_t ms{};
+    float x{};
+    float y{};
+};
+
+// How close two clicks must be: in milliseconds and in pixels.
+struct ClickLimits {
+    uint32_t max_ms_ = 400;
+    float max_pixels_ = 6.0f;
+};
+
 // Two clicks are a double click: within `max_ms` and `max_pixels` of each other.
-bool is_double_click(uint32_t first_ms, float first_x, float first_y, uint32_t second_ms, float second_x,
-                     float second_y, uint32_t max_ms = 400, float max_pixels = 6.0f);
+bool is_double_click(Click first, Click last, ClickLimits limits = {});
 // Where a double click on a surface takes the camera: back along the ray from the point hit by kStandOff (or 80% of
 // the way there when nearer), and at least kLift above the point - looking the same way.
 constexpr float kStandOff = 260.0f;

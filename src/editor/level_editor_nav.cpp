@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -118,9 +117,16 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     }
 }
 
-bool is_double_click(uint32_t first_ms, float first_x, float first_y, uint32_t second_ms, float second_x,
-                     float second_y, uint32_t max_ms, float max_pixels)
+bool is_double_click(Click first, Click last, ClickLimits limits)
 {
+    const auto max_ms = limits.max_ms_;
+    const auto max_pixels = limits.max_pixels_;
+    const auto second_ms = last.ms;
+    const auto second_x = last.x;
+    const auto second_y = last.y;
+    const auto first_ms = first.ms;
+    const auto first_x = first.x;
+    const auto first_y = first.y;
     if (second_ms < first_ms || second_ms - first_ms > max_ms)
         return false;
     return std::fabs(second_x - first_x) <= max_pixels && std::fabs(second_y - first_y) <= max_pixels;

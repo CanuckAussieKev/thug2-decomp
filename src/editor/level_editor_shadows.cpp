@@ -27,16 +27,26 @@ std::string get_lower(const char* name)
 bool get_letter(char c) { return c >= 'a' && c <= 'z'; }
 bool get_digit(char c) { return c >= '0' && c <= '9'; }
 
+// A point on the floor: x and z.
+struct FloorPoint {
+    float x{};
+    float z{};
+};
+
 // How far a point (x, z) is from a footprint (0: on it).
-float footprint_distance(float x, float z, V3 min, V3 max)
+float footprint_distance(FloorPoint point, V3 min, V3 max)
 {
+    const auto x = point.x;
+    const auto z = point.z;
     const float dx = x < min.x ? min.x - x : (x > max.x ? x - max.x : 0.0f);
     const float dz = z < min.z ? min.z - z : (z > max.z ? z - max.z : 0.0f);
     return std::sqrt(dx * dx + dz * dz);
 }
 
-float centre_distance(float x, float z, V3 min, V3 max)
+float centre_distance(FloorPoint point, V3 min, V3 max)
 {
+    const auto x = point.x;
+    const auto z = point.z;
     const float dx = x - (min.x + max.x) * 0.5f;
     const float dz = z - (min.z + max.z) * 0.5f;
     return std::sqrt(dx * dx + dz * dz);
@@ -118,13 +128,13 @@ bool nearest_to_group(ShadowGroup shadow_group,
     const auto group_max = shadow_group.group_max_;
     const float x = (shadow_min.x + shadow_max.x) * 0.5f;
     const float z = (shadow_min.z + shadow_max.z) * 0.5f;
-    const float mine = footprint_distance(x, z, group_min, group_max);
-    const float mine_centre = centre_distance(x, z, group_min, group_max);
+    const float mine = footprint_distance({.x = x, .z = z}, group_min, group_max);
+    const float mine_centre = centre_distance({.x = x, .z = z}, group_min, group_max);
     for (const auto& other : others) {
-        const float theirs = footprint_distance(x, z, other.first, other.second);
+        const float theirs = footprint_distance({.x = x, .z = z}, other.first, other.second);
         if (theirs < mine)
             return false;
-        if (theirs == mine && centre_distance(x, z, other.first, other.second) < mine_centre)
+        if (theirs == mine && centre_distance({.x = x, .z = z}, other.first, other.second) < mine_centre)
             return false;
     }
     return true;

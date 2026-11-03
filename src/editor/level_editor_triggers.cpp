@@ -465,8 +465,10 @@ V3 handle_point(V3 pos, float yaw, V3 size, int handle)
     return pos + handle_direction({.yaw = yaw, .handle = handle}) * half;
 }
 
-void resize_face(V3 pos, float yaw, V3 size, int handle, float along, V3* new_pos, V3* new_size)
+void resize_face(V3 pos, float yaw, V3 size, FaceDrag face_drag, V3* new_pos, V3* new_size)
 {
+    const auto handle = face_drag.handle;
+    const auto along = face_drag.along;
     const int axis = (handle >> 1) % 3;
     V3 grown = size;
     float* side = axis == 0 ? &grown.x : axis == 1 ? &grown.y : &grown.z;
@@ -2793,7 +2795,7 @@ void rescale(V3 origin, V3 dir, bool snap)
     if (snap)
         along = snap_to_grid(size0 + along, 25.0f) - size0;
     V3 pos{}, size{};
-    resize_face(resize_drag().pos0, resize_drag().yaw, resize_drag().size0, resize_drag().handle, along, &pos, &size);
+    resize_face(resize_drag().pos0, resize_drag().yaw, resize_drag().size0, {.handle = resize_drag().handle, .along = along}, &pos, &size);
     if (resize_drag().proxim) {
         // (a proximity node: a sphere's radius grows by what the face moved, about its middle; a box as a trigger's -
         // its middle kept as an offset from the node)

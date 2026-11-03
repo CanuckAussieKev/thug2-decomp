@@ -75,9 +75,10 @@ float point_triangle_distance(V3 p, V3 a, V3 b, V3 c)
     return std::min({segment_distance(p, a, b), segment_distance(p, b, c), segment_distance(p, c, a)});
 }
 
-float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices,
-                     uint32_t index_count, float best)
+float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices, StripLimit strip_limit)
 {
+    const auto index_count = strip_limit.index_count_;
+    auto best = strip_limit.best;
     auto at = [&](uint16_t i) {
         const auto f = gpu::VertexView(positions, stride, vertex_count).float3(i);
         return V3{.x = core::at(f, 0), .y = core::at(f, 1), .z = core::at(f, 2)};
@@ -293,7 +294,7 @@ float geom_distance(render::PcGeom* geom, V3 p, float best)
 {
     for_each_strip(geom, [&](const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices,
                              uint32_t index_count) {
-        best = strip_distance(p, positions, stride, vertex_count, indices, index_count, best);
+        best = strip_distance(p, positions, stride, vertex_count, indices, {.index_count_ = index_count, .best = best});
     });
     return best;
 }

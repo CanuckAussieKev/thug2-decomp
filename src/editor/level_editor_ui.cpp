@@ -1795,7 +1795,7 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     // (UX7: the Arrange window, the adjust-last panel - level_editor_arrange.h, level_editor_adjust.h)
     arrange::pane(level_editor_ui_state().scale_);
     adjust::get_panel(level_editor_ui_state().layout_.viewport.x, level_editor_ui_state().layout_.viewport.y + level_editor_ui_state().layout_.viewport.height, level_editor_ui_state().scale_);
-    triggers::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_, model.nodes.selected);
+    triggers::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, {.scale = level_editor_ui_state().scale_, .selected_node_ = model.nodes.selected});
     // (UX5: the Problems window, the selected note's window)
     checks::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_, level_editor_ui_state().mono_);
     notes::pane({.x = level_editor_ui_state().layout_.viewport.x, .y = level_editor_ui_state().layout_.viewport.y, .width = level_editor_ui_state().layout_.viewport.width, .height = level_editor_ui_state().layout_.viewport.height}, level_editor_ui_state().scale_);

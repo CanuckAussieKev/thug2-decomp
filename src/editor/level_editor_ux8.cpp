@@ -576,7 +576,9 @@ bool take_teleport() { return actions::squeezed(ids().teleport); }
 bool note_empty_click(uint32_t now, float x, float y)
 {
     const bool twice =
-        level_editor_ux8_state().have_empty_click_ && nav::is_double_click(level_editor_ux8_state().last_empty_click_, level_editor_ux8_state().last_empty_x_, level_editor_ux8_state().last_empty_y_, now, x, y);
+        level_editor_ux8_state().have_empty_click_ && nav::is_double_click({.ms = level_editor_ux8_state().last_empty_click_, .x = level_editor_ux8_state().last_empty_x_,
+                                                                             .y = level_editor_ux8_state().last_empty_y_},
+                                                                            {.ms = now, .x = x, .y = y});
     level_editor_ux8_state().have_empty_click_ = !twice;
     level_editor_ux8_state().last_empty_click_ = now;
     level_editor_ux8_state().last_empty_x_ = x;

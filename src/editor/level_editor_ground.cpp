@@ -154,9 +154,19 @@ public:
             u = p.x, v = p.y;
         mesh_.vertices.push_back({.pos = p, .normal = n, .u = u / uv, .v = -v / uv});
     }
+    // A triangle's corners.
+    struct Triangle {
+        V3 a{};
+        V3 b{};
+        V3 c{};
+    };
+
     // A triangle wound so that its normal points along `hint` (not added when it has no area).
-    void get_tri(V3 a, V3 b, V3 c, V3 hint, uint16_t flags)
+    void get_tri(Triangle triangle, V3 hint, uint16_t flags)
     {
+        auto a = triangle.a;
+        auto b = triangle.b;
+        auto c = triangle.c;
         V3 n = perpendicular(b - a, c - a);
         const float length = std::sqrt(get_dot(n, n));
         if (!(length > 1e-3f))
@@ -175,8 +185,8 @@ public:
     // A quad (corners in order round it) as two triangles.
     void get_quad(V3 a, V3 b, V3 c, V3 d, V3 hint, uint16_t flags)
     {
-        get_tri(a, b, c, hint, flags);
-        get_tri(a, c, d, hint, flags);
+        get_tri({.a = a, .b = b, .c = c}, hint, flags);
+        get_tri({.a = a, .b = c, .c = d}, hint, flags);
     }
 };
 
@@ -225,7 +235,7 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, RampHeights heights, 
         for (size_t i = 0; i + 1 < profile.size(); ++i) {
             const V3 p = get_at(e + out * core::at(profile, i).first, foot + core::at(profile, i).second);
             const V3 q = get_at(e + out * core::at(profile, i + 1).first, foot + core::at(profile, i + 1).second);
-            b->get_tri(corner, p, q, away, kFlagWall);
+            b->get_tri({.a = corner, .b = p, .c = q}, away, kFlagWall);
         }
     }
 }

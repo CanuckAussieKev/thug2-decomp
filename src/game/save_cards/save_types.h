@@ -66,9 +66,15 @@ void write_summary(script::Struct* saved, script::Struct* summary, uint32_t type
 // 0x005A6120 (the saved structure in ECX): the goal manager's parameters replaced by its GoalManagerParams, the
 // career reset (mode 0) and the level's goals loaded again.
 void apply_goal_manager_params(script::Struct* saved);
+// A loaded save and its custom skater.
+struct LoadedSkater {
+    script::Struct* loaded{};
+    script::Struct* custom_skater_{};
+};
+
 // 0x005A6C80: the current skater's CAT info, list 0x44B66A9F
 // and chapter info read from it, and the profile manager's custom skater from the argument (its result returned).
-bool apply_cat_and_custom_skater(script::Struct* loaded, script::Struct* custom_skater);
+bool apply_cat_and_custom_skater(LoadedSkater loaded_skater);
 // 0x005A8EB0: the loaded contents kept (0x007CECD4, the previous ones deleted) - read from `data` - with their type
 // (0x007CECD8). Returns the end of what was read.
 // (Not original: `size` - the bytes there are; the structure is decoded no further.)

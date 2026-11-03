@@ -34,6 +34,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/net/net_game_state.h"
 #include "game/save_cards/save_cards_state.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace save_cards {
@@ -358,7 +359,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
             contents->read_sub_struct(kStorySkater, &story_skater, 1);
             Struct* custom_skater = nullptr;
             contents->read_sub_struct(kCustomSkater, &custom_skater, 1);
-            apply_cat_and_custom_skater(story_skater, custom_skater);
+            apply_cat_and_custom_skater({.loaded = story_skater, .custom_skater_ = custom_skater});
         }
         Array* layers = nullptr;
         contents->fetch_list(kLayerInfos, &layers, 1);

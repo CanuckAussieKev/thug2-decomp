@@ -5,7 +5,6 @@
 #include "engine/core/checked_index.h"
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <initializer_list>
 #include <string>
 #include <utility>
@@ -35,9 +34,10 @@ std::string join_keys(const std::vector<std::string>& keys)
     return out;
 }
 
-std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vector<actions::ActStep>& actions,
-                                                                uint8_t mods, size_t limit)
+std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vector<actions::ActStep>& actions, HintLimit hint_limit)
 {
+    const auto mods = hint_limit.mods;
+    const auto limit = hint_limit.limit;
     std::vector<std::pair<std::string, std::string>> out;
     if (!mods)
         return out;

@@ -258,8 +258,10 @@ void level_trigger_details(const LevelTrigger& l)
 
 } // namespace
 
-void pane(PaneArea area, float scale, int selected_node)
+void pane(PaneArea area, PaneState pane_state)
 {
+    const auto scale = pane_state.scale;
+    const auto selected_node = pane_state.selected_node_;
     const auto view_x = area.x;
     const auto view_y = area.y;
     const auto view_width = area.width;

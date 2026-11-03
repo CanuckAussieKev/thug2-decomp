@@ -136,8 +136,16 @@ bool line_hits_sphere(const maths::Vec4& start, const maths::Vec4& base, const C
 }
 
 // 0x0040B750 (the first sign test uses the denominator before it's rounded to a float, the rest after)
-bool segments_cross_2d(float ax, float ay, float adx, float ady, float bx, float by, float bdx, float bdy, float* s)
+bool segments_cross_2d(Ray2 a, Ray2 b, float* s)
 {
+    const auto bx = b.x;
+    const auto by = b.y;
+    const auto bdx = b.dx;
+    const auto bdy = b.dy;
+    const auto ax = a.x;
+    const auto ay = a.y;
+    const auto adx = a.dx;
+    const auto ady = a.dy;
     const double dx = static_cast<double>(ax) - bx;
     const double dy = static_cast<double>(ay) - by;
     auto numerator = static_cast<float>(bdx * dy - dx * bdy);
@@ -686,20 +694,20 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
         found = 1;
         return second;
     };
-    if (segments_cross_2d(o1, o2, a1, a2, p1, p2, dq1, dq2, &s)) {
+    if (segments_cross_2d({.x = o1, .y = o2, .dx = a1, .dy = a2}, {.x = p1, .y = p2, .dx = dq1, .dy = dq2}, &s)) {
         maths::Vec4 point{.x = s * a.x, .y = s * a.y, .z = s * a.z, .w = s * a.w};
         point = {.x = o.x + point.x, .y = point.y + o.y, .z = point.z + o.z, .w = o.w + point.w};
         if (take(point))
             return true;
     }
-    if (segments_cross_2d(far1, far2, a1, a2, p1, p2, dq1, dq2, &s)) {
+    if (segments_cross_2d({.x = far1, .y = far2, .dx = a1, .dy = a2}, {.x = p1, .y = p2, .dx = dq1, .dy = dq2}, &s)) {
         maths::Vec4 point{.x = s * a.x, .y = s * a.y, .z = s * a.z, .w = s * a.w};
         point = {.x = o.x + point.x, .y = point.y + o.y, .z = point.z + o.z, .w = o.w + point.w};
         point = {.x = b.x + point.x, .y = b.y + point.y, .z = b.z + point.z, .w = b.w + point.w};
         if (take(point))
             return true;
     }
-    if (segments_cross_2d(o1, o2, b1, b2, p1, p2, dq1, dq2, &s)) {
+    if (segments_cross_2d({.x = o1, .y = o2, .dx = b1, .dy = b2}, {.x = p1, .y = p2, .dx = dq1, .dy = dq2}, &s)) {
         maths::Vec4 point = b;
         point *= s;
         point += o;
@@ -707,7 +715,7 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
             return true;
     }
     // (the last side only counts as the second point)
-    if (!segments_cross_2d(far3, far4, b1, b2, p1, p2, dq1, dq2, &s) || found != 1)
+    if (!segments_cross_2d({.x = far3, .y = far4, .dx = b1, .dy = b2}, {.x = p1, .y = p2, .dx = dq1, .dy = dq2}, &s) || found != 1)
         return false;
     maths::Vec4 point = b;
     point *= s;

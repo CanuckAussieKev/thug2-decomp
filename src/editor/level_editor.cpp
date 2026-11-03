@@ -3795,7 +3795,7 @@ std::vector<std::pair<std::string, std::string>> keys_now()
     c.pad = ux8::pad_mode() && ux8::pad_owns_cursor();
     c.simulating = play_test::get_simulating();
     if (c.mods)
-        c.modded = hints::modifier_hints(actions::get_all(), c.mods, 9);
+        c.modded = hints::modifier_hints(actions::get_all(), {.mods = c.mods, .limit = 9});
     std::vector<std::pair<std::string, std::string>> out;
     for (const hints::Hint& h :
          hints::get_build(c, [](const char* id) { return actions::get_keys_text(actions::get_find(id)); }))

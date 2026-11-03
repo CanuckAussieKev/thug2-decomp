@@ -171,9 +171,15 @@ struct HandleOf {
 };
 
 V3 handle_direction(HandleOf handle_of);
+// A face dragged: its handle and how far along.
+struct FaceDrag {
+    int handle{};
+    float along{};
+};
+
 // A handle dragged `along` units outwards (negative: inwards): the opposite face stays where it is - the size along
 // that axis grows by `along` (kept within clamp_size's limits) and the centre moves out by half of what it grew.
-void resize_face(V3 pos, float yaw, V3 size, int handle, float along, V3* new_pos, V3* new_size);
+void resize_face(V3 pos, float yaw, V3 size, FaceDrag face_drag, V3* new_pos, V3* new_size);
 
 // The compiled script: its statements (each ending with an end of line, 0x01) - e.g. StartGap GapID=x flags=[a, b]:
 // 16 <StartGap> 16 <GapID> 07 16 <x> 16 <flags> 07 05 16 <a> 09 16 <b> 06 01. Empty while Problem says why.
@@ -312,9 +318,15 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t =
 uint32_t inspected_sector();
 void inspect(uint32_t sector);
 
+// A pane's scale and the selected node.
+struct PaneState {
+    float scale{};
+    int selected_node_{};
+};
+
 // The UI (level_editor_triggers_ui.cpp, ImGui): the Triggers window (T) and the Inspector's section for a trigger
 // node (`node`: Nodes::All() index).
-void pane(PaneArea area, float scale, int selected_node);
+void pane(PaneArea area, PaneState pane_state);
 void inspector_section(int node);
 // What the UI asks for, done in the next Tick (the UI draws after the editor's update).
 void get_queue(std::function<void()> action);

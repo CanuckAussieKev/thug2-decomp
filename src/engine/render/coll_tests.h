@@ -26,9 +26,17 @@ bool ray_hits_triangle(const maths::Vec4& start, const maths::Vec4& direction, c
 bool line_hits_sphere(const maths::Vec4& start, const maths::Vec4& base, const CollSphere& sphere,
                       const maths::Vec4& end, float* t, float limit);
 
+// A ray in the plane: its start and its direction.
+struct Ray2 {
+    float x{};
+    float y{};
+    float dx{};
+    float dy{};
+};
+
 // 0x0040B750: whether the 2D segments (ax, ay) + s (adx, ady) and (bx, by) + u (bdx, bdy) cross for s and u in
 // 0..1; *s set (0 for parallel ones).
-bool segments_cross_2d(float ax, float ay, float adx, float ady, float bx, float by, float bdx, float bdy, float* s);
+bool segments_cross_2d(Ray2 a, Ray2 b, float* s);
 
 // 0x0040B860: the squared distance from `point` to the triangle v0 v1 v2 (Eberly's regions), and where the nearest
 // point is: v0 + s (v1 - v0) + t (v2 - v0) (*s, *t when not null). Returned unrounded (the original leaves it in
