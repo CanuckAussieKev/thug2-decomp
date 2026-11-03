@@ -41,25 +41,29 @@ bool get_skipped(const TriMeshSource& mesh) { return (mesh.face_flags(0) & 0x40)
 // The edges of a model as they are found: the array made from Euler's estimate, and - when the estimate was short -
 // the edges the original wrote on past the end of that allocation (over the heap after it, and read back from there
 // while it went on counting). They are kept here instead, so the count comes out the same and the heap is left alone.
-struct EdgeStore {
-    std::span<ShadowSilhouetteEdge> room;
-    std::vector<ShadowSilhouetteEdge> beyond;
+class EdgeStore {
+public:
+    explicit EdgeStore(std::span<ShadowSilhouetteEdge> room) : room_(room) {}
 
     ShadowSilhouetteEdge& at(int index)
     {
         const auto i = static_cast<size_t>(index);
-        return i < room.size() ? core::at(room, i) : core::at(beyond, i - room.size());
+        return i < room_.size() ? core::at(room_, i) : core::at(beyond_, i - room_.size());
     }
     // The slot for the edge number `index`.
     ShadowSilhouetteEdge& add(int index)
     {
         const auto i = static_cast<size_t>(index);
-        if (i < room.size())
-            return core::at(room, i);
-        if (beyond.size() <= i - room.size())
-            beyond.resize(i - room.size() + 1);
-        return core::at(beyond, i - room.size());
+        if (i < room_.size())
+            return core::at(room_, i);
+        if (beyond_.size() <= i - room_.size())
+            beyond_.resize(i - room_.size() + 1);
+        return core::at(beyond_, i - room_.size());
     }
+
+private:
+    std::span<ShadowSilhouetteEdge> room_;
+    std::vector<ShadowSilhouetteEdge> beyond_;
 };
 
 // The edge from `from` to `to` of a face with `normal`: an existing edge the other way round, or the same way, gets
@@ -125,7 +129,7 @@ void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
         std::memset(edges_->edges, 0, size);
     }
     int count = 0;
-    EdgeStore store{.room = std::span<ShadowSilhouetteEdge>(edges_->edges, estimate >= 1 ? static_cast<size_t>(estimate) : 0), .beyond = {}};
+    EdgeStore store(std::span<ShadowSilhouetteEdge>(edges_->edges, estimate >= 1 ? static_cast<size_t>(estimate) : 0));
     if (model_key_) {
         const std::span<const TriMeshSource> mesh_run(meshes, static_cast<size_t>(get_mesh_count(asset_data)));
         for (int m = 0; m < get_mesh_count(asset_data); ++m) {

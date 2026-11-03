@@ -319,7 +319,7 @@ void DrivableModule::update_righting()
     maths::ArcRotationBlender blend{}; // (on the stack without a constructor in the original: zeroed here)
     maths::ArcRotationBlender* slerp = &blend;
     slerp->set_matrices(basis_frame_, target);
-    const double t = frame_clock::get_slomo_frame_seconds() / slerp->angle * kRightingRate;
+    const double t = frame_clock::get_slomo_frame_seconds() / slerp->angle() * kRightingRate;
     slerp->fetch_mat(basis_frame_, t > 1.0 ? 1.0f : static_cast<float>(t));
     maths::Vec4 quat{};
     matrix_to_quat(&quat, &basis_frame_);

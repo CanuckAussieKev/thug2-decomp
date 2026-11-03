@@ -63,13 +63,14 @@ void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const v
     crt::get_qsort(base, count, size, compare);
 }
 
-struct Lap {
-    SceneRef* scene{};
-    uint32_t flags{};
-    uint8_t viewport_bit_{};
-    bool no_culling_{};
-    MaterialRef* material = nullptr; // the current one
-    int drawn = 0;
+// One scene's drawing pass: its flags, the viewport's bit, the material set last and the meshes drawn so far.
+class Lap {
+public:
+    explicit Lap(uint32_t flags) : flags_(flags), no_culling_((flags & kRenderNoCulling) != 0) {}
+    void set_flags(uint32_t flags) { flags_ = flags; }
+    void set_viewport(int viewport) { viewport_bit_ = static_cast<uint8_t>(1u << viewport); }
+    [[nodiscard]] int drawn() const { return drawn_; }
+    void forget_drawn() { drawn_ = 0; }
 
     // Whether a mesh is drawn this pass: shown (0x40) and not hidden (0x210); unless culling is off, in this
     // viewport, in view and (with occlusion) not hidden by an occluder.
@@ -87,25 +88,32 @@ struct Lap {
         const float radius = mesh->radius();
         if (!sphere_in_view(centre, radius))
             return false;
-        if ((flags & kRenderOcclusion) && sphere_occluded(centre, radius, 1))
+        if ((flags_ & kRenderOcclusion) && sphere_occluded(centre, radius, 1))
             return false;
         return true;
     }
     void blit(MeshRef* mesh)
     {
         MaterialRef* mesh_material = get_mesh_material(mesh);
-        if (mesh_material != material) {
-            material = mesh_material;
-            set_material(material);
+        if (mesh_material != material_) {
+            material_ = mesh_material;
+            set_material(material_);
         }
         draw_mesh(mesh);
     }
     void remember(MeshRef* mesh)
     {
-        core::at(get_drawn(), drawn) = mesh;
-        if (drawn < 0xFFF)
-            ++drawn;
+        core::at(get_drawn(), drawn_) = mesh;
+        if (drawn_ < 0xFFF)
+            ++drawn_;
     }
+
+private:
+    uint32_t flags_;
+    uint8_t viewport_bit_{};
+    bool no_culling_;
+    MaterialRef* material_ = nullptr; // the current one
+    int drawn_ = 0;
 };
 
 } // namespace
@@ -125,7 +133,7 @@ int compare_distances(const void* a, const void* b)
 // 0x004DC700
 void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
 {
-    Lap pass{.scene = scene, .flags = flags, .viewport_bit_ = 0, .no_culling_ = (flags & kRenderNoCulling) != 0};
+    Lap pass(flags);
     if (scene->unknown40())
         return;
     // Not original - the level editor's Collision only view (engine/gfx/view_mode.h): no scene drawn in the 3D passes.
@@ -136,9 +144,11 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
         draw_shadow_volumes(scene, viewport);
         return;
     }
-    if (scene->first_transparent() >= 0x1000)
-        pass.flags = flags &= ~kRenderNearFirst;
-    pass.viewport_bit_ = static_cast<uint8_t>(1u << viewport);
+    if (scene->first_transparent() >= 0x1000) {
+        flags &= ~kRenderNearFirst;
+        pass.set_flags(flags);
+    }
+    pass.set_viewport(viewport);
 
     if (flags & kRenderOpaque) {
         for (int i = 0; i < scene->first_transparent(); ++i) {
@@ -157,7 +167,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
             pass.remember(mesh);
         }
         if (flags & kRenderNearFirst) {
-            const int count = pass.drawn;
+            const int count = pass.drawn();
             for (int j = 0; j < count; ++j) {
                 MeshRef* mesh = core::at(get_drawn(), j);
                 if (mesh->depth() > kNear)
@@ -173,7 +183,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
             renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
             if (min_filter == D3DTEXF_ANISOTROPIC)
                 renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-            draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn)));
+            draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn())));
             if (min_filter == D3DTEXF_ANISOTROPIC)
                 renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_ANISOTROPIC);
             if (!renderer().z_write()) {
@@ -181,7 +191,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
                 renderer().set_z_write(1);
             }
         }
-        pass.drawn = 0;
+        pass.forget_drawn();
         if (flags & kRenderStats)
             count_pass(1);
     }
@@ -225,7 +235,7 @@ void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
         }
     }
     if (scene->flags() & 0x100)
-        draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn)));
+        draw_shadows(scene, std::span<MeshRef* const>(get_drawn()).first(static_cast<size_t>(pass.drawn())));
     if (flags & kRenderStats)
         count_pass(2);
 }

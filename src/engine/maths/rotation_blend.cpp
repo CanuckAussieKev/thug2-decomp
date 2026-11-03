@@ -7,9 +7,12 @@
 
 namespace maths {
 
-static_assert(offsetof(ArcRotationBlender, axis) == 0x80 && offsetof(ArcRotationBlender, angle) == 0x90 &&
-                  offsetof(ArcRotationBlender, small_rotation_) == 0x94,
-              "layout must match the original");
+void ArcRotationBlender::check_layout()
+{
+    static_assert(offsetof(ArcRotationBlender, axis_) == 0x80 && offsetof(ArcRotationBlender, angle_) == 0x90 &&
+                      offsetof(ArcRotationBlender, small_rotation_) == 0x94,
+                  "layout must match the original");
+}
 
 namespace {
 constexpr float kSlerpSmallRotationThreshold{0.034906585f};
@@ -26,38 +29,38 @@ ArcRotationBlender::ArcRotationBlender(const Mat4& from, const Mat4& to) { set_m
 // 0x00405990
 int ArcRotationBlender::set_matrices(const Mat4& from, const Mat4& to)
 {
-    start = from;
-    end = to;
-    Mat4 relative = start;
+    start_ = from;
+    end_ = to;
+    Mat4 relative = start_;
     relative.upend();
-    get_multiply(relative, relative, end); // the rotation taking start to end
-    relative.get_rotation_axis_angle(axis, angle);
-    small_rotation_ = angle < small_rotation_threshold();
+    get_multiply(relative, relative, end_); // the rotation taking start to end
+    relative.get_rotation_axis_angle(axis_, angle_);
+    small_rotation_ = angle_ < small_rotation_threshold();
     return small_rotation_ ? 1 : 0;
 }
 
 // 0x004058E0
 void ArcRotationBlender::flip_heading()
 {
-    axis = -axis;
-    angle = 6.28318548f - angle; // 2 pi
+    axis_ = -axis_;
+    angle_ = 6.28318548f - angle_; // 2 pi
 }
 
 // 0x00405A20
 void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
 {
     if (t <= 0.0f) {
-        out = start;
+        out = start_;
         return;
     }
     if (!(t < 1.0f)) {
-        out = end;
+        out = end_;
         return;
     }
 
     // The translation is read first, as in the original (so `out` may be one of the stored matrices).
-    const Vec4 from = core::at(start.row, 3);
-    const Vec4 to = core::at(end.row, 3);
+    const Vec4 from = core::at(start_.row, 3);
+    const Vec4 to = core::at(end_.row, 3);
     auto lerp = [t](const Vec4& a, const Vec4& b) {
         return Vec4{.x = (b.x - a.x) * t + a.x, .y = (b.y - a.y) * t + a.y, .z = (b.z - a.z) * t + a.z, .w = (b.w - a.w) * t + a.w};
     };
@@ -65,7 +68,7 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
     if (small_rotation_) {
         // Too small to rotate accurately: blend the rotation rows and renormalise them.
         for (int i = 0; i < 3; ++i)
-            core::at(out.row, i) = lerp(core::at(start.row, i), core::at(end.row, i));
+            core::at(out.row, i) = lerp(core::at(start_.row, i), core::at(end_.row, i));
         for (int i = 0; i < 3; ++i)
             core::at(out.row, i).make_unit();
         core::at(out.row, 0).w = core::at(out.row, 1).w = core::at(out.row, 2).w = 0.0f;
@@ -73,9 +76,9 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
         return;
     }
 
-    out = start;
+    out = start_;
     core::at(out.row, 3) = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-    out.spin_by(axis, t * angle);
+    out.spin_by(axis_, t * angle_);
     core::at(out.row, 3) = lerp(from, to);
     core::at(out.row, 3).w = 1.0f;
 }

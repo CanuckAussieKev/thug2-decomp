@@ -1218,34 +1218,37 @@ uint64_t ulps(float a, float b)
     return static_cast<uint64_t>(ia > ib ? static_cast<int64_t>(ia) - ib : static_cast<int64_t>(ib) - ia);
 }
 
-// NOLINTBEGIN(readability-identifier-naming): a plain record: fields named as plain data
-struct Tally {
-    const char* name;
-    const char* unit; // "d" double ulps, "f" float ulps, "b" disagreeing booleans, "u" differing integers
-    uint64_t runs = 0, differing = 0, max_ulps = 0;
-    double max_abs = 0, worst_input = 0;
+// One function's comparison so far: the runs, how many differed, the largest difference and where.
+class Tally {
+public:
+    Tally(const char* name, const char* unit) : name_(name), unit_(unit) {}
     void add(uint64_t distance, double abs_difference, double input)
     {
-        ++runs;
+        ++runs_;
         if (distance) {
-            ++differing;
-            if (distance > max_ulps) {
-                max_ulps = distance;
-                worst_input = input;
+            ++differing_;
+            if (distance > max_ulps_) {
+                max_ulps_ = distance;
+                worst_input_ = input;
             }
-            if (abs_difference > max_abs)
-                max_abs = abs_difference;
+            if (abs_difference > max_abs_)
+                max_abs_ = abs_difference;
         }
     }
     void print() const
     {
-        text::print("  %-26s %9llu runs  %9llu differ (%6.3f%%)  max %s%llu  |diff| %.3g  (at %.9g)\n", name,
-                    static_cast<unsigned long long>(runs), static_cast<unsigned long long>(differing),
-                    runs ? 100.0 * static_cast<double>(differing) / static_cast<double>(runs) : 0.0, unit,
-                    static_cast<unsigned long long>(max_ulps), max_abs, worst_input);
+        text::print("  %-26s %9llu runs  %9llu differ (%6.3f%%)  max %s%llu  |diff| %.3g  (at %.9g)\n", name_,
+                    static_cast<unsigned long long>(runs_), static_cast<unsigned long long>(differing_),
+                    runs_ ? 100.0 * static_cast<double>(differing_) / static_cast<double>(runs_) : 0.0, unit_,
+                    static_cast<unsigned long long>(max_ulps_), max_abs_, worst_input_);
     }
+
+private:
+    const char* name_;
+    const char* unit_; // "d" double ulps, "f" float ulps, "b" disagreeing booleans, "u" differing integers
+    uint64_t runs_ = 0, differing_ = 0, max_ulps_ = 0;
+    double max_abs_ = 0, worst_input_ = 0;
 };
-// NOLINTEND(readability-identifier-naming)
 
 template <typename T>
 void compare(Tally& tally, T fresh_value, T ref_value, double input)
@@ -1272,21 +1275,21 @@ void run(int count, std::mt19937_64& random)
     std::uniform_int_distribution<uint32_t> milliseconds(0, UINT32_MAX);
     std::uniform_int_distribution<uint64_t> vblanks(0, UINT64_MAX >> 20);
 
-    Tally t_sin{.name = "sin", .unit = "d"}, t_cos{.name = "cos", .unit = "d"}, t_tan{.name = "tan", .unit = "d"}, t_atan{.name = "atan", .unit = "d"}, t_atan2{.name = "atan2", .unit = "d"},
-        t_sqrt{.name = "sqrt", .unit = "d"}, t_log10{.name = "log10", .unit = "d"}, t_ln{.name = "ln", .unit = "d"}, t_asin{.name = "asin (C runtime)", .unit = "d"},
-        t_acos{.name = "acos (C runtime)", .unit = "d"}, t_sin_f{.name = "sin -> float", .unit = "f"}, t_cos_f{.name = "cos -> float", .unit = "f"},
-        t_atan2_f{.name = "atan2 -> float", .unit = "f"}, t_sin_wide{.name = "sin, |angle| < 1e4", .unit = "d"}, t_sin_times{.name = "sin * factor", .unit = "d"},
-        t_sin_product{.name = "sin * sin", .unit = "d"}, t_cot{.name = "cot", .unit = "d"}, t_atan2_diff{.name = "atan2 - atan2", .unit = "d"}, t_acos_f{.name = "acos_f", .unit = "f"},
-        t_acos_f_above{.name = "acos_f's comparison", .unit = "b"}, t_nac{.name = "neg_asin_cos", .unit = "f"},
-        t_nac_above{.name = "neg_asin_cos's comparison", .unit = "b"}, t_nac_inv{.name = "neg_asin_cos 1 / cos", .unit = "d"}, t_spin{.name = "spin_by", .unit = "d"},
-        t_cos_above{.name = "cos_above", .unit = "b"}, t_sin_at_least{.name = "sin_at_least", .unit = "b"}, t_tan_times{.name = "tan_times", .unit = "f"},
-        t_atan2_qt{.name = "atan2_less_quarter_turn", .unit = "f"}, t_blend{.name = "blend_key_colors (steps)", .unit = "u"},
-        t_wibble_time{.name = "wibble_time", .unit = "f"}, t_wibble{.name = "wibble_offset", .unit = "f"},
-        t_wibble_wrap{.name = "wibble_offset modulo 16", .unit = "b"}, t_vblank{.name = "vblank_seconds", .unit = "f"}, t_probe{.name = "probe_tip", .unit = "f"},
-        t_turn_move{.name = "turn_move", .unit = "f"}, t_turn_y{.name = "turn_about_y", .unit = "f"}, t_stick{.name = "turn_by_stick", .unit = "f"},
-        t_flat{.name = "turn_flat", .unit = "f"}, t_asin_deg{.name = "asin_degrees", .unit = "f"}, t_acos_deg{.name = "acos_degrees", .unit = "f"},
-        t_fov{.name = "view camera fov", .unit = "f"}, t_factor{.name = "viewport angle factor", .unit = "f"}, t_versine{.name = "1 - cos, sin (mat4)", .unit = "f"},
-        t_skin_m{.name = "skinned position (memory)", .unit = "f"}, t_skin_f{.name = "skinned position (file)", .unit = "f"};
+    Tally t_sin("sin", "d"), t_cos("cos", "d"), t_tan("tan", "d"), t_atan("atan", "d"), t_atan2("atan2", "d"),
+        t_sqrt("sqrt", "d"), t_log10("log10", "d"), t_ln("ln", "d"), t_asin("asin (C runtime)", "d"),
+        t_acos("acos (C runtime)", "d"), t_sin_f("sin -> float", "f"), t_cos_f("cos -> float", "f"),
+        t_atan2_f("atan2 -> float", "f"), t_sin_wide("sin, |angle| < 1e4", "d"), t_sin_times("sin * factor", "d"),
+        t_sin_product("sin * sin", "d"), t_cot("cot", "d"), t_atan2_diff("atan2 - atan2", "d"), t_acos_f("acos_f", "f"),
+        t_acos_f_above("acos_f's comparison", "b"), t_nac("neg_asin_cos", "f"),
+        t_nac_above("neg_asin_cos's comparison", "b"), t_nac_inv("neg_asin_cos 1 / cos", "d"), t_spin("spin_by", "d"),
+        t_cos_above("cos_above", "b"), t_sin_at_least("sin_at_least", "b"), t_tan_times("tan_times", "f"),
+        t_atan2_qt("atan2_less_quarter_turn", "f"), t_blend("blend_key_colors (steps)", "u"),
+        t_wibble_time("wibble_time", "f"), t_wibble("wibble_offset", "f"),
+        t_wibble_wrap("wibble_offset modulo 16", "b"), t_vblank("vblank_seconds", "f"), t_probe("probe_tip", "f"),
+        t_turn_move("turn_move", "f"), t_turn_y("turn_about_y", "f"), t_stick("turn_by_stick", "f"),
+        t_flat("turn_flat", "f"), t_asin_deg("asin_degrees", "f"), t_acos_deg("acos_degrees", "f"),
+        t_fov("view camera fov", "f"), t_factor("viewport angle factor", "f"), t_versine("1 - cos, sin (mat4)", "f"),
+        t_skin_m("skinned position (memory)", "f"), t_skin_f("skinned position (file)", "f");
 
     for (int i = 0; i < count; ++i) {
         const double a = angle(random), b = angle(random), u = unit(random), w = wide(random);

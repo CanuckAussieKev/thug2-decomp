@@ -25,11 +25,17 @@ public:
     // axis. The translation row is always blended linearly.
     void fetch_mat(Mat4& out, float t) const;
 
-    Mat4 start{};
-    Mat4 end{};
-    Vec4 axis{};            // w holds 1 / (2 sin angle) when computed from the matrices, else 1
-    float angle{};          // radians, 0..pi
+    // The rotation's angle (radians, 0..pi).
+    [[nodiscard]] float angle() const { return angle_; }
+
+private:
+    Mat4 start_{};
+    Mat4 end_{};
+    Vec4 axis_{};           // w holds 1 / (2 sin angle) when computed from the matrices, else 1
+    float angle_{};         // radians, 0..pi
     bool small_rotation_{}; // angle below the game's threshold (2 degrees by default)
+
+    static void check_layout();
 };
 
 } // namespace maths

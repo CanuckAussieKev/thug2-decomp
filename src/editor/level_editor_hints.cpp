@@ -110,17 +110,18 @@ Glyph glyph_of(const std::string& token)
 
 namespace {
 
-struct Builder {
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-const-or-ref-data-members): a short-lived view of the caller's data
-    const KeyText& key_of_;
-    std::vector<Hint> out;
+// The hints of one context as they are added (at most kMaxHints).
+class Builder {
+public:
+    explicit Builder(const KeyText& key_of) : key_of_(&key_of) {}
+    [[nodiscard]] const std::vector<Hint>& hints() const { return out_; }
     void get_raw(const std::string& keys, const std::string& what)
     {
-        if (!keys.empty() && out.size() < kMaxHints)
-            out.push_back({.keys = keys, .what = what});
+        if (!keys.empty() && out_.size() < kMaxHints)
+            out_.push_back({.keys = keys, .what = what});
     }
     // An action's first key ("" unbound: left out).
-    std::string get_key(const char* id) const { return leading_key_name(key_of_(id)); }
+    std::string get_key(const char* id) const { return leading_key_name((*key_of_)(id)); }
     void act(const char* id, const std::string& what, const char* prefix = nullptr)
     {
         const std::string k = get_key(id);
@@ -147,6 +148,10 @@ struct Builder {
     {
         acts({"forward", "left", "back", "right"}, what, c.fly_always_ || c.rmb ? nullptr : "RMB");
     }
+
+private:
+    const KeyText* key_of_; // the caller's, for the build
+    std::vector<Hint> out_;
 };
 
 void pad_hints(const CtxInfo& c, Builder& b)
@@ -184,10 +189,10 @@ void pad_hints(const CtxInfo& c, Builder& b)
 
 std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
 {
-    Builder b{.key_of_ = key_of, .out = {}};
+    Builder b(key_of);
     if (c.pad) {
         pad_hints(c, b);
-        return b.out;
+        return b.hints();
     }
     // A pie menu: the mouse points, a click or letting the key go runs it.
     if (c.pie_open_) {
@@ -197,7 +202,7 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
             b.get_raw(b.get_key("pie_context").empty() ? "Q" : b.get_key("pie_context"), "release: run");
         b.get_raw("RMB", "close");
         b.get_raw("Esc", "close");
-        return b.out;
+        return b.hints();
     }
     // Walking (skater height, gravity).
     if (c.walking) {
@@ -207,13 +212,13 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         b.get_raw("Shift", "run");
         b.act("walk_mode", "stop walking");
         b.get_raw("Esc", "stop walking");
-        return b.out;
+        return b.hints();
     }
     if (c.ladder_drawing_) {
         b.get_raw("LMB", c.chain_waiting_.empty() ? "place it" : c.chain_waiting_);
         b.act("undo", "undo last ladder");
         b.get_raw("Esc", "stop");
-        return b.out;
+        return b.hints();
     }
     if (c.chain_drawing_) {
         b.get_raw("LMB", "add a point");
@@ -222,19 +227,19 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         b.get_raw("RMB", "finish");
         b.act("undo", "undo last point");
         b.get_raw("Esc", "stop");
-        return b.out;
+        return b.hints();
     }
     if (c.chain_pick_) {
         b.get_raw("LMB", c.chain_waiting_.empty() ? "pick" : c.chain_waiting_);
         b.get_raw("Esc", "cancel");
-        return b.out;
+        return b.hints();
     }
     if (c.place_armed_) {
         b.get_raw("LMB", "place it");
         b.get_raw("Shift+LMB", "place more");
         b.get_raw("Esc", "cancel");
         b.act("place", "close the palette");
-        return b.out;
+        return b.hints();
     }
     if (c.browser) {
         b.get_raw("Up/Down", "choose");
@@ -243,7 +248,7 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         b.get_raw("F", "show me");
         b.act("browser", "close");
         b.get_raw("Esc", "close");
-        return b.out;
+        return b.hints();
     }
     // Dragging.
     if (c.drag != Drag::kNone) {
@@ -254,7 +259,7 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
             b.get_raw("Backspace", "erase");
             b.get_raw("X/Y/Z", "axis");
             b.get_raw("Esc", "put it back");
-            return b.out;
+            return b.hints();
         }
         if (c.drag == Drag::kSpinBy) {
             b.get_raw("Mouse", "turns it");
@@ -287,7 +292,7 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         else
             b.get_raw("LMB", "let go: done");
         b.get_raw("Esc", "put it back");
-        return b.out;
+        return b.hints();
     }
     // Looking / flying with the right button.
     if (c.rmb) {
@@ -296,7 +301,7 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         b.get_raw("Shift", "faster");
         b.get_raw("Mouse", c.selection != Selection::kNone && !c.free_camera_ ? "orbit" : "look");
         b.get_raw("Wheel", "fly speed");
-        return b.out;
+        return b.hints();
     }
     // Armed tools.
     if (c.ruler_armed_) {
@@ -305,31 +310,31 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         b.act("ruler_clear", "clear");
         b.act("ruler", "ruler off");
         b.get_raw("Esc", "deselect");
-        return b.out;
+        return b.hints();
     }
     if (c.ux9_tool_ == 1) {
         b.get_raw("LMB", "pick gap end");
         b.act("gap_wizard", "wizard off");
         b.get_raw("Esc", "cancel");
-        return b.out;
+        return b.hints();
     }
     if (c.ux9_tool_ == 2) {
         b.get_raw("LMB", "place corner");
         b.act("ground_tool", "tool off");
         b.get_raw("Esc", "cancel");
-        return b.out;
+        return b.hints();
     }
     if (c.faces_mode_) {
         b.get_raw("LMB", "take a face");
         b.get_raw("Shift+LMB", "add / drop a face");
         b.act("faces", "faces mode off");
-        return b.out;
+        return b.hints();
     }
     if (c.box_armed_) {
         b.get_raw("LMB", "drag a box");
         b.get_raw("Shift", "add");
         b.get_raw("Ctrl", "remove");
-        return b.out;
+        return b.hints();
     }
     if (c.simulating)
         b.act("simulate", "stop simulating");
@@ -351,7 +356,7 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         }
         for (const auto& m : c.modded)
             b.get_raw(m.first, m.second);
-        return b.out;
+        return b.hints();
     }
     switch (c.selection) {
     case Selection::kNone:
@@ -416,7 +421,7 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         break;
     }
     }
-    return b.out;
+    return b.hints();
 }
 
 } // namespace frontend::level_editor::hints

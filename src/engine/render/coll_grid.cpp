@@ -72,54 +72,53 @@ void unlink_list_node(memory::ListNode* node) { memory::ListNode::destroy(node);
 // One cell's update: the objects taken out and put in, `delta` the change in its count so far. While objects
 // have been taken out (delta below 0) new ones fill the gaps at the end of the list; while more have been put in
 // (above 0) they wait on `pending`, and one taken out is replaced by the first waiting.
-struct CellUpdate {
-    CollGridCell* cell{};
-    memory::ListNode* pending{};
-    int delta = 0;
+class CellUpdate {
+public:
+    CellUpdate(CollGridCell* cell, memory::ListNode* pending) : cell_(cell), pending_(pending) {}
 
     void take_out(HitMesh* object)
     {
-        if (delta > 0) {
-            memory::ListNode* first = masked(pending->next());
+        if (delta_ > 0) {
+            memory::ListNode* first = masked(pending_->next());
             auto* waiting = static_cast<HitMesh*>(first->data());
-            for (int i = 0; i < cell->count(); ++i) {
-                if (core::at(cell->object_run(), i) == object) {
-                    core::at(cell->object_run(), i) = waiting;
+            for (int i = 0; i < cell_->count(); ++i) {
+                if (core::at(cell_->object_run(), i) == object) {
+                    core::at(cell_->object_run(), i) = waiting;
                     break;
                 }
             }
             unlink_list_node(first);
         } else {
-            for (int i = 0; i < cell->count(); ++i) {
-                if (core::at(cell->object_run(), i) == object) {
-                    for (int j = i + 1; j < cell->count(); ++j)
-                        core::at(cell->object_run(), j - 1) = core::at(cell->object_run(), j);
-                    core::at(cell->object_run(), cell->count() - 1) = nullptr;
+            for (int i = 0; i < cell_->count(); ++i) {
+                if (core::at(cell_->object_run(), i) == object) {
+                    for (int j = i + 1; j < cell_->count(); ++j)
+                        core::at(cell_->object_run(), j - 1) = core::at(cell_->object_run(), j);
+                    core::at(cell_->object_run(), cell_->count() - 1) = nullptr;
                     break;
                 }
             }
         }
-        --delta;
+        --delta_;
     }
 
     void put_in(HitMesh* object)
     {
-        if (delta < 0) {
-            core::at(cell->object_run(), cell->count() + delta) = object;
+        if (delta_ < 0) {
+            core::at(cell_->object_run(), cell_->count() + delta_) = object;
         } else {
             memory::ListNode* node = memory::ListNode::create(object);
-            node->set_prev(pending->prev());
-            node->set_next(pending);
-            pending->prev()->set_next(node);
-            pending->set_prev(node);
+            node->set_prev(pending_->prev());
+            node->set_next(pending_);
+            pending_->prev()->set_next(node);
+            pending_->set_prev(node);
         }
-        ++delta;
+        ++delta_;
     }
 
     bool get_lists(HitMesh* object) const
     {
-        for (int i = 0; i < cell->count(); ++i) {
-            if (core::at(cell->object_run(), i) == object)
+        for (int i = 0; i < cell_->count(); ++i) {
+            if (core::at(cell_->object_run(), i) == object)
                 return true;
         }
         return false;
@@ -128,20 +127,20 @@ struct CellUpdate {
     // The list's block resized for the new count; the waiting objects added at the end.
     void get_finish()
     {
-        const int count = cell->count() + delta;
+        const int count = cell_->count() + delta_;
         const uint32_t size = static_cast<uint32_t>(count) * 4;
-        if (delta < 0) {
-            if (!cell->objects() ||
-                !memory::Hub::get_pull()->trim_block_end(size, static_cast<void*>(cell->objects()), nullptr))
-                cell->set_objects(static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell->objects()), size)));
-        } else if (delta > 0) {
-            if (!cell->objects() ||
-                !memory::Hub::get_pull()->extend_block_upward(size, static_cast<void*>(cell->objects()), nullptr))
-                cell->set_objects(static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell->objects()), size)));
-            int at = cell->count();
-            const std::span<HitMesh*> block(cell->objects(), static_cast<size_t>(count));
-            if (!is_head(pending->next())) {
-                for (memory::ListNode* node = pending->next(); node;) {
+        if (delta_ < 0) {
+            if (!cell_->objects() ||
+                !memory::Hub::get_pull()->trim_block_end(size, static_cast<void*>(cell_->objects()), nullptr))
+                cell_->set_objects(static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell_->objects()), size)));
+        } else if (delta_ > 0) {
+            if (!cell_->objects() ||
+                !memory::Hub::get_pull()->extend_block_upward(size, static_cast<void*>(cell_->objects()), nullptr))
+                cell_->set_objects(static_cast<HitMesh**>(memory::regrow(static_cast<void*>(cell_->objects()), size)));
+            int at = cell_->count();
+            const std::span<HitMesh*> block(cell_->objects(), static_cast<size_t>(count));
+            if (!is_head(pending_->next())) {
+                for (memory::ListNode* node = pending_->next(); node;) {
                     memory::ListNode* next = masked(node->next());
                     core::at(block, at++) = static_cast<HitMesh*>(node->data());
                     unlink_list_node(node);
@@ -149,8 +148,13 @@ struct CellUpdate {
                 }
             }
         }
-        cell->count() = count;
+        cell_->count() = count;
     }
+
+private:
+    CollGridCell* cell_;
+    memory::ListNode* pending_;
+    int delta_ = 0;
 };
 
 } // namespace
@@ -264,8 +268,8 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
     const int moved_count = len_of(moved);
     for (auto& column : cells_) {
         for (auto& grid_cell : column) {
-            CellUpdate update{.cell = &grid_cell, .pending = &pending};
-            const CollGridCell* cell = update.cell;
+            CellUpdate update(&grid_cell, &pending);
+            const CollGridCell* cell = &grid_cell;
             memory::enter_heap_scope(memory::top_down_heap());
             const memory::ListNode* node = masked(removed->next());
             for (int i = 0; i < removed_count; ++i, node = masked(node->next())) {
