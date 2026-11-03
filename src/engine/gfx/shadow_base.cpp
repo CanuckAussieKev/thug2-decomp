@@ -7,6 +7,7 @@
 
 #include <d3d9.h>
 
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <cstring>
@@ -23,7 +24,6 @@
 #include "engine/gfx/model.h"
 #include "engine/gfx/occlusion.h"
 #include "engine/gfx/pixel_shaders.h"
-#include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/engine.h"
@@ -47,10 +47,20 @@ std::array<float, 4>& shadow_viewport()
     return shadow_viewport;
 }
 
-float* view_matrix_data() { return renderer().view_matrix().data(); }
-float* projection_matrix_data() { return renderer().projection_matrix().data(); }
+const float* view_matrix_data() { return renderer().view_matrix().data(); }
+const float* projection_matrix_data() { return renderer().projection_matrix().data(); }
 const float* world_matrix_data() { return renderer().world_matrix().data(); }
-uint8_t& custom_transforms() { return renderer().render_camera().custom_transforms_; } // the view / projection aren't the camera's
+// The renderer's view and projection matrices from 16 floats each (a caster's, or the saved ones back); the camera's
+// flag says whether they are the camera's own (0) or set by hand (1).
+void set_view_and_projection(std::span<const float, 16> view, std::span<const float, 16> projection, uint8_t custom)
+{
+    maths::Mat4 matrix{};
+    std::ranges::copy(view, matrix.floats().begin());
+    renderer().set_view_matrix(matrix);
+    std::ranges::copy(projection, matrix.floats().begin());
+    renderer().set_projection_matrix(matrix);
+    renderer().set_custom_transforms(custom);
+}
 
 bool two_sided_stencil() { return kTwoSidedStencil; }
 
@@ -277,9 +287,7 @@ void render_shadow_textures()
         renderer().d3d_device()->SetRenderTarget(0, caster->target->surface);
         renderer().d3d_device()->SetDepthStencilSurface(nullptr);
         renderer().d3d_device()->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0);
-        std::memcpy(view_matrix_data(), caster->view.data(), sizeof(caster->view));
-        std::memcpy(projection_matrix_data(), caster->projection.data(), sizeof(caster->projection));
-        custom_transforms() = 1;
+        set_view_and_projection(caster->view, caster->projection, 1);
         renderer().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(caster->view.data()));
         renderer().d3d_device()->SetTransform(D3DTS_PROJECTION, d3d::matrix(caster->projection.data()));
         std::array<float, 16> identity{};
@@ -311,9 +319,7 @@ void render_shadow_textures()
         renderer().d3d_device()->SetRenderState(D3DRS_FOGENABLE, saved_fog != 0);
     }
     renderer().set_pixel_shader_locked(nullptr);
-    std::memcpy(view_matrix_data(), saved_view.data(), sizeof(saved_view));
-    std::memcpy(projection_matrix_data(), saved_projection.data(), sizeof(saved_projection));
-    custom_transforms() = 0;
+    set_view_and_projection(saved_view, saved_projection, 0);
     renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(world_matrix_data()));
     renderer().d3d_device()->SetTransform(D3DTS_VIEW, d3d::matrix(view_matrix_data()));
     renderer().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFFFFFFFF);
@@ -376,9 +382,7 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
         get_identity(identity);
         renderer().d3d_device()->SetTransform(D3DTS_WORLD, d3d::matrix(identity.data()));
         choose_blend_mode(0xF);
-        std::memcpy(view_matrix_data(), caster->view.data(), sizeof(caster->view));
-        std::memcpy(projection_matrix_data(), caster->projection.data(), sizeof(caster->projection));
-        custom_transforms() = 1;
+        set_view_and_projection(caster->view, caster->projection, 1);
         if (renderer().depth_bias() != 0xD) { // (the cache's depth bias 13, its float sent directly)
             renderer().set_depth_bias(0xD);
             renderer().d3d_device()->SetRenderState(D3DRS_DEPTHBIAS, 0xB7DA1A93);
@@ -397,9 +401,7 @@ void draw_shadows(const void* /*unused*/, std::span<MeshRef* const> meshes)
                 renderer().count_draw(triangles); // the frame's draw calls and triangles
             }
         }
-        std::memcpy(view_matrix_data(), saved_view.data(), sizeof(saved_view));
-        std::memcpy(projection_matrix_data(), saved_projection.data(), sizeof(saved_projection));
-        custom_transforms() = 0;
+        set_view_and_projection(saved_view, saved_projection, 0);
     }
     set_pixel_shader(nullptr, nullptr);
     renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, saved_min_filter);

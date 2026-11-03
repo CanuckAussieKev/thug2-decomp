@@ -228,13 +228,13 @@ void Singleton::render(uint32_t draw_bits)
         } else {
             if (flags_ & 4) {
                 renderer().set_instance_colour_on(1); // the instance's colour on
-                std::memcpy(renderer().instance_colour().data(), color_.data(), 4);
+                renderer().set_instance_colour(color_);
             }
             draw_scene(scene_, draw_bits | kRenderNoCulling, 0);
             if (flags_ & 4)
                 renderer().set_instance_colour_on(0);
         }
-        renderer().skipped_passes() &= ~8u;
+        renderer().set_skipped_passes(renderer().skipped_passes() & ~8u);
         renderer().set_vertex_format_locked(0);
         renderer().set_pixel_shader_locked(nullptr);
         renderer().set_submit_locked(0);

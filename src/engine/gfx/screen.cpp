@@ -6,7 +6,6 @@
 
 #include "engine/gfx/screen.h"
 
-#include "engine/gfx/draw_frame.h"
 #include "engine/gfx/settings.h"
 #include "engine/script/params.h"
 #include "platform/sdl_window.h"
@@ -48,8 +47,7 @@ auto& script_screen_blur() { return screen_state().script_screen_blur_; }
 // The screen's aspect (width / height), and the original's angle factor constant (1.0).
 float& view_ratio_slot() { return screen_state().width_over_height_; }
 
-// The 640x480 -> back buffer conversion (init_direct_3d) and the letterbox flag.
-uint8_t& cinema_bars_on() { return renderer().render_camera().letterbox_active_; }
+// The 640x480 -> back buffer conversion (init_direct_3d).
 
 void set_screen_offset_x(uint32_t x) { renderer().set_screen_offset_x(static_cast<int>(x)); }
 void set_screen_offset_y(uint32_t y) { renderer().set_screen_offset_y(static_cast<int>(y)); }
@@ -160,7 +158,7 @@ void set_letterbox(bool letterbox)
                                                   // NOLINTNEXTLINE(bugprone-integer-division): as the original
                                                   static_cast<float>((get_back_buffer_height() - height) / 2)));
     }
-    cinema_bars_on() = letterbox;
+    renderer().set_letterbox_active(letterbox);
 }
 
 // 0x0048C170: SetScreenBlur <amount>. (PartyMod rewrote this function's first bytes with what they already are

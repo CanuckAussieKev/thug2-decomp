@@ -13,7 +13,6 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/render_state.h"
-#include "engine/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 
 namespace render {
@@ -35,7 +34,7 @@ Elem*& foremost()
 }
 
 // What the textures being drawn with are (the render state cache's).
-void* cached_texture(int stage) { return core::at(renderer().stage_textures(), stage); }
+void* cached_texture(int stage) { return renderer().stage_texture(stage); }
 
 } // namespace
 

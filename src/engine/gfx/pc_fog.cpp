@@ -8,7 +8,6 @@
 
 #include <d3d9.h>
 
-#include "engine/core/checked_index.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/view_setup.h"
 #include "engine/gfx/engine_parts.h"
@@ -56,8 +55,9 @@ void set_fog_color(uint32_t rgba)
         density = 1.0;
     else if (!(density > 0.0))
         density = 0.0;
-    core::at(renderer().ps_constant_bank(), 16) = core::at(renderer().ps_constant_bank(), 17) = core::at(renderer().ps_constant_bank(), 18) =
-        static_cast<float>(density);
+    renderer().set_ps_constant(16, static_cast<float>(density));
+    renderer().set_ps_constant(17, static_cast<float>(density));
+    renderer().set_ps_constant(18, static_cast<float>(density));
     const uint32_t color = (r << 16) | (g << 8) | b;
     engine_parts().set_fog_colour(color);
     renderer().d3d_device()->SetRenderState(D3DRS_FOGCOLOR, color);

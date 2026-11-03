@@ -133,10 +133,12 @@ void set_display_region()
     auto width = static_cast<uint32_t>(renderer().display_factor_x() * 640.0f);
     auto height = static_cast<uint32_t>(renderer().display_factor_y() * 480.0f);
     // (the device viewport, 0x00786C90: x, y, width, height)
-    gfx.device_viewport().x = (static_cast<uint32_t>(gfx.back_buffer_width()) - width) / 2;
-    gfx.device_viewport().width = width;
-    gfx.device_viewport().y = (static_cast<uint32_t>(gfx.back_buffer_height()) - height) / 2;
-    gfx.device_viewport().height = height;
+    DeviceViewport viewport = gfx.device_viewport();
+    viewport.x = (static_cast<uint32_t>(gfx.back_buffer_width()) - width) / 2;
+    viewport.width = width;
+    viewport.y = (static_cast<uint32_t>(gfx.back_buffer_height()) - height) / 2;
+    viewport.height = height;
+    gfx.set_device_viewport(viewport);
 }
 
 void draw_2d_with_black_bars()
@@ -206,10 +208,11 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
                    bool infinite)
 {
     auto& gfx = renderer();
-    auto& camera = gfx.render_camera();
-    auto& world = gfx.world_matrix();
-    auto& view = gfx.view_matrix();
-    auto& projection = gfx.projection_matrix();
+    // (worked out here, then stored: the renderer's camera, its three matrices and the view's shape)
+    RenderCamera camera = gfx.render_camera();
+    maths::Mat4 world;
+    maths::Mat4 view;
+    maths::Mat4 projection;
 
     core::at(camera.position, 0) = position->x;
     core::at(camera.position, 1) = position->y;
@@ -255,11 +258,15 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
         core::at(projection.row, 2).z = -0.999999f;
         core::at(projection.row, 3).z = 1e-6f;
     }
-    set_transform(0x100, &world); // D3DTS_WORLD
-    set_transform(2, &view);      // D3DTS_VIEW
-    set_transform(3, &projection);
+    gfx.set_render_camera(camera);
+    gfx.set_world_matrix(world);
+    gfx.set_view_matrix(view);
+    gfx.set_projection_matrix(projection);
+    set_transform(0x100, &gfx.world_matrix()); // D3DTS_WORLD
+    set_transform(2, &gfx.view_matrix());      // D3DTS_VIEW
+    set_transform(3, &gfx.projection_matrix());
 
-    auto& shape = gfx.view_shape();
+    ViewShape shape = gfx.view_shape();
     shape.tan_x_ = std::tan(static_cast<float>(half_angle));
     shape.tan_y_ = -(height_factor * shape.tan_x_);
     const double tan_x2 = static_cast<double>(shape.tan_x_) * shape.tan_x_;
@@ -269,8 +276,12 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     shape.cos_x_ = static_cast<float>(1.0 / std::sqrt(tan_x2 + 1.0));
     shape.cos_y_ = static_cast<float>(1.0 / std::sqrt(tan_y2 + 1.0));
 
+    gfx.set_view_shape(shape);
+
     // The camera's heading: a rotation about the vertical axis (0x00786C50).
-    matrix_rotation_y(&gfx.heading_matrix(), atan2_less_quarter_turn(-core::at(camera.backward, 2), -core::at(camera.backward, 0)));
+    maths::Mat4 heading;
+    matrix_rotation_y(&heading, atan2_less_quarter_turn(-core::at(camera.backward, 2), -core::at(camera.backward, 0)));
+    gfx.set_heading_matrix(heading);
     // The view frustum (0x00775B80) follows the new view.
     billboard_pool().setup_axes();
 }
@@ -430,9 +441,9 @@ void set_device_render_state(int state, uint32_t value)
 void full_screen_viewport()
 {
     auto& gfx = renderer();
-    gfx.device_viewport() = {
+    gfx.set_device_viewport({
         .x = 0,    .y = 0,   .width = static_cast<uint32_t>(gfx.back_buffer_width()), .height = static_cast<uint32_t>(gfx.back_buffer_height()),
-        .min_z_ = 0.0f, .max_z_ = 1.0f};
+        .min_z_ = 0.0f, .max_z_ = 1.0f});
 }
 
 // The camera (a game object).
@@ -464,13 +475,14 @@ void draw_viewport(int index)
     view_setup().set_drawn_viewport(index); // the viewport being drawn
     const double width = renderer().back_buffer_width();
     const double height = static_cast<float>(renderer().back_buffer_height());
-    DeviceViewport& vp = renderer().device_viewport();
+    DeviceViewport vp = renderer().device_viewport();
     vp.x = static_cast<int>(width * view->pos_x());
     vp.y = static_cast<int>(height * view->y());
     vp.width = static_cast<int>(width * view->span());
     vp.height = static_cast<int>(height * view->level_y());
     vp.min_z_ = 0.0f;
     vp.max_z_ = 1.0f;
+    renderer().set_device_viewport(vp);
     if (renderer().render_camera().letterbox_active_ && !get_front_end_widescreen()) {
         // Originally from PartyMod Fixes (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
         // viewport to 3/4 of the screen's height:
@@ -498,7 +510,8 @@ void draw_viewport(int index)
         choose_camera(cam_orientation(camera), position, angle, aspect, 1.0f, false);
         // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
         // Original behaviour: nothing.
-        frontend::level_editor::note_view(static_cast<gfx::ViewCam*>(camera), angle, aspect, std::array<uint32_t, 4>{vp.x, vp.y, vp.width, vp.height});
+        const DeviceViewport& drawn = renderer().device_viewport();
+        frontend::level_editor::note_view(static_cast<gfx::ViewCam*>(camera), angle, aspect, std::array<uint32_t, 4>{drawn.x, drawn.y, drawn.width, drawn.height});
         // Not original - the screenshot key's sidecar (platform/screenshot.h): the camera noted.
         const maths::Mat4* frame = cam_orientation(camera);
         const std::array<float, 3> at = {{position->x, position->y, position->z}};

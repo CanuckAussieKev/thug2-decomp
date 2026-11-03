@@ -9,7 +9,6 @@
 
 #include <bit>
 #include <cstdint>
-#include <initializer_list>
 #include <array>
 #include <span>
 
@@ -17,11 +16,9 @@
 #include "engine/gfx/graphics_options.h"
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/pixel_shaders.h"
-#include "engine/gfx/draw_frame.h"
 #include "engine/gfx/view_mode.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/core/checked_index.h"
-#include "engine/maths/mat4.h"
 #include "engine/core/no_destroy.h"
 #include "engine/gfx/renderer.h"
 #include "engine/gfx/light_sets.h"
@@ -307,9 +304,9 @@ void set_vertex_format(uint32_t fvf)
 void set_texture(int stage, void* texture)
 {
     auto& gfx = renderer();
-    if (core::at(gfx.stage_textures(), stage) != texture) {
+    if (gfx.stage_texture(stage) != texture) {
         renderer().d3d_device()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
-        core::at(gfx.stage_textures(), stage) = texture;
+        gfx.set_stage_texture(stage, texture);
     }
 }
 
@@ -534,7 +531,7 @@ void set_pixel_shader(void* shader, const MaterialRef* material)
             gfx.set_current_pixel_shader(shader);
             gfx.set_pixel_shader_changed(1);
         }
-        renderer().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constant_bank().data(), 5);
+        renderer().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constants().data(), 5);
     }
     gfx.set_pixel_shader_changed(0);
 }
@@ -550,8 +547,8 @@ void set_pixel_shader_with_constants(void* shader, uint32_t count)
             gfx.set_current_pixel_shader(shader);
             gfx.set_pixel_shader_changed(1);
         }
-        renderer().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constant_bank().data(), count);
-        renderer().d3d_device()->SetPixelShaderConstantF(4, std::span(renderer().ps_constant_bank()).subspan(16).data(), 1);
+        renderer().d3d_device()->SetPixelShaderConstantF(0, renderer().ps_constants().data(), count);
+        renderer().d3d_device()->SetPixelShaderConstantF(4, std::span(renderer().ps_constants()).subspan(16).data(), 1);
     }
     gfx.set_pixel_shader_changed(0);
 }
@@ -559,23 +556,7 @@ void set_pixel_shader_with_constants(void* shader, uint32_t count)
 // 0x004DA0E0
 
 // 0x004DB620
-void set_world_transform(const float* matrix)
-{
-    auto& gfx = renderer();
-    if (!matrix) {
-        gfx.current_world_transform() = nullptr;
-        return;
-    }
-    auto& world = gfx.world_transform_copy();
-    gfx.current_world_transform() = world.data();
-    const std::span<const float, 16> given(matrix, 16);
-    for (int row = 0; row < 4; ++row) {
-        core::at(world, row * 4 + 0) = core::at(given, row * 4 + 0);
-        core::at(world, row * 4 + 1) = core::at(given, row * 4 + 1);
-        core::at(world, row * 4 + 2) = core::at(given, row * 4 + 2);
-        core::at(world, row * 4 + 3) = row == 3 ? 1.0f : 0.0f;
-    }
-}
+void set_world_transform(const float* matrix) { renderer().set_world_transform(matrix); }
 
 // 0x004D7D70
 void reset_render_state()
@@ -583,11 +564,7 @@ void reset_render_state()
     auto& gfx = renderer();
     local_viewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
-    for (maths::Mat4* matrix : {&renderer().world_matrix(), &renderer().view_matrix(), &renderer().projection_matrix()}) {
-        const auto m = matrix->floats();
-        for (int i = 0; i < 16; ++i)
-            core::at(m, i) = (i % 5 == 0) ? 1.0f : 0.0f;
-    }
+    gfx.reset_transforms();
     get_lighting() = 0;
     gfx.set_specular(0);
     gfx.set_cull_mode(D3DCULL_CW);
@@ -601,9 +578,9 @@ void reset_render_state()
     for (int i = 0; i < 4; ++i) {
         core::at(address_modes(), i) = 0;
         core::at(mip_lod_biases(), i) = 0;
-        core::at(gfx.stage_textures(), i) = nullptr;
+        gfx.set_stage_texture(i, nullptr);
         core::at(filters(), i) = 0x10000;
-        core::at(gfx.border_colours(), i) = 0;
+        gfx.set_border_colour(static_cast<uint32_t>(i), 0);
     }
     // (none of these is a mode: the next one is always sent)
     get_blend_mode() = 0xDEADBABE;
@@ -613,22 +590,22 @@ void reset_render_state()
     core::at(effects_state().pending_screen_shot(), 0) = 0;
     effects_state().screen_shot_name_exact() = false;
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
-    core::at(gfx.ps_constant_bank(), 16) = 0.0f;
-    core::at(gfx.ps_constant_bank(), 17) = 0.5f;
-    core::at(gfx.ps_constant_bank(), 18) = 0.0f;
-    core::at(gfx.ps_constant_bank(), 19) = 0.5f;
+    gfx.set_ps_constant(16, 0.0f);
+    gfx.set_ps_constant(17, 0.5f);
+    gfx.set_ps_constant(18, 0.0f);
+    gfx.set_ps_constant(19, 0.5f);
     gfx.set_pixel_shader_locked(nullptr);
     gfx.set_current_pixel_shader(nullptr);
     gfx.set_pixel_shader_changed(0);
-    renderer().render_camera().custom_transforms_ = 0;
+    gfx.set_custom_transforms(0);
     view_setup().set_billboard_flag(0);
     gfx.set_vertex_format_locked(0);
-    gfx.skipped_passes() = 0;
+    gfx.set_skipped_passes(0);
     gfx.set_submit_locked(0);
     forced_blend() = 0;
-    renderer().render_camera().clear_colour_and_depth_ = true;
-    renderer().render_camera().background_colour_ = 0;
-    renderer().render_camera().letterbox_active_ = 0; // the letterbox
+    gfx.set_clear_colour_and_depth(true);
+    gfx.set_background_colour(0);
+    gfx.set_letterbox_active(0); // the letterbox
     // The default light: its direction (0x00786F48) and colours, as bit patterns.
     static const auto kLight = std::to_array<uint32_t>({
         0xBF000000, 0xBF5DB3D7, 0, 0, 0x3F160419, 0x3F160419, 0x3F160419, 0x3F800000, 0x3F800000, 0, 0, 0, 0, 0, 0,
@@ -667,9 +644,9 @@ void apply_render_state()
     for (int sampler = 0; sampler < 4; ++sampler) {
         core::at(address_modes(), sampler) = 0;
         core::at(mip_lod_biases(), sampler) = 0;
-        core::at(gfx.stage_textures(), sampler) = nullptr;
+        gfx.set_stage_texture(sampler, nullptr);
         core::at(filters(), sampler) = 0x10000;
-        core::at(gfx.border_colours(), sampler) = 0;
+        gfx.set_border_colour(static_cast<uint32_t>(sampler), 0);
         renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
         renderer().d3d_device()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
         // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic minification on every

@@ -129,12 +129,12 @@ void set_common_states(MaterialRef* material)
 // The pass's border colour (0x00786EA4, a word a stage): 0xE0000000 with flag 0x200, else 0.
 void set_border_color(const MaterialRef* material, uint32_t pass, uint32_t stage)
 {
-    uint32_t& border = core::at(renderer().border_colours(), stage);
+    const uint32_t border = renderer().border_colour(stage);
     if (core::at(material->pass_flags(), pass) & kPassBorder) {
         if (border != 0xE0000000)
-            border = 0xE0000000;
+            renderer().set_border_colour(stage, 0xE0000000);
     } else if (border) {
-        border = 0;
+        renderer().set_border_colour(stage, 0);
     }
 }
 
@@ -282,7 +282,7 @@ void MaterialRef::hand_in()
         if (renderer().skipped_passes() & (1u << (pass & 31)))
             continue;
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        if (!renderer().pixel_shader_changed() && std::memcmp(core::at(pass_color_, pass).data(), std::span<float>(renderer().ps_constant_bank()).subspan(4 * static_cast<size_t>(pass)).data(), 16) != 0)
+        if (!renderer().pixel_shader_changed() && std::memcmp(core::at(pass_color_, pass).data(), std::span<const float>(renderer().ps_constants()).subspan(4 * static_cast<size_t>(pass)).data(), 16) != 0)
             renderer().set_pixel_shader_changed(true);
         const TextureImage* texture = core::at(textures_, pass);
         if (!texture) {
@@ -332,7 +332,7 @@ void MaterialRef::hand_in()
         }
     }
     if (renderer().pixel_shader_changed())
-        std::memcpy(renderer().ps_constant_bank().data(), pass_color_.data(), pass_count_ * 16);
+        renderer().load_pass_colours(pass_color_, pass_count_);
 }
 
 // 0x004D23E0
@@ -400,7 +400,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         }
     }
     if (renderer().pixel_shader_changed())
-        std::memcpy(renderer().ps_constant_bank().data(), pass_color_.data(), pass_count_ * 16);
+        renderer().load_pass_colours(pass_color_, pass_count_);
 
     // the stages' colour and alpha operations
     if (static_cast<int8_t>(core::at(pass_flags_, pass) & 0xFF) < 0)

@@ -23,9 +23,9 @@
 namespace render {
 
 namespace {
-std::array<uint8_t, 64>& saved_pixel_shader_constants()
+std::array<float, 16>& saved_pixel_shader_constants()
 {
-    static std::array<uint8_t, 64> saved_pixel_shader_constants{}; // (4 passes of 16 bytes: the adapter identifier follows)
+    static std::array<float, 16> saved_pixel_shader_constants{}; // (4 passes of 16 bytes: the adapter identifier follows)
     return saved_pixel_shader_constants;
 }
 } // namespace
@@ -54,9 +54,8 @@ void MeshRef::move_into_arena(VertexArena* arena)
 void MeshRef::set_pixel_shader_colored()
 {
     const uint32_t bytes = material_->pass_count() << 4; // 16 a pass
-    auto& constants = renderer().ps_constant_bank();
     auto& saved = saved_pixel_shader_constants();
-    std::memcpy(saved.data(), constants.data(), bytes);
+    std::memcpy(saved.data(), renderer().ps_constants().data(), bytes);
     double r = 0.0, g = 0.0, b = 0.0;
     if (renderer().instance_colour_on()) {
         r = core::at(renderer().instance_colour(), 0) * static_cast<double>(1.0f / 128);
@@ -70,16 +69,11 @@ void MeshRef::set_pixel_shader_colored()
     for (uint32_t pass = 0; pass < material_->pass_count(); ++pass) {
         if (core::at(material_->pass_flags(), pass) & 0x80) // (the colour isn't to be changed)
             continue;
-        float& c0 = core::at(constants, 4 * pass);
-        float& c1 = core::at(constants, 4 * pass + 1);
-        float& c2 = core::at(constants, 4 * pass + 2);
-        c0 = static_cast<float>(r * c0);
-        c1 = static_cast<float>(g * c1);
-        c2 = static_cast<float>(b * c2);
+        renderer().scale_pass_colour(pass, r, g, b);
     }
     renderer().set_pixel_shader_changed(1); // (the constants changed)
     set_pixel_shader_with_constants(pixel_shader_, material_->pass_count());
-    std::memcpy(constants.data(), saved.data(), bytes);
+    renderer().load_ps_constants(std::span<const float>(saved).first(bytes / 4));
     renderer().set_pixel_shader_changed(1);
 }
 
