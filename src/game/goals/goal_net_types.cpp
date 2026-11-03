@@ -2,6 +2,7 @@
 
 #include "game/goals/goal_net_types.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 

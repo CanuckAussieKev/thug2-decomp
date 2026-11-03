@@ -20,7 +20,7 @@
 // record's gives the original's address where known).
 namespace render {
 
-constexpr size_t kMatrixFloats = 16;    // a 4x4 matrix as floats
+constexpr int kMatrixFloats = 16;    // a 4x4 matrix as floats
 constexpr int kIdentityStride = 5;      // the distance between a 4x4 matrix's diagonal entries, in floats
 constexpr size_t kScreenTextureCount = 9;
 constexpr size_t kPsConstantFloats = 20; // the pixel shader constant bank
@@ -137,7 +137,7 @@ public:
     {
         for (maths::Mat4* matrix : {&world_matrix_, &view_matrix_, &projection_matrix_}) {
             const auto m = matrix->floats();
-            for (int i = 0; i < static_cast<int>(kMatrixFloats); ++i)
+            for (int i = 0; i < kMatrixFloats; ++i)
                 core::at(m, i) = (i % kIdentityStride == 0) ? 1.0f : 0.0f;
         }
     }

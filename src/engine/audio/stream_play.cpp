@@ -236,7 +236,7 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
             // still held it).
             std::array<float, kSurroundLanes> level{};
             double last = 0;
-            for (int i = 0; i < static_cast<int>(kSurroundLanes); ++i) {
+            for (int i = 0; i < kSurroundLanes; ++i) {
                 const double scaled = static_cast<double>(sound_volume()) * core::at(volume->level, i) * kPercent;
                 core::at(level, i) = static_cast<float>(scaled);
                 last = scaled;

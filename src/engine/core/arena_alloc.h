@@ -288,7 +288,7 @@ public:
     void set_unknown68(int value) { unknown68_ = value; }
 
 private:
-    static constexpr size_t kFallbackCount = 5; // the heaps tried, in order, when this one is full
+    static constexpr int kFallbackCount = 5; // the heaps tried, in order, when this one is full
     bool unknown64_{false};
     int unknown68_{-1};
     int use_fallbacks_{0};

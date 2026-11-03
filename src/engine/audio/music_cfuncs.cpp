@@ -2,6 +2,7 @@
 
 #include "engine/audio/music_cfuncs.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 

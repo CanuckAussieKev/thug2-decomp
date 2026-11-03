@@ -2,6 +2,7 @@
 // (0x0055C7E0-0x0055D3E2), and the goal manager's script commands 0x0055D3F0-0x0055D954 (see goal_manager.h,
 // goal_manager_cfuncs.h).
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 

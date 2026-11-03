@@ -6,6 +6,7 @@
 
 #include <psapi.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <array>

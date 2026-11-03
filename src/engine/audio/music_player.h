@@ -9,7 +9,7 @@ class AudioStreamModule;
 
 // Music: playlists of streamed tracks.
 namespace audio {
-constexpr size_t kPlaylistTracks = 80;      // tracks in a playlist
+constexpr int kPlaylistTracks = 80;      // tracks in a playlist
 constexpr size_t kTrackNameBytes = 40;
 constexpr size_t kTrackTitleSize = 100;     // a track's title as the music menu shows it
 constexpr size_t kMaxUserTracks = 600;      // the user soundtrack's tracks

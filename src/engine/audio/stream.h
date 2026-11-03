@@ -57,7 +57,7 @@ constexpr size_t kBinkUnknown1a8Offset = 0x1A8;
 constexpr size_t kBinkStopRequestedOffset = 0x1BC;
 constexpr size_t kBinkStreamBytes = 0x1C0;
 constexpr size_t kStreamSlotBytes = 0x14;
-constexpr size_t kSurroundLanes = 5;         // a surround stream's volume levels
+constexpr int kSurroundLanes = 5;         // a surround stream's volume levels
 
 using Hdl = void*;   // a Win32 HANDLE
 using Result = long; // an HRESULT: 0 or an error (E_INVALIDARG 0x80070057, HRESULT_FROM_WIN32(...))

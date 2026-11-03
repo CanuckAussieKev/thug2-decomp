@@ -8,7 +8,7 @@
 // (0x007CEFA8 == 2) or music (0x0067D7E0) / streams (0x0067D7E1) are switched off. The platform layer under it
 // (PCMAudio_*, 0x00453xxx-0x00454xxx) isn't rewritten yet.
 namespace audio {
-constexpr size_t kFamDataBytes = 0x1000;
+constexpr int kFamDataBytes = 0x1000;
 constexpr size_t kFamBytes = 0x1008;
 
 // 0x004505F0 / 0x00450620: whether music / streamed sounds are unavailable (no sound system, sound off, or

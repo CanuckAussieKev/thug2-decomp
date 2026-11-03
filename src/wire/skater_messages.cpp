@@ -5,6 +5,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/checked_index.h"
 
+#include <cstddef>
 #include <cstdint>
 
 namespace online {

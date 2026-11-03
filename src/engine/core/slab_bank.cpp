@@ -18,8 +18,8 @@
 
 namespace memory {
 namespace {
-constexpr size_t kReportedPoolSlots = 16;    // pools named in the log once when full
-constexpr size_t kNearlyFullPoolSlots = 32;
+constexpr int kReportedPoolSlots = 16;    // pools named in the log once when full
+constexpr int kNearlyFullPoolSlots = 32;
 constexpr int kFifths = 5;                   // a pool at four fifths is "80 % full"
 constexpr int kFourFifths = 4;
 constexpr int kMinNearlyFullItems = 50;      // smaller pools aren't reported as nearly full

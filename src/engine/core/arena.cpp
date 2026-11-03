@@ -101,7 +101,7 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
     if (!header) {
         if (use_fallbacks_ && !heap_busy()) {
             heap_busy() = 1;
-            for (int i = 0; i < static_cast<int>(kFallbackCount); ++i) {
+            for (int i = 0; i < kFallbackCount; ++i) {
                 Arena* other = core::at(fallbacks_, i);
                 if (other && other->region()->free_byte_count() > core::at(fallback_reserve_, i) + static_cast<int>(size)) {
                     if (void* block = other->carve(size, false)) {

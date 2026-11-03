@@ -25,14 +25,14 @@ class AsyncFileHandle;
 // `event` is the operation (1 open, 3 read, 6 close, ...), `value` its result.
 using IoCompletionHook = void (*)(AsyncFileHandle* file, int event, int value, void* arg0, void* arg1);
 
-// Operations, also the events passed to callbacks.
-// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 constexpr int kDefaultReadRank = 100; // the rank an opened file starts with among the reads waiting
 constexpr size_t kCallbackMaskOffset = 0x14; // AsyncFileHandle's layout
 constexpr size_t kIsBlockingOffset = 0x21;
 constexpr size_t kPayloadBytesOffset = 0x2C;
 constexpr size_t kInFlightOpsOffset = 0x38;
 constexpr size_t kLoaderModuleBytes = 0x18;
+// Operations, also the events passed to callbacks.
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
 enum AsyncOperation : uint8_t { kAsyncIdle = 0, kAsyncOpen = 1, kOpReadFile = 3, kAsyncClose = 6, kAsyncCancel = 7 };
 
 class AsyncFileHandle : public memory::HeapObject {

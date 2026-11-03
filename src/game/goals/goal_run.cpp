@@ -2,6 +2,7 @@
 // tricks, records (0x00554A80-0x00555A5F, 0x00556230; see objective.h).
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
