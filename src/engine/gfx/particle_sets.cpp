@@ -23,6 +23,15 @@
 
 namespace render {
 
+constexpr float kBoxDefaultHalfSize = 20.0f;
+constexpr int kNeutralShade = 0x80;
+constexpr float kMidPercentDefault = 50.0f;
+constexpr float kRateDefault = 300.0f;
+constexpr float kLifetimeDefault = 4.0f;
+constexpr int kUnknown144Default = 400;
+constexpr int kUnknown148Default = 401;
+constexpr float kHalf = 0.5f;
+
 // Checksums used in this file (the text each hashes).
 constexpr uint32_t kFixadd = 0xA86285A1u; // fixadd
 
@@ -57,20 +66,20 @@ SparkleConfig::SparkleConfig()
         core::at(extent_, i) = 1.0f;
         core::at(radius_, i) = 0.0f;
         core::at(at_point_, i) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
-        core::at(box_, i) = maths::Vec4{.x = 20.0f, .y = 20.0f, .z = 20.0f, .w = 0.0f};
+        core::at(box_, i) = maths::Vec4{.x = kBoxDefaultHalfSize, .y = kBoxDefaultHalfSize, .z = kBoxDefaultHalfSize, .w = 0.0f};
         core::at(offset_pos_, i) = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
         for (int k = 0; k < 4; ++k)
-            core::at(core::at(shade_, i), k) = 0x80;
+            core::at(core::at(shade_, i), k) = kNeutralShade;
     }
     colour_use_mid_ = false;
     texture_ = 0;
     alpha_cut_off_ = 0;
-    mid_percent_ = 50.0f;
+    mid_percent_ = kMidPercentDefault;
     unknown24_ = 2;
-    rate_ = 300.0f;
-    lifetime_ = 4.0f;
+    rate_ = kRateDefault;
+    lifetime_ = kLifetimeDefault;
     brightness_ = 1.0f;
-    colour_mid_percent_ = 50.0f;
+    colour_mid_percent_ = kMidPercentDefault;
     blend_mode_ = kFixadd;
     unknown13c_ = 1;
     for (float& scale : colour_scale_)
@@ -80,8 +89,8 @@ SparkleConfig::SparkleConfig()
     held_back_ = false;
     flag158_ = false;
     entity_key_ = 0;
-    unknown144_ = 400;
-    unknown148_ = 401;
+    unknown144_ = kUnknown144Default;
+    unknown148_ = kUnknown148Default;
 }
 
 // 0x00495C80
@@ -113,10 +122,10 @@ void Sparkle::update_bounds()
     std::array<float, 3> hr{};
     std::array<float, 3> s{};
     for (int i = 0; i < 3; ++i) {
-        core::at(core::at(hb, i), 0) = core::at(p.box(), i).x * 0.5f;
-        core::at(core::at(hb, i), 1) = core::at(p.box(), i).y * 0.5f;
-        core::at(core::at(hb, i), 2) = core::at(p.box(), i).z * 0.5f;
-        core::at(hr, i) = core::at(p.radius(), i) * 0.5f;
+        core::at(core::at(hb, i), 0) = core::at(p.box(), i).x * kHalf;
+        core::at(core::at(hb, i), 1) = core::at(p.box(), i).y * kHalf;
+        core::at(core::at(hb, i), 2) = core::at(p.box(), i).z * kHalf;
+        core::at(hr, i) = core::at(p.radius(), i) * kHalf;
         core::at(s, i) = core::at(p.extent(), i);
     }
     std::array<maths::Vec4, 3> lo{};

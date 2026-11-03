@@ -30,16 +30,39 @@
 
 namespace render {
 
+constexpr std::size_t kBillboardUvMatrixFloats = 8;
+constexpr float kEnvironmentScale = 0.5f; // the environment map: -1..1 mapped to 0..1
+constexpr float kEnvironmentOffset = 0.5f;
+constexpr int kBitsPerByte = 8;
+constexpr float kMillisecondsToSeconds = 0.001f;
+constexpr double kWibbleWrap = 8.0;
+constexpr uint32_t kBorderUnset = 0xE0000000;
+constexpr int kUvScaleV = 5; // the UV matrix: the v scale, then the offsets in the next row
+constexpr int kUvOffsetU = 8;
+constexpr int kUvOffsetV = 9;
+constexpr int kMatrixRow1Col3 = 7;
+constexpr float kByteMaxFloat = 255.0f;
+constexpr int kLowByteMask = 0xFF;
+constexpr float kReflectionTiling = 3.0f;
+constexpr int kPassBitMask = 31;
+constexpr std::size_t kPassColourBytes = 16;
+constexpr double kHalf = 0.5;
+constexpr int kBlendWithPreviousA = 0xC;
+constexpr int kBlendWithPreviousB = 0xD;
+constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
+constexpr int kByte1Shift = 8;
+constexpr int kByte2Shift = 16;
+
 namespace {
 // NOT ORIGINAL grouping - pc_material.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_material_state()).
 struct PcMaterialState {
-    std::array<float, 8> billboard_uv_matrix_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, 16> wibble_matrix_pass_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, 16> wibble_matrix_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
-    std::array<float, 16> environment_matrix_{{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f}};
+    std::array<float, kBillboardUvMatrixFloats> billboard_uv_matrix_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, kMatrixFloats> wibble_matrix_pass_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, kMatrixFloats> wibble_matrix_{{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, kMatrixFloats> environment_matrix_{{kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, -kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, kEnvironmentOffset, kEnvironmentOffset}};
     // the environment pass's texture matrix (its scales set per pass)
-    std::array<float, 16> environment_matrix_pass_{{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f}};
+    std::array<float, kMatrixFloats> environment_matrix_pass_{{kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, -kEnvironmentScale, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, kEnvironmentOffset, kEnvironmentOffset}};
 };
 
 PcMaterialState& pc_material_state()
@@ -73,13 +96,13 @@ uint32_t blend_key_colors(int num, int den, const std::array<uint8_t, 4>& from, 
     uint32_t color = 0;
     for (int k = 0; k < 4; ++k) {
         const auto value = static_cast<uint32_t>(maths::truncate_to_i64(core::at(to, core::at(kOrder, k)) * f + core::at(from, core::at(kOrder, k)) * rest));
-        color = k ? (color << 8 | value) : value;
+        color = k ? (color << kBitsPerByte | value) : value;
     }
     return color;
 }
 
 // The time in seconds the UV wibbles use: the milliseconds (unsigned) times 0.001, stored as a float.
-float wibble_time(uint32_t milliseconds) { return static_cast<float>(static_cast<double>(milliseconds) * 0.001f); }
+float wibble_time(uint32_t milliseconds) { return static_cast<float>(static_cast<double>(milliseconds) * kMillisecondsToSeconds); }
 
 // One axis of a UV wibble's offset: the phase-shifted sine times the amplitude plus the velocity's travel, plus 8,
 // less its whole part rounded down to a multiple of 16 - then 8 back the other way (added below 0, taken off
@@ -87,12 +110,12 @@ float wibble_time(uint32_t milliseconds) { return static_cast<float>(static_cast
 float wibble_offset(float t, float frequency, float phase, float amplitude, float velocity, bool store_first)
 {
     double value =
-        std::sin(static_cast<double>(t) * frequency + phase) * amplitude + static_cast<double>(t) * velocity + 8.0;
+        std::sin(static_cast<double>(t) * frequency + phase) * amplitude + static_cast<double>(t) * velocity + kWibbleWrap;
     const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0u);
     value -= whole;
     if (store_first)
         value = static_cast<float>(value);
-    return static_cast<float>(value < 0.0 ? value + 8.0 : value - 8.0);
+    return static_cast<float>(value < 0.0 ? value + kWibbleWrap : value - kWibbleWrap);
 }
 
 // What both set-ups share: the alpha reference, culling, depth bias, the animations, and the specular material
@@ -139,8 +162,8 @@ void set_border_color(const MaterialRef* material, PassStage pass_stage)
     const auto stage = pass_stage.stage;
     const uint32_t border = renderer().border_colour(stage);
     if (core::at(material->pass_flags(), pass) & kPassBorder) {
-        if (border != 0xE0000000)
-            renderer().set_border_colour(stage, 0xE0000000);
+        if (border != kBorderUnset)
+            renderer().set_border_colour(stage, kBorderUnset);
     } else if (border) {
         renderer().set_border_colour(stage, 0);
     }
@@ -155,19 +178,19 @@ void change_bump_map_matrix(uint32_t stage)
 }
 
 // A UV wibble's texture matrix (a static, `matrix`): its 2x2 part (the second row's first value negated) and offsets.
-void fill_wibble_matrix(std::span<float, 16> matrix, const UvOscillator* wibble)
+void fill_wibble_matrix(std::span<float, kMatrixFloats> matrix, const UvOscillator* wibble)
 {
     core::at(matrix, 0) = core::at(wibble->matrix(), 0);
     core::at(matrix, 1) = core::at(wibble->matrix(), 1);
-    core::at(matrix, 5) = core::at(wibble->matrix(), 0);
+    core::at(matrix, kUvScaleV) = core::at(wibble->matrix(), 0);
     core::at(matrix, 4) = -core::at(wibble->matrix(), 1);
-    core::at(matrix, 8) = core::at(wibble->offset(), 0);
-    core::at(matrix, 9) = core::at(wibble->offset(), 1);
+    core::at(matrix, kUvOffsetU) = core::at(wibble->offset(), 0);
+    core::at(matrix, kUvOffsetV) = core::at(wibble->offset(), 1);
 }
 
 uint32_t factor_channel(float value)
 {
-    return static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(value) * 255.0f)) & 0xFF;
+    return static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(value) * kByteMaxFloat)) & kLowByteMask;
 }
 
 } // namespace
@@ -176,12 +199,12 @@ uint32_t factor_channel(float value)
 MaterialRef::MaterialRef()
 {
     for (int pass = 0; pass < 4; ++pass) {
-        core::at(unknownc0_, pass) = 0x10001;
+        core::at(unknownc0_, pass) = kClampBothWays;
         core::at(pass_flags_, pass) = 0;
         core::at(textures_, pass) = nullptr;
         core::at(uv_wibble_, pass) = nullptr;
-        core::at(core::at(reflection_tiling_, pass), 0) = 3.0f;
-        core::at(core::at(reflection_tiling_, pass), 1) = 3.0f;
+        core::at(core::at(reflection_tiling_, pass), 0) = kReflectionTiling;
+        core::at(core::at(reflection_tiling_, pass), 1) = kReflectionTiling;
     }
 }
 
@@ -212,7 +235,7 @@ uint32_t MaterialRef::texture_alpha_passes() const
     uint32_t mask = 0;
     for (uint32_t pass = 0; pass < pass_count_; ++pass)
         if (core::at(pass_flags_, pass) & kPassTextureAlpha)
-            mask |= 1u << (pass & 31);
+            mask |= 1u << (pass & kPassBitMask);
     return mask;
 }
 
@@ -287,10 +310,10 @@ void MaterialRef::hand_in()
     choose_blend_mode(core::at(blend_modes_, 0));
     set_common_states(this);
     for (uint32_t pass = 0; pass < pass_count_; ++pass) {
-        if (renderer().skipped_passes() & (1u << (pass & 31)))
+        if (renderer().skipped_passes() & (1u << (pass & kPassBitMask)))
             continue;
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        if (!renderer().pixel_shader_changed() && std::memcmp(core::at(pass_color_, pass).data(), std::span<const float>(renderer().ps_constants()).subspan(4 * static_cast<size_t>(pass)).data(), 16) != 0)
+        if (!renderer().pixel_shader_changed() && std::memcmp(core::at(pass_color_, pass).data(), std::span<const float>(renderer().ps_constants()).subspan(4 * static_cast<size_t>(pass)).data(), kPassColourBytes) != 0)
             renderer().set_pixel_shader_changed(true);
         const TextureImage* texture = core::at(textures_, pass);
         if (!texture) {
@@ -308,8 +331,8 @@ void MaterialRef::hand_in()
         auto texture_matrix = static_cast<D3DTRANSFORMSTATETYPE>(D3DTS_TEXTURE0 + pass);
         if ((flags & kPassEnvironment) && renderer().near_camera()) {
             auto& matrix = pc_material_state().environment_matrix_pass_;
-            core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * 0.5);
-            core::at(matrix, 5) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * 0.5);
+            core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * kHalf);
+            core::at(matrix, kUvScaleV) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * kHalf);
             change_phase(kLocalViewer, 1);
             renderer().d3d_device()->SetTransform(texture_matrix, d3d::matrix(matrix.data()));
             device_stage_state(pass, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
@@ -327,8 +350,8 @@ void MaterialRef::hand_in()
                 core::at(m, 1) = 0;
                 core::at(m, 3) = 0;
                 core::at(m, 4) = 0;
-                core::at(m, 5) = 1.0f;
-                core::at(m, 7) = 0;
+                core::at(m, kUvScaleV) = 1.0f;
+                core::at(m, kMatrixRow1Col3) = 0;
             }
             DWORD transform_flags = 0, coordinates = 0;
             renderer().d3d_device()->GetTextureStageState(pass, D3DTSS_TEXTURETRANSFORMFLAGS, &transform_flags);
@@ -357,7 +380,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
     if (renderer().submit_locked())
         return;
     choose_blend_mode(core::at(blend_modes_, pass));
-    if (!(renderer().skipped_passes() & (1u << (pass & 31)))) {
+    if (!(renderer().skipped_passes() & (1u << (pass & kPassBitMask)))) {
         const TextureImage* texture = core::at(textures_, pass);
         if (!texture) {
             set_texture(0, nullptr);
@@ -371,8 +394,8 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
             const uint32_t flags = core::at(pass_flags_, pass);
             if ((flags & kPassEnvironment) && renderer().near_camera()) {
                 auto& matrix = pc_material_state().environment_matrix_;
-                core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * 0.5);
-                core::at(matrix, 5) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * 0.5);
+                core::at(matrix, 0) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 0) * kHalf);
+                core::at(matrix, kUvScaleV) = static_cast<float>(core::at(core::at(reflection_tiling_, pass), 1) * kHalf);
                 change_phase(kLocalViewer, 1);
                 render::set_transform(D3DTS_TEXTURE0, matrix.data());
                 set_texture_stage_state(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT2);
@@ -392,7 +415,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 if (coordinates != pass)
                     set_texture_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
                 const uint32_t blend = core::at(blend_modes_, pass);
-                if (blend == 0xC || blend == 0xD) { // (blending with the pass before: its texture on stage 1)
+                if (blend == kBlendWithPreviousA || blend == kBlendWithPreviousB) { // (blending with the pass before: its texture on stage 1)
                     set_texture_stage_state(1, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
                     if (static_cast<int>(pass) > 0) {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass - 1);
@@ -411,7 +434,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         renderer().load_pass_colours(pass_color_, pass_count_);
 
     // the stages' colour and alpha operations
-    if (static_cast<int8_t>(core::at(pass_flags_, pass) & 0xFF) < 0)
+    if (static_cast<int8_t>(core::at(pass_flags_, pass) & kLowByteMask) < 0)
         color = nullptr; // (the pass's colour isn't to be changed)
     const std::array<float, 4>& own = core::at(pass_color_, pass);
     const bool alpha_from_texture = (core::at(pass_flags_, pass) & kPassTextureAlpha) != 0;
@@ -449,7 +472,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
         const uint32_t r = factor_channel(core::at(factor, 0));
         const uint32_t g = factor_channel(core::at(factor, 1));
         const uint32_t b = factor_channel(core::at(factor, 2));
-        renderer().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, 0xFF000000u | r << 16 | g << 8 | b);
+        renderer().d3d_device()->SetRenderState(D3DRS_TEXTUREFACTOR, kOpaqueAlphaBits | r << kByte2Shift | g << kByte1Shift | b);
         if (alpha_from_texture) {
             device_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
         } else {

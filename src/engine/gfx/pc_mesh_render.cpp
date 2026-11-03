@@ -35,6 +35,17 @@
 
 namespace render {
 
+constexpr std::size_t kUvFloats = 8;
+constexpr std::size_t kBlendedFloats = 6; // position and normal
+constexpr int kColourOffset = 0x18;
+constexpr int kUvOffset = 0x1C;
+constexpr float kNearFadeShare = 0.25f;
+constexpr int kFlagForceLinear = 0x80;
+constexpr int kFlagKeepZWrite = 0x100;
+constexpr int kLodLevels = 8;
+constexpr std::size_t kLodLevelCount = 8;
+constexpr int kByteMax = 255;
+
 namespace {
 
 // D3DX (the statically linked library's, through its thunks).
@@ -47,7 +58,7 @@ struct SkinVertex {
     std::array<float, 3> position;
     std::array<float, 3> normal;
     uint32_t color;   // +0x18
-    std::array<float, 8> uv;      // +0x1C: (u, v) a set
+    std::array<float, kUvFloats> uv;      // +0x1C: (u, v) a set
     std::array<uint8_t, 4> bones; // +0x3C
     std::array<float, 3> weights; // +0x40
 };
@@ -65,7 +76,7 @@ struct BoneWeight {
 
 // Another bone's share added: its transformed position and normal times the weight, onto what's there (each sum
 // rounded to a float as the original stores it).
-void add_bone(std::span<float, 6> blended, const SkinVertex& v, BoneWeight bone_weight)
+void add_bone(std::span<float, kBlendedFloats> blended, const SkinVertex& v, BoneWeight bone_weight)
 {
     const auto bone = bone_weight.bone;
     const auto weight = bone_weight.weight;
@@ -87,7 +98,7 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
     for (uint32_t i = 0; i < mesh->vertex_count(); ++i) {
         const auto vertex = vertices.value<SkinVertex>(i, 0);
         const SkinVertex* v = &vertex;
-        std::array<float, 6> blended{};
+        std::array<float, kBlendedFloats> blended{};
         transform_coord(blended.data(), v->position.data(), skin_matrix(core::at(v->bones, 0)));
         transform_normal(std::span(blended).subspan(3).data(), v->normal.data(), skin_matrix(core::at(v->bones, 0)));
         if (bones > 1 && !(core::at(v->weights, 0) == 1.0f)) {
@@ -97,10 +108,10 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
             if (bones > 2 && !(core::at(v->weights, 2) == 0.0f))
                 add_bone(blended, *v, {.bone = core::at(v->bones, 2), .weight = core::at(v->weights, 2)});
         }
-        written.set_floats<6>(i, 0, blended); // the position and normal
-        written.set_word(i, 0x18, v->color);
+        written.set_floats<kBlendedFloats>(i, 0, blended); // the position and normal
+        written.set_word(i, kColourOffset, v->color);
         for (uint32_t k = 0; k < 2 * mesh->unknowna4(); ++k)
-            written.set_value(i, 0x1C + 4 * k, core::at(v->uv, k));
+            written.set_value(i, kUvOffset + 4 * k, core::at(v->uv, k));
     }
 }
 
@@ -130,7 +141,7 @@ void MeshRef::render()
         const float end = renderer().render_camera().far_z_;
         renderer().set_fog_begin_distance(0.0f);
         renderer().set_fog_end(0.0f);
-        auto start = static_cast<float>(end - (static_cast<double>(end) - renderer().render_camera().near_z_) * 0.25f);
+        auto start = static_cast<float>(end - (static_cast<double>(end) - renderer().render_camera().near_z_) * kNearFadeShare);
         toggle_fog(true);
         renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
         renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
@@ -158,12 +169,12 @@ void MeshRef::render()
         mat->submit_states();
     }
     DWORD min_filter = 0, z_write = 0;
-    if (flags_ & 0x80) {
+    if (flags_ & kFlagForceLinear) {
         renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
         if (min_filter != D3DTEXF_LINEAR)
             renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
     }
-    if (flags_ & 0x100) {
+    if (flags_ & kFlagKeepZWrite) {
         renderer().d3d_device()->GetRenderState(D3DRS_ZWRITEENABLE, &z_write);
         if (z_write == 1)
             render::set_render_state(D3DRS_ZWRITEENABLE, 0);
@@ -203,13 +214,13 @@ void MeshRef::render()
         const maths::Vec4 sphere = sphere_of(centre_, radius_);
         sphere_in_view(&sphere, radius_);
         const float distance = view_setup().last_sphere_distance();
-        for (; level < 8; ++level) {
+        for (; level < kLodLevels; ++level) {
             if (!core::at(index_buffers_, level)) {
                 if (level > 0)
                     --level;
                 break;
             }
-            if (distance < core::at(std::span<const float, 8>(static_cast<const float*>(unknown48_), 8), level))
+            if (distance < core::at(std::span<const float, kLodLevelCount>(static_cast<const float*>(unknown48_), kLodLevelCount), level))
                 break;
         }
     }
@@ -225,7 +236,7 @@ void MeshRef::render()
             const float* tint = nullptr;
             if (renderer().instance_colour_on()) {
                 for (int k = 0; k < 3; ++k)
-                    core::at(instance, k) = static_cast<float>(core::at(renderer().instance_colour(), k) * static_cast<double>(1.0f / 255));
+                    core::at(instance, k) = static_cast<float>(core::at(renderer().instance_colour(), k) * static_cast<double>(1.0f / kByteMax));
                 tint = instance.data();
             } else if (flags_ & 4) {
                 tint = color_.data();
@@ -236,9 +247,9 @@ void MeshRef::render()
             count_draw(index_count_at(this, level) - 2u);
         }
     }
-    if ((flags_ & 0x80) && min_filter != D3DTEXF_LINEAR)
+    if ((flags_ & kFlagForceLinear) && min_filter != D3DTEXF_LINEAR)
         renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
-    if ((flags_ & 0x100) && z_write == 1)
+    if ((flags_ & kFlagKeepZWrite) && z_write == 1)
         renderer().d3d_device()->SetRenderState(D3DRS_ZWRITEENABLE, 1);
     if (unknown98 != -1)
         renderer().d3d_device()->SetTransform(D3DTS_WORLD, &world);

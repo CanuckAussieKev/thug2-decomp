@@ -23,6 +23,16 @@
 
 namespace render {
 
+constexpr std::size_t kGradientBufferBytes = 100000;
+constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
+constexpr int kByteMask = 0xFF;
+constexpr int kByte1Shift = 8;
+constexpr int kByte2Shift = 16;
+constexpr float kLayoutWidth = 640.0f;
+constexpr uint32_t kBorderAlphaBits = 0x80000000u;
+constexpr uint32_t kFrameShadowColour = 0xFF0A0A0A;
+constexpr uint32_t kFrameRuleColour = 0xFFF2E205;
+
 namespace {
 
 // PartyMod's gradient table: 100000 bytes, enough for high resolutions (PartyMod's resbuffer, which its
@@ -58,9 +68,9 @@ Rgb& gradient_end() { return loading_bar_state().gradient_end_; }
 
 uint32_t& border_argb() { return loading_bar_state().border_argb_; }
 
-std::array<Rgb, 100000 / sizeof(Rgb)>& gradient_table()
+std::array<Rgb, kGradientBufferBytes / sizeof(Rgb)>& gradient_table()
 {
-    static core::NoDestroy<std::array<Rgb, 100000 / sizeof(Rgb)>> gradient_buffer;
+    static core::NoDestroy<std::array<Rgb, kGradientBufferBytes / sizeof(Rgb)>> gradient_buffer;
     return gradient_buffer.get();
 }
 
@@ -86,7 +96,7 @@ void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t r
 }
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, its low half (NaN and infinities: 0).
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
-uint32_t opaque(const Rgb& c) { return 0xFF000000u | (c.r & 0xFF) << 16 | (c.g & 0xFF) << 8 | (c.b & 0xFF); }
+uint32_t opaque(const Rgb& c) { return kOpaqueAlphaBits | (c.r & kByteMask) << kByte2Shift | (c.g & kByteMask) << kByte1Shift | (c.b & kByteMask); }
 
 } // namespace
 
@@ -96,8 +106,8 @@ void update_loading_bar_colors()
     gradient_start() = {.r = core::at(screen_2d().progress_from_color(), 0), .g = core::at(screen_2d().progress_from_color(), 1), .b = core::at(screen_2d().progress_from_color(), 2)};
     gradient_end() = {.r = core::at(screen_2d().progress_to_color(), 0), .g = core::at(screen_2d().progress_to_color(), 1), .b = core::at(screen_2d().progress_to_color(), 2)};
     screen_2d().gradient_width() =
-        static_cast<int>(static_cast<double>(renderer().back_buffer_width()) * screen_2d().progress_width() * (1.0f / 640.0f));
-    border_argb() = 0x80000000u | core::at(screen_2d().progress_edge_color(), 0) << 16 | core::at(screen_2d().progress_edge_color(), 1) << 8 | core::at(screen_2d().progress_edge_color(), 2);
+        static_cast<int>(static_cast<double>(renderer().back_buffer_width()) * screen_2d().progress_width() * (1.0f / kLayoutWidth));
+    border_argb() = kBorderAlphaBits | core::at(screen_2d().progress_edge_color(), 0) << kByte2Shift | core::at(screen_2d().progress_edge_color(), 1) << kByte1Shift | core::at(screen_2d().progress_edge_color(), 2);
 
     // One colour per pixel column, from the start colour towards the end colour. The original's table is at
     // 0x00701688 and overflows at high resolutions; PartyMod pointed it at a bigger buffer instead, though 4
@@ -155,9 +165,9 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
         const auto pad_x = static_cast<float>(x_scale * 18.0);
         const float pad_y = y_scale * 14.0f;
         const float rule = y_scale * 2.0f;
-        draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, bottom_f + pad_y, 0xFF0A0A0A, 0xFF0A0A0A);
-        draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, top_f - pad_y + rule, 0xFFF2E205,
-                  0xFFF2E205);
+        draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, bottom_f + pad_y, kFrameShadowColour, kFrameShadowColour);
+        draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, top_f - pad_y + rule, kFrameRuleColour,
+                  kFrameRuleColour);
     }
     draw_quad(frame_left_f, top_f, frame_right_f, bottom_f, border_argb(), border_argb());
     // the gradient, inset 5/480 of the screen's height top and bottom

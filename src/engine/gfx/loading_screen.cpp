@@ -35,6 +35,24 @@
 
 namespace render {
 
+constexpr int kProgressBarWidth = 300;
+// The loading bar's colours (red, green, blue, alpha).
+constexpr int kProgressFromRed = 0xB9;
+constexpr int kProgressFromGreen = 0xB5;
+constexpr int kProgressFromBlue = 0xAC;
+constexpr int kProgressToRed = 0xF2;
+constexpr int kProgressToGreen = 0xE2;
+constexpr int kProgressToBlue = 0x05;
+constexpr int kProgressEdgeRed = 0x3A;
+constexpr int kProgressEdgeBlue = 0x38;
+constexpr int kProgressAlpha = 0x80;
+constexpr float kHalf = 0.5f;
+constexpr float kTickSeconds = 0.03f;
+constexpr float kLoadSecondsScale = 0.6f;
+constexpr int kLoadingTimerPeriod = 29; // milliseconds between redraws of the loading screen
+constexpr std::size_t kPickedNameBytes = 0xC8;
+constexpr int kLanguageGerman = 5;
+
 namespace {
 
 // The Windows calls, through the exe's imports (as device.cpp's timer: so a test can stand in for them alone).
@@ -106,10 +124,10 @@ void apply_bar_style(bool select)
         std::memcpy(core::at(select_picture().saved_colors_, 0).data(), screen_2d().progress_from_color().data(), 4);
         std::memcpy(core::at(select_picture().saved_colors_, 1).data(), screen_2d().progress_to_color().data(), 4);
         std::memcpy(core::at(select_picture().saved_colors_, 2).data(), screen_2d().progress_edge_color().data(), 4);
-        screen_2d().progress_width() = 300;
-        screen_2d().progress_from_color() = {0xB9, 0xB5, 0xAC, 0x80};
-        screen_2d().progress_to_color() = {0xF2, 0xE2, 0x05, 0x80};
-        screen_2d().progress_edge_color() = {0x3A, 0x3A, 0x38, 0x80};
+        screen_2d().progress_width() = kProgressBarWidth;
+        screen_2d().progress_from_color() = {kProgressFromRed, kProgressFromGreen, kProgressFromBlue, kProgressAlpha};
+        screen_2d().progress_to_color() = {kProgressToRed, kProgressToGreen, kProgressToBlue, kProgressAlpha};
+        screen_2d().progress_edge_color() = {kProgressEdgeRed, kProgressEdgeRed, kProgressEdgeBlue, kProgressAlpha};
     } else {
         screen_2d().progress_width() = select_picture().saved_bar_width_;
         std::memcpy(screen_2d().progress_from_color().data(), core::at(select_picture().saved_colors_, 0).data(), 4);
@@ -144,7 +162,7 @@ void draw_loading_screen_picture()
     renderer().d3d_device()->GetSamplerState(0, D3DSAMP_MINFILTER, &min_filter);
     renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
     renderer().d3d_device()->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
-    change_phase(kAddressMode0, 0x10001); // (clamped both ways)
+    change_phase(kAddressMode0, kClampBothWays); // (clamped both ways)
     change_phase(kLighting, 0);
     set_pixel_shader(nullptr, nullptr);
     set_vertex_format(D3DFVF_XYZRHW | D3DFVF_TEX1);
@@ -159,10 +177,10 @@ void draw_loading_screen_picture()
     if (select_picture().select_picture_ && width > 0.0f && height > 0.0f) {
         const float aspect = width / height;
         if (aspect < kSelectAspect) {
-            u0 = (1.0f - aspect / kSelectAspect) * 0.5f;
+            u0 = (1.0f - aspect / kSelectAspect) * kHalf;
             u1 = 1.0f - u0;
         } else {
-            v0 = (1.0f - kSelectAspect / aspect) * 0.5f;
+            v0 = (1.0f - kSelectAspect / aspect) * kHalf;
             v1 = 1.0f - v0;
         }
     }
@@ -204,11 +222,11 @@ void free_loading_screen_sprite()
 void show_progress_bar(float seconds)
 {
     screen_2d().set_elapsed_seconds(0.0f);                                                  // elapsed
-    screen_2d().tick_seconds() = 0.03f;                                                    // a tick's seconds (0x3CF5C28F)
-    screen_2d().total_seconds() = static_cast<float>(static_cast<double>(seconds) * 0.6f); // (0x006463C4)
+    screen_2d().tick_seconds() = kTickSeconds;                                                    // a tick's seconds (0x3CF5C28F)
+    screen_2d().total_seconds() = static_cast<float>(static_cast<double>(seconds) * kLoadSecondsScale); // (0x006463C4)
     update_loading_bar_colors();
     if (!renderer().loading_bar_timer())
-        renderer().set_loading_bar_timer(start_timer(29, &draw_loading_screen_frame));
+        renderer().set_loading_bar_timer(start_timer(kLoadingTimerPeriod, &draw_loading_screen_frame));
 }
 
 // 0x004B78B0
@@ -217,7 +235,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
     get_lock();
     // Not original: a level select picture's name (the load script added "_story" / "_classic" to it in those modes,
     // as to the original picture's): off, the original picture it ends with; on, the picture without the suffix.
-    std::array<char, 0xC8> picked{};
+    std::array<char, kPickedNameBytes> picked{};
     if (!keep && !black && is_select_name(name)) {
         if (!select_enabled()) {
             name = original_of(name);
@@ -249,13 +267,13 @@ void show_loading_screen(const char* name, bool keep, bool black)
             memory::let_go(screen_2d().loading_screen_picture()); // (one of the same name is left, as the original leaves it)
             screen_2d().loading_screen_picture() = std::make_unique<render::PcTexture>();
             // the language's picture: French "fr/<name>", German "gr/<name>"
-            std::array<char, 0xC8> localised{};
+            std::array<char, kPickedNameBytes> localised{};
             const char* file = name;
             const int language = game_config::get_language();
             if (language == 3 && !is_select_name(name)) { // (no text on a level select picture: one for all languages)
                 text::format_to(localised, "fr/%s", name);
                 file = localised.data();
-            } else if (language == 5 && !is_select_name(name)) {
+            } else if (language == kLanguageGerman && !is_select_name(name)) {
                 text::format_to(localised, "gr/%s", name);
                 file = localised.data();
             }

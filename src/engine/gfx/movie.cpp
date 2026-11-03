@@ -46,6 +46,15 @@
 
 namespace render {
 
+constexpr float kLayoutWidth = 640.0f;
+constexpr float kLayoutHeight = 480.0f;
+constexpr int kColourOpModulate = 5;
+constexpr std::size_t kDumpNameBytes = 256;
+constexpr int kBitsPerByte = 8;
+constexpr int kScreenSaverFrames = 200;
+constexpr unsigned long kPollMilliseconds = 100;
+constexpr uint32_t kMovieSurfaceFlag = 0x80000000;
+
 // (device.h declares this too; not included here, its SetRenderState is another one than the one below)
 
 namespace {
@@ -127,10 +136,10 @@ constexpr uint32_t kMovieSurfaceType{3};
 // NOT ORIGINAL grouping - the back buffer's and the movie picture's sizes while a movie plays (the original's globals).
 // Made on first use, never destroyed (movie_sizes()).
 struct MovieSizes {
-    float movie_back_buffer_width_{640.0f};
-    float movie_back_buffer_height_{480.0f};
-    float movie_picture_width_{640.0f};
-    float movie_picture_height_{480.0f};
+    float movie_back_buffer_width_{kLayoutWidth};
+    float movie_back_buffer_height_{kLayoutHeight};
+    float movie_picture_width_{kLayoutWidth};
+    float movie_picture_height_{kLayoutHeight};
 };
 
 MovieSizes& movie_sizes()
@@ -167,19 +176,19 @@ void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alp
     if (!texture)
         return;
     choose_blend_mode(0);
-    change_phase(kAddressMode0, 0x10001); // (clamp)
-    set_vertex_format(0x144);
+    change_phase(kAddressMode0, kClampBothWays); // (clamp)
+    set_vertex_format(kScreenVertexFormat);
     renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
-    renderer().d3d_device()->SetFVF(0x144);
+    renderer().d3d_device()->SetFVF(kScreenVertexFormat);
     set_pixel_shader(nullptr, nullptr);                                            // (no pixel shader)
-    set_texture_stage_state(0, 1, 5);                                              // colour: modulate
+    set_texture_stage_state(0, 1, kColourOpModulate);                                              // colour: modulate
     set_texture_stage_state(0, 2, 2);
     set_texture_stage_state(0, 3, 1);
     set_texture_stage_state(0, 4, 3);
     set_texture_stage_state(1, 1, 1); // stage 1 off
     set_texture(0, nullptr);          // (the original also passes 0, unused)
     // (a leftover from testing: the name of a frame dump that's never written)
-    std::array<char, 256> dump_name{};
+    std::array<char, kDumpNameBytes> dump_name{};
     text::format_to(dump_name, "e:\\movietest\\movie%04d.bmp", engine_parts().movie_dump_count());
     ++engine_parts().movie_dump_count();
     // Originally from PartyMod Fixes (its call at 0x0044FB8C): set_movie_texture in place of the renderer's texture set (0x004DA730)
@@ -299,9 +308,9 @@ void draw_movie(Bink* bink, void* texture)
 }
 
 // 0x0044F840
-bool button_pressed_again(const std::array<uint8_t, 32>& control_data, uint16_t* seen_up, uint32_t mask)
+bool button_pressed_again(const std::array<uint8_t, kControlDataBytes>& control_data, uint16_t* seen_up, uint32_t mask)
 {
-    auto up = static_cast<uint16_t>(core::at(control_data, 2) << 8 | core::at(control_data, 3));
+    auto up = static_cast<uint16_t>(core::at(control_data, 2) << kBitsPerByte | core::at(control_data, 3));
     if (up & mask) {
         *seen_up |= static_cast<uint16_t>(mask);
         return false;
@@ -371,14 +380,14 @@ void play_movie_file(const char* name)
                                             * kFloat16384));                           // 16384
         int frames = 0;
         for (;;) {
-            if (screen_saver_timeout && screen_saver_frames++ >= 200) {
+            if (screen_saver_timeout && screen_saver_frames++ >= kScreenSaverFrames) {
                 screen_saver_frames = 0;
                 SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             }
             if (!sys::app_active()) {
                 bink::pause(engine_parts().current_movie(), 1);
                 while (!sys::app_active()) {
-                    Sleep(100);
+                    Sleep(kPollMilliseconds);
                     os_layer::process_window_events();
                 }
                 continue;
@@ -392,7 +401,7 @@ void play_movie_file(const char* name)
                     // window's messages: with the device lost (another full-screen program on the display) it
                     // never gets it back and spins at full CPU, hung. Here it waits and lets the window be
                     // restored, as the inactive-app wait above does.
-                    Sleep(100);
+                    Sleep(kPollMilliseconds);
                     os_layer::process_window_events();
                     continue;
                 }
@@ -405,7 +414,7 @@ void play_movie_file(const char* name)
             auto* d3d_texture = static_cast<IDirect3DTexture9*>(texture);
             D3DLOCKED_RECT locked;
             if (SUCCEEDED(d3d_texture->LockRect(0, &locked, nullptr, 0))) {
-                bink::copy_to_buffer(bink, locked.pBits, {.pitch = locked.Pitch, .height = bink->height, .x = 0, .y = 0, .flags = kMovieSurfaceType | 0x80000000}); // the surface type, copy all
+                bink::copy_to_buffer(bink, locked.pBits, {.pitch = locked.Pitch, .height = bink->height, .x = 0, .y = 0, .flags = kMovieSurfaceType | kMovieSurfaceFlag}); // the surface type, copy all
                 d3d_texture->UnlockRect(0);
             }
             draw_movie(engine_parts().current_movie(), texture);
@@ -423,7 +432,7 @@ void play_movie_file(const char* name)
                 if (!device)
                     continue;
                 const auto& data = device->control_data();
-                if (core::at(data, 2) << 8 & kStart)
+                if (core::at(data, 2) << kBitsPerByte & kStart)
                     core::at(seen_up, port) |= kStart;
                 else if (core::at(seen_up, port) & kStart)
                     skip = true;

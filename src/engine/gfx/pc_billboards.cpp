@@ -37,12 +37,34 @@
 
 namespace render {
 
+constexpr std::size_t kBillboardConstantFloats = 12;
+constexpr int kMeshActiveFlag = 0x40; // the mesh is on
+constexpr int kPrimTriangleStrip = 5;
+constexpr int kPrimTriangleFan = 6;
+constexpr int kMinSourceStride = 0x10; // the vertex strides billboards can be made from
+constexpr int kMaxSourceStride = 0x30;
+constexpr float kNearFadeShare = 0.25f;
+constexpr int kPositionBytes = 0xC;
+constexpr int kZOffset = 8;
+constexpr int kMatrixRow1Col2 = 6;
+constexpr std::size_t kInitialVertexBytes = 0x40;
+constexpr std::size_t kPassVertexBytes = 0x20;
+constexpr int kTranslationX = 12;
+constexpr int kTranslationY = 13;
+constexpr int kTranslationZ = 14;
+constexpr int kMatrixW = 15;
+constexpr std::size_t kZAxisOffset = 8;
+constexpr int kPassFlagBillboard = 0x40;
+constexpr int kWindowPoolSize = 10;
+constexpr int kLayoutWidth = 640;
+constexpr int kLayoutHeight = 480;
+
 namespace {
 // NOT ORIGINAL grouping - pc_billboards.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_billboards_state()).
 struct PcBillboardsState {
     bool billboards_ready_{};
-    std::array<float, 12> billboard_constants_{{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
+    std::array<float, kBillboardConstantFloats> billboard_constants_{{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f}};
 };
 
 PcBillboardsState& pc_billboards_state()
@@ -88,7 +110,7 @@ void draw_list(const memory::ListNode* head, const std::array<float, 3>& y_axis,
     for (const memory::ListNode* node = head_of_scene_list(head); node;) {
         const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data())->mesh;
-        if (mesh->flags() & 0x40)
+        if (mesh->flags() & kMeshActiveFlag)
             draw_billboard_mesh(mesh, y_axis, x_axis, z_axis);
         node = next;
     }
@@ -124,8 +146,8 @@ uint32_t primitive_count(PrimitiveRun run)
         return count - 1;
     case 4:
         return count / 3;
-    case 5:
-    case 6:
+    case kPrimTriangleStrip:
+    case kPrimTriangleFan:
         return count - 2;
     default:
         return 0;
@@ -136,13 +158,13 @@ uint32_t primitive_count(PrimitiveRun run)
 void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, const std::array<float, 3>& x_axis,
                          const std::array<float, 3>& z_axis)
 {
-    if (mesh->stride() < 0x10 || mesh->stride() > 0x30)
+    if (mesh->stride() < kMinSourceStride || mesh->stride() > kMaxSourceStride)
         return;
     if (view_setup().distance_clipping() && view_setup().fog_setting()) { // (fog: its start a quarter back)
         const float end = renderer().render_camera().far_z_;
         renderer().set_fog_begin_distance(0.0f);
         renderer().set_fog_end(0.0f);
-        auto start = static_cast<float>(end - (static_cast<double>(end) - renderer().render_camera().near_z_) * 0.25f);
+        auto start = static_cast<float>(end - (static_cast<double>(end) - renderer().render_camera().near_z_) * kNearFadeShare);
         toggle_fog(true);
         renderer().d3d_device()->SetRenderState(D3DRS_FOGSTART, std::bit_cast<DWORD>(start));
         renderer().d3d_device()->SetRenderState(D3DRS_FOGEND, std::bit_cast<DWORD>(end));
@@ -176,7 +198,7 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
     const float px = core::at(pivot, 0);
     const float py = core::at(pivot, 1);
     const float pz = core::at(pivot, 2);
-    uint32_t rest = mesh->stride() - 0xC;
+    uint32_t rest = mesh->stride() - kPositionBytes;
     std::span<const uint32_t> table;
     bool has_table = false;
     if (mesh->per_vertex_bytes()) { // (a value per vertex from the material's table)
@@ -189,8 +211,8 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         float x = 0.0f, y = 0.0f, z = 0.0f;
         std::memcpy(&x, from.rest().first(4).data(), 4);
         std::memcpy(&y, from.rest().subspan(4, 4).data(), 4);
-        std::memcpy(&z, from.rest().subspan(8, 4).data(), 4);
-        from += 0xC;
+        std::memcpy(&z, from.rest().subspan(kZOffset, 4).data(), 4);
+        from += kPositionBytes;
         auto a = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 0));
         auto b = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 1));
         auto c = static_cast<float>(static_cast<double>(x) * core::at(x_axis, 2));
@@ -204,8 +226,8 @@ void draw_billboard_mesh(MeshRef* mesh, const std::array<float, 3>& y_axis, cons
         const double c2 = t3 + sum_z;
         std::array<float, 3> out = {{static_cast<float>(static_cast<double>(px) + a),
                         static_cast<float>(static_cast<double>(py) + b2), static_cast<float>(pz + c2)}};
-        std::memcpy(into.rest().first(0xC).data(), out.data(), 0xC);
-        into += 0xC;
+        std::memcpy(into.rest().first(kPositionBytes).data(), out.data(), kPositionBytes);
+        into += kPositionBytes;
         if (has_table) {
             auto index = static_cast<uint32_t>(int{static_cast<int8_t>(core::at(vertex_bytes_of_mesh, i))});
             uint32_t value = 0;
@@ -267,7 +289,7 @@ void BillboardSet::setup_axes()
     const std::span<const float, 16> m = renderer().view_matrix().floats();
     const float vz = core::at(m, 10);
     core::at(view_, 0) = core::at(m, 2);
-    core::at(view_, 1) = core::at(m, 6);
+    core::at(view_, 1) = core::at(m, kMatrixRow1Col2);
     core::at(view_, 3) = 1.0f;
     core::at(view_, 2) = vz;
     // right = forward x (0, 1, 0)
@@ -333,8 +355,8 @@ BillboardBatch::BillboardBatch(MaterialRef* new_material) : material_(new_materi
     core::at(lists_, 1) = new_head();
     core::at(lists_, 2) = new_head();
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
-    vertex_bytes_ = 0x40;
-    vertex_bytes_ = (new_material->pass_count() + 2) * 0x20;
+    vertex_bytes_ = kInitialVertexBytes;
+    vertex_bytes_ = (new_material->pass_count() + 2) * kPassVertexBytes;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 
@@ -395,15 +417,15 @@ void BillboardBatch::render()
     }
     auto transpose = d3dx::matrix_transpose; // (D3DX)
     auto multiply = d3dx::matrix_multiply;
-    std::array<float, 16> projection{};
-    std::array<float, 16> view{};
-    std::array<float, 16> identity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
-    std::array<float, 16> view_world{};
-    std::array<float, 16> all{};
+    std::array<float, kMatrixFloats> projection{};
+    std::array<float, kMatrixFloats> view{};
+    std::array<float, kMatrixFloats> identity = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}};
+    std::array<float, kMatrixFloats> view_world{};
+    std::array<float, kMatrixFloats> all{};
     transpose(projection.data(), renderer().projection_matrix().data());
     transpose(view.data(), renderer().view_matrix().data());
-    core::at(view, 12) = core::at(view, 13) = core::at(view, 14) = 0.0f; // (its last row cleared)
-    core::at(view, 15) = 1.0f;
+    core::at(view, kTranslationX) = core::at(view, kTranslationY) = core::at(view, kTranslationZ) = 0.0f; // (its last row cleared)
+    core::at(view, kMatrixW) = 1.0f;
     multiply(view_world.data(), view.data(), identity.data());
     multiply(all.data(), projection.data(), view_world.data());
     renderer().d3d_device()->SetVertexShaderConstantF(0, all.data(), 4);
@@ -413,7 +435,7 @@ void BillboardBatch::render()
     auto set_axes = [&](std::span<const float> x, std::span<const float> y, std::span<const float> z) {
         core::copy_into(x.first(3), constants.first(3));
         core::copy_into(y.first(3), constants.subspan(4, 3));
-        core::copy_into(z.first(3), constants.subspan(8, 3));
+        core::copy_into(z.first(3), constants.subspan(kZAxisOffset, 3));
     };
     set_axes(manager->right(), manager->up(), manager->view());
     renderer().d3d_device()->SetVertexShaderConstantF(4, constants.data(), 3);
@@ -423,7 +445,7 @@ void BillboardBatch::render()
         std::array<float, 3> z_axis{};
         core::copy_into(std::span<const float>(constants).first(3), std::span<float>(x_axis));
         core::copy_into(std::span<const float>(constants).subspan(4, 3), std::span<float>(y_axis));
-        core::copy_into(std::span<const float>(constants).subspan(8, 3), std::span<float>(z_axis));
+        core::copy_into(std::span<const float>(constants).subspan(kZAxisOffset, 3), std::span<float>(z_axis));
         draw_list(core::at(lists_, 0), y_axis, x_axis, z_axis);
     }
     {
@@ -440,7 +462,7 @@ void BillboardBatch::render()
     for (const memory::ListNode* node = head_of_scene_list(core::at(lists_, 2)); node;) {
         const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data())->mesh;
-        if (mesh->flags() & 0x40) {
+        if (mesh->flags() & kMeshActiveFlag) {
             const auto& axis = mesh->billboard()->axis;
             const auto& d = manager->view();
             double rx = static_cast<double>(core::at(d, 1)) * core::at(axis, 2) - static_cast<double>(core::at(d, 2)) * core::at(axis, 1);
@@ -524,13 +546,13 @@ void BillboardSet::render(unsigned int which)
 {
     if (which & 1) {
         for (int i = 0; i < count_; ++i) {
-            if (!(core::at(core::at(batches_, i)->material()->pass_flags(), 0) & 0x40))
+            if (!(core::at(core::at(batches_, i)->material()->pass_flags(), 0) & kPassFlagBillboard))
                 core::at(batches_, i)->render();
         }
     }
     if (which & 2) {
         for (int i = 0; i < count_; ++i) {
-            if (core::at(core::at(batches_, i)->material()->pass_flags(), 0) & 0x40)
+            if (core::at(core::at(batches_, i)->material()->pass_flags(), 0) & kPassFlagBillboard)
                 core::at(batches_, i)->render();
         }
     }
@@ -539,8 +561,8 @@ void BillboardSet::render(unsigned int which)
 // 0x004CD8A0
 void create_window_pool()
 {
-    for (int i = 0; i < 10; ++i) {
-        auto window = memory::make_owned<PcWindow>(maths::PixelPoint{.x = 0, .y = 0}, maths::PixelSize{.width = 640, .height = 480});
+    for (int i = 0; i < kWindowPoolSize; ++i) {
+        auto window = memory::make_owned<PcWindow>(maths::PixelPoint{.x = 0, .y = 0}, maths::PixelSize{.width = kLayoutWidth, .height = kLayoutHeight});
         window->set_following(screen_2d().free_windows()); // (no check, as the original)
         screen_2d().set_free_windows(window);
     }

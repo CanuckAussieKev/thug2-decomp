@@ -31,6 +31,21 @@
 
 namespace render {
 
+constexpr uint32_t kNeutralColour = 0x80808080;
+constexpr float kDefaultAtX = 2048.0f;
+constexpr float kDefaultAtY = 144.0f;
+constexpr float kDefaultAtZ = 928.0f;
+constexpr float kDefaultAngleSpread = 0.5f;
+constexpr float kDefaultGravity = 0.02f;
+constexpr float kDefaultSize = 2.0f;
+constexpr float kDefaultAge = 2.0f;
+constexpr float kDefaultSpeed = 2.0f;
+constexpr unsigned kFlagBit10 = 0x10u; // (what it means is not understood; cleared on reset)
+constexpr unsigned kFlagBit100 = 0x100u;
+constexpr int kFlagWantsTime = 0x10000;
+constexpr unsigned kFlagWantsTimeU = 0x10000u;
+constexpr int kPositionBytes = 12; // a particle's position: three floats
+
 namespace {
 
 constexpr float kNearlyUp = 0.99f;        // 0x00645450
@@ -79,7 +94,7 @@ bool new_colours(EmitterInstance* system, int count)
     }
     for (int i = 0; i < count; ++i)
         for (const std::span<uint32_t>* const colour : colours)
-            core::at(*colour, i) = 0x80808080; // (each byte 0x80)
+            core::at(*colour, i) = kNeutralColour; // (each byte 0x80)
     return true;
 }
 
@@ -136,7 +151,7 @@ void EmitterInstance::get_reset()
     lod_min_particles_ = 0;
     lod_near_ = 0.0f;
     lod_far_ = 0.0f;
-    at_point_ = maths::Vec4{.x = 2048.0f, .y = 144.0f, .z = -928.0f, .w = 0.0f};
+    at_point_ = maths::Vec4{.x = kDefaultAtX, .y = kDefaultAtY, .z = -kDefaultAtZ, .w = 0.0f};
     last_pos_ = maths::Vec4{.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 0.0f};
     size_scale_ = 1.0f;
     core::at(emit_range_, 0) = 1.0f;
@@ -145,9 +160,9 @@ void EmitterInstance::get_reset()
     core::at(speed_, 0) = 1.0f;
     brightness_ = 1.0f;
     core::at(emit_range_, 2) = 0.0f;
-    angle_spread_ = 0.5f;
+    angle_spread_ = kDefaultAngleSpread;
     core::at(force_, 0) = 0.0f;
-    core::at(force_, 1) = -0.02f;
+    core::at(force_, 1) = -kDefaultGravity;
     core::at(force_, 2) = 0.0f;
     core::at(emit_target_, 0) = 0.0f;
     core::at(emit_target_, 2) = 0.0f;
@@ -156,10 +171,10 @@ void EmitterInstance::get_reset()
     core::at(orientation_turn_, 2) = 0.0f;
     rank_ = 0;
     for (float& size : extent_)
-        size = 2.0f;
-    core::at(age_left_, 0) = 2.0f;
-    core::at(age_left_, 1) = 2.0f;
-    core::at(speed_, 1) = 2.0f;
+        size = kDefaultSize;
+    core::at(age_left_, 0) = kDefaultAge;
+    core::at(age_left_, 1) = kDefaultAge;
+    core::at(speed_, 1) = kDefaultSpeed;
     flag_bits_ &= ~1u;
     for (float& scale : colour_scale_)
         scale = 1.0f;
@@ -167,10 +182,10 @@ void EmitterInstance::get_reset()
     end_colour_set_ = false;
     flag_bits_ |= 1u;
     unknown12f_ = true;
-    flag_bits_ &= ~0x10u;
+    flag_bits_ &= ~kFlagBit10;
     flag_bits_ &= ~1u;
     random_direction_ = false;
-    flag_bits_ |= 0x100u;
+    flag_bits_ |= kFlagBit100;
     circular_emit_ = true;
     aligned_ = false;
     fading_out_ = false;
@@ -354,7 +369,7 @@ void EmitterInstance::update_bounds()
 // 0x00496CE0
 void EmitterInstance::set_colour_scale(std::span<const float, 4> rgba)
 {
-    if (flag_bits_ & 0x10000) {
+    if (flag_bits_ & kFlagWantsTime) {
         for (int i = 0; i < 4; ++i)
             core::at(colour_scale_, i) = core::at(rgba, i);
     }
@@ -417,9 +432,9 @@ void EmitterInstance::set_update_script(uint32_t script, script::Struct* params,
 void EmitterInstance::set_wants_time(uint8_t on)
 {
     if (on)
-        flag_bits_ |= 0x10000u;
+        flag_bits_ |= kFlagWantsTimeU;
     else
-        flag_bits_ &= ~0x10000u;
+        flag_bits_ &= ~kFlagWantsTimeU;
     wants_time_ = on != 0;
 }
 
@@ -452,7 +467,7 @@ int EmitterInstance::get_num_vertex_lists()
 // 0x00499010
 NewFlatParticles::NewFlatParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
 {
-    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * 12}, false, 1)) {
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPositionBytes}, false, 1)) {
         set_colour_mid(-1.0f);
         flag_bits() |= 4u;
     }
@@ -464,7 +479,7 @@ FlatRibbonParticles::FlatRibbonParticles(uint32_t name, int particle_cap, uint32
     : segments_(history + 1)
 {
     // (the colours' count read again as segments_ + 3 for each array and each step of the loop)
-    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * segments_ * 12)}, true,
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * segments_ * kPositionBytes)}, true,
                         segments_ + 3)) {
         set_colour_mid(-1.0f);
         flag_bits() |= 4u;
@@ -490,7 +505,7 @@ GlowParticles::GlowParticles(const ConstructArgs& args)
     const int particle_cap = args.particle_cap_;
     const int segments = args.segments;
     const float glow_width = args.unknown;
-    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * 12}, false, 3)) {
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPositionBytes}, false, 3)) {
         segments_ = segments;
         set_colour_mid(-1.0f);
         glow_width_ = glow_width;
@@ -507,7 +522,7 @@ GlowRibbonTrailParticles::GlowRibbonTrailParticles(const ConstructArgs& args)
     const float width = args.unknown;
     const int history = args.history;
     set_history_length(history + 1);
-    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>((history + 1) * particle_cap * 12)}, true,
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>((history + 1) * particle_cap * kPositionBytes)}, true,
                         history_length() + 3)) {
         segments_ = segments;
         set_colour_mid(-1.0f);
@@ -524,7 +539,7 @@ int GlowRibbonTrailParticles::get_num_vertex_lists() { return history_length(); 
 LineParticles::LineParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int history)
     : steps_(history + 1)
 {
-    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * (history + 1) * 12)}, true,
+    if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * (history + 1) * kPositionBytes)}, true,
                         steps_)) {
         set_colour_mid(-1.0f);
         flag_bits() |= 4u;

@@ -39,6 +39,26 @@
 
 namespace render {
 
+constexpr int kMatrixFloats = 16;
+constexpr int kIdentityStride = 5;
+constexpr double kByteMaxDouble = 255.0;
+constexpr int kCopySceneCapacity = 10;
+constexpr int kNeutralChannel = 0x80; // a colour byte at half scale: the colour is left as it is
+constexpr int kNeutralChannelPlus = 0x81;
+constexpr int kByteMask = 0xFF;
+constexpr int kByte1Shift = 8;
+constexpr int kByte2Shift = 16;
+constexpr int kByte3Shift = 24;
+constexpr uint32_t kShownHighBits = 0xFFFFFF00u;
+constexpr uint32_t kMeshActiveFlag = 0x40; // set while the geometry is on
+constexpr uint32_t kMeshActiveFlagU = 0x40u;
+constexpr std::size_t kSphereCentreBytes = 12;
+constexpr float kUnboundedRadius = 10000.0f;
+constexpr double kHalf = 0.5;
+constexpr int kPassUvWibbleFlag = 0x4000;
+constexpr int kPassUvWibbleFlags = 0x4001;
+constexpr std::size_t kUvMatrixShaderSlot = 5;
+
 using memory::ListNode;
 
 namespace {
@@ -87,8 +107,8 @@ gsl::owner<UvOscillator*> new_uv_wibble()
 void get_identity(maths::Mat4* m)
 {
     const std::span<float, 16> f = m->floats();
-    for (int i = 0; i < 16; ++i)
-        core::at(f, i) = (i % 5 == 0) ? 1.0f : 0.0f;
+    for (int i = 0; i < kMatrixFloats; ++i)
+        core::at(f, i) = (i % kIdentityStride == 0) ? 1.0f : 0.0f;
 }
 
 // A byte colour channel as the float the meshes keep (x87: the integer times the float 1/255, rounded once).
@@ -96,7 +116,7 @@ float channel_to_float(uint32_t channel) { return static_cast<float>(static_cast
 // And back (the C runtime's _ftol of the float times 255: truncated).
 uint8_t float_to_channel(float value)
 {
-    return static_cast<uint8_t>(static_cast<int>(static_cast<double>(value) * 255.0));
+    return static_cast<uint8_t>(static_cast<int>(static_cast<double>(value) * kByteMaxDouble));
 }
 
 // NOT ORIGINAL grouping - geom.cpp's state (the original's globals). Made on first use, never destroyed (geom_state()).
@@ -288,7 +308,7 @@ gsl::owner<Geom*> PcGeom::plat_replicate(int instance_flag, WorldScene* into)
 gsl::owner<Geom*> PcGeom::clone_instance(int instance_flag, RenderModel* model)
 {
     const bool share = static_cast<uint8_t>(instance_flag) != 0;
-    auto scene_owner = std::make_unique<PcScene>(10); // (only for the copy)
+    auto scene_owner = std::make_unique<PcScene>(kCopySceneCapacity); // (only for the copy)
     PcScene* temp_scene = scene_owner.get();
     temp_scene->set_meshes(instance_->scene());
     auto geom = memory::make_owned<PcGeom>();
@@ -355,7 +375,7 @@ void PcGeom::change_tint(uint32_t rgba)
     const uint8_t r = rgba & 0xFF;
     const uint8_t g = (rgba >> 8) & 0xFF;
     const uint8_t b = (rgba >> 16) & 0xFF;
-    if ((r == 0x80 || r == 0x81) && g == 0x80 && b == 0x80) {
+    if ((r == kNeutralChannel || r == kNeutralChannelPlus) && g == kNeutralChannel && b == kNeutralChannel) {
         wipe_tint();
         return;
     }
@@ -402,7 +422,7 @@ uint32_t* PcGeom::plat_get_color(uint32_t* out)
 void PcGeom::wipe_tint()
 {
     if (instance_) {
-        std::memset(instance_->color().data(), 0x80, 4);
+        std::memset(instance_->color().data(), kNeutralChannel, 4);
         instance_->flags() &= ~4u;
         return;
     }
@@ -426,12 +446,12 @@ bool PcGeom::change_material_tint(uint32_t checksum, int pass, colour::Packed ti
         const int index = pass_from_checksum(material, checksums::Name{checksum}, pass);
         if (index < 0 || ints::as_unsigned(index) >= material->pass_count())
             continue;
-        if (static_cast<int8_t>(core::at(material->pass_flags(), index) & 0xFF) < 0) // (the colour is fixed)
+        if (static_cast<int8_t>(core::at(material->pass_flags(), index) & kByteMask) < 0) // (the colour is fixed)
             continue;
         found = true;
-        core::at(core::at(material->pass_color(), index), 0) = channel_to_float(rgba & 0xFF);
-        core::at(core::at(material->pass_color(), index), 1) = channel_to_float((rgba >> 8) & 0xFF);
-        core::at(core::at(material->pass_color(), index), 2) = channel_to_float((rgba >> 16) & 0xFF);
+        core::at(core::at(material->pass_color(), index), 0) = channel_to_float(rgba & kByteMask);
+        core::at(core::at(material->pass_color(), index), 1) = channel_to_float((rgba >> kByte1Shift) & kByteMask);
+        core::at(core::at(material->pass_color(), index), 2) = channel_to_float((rgba >> kByte2Shift) & kByteMask);
     }
     return found;
 }
@@ -447,7 +467,7 @@ void PcGeom::toggle_shown(uint32_t mask)
 }
 
 // 0x004B4120
-uint32_t PcGeom::fetch_shown() { return visibility | 0xFFFFFF00u; }
+uint32_t PcGeom::fetch_shown() { return visibility | kShownHighBits; }
 
 // 0x004B4630
 void PcGeom::change_live(bool on)
@@ -461,9 +481,9 @@ void PcGeom::change_live(bool on)
         return;
     for (uint32_t i = 0; i < mesh_count_; ++i) {
         if (on)
-            core::at(mesh_run(), i)->flags() |= 0x40;
+            core::at(mesh_run(), i)->flags() |= kMeshActiveFlag;
         else
-            core::at(mesh_run(), i)->flags() &= ~0x40u;
+            core::at(mesh_run(), i)->flags() &= ~kMeshActiveFlagU;
     }
 }
 
@@ -475,7 +495,7 @@ void PcGeom::change_bound_sphere(const maths::Vec4* sphere)
 {
     if (instance_ && instance_->scene()) {
         SceneRef* list = instance_->scene();
-        std::memcpy(list->centre().data(), sphere, 12);
+        std::memcpy(list->centre().data(), sphere, kSphereCentreBytes);
         std::memcpy(&list->radius(), &sphere->w, 4);
     }
 }
@@ -487,7 +507,7 @@ maths::Vec4* PcGeom::plat_get_bounding_sphere(maths::Vec4* out)
         const SceneRef* list = instance_->scene();
         *out = {.x = core::at(list->centre(), 0), .y = core::at(list->centre(), 1), .z = core::at(list->centre(), 2), .w = list->radius()};
     } else {
-        *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 10000.0f};
+        *out = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = kUnboundedRadius};
     }
     return out;
 }
@@ -675,9 +695,9 @@ void PcGeom::set_vertices(std::span<const maths::Vec4> in)
         const double dx = static_cast<double>(box.max.x) - box.min.x;
         const double dy = static_cast<double>(box.max.y) - box.min.y;
         auto dz = static_cast<float>(static_cast<double>(box.max.z) - box.min.z);
-        auto half_x = static_cast<float>(dx * 0.5);
+        auto half_x = static_cast<float>(dx * kHalf);
         auto cx = static_cast<float>(static_cast<double>(box.min.x) + half_x);
-        auto cy = static_cast<float>(dy * 0.5 + box.min.y);
+        auto cy = static_cast<float>(dy * kHalf + box.min.y);
         const double cz = static_cast<double>(dz) * 0.5 + box.min.z;
         core::at(mesh->centre(), 0) = cx;
         core::at(mesh->centre(), 1) = cy;
@@ -701,8 +721,8 @@ void PcGeom::plat_get_render_colors(std::span<uint32_t> out)
         for (uint32_t v = 0; v < mesh->vertex_count(); ++v, ++out_at) {
             // (the vertex's BGRA bytes as an RGBA word)
             const auto color = vertices.value<std::array<uint8_t, 4>>(v, color_offset(mesh));
-            core::at(out, out_at) = core::at(color, 2) | (uint32_t{core::at(color, 1)} << 8) |
-                                    (uint32_t{core::at(color, 0)} << 16) | (uint32_t{core::at(color, 3)} << 24);
+            core::at(out, out_at) = core::at(color, 2) | (uint32_t{core::at(color, 1)} << kByte1Shift) |
+                                    (uint32_t{core::at(color, 0)} << kByte2Shift) | (uint32_t{core::at(color, 3)} << kByte3Shift);
         }
         get_unlock(get_vertex_buffer(mesh, 0));
     }
@@ -776,7 +796,7 @@ void PcGeom::enable_explicit_uv_wibble(int /*unused*/)
             continue;
         for (uint32_t p = 0; p < material->pass_count(); ++p) {
             if (core::at(material->uv_wibble(), p))
-                core::at(material->pass_flags(), p) |= 0x4000;
+                core::at(material->pass_flags(), p) |= kPassUvWibbleFlag;
         }
     }
 }
@@ -820,11 +840,11 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
             auto wibble = new_uv_wibble(); // (the material's: its passes' array owns them)
             core::at(material->uv_wibble(), index) = wibble;
             material->set_has_uv_wibble(true);
-            core::at(material->pass_flags(), index) |= 0x4001;
+            core::at(material->pass_flags(), index) |= kPassUvWibbleFlags;
         }
         // the vertex shader for the UV matrix (0x00775B70-78 -> 0x00775B58-60)
         uint32_t& shader = mesh_vertex_shader(mesh);
-        if (shader == core::at(mesh_pass().vertex_shaders(), 5))
+        if (shader == core::at(mesh_pass().vertex_shaders(), kUvMatrixShaderSlot))
             shader = kVertexShaderUv60;
         else if (shader == core::at(mesh_pass().vertex_shaders(), 4))
             shader = kVertexShaderUv5c;
@@ -855,7 +875,7 @@ bool PcGeom::create_uv_anim_params(uint32_t checksum, int pass)
         auto wibble = new_uv_wibble(); // (the material's: its passes' array owns them)
         core::at(material->uv_wibble(), index) = wibble;
         material->set_has_uv_wibble(true);
-        core::at(material->pass_flags(), index) |= 0x4001;
+        core::at(material->pass_flags(), index) |= kPassUvWibbleFlags;
         made = true;
     }
     return made;

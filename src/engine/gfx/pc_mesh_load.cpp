@@ -38,12 +38,45 @@
 
 namespace render {
 
+constexpr std::size_t kFvfTableSize = 5; // 0 to 4 sets of texture coordinates
+constexpr uint32_t kFvfTex1 = 0x100;      // D3DFVF_TEX1 .. TEX4
+constexpr uint32_t kFvfTex2 = 0x200;
+constexpr uint32_t kFvfTex3 = 0x300;
+constexpr uint32_t kFvfTex4 = 0x400;
+constexpr int kShaderTypeLimit = 6;
+constexpr int kPassFlagCopiedToMesh = 0x10;
+constexpr int kMeshFlagCopiedFromPass = 0x100;
+constexpr unsigned kUnpackedVertexBytes = 0x4Cu;
+constexpr unsigned kSignBit11 = 0x400; // a normal's components: 11, 11 and 10 bits, two's complement
+constexpr unsigned kMask11 = 0x7FF;
+constexpr unsigned kRange11 = 0x800;
+constexpr unsigned kSignBit10 = 0x200;
+constexpr unsigned kRange10 = 0x400;
+constexpr int kBitsPer11 = 11;
+constexpr int kTraceVertex = 0xF7; // the vertex a debug message is printed for
+// The offsets in the packed and unpacked vertex.
+constexpr uint32_t kOutNormalOffset = 0xC;
+constexpr uint32_t kOutColourOffset = 0x18;
+constexpr uint32_t kInColourOffset = 0x1C;
+constexpr uint32_t kOutUvOffset = 0x1C;
+constexpr uint32_t kInUvOffset = 0x20;
+constexpr uint32_t kUvSetStride = 8;
+constexpr uint32_t kOutBoneValuesOffset = 0x3C;
+constexpr uint32_t kInBoneValuesOffset = 0x10;
+constexpr uint32_t kOutWeightsOffset = 0x40;
+constexpr uint32_t kFvfBase = 0x52; // D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE
+constexpr uint32_t kBaseStride = 0x1C;
+constexpr unsigned kAlignMask = 0x1Fu;
+constexpr unsigned kPositionBytesU = 12u;
+constexpr unsigned kTriangleIndexBytes = 6;
+constexpr unsigned kTriangleIndexBytesU = 6u;
+
 namespace {
 constexpr float kUnpackZScale{0.0019569471f};
 constexpr float kUnpack11Scale{0.0009775171f};
-std::array<uint32_t, 5>& fvf_by_set_count()
+std::array<uint32_t, kFvfTableSize>& fvf_by_set_count()
 {
-    static std::array<uint32_t, 5> fvf_by_set_count{{0, 0x100, 0x200, 0x300, 0x400}};
+    static std::array<uint32_t, kFvfTableSize> fvf_by_set_count{{0, kFvfTex1, kFvfTex2, kFvfTex3, kFvfTex4}};
     return fvf_by_set_count;
 }
 } // namespace
@@ -106,10 +139,10 @@ std::array<float, 3> scaled_position(const ScaledVertex& v)
 // The vertex formats a scene file's type numbers name (0x00775B64-78; 0: none; past 6: the number itself).
 uint32_t vertex_format(uint32_t type)
 {
-    if (type > 6)
+    if (type > kShaderTypeLimit)
         return type;
     // (type t is the table's word 6 - t)
-    return type ? core::at(mesh_pass().vertex_shaders(), 6 - type) : 0;
+    return type ? core::at(mesh_pass().vertex_shaders(), kShaderTypeLimit - type) : 0;
 }
 
 // The bone-scaled positions written into a vertex buffer (0x004D47F0 / 0x004D4350: the memory loader's and the file
@@ -179,8 +212,8 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     }
     auto* material = static_cast<MaterialRef*>(scene->find_material(material_checksum));
     mesh->set_material(material);
-    if (material && (core::at(material->pass_flags(), 0) & 0x10))
-        mesh->flags() |= 0x100;
+    if (material && (core::at(material->pass_flags(), 0) & kPassFlagCopiedToMesh))
+        mesh->flags() |= kMeshFlagCopiedFromPass;
     mesh->set_vertex_buffer_count(1);
     // Not original - the vertices the mesh draws (or, without a vertex format, unpacks) within its buffer: a count
     // past them is cut to what is there (the original read past the buffer).
@@ -221,7 +254,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
 void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena* arena)
 {
     const uint32_t sets = material_->pass_count(); // (a texture coordinate set a pass)
-    auto* out_bytes = static_cast<uint8_t*>(alloc_block(vertex_count_ * 0x4Cu));
+    auto* out_bytes = static_cast<uint8_t*>(alloc_block(vertex_count_ * kUnpackedVertexBytes));
     per_vertex_data_ = out_bytes;
     // Each vertex: the position, the normal (float3s), the colour, the texture coordinates (a float2 a set), the
     // four bone indexes (bytes, at 0x3C) and the weights (float3 at 0x40) - from the packed vertex's.
@@ -232,30 +265,30 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
     uint32_t bones = 1;
     const bool suspect = vertex_count_ == 0x280 && core::at(index_counts_, 0) == 0x6A3; // (a debugging check the original kept)
     auto unpack11 = [](uint32_t bits) {
-        return static_cast<int>(bits & 0x400 ? (bits & 0x7FF) - 0x800 : bits & 0x7FF);
+        return static_cast<int>(bits & kSignBit11 ? (bits & kMask11) - kRange11 : bits & kMask11);
     };
     for (int i = 0; std::cmp_less(i, vertex_count_); ++i) {
         const auto n = static_cast<size_t>(i);
         out.set_floats<3>(n, 0, in.float3(n, 0)); // the position
-        if (suspect && i == 0xF7)
+        if (suspect && i == kTraceVertex)
             debug::printf("euh");
         const uint32_t normal = in.word(n, 0x18);
         const uint32_t z = normal >> 22;
-        out.set_floats<3>(n, 0xC,
+        out.set_floats<3>(n, kOutNormalOffset,
                           {static_cast<float>(unpack11(normal) * static_cast<double>(kUnpack11Scale)),
-                           static_cast<float>(unpack11(normal >> 11) * static_cast<double>(kUnpack11Scale)),
-                           static_cast<float>(static_cast<int>(z & 0x200 ? z - 0x400 : z) *
+                           static_cast<float>(unpack11(normal >> kBitsPer11) * static_cast<double>(kUnpack11Scale)),
+                           static_cast<float>(static_cast<int>(z & kSignBit10 ? z - kRange10 : z) *
                                               static_cast<double>(kUnpackZScale))});
-        out.set_word(n, 0x18, in.word(n, 0x1C)); // the colour
+        out.set_word(n, kOutColourOffset, in.word(n, kInColourOffset)); // the colour
         for (uint32_t set = 0; set < sets; ++set)
-            out.set_floats<2>(n, 0x1C + 8 * set, in.float2(n, 0x20 + 8 * set));
+            out.set_floats<2>(n, kOutUvOffset + kUvSetStride * set, in.float2(n, kInUvOffset + kUvSetStride * set));
         for (size_t k = 0; k < 4; ++k)
-            out.set_value(n, 0x3C + k, static_cast<uint8_t>(in.value<int16_t>(n, 0x10 + 2 * k) / 3));
+            out.set_value(n, kOutBoneValuesOffset + k, static_cast<uint8_t>(in.value<int16_t>(n, kInBoneValuesOffset + 2 * k) / 3));
         const uint32_t weights = in.word(n, 0xC);
         const uint32_t w = weights >> 22;
         const double third = static_cast<int>(w & 0x200 ? w - 0x400 : w) * static_cast<double>(kUnpackZScale);
         const auto second = static_cast<float>(unpack11(weights >> 11) * static_cast<double>(kUnpack11Scale));
-        out.set_floats<3>(n, 0x40,
+        out.set_floats<3>(n, kOutWeightsOffset,
                           {static_cast<float>(unpack11(weights) * static_cast<double>(kUnpack11Scale)), second,
                            static_cast<float>(third)});
         if (bones < 2 && !(second == 0.0f))
@@ -265,13 +298,13 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena
     }
     unknowna4_ = sets;
     unknowna8_ = bones;
-    fvf_ = core::at(fvf_by_set_count(), sets) | 0x52;
-    stride_ = static_cast<uint8_t>(sets * 8 + 0x1C);
+    fvf_ = core::at(fvf_by_set_count(), sets) | kFvfBase;
+    stride_ = static_cast<uint8_t>(sets * kUvSetStride + kBaseStride);
     buffer_flags_ |= 1;
     gsl::owner<VertexBuffer*> made = new_vertex_buffer(stride_ * vertex_count_, buffer_usage_, buffer_flags_); // (the mesh's)
     core::at(vertex_buffers_, 0) = made;
     if (arena)
-        arena->size += (stride_ * vertex_count_ + 0x1Fu) & ~0x1Fu;
+        arena->size += (stride_ * vertex_count_ + kAlignMask) & ~kAlignMask;
 }
 
 // 0x004D5CC0
@@ -299,13 +332,13 @@ void MeshRef::build_collision()
     vb->set_lock_size(vb->size());
     vb->set_lock_flags(D3DLOCK_READONLY);
     position_count_ = vertex_count_;
-    positions_ = static_cast<float*>(alloc_block(vertex_count_ * 12u));
+    positions_ = static_cast<float*>(alloc_block(vertex_count_ * kPositionBytesU));
     const std::span<float> position_run(positions_, 3u * vertex_count_);
     for (uint32_t i = 0; i < vertex_count_; ++i)
         std::ranges::copy(vertices.float3(i), position_run.subspan(3u * i, 3).begin());
     core::at(vertex_buffers_, 0)->get_unlock();
     const std::span<uint16_t> strip = core::at(index_buffers_, 0)->index_run();
-    auto* found_block = static_cast<uint16_t*>(memory::alloc((core::at(index_counts_, 0) - 2u) * 6));
+    auto* found_block = static_cast<uint16_t*>(memory::alloc((core::at(index_counts_, 0) - 2u) * kTriangleIndexBytes));
     const std::span<uint16_t> found(found_block, (core::at(index_counts_, 0) - 2u) * 3u);
     uint32_t count = 0;
     for (uint32_t k = 0; k < core::at(index_counts_, 0) - 2u; ++k) {
@@ -327,7 +360,7 @@ void MeshRef::build_collision()
     }
     core::at(index_buffers_, 0)->get_unlock();
     if (count) {
-        triangles_ = static_cast<uint16_t*>(alloc_block(count * 6u));
+        triangles_ = static_cast<uint16_t*>(alloc_block(count * kTriangleIndexBytesU));
         core::copy_into(std::span<const uint16_t>(found.first(3u * count)), std::span<uint16_t>(triangles_, 3u * count));
         triangle_count_ = count;
     }

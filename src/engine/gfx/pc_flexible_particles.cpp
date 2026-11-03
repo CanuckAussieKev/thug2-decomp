@@ -35,6 +35,37 @@
 
 namespace render {
 
+constexpr float kByteMax = 255.0f;
+constexpr int kDefaultTypeIndex = 12; // the emitter type used for any other type: newflat
+// The second argument of the particle materials' construction (it differs for each particle class).
+constexpr int kNewFlatMaterialKind = 0xB;
+constexpr int kLineMaterialKind = 7;
+constexpr int kRibbonTrailMaterialKind = 9;
+constexpr int kSmoothMaterialKind = 8;
+constexpr int kSmoothRibbonMaterialKind = 6;
+constexpr int kSmoothStarMaterialKind = 5;
+constexpr int kGlowRibbonTrailMaterialKind = 10;
+constexpr uint32_t kMaxBatchBytes = 0x7FF; // the most one batch of vertices takes
+constexpr std::size_t kTrailVertexCount = 0x200;
+constexpr float kFullCircleRadians = 6.28318548f;
+constexpr float kFullCircleDegrees = 360.0f;
+// A ring particle's vertices: the sixth to ninth of each segment.
+constexpr int kSixthVertex = 5;
+constexpr int kSeventhVertex = 6;
+constexpr int kEighthVertex = 7;
+constexpr int kNinthVertex = 8;
+constexpr int kGlowVerticesPerSegment = 9;
+constexpr int kGlowRibbonVerticesPerSegment = 6;
+constexpr int kGlowRibbonEndVertices = 9;
+constexpr int kFlagRandomUvQuadrants = 0x4000; // UseRandomUVQuadrants
+constexpr float kUvHalf = 0.5f;
+constexpr int kSmoothParticleVertices = 12;
+constexpr int kSmoothRibbonVertices = 8;
+constexpr uint32_t kSmoothRibbonStep = 0x20;
+constexpr int kSmoothStarVertices = 8;
+constexpr int kFixedPointShift = 12;
+constexpr float kFixedPointScale = 4096.0f;
+
 IDirect3DIndexBuffer9*& quad_index_buffer()
 {
     static IDirect3DIndexBuffer9* quad_indices{};
@@ -85,8 +116,8 @@ uint8_t clamped_byte(double value)
 {
     if (value < 0.0f)
         value = 0.0f;
-    else if (value > 255.0f)
-        value = 255.0f;
+    else if (value > kByteMax)
+        value = kByteMax;
     return static_cast<uint8_t>(truncate(value));
 }
 
@@ -248,7 +279,7 @@ gsl::owner<EmitterInstance*> create_flexible_particles(checksums::Name system_na
         {.type = 0xF4D8D486, .construct = &make_five<PcShadedParticles>},                  // shaded
         {.type = 0xDEDFC057, .construct = &make_plain<PcNewFlatParticles>},                // newflat
     });
-    const EmitterType* chosen = &core::at(kTypes, 12); // (any other type: newflat)
+    const EmitterType* chosen = &core::at(kTypes, kDefaultTypeIndex); // (any other type: newflat)
     for (const EmitterType& t : kTypes)
         if (t.type == type)
             chosen = &t;
@@ -427,7 +458,7 @@ PcFlatRibbonParticles::PcFlatRibbonParticles(uint32_t name, int particle_cap, ui
     : FlatRibbonParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, ribbon_width, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 0xB, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode},
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, kNewFlatMaterialKind, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode},
                                                              fixed_alpha, segment_count, history)
                       : nullptr;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
@@ -462,7 +493,7 @@ void PcFlatRibbonParticles::render()
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
         auto vertex = os_layer::lock_vertices<TrailVertex>(remaining, &buffer, &first_vertex, &room);
         if (index < particle_count()) {
-            for (uint32_t bytes = particle_bytes; bytes <= 0x7FF; bytes += particle_bytes) {
+            for (uint32_t bytes = particle_bytes; bytes <= kMaxBatchBytes; bytes += particle_bytes) {
                 auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 std::array<float, 3> p0{};
                 std::array<float, 3> p1{};
@@ -553,7 +584,7 @@ void PcFlatRibbonParticles::render()
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
         auto vertex = os_layer::lock_vertices<QuadVertex>(remaining, &buffer, &first_vertex, &room);
         if (index < particle_count()) {
-            for (uint32_t bytes = sizeof(QuadVertex); bytes <= 0x7FF; bytes += sizeof(QuadVertex)) {
+            for (uint32_t bytes = sizeof(QuadVertex); bytes <= kMaxBatchBytes; bytes += sizeof(QuadVertex)) {
                 auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 const double size = ((static_cast<double>(core::at(particle->end_size_, 0)) - core::at(particle->start_size_, 0)) * life +
                                      core::at(particle->start_size_, 0)) *
@@ -659,12 +690,12 @@ void PcGlowParticles::render()
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
     int index = 0;
-    std::array<TrailVertex, 0x200> buffer{};
+    std::array<TrailVertex, kTrailVertexCount> buffer{};
     while (remaining > 0) {
         core::Cursor<TrailVertex> vertex(buffer);
         uint32_t words = 0;
         const int total = particle_count();
-        for (uint32_t budget = particle_words; index < total && budget <= 0x7FF; budget += particle_words) {
+        for (uint32_t budget = particle_words; index < total && budget <= kMaxBatchBytes; budget += particle_words) {
             auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             const double across = (static_cast<double>(core::at(particle->end_size_, 0)) - core::at(particle->start_size_, 0)) * life +
                                   core::at(particle->start_size_, 0);
@@ -712,7 +743,7 @@ void PcGlowParticles::render()
                 core::at(inner, 1) = static_cast<float>(static_cast<double>(static_cast<float>(uy * c)) + core::at(inner, 1));
                 core::at(inner, 2) = static_cast<float>(static_cast<double>(static_cast<float>(uz * c)) + core::at(inner, 2));
             }
-            auto step = static_cast<float>(6.28318548f / static_cast<double>(segments())); // (0x0064545C)
+            auto step = static_cast<float>(kFullCircleRadians / static_cast<double>(segments())); // (0x0064545C)
             for (int i = 1; i <= segments(); ++i) {
                 const double angle = static_cast<double>(i) * step;
                 const double si = std::sin(angle);
@@ -744,11 +775,11 @@ void PcGlowParticles::render()
                 vertex[2] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(colours, 1)};
                 vertex[3] = {.x = core::at(outer, 0), .y = core::at(outer, 1), .z = core::at(outer, 2), .colour = core::at(colours, 1)};
                 vertex[4] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(colours, 1)};
-                vertex[5] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
-                vertex[6] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(colours, 1)};
-                vertex[7] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
-                vertex[8] = {.x = core::at(next_inner, 0), .y = core::at(next_inner, 1), .z = core::at(next_inner, 2), .colour = core::at(colours, 2)};
-                vertex += 9;
+                vertex[kSixthVertex] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
+                vertex[kSeventhVertex] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(colours, 1)};
+                vertex[kEighthVertex] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
+                vertex[kNinthVertex] = {.x = core::at(next_inner, 0), .y = core::at(next_inner, 1), .z = core::at(next_inner, 2), .colour = core::at(colours, 2)};
+                vertex += kGlowVerticesPerSegment;
                 std::memcpy(outer.data(), next_outer.data(), sizeof(outer));
                 std::memcpy(inner.data(), next_inner.data(), sizeof(inner));
             }
@@ -835,7 +866,7 @@ PcRibbonParticles::PcRibbonParticles(uint32_t name, int particle_cap, uint32_t t
     : RibbonParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 7, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, kLineMaterialKind, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
                                                              segment_count, 0)
                       : nullptr;
 }
@@ -978,7 +1009,7 @@ PcRibbonTrailParticles::PcRibbonTrailParticles(uint32_t name, int particle_cap, 
     : RibbonTrailParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 9, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, kRibbonTrailMaterialKind, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
                                                              segment_count, history)
                       : nullptr;
 }
@@ -1140,7 +1171,7 @@ void PcShadedParticles::render()
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
         auto vertex = os_layer::lock_vertices<QuadVertex>(remaining, &buffer, &first_vertex, &room);
         if (index < particle_count()) {
-            for (uint32_t bytes = sizeof(QuadVertex); bytes <= 0x7FF; bytes += sizeof(QuadVertex)) {
+            for (uint32_t bytes = sizeof(QuadVertex); bytes <= kMaxBatchBytes; bytes += sizeof(QuadVertex)) {
                 auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 const double across = (static_cast<double>(core::at(particle->end_size_, 0)) - core::at(particle->start_size_, 0)) * life +
                                       core::at(particle->start_size_, 0);
@@ -1165,19 +1196,19 @@ void PcShadedParticles::render()
                     core::at(colours, k) = get_colour(*this, span.from[k], span.to[k], span.t);
                 // The texture: all of it, or (UseRandomUVQuadrants) a quarter by the particle's index.
                 float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
-                if (flag_bits() & 0x4000) {
+                if (flag_bits() & kFlagRandomUvQuadrants) {
                     switch (index % 4) {
                     case 0:
-                        u0 = 0.5f, v0 = 0.5f;
+                        u0 = kUvHalf, v0 = kUvHalf;
                         break;
                     case 1:
-                        v1 = 0.5f, u0 = 0.5f;
+                        v1 = kUvHalf, u0 = kUvHalf;
                         break;
                     case 2:
-                        v1 = 0.5f, u1 = 0.5f;
+                        v1 = kUvHalf, u1 = kUvHalf;
                         break;
                     case 3:
-                        u1 = 0.5f, v0 = 0.5f;
+                        u1 = kUvHalf, v0 = kUvHalf;
                         break;
                     default:
                         break;
@@ -1271,7 +1302,7 @@ void PcSmoothParticles::render()
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
     int index = 0;
-    int remaining = particle_count() * 12;
+    int remaining = particle_count() * kSmoothParticleVertices;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
@@ -1326,9 +1357,9 @@ void PcSmoothParticles::render()
                 vertex[2] = {.x = core::at(core::at(k, next), 0), .y = core::at(core::at(k, next), 1), .z = core::at(core::at(k, next), 2), .colour = core::at(colours, 1), .u = core::at(core::at(kUv, next), 0), .v = core::at(core::at(kUv, next), 1)};
                 vertex += 3;
             }
-            vertices += 12;
+            vertices += kSmoothParticleVertices;
             triangles += 4;
-            if (vertices >= room - 12)
+            if (vertices >= room - kSmoothParticleVertices)
                 break;
             ++particle;
             ++index;
@@ -1336,7 +1367,7 @@ void PcSmoothParticles::render()
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(QuadVertex));
-        if (vertices >= room - 12)
+        if (vertices >= room - kSmoothParticleVertices)
             break;
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
         renderer().d3d_device()->DrawPrimitive(D3DPT_TRIANGLELIST, first_vertex, triangles);
@@ -1353,7 +1384,7 @@ PcSmoothRibbonParticles::PcSmoothRibbonParticles(uint32_t name, int particle_cap
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material =
-        memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 8, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha, 0, 0)
+        memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, kSmoothMaterialKind, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha, 0, 0)
                : nullptr;
 }
 
@@ -1378,13 +1409,13 @@ void PcSmoothRibbonParticles::render()
     core::Cursor<const float> tail(position_array(), 3 * (segments - 1) * max_particles());
     core::Cursor<const FlexibleParticle> particle(particle_list());
     int index = 0;
-    int remaining = particle_count() * 8;
+    int remaining = particle_count() * kSmoothRibbonVertices;
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
         auto vertex = os_layer::lock_vertices<TrailVertex>(remaining, &buffer, &first_vertex, &room);
         if (index < particle_count()) {
-            for (uint32_t bytes = 0x20; bytes <= 0x7FF; bytes += 0x20) {
+            for (uint32_t bytes = kSmoothRibbonStep; bytes <= kMaxBatchBytes; bytes += kSmoothRibbonStep) {
                 auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 std::array<float, 3> h{};
                 std::array<float, 3> t{};
@@ -1439,13 +1470,13 @@ void PcSmoothRibbonParticles::render()
                 vertex[2] = {.x = core::at(plus_tail, 0), .y = core::at(plus_tail, 1), .z = core::at(plus_tail, 2), .colour = core::at(colours, 2)};
                 vertex[3] = {.x = core::at(plus_head, 0), .y = core::at(plus_head, 1), .z = core::at(plus_head, 2), .colour = core::at(colours, 1)};
                 vertex[4] = {.x = core::at(h, 0), .y = core::at(h, 1), .z = core::at(h, 2), .colour = core::at(colours, 0)};
-                vertex[5] = {.x = core::at(t, 0), .y = core::at(t, 1), .z = core::at(t, 2), .colour = core::at(colours, 3)};
-                vertex[6] = {.x = core::at(minus_tail, 0), .y = core::at(minus_tail, 1), .z = core::at(minus_tail, 2), .colour = core::at(colours, 2)};
-                vertex[7] = {.x = core::at(minus_head, 0), .y = core::at(minus_head, 1), .z = core::at(minus_head, 2), .colour = core::at(colours, 1)};
-                vertex += 8;
-                vertices += 8;
+                vertex[kSixthVertex] = {.x = core::at(t, 0), .y = core::at(t, 1), .z = core::at(t, 2), .colour = core::at(colours, 3)};
+                vertex[kSeventhVertex] = {.x = core::at(minus_tail, 0), .y = core::at(minus_tail, 1), .z = core::at(minus_tail, 2), .colour = core::at(colours, 2)};
+                vertex[kEighthVertex] = {.x = core::at(minus_head, 0), .y = core::at(minus_head, 1), .z = core::at(minus_head, 2), .colour = core::at(colours, 1)};
+                vertex += kSmoothRibbonVertices;
+                vertices += kSmoothRibbonVertices;
                 triangles += 4;
-                if (vertices >= room - 8)
+                if (vertices >= room - kSmoothRibbonVertices)
                     break;
                 ++particle;
                 ++index;
@@ -1457,7 +1488,7 @@ void PcSmoothRibbonParticles::render()
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(TrailVertex));
-        if (vertices >= room - 8)
+        if (vertices >= room - kSmoothRibbonVertices)
             break;
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         renderer().d3d_device()->SetIndices(quad_index_buffer());
@@ -1476,7 +1507,7 @@ PcSmoothStarParticles::PcSmoothStarParticles(uint32_t name, int particle_cap, ui
                            .fixed_alpha_ = fixed_alpha, .segments = segment_count, .unknown = unknown, .history = 0})
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 6, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, kSmoothRibbonMaterialKind, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
                                                              segment_count, 0)
                       : nullptr;
 }
@@ -1497,7 +1528,7 @@ void PcSmoothStarParticles::render()
     core::Cursor<const FlexibleParticle> particle(particle_list());
     core::Cursor<const float> place(position_array());
     int index = 0;
-    int remaining = segments() * particle_count() * 8;
+    int remaining = segments() * particle_count() * kSmoothStarVertices;
     constexpr float kDegrees = 0.0174532924f; // (0x00645464)
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
@@ -1547,7 +1578,7 @@ void PcSmoothStarParticles::render()
                         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(uz) * w)) + oz);
                 }
                 for (int i = 0, k = 1; i < segments(); ++i, k += 2) {
-                    auto step = static_cast<float>(360.0f / (static_cast<double>(segments()) + segments()));
+                    auto step = static_cast<float>(kFullCircleDegrees / (static_cast<double>(segments()) + segments()));
                     // The point between this segment's two outer points, out at the star's width.
                     const double angle1 = static_cast<double>(k) * step * kDegrees;
                     const double s1 = std::sin(angle1);
@@ -1608,17 +1639,17 @@ void PcSmoothStarParticles::render()
                     vertex[2] = {.x = core::at(next, 0), .y = core::at(next, 1), .z = core::at(next, 2), .colour = core::at(colours, 2)};
                     vertex[3] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
                     vertex[4] = {.x = core::at(tip, 0), .y = core::at(tip, 1), .z = core::at(tip, 2), .colour = core::at(colours, 1)};
-                    vertex[5] = {.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2), .colour = core::at(colours, 0)};
-                    vertex[6] = {.x = core::at(outer, 0), .y = core::at(outer, 1), .z = core::at(outer, 2), .colour = core::at(colours, 2)};
-                    vertex[7] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
-                    vertex += 8;
+                    vertex[kSixthVertex] = {.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2), .colour = core::at(colours, 0)};
+                    vertex[kSeventhVertex] = {.x = core::at(outer, 0), .y = core::at(outer, 1), .z = core::at(outer, 2), .colour = core::at(colours, 2)};
+                    vertex[kEighthVertex] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(colours, 2)};
+                    vertex += kSmoothStarVertices;
                     std::memcpy(outer.data(), next.data(), sizeof(next));
-                    vertices += 8;
+                    vertices += kSmoothStarVertices;
                     triangles += 4;
-                    if (vertices >= room - 8)
+                    if (vertices >= room - kSmoothStarVertices)
                         break;
                 }
-                if (vertices >= room - 8)
+                if (vertices >= room - kSmoothStarVertices)
                     break;
                 ++index;
                 ++particle;
@@ -1629,7 +1660,7 @@ void PcSmoothStarParticles::render()
         }
         remaining -= static_cast<int>(vertices);
         os_layer::unlock_dynamic_vertices(vertices, sizeof(TrailVertex));
-        if (vertices >= room - 8)
+        if (vertices >= room - kSmoothStarVertices)
             break;
         renderer().d3d_device()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         renderer().d3d_device()->SetIndices(quad_index_buffer());
@@ -1648,7 +1679,7 @@ PcStarParticles::PcStarParticles(uint32_t name, int particle_cap, uint32_t textu
                      .fixed_alpha_ = fixed_alpha, .segments = segment_count, .unknown = unknown, .history = 0})
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 5, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, kSmoothStarMaterialKind, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
                                                              segment_count, 0)
                       : nullptr;
 }
@@ -1793,7 +1824,7 @@ uint32_t PcGlowRibbonTrailParticles::fine_colour(uint32_t from, uint32_t to, dou
     const colour::Bytes g = colour::bytes_of(to);
     auto lerp = [&](int k) {
         return static_cast<uint8_t>(truncate((static_cast<double>(core::at(g, k) - core::at(f, k)) * t +
-                                              (core::at(f, k) << 12)) * (1.0f / 4096.0f)));
+                                              (core::at(f, k) << kFixedPointShift)) * (1.0f / kFixedPointScale)));
     };
     std::array<uint8_t, 4> bytes = {{lerp(2), lerp(1), lerp(0), lerp(3)}};
     uint32_t colour = 0;
@@ -1810,7 +1841,7 @@ PcGlowRibbonTrailParticles::PcGlowRibbonTrailParticles(uint32_t name, int partic
                                 .history = history})
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, 10, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
+    material = memory ? memory::construct_in<SimpleMaterial>(memory, particle_cap, kGlowRibbonTrailMaterialKind, SimpleMaterial::MaterialNames{.texture = texture, .blend = blend_mode}, fixed_alpha,
                                                              segment_count, history)
                       : nullptr;
 }
@@ -1946,8 +1977,8 @@ void PcGlowRibbonTrailParticles::render()
                 vertex[2] = {.x = core::at(next_c, 0), .y = core::at(next_c, 1), .z = core::at(next_c, 2), .colour = colour};
                 vertex[3] = {.x = core::at(previous_b, 0), .y = core::at(previous_b, 1), .z = core::at(previous_b, 2), .colour = previous_colour};
                 vertex[4] = {.x = core::at(next_d, 0), .y = core::at(next_d, 1), .z = core::at(next_d, 2), .colour = colour};
-                vertex[5] = {.x = core::at(next_c, 0), .y = core::at(next_c, 1), .z = core::at(next_c, 2), .colour = colour};
-                vertex += 6;
+                vertex[kSixthVertex] = {.x = core::at(next_c, 0), .y = core::at(next_c, 1), .z = core::at(next_c, 2), .colour = colour};
+                vertex += kGlowRibbonVerticesPerSegment;
                 std::memcpy(previous_a.data(), next_c.data(), sizeof(next_c));
                 std::memcpy(previous_b.data(), next_d.data(), sizeof(next_d));
                 std::memcpy(p0.data(), p1.data(), sizeof(p1));
@@ -2027,11 +2058,11 @@ void PcGlowRibbonTrailParticles::render()
                 vertex[2] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(glow, 1)};
                 vertex[3] = {.x = core::at(outer, 0), .y = core::at(outer, 1), .z = core::at(outer, 2), .colour = core::at(glow, 1)};
                 vertex[4] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(glow, 1)};
-                vertex[5] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(glow, 2)};
-                vertex[6] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(glow, 1)};
-                vertex[7] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(glow, 2)};
-                vertex[8] = {.x = core::at(next_inner, 0), .y = core::at(next_inner, 1), .z = core::at(next_inner, 2), .colour = core::at(glow, 2)};
-                vertex += 9;
+                vertex[kSixthVertex] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(glow, 2)};
+                vertex[kSeventhVertex] = {.x = core::at(next_outer, 0), .y = core::at(next_outer, 1), .z = core::at(next_outer, 2), .colour = core::at(glow, 1)};
+                vertex[kEighthVertex] = {.x = core::at(inner, 0), .y = core::at(inner, 1), .z = core::at(inner, 2), .colour = core::at(glow, 2)};
+                vertex[kNinthVertex] = {.x = core::at(next_inner, 0), .y = core::at(next_inner, 1), .z = core::at(next_inner, 2), .colour = core::at(glow, 2)};
+                vertex += kGlowRibbonEndVertices;
                 std::memcpy(outer.data(), next_outer.data(), sizeof(outer));
                 std::memcpy(inner.data(), next_inner.data(), sizeof(inner));
             }

@@ -37,12 +37,26 @@
 
 namespace render {
 
+constexpr uint32_t kParticleSeedB = 0x12B9B0A1;
+constexpr uint32_t kParticleSeedC = 0x0AA2FB3F;
+constexpr uint32_t kBrightnessBias = 0x10101010u;
+constexpr float kPercentToFraction = 0.01f;
+constexpr float kBurstRateScale = 0.75f;
+constexpr int kBurstCapacity = 5;
+constexpr std::size_t kBurstArrayBytes = 0x8C;
+constexpr int kParticlePassFlags = 0x44;
+constexpr float kParticleGrey = 0.5f;
+constexpr float kAlphaCutOffScale = 128.0f;
+constexpr float kByteMaxFloat = 255.0f;
+constexpr int kByteMask = 0xFF;
+constexpr int kMaxRoom = 0x1000;
+
 namespace {
 // NOT ORIGINAL grouping - pc_particles.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_particles_state()).
 struct PcParticlesState {
-    uint32_t particle_random_b_{0x12B9B0A1};
-    uint32_t particle_random_c_{0xAA2FB3F};
+    uint32_t particle_random_b_{kParticleSeedB};
+    uint32_t particle_random_c_{kParticleSeedC};
     uint32_t particle_random_a_{};
 };
 
@@ -79,7 +93,7 @@ void random_step(uint32_t& a, uint32_t& b, uint32_t& c)
 {
     a = b * a + c;
     b = (b ^ a) + static_cast<uint32_t>(static_cast<int32_t>(a) >> 4);
-    c = c + static_cast<uint32_t>(static_cast<int32_t>(a) >> 3) - 0x10101010u;
+    c = c + static_cast<uint32_t>(static_cast<int32_t>(a) >> 3) - kBrightnessBias;
 }
 // The number a step makes: 1 to 2 (a's low 16 bits, their top 14).
 double random_scale(uint32_t a)
@@ -169,7 +183,7 @@ Fit get_fit(std::span<const float, 4> p0, std::span<const float, 4> p1, std::spa
 
 float get_mid_time(const PcParticleSystem* system)
 {
-    return static_cast<float>(static_cast<double>(system->args().mid_percent()) * system->args().lifetime() * 0.01f);
+    return static_cast<float>(static_cast<double>(system->args().mid_percent()) * system->args().lifetime() * kPercentToFraction);
 }
 
 // The camera's across and up directions from the view matrix's third column (a, b, c): r = (a, b, c) x (0, 1, 0)
@@ -235,10 +249,10 @@ gsl::owner<Sparkle*> PcParticleManager::create_system() { return new PcParticleS
 // 0x004BC250
 void PcParticleSystem::initialise()
 {
-    args().rate() = static_cast<float>(static_cast<double>(args().rate()) * 0.75f); // (0x0064A4EC)
-    capacity = 5;
+    args().rate() = static_cast<float>(static_cast<double>(args().rate()) * kBurstRateScale); // (0x0064A4EC)
+    capacity = kBurstCapacity;
     live = 0;
-    bursts = static_cast<ParticleBurst*>(memory::alloc(0x8C));
+    bursts = static_cast<ParticleBurst*>(memory::alloc(kBurstArrayBytes));
     newest = &core::at(burst_ring(), capacity - 1);
     oldest = bursts;
     emitting = false;
@@ -247,15 +261,15 @@ void PcParticleSystem::initialise()
     material = memory ? construct_material(memory) : nullptr;
     // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
     std::memset(material, 0, sizeof(MaterialRef));
-    core::at(material->pass_flags(), 0) = 0x44; // (its flags)
+    core::at(material->pass_flags(), 0) = kParticlePassFlags; // (its flags)
     material->set_pass_count(1);       // (a pass)
     material->set_alpha_ref(1);
     material->set_two_sided(1);
     for (int k = 0; k < 3; ++k)
-        core::at(core::at(material->pass_color(), 0), k) = 0.5f;
-    core::at(core::at(material->pass_color(), 0), 3) = static_cast<float>(static_cast<double>(args().alpha_cut_off()) * (1.0f / 128.0f));
-    core::at(material->address_modes(), 0) = 0x10001;
-    core::at(material->unknownc0(), 0) = 0x10001;
+        core::at(core::at(material->pass_color(), 0), k) = kParticleGrey;
+    core::at(core::at(material->pass_color(), 0), 3) = static_cast<float>(static_cast<double>(args().alpha_cut_off()) * (1.0f / kAlphaCutOffScale));
+    core::at(material->address_modes(), 0) = kClampBothWays;
+    core::at(material->unknownc0(), 0) = kClampBothWays;
     core::at(material->blend_modes(), 0) = blend_mode_from_name(args().blend_mode());
     core::at(material->textures(), 0) = nullptr;
     if (const BitmapTexture* found = find_texture(args().texture()))
@@ -337,8 +351,8 @@ void PcParticleSystem::draw(bool advance)
         newest->age = 0.0f;
         newest->count = 0;
         core::at(newest->seed, 0) = static_cast<uint32_t>(get_rand());
-        core::at(newest->seed, 1) = 0x12B9B0A1;
-        core::at(newest->seed, 2) = 0x0AA2FB3F;
+        core::at(newest->seed, 1) = kParticleSeedB;
+        core::at(newest->seed, 2) = kParticleSeedC;
         emitting = true;
     } else {
         emitting = false;
@@ -387,7 +401,7 @@ void PcParticleSystem::draw(bool advance)
     std::array<std::array<float, 4>, 3> colour_table{};
     for (int i = 0; i < 3; ++i)
         for (int k = 0; k < 4; ++k)
-            core::at(core::at(colour_table, i), k) = static_cast<float>(static_cast<double>(core::at(core::at(args().shade(), i), k)) * (1.0f / 255.0f));
+            core::at(core::at(colour_table, i), k) = static_cast<float>(static_cast<double>(core::at(core::at(args().shade(), i), k)) * (1.0f / kByteMaxFloat));
 
     const std::span<ParticleBurst> ring = burst_ring();
     auto place = static_cast<std::size_t>(oldest - ring.data());
@@ -395,7 +409,7 @@ void PcParticleSystem::draw(bool advance)
         if (place == ring.size())
             place = 0;
         const ParticleBurst* burst = &core::at(ring, place);
-        auto colour_mid = static_cast<float>(static_cast<double>(args().colour_mid_percent()) * 0.01f * args().lifetime());
+        auto colour_mid = static_cast<float>(static_cast<double>(args().colour_mid_percent()) * kPercentToFraction * args().lifetime());
         float age = burst->age;
         random_a() = core::at(burst->seed, 0);
         random_b() = core::at(burst->seed, 1);
@@ -409,8 +423,8 @@ void PcParticleSystem::draw(bool advance)
                 os_layer::lock_dynamic_vertices(remaining * 4, sizeof(ParticleVertex), &buffer, {.first_vertex_ = &first_vertex, .room = &room}));
             core::Cursor<ParticleVertex> vertex(std::span<ParticleVertex>(locked, room));
             room >>= 2;
-            if (room > 0x1000)
-                room = 0x1000;
+            if (room > kMaxRoom)
+                room = kMaxRoom;
             uint32_t quads = 0;
             if (index < burst->count) {
                 double t = age;
@@ -446,8 +460,8 @@ void PcParticleSystem::draw(bool advance)
                     }
                     auto channel = [&](int k) {
                         return static_cast<uint32_t>(
-                                   truncate(((static_cast<double>(core::at(*to, k)) - core::at(*from, k)) * fraction + core::at(*from, k)) * 255.0f)) &
-                               0xFF;
+                                   truncate(((static_cast<double>(core::at(*to, k)) - core::at(*from, k)) * fraction + core::at(*from, k)) * kByteMaxFloat)) &
+                               kByteMask;
                     };
                     const uint32_t alpha = channel(3);
                     const uint32_t red = channel(0);

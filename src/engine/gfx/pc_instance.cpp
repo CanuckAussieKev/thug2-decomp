@@ -40,6 +40,32 @@
 
 namespace render {
 
+constexpr std::size_t kVisibleInstanceCount = 4096;
+constexpr int kLowByteMask = 0xFF;
+constexpr float kByteMaxFloat = 255.0f;
+// Indexes into the light constants: the two lamps' diffuse colours and directions.
+constexpr int kLampADiffuseR = 8;
+constexpr int kLampADiffuseG = 9;
+constexpr int kLampADiffuseB = 10;
+constexpr int kLampADirectionY = 5;
+constexpr int kLampADirectionZ = 6;
+constexpr int kLampBDiffuseR = 16;
+constexpr int kLampBDiffuseG = 17;
+constexpr int kLampBDiffuseB = 18;
+constexpr int kLampBDirectionX = 12;
+constexpr int kLampBDirectionY = 13;
+constexpr int kLampBDirectionZ = 14;
+constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
+constexpr int kByte1Shift = 8;
+constexpr int kByte2Shift = 16;
+constexpr uint32_t kAllViewports = 0xFFFFFFFF;
+constexpr unsigned kSkippedPassBit = 8u;
+constexpr int kRenderFlagUnculled = 8;
+constexpr int kTranslationOffset = 12; // where the translation starts in a 4 x 4 matrix
+constexpr float kSkinnedMinRadius = 72.0f;
+constexpr int kRenderFlagSkinA = 0x80;
+constexpr int kRenderFlagSkinB = 0x100;
+
 namespace {
 // NOT ORIGINAL grouping - pc_instance.cpp's state (the original's globals). Made on first use, never destroyed
 // (pc_instance_state()).
@@ -80,7 +106,7 @@ namespace {
 // (instance_table()).
 struct InstanceTable {
     Singleton* instances_{};
-    std::array<Singleton*, 4096> visible_instances_{}; // draw_instance_batch' list
+    std::array<Singleton*, kVisibleInstanceCount> visible_instances_{}; // draw_instance_batch' list
 };
 
 InstanceTable& instance_table()
@@ -90,7 +116,7 @@ InstanceTable& instance_table()
 }
 
 Singleton*& instances() { return instance_table().instances_; }
-std::array<Singleton*, 4096>& get_visible() { return instance_table().visible_instances_; }
+std::array<Singleton*, kVisibleInstanceCount>& get_visible() { return instance_table().visible_instances_; }
 
 const D3DMATRIX* get_view_world()
 {
@@ -107,7 +133,7 @@ int bones_on_device(const SceneRef* scene) { return static_cast<int>(scene->unkn
 // Its bones drawn by the vertex shader: it has bones, and its scene doesn't skin them on the CPU (+0x78).
 bool skinned_by_shader(const Singleton* instance) { return instance->bones() && bones_on_device(instance->scene()) <= 0; }
 // The scene's first byte's top bit: drawn unlit.
-bool scene_unlit(const SceneRef* scene) { return static_cast<int8_t>(scene->flags() & 0xFF) < 0; }
+bool scene_unlit(const SceneRef* scene) { return static_cast<int8_t>(scene->flags() & kLowByteMask) < 0; }
 
 uint32_t mesh_traits(const MeshRef* mesh) { return mesh->flags(); }
 uint32_t& mesh_flags_ref(MeshRef* mesh) { return mesh->flags(); }
@@ -120,7 +146,7 @@ const maths::Vec4* get_position(const Singleton* instance)
 // A colour channel (0-1) as a byte, as the original's _ftol (truncated through 64 bits).
 uint32_t get_channel(float value)
 {
-    return static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(value) * 255.0f)) & 0xFF;
+    return static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(value) * kByteMaxFloat)) & kLowByteMask;
 }
 
 // The model's lights for the instance's position (the model's +0x2C: plat_apply_scene_lights, with its radius), or the
@@ -140,25 +166,25 @@ void refresh_instance_lighting(Singleton* instance)
 void send_lights()
 {
     D3DLIGHT9& lamp_a = pc_instance_state().device_light0_;
-    lamp_a.Diffuse.r = core::at(light_sets().light_constants(), 8);
-    lamp_a.Diffuse.g = core::at(light_sets().light_constants(), 9);
-    lamp_a.Diffuse.b = core::at(light_sets().light_constants(), 10);
+    lamp_a.Diffuse.r = core::at(light_sets().light_constants(), kLampADiffuseR);
+    lamp_a.Diffuse.g = core::at(light_sets().light_constants(), kLampADiffuseG);
+    lamp_a.Diffuse.b = core::at(light_sets().light_constants(), kLampADiffuseB);
     lamp_a.Direction.x = core::at(light_sets().light_constants(), 4);
-    lamp_a.Direction.y = core::at(light_sets().light_constants(), 5);
-    lamp_a.Direction.z = core::at(light_sets().light_constants(), 6);
+    lamp_a.Direction.y = core::at(light_sets().light_constants(), kLampADirectionY);
+    lamp_a.Direction.z = core::at(light_sets().light_constants(), kLampADirectionZ);
     renderer().d3d_device()->SetLight(0, &lamp_a);
     D3DLIGHT9& lamp_b = pc_instance_state().device_light1_;
-    lamp_b.Diffuse.r = core::at(light_sets().light_constants(), 16);
-    lamp_b.Diffuse.g = core::at(light_sets().light_constants(), 17);
-    lamp_b.Diffuse.b = core::at(light_sets().light_constants(), 18);
-    lamp_b.Direction.x = core::at(light_sets().light_constants(), 12);
-    lamp_b.Direction.y = core::at(light_sets().light_constants(), 13);
-    lamp_b.Direction.z = core::at(light_sets().light_constants(), 14);
+    lamp_b.Diffuse.r = core::at(light_sets().light_constants(), kLampBDiffuseR);
+    lamp_b.Diffuse.g = core::at(light_sets().light_constants(), kLampBDiffuseG);
+    lamp_b.Diffuse.b = core::at(light_sets().light_constants(), kLampBDiffuseB);
+    lamp_b.Direction.x = core::at(light_sets().light_constants(), kLampBDirectionX);
+    lamp_b.Direction.y = core::at(light_sets().light_constants(), kLampBDirectionY);
+    lamp_b.Direction.z = core::at(light_sets().light_constants(), kLampBDirectionZ);
     renderer().d3d_device()->SetLight(1, &lamp_b);
     const uint32_t r = get_channel(core::at(light_sets().light_constants(), 0));
     const uint32_t g = get_channel(core::at(light_sets().light_constants(), 1));
     const uint32_t b = get_channel(core::at(light_sets().light_constants(), 2));
-    renderer().d3d_device()->SetRenderState(D3DRS_AMBIENT, 0xFF000000u | r << 16 | g << 8 | b);
+    renderer().d3d_device()->SetRenderState(D3DRS_AMBIENT, kOpaqueAlphaBits | r << kByte2Shift | g << kByte1Shift | b);
 }
 
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
@@ -171,7 +197,7 @@ Singleton::Singleton(SceneRef* list, const maths::Mat4* matrix, int count, maths
 {
     instances() = this;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
-    viewports_ = 0xFFFFFFFF;
+    viewports_ = kAllViewports;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (bones_ && bones_on_device(scene_) <= 0)
         return;
@@ -234,7 +260,7 @@ void Singleton::render(uint32_t draw_bits)
             if (flags_ & 4)
                 renderer().set_instance_colour_on(0);
         }
-        renderer().set_skipped_passes(renderer().skipped_passes() & ~8u);
+        renderer().set_skipped_passes(renderer().skipped_passes() & ~kSkippedPassBit);
         renderer().set_vertex_format_locked(0);
         renderer().set_pixel_shader_locked(nullptr);
         renderer().set_submit_locked(0);
@@ -287,7 +313,7 @@ void draw_one_instance(Singleton* instance, uint32_t flags)
     set_world_transform((instance->transform()).data());
     const maths::Vec4 sphere = sphere_of(instance->scene()->centre(), instance->scene()->radius());
     const maths::Vec4* centre = &sphere;
-    if ((flags & 8) ||
+    if ((flags & kRenderFlagUnculled) ||
         (sphere_in_view(centre, instance->scene()->radius()) && !sphere_occluded(centre, {.radius = instance->scene()->radius(), .weight = 1}))) {
         if (instance->bones()) {
             set_flag_786e_b4();
@@ -307,7 +333,7 @@ void draw_instance_batch(BatchPass batch_pass)
     const auto flags = batch_pass.flags;
     const auto viewport = batch_pass.viewport;
     const uint32_t mask = 1u << (viewport & 0x1F);
-    std::array<float, 16> culling = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}; // the identity at each one's position
+    std::array<float, kMatrixFloats> culling = {{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}; // the identity at each one's position
     int count = 0;
     set_last_bones(nullptr);
     if (instances()) {
@@ -320,11 +346,11 @@ void draw_instance_batch(BatchPass batch_pass)
                 continue;
             const maths::Vec4& position = *get_position(instance);
             for (int k = 0; k < 4; ++k)
-                core::at(culling, 12 + k) = position[k];
+                core::at(culling, kTranslationOffset + k) = position[k];
             set_world_transform(culling.data());
             float radius = instance->scene()->radius();
-            if (instance->bones() && bones_on_device(instance->scene()) == 0 && radius < 72.0f)
-                radius = 72.0f; // (a skinned model's sphere at least this big)
+            if (instance->bones() && bones_on_device(instance->scene()) == 0 && radius < kSkinnedMinRadius)
+                radius = kSkinnedMinRadius; // (a skinned model's sphere at least this big)
             const maths::Vec4 sphere = sphere_of(instance->scene()->centre(), instance->scene()->radius());
             if (!sphere_occluded(&sphere, {.radius = radius, .weight = 1}))
                 core::at(get_visible(), count++) = instance;
@@ -342,7 +368,7 @@ void draw_instance_batch(BatchPass batch_pass)
                 Singleton* instance = core::at(get_visible(), i);
                 if (!skinned_by_shader(instance))
                     break;
-                if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & 0x80)))
+                if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & kRenderFlagSkinA)))
                     instance->render(flags);
             }
             clear_flag_786e_b4();
@@ -356,7 +382,7 @@ void draw_instance_batch(BatchPass batch_pass)
                 const double dy = static_cast<double>(position.y) - core::at(camera, 1);
                 const double dz = static_cast<double>(position.z) - core::at(camera, 2);
                 renderer().set_near_camera(!(dz * dz + dy * dy + dx * dx > near_squared)); // near the camera
-                if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & 0x100)))
+                if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & kRenderFlagSkinB)))
                     instance->render(flags);
             }
             renderer().set_near_camera(true);

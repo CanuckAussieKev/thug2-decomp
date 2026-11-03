@@ -5,6 +5,7 @@
 #include "engine/gfx/occlusion.h"
 #include "platform/d3dx.h"
 
+#include <cstddef>
 #include <cmath>
 #include <cstdint>
 #include <array>
@@ -20,12 +21,19 @@
 
 namespace render {
 
+constexpr std::size_t kOccluderPolyCount = 512;
+constexpr std::size_t kOccluderCount = 8;
+constexpr int kTranslationX = 12; // the world transform's translation row
+constexpr int kTranslationY = 13;
+constexpr int kTranslationZ = 14;
+constexpr int kFrustumPlanes = 5;
+
 namespace {
 // NOT ORIGINAL grouping - occlusion.cpp's state (the original's globals). Made on first use, never destroyed
 // (occlusion_state()).
 struct OcclusionState {
-    std::array<OccluderPolygon, 512> occluder_quads_{};
-    std::array<Occluder, 8> occluders_{};
+    std::array<OccluderPolygon, kOccluderPolyCount> occluder_quads_{};
+    std::array<Occluder, kOccluderCount> occluders_{};
     uint32_t occlusion_poly_count_{};
     uint32_t occlusion_next_poly_{};
     int occlusion_frame_{};
@@ -42,18 +50,18 @@ OcclusionState& occlusion_state()
 
 namespace {
 
-std::array<OccluderPolygon, 512>& polys() { return occlusion_state().occluder_quads_; }
+std::array<OccluderPolygon, kOccluderPolyCount>& polys() { return occlusion_state().occluder_quads_; }
 uint32_t& poly_count() { return occlusion_state().occlusion_poly_count_; }
 uint32_t& next_poly() { return occlusion_state().occlusion_next_poly_; } // where add_occluders carries on
 int& tick_cycle() { return occlusion_state().occlusion_frame_; }
-std::array<Occluder, 8>& occluder_array() { return occlusion_state().occluders_; }
+std::array<Occluder, kOccluderCount>& occluder_array() { return occlusion_state().occluders_; }
 uint32_t& occluder_count() { return occlusion_state().occluder_count_; }
 constexpr uint32_t kOccluderLimit = 8;
 
 // The object's transform for culling (set_world_transform), or none (empty): only its position row is used here.
 std::span<const float> world_transform()
 {
-    return renderer().current_world_transform() ? std::span<const float>(renderer().current_world_transform(), 16) : std::span<const float>();
+    return renderer().current_world_transform() ? std::span<const float>(renderer().current_world_transform(), kMatrixFloats) : std::span<const float>();
 }
 // The view matrix (0x00786BD0) and the view's clip values.
 const void* view_matrix_data() { return renderer().view_matrix().data(); }
@@ -308,21 +316,21 @@ bool sphere_occluded(const maths::Vec4* centre, SphereTest sphere_test)
         return false;
     double x = centre->x, y = centre->y, z = centre->z;
     if (const auto world = world_transform(); !world.empty()) {
-        x = static_cast<double>(core::at(world, 12)) + centre->x;
-        y = static_cast<double>(core::at(world, 13)) + centre->y;
-        z = static_cast<double>(core::at(world, 14)) + centre->z;
+        x = static_cast<double>(core::at(world, kTranslationX)) + centre->x;
+        y = static_cast<double>(core::at(world, kTranslationY)) + centre->y;
+        z = static_cast<double>(core::at(world, kTranslationZ)) + centre->z;
     }
     const float limit = -radius;
     for (uint32_t i = 0; i < occluder_count(); ++i) {
         Occluder& occluder = core::at(occluder_array(), i);
         int plane = 0;
-        for (; plane < 5; ++plane) {
+        for (; plane < kFrustumPlanes; ++plane) {
             const std::array<float, 4>& p = core::at(occluder.planes, plane);
             const double distance = ((z * core::at(p, 2) + x * core::at(p, 0)) + y * core::at(p, 1)) - core::at(p, 3);
             if (distance >= limit) // (not a number counts as behind)
                 break;
         }
-        if (plane == 5) {
+        if (plane == kFrustumPlanes) {
             core::at(occluder.hidden, tick_cycle()) += weight;
             return true;
         }
@@ -344,9 +352,9 @@ bool sphere_in_view(const maths::Vec4* centre, float radius)
     std::array<float, 4> moved{};
     const float* point = centre->data();
     if (const auto world = world_transform(); !world.empty()) {
-        core::at(moved, 0) = core::at(world, 12) + centre->x;
-        core::at(moved, 1) = core::at(world, 13) + centre->y;
-        core::at(moved, 2) = core::at(world, 14) + centre->z;
+        core::at(moved, 0) = core::at(world, kTranslationX) + centre->x;
+        core::at(moved, 1) = core::at(world, kTranslationY) + centre->y;
+        core::at(moved, 2) = core::at(world, kTranslationZ) + centre->z;
         point = moved.data();
     }
     std::array<float, 4> view{};
@@ -366,9 +374,9 @@ bool beyond_clip_distance(const void* bounds)
     std::array<float, 3> moved{};
     const float* point = centre.data();
     if (const auto world = world_transform(); !world.empty()) {
-        core::at(moved, 0) = core::at(centre, 0) + core::at(world, 12);
-        core::at(moved, 1) = core::at(centre, 1) + core::at(world, 13);
-        core::at(moved, 2) = core::at(centre, 2) + core::at(world, 14);
+        core::at(moved, 0) = core::at(centre, 0) + core::at(world, kTranslationX);
+        core::at(moved, 1) = core::at(centre, 1) + core::at(world, kTranslationY);
+        core::at(moved, 2) = core::at(centre, 2) + core::at(world, kTranslationZ);
         point = moved.data();
     }
     std::array<float, 4> view{};

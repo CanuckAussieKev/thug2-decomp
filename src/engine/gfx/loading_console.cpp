@@ -40,6 +40,35 @@
 
 namespace gfx::loading_console {
 
+constexpr std::size_t kSizeTextChars = 32;
+constexpr int kKilobyteBytes = 1024;
+constexpr long long kKilobyteBytesLL = 1024LL;
+constexpr double kKilobyteBytesD = 1024.0;
+constexpr std::size_t kLineSlack = 32;
+constexpr std::size_t kGlyphCount = 128;
+constexpr int kFirstPrintable = 0x20;
+constexpr int kPrintableEnd = 0x7F;
+constexpr float kLineHeightFactor = 1.2f;
+constexpr int kAsciiLimit = 0x80;
+constexpr float kPanelWidthShare = 0.45f;
+constexpr float kBothSides = 2.0f;
+constexpr float kMinPanelColumns = 20.0f;
+constexpr float kFallbackPanelColumns = 40.0f;
+constexpr uint32_t kPanelStalledColour = 0xC0301000u; // a stalled load: the panel is reddish
+constexpr uint32_t kPanelColour = 0xB0000000u;
+constexpr float kRuleHeight = 2.0f;
+constexpr uint32_t kRuleStalledColour = 0xFFFF8C1Au;
+constexpr uint32_t kRuleColour = 0xFF5A5A5Au;
+constexpr std::size_t kLeftTextChars = 48;
+constexpr std::size_t kRightTextChars = 64;
+constexpr uint32_t kTextColour = 0xFFFFFFFFu;
+constexpr uint32_t kRightStalledColour = 0xFFFF9A2Eu;
+constexpr uint32_t kRightColour = 0xFFA0A0A0u;
+constexpr float kHalf = 0.5f;
+constexpr int kTimerPeriodMilliseconds = 100;
+constexpr int kTimerResolutionMilliseconds = 10;
+constexpr int kColourWriteAll = 0xF;
+
 // --- pure helpers ---
 
 const char* get_file_name(const char* path)
@@ -51,13 +80,13 @@ const char* get_file_name(const char* path)
 
 std::string size_text(long long bytes)
 {
-    std::array<char, 32> text{};
-    if (bytes < 1024)
+    std::array<char, kSizeTextChars> text{};
+    if (bytes < kKilobyteBytes)
         text::format_to(text, "%lld B", bytes);
-    else if (bytes < 1024LL * 1024)
-        text::format_to(text, "%.1f KB", static_cast<double>(bytes) / 1024.0);
+    else if (bytes < kKilobyteBytesLL * kKilobyteBytes)
+        text::format_to(text, "%.1f KB", static_cast<double>(bytes) / kKilobyteBytesD);
     else
-        text::format_to(text, "%.1f MB", static_cast<double>(bytes) / (1024.0 * 1024.0));
+        text::format_to(text, "%.1f MB", static_cast<double>(bytes) / (kKilobyteBytesD * kKilobyteBytesD));
     return text.data();
 }
 
@@ -110,7 +139,7 @@ std::vector<std::string> Ring::final_one(size_t n) const
     out.reserve(shown);
     for (size_t i = shown; i > 0; --i) {
         const Seg& line = core::at(lines, (count - i) % kRingLines);
-        std::array<char, kLineWidth + 32> text{};
+        std::array<char, kLineWidth + kLineSlack> text{};
         if (line.repeat > 1)
             text::format_to(text, "[%6.1f] %s (x%u)", line.time, line.text.data(), line.repeat);
         else
@@ -179,7 +208,7 @@ struct Glyph {
 // NOT ORIGINAL grouping - the console's font: its glyphs' advances, the line height, the white texel, the texture and
 // whether it was tried (were globals). Made on first use, never destroyed (console_font()).
 struct ConsoleFont {
-    std::array<Glyph, 128> glyphs_{};
+    std::array<Glyph, kGlyphCount> glyphs_{};
     float advance_ = 0.0f; // the font's one advance (monospace)
     float line_height_ = 0.0f; // pixels
     float white_u_ = 0.0f;
@@ -237,7 +266,7 @@ void build_font()
         }
     }
     texture->UnlockRect(0);
-    for (int c = 0x20; c < 0x7F; ++c) {
+    for (int c = kFirstPrintable; c < kPrintableEnd; ++c) {
         const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(c));
         if (!glyph)
             continue;
@@ -245,7 +274,7 @@ void build_font()
                        .v0 = glyph->V0, .u1 = glyph->U1, .v1 = glyph->V1, .advance = glyph->AdvanceX, .visible = glyph->Visible != 0};
     }
     console_font().advance_ = core::at(console_font().glyphs_, 'M').advance;
-    console_font().line_height_ = std::round(pixels * 1.2f);
+    console_font().line_height_ = std::round(pixels * kLineHeightFactor);
     console_font().white_u_ = atlas.TexUvWhitePixel.x;
     console_font().white_v_ = atlas.TexUvWhitePixel.y;
     console_font().texture_ = texture.detach();
@@ -292,7 +321,7 @@ void draw_text(maths::Vec2 pen, const char* text, size_t columns, colour::Packed
     size_t i = 0;
     for (core::CStringCursor at(text); *at && i < columns; ++at, ++i) {
         auto c = static_cast<unsigned char>(*at);
-        const Glyph& glyph = core::at(console_font().glyphs_, c < 0x80 ? c : '?');
+        const Glyph& glyph = core::at(console_font().glyphs_, c < kAsciiLimit ? c : '?');
         if (glyph.visible) {
             const float x0 = x + glyph.x0 - 0.5f;
             const float y0 = y + glyph.y0 - 0.5f;
@@ -324,9 +353,9 @@ void get_layout(double now)
     const float pad = std::round(console_font().line_height_ * 0.4f);
     // Left of the loading bar (centred, progress_bar_pixels wide, its frame 5/640 of the screen wider each side), at most 45%.
     const float bar_left = (width - static_cast<float>(progress_bar_pixels())) * 0.5f - width * 5.0f / 640.0f;
-    float panel_width = std::min(width * 0.45f, bar_left - 2.0f * margin);
-    if (panel_width < 20.0f * console_font().advance_)
-        panel_width = std::min(width - 2.0f * margin, 40.0f * console_font().advance_); // (no room beside the bar: over it)
+    float panel_width = std::min(width * kPanelWidthShare, bar_left - kBothSides * margin);
+    if (panel_width < kMinPanelColumns * console_font().advance_)
+        panel_width = std::min(width - kBothSides * margin, kFallbackPanelColumns * console_font().advance_); // (no room beside the bar: over it)
     const size_t columns = static_cast<size_t>(std::max(1.0f, (panel_width - 2.0f * pad) / console_font().advance_));
     const float panel_height = 2.0f * pad + console_font().line_height_ * static_cast<float>(kShownLines + 1) + pad * 0.5f;
     const float x0 = margin;
@@ -336,26 +365,26 @@ void get_layout(double now)
 
     const double idle = now - last;
     const bool stalled = idle >= kStallSeconds;
-    rect2(x0, y0, x1, y1, stalled ? 0xC0301000u : 0xB0000000u);
-    rect2(x0, y0, x1, y0 + 2.0f, stalled ? 0xFFFF8C1Au : 0xFF5A5A5Au); // (a rule along the top)
+    rect2(x0, y0, x1, y1, stalled ? kPanelStalledColour : kPanelColour);
+    rect2(x0, y0, x1, y0 + kRuleHeight, stalled ? kRuleStalledColour : kRuleColour); // (a rule along the top)
 
-    std::array<char, 48> left{};
-    std::array<char, 64> right{};
+    std::array<char, kLeftTextChars> left{};
+    std::array<char, kRightTextChars> right{};
     text::format_to(left, "LOADING %.1f s", now - started);
     if (stalled)
         text::format_to(right, "NO ACTIVITY - last %.1f s ago", idle);
     else
         text::format_to(right, "last activity %.1f s ago", idle);
     float y = y0 + pad;
-    draw_text({.x = x0 + pad, .y = y}, left.data(), columns, colour::Packed{0xFFFFFFFFu});
+    draw_text({.x = x0 + pad, .y = y}, left.data(), columns, colour::Packed{kTextColour});
     const size_t right_length = std::strlen(right.data());
     const size_t left_length = std::strlen(left.data());
     if (left_length + 2 + right_length <= columns)
-        draw_text({.x = x1 - pad - static_cast<float>(right_length) * console_font().advance_, .y = y}, right.data(), columns, colour::Packed{stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u});
+        draw_text({.x = x1 - pad - static_cast<float>(right_length) * console_font().advance_, .y = y}, right.data(), columns, colour::Packed{stalled ? kRightStalledColour : kRightColour});
     else
         draw_text({.x = x0 + pad + static_cast<float>(left_length + 2) * console_font().advance_, .y = y}, right.data(),
-                  columns - std::min(columns, left_length + 2), colour::Packed{stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u});
-    y += console_font().line_height_ + pad * 0.5f;
+                  columns - std::min(columns, left_length + 2), colour::Packed{stalled ? kRightStalledColour : kRightColour});
+    y += console_font().line_height_ + pad * kHalf;
     for (size_t i = 0; i < lines.size(); ++i) {
         const bool newest = i + 1 == lines.size();
         const uint32_t color = newest ? (stalled ? 0xFFFFC080u : 0xFFFFFFFFu) : 0xFFB8B8B8u;
@@ -447,7 +476,7 @@ void screen_shown(bool freeze, bool blank)
     console_timer().blank_ = blank;
     console_timer().timer_draws_ = !freeze;
     if (!freeze && !console_timer().timer_)
-        console_timer().timer_ = timeSetEvent(100, 10, &screen_tick, 0, TIME_PERIODIC);
+        console_timer().timer_ = timeSetEvent(kTimerPeriodMilliseconds, kTimerResolutionMilliseconds, &screen_tick, 0, TIME_PERIODIC);
 }
 
 void screen_hidden()
@@ -562,7 +591,7 @@ void draw_panel()
     device->SetRenderState(D3DRS_BLENDOP, D3DBLENDOP_ADD);
     device->SetRenderState(D3DRS_SRCBLEND, D3DBLEND_SRCALPHA);
     device->SetRenderState(D3DRS_DESTBLEND, D3DBLEND_INVSRCALPHA);
-    device->SetRenderState(D3DRS_COLORWRITEENABLE, 0xF);
+    device->SetRenderState(D3DRS_COLORWRITEENABLE, kColourWriteAll);
     device->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
     device->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
     device->SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);

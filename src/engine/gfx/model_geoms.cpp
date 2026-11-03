@@ -38,6 +38,22 @@
 
 namespace render {
 
+constexpr double kByteMaxDouble = 255.0;
+constexpr double kHalfDouble = 0.5;
+constexpr float kHalfFloat = 0.5f;
+constexpr int kByte1Shift = 8;
+constexpr int kByte2Shift = 16;
+constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
+constexpr int kDisplayModeFlat = 6; // the display mode the geometry falls back to
+constexpr std::size_t kRestBytes = 0x42;
+constexpr std::size_t kTexNameBytes = 0xF0;
+constexpr int kSkinFlagBit = 5;
+constexpr float kDebugCubeHalfSize = 10.0f;
+constexpr uint32_t kDebugCubeColour = 0xFF0000C8;
+constexpr float kNearestStart = 0.01f;
+constexpr std::size_t kPathBytes = 0x200;
+constexpr uint32_t kNeutralColour = 0x80808080;
+
 using namespace model_geoms;
 
 namespace {
@@ -108,14 +124,14 @@ uint32_t texture_hash(void* texture) { return static_cast<BitmapTexture*>(textur
 uint32_t color_byte(float value)
 {
     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-    return static_cast<uint8_t>(static_cast<int64_t>(static_cast<double>(value) * 255.0 + 0.5));
+    return static_cast<uint8_t>(static_cast<int64_t>(static_cast<double>(value) * kByteMaxDouble + kHalfDouble));
 }
 uint32_t rgba_from_hsv(float h, float s, float v)
 {
     std::array<float, 3> rgb{};
     hsv_to_rgb({{h, s, v}}, &rgb);
-    return color_byte(core::at(rgb, 0)) | (color_byte(core::at(rgb, 1)) << 8) | (color_byte(core::at(rgb, 2)) << 16) |
-           0xFF000000u;
+    return color_byte(core::at(rgb, 0)) | (color_byte(core::at(rgb, 1)) << kByte1Shift) | (color_byte(core::at(rgb, 2)) << kByte2Shift) |
+           kOpaqueAlphaBits;
 }
 
 // Strings copied and appended (no length limit, as the original's).
@@ -143,8 +159,8 @@ RenderModel::RenderModel()
     geom_ring_.set_head(head);
     bone_total_ = 0;
     skin_palette_ = nullptr;
-    if (display_mode_ != 6 && allows_display_mode(6))
-        display_mode_ = 6;
+    if (display_mode_ != kDisplayModeFlat && allows_display_mode(kDisplayModeFlat))
+        display_mode_ = kDisplayModeFlat;
     geom_total_ = 0;
     source_path_ = kNone;
     flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kModelHidden) | kModelEnabledBit);
@@ -264,10 +280,10 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
             int tex_dict_offset_;
             uint8_t has_skinning_;
             uint8_t force_tex_dict_;
-            std::array<uint8_t, 0x42> rest;
+            std::array<uint8_t, kRestBytes> rest;
         } tex_params{};
         std::memset(&tex_params, 0, sizeof(tex_params));
-        std::array<char, 0xF0> tex_name{};
+        std::array<char, kTexNameBytes> tex_name{};
         tex_params.flag0 = 0;
         tex_params.tex_dict_offset_ = tex_dict_offset;
         tex_params.force_tex_dict_ = force_tex_dict;
@@ -280,7 +296,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
                                            &tex_params, nullptr);
         assets::SkinParams skin_params{};
         get_clear(skin_params);
-        skin_params.flag0 = (flag_bits_ >> 5) & 1;
+        skin_params.flag0 = (flag_bits_ >> kSkinFlagBit) & 1;
         skin_params.value = tex_dict_offset;
         if (by_name)
             scene = static_cast<PcMesh*>(assets->get_asset_data_by_name(file_name, 1));
@@ -294,7 +310,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
     } else {
         memory::push_mem_profile(file_name);
         TextureSet* textures = load_textures(file_name, tex_dict_offset, force_tex_dict);
-        gsl::owner<PcMesh*> own_scene = load_scene(file_name, textures, tex_dict_offset, (flag_bits_ >> 5) & 1);
+        gsl::owner<PcMesh*> own_scene = load_scene(file_name, textures, tex_dict_offset, (flag_bits_ >> kSkinFlagBit) & 1);
         scene = own_scene; // (the geom's own: delete_own_scene frees it)
         memory::pop_mem_profile();
         entry->scene = scene;
@@ -385,21 +401,21 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, gfx::Rig* skeleton)
     case 1:
         if (skeleton)
             // (the original passes the floats 0.5, 0.5 and 1 as its colours and frame count: their bits)
-            skeleton->blit(matrix, std::bit_cast<uint32_t>(0.5f), std::bit_cast<uint32_t>(0.5f),
+            skeleton->blit(matrix, std::bit_cast<uint32_t>(kHalfFloat), std::bit_cast<uint32_t>(kHalfFloat),
                            std::bit_cast<int>(1.0f));
         break;
     case 2:
     case 3:
     case 4:
-    case 6:
+    case kDisplayModeFlat:
         break;
     default: {
         // A box about the position (compiled out).
         maths::Mat4 orientation = *matrix;
         const maths::Vec4 position = (*matrix)[3];
         orientation[3] = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
-        std::array<maths::Vec4, 2> box = {{{.x = 10.0f, .y = 10.0f, .z = 10.0f, .w = 1.0f}, {.x = -10.0f, .y = -10.0f, .z = -10.0f, .w = 1.0f}}};
-        gfx::draw_debug_cube(&orientation, &position, box.data(), 0, 1, 0, 0xFF0000C8);
+        std::array<maths::Vec4, 2> box = {{{.x = kDebugCubeHalfSize, .y = kDebugCubeHalfSize, .z = kDebugCubeHalfSize, .w = 1.0f}, {.x = -kDebugCubeHalfSize, .y = -kDebugCubeHalfSize, .z = -kDebugCubeHalfSize, .w = 1.0f}}};
+        gfx::draw_debug_cube(&orientation, &position, box.data(), 0, 1, 0, kDebugCubeColour);
         break;
     }
     }
@@ -412,7 +428,7 @@ int RenderModel::test_bone_volumes(const maths::Seg* line, gfx::Rig* skeleton, c
 {
     int hit = 0;
     float hit_extra = 0.0f;
-    float nearest = 0.01f;
+    float nearest = kNearestStart;
     float extra = test.scale; // (the original's argument slot: each test's extra result lands there, kept between geoms)
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
         gfx::BoneVolumes* volumes = table_row(node)->bone_volumes_;
@@ -455,9 +471,9 @@ bool RenderModel::swap_texture(uint32_t name, const char* source, const char* de
     const bool all = name == kAllGeoms;
     bool replaced = false;
     begin_texture_swap();
-    std::array<char, 0x200> from{};
+    std::array<char, kPathBytes> from{};
     get_png_name(from.data(), source);
-    std::array<char, 0x200> to{};
+    std::array<char, kPathBytes> to{};
     copy_string(to.data(), dest);
     text::to_lower_text(to.data());
     if (char* extension = std::strstr(to.data(), ".png"))
@@ -480,7 +496,7 @@ bool RenderModel::replace_texture_with(uint32_t name, const char* source, uint32
     const bool all = name == kAllGeoms;
     bool replaced = false;
     begin_texture_swap();
-    std::array<char, 0x200> from{};
+    std::array<char, kPathBytes> from{};
     get_png_name(from.data(), source);
     void* texture = find_texture(dest);
     for (const ModelGeomNode* node = get_first(this); node != geom_ring_.head(); node = node->next) {
@@ -614,7 +630,7 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
     gfx::FaceAnchors parameters{}; // (the face's points read twice, as the original)
     const uint8_t generate_palette = face_texture->get_points(&parameters)->has_hsv_ ? 1 : 0;
     gfx::massage_face_texture(static_cast<BitmapTexture*>(image), face_texture->get_points(&parameters),
-                              generate_palette, false, 0x80808080);
+                              generate_palette, false, kNeutralColour);
     const bool replaced = replace_texture_with(name, source, texture_hash(image));
     detach_texture(image);
     detach_texture(overlay);
