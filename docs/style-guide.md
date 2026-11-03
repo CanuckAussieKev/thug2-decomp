@@ -229,7 +229,15 @@ keep a check carry a `NOLINT` with their reason:
   a `set_` setter (`assign_` where a script member function already has the `set_` name), what they use in place a
   reference accessor beside the const one, and a lookup a method (`MoveExecutor::mapped_slot()`) rather than handing
   out an owning pointer. Members keep their order and size (pools are sized by `sizeof`). A plain record without
-  member functions keeps public data (C.4: its helpers are free functions).
+  member functions keeps public data (C.4: its helpers are free functions taking the record -
+  `copy_from(hit, other)`, `get_time(message)`). Which is which: a record whose member functions construct, tear down
+  or keep state between calls (a list walker, a recorder, a ring) is a class; one whose functions only read or copy its
+  fields is a plain record. Private members take the `_` suffix (so the accessor of `next_` is `next()`). A file
+  helper that takes the class by pointer is a private member function where the class is its natural owner
+  (`SkaterPhysicsModule::onto_rail`); a one-line wrapper over a member is inlined at its calls. An owner is not
+  handed out: the getter is a view (`static_cast<T*>(owner_)`) and the class deletes it itself
+  (`delete_observer_task()`). The original's `offsetof` checks of private members are in the class's private
+  `static void check_layout()` (a base's members in the base's own check).
 - File-local names live in **unnamed namespaces**; **`[[nodiscard]]`** marks results not to drop, and `(void)` the
   ones dropped on purpose; **enums** take the smallest type their values need, except where a value comes from
   outside as an int (the pad bindings' ini numbers); `std::numbers` only where a literal is exactly the constant

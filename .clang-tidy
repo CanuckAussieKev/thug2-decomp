@@ -18,7 +18,9 @@ Checks:
   # The decompiled constants (tuning values, checksums, flags, layout offsets) are the original's: naming each would
   # invent names the binary doesn't give. Constants get names where their meaning is known.
   - '-cppcoreguidelines-avoid-magic-numbers'
-  # The engine's classes are data layouts shared between subsystems, as the original's were.
+  # Private data (docs/style-guide.md "Private data"): 88 members left - the maths value types (Vec4, Mat4, the
+  # rotations and shapes: their operator[] and constructors stay members) and a few aggregates built with designated
+  # initialisers (the editor's painters, the shadow edge store, the lighting state). On once they reach 0.
   - '-misc-non-private-member-variables-in-classes'
   # The original's signatures (x, y, z / width, height): to come on with strong types (Vec2 / Vec3, Rect, checksum and
   # id types) and parameter structs once the boundary layer keeps the layouts apart.
