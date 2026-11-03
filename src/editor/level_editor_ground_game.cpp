@@ -91,8 +91,9 @@ bool is_operative(render::WorldCell* sector) { return sector->is_operative(); }
 render::StaticCollider* static_of(render::WorldCell* sector)
 {
     gsl::owner<render::HitMesh*> coll = coll_of(sector);
-    if (!render::is_static_collider(coll))
+    if (!render::is_static_collider(coll)) {
         return nullptr;
+    }
     return core::down_cast<render::StaticCollider>(coll);
 }
 
@@ -109,16 +110,18 @@ void upload_vertices(render::VertexBuffer* buffer)
 gsl::owner<render::IdxStore*> new_index_buffer(uint32_t bytes)
 {
     gsl::owner<void*> memory = crt::alloc_block(kIndexStoreBytes);
-    if (!memory)
+    if (!memory) {
         return nullptr;
+    }
     return memory::construct_in<render::IdxStore>(memory, bytes, 0, kIndexStoreMode);
 }
 void upload_indices(render::IdxStore* buffer)
 {
     auto* d3d = buffer->buffer();
     void* locked = nullptr;
-    if (!d3d || FAILED(d3d->Lock(0, 0, &locked, 0)))
+    if (!d3d || FAILED(d3d->Lock(0, 0, &locked, 0))) {
         return;
+    }
     std::memcpy(locked, buffer->indices(), buffer->size());
     d3d->Unlock();
 }
@@ -174,8 +177,10 @@ void note_level()
 {
     render::WorldScene* scene = scenery::main_scene();
     const uint32_t name = scenery::world_scene_key(scene);
-    if (scene == level_editor_ground_game_state().scene_ && name == level_editor_ground_game_state().active_scene_key_)
+    if (scene == level_editor_ground_game_state().scene_ &&
+        name == level_editor_ground_game_state().active_scene_key_) {
         return;
+    }
     level_editor_ground_game_state().scene_ = scene;
     level_editor_ground_game_state().active_scene_key_ = name;
     stored_specs().clear();
@@ -188,16 +193,19 @@ void hide_tiles(const std::vector<uint32_t>& tiles, bool hide)
 {
     for (const uint32_t tile : tiles) {
         render::WorldCell* sector = scenery::sector_of(tile);
-        if (!sector)
+        if (!sector) {
             continue;
+        }
         int& count = tile_hides()[tile];
         if (hide) {
-            if (count++ == 0)
+            if (count++ == 0) {
                 change_live(sector, false);
+            }
         } else if (count > 0) {
             --count;
-            if (count == 0)
+            if (count == 0) {
                 change_live(sector, true);
+            }
         }
     }
 }
@@ -250,8 +258,9 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     for (int b = 0; std::cmp_less(b, first->vertex_buffer_count()); ++b) {
         gsl::owner<render::VertexBuffer*> buffer = new_vertex_buffer(static_cast<uint32_t>(data.size())); // (the mesh's)
         if (!buffer || !buffer->data()) {
-            if (buffer)
+            if (buffer) {
                 buffer->teardown(); // (made without its copy: given back)
+            }
             *why = "no vertex buffer";
             return false;
         }
@@ -263,12 +272,14 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     int level = -1; // (each level of detail's slot: the buffer is stored through the slot itself)
     for (render::IdxStore*& slot : first->index_buffers()) {
         ++level;
-        if (level > 0 && !core::at(first->index_counts(), level))
+        if (level > 0 && !core::at(first->index_counts(), level)) {
             continue;
+        }
         gsl::owner<render::IdxStore*> buffer = new_index_buffer(static_cast<uint32_t>(strip.size() * 2));
         if (!buffer || !buffer->indices()) {
-            if (buffer)
+            if (buffer) {
                 buffer->teardown(); // (made without its copy: given back)
+            }
             *why = "no index buffer";
             return false;
         }
@@ -279,8 +290,9 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     }
     if (first->per_vertex_bytes()) {
         first->set_per_vertex_bytes(static_cast<uint8_t*>(memory::alloc(count)));
-        if (first->per_vertex_bytes())
+        if (first->per_vertex_bytes()) {
             std::memset(first->per_vertex_bytes(), 0, count);
+        }
     }
     first->set_position_count(0); // (the copied lists aren't the piece's)
     first->set_triangle_count(0);
@@ -291,12 +303,14 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     // The other meshes: nothing drawn (their strips all one index - degenerate).
     for (uint32_t i = 1; i < mesh_count_of(geom); ++i) {
         render::MeshRef* other = core::at(meshes, i);
-        if (!other)
+        if (!other) {
             continue;
+        }
         for (int k = 0; k < kBoxCorners; ++k) {
             render::IdxStore* buffer = core::at(other->index_buffers(), k);
-            if (!core::at(other->index_counts(), k) || !buffer || !buffer->indices())
+            if (!core::at(other->index_counts(), k) || !buffer || !buffer->indices()) {
                 continue;
+            }
             if (std::ranges::any_of(std::span<const uint16_t>(buffer->indices(), core::at(other->index_counts(), k)),
                                     [](uint16_t v) { return v != 0; })) {
                 std::memset(buffer->indices(), 0, core::at(other->index_counts(), k) * 2U);
@@ -323,8 +337,9 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         return false;
     }
     const std::span<float> vertex_floats(vertices, size_t{count} * 3);
-    for (uint32_t v = 0; v < count; ++v)
+    for (uint32_t v = 0; v < count; ++v) {
         std::memcpy(&core::at(vertex_floats, 3 * v), &core::at(mesh.vertices, v).pos, kVertexBytes);
+    }
     const std::span<uint8_t> face_bytes(face_data, size_t{faces} * 10);
     const std::span<uint16_t> leaf_run(leaf_faces, faces);
     for (uint32_t f = 0; f < faces; ++f) {
@@ -333,14 +348,18 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         std::memcpy(&core::at(face_bytes, kFaceBytes * f), words.data(), kFaceBytes);
         core::at(leaf_run, f) = static_cast<uint16_t>(f);
     }
-    if (bytes)
+    if (bytes) {
         std::memset(bytes, kNeutralVertexByte, count);
-    if (tri->vertices())
+    }
+    if (tri->vertices()) {
         memory::dealloc(tri->vertices());
-    if (tri->faces())
+    }
+    if (tri->faces()) {
         memory::dealloc(tri->faces());
-    if (tri->vertex_bytes())
+    }
+    if (tri->vertex_bytes()) {
         memory::dealloc(tri->vertex_bytes());
+    }
     tri->delete_bsp();
     tri->set_vertices(vertices);
     tri->set_faces(face_data);
@@ -357,13 +376,15 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     tri->set_bsp(leaf);
     tri->set_up_all_faces();
     // (the face-rejection bytes: one a face, on the bottom-up heap as StaticCollider::Replicate keeps them)
-    if (coll->octets())
+    if (coll->octets()) {
         memory::free_malloc(coll->octets());
+    }
     memory::enter_heap_scope(memory::bottom_up_heap());
     coll->set_octets(static_cast<uint8_t*>(memory::alloc_block(faces)));
     memory::leave_heap_scope();
-    if (coll->octets())
+    if (coll->octets()) {
         std::memset(coll->octets(), kOctetFill, faces);
+    }
     return true;
 }
 
@@ -410,9 +431,11 @@ bool get_make(const Spec& spec, std::string* why)
     // (a piece already there under this name: its old sector hidden when it was another, its tiles shown again)
     auto it = made_state().find(spec.name);
     if (it != made_state().end()) {
-        if (it->second.sector != name)
-            if (render::WorldCell* old = lookup_sector(scene, it->second.sector))
+        if (it->second.sector != name) {
+            if (render::WorldCell* old = lookup_sector(scene, it->second.sector)) {
                 change_live(old, false);
+            }
+        }
         hide_tiles(it->second.built.hides, false);
     }
     hide_tiles(spec.hides, true);
@@ -427,10 +450,12 @@ bool get_make(const Spec& spec, std::string* why)
 void unmake(const std::string& piece_name)
 {
     auto it = made_state().find(piece_name);
-    if (it == made_state().end())
+    if (it == made_state().end()) {
         return;
-    if (render::WorldCell* sector = lookup_sector(scenery::main_scene(), it->second.sector))
+    }
+    if (render::WorldCell* sector = lookup_sector(scenery::main_scene(), it->second.sector)) {
         change_live(sector, false);
+    }
     hide_tiles(it->second.built.hides, false);
     made_state().erase(it);
 }
@@ -444,8 +469,9 @@ bool is_piece(uint32_t sector) { return pool().contains(sector); }
 const Spec* get_find(const std::string& name)
 {
     for (const Spec& s : stored_specs()) {
-        if (s.name == name)
+        if (s.name == name) {
             return &s;
+        }
     }
     return nullptr;
 }
@@ -457,35 +483,47 @@ const char* why_not_donor(uint32_t checksum)
 {
     render::WorldScene* scene = scenery::main_scene();
     render::WorldCell* sector = lookup_sector(scene, checksum);
-    if (!sector)
+    if (!sector) {
         return "not a piece of the level's main scene";
-    if (pool().contains(checksum))
+    }
+    if (pool().contains(checksum)) {
         return "a generated piece";
+    }
     render::PcGeom* geom = geom_of(sector);
-    if (!render::is_pc_geom(geom))
+    if (!render::is_pc_geom(geom)) {
         return "nothing drawn";
-    if (geom->instance())
+    }
+    if (geom->instance()) {
         return "an instance";
+    }
     const uint32_t meshes = mesh_count_of(geom);
-    if (!geom->meshes() || meshes == 0 || meshes > kMaxMeshes)
+    if (!geom->meshes() || meshes == 0 || meshes > kMaxMeshes) {
         return "no meshes (or too many)";
+    }
     const render::MeshRef* first = core::at(meshes_of(geom), 0);
     Layout layout;
-    if (!first || first->billboard() || (first->flags() & kSharedMeshFlags))
+    if (!first || first->billboard() || (first->flags() & kSharedMeshFlags)) {
         return "a billboard or shared mesh";
-    if (!layout_for({.fvf = vertex_format(first), .stride = first->stride()}, &layout) || layout.tex_count_ < 1)
+    }
+    if (!layout_for({.fvf = vertex_format(first), .stride = first->stride()}, &layout) || layout.tex_count_ < 1) {
         return "its vertex format (no plain positions and texture coordinates)";
+    }
     if (first->vertex_buffer_count() < 1 || first->vertex_buffer_count() > 3 || !core::at(first->vertex_buffers(), 0) ||
-        !core::at(first->vertex_buffers(), 0)->data())
+        !core::at(first->vertex_buffers(), 0)->data()) {
         return "its vertex buffers";
-    if (first->per_vertex_data())
+    }
+    if (first->per_vertex_data()) {
         return "per-vertex data the editor can't make";
+    }
     const render::MaterialRef* material = first->material();
-    if (!material || picking::material_see_through({.pass_flags_ = core::at(material->pass_flags(), 0), .blend_mode_ = core::at(material->blend_modes(), 0)}))
+    if (!material || picking::material_see_through({.pass_flags_ = core::at(material->pass_flags(), 0),
+                                                    .blend_mode_ = core::at(material->blend_modes(), 0)})) {
         return "a see-through material";
+    }
     const render::StaticCollider* coll = static_of(sector);
-    if (!coll || !coll->geometry() || !coll->geometry()->tri_count())
+    if (!coll || !coll->geometry() || !coll->geometry()->tri_count()) {
         return "no collision";
+    }
     return nullptr;
 }
 
@@ -503,8 +541,9 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
         scenery::for_each_level_sector(
             [](void* context, uint32_t checksum, render::WorldCell* sector) {
                 auto* w = static_cast<Walk*>(context);
-                if (!is_operative(sector) || why_not_donor(checksum))
+                if (!is_operative(sector) || why_not_donor(checksum)) {
                     return;
+                }
                 const render::TriMeshSource* tri = static_of(sector)->geometry();
                 const V3 c = {.x = (w->spec->x0 + w->spec->x1) * 0.5F,
                               .y = w->spec->base,
@@ -515,10 +554,12 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
                                     .z = std::clamp(c.z, lo.z, hi.z)};
                 const V3 d = nearest - c;
                 const float distance = std::sqrt(get_dot(d, d));
-                if (distance < w->best_distance_)
+                if (distance < w->best_distance_) {
                     w->best = checksum, w->best_distance_ = distance;
-                if (std::fabs(hi.y - c.y) < kFloorTolerance && distance < w->best_floor_distance_)
+                }
+                if (std::fabs(hi.y - c.y) < kFloorTolerance && distance < w->best_floor_distance_) {
                     w->best_floor_ = checksum, w->best_floor_distance_ = distance;
+                }
             },
             &walk);
         chosen = walk.best_floor_ ? walk.best_floor_ : walk.best;
@@ -543,12 +584,14 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             uint32_t c = 0;
             std::memcpy(
                 &c, vertex_bytes.subspan((size_t{v} * mesh->stride()) + static_cast<size_t>(layout.diffuse)).data(), 4);
-            for (int k = 0; k < 4; ++k)
+            for (int k = 0; k < 4; ++k) {
                 core::at(sum, k) += (c >> (kBitsPerByte * k)) & kByteMask;
+            }
         }
         uint32_t colour = 0;
-        for (int k = 0; k < 4; ++k)
+        for (int k = 0; k < 4; ++k) {
             colour |= maths::round_non_negative<uint32_t>(core::at(sum, k) / mesh->vertex_count()) << (kBitsPerByte * k);
+        }
         spec->colour = colour;
     }
     const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
@@ -559,8 +602,9 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
         for (uint32_t i = 0; i + 1 < core::at(mesh->index_counts(), 0); ++i) {
             const uint16_t a = core::at(index_run, i);
             const uint16_t b = core::at(index_run, i + 1);
-            if (a == b || a >= mesh->vertex_count() || b >= mesh->vertex_count())
+            if (a == b || a >= mesh->vertex_count() || b >= mesh->vertex_count()) {
                 continue;
+            }
             const auto pa = gpu::VertexView(data, mesh->stride(), mesh->vertex_count()).float3(a);
             const auto pb = gpu::VertexView(data, mesh->stride(), mesh->vertex_count()).float3(b);
             const auto ta = gpu::VertexView(data, mesh->stride(), mesh->vertex_count()).float2(a, layout.tex);
@@ -577,17 +621,20 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
                 texture += dt;
             }
         }
-        if (texture > kTinyScale)
+        if (texture > kTinyScale) {
             spec->uv = std::clamp(static_cast<float>(world / texture), kMinUvScale, kMaxUvScale);
+        }
     }
     const render::TriMeshSource* tri = static_of(sector)->geometry();
     std::map<uint16_t, int> terrains;
-    for (int f = 0; std::cmp_less(f, tri->tri_count()) && tri->faces(); ++f)
+    for (int f = 0; std::cmp_less(f, tri->tri_count()) && tri->faces(); ++f) {
         ++terrains[tri->face_terrain(f)];
+    }
     int most = -1;
     for (const auto& t : terrains) {
-        if (t.second > most)
+        if (t.second > most) {
             most = t.second, spec->terrain = t.first;
+        }
     }
     return true;
 }
@@ -606,24 +653,28 @@ bool find_pit_tiles(Spec* spec, std::string* why)
             auto* w = static_cast<Walk*>(context);
             // (a tile a pit hides now still counts - the pit being edited)
             const bool mine = tile_hides().contains(checksum) && tile_hides()[checksum] > 0;
-            if (!w->refused.empty() || pool().contains(checksum) || (!is_operative(sector) && !mine))
+            if (!w->refused.empty() || pool().contains(checksum) || (!is_operative(sector) && !mine)) {
                 return;
+            }
             const render::StaticCollider* coll = static_of(sector);
             const render::TriMeshSource* tri = coll ? coll->geometry() : nullptr;
-            if (!tri || !tri->faces() || !tri->vertices() || ((coll->flag_bits() & 4) && !mine))
+            if (!tri || !tri->faces() || !tri->vertices() || ((coll->flag_bits() & 4) && !mine)) {
                 return;
+            }
             const Spec& s = *w->spec;
             if (tri->bounds().max.x < s.x0 || tri->bounds().min.x > s.x1 || tri->bounds().max.z < s.z0 ||
                 tri->bounds().min.z > s.z1 || tri->bounds().max.y < s.base - kTileHeightMargin ||
-                tri->bounds().min.y > s.base + kTileHeightMargin)
+                tri->bounds().min.y > s.base + kTileHeightMargin) {
                 return;
+            }
             bool ground = false;
             const int faces = std::min<int>(tri->tri_count(), 60000);
             for (int f = 0; f < faces && !ground; ++f) {
                 const render::FaceFlag flags =
                     tri->face_flags(f);
-                if (core::any(flags & render::FaceFlag::kNotCollidable))
+                if (core::any(flags & render::FaceFlag::kNotCollidable)) {
                     continue;
+                }
                 std::array<V3, 3> c{};
                 bool ok = true;
                 for (int k = 0; k < 3 && ok; ++k) {
@@ -636,8 +687,9 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                 }
                 ground = ok && ground_face_under(c, s, kGroundFaceReach);
             }
-            if (!ground)
+            if (!ground) {
                 return;
+            }
             const V3 lo = {.x = tri->bounds().min.x, .y = tri->bounds().min.y, .z = tri->bounds().min.z};
             const V3 hi = {.x = tri->bounds().max.x, .y = tri->bounds().max.y, .z = tri->bounds().max.z};
             if (tile_inside(lo, hi, s, kTileInsideMargin)) {
@@ -674,13 +726,16 @@ bool place_in(const Spec& in, std::string* why)
         *why = "a value isn't a number";
         return false;
     }
-    if (spec.lower && !find_pit_tiles(&spec, why))
+    if (spec.lower && !find_pit_tiles(&spec, why)) {
         return false;
-    if (!spec.lower)
+    }
+    if (!spec.lower) {
         spec.hides.clear();
+    }
     const std::vector<Spec> before = stored_specs();
-    if (!get_make(spec, why))
+    if (!get_make(spec, why)) {
         return false;
+    }
     push_module_undo_labelled(std::make_shared<GroundStep>(before), spec.lower ? "Lower ground" : "Raise ground");
     bool found = false;
     for (Spec& s : stored_specs()) {
@@ -689,16 +744,18 @@ bool place_in(const Spec& in, std::string* why)
             found = true;
         }
     }
-    if (!found)
+    if (!found) {
         stored_specs().push_back(spec);
+    }
     return true;
 }
 
 void drop_out(const std::string& name)
 {
     note_level();
-    if (!get_find(name))
+    if (!get_find(name)) {
         return;
+    }
     push_module_undo_labelled(std::make_shared<GroundStep>(stored_specs()), "Remove ground piece");
     unmake(name);
     std::erase_if(stored_specs(), [&](const Spec& s) { return s.name == name; });
@@ -710,11 +767,13 @@ int apply_to_each(const std::vector<Spec>& specs, std::string* message)
     // (gone: taken out; changed or new: made; the same: left)
     std::vector<std::string> gone;
     for (const auto& made : made_state()) {
-        if (std::ranges::none_of(specs, [&](const Spec& s) { return s.name == made.first; }))
+        if (std::ranges::none_of(specs, [&](const Spec& s) { return s.name == made.first; })) {
             gone.push_back(made.first);
+        }
     }
-    for (const std::string& name : gone)
+    for (const std::string& name : gone) {
         unmake(name);
+    }
     std::vector<Spec> kept;
     int placed = 0;
     for (const Spec& spec : specs) {
@@ -724,8 +783,9 @@ int apply_to_each(const std::vector<Spec>& specs, std::string* message)
             ++placed;
         } else {
             get_log("level editor: ground piece %s not made: %s", spec.name.c_str(), why.c_str());
-            if (message && message->empty())
+            if (message && message->empty()) {
                 *message = "ground piece " + spec.name + " not made: " + why;
+            }
         }
         kept.push_back(spec); // (kept even when not made: its record isn't lost)
     }
@@ -737,8 +797,9 @@ std::vector<std::string> capture_records()
 {
     std::vector<std::string> lines;
     lines.reserve(stored_specs().size());
-    for (const Spec& s : stored_specs())
+    for (const Spec& s : stored_specs()) {
         lines.push_back("ground " + link_record(s, object_edit::caption(s.material).c_str()));
+    }
     return lines;
 }
 
@@ -748,16 +809,18 @@ void apply_records(const std::vector<std::string>& lines)
     for (const std::string& line : lines) {
         Spec s;
         const std::string body = line.size() > 7 ? line.substr(7) : std::string();
-        if (line.starts_with("ground ") && read_record(body, &s))
+        if (line.starts_with("ground ") && read_record(body, &s)) {
             specs.push_back(s);
-        else
+        } else {
             get_log("level editor: a layout's ground record isn't readable - skipped: %s", line.c_str());
+        }
     }
     std::string message;
     const int placed = apply_to_each(specs, &message);
-    if (!specs.empty())
+    if (!specs.empty()) {
         get_log("level editor: the layout's %d of %u ground pieces put in place", placed,
                 static_cast<unsigned>(specs.size()));
+    }
 }
 
 void reset_all()
@@ -767,16 +830,20 @@ void reset_all()
     if (scene == level_editor_ground_game_state().scene_ && scenery::world_scene_key(scene) == level_editor_ground_game_state().active_scene_key_) {
         std::vector<std::string> names;
         names.reserve(made_state().size());
-        for (const auto& made : made_state())
+        for (const auto& made : made_state()) {
             names.push_back(made.first);
-        for (const std::string& name : names)
+        }
+        for (const std::string& name : names) {
             unmake(name);
+        }
     }
     stored_specs().clear();
     made_state().clear();
     tile_hides().clear();
-    if (scene != level_editor_ground_game_state().scene_ || scenery::world_scene_key(scene) != level_editor_ground_game_state().active_scene_key_)
+    if (scene != level_editor_ground_game_state().scene_ ||
+        scenery::world_scene_key(scene) != level_editor_ground_game_state().active_scene_key_) {
         note_level();
+    }
 }
 
 void add_preview(const overlays::Painter& painter, const Spec& spec, uint32_t argb)

@@ -149,8 +149,9 @@ public:
     // The text from the position (the terminator alone at and past the end).
     [[nodiscard]] std::string_view rest() const
     {
-        if (position_ + 1 >= run_.size())
+        if (position_ + 1 >= run_.size()) {
             return {};
+        }
         const std::span<const char> text = run_.subspan(position_, run_.size() - 1 - position_);
         return {text.data(), text.size()};
     }
@@ -168,8 +169,9 @@ template <typename T>
 {
     const std::span<T* const> all(list, static_cast<std::size_t>(std::numeric_limits<std::ptrdiff_t>::max()) / sizeof(T*));
     std::size_t count = 0;
-    while (gsl::at(all, static_cast<std::ptrdiff_t>(count)))
+    while (gsl::at(all, static_cast<std::ptrdiff_t>(count))) {
         ++count;
+    }
     return all.first(count);
 }
 

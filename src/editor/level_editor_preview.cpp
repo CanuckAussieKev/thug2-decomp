@@ -67,8 +67,9 @@ void get_drag(Orbit* orbit, float dx, float dy, float radians_per_pixel)
     orbit->yaw -= dx * radians_per_pixel;
     orbit->pitch = std::clamp(orbit->pitch + (dy * radians_per_pixel), kMinPitch, kMaxPitch);
     // (the yaw kept within a turn either way: it only ever matters as an angle)
-    if (orbit->yaw > maths::kTwoPi || orbit->yaw < -maths::kTwoPi)
+    if (orbit->yaw > maths::kTwoPi || orbit->yaw < -maths::kTwoPi) {
         orbit->yaw = std::fmod(orbit->yaw, maths::kTwoPi);
+    }
 }
 
 void get_wheel(Orbit* orbit, float steps)
@@ -139,21 +140,25 @@ void draw_meshes(render::PcGeom* geom)
 {
     const std::span<render::MeshRef*> meshes = geom->mesh_run();
     const uint32_t count = geom->mesh_count();
-    if (!geom->meshes())
+    if (!geom->meshes()) {
         return;
+    }
     const render::MaterialRef* current = nullptr;
     for (int pass = 0; pass < 2; ++pass) {
         for (uint32_t i = 0; i < count && i < kMeshScanLimit; ++i) {
             render::MeshRef* mesh = core::at(meshes, i);
-            if (!mesh)
+            if (!mesh) {
                 continue;
+            }
             const uint32_t flags = mesh->flags();
-            if (!(flags & kMeshDrawnFlag) || (flags & kMeshSkipFlags))
+            if (!(flags & kMeshDrawnFlag) || (flags & kMeshSkipFlags)) {
                 continue;
+            }
             render::MaterialRef* material = mesh->material();
             const bool transparent = material && (core::at(material->pass_flags(), 0) & 0x40);
-            if (transparent != (pass == 1))
+            if (transparent != (pass == 1)) {
                 continue;
+            }
             if (material != current) {
                 current = material;
                 set_material(material);
@@ -166,19 +171,22 @@ void draw_meshes(render::PcGeom* geom)
 // An object's geometry: through its instance when it has one, else its meshes.
 void draw_geometry(render::PcGeom* geom)
 {
-    if (auto* instance = geom->instance())
+    if (auto* instance = geom->instance()) {
         draw_instance(instance);
-    else
+    } else {
         draw_meshes(geom);
+    }
 }
 
 // A subject's box where it is (false: gone).
 bool box_of(Kind kind, uint32_t id, OrientedBox* box)
 {
-    if (kind == Kind::kSector)
+    if (kind == Kind::kSector) {
         return scenery::sector_geometry(id) && scenery::cuboid(id, box);
-    if (kind != Kind::kObject)
+    }
+    if (kind != Kind::kObject) {
         return false;
+    }
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     return object && !(object->object_flags() & objects::kObjectFlagDead) && object_edit::model_box(object, box);
 }
@@ -187,17 +195,20 @@ bool subject_box(OrientedBox* box) { return box_of(level_editor_preview_state().
 void draw_subject(Kind kind, uint32_t id)
 {
     if (kind == Kind::kSector) {
-        if (render::PcGeom* geom = scenery::sector_geometry(id))
+        if (render::PcGeom* geom = scenery::sector_geometry(id)) {
             draw_meshes(geom);
+        }
         return;
     }
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
     for (int i = 0; object && i < kMaxGeometries; ++i) {
         auto* geom = static_cast<render::PcGeom*>(object_edit::get_geometry(object, i));
-        if (!geom)
+        if (!geom) {
             break;
-        if (scenery::tintable(geom)) // (the PC geometry class: its fields as read here)
+        }
+        if (scenery::tintable(geom)) { // (the PC geometry class: its fields as read here)
             draw_geometry(geom);
+        }
     }
 }
 
@@ -205,8 +216,9 @@ void draw_subject(Kind kind, uint32_t id)
 
 void get_show(Kind kind, uint32_t id)
 {
-    if (kind == level_editor_preview_state().kind_ && id == level_editor_preview_state().id_)
+    if (kind == level_editor_preview_state().kind_ && id == level_editor_preview_state().id_) {
         return;
+    }
     level_editor_preview_state().kind_ = kind;
     level_editor_preview_state().id_ = id;
     level_editor_preview_state().orbit_ = Orbit{};
@@ -221,8 +233,9 @@ void intake(maths::Vec2 delta, float wheel)
         get_drag(&level_editor_preview_state().orbit_, dx, dy, kRadiansPerPixel);
         level_editor_preview_state().last_drag_ = std::chrono::steady_clock::now();
     }
-    if (wheel != 0.0F)
+    if (wheel != 0.0F) {
         get_wheel(&level_editor_preview_state().orbit_, wheel);
+    }
 }
 
 uint64_t render(int size)
@@ -231,18 +244,22 @@ uint64_t render(int size)
     const double elapsed = level_editor_preview_state().have_time_ ? std::chrono::duration<double>(now - level_editor_preview_state().last_frame_).count() : 0.0;
     level_editor_preview_state().last_frame_ = now;
     level_editor_preview_state().have_time_ = true;
-    if (level_editor_preview_state().kind_ == Kind::kNone)
+    if (level_editor_preview_state().kind_ == Kind::kNone) {
         return 0;
+    }
     // The slow turn (paused for a while after a drag).
-    if (std::chrono::duration<double>(now - level_editor_preview_state().last_drag_).count() > kTurnWait)
+    if (std::chrono::duration<double>(now - level_editor_preview_state().last_drag_).count() > kTurnWait) {
         level_editor_preview_state().orbit_.yaw += kTurnSpeed * static_cast<float>(std::min(elapsed, kLongestFrameSeconds));
+    }
 
     OrientedBox box{};
-    if (!subject_box(&box))
+    if (!subject_box(&box)) {
         return 0;
+    }
     if (!ui_backend::begin_offscreen(size, colour::Packed{kBackground})) {
-        if (!level_editor_preview_state().failed_logged_)
+        if (!level_editor_preview_state().failed_logged_) {
             get_log("level editor: the Add palette's preview has no target - shown without one");
+        }
         level_editor_preview_state().failed_logged_ = true;
         return 0;
     }
@@ -254,8 +271,9 @@ uint64_t render(int size)
 bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
 {
     OrientedBox box{};
-    if (!box_of(kind, id, &box))
+    if (!box_of(kind, id, &box)) {
         return false;
+    }
     V3 min{};
     V3 max{};
     bounds_of(box, &min, &max);
@@ -299,8 +317,9 @@ void tick_cycle(ui::ShapeMesh* model)
     ui::ShapeMesh::PreviewView& view = model->preview;
     const std::vector<ui::BrowserItem>* items = model->browser_items_;
     if (!model->browser || !items || view.index < 0 || view.index >= ints::as_signed(items->size())) {
-        if (level_editor_preview_state().kind_ != Kind::kNone)
+        if (level_editor_preview_state().kind_ != Kind::kNone) {
             conceal();
+        }
         return;
     }
     const uint32_t id = core::at((*items), view.index).id;
@@ -318,8 +337,9 @@ void tick_cycle(ui::ShapeMesh* model)
     } else {
         view.type = object_edit::class_of(id);
         const std::string file = object_edit::get_model_file(id);
-        if (!file.empty())
+        if (!file.empty()) {
             view.type += "  -  " + file;
+        }
     }
     view.texture = render(ui::preview_pixels());
 }

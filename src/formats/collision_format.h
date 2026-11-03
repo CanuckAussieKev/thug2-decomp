@@ -142,10 +142,11 @@ public:
     }
     void set_vertex(int face, int corner, uint32_t index)
     {
-        if (small_)
+        if (small_) {
             byte(face, 4 + corner) = static_cast<uint8_t>(index);
-        else
+        } else {
             set_word(face, 4 + (2 * corner), static_cast<uint16_t>(index));
+        }
     }
     // A small face's rejection byte (its last; the large faces keep theirs in a buffer of their own).
     [[nodiscard]] uint8_t small_rejection(int face) const { return byte(face, kSmallRejectionByte); }

@@ -72,8 +72,9 @@ script::Struct* node_of(uint32_t name) { return level_nodes::fetch_vertex(name, 
 uint32_t node_class_hash(script::Struct* node)
 {
     uint32_t cls = 0;
-    if (node)
+    if (node) {
         node->read_hash_value(kClass, &cls, 0);
+    }
     return cls;
 }
 
@@ -107,17 +108,20 @@ level_nodes::NodeManager* get_node_manager() { return level_nodes::node_manager_
 bool add_copy_node(script::Struct* node)
 {
     level_nodes::NodeManager* manager = get_node_manager();
-    if (!manager)
+    if (!manager) {
         return false;
+    }
     const uint32_t name = copy_nodes_name();
     int index = -1;
     for (uint32_t i = 0; i < manager->num(); ++i) {
-        if (core::at(manager->arrays(), i).label_ == name)
+        if (core::at(manager->arrays(), i).label_ == name) {
             index = static_cast<int>(i);
+        }
     }
     if (index < 0) {
-        if (manager->num() >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays))
+        if (manager->num() >= static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays)) {
             return false;
+        }
         gsl::owner<script::Array*> made = script::new_array(); // (the node manager's, below)
         level_editor_objects_state().copy_nodes_ = made;
         level_editor_objects_state().copy_node_list_.clear();
@@ -130,17 +134,20 @@ bool add_copy_node(script::Struct* node)
     level_editor_objects_state().copy_node_list_.push_back(node);
     auto count = static_cast<uint32_t>(level_editor_objects_state().copy_node_list_.size());
     level_editor_objects_state().copy_nodes_->configure_size_kind(count, script::QbValueKind::kStruct);
-    for (uint32_t i = 0; i < count; ++i)
+    for (uint32_t i = 0; i < count; ++i) {
         level_editor_objects_state().copy_nodes_->set_cell(i, script::Cell::of(core::at(level_editor_objects_state().copy_node_list_, i)));
+    }
     return manager->hash_node_in(checksums::Name{name}, count - 1, node);
 }
 
 void forget_copy_nodes()
 {
-    if (!level_editor_objects_state().copy_nodes_)
+    if (!level_editor_objects_state().copy_nodes_) {
         return;
-    if (level_nodes::NodeManager* manager = get_node_manager())
+    }
+    if (level_nodes::NodeManager* manager = get_node_manager()) {
         manager->remove_node_array(copy_nodes_name());
+    }
     for (script::Struct* node : level_editor_objects_state().copy_node_list_) {
         node->get_clear();
         script::delete_struct(node);
@@ -178,12 +185,14 @@ void pick_one(objects::Entity* object, void* data)
     OrientedBox box{};
     if (picking::latched(picking::kObjects, composite->ident()) ||
         view::hidden_object(composite->ident()) || // (H: level_editor_view.h)
-        !model_box(composite, &box))
+        !model_box(composite, &box)) {
         return;
+    }
     float t = 0.0F;
     const bool hit = ray_box({.origin = walk->origin, .dir = walk->dir}, box.origin, box.axes, box.min, box.max, &t);
-    if (hit && walk->all && t < walk->best_t_)
+    if (hit && walk->all && t < walk->best_t_) {
         walk->all->emplace_back(composite, t);
+    }
     if (hit && t < walk->best_t_ && !walk->all) {
         walk->best_t_ = t;
         walk->best = composite;
@@ -212,9 +221,10 @@ void count_one(objects::Entity* object, void* data)
         }
         return;
     }
-    if (++census->pickable <= kCensusPickableDetail)
+    if (++census->pickable <= kCensusPickableDetail) {
         get_log("level editor:   pickable %s at (%.1f, %.1f, %.1f)", caption(composite->ident()).c_str(),
                 composite->at_point().x, composite->at_point().y, composite->at_point().z);
+    }
 }
 
 // An object's model's geometry `index` (the model component's model +0x208, 0x00494640 - as 0x00420700 colours a
@@ -233,8 +243,9 @@ bool same_scale(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
 const char* get_name_of(uint32_t checksum)
 {
-    if (const char* name = script::kept_qb_name(checksum))
+    if (const char* name = script::kept_qb_name(checksum)) {
         return name;
+    }
     return script::look_up_hash_name(checksum);
 }
 
@@ -242,10 +253,11 @@ std::string caption(uint32_t checksum)
 {
     std::array<char, kCaptionSize> text{};
     const char* name = get_name_of(checksum);
-    if (name)
+    if (name) {
         text::format_to(text, "%s", name);
-    else
+    } else {
         text::format_to(text, "%08X", checksum);
+    }
     return text.data();
 }
 
@@ -255,25 +267,31 @@ std::string caption(uint32_t checksum)
 // 0x004219F0, places only those).
 bool model_box(objects::GameEntity* object, OrientedBox* out)
 {
-    if (object->composite_flags() & (objects::kCompositeFlagHidden | objects::kCompositeFlagDestroying))
+    if (object->composite_flags() & (objects::kCompositeFlagHidden | objects::kCompositeFlagDestroying)) {
         return false;
-    if (object->object_flags() & objects::kObjectFlagDead)
+    }
+    if (object->object_flags() & objects::kObjectFlagDead) {
         return false;
-    if (object->fetch_module(kSkaterPhysicsControl) || object->fetch_module(kCamModuleName))
+    }
+    if (object->fetch_module(kSkaterPhysicsControl) || object->fetch_module(kCamModuleName)) {
         return false;
+    }
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
-    if (!component)
+    if (!component) {
         return false;
+    }
     render::RenderModel* model = core::down_cast<objects::MeshInstanceModule>(component)->mesh_instance().get();
-    if (!model)
+    if (!model) {
         return false;
+    }
     // A model cloned from a scene sector (the component's +0x234: level objects; placed by 0x004219F0 whatever its
     // flags), or one in use (its flags: 1 on - 0 for unused variants - and 4 off; peds' animated models have 2
     // off: they are placed through their skeletons, not 0x004219F0's matrix).
     const bool cloned = core::down_cast<objects::MeshInstanceModule>(component)->level_object();
     const uint8_t flags = model->flag_bits();
-    if (!cloned && (!(flags & 1) || (flags & 4)))
+    if (!cloned && (!(flags & 1) || (flags & 4))) {
         return false;
+    }
     render::Geom* geometry = model->get_geom_by_name(0);
     const maths::BBox* bounds = geometry ? geometry->fetch_bounds() : nullptr;
 
@@ -288,15 +306,19 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
         const maths::Vec4& scale = model->size_factor();
         min = {.x = min.x * scale.x, .y = min.y * scale.y, .z = min.z * scale.z};
         max = {.x = max.x * scale.x, .y = max.y * scale.y, .z = max.z * scale.z};
-        if (min.x > max.x)
+        if (min.x > max.x) {
             std::swap(min.x, max.x);
-        if (min.y > max.y)
+        }
+        if (min.y > max.y) {
             std::swap(min.y, max.y);
-        if (min.z > max.z)
+        }
+        if (min.z > max.z) {
             std::swap(min.z, max.z);
+        }
     }
-    if (!(min.x <= max.x && min.y <= max.y && min.z <= max.z)) // (also NaN)
+    if (!(min.x <= max.x && min.y <= max.y && min.z <= max.z)) { // (also NaN)
         return false;
+    }
     const V3 pos = pos_of(object);
     out->min = min;
     out->max = max;
@@ -320,8 +342,9 @@ objects::GameEntity* get_pick(V3 origin, V3 dir, float max_t, float* t)
 {
     *t = max_t;
     objects::EntityHub* manager = objects::object_hub_slot().get();
-    if (!manager)
+    if (!manager) {
         return nullptr;
+    }
     PickWalk walk = {.origin = origin, .dir = make_unit(dir), .best_t_ = max_t, .best = nullptr, .all = nullptr};
     manager->for_each(pick_one, &walk);
     *t = walk.best_t_;
@@ -342,8 +365,9 @@ std::vector<std::pair<objects::GameEntity*, float>> pick_all(V3 origin, V3 dir, 
 void log_census()
 {
     Census census = {};
-    if (objects::EntityHub* manager = objects::object_hub_slot().get())
+    if (objects::EntityHub* manager = objects::object_hub_slot().get()) {
         manager->for_each(count_one, &census);
+    }
     get_log("level editor: %d composite objects, %d pickable", census.objects, census.pickable);
 }
 
@@ -406,8 +430,9 @@ const char* class_of(uint32_t id)
 
 std::string describe(objects::GameEntity* object)
 {
-    if (!object)
+    if (!object) {
         return "-";
+    }
     const maths::Vec4& at = core::at(object->basis_frame().row, 2);
     std::array<char, kDescribeSize> text{};
     text::format_to(text, "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", class_of(object->ident()),
@@ -425,13 +450,15 @@ State store_away(objects::GameEntity* object)
 bool get_restore(const State& state)
 {
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(state.id));
-    if (!object || (object->object_flags() & objects::kObjectFlagDead))
+    if (!object || (object->object_flags() & objects::kObjectFlagDead)) {
         return false;
+    }
     object->basis_frame() = state.matrix;
     object->display_matrix() = state.draw_matrix_;
     get_place(object, {.x = state.pos.x, .y = state.pos.y, .z = state.pos.z});
-    if (!same_scale(scale_tool::get_object_scale(object), state.scale))
+    if (!same_scale(scale_tool::get_object_scale(object), state.scale)) {
         scale_tool::set_object_scale(object, state.scale);
+    }
     return true;
 }
 
@@ -445,8 +472,9 @@ std::string get_model_file(uint32_t name)
     static const uint32_t kModel = checksums::hash_from_text("model");
     script::Struct* node = node_of(name);
     const char* model = nullptr;
-    if (!node || !node->fetch_text(kModel, &model, 0) || !model || !*model)
+    if (!node || !node->fetch_text(kModel, &model, 0) || !model || !*model) {
         return {};
+    }
     const char* base = std::max(std::strrchr(model, '\\'), std::strrchr(model, '/'));
     return base ? std::next(base) : model;
 }
@@ -456,8 +484,9 @@ bool get_tint(objects::GameEntity* object, uint32_t rgba)
     bool any = false;
     for (int i = 0; i < kMaxGeometries; ++i) {
         void* geom = model_geometry(object, i);
-        if (!geom)
+        if (!geom) {
             break;
+        }
         if (scenery::tintable(geom)) {
             scenery::get_tint({.id = object->ident(), .index = i}, geom, rgba);
             any = true;
@@ -468,8 +497,9 @@ bool get_tint(objects::GameEntity* object, uint32_t rgba)
 
 void* resolve_tint(scenery::TintOwner owner)
 {
-    if (owner.index < 0)
+    if (owner.index < 0) {
         return scenery::sector_geometry(owner.id);
+    }
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(owner.id));
     return object && !(object->object_flags() & objects::kObjectFlagDead) ? model_geometry(object, owner.index)
                                                                          : nullptr;
@@ -484,8 +514,9 @@ bool can_copy(uint32_t source)
 objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
 {
     script::Struct* node = node_of(source);
-    if (!can_copy(source))
+    if (!can_copy(source)) {
         return nullptr;
+    }
     if (!name) {
         // (a name no object has: "level_editor_copy_<source>_<n>", shown as "<source's name> copy <n>")
         std::array<char, kCopyNameSize> text{};
@@ -497,10 +528,12 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
         text::format_to(text, "%s copy %d", caption(source).c_str(), object_copies().copy_counter_);
         script::note_qb_name(name, text.data());
     }
-    if (objects::find_object(name))
+    if (objects::find_object(name)) {
         return nullptr;
-    if (!get_name_of(name))
+    }
+    if (!get_name_of(name)) {
         script::note_qb_name(name, (caption(source) + " copy").c_str());
+    }
     // The node's structure copied, named and placed anew, made a node (add_copy_node), then created from it as the
     // level's objects are (CreateFromStructure's 0x005A2E50).
     gsl::owner<script::Struct*> copy = script::new_struct();
@@ -531,23 +564,27 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
     }
     commands::create_from_node(copy);
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
-    if (object)
+    if (object) {
         level_editor_objects_state().copies_.push_back({.name = name, .source = source});
-    if (debug_enabled())
+    }
+    if (debug_enabled()) {
         get_log("level editor: copy %08X of %s at (%.0f, %.0f, %.0f): %s", name, caption(source).c_str(), pos.x, pos.y,
                 pos.z, object ? "made" : "NOT made");
+    }
     return object;
 }
 
 bool remove_copy(uint32_t name)
 {
     auto it = std::ranges::find_if(level_editor_objects_state().copies_, [&](const DupFrom& c) { return c.name == name; });
-    if (it == level_editor_objects_state().copies_.end())
+    if (it == level_editor_objects_state().copies_.end()) {
         return false;
+    }
     level_editor_objects_state().copies_.erase(it);
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
-    if (!object || (object->object_flags() & objects::kObjectFlagDead))
+    if (!object || (object->object_flags() & objects::kObjectFlagDead)) {
         return false;
+    }
     object->flag_as_dead();
     return true;
 }
@@ -561,23 +598,26 @@ bool is_copy(uint32_t id)
 
 void touch(uint32_t id)
 {
-    if (!is_copy(id) && std::ranges::find(object_copies().touched_, id) == object_copies().touched_.end())
+    if (!is_copy(id) && std::ranges::find(object_copies().touched_, id) == object_copies().touched_.end()) {
         object_copies().touched_.push_back(id);
+    }
 }
 
 const std::vector<uint32_t>& get_touched() { return object_copies().touched_; }
 
 void note_origin(objects::GameEntity* object)
 {
-    if (!get_origin(object->ident()))
+    if (!get_origin(object->ident())) {
         object_copies().origins_.push_back(store_away(object));
+    }
 }
 
 const State* get_origin(uint32_t id)
 {
     for (const State& state : object_copies().origins_) {
-        if (state.id == id)
+        if (state.id == id) {
             return &state;
+        }
     }
     return nullptr;
 }
@@ -595,22 +635,26 @@ std::vector<TableRow> copyable()
 {
     std::vector<TableRow> entries;
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
-    if (!manager)
+    if (!manager) {
         return entries;
+    }
     static const uint32_t kModel = checksums::hash_from_text("model");
     for (uint32_t a = 0; a < manager->num() && a < level_nodes::NodeManager::kMaxArrays; ++a) {
         script::Array* nodes = core::at(manager->arrays(), a).node_entries_;
-        if (!nodes || nodes->kind_tag() != script::QbValueKind::kStruct)
+        if (!nodes || nodes->kind_tag() != script::QbValueKind::kStruct) {
             continue;
+        }
         for (uint32_t i = 0; i < nodes->extent(); ++i) {
             auto* node = nodes->struct_at(i);
             const uint32_t cls = node_class_hash(node);
             uint32_t name = 0;
             if ((cls != kLevelObject && cls != kGameObject && cls != kPedestrian && cls != kVehicle) ||
-                !node->read_hash_value(kName, &name, 0))
+                !node->read_hash_value(kName, &name, 0)) {
                 continue;
-            if (!objects::find_object(name)) // (only what's in the level now: nodes not created have nothing to copy)
+            }
+            if (!objects::find_object(name)) { // (only what's in the level now: nodes not created have nothing to copy)
                 continue;
+            }
             const char* model = nullptr;
             node->fetch_text(kModel, &model, 0);
             std::string label = cls == kLevelObject  ? "LevelObject "

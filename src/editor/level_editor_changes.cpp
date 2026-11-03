@@ -70,18 +70,21 @@ std::vector<std::string> get_lines(const std::string& text)
     std::vector<std::string> lines;
     std::string line;
     std::istringstream in(text);
-    while (std::getline(in, line))
+    while (std::getline(in, line)) {
         lines.push_back(line);
+    }
     return lines;
 }
 
 bool is_hex8(const std::string& w)
 {
-    if (w.size() != kChecksumDigits)
+    if (w.size() != kChecksumDigits) {
         return false;
+    }
     for (const char c : w) {
-        if (!std::isxdigit(static_cast<unsigned char>(c)))
+        if (!std::isxdigit(static_cast<unsigned char>(c))) {
             return false;
+        }
     }
     return true;
 }
@@ -98,8 +101,9 @@ std::string get_num(float v)
 const char* group_of(const std::string& keyword)
 {
     for (const GroupRow& g : kGroups) {
-        if (keyword == g.keyword)
+        if (keyword == g.keyword) {
             return g.group;
+        }
     }
     return nullptr;
 }
@@ -116,10 +120,13 @@ const std::vector<const char*>& bunches()
 uint32_t id_of(const std::string& word)
 {
     std::string w = word;
-    if (w.size() == kPrefixedChecksumLength && core::at(w, 0) == '0' && (core::at(w, 1) == 'x' || core::at(w, 1) == 'X'))
+    if (w.size() == kPrefixedChecksumLength && core::at(w, 0) == '0' &&
+        (core::at(w, 1) == 'x' || core::at(w, 1) == 'X')) {
         w = w.substr(2);
-    if (is_hex8(w))
+    }
+    if (is_hex8(w)) {
         return static_cast<uint32_t>(std::strtoul(w.c_str(), nullptr, kHexBase));
+    }
     return w.empty() ? 0 : fields::hash_of_name(w);
 }
 
@@ -129,8 +136,9 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
     std::vector<std::string> lines = get_lines(layout_text);
     for (int n = 0; std::cmp_less(n, lines.size()); ++n) {
         std::string line = core::at(lines, n);
-        if (!line.empty() && line.back() == '\r')
+        if (!line.empty() && line.back() == '\r') {
             line.pop_back();
+        }
         std::string comment;
         if (const size_t hash = line.find('#'); hash != std::string::npos) {
             comment = line.substr(hash + 1);
@@ -140,23 +148,27 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
         }
         std::istringstream in(line);
         std::string keyword;
-        if (!(in >> keyword))
+        if (!(in >> keyword)) {
             continue;
+        }
         const char* group = group_of(keyword);
-        if (!group)
+        if (!group) {
             continue;
+        }
         TableRow e;
         e.line = n;
         e.keyword = keyword;
         e.group = group;
         std::vector<std::string> words;
-        for (std::string w; in >> w;)
+        for (std::string w; in >> w;) {
             words.push_back(w);
+        }
         // (a name for the record's subject: the labeler's, else the comment's, else what the record says)
         auto name_of = [&](uint32_t id, const std::string& fallback) {
             std::string name = label ? label(id) : "";
-            if (name.empty())
+            if (name.empty()) {
                 name = comment;
+            }
             return name.empty() ? fallback : name;
         };
         auto number = [&](size_t i) {
@@ -164,8 +176,9 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
         };
         auto scale_of = [&]() -> std::string {
             for (const std::string& w : words) {
-                if (w.starts_with("scale="))
+                if (w.starts_with("scale=")) {
                     return ", scaled " + w.substr(kScaleKeyLength);
+                }
             }
             return "";
         };
@@ -185,21 +198,26 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             const float z = number(4);
             const bool hidden = words.size() > 5 && core::at(words, 5) == "1" && keyword != "clone";
             std::string what;
-            if (keyword == "clone")
+            if (keyword == "clone") {
                 what = "a copy of " + name;
-            else
+            } else {
                 what = name;
-            if (x != 0.0F || y != 0.0F || z != 0.0F)
+            }
+            if (x != 0.0F || y != 0.0F || z != 0.0F) {
                 what += " moved (" + get_num(x) + ", " + get_num(y) + ", " + get_num(z) + ")";
-            if (quarters)
+            }
+            if (quarters) {
                 what += std::string(" turned ") + std::to_string(quarters * kDegreesPerQuarter) + "\xC2\xB0";
+            }
             what += scale_of();
-            if (keyword == "wall")
+            if (keyword == "wall") {
                 what += hidden ? " - collision off" : "";
-            else if (hidden)
+            } else if (hidden) {
                 what += " - hidden";
-            if (keyword == "rail")
+            }
+            if (keyword == "rail") {
                 what.insert(0, "Rail point ");
+            }
             e.summary = what;
         } else if (keyword == "object" || keyword == "copy") {
             const bool copy = keyword == "copy";
@@ -231,9 +249,10 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
                 fields += core::at(words, i).starts_with("f.") ? 1 : 0;
             }
             std::string what = pos ? (angles ? "moved / turned" : "moved") : angles ? "turned" : "";
-            if (fields)
+            if (fields) {
                 what += (what.empty() ? "" : ", ") + std::to_string(fields) + (fields == 1 ? " field" : " fields") +
                         " edited";
+            }
             e.summary = name + ": " + (what.empty() ? std::string("edited") : what);
         } else if (keyword == "node" || keyword == "point" || keyword == "camera") {
             e.id = words.empty() ? 0 : id_of(core::at(words, 0));
@@ -301,12 +320,14 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
 std::string without(const std::string& layout_text, int line)
 {
     std::vector<std::string> lines = get_lines(layout_text);
-    if (line < 0 || std::cmp_greater_equal(line, lines.size()))
+    if (line < 0 || std::cmp_greater_equal(line, lines.size())) {
         return layout_text;
+    }
     std::string out;
     for (int n = 0; std::cmp_less(n, lines.size()); ++n) {
-        if (n == line)
+        if (n == line) {
             continue;
+        }
         out += core::at(lines, n);
         out += '\n';
     }

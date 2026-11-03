@@ -64,16 +64,18 @@ bool get_same(const Values& a, const Values& b)
 
 float wrap_angle(float radians)
 {
-    if (!std::isfinite(radians))
+    if (!std::isfinite(radians)) {
         return 0.0F;
+    }
     // (the half turn as a float - a little over pi - and a hair's room, so a half turn either way comes out +pi)
     constexpr double kTwoPi = 6.283185307179586;
     constexpr double kHalf = static_cast<double>(maths::kPi) + 1e-6;
     double a = std::fmod(static_cast<double>(radians), kTwoPi);
-    if (a > kHalf)
+    if (a > kHalf) {
         a -= kTwoPi;
-    else if (a <= -kHalf + kWrapSlack)
+    } else if (a <= -kHalf + kWrapSlack) {
         a += kTwoPi;
+    }
     return static_cast<float>(a);
 }
 
@@ -100,24 +102,27 @@ Step get_capture(const std::vector<uint32_t>& names, const Reader& read)
     Step step;
     for (const uint32_t name : names) {
         Values values;
-        if (read(name, &values))
+        if (read(name, &values)) {
             step.nodes.emplace_back(name, values);
+        }
     }
     return step;
 }
 
 void place_in(const Step& step, const Writer& write)
 {
-    for (const auto& node : step.nodes)
+    for (const auto& node : step.nodes) {
         write(node.first, node.second);
+    }
 }
 
 bool differs(const Step& step, const Reader& read)
 {
     for (const auto& node : step.nodes) {
         Values now;
-        if (read(node.first, &now) && !get_same(now, node.second))
+        if (read(node.first, &now) && !get_same(now, node.second)) {
             return true;
+        }
     }
     return false;
 }
@@ -160,8 +165,9 @@ script::Component* own_vector(script::Struct* node, uint32_t name)
 {
     script::Component* found = nullptr;
     for (script::Component* c = node->head(); c; c = c->next) {
-        if (c->name == name && value_kind(*c) == script::QbValueKind::kVector && c->value.vector())
+        if (c->name == name && value_kind(*c) == script::QbValueKind::kVector && c->value.vector()) {
             found = c;
+        }
     }
     return found;
 }
@@ -207,15 +213,18 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
     const maths::Vec4 pos = {.x = values.pos.x, .y = values.pos.y, .z = values.pos.z, .w = 1.0F};
     const nodes::Family family = node ? node->family : nodes::Family::kOther;
     if (family == nodes::Family::kFireOff && objects::proximity_hub() != nullptr) {
-        if (objects::ProximNode* proxim = objects::proxim_get_node(name))
+        if (objects::ProximNode* proxim = objects::proxim_get_node(name)) {
             proxim->at_point() = pos;
+        }
     }
     if (family == nodes::Family::kSound && objects::emitter_table()) {
-        if (objects::EmitterNode* emitter = objects::emitter_get_node(name))
+        if (objects::EmitterNode* emitter = objects::emitter_get_node(name)) {
             emitter->at_point_ = pos;
+        }
     }
-    if (family == nodes::Family::kLight)
+    if (family == nodes::Family::kLight) {
         move_lights(name, values.pos);
+    }
     // Its object (a flag a CTF or team game made; any object of the node's name): moved and turned as the node.
     auto* object = core::down_cast<objects::GameEntity>(objects::find_object(name));
     if (object && !(object->object_flags() & objects::kObjectFlagDead)) {
@@ -224,8 +233,9 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
         maths::Mat4 matrix;
         const maths::Vec4 angles = {.x = values.angles.x, .y = values.angles.y, .z = values.angles.z, .w = 1.0F};
         matrix.init_from_angles(angles);
-        for (int r = 0; r < 3; ++r)
+        for (int r = 0; r < 3; ++r) {
             core::at(state.matrix.row, r) = core::at(state.draw_matrix_.row, r) = core::at(matrix.row, r);
+        }
         object_edit::get_restore(state);
     }
 }
@@ -246,8 +256,9 @@ const nodes::Elem* node_named(uint32_t name)
 
 bool get_movable(const nodes::Elem& node)
 {
-    if (!node.has_pos_ || !node.name)
+    if (!node.has_pos_ || !node.name) {
         return false;
+    }
     switch (node.family) {
     case nodes::Family::kRail:
     case nodes::Family::kLadder:
@@ -309,11 +320,13 @@ std::vector<uint32_t> moved_with(uint32_t name, bool entire_rail)
 {
     if (entire_rail && is_rail(name)) {
         std::vector<uint32_t> rail = scenery::rail_of(name);
-        if (!rail.empty())
+        if (!rail.empty()) {
             return rail;
+        }
     }
-    if (entire_rail && chains::is_path(name))
+    if (entire_rail && chains::is_path(name)) {
         return chains::chain_of(name); // (a path: its waypoints linked either way)
+    }
     return {name};
 }
 
@@ -327,8 +340,9 @@ bool get_take_in(uint32_t name, Values* values)
         return true;
     }
     script::Struct* node = struct_named(name);
-    if (!node)
+    if (!node) {
         return false;
+    }
     maths::Vec4 pos;
     maths::Vec4 angles;
     level_nodes::fetch_place(node, &pos);
@@ -340,13 +354,16 @@ bool get_take_in(uint32_t name, Values* values)
 
 void note_origin(uint32_t name)
 {
-    if (is_rail(name) && !node_create::is_added(name))
+    if (is_rail(name) && !node_create::is_added(name)) {
         return; // (the rail manager notes where the level has it)
-    if (touched_index().contains(name))
+    }
+    if (touched_index().contains(name)) {
         return;
+    }
     Values origin;
-    if (!get_take_in(name, &origin))
+    if (!get_take_in(name, &origin)) {
         return;
+    }
     touched_index()[name] = stored_touched().size();
     stored_touched().push_back({.name = name, .origin = origin, .node = struct_named(name)});
 }
@@ -373,16 +390,19 @@ bool assign_value(uint32_t name, const Values& values)
         return chains::move_added_point(name, values.pos);
     }
     if (is_rail(name)) {
-        if (!scenery::set_rail_point(name, values.pos))
+        if (!scenery::set_rail_point(name, values.pos)) {
             return false;
+        }
         const int index = nodes::get_find(name);
-        if (index >= 0)
+        if (index >= 0) {
             nodes::reread(index);
+        }
         return true;
     }
     script::Struct* node = struct_named(name);
-    if (!node)
+    if (!node) {
         return false;
+    }
     note_origin(name);
     store_node_vector(node, kPos, values.pos);
     store_node_vector(node, kAngles, values.angles);
@@ -390,8 +410,9 @@ bool assign_value(uint32_t name, const Values& values)
     apply_live(layer, name, values);
     entities::node_moved(name, values.pos, values.angles); // (a particle system: its emitter turned and moved, remade)
     const int index = nodes::get_find(name);
-    if (index >= 0)
+    if (index >= 0) {
         nodes::reread(index);
+    }
     return true;
 }
 
@@ -400,8 +421,9 @@ std::vector<LinkRecord> get_changed()
     std::vector<LinkRecord> out;
     for (const Touched& t : stored_touched()) {
         Values now;
-        if (get_take_in(t.name, &now) && !get_same(now, t.origin))
+        if (get_take_in(t.name, &now) && !get_same(now, t.origin)) {
             out.push_back({.name = t.name, .values = now});
+        }
     }
     return out;
 }
@@ -409,19 +431,22 @@ std::vector<LinkRecord> get_changed()
 void get_forget(uint32_t name)
 {
     auto it = touched_index().find(name);
-    if (it == touched_index().end())
+    if (it == touched_index().end()) {
         return;
+    }
     stored_touched().erase(stored_touched().begin() + static_cast<std::ptrdiff_t>(it->second));
     touched_index().clear();
-    for (size_t i = 0; i < stored_touched().size(); ++i)
+    for (size_t i = 0; i < stored_touched().size(); ++i) {
         touched_index()[core::at(stored_touched(), i).name] = i;
+    }
 }
 
 void reset_all()
 {
     const std::vector<Touched> touched = stored_touched();
-    for (const Touched& t : touched)
+    for (const Touched& t : touched) {
         assign_value(t.name, t.origin);
+    }
 }
 
 void forget_level()

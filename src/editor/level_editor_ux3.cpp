@@ -114,8 +114,9 @@ const Settings& settings_now() { return level_editor_ux3_state().settings_; }
 void prepare_all()
 {
     static bool done = false;
-    if (done)
+    if (done) {
         return;
+    }
     done = true;
     organize::prepare_all();
     using namespace actions;
@@ -194,13 +195,15 @@ void tick_frame()
     // (the panels' clicks: done now, in the editor's update)
     std::vector<std::function<void()>> tasks;
     tasks.swap(level_editor_ux3_state().tasks_);
-    for (const std::function<void()>& task : tasks)
+    for (const std::function<void()>& task : tasks) {
         task();
+    }
     const bool busy = change_under_way();
     // This module's own keys (the others are the editor's: level_editor.cpp reads them).
     for (const int window : {kPalette, kHistory, kChanges, kKeys, kSnapshots}) {
-        if (squeezed(window))
+        if (squeezed(window)) {
             get_pull(window)->run();
+        }
     }
     std::string message;
     if (squeezed(kCopy)) {
@@ -223,18 +226,24 @@ void tick_frame()
         clip::paste_fields(&message);
         get_say(message);
     }
-    if (squeezed(kBoxSelect) && !busy)
+    if (squeezed(kBoxSelect) && !busy) {
         organize::arm_box();
-    if (squeezed(kSelectSimilar) && !busy)
+    }
+    if (squeezed(kSelectSimilar) && !busy) {
         level_editor_ux3_state().similar_menu_ = true;
-    if (squeezed(kSelectFamily) && !busy)
+    }
+    if (squeezed(kSelectFamily) && !busy) {
         organize::select_family();
-    if (squeezed(kInvertSelection) && !busy)
+    }
+    if (squeezed(kInvertSelection) && !busy) {
         organize::invert_selection();
-    if (squeezed(kSelectAll) && !busy)
+    }
+    if (squeezed(kSelectAll) && !busy) {
         organize::select_all();
-    if (squeezed(kMakeGroup) && !busy)
+    }
+    if (squeezed(kMakeGroup) && !busy) {
         level_editor_ux3_state().group_name_ = true;
+    }
     // The Changes list: refreshed when the history moved (a change made, undone or redone), when asked, or a second on
     // (other changes - a save, an autosave restored - don't move the history).
     const size_t key = (undo_history().size() * 1000003U) + redo_history().size();
@@ -253,30 +262,34 @@ void refresh_changes()
 {
     level_editor_ux3_state().changes_.clear();
     std::string text;
-    if (!layout::capture_text(&text))
+    if (!layout::capture_text(&text)) {
         return;
+    }
     std::vector<std::string> lines;
     for (size_t start = 0; start < text.size();) {
         const size_t end = text.find('\n', start);
         lines.push_back(text.substr(start, end == std::string::npos ? std::string::npos : end - start));
-        if (end == std::string::npos)
+        if (end == std::string::npos) {
             break;
+        }
         start = end + 1;
     }
     auto label = [](uint32_t checksum) {
         const char* name = object_edit::get_name_of(checksum);
         return std::string(name ? name : "");
     };
-    for (const changes::TableRow& e : changes::link_chain(text, label))
+    for (const changes::TableRow& e : changes::link_chain(text, label)) {
         level_editor_ux3_state().changes_.push_back({.entry = e, .record = e.line >= 0 && std::cmp_less(e.line, lines.size()) ? core::at(lines, e.line) : ""});
+    }
 }
 
 void go_to(const ChangeRow& row)
 {
     const uint32_t id = row.entry.id;
     get_queue([id] {
-        if (!id || !go_to_thing(id))
+        if (!id || !go_to_thing(id)) {
             get_say("Item not found in the level");
+        }
     });
 }
 
@@ -297,10 +310,12 @@ void revert(const ChangeRow& row)
         for (size_t start = 0; start <= text.size() && line < 0; ++n) {
             const size_t end = text.find('\n', start);
             const std::string one = text.substr(start, end == std::string::npos ? std::string::npos : end - start);
-            if (one == record)
+            if (one == record) {
                 line = n;
-            if (end == std::string::npos)
+            }
+            if (end == std::string::npos) {
                 break;
+            }
             start = end + 1;
         }
         if (line < 0) {
@@ -309,10 +324,11 @@ void revert(const ChangeRow& row)
             return;
         }
         const std::string label = "Revert: " + summary.substr(0, 48);
-        if (apply_layout_step(changes::without(text, line), label.c_str(), &message))
+        if (apply_layout_step(changes::without(text, line), label.c_str(), &message)) {
             get_say("Reverted: " + summary);
-        else
+        } else {
             get_say("Couldn't revert: " + message);
+        }
         level_editor_ux3_state().refresh_asked_ = true;
     });
 }

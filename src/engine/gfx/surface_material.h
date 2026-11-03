@@ -259,21 +259,26 @@ inline int pass_from_checksum(const MaterialRef* material, checksums::Name textu
 {
     const uint32_t checksum = texture.value();
     const uint32_t name = material->name_hash();
-    if (name == checksum)
+    if (name == checksum) {
         return pass;
-    if (name < checksum || name - checksum > kPassNameRange)
+    }
+    if (name < checksum || name - checksum > kPassNameRange) {
         return -1;
+    }
     const uint32_t difference = name - checksum;
     const uint32_t low = difference & 7;
     const uint32_t mask = difference >> 3;
-    if (low)
+    if (low) {
         return low == static_cast<uint32_t>(pass) + 1 ? 0 : -1;
-    if (!mask || !(mask & (1U << (pass & kShiftCountMask)))) // (shifts as x86 does: by the low five bits)
+    }
+    if (!mask || !(mask & (1U << (pass & kShiftCountMask)))) { // (shifts as x86 does: by the low five bits)
         return -1;
+    }
     int index = pass;
     for (int i = 0; i < pass; ++i) {
-        if (!(mask & (1U << (i & kShiftCountMask))))
+        if (!(mask & (1U << (i & kShiftCountMask)))) {
             --index;
+        }
     }
     return index;
 }

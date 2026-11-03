@@ -85,10 +85,12 @@ SpotKind kind_of_face(FaceKindOf face)
     const auto normal_y = face.normal_y_;
     const auto face_flags = face.face_flags_;
     const bool vert = core::any(face_flags & render::FaceFlag::kVert);
-    if (!vert && normal_y >= kFloorNormalY)
+    if (!vert && normal_y >= kFloorNormalY) {
         return SpotKind::kArea;
-    if (!vert && std::fabs(normal_y) < kWallNormalY)
+    }
+    if (!vert && std::fabs(normal_y) < kWallNormalY) {
         return SpotKind::kWall;
+    }
     return SpotKind::kLip;
 }
 
@@ -126,17 +128,20 @@ std::vector<std::string> flags_for(KindTag type)
 
 KindTag suggest(const Spot& start, const Spot& end)
 {
-    if (start.kind == SpotKind::kRail && end.kind == SpotKind::kRail)
+    if (start.kind == SpotKind::kRail && end.kind == SpotKind::kRail) {
         return KindTag::kGrind;
-    if (start.kind == SpotKind::kWall || end.kind == SpotKind::kWall)
+    }
+    if (start.kind == SpotKind::kWall || end.kind == SpotKind::kWall) {
         return KindTag::kWallride;
+    }
     return KindTag::kAir;
 }
 
 float get_heading_of(V3 d)
 {
-    if (std::fabs(d.x) < kTinyLength && std::fabs(d.z) < kTinyLength)
+    if (std::fabs(d.x) < kTinyLength && std::fabs(d.z) < kTinyLength) {
         return 0.0F;
+    }
     return std::atan2(d.x, d.z);
 }
 
@@ -148,8 +153,9 @@ Gate gate_for(const Spot& spot, V3 toward)
     case SpotKind::kRail: {
         // (across the rail, the skater grinding through it: its thin side along the rail, pointing to the other end)
         V3 along = spot.along;
-        if (get_dot(along, to) < 0.0F)
+        if (get_dot(along, to) < 0.0F) {
             along = along * -1.0F;
+        }
         gate.yaw = get_heading_of(get_dot(along, along) > kTinyLength ? along : to);
         gate.size = kRailGateSize;
         gate.pos = spot.point + V3{.x = 0.0F, .y = kRailGateRise, .z = 0.0F};
@@ -218,8 +224,9 @@ bool get_cast(V3 from, V3 to, Hit* hit)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false))
+    if (!ray->get_collision_along(&start, &end, false)) {
         return false;
+    }
     // (the feeler's hit record at +0x24: normal +0x00, point +0x10, face flags +0x2C - coll_line.h's CollisionHit)
     const auto& n = ray->hit().normal;
     const auto& p = ray->hit().point;
@@ -244,26 +251,30 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
     const float x = at.x;
     const float y = at.y;
     const objects::GrindRailHub* rails = get_rails();
-    if (!rails)
+    if (!rails) {
         return false;
+    }
     float best = kRailPickReach;
     bool found = false;
     for (int i = 0; i < rails->num(); ++i) {
         const objects::GrindPoint& node = core::at(rails->node_run(), i);
         if (!node.succ() || (node.flag_bits() & objects::kRailFlagClimbing) ||
-            !(node.flag_bits() & objects::kRailFlagActive))
+            !(node.flag_bits() & objects::kRailFlagActive)) {
             continue;
+        }
         const V3 a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
         const V3 b = {.x = node.succ()->at_point().x, .y = node.succ()->at_point().y, .z = node.succ()->at_point().z};
         float ax = 0.0F;
         float ay = 0.0F;
         float bx = 0.0F;
         float by = 0.0F;
-        if (!project_to_back(a, &ax, &ay) || !project_to_back(b, &bx, &by))
+        if (!project_to_back(a, &ax, &ay) || !project_to_back(b, &bx, &by)) {
             continue;
+        }
         const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
-        if (d >= best)
+        if (d >= best) {
             continue;
+        }
         // (where along it: the screen's nearest point, carried to the world segment)
         const float sx = bx - ax;
         const float sy = by - ay;
@@ -271,8 +282,9 @@ bool rail_near(Ray ray, maths::Vec2 at, float max_t, Spot* spot)
         const float t = length2 > 1e-6F ? std::clamp((((x - ax) * sx) + ((y - ay) * sy)) / length2, 0.0F, 1.0F) : 0.0F;
         const V3 p = a + (b - a) * t;
         const V3 to = p - origin;
-        if (get_dot(to, unit_dir) > max_t + kBehindWallMargin)
+        if (get_dot(to, unit_dir) > max_t + kBehindWallMargin) {
             continue; // (behind a wall)
+        }
         best = d;
         found = true;
         spot->kind = SpotKind::kRail;
@@ -288,10 +300,12 @@ bool spot_at(V3 origin, V3 unit_dir, float x, float y, Spot* spot)
     Hit hit{};
     const bool have_hit = get_cast(origin, origin + unit_dir * 20000.0F, &hit);
     const float max_t = have_hit ? get_dot(hit.point - origin, unit_dir) : 20000.0F;
-    if (rail_near({.origin = origin, .dir = unit_dir}, {.x = x, .y = y}, max_t, spot))
+    if (rail_near({.origin = origin, .dir = unit_dir}, {.x = x, .y = y}, max_t, spot)) {
         return true;
-    if (!have_hit)
+    }
+    if (!have_hit) {
         return false;
+    }
     spot->kind = kind_of_face({.normal_y_ = hit.normal.y, .face_flags_ = hit.flags});
     spot->point = hit.point;
     spot->normal = hit.normal;
@@ -306,8 +320,9 @@ void draw_gate(const overlays::Painter& painter, const Gate& gate, uint32_t argb
     box_corners(box.origin, box.axes, box.min, box.max, c);
     const std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
-    for (const auto& e : edges)
+    for (const auto& e : edges) {
         (void)painter.get_seg(core::at(c, core::at(e, 0)), core::at(c, core::at(e, 1)), argb, kGateLineWidth);
+    }
 }
 
 void get_make()
@@ -338,14 +353,16 @@ void set_armed(bool on)
     level_editor_gap_wizard_state().picked_ = 0;
     level_editor_gap_wizard_state().form_open_ = false;
     level_editor_gap_wizard_state().have_hover_ = false;
-    if (on)
+    if (on) {
         show_message("Gap Wizard: click the gap start", kHintSeconds);
+    }
 }
 
 bool get_cancel()
 {
-    if (!get_armed())
+    if (!get_armed()) {
         return false;
+    }
     set_armed(false);
     show_message("Gap Wizard cancelled");
     return true;
@@ -358,8 +375,9 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y)
 
 bool get_click(V3 origin, V3 unit_dir, float x, float y)
 {
-    if (!level_editor_gap_wizard_state().armed_ || level_editor_gap_wizard_state().picked_ >= 2)
+    if (!level_editor_gap_wizard_state().armed_ || level_editor_gap_wizard_state().picked_ >= 2) {
         return false;
+    }
     Spot spot;
     if (!spot_at(origin, unit_dir, x, y, &spot)) {
         show_message("Gap Wizard: click a rail, lip, wall or ground");
@@ -379,8 +397,9 @@ bool get_click(V3 origin, V3 unit_dir, float x, float y)
 
 void add_overlay(const overlays::Painter& painter)
 {
-    if (!get_armed())
+    if (!get_armed()) {
         return;
+    }
     constexpr uint32_t kStart = 0xFF62E26A;
     constexpr uint32_t kEnd = 0xFFF2D24A;
     constexpr uint32_t kHover = 0xC0FFFFFF;
@@ -404,9 +423,10 @@ void add_overlay(const overlays::Painter& painter)
     } else if (level_editor_gap_wizard_state().have_hover_) {
         painter.get_dot(level_editor_gap_wizard_state().hover_.point, kHoverDotRadius, kHover);
         painter.draw_label(level_editor_gap_wizard_state().hover_.point, kHover, spot_name(level_editor_gap_wizard_state().hover_.kind));
-        if (level_editor_gap_wizard_state().picked_ == 1)
+        if (level_editor_gap_wizard_state().picked_ == 1) {
             (void)painter.get_seg(core::at(level_editor_gap_wizard_state().spots_, 0).point,
                                   level_editor_gap_wizard_state().hover_.point, kHoverBandColour, 1.0F);
+        }
     }
 }
 
@@ -414,8 +434,9 @@ void tick_frame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(level_editor_gap_wizard_state().queue_);
-    for (auto& action : queue)
+    for (auto& action : queue) {
         action();
+    }
 }
 
 void pane(PaneArea area, float scale)
@@ -425,8 +446,9 @@ void pane(PaneArea area, float scale)
     const auto view_width = area.width;
     const auto view_height = area.height;
     (void)view_height;
-    if (!level_editor_gap_wizard_state().form_open_)
+    if (!level_editor_gap_wizard_state().form_open_) {
         return;
+    }
     ImGui::SetNextWindowPos(ImVec2(view_x + (view_width * kHalf), view_y + (kWindowTopOffset * scale)),
                             ImGuiCond_Appearing, ImVec2(kWindowPivotX, 0.0F));
     ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_Appearing);
@@ -434,46 +456,54 @@ void pane(PaneArea area, float scale)
     if (!ImGui::Begin("Gap Wizard###gapWizard", &open,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
-        if (!open)
+        if (!open) {
             level_editor_gap_wizard_state().queue_.emplace_back([] { set_armed(false); });
+        }
         return;
     }
     gui::text_disabled("From %s to %s", spot_name(core::at(level_editor_gap_wizard_state().spots_, 0).kind), spot_name(core::at(level_editor_gap_wizard_state().spots_, 1).kind));
     ImGui::InputText("Name", level_editor_gap_wizard_state().name_.data(), sizeof(level_editor_gap_wizard_state().name_));
     ImGui::SliderInt("Score", &level_editor_gap_wizard_state().score_, kMinScore, kMaxScore, "%d", ImGuiSliderFlags_AlwaysClamp);
     for (int t = 0; t < kTypes; ++t) {
-        if (t)
+        if (t) {
             ImGui::SameLine();
+        }
         ImGui::RadioButton(current_type_name(static_cast<KindTag>(t)), &level_editor_gap_wizard_state().type_, t);
     }
     std::string flags;
-    for (const std::string& f : flags_for(static_cast<KindTag>(level_editor_gap_wizard_state().type_)))
+    for (const std::string& f : flags_for(static_cast<KindTag>(level_editor_gap_wizard_state().type_))) {
         flags += (flags.empty() ? "" : ", ") + f;
+    }
     gui::text_disabled("StartGap flags: %s", flags.c_str());
     ImGui::BeginDisabled();
     ImGui::RadioButton("Skitch", false);
     ImGui::EndDisabled();
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         gui::tooltip("Not supported in THUG2");
+    }
     ImGui::Separator();
     const bool named = std::ranges::any_of(std::string_view(level_editor_gap_wizard_state().name_.data()), [](char c) { return c != ' '; });
     ImGui::BeginDisabled(!named);
-    if (ImGui::Button("Create Gap"))
+    if (ImGui::Button("Create Gap")) {
         level_editor_gap_wizard_state().queue_.emplace_back([] {
             get_make();
             level_editor_gap_wizard_state().form_open_ = false;
             level_editor_gap_wizard_state().picked_ = 0;
         });
+    }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button("Pick again"))
+    if (ImGui::Button("Pick again")) {
         level_editor_gap_wizard_state().queue_.emplace_back([] { set_armed(true); });
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Cancel"))
+    if (ImGui::Button("Cancel")) {
         level_editor_gap_wizard_state().queue_.emplace_back([] { set_armed(false); });
+    }
     ImGui::End();
-    if (!open)
+    if (!open) {
         level_editor_gap_wizard_state().queue_.emplace_back([] { set_armed(false); });
+    }
 }
 
 } // namespace frontend::level_editor::gap_wizard

@@ -163,17 +163,21 @@ constexpr float kResizeSnapGrid = 25.0F;
 
 bool same_text(const std::string& a, const std::string& b)
 {
-    if (a.size() != b.size())
+    if (a.size() != b.size()) {
         return false;
+    }
     for (size_t i = 0; i < a.size(); ++i) {
         char x = core::at(a, i);
         char y = core::at(b, i);
-        if (x >= 'A' && x <= 'Z')
+        if (x >= 'A' && x <= 'Z') {
             x = static_cast<char>(x - 'A' + 'a');
-        if (y >= 'A' && y <= 'Z')
+        }
+        if (y >= 'A' && y <= 'Z') {
             y = static_cast<char>(y - 'A' + 'a');
-        if (x != y)
+        }
+        if (x != y) {
             return false;
+        }
     }
     return true;
 }
@@ -234,8 +238,9 @@ uint32_t get_teleport()
 
 void get_put4(std::vector<uint8_t>* out, uint32_t value)
 {
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         out->push_back(static_cast<uint8_t>(value >> (kBitsPerByte * i)));
+    }
 }
 void put_name(std::vector<uint8_t>* out, uint32_t checksum)
 {
@@ -253,8 +258,10 @@ void put_name_value(std::vector<uint8_t>* out, uint32_t key, uint32_t value)
 // "0x" and 8 hex digits.
 bool is_hex_form(const std::string& name, uint32_t* value)
 {
-    if (name.size() != kHexNameLength || core::at(name, 0) != '0' || (core::at(name, 1) != 'x' && core::at(name, 1) != 'X'))
+    if (name.size() != kHexNameLength || core::at(name, 0) != '0' ||
+        (core::at(name, 1) != 'x' && core::at(name, 1) != 'X')) {
         return false;
+    }
     uint32_t v = 0;
     for (size_t i = 2; i < kHexNameLength; ++i) {
         const char c = core::at(name, i);
@@ -262,8 +269,9 @@ bool is_hex_form(const std::string& name, uint32_t* value)
                       : c >= 'a' && c <= 'f' ? c - 'a' + 10
                       : c >= 'A' && c <= 'F' ? c - 'A' + 10
                                              : -1;
-        if (d < 0)
+        if (d < 0) {
             return false;
+        }
         v = v << 4 | static_cast<uint32_t>(d);
     }
     *value = v;
@@ -285,10 +293,12 @@ bool read_triple(const std::string& text, V3* out)
     size_t at = 0;
     for (int i = 0; i < 3; ++i) {
         const size_t comma = i < 2 ? text.find(',', at) : text.size();
-        if (comma == std::string::npos)
+        if (comma == std::string::npos) {
             return false;
-        if (!read_number(text.substr(at, comma - at), &core::at(v, i)))
+        }
+        if (!read_number(text.substr(at, comma - at), &core::at(v, i))) {
             return false;
+        }
         at = comma + 1;
     }
     *out = {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2)};
@@ -392,20 +402,27 @@ uint32_t kind_colour(Kind kind)
 
 Kind kind_of_calls(const Calls& calls, bool has_script)
 {
-    if (calls.kill)
+    if (calls.kill) {
         return Kind::kKill;
-    if (calls.teleport)
+    }
+    if (calls.teleport) {
         return Kind::kJumpTo;
-    if (calls.end_gap_)
+    }
+    if (calls.end_gap_) {
         return Kind::kGapEnd;
-    if (calls.start_gap_)
+    }
+    if (calls.start_gap_) {
         return Kind::kGapStart;
-    if (calls.boost)
+    }
+    if (calls.boost) {
         return Kind::kBoost;
-    if (calls.shatter)
+    }
+    if (calls.shatter) {
         return Kind::kBreak;
-    if (calls.camera)
+    }
+    if (calls.camera) {
         return Kind::kViewCam;
+    }
     return has_script ? Kind::kScripts : Kind::kOther;
 }
 
@@ -436,15 +453,17 @@ bool same_spec(const Spec& a, const Spec& b)
 uint32_t checksum_of(const std::string& name)
 {
     uint32_t value = 0;
-    if (is_hex_form(name, &value))
+    if (is_hex_form(name, &value)) {
         return value;
+    }
     return name.empty() ? 0U : get_checksums(name.c_str());
 }
 
 std::string name_for(uint32_t checksum, const char* known)
 {
-    if (known && *known && valid_name(known) && get_checksums(known) == checksum)
+    if (known && *known && valid_name(known) && get_checksums(known) == checksum) {
         return known;
+    }
     std::array<char, kNumberTextSize> text{};
     text::format_to(text, "0x%08X", checksum);
     return text.data();
@@ -454,8 +473,9 @@ std::string get_script_name(const Spec& spec) { return spec.name + "Script"; }
 
 float clamp_seconds(float seconds)
 {
-    if (!std::isfinite(seconds))
+    if (!std::isfinite(seconds)) {
         return kDefaultCameraShotSeconds;
+    }
     return std::max(kCameraMinSeconds, std::min(kCameraMaxSeconds, seconds));
 }
 
@@ -471,10 +491,12 @@ const char* get_problem(const Spec& spec)
     case Kind::kGapStart:
         return spec.gap.empty() ? "It has no gap" : nullptr;
     case Kind::kGapEnd:
-        if (spec.gap.empty())
+        if (spec.gap.empty()) {
             return "It has no gap";
-        if (spec.text.empty() || spec.score <= 0)
+        }
+        if (spec.text.empty() || spec.score <= 0) {
             return "A gap needs a name and a score";
+        }
         return nullptr;
     case Kind::kOther:
         return "It has no script";
@@ -493,20 +515,25 @@ std::string clean_text(const std::string& text)
     std::string out;
     for (char c : text) {
         auto u = static_cast<unsigned char>(c);
-        if (u < kFirstPrintableChar || u == kDeleteChar)
+        if (u < kFirstPrintableChar || u == kDeleteChar) {
             continue;
-        if (c == '"')
+        }
+        if (c == '"') {
             c = '\'';
-        if (c == '#')
+        }
+        if (c == '#') {
             continue;
+        }
         out.push_back(c);
-        if (out.size() >= kMaxCleanTextLength)
+        if (out.size() >= kMaxCleanTextLength) {
             break;
+        }
     }
     // (no spaces at either end)
     const size_t first = out.find_first_not_of(' ');
-    if (first == std::string::npos)
+    if (first == std::string::npos) {
         return "";
+    }
     const size_t last = out.find_last_not_of(' ');
     return out.substr(first, last - first + 1);
 }
@@ -577,8 +604,9 @@ void resize_face(V3 pos, float yaw, V3 size, FaceDrag face_drag, ResizedFace res
 std::vector<uint8_t> get_body(const Spec& spec)
 {
     std::vector<uint8_t> out;
-    if (get_problem(spec))
+    if (get_problem(spec)) {
         return out;
+    }
     switch (spec.kind) {
     case Kind::kKill:
         put_name(&out, spec.water ? kill_skater_water() : kill_skater());
@@ -602,8 +630,9 @@ std::vector<uint8_t> get_body(const Spec& spec)
             out.push_back(script::token_byte(script::QbToken::kEquals));
             out.push_back(script::token_byte(script::QbToken::kArrayStart));
             for (size_t i = 0; i < spec.flags.size(); ++i) {
-                if (i)
+                if (i) {
                     out.push_back(script::token_byte(script::QbToken::kComma));
+                }
                 put_name(&out, checksum_of(core::at(spec.flags, i)));
             }
             out.push_back(script::token_byte(script::QbToken::kArrayEnd));
@@ -701,12 +730,14 @@ std::vector<uint8_t> qb_file(const std::vector<Spec>& specs)
     std::vector<std::pair<uint32_t, std::string>> names;
     auto note = [&](const std::string& name) {
         uint32_t value = 0;
-        if (name.empty() || is_hex_form(name, &value))
+        if (name.empty() || is_hex_form(name, &value)) {
             return;
+        }
         const uint32_t checksum = get_checksums(name.c_str());
         for (const auto& n : names) {
-            if (n.first == checksum)
+            if (n.first == checksum) {
                 return;
+            }
         }
         names.emplace_back(checksum, name);
     };
@@ -721,12 +752,15 @@ std::vector<uint8_t> qb_file(const std::vector<Spec>& specs)
         out.push_back(0x01);
         note(script);
         if (!body.empty()) {
-            if (spec.kind == Kind::kKill || spec.kind == Kind::kJumpTo)
+            if (spec.kind == Kind::kKill || spec.kind == Kind::kJumpTo) {
                 note(spec.target);
-            if (spec.kind == Kind::kScripts)
+            }
+            if (spec.kind == Kind::kScripts) {
                 note(spec.script);
-            if (spec.kind == Kind::kGapStart || spec.kind == Kind::kGapEnd)
+            }
+            if (spec.kind == Kind::kGapStart || spec.kind == Kind::kGapEnd) {
                 note(spec.gap);
+            }
             if (spec.kind == Kind::kBreak) {
                 note(spec.target);
                 note(spec.sound);
@@ -755,38 +789,48 @@ std::string link_record(const Placed& placed)
     std::array<char, kNumberTextSize> number{};
     text::format_to(number, " yaw=%.9g", placed.yaw);
     out << number.data() << " size=" << triple(s.size);
-    if (!s.target.empty())
+    if (!s.target.empty()) {
         out << " target=" << s.target;
-    if (s.water)
+    }
+    if (s.water) {
         out << " water=1";
-    if (!s.script.empty())
+    }
+    if (!s.script.empty()) {
         out << " script=" << s.script;
-    if (!s.gap.empty())
+    }
+    if (!s.gap.empty()) {
         out << " gap=" << s.gap;
+    }
     if (!s.flags.empty()) {
         out << " flags=";
-        for (size_t i = 0; i < s.flags.size(); ++i)
+        for (size_t i = 0; i < s.flags.size(); ++i) {
             out << (i ? "," : "") << core::at(s.flags, i);
+        }
     }
-    if (s.kind == Kind::kGapStart || s.kind == Kind::kGapEnd)
+    if (s.kind == Kind::kGapStart || s.kind == Kind::kGapEnd) {
         out << " score=" << s.score;
+    }
     if (s.replaces) {
         text::format_to(number, " replaces=%08X", s.replaces);
         out << number.data();
     }
-    if (s.exit)
+    if (s.exit) {
         out << " exit=1";
-    if (s.kind == Kind::kBoost)
+    }
+    if (s.kind == Kind::kBoost) {
         out << " strength=" << s.strength;
-    if (!s.sound.empty())
+    }
+    if (!s.sound.empty()) {
         out << " sound=" << s.sound;
+    }
     if (s.kind == Kind::kViewCam) {
         text::format_to(number, " seconds=%.9g", clamp_seconds(s.seconds));
         out << number.data();
     }
     const std::string text = clean_text(s.text);
-    if (!text.empty())
+    if (!text.empty()) {
         out << " text=\"" << text << '"';
+    }
     return out.str();
 }
 
@@ -800,15 +844,17 @@ bool read_record(const std::string& line, Placed* placed)
     if (quote != std::string::npos) {
         const size_t start = quote + 7;
         const size_t end = text.find('"', start);
-        if (end == std::string::npos || text.find_first_not_of(" \t\r", end + 1) != std::string::npos)
+        if (end == std::string::npos || text.find_first_not_of(" \t\r", end + 1) != std::string::npos) {
             return false;
+        }
         s.text = clean_text(text.substr(start, end - start));
         text.resize(quote);
     }
     std::istringstream in(text);
     std::string word;
-    if (!(in >> s.name >> word) || !valid_name(s.name) || !kind_from_word(word, &s.kind) || s.kind == Kind::kOther)
+    if (!(in >> s.name >> word) || !valid_name(s.name) || !kind_from_word(word, &s.kind) || s.kind == Kind::kOther) {
         return false;
+    }
     bool have_pos = false;
     bool have_yaw = false;
     bool have_size = false;
@@ -825,16 +871,18 @@ bool read_record(const std::string& line, Placed* placed)
     bool have_seconds = false;
     s.score = kDefaultGapScore;
     auto once = [](bool* seen) {
-        if (*seen)
+        if (*seen) {
             return false;
+        }
         *seen = true;
         return true;
     };
     std::string field;
     while (in >> field) {
         const size_t equals = field.find('=');
-        if (equals == std::string::npos || equals == 0)
+        if (equals == std::string::npos || equals == 0) {
             return false;
+        }
         const std::string key = field.substr(0, equals);
         const std::string value = field.substr(equals + 1);
         bool ok = true;
@@ -862,8 +910,9 @@ bool read_record(const std::string& line, Placed* placed)
             size_t at = 0;
             while (ok && at <= value.size()) {
                 size_t comma = value.find(',', at);
-                if (comma == std::string::npos)
+                if (comma == std::string::npos) {
                     comma = value.size();
+                }
                 const std::string flag = value.substr(at, comma - at);
                 ok = valid_name(flag);
                 s.flags.push_back(flag);
@@ -897,27 +946,32 @@ bool read_record(const std::string& line, Placed* placed)
                  seconds <= kCameraMaxSeconds;
             s.seconds = seconds;
         } // (another key: a later version's - skipped)
-        if (!ok)
+        if (!ok) {
             return false;
+        }
     }
     return have_pos;
 }
 
 int partner(const std::vector<Spec>& specs, int index)
 {
-    if (index < 0 || std::cmp_greater_equal(index, specs.size()))
+    if (index < 0 || std::cmp_greater_equal(index, specs.size())) {
         return -1;
+    }
     const Spec& s = core::at(specs, index);
     Kind other{};
-    if (s.kind == Kind::kGapStart)
+    if (s.kind == Kind::kGapStart) {
         other = Kind::kGapEnd;
-    else if (s.kind == Kind::kGapEnd)
+    } else if (s.kind == Kind::kGapEnd) {
         other = Kind::kGapStart;
-    else
+    } else {
         return -1;
+    }
     for (size_t i = 0; i < specs.size(); ++i) {
-        if (ints::as_signed(i) != index && core::at(specs, i).kind == other && !s.gap.empty() && same_text(core::at(specs, i).gap, s.gap))
+        if (ints::as_signed(i) != index && core::at(specs, i).kind == other && !s.gap.empty() &&
+            same_text(core::at(specs, i).gap, s.gap)) {
             return static_cast<int>(i);
+        }
     }
     return -1;
 }
@@ -939,10 +993,12 @@ std::string proxim_record(const ProximEdit& e, const char* known)
     std::array<char, kHexTextSize> hex{};
     text::format_to(hex, "%08X", e.node);
     out << hex.data();
-    if (!e.enter.empty())
+    if (!e.enter.empty()) {
         out << " enter=" << e.enter;
-    if (!e.exit.empty())
+    }
+    if (!e.exit.empty()) {
         out << " exit=" << e.exit;
+    }
     if (e.shape) {
         out << " shape=" << (e.box ? "box" : "sphere");
         if (e.box) {
@@ -953,8 +1009,9 @@ std::string proxim_record(const ProximEdit& e, const char* known)
             out << radius.data();
         }
     }
-    if (known && *known)
+    if (known && *known) {
         out << "  # " << known;
+    }
     return out.str();
 }
 
@@ -964,8 +1021,10 @@ bool read_proxim_record(const std::string& line, ProximEdit* edit)
     const std::string text = line.substr(0, line.find('#'));
     std::istringstream in(text);
     std::string word;
-    if (!(in >> word) || word.size() != kHexNameDigits || word.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
+    if (!(in >> word) || word.size() != kHexNameDigits ||
+        word.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos) {
         return false;
+    }
     edit->node = static_cast<uint32_t>(std::strtoul(word.c_str(), nullptr, kHexBase));
     bool have_enter = false;
     bool have_exit = false;
@@ -974,16 +1033,18 @@ bool read_proxim_record(const std::string& line, ProximEdit* edit)
     bool have_size = false;
     bool have_offset = false;
     auto once = [](bool* seen) {
-        if (*seen)
+        if (*seen) {
             return false;
+        }
         *seen = true;
         return true;
     };
     std::string field;
     while (in >> field) {
         const size_t equals = field.find('=');
-        if (equals == std::string::npos || equals == 0)
+        if (equals == std::string::npos || equals == 0) {
             return false;
+        }
         const std::string key = field.substr(0, equals);
         const std::string value = field.substr(equals + 1);
         bool ok = true;
@@ -1007,8 +1068,9 @@ bool read_proxim_record(const std::string& line, ProximEdit* edit)
         } else if (key == "offset") {
             ok = once(&have_offset) && read_triple(value, &edit->offset);
         } // (another key: a later version's - skipped)
-        if (!ok)
+        if (!ok) {
             return false;
+        }
     }
     // (a shape needs its measure: a sphere its radius, a box its size)
     return !(have_shape && (edit->box ? !have_size : !have_radius));
@@ -1027,8 +1089,9 @@ std::vector<uint8_t> proxim_body(ProximScripts scripts)
     const auto exit = scripts.exit;
     const auto own = scripts.own;
     std::vector<uint8_t> out;
-    if (!enter && !exit)
+    if (!enter && !exit) {
         return out;
+    }
     auto branch = [&](uint32_t script) {
         if (script) {
             put_name(&out, script);
@@ -1169,8 +1232,9 @@ bool node_place(const std::string& name, V3* pos, float* yaw)
 {
     script::Struct* node =
         level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(hash_of_name(name), false) : nullptr;
-    if (!node)
+    if (!node) {
         return false;
+    }
     maths::Vec4 p = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     maths::Vec4 a = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 0.0F};
     level_nodes::fetch_place(node, &p);
@@ -1186,8 +1250,9 @@ void on_kill(script::Struct* params, const uint8_t* /*unused*/)
 {
     trigger_edit().calls_->kill = true;
     uint32_t target = 0;
-    if (params && params->read_hash_value(current_node_name(), &target, 0) && target)
+    if (params && params->read_hash_value(current_node_name(), &target, 0) && target) {
         trigger_edit().calls_->target = target;
+    }
 }
 void on_water(script::Struct* params, const uint8_t* call)
 {
@@ -1198,28 +1263,33 @@ void on_teleport(script::Struct* params, const uint8_t* /*unused*/)
 {
     trigger_edit().calls_->teleport = true;
     uint32_t target = 0;
-    if (params && params->read_hash_value(current_node_name(), &target, 0) && target)
+    if (params && params->read_hash_value(current_node_name(), &target, 0) && target) {
         trigger_edit().calls_->target = target;
+    }
 }
 void on_start_gap(script::Struct* params, const uint8_t* /*unused*/)
 {
     trigger_edit().calls_->start_gap_ = true;
     uint32_t id = 0;
-    if (params && params->read_hash_value(get_gap_id(), &id, 0) && !trigger_edit().calls_->gap_id_)
+    if (params && params->read_hash_value(get_gap_id(), &id, 0) && !trigger_edit().calls_->gap_id_) {
         trigger_edit().calls_->gap_id_ = id;
+    }
 }
 void on_end_gap(script::Struct* params, const uint8_t* /*unused*/)
 {
     trigger_edit().calls_->end_gap_ = true;
     uint32_t id = 0;
-    if (params && params->read_hash_value(get_gap_id(), &id, 0))
+    if (params && params->read_hash_value(get_gap_id(), &id, 0)) {
         trigger_edit().calls_->gap_id_ = id;
+    }
     const char* text = nullptr;
-    if (params && params->fetch_text(get_text(), &text, 0) && text)
+    if (params && params->fetch_text(get_text(), &text, 0) && text) {
         trigger_edit().calls_->gap_text_ = text;
+    }
     int score = 0;
-    if (params && params->fetch_int_value(get_score(), &score, 0))
+    if (params && params->fetch_int_value(get_score(), &score, 0)) {
         trigger_edit().calls_->gap_score_ = score;
+    }
 }
 
 void on_boost(script::Struct* params, const uint8_t* /*unused*/)
@@ -1227,28 +1297,32 @@ void on_boost(script::Struct* params, const uint8_t* /*unused*/)
     trigger_edit().calls_->boost = true;
     int speed = 0;
     float value = 0.0F;
-    if (params && params->fetch_int_value(get_checksums("speed"), &speed, 0))
+    if (params && params->fetch_int_value(get_checksums("speed"), &speed, 0)) {
         trigger_edit().calls_->boost_speed_ = static_cast<float>(speed);
-    else if (params && params->fetch_float(get_checksums("speed"), &value, 0))
+    } else if (params && params->fetch_float(get_checksums("speed"), &value, 0)) {
         trigger_edit().calls_->boost_speed_ = value;
-    if (params && params->fetch_float(get_checksums("multi"), &value, 0))
+    }
+    if (params && params->fetch_float(get_checksums("multi"), &value, 0)) {
         trigger_edit().calls_->boost_multi_ = value;
+    }
 }
 void on_shatter(script::Struct* /*params*/, const uint8_t* /*unused*/) { trigger_edit().calls_->shatter = true; }
 void on_camera(script::Struct* params, const uint8_t* /*unused*/)
 {
     trigger_edit().calls_->camera = true;
     uint32_t node = 0;
-    if (params && params->read_hash_value(get_checksums("camera"), &node, 0))
+    if (params && params->read_hash_value(get_checksums("camera"), &node, 0)) {
         trigger_edit().calls_->camera_node_ = node;
+    }
 }
 void on_rail_accelerate(script::Struct* params, const uint8_t* /*unused*/)
 {
     trigger_edit().calls_->rail_speed_ = true;
     trigger_edit().calls_->rail_rate_ = kRailAccelerateRate; // (THAW's default)
     float rate = 0.0F;
-    if (params && params->fetch_float(get_checksums("rate"), &rate, 0))
+    if (params && params->fetch_float(get_checksums("rate"), &rate, 0)) {
         trigger_edit().calls_->rail_rate_ = rate;
+    }
 }
 
 Calls get_walk(uint32_t script);
@@ -1262,8 +1336,9 @@ std::vector<std::pair<uint32_t, Calls>>& calls_cache()
 const Calls& calls_of(uint32_t script)
 {
     for (const auto& c : calls_cache()) {
-        if (c.first == script)
+        if (c.first == script) {
             return c.second;
+        }
     }
     calls_cache().emplace_back(script, get_walk(script));
     return calls_cache().back().second;
@@ -1278,14 +1353,16 @@ bool is_script(uint32_t name)
 Calls get_walk(uint32_t script)
 {
     Calls calls;
-    if (!is_script(script))
+    if (!is_script(script)) {
         return calls;
+    }
     trigger_edit().calls_ = &calls;
     static const auto kKills = std::to_array<uint32_t>({kill_skater(), get_checksums("SK3_KillSkater_Pungee"),
                                       get_checksums("SK3_Killskater_Finish"), get_checksums("KillSkater")});
     script::clear_script_flag_6f_2564(); // (as for_each_node_script_call walks them)
-    for (const uint32_t target : kKills)
+    for (const uint32_t target : kKills) {
         level_nodes::for_each_script_call({.script = script, .target = target}, &on_kill, nullptr, 0);
+    }
     level_nodes::for_each_script_call({.script = script, .target = kill_skater_water()}, &on_water, nullptr, 0);
     level_nodes::for_each_script_call({.script = script, .target = get_teleport()}, &on_teleport, nullptr, 0);
     level_nodes::for_each_script_call({.script = script, .target = start_gap()}, &on_start_gap, nullptr, 0);
@@ -1320,8 +1397,9 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
 {
     const render::HitMesh* coll = coll_of(sector);
     auto* tri = coll ? coll->geometry() : nullptr;
-    if (!tri || !tri->faces() || !tri->vertices() || tri->tri_count() == 0)
+    if (!tri || !tri->faces() || !tri->vertices() || tri->tri_count() == 0) {
         return false;
+    }
     t->faces.clear();
     t->face_count_ = 0;
     t->all_trigger_ = true;
@@ -1340,17 +1418,20 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
         for (int k = 0; k < 3 && ok; ++k) {
             const uint32_t index = tri->face_vertex(f, k);
             ok = index < tri->num_vertices();
-            if (ok)
+            if (ok) {
                 core::at(p, k) = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
+            }
         }
-        if (!ok)
+        if (!ok) {
             continue;
+        }
         for (const V3& q : p) {
             grow_box(&t->min, &t->max, any, q, q);
             any = true;
         }
-        if (t->face_count_ < kMaxFacesKept)
+        if (t->face_count_ < kMaxFacesKept) {
             t->faces.insert(t->faces.end(), p.begin(), p.end());
+        }
         ++t->face_count_;
     }
     return any;
@@ -1359,8 +1440,9 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
 void scan_sector(void* /*unused*/, uint32_t checksum, render::WorldCell* sector)
 {
     LevelTrigger t;
-    if (!read_faces(sector, &t))
+    if (!read_faces(sector, &t)) {
         return;
+    }
     t.sector = checksum;
     if (script::Struct* node = level_nodes::fetch_vertex(checksum, false)) {
         t.has_node_ = true;
@@ -1373,8 +1455,9 @@ void scan_level()
 {
     level_editor_triggers_state().level_.clear();
     level_editor_triggers_state().scanned_ = true;
-    if (!level_nodes::node_manager_instance() || !scenery::main_scene())
+    if (!level_nodes::node_manager_instance() || !scenery::main_scene()) {
         return;
+    }
     scenery::for_each_level_sector(&scan_sector, nullptr);
     for (LevelTrigger& t : level_editor_triggers_state().level_) {
         t.calls = get_walk(t.script);
@@ -1393,8 +1476,9 @@ std::vector<std::string>*& stored_names()
 void on_level_gap(script::Struct* params, const uint8_t* /*unused*/)
 {
     const char* text = nullptr;
-    if (params && params->fetch_text(get_text(), &text, 0) && text)
+    if (params && params->fetch_text(get_text(), &text, 0) && text) {
         stored_names()->emplace_back(text);
+    }
 }
 void read_level_gaps()
 {
@@ -1402,19 +1486,22 @@ void read_level_gaps()
     trigger_edit().level_gaps_read_ = true;
     std::vector<uint32_t> scripts;
     for (const nodes::Elem& node : nodes::get_all()) {
-        if (node.added || !node.trigger_script_)
+        if (node.added || !node.trigger_script_) {
             continue;
+        }
         script::Struct* s = nodes::struct_of(node);
         uint32_t script = 0;
         if (s && s->read_hash_value(kTriggerScript, &script, 0) && script &&
-            std::ranges::find(scripts, script) == scripts.end())
+            std::ranges::find(scripts, script) == scripts.end()) {
             scripts.push_back(script);
+        }
     }
     stored_names() = &trigger_edit().level_gap_names_;
     script::clear_script_flag_6f_2564();
     for (const uint32_t script : scripts) {
-        if (is_script(script))
+        if (is_script(script)) {
             level_nodes::for_each_script_call({.script = script, .target = end_gap()}, &on_level_gap, nullptr, 0);
+        }
     }
     script::set_script_flag_6f_2564();
     stored_names() = nullptr;
@@ -1425,8 +1512,9 @@ void read_level_gaps()
 gsl::owner<render::HitMovingBox*> make_box(uint32_t name)
 {
     gsl::owner<render::HitMovingBox*> box{memory::make_owned_value<render::HitMovingBox>()};
-    if (!box)
+    if (!box) {
         return nullptr;
+    }
     box->assign_checksum(name);
     box->set_poly_attr_bits(kVolumeFlags);
     box->set_surface_type(0);
@@ -1448,11 +1536,12 @@ void place_box(Cuboid* b, V3 pos, float yaw, V3 size)
     b->coll->box().max = {.x = placed.max.x, .y = placed.max.y, .z = placed.max.z, .w = 1.0F};
     b->coll->set_anchor_point({.x = pos.x, .y = pos.y, .z = pos.z, .w = 1.0F});
     maths::Mat4 m;
-    for (int r = 0; r < 3; ++r)
+    for (int r = 0; r < 3; ++r) {
         core::at(m.row, r) = {.x = core::at(placed.axes, r).x,
                               .y = core::at(placed.axes, r).y,
                               .z = core::at(placed.axes, r).z,
                               .w = 0.0F};
+    }
     core::at(m.row, 3) = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     b->coll->change_facing(&m);
     b->pos = pos;
@@ -1462,8 +1551,9 @@ void place_box(Cuboid* b, V3 pos, float yaw, V3 size)
 
 void drop_boxes()
 {
-    for (const Cuboid& b : trigger_edit().boxes_)
+    for (const Cuboid& b : trigger_edit().boxes_) {
         free_box(b.coll);
+    }
     trigger_edit().boxes_.clear();
 }
 
@@ -1483,11 +1573,13 @@ bool level_gap(const std::string& name)
 // The editor's gaps that are no longer wanted out of `checklist` (a level's own gap of that name stays).
 void take_out_gaps(goals::GapTally* checklist, const std::vector<std::pair<std::string, int>>& wanted)
 {
-    if (!checklist)
+    if (!checklist) {
         return;
+    }
     for (const auto& gap : trigger_edit().gaps_added_) {
-        if (std::ranges::find(wanted, gap) != wanted.end() || level_gap(gap.first))
+        if (std::ranges::find(wanted, gap) != wanted.end() || level_gap(gap.first)) {
             continue;
+        }
         const int index = checklist->find_gap(gap.first.c_str());
         goals::GapEntry* check = index >= 0 ? checklist->get_gap(index) : nullptr;
         if (check && check->points_held() == gap.second) {
@@ -1501,13 +1593,16 @@ void take_out_gaps(goals::GapTally* checklist, const std::vector<std::pair<std::
 
 const char* game_problem(const Spec& spec)
 {
-    if (const char* problem = get_problem(spec))
+    if (const char* problem = get_problem(spec)) {
         return problem;
+    }
     if ((spec.kind == Kind::kKill || spec.kind == Kind::kJumpTo) &&
-        !level_nodes::fetch_vertex(checksum_of(spec.target), false))
+        !level_nodes::fetch_vertex(checksum_of(spec.target), false)) {
         return "That node isn't in this level";
-    if (spec.kind == Kind::kScripts && !is_script(checksum_of(spec.script)))
+    }
+    if (spec.kind == Kind::kScripts && !is_script(checksum_of(spec.script))) {
         return "Script not found";
+    }
     return nullptr;
 }
 
@@ -1519,8 +1614,9 @@ void refresh_level()
         render::WorldCell* sector = scenery::sector_of(t.sector);
         const render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
         auto* tri = coll ? coll->geometry() : nullptr;
-        if (!tri)
+        if (!tri) {
             continue;
+        }
         t.off = walls::disengaged(t.sector) || (coll->flag_bits() & 4) != 0;
         if (tri->bounds().min.x != t.bounds_low_.x || tri->bounds().min.y != t.bounds_low_.y ||
             tri->bounds().min.z != t.bounds_low_.z || tri->bounds().max.x != t.bounds_high_.x ||
@@ -1540,8 +1636,9 @@ void refresh_level()
 int spec_index(const std::string& name)
 {
     for (size_t i = 0; i < level_editor_triggers_state().specs_.size(); ++i) {
-        if (same_text(core::at(level_editor_triggers_state().specs_, i).name, name))
+        if (same_text(core::at(level_editor_triggers_state().specs_, i).name, name)) {
             return static_cast<int>(i);
+        }
     }
     return -1;
 }
@@ -1570,8 +1667,9 @@ bool break_place(const Spec& spec, BreakPlace place)
     auto* const size = place.size;
     const uint32_t piece = checksum_of(spec.target);
     OrientedBox box{};
-    if (!piece || !scenery::cuboid(piece, &box))
+    if (!piece || !scenery::cuboid(piece, &box)) {
         return false;
+    }
     V3 min{};
     V3 max{};
     bounds_of(box, &min, &max);
@@ -1608,8 +1706,9 @@ bool have_proxim_manager() { return objects::proximity_hub() != nullptr; }
 int proxim_index(uint32_t node)
 {
     for (size_t i = 0; i < stored_proxims().size(); ++i) {
-        if (core::at(stored_proxims(), i).node == node)
+        if (core::at(stored_proxims(), i).node == node) {
             return static_cast<int>(i);
+        }
     }
     return -1;
 }
@@ -1628,15 +1727,17 @@ void put_proxim_back(objects::ProximNode* p, const ProximOriginal& o)
 // no longer edited (or in a network session) put back.
 void sync_proxims()
 {
-    if (!have_proxim_manager() || (stored_proxims().empty() && proxim_originals().empty()))
+    if (!have_proxim_manager() || (stored_proxims().empty() && proxim_originals().empty())) {
         return;
+    }
     const bool refused = layout::get_refused();
     std::vector<ProximScript> scripts;
     std::vector<std::pair<const ProximEdit*, objects::ProximNode*>> live;
     for (const ProximEdit& e : stored_proxims()) {
         objects::ProximNode* p = refused || !proxim_edited(e) ? nullptr : objects::proxim_get_node(e.node);
-        if (!p)
+        if (!p) {
             continue;
+        }
         auto o = proxim_originals().find(e.node);
         if (o == proxim_originals().end()) {
             const ProximOriginal original = {.script = p->own_script(),
@@ -1646,16 +1747,18 @@ void sync_proxims()
                                              .max = {.x = p->box().max.x, .y = p->box().max.y, .z = p->box().max.z}};
             o = proxim_originals().emplace(e.node, original).first;
         }
-        if (!e.enter.empty() || !e.exit.empty())
+        if (!e.enter.empty() || !e.exit.empty()) {
             scripts.push_back({.node = e.node, .enter = checksum_of(e.enter), .exit = checksum_of(e.exit), .own = o->second.script});
+        }
         live.emplace_back(&e, p);
     }
     // (put back: those not edited now)
     for (auto it = proxim_originals().begin(); it != proxim_originals().end();) {
         const bool kept = std::ranges::any_of(live, [&](const auto& l) { return l.first->node == it->first; });
         if (!kept) {
-            if (objects::ProximNode* p = objects::proxim_get_node(it->first))
+            if (objects::ProximNode* p = objects::proxim_get_node(it->first)) {
                 put_proxim_back(p, it->second);
+            }
             it = proxim_originals().erase(it);
         } else {
             ++it;
@@ -1672,8 +1775,9 @@ void sync_proxims()
         const ProximOriginal& o = proxim_originals()[e.node];
         const uint32_t script =
             !e.enter.empty() || !e.exit.empty() ? get_checksums(proxim_script_name(e.node).c_str()) : o.script;
-        if (p->own_script() != script)
+        if (p->own_script() != script) {
             p->own_script() = script;
+        }
         if (!e.shape) {
             p->set_form(o.shape);
             p->radius() = o.radius;
@@ -1704,8 +1808,9 @@ void get_sync()
         a.spec = spec;
         a.alive = node_alive(spec.name) && node_place(spec.name, &a.pos, &a.yaw);
         a.problem = game_problem(spec);
-        if (spec.kind == Kind::kScripts && !a.problem)
+        if (spec.kind == Kind::kScripts && !a.problem) {
             a.calls = calls_of(checksum_of(spec.script));
+        }
         if (spec.kind == Kind::kBreak && a.alive) {
             // (its box is its piece's, wherever the piece is now; none while the piece is gone)
             V3 pos{};
@@ -1724,8 +1829,9 @@ void get_sync()
     std::vector<Spec> scripted;
     for (const Added& a : level_editor_triggers_state().added_) {
         Spec s = a.spec;
-        if (a.problem)
+        if (a.problem) {
             s.kind = Kind::kOther; // (an empty script: it does nothing yet)
+        }
         scripted.push_back(s);
     }
     std::vector<uint8_t> file = scripted.empty() ? std::vector<uint8_t>() : qb_file(scripted);
@@ -1741,8 +1847,12 @@ void get_sync()
     for (size_t i = 0; i < trigger_edit().boxes_.size();) {
         int at = -1;
         for (size_t k = 0; k < level_editor_triggers_state().added_.size(); ++k) {
-            if (core::at(level_editor_triggers_state().added_, k).alive && !core::at(level_editor_triggers_state().added_, k).broken && hash_of_name(core::at(level_editor_triggers_state().added_, k).spec.name) == core::at(trigger_edit().boxes_, i).name)
+            if (core::at(level_editor_triggers_state().added_, k).alive &&
+                !core::at(level_editor_triggers_state().added_, k).broken &&
+                hash_of_name(core::at(level_editor_triggers_state().added_, k).spec.name) ==
+                    core::at(trigger_edit().boxes_, i).name) {
                 at = static_cast<int>(k);
+            }
         }
         if (at < 0 || network) {
             free_box(core::at(trigger_edit().boxes_, i).coll);
@@ -1752,14 +1862,16 @@ void get_sync()
         }
     }
     for (const Added& a : level_editor_triggers_state().added_) {
-        if (!a.alive || a.broken || network)
+        if (!a.alive || a.broken || network) {
             continue;
+        }
         uint32_t name = hash_of_name(a.spec.name);
         auto it = std::ranges::find_if(trigger_edit().boxes_, [&](const Cuboid& b) { return b.name == name; });
         if (it == trigger_edit().boxes_.end()) {
             Cuboid b = {.name = name, .coll = make_box(name), .pos = {}, .size = {}, .yaw = 0.0F};
-            if (!b.coll)
+            if (!b.coll) {
                 continue;
+            }
             place_box(&b, a.pos, a.yaw, a.spec.size);
             trigger_edit().boxes_.push_back(b);
             get_log("level editor: trigger %s (%s) in place", a.spec.name.c_str(), kind_name(a.spec.kind));
@@ -1772,8 +1884,9 @@ void get_sync()
     // collision switch's one owner: WorldCell::change_live for a wall), on again once no copy stands in for them.
     std::vector<uint32_t> replaced;
     for (const Added& a : level_editor_triggers_state().added_) {
-        if (a.alive && a.spec.replaces && scenery::sector_of(a.spec.replaces))
+        if (a.alive && a.spec.replaces && scenery::sector_of(a.spec.replaces)) {
             replaced.push_back(a.spec.replaces);
+        }
     }
     for (size_t i = 0; i < level_editor_triggers_state().turned_off_.size();) {
         if (std::ranges::find(replaced, core::at(level_editor_triggers_state().turned_off_, i)) == replaced.end()) {
@@ -1784,31 +1897,36 @@ void get_sync()
         }
     }
     for (const uint32_t sector : replaced) {
-        if (turned_off_by_us(sector))
+        if (turned_off_by_us(sector)) {
             continue;
-        if (!walls::disengaged(sector))
+        }
+        if (!walls::disengaged(sector)) {
             walls::set_off(sector, true);
+        }
         level_editor_triggers_state().turned_off_.push_back(sector);
     }
     refresh_level();
     // The gap list: built again as the level's load builds it; the editor's gaps no longer there taken out.
     std::vector<std::pair<std::string, int>> wanted;
     for (const Added& a : level_editor_triggers_state().added_) {
-        if (a.alive && !a.problem && a.spec.kind == Kind::kGapEnd)
+        if (a.alive && !a.problem && a.spec.kind == Kind::kGapEnd) {
             wanted.emplace_back(clean_text(a.spec.text), a.spec.score);
+        }
     }
     std::ranges::sort(wanted);
     if (redefined || wanted != trigger_edit().gaps_added_) {
         goals::GapTally* checklist = get_checklist();
         if (checklist && !script::fetch_int_value(kParseNodeArrayIgnoreGaps)) {
-            if (!trigger_edit().level_gaps_read_)
+            if (!trigger_edit().level_gaps_read_) {
                 read_level_gaps();
+            }
             checklist->get_build();
             take_out_gaps(checklist, wanted);
             trigger_edit().checklist_ = checklist;
-            if (wanted != trigger_edit().gaps_added_)
+            if (wanted != trigger_edit().gaps_added_) {
                 get_log("level editor: gap list built again - %u of the editor's gaps",
                         static_cast<unsigned>(wanted.size()));
+            }
             trigger_edit().gaps_added_ = wanted;
         }
     }
@@ -1822,10 +1940,12 @@ bool get_editor_gaps(const goals::GapTally* checklist, std::vector<std::string>*
 {
     names->clear();
     level_names->clear();
-    if (!checklist || checklist != trigger_edit().checklist_ || trigger_edit().gaps_added_.empty())
+    if (!checklist || checklist != trigger_edit().checklist_ || trigger_edit().gaps_added_.empty()) {
         return false;
-    for (const auto& gap : trigger_edit().gaps_added_)
+    }
+    for (const auto& gap : trigger_edit().gaps_added_) {
         names->push_back(gap.first);
+    }
     *level_names = trigger_edit().level_gap_names_;
     return true;
 }
@@ -1858,8 +1978,9 @@ void get_forget()
     // (proximity nodes: put back while the level's are still there - none once nearby_zone_shutdown has run)
     if (have_proxim_manager()) {
         for (const auto& o : proxim_originals()) {
-            if (objects::ProximNode* p = objects::proxim_get_node(o.first))
+            if (objects::ProximNode* p = objects::proxim_get_node(o.first)) {
                 put_proxim_back(p, o.second);
+            }
         }
     }
     stored_proxims().clear();
@@ -1868,19 +1989,22 @@ void get_forget()
 
 void on_array_removed(uint32_t name)
 {
-    if (!name || name != level_editor_triggers_state().level_array_)
+    if (!name || name != level_editor_triggers_state().level_array_) {
         return;
-    if (!level_editor_triggers_state().specs_.empty())
+    }
+    if (!level_editor_triggers_state().specs_.empty()) {
         get_log("level editor: the level's node array left - its %u triggers go with it",
                 static_cast<unsigned>(level_editor_triggers_state().specs_.size()));
+    }
     get_forget();
 }
 
 bool array_loaded(level_nodes::NodeManager* manager, uint32_t name)
 {
     for (uint32_t i = 0; i < manager->num() && i < static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays); ++i) {
-        if (core::at(manager->arrays(), i).label_ == name)
+        if (core::at(manager->arrays(), i).label_ == name) {
             return true;
+        }
     }
     return false;
 }
@@ -1891,12 +2015,15 @@ void note_level()
 {
     node_create::set_array_removed_listener(&on_array_removed);
     if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get()) {
-        if (level_editor_triggers_state().level_array_ && array_loaded(manager, level_editor_triggers_state().level_array_))
+        if (level_editor_triggers_state().level_array_ &&
+            array_loaded(manager, level_editor_triggers_state().level_array_)) {
             return;
+        }
         const uint32_t level = manager->get_last_node_array_name();
         if (level && level != level_editor_triggers_state().level_array_) {
-            if (level_editor_triggers_state().level_array_)
+            if (level_editor_triggers_state().level_array_) {
                 get_forget();
+            }
             level_editor_triggers_state().level_array_ = level;
         }
     }
@@ -1942,8 +2069,9 @@ std::string nearest_restart(V3 pos)
     std::string name;
     for (const nodes::Elem& node : nodes::get_all()) {
         if (node.family != nodes::Family::kSpawn || node.hidden || !node.has_pos_ ||
-            !core::any(node.restart_types_ & (nodes::SpawnPointKind::kPlayer1 | nodes::SpawnPointKind::kMultiplayer)))
+            !core::any(node.restart_types_ & (nodes::SpawnPointKind::kPlayer1 | nodes::SpawnPointKind::kMultiplayer))) {
             continue;
+        }
         const V3 d = node.pos - pos;
         const float distance = get_dot(d, d);
         if (name.empty() || distance < best) {
@@ -1962,8 +2090,9 @@ bool get_cast(V3 from, V3 to, V3* hit)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false))
+    if (!ray->get_collision_along(&start, &end, false)) {
         return false;
+    }
     const auto& point = ray->hit().point;
     *hit = {.x = point[0], .y = point[1], .z = point[2]};
     return true;
@@ -1975,13 +2104,15 @@ V3 place_ahead(V3 size, float ahead)
 {
     const V3 forward = make_unit(trigger_edit().forward_);
     V3 at{};
-    if (!get_cast(trigger_edit().camera_, trigger_edit().camera_ + forward * kPlaceAheadReach, &at))
+    if (!get_cast(trigger_edit().camera_, trigger_edit().camera_ + forward * kPlaceAheadReach, &at)) {
         at = trigger_edit().camera_ + forward * kPlaceAheadFallback;
+    }
     const V3 flat = make_unit({.x = forward.x, .y = 0.0F, .z = forward.z});
     at = at + flat * ahead;
     V3 ground{};
-    if (ground_below(at + V3{.x = 0.0F, .y = kPlaceAboveGround, .z = 0.0F}, &ground))
+    if (ground_below(at + V3{.x = 0.0F, .y = kPlaceAboveGround, .z = 0.0F}, &ground)) {
         at.y = ground.y;
+    }
     at.y += size.y * kHalf;
     return at;
 }
@@ -1998,8 +2129,9 @@ void fabricate(const std::vector<Placed>& made, const char* what)
             break;
         }
         level_editor_triggers_state().specs_.push_back(p.spec);
-        if (first < 0)
+        if (first < 0) {
             first = static_cast<int>(level_editor_triggers_state().specs_.size()) - 1;
+        }
         get_log("level editor: added trigger %s (%s) at (%.1f, %.1f, %.1f)", p.spec.name.c_str(),
                 kind_name(p.spec.kind), p.pos.x, p.pos.y, p.pos.z);
     }
@@ -2019,8 +2151,11 @@ void get_guard()
     for (size_t i = 0; i < trigger_edit().boxes_.size();) {
         int at = -1;
         for (size_t k = 0; k < level_editor_triggers_state().specs_.size(); ++k) {
-            if (core::at(level_editor_triggers_state().specs_, k).kind == Kind::kBreak && hash_of_name(core::at(level_editor_triggers_state().specs_, k).name) == core::at(trigger_edit().boxes_, i).name)
+            if (core::at(level_editor_triggers_state().specs_, k).kind == Kind::kBreak &&
+                hash_of_name(core::at(level_editor_triggers_state().specs_, k).name) ==
+                    core::at(trigger_edit().boxes_, i).name) {
                 at = static_cast<int>(k);
+            }
         }
         if (at >= 0 && !is_sector_enabled(checksum_of(core::at(level_editor_triggers_state().specs_, at).target))) {
             free_box(core::at(trigger_edit().boxes_, i).coll);
@@ -2032,8 +2167,9 @@ void get_guard()
         }
     }
     std::string why;
-    if (trigger_edit().boxes_.empty() || !layout::get_refused(&why))
+    if (trigger_edit().boxes_.empty() || !layout::get_refused(&why)) {
         return;
+    }
     get_log("level editor: the editor's %u trigger volumes taken out (%s)", static_cast<unsigned>(trigger_edit().boxes_.size()),
             why.c_str());
     drop_boxes();
@@ -2093,12 +2229,14 @@ void tick(V3 camera, V3 forward, float yaw)
     trigger_edit().forward_ = forward;
     trigger_edit().yaw_ = yaw;
     note_level();
-    if (!level_editor_triggers_state().scanned_)
+    if (!level_editor_triggers_state().scanned_) {
         scan_level();
+    }
     std::vector<std::function<void()>> actions;
     actions.swap(trigger_edit().actions_);
-    for (auto& action : actions)
+    for (auto& action : actions) {
         action();
+    }
     get_sync();
 }
 
@@ -2194,10 +2332,12 @@ void add_gap_pair(Placed start, Placed end)
 void set_spec(const std::string& name, const Spec& spec, bool undo)
 {
     const int i = spec_index(name);
-    if (i < 0)
+    if (i < 0) {
         return;
-    if (undo)
+    }
+    if (undo) {
         note_undo();
+    }
     Spec s = spec;
     s.name = core::at(level_editor_triggers_state().specs_, i).name;
     s.size = clamp_size(s.size);
@@ -2223,15 +2363,18 @@ void turn_off(uint32_t sector, bool off)
 {
     const LevelTrigger* t = nullptr;
     for (const LevelTrigger& l : level_editor_triggers_state().level_) {
-        if (l.sector == sector)
+        if (l.sector == sector) {
             t = &l;
+        }
     }
     if (!t || !(t->wall || t->all_trigger_)) {
         hud::get_message("Has non-trigger faces; can't be disabled", hud::kMessageSeconds);
         return;
     }
-    if (std::ranges::find(level_editor_triggers_state().switched_, sector) == level_editor_triggers_state().switched_.end())
+    if (std::ranges::find(level_editor_triggers_state().switched_, sector) ==
+        level_editor_triggers_state().switched_.end()) {
         level_editor_triggers_state().switched_.push_back(sector); // (its wall state in the undo steps from now on)
+    }
     note_undo();
     if (!walls::set_off(sector, off)) {
         hud::get_message("Couldn't change the trigger", hud::kShortMessageSeconds);
@@ -2247,11 +2390,13 @@ void make_editable(uint32_t sector)
 {
     const LevelTrigger* t = nullptr;
     for (const LevelTrigger& l : level_editor_triggers_state().level_) {
-        if (l.sector == sector)
+        if (l.sector == sector) {
             t = &l;
+        }
     }
-    if (!t)
+    if (!t) {
         return;
+    }
     if (!t->script) {
         hud::get_message("No TriggerScript to copy", hud::kShortMessageSeconds);
         return;
@@ -2282,15 +2427,17 @@ void select_partner(const std::string& name)
 {
     const int i = spec_index(name);
     const int other = partner(level_editor_triggers_state().specs_, i);
-    if (other >= 0)
+    if (other >= 0) {
         trigger_edit().select_ = nodes::get_find(hash_of_name(core::at(level_editor_triggers_state().specs_, other).name));
+    }
 }
 
 void select_node_named(uint32_t name)
 {
     const int index = nodes::get_find(name);
-    if (index >= 0)
+    if (index >= 0) {
         trigger_edit().select_ = index;
+    }
 }
 
 // --- picking and drawing ---
@@ -2299,13 +2446,15 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
 {
     *node = -1;
     *sector = 0;
-    if (!get_shown())
+    if (!get_shown()) {
         return false;
+    }
     float best = max_t;
     bool any = false;
     for (const Added& a : level_editor_triggers_state().added_) {
-        if (!a.alive)
+        if (!a.alive) {
             continue;
+        }
         OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
         float t = 0.0F;
         if (ray_box({.origin = origin, .dir = unit_dir}, box.origin, box.axes, box.min, box.max, &t) && t < best) {
@@ -2322,8 +2471,9 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
         float t = 0.0F;
         if (!ray_box({.origin = origin, .dir = unit_dir}, {.x = 0.0F, .y = 0.0F, .z = 0.0F}, axes, l.min - grow,
                      l.max + grow, &t) ||
-            t >= best)
+            t >= best) {
             continue;
+        }
         // (the faces themselves when there are few; a big water plane by its box)
         float hit = t;
         bool found = l.face_count_ > kMaxFacesKept;
@@ -2334,15 +2484,17 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
                 found = true;
             }
         }
-        if (!found || hit >= best)
+        if (!found || hit >= best) {
             continue;
+        }
         best = hit;
         *node = l.has_node_ ? nodes::get_find(l.sector) : -1;
         *sector = l.sector;
         any = true;
     }
-    if (any && *sector)
+    if (any && *sector) {
         level_editor_triggers_state().inspected_ = *sector;
+    }
     return any;
 }
 
@@ -2360,21 +2512,24 @@ struct Painter {
     {
         float nx = 0.0F;
         float ny = 0.0F;
-        if (!cast_onto(camera, *frame, *lens, p, near_z_, &nx, &ny))
+        if (!cast_onto(camera, *frame, *lens, p, near_z_, &nx, &ny)) {
             return false;
+        }
         ndc_to_pixel(viewport, nx, ny, x, y);
         return true;
     }
     void get_seg(V3 a, V3 b, uint32_t argb, float thickness = kDefaultSegmentThickness) const
     {
-        if (!clip_to_near(camera, *frame, near_z_ + kNearPlaneMargin, &a, &b))
+        if (!clip_to_near(camera, *frame, near_z_ + kNearPlaneMargin, &a, &b)) {
             return;
+        }
         float ax = 0.0F;
         float ay = 0.0F;
         float bx = 0.0F;
         float by = 0.0F;
-        if (get_to_pixel(a, &ax, &ay) && get_to_pixel(b, &bx, &by))
+        if (get_to_pixel(a, &ax, &ay) && get_to_pixel(b, &bx, &by)) {
             lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
+        }
     }
     void cuboid(const OrientedBox& box, uint32_t argb, float thickness) const
     {
@@ -2382,8 +2537,9 @@ struct Painter {
         box_corners(box.origin, box.axes, box.min, box.max, c);
         for (int i = 0; i < kBoxCorners; ++i) {
             for (const int bit : {1, 2, 4}) {
-                if (!(i & bit))
+                if (!(i & bit)) {
                     get_seg(core::at(c, i), core::at(c, i | bit), argb, thickness);
+                }
             }
         }
     }
@@ -2395,13 +2551,15 @@ struct Painter {
         float ay = 0.0F;
         float bx = 0.0F;
         float by = 0.0F;
-        if (!get_to_pixel(a, &ax, &ay) || !get_to_pixel(b, &bx, &by))
+        if (!get_to_pixel(a, &ax, &ay) || !get_to_pixel(b, &bx, &by)) {
             return;
+        }
         float dx = bx - ax;
         float dy = by - ay;
         float const length = std::sqrt((dx * dx) + (dy * dy));
-        if (length < kMinArrowLength)
+        if (length < kMinArrowLength) {
             return;
+        }
         dx /= length;
         dy /= length;
         const float head = std::min(14.0F, length * 0.4F);
@@ -2433,37 +2591,44 @@ std::string describe(const Calls& calls, Kind kind)
     std::string text = kind_name(kind);
     switch (kind) {
     case Kind::kKill:
-        if (calls.water)
+        if (calls.water) {
             text += " (water)";
-        if (calls.target)
+        }
+        if (calls.target) {
             text += " -> " + get_label_of(calls.target);
+        }
         break;
     case Kind::kJumpTo:
-        if (calls.target)
+        if (calls.target) {
             text += " -> " + get_label_of(calls.target);
+        }
         break;
     case Kind::kGapEnd:
         text += ": " + (calls.gap_text_.empty() ? get_label_of(calls.gap_id_) : calls.gap_text_);
-        if (calls.gap_score_)
+        if (calls.gap_score_) {
             text += " (" + std::to_string(calls.gap_score_) + ")";
+        }
         break;
     case Kind::kGapStart:
-        if (calls.gap_id_)
+        if (calls.gap_id_) {
             text += ": " + get_label_of(calls.gap_id_);
+        }
         break;
     case Kind::kBoost: {
         std::array<char, kBoostTextSize> value{};
-        if (calls.boost_speed_ > 0.0F)
+        if (calls.boost_speed_ > 0.0F) {
             text::format_to(value, " (speed %.0f)", calls.boost_speed_);
-        else
+        } else {
             text::format_to(value, " (x%.1f)",
                             calls.boost_multi_ > 0.0F ? calls.boost_multi_ : kDefaultBoostMultiplier);
+        }
         text += value.data();
         break;
     }
     case Kind::kViewCam:
-        if (calls.camera_node_)
+        if (calls.camera_node_) {
             text += " -> " + get_label_of(calls.camera_node_);
+        }
         break;
     default:
         break;
@@ -2474,8 +2639,9 @@ std::string describe(const Calls& calls, Kind kind)
 bool get_node_pos(uint32_t name, V3* pos)
 {
     maths::Vec4 p;
-    if (!name || !level_nodes::fetch_vertex(name, false) || !level_nodes::fetch_place(name, &p))
+    if (!name || !level_nodes::fetch_vertex(name, false) || !level_nodes::fetch_place(name, &p)) {
         return false;
+    }
     *pos = {.x = p.x, .y = p.y, .z = p.z};
     return true;
 }
@@ -2490,13 +2656,15 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
                  std::vector<ui::Seg>* lines, std::vector<ui::Overlay::OverlayText>* texts)
 {
     remember_view(camera, frame, lens, viewport, near_z); // (the resize handles are drawn and picked with it)
-    if (!get_shown())
+    if (!get_shown()) {
         return;
+    }
     Painter paint = {.camera = camera, .frame = &frame, .lens = &lens, .viewport = viewport, .near_z_ = near_z, .lines = lines};
     int labels = 0;
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {
-        if (labels >= kMaxLabels)
+        if (labels >= kMaxLabels) {
             return;
+        }
         float x = 0.0F;
         float y = 0.0F;
         if (paint.get_to_pixel(at, &x, &y)) {
@@ -2508,12 +2676,14 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
     std::vector<std::pair<float, const LevelTrigger*>> near;
     for (const LevelTrigger& l : level_editor_triggers_state().level_) {
         const float d = distance_to(camera, l.min, l.max);
-        if (d <= kDrawRadius)
+        if (d <= kDrawRadius) {
             near.emplace_back(d, &l);
+        }
     }
     std::ranges::sort(near, [](const auto& a, const auto& b) { return a.first < b.first; });
-    if (near.size() > static_cast<size_t>(kMaxLevelDrawn))
+    if (near.size() > static_cast<size_t>(kMaxLevelDrawn)) {
         near.resize(kMaxLevelDrawn);
+    }
     for (const auto& n : near) {
         const LevelTrigger& l = *n.second;
         const bool inspected = l.sector == level_editor_triggers_state().inspected_;
@@ -2536,47 +2706,55 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, std::span<
         }
         const V3 centre = (l.min + l.max) * 0.5F;
         V3 target{};
-        if (!l.off && ((l.kind == Kind::kJumpTo && get_node_pos(l.calls.target, &target)) ||
-                       (l.kind == Kind::kViewCam && get_node_pos(l.calls.camera_node_, &target)))) // (map4: the camera's)
+        if (!l.off &&
+            ((l.kind == Kind::kJumpTo && get_node_pos(l.calls.target, &target)) ||
+             (l.kind == Kind::kViewCam && get_node_pos(l.calls.camera_node_, &target)))) { // (map4: the camera's)
             paint.get_arrow(centre, target, get_dim(kind_colour(l.kind), kLinkArrowAlpha));
-        if (n.first <= kLabelRadius || inspected)
+        }
+        if (n.first <= kLabelRadius || inspected) {
             label({.x = centre.x, .y = l.max.y, .z = centre.z}, colour,
                   (l.off ? "(off) " : "") + describe(l.calls, l.kind) + "  " + get_label_of(l.sector));
+        }
     }
     // The editor's.
     for (const Added& a : level_editor_triggers_state().added_) {
-        if (!a.alive)
+        if (!a.alive) {
             continue;
+        }
         const OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
         const uint32_t colour = a.problem ? 0xC0A0A0A0U : kind_colour(a.spec.kind);
         paint.cuboid(box, colour, kOverlayLineThickness);
         V3 target{};
         if (!a.problem &&
             (a.spec.kind == Kind::kJumpTo || a.spec.kind == Kind::kKill || a.spec.kind == Kind::kViewCam) &&
-            get_node_pos(checksum_of(a.spec.target), &target))
+            get_node_pos(checksum_of(a.spec.target), &target)) {
             paint.get_arrow(a.pos, target, get_dim(colour, a.spec.kind == Kind::kKill ? kKillArrowAlpha : kLinkArrowAlpha));
+        }
         if (a.spec.kind == Kind::kGapStart) {
             const int other = partner(level_editor_triggers_state().specs_, spec_index(a.spec.name));
             if (other >= 0) {
                 for (const Added& b : level_editor_triggers_state().added_) {
-                    if (b.alive && same_text(b.spec.name, core::at(level_editor_triggers_state().specs_, other).name))
+                    if (b.alive && same_text(b.spec.name, core::at(level_editor_triggers_state().specs_, other).name)) {
                         paint.get_arrow(a.pos, b.pos, get_dim(kind_colour(Kind::kGapEnd), kGapArrowAlpha));
+                    }
                 }
             }
         }
         std::string text = a.spec.name + ": " + kind_name(a.spec.kind);
-        if (a.spec.kind == Kind::kKill || a.spec.kind == Kind::kJumpTo)
+        if (a.spec.kind == Kind::kKill || a.spec.kind == Kind::kJumpTo) {
             text += " -> " + a.spec.target;
-        else if (a.spec.kind == Kind::kScripts)
+        } else if (a.spec.kind == Kind::kScripts) {
             text += " " + a.spec.script;
-        else if (a.spec.kind == Kind::kGapStart || a.spec.kind == Kind::kGapEnd)
+        } else if (a.spec.kind == Kind::kGapStart || a.spec.kind == Kind::kGapEnd) {
             text += " \"" + a.spec.text + "\"";
-        else if (a.spec.kind == Kind::kBoost)
+        } else if (a.spec.kind == Kind::kBoost) {
             text += " " + std::to_string(a.spec.strength);
-        else if (a.spec.kind == Kind::kBreak || a.spec.kind == Kind::kViewCam)
+        } else if (a.spec.kind == Kind::kBreak || a.spec.kind == Kind::kViewCam) {
             text += " " + a.spec.target;
-        if (a.problem)
+        }
+        if (a.problem) {
             text += " (not active)";
+        }
         label({.x = a.pos.x, .y = a.pos.y + (a.spec.size.y * kHalf), .z = a.pos.z}, colour, text);
     }
 }
@@ -2589,24 +2767,28 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {
         float x = 0.0F;
         float y = 0.0F;
-        if (paint.get_to_pixel(at, &x, &y))
+        if (paint.get_to_pixel(at, &x, &y)) {
             texts->push_back({.x = x, .y = y, .argb = argb, .text = text});
+        }
     };
     const V3 up = {.x = 0.0F, .y = 1.0F, .z = 0.0F};
     // Rail speed-ups: chevrons along each segment pointing uphill (where they speed the skater up), 60 apart.
     for (const chains::SpeedSegment& s : chains::speed_segments(camera, 3000.0F)) {
         V3 a = s.a;
         V3 b = s.b;
-        if (b.y < a.y)
+        if (b.y < a.y) {
             std::swap(a, b);
+        }
         const V3 d = b - a;
         const float length = std::sqrt(get_dot(d, d));
-        if (length < 1.0F)
+        if (length < 1.0F) {
             continue;
+        }
         const V3 dir = d * (1.0F / length);
         V3 side = perpendicular(dir, up);
-        if (get_dot(side, side) < kMinSideLengthSquared)
+        if (get_dot(side, side) < kMinSideLengthSquared) {
             side = {.x = 1.0F, .y = 0.0F, .z = 0.0F};
+        }
         side = make_unit(side);
         const uint32_t colour = s.level ? 0xC0B4B4B4U : 0xFFFF9F1AU;
         const int count = std::max(1, std::min(24, static_cast<int>(length / 60.0F)));
@@ -2629,12 +2811,14 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
         selected_node >= 0 && std::cmp_less(selected_node, nodes.size()) ? core::at(nodes, selected_node).name : 0;
     auto draw_proxim = [&](uint32_t node, bool is_selected) {
         const objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
-        if (!p)
+        if (!p) {
             return;
+        }
         const V3 at = {.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z};
         const V3 d = at - camera;
-        if (!is_selected && get_dot(d, d) > kProximDrawDistance * kProximDrawDistance)
+        if (!is_selected && get_dot(d, d) > kProximDrawDistance * kProximDrawDistance) {
             return;
+        }
         const uint32_t colour = is_selected ? 0xFFFFB060U : 0xC0F08A3CU;
         V3 top = at;
         if (p->form() == objects::ProximShape::kSphere && p->radius() > 0.0F) {
@@ -2665,27 +2849,33 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
         }
         if (const ProximEdit* e = proxim_of(node)) {
             std::string text = "Proximity";
-            if (!e->enter.empty())
+            if (!e->enter.empty()) {
                 text += "  in: " + e->enter;
-            if (!e->exit.empty())
+            }
+            if (!e->exit.empty()) {
                 text += "  out: " + e->exit;
+            }
             label(top + up * kProximLabelLift, colour, text);
         }
     };
     for (const ProximEdit& e : stored_proxims()) {
-        if (e.node != selected)
+        if (e.node != selected) {
             draw_proxim(e.node, false);
+        }
     }
-    if (selected && is_proxim(selected))
+    if (selected && is_proxim(selected)) {
         draw_proxim(selected, true);
+    }
     // Breakables: cracks over the piece's box (each face's middle, five jagged rays); jump boosts: an arrow up as
     // strong as they are (the level's too).
     for (const Added& a : level_editor_triggers_state().added_) {
-        if (!a.alive)
+        if (!a.alive) {
             continue;
+        }
         const V3 d = a.pos - camera;
-        if (get_dot(d, d) > kBreakDrawDistance * kBreakDrawDistance)
+        if (get_dot(d, d) > kBreakDrawDistance * kBreakDrawDistance) {
             continue;
+        }
         if (a.spec.kind == Kind::kBreak) {
             const uint32_t colour = a.broken ? 0x90A0A0A0U : 0xFFE8F4FFU;
             const V3 half = a.spec.size * 0.5F;
@@ -2716,12 +2906,14 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, std::span<c
         }
     }
     for (const LevelTrigger& l : level_editor_triggers_state().level_) {
-        if (l.kind != Kind::kBoost || l.off)
+        if (l.kind != Kind::kBoost || l.off) {
             continue;
+        }
         const V3 centre = (l.min + l.max) * 0.5F;
         const V3 d = centre - camera;
-        if (get_dot(d, d) > kBoostDrawDistance * kBoostDrawDistance)
+        if (get_dot(d, d) > kBoostDrawDistance * kBoostDrawDistance) {
             continue;
+        }
         const float strength = l.calls.boost_speed_ > 0.0F ? l.calls.boost_speed_ : 600.0F;
         const V3 base = {.x = centre.x, .y = l.max.y, .z = centre.z};
         paint.get_arrow(base, base + up * (strength * kBoostArrowScale), get_dim(kind_colour(Kind::kBoost), kLevelBoostArrowAlpha));
@@ -2795,16 +2987,18 @@ void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, std::spa
     last_view().camera = camera;
     last_view().frame = frame;
     last_view().lens = lens;
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         core::at(last_view().viewport, i) = core::at(viewport, i);
+    }
     last_view().near_z_ = near_z;
 }
 
 const Added* alive_named(uint32_t node)
 {
     for (const Added& a : level_editor_triggers_state().added_) {
-        if (a.alive && hash_of_name(a.spec.name) == node)
+        if (a.alive && hash_of_name(a.spec.name) == node) {
             return &a;
+        }
     }
     return nullptr;
 }
@@ -2813,8 +3007,9 @@ const Added* alive_named(uint32_t node)
 
 void set_selected(uint32_t node)
 {
-    if (node != stored_selected_node())
+    if (node != stored_selected_node()) {
         trigger_handles().hover_handle_ = -1;
+    }
     stored_selected_node() = node;
 }
 
@@ -2832,8 +3027,9 @@ bool shape_for(uint32_t node, HandleShape* s)
 {
     *s = HandleShape{};
     if (const Added* a = alive_named(node)) {
-        if (a->spec.kind == Kind::kBreak)
+        if (a->spec.kind == Kind::kBreak) {
             return false;
+        }
         s->trigger = true;
         s->pos = a->pos;
         s->yaw = a->yaw;
@@ -2841,8 +3037,9 @@ bool shape_for(uint32_t node, HandleShape* s)
         return true;
     }
     const objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
-    if (!p)
+    if (!p) {
         return false;
+    }
     const V3 at = {.x = p->at_point().x, .y = p->at_point().y, .z = p->at_point().z};
     const ProximEdit* e = proxim_of(node);
     if (e && e->shape) {
@@ -2873,16 +3070,18 @@ void add_handles(std::vector<ui::Overlay::Circle>* circles)
 {
     trigger_handles().drawn_handles_.clear();
     HandleShape shape;
-    if (!last_view().have || !shape_for(stored_selected_node(), &shape))
+    if (!last_view().have || !shape_for(stored_selected_node(), &shape)) {
         return;
+    }
     for (int h = 0; h < kHandleCount; ++h) {
         const V3 p = handle_point(shape.pos, shape.yaw, shape.size, h);
         float nx = 0.0F;
         float ny = 0.0F;
         float x = 0.0F;
         float y = 0.0F;
-        if (!cast_onto(last_view().camera, last_view().frame, last_view().lens, p, last_view().near_z_, &nx, &ny))
+        if (!cast_onto(last_view().camera, last_view().frame, last_view().lens, p, last_view().near_z_, &nx, &ny)) {
             continue;
+        }
         ndc_to_pixel(last_view().viewport, nx, ny, &x, &y);
         const bool lit = h == trigger_handles().hover_handle_ || (resize_drag().on && h == resize_drag().handle);
         const uint32_t colour = lit ? 0xFFFFFF40U : core::at(kHandleColours, h >> 1);
@@ -2923,8 +3122,9 @@ void set_hover_handle(int handle) { trigger_handles().hover_handle_ = handle; }
 bool begin_resize(int handle, V3 origin, V3 dir)
 {
     HandleShape shape;
-    if (!shape_for(stored_selected_node(), &shape) || handle < 0 || handle > kLastHandle)
+    if (!shape_for(stored_selected_node(), &shape) || handle < 0 || handle > kLastHandle) {
         return false;
+    }
     const Added* a = shape.trigger ? alive_named(stored_selected_node()) : nullptr;
     ResizeDrag r;
     r.name = a ? a->spec.name : std::string();
@@ -2937,8 +3137,9 @@ bool begin_resize(int handle, V3 origin, V3 dir)
     r.sphere = shape.sphere;
     r.start = handle_point(shape.pos, shape.yaw, shape.size, handle);
     r.direction = handle_direction({.yaw = shape.yaw, .handle = handle});
-    if (!closest_on_axis({.origin = r.start, .dir = r.direction}, {.origin = origin, .dir = dir}, &r.s0))
+    if (!closest_on_axis({.origin = r.start, .dir = r.direction}, {.origin = origin, .dir = dir}, &r.s0)) {
         return false; // (looking along the axis: no grip on it)
+    }
     r.on = true;
     resize_drag() = r;
     note_undo(); // (the state before: one undo step, taken by the editor next frame)
@@ -2947,18 +3148,23 @@ bool begin_resize(int handle, V3 origin, V3 dir)
 
 void rescale(V3 origin, V3 dir, bool snap)
 {
-    if (!resize_drag().on)
+    if (!resize_drag().on) {
         return;
+    }
     float s = 0.0F;
-    if (!closest_on_axis({.origin = resize_drag().start, .dir = resize_drag().direction}, {.origin = origin, .dir = dir}, &s))
+    if (!closest_on_axis({.origin = resize_drag().start, .dir = resize_drag().direction},
+                         {.origin = origin, .dir = dir}, &s)) {
         return;
+    }
     float along = s - resize_drag().s0;
-    if (!std::isfinite(along) || std::fabs(along) > kMaxTriggerSize)
+    if (!std::isfinite(along) || std::fabs(along) > kMaxTriggerSize) {
         return; // (the ray nearly along the axis: far off)
+    }
     const int axis = resize_drag().handle >> 1;
     const float size0 = axis == 0 ? resize_drag().size0.x : axis == 1 ? resize_drag().size0.y : resize_drag().size0.z;
-    if (snap)
+    if (snap) {
         along = snap_to_grid(size0 + along, kResizeSnapGrid) - size0;
+    }
     V3 pos{};
     V3 size{};
     resize_face(resize_drag().pos0, resize_drag().yaw, resize_drag().size0, {.handle = resize_drag().handle, .along = along}, {.new_pos_ = &pos, .new_size_ = &size});
@@ -3026,16 +3232,19 @@ void fire_on_leaving(objects::Entity* skater, uint32_t node)
 {
     script::Struct* s = level_nodes::fetch_vertex(node, false);
     uint32_t script = 0;
-    if (!s || !s->read_hash_value(kTriggerScript, &script, 0) || !script)
+    if (!s || !s->read_hash_value(kTriggerScript, &script, 0) || !script) {
         return;
-    if (modules::Skate::should_be_absent(s))
+    }
+    if (modules::Skate::should_be_absent(s)) {
         return;
+    }
     static const uint32_t kOnlineFlag = get_checksums("NetEnabled");
     static const uint32_t kPermanent = get_checksums("Permanent");
     skater->start_script_task(script, static_cast<int>(node), s->has_bare_flag(kOnlineFlag),
                               s->has_bare_flag(kPermanent), nullptr);
-    if (debug_enabled())
+    if (debug_enabled()) {
         get_log("level editor: trigger %s left - its script run (exit)", get_label_of(node).c_str());
+    }
 }
 
 } // namespace
@@ -3048,22 +3257,26 @@ void perform(bool editing)
         return;
     }
     auto* skater = core::down_cast<objects::GameEntity>(objects::find_object(kSkater));
-    if (!skater)
+    if (!skater) {
         return;
+    }
     const V3 at = {.x = skater->at_point().x, .y = skater->at_point().y, .z = skater->at_point().z};
     for (const Added& a : level_editor_triggers_state().added_) {
-        if (!a.alive || !a.spec.exit || a.problem)
+        if (!a.alive || !a.spec.exit || a.problem) {
             continue;
+        }
         uint32_t node = hash_of_name(a.spec.name);
         const bool now = get_inside(box_of(a.pos, a.yaw, a.spec.size), at);
         auto it = std::ranges::find_if(stored_seen(), [&](const Seen& s) { return s.node == node; });
         const bool known = it != stored_seen().end();
-        if (get_left(known, known && it->inside, now))
+        if (get_left(known, known && it->inside, now)) {
             fire_on_leaving(skater, node);
-        if (known)
+        }
+        if (known) {
             it->inside = now;
-        else
+        } else {
             stored_seen().push_back({.node = node, .inside = now});
+        }
     }
 }
 
@@ -3074,11 +3287,13 @@ State store_away()
     State state;
     state.specs = level_editor_triggers_state().specs_;
     for (const node_create::Spec& n : node_create::at_hand()) {
-        if (n.owned && spec_index(n.name) >= 0)
+        if (n.owned && spec_index(n.name) >= 0) {
             state.nodes.push_back(n);
+        }
     }
-    if (!level_editor_triggers_state().switched_.empty())
+    if (!level_editor_triggers_state().switched_.empty()) {
         state.walls = walls::store_away(level_editor_triggers_state().switched_);
+    }
     state.proxims = stored_proxims();
     return state;
 }
@@ -3087,8 +3302,9 @@ void get_restore(const State& state)
 {
     // The trigger nodes there now that the state hasn't: removed; those it has: made, or put where it had them.
     for (const node_create::Spec& n : node_create::at_hand()) {
-        if (!n.owned || spec_index(n.name) < 0)
+        if (!n.owned || spec_index(n.name) < 0) {
             continue;
+        }
         const bool keep =
             std::ranges::any_of(state.nodes, [&](const node_create::Spec& s) { return same_text(s.name, n.name); });
         if (!keep) {
@@ -3113,8 +3329,9 @@ void get_restore(const State& state)
             }
         }
     }
-    if (!state.walls.empty())
+    if (!state.walls.empty()) {
         walls::apply_states(state.walls);
+    }
     stored_proxims() = state.proxims;
     trigger_edit().has_undo_ = false;
     get_sync();
@@ -3122,8 +3339,9 @@ void get_restore(const State& state)
 
 bool take_undo(State* before)
 {
-    if (!trigger_edit().has_undo_)
+    if (!trigger_edit().has_undo_) {
         return false;
+    }
     trigger_edit().has_undo_ = false;
     *before = std::move(trigger_edit().undo_before_);
     trigger_edit().undo_before_ = State{};
@@ -3152,8 +3370,9 @@ std::vector<Placed> capture_added()
     for (const Spec& spec : level_editor_triggers_state().specs_) {
         Placed p;
         p.spec = spec;
-        if (!node_alive(spec.name) || !node_place(spec.name, &p.pos, &p.yaw))
+        if (!node_alive(spec.name) || !node_place(spec.name, &p.pos, &p.yaw)) {
             continue;
+        }
         V3 pos{};
         V3 size{};
         if (spec.kind == Kind::kBreak && break_place(spec, {.pos = &pos, .size = &size})) {
@@ -3170,16 +3389,18 @@ std::vector<Placed> capture_added()
 int get_apply(const std::vector<Placed>& placed, std::string* message)
 {
     note_level();
-    if (!level_editor_triggers_state().scanned_)
+    if (!level_editor_triggers_state().scanned_) {
         scan_level();
+    }
     int made = 0;
     for (const Placed& p : placed) {
         if (spec_index(p.spec.name) >= 0 || node_create::name_taken(p.spec.name)) {
             get_log("level editor: the layout's trigger %s is there already - skipped", p.spec.name.c_str());
             continue;
         }
-        if (!node_create::fabricate(node_spec(p.spec, p.pos, p.yaw), -1, message))
+        if (!node_create::fabricate(node_spec(p.spec, p.pos, p.yaw), -1, message)) {
             continue;
+        }
         level_editor_triggers_state().specs_.push_back(p.spec);
         ++made;
     }
@@ -3206,8 +3427,9 @@ std::vector<ProximEdit> capture_proxims()
 {
     std::vector<ProximEdit> out;
     for (const ProximEdit& e : stored_proxims()) {
-        if (proxim_edited(e))
+        if (proxim_edited(e)) {
             out.push_back(e);
+        }
     }
     return out;
 }
@@ -3218,10 +3440,11 @@ int apply_proxims(const std::vector<ProximEdit>& edits)
     int found = 0;
     for (const ProximEdit& e : edits) {
         const int i = proxim_index(e.node);
-        if (i >= 0)
+        if (i >= 0) {
             core::at(stored_proxims(), i) = e;
-        else
+        } else {
             stored_proxims().push_back(e);
+        }
         found += have_proxim_manager() && objects::proxim_get_node(e.node) ? 1 : 0;
     }
     sync_proxims();
@@ -3270,8 +3493,9 @@ void add_camera()
 const Added* breakable_of(uint32_t sector)
 {
     for (const Added& a : level_editor_triggers_state().added_) {
-        if (a.alive && a.spec.kind == Kind::kBreak && checksum_of(a.spec.target) == sector)
+        if (a.alive && a.spec.kind == Kind::kBreak && checksum_of(a.spec.target) == sector) {
             return &a;
+        }
     }
     return nullptr;
 }
@@ -3279,8 +3503,9 @@ const Added* breakable_of(uint32_t sector)
 void set_breakable(uint32_t sector, bool on)
 {
     const Added* there = breakable_of(sector);
-    if (on == (there != nullptr))
+    if (on == (there != nullptr)) {
         return;
+    }
     if (on) {
         Placed p;
         p.spec.name = node_create::fresh_name("ed_trigger", name_taken);
@@ -3302,11 +3527,13 @@ void set_breakable(uint32_t sector, bool on)
     int at = 0;
     node_create::drop_out(hash_of_name(name), &removed, &at);
     const int i = spec_index(name);
-    if (i >= 0)
+    if (i >= 0) {
         level_editor_triggers_state().specs_.erase(level_editor_triggers_state().specs_.begin() + i);
+    }
     if (render::WorldCell* piece = scenery::sector_of(sector);
-        piece && !is_sector_enabled(sector) && !scenery::get_hidden(sector))
+        piece && !is_sector_enabled(sector) && !scenery::get_hidden(sector)) {
         piece->change_live(true);
+    }
     get_sync();
     hud::get_message("No longer breakable", hud::kShortMessageSeconds);
 }
@@ -3319,8 +3546,9 @@ const ProximEdit* proxim_of(uint32_t node)
 
 void set_proxim(const ProximEdit& edit, bool undo)
 {
-    if (undo)
+    if (undo) {
         note_undo();
+    }
     ProximEdit e = edit;
     e.radius = std::max(kProximMin, std::min(kProximMax, e.radius));
     e.size = {.x = std::max(kProximMin, std::min(kProximMax, e.size.x)),
@@ -3328,8 +3556,9 @@ void set_proxim(const ProximEdit& edit, bool undo)
               .z = std::max(kProximMin, std::min(kProximMax, e.size.z))};
     const int i = proxim_index(e.node);
     if (!proxim_edited(e)) {
-        if (i >= 0)
+        if (i >= 0) {
             stored_proxims().erase(stored_proxims().begin() + i);
+        }
     } else if (i >= 0) {
         core::at(stored_proxims(), i) = e;
     } else {
@@ -3345,11 +3574,13 @@ bool has_handles(uint32_t node) { return is_trigger(node) || is_proxim(node); }
 std::string describe()
 {
     int alive = 0;
-    for (const Added& a : level_editor_triggers_state().added_)
+    for (const Added& a : level_editor_triggers_state().added_) {
         alive += a.alive ? 1 : 0;
+    }
     int off = 0;
-    for (const LevelTrigger& l : level_editor_triggers_state().level_)
+    for (const LevelTrigger& l : level_editor_triggers_state().level_) {
         off += l.off ? 1 : 0;
+    }
     std::array<char, kStatusTextSize> text{};
     text::format_to(text, "%u level trigger volumes (%d off), %d added", static_cast<unsigned>(level_editor_triggers_state().level_.size()), off,
                     alive);

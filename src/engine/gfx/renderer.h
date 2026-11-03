@@ -135,8 +135,9 @@ public:
     {
         for (maths::Mat4* matrix : {&world_matrix_, &view_matrix_, &projection_matrix_}) {
             const auto m = matrix->floats();
-            for (int i = 0; i < maths::kMatrixFloats; ++i)
+            for (int i = 0; i < maths::kMatrixFloats; ++i) {
                 core::at(m, i) = (i % maths::kIdentityStride == 0) ? 1.0F : 0.0F;
+            }
         }
     }
     [[nodiscard]] int step_seconds() const { return step_seconds_; }

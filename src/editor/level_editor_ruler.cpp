@@ -113,8 +113,9 @@ bool cast_feeler(V3 from, V3 to, V3* hit, uint32_t* sector)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false))
+    if (!ray->get_collision_along(&start, &end, false)) {
         return false;
+    }
     const auto& p = ray->hit().point;
     *hit = {.x = p[0], .y = p[1], .z = p[2]};
     *sector = ray->hit().object ? ray->hit().object_checksum_ : 0;
@@ -126,21 +127,25 @@ std::vector<V3> corners_near(uint32_t checksum, V3 near, float reach)
 {
     std::vector<V3> corners;
     const render::WorldCell* sector = checksum ? scenery::sector_of(checksum) : nullptr;
-    if (!sector)
+    if (!sector) {
         return corners;
+    }
     const render::HitMesh* coll = sector->hit_body();
-    if (!render::is_static_collider(coll))
+    if (!render::is_static_collider(coll)) {
         return corners;
+    }
     const auto* tri = coll->geometry();
-    if (!tri || !tri->vertices())
+    if (!tri || !tri->vertices()) {
         return corners;
+    }
     const int count = tri->num_vertices() < 20000 ? tri->num_vertices() : 20000;
     for (int i = 0; i < count; ++i) {
         const maths::Vec4 v = tri->read_stored_vertex(i);
         const V3 p = {.x = v.x, .y = v.y, .z = v.z};
         const V3 d = p - near;
-        if (get_dot(d, d) <= reach * reach)
+        if (get_dot(d, d) <= reach * reach) {
             corners.push_back(p);
+        }
     }
     return corners;
 }
@@ -164,18 +169,21 @@ void get_clear()
 void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
 {
     level_editor_ruler_state().have_hover_ = false;
-    if (!level_editor_ruler_state().armed_)
+    if (!level_editor_ruler_state().armed_) {
         return;
+    }
     V3 hit{};
     uint32_t sector = 0;
-    if (!cast_feeler(origin, origin + unit_dir * kRulerRayLength, &hit, &sector))
+    if (!cast_feeler(origin, origin + unit_dir * kRulerRayLength, &hit, &sector)) {
         return;
+    }
     level_editor_ruler_state().have_hover_ = true;
     level_editor_ruler_state().hover_ = hit;
     level_editor_ruler_state().hover_snapped_ = false;
     ViewNow view{};
-    if (no_snap || !current_view(&view))
+    if (no_snap || !current_view(&view)) {
         return;
+    }
     // (the corners of the piece hit, near enough to the hit to be within the snap on screen)
     const V3 d = hit - origin;
     const float reach = std::max(50.0F, std::sqrt(get_dot(d, d)) * 0.08F);
@@ -188,8 +196,9 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
         float ny = 0.0F;
         float px = 0.0F;
         float py = 0.0F;
-        if (!cast_onto(view.pos, frame, view.lens, c, view.near_z_, &nx, &ny))
+        if (!cast_onto(view.pos, frame, view.lens, c, view.near_z_, &nx, &ny)) {
             continue;
+        }
         ndc_to_pixel(view.viewport, nx, ny, &px, &py);
         pixels.emplace_back(px, py);
         shown.push_back(c);
@@ -203,8 +212,9 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
 
 std::string get_click()
 {
-    if (!level_editor_ruler_state().armed_ || !level_editor_ruler_state().have_hover_)
+    if (!level_editor_ruler_state().armed_ || !level_editor_ruler_state().have_hover_) {
         return "Ruler: no surface under cursor";
+    }
     if (level_editor_ruler_state().ends_ == 1) {
         level_editor_ruler_state().b_ = level_editor_ruler_state().hover_;
         level_editor_ruler_state().ends_ = 2;
@@ -217,27 +227,33 @@ std::string get_click()
 
 void add_overlay(const overlays::Painter& painter)
 {
-    if (!overlays::get_shown(overlays::kRuler))
+    if (!overlays::get_shown(overlays::kRuler)) {
         return;
+    }
     constexpr uint32_t kRuler = 0xFFFFE040;
     constexpr uint32_t kGap = 0xC040C0FF;
     constexpr uint32_t kRise = 0xC0FF8040;
     auto end = [&](V3 p, bool snapped) {
         painter.get_dot(p, snapped ? kSnappedDotRadius : kFreeDotRadius, kRuler, !snapped);
-        if (snapped)
+        if (snapped) {
             painter.get_dot(p, kEndDotRadius, kRuler, true);
+        }
     };
-    if (level_editor_ruler_state().ends_ >= 1)
+    if (level_editor_ruler_state().ends_ >= 1) {
         end(level_editor_ruler_state().a_, false);
+    }
     const V3 b = level_editor_ruler_state().ends_ == 2 ? level_editor_ruler_state().b_ : level_editor_ruler_state().hover_;
     const bool have_b = level_editor_ruler_state().ends_ == 2 || (level_editor_ruler_state().armed_ && level_editor_ruler_state().ends_ == 1 && level_editor_ruler_state().have_hover_);
-    if (level_editor_ruler_state().armed_ && level_editor_ruler_state().have_hover_ && level_editor_ruler_state().ends_ != 1)
+    if (level_editor_ruler_state().armed_ && level_editor_ruler_state().have_hover_ &&
+        level_editor_ruler_state().ends_ != 1) {
         end(level_editor_ruler_state().hover_, level_editor_ruler_state().hover_snapped_); // (where the next click puts an end)
+    }
     if (level_editor_ruler_state().ends_ >= 1 && have_b) {
-        if (level_editor_ruler_state().ends_ == 1)
+        if (level_editor_ruler_state().ends_ == 1) {
             end(b, level_editor_ruler_state().hover_snapped_);
-        else
+        } else {
             end(b, false);
+        }
         const Measure m = measure_of(level_editor_ruler_state().a_, b);
         (void)painter.get_seg(level_editor_ruler_state().a_, b, kRuler, kRulerLineWidth);
         // (the horizontal gap at the lower end's height, the rise straight up from it)
@@ -248,16 +264,18 @@ void add_overlay(const overlays::Painter& painter)
         (void)painter.get_seg(corner, high, kRise, kComponentLineWidth);
         painter.draw_label((level_editor_ruler_state().a_ + b) * kHalf, kRuler, arcs::span_to(m.distance));
         painter.draw_label((low + corner) * kHalf, kGap, "across " + arcs::span_to(m.horizontal), kLabelOffsetX, kLabelOffsetY);
-        if (std::fabs(m.height) > kMinShownRise)
+        if (std::fabs(m.height) > kMinShownRise) {
             painter.draw_label((corner + high) * kHalf, kRise,
                                (m.height < 0.0F ? "down " : "up ") + arcs::span_to(std::fabs(m.height)));
+        }
     }
 }
 
 std::string describe()
 {
-    if (level_editor_ruler_state().ends_ < 2)
+    if (level_editor_ruler_state().ends_ < 2) {
         return level_editor_ruler_state().armed_ ? (level_editor_ruler_state().ends_ == 1 ? "ruler: click the second end" : "ruler: click the first end") : "";
+    }
     return "ruler: " + describe(measure_of(level_editor_ruler_state().a_, level_editor_ruler_state().b_));
 }
 

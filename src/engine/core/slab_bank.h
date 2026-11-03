@@ -113,8 +113,9 @@ public:
     template <typename Item>
     void destroy(Item* item)
     {
-        if (!item)
+        if (!item) {
             return;
+        }
         item->~Item();
         dealloc(item);
     }

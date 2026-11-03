@@ -29,8 +29,9 @@ namespace {
 
 void get_tip(const char* text)
 {
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("%s", text);
+    }
 }
 
 } // namespace
@@ -46,8 +47,9 @@ void view_mode_items()
     for (int mode = 0; mode < kViewModes; ++mode) {
         std::array<char, kViewModeKeysSize> keys{};
         text::format_to(keys, "Alt+%d", mode + 1);
-        if (ImGui::MenuItem(view_mode_name(mode), keys.data(), view_mode() == mode))
+        if (ImGui::MenuItem(view_mode_name(mode), keys.data(), view_mode() == mode)) {
             change_view_mode(mode);
+        }
         get_tip(core::at(kTips, mode));
     }
 }
@@ -60,22 +62,25 @@ void overlay_items(const ui::ShapeMesh& model, std::vector<ui::Request>* request
         requests->push_back(r);
     }
     get_tip("Collision near the camera, coloured by surface");
-    if (ImGui::MenuItem("Trigger Volumes", "T", triggers::get_shown()))
+    if (ImGui::MenuItem("Trigger Volumes", "T", triggers::get_shown())) {
         triggers::set_shown(!triggers::get_shown());
+    }
     get_tip("Kill zones, teleports, gaps and script triggers");
     for (const BitInfo& info : get_bits()) {
         std::array<char, kOverlayItemSize> item{};
         text::format_to(item, "%s##ov%u", info.label, info.bit);
-        if (ImGui::MenuItem(item.data(), *info.key ? info.key : nullptr, get_shown(info.bit)))
+        if (ImGui::MenuItem(item.data(), *info.key ? info.key : nullptr, get_shown(info.bit))) {
             assign_value(info.bit, !get_shown(info.bit));
+        }
         get_tip(info.tip);
     }
     if (ImGui::BeginMenu("Gizmos")) {
         const uint32_t families = model.nodes.families;
         for (int f = 0; f < nodes::kFamilies; ++f) {
             auto family = static_cast<nodes::Family>(f);
-            if (nodes::shape_of(family) == nodes::Shape::kNone)
+            if (nodes::shape_of(family) == nodes::Shape::kNone) {
                 continue; // (scenery: its own geometry shows it)
+            }
             const bool on = (families & nodes::get_bit(family)) != 0;
             std::array<char, kFamilyItemSize> item{};
             text::format_to(item, "%s##fam%d", nodes::family_name(family), f);

@@ -46,8 +46,9 @@ constexpr float kCarriedDotRadius = 5.0F;
 std::vector<GridLine> grid_lines(V3 centre, float y, float radius, float spacing)
 {
     std::vector<GridLine> lines;
-    if (!(spacing > 0.0F) || !(radius > 0.0F) || radius / spacing > kMaxGridLines)
+    if (!(spacing > 0.0F) || !(radius > 0.0F) || radius / spacing > kMaxGridLines) {
         return lines;
+    }
     // (the lines on multiples of the spacing, within the square round the centre)
     const std::array<long, 2> first = {{static_cast<long>(std::ceil((centre.x - radius) / spacing)),
                            static_cast<long>(std::ceil((centre.z - radius) / spacing))}};
@@ -66,8 +67,9 @@ std::vector<GridLine> grid_lines(V3 centre, float y, float radius, float spacing
 
 uint32_t parse_bits(int value, bool present)
 {
-    if (!present || value < 0)
+    if (!present || value < 0) {
         return kDefaultBits;
+    }
     return static_cast<uint32_t>(value) & kAllBits;
 }
 
@@ -109,8 +111,9 @@ LevelEditorOverlaysState& level_editor_overlays_state()
 
 void get_take_in()
 {
-    if (level_editor_overlays_state().read_)
+    if (level_editor_overlays_state().read_) {
         return;
+    }
     level_editor_overlays_state().read_ = true;
     const int value = config_int("editor", "overlays", -1);
     level_editor_overlays_state().bits_ = parse_bits(value, value >= 0);
@@ -130,8 +133,9 @@ void assign_value(uint32_t bit, bool on)
 {
     get_take_in();
     const uint32_t bits = on ? level_editor_overlays_state().bits_ | bit : level_editor_overlays_state().bits_ & ~bit;
-    if (bits == level_editor_overlays_state().bits_)
+    if (bits == level_editor_overlays_state().bits_) {
         return;
+    }
     level_editor_overlays_state().bits_ = bits & kAllBits;
     config_set_int("editor", "overlays", static_cast<int>(level_editor_overlays_state().bits_));
 }
@@ -150,15 +154,17 @@ int view_mode() { return level_editor_overlays_state().view_mode_; }
 
 void change_view_mode(int mode)
 {
-    if (mode < 0 || mode >= kViewModes || mode == level_editor_overlays_state().view_mode_)
+    if (mode < 0 || mode >= kViewModes || mode == level_editor_overlays_state().view_mode_) {
         return;
+    }
     constexpr int kCollisionOnly = static_cast<int>(render::view_mode::Mode::kCollisionOnly);
     if (mode == kCollisionOnly && !view::show_collision()) {
         view::set_show_collision(true);
         level_editor_overlays_state().forced_collision_ = true;
     } else if (level_editor_overlays_state().view_mode_ == kCollisionOnly && level_editor_overlays_state().forced_collision_) {
-        if (view::show_collision())
+        if (view::show_collision()) {
             view::set_show_collision(false);
+        }
         level_editor_overlays_state().forced_collision_ = false;
     }
     level_editor_overlays_state().view_mode_ = mode;
@@ -173,22 +179,25 @@ bool Painter::get_pixel(V3 p, float* x, float* y) const
 {
     float nx = 0.0F;
     float ny = 0.0F;
-    if (!cast_onto(camera_, frame_, lens_, p, near_z_, &nx, &ny))
+    if (!cast_onto(camera_, frame_, lens_, p, near_z_, &nx, &ny)) {
         return false;
+    }
     ndc_to_pixel(viewport_, nx, ny, x, y);
     return true;
 }
 
 bool Painter::get_seg(V3 a, V3 b, uint32_t argb, float thickness) const
 {
-    if (!clip_to_near(camera_, frame_, near_z_ + kNearPlaneMargin, &a, &b))
+    if (!clip_to_near(camera_, frame_, near_z_ + kNearPlaneMargin, &a, &b)) {
         return false;
+    }
     float ax = 0.0F;
     float ay = 0.0F;
     float bx = 0.0F;
     float by = 0.0F;
-    if (!get_pixel(a, &ax, &ay) || !get_pixel(b, &bx, &by))
+    if (!get_pixel(a, &ax, &ay) || !get_pixel(b, &bx, &by)) {
         return false;
+    }
     overlay_->lines.push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     return true;
 }
@@ -197,16 +206,18 @@ void Painter::get_dot(V3 p, float radius, uint32_t argb, bool filled) const
 {
     float x = 0.0F;
     float y = 0.0F;
-    if (get_pixel(p, &x, &y))
+    if (get_pixel(p, &x, &y)) {
         overlay_->circles.push_back({.x = x, .y = y, .radius = radius, .argb = argb, .filled = filled, .thickness = kCircleThickness});
+    }
 }
 
 void Painter::draw_label(V3 p, uint32_t argb, const std::string& text, float dx, float dy) const
 {
     float x = 0.0F;
     float y = 0.0F;
-    if (get_pixel(p, &x, &y))
+    if (get_pixel(p, &x, &y)) {
         overlay_->texts.push_back({.x = x + dx, .y = y + dy, .argb = argb, .text = text});
+    }
 }
 
 void Painter::perpendicular(V3 p, float size, uint32_t argb, float thickness) const
@@ -224,13 +235,15 @@ float Painter::span_to(V3 p) const
 bool painter_now(ui::Overlay* overlay, Painter* painter)
 {
     ViewNow view{};
-    if (!current_view(&view))
+    if (!current_view(&view)) {
         return false;
+    }
     painter->set_camera(view.pos);
     painter->set_frame(frame_from_yaw_pitch(view.yaw, view.pitch));
     painter->set_lens(view.lens);
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         core::at(painter->viewport(), i) = core::at(view.viewport, i);
+    }
     painter->set_near_z(view.near_z_);
     painter->set_overlay(overlay);
     return true;
@@ -246,8 +259,9 @@ bool get_ground_y(V3 from, float* y)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = from.x, .y = from.y - 5000.0F, .z = from.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false))
+    if (!ray->get_collision_along(&start, &end, false)) {
         return false;
+    }
     *y = ray->hit().point.y;
     return true;
 }
@@ -270,9 +284,10 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
         if (g_have_ground) {
             const V3 centre = {
                 .x = std::round(from.x / 100.0F) * 100.0F, .y = g_ground_y, .z = std::round(from.z / 100.0F) * 100.0F};
-            for (const GridLine& line : grid_lines(centre, g_ground_y + 0.5F, 1500.0F, 100.0F))
+            for (const GridLine& line : grid_lines(centre, g_ground_y + 0.5F, 1500.0F, 100.0F)) {
                 (void)painter.get_seg(line.a, line.b, line.major ? kGridMajorColour : kGridMinorColour,
                                       line.major ? kGridMajorThickness : 1.0F);
+            }
         }
     }
     if (get_shown(kCarryHints) && moving) {
@@ -280,20 +295,24 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
         for (const uint32_t id : carry::carried_objects()) {
             auto* object = core::down_cast<objects::GameEntity>(objects::find_object(id));
             OrientedBox box{};
-            if (!object || (object->object_flags() & objects::kObjectFlagDead) || !object_edit::model_box(object, &box))
+            if (!object || (object->object_flags() & objects::kObjectFlagDead) ||
+                !object_edit::model_box(object, &box)) {
                 continue;
+            }
             std::array<V3, kBoxCornerCount> corners{};
             box_corners(box.origin, box.axes, box.min, box.max, corners);
             static const std::array<std::array<int, 2>, 12> kEdges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
-            for (const auto& e : kEdges)
+            for (const auto& e : kEdges) {
                 (void)painter.get_seg(core::at(corners, core::at(e, 0)), core::at(corners, core::at(e, 1)), kCarried, kCarriedThickness);
+            }
         }
         const std::vector<nodes::Elem>& all = nodes::get_all();
         for (const uint32_t name : carry::carried_nodes()) {
             const int index = nodes::get_find(name);
-            if (index < 0 || !core::at(all, index).has_pos_)
+            if (index < 0 || !core::at(all, index).has_pos_) {
                 continue;
+            }
             painter.get_dot(core::at(all, index).pos, kCarriedDotRadius, kCarried, false);
         }
     }

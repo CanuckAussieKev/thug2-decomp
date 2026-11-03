@@ -77,12 +77,14 @@ bool read_numbers(const std::string& text, std::span<float> out, int count)
     for (int i = 0; i < count; ++i) {
         char* end = nullptr;
         core::at(out, i) = std::strtof(at, &end);
-        if (end == at || !std::isfinite(core::at(out, i)))
+        if (end == at || !std::isfinite(core::at(out, i))) {
             return false;
+        }
         at = end;
         if (i + 1 < count) {
-            if (*at != ',')
+            if (*at != ',') {
                 return false;
+            }
             at = std::next(at);
         }
     }
@@ -92,8 +94,9 @@ bool read_numbers(const std::string& text, std::span<float> out, int count)
 bool read_triple(const std::string& text, V3* out)
 {
     std::array<float, 3> v{};
-    if (!read_numbers(text, v, 3))
+    if (!read_numbers(text, v, 3)) {
         return false;
+    }
     *out = {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2)};
     return true;
 }
@@ -102,8 +105,9 @@ bool read_triple(const std::string& text, V3* out)
 
 float clamp_distance(float d)
 {
-    if (!(d == d))
+    if (!(d == d)) {
         return kDefaultDistance;
+    }
     return std::clamp(d, kMinDistance, kMaxDistance);
 }
 
@@ -137,8 +141,9 @@ V3 position_offset(V3 pos, V3 angles, float distance) { return pos - target_of(p
 
 int shot_frames(float seconds)
 {
-    if (!std::isfinite(seconds))
+    if (!std::isfinite(seconds)) {
         seconds = kShotDefaultSeconds;
+    }
     seconds = std::max(kShotMinSeconds, std::min(kShotMaxSeconds, seconds));
     return static_cast<int>(std::lround(seconds * kFrameRate));
 }
@@ -177,35 +182,41 @@ std::string write_record(const ViewCam& c)
 bool read_record(std::istringstream& in, ViewCam* out)
 {
     ViewCam c;
-    if (!(in >> c.name) || !node_create::valid_name(c.name))
+    if (!(in >> c.name) || !node_create::valid_name(c.name)) {
         return false;
+    }
     bool have_pos = false;
     bool have_angles = false;
     bool have_distance = false;
     std::string field;
     while (in >> field) {
         const size_t equals = field.find('=');
-        if (equals == std::string::npos || equals == 0)
+        if (equals == std::string::npos || equals == 0) {
             return false;
+        }
         const std::string key = field.substr(0, equals);
         const std::string value = field.substr(equals + 1);
         if (key == "pos") {
-            if (have_pos || !read_triple(value, &c.pos))
+            if (have_pos || !read_triple(value, &c.pos)) {
                 return false;
+            }
             have_pos = true;
         } else if (key == "angles") {
-            if (have_angles || !read_triple(value, &c.angles))
+            if (have_angles || !read_triple(value, &c.angles)) {
                 return false;
+            }
             have_angles = true;
         } else if (key == "dist") {
-            if (have_distance || !read_numbers(value, std::span<float>(&c.distance, 1), 1))
+            if (have_distance || !read_numbers(value, std::span<float>(&c.distance, 1), 1)) {
                 return false;
+            }
             c.distance = clamp_distance(c.distance);
             have_distance = true;
         } // (another key: a later version's - skipped)
     }
-    if (!have_pos)
+    if (!have_pos) {
         return false;
+    }
     *out = c;
     return true;
 }
@@ -308,9 +319,11 @@ void push_undo()
 
 const ViewCam* get_find(const std::vector<ViewCam>& all, uint32_t name)
 {
-    for (const ViewCam& c : all)
-        if (node_create::name_hash(c.name) == name)
+    for (const ViewCam& c : all) {
+        if (node_create::name_hash(c.name) == name) {
             return &c;
+        }
+    }
     return nullptr;
 }
 
@@ -320,8 +333,9 @@ void keep_offsets(const ViewCam& c)
     script::Struct* node = level_nodes::node_manager_instance()
                                ? level_nodes::fetch_vertex(node_create::name_hash(c.name), false)
                                : nullptr;
-    if (!node)
+    if (!node) {
         return;
+    }
     struct Key {
         uint32_t key;
         V3 value;
@@ -332,8 +346,9 @@ void keep_offsets(const ViewCam& c)
         const fields::Own own = fields::own_in(node, k.key, false);
         const bool same = own.present && own.value.kind == fields::Kind::kVec4 && core::at(own.value.numbers, 0) == k.value.x &&
                           core::at(own.value.numbers, 1) == k.value.y && core::at(own.value.numbers, 2) == k.value.z;
-        if (same)
+        if (same) {
             continue;
+        }
         fields::Own put = own;
         put.present = true;
         put.value = fields::Value{};
@@ -361,8 +376,9 @@ std::vector<ViewCam> get_all()
 {
     std::vector<ViewCam> out;
     for (const node_create::Spec& spec : node_create::at_hand()) {
-        if (!same_text(spec.type, "ed_camera") || !same_text(spec.cls, "GenericNode"))
+        if (!same_text(spec.type, "ed_camera") || !same_text(spec.cls, "GenericNode")) {
             continue;
+        }
         ViewCam c;
         c.name = spec.name;
         c.pos = spec.pos;
@@ -410,8 +426,9 @@ bool shot_offsets(uint32_t name, ShotOffsets offsets)
         return true;
     }
     script::Struct* node = level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
-    if (!node)
+    if (!node) {
         return false;
+    }
     script::VectorValue t{};
     script::VectorValue p{};
     if (node->fetch_vec(get_checksums("targetOffset"), &t, 0) &&
@@ -421,8 +438,9 @@ bool shot_offsets(uint32_t name, ShotOffsets offsets)
         return true;
     }
     maths::Vec4 at;
-    if (!level_nodes::fetch_place(node, &at))
+    if (!level_nodes::fetch_place(node, &at)) {
         return false;
+    }
     script::VectorValue a = {};
     node->fetch_vec(get_checksums("Angles"), &a, 0);
     const V3 pos = {.x = at.x, .y = at.y, .z = at.z};
@@ -441,8 +459,9 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
         get_log("level editor: LevelEditor_PlayCamera needs camera=<node>");
         return false;
     }
-    if (live_now())
+    if (live_now()) {
         return false; // (the editor's own camera; Look through previews a camera there)
+    }
     V3 target{};
     V3 position{};
     if (!shot_offsets(name, {.target = &target, .position = &position})) {
@@ -452,8 +471,9 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     float seconds = kShotDefaultSeconds;
     int whole = 0;
     if (!params->fetch_float(get_checksums("time"), &seconds, 0) &&
-        params->fetch_int_value(get_checksums("time"), &whole, 0))
+        params->fetch_int_value(get_checksums("time"), &whole, 0)) {
         seconds = static_cast<float>(whole);
+    }
     const uint32_t shot = get_checksums("ed_camera_shot");
     const double now = get_now();
     if (now < shot_until()) {
@@ -478,8 +498,9 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     anim->get_clear();
     script::delete_struct(anim);
     shot_until() = now + (frames / kFrameRateDouble);
-    if (debug_enabled())
+    if (debug_enabled()) {
         get_log("level editor: camera %s played for %d frames", nodes::caption(name).c_str(), frames);
+    }
     return true;
 }
 
@@ -526,8 +547,9 @@ bool aim_from_view(uint32_t name)
     const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
     ViewNow view{};
-    if (!c || !current_view(&view))
+    if (!c || !current_view(&view)) {
         return false;
+    }
     push_undo();
     node_edit::Values values;
     values.pos = view.pos;
@@ -543,10 +565,12 @@ bool set_pitch(checksums::Name camera, float degrees, bool done)
     const uint32_t name = camera.value();
     const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
-    if (!c)
+    if (!c) {
         return false;
-    if (!level_editor_cameras_state().dragging_)
+    }
+    if (!level_editor_cameras_state().dragging_) {
         push_undo();
+    }
     level_editor_cameras_state().dragging_ = !done;
     node_edit::Values values;
     values.pos = c->pos;
@@ -561,10 +585,12 @@ bool place_at_range(checksums::Name camera, float distance, bool done)
     const uint32_t name = camera.value();
     const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
-    if (!c)
+    if (!c) {
         return false;
-    if (!level_editor_cameras_state().dragging_)
+    }
+    if (!level_editor_cameras_state().dragging_) {
         push_undo();
+    }
     level_editor_cameras_state().dragging_ = !done;
     distances_state()[c->name] = clamp_distance(distance);
     return true;
@@ -574,14 +600,16 @@ bool drop_out(uint32_t name)
 {
     const std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
-    if (!c)
+    if (!c) {
         return false;
+    }
     push_undo();
     node_create::Spec removed;
     int at = -1;
     const std::string label = c->name;
-    if (!node_create::drop_out(name, &removed, &at))
+    if (!node_create::drop_out(name, &removed, &at)) {
         return false;
+    }
     hud::get_message("Deleted camera " + label);
     return true;
 }
@@ -595,14 +623,16 @@ int get_apply(const std::vector<ViewCam>& cameras)
     for (const ViewCam& c : cameras) {
         distances_state()[c.name] = clamp_distance(c.distance);
         const uint32_t name = node_create::name_hash(c.name);
-        if (node_create::is_added(name))
+        if (node_create::is_added(name)) {
             continue;
+        }
         if (node_create::name_taken(c.name)) {
             get_log("level editor: camera %s - the level has a node of that name already: not made", c.name.c_str());
             continue;
         }
-        if (node_create::fabricate(spec_of(c), -1, &message))
+        if (node_create::fabricate(spec_of(c), -1, &message)) {
             ++made;
+        }
     }
     return made;
 }
@@ -627,10 +657,12 @@ void tick_frame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(level_editor_cameras_state().queue_);
-    for (auto& action : queue)
+    for (auto& action : queue) {
         action();
-    for (const ViewCam& c : get_all())
+    }
+    for (const ViewCam& c : get_all()) {
         keep_offsets(c);
+    }
 }
 
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, OverlayPick overlay_pick, std::vector<ui::Seg>* lines)
@@ -638,26 +670,30 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
     const auto near_z = overlay_pick.near_z_;
     const auto selected = overlay_pick.selected;
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
-        if (!clip_to_near(camera_pos, frame, near_z + kNearPlaneMargin, &a, &b))
+        if (!clip_to_near(camera_pos, frame, near_z + kNearPlaneMargin, &a, &b)) {
             return;
+        }
         float ax = 0.0F;
         float ay = 0.0F;
         float bx = 0.0F;
         float by = 0.0F;
         float nx = 0.0F;
         float ny = 0.0F;
-        if (!cast_onto(camera_pos, frame, lens, a, near_z, &nx, &ny))
+        if (!cast_onto(camera_pos, frame, lens, a, near_z, &nx, &ny)) {
             return;
+        }
         ndc_to_pixel(viewport, nx, ny, &ax, &ay);
-        if (!cast_onto(camera_pos, frame, lens, b, near_z, &nx, &ny))
+        if (!cast_onto(camera_pos, frame, lens, b, near_z, &nx, &ny)) {
             return;
+        }
         ndc_to_pixel(viewport, nx, ny, &bx, &by);
         lines->push_back({.ax = ax, .ay = ay, .bx = bx, .by = by, .argb = argb, .thickness = thickness});
     };
     for (const ViewCam& c : get_all()) {
         const V3 d = c.pos - camera_pos;
-        if (get_dot(d, d) > kMaxFrustumReach * kMaxFrustumReach)
+        if (get_dot(d, d) > kMaxFrustumReach * kMaxFrustumReach) {
             continue;
+        }
         const bool lit = node_create::name_hash(c.name) == selected;
         const uint32_t colour = lit ? 0xFFFFF060 : 0xFFFF9030;
         const float thickness = lit ? 2.0F : 1.25F;
@@ -688,12 +724,14 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
 {
     const std::vector<ViewCam> all = get_all();
     const ViewCam* c = node ? get_find(all, node) : nullptr;
-    if (!c)
+    if (!c) {
         return;
+    }
     ImGui::Spacing();
     ImGui::Separator();
-    if (!ImGui::CollapsingHeader("Camera###camera", ImGuiTreeNodeFlags_DefaultOpen))
+    if (!ImGui::CollapsingHeader("Camera###camera", ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
+    }
     float yaw = 0.0F;
     float pitch = 0.0F;
     yaw_pitch_of(c->angles, {.yaw = &yaw, .pitch = &pitch});
@@ -705,8 +743,9 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         const float value = pitch_degrees;
         level_editor_cameras_state().queue_.emplace_back([node, value] { set_pitch(checksums::Name{node}, value, false); });
     }
-    if (ImGui::IsItemDeactivated())
+    if (ImGui::IsItemDeactivated()) {
         level_editor_cameras_state().queue_.emplace_back([] { level_editor_cameras_state().dragging_ = false; });
+    }
     float distance = c->distance;
     ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
     if (ImGui::DragFloat("Target##camera", &distance, kTargetDragSpeed, kMinDistance, kMaxDistance, "%.0f units",
@@ -714,8 +753,9 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         const float value = distance;
         level_editor_cameras_state().queue_.emplace_back([node, value] { place_at_range(checksums::Name{node}, value, false); });
     }
-    if (ImGui::IsItemDeactivated())
+    if (ImGui::IsItemDeactivated()) {
         level_editor_cameras_state().queue_.emplace_back([] { level_editor_cameras_state().dragging_ = false; });
+    }
     const V3 target = target_of(c->pos, c->angles, c->distance);
     const V3 offset = position_offset(c->pos, c->angles, c->distance);
     ImGui::PushFont(small_font);
@@ -723,19 +763,24 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     gui::text("positionOffset (%.1f, %.1f, %.1f)", offset.x, offset.y, offset.z);
     ImGui::PopFont();
     ImGui::PopFont();
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Computed from position and heading");
-    if (ImGui::Button("Look through##camera"))
+    }
+    if (ImGui::Button("Look through##camera")) {
         level_editor_cameras_state().queue_.emplace_back([node] { get_preview(node); });
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Put at the view##camera"))
+    if (ImGui::Button("Put at the view##camera")) {
         level_editor_cameras_state().queue_.emplace_back([node] { aim_from_view(node); });
-    if (ImGui::IsItemHovered())
+    }
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Move the camera to the current view");
+    }
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ui_theme::kDangerButtonColour);
-    if (ImGui::Button("Delete##camera"))
+    if (ImGui::Button("Delete##camera")) {
         level_editor_cameras_state().queue_.emplace_back([node] { drop_out(node); });
+    }
     ImGui::PopStyleColor();
 }
 
@@ -743,24 +788,28 @@ void list_section(ImFont* mono, ImFont* small_font)
 {
     ImGui::Spacing();
     ImGui::Separator();
-    if (!ImGui::CollapsingHeader("Cameras###cameras"))
+    if (!ImGui::CollapsingHeader("Cameras###cameras")) {
         return;
+    }
     ImGui::PushFont(small_font);
     gui::text_disabled("Camera nodes, saved with the layout");
     ImGui::PopFont();
-    if (ImGui::Button("New Camera from View"))
+    if (ImGui::Button("New Camera from View")) {
         level_editor_cameras_state().queue_.emplace_back([] { create_from_view(); });
+    }
     const std::vector<ViewCam> all = get_all();
-    if (all.empty())
+    if (all.empty()) {
         gui::text_disabled("None yet.");
+    }
     ImGui::PushFont(mono);
     for (const ViewCam& c : all) {
         const uint32_t name = node_create::name_hash(c.name);
         ImGui::PushID(static_cast<int>(name));
         ImGui::TextUnformatted(c.name.c_str());
         ImGui::SameLine();
-        if (ImGui::SmallButton("View Through"))
+        if (ImGui::SmallButton("View Through")) {
             level_editor_cameras_state().queue_.emplace_back([name] { get_preview(name); });
+        }
         ImGui::PopID();
     }
     ImGui::PopFont();

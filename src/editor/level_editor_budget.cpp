@@ -56,10 +56,12 @@ double get_fill(double used, double limit) { return limit > 0.0 ? used / limit :
 
 StageMap get_level_of(double used, double limit)
 {
-    if (limit <= 0.0)
+    if (limit <= 0.0) {
         return StageMap::kOk;
-    if (used > limit)
+    }
+    if (used > limit) {
         return StageMap::kOver;
+    }
     return used >= kNearFraction * limit ? StageMap::kNear : StageMap::kOk;
 }
 
@@ -80,8 +82,9 @@ int get_worst(const std::vector<Meter>& meters)
     int worst = -1;
     double fill = -1.0;
     for (size_t i = 0; i < meters.size(); ++i) {
-        if (core::at(meters, i).limit <= 0.0)
+        if (core::at(meters, i).limit <= 0.0) {
             continue;
+        }
         const double f = get_fill(core::at(meters, i).used, core::at(meters, i).limit);
         if (f > fill) {
             fill = f;
@@ -95,12 +98,13 @@ std::string get_bytes(double bytes)
 {
     std::array<char, kSizeTextSize> text{};
     const double a = std::fabs(bytes);
-    if (a < kBytesPerKilobyte)
+    if (a < kBytesPerKilobyte) {
         text::format_to(text, "%.0f B", bytes);
-    else if (a < kBytesPerKilobyte * kBytesPerKilobyte)
+    } else if (a < kBytesPerKilobyte * kBytesPerKilobyte) {
         text::format_to(text, "%.1f KB", bytes / kBytesPerKilobyte);
-    else
+    } else {
         text::format_to(text, "%.2f MB", bytes / (kBytesPerKilobyte * kBytesPerKilobyte));
+    }
     return text.data();
 }
 
@@ -108,8 +112,9 @@ namespace {
 
 std::string get_amount(const Meter& meter, double value)
 {
-    if (meter.bytes)
+    if (meter.bytes) {
         return get_bytes(value);
+    }
     std::array<char, kChangeTextSize> text{};
     text::format_to(text, "%.0f", value);
     return text.data();
@@ -120,16 +125,18 @@ std::string get_amount(const Meter& meter, double value)
 std::string used_text(const Meter& meter)
 {
     std::string text = get_amount(meter, meter.used);
-    if (meter.limit > 0.0)
+    if (meter.limit > 0.0) {
         text += " / " + get_amount(meter, meter.limit);
+    }
     return text;
 }
 
 std::string added_text(const Meter& meter)
 {
     // (memory moves by a few bytes on its own: under 1 KB isn't shown)
-    if (meter.added == 0.0 || (meter.bytes && std::fabs(meter.added) < kBytesPerKilobyte))
+    if (meter.added == 0.0 || (meter.bytes && std::fabs(meter.added) < kBytesPerKilobyte)) {
         return "";
+    }
     const std::string sign = meter.added > 0.0 ? "+" : "-";
     const Meter positive = meter;
     return (meter.approximate ? "about " : "") + sign + get_amount(positive, std::fabs(meter.added));
@@ -173,8 +180,9 @@ bool pool_use(memory::PoolPair& pools, PoolUse pool_use_out)
     auto* const used = pool_use_out.used;
     auto* const count = pool_use_out.count;
     const memory::SlabBank* pool = pools.current() == 0 || pools.current() == 1 ? core::at(pools.pools(), pools.current()) : nullptr;
-    if (!pool)
+    if (!pool) {
         return false;
+    }
     *used = pool->taken_count();
     *count = pool->num();
     return true;
@@ -183,12 +191,14 @@ bool pool_use(memory::PoolPair& pools, PoolUse pool_use_out)
 // A region's bytes and what's free in it: between its two allocators' tops, and their free blocks.
 bool region_use(memory::Zone* region, double* size, double* used)
 {
-    if (!region)
+    if (!region) {
         return false;
+    }
     double free = region->free_byte_count();
     for (const memory::MemSource* allocator : region->allocators()) {
-        if (allocator)
+        if (allocator) {
             free += allocator->free_size();
+        }
     }
     *size = static_cast<double>(region->byte_size());
     *used = *size - free;
@@ -240,16 +250,18 @@ void get_observe()
         base().loads = loads;
         base().taken = false;
     }
-    if (!base().taken && level_up())
+    if (!base().taken && level_up()) {
         take_baseline();
+    }
 }
 
 std::vector<Meter> get_meters()
 {
     std::vector<Meter> meters;
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (nodes.empty())
+    if (nodes.empty()) {
         return meters;
+    }
     // Counted as the game counts them now, and as the level has them (no added node; hidden ones counted).
     int crowns_shipped = 0;
     int restarts_shipped = 0;
@@ -288,8 +300,9 @@ std::vector<Meter> get_meters()
     count("Restarts", {.used = static_cast<double>(counts.restarts), .limit = static_cast<double>(node_create::kMaxRestarts), .added = static_cast<double>(counts.restarts - restarts_shipped)},
           "GetRestartNode 0x0046B790: a 256-name stack array for every restart (more overruns it)");
     int added_lights = 0;
-    for (const nodes::Elem& n : nodes)
+    for (const nodes::Elem& n : nodes) {
         added_lights += n.added && !n.hidden && n.family == nodes::Family::kLight;
+    }
     count("Level lights", {.used = static_cast<double>(counts.level_lights_), .limit = static_cast<double>(node_create::kMaxLevelLights), .added = static_cast<double>(added_lights)},
           "the light manager's level light list (count 0x006FAEF4; AddLight 0x00490570)");
     count("Dynamic lights", {.used = static_cast<double>(counts.dynamic_lights_), .limit = static_cast<double>(node_create::kMaxDynamicLights), .added = static_cast<double>(0)},
@@ -297,9 +310,10 @@ std::vector<Meter> get_meters()
     count("Nodes", {.used = static_cast<double>(nodes.size()), .limit = static_cast<double>(memory::sizes::node_hash_slots()), .added = static_cast<double>(added_nodes)},
           "the node manager's name hash 0x006F0D84 (HashNode 0x0045CE60): original 0x4000 slots, ours [memory] "
           "node_hash_slots");
-    if (const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get())
+    if (const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get()) {
         count("Node arrays", {.used = static_cast<double>(manager->num()), .limit = static_cast<double>(level_nodes::NodeManager::kMaxArrays), .added = static_cast<double>(0)},
               "CNodeManager's 20 node arrays (AddNodeArray 0x0045D520)");
+    }
     count("Editor trigger volumes", {.used = static_cast<double>(triggers::added_triggers().size()), .limit = static_cast<double>(0), .added = static_cast<double>(triggers::added_triggers().size())}, "the movable collision list (no fixed limit)");
     int faces = 0;
     const int companions = shared_collision::total_of(&faces);
@@ -311,8 +325,9 @@ std::vector<Meter> get_meters()
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0;
         int total = 0;
-        if (!pool_use(core::at(kPools, i).pair(), {.used = &used, .count = &total}))
+        if (!pool_use(core::at(kPools, i).pair(), {.used = &used, .count = &total})) {
             continue;
+        }
         Meter m;
         m.name = core::at(kPools, i).name;
         m.used = used;
@@ -377,8 +392,9 @@ bool strip_meter(float* fill, uint32_t* argb)
 {
     const std::vector<Meter>& meters = get_cached();
     const int worst = get_worst(meters);
-    if (worst < 0)
+    if (worst < 0) {
         return false;
+    }
     const Meter& w = core::at(meters, worst);
     *fill = static_cast<float>(std::min(1.0, get_fill(w.used, w.limit)));
     *argb = level_colour(get_level_of(w.used, w.limit));
@@ -389,8 +405,9 @@ void tooltip()
 {
     const std::vector<Meter>& meters = get_cached();
     const int worst = get_worst(meters);
-    if (worst < 0)
+    if (worst < 0) {
         return;
+    }
     ImGui::BeginTooltip();
     gui::text("Budget: %s %s (click for details)", core::at(meters, worst).name, used_text(core::at(meters, worst)).c_str());
     ImGui::Separator();
@@ -412,8 +429,9 @@ void get_table()
         return;
     }
     gui::text_disabled("Usage against engine limits. Amber: 80%% or more; red: over.");
-    if (!ImGui::BeginTable("##budgetTable", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+    if (!ImGui::BeginTable("##budgetTable", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
         return;
+    }
     ImGui::TableSetupColumn("What");
     ImGui::TableSetupColumn("Used / limit");
     ImGui::TableSetupColumn("Fill", ImGuiTableColumnFlags_WidthFixed, kFillColumnWidth);
@@ -423,8 +441,9 @@ void get_table()
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TextUnformatted(m.name);
-        if (ImGui::IsItemHovered())
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("%s", m.where);
+        }
         ImGui::TableNextColumn();
         ImGui::TextUnformatted(used_text(m).c_str());
         ImGui::TableNextColumn();

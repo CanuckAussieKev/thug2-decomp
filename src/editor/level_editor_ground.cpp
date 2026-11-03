@@ -77,12 +77,15 @@ float confine(float v, float low, float high) { return std::max(low, std::min(hi
 bool normalise(Spec* s)
 {
     if (!finite(s->x0) || !finite(s->x1) || !finite(s->z0) || !finite(s->z1) || !finite(s->base) ||
-        !finite(s->height) || !finite(s->length) || !finite(s->uv))
+        !finite(s->height) || !finite(s->length) || !finite(s->uv)) {
         return false;
-    if (s->x1 < s->x0)
+    }
+    if (s->x1 < s->x0) {
         std::swap(s->x0, s->x1);
-    if (s->z1 < s->z0)
+    }
+    if (s->z1 < s->z0) {
         std::swap(s->z0, s->z1);
+    }
     // (too narrow / wide: grown / shrunk about the first corner)
     s->x1 = s->x0 + confine(s->x1 - s->x0, kMinSide, kMaxSide);
     s->z1 = s->z0 + confine(s->z1 - s->z0, kMinSide, kMaxSide);
@@ -95,8 +98,9 @@ bool normalise(Spec* s)
 float ramp_length(const Spec& s, int side)
 {
     const Ramp ramp = core::at(s.ramps, side);
-    if (ramp == Ramp::kNone)
+    if (ramp == Ramp::kNone) {
         return 0.0F;
+    }
     float length = s.length > 0.0F ? s.length : (ramp == Ramp::kKicker ? kKickerLengthFactor * s.height : s.height);
     length = std::max(kMinRampLength, length);
     if (s.lower) {
@@ -130,8 +134,9 @@ std::vector<std::pair<float, float>> quarter_profile(QuarterShape shape)
         }
         points.emplace_back(d, y);
     }
-    if (height > radius + kRadiusMargin)
+    if (height > radius + kRadiusMargin) {
         points.emplace_back(0.0F, height);
+    }
     return points;
 }
 
@@ -177,12 +182,13 @@ public:
         const float az = std::fabs(n.z);
         float u = 0.0F;
         float v = 0.0F;
-        if (ay >= ax && ay >= az)
+        if (ay >= ax && ay >= az) {
             u = p.x, v = p.z;
-        else if (ax >= az)
+        } else if (ax >= az) {
             u = p.z, v = p.y;
-        else
+        } else {
             u = p.x, v = p.y;
+        }
         mesh_.vertices.push_back({.pos = p, .normal = n, .u = u / uv, .v = -v / uv});
     }
     // A triangle's corners.
@@ -200,8 +206,9 @@ public:
         auto c = triangle.c;
         V3 n = perpendicular(b - a, c - a);
         const float length = std::sqrt(get_dot(n, n));
-        if (!(length > kTinyLength))
+        if (!(length > kTinyLength)) {
             return;
+        }
         if (get_dot(n, hint) < 0.0F) {
             std::swap(b, c);
             n = n * -1.0F;
@@ -239,10 +246,11 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, RampHeights heights, 
     const auto length = heights.length;
     float rise = top - foot;
     std::vector<std::pair<float, float>> profile;
-    if (ramp == Ramp::kKicker)
+    if (ramp == Ramp::kKicker) {
         profile = {{length, 0.0F}, {0.0F, rise}};
-    else
+    } else {
         profile = quarter_profile({.radius = length, .height = rise, .segments = kQuarterSegments});
+    }
     for (size_t i = 0; i + 1 < profile.size(); ++i) {
         const float d0 = core::at(profile, i).first;
         const float y0 = foot + core::at(profile, i).second;
@@ -256,8 +264,9 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, RampHeights heights, 
         b->get_quad(get_at(e0 + out * d0, y0), get_at(e1 + out * d0, y0), get_at(e1 + out * d1, y1),
                     get_at(e0 + out * d1, y1), hint, flags);
     }
-    if (!cheeks)
+    if (!cheeks) {
         return;
+    }
     const V3 along = make_unit(e1 - e0);
     for (int end = 0; end < 2; ++end) {
         const V3 e = end ? e1 : e0;
@@ -278,8 +287,9 @@ Mesh get_build(const Spec& spec)
     Spec s = spec;
     Builder b;
     b.set_uv(s.uv > 0.0F ? s.uv : kDefaultUvScale);
-    if (!normalise(&s))
+    if (!normalise(&s)) {
         return b.mesh();
+    }
     if (!s.lower) {
         const float top = s.base + s.height;
         const float bottom = s.base - kSink;
@@ -289,10 +299,11 @@ Mesh get_build(const Spec& spec)
             V3 e0{};
             V3 e1{};
             side_frame(s, side, &out, &e0, &e1);
-            if (core::at(s.ramps, side) == Ramp::kNone)
+            if (core::at(s.ramps, side) == Ramp::kNone) {
                 b.get_quad(get_at(e0, bottom), get_at(e1, bottom), get_at(e1, top), get_at(e0, top), out, kFlagWall);
-            else
+            } else {
                 add_ramp(&b, core::at(s.ramps, side), out, e0, e1, {.foot = s.base, .top = top, .length = ramp_length(s, side)}, true);
+            }
         }
     } else {
         const float floor = s.base - s.height;
@@ -304,10 +315,11 @@ Mesh get_build(const Spec& spec)
             V3 e1{};
             side_frame(s, side, &out, &e0, &e1);
             const V3 in = out * -1.0F;
-            if (core::at(s.ramps, side) == Ramp::kNone)
+            if (core::at(s.ramps, side) == Ramp::kNone) {
                 b.get_quad(get_at(e0, floor), get_at(e1, floor), get_at(e1, s.base), get_at(e0, s.base), in, kFlagWall);
-            else
+            } else {
                 add_ramp(&b, core::at(s.ramps, side), in, e0, e1, {.foot = floor, .top = s.base, .length = ramp_length(s, side)}, false);
+            }
         }
     }
     Mesh& m = b.mesh();
@@ -330,8 +342,9 @@ std::vector<uint16_t> get_strip(const std::vector<Face>& faces, bool two_sided)
             strip.push_back(strip.back());
             strip.push_back(a);
             strip.push_back(a);
-            if ((strip.size() - 1) % 2 != 0)
+            if ((strip.size() - 1) % 2 != 0) {
                 strip.push_back(a);
+            }
         } else {
             strip.push_back(a);
         }
@@ -340,8 +353,9 @@ std::vector<uint16_t> get_strip(const std::vector<Face>& faces, bool two_sided)
     };
     for (const Face& f : faces) {
         add(f.a, f.b, f.c);
-        if (two_sided)
+        if (two_sided) {
             add(f.a, f.c, f.b);
+        }
     }
     return strip;
 }
@@ -353,10 +367,12 @@ std::vector<std::array<uint16_t, 3>> strip_triangles(const std::vector<uint16_t>
         uint16_t a = core::at(strip, i);
         uint16_t b = core::at(strip, i + 1);
         uint16_t const c = core::at(strip, i + 2);
-        if (a == b || b == c || a == c)
+        if (a == b || b == c || a == c) {
             continue;
-        if (i % 2)
+        }
+        if (i % 2) {
             std::swap(a, b);
+        }
         triangles.push_back({a, b, c});
     }
     return triangles;
@@ -369,20 +385,26 @@ bool layout_for(VertexFormat format, Layout* layout)
     *layout = Layout{};
     // (0..6: the engine's built-in vertex shaders; 0x10000 and above: a shader handle - texture coordinate sizes other
     // than two never appear in the scene's formats)
-    if (fvf <= kLastBuiltInShader || fvf >= kShaderHandleMin || (fvf & kFvfUnsupportedMask) != 0x002)
+    if (fvf <= kLastBuiltInShader || fvf >= kShaderHandleMin || (fvf & kFvfUnsupportedMask) != 0x002) {
         return false;
+    }
     int at = kPositionBytes;
-    if (fvf & render::kFvfNormal)
+    if (fvf & render::kFvfNormal) {
         layout->normal = at, at += kNormalBytes;
-    if (fvf & kFvfPointSize)
+    }
+    if (fvf & kFvfPointSize) {
         layout->size = at, at += 4;
-    if (fvf & render::kFvfDiffuse)
+    }
+    if (fvf & render::kFvfDiffuse) {
         layout->diffuse = at, at += 4;
-    if (fvf & render::kFvfSpecular)
+    }
+    if (fvf & render::kFvfSpecular) {
         layout->specular = at, at += 4;
+    }
     layout->tex_count_ = static_cast<int>((fvf >> kFvfTexCountShift) & kFvfTexCountMask);
-    if (layout->tex_count_)
+    if (layout->tex_count_) {
         layout->tex = at;
+    }
     at += kTexCoordBytes * layout->tex_count_;
     return ints::as_unsigned(at) == stride;
 }
@@ -394,14 +416,16 @@ void write_vertices(const Mesh& mesh, const Layout& layout, uint32_t stride, col
         const std::span<uint8_t> one = out.first(stride);
         std::memset(one.data(), 0, stride);
         std::memcpy(one.data(), &v.pos, kPositionBytes);
-        if (layout.normal >= 0)
+        if (layout.normal >= 0) {
             std::memcpy(one.subspan(static_cast<size_t>(layout.normal)).data(), &v.normal, kNormalBytes);
+        }
         if (layout.size >= 0) {
             float unit = 1.0F;
             std::memcpy(one.subspan(static_cast<size_t>(layout.size)).data(), &unit, 4);
         }
-        if (layout.diffuse >= 0)
+        if (layout.diffuse >= 0) {
             std::memcpy(one.subspan(static_cast<size_t>(layout.diffuse)).data(), &colour, 4);
+        }
         for (int t = 0; t < layout.tex_count_; ++t) {
             std::memcpy(one.subspan(static_cast<size_t>(layout.tex + (kTexCoordBytes * t))).data(), &v.u, 4);
             std::memcpy(one.subspan(static_cast<size_t>(layout.tex + (kTexCoordBytes * t) + 4)).data(), &v.v, 4);
@@ -435,8 +459,9 @@ std::vector<std::string> split_commas(const std::string& text)
     while (true) {
         const size_t comma = text.find(',', start);
         parts.push_back(text.substr(start, comma == std::string::npos ? std::string::npos : comma - start));
-        if (comma == std::string::npos)
+        if (comma == std::string::npos) {
             break;
+        }
         start = comma + 1;
     }
     return parts;
@@ -444,23 +469,28 @@ std::vector<std::string> split_commas(const std::string& text)
 
 bool is_hex8(const std::string& text, uint32_t* value)
 {
-    if (text.size() != kPrefixedHexLength || core::at(text, 0) != '0' || (core::at(text, 1) != 'x' && core::at(text, 1) != 'X'))
+    if (text.size() != kPrefixedHexLength || core::at(text, 0) != '0' ||
+        (core::at(text, 1) != 'x' && core::at(text, 1) != 'X')) {
         return false;
+    }
     char* end = nullptr;
     const unsigned long v = std::strtoul(std::next(text.c_str(), 2), &end, 16);
-    if (!end || *end)
+    if (!end || *end) {
         return false;
+    }
     *value = static_cast<uint32_t>(v);
     return true;
 }
 
 bool valid_word(const std::string& name)
 {
-    if (name.empty() || name.size() > kMaxNameLength)
+    if (name.empty() || name.size() > kMaxNameLength) {
         return false;
+    }
     for (const char c : name) {
-        if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '_'))
+        if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '_')) {
             return false;
+        }
     }
     return true;
 }
@@ -472,8 +502,9 @@ namespace {
 uint32_t name_checksum_for(const std::string& text)
 {
     uint32_t value = 0;
-    if (is_hex8(text, &value))
+    if (is_hex8(text, &value)) {
         return value;
+    }
     return text.empty() ? 0U : checksums::hash_from_text(text.c_str());
 }
 } // namespace
@@ -511,14 +542,16 @@ bool read_record(const std::string& text, Spec* out)
     std::istringstream in(text);
     Spec s;
     std::string kind;
-    if (!(in >> s.name >> kind) || !valid_word(s.name))
+    if (!(in >> s.name >> kind) || !valid_word(s.name)) {
         return false;
-    if (kind == "raise")
+    }
+    if (kind == "raise") {
         s.lower = false;
-    else if (kind == "lower")
+    } else if (kind == "lower") {
         s.lower = true;
-    else
+    } else {
         return false;
+    }
     bool have_rect = false;
     bool have_base = false;
     bool have_height = false;
@@ -530,15 +563,17 @@ bool read_record(const std::string& text, Spec* out)
     bool have_terrain = false;
     bool have_hides = false;
     auto once = [](bool* seen) {
-        if (*seen)
+        if (*seen) {
             return false;
+        }
         *seen = true;
         return true;
     };
     for (std::string word; in >> word;) {
         const size_t eq = word.find('=');
-        if (eq == std::string::npos || eq == 0)
+        if (eq == std::string::npos || eq == 0) {
             return false;
+        }
         const std::string key = word.substr(0, eq);
         const std::string value = word.substr(eq + 1);
         bool ok = true;
@@ -555,21 +590,23 @@ bool read_record(const std::string& text, Spec* out)
             ok = once(&have_ramps) && parts.size() == 4;
             for (size_t i = 0; ok && i < 4; ++i) {
                 const std::string& p = core::at(parts, i);
-                if (p == "-")
+                if (p == "-") {
                     core::at(s.ramps, i) = Ramp::kNone;
-                else if (p == "k")
+                } else if (p == "k") {
                     core::at(s.ramps, i) = Ramp::kKicker;
-                else if (p == "q")
+                } else if (p == "q") {
                     core::at(s.ramps, i) = Ramp::kQuarter;
-                else
+                } else {
                     ok = false;
+                }
             }
         } else if (key == "length") {
             ok = once(&have_length) && read_float(value, &s.length) && s.length >= 0.0F;
         } else if (key == "material") {
             ok = once(&have_material) && (is_hex8(value, &s.material) || valid_word(value));
-            if (ok && !is_hex8(value, &s.material))
+            if (ok && !is_hex8(value, &s.material)) {
                 s.material = name_checksum_for(value);
+            }
         } else if (key == "uv") {
             ok = once(&have_uv) && read_float(value, &s.uv) && s.uv > 0.0F;
         } else if (key == "color") {
@@ -587,18 +624,22 @@ bool read_record(const std::string& text, Spec* out)
             for (const std::string& p : split_commas(value)) {
                 uint32_t c = 0;
                 ok = ok && is_hex8(p, &c);
-                if (ok)
+                if (ok) {
                     s.hides.push_back(c);
+                }
             }
         }
         // (other keys: a later version's - skipped)
-        if (!ok)
+        if (!ok) {
             return false;
+        }
     }
-    if (!have_rect || !have_base || !have_height || !have_material || !s.material)
+    if (!have_rect || !have_base || !have_height || !have_material || !s.material) {
         return false;
-    if (!normalise(&s))
+    }
+    if (!normalise(&s)) {
         return false;
+    }
     *out = s;
     return true;
 }
@@ -609,8 +650,9 @@ std::string fresh_name(const std::vector<Spec>& specs)
         std::array<char, 32> name{};
         text::format_to(name, "ed_ground%02d", n);
         const bool taken = std::ranges::any_of(specs, [&](const Spec& s) { return s.name == name.data(); });
-        if (!taken)
+        if (!taken) {
             return name.data();
+        }
     }
 }
 
@@ -623,23 +665,26 @@ bool ground_face_under(std::span<const V3, 3> c, const Spec& s, float tolerance)
 {
     const V3 n = perpendicular(core::at(c, 1) - core::at(c, 0), core::at(c, 2) - core::at(c, 0));
     const float length = std::sqrt(get_dot(n, n));
-    if (!(length > 0.0F) || std::fabs(n.y) / length < kFloorNormalY)
+    if (!(length > 0.0F) || std::fabs(n.y) / length < kFloorNormalY) {
         return false;
+    }
     const float min_x = std::min({core::at(c, 0).x, core::at(c, 1).x, core::at(c, 2).x});
     const float max_x = std::max({core::at(c, 0).x, core::at(c, 1).x, core::at(c, 2).x});
     const float min_z = std::min({core::at(c, 0).z, core::at(c, 1).z, core::at(c, 2).z});
     const float max_z = std::max({core::at(c, 0).z, core::at(c, 1).z, core::at(c, 2).z});
     const float min_y = std::min({core::at(c, 0).y, core::at(c, 1).y, core::at(c, 2).y});
     const float max_y = std::max({core::at(c, 0).y, core::at(c, 1).y, core::at(c, 2).y});
-    if (max_y < s.base - tolerance || min_y > s.base + tolerance)
+    if (max_y < s.base - tolerance || min_y > s.base + tolerance) {
         return false;
+    }
     return max_x > s.x0 + 1.0F && min_x < s.x1 - 1.0F && max_z > s.z0 + 1.0F && min_z < s.z1 - 1.0F;
 }
 
 float snap_to(float value, float grid)
 {
-    if (!(grid > 0.0F))
+    if (!(grid > 0.0F)) {
         return value;
+    }
     return std::floor((value / grid) + kRoundHalf) * grid;
 }
 

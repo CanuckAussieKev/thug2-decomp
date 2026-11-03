@@ -87,10 +87,11 @@ float get_ease(float t)
 float nearest_angle(float from, float to)
 {
     double d = std::fmod(static_cast<double>(to) - from, kFullTurnPerPi * maths::kPi);
-    if (d > maths::kPi)
+    if (d > maths::kPi) {
         d -= kFullTurnPerPi * maths::kPi;
-    else if (d < -maths::kPi)
+    } else if (d < -maths::kPi) {
         d += kFullTurnPerPi * maths::kPi;
+    }
     return static_cast<float>(from + d);
 }
 
@@ -108,8 +109,9 @@ float frame_distance(FrameFit frame_fit)
     const auto radius = frame_fit.radius;
     const auto tan_half = frame_fit.tan_half_;
     const auto minimum = frame_fit.minimum;
-    if (tan_half <= 0.0F)
+    if (tan_half <= 0.0F) {
         return std::max(minimum, radius * kRadiusMarginFactor);
+    }
     // (the sphere seen whole: its radius over the sine of the half-angle, a little more)
     const double half = std::atan(static_cast<double>(tan_half));
     return std::max(minimum, static_cast<float>(radius / std::sin(half) * kFrameMargin));
@@ -128,8 +130,9 @@ V3 orbit_about(V3 pos, V3 pivot, const TickCycle& before, const TickCycle& after
 
 float fly_ramp(float held_seconds, int accel_ms)
 {
-    if (accel_ms <= 0)
+    if (accel_ms <= 0) {
         return 1.0F;
+    }
     const float t = held_seconds * 1000.0F / static_cast<float>(accel_ms);
     // (never quite still: the first frame moves a little)
     return std::max(kMinEase, get_ease(t));
@@ -205,8 +208,9 @@ std::string format_bookmarks(std::span<const Bookmark, kBookmarks> marks)
     std::string text = "thug2-decomp camera bookmarks 1\n";
     for (int i = 0; i < kBookmarks; ++i) {
         const Bookmark& m = core::at(marks, i);
-        if (!m.set)
+        if (!m.set) {
             continue;
+        }
         std::array<char, kLineTextSize> line{};
         text::format_to(line, "%d %.9g %.9g %.9g %.9g %.9g %d %.9g\n", i + 1, m.pose.pos.x, m.pose.pos.y, m.pose.pos.z,
                         m.pose.yaw, m.pose.pitch, static_cast<int>(m.view), m.equivalent);
@@ -217,12 +221,14 @@ std::string format_bookmarks(std::span<const Bookmark, kBookmarks> marks)
 
 bool parse_bookmarks(const std::string& text, std::span<Bookmark, kBookmarks> marks)
 {
-    for (int i = 0; i < kBookmarks; ++i)
+    for (int i = 0; i < kBookmarks; ++i) {
         core::at(marks, i) = Bookmark{};
+    }
     std::istringstream in(text);
     std::string line;
-    if (!std::getline(in, line) || !line.starts_with("thug2-decomp camera bookmarks "))
+    if (!std::getline(in, line) || !line.starts_with("thug2-decomp camera bookmarks ")) {
         return false;
+    }
     while (std::getline(in, line)) {
         int n = 0;
         int view = 0;
@@ -234,10 +240,12 @@ bool parse_bookmarks(const std::string& text, std::span<Bookmark, kBookmarks> ma
         float equivalent = 0.0F;
         text::FieldReader fields(line); // "%d %f %f %f %f %f %d %f"
         if (!(fields.read(n) && fields.read(x) && fields.read(y) && fields.read(z) && fields.read(yaw) &&
-              fields.read(pitch) && fields.read(view) && fields.read(equivalent)))
+              fields.read(pitch) && fields.read(view) && fields.read(equivalent))) {
             continue;
-        if (n < 1 || n > kBookmarks || view < 0 || view > static_cast<int>(View::kDealloc))
+        }
+        if (n < 1 || n > kBookmarks || view < 0 || view > static_cast<int>(View::kDealloc)) {
             continue;
+        }
         Bookmark& m = core::at(marks, n - 1);
         m.set = true;
         m.pose = {.pos = {.x = x, .y = y, .z = z}, .yaw = yaw, .pitch = pitch};
@@ -314,23 +322,27 @@ std::string bookmarks_path() { return game_folder_path("thug2-decomp-layouts") +
 
 void load_bookmarks()
 {
-    for (Bookmark& m : level_editor_camera_state().marks_)
+    for (Bookmark& m : level_editor_camera_state().marks_) {
         m = Bookmark{};
+    }
     const std::ifstream file(bookmarks_path(), std::ios::binary);
-    if (!file)
+    if (!file) {
         return;
+    }
     std::stringstream text;
     text << file.rdbuf();
-    if (!parse_bookmarks(text.str(), level_editor_camera_state().marks_))
+    if (!parse_bookmarks(text.str(), level_editor_camera_state().marks_)) {
         get_log("level editor: %s isn't a bookmarks file - not read", bookmarks_path().c_str());
+    }
 }
 
 bool save_bookmarks()
 {
     CreateDirectoryA(game_folder_path("thug2-decomp-layouts").c_str(), nullptr);
     std::ofstream file(bookmarks_path(), std::ios::binary | std::ios::trunc);
-    if (!file)
+    if (!file) {
         return false;
+    }
     file << format_bookmarks(level_editor_camera_state().marks_);
     return static_cast<bool>(file);
 }
@@ -358,21 +370,24 @@ void enter_ortho(const Rig& rig, View view, float yaw, float pitch, V3 pivot, fl
     *rig.pitch = pitch;
     const V3 forward = get_forward(yaw, pitch);
     *rig.pos = stored_ortho().pivot - forward * eye_distance(stored_ortho().equivalent);
-    if (rig.have_selection_)
+    if (rig.have_selection_) {
         *rig.orbit_distance_ = eye_distance(stored_ortho().equivalent);
+    }
     stored_ortho().last_eye_ = *rig.pos;
     hud::get_message(std::string(view_name(view)) + " (orthographic)", kOrthoMessageSeconds);
 }
 
 void exit_ortho(const Rig& rig)
 {
-    if (stored_ortho().view == View::kNone)
+    if (stored_ortho().view == View::kNone) {
         return;
+    }
     const V3 forward = get_forward(*rig.yaw, *rig.pitch);
     const V3 pivot = rig.have_selection_ ? rig.target : stored_ortho().pivot;
     *rig.pos = pivot - forward * stored_ortho().equivalent;
-    if (rig.have_selection_)
+    if (rig.have_selection_) {
         *rig.orbit_distance_ = std::clamp(stored_ortho().equivalent, kMinOrbitDistance, kMaxOrbitDistance);
+    }
     stored_ortho().view = View::kNone;
     hud::get_message("Perspective", kBriefMessageSeconds);
 }
@@ -380,12 +395,14 @@ void exit_ortho(const Rig& rig)
 // The point the view looks at: the selection, else the surface ahead (within 20000), else 1000 ahead.
 V3 look_point(const Rig& rig)
 {
-    if (rig.have_selection_)
+    if (rig.have_selection_) {
         return rig.target;
+    }
     const V3 forward = get_forward(*rig.yaw, *rig.pitch);
     V3 hit{};
-    if (rig.cast && rig.cast(*rig.pos, *rig.pos + forward * kForwardCastReach, &hit))
+    if (rig.cast && rig.cast(*rig.pos, *rig.pos + forward * kForwardCastReach, &hit)) {
         return hit;
+    }
     return *rig.pos + forward * kFallbackPivotDistance;
 }
 
@@ -420,8 +437,9 @@ View current_view() { return stored_ortho().view; }
 
 float apparent(float distance)
 {
-    if (!ortho())
+    if (!ortho()) {
         return distance;
+    }
     return distance * stored_ortho().equivalent / eye_distance(stored_ortho().equivalent);
 }
 
@@ -440,8 +458,9 @@ std::string get_standing()
         text::format_to(text, "%s ortho (%.0f)", view_name(stored_ortho().view), stored_ortho().equivalent);
         s = text.data();
     }
-    if (level_editor_camera_state().orbit_.orbiting)
+    if (level_editor_camera_state().orbit_.orbiting) {
         s += s.empty() ? "orbiting" : "  orbiting";
+    }
     return s;
 }
 
@@ -458,8 +477,9 @@ void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 la
         hud::get_message(text.data(), kSpeedMessageSeconds);
     }
     // Looking about ends an ortho view (Blender's auto perspective).
-    if (m.right && (*m.rel_x_ != 0.0F || *m.rel_y_ != 0.0F) && ortho())
+    if (m.right && (*m.rel_x_ != 0.0F || *m.rel_y_ != 0.0F) && ortho()) {
         exit_ortho(rig);
+    }
     // Alt+left: held back until it moves (an orbit) or is let go (an Alt+click).
     if (!level_editor_camera_state().orbit_.pending && *m.left_presses_ && alt && !rig.dragging && !m.right) {
         level_editor_camera_state().orbit_ = OrbitState{};
@@ -476,15 +496,17 @@ void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 la
         }
         return;
     }
-    if (!level_editor_camera_state().orbit_.pending)
+    if (!level_editor_camera_state().orbit_.pending) {
         return;
+    }
     if (!level_editor_camera_state().orbit_.orbiting) {
         level_editor_camera_state().orbit_.travel += std::fabs(*m.rel_x_) + std::fabs(*m.rel_y_);
         if (level_editor_camera_state().orbit_.travel >= kOrbitDragTravel) {
             level_editor_camera_state().orbit_.orbiting = true;
             stored_flight().on = false;
-            if (ortho())
+            if (ortho()) {
                 exit_ortho(rig);
+            }
         }
     }
     if (level_editor_camera_state().orbit_.orbiting) {
@@ -510,8 +532,9 @@ void filter_mouse(const Rig& rig, MouseIn m, bool alt, bool have_last_ray, V3 la
 void apply_orbit(const Rig& rig)
 {
     if (!level_editor_camera_state().orbit_.orbiting && level_editor_camera_state().orbit_.dx == 0.0F &&
-        level_editor_camera_state().orbit_.dy == 0.0F && level_editor_camera_state().orbit_.wheel == 0)
+        level_editor_camera_state().orbit_.dy == 0.0F && level_editor_camera_state().orbit_.wheel == 0) {
         return;
+    }
     const prefs::Values& prefs = prefs::get_pull();
     const float sensitivity = 0.0035F * static_cast<float>(prefs.look_pct_) / 100.0F;
     const float dy = prefs.invert_y_ ? -level_editor_camera_state().orbit_.dy : level_editor_camera_state().orbit_.dy;
@@ -522,21 +545,24 @@ void apply_orbit(const Rig& rig)
     level_editor_camera_state().orbit_.wheel = 0;
     if (rig.have_selection_) {
         // (the editor puts the camera round it at its orbit distance: the wheel nearer / further)
-        if (wheel)
+        if (wheel) {
             *rig.orbit_distance_ =
                 std::clamp(*rig.orbit_distance_ * std::pow(kWheelZoomStep, static_cast<float>(wheel)), kMinOrbitDistance, kMaxOrbitDistance);
+        }
         return;
     }
-    if (!level_editor_camera_state().orbit_.have_pivot_)
+    if (!level_editor_camera_state().orbit_.have_pivot_) {
         return;
+    }
     const TickCycle after = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
     V3 pos = orbit_about(*rig.pos, level_editor_camera_state().orbit_.pivot, before, after);
     if (wheel) {
         const V3 offset = pos - level_editor_camera_state().orbit_.pivot;
         const float length = std::sqrt(get_dot(offset, offset));
         const float wanted = std::clamp(length * std::pow(0.85F, static_cast<float>(wheel)), 20.0F, 30000.0F);
-        if (length > kMinDirectionLength)
+        if (length > kMinDirectionLength) {
             pos = level_editor_camera_state().orbit_.pivot + offset * (wanted / length);
+        }
     }
     *rig.pos = pos;
 }
@@ -565,16 +591,18 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
                 const TickCycle frame = frame_from_yaw_pitch(*rig.yaw, *rig.pitch);
                 fly_to(rig, {.pos = rig.target + frame.back * distance, .yaw = *rig.yaw, .pitch = *rig.pitch});
             }
-            if (prefs::get_pull().speed_by_selection_)
+            if (prefs::get_pull().speed_by_selection_) {
                 *rig.speed = speed_for_radius(rig.radius);
+            }
         }
     }
     // 1..9 recall a bookmark, Ctrl+1..9 store it. (Alt+1..4 are the view modes - level_editor_overlays.h.)
     const bool alt = core::at(keys, SDL_SCANCODE_LALT) || core::at(keys, SDL_SCANCODE_RALT);
     for (int i = 0; i < kBookmarks; ++i) {
         const bool store = actions::squeezed(actions::kBookmarkStore1 + i);
-        if (alt || (!store && !actions::squeezed(actions::kBookmark1 + i)))
+        if (alt || (!store && !actions::squeezed(actions::kBookmark1 + i))) {
             continue;
+        }
         std::array<char, kFrameTextSize> text{};
         if (store) {
             Bookmark& m = core::at(level_editor_camera_state().marks_, i);
@@ -582,15 +610,17 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
             m.pose = {.pos = *rig.pos, .yaw = *rig.yaw, .pitch = *rig.pitch};
             m.view = stored_ortho().view;
             m.equivalent = stored_ortho().equivalent;
-            if (ortho())
+            if (ortho()) {
                 m.pose.pos = rig.have_selection_ ? rig.target : stored_ortho().pivot; // (an ortho bookmark keeps its pivot)
+            }
             const bool saved = save_bookmarks();
             text::format_to(text, "Camera bookmark %d stored%s", i + 1, saved ? "" : " (not saved: the file)");
             hud::get_message(text.data(), kStatusMessageSeconds);
         } else if (core::at(level_editor_camera_state().marks_, i).set) {
             const Bookmark& m = core::at(level_editor_camera_state().marks_, i);
-            if (rig.deselect)
+            if (rig.deselect) {
                 rig.deselect();
+            }
             Rig free = rig;
             free.have_selection_ = false;
             exit_ortho(free);
@@ -615,8 +645,9 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
                                    {actions::kViewOrtho, actions::kViewOrtho}}};
     for (int i = 0; i < 4; ++i) {
         const bool opposite = actions::squeezed(core::at(core::at(kPad, i), 1)) && i != 3;
-        if (!opposite && !actions::squeezed(core::at(core::at(kPad, i), 0)))
+        if (!opposite && !actions::squeezed(core::at(core::at(kPad, i), 0))) {
             continue;
+        }
         stored_flight().on = false;
         if (i == 3) {
             if (ortho()) {
@@ -644,8 +675,9 @@ void get_keys(const Rig& rig, platform::KeyState keys, bool ctrl, bool browser_o
 
 void after_update(const Rig& rig, int wheel, bool interrupted)
 {
-    if (stored_flight().on && interrupted)
+    if (stored_flight().on && interrupted) {
         stored_flight().on = false;
+    }
     if (stored_flight().on) {
         // (the frame's time from SDL's clock: the editor caps a frame at a tenth of a second)
         static uint64_t last;
@@ -683,16 +715,18 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
         }
         return;
     }
-    if (!ortho())
+    if (!ortho()) {
         return;
+    }
     // The ortho view: its heading kept, the camera far back along it.
     *rig.yaw = stored_ortho().yaw;
     *rig.pitch = stored_ortho().pitch;
     const V3 forward = get_forward(stored_ortho().yaw, stored_ortho().pitch);
     if (rig.have_selection_) {
-        if (wheel && !rig.dragging)
+        if (wheel && !rig.dragging) {
             stored_ortho().equivalent =
                 std::clamp(stored_ortho().equivalent * std::pow(kWheelZoomStep, static_cast<float>(wheel)), kMinOrthoEquivalent, kMaxOrthoEquivalent);
+        }
         stored_ortho().pivot = rig.target;
     } else {
         // (the editor flew the camera: along the view a zoom, across it a pan)
@@ -703,8 +737,9 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
     }
     const float eye = eye_distance(stored_ortho().equivalent);
     *rig.pos = stored_ortho().pivot - forward * eye;
-    if (rig.have_selection_)
+    if (rig.have_selection_) {
         *rig.orbit_distance_ = eye;
+    }
     stored_ortho().last_eye_ = *rig.pos;
 }
 

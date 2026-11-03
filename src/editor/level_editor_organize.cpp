@@ -59,8 +59,9 @@ constexpr float kBoxDragThreshold = 6.0F;   // pixels the mouse moves before a c
 
 std::string get_lower(std::string text)
 {
-    for (char& c : text)
+    for (char& c : text) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
     return text;
 }
 
@@ -73,11 +74,13 @@ std::string hex_text(uint32_t value)
 
 bool parse_hex8(const std::string& text, uint32_t* value)
 {
-    if (text.size() != kHexDigits)
+    if (text.size() != kHexDigits) {
         return false;
+    }
     for (const char c : text) {
-        if (!std::isxdigit(static_cast<unsigned char>(c)))
+        if (!std::isxdigit(static_cast<unsigned char>(c))) {
             return false;
+        }
     }
     *value = static_cast<uint32_t>(std::strtoul(text.c_str(), nullptr, kHexBase));
     return true;
@@ -85,11 +88,13 @@ bool parse_hex8(const std::string& text, uint32_t* value)
 
 bool same_groups(const std::vector<GroupSet>& a, const std::vector<GroupSet>& b)
 {
-    if (a.size() != b.size())
+    if (a.size() != b.size()) {
         return false;
+    }
     for (size_t i = 0; i < a.size(); ++i) {
-        if (core::at(a, i).name != core::at(b, i).name || core::at(a, i).members != core::at(b, i).members)
+        if (core::at(a, i).name != core::at(b, i).name || core::at(a, i).members != core::at(b, i).members) {
             return false;
+        }
     }
     return true;
 }
@@ -107,8 +112,9 @@ std::string write_records(const State& state)
     std::string out;
     for (const GroupSet& g : state.groups) {
         out += "group " + fields::escape(g.name) + " ";
-        if (g.members.empty())
+        if (g.members.empty()) {
             out += "-";
+        }
         for (size_t i = 0; i < g.members.size(); ++i) {
             out += i ? "," : "";
             out += core::at(g.members, i).kind;
@@ -116,14 +122,18 @@ std::string write_records(const State& state)
         }
         out += "\n";
     }
-    for (const auto& l : state.labels)
+    for (const auto& l : state.labels) {
         out += "label " + hex_text(l.first) + " " + fields::escape(l.second) + "\n";
-    for (const uint32_t id : state.locked)
+    }
+    for (const uint32_t id : state.locked) {
         out += "edlock " + hex_text(id) + "\n";
-    for (const uint32_t id : state.unpickable)
+    }
+    for (const uint32_t id : state.unpickable) {
         out += "nopick " + hex_text(id) + "\n";
-    if (!state.snapshot.empty())
+    }
+    if (!state.snapshot.empty()) {
         out += "snapshot " + state.snapshot + "\n";
+    }
     return out;
 }
 
@@ -139,47 +149,56 @@ bool read_record(const std::string& line, State* state)
     std::string keyword;
     std::string a;
     std::string b;
-    if (!(in >> keyword) || !is_record(keyword) || !(in >> a))
+    if (!(in >> keyword) || !is_record(keyword) || !(in >> a)) {
         return false;
+    }
     if (keyword == "group") {
         GroupSet g;
         std::string name;
-        if (!(in >> b) || !fields::unescape(a, &name) || !clean_name(name, &g.name))
+        if (!(in >> b) || !fields::unescape(a, &name) || !clean_name(name, &g.name)) {
             return false;
+        }
         if (b != "-") {
             std::istringstream list(b);
             std::string item;
             while (std::getline(list, item, ',')) {
                 Member m;
-                if (item.size() != kMemberTextLength || core::at(item, 1) != ':' || (core::at(item, 0) != 'o' && core::at(item, 0) != 's' && core::at(item, 0) != 'n') ||
-                    !parse_hex8(item.substr(2), &m.id))
+                if (item.size() != kMemberTextLength || core::at(item, 1) != ':' ||
+                    (core::at(item, 0) != 'o' && core::at(item, 0) != 's' && core::at(item, 0) != 'n') ||
+                    !parse_hex8(item.substr(2), &m.id)) {
                     return false;
+                }
                 m.kind = core::at(item, 0);
-                if (std::ranges::find(g.members, m) == g.members.end())
+                if (std::ranges::find(g.members, m) == g.members.end()) {
                     g.members.push_back(m);
+                }
             }
         }
         for (const GroupSet& other : state->groups) {
-            if (other.name == g.name)
+            if (other.name == g.name) {
                 return false;
+            }
         }
         state->groups.push_back(g);
         return true;
     }
     if (keyword == "snapshot") {
-        if (!valid_snapshot_name(a))
+        if (!valid_snapshot_name(a)) {
             return false;
+        }
         state->snapshot = a;
         return true;
     }
     uint32_t id = 0;
-    if (!parse_hex8(a, &id))
+    if (!parse_hex8(a, &id)) {
         return false;
+    }
     if (keyword == "label") {
         std::string text;
         std::string clean;
-        if (!(in >> b) || !fields::unescape(b, &text) || !clean_name(text, &clean))
+        if (!(in >> b) || !fields::unescape(b, &text) || !clean_name(text, &clean)) {
             return false;
+        }
         set_label(state, id, clean);
         return true;
     }
@@ -191,14 +210,17 @@ bool clean_name(const std::string& text, std::string* out)
 {
     const size_t a = text.find_first_not_of(" \t");
     const size_t b = text.find_last_not_of(" \t");
-    if (a == std::string::npos)
+    if (a == std::string::npos) {
         return false;
+    }
     const std::string name = text.substr(a, b - a + 1);
-    if (name.size() > kMaxGroupNameLength)
+    if (name.size() > kMaxGroupNameLength) {
         return false;
+    }
     for (const char c : name) {
-        if (static_cast<unsigned char>(c) < kFirstPrintableChar || c == kDeleteChar)
+        if (static_cast<unsigned char>(c) < kFirstPrintableChar || c == kDeleteChar) {
             return false;
+        }
     }
     *out = name;
     return true;
@@ -207,8 +229,9 @@ bool clean_name(const std::string& text, std::string* out)
 std::string get_label_of(const State& state, uint32_t id)
 {
     for (const auto& l : state.labels) {
-        if (l.first == id)
+        if (l.first == id) {
             return l.second;
+        }
     }
     return "";
 }
@@ -217,14 +240,16 @@ void set_label(State* state, uint32_t id, const std::string& text)
 {
     auto it = std::ranges::find_if(state->labels, [&](const auto& l) { return l.first == id; });
     if (text.empty()) {
-        if (it != state->labels.end())
+        if (it != state->labels.end()) {
             state->labels.erase(it);
+        }
         return;
     }
-    if (it != state->labels.end())
+    if (it != state->labels.end()) {
         it->second = text;
-    else
+    } else {
         state->labels.emplace_back(id, text);
+    }
 }
 
 bool get_has(std::span<const uint32_t> list, uint32_t id) { return std::ranges::find(list, id) != list.end(); }
@@ -232,26 +257,29 @@ bool get_has(std::span<const uint32_t> list, uint32_t id) { return std::ranges::
 void set_flag(std::vector<uint32_t>* list, uint32_t id, bool on)
 {
     auto it = std::ranges::find(*list, id);
-    if (on && it == list->end())
+    if (on && it == list->end()) {
         list->push_back(id);
-    else if (!on && it != list->end())
+    } else if (!on && it != list->end()) {
         list->erase(it);
+    }
 }
 
 bool family_of_word(const std::string& word, nodes::Family* family)
 {
     std::string w = get_lower(word);
-    if (w.empty())
+    if (w.empty()) {
         return false;
+    }
     // (a few words of our own beside the families' names)
-    if (w == "restart" || w == "restarts")
+    if (w == "restart" || w == "restarts") {
         w = "spawns";
-    else if (w == "ped" || w == "peds" || w == "car" || w == "cars")
+    } else if (w == "ped" || w == "peds" || w == "car" || w == "cars") {
         w = "objects";
-    else if (w == "proxim" || w == "proximity")
+    } else if (w == "proxim" || w == "proximity") {
         w = "triggers";
-    else if (w == "piece" || w == "pieces")
+    } else if (w == "piece" || w == "pieces") {
         w = "scenery";
+    }
     for (int f = 0; f < nodes::kFamilies; ++f) {
         std::string name = get_lower(nodes::family_name(static_cast<nodes::Family>(f)));
         const std::string singular = !name.empty() && name.back() == 's' ? name.substr(0, name.size() - 1) : name;
@@ -282,8 +310,9 @@ Filter parse_filter(const std::string& search)
             }
             if (key == "label" || key == "labeled" || key == "labelled") {
                 filter.labeled = true;
-                if (!value.empty())
+                if (!value.empty()) {
                     rest += (rest.empty() ? "" : " ") + value;
+                }
                 continue;
             }
             if (key == "locked") {
@@ -296,8 +325,9 @@ Filter parse_filter(const std::string& search)
             }
             if (family_of_word(key, &family)) {
                 filter.families |= nodes::get_bit(family);
-                if (!value.empty())
+                if (!value.empty()) {
                     rest += (rest.empty() ? "" : " ") + value;
+                }
                 continue;
             }
         }
@@ -310,23 +340,30 @@ Filter parse_filter(const std::string& search)
 bool row_passes(const Filter& filter, nodes::Family family, const std::string& name, const std::string& label,
                 bool in_group, bool locked, bool hidden)
 {
-    if (filter.families && !(filter.families & nodes::get_bit(family)))
+    if (filter.families && !(filter.families & nodes::get_bit(family))) {
         return false;
-    if (!filter.group.empty() && !in_group)
+    }
+    if (!filter.group.empty() && !in_group) {
         return false;
-    if (filter.labeled && label.empty())
+    }
+    if (filter.labeled && label.empty()) {
         return false;
-    if (filter.locked && !locked)
+    }
+    if (filter.locked && !locked) {
         return false;
-    if (filter.hidden && !hidden)
+    }
+    if (filter.hidden && !hidden) {
         return false;
-    if (filter.text.empty())
+    }
+    if (filter.text.empty()) {
         return true;
+    }
     const std::string haystack = get_lower(name + " " + label);
     std::istringstream words(get_lower(filter.text));
     for (std::string w; words >> w;) {
-        if (haystack.find(w) == std::string::npos)
+        if (haystack.find(w) == std::string::npos) {
             return false;
+        }
     }
     return true;
 }
@@ -340,8 +377,9 @@ bool crossing_drag(float origin_coord_x, float last_column) { return last_column
 
 bool box_takes(const Rect2& box, const Rect2& thing, bool crossing)
 {
-    if (crossing)
+    if (crossing) {
         return thing.x0 <= box.x1 && thing.x1 >= box.x0 && thing.y0 <= box.y1 && thing.y1 >= box.y0;
+    }
     return thing.x0 >= box.x0 && thing.x1 <= box.x1 && thing.y0 >= box.y0 && thing.y1 <= box.y1;
 }
 
@@ -349,21 +387,26 @@ std::vector<uint32_t> combine(const std::vector<uint32_t>& current, std::span<co
 {
     std::vector<uint32_t> out;
     auto add = [&](uint32_t id) {
-        if (!get_has(out, id))
+        if (!get_has(out, id)) {
             out.push_back(id);
+        }
     };
     if (op == 0) {
-        for (const uint32_t id : found)
+        for (const uint32_t id : found) {
             add(id);
+        }
     } else if (op == 1) {
-        for (const uint32_t id : current)
+        for (const uint32_t id : current) {
             add(id);
-        for (const uint32_t id : found)
+        }
+        for (const uint32_t id : found) {
             add(id);
+        }
     } else {
         for (const uint32_t id : current) {
-            if (!get_has(found, id))
+            if (!get_has(found, id)) {
                 add(id);
+            }
         }
     }
     return out;
@@ -374,10 +417,12 @@ bool alike(const Thing& a, const Thing& b, Similar by)
     switch (by) {
     case Similar::kMesh:
         if (a.family == nodes::Family::kScenery || b.family == nodes::Family::kScenery) {
-            if (a.family != b.family)
+            if (a.family != b.family) {
                 return false;
-            if (a.source && a.source == b.source)
+            }
+            if (a.source && a.source == b.source) {
                 return true;
+            }
             return std::fabs(a.size.x - b.size.x) <= kSizeTolerance && std::fabs(a.size.y - b.size.y) <= kSizeTolerance &&
                    std::fabs(a.size.z - b.size.z) <= kSizeTolerance;
         }
@@ -394,11 +439,13 @@ bool alike(const Thing& a, const Thing& b, Similar by)
 
 bool valid_snapshot_name(const std::string& name)
 {
-    if (name.empty() || name.size() > kMaxSetNameLength || get_lower(name) == "autosave")
+    if (name.empty() || name.size() > kMaxSetNameLength || get_lower(name) == "autosave") {
         return false;
+    }
     for (const char c : name) {
-        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-')
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-') {
             return false;
+        }
     }
     return true;
 }
@@ -412,11 +459,13 @@ bool snapshot_of(const std::string& file_name, uint32_t scene, std::string* name
 {
     const std::string prefix = hex_text(scene) + ".";
     if (file_name.size() <= prefix.size() + 4 || get_lower(file_name.substr(0, prefix.size())) != get_lower(prefix) ||
-        get_lower(file_name.substr(file_name.size() - 4)) != ".txt")
+        get_lower(file_name.substr(file_name.size() - 4)) != ".txt") {
         return false;
+    }
     const std::string middle = file_name.substr(prefix.size(), file_name.size() - prefix.size() - 4);
-    if (!valid_snapshot_name(middle))
+    if (!valid_snapshot_name(middle)) {
         return false;
+    }
     *name = middle;
     return true;
 }
@@ -485,15 +534,18 @@ std::vector<uint32_t> selectable_objects()
         objects::GameEntity* object = live_object(id);
         OrientedBox box{};
         if (object && !get_has(ids, id) && !view::hidden_object(id) && !picking::latched(picking::kObjects, id) &&
-            object_edit::model_box(object, &box))
+            object_edit::model_box(object, &box)) {
             ids.push_back(id);
+        }
     };
     for (const nodes::Elem& n : nodes::get_all()) {
-        if (n.family == nodes::Family::kObject && n.name)
+        if (n.family == nodes::Family::kObject && n.name) {
             add(n.name);
+        }
     }
-    for (const object_edit::DupFrom& c : object_edit::get_copies())
+    for (const object_edit::DupFrom& c : object_edit::get_copies()) {
         add(c.name);
+    }
     return ids;
 }
 
@@ -503,13 +555,16 @@ std::vector<uint32_t> selectable_sectors()
     std::vector<uint32_t> ids;
     auto add = [&](uint32_t checksum) {
         if (!get_has(ids, checksum) && !scenery::why_not_movable(checksum) && !scenery::get_hidden(checksum) &&
-            !view::hidden_sector(checksum) && !picking::latched(picking::kScenery, checksum))
+            !view::hidden_sector(checksum) && !picking::latched(picking::kScenery, checksum)) {
             ids.push_back(checksum);
+        }
     };
-    for (const uint32_t checksum : scenery::movable_pieces())
+    for (const uint32_t checksum : scenery::movable_pieces()) {
         add(checksum);
-    for (const scenery::Replicate& c : scenery::get_clones())
+    }
+    for (const scenery::Replicate& c : scenery::get_clones()) {
         add(c.checksum);
+    }
     return ids;
 }
 
@@ -524,12 +579,14 @@ bool screen_box(const OrientedBox& box, bool whole, Rect2* rect)
         float x = 0.0F;
         float y = 0.0F;
         if (!project_to_back(c, &x, &y)) {
-            if (whole)
+            if (whole) {
                 return false;
+            }
             continue;
         }
-        if (!any)
+        if (!any) {
             r = {.x0 = x, .y0 = y, .x1 = x, .y1 = y};
+        }
         r = {.x0 = std::min(r.x0, x), .y0 = std::min(r.y0, y), .x1 = std::max(r.x1, x), .y1 = std::max(r.y1, y)};
         any = true;
     }
@@ -546,23 +603,28 @@ Thing thing_of(uint32_t id, bool sector)
     if (sector) {
         t.family = nodes::Family::kScenery;
         for (const scenery::Replicate& c : scenery::get_clones()) {
-            if (c.checksum == id)
+            if (c.checksum == id) {
                 source = c.source;
+            }
         }
         t.source = source;
         OrientedBox box{};
-        if (scenery::cuboid(id, &box))
+        if (scenery::cuboid(id, &box)) {
             t.size = box_size(box);
-        if (index < 0)
+        }
+        if (index < 0) {
             index = nodes::get_find(source);
+        }
     } else {
         t.family = nodes::Family::kObject;
         for (const object_edit::DupFrom& c : object_edit::get_copies()) {
-            if (c.name == id)
+            if (c.name == id) {
                 source = c.source; // (a copy: as its source)
+            }
         }
-        if (index < 0)
+        if (index < 0) {
             index = nodes::get_find(source);
+        }
         t.model = object_edit::get_model_file(source);
     }
     if (index >= 0) {
@@ -607,23 +669,26 @@ std::string take_outliner_search()
 void prepare_all()
 {
     static bool done = false;
-    if (done)
+    if (done) {
         return;
+    }
     done = true;
     layout::Extension e;
     e.keywords = {"group", "label", "edlock", "nopick", "snapshot"};
     e.capture = []() {
         std::vector<std::string> lines;
         std::istringstream in(write_records(level_editor_organize_state().state_));
-        for (std::string line; std::getline(in, line);)
+        for (std::string line; std::getline(in, line);) {
             lines.push_back(line);
+        }
         return lines;
     };
     e.apply = [](const std::vector<std::string>& lines) {
         State next;
         for (const std::string& line : lines) {
-            if (!read_record(line, &next))
+            if (!read_record(line, &next)) {
                 get_log("level editor: a layout's editor record isn't readable - skipped: %s", line.c_str());
+            }
         }
         level_editor_organize_state().state_ = next;
     };
@@ -638,18 +703,21 @@ const State& at_hand() { return level_editor_organize_state().state_; }
 
 void get_change(const State& next, const char* label)
 {
-    if (same_state(next, level_editor_organize_state().state_))
+    if (same_state(next, level_editor_organize_state().state_)) {
         return;
+    }
     push_module_undo_labelled(std::make_shared<OrganizeStep>(level_editor_organize_state().state_), label);
     level_editor_organize_state().state_ = next;
 }
 
 bool hidden_in_editor(const nodes::Elem& node)
 {
-    if (node.family == nodes::Family::kObject)
+    if (node.family == nodes::Family::kObject) {
         return view::hidden_object(node.name);
-    if (node.family == nodes::Family::kScenery)
+    }
+    if (node.family == nodes::Family::kScenery) {
         return view::hidden_sector(node.name);
+    }
     return get_has(level_editor_organize_state().hidden_gizmos_, node.name);
 }
 
@@ -659,10 +727,11 @@ void set_hidden_in_editor(const nodes::Elem& node, bool hidden)
         const std::vector<uint32_t> one = {node.name};
         const std::vector<uint32_t> none;
         const bool object = node.family == nodes::Family::kObject;
-        if (hidden)
+        if (hidden) {
             view::conceal(object ? none : one, object ? one : none);
-        else
+        } else {
             view::get_show(object ? none : one, object ? one : none);
+        }
         return;
     }
     set_flag(&level_editor_organize_state().hidden_gizmos_, node.name, hidden);
@@ -679,10 +748,12 @@ void set_locked(uint32_t id, bool locked)
 
 bool get_selectable(const nodes::Elem& node)
 {
-    if (node.family == nodes::Family::kObject)
+    if (node.family == nodes::Family::kObject) {
         return !picking::latched(picking::kObjects, node.name);
-    if (node.family == nodes::Family::kScenery)
+    }
+    if (node.family == nodes::Family::kScenery) {
         return !picking::latched(picking::kScenery, node.name);
+    }
     return !get_has(level_editor_organize_state().state_.unpickable, node.name);
 }
 
@@ -690,8 +761,9 @@ void set_selectable(const nodes::Elem& node, bool selectable)
 {
     if (node.family == nodes::Family::kObject || node.family == nodes::Family::kScenery) {
         const uint32_t kind = node.family == nodes::Family::kObject ? picking::kObjects : picking::kScenery;
-        if (picking::latched(kind, node.name) == !selectable)
+        if (picking::latched(kind, node.name) == !selectable) {
             return;
+        }
         push_locks_undo_labelled(selectable ? "Selectable" : "Not selectable");
         picking::set_locked(kind, node.name, !selectable);
         return;
@@ -706,16 +778,20 @@ bool gizmo_pickable(uint32_t name) { return level_editor_organize_state().state_
 
 bool selection_locked(bool say)
 {
-    if (level_editor_organize_state().state_.locked.empty())
+    if (level_editor_organize_state().state_.locked.empty()) {
         return false;
+    }
     const SelectionIds s = current_selection();
     bool locked = (s.node && latched(s.node));
-    for (const uint32_t id : s.objects)
+    for (const uint32_t id : s.objects) {
         locked = locked || latched(id);
-    for (const uint32_t id : s.sectors)
+    }
+    for (const uint32_t id : s.sectors) {
         locked = locked || latched(id);
-    if (locked && say)
+    }
+    if (locked && say) {
         show_message("Locked: unlock in the Outliner to edit");
+    }
     return locked;
 }
 
@@ -725,25 +801,30 @@ void make_group(const std::string& wanted)
 {
     const SelectionIds s = current_selection();
     GroupSet g;
-    for (const uint32_t id : s.objects)
+    for (const uint32_t id : s.objects) {
         g.members.push_back({.kind = 'o', .id = id});
-    for (const uint32_t id : s.sectors)
+    }
+    for (const uint32_t id : s.sectors) {
         g.members.push_back({.kind = 's', .id = id});
-    if (s.node)
+    }
+    if (s.node) {
         g.members.push_back({.kind = 'n', .id = s.node});
+    }
     if (g.members.empty()) {
         show_message("Nothing selected");
         return;
     }
     std::string name;
-    if (!clean_name(wanted, &name))
+    if (!clean_name(wanted, &name)) {
         name = "Group";
+    }
     // (a name of its own: "Group 2" when "Group" is taken)
     const std::string base = name;
     for (int n = 2;; ++n) {
         const bool taken = std::ranges::any_of(level_editor_organize_state().state_.groups, [&](const GroupSet& o) { return o.name == name; });
-        if (!taken)
+        if (!taken) {
             break;
+        }
         name = base + " " + std::to_string(n);
     }
     g.name = name;
@@ -755,35 +836,40 @@ void make_group(const std::string& wanted)
 
 void select_group(int index)
 {
-    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size()))
+    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size())) {
         return;
+    }
     SelectionIds ids;
     uint32_t node = 0;
     int missing = 0;
     for (const Member& m : core::at(level_editor_organize_state().state_.groups, index).members) {
         if (m.kind == 'o') {
-            if (live_object(m.id))
+            if (live_object(m.id)) {
                 ids.objects.push_back(m.id);
-            else
+            } else {
                 ++missing;
+            }
         } else if (m.kind == 's') {
             OrientedBox box{};
-            if (scenery::cuboid(m.id, &box))
+            if (scenery::cuboid(m.id, &box)) {
                 ids.sectors.push_back(m.id);
-            else
+            } else {
                 ++missing;
+            }
         } else if (!node) {
             node = m.id;
         }
     }
     std::string note;
     if (!ids.objects.empty()) {
-        if (!ids.sectors.empty() || node)
+        if (!ids.sectors.empty() || node) {
             note = " (objects only)";
+        }
         ids.sectors.clear();
     } else if (!ids.sectors.empty()) {
-        if (node)
+        if (node) {
             note = " (scenery only)";
+        }
     } else {
         ids.node = node;
     }
@@ -794,8 +880,9 @@ void select_group(int index)
 
 void delete_group(int index)
 {
-    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size()))
+    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size())) {
         return;
+    }
     State next = level_editor_organize_state().state_;
     next.groups.erase(next.groups.begin() + index);
     get_change(next, "Delete group");
@@ -804,8 +891,10 @@ void delete_group(int index)
 void rename_group(int index, const std::string& wanted)
 {
     std::string name;
-    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size()) || !clean_name(wanted, &name))
+    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size()) ||
+        !clean_name(wanted, &name)) {
         return;
+    }
     for (int i = 0; std::cmp_less(i, level_editor_organize_state().state_.groups.size()); ++i) {
         if (i != index && core::at(level_editor_organize_state().state_.groups, i).name == name) {
             show_message("Group name already in use");
@@ -819,33 +908,40 @@ void rename_group(int index, const std::string& wanted)
 
 void add_to_group(int index)
 {
-    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size()))
+    if (index < 0 || std::cmp_greater_equal(index, level_editor_organize_state().state_.groups.size())) {
         return;
+    }
     const SelectionIds s = current_selection();
     State next = level_editor_organize_state().state_;
     std::vector<Member>& members = core::at(next.groups, index).members;
     auto add = [&](char kind, uint32_t id) {
         const Member m = {.kind = kind, .id = id};
-        if (std::ranges::find(members, m) == members.end())
+        if (std::ranges::find(members, m) == members.end()) {
             members.push_back(m);
+        }
     };
-    for (const uint32_t id : s.objects)
+    for (const uint32_t id : s.objects) {
         add('o', id);
-    for (const uint32_t id : s.sectors)
+    }
+    for (const uint32_t id : s.sectors) {
         add('s', id);
-    if (s.node)
+    }
+    if (s.node) {
         add('n', s.node);
+    }
     get_change(next, "Add to group");
 }
 
 bool in_group(const std::string& group, const nodes::Elem& node)
 {
     for (const GroupSet& g : level_editor_organize_state().state_.groups) {
-        if (get_lower(g.name).compare(0, group.size(), get_lower(group)) != 0)
+        if (get_lower(g.name).compare(0, group.size(), get_lower(group)) != 0) {
             continue;
+        }
         for (const Member& m : g.members) {
-            if (m.id == node.name)
+            if (m.id == node.name) {
                 return true;
+            }
         }
     }
     return false;
@@ -887,16 +983,18 @@ void apply_box()
             OrientedBox ob{};
             Rect2 r{};
             if (object_edit::model_box(live_object(id), &ob) && screen_box(ob, !crossing, &r) &&
-                box_takes(box, r, crossing))
+                box_takes(box, r, crossing)) {
                 objects.push_back(id);
+            }
         }
     }
     if (filter & picking::kScenery) {
         for (const uint32_t checksum : selectable_sectors()) {
             OrientedBox ob{};
             Rect2 r{};
-            if (scenery::cuboid(checksum, &ob) && screen_box(ob, !crossing, &r) && box_takes(box, r, crossing))
+            if (scenery::cuboid(checksum, &ob) && screen_box(ob, !crossing, &r) && box_takes(box, r, crossing)) {
                 sectors.push_back(checksum);
+            }
         }
     }
     const SelectionIds now = current_selection();
@@ -922,12 +1020,14 @@ void apply_box()
             for (const nodes::Elem& n : nodes::get_all()) {
                 if (!n.has_pos_ || !n.name || n.family == nodes::Family::kObject ||
                     n.family == nodes::Family::kScenery || nodes::shape_of(n.family) == nodes::Shape::kNone ||
-                    gizmo_hidden(n.name) || !gizmo_pickable(n.name))
+                    gizmo_hidden(n.name) || !gizmo_pickable(n.name)) {
                     continue;
+                }
                 float x = 0.0F;
                 float y = 0.0F;
-                if (!project_to_back(n.pos, &x, &y) || x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1)
+                if (!project_to_back(n.pos, &x, &y) || x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1) {
                     continue;
+                }
                 ++in_box;
                 const float d = ((x - cx) * (x - cx)) + ((y - cy) * (y - cy));
                 if (d < best_d) {
@@ -953,18 +1053,21 @@ void apply_box()
 
 void box_track(bool down, float x, float y)
 {
-    if (!box_drag().pressed)
+    if (!box_drag().pressed) {
         return;
+    }
     if (down) {
         box_drag().x1 = x;
         box_drag().y1 = y;
-        if (!box_drag().active && std::fabs(x - box_drag().x0) + std::fabs(y - box_drag().y0) >= kBoxDragThreshold)
+        if (!box_drag().active && std::fabs(x - box_drag().x0) + std::fabs(y - box_drag().y0) >= kBoxDragThreshold) {
             box_drag().active = true;
+        }
         return;
     }
     box_drag().pressed = false;
-    if (box_drag().active)
+    if (box_drag().active) {
         apply_box();
+    }
     box_drag().active = false;
 }
 
@@ -972,8 +1075,9 @@ bool box_active() { return box_drag().pressed && box_drag().active; }
 
 bool box_outline(Rect2* rect, bool* crossing)
 {
-    if (!box_active())
+    if (!box_active()) {
         return false;
+    }
     *rect = rect_of(box_drag().x0, box_drag().y0, box_drag().x1, box_drag().y1);
     *crossing = crossing_drag(box_drag().x0, box_drag().x1);
     return true;
@@ -987,14 +1091,16 @@ void select_similar(Similar by)
     if (!s.objects.empty() || !s.sectors.empty()) {
         const bool sectors = s.objects.empty();
         std::vector<Thing> chosen;
-        for (const uint32_t id : sectors ? s.sectors : s.objects)
+        for (const uint32_t id : sectors ? s.sectors : s.objects) {
             chosen.push_back(thing_of(id, sectors));
+        }
         SelectionIds next;
         std::vector<uint32_t>& out = sectors ? next.sectors : next.objects;
         for (const uint32_t id : sectors ? selectable_sectors() : selectable_objects()) {
             Thing t = thing_of(id, sectors);
-            if (std::ranges::any_of(chosen, [&](const Thing& c) { return alike(c, t, by); }))
+            if (std::ranges::any_of(chosen, [&](const Thing& c) { return alike(c, t, by); })) {
                 out.push_back(id);
+            }
         }
         // (the selection's own first: the primary stays)
         out = combine(sectors ? s.sectors : s.objects, out, 1);
@@ -1006,8 +1112,9 @@ void select_similar(Similar by)
     if (s.node) {
         // (nodes select one at a time: the Outliner shows the similar ones - its search set to the family)
         const int index = nodes::get_find(s.node);
-        if (index < 0)
+        if (index < 0) {
             return;
+        }
         const nodes::Elem& n = core::at(nodes::get_all(), index);
         int count = 0;
         for (const nodes::Elem& m : nodes::get_all()) {
@@ -1031,10 +1138,11 @@ void select_all()
 {
     const SelectionIds s = current_selection();
     SelectionIds next;
-    if (!s.sectors.empty() || !(pick_filter_now() & picking::kObjects))
+    if (!s.sectors.empty() || !(pick_filter_now() & picking::kObjects)) {
         next.sectors = combine(s.sectors, selectable_sectors(), 1);
-    else
+    } else {
         next.objects = combine(s.objects, selectable_objects(), 1);
+    }
     set_selection(next);
     show_message("Selected " + std::to_string(next.objects.empty() ? next.sectors.size() : next.objects.size()) +
                  (next.objects.empty() ? " scenery pieces" : " objects"));
@@ -1046,13 +1154,15 @@ void invert_selection()
     SelectionIds next;
     if (!s.sectors.empty()) {
         for (const uint32_t id : selectable_sectors()) {
-            if (!get_has(s.sectors, id))
+            if (!get_has(s.sectors, id)) {
                 next.sectors.push_back(id);
+            }
         }
     } else {
         for (const uint32_t id : selectable_objects()) {
-            if (!get_has(s.objects, id))
+            if (!get_has(s.objects, id)) {
                 next.objects.push_back(id);
+            }
         }
     }
     set_selection(next);
@@ -1066,16 +1176,20 @@ std::vector<std::string> snapshots()
 {
     std::vector<std::string> names;
     const uint32_t scene = scene_now();
-    if (!scene)
+    if (!scene) {
         return names;
+    }
     WIN32_FIND_DATAA found;
     HANDLE find = FindFirstFileA((layouts_folder() + "\\" + hex_text(scene) + ".*.txt").c_str(), &found);
-    if (find == INVALID_HANDLE_VALUE)
+    if (find == INVALID_HANDLE_VALUE) {
         return names;
+    }
     for (bool again = true; again; again = FindNextFileA(find, &found)) {
         std::string name;
-        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && snapshot_of(std::data(found.cFileName), scene, &name))
+        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+            snapshot_of(std::data(found.cFileName), scene, &name)) {
             names.push_back(name);
+        }
     }
     FindClose(find);
     std::ranges::sort(names);
@@ -1140,12 +1254,14 @@ bool switch_snapshot(const std::string& name, std::string* message)
         const std::string kept = level_editor_organize_state().state_.snapshot;
         level_editor_organize_state().state_.snapshot = keep;
         std::string why;
-        if (!write_snapshot_file(keep, &why))
+        if (!write_snapshot_file(keep, &why)) {
             get_log("level editor: the layout before the switch couldn't be kept - %s", why.c_str());
+        }
         level_editor_organize_state().state_.snapshot = kept;
     }
-    if (!apply_layout_step(text.str(), "Switch snapshot", message))
+    if (!apply_layout_step(text.str(), "Switch snapshot", message)) {
         return false;
+    }
     level_editor_organize_state().state_.snapshot = name;
     actions::fire_off(actions::kSave); // (saved as the edited copy's layout - the (EDITED) entry's: the active one)
     *message = "Snapshot \"" + name + "\" loaded (previous kept as \"" + keep + "\")";
@@ -1159,8 +1275,9 @@ bool delete_snapshot(const std::string& name, std::string* message)
         *message = "Couldn't delete the snapshot \"" + name + "\"";
         return false;
     }
-    if (level_editor_organize_state().state_.snapshot == name)
+    if (level_editor_organize_state().state_.snapshot == name) {
         level_editor_organize_state().state_.snapshot.clear();
+    }
     *message = "Snapshot \"" + name + "\" deleted";
     return true;
 }

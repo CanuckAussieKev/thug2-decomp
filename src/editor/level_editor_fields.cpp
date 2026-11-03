@@ -64,8 +64,9 @@ const char* kind_name(Kind kind)
 
 bool same_value(const Value& a, const Value& b)
 {
-    if (a.kind != b.kind)
+    if (a.kind != b.kind) {
         return false;
+    }
     switch (a.kind) {
     case Kind::kInteger:
         return a.integer == b.integer;
@@ -113,11 +114,13 @@ bool identifier_char(char c, bool first)
 
 bool is_identifier(const std::string& text)
 {
-    if (text.empty() || text.size() > kMaxNameLength)
+    if (text.empty() || text.size() > kMaxNameLength) {
         return false;
+    }
     for (size_t i = 0; i < text.size(); ++i) {
-        if (!identifier_char(core::at(text, i), i == 0))
+        if (!identifier_char(core::at(text, i), i == 0)) {
             return false;
+        }
     }
     return true;
 }
@@ -132,8 +135,9 @@ std::string hex8(uint32_t value)
 std::string get_trim(const std::string& text)
 {
     const size_t a = text.find_first_not_of(" \t\r\n");
-    if (a == std::string::npos)
+    if (a == std::string::npos) {
         return "";
+    }
     const size_t b = text.find_last_not_of(" \t\r\n");
     return text.substr(a, b - a + 1);
 }
@@ -145,28 +149,32 @@ std::vector<std::string> get_parts(const std::string& text)
     std::string part;
     for (const char c : text) {
         if (c == ',' || c == ' ' || c == '\t' || c == '\r' || c == '\n') {
-            if (!part.empty())
+            if (!part.empty()) {
                 parts.push_back(part);
+            }
             part.clear();
         } else {
             part += c;
         }
     }
-    if (!part.empty())
+    if (!part.empty()) {
         parts.push_back(part);
+    }
     return parts;
 }
 
 bool parse_int(const std::string& text, int32_t* out)
 {
     const std::string t = get_trim(text);
-    if (t.empty())
+    if (t.empty()) {
         return false;
+    }
     errno = 0;
     char* end = nullptr;
     const long long value = std::strtoll(t.c_str(), &end, 10);
-    if (errno || !end || *end || value < INT32_MIN || value > INT32_MAX)
+    if (errno || !end || *end || value < INT32_MIN || value > INT32_MAX) {
         return false;
+    }
     *out = static_cast<int32_t>(value);
     return true;
 }
@@ -174,13 +182,15 @@ bool parse_int(const std::string& text, int32_t* out)
 bool parse_float(const std::string& text, float* out)
 {
     const std::string t = get_trim(text);
-    if (t.empty())
+    if (t.empty()) {
         return false;
+    }
     errno = 0;
     char* end = nullptr;
     const double value = std::strtod(t.c_str(), &end);
-    if (errno || !end || *end || !std::isfinite(value) || std::fabs(value) > kMaxFloatMagnitude)
+    if (errno || !end || *end || !std::isfinite(value) || std::fabs(value) > kMaxFloatMagnitude) {
         return false;
+    }
     *out = static_cast<float>(value);
     return true;
 }
@@ -191,8 +201,9 @@ std::string float_text(float value)
     std::array<char, kFloatTextSize> text{};
     for (int digits = kMinFloatDigits; digits <= kMaxFloatDigits; ++digits) {
         text::format_to(text, "%.*g", digits, static_cast<double>(value));
-        if (std::strtof(text.data(), nullptr) == value)
+        if (std::strtof(text.data(), nullptr) == value) {
             break;
+        }
     }
     return text.data();
 }
@@ -200,8 +211,9 @@ std::string float_text(float value)
 std::string get_join(const std::vector<std::string>& parts, const char* separator)
 {
     std::string text;
-    for (size_t i = 0; i < parts.size(); ++i)
+    for (size_t i = 0; i < parts.size(); ++i) {
         text += (i ? separator : "") + core::at(parts, i);
+    }
     return text;
 }
 
@@ -218,8 +230,9 @@ std::string get_name_text(uint32_t checksum, const NameLookup& names)
 std::string record_name(uint32_t checksum, const NameLookup& names)
 {
     const char* name = names ? names(checksum) : nullptr;
-    if (name && is_identifier(name) && hash_of_name(name) == checksum)
+    if (name && is_identifier(name) && hash_of_name(name) == checksum) {
         return name;
+    }
     return "0x" + hex8(checksum);
 }
 
@@ -227,10 +240,12 @@ bool parse_name(const std::string& typed, uint32_t* checksum)
 {
     std::string text = get_trim(typed);
     std::string hex;
-    if (text.size() == kHashColourLength && core::at(text, 0) == '#')
+    if (text.size() == kHashColourLength && core::at(text, 0) == '#') {
         hex = text.substr(1);
-    else if (text.size() == kPrefixedHexLength && core::at(text, 0) == '0' && (core::at(text, 1) == 'x' || core::at(text, 1) == 'X'))
+    } else if (text.size() == kPrefixedHexLength && core::at(text, 0) == '0' &&
+               (core::at(text, 1) == 'x' || core::at(text, 1) == 'X')) {
         hex = text.substr(2);
+    }
     if (!hex.empty()) {
         uint32_t value = 0;
         for (const char c : hex) {
@@ -238,15 +253,17 @@ bool parse_name(const std::string& typed, uint32_t* checksum)
                               : c >= 'A' && c <= 'F' ? c - 'A' + 10
                               : c >= 'a' && c <= 'f' ? c - 'a' + 10
                                                      : -1;
-            if (digit < 0)
+            if (digit < 0) {
                 return false;
+            }
             value = value << 4 | static_cast<uint32_t>(digit);
         }
         *checksum = value;
         return true;
     }
-    if (!is_identifier(text))
+    if (!is_identifier(text)) {
         return false;
+    }
     *checksum = hash_of_name(text);
     return true;
 }
@@ -273,22 +290,25 @@ std::string get_format(const Value& value, const NameLookup& names)
     case Kind::kNames: {
         std::vector<std::string> parts;
         parts.reserve(value.list.size());
-        for (const uint32_t c : value.list)
+        for (const uint32_t c : value.list) {
             parts.push_back(get_name_text(c, names));
+        }
         return get_join(parts, ", ");
     }
     case Kind::kIntegers: {
         std::vector<std::string> parts;
         parts.reserve(value.list.size());
-        for (const uint32_t i : value.list)
+        for (const uint32_t i : value.list) {
             parts.push_back(std::to_string(static_cast<int32_t>(i)));
+        }
         return get_join(parts, ", ");
     }
     case Kind::kFloats: {
         std::vector<std::string> parts;
         parts.reserve(value.floats.size());
-        for (const float f : value.floats)
+        for (const float f : value.floats) {
             parts.push_back(float_text(f));
+        }
         return get_join(parts, ", ");
     }
     }
@@ -344,8 +364,9 @@ bool parse(Kind kind, const std::string& text, Value* value, std::string* error)
         break;
     case Kind::kBitMark: {
         std::string t = get_trim(text);
-        for (char& c : t)
+        for (char& c : t) {
             c = static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+        }
         if (t == "1" || t == "on" || t == "true" || t == "yes") {
             v.on = true;
         } else if (t == "0" || t == "off" || t == "false" || t == "no") {
@@ -427,8 +448,9 @@ bool unescape(const std::string& text, std::string* out)
             out->push_back(c);
             continue;
         }
-        if (i + 2 >= text.size())
+        if (i + 2 >= text.size()) {
             return false;
+        }
         int value = 0;
         for (int k = 1; k <= 2; ++k) {
             const char h = core::at(text, i + k);
@@ -436,12 +458,14 @@ bool unescape(const std::string& text, std::string* out)
                               : h >= 'A' && h <= 'F' ? h - 'A' + 10
                               : h >= 'a' && h <= 'f' ? h - 'a' + 10
                                                      : -1;
-            if (digit < 0)
+            if (digit < 0) {
                 return false;
+            }
             value = (value * kHexBase) + digit;
         }
-        if (value == 0)
+        if (value == 0) {
             return false;
+        }
         out->push_back(static_cast<char>(value));
         i += 2;
     }
@@ -477,15 +501,17 @@ std::string encode_value(const Value& value, const NameLookup& names)
     case Kind::kNames: {
         std::vector<std::string> parts;
         parts.reserve(value.list.size());
-        for (const uint32_t c : value.list)
+        for (const uint32_t c : value.list) {
             parts.push_back(record_name(c, names));
+        }
         return "an:" + get_join(parts, ",");
     }
     case Kind::kIntegers: {
         std::vector<std::string> parts;
         parts.reserve(value.list.size());
-        for (const uint32_t i : value.list)
+        for (const uint32_t i : value.list) {
             parts.push_back(std::to_string(static_cast<int32_t>(i)));
+        }
         return "ai:" + get_join(parts, ",");
     }
     case Kind::kFloats: {
@@ -505,36 +531,47 @@ std::string encode_value(const Value& value, const NameLookup& names)
 bool decode_value(const std::string& text, Value* value)
 {
     const size_t colon = text.find(':');
-    if (colon == std::string::npos)
+    if (colon == std::string::npos) {
         return false;
+    }
     const std::string type = text.substr(0, colon);
     const std::string body = text.substr(colon + 1);
     std::string error;
     std::string plain;
     // (lists are comma-separated in records; Parse takes commas)
-    if (type == "i")
+    if (type == "i") {
         return parse(Kind::kInteger, body, value, &error);
-    if (type == "f")
+    }
+    if (type == "f") {
         return parse(Kind::kFloat, body, value, &error);
-    if (type == "p")
+    }
+    if (type == "p") {
         return parse(Kind::kPair, body, value, &error);
-    if (type == "v")
+    }
+    if (type == "v") {
         return parse(Kind::kVec4, body, value, &error);
-    if (type == "n")
+    }
+    if (type == "n") {
         return parse(Kind::kName, body, value, &error);
-    if (type == "s" || type == "l")
+    }
+    if (type == "s" || type == "l") {
         return unescape(body, &plain) && parse(type == "s" ? Kind::kChars : Kind::kLocalisedText, plain, value, &error);
+    }
     if (type == "flag") {
-        if (body != "0" && body != "1")
+        if (body != "0" && body != "1") {
             return false;
+        }
         return parse(Kind::kBitMark, body, value, &error);
     }
-    if (type == "an")
+    if (type == "an") {
         return parse(Kind::kNames, body, value, &error);
-    if (type == "ai")
+    }
+    if (type == "ai") {
         return parse(Kind::kIntegers, body, value, &error);
-    if (type == "af")
+    }
+    if (type == "af") {
         return parse(Kind::kFloats, body, value, &error);
+    }
     return false;
 }
 
@@ -550,11 +587,13 @@ bool read_token(Token token, Edit* edit)
 {
     const std::string key(token.key);
     const std::string value(token.value);
-    if (!is_field_key(key))
+    if (!is_field_key(key)) {
         return false;
+    }
     Edit e;
-    if (!parse_name(key.substr(2), &e.key))
+    if (!parse_name(key.substr(2), &e.key)) {
         return false;
+    }
     if (value == "del") {
         e.removed = true;
     } else if (!decode_value(value, &e.value)) {
@@ -664,16 +703,18 @@ void move_last_to(script::Struct* s, int index)
         previous = last;
         last = last->next;
     }
-    if (!last || !previous || index < 0)
+    if (!last || !previous || index < 0) {
         return; // (the only one, or none: in its place already)
+    }
     int others = 0;
     script::Component* before = nullptr;
     for (script::Component* c = s->head(); c != last && others < index; c = c->next) {
         before = c;
         ++others;
     }
-    if (before == previous)
+    if (before == previous) {
         return; // (already there)
+    }
     previous->next = nullptr;
     if (before) {
         last->next = before->next;
@@ -696,8 +737,9 @@ std::unordered_map<uint32_t, std::string>& names_state()
 
 script::Struct* get_included(const script::Component* c)
 {
-    if (c->name != 0 || value_kind(*c) != script::QbValueKind::kName)
+    if (c->name != 0 || value_kind(*c) != script::QbValueKind::kName) {
         return nullptr;
+    }
     const script::SymbolTableEntry* symbol = script::resolve_symbol(c->value.word());
     return symbol && symbol->type() == script::QbValueKind::kStruct ? symbol->value().structure() : nullptr;
 }
@@ -761,16 +803,19 @@ Value value_of(const script::Component* c)
         const script::QbValueKind type = array ? array->kind_tag() : script::QbValueKind::kNone;
         if (size == 0 || type == script::QbValueKind::kName) {
             v.kind = Kind::kNames;
-            for (uint32_t i = 0; i < size; ++i)
+            for (uint32_t i = 0; i < size; ++i) {
                 v.list.push_back(array->fetch_part(i));
+            }
         } else if (type == script::QbValueKind::kInteger) {
             v.kind = Kind::kIntegers;
-            for (uint32_t i = 0; i < size; ++i)
+            for (uint32_t i = 0; i < size; ++i) {
                 v.list.push_back(array->fetch_part(i));
+            }
         } else if (type == script::QbValueKind::kFloat) {
             v.kind = Kind::kFloats;
-            for (uint32_t i = 0; i < size; ++i)
+            for (uint32_t i = 0; i < size; ++i) {
                 v.floats.push_back(array->fetch_float(i));
+            }
         } else {
             v.kind = Kind::kOther;
             v.text = "[" + std::to_string(size) + " items]";
@@ -820,8 +865,9 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
         s->put_vec3(checksums::Name{key}, {.x = core::at(v.numbers, 0), .y = core::at(v.numbers, 1), .z = core::at(v.numbers, 2)});
         break;
     case Kind::kBitMark:
-        if (v.on)
+        if (v.on) {
             s->put_name_key(checksums::Name{0U}, key);
+        }
         break;
     case Kind::kNames:
     case Kind::kIntegers:
@@ -832,10 +878,11 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
                                          : v.kind == Kind::kIntegers ? script::QbValueKind::kInteger
                                                                      : script::QbValueKind::kFloat);
         for (uint32_t i = 0; i < size; ++i) {
-            if (v.kind == Kind::kFloats)
+            if (v.kind == Kind::kFloats) {
                 array->change_float(i, core::at(v.floats, i));
-            else
+            } else {
                 array->set_element(i, core::at(v.list, i));
+            }
         }
         s->append_array_ref(key, array);
         break;
@@ -874,12 +921,14 @@ bool included_after(script::Struct* s, uint32_t key, bool flag, int index)
 {
     int others = 0;
     for (const script::Component* c = s->head(); c; c = c->next) {
-        if (get_matches(c, key, flag))
+        if (get_matches(c, key, flag)) {
             continue;
+        }
         if (script::Struct* included = get_included(c)) {
             if (others >= index &&
-                (flag ? included->has_bare_flag(key) : included->find_last_component(key) != nullptr))
+                (flag ? included->has_bare_flag(key) : included->find_last_component(key) != nullptr)) {
                 return true;
+            }
         }
         ++others;
     }
@@ -889,18 +938,21 @@ bool included_after(script::Struct* s, uint32_t key, bool flag, int index)
 // The node's own field made `own`: the old one(s) taken out, the new one put where `own` says (-1: at the end).
 void put_own(script::Struct* s, uint32_t key, bool flag, const Own& own)
 {
-    if (flag)
+    if (flag) {
         s->remove_flag(key);
-    else
+    } else {
         s->erase_module(key);
-    if (!own.present || (flag && !own.value.on))
+    }
+    if (!own.present || (flag && !own.value.on)) {
         return;
+    }
     Value flag_on;
     flag_on.kind = Kind::kBitMark;
     flag_on.on = true;
     add_value(s, key, flag ? flag_on : own.value);
-    if (own.index >= 0)
+    if (own.index >= 0) {
         move_last_to(s, own.index);
+    }
 }
 
 struct Touched {
@@ -918,8 +970,9 @@ std::vector<Touched>& touched()
 Touched* find_touched(uint32_t node, uint32_t key)
 {
     for (Touched& t : touched()) {
-        if (t.node == node && t.key == key)
+        if (t.node == node && t.key == key) {
             return &t;
+        }
     }
     return nullptr;
 }
@@ -932,16 +985,20 @@ script::Struct* level_node(uint32_t name)
 // Whether `key` is a flag of the node (its own or a shared structure's), or should be taken as one (`value` a flag).
 bool key_is_flag(script::Struct* s, uint32_t key, const Value* value)
 {
-    if (value && value->kind == Kind::kBitMark)
+    if (value && value->kind == Kind::kBitMark) {
         return true;
+    }
     for (const script::Component* c = s->head(); c; c = c->next) {
-        if (get_matches(c, key, true))
+        if (get_matches(c, key, true)) {
             return true;
-        if (get_matches(c, key, false))
+        }
+        if (get_matches(c, key, false)) {
             return false;
+        }
         if (script::Struct* included = get_included(c)) {
-            if (included->has_bare_flag(key) && !included->find_last_component(key))
+            if (included->has_bare_flag(key) && !included->find_last_component(key)) {
                 return true;
+            }
         }
     }
     return false;
@@ -949,8 +1006,9 @@ bool key_is_flag(script::Struct* s, uint32_t key, const Value* value)
 
 bool same_own(const Own& a, const Own& b, bool flag)
 {
-    if (flag)
+    if (flag) {
         return a.present == b.present;
+    }
     return a.present == b.present && (!a.present || (same_value(a.value, b.value) && a.index == b.index));
 }
 
@@ -968,23 +1026,26 @@ void put_in(script::Struct* s, uint32_t key, bool flag, const Own& own) { put_ow
 const char* get_name_of(uint32_t checksum)
 {
     auto it = names_state().find(checksum);
-    if (it != names_state().end())
+    if (it != names_state().end()) {
         return it->second.c_str();
+    }
     return object_edit::get_name_of(checksum);
 }
 
 void remember(const std::string& name)
 {
-    if (is_identifier(name))
+    if (is_identifier(name)) {
         names_state()[hash_of_name(name)] = name;
+    }
 }
 
 std::vector<Row> rows_of(const nodes::Elem& node)
 {
     std::vector<Row> rows;
     script::Struct* s = nodes::struct_of(node);
-    if (!s)
+    if (!s) {
         return rows;
+    }
     struct TableRow {
         uint32_t key;
         script::Component* c;
@@ -994,8 +1055,9 @@ std::vector<Row> rows_of(const nodes::Elem& node)
     for (script::Component* c = s->head(); c; c = c->next) {
         if (const script::Struct* included = get_included(c)) {
             for (script::Component* inner = included->head(); inner; inner = inner->next) {
-                if (!get_included(inner)) // (one level of shared structures: the node arrays have no deeper ones)
+                if (!get_included(inner)) { // (one level of shared structures: the node arrays have no deeper ones)
                     entries.push_back({.key = get_key_of(inner), .c = inner, .included = true});
+                }
             }
             continue;
         }
@@ -1003,8 +1065,9 @@ std::vector<Row> rows_of(const nodes::Elem& node)
     }
     std::vector<uint32_t> order;
     for (const TableRow& e : entries) {
-        if (std::ranges::find(order, e.key) == order.end())
+        if (std::ranges::find(order, e.key) == order.end()) {
             order.push_back(e.key);
+        }
     }
     const NameLookup names = get_name_of;
     for (const uint32_t key : order) {
@@ -1012,8 +1075,9 @@ std::vector<Row> rows_of(const nodes::Elem& node)
         bool any_included = false;
         bool any_own = false;
         for (const TableRow& e : entries) {
-            if (e.key != key)
+            if (e.key != key) {
                 continue;
+            }
             effective = &e;
             any_included = any_included || e.included;
             any_own = any_own || !e.included;
@@ -1079,8 +1143,9 @@ bool set_on(script::Struct* s, uint32_t name, nodes::Family family, uint32_t key
         // (in its place, unless a shared structure after it would count over it: then at the end)
         want.index = now.present && !included_after(s, key, false, now.index) ? now.index : -1;
     }
-    if (!find_touched(name, key))
+    if (!find_touched(name, key)) {
         touched().push_back({.node = name, .key = key, .flag = flag, .origin = now, .structure = s});
+    }
     put_own(s, key, flag, want);
     error->clear();
     return true;
@@ -1100,8 +1165,9 @@ bool assign_value(uint32_t name, uint32_t key, const Value& value, bool removed,
         return false;
     }
     const nodes::Elem* layer = layer_node(name);
-    if (!set_on(s, name, layer ? layer->family : nodes::Family::kOther, key, value, removed, error))
+    if (!set_on(s, name, layer ? layer->family : nodes::Family::kOther, key, value, removed, error)) {
         return false;
+    }
     nodes::mark_stale(); // (the node layer's copies: restart types, radius, colour...)
     return true;
 }
@@ -1109,8 +1175,9 @@ bool assign_value(uint32_t name, uint32_t key, const Value& value, bool removed,
 bool get_capture(uint32_t name, uint32_t key, Own* own)
 {
     script::Struct* s = level_node(name);
-    if (!s)
+    if (!s) {
         return false;
+    }
     const Touched* t = find_touched(name, key);
     *own = own_of(s, key, t ? t->flag : key_is_flag(s, key, nullptr));
     return true;
@@ -1119,8 +1186,9 @@ bool get_capture(uint32_t name, uint32_t key, Own* own)
 bool place_in(uint32_t name, uint32_t key, const Own& own)
 {
     script::Struct* s = level_node(name);
-    if (!s)
+    if (!s) {
         return false;
+    }
     const Touched* t = find_touched(name, key);
     const bool flag = t ? t->flag : own.value.kind == Kind::kBitMark;
     put_own(s, key, flag, own);
@@ -1131,8 +1199,9 @@ bool place_in(uint32_t name, uint32_t key, const Own& own)
 bool get_origin(uint32_t name, uint32_t key, Own* own)
 {
     const Touched* t = find_touched(name, key);
-    if (!t)
+    if (!t) {
         return false;
+    }
     *own = t->origin;
     return true;
 }
@@ -1146,8 +1215,9 @@ bool reset_node(uint32_t name)
             any = true;
         }
     }
-    if (any)
+    if (any) {
         nodes::mark_stale();
+    }
     return any;
 }
 
@@ -1155,8 +1225,9 @@ bool node_edited(uint32_t name)
 {
     for (const Touched& t : touched()) {
         if (t.node == name && level_node(name) == t.structure &&
-            !same_own(own_of(t.structure, t.key, t.flag), t.origin, t.flag))
+            !same_own(own_of(t.structure, t.key, t.flag), t.origin, t.flag)) {
             return true;
+        }
     }
     return false;
 }
@@ -1165,8 +1236,9 @@ std::vector<uint32_t> touched_keys(uint32_t name)
 {
     std::vector<uint32_t> keys;
     for (const Touched& t : touched()) {
-        if (t.node == name)
+        if (t.node == name) {
             keys.push_back(t.key);
+        }
     }
     return keys;
 }
@@ -1176,11 +1248,13 @@ std::vector<NodeEdits> get_changed()
     std::vector<NodeEdits> out;
     for (const Touched& t : touched()) {
         script::Struct* s = level_node(t.node);
-        if (!s || s != t.structure)
+        if (!s || s != t.structure) {
             continue;
+        }
         const Own now = own_of(s, t.key, t.flag);
-        if (same_own(now, t.origin, t.flag))
+        if (same_own(now, t.origin, t.flag)) {
             continue;
+        }
         Edit edit;
         edit.key = t.key;
         if (t.flag) {
@@ -1207,10 +1281,12 @@ int get_apply(const std::vector<NodeEdits>& edits)
     for (const NodeEdits& node : edits) {
         for (const Edit& edit : node.edits) {
             std::string error;
-            if (edit.key == key_links())
+            if (edit.key == key_links()) {
                 continue; // (links: the chains' records)
-            if (assign_value(node.name, edit.key, edit.value, edit.removed, &error))
+            }
+            if (assign_value(node.name, edit.key, edit.value, edit.removed, &error)) {
                 ++applied;
+            }
         }
     }
     return applied;
@@ -1219,11 +1295,13 @@ int get_apply(const std::vector<NodeEdits>& edits)
 void reset_all()
 {
     for (const Touched& t : touched()) {
-        if (level_node(t.node) == t.structure)
+        if (level_node(t.node) == t.structure) {
             put_own(t.structure, t.key, t.flag, t.origin);
+        }
     }
-    if (!touched().empty())
+    if (!touched().empty()) {
         nodes::mark_stale();
+    }
 }
 
 void forget_level()
@@ -1235,18 +1313,21 @@ void forget_level()
 int apply_early(uint32_t array, const std::vector<NodeEdits>& edits)
 {
     // (the level's objects aren't made yet: the node layer isn't asked - only the node manager's structures)
-    if (!array || !level_nodes::node_manager_instance())
+    if (!array || !level_nodes::node_manager_instance()) {
         return 0;
+    }
     int applied = 0;
     for (const NodeEdits& node : edits) {
         script::Struct* s = level_node(node.name);
-        if (!s)
+        if (!s) {
             continue;
+        }
         for (const Edit& edit : node.edits) {
             std::string error;
             if (edit.key != key_links() &&
-                set_on(s, node.name, nodes::Family::kOther, edit.key, edit.value, edit.removed, &error))
+                set_on(s, node.name, nodes::Family::kOther, edit.key, edit.value, edit.removed, &error)) {
                 ++applied;
+            }
         }
     }
     return applied;

@@ -76,17 +76,20 @@ void mouse_glyph(ImDrawList* draw, ImVec2 at, GlyphSize glyph_size, bool wheel, 
     draw->AddRectFilled(a, b, kCap, r);
     draw->AddRect(a, b, kCapEdge, r);
     const float split = at.y + (h * 0.42F);
-    if (button == 0)
+    if (button == 0) {
         draw->AddRectFilled(a, ImVec2(at.x + (w * kHalf), split), kLit, r, ImDrawFlags_RoundCornersTopLeft);
-    if (button == 1)
+    }
+    if (button == 1) {
         draw->AddRectFilled(ImVec2(at.x + (w * kHalf), at.y), ImVec2(b.x, split), kLit, r,
                             ImDrawFlags_RoundCornersTopRight);
+    }
     draw->AddLine(ImVec2(at.x, split), ImVec2(b.x, split), kCapEdge);
     draw->AddLine(ImVec2(at.x + (w * kHalf), at.y), ImVec2(at.x + (w * kHalf), split), kCapEdge);
-    if (button == 2 || wheel)
+    if (button == 2 || wheel) {
         draw->AddRectFilled(ImVec2(at.x + (w * kWheelLeft), at.y + (h * kWheelTop)),
                             ImVec2(at.x + (w * kWheelRight), at.y + (h * kWheelBottom)), wheel ? kLit : kInk,
                             w * kWheelRounding);
+    }
     if (twice) {
         draw->AddText(ImVec2(b.x + 1.0F, at.y), kLit, "2");
     }
@@ -136,8 +139,9 @@ void token_glyph(const std::string& token, const Fonts& fonts)
     }
     default: {
         // A key cap (a controller's stick / trigger / shoulder: a darker, rounder cap).
-        if (fonts.mono)
+        if (fonts.mono) {
             ImGui::PushFont(fonts.mono);
+        }
         const ImVec2 size = ImGui::CalcTextSize(token.c_str());
         const float pad_x = 4.0F * s;
         const bool pad = g == hints::Glyph::kPadOther;
@@ -145,8 +149,9 @@ void token_glyph(const std::string& token, const Fonts& fonts)
                             ImVec2(pos.x + size.x + (ui_layout::kBothSides * pad_x), pos.y + size.y + (1.0F * s)),
                             pad ? IM_COL32(40, 42, 46, 255) : kCap, (pad ? kPadCapRounding : kKeyCapRounding) * s);
         draw->AddText(ImVec2(pos.x + pad_x, pos.y), kInk, token.c_str());
-        if (fonts.mono)
+        if (fonts.mono) {
             ImGui::PopFont();
+        }
         width = size.x + (ui_layout::kBothSides * pad_x);
         break;
     }
@@ -178,11 +183,13 @@ float token_width(const std::string& token, const Fonts& fonts)
     case hints::Glyph::kPadY:
         return h;
     default: {
-        if (fonts.mono)
+        if (fonts.mono) {
             ImGui::PushFont(fonts.mono);
+        }
         const float w = ImGui::CalcTextSize(token.c_str()).x;
-        if (fonts.mono)
+        if (fonts.mono) {
             ImGui::PopFont();
+        }
         return w + (kKeyCapExtra * s);
     }
     }
@@ -195,15 +202,18 @@ float hint_width(const std::pair<std::string, std::string>& hint, const Fonts& f
     float width = 0.0F;
     std::vector<std::string> tokens = hints::get_tokens(hint.first);
     for (size_t t = 0; t < tokens.size(); ++t) {
-        if (t)
+        if (t) {
             width += (ui_layout::kBothSides * s) + ImGui::CalcTextSize("+").x;
+        }
         width += token_width(core::at(tokens, t), fonts);
     }
-    if (fonts.small)
+    if (fonts.small) {
         ImGui::PushFont(fonts.small);
+    }
     width += (kHintTextGap * s) + ImGui::CalcTextSize(hint.second.c_str()).x;
-    if (fonts.small)
+    if (fonts.small) {
         ImGui::PopFont();
+    }
     return width;
 }
 
@@ -223,8 +233,9 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
             const float reserve = last ? 0.0F : (12.0F * s) + ImGui::CalcTextSize(ellipsis).x;
             if (used + gap + width + reserve > max_width) {
                 if (used + gap + ImGui::CalcTextSize(ellipsis).x <= max_width) {
-                    if (i)
+                    if (i) {
                         ImGui::SameLine(0.0F, gap);
+                    }
                     gui::text_disabled("%s", ellipsis);
                     ui_strip::get_note("HintMore");
                 }
@@ -232,8 +243,9 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
             }
             used += gap + width;
         }
-        if (i)
+        if (i) {
             ImGui::SameLine(0.0F, kHintGap * s);
+        }
         ImGui::BeginGroup();
         std::vector<std::string> tokens = hints::get_tokens(core::at(hints, i).first);
         for (size_t t = 0; t < tokens.size(); ++t) {
@@ -245,11 +257,13 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
             token_glyph(core::at(tokens, t), fonts);
         }
         ImGui::SameLine(0.0F, kHintTextGap * s);
-        if (fonts.small)
+        if (fonts.small) {
             ImGui::PushFont(fonts.small);
+        }
         ImGui::TextUnformatted(core::at(hints, i).second.c_str());
-        if (fonts.small)
+        if (fonts.small) {
             ImGui::PopFont();
+        }
         ImGui::EndGroup();
         ui_strip::get_note("Hint");
     }
@@ -285,8 +299,9 @@ void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
     }
     // The pie.
     const pie::State& pie = pie_now();
-    if (!pie.open || pie.items.empty())
+    if (!pie.open || pie.items.empty()) {
         return;
+    }
     ImFont* font = fonts.ui ? fonts.ui : ImGui::GetFont();
     ImFont* small = fonts.small ? fonts.small : font;
     const ImVec2 c(pie.x, pie.y);
@@ -326,18 +341,20 @@ void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
         const ImU32 ink = enabled ? kInk : IM_COL32(130, 132, 136, 255);
         draw->AddText(font, font->FontSize, ImVec2(a.x + (kSliceTextInsetX * s), a.y + (kSliceTextInsetY * s)), ink,
                       label.c_str());
-        if (!item.keys.empty())
+        if (!item.keys.empty()) {
             draw->AddText(small, small->FontSize,
                           ImVec2(a.x + (kSliceTextInsetX * s), a.y + (kSliceTextInsetY * s) + size.y),
                           IM_COL32(255, 200, 120, enabled ? 255 : 140), item.keys.c_str());
+        }
     }
 }
 
 void sets_menu(const Fonts& fonts)
 {
     const float s = fonts.scale;
-    if (!ImGui::BeginMenu("Selection Sets"))
+    if (!ImGui::BeginMenu("Selection Sets")) {
         return;
+    }
     const organize::State& state = organize::at_hand();
     gui::text_disabled("Quick Sets");
     for (int i = 1; i <= nav::kQuickSets; ++i) {
@@ -350,22 +367,28 @@ void sets_menu(const Fonts& fonts)
                                 : "-");
         ImGui::TextUnformatted(label.data());
         ImGui::SameLine(kSetNameColumn * s);
-        if (ImGui::SmallButton("Store"))
+        if (ImGui::SmallButton("Store")) {
             ux3::get_queue([name] { store_set(name); });
+        }
         if (at >= 0) {
             ImGui::SameLine();
-            if (ImGui::SmallButton("Select"))
+            if (ImGui::SmallButton("Select")) {
                 ux3::get_queue([name] { recall_set(name); });
+            }
             ImGui::SameLine();
-            if (ImGui::SmallButton("+"))
+            if (ImGui::SmallButton("+")) {
                 ux3::get_queue([at] { add_to_set(at); });
-            if (ImGui::IsItemHovered())
+            }
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("Add selection to set");
+            }
             ImGui::SameLine();
-            if (ImGui::SmallButton("-"))
+            if (ImGui::SmallButton("-")) {
                 ux3::get_queue([at] { take_from_set(at); });
-            if (ImGui::IsItemHovered())
+            }
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("Remove selection from set");
+            }
         }
         ImGui::PopID();
     }
@@ -373,8 +396,10 @@ void sets_menu(const Fonts& fonts)
     bool any = false;
     for (int g = 0; std::cmp_less(g, state.groups.size()); ++g) {
         const organize::GroupSet& group = core::at(state.groups, g);
-        if (group.name.starts_with("Set ") && group.name.size() == kSetNameLength && core::at(group.name, 4) >= '1' && core::at(group.name, 4) <= '9')
+        if (group.name.starts_with("Set ") && group.name.size() == kSetNameLength && core::at(group.name, 4) >= '1' &&
+            core::at(group.name, 4) <= '9') {
             continue;
+        }
         if (!any) {
             ImGui::Separator();
             gui::text_disabled("Groups");
@@ -383,14 +408,17 @@ void sets_menu(const Fonts& fonts)
         ImGui::PushID(kSetIdBase + g);
         ImGui::TextUnformatted(group.name.c_str());
         ImGui::SameLine(kSetNameColumn * s);
-        if (ImGui::SmallButton("Select"))
+        if (ImGui::SmallButton("Select")) {
             ux3::get_queue([g] { organize::select_group(g); });
+        }
         ImGui::SameLine();
-        if (ImGui::SmallButton("+"))
+        if (ImGui::SmallButton("+")) {
             ux3::get_queue([g] { add_to_set(g); });
+        }
         ImGui::SameLine();
-        if (ImGui::SmallButton("-"))
+        if (ImGui::SmallButton("-")) {
             ux3::get_queue([g] { take_from_set(g); });
+        }
         ImGui::PopID();
     }
     ImGui::EndMenu();
@@ -402,10 +430,12 @@ void prefs_section()
     ImGui::TextUnformatted("Controller");
     ImGui::Separator();
     bool pad = pad_mode();
-    if (ImGui::Checkbox("Controller Mode", &pad))
+    if (ImGui::Checkbox("Controller Mode", &pad)) {
         set_pad_mode(pad);
-    if (ImGui::IsItemHovered())
+    }
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Use a game controller in the editor");
+    }
 }
 
 } // namespace frontend::level_editor::ux8

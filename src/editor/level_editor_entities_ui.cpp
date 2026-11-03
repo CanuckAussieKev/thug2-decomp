@@ -80,8 +80,9 @@ void model_section(uint32_t id, script::Struct* s, std::vector<ui::Request>* req
 {
     static const uint32_t kModel = checksums::hash_from_text("model");
     const char* model = nullptr;
-    if (!s || !s->fetch_text(kModel, &model, 0) || !model || !get_live(id))
+    if (!s || !s->fetch_text(kModel, &model, 0) || !model || !get_live(id)) {
         return;
+    }
     const std::string now = model;
     ImGui::Spacing();
     ImGui::SeparatorText("Model");
@@ -96,8 +97,9 @@ void model_section(uint32_t id, script::Struct* s, std::vector<ui::Request>* req
                 get_queue([id, now] { detail::watch_model(id, now); });
                 field_request(requests, {.node = id, .key = kModel}, fields::Kind::kChars, chosen);
             }
-            if (ImGui::IsItemHovered())
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("%s", core::at(models, i).c_str());
+            }
             ImGui::PopID();
         }
         ImGui::EndCombo();
@@ -110,8 +112,9 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
     static const uint32_t kBouncy = checksums::hash_from_text("bouncy");
     static const uint32_t kContacts = checksums::hash_from_text("contacts");
     const int index = nodes::get_find(name);
-    if (!s || index < 0 || !s->has_bare_flag(kBouncy))
+    if (!s || index < 0 || !s->has_bare_flag(kBouncy)) {
         return;
+    }
     ImGui::Spacing();
     ImGui::SeparatorText("Physics");
     std::vector<fields::Row> rows = fields::rows_of(core::at(nodes::get_all(), index));
@@ -119,8 +122,9 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
         for (const char* field : kPhysics) {
             uint32_t key = checksums::hash_from_text(field);
             auto row = std::ranges::find_if(rows, [&](const fields::Row& r) { return r.key == key; });
-            if (row == rows.end())
+            if (row == rows.end()) {
                 continue;
+            }
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             gui::text_disabled("%s", field);
@@ -134,10 +138,13 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
             text::format_to(buffer, "%s", text.c_str());
             ImGui::PushID(field);
             ImGui::SetNextItemWidth(-1.0F);
-            if (ImGui::InputText("##v", buffer.data(), sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue) && text != buffer.data())
+            if (ImGui::InputText("##v", buffer.data(), sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue) &&
+                text != buffer.data()) {
                 field_request(requests, {.node = name, .key = key}, row->value.kind, buffer.data());
-            if (ImGui::IsItemHovered())
+            }
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("Applies on reload");
+            }
             ImGui::PopID();
         }
         script::Array* contacts = nullptr;
@@ -154,35 +161,44 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
 
 void moving_section(uint32_t id)
 {
-    if (!get_live(id) || !detail::has_path(id))
+    if (!get_live(id) || !detail::has_path(id)) {
         return;
+    }
     ImGui::Spacing();
     ImGui::SeparatorText("Path Speed");
     const float set = detail::speed_set(id);
     bool own = set > 0.0F;
-    if (ImGui::Checkbox("Path speed", &own))
+    if (ImGui::Checkbox("Path speed", &own)) {
         get_queue([id, own] { detail::change_speed(id, own ? detail::default_mph(id) : 0.0F); });
-    if (ImGui::IsItemHovered())
+    }
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Override the scripted path speed");
+    }
     if (own) {
         ImGui::SameLine();
         float mph = set;
         ImGui::SetNextItemWidth(kSpeedFieldWidth);
-        if (ImGui::DragFloat("mph##speed", &mph, kMphDragStep, kMinMph, kMaxMph, "%.1f", ImGuiSliderFlags_AlwaysClamp))
+        if (ImGui::DragFloat("mph##speed", &mph, kMphDragStep, kMinMph, kMaxMph, "%.1f",
+                             ImGuiSliderFlags_AlwaysClamp)) {
             get_queue([id, mph] { detail::change_speed(id, mph); });
-        if (ImGui::IsItemActive())
+        }
+        if (ImGui::IsItemActive()) {
             detail::set_ui_active(true);
+        }
     }
     const bool previewing = detail::get_previewing(id);
-    if (ImGui::Button(previewing && detail::preview_playing() ? "Pause" : "Play"))
+    if (ImGui::Button(previewing && detail::preview_playing() ? "Pause" : "Play")) {
         get_queue([id] { detail::preview_play(id); });
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Step"))
+    if (ImGui::Button("Step")) {
         get_queue([id] { detail::preview_step(id); });
+    }
     if (previewing) {
         ImGui::SameLine();
-        if (ImGui::Button("Stop"))
+        if (ImGui::Button("Stop")) {
             get_queue([] { stop_preview(); });
+        }
         gui::text_disabled("%.0f of %.0f along the path at %.1f mph", detail::preview_distance(),
                             detail::preview_length(), detail::default_mph(id));
     } else {
@@ -200,11 +216,13 @@ void sound_section(uint32_t name)
     std::vector<std::pair<uint32_t, std::string>> sounds = detail::get_sounds();
     std::string current = "(none)";
     for (const auto& s : sounds) {
-        if (s.first == e.sound)
+        if (s.first == e.sound) {
             current = s.second;
+        }
     }
-    if (e.sound && current == "(none)")
+    if (e.sound && current == "(none)") {
         current = nodes::caption(e.sound);
+    }
     ImGui::SetNextItemWidth(-1.0F);
     if (ImGui::BeginCombo("##emittersound", current.c_str())) {
         if (ImGui::Selectable("(none)", e.sound == 0) && e.sound != 0) {
@@ -245,8 +263,9 @@ void sound_section(uint32_t name)
     } else {
         gui::text_disabled("Area set by its level sector");
     }
-    if (active)
+    if (active) {
         detail::set_ui_active(true);
+    }
     gui::text_disabled("Loops while in range");
 }
 
@@ -260,13 +279,16 @@ void inspector_section(int node, checksums::Name object_name, ImFont* mono, std:
     const std::vector<nodes::Elem>& all = nodes::get_all();
     uint32_t name = object;
     int family = -1;
-    if (!name && node >= 0 && std::cmp_less(node, all.size()))
+    if (!name && node >= 0 && std::cmp_less(node, all.size())) {
         name = core::at(all, node).name;
+    }
     const int index = name ? nodes::get_find(name) : -1;
-    if (index >= 0)
+    if (index >= 0) {
         family = static_cast<int>(core::at(all, index).family);
-    if (!name)
+    }
+    if (!name) {
         return;
+    }
     script::Struct* s = level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
     if (object) {
         model_section(object, s, requests);
@@ -292,8 +314,9 @@ void inspector_section(int node, checksums::Name object_name, ImFont* mono, std:
 void view_options()
 {
     ImGui::Checkbox("Show Unspawned Objects", &show_uncreated());
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Show objects created later by scripts");
+    }
 }
 
 } // namespace frontend::level_editor::entities

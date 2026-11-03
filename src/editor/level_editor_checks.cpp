@@ -139,22 +139,27 @@ uint32_t issue_key(Rule rule, uint32_t subject, const std::string& detail)
     uint32_t hash = kFnvOffsetBasis;
     auto mix = [&](uint8_t byte) { hash = (hash ^ byte) * kFnvPrime; };
     mix(static_cast<uint8_t>(rule));
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 4; ++i) {
         mix(static_cast<uint8_t>(subject >> (kBitsPerByte * i)));
-    for (const char c : detail)
+    }
+    for (const char c : detail) {
         mix(static_cast<uint8_t>(c));
+    }
     return hash;
 }
 
 void get_sort(std::vector<Issue>* issues)
 {
     std::ranges::stable_sort(*issues, [](const Issue& a, const Issue& b) {
-        if (a.severity != b.severity)
+        if (a.severity != b.severity) {
             return a.severity < b.severity;
-        if (a.level_own_ != b.level_own_)
+        }
+        if (a.level_own_ != b.level_own_) {
             return !a.level_own_;
-        if (a.rule != b.rule)
+        }
+        if (a.rule != b.rule) {
             return a.rule < b.rule;
+        }
         return a.text < b.text;
     });
 }
@@ -164,8 +169,9 @@ bool get_behind(const Probe& probe) { return probe.in >= 0.0F && (probe.out < 0.
 Place get_judge(std::span<const Probe, kProbeCount> probes)
 {
     for (int axis = 0; axis < 3; ++axis) {
-        if (get_behind(core::at(probes, 2 * axis)) && get_behind(core::at(probes, (2 * axis) + 1)))
+        if (get_behind(core::at(probes, 2 * axis)) && get_behind(core::at(probes, (2 * axis) + 1))) {
             return Place::kInsideSolid;
+        }
     }
     return get_behind(core::at(probes, 2)) ? Place::kBelowGround : Place::kClear;
 }
@@ -174,8 +180,9 @@ bool floating(std::span<const Probe, kProbeCount> probes, float near)
 {
     for (int i = 0; i < kProbeDirections; ++i) {
         if ((core::at(probes, i).out >= 0.0F && core::at(probes, i).out <= near) ||
-            (core::at(probes, i).in >= 0.0F && core::at(probes, i).in <= near))
+            (core::at(probes, i).in >= 0.0F && core::at(probes, i).in <= near)) {
             return false;
+        }
     }
     return true;
 }
@@ -185,16 +192,18 @@ std::vector<int> lonely_points(const std::vector<std::vector<int>>& links)
     std::vector<int> incoming(links.size(), 0);
     for (const std::vector<int>& out : links) {
         for (const int to : out) {
-            if (to >= 0 && std::cmp_less(to, links.size()))
+            if (to >= 0 && std::cmp_less(to, links.size())) {
                 ++core::at(incoming, to);
+            }
         }
     }
     std::vector<int> lonely;
     for (size_t i = 0; i < links.size(); ++i) {
         const bool links_out = std::any_of(core::at(links, i).begin(), core::at(links, i).end(),
                                            [&](int to) { return to >= 0 && std::cmp_less(to, links.size()); });
-        if (!links_out && core::at(incoming, i) == 0)
+        if (!links_out && core::at(incoming, i) == 0) {
             lonely.push_back(static_cast<int>(i));
+        }
     }
     return lonely;
 }
@@ -208,19 +217,24 @@ const std::array<const char*, 4> kTeamNames = {{"Red", "Blue", "Green", "Yellow"
 std::vector<MpProblem> multiplayer_problems(const MpCounts& counts)
 {
     std::vector<MpProblem> out;
-    if (counts.player1 == 0)
+    if (counts.player1 == 0) {
         out.push_back({.severity = Severity::kError, .text = "No Player1 restart", .team = -1});
-    if (counts.multiplayer == 0)
+    }
+    if (counts.multiplayer == 0) {
         out.push_back({.severity = Severity::kWarning, .text = "No Multiplayer restart", .team = -1});
-    else if (counts.multiplayer == 1)
+    } else if (counts.multiplayer == 1) {
         out.push_back({.severity = Severity::kDetailsOf, .text = "Only one Multiplayer restart", .team = -1});
-    if (counts.horse == 0)
+    }
+    if (counts.horse == 0) {
         out.push_back({.severity = Severity::kWarning, .text = "No HORSE restart", .team = -1});
-    if (counts.crowns == 0)
+    }
+    if (counts.crowns == 0) {
         out.push_back({.severity = Severity::kWarning, .text = "King of the Hill: no crowns", .team = -1});
+    }
     bool any_team = false;
-    for (const TeamNodes& t : counts.teams)
+    for (const TeamNodes& t : counts.teams) {
         any_team = any_team || t.flag || t.base || t.restart;
+    }
     if (!any_team) {
         out.push_back({.severity = Severity::kWarning, .text = "No Capture the Flag flags, bases or team restarts", .team = -1});
         return out;
@@ -229,14 +243,17 @@ std::vector<MpProblem> multiplayer_problems(const MpCounts& counts)
         const TeamNodes& t = core::at(counts.teams, team);
         const bool any = t.flag || t.base || t.restart;
         // (Red and Blue always play; Green and Yellow only with 3 / 4 teams - complete or not there at all)
-        if (team >= 2 && !any)
+        if (team >= 2 && !any) {
             continue;
-        if (t.flag && t.base && t.restart)
+        }
+        if (t.flag && t.base && t.restart) {
             continue;
+        }
         std::string missing;
         auto add = [&](bool have, const std::string& what) {
-            if (!have)
+            if (!have) {
                 missing += (missing.empty() ? "" : ", ") + what;
+            }
         };
         const std::string colour = core::at(kTeamNames, team);
         add(t.flag, "its flag (TRG_CTF_" + colour + ")");
@@ -259,10 +276,11 @@ std::string record_key(const std::string& line)
     int want = 2;
     while (words < want && in >> word) {
         if (words == 0) {
-            if (word == "lock" || word == "order")
+            if (word == "lock" || word == "order") {
                 want = 3;
-            else if (word == "level")
+            } else if (word == "level") {
                 want = 1;
+            }
         }
         key += (words ? " " : "") + word;
         ++words;
@@ -277,13 +295,15 @@ std::vector<std::string> carried_lines(const std::vector<std::string>& unresolve
     std::string line;
     while (std::getline(in, line)) {
         const std::string key = record_key(line);
-        if (!key.empty())
+        if (!key.empty()) {
             keys.insert(key);
+        }
     }
     std::vector<std::string> out;
     for (const std::string& u : unresolved) {
-        if (keys.contains(record_key(u)) || std::ranges::find(out, u) != out.end())
+        if (keys.contains(record_key(u)) || std::ranges::find(out, u) != out.end()) {
             continue;
+        }
         out.push_back(u);
     }
     return out;
@@ -301,15 +321,18 @@ bool get_cast(V3 from, V3 to, SurfaceOut surface, uint32_t* sector)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false))
+    if (!ray->get_collision_along(&start, &end, false)) {
         return false;
+    }
     const auto& n = ray->hit().normal;
     const auto& p = ray->hit().point;
     *hit = {.x = p[0], .y = p[1], .z = p[2]};
-    if (normal)
+    if (normal) {
         *normal = {.x = n[0], .y = n[1], .z = n[2]};
-    if (sector)
+    }
+    if (sector) {
         *sector = ray->hit().object ? ray->hit().object_checksum_ : 0;
+    }
     return true;
 }
 
@@ -327,16 +350,18 @@ void probe_each(V3 point, std::span<const float, kProbeCount> reach, std::span<P
         const V3 far = point + core::at(kDirections, i) * core::at(reach, i);
         V3 hit{};
         core::at(probes, i) = {};
-        if (get_cast(point, far, {.point = &hit}))
+        if (get_cast(point, far, {.point = &hit})) {
             core::at(probes, i).out = span_to(hit, point);
+        }
         // Coming back in: the face facing away nearest to the point - the last met on the way in (cast again from just
         // past each hit; a few at most).
         V3 from = far;
         for (int step = 0; step < kMaxCastSteps && get_cast(from, point, {.point = &hit}); ++step) {
             core::at(probes, i).in = span_to(hit, point);
             const V3 on = hit + (point - far) * (0.5F / core::at(reach, i)); // (half a unit on, towards the point)
-            if (span_to(on, point) < kSameSpotDistance)
+            if (span_to(on, point) < kSameSpotDistance) {
                 break;
+            }
             from = on;
         }
     }
@@ -407,20 +432,24 @@ bool get_marked(checksums::Name node_name, uint8_t bits)
 bool scenery_changed_near(V3 point, float margin)
 {
     std::vector<uint32_t> pieces;
-    for (const scenery::SectorState& s : scenery::changed_sectors())
+    for (const scenery::SectorState& s : scenery::changed_sectors()) {
         pieces.push_back(s.checksum);
-    for (const scenery::Replicate& c : scenery::get_clones())
+    }
+    for (const scenery::Replicate& c : scenery::get_clones()) {
         pieces.push_back(c.checksum);
+    }
     for (const uint32_t piece : pieces) {
         OrientedBox box{};
-        if (!scenery::cuboid(piece, &box))
+        if (!scenery::cuboid(piece, &box)) {
             continue;
+        }
         V3 min{};
         V3 max{};
         bounds_of(box, &min, &max);
         if (point.x >= min.x - margin && point.x <= max.x + margin && point.y >= min.y - margin &&
-            point.y <= max.y + margin && point.z >= min.z - margin && point.z <= max.z + margin)
+            point.y <= max.y + margin && point.z >= min.z - margin && point.z <= max.z + margin) {
             return true;
+        }
     }
     return false;
 }
@@ -453,8 +482,9 @@ uint32_t world_signature()
 {
     uint32_t hash = kFnvOffsetBasis;
     auto mix = [&](const void* data, size_t size) {
-        for (const uint8_t byte : std::span<const uint8_t>(static_cast<const uint8_t*>(data), size))
+        for (const uint8_t byte : std::span<const uint8_t>(static_cast<const uint8_t*>(data), size)) {
             hash = (hash ^ byte) * kFnvPrime;
+        }
     };
     for (const scenery::SectorState& s : scenery::changed_sectors()) {
         mix(&s.checksum, sizeof(s.checksum));
@@ -481,8 +511,9 @@ uint32_t world_signature()
 const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
 {
     Placed& placed = placed_state()[name];
-    if (placed.world == world && placed.point.x == point.x && placed.point.y == point.y && placed.point.z == point.z)
+    if (placed.world == world && placed.point.x == point.x && placed.point.y == point.y && placed.point.z == point.z) {
         return placed;
+    }
     // (the sides only kSideReach: a wall's thickness - farther faces belong to other things; up and down kReach)
     const std::array<float, 6> reaches = {{kSideReach, kSideReach, kReach, kReach, kSideReach, kSideReach}};
     std::array<Probe, kProbeCount> probes;
@@ -500,11 +531,13 @@ const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
 void check_placement(std::vector<Issue>* out, uint32_t world)
 {
     for (const nodes::Elem& n : nodes::get_all()) {
-        if (n.hidden || !n.has_pos_)
+        if (n.hidden || !n.has_pos_) {
             continue;
+        }
         if (n.family != nodes::Family::kSpawn && n.family != nodes::Family::kCrown &&
-            n.family != nodes::Family::kBitMark)
+            n.family != nodes::Family::kBitMark) {
             continue;
+        }
         const V3 point = n.pos + V3{.x = 0.0F, .y = kLift, .z = 0.0F};
         const Placed& placed = placed_at(n.name, point, world);
         const Place place = placed.place;
@@ -556,8 +589,9 @@ void check_rails(std::vector<Issue>* out)
     std::vector<std::vector<int>> links(rails.size());
     for (size_t r = 0; r < rails.size(); ++r) {
         for (const int to : core::at(nodes, core::at(rails, r)).links) {
-            if (to >= 0 && std::cmp_less(to, nodes.size()) && core::at(index, to) >= 0)
+            if (to >= 0 && std::cmp_less(to, nodes.size()) && core::at(index, to) >= 0) {
                 core::at(links, r).push_back(core::at(index, to));
+            }
         }
     }
     for (const int r : lonely_points(links)) {
@@ -575,14 +609,16 @@ void check_rails(std::vector<Issue>* out)
     // Floating: the rail points the editor moved or added.
     for (const int i : rails) {
         const nodes::Elem& n = core::at(nodes, i);
-        if (!n.added && !get_marked(checksums::Name{n.name}, ui::kMarkMoved | ui::kMarkAdded))
+        if (!n.added && !get_marked(checksums::Name{n.name}, ui::kMarkMoved | ui::kMarkAdded)) {
             continue;
+        }
         V3 pos = n.pos;
         scenery::get_rail_point(n.name, &pos);
         std::array<Probe, kProbeCount> probes;
         probe_around(pos, kRailNear, probes);
-        if (!floating(probes, kRailNear))
+        if (!floating(probes, kRailNear)) {
             continue;
+        }
         Issue issue;
         issue.rule = Rule::kFloatingRail;
         issue.severity = Severity::kWarning;
@@ -599,8 +635,9 @@ void check_collision(std::vector<Issue>* out)
 {
     for (const scenery::SectorState& s : scenery::changed_sectors()) {
         const render::WorldCell* sector = scenery::sector_of(s.checksum);
-        if (!sector)
+        if (!sector) {
             continue;
+        }
         const shared_collision::Companion* companion = shared_collision::companion_of(s.checksum);
         Issue issue;
         issue.sector = s.checksum;
@@ -637,15 +674,17 @@ void check_collision(std::vector<Issue>* out)
 void check_limits(std::vector<Issue>* out)
 {
     for (const budget::Meter& m : budget::get_meters()) {
-        if (m.limit <= 0.0 || m.bytes)
+        if (m.limit <= 0.0 || m.bytes) {
             continue;
+        }
         Severity severity{};
-        if (m.used > m.limit)
+        if (m.used > m.limit) {
             severity = Severity::kError;
-        else if (m.used >= kNearLimitFraction * m.limit)
+        } else if (m.used >= kNearLimitFraction * m.limit) {
             severity = Severity::kWarning;
-        else
+        } else {
             continue;
+        }
         const double before = m.used - m.added;
         Issue issue;
         issue.rule = Rule::kLimit;
@@ -666,8 +705,9 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
     const std::vector<triggers::Added>& added = triggers::added_triggers();
     std::vector<triggers::Spec> specs;
     specs.reserve(added.size());
-    for (const triggers::Added& a : added)
+    for (const triggers::Added& a : added) {
         specs.push_back(a.spec);
+    }
     const std::vector<triggers::LevelTrigger>& level = triggers::level_triggers();
     for (size_t i = 0; i < added.size(); ++i) {
         const triggers::Added& a = core::at(added, i);
@@ -711,8 +751,9 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
     }
     // The level's trigger volumes.
     for (const triggers::LevelTrigger& t : level) {
-        if (t.off)
+        if (t.off) {
             continue;
+        }
         Issue issue;
         issue.sector = t.sector;
         issue.has_pos_ = true;
@@ -740,8 +781,9 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
     }
     // Proximity nodes (not the editor's trigger volumes, which are GenericNodes of the same family).
     for (const nodes::Elem& n : nodes::get_all()) {
-        if (n.family != nodes::Family::kFireOff || n.hidden || n.cls != kProximNode || triggers::is_trigger(n.name))
+        if (n.family != nodes::Family::kFireOff || n.hidden || n.cls != kProximNode || triggers::is_trigger(n.name)) {
             continue;
+        }
         const bool own = !n.added && !get_marked(checksums::Name{n.name}, ui::kMarkMoved | ui::kMarkAdded);
         Issue issue;
         issue.node = n.name;
@@ -749,8 +791,9 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
         issue.pos = n.pos;
         uint32_t script = 0;
         script::Struct* s = nodes::struct_of(n);
-        if (s)
+        if (s) {
             s->read_hash_value(kTriggerScript, &script, 0);
+        }
         const triggers::ProximEdit* edit = triggers::proxim_of(n.name);
         const bool edited = edit && (!edit->enter.empty() || !edit->exit.empty());
         if (!script && !edited) {
@@ -769,8 +812,9 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
         }
         if (edit) {
             for (const std::string* name : {&edit->enter, &edit->exit}) {
-                if (name->empty() || script::script_exists(get_checksums(*name)))
+                if (name->empty() || script::script_exists(get_checksums(*name))) {
                     continue;
+                }
                 issue.rule = Rule::kTriggerScript;
                 issue.severity = Severity::kError;
                 issue.level_own_ = false;
@@ -785,16 +829,19 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
 void check_online(std::vector<Issue>* out)
 {
     const char* game = "";
-    if (!nodes::level_is_shared(&game))
+    if (!nodes::level_is_shared(&game)) {
         return;
+    }
     for (const nodes::Elem& n : nodes::get_all()) {
-        if (!nodes::get_online(n.family))
+        if (!nodes::get_online(n.family)) {
             continue;
+        }
         const bool hidden = n.hidden && !n.added;
         const bool added = n.added && !n.hidden;
         const bool moved = get_marked(checksums::Name{n.name}, ui::kMarkMoved);
-        if (!hidden && !added && !moved)
+        if (!hidden && !added && !moved) {
             continue;
+        }
         Issue issue;
         issue.rule = Rule::kOnlineParity;
         issue.severity = Severity::kDetailsOf;
@@ -827,15 +874,17 @@ MpCounts count_multiplayer(bool shipped)
     MpCounts counts;
     for (const nodes::Elem& n : nodes::get_all()) {
         // (now: what the game sees - hidden ones not; as shipped: the level's own, hidden ones too)
-        if (shipped ? n.added : n.hidden)
+        if (shipped ? n.added : n.hidden) {
             continue;
+        }
         if (n.family == nodes::Family::kSpawn) {
             counts.player1 += core::any(n.restart_types_ & nodes::SpawnPointKind::kPlayer1);
             counts.multiplayer += core::any(n.restart_types_ & nodes::SpawnPointKind::kMultiplayer);
             counts.horse += core::any(n.restart_types_ & nodes::SpawnPointKind::kHorse);
         }
-        if (n.type == kCrown)
+        if (n.type == kCrown) {
             ++counts.crowns;
+        }
         for (int t = 0; t < 4; ++t) {
             core::at(counts.teams, t).flag = core::at(counts.teams, t).flag || n.name == core::at(core::at(g_names, t), 0);
             core::at(counts.teams, t).base = core::at(counts.teams, t).base || n.name == core::at(core::at(g_names, t), 1);
@@ -847,8 +896,9 @@ MpCounts count_multiplayer(bool shipped)
 
 void check_multiplayer(std::vector<Issue>* out)
 {
-    if (nodes::get_all().empty())
+    if (nodes::get_all().empty()) {
         return;
+    }
     const std::vector<MpProblem> now = multiplayer_problems(count_multiplayer(false));
     std::vector<MpProblem> shipped = multiplayer_problems(count_multiplayer(true));
     for (const MpProblem& p : now) {
@@ -874,16 +924,18 @@ void get_run()
         check_triggers(&issues, world);
         check_online(&issues);
         check_multiplayer(&issues);
-        for (const Issue& u : level_editor_checks_state().layout_issues_)
+        for (const Issue& u : level_editor_checks_state().layout_issues_) {
             issues.push_back(u);
+        }
     }
     get_sort(&issues);
     level_editor_checks_state().issues_ = std::move(issues);
     level_editor_checks_state().checked_once_ = true;
     level_editor_checks_state().last_seconds_ = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
-    if (debug_enabled())
+    if (debug_enabled()) {
         get_log("level editor: problems checked - %u issues in %.1f ms", static_cast<unsigned>(level_editor_checks_state().issues_.size()),
                 level_editor_checks_state().last_seconds_ * kMillisecondsPerSecond);
+    }
 }
 
 // --- fixes (undoable) -------------------------------------------------------------------------------------------
@@ -898,8 +950,9 @@ public:
     void get_restore() override
     {
         node_edit::assign_value(name, values);
-        if (const int index = nodes::get_find(name); index >= 0)
+        if (const int index = nodes::get_find(name); index >= 0) {
             nodes::reread(index);
+        }
         level_editor_checks_state().due_ = get_seconds();
     }
     [[nodiscard]] std::shared_ptr<ModuleStep> get_now() const override
@@ -932,13 +985,15 @@ void fix(const Issue& issue)
     switch (issue.rule) {
     case Rule::kBelowGround: {
         node_edit::Values values;
-        if (!issue.node || !node_edit::get_take_in(issue.node, &values))
+        if (!issue.node || !node_edit::get_take_in(issue.node, &values)) {
             return;
+        }
         push_module_undo(std::make_shared<NodePlace>(issue.node, values));
         values.pos = issue.fix_pos_;
         node_edit::assign_value(issue.node, values);
-        if (const int index = nodes::get_find(issue.node); index >= 0)
+        if (const int index = nodes::get_find(issue.node); index >= 0) {
             nodes::reread(index);
+        }
         hud::get_message("Moved to surface: " + get_name(issue.node));
         get_log("level editor: problems - %s put on the surface above it (%.0f, %.0f, %.0f)",
                 get_name(issue.node).c_str(), issue.fix_pos_.x, issue.fix_pos_.y, issue.fix_pos_.z);
@@ -975,8 +1030,9 @@ std::string line_of(const layout::FileLoad& one)
     std::string out;
     int number = 0;
     while (std::getline(in, line)) {
-        if (++number <= 1 || line.starts_with("scene") || line.empty())
+        if (++number <= 1 || line.starts_with("scene") || line.empty()) {
             continue;
+        }
         out += (out.empty() ? "" : "\n") + line;
     }
     return out;
@@ -999,8 +1055,10 @@ void note_layout_applied(const layout::FileLoad& file)
         issue.fixable = !issue.record.empty();
         issue.text = what + " not found in the level: " + issue.record;
         issue.key = issue_key(Rule::kLayoutRecord, subject, issue.record);
-        if (std::ranges::none_of(level_editor_checks_state().layout_issues_, [&](const Issue& i) { return i.key == issue.key; }))
+        if (std::ranges::none_of(level_editor_checks_state().layout_issues_,
+                                 [&](const Issue& i) { return i.key == issue.key; })) {
             level_editor_checks_state().layout_issues_.push_back(issue);
+        }
     };
     for (const scenery::SectorState& s : file.sectors) {
         if (!sector(s.checksum)) {
@@ -1152,10 +1210,11 @@ void note_layout_applied(const layout::FileLoad& file)
         one.level = file.level;
         report(file.level.start, "The level's start, restart " + get_name(file.level.start), one);
     }
-    for (const Issue& i : level_editor_checks_state().layout_issues_)
+    for (const Issue& i : level_editor_checks_state().layout_issues_) {
         get_log("level editor: layout record not found in the level - kept for the next save (the Problems window, "
                 "Alt+P, drops it): %s",
                 i.record.c_str());
+    }
     level_editor_checks_state().due_ = get_seconds();
 }
 
@@ -1169,12 +1228,14 @@ std::vector<std::string> carried_records(const std::string& captured)
 {
     std::vector<std::string> lines;
     for (const Issue& i : level_editor_checks_state().layout_issues_) {
-        if (i.record.empty())
+        if (i.record.empty()) {
             continue;
+        }
         std::istringstream in(i.record);
         std::string line;
-        while (std::getline(in, line))
+        while (std::getline(in, line)) {
             lines.push_back(line);
+        }
     }
     return lines.empty() ? lines : carried_lines(lines, captured);
 }
@@ -1208,8 +1269,9 @@ void tick_frame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(level_editor_checks_state().queue_);
-    for (const auto& action : queue)
+    for (const auto& action : queue) {
         action();
+    }
 }
 
 void forget_level()
@@ -1238,8 +1300,9 @@ void shown_counts(int* errors, int* warnings, int* infos)
 {
     *errors = *warnings = *infos = 0;
     for (const Issue& issue : level_editor_checks_state().issues_) {
-        if (issue.level_own_ || ignored_state().contains(issue.key))
+        if (issue.level_own_ || ignored_state().contains(issue.key)) {
             continue;
+        }
         (issue.severity == Severity::kError ? *errors : issue.severity == Severity::kWarning ? *warnings : *infos) += 1;
     }
 }
@@ -1254,10 +1317,11 @@ void open_window(int tab)
 
 void toggle_window()
 {
-    if (level_editor_checks_state().open_)
+    if (level_editor_checks_state().open_) {
         level_editor_checks_state().open_ = false;
-    else
+    } else {
         open_window(kProblemsTab);
+    }
 }
 
 // --- the UI -------------------------------------------------------------------------------------------------------
@@ -1279,19 +1343,23 @@ ImVec4 severity_colour(Severity severity)
 void go_to(const Issue& issue)
 {
     bool done = false;
-    if (issue.node)
+    if (issue.node) {
         done = go_to_node_named(issue.node);
-    if (!done && issue.sector)
+    }
+    if (!done && issue.sector) {
         done = go_to_scenery(issue.sector);
-    if (!done && issue.has_pos_)
+    }
+    if (!done && issue.has_pos_) {
         go_to_point(issue.pos, kGoToDistance);
+    }
 }
 
 void problems_tab(float scale, ImFont* mono)
 {
     (void)mono;
-    if (ImGui::Button("Check now"))
+    if (ImGui::Button("Check now")) {
         level_editor_checks_state().queue_.emplace_back([] { level_editor_checks_state().due_ = get_seconds(); });
+    }
     ImGui::SameLine();
     int own = 0;
     int ignored = 0;
@@ -1302,30 +1370,35 @@ void problems_tab(float scale, ImFont* mono)
     std::array<char, kLabelTextSize> label{};
     text::format_to(label, "Original Level (%d)", own);
     ImGui::Checkbox(label.data(), &level_editor_checks_state().show_own_);
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Problems present in the original level");
+    }
     ImGui::SameLine();
     text::format_to(label, "Ignored (%d)", ignored);
     ImGui::Checkbox(label.data(), &level_editor_checks_state().show_ignored_);
     ImGui::SameLine();
-    if (level_editor_checks_state().checked_once_)
+    if (level_editor_checks_state().checked_once_) {
         gui::text_disabled("%.0f ms", level_editor_checks_state().last_seconds_ * kMillisecondsPerSecond);
-    else
+    } else {
         gui::text_disabled("not checked");
+    }
     ImGui::Separator();
     int shown = 0;
-    for (const Issue& issue : level_editor_checks_state().issues_)
+    for (const Issue& issue : level_editor_checks_state().issues_) {
         shown += get_shown(issue);
+    }
     if (!shown) {
         gui::text_colored(kNoProblemsColour, "No problems");
-        if (own)
+        if (own) {
             gui::text_disabled("(%d in the original level)", own);
+        }
         return;
     }
     if (!ImGui::BeginTable("##problems", 3,
                            ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit,
-                           ImVec2(0.0F, kListHeight * scale)))
+                           ImVec2(0.0F, kListHeight * scale))) {
         return;
+    }
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, kKindColumnWidth * scale);
     ImGui::TableSetupColumn("Problem", ImGuiTableColumnFlags_WidthStretch);
@@ -1333,20 +1406,23 @@ void problems_tab(float scale, ImFont* mono)
     ImGui::TableHeadersRow();
     for (size_t i = 0; i < level_editor_checks_state().issues_.size(); ++i) {
         const Issue& issue = core::at(level_editor_checks_state().issues_, i);
-        if (!get_shown(issue))
+        if (!get_shown(issue)) {
             continue;
+        }
         const bool is_ignored = ignored_state().contains(issue.key);
         ImGui::PushID(static_cast<int>(i));
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         gui::text_colored(severity_colour(issue.severity), "%s", severity_name(issue.severity));
         ImGui::TableNextColumn();
-        if (is_ignored || issue.level_own_)
+        if (is_ignored || issue.level_own_) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+        }
         gui::text_disabled("%s%s", rule_name(issue.rule), issue.level_own_ ? " (original)" : "");
         gui::text_wrapped("%s", issue.text.c_str());
-        if (is_ignored || issue.level_own_)
+        if (is_ignored || issue.level_own_) {
             ImGui::PopStyleColor();
+        }
         ImGui::TableNextColumn();
         const bool can_go = issue.node || issue.sector || issue.has_pos_;
         ImGui::BeginDisabled(!can_go);
@@ -1361,23 +1437,26 @@ void problems_tab(float scale, ImFont* mono)
                 const Issue copy = issue;
                 level_editor_checks_state().queue_.emplace_back([copy] { fix(copy); });
             }
-            if (ImGui::IsItemHovered())
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("%s", issue.rule == Rule::kBelowGround       ? "Move to the surface above"
                                         : issue.rule == Rule::kHiddenCollision ? "Turn the collision off"
                                         : issue.rule == Rule::kLayoutRecord
                                             ? "Drop the record: the next save leaves it out "
                                               "(undoable)"
                                             : "");
+            }
         }
         ImGui::SameLine();
         if (ImGui::SmallButton(is_ignored ? "Unignore" : "Ignore")) {
-            if (is_ignored)
+            if (is_ignored) {
                 ignored_state().erase(issue.key);
-            else
+            } else {
                 ignored_state().insert(issue.key);
+            }
         }
-        if (ImGui::IsItemHovered())
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("Ignore until the level reloads");
+        }
         ImGui::PopID();
     }
     ImGui::EndTable();
@@ -1392,8 +1471,9 @@ void pane(PaneArea area, float scale, ImFont* mono)
     const auto view_width = area.width;
     const auto view_height = area.height;
     (void)view_height;
-    if (!level_editor_checks_state().open_)
+    if (!level_editor_checks_state().open_) {
         return;
+    }
     ImGui::SetNextWindowPos(ImVec2(view_x + (view_width * kHalf), view_y + (kWindowTopOffset * scale)),
                             ImGuiCond_FirstUseEver, ImVec2(kWindowPivotX, 0.0F));
     ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_FirstUseEver);

@@ -19,8 +19,9 @@ namespace {
 std::string get_lower(const char* name)
 {
     std::string text = name ? name : "";
-    for (char& c : text)
+    for (char& c : text) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
     return text;
 }
 
@@ -63,26 +64,34 @@ std::vector<std::string> owner_names(const char* name)
     // The last "shad", its tail a suffix: letters, then optionally "_" and a number, then optionally a letter (an earlier
     // "shad" has this one in its tail: it can't be the suffix if this isn't).
     const size_t at = text.rfind("shad");
-    if (at == std::string::npos || at == 0)
+    if (at == std::string::npos || at == 0) {
         return owners;
+    }
     size_t i = at + 4;
-    while (i < text.size() && get_letter(core::at(text, i)))
+    while (i < text.size() && get_letter(core::at(text, i))) {
         ++i;
+    }
     size_t number_at = i;
-    if (i < text.size() && core::at(text, i) == '_' && i + 1 < text.size() && get_digit(core::at(text, i + 1)))
+    if (i < text.size() && core::at(text, i) == '_' && i + 1 < text.size() && get_digit(core::at(text, i + 1))) {
         number_at = ++i;
-    while (i < text.size() && get_digit(core::at(text, i)))
+    }
+    while (i < text.size() && get_digit(core::at(text, i))) {
         ++i;
+    }
     std::string number = text.substr(number_at, i - number_at);
-    if (!number.empty() && i < text.size() && get_letter(core::at(text, i)))
+    if (!number.empty() && i < text.size() && get_letter(core::at(text, i))) {
         number += core::at(text, i++);
-    if (i != text.size())
+    }
+    if (i != text.size()) {
         return owners; // (not at the end: "Shadow" is part of the name)
+    }
     std::string prefix = text.substr(0, at);
-    if (prefix.back() == '_')
+    if (prefix.back() == '_') {
         prefix.pop_back();
-    if (prefix.empty())
+    }
+    if (prefix.empty()) {
         return owners;
+    }
     if (!number.empty()) {
         owners.push_back(prefix + "_" + number);
         owners.push_back(prefix + number);
@@ -94,25 +103,30 @@ std::vector<std::string> owner_names(const char* name)
 bool falls_under(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max)
 {
     if (!(shadow_min.x <= shadow_max.x && shadow_min.y <= shadow_max.y && shadow_min.z <= shadow_max.z) ||
-        !(group_min.x <= group_max.x && group_min.y <= group_max.y && group_min.z <= group_max.z))
+        !(group_min.x <= group_max.x && group_min.y <= group_max.y && group_min.z <= group_max.z)) {
         return false;
+    }
     if (shadow_max.y - shadow_min.y > kFlat || std::fabs(shadow_max.y - group_min.y) > kGap ||
-        group_max.y - group_min.y <= kFlat)
+        group_max.y - group_min.y <= kFlat) {
         return false;
+    }
     const float width = shadow_max.x - shadow_min.x;
     const float depth = shadow_max.z - shadow_min.z;
-    if (std::max(width, depth) > kMaxSpan)
+    if (std::max(width, depth) > kMaxSpan) {
         return false;
+    }
     const float caster_area = std::max(group_max.x - group_min.x, 1.0F) * std::max(group_max.z - group_min.z, 1.0F);
-    if (std::max(width, 1.0F) * std::max(depth, 1.0F) < kMinCover * caster_area)
+    if (std::max(width, 1.0F) * std::max(depth, 1.0F) < kMinCover * caster_area) {
         return false;
+    }
     const float margin = kMarginBase + (kMarginPerHeight * (group_max.y - group_min.y));
     const float x0 = std::max(shadow_min.x, group_min.x - margin);
     const float x1 = std::min(shadow_max.x, group_max.x + margin);
     const float z0 = std::max(shadow_min.z, group_min.z - margin);
     const float z1 = std::min(shadow_max.z, group_max.z + margin);
-    if (x1 < x0 || z1 < z0)
+    if (x1 < x0 || z1 < z0) {
         return false;
+    }
     // (a thin shadow - a rail's line - counted as at least a unit wide, so its share is measured along it)
     const float area = std::max(width, 1.0F) * std::max(depth, 1.0F);
     const float inside = (width < 1.0F ? 1.0F : x1 - x0) * (depth < 1.0F ? 1.0F : z1 - z0);
@@ -132,10 +146,12 @@ bool nearest_to_group(ShadowGroup shadow_group,
     const float mine_centre = centre_distance({.x = x, .z = z}, group_min, group_max);
     for (const auto& other : others) {
         const float theirs = footprint_distance({.x = x, .z = z}, other.first, other.second);
-        if (theirs < mine)
+        if (theirs < mine) {
             return false;
-        if (theirs == mine && centre_distance({.x = x, .z = z}, other.first, other.second) < mine_centre)
+        }
+        if (theirs == mine && centre_distance({.x = x, .z = z}, other.first, other.second) < mine_centre) {
             return false;
+        }
     }
     return true;
 }
@@ -158,10 +174,12 @@ int drop_target(const std::vector<bool>& passed, const std::vector<bool>& select
 {
     const size_t count = std::min(passed.size(), selected.size());
     for (size_t i = 0; i < count; ++i) {
-        if (core::at(selected, i))
+        if (core::at(selected, i)) {
             return static_cast<int>(i);
-        if (!core::at(passed, i))
+        }
+        if (!core::at(passed, i)) {
             break;
+        }
     }
     return -1;
 }

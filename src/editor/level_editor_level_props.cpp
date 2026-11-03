@@ -50,10 +50,12 @@ bool read_ints(const std::string& text, std::span<int> out, int count)
 {
     std::string error;
     fields::Value v;
-    if (!fields::parse(fields::Kind::kIntegers, text, &v, &error) || std::cmp_not_equal(v.list.size(), count))
+    if (!fields::parse(fields::Kind::kIntegers, text, &v, &error) || std::cmp_not_equal(v.list.size(), count)) {
         return false;
-    for (int i = 0; i < count; ++i)
+    }
+    for (int i = 0; i < count; ++i) {
         core::at(out, i) = static_cast<int32_t>(core::at(v.list, i));
+    }
     return true;
 }
 
@@ -93,12 +95,14 @@ bool vacant(const Props& props) { return get_same(props, Props{}); }
 
 bool valid_sky(const std::string& sky)
 {
-    if (sky.empty() || sky.size() > kMaxSkyNameLength)
+    if (sky.empty() || sky.size() > kMaxSkyNameLength) {
         return false;
+    }
     std::string lower;
     for (const char c : sky) {
-        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_') {
             return false;
+        }
         lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
     return lower.find("_sky") != std::string::npos;
@@ -109,20 +113,24 @@ int span_to(int value) { return value < 0 ? 0 : value > kSpanLimit ? kSpanLimit 
 
 std::string write_record(const Props& props)
 {
-    if (vacant(props))
+    if (vacant(props)) {
         return "";
+    }
     std::string line = "level";
     std::array<char, kPropsLineSize> text{};
-    if (!props.name.empty())
+    if (!props.name.empty()) {
         line += " name=" + fields::escape(props.name);
+    }
     if (props.start) {
         text::format_to(text, " start=%08X", props.start);
         line += text.data();
     }
-    if (tod_name(props.tod))
+    if (tod_name(props.tod)) {
         line += std::string(" tod=") + tod_name(props.tod);
-    if (props.time == 0 || props.time == 1)
+    }
+    if (props.time == 0 || props.time == 1) {
         line += props.time ? " time=1" : " time=0";
+    }
     if (props.has_ambient_) {
         text::format_to(text, " ambient=%d,%d,%d", core::at(props.ambient, 0), core::at(props.ambient, 1),
                         core::at(props.ambient, 2));
@@ -133,8 +141,9 @@ std::string write_record(const Props& props)
                         core::at(props.fog, 2), core::at(props.fog, 3), core::at(props.fog, 4));
         line += text.data();
     }
-    if (!props.sky.empty())
+    if (!props.sky.empty()) {
         line += " sky=" + fields::escape(props.sky);
+    }
     return line + "\n";
 }
 
@@ -144,34 +153,42 @@ bool read_record(std::istringstream& in, Props* props)
     std::string field;
     while (in >> field) {
         const size_t equals = field.find('=');
-        if (equals == std::string::npos || equals == 0)
+        if (equals == std::string::npos || equals == 0) {
             return false;
+        }
         const std::string key = field.substr(0, equals);
         const std::string value = field.substr(equals + 1);
         if (key == "name") {
-            if (!fields::unescape(value, &p.name) || p.name.empty() || p.name.size() > kMaxLevelNameLength)
+            if (!fields::unescape(value, &p.name) || p.name.empty() || p.name.size() > kMaxLevelNameLength) {
                 return false;
+            }
         } else if (key == "start") {
-            if (!fields::parse_name("0x" + value, &p.start) || value.size() != kStartHexDigits || !p.start)
+            if (!fields::parse_name("0x" + value, &p.start) || value.size() != kStartHexDigits || !p.start) {
                 return false;
+            }
         } else if (key == "tod") {
-            if (!tod_from_name(value, &p.tod))
+            if (!tod_from_name(value, &p.tod)) {
                 return false;
+            }
         } else if (key == "time") {
-            if (value != "0" && value != "1")
+            if (value != "0" && value != "1") {
                 return false;
+            }
             p.time = value == "1" ? 1 : 0;
         } else if (key == "ambient") {
-            if (!read_ints(value, p.ambient, 3))
+            if (!read_ints(value, p.ambient, 3)) {
                 return false;
+            }
             p.has_ambient_ = true;
         } else if (key == "fog") {
-            if (!read_ints(value, p.fog, kFogValues))
+            if (!read_ints(value, p.fog, kFogValues)) {
                 return false;
+            }
             p.has_fog_ = true;
         } else if (key == "sky") {
-            if (!fields::unescape(value, &p.sky) || !valid_sky(p.sky))
+            if (!fields::unescape(value, &p.sky) || !valid_sky(p.sky)) {
                 return false;
+            }
         } // (another key: a later version's - skipped)
     }
     *props = p;
@@ -187,21 +204,24 @@ std::vector<std::pair<const char*, fields::Value>> structure_values(const Props&
         v.checksum = fields::hash_of_name(tod_name(props.tod));
         out.emplace_back("tod_state", v);
     }
-    if (props.time == 0 || props.time == 1)
+    if (props.time == 0 || props.time == 1) {
         out.emplace_back("tod_manager_active", int_field(props.time));
+    }
     // (map4: our own keys - the engine reads no level structure's ambient_* / fog_*; on_level_up reads these)
     if (props.has_ambient_) {
         fields::Value v;
         v.kind = fields::Kind::kIntegers;
-        for (const int channel : props.ambient)
+        for (const int channel : props.ambient) {
             v.list.push_back(static_cast<uint32_t>(get_channel(channel)));
+        }
         out.emplace_back("ed_ambient", v);
     }
     if (props.has_fog_) {
         fields::Value v;
         v.kind = fields::Kind::kIntegers;
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i) {
             v.list.push_back(static_cast<uint32_t>(get_channel(core::at(props.fog, i))));
+        }
         v.list.push_back(static_cast<uint32_t>(span_to(core::at(props.fog, 4))));
         out.emplace_back("ed_fog", v);
     }
@@ -223,8 +243,9 @@ bool get_override(const Props& edited, const Props& level, gfx::TodParams* param
         params->ambient_blue_ = get_channel(core::at(ambient->ambient, 2));
     }
     const Props* fog = edited.has_fog_ ? &edited : level.has_fog_ ? &level : nullptr;
-    if (!fog)
+    if (!fog) {
         return false;
+    }
     params->fog_red_ = get_channel(core::at(fog->fog, 0));
     params->fog_green_ = get_channel(core::at(fog->fog, 1));
     params->fog_blue_ = get_channel(core::at(fog->fog, 2));
@@ -239,11 +260,13 @@ void read_override_keys(script::Struct* level, Props* out)
     static const uint32_t kFog = checksums::hash_from_text("ed_fog");
     auto read = [&](uint32_t key, std::span<int> values, uint32_t count) {
         script::Array* array = nullptr;
-        if (!level || !level->fetch_list(key, &array, 0) || !array || array->kind_tag() != script::QbValueKind::kInteger ||
-            array->extent() != count)
+        if (!level || !level->fetch_list(key, &array, 0) || !array ||
+            array->kind_tag() != script::QbValueKind::kInteger || array->extent() != count) {
             return false;
-        for (uint32_t i = 0; i < count; ++i)
+        }
+        for (uint32_t i = 0; i < count; ++i) {
             core::at(values, i) = static_cast<int32_t>(array->fetch_part(i));
+        }
         return true;
     };
     out->has_ambient_ = read(kAmbient, out->ambient, 3);
@@ -311,14 +334,16 @@ script::Struct* current_level_structure()
 {
     const modules::Skate* skate = modules::Skate::sole();
     const uint32_t load = skate ? skate->level() : 0;
-    if (!load)
+    if (!load) {
         return nullptr;
+    }
     static const uint32_t kLoadScript = checksums::hash_from_text("load_script");
     for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
         uint32_t value = 0;
-        if (e->type() == script::QbValueKind::kStruct && e->value().structure() && e->value().structure()->read_hash_value(kLoadScript, &value, 0) &&
-            value == load)
+        if (e->type() == script::QbValueKind::kStruct && e->value().structure() &&
+            e->value().structure()->read_hash_value(kLoadScript, &value, 0) && value == load) {
             return e->value().structure();
+        }
     }
     return nullptr;
 }
@@ -326,8 +351,9 @@ script::Struct* current_level_structure()
 void show_time_of_day(int tod)
 {
     gfx::CtodManager* manager = gfx::tod_manager();
-    if (manager && tod_name(tod))
+    if (manager && tod_name(tod)) {
         manager->set_tod_instant(checksums::hash_from_text(tod_name(tod)));
+    }
 }
 
 } // namespace
@@ -340,18 +366,21 @@ void assign_value(const Props& props)
     if (tod != level_editor_level_props_state().props_.tod && tod < 0) {
         // (back to the level's own state)
         Props defaults;
-        if (level_defaults(&defaults))
+        if (level_defaults(&defaults)) {
             tod = defaults.tod;
+        }
     }
     const bool tod_changed = props.tod != level_editor_level_props_state().props_.tod;
     const bool fog_was = level_editor_level_props_state().props_.has_fog_ || level_editor_level_props_state().level_.has_fog_;
     const bool lighting = !lighting_same(props, level_editor_level_props_state().props_);
     level_editor_level_props_state().props_ = props;
     install_filter();
-    if (tod_changed)
+    if (tod_changed) {
         show_time_of_day(tod); // (its refresh sends the ambient / fog through the filter too)
-    if (lighting && !tod_changed)
+    }
+    if (lighting && !tod_changed) {
         reapply();
+    }
     // (a fog the editor had forced on, taken off where the manager's fog is off: off again - the manager's own switch)
     gfx::CtodManager* manager = gfx::tod_manager();
     if (fog_was && !level_editor_level_props_state().props_.has_fog_ && !level_editor_level_props_state().level_.has_fog_ && manager && !manager->fog_active()) {
@@ -363,12 +392,14 @@ void assign_value(const Props& props)
 void on_level_up(bool network)
 {
     Props level;
-    if (!network)
+    if (!network) {
         read_override_keys(current_level_structure(), &level);
+    }
     const bool changed = !lighting_same(level, level_editor_level_props_state().level_);
     level_editor_level_props_state().level_ = level;
-    if (!changed)
+    if (!changed) {
         return;
+    }
     install_filter();
     reapply();
     get_log("level editor: the level structure's own lighting (ed_ambient / ed_fog) put in place:%s%s",
@@ -380,8 +411,9 @@ void reapply()
     gfx::CtodManager* manager = gfx::tod_manager();
     // (no parameters yet: nothing to send; lights a script set from a named state - reset_level_lights - kept: the
     // override goes with the next state change)
-    if (!manager || !manager->params_set() || manager->level_lights_reset())
+    if (!manager || !manager->params_set() || manager->level_lights_reset()) {
         return;
+    }
     install_filter();
     manager->apply_tod_params(manager->get_tod_params(-1));
 }
@@ -389,20 +421,24 @@ void reapply()
 bool level_defaults(Props* props)
 {
     script::Struct* level = current_level_structure();
-    if (!level)
+    if (!level) {
         return false;
+    }
     Props p;
     const char* name = nullptr;
-    if (level->fetch_text(checksums::hash_from_text("name"), &name, 0) && name)
+    if (level->fetch_text(checksums::hash_from_text("name"), &name, 0) && name) {
         p.name = name;
+    }
     const char* sky = nullptr;
-    if (level->fetch_text(checksums::hash_from_text("sky"), &sky, 0) && sky)
+    if (level->fetch_text(checksums::hash_from_text("sky"), &sky, 0) && sky) {
         p.sky = sky;
+    }
     uint32_t state = 0;
     p.tod = 1; // (load_level: afternoon when the level names none)
     if (level->read_hash_value(checksums::hash_from_text("tod_state"), &state, 0)) {
-        for (int i = 0; i < kStates; ++i)
+        for (int i = 0; i < kStates; ++i) {
             p.tod = state == checksums::hash_from_text(core::at(kTimeOfDayLabels, i)) ? i : p.tod;
+        }
     }
     int value = 1;
     p.time = level->fetch_int_value(checksums::hash_from_text("tod_manager_active"), &value, 0) && value == 0 ? 0 : 1;
@@ -433,8 +469,9 @@ void forget_level()
 
 const std::vector<std::string>& skies()
 {
-    if (level_editor_level_props_state().skies_made_)
+    if (level_editor_level_props_state().skies_made_) {
         return level_editor_level_props_state().skies_;
+    }
     level_editor_level_props_state().skies_made_ = true;
     level_editor_level_props_state().skies_.clear();
     static const uint32_t kSky = checksums::hash_from_text("sky");
@@ -443,14 +480,18 @@ const std::vector<std::string>& skies()
         const char* sky = nullptr;
         uint32_t load = 0;
         // (a level structure: it names its load script - not some other structure with a sky=)
-        if (e->type() != script::QbValueKind::kStruct || !e->value().structure() || !e->value().structure()->read_hash_value(kLoadScript, &load, 0) ||
-            !e->value().structure()->fetch_text(kSky, &sky, 0) || !sky || !valid_sky(sky))
+        if (e->type() != script::QbValueKind::kStruct || !e->value().structure() ||
+            !e->value().structure()->read_hash_value(kLoadScript, &load, 0) ||
+            !e->value().structure()->fetch_text(kSky, &sky, 0) || !sky || !valid_sky(sky)) {
             continue;
+        }
         bool there = false;
-        for (const std::string& s : level_editor_level_props_state().skies_)
+        for (const std::string& s : level_editor_level_props_state().skies_) {
             there = there || _stricmp(s.c_str(), sky) == 0;
-        if (!there)
+        }
+        if (!there) {
             level_editor_level_props_state().skies_.emplace_back(sky);
+        }
     }
     std::ranges::sort(level_editor_level_props_state().skies_,
                       [](const std::string& a, const std::string& b) { return _stricmp(a.c_str(), b.c_str()) < 0; });
@@ -460,11 +501,13 @@ const std::vector<std::string>& skies()
 void export_to_struct(script::Struct* level, const Props& props)
 {
     restore_structure();
-    if (!level)
+    if (!level) {
         return;
+    }
     const std::vector<std::pair<const char*, fields::Value>> values = structure_values(props);
-    if (values.empty())
+    if (values.empty()) {
         return;
+    }
     props_written().written_ = level;
     for (const auto& entry : values) {
         const uint32_t key = checksums::hash_from_text(entry.first);
@@ -481,8 +524,9 @@ void export_to_struct(script::Struct* level, const Props& props)
 void restore_structure()
 {
     if (props_written().written_) {
-        for (auto it = props_written().kept_.rbegin(); it != props_written().kept_.rend(); ++it)
+        for (auto it = props_written().kept_.rbegin(); it != props_written().kept_.rend(); ++it) {
             fields::put_in(props_written().written_, it->key, false, it->before);
+        }
     }
     props_written().written_ = nullptr;
     props_written().kept_.clear();
@@ -496,8 +540,9 @@ void on_edited_copy_up(const Props& props)
         props.start && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(props.start, false) : nullptr;
     uint32_t cls = 0;
     if (!node || !node->read_hash_value(kClass, &cls, 0) || cls != kRestart) {
-        if (props.start)
+        if (props.start) {
             get_log("level editor: the edited copy's start %08X isn't a restart of this level - not used", props.start);
+        }
         return;
     }
     gsl::owner<script::Struct*> params = script::new_struct();

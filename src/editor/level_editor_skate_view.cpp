@@ -68,27 +68,34 @@ Kind get_classify(FaceClass face_class)
     const auto normal_y = face_class.normal_y_;
     const auto threshold = face_class.threshold;
     const auto trigger = face_class.trigger;
-    if (trigger == 1)
+    if (trigger == 1) {
         return Kind::kKill;
-    if (trigger == 2)
+    }
+    if (trigger == 2) {
         return Kind::kWater;
-    if (core::any(flags & render::FaceFlag::kNotCollidable))
+    }
+    if (core::any(flags & render::FaceFlag::kNotCollidable)) {
         return Kind::kNone; // (passed through)
+    }
     bool skatable = false;
     const bool vert = core::any(flags & render::FaceFlag::kVert);
     // Skatable by its flag, or vert unless marked not skatable.
-    if (core::any(flags & render::FaceFlag::kSkatable) || (!core::any(flags & render::FaceFlag::kNotSkatable) && vert))
+    if (core::any(flags & render::FaceFlag::kSkatable) ||
+        (!core::any(flags & render::FaceFlag::kNotSkatable) && vert)) {
         skatable = true;
-    else if (core::any(flags & render::FaceFlag::kNotSkatable))
+    } else if (core::any(flags & render::FaceFlag::kNotSkatable)) {
         return Kind::kNotSkatable;
-    else if (core::any(flags & render::FaceFlag::kWall))
+    } else if (core::any(flags & render::FaceFlag::kWall)) {
         return Kind::kWallride;
-    else
+    } else {
         skatable = normal_y >= threshold;
-    if (!skatable)
+    }
+    if (!skatable) {
         return Kind::kNotSkatable;
-    if (vert)
+    }
+    if (vert) {
         return Kind::kVert;
+    }
     return normal_y >= kFloorNormalY ? Kind::kFloor : Kind::kBank;
 }
 
@@ -138,8 +145,9 @@ const char* get_name(Kind kind)
 
 float get_threshold(float angle, float factor)
 {
-    if (!std::isfinite(angle) || !std::isfinite(factor) || !(factor > 0.0F))
+    if (!std::isfinite(angle) || !std::isfinite(factor) || !(factor > 0.0F)) {
         return std::sin(kVertAngleDegrees * maths::kPi / kDegreesPerHalfTurn);
+    }
     return std::max(0.0F, std::min(1.0F, static_cast<float>(std::sin(static_cast<double>(angle) * factor))));
 }
 
@@ -206,31 +214,36 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
     const float threshold = game_threshold();
     Cached& c = cache()[checksum];
     if (c.tri == tri && std::cmp_equal(c.faces, tri->tri_count()) && c.threshold == threshold && same(c.min, min) &&
-        same(c.max, max) && same(c.first, first) && same(c.last, last))
+        same(c.max, max) && same(c.first, first) && same(c.last, last)) {
         return c;
+    }
     c = Cached{};
     c.tri = tri, c.min = min, c.max = max, c.first = first, c.last = last, c.faces = tri->tri_count();
     c.threshold = threshold;
-    if (!tri->faces() || !tri->vertices())
+    if (!tri->faces() || !tri->vertices()) {
         return c;
+    }
     for (int f = 0; f < c.faces; ++f) {
         std::array<V3, 3> p{};
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
             const uint32_t index = tri->face_vertex(f, k);
             ok = index < tri->num_vertices();
-            if (ok)
+            if (ok) {
                 core::at(p, k) = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
+            }
         }
-        if (!ok)
+        if (!ok) {
             continue;
+        }
         const render::FaceFlag flags = tri->face_flags(f);
         const V3 n = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
         const float length = std::sqrt(get_dot(n, n));
         const float ny = length > 0.0F ? n.y / length : 0.0F;
         Kind kind = get_classify({.flags = flags, .normal_y_ = ny, .threshold = threshold, .trigger = core::any(flags & render::FaceFlag::kTrigger) ? trigger : 0});
-        if (kind == Kind::kNone)
+        if (kind == Kind::kNone) {
             continue;
+        }
         c.points.insert(c.points.end(), p.begin(), p.end());
         c.kinds.push_back(static_cast<uint8_t>(kind));
     }
@@ -248,13 +261,15 @@ void add_overlay(const overlays::Painter& painter)
     std::memset(level_editor_skate_view_state().counts_.data(), 0, sizeof(level_editor_skate_view_state().counts_));
     level_editor_skate_view_state().capped_ = false;
     level_editor_skate_view_state().rail_segments_ = 0;
-    if (!get_shown() || !painter.overlay())
+    if (!get_shown() || !painter.overlay()) {
         return;
+    }
     // The level's kill / water triggers by sector (1 kill, 2 water).
     std::unordered_map<uint32_t, int> triggers;
     for (const triggers::LevelTrigger& t : triggers::level_triggers()) {
-        if (t.kind == triggers::Kind::kKill && !t.off)
+        if (t.kind == triggers::Kind::kKill && !t.off) {
             triggers[t.sector] = t.calls.water ? 2 : 1;
+        }
     }
     struct Candidate {
         uint32_t checksum;
@@ -269,14 +284,17 @@ void add_overlay(const overlays::Painter& painter)
         [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
             const render::HitMesh* coll = sector->hit_body();
-            if (!render::is_static_collider(coll) || (coll->flag_bits() & 4))
+            if (!render::is_static_collider(coll) || (coll->flag_bits() & 4)) {
                 return; // (no collision, or switched off)
+            }
             const auto* tri = coll->geometry();
-            if (!tri || !tri->tri_count() || view::hidden_sector(checksum))
+            if (!tri || !tri->tri_count() || view::hidden_sector(checksum)) {
                 return;
+            }
             const float distance = view::distance_to_box(w->camera, to_v3(tri->bounds().min), to_v3(tri->bounds().max));
-            if (distance <= kRadius)
+            if (distance <= kRadius) {
                 w->found.push_back({.checksum = checksum, .tri = tri, .distance = distance});
+            }
         },
         &walk);
     std::ranges::sort(walk.found, [](const Candidate& a, const Candidate& b) { return a.distance < b.distance; });
@@ -299,8 +317,9 @@ void add_overlay(const overlays::Painter& painter)
             std::array<V3, 4> clipped{};
             const int count =
                 view::clip_triangle_to_near(painter.camera(), painter.frame(), painter.near_z(), std::span<const V3>(c.points).subspan(f * 3).first<3>(), clipped);
-            if (!count)
+            if (!count) {
                 continue;
+            }
             Polygon poly = {};
             poly.count = count;
             bool left = true;
@@ -317,36 +336,41 @@ void add_overlay(const overlays::Painter& painter)
                 ndc_to_pixel(painter.viewport(), nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));
                 depth += -get_dot(core::at(clipped, k) - painter.camera(), painter.frame().back);
             }
-            if (left || right || below || above)
+            if (left || right || below || above) {
                 continue;
+            }
             const Kind kind = static_cast<Kind>(core::at(c.kinds, f));
             poly.depth = depth / static_cast<float>(count);
             poly.argb = get_colour(kind);
             polygons.push_back(poly);
             ++core::at(level_editor_skate_view_state().counts_, core::at(c.kinds, f));
         }
-        if (level_editor_skate_view_state().capped_)
+        if (level_editor_skate_view_state().capped_) {
             break;
+        }
     }
     std::ranges::sort(polygons, [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
     auto& under = painter.overlay()->under;
     for (const Polygon& p : polygons) {
         under.push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 1), .by = core::at(p.y, 1), .cx = core::at(p.x, 2), .cy = core::at(p.y, 2), .argb = p.argb});
-        if (p.count == 4)
+        if (p.count == 4) {
             under.push_back({.ax = core::at(p.x, 0), .ay = core::at(p.y, 0), .bx = core::at(p.x, 2), .by = core::at(p.y, 2), .cx = core::at(p.x, 3), .cy = core::at(p.y, 3), .argb = p.argb});
+        }
     }
     // The editor's own kill / water triggers: their boxes outlined.
     for (const triggers::Added& a : triggers::added_triggers()) {
-        if (!a.alive || a.spec.kind != triggers::Kind::kKill)
+        if (!a.alive || a.spec.kind != triggers::Kind::kKill) {
             continue;
+        }
         OrientedBox box = triggers::box_of(a.pos, a.yaw, a.spec.size);
         std::array<V3, kBoxCorners> corner{};
         box_corners(box.origin, box.axes, box.min, box.max, corner);
         const std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                   {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
         const uint32_t colour = (get_colour(a.spec.water ? Kind::kWater : Kind::kKill) & 0x00FFFFFF) | 0xFF000000;
-        for (const auto& e : edges)
+        for (const auto& e : edges) {
             (void)painter.get_seg(core::at(corner, core::at(e, 0)), core::at(corner, core::at(e, 1)), colour, kEdgeThickness);
+        }
     }
     // Grind rails: the rail manager's active segments near the camera.
     const modules::Skate* skate = modules::Skate::sole();
@@ -356,14 +380,17 @@ void add_overlay(const overlays::Painter& painter)
         for (int i = 0; i < rails->num(); ++i) {
             const objects::GrindPoint& node = core::at(rails->node_run(), i);
             if (!node.succ() || (node.flag_bits() & objects::kRailFlagClimbing) ||
-                !(node.flag_bits() & objects::kRailFlagActive))
+                !(node.flag_bits() & objects::kRailFlagActive)) {
                 continue;
+            }
             const V3 a = {.x = node.at_point().x, .y = node.at_point().y, .z = node.at_point().z};
             const V3 b = {.x = node.succ()->at_point().x, .y = node.succ()->at_point().y, .z = node.succ()->at_point().z};
-            if (painter.span_to(a) > kRadius && painter.span_to(b) > kRadius)
+            if (painter.span_to(a) > kRadius && painter.span_to(b) > kRadius) {
                 continue;
-            if (painter.get_seg(a, b, kRail, kRailThickness))
+            }
+            if (painter.get_seg(a, b, kRail, kRailThickness)) {
                 ++drawn;
+            }
         }
         level_editor_skate_view_state().rail_segments_ = drawn;
     }
@@ -371,8 +398,9 @@ void add_overlay(const overlays::Painter& painter)
 
 void get_legend(float view_x, float view_y, float view_width, float view_height, float scale)
 {
-    if (!get_shown())
+    if (!get_shown()) {
         return;
+    }
     ImGui::SetNextWindowPos(
         ImVec2(view_x + view_width - (kLegendInset * scale), view_y + view_height - (kLegendInset * scale)),
         ImGuiCond_Always, ImVec2(1.0F, 1.0F));
@@ -392,17 +420,20 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
         ImGui::GetWindowDrawList()->AddRectFilled(at, ImVec2(at.x + box, at.y + box), abgr | kOpaqueAlpha);
         ImGui::Dummy(ImVec2(box, box));
         ImGui::SameLine();
-        if (count >= 0)
+        if (count >= 0) {
             gui::text("%s  %d", name, count);
-        else
+        } else {
             ImGui::TextUnformatted(name);
+        }
     };
-    for (int k = 1; k < kKinds; ++k)
+    for (int k = 1; k < kKinds; ++k) {
         row(get_colour(static_cast<Kind>(k)), get_name(static_cast<Kind>(k)), core::at(level_editor_skate_view_state().counts_, k));
+    }
     row(kRail, "Grind rail (the rail manager's)", level_editor_skate_view_state().rail_segments_);
     gui::text_disabled("Slope limit: normal y %.2f", game_threshold());
-    if (level_editor_skate_view_state().capped_)
+    if (level_editor_skate_view_state().capped_) {
         gui::text_disabled("(nearest %d faces)", kMaxFaces);
+    }
     ImGui::End();
 }
 

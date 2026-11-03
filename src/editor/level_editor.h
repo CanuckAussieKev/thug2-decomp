@@ -386,8 +386,9 @@ inline V3 box_size(const OrientedBox& box)
 {
     const V3 extent = box.max - box.min;
     std::array<float, 3> lengths{};
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 3; ++i) {
         core::at(lengths, i) = std::sqrt(get_dot(core::at(box.axes, i), core::at(box.axes, i)));
+    }
     return {.x = extent.x * core::at(lengths, 0), .y = extent.y * core::at(lengths, 1), .z = extent.z * core::at(lengths, 2)};
 }
 

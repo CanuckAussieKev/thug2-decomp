@@ -99,20 +99,23 @@ bool decode(const std::string& encoded, std::string* text)
     text->clear();
     for (size_t i = 0; i < encoded.size(); ++i) {
         const char c = core::at(encoded, i);
-        if (c == '"' || c == '#')
+        if (c == '"' || c == '#') {
             return false;
+        }
         if (c != '%') {
             *text += c;
             continue;
         }
         if (i + 2 >= encoded.size() || !std::isxdigit(static_cast<unsigned char>(core::at(encoded, i + 1))) ||
-            !std::isxdigit(static_cast<unsigned char>(core::at(encoded, i + 2))))
+            !std::isxdigit(static_cast<unsigned char>(core::at(encoded, i + 2)))) {
             return false;
+        }
         *text += static_cast<char>(std::strtol(encoded.substr(i + 1, 2).c_str(), nullptr, kHexBase));
         i += 2;
     }
-    if (text->size() > kMaxText)
+    if (text->size() > kMaxText) {
         text->resize(kMaxText);
+    }
     return true;
 }
 
@@ -120,11 +123,13 @@ namespace {
 
 bool valid_name(const std::string& name)
 {
-    if (name.empty() || name.size() > kMaxWordLength) // (as layout_file.ts's validWord)
+    if (name.empty() || name.size() > kMaxWordLength) { // (as layout_file.ts's validWord)
         return false;
+    }
     for (const char c : name) {
-        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_') {
             return false;
+        }
     }
     return true;
 }
@@ -136,17 +141,20 @@ bool read_triple(const std::string& text, V3* out)
     for (int i = 0; i < 3; ++i) {
         char* end = nullptr;
         core::at(v, i) = std::strtof(at, &end);
-        if (end == at || !std::isfinite(core::at(v, i)))
+        if (end == at || !std::isfinite(core::at(v, i))) {
             return false;
+        }
         at = end;
         if (i < 2) {
-            if (*at != ',')
+            if (*at != ',') {
                 return false;
+            }
             at = std::next(at);
         }
     }
-    if (*at)
+    if (*at) {
         return false;
+    }
     *out = {.x = core::at(v, 0), .y = core::at(v, 1), .z = core::at(v, 2)};
     return true;
 }
@@ -164,8 +172,9 @@ std::string write_record(const Note& note)
 bool read_record(std::istringstream& in, Note* out)
 {
     *out = Note{};
-    if (!(in >> out->name) || !valid_name(out->name))
+    if (!(in >> out->name) || !valid_name(out->name)) {
         return false;
+    }
     std::string rest;
     std::getline(in, rest);
     bool pos = false;
@@ -174,22 +183,28 @@ bool read_record(std::istringstream& in, Note* out)
     size_t at = 0;
     while (true) {
         at = rest.find_first_not_of(' ', at);
-        if (at == std::string::npos)
+        if (at == std::string::npos) {
             break;
-        if (text)
+        }
+        if (text) {
             return false; // (text= is last)
+        }
         const size_t equals = rest.find('=', at);
-        if (equals == std::string::npos)
+        if (equals == std::string::npos) {
             return false;
+        }
         const std::string key = rest.substr(at, equals - at);
-        if (key.find(' ') != std::string::npos)
+        if (key.find(' ') != std::string::npos) {
             return false;
+        }
         if (key == "text") {
-            if (equals + 1 >= rest.size() || core::at(rest, equals + 1) != '"')
+            if (equals + 1 >= rest.size() || core::at(rest, equals + 1) != '"') {
                 return false;
+            }
             const size_t close = rest.find('"', equals + 2);
-            if (close == std::string::npos || !decode(rest.substr(equals + 2, close - equals - 2), &out->text))
+            if (close == std::string::npos || !decode(rest.substr(equals + 2, close - equals - 2), &out->text)) {
                 return false;
+            }
             text = true;
             at = close + 1;
             continue;
@@ -199,14 +214,16 @@ bool read_record(std::istringstream& in, Note* out)
             rest.substr(equals + 1, end == std::string::npos ? std::string::npos : end - equals - 1);
         at = end == std::string::npos ? rest.size() : end;
         if (key == "pos") {
-            if (pos || !read_triple(value, &out->pos))
+            if (pos || !read_triple(value, &out->pos)) {
                 return false;
+            }
             pos = true;
         } else if (key == "color") {
             char* stop = nullptr;
             const unsigned long rgb = std::strtoul(value.c_str(), &stop, 16);
-            if (colour || value.size() != kColourDigits || *stop)
+            if (colour || value.size() != kColourDigits || *stop) {
                 return false;
+            }
             out->colour = static_cast<uint32_t>(rgb);
             colour = true;
         } // (another key: a later version's - skipped)
@@ -219,22 +236,26 @@ std::string fresh_name(const std::vector<Note>& notes)
     for (int n = 1;; ++n) {
         std::array<char, 32> name{};
         text::format_to(name, "%s%02d", kStem, n);
-        if (std::ranges::none_of(notes, [&](const Note& note) { return note.name == name.data(); }))
+        if (std::ranges::none_of(notes, [&](const Note& note) { return note.name == name.data(); })) {
             return name.data();
+        }
     }
 }
 
 std::string caption(const std::string& text, size_t most)
 {
     std::string first = text.substr(0, text.find('\n'));
-    while (!first.empty() && (first.back() == '\r' || first.back() == ' '))
+    while (!first.empty() && (first.back() == '\r' || first.back() == ' ')) {
         first.pop_back();
-    if (first.empty())
+    }
+    if (first.empty()) {
         return text.find_first_not_of(" \r\n") == std::string::npos ? "(empty note)" : "...";
-    if (first.size() > most)
+    }
+    if (first.size() > most) {
         first = first.substr(0, most) + "...";
-    else if (first.size() < text.size() && text.find_first_not_of(" \r\n", first.size()) != std::string::npos)
+    } else if (first.size() < text.size() && text.find_first_not_of(" \r\n", first.size()) != std::string::npos) {
         first += " ...";
+    }
     return first;
 }
 
@@ -285,23 +306,26 @@ Note* get_find(const std::string& name)
 bool view_point(V3* point)
 {
     ViewNow view{};
-    if (!current_view(&view))
+    if (!current_view(&view)) {
         return false;
+    }
     const TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
     const V3 dir = make_unit(frame.back * -1.0F);
     V3 hit{};
-    if (checks::get_cast(view.pos, view.pos + dir * kRayLength, {.point = &hit}))
+    if (checks::get_cast(view.pos, view.pos + dir * kRayLength, {.point = &hit})) {
         *point = hit;
-    else
+    } else {
         *point = view.pos + dir * kPlaceAheadDistance;
+    }
     return true;
 }
 
 void add_here()
 {
     V3 at{};
-    if (!view_point(&at))
+    if (!view_point(&at)) {
         return;
+    }
     push_undo();
     Note note;
     note.name = fresh_name(level_editor_notes_state().notes_);
@@ -319,13 +343,15 @@ ImU32 get_colour(uint32_t rgb, int alpha = 255)
 
 bool get_matches(const std::string& text, const char* filter)
 {
-    if (!filter || !*filter)
+    if (!filter || !*filter) {
         return true;
+    }
     std::string a = text;
     std::string b = filter;
     auto lower = [](std::string* s) {
-        for (char& c : *s)
+        for (char& c : *s) {
             c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        }
     };
     lower(&a);
     lower(&b);
@@ -342,8 +368,9 @@ int get_apply(const std::vector<Note>& notes)
 {
     level_editor_notes_state().notes_.clear();
     for (const Note& note : notes) {
-        if (!get_find(note.name))
+        if (!get_find(note.name)) {
             level_editor_notes_state().notes_.push_back(note);
+        }
     }
     level_editor_notes_state().selected_.clear();
     level_editor_notes_state().edit_for_.clear();
@@ -363,10 +390,12 @@ void tick_frame()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(level_editor_notes_state().queue_);
-    for (const auto& action : queue)
+    for (const auto& action : queue) {
         action();
-    if (!level_editor_notes_state().selected_.empty() && !get_find(level_editor_notes_state().selected_))
+    }
+    if (!level_editor_notes_state().selected_.empty() && !get_find(level_editor_notes_state().selected_)) {
         level_editor_notes_state().selected_.clear();
+    }
 }
 
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::span<const uint32_t, 4> viewport, float near_z,
@@ -388,8 +417,9 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         float tx = 0.0F;
         float ty = 0.0F;
         if (!cast_onto(camera_pos, frame, lens, note.pos, near_z, &ax, &ay) ||
-            !cast_onto(camera_pos, frame, lens, top, near_z, &bx, &by))
+            !cast_onto(camera_pos, frame, lens, top, near_z, &bx, &by)) {
             continue;
+        }
         ndc_to_pixel(viewport, ax, ay, &px, &py);
         ndc_to_pixel(viewport, bx, by, &tx, &ty);
         const uint32_t argb = 0xFF000000U | (note.colour & 0xFFFFFF);
@@ -401,8 +431,9 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
                             .argb = argb,
                             .filled = true,
                             .thickness = 1.0F});
-        if (selected)
+        if (selected) {
             circles->push_back({.x = tx, .y = ty, .radius = kRingRadius, .argb = kRingColour, .filled = false, .thickness = kRingThickness});
+        }
         circles->push_back(
             {.x = px, .y = py, .radius = kFootDotRadius, .argb = argb, .filled = true, .thickness = 1.0F});
         // (the label: the first line - all of it when selected - cut short when far)
@@ -416,24 +447,31 @@ void outliner_section(ImFont* mono, const char* search)
     ImGui::Spacing();
     const bool open = ImGui::TreeNodeEx("Notes###notesSection", ImGuiTreeNodeFlags_SpanAvailWidth);
     ImGui::SameLine();
-    if (mono)
+    if (mono) {
         ImGui::PushFont(mono);
+    }
     gui::text_disabled("%d", static_cast<int>(level_editor_notes_state().notes_.size()));
-    if (mono)
+    if (mono) {
         ImGui::PopFont();
+    }
     ImGui::SameLine();
-    if (ImGui::SmallButton("+ Note here"))
+    if (ImGui::SmallButton("+ Note here")) {
         level_editor_notes_state().queue_.emplace_back([] { add_here(); });
-    if (ImGui::IsItemHovered())
+    }
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Add a note at the view center");
-    if (!open)
+    }
+    if (!open) {
         return;
-    if (level_editor_notes_state().notes_.empty())
+    }
+    if (level_editor_notes_state().notes_.empty()) {
         gui::text_disabled("No notes");
+    }
     for (size_t i = 0; i < level_editor_notes_state().notes_.size(); ++i) {
         const Note& note = core::at(level_editor_notes_state().notes_, i);
-        if (!get_matches(note.name + " " + note.text, search))
+        if (!get_matches(note.name + " " + note.text, search)) {
             continue;
+        }
         ImGui::PushID(static_cast<int>(i));
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         const float h = ImGui::GetTextLineHeight();
@@ -450,12 +488,14 @@ void outliner_section(ImFont* mono, const char* search)
             level_editor_notes_state().queue_.emplace_back([name, at, go] {
                 level_editor_notes_state().selected_ = name;
                 level_editor_notes_state().edit_for_.clear();
-                if (go)
+                if (go) {
                     go_to_point(at, kGoToDistance);
+                }
             });
         }
-        if (ImGui::IsItemHovered())
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("%s\n%s", note.name.c_str(), note.text.empty() ? "(empty)" : note.text.c_str());
+        }
         ImGui::PopID();
     }
     ImGui::TreePop();
@@ -469,8 +509,9 @@ void pane(PaneArea area, float scale)
     const auto view_height = area.height;
     (void)view_width;
     const Note* note = level_editor_notes_state().selected_.empty() ? nullptr : get_find(level_editor_notes_state().selected_);
-    if (!note)
+    if (!note) {
         return;
+    }
     if (level_editor_notes_state().edit_for_ != note->name) {
         text::format_to(level_editor_notes_state().edit_text_, "%s", note->text.c_str());
         level_editor_notes_state().edit_for_ = note->name;
@@ -482,8 +523,9 @@ void pane(PaneArea area, float scale)
     const std::string title = "Note " + note->name + "###noteWindow";
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
-        if (!open)
+        if (!open) {
             level_editor_notes_state().queue_.emplace_back([] { level_editor_notes_state().selected_.clear(); });
+        }
         return;
     }
     std::string name = note->name;
@@ -491,24 +533,29 @@ void pane(PaneArea area, float scale)
     // The text and the place: changed live, one undo step from the field taken to the field let go (pushed then - the
     // change complete: the autosave's snapshot follows it).
     auto held = [] {
-        if (ImGui::IsItemActivated())
+        if (ImGui::IsItemActivated()) {
             level_editor_notes_state().queue_.emplace_back([] { level_editor_notes_state().before_ = level_editor_notes_state().notes_; });
-        if (ImGui::IsItemDeactivated())
+        }
+        if (ImGui::IsItemDeactivated()) {
             level_editor_notes_state().queue_.emplace_back([] {
                 bool same = level_editor_notes_state().before_.size() == level_editor_notes_state().notes_.size();
-                for (size_t i = 0; same && i < level_editor_notes_state().notes_.size(); ++i)
+                for (size_t i = 0; same && i < level_editor_notes_state().notes_.size(); ++i) {
                     same = get_same(core::at(level_editor_notes_state().before_, i), core::at(level_editor_notes_state().notes_, i));
-                if (!same)
+                }
+                if (!same) {
                     push_module_undo(std::make_shared<NotesStep>(level_editor_notes_state().before_));
+                }
             });
+        }
     };
     ImGui::InputTextMultiline("##text", level_editor_notes_state().edit_text_.data(),
                               sizeof(level_editor_notes_state().edit_text_), ImVec2(-1.0F, kTextFieldHeight * scale));
     if (ImGui::IsItemEdited()) {
         const std::string text = level_editor_notes_state().edit_text_.data();
         level_editor_notes_state().queue_.emplace_back([name, text] {
-            if (Note* n = get_find(name))
+            if (Note* n = get_find(name)) {
                 n->text = text;
+            }
         });
     }
     held();
@@ -524,8 +571,9 @@ void pane(PaneArea area, float scale)
             const uint32_t rgb = core::at(kColours, c);
             level_editor_notes_state().queue_.emplace_back([name, rgb] {
                 Note* n = get_find(name);
-                if (!n || n->colour == rgb)
+                if (!n || n->colour == rgb) {
                     return;
+                }
                 push_undo();
                 n->colour = rgb;
             });
@@ -544,41 +592,50 @@ void pane(PaneArea area, float scale)
     if (ImGui::DragFloat3("##pos", pos.data(), kPositionDragStep, 0.0F, 0.0F, "%.0f")) {
         const V3 to = {.x = core::at(pos, 0), .y = core::at(pos, 1), .z = core::at(pos, 2)};
         level_editor_notes_state().queue_.emplace_back([name, to] {
-            if (Note* n = get_find(name))
+            if (Note* n = get_find(name)) {
                 n->pos = to;
+            }
         });
     }
     held();
-    if (ImGui::Button("Go to"))
+    if (ImGui::Button("Go to")) {
         level_editor_notes_state().queue_.emplace_back([name] {
-            if (const Note* n = get_find(name))
+            if (const Note* n = get_find(name)) {
                 go_to_point(n->pos, kGoToDistance);
+            }
         });
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Move here"))
+    if (ImGui::Button("Move here")) {
         level_editor_notes_state().queue_.emplace_back([name] {
             V3 at{};
             Note* n = get_find(name);
-            if (!n || !view_point(&at))
+            if (!n || !view_point(&at)) {
                 return;
+            }
             push_undo();
             n->pos = at;
         });
-    if (ImGui::IsItemHovered())
+    }
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Move to the view center");
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Delete"))
+    if (ImGui::Button("Delete")) {
         level_editor_notes_state().queue_.emplace_back([name] {
-            if (!get_find(name))
+            if (!get_find(name)) {
                 return;
+            }
             push_undo();
             std::erase_if(level_editor_notes_state().notes_, [&](const Note& n) { return n.name == name; });
             level_editor_notes_state().selected_.clear();
             hud::get_message("Deleted note " + name);
         });
+    }
     ImGui::End();
-    if (!open)
+    if (!open) {
         level_editor_notes_state().queue_.emplace_back([] { level_editor_notes_state().selected_.clear(); });
+    }
 }
 
 } // namespace frontend::level_editor::notes

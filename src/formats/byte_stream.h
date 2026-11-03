@@ -39,39 +39,44 @@ public:
     // Move to `position` (fails beyond the end).
     bool seek(size_t position)
     {
-        if (position > size_)
+        if (position > size_) {
             return fail();
+        }
         position_ = position;
         return true;
     }
     bool skip(size_t count)
     {
-        if (!has(count))
+        if (!has(count)) {
             return fail();
+        }
         position_ += count;
         return true;
     }
 
     uint8_t u8()
     {
-        if (!has(1))
+        if (!has(1)) {
             return fail_value<uint8_t>();
+        }
         const uint8_t value = core::at(rest(), 0);
         ++position_;
         return value;
     }
     uint16_t u16()
     {
-        if (!has(2))
+        if (!has(2)) {
             return fail_value<uint16_t>();
+        }
         const std::span<const uint8_t> p = rest().first(2);
         position_ += 2;
         return static_cast<uint16_t>(core::at(p, 0) | core::at(p, 1) << kBitsPerByte);
     }
     uint32_t u32()
     {
-        if (!has(4))
+        if (!has(4)) {
             return fail_value<uint32_t>();
+        }
         const std::span<const uint8_t> p = rest().first(4);
         position_ += 4;
         return core::at(p, 0) | core::at(p, 1) << kBitsPerByte | core::at(p, 2) << kBitsPerShort |
@@ -90,8 +95,9 @@ public:
     // `count` raw bytes copied out.
     bool bytes(void* out, size_t count)
     {
-        if (!has(count))
+        if (!has(count)) {
             return fail();
+        }
         std::memcpy(out, rest().first(count).data(), count);
         position_ += count;
         return true;
@@ -112,8 +118,9 @@ public:
     // (`out_size` bytes), always terminated.
     bool fixed_string(char* out, size_t out_size, size_t count)
     {
-        if (!has(count) || out_size == 0)
+        if (!has(count) || out_size == 0) {
             return fail();
+        }
         const size_t copy = count < out_size - 1 ? count : out_size - 1;
         const std::span<char> field(out, out_size);
         std::memcpy(out, rest().first(copy).data(), copy);
@@ -149,8 +156,9 @@ private:
         const size_t max = size_ - position_;
         const std::span<const uint8_t> bytes = rest();
         for (size_t i = 0; i < max; ++i) {
-            if (core::at(bytes, i) == 0)
+            if (core::at(bytes, i) == 0) {
                 return i;
+            }
         }
         return kNotFound;
     }
@@ -176,24 +184,27 @@ public:
 
     bool seek(size_t position)
     {
-        if (position > capacity_)
+        if (position > capacity_) {
             return fail();
+        }
         position_ = position;
         return true;
     }
 
     bool u8(uint8_t value)
     {
-        if (!has(1))
+        if (!has(1)) {
             return fail();
+        }
         core::at(rest(), 0) = value;
         ++position_;
         return true;
     }
     bool u16(uint16_t value)
     {
-        if (!has(2))
+        if (!has(2)) {
             return fail();
+        }
         const std::span<uint8_t> p = rest().first(2);
         core::at(p, 0) = static_cast<uint8_t>(value);
         core::at(p, 1) = static_cast<uint8_t>(value >> kBitsPerByte);
@@ -202,8 +213,9 @@ public:
     }
     bool u32(uint32_t value)
     {
-        if (!has(4))
+        if (!has(4)) {
             return fail();
+        }
         const std::span<uint8_t> p = rest().first(4);
         core::at(p, 0) = static_cast<uint8_t>(value);
         core::at(p, 1) = static_cast<uint8_t>(value >> kBitsPerByte);
@@ -222,17 +234,20 @@ public:
     }
     bool bytes(const void* data, size_t count)
     {
-        if (!has(count))
+        if (!has(count)) {
             return fail();
-        if (count)
+        }
+        if (count) {
             std::memcpy(rest().first(count).data(), data, count);
+        }
         position_ += count;
         return true;
     }
     bool fill(uint8_t value, size_t count)
     {
-        if (!has(count))
+        if (!has(count)) {
             return fail();
+        }
         std::memset(rest().first(count).data(), value, count);
         position_ += count;
         return true;
@@ -242,8 +257,9 @@ public:
     // A fixed-size text field: the text cut to `count` bytes, zero-padded.
     bool fixed_string(const char* text, size_t count)
     {
-        if (!has(count))
+        if (!has(count)) {
             return fail();
+        }
         const void* end = std::memchr(text, 0, count);
         const size_t length = end ? static_cast<size_t>(static_cast<const char*>(end) - text) : count;
         const std::span<uint8_t> field = rest().first(count);

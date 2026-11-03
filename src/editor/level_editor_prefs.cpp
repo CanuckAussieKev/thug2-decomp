@@ -139,10 +139,12 @@ constexpr auto kFlags = std::to_array<BitMark>({
 void read_in()
 {
     Values v;
-    for (const Key& k : kIntKeys)
+    for (const Key& k : kIntKeys) {
         v.*k.field = config_int("editor", k.name, v.*k.field);
-    for (const BitMark& f : kFlags)
+    }
+    for (const BitMark& f : kFlags) {
         v.*f.field = config_int("editor", f.name, v.*f.field ? 1 : 0) != 0;
+    }
     level_editor_prefs_state().values_ = get_clamped(v);
     level_editor_prefs_state().loaded_ = true;
 }
@@ -150,37 +152,43 @@ void read_in()
 void store_away(const Values& before, const Values& after)
 {
     for (const Key& k : kIntKeys) {
-        if (before.*k.field != after.*k.field)
+        if (before.*k.field != after.*k.field) {
             config_set_int("editor", k.name, after.*k.field);
+        }
     }
     for (const BitMark& f : kFlags) {
-        if (before.*f.field != after.*f.field)
+        if (before.*f.field != after.*f.field) {
             config_set_int("editor", f.name, after.*f.field ? 1 : 0);
+        }
     }
 }
 
 void save_all()
 {
-    for (const Key& k : kIntKeys)
+    for (const Key& k : kIntKeys) {
         config_set_int("editor", k.name, level_editor_prefs_state().values_.*k.field);
-    for (const BitMark& f : kFlags)
+    }
+    for (const BitMark& f : kFlags) {
         config_set_int("editor", f.name, level_editor_prefs_state().values_.*f.field ? 1 : 0);
+    }
 }
 
 void get_tip(const char* text)
 {
     ImGui::SameLine();
     gui::text_disabled("(?)");
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("%s", text);
+    }
 }
 
 } // namespace
 
 const Values& get_pull()
 {
-    if (!level_editor_prefs_state().loaded_)
+    if (!level_editor_prefs_state().loaded_) {
         read_in();
+    }
     return level_editor_prefs_state().values_;
 }
 
@@ -188,11 +196,13 @@ void assign_value(const Values& values, bool save)
 {
     const Values before = get_pull();
     const Values after = get_clamped(values);
-    if (after.ui_scale_pct_ != before.ui_scale_pct_ || after.accent != before.accent)
+    if (after.ui_scale_pct_ != before.ui_scale_pct_ || after.accent != before.accent) {
         ++level_editor_prefs_state().style_generation_;
+    }
     level_editor_prefs_state().values_ = after;
-    if (save)
+    if (save) {
         store_away(before, after);
+    }
 }
 
 int style_generation() { return level_editor_prefs_state().style_generation_; }
@@ -203,8 +213,9 @@ void pane(float scale, PaneFonts fonts)
 {
     auto* const heading = fonts.heading;
     auto* const small = fonts.small_font_;
-    if (!level_editor_prefs_state().open_)
+    if (!level_editor_prefs_state().open_) {
         return;
+    }
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kHalf), ImGuiCond_Appearing,
                             ImVec2(kHalf, kHalf));
@@ -221,11 +232,13 @@ void pane(float scale, PaneFonts fonts)
     bool active = false;
     auto section = [&](const char* title) {
         ImGui::Spacing();
-        if (heading)
+        if (heading) {
             ImGui::PushFont(heading);
+        }
         ImGui::TextUnformatted(title);
-        if (heading)
+        if (heading) {
             ImGui::PopFont();
+        }
         ImGui::Separator();
     };
     // A slider's value format and its tooltip.
@@ -237,17 +250,21 @@ void pane(float scale, PaneFonts fonts)
         const auto* const format = slider_text.format;
         const auto* const tip = slider_text.tip;
         ImGui::SetNextItemWidth(kSliderWidth * scale);
-        if (ImGui::SliderInt(label, value, lo, hi, format, ImGuiSliderFlags_AlwaysClamp))
+        if (ImGui::SliderInt(label, value, lo, hi, format, ImGuiSliderFlags_AlwaysClamp)) {
             changed = true;
+        }
         active |= ImGui::IsItemActive();
-        if (tip)
+        if (tip) {
             get_tip(tip);
+        }
     };
     auto check = [&](const char* label, bool* value, const char* tip) {
-        if (ImGui::Checkbox(label, value))
+        if (ImGui::Checkbox(label, value)) {
             changed = true;
-        if (tip)
+        }
+        if (tip) {
             get_tip(tip);
+        }
     };
     section("Camera");
     slider("Fly Speed", &v.fly_speed_, kFlySpeedMin, kFlySpeedMax, {.format = "%d units/s", .tip = "Initial fly speed"});
@@ -268,8 +285,9 @@ void pane(float scale, PaneFonts fonts)
         changed = true;
     }
     get_tip("Based on window size (1080p: 100%, 1440p: 125%, 4K: 200%)");
-    if (!auto_scale)
+    if (!auto_scale) {
         slider("UI Scale", &v.ui_scale_pct_, kUiScaleMin, kUiScaleMax, {.format = "%d%%", .tip = nullptr});
+    }
     ImGui::TextUnformatted("Accent");
     for (int i = 0; i < kAccentCount; ++i) {
         std::array<float, 3> rgb{};
@@ -282,8 +300,9 @@ void pane(float scale, PaneFonts fonts)
             v.accent = i;
             changed = true;
         }
-        if (ImGui::IsItemHovered())
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("%s", accent_name(i));
+        }
         ImGui::PopID();
     }
     ux8::prefs_section(); // (UX8: controller mode - level_editor_ux8.h)
@@ -296,11 +315,13 @@ void pane(float scale, PaneFonts fonts)
     }
     ImGui::Spacing();
     ImGui::Separator();
-    if (small)
+    if (small) {
         ImGui::PushFont(small);
+    }
     gui::text_disabled("Saved in thug2-decomp.ini [editor]");
-    if (small)
+    if (small) {
         ImGui::PopFont();
+    }
     if (ImGui::Button("Defaults")) {
         Values d;
         d.tips_seen_ = v.tips_seen_;
@@ -308,15 +329,19 @@ void pane(float scale, PaneFonts fonts)
         changed = true;
     }
     ImGui::SameLine();
-    if (ImGui::Button("Show tips"))
+    if (ImGui::Button("Show tips")) {
         show_tips();
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Close"))
+    if (ImGui::Button("Close")) {
         level_editor_prefs_state().open_ = false;
-    if (changed || active)
+    }
+    if (changed || active) {
         assign_value(v, false);
-    if ((changed && !active) || (s_prev_focused && !active))
+    }
+    if ((changed && !active) || (s_prev_focused && !active)) {
         save_all();
+    }
     s_prev_focused = active;
     ImGui::End();
 }
@@ -334,8 +359,9 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
         level_editor_prefs_state().tips_ = true;
         level_editor_prefs_state().tips_shown_this_run_ = true;
     }
-    if (!level_editor_prefs_state().tips_)
+    if (!level_editor_prefs_state().tips_) {
         return;
+    }
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kTipsTop), ImGuiCond_Appearing,
                             ImVec2(kHalf, kHalf));
@@ -343,11 +369,13 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
     bool open = true;
     ImGui::Begin("Level Editor###editortips", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
-    if (heading)
+    if (heading) {
         ImGui::PushFont(heading);
+    }
     ImGui::TextUnformatted("Essential Keys");
-    if (heading)
+    if (heading) {
         ImGui::PopFont();
+    }
     ImGui::Spacing();
     static constexpr auto kTips = std::to_array<std::array<const char*, 2>>({
         {"Right mouse + W A S D", "Fly (Q / E: down / up, Shift: faster)"},
@@ -360,11 +388,13 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
         for (const auto& tip : kTips) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            if (mono)
+            if (mono) {
                 ImGui::PushFont(mono);
+            }
             gui::text_colored(ImVec4(1.0F, kTipTextGreen, kTipTextBlue, 1.0F), "%s", core::at(tip, 0));
-            if (mono)
+            if (mono) {
                 ImGui::PopFont();
+            }
             ImGui::TableNextColumn();
             ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + (kTipWrapWidth * scale));
             ImGui::TextUnformatted(core::at(tip, 1));

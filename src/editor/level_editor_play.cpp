@@ -24,15 +24,17 @@ namespace frontend::level_editor::perform {
 
 Step on_key(bool pressed, bool in_level, bool paused, bool offered)
 {
-    if (!pressed || !in_level || paused || !offered)
+    if (!pressed || !in_level || paused || !offered) {
         return Step::kNone;
+    }
     return Step::kPauseThenEnter;
 }
 
 bool get_key_down(platform::KeyState keys)
 {
-    if (keys.empty())
+    if (keys.empty()) {
         return false;
+    }
     const bool ctrl = core::at(keys, SDL_SCANCODE_LCTRL) || core::at(keys, SDL_SCANCODE_RCTRL);
     return core::at(keys, SDL_SCANCODE_F5) || (ctrl && core::at(keys, SDL_SCANCODE_P));
 }
@@ -107,8 +109,9 @@ void get_keep(const Resume& resume, int level_load)
 
 bool take_resume(Resume* resume, int level_load)
 {
-    if (!level_editor_play_state().have_resume_ || level_editor_play_state().resume_load_ != level_load)
+    if (!level_editor_play_state().have_resume_ || level_editor_play_state().resume_load_ != level_load) {
         return false;
+    }
     level_editor_play_state().have_resume_ = false;
     *resume = level_editor_play_state().resume_;
     return true;
@@ -116,8 +119,9 @@ bool take_resume(Resume* resume, int level_load)
 
 void tick_frame(modules::FrontEnd* front_end)
 {
-    if (!level_editor::is_switched_on() || frame_loop::frames_run() == 0)
+    if (!level_editor::is_switched_on() || frame_loop::frames_run() == 0) {
         return;
+    }
     const platform::KeyState keys = platform::keyboard_keys();
     const bool down = get_key_down(keys);
     const bool pressed = down && play_start().key_up_;
@@ -127,8 +131,9 @@ void tick_frame(modules::FrontEnd* front_end)
     switch (play_start().phase_) {
     case Phase::kUnpause:
         // (level_editor_exit brought the pause menu back: closed as its CONTINUE closes it)
-        if (++play_start().frames_ < kUnpauseFrames)
+        if (++play_start().frames_ < kUnpauseFrames) {
             return;
+        }
         play_start().phase_ = Phase::kIdle;
         if (paused && in_level) {
             get_log("level editor: play from here - the pause menu closed");
@@ -156,8 +161,9 @@ void tick_frame(modules::FrontEnd* front_end)
             play_start().phase_ = Phase::kIdle;
             return;
         }
-        if (++play_start().frames_ < kPauseMenuFrames)
+        if (++play_start().frames_ < kPauseMenuFrames) {
             return;
+        }
         play_start().phase_ = Phase::kIdle;
         get_log("level editor: back to the editor (the play key) - running level_editor_enter");
         script::launch_script("level_editor_enter", nullptr, nullptr, false);
@@ -165,12 +171,14 @@ void tick_frame(modules::FrontEnd* front_end)
     case Phase::kIdle:
         break;
     }
-    if (!pressed || level_editor::live_now())
+    if (!pressed || level_editor::live_now()) {
         return;
+    }
     const bool offered = enter_script_loaded() && cfunc_available(nullptr, nullptr) && !layout::get_refused();
     if (on_key(pressed, in_level, paused, offered) != Step::kPauseThenEnter) {
-        if (in_level && !paused && !offered)
+        if (in_level && !paused && !offered) {
             get_log("level editor: the play key - the editor isn't offered here");
+        }
         return;
     }
     // Start, as the player presses it: handle_start_pressed pauses and makes the pause menu.

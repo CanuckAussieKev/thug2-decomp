@@ -46,18 +46,21 @@ ImVec4 get_colour(uint32_t argb)
 
 void get_tip(const char* text)
 {
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         gui::tooltip("%s", text);
+    }
 }
 
 void current_heading(const char* title, ImFont* heading)
 {
     ImGui::Spacing();
-    if (heading)
+    if (heading) {
         ImGui::PushFont(heading);
+    }
     ImGui::TextUnformatted(title);
-    if (heading)
+    if (heading) {
         ImGui::PopFont();
+    }
     ImGui::Separator();
 }
 
@@ -66,14 +69,17 @@ void current_heading(const char* title, ImFont* heading)
 void restart_section(int node_index)
 {
     const std::vector<nodes::Elem>& all = nodes::get_all();
-    if (node_index < 0 || std::cmp_greater_equal(node_index, all.size()))
+    if (node_index < 0 || std::cmp_greater_equal(node_index, all.size())) {
         return;
+    }
     const nodes::Elem& node = core::at(all, node_index);
-    if (node.family != nodes::Family::kSpawn || node.hidden)
+    if (node.family != nodes::Family::kSpawn || node.hidden) {
         return;
+    }
     const uint32_t name = node.name;
-    if (ImGui::Button("Play from Here"))
+    if (ImGui::Button("Play from Here")) {
         play_from_restart(name);
+    }
     get_tip("Play from this restart  (F5 returns)");
     ImGui::SameLine();
 }
@@ -82,16 +88,18 @@ void pane(float scale, PaneFonts fonts)
 {
     auto* const heading = fonts.heading;
     auto* const small = fonts.small_font_;
-    if (!window_open())
+    if (!window_open()) {
         return;
+    }
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kWindowLeft, io.DisplaySize.y * kWindowTop), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(kWindowWidth * scale, 0.0F), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("Trails###editortrail", &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
-        if (!open)
+        if (!open) {
             window_open() = false;
+        }
         return;
     }
     const LevelTrails* trails = current_trails();
@@ -102,8 +110,9 @@ void pane(float scale, PaneFonts fonts)
     ImGui::Checkbox("Show", &show_trails());
     // The legend.
     for (int m = 0; m < kMotions; ++m) {
-        if (m % kSeparatorEvery)
+        if (m % kSeparatorEvery) {
             ImGui::SameLine();
+        }
         gui::text_colored(get_colour(motion_colour(static_cast<Motion>(m))), "%s",
                            motion_name(static_cast<Motion>(m)));
     }
@@ -131,16 +140,18 @@ void pane(float scale, PaneFonts fonts)
             ImGui::PushID(run.number);
             ImGui::TableNextColumn();
             bool visible = run.visible;
-            if (ImGui::Checkbox("##v", &visible))
+            if (ImGui::Checkbox("##v", &visible)) {
                 set_run_visible(run.number, visible);
+            }
             ImGui::TableNextColumn();
             gui::text("%d%s", run.number, run.full_ ? "+" : "");
             if (ImGui::IsItemHovered()) {
                 std::string text;
                 std::array<char, kPartSize> part{};
                 for (int m = 0; m < kMotions; ++m) {
-                    if (core::at(run.motion_seconds_, m) < kMinShownSeconds)
+                    if (core::at(run.motion_seconds_, m) < kMinShownSeconds) {
                         continue;
+                    }
                     text::format_to(part, "%s %.1f s\n", motion_name(static_cast<Motion>(m)),
                                     core::at(run.motion_seconds_, m));
                     text += part.data();
@@ -157,32 +168,38 @@ void pane(float scale, PaneFonts fonts)
             ImGui::TableNextColumn();
             gui::text("%d", top_combo_value(run));
             ImGui::SameLine();
-            if (ImGui::SmallButton("x"))
+            if (ImGui::SmallButton("x")) {
                 remove = run.number;
+            }
             get_tip("Delete this run");
             ImGui::PopID();
         }
         ImGui::EndTable();
-        if (remove)
+        if (remove) {
             delete_run(remove);
+        }
     }
-    if (ImGui::Button("Clear"))
+    if (ImGui::Button("Clear")) {
         get_request(Ask::kClear);
+    }
     get_tip("Clear all runs and landed gaps");
     ImGui::SameLine();
-    if (ImGui::Button("Save"))
+    if (ImGui::Button("Save")) {
         get_request(Ask::kStoreAway);
+    }
     get_tip("Save trails to disk");
     ImGui::SameLine();
-    if (ImGui::Button("Load"))
+    if (ImGui::Button("Load")) {
         get_request(Ask::kReadIn);
+    }
     get_tip("Reload trails from disk");
 
     // The gaps validated by skating.
     const std::vector<GapRead> gaps = get_level_gaps();
     int landed = 0;
-    for (const GapRead& g : gaps)
+    for (const GapRead& g : gaps) {
         landed += gap_landed(g.name) ? 1 : 0;
+    }
     std::array<char, kTitleSize> title{};
     text::format_to(title, "Gaps Landed: %d / %u", landed, static_cast<unsigned>(gaps.size()));
     current_heading(title.data(), heading);
@@ -191,36 +208,43 @@ void pane(float scale, PaneFonts fonts)
     if (gaps.empty()) {
         gui::text_disabled("No gaps");
     } else if (ImGui::BeginChild("##gaps", ImVec2(0.0F, kGapListHeight * scale), ImGuiChildFlags_Borders)) {
-        if (small)
+        if (small) {
             ImGui::PushFont(small);
+        }
         for (const GapRead& g : gaps) {
             const bool ok = gap_landed(g.name);
-            if (g_untested_only && ok)
+            if (g_untested_only && ok) {
                 continue;
+            }
             gui::text_colored(ok ? get_colour(kGapLandedColour) : get_colour(kGapOtherColour), "%s",
                                ok ? "landed  " : "untested");
             ImGui::SameLine();
             gui::text("%s  (%d)", g.name.c_str(), g.score);
         }
-        if (small)
+        if (small) {
             ImGui::PopFont();
+        }
     }
-    if (!gaps.empty())
+    if (!gaps.empty()) {
         ImGui::EndChild();
+    }
 
     current_heading("Simulate", heading);
     const bool simulating = get_simulating();
-    if (ImGui::Button(simulating ? "Stop" : "Simulate"))
+    if (ImGui::Button(simulating ? "Stop" : "Simulate")) {
         get_request(Ask::kToggleSimulate);
+    }
     ImGui::SameLine();
     bool keep = keep_simulation();
-    if (ImGui::Checkbox("Keep Positions", &keep))
+    if (ImGui::Checkbox("Keep Positions", &keep)) {
         get_request(Ask::kToggleKeepSimulation);
+    }
     get_tip("Keep objects where they are when stopping");
     gui::text_disabled("%s", get_standing().c_str());
     ImGui::End();
-    if (!open)
+    if (!open) {
         window_open() = false;
+    }
 }
 
 } // namespace frontend::level_editor::play_test

@@ -107,35 +107,47 @@ Family get_classify(NodeClass node_class)
                                       name_hash("Flag_Green"),      name_hash("Flag_Yellow"),
                                       name_hash("Flag_Red_Base"),   name_hash("Flag_Blue_Base"),
                                       name_hash("Flag_Green_Base"), name_hash("Flag_Yellow_Base")});
-    if (cls == kRestart)
+    if (cls == kRestart) {
         return Family::kSpawn;
-    if (cls == kGenericNode)
+    }
+    if (cls == kGenericNode) {
         return type == kCrown ? Family::kCrown : type == kEditorTrigger ? Family::kFireOff : Family::kOther;
+    }
     if (cls == kGameObject) {
         for (const uint32_t flag : kFlags) {
-            if (type == flag)
+            if (type == flag) {
                 return Family::kBitMark;
+            }
         }
         return Family::kObject;
     }
-    if (cls == kRailNode)
+    if (cls == kRailNode) {
         return Family::kRail;
-    if (cls == kClimbingNode)
+    }
+    if (cls == kClimbingNode) {
         return Family::kLadder;
-    if (cls == kWaypoint)
+    }
+    if (cls == kWaypoint) {
         return Family::kRouteWay;
-    if (cls == kLevelObject || cls == kPedestrian || cls == kVehicle)
+    }
+    if (cls == kLevelObject || cls == kPedestrian || cls == kVehicle) {
         return Family::kObject;
-    if (cls == kLevelGeometry)
+    }
+    if (cls == kLevelGeometry) {
         return Family::kScenery;
-    if (cls == kLevelLight)
+    }
+    if (cls == kLevelLight) {
         return Family::kLight;
-    if (cls == kEmitterObject)
+    }
+    if (cls == kEmitterObject) {
         return Family::kSound;
-    if (cls == kParticleObject)
+    }
+    if (cls == kParticleObject) {
         return Family::kParticle;
-    if (cls == kProximNode)
+    }
+    if (cls == kProximNode) {
         return Family::kFireOff;
+    }
     return Family::kOther;
 }
 
@@ -177,16 +189,18 @@ SpawnPointKind restart_type_bit(uint32_t type)
         {.checksum = name_hash("Generic"), .bit = SpawnPointKind::kGeneric},
     });
     for (const auto& t : kTypes) {
-        if (t.checksum == type)
+        if (t.checksum == type) {
             return t.bit;
+        }
     }
     return SpawnPointKind::kNone;
 }
 
 uint32_t team_colour(const char* text)
 {
-    if (!text)
+    if (!text) {
         return 0;
+    }
     std::string lower = text;
     std::ranges::transform(lower, lower.begin(),
                            [](char c) { return static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c); });
@@ -194,34 +208,45 @@ uint32_t team_colour(const char* text)
         // (a whole word: _red, _red_base, _red01 - not "_reduce")
         for (size_t at = lower.find(colour); at != std::string::npos; at = lower.find(colour, at + 1)) {
             const size_t end = at + std::strlen(colour);
-            if (end == lower.size() || core::at(lower, end) == '_' || (core::at(lower, end) >= '0' && core::at(lower, end) <= '9'))
+            if (end == lower.size() || core::at(lower, end) == '_' ||
+                (core::at(lower, end) >= '0' && core::at(lower, end) <= '9')) {
                 return true;
+            }
         }
         return false;
     };
-    if (has("_red"))
+    if (has("_red")) {
         return kRed;
-    if (has("_blue"))
+    }
+    if (has("_blue")) {
         return kBlue;
-    if (has("_green"))
+    }
+    if (has("_green")) {
         return kGreen;
-    if (has("_yellow"))
+    }
+    if (has("_yellow")) {
         return kYellow;
+    }
     return 0;
 }
 
 uint32_t spawn_colour(SpawnPointKind types, uint32_t team)
 {
-    if (team && core::any(types & (SpawnPointKind::kCtf | SpawnPointKind::kTeam)))
+    if (team && core::any(types & (SpawnPointKind::kCtf | SpawnPointKind::kTeam))) {
         return team;
-    if (core::any(types & SpawnPointKind::kMultiplayer))
+    }
+    if (core::any(types & SpawnPointKind::kMultiplayer)) {
         return kMultiplayerSpawnColour;
-    if (core::any(types & SpawnPointKind::kPlayer1))
+    }
+    if (core::any(types & SpawnPointKind::kPlayer1)) {
         return kPlayer1SpawnColour;
-    if (core::any(types & SpawnPointKind::kPlayer2))
+    }
+    if (core::any(types & SpawnPointKind::kPlayer2)) {
         return kPlayer2SpawnColour;
-    if (core::any(types & SpawnPointKind::kHorse))
+    }
+    if (core::any(types & SpawnPointKind::kHorse)) {
         return kHorseSpawnColour;
+    }
     return kOtherSpawnColour;
 }
 
@@ -280,8 +305,9 @@ std::vector<ArraySignature> get_signature()
 {
     std::vector<ArraySignature> signature;
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
-    if (!manager)
+    if (!manager) {
         return signature;
+    }
     for (uint32_t i = 0; i < manager->num() && i < level_nodes::NodeManager::kMaxArrays; ++i) {
         const level_nodes::NodeArrayEntry& entry = core::at(manager->arrays(), i);
         signature.push_back({.label = entry.label_, .extent = entry.node_entries_ ? entry.node_entries_->extent() : 0, .nodes = entry.node_entries_});
@@ -291,8 +317,9 @@ std::vector<ArraySignature> get_signature()
 
 script::Struct* get_node_at(script::Array* nodes, uint32_t index)
 {
-    if (!nodes || index >= nodes->extent() || nodes->kind_tag() != script::QbValueKind::kStruct)
+    if (!nodes || index >= nodes->extent() || nodes->kind_tag() != script::QbValueKind::kStruct) {
         return nullptr;
+    }
     return nodes->struct_at(index);
 }
 
@@ -319,8 +346,9 @@ void get_scan()
     by_name().clear();
     std::memset(level_editor_nodes_state().counts_.data(), 0, sizeof(level_editor_nodes_state().counts_));
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
-    if (!manager)
+    if (!manager) {
         return;
+    }
     static const uint32_t kRestartTypes = name_hash("restart_types");
     static const uint32_t kColor = name_hash("Color");
     static const uint32_t kOuterRadius = name_hash("OuterRadius");
@@ -334,12 +362,14 @@ void get_scan()
     ++node_walk().generation_;
     for (uint32_t a = 0; a < manager->num() && a < level_nodes::NodeManager::kMaxArrays; ++a) {
         script::Array* nodes = core::at(manager->arrays(), a).node_entries_;
-        if (!nodes || nodes->kind_tag() != script::QbValueKind::kStruct)
+        if (!nodes || nodes->kind_tag() != script::QbValueKind::kStruct) {
             continue;
+        }
         for (uint32_t i = 0; i < nodes->extent(); ++i) {
             script::Struct* s = get_node_at(nodes, i);
-            if (!s)
+            if (!s) {
                 continue;
+            }
             Elem node;
             node.array = static_cast<int>(a);
             node.index = static_cast<int>(i);
@@ -363,8 +393,9 @@ void get_scan()
             script::VectorValue angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
             if (s->fetch_vec(kAngles, &angles, 0)) {
                 node.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
-                if (shape_of(node.family) == Shape::kPoint)
+                if (shape_of(node.family) == Shape::kPoint) {
                     node.forward = get_heading_of(node.angles);
+                }
             }
             const char* name = object_edit::get_name_of(node.name);
             switch (node.family) {
@@ -372,8 +403,9 @@ void get_scan()
                 node.order = node.hidden ? -1 : restarts++; // (the game's walks skip a hidden one)
                 script::Array* types = nullptr;
                 if (s->fetch_list(kRestartTypes, &types, 0) && types) {
-                    for (uint32_t t = 0; t < types->extent(); ++t)
+                    for (uint32_t t = 0; t < types->extent(); ++t) {
                         node.restart_types_ |= restart_type_bit(types->fetch_part(t));
+                    }
                 }
                 node.colour = spawn_colour(node.restart_types_, team_colour(name));
                 break;
@@ -385,8 +417,9 @@ void get_scan()
             case Family::kBitMark: {
                 const uint32_t team = team_colour(object_edit::get_name_of(node.type));
                 node.colour = team ? team : team_colour(name);
-                if (!node.colour)
+                if (!node.colour) {
                     node.colour = kFlagFallbackColour;
+                }
                 break;
             }
             case Family::kRail:
@@ -442,8 +475,9 @@ void get_scan()
             }
             node.trigger_script_ = s->has_entry_named(kTriggerScript);
             ++core::at(level_editor_nodes_state().counts_, static_cast<int>(node.family));
-            if (node.name)
+            if (node.name) {
                 by_name().emplace(node.name, static_cast<int>(level_editor_nodes_state().nodes_.size()));
+            }
             level_editor_nodes_state().nodes_.push_back(std::move(node));
         }
     }
@@ -453,12 +487,14 @@ void get_scan()
     for (Elem& node : level_editor_nodes_state().nodes_) {
         script::Struct* s = get_node_at(core::at(manager->arrays(), node.array).node_entries_, static_cast<uint32_t>(node.index));
         script::Array* links = nullptr;
-        if (!s || !s->fetch_list(kLinks, &links, 0) || !links)
+        if (!s || !s->fetch_list(kLinks, &links, 0) || !links) {
             continue;
+        }
         for (uint32_t l = 0; l < links->extent(); ++l) {
             auto it = by_name().find(links->fetch_part(l));
-            if (it != by_name().end())
+            if (it != by_name().end()) {
                 node.links.push_back(it->second);
+            }
         }
     }
 }
@@ -482,11 +518,13 @@ void sync_rails()
             static_cast<std::unordered_map<uint32_t, V3>*>(context)->emplace(name, pos);
         },
         &points);
-    if (points.empty())
+    if (points.empty()) {
         return;
+    }
     for (Elem& node : level_editor_nodes_state().nodes_) {
-        if (node.family != Family::kRail && node.family != Family::kLadder)
+        if (node.family != Family::kRail && node.family != Family::kLadder) {
             continue;
+        }
         auto it = points.find(node.name);
         if (it != points.end()) {
             node.pos = it->second;
@@ -569,19 +607,22 @@ int get_find(uint32_t name)
 script::Struct* struct_of(const Elem& node)
 {
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
-    if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num())
+    if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num()) {
         return nullptr;
+    }
     return get_node_at(core::at(manager->arrays(), node.array).node_entries_, static_cast<uint32_t>(node.index));
 }
 
 void reread(int index)
 {
-    if (index < 0 || std::cmp_greater_equal(index, level_editor_nodes_state().nodes_.size()))
+    if (index < 0 || std::cmp_greater_equal(index, level_editor_nodes_state().nodes_.size())) {
         return;
+    }
     Elem& node = core::at(level_editor_nodes_state().nodes_, index);
     script::Struct* s = struct_of(node);
-    if (!s)
+    if (!s) {
         return;
+    }
     script::VectorValue v = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     if (s->fetch_vec(kPos, &v, 0)) {
         node.has_pos_ = true;
@@ -590,20 +631,23 @@ void reread(int index)
     script::VectorValue angles = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
     s->fetch_vec(kAngles, &angles, 0);
     node.angles = {.x = angles.x, .y = angles.y, .z = angles.z};
-    if (shape_of(node.family) == Shape::kPoint)
+    if (shape_of(node.family) == Shape::kPoint) {
         node.forward = get_heading_of(node.angles);
+    }
     // (a rail / ladder point: where the rail manager has it - see sync_rails)
     V3 point{};
     if ((node.family == Family::kRail || node.family == Family::kLadder) &&
-        scenery::get_rail_point(node.name, &point, true))
+        scenery::get_rail_point(node.name, &point, true)) {
         node.pos = point;
+    }
 }
 
 uint32_t get_array_name(const Elem& node)
 {
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance().get();
-    if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num())
+    if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num()) {
         return 0;
+    }
     return core::at(manager->arrays(), node.array).label_;
 }
 
@@ -613,8 +657,9 @@ namespace {
 
 std::string get_name_text(uint32_t checksum)
 {
-    if (const char* name = object_edit::get_name_of(checksum))
+    if (const char* name = object_edit::get_name_of(checksum)) {
         return name;
+    }
     std::array<char, kHexTextSize> hex{};
     text::format_to(hex, "#%08X", checksum);
     return hex.data();
@@ -624,13 +669,15 @@ std::string value_text(script::Component* c, int depth);
 
 std::string array_text(script::Array* array, int depth)
 {
-    if (!array)
+    if (!array) {
         return "[]";
+    }
     std::string text = "[";
     const uint32_t shown = std::min<uint32_t>(array->extent(), 12);
     for (uint32_t i = 0; i < shown; ++i) {
-        if (i)
+        if (i) {
             text += " ";
+        }
         std::array<char, kNameBufferSize> buffer{};
         switch (array->kind_tag()) {
         case script::QbValueKind::kInteger:
@@ -655,8 +702,9 @@ std::string array_text(script::Array* array, int depth)
             break;
         }
     }
-    if (array->extent() > shown)
+    if (array->extent() > shown) {
         text += " ... (" + std::to_string(array->extent()) + ")";
+    }
     return text + "]";
 }
 
@@ -674,13 +722,15 @@ std::string value_text(script::Component* c, int depth)
     case script::QbValueKind::kInlineText:
         return std::string("\"") + (c->value.text() ? c->value.text() : "") + "\"";
     case script::QbValueKind::kPair:
-        if (c->value.pair())
+        if (c->value.pair()) {
             text::format_to(buffer, "(%g, %g)", c->value.pair()->x(), c->value.pair()->y());
+        }
         return c->value.pair() ? buffer.data() : "()";
     case script::QbValueKind::kVector:
-        if (c->value.vector())
+        if (c->value.vector()) {
             text::format_to(buffer, "(%.2f, %.2f, %.2f)", c->value.vector()->x(), c->value.vector()->y(),
                             c->value.vector()->z());
+        }
         return c->value.vector() ? buffer.data() : "()";
     case script::QbValueKind::kName:
         return get_name_text(c->value.word());
@@ -699,8 +749,9 @@ std::string value_text(script::Component* c, int depth)
 
 void add_fields(script::Struct* s, bool included, int depth, std::vector<Prop>* out)
 {
-    if (!s || depth > 3)
+    if (!s || depth > 3) {
         return;
+    }
     for (script::Component* c = s->head(); c; c = c->next) {
         if (c->name == 0 && value_kind(*c) == script::QbValueKind::kName) {
             // A bare name: a flag, or an included structure (ncomp_<class>_<n>) - expanded.
@@ -728,11 +779,13 @@ std::vector<Prop> get_fields(const Elem& node)
 bool level_is_shared(const char** game)
 {
     const modules::Skate* skate = modules::Skate::sole(); // the skate module
-    if (!skate)
+    if (!skate) {
         return false;
+    }
     const uint32_t level = skate->level(); // its level's load script
-    if (!level)
+    if (!level) {
         return false;
+    }
     struct LevelList {
         const char* list;
         const char* game;
@@ -746,17 +799,20 @@ bool level_is_shared(const char** game)
     static const uint32_t kGameTag = name_hash("game_tag");
     for (const auto& entry : kLists) {
         script::Array* levels = script::fetch_list(entry.list);
-        if (!levels || levels->kind_tag() != script::QbValueKind::kStruct)
+        if (!levels || levels->kind_tag() != script::QbValueKind::kStruct) {
             continue;
+        }
         for (uint32_t i = 0; i < levels->extent(); ++i) {
             auto* info = levels->struct_at(i);
             uint32_t load = 0;
             if (info && info->read_hash_value(kLevel, &load, 0) && load == level) {
                 const char* tag = entry.game;
-                if (!tag && !info->fetch_text(kGameTag, &tag, 0))
+                if (!tag && !info->fetch_text(kGameTag, &tag, 0)) {
                     break; // (a THUG2 or THP8 level of the miscellaneous list: not shared with another game's)
-                if (game)
+                }
+                if (game) {
                     *game = tag;
+                }
                 return true;
             }
         }
@@ -775,8 +831,9 @@ int pick_nearest(const std::vector<Pickable>& pickables, maths::Vec2 at, float r
     for (const Pickable& p : pickables) {
         const float d = p.segment ? distance_to_segment(at, {.x = p.ax, .y = p.ay}, {.x = p.bx, .y = p.by})
                                   : std::sqrt(((x - p.ax) * (x - p.ax)) + ((y - p.ay) * (y - p.ay)));
-        if (d > radius)
+        if (d > radius) {
             continue;
+        }
         if (occluder.blocked) {
             // (where a segment passes nearest: its depth there, perspective-correct - 1 / depth is linear on screen)
             float depth = p.depth;
@@ -790,19 +847,21 @@ int pick_nearest(const std::vector<Pickable>& pickables, maths::Vec2 at, float r
                 depth = 1.0F / (((1.0F - s) / p.depth_a_) + (s / p.depth_b_));
             }
             if (!picking::gizmo_in_front(depth, true, occluder.depth,
-                                         picking::gizmo_slack(depth, occluder.units_per_pixel_, occluder.pixels)))
+                                         picking::gizmo_slack(depth, occluder.units_per_pixel_, occluder.pixels))) {
                 continue;
+            }
         }
         const bool point = !p.segment;
         bool better = false;
-        if (best < 0)
+        if (best < 0) {
             better = true;
-        else if (point != best_point)
+        } else if (point != best_point) {
             better = point; // (a point within reach beats any segment)
-        else if (std::fabs(d - best_distance) > kDistanceTolerance)
+        } else if (std::fabs(d - best_distance) > kDistanceTolerance) {
             better = d < best_distance;
-        else
+        } else {
             better = p.depth < best_depth;
+        }
         if (better) {
             best = p.node;
             best_distance = d;

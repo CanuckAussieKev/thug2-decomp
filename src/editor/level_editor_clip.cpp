@@ -67,10 +67,12 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
         return std::ranges::find(used_names, name) == used_names.end() &&
                !(hooks.name_taken_ && hooks.name_taken_(name));
     };
-    for (const node_create::Spec& s : into->added)
+    for (const node_create::Spec& s : into->added) {
         used_names.push_back(s.name);
-    for (const triggers::Placed& t : into->triggers)
+    }
+    for (const triggers::Placed& t : into->triggers) {
         used_names.push_back(t.spec.name);
+    }
     for (const layout::CloneRecord& c : fragment.clones) {
         if (hooks.sector_exists_ && !hooks.sector_exists_(c.source)) {
             missing->push_back("scenery " + label_of(c.source));
@@ -81,8 +83,9 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
     }
     std::vector<uint32_t> used_ids;
     used_ids.reserve(into->copies.size());
-    for (const layout::CopyRecord& c : into->copies)
+    for (const layout::CopyRecord& c : into->copies) {
         used_ids.push_back(c.name);
+    }
     unsigned counter = 0;
     for (const layout::CopyRecord& c : fragment.copies) {
         if (hooks.object_copyable_ && !hooks.object_copyable_(c.source)) {
@@ -95,13 +98,15 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
             text::format_to(text, "level_editor_copy_%08X_p%u", c.source, ++counter);
             copy.name = fields::hash_of_name(text.data());
             if (std::ranges::find(used_ids, copy.name) == used_ids.end() &&
-                !(hooks.id_taken_ && hooks.id_taken_(copy.name)))
+                !(hooks.id_taken_ && hooks.id_taken_(copy.name))) {
                 break;
+            }
         }
         used_ids.push_back(copy.name);
         into->copies.push_back(copy);
-        if (copy_names)
+        if (copy_names) {
             copy_names->push_back(copy.name);
+        }
         ++added;
     }
     for (const node_create::Spec& s : fragment.added) {
@@ -123,9 +128,10 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
     }
     for (const triggers::Placed& t : fragment.triggers) {
         triggers::Placed placed = t;
-        if (!name_free(placed.spec.name))
+        if (!name_free(placed.spec.name)) {
             placed.spec.name =
                 node_create::fresh_name("ed_trigger", [&](const std::string& n) { return !name_free(n); });
+        }
         used_names.push_back(placed.spec.name);
         into->triggers.push_back(placed);
         ++added;
@@ -197,15 +203,19 @@ std::vector<uint32_t> selected_nodes()
     const SelectionIds s = current_selection();
     std::vector<uint32_t> nodes;
     auto add = [&](uint32_t id) {
-        if (id && nodes::get_find(id) >= 0 && std::ranges::find(nodes, id) == nodes.end())
+        if (id && nodes::get_find(id) >= 0 && std::ranges::find(nodes, id) == nodes.end()) {
             nodes.push_back(id);
+        }
     };
-    if (s.node)
+    if (s.node) {
         add(s.node);
-    for (const uint32_t id : s.objects)
+    }
+    for (const uint32_t id : s.objects) {
         add(id);
-    for (const uint32_t id : s.sectors)
+    }
+    for (const uint32_t id : s.sectors) {
         add(id);
+    }
     return nodes;
 }
 
@@ -238,12 +248,14 @@ bool dup_from(std::string* message)
     }
     for (const uint32_t id : s.objects) {
         objects::GameEntity* object = live_object(id);
-        if (!object)
+        if (!object) {
             continue;
+        }
         uint32_t source = id;
         for (const object_edit::DupFrom& c : object_edit::get_copies()) {
-            if (c.name == id)
+            if (c.name == id) {
                 source = c.source;
+            }
         }
         if (!object_edit::can_copy(source)) {
             skipped.push_back(object_edit::caption(id));
@@ -283,8 +295,9 @@ bool dup_from(std::string* message)
                 done = true;
             }
         }
-        if (!done)
+        if (!done) {
             skipped.push_back(nodes::caption(s.node) + " (type not copyable)");
+        }
     }
     const int count = static_cast<int>(fragment.clones.size() + fragment.copies.size() + fragment.added.size() +
                                        fragment.triggers.size());
@@ -307,8 +320,9 @@ bool graft(std::string* message)
 {
     char* clip = SDL_GetClipboardText();
     const std::string text = clip ? clip : "";
-    if (clip)
+    if (clip) {
         SDL_free(clip);
+    }
     layout::FileLoad fragment;
     layout::FileLoad now;
     int line = 0;
@@ -354,8 +368,9 @@ bool graft(std::string* message)
     if (!missing.empty()) {
         *message += " - missing in this level: " + missing.front() +
                     (missing.size() > 1 ? " and " + std::to_string(missing.size() - 1) + " more" : "");
-        for (const std::string& m : missing)
+        for (const std::string& m : missing) {
             get_log("level editor: paste - not in this level: %s", m.c_str());
+        }
     }
     return true;
 }
@@ -371,8 +386,9 @@ bool copy_props(std::string* message)
         for (const fields::Row& row : fields::rows_of(core::at(nodes::get_all(), index))) {
             // (its own editable fields - not those of a shared structure; pos / angles go with the transform)
             if (!row.editable || row.included || row.key == fields::key_pos() || row.key == fields::key_angles() ||
-                row.key == fields::key_links())
+                row.key == fields::key_links()) {
                 continue;
+            }
             props.fields.push_back(
                 {.key = row.key, .kind = static_cast<int>(row.value.kind), .text = fields::get_format(row.value, fields::get_name_of), .removed = false});
         }
@@ -431,8 +447,9 @@ std::string describe()
                         copied_props().transform.pos.z);
         text = t.data();
     }
-    if (!copied_props().fields.empty())
+    if (!copied_props().fields.empty()) {
         text += (text.empty() ? "" : " and ") + std::to_string(copied_props().fields.size()) + " fields of " + copied_props().from;
+    }
     return text.empty() ? "nothing" : text;
 }
 

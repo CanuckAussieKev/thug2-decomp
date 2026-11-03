@@ -23,19 +23,22 @@ namespace frontend::level_editor::ui {
 void spawn_section(int node_index, std::vector<Request>* requests)
 {
     const std::vector<nodes::Elem>& all = nodes::get_all();
-    if (node_index < 0 || std::cmp_greater_equal(node_index, all.size()))
+    if (node_index < 0 || std::cmp_greater_equal(node_index, all.size())) {
         return;
+    }
     const nodes::Elem& node = core::at(all, node_index);
-    if (node.family != nodes::Family::kSpawn || node.hidden)
+    if (node.family != nodes::Family::kSpawn || node.hidden) {
         return;
+    }
     static const uint32_t kHorse = fields::hash_of_name("Horse");
     // (the restart_types as the node has them now, in order)
     std::vector<uint32_t> types;
     if (script::Struct* s = nodes::struct_of(node)) {
         script::Array* list = nullptr;
         if (s->fetch_list(fields::key_restart_types(), &list, 0) && list) {
-            for (uint32_t i = 0; i < list->extent(); ++i)
+            for (uint32_t i = 0; i < list->extent(); ++i) {
                 types.push_back(list->fetch_part(i));
+            }
         }
     }
     bool horse = core::any(node.restart_types_ & nodes::SpawnPointKind::kHorse);
@@ -43,12 +46,14 @@ void spawn_section(int node_index, std::vector<Request>* requests)
     if (ImGui::Checkbox("HORSE Spot", &horse)) {
         std::string text;
         for (const uint32_t type : types) {
-            if (type == kHorse)
+            if (type == kHorse) {
                 continue;
+            }
             text += (text.empty() ? "" : ", ") + fields::get_name_text(type, fields::get_name_of);
         }
-        if (horse)
+        if (horse) {
             text += std::string(text.empty() ? "" : ", ") + "Horse";
+        }
         Request request = {.kind = Request::Kind::kFieldSet};
         request.node = node.name;
         request.id = fields::key_restart_types();
@@ -57,8 +62,9 @@ void spawn_section(int node_index, std::vector<Request>* requests)
         requests->push_back(request);
     }
     ImGui::EndDisabled();
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         gui::tooltip("%s", node.added ? "Set by the spawn type" : "Use as a HORSE spot");
+    }
 }
 
 } // namespace frontend::level_editor::ui

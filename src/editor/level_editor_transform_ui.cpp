@@ -26,10 +26,12 @@ void options_menu_items()
                                              "Centre of the selection's bounds", "Each object about its own position"}};
         int i = 0;
         for (const Pivot pivot : {Pivot::kBase, Pivot::kCentre, Pivot::kOwn}) {
-            if (ImGui::MenuItem(pivot_name(pivot), nullptr, settings.pivot == pivot))
+            if (ImGui::MenuItem(pivot_name(pivot), nullptr, settings.pivot == pivot)) {
                 settings.pivot = pivot;
-            if (ImGui::IsItemHovered())
+            }
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("%s", core::at(kTips, i));
+            }
             ++i;
         }
         ImGui::EndMenu();
@@ -38,8 +40,9 @@ void options_menu_items()
         for (const float step : angle_steps()) {
             std::array<char, kAxisLabelSize> label{};
             text::format_to(label, "%g\xC2\xB0", step);
-            if (ImGui::MenuItem(label.data(), nullptr, angle_step() == step))
+            if (ImGui::MenuItem(label.data(), nullptr, angle_step() == step)) {
                 set_angle_step(step);
+            }
         }
         ImGui::EndMenu();
     }
@@ -48,19 +51,23 @@ void options_menu_items()
         int i = 0;
         for (const SnapTarget target :
              {SnapTarget::kGrid, SnapTarget::kWorldGrid, SnapTarget::kSurface, SnapTarget::kVertex}) {
-            if (ImGui::MenuItem(target_name(target), core::at(kKeys, i), settings.target == target))
+            if (ImGui::MenuItem(target_name(target), core::at(kKeys, i), settings.target == target)) {
                 settings.target = target;
+            }
             ++i;
         }
         ImGui::EndMenu();
     }
     ImGui::MenuItem("Align to Slope", nullptr, &settings.align_to_slope_);
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Tilt objects to the surface when surface snapping");
+    }
     const bool always = fly_always();
-    if (ImGui::MenuItem("WASD Always Flies", nullptr, always))
+    if (ImGui::MenuItem("WASD Always Flies", nullptr, always)) {
         set_fly_always(!always);
-    if (ImGui::IsItemHovered())
+    }
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Fly without holding the right mouse button");
+    }
 }
 } // namespace frontend::level_editor::xform

@@ -24,8 +24,9 @@ inline UniqueFile open_file(const char* path, const char* mode)
 {
 #ifdef _MSC_VER
     std::FILE* file = nullptr;
-    if (fopen_s(&file, path, mode) != 0)
+    if (fopen_s(&file, path, mode) != 0) {
         return {};
+    }
     return UniqueFile(file);
 #else
     return UniqueFile(std::fopen(path, mode));
@@ -42,8 +43,9 @@ public:
     UniqueHandle(UniqueHandle&& other) noexcept : handle_(std::exchange(other.handle_, INVALID_HANDLE_VALUE)) {}
     UniqueHandle& operator=(UniqueHandle&& other) noexcept
     {
-        if (this != &other)
+        if (this != &other) {
             reset(std::exchange(other.handle_, INVALID_HANDLE_VALUE));
+        }
         return *this;
     }
     ~UniqueHandle() { reset(); }
@@ -55,8 +57,9 @@ public:
     // Closes the current handle (if any) and keeps `handle`.
     void reset(HANDLE handle = INVALID_HANDLE_VALUE) noexcept
     {
-        if (valid())
+        if (valid()) {
             CloseHandle(handle_);
+        }
         handle_ = handle;
     }
     // Hands the handle to the caller (not closed).

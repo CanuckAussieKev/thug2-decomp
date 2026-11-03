@@ -70,11 +70,14 @@ constexpr float kHalf = 0.5F; // half
 
 int CellCache::get_find(uint64_t key) const
 {
-    if (!key)
+    if (!key) {
         return -1;
-    for (size_t i = 0; i < keys.size(); ++i)
-        if (core::at(keys, i) == key)
+    }
+    for (size_t i = 0; i < keys.size(); ++i) {
+        if (core::at(keys, i) == key) {
             return static_cast<int>(i);
+        }
+    }
     return -1;
 }
 
@@ -91,13 +94,16 @@ int CellCache::get_take(CellUse cell_use)
                 best = static_cast<int>(i);
                 break;
             }
-            if (core::at(shown, i) >= frame)
+            if (core::at(shown, i) >= frame) {
                 continue;
-            if (best < 0 || core::at(shown, i) < core::at(shown, best))
+            }
+            if (best < 0 || core::at(shown, i) < core::at(shown, best)) {
                 best = static_cast<int>(i);
+            }
         }
-        if (best < 0)
+        if (best < 0) {
             return -1;
+        }
         cell = best;
         core::at(keys, cell) = key;
         core::at(drawn_, cell) = 0;
@@ -147,11 +153,15 @@ std::string get_entry_name(int tab, uint32_t id)
 
 bool parse_entry(const std::string& text, int* tab, uint32_t* id)
 {
-    if (text.size() != kEntryNameLength || core::at(text, 1) != ':' || (core::at(text, 0) != 's' && core::at(text, 0) != 'o'))
+    if (text.size() != kEntryNameLength || core::at(text, 1) != ':' ||
+        (core::at(text, 0) != 's' && core::at(text, 0) != 'o')) {
         return false;
-    for (size_t i = 2; i < text.size(); ++i)
-        if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i))))
+    }
+    for (size_t i = 2; i < text.size(); ++i) {
+        if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i)))) {
             return false;
+        }
+    }
     *tab = core::at(text, 0) == 's' ? 0 : 1;
     *id = static_cast<uint32_t>(std::strtoul(std::next(text.c_str(), 2), nullptr, kHexBase));
     return true;
@@ -161,25 +171,28 @@ void push_recent(std::vector<std::string>* list, const std::string& entry, size_
 {
     std::erase(*list, entry);
     list->insert(list->begin(), entry);
-    if (list->size() > cap)
+    if (list->size() > cap) {
         list->resize(cap);
+    }
 }
 
 void toggle_in(std::vector<std::string>* list, const std::string& entry)
 {
     auto found = std::ranges::find(*list, entry);
-    if (found != list->end())
+    if (found != list->end()) {
         list->erase(found);
-    else
+    } else {
         list->push_back(entry);
+    }
 }
 
 std::string join_list(const std::vector<std::string>& list)
 {
     std::string text;
     for (const std::string& entry : list) {
-        if (!text.empty())
+        if (!text.empty()) {
             text += ',';
+        }
         text += entry;
     }
     return text;
@@ -194,10 +207,12 @@ std::vector<std::string> split_list(const std::string& text)
         const std::string entry = text.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
         int tab = 0;
         uint32_t id = 0;
-        if (parse_entry(entry, &tab, &id) && std::ranges::find(list, entry) == list.end())
+        if (parse_entry(entry, &tab, &id) && std::ranges::find(list, entry) == list.end()) {
             list.push_back(entry);
-        if (comma == std::string::npos)
+        }
+        if (comma == std::string::npos) {
             break;
+        }
         start = comma + 1;
     }
     return list;
@@ -206,9 +221,11 @@ std::vector<std::string> split_list(const std::string& text)
 std::string get_key_of(const std::string& scene)
 {
     std::string key = scene;
-    for (char& c : key)
-        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
+    for (char& c : key) {
+        if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_') {
             c = '_';
+        }
+    }
     return key.empty() ? "_" : key;
 }
 
@@ -268,14 +285,16 @@ void load_lists(const std::string& level)
     level_editor_thumbs_state().level_ = level;
     level_editor_thumbs_state().recent_ = split_list(read_string("editor_palette", get_key_of(level) + "_recent"));
     level_editor_thumbs_state().favourites_ = split_list(read_string("editor_palette", get_key_of(level) + "_favourites"));
-    if (level_editor_thumbs_state().recent_.size() > kRecent)
+    if (level_editor_thumbs_state().recent_.size() > kRecent) {
         level_editor_thumbs_state().recent_.resize(kRecent);
+    }
 }
 
 void save_lists()
 {
-    if (level_editor_thumbs_state().level_.empty())
+    if (level_editor_thumbs_state().level_.empty()) {
         return;
+    }
     write_string("editor_palette", get_key_of(level_editor_thumbs_state().level_) + "_recent", join_list(level_editor_thumbs_state().recent_));
     write_string("editor_palette", get_key_of(level_editor_thumbs_state().level_) + "_favourites", join_list(level_editor_thumbs_state().favourites_));
 }
@@ -301,27 +320,32 @@ void tick_cycle(const ui::ShapeMesh& model)
     // The pictures the grid showed last frame and lacks, a few a frame.
     int drawn_now = 0;
     for (const uint64_t key : level_editor_thumbs_state().wanted_) {
-        if (drawn_now >= kPerFrame)
+        if (drawn_now >= kPerFrame) {
             break;
+        }
         const int cell = cells_state().get_find(key);
-        if (cell < 0 || core::at(cells_state().drawn(), cell))
+        if (cell < 0 || core::at(cells_state().drawn(), cell)) {
             continue;
+        }
         auto failed = failed_state().find(key);
-        if (failed != failed_state().end() && level_editor_thumbs_state().frame_ - failed->second < kRetryDelayFrames)
+        if (failed != failed_state().end() && level_editor_thumbs_state().frame_ - failed->second < kRetryDelayFrames) {
             continue;
+        }
         int x = 0;
         int y = 0;
         cell_rect(cell, {.x = &x, .y = &y});
-        if (!ui_backend::begin_atlas_cell(kAtlasPixels, x, y, kCellPixels, colour::Packed{kBackground}))
+        if (!ui_backend::begin_atlas_cell(kAtlasPixels, x, y, kCellPixels, colour::Packed{kBackground})) {
             return; // (no atlas: logged once by the backend)
+        }
         const int tab = static_cast<int>(key >> 32) - 1;
         auto id = static_cast<uint32_t>(key);
         const bool drew =
             preview::draw_view(tab == 0 ? preview::Kind::kSector : preview::Kind::kObject, id, preview::Orbit{});
         ui_backend::end_atlas_cell();
         core::at(cells_state().drawn(), cell) = 1;
-        if (!drew)
+        if (!drew) {
             failed_state()[key] = level_editor_thumbs_state().frame_;
+        }
         ++drawn_now;
     }
 }
@@ -364,8 +388,9 @@ bool grid_mode()
 void set_grid_mode(bool on)
 {
     grid_mode();
-    if (on == level_editor_thumbs_state().grid_)
+    if (on == level_editor_thumbs_state().grid_) {
         return;
+    }
     level_editor_thumbs_state().grid_ = on;
     config_set_int("editor", "palette_grid", on ? 1 : 0);
 }
@@ -376,8 +401,9 @@ namespace {
 
 bool get_matches(const std::string& text, const char* filter)
 {
-    if (!filter || !*filter)
+    if (!filter || !*filter) {
         return true;
+    }
     auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
     std::string a = text;
     std::string b = filter;
@@ -407,9 +433,10 @@ void star(ImDrawList* draw, ImVec2 centre, StarLook star_look, bool filled)
         // (the inner pentagon and the five points' triangles: ImGui fills convex shapes only)
         std::array<ImVec2, kStarArms> inner = {{core::at(points, 1), core::at(points, 3), core::at(points, kStarArms), core::at(points, kStarArms), core::at(points, kStarArms)}};
         draw->AddConvexPolyFilled(inner.data(), kStarArms, colour);
-        for (int i = 0; i < kStarArms; ++i)
+        for (int i = 0; i < kStarArms; ++i) {
             draw->AddTriangleFilled(core::at(points, ((2 * i) + kStarPoints) % kStarPoints), core::at(points, 2 * i),
                                     core::at(points, (2 * i) + 1), colour);
+        }
     } else {
         draw->AddPolyline(points.data(), kStarPoints, colour, ImDrawFlags_Closed, kStarOutlineThickness);
     }
@@ -422,13 +449,15 @@ bool star_button(const char* id, ImVec2 centre, float radius, bool on)
     ImGui::SetCursorScreenPos(ImVec2(centre.x - radius, centre.y - radius));
     const bool clicked = ImGui::InvisibleButton(id, ImVec2(radius * 2.0F, radius * 2.0F));
     const bool hovered = ImGui::IsItemHovered();
-    if (hovered)
+    if (hovered) {
         gui::tooltip("%s", on ? "Remove from Favourites" : "Add to Favourites");
+    }
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    if (on || hovered)
+    if (on || hovered) {
         star(draw, centre, {.radius = radius, .colour = on ? IM_COL32(255, 205, 60, 255) : IM_COL32(255, 205, 60, 150)}, true);
-    else
+    } else {
         star(draw, centre, {.radius = radius, .colour = IM_COL32(200, 200, 200, 110)}, false);
+    }
     ImGui::SetCursorScreenPos(cursor);
     return clicked;
 }
@@ -436,14 +465,18 @@ bool star_button(const char* id, ImVec2 centre, float radius, bool on)
 void chip(const char* label, int mode, const char* tip)
 {
     const bool on = level_editor_thumbs_state().list_mode_ == mode;
-    if (on)
+    if (on) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(kActiveModeRed, kActiveModeGreen, kActiveModeBlue, kModeButtonAlpha));
-    if (ImGui::SmallButton(label))
+    }
+    if (ImGui::SmallButton(label)) {
         level_editor_thumbs_state().list_mode_ = mode;
-    if (on)
+    }
+    if (on) {
         ImGui::PopStyleColor();
-    if (ImGui::IsItemHovered())
+    }
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("%s", tip);
+    }
 }
 
 } // namespace
@@ -463,41 +496,52 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     const float toggle = ImGui::CalcTextSize("Grid List").x + (24.0F * scale);
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + (kToggleGap * scale), right_edge - toggle));
     const bool grid = grid_mode();
-    if (grid)
+    if (grid) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(kGridActiveRed, kGridActiveGreen, kGridActiveBlue, kModeButtonAlpha));
-    if (ImGui::SmallButton("Grid"))
+    }
+    if (ImGui::SmallButton("Grid")) {
         set_grid_mode(true);
-    if (grid)
+    }
+    if (grid) {
         ImGui::PopStyleColor();
+    }
     ImGui::SameLine(0.0F, kToggleButtonGap * scale);
-    if (!grid)
+    if (!grid) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(kGridActiveRed, kGridActiveGreen, kGridActiveBlue, kModeButtonAlpha));
-    if (ImGui::SmallButton("List"))
+    }
+    if (ImGui::SmallButton("List")) {
         set_grid_mode(false);
-    if (!grid)
+    }
+    if (!grid) {
         ImGui::PopStyleColor();
+    }
 
     // The entries listed: the filter, then the mode (Recent in its order).
     std::vector<int> shown;
     if (level_editor_thumbs_state().list_mode_ == 1) {
         std::unordered_map<uint32_t, int> by_id;
-        for (int i = 0; std::cmp_less(i, items.size()); ++i)
+        for (int i = 0; std::cmp_less(i, items.size()); ++i) {
             by_id.emplace(core::at(items, i).id, i);
+        }
         for (const std::string& entry : level_editor_thumbs_state().recent_) {
             int entry_tab = 0;
             uint32_t id = 0;
-            if (!parse_entry(entry, &entry_tab, &id) || entry_tab != tab)
+            if (!parse_entry(entry, &entry_tab, &id) || entry_tab != tab) {
                 continue;
+            }
             auto found = by_id.find(id);
-            if (found != by_id.end() && get_matches(core::at(items, found->second).label, filter))
+            if (found != by_id.end() && get_matches(core::at(items, found->second).label, filter)) {
                 shown.push_back(found->second);
+            }
         }
     } else {
         for (int i = 0; std::cmp_less(i, items.size()); ++i) {
-            if (!get_matches(core::at(items, i).label, filter))
+            if (!get_matches(core::at(items, i).label, filter)) {
                 continue;
-            if (level_editor_thumbs_state().list_mode_ == 2 && !favourite(tab, core::at(items, i).id))
+            }
+            if (level_editor_thumbs_state().list_mode_ == 2 && !favourite(tab, core::at(items, i).id)) {
                 continue;
+            }
             shown.push_back(i);
         }
     }
@@ -509,12 +553,13 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     };
     int hovered = -1;
     ImGui::BeginChild("##items", ImVec2(0.0F, height), ImGuiChildFlags_Borders);
-    if (items.empty())
+    if (items.empty()) {
         gui::text_disabled("%s", tab == 0 ? "(no movable pieces)" : "(no copyable objects)");
-    else if (shown.empty())
+    } else if (shown.empty()) {
         gui::text_disabled("%s", level_editor_thumbs_state().list_mode_ == 1 ? "(none placed yet)"
                             : level_editor_thumbs_state().list_mode_ == 2 ? "(no favourites)"
                                                : "(no matches)");
+    }
     if (!grid) {
         // The list, a star at each row's end.
         ImGui::PushFont(mono);
@@ -527,17 +572,21 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
             ImGui::SetNextItemAllowOverlap();
             if (ImGui::Selectable(core::at(items, i).label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
                 request(ui::Request::Kind::kBrowserIndex, i);
-                if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                     request(ui::Request::Kind::kBrowserPlace, 0);
+                }
             }
-            if (ImGui::IsItemHovered())
+            if (ImGui::IsItemHovered()) {
                 hovered = i;
-            if (selected && follow)
+            }
+            if (selected && follow) {
                 ImGui::SetScrollHereY(kScrollCentre);
+            }
             const float right = row_right - star_radius - 2.0F;
             if (star_button("##star", ImVec2(right, row_y + (ImGui::GetTextLineHeight() * kHalf)), star_radius,
-                            favourite(tab, core::at(items, i).id)))
+                            favourite(tab, core::at(items, i).id))) {
                 toggle_favourite(tab, core::at(items, i).id);
+            }
             ImGui::PopID();
         }
         ImGui::PopFont();
@@ -573,11 +622,13 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
         for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
             for (int column = 0; column < columns; ++column) {
                 const int n = (row * columns) + column;
-                if (std::cmp_greater_equal(n, shown.size()))
+                if (std::cmp_greater_equal(n, shown.size())) {
                     break;
+                }
                 const int i = core::at(shown, n);
-                if (column)
+                if (column) {
                     ImGui::SameLine(0.0F, spacing);
+                }
                 ImGui::PushID(i);
                 ImGui::BeginGroup();
                 const ImVec2 a = ImGui::GetCursorScreenPos();
@@ -587,8 +638,9 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 if (ImGui::InvisibleButton("##thumb", ImVec2(cell, cell))) {
                     request(ui::Request::Kind::kBrowserIndex, i);
                 }
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                     request(ui::Request::Kind::kBrowserPlace, 0);
+                }
                 const bool hover = ImGui::IsItemHovered();
                 if (hover) {
                     hovered = i;
@@ -618,8 +670,10 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 draw->AddRect(a, b, border, kCellRounding, 0, selected ? kSelectedBorderWidth : 1.0F);
                 // (the star in the top right corner)
                 const float r = 7.0F * scale;
-                if (star_button("##star", ImVec2(b.x - r - kStarInset, a.y + r + kStarInset), r, favourite(tab, core::at(items, i).id)))
+                if (star_button("##star", ImVec2(b.x - r - kStarInset, a.y + r + kStarInset), r,
+                                favourite(tab, core::at(items, i).id))) {
                     toggle_favourite(tab, core::at(items, i).id);
+                }
                 // The name, cut to the cell.
                 ImGui::SetCursorScreenPos(ImVec2(a.x, b.y + 1.0F));
                 std::string label = core::at(items, i).label;

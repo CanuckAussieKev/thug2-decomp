@@ -44,10 +44,11 @@ Element& stand_in_element()
 template <typename Index>
 constexpr gsl::index to_index(Index index)
 {
-    if constexpr (sizeof(Index) < sizeof(int))
+    if constexpr (sizeof(Index) < sizeof(int)) {
         return static_cast<gsl::index>(static_cast<int>(index));
-    else
+    } else {
         return static_cast<gsl::index>(index);
+    }
 }
 } // namespace detail
 

@@ -35,21 +35,25 @@ namespace {
 bool get_clear(V3 from, V3 move, const Cast& cast)
 {
     const float length = std::sqrt((move.x * move.x) + (move.z * move.z));
-    if (length <= 0.0F)
+    if (length <= 0.0F) {
         return true;
+    }
     const V3 dir = {.x = move.x / length, .y = 0.0F, .z = move.z / length};
     V3 hit{};
     for (const float height : {kStepHeight + 1.0F, kEyeHeight - 4.0F}) {
         const V3 a = {.x = from.x, .y = from.y + height, .z = from.z};
-        if (cast(a, a + dir * (length + kRadius), &hit))
+        if (cast(a, a + dir * (length + kRadius), &hit)) {
             return false;
+        }
         // (and a radius clear of walls along each axis it moves on, from where it gets to: a slanting move stops as far
         // from a wall as a straight one)
         const V3 to = a + move;
-        if (move.x != 0.0F && cast(to, to + V3{.x = move.x > 0.0F ? kRadius : -kRadius, .y = 0.0F, .z = 0.0F}, &hit))
+        if (move.x != 0.0F && cast(to, to + V3{.x = move.x > 0.0F ? kRadius : -kRadius, .y = 0.0F, .z = 0.0F}, &hit)) {
             return false;
-        if (move.z != 0.0F && cast(to, to + V3{.x = 0.0F, .y = 0.0F, .z = move.z > 0.0F ? kRadius : -kRadius}, &hit))
+        }
+        if (move.z != 0.0F && cast(to, to + V3{.x = 0.0F, .y = 0.0F, .z = move.z > 0.0F ? kRadius : -kRadius}, &hit)) {
             return false;
+        }
     }
     return true;
 }
@@ -65,8 +69,9 @@ Walker walker_at(V3 camera)
 
 void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const Cast& cast)
 {
-    if (seconds <= 0.0F)
+    if (seconds <= 0.0F) {
         return;
+    }
     // Along the ground: the heading's forward and right (as frame_from_yaw_pitch's at pitch 0).
     const V3 forward = {.x = std::sin(yaw), .y = 0.0F, .z = std::cos(yaw)};
     const V3 right = {.x = -std::cos(yaw), .y = 0.0F, .z = std::sin(yaw)}; // (the frame's right: up x back)
@@ -74,8 +79,9 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     const float r = std::clamp(input.right, -1.0F, 1.0F);
     V3 wish = forward * f + right * r;
     const float length = std::sqrt((wish.x * wish.x) + (wish.z * wish.z));
-    if (length > 1.0F)
+    if (length > 1.0F) {
         wish = wish * (1.0F / length);
+    }
     const V3 move = wish * ((input.run ? kRunSpeed : kWalkSpeed) * seconds);
     if (move.x != 0.0F || move.z != 0.0F) {
         if (get_clear(w->feet, move, cast)) {
@@ -84,10 +90,12 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
             // (sliding: each axis by itself)
             const V3 along_x = {.x = move.x, .y = 0.0F, .z = 0.0F};
             const V3 along_z = {.x = 0.0F, .y = 0.0F, .z = move.z};
-            if (move.x != 0.0F && get_clear(w->feet, along_x, cast))
+            if (move.x != 0.0F && get_clear(w->feet, along_x, cast)) {
                 w->feet = w->feet + along_x;
-            if (move.z != 0.0F && get_clear(w->feet, along_z, cast))
+            }
+            if (move.z != 0.0F && get_clear(w->feet, along_z, cast)) {
                 w->feet = w->feet + along_z;
+            }
         }
     }
     // The ground below (from a step's height up: a kerb walked onto is stood on).
@@ -140,8 +148,9 @@ bool is_double_click(Click first, Click last, ClickLimits limits)
     const auto first_ms = first.ms;
     const auto first_x = first.x;
     const auto first_y = first.y;
-    if (second_ms < first_ms || second_ms - first_ms > max_ms)
+    if (second_ms < first_ms || second_ms - first_ms > max_ms) {
         return false;
+    }
     return std::fabs(second_x - first_x) <= max_pixels && std::fabs(second_y - first_y) <= max_pixels;
 }
 
@@ -149,8 +158,9 @@ V3 teleport_target(V3 camera, V3 hit)
 {
     const V3 along = hit - camera;
     const float distance = std::sqrt(get_dot(along, along));
-    if (distance < 1.0F)
+    if (distance < 1.0F) {
         return {.x = hit.x, .y = std::max(camera.y, hit.y + kLift), .z = hit.z};
+    }
     const V3 dir = along * (1.0F / distance);
     const float back = std::min(kStandOff, distance * 0.8F);
     V3 to = hit - dir * back;
@@ -172,20 +182,23 @@ V3 follow_step(Follower* f, bool active, V3 target)
 
 int drill_index(int current, int steps, int count)
 {
-    if (count <= 0)
+    if (count <= 0) {
         return -1;
+    }
     const int base = current >= 0 && current < count ? current : (steps > 0 ? -1 : 0);
     return (((base + steps) % count) + count) % count;
 }
 
 int slice_at(float dx, float dy, int count, float deadzone)
 {
-    if (count <= 0 || (dx * dx) + (dy * dy) < deadzone * deadzone)
+    if (count <= 0 || (dx * dx) + (dy * dy) < deadzone * deadzone) {
         return -1;
+    }
     // (clockwise from straight up: screen y points down)
     float angle = std::atan2(dx, -dy);
-    if (angle < 0.0F)
+    if (angle < 0.0F) {
         angle += kFullTurnFactor * maths::kPi;
+    }
     const float slice = 2.0F * maths::kPi / static_cast<float>(count);
     const int index = static_cast<int>(std::floor((angle + (slice * 0.5F)) / slice));
     return index % count;
@@ -204,8 +217,9 @@ float get_stick(StickRead stick)
     const auto deadzone = stick.deadzone;
     const float v = static_cast<float>(raw) / (raw < 0 ? 32768.0F : 32767.0F);
     const float a = std::fabs(v);
-    if (a <= deadzone || deadzone >= 1.0F)
+    if (a <= deadzone || deadzone >= 1.0F) {
         return 0.0F;
+    }
     const float t = std::min(1.0F, (a - deadzone) / (1.0F - deadzone));
     return (v < 0.0F ? -1.0F : 1.0F) * t * t;
 }
@@ -215,16 +229,18 @@ std::string quick_set_name(int number) { return "Set " + std::to_string(number);
 int find_group(const organize::State& state, const std::string& name)
 {
     for (int i = 0; std::cmp_less(i, state.groups.size()); ++i) {
-        if (core::at(state.groups, i).name == name)
+        if (core::at(state.groups, i).name == name) {
             return i;
+        }
     }
     return -1;
 }
 
 bool store_group(organize::State* state, const std::string& name, const std::vector<organize::Member>& members)
 {
-    if (members.empty())
+    if (members.empty()) {
         return false;
+    }
     const int at = find_group(*state, name);
     if (at >= 0) {
         core::at(state->groups, at).members = members;
@@ -239,8 +255,9 @@ bool store_group(organize::State* state, const std::string& name, const std::vec
 
 bool remove_from_group(organize::State* state, int index, const std::vector<organize::Member>& members)
 {
-    if (index < 0 || std::cmp_greater_equal(index, state->groups.size()))
+    if (index < 0 || std::cmp_greater_equal(index, state->groups.size())) {
         return false;
+    }
     std::vector<organize::Member>& in = core::at(state->groups, index).members;
     const size_t before = in.size();
     std::erase_if(in, [&](const organize::Member& m) { return std::ranges::find(members, m) != members.end(); });

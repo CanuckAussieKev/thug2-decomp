@@ -51,24 +51,25 @@ template <typename T>
 consteval ArgType classify()
 {
     using Value = std::decay_t<T>;
-    if constexpr (std::is_enum_v<Value>)
+    if constexpr (std::is_enum_v<Value>) {
         return classify<std::underlying_type_t<Value>>();
-    else if constexpr (std::is_same_v<Value, bool>)
+    } else if constexpr (std::is_same_v<Value, bool>) {
         return {.kind = ArgKind::kSigned, .size = sizeof(int)};
-    else if constexpr (std::is_integral_v<Value>)
+    } else if constexpr (std::is_integral_v<Value>) {
         return {std::is_signed_v<Value> ? ArgKind::kSigned : ArgKind::kUnsigned, sizeof(Value)};
-    else if constexpr (std::is_floating_point_v<Value>)
+    } else if constexpr (std::is_floating_point_v<Value>) {
         return {.kind = ArgKind::kFloat, .size = sizeof(Value)};
-    else if constexpr (std::is_null_pointer_v<Value>)
+    } else if constexpr (std::is_null_pointer_v<Value>) {
         return {.kind = ArgKind::kNull, .size = sizeof(void*)};
-    else if constexpr (std::is_pointer_v<Value> && std::is_same_v<Bare<Value>, char>)
+    } else if constexpr (std::is_pointer_v<Value> && std::is_same_v<Bare<Value>, char>) {
         return {.kind = ArgKind::kText, .size = sizeof(void*)};
-    else if constexpr (std::is_pointer_v<Value> && std::is_same_v<Bare<Value>, wchar_t>)
+    } else if constexpr (std::is_pointer_v<Value> && std::is_same_v<Bare<Value>, wchar_t>) {
         return {.kind = ArgKind::kWideText, .size = sizeof(void*)};
-    else if constexpr (std::is_pointer_v<Value> && !std::is_function_v<std::remove_pointer_t<Value>>)
+    } else if constexpr (std::is_pointer_v<Value> && !std::is_function_v<std::remove_pointer_t<Value>>) {
         return {.kind = ArgKind::kPointer, .size = sizeof(void*)};
-    else
+    } else {
         return {};
+    }
 }
 
 // The argument as the formatting code reads it.
@@ -137,27 +138,32 @@ consteval void check(std::string_view format, const std::array<ArgType, Count>& 
             ++i;
             continue;
         }
-        while (peek(i) == '-' || peek(i) == '+' || peek(i) == ' ' || peek(i) == '#' || peek(i) == '0')
+        while (peek(i) == '-' || peek(i) == '+' || peek(i) == ' ' || peek(i) == '#' || peek(i) == '0') {
             ++i;
+        }
         if (peek(i) == '*') {
             const ArgType width = take();
-            if (!is_integer(width.kind) || width.size > kIntSize)
+            if (!is_integer(width.kind) || width.size > kIntSize) {
                 format_width_or_precision_argument_is_not_an_int();
+            }
             ++i;
         } else {
-            while (peek(i) >= '0' && peek(i) <= '9')
+            while (peek(i) >= '0' && peek(i) <= '9') {
                 ++i;
+            }
         }
         if (peek(i) == '.') {
             ++i;
             if (peek(i) == '*') {
                 const ArgType precision = take();
-                if (!is_integer(precision.kind) || precision.size > kIntSize)
+                if (!is_integer(precision.kind) || precision.size > kIntSize) {
                     format_width_or_precision_argument_is_not_an_int();
+                }
                 ++i;
             } else {
-                while (peek(i) >= '0' && peek(i) <= '9')
+                while (peek(i) >= '0' && peek(i) <= '9') {
                     ++i;
+                }
             }
         }
         // the length modifier: the integer size it names (or the wide text / long double it marks)
@@ -165,8 +171,9 @@ consteval void check(std::string_view format, const std::array<ArgType, Count>& 
         bool wide = false;
         if (peek(i) == 'h') {
             ++i;
-            if (peek(i) == 'h')
+            if (peek(i) == 'h') {
                 ++i;
+            }
         } else if (peek(i) == 'l') {
             ++i;
             size = kLongSize;
@@ -205,8 +212,9 @@ consteval void check(std::string_view format, const std::array<ArgType, Count>& 
         case 'X':
         case 'c': {
             const ArgType arg = take();
-            if (!is_integer(arg.kind) || arg.size > size)
+            if (!is_integer(arg.kind) || arg.size > size) {
                 format_argument_does_not_match_its_conversion();
+            }
             break;
         }
         case 'f':
@@ -215,20 +223,23 @@ consteval void check(std::string_view format, const std::array<ArgType, Count>& 
         case 'E':
         case 'g':
         case 'G':
-            if (take().kind != ArgKind::kFloat)
+            if (take().kind != ArgKind::kFloat) {
                 format_argument_does_not_match_its_conversion();
+            }
             break;
         case 's': {
             const ArgKind kind = take().kind;
-            if (kind != (wide ? ArgKind::kWideText : ArgKind::kText) && kind != ArgKind::kNull)
+            if (kind != (wide ? ArgKind::kWideText : ArgKind::kText) && kind != ArgKind::kNull) {
                 format_argument_does_not_match_its_conversion();
+            }
             break;
         }
         case 'p': {
             const ArgKind kind = take().kind;
             if (kind != ArgKind::kPointer && kind != ArgKind::kText && kind != ArgKind::kWideText &&
-                kind != ArgKind::kNull)
+                kind != ArgKind::kNull) {
                 format_argument_does_not_match_its_conversion();
+            }
             break;
         }
         default:
@@ -236,8 +247,9 @@ consteval void check(std::string_view format, const std::array<ArgType, Count>& 
             break;
         }
     }
-    if (next != types.size())
+    if (next != types.size()) {
         format_has_too_many_arguments();
+    }
 }
 
 } // namespace format_detail

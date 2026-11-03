@@ -20,8 +20,9 @@ public:
     explicit ComPtr(Interface* pointer) noexcept : pointer_(pointer) {}
     ComPtr(const ComPtr& other) noexcept : pointer_(other.pointer_)
     {
-        if (pointer_)
+        if (pointer_) {
             pointer_->AddRef();
+        }
     }
     ComPtr(ComPtr&& other) noexcept : pointer_(std::exchange(other.pointer_, nullptr)) {}
     ComPtr& operator=(const ComPtr& other) noexcept
@@ -45,8 +46,9 @@ public:
     // The reference released (if any); empty.
     void reset() noexcept
     {
-        if (Interface* old = std::exchange(pointer_, nullptr))
+        if (Interface* old = std::exchange(pointer_, nullptr)) {
             old->Release();
+        }
     }
     // Releases the current reference and gives the address to receive a new one (a Get... / Create... call's out
     // parameter).

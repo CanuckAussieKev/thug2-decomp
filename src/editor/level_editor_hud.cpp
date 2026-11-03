@@ -75,12 +75,14 @@ void change_caption(Caption caption)
 {
     const std::string id(caption.id);
     const std::string full(caption.full);
-    if (!level_editor_hud_state().elements_)
+    if (!level_editor_hud_state().elements_) {
         return;
+    }
     const std::string text = full.size() > kMaxText ? full.substr(0, kMaxText) : full;
     auto it = shown().find(id);
-    if (it != shown().end() && it->second == text)
+    if (it != shown().end() && it->second == text) {
         return;
+    }
     shown()[id] = text;
     alignas(4) std::array<uint8_t, kStrandParamsSize> memory{};
     gsl::owner<script::Struct*> params{memory::construct_in<script::Struct>(memory.data())};
@@ -127,8 +129,9 @@ void tick()
 
 void show_panel(const std::vector<std::string>& lines, float x, float y, float width)
 {
-    if (!level_editor_hud_state().elements_)
+    if (!level_editor_hud_state().elements_) {
         return;
+    }
     if (!level_editor_hud_state().panel_ || level_editor_hud_state().panel_x_ != x || level_editor_hud_state().panel_y_ != y || level_editor_hud_state().panel_width_ != width || level_editor_hud_state().panel_lines_ != lines.size()) {
         alignas(4) std::array<uint8_t, kPanelParamsSize> memory{};
         gsl::owner<script::Struct*> params{memory::construct_in<script::Struct>(memory.data())};
@@ -138,8 +141,9 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
         params->put_int(checksums::Name{checksums::hash_from_text("lines")}, static_cast<int>(lines.size()));
         script::launch_script("level_editor_panel_show", params, nullptr, false);
         params->get_clear();
-        for (auto it = shown().begin(); it != shown().end();)
+        for (auto it = shown().begin(); it != shown().end();) {
             it = it->first.starts_with("level_editor_panel_") ? shown().erase(it) : std::next(it);
+        }
         level_editor_hud_state().panel_ = true;
         level_editor_hud_state().panel_x_ = x;
         level_editor_hud_state().panel_y_ = y;
@@ -155,11 +159,13 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
 
 void hide_panel()
 {
-    if (!level_editor_hud_state().panel_)
+    if (!level_editor_hud_state().panel_) {
         return;
+    }
     script::launch_script("level_editor_panel_hide", nullptr, nullptr, false);
-    for (auto it = shown().begin(); it != shown().end();)
+    for (auto it = shown().begin(); it != shown().end();) {
         it = it->first.starts_with("level_editor_panel_") ? shown().erase(it) : std::next(it);
+    }
     level_editor_hud_state().panel_ = false;
 }
 

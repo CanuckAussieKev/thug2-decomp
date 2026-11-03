@@ -39,22 +39,26 @@ void get_item(MenuItem item)
     const auto* const label = item.label;
     const int index = actions::get_find(id);
     const actions::ActStep* action = index >= 0 ? actions::get_pull(index) : nullptr;
-    if (!action)
+    if (!action) {
         return;
+    }
     const std::string keys = hints::leading_key_name(actions::get_keys_text(index));
     const int checked = actions::get_checked(index);
     if (ImGui::MenuItem(label ? label : action->name.c_str(), keys.empty() ? nullptr : keys.c_str(), checked == 1,
-                        actions::is_switched_on(index)))
+                        actions::is_switched_on(index))) {
         actions::get_run(index);
+    }
     if (!action->tip.empty() &&
-        ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled)) {
         gui::tooltip("%s", action->tip.c_str());
+    }
 }
 
 void get_items(std::initializer_list<const char*> ids)
 {
-    for (const char* id : ids)
+    for (const char* id : ids) {
         get_item({.id = id});
+    }
 }
 
 // A menu's title, noted for the self-test (level_editor_ui_strip.h).
@@ -67,8 +71,9 @@ bool get_menu(const char* title)
 
 void file_menu()
 {
-    if (!get_menu("File"))
+    if (!get_menu("File")) {
         return;
+    }
     get_items({"save", "snapshots"});
     ImGui::Separator();
     get_items({"restore_autosave", "discard_autosave"});
@@ -81,8 +86,9 @@ void file_menu()
 
 void edit_menu(const ux8::Fonts& fonts)
 {
-    if (!get_menu("Edit"))
+    if (!get_menu("Edit")) {
         return;
+    }
     get_items({"undo", "redo", "history", "changes"});
     ImGui::Separator();
     get_items({"copy", "paste", "copy_props", "paste_transform", "paste_fields"});
@@ -106,8 +112,9 @@ void edit_menu(const ux8::Fonts& fonts)
 
 void view_menu(const ShapeMesh& model, std::vector<Request>* requests)
 {
-    if (!get_menu("View"))
+    if (!get_menu("View")) {
         return;
+    }
     overlays::view_mode_items();
     ImGui::Separator();
     if (ImGui::BeginMenu("Overlays")) {
@@ -124,11 +131,13 @@ void view_menu(const ShapeMesh& model, std::vector<Request>* requests)
         get_items({"view_top", "view_bottom", "view_front", "view_back", "view_right", "view_left", "view_ortho"});
         ImGui::Separator();
         if (ImGui::BeginMenu("Bookmarks")) {
-            for (int i = 1; i <= kBookmarkSlots; ++i)
+            for (int i = 1; i <= kBookmarkSlots; ++i) {
                 get_item({.id = ("bookmark_" + std::to_string(i)).c_str()});
+            }
             ImGui::Separator();
-            for (int i = 1; i <= kBookmarkSlots; ++i)
+            for (int i = 1; i <= kBookmarkSlots; ++i) {
                 get_item({.id = ("bookmark_store_" + std::to_string(i)).c_str()});
+            }
             ImGui::EndMenu();
         }
         ImGui::Separator();
@@ -144,8 +153,9 @@ void view_menu(const ShapeMesh& model, std::vector<Request>* requests)
 
 void tools_menu()
 {
-    if (!get_menu("Tools"))
+    if (!get_menu("Tools")) {
         return;
+    }
     get_items({"tool_move", "tool_rotate", "tool_scale", "tool_space", "modal_transform"});
     ImGui::Separator();
     get_item({.id = "snap25"});
@@ -165,8 +175,9 @@ void tools_menu()
         ImGui::Separator();
         static constexpr std::string_view kAxes = "xyz";
         for (int axis = 0; axis < 3; ++axis) {
-            for (const char* edge : {"min", "centre", "max"})
+            for (const char* edge : {"min", "centre", "max"}) {
                 get_item({.id = (std::string("align_") + core::at(kAxes, axis) + "_" + edge).c_str()});
+            }
         }
         ImGui::Separator();
         get_items({"distribute_x", "distribute_y", "distribute_z"});
@@ -187,12 +198,14 @@ void tools_menu()
 
 void help_menu()
 {
-    if (!get_menu("Help"))
+    if (!get_menu("Help")) {
         return;
+    }
     get_items({"help", "command_search", "keys"});
     ImGui::Separator();
-    if (ImGui::MenuItem("Show Tips"))
+    if (ImGui::MenuItem("Show Tips")) {
         prefs::show_tips();
+    }
     ImGui::EndMenu();
 }
 

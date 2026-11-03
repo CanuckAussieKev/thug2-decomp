@@ -97,8 +97,9 @@ std::vector<Item> view_items()
 {
     using namespace actions;
     std::vector<Item> items;
-    for (int mode = 0; mode < std::min(overlays::kViewModes, 4); ++mode)
+    for (int mode = 0; mode < std::min(overlays::kViewModes, 4); ++mode) {
         items.push_back(view_mode(mode));
+    }
     items.push_back(act_step(kCollision, nullptr, false));
     items.push_back(act_step(kTriggers, nullptr, false));
     items.push_back(act_step(kJumpArcs, nullptr, false));

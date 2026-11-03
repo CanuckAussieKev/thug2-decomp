@@ -38,11 +38,13 @@ inline const char* end_of(std::string_view text) noexcept { return text.substr(t
 // White space, then an optional sign: where the number starts; `negative` set by a '-'.
 inline std::string_view skip_lead(std::string_view text, bool& negative) noexcept
 {
-    while (is_space(char_at(text, 0)))
+    while (is_space(char_at(text, 0))) {
         text.remove_prefix(1);
+    }
     negative = char_at(text, 0) == '-';
-    if (char_at(text, 0) == '+' || char_at(text, 0) == '-')
+    if (char_at(text, 0) == '+' || char_at(text, 0) == '-') {
         text.remove_prefix(1);
+    }
     return text;
 }
 
@@ -55,15 +57,18 @@ inline int to_int(const char* text) noexcept
     bool negative = false;
     const std::string_view first = number_detail::skip_lead(text, negative);
     std::size_t digits = 0;
-    while (number_detail::is_digit(number_detail::char_at(first, digits)))
+    while (number_detail::is_digit(number_detail::char_at(first, digits))) {
         ++digits;
+    }
     unsigned long long magnitude = 0;
     if (std::from_chars(number_detail::begin_of(first), number_detail::end_of(first.substr(0, digits)), magnitude).ec ==
-        std::errc::result_out_of_range)
+        std::errc::result_out_of_range) {
         magnitude = std::numeric_limits<unsigned long long>::max();
+    }
     constexpr unsigned long long kMinMagnitude = 1ULL + INT_MAX; // INT_MIN's magnitude
-    if (negative)
+    if (negative) {
         return magnitude >= kMinMagnitude ? INT_MIN : -static_cast<int>(magnitude);
+    }
     return magnitude > static_cast<unsigned long long>(INT_MAX) ? INT_MAX : static_cast<int>(magnitude);
 }
 
@@ -74,8 +79,9 @@ inline double to_double(const char* text) noexcept
     using number_detail::char_at;
     bool negative = false;
     const std::string_view first = number_detail::skip_lead(text, negative);
-    if (char_at(first, 0) == '+' || char_at(first, 0) == '-')
+    if (char_at(first, 0) == '+' || char_at(first, 0) == '-') {
         return 0.0; // (a second sign: no number)
+    }
     const char* last = number_detail::end_of(first);
     double value = 0.0;
     std::from_chars_result read{};
@@ -89,8 +95,9 @@ inline double to_double(const char* text) noexcept
     } else {
         read = std::from_chars(number_detail::begin_of(first), last, value, std::chars_format::general);
     }
-    if (read.ec == std::errc::invalid_argument)
+    if (read.ec == std::errc::invalid_argument) {
         return 0.0;
+    }
     if (read.ec == std::errc::result_out_of_range) {
         // too large (HUGE_VAL) or too small (0): the sign of the exponent the text spells out, counting the digits
         // before the point as a decimal (or binary, for hex) exponent of their own

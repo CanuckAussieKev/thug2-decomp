@@ -31,18 +31,23 @@ constexpr float kHalf = 0.5F; // half
 
 bool is_structure(V3 min, V3 max, V3 camera, float level_share)
 {
-    if (!(min.x <= max.x && min.y <= max.y && min.z <= max.z)) // (also NaN: not a box - leave it to the rest)
+    if (!(min.x <= max.x && min.y <= max.y && min.z <= max.z)) { // (also NaN: not a box - leave it to the rest)
         return false;
+    }
     // Inside it: a click from in here would always meet it (the room's walls, floor and ceiling).
     if (camera.x >= min.x - kInsideMargin && camera.x <= max.x + kInsideMargin && camera.y >= min.y - kInsideMargin &&
-        camera.y <= max.y + kInsideMargin && camera.z >= min.z - kInsideMargin && camera.z <= max.z + kInsideMargin)
+        camera.y <= max.y + kInsideMargin && camera.z >= min.z - kInsideMargin && camera.z <= max.z + kInsideMargin) {
         return true;
+    }
     std::array<float, 3> e = {{max.x - min.x, max.y - min.y, max.z - min.z}};
-    if (core::at(e, 1) <= kLowHeight && std::min(core::at(e, 0), core::at(e, 2)) >= kLowSpan && level_share >= kLevelTopShare)
+    if (core::at(e, 1) <= kLowHeight && std::min(core::at(e, 0), core::at(e, 2)) >= kLowSpan &&
+        level_share >= kLevelTopShare) {
         return true;
+    }
     std::sort(e.begin(), e.begin() + 3); // e[0] thinnest .. e[2] longest
-    if (core::at(e, 1) >= kWideSpan)
+    if (core::at(e, 1) >= kWideSpan) {
         return true;
+    }
     return core::at(e, 1) >= kSlabSpan && core::at(e, 0) <= core::at(e, 1) * kSlabThickness;
 }
 
@@ -50,14 +55,17 @@ void add_top_triangle(TopArea* area, V3 a, V3 b, V3 c)
 {
     const V3 n = perpendicular(b - a, c - a);
     const float twice = std::sqrt(get_dot(n, n));
-    if (!(twice > 0.0F))
+    if (!(twice > 0.0F)) {
         return;
+    }
     const float up = std::fabs(n.y) / twice;
-    if (up <= kUpNormalY)
+    if (up <= kUpNormalY) {
         return;
+    }
     area->up += twice * kHalf;
-    if (up >= kLevelNormalY)
+    if (up >= kLevelNormalY) {
         area->level += twice * kHalf;
+    }
 }
 
 void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
@@ -72,8 +80,9 @@ void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uin
         const uint16_t a = core::at(index_run, i - 2);
         const uint16_t b = core::at(index_run, i - 1);
         const uint16_t c = core::at(index_run, i);
-        if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
+        if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count) {
             continue;
+        }
         add_top_triangle(area, at(a), at(b), at(c));
     }
 }
@@ -84,8 +93,9 @@ bool material_see_through(PassBlend pass_blend)
 {
     const auto pass_flags = pass_blend.pass_flags_;
     const auto blend_mode = pass_blend.blend_mode_;
-    if (pass_flags & kPassSeeThroughFlag)
+    if (pass_flags & kPassSeeThroughFlag) {
         return true;
+    }
     switch (blend_mode & render::kBlendModeMask) {
     case 1:
     case 2: // add, fixadd
@@ -105,8 +115,9 @@ Resolved settle_up(const std::vector<Met>& met)
 {
     std::vector<const Met*> order;
     order.reserve(met.size());
-    for (const Met& m : met)
+    for (const Met& m : met) {
         order.push_back(&m);
+    }
     std::ranges::stable_sort(order, [](const Met* a, const Met* b) { return a->t < b->t; });
     Resolved r;
     bool searching = true; // (a plain click's search: until the first occluding entry)
@@ -115,8 +126,9 @@ Resolved settle_up(const std::vector<Met>& met)
             r.passed = m->id;
             r.passed_t_ = m->t;
         }
-        if (!searching)
+        if (!searching) {
             continue;
+        }
         if (!m->locked && !m->passed) {
             // (a pickable piece: taken - it is what occludes the rest, if it does; a see-through pickable one can't be
             // taken without occluding, as no pickable piece is see-through)
@@ -148,8 +160,9 @@ float gizmo_slack(float depth, float units_per_pixel, float pixels)
 
 Choice get_choose(const Candidates& c, uint32_t filter, bool everything)
 {
-    if (c.node >= 0 && (filter & kNodes))
+    if (c.node >= 0 && (filter & kNodes)) {
         return Choice::kNode;
+    }
     Choice best = Choice::kNone;
     float best_t = 0.0F;
     bool any = false;
@@ -177,18 +190,25 @@ std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects,
                                   uint32_t filter)
 {
     std::vector<TableRow> order;
-    if (node >= 0 && (filter & kNodes))
+    if (node >= 0 && (filter & kNodes)) {
         order.push_back({.kind = Choice::kNode, .id = static_cast<uint32_t>(node), .t = 0.0F});
-    if (filter & kObjects)
-        for (const Layered& o : objects)
+    }
+    if (filter & kObjects) {
+        for (const Layered& o : objects) {
             order.push_back({.kind = Choice::kObject, .id = o.id, .t = o.t});
+        }
+    }
     if (filter & kScenery) {
-        for (const Layered& s : scenery)
-            if (!s.passed)
+        for (const Layered& s : scenery) {
+            if (!s.passed) {
                 order.push_back({.kind = Choice::kScenery, .id = s.id, .t = s.t});
-        for (const Layered& s : scenery)
-            if (s.passed)
+            }
+        }
+        for (const Layered& s : scenery) {
+            if (s.passed) {
                 order.push_back({.kind = Choice::kPassed, .id = s.id, .t = s.t});
+            }
+        }
     }
     return order;
 }
@@ -196,11 +216,14 @@ std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects,
 int get_index_of(const std::vector<TableRow>& order, Choice kind, uint32_t id)
 {
     // (a passed piece taken by Alt is the same piece as in the passed part)
-    for (size_t i = 0; i < order.size(); ++i)
+    for (size_t i = 0; i < order.size(); ++i) {
         if (core::at(order, i).id == id &&
-            (core::at(order, i).kind == kind || ((kind == Choice::kScenery || kind == Choice::kPassed) &&
-                                       (core::at(order, i).kind == Choice::kScenery || core::at(order, i).kind == Choice::kPassed))))
+            (core::at(order, i).kind == kind ||
+             ((kind == Choice::kScenery || kind == Choice::kPassed) &&
+              (core::at(order, i).kind == Choice::kScenery || core::at(order, i).kind == Choice::kPassed)))) {
             return static_cast<int>(i);
+        }
+    }
     return -1;
 }
 
@@ -218,20 +241,24 @@ bool ray_triangle(Ray ray, V3 a, V3 b, V3 c, float* t)
     const V3 e2 = c - a;
     const V3 p = perpendicular(dir, e2);
     const float det = get_dot(e1, p);
-    if (std::fabs(det) < kParallelEpsilon)
+    if (std::fabs(det) < kParallelEpsilon) {
         return false;
+    }
     const float inv = 1.0F / det;
     const V3 s = origin - a;
     const float u = get_dot(s, p) * inv;
-    if (u < 0.0F || u > 1.0F)
+    if (u < 0.0F || u > 1.0F) {
         return false;
+    }
     const V3 q = perpendicular(s, e1);
     const float v = get_dot(dir, q) * inv;
-    if (v < 0.0F || u + v > 1.0F)
+    if (v < 0.0F || u + v > 1.0F) {
         return false;
+    }
     const float hit = get_dot(e2, q) * inv;
-    if (!(hit > 0.0F))
+    if (!(hit > 0.0F)) {
         return false;
+    }
     *t = hit;
     return true;
 }
@@ -252,16 +279,18 @@ bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uin
         const uint16_t a = core::at(index_run, i - 2);
         const uint16_t b = core::at(index_run, i - 1);
         const uint16_t c = core::at(index_run, i);
-        if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count)
+        if (a == b || b == c || a == c || a >= vertex_count || b >= vertex_count || c >= vertex_count) {
             continue;
+        }
         float hit = 0.0F;
         if (ray_triangle({.origin = origin, .dir = dir}, at(a), at(b), at(c), &hit) && hit < best) {
             best = hit;
             found = true;
         }
     }
-    if (found)
+    if (found) {
         *t = best;
+    }
     return found;
 }
 
@@ -275,21 +304,25 @@ std::vector<Lock>& stored_locks()
 
 bool latched(uint32_t kind, uint32_t id)
 {
-    for (const Lock& lock : stored_locks())
-        if (lock.kind == kind && lock.id == id)
+    for (const Lock& lock : stored_locks()) {
+        if (lock.kind == kind && lock.id == id) {
             return true;
+        }
+    }
     return false;
 }
 
 bool set_locked(uint32_t kind, uint32_t id, bool locked)
 {
     auto it = std::ranges::find_if(stored_locks(), [&](const Lock& l) { return l.kind == kind && l.id == id; });
-    if (locked == (it != stored_locks().end()))
+    if (locked == (it != stored_locks().end())) {
         return false;
-    if (locked)
+    }
+    if (locked) {
         stored_locks().push_back({.kind = kind, .id = id});
-    else
+    } else {
         stored_locks().erase(it);
+    }
     return true;
 }
 

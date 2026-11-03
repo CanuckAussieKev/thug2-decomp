@@ -47,8 +47,9 @@ template <typename Item, typename Destroy>
 void delete_each(memory::ListNode* head, Destroy destroy)
 {
     const memory::ListNode* node = head->next();
-    if (node->is_head())
+    if (node->is_head()) {
         return;
+    }
     while (node) {
         const memory::ListNode* next = node->next();
         const memory::ListNode* following = next->is_head() ? nullptr : next;

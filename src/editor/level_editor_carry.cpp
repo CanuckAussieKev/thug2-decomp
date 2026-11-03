@@ -71,8 +71,9 @@ bool over_footprint(const OrientedBox& box, V3 p, float margin, float above)
     std::array<float, 3> local{};
     for (int i = 0; i < 3; ++i) {
         const float length2 = get_dot(core::at(box.axes, i), core::at(box.axes, i));
-        if (!(length2 > 0.0F))
+        if (!(length2 > 0.0F)) {
             return false;
+        }
         // (local units are the box's: a margin in world units is margin / |axis| of them)
         core::at(local, i) = get_dot(d, core::at(box.axes, i)) / length2;
     }
@@ -94,14 +95,17 @@ Attachment attached(uint32_t cluster, const std::vector<uint32_t>& links, uint32
     auto in = [](const std::vector<uint32_t>& list, uint32_t id) {
         return id != 0 && std::ranges::find(list, id) != list.end();
     };
-    if (in(members, cluster) || in(member_clusters, cluster))
+    if (in(members, cluster) || in(member_clusters, cluster)) {
         return Attachment::kCluster;
-    for (const uint32_t link : links) {
-        if (in(members, link))
-            return Attachment::kLink;
     }
-    if (in(members, ground_hit))
+    for (const uint32_t link : links) {
+        if (in(members, link)) {
+            return Attachment::kLink;
+        }
+    }
+    if (in(members, ground_hit)) {
         return Attachment::kStanding;
+    }
     return Attachment::kNone;
 }
 
@@ -161,10 +165,12 @@ uint32_t first_hit(V3 from, V3 to, V3* point)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false))
+    if (!ray->get_collision_along(&start, &end, false)) {
         return 0;
-    if (!ray->hit().object)
+    }
+    if (!ray->hit().object) {
         return 0;
+    }
     const auto& hit = ray->hit().point;
     *point = {.x = hit[0], .y = hit[1], .z = hit[2]};
     return ray->hit().object_checksum_;
@@ -173,31 +179,36 @@ uint32_t first_hit(V3 from, V3 to, V3* point)
 script::Struct* look_up_node_params(uint32_t name, const nodes::Elem** out)
 {
     const int index = name ? nodes::get_find(name) : -1;
-    if (index < 0)
+    if (index < 0) {
         return nullptr;
+    }
     const nodes::Elem& node = core::at(nodes::get_all(), index);
-    if (out)
+    if (out) {
         *out = &node;
+    }
     return nodes::struct_of(node);
 }
 
 uint32_t cluster_of(uint32_t name)
 {
     uint32_t cluster = 0;
-    if (script::Struct* s = look_up_node_params(name, nullptr))
+    if (script::Struct* s = look_up_node_params(name, nullptr)) {
         s->read_hash_value(kCluster, &cluster, 0);
+    }
     return cluster;
 }
 
 std::vector<uint32_t> link_names(const nodes::Elem* node)
 {
     std::vector<uint32_t> names;
-    if (!node)
+    if (!node) {
         return names;
+    }
     const std::vector<nodes::Elem>& all = nodes::get_all();
     for (const int link : node->links) {
-        if (link >= 0 && std::cmp_less(link, all.size()))
+        if (link >= 0 && std::cmp_less(link, all.size())) {
             names.push_back(core::at(all, link).name);
+        }
     }
     return names;
 }
@@ -216,15 +227,18 @@ uint32_t ground_under(const Gather& g, V3 p)
 {
     const bool over =
         std::ranges::any_of(g.boxes, [&](const auto& box) { return over_footprint(box.second, p, kMargin, kAbove); });
-    if (!over)
+    if (!over) {
         return 0;
+    }
     V3 point = {};
     const uint32_t hit = first_hit({.x = p.x, .y = p.y + kRayUp, .z = p.z}, {.x = p.x, .y = p.y - kRayDown, .z = p.z}, &point);
-    if (!hit || std::ranges::find(g.members, hit) != g.members.end() || scenery::sector_geometry(hit))
+    if (!hit || std::ranges::find(g.members, hit) != g.members.end() || scenery::sector_geometry(hit)) {
         return hit;
+    }
     for (const auto& box : g.boxes) {
-        if (over_footprint(box.second, point, kFootprintReach, kFootprintReach))
+        if (over_footprint(box.second, point, kFootprintReach, kFootprintReach)) {
             return box.first;
+        }
     }
     return hit;
 }
@@ -233,12 +247,14 @@ Attachment attachment_of(const Gather& g, uint32_t name, V3 pos)
 {
     const nodes::Elem* node = nullptr;
     uint32_t cluster = 0;
-    if (script::Struct* s = look_up_node_params(name, &node))
+    if (script::Struct* s = look_up_node_params(name, &node)) {
         s->read_hash_value(kCluster, &cluster, 0);
+    }
     const std::vector<uint32_t> links = link_names(node);
     const Attachment a = attached(cluster, links, 0, g.members, g.clusters);
-    if (a != Attachment::kNone)
+    if (a != Attachment::kNone) {
         return a;
+    }
     return attached(0, {}, ground_under(g, pos), g.members, g.clusters);
 }
 
@@ -247,18 +263,23 @@ void gather_object(objects::Entity* object, void* data)
     auto* g = static_cast<Gather*>(data);
     auto* composite = core::down_cast<objects::GameEntity>(object);
     OrientedBox box{};
-    if (!object_edit::model_box(composite, &box))
+    if (!object_edit::model_box(composite, &box)) {
         return;
+    }
     uint32_t cls = 0;
     const nodes::Elem* node = nullptr;
-    if (script::Struct* s = look_up_node_params(composite->ident(), &node))
+    if (script::Struct* s = look_up_node_params(composite->ident(), &node)) {
         s->read_hash_value(kClass, &cls, 0);
-    if (cls == kPedestrian)
+    }
+    if (cls == kPedestrian) {
         return; // (peds walk their paths: not carried)
-    if (node && node->family == nodes::Family::kBitMark)
+    }
+    if (node && node->family == nodes::Family::kBitMark) {
         return; // (a flag's object: its node is carried, and moves it)
-    if (attachment_of(*g, composite->ident(), object_edit::pos_of(composite)) != Attachment::kNone)
+    }
+    if (attachment_of(*g, composite->ident(), object_edit::pos_of(composite)) != Attachment::kNone) {
         g->objects.push_back(composite->ident());
+    }
 }
 
 objects::GameEntity* live_object(uint32_t id)
@@ -283,100 +304,120 @@ void set_enabled(bool on)
     is_switched_on();
     level_editor_carry_state().enabled_ = on;
     config_set_int("editor", "carry", on ? 1 : 0);
-    if (!on)
+    if (!on) {
         disarm();
+    }
 }
 
 Taken arm()
 {
     stored_carried() = Carried{};
     const std::vector<uint32_t>& selection = scenery::get_selection();
-    if (!is_switched_on() || selection.empty())
+    if (!is_switched_on() || selection.empty()) {
         return {};
+    }
     Gather g;
     g.members = selection;
     for (const uint32_t member : selection) {
-        if (const uint32_t cluster = cluster_of(member))
+        if (const uint32_t cluster = cluster_of(member)) {
             g.clusters.push_back(cluster);
+        }
         OrientedBox box{};
-        if (scenery::cuboid(member, &box) && !scenery::is_shadow(member))
+        if (scenery::cuboid(member, &box) && !scenery::is_shadow(member)) {
             g.boxes.emplace_back(member, box);
+        }
     }
-    if (objects::EntityHub* manager = objects::object_hub_slot().get())
+    if (objects::EntityHub* manager = objects::object_hub_slot().get()) {
         manager->for_each(gather_object, &g);
+    }
     stored_carried().objects = g.objects;
     for (const uint32_t id : stored_carried().objects) {
-        if (objects::GameEntity* object = live_object(id))
+        if (objects::GameEntity* object = live_object(id)) {
             stored_carried().taken.objects.push_back(object_edit::store_away(object));
+        }
     }
     for (const nodes::Elem& node : nodes::get_all()) {
-        if (!node.name || node.hidden || !node_edit::get_movable(node) || node_edit::is_chain(node.name))
+        if (!node.name || node.hidden || !node_edit::get_movable(node) || node_edit::is_chain(node.name)) {
             continue;
+        }
         node_edit::Values values;
-        if (!node_edit::get_take_in(node.name, &values))
+        if (!node_edit::get_take_in(node.name, &values)) {
             continue;
+        }
         if (attachment_of(g, node.name, values.pos) != Attachment::kNone &&
-            std::ranges::find(stored_carried().nodes, node.name) == stored_carried().nodes.end())
+            std::ranges::find(stored_carried().nodes, node.name) == stored_carried().nodes.end()) {
             stored_carried().nodes.push_back(node.name);
+        }
     }
     stored_carried().taken.nodes = node_edit::get_capture(stored_carried().nodes, node_edit::get_take_in);
     stored_carried().reference = selection.front();
     stored_carried().last = placement_of(stored_carried().reference);
     stored_carried().armed = true;
-    if (debug_enabled() && (!stored_carried().objects.empty() || !stored_carried().nodes.empty()))
+    if (debug_enabled() && (!stored_carried().objects.empty() || !stored_carried().nodes.empty())) {
         get_log("level editor: carrying %u object%s and %u node%s with the selection",
                 static_cast<unsigned>(stored_carried().objects.size()), stored_carried().objects.size() == 1 ? "" : "s",
                 static_cast<unsigned>(stored_carried().nodes.size()), stored_carried().nodes.size() == 1 ? "" : "s");
+    }
     return stored_carried().taken;
 }
 
 void get_follow(void (*on_node)(uint32_t name))
 {
-    if (!stored_carried().armed || (stored_carried().objects.empty() && stored_carried().nodes.empty()))
+    if (!stored_carried().armed || (stored_carried().objects.empty() && stored_carried().nodes.empty())) {
         return;
+    }
     const Placement now = placement_of(stored_carried().reference);
     const Placement step = get_between(stored_carried().last, now);
     stored_carried().last = now;
-    if (is_none(step))
+    if (is_none(step)) {
         return;
+    }
     const float angle = static_cast<float>(step.quarters & 3) * 1.57079633F;
     for (const uint32_t id : stored_carried().objects) {
         objects::GameEntity* object = live_object(id);
-        if (!object)
+        if (!object) {
             continue;
+        }
         if (std::ranges::find(stored_carried().noted, id) == stored_carried().noted.end()) {
             object_edit::note_origin(object);
             object_edit::touch(id);
             stored_carried().noted.push_back(id);
         }
         const V3 to = get_apply(step, object_edit::pos_of(object));
-        if (step.quarters & 3)
+        if (step.quarters & 3) {
             object_edit::turn_about(object, object_edit::pos_of(object), angle); // (its heading; turned about itself)
+        }
         object_edit::get_place(object, to);
     }
     for (const uint32_t name : stored_carried().nodes) {
         node_edit::Values values;
-        if (!node_edit::get_take_in(name, &values))
+        if (!node_edit::get_take_in(name, &values)) {
             continue;
+        }
         values.pos = get_apply(step, values.pos);
-        if (step.quarters & 3)
+        if (step.quarters & 3) {
             values.angles.y = turned_heading(values.angles.y, step.quarters);
+        }
         node_edit::assign_value(name, values);
-        if (on_node)
+        if (on_node) {
             on_node(name);
+        }
     }
 }
 
 void get_leave()
 {
-    if (!stored_carried().armed)
+    if (!stored_carried().armed) {
         return;
-    for (const object_edit::State& state : stored_carried().taken.objects)
+    }
+    for (const object_edit::State& state : stored_carried().taken.objects) {
         object_edit::get_restore(state);
+    }
     node_edit::place_in(stored_carried().taken.nodes, [](uint32_t name, const node_edit::Values& values) {
         node_edit::Values now;
-        if (node_edit::get_take_in(name, &now) && !node_edit::get_same(now, values))
+        if (node_edit::get_take_in(name, &now) && !node_edit::get_same(now, values)) {
             node_edit::assign_value(name, values);
+        }
     });
     stored_carried() = Carried{};
 }

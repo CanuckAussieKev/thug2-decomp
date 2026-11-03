@@ -97,10 +97,14 @@ float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 
 bool eligible(render::FaceFlag flags)
 {
-    if (core::any(flags & (render::FaceFlag::kNotCollidable | render::FaceFlag::kTrigger | render::FaceFlag::kWall))) // (not collidable, a trigger, wallride)
+    if (core::any(flags & (render::FaceFlag::kNotCollidable | render::FaceFlag::kTrigger |
+                           render::FaceFlag::kWall))) { // (not collidable, a trigger, wallride)
         return false;
-    if (core::any(flags & render::FaceFlag::kNotSkatable) && !core::any(flags & (render::FaceFlag::kSkatable | render::FaceFlag::kVert))) // (not skatable)
+    }
+    if (core::any(flags & render::FaceFlag::kNotSkatable) &&
+        !core::any(flags & (render::FaceFlag::kSkatable | render::FaceFlag::kVert))) { // (not skatable)
         return false;
+    }
     return true;
 }
 
@@ -115,8 +119,9 @@ struct GroupSet {
 std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
 {
     std::vector<Lip> lips;
-    if (max_lips <= 0)
+    if (max_lips <= 0) {
         return lips;
+    }
     // The faces' raw normals and areas; the piece's winding convention from its sloped area.
     struct DetailsOf {
         V3 n;
@@ -133,25 +138,30 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         core::at(info, i) = {.n = length > kTinyLength ? n * (1.0F / length) : V3{},
                              .area = length * kHalf,
                              .use = length > kTinyLength && eligible(f.flags)};
-        if (!core::at(info, i).use)
+        if (!core::at(info, i).use) {
             continue;
+        }
         const float y = core::at(info, i).n.y;
-        if (std::fabs(y) > kSteepNormalY && std::fabs(y) < kFlatNormalY)
+        if (std::fabs(y) > kSteepNormalY && std::fabs(y) < kFlatNormalY) {
             (y > 0.0F ? up_area : down_area) += core::at(info, i).area;
+        }
     }
     const float convention = down_area > up_area ? -1.0F : 1.0F;
     // The sloped faces in groups by their uphill heading (largest first).
     std::vector<int> order;
-    for (size_t i = 0; i < faces.size(); ++i)
-        if (core::at(info, i).use)
+    for (size_t i = 0; i < faces.size(); ++i) {
+        if (core::at(info, i).use) {
             order.push_back(static_cast<int>(i));
+        }
+    }
     std::ranges::sort(order, [&](int a, int b) { return core::at(info, a).area > core::at(info, b).area; });
     std::vector<GroupSet> groups;
     auto heading_of = [](V3 n) { return make_unit({.x = -n.x, .y = 0.0F, .z = -n.z}); };
     for (const int i : order) {
         const V3 n = core::at(info, i).n * convention;
-        if (!(n.y > kSteepNormalY && n.y < kFlatNormalY))
+        if (!(n.y > kSteepNormalY && n.y < kFlatNormalY)) {
             continue;
+        }
         const V3 h = heading_of(n);
         GroupSet* into = nullptr;
         for (GroupSet& g : groups) {
@@ -168,13 +178,15 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         into->area += core::at(info, i).area;
         into->faces.push_back(i);
     }
-    for (GroupSet& g : groups)
+    for (GroupSet& g : groups) {
         g.heading = make_unit(g.heading);
+    }
     // Near-vertical faces join the group whose front they face.
     for (const int i : order) {
         const V3 n = core::at(info, i).n * convention;
-        if (std::fabs(n.y) > kSteepNormalY)
+        if (std::fabs(n.y) > kSteepNormalY) {
             continue;
+        }
         const V3 h = heading_of(n);
         for (GroupSet& g : groups) {
             if (get_dot(g.heading, h) > kHeadingTolerance) {
@@ -187,8 +199,9 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
     std::ranges::sort(groups, [](const GroupSet& a, const GroupSet& b) { return a.area > b.area; });
 
     for (const GroupSet& g : groups) {
-        if (std::cmp_greater_equal(lips.size(), max_lips))
+        if (std::cmp_greater_equal(lips.size(), max_lips)) {
             break;
+        }
         float top = -kFarDistance;
         float bottom = kFarDistance;
         for (const int i : g.faces) {
@@ -197,8 +210,9 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
                 bottom = std::min(bottom, p.y);
             }
         }
-        if (top - bottom < kMinLipHeight)
+        if (top - bottom < kMinLipHeight) {
             continue;
+        }
         Lip lip;
         lip.heading = g.heading;
         lip.across = {.x = g.heading.z, .y = 0.0F, .z = -g.heading.x};
@@ -215,8 +229,9 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             const Face& f = core::at(faces, i);
             bool at_top = false;
             for (const V3 p : {f.a, f.b, f.c}) {
-                if (p.y < top - kTop)
+                if (p.y < top - kTop) {
                     continue;
+                }
                 at_top = true;
                 const float s = get_dot(p, lip.across);
                 const float u = get_dot(p, g.heading);
@@ -225,15 +240,17 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
                 u_sum += u;
                 ++count;
             }
-            if (!at_top)
+            if (!at_top) {
                 continue;
+            }
             const V3 n = core::at(info, i).n * convention;
             const V3 t = make_unit(kUp - n * n.y);
             tangent = tangent + t * core::at(info, i).area;
             vert_flag |= core::any(f.flags & render::FaceFlag::kVert);
         }
-        if (count == 0 || get_dot(tangent, tangent) < kTinyLengthSquared)
+        if (count == 0 || get_dot(tangent, tangent) < kTinyLengthSquared) {
             continue;
+        }
         lip.tangent = make_unit(tangent);
         // (a tangent pointing back over the top - an overhang's - launches as vert)
         lip.vert = vert_flag || lip.tangent.y > kVertTangentY || get_dot(lip.tangent, g.heading) < 0.0F;
@@ -251,10 +268,12 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
 float scaled_stat(float low, float high, float stat, bool has_limit, float limit)
 {
     auto result = static_cast<float>(((static_cast<double>(high) - low) * stat * kStatStep) + low);
-    if (!has_limit)
+    if (!has_limit) {
         return result;
-    if (low < high)
+    }
+    if (low < high) {
         return result > limit ? limit : result;
+    }
     return result < limit ? limit : result;
 }
 
@@ -320,8 +339,9 @@ Flight get_fly(V3 start, V3 velocity, FlightSteps steps, const Cast& cast)
             return flight;
         }
         p = next;
-        if (p.y > flight.apex.y)
+        if (p.y > flight.apex.y) {
             flight.apex = p;
+        }
         flight.points.push_back(p);
     }
     flight.time = t;
@@ -330,8 +350,9 @@ Flight get_fly(V3 start, V3 velocity, FlightSteps steps, const Cast& cast)
 
 float rise_height(float vertical_speed, float gravity)
 {
-    if (vertical_speed <= 0.0F || gravity >= 0.0F)
+    if (vertical_speed <= 0.0F || gravity >= 0.0F) {
         return 0.0F;
+    }
     return vertical_speed * vertical_speed / (-kHalfGravityFactor * gravity);
 }
 
@@ -375,13 +396,16 @@ bool stat_value(script::Struct* physics, checksums::Name stat_name, float stat, 
 {
     const uint32_t name = stat_name.value();
     script::Struct* params = nullptr;
-    if (!physics || !physics->read_sub_struct(name, &params, 0))
+    if (!physics || !physics->read_sub_struct(name, &params, 0)) {
         params = script::read_sub_struct(name);
-    if (!params)
+    }
+    if (!params) {
         return false;
+    }
     script::Pair pair;
-    if (!params->fetch_pair(0U, &pair, false))
+    if (!params->fetch_pair(0U, &pair, false)) {
         return false;
+    }
     float limit = 0.0F;
     const bool has_limit = params->fetch_float(kLimit, &limit, 0);
     *value = scaled_stat(pair.x(), pair.y(), stat, has_limit, limit);
@@ -422,14 +446,17 @@ void read_physics()
 void sector_faces(uint32_t checksum, std::vector<Face>* out)
 {
     const render::WorldCell* sector = scenery::sector_of(checksum);
-    if (!sector)
+    if (!sector) {
         return;
+    }
     const render::HitMesh* coll = sector->hit_body();
-    if (!render::is_static_collider(coll) || (coll->flag_bits() & 4))
+    if (!render::is_static_collider(coll) || (coll->flag_bits() & 4)) {
         return;
+    }
     const auto* tri = coll->geometry();
-    if (!tri || !tri->faces() || !tri->vertices())
+    if (!tri || !tri->faces() || !tri->vertices()) {
         return;
+    }
     for (int f = 0; std::cmp_less(f, tri->tri_count()) && out->size() < kMaxLips; ++f) {
         std::array<V3, 3> p{};
         bool ok = true;
@@ -442,8 +469,9 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
             const maths::Vec4 v = tri->read_stored_vertex(static_cast<int>(index));
             core::at(p, k) = {.x = v.x, .y = v.y, .z = v.z};
         }
-        if (!ok)
+        if (!ok) {
             continue;
+        }
         const render::FaceFlag flags = tri->face_flags(f);
         out->push_back({.a = core::at(p, 0), .b = core::at(p, 1), .c = core::at(p, 2), .flags = flags});
     }
@@ -460,8 +488,9 @@ bool cast_feeler(V3 from, V3 to, SurfaceOut surface, uint32_t* sector)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false))
+    if (!ray->get_collision_along(&start, &end, false)) {
         return false;
+    }
     const auto& p = ray->hit().point;
     const auto& n = ray->hit().normal;
     *hit = {.x = p[0], .y = p[1], .z = p[2]};
@@ -507,12 +536,14 @@ std::vector<V3> boxes_of(const std::vector<uint32_t>& sectors)
 
 bool same_boxes(const std::vector<V3>& a, const std::vector<V3>& b)
 {
-    if (a.size() != b.size())
+    if (a.size() != b.size()) {
         return false;
+    }
     for (size_t i = 0; i < a.size(); ++i) {
         const V3 d = core::at(a, i) - core::at(b, i);
-        if (get_dot(d, d) > kMinStepSquared)
+        if (get_dot(d, d) > kMinStepSquared) {
             return false;
+        }
     }
     return true;
 }
@@ -527,8 +558,9 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
     read_physics();
     have_read() = true;
     std::vector<Face> faces;
-    for (const uint32_t s : sectors)
+    for (const uint32_t s : sectors) {
         sector_faces(s, &faces);
+    }
     for (const Lip& lip : find_lips(faces, 4)) {
         LipArcs arcs;
         arcs.lip = lip;
@@ -552,11 +584,12 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
         }
         cache().arcs.push_back(arcs);
     }
-    if (debug_enabled())
+    if (debug_enabled()) {
         get_log("level editor: jump arcs - %d lips (%s; g %.0f / vert %.0f, jump %.0f, speeds %.0f / %.0f / %.0f)",
                 static_cast<int>(cache().arcs.size()), physics_state().source.c_str(), physics_state().air_gravity_,
                 physics_state().vert_gravity_, physics_state().jump, core::at(physics_state().speeds, 0),
                 core::at(physics_state().speeds, 1), core::at(physics_state().speeds, 2));
+    }
 }
 
 } // namespace
@@ -580,8 +613,9 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
     const bool stale = !cache().valid || cache().sectors != sectors || !same_boxes(cache().boxes, boxes);
     // (while the selection moves: made again at most four times a second)
     if (stale && (!cache().valid || cache().sectors != sectors ||
-                  std::chrono::steady_clock::now() - cache().made > std::chrono::milliseconds(kRefreshMilliseconds)))
+                  std::chrono::steady_clock::now() - cache().made > std::chrono::milliseconds(kRefreshMilliseconds))) {
         get_remake(sectors, boxes);
+    }
     for (const LipArcs& arcs : cache().arcs) {
         const Lip& lip = arcs.lip;
         const V3 half = lip.across * (lip.width * 0.5F);
@@ -605,12 +639,14 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
                 continue;
             }
             const Flight& flight = core::at(arcs.flights, i);
-            for (size_t k = 1; k < flight.points.size(); ++k)
+            for (size_t k = 1; k < flight.points.size(); ++k) {
                 (void)painter.get_seg(core::at(flight.points, k - 1), core::at(flight.points, k), colour, kFlightWidth);
+            }
             if (!flight.landed) {
-                if (!flight.points.empty())
+                if (!flight.points.empty()) {
                     painter.draw_label(flight.points.back(), colour,
                                        std::string(speed_name(i)) + ": no landing in 6 s");
+                }
                 continue;
             }
             painter.perpendicular(flight.landing, kLandingMarkSize, colour, kFlightWidth);
@@ -620,11 +656,14 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
             std::array<char, kDropTextSize> drop{};
             text::format_to(drop, ", %.0f %s", std::fabs(gap.y), gap.y < 0.0F ? "lower" : "higher");
             text += drop.data();
-            if (std::fabs(flight.normal.y) < kWallNormalY)
+            if (std::fabs(flight.normal.y) < kWallNormalY) {
                 text += " - hits a wall";
-            if (core::at(arcs.landed_on_, i) && std::ranges::find(sectors, core::at(arcs.landed_on_, i)) == sectors.end() &&
-                scenery::sector_geometry(core::at(arcs.landed_on_, i)))
+            }
+            if (core::at(arcs.landed_on_, i) &&
+                std::ranges::find(sectors, core::at(arcs.landed_on_, i)) == sectors.end() &&
+                scenery::sector_geometry(core::at(arcs.landed_on_, i))) {
                 text += " on " + object_edit::caption(core::at(arcs.landed_on_, i));
+            }
             painter.draw_label(flight.landing, colour, text, kLandingLabelOffsetX,
                                -kLandingLabelRise - (kLandingLabelRowHeight * static_cast<float>(i)));
         }
@@ -633,23 +672,26 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
 
 std::string describe()
 {
-    if (!cache().valid)
+    if (!cache().valid) {
         return "";
+    }
     std::array<char, kLineTextSize> text{};
-    if (cache().arcs.empty())
+    if (cache().arcs.empty()) {
         return "Jump Arcs: no lip found";
+    }
     const LipArcs& first = cache().arcs.front();
-    if (first.lip.vert)
+    if (first.lip.vert) {
         text::format_to(text, "jump arcs: %d lips; vert - rises %.0f at top speed",
                         static_cast<int>(cache().arcs.size()), core::at(first.rise, 1));
-    else if (core::at(first.flights, 1).landed)
+    } else if (core::at(first.flights, 1).landed) {
         text::format_to(text, "jump arcs: %d lips; lands %.0f out at top speed", static_cast<int>(cache().arcs.size()),
                         std::sqrt(((core::at(first.flights, 1).landing.x - first.lip.point.x) *
                                    (core::at(first.flights, 1).landing.x - first.lip.point.x)) +
                                   ((core::at(first.flights, 1).landing.z - first.lip.point.z) *
                                    (core::at(first.flights, 1).landing.z - first.lip.point.z))));
-    else
+    } else {
         text::format_to(text, "jump arcs: %d lips", static_cast<int>(cache().arcs.size()));
+    }
     return text.data();
 }
 

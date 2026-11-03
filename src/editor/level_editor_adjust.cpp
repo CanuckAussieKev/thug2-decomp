@@ -67,12 +67,15 @@ ActStep normalised(const ActStep& action, float grid)
     n.reference = std::clamp(n.reference, 0, 1);
     auto factor = [](float f) { return std::clamp(f, kFactorMin, kFactorMax); };
     n.factor = {.x = factor(n.factor.x), .y = factor(n.factor.y), .z = factor(n.factor.z)};
-    if (n.uniform)
+    if (n.uniform) {
         n.factor.y = n.factor.z = n.factor.x;
-    if (n.quarters)
+    }
+    if (n.quarters) {
         n.degrees = kQuarterTurnDegrees * std::round(n.degrees / kQuarterTurnDegrees);
-    if (n.grid && grid > 0.0F)
+    }
+    if (n.grid && grid > 0.0F) {
         n.offset = {.x = snap_to_grid(n.offset.x, grid), .y = snap_to_grid(n.offset.y, grid), .z = snap_to_grid(n.offset.z, grid)};
+    }
     return n;
 }
 
@@ -131,19 +134,22 @@ bool same_selection(const edit::Selected& a, const edit::Selected& b) { return a
 void get_apply(const ActStep& wanted)
 {
     const ActStep n = normalised(wanted, xform::get_grid());
-    if (get_same(n, level_editor_adjust_state().last_.action))
+    if (get_same(n, level_editor_adjust_state().last_.action)) {
         return;
+    }
     level_editor_adjust_state().applying_ = true;
     size_t depth = edit::deepness();
     bool pushed = true;
     switch (n.kind) {
     case Kind::kPlace: {
         const V3 pos = edit::get_pos();
-        if (pos.x != n.pos.x || pos.y != n.pos.y || pos.z != n.pos.z)
+        if (pos.x != n.pos.x || pos.y != n.pos.y || pos.z != n.pos.z) {
             edit::place_at(n.pos);
+        }
         const float turn = n.degrees - level_editor_adjust_state().last_.action.degrees;
-        if (std::fabs(turn) > kTurnEpsilon)
+        if (std::fabs(turn) > kTurnEpsilon) {
             edit::turn_by(turn * maths::kPi / kDegreesPerHalfTurn);
+        }
         edit::get_settle();
         pushed = false;
         break;
@@ -173,8 +179,9 @@ void get_apply(const ActStep& wanted)
         depth = edit::deepness();
         xform::RepeatStep step = step_of(n);
         for (int i = 0; i < n.count; ++i) {
-            if (edit::get_duplicate(&step).empty())
+            if (edit::get_duplicate(&step).empty()) {
                 break;
+            }
         }
         edit::fold(depth);
         pushed = edit::deepness() > depth;
@@ -212,14 +219,16 @@ void get_apply(const ActStep& wanted)
 
 void get_note(const ActStep& action)
 {
-    if (level_editor_adjust_state().applying_)
+    if (level_editor_adjust_state().applying_) {
         return;
+    }
     level_editor_adjust_state().last_.valid = action.kind != Kind::kNone;
     level_editor_adjust_state().last_.action = action;
     level_editor_adjust_state().last_.serial = edit::top_serial();
     level_editor_adjust_state().last_.after = edit::get_selection();
-    if (action.kind == Kind::kShiftBy)
+    if (action.kind == Kind::kShiftBy) {
         level_editor_adjust_state().last_.start = edit::get_pos() - action.offset;
+    }
     if (action.kind == Kind::kPlace) {
         level_editor_adjust_state().last_.action.pos = edit::get_pos();
         level_editor_adjust_state().last_.action.degrees = 0.0F;
@@ -229,8 +238,9 @@ void get_note(const ActStep& action)
 
 void note_duplicate(const edit::Selected& source, const ActStep& action)
 {
-    if (level_editor_adjust_state().applying_)
+    if (level_editor_adjust_state().applying_) {
         return;
+    }
     level_editor_adjust_state().last_.source = source;
     get_note(action);
 }
@@ -248,8 +258,9 @@ const ActStep& final_one() { return level_editor_adjust_state().last_.action; }
 
 bool get_adjustable()
 {
-    if (!level_editor_adjust_state().last_.valid || edit::top_serial() != level_editor_adjust_state().last_.serial)
+    if (!level_editor_adjust_state().last_.valid || edit::top_serial() != level_editor_adjust_state().last_.serial) {
         return false;
+    }
     // (a placed thing: still the one selected)
     return level_editor_adjust_state().last_.action.kind != Kind::kPlace || same_selection(edit::get_selection(), level_editor_adjust_state().last_.after);
 }
@@ -259,8 +270,9 @@ bool& get_shown() { return level_editor_adjust_state().shown_; }
 void tick()
 {
     // (F4 - its registry entry, level_editor_arrange.cpp - switches Shown)
-    if (!level_editor_adjust_state().pending_ || edit::get_dragging())
+    if (!level_editor_adjust_state().pending_ || edit::get_dragging()) {
         return;
+    }
     level_editor_adjust_state().pending_ = false;
     if (!get_adjustable()) {
         hud::get_message("Adjust: only the last operation can be adjusted");

@@ -38,17 +38,20 @@ void put_wrapped(const std::string& made)
 {
     // keep a wrap position already set
     const bool need_backup = ImGui::GetCurrentWindow()->DC.TextWrapPos < 0.0F;
-    if (need_backup)
+    if (need_backup) {
         ImGui::PushTextWrapPos(0.0F);
+    }
     put_unformatted(made);
-    if (need_backup)
+    if (need_backup) {
         ImGui::PopTextWrapPos();
+    }
 }
 
 void put_tooltip(const std::string& made)
 {
-    if (!ImGui::BeginTooltipEx(ImGuiTooltipFlags_OverridePrevious, ImGuiWindowFlags_None))
+    if (!ImGui::BeginTooltipEx(ImGuiTooltipFlags_OverridePrevious, ImGuiWindowFlags_None)) {
         return;
+    }
     put_unformatted(made);
     ImGui::EndTooltip();
 }

@@ -82,18 +82,22 @@ public:
     SharedRef(const SharedRef&) = delete;
     ~SharedRef()
     {
-        if (target_)
+        if (target_) {
             target_->detach_shared_ref(this);
+        }
     }
     SharedRef& operator=(const SharedRef& other)
     {
-        if (this == &other)
+        if (this == &other) {
             return *this;
-        if (target_)
+        }
+        if (target_) {
             target_->detach_shared_ref(this);
+        }
         target_ = other.target_;
-        if (target_)
+        if (target_) {
             target_->attach_shared_ref(this);
+        }
         return *this;
     }
     // 0x00416DD0 (as SharedRef<SharedBase>): let go of the object.
@@ -120,8 +124,9 @@ public:
         preceding_ = nullptr;
         following_ = nullptr;
         target_ = object;
-        if (object)
+        if (object) {
             target_->attach_shared_ref(this);
+        }
         return this;
     }
     SharedRef* construct_copy(const SharedRef* other) { return construct_from(other->get_pull()); }
@@ -131,8 +136,9 @@ public:
     {
         get_release();
         target_ = other->target_;
-        if (target_)
+        if (target_) {
             target_->attach_shared_ref(this);
+        }
         return this;
     }
 
@@ -147,8 +153,9 @@ public:
     {
         get_release();
         target_ = object;
-        if (object)
+        if (object) {
             target_->attach_shared_ref(this);
+        }
     }
 
     [[nodiscard]] T* get_pull() const { return static_cast<T*>(target_); }

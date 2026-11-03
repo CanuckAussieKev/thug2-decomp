@@ -21,14 +21,17 @@ std::string leading_key_name(const std::string& keys_text)
 std::string join_keys(const std::vector<std::string>& keys)
 {
     bool single = true;
-    for (const std::string& k : keys)
+    for (const std::string& k : keys) {
         single = single && k.size() == 1;
+    }
     std::string out;
     for (const std::string& k : keys) {
-        if (k.empty())
+        if (k.empty()) {
             continue;
-        if (!out.empty() && !single)
+        }
+        if (!out.empty() && !single) {
             out += ' ';
+        }
         out += k;
     }
     return out;
@@ -39,18 +42,22 @@ std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vecto
     const auto mods = hint_limit.mods;
     const auto limit = hint_limit.limit;
     std::vector<std::pair<std::string, std::string>> out;
-    if (!mods)
+    if (!mods) {
         return out;
+    }
     for (const actions::ActStep& a : actions) {
-        if (out.size() >= limit)
+        if (out.size() >= limit) {
             break;
-        if (a.kind != actions::Kind::kPress && a.kind != actions::Kind::kFlipOver)
+        }
+        if (a.kind != actions::Kind::kPress && a.kind != actions::Kind::kFlipOver) {
             continue;
+        }
         for (const actions::Chord& c : a.keys) {
             if (c.scancode && c.mods == mods) {
                 const std::string text = actions::format_chord(c);
-                if (!text.empty())
+                if (!text.empty()) {
                     out.emplace_back(text, a.name);
+                }
                 break;
             }
         }
@@ -72,38 +79,50 @@ std::vector<std::string> get_tokens(const std::string& keys)
         }
         current += c;
     }
-    if (!current.empty())
+    if (!current.empty()) {
         out.push_back(current);
+    }
     return out;
 }
 
 Glyph glyph_of(const std::string& token)
 {
-    if (token == "LMB")
+    if (token == "LMB") {
         return Glyph::kMouseLeft;
-    if (token == "RMB")
+    }
+    if (token == "RMB") {
         return Glyph::kMouseRight;
-    if (token == "MMB")
+    }
+    if (token == "MMB") {
         return Glyph::kMouseMiddle;
-    if (token == "Wheel")
+    }
+    if (token == "Wheel") {
         return Glyph::kWheel;
-    if (token == "Mouse")
+    }
+    if (token == "Mouse") {
         return Glyph::kMouse;
-    if (token == "2xLMB")
+    }
+    if (token == "2xLMB") {
         return Glyph::kDoubleClick;
-    if (token == "PadA")
+    }
+    if (token == "PadA") {
         return Glyph::kPadA;
-    if (token == "PadB")
+    }
+    if (token == "PadB") {
         return Glyph::kPadB;
-    if (token == "PadX")
+    }
+    if (token == "PadX") {
         return Glyph::kPadX;
-    if (token == "PadY")
+    }
+    if (token == "PadY") {
         return Glyph::kPadY;
+    }
     static const auto kPad = std::to_array<const char*>({"LS",   "RS",   "LT", "RT", "LB",    "RB",
                                        "DPad", "Back", "L3", "R3", "LT/RT", "LB/RB"});
     for (const char* p : kPad) {
-        if (token == p)
+        if (token == p) {
             return Glyph::kPadOther;
+        }
     }
     return Glyph::kKey;
 }
@@ -117,16 +136,18 @@ public:
     [[nodiscard]] const std::vector<Hint>& hints() const { return out_; }
     void get_raw(const std::string& keys, const std::string& what)
     {
-        if (!keys.empty() && out_.size() < kMaxHints)
+        if (!keys.empty() && out_.size() < kMaxHints) {
             out_.push_back({.keys = keys, .what = what});
+        }
     }
     // An action's first key ("" unbound: left out).
     std::string get_key(const char* id) const { return leading_key_name((*key_of_)(id)); }
     void act(const char* id, const std::string& what, const char* prefix = nullptr)
     {
         const std::string k = get_key(id);
-        if (k.empty())
+        if (k.empty()) {
             return;
+        }
         get_raw(prefix ? std::string(prefix) + "+" + k : k, what);
     }
     // Several actions' keys as one cap ("W", "A", "S", "D" -> "WASD").
@@ -135,11 +156,13 @@ public:
         std::vector<std::string> keys;
         for (const char* id : ids) {
             const std::string k = get_key(id);
-            if (!k.empty())
+            if (!k.empty()) {
                 keys.push_back(k);
+            }
         }
-        if (keys.empty())
+        if (keys.empty()) {
             return;
+        }
         const std::string joined = join_keys(keys);
         get_raw(prefix ? std::string(prefix) + "+" + joined : joined, what);
     }
@@ -198,8 +221,9 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
     if (c.pie_open_) {
         b.get_raw("Mouse", "point at a slice");
         b.get_raw("LMB", "run it");
-        if (!c.pie_sticky_)
+        if (!c.pie_sticky_) {
             b.get_raw(b.get_key("pie_context").empty() ? "Q" : b.get_key("pie_context"), "release: run");
+        }
         b.get_raw("RMB", "close");
         b.get_raw("Esc", "close");
         return b.hints();
@@ -285,12 +309,14 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
             b.get_raw("Ctrl+Alt", "vertex");
             b.get_raw("X/Y/Z", "axis");
         }
-        if (c.carried > 0)
+        if (c.carried > 0) {
             b.get_raw("Alt", "leave the " + std::to_string(c.carried) + " carried");
-        if (apply)
+        }
+        if (apply) {
             b.get_raw(apply, "apply");
-        else
+        } else {
             b.get_raw("LMB", "let go: done");
+        }
         b.get_raw("Esc", "put it back");
         return b.hints();
     }
@@ -336,8 +362,9 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         b.get_raw("Ctrl", "remove");
         return b.hints();
     }
-    if (c.simulating)
+    if (c.simulating) {
         b.act("simulate", "stop simulating");
+    }
     // A modifier held: what it changes, then what it's bound to (the registry).
     if (c.mods) {
         const bool selected = c.selection != Selection::kNone;
@@ -347,15 +374,18 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
             b.get_raw("Alt+Wheel", "cycle under cursor");
         } else if (c.mods == actions::kShift) {
             b.get_raw("Shift+LMB", "add / remove");
-            if (selected)
+            if (selected) {
                 b.get_raw("Shift+LMB", "drag: up / down");
+            }
         } else if (c.mods == actions::kCtrl) {
-            if (c.selection == Selection::kScenery)
+            if (c.selection == Selection::kScenery) {
                 b.get_raw("Ctrl+LMB", "remove a part");
+            }
             b.get_raw("Ctrl+LMB", "drag: remove box");
         }
-        for (const auto& m : c.modded)
+        for (const auto& m : c.modded) {
             b.get_raw(m.first, m.second);
+        }
         return b.hints();
     }
     switch (c.selection) {
@@ -392,12 +422,13 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
             b.get_raw("Esc", "deselect");
             break;
         }
-        if (!c.fly_always_)
+        if (!c.fly_always_) {
             b.acts({"tool_move", "tool_rotate", "tool_scale"}, c.tool == 1   ? "tool (rotate)"
                                                                : c.tool == 2 ? "tool (scale)"
                                                                              : "tool (move)");
-        else
+        } else {
             b.act("tool_cycle", "next tool");
+        }
         b.get_fly(c, c.fly_always_ ? "nudge" : "fly");
         b.acts({"nudge_forward", "nudge_back", "nudge_left", "nudge_right"}, "nudge");
         if (c.chain_point_) {
@@ -410,8 +441,9 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         b.act("drop", "drop");
         b.act("duplicate", "copy");
         b.act("linked_duplicate", "linked copy");
-        if (c.selection == Selection::kScenery)
+        if (c.selection == Selection::kScenery) {
             b.act("edge_rail", "rail along an edge");
+        }
         b.act("arrange_window", "arrange");
         b.act("frame_selection", "frame");
         b.act("follow_selection", c.following ? "stop following" : "follow");

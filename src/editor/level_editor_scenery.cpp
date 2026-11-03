@@ -148,8 +148,9 @@ OrientedBox placed_box(V3 min, V3 max, const Placement& placement)
 
 bool sector_size_movable(V3 min, V3 max, float limit)
 {
-    if (!(min.x <= max.x && min.y <= max.y && min.z <= max.z)) // (also NaN)
+    if (!(min.x <= max.x && min.y <= max.y && min.z <= max.z)) { // (also NaN)
         return false;
+    }
     return max.x - min.x <= limit && max.y - min.y <= limit && max.z - min.z <= limit;
 }
 
@@ -168,8 +169,9 @@ void bounds_of(const OrientedBox& box, V3* min, V3* max)
 {
     std::array<V3, kBoxCornerCount> corners{};
     box_corners(box.origin, box.axes, box.min, box.max, corners);
-    for (std::size_t i = 0; i < kBoxCornerCount; ++i)
+    for (std::size_t i = 0; i < kBoxCornerCount; ++i) {
         grow_box(min, max, i != 0, core::at(corners, i), core::at(corners, i));
+    }
 }
 
 bool piece_fits(V3 min, V3 max, V3 group_min, V3 group_max)
@@ -230,8 +232,9 @@ void for_each_scene(F fn)
     auto* node = (render::engine_parts().scene_list().next());
     for (int guard = 0; node && !is_end(node) && guard < kMaxNodeGuard; ++guard) {
         SceneNode* next = node->next();
-        if (scene_of(node) && !scene_of(node)->is_sky())
+        if (scene_of(node) && !scene_of(node)->is_sky()) {
             fn(scene_of(node));
+        }
         node = next;
     }
 }
@@ -241,17 +244,20 @@ template <typename F>
 void for_each_sector(render::WorldScene* scene, F fn)
 {
     const lists::KeyMap* table = scene->sectors();
-    if (!table || table->bits() > kMaxSectorTableBits)
+    if (!table || table->bits() > kMaxSectorTableBits) {
         return;
+    }
     const lists::KeyMap::Item* buckets = table->buckets();
-    if (!buckets)
+    if (!buckets) {
         return;
+    }
     const uint32_t count = 1U << table->bits();
     const std::span<const lists::KeyMap::Item> bucket_run(buckets, count);
     for (uint32_t i = 0; i < count; ++i) {
         for (const lists::KeyMap::Item* entry = &core::at(bucket_run, i); entry; entry = entry->next) {
-            if (entry->value)
+            if (entry->value) {
                 fn(entry->key, static_cast<render::WorldCell*>(entry->value));
+            }
         }
     }
 }
@@ -266,12 +272,14 @@ render::WorldCell* find_sector(uint32_t checksum, render::WorldScene** scene_out
 {
     render::WorldCell* found = nullptr;
     for_each_scene([&](render::WorldScene* scene) {
-        if (found)
+        if (found) {
             return;
+        }
         if (render::WorldCell* sector = lookup_sector(scene, checksum)) {
             found = sector;
-            if (scene_out)
+            if (scene_out) {
                 *scene_out = scene;
+            }
         }
     });
     return found;
@@ -308,25 +316,31 @@ const char* meshes_movable(render::PcGeom* geom)
 {
     render::MeshRef* const* meshes = geom->meshes();
     const uint32_t count = geom->mesh_count();
-    if (!meshes || count == 0)
+    if (!meshes || count == 0) {
         return "no meshes";
-    if (count > kMeshScanLimit)
+    }
+    if (count > kMeshScanLimit) {
         return "odd mesh count";
+    }
     for (uint32_t i = 0; i < count; ++i) {
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
-        if (!mesh)
+        if (!mesh) {
             return "no mesh";
+        }
         const uint32_t buffers = mesh->vertex_buffer_count();
         const uint32_t vertices = mesh->vertex_count();
         const uint32_t stride = mesh->stride();
-        if (buffers > std::size(mesh->vertex_buffers()))
+        if (buffers > std::size(mesh->vertex_buffers())) {
             return "odd vertex buffers";
+        }
         for (uint32_t b = 0; b < buffers; ++b) {
             const render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), b);
-            if (!buffer || !buffer->data())
+            if (!buffer || !buffer->data()) {
                 return "no vertex copy";
-            if (buffer->size() != vertices * stride)
+            }
+            if (buffer->size() != vertices * stride) {
                 return "shared vertex buffer";
+            }
         }
     }
     return nullptr;
@@ -384,19 +398,23 @@ Track* track_of(uint32_t checksum)
 {
     render::WorldScene* scene = nullptr;
     render::WorldCell* sector = find_sector(checksum, &scene);
-    if (!sector)
+    if (!sector) {
         return nullptr;
+    }
     render::PcGeom* geom = geom_of(sector);
-    if (!plain_geom(geom))
+    if (!plain_geom(geom)) {
         return nullptr;
+    }
     auto it = tracks_state().find(checksum);
     if (it != tracks_state().end()) {
         Track& track = it->second;
         if (track.sector == sector && track.geom == geom && track.scene == scene &&
-            track.quarters == quarters_of(sector) && same_v3(track.position, geom_position(geom)))
+            track.quarters == quarters_of(sector) && same_v3(track.position, geom_position(geom))) {
             return &track;
-        if (track.sector == sector && track.geom == geom && track.scene == scene)
+        }
+        if (track.sector == sector && track.geom == geom && track.scene == scene) {
             shared_collision::rebase(checksum); // (moved by something else: its shared collision's base is now too)
+        }
         tracks_state().erase(it); // (another level, or moved by something else: start again from where it is)
     }
     Track track = {};
@@ -404,8 +422,9 @@ Track* track_of(uint32_t checksum)
     track.scene = scene;
     track.sector = sector;
     track.geom = geom;
-    if (!geom_box(geom, &track.min0, &track.max0))
+    if (!geom_box(geom, &track.min0, &track.max0)) {
         return nullptr;
+    }
     track.quarters0 = track.quarters = quarters_of(sector);
     track.position0 = track.position = geom_position(geom);
     track.placement = {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
@@ -422,16 +441,19 @@ bool current_box(uint32_t checksum, render::PcGeom* geom, OrientedBox* box)
     }
     V3 min{};
     V3 max{};
-    if (!geom_box(geom, &min, &max))
+    if (!geom_box(geom, &min, &max)) {
         return false;
+    }
     *box = placed_box(min, max, {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}});
     return true;
 }
 
 void mark_dirty(render::WorldScene* scene)
 {
-    if (std::ranges::find(level_editor_scenery_state().dirty_scenes_, scene) == level_editor_scenery_state().dirty_scenes_.end())
+    if (std::ranges::find(level_editor_scenery_state().dirty_scenes_, scene) ==
+        level_editor_scenery_state().dirty_scenes_.end()) {
         level_editor_scenery_state().dirty_scenes_.push_back(scene);
+    }
 }
 
 // The engine brought to the track's placement: the turn (WorldCell::spin_around_up 0x0049E760, about the geometry's
@@ -481,19 +503,22 @@ void apply_track(Track* track)
         track->position = position;
     }
     if (track->original && !scale_tool::reassemble(*track->original, track->sector, track->geom, track->quarters,
-                                                   track->position, track->placement.scale, track->quarters0))
+                                                   track->position, track->placement.scale, track->quarters0)) {
         track->original.reset(); // (not the sector copied any more: left as the engine has it)
+    }
     shared_collision::get_place(track->checksum, track->placement);
-    if (flags_of(track->sector) & kSectorFlagMovable)
+    if (flags_of(track->sector) & kSectorFlagMovable) {
         flags_of(track->sector) |= kSectorFlagMoved;
+    }
     track->moved = true;
     mark_dirty(track->scene);
 }
 
 const char* get_name_of(uint32_t checksum)
 {
-    if (const char* name = script::kept_qb_name(checksum))
+    if (const char* name = script::kept_qb_name(checksum)) {
         return name;
+    }
     return script::look_up_hash_name(checksum);
 }
 
@@ -501,10 +526,11 @@ std::string caption(uint32_t checksum)
 {
     std::array<char, kCaptionSize> text{};
     const char* name = get_name_of(checksum);
-    if (name)
+    if (name) {
         text::format_to(text, "%s", name);
-    else
+    } else {
         text::format_to(text, "%08X", checksum);
+    }
     return text.data();
 }
 
@@ -519,15 +545,18 @@ uint32_t cluster_of(uint32_t checksum)
 {
     // (a cluster the editor set - level_editor_clusters.h: its group follows it)
     uint32_t edited = 0;
-    if (clusters::get_override(checksum, &edited))
+    if (clusters::get_override(checksum, &edited)) {
         return edited;
+    }
     auto it = clusters_state().find(checksum);
-    if (it != clusters_state().end())
+    if (it != clusters_state().end()) {
         return it->second;
+    }
     auto* node = level_nodes::fetch_vertex(checksum, false);
     uint32_t cluster = 0;
-    if (node)
+    if (node) {
         node->read_hash_value(kCluster, &cluster, 0);
+    }
     clusters_state().emplace(checksum, cluster);
     return cluster;
 }
@@ -548,10 +577,12 @@ std::span<RailNode> rail_nodes()
 {
     const modules::Skate* skate = modules::Skate::sole();
     const objects::GrindRailHub* manager = skate ? skate->rail_manager().get() : nullptr;
-    if (!manager || manager->on_object())
+    if (!manager || manager->on_object()) {
         return {};
-    if (!manager->nodes() || manager->num() <= 0 || manager->num() >= kMaxManagerNodes)
+    }
+    if (!manager->nodes() || manager->num() <= 0 || manager->num() >= kMaxManagerNodes) {
         return {};
+    }
     return {manager->nodes(), static_cast<size_t>(manager->num())};
 }
 
@@ -587,12 +618,14 @@ RailNode* find_rail(uint32_t name)
 {
     const std::span<RailNode> nodes = rail_nodes();
     const int count = static_cast<int>(nodes.size());
-    if (nodes.empty())
+    if (nodes.empty()) {
         return nullptr;
+    }
     // (a ladder's point too - its moves are tracked as a rail's: level_editor_chains.h)
     for (int i = 0; i < count; ++i) {
-        if (core::at(nodes, i).label() == name)
+        if (core::at(nodes, i).label() == name) {
             return &core::at(nodes, i);
+        }
     }
     return nullptr;
 }
@@ -600,12 +633,14 @@ RailNode* find_rail(uint32_t name)
 RailTrack* rail_track_of(uint32_t name)
 {
     RailNode* node = find_rail(name);
-    if (!node)
+    if (!node) {
         return nullptr;
+    }
     auto it = rail_tracks().find(name);
     if (it != rail_tracks().end()) {
-        if (it->second.node == node && same_v3(it->second.pos, rail_pos(node)))
+        if (it->second.node == node && same_v3(it->second.pos, rail_pos(node))) {
             return &it->second;
+        }
         rail_tracks().erase(it);
     }
     const RailTrack track = {.node = node,
@@ -628,14 +663,16 @@ void apply_rails(const std::vector<uint32_t>& names)
 {
     const std::span<RailNode> nodes = rail_nodes();
     const int count = static_cast<int>(nodes.size());
-    if (nodes.empty())
+    if (nodes.empty()) {
         return;
+    }
     ++stored_rail_generation(); // (the node layer reads the places again)
     std::vector<RailNode*> moved;
     for (const uint32_t name : names) {
         auto it = rail_tracks().find(name);
-        if (it == rail_tracks().end())
+        if (it == rail_tracks().end()) {
             continue;
+        }
         RailTrack& track = it->second;
         const V3 pos = get_apply(track.placement, track.pos0);
         track.node->at_point().x = pos.x;
@@ -647,8 +684,9 @@ void apply_rails(const std::vector<uint32_t>& names)
     auto is_moved = [&](const RailNode* node) { return node && std::ranges::find(moved, node) != moved.end(); };
     for (int i = 0; i < count; ++i) {
         RailNode* node = &core::at(nodes, i);
-        if (!is_moved(node) && !is_moved(node->succ()))
+        if (!is_moved(node) && !is_moved(node->succ())) {
             continue;
+        }
         V3 min{};
         V3 max{};
         segment_box(rail_pos(node), node->succ() ? rail_pos(node->succ()) : rail_pos(node), &min, &max);
@@ -666,11 +704,13 @@ void compute_pivot()
     const bool casters =
         std::ranges::any_of(level_editor_scenery_state().selection_, [](uint32_t checksum) { return !shadow_of().contains(checksum); });
     for (const uint32_t checksum : level_editor_scenery_state().selection_) {
-        if (casters && shadow_of().contains(checksum))
+        if (casters && shadow_of().contains(checksum)) {
             continue;
+        }
         OrientedBox box{};
-        if (!cuboid(checksum, &box))
+        if (!cuboid(checksum, &box)) {
             continue;
+        }
         V3 a{};
         V3 b{};
         bounds_of(box, &a, &b);
@@ -688,16 +728,19 @@ void select_rails()
     scenery_rails().rails_.clear();
     const std::span<RailNode> nodes = rail_nodes();
     const int count = static_cast<int>(nodes.size());
-    if (level_editor_scenery_state().selection_.empty() || nodes.empty())
+    if (level_editor_scenery_state().selection_.empty() || nodes.empty()) {
         return;
+    }
     std::vector<uint32_t> clusters;
     std::vector<std::pair<V3, V3>> boxes;
     for (const uint32_t checksum : level_editor_scenery_state().selection_) {
-        if (is_clone(checksum))
+        if (is_clone(checksum)) {
             continue; // (a copy has no rails of its own: the source's stay with the source)
+        }
         clusters.push_back(checksum);
-        if (const uint32_t cluster = cluster_of(checksum))
+        if (const uint32_t cluster = cluster_of(checksum)) {
             clusters.push_back(cluster);
+        }
         OrientedBox box{};
         V3 min{};
         V3 max{};
@@ -709,22 +752,27 @@ void select_rails()
     auto within = [&](V3 p) {
         for (const auto& box : boxes) {
             if (p.x >= box.first.x && p.x <= box.second.x && p.y >= box.first.y && p.y <= box.second.y &&
-                p.z >= box.first.z && p.z <= box.second.z)
+                p.z >= box.first.z && p.z <= box.second.z) {
                 return true;
+            }
         }
         return false;
     };
     auto listed = [&](uint32_t c) { return c && std::ranges::find(clusters, c) != clusters.end(); };
     for (int i = 0; i < count; ++i) {
         const RailNode& node = core::at(nodes, i);
-        if (node.flag_bits() & kRailNodeClimbFlag)
+        if (node.flag_bits() & kRailNodeClimbFlag) {
             continue;
+        }
         bool in = listed(node.label()) || listed(cluster_of(node.label())) ||
                   (within(rail_pos(&node)) && (!node.succ() || within(rail_pos(node.succ()))));
-        if (in && std::ranges::find(scenery_rails().dropped_rails_, node.label()) != scenery_rails().dropped_rails_.end())
+        if (in &&
+            std::ranges::find(scenery_rails().dropped_rails_, node.label()) != scenery_rails().dropped_rails_.end()) {
             in = false;
-        if (in && std::ranges::find(scenery_rails().rails_, node.label()) == scenery_rails().rails_.end())
+        }
+        if (in && std::ranges::find(scenery_rails().rails_, node.label()) == scenery_rails().rails_.end()) {
             scenery_rails().rails_.push_back(node.label());
+        }
     }
 }
 
@@ -732,8 +780,9 @@ void select_rails()
 Placement placement_of(uint32_t checksum, render::PcGeom* geom)
 {
     auto it = tracks_state().find(checksum);
-    if (it != tracks_state().end() && it->second.geom == geom)
+    if (it != tracks_state().end() && it->second.geom == geom) {
         return it->second.placement;
+    }
     return {.quarters = 0, .offset = {.x = 0.0F, .y = 0.0F, .z = 0.0F}};
 }
 
@@ -761,8 +810,9 @@ std::vector<uint32_t> group_of(uint32_t checksum)
     std::vector<uint32_t> group;
     render::WorldScene* scene = nullptr;
     render::WorldCell* clicked = find_sector(checksum, &scene);
-    if (why_not_movable(checksum) || !clicked)
+    if (why_not_movable(checksum) || !clicked) {
         return group;
+    }
     Placement placement = placement_of(checksum, geom_of(clicked));
     struct Piece {
         uint32_t checksum;
@@ -777,34 +827,40 @@ std::vector<uint32_t> group_of(uint32_t checksum)
         V3 min{};
         V3 max{};
         if (!plain_geom(geom) || !geom->active() || !geom_box(geom, &min, &max) ||
-            !sector_size_movable(min, max, kMaxSectorExtent) || !same_placement(placement_of(other, geom), placement))
+            !sector_size_movable(min, max, kMaxSectorExtent) || !same_placement(placement_of(other, geom), placement)) {
             return;
+        }
         pieces.push_back({.checksum = other, .min = min, .max = max, .in = false, .see_through_ = geom_see_through(geom), .level_share_ = geom_level_share(other, geom)});
     });
     // (by size only: a camera nowhere near)
     const V3 nowhere = {.x = 1.0e9F, .y = 1.0e9F, .z = 1.0e9F};
     bool clicked_structure = false;
     for (const Piece& piece : pieces) {
-        if (piece.checksum == checksum)
+        if (piece.checksum == checksum) {
             clicked_structure = picking::is_structure(piece.min, piece.max, nowhere, piece.level_share_);
+        }
     }
     auto take = [&](Piece& piece) {
-        if (piece.in || why_not_movable(piece.checksum))
+        if (piece.in || why_not_movable(piece.checksum)) {
             return false;
+        }
         if (piece.checksum != checksum && !clicked_structure &&
-            picking::is_structure(piece.min, piece.max, nowhere, piece.level_share_))
+            picking::is_structure(piece.min, piece.max, nowhere, piece.level_share_)) {
             return false;
+        }
         piece.in = true;
         group.push_back(piece.checksum);
         return true;
     };
     const uint32_t cluster = cluster_of(checksum);
     for (Piece& piece : pieces) {
-        if (piece.checksum == checksum || (cluster && cluster_of(piece.checksum) == cluster))
+        if (piece.checksum == checksum || (cluster && cluster_of(piece.checksum) == cluster)) {
             take(piece);
+        }
     }
-    if (group.empty())
+    if (group.empty()) {
         return group;
+    }
     V3 group_min = {};
     V3 group_max = {};
     bool have = false;
@@ -822,8 +878,9 @@ std::vector<uint32_t> group_of(uint32_t checksum)
     for (int round = 0; grows && round < 3; ++round) {
         std::vector<uint32_t> joined;
         for (const Piece& piece : pieces) {
-            if (piece.in || !piece_fits(piece.min, piece.max, group_min, group_max))
+            if (piece.in || !piece_fits(piece.min, piece.max, group_min, group_max)) {
                 continue;
+            }
             for (const Piece& member : pieces) {
                 if (member.in && piece_touches(piece.min, piece.max, member.min, member.max, kTouchMargin)) {
                     joined.push_back(piece.checksum);
@@ -831,16 +888,18 @@ std::vector<uint32_t> group_of(uint32_t checksum)
                 }
             }
         }
-        if (joined.empty())
+        if (joined.empty()) {
             break;
+        }
         for (const uint32_t joining : joined) {
             const uint32_t joining_cluster = cluster_of(joining);
             for (Piece& piece : pieces) {
                 if (piece.checksum == joining || (joining_cluster && cluster_of(piece.checksum) == joining_cluster &&
                                                   piece_fits(piece.min, piece.max, group_min, group_max))) {
-                    if (take(piece) && debug_enabled())
+                    if (take(piece) && debug_enabled()) {
                         get_log("level editor:   joins: %s (%.0f x %.0f x %.0f)", caption(piece.checksum).c_str(),
                                 piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z);
+                    }
                 }
             }
         }
@@ -849,18 +908,21 @@ std::vector<uint32_t> group_of(uint32_t checksum)
     // under one of its pieces. Not by place for a floor or wall clicked by itself.
     auto source_of = [](uint32_t of) {
         for (const Replicate& clone : get_clones()) {
-            if (clone.checksum == of)
+            if (clone.checksum == of) {
                 return clone.source;
+            }
         }
         return of;
     };
     for (Piece& piece : pieces) {
-        if (piece.in || why_not_movable(piece.checksum))
+        if (piece.in || why_not_movable(piece.checksum)) {
             continue;
+        }
         const uint32_t source = source_of(piece.checksum);
         const char* name = get_name_of(source);
-        if (!name || !shadows::shadow_name(name))
+        if (!name || !shadows::shadow_name(name)) {
             continue;
+        }
         uint32_t owner = 0;
         for (const std::string& candidate : shadows::owner_names(name)) {
             const uint32_t crc = checksums::hash_from_text(candidate.c_str());
@@ -888,8 +950,9 @@ std::vector<uint32_t> group_of(uint32_t checksum)
             std::vector<std::pair<V3, V3>> others;
             for (const Piece& other : pieces) {
                 if (!other.in && !other.see_through_ && shadows::stands_by(other.min, piece.max) &&
-                    !picking::is_structure(other.min, other.max, nowhere, other.level_share_))
+                    !picking::is_structure(other.min, other.max, nowhere, other.level_share_)) {
                     others.emplace_back(other.min, other.max);
+                }
             }
             for (const Piece& member : pieces) {
                 if (member.in && !shadow_of().contains(member.checksum) &&
@@ -901,15 +964,17 @@ std::vector<uint32_t> group_of(uint32_t checksum)
                 }
             }
         }
-        if (!how)
+        if (!how) {
             continue;
+        }
         piece.in = true;
         group.push_back(piece.checksum);
         shadow_of()[piece.checksum] = caster;
-        if (debug_enabled())
+        if (debug_enabled()) {
             get_log("level editor:   shadow %s: %s (%.0f x %.0f x %.0f)%s%s", how, caption(piece.checksum).c_str(),
                     piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z,
                     caster ? " of " : "", caster ? caption(caster).c_str() : "");
+        }
     }
     return group;
 }
@@ -937,8 +1002,9 @@ bool cast_static(V3 from, V3 to, V3* point, uint32_t* checksum)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false))
+    if (!ray->get_collision_along(&start, &end, false)) {
         return false;
+    }
     const auto& hit = ray->hit().point;
     *point = {.x = hit[0], .y = hit[1], .z = hit[2]};
     *checksum = ray->hit().object_checksum_;
@@ -956,8 +1022,9 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
     float best = max_t;
     for (uint32_t i = 0; meshes && i < count && i < kMeshScanLimit; ++i) {
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
-        if (!mesh)
+        if (!mesh) {
             continue;
+        }
         float hit = 0.0F;
         if (mesh->billboard() || (mesh->flags() & kMeshHiddenFlag)) {
             if (ray_sphere({.origin = origin, .dir = dir}, {.x = core::at(mesh->centre(), 0), .y = core::at(mesh->centre(), 1), .z = core::at(mesh->centre(), 2)}, mesh->radius(), &hit) &&
@@ -969,15 +1036,17 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
         }
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
-        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes)
+        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes) {
             continue;
+        }
         if (picking::ray_strip(origin, dir, vertices->data(), mesh->stride(), mesh->vertex_count(), indices->indices(), {.index_count_ = core::at(mesh->index_counts(), 0), .max_t_ = best}, &hit)) {
             best = hit;
             found = true;
         }
     }
-    if (found)
+    if (found) {
         *t = best;
+    }
     return found;
 }
 
@@ -987,12 +1056,15 @@ bool geom_see_through(render::PcGeom* geom)
 {
     auto* const* meshes = geom->meshes();
     const uint32_t count = geom->mesh_count();
-    if (!meshes || count == 0 || count > kMeshScanLimit)
+    if (!meshes || count == 0 || count > kMeshScanLimit) {
         return false;
+    }
     for (uint32_t i = 0; i < count; ++i) {
         const render::MaterialRef* material = core::at(std::span<render::MeshRef* const>(meshes, count), i) ? core::at(std::span<render::MeshRef* const>(meshes, count), i)->material() : nullptr;
-        if (!material || !picking::material_see_through({.pass_flags_ = core::at(material->pass_flags(), 0), .blend_mode_ = core::at(material->blend_modes(), 0)}))
+        if (!material || !picking::material_see_through({.pass_flags_ = core::at(material->pass_flags(), 0),
+                                                         .blend_mode_ = core::at(material->blend_modes(), 0)})) {
             return false;
+        }
     }
     return true;
 }
@@ -1008,19 +1080,22 @@ std::unordered_map<uint32_t, std::pair<render::PcGeom*, float>>& level_shares()
 float geom_level_share(uint32_t checksum, render::PcGeom* geom)
 {
     auto it = level_shares().find(checksum);
-    if (it != level_shares().end() && it->second.first == geom)
+    if (it != level_shares().end() && it->second.first == geom) {
         return it->second.second;
+    }
     picking::TopArea area;
     auto* const* meshes = geom->meshes();
     const uint32_t count = geom->mesh_count();
     for (uint32_t i = 0; meshes && i < count && i < kMeshScanLimit; ++i) {
         const render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
-        if (!mesh || mesh->billboard() || (mesh->flags() & kMeshHiddenFlag))
+        if (!mesh || mesh->billboard() || (mesh->flags() & kMeshHiddenFlag)) {
             continue;
+        }
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
         const render::IdxStore* indices = core::at(mesh->index_buffers(), 0);
-        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes)
+        if (!vertices || !vertices->data() || !indices || !indices->indices() || mesh->stride() < kPositionBytes) {
             continue;
+        }
         picking::add_top_strip(&area, vertices->data(), mesh->stride(), mesh->vertex_count(), indices->indices(),
                                core::at(mesh->index_counts(), 0));
     }
@@ -1048,15 +1123,17 @@ bool get_passed(uint32_t checksum, V3 camera)
 {
     render::WorldCell* sector = find_sector(checksum, nullptr);
     render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
-    if (!plain_geom(geom))
+    if (!plain_geom(geom)) {
         return false;
+    }
     OrientedBox box{};
     V3 min{};
     V3 max{};
     if (current_box(checksum, geom, &box)) {
         bounds_of(box, &min, &max);
-        if (picking::is_structure(min, max, camera, geom_level_share(checksum, geom)))
+        if (picking::is_structure(min, max, camera, geom_level_share(checksum, geom))) {
             return true;
+        }
     }
     return geom_see_through(geom);
 }
@@ -1069,27 +1146,32 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
     // it, and Alt takes it or something nearer)
     float stop = max_t;
     auto note = [&](uint32_t checksum, render::PcGeom* geom, float t, bool collision) {
-        if (view::hidden_sector(checksum)) // (H: level_editor_view.h - not shown, not met)
+        if (view::hidden_sector(checksum)) { // (H: level_editor_view.h - not shown, not met)
             return;
+        }
         const bool locked = picking::latched(picking::kScenery, checksum);
         const bool occludes = collision || !(plain_geom(geom) && geom_see_through(geom));
         met.push_back({.id = checksum, .t = t, .passed = get_passed(checksum, origin), .occludes = occludes, .locked = locked});
-        if (occludes && !locked && !layers && t < stop)
+        if (occludes && !locked && !layers && t < stop) {
             stop = t;
+        }
     };
     // The collision ray, past collision that has no geometry to show (invisible walls), at most a few dozen faces.
     V3 from = origin;
     for (int i = 0; i < kMaxCollisionRayHits; ++i) {
         V3 point{};
         uint32_t checksum = 0;
-        if (!cast_static(from, origin + unit_dir * max_t, &point, &checksum))
+        if (!cast_static(from, origin + unit_dir * max_t, &point, &checksum)) {
             break;
+        }
         const float t = get_dot(point - origin, unit_dir);
-        if (t >= stop)
+        if (t >= stop) {
             break;
+        }
         render::WorldCell* sector = find_sector(checksum, nullptr);
-        if (sector && geom_of(sector))
+        if (sector && geom_of(sector)) {
             note(checksum, geom_of(sector), t, true);
+        }
         from = point + unit_dir * 1.0F;
     }
     // Every shown piece by its triangles (the box only to skip the rest - a decal's box can fill a room): pieces without
@@ -1097,11 +1179,13 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
     for_each_scene([&](render::WorldScene* scene) {
         for_each_sector(scene, [&](uint32_t checksum, render::WorldCell* sector) {
             render::PcGeom* geom = geom_of(sector);
-            if (!plain_geom(geom) || !geom->active())
+            if (!plain_geom(geom) || !geom->active()) {
                 return;
+            }
             OrientedBox box{};
-            if (!current_box(checksum, geom, &box))
+            if (!current_box(checksum, geom, &box)) {
                 return;
+            }
             float t = 0.0F;
             bool inside = false;
             {
@@ -1111,10 +1195,13 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
                 inside = origin.x >= min.x && origin.x <= max.x && origin.y >= min.y && origin.y <= max.y &&
                          origin.z >= min.z && origin.z <= max.z;
             }
-            if (!inside && (!ray_box({.origin = origin, .dir = unit_dir}, box.origin, box.axes, box.min, box.max, &t) || t >= stop))
+            if (!inside && (!ray_box({.origin = origin, .dir = unit_dir}, box.origin, box.axes, box.min, box.max, &t) ||
+                            t >= stop)) {
                 return;
-            if (ray_meshes(geom, origin, unit_dir, stop, &t))
+            }
+            if (ray_meshes(geom, origin, unit_dir, stop, &t)) {
                 note(checksum, geom, t, false);
+            }
         });
     });
     const picking::Resolved r = picking::settle_up(met);
@@ -1133,13 +1220,15 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
     if (layers) {
         // (each piece once, at its nearest; not locked)
         for (const picking::Met& m : met) {
-            if (m.locked)
+            if (m.locked) {
                 continue;
+            }
             auto it = std::ranges::find_if(*layers, [&](const Layer& l) { return l.checksum == m.id; });
-            if (it == layers->end())
+            if (it == layers->end()) {
                 layers->push_back({.checksum = m.id, .t = m.t, .passed = m.passed});
-            else if (m.t < it->t)
+            } else if (m.t < it->t) {
                 it->t = m.t;
+            }
         }
         std::ranges::stable_sort(*layers, [](const Layer& a, const Layer& b) { return a.t < b.t; });
     }
@@ -1149,30 +1238,38 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
 bool cuboid(uint32_t checksum, OrientedBox* box)
 {
     render::WorldCell* sector = find_sector(checksum, nullptr);
-    if (!sector || !plain_geom(geom_of(sector)))
+    if (!sector || !plain_geom(geom_of(sector))) {
         return false;
+    }
     return current_box(checksum, geom_of(sector), box);
 }
 
 const char* why_not_movable(uint32_t checksum)
 {
     render::WorldCell* sector = find_sector(checksum, nullptr);
-    if (!sector)
+    if (!sector) {
         return "not found";
-    if (ground::is_piece(checksum))
+    }
+    if (ground::is_piece(checksum)) {
         return "generated ground piece: edit with the Ground Tool"; // (UX9)
+    }
     render::PcGeom* geom = geom_of(sector);
-    if (!geom)
+    if (!geom) {
         return "collision only";
-    if (!render::is_pc_geom(geom))
+    }
+    if (!render::is_pc_geom(geom)) {
         return "odd geometry";
-    if (geom->instance())
+    }
+    if (geom->instance()) {
         return "an instance";
+    }
     OrientedBox box{};
-    if (!current_box(checksum, geom, &box))
+    if (!current_box(checksum, geom, &box)) {
         return "no box";
-    if (!sector_size_movable(box.min, box.max, kMaxSectorExtent))
+    }
+    if (!sector_size_movable(box.min, box.max, kMaxSectorExtent)) {
         return "too big";
+    }
     return meshes_movable(geom);
 }
 
@@ -1192,15 +1289,17 @@ std::string describe_hover(uint32_t checksum)
         text::format_to(line, "  cluster %s", name ? name : "");
         text += name ? line.data() : "  (in a cluster)";
     }
-    if (const char* why = why_not_movable(checksum))
+    if (const char* why = why_not_movable(checksum)) {
         text += std::string("  (can't move: ") + why + ")";
+    }
     return text;
 }
 
 std::string describe_selection()
 {
-    if (level_editor_scenery_state().selection_.empty())
+    if (level_editor_scenery_state().selection_.empty()) {
         return "-";
+    }
     std::string text = "scenery " + caption(core::at(level_editor_scenery_state().selection_, 0));
     std::array<char, kSelectionMoreSize> more{};
     int quarters = 0;
@@ -1215,10 +1314,12 @@ std::string describe_selection()
         const size_t used = std::strlen(more.data());
         text::format_to(std::span(more).subspan(used), "  scaled %s", scale_tool::describe(scale).c_str());
     }
-    if (level_editor_scenery_state().selection_.size() > 1)
+    if (level_editor_scenery_state().selection_.size() > 1) {
         text += " + " + std::to_string(level_editor_scenery_state().selection_.size() - 1) + " more";
-    if (!scenery_rails().rails_.empty())
+    }
+    if (!scenery_rails().rails_.empty()) {
         text += ", " + std::to_string(scenery_rails().rails_.size()) + " rail points";
+    }
     return text + more.data();
 }
 
@@ -1237,10 +1338,12 @@ void clear_selection()
 bool is_shadow(uint32_t checksum, uint32_t* caster)
 {
     auto it = shadow_of().find(checksum);
-    if (it == shadow_of().end())
+    if (it == shadow_of().end()) {
         return false;
-    if (caster)
+    }
+    if (caster) {
         *caster = it->second;
+    }
     return true;
 }
 
@@ -1250,8 +1353,9 @@ bool carries_rail(uint32_t name) { return std::ranges::find(scenery_rails().rail
 
 void drop_rail(uint32_t name)
 {
-    if (!carries_rail(name))
+    if (!carries_rail(name)) {
         return;
+    }
     scenery_rails().dropped_rails_.push_back(name);
     scenery_rails().rails_.erase(std::ranges::find(scenery_rails().rails_, name));
 }
@@ -1276,8 +1380,9 @@ namespace {
 // through).
 void log_meshes()
 {
-    if (!debug_enabled() || level_editor_scenery_state().selection_.empty())
+    if (!debug_enabled() || level_editor_scenery_state().selection_.empty()) {
         return;
+    }
     const render::PcGeom* geom = sector_geometry(core::at(level_editor_scenery_state().selection_, 0));
     render::MeshRef* const* meshes = geom ? geom->meshes() : nullptr;
     const uint32_t count = geom ? geom->mesh_count() : 0;
@@ -1311,18 +1416,20 @@ void select_group(uint32_t checksum)
             caption(checksum).c_str(), static_cast<unsigned>(level_editor_scenery_state().selection_.size()), level_editor_scenery_state().selection_.size() == 1 ? "" : "s",
             cluster_of(checksum), static_cast<unsigned>(scenery_rails().rails_.size()), scenery_rails().rails_.size() == 1 ? "" : "s", level_editor_scenery_state().pivot_.x,
             level_editor_scenery_state().pivot_.y, level_editor_scenery_state().pivot_.z);
-        for (const uint32_t member : level_editor_scenery_state().selection_)
+        for (const uint32_t member : level_editor_scenery_state().selection_) {
             get_log("level editor:   %s%s", caption(member).c_str(), is_shadow(member) ? " (shadow)" : "");
+        }
     }
 }
 
 void flip_over(uint32_t checksum)
 {
     auto it = std::ranges::find(level_editor_scenery_state().selection_, checksum);
-    if (it != level_editor_scenery_state().selection_.end())
+    if (it != level_editor_scenery_state().selection_.end()) {
         level_editor_scenery_state().selection_.erase(it);
-    else if (!why_not_movable(checksum))
+    } else if (!why_not_movable(checksum)) {
         level_editor_scenery_state().selection_.push_back(checksum);
+    }
     compute_pivot();
     select_rails();
 }
@@ -1335,8 +1442,9 @@ void set_selection(const std::vector<uint32_t>& sectors)
 {
     level_editor_scenery_state().selection_.clear();
     for (const uint32_t checksum : sectors) {
-        if (!why_not_movable(checksum))
+        if (!why_not_movable(checksum)) {
             level_editor_scenery_state().selection_.push_back(checksum);
+        }
     }
     compute_pivot();
     select_rails();
@@ -1345,8 +1453,9 @@ void set_selection(const std::vector<uint32_t>& sectors)
 void move_to(V3 pivot)
 {
     const V3 delta = pivot - level_editor_scenery_state().pivot_;
-    if (delta.x == 0.0F && delta.y == 0.0F && delta.z == 0.0F)
+    if (delta.x == 0.0F && delta.y == 0.0F && delta.z == 0.0F) {
         return;
+    }
     for (const uint32_t checksum : level_editor_scenery_state().selection_) {
         if (Track* track = track_of(checksum)) {
             move_by(&track->placement, delta);
@@ -1354,8 +1463,9 @@ void move_to(V3 pivot)
         }
     }
     for (const uint32_t name : scenery_rails().rails_) {
-        if (RailTrack* track = rail_track_of(name))
+        if (RailTrack* track = rail_track_of(name)) {
             move_by(&track->placement, delta);
+        }
     }
     apply_rails(scenery_rails().rails_);
     level_editor_scenery_state().pivot_ = pivot;
@@ -1364,8 +1474,9 @@ void move_to(V3 pivot)
 
 void get_turn(int quarters)
 {
-    if (!(quarters & 3))
+    if (!(quarters & 3)) {
         return;
+    }
     for (const uint32_t checksum : level_editor_scenery_state().selection_) {
         if (Track* track = track_of(checksum)) {
             turn_about(&track->placement, level_editor_scenery_state().pivot_, quarters);
@@ -1374,8 +1485,9 @@ void get_turn(int quarters)
     }
     log_meshes();
     for (const uint32_t name : scenery_rails().rails_) {
-        if (RailTrack* track = rail_track_of(name))
+        if (RailTrack* track = rail_track_of(name)) {
             turn_about(&track->placement, level_editor_scenery_state().pivot_, quarters);
+        }
     }
     apply_rails(scenery_rails().rails_);
     scenery_hover().hover_group_of_ = 0;
@@ -1385,8 +1497,9 @@ void get_turn(int quarters)
 
 V3 selection_scale()
 {
-    if (level_editor_scenery_state().selection_.empty())
+    if (level_editor_scenery_state().selection_.empty()) {
         return {.x = 1.0F, .y = 1.0F, .z = 1.0F};
+    }
     render::WorldCell* sector = find_sector(core::at(level_editor_scenery_state().selection_, 0), nullptr);
     return sector ? placement_of(core::at(level_editor_scenery_state().selection_, 0), geom_of(sector)).scale
                   : V3{.x = 1.0F, .y = 1.0F, .z = 1.0F};
@@ -1394,8 +1507,9 @@ V3 selection_scale()
 
 int selection_quarters()
 {
-    if (level_editor_scenery_state().selection_.empty())
+    if (level_editor_scenery_state().selection_.empty()) {
         return 0;
+    }
     render::WorldCell* sector = find_sector(core::at(level_editor_scenery_state().selection_, 0), nullptr);
     return sector ? placement_of(core::at(level_editor_scenery_state().selection_, 0), geom_of(sector)).quarters : 0;
 }
@@ -1407,8 +1521,9 @@ V3 scale_selection(V3 factor, bool uniform)
     std::vector<V3> limits; // (along the world's axes)
     for (const uint32_t checksum : level_editor_scenery_state().selection_) {
         if (Track* track = track_of(checksum)) {
-            if (!track->original) // (kept now, as apply_track would: a piece that can't be copied stops the lot)
+            if (!track->original) { // (kept now, as apply_track would: a piece that can't be copied stops the lot)
                 track->original = scale_tool::get_capture(track->sector, track->geom, track->quarters, track->position);
+            }
             if (!track->original) {
                 get_log("level editor: %s can't be scaled (its meshes can't be copied)", caption(checksum).c_str());
                 return unchanged;
@@ -1419,8 +1534,9 @@ V3 scale_selection(V3 factor, bool uniform)
         }
     }
     factor = scale_tool::allowed_factor(factor, scales, limits, uniform);
-    if (is_unit_scale(factor) || scales.empty())
+    if (is_unit_scale(factor) || scales.empty()) {
         return unchanged;
+    }
     // About the middle of the selection's bottom: it keeps standing where it stands.
     const V3 anchor = {.x = level_editor_scenery_state().pivot_.x, .y = get_bottom(), .z = level_editor_scenery_state().pivot_.z};
     for (const uint32_t checksum : level_editor_scenery_state().selection_) {
@@ -1430,8 +1546,9 @@ V3 scale_selection(V3 factor, bool uniform)
         }
     }
     for (const uint32_t name : scenery_rails().rails_) {
-        if (RailTrack* track = rail_track_of(name))
+        if (RailTrack* track = rail_track_of(name)) {
             scale_tool::scale_about(&track->placement, anchor, factor);
+        }
     }
     apply_rails(scenery_rails().rails_);
     level_editor_scenery_state().half_extent_y_ *= factor.y;
@@ -1445,8 +1562,9 @@ std::vector<std::pair<V3, V3>> selected_rails()
     std::vector<std::pair<V3, V3>> segments;
     for (const uint32_t name : scenery_rails().rails_) {
         const RailNode* node = find_rail(name);
-        if (node && node->succ())
+        if (node && node->succ()) {
             segments.emplace_back(rail_pos(node), rail_pos(node->succ()));
+        }
     }
     return segments;
 }
@@ -1458,8 +1576,9 @@ int selected_rail_count() { return static_cast<int>(scenery_rails().rails_.size(
 bool get_rail_point(uint32_t name, V3* pos, bool climbing)
 {
     const RailNode* node = find_rail(name);
-    if (!node || ((node->flag_bits() & kRailNodeClimbFlag) && !climbing))
+    if (!node || ((node->flag_bits() & kRailNodeClimbFlag) && !climbing)) {
         return false;
+    }
     *pos = rail_pos(node);
     return true;
 }
@@ -1467,8 +1586,9 @@ bool get_rail_point(uint32_t name, V3* pos, bool climbing)
 bool rail_origin(uint32_t name, V3* pos)
 {
     const RailTrack* track = rail_track_of(name);
-    if (!track)
+    if (!track) {
         return false;
+    }
     *pos = track->pos0;
     return true;
 }
@@ -1476,8 +1596,9 @@ bool rail_origin(uint32_t name, V3* pos)
 bool set_rail_point(uint32_t name, V3 pos)
 {
     RailTrack* track = rail_track_of(name);
-    if (!track)
+    if (!track) {
         return false;
+    }
     // (the quarter turns a sector move gave it don't matter for one point: a plain move from where the level has it -
     // Home's place gives an offset of exactly 0)
     track->placement = {.quarters = 0, .offset = pos - track->pos0};
@@ -1491,21 +1612,25 @@ std::vector<uint32_t> rail_of(uint32_t name)
     const RailNode* node = find_rail(name);
     const std::span<RailNode> nodes = rail_nodes();
     const int count = static_cast<int>(nodes.size());
-    if (!node || nodes.empty())
+    if (!node || nodes.empty()) {
         return names;
+    }
     names.push_back(name);
     // (back to its first point, then along to its last - a closed rail stops where it started)
     const RailNode* first = node;
-    for (int steps = 0; first->last_value() && first->last_value() != node && steps < count; ++steps)
+    for (int steps = 0; first->last_value() && first->last_value() != node && steps < count; ++steps) {
         first = first->last_value();
+    }
     int steps = 0;
     for (const RailNode* at = first; at && steps < count; at = at->succ(), ++steps) {
         // (a rail's points, or a ladder's: not the other kind)
         if (at != node && (at->flag_bits() & kRailNodeClimbFlag) == (node->flag_bits() & kRailNodeClimbFlag) &&
-            std::ranges::find(names, at->label()) == names.end())
+            std::ranges::find(names, at->label()) == names.end()) {
             names.push_back(at->label());
-        if (at->succ() == first)
+        }
+        if (at->succ() == first) {
             break;
+        }
     }
     return names;
 }
@@ -1530,10 +1655,12 @@ void for_each_rail_point(void (*each)(void* context, uint32_t name, V3 pos), voi
 {
     const std::span<RailNode> nodes = rail_nodes();
     const int count = static_cast<int>(nodes.size());
-    if (nodes.empty())
+    if (nodes.empty()) {
         return;
-    for (int i = 0; i < count; ++i)
+    }
+    for (int i = 0; i < count; ++i) {
         each(context, core::at(nodes, i).label(), rail_pos(&core::at(nodes, i)));
+    }
 }
 
 // --- the selection's state (undo / redo, reset, hiding) ---
@@ -1553,13 +1680,15 @@ State save_state()
     state.selection = level_editor_scenery_state().selection_;
     for (const uint32_t checksum : level_editor_scenery_state().selection_) {
         render::WorldCell* sector = find_sector(checksum, nullptr);
-        if (!sector)
+        if (!sector) {
             continue;
+        }
         state.sectors.push_back({.checksum = checksum, .placement = placement_of(checksum, geom_of(sector)), .hidden = !is_operative(sector)});
     }
     for (const uint32_t name : scenery_rails().rails_) {
-        if (const RailTrack* track = rail_track_of(name))
+        if (const RailTrack* track = rail_track_of(name)) {
             state.rails.push_back({.name = name, .placement = track->placement, .hidden = track->active0 && !(track->node->flag_bits() & 4)});
+        }
     }
     return state;
 }
@@ -1568,8 +1697,9 @@ void apply_states(const std::vector<SectorState>& sectors, const std::vector<Rai
 {
     for (const SectorState& saved : sectors) {
         Track* track = track_of(saved.checksum);
-        if (!track)
+        if (!track) {
             continue;
+        }
         if (track->placement.quarters != saved.placement.quarters ||
             !same_v3(track->placement.offset, saved.placement.offset) ||
             !same_v3(track->placement.scale, saved.placement.scale)) {
@@ -1577,8 +1707,9 @@ void apply_states(const std::vector<SectorState>& sectors, const std::vector<Rai
             apply_track(track);
         }
         if (is_operative(track->sector) == saved.hidden) {
-            if (saved.hidden) // (its shared collision taken first, to go off with it)
+            if (saved.hidden) { // (its shared collision taken first, to go off with it)
                 shared_collision::ensure(track->checksum, track->scene, track->sector, track->geom);
+            }
             change_live(track->sector, !saved.hidden);
             mark_dirty(track->scene);
         }
@@ -1603,8 +1734,9 @@ void restore_state(const State& state)
 {
     apply_states(state.sectors, state.rails);
     scenery_rails().rails_.clear();
-    for (const RailState& saved : state.rails)
+    for (const RailState& saved : state.rails) {
         scenery_rails().rails_.push_back(saved.name);
+    }
     level_editor_scenery_state().selection_ = state.selection;
     compute_pivot();
 }
@@ -1614,13 +1746,15 @@ std::vector<SectorState> changed_sectors()
     std::vector<SectorState> changed;
     for (const auto& entry : tracks_state()) {
         const Track& track = entry.second;
-        if (is_clone(entry.first) || find_sector(entry.first, nullptr) != track.sector)
+        if (is_clone(entry.first) || find_sector(entry.first, nullptr) != track.sector) {
             continue;
+        }
         const bool hidden = !is_operative(track.sector);
         const Placement& p = track.placement;
         if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0F || p.offset.y != 0.0F ||
-            p.offset.z != 0.0F)
+            p.offset.z != 0.0F) {
             changed.push_back({.checksum = entry.first, .placement = p, .hidden = hidden});
+        }
     }
     return changed;
 }
@@ -1630,13 +1764,15 @@ std::vector<RailState> changed_rails()
     std::vector<RailState> changed;
     for (const auto& entry : rail_tracks()) {
         const RailTrack& track = entry.second;
-        if (find_rail(entry.first) != track.node)
+        if (find_rail(entry.first) != track.node) {
             continue;
+        }
         const bool hidden = track.active0 && !(track.node->flag_bits() & 4);
         const Placement& p = track.placement;
         if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0F || p.offset.y != 0.0F ||
-            p.offset.z != 0.0F)
+            p.offset.z != 0.0F) {
             changed.push_back({.name = entry.first, .placement = p, .hidden = hidden});
+        }
     }
     return changed;
 }
@@ -1645,8 +1781,9 @@ render::WorldScene* main_scene()
 {
     render::WorldScene* found = nullptr;
     for_each_scene([&](render::WorldScene* scene) {
-        if (!found)
+        if (!found) {
             found = scene;
+        }
     });
     return found;
 }
@@ -1684,13 +1821,15 @@ uint32_t get_duplicate(uint32_t source)
 {
     render::WorldScene* scene = nullptr;
     render::WorldCell* sector = find_sector(source, &scene);
-    if (!sector || why_not_movable(source))
+    if (!sector || why_not_movable(source)) {
         return 0;
+    }
     OrientedBox box{};
     V3 min{};
     V3 max{};
-    if (!cuboid(source, &box))
+    if (!cuboid(source, &box)) {
         return 0;
+    }
     bounds_of(box, &min, &max);
     const Placement source_placement = placement_of(source, geom_of(sector));
     // (the source's shared collision gathered before the copy is there to tie with it)
@@ -1706,26 +1845,29 @@ uint32_t get_duplicate(uint32_t source)
     geom->bounds().max.x = max.x, geom->bounds().max.y = max.y, geom->bounds().max.z = max.z;
     // (the collision's flags are copied with it: a source whose collision is switched off by itself - level_editor_walls.h
     // - gives a copy with collision on, as a layout makes copies again)
-    if (gsl::owner<render::HitMesh*> coll = coll_of(copy); coll && is_operative(copy))
+    if (gsl::owner<render::HitMesh*> coll = coll_of(copy); coll && is_operative(copy)) {
         coll->flag_bits() &= static_cast<uint16_t>(~4);
+    }
     shared_collision::finish_copy(shared_faces, made, scene, copy, geom);
     mark_dirty(scene);
     get_clones().push_back({.checksum = made, .source = source, .source_at_copy_ = source_placement});
     std::array<char, kDuplicateNameSize> name{};
     text::format_to(name, "%s copy", caption(source).c_str());
     script::note_qb_name(made, name.data());
-    if (debug_enabled())
+    if (debug_enabled()) {
         get_log("level editor: copy %08X of %s, box (%.0f, %.0f, %.0f)-(%.0f, %.0f, %.0f), meshes %s", made,
                 caption(source).c_str(), min.x, min.y, min.z, max.x, max.y, max.z,
                 meshes_movable(geom) ? meshes_movable(geom) : "movable");
+    }
     return made;
 }
 
 bool placement_now(uint32_t checksum, Placement* placement)
 {
     render::WorldCell* sector = find_sector(checksum, nullptr);
-    if (!sector)
+    if (!sector) {
         return false;
+    }
     *placement = placement_of(checksum, geom_of(sector));
     return true;
 }
@@ -1739,8 +1881,9 @@ bool get_hidden(uint32_t checksum)
 void add_group(uint32_t checksum)
 {
     for (const uint32_t member : group_of(checksum)) {
-        if (!get_selected(member))
+        if (!get_selected(member)) {
             level_editor_scenery_state().selection_.push_back(member);
+        }
     }
     compute_pivot();
     select_rails();
@@ -1750,12 +1893,14 @@ std::vector<uint32_t> movable_pieces()
 {
     std::vector<uint32_t> pieces;
     render::WorldScene* scene = main_scene();
-    if (!scene)
+    if (!scene) {
         return pieces;
+    }
     for_each_sector(scene, [&](uint32_t checksum, render::WorldCell* sector) {
         render::PcGeom* geom = geom_of(sector);
-        if (plain_geom(geom) && geom->active() && !is_clone(checksum) && !why_not_movable(checksum))
+        if (plain_geom(geom) && geom->active() && !is_clone(checksum) && !why_not_movable(checksum)) {
             pieces.push_back(checksum);
+        }
     });
     return pieces;
 }
@@ -1777,21 +1922,25 @@ void reset_selection()
 void hide_selection()
 {
     State state = save_state();
-    for (SectorState& saved : state.sectors)
+    for (SectorState& saved : state.sectors) {
         saved.hidden = true;
-    for (RailState& saved : state.rails)
+    }
+    for (RailState& saved : state.rails) {
         saved.hidden = true;
+    }
     restore_state(state);
     clear_selection();
 }
 
 bool selection_moved(Placement* placement)
 {
-    if (level_editor_scenery_state().selection_.empty())
+    if (level_editor_scenery_state().selection_.empty()) {
         return false;
+    }
     render::WorldCell* sector = find_sector(core::at(level_editor_scenery_state().selection_, 0), nullptr);
-    if (!sector)
+    if (!sector) {
         return false;
+    }
     *placement = placement_of(core::at(level_editor_scenery_state().selection_, 0), geom_of(sector));
     return placement->quarters != 0 || !is_unit_scale(placement->scale) || placement->offset.x != 0.0F ||
            placement->offset.y != 0.0F || placement->offset.z != 0.0F;
@@ -1869,16 +2018,18 @@ Saved save_colour(TintOwner owner, render::PcGeom* geom)
 void restore_colour(const Saved& saved)
 {
     if (saved.instance) {
-        if (saved.geom->instance() != saved.instance)
+        if (saved.geom->instance() != saved.instance) {
             return;
+        }
         saved.instance->flags() = (saved.instance->flags() & ~4U) | saved.instance_flag_;
         std::memcpy(saved.instance->color().data(), saved.instance_colour_.data(), 4);
         return;
     }
     render::MeshRef* const* meshes = saved.geom->meshes();
     const uint32_t count = saved.geom->mesh_count();
-    if (!meshes || count != saved.meshes.size())
+    if (!meshes || count != saved.meshes.size()) {
         return;
+    }
     for (uint32_t i = 0; i < count; ++i) {
         render::MeshRef* mesh = core::at(std::span<render::MeshRef* const>(meshes, count), i);
         mesh->flags() = (mesh->flags() & ~4U) | core::at(saved.meshes, i).flag;
@@ -1890,14 +2041,16 @@ void restore_colour(const Saved& saved)
 
 void get_tint(TintOwner owner, void* geom, uint32_t rgba)
 {
-    if (!tintable(geom))
+    if (!tintable(geom)) {
         return;
+    }
     auto* g = static_cast<render::PcGeom*>(geom);
     auto it = std::ranges::find_if(stored_tinted(), [&](const Saved& s) { return s.geom == g; });
-    if (it == stored_tinted().end())
+    if (it == stored_tinted().end()) {
         stored_tinted().push_back(save_colour(owner, g));
-    else
+    } else {
         it->used = true;
+    }
     static_cast<render::Geom*>(geom)->change_tint(rgba);
 }
 
@@ -1905,8 +2058,9 @@ void end_tints(void* (*resolve)(TintOwner), bool all)
 {
     for (auto it = stored_tinted().begin(); it != stored_tinted().end();) {
         if (all || !it->used) {
-            if (resolve(it->owner) == it->geom) // (still there: not a dead object's)
+            if (resolve(it->owner) == it->geom) { // (still there: not a dead object's)
                 restore_colour(*it);
+            }
             it = stored_tinted().erase(it);
         } else {
             it->used = false;
@@ -1917,26 +2071,31 @@ void end_tints(void* (*resolve)(TintOwner), bool all)
 
 void finalise()
 {
-    if (level_editor_scenery_state().dirty_scenes_.empty())
+    if (level_editor_scenery_state().dirty_scenes_.empty()) {
         return;
+    }
     // As the park editor does (0x00592090): the scene's UpdateSuperSectors (thiscall, a list of sectors to add - none)
     // with the bottom-up heap current.
     memory::Hub* manager = memory::Hub::get_pull();
     for (render::WorldScene* scene : level_editor_scenery_state().dirty_scenes_) {
         bool live = false;
         for_each_scene([&](render::WorldScene* s) { live |= s == scene; });
-        if (!live || !scene->coll_grid())
+        if (!live || !scene->coll_grid()) {
             continue;
-        if (manager)
+        }
+        if (manager) {
             manager->enter_heap_scope(manager->bottom_up_heap());
+        }
         scene->get_update_super_sectors(nullptr);
-        if (manager)
+        if (manager) {
             manager->leave_heap_scope();
+        }
         shared_collision::finalise(scene); // (the pieces' shared collision: level_editor_shared_coll.h)
     }
-    if (debug_enabled())
+    if (debug_enabled()) {
         get_log("level editor: super sectors updated in %u scene%s", static_cast<unsigned>(level_editor_scenery_state().dirty_scenes_.size()),
                 level_editor_scenery_state().dirty_scenes_.size() == 1 ? "" : "s");
+    }
     level_editor_scenery_state().dirty_scenes_.clear();
 }
 
@@ -1944,18 +2103,21 @@ void note_collision_moved(uint32_t checksum)
 {
     render::WorldScene* scene = nullptr;
     render::WorldCell* sector = find_sector(checksum, &scene);
-    if (!sector)
+    if (!sector) {
         return;
-    if (flags_of(sector) & kSectorFlagMovable)
+    }
+    if (flags_of(sector) & kSectorFlagMovable) {
         flags_of(sector) |= kSectorFlagMoved; // (as apply_track / WorldCell::place_at_absolute_point 0x0049E6C0)
+    }
     mark_dirty(scene);
 }
 
 int get_moved_count()
 {
     int count = 0;
-    for (const auto& entry : tracks_state())
+    for (const auto& entry : tracks_state()) {
         count += entry.second.moved ? 1 : 0;
+    }
     return count;
 }
 
@@ -1971,8 +2133,9 @@ void log_census()
                 static_cast<void*>(node), static_cast<void*>(scene_of(node)), end ? " (end)" : "",
                 scene ? static_cast<int>(scene->is_sky()) : -1, scene ? scene->checksum() : 0,
                 static_cast<const void*>(table), table ? static_cast<unsigned>(table->bits()) : 0U);
-        if (end)
+        if (end) {
             break;
+        }
     }
     for_each_scene([](render::WorldScene* scene) {
         int sectors = 0;

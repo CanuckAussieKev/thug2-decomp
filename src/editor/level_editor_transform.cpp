@@ -164,8 +164,9 @@ void unit_axes(std::span<const V3, 3> rows, std::span<V3, 3> out)
 {
     static const std::array<V3, 3> kWorld = {
         {{.x = 1.0F, .y = 0.0F, .z = 0.0F}, {.x = 0.0F, .y = 1.0F, .z = 0.0F}, {.x = 0.0F, .y = 0.0F, .z = 1.0F}}};
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 3; ++i) {
         core::at(out, i) = get_dot(core::at(rows, i), core::at(rows, i)) > kDegenerateAxisSquared ? make_unit(core::at(rows, i)) : core::at(kWorld, i);
+    }
 }
 
 float turn_around_axis(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x, point.z - pivot.z); }
@@ -173,10 +174,11 @@ float turn_around_axis(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x
 float get_wrap(float radians)
 {
     float r = std::fmod(radians, kFullTurnFactor * maths::kPi);
-    if (r <= -maths::kPi)
+    if (r <= -maths::kPi) {
         r += kFullTurnFactor * maths::kPi;
-    else if (r > maths::kPi)
+    } else if (r > maths::kPi) {
         r -= kFullTurnFactor * maths::kPi;
+    }
     return r;
 }
 
@@ -184,8 +186,9 @@ float snap_angle(AngleSnap angle_snap)
 {
     const auto radians = angle_snap.radians;
     const auto step_degrees = angle_snap.step_degrees_;
-    if (step_degrees <= 0.0F)
+    if (step_degrees <= 0.0F) {
         return radians;
+    }
     const float step = step_degrees * maths::kPi / 180.0F;
     return std::round(radians / step) * step;
 }
@@ -196,15 +199,17 @@ float snap_relative(float distance, float grid) { return grid > 0.0F ? std::roun
 
 float factor_along(float s0, float s)
 {
-    if (std::fabs(s0) < kMinStartExtent)
+    if (std::fabs(s0) < kMinStartExtent) {
         return 1.0F;
+    }
     return std::max(kMinScaleFactor, std::min(kMaxScaleFactor, s / s0));
 }
 
 float factor_from_pixels(float d0, float d)
 {
-    if (d0 < kMinStartPixels)
+    if (d0 < kMinStartPixels) {
         return 1.0F; // (grabbed on the pivot itself: the distance says nothing)
+    }
     return std::max(kMinScaleFactor, std::min(kMaxScaleFactor, d / d0));
 }
 
@@ -229,31 +234,37 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
     const float length = gizmo.length;
     switch (gizmo.mode) {
     case Mode::kShiftBy:
-        for (int axis = 0; axis < 3; ++axis)
+        for (int axis = 0; axis < 3; ++axis) {
             out.push_back({.a = p, .b = p + core::at(gizmo.axes, axis) * length, .handle = axis, .arrow = true});
+        }
         break;
     case Mode::kSpinBy: {
-        if (!gizmo.rotates)
+        if (!gizmo.rotates) {
             break;
+        }
         // (the heading ring, and a spoke towards the local z: which way it faces)
         std::vector<V3> ring = get_ring(p, {.radius = length * kRingRadiusFraction, .count = kRingPoints});
-        for (size_t i = 0; i < ring.size(); ++i)
+        for (size_t i = 0; i < ring.size(); ++i) {
             out.push_back({.a = core::at(ring, i), .b = core::at(ring, (i + 1) % ring.size()), .handle = 1, .arrow = false});
+        }
         const V3 forward = {.x = core::at(gizmo.axes, 2).x, .y = 0.0F, .z = core::at(gizmo.axes, 2).z};
-        if (get_dot(forward, forward) > kMinForwardSquared)
+        if (get_dot(forward, forward) > kMinForwardSquared) {
             out.push_back({.a = p, .b = p + make_unit(forward) * (length * kForwardArrowFraction), .handle = 1, .arrow = false});
+        }
         break;
     }
     case Mode::kScale: {
         float cube = length * kCubeFraction;
         auto add_cube = [&](V3 c, int handle) {
             std::array<V3, kBoxCorners> corners{};
-            for (int i = 0; i < kBoxCorners; ++i)
+            for (int i = 0; i < kBoxCorners; ++i) {
                 core::at(corners, i) = c + V3{.x = (i & 1) ? cube : -cube, .y = (i & 2) ? cube : -cube, .z = (i & 4) ? cube : -cube};
+            }
             for (int i = 0; i < kBoxCorners; ++i) {
                 for (int bit = 1; bit < kBoxCorners; bit <<= 1) {
-                    if (!(i & bit))
+                    if (!(i & bit)) {
                         out.push_back({.a = core::at(corners, i), .b = core::at(corners, i | bit), .handle = handle, .arrow = false});
+                    }
                 }
             }
         };
@@ -279,15 +290,17 @@ int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, floa
     float px = 0.0F;
     float py = 0.0F;
     if (gizmo.mode == Mode::kScale && project(gizmo.pivot, &px, &py) &&
-        ((x - px) * (x - px)) + ((y - py) * (y - py)) <= grab * grab * kGrabSlackSquared)
+        ((x - px) * (x - px)) + ((y - py) * (y - py)) <= grab * grab * kGrabSlackSquared) {
         return kCentre;
+    }
     for (const Segment& s : gizmo_segments(gizmo)) {
         float ax = 0.0F;
         float ay = 0.0F;
         float bx = 0.0F;
         float by = 0.0F;
-        if (!project(s.a, &ax, &ay) || !project(s.b, &bx, &by))
+        if (!project(s.a, &ax, &ay) || !project(s.b, &bx, &by)) {
             continue;
+        }
         const float d = distance_to_segment({.x = x, .y = y}, {.x = ax, .y = ay}, {.x = bx, .y = by});
         if (d < best_distance) {
             best_distance = d;
@@ -299,8 +312,9 @@ int handle_at(const Gizmo& gizmo, const Projector& project, maths::Vec2 at, floa
 
 uint32_t handle_colour(int handle, bool lit)
 {
-    if (lit)
+    if (lit) {
         return kLitHandleColour;
+    }
     switch (handle) {
     case 0:
         return kAxisXColour;
@@ -328,16 +342,18 @@ bool type_key(Typed* typed, char c)
         return true;
     }
     if (c == '.') {
-        if (typed->text.find('.') != std::string::npos)
+        if (typed->text.find('.') != std::string::npos) {
             return false;
+        }
         typed->text += c;
         return true;
     }
     if (c == '-') {
-        if (!typed->text.empty() && core::at(typed->text, 0) == '-')
+        if (!typed->text.empty() && core::at(typed->text, 0) == '-') {
             typed->text.erase(0, 1);
-        else
+        } else {
             typed->text.insert(typed->text.begin(), '-');
+        }
         return true;
     }
     if (c == '\b') {
@@ -357,12 +373,14 @@ bool type_key(Typed* typed, char c)
 bool typed_value(const Typed& typed, float* value)
 {
     const std::string& t = typed.text;
-    if (t.empty() || t == "-" || t == "." || t == "-.")
+    if (t.empty() || t == "-" || t == "." || t == "-.") {
         return false;
+    }
     char* end = nullptr;
     const double v = std::strtod(t.c_str(), &end);
-    if (!end || *end != '\0' || !std::isfinite(v))
+    if (!end || *end != '\0' || !std::isfinite(v)) {
         return false;
+    }
     *value = static_cast<float>(v);
     return true;
 }
@@ -401,14 +419,16 @@ void note_duplicate(Repeat* memory, Kind kind, const std::vector<uint32_t>& made
 bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& selected, V3 pos, float heading,
                 RepeatStep* step)
 {
-    if (memory.kind == Kind::kNone || kind != memory.kind || selected.empty())
+    if (memory.kind == Kind::kNone || kind != memory.kind || selected.empty()) {
         return false;
+    }
     std::vector<uint32_t> a = memory.made;
     std::vector<uint32_t> b = selected;
     std::ranges::sort(a);
     std::ranges::sort(b);
-    if (a != b)
+    if (a != b) {
         return false;
+    }
     step->offset = pos - memory.source_pos_;
     const float turn = get_wrap(heading - memory.source_heading_);
     if (kind == Kind::kScenery) {

@@ -111,8 +111,9 @@ void get_say(const std::string& text, double seconds = kDefaultSaySeconds) { sho
 // sees keys typed.
 void stop_simulation()
 {
-    if (play_test::get_simulating())
+    if (play_test::get_simulating()) {
         play_test::get_request(play_test::Ask::kToggleSimulate);
+    }
 }
 
 actions::Chord get_k(int scancode, uint8_t mods = 0) { return {.scancode = scancode, .mods = mods}; }
@@ -153,12 +154,15 @@ std::vector<organize::Member> selection_members()
     const SelectionIds s = current_selection();
     std::vector<organize::Member> members;
     members.reserve(s.objects.size());
-    for (const uint32_t id : s.objects)
+    for (const uint32_t id : s.objects) {
         members.push_back({.kind = 'o', .id = id});
-    for (const uint32_t id : s.sectors)
+    }
+    for (const uint32_t id : s.sectors) {
         members.push_back({.kind = 's', .id = id});
-    if (s.node)
+    }
+    if (s.node) {
         members.push_back({.kind = 'n', .id = s.node});
+    }
     return members;
 }
 
@@ -244,8 +248,9 @@ void register_actions()
         for (const int index : {core::at(ids().store, i), core::at(ids().recall, i)}) {
             if (actions::ActStep* a = actions::get_pull(index)) {
                 const size_t at = a->tip.find("Set n");
-                if (at != std::string::npos)
+                if (at != std::string::npos) {
                     a->tip.replace(at + 4, 1, n);
+                }
             }
         }
     }
@@ -257,8 +262,9 @@ void register_actions()
 void prepare_all()
 {
     static bool done = false;
-    if (done)
+    if (done) {
         return;
+    }
     done = true;
     level_editor_ux8_state().pad_mode_ = GetPrivateProfileIntA("editor", "pad", 0, ini_path().c_str()) != 0;
     register_actions();
@@ -294,11 +300,13 @@ SDL_GameController* find_controller()
 {
     // (the controllers the game's input opened - sio/sdl_input.cpp: the first attached)
     for (int i = 0; i < SDL_NumJoysticks(); ++i) {
-        if (!SDL_IsGameController(i))
+        if (!SDL_IsGameController(i)) {
             continue;
+        }
         SDL_GameController* c = SDL_GameControllerFromInstanceID(SDL_JoystickGetDeviceInstanceID(i));
-        if (c && SDL_GameControllerGetAttached(c))
+        if (c && SDL_GameControllerGetAttached(c)) {
             return c;
+        }
     }
     return nullptr;
 }
@@ -330,8 +338,9 @@ Pad read_pad()
                  nav::get_stick({.raw = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT), .deadzone = kTriggerDeadzone});
     uint32_t now = 0;
     for (int b = 0; b < std::min<int>(SDL_CONTROLLER_BUTTON_MAX, kControllerButtonBits); ++b) {
-        if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b)))
+        if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b))) {
             now |= 1U << b;
+        }
     }
     uint32_t pressed = now & ~pad_was();
     uint32_t const released = pad_was() & ~now;
@@ -359,21 +368,24 @@ Pad read_pad()
     const uint32_t mine = now & ~(1U << SDL_CONTROLLER_BUTTON_START) & ~(1U << SDL_CONTROLLER_BUTTON_GUIDE);
     p.used = mine != 0 || p.move_x_ != 0 || p.move_y_ != 0 || p.look_x_ != 0 || p.look_y_ != 0 || p.up_down_ != 0;
     // (anything that edits stops a simulation first)
-    if (p.a_presses_ || p.back || p.lb || p.rb || p.up || p.down || p.left || p.right)
+    if (p.a_presses_ || p.back || p.lb || p.rb || p.up || p.down || p.left || p.right) {
         stop_simulation();
+    }
     return p;
 }
 
 platform::KeyState pad_keys(platform::KeyState keys, const Pad& pad)
 {
     static std::array<uint8_t, SDL_NUM_SCANCODES> merged;
-    if (!pad.active)
+    if (!pad.active) {
         return keys;
+    }
     core::copy_into(keys.first(merged.size()), std::span(merged));
     auto hold = [&](int action) {
         const actions::ActStep* a = actions::get_pull(action);
-        if (!a)
+        if (!a) {
             return;
+        }
         for (const actions::Chord& c : a->keys) {
             if (c.scancode > 0 && c.scancode < SDL_NUM_SCANCODES && c.mods == 0) {
                 core::at(merged, c.scancode) = 1;
@@ -381,16 +393,21 @@ platform::KeyState pad_keys(platform::KeyState keys, const Pad& pad)
             }
         }
     };
-    if (pad.up)
+    if (pad.up) {
         hold(actions::kNudgeForward);
-    if (pad.down)
+    }
+    if (pad.down) {
         hold(actions::kNudgeBack);
-    if (pad.left)
+    }
+    if (pad.left) {
         hold(actions::kNudgeLeft);
-    if (pad.right)
+    }
+    if (pad.right) {
         hold(actions::kNudgeRight);
-    if (pad.fast)
+    }
+    if (pad.fast) {
         core::at(merged, SDL_SCANCODE_LSHIFT) = 1;
+    }
     return merged;
 }
 
@@ -402,12 +419,15 @@ bool get_pad_cursor(const Pad& pad, bool mouse_moved, CursorOut cursor)
         level_editor_ux8_state().pad_owns_ = false;
         return false;
     }
-    if (mouse_moved)
+    if (mouse_moved) {
         level_editor_ux8_state().pad_owns_ = false;
-    if (pad.used)
+    }
+    if (pad.used) {
         level_editor_ux8_state().pad_owns_ = true;
-    if (!level_editor_ux8_state().pad_owns_ || !pie_menu().have_view_centre_)
+    }
+    if (!level_editor_ux8_state().pad_owns_ || !pie_menu().have_view_centre_) {
         return false;
+    }
     *x = pie_menu().view_x_;
     *y = pie_menu().view_y_;
     return true;
@@ -415,18 +435,24 @@ bool get_pad_cursor(const Pad& pad, bool mouse_moved, CursorOut cursor)
 
 bool pad_cancel(const Pad& pad)
 {
-    if (!pad.active)
+    if (!pad.active) {
         return false;
-    if (pie_menu().pie_.open)
+    }
+    if (pie_menu().pie_.open) {
         return false; // (the pie takes B)
-    if (pad.back)
+    }
+    if (pad.back) {
         actions::fire_off(actions::kUndo);
-    if (pad.lb)
+    }
+    if (pad.lb) {
         actions::fire_off(actions::kTurnLeft);
-    if (pad.rb)
+    }
+    if (pad.rb) {
         actions::fire_off(actions::kTurnRight);
-    if (pad.r3)
+    }
+    if (pad.r3) {
         actions::fire_off(actions::kFrameSelection);
+    }
     return pad.b && !level_editor_ux8_state().walking_;
 }
 
@@ -454,10 +480,12 @@ void run_slice()
     const int at = pie_menu().pie_.hovered;
     std::vector<pie::Item> items = pie_menu().pie_.items;
     pie_menu().pie_.open = false;
-    if (at < 0 || std::cmp_greater_equal(at, items.size()) || !core::at(items, at).enabled())
+    if (at < 0 || std::cmp_greater_equal(at, items.size()) || !core::at(items, at).enabled()) {
         return;
-    if (core::at(items, at).edits)
+    }
+    if (core::at(items, at).edits) {
         stop_simulation();
+    }
     core::at(items, at).run();
 }
 
@@ -469,10 +497,12 @@ void tick_frame(TickCycle& f)
     // Quick sets: Ctrl+Alt+n stores, Alt+Shift+n selects (not while dragging: digits are typed values then).
     if (!f.dragging) {
         for (int i = 0; i < nav::kQuickSets; ++i) {
-            if (squeezed(core::at(ids().store, i)))
+            if (squeezed(core::at(ids().store, i))) {
                 store_set(nav::quick_set_name(i + 1));
-            if (squeezed(core::at(ids().recall, i)))
+            }
+            if (squeezed(core::at(ids().recall, i))) {
                 recall_set(nav::quick_set_name(i + 1));
+            }
         }
     }
     // The follow camera: on frames the selection (F) and keeps with it.
@@ -506,15 +536,17 @@ void tick_frame(TickCycle& f)
                 x = pie_menu().view_x_;
                 y = pie_menu().view_y_;
             }
-            if (pad_open)
+            if (pad_open) {
                 open_pie(f.pad.y ? pie::Kind::kView : pie::Kind::kCtxInfo, f.have_selection_, {.x = x, .y = y}, -1, true);
-            else
+            } else {
                 open_pie(key_view ? pie::Kind::kView : pie::Kind::kCtxInfo, f.have_selection_, {.x = x, .y = y},
                          key_view ? ids().pie_view_ : ids().pie_context_, false);
+            }
         }
     }
-    if (!pie_menu().pie_.open)
+    if (!pie_menu().pie_.open) {
         return;
+    }
     // Pointing: the mouse (or the left stick) from the centre.
     float dx = f.mouse_x_ - pie_menu().pie_.x;
     float dy = f.mouse_y_ - pie_menu().pie_.y;
@@ -524,10 +556,12 @@ void tick_frame(TickCycle& f)
     }
     pie_menu().pie_.hovered = nav::slice_at(dx, dy, static_cast<int>(pie_menu().pie_.items.size()), pie::kDeadzone);
     const bool clicked = f.left_presses_ && *f.left_presses_ > 0;
-    if (f.left_presses_)
+    if (f.left_presses_) {
         *f.left_presses_ = 0; // (the view doesn't see clicks while a pie is up)
-    if (f.left_releases_)
+    }
+    if (f.left_releases_) {
         *f.left_releases_ = 0;
+    }
     if (f.right || (f.pad.active && f.pad.b)) {
         pie_menu().pie_.open = false;
         return;
@@ -540,10 +574,11 @@ void tick_frame(TickCycle& f)
     const bool held = pie_menu().pie_.pad_button_ ? (pie_menu().pie_.kind == pie::Kind::kView ? f.pad.y_down_ : f.pad.x_down_)
                                         : pie_menu().pie_.key >= 0 && get_held(f.keys, pie_menu().pie_.key);
     if (!held && !pie_menu().pie_.sticky) {
-        if (SDL_GetTicks() - pie_menu().pie_.opened_at_ < nav::kPieTapMs && pie_menu().pie_.hovered < 0)
+        if (SDL_GetTicks() - pie_menu().pie_.opened_at_ < nav::kPieTapMs && pie_menu().pie_.hovered < 0) {
             pie_menu().pie_.sticky = true;
-        else
+        } else {
             run_slice();
+        }
     }
 }
 
@@ -607,13 +642,15 @@ void start_glide(V3 from, V3 to)
 
 bool glide(V3* pos, double seconds)
 {
-    if (!glide_state().on)
+    if (!glide_state().on) {
         return false;
+    }
     glide_state().t = std::min(1.0F, glide_state().t + static_cast<float>(seconds / kGlideSeconds));
     const float e = view_cam::get_ease(glide_state().t);
     *pos = glide_state().from + (glide_state().to - glide_state().from) * e;
-    if (glide_state().t >= 1.0F)
+    if (glide_state().t >= 1.0F) {
         glide_state().on = false;
+    }
     return true;
 }
 

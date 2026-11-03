@@ -203,10 +203,13 @@ void update_scale()
     ui_backend::window_size(&width, &height);
     float scale = ui_layout::scale_for(width, height);
     if (const int pct = prefs::get_pull().ui_scale_pct_;
-        pct > 0) // ([editor] ui_scale_pct: the automatic one overridden)
+        pct > 0) { // ([editor] ui_scale_pct: the automatic one overridden)
         scale = static_cast<float>(pct) / 100.0F;
-    if (scale == level_editor_ui_state().scale_ && level_editor_ui_state().style_generation_ == prefs::style_generation())
+    }
+    if (scale == level_editor_ui_state().scale_ &&
+        level_editor_ui_state().style_generation_ == prefs::style_generation()) {
         return;
+    }
     level_editor_ui_state().scale_ = scale;
     level_editor_ui_state().style_generation_ = prefs::style_generation();
     const ui_layout::FontSizes sizes = ui_layout::font_sizes_for(scale);
@@ -268,8 +271,9 @@ ux8::Fonts ux8_fonts()
 
 bool get_matches(const std::string& text, const char* filter)
 {
-    if (!*filter)
+    if (!*filter) {
         return true;
+    }
     auto lower = [](char c) { return static_cast<char>(std::tolower(static_cast<unsigned char>(c))); };
     std::string a = text;
     std::string b = filter;
@@ -302,8 +306,9 @@ void panel_title(const char* title)
 void collision_legend(const ShapeMesh& model)
 {
     if (!model.view.collision ||
-        !overlays::get_shown(overlays::kLegend)) // (the Overlays menu: level_editor_overlays.h)
+        !overlays::get_shown(overlays::kLegend)) { // (the Overlays menu: level_editor_overlays.h)
         return;
+    }
     const ui_layout::Rect2& view = level_editor_ui_state().layout_.viewport;
     ImGui::SetNextWindowPos(ImVec2(view.x + (kPanelInset * level_editor_ui_state().scale_),
                                    view.y + view.height - (kPanelInset * level_editor_ui_state().scale_)),
@@ -315,10 +320,12 @@ void collision_legend(const ShapeMesh& model)
     ImGui::PushFont(level_editor_ui_state().small_);
     ImGui::TextUnformatted("Collision");
     ImGui::SameLine();
-    if (ImGui::SmallButton("Hide##collisionLegend"))
+    if (ImGui::SmallButton("Hide##collisionLegend")) {
         get_ask(Request::Kind::kCollision); // (value 0: off)
-    if (ImGui::IsItemHovered())
+    }
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Hide Collision  (C)");
+    }
     for (int i = 0; i < static_cast<int>(view::Surface::kCount); ++i) {
         auto surface = static_cast<view::Surface>(i);
         const ImVec2 at = ImGui::GetCursorScreenPos();
@@ -331,8 +338,9 @@ void collision_legend(const ShapeMesh& model)
     }
     gui::text_disabled("%d faces, %d pieces, %d invisible walls%s", model.view.triangles, model.view.sectors,
                         model.view.walls, model.view.capped ? " (nearest)" : "");
-    if (model.view.off > 0)
+    if (model.view.off > 0) {
         gui::text_disabled("Faded / dashed: collision off (%d)", model.view.off);
+    }
     // (a moved piece's shared collision - level_editor_shared_coll.h - and the level's triggers by kind)
     auto swatch_line = [](uint32_t argb, const char* text) {
         const ImVec2 at = ImGui::GetCursorScreenPos();
@@ -346,8 +354,9 @@ void collision_legend(const ShapeMesh& model)
     swatch_line(view::kCompanionEdge, "Moved collision");
     swatch_line(view::kTakenEdge, "Original collision position (off)");
     swatch_line(view::kHoverWall, "Wall under cursor (Shift)");
-    if (model.view.companions > 0 || model.view.taken > 0)
+    if (model.view.companions > 0 || model.view.taken > 0) {
         gui::text_disabled("%d moved pieces, %d faces moved", model.view.companions, model.view.taken);
+    }
     if (ImGui::TreeNode("Triggers")) {
         for (int k = 0; k < triggers::kKinds; ++k) {
             auto kind = static_cast<triggers::Kind>(k);
@@ -383,63 +392,78 @@ void view_section(const ShapeMesh& model)
         gui::text_wrapped("%s", model.view.wall_info_.c_str());
         ImGui::PopFont();
         // (level_editor_walls.h: the game's own switch, WorldCell::change_live; moved and turned as scenery)
-        if (model.view.wall_off_)
-            gui::text_colored(kWallStateColour, "%s", model.view.wall_state_.c_str());
-        else
-            gui::text_wrapped("%s", model.view.wall_state_.c_str());
         if (model.view.wall_off_) {
-            if (ImGui::Button("Restore Collision"))
+            gui::text_colored(kWallStateColour, "%s", model.view.wall_state_.c_str());
+        } else {
+            gui::text_wrapped("%s", model.view.wall_state_.c_str());
+        }
+        if (model.view.wall_off_) {
+            if (ImGui::Button("Restore Collision")) {
                 get_ask(Request::Kind::kWallCollision, 1);
-            if (ImGui::IsItemHovered())
+            }
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("Turn collision back on  (Del)");
+            }
         } else {
             ImGui::PushStyleColor(ImGuiCol_Button, ui_theme::kDangerButtonColour);
-            if (ImGui::Button("Disable Collision"))
+            if (ImGui::Button("Disable Collision")) {
                 get_ask(Request::Kind::kWallCollision, 0);
+            }
             ImGui::PopStyleColor();
-            if (ImGui::IsItemHovered())
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("Turn this wall's collision off  (Del)");
+            }
         }
         ImGui::SameLine();
         ImGui::BeginDisabled(!model.view.wall_moved_ && !model.view.wall_off_);
-        if (ImGui::Button("Revert##wall"))
+        if (ImGui::Button("Revert##wall")) {
             get_ask(Request::Kind::kReset);
+        }
         ImGui::EndDisabled();
-        if (ImGui::Button("Drop to Ground##wall"))
+        if (ImGui::Button("Drop to Ground##wall")) {
             get_ask(Request::Kind::kDrop);
+        }
         ImGui::SameLine();
-        if (ImGui::Button("Close##wall"))
+        if (ImGui::Button("Close##wall")) {
             get_ask(Request::Kind::kClearWall);
+        }
     }
     if (model.view.scenery_collision_ >= 0 && !model.view.wall) {
         // A drawn piece's collision switched off by itself (it stays drawn; the same switch, level_editor_walls.h).
         ImGui::Spacing();
         ImGui::Separator();
         bool on = model.view.scenery_collision_ == 1;
-        if (ImGui::Checkbox(model.view.scenery_collision_ == 2 ? "Collision (mixed)" : "Collision", &on))
+        if (ImGui::Checkbox(model.view.scenery_collision_ == 2 ? "Collision (mixed)" : "Collision", &on)) {
             get_ask(Request::Kind::kSceneryCollision, on ? 1 : 0);
-        if (ImGui::IsItemHovered())
+        }
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("Off: visible but not solid");
+        }
     }
     if (model.view.can_hide_ || model.view.hidden > 0) {
         ImGui::Spacing();
         ImGui::Separator();
         get_muted("Editor Visibility");
         ImGui::BeginDisabled(!model.view.can_hide_);
-        if (ImGui::Button("Hide"))
+        if (ImGui::Button("Hide")) {
             get_ask(Request::Kind::kViewHide);
-        if (ImGui::IsItemHovered())
+        }
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("Hide Selection  (H)");
+        }
         ImGui::SameLine();
-        if (ImGui::Button("Isolate"))
+        if (ImGui::Button("Isolate")) {
             get_ask(Request::Kind::kViewIsolate);
-        if (ImGui::IsItemHovered())
+        }
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("Isolate Selection  (I)");
+        }
         ImGui::EndDisabled();
         if (model.view.hidden > 0) {
             ImGui::SameLine();
-            if (ImGui::Button("Show All"))
+            if (ImGui::Button("Show All")) {
                 get_ask(Request::Kind::kViewShowAll);
+            }
             gui::text_disabled("%d hidden", model.view.hidden);
         }
     }
@@ -495,12 +519,14 @@ void get_toolbar(const ShapeMesh& model)
     ui_strip::blit(state, {.x = strip.x + pad_x, .y = strip.y + pad_y}, strip.width - (ui_layout::kBothSides * pad_x),
                    level_editor_ui_state().scale_, &out);
     ImGui::PopStyleVar();
-    if (out.budget_hovered_)
+    if (out.budget_hovered_) {
         budget::tooltip();
-    if (out.level_hovered_)
+    }
+    if (out.level_hovered_) {
         gui::tooltip(
             "Editing a copy of %s. The original level is unchanged.\nLayout: %s", model.level_title_.c_str(),
             model.edited_saved_ ? (model.unsaved ? "saved, with unsaved changes" : "saved") : "not saved yet");
+    }
     for (const ui_strip::Occurrence& e : out.events) {
         switch (e.kind) {
         case ui_strip::Occurrence::Kind::kDeselect:
@@ -559,12 +585,14 @@ UiCache& ui_cache()
 void update_cache()
 {
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (ui_cache().cache_.generation == nodes::get_generation() && ui_cache().cache_.labels.size() == nodes.size())
+    if (ui_cache().cache_.generation == nodes::get_generation() && ui_cache().cache_.labels.size() == nodes.size()) {
         return;
+    }
     ui_cache().cache_.generation = nodes::get_generation();
     ui_cache().cache_.labels.clear();
-    for (std::vector<int>& list : ui_cache().cache_.by_family_)
+    for (std::vector<int>& list : ui_cache().cache_.by_family_) {
         list.clear();
+    }
     for (size_t i = 0; i < nodes.size(); ++i) {
         ui_cache().cache_.labels.push_back(core::at(nodes, i).name ? nodes::caption(core::at(nodes, i).name) : "(no name)");
         core::at(ui_cache().cache_.by_family_, static_cast<int>(core::at(nodes, i).family)).push_back(static_cast<int>(i));
@@ -576,10 +604,12 @@ std::string row_tag_of(const nodes::Elem& node);
 std::string row_tag(const nodes::Elem& node)
 {
     std::string tag = row_tag_of(node);
-    if (node.hidden)
+    if (node.hidden) {
         return tag.empty() ? "hidden" : tag + " hidden";
-    if (node.added)
+    }
+    if (node.added) {
         return tag.empty() ? "added" : tag + " added";
+    }
     return tag;
 }
 std::string row_tag_of(const nodes::Elem& node)
@@ -589,8 +619,9 @@ std::string row_tag_of(const nodes::Elem& node)
     case nodes::Family::kSpawn: {
         std::string tags;
         auto add = [&](nodes::SpawnPointKind bit, const char* tag) {
-            if (core::any(node.restart_types_ & bit))
+            if (core::any(node.restart_types_ & bit)) {
                 tags += tags.empty() ? tag : std::string(" ") + tag;
+            }
         };
         add(nodes::SpawnPointKind::kPlayer1, "P1");
         add(nodes::SpawnPointKind::kPlayer2, "P2");
@@ -602,15 +633,17 @@ std::string row_tag_of(const nodes::Elem& node)
         return tags;
     }
     case nodes::Family::kCrown:
-        if (node.order < 0)
+        if (node.order < 0) {
             return "";
+        }
         text::format_to(text, "#%d", node.order);
         return text.data();
     case nodes::Family::kRail:
     case nodes::Family::kRouteWay:
     case nodes::Family::kLadder:
-        if (node.links.empty())
+        if (node.links.empty()) {
             return "end";
+        }
         return node.links.size() == 1 ? "" : std::to_string(node.links.size()) + " links";
     default:
         return "";
@@ -626,23 +659,27 @@ void family_chips(const ShapeMesh& model)
     const float right = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x;
     for (int f = 0; f < nodes::kFamilies; ++f) {
         auto family = static_cast<nodes::Family>(f);
-        if (!core::at(counts, f))
+        if (!core::at(counts, f)) {
             continue;
+        }
         const bool on = (model.nodes.families & nodes::get_bit(family)) != 0;
         const char* name = nodes::family_name(family);
         const float width = ImGui::CalcTextSize(name).x + (2.0F * ImGui::GetStyle().FramePadding.x);
         if (ImGui::GetCursorPosX() > ImGui::GetStyle().WindowPadding.x + 1.0F) {
             ImGui::SameLine();
-            if (ImGui::GetCursorPosX() + width > right)
+            if (ImGui::GetCursorPosX() + width > right) {
                 ImGui::NewLine();
+            }
         }
         ImGui::PushStyleColor(ImGuiCol_Button, on ? get_accent(kChipOnAlpha) : kChipOffColour);
         ImGui::PushStyleColor(ImGuiCol_Text, on ? ImVec4(1.0F, 1.0F, 1.0F, 1.0F) : kMutedTextColour);
-        if (ImGui::SmallButton(name))
+        if (ImGui::SmallButton(name)) {
             get_ask(Request::Kind::kFamilies, 0, model.nodes.families ^ nodes::get_bit(family));
+        }
         ImGui::PopStyleColor(2);
-        if (ImGui::IsItemHovered())
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("%d %s - click to %s", core::at(counts, f), name, on ? "hide" : "show");
+        }
     }
     ImGui::PopStyleVar(2);
     ImGui::PopFont();
@@ -650,25 +687,29 @@ void family_chips(const ShapeMesh& model)
 
 void get_outliner(const ShapeMesh& model)
 {
-    if (!level_editor_ui_state().layout_.outliner_shown_)
+    if (!level_editor_ui_state().layout_.outliner_shown_) {
         return;
+    }
     update_cache();
     place_window(level_editor_ui_state().layout_.outliner);
     ImGui::Begin("Outliner", nullptr, kPanel);
     panel_title("Outliner");
     ImGui::SetNextItemWidth(-1.0F);
     // (Select similar on a node asks for its family here - level_editor_ux3.h)
-    if (const std::string asked = ux3::take_outliner_search(); !asked.empty())
+    if (const std::string asked = ux3::take_outliner_search(); !asked.empty()) {
         text::format_to(level_editor_ui_state().outliner_search_, "%s", asked.c_str());
+    }
     ImGui::InputTextWithHint("##search", "Search\xE2\x80\xA6", level_editor_ui_state().outliner_search_.data(), sizeof(level_editor_ui_state().outliner_search_));
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Filter by name. Prefixes: rail: spawn: object: group:<name> label: locked: hidden:");
+    }
     // (only the rows the editor has changed - those with markers)
     ImGui::Checkbox("Changed Only", &level_editor_ui_state().changed_only_);
     if (ImGui::IsItemHovered()) {
         std::string legend = "Show changed items only. Markers:";
-        for (int bit = 0; bit < kMaxMarkers; ++bit)
+        for (int bit = 0; bit < kMaxMarkers; ++bit) {
             legend += std::string("\n") + mark_letter(bit) + "  " + mark_name(bit);
+        }
         gui::tooltip("%s", legend.c_str());
     }
     if (!model.marks.empty()) {
@@ -680,8 +721,9 @@ void get_outliner(const ShapeMesh& model)
     ImGui::BeginChild("##tree");
     ux3::bunches(); // (the user's groups - level_editor_organize.h)
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (nodes.empty())
+    if (nodes.empty()) {
         get_muted("No level loaded");
+    }
     const int selected = model.nodes.selected;
     const bool follow = selected != ui_cache().last_selected_ && selected >= 0; // (picked in the view: shown here)
     ui_cache().last_selected_ = selected;
@@ -689,20 +731,26 @@ void get_outliner(const ShapeMesh& model)
     for (int f = 0; f < nodes::kFamilies; ++f) {
         auto family = static_cast<nodes::Family>(f);
         const std::vector<int>& members = core::at(ui_cache().cache_.by_family_, f);
-        if (members.empty() || !(model.nodes.families & nodes::get_bit(family)))
+        if (members.empty() || !(model.nodes.families & nodes::get_bit(family))) {
             continue;
+        }
         shown.clear();
         for (const int i : members) {
             auto found = model.marks.find(core::at(nodes, i).name);
-            if (ux3::row_passes(core::at(nodes, i), core::at(ui_cache().cache_.labels, i), level_editor_ui_state().outliner_search_.data()) &&
-                mark_shown(found == model.marks.end() ? 0 : found->second, level_editor_ui_state().changed_only_))
+            if (ux3::row_passes(core::at(nodes, i), core::at(ui_cache().cache_.labels, i),
+                                level_editor_ui_state().outliner_search_.data()) &&
+                mark_shown(found == model.marks.end() ? 0 : found->second, level_editor_ui_state().changed_only_)) {
                 shown.push_back(i);
+            }
         }
-        if (shown.empty())
+        if (shown.empty()) {
             continue;
+        }
         const bool holds_selected = follow && std::cmp_less(selected, nodes.size()) && core::at(nodes, selected).family == family;
-        if (holds_selected || core::at(level_editor_ui_state().outliner_search_, 0) || level_editor_ui_state().changed_only_)
+        if (holds_selected || core::at(level_editor_ui_state().outliner_search_, 0) ||
+            level_editor_ui_state().changed_only_) {
             ImGui::SetNextItemOpen(true, holds_selected ? ImGuiCond_Always : ImGuiCond_Once);
+        }
         std::array<char, kFamilyHeaderSize> header{};
         text::format_to(header, "%s###family%d", nodes::family_name(family), f);
         const bool open = ImGui::TreeNodeEx(header.data(), ImGuiTreeNodeFlags_SpanAvailWidth);
@@ -710,20 +758,23 @@ void get_outliner(const ShapeMesh& model)
         ImGui::PushFont(level_editor_ui_state().mono_);
         gui::text_disabled("%d", static_cast<int>(shown.size()));
         ImGui::PopFont();
-        if (!open)
+        if (!open) {
             continue;
+        }
         ImGui::PushFont(level_editor_ui_state().mono_);
         // (rows the clipper skips aren't laid out; the selected one is brought into view once)
         int scroll_to = -1;
         if (holds_selected) {
             auto it = std::ranges::find(shown, selected);
-            if (it != shown.end())
+            if (it != shown.end()) {
                 scroll_to = static_cast<int>(it - shown.begin());
+            }
         }
         ImGuiListClipper clipper;
         clipper.Begin(static_cast<int>(shown.size()));
-        if (scroll_to >= 0)
+        if (scroll_to >= 0) {
             clipper.IncludeItemByIndex(scroll_to);
+        }
         while (clipper.Step()) {
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
                 const int i = core::at(shown, row);
@@ -738,8 +789,9 @@ void get_outliner(const ShapeMesh& model)
                     ImVec2(pos.x + (h * kRowSwatchWidth), pos.y + (h * kRowSwatchBottom)), get_colour(node.colour),
                     kSwatchRounding);
                 ImGui::SetCursorScreenPos(ImVec2(pos.x + (h * kRowSwatchTextOffset), pos.y));
-                if (node.hidden)
+                if (node.hidden) {
                     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+                }
                 // (the user's label beside the name - level_editor_organize.h)
                 const std::string user_label = ux3::row_label(node.name);
                 const std::string row_text =
@@ -749,15 +801,18 @@ void get_outliner(const ShapeMesh& model)
                                       ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns |
                                           ImGuiSelectableFlags_AllowOverlap); // (the row's toggles)
                 ux3::row_menu(node); // (right-click: label, groups, eye / lock / selectable)
-                if (node.hidden)
+                if (node.hidden) {
                     ImGui::PopStyleColor();
+                }
                 if (clicked) {
                     get_ask(Request::Kind::kSelectNode, i);
-                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                         get_ask(Request::Kind::kGoToNode, i);
+                    }
                 }
-                if (ImGui::IsItemHovered())
+                if (ImGui::IsItemHovered()) {
                     gui::tooltip("Click to select, double-click to focus");
+                }
                 const std::string tag = row_tag(node);
                 // (the markers - what the editor has done to it - at the row's end, the tag before them)
                 auto found = model.marks.find(node.name);
@@ -780,20 +835,24 @@ void get_outliner(const ShapeMesh& model)
                                              row_right - marks_width + (kMarksGap * level_editor_ui_state().scale_)));
                     bool first = true;
                     for (int bit = 0; bit < kMaxMarkers; ++bit) {
-                        if (!(marks & (1U << bit)))
+                        if (!(marks & (1U << bit))) {
                             continue;
-                        if (!first)
+                        }
+                        if (!first) {
                             ImGui::SameLine(0.0F, 0.0F);
+                        }
                         first = false;
                         gui::text_colored(ImGui::ColorConvertU32ToFloat4(get_colour(mark_colour(bit))), "%c",
                                            mark_letter(bit));
-                        if (ImGui::IsItemHovered())
+                        if (ImGui::IsItemHovered()) {
                             gui::tooltip("%s", mark_name(bit));
+                        }
                     }
                 }
                 ux3::row_toggles(node, row_right); // (the eye, the lock, selectable - level_editor_organize.h)
-                if (row == scroll_to)
+                if (row == scroll_to) {
                     ImGui::SetScrollHereY(kScrollRowFraction);
+                }
                 ImGui::PopID();
             }
         }
@@ -832,8 +891,9 @@ void badge(const char* text, ImU32 colour)
 void node_section(const ShapeMesh& model, int index)
 {
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (index < 0 || std::cmp_greater_equal(index, nodes.size()))
+    if (index < 0 || std::cmp_greater_equal(index, nodes.size())) {
         return;
+    }
     const nodes::Elem& node = core::at(nodes, index);
     if (model.nodes.node_only_) {
         ImGui::PushFont(level_editor_ui_state().heading_);
@@ -844,8 +904,9 @@ void node_section(const ShapeMesh& model, int index)
         ImGui::SeparatorText("Node");
     }
     std::string cls = node.cls ? nodes::caption(node.cls) : "(no class)";
-    if (node.type)
+    if (node.type) {
         cls += " \xC2\xB7 " + nodes::caption(node.type);
+    }
     get_muted(cls.c_str());
     ImGui::PushFont(level_editor_ui_state().mono_);
     gui::text_disabled("node %d in %s", node.index, nodes::caption(nodes::get_array_name(node)).c_str());
@@ -905,10 +966,12 @@ void node_section(const ShapeMesh& model, int index)
                 std::array<char, kFieldLabelSize> label{};
                 text::format_to(label, "Whole %s (%d point%s)", model.nodes.chain_noun_, model.nodes.rail_points_,
                                 model.nodes.rail_points_ == 1 ? "" : "s");
-                if (ImGui::Checkbox(label.data(), &whole))
+                if (ImGui::Checkbox(label.data(), &whole)) {
                     get_ask(Request::Kind::kReqEntireRail, whole ? 1 : 0);
-                if (ImGui::IsItemHovered())
+                }
+                if (ImGui::IsItemHovered()) {
                     gui::tooltip("Move all points together  (L)");
+                }
             }
             if (moved || turned) {
                 const V3 angles = turned ? node_edit::with_heading(model.nodes.angles, heading) : model.nodes.angles;
@@ -921,8 +984,9 @@ void node_section(const ShapeMesh& model, int index)
                 core::at(request.b, 2) = angles.z;
                 level_editor_ui_state().requests_.push_back(request);
             }
-            if (done)
+            if (done) {
                 get_ask(Request::Kind::kNodeSetDone);
+            }
             field_label("Angles");
             get_mono("%.3f, %.3f, %.3f", model.nodes.angles.x, model.nodes.angles.y, model.nodes.angles.z);
         } else if (node.has_pos_) {
@@ -953,35 +1017,41 @@ void node_section(const ShapeMesh& model, int index)
                     any = true;
                 }
             }
-            if (!any)
+            if (!any) {
                 get_muted("(none)");
-            else
+            } else {
                 ImGui::NewLine();
+            }
             ImGui::PopFont();
             field_label("Order");
-            if (node.hidden)
+            if (node.hidden) {
                 get_mono("hidden");
-            else
+            } else {
                 get_mono("%d of %d restarts", node.order + 1, nodes::walked(nodes::Family::kSpawn));
+            }
         }
         if (node.family == nodes::Family::kCrown) {
             field_label("Crown");
-            if (node.hidden)
+            if (node.hidden) {
                 get_mono("hidden (%d active)", nodes::walked(nodes::Family::kCrown));
-            else
+            } else {
                 get_mono("%d of %d", node.order, nodes::walked(nodes::Family::kCrown));
+            }
             if (model.nodes.node_only_ && !node.hidden) {
                 ImGui::BeginDisabled(!model.nodes.crown_up_);
-                if (ImGui::SmallButton("Move Up"))
+                if (ImGui::SmallButton("Move Up")) {
                     get_ask(Request::Kind::kCrownMove, -1);
+                }
                 ImGui::EndDisabled();
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
                     gui::tooltip("%s", node.added ? "Move earlier in crown order"
                                                        : "Only added crowns can be reordered");
+                }
                 ImGui::SameLine();
                 ImGui::BeginDisabled(!model.nodes.crown_down_);
-                if (ImGui::SmallButton("Move Down"))
+                if (ImGui::SmallButton("Move Down")) {
                     get_ask(Request::Kind::kCrownMove, 1);
+                }
                 ImGui::EndDisabled();
             }
         }
@@ -1007,8 +1077,9 @@ void node_section(const ShapeMesh& model, int index)
             ImGui::PushFont(level_editor_ui_state().mono_);
             for (const int link : node.links) {
                 ImGui::PushID(link);
-                if (ImGui::SmallButton(nodes::caption(core::at(nodes, link).name).c_str()))
+                if (ImGui::SmallButton(nodes::caption(core::at(nodes, link).name).c_str())) {
                     get_ask(Request::Kind::kSelectNode, link);
+                }
                 ImGui::PopID();
             }
             ImGui::PopFont();
@@ -1023,30 +1094,36 @@ void node_section(const ShapeMesh& model, int index)
             gui::text_colored(ui_theme::kWarningColour, "Modified");
         }
         ImGui::PopFont();
-        if (ImGui::Button("Drop to Ground"))
+        if (ImGui::Button("Drop to Ground")) {
             get_ask(Request::Kind::kDrop);
-        if (ImGui::IsItemHovered())
+        }
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("Drop to Ground  (G)");
+        }
         ImGui::SameLine();
         ImGui::BeginDisabled(!model.nodes.moved && !model.nodes.hidden);
-        if (ImGui::Button(model.nodes.hidden ? "Show" : "Revert"))
+        if (ImGui::Button(model.nodes.hidden ? "Show" : "Revert")) {
             get_ask(Request::Kind::kReset);
+        }
         ImGui::EndDisabled();
         ImGui::SameLine();
         if (model.nodes.added || (model.nodes.can_hide_ && !model.nodes.hidden)) {
             ImGui::PushStyleColor(ImGuiCol_Button, kDangerButtonColour);
-            if (ImGui::Button(model.nodes.added ? "Delete" : "Hide"))
+            if (ImGui::Button(model.nodes.added ? "Delete" : "Hide")) {
                 get_ask(Request::Kind::kRemoveNodeAction);
+            }
             ImGui::PopStyleColor();
-            if (ImGui::IsItemHovered())
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("%s", model.nodes.added ? "Delete  (Del)" : "Hide original node  (Del)");
+            }
             ImGui::SameLine();
         } else if (!model.nodes.added && !model.nodes.hidden && !model.nodes.why_no_hide_.empty()) {
             ImGui::BeginDisabled(true);
             ImGui::Button("Hide");
             ImGui::EndDisabled();
-            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
                 gui::tooltip("%s", model.nodes.why_no_hide_.c_str());
+            }
             ImGui::SameLine();
         }
     }
@@ -1057,8 +1134,9 @@ void node_section(const ShapeMesh& model, int index)
     }
     play_test::restart_section(index); // (a restart's Play from here - level_editor_playtest.h)
     spawn_section(index, &level_editor_ui_state().requests_); // (a HORSE spot - the feature map: level_editor_spots_ui.cpp)
-    if (ImGui::Button("Focus"))
+    if (ImGui::Button("Focus")) {
         get_ask(Request::Kind::kGoToNode, index);
+    }
     // Every field of its structure, typed and editable (phase 6: level_editor_fields_ui.cpp).
     fields_section(index, level_editor_ui_state().mono_, level_editor_ui_state().small_, &level_editor_ui_state().requests_);
 }
@@ -1066,19 +1144,22 @@ void node_section(const ShapeMesh& model, int index)
 // The locks (level_editor_picking.h): each with Unlock.
 void lock_list(const ShapeMesh& model)
 {
-    if (model.locks.empty())
+    if (model.locks.empty()) {
         return;
+    }
     ImGui::Spacing();
     ImGui::Separator();
     std::array<char, kLockTitleSize> title{};
     text::format_to(title, "Locked (%d)###locks", static_cast<int>(model.locks.size()));
-    if (!ImGui::CollapsingHeader(title.data(), ImGuiTreeNodeFlags_DefaultOpen))
+    if (!ImGui::CollapsingHeader(title.data(), ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
+    }
     for (size_t i = 0; i < model.locks.size(); ++i) {
         const ShapeMesh::LockView& lock = core::at(model.locks, i);
         ImGui::PushID(static_cast<int>(i));
-        if (ImGui::SmallButton("Unlock"))
+        if (ImGui::SmallButton("Unlock")) {
             get_ask(Request::Kind::kUnlock, static_cast<int>(lock.kind), lock.id);
+        }
         ImGui::SameLine();
         ImGui::PushFont(level_editor_ui_state().mono_);
         ImGui::TextUnformatted(lock.label.c_str());
@@ -1091,8 +1172,9 @@ void lock_list(const ShapeMesh& model)
 // from the selection, as Ctrl+click) and Keep only this.
 void member_list(const std::vector<ShapeMesh::Selection::Member>& members)
 {
-    if (members.empty())
+    if (members.empty()) {
         return;
+    }
     ImGui::Spacing();
     get_muted("Parts");
     const float rows = static_cast<float>(std::min<size_t>(members.size(), 10));
@@ -1104,24 +1186,28 @@ void member_list(const std::vector<ShapeMesh::Selection::Member>& members)
         const ShapeMesh::Selection::Member& member = core::at(members, i);
         ImGui::PushID(static_cast<int>(i));
         const int rail = member.rail ? 1 : 0;
-        if (ImGui::SmallButton("x"))
+        if (ImGui::SmallButton("x")) {
             get_ask(Request::Kind::kMemberRemove, rail, member.id);
-        if (ImGui::IsItemHovered())
+        }
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("Remove from selection");
+        }
         ImGui::SameLine();
-        if (ImGui::SmallButton("Only"))
+        if (ImGui::SmallButton("Only")) {
             get_ask(Request::Kind::kMemberKeep, rail, member.id);
+        }
         ImGui::SameLine();
         ImGui::PushFont(level_editor_ui_state().mono_);
         ImGui::TextUnformatted(member.name.c_str());
         ImGui::PopFont();
         ImGui::SameLine();
-        if (member.rail)
+        if (member.rail) {
             get_muted("rail point");
-        else if (member.shadow)
+        } else if (member.shadow) {
             get_muted(("shadow  " + member.size).c_str());
-        else
+        } else {
             get_muted(member.size.c_str());
+        }
         ImGui::PopID();
     }
     ImGui::EndChild();
@@ -1129,8 +1215,9 @@ void member_list(const std::vector<ShapeMesh::Selection::Member>& members)
 
 void get_inspector(const ShapeMesh& model)
 {
-    if (!level_editor_ui_state().layout_.inspector_shown_)
+    if (!level_editor_ui_state().layout_.inspector_shown_) {
         return;
+    }
     place_window(level_editor_ui_state().layout_.inspector);
     ImGui::Begin("Inspector", nullptr, kPanel);
     panel_title("Inspector");
@@ -1140,11 +1227,13 @@ void get_inspector(const ShapeMesh& model)
         triggers::inspector_section(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
         entities::inspector_section(model.nodes.selected, checksums::Name{0}, level_editor_ui_state().mono_, &level_editor_ui_state().requests_); // (sound, particles, ghosts)
         // (map3: a camera node's pitch, target, preview - level_editor_cameras.h)
-        if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size()))
+        if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
             cameras::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, level_editor_ui_state().mono_, level_editor_ui_state().small_);
-        if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size()))
+        }
+        if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size())) {
             goal_edit::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, level_editor_ui_state().mono_,
                                          level_editor_ui_state().small_); // (a goal's point)
+        }
     } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
         gui::text_disabled("Nothing selected");
     } else if (s.objects > 0 || s.sectors > 0) {
@@ -1187,30 +1276,36 @@ void get_inspector(const ShapeMesh& model)
                     if (ImGui::DragFloat(core::at(kIds, axis), &value, kScaleDragSpeed, scale_tool::kMin, scale_tool::kMax, core::at(kFormats, axis),
                                          ImGuiSliderFlags_AlwaysClamp)) {
                         Request request = {.kind = Request::Kind::kScaleSet};
-                        for (int a = 0; a < 3; ++a)
+                        for (int a = 0; a < 3; ++a) {
                             core::at(request.a, a) = core::at(values, a);
+                        }
                         if (level_editor_ui_state().scale_locked_ && core::at(values, axis) > 0.0F) {
                             // (every axis by the same ratio, clamped so none leaves 0.25..4)
                             float ratio = value / core::at(values, axis);
-                            for (const float limit : values)
+                            for (const float limit : values) {
                                 ratio = std::clamp(ratio, scale_tool::kMin / limit, scale_tool::kMax / limit);
-                            for (int a = 0; a < 3; ++a)
+                            }
+                            for (int a = 0; a < 3; ++a) {
                                 core::at(request.a, a) = core::at(values, a) * ratio;
+                            }
                         } else {
                             core::at(request.a, axis) = value;
                         }
                         level_editor_ui_state().requests_.push_back(request);
                     }
-                    if (ImGui::IsItemDeactivated())
+                    if (ImGui::IsItemDeactivated()) {
                         get_ask(Request::Kind::kScaleDone);
-                    if (ImGui::IsItemHovered())
+                    }
+                    if (ImGui::IsItemHovered()) {
                         gui::tooltip("Local %c scale (%.2f to %.0f)", core::at(kAxisLetters, axis), scale_tool::kMin,
                                           scale_tool::kMax);
+                    }
                 }
                 ImGui::PopFont();
                 ImGui::Checkbox("Uniform##scalelock", &level_editor_ui_state().scale_locked_);
-                if (ImGui::IsItemHovered())
+                if (ImGui::IsItemHovered()) {
                     gui::tooltip("Scale all axes together");
+                }
             }
             if (s.objects > 1 || s.sectors > 1) {
                 ImGui::TableNextRow();
@@ -1223,34 +1318,44 @@ void get_inspector(const ShapeMesh& model)
         }
         member_list(s.members);
         // (map3: the selected scenery's trick-object cluster - level_editor_clusters.h)
-        if (s.sectors > 0 && s.objects == 0)
+        if (s.sectors > 0 && s.objects == 0) {
             clusters::inspector_section(scenery::get_selection(), level_editor_ui_state().mono_, level_editor_ui_state().small_);
+        }
         ImGui::Spacing();
         gui::text_wrapped("%s", model.selected.c_str());
         ImGui::Spacing();
-        if (ImGui::Button("Drop to Ground"))
+        if (ImGui::Button("Drop to Ground")) {
             get_ask(Request::Kind::kDrop);
-        if (ImGui::IsItemHovered())
+        }
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("Drop to Ground  (G)");
+        }
         ImGui::SameLine();
-        if (ImGui::Button("Deselect"))
+        if (ImGui::Button("Deselect")) {
             get_ask(Request::Kind::kDeselect);
-        if (ImGui::IsItemHovered())
+        }
+        if (ImGui::IsItemHovered()) {
             gui::tooltip("Deselect  (Esc)");
+        }
         if (model.selection_lockable_) {
             ImGui::SameLine();
-            if (ImGui::Button(model.selection_locked_ ? "Unlock" : "Lock"))
+            if (ImGui::Button(model.selection_locked_ ? "Unlock" : "Lock")) {
                 get_ask(Request::Kind::kToggleLock);
-            if (ImGui::IsItemHovered())
+            }
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("Prevent selection in the view  (L)");
+            }
         }
-        if (s.objects == 0 && s.sectors == 1)
+        if (s.objects == 0 && s.sectors == 1) {
             triggers::scenery_section(s.checksum); // (breaks when hit - the feature map: level_editor_triggers_ui.cpp)
+        }
         // (one object: its model, physics, path speed and preview - level_editor_entities.h)
-        if (s.objects == 1)
+        if (s.objects == 1) {
             entities::inspector_section(-1, checksums::Name{s.checksum}, level_editor_ui_state().mono_, &level_editor_ui_state().requests_);
-        if (model.nodes.selected >= 0)
+        }
+        if (model.nodes.selected >= 0) {
             node_section(model, model.nodes.selected);
+        }
     }
     ux3::inspector_section(model); // (the clipboard, the shared fields of a multi-selection - level_editor_ux3.h)
     ImGui::Spacing();
@@ -1296,8 +1401,9 @@ void status_bar(const ShapeMesh& model)
 }
 void get_help(const ShapeMesh& model)
 {
-    if (!model.help)
+    if (!model.help) {
         return;
+    }
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, io.DisplaySize.y * kHalf), ImGuiCond_Always,
                             kCentrePivot);
@@ -1306,11 +1412,13 @@ void get_help(const ShapeMesh& model)
     ImGui::Begin("Keyboard Shortcuts", &open,
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
     // (the first-run tips again, the preferences - level_editor_prefs.h)
-    if (ImGui::SmallButton("Show Tips"))
+    if (ImGui::SmallButton("Show Tips")) {
         prefs::show_tips();
+    }
     ImGui::SameLine();
-    if (ImGui::SmallButton("Preferences"))
+    if (ImGui::SmallButton("Preferences")) {
         prefs::unseal() = true;
+    }
     // (every action from the registry, with its keys as bound now - level_editor_actions.h; the details below)
     ux3::help_from_registry();
     if (ImGui::CollapsingHeader("Reference###helpdetails")) {
@@ -1352,8 +1460,9 @@ void get_help(const ShapeMesh& model)
             ImGui::TableSetupColumn("##what", ImGuiTableColumnFlags_WidthStretch);
             // (the view menus' and their modules' rows after the editor's own: level_editor_overlays.h)
             std::vector<Row> rows(std::begin(kRows), std::end(kRows));
-            for (const overlays::HelpRow& extra : overlays::help_rows())
+            for (const overlays::HelpRow& extra : overlays::help_rows()) {
                 rows.push_back({.section = extra.section, .keys = extra.keys, .what = extra.what});
+            }
             for (const Row& row : rows) {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
@@ -1377,8 +1486,9 @@ void get_help(const ShapeMesh& model)
         }
     }
     ImGui::End();
-    if (!open)
+    if (!open) {
         get_ask(Request::Kind::kToggleHelp);
+    }
 }
 
 // The browser's preview (level_editor_preview.h): the picture - a drag in it orbits, the wheel zooms - and what the
@@ -1394,10 +1504,11 @@ void browser_preview(const ShapeMesh& model)
     const ImVec2 a = ImGui::GetItemRectMin();
     const ImVec2 b = ImGui::GetItemRectMax();
     ImDrawList* draw = ImGui::GetWindowDrawList();
-    if (preview.texture)
+    if (preview.texture) {
         draw->AddImage(static_cast<ImTextureID>(preview.texture), a, b);
-    else
+    } else {
         draw->AddRectFilled(a, b, IM_COL32(42, 44, 48, 255));
+    }
     draw->AddRect(a, b, ImGui::GetColorU32(ImGuiCol_Border));
     if (!preview.texture) {
         const char* text = preview.index < 0 ? "(no selection)" : "(no preview)";
@@ -1413,8 +1524,9 @@ void browser_preview(const ShapeMesh& model)
         dx = io.MouseDelta.x;
         dy = io.MouseDelta.y;
     }
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered()) {
         wheel = io.MouseWheel;
+    }
     if (dx != 0.0F || dy != 0.0F || wheel != 0.0F) {
         Request request{.kind = Request::Kind::kPreviewOrbit};
         core::at(request.a, 0) = dx;
@@ -1422,17 +1534,20 @@ void browser_preview(const ShapeMesh& model)
         core::at(request.a, 2) = wheel;
         level_editor_ui_state().requests_.push_back(request);
     }
-    if (ImGui::IsItemHovered() && !ImGui::IsItemActive() && preview.texture)
+    if (ImGui::IsItemHovered() && !ImGui::IsItemActive() && preview.texture) {
         gui::tooltip("Drag to rotate, wheel to zoom");
+    }
     if (!preview.name.empty()) {
         ImGui::PushFont(level_editor_ui_state().mono_);
         gui::text_wrapped("%s", preview.name.c_str());
         ImGui::PopFont();
         ImGui::PushFont(level_editor_ui_state().small_);
-        if (!preview.size.empty())
+        if (!preview.size.empty()) {
             get_muted(preview.size.c_str());
-        if (!preview.type.empty())
+        }
+        if (!preview.type.empty()) {
             get_muted(preview.type.c_str());
+        }
         ImGui::PopFont();
     }
     ImGui::Separator();
@@ -1440,8 +1555,9 @@ void browser_preview(const ShapeMesh& model)
 
 void get_browser(const ShapeMesh& model)
 {
-    if (!model.browser || !model.browser_items_)
+    if (!model.browser || !model.browser_items_) {
         return;
+    }
     ImGui::SetNextWindowPos(
         ImVec2(level_editor_ui_state().layout_.viewport.x + level_editor_ui_state().layout_.viewport.width -
                    (kPanelInset * level_editor_ui_state().scale_),
@@ -1459,15 +1575,19 @@ void get_browser(const ShapeMesh& model)
                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     browser_preview(model);
     for (int tab = 0; tab < 2; ++tab) {
-        if (tab)
+        if (tab) {
             ImGui::SameLine();
+        }
         const bool on = model.browser_tab_ == tab;
-        if (on)
+        if (on) {
             ImGui::PushStyleColor(ImGuiCol_Button, get_accent(kBrowserTabAlpha));
-        if (ImGui::Button(tab == 0 ? "Scenery" : "Objects") && !on)
+        }
+        if (ImGui::Button(tab == 0 ? "Scenery" : "Objects") && !on) {
             get_ask(Request::Kind::kBrowserTab, tab);
-        if (on)
+        }
+        if (on) {
             ImGui::PopStyleColor();
+        }
     }
     ImGui::SetNextItemWidth(-1.0F);
     ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", level_editor_ui_state().browser_search_.data(), sizeof(level_editor_ui_state().browser_search_));
@@ -1475,16 +1595,18 @@ void get_browser(const ShapeMesh& model)
     const std::vector<BrowserItem>& items = *model.browser_items_;
     const bool follow = model.browser_index_ != level_editor_ui_state().browser_shown_index_; // (the keys moved it: keep it in view)
     level_editor_ui_state().browser_shown_index_ = model.browser_index_;
-    if (follow)
+    if (follow) {
         level_editor_ui_state().browser_keys_won_ = true;
+    }
     // The entries: a grid of thumbnails or the list, All / Recent / Favourites (level_editor_thumbs.h).
     const int hovered =
         thumbs::items_panel(model, level_editor_ui_state().browser_search_.data(), follow, -buttons, level_editor_ui_state().mono_, level_editor_ui_state().small_, level_editor_ui_state().scale_, &level_editor_ui_state().requests_);
     // The preview follows the mouse over the list, or the keys when they moved the highlight since.
     if (hovered != level_editor_ui_state().browser_hovered_) {
         level_editor_ui_state().browser_hovered_ = hovered;
-        if (hovered >= 0)
+        if (hovered >= 0) {
             level_editor_ui_state().browser_keys_won_ = false;
+        }
     }
     const int preview = level_editor_ui_state().browser_hovered_ >= 0 && !level_editor_ui_state().browser_keys_won_ ? level_editor_ui_state().browser_hovered_ : -1;
     if (preview != level_editor_ui_state().preview_asked_) {
@@ -1492,25 +1614,29 @@ void get_browser(const ShapeMesh& model)
         get_ask(Request::Kind::kBrowserPreview, preview);
     }
     ImGui::BeginDisabled(items.empty());
-    if (ImGui::Button("Place"))
+    if (ImGui::Button("Place")) {
         get_ask(Request::Kind::kBrowserPlace);
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Focus"))
+    if (ImGui::Button("Focus")) {
         get_ask(Request::Kind::kBrowserFocus);
+    }
     arrange::browser_extras(level_editor_ui_state().scale_); // (UX7: Replace selection, Click places - level_editor_arrange.h)
     ImGui::EndDisabled();
     ImGui::PushFont(level_editor_ui_state().small_);
     get_muted("Enter: place at the cursor");
     ImGui::PopFont();
     ImGui::End();
-    if (!open)
+    if (!open) {
         get_ask(Request::Kind::kToggleBrowser);
+    }
 }
 
 void autosave_offer(const ShapeMesh& model)
 {
-    if (!model.offer || level_editor_ui_state().offer_closed_)
+    if (!model.offer || level_editor_ui_state().offer_closed_) {
         return;
+    }
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y +
                                                                  (kBannerTop * level_editor_ui_state().scale_)),
@@ -1519,24 +1645,29 @@ void autosave_offer(const ShapeMesh& model)
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
     ImGui::TextUnformatted("An autosave is newer than the saved layout.");
-    if (ImGui::Button("Restore"))
+    if (ImGui::Button("Restore")) {
         get_ask(Request::Kind::kRestoreAutosave);
-    if (ImGui::IsItemHovered())
+    }
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("Restore Autosave  (Ctrl+R)");
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Discard"))
+    if (ImGui::Button("Discard")) {
         get_ask(Request::Kind::kDiscardAutosave);
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Later"))
+    if (ImGui::Button("Later")) {
         level_editor_ui_state().offer_closed_ = true;
+    }
     ImGui::End();
 }
 
 // A spawn, crown or flag moved in a level shared with THUGPRO: said once a run (the edit is made).
 void online_warning(const ShapeMesh& model)
 {
-    if (!model.nodes.online_warning_)
+    if (!model.nodes.online_warning_) {
         return;
+    }
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y +
                                                                  (kBannerTop * level_editor_ui_state().scale_)),
@@ -1552,8 +1683,9 @@ void online_warning(const ShapeMesh& model)
                        "it differ from other players' copies. Layouts are not used online.",
                        model.nodes.shared_game_);
     ImGui::Spacing();
-    if (ImGui::Button("OK"))
+    if (ImGui::Button("OK")) {
         get_ask(Request::Kind::kOnlineWarningSeen);
+    }
     ImGui::End();
 }
 
@@ -1566,8 +1698,9 @@ std::array<char, kPlaceSearchSize>& place_search()
 }
 void get_place(const ShapeMesh& model)
 {
-    if (!model.place.open)
+    if (!model.place.open) {
         return;
+    }
     ImGui::SetNextWindowPos(
         ImVec2(level_editor_ui_state().layout_.viewport.x + (kPanelInset * level_editor_ui_state().scale_),
                level_editor_ui_state().layout_.viewport.y + (kPanelInset * level_editor_ui_state().scale_)),
@@ -1586,8 +1719,9 @@ void get_place(const ShapeMesh& model)
     ImGui::BeginChild("##placelist", ImVec2(0.0F, list_height));
     for (int i = 0; std::cmp_less(i, entries.size()); ++i) {
         const ShapeMesh::PlaceView::TableRow& e = core::at(entries, i);
-        if (!get_matches(e.label, place_search().data()))
+        if (!get_matches(e.label, place_search().data())) {
             continue;
+        }
         ImGui::PushID(i);
         const ImVec2 pos = ImGui::GetCursorScreenPos();
         const float h = ImGui::GetTextLineHeight();
@@ -1599,34 +1733,39 @@ void get_place(const ShapeMesh& model)
         ImGui::BeginDisabled(!can);
         if (ImGui::Selectable(e.label.c_str(), model.place.armed == i, ImGuiSelectableFlags_AllowDoubleClick)) {
             get_ask(Request::Kind::kPlaceArm, model.place.armed == i ? -1 : i);
-            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
                 get_ask(Request::Kind::kPlaceHere, i);
+            }
         }
         ImGui::EndDisabled();
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
             gui::tooltip("%s", can ? "Click, then click in the view. Double-click: place at view center"
                                         : e.why.c_str());
+        }
         ImGui::PopID();
     }
     ImGui::EndChild();
     ImGui::Separator();
     ImGui::PushFont(level_editor_ui_state().small_);
-    if (model.place.armed >= 0 && std::cmp_less(model.place.armed, entries.size()))
+    if (model.place.armed >= 0 && std::cmp_less(model.place.armed, entries.size())) {
         gui::text_wrapped("Click to place %s. Shift+click: place more. Esc: cancel.",
                            core::at(entries, model.place.armed).label.c_str());
-    else
+    } else {
         get_muted("Choose an item, then click in the view.");
+    }
     ImGui::PopFont();
     ImGui::End();
-    if (!open)
+    if (!open) {
         get_ask(Request::Kind::kPlaceToggle);
+    }
 }
 
 // Reset level: asked first.
 void confirm_reset(const ShapeMesh& model)
 {
-    if (!model.confirm_reset_)
+    if (!model.confirm_reset_) {
         return;
+    }
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y +
                                                                  (kConfirmTop * level_editor_ui_state().scale_)),
@@ -1639,12 +1778,14 @@ void confirm_reset(const ShapeMesh& model)
                        model.level_title_.c_str());
     gui::text_disabled("Undo restores the changes until you leave the level.");
     ImGui::Spacing();
-    if (ImGui::Button("Cancel"))
+    if (ImGui::Button("Cancel")) {
         get_ask(Request::Kind::kResetCancelled);
+    }
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, kDangerButtonColour);
-    if (ImGui::Button("Reset level"))
+    if (ImGui::Button("Reset level")) {
         get_ask(Request::Kind::kResetConfirmed);
+    }
     ImGui::PopStyleColor();
     ImGui::End();
 }
@@ -1652,8 +1793,9 @@ void confirm_reset(const ShapeMesh& model)
 // Deleting a level's node: hidden, not removed - asked first.
 void confirm_hide(const ShapeMesh& model)
 {
-    if (!model.confirm.open)
+    if (!model.confirm.open) {
         return;
+    }
     const ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * kHalf, level_editor_ui_state().layout_.viewport.y +
                                                                  (kConfirmTop * level_editor_ui_state().scale_)),
@@ -1670,13 +1812,15 @@ void confirm_hide(const ShapeMesh& model)
     gui::text_wrapped("%s", model.confirm.crown ? "Original nodes are hidden, not deleted. Later crowns move up one."
                                                  : "Original nodes are hidden, not deleted. Revert shows it again.");
     ImGui::Spacing();
-    if (ImGui::Button("Cancel"))
+    if (ImGui::Button("Cancel")) {
         get_ask(Request::Kind::kHideCancelled);
+    }
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, kDangerButtonColour);
     const std::string hide = "Hide " + model.confirm.family;
-    if (ImGui::Button(hide.c_str()))
+    if (ImGui::Button(hide.c_str())) {
         get_ask(Request::Kind::kHideConfirmed);
+    }
     ImGui::PopStyleColor();
     ImGui::End();
 }
@@ -1699,10 +1843,12 @@ int preview_pixels()
 
 bool kickoff()
 {
-    if (level_editor_ui_state().running_)
+    if (level_editor_ui_state().running_) {
         return true;
-    if (!is_switched_on())
+    }
+    if (!is_switched_on()) {
         return false;
+    }
     if (!level_editor_ui_state().created_) {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
@@ -1739,8 +1885,9 @@ void device_lost() { ui_backend::invalidate_device_objects(); }
 
 bool route_event(const SDL_Event* event, bool editor_capture)
 {
-    if (!level_editor_ui_state().running_)
+    if (!level_editor_ui_state().running_) {
         return true;
+    }
     auto route = [&](float x, float y) {
         level_editor_ui_state().mouse_x_ = x;
         level_editor_ui_state().mouse_y_ = y;
@@ -1750,8 +1897,9 @@ bool route_event(const SDL_Event* event, bool editor_capture)
     switch (event->type) {
     case SDL_MOUSEMOTION: {
         const ui_layout::Route r = route(static_cast<float>(event->motion.x), static_cast<float>(event->motion.y));
-        if (r.mouse_to_ui_ || level_editor_ui_state().ui_buttons_)
+        if (r.mouse_to_ui_ || level_editor_ui_state().ui_buttons_) {
             ui_backend::process_event(event);
+        }
         return true; // (the editor keeps the position and the look's movement; mouse_to_editor says if it may pick)
     }
     case SDL_MOUSEBUTTONDOWN: {
@@ -1763,8 +1911,9 @@ bool route_event(const SDL_Event* event, bool editor_capture)
             return false;
         }
         level_editor_ui_state().editor_buttons_ |= bit;
-        if (r.mouse_to_ui_)
+        if (r.mouse_to_ui_) {
             ui_backend::process_event(event); // (ImGui loses its focus and hover; the editor has the click)
+        }
         return true;
     }
     case SDL_MOUSEBUTTONUP: {
@@ -1800,8 +1949,9 @@ bool route_event(const SDL_Event* event, bool editor_capture)
 
 bool mouse_to_editor()
 {
-    if (!level_editor_ui_state().running_)
+    if (!level_editor_ui_state().running_) {
         return true;
+    }
     return ui_layout::decide(
                {.ui_wants_mouse_ = level_editor_ui_state().want_mouse_, .ui_wants_keyboard_ = level_editor_ui_state().want_keys_, .over_panel_ = ui_layout::on_panel(level_editor_ui_state().layout_, level_editor_ui_state().mouse_x_, level_editor_ui_state().mouse_y_), .editor_capture_ = level_editor_ui_state().editor_buttons_ != 0})
         .mouse_to_editor_;
@@ -1820,8 +1970,9 @@ std::vector<Request> take_requests()
 
 void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
 {
-    if (!level_editor_ui_state().running_)
+    if (!level_editor_ui_state().running_) {
         return;
+    }
     update_scale();
     ui_backend::new_frame();
     ImGui::NewFrame();
@@ -1834,21 +1985,25 @@ void tick_cycle(const ShapeMesh& model, const Overlay& overlay)
     const float sx = back_width > 0 ? io.DisplaySize.x / static_cast<float>(back_width) : 1.0F;
     const float sy = back_height > 0 ? io.DisplaySize.y / static_cast<float>(back_height) : 1.0F;
     ImDrawList* background = ImGui::GetBackgroundDrawList();
-    for (const Overlay::Triangle& t : overlay.under)
+    for (const Overlay::Triangle& t : overlay.under) {
         background->AddTriangleFilled(ImVec2(t.ax * sx, t.ay * sy), ImVec2(t.bx * sx, t.by * sy),
                                       ImVec2(t.cx * sx, t.cy * sy), get_colour(t.argb));
-    for (const Seg& line : overlay.lines)
+    }
+    for (const Seg& line : overlay.lines) {
         background->AddLine(ImVec2(line.ax * sx, line.ay * sy), ImVec2(line.bx * sx, line.by * sy),
                             get_colour(line.argb), line.thickness * level_editor_ui_state().scale_);
-    for (const Overlay::Triangle& t : overlay.triangles)
+    }
+    for (const Overlay::Triangle& t : overlay.triangles) {
         background->AddTriangleFilled(ImVec2(t.ax * sx, t.ay * sy), ImVec2(t.bx * sx, t.by * sy),
                                       ImVec2(t.cx * sx, t.cy * sy), get_colour(t.argb));
+    }
     for (const Overlay::Circle& c : overlay.circles) {
-        if (c.filled)
+        if (c.filled) {
             background->AddCircleFilled(ImVec2(c.x * sx, c.y * sy), c.radius * sx, get_colour(c.argb));
-        else
+        } else {
             background->AddCircle(ImVec2(c.x * sx, c.y * sy), c.radius * sx, get_colour(c.argb), 0,
                                   c.thickness * level_editor_ui_state().scale_);
+        }
     }
     if (level_editor_ui_state().mono_) {
         for (const Overlay::OverlayText& t : overlay.texts) {

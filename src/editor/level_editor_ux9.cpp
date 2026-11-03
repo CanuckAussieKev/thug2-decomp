@@ -104,8 +104,9 @@ bool get_cast(V3 from, V3 to, V3* hit, uint32_t* sector)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false))
+    if (!ray->get_collision_along(&start, &end, false)) {
         return false;
+    }
     const auto& p = ray->hit().point;
     *hit = {.x = p[0], .y = p[1], .z = p[2]};
     *sector = ray->hit().object ? ray->hit().object_checksum_ : 0;
@@ -119,8 +120,9 @@ float get_ground_at(V3 p, float fallback)
     uint32_t sector = 0;
     if (get_cast(p + V3{.x = 0.0F, .y = kProbeHeightAbove, .z = 0.0F},
                  p - V3{.x = 0.0F, .y = kProbeDepthBelow, .z = 0.0F}, &hit, &sector) &&
-        !ground::is_piece(sector))
+        !ground::is_piece(sector)) {
         return hit.y;
+    }
     return fallback;
 }
 
@@ -128,8 +130,9 @@ void change_stage(Stage stage)
 {
     goal_form().stage_ = stage;
     goal_form().have_hover_ = false;
-    if (stage == Stage::kFirst)
+    if (stage == Stage::kFirst) {
         show_message("Ground Tool: click the first corner", kFirstCornerHintSeconds);
+    }
 }
 
 void open_form(const ground::Spec& spec, bool editing)
@@ -144,15 +147,17 @@ void get_apply()
 {
     std::string why;
     ground::Spec spec = goal_form().draft_;
-    if (!goal_form().editing_ && spec.name.empty())
+    if (!goal_form().editing_ && spec.name.empty()) {
         spec.name = ground::fresh_name(ground::get_all());
+    }
     if (!ground::place_in(spec, &why)) {
         goal_form().form_message_ = "Not made: " + why;
         show_message(goal_form().form_message_, kFormMessageSeconds);
         return;
     }
-    if (const ground::Spec* made = ground::get_find(spec.name))
+    if (const ground::Spec* made = ground::get_find(spec.name)) {
         goal_form().draft_ = *made;
+    }
     goal_form().editing_ = true;
     goal_form().form_message_ = "Applied";
     show_message(std::string(spec.lower ? "Lowered" : "Raised") + " ground: " + spec.name, kGroundResultSeconds);
@@ -165,8 +170,9 @@ const char* ramp_name(ground::Ramp ramp)
 
 void ground_form(float view_x, float view_y, float view_width, float scale)
 {
-    if (goal_form().stage_ != Stage::kForm)
+    if (goal_form().stage_ != Stage::kForm) {
         return;
+    }
     ImGui::SetNextWindowPos(
         ImVec2(view_x + view_width - (kPanelRightInset * scale), view_y + (kPanelTopOffset * scale)),
         ImGuiCond_Appearing, ImVec2(1.0F, 0.0F));
@@ -176,8 +182,9 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
         (goal_form().editing_ ? "Ground piece " + goal_form().draft_.name : std::string("Raise / lower ground")) + "###groundForm";
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
-        if (!open)
+        if (!open) {
             goal_form().queue_.emplace_back([] { change_stage(Stage::kDisengaged); });
+        }
         return;
     }
     ground::Spec& d = goal_form().draft_;
@@ -198,54 +205,64 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
         if (ImGui::BeginCombo(core::at(kSideNames, side), ramp_name(core::at(d.ramps, side)))) {
             for (int r = 0; r < 3; ++r) {
                 auto ramp = static_cast<ground::Ramp>(r);
-                if (ImGui::Selectable(ramp_name(ramp), core::at(d.ramps, side) == ramp))
+                if (ImGui::Selectable(ramp_name(ramp), core::at(d.ramps, side) == ramp)) {
                     core::at(d.ramps, side) = ramp;
+                }
             }
             ImGui::EndCombo();
         }
         ImGui::PopID();
     }
     ImGui::DragFloat("Ramp length", &d.length, 1.0F, 0.0F, ground::kMaxLength, d.length > 0.0F ? "%.0f" : "auto");
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("0: automatic");
+    }
     ImGui::DragFloat("Grid", &goal_form().grid_, 1.0F, 0.0F, kGridSpacingMax,
                      goal_form().grid_ > 0.0F ? "%.0f" : "off");
     gui::text_disabled("Material: %s", d.material ? object_edit::caption(d.material).c_str() : "(automatic)");
-    if (ImGui::Button("Use Selected Material"))
+    if (ImGui::Button("Use Selected Material")) {
         goal_form().queue_.emplace_back([] {
             const std::vector<uint32_t>& selection = scenery::get_selection();
             std::string why;
             ground::Spec spec = goal_form().draft_;
-            if (selection.empty())
+            if (selection.empty()) {
                 goal_form().form_message_ = "Select a scenery piece to copy its material";
-            else if (const char* no = ground::why_not_donor(core::at(selection, 0)))
+            } else if (const char* no = ground::why_not_donor(core::at(selection, 0))) {
                 goal_form().form_message_ = std::string("Can't use this material: ") + no;
-            else if (ground::choose_material(core::at(selection, 0), &spec, &why))
+            } else if (ground::choose_material(core::at(selection, 0), &spec, &why)) {
                 goal_form().draft_.material = spec.material, goal_form().draft_.uv = spec.uv, goal_form().draft_.colour = spec.colour,
                 goal_form().draft_.terrain = spec.terrain, goal_form().form_message_.clear();
+            }
         });
-    if (d.lower)
+    }
+    if (d.lower) {
         gui::text_disabled("Pits need floor pieces inside the rectangle");
-    if (!goal_form().form_message_.empty())
+    }
+    if (!goal_form().form_message_.empty()) {
         gui::text_wrapped("%s", goal_form().form_message_.c_str());
+    }
     ImGui::Separator();
-    if (ImGui::Button(goal_form().editing_ ? "Apply" : "Make"))
+    if (ImGui::Button(goal_form().editing_ ? "Apply" : "Make")) {
         goal_form().queue_.emplace_back([] { get_apply(); });
+    }
     if (goal_form().editing_) {
         ImGui::SameLine();
-        if (ImGui::Button("Remove"))
+        if (ImGui::Button("Remove")) {
             goal_form().queue_.emplace_back([] {
                 ground::drop_out(goal_form().draft_.name);
                 show_message("Removed ground piece " + goal_form().draft_.name);
                 change_stage(Stage::kDisengaged);
             });
+        }
     }
     ImGui::SameLine();
-    if (ImGui::Button("New Rectangle"))
+    if (ImGui::Button("New Rectangle")) {
         goal_form().queue_.emplace_back([] { change_stage(Stage::kFirst); });
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Close"))
+    if (ImGui::Button("Close")) {
         goal_form().queue_.emplace_back([] { change_stage(Stage::kDisengaged); });
+    }
     // (the pieces of this level)
     if (!ground::get_all().empty() && ImGui::CollapsingHeader("Pieces in this level")) {
         for (const ground::Spec& s : ground::get_all()) {
@@ -268,15 +285,17 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
         }
     }
     ImGui::End();
-    if (!open)
+    if (!open) {
         goal_form().queue_.emplace_back([] { change_stage(Stage::kDisengaged); });
+    }
 }
 
 void ground_hover(V3 origin, V3 unit_dir)
 {
     goal_form().have_hover_ = false;
-    if (goal_form().stage_ != Stage::kFirst && goal_form().stage_ != Stage::kSecond)
+    if (goal_form().stage_ != Stage::kFirst && goal_form().stage_ != Stage::kSecond) {
         return;
+    }
     V3 hit{};
     uint32_t sector = 0;
     if (get_cast(origin, origin + unit_dir * kGroundRayLength, &hit, &sector)) {
@@ -287,8 +306,9 @@ void ground_hover(V3 origin, V3 unit_dir)
 
 bool ground_click(V3 origin, V3 unit_dir)
 {
-    if (goal_form().stage_ != Stage::kFirst && goal_form().stage_ != Stage::kSecond)
+    if (goal_form().stage_ != Stage::kFirst && goal_form().stage_ != Stage::kSecond) {
         return false;
+    }
     V3 hit{};
     uint32_t sector = 0;
     if (!get_cast(origin, origin + unit_dir * kGroundRayLength, &hit, &sector)) {
@@ -334,8 +354,9 @@ bool ground_click(V3 origin, V3 unit_dir)
 void prepare_all()
 {
     static bool done;
-    if (done)
+    if (done) {
         return;
+    }
     done = true;
     auto make = [](const char* id, const char* name, const char* category, int scancode, const char* tip) {
         actions::ActStep a;
@@ -383,8 +404,9 @@ void tick_frame()
         const bool on = !gap_wizard::get_armed();
         goal_form().stage_ = Stage::kDisengaged;
         gap_wizard::set_armed(on);
-        if (!on)
+        if (!on) {
             show_message("Gap Wizard off");
+        }
     }
     if (level_editor_ux9_state().skate_action_ >= 0 && actions::squeezed(level_editor_ux9_state().skate_action_)) {
         skate_view::set_shown(!skate_view::get_shown());
@@ -402,25 +424,29 @@ void tick_frame()
     gap_wizard::tick_frame();
     std::vector<std::function<void()>> queue;
     queue.swap(goal_form().queue_);
-    for (auto& action : queue)
+    for (auto& action : queue) {
         action();
+    }
 }
 
 bool occupied() { return gap_wizard::get_armed() || goal_form().stage_ != Stage::kDisengaged; }
 
 int picking_tool()
 {
-    if (gap_wizard::get_picking())
+    if (gap_wizard::get_picking()) {
         return 1;
+    }
     return goal_form().stage_ == Stage::kFirst || goal_form().stage_ == Stage::kSecond ? 2 : 0;
 }
 
 bool get_cancel()
 {
-    if (gap_wizard::get_cancel())
+    if (gap_wizard::get_cancel()) {
         return true;
-    if (goal_form().stage_ == Stage::kDisengaged)
+    }
+    if (goal_form().stage_ == Stage::kDisengaged) {
         return false;
+    }
     change_stage(Stage::kDisengaged);
     show_message("Ground Tool off");
     return true;
@@ -451,16 +477,18 @@ void add_overlay(const overlays::Painter& painter)
         const V3 b = goal_form().have_hover_ ? goal_form().hover_ : goal_form().first_;
         const float y = goal_form().first_.y + 2.0F;
         const std::array<V3, 4> c = {{{.x = goal_form().first_.x, .y = y, .z = goal_form().first_.z}, {.x = b.x, .y = y, .z = goal_form().first_.z}, {.x = b.x, .y = y, .z = b.z}, {.x = goal_form().first_.x, .y = y, .z = b.z}}};
-        for (int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i) {
             (void)painter.get_seg(core::at(c, i), core::at(c, (i + 1) % 4), kRect, kOutlineThickness);
+        }
         std::array<char, kSizeLabelSize> text{};
         text::format_to(text, "%.0f x %.0f", std::fabs(b.x - goal_form().first_.x), std::fabs(b.z - goal_form().first_.z));
         painter.draw_label(b, kRect, text.data());
     } else if (goal_form().stage_ == Stage::kFirst && goal_form().have_hover_) {
         painter.perpendicular(goal_form().hover_, kHoverGuideLength, kRect, kOutlineThickness);
     }
-    if (goal_form().stage_ == Stage::kForm)
+    if (goal_form().stage_ == Stage::kForm) {
         ground::add_preview(painter, goal_form().draft_, kPreview);
+    }
 }
 
 void get_windows(float view_x, float view_y, float view_width, float view_height, float scale)
@@ -473,12 +501,15 @@ void get_windows(float view_x, float view_y, float view_width, float view_height
 std::string describe()
 {
     std::string text;
-    if (!ground::get_all().empty())
+    if (!ground::get_all().empty()) {
         text += std::to_string(ground::get_all().size()) + " ground pieces";
-    if (skate_view::get_shown())
+    }
+    if (skate_view::get_shown()) {
         text += std::string(text.empty() ? "" : ", ") + "skateability overlay on";
-    if (gap_wizard::get_armed())
+    }
+    if (gap_wizard::get_armed()) {
         text += std::string(text.empty() ? "" : ", ") + "gap wizard armed";
+    }
     return text;
 }
 

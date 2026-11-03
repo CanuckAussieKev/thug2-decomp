@@ -63,8 +63,9 @@ inline float neg_asin_cos(AngleLimit in, bool* above, Inverses* inverses)
 inline int64_t truncate_to_i64(double value)
 {
     constexpr double kLimit = 9223372036854775808.0; // 2^63
-    if (!(value > -kLimit && value < kLimit))
+    if (!(value > -kLimit && value < kLimit)) {
         return std::numeric_limits<int64_t>::min();
+    }
     return static_cast<int64_t>(value);
 }
 

@@ -31,8 +31,9 @@ Checklist for_save(const Checklist& live, const Checklist* baseline, const std::
     Checklist out;
     out.built = from.built;
     for (const Gap& gap : from.gaps) {
-        if (!editor_gap(gap.name, editor_gaps, level_gaps))
+        if (!editor_gap(gap.name, editor_gaps, level_gaps)) {
             out.gaps.push_back(gap);
+        }
     }
     return out;
 }
@@ -63,8 +64,9 @@ goals::GapTally* current_checklist()
 int get_landed(const Checklist& list)
 {
     int landed = 0;
-    for (const Gap& gap : list.gaps)
+    for (const Gap& gap : list.gaps) {
         landed += gap.count ? 1 : 0;
+    }
     return landed;
 }
 
@@ -72,10 +74,11 @@ void take_baseline(const char* why)
 {
     level_editor_career_state().of_ = current_checklist();
     level_editor_career_state().baseline_ = level_editor_career_state().of_ ? get_take_in(level_editor_career_state().of_) : Checklist{};
-    if (level_editor_career_state().of_)
+    if (level_editor_career_state().of_) {
         get_log("level editor: the career's gap list kept as it is (%s: %u gaps, %d landed) - the edited copy doesn't "
                 "change it",
                 why, static_cast<unsigned>(level_editor_career_state().baseline_.gaps.size()), get_landed(level_editor_career_state().baseline_));
+    }
 }
 
 } // namespace
@@ -106,8 +109,9 @@ Checklist get_take_in(goals::GapTally* checklist)
 
 void get_edited_copy(bool on)
 {
-    if (on == level_editor_career_state().on_)
+    if (on == level_editor_career_state().on_) {
         return;
+    }
     level_editor_career_state().on_ = on;
     if (on) {
         take_baseline("the edited copy");
@@ -119,8 +123,9 @@ void get_edited_copy(bool on)
         checklist->get_clear();
         for (const Gap& gap : level_editor_career_state().baseline_.gaps) {
             checklist->register_gap_entry(gap.name.c_str(), {.count = gap.count, .score = gap.score});
-            if (gap.count)
+            if (gap.count) {
                 checklist->set_gap_positions(gap.name.c_str(), {.pos = {.x = core::at(gap.pos, 0), .y = core::at(gap.pos, 1), .z = core::at(gap.pos, 2), .w = core::at(gap.pos, 3)}, .dir = {.x = core::at(gap.dir, 0), .y = core::at(gap.dir, 1), .z = core::at(gap.dir, 2), .w = core::at(gap.dir, 3)}});
+            }
         }
         checklist->set_built(level_editor_career_state().baseline_.built); // (register_gap_entry marks it built)
         get_log(
@@ -135,8 +140,9 @@ void get_edited_copy(bool on)
 
 void career_replaced()
 {
-    if (level_editor_career_state().on_)
+    if (level_editor_career_state().on_) {
         take_baseline("the career replaced");
+    }
 }
 
 bool save_view(goals::GapTally* checklist, Checklist* out)
@@ -145,8 +151,9 @@ bool save_view(goals::GapTally* checklist, Checklist* out)
     std::vector<std::string> level_gaps;
     const bool editor = triggers::get_editor_gaps(checklist, &editor_gaps, &level_gaps);
     const bool baseline = level_editor_career_state().on_ && checklist && checklist == level_editor_career_state().of_;
-    if (!baseline && !editor)
+    if (!baseline && !editor) {
         return false;
+    }
     const Checklist live = get_take_in(checklist);
     *out = for_save(live, baseline ? &level_editor_career_state().baseline_ : nullptr, editor_gaps, level_gaps);
     get_log("level editor: the career save gets this level's gap list %s (%u gaps, %d landed; it has %u, %d landed)",

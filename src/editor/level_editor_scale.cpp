@@ -74,10 +74,12 @@ namespace {
 // One axis of allowed_factor.
 double allowed_on_axis(double factor, double low, double high)
 {
-    if (factor > 1.0 && high < factor)
+    if (factor > 1.0 && high < factor) {
         factor = std::max(1.0, high); // (already past the limit: no further)
-    if (factor < 1.0 && low > factor)
+    }
+    if (factor < 1.0 && low > factor) {
         factor = std::min(1.0, low);
+    }
     return factor;
 }
 
@@ -108,8 +110,9 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
         // (the factor asked for is the same on every axis: the one nearest 1 is what all of them allow)
         const double f = get_axis(factor, 0);
         double common = core::at(out, 0);
-        for (int a = 1; a < 3; ++a)
+        for (int a = 1; a < 3; ++a) {
             common = f >= 1.0 ? std::min(common, core::at(out, a)) : std::max(common, core::at(out, a));
+        }
         core::at(out, 0) = core::at(out, 1) = core::at(out, 2) = common;
     }
     return {.x = static_cast<float>(core::at(out, 0)), .y = static_cast<float>(core::at(out, 1)), .z = static_cast<float>(core::at(out, 2))};
@@ -117,15 +120,17 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
 
 float compressed_limit(float extent)
 {
-    if (!(extent > 0.0F))
+    if (!(extent > 0.0F)) {
         return kMax;
+    }
     return std::min(kMax, kCompressedExtent / extent);
 }
 
 float confine(float scale)
 {
-    if (!(scale == scale))
+    if (!(scale == scale)) {
         return 1.0F;
+    }
     return std::max(kMin, std::min(kMax, scale));
 }
 
@@ -134,8 +139,9 @@ int main_axis(V3 d)
     const float x = std::fabs(d.x);
     const float y = std::fabs(d.y);
     const float z = std::fabs(d.z);
-    if (y >= x && y >= z)
+    if (y >= x && y >= z) {
         return 1;
+    }
     return x >= z ? 0 : 2;
 }
 
@@ -162,10 +168,11 @@ int nearest_axis(std::span<const V3, 3> axes, int world_axis)
 std::string describe(V3 scale)
 {
     std::array<char, kScaleTextSize> text{};
-    if (is_uniform_scale(scale))
+    if (is_uniform_scale(scale)) {
         text::format_to(text, "%.2fx", scale.x);
-    else
+    } else {
         text::format_to(text, "%.2f x %.2f x %.2f", scale.x, scale.y, scale.z);
+    }
     return text.data();
 }
 
@@ -229,45 +236,53 @@ int surface_nudge(uint32_t fvf, uint32_t stride)
     constexpr uint32_t kXyz = 0x002;
     constexpr uint32_t kNormal = 0x010;
     // (an FVF's texture coordinate size bits are 0 for the scene's 2D coordinates: a larger value is a shader handle)
-    if (fvf >= kFvfShaderHandleLimit || (fvf & kPositionMask) != kXyz || !(fvf & kNormal) || stride < kMinVertexStride)
+    if (fvf >= kFvfShaderHandleLimit || (fvf & kPositionMask) != kXyz || !(fvf & kNormal) ||
+        stride < kMinVertexStride) {
         return -1;
+    }
     return kPositionBytes;
 }
 
 std::string get_token(V3 scale)
 {
-    if (is_unit_scale(scale))
+    if (is_unit_scale(scale)) {
         return "";
+    }
     std::array<char, kScaleFieldSize> text{};
-    if (is_uniform_scale(scale))
+    if (is_uniform_scale(scale)) {
         text::format_to(text, " scale=%.9g", scale.x);
-    else
+    } else {
         text::format_to(text, " scale=%.9g,%.9g,%.9g", scale.x, scale.y, scale.z);
+    }
     return text.data();
 }
 
 bool read_token(const std::string& field, V3* scale)
 {
-    if (!field.starts_with("scale=") || field.size() == kScalePrefixLength)
+    if (!field.starts_with("scale=") || field.size() == kScalePrefixLength) {
         return false;
+    }
     std::array<float, 3> values{};
     const char* at = std::next(field.c_str(), kScalePrefixLength);
     // (one number, or exactly three separated by commas)
     for (int count = 0;;) {
         char* end = nullptr;
         const float value = std::strtof(at, &end);
-        if (end == at || !(value > 0.0F) || !std::isfinite(value))
+        if (end == at || !(value > 0.0F) || !std::isfinite(value)) {
             return false;
+        }
         core::at(values, count++) = value;
         if (*end == '\0') {
-            if (count == 1)
+            if (count == 1) {
                 *scale = get_uniform(core::at(values, 0));
-            else if (count == 3)
+            } else if (count == 3) {
                 *scale = {.x = core::at(values, 0), .y = core::at(values, 1), .z = core::at(values, 2)};
+            }
             return count == 1 || count == 3;
         }
-        if (*end != ',' || count == 3)
+        if (*end != ',' || count == 3) {
             return false;
+        }
         at = std::next(end);
     }
 }
@@ -298,8 +313,9 @@ CollisionCopy copy_collision(render::TriMeshSource* data)
 {
     CollisionCopy copy;
     copy.data = data;
-    if (!data)
+    if (!data) {
         return copy;
+    }
     copy.num_vertices_ = data->num_vertices();
     copy.compressed = data->compressed();
     copy.vertex_array_ = data->vertices();
@@ -324,8 +340,9 @@ bool same_collision(const CollisionCopy& copy)
 void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, V3 scale)
 {
     render::TriMeshSource* data = copy.data;
-    if (!data || !data->vertices())
+    if (!data || !data->vertices()) {
         return;
+    }
     std::memcpy(data->vertices(), copy.vertices.data(), copy.vertices.size());
     data->bounds().min = copy.min;
     data->bounds().max = copy.max;
@@ -339,8 +356,9 @@ void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
         const maths::Vec4 factor = {.x = scale.x, .y = scale.y, .z = scale.z, .w = 1.0F};
         data->scale_tool(&centre, &factor);
     }
-    if (quarters & 3)
+    if (quarters & 3) {
         data->rotate_y(&centre, quarters & 3);
+    }
     const V3 delta = to - from;
     if (delta.x != 0.0F || delta.y != 0.0F || delta.z != 0.0F) {
         const maths::Vec4 by = {.x = delta.x, .y = delta.y, .z = delta.z, .w = 0.0F};
@@ -351,14 +369,18 @@ void rebuild_collision(const CollisionCopy& copy, int quarters, V3 from, V3 to, 
 V3 collision_limit(const render::TriMeshSource* data, V3 scale)
 {
     V3 limit = get_uniform(kMax);
-    if (!data || !data->compressed())
+    if (!data || !data->compressed()) {
         return limit;
-    if (scale.x > 0.0F)
+    }
+    if (scale.x > 0.0F) {
         limit.x = compressed_limit((data->bounds().max.x - data->bounds().min.x) / scale.x);
-    if (scale.y > 0.0F)
+    }
+    if (scale.y > 0.0F) {
         limit.y = compressed_limit((data->bounds().max.y - data->bounds().min.y) / scale.y);
-    if (scale.z > 0.0F)
+    }
+    if (scale.z > 0.0F) {
         limit.z = compressed_limit((data->bounds().max.z - data->bounds().min.z) / scale.z);
+    }
     return limit;
 }
 
@@ -428,13 +450,15 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
     original->mesh_count_ = geom->mesh_count();
     original->quarters = quarters;
     original->position = position;
-    if (!original->mesh_list_ || original->mesh_count_ == 0 || original->mesh_count_ > kMeshCountLimit)
+    if (!original->mesh_list_ || original->mesh_count_ == 0 || original->mesh_count_ > kMeshCountLimit) {
         return nullptr;
+    }
     const std::span<render::MeshRef*> mesh_run(original->mesh_list_, original->mesh_count_);
     for (uint32_t i = 0; i < original->mesh_count_; ++i) {
         render::MeshRef* mesh = core::at(mesh_run, i);
-        if (!mesh || mesh->stride() < kPositionBytes || mesh->vertex_buffer_count() > 3)
+        if (!mesh || mesh->stride() < kPositionBytes || mesh->vertex_buffer_count() > 3) {
             return nullptr;
+        }
         MeshCopy copy = {.mesh = mesh,
                          .vertex_count_ = mesh->vertex_count(),
                          .stride = mesh->stride(),
@@ -450,17 +474,20 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
                          .list_copy_ = {}};
         for (int b = 0; std::cmp_less(b, mesh->vertex_buffer_count()); ++b) {
             render::VertexBuffer* buffer = core::at(mesh->vertex_buffers(), b);
-            if (!buffer || !buffer->data() || buffer->size() < static_cast<uint32_t>(mesh->vertex_count()) * mesh->stride())
+            if (!buffer || !buffer->data() ||
+                buffer->size() < static_cast<uint32_t>(mesh->vertex_count()) * mesh->stride()) {
                 return nullptr;
+            }
             std::vector<float> positions(3U * mesh->vertex_count());
             std::vector<float> normals(copy.normal_offset_ >= 0 ? 3U * mesh->vertex_count() : 0U);
             const std::span<const uint8_t> vertex_run(buffer->data(), size_t{mesh->vertex_count()} * mesh->stride());
             for (uint32_t v = 0; v < mesh->vertex_count(); ++v) {
                 const std::span<const uint8_t> vertex = vertex_run.subspan(size_t{v} * mesh->stride(), mesh->stride());
                 std::memcpy(&core::at(positions, 3U * v), vertex.data(), kPositionBytes);
-                if (copy.normal_offset_ >= 0)
+                if (copy.normal_offset_ >= 0) {
                     std::memcpy(&core::at(normals, 3U * v),
                                 vertex.subspan(static_cast<size_t>(copy.normal_offset_)).data(), kPositionBytes);
+                }
             }
             copy.buffers.emplace_back(buffer);
             copy.data.push_back(buffer->data());
@@ -475,8 +502,9 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
     }
     render::TriMeshSource* data = collision_data(sector);
     original->have_collision_ = data && data->vertices();
-    if (original->have_collision_)
+    if (original->have_collision_) {
         original->collision = copy_collision(data);
+    }
     return original;
 }
 
@@ -484,24 +512,29 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
                 V3 scale, int quarters0)
 {
     // (still the sector copied: its meshes, buffers and collision where and as they were)
-    if (geom != original.geom || geom->meshes() != original.mesh_list_ || geom->mesh_count() != original.mesh_count_)
+    if (geom != original.geom || geom->meshes() != original.mesh_list_ || geom->mesh_count() != original.mesh_count_) {
         return false;
+    }
     const std::span<render::MeshRef*> mesh_run(original.mesh_list_, original.mesh_count_);
     for (uint32_t i = 0; i < original.mesh_count_; ++i) {
         const MeshCopy& copy = core::at(original.meshes, i);
         const render::MeshRef* mesh = core::at(mesh_run, i);
         if (mesh != copy.mesh || mesh->vertex_count() != copy.vertex_count_ || mesh->stride() != copy.stride ||
             mesh->vertex_buffer_count() != copy.buffers.size() || mesh->positions() != copy.list ||
-            mesh->position_count() != copy.list_count_)
+            mesh->position_count() != copy.list_count_) {
             return false;
+        }
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
-            if (core::at(mesh->vertex_buffers(), b) != core::at(copy.buffers, b) || core::at(copy.buffers, b)->data() != core::at(copy.data, b))
+            if (core::at(mesh->vertex_buffers(), b) != core::at(copy.buffers, b) ||
+                core::at(copy.buffers, b)->data() != core::at(copy.data, b)) {
                 return false;
+            }
         }
     }
     const render::TriMeshSource* data = collision_data(sector);
-    if (original.have_collision_ && (data != original.collision.data || !same_collision(original.collision)))
+    if (original.have_collision_ && (data != original.collision.data || !same_collision(original.collision))) {
         return false;
+    }
 
     const RebuildFrame f = frame_for(original.quarters, original.position, quarters0, quarters, position, scale);
     for (const MeshCopy& copy : original.meshes) {
@@ -509,9 +542,10 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
             rewrite_positions(core::at(copy.buffers, b)->data(), copy.stride, copy.vertex_count_, core::at(copy.positions, b).data(), f.from,
                               f.to, f.turns, f.copy_scale_);
-            if (copy.normal_offset_ >= 0)
+            if (copy.normal_offset_ >= 0) {
                 rewrite_normals(core::at(copy.buffers, b)->data(), {.stride = copy.stride, .count = copy.vertex_count_, .offset = static_cast<uint32_t>(copy.normal_offset_)}, core::at(copy.normals, b).data(), scale,
                                 f.normal_turns_);
+            }
             upload(core::at(copy.buffers, b));
         }
         const V3 centre = get_rebuilt(copy.centre, f.from, f.to, f.turns, f.copy_scale_);
@@ -532,8 +566,9 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
             core::at(list, (3 * k) + 2) = p.z;
         }
     }
-    if (original.have_collision_)
+    if (original.have_collision_) {
         rebuild_collision(original.collision, f.turns, f.from, f.to, f.copy_scale_);
+    }
     return true;
 }
 
@@ -599,13 +634,16 @@ ObjectEntry* entry_of(objects::GameEntity* object)
 {
     for (size_t i = 0; i < stored_objects().size(); ++i) {
         ObjectEntry& entry = core::at(stored_objects(), i);
-        if (entry.id != object->ident())
+        if (entry.id != object->ident()) {
             continue;
+        }
         bool same = entry.object == object && get_alive(object) && collision_of(object) == entry.collision;
-        for (const ObjectEntry::Tri& t : entry.tris)
+        for (const ObjectEntry::Tri& t : entry.tris) {
             same = same && t.tri->geometry() == t.copy.data && same_collision(t.copy);
-        if (same)
+        }
+        if (same) {
             return &entry;
+        }
         stored_objects().erase(stored_objects().begin() + static_cast<std::ptrdiff_t>(i)); // (another object of that name now)
         return nullptr;
     }
@@ -616,14 +654,16 @@ ObjectEntry* entry_of(objects::GameEntity* object)
 bool take_tri(render::HitMovingTriangles* tri, ObjectEntry* entry)
 {
     render::TriMeshSource* geometry = tri->geometry();
-    if (!geometry)
+    if (!geometry) {
         return true;
+    }
     const bool owns =
         (tri->flag_bits() & render::HitMesh::kOwnsGeometry) && !(tri->flag_bits() & render::HitMesh::kSharedGeometry);
     if (!owns) {
         render::TriMeshSource* own = geometry->replicate(0, false);
-        if (!own)
+        if (!own) {
             return false;
+        }
         tri->flag_bits() = static_cast<uint16_t>((tri->flag_bits() | render::HitMesh::kOwnsGeometry) &
                                                 ~render::HitMesh::kSharedGeometry);
         tri->assign_shape_data(own);
@@ -635,11 +675,13 @@ bool take_tri(render::HitMovingTriangles* tri, ObjectEntry* entry)
 
 bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
 {
-    if (!collision)
+    if (!collision) {
         return true;
+    }
     const render::HitMeshKind kind = collision->kind();
-    if (kind == render::HitMeshKind::kMovingTriangles)
+    if (kind == render::HitMeshKind::kMovingTriangles) {
         return take_tri(core::down_cast<render::HitMovingTriangles>(collision), entry);
+    }
     if (kind == render::HitMeshKind::kMovingBox) {
         auto* box = core::down_cast<render::HitMovingBox>(collision);
         entry->boxes.push_back({.box = box, .original = box->box()});
@@ -649,8 +691,9 @@ bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
         const memory::ListNode* head = core::down_cast<render::HitMeshGroup>(collision)->sub_nodes();
         for (const memory::ListNode* node = head ? head->next() : nullptr;
              node && node != head && node->data() != kListHeadData; node = node->next()) {
-            if (!take_collision(static_cast<render::HitMesh*>(node->data()), entry))
+            if (!take_collision(static_cast<render::HitMesh*>(node->data()), entry)) {
                 return false;
+            }
         }
         return true;
     }
@@ -671,8 +714,9 @@ void apply_collision(ObjectEntry& entry)
         b.box->box().min = {.x = lo.x * entry.scale.x, .y = lo.y * entry.scale.y, .z = lo.z * entry.scale.z, .w = lo.w};
         b.box->box().max = {.x = hi.x * entry.scale.x, .y = hi.y * entry.scale.y, .z = hi.z * entry.scale.z, .w = hi.w};
     }
-    if (entry.collision && entry.collision->kind() == render::HitMeshKind::kGroup)
+    if (entry.collision && entry.collision->kind() == render::HitMeshKind::kGroup) {
         core::down_cast<render::HitMeshGroup>(entry.collision)->set_dirty(true);
+    }
 }
 
 } // namespace
@@ -688,31 +732,36 @@ bool object_scalable(objects::GameEntity* object) { return object && get_alive(o
 V3 object_limit(objects::GameEntity* object)
 {
     V3 limit = get_uniform(kMax);
-    if (!object)
+    if (!object) {
         return limit;
+    }
     const ObjectEntry* entry = entry_of(object);
     auto narrow = [&limit](const render::TriMeshSource* data, V3 scale) {
         const V3 l = collision_limit(data, scale);
         limit = {.x = std::min(limit.x, l.x), .y = std::min(limit.y, l.y), .z = std::min(limit.z, l.z)};
     };
     if (entry) {
-        for (const ObjectEntry::Tri& t : entry->tris)
+        for (const ObjectEntry::Tri& t : entry->tris) {
             narrow(t.copy.data, entry->scale);
+        }
         return limit;
     }
     std::vector<render::HitMesh*> pending = {collision_of(object)};
     while (!pending.empty()) {
         render::HitMesh* c = pending.back();
         pending.pop_back();
-        if (!c)
+        if (!c) {
             continue;
-        if (c->kind() == render::HitMeshKind::kMovingTriangles && c->geometry())
+        }
+        if (c->kind() == render::HitMeshKind::kMovingTriangles && c->geometry()) {
             narrow(c->geometry(), get_uniform(1.0F));
+        }
         if (c->kind() == render::HitMeshKind::kGroup) {
             const memory::ListNode* head = core::down_cast<render::HitMeshGroup>(c)->sub_nodes();
             for (const memory::ListNode* node = head ? head->next() : nullptr;
-                 node && node != head && node->data() != kListHeadData; node = node->next())
+                 node && node != head && node->data() != kListHeadData; node = node->next()) {
                 pending.push_back(static_cast<render::HitMesh*>(node->data()));
+            }
         }
     }
     return limit;
@@ -720,11 +769,13 @@ V3 object_limit(objects::GameEntity* object)
 
 bool set_object_scale(objects::GameEntity* object, V3 scale)
 {
-    if (!object_scalable(object))
+    if (!object_scalable(object)) {
         return false;
+    }
     ObjectEntry* entry = entry_of(object);
-    if (!entry && is_unit_scale(scale))
+    if (!entry && is_unit_scale(scale)) {
         return true; // (never scaled: nothing to put back)
+    }
     if (!entry) {
         ObjectEntry made = {.id = object->ident(),
                             .object = object,

@@ -58,8 +58,9 @@ void get_later(std::function<void()> action) { stored_queue().push_back(std::mov
 
 void get_tip(const char* text)
 {
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("%s", text);
+    }
 }
 
 } // namespace
@@ -69,15 +70,17 @@ void run_queued()
 {
     std::vector<std::function<void()>> queue;
     queue.swap(stored_queue());
-    for (auto& action : queue)
+    for (auto& action : queue) {
         action();
+    }
 }
 
 void pane(float ui_scale)
 {
     Settings& s = at_hand();
-    if (!s.window)
+    if (!s.window) {
         return;
+    }
     ImGui::SetNextWindowSize(ImVec2(kPanelWidth * ui_scale, 0.0F), ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(ImVec2(kPanelPosX * ui_scale, kPanelPosY * ui_scale), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Arrange###arrange", &s.window,
@@ -88,8 +91,9 @@ void pane(float ui_scale)
     ImGui::SeparatorText("Align and Distribute");
     static const auto kAxes = std::to_array<const char*>({"X", "Y", "Z"});
     for (int axis = 0; axis < 3; ++axis) {
-        if (axis)
+        if (axis) {
             ImGui::SameLine();
+        }
         ImGui::RadioButton(core::at(kAxes, axis), &s.axis, axis);
     }
     ImGui::SameLine(0.0F, kGroupSpacing * ui_scale);
@@ -102,8 +106,9 @@ void pane(float ui_scale)
     s.reference = static_cast<Reference>(reference);
     static const auto kEdges = std::to_array<const char*>({"Min", "Centre", "Max"});
     for (int edge = 0; edge < 3; ++edge) {
-        if (edge)
+        if (edge) {
             ImGui::SameLine();
+        }
         std::array<char, kLabelTextSize> label{};
         text::format_to(label, "Align %s", core::at(kEdges, edge));
         if (ImGui::Button(label.data())) {
@@ -121,23 +126,27 @@ void pane(float ui_scale)
     get_tip("Equal gaps instead of equal centre spacing");
 
     ImGui::SeparatorText("Replace");
-    if (ImGui::Button("Replace Selection"))
+    if (ImGui::Button("Replace Selection")) {
         get_later([] { get_replace(); });
+    }
     get_tip("Replace with the item highlighted in Add Piece (B)");
 
     ImGui::SeparatorText("Linked Copies");
-    if (ImGui::Button("Duplicate Linked"))
+    if (ImGui::Button("Duplicate Linked")) {
         get_later([] { links::linked_duplicate(); });
+    }
     ImGui::SameLine();
-    if (ImGui::Button("Unlink"))
+    if (ImGui::Button("Unlink")) {
         get_later([] { links::unlink_selection(); });
+    }
     const std::string linked = links::describe();
     gui::text_disabled("%s", linked.empty() ? "(not linked)" : linked.c_str());
 
     ImGui::SeparatorText("Rail Along Edge");
     bool picking = edge_picking();
-    if (ImGui::Checkbox("Pick Edge", &picking))
+    if (ImGui::Checkbox("Pick Edge", &picking)) {
         get_later([picking] { set_edge_picking(picking); });
+    }
     get_tip("Click a top edge of the selected scenery to add a rail  (Alt+R)");
 
     ImGui::SeparatorText("Options");
@@ -153,8 +162,9 @@ void pane(float ui_scale)
 void browser_extras(float ui_scale)
 {
     (void)ui_scale;
-    if (ImGui::SmallButton("Replace Selection"))
+    if (ImGui::SmallButton("Replace Selection")) {
         get_later([] { get_replace(); });
+    }
     get_tip("Replace the selection with this item");
     ImGui::SameLine();
     ImGui::Checkbox("Click to Place", &at_hand().click_places_);
@@ -168,12 +178,14 @@ namespace frontend::level_editor::adjust {
 void get_panel(float x, float y, float ui_scale)
 {
     const ActStep& last = final_one();
-    if (!get_shown() || last.kind == Kind::kNone)
+    if (!get_shown() || last.kind == Kind::kNone) {
         return;
+    }
     static ActStep edit;
     static bool editing;
-    if (!editing)
+    if (!editing) {
         edit = last;
+    }
     const bool adjustable = get_adjustable();
     ImGui::SetNextWindowPos(ImVec2(x + (kTipOffset * ui_scale), y - (kTipOffset * ui_scale)), ImGuiCond_Always,
                             ImVec2(0.0F, 1.0F));
@@ -205,10 +217,11 @@ void get_panel(float x, float y, float ui_scale)
                                edit.quarters ? "%.0f (quarters)" : "%.1f"));
         break;
     case Kind::kScale:
-        if (edit.uniform)
+        if (edit.uniform) {
             track(ImGui::DragFloat("Factor", &edit.factor.x, kFactorDragSpeed, kFactorMin, kFactorMax, "%.3f"));
-        else
+        } else {
             track(ImGui::DragFloat3("Factor", &edit.factor.x, kFactorDragSpeed, kFactorMin, kFactorMax, "%.3f"));
+        }
         break;
     case Kind::kDuplicate:
         // (copies are made only when a field is let go: dozens of copies each frame would be slow)
@@ -219,22 +232,25 @@ void get_panel(float x, float y, float ui_scale)
         ImGui::DragFloat("Turn", &edit.degrees, edit.quarters ? kQuarterDragSpeed : kFreeDragSpeed, -kTurnLimit, kTurnLimit,
                          edit.quarters ? "%.0f (quarters)" : "%.1f");
         done = done || ImGui::IsItemDeactivatedAfterEdit();
-        if (ImGui::Checkbox("On the grid", &edit.grid))
+        if (ImGui::Checkbox("On the grid", &edit.grid)) {
             done = true;
+        }
         break;
     case Kind::kJustify:
     case Kind::kDistribute: {
         static const auto kAxes = std::to_array<const char*>({"X", "Y", "Z"});
         for (int axis = 0; axis < 3; ++axis) {
-            if (axis)
+            if (axis) {
                 ImGui::SameLine();
+            }
             track(ImGui::RadioButton(core::at(kAxes, axis), &edit.axis, axis));
         }
         if (edit.kind == Kind::kJustify) {
             static const auto kEdges = std::to_array<const char*>({"Min", "Centre", "Max"});
             for (int e = 0; e < 3; ++e) {
-                if (e)
+                if (e) {
                     ImGui::SameLine();
+                }
                 track(ImGui::RadioButton(core::at(kEdges, e), &edit.edge, e));
             }
             track(ImGui::RadioButton("Bounds", &edit.reference, 0));
@@ -256,13 +272,15 @@ void get_panel(float x, float y, float ui_scale)
     }
     ImGui::EndDisabled();
     editing = ImGui::IsAnyItemActive() && ImGui::IsWindowFocused();
-    if (!adjustable)
+    if (!adjustable) {
         gui::text_disabled("Only the last operation can be adjusted");
-    else if (edit.kind == Kind::kDuplicate)
+    } else if (edit.kind == Kind::kDuplicate) {
         gui::text_disabled("Release to apply");
+    }
     ImGui::End();
-    if (adjustable && (live || done))
+    if (adjustable && (live || done)) {
         get_request(edit, done);
+    }
 }
 
 } // namespace frontend::level_editor::adjust

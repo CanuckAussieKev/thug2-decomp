@@ -119,18 +119,21 @@ std::string get_check(const fields::Row& row, uint32_t self, const char* text, s
     fields::Value value;
     std::string error;
     note->clear();
-    if (!fields::parse(row.value.kind, text, &value, &error))
+    if (!fields::parse(row.value.kind, text, &value, &error)) {
         return error;
+    }
     if (row.key == fields::key_links()) {
         if (!fields::valid_links(
-                value.list, self, [](uint32_t c) { return nodes::get_find(c) >= 0; }, fields::get_name_of, &error))
+                value.list, self, [](uint32_t c) { return nodes::get_find(c) >= 0; }, fields::get_name_of, &error)) {
             return error;
+        }
     } else if (value.kind == fields::Kind::kName && !fields::get_name_of(value.checksum)) {
         *note = "unknown name (checksum used)";
     } else if (value.kind == fields::Kind::kNames) {
         for (const uint32_t c : value.list) {
-            if (!fields::get_name_of(c))
+            if (!fields::get_name_of(c)) {
                 *note = "contains an unknown name";
+            }
         }
     }
     return "";
@@ -145,8 +148,9 @@ constexpr auto kAddKinds = std::to_array<fields::Kind>({fields::Kind::kInteger, 
 void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vector<Request>* requests)
 {
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    if (node_index < 0 || std::cmp_greater_equal(node_index, nodes.size()))
+    if (node_index < 0 || std::cmp_greater_equal(node_index, nodes.size())) {
         return;
+    }
     const nodes::Elem& node = core::at(nodes, node_index);
     if (typing().node != node_index || typing().generation != nodes::get_generation()) {
         if (typing().node != node_index) {
@@ -158,13 +162,15 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
     }
     const std::vector<fields::Row> rows = fields::rows_of(node);
     bool any_edited = false;
-    for (const fields::Row& row : rows)
+    for (const fields::Row& row : rows) {
         any_edited = any_edited || row.edited;
+    }
     ImGui::Spacing();
     std::array<char, kHeaderTextSize> header{};
     text::format_to(header, "All fields (%d)%s###fields", static_cast<int>(rows.size()), any_edited ? " - edited" : "");
-    if (!ImGui::CollapsingHeader(header.data(), ImGuiTreeNodeFlags_DefaultOpen))
+    if (!ImGui::CollapsingHeader(header.data(), ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
+    }
     bool still_active = false;
     if (ImGui::BeginTable("##fields", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
         ImGui::TableSetupColumn("##name", ImGuiTableColumnFlags_WidthStretch, kNameColumnWeight);
@@ -176,18 +182,20 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             const std::string name = fields::get_name_text(row.key, fields::get_name_of);
-            if (row.included)
+            if (row.included) {
                 gui::text_disabled("%s", name.c_str());
-            else if (row.edited)
+            } else if (row.edited) {
                 gui::text_colored(ui_theme::kWarningColour, "%s", name.c_str());
-            else
+            } else {
                 ImGui::TextUnformatted(name.c_str());
-            if (ImGui::IsItemHovered())
+            }
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("%s%s%s", fields::kind_name(row.value.kind),
                                   row.included     ? " (shared by the class)"
                                   : row.overridden ? " (overrides the class)"
                                                    : "",
                                   row.edited ? "\nModified" : "");
+            }
             ImGui::TableNextColumn();
             ImGui::SetNextItemWidth(-FLT_MIN);
             const std::string text = fields::get_format(row.value, fields::get_name_of);
@@ -195,17 +203,20 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                 ImGui::BeginDisabled(true);
                 gui::text_wrapped("%s", text.c_str());
                 ImGui::EndDisabled();
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
                     gui::tooltip("%s", row.why.c_str());
+                }
             } else if (row.value.kind == fields::Kind::kBitMark) {
                 bool on = row.value.on;
-                if (ImGui::Checkbox("##flag", &on))
+                if (ImGui::Checkbox("##flag", &on)) {
                     set_field(requests, {.node = node.name, .key = row.key}, fields::Kind::kBitMark, on ? "on" : "off");
+                }
             } else {
                 const bool active = typing().active_set_ && typing().active == row.key;
                 ScratchBuf& buffer = typing().buffers[row.key];
-                if (!active)
+                if (!active) {
                     dup_from(&buffer, text);
+                }
                 const bool enter =
                     ImGui::InputText("##value", buffer.data(), buffer.size(),
                                      ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
@@ -219,8 +230,9 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                 const std::string error =
                     active || enter || left ? get_check(row, node.name, buffer.data(), &note) : "";
                 if ((enter || left) && std::strcmp(buffer.data(), text.c_str()) != 0) {
-                    if (error.empty())
+                    if (error.empty()) {
                         set_field(requests, {.node = node.name, .key = row.key}, row.value.kind, buffer.data());
+                    }
                     typing().active_set_ = false;
                 } else if (enter || left) {
                     typing().active_set_ = false;
@@ -241,22 +253,27 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
                 row.editable || row.when == fields::When::kElsewhere ? colour
                                                                      : ImGui::GetStyle().Colors[ImGuiCol_TextDisabled],
                 "%s", row.editable || row.when == fields::When::kElsewhere ? when_label(row.when) : "read-only");
-            if (ImGui::IsItemHovered())
+            if (ImGui::IsItemHovered()) {
                 gui::tooltip("%s", row.editable ? row.note : row.why.c_str());
+            }
             if (row.edited) {
                 ImGui::SameLine();
-                if (ImGui::SmallButton("Home"))
+                if (ImGui::SmallButton("Home")) {
                     simple(requests, Request::Kind::kFieldHome, {.node = node.name, .key = row.key});
-                if (ImGui::IsItemHovered())
+                }
+                if (ImGui::IsItemHovered()) {
                     gui::tooltip("Revert");
+                }
             }
             if (row.editable && !row.included && row.value.kind != fields::Kind::kBitMark &&
                 row.key != fields::key_links()) {
                 ImGui::SameLine();
-                if (ImGui::SmallButton("x"))
+                if (ImGui::SmallButton("x")) {
                     simple(requests, Request::Kind::kFieldRemove, {.node = node.name, .key = row.key});
-                if (ImGui::IsItemHovered())
+                }
+                if (ImGui::IsItemHovered()) {
                     gui::tooltip("%s", row.overridden ? "Remove override" : "Remove field");
+                }
             }
             ImGui::PopFont();
             ImGui::PopID();
@@ -267,8 +284,9 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
     if (!still_active && typing().active_set_) {
         // (the active box went away without being let go: a row that's gone)
         bool there = false;
-        for (const fields::Row& row : rows)
+        for (const fields::Row& row : rows) {
             there = there || row.key == typing().active;
+        }
         typing().active_set_ = there && typing().active_set_;
     }
     // A field the node doesn't have yet.
@@ -283,8 +301,9 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         ImGui::SetNextItemWidth(kNewKindWidth * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
         if (ImGui::BeginCombo("##newkind", fields::kind_name(core::at(kAddKinds, typing().new_kind_)))) {
             for (int i = 0; i < ints::as_signed(sizeof(kAddKinds) / sizeof(core::at(kAddKinds, 0))); ++i) {
-                if (ImGui::Selectable(fields::kind_name(core::at(kAddKinds, i)), i == typing().new_kind_))
+                if (ImGui::Selectable(fields::kind_name(core::at(kAddKinds, i)), i == typing().new_kind_)) {
                     typing().new_kind_ = i;
+                }
             }
             ImGui::EndCombo();
         }
@@ -299,8 +318,9 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         const bool name_ok = fields::parse_name(name, &key) && core::at(name, 0) != '#' && core::at(name, 0) != '0';
         const bool value_ok = fields::parse(core::at(kAddKinds, typing().new_kind_), typing().new_value_.data(), &value, &error);
         bool exists = false;
-        for (const fields::Row& row : rows)
+        for (const fields::Row& row : rows) {
             exists = exists || row.key == key;
+        }
         const char* why = name.empty() ? "Enter a field name"
                           : !name_ok   ? "Use letters, digits and _"
                           : exists     ? "Field already exists"
@@ -318,14 +338,16 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
             typing().new_value_ = {};
         }
         ImGui::EndDisabled();
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
             gui::tooltip("%s", why ? (why == std::string("Invalid value") ? error.c_str() : why)
                                         : "Add field (applies on reload)");
+        }
     }
     ImGui::PushFont(small_font);
     if (any_edited) {
-        if (ImGui::SmallButton("Revert All Fields"))
+        if (ImGui::SmallButton("Revert All Fields")) {
             simple(requests, Request::Kind::kFieldHome, {.node = node.name, .key = 0});
+        }
         ImGui::SameLine();
     }
     gui::text_disabled("Grey: shared by the class");
@@ -352,8 +374,9 @@ void send_props(std::vector<Request>* requests, const level_props::Props& props,
     Request request = {.kind = Request::Kind::kLevelProps};
     request.props = props;
     requests->push_back(request);
-    if (done)
+    if (done) {
         requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
+    }
 }
 
 // When a change is seen and its tooltip.
@@ -370,8 +393,9 @@ void get_when(ImFont* small_font, WhenTip when_tip)
     ImGui::PushFont(small_font);
     gui::text_colored(std::strcmp(when, "on reload") == 0 ? kReload : kLive, "%s", when);
     ImGui::PopFont();
-    if (ImGui::IsItemHovered())
+    if (ImGui::IsItemHovered()) {
         gui::tooltip("%s", tip);
+    }
 }
 
 } // namespace
@@ -380,8 +404,9 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
 {
     ImGui::Spacing();
     ImGui::Separator();
-    if (!ImGui::CollapsingHeader("Level properties###levelprops"))
+    if (!ImGui::CollapsingHeader("Level properties###levelprops")) {
         return;
+    }
     if (!level.in_level_) {
         gui::text_disabled("No level loaded");
         return;
@@ -399,8 +424,9 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::TableNextColumn();
         gui::text_disabled("Name");
         ImGui::TableNextColumn();
-        if (!level_typing().name_active_)
+        if (!level_typing().name_active_) {
             dup_from(&level_typing().name, props.name);
+        }
         ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
         const bool enter = ImGui::InputTextWithHint("##name", level.have_defaults_ ? own.name.c_str() : "Original",
                                                     level_typing().name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
@@ -417,10 +443,12 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         gui::text_disabled("Start");
         ImGui::TableNextColumn();
         std::string current = "(original)";
-        for (const auto& r : level.restarts)
+        for (const auto& r : level.restarts) {
             current = r.first == props.start ? r.second : current;
-        if (props.start && current == "(original)")
+        }
+        if (props.start && current == "(original)") {
             current = "(missing restart)";
+        }
         ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
         ImGui::PushFont(mono);
         if (ImGui::BeginCombo("##start", current.c_str())) {
@@ -520,8 +548,9 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         bool ambient = props.has_ambient_;
         if (ImGui::Checkbox("##ambient", &ambient)) {
             props.has_ambient_ = ambient;
-            if (ambient && level.have_defaults_)
+            if (ambient && level.have_defaults_) {
                 std::memcpy(props.ambient.data(), own.ambient.data(), sizeof(props.ambient));
+            }
             send_props(requests, props, true);
         }
         ImGui::SameLine();
@@ -531,12 +560,14 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
                            static_cast<float>(core::at(shown, 2)) / kChannelMax}};
         ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / ui_layout::kReferenceFontSize);
         if (ImGui::ColorEdit3("##ambientcolour", colour.data(), ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
-            for (int i = 0; i < 3; ++i)
+            for (int i = 0; i < 3; ++i) {
                 core::at(props.ambient, i) = level_props::get_channel(maths::round_non_negative<int>(core::at(colour, i) * kChannelMax));
+            }
             send_props(requests, props, false);
         }
-        if (ImGui::IsItemDeactivatedAfterEdit())
+        if (ImGui::IsItemDeactivatedAfterEdit()) {
             requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
+        }
         ImGui::EndDisabled();
         get_when(small_font, {.when = "live", .tip = "Ambient light colour"});
         // Fog.
@@ -547,8 +578,9 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         bool fog = props.has_fog_;
         if (ImGui::Checkbox("##fog", &fog)) {
             props.has_fog_ = fog;
-            if (fog && level.have_defaults_)
+            if (fog && level.have_defaults_) {
                 std::memcpy(props.fog.data(), own.fog.data(), sizeof(props.fog));
+            }
             send_props(requests, props, true);
         }
         ImGui::SameLine();
@@ -561,8 +593,9 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         if (ImGui::ColorEdit4("##fogcolour", fog_colour.data(),
                               ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB |
                                   ImGuiColorEditFlags_AlphaBar)) {
-            for (int i = 0; i < 4; ++i)
+            for (int i = 0; i < 4; ++i) {
                 core::at(props.fog, i) = level_props::get_channel(maths::round_non_negative<int>(core::at(fog_colour, i) * kChannelMax));
+            }
             changed = true;
         }
         bool done = ImGui::IsItemDeactivatedAfterEdit();
@@ -573,17 +606,20 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             changed = true;
         }
         done = done || ImGui::IsItemDeactivatedAfterEdit();
-        if (changed)
+        if (changed) {
             send_props(requests, props, false);
-        if (done)
+        }
+        if (done) {
             requests->push_back(Request{.kind = Request::Kind::kLevelPropsDone});
+        }
         ImGui::EndDisabled();
         get_when(small_font, {.when = "live", .tip = "Fog colour, alpha and distance (alpha 0: no fog)"});
         ImGui::EndTable();
     }
     if (!level_props::vacant(level.props)) {
-        if (ImGui::SmallButton("Revert All"))
+        if (ImGui::SmallButton("Revert All")) {
             send_props(requests, level_props::Props{}, true);
+        }
     }
 }
 

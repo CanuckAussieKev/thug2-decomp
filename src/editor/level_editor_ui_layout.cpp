@@ -37,8 +37,9 @@ constexpr float kInspectorWidth = 320.0F;
 
 float scale_for(int window_width, int window_height)
 {
-    if (window_width <= 0 || window_height <= 0)
+    if (window_width <= 0 || window_height <= 0) {
         return 1.0F;
+    }
     // 1 at 1920 x 1080 (Blender's and Unreal's 100 %), quarter steps from the smaller ratio - 1.25 at 2560 x 1440
     // (Windows' suggested 125 % for a 1440p screen), 2 at 4K; never below 0.875 (Inter at 12 px).
     double scale = std::min(window_width / kReferenceWidth, window_height / kReferenceHeight);
@@ -82,10 +83,12 @@ Layout compute(maths::Size window, float scale, bool outliner_open, bool inspect
         left = left > 0.0F ? std::max(minimum, left * (1.0F - shrink)) : 0.0F;
         right = right > 0.0F ? std::max(minimum, right * (1.0F - shrink)) : 0.0F;
         // (still too wide: the Inspector closes first, then the Outliner)
-        if (left + right > room && right > 0.0F)
+        if (left + right > room && right > 0.0F) {
             right = 0.0F;
-        if (left > room)
+        }
+        if (left > room) {
             left = 0.0F;
+        }
     }
     left = std::round(left);
     right = std::round(right);
@@ -153,8 +156,9 @@ std::string mark_letters(uint8_t marks)
 {
     std::string letters;
     for (int bit = 0; bit < kMaxMarkers; ++bit) {
-        if (marks & (1U << bit))
+        if (marks & (1U << bit)) {
             letters.push_back(core::at(kMarks, bit).letter);
+        }
     }
     return letters;
 }

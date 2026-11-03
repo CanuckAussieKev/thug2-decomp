@@ -56,8 +56,9 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
     for (size_t i = 0; i < points.size(); ++i) {
         float px = 0.0F;
         float py = 0.0F;
-        if (!project(core::at(points, i), &px, &py))
+        if (!project(core::at(points, i), &px, &py)) {
             continue;
+        }
         const float dd = ((px - x) * (px - x)) + ((py - y) * (py - y));
         if (best < 0 || dd < best_d) {
             best = static_cast<int>(i);
@@ -70,19 +71,23 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
 bool align_rows(std::span<V3, 3> rows, V3 normal)
 {
     const float n2 = get_dot(normal, normal);
-    if (n2 < kDegenerateLengthSquared)
+    if (n2 < kDegenerateLengthSquared) {
         return false;
+    }
     const V3 up = normal * (1.0F / std::sqrt(n2));
     std::array<float, 3> lengths{};
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 3; ++i) {
         core::at(lengths, i) = std::sqrt(get_dot(core::at(rows, i), core::at(rows, i)));
-    if (core::at(lengths, 2) < kDegenerateEdge)
+    }
+    if (core::at(lengths, 2) < kDegenerateEdge) {
         return false;
+    }
     // (the at row's heading kept: its part across the surface)
     V3 at = core::at(rows, 2) * (1.0F / core::at(lengths, 2));
     const V3 flat = at - up * get_dot(at, up);
-    if (get_dot(flat, flat) < kDegenerateAreaSquared)
+    if (get_dot(flat, flat) < kDegenerateAreaSquared) {
         return false;
+    }
     at = make_unit(flat);
     const V3 right = perpendicular(up, at); // (right = up x at, as the game's rows are)
     core::at(rows, 0) = right * core::at(lengths, 0);
@@ -102,8 +107,9 @@ bool get_cast(V3 from, V3 to, SurfaceHit* hit)
     render::ProbeRay* ray = &ray_storage;
     const maths::Vec4 start = {.x = from.x, .y = from.y, .z = from.z, .w = 1.0F};
     const maths::Vec4 end = {.x = to.x, .y = to.y, .z = to.z, .w = 1.0F};
-    if (!ray->get_collision_along(&start, &end, false))
+    if (!ray->get_collision_along(&start, &end, false)) {
         return false;
+    }
     const auto& normal = ray->hit().normal;
     const auto& point = ray->hit().point;
     hit->normal = {.x = normal[0], .y = normal[1], .z = normal[2]};
@@ -121,15 +127,17 @@ bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& sk
     // (the selection's own collision met first: the ray goes on from just past it - a few times at most)
     for (int tries = 0; tries < kMaxSelfHits; ++tries) {
         SurfaceHit h;
-        if (!get_cast(from, end, &h))
+        if (!get_cast(from, end, &h)) {
             return false;
+        }
         if (h.checksum == 0 || std::ranges::find(skip, h.checksum) == skip.end()) {
             *hit = h;
             return true;
         }
         from = h.point + dir * 1.0F;
-        if (get_dot(end - from, dir) <= 0.0F)
+        if (get_dot(end - from, dir) <= 0.0F) {
             return false;
+        }
     }
     return false;
 }
@@ -139,19 +147,22 @@ std::vector<V3> sector_vertices(checksums::Name sector, size_t limit)
     const uint32_t checksum = sector.value();
     std::vector<V3> out;
     const render::PcGeom* geom = scenery::sector_geometry(checksum);
-    if (!geom)
+    if (!geom) {
         return out;
+    }
     // (the geometry's meshes, +0x3C / +0x40 - as level_editor_scenery.cpp's ray_meshes reads them: each vertex's
     // position its first 12 bytes, where the sector is now)
     const std::span<render::MeshRef*> meshes = geom->meshes() ? geom->mesh_run() : std::span<render::MeshRef*>();
     const uint32_t count = geom->mesh_count();
     for (uint32_t i = 0; !meshes.empty() && i < count && i < kMeshScanLimit && out.size() < limit; ++i) {
         const render::MeshRef* mesh = core::at(meshes, i);
-        if (!mesh || mesh->billboard() || (mesh->flags() & kMeshHiddenFlag))
+        if (!mesh || mesh->billboard() || (mesh->flags() & kMeshHiddenFlag)) {
             continue;
+        }
         const render::VertexBuffer* vertices = mesh->vertex_buffer_count() ? core::at(mesh->vertex_buffers(), 0) : nullptr;
-        if (!vertices || !vertices->data() || mesh->stride() < kPositionBytes)
+        if (!vertices || !vertices->data() || mesh->stride() < kPositionBytes) {
             continue;
+        }
         for (uint32_t v = 0; v < mesh->vertex_count() && out.size() < limit; ++v) {
             const auto p = gpu::VertexView(vertices->data(), mesh->stride(), mesh->vertex_count()).float3(v);
             out.push_back({.x = core::at(p, 0), .y = core::at(p, 1), .z = core::at(p, 2)});

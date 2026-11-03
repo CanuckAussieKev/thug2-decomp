@@ -18,15 +18,17 @@ public:
     // Added (nothing if it is in already: the original's key could only be there once per object).
     void insert(T* object)
     {
-        if (!contains(object))
+        if (!contains(object)) {
             objects_.push_back(object);
+        }
     }
     // Taken out (nothing if it isn't in).
     void erase(const T* object)
     {
         const auto found = std::find(objects_.begin(), objects_.end(), object);
-        if (found != objects_.end())
+        if (found != objects_.end()) {
             objects_.erase(found);
+        }
     }
     [[nodiscard]] bool contains(const T* object) const
     {
@@ -48,8 +50,9 @@ public:
         for (size_t i = 0; i < objects_.size();) {
             const T* const visited = core::at(objects_, i);
             visit(core::at(objects_, i));
-            if (i < objects_.size() && core::at(objects_, i) == visited)
+            if (i < objects_.size() && core::at(objects_, i) == visited) {
                 ++i;
+            }
         }
     }
     // The first object `match(object)` is true for, or null.
