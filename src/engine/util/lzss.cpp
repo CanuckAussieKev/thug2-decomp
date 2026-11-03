@@ -219,8 +219,7 @@ int pack_up(std::span<const uint8_t> input, std::span<uint8_t> output, bool prin
     add_match_node(r);
 
     for (bool again = true; again; again = length > 0) {
-        if (longest_run_ref() > length)
-            longest_run_ref() = length;
+        longest_run_ref() = std::min(longest_run_ref(), length);
         if (longest_run_ref() <= kLiteralRunLimit) {
             longest_run_ref() = 1;
             core::at(code, 0) |= mask;

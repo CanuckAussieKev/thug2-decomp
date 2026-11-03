@@ -3,6 +3,7 @@
 
 #include "engine/gfx/scene_lights.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -158,8 +159,7 @@ public:
         const std::array<double, 3> sums = {{r, static_cast<float>(g), static_cast<float>(b)}};
         for (int i = 0; i < 3; ++i) {
             double v = core::at(bytes, i) + core::at(sums, i);
-            if (v > kByteMaxDouble)
-                v = kByteMaxDouble;
+            v = std::min(v, kByteMaxDouble);
             core::at(bytes, i) = static_cast<uint8_t>(static_cast<int64_t>(v));
         }
         return colour::packed_of(bytes);

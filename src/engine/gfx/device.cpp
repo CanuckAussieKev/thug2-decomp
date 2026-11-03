@@ -9,6 +9,7 @@
 #include <mmsystem.h>
 #include <dsound.h>
 
+#include <algorithm>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -157,8 +158,7 @@ void init_direct_3d()
     pp.EnableAutoDepthStencil = TRUE;
     // The resolution setting (0 = the largest) picks where to start; smaller ones are tried after.
     unsigned first = 3 - gfx.resolution_setting();
-    if (first > 3)
-        first = 3;
+    first = std::min<unsigned int>(first, 3);
     // Originally from PartyMod Fixes (its DWords at 0x004D8776 / 0x004D8792): the smallest, 640x480, is its window's size.
     const std::array<int, 4> widths = {{1280, 1024, 800, sys::get_window_width()}};
     const std::array<int, 4> heights = {{1024, 768, 600, sys::get_window_height()}};

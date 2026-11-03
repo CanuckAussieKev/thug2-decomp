@@ -4,6 +4,7 @@
 // Float arithmetic follows the original's x87 code at 53-bit precision: intermediate results are doubles, rounded
 // to float only where the original stores them.
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -169,8 +170,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
         held_time += kUnsignedOffset; // (unsigned)
     auto seconds = static_cast<float>(held_time * kMilliseconds);
     const float push_time = script::fetch_float(kLeanPushTime);
-    if (seconds > push_time)
-        seconds = push_time;
+    seconds = std::min(seconds, push_time);
     if (pad->right_side().held_down())
         seconds = -seconds;
     const double length = script::fetch_float(kLeanPushLength);

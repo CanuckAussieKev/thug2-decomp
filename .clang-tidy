@@ -35,6 +35,7 @@ Checks:
   - 'readability-simplify-boolean-expr'
   - 'readability-static-definition-in-anonymous-namespace'
   - 'readability-use-concise-preprocessor-directives'
+  - 'readability-use-std-min-max'
   - 'clang-analyzer-*'
 
   # --- off: they conflict with the project's decisions ---

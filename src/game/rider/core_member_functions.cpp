@@ -1,6 +1,7 @@
 // The skater core physics component's script member functions (its table at 0x006826C8): the flags and values
 // scripts set and ask about, and a few small actions (0x004FBE80-0x004FDD47).
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <array>
@@ -735,8 +736,7 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
     objects::GameEntity* object = object_of(this);
     maths::Vec4& velocity = object->vel();
     float upward = velocity.y;
-    if (upward < 0.0f)
-        upward = 0.0f;
+    upward = std::max(upward, 0.0f);
     velocity.y = upward;
     velocity.y =
         static_cast<float>(static_cast<double>(tuning_float_lookup(kCarPlantUpwardBoost, object)) + velocity.y);

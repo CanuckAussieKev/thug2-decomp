@@ -2,6 +2,7 @@
 
 #include "engine/objects/rail_manager.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -92,15 +93,12 @@ double span4(const std::array<float, 4>& values)
     double low = a;
     if (b < a)
         low = b;
-    if (c < low)
-        low = c;
-    if (d < low)
-        low = d;
+    low = std::min<double>(low, c);
+    low = std::min<double>(low, d);
     double high = a;
     if (b > a)
         high = b;
-    if (c > high)
-        high = c;
+    high = std::max<double>(high, c);
     if (d > high)
         return d - low;
     return high - low;

@@ -6,6 +6,7 @@
 #include "engine/core/enum_ops.h"
 #include "engine/net/net_lists.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -373,8 +374,7 @@ void AppHost::send_bulk_to_conn(Conn* conn, BulkHead head, void* data, const cha
             StreamPieceMessage piece;
             for (int sent = first; std::cmp_less(sent, size);) {
                 int length = size - sent;
-                if (length > kStreamPieceSize)
-                    length = kStreamPieceSize;
+                length = std::min(length, kStreamPieceSize);
                 piece.build(alloc_stream_key(conn), bytes.subspan(static_cast<size_t>(sent)).data(), length);
                 message.set_content(piece.bytes().data());
                 message.set_byte_count(piece.size());
@@ -565,8 +565,7 @@ void AppHost::pump_stream_traffic()
         if (queued >= max_queued)
             continue;
         int budget = max_queued - queued;
-        if (budget > max_per_frame)
-            budget = max_per_frame;
+        budget = std::min(budget, max_per_frame);
 
         lists::Hunt<ListNode> links;
         ListNode* link = links.head_element(get_streams(conn));
@@ -582,8 +581,7 @@ void AppHost::pump_stream_traffic()
                     break;
                 }
                 int length = size - sent;
-                if (length > kStreamPieceSize)
-                    length = kStreamPieceSize;
+                length = std::min(length, kStreamPieceSize);
                 piece.build(stream->stream_id(), stream->succ(), length);
                 message.set_ident(wire::MessageId::kBulkChunk);
                 message.set_byte_count(piece.size());

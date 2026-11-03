@@ -10,6 +10,7 @@
 #include "engine/gfx/viewport.h"
 #include "game/skate/skate_module.h"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -763,8 +764,7 @@ void DrivableModule::seal()
     float lowest = core::at(colliders_, 0).corner.y;
     for (int i = 1; i >= 0; --i) {
         const Collider& c = core::at(colliders_, i);
-        if (c.corner.y < lowest)
-            lowest = c.corner.y;
+        lowest = std::min(lowest, c.corner.y);
         for (const maths::Vec4& edge : c.edges) {
             const double end = static_cast<double>(edge.y) + c.corner.y;
             if (end < lowest)
@@ -852,8 +852,7 @@ void DrivableModule::tick_frame()
         step_length_ = frame;
     } else {
         steps = static_cast<int>(static_cast<int64_t>(std::ceil(static_cast<double>(frame) * kStepsPerSecond)));
-        if (steps > kMaxSteps)
-            steps = kMaxSteps;
+        steps = std::min(steps, kMaxSteps);
         step_length_ = static_cast<float>(frame / static_cast<double>(steps));
     }
     while (steps != 0) {

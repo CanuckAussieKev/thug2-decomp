@@ -4,6 +4,7 @@
 // Float arithmetic follows the original's x87 code at 53-bit precision: intermediate results are doubles, rounded
 // to float only where the original stores them.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <array>
@@ -446,8 +447,7 @@ void SkaterPhysicsModule::check_side_feeler(const maths::Vec4* start, const math
     sum.y = normal.y + sum.y;
     sum.z = normal.z + sum.z;
     sum.w = normal.w + sum.w;
-    if (feeler_.reach() < side_nearest_)
-        side_nearest_ = feeler_.reach();
+    side_nearest_ = std::min(side_nearest_, feeler_.reach());
     core::at(side_hit_times_, side) = get_now();
 }
 

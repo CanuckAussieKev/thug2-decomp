@@ -1,5 +1,6 @@
 #include "engine/core/arena_alloc.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <new>
@@ -138,8 +139,7 @@ std::span<uint8_t> Zone::carve(MemSource* allocator, int size, int /*unused*/)
     }
     allocator->top_side() = static_cast<uint32_t>(new_top);
     const int available = free_byte_count();
-    if (available < min_available_)
-        min_available_ = available;
+    min_available_ = std::min(min_available_, available);
     return memory_.subspan(static_cast<std::size_t>(result), static_cast<std::size_t>(size));
 }
 

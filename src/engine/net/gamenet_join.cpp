@@ -5,6 +5,7 @@
 // THUGPRO's refusal reasons are shown in words, and as host the GameSpy CD-key check is left out; bounds on what the
 // host reads from a request.
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -732,8 +733,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         // reads zeros, not past the message).
         std::array<uint8_t, kAppearanceSize> appearance{};
         size_t size = reader.remaining();
-        if (size > kAppearanceSize)
-            size = kAppearanceSize;
+        size = std::min(size, kAppearanceSize);
         std::memset(appearance.data(), 0, kAppearanceSize);
         reader.bytes(appearance.data(), size);
         player->account()->decode_from_bytes(appearance.data(), sizeof(appearance));

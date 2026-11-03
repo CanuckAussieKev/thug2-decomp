@@ -4,6 +4,7 @@
 #include "game/rider/vehicle_camera.h"
 #include "platform/d3dx.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
@@ -145,8 +146,7 @@ void CarView::update_target_direction()
         return;
     }
     double scale = static_cast<double>(speed) * kSpeedScale;
-    if (scale > 1.0)
-        scale = 1.0;
+    scale = std::min(scale, 1.0);
     const maths::Vec4& at = core::at(subject_->basis_frame().row, 2);
     const double a = -at.x;
     const double b = -at.y;
@@ -237,8 +237,7 @@ void CarView::tick_frame()
                           static_cast<double>(target_direction_.z) * direction_.x >
                       0.0;
     double step = frame_clock::get_slomo_frame_seconds() * lerp_ * angle;
-    if (step > angle)
-        step = angle;
+    step = std::min<double>(step, angle);
     const double turn = (left ? 1.0f : -1.0f) * step;
     double x = 0.0, z = 0.0;
     maths::spin_by(turn, direction_.x, direction_.z, &x, &z);

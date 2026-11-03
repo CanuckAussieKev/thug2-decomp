@@ -5,6 +5,7 @@
 #include "platform/d3dx.h"
 #include "engine/script/trick_cfuncs.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -948,8 +949,7 @@ bool cfunc_shatter(script::Struct* params, script::Script* script)
     float minimum_area = kDefaultMinimumArea;
     if (modules::Skate::is_multiplayer())
         minimum_area = kNodeObjectMinimumArea; // (5000)
-    if (area < minimum_area)
-        area = minimum_area;
+    area = std::max(area, minimum_area);
     render::engine::change_breakup_settings({.velocity = &velocity, .vector_210e_ = &vector, .value_c483_ = value_c483, .area = area, .speed = value_bd30, .velocity_scale_ = value_834a, .lifetime = value_e632, .floor = value_7d_c3, .bounce = value_f_01b, .value_2e_1c_ = value_2e_1c, .texture = checksum_b_3d_e, .value_af_1a_ = checksum_af_1a, .value_33d_f_ = value_33d_f});
     return node_command_by_name(params, script, kNodeActionShatter);
 }

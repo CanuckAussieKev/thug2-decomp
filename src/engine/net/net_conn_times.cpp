@@ -1,6 +1,7 @@
 // NetLink::Conn's communication times (the last ones below Conn's own range, 0x00455970 on: net_conn.cpp). See
 // net_conn.h.
 
+#include <algorithm>
 #include <cstdint>
 
 #include "engine/net/net_conn.h"
@@ -12,8 +13,7 @@ namespace net {
 void Conn::stamp_last_heard(uint32_t extra)
 {
     const uint32_t time = frame_clock::get_time() + extra;
-    if (time > last_heard_from_)
-        last_heard_from_ = time;
+    last_heard_from_ = std::max(last_heard_from_, time);
 }
 
 // 0x00455940

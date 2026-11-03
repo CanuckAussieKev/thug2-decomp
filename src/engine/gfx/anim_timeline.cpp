@@ -2,6 +2,7 @@
 // the base animation controller's members and the base animation event's destructor body
 // (0x00481380-0x004819E6, but 0x004817D0). From the disassembly.
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 
@@ -151,10 +152,8 @@ double AnimTimeline::next_time()
     } else if (!complete_ || repeat_mode_ != kCycle) {
         time = stepped;
     }
-    if (time < outset_)
-        time = outset_;
-    if (time > finish_)
-        time = finish_;
+    time = std::max<double>(time, outset_);
+    time = std::min<double>(time, finish_);
     return time;
 }
 

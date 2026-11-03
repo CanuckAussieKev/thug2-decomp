@@ -4,6 +4,7 @@
 #include "engine/sound/sfx.h"
 #include "platform/mute_audio.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -419,8 +420,7 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
         } else {
             if (left > core::at(volume->lanes(), 0))
                 core::at(volume->lanes(), 0) = static_cast<float>(left);
-            if (right > core::at(volume->lanes(), 1))
-                core::at(volume->lanes(), 1) = right;
+            core::at(volume->lanes(), 1) = std::max(core::at(volume->lanes(), 1), right);
         }
     }
     volume->set_dropoff(dropoff);
@@ -662,8 +662,7 @@ void init_voices(AudioMixer* manager)
         voice_count() = kMaxVoices;
     } else {
         voice_count() = static_cast<int>(mixing - 4);
-        if (voice_count() > kMaxVoices)
-            voice_count() = kMaxVoices;
+        voice_count() = std::min(voice_count(), kMaxVoices);
     }
     if (!has_3d())
         return;

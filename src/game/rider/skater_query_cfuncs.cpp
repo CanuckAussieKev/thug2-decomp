@@ -2,6 +2,7 @@
 
 #include "game/rider/skater_query_cfuncs.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <array>
@@ -197,8 +198,7 @@ bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
         modules::PointTally* score = get_score_of(player->skater());
         if (lowest == -1 || total_score(score) < lowest)
             lowest = total_score(score);
-        if (total_score(score) > highest)
-            highest = total_score(score);
+        highest = std::max(highest, total_score(score));
     }
     if (in_game <= 1)
         return true;

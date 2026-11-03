@@ -3,6 +3,7 @@
 
 #include "engine/script/nodes.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <array>
@@ -131,8 +132,7 @@ void fetch_facing(Struct* node, maths::Mat4* out)
     // (x87, 53-bit: the squares summed z, y, x in double, w = sqrt(1 - min(sum, 1)) rounded once)
     double sum = static_cast<double>(v.z) * v.z + static_cast<double>(v.y) * v.y;
     sum += static_cast<double>(v.x) * v.x;
-    if (sum > 1.0)
-        sum = 1.0;
+    sum = std::min(sum, 1.0);
     const std::array<float, 4> quat = {{v.x, v.y, v.z, static_cast<float>(std::sqrt(1.0 - sum))}};
     quat_to_matrix(quat, out);
 }

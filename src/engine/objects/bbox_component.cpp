@@ -5,6 +5,7 @@
 #include "engine/objects/bbox_component.h"
 #include "platform/d3dx.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
@@ -159,15 +160,11 @@ double rect_radius_sqr(CbBoxComponent::Rect2* rect)
     if (rect->radius_computed_)
         return rect->reach_squared_;
     float size = std::fabs(rect->separation_);
-    if (std::fabs(rect->level_y_) > size)
-        size = std::fabs(rect->level_y_);
-    if (std::fabs(rect->span_) > size)
-        size = std::fabs(rect->span_);
+    size = std::max(size, std::fabs(rect->level_y_));
+    size = std::max(size, std::fabs(rect->span_));
     float offset = std::fabs(rect->shift_.z);
-    if (std::fabs(rect->shift_.y) > offset)
-        offset = std::fabs(rect->shift_.y);
-    if (std::fabs(rect->shift_.x) > offset)
-        offset = std::fabs(rect->shift_.x);
+    offset = std::max(offset, std::fabs(rect->shift_.y));
+    offset = std::max(offset, std::fabs(rect->shift_.x));
     rect->radius_computed_ = true;
     const double sum = static_cast<double>(size) + offset;
     const double square = sum * sum;

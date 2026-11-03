@@ -3,6 +3,7 @@
 
 #include "frontend/model_widget.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -227,16 +228,11 @@ void ModelWidget::scale_to_screen_dims()
         }
         if (low_x < min_x)
             min_x = static_cast<float>(low_x);
-        if (low_y < min_y)
-            min_y = low_y;
-        if (low_z < min_z)
-            min_z = low_z;
-        if (high_x > max_x)
-            max_x = high_x;
-        if (high_y > max_y)
-            max_y = high_y;
-        if (high_z > max_z)
-            max_z = high_z;
+        min_y = std::min(min_y, low_y);
+        min_z = std::min(min_z, low_z);
+        max_x = std::max(max_x, high_x);
+        max_y = std::max(max_y, high_y);
+        max_z = std::max(max_z, high_z);
     }
     const double extent_x = static_cast<double>(max_x) - min_x;
     const float extent_y = max_y - min_y;
@@ -598,10 +594,8 @@ void ModelWidget::tick_frame()
         double distance = std::sqrt(static_cast<double>(away.x) * away.x + static_cast<double>(away.z) * away.z +
                                     static_cast<double>(away.y) * away.y) *
                           distance_scale_;
-        if (distance < 1.0f)
-            distance = 1.0f;
-        if (distance > max_scale_)
-            distance = max_scale_;
+        distance = std::max<double>(distance, 1.0f);
+        distance = std::min<double>(distance, max_scale_);
         scale.x = static_cast<float>(scale.x * distance);
         scale.y = static_cast<float>(scale.y * distance);
         scale.z = static_cast<float>(scale.z * distance);

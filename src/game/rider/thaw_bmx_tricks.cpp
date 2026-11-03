@@ -5,6 +5,7 @@
 // addition at the user's request - not THUG2's code and not PartyMod's. Read from THAW's reference build
 // (game/rider/thaw_bmx.h - no tracing); our THUG2 functions call these only while ThawBmx::live_now(core).
 
+#include <algorithm>
 #include <cstddef>
 #include <cmath>
 #include <cstdint>
@@ -425,8 +426,7 @@ void carry_tire_tap(SkaterPhysicsModule* core, BikeState& state)
         if (step.lands) {
             // (THAW: its ledge state 7 and Landed; ours: on the point, falling no more - THUG2's ground check lands
             // the bike on it next.)
-            if (velocity.y > 0.0f)
-                velocity.y = 0.0f;
+            velocity.y = std::min(velocity.y, 0.0f);
             state.landed_from_tire_tap_ = state.tap_ledge_;
         }
     } else {

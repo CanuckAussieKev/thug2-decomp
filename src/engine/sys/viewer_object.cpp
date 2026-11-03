@@ -3,6 +3,7 @@
 #include "engine/sys/viewer_object.h"
 #include "platform/d3dx.h"
 
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <span>
@@ -313,8 +314,7 @@ void PreviewEntity::scale_anim_rate(float speed)
     speed_ = speed;
     if (speed > 1.0f)
         speed_ = 1.0f;
-    if (speed_ < 0.0f)
-        speed_ = 0.0f;
+    speed_ = std::max(speed_, 0.0f);
     if (get_animation(this)) {
         get_animation(this)->first_channel_47e_850(speed_, 0.0f, 0.0f, 0.0f);
         const script::StructPtr params = script::make_struct();

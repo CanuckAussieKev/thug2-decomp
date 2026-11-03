@@ -6,6 +6,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "engine/gfx/engine_shadows.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <cmath>
@@ -368,8 +369,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
         auto lowered = static_cast<float>(level_y_ - (static_cast<double>(height) - cursor_.y));
         if (!simple_collision_ || entity()->ident() == kRailEditor || get_global(kGoalEditorObjectHeight) < level_y_)
             level_y_ = lowered;
-        if (level_y_ < min_height_)
-            level_y_ = min_height_;
+        level_y_ = std::max(level_y_, min_height_);
         cursor_.y = height;
         return true;
     }
@@ -436,8 +436,7 @@ void EditorViewModule::tick_frame()
     lean_angle_ = static_cast<float>(tilt);
     if (tilt > max_tilt_)
         lean_angle_ = max_tilt_;
-    if (lean_angle_ < min_tilt_)
-        lean_angle_ = min_tilt_;
+    lean_angle_ = std::max(lean_angle_, min_tilt_);
 
     // The zoom and height buttons by controller type.
     bool zoom_in = false, zoom_out = false, raise = false, lower = false;
@@ -474,8 +473,7 @@ void EditorViewModule::tick_frame()
     zoom_ = static_cast<float>(zoom);
     if (zoom < min_zoom_)
         zoom_ = min_zoom_;
-    if (zoom_ > max_zoom_)
-        zoom_ = max_zoom_;
+    zoom_ = std::min(zoom_, max_zoom_);
     auto zoom_fraction =
         static_cast<float>((static_cast<double>(zoom_) - min_zoom_) / (static_cast<double>(max_zoom_) - min_zoom_));
 
@@ -536,8 +534,7 @@ void EditorViewModule::tick_frame()
     }
     if (rise < 0.0f && min_height_ <= (static_cast<double>(level_y_) - rise) + kHeightSlack && level_y_ < min_height_)
         level_y_ = min_height_;
-    if (level_y_ < 0.0f)
-        level_y_ = 0.0f;
+    level_y_ = std::max(level_y_, 0.0f);
 
     // The heading's axes.
     const float heading_now = heading_;

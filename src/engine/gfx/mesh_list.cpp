@@ -6,6 +6,7 @@
 
 #include <unknwn.h> // IUnknown
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -208,12 +209,10 @@ void SceneRef::recount()
         if (!get_transparent(material))
             continue;
         ++transparent_count_;
-        if (i < first_transparent_)
-            first_transparent_ = i;
+        first_transparent_ = std::min(first_transparent_, i);
         if (material->sort_flag()) {
             ++flagged_count_;
-            if (i < first_flagged_)
-                first_flagged_ = i;
+            first_flagged_ = std::min(first_flagged_, i);
         }
     }
 }

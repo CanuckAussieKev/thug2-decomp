@@ -256,8 +256,7 @@ bool set_world_brightness(float target)
     for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
         float& intensity = core::at(light_sets().intensities(), i);
         intensity = get_scaled(brightness, core::at(light_sets().world_lighting().light_low_, i), core::at(light_sets().world_lighting().light_high_, i));
-        if (intensity < min_intensity())
-            intensity = min_intensity();
+        intensity = std::max(intensity, min_intensity());
     }
     update_all_lights();
     return true;

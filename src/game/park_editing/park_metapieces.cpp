@@ -3,6 +3,7 @@
 // other abstract metapieces); a concrete one (placed in the park or held by the cursor) holds cloned pieces, which it
 // moves and turns with itself.
 
+#include <algorithm>
 #include <cstdint>
 #include <utility>
 #include <array>
@@ -249,8 +250,7 @@ void PieceGroup::get_bounds(maths::Vec4* max, maths::Vec4* min)
             min->z = static_cast<float>(z - half_z);
         if (half_z + z > max->z)
             max->z = static_cast<float>(half_z + z);
-        if (y < min->y)
-            min->y = y;
+        min->y = std::min(min->y, y);
         if (static_cast<double>(size.y) + y > max->y)
             max->y = static_cast<float>(static_cast<double>(size.y) + y);
     }
@@ -373,8 +373,7 @@ void PieceGroup::finish_pieces()
     cell_footprint_.l = get_cells(exact_z, kGridStepAlong);
     cell_footprint_.h = get_cells(size_y, kGridStepUp);
     cell_footprint_.w = get_cells(size_x, kGridPitch);
-    if (cell_footprint_.h < 1)
-        cell_footprint_.h = 1;
+    cell_footprint_.h = std::max<uint8_t>(cell_footprint_.h, 1);
     // The pieces moved so that the metapiece's centre is the origin (x and z).
     const double half_x = size_x * 0.5;
     const double half_z = static_cast<double>(size_z) * 0.5;
@@ -490,8 +489,7 @@ void PieceBlueprint::insert_tile(ParkPiece* piece, CellBox* pos, int rot, bool s
     entry->sets_floor_ = sets_floor;
     entry->piece = source->sector();
     grow_to_take(cell_footprint(), pos);
-    if (cell_footprint().h < 1)
-        cell_footprint().h = 1;
+    cell_footprint().h = std::max<uint8_t>(cell_footprint().h, 1);
 }
 
 void PieceBlueprint::add_meta_piece(PieceGroup* meta, CellBox* pos, MetaPlacement meta_placement)

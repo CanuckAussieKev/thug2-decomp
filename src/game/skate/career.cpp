@@ -2,6 +2,7 @@
 
 #include "game/skate/career.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -219,8 +220,7 @@ void RiderStoryProgress::set_flag_5e_f(uint8_t value) { flag_5e_f_ = value; }
 void RiderStoryProgress::set_value634(int value)
 {
     value634_ = value;
-    if (value > max_value634_)
-        max_value634_ = value;
+    max_value634_ = std::max(max_value634_, value);
 }
 
 // 0x00584680

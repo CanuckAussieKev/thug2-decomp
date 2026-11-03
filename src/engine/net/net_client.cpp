@@ -4,6 +4,7 @@
 
 #include <winsock2.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
@@ -193,8 +194,7 @@ void Guest::flush_outbox(Conn* conn)
                     uint32_t latency =
                         (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency())) +
                         kLatencyPadding;
-                    if (latency > max_latency())
-                        latency = max_latency();
+                    latency = std::min(latency, max_latency());
                     add_latency(conn, latency);
                 }
                 sent = now;

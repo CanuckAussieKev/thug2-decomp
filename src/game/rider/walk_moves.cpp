@@ -4,6 +4,7 @@
 
 #include "game/rider/walk_physics.h"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -700,8 +701,7 @@ void FootMovement::update_anim_wait()
     position.z = between.z + carried.z;
     position.w = between.w + carried.w;
     double turn_part = t / static_cast<double>(transition_rate_);
-    if (turn_part > 1.0)
-        turn_part = 1.0;
+    turn_part = std::min(turn_part, 1.0);
     const double turn = transition_turn_;
     const double angle = turn * turn_part - turn;
     maths::Vec4& facing = facing_;
@@ -1142,8 +1142,7 @@ bool FootMovement::try_barrier_jump()
             --tries;
             hit = feeler->get_hit_shape(true, false);
         }
-        if (top > start.y)
-            top = start.y;
+        top = std::min(top, start.y);
     }
 
     // Over it: up fast enough to clear it by barrier_jump_min_clearance.

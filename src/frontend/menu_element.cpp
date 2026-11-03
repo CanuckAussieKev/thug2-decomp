@@ -3,6 +3,7 @@
 #include "frontend/menu_element.h"
 #include "frontend/screen_element_manager.h"
 
+#include <algorithm>
 #include <cstdint>
 #include "engine/objects/signal.h"
 #include "engine/objects/tracker.h"
@@ -114,8 +115,7 @@ void MenuBase::change_traits(script::Struct* params)
 void MenuBase::move_selection(int direction, bool stay, bool grid_x)
 {
     int tries = child_total() * 2;
-    if (selected_index_ < 0)
-        selected_index_ = 0;
+    selected_index_ = std::max(selected_index_, 0);
     while (tries != 0) {
         if (!stay) {
             const int index = selected_index_ + direction;

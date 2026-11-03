@@ -5,6 +5,7 @@
 #include "engine/gfx/face_texture_cfuncs.h"
 #include "engine/gfx/engine_texture.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <array>
@@ -344,12 +345,9 @@ bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
     float min = r;
     if (g < r)
         min = g;
-    if (g > max)
-        max = g;
-    if (b < min)
-        min = b;
-    if (b > max)
-        max = b;
+    max = std::max(max, g);
+    min = std::min(min, b);
+    max = std::max(max, b);
     auto delta = static_cast<float>(static_cast<double>(max) - min);
 
     float s = 0.0f;

@@ -2,6 +2,7 @@
 
 #include "game/rider/manual_balance.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <new>
@@ -141,8 +142,7 @@ void Balance::show_display() { hide_display_ = false; }
 // 0x00579920
 void Balance::keep_best_time()
 {
-    if (clock_ > best_time_)
-        best_time_ = clock_;
+    best_time_ = std::max(best_time_, clock_);
     clock_ = 0.0f;
 }
 

@@ -1,6 +1,7 @@
 // The network manager's session handlers (online::Hub): the server's answer to a LAN search, the host's options,
 // the game's state for a joining player, the level change and the start of a game. See gamenet_handlers.h.
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -180,10 +181,8 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     info.max_players = static_cast<int8_t>(manager->get_player_limit());
     info.num_observers = static_cast<int8_t>(manager->count_observers());
     info.max_observers = static_cast<int8_t>(manager->get_spectator_limit());
-    if (info.max_players < info.num_players)
-        info.max_players = info.num_players;
-    if (info.max_observers < info.num_observers)
-        info.max_observers = info.num_observers;
+    info.max_players = std::max(info.max_players, info.num_players);
+    info.max_observers = std::max(info.max_observers, info.num_observers);
     info.password = *manager->fetch_secret() != '\0';
     info.in_game = get_game_type() != kNetLobby;
     info.host_mode = static_cast<uint8_t>(manager->get_hosting_role());

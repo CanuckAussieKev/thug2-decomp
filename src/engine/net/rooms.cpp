@@ -7,6 +7,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdint>
 #include "engine/net/service.h"
 #include <cstring>
@@ -170,8 +171,7 @@ void update_rank(LobbyPlayer* player, const char* value)
     player->skill_points_ = text::to_int(value);
     const double rank = static_cast<double>(player->skill_points_) * kRankScale * render::kFloatTen;
     int shown = static_cast<int>(rank); // (truncated, as _ftol)
-    if (shown > kMaxRank)
-        shown = kMaxRank;
+    shown = std::min(shown, kMaxRank);
     const script::StructPtr params = script::make_struct();
     params->put_name_key(checksums::Name{kId}, checksums::hash_from_text(player->nick_.data()));
     params->put_int(checksums::Name{kRank}, shown);

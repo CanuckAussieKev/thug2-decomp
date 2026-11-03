@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <dinput.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -585,8 +586,7 @@ const char* get_button_key_name(int button)
         convert_key_name(key_binding(os_layer::kBindSwitchRevert));
         const size_t used = std::strlen(key_name_result().data()); // (the original's strcat is unbounded)
         size_t length = std::strlen(name_buffer().data());
-        if (length > sizeof(key_name_result()) - 1 - used)
-            length = sizeof(key_name_result()) - 1 - used;
+        length = std::min(length, sizeof(key_name_result()) - 1 - used);
         std::memcpy(std::span<char>(key_name_result()).subspan(used).data(), name_buffer().data(), length);
         core::at(key_name_result(), used + length) = '\0';
     }

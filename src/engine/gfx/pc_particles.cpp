@@ -6,6 +6,7 @@
 
 #include <d3d9.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -423,8 +424,7 @@ void PcParticleSystem::draw(bool advance)
                 os_layer::lock_dynamic_vertices(remaining * 4, sizeof(ParticleVertex), &buffer, {.first_vertex_ = &first_vertex, .room = &room}));
             core::Cursor<ParticleVertex> vertex(std::span<ParticleVertex>(locked, room));
             room >>= 2;
-            if (room > kMaxRoom)
-                room = kMaxRoom;
+            room = std::min<uint32_t>(room, kMaxRoom);
             uint32_t quads = 0;
             if (index < burst->count) {
                 double t = age;

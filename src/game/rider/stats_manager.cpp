@@ -2,6 +2,7 @@
 
 #include "game/rider/stats_manager.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
@@ -478,8 +479,7 @@ void AttributeTracker::tick_frame()
                     air_height_ = static_cast<float>(height);
                 air_score_ = truncate((static_cast<double>(multiplier) - air_start_multiplier_) *
                                       get_minus(path_vertices_, air_start_points_));
-                if (air_score_ >= air_best_)
-                    air_best_ = air_score_;
+                air_best_ = std::max(air_best_, air_score_);
             }
         } else if (last_state_ == kStateLaunched) {
             if (air_phase_ == 1) {

@@ -2,6 +2,7 @@
 
 #include "game/skate/contest.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <new>
@@ -452,10 +453,8 @@ void Contest::end_run(int score)
 
     // The two other judges near the lowest of the three.
     float lowest = core::at(judges, 0);
-    if (core::at(judges, 1) < lowest)
-        lowest = core::at(judges, 1);
-    if (core::at(judges, 2) < lowest)
-        lowest = core::at(judges, 2);
+    lowest = std::min(lowest, core::at(judges, 1));
+    lowest = std::min(lowest, core::at(judges, 2));
     debug::printf("Lowest = %f\n", static_cast<double>(lowest));
     const float base = lowest - spread;
     for (int i = 3; i < kJudges; ++i) {

@@ -280,8 +280,7 @@ V3 launch_velocity(const Lip& lip, LaunchSpeeds speeds)
     const auto speed = speeds.speed;
     const auto jump = speeds.jump;
     V3 v = lip.tangent * speed;
-    if (v.y < 0.0f)
-        v.y = 0.0f;
+    v.y = std::max(v.y, 0.0f);
     v.y += jump;
     return v;
 }

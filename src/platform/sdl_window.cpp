@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cstddef>
@@ -141,10 +142,8 @@ void create_sdl_window()
         sdl_window_state().client_width_ = desktop.w;
         sdl_window_state().client_height_ = desktop.h;
     }
-    if (sdl_window_state().client_width_ < kMinClientWidth)
-        sdl_window_state().client_width_ = kMinClientWidth;
-    if (sdl_window_state().client_height_ < kMinClientHeight)
-        sdl_window_state().client_height_ = kMinClientHeight;
+    sdl_window_state().client_width_ = std::max(sdl_window_state().client_width_, kMinClientWidth);
+    sdl_window_state().client_height_ = std::max(sdl_window_state().client_height_, kMinClientHeight);
 
     const int position = window_position();
     sdl_window_state().window_ = SDL_CreateWindow("THUG2", position, position, sdl_window_state().client_width_,

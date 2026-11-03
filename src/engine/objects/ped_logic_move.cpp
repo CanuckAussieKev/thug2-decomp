@@ -5,6 +5,7 @@
 // original stores are rounded to float, the ones it keeps on the FPU stack are worked in double; FSIN / FCOS results
 // are used at their full precision where the original goes on computing with them.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <span>
@@ -224,8 +225,7 @@ float PedestrianBrainModule::steer_sideways()
     for (int i = 0; i < 4; ++i) {
         auto quarter = static_cast<float>(static_cast<double>(i) * kQuarterTurn);
         double weight = static_cast<double>(core::at(bias_, i)) + core::at(avoid_, i);
-        if (weight > 1.0)
-            weight = 1.0;
+        weight = std::min(weight, 1.0);
         sum = sum - std::sin(static_cast<double>(quarter)) * weight;
         if (sum >= 1.0)
             return 1.0f;
@@ -694,8 +694,7 @@ void PedestrianBrainModule::spin_update()
     auto elapsed = static_cast<float>(static_cast<double>(step_seconds_) + spin_elapsed_);
     spin_elapsed_ = elapsed;
     double fraction = static_cast<double>(step_seconds_) / spin_time_;
-    if (fraction > 1.0)
-        fraction = 1.0;
+    fraction = std::min(fraction, 1.0);
     auto turn = static_cast<float>(static_cast<double>(kHalfDegrees) - vert_rotation_target_);
     const uint32_t flags = flag_bits_;
     if (flags & kPedFlagSpinning)

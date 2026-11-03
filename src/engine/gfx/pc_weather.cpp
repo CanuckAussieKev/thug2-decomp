@@ -7,6 +7,7 @@
 
 #include <d3d9.h>
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <limits>
@@ -154,8 +155,7 @@ int clamp_column(const WeatherRow& row, int x)
     int column = row.first;
     if (x > column) {
         column = row.last;
-        if (x < column)
-            column = x;
+        column = std::min(column, x);
     }
     return column;
 }

@@ -4,6 +4,7 @@
 
 #include "game/park_editing/rail_editor.h"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -473,10 +474,8 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
     float low = kFar, high = -kFar;
     for (int i = 0; i < count; ++i) {
         const float y = core::at(vertices, i).y;
-        if (y < low)
-            low = y;
-        if (y > high)
-            high = y;
+        low = std::min(low, y);
+        high = std::max(high, y);
     }
     // Leaning along the rail at an inner point: the post narrower as the rail climbs.
     float width = kPostWidth;

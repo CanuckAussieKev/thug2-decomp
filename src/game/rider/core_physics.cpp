@@ -3,6 +3,7 @@
 
 #include "game/rider/core_physics.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -351,8 +352,7 @@ void SkaterPhysicsModule::check_for_ground()
                                                    static_cast<double>(my) * my);
                     auto reach = static_cast<float>(std::tan(std::acos(static_cast<double>(cosine))) * moved);
                     const float least = tuning_float_lookup(0x899BA3D0, object);
-                    if (reach < least)
-                        reach = least;
+                    reach = std::max(reach, least);
                     if (distance > reach)
                         keep = false;
                 }

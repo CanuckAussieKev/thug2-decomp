@@ -2,6 +2,7 @@
 
 #include "game/park/park_memory.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -351,14 +352,11 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     // The pools: compared after rounding.
     stats.component_usage_ =
         pool_usage(script::component_pools(), "component_use_base", stats.components); // "component_use_base"
-    if (stats.max_usage_ < stats.component_usage_)
-        stats.max_usage_ = stats.component_usage_;
+    stats.max_usage_ = std::max(stats.max_usage_, stats.component_usage_);
     stats.vector_usage_ = pool_usage(script::vector_pools(), "vector_use_base", stats.vectors); // "vector_use_base"
-    if (stats.max_usage_ < stats.vector_usage_)
-        stats.max_usage_ = stats.vector_usage_;
+    stats.max_usage_ = std::max(stats.max_usage_, stats.vector_usage_);
     stats.array_usage_ = pool_usage(script::array_pools(), "CArray_use_base", stats.arrays); // "CArray_use_base"
-    if (stats.max_usage_ < stats.array_usage_)
-        stats.max_usage_ = stats.array_usage_;
+    stats.max_usage_ = std::max(stats.max_usage_, stats.array_usage_);
 
     auto dma = static_cast<float>(dma_pieces());
     const double dma_usage = static_cast<double>(dma) / get_memory_value("max_dma_pieces", -1); // "max_dma_pieces"

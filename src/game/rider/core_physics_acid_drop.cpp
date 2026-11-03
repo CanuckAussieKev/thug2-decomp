@@ -5,6 +5,7 @@
 // Float arithmetic follows the original's x87 code at 53-bit precision: intermediate results are doubles, rounded
 // to float only where the original stores them.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include "engine/maths/shape_tests.h"
@@ -527,8 +528,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
     auto reach = static_cast<float>(static_cast<double>(distance) + 1.0f);
     auto rise = static_cast<float>(position.y - static_cast<double>(height));
     auto time = static_cast<float>(fall_time(rise, object_velocity.y));
-    if (time < kLeastFallTime)
-        time = kLeastFallTime;
+    time = std::max(time, kLeastFallTime);
     const double inverse_time = 1.0 / time;
     auto per_second = static_cast<float>(inverse_time);
     if (reach > kFarTarget) { // (fast enough to get there in the time?)

@@ -13,6 +13,7 @@
 // On the bike the d-pad is the camera (THAW turns the stick's d-pad off: bike_start's SetAnalogStickActiveForMenus 0),
 // so nothing here reads the d-pad as the stick; on the keyboard the movement keys push the stick all the way.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <initializer_list>
@@ -551,8 +552,7 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
         const double moved =
             std::sqrt(static_cast<double>(mx) * mx + static_cast<double>(mz) * mz + static_cast<double>(my) * my);
         auto reach = static_cast<float>(std::tan(std::acos(static_cast<double>(cosine))) * moved);
-        if (in.snap_down_ > reach)
-            reach = in.snap_down_;
+        reach = std::max(reach, in.snap_down_);
         out.reach = reach;
         if (distance > reach)
             return out;

@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <array>
@@ -65,8 +66,7 @@ int32_t free_disk_blocks(SaveCard* card)
         return 0;
     uint64_t blocks = free_space.QuadPart >> kBlockShift;
     constexpr uint64_t kLimit = INT32_MAX - UINT16_MAX * 2; // (a number that leaves room for a bit of maths)
-    if (blocks > kLimit)
-        blocks = kLimit;
+    blocks = std::min(blocks, kLimit);
     return static_cast<int32_t>(blocks);
 }
 

@@ -149,8 +149,7 @@ uint32_t TrickSpotHub::log_trick_objects(std::span<uint32_t> objects, std::span<
 {
     auto count = static_cast<uint32_t>(objects.size());
     debug::printf("RequestLogTrick called\n");
-    if (count > kMaxLoggedClusters) // (ours: the original's mask overran here)
-        count = kMaxLoggedClusters;
+    count = std::min(count, kMaxLoggedClusters); // (ours: the original's mask overran here)
     if (count)
         std::memset(dirty_clusters().data(), 0, count);
     for (uint32_t i = 0; i < count; ++i) {
@@ -158,8 +157,7 @@ uint32_t TrickSpotHub::log_trick_objects(std::span<uint32_t> objects, std::span<
         if (!cluster)
             continue;
         goals::get_objective_board()->kill_cluster(cluster->label(), static_cast<int>(score));
-        if (score > core::at(cluster->scores(), player))
-            core::at(cluster->scores(), player) = score;
+        core::at(cluster->scores(), player) = std::max(core::at(cluster->scores(), player), score);
         uint32_t total = score;
         if (team_scoring()) {
             if (PlayerRecord* me = find_player_slot_by_obj(player)) {
@@ -659,8 +657,7 @@ void score_trick_objects(int player, uint32_t score, std::span<uint32_t> objects
 
         // (NOT ORIGINAL: no more names than the message holds - the original copied a remote count on past its
         // buffer)
-        if (count > online::kMaxTrickObjects)
-            count = online::kMaxTrickObjects;
+        count = std::min(count, online::kMaxTrickObjects);
         auto all = std::make_unique<online::TrickObjectsMessage>();
         all->player = player;
         all->score = score;

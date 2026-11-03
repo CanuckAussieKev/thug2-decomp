@@ -2,6 +2,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/maths/trig.h"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -58,10 +59,8 @@ std::array<SinCosEntry, kSinTableSize>& sin_table()
 
 float confine(float value, float min, float max)
 {
-    if (value > max)
-        value = max;
-    if (value < min)
-        value = min;
+    value = std::min(value, max);
+    value = std::max(value, min);
     return value;
 }
 

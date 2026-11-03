@@ -5,6 +5,7 @@
 #include "engine/gfx/particle_system.h"
 #include "engine/gfx/particle_system_internal.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -352,17 +353,13 @@ int EmitterInstance::lod_particle_count(int count) const
 void EmitterInstance::update_bounds()
 {
     float force = std::fabs(core::at(force_, 2));
-    if (std::fabs(core::at(force_, 1)) > force)
-        force = std::fabs(core::at(force_, 1));
-    if (std::fabs(core::at(force_, 0)) > force)
-        force = std::fabs(core::at(force_, 0));
+    force = std::max(force, std::fabs(core::at(force_, 1)));
+    force = std::max(force, std::fabs(core::at(force_, 0)));
     const double travel = static_cast<double>(force) * core::at(age_left_, 1) + core::at(speed_, 1);
     bounds_ = at_point_;
     float range = core::at(emit_range_, 2);
-    if (core::at(emit_range_, 1) > range)
-        range = core::at(emit_range_, 1);
-    if (core::at(emit_range_, 0) > range)
-        range = core::at(emit_range_, 0);
+    range = std::max(range, core::at(emit_range_, 1));
+    range = std::max(range, core::at(emit_range_, 0));
     bounds_.w = static_cast<float>(travel * core::at(age_left_, 1) * kFramesPerSecond + range);
 }
 

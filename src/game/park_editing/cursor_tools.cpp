@@ -2,6 +2,7 @@
 
 #include "engine/core/str.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <utility>
 
@@ -160,12 +161,10 @@ void BuildPointer::clamp_to_park()
 {
     const CellBox& bounds = park_owner_->build_area();
     CellBox& pos = cell_footprint_;
-    if (pos.x < bounds.x)
-        pos.x = bounds.x;
+    pos.x = std::max(pos.x, bounds.x);
     if (pos.w + pos.x > bounds.w + bounds.x)
         pos.x = static_cast<uint8_t>(bounds.w - pos.w + bounds.x);
-    if (pos.z < bounds.z)
-        pos.z = bounds.z;
+    pos.z = std::max(pos.z, bounds.z);
     if (pos.l + pos.z > bounds.l + bounds.z)
         pos.z = static_cast<uint8_t>(bounds.l - pos.l + bounds.z);
 

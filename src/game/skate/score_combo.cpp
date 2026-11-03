@@ -3,6 +3,7 @@
 
 #include "game/skate/point_tally.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -618,16 +619,13 @@ void PointTally::land()
             set_special_active(true);
             special_ = kSpecialMeterMax;
         }
-        if (special_ < 0)
-            special_ = 0;
+        special_ = std::max(special_, 0);
     } else {
         pot_special_ = 0;
     }
-    if (combo_tricks_ > best_tricks_)
-        best_tricks_ = combo_tricks_;
+    best_tricks_ = std::max(best_tricks_, combo_tricks_);
     const int combo = pot_score_;
-    if (combo > top_chain_)
-        top_chain_ = combo;
+    top_chain_ = std::max(top_chain_, combo);
     combo_tricks_ = 0;
     if (combo > best_combo_sent_) {
         if (net->in_net_game() && mode->get_name_key() != kNetLobby)

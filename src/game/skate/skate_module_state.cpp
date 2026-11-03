@@ -5,6 +5,7 @@
 #include "engine/net/net_lists.h"
 #include <windows.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <array>
@@ -181,8 +182,7 @@ void Skate::timer_beep(TimerBeep timer_beep_in, const char* script)
         return;
     script::launch_script(script, nullptr, nullptr, false);
     double step = static_cast<double>(next_beep()) / rate;
-    if (step < static_cast<double>(kMinBeepStep))
-        step = static_cast<double>(kMinBeepStep);
+    step = std::max(step, static_cast<double>(kMinBeepStep));
     next_beep() = static_cast<float>(next_beep() - step);
 }
 

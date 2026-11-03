@@ -8,6 +8,7 @@
 
 #include <d3d9.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -178,8 +179,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
     int layers = static_cast<int>(m->unknown18());
     if (!layers)
         return false;
-    if (layers > kMaxLayers)
-        layers = kMaxLayers;
+    layers = std::min(layers, kMaxLayers);
     auto step = static_cast<float>(std::bit_cast<float>(m->unknown14()) / static_cast<double>(layers));
     for (int layer = 0; layer < layers; ++layer) {
         memory::Hub::get_pull()->enter_heap_scope(memory::bottom_up_heap());

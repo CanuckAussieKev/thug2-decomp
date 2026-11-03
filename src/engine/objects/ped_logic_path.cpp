@@ -4,6 +4,7 @@
 // Ghidra functions). The x87 roundings are kept: values the original stores are rounded to float, the ones it keeps
 // on the FPU stack are worked in double.
 
+#include <algorithm>
 #include <bit>
 #include <cstddef>
 #include <cmath>
@@ -316,8 +317,7 @@ gsl::owner<script::Struct*> PedestrianBrainModule::leap_node_params(script::Stru
     // The spin.
     if (params->has_bare_flag(kRandomSpin)) {
         int half_turns = truncate(jump_time / static_cast<double>(script::fetch_float(kMinSpinTime)));
-        if (half_turns > 4)
-            half_turns = 4;
+        half_turns = std::min(half_turns, 4);
         spin = maths::rnd(half_turns + 1) * kHalfTurnDegrees;
     } else {
         float angle = 0.0f;

@@ -1,6 +1,7 @@
 // The park editor's map of metapieces: the lists of metapieces, the bucket of each cell, what stands in an
 // area, the floor slide, and the floor under placed pieces.
 
+#include <algorithm>
 #include <cstdint>
 #include <utility>
 
@@ -356,12 +357,9 @@ void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
                 FloorCell& cell = core::at(core::at(floor_, x), z);
                 if (add) {
                     const int top = dims.y + dims.h;
-                    if (cell.level_y_ < top)
-                        cell.level_y_ = top;
-                    if (cell.level_y_ > kFloorLevelMax)
-                        cell.level_y_ = kFloorLevelMax;
-                    if (cell.level_y_ < -kFloorLevelDepth)
-                        cell.level_y_ = -kFloorLevelDepth;
+                    cell.level_y_ = std::max(cell.level_y_, top);
+                    cell.level_y_ = std::min(cell.level_y_, kFloorLevelMax);
+                    cell.level_y_ = std::max(cell.level_y_, -kFloorLevelDepth);
                 } else {
                     // nothing left above the piece: the floor comes down to its bottom
                     CellBox above = dims;

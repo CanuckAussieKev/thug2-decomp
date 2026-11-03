@@ -1,6 +1,7 @@
 // An edited goal's own code (park_editing::EditedGoal): see goal_editor.h. From the disassembly of 0x004E6B80-0x004E7B1E and
 // 0x004E93C0.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <utility>
@@ -240,8 +241,7 @@ void EditedGoal::set_countdown_seconds(int seconds)
 {
     time_limit_ = seconds;
     if (kind_tag_ == kGoalTypeComboTricks || kind_tag_ == kGoalTypeTrickAttack || kind_tag_ == kGoalTypeTricktris) {
-        if (time_to_stop_adding_tricks_ > seconds - kTrickCutoffSeconds)
-            time_to_stop_adding_tricks_ = seconds - kTrickCutoffSeconds;
+        time_to_stop_adding_tricks_ = std::min(time_to_stop_adding_tricks_, seconds - kTrickCutoffSeconds);
     }
 }
 

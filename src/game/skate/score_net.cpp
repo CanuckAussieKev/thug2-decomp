@@ -120,8 +120,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, std::span<uint32_t> 
 
         // (NOT ORIGINAL: no more names than the message holds - the original copied a remote count on past its
         // buffer)
-        if (count > online::kMaxTrickObjects)
-            count = online::kMaxTrickObjects;
+        count = std::min(count, online::kMaxTrickObjects);
         objects = objects.first(count);
         auto all = std::make_unique<online::TrickObjectsMessage>();
         all->player = skater_id;

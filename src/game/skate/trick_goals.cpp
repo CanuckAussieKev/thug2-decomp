@@ -2,6 +2,7 @@
 
 #include "game/skate/trick_goals.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 
@@ -548,8 +549,7 @@ void FallingTricksGoal::add_tricks(int count)
                 entry->read_hash_value(kKeyCombo, &key_combo, 1);
                 int spin = 0;
                 if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
-                    if (spin < kMinRandomSpinDegrees)
-                        spin = kMinRandomSpinDegrees;
+                    spin = std::max(spin, kMinRandomSpinDegrees);
                     t.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
                     if (t.spin == 1)
                         t.spin = 0;
@@ -761,8 +761,7 @@ bool FallingTricksGoal::tick_frame()
         if (used >= block_size || used + completed >= total)
             return base_update(this);
         int count = total - used - completed;
-        if (count > block_size - used)
-            count = block_size - used;
+        count = std::min(count, block_size - used);
         add_tricks(count);
         return base_update(this);
     }
@@ -1133,8 +1132,7 @@ void TrickBeatGoal::add_tricks(int count)
                 entry->read_hash_value(kKeyCombo, &key_combo, 1);
                 int spin = 0;
                 if (entry->fetch_int_value(kRandomSpin, &spin, 0)) {
-                    if (spin < kMinRandomSpinDegrees)
-                        spin = kMinRandomSpinDegrees;
+                    spin = std::max(spin, kMinRandomSpinDegrees);
                     t.spin = maths::rnd(spin / kHalfTurnDegrees) + 1;
                     if (t.spin == 1)
                         t.spin = 0;
@@ -1275,8 +1273,7 @@ bool TrickBeatGoal::tick_frame()
         args()->fetch_int_value(kBlockSize, &block_size, 1);
         if (used < block_size && completed_ + used < total_to_win_) {
             int count = total_to_win_ - completed_ - used;
-            if (count > block_size - used)
-                count = block_size - used;
+            count = std::min(count, block_size - used);
             add_tricks(count);
         }
     }

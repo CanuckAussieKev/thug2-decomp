@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdint>
 #include <new>
 #include <span>
@@ -33,8 +34,7 @@ ChunkPrefix*& forced_free_block()
 void count_up(int& value, int& max, int amount)
 {
     value += amount;
-    if (value > max)
-        max = value;
+    max = std::max(max, value);
 }
 
 uint32_t round_up16(uint32_t size) { return (size + kAlign16) & ~kAlign16MaskUnsigned; }
@@ -132,8 +132,7 @@ uint32_t Arena::largest_free()
 {
     uint32_t largest = 0;
     for (ChunkPrefix* block = context()->free_list_; block; block = block->next_free()) {
-        if (block->size() >= largest)
-            largest = block->size();
+        largest = std::max(largest, block->size());
     }
     auto available = static_cast<uint32_t>(region()->free_byte_count());
     return available > largest ? available : largest;

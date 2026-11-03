@@ -1,6 +1,7 @@
 // goals::Objective while it runs: its scripts, links, update, expiry, the skater's end of run, gaps, waypoints, clusters,
 // tricks, records (0x00554A80-0x00555A5F, 0x00556230; see objective.h).
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -428,8 +429,7 @@ bool Objective::test_highest_air()
     args_->fetch_int_value(kLaunchAltitude, &start, 0);
     auto* state = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kSkaterState));
     int height = truncate(state->height_above_ground()) - start;
-    if (height < 0)
-        height = 0;
+    height = std::max(height, 0);
     const int feet = height / 12;
     const int inches = height % 12;
     args_->put_int(checksums::Name{kCurrentHeightFeet}, feet);

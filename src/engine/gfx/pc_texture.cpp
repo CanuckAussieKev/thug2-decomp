@@ -833,8 +833,7 @@ bool PcTexture::get_overlay(BitmapTexture* over_texture, int /*unused*/)
             core::at(pixel, 0) = static_cast<uint8_t>((from[0] * alpha + core::at(pixel, 0) * rest) >> kBitsPerByte);
             core::at(pixel, 1) = static_cast<uint8_t>((from[1] * alpha + core::at(pixel, 1) * rest) >> kBitsPerByte);
             core::at(pixel, 2) = static_cast<uint8_t>((from[2] * alpha + core::at(pixel, 2) * rest) >> kBitsPerByte);
-            if (alpha > core::at(pixel, 3))
-                core::at(pixel, 3) = alpha;
+            core::at(pixel, 3) = std::max(core::at(pixel, 3), alpha);
             *into = colour::packed_of(pixel);
         }
     }
@@ -916,15 +915,13 @@ bool PcTexture::get_offset(int dx, int dy, bool keep_edges, int /*unused*/)
     if (!keep_edges) { // (what was uncovered filled from the moved part's nearest edge)
         for (int y = 0, sy = -into_y; y < height; ++y, ++sy) {
             int row = sy <= 0 ? 0 : sy;
-            if (row >= part_height - 1)
-                row = part_height - 1;
+            row = std::min(row, part_height - 1);
             const int row_start = row * part_width;
             for (int x = 0, sx = -into_x; x < width; ++x, ++sx) {
                 if (sx >= 0 && sx < part_width && sy >= 0 && sy < part_height)
                     continue;
                 int column = sx <= 0 ? 0 : sx;
-                if (column >= part_width - 1)
-                    column = part_width - 1;
+                column = std::min(column, part_width - 1);
                 const uint32_t pixel = core::at(part, row_start + column);
                 const uint32_t texels_wide = get_texture()->width;
                 if (flag_bits() & 1 && get_edit(this)->pixels)
@@ -1222,8 +1219,7 @@ lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, b
         texture->unknowne_ = static_cast<uint8_t>(header.palette_depth);
         texture->unknownf_ = static_cast<uint8_t>(header.compression);
         format = pixel_layout({.compression = texture->unknownf_, .depth = texture->depth}, format);
-        if (texture->height < 4)
-            texture->height = 4;
+        texture->height = std::max<uint16_t>(texture->height, 4);
         auto** d3d = (&texture->texture);
         bool damaged = false;
         if (header.palette_size) {
@@ -1406,8 +1402,7 @@ void copy_sub_image(std::span<uint32_t> into, uint16_t x, uint16_t y, ImageSize1
     const auto into_width = into_size.width;
     const auto into_height = into_size.height;
     int columns = from_width;
-    if (columns >= into_width - x)
-        columns = into_width - x;
+    columns = std::min(columns, into_width - x);
     int rows = from_height < into_height - y ? from_height : into_height - y;
     size_t into_at = static_cast<size_t>(y) * into_width + x;
     size_t from_at = 0;
@@ -1430,11 +1425,9 @@ void rgb_to_hsv(const std::array<float, 3>& rgb, std::array<float, 3>* hsv)
     float* s = &core::at(*hsv, 1);
     float* v = &core::at(*hsv, 2);
     float low = g < b ? g : b;
-    if (r < low)
-        low = r;
+    low = std::min(low, r);
     float high = g > b ? g : b;
-    if (r > high)
-        high = r;
+    high = std::max(high, r);
     *v = high;
     auto delta = static_cast<float>(static_cast<double>(high) - low);
     if (high == 0.0f) {

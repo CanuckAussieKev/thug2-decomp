@@ -115,8 +115,7 @@ std::vector<std::pair<float, float>> quarter_profile(QuarterShape shape)
     const auto height = shape.height;
     auto segments = shape.segments;
     std::vector<std::pair<float, float>> points;
-    if (segments < 1)
-        segments = 1;
+    segments = std::max(segments, 1);
     // An arc of `radius`: its foot (out `radius` sin(top), up 0) to the angle reaching min(height, radius) - vertical
     // when the full quarter; d = R (sin top - sin t), y = R (1 - cos t).
     const float rise = std::min(height, radius);

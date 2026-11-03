@@ -4,6 +4,7 @@
 // The original's arithmetic is x87 code at 53-bit precision: what it keeps on the FPU stack is a double here, what
 // it stores to memory a float - each value is rounded where the original rounds it, and sums keep its grouping.
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -368,8 +369,7 @@ void BodyDynamicsModule::resolve_contacts()
                 continue;
             const float along_f = get_narrow(along);
             done = false;
-            if (-along_f > fastest)
-                fastest = -along_f;
+            fastest = std::max(fastest, -along_f);
             const float target = get_narrow(-(get_wide(along_f) * restitution_));
             if (!c.scaled) {
                 c.impulse_scale_ = get_narrow(impulse_scale({.normal = &c.normal, .offset = &c.offset}));

@@ -2,6 +2,7 @@
 // push-back, the jump's steering, the collision cache, and its object's position, orientation and velocity. From the
 // disassembly of 0x00526260-0x00529F62.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 
@@ -515,8 +516,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
     } else {
         const float accel = walk_parameter(running_ ? kRunAccelRate : kWalkAccelRate);
         new_speed = frame_clock::get_slomo_frame_seconds() * accel + speed;
-        if (new_speed > allowed)
-            new_speed = allowed;
+        new_speed = std::min<double>(new_speed, allowed);
     }
     *velocity = {.x = static_cast<float>(result.x * new_speed), .y = static_cast<float>(result.y * new_speed),
                  .z = static_cast<float>(result.z * new_speed), .w = static_cast<float>(result.w * new_speed)};

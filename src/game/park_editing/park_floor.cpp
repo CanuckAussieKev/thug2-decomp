@@ -4,6 +4,7 @@
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -209,30 +210,23 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     // The lowest neighbour (outside the shell counts as 0).
     int lowest = kNoHeightYet;
     if (std::cmp_greater(x, shell_bounds_.x)) {
-        if (height_at(x - 1, z) < lowest)
-            lowest = height_at(x - 1, z);
+        lowest = std::min(lowest, height_at(x - 1, z));
     } else {
         lowest = 0;
     }
-    auto at_most_zero = [&] {
-        if (lowest > 0)
-            lowest = 0;
-    };
+    auto at_most_zero = [&] { lowest = std::min(lowest, 0); };
     if (x < shell_bounds_.w + shell_bounds_.x - 1) {
-        if (height_at(x + 1, z) < lowest)
-            lowest = height_at(x + 1, z);
+        lowest = std::min(lowest, height_at(x + 1, z));
     } else {
         at_most_zero();
     }
     if (std::cmp_greater(z, shell_bounds_.z)) {
-        if (height_at(x, z - 1) < lowest)
-            lowest = height_at(x, z - 1);
+        lowest = std::min(lowest, height_at(x, z - 1));
     } else {
         at_most_zero();
     }
     if (z < shell_bounds_.l + shell_bounds_.z - 1) {
-        if (height_at(x, z + 1) < lowest)
-            lowest = height_at(x, z + 1);
+        lowest = std::min(lowest, height_at(x, z + 1));
     } else {
         at_most_zero();
     }

@@ -2,6 +2,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/maths/trig.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <new>
@@ -27,18 +28,12 @@ BBox::BBox(const Vec4& point) noexcept : min(point), max(point) {}
 // 0x00403450
 void BBox::append_spot(const Vec4& point)
 {
-    if (point.x < min.x)
-        min.x = point.x;
-    if (point.y < min.y)
-        min.y = point.y;
-    if (point.z < min.z)
-        min.z = point.z;
-    if (point.x > max.x)
-        max.x = point.x;
-    if (point.y > max.y)
-        max.y = point.y;
-    if (point.z > max.z)
-        max.z = point.z;
+    min.x = std::min(min.x, point.x);
+    min.y = std::min(min.y, point.y);
+    min.z = std::min(min.z, point.z);
+    max.x = std::max(max.x, point.x);
+    max.y = std::max(max.y, point.y);
+    max.z = std::max(max.z, point.z);
 }
 
 // 0x0040B170 (x, then z, then y; each failing only when strictly beyond)

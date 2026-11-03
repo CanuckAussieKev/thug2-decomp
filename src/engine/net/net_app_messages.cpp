@@ -2,6 +2,7 @@
 
 #include "engine/net/net_app_messages.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -278,8 +279,7 @@ int AppHost::on_ping_reply_msg(InboundMsgCtx* context)
         if (sent_time == conn->ping_probe().probe_sent_at()) {
             conn->ping_probe().set_echo_seen_at(sent_time);
             uint32_t latency = now - sent_time;
-            if (latency > max_latency())
-                latency = max_latency();
+            latency = std::min(latency, max_latency());
             add_latency(conn, latency);
         }
     }
@@ -471,8 +471,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
         const uint32_t current =
             net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency());
         if (latency > current) {
-            if (latency > max_latency())
-                latency = max_latency();
+            latency = std::min(latency, max_latency());
             add_latency(context->sender_conn(), latency);
         }
     }
@@ -501,8 +500,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
             // of the stream's buffer)
             size_t size = reader.remaining();
             const size_t room = static_cast<size_t>(desc->extent()) - static_cast<size_t>(desc->succ() - desc->content());
-            if (size > room)
-                size = room;
+            size = std::min(size, room);
             reader.bytes(desc->succ(), size);
             desc->set_succ(std::next(desc->succ(), static_cast<std::ptrdiff_t>(size)));
             if (static_cast<uint32_t>(desc->succ() - desc->content()) >= static_cast<uint32_t>(desc->extent()))
@@ -542,11 +540,9 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         desc->set_content(static_cast<uint8_t*>(memory::alloc(static_cast<uint32_t>(start.total_size))));
         desc->set_succ(desc->content());
         auto size = static_cast<size_t>(start.total_size);
-        if (size >= kMaxStreamStartData)
-            size = kMaxStreamStartData;
+        size = std::min(size, kMaxStreamStartData);
         // NOT ORIGINAL: no more than the message holds (the original copied on past its end)
-        if (size > reader.remaining())
-            size = reader.remaining();
+        size = std::min(size, reader.remaining());
         reader.bytes(desc->content(), size);
         desc->set_succ(std::next(desc->succ(), static_cast<std::ptrdiff_t>(size)));
         void* link_memory = memory::alloc_zeroed(sizeof(BulkStreamNode));

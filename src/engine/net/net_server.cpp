@@ -1,5 +1,6 @@
 // The network library's server (NetLink::HostEnd). See net_server.h.
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -121,8 +122,7 @@ void HostEnd::flush_outbox(Conn* conn)
                     uint32_t latency =
                         (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe().average_latency())) +
                         kLatencyPadding;
-                    if (latency > max_latency())
-                        latency = max_latency();
+                    latency = std::min(latency, max_latency());
                     add_latency(conn, latency);
                 }
                 sent = now;

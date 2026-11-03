@@ -1,6 +1,7 @@
 // The GameSpy lobby's menus and chat (online::RoomManager): the buddy / player list / regions menu items, the room
 // messages, SendMessage, the group room list; and the lobby's destructors (0x005407B0-0x00541690). See gamenet_lobby.h.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <array>
@@ -230,8 +231,7 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
     // (x87: the rating times two floats, truncated)
     int rank = static_cast<int>(static_cast<double>(player->skill_points_) * static_cast<double>(kRankScale) *
                                 static_cast<double>(render::kFloatTen));
-    if (rank > kMaxRank)
-        rank = kMaxRank;
+    rank = std::min(rank, kMaxRank);
     params->put_int(checksums::Name{kRank}, rank);
     params->put_name_key(checksums::Name{kId}, checksums::hash_from_text(player->nick_.data()));
     params->put_name_key(checksums::Name{kParentMenuId}, kLobbyPlayerListMenu);

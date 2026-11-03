@@ -2,6 +2,7 @@
 
 #include "engine/gfx/weather.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 
@@ -38,10 +39,8 @@ int integer_parameter(script::Struct* params, int fallback)
 }
 int current_frames(int frames)
 {
-    if (frames < 0)
-        frames = 0;
-    if (frames > kMaxFrames)
-        frames = kMaxFrames;
+    frames = std::max(frames, 0);
+    frames = std::min(frames, kMaxFrames);
     return frames;
 }
 void change_colour(uint8_t* colour, int value) { std::memcpy(colour, &value, 4); }

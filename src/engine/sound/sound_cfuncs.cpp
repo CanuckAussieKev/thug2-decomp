@@ -2,6 +2,7 @@
 
 #include "engine/sound/sound_cfuncs.h"
 
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 
@@ -209,8 +210,7 @@ bool cfunc_set_sfx_reverb(Struct* params, Script*)
     float level = 0.0f;
     int mode = 0;
     params->fetch_float(0u, &level, 0);
-    if (level > 100.0f) // (0x006463D4; a NaN is kept)
-        level = 100.0f;
+    level = std::min(level, 100.0f); // (0x006463D4; a NaN is kept)
     params->fetch_int_value(kMode, &mode, 0);
     const bool instant = params->has_bare_flag(kInstant);
     audio_mixer_handle()->print_sounds(std::bit_cast<int>(level), mode, instant);

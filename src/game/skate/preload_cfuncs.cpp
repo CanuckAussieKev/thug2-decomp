@@ -2,6 +2,7 @@
 
 #include "game/skate/preload_cfuncs.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <new>
@@ -319,8 +320,7 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
     level_nodes::end_node_walk();
     int wanted = candidates;
     params->fetch_int_value(kNum, &wanted, 0);
-    if (wanted > candidates)
-        wanted = candidates;
+    wanted = std::min(wanted, candidates);
     std::array<script::Struct*, kMatchingCapacity> matching{};
     int count = 0;
     matching_options(part, 0, matching, &count);

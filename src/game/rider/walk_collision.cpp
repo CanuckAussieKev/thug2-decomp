@@ -2,6 +2,7 @@
 // the walking sticker slap, the ground below ("uber frig"), the critical point's offset, the jump over an
 // obstruction, the wallplant and the grind. From the disassembly of 0x005264F0-0x00527BD3 and 0x00529160-0x00529CDD.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <initializer_list>
@@ -96,8 +97,7 @@ void FootMovement::update_curb_float()
     // The facing along the ground, never downhill, made unit (its w left as it is).
     maths::Vec4 ahead = facing_;
     ahead.flatten_onto_plane(floor_normal_);
-    if (ahead.y < 0.0f)
-        ahead.y = 0.0f;
+    ahead.y = std::max(ahead.y, 0.0f);
     const double length = std::sqrt((static_cast<double>(ahead.z) * ahead.z + static_cast<double>(ahead.x) * ahead.x) +
                                     static_cast<double>(ahead.y) * ahead.y);
     if (length > 0.0) {

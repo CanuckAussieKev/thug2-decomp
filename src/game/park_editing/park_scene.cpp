@@ -2,6 +2,7 @@
 // into the "cloned" scene and lit by the park's lights, the scene rebuilt, and the restart points. The data is laid
 // out in park_scene.h; the node array the park's level runs on is park_nodes.cpp.
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -444,12 +445,10 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
         const maths::Vec4& min = box->min;
         const maths::Vec4& max = box->max;
         int cells = static_cast<int>((static_cast<double>(max.x) - min.x + kSizeSlack) * kInverseCell);
-        if (cells < 1)
-            cells = 1;
+        cells = std::max(cells, 1);
         source->extent().x = static_cast<float>(cells * static_cast<double>(kGridPitch));
         cells = static_cast<int>((static_cast<double>(max.z) - min.z + kSizeSlack) * kInverseCell);
-        if (cells < 1)
-            cells = 1;
+        cells = std::max(cells, 1);
         source->extent().z = static_cast<float>(cells * static_cast<double>(kGridPitch));
         const double height = static_cast<double>(max.y) - min.y;
         source->extent().y = static_cast<float>(height);

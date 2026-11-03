@@ -4291,8 +4291,7 @@ void show_browser()
                     stored_browser().tab == 1 ? "OBJECTS" : "objects", static_cast<int>(stored_browser().items.size()));
     lines.emplace_back(title.data());
     const int count = static_cast<int>(stored_browser().items.size());
-    if (stored_browser().index < stored_browser().top)
-        stored_browser().top = stored_browser().index;
+    stored_browser().top = std::min(stored_browser().top, stored_browser().index);
     if (stored_browser().index >= stored_browser().top + kBrowserRows)
         stored_browser().top = stored_browser().index - kBrowserRows + 1;
     for (int row = 0; row < kBrowserRows; ++row) {

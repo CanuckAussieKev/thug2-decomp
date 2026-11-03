@@ -2,6 +2,7 @@
 // palette piece, its cell relative to the park, its turn and size) and its rails (the rail editor's) - shown at the
 // cursor, turned with it, and pasted. See park.h.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 
@@ -268,8 +269,7 @@ int Clipboard::fetch_tallness(BuildPointer* cursor)
     int highest = kNoHeight;
     for (ClipboardEntry* entry = metas_; entry; entry = entry->following()) {
         const int height = entry->fetch_tallness(centre_x, centre_z, cursor);
-        if (height > highest)
-            highest = height;
+        highest = std::max(highest, height);
     }
     return highest == kNoHeight ? 0 : highest;
 }
@@ -413,14 +413,10 @@ bool Clipboard::add_row(PieceGroup* meta, int dy)
     entry->set_l(area.l);
     // The copy's bounds take in both corners.
     auto take_in = [this](uint8_t x, uint8_t z) {
-        if (x < lo_cell_x_)
-            lo_cell_x_ = x;
-        if (x > hi_cell_x_)
-            hi_cell_x_ = x;
-        if (z < lo_cell_z_)
-            lo_cell_z_ = z;
-        if (z > hi_cell_z_)
-            hi_cell_z_ = z;
+        lo_cell_x_ = std::min(lo_cell_x_, x);
+        hi_cell_x_ = std::max(hi_cell_x_, x);
+        lo_cell_z_ = std::min(lo_cell_z_, z);
+        hi_cell_z_ = std::max(hi_cell_z_, z);
     };
     take_in(area.x, area.z);
     take_in(static_cast<uint8_t>(area.w + area.x - 1), static_cast<uint8_t>(area.l + area.z - 1));
@@ -472,8 +468,7 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
                     y += kRiserBelowShift;
                 else if (meta->name_key() == kRiserFloor)
                     y += 1;
-                if (y < lowest)
-                    lowest = y;
+                lowest = std::min(lowest, y);
             }
         }
     }

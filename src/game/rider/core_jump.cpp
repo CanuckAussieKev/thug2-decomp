@@ -1,6 +1,7 @@
 // The skater's core physics component: jumping, skitching, the script member functions around them and the
 // wallplant state's update.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -158,8 +159,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     // The speed: between the min and the max by how long the jump was held.
     const int max_tense = script::fetch_int_value(kChargeCapMs);
     int& tense = jump_charge_ms_;
-    if (tense >= max_tense)
-        tense = max_tense;
+    tense = std::min(tense, max_tense);
     const bool from_vert =
         bit_mark(this, PoseFlag::kVertAir) || (state_of(this) == kGround && bit_mark(this, PoseFlag::kOnVert));
     const auto& names = core::at(core::at(kJumpSpeed, params->has_bare_flag(kBonelessHeight)), from_vert);

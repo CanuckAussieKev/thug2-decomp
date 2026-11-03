@@ -6,6 +6,7 @@
 
 #include <psapi.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -44,8 +45,7 @@ FreeSpace address_space()
     for (auto* at = static_cast<uint8_t*>(nullptr); VirtualQuery(at, &info, sizeof(info)) == sizeof(info);) {
         if (info.State == MEM_FREE) {
             total += info.RegionSize;
-            if (info.RegionSize > largest)
-                largest = info.RegionSize;
+            largest = std::max<uint64_t>(largest, info.RegionSize);
         }
         // (the next region starts where this one ends)
         const std::span<uint8_t> region(static_cast<uint8_t*>(info.BaseAddress), info.RegionSize);

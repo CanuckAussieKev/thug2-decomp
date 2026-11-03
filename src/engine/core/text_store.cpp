@@ -1,5 +1,6 @@
 #include "engine/core/text_store.h"
 
+#include <algorithm>
 #include <cstring>
 #include <iterator>
 #include <new>
@@ -93,8 +94,7 @@ void Chars::copy_range(const char* text, int first, int last)
     }
 
     int needed = last - first + 2;
-    if (needed < 4)
-        needed = 4;
+    needed = std::max(needed, 4);
     if (octets_ && capacity_ < needed) {
         memory::dealloc(octets_);
         octets_ = nullptr;

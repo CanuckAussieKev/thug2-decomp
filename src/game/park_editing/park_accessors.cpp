@@ -227,8 +227,7 @@ int ParkLayout::get_ground_level(CellBox area, bool* uniform)
             const int height = core::at(core::at(floor_, x), z).level_y_;
             if (uniform && height != first)
                 *uniform = false;
-            if (height > highest)
-                highest = height;
+            highest = std::max(highest, height);
         }
     }
     return highest;

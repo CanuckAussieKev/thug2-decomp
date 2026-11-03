@@ -1,5 +1,6 @@
 #include "engine/core/manager.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -630,8 +631,7 @@ void Hub::init_cutscene_heaps(uint32_t size)
 void Hub::init_extra_skater_heaps(int count)
 {
     debug::printf("Init Skater Heaps\n");
-    if (count > kSkaterSlots)
-        count = kSkaterSlots;
+    count = std::min(count, kSkaterSlots);
     for (int i = 1; i < count; ++i) {
         core::at(skater_regions_, i) = memory::take_unique<Zone>(new_alloc_region(kSkaterRegionBytes));
         debug::printf("EXTRA: allocated mp_skater_region at %p\n", core::at(skater_regions_, i).get());

@@ -1,6 +1,7 @@
 // The park editor's cursor: placing pieces and restart points, gaps, area selection, raising and lowering the
 // floor; and the park manager's set-up (0x0059D120-0x0059E0F7, see park_editor.h).
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <array>
@@ -262,10 +263,8 @@ bool BuildPointer::change_gap(GapChange gap_change)
     }
     if (right) {
         core::at(copy.reach_right(), half) += right;
-        if (core::at(copy.reach_right(), half) < 0)
-            core::at(copy.reach_right(), half) = 0;
-        if (core::at(copy.reach_right(), half) > kMaxReach)
-            core::at(copy.reach_right(), half) = kMaxReach;
+        core::at(copy.reach_right(), half) = std::max(core::at(copy.reach_right(), half), 0);
+        core::at(copy.reach_right(), half) = std::min(core::at(copy.reach_right(), half), kMaxReach);
     } else if (!changed) {
         return true;
     }
@@ -379,14 +378,10 @@ bool BuildPointer::raise_lower(int dir)
         const CellBox at = meta_footprint(meta);
         if (at.h > area.h)
             top = at.h + height + dir;
-        if (at.x < area.x)
-            area.x = at.x;
-        if (at.w > area.w)
-            area.w = at.w;
-        if (at.z < area.z)
-            area.z = at.z;
-        if (at.l > area.l)
-            area.l = at.l;
+        area.x = std::min(area.x, at.x);
+        area.w = std::max(area.w, at.w);
+        area.z = std::min(area.z, at.z);
+        area.l = std::max(area.l, at.l);
     }
     MapListNode::free_node_chain(list);
     if (top > kMaxBuildHeight)

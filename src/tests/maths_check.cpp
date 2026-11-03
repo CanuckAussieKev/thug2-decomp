@@ -1418,8 +1418,7 @@ public:
                 max_ulps_ = distance;
                 worst_input_ = input;
             }
-            if (abs_difference > max_abs_)
-                max_abs_ = abs_difference;
+            max_abs_ = std::max(max_abs_, abs_difference);
         }
     }
     void print() const

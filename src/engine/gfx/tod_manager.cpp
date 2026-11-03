@@ -2,6 +2,7 @@
 
 #include "engine/gfx/tod_manager.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -627,8 +628,7 @@ void apply_color_to_scene(render::WorldScene* scene, uint32_t color, ColourSpan 
         const int skip = ftol(static_cast<double>(start_percent) * count * one_percent());
         if (start_percent < end_percent) {
             int last = ftol(static_cast<double>(end_percent) * count * one_percent());
-            if (count < last)
-                last = count;
+            last = std::min(last, count);
             remaining = last - skip;
         }
         for (int i = skip; i != 0; --i)

@@ -7,6 +7,7 @@
 #include "platform/d3dx.h"
 #include "engine/gfx/model.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <gsl/pointers>
@@ -216,8 +217,7 @@ void AutomobileDynamicsModule::update_angles()
     target_tilt_ = static_cast<float>(target);
     if (target > max_tilt_)
         target_tilt_ = max_tilt_;
-    if (target_tilt_ < min_tilt_)
-        target_tilt_ = min_tilt_;
+    target_tilt_ = std::max(target_tilt_, min_tilt_);
     lean_angle_ =
         maths::keep_within(target_tilt_, {.target = lean_angle_, .distance = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_rate_)});
 }

@@ -3,6 +3,7 @@
 #include "engine/gfx/rig.h"
 #include "engine/gfx/anim_controller.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -442,10 +443,8 @@ float WobbleDriver::wobble_time()
     cycles = static_cast<double>(get_clock()) * k2;
     phase = (cycles - static_cast<double>(get_truncated(cycles)) * kSixteenth * kSixteen) * two_pi();
     double time = std::sin(phase) * amplitude + target;
-    if (time < t->outset())
-        time = t->outset();
-    if (time > t->finish())
-        time = t->finish();
+    time = std::max<double>(time, t->outset());
+    time = std::min<double>(time, t->finish());
     return static_cast<float>(time);
 }
 

@@ -7,6 +7,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/objects/vehicle_component.h"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstddef>
@@ -581,8 +582,7 @@ void DrivableModule::collide()
         Contact& contact = core::at(contacts, n);
         if (contact.depth < 0.0f || contact.depth == 0.0f)
             continue;
-        if (contact.depth > kDeepestLevel)
-            contact.depth = kDeepestLevel;
+        contact.depth = std::min(contact.depth, kDeepestLevel);
         const double push = static_cast<double>(depth_correction_) * contact.depth;
         auto push_rounded = static_cast<float>(push);
         const maths::Vec4& nrm = contact.normal;
@@ -633,8 +633,7 @@ void DrivableModule::collide()
                                 .z = static_cast<float>(slide_z * inverse), .w = static_cast<float>(slide_w * inverse)};
         double stop = get_impulse_denominator({.offset = &r, .direction = &slide}) * speed_rounded;
         auto most = static_cast<float>(static_cast<double>(friction) * contact.impulse);
-        if (stop > most)
-            stop = most;
+        stop = std::min<double>(stop, most);
         const double against = -stop;
         const maths::Vec4 push{.x = static_cast<float>(static_cast<double>(slide.x) * against),
                                .y = static_cast<float>(static_cast<double>(slide.y) * against),
@@ -664,8 +663,7 @@ void DrivableModule::collide()
 
     for (int n = contact_count_ - 1; n >= 0; --n) {
         const float impulse = core::at(contacts, n).impulse;
-        if (impulse > collision_impulse_)
-            collision_impulse_ = impulse;
+        collision_impulse_ = std::max(collision_impulse_, impulse);
     }
 
     // Steering against a wall: a push along it, by how much the wall faces the vehicle's front.

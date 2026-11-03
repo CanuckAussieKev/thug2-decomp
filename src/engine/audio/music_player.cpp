@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -617,8 +618,7 @@ void shuffle_user_soundtrack()
     int count = user_soundtrack_tracks(user_soundtrack()); // the soundtrack's tracks
     if (count == 0)
         return;
-    if (count > kUserOrderSize)
-        count = kUserOrderSize;
+    count = std::min(count, kUserOrderSize);
     const int last = core::at(user_order(), count - 1); // (the last of the order before - not the track played last)
     for (int i = 0; i < count; ++i)
         core::at(user_order(), i) = i;

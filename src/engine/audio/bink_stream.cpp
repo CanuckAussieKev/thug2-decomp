@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 
@@ -129,8 +130,7 @@ void BinkStream::set_volume_and_pan(float left, float right)
         pan = ftol(static_cast<double>(right) / total * kBinkPanScale);
         if (louder > 0.0f) {
             level = ftol(static_cast<double>(louder) * kBinkVolumeScale);
-            if (level > kBinkMaxVolume)
-                level = kBinkMaxVolume;
+            level = std::min(level, kBinkMaxVolume);
         }
     }
     if (bink_) {

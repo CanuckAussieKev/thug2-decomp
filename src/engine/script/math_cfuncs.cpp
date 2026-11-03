@@ -3,6 +3,7 @@
 #include "engine/script/math_cfuncs.h"
 #include "platform/d3dx.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 
@@ -168,8 +169,7 @@ bool cfunc_clamp(script::Struct* params, script::Script* script)
     params->fetch_float(kMin, &min, 1);
     params->fetch_float(kMax, &max, 1);
     float clamped = value > max ? max : value;
-    if (clamped < min)
-        clamped = min;
+    clamped = std::max(clamped, min);
     script->args()->push_float(checksums::Name{kClamped}, clamped);
     return true;
 }

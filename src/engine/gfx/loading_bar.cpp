@@ -2,6 +2,7 @@
 // timer callback that draws the loading screen while the game loads).
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 
@@ -145,8 +146,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     const double elapsed = static_cast<double>(screen_2d().tick_seconds()) + screen_2d().elapsed_seconds();
     screen_2d().set_elapsed_seconds(static_cast<float>(elapsed));
     double fraction = elapsed / screen_2d().total_seconds();
-    if (fraction > 1.0)
-        fraction = 1.0;
+    fraction = std::min(fraction, 1.0);
     const int left = (renderer().back_buffer_width() - screen_2d().gradient_width()) / 2;
     const int frame_left = ftol(static_cast<double>(static_cast<float>(left)) - x_scale * kFloatFive); // 5
     const int filled = ftol(screen_2d().gradient_width() * fraction) + left;

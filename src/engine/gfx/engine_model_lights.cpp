@@ -100,13 +100,11 @@ bool ModelLights::bind_position_source(const maths::Vec4* position)
 void ModelLights::get_update_brightness()
 {
     size_factor_ = get_scaled(brightness_, dark_range(), bright_range());
-    if (size_factor_ < 0.0f)
-        size_factor_ = 0.0f;
+    size_factor_ = std::max(size_factor_, 0.0f);
     for (uint32_t i = 0; i < light_sets().light_count(); ++i) {
         float& intensity = core::at(intensities(), i);
         intensity = get_scaled(brightness_, core::at(dark_ranges(), i), core::at(bright_ranges(), i));
-        if (intensity < 0.0f)
-            intensity = 0.0f;
+        intensity = std::max(intensity, 0.0f);
     }
     apply_light_brightness(true, true);
 }

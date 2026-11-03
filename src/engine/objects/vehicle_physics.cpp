@@ -5,6 +5,7 @@
 
 #include "engine/objects/vehicle_component.h"
 
+#include <algorithm>
 #include <bit>
 #include <cmath>
 #include <cstdint>
@@ -381,8 +382,7 @@ void DrivableModule::apply_engine_braking()
         const double ratio = core::at(transmission_ratios_, gear);
         double braking = ratio * engine_braking_ * ratio / as_unsigned(drive_wheel_count_);
         const float stop = brake_turn_force(static_cast<double>(wheel.inv_moment_) * step_length_, wheel.spin);
-        if (braking > stop)
-            braking = stop;
+        braking = std::min<double>(braking, stop);
         if (!(wheel.spin < 0.0f))
             braking = -braking;
         spin_wheel(wheel, braking * wheel.inv_moment_, step_length_);
@@ -468,8 +468,7 @@ void DrivableModule::apply_brake_excess()
             continue;
         double braking = wheel.brake_excess_;
         const float stop = brake_turn_force(static_cast<double>(step_length_) * wheel.inv_moment_, wheel.spin);
-        if (braking > stop)
-            braking = stop;
+        braking = std::min<double>(braking, stop);
         if (!(wheel.spin < 0.0f))
             braking = -braking;
         spin_wheel(wheel, braking * wheel.inv_moment_, step_length_);
