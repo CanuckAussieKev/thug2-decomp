@@ -21,6 +21,7 @@
 #include "platform/crt.h"
 #include "engine/core/checked_index.h"
 #include "gpu/vertex_view.h"
+#include "engine/gfx/render_state.h"
 #include <gsl/pointers>
 
 namespace render {
@@ -29,7 +30,6 @@ constexpr int kMatrixFloats = 16;
 constexpr int kIdentityStride = 5;
 constexpr int kIdxStoreBytes = 0x18;
 constexpr int kIdxStoreKind = 0x65;
-constexpr unsigned kLockReadOnly = 0x10; // D3DLOCK_READONLY
 constexpr int kTransformBytes = 0x40;
 constexpr int kTranslationX = 12; // the transform's translation row
 constexpr int kTranslationY = 13;

@@ -47,8 +47,6 @@ constexpr float kReflectionTiling = 3.0f;
 constexpr int kPassBitMask = 31;
 constexpr std::size_t kPassColourBytes = 16;
 constexpr double kHalf = 0.5;
-constexpr int kBlendWithPreviousA = 0xC;
-constexpr int kBlendWithPreviousB = 0xD;
 constexpr uint32_t kOpaqueAlphaBits = 0xFF000000u;
 constexpr int kByte1Shift = 8;
 constexpr int kByte2Shift = 16;
@@ -415,7 +413,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
                 if (coordinates != pass)
                     set_texture_stage_state(0, D3DTSS_TEXCOORDINDEX, pass);
                 const uint32_t blend = core::at(blend_modes_, pass);
-                if (blend == kBlendWithPreviousA || blend == kBlendWithPreviousB) { // (blending with the pass before: its texture on stage 1)
+                if (blend == kBlendModeLerpPrevious || blend == kBlendModeLerpFromPrevious) { // (blending with the pass before: its texture on stage 1)
                     set_texture_stage_state(1, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
                     if (static_cast<int>(pass) > 0) {
                         set_texture_stage_state(1, D3DTSS_TEXCOORDINDEX, pass - 1);

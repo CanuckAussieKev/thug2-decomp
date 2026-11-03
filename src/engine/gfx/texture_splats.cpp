@@ -61,7 +61,6 @@ constexpr float kSplatNearDepth = 0.1f;
 constexpr float kVerticalDirectionThreshold = 0.5f;
 constexpr uint32_t kTwoPiBits = 0x40C90FDBu;
 constexpr uint32_t kPerRandBits = 0x38000100u; // 1 / 32767
-constexpr unsigned kLockReadOnly = 0x10; // D3DLOCK_READONLY
 constexpr int kIntMax = 0x7FFFFFFF;
 constexpr double kGreyScale = 128.0;
 constexpr std::size_t kPieceBufferBytes = 0x2000;

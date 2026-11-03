@@ -28,7 +28,6 @@ constexpr std::size_t kQuadIndexCount = 6;
 constexpr uint32_t kAlphaMask = 0xFF000000u;
 constexpr std::size_t kSeenSlots = 256;
 constexpr int kSeenLimit = 256;
-constexpr int kModulate2x = 5; // D3DTOP_MODULATE2X
 
 namespace {
 // Two triangles of a quad: 0 1 2, 1 3 2.
@@ -237,8 +236,8 @@ void QuadSprite::draw()
     }
 
     set_vertex_format(kScreenVertexFormat);         // position (pre-transformed), colour, one texture coordinate
-    set_texture_stage_state(0, 1, kModulate2x); // colour: texture x diffuse, doubled
-    set_texture_stage_state(0, 4, kModulate2x); // alpha: the same
+    set_texture_stage_state(0, 1, kTextureOpModulate2x); // colour: texture x diffuse, doubled
+    set_texture_stage_state(0, 4, kTextureOpModulate2x); // alpha: the same
     if (!engine_parts().suppress_draw()) {           // (rendering not skipped)
         renderer().count_draw(2); // the frame's draw calls and triangles
         renderer().d3d_device()->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices().data(), D3DFMT_INDEX16, vertices.data(),

@@ -53,9 +53,6 @@ constexpr int kSlotFree = 0xFF;
 constexpr int kSlotLastFrame = 0xFE;
 constexpr int kSlotOffsetRange = 0xFF;
 constexpr uint32_t kBlendAlphaBits = 0x80000000;
-constexpr int kBlendModeMask = 0xFFFFFF;
-constexpr int kRainBlendWithAlpha = 10;
-constexpr int kRainBlendDrawnAs = 9;
 constexpr std::size_t kFrameTableSize = 0x100;
 constexpr int kFrameTableEntries = 0x100;
 constexpr float kHeightFixedScale = 16.0f;
@@ -262,8 +259,8 @@ void PcWeather::render_rain(maths::Vec2 centre)
     if (max_z < 0 || min_z > depth - 1)
         return;
     uint32_t top = get_argb(rain_top()), bottom = get_argb(rain_bottom());
-    if ((rain_blend_ & kBlendModeMask) == kRainBlendWithAlpha) { // (drawn as mode 9 with the mode's alpha)
-        choose_blend_mode(kRainBlendDrawnAs);
+    if ((rain_blend_ & kBlendModeMask) == kBlendModeFixBrighten) { // (drawn as mode 9 with the mode's alpha)
+        choose_blend_mode(kBlendModeBrighten);
         const uint32_t alpha = rain_blend_ & 0xFF000000;
         top = (top & kBlendModeMask) | alpha;
         bottom = (bottom & kBlendModeMask) | alpha;

@@ -39,8 +39,6 @@ constexpr int kByteMask = 0xFF;
 constexpr int kByte2Shift = 16;
 constexpr float kGrey = 0.5f;
 // The flexible vertex formats (D3DFVF_*) the primitives use.
-constexpr int kFvfTex1 = 0x100;
-constexpr int kFvfNormal = 0x10;
 constexpr int kFvfColour = 0x42;
 constexpr int kFvfUv = 0x102;
 constexpr int kFvfColourUv = 0x142;

@@ -38,6 +38,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/render_state.h"
 
 namespace render {
 
@@ -55,8 +56,6 @@ constexpr int kGrassFramesPerSecond = 30;
 constexpr uint32_t kGrassTexture = 0x96D0BF08u; // text unknown (the grass texture's name)
 constexpr int kUvSetBytes = 8; // one set of texture coordinates
 constexpr unsigned kUvSetBytesU = 8u;
-constexpr unsigned kFvfTex1U = 0x100u; // D3DFVF_TEX1
-constexpr int kFvfTex2 = 0x200;        // D3DFVF_TEX2
 constexpr int kGrassMeshFlags = 0x402;
 constexpr int kGrassCopyFlags = 0x182;
 constexpr std::size_t kGrassNameBytes = 64;
@@ -147,7 +146,7 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
         mesh->set_buffer_usage(0);
         mesh->set_vertex_buffer(0, wider);
         mesh->set_stride(static_cast<uint8_t>(mesh->stride() + kUvSetBytes));
-        mesh->set_fvf((mesh->fvf() & ~kFvfTex1U) | kFvfTex2); // (D3DFVF_TEX1 -> TEX2)
+        mesh->set_fvf((mesh->fvf() & ~kFvfTex1) | kFvfTex2); // (D3DFVF_TEX1 -> TEX2)
     }
     set_up_animated_grass_material(mesh->material());
     mesh->flags() |= kGrassMeshFlags;

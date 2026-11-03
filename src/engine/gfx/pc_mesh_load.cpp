@@ -39,10 +39,6 @@
 namespace render {
 
 constexpr std::size_t kFvfTableSize = 5; // 0 to 4 sets of texture coordinates
-constexpr uint32_t kFvfTex1 = 0x100;      // D3DFVF_TEX1 .. TEX4
-constexpr uint32_t kFvfTex2 = 0x200;
-constexpr uint32_t kFvfTex3 = 0x300;
-constexpr uint32_t kFvfTex4 = 0x400;
 constexpr int kShaderTypeLimit = 6;
 constexpr int kPassFlagCopiedToMesh = 0x10;
 constexpr int kMeshFlagCopiedFromPass = 0x100;

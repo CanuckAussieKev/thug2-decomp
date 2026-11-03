@@ -37,6 +37,7 @@
 #include "engine/gfx/engine_parts.h"
 #include "engine/core/packed_colour.h"
 #include "engine/maths/vec2.h"
+#include "engine/gfx/render_state.h"
 
 namespace gfx::loading_console {
 
@@ -288,7 +289,6 @@ struct Vertex {
     uint32_t color;
     float u, v;
 };
-constexpr DWORD kVertexFormat = D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1;
 constexpr size_t kShownLines = 12;
 constexpr double kLayoutSeconds = 0.1;
 constexpr double kStallSeconds = 10.0;
@@ -574,7 +574,7 @@ void draw_panel()
         return;
     device->SetPixelShader(nullptr);
     device->SetVertexShader(nullptr);
-    device->SetFVF(kVertexFormat);
+    device->SetFVF(render::kScreenVertexFormat);
     device->SetTexture(0, console_font().texture_);
     device->SetTexture(1, nullptr);
     device->SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);

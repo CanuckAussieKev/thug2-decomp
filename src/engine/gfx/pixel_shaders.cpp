@@ -31,7 +31,6 @@
 namespace render {
 
 constexpr std::size_t kShaderStandInCount = 10;
-constexpr int kBlendModeMask = 0xFFFFFF;
 constexpr std::size_t kShaderTextBytes = 1024;
 constexpr int kModeBitsPerPass = 5;
 constexpr int kPresentMultiplier = 8;

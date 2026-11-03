@@ -27,6 +27,18 @@ constexpr int kClampBothWays = 0x10001;   // an address mode: clamp (1) in U (th
 constexpr int kBlendModeAlpha = 5;        // choose_blend_mode: the alpha blend the 2D drawing uses
 constexpr int kBlendModePrimitive = 0x11; // choose_blend_mode: what the primitives' state is set up with
 constexpr int kScreenVertexFormat = 0x144; // D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1
+constexpr int kBlendModeMask = 0xFFFFFF;    // a pass's blend mode in its blend word (the top byte: its fixed alpha, flags)
+constexpr int kTextureOpModulate2x = 5;    // D3DTOP_MODULATE2X (a texture stage's colour or alpha op)
+constexpr int kLockDiscard = 0x10;         // D3DLOCK_DISCARD
+constexpr unsigned kLockReadOnly = 0x10u;  // D3DLOCK_READONLY
+// The flexible vertex format's bits the renderer and the editor read (D3DFVF_*).
+constexpr uint32_t kFvfNormal = 0x010u;
+constexpr uint32_t kFvfDiffuse = 0x040u;
+constexpr uint32_t kFvfSpecular = 0x080u;
+constexpr uint32_t kFvfTex1 = 0x100u; // one to four sets of texture coordinates
+constexpr uint32_t kFvfTex2 = 0x200u;
+constexpr uint32_t kFvfTex3 = 0x300u;
+constexpr uint32_t kFvfTex4 = 0x400u;
 
 struct MaterialRef;
 

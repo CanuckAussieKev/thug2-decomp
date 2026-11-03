@@ -34,7 +34,6 @@ constexpr uint32_t kHighHalfMask = 0xFFFF0000;
 constexpr int kHalfBits = 16;
 constexpr uint32_t kMagLinearBit = 0x10000; // a filter value: magnification linear (the low half is minification)
 constexpr uint32_t kDefaultFilters = 0x10000;
-constexpr uint32_t kBlendModeMask = 0xFFFFFF;
 constexpr uint32_t kAlphaMask = 0xFF000000;
 constexpr uint32_t kAlphaHighBit = 0x80000000;
 constexpr int kByte1Shift = 8;

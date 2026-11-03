@@ -48,7 +48,6 @@ namespace render {
 
 constexpr float kLayoutWidth = 640.0f;
 constexpr float kLayoutHeight = 480.0f;
-constexpr int kColourOpModulate = 5;
 constexpr std::size_t kDumpNameBytes = 256;
 constexpr int kBitsPerByte = 8;
 constexpr int kScreenSaverFrames = 200;
@@ -181,7 +180,7 @@ void draw_movie_frame(void* texture, maths::Vec2 at, maths::Size size, float alp
     renderer().d3d_device()->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
     renderer().d3d_device()->SetFVF(kScreenVertexFormat);
     set_pixel_shader(nullptr, nullptr);                                            // (no pixel shader)
-    set_texture_stage_state(0, 1, kColourOpModulate);                                              // colour: modulate
+    set_texture_stage_state(0, 1, kTextureOpModulate2x);                                              // colour: modulate
     set_texture_stage_state(0, 2, 2);
     set_texture_stage_state(0, 3, 1);
     set_texture_stage_state(0, 4, 3);

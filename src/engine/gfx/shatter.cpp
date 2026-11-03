@@ -38,7 +38,6 @@
 namespace render {
 
 constexpr int kPositionBytes = 12;
-constexpr int kLockDiscard = 0x10; // D3DLOCK_DISCARD
 constexpr float kAreaScale = 0.0625f;
 constexpr float kThird = 3.0f;
 constexpr float kMaxSpin = 0.1f;

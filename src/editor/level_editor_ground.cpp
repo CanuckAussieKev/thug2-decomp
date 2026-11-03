@@ -23,6 +23,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/packed_colour.h"
+#include "engine/gfx/render_state.h"
 
 namespace frontend::level_editor::ground {
 
@@ -36,11 +37,8 @@ constexpr uint32_t kLastBuiltInShader = 6;  // vertex format values up to this a
 constexpr uint32_t kShaderHandleMin = 0x10000; // vertex format values from here are shader handles
 constexpr uint32_t kFvfUnsupportedMask = 0x400E; // position bits other than plain XYZ (blend weights, XYZRHW ...)
 constexpr int kPositionBytes = 12;  // three floats
-constexpr uint32_t kFvfNormal = 0x010;    // the vertex carries a normal
 constexpr int kNormalBytes = 12;    // three floats
 constexpr uint32_t kFvfPointSize = 0x020; // ... a point size
-constexpr uint32_t kFvfDiffuse = 0x040;   // ... a diffuse colour
-constexpr uint32_t kFvfSpecular = 0x080;  // ... a specular colour
 constexpr uint32_t kFvfTexCountShift = 8; // the texture coordinate set count sits in the bits from here
 constexpr uint32_t kFvfTexCountMask = 0xF;
 constexpr int kTexCoordBytes = 8;   // two floats a set
@@ -367,13 +365,13 @@ bool layout_for(VertexFormat format, Layout* layout)
     if (fvf <= kLastBuiltInShader || fvf >= kShaderHandleMin || (fvf & kFvfUnsupportedMask) != 0x002)
         return false;
     int at = kPositionBytes;
-    if (fvf & kFvfNormal)
+    if (fvf & render::kFvfNormal)
         layout->normal = at, at += kNormalBytes;
     if (fvf & kFvfPointSize)
         layout->size = at, at += 4;
-    if (fvf & kFvfDiffuse)
+    if (fvf & render::kFvfDiffuse)
         layout->diffuse = at, at += 4;
-    if (fvf & kFvfSpecular)
+    if (fvf & render::kFvfSpecular)
         layout->specular = at, at += 4;
     layout->tex_count_ = static_cast<int>((fvf >> kFvfTexCountShift) & kFvfTexCountMask);
     if (layout->tex_count_)

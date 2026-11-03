@@ -237,7 +237,6 @@ constexpr uint32_t kGroupBoxColour = 0xFFFFFF00;  // ARGB
 constexpr uint32_t kMemberBoxColour = 0xFF00FFFF; // ARGB
 constexpr std::size_t kMaxBoxesDrawn = 64;
 constexpr uint32_t kSegmentColour = 0xFF40E0FF;   // ARGB
-constexpr uint32_t kVertexFormatScreen = 0x144;   // XYZRHW | DIFFUSE | TEX1
 constexpr float kMaxPitchDegrees = 89.0f;   // the view looks up or down at most this far
 
 constexpr std::uint32_t kPos = 0x7F261953u; // Pos
@@ -6917,7 +6916,7 @@ void blit()
     const LineVertex* line_data = lines.data();
     // The renderer's own (cached) state: no texture, pre-transformed vertices with a colour.
     render::set_texture(0, nullptr);
-    render::set_vertex_format(kVertexFormatScreen);           // XYZRHW | DIFFUSE | TEX1
+    render::set_vertex_format(render::kScreenVertexFormat);           // XYZRHW | DIFFUSE | TEX1
     render::set_pixel_shader(nullptr, nullptr); // no pixel shader
     // Stage 0 takes the vertex colour (put back after: the renderer doesn't know of this).
     const std::array<int, 4> states = {{1, 2, 4, 5}};      // colour op / arg 1, alpha op / arg 1

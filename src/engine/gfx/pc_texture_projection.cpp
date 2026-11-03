@@ -47,7 +47,6 @@ constexpr float kHalf = 0.5f;
 constexpr int kProjectionPassFlags = 0x44;
 constexpr float kNeutralPassColour = 128.0f;
 constexpr int kProjectionAddressModes = 0x20002; // border addressing both ways
-constexpr int kLockDiscard = 0x10;               // D3DLOCK_DISCARD
 constexpr float kFinenessScale = 16.0f;
 constexpr int kPieceBufferBytes = 0x2000;
 

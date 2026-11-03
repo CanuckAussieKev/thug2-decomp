@@ -15,12 +15,12 @@
 #include "engine/lists/key_map.h"
 #include "engine/core/checked_index.h"
 #include "engine/gfx/pc_texture.h"
+#include "engine/gfx/render_state.h"
 
 namespace render {
 
 constexpr int kMaxMaterialTableBits = 12;
 constexpr int kMaxDepthBias = 0x10;
-constexpr int kBlendModeMask = 0xFFFFFF; // a pass's blend mode keeps its fixed alpha in the top byte
 constexpr int kAlphaShift = 24;
 constexpr int kAlphaScale = 128;
 constexpr int kAddressVShift = 16;       // an address mode: U in the low half, V in the high

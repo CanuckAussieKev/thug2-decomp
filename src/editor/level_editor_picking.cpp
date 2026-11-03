@@ -3,6 +3,7 @@
 #include "gpu/vertex_view.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/no_destroy.h"
+#include "engine/gfx/render_state.h"
 #include <span>
 
 #include <algorithm>
@@ -19,11 +20,6 @@ namespace frontend::level_editor::picking {
 namespace {
 
 constexpr int kPassSeeThroughFlag = 0x40; // a pass drawn see-through regardless of its blend
-constexpr int kBlendModeMask = 0xFFFFFF; // the blend mode's bits (the rest are flags)
-constexpr int kBlendModulate = 7;
-constexpr int kBlendFixModulate = 8;
-constexpr int kBlendBrighten = 9;
-constexpr int kBlendFixBrighten = 10;
 constexpr float kParallelEpsilon = 1e-12f; // a triangle edge-on to the ray (determinant near zero)
 
 } // namespace
@@ -91,15 +87,15 @@ bool material_see_through(PassBlend pass_blend)
     const auto blend_mode = pass_blend.blend_mode_;
     if (pass_flags & kPassSeeThroughFlag)
         return true;
-    switch (blend_mode & kBlendModeMask) {
+    switch (blend_mode & render::kBlendModeMask) {
     case 1:
     case 2: // add, fixadd
     case 3:
     case 4: // subtract, fixsubtract
-    case kBlendModulate:
-    case kBlendFixModulate: // modulate, fixmodulate
-    case kBlendBrighten:
-    case kBlendFixBrighten: // brighten, fixbrighten
+    case render::kBlendModeModulate:
+    case render::kBlendModeFixModulate: // modulate, fixmodulate
+    case render::kBlendModeBrighten:
+    case render::kBlendModeFixBrighten: // brighten, fixbrighten
         return true;
     default:
         return false; // 0 diffuse, 5 blend, 6 fixblend (and anything else)

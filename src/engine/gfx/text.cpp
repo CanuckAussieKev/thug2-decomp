@@ -47,7 +47,6 @@ constexpr int kGlyphMapEntries = 256;
 constexpr int kByte2Shift = 16;
 constexpr uint32_t kGreenAlphaMask = 0xFF00FF00;
 constexpr int kQuadSixthIndex = 5;
-constexpr int kTextureOpModulate2x = 5; // D3DTOP_MODULATE2X
 constexpr int kStageAlphaArg1 = 5;      // D3DTSS_ALPHAARG1
 constexpr int kStageAlphaArg2 = 6;      // D3DTSS_ALPHAARG2
 constexpr std::size_t kPathBytes = 128;
