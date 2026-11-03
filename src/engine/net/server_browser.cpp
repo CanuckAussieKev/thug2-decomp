@@ -120,7 +120,7 @@ void info_line(uint32_t title, F value)
         params->append_word(kValue, shown);
     get_run(kAddInfoItem, params.get());
 }
-const char* no_value(char*) { return nullptr; }
+const char* no_value(char* /*unused*/) { return nullptr; }
 
 // A rating's rank (as the lobby's: rating * 1/3500 * 10, truncated, at most 10).
 int rank_of(int rating)

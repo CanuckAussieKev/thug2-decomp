@@ -262,7 +262,7 @@ void KinematicsModule::arrive_at_node(uint32_t node)
 }
 
 // 0x00424180
-void KinematicsModule::follow_path_linked(script::Struct* params, script::Script*)
+void KinematicsModule::follow_path_linked(script::Struct* params, script::Script* /*script*/)
 {
     const uint32_t node = params->has_bare_flag(kOriginalNode) ? own_node_name_ : list_link_;
     const uint32_t links = level_nodes::get_link_count(node);
@@ -370,7 +370,7 @@ bool KinematicsModule::obj_get_next_obj_on_path(script::Struct* params, script::
 }
 
 // 0x004251C0
-bool KinematicsModule::obj_set_path_turn_dist(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_set_path_turn_dist(script::Struct* params, script::Script* /*script*/)
 {
     float distance = 0.0f; // (the original's is whatever its stack slot held: only read once found)
     if (params->fetch_float(0u, &distance, 0)) {
@@ -383,7 +383,7 @@ bool KinematicsModule::obj_set_path_turn_dist(script::Struct* params, script::Sc
 }
 
 // 0x00425220
-bool KinematicsModule::obj_follow_path(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_follow_path(script::Struct* params, script::Script* /*script*/)
 {
     motion_flags2_ &= ~kMotion2StoppedOnPath;
     uint32_t node = 0;
@@ -403,7 +403,7 @@ bool KinematicsModule::obj_follow_path_linked(script::Struct* params, script::Sc
 }
 
 // 0x00425290
-bool KinematicsModule::obj_follow_path_stored(script::Struct*, script::Script*)
+bool KinematicsModule::obj_follow_path_stored(script::Struct* /*params*/, script::Script* /*script*/)
 {
     start_path(saved_node_id_);
     motion_flags_ = (motion_flags_ & ~kMotionMoving) | kMotionFollowingPath;
@@ -411,7 +411,7 @@ bool KinematicsModule::obj_follow_path_stored(script::Struct*, script::Script*)
 }
 
 // 0x004252C0
-bool KinematicsModule::obj_follow_leader(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_follow_leader(script::Struct* params, script::Script* /*script*/)
 {
     trail_behind_lead(params);
     return true;

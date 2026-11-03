@@ -252,7 +252,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
 }
 
 // 0x0055D3F0
-bool cfunc_goal_manager_add_goal(script::Struct* params, script::Script*)
+bool cfunc_goal_manager_add_goal(script::Struct* params, script::Script* /*script*/)
 {
     GoalManager* manager = get_objective_board();
     uint32_t name = 0;
@@ -263,7 +263,7 @@ bool cfunc_goal_manager_add_goal(script::Struct* params, script::Script*)
 }
 
 // 0x0055D450 (drop_objective, inlined)
-bool cfunc_goal_manager_remove_goal(script::Struct* params, script::Script*)
+bool cfunc_goal_manager_remove_goal(script::Struct* params, script::Script* /*script*/)
 {
     GoalManager* manager = get_objective_board();
     uint32_t name = 0;
@@ -272,21 +272,21 @@ bool cfunc_goal_manager_remove_goal(script::Struct* params, script::Script*)
 }
 
 // 0x0055D4D0
-bool cfunc_goal_manager_remove_all_goals(script::Struct*, script::Script*)
+bool cfunc_goal_manager_remove_all_goals(script::Struct* /*params*/, script::Script* /*script*/)
 {
     get_objective_board()->wipe_objectives();
     return true;
 }
 
 // 0x0055D4F0
-bool cfunc_goal_manager_restart_last_goal(script::Struct*, script::Script*)
+bool cfunc_goal_manager_restart_last_goal(script::Struct* /*params*/, script::Script* /*script*/)
 {
     get_objective_board()->retry_previous_objective();
     return true;
 }
 
 // 0x0055D510
-bool cfunc_goal_manager_level_unload(script::Struct*, script::Script*)
+bool cfunc_goal_manager_level_unload(script::Struct* /*params*/, script::Script* /*script*/)
 {
     get_objective_board()->level_unload();
     return true;
@@ -304,7 +304,7 @@ bool cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params, script
 }
 
 // 0x0055D590
-bool cfunc_goal_manager_add_goal_choices(script::Struct* params, script::Script*)
+bool cfunc_goal_manager_add_goal_choices(script::Struct* params, script::Script* /*script*/)
 {
     GoalManager* manager = get_objective_board();
     const bool selected = params->has_bare_flag(kChosenOnly);
@@ -315,7 +315,7 @@ bool cfunc_goal_manager_add_goal_choices(script::Struct* params, script::Script*
 }
 
 // 0x0055D600: every goal's goalId and hasBeaten as the script's GoalList.
-bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
+bool cfunc_goal_manager_get_goal_list(script::Struct* /*params*/, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
     script::ArrayPtr list = script::make_array();
@@ -356,7 +356,7 @@ bool cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Scrip
 }
 
 // 0x0055D8E0
-bool cfunc_goal_manager_get_goal_attempt_info(script::Struct*, script::Script* script)
+bool cfunc_goal_manager_get_goal_attempt_info(script::Struct* /*params*/, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
     script::Struct* results = script->args().get();

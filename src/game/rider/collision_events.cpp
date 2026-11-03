@@ -750,7 +750,7 @@ bool get_on()
     return kOn;
 }
 
-void note_path(SkaterPhysicsModule* component, RouteWay path, const maths::Vec4&)
+void note_path(SkaterPhysicsModule* component, RouteWay path, const maths::Vec4& /*unused*/)
 {
     if (component != collision_events_state().component_ || !get_on()) // (collision_events_state().component_: set by end_frame, only while on)
         return;

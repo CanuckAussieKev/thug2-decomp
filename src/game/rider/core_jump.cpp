@@ -293,28 +293,28 @@ void SkaterPhysicsModule::step_wallplant()
 }
 
 // 0x00509A40
-int SkaterPhysicsModule::get_jump(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::get_jump(script::Struct* params, script::Script* /*script*/)
 {
     perform_leap(params);
     return 1;
 }
 
 // 0x00509A60
-int SkaterPhysicsModule::start_skitch(script::Struct*, script::Script*)
+int SkaterPhysicsModule::start_skitch(script::Struct* /*params*/, script::Script* /*script*/)
 {
     begin_skitch();
     return 1;
 }
 
 // 0x00509A70
-int SkaterPhysicsModule::end_tow_ride(script::Struct*, script::Script*)
+int SkaterPhysicsModule::end_tow_ride(script::Struct* /*params*/, script::Script* /*script*/)
 {
     end_skitch();
     return 1;
 }
 
 // 0x00509A80
-int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t state = 0;
     params->read_hash_value(0u, &state, 0);
@@ -344,14 +344,14 @@ int SkaterPhysicsModule::change_phase(script::Struct* params, script::Script*)
 }
 
 // 0x00509B70
-int SkaterPhysicsModule::trigger_grind_off(script::Struct*, script::Script*)
+int SkaterPhysicsModule::trigger_grind_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
     trigger_rail_script(kGrindOffEvents);
     return 1;
 }
 
 // 0x00509B90
-int SkaterPhysicsModule::force_break_vert(script::Struct*, script::Script*)
+int SkaterPhysicsModule::force_break_vert(script::Struct* /*params*/, script::Script* /*script*/)
 {
     break_vert(true);
     keep_upright();
@@ -359,7 +359,7 @@ int SkaterPhysicsModule::force_break_vert(script::Struct*, script::Script*)
 }
 
 // 0x00509BB0
-int SkaterPhysicsModule::walking_wallplant(script::Struct*, script::Script*)
+int SkaterPhysicsModule::walking_wallplant(script::Struct* /*params*/, script::Script* /*script*/)
 {
     wall_plant(false, false, true);
     return 1;

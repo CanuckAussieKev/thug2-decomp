@@ -136,7 +136,7 @@ void UiTree::drop_entity_registration(objects::Entity* object)
 // --- elements -------------------------------------------------------------------------------------------------
 
 // 0x004AAE20
-ElementPtr* UiTree::fetch_part(ElementPtr* out, uint32_t id, int)
+ElementPtr* UiTree::fetch_part(ElementPtr* out, uint32_t id, int /*unused*/)
 {
     objects::Entity* object = objects::get_tracker()->look_up_object(id);
     out->preceding_ = out->following_ = nullptr;

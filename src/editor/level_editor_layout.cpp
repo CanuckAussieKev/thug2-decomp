@@ -1687,7 +1687,7 @@ bool put_back(const std::string& before, std::string* message)
     return true;
 }
 
-bool cfunc_pick_level(script::Struct* params, script::Script*)
+bool cfunc_pick_level(script::Struct* params, script::Script* /*script*/)
 {
     static const uint32_t kLevel = checksums::hash_from_text("level");
     static const uint32_t kEditedLayout = checksums::hash_from_text("edited_layout");
@@ -1723,7 +1723,7 @@ bool cfunc_pick_level(script::Struct* params, script::Script*)
     return true;
 }
 
-bool cfunc_edited_levels(script::Struct*, script::Script* script)
+bool cfunc_edited_levels(script::Struct* /*params*/, script::Script* script)
 {
     if (!script || !script->args() || get_refused())
         return false;

@@ -83,80 +83,87 @@ void Primitive::draw_if_ready(std::span<const float> positions, std::span<const 
 
 // --- the virtuals' bodies (0x0049C390-0x0049C640) ---
 
-void Primitive::set_texture(const BitmapTexture*, int, int) { debug::printf("STUB: plat_set_texture\n"); }
-void Primitive::change_colour(uint32_t) { debug::printf("STUB: plat_set_base_color\n"); }
+void Primitive::set_texture(const BitmapTexture* /*unused*/, int /*unused*/, int /*unused*/)
+{
+    debug::printf("STUB: plat_set_texture\n");
+}
+void Primitive::change_colour(uint32_t /*unused*/) { debug::printf("STUB: plat_set_base_color\n"); }
 void Primitive::prepare_all(PrimitiveLayout /*primitive_layout*/) { debug::printf("STUB: plat_begin\n"); }
 void Primitive::end_setup() { debug::printf("STUB: plat_end\n"); }
 void Primitive::render() { debug::printf("STUB: plat_draw\n"); }
-void Primitive::blit(std::span<const float>, std::span<const uint32_t>, std::span<const float>, std::span<const float>)
+void Primitive::blit(std::span<const float> /*unused*/, std::span<const uint32_t> /*unused*/,
+                     std::span<const float> /*unused*/, std::span<const float> /*unused*/)
 {
     debug::printf("STUB: plat_render\n");
 }
-void Primitive::change_place(int, const maths::Vec4& /*place*/) { debug::printf("STUB: plat_set_pos\n"); }
-void Primitive::set_x(int, float) { debug::printf("STUB: plat_set_pos_x\n"); }
-void Primitive::set_y(int, float) { debug::printf("STUB: plat_set_pos_y\n"); }
-void Primitive::set_z(int, float) { debug::printf("STUB: plat_set_pos_z\n"); }
-void Primitive::set_normal(int, const maths::Vec4& /*normal*/) { debug::printf("STUB: plat_set_normal\n"); }
-void Primitive::set_normal_x(int, float) { debug::printf("STUB: plat_set_normal_x\n"); }
-void Primitive::set_normal_y(int, float) { debug::printf("STUB: plat_set_normal_y\n"); }
-void Primitive::set_normal_z(int, float) { debug::printf("STUB: plat_set_normal_z\n"); }
-void Primitive::set_vertex_colour(int, colour::Packed) { debug::printf("STUB: plat_set_color\n"); }
-void Primitive::set_uv(int, maths::Vec2 /*uv*/) { debug::printf("STUB: plat_set_uv\n"); }
-void Primitive::choose_u(int, float) { debug::printf("STUB: plat_set_u\n"); }
-void Primitive::choose_v(int, float) { debug::printf("STUB: plat_set_v\n"); }
-float Primitive::fetch_pos_x(int)
+void Primitive::change_place(int /*unused*/, const maths::Vec4& /*place*/) { debug::printf("STUB: plat_set_pos\n"); }
+void Primitive::set_x(int /*unused*/, float /*unused*/) { debug::printf("STUB: plat_set_pos_x\n"); }
+void Primitive::set_y(int /*unused*/, float /*unused*/) { debug::printf("STUB: plat_set_pos_y\n"); }
+void Primitive::set_z(int /*unused*/, float /*unused*/) { debug::printf("STUB: plat_set_pos_z\n"); }
+void Primitive::set_normal(int /*unused*/, const maths::Vec4& /*normal*/) { debug::printf("STUB: plat_set_normal\n"); }
+void Primitive::set_normal_x(int /*unused*/, float /*unused*/) { debug::printf("STUB: plat_set_normal_x\n"); }
+void Primitive::set_normal_y(int /*unused*/, float /*unused*/) { debug::printf("STUB: plat_set_normal_y\n"); }
+void Primitive::set_normal_z(int /*unused*/, float /*unused*/) { debug::printf("STUB: plat_set_normal_z\n"); }
+void Primitive::set_vertex_colour(int /*unused*/, colour::Packed /*unused*/)
+{
+    debug::printf("STUB: plat_set_color\n");
+}
+void Primitive::set_uv(int /*unused*/, maths::Vec2 /*uv*/) { debug::printf("STUB: plat_set_uv\n"); }
+void Primitive::choose_u(int /*unused*/, float /*unused*/) { debug::printf("STUB: plat_set_u\n"); }
+void Primitive::choose_v(int /*unused*/, float /*unused*/) { debug::printf("STUB: plat_set_v\n"); }
+float Primitive::fetch_pos_x(int /*unused*/)
 {
     debug::printf("STUB: plat_get_pos_x\n");
     return 0.0f;
 }
-float Primitive::fetch_pos_y(int)
+float Primitive::fetch_pos_y(int /*unused*/)
 {
     debug::printf("STUB: plat_get_pos_y\n");
     return 0.0f;
 }
-float Primitive::fetch_pos_z(int)
+float Primitive::fetch_pos_z(int /*unused*/)
 {
     debug::printf("STUB: plat_get_pos_z\n");
     return 0.0f;
 }
-float Primitive::get_normal_x(int)
+float Primitive::get_normal_x(int /*unused*/)
 {
     debug::printf("STUB: plat_get_normal_x\n");
     return 0.0f;
 }
-float Primitive::get_normal_y(int)
+float Primitive::get_normal_y(int /*unused*/)
 {
     debug::printf("STUB: plat_get_normal_y\n");
     return 0.0f;
 }
-float Primitive::get_normal_z(int)
+float Primitive::get_normal_z(int /*unused*/)
 {
     debug::printf("STUB: plat_get_normal_z\n");
     return 0.0f;
 }
-uint32_t Primitive::get_vertex_colour(int)
+uint32_t Primitive::get_vertex_colour(int /*unused*/)
 {
     debug::printf("STUB: plat_get_color\n");
     return 0;
 }
-float Primitive::get_u(int)
+float Primitive::get_u(int /*unused*/)
 {
     debug::printf("STUB: plat_get_u\n");
     return 0.0f;
 }
-float Primitive::get_v(int)
+float Primitive::get_v(int /*unused*/)
 {
     debug::printf("STUB: plat_get_v\n");
     return 0.0f;
 }
 void Primitive::get_slide(const maths::Vec4& /*slide*/) { debug::printf("STUB: plat_add_pos\n"); }
-void Primitive::translate_x(float) { debug::printf("STUB: plat_add_pos_x\n"); }
-void Primitive::translate_y(float) { debug::printf("STUB: plat_add_pos_y\n"); }
-void Primitive::translate_z(float) { debug::printf("STUB: plat_add_pos_z\n"); }
+void Primitive::translate_x(float /*unused*/) { debug::printf("STUB: plat_add_pos_x\n"); }
+void Primitive::translate_y(float /*unused*/) { debug::printf("STUB: plat_add_pos_y\n"); }
+void Primitive::translate_z(float /*unused*/) { debug::printf("STUB: plat_add_pos_z\n"); }
 void Primitive::scroll_uv(maths::Vec2 /*uv*/) { debug::printf("STUB: plat_add_uv\n"); }
-void Primitive::scroll_u(float) { debug::printf("STUB: plat_add_u\n"); }
-void Primitive::scroll_v(float) { debug::printf("STUB: plat_add_v\n"); }
-int Primitive::weigh(const Primitive*)
+void Primitive::scroll_u(float /*unused*/) { debug::printf("STUB: plat_add_u\n"); }
+void Primitive::scroll_v(float /*unused*/) { debug::printf("STUB: plat_add_v\n"); }
+int Primitive::weigh(const Primitive* /*unused*/)
 {
     debug::printf("STUB: plat_sort\n");
     return 0;

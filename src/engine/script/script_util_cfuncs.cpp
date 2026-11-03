@@ -384,7 +384,7 @@ bool cfunc_append_suffix(Struct* params, Script* script)
 }
 
 // 0x0044C120: IsObjectScript: whether the script runs on an object.
-bool cfunc_is_object_script(Struct*, Script* script) { return script->entity().get_pull() != nullptr; }
+bool cfunc_is_object_script(Struct* /*params*/, Script* script) { return script->entity().get_pull() != nullptr; }
 
 // 0x0044C290: ForEachIn <array> do=<script> [params={...}]: the script run (now, on this script's object) for each
 // element of the array - with params, on a structure made of the element (a structure; none for null) and those
@@ -528,7 +528,7 @@ bool cfunc_goto_preserve_params(Struct* params, Script* script)
 }
 
 // 0x0044C840
-bool format_printf_text(char* out, Struct* params, Script*)
+bool format_printf_text(char* out, Struct* params, Script* /*script*/)
 {
     const char* text = "Default printf text"; // "Default printf text"
     if (params->fetch_text(0u, &text, 0)) {
@@ -622,7 +622,7 @@ bool cfunc_create_index_array(Struct* params, Script* script)
 // 0x0044CCC0: AppendStruct struct=<global structure> field=<name> params={...}: a copy of params added to the
 // global structure as `field`. Always true. (Original quirks: missing names are uninitialised - here 0 - and a
 // missing global structure crashes.)
-bool cfunc_append_struct(Struct* params, Script*)
+bool cfunc_append_struct(Struct* params, Script* /*script*/)
 {
     uint32_t block_name = 0;
     uint32_t field = 0;

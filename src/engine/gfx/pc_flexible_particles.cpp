@@ -255,9 +255,10 @@ gsl::owner<EmitterInstance*> make_model(const ConstructArgs& a)
 } // namespace
 
 // 0x004BCEF0
-gsl::owner<EmitterInstance*> create_flexible_particles(checksums::Name system_name, checksums::Name kind, int particle_cap, int, uint32_t texture,
-                                           uint32_t blend_mode, int fixed_alpha, int segments, float unknown,
-                                           int history, const char* model)
+gsl::owner<EmitterInstance*> create_flexible_particles(checksums::Name system_name, checksums::Name kind,
+                                                       int particle_cap, int /*unused*/, uint32_t texture,
+                                                       uint32_t blend_mode, int fixed_alpha, int segments,
+                                                       float unknown, int history, const char* model)
 {
     const uint32_t type = kind.value();
     const uint32_t name = system_name.value();

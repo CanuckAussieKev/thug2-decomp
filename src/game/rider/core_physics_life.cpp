@@ -114,7 +114,7 @@ void SkaterPhysicsModule::set_surface_kind(uint32_t terrain)
 SkaterPhysicsModule::~SkaterPhysicsModule() = default;
 
 // 0x004FC5C0
-void SkaterPhysicsModule::configure_from_data(script::Struct*)
+void SkaterPhysicsModule::configure_from_data(script::Struct* /*params*/)
 {
     rolling_friction_ = tuning_float_lookup(kCoastDrag, object_of(this));
     objects::GameEntity* object = object_of(this);
@@ -240,7 +240,7 @@ void SkaterPhysicsModule::turn_around()
 }
 
 // 0x004FE1D0
-void SkaterPhysicsModule::reset_to_air(void*)
+void SkaterPhysicsModule::reset_to_air(void* /*unused*/)
 {
     clear_flags();
     set_physics_state(kAir);

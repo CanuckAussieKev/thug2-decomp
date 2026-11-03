@@ -148,47 +148,71 @@ void RiderPoseState::clear_powerups() { core::at(boost_items_, 0) = 0; }
 void RiderPoseState::clear_doing_trick() { in_trick_move_ = 0; }
 
 // 0x00519480
-bool RiderPoseState::in_air(script::Struct*, script::Script*) const { return cur_phase_ == kAir; }
+bool RiderPoseState::in_air(script::Struct* /*params*/, script::Script* /*script*/) const { return cur_phase_ == kAir; }
 // 0x00519490
-bool RiderPoseState::get_on_wall(script::Struct*, script::Script*) const { return cur_phase_ == kWall; }
+bool RiderPoseState::get_on_wall(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return cur_phase_ == kWall;
+}
 // 0x005194A0
-bool RiderPoseState::on_lip(script::Struct*, script::Script*) const { return cur_phase_ == kLip; }
+bool RiderPoseState::on_lip(script::Struct* /*params*/, script::Script* /*script*/) const { return cur_phase_ == kLip; }
 // 0x005194B0
-bool RiderPoseState::get_on_rail(script::Struct*, script::Script*) const { return cur_phase_ == kRail; }
+bool RiderPoseState::get_on_rail(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return cur_phase_ == kRail;
+}
 // 0x005194C0
-bool RiderPoseState::in_wallplant(script::Struct*, script::Script*) const { return cur_phase_ == kWallplant; }
+bool RiderPoseState::in_wallplant(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return cur_phase_ == kWallplant;
+}
 // 0x005196D0
-bool RiderPoseState::in_bail_state(script::Struct*, script::Script*) const { return is_on(PoseFlag::kBailing) != 0; }
+bool RiderPoseState::in_bail_state(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return is_on(PoseFlag::kBailing) != 0;
+}
 // 0x005194D0
-bool RiderPoseState::on_foot(script::Struct*, script::Script*) { return !in_vehicle_ && physics_mode_ == PhysicsMode::kWalking; }
+bool RiderPoseState::on_foot(script::Struct* /*params*/, script::Script* /*script*/)
+{
+    return !in_vehicle_ && physics_mode_ == PhysicsMode::kWalking;
+}
 // 0x005194F0
-bool RiderPoseState::skating(script::Struct*, script::Script*) { return !in_vehicle_ && physics_mode_ == PhysicsMode::kSkating; }
+bool RiderPoseState::skating(script::Struct* /*params*/, script::Script* /*script*/)
+{
+    return !in_vehicle_ && physics_mode_ == PhysicsMode::kSkating;
+}
 // 0x00519510
-bool RiderPoseState::get_driving(script::Struct*, script::Script*) const { return in_vehicle_ != 0; }
+bool RiderPoseState::get_driving(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return in_vehicle_ != 0;
+}
 // 0x00519520
-bool RiderPoseState::set_driving(script::Struct*, script::Script*)
+bool RiderPoseState::set_driving(script::Struct* /*params*/, script::Script* /*script*/)
 {
     in_vehicle_ = 1;
     return true;
 }
 // 0x00519530
-bool RiderPoseState::unset_driving(script::Struct*, script::Script*)
+bool RiderPoseState::unset_driving(script::Struct* /*params*/, script::Script* /*script*/)
 {
     in_vehicle_ = 0;
     return true;
 }
 // 0x005196E0
-bool RiderPoseState::in_air_move(script::Struct*, script::Script*) const { return in_trick_move_ != 0; }
+bool RiderPoseState::in_air_move(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return in_trick_move_ != 0;
+}
 
 // 0x00519540
-bool RiderPoseState::has_powerup(script::Struct* params, script::Script*)
+bool RiderPoseState::has_powerup(script::Struct* params, script::Script* /*script*/)
 {
     const int index = find_powerup(params);
     return index != -1 && core::at(boost_items_, index) != 0;
 }
 
 // 0x005195B0
-bool RiderPoseState::picked_up_powerup(script::Struct* params, script::Script*)
+bool RiderPoseState::picked_up_powerup(script::Struct* params, script::Script* /*script*/)
 {
     const int index = find_powerup(params);
     if (index != -1)
@@ -197,21 +221,21 @@ bool RiderPoseState::picked_up_powerup(script::Struct* params, script::Script*)
 }
 
 // 0x005196F0
-bool RiderPoseState::get_surface_kind(script::Struct*, script::Script* script) const
+bool RiderPoseState::get_surface_kind(script::Struct* /*params*/, script::Script* script) const
 {
     script->args()->put_int(checksums::Name{kTerrain}, surface_type_);
     return true;
 }
 
 // 0x00519720
-bool RiderPoseState::get_sparks_pos(script::Struct*, script::Script* script) const
+bool RiderPoseState::get_sparks_pos(script::Struct* /*params*/, script::Script* script) const
 {
     script->args()->put_name_key(checksums::Name{kSparksPos}, sparks_pos_);
     return true;
 }
 
 // 0x00519600
-bool RiderPoseState::set_sparks_pos(script::Struct* params, script::Script*)
+bool RiderPoseState::set_sparks_pos(script::Struct* params, script::Script* /*script*/)
 {
     params->read_hash_value(uint32_t{0}, &sparks_pos_, 0);
     return true;

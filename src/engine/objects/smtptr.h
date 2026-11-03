@@ -53,8 +53,8 @@ public:
         return memory::alloc_zeroed(static_cast<unsigned int>(size));
     }
     static void operator delete(void* memory) { memory::dealloc(memory); }
-    static void* operator new(std::size_t, void* place) noexcept { return place; }
-    static void operator delete(void*, void*) noexcept {}
+    static void* operator new(std::size_t /*unused*/, void* place) noexcept { return place; }
+    static void operator delete(void* /*unused*/, void* /*unused*/) noexcept {}
 
     // Clear every smart pointer to it / attach / detach one (SharedRefList's).
     void clear_smart_pointers() { smart_pointers_.clear(); }

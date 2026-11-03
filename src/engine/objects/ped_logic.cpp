@@ -433,7 +433,7 @@ const char* profile_voice()
 // --- script member functions ---
 
 // 0x004F2040
-bool PedestrianBrainModule::ped_set_logic_state(script::Struct* params, script::Script*)
+bool PedestrianBrainModule::ped_set_logic_state(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t state = 0;
     uint32_t table = 0;
@@ -448,14 +448,14 @@ bool PedestrianBrainModule::ped_set_logic_state(script::Struct* params, script::
 }
 
 // 0x004EDD80
-bool PedestrianBrainModule::ped_get_logic_state(script::Struct*, script::Script* script) const
+bool PedestrianBrainModule::ped_get_logic_state(script::Struct* /*params*/, script::Script* script) const
 {
     script->args()->put_name_key(checksums::Name{kLogicState}, cur_phase_);
     return true;
 }
 
 // 0x004F24B0
-bool PedestrianBrainModule::ped_start_moving(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_start_moving(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (flag_bits_ & kPedFlagStopping) {
         activate_aux_script(kStartMoving, nullptr);
@@ -466,20 +466,20 @@ bool PedestrianBrainModule::ped_start_moving(script::Struct*, script::Script*)
 }
 
 // 0x004ED150
-bool PedestrianBrainModule::ped_stop_moving(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_stop_moving(script::Struct* /*params*/, script::Script* /*script*/)
 {
     flag_bits_ &= ~kPedFlagMoving;
     return true;
 }
 
 // 0x004ED160
-bool PedestrianBrainModule::ped_is_moving(script::Struct*, script::Script*) const
+bool PedestrianBrainModule::ped_is_moving(script::Struct* /*params*/, script::Script* /*script*/) const
 {
     return (flag_bits_ & kPedFlagMoving) != 0;
 }
 
 // 0x004ED170
-bool PedestrianBrainModule::ped_set_stick_distances(script::Struct* params, script::Script*)
+bool PedestrianBrainModule::ped_set_stick_distances(script::Struct* params, script::Script* /*script*/)
 {
     params->fetch_float(kDistAboveCmd, &stick_above_, 0);
     params->fetch_float(kDistBelowCmd, &stick_below_, 0);
@@ -489,7 +489,7 @@ bool PedestrianBrainModule::ped_set_stick_distances(script::Struct* params, scri
 }
 
 // 0x004ED1D0
-bool PedestrianBrainModule::ped_set_is_grinding(script::Struct* params, script::Script*)
+bool PedestrianBrainModule::ped_set_is_grinding(script::Struct* params, script::Script* /*script*/)
 {
     int grinding = 0;
     params->fetch_int_value(0u, &grinding, 1);
@@ -501,7 +501,7 @@ bool PedestrianBrainModule::ped_set_is_grinding(script::Struct* params, script::
 }
 
 // 0x004ED220
-bool PedestrianBrainModule::ped_set_is_bailing(script::Struct* params, script::Script*)
+bool PedestrianBrainModule::ped_set_is_bailing(script::Struct* params, script::Script* /*script*/)
 {
     // (The original reads the value over its `params` argument: missing - it's asserted - it stays that pointer.)
     int bailing = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
@@ -520,34 +520,34 @@ bool PedestrianBrainModule::ped_set_is_bailing(script::Struct* params, script::S
 }
 
 // 0x004ED2A0
-bool PedestrianBrainModule::ped_near_vert_node(script::Struct*, script::Script*) const
+bool PedestrianBrainModule::ped_near_vert_node(script::Struct* /*params*/, script::Script* /*script*/) const
 {
     return (flag_bits_ & (kPedFlagVertNext | kPedFlagVertLast | kPedFlagVertAfter)) != 0;
 }
 
 // 0x004EDDA0
-bool PedestrianBrainModule::ped_get_current_velocity(script::Struct*, script::Script* script)
+bool PedestrianBrainModule::ped_get_current_velocity(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->push_float(checksums::Name{kVelocity}, get_motion(entity())->path_speed());
     return true;
 }
 
 // 0x004EDDD0
-bool PedestrianBrainModule::ped_store_max_velocity(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_store_max_velocity(script::Struct* /*params*/, script::Script* /*script*/)
 {
     stored_max_velocity_ = get_motion(entity())->path_max_speed();
     return true;
 }
 
 // 0x004EDE00
-bool PedestrianBrainModule::ped_get_original_max_velocity(script::Struct*, script::Script* script) const
+bool PedestrianBrainModule::ped_get_original_max_velocity(script::Struct* /*params*/, script::Script* script) const
 {
     script->args()->push_float(checksums::Name{kOriginalMaxVelocity}, stored_max_velocity_);
     return true;
 }
 
 // 0x004EDE20
-bool PedestrianBrainModule::ped_apply_speed_boost(script::Struct* params, script::Script*)
+bool PedestrianBrainModule::ped_apply_speed_boost(script::Struct* params, script::Script* /*script*/)
 {
     float boost = kDefaultBoost;
     if (params->fetch_float(kPercent, &boost, 0))
@@ -562,7 +562,7 @@ bool PedestrianBrainModule::ped_apply_speed_boost(script::Struct* params, script
 }
 
 // 0x004EDEA0
-bool PedestrianBrainModule::ped_remove_speed_boost(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_remove_speed_boost(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (KinematicsModule* motion = get_motion(entity()))
         motion->set_path_speed(motion->path_max_speed());
@@ -570,7 +570,7 @@ bool PedestrianBrainModule::ped_remove_speed_boost(script::Struct*, script::Scri
 }
 
 // 0x004EE100
-bool PedestrianBrainModule::ped_set_is_skater(script::Struct* params, script::Script*)
+bool PedestrianBrainModule::ped_set_is_skater(script::Struct* params, script::Script* /*script*/)
 {
     // (The value is read over the `params` argument: missing - it's asserted - it stays that pointer.)
     int skater = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
@@ -588,7 +588,7 @@ bool PedestrianBrainModule::ped_set_is_skater(script::Struct* params, script::Sc
 }
 
 // 0x004EE180
-bool PedestrianBrainModule::ped_play_jump_sound(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_play_jump_sound(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound)))
         sound->play_jump_here(speed_ratio_);
@@ -596,7 +596,7 @@ bool PedestrianBrainModule::ped_play_jump_sound(script::Struct*, script::Script*
 }
 
 // 0x004EE1B0
-bool PedestrianBrainModule::ped_play_land_sound(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_play_land_sound(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (auto* sound = core::down_cast<RiderSfxPlayer>(entity()->fetch_module(kSkaterSound)))
         sound->play_land_here(speed_ratio_);
@@ -604,7 +604,7 @@ bool PedestrianBrainModule::ped_play_land_sound(script::Struct*, script::Script*
 }
 
 // 0x004EE1E0
-bool PedestrianBrainModule::ped_get_current_node_names(script::Struct*, script::Script* script) const
+bool PedestrianBrainModule::ped_get_current_node_names(script::Struct* /*params*/, script::Script* script) const
 {
     script->args()->put_name_key(checksums::Name{kNodeTo}, next_node_);
     script->args()->put_name_key(checksums::Name{kNodeFrom}, list_link_);
@@ -613,14 +613,14 @@ bool PedestrianBrainModule::ped_get_current_node_names(script::Struct*, script::
 }
 
 // 0x004EE230
-bool PedestrianBrainModule::ped_get_gender(script::Struct*, script::Script* script) const
+bool PedestrianBrainModule::ped_get_gender(script::Struct* /*params*/, script::Script* script) const
 {
     script->args()->put_name_key(checksums::Name{kGender}, female_ == 1 ? kFemale : kMale);
     return true;
 }
 
 // 0x004F24E0
-bool PedestrianBrainModule::ped_activate_aux_script(script::Struct* params, script::Script*)
+bool PedestrianBrainModule::ped_activate_aux_script(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     if (params->read_hash_value(kName, &name, 1)) {
@@ -632,7 +632,7 @@ bool PedestrianBrainModule::ped_activate_aux_script(script::Struct* params, scri
 }
 
 // 0x004F20F0
-bool PedestrianBrainModule::ped_deactivate_aux_script(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_deactivate_aux_script(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (script::Script* aux = aux_script_) {
         script::Script::destroy(aux);
@@ -642,7 +642,7 @@ bool PedestrianBrainModule::ped_deactivate_aux_script(script::Struct*, script::S
 }
 
 // 0x004EE280
-bool PedestrianBrainModule::ped_hide_board(script::Struct* params, script::Script*)
+bool PedestrianBrainModule::ped_hide_board(script::Struct* params, script::Script* /*script*/)
 {
     int hide = 0;
     params->fetch_int_value(0u, &hide, 0);
@@ -650,14 +650,14 @@ bool PedestrianBrainModule::ped_hide_board(script::Struct* params, script::Scrip
 }
 
 // 0x004F20E0
-bool PedestrianBrainModule::ped_bail(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_bail(script::Struct* /*params*/, script::Script* /*script*/)
 {
     get_bail();
     return true;
 }
 
 // 0x004EE3A0
-bool PedestrianBrainModule::ped_get_voice_prefix(script::Struct*, script::Script* script)
+bool PedestrianBrainModule::ped_get_voice_prefix(script::Struct* /*params*/, script::Script* script)
 {
     const GameEntity* object = entity();
     uint32_t profile_name = 0;

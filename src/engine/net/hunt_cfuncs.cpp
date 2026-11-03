@@ -99,21 +99,21 @@ bool cfunc_place_object(script::Struct* params, script::Script* script)
 }
 
 // 0x005B1F70: AnnounceHuntStarted: the hunt-started message to every remote player. Always true.
-bool cfunc_announce_hunt_started(script::Struct*, script::Script*)
+bool cfunc_announce_hunt_started(script::Struct* /*params*/, script::Script* /*script*/)
 {
     announce_to_players(online::MessageId::kHuntStarted, true);
     return true;
 }
 
 // 0x005B2030: AnnounceNeedToPlaceObjects: the need-to-place-objects message to every player. Always true.
-bool cfunc_announce_need_to_place_objects(script::Struct*, script::Script*)
+bool cfunc_announce_need_to_place_objects(script::Struct* /*params*/, script::Script* /*script*/)
 {
     announce_to_players(online::MessageId::kHuntNeedToPlace, false);
     return true;
 }
 
 // 0x005B20E0: AtLeastOneObjectPlaced: whether a player (observers not counted) has placed an object.
-bool cfunc_at_least_one_object_placed(script::Struct*, script::Script*)
+bool cfunc_at_least_one_object_placed(script::Struct* /*params*/, script::Script* /*script*/)
 {
     Hub* manager = online::online_hub();
     online::detail::PlayerSearch search;
@@ -127,7 +127,7 @@ bool cfunc_at_least_one_object_placed(script::Struct*, script::Script*)
 
 // 0x005B2170: ReportObjectPickup colObjId=<n> id=<object>: the picked-up message (the id) to the server through
 // client 0 online, otherwise through the client numbered colObjId (as the original does). Always true.
-bool cfunc_report_object_pickup(script::Struct* params, script::Script*)
+bool cfunc_report_object_pickup(script::Struct* params, script::Script* /*script*/)
 {
     Hub* manager = online::online_hub();
     net::NetMessageInfo desc;
@@ -160,7 +160,7 @@ bool cfunc_placed_less_than(script::Struct* params, script::Script* script)
 
 // 0x005B2260: BroadcastEnterVehicle SkaterId=<n> control_type=<type>: the enter-vehicle message (the skater's id as
 // a byte, the control type) to the server through client 0, if there is one. Always true.
-bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
+bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script* /*script*/)
 {
     Hub* manager = online::online_hub();
     uint32_t skater = 0;
@@ -189,7 +189,7 @@ bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
 // 0x005B2300: LobbyCheckKeyboard: a space typed (the first character waiting) opens the lobby's keyboard chat
 // (lobby_enter_kb_chat, the typed characters cleared) unless the keyboard_anchor object is already there. Always
 // true.
-bool cfunc_lobby_check_keyboard(script::Struct*, script::Script*)
+bool cfunc_lobby_check_keyboard(script::Struct* /*params*/, script::Script* /*script*/)
 {
     constexpr size_t kTypedSize = 256;
     std::array<char, kTypedSize> typed{};
@@ -207,7 +207,7 @@ bool cfunc_lobby_check_keyboard(script::Struct*, script::Script*)
 // 0x005B4F80: BroadcastObjectPlacements: every player's placed objects sent to every other player (not observers):
 // for each player (observers too) a message per other player - its object id byte, the count and the positions
 // (the rest of the 5 left as they were from the last one). Always true.
-bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
+bool cfunc_broadcast_object_placements(script::Struct* /*params*/, script::Script* /*script*/)
 {
     Hub* manager = online::online_hub();
     online::detail::PlayerSearch others;
@@ -247,7 +247,7 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
 
 // 0x005B50F0: ReportObjectPlacement ObjId=<n> pos=(x,y,z): the placement message (the position) to the server through
 // client 0 online, otherwise through the client numbered by ObjId (as the original does). Always true.
-bool cfunc_report_object_placement(script::Struct* params, script::Script*)
+bool cfunc_report_object_placement(script::Struct* params, script::Script* /*script*/)
 {
     Hub* manager = online::online_hub();
     uint32_t client = 0; // (both uninitialised in the original when missing)
@@ -273,7 +273,7 @@ bool cfunc_report_object_placement(script::Struct* params, script::Script*)
 
 // 0x005B51B0: BroadcastProjectile ObjId=<n> type= ammo_type= pos= vel= scale= radius=: the projectile message to the
 // server through client 0, if there is one. Always true.
-bool cfunc_broadcast_projectile(script::Struct* params, script::Script*)
+bool cfunc_broadcast_projectile(script::Struct* params, script::Script* /*script*/)
 {
     net::AppHost* client = online::online_hub()->fetch_patron(0);
     if (!client)

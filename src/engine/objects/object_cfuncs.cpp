@@ -124,7 +124,7 @@ void flag_as_dead(objects::Entity* object) { object->flag_as_dead(); }
 } // namespace
 
 // 0x00449280: AppendNodeParams node=<name> params={...}: the parameters added to the node's own structure.
-bool cfunc_append_node_params(script::Struct* params, script::Script*)
+bool cfunc_append_node_params(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kNode, &name, 1);
@@ -137,7 +137,7 @@ bool cfunc_append_node_params(script::Struct* params, script::Script*)
 
 // 0x004492E0: InitCOIM size=<bytes> ...: the COIM heap set up (GameObjects::InitCoim) with the three integers and the
 // float squared, truncated.
-bool cfunc_init_coim(script::Struct* params, script::Script*)
+bool cfunc_init_coim(script::Struct* params, script::Script* /*script*/)
 {
     float factor = 0.0f;
     int size = 0;
@@ -154,7 +154,7 @@ bool cfunc_init_coim(script::Struct* params, script::Script*)
 }
 
 // 0x00449380: ResizeCOIMHeap newsize=<bytes>.
-bool cfunc_resize_coim_heap(script::Struct* params, script::Script*)
+bool cfunc_resize_coim_heap(script::Struct* params, script::Script* /*script*/)
 {
     int size = 0;
     params->fetch_int_value(kCoimNewSize, &size, 1);
@@ -163,7 +163,7 @@ bool cfunc_resize_coim_heap(script::Struct* params, script::Script*)
 }
 
 // 0x00449540: CreateCompositeObject Components=[...] [params={...}]: a composite object made from them (finalized).
-bool cfunc_create_composite_object(script::Struct* params, script::Script*)
+bool cfunc_create_composite_object(script::Struct* params, script::Script* /*script*/)
 {
     script::Array* components = nullptr;
     params->fetch_list(kComponents, &components, 1);
@@ -239,7 +239,7 @@ bool cfunc_transform_local_to_world(script::Struct* params, script::Script* scri
 
 // 0x004497D0: DestroyParticlesByGroupID groupID=<id>: the renderer's particle systems of that group destroyed (if
 // there is a particle manager), and every live object with a particle component of that group marked dead.
-bool cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script*)
+bool cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t group = 0;
     params->read_hash_value(kGroupId, &group, 1);
@@ -267,7 +267,7 @@ bool cfunc_get_node(script::Struct* params, script::Script* script)
 }
 
 // 0x00449890: GetNodeName: nodename = the id of the object the script runs on. False with no object or id 0.
-bool cfunc_get_node_name(script::Struct*, script::Script* script)
+bool cfunc_get_node_name(script::Struct* /*params*/, script::Script* script)
 {
     const objects::Entity* object = script->entity().get_pull();
     if (!object || !object->ident())
@@ -277,7 +277,7 @@ bool cfunc_get_node_name(script::Struct*, script::Script* script)
 }
 
 // 0x004498C0: GetTriggerNodeName: nodename = the node the script was spawned for. False if none.
-bool cfunc_get_trigger_node_name(script::Struct*, script::Script* script)
+bool cfunc_get_trigger_node_name(script::Struct* /*params*/, script::Script* script)
 {
     if (!script->list_link())
         return false;
@@ -312,7 +312,7 @@ bool cfunc_run_script_on_object(script::Struct* params, script::Script* script)
 // times that bone's matrix in the relative object's skeleton (no RelativeTo: a crash, as in the original), and
 // with RelativeTo, times that object's display matrix at its position. The result becomes the object's position,
 // matrix (position row reset) and display matrix. (No check that the object exists.)
-bool cfunc_orient(script::Struct* params, script::Script*)
+bool cfunc_orient(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id = 0;
     params->read_hash_value(kObject, &id, 1);
@@ -360,7 +360,7 @@ bool cfunc_orient(script::Struct* params, script::Script*)
 // 0x00449F80: SetEventHandlerOnObject object=<id> ex=<event> scr=<script> [Group=<name> (default)] [Exception]
 // [params={...}]: the event handler set on the object's script (made - on the script pool - if it has none). (No
 // check that the object exists.)
-bool cfunc_set_event_handler_on_object(script::Struct* params, script::Script*)
+bool cfunc_set_event_handler_on_object(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t event_type = 0;
     uint32_t handler = 0;

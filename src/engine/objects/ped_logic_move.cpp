@@ -1202,7 +1202,7 @@ void PedestrianBrainModule::tick_frame()
 // --- script member functions ---
 
 // 0x004F0950
-bool PedestrianBrainModule::ped_turn_to_current_waypoint_orientation(script::Struct* params, script::Script*)
+bool PedestrianBrainModule::ped_turn_to_current_waypoint_orientation(script::Struct* params, script::Script* /*script*/)
 {
     KinematicsModule* motion = get_motion(entity());
     maths::Mat4 m;

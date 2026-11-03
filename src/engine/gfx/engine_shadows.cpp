@@ -181,7 +181,7 @@ void BlobShadow::show()
 }
 
 // 0x004A1F80
-ShadowVolume::ShadowVolume(RenderModel*, maths::Vec4 direction, float distance)
+ShadowVolume::ShadowVolume(RenderModel* /*unused*/, maths::Vec4 direction, float distance)
     : ShadowBase(3), direction_(direction), reach_(distance)
 {
     direction_.make_unit();

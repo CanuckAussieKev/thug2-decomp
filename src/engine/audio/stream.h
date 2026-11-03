@@ -96,8 +96,8 @@ struct WadStream {
     // Linker-folded stubs on PC: 0x005BA1D0 (the thread's update: 0), 0x005BAB90 (the volume), 0x0048DCD0
     // (volume and pan), 0x005B9760 (ready to be freed: true).
     static int tick_frame() { return 0; }
-    void change_loudness(float) {}
-    void set_volume_and_pan(float, float) {}
+    void change_loudness(float /*unused*/) {}
+    void set_volume_and_pan(float /*unused*/, float /*unused*/) {}
     static bool ready_to_free() { return true; }
     // The destructor: empty (a call to 0x005480A0).
     void destruct() {}
@@ -189,7 +189,8 @@ struct BinkStream {
     // if it can't be read or opened. Bink is told to use DirectSound the first time ("Bink can't use DSound").
     long unseal(uint32_t key, const char* path, long offset, size_t size);
     // 0x00454440 (WadStream::set_channel_volumes, linker-folded: empty).
-    void set_channel_volumes(float, float, float, float, float) {}
+    void set_channel_volumes(float /*unused*/, float /*unused*/, float /*unused*/, float /*unused*/, float /*unused*/)
+    {}
 
     // The fields other code reads and sets.
     [[nodiscard]] OVERLAPPED* async_ctl() const { return async_ctl_; }

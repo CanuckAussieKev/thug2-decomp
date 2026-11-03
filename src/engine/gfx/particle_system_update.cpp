@@ -274,7 +274,7 @@ void EmitterInstance::get_emit(int count)
 }
 
 // 0x00497B00
-bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
+bool EmitterInstance::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     switch (name) {
     case kSetEmitAngle: { // (degrees)

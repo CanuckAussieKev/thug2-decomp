@@ -59,7 +59,10 @@ WorldCell::~WorldCell()
 }
 
 // 0x0049E8C0
-void WorldCell::plat_set_shatter(bool) { debug::printf("STUB: PlatSetShatter\n"); } // "STUB: PlatSetShatter\n"
+void WorldCell::plat_set_shatter(bool /*unused*/)
+{
+    debug::printf("STUB: PlatSetShatter\n");
+} // "STUB: PlatSetShatter\n"
 
 // 0x0049E8D0
 bool WorldCell::plat_get_shatter()
@@ -69,7 +72,7 @@ bool WorldCell::plat_get_shatter()
 }
 
 // 0x0049E8E0 (not a function in Ghidra: only the vtable reaches it)
-gsl::owner<WorldCell*> WorldCell::plat_clone(int, void*)
+gsl::owner<WorldCell*> WorldCell::plat_clone(int /*unused*/, void* /*unused*/)
 {
     debug::printf("STUB: PlatClone\n"); // "STUB: PlatClone\n"
     return nullptr;

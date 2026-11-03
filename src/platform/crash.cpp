@@ -265,7 +265,7 @@ LONG WINAPI unhandled_filter(EXCEPTION_POINTERS* info)
 }
 
 void invalid_parameter(const wchar_t* expression, const wchar_t* function, const wchar_t* file, unsigned int line,
-                       uintptr_t)
+                       uintptr_t /*unused*/)
 {
     // (a Release CRT passes none of them)
     get_log("INVALID PARAMETER: %ls in %ls (%ls:%u)", expression ? expression : L"?", function ? function : L"?",
@@ -281,7 +281,7 @@ void pure_call()
     crash_end_process(3);
 }
 
-void abort_signal(int)
+void abort_signal(int /*unused*/)
 {
     get_log("ABORT (abort() or std::terminate)");
     log_backtrace();
@@ -314,7 +314,8 @@ int crt_report_hook(int type, char* message, int* return_value)
 
 // Run-time check failures (e.g. "ESP was not properly saved across a function call"): logged, the process ends. A C
 // function: the C runtime's callback type (_RTC_error_fnW) is variadic.
-extern "C" int rtc_error_handler(int type, const wchar_t*, int, const wchar_t*, const wchar_t* format, ...)
+extern "C" int rtc_error_handler(int type, const wchar_t* /*unused*/, int /*unused*/, const wchar_t* /*unused*/,
+                                 const wchar_t* format, ...)
 {
     std::array<wchar_t, kReportWideSize> text{};
     va_list args = nullptr;
@@ -329,7 +330,7 @@ extern "C" int rtc_error_handler(int type, const wchar_t*, int, const wchar_t*, 
 #endif
 
 #ifdef _DEBUG
-void __stdcall pops_its_argument(int) {}
+void __stdcall pops_its_argument(int /*unused*/) {}
 // A __stdcall function called as __cdecl: it pops its argument and so does the caller - ESP ends up 4 off, which
 // the /RTCs check after the call reports.
 THUG2_NOINLINE void call_with_wrong_convention()
@@ -528,7 +529,7 @@ bool cause_test_fault(TestFault fault)
 }
 
 // (no original C runtime to point at ours)
-bool cause_game_crt_fault(TestFault) { return false; }
+bool cause_game_crt_fault(TestFault /*unused*/) { return false; }
 
 bool run_guarded(void (*function)())
 {

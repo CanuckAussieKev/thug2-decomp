@@ -153,13 +153,13 @@ void GoalManager::reset_goal_data(uint32_t flag)
 }
 
 // 0x00557F90
-Objective* GoalManager::get_goal(uint32_t id, int) { return goals_.get_pull(id); }
+Objective* GoalManager::get_goal(uint32_t id, int /*unused*/) { return goals_.get_pull(id); }
 
 // 0x00557FB0
 Objective* GoalManager::get_objective_at(int index) { return goals_.get_by_index(index); }
 
 // 0x00557FC0
-bool GoalManager::engage_objective(uint32_t id, bool)
+bool GoalManager::engage_objective(uint32_t id, bool /*unused*/)
 {
     Objective* goal = goals_.get_pull(id);
     if (!goal || goal->is_latched())

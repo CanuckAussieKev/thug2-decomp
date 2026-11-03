@@ -62,7 +62,7 @@ const char* stats_file(int index)
 } // namespace
 
 // 0x0054DCB0
-bool retrieve_top_stats(script::Struct* params, script::Script*)
+bool retrieve_top_stats(script::Struct* params, script::Script* /*script*/)
 {
     const online::Hub* manager = online::net_game_state().online_hub();
     online::RankingsManager* stats = manager->rating_service().get();

@@ -218,7 +218,7 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, checksums::Name kind, uint32_t i
 // --- the script commands --------------------------------------------------------------------------------------
 
 // 0x004AAD90: the root window (on the front end's heap), id root_window, registered.
-bool cfunc_screen_element_system_init(script::Struct*, script::Script*)
+bool cfunc_screen_element_system_init(script::Struct* /*params*/, script::Script* /*script*/)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap());
@@ -281,7 +281,7 @@ bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* 
 }
 
 // 0x004AD4C0
-bool cfunc_set_screen_element_props(script::Struct* params, script::Script*)
+bool cfunc_set_screen_element_props(script::Struct* params, script::Script* /*script*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -291,7 +291,7 @@ bool cfunc_set_screen_element_props(script::Struct* params, script::Script*)
 }
 
 // 0x004AD540 (also called directly)
-bool cfunc_do_screen_element_morph(script::Struct* params, script::Script*)
+bool cfunc_do_screen_element_morph(script::Struct* params, script::Script* /*script*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -300,7 +300,7 @@ bool cfunc_do_screen_element_morph(script::Struct* params, script::Script*)
 }
 
 // 0x004AD5C0: the element's focus flag (its event sent) set, or cleared with Off.
-bool cfunc_set_screen_element_lock(script::Struct* params, script::Script*)
+bool cfunc_set_screen_element_lock(script::Struct* params, script::Script* /*script*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -348,7 +348,7 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
 }
 
 // 0x004AC900
-bool cfunc_set_root_screen_element(script::Struct* params, script::Script*)
+bool cfunc_set_root_screen_element(script::Struct* params, script::Script* /*script*/)
 {
     UiTree* manager = hub();
     uint32_t id = 0;
@@ -383,7 +383,7 @@ bool cfunc_get_screen_element_children(script::Struct* params, script::Script* s
 }
 
 // 0x004AD710
-bool cfunc_text_element_concatenate(script::Struct* params, script::Script*)
+bool cfunc_text_element_concatenate(script::Struct* params, script::Script* /*script*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -400,7 +400,7 @@ bool cfunc_text_element_concatenate(script::Struct* params, script::Script*)
 }
 
 // 0x004AD800
-bool cfunc_text_element_backspace(script::Struct* params, script::Script*)
+bool cfunc_text_element_backspace(script::Struct* params, script::Script* /*script*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -453,7 +453,7 @@ bool cfunc_get_screen_element_position(script::Struct* params, script::Script* s
 }
 
 // 0x004ADB20: the menu's selected index against an unnamed integer, first or last. Nothing selected: false.
-bool cfunc_menu_selected_index_is(script::Struct* params, script::Script*)
+bool cfunc_menu_selected_index_is(script::Struct* params, script::Script* /*script*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, true);
@@ -472,7 +472,7 @@ bool cfunc_menu_selected_index_is(script::Struct* params, script::Script*)
 }
 
 // 0x004ADC10
-bool cfunc_screen_element_exists(script::Struct* params, script::Script*)
+bool cfunc_screen_element_exists(script::Struct* params, script::Script* /*script*/)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, false);
@@ -482,7 +482,7 @@ bool cfunc_screen_element_exists(script::Struct* params, script::Script*)
 // 0x004ADC80: text elements made from `text` (a string, or an array of strings run together with spaces), one
 // per line of at most `width` in `font` (and fewer than 0x60 characters), each with the other parameters. (A last
 // word that starts a new line is lost, as in the original.)
-bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*)
+bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script* /*script*/)
 {
     // (the word buffer right before the line's, as on the original's stack: an empty line's "last character" is
     // the word buffer's last)

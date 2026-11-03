@@ -154,7 +154,7 @@ bool FamComponent::play_fam(uint32_t name, bool stream_only, FamLevels fam_level
 }
 
 // 0x0041D660
-int FamComponent::obj_play_fam(script::Struct* params, script::Script*)
+int FamComponent::obj_play_fam(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 1);
@@ -166,7 +166,7 @@ int FamComponent::obj_play_fam(script::Struct* params, script::Script*)
 }
 
 // 0x0041D280
-int FamComponent::obj_stop_last_fam(script::Struct*, script::Script*)
+int FamComponent::obj_stop_last_fam(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (feed_) {
         script::stop_scripts_using_object_that_refer_to(entity(), kFamScript);

@@ -113,21 +113,21 @@ void send_request(Hub* manager, MessageId id, void* data, uint16_t length)
 } // namespace
 
 // 0x00535DA0: StartCTFGame - capture the flag's task into the logic tasks.
-bool cfunc_start_ctf_game(Struct*, Script*)
+bool cfunc_start_ctf_game(Struct* /*params*/, Script* /*script*/)
 {
     get_logic_tasks()->queue_job(net_game_state().online_hub()->flag_carry_job().get());
     return true;
 }
 
 // 0x00535DC0: EndCTFGame - its task removed.
-bool cfunc_end_ctf_game(Struct*, Script*)
+bool cfunc_end_ctf_game(Struct* /*params*/, Script* /*script*/)
 {
     net_game_state().online_hub()->flag_carry_job()->drop_out();
     return true;
 }
 
 // 0x00535DE0: DisplayFlagBaseWarning - display_flag_base_warning, at most every 3 seconds.
-bool cfunc_display_flag_base_warning(Struct*, Script*)
+bool cfunc_display_flag_base_warning(Struct* /*params*/, Script* /*script*/)
 {
     if (frame_clock::get_time() - last_flag_base_warning() > kFlagBaseWarningInterval) {
         get_run(kDisplayFlagBaseWarning);
@@ -137,17 +137,20 @@ bool cfunc_display_flag_base_warning(Struct*, Script*)
 }
 
 // 0x00535E20: NetworkGamePending - a start request is waiting for the server.
-bool cfunc_network_game_pending(Struct*, Script*) { return net_game_state().online_hub()->match_being_set_up(); }
+bool cfunc_network_game_pending(Struct* /*params*/, Script* /*script*/)
+{
+    return net_game_state().online_hub()->match_being_set_up();
+}
 
 // 0x00535E30: MarkGameOver.
-bool cfunc_mark_game_over(Struct*, Script*)
+bool cfunc_mark_game_over(Struct* /*params*/, Script* /*script*/)
 {
     net_game_state().online_hub()->set_match_ended(true);
     return true;
 }
 
 // 0x00535E40: SetJoinMode <n> (an unnamed integer: 0 to play, anything else to watch).
-bool cfunc_set_join_mode(Struct* params, Script*)
+bool cfunc_set_join_mode(Struct* params, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     int mode = 0;
@@ -157,24 +160,27 @@ bool cfunc_set_join_mode(Struct* params, Script*)
 }
 
 // 0x00535E90: GetNumTeams - the game mode's team count into the script's num_teams.
-bool cfunc_get_num_teams(Struct*, Script* script)
+bool cfunc_get_num_teams(Struct* /*params*/, Script* script)
 {
     script->args()->put_int(kNumTeams, get_game_mode()->current_num_teams());
     return true;
 }
 
 // 0x00535EB0: ConnectedToPeer - the lobby has a GameSpy peer, connected (peerIsConnected).
-bool cfunc_connected_to_peer(Struct*, Script*)
+bool cfunc_connected_to_peer(Struct* /*params*/, Script* /*script*/)
 {
     void* peer = net_game_state().online_hub()->lobby_service()->get_lobby_handle();
     return peer && game_spy::peer_is_connected(peer);
 }
 
 // 0x00535EE0: InGroupRoom - the lobby's flag (+0x134).
-bool cfunc_in_group_room(Struct*, Script*) { return in_group_room(net_game_state().online_hub()); }
+bool cfunc_in_group_room(Struct* /*params*/, Script* /*script*/)
+{
+    return in_group_room(net_game_state().online_hub());
+}
 
 // 0x00535EF0: IsAutoServing - the server of a network game in host mode 1.
-bool cfunc_is_auto_serving(Struct*, Script*)
+bool cfunc_is_auto_serving(Struct* /*params*/, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     if (!manager->in_net_game() || !(manager->flag_bits() & 1))
@@ -183,17 +189,20 @@ bool cfunc_is_auto_serving(Struct*, Script*)
 }
 
 // 0x00535F20: ChangeLevelPending - the level change's task is in a list.
-bool cfunc_change_level_pending(Struct*, Script*) { return net_game_state().online_hub()->level_change_job()->is_on_task_list(); }
+bool cfunc_change_level_pending(Struct* /*params*/, Script* /*script*/)
+{
+    return net_game_state().online_hub()->level_change_job()->is_on_task_list();
+}
 
 // 0x00535F30: CancelMotdDownload.
-bool cfunc_cancel_motd_download(Struct*, Script*)
+bool cfunc_cancel_motd_download(Struct* /*params*/, Script* /*script*/)
 {
     net_game_state().online_hub()->set_download_done(true);
     return true;
 }
 
 // 0x00535F40: DownloadMotd - the lobby's state 6.
-bool cfunc_download_motd(Struct*, Script*)
+bool cfunc_download_motd(Struct* /*params*/, Script* /*script*/)
 {
     net_game_state().online_hub()->set_service_state(online::ServiceState::kNewsMessage);
     return true;
@@ -201,7 +210,7 @@ bool cfunc_download_motd(Struct*, Script*)
 
 // 0x00535F50: ServicesAreAvailable - with the services up (+0xFE0A = 1): true (if the message of the day hasn't come
 // yet, services state 0 and lobby state 1 first); else services state 3, lobby state 1, false.
-bool cfunc_services_are_available(Struct*, Script*)
+bool cfunc_services_are_available(Struct* /*params*/, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     if (manager->services_available() == 1) {
@@ -217,20 +226,26 @@ bool cfunc_services_are_available(Struct*, Script*)
 }
 
 // 0x00535FA0: AlreadyGotMotd.
-bool cfunc_already_got_motd(Struct*, Script*) { return net_game_state().online_hub()->motd_received(); }
+bool cfunc_already_got_motd(Struct* /*params*/, Script* /*script*/)
+{
+    return net_game_state().online_hub()->motd_received();
+}
 
 // 0x00535FB0: JoinServerComplete - ready to play.
-bool cfunc_join_server_complete(Struct*, Script*) { return net_game_state().online_hub()->cleared_to_start(); }
+bool cfunc_join_server_complete(Struct* /*params*/, Script* /*script*/)
+{
+    return net_game_state().online_hub()->cleared_to_start();
+}
 
 // 0x00535FC0: JustStartedNetGame - within 5 seconds of the network game's start (0x007CCDF4).
-bool cfunc_just_started_net_game(Struct*, Script*)
+bool cfunc_just_started_net_game(Struct* /*params*/, Script* /*script*/)
 {
     return frame_clock::get_time() - net_game_state().net_game_start_time() < kJustStartedTime;
 }
 
 // 0x00535FE0: FCFSRequestStartGame - the game's options from the network preferences to the server (message 0x60);
 // the game is then pending.
-bool cfunc_fcfs_request_start_game(Struct*, Script*)
+bool cfunc_fcfs_request_start_game(Struct* /*params*/, Script* /*script*/)
 {
     StartRequest request; // (gamenet_messages.h; +0x18 is never set: the original's stack - zero here)
     Hub* manager = net_game_state().online_hub();
@@ -259,7 +274,7 @@ bool cfunc_fcfs_request_start_game(Struct*, Script*)
 
 // 0x00536170: FCFSRequestChangeLevel level=<load script> - for the created park, its map (0x6C, 15000 bytes) and the
 // rail editor's rails (0x88, 4402 bytes) streamed to the server first; then the level (0x62).
-bool cfunc_fcfs_request_change_level(Struct* params, Script*)
+bool cfunc_fcfs_request_change_level(Struct* params, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     uint32_t level = 0;
@@ -277,7 +292,7 @@ bool cfunc_fcfs_request_change_level(Struct* params, Script*)
 }
 
 // 0x00536240: ReattemptJoinServer - the connection request again on client 0.
-bool cfunc_reattempt_join_server(Struct*, Script*)
+bool cfunc_reattempt_join_server(Struct* /*params*/, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     manager->retry_entry(manager->client_app());
@@ -285,7 +300,7 @@ bool cfunc_reattempt_join_server(Struct*, Script*)
 }
 
 // 0x00536260: FCFSRequestToggleProSet bit=<n> param_id=<checksum> - message 0x63: the id, then the bit's byte.
-bool cfunc_fcfs_request_toggle_pro_set(Struct* params, Script*)
+bool cfunc_fcfs_request_toggle_pro_set(Struct* params, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     int bit = 0;
@@ -302,7 +317,7 @@ bool cfunc_fcfs_request_toggle_pro_set(Struct* params, Script*)
 }
 
 // 0x005362F0: FCFSRequestToggleGoalSelection name=<goal> - message 0x64.
-bool cfunc_fcfs_request_toggle_goal_selection(Struct* params, Script*)
+bool cfunc_fcfs_request_toggle_goal_selection(Struct* params, Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     uint32_t goal = 0; // (uninitialised in the original: a missing name sends what its slot held)
@@ -314,7 +329,7 @@ bool cfunc_fcfs_request_toggle_goal_selection(Struct* params, Script*)
 
 // 0x00536360: ResetProSetFlags - for each of the 7 pro set flags (FLAG_PROSET1_GEO_ON on), SetFlag or UnSetFlag
 // {flag = <its number>} as script_flag_bits_ has its bit.
-bool cfunc_reset_pro_set_flags(Struct*, Script*)
+bool cfunc_reset_pro_set_flags(Struct* /*params*/, Script* /*script*/)
 {
     const Hub* manager = net_game_state().online_hub();
     for (int bit = 0; bit < kProSetCount; ++bit) {
@@ -326,13 +341,13 @@ bool cfunc_reset_pro_set_flags(Struct*, Script*)
 }
 
 // 0x00536460: HasSignedDisclaimer - signed_disclaimer is boolean_true.
-bool cfunc_has_signed_disclaimer(Struct*, Script*)
+bool cfunc_has_signed_disclaimer(Struct* /*params*/, Script* /*script*/)
 {
     return net_game_state().online_hub()->get_online_settings()->get_preference_checksum({.preference = kSignedDisclaimer, .field = kChecksum}) == kBooleanTrue;
 }
 
 // 0x00537100: FoundServers - the server list (+0x158) has an entry.
-bool cfunc_found_servers(Struct*, Script*)
+bool cfunc_found_servers(Struct* /*params*/, Script* /*script*/)
 {
     const memory::ListNode* node = net_game_state().online_hub()->servers().next(); // (the list's first node)
     int count = 0;

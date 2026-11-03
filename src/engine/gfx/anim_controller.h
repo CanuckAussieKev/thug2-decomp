@@ -165,7 +165,7 @@ public:
     // 0x004A4F30 / 0x004A5600: the class's operator new / delete (its item pools).
     static void* operator new(size_t size, int unused) noexcept;
     static void operator delete(void* item);
-    static void operator delete(void* item, int) { operator delete(item); }
+    static void operator delete(void* item, int /*unused*/) { operator delete(item); }
 
 private:
     void* cur_frame_data_{}; // +0x14 (unused)

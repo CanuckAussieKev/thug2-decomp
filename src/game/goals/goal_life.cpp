@@ -118,7 +118,7 @@ gsl::owner<ObjectiveNpc*> new_goal_ped(script::Struct* params)
     void* memory = memory::alloc(sizeof(ObjectiveNpc));
     return memory ? memory::construct_in<ObjectiveNpc>(memory, params) : nullptr;
 }
-inline void destroy_goal_ped_body(ObjectiveNpc*) {}
+inline void destroy_goal_ped_body(ObjectiveNpc* /*unused*/) {}
 
 // lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's begin_player_walk / step_player_walk.
 using PlayerSearch = online::PlayerSearch;
@@ -286,7 +286,7 @@ bool Objective::activate()
 }
 
 // 0x00557560
-bool Objective::disengage(bool, bool reset_tree)
+bool Objective::disengage(bool /*unused*/, bool reset_tree)
 {
     if (!is_operative())
         return false;

@@ -147,7 +147,7 @@ uint32_t pack_bytes(int r, int g, int b, int a)
 } // namespace
 
 // 0x00446460: DebugRenderIgnore ignore_0=<n> ignore_1=<n> (0x0048C110). Always true.
-bool cfunc_debug_render_ignore(Struct* params, Script*)
+bool cfunc_debug_render_ignore(Struct* params, Script* /*script*/)
 {
     int ignore1 = 0;
     int ignore0 = 0;
@@ -159,7 +159,7 @@ bool cfunc_debug_render_ignore(Struct* params, Script*)
 
 // 0x004464C0: InitAnimCompressTable "<file>" t48 | q48: the animation compression table loaded from the file
 // (0x00482A30 for t48, 0x004829F0 for q48; nothing for another type). Always true.
-bool cfunc_init_anim_compress_table(Struct* params, Script*)
+bool cfunc_init_anim_compress_table(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr; // (both asserted; uninitialised in the original)
     uint32_t type = 0;
@@ -177,7 +177,7 @@ bool cfunc_init_anim_compress_table(Struct* params, Script*)
 
 // 0x00446570: InitAnimSystem AnimHeapSize <size 2> DefCacheType <counts>: the animation cache (0x00480D10: the
 // sizes and the type - 2 standard, 3 / 4 two others, 0 anything else) and the blend system (0x0047EB30). Always true.
-bool cfunc_init_anim_system(Struct* params, Script*)
+bool cfunc_init_anim_system(Struct* params, Script* /*script*/)
 {
     int heap_size = 0;
     int cache_size = 0;
@@ -203,7 +203,7 @@ bool cfunc_init_anim_system(Struct* params, Script*)
 
 // 0x00446650: UpdateAnimCache clear | defrag (0x00480DB0(0) / 0x00480F20 on the cache); with neither, the cache's
 // information (compiled out). With enable or disable it does nothing (their code is compiled out). Always true.
-bool cfunc_update_anim_cache(Struct* params, Script*)
+bool cfunc_update_anim_cache(Struct* params, Script* /*script*/)
 {
     const bool disable = params->has_entry_named(kDisable);
     const bool enable = params->has_entry_named(kEnable);
@@ -221,14 +221,14 @@ bool cfunc_update_anim_cache(Struct* params, Script*)
 }
 
 // 0x004466F0: FinishRendering (does nothing in this build). Always true.
-bool cfunc_finish_rendering(Struct*, Script*)
+bool cfunc_finish_rendering(Struct* /*params*/, Script* /*script*/)
 {
     finish_rendering();
     return true;
 }
 
 // 0x00446700: InitLightManager max_lights=<n> <n> (0x0048EB70). Always true.
-bool cfunc_init_light_manager(Struct* params, Script*)
+bool cfunc_init_light_manager(Struct* params, Script* /*script*/)
 {
     int max_lights = 0;
     int max_model_lights = 0;
@@ -239,14 +239,14 @@ bool cfunc_init_light_manager(Struct* params, Script*)
 }
 
 // 0x00446760: UninitLightManager (0x0048FB60). Always true.
-bool cfunc_uninit_light_manager(Struct*, Script*)
+bool cfunc_uninit_light_manager(Struct* /*params*/, Script* /*script*/)
 {
     render::uninit_light_manager();
     return true;
 }
 
 // 0x00446770: PushWorldLights: the world lights saved on their stack (0x0048EA00). Always true.
-bool cfunc_push_world_lights(Struct*, Script*)
+bool cfunc_push_world_lights(Struct* /*params*/, Script* /*script*/)
 {
     render::push_world_lights();
     return true;
@@ -254,10 +254,10 @@ bool cfunc_push_world_lights(Struct*, Script*)
 
 // 0x00446780 (a jump to 0x0048EA40): PopWorldLights: the world lights taken back from their stack; false if it's
 // empty.
-bool cfunc_pop_world_lights(Struct*, Script*) { return render::pop_world_lights(); }
+bool cfunc_pop_world_lights(Struct* /*params*/, Script* /*script*/) { return render::pop_world_lights(); }
 
 // 0x00446790: SetScreen [aspect=<f>] [angle=<f>] [letterbox=<n>]: those given are set. Always true.
-bool cfunc_set_screen(Struct* params, Script*)
+bool cfunc_set_screen(Struct* params, Script* /*script*/)
 {
     float aspect = 0.0f;
     if (params->fetch_float(kAspect, &aspect, 0))
@@ -272,7 +272,7 @@ bool cfunc_set_screen(Struct* params, Script*)
 }
 
 // 0x00446810: AllowBoneLOD allow=<n> (does nothing in this build). Always true.
-bool cfunc_allow_bone_lod(Struct* params, Script*)
+bool cfunc_allow_bone_lod(Struct* params, Script* /*script*/)
 {
     int allow = 1;
     params->fetch_int_value(kAllow, &allow, 0);
@@ -282,7 +282,7 @@ bool cfunc_allow_bone_lod(Struct* params, Script*)
 
 // 0x00446850: DebugLine start=<vector> end=<vector> [color=<n> (0xFF0000FF)] [frames=<n>] (drawn by compiled-out
 // code). Always true.
-bool cfunc_debug_line(Struct* params, Script*)
+bool cfunc_debug_line(Struct* params, Script* /*script*/)
 {
     script::VectorValue start{};
     script::VectorValue end{};
@@ -299,7 +299,7 @@ bool cfunc_debug_line(Struct* params, Script*)
 
 // 0x004468E0: GetPausePosByResolution: pos=(50, 240) at a 640-pixel-wide back buffer, (20, 240) otherwise, into
 // the script's params. Always true.
-bool cfunc_get_pause_pos_by_resolution(Struct*, Script* script)
+bool cfunc_get_pause_pos_by_resolution(Struct* /*params*/, Script* script)
 {
     const float x = render::present_parameters().BackBufferWidth == 640 ? 50.0f : 20.0f; // the back buffer's width
     script->args()->insert_pair(checksums::Name{checksums::hash_from_text("pos")}, {.x = x, .y = kPausePosY});
@@ -309,7 +309,7 @@ bool cfunc_get_pause_pos_by_resolution(Struct*, Script* script)
 // 0x00446930: KillAllTextureSplats [box={height dist width [offset=<vector>]}] | [texture=<name>]: the splats in
 // the box (feet; the box around the offset: width along x, height along y, dist along z, each centred - 0x00491630),
 // those of a texture (0x004916F0), or all of them (0x004915A0). Always true.
-bool cfunc_kill_all_texture_splats(Struct* params, Script*)
+bool cfunc_kill_all_texture_splats(Struct* params, Script* /*script*/)
 {
     maths::BBox box;
     Struct* box_params = nullptr;
@@ -367,7 +367,7 @@ bool cfunc_kill_all_texture_splats(Struct* params, Script*)
 
 // 0x00446C20: GetGammaValues: the gamma's red, green and blue as percentages (truncated) into the script's params.
 // Always true.
-bool cfunc_get_gamma_values(Struct*, Script* script)
+bool cfunc_get_gamma_values(Struct* /*params*/, Script* script)
 {
     const std::array<float, 3> gamma = render::get_gamma();
     const float red = core::at(gamma, 0);
@@ -408,7 +408,7 @@ bool cfunc_get_dynamic_light_modulation_factor(Struct* params, Script* script)
 // 0x00446D70: SetClippingDistances Near=<f> Far=<f>: both viewport cameras' near and far planes (+0xB8 / +0xBC).
 // The defaults are the globals 0x006487D4 for Near and 0x006487D0 for Far - 12000 and 12, the wrong way round (as
 // in the original). Always true.
-bool cfunc_set_clipping_distances(Struct* params, Script*)
+bool cfunc_set_clipping_distances(Struct* params, Script* /*script*/)
 {
     float near_plane = kRenderDefaultNearPlane;
     float far_plane = kRenderDefaultFarPlane;
@@ -425,7 +425,7 @@ bool cfunc_set_clipping_distances(Struct* params, Script*)
 
 // 0x00446DF0: SetFogDistance distance=<f> (0x00490E00); both viewport cameras are looked up and left alone (their
 // use is compiled out). False (and nothing) while distance clipping is on.
-bool cfunc_set_fog_distance(Struct* params, Script*)
+bool cfunc_set_fog_distance(Struct* params, Script* /*script*/)
 {
     if (render::view_setup().distance_clipping())
         return false;
@@ -439,7 +439,7 @@ bool cfunc_set_fog_distance(Struct* params, Script*)
 
 // 0x00446E50: SetFogColor r g b a (255, 255, 255, 128): the fog colour (0x00490E20, bytes r g b a). While distance
 // clipping is on, the clear colour used with it (0x0078733C, 0xAARRGGBB) instead - and false.
-bool cfunc_set_fog_color(Struct* params, Script*)
+bool cfunc_set_fog_color(Struct* params, Script* /*script*/)
 {
     int r = kFogChannelDefault;
     int g = kFogChannelDefault;
@@ -458,7 +458,7 @@ bool cfunc_set_fog_color(Struct* params, Script*)
 }
 
 // 0x00446F40: SetRenderMode mode=<n> (0x006FA734). Always true.
-bool cfunc_set_render_mode(Struct* params, Script*)
+bool cfunc_set_render_mode(Struct* params, Script* /*script*/)
 {
     int mode = 0;
     params->fetch_int_value(kMode, &mode, 0);
@@ -467,7 +467,7 @@ bool cfunc_set_render_mode(Struct* params, Script*)
 }
 
 // 0x00446F70: SetWireframeMode mode=<n> (0x006FA730). Always true.
-bool cfunc_set_wireframe_mode(Struct* params, Script*)
+bool cfunc_set_wireframe_mode(Struct* params, Script* /*script*/)
 {
     int mode = 0;
     params->fetch_int_value(kMode, &mode, 0);
@@ -476,7 +476,7 @@ bool cfunc_set_wireframe_mode(Struct* params, Script*)
 }
 
 // 0x00446FA0: SetLightAmbientColor r g b (alpha 128, 0x0048E8F0). Returns what that returns (its AL).
-bool cfunc_set_light_ambient_color(Struct* params, Script*)
+bool cfunc_set_light_ambient_color(Struct* params, Script* /*script*/)
 {
     int r = 0;
     int g = 0;
@@ -501,7 +501,7 @@ bool cfunc_get_light_direction(Struct* params, Script* script)
 }
 
 // 0x004470A0: SetLightDiffuseColor index=<n> R G B (alpha 128, 0x0048E930). Returns what that returns (its AL).
-bool cfunc_set_light_diffuse_color(Struct* params, Script*)
+bool cfunc_set_light_diffuse_color(Struct* params, Script* /*script*/)
 {
     int index = 0;
     int r = 0;
@@ -516,7 +516,7 @@ bool cfunc_set_light_diffuse_color(Struct* params, Script*)
 
 // 0x00447130: GetLightCurrentColor: the current ambient colour (0x0048E900) and the two directional lights'
 // (0x0048E950) into the script's params as ambient_red .. blue_1. Always true.
-bool cfunc_get_light_current_color(Struct*, Script* script)
+bool cfunc_get_light_current_color(Struct* /*params*/, Script* script)
 {
     Struct* out = script->args().get();
     uint32_t colour = 0;

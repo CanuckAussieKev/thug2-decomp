@@ -153,7 +153,7 @@ void RiderRunClock::get_resume()
 }
 
 // 0x005184A0
-bool RiderRunClock::get_freeze(script::Struct*, script::Script*)
+bool RiderRunClock::get_freeze(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (cur_phase_ != kClockIdle) {
         cur_phase_ = kActivePaused;
@@ -162,32 +162,32 @@ bool RiderRunClock::get_freeze(script::Struct*, script::Script*)
     return true;
 }
 // 0x005184F0
-bool RiderRunClock::unpause(script::Struct*, script::Script*)
+bool RiderRunClock::unpause(script::Struct* /*params*/, script::Script* /*script*/)
 {
     get_resume();
     return true;
 }
 // 0x00518500
-bool RiderRunClock::get_factor_complete(script::Struct*, script::Script* script)
+bool RiderRunClock::get_factor_complete(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->push_float(checksums::Name{kFactorComplete},
                               static_cast<float>(seconds_remaining_ / physics_value(entity(), kDuration)));
     return true;
 }
 // 0x00518540
-bool RiderRunClock::fetch_run_clock_pad_id(script::Struct*, script::Script* script)
+bool RiderRunClock::fetch_run_clock_pad_id(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->put_name_key(checksums::Name{kClockCtlKey}, timer_script_id(entity()));
     return true;
 }
 // 0x00518570
-bool RiderRunClock::get_run_timer_id(script::Struct*, script::Script* script)
+bool RiderRunClock::get_run_timer_id(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->put_name_key(checksums::Name{kRunTimerId}, get_skater_index(entity()) + kRunTimerIdBase);
     return true;
 }
 // 0x005185A0
-bool RiderRunClock::chain_began(script::Struct*, script::Script*)
+bool RiderRunClock::chain_began(script::Struct* /*params*/, script::Script* /*script*/)
 {
     seconds_remaining_ = static_cast<float>(physics_value(entity(), kDuration));
     resumes_ = 0;

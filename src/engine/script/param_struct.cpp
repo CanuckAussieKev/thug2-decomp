@@ -1447,8 +1447,8 @@ namespace {
 using script::Array;
 
 // 0x0046D410 / 0x0046D3D0 take the size (always the object's).
-void* new_pair_memory(unsigned int) { return script::new_pair(); }
-void* new_vector_memory(unsigned int) { return script::alloc_script_vector(); }
+void* new_pair_memory(unsigned int /*unused*/) { return script::new_pair(); }
+void* new_vector_memory(unsigned int /*unused*/) { return script::alloc_script_vector(); }
 
 } // namespace
 

@@ -996,8 +996,7 @@ bool JointClipFrames::set_up_float_keys(const anim_format::AnimHeader& header, c
 }
 
 // 0x004844C0
-bool JointClipFrames::get_float_key_pose(PoseOut pose_out, void*, float time,
-                                         int)
+bool JointClipFrames::get_float_key_pose(PoseOut pose_out, void* /*unused*/, float time, int /*unused*/)
 {
     const auto rotations = pose_out.rotations;
     const auto translations = pose_out.translations;

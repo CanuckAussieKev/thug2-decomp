@@ -44,7 +44,7 @@ public:
     // dynamic light's colour cleared when there are none.
     void plat_apply_scene_lights(const maths::Vec4* position, uint32_t radius) override;
     // (Slot 8: a shared empty function.)
-    void apply_light_brightness(bool, bool) override {}
+    void apply_light_brightness(bool /*ambient*/, bool /*diffuse*/) override {}
     // 0x004B61F0 / 0x004B6240 (slots 9 / 11): whether the ambient colour is overridden.
     void switch_ambient_light(bool on) override;
     bool ambient_light_is_on() override;

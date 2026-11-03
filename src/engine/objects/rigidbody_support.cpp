@@ -79,7 +79,7 @@ double get_m(const maths::Mat4& m, int offset) { return core::at(m.row, offset /
 } // namespace
 
 // 0x0042BAC0
-bool cfunc_toggle_rigid_body_debug(script::Struct*, script::Script*)
+bool cfunc_toggle_rigid_body_debug(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (!objects_shared().rigid_body_draw_shape()) {
         objects_shared().set_rigid_body_draw_shape(true);
@@ -109,7 +109,7 @@ int ObjectModule::dispatch_script_method(const script::MemberFunctionEntry* entr
 }
 
 // 0x0042BB60
-bool BodyDynamicsModule::rigid_body_ignore_skater(script::Struct* params, script::Script*)
+bool BodyDynamicsModule::rigid_body_ignore_skater(script::Struct* params, script::Script* /*script*/)
 {
     params->fetch_float(0u, &push_cooldown_, 1);
     if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
@@ -118,14 +118,14 @@ bool BodyDynamicsModule::rigid_body_ignore_skater(script::Struct* params, script
 }
 
 // 0x0042BBB0
-bool BodyDynamicsModule::rigid_body_disable(script::Struct*, script::Script*)
+bool BodyDynamicsModule::rigid_body_disable(script::Struct* /*params*/, script::Script* /*script*/)
 {
     cur_phase_ = BodyDynamicsModule::State::kDisabled;
     return true;
 }
 
 // 0x0042BBD0
-bool BodyDynamicsModule::rigid_body_reset(script::Struct* params, script::Script*)
+bool BodyDynamicsModule::rigid_body_reset(script::Struct* params, script::Script* /*script*/)
 {
     configure_from_data(params);
     return true;

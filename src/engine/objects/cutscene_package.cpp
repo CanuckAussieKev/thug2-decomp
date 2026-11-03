@@ -155,7 +155,7 @@ struct TextureParams {
 using SkinColours = render::SkinScaling;
 
 // (debug output, compiled out)
-inline void print_cutscene_details(void*) {}
+inline void print_cutscene_details(void* /*unused*/) {}
 
 } // namespace
 

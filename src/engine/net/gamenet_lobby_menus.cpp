@@ -125,7 +125,8 @@ void RoomManager::add_buddy_menu_item(LobbyPlayer* player)
 }
 
 // 0x00540B60
-void RoomManager::room_message_callback(void*, int, const char* nick, const char* message, int, void*)
+void RoomManager::room_message_callback(void* /*unused*/, int /*unused*/, const char* nick, const char* message,
+                                        int /*unused*/, void* /*unused*/)
 {
     push_internet_heap();
     constexpr size_t kTextSize = 1024;
@@ -139,7 +140,7 @@ void RoomManager::room_message_callback(void*, int, const char* nick, const char
 }
 
 // 0x00540E00
-bool cfunc_send_message(script::Struct* params, script::Script*)
+bool cfunc_send_message(script::Struct* params, script::Script* /*script*/)
 {
     const Hub* manager = net_game_state().online_hub();
     const char* message = nullptr;

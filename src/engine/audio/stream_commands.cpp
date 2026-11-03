@@ -97,7 +97,7 @@ using Loudness = sound::VolumeRef;
 void construct_volume(Loudness* volume) { new (volume) sound::VolumeRef; }
 void change_muted(Loudness* volume) { volume->change_muted(); }
 float peak_channel_index(Loudness* volume) { return volume->find_peak_channel(); }
-inline void destroy_volume(Loudness*) {} // (0x005480A0)
+inline void destroy_volume(Loudness* /*unused*/) {} // (0x005480A0)
 // Whether sound is off (the manager's is_frozen).
 bool sound_off_requested(sound::AudioMixer* manager) { return manager->is_frozen(); }
 bool loudness_from_position(sound::AudioMixer* manager, Loudness* volume, const maths::Vec4* position, float dropoff,

@@ -220,7 +220,7 @@ ProjectileProximityComponent::ProjectileProximityComponent() { set_kind_tag(kTyp
 ProjectileProximityComponent::~ProjectileProximityComponent() = default;
 
 // 0x004F3520
-void ProjectileProximityComponent::configure_from_data(script::Struct*)
+void ProjectileProximityComponent::configure_from_data(script::Struct* /*params*/)
 {
     rider_ref_ = local_skater();
     ped_logic_ = core::down_cast<PedestrianBrainModule>(entity()->fetch_module(kPedLogic));

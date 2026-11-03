@@ -162,7 +162,7 @@ void SkaterPhysicsModule::remember_floor_probe(const void* feeler)
 }
 
 // 0x00506BD0
-int SkaterPhysicsModule::cancel_rotate_displayand_update_matrix(script::Struct*, script::Script*)
+int SkaterPhysicsModule::cancel_rotate_displayand_update_matrix(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return apply_model_rotations() ? 1 : 0;
 }
@@ -289,7 +289,7 @@ void SkaterPhysicsModule::update_special_time() const
 }
 
 // 0x00500DE0
-int SkaterPhysicsModule::get_air_time_left(script::Struct*, script::Script* script)
+int SkaterPhysicsModule::get_air_time_left(script::Struct* /*params*/, script::Script* script)
 {
     const objects::GameEntity* object = object_of(this);
     const float y = object->at_point().y;
@@ -310,10 +310,13 @@ int SkaterPhysicsModule::get_air_time_left(script::Struct*, script::Script* scri
 }
 
 // 0x00500E80
-int SkaterPhysicsModule::can_kick(script::Struct*, script::Script*) { return can_push_off() ? 1 : 0; }
+int SkaterPhysicsModule::can_kick(script::Struct* /*params*/, script::Script* /*script*/)
+{
+    return can_push_off() ? 1 : 0;
+}
 
 // 0x00500E90
-int SkaterPhysicsModule::orient_to_normal(script::Struct*, script::Script*)
+int SkaterPhysicsModule::orient_to_normal(script::Struct* /*params*/, script::Script* /*script*/)
 {
     drawn_normal_ = core::at(entity()->basis_frame().row, 1);
     floor_normal_ = core::at(entity()->basis_frame().row, 1);

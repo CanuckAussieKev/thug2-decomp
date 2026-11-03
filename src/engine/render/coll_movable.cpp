@@ -163,7 +163,7 @@ FaceFlag HitMovingBox::get_triangle_attrs(int /*face*/) const { return static_ca
 uint16_t HitMovingBox::get_face_terrain(int /*face*/) const { return surface_type_; }
 
 // 0x00414BE0
-gsl::owner<HitMovingBox*> HitMovingBox::replicate(int)
+gsl::owner<HitMovingBox*> HitMovingBox::replicate(int /*argument*/)
 {
     gsl::owner<render::HitMovingBox*> copy{memory::make_owned<HitMovingBox>(*this)};
     copy->flag_bits() |= HitMesh::kOwnsGeometry;

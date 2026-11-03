@@ -100,7 +100,7 @@ void remake_shadow(GameEntity* object, objects::GroundShadowModule* shadow, obje
 // heap) and shadows; the swap is recorded; a skater's model-swapped value (+0x31C) is the id of an entry whose object
 // wears no other model now (0 if none). The objects are asked for core physics before they're checked for null, as in
 // the original. False if either is missing, they're the same object or either has no model.
-bool cfunc_swap_object_models(script::Struct* params, script::Script*)
+bool cfunc_swap_object_models(script::Struct* params, script::Script* /*script*/)
 {
     objects::Rider* skater = nullptr;
     uint32_t id1 = 0;
@@ -180,7 +180,7 @@ bool cfunc_swap_object_models(script::Struct* params, script::Script*)
 // 0x005B3890: RestoreAllSwappedObjectModels: each recorded swap undone (SwapObjectModels on the entry's object and the
 // one whose model it wears), the table gone over again while it still holds swaps - at most as many times as there
 // were. Always true.
-bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* script)
+bool cfunc_restore_all_swapped_object_models(script::Struct* /*params*/, script::Script* script)
 {
     int remaining = 0;
     for (int i = 0; i < kSwapCount; ++i)
@@ -212,7 +212,7 @@ bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* sc
 }
 
 // 0x005B3A30: GetSkaterModelIsSwapped [Skater=n]: whether skater n (or the local skater) wears another model.
-bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script*)
+bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0;
     const objects::Rider* skater = nullptr;

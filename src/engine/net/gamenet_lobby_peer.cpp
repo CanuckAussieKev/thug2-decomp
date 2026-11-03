@@ -159,7 +159,7 @@ GamenetLobbyPeerState& gamenet_lobby_peer_state()
 } // namespace
 
 // 0x0053F570
-void RoomManager::disconnected_callback(void*, const char* reason, void* param)
+void RoomManager::disconnected_callback(void* /*unused*/, const char* reason, void* param)
 {
     const uint32_t elapsed = frame_clock::get_time() - gamenet_lobby_peer_state().connected_time_; // since connected
     debug::printf("Disconnected at %d after %d ms. Reason: %s\n", frame_clock::get_time(), elapsed, reason);
@@ -250,7 +250,7 @@ void RoomManager::player_key_callback(const PlayerKeyQuery& query)
 }
 
 // 0x0053FDA0
-void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, void* param)
+void RoomManager::public_address_callback(void* /*unused*/, uint32_t ip, uint16_t port, void* param)
 {
     Hub* manager = net_game_state().online_hub();
     FriendsManager* buddy = manager->presence_service().get();
@@ -273,7 +273,8 @@ void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, voi
 }
 
 // 0x0053FEE0
-void RoomManager::get_nick_error_callback(void* peer, int type, const char* nick, int, const char**, void*)
+void RoomManager::get_nick_error_callback(void* peer, int type, const char* nick, int /*unused*/,
+                                          const char** /*unused*/, void* /*unused*/)
 {
     push_internet_heap();
     constexpr size_t kRetrySize = 128;
@@ -292,7 +293,7 @@ void RoomManager::get_nick_error_callback(void* peer, int type, const char* nick
 }
 
 // 0x0053FFC0
-void RoomManager::get_connect_callback(void* peer, int success, int, void* param)
+void RoomManager::get_connect_callback(void* peer, int success, int /*unused*/, void* param)
 {
     auto* lobby = static_cast<RoomManager*>(param);
     lobby->connecting_ = false;
@@ -324,7 +325,7 @@ void RoomManager::think_task(tasks::Task<RoomManager>* task)
 }
 
 // 0x005400B0
-void RoomManager::nat_negotiation_task(tasks::Task<RoomManager>*)
+void RoomManager::nat_negotiation_task(tasks::Task<RoomManager>* /*unused*/)
 {
     push_internet_bottom_up_heap();
     nat_think();
@@ -383,7 +384,7 @@ void RoomManager::start_hosting()
 }
 
 // 0x00540300
-void RoomManager::nat_negotiation_completed(int result, int, const void* address, int user_data)
+void RoomManager::nat_negotiation_completed(int result, int /*unused*/, const void* address, int user_data)
 {
     Hub* manager = net_game_state().online_hub();
     if (result == kNatSuccess && !manager->get_on_server()) { // the client joins at the address found
@@ -446,7 +447,7 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
 }
 
 // 0x00540C90
-void RoomManager::hole_punch_result_fn(void*, int cookie, void*)
+void RoomManager::hole_punch_result_fn(void* /*unused*/, int cookie, void* /*unused*/)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     const Hub* manager = net_game_state().online_hub();

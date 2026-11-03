@@ -167,7 +167,7 @@ PlayParams read_play_params(Struct* params)
 // --- the standard controller ---------------------------------------------------------------------------------
 
 // 0x004A4F30
-void* StandardAnimController::operator new(size_t size, int) noexcept
+void* StandardAnimController::operator new(size_t size, int /*unused*/) noexcept
 {
     return standard_pools().carve(static_cast<unsigned int>(size));
 }
@@ -212,7 +212,7 @@ bool StandardAnimController::fetch_pose(Stance* pose)
 }
 
 // 0x004A4670
-int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
+int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     switch (name) {
     case kPlayAnim: {
@@ -303,7 +303,7 @@ bool WeightedAnimController::fetch_pose(Stance* pose)
 }
 
 // 0x004A4890
-int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
+int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     switch (name) {
     case kPlayAnim: {
@@ -375,7 +375,7 @@ bool WobbleDriver::fetch_pose(Stance* pose)
 }
 
 // 0x004A4AF0
-int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
+int WobbleDriver::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     switch (name) {
     case kPlayAnim: {

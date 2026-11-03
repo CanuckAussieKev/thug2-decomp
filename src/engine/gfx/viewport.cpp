@@ -126,20 +126,20 @@ ViewRegion::ViewRegion(const std::array<float, 4>* rect, gfx::ViewCam* camera)
 ViewRegion::~ViewRegion() { viewer_.get_release(); }
 
 // 0x004A0CC0
-float ViewRegion::project_to_screen(const maths::Vec4*, maths::Vec2*, int*)
+float ViewRegion::project_to_screen(const maths::Vec4* /*unused*/, maths::Vec2* /*unused*/, int* /*unused*/)
 {
     debug::printf("STUB: PlatTransformToScreenCoord\n");
     return kMinusOne; // -1
 }
 
 // 0x004A0CF0
-uint8_t ViewRegion::query_point(const maths::Vec4*, int, uint8_t) { return 0; }
+uint8_t ViewRegion::query_point(const maths::Vec4* /*unused*/, int /*unused*/, uint8_t /*unused*/) { return 0; }
 
 // 0x004A0CE0
 uint8_t ViewRegion::query_rect(maths::Rect /*box*/, RectQuery /*rect_query*/) { return 0; }
 
 // 0x004A0D00
-int ViewRegion::fetch_shown(int)
+int ViewRegion::fetch_shown(int /*unused*/)
 {
     debug::printf("STUB: plat_get_visibility_test\n");
     return 0;
@@ -328,7 +328,7 @@ void pop_occlusion_request()
 }
 
 // 0x004A07D0
-bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script*)
+bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script* /*script*/)
 {
     float value = 0.0f;
     if (params->fetch_float(kScaleNumerator, &value, 0))
@@ -341,7 +341,7 @@ bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script*)
 }
 
 // 0x004A08A0
-bool cfunc_script_get_screen_mode(script::Struct*, script::Script* script)
+bool cfunc_script_get_screen_mode(script::Struct* /*params*/, script::Script* script)
 {
     script::Struct* results = script->args().get();
     auto mode = static_cast<uint32_t>(view_setup().screen_mode());
@@ -350,7 +350,7 @@ bool cfunc_script_get_screen_mode(script::Struct*, script::Script* script)
 }
 
 // 0x004A0C20
-bool cfunc_set_screen_mode(script::Struct* params, script::Script*)
+bool cfunc_set_screen_mode(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (the original's is left uninitialised: it asserts when there's none)
     params->read_hash_value(0u, &name, 1);

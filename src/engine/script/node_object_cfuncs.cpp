@@ -260,7 +260,7 @@ void fit_viewer_camera(render::WorldScene* scene, float scale, const maths::Vec4
 
 // 0x005A2D60: CenterCamera [scale (0.9)] [x (-45)] [y (45)] [z (0)] [id=<sector>]: the viewer's camera fitted to each
 // scene in turn (fit_viewer_camera; the last one's placing stays). False without the viewer module (0x007CE4A4).
-bool cfunc_center_camera(script::Struct* params, script::Script*)
+bool cfunc_center_camera(script::Struct* params, script::Script* /*script*/)
 {
     if (!objects::view_mode())
         return false;
@@ -465,7 +465,10 @@ bool kill_from_node_name(uint32_t name, script::Script* script)
 }
 
 // 0x005A34D0: CreateFromStructure <node structure>: create_from_node with the command's parameters.
-bool cfunc_create_from_structure(script::Struct* params, script::Script*) { return create_from_node(params); }
+bool cfunc_create_from_structure(script::Struct* params, script::Script* /*script*/)
+{
+    return create_from_node(params);
+}
 
 namespace {
 
@@ -495,7 +498,7 @@ bool park_editor_off() { return park_editing::ParkBuilderMode::sole()->editor_st
 // Nodes the skate module doesn't skip: proxim nodes and emitters added; the objects made at the start made (level
 // geometry only outside the park editor). Then the rails' overlaps, the gap checklist (unless 0xF7ECD937), every
 // scene's 0x0049E1B0 and the 0xA0E52802 nodes' 0x00490570. Always true.
-bool cfunc_parse_node_array(script::Struct* params, script::Script*)
+bool cfunc_parse_node_array(script::Struct* params, script::Script* /*script*/)
 {
     memory::push_mem_profile("ParseNodeArray"); // "ParseNodeArray"
     script::Array* nodes = level_nodes::get_node_owner_nodes();
@@ -628,7 +631,7 @@ bool cfunc_parse_node_array(script::Struct* params, script::Script*)
 // 0x005A39F0: ReLoadNodeArray: the level's node array (named at 0x007CE6D8) loaded again in the debug heap: the old
 // asset unloaded and the node manager's array of the file taken out, the file loaded (NodeArrayManLoad and its .qb,
 // 0x005A5960) and the node manager's last array put back in.
-bool cfunc_re_load_node_array(script::Struct*, script::Script* script)
+bool cfunc_re_load_node_array(script::Struct* /*params*/, script::Script* script)
 {
     mem_manager()->enter_heap_scope(static_cast<memory::MemSource*>(mem_manager()->debug_heap()));
     level_nodes::NodeManager* node_manager = level_nodes::node_manager_instance().get();

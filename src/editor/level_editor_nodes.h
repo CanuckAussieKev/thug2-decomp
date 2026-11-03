@@ -66,7 +66,7 @@ enum class SpawnPointKind : uint8_t {
     kKing = 64,
     kGeneric = 128,
 };
-constexpr bool enable_flag_operators(SpawnPointKind) { return true; }
+constexpr bool enable_flag_operators(SpawnPointKind /*unused*/) { return true; }
 SpawnPointKind restart_type_bit(uint32_t type);
 // A team colour named in a node's name or type (_Red, _Blue, _Green, _Yellow; ARGB), 0 if none.
 uint32_t team_colour(const char* text);

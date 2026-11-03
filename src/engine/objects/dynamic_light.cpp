@@ -171,7 +171,7 @@ void DynamicLightComponent::tick_frame()
 }
 
 // 0x0041CFC0
-int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
+int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     switch (name) {
     case kSetRadius: {

@@ -122,7 +122,7 @@ void stack_on(maths::Vec4& velocity, const maths::Vec4& direction, float scale)
 } // namespace
 
 // 0x004FCBA0
-int SkaterPhysicsModule::lip_push_off(script::Struct*, script::Script*)
+int SkaterPhysicsModule::lip_push_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
     objects::GameEntity* object = entity();
     const maths::Vec4& facing = core::at(object->basis_frame().row, 2);

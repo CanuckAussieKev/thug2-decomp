@@ -292,7 +292,7 @@ void AutomobileDynamicsModule::tick_frame()
 }
 
 // 0x0041B9E0
-int AutomobileDynamicsModule::show_body(script::Struct* params, script::Script*)
+int AutomobileDynamicsModule::show_body(script::Struct* params, script::Script* /*script*/)
 {
     int show = 0;
     params->fetch_int_value(0u, &show, 0);
@@ -301,6 +301,6 @@ int AutomobileDynamicsModule::show_body(script::Struct* params, script::Script*)
 }
 
 // 0x0041BA20
-int AutomobileDynamicsModule::do_nothing(script::Struct*, script::Script*) { return 1; }
+int AutomobileDynamicsModule::do_nothing(script::Struct* /*params*/, script::Script* /*script*/) { return 1; }
 
 } // namespace objects

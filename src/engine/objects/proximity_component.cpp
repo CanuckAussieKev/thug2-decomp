@@ -102,7 +102,7 @@ void ProximityComponent::tick_frame()
 }
 
 // 0x0042B850
-bool ProximityComponent::proximity_init(script::Struct* params, script::Script*)
+bool ProximityComponent::proximity_init(script::Struct* params, script::Script* /*script*/)
 {
     active_ = false;
     tick_frame();
@@ -113,7 +113,7 @@ bool ProximityComponent::proximity_init(script::Struct* params, script::Script*)
 }
 
 // 0x0042B590
-bool ProximityComponent::proximity_set_active(script::Struct* params, script::Script*)
+bool ProximityComponent::proximity_set_active(script::Struct* params, script::Script* /*script*/)
 {
     active_ = !params->has_bare_flag(kInactive);
     if (!active_) {
@@ -130,7 +130,7 @@ bool ProximityComponent::proximity_set_active(script::Struct* params, script::Sc
 }
 
 // 0x0042B570
-bool ProximityComponent::proximity_enter_proximity_not_handled(script::Struct*, script::Script*)
+bool ProximityComponent::proximity_enter_proximity_not_handled(script::Struct* /*params*/, script::Script* /*script*/)
 {
     is_within_ = 0;
     return true;

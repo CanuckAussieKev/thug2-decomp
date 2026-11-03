@@ -293,7 +293,7 @@ void prepare_all(Arguments args)
 const char* get_bootstrap_prefix() { return bootstrap() ? "THUG2\\" : kEmpty; } // "THUG2\"
 
 // 0x005B6270
-void read_registry(Arguments)
+void read_registry(Arguments /*unused*/)
 {
     const char* path =
         R"(Software\Activision\Tony Hawk's Underground 2\Install)"; // "Software\Activision\Tony Hawk's Underground 2\Install"

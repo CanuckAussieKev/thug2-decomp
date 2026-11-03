@@ -60,7 +60,7 @@ KeyCursor decode_rotation(KeyCursor cursor, void* key, uint32_t flags, std::span
 {
     return decompress_quat_key(cursor, static_cast<ShortKey*>(key), flags, table);
 }
-KeyCursor decode_translation(KeyCursor cursor, void* key, uint32_t)
+KeyCursor decode_translation(KeyCursor cursor, void* key, uint32_t /*unused*/)
 {
     return decompress_trans_key(cursor, static_cast<ShortKey*>(key));
 }
@@ -137,7 +137,7 @@ void find_keys(std::span<const uint8_t> run, KeyRun key_run, float time, int (*k
 
 // 0x00484EB0
 bool JointClipFrames::apply_additive(std::span<maths::QuatRotation> rotations, std::span<maths::Vec4> translations,
-                                     void*, float weight, const FrameSource* mask) const
+                                     void* /*unused*/, float weight, const FrameSource* mask) const
 {
     const std::span<const uint8_t> rot_run = rotation_key_run();
     const std::span<const uint8_t> trans_run = translation_key_run();
@@ -347,7 +347,7 @@ void JointClipFrames::build_cache(int format)
 }
 
 // 0x004856C0
-bool JointClipFrames::read_in(const uint8_t* data, uint32_t size, bool)
+bool JointClipFrames::read_in(const uint8_t* data, uint32_t size, bool /*unused*/)
 {
     // The headers read and the sections laid out through anim_format.h. Not original - bounded by the animation's
     // size: one whose sections or keys run past it isn't loaded (the original used whatever its

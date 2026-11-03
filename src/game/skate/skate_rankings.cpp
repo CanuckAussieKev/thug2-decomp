@@ -182,7 +182,7 @@ void fill_elimination_ranking()
 }
 
 // 0x00568120
-bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
+bool Skate::cfunc_fill_ranking_screen(script::Struct* /*params*/, script::Script* /*script*/)
 {
     online::Hub* net = online::online_hub();
     PlayerSearch search;

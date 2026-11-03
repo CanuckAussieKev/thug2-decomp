@@ -514,7 +514,7 @@ UiWidget* UiWidget::find_child_at_slot(int index)
 }
 
 // 0x004AA8E0
-void UiWidget::change_owner(const ElementPtr* parent, int)
+void UiWidget::change_owner(const ElementPtr* parent, int /*unused*/)
 {
     if (container_) {
         // out of the old parent's children

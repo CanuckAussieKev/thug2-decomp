@@ -143,7 +143,7 @@ uint32_t trick_type_of(Struct* trick, uint32_t* type)
 } // namespace
 
 // 0x005B0A40: FlushDeadObjects: the object manager's dead objects deleted now. Always true.
-bool cfunc_flush_dead_objects(script::Struct*, script::Script*)
+bool cfunc_flush_dead_objects(script::Struct* /*params*/, script::Script* /*script*/)
 {
     static_cast<objects::MiscHub*>(objects::object_hub_slot().get())->flush_dead_objects();
     return true;
@@ -153,7 +153,7 @@ bool cfunc_flush_dead_objects(script::Struct*, script::Script*)
 // [special index=n [cat]]: in the profile (the named template, else the current one) either the special trick slot
 // `index` set (the trick, the keys, whether it's a CAT; false without index) or the trick_mapping's key combo bound
 // to the trick. True otherwise.
-bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Script*)
+bool cfunc_bind_trick_to_key_combo(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t key_combo = 0;
     params->read_hash_value("key_combo", &key_combo, 1);
@@ -260,7 +260,7 @@ bool cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::Script* 
 // 0x005B0DA0: UpdateTrickMappings [Skater=n]: the skater's trick component given its profile's mappings - online the
 // local skater and the first profile (not checked for null), otherwise skater n's and profile n's (nothing if either
 // is missing). Always true.
-bool cfunc_update_trick_mappings(script::Struct* params, script::Script*)
+bool cfunc_update_trick_mappings(script::Struct* params, script::Script* /*script*/)
 {
     modules::Skate* skate = get_skate();
     objects::ProfileRoster* manager = objects::profile_roster();
@@ -345,7 +345,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
 // 0x005B1140: TrickIsLocked trick=<name>: whether the trick (a global structure whose params name a Skater) is
 // locked: with the flag 0x7ABFD5B4 unless the current profile is that skater; otherwise if that skater's template is
 // hidden (is_hidden). False without the structure, its params or Skater, or with no such template.
-bool cfunc_trick_is_locked(script::Struct* params, script::Script*)
+bool cfunc_trick_is_locked(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t trick = 0;
     params->read_hash_value(kTrick, &trick, 1);
@@ -478,7 +478,7 @@ bool cfunc_get_level_records(script::Struct* params, script::Script* script)
 
 // 0x005B15F0: ResetComboRecords: the local skater's score's three combo records (0x00561400: +0x2C, +0x30, +0x34)
 // zeroed. Always true.
-bool cfunc_reset_combo_records(script::Struct*, script::Script*)
+bool cfunc_reset_combo_records(script::Struct* /*params*/, script::Script* /*script*/)
 {
     objects::GameEntity* skater = local_skater();
     if (skater)
@@ -500,7 +500,7 @@ bool cfunc_get_number_of_trick_occurrences(script::Struct* params, script::Scrip
 }
 
 // 0x005B1670: GetNumSoundtracks: numsoundtracks. Always true.
-bool cfunc_get_num_soundtracks(script::Struct*, script::Script* script)
+bool cfunc_get_num_soundtracks(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->put_int(checksums::Name{kNumSoundtracks}, audio::get_num_soundtracks());
     return true;
@@ -517,7 +517,7 @@ bool cfunc_get_soundtrack_name(script::Struct* params, script::Script* script)
 
 // 0x005B16D0: BindControllerToSkater controller=c skater_heap_index=n: player n reads controller c; the skate module's
 // local skaters' input components told (0x00567090). Always true.
-bool cfunc_bind_controller_to_skater(script::Struct* params, script::Script*)
+bool cfunc_bind_controller_to_skater(script::Struct* params, script::Script* /*script*/)
 {
     int controller = 0;
     params->fetch_int_value(kController, &controller, 1);
@@ -531,7 +531,7 @@ bool cfunc_bind_controller_to_skater(script::Struct* params, script::Script*)
 
 // 0x005B1730: BindFrontEndToController controller=c front_end_pad=n: the front end's pad n listens to controller c
 // (the pad that had c takes n's old controller); its input mappings updated. Always true.
-bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Script*)
+bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Script* /*script*/)
 {
     int controller = 0;
     params->fetch_int_value(kController, &controller, 1);
@@ -553,7 +553,7 @@ bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Script*)
 
 // 0x005B17C0: ControllerBoundToDifferentSkater Skater=n controller=c: whether a local skater other than n (0-7) reads
 // controller c.
-bool cfunc_controller_bound_to_different_skater(script::Struct* params, script::Script*)
+bool cfunc_controller_bound_to_different_skater(script::Struct* params, script::Script* /*script*/)
 {
     int skater = 0;
     params->fetch_int_value(kSkater, &skater, 1);
@@ -573,7 +573,7 @@ bool cfunc_controller_bound_to_different_skater(script::Struct* params, script::
 }
 
 // 0x005B1840: ControllerBoundToSkater controller=c Skater=n: whether player n reads controller c.
-bool cfunc_controller_bound_to_skater(script::Struct* params, script::Script*)
+bool cfunc_controller_bound_to_skater(script::Struct* params, script::Script* /*script*/)
 {
     int controller = 0;
     params->fetch_int_value(kController, &controller, 1);
@@ -615,7 +615,7 @@ bool cfunc_get_key_combo_array_from_trick_array(script::Struct* params, script::
 }
 
 // 0x005B1A00: FirstInputReceived: the skate module's flag (+0x3C) set (0x00564DA0). Always true.
-bool cfunc_first_input_received(script::Struct*, script::Script*)
+bool cfunc_first_input_received(script::Struct* /*params*/, script::Script* /*script*/)
 {
     get_skate()->scan_pad_connections();
     return true;
@@ -623,7 +623,7 @@ bool cfunc_first_input_received(script::Struct*, script::Script*)
 
 // 0x005B1A10: VibrateController port=p Actuator=a Percent=n: the device's actuator a at n percent. False without the
 // device.
-bool cfunc_vibrate_controller(script::Struct* params, script::Script*)
+bool cfunc_vibrate_controller(script::Struct* params, script::Script* /*script*/)
 {
     int port = 0;
     params->fetch_int_value(kPort, &port, 1);
@@ -639,7 +639,7 @@ bool cfunc_vibrate_controller(script::Struct* params, script::Script*)
 }
 
 // 0x005B1A90: LockCurrentSkaterProfileIndex [<n> (1)]: the profile manager's lock set (n != 0). Always true.
-bool cfunc_lock_current_skater_profile_index(script::Struct* params, script::Script*)
+bool cfunc_lock_current_skater_profile_index(script::Struct* params, script::Script* /*script*/)
 {
     int lock = 1;
     params->fetch_int_value(0u, &lock, 1);
@@ -649,7 +649,7 @@ bool cfunc_lock_current_skater_profile_index(script::Struct* params, script::Scr
 
 // 0x005B1AD0: SetSpecialTrickInfo slot=n trick_name=<name> key_combo=<keys>: the current profile's special trick slot
 // n set (not a CAT; the skater not told). False without a current profile.
-bool cfunc_set_special_trick_info(script::Struct* params, script::Script*)
+bool cfunc_set_special_trick_info(script::Struct* params, script::Script* /*script*/)
 {
     int slot = 0;
     params->fetch_int_value(kSlot, &slot, 1);

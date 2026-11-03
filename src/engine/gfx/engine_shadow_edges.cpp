@@ -108,7 +108,7 @@ void add_edge(EdgeStore& store, int& count, uint16_t from, uint16_t to, const ma
 } // namespace
 
 // 0x004A22F0
-void ShadowVolume::change_mesh(RenderModel*, const SubMesh* asset_data)
+void ShadowVolume::change_mesh(RenderModel* /*unused*/, const SubMesh* asset_data)
 {
     if (asset_data)
         model_key_ = asset_data->hit_shape();

@@ -127,19 +127,19 @@ void Geom::fetch_tints(std::span<uint32_t> out)
 // --- the base's platform calls ----------------------------------------------------------------------------------
 
 // 0x0049E8E0 (folded with WorldCell::plat_clone)
-Geom* Geom::clone_instance(int, RenderModel*)
+Geom* Geom::clone_instance(int /*unused*/, RenderModel* /*unused*/)
 {
     get_stub("STUB: PlatClone\n"); // "STUB: PlatClone\n"
     return nullptr;
 }
-Geom* Geom::plat_replicate(int, WorldScene*)
+Geom* Geom::plat_replicate(int /*unused*/, WorldScene* /*unused*/)
 {
     get_stub("STUB: PlatClone\n");
     return nullptr;
 }
 
 // 0x0048DA90
-bool Geom::plat_init_instance(SubMesh*, RenderModel*, int)
+bool Geom::plat_init_instance(SubMesh* /*unused*/, RenderModel* /*unused*/, int /*unused*/)
 {
     get_stub("STUB: PlatLoadGeomData\n"); // "STUB: PlatLoadGeomData\n"
     return true;
@@ -151,7 +151,7 @@ uint32_t Geom::plat_get_checksum()
     return 0;
 }
 // 0x0048DAC0
-void Geom::change_tint(uint32_t) { get_stub("STUB: PlatSetColor\n"); } // "STUB: PlatSetColor\n"
+void Geom::change_tint(uint32_t /*unused*/) { get_stub("STUB: PlatSetColor\n"); } // "STUB: PlatSetColor\n"
 // 0x0048E040
 uint32_t* Geom::plat_get_color(uint32_t* out)
 {
@@ -162,20 +162,20 @@ uint32_t* Geom::plat_get_color(uint32_t* out)
 // 0x0048DAD0
 void Geom::wipe_tint() { get_stub("STUB: PlatClearColor\n"); } // "STUB: PlatClearColor\n"
 // 0x0048DAE0
-bool Geom::change_material_tint(uint32_t, int, colour::Packed)
+bool Geom::change_material_tint(uint32_t /*unused*/, int /*unused*/, colour::Packed /*unused*/)
 {
     get_stub("STUB: PlatSetMaterialColor\n"); // "STUB: PlatSetMaterialColor\n"
     return false;
 }
 // 0x0048E070
-uint32_t* Geom::plat_get_material_color(uint32_t* out, uint32_t, int)
+uint32_t* Geom::plat_get_material_color(uint32_t* out, uint32_t /*unused*/, int /*unused*/)
 {
     get_stub("STUB: PlatGetMaterialColor\n"); // "STUB: PlatGetMaterialColor\n"
     std::memset(out, 0, 4);
     return out;
 }
 // 0x0048DB00
-void Geom::toggle_shown(uint32_t) { get_stub("STUB: PlatSetVisibility\n"); } // "STUB: PlatSetVisibility\n"
+void Geom::toggle_shown(uint32_t /*unused*/) { get_stub("STUB: PlatSetVisibility\n"); } // "STUB: PlatSetVisibility\n"
 // 0x0048DB10
 uint32_t Geom::fetch_shown()
 {
@@ -183,7 +183,7 @@ uint32_t Geom::fetch_shown()
     return 0;
 }
 // 0x0048DB20
-void Geom::change_live(bool) { get_stub("STUB: PlatSetActive\n"); } // "STUB: PlatSetActive\n"
+void Geom::change_live(bool /*unused*/) { get_stub("STUB: PlatSetActive\n"); } // "STUB: PlatSetActive\n"
 // 0x0048DB30
 bool Geom::is_operative()
 {
@@ -219,7 +219,7 @@ maths::BBox* Geom::fetch_bounds()
     return &plat_bounding_box().plat_bounding_box_;
 }
 // 0x0048DC30
-void Geom::change_bound_sphere(const maths::Vec4*)
+void Geom::change_bound_sphere(const maths::Vec4* /*unused*/)
 {
     get_stub("STUB: PlatSetBoundingSphere\n");
 } // "STUB: PlatSetBoundingSphere\n"
@@ -234,7 +234,7 @@ maths::Vec4* Geom::plat_get_bounding_sphere(maths::Vec4* out)
     return out;
 }
 // 0x0048DBB0
-void Geom::place_at_absolute_point(const maths::Vec4*)
+void Geom::place_at_absolute_point(const maths::Vec4* /*unused*/)
 {
     get_stub("STUB: PlatSetWorldPosition\n");
 } // "STUB: PlatSetWorldPosition\n"
@@ -246,7 +246,10 @@ maths::Vec4* Geom::get_absolute_point()
     return position;
 }
 // 0x0048DBC0
-void Geom::change_facing(const maths::Mat4*) { get_stub("STUB: PlatSetOrientation\n"); } // "STUB: PlatSetOrientation\n"
+void Geom::change_facing(const maths::Mat4* /*unused*/)
+{
+    get_stub("STUB: PlatSetOrientation\n");
+} // "STUB: PlatSetOrientation\n"
 // 0x0048E1C0 (the matrix 0x006FAA40, its guard 0x006FAA80)
 maths::Mat4* Geom::fetch_facing()
 {
@@ -255,9 +258,9 @@ maths::Mat4* Geom::fetch_facing()
     return orientation;
 }
 // 0x0048DBD0
-void Geom::rotate_y(int) { get_stub("STUB: PlatRotateY\n"); } // "STUB: PlatRotateY\n"
+void Geom::rotate_y(int /*unused*/) { get_stub("STUB: PlatRotateY\n"); } // "STUB: PlatRotateY\n"
 // 0x0048DBE0
-void Geom::plat_set_transform(const maths::Mat4*)
+void Geom::plat_set_transform(const maths::Mat4* /*unused*/)
 {
     get_stub("STUB: PlatSetTransform\n");
 } // "STUB: PlatSetTransform\n"
@@ -269,7 +272,7 @@ maths::Mat4* Geom::plat_get_transform()
     return transform;
 }
 // 0x0048DBF0
-void Geom::change_scale(const maths::Vec4*) { get_stub("STUB: PlatSetScale\n"); } // "STUB: PlatSetScale\n"
+void Geom::change_scale(const maths::Vec4* /*unused*/) { get_stub("STUB: PlatSetScale\n"); } // "STUB: PlatSetScale\n"
 // 0x0048E100
 maths::Vec4* Geom::fetch_magnification(maths::Vec4* out)
 {
@@ -281,15 +284,19 @@ maths::Vec4* Geom::fetch_magnification(maths::Vec4* out)
     return out;
 }
 // 0x0048DC00
-void Geom::set_model_lights(void*) { get_stub("STUB: PlatSetModelLights\n"); } // "STUB: PlatSetModelLights\n"
+void Geom::set_model_lights(void* /*unused*/)
+{
+    get_stub("STUB: PlatSetModelLights\n");
+} // "STUB: PlatSetModelLights\n"
 // 0x0048DC10
-bool Geom::upload_skinning_palette(const maths::Mat4*, std::span<const maths::Mat4>, int, int)
+bool Geom::upload_skinning_palette(const maths::Mat4* /*unused*/, std::span<const maths::Mat4> /*unused*/,
+                                   int /*unused*/, int /*unused*/)
 {
     get_stub("STUB: PlatRenderSetup\n"); // "STUB: PlatRenderSetup\n"
     return true;
 }
 // 0x0048DC40
-bool Geom::break_strips(uint32_t)
+bool Geom::break_strips(uint32_t /*unused*/)
 {
     get_stub("STUB: PlatHidePolys\n"); // "STUB: PlatHidePolys\n"
     return true;
@@ -301,7 +308,7 @@ uint32_t Geom::fetch_vertex_tally()
     return 0;
 }
 // 0x0048DC70
-void Geom::get_vertices(std::span<maths::Vec4>)
+void Geom::get_vertices(std::span<maths::Vec4> /*unused*/)
 {
     get_stub("STUB: CGeom::plat_get_render_verts\n");
 } // "STUB: CGeom::plat_get_render_verts\n"
@@ -318,17 +325,17 @@ uint32_t Geom::plat_get_num_render_base_polys()
     return 0;
 }
 // 0x0048DCA0
-void Geom::plat_get_render_colors(std::span<uint32_t>)
+void Geom::plat_get_render_colors(std::span<uint32_t> /*unused*/)
 {
     get_stub("STUB: CGeom::plat_get_render_colors\n");
 } // "STUB: CGeom::plat_get_render_colors\n"
 // 0x0048DCB0
-void Geom::set_vertices(std::span<const maths::Vec4>)
+void Geom::set_vertices(std::span<const maths::Vec4> /*unused*/)
 {
     get_stub("STUB: CGeom::plat_set_render_verts\n");
 } // "STUB: CGeom::plat_set_render_verts\n"
 // 0x0048DCC0
-void Geom::change_colors(std::span<const uint32_t>)
+void Geom::change_colors(std::span<const uint32_t> /*unused*/)
 {
     get_stub("STUB: CGeom::plat_set_render_colors\n");
 } // "STUB: CGeom::plat_set_render_colors\n"
@@ -338,12 +345,12 @@ void Geom::set_uv_wibble_params(const UvWibble& /*wibble*/)
     get_stub("STUB: CGeom::plat_set_uv_wibble_params\n"); // "STUB: CGeom::plat_set_uv_wibble_params\n"
 }
 // 0x0048DCF0
-void Geom::enable_explicit_uv_wibble(int)
+void Geom::enable_explicit_uv_wibble(int /*unused*/)
 {
     get_stub("STUB: CGeom::plat_use_explicit_uv_wibble\n");
 } // "STUB: CGeom::plat_use_explicit_uv_wibble\n"
 // 0x0048DD10
-bool Geom::set_material_uv_wibble_offsets(uint32_t, int, float, float)
+bool Geom::set_material_uv_wibble_offsets(uint32_t /*unused*/, int /*unused*/, float /*unused*/, float /*unused*/)
 {
     get_stub("STUB: CGeom::plat_set_uv_wibble_offsets\n"); // "STUB: CGeom::plat_set_uv_wibble_offsets\n"
     return false;
@@ -354,7 +361,7 @@ void Geom::set_uv_wibble_offsets(maths::Vec2 /*offsets*/)
     get_stub("STUB: CGeom::plat_set_uv_wibble_offsets\n");
 } // "STUB: CGeom::plat_set_uv_wibble_offsets\n"
 // 0x0048DD30
-bool Geom::choose_uv_matrix(uint32_t, int, const maths::Mat4*)
+bool Geom::choose_uv_matrix(uint32_t /*unused*/, int /*unused*/, const maths::Mat4* /*unused*/)
 {
     get_stub("STUB: CGeom::plat_set_uv_matrix\n"); // "STUB: CGeom::plat_set_uv_matrix\n"
     return false;

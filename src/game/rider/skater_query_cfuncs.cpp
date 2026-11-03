@@ -113,7 +113,7 @@ void send_to_players(online::Hub* manager, net::NetMessageInfo* desc, bool obser
 
 // 0x005AC5F0 / 0x005AC660: SkaterSpeedGreaterThan / SkaterSpeedLessThan <speed> - the local skater's (none, or no
 // speed given: false).
-bool cfunc_skater_speed_greater_than(script::Struct* params, script::Script*)
+bool cfunc_skater_speed_greater_than(script::Struct* params, script::Script* /*script*/)
 {
     float speed = 0.0f;
     if (!params->fetch_float(0u, &speed, 0))
@@ -122,7 +122,7 @@ bool cfunc_skater_speed_greater_than(script::Struct* params, script::Script*)
     return skater && speed_of(skater) > speed;
 }
 
-bool cfunc_skater_speed_less_than(script::Struct* params, script::Script*)
+bool cfunc_skater_speed_less_than(script::Struct* params, script::Script* /*script*/)
 {
     float speed = 0.0f;
     if (!params->fetch_float(0u, &speed, 0))
@@ -133,7 +133,7 @@ bool cfunc_skater_speed_less_than(script::Struct* params, script::Script*)
 
 // 0x005AC6D0 / 0x005AC720: SkaterLastScoreLandedGreaterThan / less_than <score> (0 if missing) - the local skater's
 // last trick's score.
-bool cfunc_skater_last_score_landed_greater_than(script::Struct* params, script::Script*)
+bool cfunc_skater_last_score_landed_greater_than(script::Struct* params, script::Script* /*script*/)
 {
     const int value = integer_or_zero(params);
     objects::GameEntity* skater = get_home_rider();
@@ -143,7 +143,7 @@ bool cfunc_skater_last_score_landed_greater_than(script::Struct* params, script:
     return score && last_score_landed(score) > value;
 }
 
-bool cfunc_skater_last_score_landed_less_than(script::Struct* params, script::Script*)
+bool cfunc_skater_last_score_landed_less_than(script::Struct* params, script::Script* /*script*/)
 {
     const int value = integer_or_zero(params);
     objects::GameEntity* skater = get_home_rider();
@@ -154,7 +154,7 @@ bool cfunc_skater_last_score_landed_less_than(script::Struct* params, script::Sc
 }
 
 // 0x005AC770: SkaterGetLastScoreLanded - the local skater's last trick's score as last_score_landed (false without).
-bool cfunc_skater_get_last_score_landed(script::Struct*, script::Script* script)
+bool cfunc_skater_get_last_score_landed(script::Struct* /*params*/, script::Script* script)
 {
     objects::GameEntity* skater = get_home_rider();
     if (!skater)
@@ -167,7 +167,7 @@ bool cfunc_skater_get_last_score_landed(script::Struct*, script::Script* script)
 }
 
 // 0x005AC7B0: AccumulateScores - each player's total score added to the score accumulated over the session.
-bool cfunc_accumulate_scores(script::Struct*, script::Script*)
+bool cfunc_accumulate_scores(script::Struct* /*params*/, script::Script* /*script*/)
 {
     online::Hub* manager = online::online_hub();
     PlayerSearch search;
@@ -182,7 +182,7 @@ bool cfunc_accumulate_scores(script::Struct*, script::Script*)
 // 0x005AC850: EliminateLastPlacePlayer - with more than one player still in: if all have the same score, everyone is
 // told nobody goes (-1); otherwise each player on the lowest score is marked eliminated and everyone (observers too)
 // told its skater's id.
-bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
+bool cfunc_eliminate_last_place_player(script::Struct* /*params*/, script::Script* /*script*/)
 {
     online::Hub* manager = online::online_hub();
     PlayerSearch search;
@@ -226,7 +226,7 @@ bool cfunc_eliminate_last_place_player(script::Struct*, script::Script*)
 
 // 0x005ACAA0: OnlyOnePlayerLeft - a team game: whether at most one team has players not eliminated; otherwise
 // whether at most one player isn't (then num_players: how many).
-bool cfunc_only_one_player_left(script::Struct*, script::Script* script)
+bool cfunc_only_one_player_left(script::Struct* /*params*/, script::Script* script)
 {
     online::Hub* manager = online::online_hub();
     PlayerSearch search;
@@ -256,7 +256,7 @@ bool cfunc_only_one_player_left(script::Struct*, script::Script* script)
 
 // 0x005ACC20: AnySkaterTotalScoreAtLeast <score> (0 if missing) - whether any player's (a team game: any team's)
 // total score reaches it.
-bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Script*)
+bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Script* /*script*/)
 {
     online::Hub* manager = online::online_hub();
     PlayerSearch search;
@@ -285,7 +285,7 @@ bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Scrip
 // 0x005ACD80: OnlyOneSkaterLeft - how many skaters (a team game: teams) have scored: false while players are still
 // joining; with none scored the server in host mode 1 or 2 says true; otherwise whether exactly one has. (Not a team
 // game: also false with exactly one skater.)
-bool cfunc_only_one_skater_left(script::Struct*, script::Script*)
+bool cfunc_only_one_skater_left(script::Struct* /*params*/, script::Script* /*script*/)
 {
     online::Hub* manager = online::online_hub();
     PlayerSearch search;
@@ -322,7 +322,7 @@ bool cfunc_only_one_skater_left(script::Struct*, script::Script*)
 }
 
 // 0x005ACF50 / 0x005ACFA0: SkaterTotalScoreGreaterThan / less_than <score> (0 if missing) - the local skater's total.
-bool cfunc_skater_total_score_greater_than(script::Struct* params, script::Script*)
+bool cfunc_skater_total_score_greater_than(script::Struct* params, script::Script* /*script*/)
 {
     const int value = integer_or_zero(params);
     objects::GameEntity* skater = get_home_rider();
@@ -332,7 +332,7 @@ bool cfunc_skater_total_score_greater_than(script::Struct* params, script::Scrip
     return score && total_score(score) > value;
 }
 
-bool cfunc_skater_total_score_less_than(script::Struct* params, script::Script*)
+bool cfunc_skater_total_score_less_than(script::Struct* params, script::Script* /*script*/)
 {
     const int value = integer_or_zero(params);
     objects::GameEntity* skater = get_home_rider();
@@ -344,7 +344,7 @@ bool cfunc_skater_total_score_less_than(script::Struct* params, script::Script*)
 
 // 0x005ACFF0: SkaterCurrentScorePotGreaterThan <score> [point_scale=<n>] - the local skater's score pot above score
 // times point_scale (1). 0x005AD070: SkaterCurrentScorePotLessThan <score> (no scale).
-bool cfunc_skater_current_score_pot_greater_than(script::Struct* params, script::Script*)
+bool cfunc_skater_current_score_pot_greater_than(script::Struct* params, script::Script* /*script*/)
 {
     int scale = 1;
     int value = integer_or_zero(params);
@@ -357,7 +357,7 @@ bool cfunc_skater_current_score_pot_greater_than(script::Struct* params, script:
     return score && score_pot(score) > value;
 }
 
-bool cfunc_skater_current_score_pot_less_than(script::Struct* params, script::Script*)
+bool cfunc_skater_current_score_pot_less_than(script::Struct* params, script::Script* /*script*/)
 {
     const int value = integer_or_zero(params);
     objects::GameEntity* skater = get_home_rider();
@@ -369,7 +369,7 @@ bool cfunc_skater_current_score_pot_less_than(script::Struct* params, script::Sc
 
 // 0x005AD0D0: SkaterGetScoreInfo - the local skater's scorepot, totalscore and lastscorelanded. (Without a local
 // skater the original reads a null score: a crash, kept.)
-bool cfunc_skater_get_score_info(script::Struct*, script::Script* script)
+bool cfunc_skater_get_score_info(script::Struct* /*params*/, script::Script* script)
 {
     objects::GameEntity* skater = get_home_rider();
     modules::PointTally* score = skater ? get_score_of(skater) : nullptr;
@@ -382,7 +382,7 @@ bool cfunc_skater_get_score_info(script::Struct*, script::Script* script)
 // 0x005AD140: InFirstPlace - whether no other player still in has a higher total than the local player (who must be
 // in the game - not eliminated, surveying or observing - with a skater, and with at least one other player in);
 // points: the best other player's total.
-bool cfunc_in_first_place(script::Struct*, script::Script* script)
+bool cfunc_in_first_place(script::Struct* /*params*/, script::Script* script)
 {
     online::Hub* manager = online::online_hub();
     PlayerSearch search;
@@ -412,7 +412,7 @@ bool cfunc_in_first_place(script::Struct*, script::Script* script)
 
 // 0x005AD2D0: InLastPlace - whether no other player still in has a lower total than the local player (as
 // InFirstPlace); then points: the lowest other player's total.
-bool cfunc_in_last_place(script::Struct*, script::Script* script)
+bool cfunc_in_last_place(script::Struct* /*params*/, script::Script* script)
 {
     online::Hub* manager = online::online_hub();
     PlayerSearch search;
@@ -447,7 +447,7 @@ bool cfunc_in_last_place(script::Struct*, script::Script* script)
 
 // 0x005AD450: InSecondToLastPlace - whether exactly one player still in has a lower total than the local player (as
 // InFirstPlace); then points: the local total less the lowest total (the local player's own counted).
-bool cfunc_in_second_to_last_place(script::Struct*, script::Script* script)
+bool cfunc_in_second_to_last_place(script::Struct* /*params*/, script::Script* script)
 {
     online::Hub* manager = online::online_hub();
     PlayerSearch search;
@@ -476,7 +476,7 @@ bool cfunc_in_second_to_last_place(script::Struct*, script::Script* script)
 }
 
 // 0x005AD5C0 / 0x005AD610: GoalsGreaterThan / GoalsEqualTo <n> - the career's goals got in all (false without n).
-bool cfunc_goals_greater_than(script::Struct* params, script::Script*)
+bool cfunc_goals_greater_than(script::Struct* params, script::Script* /*script*/)
 {
     float goals = 0.0f;
     if (!params->fetch_float(0u, &goals, 0))
@@ -484,7 +484,7 @@ bool cfunc_goals_greater_than(script::Struct* params, script::Script*)
     return static_cast<double>(get_career()->count_total_goals()) > goals;
 }
 
-bool cfunc_goals_equal_to(script::Struct* params, script::Script*)
+bool cfunc_goals_equal_to(script::Struct* params, script::Script* /*script*/)
 {
     float goals = 0.0f;
     if (!params->fetch_float(0u, &goals, 0))
@@ -494,7 +494,7 @@ bool cfunc_goals_equal_to(script::Struct* params, script::Script*)
 
 // 0x005AD660: ToggleSkaterCamMode [skater=<n>] - skater n's (none or 0: the local player's) skater camera's mode
 // toggled (0x004FA7D0).
-bool cfunc_toggle_skater_cam_mode(script::Struct* params, script::Script*)
+bool cfunc_toggle_skater_cam_mode(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0; // (uninitialised in the original when missing: the game's scripts always give skater=0)
     params->fetch_int_value(kSkater, &index, 0);
@@ -553,7 +553,7 @@ bool cfunc_get_skater_sex(script::Struct* params, script::Script* script)
 
 // 0x005AD7E0: GetCurrentSkaterID - the script's object's id as objID and intId, if it's a local skater (any object
 // with the composite object's +0xBC set).
-bool cfunc_get_current_skater_id(script::Struct*, script::Script* script)
+bool cfunc_get_current_skater_id(script::Struct* /*params*/, script::Script* script)
 {
     auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
     if (!object || !object->is_local_skater())
@@ -566,7 +566,7 @@ bool cfunc_get_current_skater_id(script::Struct*, script::Script* script)
 
 // 0x005B0070: GetSkaterPosition - the script's object's position as integers x, y, z (truncated); false without an
 // object.
-bool cfunc_get_skater_position(script::Struct*, script::Script* script)
+bool cfunc_get_skater_position(script::Struct* /*params*/, script::Script* script)
 {
     auto* object = core::down_cast<objects::GameEntity>(script->entity().get_pull());
     if (!object)

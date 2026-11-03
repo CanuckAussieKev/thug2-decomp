@@ -269,7 +269,7 @@ void Hub::cancel_join()
 }
 
 // 0x0053BED0
-void Hub::observer_task(tasks::Task<PlayerRecord>*)
+void Hub::observer_task(tasks::Task<PlayerRecord>* /*unused*/)
 {
     Hub* manager = net_game_state().online_hub();
     if (manager->spectate_request_ == 1) { // (the next player asked for)

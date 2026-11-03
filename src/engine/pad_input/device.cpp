@@ -687,7 +687,7 @@ uint8_t get_stick(int value) { return static_cast<uint8_t>(value / kStickScale);
 } // namespace
 
 // 0x005BD200
-void InputPort::pull_data(int)
+void InputPort::pull_data(int /*unused*/)
 {
     if (render::engine_parts().quit_requested())
         return;

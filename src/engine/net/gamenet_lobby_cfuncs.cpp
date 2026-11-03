@@ -71,7 +71,7 @@ void nat_free_negotiations() { game_spy::nat_free_negotiations(); }
 } // namespace
 
 // 0x00540430
-bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
+bool cfunc_start_nat_negotiation(script::Struct* params, script::Script* /*script*/)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     Hub* manager = net_game_state().online_hub();
@@ -107,7 +107,7 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
 }
 
 // 0x005403E0
-bool cfunc_cancel_nat_negotiation(script::Struct*, script::Script*)
+bool cfunc_cancel_nat_negotiation(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const RoomManager* lobby = current_lobby();
     nat_cancel(lobby->nat_cookie());
@@ -119,7 +119,7 @@ bool cfunc_cancel_nat_negotiation(script::Struct*, script::Script*)
 }
 
 // 0x00540590
-bool cfunc_leave_lobby(script::Struct* params, script::Script*)
+bool cfunc_leave_lobby(script::Struct* params, script::Script* /*script*/)
 {
     push_internet_heap();
     const Hub* manager = net_game_state().online_hub();
@@ -139,7 +139,7 @@ bool cfunc_leave_lobby(script::Struct* params, script::Script*)
 }
 
 // 0x00540640
-bool cfunc_cancel_lobby_connect(script::Struct*, script::Script*)
+bool cfunc_cancel_lobby_connect(script::Struct* /*params*/, script::Script* /*script*/)
 {
     current_lobby()->set_connecting(false);
     current_lobby()->set_drop_is_expected(true);
@@ -147,7 +147,7 @@ bool cfunc_cancel_lobby_connect(script::Struct*, script::Script*)
 }
 
 // 0x00540660
-bool cfunc_set_quiet_mode(script::Struct* params, script::Script*)
+bool cfunc_set_quiet_mode(script::Struct* params, script::Script* /*script*/)
 {
     push_internet_heap();
     const Hub* manager = net_game_state().online_hub();
@@ -158,7 +158,7 @@ bool cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 }
 
 // 0x005406C0
-bool cfunc_can_host_game(script::Struct*, script::Script*)
+bool cfunc_can_host_game(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const Hub* manager = net_game_state().online_hub();
     const RoomManager* lobby = manager->lobby_service().get();

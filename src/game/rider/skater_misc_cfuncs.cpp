@@ -83,7 +83,7 @@ void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen
 
 // 0x005B45F0: ApplyCustomLogoToPart part=<type> player=n: skater n's board element of that type shown (the skater
 // isn't checked for null). Always true.
-bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script*)
+bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t part = 0;
     params->read_hash_value(kPart, &part, 1);

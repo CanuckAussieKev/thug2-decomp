@@ -203,7 +203,7 @@ bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
 // 0x005B1EA0: ClearPowerups: for each of the skate module's skaters 0-7 that exists, the power-ups of the first
 // SkaterState component the object manager has cleared - the same component each time (as in the original). Always
 // true.
-bool cfunc_clear_powerups(script::Struct*, script::Script*)
+bool cfunc_clear_powerups(script::Struct* /*params*/, script::Script* /*script*/)
 {
     modules::Skate* skate = modules::Skate::sole();
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
@@ -257,7 +257,7 @@ bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* scrip
 }
 
 // 0x005B3160: GetParkName: 0xCC23BDDB, the park's name (the buffer at 0x007CED58). Returns false.
-bool cfunc_get_park_name(script::Struct*, script::Script* script)
+bool cfunc_get_park_name(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->append_word(kParkName, commands::park_name().data());
     return false;
@@ -265,7 +265,7 @@ bool cfunc_get_park_name(script::Struct*, script::Script* script)
 
 // 0x005B3180: SetSpecialBarColors Skater=n: skater n's score takes the special bar's colours from the global array
 // 0x2E8B9F1C (0x005612D0; the skater isn't checked for null). Always true.
-bool cfunc_set_special_bar_colors(script::Struct* params, script::Script*)
+bool cfunc_set_special_bar_colors(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
@@ -275,7 +275,7 @@ bool cfunc_set_special_bar_colors(script::Struct* params, script::Script*)
 }
 
 // 0x005B31C0: GetInitialsString: string, the records' default initials. Always true.
-bool cfunc_get_initials_string(script::Struct*, script::Script* script)
+bool cfunc_get_initials_string(script::Struct* /*params*/, script::Script* script)
 {
     auto* records = highscores::game_records();
     // (the initials through two getters folded with others: 0x005480C0, then 0x005902E0 - returns its argument)
@@ -284,7 +284,7 @@ bool cfunc_get_initials_string(script::Struct*, script::Script* script)
 }
 
 // 0x005B31F0: SetInitialsString [string="ABC" ("ERR")]: the records' default initials. Always true.
-bool cfunc_set_initials_string(script::Struct* params, script::Script*)
+bool cfunc_set_initials_string(script::Struct* params, script::Script* /*script*/)
 {
     auto* records = highscores::game_records();
     const char* initials = "ERR"; // "ERR"
@@ -294,7 +294,7 @@ bool cfunc_set_initials_string(script::Struct* params, script::Script*)
 }
 
 // 0x005B3230: GetFireballLevel: level, the game mode's fireball level. Always true.
-bool cfunc_get_fireball_level(script::Struct*, script::Script* script)
+bool cfunc_get_fireball_level(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->put_int(checksums::Name{kLevel}, static_cast<goals::MatchRules*>(get_game_mode())->get_fireball_level());
     return true;
@@ -326,7 +326,7 @@ bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* s
 // 0x005B3300: DrawDirectionalLightLines heading=degrees pitch=degrees r= g= b=: a debug line from 75 above the local
 // skater 50 long towards the light - compiled out of this build (the drawing call is empty); the local skater isn't
 // checked for null. Always true.
-bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
+bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script* /*script*/)
 {
     float heading = 0.0f;
     params->fetch_float(kHeading, &heading, 1);
@@ -361,7 +361,7 @@ bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
 }
 
 // 0x005B3470: InSlapGame: whether the game mode is netslap or slap.
-bool cfunc_in_slap_game(script::Struct*, script::Script*)
+bool cfunc_in_slap_game(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return active_ruleset_label() == kNetSlap || active_ruleset_label() == kSlap;
 }
@@ -369,7 +369,7 @@ bool cfunc_in_slap_game(script::Struct*, script::Script*)
 // 0x005B46A0: SetPreferencesFromUI <which preferences> string="..." field="name" [checksum=<value>] [time=n]
 // [score=n]: the preference `field` set to {ui_string, checksum, time (time_limit / horse_time_limit), score (target
 // score: score, else time * 1000)} in the preferences the params name (0x00565D40). Always true.
-bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
+bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script* /*script*/)
 {
     auto* preferences = modules::Skate::get_preferences_from_params(params);
     const char* string = nullptr;

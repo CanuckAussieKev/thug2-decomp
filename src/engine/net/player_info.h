@@ -53,7 +53,7 @@ enum class PlayerFlag : uint32_t {
 {
     return static_cast<PlayerFlag>(core::to_underlying(PlayerFlag::kCarryingFlag0) << team);
 }
-constexpr bool enable_flag_operators(PlayerFlag) { return true; }
+constexpr bool enable_flag_operators(PlayerFlag /*unused*/) { return true; }
 
 // The player slots of a network game: at most this many players, skater object ids 0 to 7 (the rider slots of
 // the skate module, the per-skater records a player keeps).

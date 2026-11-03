@@ -433,7 +433,7 @@ void PedestrianBrainModule::start_grind(script::Struct* node)
 }
 
 // 0x004F1B10
-void PedestrianBrainModule::end_grind(script::Struct*)
+void PedestrianBrainModule::end_grind(script::Struct* /*params*/)
 {
     if (flag_bits_ & kPedFlagGrinding) {
         flag_bits_ &= ~kPedFlagGrinding;
@@ -526,7 +526,7 @@ void PedestrianBrainModule::halt(script::Struct* node)
 }
 
 // 0x004F1F30
-void PedestrianBrainModule::roll_off(script::Struct*) { change_phase(kStateRollOff, kTable, nullptr); }
+void PedestrianBrainModule::roll_off(script::Struct* /*params*/) { change_phase(kStateRollOff, kTable, nullptr); }
 
 // 0x004F1F50
 void PedestrianBrainModule::flip_trick(script::Struct* node, bool vert)
@@ -679,7 +679,7 @@ void PedestrianBrainModule::reach_waypoint()
 // --- script member functions ---
 
 // 0x004F0740
-bool PedestrianBrainModule::ped_init_path(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_init_path(script::Struct* /*params*/, script::Script* /*script*/)
 {
     next_node_ = level_nodes::fetch_link(level_nodes::fetch_vertex(list_link_, true), 0);
     level_nodes::fetch_place(next_node_, &next_node_pos_);
@@ -711,7 +711,7 @@ bool PedestrianBrainModule::ped_init_path(script::Struct*, script::Script*)
 }
 
 // 0x004F2770
-bool PedestrianBrainModule::ped_hit_waypoint(script::Struct*, script::Script*)
+bool PedestrianBrainModule::ped_hit_waypoint(script::Struct* /*params*/, script::Script* /*script*/)
 {
     reach_waypoint();
     return true;

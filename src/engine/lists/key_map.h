@@ -41,7 +41,7 @@ public:
     // A table as the exe's static storage starts: all zero (no buckets). The exe's static initialiser then makes it
     // with KeyMap(bits); done in sys::run_startup_initialisers (engine/sys/startup_init.h).
     struct Unconstructed {};
-    constexpr KeyMap(Unconstructed) noexcept : bits_(0), buckets_(nullptr), extent_(0), flag_(false) {}
+    constexpr KeyMap(Unconstructed /*unused*/) noexcept : bits_(0), buckets_(nullptr), extent_(0), flag_(false) {}
     // Frees the buckets (after removing every item).
     ~KeyMap();
 

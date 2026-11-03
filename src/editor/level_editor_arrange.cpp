@@ -856,7 +856,7 @@ struct GatherContext {
     std::vector<Aabb>* out{};
 };
 
-void gather_sector(void* context, uint32_t checksum, render::WorldCell*)
+void gather_sector(void* context, uint32_t checksum, render::WorldCell* /*unused*/)
 {
     auto* c = static_cast<GatherContext*>(context);
     if (std::ranges::find(*c->skip, checksum) != c->skip->end() || scenery::get_hidden(checksum))

@@ -137,7 +137,7 @@ void KinematicsModule::rotate_about_axis_by(script::Struct* params, AxisSign axi
 }
 
 // 0x00424B90
-bool KinematicsModule::obj_rot_x(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_rot_x(script::Struct* params, script::Script* /*script*/)
 {
     float sign = 1.0f;
     if (motion_flags_ & kMotionLookingAt)
@@ -149,7 +149,7 @@ bool KinematicsModule::obj_rot_x(script::Struct* params, script::Script*)
 }
 
 // 0x00424D50
-bool KinematicsModule::obj_rot_y(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_rot_y(script::Struct* params, script::Script* /*script*/)
 {
     int axis = 1;
     if (motion_flags_ & kMotionLookingAt)
@@ -161,7 +161,7 @@ bool KinematicsModule::obj_rot_y(script::Struct* params, script::Script*)
 }
 
 // 0x00424F50
-bool KinematicsModule::obj_rot_z(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_rot_z(script::Struct* params, script::Script* /*script*/)
 {
     int axis = 2;
     if (motion_flags_ & kMotionLookingAt)
@@ -364,7 +364,7 @@ bool KinematicsModule::get_look_at(script::Struct* params, const maths::Vec4* ta
 }
 
 // 0x00425710
-void KinematicsModule::look_at_node_linked(script::Struct* params, script::Script*)
+void KinematicsModule::look_at_node_linked(script::Struct* params, script::Script* /*script*/)
 {
     const int links = static_cast<int>(level_nodes::get_link_count(list_link_));
     if (!links)
@@ -380,7 +380,7 @@ void KinematicsModule::look_at_node_linked(script::Struct* params, script::Scrip
 }
 
 // 0x004257A0
-void KinematicsModule::look_at_node(script::Struct* params, script::Script*)
+void KinematicsModule::look_at_node(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 0);
@@ -406,7 +406,7 @@ void KinematicsModule::look_at_position(script::Struct* params, bool absolute)
 }
 
 // 0x00427500
-bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
+bool KinematicsModule::look_at_object(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t type = 0;
     if (params->read_hash_value(kTypeName, &type, 0)) {
@@ -471,7 +471,7 @@ void KinematicsModule::face_node(script::Struct* node)
 // --- script member functions ---
 
 // 0x00426770
-bool KinematicsModule::obj_rotate(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_rotate(script::Struct* params, script::Script* /*script*/)
 {
     rotate_to(params);
     return true;
@@ -492,7 +492,7 @@ bool KinematicsModule::obj_look_at_node_linked(script::Struct* params, script::S
 }
 
 // 0x004267D0
-bool KinematicsModule::obj_look_at_node_stored(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_look_at_node_stored(script::Struct* params, script::Script* /*script*/)
 {
     maths::Vec4 pos;
     level_nodes::fetch_place(saved_node_id_, &pos);
@@ -501,7 +501,7 @@ bool KinematicsModule::obj_look_at_node_stored(script::Struct* params, script::S
 }
 
 // 0x00426810 (look_at_position's absolute case again, as its own code)
-bool KinematicsModule::obj_look_at_pos(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_look_at_pos(script::Struct* params, script::Script* /*script*/)
 {
     maths::Vec4 pos = {.x = 0.0f, .y = 0.0f, .z = 0.0f, .w = 1.0f};
     params->fetch_vec(0u, &pos, 0);
@@ -512,14 +512,14 @@ bool KinematicsModule::obj_look_at_pos(script::Struct* params, script::Script*)
 }
 
 // 0x00426880
-bool KinematicsModule::obj_look_at_pos_stored(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_look_at_pos_stored(script::Struct* params, script::Script* /*script*/)
 {
     get_look_at(params, &stored_pos_);
     return true;
 }
 
 // 0x004268A0
-bool KinematicsModule::obj_look_at_rel_pos(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_look_at_rel_pos(script::Struct* params, script::Script* /*script*/)
 {
     look_at_position(params, false);
     return true;

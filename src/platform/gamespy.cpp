@@ -167,7 +167,7 @@ void set_game_hosts(const char* game_name)
 }
 
 // The 2007 gcd SDK asks back for re-authentication; the game's SDK had no such request (nothing to do).
-void ignore_refresh_auth(int, int, int, char*, void*) {}
+void ignore_refresh_auth(int /*unused*/, int /*unused*/, int /*unused*/, char* /*unused*/, void* /*unused*/) {}
 
 } // namespace
 

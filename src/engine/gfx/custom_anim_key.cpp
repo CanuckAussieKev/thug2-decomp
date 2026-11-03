@@ -107,7 +107,7 @@ bool ScriptKey::work_on(void* object)
 }
 
 // 0x00486300
-bool StructureScriptKey::work_on(void*)
+bool StructureScriptKey::work_on(void* /*object*/)
 {
     read_debug_global();
     if (script::Struct* structure = script::read_sub_struct(structure_))
@@ -116,7 +116,7 @@ bool StructureScriptKey::work_on(void*)
 }
 
 // 0x00486340
-bool KillObjectKey::work_on(void*)
+bool KillObjectKey::work_on(void* /*object*/)
 {
     read_debug_global();
     if (script::Struct* structure = script::read_sub_struct(structure_)) {

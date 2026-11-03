@@ -156,12 +156,12 @@ int on_flag_returned_msg(net::InboundMsgCtx* context)
 }
 
 // 0x0052D910 / 0x0052D930
-int handle_auto_server_notice(net::InboundMsgCtx*)
+int handle_auto_server_notice(net::InboundMsgCtx* /*unused*/)
 {
     get_run(kLaunchAutoServerNotification);
     return kContinue;
 }
-int handle_kill_team_flags(net::InboundMsgCtx*)
+int handle_kill_team_flags(net::InboundMsgCtx* /*unused*/)
 {
     get_run(kKillTeamFlags);
     return kContinue;
@@ -213,7 +213,7 @@ int handle_object_update_length(net::InboundMsgCtx* context)
 }
 
 // 0x0052DAC0
-int handle_nothing(net::InboundMsgCtx*) { return kContinue; }
+int handle_nothing(net::InboundMsgCtx* /*unused*/) { return kContinue; }
 
 // 0x0052DAD0
 int handle_cd_key_challenge(net::InboundMsgCtx* context)

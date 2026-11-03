@@ -161,7 +161,7 @@ bool fetch_script(script::Struct* s, uint32_t name, script::ParamScript* out, in
 }
 
 // The compiled-out call on the appearance 0x30E2951D makes (the empty 0x005BAB90, one argument).
-inline void unused_appearance_call(ModelLook*, int) {}
+inline void unused_appearance_call(ModelLook* /*unused*/, int /*unused*/) {}
 
 // The colour's three parts as the model takes them: h as it is, s and v as fractions of their percentages.
 float get_percent(int value) { return static_cast<float>(static_cast<double>(value) * kPercent); }

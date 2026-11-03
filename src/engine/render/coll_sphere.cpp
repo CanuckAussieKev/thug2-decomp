@@ -41,7 +41,7 @@ maths::Vec4 get_minus(const maths::Vec4& a, const maths::Vec4& b)
 }
 
 // The scene grid holding the sphere (0x0048C940) and the grids along a line (0x0048C980).
-CollGrid* grid_of(const CollSphere*) { return get_first_coll_grid(); }
+CollGrid* grid_of(const CollSphere* /*unused*/) { return get_first_coll_grid(); }
 std::span<CollGrid* const> grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 
 bool collide_with_sphere(HitMesh* object, const CollSphere* sphere, const maths::BBox* box, SphereHits* hits)
@@ -64,7 +64,8 @@ maths::Seg get_segment(const maths::Vec4& start, const maths::Vec4& end)
 } // namespace
 
 // 0x0040E280
-bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere, int* count, std::span<maths::Vec4, 2> points, int)
+bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere, int* count,
+                            std::span<maths::Vec4, 2> points, int /*unused*/)
 {
     const maths::Vec4& start = segment->start;
     const double mx = static_cast<double>(start.x) - sphere->centre.x;
@@ -174,7 +175,7 @@ bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_moti
 // 0x0040E940
 bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* sphere, const maths::Vec4* motion,
                               const maths::Vec4* edge_motion, CornerTriangle triangle, CornerEdge edge_line, float* t,
-                              float limit, int* count, maths::Vec4* point, maths::Vec4*)
+                              float limit, int* count, maths::Vec4* point, maths::Vec4* /*unused*/)
 {
     const auto* const edge_cross = edge_line.edge_cross_;
     const auto* const edge = edge_line.edge;
@@ -558,7 +559,7 @@ SphereFeeler::SphereFeeler(const maths::Vec4* centre, float radius)
 }
 
 // 0x00418300
-bool SphereFeeler::get_query(int)
+bool SphereFeeler::get_query(int /*unused*/)
 {
     hits_.mode = 1;
     return collide_sphere_with_statics(&bound_ball_, &hits_, hit_cache_ ? hit_cache_ : sphere_cache());

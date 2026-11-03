@@ -80,7 +80,7 @@ void add_element(Struct* results, Array* array, uint32_t index)
 
 // 0x0044AF50: ArrayContains array=[...] contains=<value>: whether an element equals the value - integer arrays by
 // value, string arrays ignoring case, name arrays by checksum (any other array: false).
-bool cfunc_array_contains(Struct* params, script::Script*)
+bool cfunc_array_contains(Struct* params, script::Script* /*script*/)
 {
     Array* array = nullptr;
     params->fetch_list(kArray, &array, 1);

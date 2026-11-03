@@ -463,7 +463,8 @@ int EmitterInstance::get_num_vertex_lists()
 // --- the types ---
 
 // 0x00499010
-NewFlatParticles::NewFlatParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
+NewFlatParticles::NewFlatParticles(uint32_t name, int particle_cap, uint32_t /*unused*/, uint32_t /*unused*/,
+                                   int /*unused*/, int /*unused*/, float /*unused*/, int /*unused*/)
 {
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPositionBytes}, false, 1)) {
         set_colour_mid(-1.0f);
@@ -472,8 +473,8 @@ NewFlatParticles::NewFlatParticles(uint32_t name, int particle_cap, uint32_t, ui
 }
 
 // 0x004992C0
-FlatRibbonParticles::FlatRibbonParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
-                                         int history)
+FlatRibbonParticles::FlatRibbonParticles(uint32_t name, int particle_cap, uint32_t /*unused*/, uint32_t /*unused*/,
+                                         int /*unused*/, int /*unused*/, float /*unused*/, int history)
     : segments_(history + 1)
 {
     // (the colours' count read again as segments_ + 3 for each array and each step of the loop)
@@ -534,7 +535,8 @@ int GlowRibbonTrailParticles::get_num_colours() { return history_length() + 3; }
 int GlowRibbonTrailParticles::get_num_vertex_lists() { return history_length(); }
 
 // 0x00499B80
-LineParticles::LineParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int history)
+LineParticles::LineParticles(uint32_t name, int particle_cap, uint32_t /*unused*/, uint32_t /*unused*/, int /*unused*/,
+                             int /*unused*/, float /*unused*/, int history)
     : steps_(history + 1)
 {
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * (history + 1) * kPositionBytes)}, true,

@@ -27,15 +27,15 @@ int return_zero() { return 0; }
 void do_nothing() {}
 
 // 0x005BAB90: functions that ignore their one (stack) argument
-void ignore_argument(int) {}
-void ignore_argument(const void*) {}
+void ignore_argument(int /*unused*/) {}
+void ignore_argument(const void* /*unused*/) {}
 // 0x0048D090: ...their three - the engine font's string size and the geom's slot 41
-void ignore_arguments3(int, int, int) {}
-void ignore_arguments3(const void*, int, int) {}
+void ignore_arguments3(int /*unused*/, int /*unused*/, int /*unused*/) {}
+void ignore_arguments3(const void* /*unused*/, int /*unused*/, int /*unused*/) {}
 
 // 0x0049F4C0: ...returning 0 / null whatever their two - the gap checks' "0"
-int return_zero2(int, int) { return 0; }
-int return_zero2(const void*, int) { return 0; }
+int return_zero2(int /*unused*/, int /*unused*/) { return 0; }
+int return_zero2(const void* /*unused*/, int /*unused*/) { return 0; }
 
 // 0x0049F460: a word 0 (the engine texture's width / height slots).
 uint16_t return_zero_word() { return 0; }

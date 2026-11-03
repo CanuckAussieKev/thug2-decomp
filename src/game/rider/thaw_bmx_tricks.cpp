@@ -595,7 +595,7 @@ int bike_sound_of(const void* skater, BikeSound kind, void* info)
 
 // --- the members -------------------------------------------------------------------------------------------------
 
-int call_trick_member(SkaterPhysicsModule* core, uint32_t name, script::Struct* params, script::Script*)
+int call_trick_member(SkaterPhysicsModule* core, uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     static const uint32_t kDisplayPitch = name_hash("DisplayPitchGreaterThan");
     static const uint32_t kLandedFromTap = name_hash("LandedFromTireTap");

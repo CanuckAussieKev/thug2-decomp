@@ -141,7 +141,7 @@ bool cfunc_get_create_a_trick_animations(script::Struct* params, script::Script*
 }
 
 // 0x00551E40
-bool cfunc_set_create_a_trick_params(script::Struct* params, script::Script*)
+bool cfunc_set_create_a_trick_params(script::Struct* params, script::Script* /*script*/)
 {
     const objects::Rider* skater = local_skater();
     if (!skater)
@@ -171,7 +171,7 @@ bool cfunc_set_create_a_trick_params(script::Struct* params, script::Script*)
 }
 
 // 0x00551F70
-bool cfunc_set_create_a_trick_other_params(script::Struct* params, script::Script*)
+bool cfunc_set_create_a_trick_other_params(script::Struct* params, script::Script* /*script*/)
 {
     const objects::Rider* skater = local_skater();
     if (!skater)
@@ -187,7 +187,7 @@ bool cfunc_set_create_a_trick_other_params(script::Struct* params, script::Scrip
 }
 
 // 0x00551FF0
-bool cfunc_set_create_a_trick_rotations(script::Struct* params, script::Script*)
+bool cfunc_set_create_a_trick_rotations(script::Struct* params, script::Script* /*script*/)
 {
     const objects::Rider* skater = local_skater();
     if (!skater)
@@ -203,7 +203,7 @@ bool cfunc_set_create_a_trick_rotations(script::Struct* params, script::Script*)
 }
 
 // 0x00552070
-bool cfunc_set_create_a_trick_animations(script::Struct* params, script::Script*)
+bool cfunc_set_create_a_trick_animations(script::Struct* params, script::Script* /*script*/)
 {
     const objects::Rider* skater = local_skater();
     if (!skater)
@@ -262,52 +262,52 @@ bool fetch_marker(script::Script* script, bool (objects::Rider::*field)() const,
 } // namespace
 
 // 0x005520F0
-bool cfunc_cat_set_num_anims(script::Struct* params, script::Script*)
+bool cfunc_cat_set_num_anims(script::Struct* params, script::Script* /*script*/)
 {
     return store_int_field(params, &objects::Rider::cat_num_anims);
 }
 // 0x00552130
-bool cfunc_cat_get_num_anims(script::Struct*, script::Script* script)
+bool cfunc_cat_get_num_anims(script::Struct* /*params*/, script::Script* script)
 {
     return fetch_int_value(script, &objects::Rider::cat_num_anims, kNumAnimationsOn);
 }
 // 0x00552160
-bool cfunc_cat_set_anims_done(script::Struct* params, script::Script*)
+bool cfunc_cat_set_anims_done(script::Struct* params, script::Script* /*script*/)
 {
     return set_flag(params, &objects::Rider::cat_anims_done);
 }
 // 0x005521A0
-bool cfunc_cat_get_anims_done(script::Struct*, script::Script* script)
+bool cfunc_cat_get_anims_done(script::Struct* /*params*/, script::Script* script)
 {
     return fetch_marker(script, &objects::Rider::cat_anims_done, kAnimationsDone);
 }
 // 0x005521F0
-bool cfunc_cat_set_rots_done(script::Struct* params, script::Script*)
+bool cfunc_cat_set_rots_done(script::Struct* params, script::Script* /*script*/)
 {
     return set_flag(params, &objects::Rider::cat_rots_done);
 }
 // 0x00552230
-bool cfunc_cat_get_rots_done(script::Struct*, script::Script* script)
+bool cfunc_cat_get_rots_done(script::Struct* /*params*/, script::Script* script)
 {
     return fetch_marker(script, &objects::Rider::cat_rots_done, kRotationsDone);
 }
 // 0x00552280
-bool cfunc_cat_set_bail_done(script::Struct* params, script::Script*)
+bool cfunc_cat_set_bail_done(script::Struct* params, script::Script* /*script*/)
 {
     return set_flag(params, &objects::Rider::cat_bail_done);
 }
 // 0x005522C0
-bool cfunc_cat_get_bail_done(script::Struct*, script::Script* script)
+bool cfunc_cat_get_bail_done(script::Struct* /*params*/, script::Script* script)
 {
     return fetch_marker(script, &objects::Rider::cat_bail_done, kBailDone);
 }
 // 0x00552310
-bool cfunc_cat_set_flip_skater(script::Struct* params, script::Script*)
+bool cfunc_cat_set_flip_skater(script::Struct* params, script::Script* /*script*/)
 {
     return set_flag(params, &objects::Rider::cat_flip_180);
 }
 // 0x00552350
-bool cfunc_cat_get_flip_skater(script::Struct*, script::Script* script)
+bool cfunc_cat_get_flip_skater(script::Struct* /*params*/, script::Script* script)
 {
     const objects::Rider* skater = local_skater();
     if (!skater)
@@ -316,7 +316,7 @@ bool cfunc_cat_get_flip_skater(script::Struct*, script::Script* script)
     return true;
 }
 // 0x005523A0
-bool cfunc_cat_set_hold_time(script::Struct* params, script::Script*)
+bool cfunc_cat_set_hold_time(script::Struct* params, script::Script* /*script*/)
 {
     objects::Rider* skater = local_skater();
     if (!skater)
@@ -327,7 +327,7 @@ bool cfunc_cat_set_hold_time(script::Struct* params, script::Script*)
     return true;
 }
 // 0x005523E0
-bool cfunc_cat_get_hold_time(script::Struct*, script::Script* script)
+bool cfunc_cat_get_hold_time(script::Struct* /*params*/, script::Script* script)
 {
     const objects::Rider* skater = local_skater();
     if (!skater)
@@ -336,32 +336,32 @@ bool cfunc_cat_get_hold_time(script::Struct*, script::Script* script)
     return true;
 }
 // 0x00552410
-bool cfunc_cat_set_total_y(script::Struct* params, script::Script*)
+bool cfunc_cat_set_total_y(script::Struct* params, script::Script* /*script*/)
 {
     return store_int_field(params, &objects::Rider::cat_total_y);
 }
 // 0x00552450
-bool cfunc_cat_get_total_y(script::Struct*, script::Script* script)
+bool cfunc_cat_get_total_y(script::Struct* /*params*/, script::Script* script)
 {
     return fetch_int_value(script, &objects::Rider::cat_total_y, kTotalY);
 }
 // 0x00552480
-bool cfunc_cat_set_total_x(script::Struct* params, script::Script*)
+bool cfunc_cat_set_total_x(script::Struct* params, script::Script* /*script*/)
 {
     return store_int_field(params, &objects::Rider::cat_total_x);
 }
 // 0x005524C0
-bool cfunc_cat_get_total_x(script::Struct*, script::Script* script)
+bool cfunc_cat_get_total_x(script::Struct* /*params*/, script::Script* script)
 {
     return fetch_int_value(script, &objects::Rider::cat_total_x, kTotalX);
 }
 // 0x005524F0
-bool cfunc_cat_set_total_z(script::Struct* params, script::Script*)
+bool cfunc_cat_set_total_z(script::Struct* params, script::Script* /*script*/)
 {
     return store_int_field(params, &objects::Rider::cat_total_z);
 }
 // 0x00552530
-bool cfunc_cat_get_total_z(script::Struct*, script::Script* script)
+bool cfunc_cat_get_total_z(script::Struct* /*params*/, script::Script* script)
 {
     return fetch_int_value(script, &objects::Rider::cat_total_z, kTotalZ);
 }

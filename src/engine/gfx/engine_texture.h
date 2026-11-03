@@ -60,47 +60,61 @@ public:
 
     // The platform's virtual functions (vtable slots 1 - 41; the engine's bodies are shared stubs: false / 0). The
     // editing ones work on an edit begun with begin_edit (32-bit pixels) and written back with write_back.
-    virtual bool ingest_file(const char*, int, int) { return false; }                                  // [1]
-    virtual bool load_memory(const uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t) { return false; } // [2]
+    virtual bool ingest_file(const char* /*unused*/, int /*unused*/, int /*unused*/) { return false; } // [1]
+    virtual bool load_memory(const uint8_t* /*unused*/, uint32_t /*unused*/, uint32_t /*unused*/, uint32_t /*unused*/,
+                             uint32_t /*unused*/)
+    {
+        return false;
+    } // [2]
     // An image's width, height and bits per pixel.
     struct ImageFormat {
         uint32_t width{};
         uint32_t height{};
         int bits_per_pixel_{};
     };
-    virtual bool create_image(checksums::Name, ImageFormat, int, int) { return false; }                // [3]
-    virtual bool copy_from(const BitmapTexture*) { return false; }                                     // [4]
-    virtual bool begin_edit(bool, bool) { return false; }                                              // [8]
-    virtual bool write_back(int, const void*) { return false; }                                        // [9]
+    virtual bool create_image(checksums::Name /*unused*/, ImageFormat /*unused*/, int /*unused*/, int /*unused*/)
+    {
+        return false;
+    }                                                                                                  // [3]
+    virtual bool copy_from(const BitmapTexture* /*unused*/) { return false; }                          // [4]
+    virtual bool begin_edit(bool /*unused*/, bool /*unused*/) { return false; }                        // [8]
+    virtual bool write_back(int /*unused*/, const void* /*unused*/) { return false; }                  // [9]
     virtual bool end_edit() { return false; }                                                          // [10]
-    virtual bool modulate(uint32_t, bool) { return false; }                                            // [12]
+    virtual bool modulate(uint32_t /*unused*/, bool /*unused*/) { return false; }                      // [12]
     virtual bool get_mirror() { return false; }                                                        // [13]
-    virtual bool resize_from(const BitmapTexture*, int) { return false; }                              // [15]
-    virtual bool get_zoom(float, float) { return false; }                                              // [16]
-    virtual bool spin_by(float, maths::Vec2 /*centre*/) { return false; }                                        // [17]
-    virtual bool get_offset(int, int, bool, int) { return false; }                                     // [18]
-    virtual bool get_border(uint32_t) { return false; }                                                // [19]
+    virtual bool resize_from(const BitmapTexture* /*unused*/, int /*unused*/) { return false; }        // [15]
+    virtual bool get_zoom(float /*unused*/, float /*unused*/) { return false; }                        // [16]
+    virtual bool spin_by(float /*unused*/, maths::Vec2 /*centre*/) { return false; }                   // [17]
+    virtual bool get_offset(int /*unused*/, int /*unused*/, bool /*unused*/, int /*unused*/) { return false; } // [18]
+    virtual bool get_border(uint32_t /*unused*/) { return false; }                                             // [19]
     virtual bool get_stretch(Stretch /*stretch*/) { return false; }                                     // [21]
-    virtual bool squash(BitmapTexture::Stretch /*stretch*/, bool, uint32_t) { return false; }                          // [22]
-    virtual bool shift_hue_sat_value(HsvShift /*shift*/, bool) { return false; }                      // [24]
+    virtual bool squash(BitmapTexture::Stretch /*stretch*/, bool /*unused*/, uint32_t /*unused*/)
+    {
+        return false;
+    }                                                                                       // [22]
+    virtual bool shift_hue_sat_value(HsvShift /*shift*/, bool /*unused*/) { return false; } // [24]
     [[nodiscard]] virtual uint16_t fetch_breadth() const { return 0; }  // [33] the image's width
     [[nodiscard]] virtual uint16_t fetch_tallness() const { return 0; } // [34] its height
     virtual uint8_t get_depth() { return 0; }                       // [35] bits per pixel
     virtual uint8_t get_unknown_e() { return 0; }                   // [38]
     virtual uint8_t get_unknown_c() { return 0; }                   // [39]
     virtual uint8_t get_unknown_d() { return 0; }                   // [40]
-    virtual bool get_overlay(BitmapTexture*, int) { return false; } // [41]
+    virtual bool get_overlay(BitmapTexture* /*unused*/, int /*unused*/) { return false; } // [41]
 
     // The slots the same stub in both tables (the PC has none of these).
     static bool flip_vertically() { return false; }                                // [14] (FlipTexture's vert)
-    static bool adjust_region(int, int, int, int, int, int, int) { return false; } // [20] (AdjustTextureRegion)
-    static bool adjust_brightness(float, bool) { return false; }                   // [23] (AdjustTextureBrightness)
+    static bool adjust_region(int /*unused*/, int /*unused*/, int /*unused*/, int /*unused*/, int /*unused*/,
+                              int /*unused*/, int /*unused*/)
+    {
+        return false;
+    }                                                                                  // [20] (AdjustTextureRegion)
+    static bool adjust_brightness(float /*unused*/, bool /*unused*/) { return false; } // [23] (AdjustTextureBrightness)
     static void* get_pixels() { return nullptr; }                                  // [25]
     static uint32_t get_pixels_size() { return 0; }                                // [26]
     static void* get_palette() { return nullptr; }                                 // [27]
     static uint32_t get_palette_size() { return 0; }                               // [28]
-    void set_palette(const void*, int) {}                                   // [29]
-    static bool set_pixels(const void*) { return false; }                   // [30]
+    void set_palette(const void* /*unused*/, int /*unused*/) {}                    // [29]
+    static bool set_pixels(const void* /*unused*/) { return false; }               // [30]
     static bool release_pixels() { return false; }                          // [32]
 
     // The fields other code reads and sets.

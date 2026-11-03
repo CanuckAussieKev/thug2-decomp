@@ -179,61 +179,61 @@ void KinematicsModule::update_path_speed()
 }
 
 // 0x00423160
-int KinematicsModule::is_moving_from_script(script::Struct*, script::Script*) const
+int KinematicsModule::is_moving_from_script(script::Struct* /*params*/, script::Script* /*script*/) const
 {
     return (motion_flags_ & kMotionFlagMoving) ? 1 : 0;
 }
 
 // 0x00423170
-int KinematicsModule::is_rotating_from_script(script::Struct*, script::Script*) const
+int KinematicsModule::is_rotating_from_script(script::Struct* /*params*/, script::Script* /*script*/) const
 {
     return (motion_flags_ & kMotionFlagRotating) ? 1 : 0;
 }
 
 // 0x00423180
-int KinematicsModule::stop_moving(script::Struct*, script::Script*)
+int KinematicsModule::stop_moving(script::Struct* /*params*/, script::Script* /*script*/)
 {
     motion_flags_ &= ~kMotionFlagMoving;
     return 1;
 }
 
 // 0x00423190
-int KinematicsModule::stop_rotating(script::Struct*, script::Script*)
+int KinematicsModule::stop_rotating(script::Struct* /*params*/, script::Script* /*script*/)
 {
     motion_flags_ &= ~(kMotionFlagRotating | kMotionFlagRotatingAlt);
     return 1;
 }
 
 // 0x004231A0
-int KinematicsModule::set_path_velocity(script::Struct* params, script::Script*)
+int KinematicsModule::set_path_velocity(script::Struct* params, script::Script* /*script*/)
 {
     get_speed(params, &path_max_speed_, kFps, kIps);
     return 1;
 }
 
 // 0x00423210
-int KinematicsModule::set_path_min_stop_vel(script::Struct* params, script::Script*)
+int KinematicsModule::set_path_min_stop_vel(script::Struct* params, script::Script* /*script*/)
 {
     get_speed(params, &path_min_stop_speed_, kFps, kIps);
     return 1;
 }
 
 // 0x00423280
-int KinematicsModule::set_path_acceleration(script::Struct* params, script::Script*)
+int KinematicsModule::set_path_acceleration(script::Struct* params, script::Script* /*script*/)
 {
     get_speed(params, &path_acceleration_, kFpsps, kIpsps);
     return 1;
 }
 
 // 0x004232F0
-int KinematicsModule::set_path_deceleration(script::Struct* params, script::Script*)
+int KinematicsModule::set_path_deceleration(script::Struct* params, script::Script* /*script*/)
 {
     get_speed(params, &path_deceleration_, kFpsps, kIpsps);
     return 1;
 }
 
 // 0x00423360
-int KinematicsModule::route_facing(script::Struct* params, script::Script*)
+int KinematicsModule::route_facing(script::Struct* params, script::Script* /*script*/)
 {
     if (params->has_bare_flag(kOff))
         motion_flags2_ |= kMotionPathNoHeading;
@@ -243,7 +243,7 @@ int KinematicsModule::route_facing(script::Struct* params, script::Script*)
 }
 
 // 0x004233A0
-int KinematicsModule::random_path_mode(script::Struct* params, script::Script*)
+int KinematicsModule::random_path_mode(script::Struct* params, script::Script* /*script*/)
 {
     if (params->has_bare_flag(kOff))
         motion_flags2_ &= ~kMotionPathRandom;
@@ -253,7 +253,7 @@ int KinematicsModule::random_path_mode(script::Struct* params, script::Script*)
 }
 
 // 0x004233E0
-int KinematicsModule::stop_along_path(script::Struct* params, script::Script*)
+int KinematicsModule::stop_along_path(script::Struct* params, script::Script* /*script*/)
 {
     path_stop_distance_ = 0.0f;
     path_stop_covered_ = 0.0f;
@@ -272,32 +272,32 @@ int KinematicsModule::stop_along_path(script::Struct* params, script::Script*)
 }
 
 // 0x00423480
-int KinematicsModule::start_along_path(script::Struct*, script::Script*)
+int KinematicsModule::start_along_path(script::Struct* /*params*/, script::Script* /*script*/)
 {
     motion_flags2_ &= ~kMotionPathStopping;
     return 1;
 }
 
 // 0x00423490
-int KinematicsModule::wait_jump_finished(script::Struct*, script::Script* script)
+int KinematicsModule::wait_jump_finished(script::Struct* /*params*/, script::Script* script)
 {
     return wait_on(script, this, script::BlockReason::kJump);
 }
 
 // 0x004234B0
-int KinematicsModule::wait_rotate(script::Struct*, script::Script* script)
+int KinematicsModule::wait_rotate(script::Struct* /*params*/, script::Script* script)
 {
     return wait_on(script, this, script::BlockReason::kRotate);
 }
 
 // 0x004234D0
-int KinematicsModule::wait_move(script::Struct*, script::Script* script)
+int KinematicsModule::wait_move(script::Struct* /*params*/, script::Script* script)
 {
     return wait_on(script, this, script::BlockReason::kMove);
 }
 
 // 0x004234F0
-int KinematicsModule::wait_stop(script::Struct*, script::Script* script)
+int KinematicsModule::wait_stop(script::Struct* /*params*/, script::Script* script)
 {
     return wait_on(script, this, script::BlockReason::kPathStop);
 }

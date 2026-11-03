@@ -147,7 +147,7 @@ void free_spawned_poly_details(void* details) { render::spawned_poly_pools().dea
 // start_colors=[[r g b a] x4] end_colors=[...] | start_color=[r g b a] end_color=[...] [flag] [just=[h v]]
 // [BlendMode] [texture]: a new spawned polygon's details filled in and passed on (0x00492450) with the two vectors.
 // Always true.
-bool cfunc_spawn_poly(Struct* params, Script*)
+bool cfunc_spawn_poly(Struct* params, Script* /*script*/)
 {
     gsl::owner<render::SpawnedPoly*> details =
         memory::adopt<render::SpawnedPoly*>(render::spawned_poly_pools().allocate<render::SpawnedPoly>());
@@ -264,7 +264,7 @@ void compress_scene_vertex_colours(render::WorldScene* scene, float target, floa
 
 // 0x00447980: CompressVC target=<n> percent=<n> [LightGroup=<name>]: every scene's (skies apart, then the first
 // sky's) vertex colours compressed towards target, to (100 - percent)% of their distance. Always true.
-bool cfunc_compress_vc(Struct* params, Script*)
+bool cfunc_compress_vc(Struct* params, Script* /*script*/)
 {
     float target = 0.0f;
     float percent = 0.0f;
@@ -322,7 +322,7 @@ void nudge_scene_vertex_colours(render::WorldScene* scene, float amount)
 }
 
 // 0x00447D90: NudgeVC percent=<n>: every scene's vertex colours (skies too) nudged by up to percent%. Always true.
-bool cfunc_nudge_vc(Struct* params, Script*)
+bool cfunc_nudge_vc(Struct* params, Script* /*script*/)
 {
     float percent = 0.0f;
     params->fetch_float(kPercent, &percent, 1);
@@ -338,7 +338,7 @@ bool cfunc_nudge_vc(Struct* params, Script*)
 // 0x00447E00: SetLightDirection index=<n> direction=<vector> | heading=<degrees> pitch=<degrees>: the light's
 // direction (0x0048ED70; w 0): the vector, or (0, 0, 1) turned by pitch about x and then by heading about y (both
 // needed; otherwise (0, 0, 1)). Returns what 0x0048ED70 returns (its AL).
-bool cfunc_set_light_direction(Struct* params, Script*)
+bool cfunc_set_light_direction(Struct* params, Script* /*script*/)
 {
     constexpr float kRadiansPerDegree = 0.0174532924f; // (0x00645464)
     int index = 0;                                     // (uninitialised in the original)
@@ -366,7 +366,7 @@ bool cfunc_set_light_direction(Struct* params, Script*)
 
 // 0x00447F30: GetMetrics: the renderer's metrics (0x0048CB00 into a new structure) added to the script's params as
 // Metrics. Always true.
-bool cfunc_get_metrics(Struct*, Script* script)
+bool cfunc_get_metrics(Struct* /*params*/, Script* script)
 {
     gsl::owner<Struct*> metrics = script::spawn_param_bag();
     if (metrics)

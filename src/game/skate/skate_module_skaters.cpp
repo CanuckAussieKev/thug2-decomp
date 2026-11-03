@@ -663,7 +663,7 @@ void Skate::test_rider_contacts()
 }
 
 // 0x00566E70
-bool Skate::cfunc_retry(script::Struct*, script::Script*)
+bool Skate::cfunc_retry(script::Struct* /*params*/, script::Script* /*script*/)
 {
     memory::enter_heap_scope(memory::bottom_up_heap());
     sole()->launch_game();
@@ -672,7 +672,7 @@ bool Skate::cfunc_retry(script::Struct*, script::Script*)
 }
 
 // 0x00566EA0
-bool Skate::cfunc_launch_game(script::Struct*, script::Script*)
+bool Skate::cfunc_launch_game(script::Struct* /*params*/, script::Script* /*script*/)
 {
     memory::enter_heap_scope(memory::bottom_up_heap());
     sole()->launch_game();
@@ -681,7 +681,7 @@ bool Skate::cfunc_launch_game(script::Struct*, script::Script*)
 }
 
 // 0x00566ED0
-bool Skate::cfunc_reset_level(script::Struct*, script::Script* script)
+bool Skate::cfunc_reset_level(script::Struct* /*params*/, script::Script* script)
 {
     // (the calling script isn't spawned while the level resets: its flag put back after)
     uint8_t spawned = 0;
@@ -865,7 +865,7 @@ frontend::UiWidget* find_element(uint32_t id)
 } // namespace
 
 // 0x00564D30 (an object walk's callback): the object's suspend component told to work out whether it's drawn.
-void Skate::update_suspend_visibility(objects::Entity* object, void*)
+void Skate::update_suspend_visibility(objects::Entity* object, void* /*unused*/)
 {
     if (auto* suspend =
             core::down_cast<objects::DormancyModule>(core::down_cast<objects::GameEntity>(object)->fetch_module(kSuspend)))

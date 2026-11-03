@@ -114,7 +114,7 @@ gfx::FaceSkin* face_of(objects::RiderIdentity* profile) { return profile->appear
 
 // 0x005AE550: SetPlayerAppearance player=<n> appearance_structure=<s> - the player's profile's appearance set (and
 // applied).
-bool cfunc_set_player_appearance(script::Struct* params, script::Script*)
+bool cfunc_set_player_appearance(script::Struct* params, script::Script* /*script*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params);
     script::Struct* appearance = nullptr; // (uninitialised in the original when missing)
@@ -152,7 +152,7 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
 
 // 0x005AE710: SetPlayerFacePoints player=<n> [face_points=<s>] - the player's face points from the structure (or
 // the parameters themselves). A failed read prints the parameters (compiled out); the points are set anyway.
-bool cfunc_set_player_face_points(script::Struct* params, script::Script*)
+bool cfunc_set_player_face_points(script::Struct* params, script::Script* /*script*/)
 {
     gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
     script::Struct* from = nullptr;
@@ -166,7 +166,7 @@ bool cfunc_set_player_face_points(script::Struct* params, script::Script*)
 }
 
 // 0x005AE7A0: SetPlayerFaceTexture player=<n> texture=<file> [fullPathIncluded].
-bool cfunc_set_player_face_texture(script::Struct* params, script::Script*)
+bool cfunc_set_player_face_texture(script::Struct* params, script::Script* /*script*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params);
     const char* texture = nullptr; // (uninitialised in the original when missing)
@@ -177,7 +177,7 @@ bool cfunc_set_player_face_texture(script::Struct* params, script::Script*)
 }
 
 // 0x005AE820: SetPlayerFaceOverlayTexture player=<n> texture=<file>.
-bool cfunc_set_player_face_overlay_texture(script::Struct* params, script::Script*)
+bool cfunc_set_player_face_overlay_texture(script::Struct* params, script::Script* /*script*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params);
     const char* texture = nullptr; // (uninitialised in the original when missing)
@@ -187,14 +187,14 @@ bool cfunc_set_player_face_overlay_texture(script::Struct* params, script::Scrip
 }
 
 // 0x005AE880: ClearPlayerFaceTexture player=<n> - the face marked not valid.
-bool cfunc_clear_player_face_texture(script::Struct* params, script::Script*)
+bool cfunc_clear_player_face_texture(script::Struct* params, script::Script* /*script*/)
 {
     face_of(rider_identity_from_params(params))->mark_usable(false);
     return true;
 }
 
 // 0x005AE8C0: PlayerFaceIsValid player=<n> (false without a face).
-bool cfunc_player_face_is_valid(script::Struct* params, script::Script*)
+bool cfunc_player_face_is_valid(script::Struct* params, script::Script* /*script*/)
 {
     const gfx::FaceSkin* face = face_of(rider_identity_from_params(params));
     return face && face->is_sound();
@@ -202,19 +202,19 @@ bool cfunc_player_face_is_valid(script::Struct* params, script::Script*)
 
 // 0x005AF750 / 0x005AF7D0 / 0x005AF850 / 0x005AF8D0: RefreshSkaterColors / Scale / Visibility / UV profile=<n>
 // skater=<n> - the model rebuilt with color_model_from_appearance / scale_ / hide_ / set_uv_from_appearance.
-bool cfunc_refresh_skater_colors(script::Struct* params, script::Script*)
+bool cfunc_refresh_skater_colors(script::Struct* params, script::Script* /*script*/)
 {
     return refresh_skater(params, kColorModelFromAppearance);
 }
-bool cfunc_refresh_skater_scale(script::Struct* params, script::Script*)
+bool cfunc_refresh_skater_scale(script::Struct* params, script::Script* /*script*/)
 {
     return refresh_skater(params, kScaleModelFromAppearance);
 }
-bool cfunc_refresh_skater_visibility(script::Struct* params, script::Script*)
+bool cfunc_refresh_skater_visibility(script::Struct* params, script::Script* /*script*/)
 {
     return refresh_skater(params, kHideModelFromAppearance);
 }
-bool cfunc_refresh_skater_uv(script::Struct* params, script::Script*)
+bool cfunc_refresh_skater_uv(script::Struct* params, script::Script* /*script*/)
 {
     return refresh_skater(params, kSetUvFromAppearance);
 }
@@ -223,7 +223,7 @@ bool cfunc_refresh_skater_uv(script::Struct* params, script::Script*)
 // from profile p's (n) appearance in the skater's geometry heap (the first viewport's skater: the BailBoard object
 // killed first), then in its own heap its stats, trick mappings and looks from the profile; no_board: the board geom
 // hidden.
-bool cfunc_refresh_skater_model(script::Struct* params, script::Script*)
+bool cfunc_refresh_skater_model(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0;
     params->fetch_int_value(0u, &index, 0);
@@ -263,7 +263,7 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script*)
 
 // 0x005AFF30: EditPlayerAppearance [<n>] [profile=<p>] target=<script> [target_params=<s>] - the target script run
 // with the parameters on profile p's (n) profile (passed as the script's object, as the original does).
-bool cfunc_edit_player_appearance(script::Struct* params, script::Script*)
+bool cfunc_edit_player_appearance(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0;
     params->fetch_int_value(0u, &index, 0);
@@ -335,7 +335,7 @@ bool cfunc_get_player_appearance(script::Struct* params, script::Script* script)
 
 // 0x005B0670: SetPlayerAppearanceColor [player=<n>] part=<slot> h= s= v= use_default_hsv= - the slot's colour (the
 // floats truncated to integers); nothing if the appearance hasn't the slot.
-bool cfunc_set_player_appearance_color(script::Struct* params, script::Script*)
+bool cfunc_set_player_appearance_color(script::Struct* params, script::Script* /*script*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     uint32_t part = 0; // (uninitialised in the original when missing, as the values)
@@ -360,7 +360,7 @@ bool cfunc_set_player_appearance_color(script::Struct* params, script::Script*)
 
 // 0x005B0780: SetPlayerAppearanceScale [player=<n>] part=<slot> [x=] [y=] [z=] [use_default_scale=] - the values
 // given set in the slot (made in the appearance if it hasn't the slot); the floats truncated.
-bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script*)
+bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script* /*script*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     uint32_t part = 0; // (uninitialised in the original when missing)
@@ -386,7 +386,7 @@ bool cfunc_set_player_appearance_scale(script::Struct* params, script::Script*)
 
 // 0x005B0920: SetPlayerAppearanceUV [player=<n>] part=<slot> uv_u= uv_v= uv_scale= uv_rot= use_default_uv= - the
 // slot's texture placement; nothing if the appearance hasn't the slot.
-bool cfunc_set_player_appearance_uv(script::Struct* params, script::Script*)
+bool cfunc_set_player_appearance_uv(script::Struct* params, script::Script* /*script*/)
 {
     objects::RiderIdentity* profile = rider_identity_from_params(params, 0);
     uint32_t part = 0; // (uninitialised in the original when missing, as the values)

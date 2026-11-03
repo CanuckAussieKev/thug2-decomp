@@ -85,7 +85,7 @@ constexpr auto kPedPartLists = std::to_array<uint32_t>({0xF56A8CFB, 0x26D93E89, 
 
 // Nx (not rewritten yet): a new model (0x0048BFA0, cdecl) and its deletion (0x0048C3C0); a model loaded from a file
 // (0x004935E0, eight arguments); its geom count (0x00492E40) and a geom's texture dictionary (0x004946C0).
-gsl::owner<render::RenderModel*> spawn_render_model(int)
+gsl::owner<render::RenderModel*> spawn_render_model(int /*unused*/)
 {
     return render::spawn_model();
 } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
@@ -134,7 +134,7 @@ void get_choose(script::Struct* option, int index)
 // 0x005AAFA0: PreloadModels - every vehicle and game object node's model (not "none"; a flag's only in a game of
 // more than one player) loaded and dropped, keeping its data: AllowReplaceTex passed on; unless nocollision, its
 // .col file too; a vehicle's .qb too.
-bool cfunc_preload_models(script::Struct*, script::Script*)
+bool cfunc_preload_models(script::Struct* /*params*/, script::Script* /*script*/)
 {
     memory::push_mem_profile("PreLoadModels");
     level_nodes::start_node_walk(0);
@@ -196,7 +196,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
 // 0x005AB300: PreloadPedestrians [no_random] - not in a network game, nor with the global 0x2CAA92ED set (false):
 // the pedestrians' CAS part lists (unless no_random), every pedestrian node's .skin and second (.mdl) models, and the
 // model its profile's appearance builds (preload_model_from_appearance) loaded and dropped.
-bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
+bool cfunc_preload_pedestrians(script::Struct* params, script::Script* /*script*/)
 {
     if (online::net_game_state().online_hub()->in_net_game())
         return false;
@@ -254,7 +254,7 @@ bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
 // candidates; the pedestrian nodes' own parts are taken; then one option of any kind (failing that one light, one
 // tan and one dark) and the rest at random among the candidates, n (the candidates) in all, numbered by
 // random_index. (No candidate left while choosing: the original loops for ever - kept.)
-bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
+bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t part = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kPart, &part, 1);

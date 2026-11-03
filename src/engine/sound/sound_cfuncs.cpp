@@ -70,7 +70,7 @@ void set_stereo(sound::VolumeRef& volume, Stereo stereo)
 // 0x0044D7D0: ingest_sound <file> [pitch=100] [dropoff=feet] [vol=100] [0x389129E4 | bank=n] [PosUpdateWithDoppler |
 // NoReverb]: the sound loaded - into the level's table with the flag 0x389129E4 (load type 0), as a bank's sound
 // (2) with bank=, else permanently (1); the flags 1 / 2. Always true (nothing without a file).
-bool cfunc_load_sound(Struct* params, Script*)
+bool cfunc_load_sound(Struct* params, Script* /*script*/)
 {
     const char* file = nullptr;
     if (!params->fetch_text(0u, &file, 1))
@@ -99,7 +99,7 @@ bool cfunc_load_sound(Struct* params, Script*)
 
 // 0x0044DC10: emit_sound <sound> [volL= volR= | vol= (100)] [pitch=100] [id=<unique id>]: played (stereo). Always
 // true.
-bool cfunc_play_sound(Struct* params, Script*)
+bool cfunc_play_sound(Struct* params, Script* /*script*/)
 {
     uint32_t sound = 0;
     uint32_t id = 0;
@@ -123,7 +123,7 @@ bool cfunc_play_sound(Struct* params, Script*)
 }
 
 // 0x0044DD50: StopSound <id or name>: whether it was playing (and is now stopped). False without one.
-bool cfunc_stop_sound(Struct* params, Script*)
+bool cfunc_stop_sound(Struct* params, Script* /*script*/)
 {
     uint32_t sound = 0; // (uninitialised in the original: only read when found)
     if (!params->read_hash_value(0u, &sound, 0))
@@ -135,7 +135,7 @@ bool cfunc_stop_sound(Struct* params, Script*)
 }
 
 // 0x0044DDA0: StopAllSounds. Always true.
-bool cfunc_stop_all_sounds(Struct*, Script*)
+bool cfunc_stop_all_sounds(Struct* /*params*/, Script* /*script*/)
 {
     audio_mixer_handle()->stop_all_sounds();
     return true;
@@ -143,7 +143,7 @@ bool cfunc_stop_all_sounds(Struct*, Script*)
 
 // 0x0044DDB0: SetSoundParams <id or name> [volL= volR= | vol=] [pitch=100]: the playing sound's volume (default
 // 100 each) and pitch. Always true (nothing without a sound).
-bool cfunc_set_sound_params(Struct* params, Script*)
+bool cfunc_set_sound_params(Struct* params, Script* /*script*/)
 {
     uint32_t sound = 0;
     if (!params->read_hash_value(0u, &sound, 0))
@@ -166,7 +166,7 @@ bool cfunc_set_sound_params(Struct* params, Script*)
 }
 
 // 0x0044DED0: IsSoundPlaying <unique id>. False without one.
-bool cfunc_is_sound_playing(Struct* params, Script*)
+bool cfunc_is_sound_playing(Struct* params, Script* /*script*/)
 {
     uint32_t sound = 0;
     if (!params->read_hash_value(0u, &sound, 0))
@@ -176,7 +176,7 @@ bool cfunc_is_sound_playing(Struct* params, Script*)
 
 // 0x0044DF10: AddSoundBanks [<bank numbers>]: each bank's group (number << 10) given to the manager's stop_group
 // (empty in this build). Always true.
-bool cfunc_add_sound_banks(Struct* params, Script*)
+bool cfunc_add_sound_banks(Struct* params, Script* /*script*/)
 {
     Array* banks = nullptr; // (uninitialised in the original: only read when found)
     if (params->fetch_list(0u, &banks, 0)) {
@@ -188,7 +188,7 @@ bool cfunc_add_sound_banks(Struct* params, Script*)
 }
 
 // 0x0044DF70: ClearSoundBank <group>: the group's permanent sounds unloaded. Always true.
-bool cfunc_clear_sound_bank(Struct* params, Script*)
+bool cfunc_clear_sound_bank(Struct* params, Script* /*script*/)
 {
     int group = 0; // (uninitialised in the original: only read when found)
     if (params->fetch_int_value(0u, &group, 0))
@@ -197,7 +197,7 @@ bool cfunc_clear_sound_bank(Struct* params, Script*)
 }
 
 // 0x0044DFA0: RemoveAllSoundBanks. Always true.
-bool cfunc_remove_all_sound_banks(Struct*, Script*)
+bool cfunc_remove_all_sound_banks(Struct* /*params*/, Script* /*script*/)
 {
     audio_mixer_handle()->unload_all_groups();
     return true;
@@ -205,7 +205,7 @@ bool cfunc_remove_all_sound_banks(Struct*, Script*)
 
 // 0x0044DFB0: SetSfxReverb [level (0; over 100: 100)] [mode=n] [instant]: the reverb - compiled out of the PC
 // build (0x0047B6B0 does nothing; its first argument is the level's float bits). Always true.
-bool cfunc_set_sfx_reverb(Struct* params, Script*)
+bool cfunc_set_sfx_reverb(Struct* params, Script* /*script*/)
 {
     float level = 0.0f;
     int mode = 0;
@@ -218,7 +218,7 @@ bool cfunc_set_sfx_reverb(Struct* params, Script*)
 }
 
 // 0x0044E040: SetSfxDropoff [feet (1020)]: the default dropoff distance. False (and nothing set) for 0 or less.
-bool cfunc_set_sfx_dropoff(Struct* params, Script*)
+bool cfunc_set_sfx_dropoff(Struct* params, Script* /*script*/)
 {
     float dropoff = kDefaultDropoff;
     params->fetch_float(0u, &dropoff, 0);
@@ -229,7 +229,7 @@ bool cfunc_set_sfx_dropoff(Struct* params, Script*)
 }
 
 // 0x0044E090: SetSfxVolume [percent (100)]: the main volume. Always true.
-bool cfunc_set_sfx_volume(Struct* params, Script*)
+bool cfunc_set_sfx_volume(Struct* params, Script* /*script*/)
 {
     float volume = 100.0f;
     params->fetch_float(0u, &volume, 0);
@@ -238,7 +238,7 @@ bool cfunc_set_sfx_volume(Struct* params, Script*)
 }
 
 // 0x0044E0C0: SetGlobalPitchModulation [n (1)] [0xC406CE6F] [0x6A3BD54B]: the sound effects' pitch. Always true.
-bool cfunc_set_global_pitch_modulation(Struct* params, Script*)
+bool cfunc_set_global_pitch_modulation(Struct* params, Script* /*script*/)
 {
     float pitch = 1.0f;
     params->fetch_float(0u, &pitch, 0);
@@ -276,7 +276,7 @@ bool cfunc_get_value_from_volume(Struct* params, Script* script)
 
 // 0x0044E290: SetPositionalSoundSilenceOverrideMode [n (1)]: positional sounds keep playing while paused (the
 // manager's +0) for a non-zero n. Always true.
-bool cfunc_set_positional_sound_silence_override_mode(Struct* params, Script*)
+bool cfunc_set_positional_sound_silence_override_mode(Struct* params, Script* /*script*/)
 {
     int mode = 1;
     params->fetch_int_value(0u, &mode, 1);

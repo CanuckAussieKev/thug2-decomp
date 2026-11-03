@@ -22,7 +22,8 @@ constexpr unsigned int kPosition = 12; // three floats
 // --- ribbon ---
 
 // 0x0049B0D0
-RibbonParticles::RibbonParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int history)
+RibbonParticles::RibbonParticles(uint32_t name, int particle_cap, uint32_t /*unused*/, uint32_t /*unused*/,
+                                 int /*unused*/, int /*unused*/, float /*unused*/, int history)
     : steps_(history + 1)
 {
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * steps_) * kPosition}, true,
@@ -35,8 +36,8 @@ RibbonParticles::RibbonParticles(uint32_t name, int particle_cap, uint32_t, uint
 // --- ribbontrail ---
 
 // 0x0049B380
-RibbonTrailParticles::RibbonTrailParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
-                                           int history)
+RibbonTrailParticles::RibbonTrailParticles(uint32_t name, int particle_cap, uint32_t /*unused*/, uint32_t /*unused*/,
+                                           int /*unused*/, int /*unused*/, float /*unused*/, int history)
     : steps_(history + 1)
 {
     // (the colours' count read again from steps_ for each array and each step of the loop)
@@ -50,7 +51,8 @@ RibbonTrailParticles::RibbonTrailParticles(uint32_t name, int particle_cap, uint
 // --- shaded ---
 
 // 0x0049B660
-ShadedParticles::ShadedParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
+ShadedParticles::ShadedParticles(uint32_t name, int particle_cap, uint32_t /*unused*/, uint32_t /*unused*/,
+                                 int /*unused*/, int /*unused*/, float /*unused*/, int /*unused*/)
 {
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPosition}, false, 4)) {
         set_colour_mid(-1.0f);
@@ -61,7 +63,8 @@ ShadedParticles::ShadedParticles(uint32_t name, int particle_cap, uint32_t, uint
 // --- smooth ---
 
 // 0x0049B910
-SmoothParticles::SmoothParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
+SmoothParticles::SmoothParticles(uint32_t name, int particle_cap, uint32_t /*unused*/, uint32_t /*unused*/,
+                                 int /*unused*/, int /*unused*/, float /*unused*/, int /*unused*/)
 {
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap) * kPosition}, false, 2)) {
         set_colour_mid(-1.0f);
@@ -72,8 +75,8 @@ SmoothParticles::SmoothParticles(uint32_t name, int particle_cap, uint32_t, uint
 // --- smoothribbon ---
 
 // 0x0049BBD0
-SmoothRibbonParticles::SmoothRibbonParticles(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
-                                             int history)
+SmoothRibbonParticles::SmoothRibbonParticles(uint32_t name, int particle_cap, uint32_t /*unused*/, uint32_t /*unused*/,
+                                             int /*unused*/, int /*unused*/, float /*unused*/, int history)
 {
     if (construct_parts(this, checksums::Name{name}, {.particle_cap_ = particle_cap, .positions_size_ = static_cast<unsigned int>(particle_cap * (history + 1)) * kPosition},
                         true, 4)) {

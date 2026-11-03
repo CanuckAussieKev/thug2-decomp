@@ -105,7 +105,7 @@ void halt(StreamSlot& slot)
 } // namespace
 
 // The original calls 0x0047C790, a linker-folded `return -1` (also sound::group_count).
-Hdl open_user_track(int, int) { return INVALID_HANDLE_VALUE; }
+Hdl open_user_track(int /*unused*/, int /*unused*/) { return INVALID_HANDLE_VALUE; }
 
 // --- The music ---------------------------------------------------------------------------------------------
 
@@ -270,7 +270,8 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
 }
 
 // 0x00454080
-bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, int, int, bool preload, int plays)
+bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, int /*unused*/, int /*unused*/,
+                 bool preload, int plays)
 {
     const int entry = find_wad_entry(checksum);
     if (entry < 0)
@@ -318,7 +319,7 @@ bool start_preloaded_stream(int slot, const StreamGain* volume)
 }
 
 // 0x00453B30
-void halt_stream(int slot, int) { halt(core::at(stream_slots(), slot)); }
+void halt_stream(int slot, int /*unused*/) { halt(core::at(stream_slots(), slot)); }
 
 // 0x00453BD0
 void halt_streams()

@@ -365,7 +365,7 @@ void BoneLookAt::configure_from_data(Struct* params)
 }
 
 // 0x00488B40
-int BoneLookAt::invoke_method_by_name(uint32_t name, Struct* params, script::Script*)
+int BoneLookAt::invoke_method_by_name(uint32_t name, Struct* params, script::Script* /*script*/)
 {
     if (name != kOn && name != kIsOn && name != kOff && name != kSettings)
         return 2;

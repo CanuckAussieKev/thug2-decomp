@@ -145,7 +145,7 @@ void kick_or_ban(Hub* manager, KickChoice kick_choice)
 } // namespace
 
 // 0x0053B450
-bool cfunc_player_took_flag(script::Struct* params, script::Script*)
+bool cfunc_player_took_flag(script::Struct* params, script::Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     int player = 0;
@@ -159,7 +159,7 @@ bool cfunc_player_took_flag(script::Struct* params, script::Script*)
 }
 
 // 0x0053B5A0
-bool cfunc_player_captured_flag(script::Struct* params, script::Script*)
+bool cfunc_player_captured_flag(script::Struct* params, script::Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     int player = 0;
@@ -179,7 +179,7 @@ bool cfunc_player_captured_flag(script::Struct* params, script::Script*)
 }
 
 // 0x0053B710
-bool cfunc_player_retrieved_flag(script::Struct* params, script::Script*)
+bool cfunc_player_retrieved_flag(script::Struct* params, script::Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     int player = 0;
@@ -193,7 +193,7 @@ bool cfunc_player_retrieved_flag(script::Struct* params, script::Script*)
 }
 
 // 0x0053B860
-bool cfunc_player_has_flag(script::Struct* params, script::Script*)
+bool cfunc_player_has_flag(script::Struct* params, script::Script* /*script*/)
 {
     int player = 0;
     params->fetch_int_value("player", &player, 0);
@@ -225,7 +225,7 @@ bool cfunc_get_players_team(script::Struct* params, script::Script* script)
 }
 
 // 0x0053B940
-bool cfunc_exit_surveyor_mode(script::Struct*, script::Script*)
+bool cfunc_exit_surveyor_mode(script::Struct* /*params*/, script::Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     PlayerRecord* local = find_own_player_record(manager);
@@ -241,7 +241,7 @@ bool cfunc_exit_surveyor_mode(script::Struct*, script::Script*)
 }
 
 // 0x0053D400
-bool cfunc_set_host_mode(script::Struct* params, script::Script*)
+bool cfunc_set_host_mode(script::Struct* params, script::Script* /*script*/)
 {
     int mode = 0;
     params->fetch_int_value(0u, &mode, 0);
@@ -250,7 +250,7 @@ bool cfunc_set_host_mode(script::Struct* params, script::Script*)
 }
 
 // 0x0053D440
-bool cfunc_entered_network_game(script::Struct*, script::Script*)
+bool cfunc_entered_network_game(script::Struct* /*params*/, script::Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     if (net_game_state().online_active()) // (on the internet: the server's GameSpy reporting)
@@ -264,14 +264,14 @@ bool cfunc_entered_network_game(script::Struct*, script::Script*)
 }
 
 // 0x0053D490
-bool cfunc_kick_player(script::Struct*, script::Script*)
+bool cfunc_kick_player(script::Struct* /*params*/, script::Script* /*script*/)
 {
     kick_or_ban(net_game_state().online_hub(), {.drop = kDropKicked, .request = 0});
     return true;
 }
 
 // 0x0053D5E0
-bool cfunc_ban_player(script::Struct*, script::Script*)
+bool cfunc_ban_player(script::Struct* /*params*/, script::Script* /*script*/)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap());
@@ -281,7 +281,7 @@ bool cfunc_ban_player(script::Struct*, script::Script*)
 }
 
 // 0x0053D760
-bool cfunc_cancel_join_server(script::Struct*, script::Script*)
+bool cfunc_cancel_join_server(script::Struct* /*params*/, script::Script* /*script*/)
 {
     Hub* manager = net_game_state().online_hub();
     manager->cancel_join();
@@ -290,7 +290,7 @@ bool cfunc_cancel_join_server(script::Struct*, script::Script*)
 }
 
 // 0x0053D780
-bool cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
+bool cfunc_enter_surveyor_mode(script::Struct* /*params*/, script::Script* /*script*/)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     Hub* manager = net_game_state().online_hub();
@@ -307,7 +307,7 @@ bool cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
 }
 
 // 0x0053EA20
-bool cfunc_drop_pending_players(script::Struct*, script::Script*)
+bool cfunc_drop_pending_players(script::Struct* /*params*/, script::Script* /*script*/)
 {
     net_game_state().online_hub()->drop_players_not_ready();
     return true;

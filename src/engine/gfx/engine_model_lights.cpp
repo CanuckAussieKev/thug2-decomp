@@ -142,19 +142,19 @@ bool ModelLights::change_brightness(float brightness)
 // --- the base's platform calls ----------------------------------------------------------------------------------
 
 // 0x0048E4E0
-bool ModelLights::put_ambient_light_tint(const uint32_t*)
+bool ModelLights::put_ambient_light_tint(const uint32_t* /*unused*/)
 {
     get_stub("STUB: CModelLights::SetLightAmbientColor\n"); // "STUB: CModelLights::SetLightAmbientColor\n"
     return false;
 }
 // 0x0048E500
-bool ModelLights::put_light_aim(int, const maths::Vec4*)
+bool ModelLights::put_light_aim(int /*unused*/, const maths::Vec4* /*unused*/)
 {
     get_stub("STUB: CModelLights::SetLightDirection\n"); // "STUB: CModelLights::SetLightDirection\n"
     return false;
 }
 // 0x0048E520
-bool ModelLights::put_diffuse_light_tint(int, const uint32_t*)
+bool ModelLights::put_diffuse_light_tint(int /*unused*/, const uint32_t* /*unused*/)
 {
     get_stub("STUB: CModelLights::SetLightDiffuseColor\n"); // "STUB: CModelLights::SetLightDiffuseColor\n"
     return false;
@@ -167,7 +167,7 @@ uint32_t* ModelLights::read_ambient_light_tint(uint32_t* out)
     return out;
 }
 // 0x0048E760 (the vector 0x006FAACC, its guard 0x006FAADC: zeroed the first time)
-const maths::Vec4* ModelLights::read_light_aim(int)
+const maths::Vec4* ModelLights::read_light_aim(int /*unused*/)
 {
     get_stub("STUB: CModelLights::GetLightDirection\n"); // "STUB: CModelLights::GetLightDirection\n"
     uint32_t& guard = engine_model_lights_state().light_direction_guard_;
@@ -179,29 +179,29 @@ const maths::Vec4* ModelLights::read_light_aim(int)
     return direction;
 }
 // 0x0048E7C0
-uint32_t* ModelLights::read_diffuse_light_tint(uint32_t* out, int)
+uint32_t* ModelLights::read_diffuse_light_tint(uint32_t* out, int /*unused*/)
 {
     get_stub("STUB: CModelLights::GetLightDiffuseColor\n"); // "STUB: CModelLights::GetLightDiffuseColor\n"
     std::memset(out, 0, 4);
     return out;
 }
 // 0x0048E5A0
-void ModelLights::plat_apply_scene_lights(const maths::Vec4*, uint32_t)
+void ModelLights::plat_apply_scene_lights(const maths::Vec4* /*unused*/, uint32_t /*unused*/)
 {
     get_stub("STUB: CModelLights::plat_apply_scene_lights\n"); // "STUB: CModelLights::plat_apply_scene_lights\n"
 }
 // 0x0048E540
-void ModelLights::apply_light_brightness(bool, bool)
+void ModelLights::apply_light_brightness(bool /*unused*/, bool /*unused*/)
 {
     get_stub("STUB: CModelLights::UpdateBrightness\n");
 } // "STUB: CModelLights::UpdateBrightness\n"
 // 0x0048E550
-void ModelLights::switch_ambient_light(bool)
+void ModelLights::switch_ambient_light(bool /*unused*/)
 {
     get_stub("STUB: CModelLights::EnableAmbientLight\n");
 } // "STUB: CModelLights::EnableAmbientLight\n"
 // 0x0048E560
-void ModelLights::switch_diffuse_light(int, bool)
+void ModelLights::switch_diffuse_light(int /*unused*/, bool /*unused*/)
 {
     get_stub("STUB: CModelLights::EnableDiffuseLight\n");
 } // "STUB: CModelLights::EnableDiffuseLight\n"
@@ -212,7 +212,7 @@ bool ModelLights::ambient_light_is_on()
     return false;
 }
 // 0x0048E580
-bool ModelLights::diffuse_light_is_on(int)
+bool ModelLights::diffuse_light_is_on(int /*unused*/)
 {
     get_stub("STUB: CModelLights::IsDiffuseLightEnabled\n"); // "STUB: CModelLights::IsDiffuseLightEnabled\n"
     return false;

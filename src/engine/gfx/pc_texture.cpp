@@ -129,7 +129,8 @@ bool PcTexture::ingest_file(const char* name, int /*unused1*/, int /*unused2*/)
 }
 
 // 0x004C7F80
-bool PcTexture::load_memory(const uint8_t* data, uint32_t size, uint32_t, uint32_t, uint32_t)
+bool PcTexture::load_memory(const uint8_t* data, uint32_t size, uint32_t /*unused*/, uint32_t /*unused*/,
+                            uint32_t /*unused*/)
 {
     // (not original: the size passed on as the reader's bound)
     gsl::owner<TextureRef*> image = load_texture_memory(data, size); // (the texture's)
@@ -261,7 +262,7 @@ PcTexture::PcTexture(const PcTexture* source) : unknownc_(source->unknownc_)
 }
 
 // 0x004C8830
-bool PcTexture::create_image(checksums::Name texture_name, ImageFormat image_format, int, int)
+bool PcTexture::create_image(checksums::Name texture_name, ImageFormat image_format, int /*unused*/, int /*unused*/)
 {
     const auto width = image_format.width;
     const auto height = image_format.height;

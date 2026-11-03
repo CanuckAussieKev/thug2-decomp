@@ -55,7 +55,8 @@ public:
     // 0x004C7F00 (vtable slot 1): loaded from "<name>.img.xbx". Whether it was.
     bool ingest_file(const char* name, int unused1, int unused2) override;
     // 0x004C7F80 (slot 2): loaded from an image in memory. Whether it was.
-    bool load_memory(const uint8_t* data, uint32_t size, uint32_t, uint32_t, uint32_t) override;
+    bool load_memory(const uint8_t* data, uint32_t size, uint32_t /*unused*/, uint32_t /*unused*/,
+                     uint32_t /*unused*/) override;
     // 0x004C8830 (slot 3): a new texture of the size (one level per the device: the levels' 0), P8 for up to 8 bits a
     // pixel, X1R5G5B5 for 16, X8R8G8B8 for 32 (and below 8); the old one's Direct3D texture released. The texture's
     // size from the level's. True.

@@ -168,7 +168,10 @@ void set_prim_state(int state, int value) { render::set_primitive_state(state, v
 // visible pixels (0x004A0F20).
 // (0x004426C0 constructs the request: cleared)
 void add_query(render::OcclusionRequest* request) { render::request_occlusion_query(request); }
-uint32_t query_result(uint8_t) { return render::occlusion_pixels(); } // (the original also passed the query: unused)
+uint32_t query_result(uint8_t /*unused*/)
+{
+    return render::occlusion_pixels();
+} // (the original also passed the query: unused)
 // `v` times `m` in place (all four components; 0x00434200).
 void transform_in_place(maths::Vec4* v, const maths::Mat4* m) { v->multiply_by(*m); }
 
@@ -311,7 +314,7 @@ void prepare_all(const FlareSetup& setup)
 }
 
 // 0x00442D70
-void update_flare(Struct* params, script::Script*)
+void update_flare(Struct* params, script::Script* /*script*/)
 {
     script::VectorValue centre = get_value(screen_centre());
     float time = 0.0f;
@@ -361,7 +364,7 @@ void hide_flare(Struct* params, script::Script* script)
 }
 
 // 0x00443030
-void unhide_flare(Struct*, script::Script* script)
+void unhide_flare(Struct* /*params*/, script::Script* script)
 {
     frontend::ElementPtr container;
     frontend::UiTree::sole()->fetch_part(&container, kContainer, 0);

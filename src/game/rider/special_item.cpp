@@ -154,7 +154,7 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
 }
 
 // 0x0051C160
-int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
+int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     switch (name) {
     case kCreateSpecialItem: {

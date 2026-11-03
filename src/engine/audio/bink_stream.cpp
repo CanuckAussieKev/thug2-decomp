@@ -269,6 +269,8 @@ bool WadStream::prefetch_complete() const
 void WadStream::get_freeze(int pause) { is_halted_ = static_cast<uint32_t>(pause) > 0; }
 
 // 0x00454440
-void WadStream::set_channel_volumes(float, float, float, float, float) {}
+void WadStream::set_channel_volumes(float /*unused*/, float /*unused*/, float /*unused*/, float /*unused*/,
+                                    float /*unused*/)
+{}
 
 } // namespace audio

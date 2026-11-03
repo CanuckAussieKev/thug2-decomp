@@ -326,262 +326,295 @@ int SkaterPhysicsModule::air_time_threshold(script::Struct* params)
 // --- the component's own bytes ---
 
 // 0x004FBF40
-int SkaterPhysicsModule::can_brake_off(script::Struct*, script::Script*)
+int SkaterPhysicsModule::can_brake_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
     can_brake_ = 0;
     return 1;
 }
 // 0x004FBF50
-int SkaterPhysicsModule::can_brake_on(script::Struct*, script::Script*)
+int SkaterPhysicsModule::can_brake_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
     can_brake_ = 1;
     return 1;
 }
 // 0x004FBF60
-int SkaterPhysicsModule::can_kick_on(script::Struct*, script::Script*)
+int SkaterPhysicsModule::can_kick_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
     no_kick_ = 0;
     return 1;
 }
 // 0x004FBF70
-int SkaterPhysicsModule::can_kick_off(script::Struct*, script::Script*)
+int SkaterPhysicsModule::can_kick_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
     no_kick_ = 1;
     return 1;
 }
 // 0x004FBF80
-int SkaterPhysicsModule::force_auto_kick_on(script::Struct*, script::Script*)
+int SkaterPhysicsModule::force_auto_kick_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
     auto_kick_ = 1;
     return 1;
 }
 // 0x004FBF90
-int SkaterPhysicsModule::force_auto_kick_off(script::Struct*, script::Script*)
+int SkaterPhysicsModule::force_auto_kick_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
     auto_kick_ = 0;
     return 1;
 }
 // 0x004FBFA0
-int SkaterPhysicsModule::auto_kick_is_off(script::Struct*, script::Script*) const { return auto_kick_ ? 0 : 1; }
+int SkaterPhysicsModule::auto_kick_is_off(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return auto_kick_ ? 0 : 1;
+}
 // 0x004FBFB0
-int SkaterPhysicsModule::skater_vehicle_on(script::Struct*, script::Script*)
+int SkaterPhysicsModule::skater_vehicle_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
     on_vehicle_ = 1;
     return 1;
 }
 // 0x004FBFC0
-int SkaterPhysicsModule::skater_vehicle_off(script::Struct*, script::Script*)
+int SkaterPhysicsModule::skater_vehicle_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
     on_vehicle_ = 0;
     return 1;
 }
 // 0x004FBFD0
-int SkaterPhysicsModule::is_skater_on_vehicle(script::Struct*, script::Script*) const { return get_is(on_vehicle_); }
+int SkaterPhysicsModule::is_skater_on_vehicle(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return get_is(on_vehicle_);
+}
 // 0x004FC000
-int SkaterPhysicsModule::can_spin(script::Struct*, script::Script*)
+int SkaterPhysicsModule::can_spin(script::Struct* /*params*/, script::Script* /*script*/)
 {
     no_spin_ = 0;
     return 1;
 }
 // 0x004FC010
-int SkaterPhysicsModule::bail_on(script::Struct*, script::Script*)
+int SkaterPhysicsModule::bail_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
     bail_on_ = 1;
     return 1;
 }
 // 0x004FC020
-int SkaterPhysicsModule::bail_off(script::Struct*, script::Script*)
+int SkaterPhysicsModule::bail_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
     bail_on_ = 0;
     return 1;
 }
 // 0x004FC030
-int SkaterPhysicsModule::bail_is_on(script::Struct*, script::Script*) const { return get_is(bail_on_); }
+int SkaterPhysicsModule::bail_is_on(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return get_is(bail_on_);
+}
 // 0x004FC080
-int SkaterPhysicsModule::bad_ledge(script::Struct*, script::Script*) const { return get_is(bad_ledge_); }
+int SkaterPhysicsModule::bad_ledge(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return get_is(bad_ledge_);
+}
 // 0x004FC090
-int SkaterPhysicsModule::came_down_off_spine(script::Struct*, script::Script*) const
+int SkaterPhysicsModule::came_down_off_spine(script::Struct* /*params*/, script::Script* /*script*/) const
 {
     return get_is(came_down_off_spine_);
 }
 // 0x004FC0A0
-int SkaterPhysicsModule::landed_from_vert(script::Struct*, script::Script*) const { return get_is(landed_from_vert_); }
+int SkaterPhysicsModule::landed_from_vert(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return get_is(landed_from_vert_);
+}
 // 0x004FC0B0
-int SkaterPhysicsModule::set_landed_from_vert(script::Struct*, script::Script*)
+int SkaterPhysicsModule::set_landed_from_vert(script::Struct* /*params*/, script::Script* /*script*/)
 {
     landed_from_vert_ = 1;
     return 1;
 }
 // 0x004FC0C0
-int SkaterPhysicsModule::reset_landed_from_vert(script::Struct*, script::Script*)
+int SkaterPhysicsModule::reset_landed_from_vert(script::Struct* /*params*/, script::Script* /*script*/)
 {
     landed_from_vert_ = 0;
     return 1;
 }
 // 0x004FC0D0
-int SkaterPhysicsModule::allow_lip_no_grind(script::Struct*, script::Script*)
+int SkaterPhysicsModule::allow_lip_no_grind(script::Struct* /*params*/, script::Script* /*script*/)
 {
     allow_lip_no_grind_ = 1;
     return 1;
 }
 // 0x004FC0E0
-int SkaterPhysicsModule::clear_allow_lip_no_grind(script::Struct*, script::Script*)
+int SkaterPhysicsModule::clear_allow_lip_no_grind(script::Struct* /*params*/, script::Script* /*script*/)
 {
     allow_lip_no_grind_ = 0;
     return 1;
 }
 // 0x004FC0F0
-int SkaterPhysicsModule::no_rail_tricks(script::Struct*, script::Script*)
+int SkaterPhysicsModule::no_rail_tricks(script::Struct* /*params*/, script::Script* /*script*/)
 {
     no_rail_tricks_ = 1;
     return 1;
 }
 // 0x004FC100
-int SkaterPhysicsModule::allow_rail_tricks(script::Struct*, script::Script*)
+int SkaterPhysicsModule::allow_rail_tricks(script::Struct* /*params*/, script::Script* /*script*/)
 {
     no_rail_tricks_ = 0;
     return 1;
 }
 // 0x004FC1A0
-int SkaterPhysicsModule::in_revert(script::Struct*, script::Script*)
+int SkaterPhysicsModule::in_revert(script::Struct* /*params*/, script::Script* /*script*/)
 {
     in_revert_ = 1;
     return 1;
 }
 // 0x004FC1B0
-int SkaterPhysicsModule::out_revert(script::Struct*, script::Script*)
+int SkaterPhysicsModule::out_revert(script::Struct* /*params*/, script::Script* /*script*/)
 {
     in_revert_ = 0;
     return 1;
 }
 // 0x004FC1C0
-int SkaterPhysicsModule::is_in_revert(script::Struct*, script::Script*) const { return get_is(in_revert_); }
+int SkaterPhysicsModule::is_in_revert(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return get_is(in_revert_);
+}
 // 0x004FC1D0
-int SkaterPhysicsModule::projectiles_on(script::Struct*, script::Script*)
+int SkaterPhysicsModule::projectiles_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
     projectiles_on_ = 1;
     return 1;
 }
 // 0x004FC1E0
-int SkaterPhysicsModule::projectiles_off(script::Struct*, script::Script*)
+int SkaterPhysicsModule::projectiles_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
     projectiles_on_ = 0;
     return 1;
 }
 // 0x004FC1F0
-int SkaterPhysicsModule::focus_on(script::Struct*, script::Script*)
+int SkaterPhysicsModule::focus_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
     focus_on_ = 1;
     return 1;
 }
 // 0x004FC200
-int SkaterPhysicsModule::is_skater_focused(script::Struct*, script::Script*) const { return get_is(focus_on_); }
+int SkaterPhysicsModule::is_skater_focused(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return get_is(focus_on_);
+}
 // 0x004FC210
-int SkaterPhysicsModule::reset_projectile_input(script::Struct*, script::Script*)
+int SkaterPhysicsModule::reset_projectile_input(script::Struct* /*params*/, script::Script* /*script*/)
 {
     projectile_input_ = -1;
     return 1;
 }
 // 0x004FC230
-int SkaterPhysicsModule::enter_powerslide(script::Struct*, script::Script*)
+int SkaterPhysicsModule::enter_powerslide(script::Struct* /*params*/, script::Script* /*script*/)
 {
     powerslide_ = 1;
     return 1;
 }
 // 0x004FC240
-int SkaterPhysicsModule::exit_powerslide(script::Struct*, script::Script*)
+int SkaterPhysicsModule::exit_powerslide(script::Struct* /*params*/, script::Script* /*script*/)
 {
     powerslide_ = 0;
     return 1;
 }
 // 0x004FC250
-int SkaterPhysicsModule::moto_skateboard_on(script::Struct*, script::Script*)
+int SkaterPhysicsModule::moto_skateboard_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
     motoskateboard_ = 1;
     return 1;
 }
 // 0x004FC260
-int SkaterPhysicsModule::moto_skateboard_off(script::Struct*, script::Script*)
+int SkaterPhysicsModule::moto_skateboard_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
     motoskateboard_ = 0;
     return 1;
 }
 // 0x004FC270
-int SkaterPhysicsModule::is_on_motoskateboard(script::Struct*, script::Script*) const
+int SkaterPhysicsModule::is_on_motoskateboard(script::Struct* /*params*/, script::Script* /*script*/) const
 {
     return get_is(motoskateboard_);
 }
 // 0x004FC280
-int SkaterPhysicsModule::skater_is_flipping(script::Struct*, script::Script*) const { return get_is(model_rotating_); }
+int SkaterPhysicsModule::skater_is_flipping(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return get_is(model_rotating_);
+}
 // 0x004FC290
-int SkaterPhysicsModule::reset_is_flipping(script::Struct*, script::Script*)
+int SkaterPhysicsModule::reset_is_flipping(script::Struct* /*params*/, script::Script* /*script*/)
 {
     model_rotating_ = 0;
     return 1;
 }
 // 0x004FC2A0
-int SkaterPhysicsModule::set_throwing_projectile(script::Struct*, script::Script*)
+int SkaterPhysicsModule::set_throwing_projectile(script::Struct* /*params*/, script::Script* /*script*/)
 {
     throwing_projectile_ = 1;
     return 1;
 }
 // 0x004FC2B0
-int SkaterPhysicsModule::unset_throwing_projectile(script::Struct*, script::Script*)
+int SkaterPhysicsModule::unset_throwing_projectile(script::Struct* /*params*/, script::Script* /*script*/)
 {
     throwing_projectile_ = 0;
     return 1;
 }
 // 0x004FC2C0
-int SkaterPhysicsModule::is_throwing_projectile(script::Struct*, script::Script*) const
+int SkaterPhysicsModule::is_throwing_projectile(script::Struct* /*params*/, script::Script* /*script*/) const
 {
     return get_is(throwing_projectile_);
 }
 // 0x004FC2D0
-int SkaterPhysicsModule::end_manual_turnaround(script::Struct*, script::Script*)
+int SkaterPhysicsModule::end_manual_turnaround(script::Struct* /*params*/, script::Script* /*script*/)
 {
     manual_turnaround_ = 0;
     return 1;
 }
 // 0x004FC2E0
-int SkaterPhysicsModule::enter_tantrum(script::Struct*, script::Script*)
+int SkaterPhysicsModule::enter_tantrum(script::Struct* /*params*/, script::Script* /*script*/)
 {
     tantrum_ = 1;
     return 1;
 }
 // 0x004FC2F0
-int SkaterPhysicsModule::exit_tantrum(script::Struct*, script::Script*)
+int SkaterPhysicsModule::exit_tantrum(script::Struct* /*params*/, script::Script* /*script*/)
 {
     tantrum_ = 0;
     return 1;
 }
 // 0x004FC300
-int SkaterPhysicsModule::in_tantrum(script::Struct*, script::Script*) const { return get_is(tantrum_); }
+int SkaterPhysicsModule::in_tantrum(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return get_is(tantrum_);
+}
 // 0x004FC310
-int SkaterPhysicsModule::enter_tagging(script::Struct*, script::Script*)
+int SkaterPhysicsModule::enter_tagging(script::Struct* /*params*/, script::Script* /*script*/)
 {
     tagging_ = 1;
     return 1;
 }
 // 0x004FC320
-int SkaterPhysicsModule::exit_tagging(script::Struct*, script::Script*)
+int SkaterPhysicsModule::exit_tagging(script::Struct* /*params*/, script::Script* /*script*/)
 {
     tagging_ = 0;
     return 1;
 }
 // 0x004FC330
-int SkaterPhysicsModule::is_tagging(script::Struct*, script::Script*) const { return get_is(tagging_); }
+int SkaterPhysicsModule::is_tagging(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return get_is(tagging_);
+}
 // 0x004FC9B0
-int SkaterPhysicsModule::get_braking(script::Struct*, script::Script*) const { return get_is(braking_); }
+int SkaterPhysicsModule::get_braking(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return get_is(braking_);
+}
 
 // --- the timed flags ---
 
 // 0x004FC780
-int SkaterPhysicsModule::get_flipped(script::Struct*, script::Script*)
+int SkaterPhysicsModule::get_flipped(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return get_is(state_->flag(PoseFlag::kFlipped).on);
 }
 // 0x004FC7A0
-int SkaterPhysicsModule::get_switched(script::Struct*, script::Script*)
+int SkaterPhysicsModule::get_switched(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
     if (core::down_cast<objects::Rider>(entity())->goofy())
@@ -589,63 +622,63 @@ int SkaterPhysicsModule::get_switched(script::Struct*, script::Script*)
     return flipped ? 0 : 1;
 }
 // 0x004FC7E0
-int SkaterPhysicsModule::get_crouched(script::Struct*, script::Script*)
+int SkaterPhysicsModule::get_crouched(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return get_is(state_->flag(PoseFlag::kCrouched).on);
 }
 // 0x004FC800
-int SkaterPhysicsModule::first_time_on_this_rail(script::Struct*, script::Script*)
+int SkaterPhysicsModule::first_time_on_this_rail(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return get_is(state_->flag(PoseFlag::kFirstTimeOnRail).on);
 }
 // 0x004FC820
-int SkaterPhysicsModule::skitching(script::Struct*, script::Script*)
+int SkaterPhysicsModule::skitching(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return get_is(state_->flag(PoseFlag::kSkitching).on);
 }
 // 0x004FC840
-int SkaterPhysicsModule::cancel_wallpush(script::Struct*, script::Script*)
+int SkaterPhysicsModule::cancel_wallpush(script::Struct* /*params*/, script::Script* /*script*/)
 {
     set_timed_flag(this, PoseFlag::kCancelWallpush, 1);
     return 1;
 }
 // 0x004FCF90
-int SkaterPhysicsModule::no_spin(script::Struct*, script::Script*)
+int SkaterPhysicsModule::no_spin(script::Struct* /*params*/, script::Script* /*script*/)
 {
     no_spin_ = 1;
     set_timed_flag(this, PoseFlag::kSpin, 0);
     return 1;
 }
 // 0x004FCFC0
-int SkaterPhysicsModule::in_bail(script::Struct*, script::Script*)
+int SkaterPhysicsModule::in_bail(script::Struct* /*params*/, script::Script* /*script*/)
 {
     set_timed_flag(this, PoseFlag::kBailing, 1);
     return 1;
 }
 // 0x004FCFF0
-int SkaterPhysicsModule::not_in_bail(script::Struct*, script::Script*)
+int SkaterPhysicsModule::not_in_bail(script::Struct* /*params*/, script::Script* /*script*/)
 {
     set_timed_flag(this, PoseFlag::kBailing, 0);
     return 1;
 }
 // 0x004FD020
-int SkaterPhysicsModule::is_in_bail(script::Struct*, script::Script*)
+int SkaterPhysicsModule::is_in_bail(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return get_is(state_->flag(PoseFlag::kBailing).on);
 }
 // 0x004FD1C0
-int SkaterPhysicsModule::in_vert_air(script::Struct*, script::Script*)
+int SkaterPhysicsModule::in_vert_air(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return get_is(state_->flag(PoseFlag::kVertAir).on);
 }
 // 0x004FD530
-int SkaterPhysicsModule::override_cancel_ground(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::override_cancel_ground(script::Struct* params, script::Script* /*script*/)
 {
     set_timed_flag(this, PoseFlag::kCancelGround, params->has_bare_flag(kOff) ? 0 : 1);
     return 1;
 }
 // 0x004FD630
-int SkaterPhysicsModule::set_vert_air(script::Struct*, script::Script*)
+int SkaterPhysicsModule::set_vert_air(script::Struct* /*params*/, script::Script* /*script*/)
 {
     set_timed_flag(this, PoseFlag::kVertAir, 1);
     return 1;
@@ -654,31 +687,31 @@ int SkaterPhysicsModule::set_vert_air(script::Struct*, script::Script*)
 // --- values from the parameters ---
 
 // 0x004FBFE0
-int SkaterPhysicsModule::set_skater_vehicle(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::set_skater_vehicle(script::Struct* params, script::Script* /*script*/)
 {
     params->read_hash_value(0u, &vehicle_, 1);
     return 1;
 }
 // 0x004FC040
-int SkaterPhysicsModule::lock_velocity_direction(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::lock_velocity_direction(script::Struct* params, script::Script* /*script*/)
 {
     lock_velocity_ = params->has_bare_flag(kOn);
     return 1;
 }
 // 0x004FC060
-int SkaterPhysicsModule::change_rail_adjust(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::change_rail_adjust(script::Struct* params, script::Script* /*script*/)
 {
     params->fetch_int_value(0u, &rail_adjust_, 0);
     return 1;
 }
 // 0x004FC180
-int SkaterPhysicsModule::set_ammo_type(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::set_ammo_type(script::Struct* params, script::Script* /*script*/)
 {
     params->read_hash_value(0u, &ammo_type_, 0);
     return 1;
 }
 // 0x004FC110
-int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script* /*script*/)
 {
     float* radius = &side_reach_;
     float* speed = &side_push_;
@@ -692,7 +725,7 @@ int SkaterPhysicsModule::set_extra_push(script::Struct* params, script::Script*)
     return 1;
 }
 // 0x004FC340
-int SkaterPhysicsModule::doing_flip(script::Struct*, script::Script*) const
+int SkaterPhysicsModule::doing_flip(script::Struct* /*params*/, script::Script* /*script*/) const
 {
     if (model_rotating_ && model_rotation_left_ > kFlipLeftMin)
         return 1;
@@ -702,19 +735,19 @@ int SkaterPhysicsModule::doing_flip(script::Struct*, script::Script*) const
 // --- the air time ---
 
 // 0x004FC880
-int SkaterPhysicsModule::air_time_less_than(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::air_time_less_than(script::Struct* params, script::Script* /*script*/)
 {
     const uint32_t time = time_aloft();
     return time < ints::as_unsigned(air_time_threshold(params)) ? 1 : 0;
 }
 // 0x004FC8E0
-int SkaterPhysicsModule::air_time_greater_than(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::air_time_greater_than(script::Struct* params, script::Script* /*script*/)
 {
     const uint32_t time = time_aloft();
     return ints::as_unsigned(air_time_threshold(params)) < time ? 1 : 0;
 }
 // 0x004FC940
-int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
+int SkaterPhysicsModule::get_airtime(script::Struct* /*params*/, script::Script* script)
 {
     const uint32_t time = time_aloft();
     auto seconds = static_cast<float>(static_cast<double>(time) * kSecondsPerMillisecond);
@@ -723,7 +756,7 @@ int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 }
 
 // 0x004FC9C0
-int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
+int SkaterPhysicsModule::restore_auto_kick(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const int profile = core::down_cast<objects::Rider>(entity())->view_slot();
     auto_kick_ = core::at(modules::Skate::sole()->participants(), profile).auto_kick_;
@@ -731,7 +764,7 @@ int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
 }
 
 // 0x004FC9F0
-int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
+int SkaterPhysicsModule::do_car_plant_boost(script::Struct* /*params*/, script::Script* /*script*/)
 {
     objects::GameEntity* object = object_of(this);
     maths::Vec4& velocity = object->vel();
@@ -770,7 +803,7 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
 }
 
 // 0x004FD040
-int SkaterPhysicsModule::set_rail_sound(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::set_rail_sound(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t sound = 0;
     params->read_hash_value(0u, &sound, 1);
@@ -781,7 +814,7 @@ int SkaterPhysicsModule::set_rail_sound(script::Struct* params, script::Script*)
 }
 
 // 0x004FD0D0
-int SkaterPhysicsModule::change_wheel_drag(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::change_wheel_drag(script::Struct* params, script::Script* /*script*/)
 {
     objects::GameEntity* object = object_of(this);
     float* friction = &rolling_friction_;
@@ -792,7 +825,7 @@ int SkaterPhysicsModule::change_wheel_drag(script::Struct* params, script::Scrip
 }
 
 // 0x004FD140
-int SkaterPhysicsModule::last_spin_was(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::last_spin_was(script::Struct* params, script::Script* /*script*/)
 {
     if (params->has_bare_flag(kBackside)) {
         const bool flipped = state_->flag(PoseFlag::kFlipped).on != 0;
@@ -808,7 +841,7 @@ int SkaterPhysicsModule::last_spin_was(script::Struct* params, script::Script*)
 }
 
 // 0x004FD1E0
-int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
+int SkaterPhysicsModule::turn_to_face_velocity(script::Struct* /*params*/, script::Script* /*script*/)
 {
     objects::GameEntity* object = object_of(this);
     const maths::Vec4& velocity = object->vel();
@@ -846,7 +879,7 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
 }
 
 // 0x004FD360
-int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script* /*script*/)
 {
     objects::GameEntity* object = object_of(this);
     float& time = limits_time_;
@@ -881,7 +914,7 @@ int SkaterPhysicsModule::override_limits(script::Struct* params, script::Script*
 }
 
 // 0x004FD4A0
-int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Script* /*script*/)
 {
     script::Array* frictions = nullptr;
     params->fetch_list(0u, &frictions, 0);
@@ -900,7 +933,7 @@ int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Sc
 // --- results for the script ---
 
 // 0x004FD580
-int SkaterPhysicsModule::get_matrix_normal(script::Struct*, script::Script* script)
+int SkaterPhysicsModule::get_matrix_normal(script::Struct* /*params*/, script::Script* script)
 {
     script->args().get()->push_float(checksums::Name{kX}, core::at(entity()->basis_frame().row, 1).x);
     script->args().get()->push_float(checksums::Name{kY}, core::at(entity()->basis_frame().row, 1).y);
@@ -908,32 +941,32 @@ int SkaterPhysicsModule::get_matrix_normal(script::Struct*, script::Script* scri
     return 1;
 }
 // 0x004FD5E0
-int SkaterPhysicsModule::get_last_ground_pos(script::Struct*, script::Script* script)
+int SkaterPhysicsModule::get_last_ground_pos(script::Struct* /*params*/, script::Script* script)
 {
     const maths::Vec4& position = last_ground_pos_;
     script->args().get()->put_vec3(checksums::Name{kPos}, {.x = position.x, .y = position.y, .z = position.z});
     return 1;
 }
 // 0x004FD610
-int SkaterPhysicsModule::get_last_ground_heading(script::Struct*, script::Script* script) const
+int SkaterPhysicsModule::get_last_ground_heading(script::Struct* /*params*/, script::Script* script) const
 {
     script->args().get()->push_float(checksums::Name{kLastHeading}, last_heading_);
     return 1;
 }
 // 0x004FDC30
-int SkaterPhysicsModule::get_ammo(script::Struct*, script::Script* script) const
+int SkaterPhysicsModule::get_ammo(script::Struct* /*params*/, script::Script* script) const
 {
     script->args().get()->put_int(checksums::Name{kAmmo}, ammo_);
     return 1;
 }
 // 0x004FDC50
-int SkaterPhysicsModule::get_ammo_type(script::Struct*, script::Script* script) const
+int SkaterPhysicsModule::get_ammo_type(script::Struct* /*params*/, script::Script* script) const
 {
     script->args().get()->put_name_key(checksums::Name{kAmmoType}, ammo_type_);
     return 1;
 }
 // 0x004FDC70
-int SkaterPhysicsModule::get_pitch_bail_dir(script::Struct*, script::Script* script) const
+int SkaterPhysicsModule::get_pitch_bail_dir(script::Struct* /*params*/, script::Script* script) const
 {
     script->args().get()->put_name_key(checksums::Name{kPitchBailDir}, nearest_wall_side_);
     return 1;
@@ -942,7 +975,7 @@ int SkaterPhysicsModule::get_pitch_bail_dir(script::Struct*, script::Script* scr
 // --- feelers ahead ---
 
 // 0x004FD660
-int SkaterPhysicsModule::is_facing_wall(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::is_facing_wall(script::Struct* params, script::Script* /*script*/)
 {
     render::ProbeRay feeler;
     if (feel_ahead(params, feeler, false) && hit_wall(feeler))
@@ -951,7 +984,7 @@ int SkaterPhysicsModule::is_facing_wall(script::Struct* params, script::Script*)
 }
 
 // 0x004FD840
-int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script* /*script*/)
 {
     render::ProbeRay feeler;
     if (!feel_ahead(params, feeler, false) || !hit_wall(feeler))
@@ -966,7 +999,7 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
 }
 
 // 0x004FDA80
-int SkaterPhysicsModule::is_facing_vert(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::is_facing_vert(script::Struct* params, script::Script* /*script*/)
 {
     render::ProbeRay feeler;
     if (feel_ahead(params, feeler, true) && (core::any(feeler.hit().face_flags_ & render::FaceFlag::kVert)))
@@ -977,7 +1010,7 @@ int SkaterPhysicsModule::is_facing_vert(script::Struct* params, script::Script*)
 // --- focus ---
 
 // 0x004FDC90
-int SkaterPhysicsModule::focus_off(script::Struct*, script::Script*)
+int SkaterPhysicsModule::focus_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
     focus_on_ = 0;
     auto* camera =
@@ -986,7 +1019,7 @@ int SkaterPhysicsModule::focus_off(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FDCC0
-int SkaterPhysicsModule::get_focus_time_left(script::Struct*, script::Script* script) const
+int SkaterPhysicsModule::get_focus_time_left(script::Struct* /*params*/, script::Script* script) const
 {
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
@@ -995,7 +1028,7 @@ int SkaterPhysicsModule::get_focus_time_left(script::Struct*, script::Script* sc
     return 1;
 }
 // 0x004FDCF0
-int SkaterPhysicsModule::get_focus_times_allowed(script::Struct*, script::Script* script) const
+int SkaterPhysicsModule::get_focus_times_allowed(script::Struct* /*params*/, script::Script* script) const
 {
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)
@@ -1004,7 +1037,7 @@ int SkaterPhysicsModule::get_focus_times_allowed(script::Struct*, script::Script
     return 1;
 }
 // 0x004FDD20
-int SkaterPhysicsModule::set_focus_times_allowed(script::Struct* params, script::Script*) const
+int SkaterPhysicsModule::set_focus_times_allowed(script::Struct* params, script::Script* /*script*/) const
 {
     auto* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
     if (!score)

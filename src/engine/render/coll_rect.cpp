@@ -47,7 +47,7 @@ constexpr float kParallel = 0.99f; // 0x00645450
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
 // The scene grid holding the rect (0x0048C940; null: none) and the grids along a line (0x0048C980).
-CollGrid* grid_of(const CollRect*) { return get_first_coll_grid(); }
+CollGrid* grid_of(const CollRect* /*unused*/) { return get_first_coll_grid(); }
 std::span<CollGrid* const> grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 
 bool collide_with_rect(HitMesh* object, const CollRect* rect, const maths::BBox* box, RectHits* hits)
@@ -252,7 +252,7 @@ bool StaticCollider::collide_with_rect(const CollRect* rect, const maths::BBox* 
 }
 
 // 0x004128B0
-bool CollStaticInstance::collide_with_rect(const CollRect* rect, const maths::BBox*, RectHits* hits)
+bool CollStaticInstance::collide_with_rect(const CollRect* rect, const maths::BBox* /*unused*/, RectHits* hits)
 {
     CollRect local;
     rect_to_local(rect, &local);
@@ -310,7 +310,7 @@ BoxProbe::BoxProbe()
 }
 
 // 0x00417840
-bool BoxProbe::get_query(int)
+bool BoxProbe::get_query(int /*unused*/)
 {
     return collide_rect_with_statics(&rect_, &hits_, hit_cache_ ? hit_cache_ : rect_cache());
 }

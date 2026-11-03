@@ -124,7 +124,7 @@ void delete_reserve_pool(memory::PoolPair& pools)
 } // namespace
 
 // 0x005A6EA0
-bool delete_mem_card_file(Struct* params, Script*)
+bool delete_mem_card_file(Struct* params, Script* /*script*/)
 {
     if (os_layer() != 4) {
         audio::pause_music(1);
@@ -308,7 +308,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
 }
 
 // 0x005A8BB0
-bool clear_mem_card_data_for_upload(Struct*, Script*)
+bool clear_mem_card_data_for_upload(Struct* /*params*/, Script* /*script*/)
 {
     Struct*& kept = save_cards_state().kept_params();
     if (kept) {
@@ -321,7 +321,7 @@ bool clear_mem_card_data_for_upload(Struct*, Script*)
 }
 
 // 0x005A8DA0
-bool create_temporary_mem_card_pools(Struct*, Script*)
+bool create_temporary_mem_card_pools(Struct* /*params*/, Script* /*script*/)
 {
     if (core::at(script::component_pools().pools(), script::component_pools().current() + 1))
         return true;
@@ -341,7 +341,7 @@ bool create_temporary_mem_card_pools(Struct*, Script*)
 }
 
 // 0x005A9700
-bool remove_temporary_mem_card_pools(Struct*, Script*)
+bool remove_temporary_mem_card_pools(Struct* /*params*/, Script* /*script*/)
 {
     delete_reserve_pool(script::component_pools());
     delete_reserve_pool(script::struct_pools());
@@ -601,7 +601,7 @@ void keep_sound_going()
 }
 
 // 0x005A97E0
-bool save_to_memory_card(Struct* params, Script*)
+bool save_to_memory_card(Struct* params, Script* /*script*/)
 {
     if (os_layer() == game_config::kHardwareGameCube)
         create_temporary_mem_card_pools(nullptr, nullptr);

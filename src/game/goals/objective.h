@@ -59,7 +59,7 @@ public:
         kDeactivateOnExpire = 0x40,
         kEndOfRunStarted = 0x80, // the skater's end of run started by the goal (has_run_out)
     };
-    friend constexpr bool enable_flag_operators(Flags) { return true; }
+    friend constexpr bool enable_flag_operators(Flags /*unused*/) { return true; }
     // +0x6D (cur_phase_)
     enum class State : uint8_t {
         kNone = 0,
@@ -68,7 +68,7 @@ public:
         kPaused = 0x04,
         kNoTimeLimit = 0x10,
     };
-    friend constexpr bool enable_flag_operators(State) { return true; }
+    friend constexpr bool enable_flag_operators(State /*unused*/) { return true; }
 
     // The fields other code reads and sets.
     [[nodiscard]] ObjectiveNpc* ped() const { return static_cast<ObjectiveNpc*>(ped_); } // (a view: it stays the owner's)

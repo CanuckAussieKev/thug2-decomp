@@ -128,9 +128,9 @@ bool& is_switched_on()
     return on;
 }
 
-bool cfunc_available(script::Struct*, script::Script*) { return is_switched_on(); }
+bool cfunc_available(script::Struct* /*params*/, script::Script* /*script*/) { return is_switched_on(); }
 
-bool cfunc_apply(script::Struct* params, script::Script*)
+bool cfunc_apply(script::Struct* params, script::Script* /*script*/)
 {
     if (!is_switched_on()) {
         get_log("create 100%% cas: off ([features] create_100_cas=0)");

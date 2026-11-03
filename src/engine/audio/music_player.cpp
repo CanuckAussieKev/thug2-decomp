@@ -170,7 +170,7 @@ void platform_pause(bool pause, int music) { pause_streams(pause, music); }
 // The sound effects manager's volume (the original calls it as a method of 0x006F85A8; it reads a global).
 float sfx_volume() { return sound::fetch_master_loudness(); }
 // 0x005B9760 (the shared `return true` stub): whether the file is there (the PS2's check, nothing on the PC).
-bool file_there(const char*, int) { return stubs::return_true(); }
+bool file_there(const char* /*unused*/, int /*unused*/) { return stubs::return_true(); }
 // A script integer that's read and ignored: what used it is compiled out (debug output).
 void read_debug_flag() { script::fetch_int_value(kDebugSoundFx); }
 // Set: playlists other than 0 play at the music volume, not the sound effects one.

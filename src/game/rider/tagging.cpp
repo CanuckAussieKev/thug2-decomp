@@ -221,7 +221,7 @@ void TaggingComponent::set_sticker_texture(const char* name)
 }
 
 // 0x0051DB00
-int TaggingComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
+int TaggingComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     switch (name) {
     case kSetGraffitiTexture: { // SetGraffitiTexture
@@ -302,7 +302,8 @@ void TaggingControlComponent::seal()
 }
 
 // 0x0051E300
-int TaggingControlComponent::invoke_method_by_name(uint32_t name, script::Struct*, script::Script*)
+int TaggingControlComponent::invoke_method_by_name(uint32_t name, script::Struct* /*params*/,
+                                                   script::Script* /*script*/)
 {
     switch (name) {
     case kVertStickerSlap: // VertStickerSlap

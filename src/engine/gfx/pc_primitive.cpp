@@ -136,7 +136,7 @@ PcPrimitive::~PcPrimitive()
 }
 
 // 0x004C5A90
-void PcPrimitive::set_texture(const BitmapTexture* texture, int, int)
+void PcPrimitive::set_texture(const BitmapTexture* texture, int /*unused1*/, int /*unused2*/)
 {
     TextureImage* pc_texture = image_of(texture);
     core::at(material_.pass_flags(), 0) = pc_texture ? 4 : 0;

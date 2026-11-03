@@ -93,7 +93,9 @@ void set_matrices(GameEntity* object, const float* matrix)
 }
 
 // (debug drawing, compiled out: the object's box)
-inline void debug_draw_box(const void*, const void*, const float*, int, int, int, uint32_t) {}
+inline void debug_draw_box(const void* /*unused*/, const void* /*unused*/, const float* /*unused*/, int /*unused*/,
+                           int /*unused*/, int /*unused*/, uint32_t /*unused*/)
+{}
 
 } // namespace
 

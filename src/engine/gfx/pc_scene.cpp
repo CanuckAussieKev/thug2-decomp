@@ -109,7 +109,7 @@ void PcSector::plat_set_shatter(bool on)
 }
 
 // 0x004C65C0
-gsl::owner<PcSector*> PcSector::plat_clone(int, void*) { return new PcSector(); }
+gsl::owner<PcSector*> PcSector::plat_clone(int /*instance*/, void* /*scene*/) { return new PcSector(); }
 
 // 0x004C64E0
 const maths::BBox* PcSector::fetch_empty_bounds()

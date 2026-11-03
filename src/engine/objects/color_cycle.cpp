@@ -135,21 +135,21 @@ void ColorCycleComponent::tick_frame()
 }
 
 // 0x0041B560
-int ColorCycleComponent::get_on(script::Struct*, script::Script*)
+int ColorCycleComponent::get_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
     set_on(true);
     return 1;
 }
 
 // 0x0041B570
-int ColorCycleComponent::disengaged(script::Struct*, script::Script*)
+int ColorCycleComponent::disengaged(script::Struct* /*params*/, script::Script* /*script*/)
 {
     set_on(false);
     return 1;
 }
 
 // 0x0041B2B0
-int ColorCycleComponent::set_period_from_script(script::Struct* params, script::Script*)
+int ColorCycleComponent::set_period_from_script(script::Struct* params, script::Script* /*script*/)
 {
     float period = 0.0f;
     std::memcpy(&period, static_cast<const void*>(&params),
@@ -160,7 +160,7 @@ int ColorCycleComponent::set_period_from_script(script::Struct* params, script::
 }
 
 // 0x0041B390
-int ColorCycleComponent::set_colors_from_script(script::Struct* params, script::Script*)
+int ColorCycleComponent::set_colors_from_script(script::Struct* params, script::Script* /*script*/)
 {
     script::Array* colors = nullptr; // (the original's default was the parameters' address, read as an array)
     params->fetch_list(0u, &colors, 1);

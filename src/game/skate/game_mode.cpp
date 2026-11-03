@@ -640,7 +640,7 @@ void MatchRules::increment_round()
 }
 
 // 0x00553C90
-bool cfunc_override_game_mode_options(script::Struct* params, script::Script*)
+bool cfunc_override_game_mode_options(script::Struct* params, script::Script* /*script*/)
 {
     return the_game_mode()->force_match_settings(params);
 }

@@ -88,8 +88,8 @@ public:
     // Zeroed memory from the current heap, given back to the memory manager (the main region is made in place).
     static void* operator new(std::size_t size) noexcept;
     static void operator delete(void* memory);
-    static void* operator new(std::size_t, void* place) noexcept { return place; }
-    static void operator delete(void*, void*) noexcept {}
+    static void* operator new(std::size_t /*unused*/, void* place) noexcept { return place; }
+    static void operator delete(void* /*unused*/, void* /*unused*/) noexcept {}
 
     // 0x005BC5F0 (the original took its start and end)
     explicit Zone(std::span<uint8_t> memory);
@@ -198,8 +198,8 @@ public:
     // Zeroed memory from the current heap, given back to the memory manager (the main heaps are made in place).
     static void* operator new(std::size_t size) noexcept;
     static void operator delete(void* memory);
-    static void* operator new(std::size_t, void* place) noexcept { return place; }
-    static void operator delete(void*, void*) noexcept {}
+    static void* operator new(std::size_t /*unused*/, void* place) noexcept { return place; }
+    static void operator delete(void* /*unused*/, void* /*unused*/) noexcept {}
 
     // 0x005BA260
     MemSource(Zone* region, int direction, const char* name);

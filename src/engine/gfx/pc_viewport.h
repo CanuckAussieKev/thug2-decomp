@@ -32,7 +32,7 @@ public:
     // 0x004CBA90 (slot 3): the same over a screen rectangle at depth `z`.
     uint8_t query_rect(maths::Rect box, RectQuery rect_query) override;
     // (Slot 4: a shared "return 0".)
-    int fetch_shown(int) override { return 0; }
+    int fetch_shown(int /*unused*/) override { return 0; }
 };
 constexpr std::size_t kPcViewportBytes = 0x24;
 

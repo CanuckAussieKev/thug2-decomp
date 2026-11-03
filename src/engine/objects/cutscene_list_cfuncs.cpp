@@ -68,7 +68,7 @@ void delete_entry(CutsceneDestroyEntry* entry)
 
 // 0x005B5320: AddToCutsceneDestroyList name=<object> destroy_func=<script> [destroy_params={...}]: an entry (with its
 // own copy of the parameters) added at the end of the list. Always true.
-bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script*)
+bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1);
@@ -101,7 +101,7 @@ bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script*)
 
 // 0x005B5450: RemoveFromCutsceneDestroyList name=<object>: the object's entry deleted and taken out of the list (not
 // run). False while the list is being flushed or without such an entry.
-bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Script*)
+bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Script* /*script*/)
 {
     if (flushing())
         return false;
@@ -164,7 +164,7 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
 
 // 0x005B5BE0: FlushCutsceneDestroyList: each entry's destroy script run (with its parameters, on no object) and the
 // entry deleted, then the list emptied (std::list::erase, 0x004ECC30). Always true.
-bool cfunc_flush_cutscene_destroy_list(script::Struct*, script::Script*)
+bool cfunc_flush_cutscene_destroy_list(script::Struct* /*params*/, script::Script* /*script*/)
 {
     CutsceneDestroyList& list = free_node_chain();
     flushing() = true;

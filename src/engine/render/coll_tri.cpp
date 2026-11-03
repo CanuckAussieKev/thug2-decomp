@@ -638,7 +638,7 @@ void HitTreeNode::scale_tool(const maths::Vec4* centre, const maths::Vec4* scale
 }
 
 // 0x00416A10 (a failed allocation crashes, as in the original)
-HitTreeNode* HitTreeNode::replicate(int) const
+HitTreeNode* HitTreeNode::replicate(int /*unused*/) const
 {
     const int nodes = tally_nodes();
     const int faces = count_faces();

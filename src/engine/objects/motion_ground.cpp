@@ -233,7 +233,7 @@ bool KinematicsModule::stick_to_ground()
 }
 
 // 0x004269F0
-bool KinematicsModule::move_to(script::Struct* params, script::Script*, maths::Vec4 target, uint32_t node)
+bool KinematicsModule::move_to(script::Struct* params, script::Script* /*script*/, maths::Vec4 target, uint32_t node)
 {
     move_target_ = target;
     const maths::Vec4& pos = entity()->at_point();
@@ -356,7 +356,7 @@ void KinematicsModule::move_along(script::Struct* params, script::Script* script
 // --- script member functions ---
 
 // 0x004268C0
-bool KinematicsModule::obj_stick_to_ground(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_stick_to_ground(script::Struct* params, script::Script* /*script*/)
 {
     params->fetch_float(kDistAbove, &ground_above_, 0);
     params->fetch_float(kDistBelow, &ground_below_, 0);
@@ -372,7 +372,7 @@ bool KinematicsModule::obj_stick_to_ground(script::Struct* params, script::Scrip
 }
 
 // 0x00426960
-bool KinematicsModule::obj_skip_to_restart(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_skip_to_restart(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);

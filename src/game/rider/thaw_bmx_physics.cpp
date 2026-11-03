@@ -1399,7 +1399,7 @@ script::Array* grind_trick_row(SkaterPhysicsModule* core, bool left_side, bool s
     return list->array_at(row);
 }
 
-bool grind_side(SkaterPhysicsModule*, bool left_side, bool bad_ledge_on_that_side)
+bool grind_side(SkaterPhysicsModule* /*unused*/, bool left_side, bool bad_ledge_on_that_side)
 {
     return bad_ledge_on_that_side ? !left_side : left_side;
 }

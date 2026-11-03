@@ -238,7 +238,7 @@ maths::Vec4* DrivableModule::get_point_velocity(maths::Vec4* out, const maths::V
 }
 
 // 0x00435640
-void DrivableModule::add_force_at_point(const maths::Vec4* force, const maths::Vec4* point, uint32_t)
+void DrivableModule::add_force_at_point(const maths::Vec4* force, const maths::Vec4* point, uint32_t /*unused*/)
 {
     force_.x = static_cast<float>(static_cast<double>(force_.x) + force->x);
     force_.y = static_cast<float>(static_cast<double>(force->y) + force_.y);
@@ -375,7 +375,7 @@ maths::Vec4* quat_product(maths::Vec4* out, const maths::Vec4* a, const maths::V
 // --- script member functions ---
 
 // 0x00437A60
-bool DrivableModule::get_kick(script::Struct* params, script::Script*)
+bool DrivableModule::get_kick(script::Struct* params, script::Script* /*script*/)
 {
     awake_ = 1;
     still_frames_ = 0;
@@ -408,7 +408,7 @@ bool DrivableModule::get_kick(script::Struct* params, script::Script*)
 }
 
 // 0x004353F0
-bool DrivableModule::wake(script::Struct*, script::Script*)
+bool DrivableModule::wake(script::Struct* /*params*/, script::Script* /*script*/)
 {
     awake_ = 1;
     still_frames_ = 0;
@@ -416,7 +416,7 @@ bool DrivableModule::wake(script::Struct*, script::Script*)
 }
 
 // 0x00435410
-bool DrivableModule::adjust_gravity(script::Struct* params, script::Script*)
+bool DrivableModule::adjust_gravity(script::Struct* params, script::Script* /*script*/)
 {
     params->fetch_float(kPercent, &gravity_scale_, 1);
     gravity_scale_ = static_cast<float>(static_cast<double>(gravity_scale_) * kHundredth);
@@ -427,16 +427,19 @@ bool DrivableModule::adjust_gravity(script::Struct* params, script::Script*)
 }
 
 // 0x00435480
-bool DrivableModule::handbrake_active(script::Struct*, script::Script*) const { return handbrake_active_; }
+bool DrivableModule::handbrake_active(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return handbrake_active_;
+}
 
 // 0x00435490
-bool DrivableModule::all_wheels_are_in_contact(script::Struct*, script::Script*) const
+bool DrivableModule::all_wheels_are_in_contact(script::Struct* /*params*/, script::Script* /*script*/) const
 {
     return wheels_in_contact_ == wheel_count_;
 }
 
 // 0x00437BC0
-bool DrivableModule::kick_randomly(script::Struct* params, script::Script*)
+bool DrivableModule::kick_randomly(script::Struct* params, script::Script* /*script*/)
 {
     maths::Vec4 along;
     params->fetch_vec(kOffset, &along, 1);
@@ -445,7 +448,10 @@ bool DrivableModule::kick_randomly(script::Struct* params, script::Script*)
 }
 
 // 0x004354B0
-bool DrivableModule::is_rider_shown(script::Struct*, script::Script*) const { return rider_shown_; }
+bool DrivableModule::is_rider_shown(script::Struct* /*params*/, script::Script* /*script*/) const
+{
+    return rider_shown_;
+}
 
 // --- the component's life ---
 
@@ -1128,7 +1134,7 @@ bool DrivableModule::teleport_to_spawn(script::Struct* params, script::Script* s
 }
 
 // 0x0043B720
-bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
+bool DrivableModule::place_before_camera(script::Struct* /*params*/, script::Script* /*script*/)
 {
     void* camera = viewport_camera(0);
     if (!camera)

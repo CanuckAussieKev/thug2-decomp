@@ -541,7 +541,7 @@ int handle_eliminated(net::InboundMsgCtx* context)
 }
 
 // 0x00532390
-int handle_observers_full(net::InboundMsgCtx*)
+int handle_observers_full(net::InboundMsgCtx* /*unused*/)
 {
     script::StructPtr params = script::make_struct();
     params->put_name_key(checksums::Name{kReason}, kFullObservers);

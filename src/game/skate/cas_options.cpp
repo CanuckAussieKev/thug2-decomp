@@ -54,7 +54,7 @@ bool part_is_created_graphic(void* appearance, uint32_t part)
 }
 
 // 0x00485CF0
-Struct* find_cas_option(CasPart cas_part, bool)
+Struct* find_cas_option(CasPart cas_part, bool /*unused*/)
 {
     const auto part = cas_part.part;
     const auto descriptor_id = cas_part.descriptor_id_;

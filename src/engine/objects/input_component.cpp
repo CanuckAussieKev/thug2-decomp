@@ -332,7 +332,7 @@ void PadInputModule::lock_button(checksums::Name button_name, float seconds, boo
 }
 
 // 0x0041E8F0
-int PadInputModule::lock_button_from_script(script::Struct* params, script::Script*)
+int PadInputModule::lock_button_from_script(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     if (params->read_hash_value(0u, &name, 0)) {
@@ -348,79 +348,79 @@ int PadInputModule::lock_button_from_script(script::Struct* params, script::Scri
 }
 
 // 0x0041E9A0
-int PadInputModule::disable_player_input(script::Struct*, script::Script*)
+int PadInputModule::disable_player_input(script::Struct* /*params*/, script::Script* /*script*/)
 {
     disabled_ = true;
     return 1;
 }
 
 // 0x0041E9B0
-int PadInputModule::enable_player_input(script::Struct*, script::Script*)
+int PadInputModule::enable_player_input(script::Struct* /*params*/, script::Script* /*script*/)
 {
     disabled_ = false;
     return 1;
 }
 
 // 0x0041E9C0
-int PadInputModule::net_disable_player_input(script::Struct*, script::Script*)
+int PadInputModule::net_disable_player_input(script::Struct* /*params*/, script::Script* /*script*/)
 {
     net_disabled_ = true;
     return 1;
 }
 
 // 0x0041E9D0
-int PadInputModule::net_enable_player_input(script::Struct*, script::Script*)
+int PadInputModule::net_enable_player_input(script::Struct* /*params*/, script::Script* /*script*/)
 {
     net_disabled_ = false;
     return 1;
 }
 
 // 0x0041E7C0
-int PadInputModule::enable_input_events(script::Struct*, script::Script*)
+int PadInputModule::enable_input_events(script::Struct* /*params*/, script::Script* /*script*/)
 {
     input_events_ = true;
     return 1;
 }
 
 // 0x0041E7D0
-int PadInputModule::disable_input_events(script::Struct*, script::Script*)
+int PadInputModule::disable_input_events(script::Struct* /*params*/, script::Script* /*script*/)
 {
     input_events_ = false;
     return 1;
 }
 
 // 0x0041E9E0
-int PadInputModule::player_input_is_disabled(script::Struct*, script::Script*) const
+int PadInputModule::player_input_is_disabled(script::Struct* /*params*/, script::Script* /*script*/) const
 {
     return disabled_ || net_disabled_ ? 1 : 0;
 }
 
 // 0x0041EA20
-int PadInputModule::left_pressed(script::Struct*, script::Script*)
+int PadInputModule::left_pressed(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return pad_primary_.left_side().held_down() != 0 ? 1 : 0;
 }
 
 // 0x0041EA30
-int PadInputModule::right_pressed(script::Struct*, script::Script*)
+int PadInputModule::right_pressed(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return pad_primary_.right_side().held_down() != 0 ? 1 : 0;
 }
 
 // 0x0041EA40
-int PadInputModule::up_pressed(script::Struct*, script::Script*)
+int PadInputModule::up_pressed(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return pad_primary_.up_dir().held_down() != 0 ? 1 : 0;
 }
 
 // 0x0041EA50
-int PadInputModule::down_pressed(script::Struct*, script::Script*)
+int PadInputModule::down_pressed(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return pad_primary_.btn_down().held_down() != 0 ? 1 : 0;
 }
 
 // 0x0041EA60
-int PadInputModule::get_sticks(script::Struct*, script::Script* script)
+int PadInputModule::get_sticks(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->push_float(checksums::Name{kLeftStickAngle}, core::at(pad_primary_.polar(), 1).angle * kDegreesPerRadian);
     script->args()->push_float(checksums::Name{kLeftStickMagnitude},
@@ -432,7 +432,7 @@ int PadInputModule::get_sticks(script::Struct*, script::Script* script)
 }
 
 // 0x0041EB20
-int PadInputModule::held_longer_than(script::Struct* params, script::Script*)
+int PadInputModule::held_longer_than(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kButton, &name, 1);

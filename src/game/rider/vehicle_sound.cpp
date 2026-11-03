@@ -137,7 +137,7 @@ SkaterVehicleSoundComponent::SkaterVehicleSoundComponent() { set_kind_tag(kType)
 SkaterVehicleSoundComponent::~SkaterVehicleSoundComponent() = default;
 
 // 0x0051AE60
-void SkaterVehicleSoundComponent::configure_from_data(script::Struct*)
+void SkaterVehicleSoundComponent::configure_from_data(script::Struct* /*params*/)
 {
     park_editor_level_ = park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorOff;
 }
@@ -310,7 +310,7 @@ void SkaterVehicleSoundComponent::update_unused()
 }
 
 // 0x0051B7C0
-bool SkaterVehicleSoundComponent::set_skater_vehicle_sounds(script::Struct* params, script::Script*)
+bool SkaterVehicleSoundComponent::set_skater_vehicle_sounds(script::Struct* params, script::Script* /*script*/)
 {
     params->read_hash_value(0u, &settings_name_, 0);
     if (engine_sound_)
@@ -326,7 +326,7 @@ bool SkaterVehicleSoundComponent::set_skater_vehicle_sounds(script::Struct* para
 }
 
 // 0x0051B820
-bool SkaterVehicleSoundComponent::no_skater_vehicle_sounds(script::Struct*, script::Script*)
+bool SkaterVehicleSoundComponent::no_skater_vehicle_sounds(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (engine_sound_)
         audio_mixer_handle()->stop_sound(engine_sound_);
@@ -340,7 +340,8 @@ bool SkaterVehicleSoundComponent::no_skater_vehicle_sounds(script::Struct*, scri
 }
 
 // 0x0051B860
-bool SkaterVehicleSoundComponent::stop_skater_vehicle_sounds(script::Struct*, script::Script*) const
+bool SkaterVehicleSoundComponent::stop_skater_vehicle_sounds(script::Struct* /*params*/,
+                                                             script::Script* /*script*/) const
 {
     if (engine_sound_)
         audio_mixer_handle()->stop_sound(engine_sound_);

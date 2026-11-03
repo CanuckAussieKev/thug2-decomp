@@ -426,13 +426,13 @@ bool update_records(bool edited_copy)
 }
 
 // 0x005AEBC0
-bool cfunc_update_records(script::Struct*, script::Script*)
+bool cfunc_update_records(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return update_records(frontend::level_editor::layout::editing_copy());
 }
 
 // 0x005AEBD0
-bool cfunc_update_arcade_scores(script::Struct* params, script::Script*)
+bool cfunc_update_arcade_scores(script::Struct* params, script::Script* /*script*/)
 {
     int level = 0; // (uninitialised in the original; always set below)
     if (!params->fetch_int_value("level", &level, 0))
@@ -442,7 +442,7 @@ bool cfunc_update_arcade_scores(script::Struct* params, script::Script*)
 }
 
 // 0x005AFAF0
-bool cfunc_update_initials(script::Struct*, script::Script*)
+bool cfunc_update_initials(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const int level = skate_calls::get_career()->fetch_stage();
     const BestResults* records = stored_game_records().get();
@@ -451,6 +451,9 @@ bool cfunc_update_initials(script::Struct*, script::Script*)
 }
 
 // 0x005AFB30
-bool cfunc_new_record(script::Struct*, script::Script*) { return modules::Skate::sole()->new_record(); }
+bool cfunc_new_record(script::Struct* /*params*/, script::Script* /*script*/)
+{
+    return modules::Skate::sole()->new_record();
+}
 
 } // namespace highscores

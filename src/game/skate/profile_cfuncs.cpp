@@ -129,7 +129,7 @@ void preload_meshes(uint32_t array_name)
 }
 
 // 0x005AAA80
-bool cfunc_add_goal_editor_nodes_to_level_node_array(Struct*, Script*)
+bool cfunc_add_goal_editor_nodes_to_level_node_array(Struct* /*params*/, Script* /*script*/)
 {
     // the goal editor's nodes added (0x004E8F50, no source yet)
     park_editing::add_goal_editor_nodes(nullptr, nullptr, memory::Hub::get_pull()->bottom_up_heap());
@@ -137,7 +137,7 @@ bool cfunc_add_goal_editor_nodes_to_level_node_array(Struct*, Script*)
 }
 
 // 0x005AAB50
-bool cfunc_current_skater_is_pro(Struct* params, Script*)
+bool cfunc_current_skater_is_pro(Struct* params, Script* /*script*/)
 {
     objects::RiderIdentity* profile = skate_profile(params);
     return profile && profile->is_pro();
@@ -157,7 +157,7 @@ bool cfunc_get_goals_completed(Struct* params, Script* script)
 }
 
 // 0x005AAC10
-bool cfunc_get_next_level_requirements(Struct*, Script* script)
+bool cfunc_get_next_level_requirements(Struct* /*params*/, Script* script)
 {
     std::array<char, kTextBufferBytes> text{};
     text::format_to(text, "%s", kNoText);
@@ -189,7 +189,7 @@ bool cfunc_get_next_level_requirements(Struct*, Script* script)
 }
 
 // 0x005AAD70
-bool cfunc_set_current_skater_profile(Struct* params, Script*)
+bool cfunc_set_current_skater_profile(Struct* params, Script* /*script*/)
 {
     int index = 0;
     params->fetch_int_value(0u, &index, 0);
@@ -198,10 +198,13 @@ bool cfunc_set_current_skater_profile(Struct* params, Script*)
 }
 
 // 0x005AADA0
-bool cfunc_add_skater_profile(Struct* params, Script*) { return objects::profile_roster()->add_template(params); }
+bool cfunc_add_skater_profile(Struct* params, Script* /*script*/)
+{
+    return objects::profile_roster()->add_template(params);
+}
 
 // 0x005AADC0
-bool cfunc_add_temporary_profile(Struct* params, Script*)
+bool cfunc_add_temporary_profile(Struct* params, Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1); // name (asserted: used as it is)
@@ -209,7 +212,7 @@ bool cfunc_add_temporary_profile(Struct* params, Script*)
 }
 
 // 0x005AADF0
-bool cfunc_remember_temporary_appearance(Struct* params, Script*)
+bool cfunc_remember_temporary_appearance(Struct* params, Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 1); // name

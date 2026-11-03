@@ -302,7 +302,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
 }
 
 // 0x004294C0
-int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
+int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name == kSetCollision) {
         uint32_t id = 0;

@@ -54,7 +54,7 @@ void enable_sector(void* sector, uint32_t on)
 }
 
 // (a static collision object's own print, compiled out: the empty 0x005480A0 with it in ECX)
-inline void print_coll_static(const StaticCollider*) {}
+inline void print_coll_static(const StaticCollider* /*unused*/) {}
 
 // A C string copied (unbounded, as the original's inlined strcpy).
 void copy_string(std::span<char> to, const char* from)
@@ -169,7 +169,7 @@ bool WorldScene::delete_sector_named(uint32_t name)
 
 // 0x0049CBB0
 bool WorldScene::load_collision_data(uint8_t* data, size_t size, int* count, gsl::owner<StaticCollider*>* statics,
-                                     uint8_t** objects, maths::BBox* box, int)
+                                     uint8_t** objects, maths::BBox* box, int /*unused*/)
 {
     // The header read and the sections laid out through collision_format.h (+4 objects, +8 vertex bytes, +0xC / +0x10
     // faces, +0x14 / +0x18 vertices; the objects 0x40 bytes each, then the vertices, faces, nodes and face lists).
@@ -262,7 +262,7 @@ void WorldScene::delete_marked_sectors()
 }
 
 // 0x0049D0B0
-void WorldScene::set_sectors_in_box(const maths::Vec4* box, uint32_t on, int)
+void WorldScene::set_sectors_in_box(const maths::Vec4* box, uint32_t on, int /*unused*/)
 {
     const std::span<const maths::Vec4, 2> corners(box, 2);
     float min_x = corners.front().x;
@@ -285,21 +285,21 @@ void WorldScene::set_sectors_in_box(const maths::Vec4* box, uint32_t on, int)
 // --- the virtuals' base bodies ---
 
 // 0x0049CA50 / 0x0049CA60 / 0x0049CA70
-void WorldScene::post_load(void*) { debug::printf("STUB: PostLoad\n"); }
-void WorldScene::set_rendered(int) { debug::printf("STUB: plat_set_rendered\n"); }
+void WorldScene::post_load(void* /*unused*/) { debug::printf("STUB: PostLoad\n"); }
+void WorldScene::set_rendered(int /*unused*/) { debug::printf("STUB: plat_set_rendered\n"); }
 void WorldScene::post_add() { debug::printf("STUB: PostAdd\n"); }
 // 0x0049CA80 / 0x0049CAA0 / 0x0049CAC0 / 0x0049CAE0
-bool WorldScene::load_textures(const char*)
+bool WorldScene::load_textures(const char* /*unused*/)
 {
     debug::printf("STUB: LoadTextures\n");
     return false;
 }
-bool WorldScene::load_collision(const char*)
+bool WorldScene::load_collision(const char* /*unused*/)
 {
     debug::printf("STUB: LoadCollision\n");
     return false;
 }
-bool WorldScene::add_collision(const char*)
+bool WorldScene::add_collision(const char* /*unused*/)
 {
     debug::printf("STUB: AddCollision\n");
     return false;

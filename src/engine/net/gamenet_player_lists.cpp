@@ -345,7 +345,7 @@ void Hub::clear_roster()
 }
 
 // 0x005376F0
-void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, const char* string2, void*,
+void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, const char* string2, void* /*unused*/,
                            const char* properties, bool important, int time)
 {
     if (broadcast) {
@@ -775,7 +775,7 @@ PlayerRecord* Hub::next_cam_player()
 // carries (flags 0x7800) put on the carrier's head - the flag object of the team it belongs to (TRG_CTF_Red / Blue /
 // Green / Yellow; none: the task stops for the frame) gets the head bone's matrix, turned 90 degrees about x and
 // raised 12, then the skater's own matrix; its position the bone's offset transformed, plus the skater's position.
-void carried_flags_task(tasks::Task<Hub>*)
+void carried_flags_task(tasks::Task<Hub>* /*unused*/)
 {
     Hub* manager = net_game_state().online_hub();
     PlayerSearch search;

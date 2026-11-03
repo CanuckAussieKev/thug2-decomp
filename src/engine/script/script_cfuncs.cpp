@@ -278,7 +278,7 @@ int format_text(script::Struct& results, script::Struct* params)
 // with the new value (its +0x08 word kept). Integers, floats and names are stored as they are, structures and arrays
 // copied; with `resolve`, a name standing for another global takes that global's value. Any other type leaves the
 // global made again but empty. False if the name isn't a global, or is a script or a C / member function.
-bool cfunc_change(script::Struct* params, script::Script*)
+bool cfunc_change(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kGlobalName, &name, 0);
@@ -368,7 +368,7 @@ bool cfunc_wait(script::Struct* params, script::Script* script)
 }
 
 // 0x0044A200: IntegerEquals A=<int> B=<int> (missing: 0).
-bool cfunc_integer_equals(script::Struct* params, script::Script*)
+bool cfunc_integer_equals(script::Struct* params, script::Script* /*script*/)
 {
     int a = 0;
     params->fetch_int_value(kA, &a, 0);
@@ -378,7 +378,7 @@ bool cfunc_integer_equals(script::Struct* params, script::Script*)
 }
 
 // 0x0044A260: ChecksumEquals A=<name> B=<name> (missing: 0).
-bool cfunc_checksum_equals(script::Struct* params, script::Script*)
+bool cfunc_checksum_equals(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t a = 0;
     params->read_hash_value(kA, &a, 0);
@@ -389,7 +389,7 @@ bool cfunc_checksum_equals(script::Struct* params, script::Script*)
 
 // 0x0044A2C0: StringEquals A="..." B="...": compared by checksum (so case is ignored). Both asserted (missing: the
 // original's pointer is undefined - here "").
-bool cfunc_string_equals(script::Struct* params, script::Script*)
+bool cfunc_string_equals(script::Struct* params, script::Script* /*script*/)
 {
     const char* a = "";
     const char* b = "";
@@ -400,7 +400,7 @@ bool cfunc_string_equals(script::Struct* params, script::Script*)
 }
 
 // 0x0044A320: SetScriptString index=<n> (0) string="..." ("").
-bool cfunc_set_script_string(script::Struct* params, script::Script*)
+bool cfunc_set_script_string(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0;
     params->fetch_int_value(kIndex, &index, 0);
@@ -413,7 +413,7 @@ bool cfunc_set_script_string(script::Struct* params, script::Script*)
 // 0x0044A380: GlobalExists name=<name> [type=<type name>]: whether the global exists with that type (Structure /
 // struct, checksum / name, float, array, string, vector, Integer / int, pair; no or another type name: type 0,
 // which no global has).
-bool cfunc_global_exists(script::Struct* params, script::Script*)
+bool cfunc_global_exists(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 0);
@@ -425,7 +425,7 @@ bool cfunc_global_exists(script::Struct* params, script::Script*)
 }
 
 // 0x0044A900: EnableScriptPrintf <0 / 1> (1): the scripts' printf on or off.
-bool cfunc_enable_script_printf(script::Struct* params, script::Script*)
+bool cfunc_enable_script_printf(script::Struct* params, script::Script* /*script*/)
 {
     int enable = 1;
     params->fetch_int_value(0u, &enable, 0);
@@ -434,7 +434,7 @@ bool cfunc_enable_script_printf(script::Struct* params, script::Script*)
 }
 
 // 0x0044A930: IfDebugOn / IfDebugOff (one function): compiled out - true.
-bool cfunc_if_debug_on(script::Struct*, script::Script* script)
+bool cfunc_if_debug_on(script::Struct* /*params*/, script::Script* script)
 {
     set_script_debug(script);
     return true;
@@ -442,7 +442,7 @@ bool cfunc_if_debug_on(script::Struct*, script::Script* script)
 
 // 0x0044A940: StructureContains Structure={...} <name>: whether the structure has a component or a flag of that
 // name. False without a structure.
-bool cfunc_structure_contains(script::Struct* params, script::Script*)
+bool cfunc_structure_contains(script::Struct* params, script::Script* /*script*/)
 {
     script::Struct* structure = nullptr;
     if (!params->read_sub_struct(kStructure, &structure, 0))
@@ -455,7 +455,7 @@ bool cfunc_structure_contains(script::Struct* params, script::Script*)
 }
 
 // 0x0044A9B0: ClearStruct struct=<global>: the global structure emptied.
-bool cfunc_clear_struct(script::Struct* params, script::Script*)
+bool cfunc_clear_struct(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kStruct, &name, 1);
@@ -464,7 +464,7 @@ bool cfunc_clear_struct(script::Struct* params, script::Script*)
 }
 
 // 0x0044A9E0: ScriptExists <name>: whether the name (following names of names) is a script.
-bool cfunc_script_exists(script::Struct* params, script::Script*)
+bool cfunc_script_exists(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
@@ -473,7 +473,7 @@ bool cfunc_script_exists(script::Struct* params, script::Script*)
 }
 
 // 0x0044AA20: IsArray <value>: whether the unnamed value is an array.
-bool cfunc_is_array(script::Struct* params, script::Script*)
+bool cfunc_is_array(script::Struct* params, script::Script* /*script*/)
 {
     script::Array* array = nullptr;
     return params->fetch_list(0u, &array, 0);
@@ -493,7 +493,7 @@ bool cfunc_block(script::Struct* params, script::Script* script)
 }
 
 // 0x0044AAB0: IsTrue <integer>: whether it is non-zero (missing: false).
-bool cfunc_is_true(script::Struct* params, script::Script*)
+bool cfunc_is_true(script::Struct* params, script::Script* /*script*/)
 {
     int value = 0;
     params->fetch_int_value(0u, &value, 0);
@@ -501,7 +501,7 @@ bool cfunc_is_true(script::Struct* params, script::Script*)
 }
 
 // 0x0044AAE0: CleanUpAndRemoveSymbol <name>: the global freed and taken out of the table. False if there is none.
-bool cfunc_clean_up_and_remove_symbol(script::Struct* params, script::Script*)
+bool cfunc_clean_up_and_remove_symbol(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 1);
@@ -593,21 +593,21 @@ bool cfunc_on_exit_run(script::Struct* params, script::Script* script)
 }
 
 // 0x0044AD90: PrintEventHandlerTable.
-bool cfunc_print_event_handler_table(script::Struct*, script::Script* script)
+bool cfunc_print_event_handler_table(script::Struct* /*params*/, script::Script* script)
 {
     script->print_event_handler_table();
     return true;
 }
 
 // 0x0044ADA0: StopAllScripts.
-bool cfunc_stop_all_scripts(script::Struct*, script::Script*)
+bool cfunc_stop_all_scripts(script::Struct* /*params*/, script::Script* /*script*/)
 {
     script::stop_all_scripts();
     return true;
 }
 
 // 0x0044ADB0: FirstTimeThisIsCalled: true the first time only (for the whole game).
-bool cfunc_first_time_this_is_called(script::Struct*, script::Script*)
+bool cfunc_first_time_this_is_called(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (!first_time_not_called())
         return false;
@@ -616,7 +616,7 @@ bool cfunc_first_time_this_is_called(script::Struct*, script::Script*)
 }
 
 // 0x0044ADD0: SetScriptWarningLevel [level=none (default) | warn | assert]: 0 / 1 / 2; another name changes nothing.
-bool cfunc_set_script_warning_level(script::Struct* params, script::Script*)
+bool cfunc_set_script_warning_level(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t level = kLevelNone;
     params->read_hash_value(kLevel, &level, 0);

@@ -178,7 +178,7 @@ void GoalManager::level_unload()
 }
 
 // 0x0055C250
-int GoalManager::count_cleared_in_stage(int level, int)
+int GoalManager::count_cleared_in_stage(int level, int /*unused*/)
 {
     level_unload();
     int count = 0;

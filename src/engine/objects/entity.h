@@ -256,8 +256,8 @@ public:
         return memory::alloc_zeroed(static_cast<unsigned int>(size));
     }
     static void operator delete(void* memory);
-    static void* operator new(std::size_t, void* place) noexcept { return place; }
-    static void operator delete(void*, void*) noexcept {}
+    static void* operator new(std::size_t /*unused*/, void* place) noexcept { return place; }
+    static void operator delete(void* /*unused*/, void* /*unused*/) noexcept {}
 
     // 0x0045D730: no flags (the rest is the zeroed memory it is made in).
     ObjectModule() = default;

@@ -109,7 +109,7 @@ TextureProjection::TextureProjection()
 TextureProjection::~TextureProjection() { list_link_.uncouple(); }
 
 // 0x0049FE10
-void TextureProjection::plat_project(void**, void**)
+void TextureProjection::plat_project(void** /*unused*/, void** /*unused*/)
 {
     debug::printf("STUB: plat_update\n"); // "STUB: plat_update..."
 }

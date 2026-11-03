@@ -34,8 +34,8 @@ struct HeapObject {
     static void* operator new(std::size_t size) noexcept { return alloc_zeroed(static_cast<unsigned int>(size)); }
     static void operator delete(void* memory) { dealloc(memory); }
     // Construction in place (inside another object) as usual.
-    static void* operator new(std::size_t, void* place) noexcept { return place; }
-    static void operator delete(void*, void*) noexcept {}
+    static void* operator new(std::size_t /*unused*/, void* place) noexcept { return place; }
+    static void operator delete(void* /*unused*/, void* /*unused*/) noexcept {}
 };
 
 // NOT ORIGINAL - an `Object` constructed in `block` (not null): placement new as a call - `new (block) Object` with

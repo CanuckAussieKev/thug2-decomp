@@ -126,7 +126,7 @@ EngineAudioModule::~EngineAudioModule()
 }
 
 // 0x0043C670
-void EngineAudioModule::configure_from_data(script::Struct*)
+void EngineAudioModule::configure_from_data(script::Struct* /*params*/)
 {
     park_editor_level_ = park_editing::ParkBuilderMode::sole()->editor_state() != kParkEditorOff;
 }

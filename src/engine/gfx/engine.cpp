@@ -201,8 +201,9 @@ bool split_skin_name(const char* name, std::span<char> base)
 }
 
 // 0x0048C030
-gsl::owner<PcMesh*> load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin, size_t skin_size,
-                               TextureSet* textures, int, uint32_t, uint32_t)
+gsl::owner<PcMesh*> load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin,
+                                           size_t skin_size, TextureSet* textures, int /*unused*/, uint32_t /*unused*/,
+                                           uint32_t /*unused*/)
 {
     memory::push_mem_profile("model_data_buffer");
     gsl::owner<PcMesh*> model = load_mesh_from_memory(checksum, data, static_cast<size_t>(size), skin, skin_size, textures);
@@ -211,13 +212,13 @@ gsl::owner<PcMesh*> load_model_from_memory(uint32_t checksum, const uint8_t* dat
 }
 
 // 0x0048C390
-void build_scene_file_path(char* out, const char* name, uint32_t)
+void build_scene_file_path(char* out, const char* name, uint32_t /*unused*/)
 {
     crt::get_sprintf(out, kSceneFileFormat, name, name, "", platform_suffix());
 }
 
 // 0x0048C3D0
-gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures, int, bool)
+gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures, int /*unused*/, bool /*unused*/)
 {
     std::array<char, kEnginePathSize> base{};
     const bool skinned = split_skin_name(file_name, base);

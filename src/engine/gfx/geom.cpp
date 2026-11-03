@@ -617,7 +617,8 @@ maths::Vec4* PcGeom::fetch_magnification(maths::Vec4* out)
 }
 
 // 0x004B47B0
-bool PcGeom::upload_skinning_palette(const maths::Mat4* transform, std::span<const maths::Mat4> bones, int, int)
+bool PcGeom::upload_skinning_palette(const maths::Mat4* transform, std::span<const maths::Mat4> bones, int /*a*/,
+                                     int /*b*/)
 {
     if (instance_) {
         instance_->set_transform(*transform);

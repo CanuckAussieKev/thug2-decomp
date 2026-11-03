@@ -41,7 +41,7 @@ enum class FaceFlag : uint16_t {
     kNoParkEdit = 0x1000,    // counts only outside the park editor (rails); a tag's rays pass through it
     kNoTagging = 0x2000,     // a tag's rays pass through it
 };
-constexpr bool enable_flag_operators(FaceFlag) { return true; }
+constexpr bool enable_flag_operators(FaceFlag /*unused*/) { return true; }
 
 constexpr int kSmallFaceBytes = 8;       // a face record of a small object
 constexpr int kLargeFaceBytes = 10;      // and of a large one

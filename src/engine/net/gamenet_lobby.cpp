@@ -92,14 +92,14 @@ void* RoomManager::get_lobby_handle() { return remote_; }
 bool RoomManager::in_group_room() const { return in_group_room_; }
 
 // 0x0053F8A0
-bool cfunc_reset_connection_timer(script::Struct*, script::Script*)
+bool cfunc_reset_connection_timer(script::Struct* /*params*/, script::Script* /*script*/)
 {
     net_game_state().set_connection_timer(frame_clock::get_time());
     return true;
 }
 
 // 0x0053F8D0
-void RoomManager::server_key_callback(void*, int key, void* buffer, void*)
+void RoomManager::server_key_callback(void* /*unused*/, int key, void* buffer, void* /*unused*/)
 {
     Hub* manager = net_game_state().online_hub();
     prefs::Preferences* prefs = manager->get_online_settings();
@@ -161,7 +161,7 @@ void RoomManager::server_key_callback(void*, int key, void* buffer, void*)
 }
 
 // 0x0053FEC0
-int RoomManager::count_callback(void*, int type, void*)
+int RoomManager::count_callback(void* /*unused*/, int type, void* /*unused*/)
 {
     if (type == kKeyTypeServer)
         return kServerKeyCount;
@@ -171,7 +171,7 @@ int RoomManager::count_callback(void*, int type, void*)
 }
 
 // 0x0053F620
-void RoomManager::key_list_callback(void*, int type, void* key_buffer, void*)
+void RoomManager::key_list_callback(void* /*unused*/, int type, void* key_buffer, void* /*unused*/)
 {
     if (type == kKeyTypeServer) {
         for (const int key :

@@ -265,7 +265,8 @@ int AnimBlenderComponent::invoke_method_by_name(uint32_t name, script::Struct* p
 }
 
 // 0x0041A1A0 (no channel to take the anim set from: a crash, as in the original)
-int AnimBlenderComponent::add_channel_from_script(uint32_t, script::Struct* params, script::Script*)
+int AnimBlenderComponent::add_channel_from_script(uint32_t /*unused*/, script::Struct* params,
+                                                  script::Script* /*script*/)
 {
     uint32_t id = 0;
     const Channel* first = masked(lanes_.next());
@@ -279,7 +280,7 @@ int AnimBlenderComponent::add_channel_from_script(uint32_t, script::Struct* para
 }
 
 // 0x00419E90 (the channel with the id is looked for but the result isn't used; no id and no channel: a crash)
-int AnimBlenderComponent::wait_on_channel(uint32_t, script::Struct* params, script::Script* script)
+int AnimBlenderComponent::wait_on_channel(uint32_t /*unused*/, script::Struct* params, script::Script* script)
 {
     uint32_t id = 0;
     Channel* first = masked(lanes_.next());
@@ -293,7 +294,7 @@ int AnimBlenderComponent::wait_on_channel(uint32_t, script::Struct* params, scri
 }
 
 // 0x00419750
-int AnimBlenderComponent::remove_channel(uint32_t, script::Struct* params, script::Script*)
+int AnimBlenderComponent::remove_channel(uint32_t /*unused*/, script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id = 0;
     Channel* channel = masked(lanes_.next());
@@ -311,7 +312,7 @@ int AnimBlenderComponent::remove_channel(uint32_t, script::Struct* params, scrip
 }
 
 // 0x004197C0 (no id and no channel: blend_to on null, a crash, as in the original)
-int AnimBlenderComponent::blend_channel(uint32_t, script::Struct* params, script::Script*)
+int AnimBlenderComponent::blend_channel(uint32_t /*unused*/, script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id = 0;
     Channel* channel = masked(lanes_.next());
@@ -335,7 +336,7 @@ int AnimBlenderComponent::blend_channel(uint32_t, script::Struct* params, script
 }
 
 // 0x00419F10 (not a Ghidra function)
-int AnimBlenderComponent::channel_exists(uint32_t, script::Struct* params, script::Script* script)
+int AnimBlenderComponent::channel_exists(uint32_t /*unused*/, script::Struct* params, script::Script* script)
 {
     uint32_t id = 0;
     params->read_hash_value(kId, &id, 0);

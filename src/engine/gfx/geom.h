@@ -193,7 +193,7 @@ public:
     void change_scale(const maths::Vec4* scale) override;
     maths::Vec4* fetch_magnification(maths::Vec4* out) override;
     // (vtable slot 27: a stub ignoring its argument) the model's lights.
-    void set_model_lights(void*) override {}
+    void set_model_lights(void* /*lights*/) override {}
     // 0x004B47B0 (vtable slot 28): the instance's transform and `count` bone matrices copied. Always true.
     bool upload_skinning_palette(const maths::Mat4* transform, std::span<const maths::Mat4> bones, int unused3,
                                  int unused4) override;
@@ -221,7 +221,10 @@ public:
     // 0x004B4EF0 (vtable slot 43): every instance pass with a UV wibble set to the explicit one (flag 0x4000).
     void enable_explicit_uv_wibble(int unused) override;
     // (vtable slot 44, 0x00492DC0 - a shared "true" for four arguments) a material pass's UV offsets: nothing, true.
-    bool set_material_uv_wibble_offsets(uint32_t, int, float, float) override { return true; }
+    bool set_material_uv_wibble_offsets(uint32_t /*checksum*/, int /*pass*/, float /*u*/, float /*v*/) override
+    {
+        return true;
+    }
     // 0x004B43E0 (vtable slot 45): the UV offsets of each mesh's first pass with a wibble (then explicit, [43]).
     void set_uv_wibble_offsets(maths::Vec2 offsets) override;
     // 0x004B4F60 (vtable slot 46): an instance pass's UV matrix (a wibble made for it if it has none; the mesh's

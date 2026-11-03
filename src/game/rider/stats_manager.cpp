@@ -210,7 +210,7 @@ void AttributeTracker::set_goal_status(int index, int status)
 }
 
 // 0x0051C670
-void AttributeTracker::configure_from_data(script::Struct*)
+void AttributeTracker::configure_from_data(script::Struct* /*params*/)
 {
     goal_done_ = false;
     activated_ = false;
@@ -306,7 +306,7 @@ bool AttributeTracker::is_operative()
 }
 
 // 0x0051C9D0
-void AttributeTracker::set10(const char* text, int score, int)
+void AttributeTracker::set10(const char* text, int score, int /*unused*/)
 {
     if (is_operative() && score != value14_)
         last_text_ = text;
@@ -606,7 +606,7 @@ void AttributeTracker::tick_frame()
 }
 
 // 0x0051D6A0
-void AttributeTracker::check_balance_time(checksums::Name trick_type_name, float time, int)
+void AttributeTracker::check_balance_time(checksums::Name trick_type_name, float time, int /*unused*/)
 {
     const uint32_t trick_type = trick_type_name.value();
     if (!is_operative())
@@ -638,21 +638,21 @@ void AttributeTracker::check_balance_time(checksums::Name trick_type_name, float
 // --- member functions ---
 
 // 0x0051C4A0
-bool AttributeTracker::re_init(script::Struct* params, script::Script*)
+bool AttributeTracker::re_init(script::Struct* params, script::Script* /*script*/)
 {
     reapply_from_data(params);
     return true;
 }
 
 // 0x0051CB20
-bool AttributeTracker::reset_goals(script::Struct*, script::Script*)
+bool AttributeTracker::reset_goals(script::Struct* /*params*/, script::Script* /*script*/)
 {
     get_reset();
     return true;
 }
 
 // 0x0051C4C0
-bool AttributeTracker::activate_goals(script::Struct*, script::Script*)
+bool AttributeTracker::activate_goals(script::Struct* /*params*/, script::Script* /*script*/)
 {
     activated_ = true;
     launch_script(kConsoleUnhide);
@@ -660,7 +660,7 @@ bool AttributeTracker::activate_goals(script::Struct*, script::Script*)
 }
 
 // 0x0051C4F0
-bool AttributeTracker::deactivate_goals(script::Struct*, script::Script*)
+bool AttributeTracker::deactivate_goals(script::Struct* /*params*/, script::Script* /*script*/)
 {
     activated_ = false;
     launch_script(kConsoleHide);
@@ -677,7 +677,7 @@ bool AttributeTracker::get_goal_status_member(script::Struct* params, script::Sc
 }
 
 // 0x0051C520
-bool AttributeTracker::unlock_am_goals(script::Struct*, script::Script*)
+bool AttributeTracker::unlock_am_goals(script::Struct* /*params*/, script::Script* /*script*/)
 {
     for (Goal& goal : goals_)
         if (goal.cur_standing_ == 2)
@@ -686,7 +686,7 @@ bool AttributeTracker::unlock_am_goals(script::Struct*, script::Script*)
 }
 
 // 0x0051C550
-bool AttributeTracker::unlock_pro_goals(script::Struct*, script::Script*)
+bool AttributeTracker::unlock_pro_goals(script::Struct* /*params*/, script::Script* /*script*/)
 {
     for (Goal& goal : goals_)
         if (goal.cur_standing_ == 3)
@@ -695,14 +695,14 @@ bool AttributeTracker::unlock_pro_goals(script::Struct*, script::Script*)
 }
 
 // 0x0051CB70
-bool AttributeTracker::get_last_air_combo_score(script::Struct*, script::Script* script) const
+bool AttributeTracker::get_last_air_combo_score(script::Struct* /*params*/, script::Script* script) const
 {
     script->args()->put_int(checksums::Name{kLastAirComboScore}, last_air_combo_score_);
     return true;
 }
 
 // 0x0051C580
-bool AttributeTracker::clear_last_air_combo_score(script::Struct*, script::Script*)
+bool AttributeTracker::clear_last_air_combo_score(script::Struct* /*params*/, script::Script* /*script*/)
 {
     last_air_combo_score_ = 0;
     return true;

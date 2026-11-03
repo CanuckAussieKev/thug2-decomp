@@ -329,7 +329,7 @@ int Skate::is_multiplayer()
 }
 
 // 0x00565220
-bool Skate::cfunc_set_game_type(script::Struct* params, script::Script*)
+bool Skate::cfunc_set_game_type(script::Struct* params, script::Script* /*script*/)
 {
     Skate* skate = sole();
     uint32_t type = 0;
@@ -340,13 +340,13 @@ bool Skate::cfunc_set_game_type(script::Struct* params, script::Script*)
 
 // 0x00565250
 // (the script runtime reads the result's low byte)
-bool Skate::cfunc_in_team_game(script::Struct*, script::Script*)
+bool Skate::cfunc_in_team_game(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return static_cast<uint8_t>(goals::game_mode()->is_squad_match()) != 0;
 }
 
 // 0x00565260
-bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
+bool Skate::cfunc_change_level(script::Struct* params, script::Script* /*script*/)
 {
     debug::printf("ScriptChangeLevel\n"); // "ScriptChangeLevel\n"
     online::Hub* net = online::online_hub();
@@ -407,7 +407,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
 }
 
 // 0x005654B0
-bool Skate::cfunc_launch_level(script::Struct*, script::Script*)
+bool Skate::cfunc_launch_level(script::Struct* /*params*/, script::Script* /*script*/)
 {
     Skate* skate = sole();
     skate->enter_stage(skate->pending_level_);
@@ -415,7 +415,7 @@ bool Skate::cfunc_launch_level(script::Struct*, script::Script*)
 }
 
 // 0x005654D0
-bool Skate::cfunc_request_level(script::Struct* params, script::Script*)
+bool Skate::cfunc_request_level(script::Struct* params, script::Script* /*script*/)
 {
     online::Hub* net = online::online_hub();
     Skate* skate = sole();
@@ -437,7 +437,7 @@ bool Skate::cfunc_request_level(script::Struct* params, script::Script*)
 }
 
 // 0x005655B0
-bool Skate::cfunc_init_skater_heaps(script::Struct*, script::Script*)
+bool Skate::cfunc_init_skater_heaps(script::Struct* /*params*/, script::Script* /*script*/)
 {
     memory::enter_heap_scope(memory::bottom_up_heap());
     int skaters = 0;

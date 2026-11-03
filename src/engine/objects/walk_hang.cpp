@@ -214,7 +214,7 @@ const maths::Vec4* facing_away(objects::FootMovement* walk, maths::Vec4* buffer)
     *buffer = {.x = -facing.x, .y = -facing.y, .z = -facing.z, .w = -facing.w};
     return buffer;
 }
-const maths::Vec4* current_facing(objects::FootMovement* walk, maths::Vec4*) { return &walk->facing(); }
+const maths::Vec4* current_facing(objects::FootMovement* walk, maths::Vec4* /*unused*/) { return &walk->facing(); }
 
 // The animation-end callback (+0x1948): the code, no adjustment.
 void set_anim_done(objects::FootMovement* walk, script::ObjectCallback code)

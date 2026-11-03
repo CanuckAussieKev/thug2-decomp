@@ -125,7 +125,7 @@ gsl::owner<Array*> new_colour_array(Array* source)
 
 // 0x005B2420: LoadFaceTextureFromProfile checksum=<name>: the texture dictionary given the current profile's face
 // texture image (0x0049FA20) as `name`. Whether a texture was made.
-bool cfunc_load_face_texture_from_profile(script::Struct* params, script::Script*)
+bool cfunc_load_face_texture_from_profile(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kChecksum, &name, 1);
@@ -141,7 +141,7 @@ bool cfunc_load_face_texture_from_profile(script::Struct* params, script::Script
 // the captured texture: a 0x4420-byte image (zeroed) - the texture's header (+0x78), its palette (+0x74: header size
 // / bytes per pixel entries, after 0x20 bytes) and its pixels (+0x64, +0x68 bytes) after it - copied in (0x00487420).
 // The texture isn't checked for null. Always true.
-bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::Script*)
+bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(kCapturedTexture, &name, 1);
@@ -163,7 +163,7 @@ bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::S
 
 // 0x005B2570: OffsetTexture <texture> [0xD83D589E=x] [y_offset=y] [colour bytes]: the texture's image shifted
 // (+0x48: x, y, whether a colour was given, the colour - 0x80 for each byte not given). Always true.
-bool cfunc_offset_texture(script::Struct* params, script::Script*)
+bool cfunc_offset_texture(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0u, &name, 0);
@@ -182,7 +182,7 @@ bool cfunc_offset_texture(script::Struct* params, script::Script*)
 
 // 0x005B26B0: RotateTexture <texture> angle=degrees: the texture's image rotated (+0x44: radians, -1, -1). Always
 // true.
-bool cfunc_rotate_texture(script::Struct* params, script::Script*)
+bool cfunc_rotate_texture(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (both uninitialised in the original when missing)
     params->read_hash_value(0u, &name, 0);
@@ -200,7 +200,7 @@ bool cfunc_rotate_texture(script::Struct* params, script::Script*)
 // 0x005B2720: PushTextureToPoint <texture> [0x485A0CDB=point] [Axis=n] [0x88CF948C=amount] [colour bytes]: the
 // texture's image pushed towards a point (+0x58: point, axis, amount, whether a colour was given, the colour).
 // Always true.
-bool cfunc_push_texture_to_point(script::Struct* params, script::Script*)
+bool cfunc_push_texture_to_point(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0u, &name, 0);
@@ -221,7 +221,7 @@ bool cfunc_push_texture_to_point(script::Struct* params, script::Script*)
 
 // 0x005B2880: ApplyRGBAToTexture <texture> r= g= b= [a=a (0x80)] [0xC164842A=mode]: the texture tinted (+0x30: the
 // colour, whether the mode is 1). Always true.
-bool cfunc_apply_rgba_to_texture(script::Struct* params, script::Script*)
+bool cfunc_apply_rgba_to_texture(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0u, &name, 0);

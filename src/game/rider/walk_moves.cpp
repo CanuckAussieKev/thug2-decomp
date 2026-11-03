@@ -423,21 +423,21 @@ void FootMovement::go_to_air()
 }
 
 // 0x0052A180
-int FootMovement::clip_finished_waiting(script::Struct*, script::Script*)
+int FootMovement::clip_finished_waiting(script::Struct* /*params*/, script::Script* /*script*/)
 {
     apply_transition();
     return 1;
 }
 
 // 0x0052C280
-int FootMovement::release_hang(script::Struct*, script::Script*)
+int FootMovement::release_hang(script::Struct* /*params*/, script::Script* /*script*/)
 {
     get_jump();
     return 1;
 }
 
 // 0x0052C290
-int FootMovement::force_to_air_from_hang(script::Struct*, script::Script*)
+int FootMovement::force_to_air_from_hang(script::Struct* /*params*/, script::Script* /*script*/)
 {
     go_to_air();
     entity()->post_own_event(kAir, nullptr);
@@ -445,7 +445,7 @@ int FootMovement::force_to_air_from_hang(script::Struct*, script::Script*)
 }
 
 // 0x0052C2B0
-void FootMovement::go_to_air_for(void*) { go_to_air(); }
+void FootMovement::go_to_air_for(void* /*unused*/) { go_to_air(); }
 
 // 0x0052D4B0
 void FootMovement::tick_frame()

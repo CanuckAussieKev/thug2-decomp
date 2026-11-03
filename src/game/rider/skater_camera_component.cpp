@@ -278,7 +278,7 @@ void RiderChaseView::configure_from_data(script::Struct* params)
 }
 
 // 0x004FA680
-int RiderChaseView::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
+int RiderChaseView::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name == kShake) {
         float duration = 0.0f;
@@ -330,7 +330,7 @@ gsl::owner<ObjectModule*> RiderChaseView::fabricate() { return new RiderChaseVie
 RiderStateReset::~RiderStateReset() = default;
 
 // 0x004FBDA0
-void RiderStateReset::configure_from_data(script::Struct*) { state_ref_ = nullptr; }
+void RiderStateReset::configure_from_data(script::Struct* /*params*/) { state_ref_ = nullptr; }
 
 // 0x004FBDE0
 void RiderStateReset::seal() { state_ref_ = entity()->fetch_module(kSkaterState); }

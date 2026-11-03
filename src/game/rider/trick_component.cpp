@@ -1224,7 +1224,7 @@ void MoveExecutor::set_pending_trick(PendingList pending_list, bool flag)
 }
 
 // 0x0051F260
-bool MoveExecutor::set_current_bail_endpose(script::Struct* params, script::Script*)
+bool MoveExecutor::set_current_bail_endpose(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t& endpose = bail_endpose_;
     if (!params->read_hash_value(0u, &endpose, 0))

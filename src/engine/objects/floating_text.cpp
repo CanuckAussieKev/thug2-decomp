@@ -161,7 +161,7 @@ void FloatingTextComponent::tick_frame()
 }
 
 // 0x0041E270
-int FloatingTextComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
+int FloatingTextComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name != kReinit)
         return 2;

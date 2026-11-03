@@ -101,7 +101,7 @@ int lobby_group_id() { return stored_lobby_group_id(); }
 void set_lobby_group_id(int value) { stored_lobby_group_id() = value; }
 
 // 0x0053B9C0
-void server_key_callback(int key, void* buffer, void*)
+void server_key_callback(int key, void* buffer, void* /*unused*/)
 {
     Hub* manager = net_game_state().online_hub();
     switch (key) {
@@ -198,7 +198,7 @@ void player_key_callback(const QrPlayerKey& query)
 }
 
 // 0x0053BD90
-int count_callback(int type, void*)
+int count_callback(int type, void* /*unused*/)
 {
     if (type == kKeyTypePlayer)
         return net_game_state().online_hub()->count_players();

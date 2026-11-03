@@ -101,7 +101,7 @@ int FileLoad::get_take_in(void* buffer, int size)
 bool FileLoad::shut() { return CloseHandle(hdl_) != 0; }
 
 // 0x005BC9B0
-FileLoad* SaveCard::unseal(const char* name, int mode, int)
+FileLoad* SaveCard::unseal(const char* name, int mode, int /*unused*/)
 {
     fault_ = 0;
     // (with '/' turned into '\')
@@ -210,7 +210,7 @@ bool SaveCard::list_save_files(const char* pattern, memory::ListNode* list)
 }
 
 // 0x005BC7F0
-bool SaveCard::always_true(int) { return true; }
+bool SaveCard::always_true(int /*unused*/) { return true; }
 
 // 0x005BC8D0
 Hub::Hub()
@@ -225,7 +225,7 @@ Hub::Hub()
 }
 
 // 0x005BC730 (one card, whichever port and slot)
-SaveCard* Hub::get_storage_slot(int, int) { return &save_device_; }
+SaveCard* Hub::get_storage_slot(int /*unused*/, int /*unused*/) { return &save_device_; }
 
 // 0x005BC900
 Hub* create_manager(bool create)

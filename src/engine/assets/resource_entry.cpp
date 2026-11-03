@@ -17,12 +17,13 @@ Resource::Resource() { dependents_.make_head(); }
 Resource::~Resource() { dependents_.uncouple(); }
 
 // 0x004075F0
-int Resource::load_from_buffer(void*, uint32_t, bool, void*, void*)
+int Resource::load_from_buffer(void* /*unused*/, uint32_t /*unused*/, bool /*unused*/, void* /*unused*/,
+                               void* /*unused*/)
 {
     start_loading();
     return 0;
 }
-int Resource::read_in(const char*, bool, bool, void*, void*)
+int Resource::read_in(const char* /*unused*/, bool /*unused*/, bool /*unused*/, void* /*unused*/, void* /*unused*/)
 {
     start_loading();
     return 0;
@@ -36,7 +37,7 @@ int Resource::offload()
 }
 
 // (the base's slot 7: a shared "return 0")
-bool Resource::reload(const char*) { return false; }
+bool Resource::reload(const char* /*unused*/) { return false; }
 
 // 0x00407610
 bool Resource::is_loaded() const { return cur_phase_ == AssetState::kLoaded; }

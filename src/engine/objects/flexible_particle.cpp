@@ -432,7 +432,7 @@ int FlexibleParticleComponent::pass_to_system(uint32_t name, script::Struct* par
 }
 
 // 0x0041D820
-int FlexibleParticleComponent::empty_system(uint32_t, script::Struct*, script::Script*)
+int FlexibleParticleComponent::empty_system(uint32_t /*unused*/, script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (render::EmitterInstance* system = system_.get_pull())
         system->set_particle_count(0);
@@ -440,7 +440,7 @@ int FlexibleParticleComponent::empty_system(uint32_t, script::Struct*, script::S
 }
 
 // 0x0041D840
-int FlexibleParticleComponent::set_scripts(uint32_t, script::Struct* params, script::Script*)
+int FlexibleParticleComponent::set_scripts(uint32_t /*unused*/, script::Struct* params, script::Script* /*script*/)
 {
     script::Struct* script_params = nullptr;
     params->read_sub_struct(kParams, &script_params, 0);
@@ -456,7 +456,7 @@ int FlexibleParticleComponent::set_scripts(uint32_t, script::Struct* params, scr
 }
 
 // 0x0041D8F0
-int FlexibleParticleComponent::should_emit(uint32_t, script::Struct*, script::Script*)
+int FlexibleParticleComponent::should_emit(uint32_t /*unused*/, script::Struct* /*params*/, script::Script* /*script*/)
 {
     const render::EmitterInstance* system = system_.get_pull();
     if (!system)
@@ -465,7 +465,7 @@ int FlexibleParticleComponent::should_emit(uint32_t, script::Struct*, script::Sc
 }
 
 // 0x0041D920
-int FlexibleParticleComponent::emit_on(uint32_t, script::Struct*, script::Script*)
+int FlexibleParticleComponent::emit_on(uint32_t /*unused*/, script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (render::EmitterInstance* system = system_.get_pull())
         system->set_spewing(true);
@@ -473,7 +473,7 @@ int FlexibleParticleComponent::emit_on(uint32_t, script::Struct*, script::Script
 }
 
 // 0x0041D940
-int FlexibleParticleComponent::emit_off(uint32_t, script::Struct*, script::Script*)
+int FlexibleParticleComponent::emit_off(uint32_t /*unused*/, script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (render::EmitterInstance* system = system_.get_pull())
         system->set_spewing(false);
@@ -481,7 +481,8 @@ int FlexibleParticleComponent::emit_off(uint32_t, script::Struct*, script::Scrip
 }
 
 // 0x0041D960
-int FlexibleParticleComponent::destroy_system(uint32_t, script::Struct* params, script::Script*) const
+int FlexibleParticleComponent::destroy_system(uint32_t /*unused*/, script::Struct* params,
+                                              script::Script* /*script*/) const
 {
     int if_empty = 0;
     params->fetch_int_value(kIfEmpty, &if_empty, 0);
@@ -493,7 +494,8 @@ int FlexibleParticleComponent::destroy_system(uint32_t, script::Struct* params, 
 }
 
 // 0x0041E190
-int FlexibleParticleComponent::destroy_particles(uint32_t, script::Struct*, script::Script*)
+int FlexibleParticleComponent::destroy_particles(uint32_t /*unused*/, script::Struct* /*params*/,
+                                                 script::Script* /*script*/)
 {
     if (system_.get_pull()) {
         destroy_system_now(label_);

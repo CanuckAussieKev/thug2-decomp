@@ -110,7 +110,7 @@ void complete_from_archive(AsyncFileHandle* file)
 
 // The platform (PC) side, below.
 void platform_init();
-DWORD WINAPI async_io_thread(void*);
+DWORD WINAPI async_io_thread(void* /*unused*/);
 } // namespace
 
 // 0x005B69A0 (the constructor: in it the base's own init runs, a debug stub - as the original's call through the
@@ -379,13 +379,16 @@ int stub_int(const char* message)
 
 // The base's platform methods: debug stubs, each printing its name.
 bool AsyncFileHandle::os_open_setup() { return stub_bool("STUB: CAsyncFileHandle::Init\n"); }
-bool AsyncFileHandle::os_open_file(const char*) { return stub_bool("STUB: CAsyncFileHandle::Open\n"); }
+bool AsyncFileHandle::os_open_file(const char* /*unused*/) { return stub_bool("STUB: CAsyncFileHandle::Open\n"); }
 bool AsyncFileHandle::os_close_file() { return stub_bool("STUB: CAsyncFileHandle::Close\n"); }
 bool AsyncFileHandle::os_read_finished() { return stub_bool("STUB: CAsyncFileHandle::IsDone\n"); }
 bool AsyncFileHandle::os_read_pending() { return stub_bool("STUB: CAsyncFileHandle::IsBusy\n"); }
 bool AsyncFileHandle::os_at_end() { return stub_bool("STUB: CAsyncFileHandle::IsEOF\n"); }
-int AsyncFileHandle::os_load_whole(void*) { return stub_int("STUB: CAsyncFileHandle::Load\n"); }
-int AsyncFileHandle::os_read_chunk(void*, int, int) { return stub_int("STUB: CAsyncFileHandle::Read\n"); }
+int AsyncFileHandle::os_load_whole(void* /*unused*/) { return stub_int("STUB: CAsyncFileHandle::Load\n"); }
+int AsyncFileHandle::os_read_chunk(void* /*unused*/, int /*unused*/, int /*unused*/)
+{
+    return stub_int("STUB: CAsyncFileHandle::Read\n");
+}
 bool AsyncFileHandle::os_cancel() { return stub_bool("STUB: CAsyncFileHandle::Cancel\n"); }
 
 } // namespace file
@@ -576,7 +579,7 @@ int PcAsyncFileHandle::os_read_chunk(void* buffer, int size, int count)
 
 namespace {
 // 0x005B9B40: the I/O thread - every 66 ms, lets each busy handle check whether its I/O has finished
-DWORD WINAPI async_io_thread(void*)
+DWORD WINAPI async_io_thread(void* /*unused*/)
 {
     for (;;) {
         Sleep(kIoPollMs);

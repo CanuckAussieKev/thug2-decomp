@@ -188,21 +188,21 @@ void KinematicsModule::update_hover()
 // --- script member functions ---
 
 // 0x004237D0
-bool KinematicsModule::obj_store_pos(script::Struct*, script::Script*)
+bool KinematicsModule::obj_store_pos(script::Struct* /*params*/, script::Script* /*script*/)
 {
     stored_pos_ = entity()->at_point();
     return true;
 }
 
 // 0x00423810
-bool KinematicsModule::obj_store_node(script::Struct*, script::Script*)
+bool KinematicsModule::obj_store_node(script::Struct* /*params*/, script::Script* /*script*/)
 {
     saved_node_id_ = path_follower_->list_link();
     return true;
 }
 
 // 0x00423830
-bool KinematicsModule::obj_set_constant_height(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_set_constant_height(script::Struct* params, script::Script* /*script*/)
 {
     if (params->has_bare_flag(kOff)) {
         motion_flags2_ &= ~kMotion2ConstantHeight;
@@ -214,7 +214,7 @@ bool KinematicsModule::obj_set_constant_height(script::Struct* params, script::S
 }
 
 // 0x00423890
-bool KinematicsModule::obj_get_random_link(script::Struct*, script::Script* script) const
+bool KinematicsModule::obj_get_random_link(script::Struct* /*params*/, script::Script* script) const
 {
     const uint32_t links = level_nodes::get_link_count(list_link_);
     if (links)
@@ -223,7 +223,7 @@ bool KinematicsModule::obj_get_random_link(script::Struct*, script::Script* scri
 }
 
 // 0x004238D0
-bool KinematicsModule::obj_hover(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_hover(script::Struct* params, script::Script* /*script*/)
 {
     if (params->has_bare_flag(kOff)) {
         entity()->at_point().y = hover_base_;
@@ -281,7 +281,7 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
 }
 
 // 0x00423B30
-bool KinematicsModule::obj_jump(script::Struct* params, script::Script*)
+bool KinematicsModule::obj_jump(script::Struct* params, script::Script* /*script*/)
 {
     jump_speed_ = kJumpSpeed;
     params->fetch_float(kSpeed, &jump_speed_, 0);

@@ -288,7 +288,7 @@ void apply_flag_command_to_object(objects::Entity* object, void* data)
 }
 
 // 0x005A01D0
-bool flag_command_by_name(script::Struct* params, script::Script*, int action)
+bool flag_command_by_name(script::Struct* params, script::Script* /*script*/, int action)
 {
     uint32_t value = 0;
     if (action == kFlagActionException)
@@ -394,7 +394,7 @@ bool cfunc_spawn_sound(script::Struct* params, script::Script* script)
 }
 
 // 0x005A0520: PauseSkater <n> [hide]: skater n paused (vtable +0x2C) and hidden or shown.
-bool cfunc_pause_skater(script::Struct* params, script::Script*)
+bool cfunc_pause_skater(script::Struct* params, script::Script* /*script*/)
 {
     const bool hide = params->has_bare_flag("hide"); // "hide"
     int index = 0;                             // (unset in the original when missing - an asserted parameter)
@@ -407,7 +407,7 @@ bool cfunc_pause_skater(script::Struct* params, script::Script*)
 }
 
 // 0x005A0580: UnPauseSkater <n>: skater n unpaused (vtable +0x30) and shown.
-bool cfunc_un_pause_skater(script::Struct* params, script::Script*)
+bool cfunc_un_pause_skater(script::Struct* params, script::Script* /*script*/)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0u, &index, true);
@@ -419,7 +419,7 @@ bool cfunc_un_pause_skater(script::Struct* params, script::Script*)
 }
 
 // 0x005A05C0: PauseGame: the game paused, the calling script carrying on.
-bool cfunc_pause_game(script::Struct*, script::Script* script)
+bool cfunc_pause_game(script::Struct* /*params*/, script::Script* script)
 {
     modules::front_end_instance()->get_pause_game(true);
     script::resume_child_script(script);
@@ -427,7 +427,7 @@ bool cfunc_pause_game(script::Struct*, script::Script* script)
 }
 
 // 0x005A05E0: UnPauseGame.
-bool cfunc_un_pause_game(script::Struct*, script::Script*)
+bool cfunc_un_pause_game(script::Struct* /*params*/, script::Script* /*script*/)
 {
     modules::front_end_instance()->get_pause_game(false);
     return true;
@@ -435,7 +435,7 @@ bool cfunc_un_pause_game(script::Struct*, script::Script*)
 
 // 0x005A05F0: GameIsPaused: whether the game is paused (0x006FA7D4) - then the flag 0x3BA1FDB9 is added to the
 // command's own parameters.
-bool cfunc_game_is_paused(script::Struct* params, script::Script*)
+bool cfunc_game_is_paused(script::Struct* params, script::Script* /*script*/)
 {
     if (!objects::simulation_halted())
         return false;
@@ -444,20 +444,20 @@ bool cfunc_game_is_paused(script::Struct* params, script::Script*)
 }
 
 // 0x005A0620 / 0x005A0630: PauseObjects / UnPauseObjects.
-bool cfunc_pause_objects(script::Struct*, script::Script*)
+bool cfunc_pause_objects(script::Struct* /*params*/, script::Script* /*script*/)
 {
     object_edit()->get_freeze(true);
     return true;
 }
 
-bool cfunc_un_pause_objects(script::Struct*, script::Script*)
+bool cfunc_un_pause_objects(script::Struct* /*params*/, script::Script* /*script*/)
 {
     object_edit()->get_freeze(false);
     return true;
 }
 
 // 0x005A0640: ResetClock: on the server, the skate module's clock (+0x370) set to the game mode's time limit.
-bool cfunc_reset_clock(script::Struct*, script::Script*)
+bool cfunc_reset_clock(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (online::online_hub()->get_on_server())
         skate_module()->set_unknown370(game_mode_time_limit());
@@ -465,7 +465,7 @@ bool cfunc_reset_clock(script::Struct*, script::Script*)
 }
 
 // 0x005A0670: PadsPluggedIn.
-bool cfunc_pads_plugged_in(script::Struct*, script::Script*)
+bool cfunc_pads_plugged_in(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return modules::front_end_instance()->pads_plugged_in();
 }
@@ -542,7 +542,7 @@ bool cfunc_send_exception(script::Struct* params, script::Script* script)
 }
 
 // 0x005A11C0: RoundIncrement: the game mode's round (0x005536D0).
-bool cfunc_round_increment(script::Struct*, script::Script*)
+bool cfunc_round_increment(script::Struct* /*params*/, script::Script* /*script*/)
 {
     game_mode_object()->increment_round();
     return true;
@@ -550,7 +550,7 @@ bool cfunc_round_increment(script::Struct*, script::Script*)
 
 // 0x005A11D0: GameModeEquals <mode> ...: whether one of the bare names is the game mode's (0x00553220: its own
 // integer of that name is set).
-bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
+bool cfunc_game_mode_equals(script::Struct* params, script::Script* /*script*/)
 {
     for (script::Component* component = params->step_to_entry(nullptr); component;
          component = params->step_to_entry(component)) {
@@ -563,7 +563,7 @@ bool cfunc_game_mode_equals(script::Struct* params, script::Script*)
 
 // 0x005A1230: GetCurrentLevel: the skate module's level (+0x374, as 0x651533EC - a name) and level structure name
 // (+0x380, 0x16A0B364) in the script's parameters.
-bool cfunc_get_current_level(script::Struct*, script::Script* script)
+bool cfunc_get_current_level(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->add_component_of_type(kLEVEL, script::QbValueKind::kName, modules::Skate::sole()->pending_level());
     script->args()->put_name_key(checksums::Name{kLevelStructure}, modules::Skate::sole()->level_params());
@@ -571,7 +571,7 @@ bool cfunc_get_current_level(script::Struct*, script::Script* script)
 }
 
 // 0x005A1270: SetLevelStructureName name=<structure>: the skate module's +0x380.
-bool cfunc_set_level_structure_name(script::Struct* params, script::Script*)
+bool cfunc_set_level_structure_name(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(kName, &name, 1);
@@ -580,21 +580,21 @@ bool cfunc_set_level_structure_name(script::Struct* params, script::Script*)
 }
 
 // 0x005A12A0: GetLevelStructureName: the skate module's +0x380 as the script's 0x63B1214E.
-bool cfunc_get_level_structure_name(script::Struct*, script::Script* script)
+bool cfunc_get_level_structure_name(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->put_name_key(checksums::Name{kLevelStructureName}, modules::Skate::sole()->level_params());
     return true;
 }
 
 // 0x005A12C0: RestartLevel (the skate module's 0x005668A0).
-bool cfunc_restart_level(script::Struct*, script::Script*)
+bool cfunc_restart_level(script::Struct* /*params*/, script::Script* /*script*/)
 {
     skate_module()->restart_level();
     return true;
 }
 
 // 0x005A12E0: GameFlow <script>: the skate module's game flow (+0x388) runs it (0x00552E30).
-bool cfunc_game_flow(script::Struct* params, script::Script*)
+bool cfunc_game_flow(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
@@ -628,7 +628,7 @@ void update_score_display(objects::Rider* skater)
 } // namespace
 
 // 0x005A1320: ClearOmnigons: the career's 23 Omnigon flags (the values of the globals above) cleared.
-bool cfunc_clear_omnigons(script::Struct*, script::Script*)
+bool cfunc_clear_omnigons(script::Struct* /*params*/, script::Script* /*script*/)
 {
     objects::RiderStoryProgress* career = modules::Skate::sole()->career().get();
     for (const uint32_t flag : kOmnigonFlags)
@@ -638,7 +638,7 @@ bool cfunc_clear_omnigons(script::Struct*, script::Script*)
 
 // 0x005A1540: BroadcastOmnigon <0xAE94C183=omnigon> [0xF649D637]: noted as the last one sent and, from the server,
 // sent to every remote connection (message 0x7F, 8 bytes: the Omnigon and the flag; sequenced, group 8).
-bool cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
+bool cfunc_broadcast_omnigon(script::Struct* params, script::Script* /*script*/)
 {
     const online::Hub* game_net = online::online_hub();
     net::ConnSearch search;
@@ -684,7 +684,7 @@ bool cfunc_set_screen_mode(script::Struct* params, script::Script* script)
 // 0x005A1770: SetScreenModeFromGameMode: a debug message per local skater; the game mode's screen mode
 // (0x00553630) set (0x004A0AD0) unless the two split modes (1 and 2) would only swap; the local skaters' score
 // displays brought up to date.
-bool cfunc_set_screen_mode_from_game_mode(script::Struct*, script::Script*)
+bool cfunc_set_screen_mode_from_game_mode(script::Struct* /*params*/, script::Script* /*script*/)
 {
     for (int i = 0; i < online::kPlayerSlotCount; ++i) {
         const objects::Rider* skater = get_rider_at(i);
@@ -711,7 +711,7 @@ bool cfunc_set_screen_mode_from_game_mode(script::Struct*, script::Script*)
 // the sum (logged). The cheats in the global array 0x75A23DA4 with those c1 / c2 run 0xB95B735C and their
 // cheatscript; none (or a text under 6 characters): 0x323D63FF. Always false. The text is used as a sprintf format
 // (kept: a '%' in it is interpreted).
-bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
+bool cfunc_try_cheat_string(script::Struct* params, script::Script* /*script*/)
 {
     const char* text = nullptr; // (unset in the original when missing - an asserted parameter)
     params->fetch_text(kCheatText, &text, true);
@@ -759,7 +759,7 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
 }
 
 // 0x005A1A90: LevelIs <level>: whether it's the skate module's level (+0x378).
-bool cfunc_level_is(script::Struct* params, script::Script*)
+bool cfunc_level_is(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t level = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(0u, &level, true);
@@ -767,7 +767,7 @@ bool cfunc_level_is(script::Struct* params, script::Script*)
 }
 
 // 0x005A1F80: SetStatOverride [value (0)]: the skate module's forced stat value (+0x3D0).
-bool cfunc_set_stat_override(script::Struct* params, script::Script*)
+bool cfunc_set_stat_override(script::Struct* params, script::Script* /*script*/)
 {
     float value = 0.0f;
     params->fetch_float(0u, &value, 0);
@@ -776,7 +776,7 @@ bool cfunc_set_stat_override(script::Struct* params, script::Script*)
 }
 
 // 0x005A1FB0: ToggleRails: the skate module's rail display (+0x3D4) on / off.
-bool cfunc_toggle_rails(script::Struct*, script::Script*)
+bool cfunc_toggle_rails(script::Struct* /*params*/, script::Script* /*script*/)
 {
     bool& rails = modules::Skate::sole()->get_debug_rails();
     rails = !rails;
@@ -784,7 +784,7 @@ bool cfunc_toggle_rails(script::Struct*, script::Script*)
 }
 
 // 0x005A1FD0: GetTimeLimit: the game mode's time limit as the script's time_limit.
-bool cfunc_get_time_limit(script::Struct*, script::Script* script)
+bool cfunc_get_time_limit(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->put_int(checksums::Name{kTimeLimit}, game_mode_time_limit()); // "time_limit"
     return true;
@@ -792,27 +792,27 @@ bool cfunc_get_time_limit(script::Struct*, script::Script* script)
 
 // 0x005A1FF0 / 0x005A2010: GetGoalsMode / GetTeamGraffitiMode: the same game mode value (0x005532D0) as the script's
 // 0x38DBE1D0 / 0x6835B854.
-bool cfunc_get_goals_mode(script::Struct*, script::Script* script)
+bool cfunc_get_goals_mode(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->put_name_key(checksums::Name{kGOALS}, game_mode_object()->get_goals_mode());
     return true;
 }
 
-bool cfunc_get_team_graffiti_mode(script::Struct*, script::Script* script)
+bool cfunc_get_team_graffiti_mode(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->put_name_key(checksums::Name{kMODE}, game_mode_object()->get_goals_mode());
     return true;
 }
 
 // 0x005A2030: GetGameMode: the game mode's name (0x005532A0) as the script's 0x3E04B26B.
-bool cfunc_get_game_mode(script::Struct*, script::Script* script)
+bool cfunc_get_game_mode(script::Struct* /*params*/, script::Script* script)
 {
     script->args()->put_name_key(checksums::Name{kGAMEMODE}, game_mode_object()->get_name_key());
     return true;
 }
 
 // 0x005A2090: SetTesterScript <script> [params={...}] (the skate module's 0x00565ED0).
-bool cfunc_set_tester_script(script::Struct* params, script::Script*)
+bool cfunc_set_tester_script(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
@@ -823,11 +823,14 @@ bool cfunc_set_tester_script(script::Struct* params, script::Script*)
 }
 
 // 0x005A20F0: KillTesterScript (the skate module's 0x00565F80: its answer).
-bool cfunc_kill_tester_script(script::Struct*, script::Script*) { return skate_module()->kill_script(); }
+bool cfunc_kill_tester_script(script::Struct* /*params*/, script::Script* /*script*/)
+{
+    return skate_module()->kill_script();
+}
 
 // 0x005A21A0: AutoRail <...>: the skate module's rail object (+0x24) is given the parameters - a shared stub that
 // ignores them.
-bool cfunc_auto_rail(script::Struct* params, script::Script*)
+bool cfunc_auto_rail(script::Struct* params, script::Script* /*script*/)
 {
     (void)modules::Skate::sole()->rail_manager(); // (the stub's `this`)
     stubs::ignore_argument(params);

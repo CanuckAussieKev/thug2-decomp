@@ -139,7 +139,7 @@ void ObjectiveNpc::read_leading_name(std::span<char> out, const char* name)
 }
 
 // 0x0055EBC0
-void ObjectiveNpc::add_success_suffix(bool add, char* text, int)
+void ObjectiveNpc::add_success_suffix(bool add, char* text, int /*unused*/)
 {
     if (add)
         append_format(std::span(text, kLineNameSize), kSuccess);

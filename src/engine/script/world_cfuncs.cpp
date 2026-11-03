@@ -63,7 +63,7 @@ bool cfunc_set_light_group(Struct* params, Script* script) { return node_command
 bool cfunc_is_alive(Struct* params, Script* script) { return node_command(params, script, kNodeActionAlive); }
 
 // 0x005A53A0
-bool cfunc_pause_skaters(Struct* params, Script*)
+bool cfunc_pause_skaters(Struct* params, Script* /*script*/)
 {
     const bool hide = params->has_bare_flag("hide");
     modules::Skate* skate = modules::Skate::sole();
@@ -79,7 +79,7 @@ bool cfunc_pause_skaters(Struct* params, Script*)
 }
 
 // 0x005A5420
-bool cfunc_un_pause_skaters(Struct*, Script*)
+bool cfunc_un_pause_skaters(Struct* /*params*/, Script* /*script*/)
 {
     modules::Skate* skate = modules::Skate::sole();
     auto count = static_cast<uint32_t>(skate->count_riders());
@@ -94,7 +94,7 @@ bool cfunc_un_pause_skaters(Struct*, Script*)
 }
 
 // 0x005A5480
-bool cfunc_skaters_are_ready(Struct*, Script*)
+bool cfunc_skaters_are_ready(Struct* /*params*/, Script* /*script*/)
 {
     if (!online::net_game_state().online_hub()->cleared_to_start())
         return false;
@@ -105,7 +105,7 @@ bool cfunc_skaters_are_ready(Struct*, Script*)
 }
 
 // 0x005A54E0
-bool cfunc_launch_viewer(Struct*, Script*)
+bool cfunc_launch_viewer(Struct* /*params*/, Script* /*script*/)
 {
     if (viewer_launched())
         return true;
@@ -131,7 +131,7 @@ bool cfunc_launch_viewer(Struct*, Script*)
 }
 
 // 0x005A5610
-bool cfunc_add_skater_early(Struct*, Script*)
+bool cfunc_add_skater_early(Struct* /*params*/, Script* /*script*/)
 {
     if (modules::Skate::sole()->count_riders() == 0) {
         modules::Skate* skate = modules::Skate::sole();
@@ -145,7 +145,7 @@ bool cfunc_add_skater_early(Struct*, Script*)
 // --- the weather ---
 
 // 0x005A5680: its vtable +0x04 (through 0x004A1090).
-bool cfunc_weather_update_grid(Struct*, Script*)
+bool cfunc_weather_update_grid(Struct* /*params*/, Script* /*script*/)
 {
     render::weather()->tick_grid(); // (0x004A1090: a jump through the vtable +0x04)
     return true;
@@ -259,6 +259,6 @@ bool cfunc_set_screen_effects_dof_params(Struct* params, Script* script)
 }
 
 // 0x005A5950
-bool cfunc_is_pal(Struct*, Script*) { return game_config::get_language() != 2; }
+bool cfunc_is_pal(Struct* /*params*/, Script* /*script*/) { return game_config::get_language() != 2; }
 
 } // namespace commands

@@ -121,7 +121,7 @@ bool cfunc_get_terrain_type_param(Struct* params, Script* script)
 
 // 0x00445C50: SetSunProps [theta] [phi] [radius] [size] [texture] [corona_texture] [enable | disable]: the
 // settings given are passed on (0x004426D0 with the mask of those given). Always true.
-bool cfunc_set_sun_props(Struct* params, Script*)
+bool cfunc_set_sun_props(Struct* params, Script* /*script*/)
 {
     sun::Settings props{}; // (the fields not given are uninitialised in the original; the callee doesn't read them)
     uint32_t mask = 0;
@@ -149,7 +149,7 @@ bool cfunc_set_sun_props(Struct* params, Script*)
 }
 
 // 0x00445D50: SetProgressive on=<n>: progressive scan (0x005B6090) on for n > 0. Always true.
-bool cfunc_set_progressive(Struct* params, Script*)
+bool cfunc_set_progressive(Struct* params, Script* /*script*/)
 {
     int on = 0;
     params->fetch_int_value(kOn, &on, 0);
@@ -158,7 +158,7 @@ bool cfunc_set_progressive(Struct* params, Script*)
 }
 
 // 0x00445D90: SetColorBufferClear clear=<n> (does nothing in this build). Always true.
-bool cfunc_set_color_buffer_clear(Struct* params, Script*)
+bool cfunc_set_color_buffer_clear(Struct* params, Script* /*script*/)
 {
     int clear = 0;
     params->fetch_int_value(kClear, &clear, 0);
@@ -182,7 +182,7 @@ void write_gamma(Gamma gamma)
 // 0x00445E60: ApplyChangeGamma color=red|green|blue change=<amount>: the channel's gamma changed by `amount`
 // while it stays in range (raised only below 1, lowered only above 0), applied and saved - twice, as the original
 // does. Always true.
-bool cfunc_apply_change_gamma(Struct* params, Script*)
+bool cfunc_apply_change_gamma(Struct* params, Script* /*script*/)
 {
     const std::array<float, 3> gamma = get_gamma();
     float red = core::at(gamma, 0);
@@ -209,7 +209,7 @@ bool cfunc_apply_change_gamma(Struct* params, Script*)
 
 // 0x00446000: SetDynamicLightModulationFactor value=<f> [value2=<f>] ambient | directional=<index>: the ambient
 // modulation factors (0x0048E970) or a directional light's (0x0048E990). Nothing without `value`. Always true.
-bool cfunc_set_dynamic_light_modulation_factor(Struct* params, Script*)
+bool cfunc_set_dynamic_light_modulation_factor(Struct* params, Script* /*script*/)
 {
     float value = 0.0f;
     float value2 = 0.0f;
@@ -227,7 +227,7 @@ bool cfunc_set_dynamic_light_modulation_factor(Struct* params, Script*)
 }
 
 // 0x004460B0: EnableFog (0x00490DE0), unless distance clipping is on. Always true.
-bool cfunc_enable_fog(Struct*, Script*)
+bool cfunc_enable_fog(Struct* /*params*/, Script* /*script*/)
 {
     if (!render::view_setup().distance_clipping())
         render::engine::enable_fog(true);
@@ -235,7 +235,7 @@ bool cfunc_enable_fog(Struct*, Script*)
 }
 
 // 0x004460D0: DisableFog, unless distance clipping is on. Always true.
-bool cfunc_disable_fog(Struct*, Script*)
+bool cfunc_disable_fog(Struct* /*params*/, Script* /*script*/)
 {
     if (!render::view_setup().distance_clipping())
         render::engine::enable_fog(false);
@@ -243,7 +243,7 @@ bool cfunc_disable_fog(Struct*, Script*)
 }
 
 // 0x004460F0: SetFogExponent exponent=<f> (0x00490E10). False (and nothing) while distance clipping is on.
-bool cfunc_set_fog_exponent(Struct* params, Script*)
+bool cfunc_set_fog_exponent(Struct* params, Script* /*script*/)
 {
     if (render::view_setup().distance_clipping())
         return false;
@@ -256,7 +256,7 @@ bool cfunc_set_fog_exponent(Struct* params, Script*)
 // 0x00446130: VCWibblePlayFromKeyframe sector=<name> [seq] [key] [time=seconds]: the sector's vertex colour
 // wibble played from a keyframe (0x0049E820, time in ms). False without a sector name; true otherwise (also if
 // the scene has no such sector).
-bool cfunc_vc_wibble_play_from_keyframe(Struct* params, Script*)
+bool cfunc_vc_wibble_play_from_keyframe(Struct* params, Script* /*script*/)
 {
     uint32_t name = 0;
     if (!params->read_hash_value(kSector, &name, 0))
@@ -276,7 +276,7 @@ bool cfunc_vc_wibble_play_from_keyframe(Struct* params, Script*)
 
 // 0x004461D0: SetUVWibbleParams sector=<name> u_vel u_amp u_freq u_phase v_vel v_amp v_freq v_phase: the
 // sector's UV wibble (0x0049E830 - on a missing sector too, as the original). Always true.
-bool cfunc_set_uv_wibble_params(Struct* params, Script*)
+bool cfunc_set_uv_wibble_params(Struct* params, Script* /*script*/)
 {
     uint32_t name = 0; // (these are uninitialised in the original)
     params->read_hash_value("sector", &name, 0);
@@ -312,21 +312,21 @@ render::WorldCell* named_sector(Struct* params)
 } // namespace
 
 // 0x004462D0: EnableExplicitUVWibble sector=<name> (0x0049E840). Always true.
-bool cfunc_enable_explicit_uv_wibble(Struct* params, Script*)
+bool cfunc_enable_explicit_uv_wibble(Struct* params, Script* /*script*/)
 {
     named_sector(params)->force_uv_wobble(true);
     return true;
 }
 
 // 0x00446300: DisableExplicitUVWibble sector=<name>. Always true.
-bool cfunc_disable_explicit_uv_wibble(Struct* params, Script*)
+bool cfunc_disable_explicit_uv_wibble(Struct* params, Script* /*script*/)
 {
     named_sector(params)->force_uv_wobble(false);
     return true;
 }
 
 // 0x00446330: SetUVWibbleOffsets sector=<name> u_off v_off (0x0049E850). Always true.
-bool cfunc_set_uv_wibble_offsets(Struct* params, Script*)
+bool cfunc_set_uv_wibble_offsets(Struct* params, Script* /*script*/)
 {
     render::WorldCell* sector = named_sector(params);
     float u_off = 0.0f; // (uninitialised in the original)
@@ -338,14 +338,14 @@ bool cfunc_set_uv_wibble_offsets(Struct* params, Script*)
 }
 
 // 0x004463A0: ResetTextureAnim sector=<name> (0x0049E860). Always true.
-bool cfunc_reset_texture_anim(Struct* params, Script*)
+bool cfunc_reset_texture_anim(Struct* params, Script* /*script*/)
 {
     named_sector(params)->reset_texture_anim();
     return true;
 }
 
 // 0x004463D0: StartTextureAnim sector=<name> [reset] (0x0049E870). Always true.
-bool cfunc_start_texture_anim(Struct* params, Script*)
+bool cfunc_start_texture_anim(Struct* params, Script* /*script*/)
 {
     render::WorldCell* sector = named_sector(params);
     const bool reset = params->has_bare_flag(kReset);
@@ -354,14 +354,14 @@ bool cfunc_start_texture_anim(Struct* params, Script*)
 }
 
 // 0x00446420: StopTextureAnim sector=<name> (0x0049E880). Always true.
-bool cfunc_stop_texture_anim(Struct* params, Script*)
+bool cfunc_stop_texture_anim(Struct* params, Script* /*script*/)
 {
     named_sector(params)->stop_texture_anim();
     return true;
 }
 
 // 0x00446450: ToggleRenderMode: the next render mode (0x0048C0D0: 0..3 in turn). Always true.
-bool cfunc_toggle_render_mode(Struct*, Script*)
+bool cfunc_toggle_render_mode(Struct* /*params*/, Script* /*script*/)
 {
     render::engine::toggle_render_mode();
     return true;

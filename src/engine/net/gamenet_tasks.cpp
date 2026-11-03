@@ -208,10 +208,13 @@ void join_deadline_tick(tasks::Task<Hub>* task)
 }
 
 // 0x00533400
-void player_team_key_callback(int, int, void* buffer, void*) { game_spy::call_qr2_buffer_add(buffer, ""); }
+void player_team_key_callback(int /*unused*/, int /*unused*/, void* buffer, void* /*unused*/)
+{
+    game_spy::call_qr2_buffer_add(buffer, "");
+}
 
 // 0x00533420
-void key_list_callback(int type, void* keys, void*)
+void key_list_callback(int type, void* keys, void* /*unused*/)
 {
     auto add = [keys](int key) { game_spy::qr2_key_buffer_add(keys, key); };
     if (type == 0) { // the server's
@@ -224,7 +227,7 @@ void key_list_callback(int type, void* keys, void*)
 }
 
 // 0x005334B0
-void add_error_callback(int error, const char* message, void*)
+void add_error_callback(int error, const char* message, void* /*unused*/)
 {
     debug::printf("Error adding server: %d, %s\n", error, message);
 }

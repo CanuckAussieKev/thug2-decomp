@@ -31,21 +31,21 @@ uint32_t array_colour(script::Array* array)
 } // namespace
 
 // 0x0049E320
-bool ScreenEffects::set_on(script::Struct*, script::Script*)
+bool ScreenEffects::set_on(script::Struct* /*params*/, script::Script* /*script*/)
 {
     on_ = true;
     return true;
 }
 
 // 0x0049E310
-bool ScreenEffects::set_off(script::Struct*, script::Script*)
+bool ScreenEffects::set_off(script::Struct* /*params*/, script::Script* /*script*/)
 {
     on_ = false;
     return true;
 }
 
 // 0x0049E360
-bool ScreenEffects::set_bloom_params(script::Struct* params, int)
+bool ScreenEffects::set_bloom_params(script::Struct* params, int /*unused*/)
 {
     int on = -1;
     int alpha1 = -1;
@@ -67,7 +67,7 @@ bool ScreenEffects::set_bloom_params(script::Struct* params, int)
 
 // 0x0049E4B0 (the first float is uninitialised in the original when it isn't given; 0 here - only slot 9, which
 // ignores its argument on PC, would see it)
-bool ScreenEffects::set_dof_params(script::Struct* params, script::Script*)
+bool ScreenEffects::set_dof_params(script::Struct* params, script::Script* /*script*/)
 {
     int on = 0;
     if (params->fetch_int_value(kOn, &on, 0))

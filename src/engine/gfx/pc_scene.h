@@ -88,8 +88,8 @@ struct PcScene final : public WorldScene {
     // meshes added to it and sorted.
     void post_load(void* arena) override;
     // (Slots 3 and 4: a shared "true", folded with SaveCard::always_true.)
-    bool load_textures(const char*) override { return true; }
-    bool load_collision(const char*) override { return true; }
+    bool load_textures(const char* /*name*/) override { return true; }
+    bool load_collision(const char* /*name*/) override { return true; }
     // (Slot 6: a shared "false".)
     bool unload_add_scene() override { return false; }
     // 0x004C6190 (slot 7): a new sector. Null if no memory.
@@ -130,8 +130,8 @@ public:
     // 0x004C6420 (slot 6): 0x00705724 on / off.
     void set_dof_on(int on) override;
     // (Slots 7 and 9: a shared function ignoring its argument.)
-    void set_dof_colour_b(uint32_t) override {}
-    void set_dof_value_b(float) override {}
+    void set_dof_colour_b(uint32_t /*colour*/) override {}
+    void set_dof_value_b(float /*value*/) override {}
     // 0x004C6460 (slot 8): 0x0067E994.
     void set_dof_colour_a(uint32_t colour) override;
     // 0x004C6470 (slot 10): 0x0067E984 (the float's bits).

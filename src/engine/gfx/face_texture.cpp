@@ -406,7 +406,7 @@ using gfx::FaceAnchors;
 using script::Struct;
 
 // 0x00486B70
-bool cfunc_set_model_face_texture_points(Struct* params, script::Script*)
+bool cfunc_set_model_face_texture_points(Struct* params, script::Script* /*script*/)
 {
     Struct* points = nullptr;
     params->read_sub_struct("face_points", &points, 0);
@@ -419,7 +419,7 @@ bool cfunc_set_model_face_texture_points(Struct* params, script::Script*)
 }
 
 // 0x00486BC0
-bool cfunc_set_face_massage_texture_overlay(Struct* params, script::Script*)
+bool cfunc_set_face_massage_texture_overlay(Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0u, &name, 0);
@@ -429,7 +429,7 @@ bool cfunc_set_face_massage_texture_overlay(Struct* params, script::Script*)
 }
 
 // 0x00486BF0
-bool cfunc_combine_face_texture_with_overlay(Struct* params, script::Script*)
+bool cfunc_combine_face_texture_with_overlay(Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(gfx::kTexture, &name, 0);
@@ -440,7 +440,7 @@ bool cfunc_combine_face_texture_with_overlay(Struct* params, script::Script*)
 }
 
 // 0x00486EE0
-bool cfunc_adjust_face_texture_to_model(Struct* params, script::Script*)
+bool cfunc_adjust_face_texture_to_model(Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(gfx::kTexture, &name, 0);
@@ -458,7 +458,7 @@ bool cfunc_adjust_face_texture_to_model(Struct* params, script::Script*)
 }
 
 // 0x004872D0
-bool cfunc_massage_face_texture(Struct* params, script::Script*)
+bool cfunc_massage_face_texture(Struct* params, script::Script* /*script*/)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(gfx::kTexture, &name, 0);

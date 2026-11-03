@@ -209,7 +209,7 @@ void update_slot(StreamSlot& slot)
 } // namespace
 
 // 0x00453100
-unsigned long __stdcall stream_thread(void*)
+unsigned long __stdcall stream_thread(void* /*unused*/)
 {
     while (!stop_thread()) {
         if (WaitForSingleObject(stream_lock(), INFINITE) != WAIT_TIMEOUT) {

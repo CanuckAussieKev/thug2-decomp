@@ -439,7 +439,8 @@ ConsoleTimer& console_timer()
     return state.get();
 }
 
-void CALLBACK screen_tick(UINT, UINT, DWORD_PTR, DWORD_PTR, DWORD_PTR)
+void CALLBACK screen_tick(UINT /*unused*/, UINT /*unused*/, DWORD_PTR /*unused*/, DWORD_PTR /*unused*/,
+                          DWORD_PTR /*unused*/)
 {
     // Only while the loading bar's own timer isn't running (it draws the panel then), a loading screen is up, it
     // isn't a frozen frame, and no movie is shown.

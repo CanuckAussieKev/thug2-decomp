@@ -91,8 +91,8 @@ void get_report_missing()
 }
 
 // (debug output, compiled out)
-inline void print_sound_debug(int, int, int) {}
-inline void print_group(int) {}
+inline void print_sound_debug(int /*unused*/, int /*unused*/, int /*unused*/) {}
+inline void print_group(int /*unused*/) {}
 
 } // namespace
 

@@ -140,7 +140,7 @@ bool SkaterPhysicsModule::probe_touches_zone(render::FaceFlag ignore, render::Fa
 }
 
 // 0x00500020
-bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any_time)
+bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void* /*unused*/, bool any_time)
 {
     using RailNode = objects::GrindPoint; // (its succ_ the next node, last_value_ the previous)
     const auto* node = static_cast<const RailNode*>(rail);
@@ -198,7 +198,7 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
 }
 
 // 0x005012B0
-int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script* /*script*/)
 {
     const bool right = params->find_component(kRight) != nullptr;
     const objects::GameEntity* object = object_of(this);
@@ -233,7 +233,7 @@ int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script*)
 }
 
 // 0x00500F10
-int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script* /*script*/)
 {
     objects::GameEntity* object = object_of(this);
     maths::Vec4& start = probe_start_;
@@ -297,7 +297,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
 }
 
 // 0x005013E0
-int SkaterPhysicsModule::set_ammo(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::set_ammo(script::Struct* params, script::Script* /*script*/)
 {
     int& ammo = ammo_;
     const int before = ammo;
@@ -316,7 +316,7 @@ int SkaterPhysicsModule::set_ammo(script::Struct* params, script::Script*)
 
 // 0x005014E0 (some turns by Mat4::RotateY, the others by a rotation matrix and D3DXMatrixMultiply, as the original
 // has them)
-int SkaterPhysicsModule::check_natas_exit_direction(script::Struct* params, script::Script*)
+int SkaterPhysicsModule::check_natas_exit_direction(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t dir = 0; // (left as it was on the stack without one, in the original)
     params->read_hash_value(kDir, &dir, 1);

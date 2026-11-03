@@ -184,8 +184,8 @@ inline bool async_loading_available() { return true; }
 
 // Loading from a CD cache: both are stubs on PC (size 0, load fails) - the folded stubs at 0x005BA1D0 (returns 0)
 // and 0x005B9E50 (returns false).
-inline int cached_file_size(const char*) { return 0; }
-inline bool load_cached_file(const char*, void*) { return false; }
+inline int cached_file_size(const char* /*unused*/) { return 0; }
+inline bool load_cached_file(const char* /*unused*/, void* /*unused*/) { return false; }
 
 // The old name, for existing callers.
 using AsyncFileRef = AsyncFileHandle;

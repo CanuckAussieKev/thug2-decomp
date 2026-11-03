@@ -98,7 +98,7 @@ HookPointRegistryModule::~HookPointRegistryModule()
 }
 
 // 0x00428090
-void HookPointRegistryModule::configure_from_data(script::Struct*)
+void HookPointRegistryModule::configure_from_data(script::Struct* /*params*/)
 {
     ObjectModule* node_array = entity()->fetch_module(WaypointListModule::kType);
     if (ClassNodeList* hooks = hooks_ptr_) {
@@ -123,7 +123,7 @@ GrindPathLinkModule::GrindPathLinkModule() { set_kind_tag(kType); }
 GrindPathLinkModule::~GrindPathLinkModule() = default;
 
 // 0x0042B880
-void GrindPathLinkModule::configure_from_data(script::Struct*)
+void GrindPathLinkModule::configure_from_data(script::Struct* /*params*/)
 {
     ObjectModule* node_array = entity()->fetch_module(WaypointListModule::kType);
     rail_groups_.reset(); // (the old ones destroyed and freed first)

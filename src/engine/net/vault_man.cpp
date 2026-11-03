@@ -655,7 +655,8 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
 }
 
 // 0x0054A660
-void VaultMan::on_progress(void*, int state, const char*, int64_t, int64_t received, int64_t total, VaultMan* vault)
+void VaultMan::on_progress(void* /*unused*/, int state, const char* /*unused*/, int64_t /*unused*/, int64_t received,
+                           int64_t total, VaultMan* vault)
 {
     // (states 3 and 7: receiving the file / posting)
     if ((state == kProgressStatePosting || state == kProgressStateReceiving) && total > 0)
@@ -664,7 +665,7 @@ void VaultMan::on_progress(void*, int state, const char*, int64_t, int64_t recei
 }
 
 // 0x0054A740
-int VaultMan::on_transfer_done(void*, int result, char*, int64_t, VaultMan* vault)
+int VaultMan::on_transfer_done(void* /*unused*/, int result, char* /*unused*/, int64_t /*unused*/, VaultMan* vault)
 {
     vault->progress_ = kProgressComplete;
     vault->outcome_val_ = result != 0 ? 2 : 1;
@@ -672,7 +673,7 @@ int VaultMan::on_transfer_done(void*, int result, char*, int64_t, VaultMan* vaul
 }
 
 // 0x0054A6B0
-int VaultMan::on_file_downloaded(void*, int result, char* buffer, int64_t received, VaultMan* vault)
+int VaultMan::on_file_downloaded(void* /*unused*/, int result, char* buffer, int64_t received, VaultMan* vault)
 {
     vault->progress_ = kProgressComplete;
     if (result != 0) {
@@ -711,7 +712,7 @@ int VaultMan::on_file_downloaded(void*, int result, char* buffer, int64_t receiv
 // --- the script commands ---
 
 // 0x0054AA10: DownloadFile file=<url>: the item, loaded when it comes (on_file_downloaded).
-bool download_file(script::Struct* params, script::Script*)
+bool download_file(script::Struct* params, script::Script* /*script*/)
 {
     const char* file = "";
     params->fetch_text("file", &file, 0);
@@ -730,7 +731,7 @@ bool download_file(script::Struct* params, script::Script*)
 
 // 0x0054B060: UploadFile type data description filename [score width length num_pieces num_gaps num_goals theme
 // tod_script is_male]: the upload on a thread (upload_thread).
-bool upload_file(script::Struct* params, script::Script*)
+bool upload_file(script::Struct* params, script::Script* /*script*/)
 {
     VaultMan* vault = get_vault();
     vault->set_transfer(VaultMan::kUpload);
@@ -764,7 +765,7 @@ bool upload_file(script::Struct* params, script::Script*)
 }
 
 // 0x0054B240
-bool cancel_file_transfer(script::Struct*, script::Script*)
+bool cancel_file_transfer(script::Struct* /*params*/, script::Script* /*script*/)
 {
     VaultMan* vault = get_vault();
     if (vault->transfer() != VaultMan::kNone) {
@@ -778,7 +779,7 @@ bool cancel_file_transfer(script::Struct*, script::Script*)
 
 // 0x0054C290: DownloadDirectoryList <type>: the type's categories and their items (for profile 0x011B0C16, first
 // the uploads list, as an "Uploads" category).
-bool download_directory_list(script::Struct* params, script::Script*)
+bool download_directory_list(script::Struct* params, script::Script* /*script*/)
 {
     const Hub* manager = net_game_state().online_hub();
     VaultMan* vault = manager->vault_man().get();
@@ -810,7 +811,7 @@ bool download_directory_list(script::Struct* params, script::Script*)
 }
 
 // 0x0054C460
-bool free_directory_listing(script::Struct*, script::Script*)
+bool free_directory_listing(script::Struct* /*params*/, script::Script* /*script*/)
 {
     get_vault()->free_directory_listing();
     return true;
@@ -818,7 +819,7 @@ bool free_directory_listing(script::Struct*, script::Script*)
 
 // 0x0054C470: a menu item for each item of the current category (net_vault_menu_add_park / goal / skater / trick),
 // its details as parameters, choosing it gets the file.
-bool fill_vault_menu(script::Struct*, script::Script*)
+bool fill_vault_menu(script::Struct* /*params*/, script::Script* /*script*/)
 {
     const VaultMan* vault = get_vault();
     push_top_down();
@@ -889,14 +890,14 @@ void move_category(script::Script* script, bool forward)
 } // namespace
 
 // 0x0054C770
-bool next_vault_category(script::Struct*, script::Script* script)
+bool next_vault_category(script::Struct* /*params*/, script::Script* script)
 {
     move_category(script, true);
     return true;
 }
 
 // 0x0054C800
-bool prev_vault_category(script::Struct*, script::Script* script)
+bool prev_vault_category(script::Struct* /*params*/, script::Script* script)
 {
     move_category(script, false);
     return true;

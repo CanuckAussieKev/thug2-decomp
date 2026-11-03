@@ -80,7 +80,7 @@ constexpr uint32_t kFilesLeft = 0x0855B2FC;      // "FilesLeft"
 
 // 0x005A6E40. Results for the script: SpaceAvailable (16 KB blocks; 0 until a card is found) and FilesLeft
 // (always 1000000). False without a card.
-bool get_mem_card_space_available(script::Struct*, script::Script* script)
+bool get_mem_card_space_available(script::Struct* /*params*/, script::Script* script)
 {
     script->args().get()->put_int(checksums::Name{kSpaceAvailable}, 0);
     script->args().get()->put_int(checksums::Name{kFilesLeft}, kFilesLeftNoLimit);
@@ -238,10 +238,13 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
 // --- the save state flags -----------------------------------------------------------------------------------
 
 // 0x005A6550
-bool save_failed_due_to_insufficient_space(script::Struct*, script::Script*) { return save_cards_state().out_of_space(); }
+bool save_failed_due_to_insufficient_space(script::Struct* /*params*/, script::Script* /*script*/)
+{
+    return save_cards_state().out_of_space();
+}
 
 // 0x005A6560
-bool set_sections_to_apply_when_loading(script::Struct* params, script::Script*)
+bool set_sections_to_apply_when_loading(script::Struct* params, script::Script* /*script*/)
 {
     debug::printf(
         "ScriptSetSectionsToApplyWhenLoading was called.........................\n"); // "ScriptSetSectionsToApplyWhenLoading was called..."
@@ -261,7 +264,10 @@ bool set_sections_to_apply_when_loading(script::Struct* params, script::Script*)
 }
 
 // 0x005A6600
-bool get_loaded_custom_skater(script::Struct*, script::Script*) { return save_cards_state().loaded_custom_skater(); }
+bool get_loaded_custom_skater(script::Struct* /*params*/, script::Script* /*script*/)
+{
+    return save_cards_state().loaded_custom_skater();
+}
 
 uint32_t& sections_to_apply_when_loading()
 {
@@ -309,7 +315,7 @@ bool get_most_recent_save(script::Struct* params, script::Script* script)
 }
 
 // 0x005A7210
-bool format_card(script::Struct*, script::Script*)
+bool format_card(script::Struct* /*params*/, script::Script* /*script*/)
 {
     pause_music(1);
     freeze_stream(1);
@@ -322,10 +328,10 @@ bool format_card(script::Struct*, script::Script*)
 }
 
 // 0x005A7260
-bool card_is_in_slot(script::Struct*, script::Script*) { return the_card() != nullptr; }
+bool card_is_in_slot(script::Struct* /*params*/, script::Script* /*script*/) { return the_card() != nullptr; }
 
 // 0x005A7280
-bool card_is_formatted(script::Struct*, script::Script*)
+bool card_is_formatted(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (!the_card())
         return false;
@@ -353,21 +359,21 @@ bool get_summary_info(script::Struct* params, script::Script* script)
 }
 
 // 0x005A7430
-bool get_mem_card_data_for_upload(script::Struct*, script::Script* script)
+bool get_mem_card_data_for_upload(script::Struct* /*params*/, script::Script* script)
 {
     script->args().get()->put_name_key(checksums::Name{kType}, save_cards_state().kept_type()); // type
     return true;
 }
 
 // 0x005A7450
-bool get_max_thps4_files_allowed(script::Struct*, script::Script* script)
+bool get_max_thps4_files_allowed(script::Struct* /*params*/, script::Script* script)
 {
     script->args().get()->put_int(checksums::Name{kMaxTHPS4FilesAllowed}, kMaxThps4Files); // MaxTHPS4FilesAllowed
     return true;
 }
 
 // 0x005A7470
-bool switch_to_temp_pools_if_they_exist(script::Struct*, script::Script*)
+bool switch_to_temp_pools_if_they_exist(script::Struct* /*params*/, script::Script* /*script*/)
 {
     ++script::component_pools().current();
     ++script::struct_pools().current();
@@ -382,7 +388,7 @@ bool switch_to_temp_pools_if_they_exist(script::Struct*, script::Script*)
 }
 
 // 0x005A74F0
-bool switch_to_regular_pools(script::Struct*, script::Script*)
+bool switch_to_regular_pools(script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (script::component_pools().current() || script::struct_pools().current() || script::vector_pools().current()) {
         --script::component_pools().current();

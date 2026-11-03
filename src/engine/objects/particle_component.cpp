@@ -218,7 +218,7 @@ void EffectsEmitterModule::conceal(bool hide) { effect_handle_->conceal(hide); }
 // --- script member functions ---
 
 // 0x00429970
-bool EffectsEmitterModule::set_emit_rate(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_emit_rate(script::Struct* params, script::Script* /*script*/)
 {
     const float value = unnamed_float(params);
     if (effect_handle_)
@@ -227,7 +227,7 @@ bool EffectsEmitterModule::set_emit_rate(script::Struct* params, script::Script*
 }
 
 // 0x004299A0
-bool EffectsEmitterModule::set_lifespan(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_lifespan(script::Struct* params, script::Script* /*script*/)
 {
     const float value = unnamed_float(params);
     if (effect_handle_) {
@@ -238,7 +238,7 @@ bool EffectsEmitterModule::set_lifespan(script::Struct* params, script::Script*)
 }
 
 // 0x004299E0
-bool EffectsEmitterModule::set_float_19a_f_74d_1(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_float_19a_f_74d_1(script::Struct* params, script::Script* /*script*/)
 {
     const float value = unnamed_float(params);
     if (effect_handle_) {
@@ -249,7 +249,7 @@ bool EffectsEmitterModule::set_float_19a_f_74d_1(script::Struct* params, script:
 }
 
 // 0x00429A20
-bool EffectsEmitterModule::change_midpoint_fraction(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::change_midpoint_fraction(script::Struct* params, script::Script* /*script*/)
 {
     const float value = unnamed_float(params);
     if (effect_handle_) {
@@ -299,57 +299,57 @@ bool change_colour(EffectsEmitterModule* component, script::Struct* params, int 
 }
 } // namespace
 
-bool EffectsEmitterModule::set_start_radius(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_start_radius(script::Struct* params, script::Script* /*script*/)
 {
     return set_reach(this, params, 0);
 } // 0x00429A60
-bool EffectsEmitterModule::set_mid_radius(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_mid_radius(script::Struct* params, script::Script* /*script*/)
 {
     return set_reach(this, params, 1);
 } // 0x00429AA0
-bool EffectsEmitterModule::set_end_radius(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_end_radius(script::Struct* params, script::Script* /*script*/)
 {
     return set_reach(this, params, 2);
 } // 0x00429AE0
-bool EffectsEmitterModule::set_start_pos(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_start_pos(script::Struct* params, script::Script* /*script*/)
 {
     return change_location(this, params, 0);
 } // 0x00429C10
-bool EffectsEmitterModule::set_mid_pos(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_mid_pos(script::Struct* params, script::Script* /*script*/)
 {
     return change_location(this, params, 1);
 } // 0x00429C50
-bool EffectsEmitterModule::set_end_pos(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_end_pos(script::Struct* params, script::Script* /*script*/)
 {
     return change_location(this, params, 2);
 } // 0x00429C90
-bool EffectsEmitterModule::set_start_box(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_start_box(script::Struct* params, script::Script* /*script*/)
 {
     return set_box(this, params, 0);
 } // 0x00429CD0
-bool EffectsEmitterModule::set_mid_box(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_mid_box(script::Struct* params, script::Script* /*script*/)
 {
     return set_box(this, params, 1);
 } // 0x00429D10
-bool EffectsEmitterModule::set_end_box(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_end_box(script::Struct* params, script::Script* /*script*/)
 {
     return set_box(this, params, 2);
 } // 0x00429D50
-bool EffectsEmitterModule::set_start_color(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_start_color(script::Struct* params, script::Script* /*script*/)
 {
     return change_colour(this, params, 0);
 } // 0x00429DD0
-bool EffectsEmitterModule::set_mid_color(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_mid_color(script::Struct* params, script::Script* /*script*/)
 {
     return change_colour(this, params, 1);
 } // 0x00429E50
-bool EffectsEmitterModule::set_end_color(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_end_color(script::Struct* params, script::Script* /*script*/)
 {
     return change_colour(this, params, 2);
 } // 0x00429ED0
 
 // 0x00429D90
-bool EffectsEmitterModule::set_emit_target(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_emit_target(script::Struct* params, script::Script* /*script*/)
 {
     params->read_hash_value(0u, &emit_target_, 1);
     if (effect_handle_)
@@ -358,7 +358,7 @@ bool EffectsEmitterModule::set_emit_target(script::Struct* params, script::Scrip
 }
 
 // 0x00429F50
-bool EffectsEmitterModule::set_flag_5446a_f14(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_flag_5446a_f14(script::Struct* params, script::Script* /*script*/)
 {
     int value = 0;
     params->fetch_int_value(0u, &value, 0);
@@ -368,7 +368,7 @@ bool EffectsEmitterModule::set_flag_5446a_f14(script::Struct* params, script::Sc
 }
 
 // 0x00429F90
-bool EffectsEmitterModule::set_color_55835c_f2(script::Struct* params, script::Script*)
+bool EffectsEmitterModule::set_color_55835c_f2(script::Struct* params, script::Script* /*script*/)
 {
     script::Array* array = nullptr;
     params->fetch_list(0u, &array, 1);
@@ -568,7 +568,7 @@ void EffectsEmitterModule::tick_frame()
 }
 
 // 0x0042AEE0
-int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, script::Script*)
+int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* /*params*/, script::Script* /*script*/)
 {
     if (name == kEmitting) {
         return effect_handle_->is_emitting() ? 1 : 0;
@@ -591,7 +591,7 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, 
 }
 
 // 0x0042B040
-bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* script)
+bool EffectsEmitterModule::get_particle_params(script::Struct* /*params*/, script::Script* script)
 {
     gsl::owner<script::Struct*> result = script::spawn_param_bag();
     if (result)

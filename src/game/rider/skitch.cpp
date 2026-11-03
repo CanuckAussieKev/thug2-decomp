@@ -55,10 +55,13 @@ TowRideHandler::TowRideHandler() { set_kind_tag(kType); }
 TowRideHandler::~TowRideHandler() = default;
 
 // 0x0051B9B0
-void TowRideHandler::configure_from_data(script::Struct*) { hooks_ = entity()->fetch_module(kObjectHookManager); }
+void TowRideHandler::configure_from_data(script::Struct* /*params*/)
+{
+    hooks_ = entity()->fetch_module(kObjectHookManager);
+}
 
 // 0x0051B9D0
-int TowRideHandler::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script*)
+int TowRideHandler::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name != kAllowSkitching)
         return 2;

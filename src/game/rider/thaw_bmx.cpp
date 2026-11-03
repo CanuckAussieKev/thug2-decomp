@@ -147,7 +147,7 @@ bool load_assets()
 }
 
 // ThawBmx_Available: the feature on (and the overlay's scripts there) - the pause menu's RIDE BMX item.
-bool cfunc_available(script::Struct*, script::Script*)
+bool cfunc_available(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return is_switched_on() && script::script_exists(name_hash(kToggleScript));
 }

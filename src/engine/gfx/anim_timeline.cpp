@@ -249,7 +249,10 @@ void* AnimDriver::operator new(std::size_t size) noexcept
 void AnimDriver::operator delete(void* memory) { memory::dealloc(memory); }
 
 // 0x0051ADC0 (the base's slot 3, shared with components without member functions): not its own.
-int AnimDriver::invoke_method_by_name(uint32_t, script::Struct*, script::Script*) { return 2; }
+int AnimDriver::invoke_method_by_name(uint32_t /*unused*/, script::Struct* /*params*/, script::Script* /*script*/)
+{
+    return 2;
+}
 
 // 0x00481740
 void AnimDriver::configure_from_data(script::Struct* params) { params->read_hash_value(kId, &ident_, 0); }

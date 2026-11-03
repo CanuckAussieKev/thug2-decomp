@@ -62,7 +62,7 @@ public:
     // 0x004AAFF0: the root unregistered: the first element without a parent becomes the root.
     void drop_entity_registration(objects::Entity* object) override;
     // (slot 5: an empty stub - a dead element stays where it is)
-    void remove_entity(objects::Entity*) override {}
+    void remove_entity(objects::Entity* /*object*/) override {}
 
     // --- elements ---
     // 0x004AAE20: the object with the id (any object: the tracker's lookup) as a smart pointer into `out`;

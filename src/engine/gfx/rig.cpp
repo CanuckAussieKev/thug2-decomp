@@ -151,7 +151,7 @@ bool RigData::is_descendant(uint32_t bone, uint32_t ancestor)
 }
 
 // 0x004A39C0
-bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
+bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool /*unused*/)
 {
     // Read through skeleton_format's reader, bounded by the file's size. Not original - a skeleton
     // cut short or with more than 64 bones (the arrays' size: the original copied any count into them) is read as
