@@ -22,6 +22,9 @@
 
 namespace sys {
 
+constexpr int kMinClientWidth = 640;
+constexpr int kMinClientHeight = 480;
+
 namespace {
 
 // NOT ORIGINAL grouping - sdl_window.cpp's state (the original's globals). Made on first use, never destroyed
@@ -112,10 +115,10 @@ void create_sdl_window()
         sdl_window_state().client_width_ = desktop.w;
         sdl_window_state().client_height_ = desktop.h;
     }
-    if (sdl_window_state().client_width_ < 640)
-        sdl_window_state().client_width_ = 640;
-    if (sdl_window_state().client_height_ < 480)
-        sdl_window_state().client_height_ = 480;
+    if (sdl_window_state().client_width_ < kMinClientWidth)
+        sdl_window_state().client_width_ = kMinClientWidth;
+    if (sdl_window_state().client_height_ < kMinClientHeight)
+        sdl_window_state().client_height_ = kMinClientHeight;
 
     sdl_window_state().window_ = SDL_CreateWindow("THUG2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, sdl_window_state().client_width_,
                                 sdl_window_state().client_height_, flags);

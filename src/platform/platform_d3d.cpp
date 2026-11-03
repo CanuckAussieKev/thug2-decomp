@@ -16,6 +16,11 @@
 
 namespace os_layer {
 
+constexpr int kIndicesPerQuad = 6;      // two triangles
+constexpr int kQuadLastIndexSlot = 5;   // the second triangle's third index
+constexpr int kVertexAlignSlack = 0x1F; // dynamic vertices start on 32 bytes
+constexpr unsigned kVertexAlignMask = 0x1Fu;
+
 namespace {
 
 // NOT ORIGINAL grouping - platform_d3d.cpp's state (the original's globals). Made on first use, never destroyed
@@ -90,18 +95,18 @@ void release_quad_index_buffer()
 HRESULT create_quad_index_buffer(uint32_t quads)
 {
     uint16_t* index = nullptr;
-    render::renderer().d3d_device()->CreateIndexBuffer(quads * 6 * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
+    render::renderer().d3d_device()->CreateIndexBuffer(quads * kIndicesPerQuad * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
                                     &render::quad_index_buffer(), nullptr);
     render::quad_index_buffer()->Lock(0, 0, raw::as<void*>(&index), 0);
     const std::span<uint16_t> indices(index, static_cast<size_t>(quads) * 6);
     size_t at = 0;
-    for (uint32_t quad = 0, first = 0; quad < quads; ++quad, first += 4, at += 6) {
+    for (uint32_t quad = 0, first = 0; quad < quads; ++quad, first += 4, at += kIndicesPerQuad) {
         core::at(indices, at) = static_cast<uint16_t>(first);
         core::at(indices, at + 1) = static_cast<uint16_t>(first + 1);
         core::at(indices, at + 2) = static_cast<uint16_t>(first + 2);
         core::at(indices, at + 3) = static_cast<uint16_t>(first + 2);
         core::at(indices, at + 4) = static_cast<uint16_t>(first + 3);
-        core::at(indices, at + 5) = static_cast<uint16_t>(first);
+        core::at(indices, at + kQuadLastIndexSlot) = static_cast<uint16_t>(first);
     }
     return render::quad_index_buffer()->Unlock();
 }
@@ -136,7 +141,7 @@ void unlock_dynamic_vertices(uint32_t count, uint32_t stride)
 {
     dynamic_vertices()->Unlock();
     dynamic_vertices_locked() = nullptr;
-    dynamic_vertices_used() = (count * stride + dynamic_vertices_used() + 0x1F) & ~0x1Fu;
+    dynamic_vertices_used() = (count * stride + dynamic_vertices_used() + kVertexAlignSlack) & ~kVertexAlignMask;
 }
 
 // 0x005F4840

@@ -18,6 +18,8 @@
 
 namespace os_layer {
 
+constexpr int kFillAllOnes = 0xFF; // memset's byte: every control starts as all ones
+
 // 0x005F3A50. Originally from PartyMod Fixes: rumble on the SDL game controller playing as `port` (PartyMod jumped from here). The
 // original drove the port's DirectInput force-feedback effect (0x007D6668[port]):
 //     if (!effect) return;
@@ -62,7 +64,7 @@ bool init_input(HINSTANCE instance, HWND window, int config)
     core::at(platform_state().force_resolutions(), 1) = 0;
     core::at(platform_state().force_resolutions(), 2) = 0;
     core::at(platform_state().force_resolutions(), 3) = 0;
-    std::memset(os_layer::get_controls().data(), 0xFF, sizeof(os_layer::get_controls()));
+    std::memset(os_layer::get_controls().data(), kFillAllOnes, sizeof(os_layer::get_controls()));
     render::renderer().set_antialiasing(false);
     render::view_setup().set_hq_shadows(0);
     render::view_setup().set_fog_setting(false);

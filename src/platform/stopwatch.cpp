@@ -14,6 +14,11 @@
 
 namespace frame_clock {
 
+constexpr float kDefaultVblanksPerSecond = 60.0f;
+constexpr int kStallVblanks = 10;       // a history entry of more vblanks than this is a stall
+constexpr float kHistoryWeight = 0.25f; // the frame length is the mean of the last four
+constexpr double kHistoryWeightDouble = 0.25;
+
 namespace {
 
 // NOT ORIGINAL grouping - stopwatch.cpp's state (the original's globals). Made on first use, never destroyed
@@ -21,7 +26,7 @@ namespace {
 struct StopwatchState {
     float slomo_{1.0f};
     float next_slomo_{1.0f};
-    float vblanks_per_second_{60.0f};
+    float vblanks_per_second_{kDefaultVblanksPerSecond};
     float frame_length_{};
     double raw_step_seconds_{};
     uint64_t last_frame_vblank_{};
@@ -65,7 +70,9 @@ struct TimingBlock {
     uint64_t previous_frame_vblank_;
     int history_index_;
 };
-static_assert(sizeof(TimingBlock) == 0x38, "the timing block's size");
+constexpr std::size_t kTimingBlockBytes = 0x38;
+
+static_assert(sizeof(TimingBlock) == kTimingBlockBytes, "the timing block's size");
 TimingBlock& saved_timing_block()
 {
     static core::NoDestroy<TimingBlock> saved_timing_block;
@@ -92,7 +99,7 @@ float& vblanks_per_second() { return stopwatch_state().vblanks_per_second_; }
 // A history entry's weight: 0-4 vblanks; anything outside 0-10 (a stall) counts as 1.
 int get_clamped(int vblanks)
 {
-    if (vblanks > 10 || vblanks < 0)
+    if (vblanks > kStallVblanks || vblanks < 0)
         return 1;
     return vblanks > 4 ? 4 : vblanks;
 }
@@ -162,10 +169,10 @@ void update_frame_length()
     const int clamped = get_clamped(core::at(h, 0)) + get_clamped(core::at(h, 1)) + get_clamped(core::at(h, 2)) + get_clamped(core::at(h, 3));
     const int raw = static_cast<int>(static_cast<uint32_t>(core::at(h, 0)) + core::at(h, 1) + core::at(h, 2) + core::at(h, 3)); // (wraps, as the original)
     get_slomo() = next_slomo();
-    get_frame_length() = static_cast<float>(clamped) * 0.25f;
-    if (clamped * 0.25 < 1.0)
+    get_frame_length() = static_cast<float>(clamped) * kHistoryWeight;
+    if (clamped * kHistoryWeightDouble < 1.0)
         get_frame_length() = 1.0f;
-    raw_frame_duration() = raw * 0.25;
+    raw_frame_duration() = raw * kHistoryWeightDouble;
 }
 
 // 0x005BE920
@@ -197,7 +204,7 @@ uint32_t get_time()
 double get_frame_seconds() { return raw_frame_duration() / vblanks_per_second(); }
 
 // 0x005BEAA0 (the original leaves the unrounded product on the x87 stack)
-double get_slomo_frame_seconds() { return get_slomo() * static_cast<double>(1.0f / 60.0f); }
+double get_slomo_frame_seconds() { return get_slomo() * static_cast<double>(1.0f / kDefaultVblanksPerSecond); }
 
 // 0x005BE8F0
 float get_time_scale() { return get_slomo(); }

@@ -38,6 +38,31 @@
 
 namespace {
 
+// Decoding a CALL before a return address (see after_call): the bytes looked at, the opcodes, the ModRM byte's fields.
+constexpr int kCallLookback = 7;
+constexpr int kCallRel32Opcode = 0xE8;
+constexpr int kCallIndirectOpcode = 0xFF;
+constexpr int kModRmBase = 8;
+constexpr int kModRmFieldMask = 7;
+
+// The stack scans and the dump of the top of the stack (eight words a line: the words 0-4 are not named).
+constexpr int kStackScanAddresses = 24;
+constexpr int kStackScanBytes = 0x2000;
+constexpr std::size_t kBacktraceFrames = 24;
+constexpr int kStackDumpBytes = 0x80;
+constexpr int kStackDumpLineBytes = 0x20;
+constexpr int kDumpWord5 = 5;
+constexpr int kDumpWord6 = 6;
+constexpr int kDumpWord7 = 7;
+
+constexpr int kExecuteFault = 8; // ExceptionInformation[0]: the fault was an instruction fetch (DEP)
+constexpr std::size_t kReportTextSize = 1024;
+constexpr std::size_t kReportWideSize = 512;
+constexpr uint32_t kStatusStackBufferOverrun = 0xC0000409u;  // STATUS_STACK_BUFFER_OVERRUN
+constexpr uint32_t kStatusHeapCorruption = 0xC0000374u;      // STATUS_HEAP_CORRUPTION
+constexpr uint32_t kStatusInvalidCrtParameter = 0xC0000417u; // STATUS_INVALID_CRUNTIME_PARAMETER
+constexpr int kHangSleepMs = 1000;
+
 // NOT ORIGINAL grouping - crash.cpp's state (were globals). Made on first use, never destroyed (crash_state()).
 struct CrashState {
     bool console_ = false;
@@ -112,13 +137,13 @@ bool readable(uintptr_t address, size_t size, bool code)
 // Whether `address` follows a CALL instruction (E8 rel32, FF /2 with a 0-, 1- or 4-byte displacement or SIB).
 bool after_call(uintptr_t address)
 {
-    if (!readable(address - 7, 7, true))
+    if (!readable(address - kCallLookback, kCallLookback, true))
         return false;
     const std::span<const uint8_t, 7> before(cell::pointer<const uint8_t>(address - 7), 7); // (the 7 bytes before)
-    if (core::at(before, 2) == 0xE8)
+    if (core::at(before, 2) == kCallRel32Opcode)
         return true;
     for (const int length : {2, 3, 4, 6, 7}) {
-        if (core::at(before, 7 - length) == 0xFF && ((core::at(before, 8 - length) >> 3) & 7) == 2)
+        if (core::at(before, kCallLookback - length) == kCallIndirectOpcode && ((core::at(before, kModRmBase - length) >> 3) & kModRmFieldMask) == 2)
             return true;
     }
     return false;
@@ -134,7 +159,7 @@ void crash_log_stack_scan(uintptr_t esp)
     std::array<char, MAX_PATH> name = {"?"};
     uintptr_t offset = 0;
     int found = 0;
-    for (uintptr_t slot = esp; found < 24 && slot < esp + 0x2000; slot += 4) {
+    for (uintptr_t slot = esp; found < kStackScanAddresses && slot < esp + kStackScanBytes; slot += 4) {
         if (!readable(slot, 4, false))
             break;
         const uintptr_t value = *cell::pointer<const uint32_t>(slot);
@@ -152,7 +177,7 @@ namespace {
 // game's as they are.
 void log_backtrace()
 {
-    std::array<void*, 24> frames{};
+    std::array<void*, kBacktraceFrames> frames{};
     const USHORT count = CaptureStackBackTrace(2, 24, frames.data(), nullptr);
     for (USHORT i = 0; i < count; ++i) {
         std::array<char, MAX_PATH> name = {"?"};
@@ -174,7 +199,7 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
             static_cast<unsigned>(c->Eip), note);
     if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2)
         get_log("  %s address %08X",
-                info->ExceptionRecord->ExceptionInformation[0] == 8   ? "executing"
+                info->ExceptionRecord->ExceptionInformation[0] == kExecuteFault   ? "executing"
                 : info->ExceptionRecord->ExceptionInformation[0] != 0 ? "writing"
                                                                       : "reading",
                 static_cast<unsigned>(info->ExceptionRecord->ExceptionInformation[1]));
@@ -183,13 +208,13 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
             static_cast<unsigned>(c->Esi), static_cast<unsigned>(c->Edi), static_cast<unsigned>(c->Ebp),
             static_cast<unsigned>(c->Esp));
     // The top of the stack as it is (arguments, saved registers, locals).
-    for (uintptr_t slot = c->Esp; slot < c->Esp + 0x80; slot += 0x20) {
-        if (!readable(slot, 0x20, false))
+    for (uintptr_t slot = c->Esp; slot < c->Esp + kStackDumpBytes; slot += kStackDumpLineBytes) {
+        if (!readable(slot, kStackDumpLineBytes, false))
             break;
         const std::span<const uint32_t, 8> w(cell::pointer<const uint32_t>(slot), 8);
         get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp),
-                core::at(w, 0), core::at(w, 1), core::at(w, 2), core::at(w, 3), core::at(w, 4), core::at(w, 5),
-                core::at(w, 6), core::at(w, 7));
+                core::at(w, 0), core::at(w, 1), core::at(w, 2), core::at(w, 3), core::at(w, 4), core::at(w, kDumpWord5),
+                core::at(w, kDumpWord6), core::at(w, kDumpWord7));
     }
     crash_log_stack_scan(c->Esp);
 }
@@ -268,7 +293,7 @@ void abort_signal(int)
 // on the console it ends the run); an error (heap corruption...) ends the process.
 int crt_report_hook(int type, char* message, int* return_value)
 {
-    std::array<char, 1024> text{};
+    std::array<char, kReportTextSize> text{};
     strncpy_s(text.data(), text.size(), message ? message : "", _TRUNCATE);
     for (size_t n = strlen(text.data()); n && (core::at(text, n - 1) == '\n' || core::at(text, n - 1) == '\r'); --n)
         core::at(text, n - 1) = '\0';
@@ -287,7 +312,7 @@ int crt_report_hook(int type, char* message, int* return_value)
 // NOLINTNEXTLINE(modernize-avoid-variadic-functions): the C runtime's callback type (_RTC_error_fnW) is variadic
 int rtc_error_handler(int type, const wchar_t*, int, const wchar_t*, const wchar_t* format, ...)
 {
-    std::array<wchar_t, 512> text{};
+    std::array<wchar_t, kReportWideSize> text{};
     va_list args = nullptr;
     va_start(args, format);
     if (format)
@@ -338,9 +363,9 @@ bool is_fatal_exception(uint32_t code, bool* any_module)
     case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
     case EXCEPTION_IN_PAGE_ERROR:
         return true;
-    case 0xC0000409: // STATUS_STACK_BUFFER_OVERRUN (raised the old way; a fast fail never gets here)
-    case 0xC0000374: // STATUS_HEAP_CORRUPTION (ntdll's heap)
-    case 0xC0000417: // STATUS_INVALID_CRUNTIME_PARAMETER
+    case kStatusStackBufferOverrun: // STATUS_STACK_BUFFER_OVERRUN (raised the old way; a fast fail never gets here)
+    case kStatusHeapCorruption: // STATUS_HEAP_CORRUPTION (ntdll's heap)
+    case kStatusInvalidCrtParameter: // STATUS_INVALID_CRUNTIME_PARAMETER
     case EXCEPTION_NONCONTINUABLE_EXCEPTION:
         *any_module = true;
         return true;
@@ -488,7 +513,7 @@ bool cause_test_fault(TestFault fault)
         __fastfail(2); // FAST_FAIL_STACK_COOKIE_CHECK_FAILURE
     case TestFault::kHang:
         for (;;)
-            Sleep(1000);
+            Sleep(kHangSleepMs);
     }
     // (a handler returned: nothing ended the process)
     get_log("crash test: %s - still running after it", test_fault_name(fault));

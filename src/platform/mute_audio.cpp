@@ -12,13 +12,15 @@
 
 namespace sound {
 
+constexpr int kMutedAttenuation = 10000; // the attenuation, in hundredths of a decibel, that is silence
+
 bool& audio_muted()
 {
     static bool muted = config_int("features", "mute_audio", 0) != 0;
     return muted;
 }
 
-int output_attenuation(int attenuation) { return audio_muted() ? -10000 : attenuation; }
+int output_attenuation(int attenuation) { return audio_muted() ? -kMutedAttenuation : attenuation; }
 
 int output_bink_volume(int volume) { return audio_muted() ? 0 : volume; }
 

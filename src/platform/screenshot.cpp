@@ -62,6 +62,24 @@
 
 namespace sys::screenshot {
 
+constexpr std::size_t kHashTextSize = 16;
+constexpr std::size_t kVectorTextSize = 96;
+constexpr std::size_t kFileInfoTextSize = 64;
+constexpr std::size_t kFieldTextSize = 256;
+constexpr std::size_t kTakenTextSize = 64;
+constexpr std::size_t kMouseNoteSize = 96;
+constexpr std::size_t kSeriesLineSize = 96;
+constexpr std::size_t kKeySettingSize = 64;
+constexpr int kHighWordShift = 32;
+constexpr int kNoteFrames = 10; // the sidecar's note holds for this many frames
+constexpr double kMillisecondsPerSecond = 1000.0;
+constexpr float kMessageX = 320.0f; // the on-screen note's place
+constexpr float kMessageY = 40.0f;
+constexpr int kMessageStaleMs = 10000; // a note nobody took down goes after this long
+constexpr int kMinCrossSize = 12;      // the mouse cross: at least this many pixels, a 60th of the height
+constexpr int kCrossDivisor = 60;
+constexpr int kTmYearBase = 1900;
+
 namespace {
 
 constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // load_mainmenu (the skate module's level in the front end)
@@ -138,7 +156,7 @@ std::string get_name_of(uint32_t checksum)
 {
     if (const char* name = script::look_up_hash_name(checksum))
         return name;
-    std::array<char, 16> text{};
+    std::array<char, kHashTextSize> text{};
     text::format_to(text, "0x%08X", checksum);
     return text.data();
 }
@@ -155,7 +173,7 @@ objects::GameEntity* local_skater()
 
 std::string vec(std::span<const float, 3> v, int places = 1)
 {
-    std::array<char, 96> text{};
+    std::array<char, kVectorTextSize> text{};
     text::format_to(text, "(%.*f, %.*f, %.*f)", places, core::at(v, 0), places, core::at(v, 1), places, core::at(v, 2));
     return text.data();
 }
@@ -177,9 +195,9 @@ std::string file_time(const char* path)
     SYSTEMTIME t;
     if (!FileTimeToLocalFileTime(&data.ftLastWriteTime, &local) || !FileTimeToSystemTime(&local, &t))
         return {};
-    std::array<char, 64> text{};
+    std::array<char, kFileInfoTextSize> text{};
     text::format_to(text, "%04u-%02u-%02u %02u:%02u:%02u, %llu bytes", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute,
-                    t.wSecond, (static_cast<unsigned long long>(data.nFileSizeHigh) << 32) | data.nFileSizeLow);
+                    t.wSecond, (static_cast<unsigned long long>(data.nFileSizeHigh) << kHighWordShift) | data.nFileSizeLow);
     return text.data();
 }
 
@@ -197,7 +215,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     const std::string folder(files.folder);
     const std::string taken(files.taken);
     std::vector<Section> sections;
-    std::array<char, 256> text{};
+    std::array<char, kFieldTextSize> text{};
 
     Section shot{.title = "screenshot", .fields = {}};
     shot.fields.push_back({.key = "file", .value = png});
@@ -265,7 +283,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
     sections.push_back(skater);
 
     Section camera{.title = "camera", .fields = {}};
-    if (view().noted && frame_loop::frames_run() - view().frame < 10) {
+    if (view().noted && frame_loop::frames_run() - view().frame < kNoteFrames) {
         camera.fields.push_back({.key = "position", .value = vec(view().pos)});
         camera.fields.push_back({.key = "looking along", .value = vec(view().forward, 3)});
     }
@@ -285,7 +303,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, ShotFiles files)
 void show_message(const std::string& text)
 {
     if (frontend::level_editor::live_now()) {
-        frontend::level_editor::hud::get_message(text, kMessageMs / 1000.0);
+        frontend::level_editor::hud::get_message(text, kMessageMs / kMillisecondsPerSecond);
         return;
     }
     // A panel message (as the restart tester's), once the game's scripts are up.
@@ -296,7 +314,7 @@ void show_message(const std::string& text)
     gsl::owner<script::Struct*> params = script::new_struct();
     params->append_word(crc("text"), text.c_str());
     params->put_name_key(checksums::Name{crc("id")}, crc("thug2_decomp_screenshot_message"));
-    params->insert_pair(checksums::Name{crc("pos")}, {.x = 320.0f, .y = screenshot_job().message_y_});
+    params->insert_pair(checksums::Name{crc("pos")}, {.x = kMessageX, .y = screenshot_job().message_y_});
     params->put_int(checksums::Name{crc("time")}, static_cast<int>(kMessageMs));
     script::spawn_script(kScript, params);
     params->get_clear();
@@ -307,7 +325,7 @@ void tick_message()
 {
     if (screenshot_job().message_.empty())
         return;
-    if (SDL_GetTicks() - screenshot_job().message_since_ > 10000) {
+    if (SDL_GetTicks() - screenshot_job().message_since_ > kMessageStaleMs) {
         screenshot_job().message_.clear();
         return;
     }
@@ -315,7 +333,7 @@ void tick_message()
         return;
     show_message(screenshot_job().message_);
     screenshot_job().message_.clear();
-    screenshot_job().message_y_ = 40.0f;
+    screenshot_job().message_y_ = kMessageY;
 }
 
 // --- taking and writing ---
@@ -328,7 +346,7 @@ void emit_out(const std::shared_ptr<Job>& job)
     const bool read = to_rgb(job->frame, &rgb);
     if (read)
         mark_cursor(&rgb, job->frame.width, job->frame.height, job->mouse_x_, job->mouse_y_,
-                    std::max(12, job->frame.height / 60));
+                    std::max(kMinCrossSize, job->frame.height / kCrossDivisor));
     if (!read) {
         job->error = "the pixels couldn't be read";
     } else if (!encode_png(rgb.data(), job->frame.width, job->frame.height, &png)) {
@@ -356,7 +374,7 @@ void emit_out(const std::shared_ptr<Job>& job)
     QueryPerformanceCounter(&end);
     QueryPerformanceFrequency(&frequency);
     job->milliseconds =
-        static_cast<double>(end.QuadPart - start.QuadPart) * 1000.0 / static_cast<double>(frequency.QuadPart);
+        static_cast<double>(end.QuadPart - start.QuadPart) * kMillisecondsPerSecond / static_cast<double>(frequency.QuadPart);
     job->done = true;
 }
 
@@ -422,7 +440,7 @@ void get_take()
         get_log("screenshot: no free name in %s", folder.c_str());
         return;
     }
-    std::array<char, 64> taken{};
+    std::array<char, kTakenTextSize> taken{};
     text::format_to(taken, "%04d-%02d-%02d %02d:%02d:%02d", stamp.year, stamp.month, stamp.day, stamp.hour,
                     stamp.minute, stamp.second);
     auto job = std::make_shared<Job>();
@@ -437,7 +455,7 @@ void get_take()
     if (w > 0 && h > 0) {
         job->mouse_x_ = static_cast<int>(static_cast<long long>(mx) * frame.width / w);
         job->mouse_y_ = static_cast<int>(static_cast<long long>(my) * frame.height / h);
-        std::array<char, 96> at{};
+        std::array<char, kMouseNoteSize> at{};
         text::format_to(at, "(%d, %d) in the image (marked with a cross)", job->mouse_x_, job->mouse_y_);
         mouse = at.data();
     } else {
@@ -528,8 +546,8 @@ void take_series_frame()
         std::time_t now = std::time(nullptr);
         std::tm local = {};
         localtime_s(&local, &now);
-        std::array<char, 64> taken{};
-        text::format_to(taken, "%04d-%02d-%02d %02d:%02d:%02d", local.tm_year + 1900, local.tm_mon + 1, local.tm_mday,
+        std::array<char, kTakenTextSize> taken{};
+        text::format_to(taken, "%04d-%02d-%02d %02d:%02d:%02d", local.tm_year + kTmYearBase, local.tm_mon + 1, local.tm_mday,
                         local.tm_hour, local.tm_min, local.tm_sec);
         std::vector<Section> sections = gather_sections(frame, {.png = series_frame_name(1), .folder = series->folder, .taken = taken.data()});
         sections.front().title = "series";
@@ -542,7 +560,7 @@ void take_series_frame()
         Sleep(1);
     ++series->in_flight_;
     const int number = ++series->taken;
-    std::array<char, 96> line{};
+    std::array<char, kSeriesLineSize> line{};
     text::format_to(line, "%5d  %10u  %10llu  %10u\n", number, frame_loop::frames_run(),
                     static_cast<unsigned long long>(frame_clock::fetch_retrace_count()), frame_clock::get_time());
     series->times += line.data();
@@ -608,7 +626,7 @@ void prepare_all()
         return;
     }
     const bool snipping = get_snipping_takes_print_screen();
-    std::array<char, 64> setting = {""};
+    std::array<char, kKeySettingSize> setting = {""};
     build_info::fetch_text(build_info::kKeybinds, "Screenshot", "", setting.data(), sizeof(setting));
     const int fallback = default_key(snipping);
     auto by_name = [](const std::string& name) { return static_cast<int>(SDL_GetScancodeFromName(name.c_str())); };
@@ -677,7 +695,7 @@ std::string start_series(int frames, const std::string& folder)
         std::tm local = {};
         localtime_s(&local, &now);
         path = series_folder_name(
-            {.year = local.tm_year + 1900, .month = local.tm_mon + 1, .day = local.tm_mday, .hour = local.tm_hour, .minute = local.tm_min, .second = local.tm_sec});
+            {.year = local.tm_year + kTmYearBase, .month = local.tm_mon + 1, .day = local.tm_mday, .hour = local.tm_hour, .minute = local.tm_min, .second = local.tm_sec});
     }
     const bool absolute = path.size() >= 2 && (core::at(path, 1) == ':' || (core::at(path, 0) == '\\' && core::at(path, 1) == '\\'));
     if (!absolute)
@@ -720,7 +738,7 @@ std::string series_result() { return series_result_state(); }
 
 bool last_view(std::span<float, 3> position, std::span<float, 3> forward)
 {
-    if (!view().noted || frame_loop::frames_run() - view().frame >= 10)
+    if (!view().noted || frame_loop::frames_run() - view().frame >= kNoteFrames)
         return false;
     for (int i = 0; i < 3; ++i) {
         core::at(position, i) = core::at(view().pos, i);

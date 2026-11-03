@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include "platform/crt.h"
+#include "platform/all_ones.h"
 #include "platform/code_address.h"
 #include "engine/core/checked_index.h"
 
@@ -20,6 +21,15 @@
 #include "engine/core/raw_view.h"
 
 namespace crt {
+
+// host_first_address: the address bytes in the order of a little-endian word.
+constexpr int kShiftByte1 = 8;
+constexpr int kShiftByte2 = 16;
+constexpr int kShiftByte3 = 24;
+// game_qsort: the stack of ranges still to sort, and the size up to which a range is sorted by insertion.
+constexpr std::size_t kQsortStackDepth = 30;
+constexpr std::size_t kInsertionSortLimit = 8;
+constexpr int kLowerCaseOffset = 0x20; // 'a' - 'A'
 
 void* library_function(Dll dll, const char* name)
 {
@@ -53,10 +63,10 @@ uint32_t host_first_address(const char* name)
 {
     const hostent* host = gethostbyname(name);
     if (!host)
-        return 0xFFFFFFFF;
+        return platform::kAllOnes;
     const std::span<const uint8_t> first(raw::bytes(*host->h_addr_list), 4); // (Winsock's char* address bytes)
-    return core::at(first, 0) | core::at(first, 1) << 8 | core::at(first, 2) << 16 |
-           static_cast<uint32_t>(core::at(first, 3)) << 24;
+    return core::at(first, 0) | core::at(first, 1) << kShiftByte1 | core::at(first, 2) << kShiftByte2 |
+           static_cast<uint32_t>(core::at(first, 3)) << kShiftByte3;
 }
 
 void c_exit() { _cexit(); }
@@ -158,14 +168,14 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
     if (count < 2 || width == 0)
         return;
     const Elements elements(base, count, width);
-    std::array<std::ptrdiff_t, 30> lo_stack{};
-    std::array<std::ptrdiff_t, 30> hi_stack{};
+    std::array<std::ptrdiff_t, kQsortStackDepth> lo_stack{};
+    std::array<std::ptrdiff_t, kQsortStackDepth> hi_stack{};
     int depth = 0;
     std::ptrdiff_t lo = 0;
     std::ptrdiff_t hi = static_cast<std::ptrdiff_t>(count) - 1;
     for (;;) {
         const auto size = static_cast<size_t>(hi - lo) + 1;
-        if (size <= 8) {
+        if (size <= kInsertionSortLimit) {
             short_sort(elements, lo, hi, compare);
         } else {
             std::ptrdiff_t mid = lo + static_cast<std::ptrdiff_t>(size / 2);
@@ -242,7 +252,7 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
 
 int game_stricmp(const char* a, const char* b)
 {
-    auto lower = [](unsigned char c) { return static_cast<unsigned char>(c >= 'A' && c <= 'Z' ? c + 0x20 : c); };
+    auto lower = [](unsigned char c) { return static_cast<unsigned char>(c >= 'A' && c <= 'Z' ? c + kLowerCaseOffset : c); };
     const std::string_view first(a);
     const std::string_view second(b);
     // (the terminators are read too: the position one past a text's end holds its NUL)

@@ -53,10 +53,57 @@
 
 namespace sys {
 
+// The command line: where each option's value starts (past the option's name and the separator after it) and how
+// long a value may be.
+constexpr int kHostNameValueAt = 9;
+constexpr int kEmailValueAt = 6;
+constexpr int kPpassValueAt = 6;
+constexpr int kConnectValueAt = 9;
+constexpr int kMaxPlayersValueAt = 11;
+constexpr int kGroupValueAt = 6;
+constexpr int kTeamsValueAt = 7;
+constexpr int kSkillLevelValueAt = 11;
+constexpr int kNameValueAt = 5;
+constexpr int kPasswordValueAt = 9;
+constexpr int kHostedGameNameMax = 15;
+constexpr int kEmailMax = 255;
+constexpr int kCommandPasswordMax = 15;
+constexpr int kServerNameMax = 255;
+constexpr int kMaxNetPlayers = 8;
+constexpr int kPlayerNameMax = 15;
+constexpr int kNetworkPasswordMax = 9;
+constexpr int kNetworkPasswordBytes = 10;
+constexpr std::size_t kArgvSlots = 21;
+constexpr int kMaxArguments = 20;
+constexpr std::size_t kServerNameSize = 256;
+constexpr std::size_t kCommandLineCopySize = 1024;
+constexpr int kAvailableCheckSleepMs = 5; // between the availability check's thinks
+// The input bindings and the keys' names.
+constexpr int kBindingCount = 24;
+constexpr std::size_t kBindingNameSize = 8;
+constexpr int kScanCodeCount = 256;
+constexpr int kAcuteAccent = 0xB4;
+constexpr std::size_t kKeyNameWideSize = 10;
+constexpr int kScanF1 = 0x3B; // F1-F10 follow one another
+constexpr int kScanF2 = 0x3C;
+constexpr int kScanF3 = 0x3D;
+constexpr int kScanF4 = 0x3E;
+constexpr int kScanF5 = 0x3F;
+constexpr int kScanF6 = 0x40;
+constexpr int kScanF7 = 0x41;
+constexpr int kScanF8 = 0x42;
+constexpr int kScanF9 = 0x43;
+constexpr int kScanF10 = 0x44;
+constexpr int kScanF11 = 0x57;
+constexpr int kScanF12 = 0x58;
+constexpr int kScanF13 = 0x64;
+constexpr int kScanF14 = 0x65;
+constexpr int kScanF15 = 0x66;
+
 namespace {
-std::array<char, 256>& command_line_server_name()
+std::array<char, kServerNameSize>& command_line_server_name()
 {
-    static std::array<char, 256> command_line_server_name{}; // "-connect"'s value
+    static std::array<char, kServerNameSize> command_line_server_name{}; // "-connect"'s value
     return command_line_server_name;
 }
 
@@ -230,7 +277,7 @@ void read_network_params(const char* command_line)
     // The options are looked for in an upper-case copy; their values are read from the command line itself.
     // (The original copies it whole into its 1024 bytes - a longer command line overran its stack; ours looks
     // at the first 1023 characters.)
-    std::array<char, 1024> upper{};
+    std::array<char, kCommandLineCopySize> upper{};
     strncpy_s(upper.data(), upper.size(), command_line, _TRUNCATE);
     _strupr_s(upper.data(), upper.size());
     const std::string_view line(command_line);
@@ -246,18 +293,18 @@ void read_network_params(const char* command_line)
     if (find("-HOST "))
         stored_internet_game_host() = true; // hosting a game
     if (const auto at = find("-HOSTNAME"))
-        copy_value(after(*at, 9), commands::hosted_game_name(), 15); // the hosted game's name
+        copy_value(after(*at, kHostNameValueAt), commands::hosted_game_name(), kHostedGameNameMax); // the hosted game's name
     if (const auto at = find("-EMAIL"))
-        copy_value(after(*at, 6), online::command_line_email(), 255);
+        copy_value(after(*at, kEmailValueAt), online::command_line_email(), kEmailMax);
     if (const auto at = find("-PPASS"))
-        copy_value(after(*at, 6), online::command_line_password(), 15);
+        copy_value(after(*at, kPpassValueAt), online::command_line_password(), kCommandPasswordMax);
     if (!stored_internet_game_host()) {
         // The server to join: its name, and its IPv4 address (as inet_addr gives it - INADDR_NONE if it isn't one
         // and the name isn't found either). (The value starts 9 characters on, one past "-CONNECT": the
         // character after it is skipped, normally a space.)
         if (const auto at = find("-CONNECT")) {
             const char* server = command_line_server_name().data();
-            copy_value(after(*at, 9), command_line_server_name(), 255);
+            copy_value(after(*at, kConnectValueAt), command_line_server_name(), kServerNameMax);
             uint32_t address = inet_addr(server);
             if (address == INADDR_NONE) {
                 if (const hostent* host = gethostbyname(server))
@@ -269,28 +316,28 @@ void read_network_params(const char* command_line)
     }
     // (The numbers are compared unsigned: a negative one counts as too big.)
     if (const auto at = find("-MAXPLAYERS")) {
-        auto players = static_cast<uint32_t>(get_number(after(*at, 11)));
-        online::net_game_state().set_net_max_players(static_cast<int>(players < 2 ? 2 : players > 8 ? 8 : players));
+        auto players = static_cast<uint32_t>(get_number(after(*at, kMaxPlayersValueAt)));
+        online::net_game_state().set_net_max_players(static_cast<int>(players < 2 ? 2 : players > kMaxNetPlayers ? kMaxNetPlayers : players));
     }
     if (const auto at = find("-GROUP"))
-        online::set_lobby_group_id(get_number(after(*at, 6)));
+        online::set_lobby_group_id(get_number(after(*at, kGroupValueAt)));
     if (const auto at = find("-NTEAMS")) {
-        auto teams = static_cast<uint32_t>(get_number(after(*at, 7)));
+        auto teams = static_cast<uint32_t>(get_number(after(*at, kTeamsValueAt)));
         online::net_game_state().set_network_team_mode(teams > 4 ? 0 : teams);
     }
     if (const auto at = find("-SKILLLEVEL")) {
-        auto skill = static_cast<uint32_t>(get_number(after(*at, 11)));
+        auto skill = static_cast<uint32_t>(get_number(after(*at, kSkillLevelValueAt)));
         online::net_game_state().set_net_skill_level(static_cast<int>(skill > 4 ? 4 : skill));
     }
     if (const auto at = find("-NAME"))
-        copy_value(after(*at, 5), commands::network_id(), 15); // the player's name
+        copy_value(after(*at, kNameValueAt), commands::network_id(), kPlayerNameMax); // the player's name
     if (const auto at = find("-PASSWORD")) {
         char* password = commands::network_password().data();
-        copy_value(after(*at, 9), commands::network_password(), 9);
+        copy_value(after(*at, kPasswordValueAt), commands::network_password(), kNetworkPasswordMax);
         if (stored_joining_internet_game()) {
             // Joining: it's the server's password (moved to where the join looks for it).
             std::memcpy(online::pending_password().data(), password, std::strlen(password) + 1); // (strcpy)
-            std::memset(password, 0, 10);
+            std::memset(password, 0, kNetworkPasswordBytes);
         }
     }
 }
@@ -322,7 +369,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     gsi_start_available_check(net::get_game_name());
     int available = 0;
     while ((available = gsi_available_check_think()) == 0)
-        get_msleep(5);
+        get_msleep(kAvailableCheckSleepMs);
     if (available != 1)
         debug::printf("The backend is not available\n");
 
@@ -359,7 +406,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
 
     // The command line split at spaces (made terminators) into at most 20 arguments. The first is the command
     // line's first word - not the program's name.
-    std::array<char*, 21> argv{};
+    std::array<char*, kArgvSlots> argv{};
     int argc = 1;
     core::at(argv, 0) = command_line;
     const std::span<char> line(command_line, std::strlen(command_line) + 1);
@@ -372,7 +419,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
         if (core::at(line, at) == '\0')
             break;
         core::at(argv, argc++) = line.subspan(at).data();
-        if (argc >= 20)
+        if (argc >= kMaxArguments)
             break;
     }
     core::at(argv, argc) = nullptr;
@@ -380,8 +427,8 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     find_cd_drive("THUG CD2");
     init_direct_sound(render::renderer().game_window());
     for (int device = 0; device < 3; ++device) {
-        for (int i = 0; i < 24; ++i) {
-            std::array<char, 8> name = {};
+        for (int i = 0; i < kBindingCount; ++i) {
+            std::array<char, kBindingNameSize> name = {};
             text::format_to(name, "%s%d", core::at(kBindingPrefixes, device), i);
             write_default_setting(name.data(), core::at(core::at(kDefaultBindings, device), i));
         }
@@ -390,33 +437,33 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
 
     // The keys' names: the character each scan code types in the keyboard layout (an acute accent shown as an
     // apostrophe, a semicolon as a colon); the function keys by name.
-    for (unsigned scan_code = 0; scan_code < 256; ++scan_code) {
+    for (unsigned scan_code = 0; scan_code < kScanCodeCount; ++scan_code) {
         std::array<char, 2> name = {{static_cast<char>(MapVirtualKeyA(MapVirtualKeyA(scan_code, MAPVK_VSC_TO_VK), MAPVK_VK_TO_CHAR)),
                         0}};
-        if (static_cast<uint8_t>(core::at(name, 0)) == 0xB4)
+        if (static_cast<uint8_t>(core::at(name, 0)) == kAcuteAccent)
             core::at(name, 0) = '\'';
         else if (core::at(name, 0) == ';')
             core::at(name, 0) = ':';
-        std::array<wchar_t, 10> wide{};
+        std::array<wchar_t, kKeyNameWideSize> wide{};
         size_t converted = 0;
         mbstowcs_s(&converted, wide.data(), wide.size(), name.data(), _TRUNCATE);
         set_key_name(scan_code, wide.data());
     }
-    set_key_name(0x3B, L"F1");
-    set_key_name(0x3C, L"F2");
-    set_key_name(0x3D, L"F3");
-    set_key_name(0x3E, L"F4");
-    set_key_name(0x3F, L"F5");
-    set_key_name(0x40, L"F6");
-    set_key_name(0x41, L"F7");
-    set_key_name(0x42, L"F8");
-    set_key_name(0x43, L"F9");
-    set_key_name(0x44, L"F10");
-    set_key_name(0x57, L"F11");
-    set_key_name(0x58, L"F12");
-    set_key_name(0x64, L"F13");
-    set_key_name(0x65, L"F14");
-    set_key_name(0x66, L"F15");
+    set_key_name(kScanF1, L"F1");
+    set_key_name(kScanF2, L"F2");
+    set_key_name(kScanF3, L"F3");
+    set_key_name(kScanF4, L"F4");
+    set_key_name(kScanF5, L"F5");
+    set_key_name(kScanF6, L"F6");
+    set_key_name(kScanF7, L"F7");
+    set_key_name(kScanF8, L"F8");
+    set_key_name(kScanF9, L"F9");
+    set_key_name(kScanF10, L"F10");
+    set_key_name(kScanF11, L"F11");
+    set_key_name(kScanF12, L"F12");
+    set_key_name(kScanF13, L"F13");
+    set_key_name(kScanF14, L"F14");
+    set_key_name(kScanF15, L"F15");
 
     game_main(argc, argv.data());
 

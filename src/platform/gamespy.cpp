@@ -17,6 +17,13 @@
 
 namespace game_spy {
 
+constexpr std::size_t kPeerAddressSize = 64;
+constexpr std::size_t kDomainSize = 64;
+constexpr std::size_t kMasterServerSize = 128;
+constexpr std::size_t kNatNegotiateSize = 96;
+constexpr int kHostHashMultiplier = 1664117991; // the game name's hash (multiplied by its negative) picks the master
+constexpr int kMasterServerCount = 20;
+
 void fix_nick(char* new_nick, const char* old_nick)
 {
     static const auto kValid = std::to_array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789[]\\`_^{|}-");
@@ -63,7 +70,7 @@ extern char gPTAVercheckURL[];
 // NOLINTNEXTLINE(readability-identifier-naming): the GameSpy SDK's own global
 extern char gPTAMOTDURL[];
 // NOLINTNEXTLINE(readability-identifier-naming): the GameSpy SDK's own global
-extern char peerChatServerAddress[64];
+extern char peerChatServerAddress[game_spy::kPeerAddressSize];
 // NOLINTNEXTLINE(readability-identifier-naming): the GameSpy SDK's own global
 extern char* Matchup3Hostname; // (natneg.c; natneg.h declares only the first two)
 }
@@ -78,9 +85,9 @@ namespace game_spy {
 
 namespace {
 
-std::array<char, 64>& stored_domain()
+std::array<char, kDomainSize>& stored_domain()
 {
-    static std::array<char, 64> domain{{"gamespy.com"}};
+    static std::array<char, kDomainSize> domain{{"gamespy.com"}};
     return domain;
 }
 
@@ -95,10 +102,10 @@ Fn as(HookFn callback)
 struct GamespyState {
     // The server-browsing master for a game name: "<name>.ms<n>.<domain>", n from the SDK's own hash of the name
     // (sb_serverlist.c's StringHash over NUM_MASTER_SERVERS = 20) - the SDK's override takes a whole host name.
-    std::array<char, 128> master_server_{};
-    std::array<char, 96> nat_neg1_{};
-    std::array<char, 96> nat_neg2_{};
-    std::array<char, 96> nat_neg3_{};
+    std::array<char, kMasterServerSize> master_server_{};
+    std::array<char, kNatNegotiateSize> nat_neg1_{};
+    std::array<char, kNatNegotiateSize> nat_neg2_{};
+    std::array<char, kNatNegotiateSize> nat_neg3_{};
 };
 
 GamespyState& gamespy_state()
@@ -112,8 +119,8 @@ void set_master_server(const char* game_name)
     uint32_t hash = 0;
     for (const char c : std::string_view(game_name))
         hash =
-            static_cast<uint32_t>(static_cast<int>(hash) * -1664117991 + std::tolower(static_cast<unsigned char>(c)));
-    text::format_to(gamespy_state().master_server_, "%s.ms%d.%s", game_name, static_cast<int>(hash % 20), stored_domain().data());
+            static_cast<uint32_t>(static_cast<int>(hash) * -kHostHashMultiplier + std::tolower(static_cast<unsigned char>(c)));
+    text::format_to(gamespy_state().master_server_, "%s.ms%d.%s", game_name, static_cast<int>(hash % kMasterServerCount), stored_domain().data());
     SBOverrideMasterServer = gamespy_state().master_server_.data();
 }
 

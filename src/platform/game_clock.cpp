@@ -10,6 +10,8 @@
 
 namespace frame_clock {
 
+constexpr double kCounterWrap = 4294967296.0; // 2^32: the clock counter's range
+
 namespace {
 
 // The game time up to the last change of speed (callers add game_clock_elapsed to it), the real time of that
@@ -38,7 +40,7 @@ int get_elapsed()
     const int difference = static_cast<int>(get_time() - last_change());
     auto scaled = static_cast<double>(difference);
     if (difference < 0)
-        scaled += 4294967296.0; // (0x006453B4)
+        scaled += kCounterWrap; // (0x006453B4)
     scaled *= get_pace();
     return static_cast<int>(static_cast<int64_t>(scaled));
 }

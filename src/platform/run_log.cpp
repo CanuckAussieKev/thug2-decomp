@@ -22,6 +22,10 @@
 #include "engine/core/no_destroy.h"
 
 namespace {
+
+constexpr std::size_t kNumberTextSize = 16;
+constexpr int kLastLogCopy = 9; // a second copy of the game writes thug2-decomp-2.log, ... up to this number
+
 // NOT ORIGINAL grouping - run_log.cpp's state (the original's globals). Made on first use, never destroyed
 // (run_log_state()).
 struct RunLogState {
@@ -84,7 +88,7 @@ int config_int(const char* section, const char* key, int fallback)
 
 bool config_set_int(const char* section, const char* key, int value)
 {
-    std::array<char, 16> text{};
+    std::array<char, kNumberTextSize> text{};
     text::format_to(text, "%d", value);
     return WritePrivateProfileStringA(section, key, text.data(), game_folder_path("thug2-decomp.ini").c_str()) != 0;
 }
@@ -94,7 +98,7 @@ void log_open()
     // (fopen_s doesn't share a file open for writing: when another copy of the game has the log - [features]
     // allow_multiple_instances - this one writes thug2-decomp-2.log, -3, ...)
     if (fopen_s(&run_log_state().log_, game_folder_path("thug2-decomp.log").c_str(), "w") != 0) {
-        for (int copy = 2; copy <= 9 && !run_log_state().log_; ++copy) {
+        for (int copy = 2; copy <= kLastLogCopy && !run_log_state().log_; ++copy) {
             const std::string name = "thug2-decomp-" + std::to_string(copy) + ".log";
             if (fopen_s(&run_log_state().log_, game_folder_path(name.c_str()).c_str(), "w") != 0)
                 run_log_state().log_ = nullptr;

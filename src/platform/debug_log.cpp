@@ -15,6 +15,8 @@
 
 namespace debug_log {
 
+constexpr std::size_t kLogLineSize = 1024;
+
 namespace {
 
 // NOT ORIGINAL grouping - debug_log.cpp's state (the original's globals). Made on first use, never destroyed
@@ -46,7 +48,7 @@ bool console_on() { return debug_log_state().to_console_; }
 
 void write_message(const char* message)
 {
-    std::array<char, 1024> text{};
+    std::array<char, kLogLineSize> text{};
     text::format_to(text, "%s", message);
     size_t length = std::strlen(text.data());
     while (length > 0 && (core::at(text, length - 1) == '\n' || core::at(text, length - 1) == '\r'))

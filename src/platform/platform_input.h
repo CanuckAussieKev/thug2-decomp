@@ -32,8 +32,13 @@ struct PortControls {
     std::array<int32_t, kBindings> gamepad; // +0x70 the joystick's control for each action: registry "gp<port>_<n>"
     std::array<int32_t, kBindings> mouse;   // +0xD0 the mouse's control for each action (nothing here sets them)
 };
-static_assert(offsetof(PortControls, joystick) == 0x60 && offsetof(PortControls, gamepad) == 0x70 &&
-                  offsetof(PortControls, mouse) == 0xD0 && sizeof(PortControls) == 0x130,
+constexpr std::size_t kPortControlsJoystickOffset = 0x60;
+constexpr std::size_t kPortControlsGamepadOffset = 0x70;
+constexpr std::size_t kPortControlsMouseOffset = 0xD0;
+constexpr std::size_t kPortControlsBytes = 0x130;
+
+static_assert(offsetof(PortControls, joystick) == kPortControlsJoystickOffset && offsetof(PortControls, gamepad) == kPortControlsGamepadOffset &&
+                  offsetof(PortControls, mouse) == kPortControlsMouseOffset && sizeof(PortControls) == kPortControlsBytes,
               "layout must match the original");
 inline std::array<PortControls, kPorts>& get_controls();
 
@@ -52,7 +57,9 @@ struct Options {
     uint32_t distance;          // 0x007D6440 1-100 (0: none)
     int32_t clipping_distance_; // 0x007D6444 distance * 5 + 95
 };
-static_assert(sizeof(Options) == 0x14, "layout must match the original");
+constexpr std::size_t kOptionsBytes = 0x14;
+
+static_assert(sizeof(Options) == kOptionsBytes, "layout must match the original");
 
 // 0x005F2E00 (cdecl): the port's joystick read for this frame (polled - re-acquired once if that fails - its
 // last state kept): its state, or null without a joystick or when a step fails.

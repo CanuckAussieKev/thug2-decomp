@@ -19,6 +19,11 @@
 
 namespace os_layer {
 
+constexpr std::size_t kVolumeNameSize = 0x100;
+constexpr int kMaxStepIndex = 88; // the ADPCM step table's last index
+constexpr int kSampleMax = 32767;
+constexpr int kSampleMinMagnitude = 32768;
+
 namespace {
 
 // NOT ORIGINAL grouping - platform_system.cpp's state (the original's globals). Made on first use, never destroyed
@@ -71,7 +76,7 @@ char find_cd_drive(const char* volume)
         for (char letter = 'A'; letter <= 'Z'; ++letter) {
             if (drives & 1) {
                 core::at(root, 0) = letter;
-                std::array<char, 0x100> name{};
+                std::array<char, kVolumeNameSize> name{};
                 DWORD serial = 0;
                 if (GetDriveTypeA(root.data()) == DRIVE_CDROM &&
                     GetVolumeInformationA(root.data(), name.data(), sizeof(name), &serial, nullptr, nullptr, nullptr, 0) &&
@@ -173,17 +178,17 @@ void decode_adpcm(std::span<int16_t> out, std::span<const uint8_t> in)
         index += core::at(kIndexSteps, magnitude);
         if (index < 0)
             index = 0;
-        else if (index > 88)
-            index = 88;
+        else if (index > kMaxStepIndex)
+            index = kMaxStepIndex;
         const int step = core::at(kSteps, index);
         int change = (step * magnitude >> 2) + (step >> 3);
         if (nibble >> 3)
             change = -change;
         sample += change;
-        if (sample > 32767)
-            sample = 32767;
-        else if (sample < -32768)
-            sample = -32768;
+        if (sample > kSampleMax)
+            sample = kSampleMax;
+        else if (sample < -kSampleMinMagnitude)
+            sample = -kSampleMinMagnitude;
         core::at(out, i) = static_cast<int16_t>(sample);
     }
 }

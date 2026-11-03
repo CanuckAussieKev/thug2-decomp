@@ -7,13 +7,18 @@
 #include <d3d9.h>
 #include <d3dx9.h>
 
+#include <cstddef>
 #include <cstdint>
 
 namespace d3dx {
 
+constexpr std::size_t kMatrixBytes = 64;
+constexpr std::size_t kVector3Bytes = 12;
+constexpr std::size_t kVector4Bytes = 16;
+
 // (maths::Mat4 and the callers' float arrays are 16 floats, 4-byte aligned, like D3DXMATRIX: the casts below are
 // layout-exact. d3dx9_43 may differ from the exe's 2004 D3DX9 in the last bit of a float.)
-static_assert(sizeof(D3DXMATRIX) == 64 && sizeof(D3DXVECTOR3) == 12 && sizeof(D3DXVECTOR4) == 16,
+static_assert(sizeof(D3DXMATRIX) == kMatrixBytes && sizeof(D3DXVECTOR3) == kVector3Bytes && sizeof(D3DXVECTOR4) == kVector4Bytes,
               "the D3DX types must be plain floats");
 
 namespace {

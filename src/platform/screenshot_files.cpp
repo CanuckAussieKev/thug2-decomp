@@ -31,6 +31,17 @@ THUG2_MSVC_WARNING(pop)
 
 namespace sys::screenshot {
 
+constexpr int kMaxKeyCode = 511;
+constexpr std::size_t kStampedNameSize = 64;
+constexpr std::size_t kFrameNameSize = 32;
+constexpr int kMaxNameNumber = 999;
+// The pixel formats' fields: 5-6-5 and 1-5-5-5 (x-r-g-b).
+constexpr int kRed565Shift = 11;
+constexpr int kRed555Shift = 10;
+constexpr int kGreenShift = 5;
+constexpr int kSixBitMask = 0x3F;
+constexpr int kFiveBitMask = 0x1F;
+
 int default_key(bool snipping_takes_print_screen) { return snipping_takes_print_screen ? kF12 : kPrintScreen; }
 
 int parse_key(const std::string& text, int fallback, const std::function<int(const std::string&)>& by_name)
@@ -47,26 +58,26 @@ int parse_key(const std::string& text, int fallback, const std::function<int(con
     } else if (by_name) {
         code = by_name(key);
     }
-    return code >= 1 && code <= 511 ? code : fallback;
+    return code >= 1 && code <= kMaxKeyCode ? code : fallback;
 }
 
 std::string file_stem(const Stamp& s)
 {
-    std::array<char, 64> text{};
+    std::array<char, kStampedNameSize> text{};
     text::format_to(text, "thug2_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute, s.second);
     return text.data();
 }
 
 std::string series_folder_name(const Stamp& s)
 {
-    std::array<char, 64> text{};
+    std::array<char, kStampedNameSize> text{};
     text::format_to(text, "series_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute, s.second);
     return text.data();
 }
 
 std::string series_frame_name(int number)
 {
-    std::array<char, 32> text{};
+    std::array<char, kFrameNameSize> text{};
     text::format_to(text, "frame_%04d.png", number);
     return text.data();
 }
@@ -88,7 +99,7 @@ std::string sidecar_name(const std::string& png_name)
 
 std::string pick_name(const std::string& stem, const std::function<bool(const std::string&)>& taken)
 {
-    for (int n = 1; n <= 999; ++n) {
+    for (int n = 1; n <= kMaxNameNumber; ++n) {
         std::string name = candidate_name(stem, n);
         if (!taken(name) && !taken(sidecar_name(name)))
             return name;
@@ -197,13 +208,13 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
         case PixelFormat::kR5g6b5:
             for (size_t x = 0; x < columns; ++x) {
                 const unsigned v = core::at(row, x * 2) | (core::at(row, x * 2 + 1) << 8);
-                put({.r = widen5(v >> 11), .g = widen6((v >> 5) & 0x3F), .b = widen5(v & 0x1F)});
+                put({.r = widen5(v >> kRed565Shift), .g = widen6((v >> kGreenShift) & kSixBitMask), .b = widen5(v & kFiveBitMask)});
             }
             break;
         case PixelFormat::kX1r5g5b5:
             for (size_t x = 0; x < columns; ++x) {
                 const unsigned v = core::at(row, x * 2) | (core::at(row, x * 2 + 1) << 8);
-                put({.r = widen5((v >> 10) & 0x1F), .g = widen5((v >> 5) & 0x1F), .b = widen5(v & 0x1F)});
+                put({.r = widen5((v >> kRed555Shift) & kFiveBitMask), .g = widen5((v >> kGreenShift) & kFiveBitMask), .b = widen5(v & kFiveBitMask)});
             }
             break;
         default:

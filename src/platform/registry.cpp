@@ -5,11 +5,14 @@
 
 #include <windows.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include "engine/core/format.h"
 
 namespace sys {
+
+constexpr std::size_t kRegistryPathSize = 256;
 
 namespace {
 constexpr auto kSettingsKey = std::to_array(R"(Software\Activision\Tony Hawk's Underground 2\Settings)");
@@ -39,7 +42,7 @@ void write_default_setting(const char* name, uint32_t value)
         RegCloseKey(key);
         return;
     }
-    std::array<char, 256> path = {};
+    std::array<char, kRegistryPathSize> path = {};
     text::format_to(path, "%s\\%s", kSettingsKey.data(), name); // (the original's sprintf is unbounded)
     if (RegCreateKeyExA(HKEY_CURRENT_USER, path.data(), 0, nullptr, 0, KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
         return;
