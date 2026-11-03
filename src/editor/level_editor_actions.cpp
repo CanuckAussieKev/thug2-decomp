@@ -25,6 +25,18 @@
 
 namespace frontend::level_editor::actions {
 
+namespace {
+
+constexpr int kWordStartBonus = 8;    // search score: a matched letter that starts a word
+constexpr int kFirstLetterBonus = 6;  // search score: a matched first letter of the text
+constexpr int kPrefixBonus = 20;      // search score: the text starts with the query
+constexpr int kSubstringBonus = 10;   // search score: the text contains the query
+constexpr int kBookmarkCount = 9;     // bookmarks 1..9
+constexpr std::size_t kBookmarkWordLength = 9; // "bookmark " (the tip's placeholder n follows)
+constexpr std::size_t kIniValueSize = 160; // a key binding's text read from the ini
+
+} // namespace
+
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
 namespace {
@@ -330,7 +342,7 @@ int fuzzy_score(const std::string& query, std::string_view text)
             continue;
         }
         const bool word_start = ti == 0 || !std::isalnum(static_cast<unsigned char>(core::at(t, ti - 1)));
-        score += 1 + (word_start ? 8 : 0) + run * 4 + (ti == 0 ? 6 : 0);
+        score += 1 + (word_start ? kWordStartBonus : 0) + run * 4 + (ti == 0 ? kFirstLetterBonus : 0);
         ++run;
         ++qi;
     }
@@ -338,9 +350,9 @@ int fuzzy_score(const std::string& query, std::string_view text)
         return 0;
     // (a whole-word or prefix match of the query ranks above scattered letters)
     if (t.starts_with(q))
-        score += 20;
+        score += kPrefixBonus;
     else if (t.find(q) != std::string::npos)
-        score += 10;
+        score += kSubstringBonus;
     return score + 1;
 }
 
@@ -489,13 +501,13 @@ std::vector<ActStep> builtins()
         get_make("frame_selection", "Frame Selection", "Camera", Kind::kPress, {get_l('F')},
                  "Fit the selection in the view"),
     };
-    for (int i = 1; i <= 9; ++i) {
+    for (int i = 1; i <= kBookmarkCount; ++i) {
         const std::string n = std::to_string(i);
         const ActStep a = get_make(("bookmark_" + n).c_str(), ("Go to Bookmark " + n).c_str(), "Camera", Kind::kPress,
                                    {get_k(SDL_SCANCODE_1 + i - 1)}, "Move the camera to bookmark n");
         b.push_back(a);
     }
-    for (int i = 1; i <= 9; ++i) {
+    for (int i = 1; i <= kBookmarkCount; ++i) {
         const std::string n = std::to_string(i);
         const ActStep a =
             get_make(("bookmark_store_" + n).c_str(), ("Set Bookmark " + n).c_str(), "Camera", Kind::kPress,
@@ -506,7 +518,7 @@ std::vector<ActStep> builtins()
         // (the bookmarks' tips name their own number)
         const size_t at = a.tip.find("bookmark n");
         if (at != std::string::npos)
-            a.tip.replace(at + 9, 1, a.id.substr(a.id.size() - 1));
+            a.tip.replace(at + kBookmarkWordLength, 1, a.id.substr(a.id.size() - 1));
     }
     std::vector<ActStep> views = {
         get_make("view_top", "Top View", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_KP_7)},
@@ -699,7 +711,7 @@ int enrol(const ActStep& action)
     }
     r.push_back(action);
     // (its keys from the ini, as the built-ins')
-    std::array<char, 160> text = {""};
+    std::array<char, kIniValueSize> text = {""};
     GetPrivateProfileStringA("editor_keys", action.id.c_str(), "", text.data(), sizeof(text), ini_path().c_str());
     std::vector<Chord> keys;
     if (core::at(text, 0) && parse_keys(text.data(), &keys))
@@ -896,7 +908,7 @@ void load_keys()
     for (ActStep& a : r) {
         if (!a.rebindable)
             continue;
-        std::array<char, 160> text = {""};
+        std::array<char, kIniValueSize> text = {""};
         GetPrivateProfileStringA("editor_keys", a.id.c_str(), "", text.data(), sizeof(text), path.c_str());
         if (!core::at(text, 0))
             continue;

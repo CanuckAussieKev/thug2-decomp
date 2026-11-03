@@ -36,6 +36,8 @@ struct ImFont;
 //   faces <checksum> <face>:<flags>,<face>:<flags>...    the faces' flags as edited (4 hex digits), faces ascending
 namespace frontend::level_editor::faces {
 
+constexpr uint16_t kFlagNotCollidable = 0x10; // the face flag a taken face carries: not collidable
+
 // --- the pure parts ------------------------------------------------------------------------------------------------
 
 // The flags the Inspector offers, in its order.
@@ -51,7 +53,7 @@ uint16_t get_applied(uint16_t flags, uint16_t set, uint16_t clear);
 // A flag over several faces (the Inspector's checkbox): -1 none, 0 clear on all, 1 set on all, 2 mixed.
 int get_combined(const std::vector<uint16_t>& flags, uint16_t bit);
 // What the original face carries while a companion has taken it along (not collidable: 0x10).
-inline uint16_t while_taken(uint16_t flags) { return static_cast<uint16_t>(flags | 0x10); }
+inline uint16_t while_taken(uint16_t flags) { return static_cast<uint16_t>(flags | kFlagNotCollidable); }
 
 struct FaceKey {
     uint32_t checksum;

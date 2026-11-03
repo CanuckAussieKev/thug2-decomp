@@ -28,6 +28,12 @@ namespace frontend::level_editor::entities {
 
 namespace {
 
+constexpr std::size_t kLabelBufferSize = 128; // the text buffer of a label field
+constexpr float kSpeedFieldWidth = 120.0f;   // width of the speed field
+constexpr float kMphDragStep = 0.1f;         // the speed field's drag step
+constexpr float kRadiusDragStep = 2.0f;      // the emitter radius field's drag step
+constexpr float kMaxRadius = 20000.0f;       // the emitter radius field's upper limit
+
 const char* short_name(const std::string& path)
 {
     const char* text = path.c_str();
@@ -124,7 +130,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
                 ImGui::TextUnformatted(text.c_str());
                 continue;
             }
-            std::array<char, 128> buffer{};
+            std::array<char, kLabelBufferSize> buffer{};
             text::format_to(buffer, "%s", text.c_str());
             ImGui::PushID(field);
             ImGui::SetNextItemWidth(-1.0f);
@@ -161,8 +167,8 @@ void moving_section(uint32_t id)
     if (own) {
         ImGui::SameLine();
         float mph = set;
-        ImGui::SetNextItemWidth(120.0f);
-        if (ImGui::DragFloat("mph##speed", &mph, 0.1f, kMinMph, kMaxMph, "%.1f", ImGuiSliderFlags_AlwaysClamp))
+        ImGui::SetNextItemWidth(kSpeedFieldWidth);
+        if (ImGui::DragFloat("mph##speed", &mph, kMphDragStep, kMinMph, kMaxMph, "%.1f", ImGuiSliderFlags_AlwaysClamp))
             get_queue([id, mph] { detail::change_speed(id, mph); });
         if (ImGui::IsItemActive())
             detail::set_ui_active(true);
@@ -228,7 +234,7 @@ void sound_section(uint32_t name)
     active = active || ImGui::IsItemActive();
     if (sphere) {
         float radius = e.radius > 0.0f ? e.radius : radius_now;
-        if (ImGui::DragFloat("Radius##emitterradius", &radius, 2.0f, kMinRadius, 20000.0f, "%.0f",
+        if (ImGui::DragFloat("Radius##emitterradius", &radius, kRadiusDragStep, kMinRadius, kMaxRadius, "%.0f",
                              ImGuiSliderFlags_AlwaysClamp)) {
             EmitterSound changed = e;
             changed.radius = radius;

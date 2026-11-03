@@ -30,16 +30,25 @@ namespace {
 constexpr float kChannelMax = 255.0f; // the largest 8-bit colour channel
 constexpr float kRoundHalf = 0.5f; // added before truncating: round to the nearest
 
-} // namespace
-
-namespace {
+constexpr std::size_t kScratchSize = 512;        // a field's text buffer
+constexpr std::size_t kHeaderTextSize = 64;
+constexpr float kNameColumnWeight = 0.9f;         // the name column's share of the table's width ...
+constexpr float kValueColumnWeight = 1.6f;        // ... and the value column's
+constexpr float kReferenceFontSize = 13.0f;       // the font size the item widths below were laid out for
+constexpr float kNewNameWidth = 130.0f;           // the new field's name box
+constexpr float kNewKindWidth = 90.0f;            // its kind box
+constexpr float kApplyReserve = 60.0f;            // room left at the right for the Apply button
+constexpr float kNoteReserve = 90.0f;             // room left at the right for a field's "(original: ...)" note
+constexpr std::size_t kOwnStateTextSize = 48;
+constexpr float kFogDistanceDragSpeed = 10.0f;
+constexpr int kMaxFogDistance = 100000;
 
 constexpr ImVec4 kError = ImVec4(1.0f, 0.45f, 0.4f, 1.0f);
 constexpr ImVec4 kWarn = ImVec4(1.0f, 0.78f, 0.45f, 1.0f);
 constexpr ImVec4 kLive = ImVec4(0.45f, 0.85f, 0.55f, 1.0f);
 constexpr ImVec4 kReload = ImVec4(0.56f, 0.71f, 0.92f, 1.0f);
 
-using ScratchBuf = std::array<char, 512>;
+using ScratchBuf = std::array<char, kScratchSize>;
 
 // The text being typed into each field (kept while its box is active; otherwise the field's value now).
 struct Typing {
@@ -152,14 +161,14 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
     for (const fields::Row& row : rows)
         any_edited = any_edited || row.edited;
     ImGui::Spacing();
-    std::array<char, 64> header{};
+    std::array<char, kHeaderTextSize> header{};
     text::format_to(header, "All fields (%d)%s###fields", static_cast<int>(rows.size()), any_edited ? " - edited" : "");
     if (!ImGui::CollapsingHeader(header.data(), ImGuiTreeNodeFlags_DefaultOpen))
         return;
     bool still_active = false;
     if (ImGui::BeginTable("##fields", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn("##name", ImGuiTableColumnFlags_WidthStretch, 0.9f);
-        ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch, 1.6f);
+        ImGui::TableSetupColumn("##name", ImGuiTableColumnFlags_WidthStretch, kNameColumnWeight);
+        ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch, kValueColumnWeight);
         ImGui::TableSetupColumn("##when", ImGuiTableColumnFlags_WidthFixed);
         ImGui::PushFont(mono);
         for (const fields::Row& row : rows) {
@@ -268,10 +277,10 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         gui::text_disabled("Add Field:");
         ImGui::PopFont();
         ImGui::PushFont(mono);
-        ImGui::SetNextItemWidth(130.0f * ImGui::GetFontSize() / 13.0f);
+        ImGui::SetNextItemWidth(kNewNameWidth * ImGui::GetFontSize() / kReferenceFontSize);
         ImGui::InputTextWithHint("##newname", "name", typing().new_name_.data(), typing().new_name_.size());
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(90.0f * ImGui::GetFontSize() / 13.0f);
+        ImGui::SetNextItemWidth(kNewKindWidth * ImGui::GetFontSize() / kReferenceFontSize);
         if (ImGui::BeginCombo("##newkind", fields::kind_name(core::at(kAddKinds, typing().new_kind_)))) {
             for (int i = 0; i < ints::as_signed(sizeof(kAddKinds) / sizeof(core::at(kAddKinds, 0))); ++i) {
                 if (ImGui::Selectable(fields::kind_name(core::at(kAddKinds, i)), i == typing().new_kind_))
@@ -280,7 +289,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
             ImGui::EndCombo();
         }
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(-60.0f * ImGui::GetFontSize() / 13.0f);
+        ImGui::SetNextItemWidth(-kApplyReserve * ImGui::GetFontSize() / kReferenceFontSize);
         ImGui::InputTextWithHint("##newvalue", "value", typing().new_value_.data(), typing().new_value_.size());
         ImGui::PopFont();
         uint32_t key = 0;
@@ -392,7 +401,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::TableNextColumn();
         if (!level_typing().name_active_)
             dup_from(&level_typing().name, props.name);
-        ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
+        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / kReferenceFontSize);
         const bool enter = ImGui::InputTextWithHint("##name", level.have_defaults_ ? own.name.c_str() : "Original",
                                                     level_typing().name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
         const bool left = ImGui::IsItemDeactivatedAfterEdit();
@@ -412,7 +421,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
             current = r.first == props.start ? r.second : current;
         if (props.start && current == "(original)")
             current = "(missing restart)";
-        ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
+        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / kReferenceFontSize);
         ImGui::PushFont(mono);
         if (ImGui::BeginCombo("##start", current.c_str())) {
             if (ImGui::Selectable("(original)", props.start == 0)) {
@@ -443,11 +452,11 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::TableNextColumn();
         gui::text_disabled("Time of day");
         ImGui::TableNextColumn();
-        std::array<char, 48> own_state{};
+        std::array<char, kOwnStateTextSize> own_state{};
         text::format_to(own_state, "(original: %s)",
                         level.have_defaults_ && level_props::tod_name(own.tod) ? level_props::tod_name(own.tod)
                                                                                : "afternoon");
-        ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
+        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / kReferenceFontSize);
         if (ImGui::BeginCombo("##tod", props.tod >= 0 ? core::at(kStates, props.tod) : own_state.data())) {
             if (ImGui::Selectable(own_state.data(), props.tod < 0)) {
                 props.tod = -1;
@@ -467,7 +476,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         gui::text_disabled("Time passes");
         ImGui::TableNextColumn();
         const char* own_time = level.have_defaults_ && own.time == 0 ? "(original: no)" : "(original: yes)";
-        ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
+        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / kReferenceFontSize);
         if (ImGui::BeginCombo("##time", props.time == 1 ? "yes" : props.time == 0 ? "no" : own_time)) {
             const auto labels = std::to_array<const char*>({own_time, "no", "yes"});
             for (int i = -1; i <= 1; ++i) {
@@ -486,7 +495,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         ImGui::TableNextColumn();
         const std::string own_sky =
             "(original: " + (level.have_defaults_ && !own.sky.empty() ? own.sky : std::string("none")) + ")";
-        ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
+        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / kReferenceFontSize);
         ImGui::PushFont(mono);
         if (ImGui::BeginCombo("##sky", props.sky.empty() ? own_sky.c_str() : props.sky.c_str())) {
             if (ImGui::Selectable(own_sky.c_str(), props.sky.empty())) {
@@ -520,7 +529,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         const auto& shown = props.has_ambient_ ? props.ambient : own.ambient;
         std::array<float, 3> colour = {{static_cast<float>(core::at(shown, 0)) / kChannelMax, static_cast<float>(core::at(shown, 1)) / kChannelMax,
                            static_cast<float>(core::at(shown, 2)) / kChannelMax}};
-        ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
+        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / kReferenceFontSize);
         if (ImGui::ColorEdit3("##ambientcolour", colour.data(), ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
             for (int i = 0; i < 3; ++i)
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
@@ -548,7 +557,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         const auto& f = props.has_fog_ ? props.fog : own.fog;
         std::array<float, 4> fog_colour = {{static_cast<float>(core::at(f, 0)) / kChannelMax, static_cast<float>(core::at(f, 1)) / kChannelMax,
                                static_cast<float>(core::at(f, 2)) / kChannelMax, static_cast<float>(core::at(f, 3)) / kChannelMax}};
-        ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
+        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / kReferenceFontSize);
         bool changed = false;
         if (ImGui::ColorEdit4("##fogcolour", fog_colour.data(),
                               ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB |
@@ -560,8 +569,8 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         }
         bool done = ImGui::IsItemDeactivatedAfterEdit();
         int distance = core::at(f, 4);
-        ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
-        if (ImGui::DragInt("##fogdist", &distance, 10.0f, 0, 100000, "distance %d")) {
+        ImGui::SetNextItemWidth(-kNoteReserve * ImGui::GetFontSize() / kReferenceFontSize);
+        if (ImGui::DragInt("##fogdist", &distance, kFogDistanceDragSpeed, 0, kMaxFogDistance, "distance %d")) {
             core::at(props.fog, 4) = level_props::span_to(distance);
             changed = true;
         }

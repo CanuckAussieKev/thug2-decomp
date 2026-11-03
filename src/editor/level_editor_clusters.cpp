@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -35,6 +36,18 @@
 
 namespace frontend::level_editor::clusters {
 
+namespace {
+
+constexpr std::size_t kNameTextSize = 48;
+constexpr std::size_t kChecksumDigits = 8; // hex digits of a checksum
+constexpr std::size_t kTypedTextSize = 64; // the typed cluster name
+constexpr int kMaxListWalk = 100000; // entities visited at most when walking an object's list
+constexpr std::size_t kLineTextSize = 160;
+constexpr ImVec4 kEditedColour = ImVec4(1.0f, 0.65f, 0.3f, 1.0f);
+constexpr ImVec4 kClearButtonColour = ImVec4(0.62f, 0.22f, 0.30f, 0.85f);
+
+} // namespace
+
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
 bool get_same(const Membership& a, const Membership& b)
@@ -53,7 +66,7 @@ Membership get_from_node(uint32_t sector, bool trick_object, bool has_cluster, u
 
 std::string write_record(const Membership& m)
 {
-    std::array<char, 48> text{};
+    std::array<char, kNameTextSize> text{};
     if (m.trick)
         text::format_to(text, "cluster %08X %08X", m.sector, m.cluster);
     else
@@ -65,7 +78,7 @@ namespace {
 
 bool read_hex8(const std::string& word, uint32_t* out)
 {
-    if (word.size() != 8)
+    if (word.size() != kChecksumDigits)
         return false;
     uint32_t value = 0;
     for (const char c : word) {
@@ -124,7 +137,7 @@ struct LevelEditorClustersState {
     std::vector<std::function<void()>> queue_{};
     std::vector<void*> detached_{}; // (list nodes taken out of their clusters: kept until the level goes)
     // The Inspector's typed cluster name.
-    std::array<char, 64> typed_{};
+    std::array<char, kTypedTextSize> typed_{};
 };
 
 LevelEditorClustersState& level_editor_clusters_state()
@@ -171,7 +184,7 @@ void unregister(ClusterMember member)
     if (const objects::TrickObjectCluster* object = cluster_object(manager, cluster)) {
         const memory::ListNode* head = &object->entities();
         memory::ListNode* node = head->next();
-        for (int guard = 0; node && node != head && guard < 100000; ++guard) {
+        for (int guard = 0; node && node != head && guard < kMaxListWalk; ++guard) {
             memory::ListNode* next = node->next();
             if (static_cast<objects::TrickSpot*>(node->data())->label() == name) {
                 node->uncouple();
@@ -290,7 +303,7 @@ bool assign_value(const std::vector<uint32_t>& sectors, bool trick, uint32_t clu
     if (!changed)
         return false;
     push_module_undo(before);
-    std::array<char, 160> text{};
+    std::array<char, kLineTextSize> text{};
     if (trick)
         text::format_to(text, "%d piece%s set to cluster %s", changed, changed == 1 ? "" : "s",
                         cluster ? get_name_of(cluster).c_str() : "their own names");
@@ -400,7 +413,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     ImGui::PopFont();
     if (edited) {
         ImGui::SameLine();
-        gui::text_colored(ImVec4(1.0f, 0.65f, 0.3f, 1.0f), "(edited)");
+        gui::text_colored(kEditedColour, "(edited)");
     }
     ImGui::PushFont(small_font);
     gui::text_disabled("Tricks count toward the cluster (graffiti, goals)");
@@ -435,7 +448,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
         if (ImGui::SmallButton("Use Name"))
             text::format_to(level_editor_clusters_state().typed_, "%s", get_name_of(cluster).c_str());
     }
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
+    ImGui::PushStyleColor(ImGuiCol_Button, kClearButtonColour);
     if (ImGui::Button("Clear Trick Object"))
         level_editor_clusters_state().queue_.emplace_back([pieces] { assign_value(pieces, false, 0); });
     ImGui::PopStyleColor();

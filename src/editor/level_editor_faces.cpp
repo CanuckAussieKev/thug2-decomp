@@ -44,6 +44,25 @@ namespace frontend::level_editor::faces {
 
 namespace {
 
+constexpr int kHexLetterBase = 10; // the value of the hex digit 'a'
+constexpr std::size_t kFaceTextSize = 32;
+constexpr std::size_t kChecksumDigits = 8; // hex digits of a checksum
+constexpr uint32_t kFaceOverflowGuard = 6553; // above this a decimal face number would pass 0xFFFF with one more digit
+constexpr uint32_t kDecimalBase = 10;
+constexpr uint32_t kMaxFaceNumber = 0xFFFF; // the highest face index of a collision object
+constexpr int kMaxFaceIndex = 0xFFFF;
+constexpr double kMessageSeconds = 4.0;
+constexpr std::size_t kListTextSize = 160;
+constexpr std::size_t kTipTextSize = 128;
+constexpr float kNearPlaneMargin = 0.01f; // clipped just in front of the near plane
+constexpr std::size_t kMaxOutlinedFaces = 4096; // outlines drawn at most
+constexpr uint32_t kSelectedOutlineColour = 0xFF40F0FF; // ARGB
+constexpr float kSelectedOutlineWidth = 2.0f;
+constexpr uint32_t kHoverOutlineColour = 0xFFFFF040; // ARGB
+constexpr float kHoverOutlineWidth = 2.5f;
+constexpr std::size_t kLabelTextSize = 96;
+constexpr std::size_t kButtonLabelSize = 64;
+
 const std::array<FlagInfo, kFlagCount> kFlags = {{
     {.bit = 0x0001, .name = "Skatable", .what = "Skatable at any slope"},
     {.bit = 0x0002, .name = "Not Skatable", .what = "Not skatable unless Skatable or Vert is set"},
@@ -60,9 +79,9 @@ int hex_digit(char c)
     if (c >= '0' && c <= '9')
         return c - '0';
     if (c >= 'a' && c <= 'f')
-        return c - 'a' + 10;
+        return c - 'a' + kHexLetterBase;
     if (c >= 'A' && c <= 'F')
-        return c - 'A' + 10;
+        return c - 'A' + kHexLetterBase;
     return -1;
 }
 
@@ -103,7 +122,7 @@ bool get_click(std::vector<FaceKey>* selection, FaceKey key, bool add)
 std::string write_records(const std::vector<SectorFaces>& sectors)
 {
     std::string out;
-    std::array<char, 32> text{};
+    std::array<char, kFaceTextSize> text{};
     for (const SectorFaces& s : sectors) {
         if (s.faces.empty())
             continue;
@@ -123,7 +142,7 @@ bool read_record(std::istringstream& in, SectorFaces* out)
 {
     SectorFaces s;
     std::string checksum, list;
-    if (!(in >> checksum >> list) || checksum.size() != 8)
+    if (!(in >> checksum >> list) || checksum.size() != kChecksumDigits)
         return false;
     uint32_t value = 0;
     for (const char c : checksum) {
@@ -142,11 +161,11 @@ bool read_record(std::istringstream& in, SectorFaces* out)
             return false;
         uint32_t face = 0;
         for (size_t i = 0; i < colon; ++i) {
-            if (core::at(item, i) < '0' || core::at(item, i) > '9' || face > 6553)
+            if (core::at(item, i) < '0' || core::at(item, i) > '9' || face > kFaceOverflowGuard)
                 return false;
-            face = face * 10 + static_cast<uint32_t>(core::at(item, i) - '0');
+            face = face * kDecimalBase + static_cast<uint32_t>(core::at(item, i) - '0');
         }
-        if (face > 0xFFFF)
+        if (face > kMaxFaceNumber)
             return false;
         uint32_t flags = 0;
         for (size_t i = colon + 1; i < item.size(); ++i) {
@@ -291,7 +310,7 @@ bool get_key_of(const view::FaceHit& hit, FaceKey* key, std::string* why)
         *why = "Face belongs to a copy; edit the source";
         return false;
     }
-    if (!get_geometry(checksum) || face < 0 || face > 0xFFFF) {
+    if (!get_geometry(checksum) || face < 0 || face > kMaxFaceIndex) {
         *why = "Not a level collision face";
         return false;
     }
@@ -390,7 +409,7 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
     FaceKey key{};
     std::string why;
     if (!get_key_of(hit, &key, &why)) {
-        hud::get_message(why, 4.0);
+        hud::get_message(why, kMessageSeconds);
         return false;
     }
     if (add && level_editor_faces_state().selection_.size() >= kMostSelected && std::ranges::find(level_editor_faces_state().selection_, key) == level_editor_faces_state().selection_.end()) {
@@ -400,7 +419,7 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
     const bool selected = get_click(&level_editor_faces_state().selection_, key, add);
     uint16_t flags = 0;
     get_take_in(key, &flags);
-    std::array<char, 160> text{};
+    std::array<char, kListTextSize> text{};
     text::format_to(text, "Face %u of %s %s - flags 0x%04X (%u selected)", static_cast<unsigned>(key.face),
                     piece_label(key.checksum).c_str(), selected ? "selected" : "dropped", flags,
                     static_cast<unsigned>(level_editor_faces_state().selection_.size()));
@@ -481,7 +500,7 @@ bool set_flag(uint16_t bit, bool on)
         return false;
     push_module_undo(before);
     view::stale_cache();
-    std::array<char, 128> text{};
+    std::array<char, kTipTextSize> text{};
     text::format_to(text, "Face flag 0x%04X %s on %d face%s", bit, on ? "set" : "cleared", faces,
                     faces == 1 ? "" : "s");
     hud::get_message(text.data());
@@ -580,7 +599,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
             return;
         for (int k = 0; k < 3; ++k) {
             V3 a = core::at(p, k), b = core::at(p, (k + 1) % 3);
-            if (!clip_to_near(camera_pos, frame, near_z + 0.01f, &a, &b))
+            if (!clip_to_near(camera_pos, frame, near_z + kNearPlaneMargin, &a, &b))
                 continue;
             float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f, nx = 0.0f, ny = 0.0f;
             if (!cast_onto(camera_pos, frame, lens, a, near_z, &nx, &ny))
@@ -594,17 +613,17 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
     };
     size_t drawn = 0;
     for (const FaceKey& key : level_editor_faces_state().selection_) {
-        if (++drawn > 4096)
+        if (++drawn > kMaxOutlinedFaces)
             break;
-        outline(key, 0xFF40F0FF, 2.0f);
+        outline(key, kSelectedOutlineColour, kSelectedOutlineWidth);
     }
     if (level_editor_faces_state().picking_ && level_editor_faces_state().have_hover_)
-        outline(level_editor_faces_state().hover_, 0xFFFFF040, 2.5f);
+        outline(level_editor_faces_state().hover_, kHoverOutlineColour, kHoverOutlineWidth);
 }
 
 std::string describe()
 {
-    std::array<char, 96> text{};
+    std::array<char, kLabelTextSize> text{};
     text::format_to(text, "Faces mode%s: %u selected", level_editor_faces_state().picking_ ? "" : " off",
                     static_cast<unsigned>(level_editor_faces_state().selection_.size()));
     return text.data();
@@ -649,7 +668,7 @@ void inspector_section(ImFont* mono, ImFont* small_font)
         const FlagInfo& info = core::at(kFlags, i);
         const int state = get_combined(flags, info.bit);
         bool on = state == 1;
-        std::array<char, 64> label{};
+        std::array<char, kButtonLabelSize> label{};
         text::format_to(label, "%s%s##face%d", info.name, state == 2 ? " (some)" : "", i);
         if (ImGui::Checkbox(label.data(), &on)) {
             const uint16_t bit = info.bit;

@@ -46,6 +46,24 @@ namespace frontend::level_editor::cameras {
 
 namespace {
 
+constexpr float kFrameRate = 60.0f;             // frames a second the shot timings count in
+constexpr std::size_t kLineTextSize = 320;
+constexpr double kFrameRateDouble = 60.0;
+constexpr double kFailureMessageSeconds = 4.0;
+constexpr float kMaxPitchDegrees = 89.0f;       // a camera looks up or down at most this far
+constexpr float kNearPlaneMargin = 0.01f;       // clipped just in front of the near plane
+constexpr float kMaxFrustumReach = 12000.0f;    // a camera further than this from the view is not drawn
+constexpr float kFrustumDepth = 120.0f;         // the drawn frustum's depth
+constexpr float kNearWeight = 0.75f;            // a marker point three quarters of the way from one corner to the other
+constexpr float kFarWeight = 0.25f;
+constexpr uint32_t kLitColour = 0xC0FFF060;     // ARGB: the line to the target of the camera in use
+constexpr uint32_t kUnlitColour = 0x60FF9030;   // ARGB: ... of the others
+constexpr float kFieldWidth = 160.0f;           // the Pitch and Target fields
+constexpr float kReferenceFontSize = 13.0f;     // the font size the field width was laid out for
+constexpr float kPitchDragSpeed = 0.25f;
+constexpr float kTargetDragSpeed = 5.0f;
+constexpr ImVec4 kDeleteButtonColour = ImVec4(0.62f, 0.22f, 0.30f, 0.85f);
+
 constexpr float kDegreesPerHalfTurn = 180.0f; // degrees in half a turn
 
 } // namespace
@@ -126,7 +144,7 @@ int shot_frames(float seconds)
     if (!std::isfinite(seconds))
         seconds = kShotDefaultSeconds;
     seconds = std::max(kShotMinSeconds, std::min(kShotMaxSeconds, seconds));
-    return static_cast<int>(std::lround(seconds * 60.0f));
+    return static_cast<int>(std::lround(seconds * kFrameRate));
 }
 
 void frustum_corners(CameraPlace camera_place, float tan_x, float tan_y, float depth, std::span<V3, 4> out)
@@ -153,7 +171,7 @@ bool get_same(const ViewCam& a, const ViewCam& b)
 
 std::string write_record(const ViewCam& c)
 {
-    std::array<char, 320> text{};
+    std::array<char, kLineTextSize> text{};
     text::format_to(text, "camera %s pos=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g dist=%.9g", c.name.c_str(), c.pos.x,
                     c.pos.y, c.pos.z, c.angles.x, c.angles.y, c.angles.z, c.distance);
     return text.data();
@@ -457,7 +475,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     commands::cfunc_play_skater_cam_anim(anim, script);
     anim->get_clear();
     script::delete_struct(anim);
-    shot_until() = now + frames / 60.0;
+    shot_until() = now + frames / kFrameRateDouble;
     if (debug_enabled())
         get_log("level editor: camera %s played for %d frames", nodes::caption(name).c_str(), frames);
     return true;
@@ -485,7 +503,7 @@ std::string create_from_view()
     std::string message;
     distances_state()[c.name] = c.distance;
     if (!node_create::fabricate(spec_of(c), -1, &message)) {
-        hud::get_message(message.empty() ? "Couldn't create the camera" : message, 4.0);
+        hud::get_message(message.empty() ? "Couldn't create the camera" : message, kFailureMessageSeconds);
         return "";
     }
     hud::get_message("Added camera " + c.name);
@@ -531,7 +549,7 @@ bool set_pitch(checksums::Name camera, float degrees, bool done)
     node_edit::Values values;
     values.pos = c->pos;
     values.angles = c->angles;
-    values.angles.x = -std::clamp(degrees, -89.0f, 89.0f) * kPi / kDegreesPerHalfTurn;
+    values.angles.x = -std::clamp(degrees, -kMaxPitchDegrees, kMaxPitchDegrees) * kPi / kDegreesPerHalfTurn;
     node_edit::assign_value(name, values);
     return true;
 }
@@ -618,7 +636,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
     const auto near_z = overlay_pick.near_z_;
     const auto selected = overlay_pick.selected;
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
-        if (!clip_to_near(camera_pos, frame, near_z + 0.01f, &a, &b))
+        if (!clip_to_near(camera_pos, frame, near_z + kNearPlaneMargin, &a, &b))
             return;
         float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f, nx = 0.0f, ny = 0.0f;
         if (!cast_onto(camera_pos, frame, lens, a, near_z, &nx, &ny))
@@ -631,13 +649,13 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
     };
     for (const ViewCam& c : get_all()) {
         const V3 d = c.pos - camera_pos;
-        if (get_dot(d, d) > 12000.0f * 12000.0f)
+        if (get_dot(d, d) > kMaxFrustumReach * kMaxFrustumReach)
             continue;
         const bool lit = node_create::name_hash(c.name) == selected;
         const uint32_t colour = lit ? 0xFFFFF060 : 0xFFFF9030;
         const float thickness = lit ? 2.0f : 1.25f;
         std::array<V3, 4> corners{};
-        frustum_corners({.pos = c.pos, .angles = c.angles}, lens.tan_x_, lens.tan_y_, 120.0f, corners);
+        frustum_corners({.pos = c.pos, .angles = c.angles}, lens.tan_x_, lens.tan_y_, kFrustumDepth, corners);
         for (int i = 0; i < 4; ++i) {
             line(c.pos, core::at(corners, i), colour, thickness);
             line(core::at(corners, i), core::at(corners, (i + 1) % 4), colour, thickness);
@@ -647,10 +665,10 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, std::s
         float yaw = 0.0f, pitch = 0.0f;
         yaw_pitch_of(c.angles, {.yaw = &yaw, .pitch = &pitch});
         const V3 up = frame_from_yaw_pitch(yaw, pitch).up * 30.0f;
-        line(core::at(corners, 0) * 0.75f + core::at(corners, 1) * 0.25f, top + up, colour, thickness);
-        line(core::at(corners, 1) * 0.75f + core::at(corners, 0) * 0.25f, top + up, colour, thickness);
+        line(core::at(corners, 0) * kNearWeight + core::at(corners, 1) * kFarWeight, top + up, colour, thickness);
+        line(core::at(corners, 1) * kNearWeight + core::at(corners, 0) * kFarWeight, top + up, colour, thickness);
         const V3 target = target_of(c.pos, c.angles, c.distance);
-        line(c.pos, target, lit ? 0xC0FFF060 : 0x60FF9030, 1.0f);
+        line(c.pos, target, lit ? kLitColour : kUnlitColour, 1.0f);
         const float s = lit ? 25.0f : 15.0f;
         line(target - V3{.x = s, .y = 0, .z = 0}, target + V3{.x = s, .y = 0, .z = 0}, colour, 1.0f);
         line(target - V3{.x = 0, .y = s, .z = 0}, target + V3{.x = 0, .y = s, .z = 0}, colour, 1.0f);
@@ -672,8 +690,8 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     yaw_pitch_of(c->angles, {.yaw = &yaw, .pitch = &pitch});
     float pitch_degrees = pitch * kDegreesPerHalfTurn / kPi;
     ImGui::PushFont(mono);
-    ImGui::SetNextItemWidth(160.0f * ImGui::GetFontSize() / 13.0f);
-    if (ImGui::DragFloat("Pitch##camera", &pitch_degrees, 0.25f, -89.0f, 89.0f, "%.1f deg",
+    ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / kReferenceFontSize);
+    if (ImGui::DragFloat("Pitch##camera", &pitch_degrees, kPitchDragSpeed, -kMaxPitchDegrees, kMaxPitchDegrees, "%.1f deg",
                          ImGuiSliderFlags_AlwaysClamp)) {
         const float value = pitch_degrees;
         level_editor_cameras_state().queue_.emplace_back([node, value] { set_pitch(checksums::Name{node}, value, false); });
@@ -681,8 +699,8 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::IsItemDeactivated())
         level_editor_cameras_state().queue_.emplace_back([] { level_editor_cameras_state().dragging_ = false; });
     float distance = c->distance;
-    ImGui::SetNextItemWidth(160.0f * ImGui::GetFontSize() / 13.0f);
-    if (ImGui::DragFloat("Target##camera", &distance, 5.0f, kMinDistance, kMaxDistance, "%.0f units",
+    ImGui::SetNextItemWidth(kFieldWidth * ImGui::GetFontSize() / kReferenceFontSize);
+    if (ImGui::DragFloat("Target##camera", &distance, kTargetDragSpeed, kMinDistance, kMaxDistance, "%.0f units",
                          ImGuiSliderFlags_AlwaysClamp)) {
         const float value = distance;
         level_editor_cameras_state().queue_.emplace_back([node, value] { place_at_range(checksums::Name{node}, value, false); });
@@ -706,7 +724,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::IsItemHovered())
         gui::tooltip("Move the camera to the current view");
     ImGui::SameLine();
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
+    ImGui::PushStyleColor(ImGuiCol_Button, kDeleteButtonColour);
     if (ImGui::Button("Delete##camera"))
         level_editor_cameras_state().queue_.emplace_back([node] { drop_out(node); });
     ImGui::PopStyleColor();

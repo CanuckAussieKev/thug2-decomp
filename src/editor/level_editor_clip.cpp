@@ -31,6 +31,14 @@
 
 namespace frontend::level_editor::clip {
 
+namespace {
+
+constexpr std::size_t kClipNumberText = 16; // a formatted number
+constexpr std::size_t kClipNameText = 64;   // a formatted name
+constexpr std::size_t kClipSummaryText = 96; // a formatted summary line
+
+} // namespace
+
 const char* const kHeaderComment = "# thug2-decomp clipboard";
 
 bool is_clip_text(const std::string& text)
@@ -46,7 +54,7 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
     auto label_of = [&](uint32_t checksum) {
         std::string name = hooks.label ? hooks.label(checksum) : "";
         if (name.empty()) {
-            std::array<char, 16> text{};
+            std::array<char, kClipNumberText> text{};
             text::format_to(text, "%08X", checksum);
             name = text.data();
         }
@@ -82,7 +90,7 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
         }
         layout::CopyRecord copy = c;
         for (;;) {
-            std::array<char, 64> text{};
+            std::array<char, kClipNameText> text{};
             text::format_to(text, "level_editor_copy_%08X_p%u", c.source, ++counter);
             copy.name = fields::hash_of_name(text.data());
             if (std::ranges::find(used_ids, copy.name) == used_ids.end() &&
@@ -416,7 +424,7 @@ std::string describe()
 {
     std::string text;
     if (copied_props().have_transform_) {
-        std::array<char, 96> t{};
+        std::array<char, kClipSummaryText> t{};
         text::format_to(t, "transform (%.0f, %.0f, %.0f)", copied_props().transform.pos.x, copied_props().transform.pos.y,
                         copied_props().transform.pos.z);
         text = t.data();

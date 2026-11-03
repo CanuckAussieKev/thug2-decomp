@@ -19,6 +19,11 @@ namespace frontend::level_editor::ui {
 
 namespace {
 
+constexpr float kSpeedFixedScale = 10000.0f; // a rail's speed factor in the request's fixed-point (4 decimals)
+constexpr float kSpeedFieldWidth = 110.0f;
+constexpr float kSpeedDragStep = 0.05f; // percent a drag moves the speed field
+constexpr ImVec4 kWaitingColour = ImVec4(1.0f, 0.78f, 0.45f, 1.0f);
+
 constexpr float kRoundHalf = 0.5f; // added before truncating: round to the nearest
 
 } // namespace
@@ -85,7 +90,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
             get_ask(requests, {.op = chains::kOpUnassign});
         ImGui::EndDisabled();
         if (chain.waiting)
-            gui::text_colored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
+            gui::text_colored(kWaitingColour, "%s", chain.waiting);
         return;
     }
     const char* noun = chain.path ? "path" : chain.ladder ? "ladder" : chain.ledge ? "ledge" : "rail";
@@ -116,7 +121,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         op_button("Delete Ladder", chain.can_delete_, "Delete the ladder  (Del)", "", requests, chains::kOpDelete);
         gui::text_disabled("Turn off Whole Ladder to move the foot or top");
         if (chain.waiting)
-            gui::text_colored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
+            gui::text_colored(kWaitingColour, "%s", chain.waiting);
         return;
     }
     op_button("Insert", chain.can_insert_, "Insert a point after this one  (Insert)", "Last point: use Extend",
@@ -186,15 +191,15 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         bool on = chain.speed > 0.0f;
         if (ImGui::Checkbox("Speed-up", &on))
             get_ask(requests, {.op = chains::kOpSpeed, .arg = // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    on ? static_cast<uint32_t>(chains::kSpeedDefault * 10000.0f + kRoundHalf) : 0u});
+                    on ? static_cast<uint32_t>(chains::kSpeedDefault * kSpeedFixedScale + kRoundHalf) : 0u});
         if (ImGui::IsItemHovered())
             gui::tooltip("Speed up the skater while grinding uphill");
         if (on) {
             static float s_percent = -1.0f;
             float percent = s_percent >= 0.0f ? s_percent : chain.speed * 100.0f;
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(110.0f);
-            if (ImGui::DragFloat("##speed", &percent, 0.05f, chains::kSpeedMin * 100.0f, chains::kSpeedMax * 100.0f,
+            ImGui::SetNextItemWidth(kSpeedFieldWidth);
+            if (ImGui::DragFloat("##speed", &percent, kSpeedDragStep, chains::kSpeedMin * 100.0f, chains::kSpeedMax * 100.0f,
                                  "+%.1f%% / frame", ImGuiSliderFlags_AlwaysClamp))
                 s_percent = percent;
             if (ImGui::IsItemDeactivatedAfterEdit() && s_percent >= 0.0f) {
@@ -209,7 +214,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
             ImGui::SameLine();
             if (ImGui::SmallButton("Whole rail"))
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                get_ask(requests, {.op = chains::kOpSpeedRail, .arg = static_cast<uint32_t>(chain.speed * 10000.0f + kRoundHalf)});
+                get_ask(requests, {.op = chains::kOpSpeedRail, .arg = static_cast<uint32_t>(chain.speed * kSpeedFixedScale + kRoundHalf)});
             if (ImGui::IsItemHovered())
                 gui::tooltip("Apply to the whole rail");
         } else if (chain.points > 1) {
@@ -219,7 +224,7 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         }
     }
     if (chain.waiting)
-        gui::text_colored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
+        gui::text_colored(kWaitingColour, "%s", chain.waiting);
 }
 
 } // namespace frontend::level_editor::ui

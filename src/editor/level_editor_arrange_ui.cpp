@@ -2,6 +2,7 @@
 // level_editor_adjust.h). Dear ImGui only (the renderer-independence rules: level_editor_ui_backend.h); what the
 // buttons ask for is queued and done in the editor's next Update (Arrange::tick_frame runs the queue).
 
+#include <cstddef>
 #include <functional>
 #include <string>
 #include <utility>
@@ -17,9 +18,36 @@
 #include "editor/level_editor_gui_text.h"
 #include "engine/core/no_destroy.h"
 
+namespace frontend::level_editor {
+
+namespace {
+
+constexpr float kPanelWidth = 330.0f;           // the Arrange panel (before the UI scale)
+constexpr float kPanelPosX = 420.0f;            // its first position
+constexpr float kPanelPosY = 120.0f;
+constexpr float kGroupSpacing = 14.0f;          // the gap between two groups of buttons on a row
+constexpr std::size_t kLabelTextSize = 32;
+constexpr float kTipOffset = 8.0f;              // the preview tip sits this far from the cursor
+constexpr float kTipWidth = 280.0f;
+constexpr std::size_t kTitleTextSize = 64;
+constexpr float kOffsetLimit = 100000.0f;       // the offset and position fields' range (plus and minus)
+constexpr float kQuarterDragSpeed = 3.0f;       // degrees a drag moves the angle fields with quarter turns on ...
+constexpr float kFreeDragSpeed = 0.5f;          // ... and with free angles
+constexpr float kSpinLimit = 3600.0f;           // the Angle field's range (plus and minus)
+constexpr float kTurnLimit = 360.0f;            // the Turn fields' range (plus and minus)
+constexpr float kFactorDragSpeed = 0.01f;
+constexpr float kFactorMin = 0.05f;
+constexpr float kFactorMax = 20.0f;
+constexpr float kCountDragSpeed = 0.2f;
+
+} // namespace
+
+} // namespace frontend::level_editor
+
 namespace frontend::level_editor::arrange {
 
 namespace {
+
 
 std::vector<std::function<void()>>& stored_queue()
 {
@@ -50,8 +78,8 @@ void pane(float ui_scale)
     Settings& s = at_hand();
     if (!s.window)
         return;
-    ImGui::SetNextWindowSize(ImVec2(330.0f * ui_scale, 0.0f), ImGuiCond_Appearing);
-    ImGui::SetNextWindowPos(ImVec2(420.0f * ui_scale, 120.0f * ui_scale), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(kPanelWidth * ui_scale, 0.0f), ImGuiCond_Appearing);
+    ImGui::SetNextWindowPos(ImVec2(kPanelPosX * ui_scale, kPanelPosY * ui_scale), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Arrange###arrange", &s.window,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End();
@@ -64,7 +92,7 @@ void pane(float ui_scale)
             ImGui::SameLine();
         ImGui::RadioButton(core::at(kAxes, axis), &s.axis, axis);
     }
-    ImGui::SameLine(0.0f, 14.0f * ui_scale);
+    ImGui::SameLine(0.0f, kGroupSpacing * ui_scale);
     ImGui::Checkbox("Local", &s.local);
     get_tip("Use the first item's axes");
     int reference = static_cast<int>(s.reference);
@@ -76,7 +104,7 @@ void pane(float ui_scale)
     for (int edge = 0; edge < 3; ++edge) {
         if (edge)
             ImGui::SameLine();
-        std::array<char, 32> label{};
+        std::array<char, kLabelTextSize> label{};
         text::format_to(label, "Align %s", core::at(kEdges, edge));
         if (ImGui::Button(label.data())) {
             const int axis = s.axis;
@@ -147,9 +175,9 @@ void get_panel(float x, float y, float ui_scale)
     if (!editing)
         edit = last;
     const bool adjustable = get_adjustable();
-    ImGui::SetNextWindowPos(ImVec2(x + 8.0f * ui_scale, y - 8.0f * ui_scale), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
-    ImGui::SetNextWindowSize(ImVec2(280.0f * ui_scale, 0.0f));
-    std::array<char, 64> title{};
+    ImGui::SetNextWindowPos(ImVec2(x + kTipOffset * ui_scale, y - kTipOffset * ui_scale), ImGuiCond_Always, ImVec2(0.0f, 1.0f));
+    ImGui::SetNextWindowSize(ImVec2(kTipWidth * ui_scale, 0.0f));
+    std::array<char, kTitleTextSize> title{};
     text::format_to(title, "Adjust: %s (F4)###adjust_last", get_title(last.kind));
     if (!ImGui::Begin(title.data(), nullptr,
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
@@ -167,26 +195,26 @@ void get_panel(float x, float y, float ui_scale)
     const float speed = 1.0f;
     switch (edit.kind) {
     case Kind::kShiftBy:
-        track(ImGui::DragFloat3("Offset", &edit.offset.x, speed, -100000.0f, 100000.0f, "%.1f"));
+        track(ImGui::DragFloat3("Offset", &edit.offset.x, speed, -kOffsetLimit, kOffsetLimit, "%.1f"));
         track(ImGui::Checkbox("On the grid", &edit.grid));
         break;
     case Kind::kTurn:
-        track(ImGui::DragFloat("Angle", &edit.degrees, edit.quarters ? 3.0f : 0.5f, -3600.0f, 3600.0f,
+        track(ImGui::DragFloat("Angle", &edit.degrees, edit.quarters ? kQuarterDragSpeed : kFreeDragSpeed, -kSpinLimit, kSpinLimit,
                                edit.quarters ? "%.0f (quarters)" : "%.1f"));
         break;
     case Kind::kScale:
         if (edit.uniform)
-            track(ImGui::DragFloat("Factor", &edit.factor.x, 0.01f, 0.05f, 20.0f, "%.3f"));
+            track(ImGui::DragFloat("Factor", &edit.factor.x, kFactorDragSpeed, kFactorMin, kFactorMax, "%.3f"));
         else
-            track(ImGui::DragFloat3("Factor", &edit.factor.x, 0.01f, 0.05f, 20.0f, "%.3f"));
+            track(ImGui::DragFloat3("Factor", &edit.factor.x, kFactorDragSpeed, kFactorMin, kFactorMax, "%.3f"));
         break;
     case Kind::kDuplicate:
         // (copies are made only when a field is let go: dozens of copies each frame would be slow)
-        ImGui::DragInt("Copies", &edit.count, 0.2f, 1, kMaxCopies);
+        ImGui::DragInt("Copies", &edit.count, kCountDragSpeed, 1, kMaxCopies);
         done = done || ImGui::IsItemDeactivatedAfterEdit();
-        ImGui::DragFloat3("Offset", &edit.offset.x, 1.0f, -100000.0f, 100000.0f, "%.1f");
+        ImGui::DragFloat3("Offset", &edit.offset.x, 1.0f, -kOffsetLimit, kOffsetLimit, "%.1f");
         done = done || ImGui::IsItemDeactivatedAfterEdit();
-        ImGui::DragFloat("Turn", &edit.degrees, edit.quarters ? 3.0f : 0.5f, -360.0f, 360.0f,
+        ImGui::DragFloat("Turn", &edit.degrees, edit.quarters ? kQuarterDragSpeed : kFreeDragSpeed, -kTurnLimit, kTurnLimit,
                          edit.quarters ? "%.0f (quarters)" : "%.1f");
         done = done || ImGui::IsItemDeactivatedAfterEdit();
         if (ImGui::Checkbox("On the grid", &edit.grid))
@@ -217,8 +245,8 @@ void get_panel(float x, float y, float ui_scale)
         break;
     }
     case Kind::kPlace:
-        track(ImGui::DragFloat3("Position", &edit.pos.x, 1.0f, -100000.0f, 100000.0f, "%.1f"));
-        track(ImGui::DragFloat("Turn", &edit.degrees, edit.quarters ? 3.0f : 0.5f, -360.0f, 360.0f,
+        track(ImGui::DragFloat3("Position", &edit.pos.x, 1.0f, -kOffsetLimit, kOffsetLimit, "%.1f"));
+        track(ImGui::DragFloat("Turn", &edit.degrees, edit.quarters ? kQuarterDragSpeed : kFreeDragSpeed, -kTurnLimit, kTurnLimit,
                                edit.quarters ? "%.0f (quarters)" : "%.1f"));
         break;
     case Kind::kNone:
