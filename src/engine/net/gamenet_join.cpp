@@ -63,6 +63,7 @@
 #include "wire/gamenet_messages.h"
 #include "wire/net_wire.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/str.h"
 #include "engine/net/net_address.h"
 #include "wire/message_ids.h"
 #include "engine/net/online_identity.h"
@@ -414,8 +415,8 @@ void Hub::join_server(net::Address address, int index)
     info.observer = join_mode_ == kJoinModeObserve;
     info.version = kVersion;
     if (std::strlen(pending_password().data()) != 0) {
-        std::strcpy(info.password.data(), pending_password().data());
-        std::strcpy(join_password().data(), pending_password().data());
+        text::copy_into(info.password, pending_password().data());
+        text::copy_into(join_password(), pending_password().data());
     } else {
         std::memset(join_password().data(), 0, kPasswordSize);
         core::at(info.password, 0) = '\0';
@@ -461,7 +462,7 @@ void Hub::retry_entry(AppHost* client)
 // 0x00534BD0
 void Hub::retry_entry_with_key(const char* password)
 {
-    std::strcpy(join_password().data(), password);
+    text::copy_into(join_password(), password);
     const char* name = preference_text(this, kNetworkId); // (not used)
     (void)name;
     ConnectInfo info{};
@@ -471,7 +472,7 @@ void Hub::retry_entry_with_key(const char* password)
     info.version = kVersion;
     info.can_queue_up_ = true;
     info.broadband = net::Hub::sole()->get_net_link_kind() != kConnectionTypeModem;
-    std::strcpy(info.password.data(), password);
+    text::copy_into(info.password, password);
     thugpro::ConnectRequest request{};
     send_connection_request(as_client(client_app_), info, &request);
     join_began_at_ = milli_seconds();
@@ -585,7 +586,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         std::array<char, kRefusedSize> refused = {}; // (10 sent: the reason, and the challenge for kCdKey)
         core::at(refused, 0) = static_cast<char>(core::to_underlying(reason));
         if (reason == JoinRefusedReason::kCdKey)
-            std::strcpy(std::span<char>(refused).subspan(1).data(), manager->challenge_.data());
+            text::copy_into(std::span<char>(refused).subspan(1), manager->challenge_.data());
         send_refused(context->receiver_app(), conn, refused.data());
         return net::kResultStop;
     }
@@ -761,7 +762,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
         manager->join_private_ip_ = proceed->private_ip_;
         manager->join_port_ = proceed->port;
         if (manager->presence_service_->authenticated()) {
-            std::strcpy(manager->lobby_service_->server_name().data(), proceed->server_name_.data());
+            text::copy_cut(manager->lobby_service_->server_name(), proceed->server_name_.data());
             constexpr size_t kLocationSize = 0x1000;
             std::array<char, kLocationSize> location{};
             get_sprintf(location.data(), kPresenceLocationFormat.data(), manager->join_ip_, manager->join_private_ip_,
@@ -791,7 +792,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     }
     std::strncpy(info->name.data(), name, kNameSize - 1);
     core::at(info->name, kNameSize - 1) = '\0';
-    std::strcpy(info->password.data(), join_password().data());
+    text::copy_into(info->password, join_password().data());
     int size = 0;
     if (!info->observer) {
         auto* profile = modules::Skate::sole()->fetch_account(0);
@@ -851,7 +852,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         net::Hub* net = net::Hub::sole();
         ConnectInfo info{};
         std::memset(&info, 0, sizeof(info));
-        std::strcpy(info.cd_key_response_.data(), response.data());
+        text::copy_into(info.cd_key_response_, response.data());
         const char* name = nullptr; // (not used)
         manager->net_options_.fetch_setting(kNetworkId)->fetch_text(kUiStringText.data(), &name, 1);
         info.rank = static_cast<int8_t>(manager->rating_service_->get_rank());
@@ -859,7 +860,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         info.version = kVersion;
         info.can_queue_up_ = true;
         info.broadband = net->get_net_link_kind() != kConnectionTypeModem;
-        std::strcpy(info.password.data(), join_password().data());
+        text::copy_into(info.password, join_password().data());
         thugpro::ConnectRequest request{};
         send_connection_request(as_client(manager->client_app_), info, &request);
         manager->set_join_phase(EntryPhase::kCdKey);

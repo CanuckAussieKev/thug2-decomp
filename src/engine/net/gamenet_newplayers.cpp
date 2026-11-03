@@ -39,6 +39,7 @@
 #include "platform/compiler.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/str.h"
 #include "engine/net/net_game_state.h"
 #include "engine/net/player_info.h"
 #include "wire/message_ids.h"
@@ -116,7 +117,7 @@ void Hub::add_new_player(JoinerRecord* info)
     }
     if (!player) {
         player = new_player(skater, info->conn(), info->flag_bits() & kNewPlayerFlags);
-        std::strcpy(player->label().data(), info->label().data());
+        text::copy_into(player->label(), info->label().data());
         player->set_team(info->team());
         player->set_profile_id(info->profile_id());
         player->set_skill_points(info->skill_points());
@@ -292,7 +293,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_info_heap());
             PlayerRecord* player = manager->new_player(nullptr, conn, info->flag_bits());
             memory::Hub::get_pull()->leave_heap_scope();
-            std::strcpy(player->label().data(), info->label().data());
+            text::copy_into(player->label(), info->label().data());
             player->set_profile(info->account()); // its appearance (a copy of the profile)
             player->set_rejoin_group(info->rejoin_group());
             player->set_profile_id(info->profile_id());

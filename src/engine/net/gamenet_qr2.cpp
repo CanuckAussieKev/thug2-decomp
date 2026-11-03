@@ -38,6 +38,7 @@
 #include "platform/compiler.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/gathered_call.h"
+#include "engine/core/str.h"
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the level's name)
 
 namespace online {
@@ -212,7 +213,7 @@ void start_query_reporting(bool keep_map_name)
     if (!keep_map_name) { // the level's name, for mapname when the level select has none
         const char* text = nullptr;
         net_game_state().online_hub()->net_options().fetch_setting(kLevel)->fetch_text("ui_string", &text, 0);
-        std::strcpy(fallback_map_name().data(), text);
+        text::copy_into(fallback_map_name(), text);
     }
     if (net_game_state().query_reporting())
         return;

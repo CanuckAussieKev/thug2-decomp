@@ -334,7 +334,7 @@ TextureSet* load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, ui
 TextureSet* load_model_textures(const char* name, uint32_t offset, uint32_t a4)
 {
     std::array<char, kDictPathSize> base{};
-    const bool skin = engine::split_skin_name(name, base.data());
+    const bool skin = engine::split_skin_name(name, base);
     std::array<char, kDictPathSize> file{};
     text::format_to(file, "%s.tex", base.data());
     return load_tex_dict(file.data(), 0, offset, skin, a4);

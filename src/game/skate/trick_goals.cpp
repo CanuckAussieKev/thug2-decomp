@@ -37,6 +37,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/format.h"
+#include "engine/core/str.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat into its fixed buffers, kept)
 
@@ -242,8 +243,8 @@ uint32_t prefixed_checksum(PrefixedName prefixed_name)
     const auto prefix = prefixed_name.prefix;
     const auto name = prefixed_name.name;
     std::array<char, kPrefixedNameBytes> buffer{};
-    std::strcpy(buffer.data(), prefix);
-    std::strcat(buffer.data(), name);
+    text::copy_into(buffer, prefix);
+    text::append_into(buffer, name);
     return checksums::hash_from_text(buffer.data());
 }
 
@@ -531,7 +532,7 @@ void FallingTricksGoal::add_tricks(int count)
             }
             const char* trick_text = nullptr;
             trick->fetch_text(kText, &trick_text, 1);
-            std::strcpy(text.data(), trick_text);
+            text::copy_into(text, trick_text);
             if (!trick->read_hash_value(kKeyCombo, &key_combo, 0))
                 trick->fetch_text(kKeyCombo, &key_combo_text, 0);
         } else {
@@ -602,7 +603,7 @@ void FallingTricksGoal::add_tricks(int count)
                 THUG2_MSVC_WARNING(suppress : 4996)
                 text::format_to(text, "\\c5%i\\c0 ", t.spin * kHalfTurnDegrees);
             }
-            std::strcat(text.data(), trick_text);
+            text::append_into(text, trick_text);
             t.key_combo_ = key_combo;
         }
 
@@ -1116,7 +1117,7 @@ void TrickBeatGoal::add_tricks(int count)
             }
             const char* trick_text = nullptr;
             trick->fetch_text(kText, &trick_text, 1);
-            std::strcpy(text.data(), trick_text);
+            text::copy_into(text, trick_text);
             if (!trick->read_hash_value(kKeyCombo, &key_combo, 0))
                 trick->fetch_text(kKeyCombo, &key_combo_text, 0);
         } else {
@@ -1183,7 +1184,7 @@ void TrickBeatGoal::add_tricks(int count)
                 THUG2_MSVC_WARNING(suppress : 4996)
                 text::format_to(text, "\\c5%i\\c0 ", t.spin * kHalfTurnDegrees); // (over "Perfect ", as in the original)
             }
-            std::strcat(text.data(), trick_text);
+            text::append_into(text, trick_text);
             t.key_combo_ = key_combo;
             t.trick = checksums::hash_from_text(trick_text); // (trick_landed matches by the trick's name)
         }

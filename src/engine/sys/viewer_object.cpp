@@ -95,7 +95,7 @@ void sibling_file(SiblingName sibling, std::array<char, kPathBytes>& out)
 {
     const auto path = sibling.path;
     const auto extension = sibling.extension;
-    render::engine::split_skin_name(path, out.data());
+    render::engine::split_skin_name(path, out);
     strcat_s(out.data(), out.size(), extension);
 }
 

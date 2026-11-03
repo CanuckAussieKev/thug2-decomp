@@ -37,6 +37,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/sys/mlp.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/str.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 
@@ -135,16 +136,16 @@ void Hub::use_network_preferences()
     if (check != kBooleanTrue) {
         preferences->fetch_setting(kMasterServer1)->fetch_text(kUiString, &text, 1);
         if (std::strcmp(text, kNoAddress) != 0)
-            std::strcpy(core::at(servers, next++).data(), text);
+            text::copy_into(core::at(servers, next++), text);
         preferences->fetch_setting(kMasterServer2)->fetch_text(kUiString, &text, 1);
         if (std::strcmp(text, kNoAddress) != 0)
-            std::strcpy(core::at(servers, next++).data(), text);
+            text::copy_into(core::at(servers, next++), text);
     }
     // (no bounds check: more than 10 names run over what follows, as in the original)
     for (int i = 0; i < ints::as_signed(defaults->extent()); ++i) {
         auto* entry = defaults->struct_at(i);
         entry->fetch_text(kName, &text, 1);
-        std::strcpy(core::at(servers, next + i).data(), text);
+        text::copy_into(core::at(servers, next + i), text);
     }
 
     uint32_t broadband_type = 0;

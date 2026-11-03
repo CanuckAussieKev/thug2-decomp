@@ -54,6 +54,7 @@
 #include "wire/gamenet_messages.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
+#include "engine/core/str.h"
 #include "wire/message_ids.h"
 #include "engine/net/online_identity.h"
 
@@ -306,7 +307,7 @@ void Hub::remove_player_record(PlayerRecord* player)
 void Hub::evict_player(PlayerRecord* player, int reason)
 {
     std::array<char, kNameSize> name{};
-    std::strcpy(name.data(), player_name(player));
+    text::copy_into(name, player_name(player));
     if (!is_observer(player) && get_game_mode()->is_true(kShouldModulateColor))
         objects::trick_spot_hub()->release_player_clusters(
             static_cast<int>(get_skater_id(player_skater(player)))); // its colours off the trick objects
@@ -402,7 +403,7 @@ void Hub::re_add_pending_players()
         if (core::any(player->flag_bits() & PlayerFlag::kPendingObserver)) {
             JoinerRecord info; // (its constructor: a skater profile)
             frames += kRejoinDelayFrames;
-            std::strcpy(info.label().data(), player_name(player));
+            text::copy_into(info.label(), player_name(player));
             info.set_entity_key(static_cast<uint8_t>(reserve_obj_id_for_player()));
             info.set_conn(player->conn());
             info.flag_bits() = PlayerFlag::kRejoining;

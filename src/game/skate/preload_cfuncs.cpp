@@ -96,7 +96,7 @@ void ingest_mesh(render::RenderModel* model, const char* file, int a, int b, int
 // 0x004879D0 (cdecl): the model file's path for `name` with `extension` (a String, returned).
 text::Chars model_path(const char* name, const char* extension) { return gfx::make_model_path(name, extension); }
 // 0x0048BFE0 (cdecl): a model file's base name (without its extension) into `base`.
-void get_base_name(const char* name, char* base) { render::engine::split_skin_name(name, base); }
+void get_base_name(const char* name, std::span<char> base) { render::engine::split_skin_name(name, base); }
 
 // 0x00565BB0: the skate module's: whether a node isn't for this game (its own 0x68910AC6 test).
 bool skip_node(script::Struct* node) { return modules::Skate::should_be_absent(node) != 0; }
@@ -168,7 +168,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
             std::memcpy(name.data(), file, std::strlen(file) + 1); // (no bound: as the original)
             text::to_lower_text(name.data());
             if (std::strstr(name.data(), ".mdl")) {
-                get_base_name(file, name.data());
+                get_base_name(file, name);
                 text::append_unbounded(name.data(), ".col");
                 assets::ResourceRegistry* assets = assets::asset_manager();
                 const bool permanent = assets->get_permanent_by_default();
@@ -178,7 +178,7 @@ bool cfunc_preload_models(script::Struct*, script::Script*)
         }
         if (node_class == kVehicle) {
             std::array<char, kNameBytes> script{};
-            get_base_name(path.c_str(), script.data());
+            get_base_name(path.c_str(), script);
             text::append_unbounded(script.data(), ".qb");
             assets::ResourceRegistry* assets = assets::asset_manager();
             const bool permanent = assets->get_permanent_by_default();

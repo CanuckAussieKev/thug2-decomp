@@ -3,7 +3,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <cstring>
 #include <utility>
 #include <array>
 
@@ -20,6 +19,7 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/str.h"
 #include "game/park_editing/park_editing_state.h"
 #include "engine/maths/vec4.h"
 #include "engine/maths/trig.h"
@@ -232,7 +232,7 @@ void EditedGoal::change_species(uint32_t type)
     defaults->fetch_int_value(kScore, &points_held_, 0);
     const char* text = ""; // ""
     defaults->fetch_text(kViewGoalsText, &text, 0);
-    std::strcpy(label_.data(), text);
+    text::copy_into(label_, text);
 }
 
 // 0x004E6F70
@@ -454,7 +454,7 @@ void EditedGoal::read_specific_params(script::Struct* params)
     case kGoalTypeGap: {
         const char* trick = nullptr;
         if (params->fetch_text(kRequiredTrickName, &trick, 0))
-            std::strcpy(required_trick_.data(), trick);
+            text::copy_into(required_trick_, trick);
         script::Array* gaps = nullptr;
         params->fetch_list(kGaps, &gaps, 0);
         if (!gaps)

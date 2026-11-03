@@ -2,9 +2,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <algorithm>
 #include <cstring>
 #include <limits>
 #include <span>
+
+#include <gsl/assert>
 
 #include "engine/core/cursor.h"
 
@@ -65,6 +68,32 @@ inline char* append_unbounded(char* dest, const char* source)
     const std::span<char> from_end = std::span<char>(dest, std::numeric_limits<std::ptrdiff_t>::max()).subspan(std::strlen(dest));
     copy_unbounded(from_end.data(), source);
     return dest;
+}
+
+// NOT ORIGINAL - the original's strcpy into a buffer whose size we know: `source` and its terminator copied into
+// `dest`. A text that doesn't fit ends the game with a report (the original wrote on past the buffer).
+inline void copy_into(std::span<char> dest, const char* source)
+{
+    const std::size_t length = std::strlen(source);
+    Expects(length < dest.size());
+    std::memmove(dest.data(), source, length + 1);
+}
+// NOT ORIGINAL - the original's strcat into a buffer whose size we know: `source` copied onto the end of `dest`'s
+// text (checked as copy_into; `dest` must hold a terminated text).
+inline void append_into(std::span<char> dest, const char* source)
+{
+    const auto end = std::ranges::find(dest, '\0');
+    Expects(end != dest.end());
+    copy_into(dest.subspan(static_cast<std::size_t>(end - dest.begin())), source);
+}
+// NOT ORIGINAL - a text from outside the game (another player, the online service) copied into a buffer of the
+// game's: cut to fit and always terminated (the original's strcpy wrote on past the buffer when it was too long).
+inline void copy_cut(std::span<char> dest, const char* source)
+{
+    Expects(!dest.empty());
+    const std::size_t length = std::min(std::strlen(source), dest.size() - 1);
+    std::memmove(dest.data(), source, length);
+    dest.subspan(length).front() = '\0';
 }
 
 } // namespace text

@@ -37,6 +37,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
+#include "engine/core/str.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat, kept)
 
@@ -185,7 +186,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             const uint32_t name = team < 4 ? core::at(kTeamNames, team) : 0;
             ScoreEntry* entry = new_entry();
             core::at(teams, team) = entry;
-            std::strcpy(entry->text().data(), script::fetch_text(name));
+            text::copy_into(entry->text(), script::fetch_text(name));
             entry->set_king(false);
             entry->set_local(false);
             entry->set_has_flag(false);
@@ -200,7 +201,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
                 constexpr size_t kMarkedSize = 64;
                 std::array<char, kMarkedSize> marked{};
                 text::format_to(marked, "> %s", core::at(teams, p->team())->text().data());
-                std::strcpy(core::at(teams, p->team())->text().data(), marked.data());
+                text::copy_into(core::at(teams, p->team())->text(), marked.data());
             }
             if (core::any(p->flag_bits() & PlayerFlag::kKing))
                 core::at(teams, p->team())->set_king(true);
@@ -227,7 +228,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             if (core::any(p->flag_bits() & PlayerFlag::kLocal))
                 text::format_to(entry->text(), "> %s", p->label().data());
             else
-                std::strcpy(entry->text().data(), p->label().data());
+                text::copy_into(entry->text(), p->label().data());
             entry->set_king(core::any(p->flag_bits() & PlayerFlag::kKing));
             entry->set_local(core::any(p->flag_bits() & PlayerFlag::kLocal));
             if (is_squad_match())
@@ -260,13 +261,13 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
                                  script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
         } else if (entry->has_flag()) {
             if (entry->flag_bits() & 1)
-                std::strcat(prefix.data(), "\\s0");
+                text::append_into(prefix, "\\s0");
             if (entry->flag_bits() & kEntryStyle1)
-                std::strcat(prefix.data(), "\\s1");
+                text::append_into(prefix, "\\s1");
             if (entry->flag_bits() & kEntryStyle2)
-                std::strcat(prefix.data(), "\\s2");
+                text::append_into(prefix, "\\s2");
             if (entry->flag_bits() & kEntryStyle3)
-                std::strcat(prefix.data(), "\\s3");
+                text::append_into(prefix, "\\s3");
         } else {
             core::at(prefix, 0) = '\0';
         }

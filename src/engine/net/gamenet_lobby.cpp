@@ -8,10 +8,10 @@
 #include "platform/gamespy.h"
 
 #include <cstdint>
-#include <cstring>
 #include <initializer_list>
 
 #include "engine/core/task_list.h"
+#include "engine/core/str.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/buddy_man.h"
@@ -79,7 +79,7 @@ bool RoomManager::is_hosting() { return hosting_; }
 // 0x0053F820
 char* RoomManager::get_room_name() { return room_name_.data(); }
 // 0x0053F830
-void RoomManager::change_host_name(const char* name) { std::strcpy(server_name_.data(), name); }
+void RoomManager::change_host_name(const char* name) { text::copy_into(server_name_, name); }
 // 0x0053F850
 char* RoomManager::fetch_host_name() { return server_name_.data(); }
 // 0x0053F860

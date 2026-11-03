@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
@@ -54,7 +55,7 @@ using IdleFunction = void (*)();
 IdleFunction get_idle_function();
 
 // 0x0048BFE0: `name` copied to `base` without a ".skin" (then a ".mdl") in it. Whether it had ".skin".
-bool split_skin_name(const char* name, char* base);
+bool split_skin_name(const char* name, std::span<char> base);
 // 0x0048C030: a model from geometry in memory (load_mesh_from_memory, under the "model_data_buffer" profile). The last
 // three arguments aren't used. `skin_size`: the skin's bytes (not the original's).
 gsl::owner<PcMesh*> load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin, size_t skin_size,

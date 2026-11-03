@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <span>
 
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
@@ -187,14 +188,14 @@ void set_render_ignore(int ignore1, int ignore0)
 IdleFunction get_idle_function() { return engine_state().idle_function_; }
 
 // 0x0048BFE0
-bool split_skin_name(const char* name, char* base)
+bool split_skin_name(const char* name, std::span<char> base)
 {
-    std::strcpy(base, name);
-    char* skin = std::strstr(base, ".skin");
+    text::copy_into(base, name);
+    char* skin = std::strstr(base.data(), ".skin");
     const bool found = skin != nullptr;
     if (found)
         *skin = '\0';
-    if (char* model = std::strstr(base, ".mdl"))
+    if (char* model = std::strstr(base.data(), ".mdl"))
         *model = '\0';
     return found;
 }
@@ -219,7 +220,7 @@ void build_scene_file_path(char* out, const char* name, uint32_t)
 gsl::owner<PcMesh*> load_model_file(const char* file_name, TextureSet* textures, int, bool)
 {
     std::array<char, kEnginePathSize> base{};
-    const bool skinned = split_skin_name(file_name, base.data());
+    const bool skinned = split_skin_name(file_name, base);
     text::to_lower_text(base.data());
     std::array<char, kEnginePathSize> path{};
     text::format_to(path, kModelFileFormat, base.data(), skinned ? "skin" : "mdl", platform_suffix());

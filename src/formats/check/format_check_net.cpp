@@ -23,6 +23,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/same_bits.h"
+#include "engine/core/str.h"
 #include "formats/check/format_check_net.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy into the test messages' fixed fields)
@@ -588,7 +589,7 @@ void check_join_messages()
     ref.version = online::kVersion;
     ref.observer = 1;
     ref.can_queue_up = 1;
-    std::strcpy(ref.password.data(), "secret123");
+    text::copy_into(ref.password, "secret123");
     ref.broadband = 1;
     ref.rank = -3;
     std::memset(ref.cd_key_response.data(), 'k', kCdKeyFillLength);
@@ -596,7 +597,7 @@ void check_join_messages()
     info.version = online::kVersion;
     info.observer = true;
     info.can_queue_up_ = true;
-    std::strcpy(info.password.data(), "secret123");
+    text::copy_into(info.password, "secret123");
     info.broadband = true;
     info.rank = -3;
     std::memset(info.cd_key_response_.data(), 'k', kCdKeyFillLength);
@@ -607,22 +608,22 @@ void check_join_messages()
     join_ref.profile = kJoinRequestProfileSample;
     join_ref.rating = kJoinRequestRatingSample;
     join_ref.drive_scheme = 2;
-    std::strcpy(join_ref.name.data(), "fifteen_letters");
+    text::copy_into(join_ref.name, "fifteen_letters");
     online::JoinRequestHeader join = {};
     static_cast<online::ConnectInfo&>(join) = info;
     join.profile = kJoinRequestProfileSample;
     join.rating = kJoinRequestRatingSample;
     join.drive_scheme_ = 2;
-    std::strcpy(join.name.data(), "fifteen_letters");
+    text::copy_into(join.name, "fifteen_letters");
     check_message("join request 80", join, join_ref, online::write_join_request, online::read_join_request);
 
     ReferenceProceed proceed_ref = {.public_ip = kJoinProceedPublicIpSample, .private_ip = kJoinProceedPrivateIpSample, .port = kJoinProceedPortSample, .server_name = {}, .max_players = kJoinProceedMaxPlayersSample, .broadband = 1, .pad = {}};
-    std::strcpy(proceed_ref.server_name.data(), "Skate Shop");
+    text::copy_into(proceed_ref.server_name, "Skate Shop");
     online::ProceedInfo proceed = {};
     proceed.public_ip_ = kJoinProceedPublicIpSample;
     proceed.private_ip_ = kJoinProceedPrivateIpSample;
     proceed.port = kJoinProceedPortSample;
-    std::strcpy(proceed.server_name_.data(), "Skate Shop");
+    text::copy_into(proceed.server_name_, "Skate Shop");
     proceed.max_players_ = kJoinProceedMaxPlayersSample;
     proceed.broadband = true;
     check_message("join proceed 79", proceed, proceed_ref, online::write_proceed_info, online::read_proceed_info, kJoinProceedMinBytes);
@@ -717,7 +718,7 @@ void check_session_others()
 {
     {
         ReferencePlayerArrived ref = {.profile_id = kPlayerArrivedProfileIdSample, .rating = kPlayerArrivedRatingSample, .flags = kPlayerArrivedFlagsSample, .score = kPlayerArrivedScoreSample, .value10 = kPlayerArrivedValue10Sample, .value14 = kPlayerArrivedValue14Sample, .obj_id = 3, .team = 1, .pad = {}, .drive_scheme = 2, .name = {}};
-        std::strcpy(ref.name.data(), "player_one");
+        text::copy_into(ref.name, "player_one");
         online::PlayerArrived m;
         m.profile_id = kPlayerArrivedProfileIdSample;
         m.rating = kPlayerArrivedRatingSample;
@@ -728,19 +729,19 @@ void check_session_others()
         m.object_id = 3;
         m.team = 1;
         m.drive_scheme = 2;
-        std::strcpy(m.name.data(), "player_one");
+        text::copy_into(m.name, "player_one");
         check_message("player arrived 0x22", m, ref, online::write_player_arrived, online::read_player_arrived);
     }
     {
         ReferenceHudNotice ref = {.properties = kHudNoticePropertiesSample, .text = kHudNoticeTextSample, .time = kHudNoticeTimeSample, .string1 = {}, .string2 = {}};
-        std::strcpy(ref.string1.data(), "Skater 1");
-        std::strcpy(ref.string2.data(), "Team Red");
+        text::copy_into(ref.string1, "Skater 1");
+        text::copy_into(ref.string2, "Team Red");
         online::HudNotice m;
         m.properties = kHudNoticePropertiesSample;
         m.text = kHudNoticeTextSample;
         m.time = kHudNoticeTimeSample;
-        std::strcpy(m.string1.data(), "Skater 1");
-        std::strcpy(m.string2.data(), "Team Red");
+        text::copy_into(m.string1, "Skater 1");
+        text::copy_into(m.string2, "Team Red");
         check_message("hud notice 0x3F", m, ref, online::write_hud_notice, online::read_hud_notice);
         // string 1 filling its field (no terminator): cut there, string 2 still read
         std::memset(ref.string1.data(), 'x', kHudStringSize);
@@ -769,11 +770,11 @@ void check_session_others()
     }
     {
         ReferenceKickRequest ref = {.request = 1, .index = 2, .name = {}};
-        std::strcpy(ref.name.data(), "griefer");
+        text::copy_into(ref.name, "griefer");
         online::KickRequest m;
         m.kick = 1;
         m.index = 2;
-        std::strcpy(m.name.data(), "griefer");
+        text::copy_into(m.name, "griefer");
         check_message("kick request 0x61", m, ref, online::write_kick_request, online::read_kick_request);
     }
     {
@@ -828,12 +829,12 @@ void check_chat_messages()
 {
     {
         ReferenceChat ref = {.color = 3, .name = {}, .text = {}};
-        std::strcpy(ref.name.data(), "skater");
-        std::strcpy(ref.text.data(), "hi there");
+        text::copy_into(ref.name, "skater");
+        text::copy_into(ref.text, "hi there");
         online::Chat m;
         m.color = 3;
-        std::strcpy(m.name.data(), "skater");
-        std::strcpy(m.text.data(), "hi there");
+        text::copy_into(m.name, "skater");
+        text::copy_into(m.text, "hi there");
         check_message("chat 0x4C", m, ref, online::write_chat, online::read_chat, kChatMinBytes);
         // a text without its NUL: cut at the message's end
         ReferenceChat open = ref;
@@ -845,13 +846,13 @@ void check_chat_messages()
     }
     {
         ReferenceThugproChat ref = {.machine_id = kThugproChatMachineIdSample, .obj_id = 2, .name = {}, .text = {}};
-        std::strcpy(ref.name.data(), "pro");
-        std::strcpy(ref.text.data(), "hello");
+        text::copy_into(ref.name, "pro");
+        text::copy_into(ref.text, "hello");
         online::thugpro::ChatMessage m;
         m.machine_id_ = kThugproChatMachineIdSample;
         m.obj_id_ = 2;
-        std::strcpy(m.name.data(), "pro");
-        std::strcpy(m.text.data(), "hello");
+        text::copy_into(m.name, "pro");
+        text::copy_into(m.text, "hello");
         check_message("THUGPRO chat 76 (TP-R2)", m, ref, online::thugpro::write_chat_message,
                       online::thugpro::read_chat_message);
         // THUGPRO's drops: a name filling its field, a text without its NUL
@@ -876,7 +877,7 @@ void check_chat_messages()
     }
     {
         ReferenceThugproChangeLevel ref = {.level = kLevelChecksumSample, .flag = 0, .pad = {}, .name = {}};
-        std::strcpy(ref.name.data(), "Custom Park\n");
+        text::copy_into(ref.name, "Custom Park\n");
         online::LevelSwitch level;
         level.level = kLevelChecksumSample;
         std::array<uint8_t, online::thugpro::kChangeLevelThugproSize> bytes{};

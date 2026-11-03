@@ -3,7 +3,6 @@
 // (none of them Ghidra functions).
 
 #include <cstdint>
-#include <cstring>
 #include <utility>
 
 #include "engine/core/checksums.h"
@@ -16,6 +15,7 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/str.h"
 #include "game/park_editing/park_editing_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
@@ -215,7 +215,7 @@ bool ObjectiveAuthoring::set_editor_goal_description(script::Struct* params, scr
     const char* text = vacant();
     params->fetch_text("text", &text, 0);
     if (EditedGoal* goal = get_goal_from_params(params))
-        std::strcpy(goal->summary_text().data(), text);
+        text::copy_into(goal->summary_text(), text);
     return true;
 }
 
@@ -225,7 +225,7 @@ bool ObjectiveAuthoring::set_editor_goal_win_message(script::Struct* params, scr
     const char* text = vacant();
     params->fetch_text("text", &text, 0);
     if (EditedGoal* goal = get_goal_from_params(params))
-        std::strcpy(goal->win_message().data(), text);
+        text::copy_into(goal->win_message(), text);
     return true;
 }
 
@@ -269,7 +269,7 @@ bool ObjectiveAuthoring::set_editor_goal_name(script::Struct* params, script::Sc
     const char* text = vacant();
     if (active_node_ && params->fetch_text("Name", &text, 0)) {
         active_node_ = get_goal_from_params(params); // (none named: a null write, as the original)
-        std::strcpy(active_node_->label().data(), text);
+        text::copy_into(active_node_->label(), text);
     }
     return true;
 }
@@ -280,7 +280,7 @@ bool ObjectiveAuthoring::set_editor_ped_name(script::Struct* params, script::Scr
     const char* text = vacant();
     if (active_node_ && params->fetch_text("Name", &text, 0)) {
         active_node_ = get_goal_from_params(params);
-        std::strcpy(active_node_->ped_name().data(), text);
+        text::copy_into(active_node_->ped_name(), text);
     }
     return true;
 }

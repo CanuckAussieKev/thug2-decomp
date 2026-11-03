@@ -3,7 +3,6 @@
 // firing a gap's StartGap / EndGap on the skater. (The rest of the class, 0x0058C990-0x0058CD40, is next to it.)
 
 #include <cstdint>
-#include <cstring>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -20,6 +19,7 @@
 #include <gsl/pointers>
 #include "engine/core/format.h"
 #include "engine/core/checksums.h"
+#include "engine/core/str.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of the gap names)
 
@@ -157,7 +157,7 @@ void GapRegistry::copy_from(GapRegistry* other)
             core::at(gap->ids_, 1) = core::at(source->ids_, 1);
             core::at(gap->pieces_, 0) = core::at(gap->pieces_, 1) = nullptr;
             core::at(gap->metas_, 0) = core::at(gap->metas_, 1) = nullptr;
-            std::strcpy(gap->label_.data(), source->label_.data());
+            text::copy_into(gap->label_, source->label_.data());
             gap->details_ = source->details_;
             core::at(gaps_ptr_, i) = gap;
         } else {

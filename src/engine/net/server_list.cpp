@@ -55,6 +55,7 @@
 #include "engine/core/no_destroy.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/gathered_call.h"
+#include "engine/core/str.h"
 #include "engine/net/online_identity.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strncpy, kept)
@@ -598,7 +599,7 @@ bool is_thug2_location(const char* location)
 {
     constexpr size_t kCopySize = 256;
     std::array<char, kCopySize> copy{};
-    std::strcpy(copy.data(), location);
+    text::copy_cut(copy, location);
     return _stricmp(std::strtok(copy.data(), ":"), "10thug211") == 0;
 }
 

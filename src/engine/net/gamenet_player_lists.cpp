@@ -63,6 +63,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/str.h"
 #include "engine/net/net_game_state.h"
 #include "wire/message_ids.h"
 #include "engine/net/online_identity.h"
@@ -379,14 +380,14 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
     std::array<char, kCopySize> copy{};
     constexpr size_t kLineSize = 256;
     std::array<char, kLineSize> line{};
-    std::strcpy(copy.data(), format);
+    text::copy_into(copy, format);
     const char* shown = format;
     // "%s0" in the text stands for string 1.
     if (char* slot = std::strstr(copy.data(), kStringSlot)) {
         *slot = 0;
-        std::strcpy(line.data(), copy.data());
-        std::strcat(line.data(), string1);
-        std::strcat(line.data(), std::next(slot, 3));
+        text::copy_into(line, copy.data());
+        text::append_into(line, string1);
+        text::append_into(line, std::next(slot, 3));
         shown = line.data();
     }
     params->append_word(kText, script::QbValueKind::kString, shown);
@@ -694,7 +695,7 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     memory->enter_heap_scope(memory->network_heap());
     void* record_memory = memory::alloc_zeroed(kNewPlayerSize);
     auto* record = record_memory ? memory::construct_in<JoinerRecord>(record_memory) : nullptr;
-    std::strcpy(record->label().data(), info->label().data());
+    text::copy_into(record->label(), info->label().data());
     record->set_conn(info->conn());
     record->set_entity_key(info->entity_key());
     record->flag_bits() = info->flag_bits();

@@ -49,6 +49,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/str.h"
 #include "engine/net/net_game_state.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's own)
@@ -433,7 +434,7 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
     Hub* manager = net_game_state().online_hub();
     constexpr size_t kNickSize = 128;
     std::array<char, kNickSize> nick{};
-    std::strcpy(nick.data(), manager->get_online_settings()->get_preference_string({.preference = kNetworkId, .field = kUiString}));
+    text::copy_into(nick, manager->get_online_settings()->get_preference_string({.preference = kNetworkId, .field = kUiString}));
     auto* lobby = static_cast<RoomManager*>(lobby_data);
     lobby->connecting_ = true;
     auto nick_error = &RoomManager::get_nick_error_callback;

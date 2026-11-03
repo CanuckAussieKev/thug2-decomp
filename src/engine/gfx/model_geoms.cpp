@@ -286,7 +286,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
         tex_params.flag0 = 0;
         tex_params.tex_dict_offset_ = tex_dict_offset;
         tex_params.force_tex_dict_ = force_tex_dict;
-        tex_params.has_skinning_ = engine::split_skin_name(file_name, tex_name.data());
+        tex_params.has_skinning_ = engine::split_skin_name(file_name, tex_name);
         append_string(tex_name.data(), ".tex");
         if (by_name)
             assets->get_asset_data_by_name(tex_name.data(), 1);

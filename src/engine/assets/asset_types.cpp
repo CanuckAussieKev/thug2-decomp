@@ -135,7 +135,7 @@ void add_collision(void* scene, void* buffer, uint32_t size, uint8_t flag)
 void* scene_collision(void* scene) { return static_cast<render::WorldScene*>(scene)->fetch_static_collision(0); }
 void detach_hit_mesh(void* scene) { static_cast<render::WorldScene*>(scene)->unload_collision(); }
 // Skinned models: whether a name is a model with a .cas file (its base name out), the model made, unloaded.
-bool split_skin_name(const char* name, char* base) { return render::engine::split_skin_name(name, base); }
+bool split_skin_name(const char* name, std::span<char> base) { return render::engine::split_skin_name(name, base); }
 gsl::owner<void*> make_skinned_model(uint32_t checksum, void* buffer, uint32_t size, void* cas, uint32_t cas_size,
                          render::TextureSet* textures, int value, uint8_t has_cas, uint8_t flag)
 {
@@ -773,7 +773,7 @@ int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, vo
     set_up_params({.params = params, .structure = structure});
     memory::push_mem_profile(name);
     std::array<char, kSkinNameSize> base{};
-    const bool has_cas = split_skin_name(name, base.data());
+    const bool has_cas = split_skin_name(name, base);
     text::to_lower_text(base.data());
     args_->on_heap_ = 0;
     // (0x00645904 / 0x00645900: "skin" for a model with a .cas file, else "mdl")

@@ -48,6 +48,7 @@
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/gathered_call.h"
+#include "engine/core/str.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy, kept)
 
@@ -137,7 +138,7 @@ LobbyPlayer* enroll_player(RoomManager* lobby, void* peer, const char* nick, boo
         player->skill_points_ = 0;
         player->listed_ = false;
     }
-    std::strcpy(player->nick_.data(), nick);
+    text::copy_cut(player->nick_, nick);
     game_spy::peer_get_player_info_no_wait(peer, nick, nullptr, &player->account_); // (the player's profile id)
     if (listed)
         player->listed_ = true;
@@ -632,7 +633,7 @@ bool cfunc_choose_lobby(script::Struct* params, script::Script* script)
     lobby->set_group_id(chosen->group_id());
     lobby->set_unknown30(chosen->num_players());
     lobby->set_unknown2c(chosen->max_players());
-    std::strcpy(lobby->room_name().data(), chosen->label().data());
+    text::copy_into(lobby->room_name(), chosen->label().data());
     lobby->set_restricted_hosting(chosen->neversoft());
     game_spy::peer_join_group_room(lobby->remote(), lobby->group_id(), &core::gathered<RoomManager::JoinRoomResult, &RoomManager::join_room_callback, void, void*, int, int, int, RoomManager*>, lobby, 0);
     lobby->clear_lobbies();

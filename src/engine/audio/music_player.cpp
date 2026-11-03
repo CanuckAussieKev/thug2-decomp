@@ -30,6 +30,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/audio/audio_state.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/str.h"
 #include "engine/gfx/engine_parts.h"
 #include <gsl/pointers>
 
@@ -232,9 +233,8 @@ void queue_track(const char* name, int list, const char* title)
     if (playlist.count >= kPlaylistTracks)
         return;
     auto& slot_text = core::at(playlist.tracks, playlist.count);
-    char* track = slot_text.data();
-    THUG2_MSVC_WARNING(suppress : 4996) // (the slot is 40 bytes; names are shorter)
-    std::strcpy(track, name);
+    text::copy_into(slot_text, name); // (the slot is 40 bytes; names are shorter)
+    const char* track = slot_text.data();
     for (size_t i = 0; i < std::strlen(track); ++i) {
         auto c = static_cast<signed char>(core::at(slot_text, i));
         if (c >= 'a' && c <= 'z')
@@ -393,9 +393,8 @@ void play_track(const char* name, bool loop)
 {
     if (!music_on() || music_channel_kind() != 0)
         return;
-    char* playing = static_cast<char*>(special_track().data());
-    THUG2_MSVC_WARNING(suppress : 4996) // (40 bytes, as in the original)
-    std::strcpy(playing, name);
+    text::copy_into(special_track(), name); // (40 bytes, as in the original)
+    const char* playing = special_track().data();
     const int list = current_playlist();
     const bool at_music_volume = other_lists_at_music_volume();
     const float volume = list != 0 && !at_music_volume ? sfx_volume() : current_music_volume();

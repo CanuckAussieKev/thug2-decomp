@@ -21,6 +21,7 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/str.h"
 #include "game/park_editing/park_editing_state.h"
 #include <gsl/pointers>
 
@@ -221,16 +222,16 @@ void EditedGoal::decode_from_struct(script::Struct* params)
     const char* empty = ""; // ""
     const char* text = empty;
     params->fetch_text(kViewGoalsText, &text, 0);
-    std::strcpy(label_.data(), text);
+    text::copy_into(label_, text);
     text = empty;
     params->fetch_text(kGoalDeScription, &text, 0);
-    std::strcpy(summary_text_.data(), text);
+    text::copy_into(summary_text_, text);
     text = empty;
     params->fetch_text(kWinMessage, &text, 0);
-    std::strcpy(win_message_.data(), text);
+    text::copy_into(win_message_, text);
     text = empty;
     params->fetch_text(kPedName, &text, 0);
-    std::strcpy(ped_name_.data(), text);
+    text::copy_into(ped_name_, text);
     script::Array* points = nullptr;
     if (params->fetch_list(kNodePositions, &points, 0)) {
         vertex_total_ = static_cast<uint8_t>(points->extent());

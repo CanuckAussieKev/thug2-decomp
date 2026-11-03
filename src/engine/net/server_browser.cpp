@@ -38,6 +38,7 @@
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
+#include "engine/core/str.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strncpy, kept)
 
@@ -131,8 +132,8 @@ int rank_of(int rating)
 // A server's details from GameSpy (the add and update messages alike): level, mode, counts, flags, skill.
 void read_server_keys(HostListing* server, void* sb)
 {
-    std::strcpy(server->level().data(), game_spy::server_get_string_value(sb, "mapname", "...")); // (string keys)
-    std::strcpy(server->mode_sel().data(), game_spy::server_get_string_value(sb, "gametype", "..."));
+    text::copy_cut(server->level(), game_spy::server_get_string_value(sb, "mapname", "...")); // (string keys)
+    text::copy_cut(server->mode_sel(), game_spy::server_get_string_value(sb, "gametype", "..."));
     server->set_num_players(game_spy::server_get_int_value(sb, "numplayers", 1)); // (integer keys)
     server->set_max_players(game_spy::server_get_int_value(sb, "maxplayers", kDefaultServerMaxPlayers));
     server->set_num_observers(game_spy::server_get_int_value(sb, "numobservers", 0));
