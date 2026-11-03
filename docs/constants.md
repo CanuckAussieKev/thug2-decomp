@@ -11,20 +11,38 @@ central constants file: a constant lives with its owner.
 - One meaning, one constant: two values that are merely equal are not merged. Where the same thing is needed both
   as a `std::size_t` extent and as an `int` count for loops, the two forms sit next to each other in the owner.
 
-The index below lists each kind of shared constant and the header that holds it.
+## Enums or constants
+
+The values of one closed thing - the kinds, states, ids and flags a field or parameter holds - are a scoped enum with
+the same underlying type the value always had (`enum class QbValueKind : uint8_t`), so sizes, layouts and code stay as
+they were. A value the file or the wire can carry that the enum doesn't list is still representable: the boundary
+layer converts the raw byte or word once, where it is read (`static_cast<MessageId>(reader.u8())`,
+`script::as_token(byte)`), and writes it back with `core::to_underlying` (`engine/core/enum_ops.h`). A set of bits is
+a flag enum: declared with `constexpr bool enable_flag_operators(Flags) { return true; }` beside it, it has |, &, ^, ~
+and the compound forms, and `core::any(flags & Flags::kX)` tests a bit. A field the original keeps wider than the
+enum stays its own width behind typed accessors (`Hub::service_state()`). Switches over an enum list every case and
+then need no `default:`, so a new enumerator is reported where it isn't handled.
+
+Everything else stays a `constexpr` constant: checksums (an open set), sizes, extents, offsets, tunings, timings,
+colours, and values used as numbers (table indexes, ranges, values combined with arithmetic) - where an enum would need
+a cast at most of its uses.
+
+The index below lists each kind of shared constant or enum and the header that holds it.
 
 | Kind | Header |
 |---|---|
 | Player slots of a network game (8: the rider slots, the per-skater records) | `engine/net/player_info.h` (`online::kPlayerSlotCount`, the player flags) |
-| Network message ids with a reader / writer | `wire/gamenet_messages.h`, `wire/play_messages.h`, `wire/skater_messages.h`, `wire/skate_net_messages.h` |
-| Network message ids without one, and the sequenced message groups | `wire/message_ids.h` |
-| The transport's message ids and stream layouts | `wire/net_wire.h` |
+| Network message ids, the transport's and the game's (`online::MessageId`), and the sequenced message groups (`MessageGroup`) | `wire/message_ids.h` (THUGPRO's own ids: `engine/net/thugpro_peer.h`; the model viewer link's: `engine/sys/viewer_object.h`) |
+| The transport's stream layouts | `wire/net_wire.h` |
 | The object-update stream (the skaters' states) | `wire/object_updates.h` |
 | GameSpy game / product ids, the SDK threads' stack | `engine/net/online_identity.h` |
-| Server list sizes, online service states | `engine/net/server_list.h`, `engine/net/service.h` |
+| Server list sizes; the online service's states (`online::ServiceState`) | `engine/net/server_list.h`, `engine/net/service.h` |
+| Join refusal reasons and join phases (`JoinRefusedReason`, `EntryPhase`) | `engine/net/gamenet_manager.h` |
+| A player's flags (`online::PlayerFlag`, a flag enum) | `engine/net/player_info.h` |
 | Park floor size and levels, the saved park map's layout | `formats/park_map_format.h` |
 | Park editor limits and sizes | `game/park_editing/park.h` |
-| QB script tokens and token sizes | `engine/script/qb.h` (`script::kToken*`) |
+| QB script tokens (`script::QbToken`) and token sizes | `engine/script/qb.h` |
+| Script value kinds (`script::QbValueKind`) | `engine/script/param_struct.h` |
 | Collision face flags and the probes' ignore / require masks | `engine/render/coll_obj.h` |
 | Path buffer sizes (a disk path, an overlay path) | `engine/file/file_load.h` |
 | Language numbers | `engine/core/language.h`; territory, hardware and display numbers: `engine/sys/game_config.h` |
@@ -33,7 +51,7 @@ The index below lists each kind of shared constant and the header that holds it.
 | 2D layout sizes (640 x 480, the screen elements' 640 x 448) | `engine/gfx/screen.h` |
 | The new front end's 1280 x 720 design canvas | `frontend/new_frontend_model.h` |
 | The screen elements' float constants as the original stores them | `frontend/screen_constants.h` |
-| Blend modes, Direct3D values (address modes, texture ops, lock flags, vertex format bits) | `engine/gfx/render_state.h` |
+| The renderer's render-state ids (`render::RenderStateId`); blend modes, Direct3D values (address modes, texture ops, lock flags, vertex format bits) | `engine/gfx/render_state.h` |
 | pi and a full turn | `engine/maths/trig.h` (`maths::kPi`, `maths::kTwoPi`) |
 | A flat 4 x 4 matrix's float count and element indices | `engine/maths/mat4.h` (`maths::kMatrixFloats`, `kMatXx` ... `kMatTw`) |
 | Units (inches per foot), double-to-integer limits | `engine/maths/maths.h` |
@@ -44,6 +62,8 @@ The index below lists each kind of shared constant and the header that holds it.
 | The level editor's message durations | `editor/level_editor_hud.h` |
 | The level editor panels' shared colours and sizes | `editor/level_editor_ui_theme.h`, `editor/level_editor_ui_layout.h` |
 | The level editor's goal limits and defaults | `editor/level_editor_goals.h` |
+| The level editor's chain operations (`chains::ChainOp`) | `editor/level_editor_chains.h` |
+| The scoped-enum helpers (`core::to_underlying`, the flag operators, `core::any`) | `engine/core/enum_ops.h` |
 
 ## Two kinds that stay in each file
 
