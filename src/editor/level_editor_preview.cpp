@@ -45,7 +45,6 @@ constexpr float kZoomStep = 1.2f; // the orbit's zoom change per wheel step
 constexpr float kTinySine = 1e-4f; // below this the framing angle is too narrow to divide by
 constexpr float kTinySineReciprocal = 1e4f; // and the distance is capped to this multiple
 constexpr int kNotCulledFlag = 8; // draw_one_instance's flag: not culled
-constexpr uint32_t kMeshScanLimit = 4096; // meshes drawn per geometry
 constexpr uint32_t kMeshDrawnFlag = 0x40; // the mesh flag a drawn mesh has
 constexpr uint32_t kMeshSkipFlags = 0x210; // the mesh flags that keep a mesh out of the preview
 constexpr double kLongestFrameSeconds = 0.1; // the orbit's turn uses at most this much of a frame

@@ -46,9 +46,6 @@ namespace {
 constexpr float kDegenerateNormalSquared = 1e-12f; // a normal this small (relative to the edges) means a line or a point
 constexpr int kNeutralVertexByte = 0x80; // the vertex byte of a model without stored bytes
 constexpr std::size_t kFaceRecordBytes = 10; // one face's stored record
-constexpr uint32_t kMeshScanLimit = 4096; // meshes looked at per sector
-constexpr int kMeshHiddenFlag = 0x10; // the mesh flag that keeps a mesh out of the shared collision
-constexpr std::size_t kPositionBytes = 12; // a vertex's position: three floats
 constexpr int kUnusableCollisionFlags = 6; // collision flag bits of a sector that can't be edited
 
 } // namespace

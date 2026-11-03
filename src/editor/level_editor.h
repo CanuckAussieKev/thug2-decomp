@@ -184,6 +184,10 @@ constexpr int kHexBase = 16;
 constexpr int kFirstPrintableChar = 0x20; // below: control characters
 constexpr int kDeleteChar = 0x7F;
 constexpr int kMaxGeometries = 16;        // an object's geometries the editor looks at
+// The picking code's walk over a scene's meshes.
+constexpr std::uint32_t kMeshScanLimit = 4096; // the meshes looked at, at most
+constexpr int kMeshHiddenFlag = 0x10;     // a mesh flag: not drawn (left out)
+constexpr std::size_t kPositionBytes = 12; // a vertex's position, the first three floats
 
 // The axes' letters, by index (0 X, 1 Y, 2 Z).
 inline constexpr std::string_view kAxisLetters = "XYZ";

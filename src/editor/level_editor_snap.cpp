@@ -30,9 +30,6 @@ constexpr float kDegenerateLengthSquared = 1e-8f; // a squared length this small
 constexpr float kDegenerateEdge = 1e-6f; // a third edge this short makes a degenerate triangle
 constexpr float kDegenerateAreaSquared = 1e-6f; // a flat vector this small has no direction
 constexpr int kMaxSelfHits = 8; // how often the ray restarts past the selection's own collision
-constexpr uint32_t kMeshScanLimit = 4096; // meshes looked at per sector
-constexpr int kMeshHiddenFlag = 0x10; // the mesh flag that keeps a mesh out of the snap
-constexpr std::size_t kPositionBytes = 12; // a vertex's position: three floats
 
 } // namespace
 
