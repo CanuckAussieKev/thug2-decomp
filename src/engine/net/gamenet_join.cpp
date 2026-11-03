@@ -133,7 +133,6 @@ constexpr int kBottomRank = 0;
 
 // The player info being made (online::JoinerRecord, player_info.h; flags: 1 local player, 4 observer, 8 pending).
 static_assert(sizeof(JoinerRecord) == kPlayerInfoSize);
-constexpr uint32_t kPlayerPending = kPlayerPendingObserver; // (kPlayerLocal, kPlayerObserver: player_info.h)
 
 // GameSpy CD-key's instance data for client_authorized (12 bytes, operator new).
 // (the join request being sent: the original's is on its stack)
@@ -688,15 +687,15 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     core::at(player->label(), kNameSize - 1) = '\0';
     player->set_entity_key(static_cast<uint8_t>(manager->reserve_obj_id_for_player()));
     player->set_conn(context->sender_conn());
-    player->flag_bits() = 0;
+    player->flag_bits() = PlayerFlag::kNone;
     player->set_profile_id(msg->profile);
     player->set_skill_points(msg->rating);
     player->set_drive_control_mode(msg->drive_scheme_);
     player->set_score(0);
     if (msg->observer)
-        player->flag_bits() = kPlayerObserver;
+        player->flag_bits() = PlayerFlag::kObserver;
     else if (active_ruleset_label() != kNetLobby && !manager->match_ended_)
-        player->flag_bits() |= kPlayerPending | kPlayerObserver;
+        player->flag_bits() |= PlayerFlag::kPendingObserver | PlayerFlag::kObserver;
     if (context->sender_conn()->is_host_local()) {
         // The host's own player: its profile copied through a buffer.
         if (!memory::manager_ready_flag())
@@ -707,7 +706,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
         profile->emit_into_buffer(buffer, kAppearanceSize, 0);
         player->account()->decode_from_bytes(buffer, kAppearanceSize);
         memory::Hub::get_pull()->dealloc(buffer);
-        player->flag_bits() = kPlayerLocal;
+        player->flag_bits() = PlayerFlag::kLocal;
         manager->add_joining_player(player, 0);
         player->~JoinerRecord();
         memory::Hub::get_pull()->dealloc(player);

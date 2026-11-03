@@ -9,6 +9,7 @@
 #include <span>
 
 #include "engine/net/player_info.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_commands.h"
@@ -210,8 +211,8 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     }
     for (const JoinerRecord* added = first_new_player(manager, &new_players); added && named < kServerInfoPlayers;
          added = next_new_player(manager, &new_players)) {
-        const uint32_t flags = added->flag_bits();
-        if (!(flags & kPlayerCountedFlags) && (flags & kPlayerObserver))
+        const PlayerFlag flags = added->flag_bits();
+        if (!core::any(flags & kPlayerCountedFlags) && core::any(flags & PlayerFlag::kObserver))
             continue;
         bool known = false;
         for (int i = 0; i < id_count; ++i) {
@@ -555,11 +556,11 @@ int handle_send_game_state(net::InboundMsgCtx* context)
     auto* skate = get_skate();
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
-    if (!player || (player->flag_bits() & kPlayerToldGameState))
+    if (!player || core::any(player->flag_bits() & PlayerFlag::kToldGameState))
         return kContinue;
     net::NetMessageInfo desc;
     frame_clock::get_time();    // (not used)
-    player->flag_bits() |= kPlayerToldGameState; // told
+    player->flag_bits() |= PlayerFlag::kToldGameState; // told
     // (the message: gamenet_messages.h)
     SessionBrief info;
     info.max_players = static_cast<uint8_t>(manager->get_player_limit());

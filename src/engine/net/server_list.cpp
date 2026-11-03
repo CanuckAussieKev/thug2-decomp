@@ -246,7 +246,7 @@ void HostListing::enroll_player(const char* name, int rating)
                                       ? static_cast<memory::MemSource*>(ram_stats()->internet_bottom_up_heap())
                                       : static_cast<memory::MemSource*>(ram_stats()->network_heap()));
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
-    PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, 0) : nullptr;
+    PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, PlayerFlag::kNone) : nullptr;
     player->set_skill_points(rating);
     std::strncpy(player->label().data(), name, kLabelLength);
     core::at(player->label(), kLabelLength) = '\0';

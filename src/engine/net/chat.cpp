@@ -9,6 +9,7 @@
 #include <array>
 #include <span>
 
+#include "engine/core/enum_ops.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
 #include "engine/core/checksums.h"
@@ -75,7 +76,7 @@ using ::net::NetMessageInfo;
 void init_msg_desc(NetMessageInfo* desc) { *desc = NetMessageInfo(); }
 
 const char* player_name(PlayerRecord* player) { return player->label().data(); }
-bool is_observer(PlayerRecord* player) { return (player->flag_bits() >> 2) & 1; }
+bool is_observer(PlayerRecord* player) { return core::any(player->flag_bits() & PlayerFlag::kObserver); }
 uint8_t team_color(PlayerRecord* player) { return static_cast<uint8_t>(player->skater()->ident()); }
 
 

@@ -7,6 +7,7 @@
 #include <array>
 
 #include "engine/core/manager.h"
+#include "engine/core/enum_ops.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/maths/random.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -63,7 +64,6 @@ constexpr uint32_t kNotifyClientCheating = 0x62DDBE0A;   // notify_client_cheati
 constexpr int kParkMapSize = 15000;
 constexpr uint16_t kRailDataSize = 0x1132;
 
-constexpr uint32_t kFlagReady = 0x100; // a player's: its game has ended (message 0x59)
 
 // A goal's stage flags by the skater's id (the original's vtable +0x50 / +0x6C): has `id` done it, done by `id`.
 bool goal_done_by(goals::Objective* goal, uint32_t id) { return goal->stage_flag_set(static_cast<int>(id)) != 0; }
@@ -96,7 +96,7 @@ int handle_observe_request(net::InboundMsgCtx* context)
         manager->evict_player(player, 2); // the player out of the game (2: to observe)
         static_cast<modules::Skate*>(skate)->drop_skater_from_roster(
             core::down_cast<objects::Rider>(skater)); // its skater gone
-        player->flag_bits() |= 4;                   // an observer now
+        player->flag_bits() |= PlayerFlag::kObserver;                   // an observer now
         player->set_skater(nullptr);
         if (player->is_host_player()) {
             player->clear_server_player();
@@ -179,12 +179,12 @@ int handle_game_ended_report(net::InboundMsgCtx* context)
     if (!player)
         return kContinue;
     PlayerSearch search;
-    if ((player->flag_bits() & kFlagReady) || game != manager->get_game_id())
+    if (core::any(player->flag_bits() & PlayerFlag::kReady) || game != manager->get_game_id())
         return kDone;
-    player->flag_bits() |= kFlagReady;
+    player->flag_bits() |= PlayerFlag::kReady;
     for (const PlayerRecord* other = start_roster_sweep(manager, &search, false); other;
          other = step_roster_sweep(manager, &search, false)) {
-        if (!(other->flag_bits() & kFlagReady))
+        if (!core::any(other->flag_bits() & PlayerFlag::kReady))
             return kContinue; // someone is still playing
     }
     // Everyone's game has ended: game over, to all (observers too).
@@ -360,7 +360,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn());
     if (player)
-        player->flag_bits() &= ~kPlayerCaptureBlocked;
+        player->flag_bits() &= ~PlayerFlag::kCaptureBlocked;
     PlayerSearch search;
     net::NetMessageInfo desc;
     if (get_game_type() == kNetCtf) {

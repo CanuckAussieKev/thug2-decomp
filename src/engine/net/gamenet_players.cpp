@@ -6,6 +6,8 @@
 #include <array>
 
 #include "engine/core/manager.h"
+#include "engine/net/player_info.h"
+#include "engine/core/enum_ops.h"
 #include "platform/gamespy.h"
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
@@ -72,13 +74,9 @@ constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // SkaterPhysicsControl
 constexpr uint32_t kFcfsPreference = 0x043EE978;       // the network preference naming the first-come notice's text
 
 constexpr int kMaxObjectIds = 16;
-constexpr uint32_t kNewPlayerObserver = 4; // JoinerRecord flags
-constexpr uint32_t kNewPlayerPending = 8;
 
 // PlayerRecord flags (+0x1D0).
-constexpr uint32_t kPlayerFcfsCandidate = 0x21; // (0x00543380: local or 0x20)
-constexpr uint32_t kPlayerPending = 0x08;       // joined during a game: added for the next one
-constexpr uint32_t kPlayerGameEnded = 0x100;    // its game has ended (message 0x59)
+constexpr PlayerFlag kPlayerFcfsCandidate = PlayerFlag::kLocal | PlayerFlag::kFullyIn; // (0x00543380)
 constexpr uint32_t kPlayerInfoSize = 0x1F0;
 
 
@@ -114,7 +112,6 @@ constexpr uint32_t kFlagReturned = 0x3B1F2478;           // flag_returned
 constexpr uint32_t kHideCtfArrow = 0x1C318F8C;           // hide_ctf_arrow
 
 // (The joining player's record: online::JoinerRecord, player_info.h.)
-constexpr uint32_t kNewPlayerRejoining = 0x10; // (a pending player added back)
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
@@ -192,7 +189,7 @@ void Hub::assign_first_come_first_served()
     net::NetMessageInfo desc;
     for (PlayerRecord* player = start_roster_sweep(this, &search, false); player;
          player = step_roster_sweep(this, &search, false)) {
-        if (is_own_player(player) || !(player->flag_bits() & kPlayerFcfsCandidate))
+        if (is_own_player(player) || !core::any(player->flag_bits() & kPlayerFcfsCandidate))
             continue;
         player->set_host_player(); // (its flag 0x200: first come, first served)
         uint32_t text = 0;
@@ -222,8 +219,8 @@ int Hub::reserve_obj_id_for_player()
         NewPlayerSearch new_search;
         for (const JoinerRecord* info = first_new_player(this, &new_search); info && !used;
              info = next_new_player(this, &new_search)) {
-            const uint32_t flags = info->flag_bits();
-            if ((flags & kNewPlayerObserver) && !(flags & kNewPlayerPending))
+            const PlayerFlag flags = info->flag_bits();
+            if (core::any(flags & PlayerFlag::kObserver) && !core::any(flags & PlayerFlag::kPendingObserver))
                 continue; // (an observer joining takes no id)
             used = static_cast<int8_t>(info->entity_key()) == id;
         }
@@ -258,7 +255,7 @@ PlayerRecord* Hub::find_player_slot_by_obj(uint16_t id)
 }
 
 // 0x0053C770
-PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, uint32_t flags)
+PlayerRecord* Hub::new_player(objects::Entity* skater, net::Conn* conn, PlayerFlag flags)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap());
@@ -380,7 +377,7 @@ void Hub::evict_player(PlayerRecord* player, int reason)
     PlayerSearch search;
     for (const PlayerRecord* p = start_roster_sweep(this, &search, false); p;
          p = step_roster_sweep(this, &search, false))
-        if (!(p->flag_bits() & kPlayerGameEnded))
+        if (!core::any(p->flag_bits() & PlayerFlag::kReady))
             return;
     net::NetMessageInfo desc;
     desc.set_ident(MessageId::kGameOver);
@@ -402,13 +399,13 @@ void Hub::re_add_pending_players()
     PlayerRecord* player = start_roster_sweep(this, &search, true);
     while (player) {
         PlayerRecord* next = step_roster_sweep(this, &search, true); // (before the player is destroyed)
-        if (player->flag_bits() & kPlayerPending) {
+        if (core::any(player->flag_bits() & PlayerFlag::kPendingObserver)) {
             JoinerRecord info; // (its constructor: a skater profile)
             frames += kRejoinDelayFrames;
             std::strcpy(info.label().data(), player_name(player));
             info.set_entity_key(static_cast<uint8_t>(reserve_obj_id_for_player()));
             info.set_conn(player->conn());
-            info.flag_bits() = kNewPlayerRejoining;
+            info.flag_bits() = PlayerFlag::kRejoining;
             info.set_profile_id(player->profile_id());
             info.set_skill_points(player->skill_points());
             info.set_accumulated_score(0);
@@ -464,7 +461,7 @@ void Hub::drop_players_not_ready()
     PlayerRecord* player = start_roster_sweep(this, &search, false);
     while (player) {
         PlayerRecord* next = step_roster_sweep(this, &search, false);
-        if (!(player->flag_bits() & kPlayerFcfsCandidate)) {
+        if (!core::any(player->flag_bits() & kPlayerFcfsCandidate)) {
             objects::Entity* skater = player_skater(player);
             evict_player(player, kDropLeftOut);
             static_cast<modules::Skate*>(skate)->drop_skater_from_roster(core::down_cast<objects::Rider>(skater));
@@ -536,7 +533,7 @@ void Hub::enter_observe_mode()
         get_run(kHideCtfArrow);
         local->clear_flags();
     }
-    local->flag_bits() |= 4; // an observer
+    local->flag_bits() |= PlayerFlag::kObserver; // an observer
     static_cast<modules::Skate*>(skate)->drop_skater_from_roster(core::down_cast<objects::Rider>(player_skater(local)));
     local->set_skater(nullptr);
     memory::Hub* memory = memory::Hub::get_pull();

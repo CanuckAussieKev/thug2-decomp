@@ -8,6 +8,7 @@
 #include <array>
 
 #include "engine/core/manager.h"
+#include "engine/core/enum_ops.h"
 #include "platform/gamespy.h"
 #include "engine/core/task_list.h"
 #include "game/park_editing/park_editor.h"
@@ -53,11 +54,7 @@ namespace {
 constexpr uint8_t kArrivedResyncFlags = 0x11;
 
 // A joining player's flags (JoinerRecord::flag_bits_).
-constexpr uint32_t kNewLocal = 0x01;
-constexpr uint32_t kNewObserver = 0x04;
-constexpr uint32_t kNewResync = 0x10; // the player again (after a level change)
-constexpr uint32_t kNewHasCrown = 0x80;
-constexpr uint32_t kNewPlayerFlags = 0x27805; // the flags a player keeps
+constexpr PlayerFlag kNewPlayerFlags = PlayerFlag::kLocal | PlayerFlag::kObserver | PlayerFlag::kCarryingFlags | PlayerFlag::kEliminated; // the flags a player keeps (0x27805)
 
 constexpr uint32_t kSkaterScore = 0xD262802F;      // the score component
 constexpr uint32_t kVehicleComponent = 0x18223FD6; // SkaterStateHistory (its vehicle control type)
@@ -83,15 +80,15 @@ void Hub::add_new_player(JoinerRecord* info)
     modules::Skate* skate = modules::Skate::sole();
     gsl::owner<objects::Entity*> skater = nullptr;
     auto obj_id = static_cast<int8_t>(info->entity_key());
-    const uint32_t flags = info->flag_bits();
-    if (!(flags & kNewObserver)) {
+    const PlayerFlag flags = info->flag_bits();
+    if (!core::any(flags & PlayerFlag::kObserver)) {
         const bool split_screen = commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0;
         auto* profile = static_cast<modules::Skate*>(skate)->fetch_account(split_screen ? static_cast<int>(obj_id)
                                                                                         : 0); // the skater's profile
         if (!in_net_game()) {
             skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(profile, true, static_cast<int>(obj_id),
                                                                               skater_count(skate));
-        } else if (info->flag_bits() & kNewLocal) {
+        } else if (core::any(info->flag_bits() & PlayerFlag::kLocal)) {
             skater =
                 static_cast<modules::Skate*>(skate)->spawn_skater_entity(profile, true, static_cast<int>(obj_id), 0);
         } else {
@@ -108,7 +105,7 @@ void Hub::add_new_player(JoinerRecord* info)
         }
     }
     PlayerRecord* player = find_player_slot_by_obj(static_cast<uint16_t>(static_cast<int16_t>(obj_id)));
-    if (info->flag_bits() & kNewResync) { // the old player (or the local one) goes
+    if (core::any(info->flag_bits() & PlayerFlag::kRejoining)) { // the old player (or the local one) goes
         if (!player)
             player = find_own_player_record(this);
         if (player) {
@@ -132,10 +129,10 @@ void Hub::add_new_player(JoinerRecord* info)
         node->set_next(head);
         head->prev()->set_next(node);
         head->set_prev(node);
-        if (info->flag_bits() & kNewHasCrown)
+        if (core::any(info->flag_bits() & PlayerFlag::kKing))
             player->give_crown(true);
     }
-    if (info->flag_bits() & kNewResync) {
+    if (core::any(info->flag_bits() & PlayerFlag::kRejoining)) {
         prepare_local_face();
         send_custom_tag_texture();
         objects::trick_spot_hub()->remove_all_clusters(); // the trick objects
@@ -201,14 +198,14 @@ constexpr uint16_t kParkMapSize = 0x3A98;
 constexpr uint16_t kRailsSize = 0x1132;
 constexpr uint8_t kCompressionLzss = 2;
 constexpr uint32_t kLoadParkLevel = 0xB664035D; // load_sk5ed_gameplay (the created park)
-constexpr uint32_t kPlayerFlagsSent = 0x27880;  // the flags a player's details carry
+constexpr PlayerFlag kPlayerFlagsSent = PlayerFlag::kKing | PlayerFlag::kCarryingFlags | PlayerFlag::kEliminated; // the flags a player's details carry (0x27880)
 constexpr int kMidPriority = 0x80;
 constexpr int kTopRank = 0xFF;
 
 // A new player's object id and its flags.
 struct PlayerFlags {
     int8_t obj_id_{};
-    uint32_t flags{};
+    PlayerFlag flags{};
 };
 
 // The player's details (its object id given), its appearance written into the message; the message's length.
@@ -218,7 +215,7 @@ uint16_t fill_new_player_message(NewPlayerMessage& msg, PlayerRecord* player, Pl
     const auto obj_id = player_flags.obj_id_;
     const auto flags = player_flags.flags;
     msg.header.object_id = obj_id;
-    msg.header.flags = flags;
+    msg.header.flags = core::to_underlying(flags);
     msg.header.team = static_cast<int8_t>(player->team());
     msg.header.profile_id = player->profile_id();
     msg.header.rating = player->skill_points();
@@ -324,7 +321,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                 std::memset(msg.header.name.data(), 0, sizeof(msg.header.name));
                 std::strncpy(msg.header.name.data(), info->label().data(), kNameSize - 1);
                 msg.header.flags = 1;
-                if (player->flag_bits() & kNewResync)
+                if (core::any(player->flag_bits() & PlayerFlag::kRejoining))
                     msg.header.flags = kArrivedResyncFlags;
                 if (is_observer(player))
                     msg.header.flags |= 4;
@@ -348,11 +345,11 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                      other = step_roster_sweep(manager, &search, true)) {
                     if (other == player || is_own_player(other))
                         continue;
-                    const uint16_t length = fill_new_player_message(msg, player, {.obj_id_ = obj_id, .flags = 0}, false);
+                    const uint16_t length = fill_new_player_message(msg, player, {.obj_id_ = obj_id, .flags = PlayerFlag::kNone}, false);
                     send_new_player(server, desc, other, msg, length);
                 }
             }
-            if (player->flag_bits() & kNewResync) { // the players of its own group to it
+            if (core::any(player->flag_bits() & PlayerFlag::kRejoining)) { // the players of its own group to it
                 for (PlayerRecord* other = start_roster_sweep(manager, &search, false); other;
                      other = step_roster_sweep(manager, &search, false)) {
                     if (other == player || other->rejoin_group() != player->rejoin_group())
@@ -368,7 +365,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                         continue;
                     auto other_id = static_cast<int8_t>(get_skater_id(player_skater(other)));
                     msg.header.object_id = other_id;
-                    msg.header.flags = other->flag_bits() & kPlayerFlagsSent;
+                    msg.header.flags = core::to_underlying(other->flag_bits() & kPlayerFlagsSent);
                     msg.header.team = static_cast<int8_t>(other->team());
                     msg.header.profile_id = other->profile_id();
                     msg.header.rating = other->skill_points();

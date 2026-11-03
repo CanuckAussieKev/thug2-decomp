@@ -13,6 +13,7 @@
 #include "wire/gamenet_messages.h"
 #include "engine/script/preferences.h"
 #include "engine/net/net_address.h"
+#include "engine/net/player_info.h"
 #include "engine/net/net_manager.h"
 
 namespace net {
@@ -561,7 +562,7 @@ public:
     // of `skater` and `conn`. A local observer gets the observer's controls (hide_panel_stuff, the camera onto the
     // first player); a local player clears viewed_player_; a remote one is watched if the local player observes and
     // watches nobody. Returns it.
-    PlayerRecord* new_player(objects::Entity* skater, net::Conn* conn, uint32_t flags);
+    PlayerRecord* new_player(objects::Entity* skater, net::Conn* conn, PlayerFlag flags);
     // 0x0053C950: `player` deleted: the camera moved off it, its crown taken off, its flag returned (flag_returned,
     // hide_ctf_arrow for the local team); the lobby's server details and qr2 told.
     void remove_player_record(PlayerRecord* player);

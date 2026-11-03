@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include "engine/net/player_info.h"
+#include "engine/core/enum_ops.h"
 #include "engine/gfx/engine_texture.h"
 #include "platform/d3dx.h"
 #include "platform/compiler.h"
@@ -71,7 +72,7 @@ namespace online {
 using namespace detail;
 
 namespace {
-constexpr uint32_t kPlayerSessionFlags = 0x00020100u; // ready and eliminated: cleared when a game starts
+constexpr PlayerFlag kPlayerSessionFlags = PlayerFlag::kReady | PlayerFlag::kEliminated; // cleared when a game starts
 constexpr uint32_t kBitMask = 31;
 constexpr int kLogoDeckGraphic = 8;
 constexpr uint32_t kAppearanceBufferBytes = 0x1000;
@@ -138,8 +139,8 @@ constexpr float kQuarterTurn = 90.0f;                   // (make_pitch_matrix's 
 // A joining player who will play: flags 0x18, or not observing.
 bool will_play(const JoinerRecord* info)
 {
-    const uint32_t flags = info->flag_bits();
-    return (flags & kPlayerCountedFlags) || !(flags & 4);
+    const PlayerFlag flags = info->flag_bits();
+    return core::any(flags & kPlayerCountedFlags) || !core::any(flags & PlayerFlag::kObserver);
 }
 net::Conn* player_conn(const PlayerRecord* player) { return player->conn(); }
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
@@ -516,7 +517,7 @@ int Hub::count_players()
     int count = 0;
     for (const memory::ListNode* node = get_next_node(&players_); auto* player = data_of<PlayerRecord>(node);
          node = get_next_node(node)) {
-        if (!is_observer(player) || (player->flag_bits() & kPlayerPendingObserver)) {
+        if (!is_observer(player) || core::any(player->flag_bits() & PlayerFlag::kPendingObserver)) {
             if (const objects::Entity* skater = player_skater(player))
                 core::at(ids, noted++) = static_cast<uint8_t>(get_skater_id(skater));
             ++count;
@@ -546,8 +547,8 @@ int Hub::count_observers()
     }
     for (const memory::ListNode* node = get_next_node(&joiners_); auto* info = data_of<JoinerRecord>(node);
          node = get_next_node(node)) {
-        const uint32_t flags = info->flag_bits();
-        if ((flags & 4) && !(flags & kPlayerPendingObserver))
+        const PlayerFlag flags = info->flag_bits();
+        if (core::any(flags & PlayerFlag::kObserver) && !core::any(flags & PlayerFlag::kPendingObserver))
             ++count;
     }
     return count;
@@ -704,10 +705,10 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     record->set_accumulated_score(info->accumulated_score());
     record->set_eliminated_time(info->eliminated_time());
     record->set_drive_control_mode(info->drive_control_mode());
-    uint32_t flags = record->flag_bits();
-    if ((flags & kPlayerRejoining) && (flag_bits_ & 1))
+    PlayerFlag flags = record->flag_bits();
+    if (core::any(flags & PlayerFlag::kRejoining) && (flag_bits_ & 1))
         record->set_rejoin_group(host_->frame_count());
-    if (!(flags & 4) || (flags & kPlayerPendingObserver)) {
+    if (!core::any(flags & PlayerFlag::kObserver) || core::any(flags & PlayerFlag::kPendingObserver)) {
         // The appearance, through a buffer.
         if (!memory::manager_ready_flag())
             memory::ensure_manager();
@@ -719,10 +720,10 @@ void Hub::add_joining_player(JoinerRecord* info, int timeout)
     if (flag_bits_ & 1) {
         flags = record->flag_bits();
         record->set_add_at_frame(host_->frame_count() + timeout);
-        if (!(flags & 1)) {
+        if (!core::any(flags & PlayerFlag::kLocal)) {
             const char* name = info->label().data();
-            if (flags & 4)
-                build_net_notice(true, (flags & kPlayerPendingObserver) ? kNetMessageJoinPending : kNetMessageObserving, name, nullptr,
+            if (core::any(flags & PlayerFlag::kObserver))
+                build_net_notice(true, core::any(flags & PlayerFlag::kPendingObserver) ? kNetMessageJoinPending : kNetMessageObserving, name, nullptr,
                                  nullptr, nullptr, false, kJoinNoticeTime);
             else
                 build_net_notice(false, kNetMessageJoining, name, nullptr, nullptr, nullptr, false, kJoinNoticeTime);

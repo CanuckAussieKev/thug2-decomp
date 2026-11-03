@@ -11,6 +11,8 @@
 #include <span>
 
 #include "engine/core/checked_index.h"
+#include "engine/net/player_info.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
@@ -91,9 +93,6 @@ constexpr int kPacketNatNegotiation = 2;
 constexpr std::array<uint8_t, 6> kNatMagic = {{0xFD, 0xFC, 0x1E, 0x66, 0x6A, 0xB2}};
 
 // PlayerRecord flags (+0x1D0) / JoinerRecord flags (+0x20).
-constexpr uint32_t kPlayerObserverCounted = 0x08; // (0x005434C0: an observer reported as a player)
-constexpr uint32_t kNewPlayerCounted = 0x18;
-constexpr uint32_t kNewPlayerObserver = 0x04;
 
 tasks::PileUp* get_logic_tasks() { return (&assets::get_main_loop_manager()->logic_tasks()); }
 
@@ -223,7 +222,7 @@ void RoomManager::player_key_callback(const PlayerKeyQuery& query)
     NewPlayerSearch new_search;
     for (PlayerRecord* p = start_roster_sweep(manager, &search, true); p;
          p = step_roster_sweep(manager, &search, true)) {
-        if (is_observer(p) && !(p->flag_bits() & kPlayerObserverCounted))
+        if (is_observer(p) && !core::any(p->flag_bits() & PlayerFlag::kPendingObserver))
             continue;
         if (count == index) {
             if (key == kKeyForPlayer)
@@ -236,8 +235,8 @@ void RoomManager::player_key_callback(const PlayerKeyQuery& query)
     }
     for (JoinerRecord* info = first_new_player(manager, &new_search); info;
          info = next_new_player(manager, &new_search)) {
-        const uint32_t flags = info->flag_bits();
-        if (!(flags & kNewPlayerCounted) && (flags & kNewPlayerObserver))
+        const PlayerFlag flags = info->flag_bits();
+        if (!core::any(flags & kPlayerCountedFlags) && core::any(flags & PlayerFlag::kObserver))
             continue;
         if (count == index) {
             if (key == kKeyForPlayer)

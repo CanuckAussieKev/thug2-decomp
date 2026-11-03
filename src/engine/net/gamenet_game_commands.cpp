@@ -66,7 +66,6 @@ constexpr int kColourHalf = 0x80;
 
 constexpr uint32_t kFlagsServer = 1; // the manager's flags
 constexpr uint32_t kFlagsInternet = 4;
-constexpr uint32_t kRemoveMark = 0x400; // a player's flags: being removed (its options dialog is up)
 
 // Checksums.
 constexpr uint32_t kNetGoalAttack = 0xEC200EAA;             // netgoalattack
@@ -446,7 +445,7 @@ bool cfunc_create_player_options(Struct* params, Script*)
     }
     if (_stricmp(player_name(player), name) != 0)
         return true;
-    player->flag_bits() |= kRemoveMark;
+    player->flag_bits() |= PlayerFlag::kMarked;
     script::StructPtr dialog = script::make_struct();
     const int profile = player->profile_id();
     if ((manager->flag_bits() & kFlagsInternet) && profile && manager->presence_service()->authenticated()) {
@@ -536,7 +535,7 @@ bool cfunc_cancel_remove_player(Struct*, Script*)
     PlayerSearch search;
     for (auto* player = manager->begin_player_walk(&search, false); player;
          player = manager->step_player_walk(&search, false))
-        player->flag_bits() &= ~kRemoveMark;
+        player->flag_bits() &= ~PlayerFlag::kMarked;
     return true;
 }
 

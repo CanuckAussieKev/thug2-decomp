@@ -9,6 +9,7 @@
 #include <initializer_list>
 #include <array>
 
+#include "engine/core/enum_ops.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -315,8 +316,8 @@ bool cfunc_is_observing(script::Struct*, script::Script*)
         return player->is_observer() != 0;
     for (const online::JoinerRecord* player = game_net->begin_joiner_walk(&search); player;
          player = game_net->step_joiner_walk(&search)) {
-        const uint32_t flags = player->flag_bits();
-        if ((flags & 1) && (flags & 4))
+        const online::PlayerFlag flags = player->flag_bits();
+        if (core::any(flags & online::PlayerFlag::kLocal) && core::any(flags & online::PlayerFlag::kObserver))
             return true;
     }
     return game_net->get_entry_mode() == 1;

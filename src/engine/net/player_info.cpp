@@ -7,6 +7,7 @@
 #include <cstring>
 #include <span>
 
+#include "engine/core/enum_ops.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -93,7 +94,7 @@ void clear_update_records(PlayerRecord* player)
 }
 
 // 0x00543740
-PlayerRecord::PlayerRecord(uint32_t flags) : ListNode()
+PlayerRecord::PlayerRecord(PlayerFlag flags) : ListNode()
 {
     make_node(this);
     clear_update_records(this);
@@ -153,7 +154,7 @@ void PlayerRecord::bind_rider(objects::Rider* skater)
 {
     Hub* manager = net_game_state().online_hub();
     skater_ = skater;
-    if (!(flag_bits_ & kPlayerLocal) && manager->fetch_viewed_player() == this)
+    if (!core::any(flag_bits_ & PlayerFlag::kLocal) && manager->fetch_viewed_player() == this)
         manager->spectate_player(this); // (the camera follows it again)
 }
 
@@ -252,38 +253,38 @@ int PlayerRecord::get_accumulated_score() { return accumulated_score_; }
 void PlayerRecord::add_to_accumulated_score(int score) { accumulated_score_ += score; }
 
 // 0x00543300 - 0x005434C0: the flags.
-int PlayerRecord::is_own_player() { return static_cast<int>(flag_bits_ & kPlayerLocal); }
-int PlayerRecord::is_host_player() { return static_cast<int>((flag_bits_ >> kPlayerServerBit) & 1); }
-int PlayerRecord::is_observer() { return static_cast<int>((flag_bits_ >> 2) & 1); }
-int PlayerRecord::is_scouting_level() { return static_cast<int>((flag_bits_ >> kPlayerSurveyingBit) & 1); }
-void PlayerRecord::mark_capture_blocked() { flag_bits_ |= kPlayerCaptureBlocked; }
+int PlayerRecord::is_own_player() { return static_cast<int>(flag_bits_ & PlayerFlag::kLocal); }
+int PlayerRecord::is_host_player() { return static_cast<int>(core::any(flag_bits_ & PlayerFlag::kServer)); }
+int PlayerRecord::is_observer() { return static_cast<int>(core::any(flag_bits_ & PlayerFlag::kObserver)); }
+int PlayerRecord::is_scouting_level() { return static_cast<int>(core::any(flag_bits_ & PlayerFlag::kSurveying)); }
+void PlayerRecord::mark_capture_blocked() { flag_bits_ |= PlayerFlag::kCaptureBlocked; }
 void PlayerRecord::mark_just_joined()
 {
     join_time_ = frame_clock::get_time();
-    flag_bits_ |= kPlayerJustJoined;
+    flag_bits_ |= PlayerFlag::kJustJoined;
 }
-void PlayerRecord::clear_just_joined() { flag_bits_ &= ~kPlayerJustJoined; }
-int PlayerRecord::has_finished_joining() { return (flag_bits_ & (kPlayerFullyIn | kPlayerLocal)) != 0 ? 1 : 0; }
-void PlayerRecord::set_host_player() { flag_bits_ |= kPlayerServer; }
-void PlayerRecord::clear_server_player() { flag_bits_ &= ~kPlayerServer; }
-int PlayerRecord::is_carrying_flag() { return (flag_bits_ & kPlayerCarryingFlags) != 0 ? 1 : 0; }
+void PlayerRecord::clear_just_joined() { flag_bits_ &= ~PlayerFlag::kJustJoined; }
+int PlayerRecord::has_finished_joining() { return core::any(flag_bits_ & (PlayerFlag::kFullyIn | PlayerFlag::kLocal)) != 0 ? 1 : 0; }
+void PlayerRecord::set_host_player() { flag_bits_ |= PlayerFlag::kServer; }
+void PlayerRecord::clear_server_player() { flag_bits_ &= ~PlayerFlag::kServer; }
+int PlayerRecord::is_carrying_flag() { return core::any(flag_bits_ & PlayerFlag::kCarryingFlags) != 0 ? 1 : 0; }
 int PlayerRecord::get_flag_team()
 {
     for (int team = 0; team < 4; ++team) {
-        if (flag_bits_ & (kPlayerCarryingFlag0 << team))
+        if (core::any(flag_bits_ & carrying_flag_of(team)))
             return team;
     }
     return -1;
 }
-void PlayerRecord::clear_flags() { flag_bits_ &= ~kPlayerCarryingFlags; }
+void PlayerRecord::clear_flags() { flag_bits_ &= ~PlayerFlag::kCarryingFlags; }
 void PlayerRecord::mark_eliminated()
 {
     eliminated_time_ = get_game_mode()->get_round();
-    flag_bits_ |= kPlayerEliminated;
+    flag_bits_ |= PlayerFlag::kEliminated;
 }
 bool PlayerRecord::is_eliminated()
 {
-    if (flag_bits_ & kPlayerEliminated)
+    if (core::any(flag_bits_ & PlayerFlag::kEliminated))
         return true;
     if (get_game_type() != kNetFirefight || !skater_)
         return false;
@@ -291,10 +292,10 @@ bool PlayerRecord::is_eliminated()
     return score && static_cast<modules::PointTally*>(core::down_cast<objects::RiderPointKeeper>(score)->points_held())
                             ->get_total_score() == 0; // (its score's lives)
 }
-int PlayerRecord::holds_crown() { return static_cast<int>((flag_bits_ >> kPlayerKingBit) & 1); }
+int PlayerRecord::holds_crown() { return static_cast<int>(core::any(flag_bits_ & PlayerFlag::kKing)); }
 int PlayerRecord::get_link_handle() { return conn_ ? conn_->hdl() : 0; }
 uint32_t PlayerRecord::get_skater_view_slot() { return static_cast<uint32_t>(rider()->view_slot()); }
-int PlayerRecord::is_pending_observer() { return static_cast<int>((flag_bits_ >> 3) & 1); }
+int PlayerRecord::is_pending_observer() { return static_cast<int>(core::any(flag_bits_ & PlayerFlag::kPendingObserver)); }
 
 // --- The score lines' list types ---
 

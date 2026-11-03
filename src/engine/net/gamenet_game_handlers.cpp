@@ -8,6 +8,7 @@
 #include <array>
 
 #include "engine/net/player_info.h"
+#include "engine/core/enum_ops.h"
 #include "engine/core/manager.h"
 #include "engine/core/task_list.h"
 #include "engine/net/gamenet_handler_util.h"
@@ -134,14 +135,14 @@ int on_player_added_msg(net::InboundMsgCtx* context)
     std::memcpy(info->label().data(), arrived.name.data(), strnlen(arrived.name.data(), kPlayerNameLength));
     info->set_entity_key(static_cast<uint8_t>(arrived.object_id)); // the object id
     info->set_conn(nullptr);                                       // the connection
-    info->flag_bits() = arrived.flags;                            // flags
+    info->flag_bits() = core::flags_from<PlayerFlag>(arrived.flags); // flags
     info->set_team(int{arrived.team});                             // the team
     info->set_profile_id(arrived.profile_id);
     info->set_skill_points(arrived.rating);
     info->set_accumulated_score(arrived.accumulated_score);
     info->set_drive_control_mode(arrived.drive_scheme);
     info->set_score(arrived.score);
-    if (!(info->flag_bits() & (kPlayerLocal | kPlayerObserver))) {
+    if (!core::any(info->flag_bits() & (PlayerFlag::kLocal | PlayerFlag::kObserver))) {
         static std::array<uint8_t, kAppearanceSize> appearance;
         const size_t size = reader.remaining() < kAppearanceSize ? reader.remaining() : kAppearanceSize;
         std::memset(appearance.data(), 0, sizeof(appearance));
@@ -328,8 +329,8 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
     } else {
         for (JoinerRecord* added = first_new_player(manager, &search); added;
              added = next_new_player(manager, &search)) {
-            if (added->flag_bits() & kPlayerKing) {
-                added->flag_bits() &= ~kPlayerKing;
+            if (core::any(added->flag_bits() & PlayerFlag::kKing)) {
+                added->flag_bits() &= ~PlayerFlag::kKing;
                 break;
             }
         }
@@ -341,7 +342,7 @@ int on_crown_change_msg(net::InboundMsgCtx* context)
     }
     for (JoinerRecord* added = first_new_player(manager, &search); added; added = next_new_player(manager, &search)) {
         if (added->entity_key() == *msg) {
-            added->flag_bits() |= kPlayerKing;
+            added->flag_bits() |= PlayerFlag::kKing;
             break;
         }
     }
