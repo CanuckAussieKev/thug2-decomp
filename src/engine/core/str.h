@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <span>
@@ -8,6 +9,16 @@
 #include "engine/core/cursor.h"
 
 namespace text {
+
+// UTF-8: the bytes of a code point (the front end's text, the editor's text fields).
+constexpr uint32_t kUtf8OneByteLimit = 0x80;  // code points below this take one byte,
+constexpr uint32_t kUtf8TwoByteLimit = 0x800; // below this two (above, three)
+constexpr int kUtf8LeadTwo = 0xC0;            // the lead byte of two,
+constexpr int kUtf8LeadThree = 0xE0;          // and of three
+constexpr int kUtf8Continuation = 0x80;       // a continuation byte is 10xxxxxx:
+constexpr int kUtf8ContinuationMask = 0xC0;   // the bits that tell one
+constexpr int kUtf8PayloadBits = 6;           // the payload bits a continuation byte carries
+constexpr uint32_t kUtf8PayloadMask = 0x3F;
 
 // Convert ASCII letters in place; other bytes are left alone.
 void to_lower_text(char* string);

@@ -17,12 +17,11 @@
 #include "engine/core/format.h"
 #include "editor/level_editor_gui_text.h"
 #include "engine/maths/vec2.h"
+#include "engine/core/str.h"
 
 namespace frontend::level_editor::ui_strip {
 
 namespace {
-constexpr unsigned char kUtf8ContinuationMask = 0xC0; // a UTF-8 continuation byte is 10xxxxxx
-constexpr unsigned char kUtf8ContinuationBits = 0x80;
 constexpr float kBothSides = 2.0f; // a padding counted on the left and right
 constexpr float kAccentButtonAlpha = 0.85f; // the accent-coloured button's alpha
 constexpr std::size_t kGridTextSize = 24; // "<grid>v###stripgrid"
@@ -142,7 +141,7 @@ std::string elide(const std::string& text, float max_width)
     // The longest prefix that fits with the ellipsis, cut at a character's start (UTF-8 continuation bytes are
     // 10xxxxxx) and trimmed of trailing spaces. (Status and strip texts are short: a plain scan.)
     for (size_t length = text.size(); length > 0; --length) {
-        if ((static_cast<unsigned char>(core::at(text, length)) & kUtf8ContinuationMask) == kUtf8ContinuationBits && length < text.size())
+        if ((static_cast<unsigned char>(core::at(text, length)) & text::kUtf8ContinuationMask) == text::kUtf8Continuation && length < text.size())
             continue;
         std::string cut = text.substr(0, length);
         while (!cut.empty() && cut.back() == ' ')

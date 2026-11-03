@@ -6,6 +6,7 @@
 #include "engine/core/parse_number.h"
 #include "engine/core/checked_index.h"
 #include "engine/maths/rect.h"
+#include "engine/core/str.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -26,14 +27,6 @@ namespace frontend::new_frontend {
 
 namespace {
 
-constexpr uint32_t kOneByteLimit = 0x80;           // UTF-8: code points below this take one byte,
-constexpr uint32_t kTwoByteLimit = 0x800;          // below this two,
-constexpr int kLeadTwo = 0xC0;                     // the lead byte of two,
-constexpr int kLeadThree = 0xE0;                   // and of three
-constexpr int kContinuation = 0x80;                // a continuation byte
-constexpr int kSixBits = 6;                        // the payload bits a continuation byte carries
-constexpr int kTwelveBits = 12;
-constexpr uint32_t kPayloadMask = 0x3F;
 constexpr int kMaxFileDepth = 32;
 constexpr std::size_t kColourTextLength = 7;       // "#rrggbb"
 constexpr int kHexBase = 16;
@@ -102,15 +95,15 @@ private:
     }
     static void append_utf8(std::string* out, unsigned code)
     {
-        if (code < kOneByteLimit) {
+        if (code < text::kUtf8OneByteLimit) {
             out->push_back(static_cast<char>(code));
-        } else if (code < kTwoByteLimit) {
-            out->push_back(static_cast<char>(kLeadTwo | (code >> kSixBits)));
-            out->push_back(static_cast<char>(kContinuation | (code & kPayloadMask)));
+        } else if (code < text::kUtf8TwoByteLimit) {
+            out->push_back(static_cast<char>(text::kUtf8LeadTwo | (code >> text::kUtf8PayloadBits)));
+            out->push_back(static_cast<char>(text::kUtf8Continuation | (code & text::kUtf8PayloadMask)));
         } else {
-            out->push_back(static_cast<char>(kLeadThree | (code >> kTwelveBits)));
-            out->push_back(static_cast<char>(kContinuation | ((code >> kSixBits) & kPayloadMask)));
-            out->push_back(static_cast<char>(kContinuation | (code & kPayloadMask)));
+            out->push_back(static_cast<char>(text::kUtf8LeadThree | (code >> (2 * text::kUtf8PayloadBits))));
+            out->push_back(static_cast<char>(text::kUtf8Continuation | ((code >> text::kUtf8PayloadBits) & text::kUtf8PayloadMask)));
+            out->push_back(static_cast<char>(text::kUtf8Continuation | (code & text::kUtf8PayloadMask)));
         }
     }
     bool string_value(std::string* out)
