@@ -37,7 +37,8 @@ void load_system_direct_input()
 
 } // namespace
 
-int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* command_line, int show)
+// (its parameters named as the Windows SDK declares them)
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, char* lpCmdLine, int nShowCmd)
 {
     // NOT ORIGINAL: thug2-decomp.log next to the exe and the crash handling (a crash logged with its call stack, never
     // a dialog).
@@ -45,5 +46,5 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* command_line, i
     get_log("thug2-decomp standalone");
     load_system_direct_input();
     sys::run_startup_initialisers();
-    return sys::win_main(instance, previous, command_line, show);
+    return sys::win_main(hInstance, hPrevInstance, lpCmdLine, nShowCmd);
 }
