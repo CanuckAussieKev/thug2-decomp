@@ -180,11 +180,11 @@ void clear_timed_flag(const SkaterPhysicsModule* core, PoseFlag flag) { core->st
 
 float tuning_float_lookup(uint32_t name, const SkaterPhysicsModule* core)
 {
-    return objects::read_tuning_float(name, 1, static_cast<objects::GameEntity*>(object_of(core)));
+    return objects::read_tuning_float(checksums::Name{name}, 1, static_cast<objects::GameEntity*>(object_of(core)));
 }
 int physics_integer(uint32_t name, const SkaterPhysicsModule* core)
 {
-    return objects::read_tuning_int(name, 1, static_cast<objects::GameEntity*>(object_of(core)));
+    return objects::read_tuning_int(checksums::Name{name}, 1, static_cast<objects::GameEntity*>(object_of(core)));
 }
 float get_stat(uint32_t name, const SkaterPhysicsModule* core)
 {

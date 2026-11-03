@@ -303,7 +303,7 @@ void RiderRemoteSync::get_extrapolate()
 
     // A wall between the played position and the new one (both the collision height up the up row): bounced off.
     GameEntity* skater = entity();
-    auto height = static_cast<float>(read_tuning_float(kFirstForwardCollisionHeight, 1, skater));
+    auto height = static_cast<float>(read_tuning_float(checksums::Name{kFirstForwardCollisionHeight}, 1, skater));
     const maths::Vec4& up = core::at(skater->basis_frame().row, 1);
     const float raise_w = height * up.w;
     const float raise_z = height * up.z;
@@ -345,7 +345,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     const maths::Vec4 along = {.x = static_cast<float>(inverse * sx), .y = static_cast<float>(rounded * sy),
                                .z = static_cast<float>(rounded * sz), .w = static_cast<float>(rounded * sw)};
     // The rail's gravity along it.
-    const float gravity = read_tuning_float(kRailGravity, 1, skater);
+    const float gravity = read_tuning_float(checksums::Name{kRailGravity}, 1, skater);
     maths::Vec4 pull = {.x = 0.0f, .y = gravity, .z = 0.0f, .w = 1.0f};
     pull.project_onto(along);
     maths::Vec4& vel = skater->vel();
@@ -390,7 +390,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
             static_cast<float>((static_cast<double>(there.z) * here.z + static_cast<double>(there.y) * here.y) +
                                static_cast<double>(there.x) * here.x);
         const double limit =
-            std::cos(static_cast<double>(read_tuning_float(kRailCornerLeaveAngle, 1, skater)) * kRadiansPerDegree);
+            std::cos(static_cast<double>(read_tuning_float(checksums::Name{kRailCornerLeaveAngle}, 1, skater)) * kRadiansPerDegree);
         if (limit > cosine)
             stopped = true;
     }

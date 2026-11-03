@@ -28,6 +28,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/ints.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace skater {
 
@@ -99,7 +100,7 @@ bool SkaterPhysicsModule::vert_wallplant()
     void* skater = trick_;
     if (!static_cast<objects::MoveExecutor*>(skater)->is_key_held(kTrickKeyName)) {
         const uint32_t window = ftol(static_cast<double>(script::fetch_float(kWallRideWindow)) * kToMilliseconds);
-        if (!static_cast<objects::MoveExecutor*>(trick_)->find_press(kTrickKeyName, window, 0xFFFFFFFFu))
+        if (!static_cast<objects::MoveExecutor*>(trick_)->find_press(checksums::Name{kTrickKeyName}, {.ms = window, .mask = 0xFFFFFFFFu}))
             return false;
     }
     objects::RiderPoseState* flags = state_;
@@ -406,7 +407,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
                 auto angle_bits = std::bit_cast<uint32_t>(angle);
                 const uint32_t surface = (angle_bits & 0xFFFFFF00u) | feeler_.hit().terrain;
                 auto impact = static_cast<float>(speed / stat_value(object_of(this), kMaxMaxSpeedStat));
-                static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk(impact, static_cast<int>(surface));
+                static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk({.speed = impact, .terrain = static_cast<int>(surface)});
             } else {
                 script::launch_script(kVehicleLandSound, nullptr, object_of(this), false, nullptr);
             }

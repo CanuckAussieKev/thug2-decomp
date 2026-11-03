@@ -498,7 +498,7 @@ void PointTally::change_spin_degrees(int degrees)
     } else {
         side = flipped ? "FS" : "BS";
     }
-    const int half_turns = (ftol(objects::read_tuning_float(kSpinCountSlop, 0, nullptr)) + size) / 180;
+    const int half_turns = (ftol(objects::read_tuning_float(checksums::Name{kSpinCountSlop}, 0, nullptr)) + size) / 180;
     get_trick(spin_trick_)->rotation_deg_ = degrees;
     const uint32_t crc = checksums::hash_from_text(get_trick(spin_trick_)->text_.data());
     bool renamed = false;

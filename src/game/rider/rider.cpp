@@ -316,8 +316,9 @@ script::Struct* get_physics_structure(GameEntity* skater)
 }
 
 // 0x00580400
-float read_tuning_float(uint32_t name, int assert, GameEntity* skater)
+float read_tuning_float(checksums::Name tuning_name, int assert, GameEntity* skater)
 {
+    const uint32_t name = tuning_name.value();
     script::Struct* physics = get_physics_structure(skater);
     float value = 0.0f;
     if (physics->fetch_float(name, &value, 0))
@@ -327,8 +328,9 @@ float read_tuning_float(uint32_t name, int assert, GameEntity* skater)
 }
 
 // 0x00580440
-int read_tuning_int(uint32_t name, int assert, GameEntity* skater)
+int read_tuning_int(checksums::Name tuning_name, int assert, GameEntity* skater)
 {
+    const uint32_t name = tuning_name.value();
     script::Struct* physics = get_physics_structure(skater);
     int value = 0;
     if (physics->fetch_int_value(name, &value, 0))
@@ -451,7 +453,7 @@ void Rider::move_to_random_restart()
     }
     last_restart_ = restart;
     if (restart)
-        jump_to_spawn(restart, 0);
+        jump_to_spawn({.node = restart, .walking = 0});
 }
 
 // 0x00580880
@@ -473,13 +475,13 @@ void Rider::set_pause_state(int state)
     };
     switch (state) {
     case 0:
-        if (read_tuning_int(kPauseValue, 0, nullptr)) {
+        if (read_tuning_int(checksums::Name{kPauseValue}, 0, nullptr)) {
             debug::printf("UnPausing game\n");
             pause_game(false);
         }
         break;
     case 1:
-        if (read_tuning_int(kPauseValue, 0, nullptr)) {
+        if (read_tuning_int(checksums::Name{kPauseValue}, 0, nullptr)) {
             debug::printf("Freezing game\n");
             pause_game(true);
         } else if (ObjectModule* physics_control = fetch_module(kSkaterPhysicsControl);
@@ -488,7 +490,7 @@ void Rider::set_pause_state(int state)
         }
         break;
     case 2:
-        if (!read_tuning_int(kPauseValue, 0, nullptr)) {
+        if (!read_tuning_int(checksums::Name{kPauseValue}, 0, nullptr)) {
             ObjectModule* physics_control = fetch_module(kSkaterPhysicsControl);
             if (core::down_cast<RiderBoardPhysics>(physics_control)->is_halted())
                 control(physics_control, 0);
@@ -891,7 +893,7 @@ void Rider::prepare_all(RiderIdentity* profile)
         core::down_cast<FootMovement>(fetch_module(0x726E85AA))->choose_camera(camera); // Walk
         commands::make_camera_active(checksums::Name{camera_name}, view_slot_, false);
         camera->object_flags() |= kObjectFlagLocked;
-        core::down_cast<RiderChaseView>(camera->fetch_module(0x5E43A604))->change_regime(2, 0.0f);
+        core::down_cast<RiderChaseView>(camera->fetch_module(0x5E43A604))->change_regime({.mode = 2, .time = 0.0f});
         memory::Hub::get_pull()->leave_heap_scope();
     }
     // Its script; its anim set (skater_asset_info's skater_skeleton, else thps6_human).
@@ -1370,7 +1372,7 @@ void Rider::relaunch(uint32_t a, uint32_t b)
 // The custom restart's position and orientation put back (SkipToCustomRestart, and SetCustomRestart Set).
 void Rider::skip_to_custom_restart()
 {
-    jump_to_spawn(0, custom_restart_walking_);
+    jump_to_spawn({.node = 0, .walking = custom_restart_walking_});
     at_point() = custom_restart_pos_;
     basis_frame() = custom_restart_matrix_;
     core_physics_->safe_pos() = at_point();
@@ -1398,12 +1400,12 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
             prefix = checksums::hash_from_text(text);
         if (prefix) {
             script::Struct* node = level_nodes::find_closest_node_with_prefix(prefix, &at_point());
-            jump_to_spawn((level_nodes::get_node_name(node)), walking);
+            jump_to_spawn({.node = (level_nodes::get_node_name(node)), .walking = walking});
             return true;
         }
         uint32_t node = 0;
         if (params->read_hash_value(0x7A8017BA, &node, 0)) { // node
-            jump_to_spawn(node, walking);
+            jump_to_spawn({.node = node, .walking = walking});
             return true;
         }
         // The first restart linked from the script's node; none: the skate module's (unless in the park editor).
@@ -1413,7 +1415,7 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         for (; i < count; ++i) {
             const uint32_t link = level_nodes::fetch_link(from, i);
             if (is_restart_node(link)) {
-                jump_to_spawn(link, walking);
+                jump_to_spawn({.node = link, .walking = walking});
                 break;
             }
         }
@@ -1531,8 +1533,10 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
 }
 
 // 0x00583DA0 (vtable +0x3C)
-void Rider::jump_to_spawn(uint32_t node, uint32_t walking)
+void Rider::jump_to_spawn(SpawnChoice spawn_choice)
 {
+    const auto node = spawn_choice.node;
+    const auto walking = spawn_choice.walking;
     online::Hub* net = online::online_hub();
     core::down_cast<RiderBoardPhysics>(fetch_module(kSkaterPhysicsControl))->set_flag26(1);
     if (is_local_skater()) {

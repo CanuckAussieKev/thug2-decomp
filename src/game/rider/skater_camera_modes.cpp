@@ -90,8 +90,10 @@ void RiderChaseView::update_lerps()
 }
 
 // 0x004F9AE0
-void RiderChaseView::change_regime(int mode, float time)
+void RiderChaseView::change_regime(CameraRegime camera_regime)
 {
+    const auto mode = camera_regime.mode;
+    const auto time = camera_regime.time;
     auto* camera = entity()->fetch_module(kCamera);
     const int screen = screen_mode();
     const char* array_name = screen == 1   ? "Skater_Camera_2P_Vert_Array"

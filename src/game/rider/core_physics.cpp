@@ -47,11 +47,11 @@ namespace {
 // script value).
 float tuning_float_lookup(uint32_t name, objects::GameEntity* object)
 {
-    return objects::read_tuning_float(name, 1, static_cast<objects::GameEntity*>(object));
+    return objects::read_tuning_float(checksums::Name{name}, 1, static_cast<objects::GameEntity*>(object));
 }
 int physics_integer(uint32_t name, objects::GameEntity* object)
 {
-    return objects::read_tuning_int(name, 1, static_cast<objects::GameEntity*>(object));
+    return objects::read_tuning_int(checksums::Name{name}, 1, static_cast<objects::GameEntity*>(object));
 }
 
 // The game's clock (0x0044ECE0, plus the offset at 0x00696D60).
@@ -748,7 +748,7 @@ void SkaterPhysicsModule::land_from_air()
         objects::GameEntity* object = entity();
         const float speed = object->vel().len_of();
         const float scale = core::down_cast<objects::Rider>(object)->get_scaled_physics(0xCC5F87AA);
-        static_cast<objects::RiderSfxPlayer*>(sound_)->play_land(speed / scale, static_cast<int>(which));
+        static_cast<objects::RiderSfxPlayer*>(sound_)->play_land({.speed = speed / scale, .terrain = static_cast<int>(which)});
     }
     objects::MoveExecutor* skater = trick_;
     if (!skater->trick_objects_on())

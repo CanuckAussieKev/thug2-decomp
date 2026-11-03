@@ -123,7 +123,7 @@ void exit_combo(MoveExecutor* self)
 bool spin_counts(MoveExecutor* self, bool full_turn)
 {
     const float spin = std::fabs(self->spin_total());
-    const double slop = read_tuning_float(kSpinCountSlop, 1, static_cast<GameEntity*>(self->entity()));
+    const double slop = read_tuning_float(checksums::Name{kSpinCountSlop}, 1, static_cast<GameEntity*>(self->entity()));
     const double threshold = (static_cast<double>(full_turn ? kFullTurn : kHalfTurn) - slop) + kSpinMargin;
     return threshold <= spin;
 }
@@ -224,7 +224,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     }
     case kGetSpin: {
         const float spin = spin_total_;
-        const double slop = read_tuning_float(kSpinCountSlop, 1, static_cast<GameEntity*>(entity()));
+        const double slop = read_tuning_float(checksums::Name{kSpinCountSlop}, 1, static_cast<GameEntity*>(entity()));
         const int turns = truncate(slop + std::fabs(spin)) / 180;
         script->args()->push_float(checksums::Name{kSpin}, static_cast<float>(turns * static_cast<double>(kHalfTurn)));
         return 1;
@@ -291,7 +291,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             params->fetch_int_value(kOlderThan, &older_than, 0);
             const int count = static_cast<int>(buttons->extent());
             for (int i = 0; i < count; ++i)
-                expire_button(buttons->fetch_part(i), static_cast<uint32_t>(older_than));
+                expire_button(checksums::Name{buttons->fetch_part(i)}, static_cast<uint32_t>(older_than));
             return 1;
         }
         clear_event_buffer();

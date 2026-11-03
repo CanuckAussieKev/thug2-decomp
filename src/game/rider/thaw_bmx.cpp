@@ -200,8 +200,10 @@ bool on_bike(const SkaterPhysicsModule* core)
     return state && state->on;
 }
 
-uint32_t bike_skater_script(uint32_t name, uint32_t caller_name, bool bike_script_loaded)
+uint32_t bike_skater_script(ScriptNames script_names, bool bike_script_loaded)
 {
+    const auto name = script_names.name;
+    const auto caller_name = script_names.caller_name_;
     static const uint32_t kPedKnockDown = name_hash("PedKnockDown");
     static const uint32_t kBikeKnockDown = name_hash("bike_PedKnockDown");
     static const uint32_t kKnockDownState = name_hash("STATECONTROL_knockdown");
@@ -218,7 +220,7 @@ uint32_t skater_script(const objects::Rider* skater, uint32_t name, const script
         return name;
     static const uint32_t kBikeKnockDown = name_hash("bike_PedKnockDown");
     const uint32_t chosen =
-        bike_skater_script(name, caller ? caller->script_title() : 0, script::script_exists(kBikeKnockDown));
+        bike_skater_script({.name = name, .caller_name_ = caller ? caller->script_title() : 0}, script::script_exists(kBikeKnockDown));
     if (chosen == 0)
         get_log("thaw_bmx: a ped's knock-down on the bike - not knocked over (THAW's STATESCRIPT_knockdown)");
     else if (chosen != name)

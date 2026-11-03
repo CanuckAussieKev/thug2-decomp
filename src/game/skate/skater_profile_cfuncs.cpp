@@ -16,6 +16,7 @@
 #include "game/goals/goal_manager.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 
 namespace commands {
@@ -326,7 +327,7 @@ bool cfunc_reset_skaters(script::Struct* params, script::Script*)
     uint32_t node = 0;
     params->read_hash_value(kNodeName, &node, 0);
     const bool walking = params->has_bare_flag(kRestartWalking);
-    modules::Skate::sole()->reset_skaters(node, walking);
+    modules::Skate::sole()->reset_skaters({.node = node, .walking = walking});
     return true;
 }
 

@@ -22,6 +22,7 @@
 #include "game/rider/rider.h"
 #include "platform/game_clock.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checksums.h"
 
 namespace skater::core_fields {
 
@@ -95,11 +96,11 @@ inline uint8_t bit_mark(const SkaterPhysicsModule* component, PoseFlag flag) { r
 // value).
 inline float tuning_float_lookup(uint32_t name, void* object)
 {
-    return objects::read_tuning_float(name, 1, static_cast<objects::GameEntity*>(object));
+    return objects::read_tuning_float(checksums::Name{name}, 1, static_cast<objects::GameEntity*>(object));
 }
 inline int physics_integer(uint32_t name, void* object)
 {
-    return objects::read_tuning_int(name, 1, static_cast<objects::GameEntity*>(object));
+    return objects::read_tuning_int(checksums::Name{name}, 1, static_cast<objects::GameEntity*>(object));
 }
 
 // 0x00434BF0: the trigger component told the feeler `feeler` hit something, for the three `events` (const int[3]).

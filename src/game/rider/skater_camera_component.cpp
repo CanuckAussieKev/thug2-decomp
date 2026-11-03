@@ -288,14 +288,14 @@ int RiderChaseView::invoke_method_by_name(uint32_t name, script::Struct* params,
     if (name == kSetMode) {
         int mode = 0;
         params->fetch_int_value(kMode, &mode, 1);
-        change_regime(mode, 1.0f);
+        change_regime({.mode = mode, .time = 1.0f});
         return 1;
     }
     return 2;
 }
 
 // 0x004FA7C0
-void RiderChaseView::restore_default_state() { change_regime(mode_sel_, 1.0f); }
+void RiderChaseView::restore_default_state() { change_regime({.mode = mode_sel_, .time = 1.0f}); }
 
 // 0x004FA7D0
 void RiderChaseView::next_mode()
@@ -304,7 +304,7 @@ void RiderChaseView::next_mode()
         return;
     if (++mode_sel_ >= 5)
         mode_sel_ = 1;
-    change_regime(mode_sel_, 1.0f);
+    change_regime({.mode = mode_sel_, .time = 1.0f});
 }
 
 // 0x004FA800

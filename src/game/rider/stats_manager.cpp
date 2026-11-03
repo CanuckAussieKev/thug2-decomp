@@ -28,6 +28,7 @@
 #include "game/rider/physics_control.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -544,8 +545,9 @@ void AttributeTracker::tick_frame()
 }
 
 // 0x0051D6A0
-void AttributeTracker::check_balance_time(uint32_t trick_type, float time, int)
+void AttributeTracker::check_balance_time(checksums::Name trick_type_name, float time, int)
 {
+    const uint32_t trick_type = trick_type_name.value();
     if (!is_operative())
         return;
     bool met = false;

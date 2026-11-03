@@ -80,7 +80,7 @@ constexpr double kMashedFastEnough = 1.5;      // 0x0064C578
 bool trick_has_script(MoveExecutor* self, script::Struct* trick) { return self->is_trick_entry(trick); }
 bool trigger_done(MoveExecutor* self, script::Struct* trigger, uint32_t kind, int ignore, bool option)
 {
-    return self->check_trigger(trigger, kind, static_cast<uint32_t>(ignore), option);
+    return self->check_trigger(trigger, {.mark_flags_ = kind, .mask = static_cast<uint32_t>(ignore)}, option);
 }
 // (trick_named: `ignore` is the trick name to compare - the original kept the text's pointer in a word)
 bool matches_ignore(MoveExecutor* self, script::Struct* trick, const char* ignore)
@@ -90,11 +90,11 @@ bool matches_ignore(MoveExecutor* self, script::Struct* trick, const char* ignor
 void set_button(MoveExecutor* self, int button, bool pressed) { self->update_button(button, pressed); }
 void check_manual_tricks(MoveExecutor* self, uint32_t array, int ignore, bool special)
 {
-    self->set_pending_trick(array, static_cast<uint32_t>(ignore), special);
+    self->set_pending_trick({.list = array, .mask = static_cast<uint32_t>(ignore)}, special);
 }
 bool pressed_within(MoveExecutor* self, uint32_t button, int ms, int ignore)
 {
-    return self->find_press(button, static_cast<uint32_t>(ms), static_cast<uint32_t>(ignore));
+    return self->find_press(checksums::Name{button}, {.ms = static_cast<uint32_t>(ms), .mask = static_cast<uint32_t>(ignore)});
 }
 
 // SkaterFlipAndRotate's do_after_anim (before a trick's script starts).
@@ -577,8 +577,10 @@ void MoveExecutor::ignore_tricks(const char* ignore)
 }
 
 // 0x00522AA0
-bool MoveExecutor::try_extra_tricks(uint32_t array, uint32_t skip)
+bool MoveExecutor::try_extra_tricks(ExtraTrickCall extra_call)
 {
+    const auto array = extra_call.array;
+    const auto skip = extra_call.skip;
     bool started = false;
     script::Array* tricks = script::fetch_list(array);
     if (!tricks)
@@ -628,7 +630,7 @@ void MoveExecutor::update_extra_tricks()
     if (const uint32_t special = extra_.special_) {
         if (score_->special_active()) {
             starting_special_ = true;
-            if (!try_extra_tricks(special, extra_.special_mask_))
+            if (!try_extra_tricks({.array = special, .skip = extra_.special_mask_}))
                 starting_special_ = false;
             if (!extra_.on_)
                 return;
@@ -637,7 +639,7 @@ void MoveExecutor::update_extra_tricks()
         }
     }
     for (int i = 0; i < extra_.count_; ++i) {
-        if (try_extra_tricks(core::at(extra_.arrays_, i), core::at(extra_.masks_, i)))
+        if (try_extra_tricks({.array = core::at(extra_.arrays_, i), .skip = core::at(extra_.masks_, i)}))
             starting_special_ = false;
         if (!extra_.on_)
             return;

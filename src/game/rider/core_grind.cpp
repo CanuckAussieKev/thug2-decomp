@@ -114,7 +114,7 @@ void SkaterPhysicsModule::play_land_sound()
     objects::GameEntity* object = object_of(this);
     auto speed = static_cast<float>(length_of(object->vel()));
     const float fraction = speed / core::down_cast<objects::Rider>(object)->get_scaled_physics(kSpeedCapStat);
-    static_cast<objects::RiderSfxPlayer*>(sound_)->play_land(fraction, state_->surface_type());
+    static_cast<objects::RiderSfxPlayer*>(sound_)->play_land({.speed = fraction, .terrain = state_->surface_type()});
 }
 
 // The rail node's TriggerScript run for `events` (with what the skater rides on, if anything still there).
@@ -315,7 +315,7 @@ void SkaterPhysicsModule::start_lip_trick(const maths::Vec4* point)
     display_matrix_ = object_of(this)->basis_frame();
     auto* gap = core::down_cast<objects::RiderGapTracker>(
         static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kSkaterGap));
-    gap->scan_for_gaps(0, 0x100000);
+    gap->scan_for_gaps({.cancel = 0, .require = 0x100000});
     trigger_rail_script(kLipEvents);
     trick_->set_starting_special(false);
     auto* skater = static_cast<objects::Entity*>(object_of(this));

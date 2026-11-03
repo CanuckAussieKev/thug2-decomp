@@ -73,7 +73,7 @@ constexpr int kStateAir = 1, kStateLip = 3, kStateRail = 4;
 constexpr uint16_t kFaceSkatable = 0x1, kFaceNotSkatable = 0x2, kFaceWallride = 0x4, kFaceVert = 0x8;
 
 // A physics value of the skater (GameObjects::read_tuning_float, asserting).
-double get_physics(GameEntity* skater, uint32_t name) { return read_tuning_float(name, 1, skater); }
+double get_physics(GameEntity* skater, uint32_t name) { return read_tuning_float(checksums::Name{name}, 1, skater); }
 
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
 void turn_by(maths::Mat4& m, const maths::Mat4& rotation) { d3dx::matrix_multiply(&m, &rotation, &m); }

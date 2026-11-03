@@ -5,6 +5,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -90,7 +91,7 @@ public:
     // 0x0051CF90 (vtable slot 1): the score and multiplier noted, the air and jump watched, every open goal checked.
     void tick_frame() override;
     // 0x0051D6A0: a balance trick of `trickType` held `time` seconds: the manual / grind time goals checked.
-    void check_balance_time(uint32_t trick_type, float time, int unused);
+    void check_balance_time(checksums::Name trick_type_name, float time, int unused);
 
     // --- script member functions (the table at 0x00684180) ---
     bool re_init(script::Struct* params, script::Script* script);          // 0x0051C4A0 StatsManager_ReInit

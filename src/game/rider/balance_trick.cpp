@@ -335,7 +335,7 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
         if (clear_cheese)
             balance->get_reset();
         balance->keep_best_time();
-        balance->kickoff(button_a, button_b, static_cast<uint32_t>(tweak), do_flip, backwards);
+        balance->kickoff({.left_button_ = button_a, .right_button_ = button_b, .trick = static_cast<uint32_t>(tweak)}, do_flip, backwards);
         return 1;
     }
     default:

@@ -16,6 +16,7 @@
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checksums.h"
 
 namespace skater::physics {
 
@@ -69,11 +70,11 @@ inline void set_timed_flag(SkaterPhysicsModule* component, PoseFlag flag, uint8_
 // (asserted when `required`). The float comes back on the x87 stack, rounded (it's a stored float).
 inline float tuning_float_lookup(uint32_t name, void* object, int required = 1)
 {
-    return objects::read_tuning_float(name, required, static_cast<objects::GameEntity*>(object));
+    return objects::read_tuning_float(checksums::Name{name}, required, static_cast<objects::GameEntity*>(object));
 }
 inline int physics_integer(uint32_t name, void* object, int required = 1)
 {
-    return objects::read_tuning_int(name, required, static_cast<objects::GameEntity*>(object));
+    return objects::read_tuning_int(checksums::Name{name}, required, static_cast<objects::GameEntity*>(object));
 }
 // A value set by the skater's stats (0x00580790, thiscall on the object: a script range scaled by the stat level).
 // (Ours returns a float.)

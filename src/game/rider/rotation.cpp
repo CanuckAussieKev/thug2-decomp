@@ -25,6 +25,7 @@
 #include "engine/objects/input_component.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/checksums.h"
 
 namespace skater {
 
@@ -74,11 +75,11 @@ int get_now() { return frame_clock::game_clock_elapsed() + objects::clock_offset
 // global (asserted when `required`).
 double tuning_float_lookup(uint32_t name, int required, objects::GameEntity* object)
 {
-    return objects::read_tuning_float(name, required, static_cast<objects::GameEntity*>(object));
+    return objects::read_tuning_float(checksums::Name{name}, required, static_cast<objects::GameEntity*>(object));
 }
 int tuning_int_lookup(uint32_t name, int required, objects::GameEntity* object)
 {
-    return objects::read_tuning_int(name, required, static_cast<objects::GameEntity*>(object));
+    return objects::read_tuning_int(checksums::Name{name}, required, static_cast<objects::GameEntity*>(object));
 }
 // A value set by the skater's stats (0x00580790: script range scaled by the stat level, unrounded).
 double stat_value(objects::GameEntity* object, uint32_t name)

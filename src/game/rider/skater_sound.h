@@ -37,14 +37,20 @@ public:
     // other name.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
+    // An impact's speed and the terrain hit.
+    struct Impact {
+        float speed{};
+        int terrain{};
+    };
+
     // `speed` (a fraction of full speed) as a percentage: the volume times volume_mult; the sound of `terrain` in
     // the state's table played at the skater:
     // 0x00518CF0: a landing (TABLE_LAND; on a rail TABLE_GRINDLAND / TABLE_SLIDELAND).
-    void play_land(float speed, int terrain);
+    void play_land(Impact impact);
     // 0x00518D60: a jump (TABLE_JUMP; in `state` 4, a rail, TABLE_GRINDJUMP / TABLE_SLIDEJUMP).
-    void play_jump(float speed, int terrain, int state);
+    void play_jump(RiderSfxPlayer::Impact impact, int state);
     // 0x00518DD0: a bonk (TABLE_BONK).
-    void play_bonk(float speed, int terrain);
+    void play_bonk(RiderSfxPlayer::Impact impact);
     // 0x00518EA0 / 0x00518FA0: a landing / jump on the terrain now (on the ground or in the air last_ground_).
     void play_land_here(float speed);
     void play_jump_here(float speed);

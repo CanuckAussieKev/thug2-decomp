@@ -5,6 +5,7 @@
 
 #include "engine/objects/entity.h"
 #include "engine/objects/trick_objects.h"
+#include "engine/core/checksums.h"
 #include <gsl/pointers>
 #include <array>
 #include <span>
@@ -126,11 +127,17 @@ public:
     // 0x0051F570: a new event of `type` at the head (the oldest dropped when there are 100): now, unused, no flags.
     TrickEvent* append_incident(int type);
     // 0x0051F610: the events of `button` older than `ms` get every flag (no trick uses them any more).
-    void expire_button(uint32_t button, uint32_t ms);
+    void expire_button(checksums::Name button_name, uint32_t ms);
+    // Presses looked for: within the last ms milliseconds, of the pads in the mask.
+    struct PressWindow {
+        uint32_t ms{};
+        uint32_t mask{};
+    };
+
     // 0x0051F6B0: a press of `button` within `ms` not used by `mask`: marked used, true.
-    bool find_press(uint32_t button, uint32_t ms, uint32_t mask);
+    bool find_press(checksums::Name button_name, PressWindow press_window);
     // 0x0051F7A0: presses of both buttons within `ms` (no other press between them): marked used, true.
-    bool find_press_both(uint32_t first, uint32_t second, uint32_t ms, uint32_t mask);
+    bool find_press_both(uint32_t first, uint32_t second, MoveExecutor::PressWindow press_window);
     // 0x0051F8F0: button `index` pressed or not this frame: a held-off button (+0x9A8, until a time) stays off; a
     // change becomes an event (unless the button is ignored, +0xA1C).
     void update_button(int index, bool pressed);
@@ -152,7 +159,7 @@ public:
     bool is_key_held(uint32_t button);
     // 0x0051ED10: the trick queue emptied. 0x0051ED20: a trick queued (dropped when the queue is full).
     void clear_queue();
-    void queue_trick(uint32_t list, int index, bool flag);
+    void queue_trick(checksums::Name list_name, int index, bool flag);
     // 0x0051ED90 (not a Ghidra function): the trick list `list` taken out of the extra lists (the one after a removed
     // one is skipped, as in the original) and out of the queue.
     void remove_trick_list(uint32_t list);
@@ -163,18 +170,30 @@ public:
     bool trick_named(script::Struct* trick, const char* name);
     // 0x0051F010: the newest 10 events printed (compiled-out debug output).
     void dump_event_buffer();
+    // A trigger's mark flags and the pads' mask.
+    struct TriggerMasks {
+        uint32_t mark_flags_{};
+        uint32_t mask{};
+    };
+
     // 0x0051FDA0: whether the trigger `trigger` (its first component the kind - Press, Tap, InOrder... -, then its
     // buttons and time) was done: matched against the newest events within its time, not by events with any of
     // `mask`'s flags. When it is, its events get `mark_flags` and (mostly) the button map is set; when the events ran
     // out, the used marks are cleared. With `scaled`, a Press's time is stretched by the core physics' rate (+0x2E8)
     // below 1.
-    bool check_trigger(script::Struct* trigger, uint32_t mark_flags, uint32_t mask, bool scaled);
+    bool check_trigger(script::Struct* trigger, TriggerMasks trigger_masks, bool scaled);
     // 0x00521930: the tricks of the list `list` whose trigger (or alternate trigger) was done are queued.
     void queue_done_tricks(uint32_t list, bool flag, uint32_t used);
     // 0x00521A10: the manual tricks list (+0x1230, when the balance component's +0x74) and the extra lists checked.
     void queue_all_done_tricks();
+    // A trick list waiting and the buttons it waits on.
+    struct PendingList {
+        uint32_t list{};
+        uint32_t mask{};
+    };
+
     // 0x00521A80: the first done trick of the list `list` becomes the pending one (+0x126C...).
-    void set_pending_trick(uint32_t list, uint32_t mask, bool flag);
+    void set_pending_trick(PendingList pending_list, bool flag);
 
     // --- script member functions (the table at 0x00683148) ---
     // 0x0051F260 SetCurrentBailEndpose (not a Ghidra function): the unnamed checksum (0 without one). True.
@@ -231,9 +250,15 @@ public:
     // extra grind trick (with its duration). 0x00521D20: the special array (`special` set) then the others.
     void check_extra_grind_tricks(uint32_t array, bool special);
     void update_extra_grind_tricks();
+    // The extra tricks' array and the trick skipped.
+    struct ExtraTrickCall {
+        uint32_t array{};
+        uint32_t skip{};
+    };
+
     // 0x00522AA0: the tricks of `array` not in `skip` (a bit per trick) whose triggers (0x0051FDA0 with 2) are done
     // tried (or their slot's mapping); stops once the extra tricks are killed. Whether one started.
-    bool try_extra_tricks(uint32_t array, uint32_t skip);
+    bool try_extra_tricks(ExtraTrickCall extra_call);
     // 0x00522C00: while extra tricks are on (until their duration, unless forever): the special array (the flag
     // +0x1C's +0x74; m_isSpecial while it's tried), then the others.
     void update_extra_tricks();

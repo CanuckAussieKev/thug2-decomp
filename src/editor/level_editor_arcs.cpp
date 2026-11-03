@@ -32,6 +32,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
+#include "engine/core/checksums.h"
 
 namespace frontend::level_editor::arcs {
 
@@ -334,7 +335,7 @@ void read_physics()
     const float default_stat = script::fetch_float(kDefaultStats);
     p.speed_stat_ = skater ? skater->fetch_tally(kStatSpeed) : default_stat;
     p.ollie_stat_ = skater ? skater->fetch_tally(kStatOllie) : default_stat;
-    const float gravity = objects::read_tuning_float(kFallPull, 0, skater);
+    const float gravity = objects::read_tuning_float(checksums::Name{kFallPull}, 0, skater);
     const float air_hang = script::fetch_float(kAirHang);
     const float vert_hang = script::fetch_float(kVertHang);
     if (gravity < 0.0f) {

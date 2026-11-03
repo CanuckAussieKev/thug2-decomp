@@ -9,6 +9,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/checksums.h"
 
 // Pieces of the skater object (GameObjects::Rider, a composite object; 0x0057FE30-0x00580BD8): its stats (overrides at
 // +0x290, the cheats and online rules on top), the physics structure for what it rides (skater_physics, or a
@@ -98,7 +99,7 @@ public:
     // 0x005802C0: 0x0042BD60 with this and `value`.
     void set_42b_d60(float value);
     // 0x00580830: moved to a random restart (0-7, through the skate module; up to 20 tries for one other than the
-    // last): jump_to_spawn(node, walking).
+    // last): jump_to_spawn({.node = node, .walking = walking}).
     void move_to_random_restart();
     // 0x005808A0: its pause state (0 running, 1 frozen, 2 physics paused): the game paused or the physics control
     // told.
@@ -166,10 +167,16 @@ public:
     bool invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // (the code SkipToCustomRestart and SetCustomRestart share)
     void skip_to_custom_restart();
+    // Where a skater restarts: the node, and whether walking.
+    struct SpawnChoice {
+        uint32_t node{};
+        uint32_t walking{};
+    };
+
     // 0x00583DA0: skipped to the restart node `node` (none: where it is), walking or not: a local skater's input and
     // pad reset, glide_to_node with the node, Restart, the camera updated, the node's TriggerScript run; teleported;
     // in three game modes the server told (message 0x57).
-    void jump_to_spawn(uint32_t node, uint32_t walking);
+    void jump_to_spawn(SpawnChoice spawn_choice);
     // 0x00583FB0 (0x005840E0 the deleting one): the pad's vibration stopped, its components reset, its exit script,
     // its created tricks deleted, the second viewport's camera marked dead, out of the skater list, then GameEntity's.
     ~Rider() override;
@@ -295,7 +302,7 @@ private:
 // 0x005802E0: the physics structure for what `skater` rides (null or not a skater: skater_physics).
 script::Struct* get_physics_structure(GameEntity* skater);
 // 0x00580400 / 0x00580440: a physics value from `skater`'s structure, else the global script value.
-float read_tuning_float(uint32_t name, int assert, GameEntity* skater);
-int read_tuning_int(uint32_t name, int assert, GameEntity* skater);
+float read_tuning_float(checksums::Name tuning_name, int assert, GameEntity* skater);
+int read_tuning_int(checksums::Name tuning_name, int assert, GameEntity* skater);
 
 } // namespace objects

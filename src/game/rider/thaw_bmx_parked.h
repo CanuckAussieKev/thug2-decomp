@@ -42,14 +42,27 @@ constexpr float kStartSpotDistance = 96.0f;
 // One step from `from` towards `to`: `step` along the ground (x / z), the height in proportion. True (and `to`) when
 // it's within the step.
 bool step_toward(Point from, Point to, float step, Point* out);
+// A heading turned towards a target by at most a step.
+struct HeadingTurn {
+    float heading{};
+    float target{};
+    float max_step_{};
+};
+
 // A heading (degrees; 0 = +z, 90 = +x) turned towards `target` by at most `max_step` (the short way round), in
 // [-180, 180). True when it got there.
-bool turn_toward(float heading, float target, float max_step, float* out);
+bool turn_toward(HeadingTurn heading_turn, float* out);
 // The heading of a direction along the ground (0 for none).
 float get_heading_of(float x, float z);
+// A heading and a distance along it.
+struct HeadingReach {
+    float heading{};
+    float distance{};
+};
+
 // Where the level's bike may go near a start at `pos` facing `heading`: `distance` to the right, the left, behind,
 // ahead (in that order).
-void start_spot_candidates(Point pos, float heading, float distance, std::span<Point, 4> out);
+void start_spot_candidates(Point pos, HeadingReach heading_reach, std::span<Point, 4> out);
 
 // --- the game ---------------------------------------------------------------------------------------------------
 

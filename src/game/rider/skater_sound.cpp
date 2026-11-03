@@ -87,8 +87,10 @@ void RiderSfxPlayer::configure_from_data(script::Struct* params)
 }
 
 // 0x00518CF0
-void RiderSfxPlayer::play_land(float speed, int terrain)
+void RiderSfxPlayer::play_land(Impact impact)
 {
+    const auto speed = impact.speed;
+    const auto terrain = impact.terrain;
     const uint32_t table = cur_phase_ == kStateRail ? (sliding_ ? kTableSlideLand : kTableGrindLand) : kTableLand;
     auto percent = static_cast<float>(static_cast<double>(speed) * kPercent);
     auto volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
@@ -99,8 +101,10 @@ void RiderSfxPlayer::play_land(float speed, int terrain)
 }
 
 // 0x00518D60
-void RiderSfxPlayer::play_jump(float speed, int terrain, int state)
+void RiderSfxPlayer::play_jump(RiderSfxPlayer::Impact impact, int state)
 {
+    const auto speed = impact.speed;
+    const auto terrain = impact.terrain;
     const uint32_t table = state == kStateRail ? (sliding_ ? kTableSlideJump : kTableGrindJump) : kTableJump;
     auto percent = static_cast<float>(static_cast<double>(speed) * kPercent);
     auto volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
@@ -111,8 +115,10 @@ void RiderSfxPlayer::play_jump(float speed, int terrain, int state)
 }
 
 // 0x00518DD0
-void RiderSfxPlayer::play_bonk(float speed, int terrain)
+void RiderSfxPlayer::play_bonk(RiderSfxPlayer::Impact impact)
 {
+    const auto speed = impact.speed;
+    const auto terrain = impact.terrain;
     auto percent = static_cast<float>(static_cast<double>(speed) * kPercent);
     auto volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
     if (play_bike_sound(entity(), skater::thaw_bmx::BikeSound::kBonk, volume, percent))
@@ -123,17 +129,17 @@ void RiderSfxPlayer::play_bonk(float speed, int terrain)
 // 0x00518EA0
 void RiderSfxPlayer::play_land_here(float speed)
 {
-    play_land(speed, on_ground_or_in_air(cur_phase_) ? last_ground_ : surface_type_);
+    play_land({.speed = speed, .terrain = on_ground_or_in_air(cur_phase_) ? last_ground_ : surface_type_});
 }
 
 // 0x00518FA0
 void RiderSfxPlayer::play_jump_here(float speed)
 {
-    play_jump(speed, on_ground_or_in_air(cur_phase_) ? last_ground_ : surface_type_, cur_phase_);
+    play_jump({.speed = speed, .terrain = on_ground_or_in_air(cur_phase_) ? last_ground_ : surface_type_}, cur_phase_);
 }
 
 // 0x00518EE0
-void RiderSfxPlayer::play_jump_in_state(float speed, int terrain) { play_jump(speed, terrain, cur_phase_); }
+void RiderSfxPlayer::play_jump_in_state(float speed, int terrain) { play_jump({.speed = speed, .terrain = terrain}, cur_phase_); }
 
 // 0x00518F00
 void RiderSfxPlayer::play_bonk_here(float speed)

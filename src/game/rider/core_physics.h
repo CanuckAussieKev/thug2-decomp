@@ -136,12 +136,18 @@ public:
     // 0x00508140) a bonk: the trigger, the sound, the velocity along the wall, the facing turned away from it, and a
     // moving object's push. False when nothing stopped the skater.
     bool check_air_forward_collision(const maths::Vec4* from);
+    // A side probe: which side (signed distance) and its length.
+    struct SideProbe {
+        float side{};
+        float length{};
+    };
+
     // 0x0050A2C0: a feeler from the skater's side height (Skater_side_collide_height) out to one side (`side` -1 or
     // 1 along the right) `length` long (more in the air: Skater_air_extra_side_col). Never while wall riding. In the air the
     // skater is pushed out of what it hit (a tenth of the overlap) - true only when 0x00508140 took over; otherwise
     // a near-vertical wall puts the skater back (+0x98), then, unless something is above the hit or a trigger takes
     // over, onto it (true).
-    bool check_side_collision(float side, float length);
+    bool check_side_collision(SideProbe side_probe);
     // 0x0050C930: both sides (Skater_side_collide_length); hit on both, the position goes back to where it was.
     void test_lateral_hits();
 

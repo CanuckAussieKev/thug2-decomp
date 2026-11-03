@@ -24,6 +24,7 @@
 #include "engine/core/checked_index.h"
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -52,9 +53,17 @@ online::PlayerRecord* find_own_player_record() { return online::online_hub()->fe
 // The game mode (0x007CE470)'s 0x005535F0: a team game. Not rewritten yet.
 bool is_squad_match() { return goals::game_mode()->is_squad_match() != 0; }
 
+// The script run and the label id it is given.
+struct LabelRun {
+    uint32_t name{};
+    uint32_t label_id_{};
+};
+
 // `name` run with a structure holding only id = `label_id`.
-void run_with_label_id(uint32_t name, uint32_t label_id)
+void run_with_label_id(LabelRun label_run)
 {
+    const auto name = label_run.name;
+    const auto label_id = label_run.label_id_;
     gsl::owner<script::Struct*> params = script::spawn_param_bag();
     if (params)
         new (params) script::Struct;
@@ -75,7 +84,7 @@ gsl::owner<ObjectModule*> RiderOverheadTag::fabricate() { return new RiderOverhe
 RiderOverheadTag::RiderOverheadTag() { set_kind_tag(kSkaterFloatingName); }
 
 // 0x00511AA0 (0x00511B80 the deleting one)
-RiderOverheadTag::~RiderOverheadTag() { run_with_label_id(kDestroyObjectLabel, label_id_); }
+RiderOverheadTag::~RiderOverheadTag() { run_with_label_id({.name = kDestroyObjectLabel, .label_id_ = label_id_}); }
 
 // 0x00511780
 void RiderOverheadTag::configure_from_data(script::Struct* /*params*/)
@@ -102,7 +111,7 @@ void RiderOverheadTag::tick_frame()
     auto* skater = core::down_cast<Rider>(entity());
     if (!skater->get_flag_2c_4() || (entity()->composite_flags() & kCompositeFlagHidden)) {
         if (label)
-            run_with_label_id(kDestroyObjectLabel, label_id_);
+            run_with_label_id({.name = kDestroyObjectLabel, .label_id_ = label_id_});
         return;
     }
     const float height = find_own_player_record() == player ? kLocalHeight : kOtherHeight;

@@ -117,8 +117,7 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     surface_dir_ = hit_.normal;
     const int result = hit_static || entity_ ? 1 : 0;
     // NOT ORIGINAL: [features] debug_collision logs what was hit (src/game/rider/debug_collision.h).
-    collision_overlay::note_feeler_query(this, result,
-                                         static_cast<uint32_t>(code_address_value(THUG2_RETURN_ADDRESS())));
+    collision_overlay::note_feeler_query(this, {.hit = result, .caller = static_cast<uint32_t>(code_address_value(THUG2_RETURN_ADDRESS()))});
     return result;
 }
 

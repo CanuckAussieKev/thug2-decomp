@@ -460,18 +460,20 @@ void Skate::teleport_to_spawn(objects::Rider* skater, uint32_t node, uint32_t wa
         if (!node)
             return;
     }
-    skater->jump_to_spawn(node, walking);
+    skater->jump_to_spawn({.node = node, .walking = walking});
 }
 
 // 0x00566980
-void Skate::reset_skaters(uint32_t node, uint32_t walking)
+void Skate::reset_skaters(SpawnChoice spawn_choice)
 {
+    const auto node = spawn_choice.node;
+    const auto walking = spawn_choice.walking;
     for (uint32_t i = 0; i < ints::as_unsigned(count_riders()); ++i) {
         objects::Rider* skater = get_skater_at(i); // (no check: as the original)
         if (skater->is_local_skater()) {
             const uint32_t at = node ? node : warp_to_restart(skater->ident());
             if (at)
-                skater->jump_to_spawn(at, walking);
+                skater->jump_to_spawn({.node = at, .walking = walking});
         }
         skater->reset_27c();
     }

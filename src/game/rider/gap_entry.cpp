@@ -203,7 +203,7 @@ void RiderGapTracker::tick_frame()
     ++tick_;
     uint32_t cancel = 0, require = 0;
     fetch_gap_condition_masks(&cancel, &require);
-    scan_for_gaps(cancel, require);
+    scan_for_gaps({.cancel = cancel, .require = require});
 }
 
 // 0x00511C80
@@ -282,8 +282,10 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
 }
 
 // 0x00511F60
-void RiderGapTracker::scan_for_gaps(uint32_t cancel, uint32_t require)
+void RiderGapTracker::scan_for_gaps(GapMasks gap_masks)
 {
+    const auto cancel = gap_masks.cancel;
+    const auto require = gap_masks.require;
     for (auto* gap = get_first<TrickListEntry>(gaps_); gap;) {
         TrickListEntry* next = get_next(gap);
         gap_option_labels(gap) &= ~require;
@@ -438,7 +440,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
         return;
     uint32_t cancel = 0, require = 0;
     fetch_gap_condition_masks(&cancel, &require);
-    scan_for_gaps(cancel, require);
+    scan_for_gaps({.cancel = cancel, .require = require});
 }
 
 // 0x00512770

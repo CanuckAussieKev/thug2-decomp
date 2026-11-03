@@ -27,6 +27,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/checked_index.h"
 #include "engine/objects/ride_tracker.h"
+#include "engine/core/checksums.h"
 
 namespace skater {
 
@@ -85,7 +86,7 @@ bool SkaterPhysicsModule::button_pressed(uint32_t button)
     if (skater->is_key_held(button))
         return true;
     const uint32_t window = ftol(static_cast<double>(script::fetch_float(kWallRideWindow)) * kToMilliseconds);
-    return static_cast<objects::MoveExecutor*>(trick_)->find_press(button, window, 0xFFFFFFFFu);
+    return static_cast<objects::MoveExecutor*>(trick_)->find_press(checksums::Name{button}, {.ms = window, .mask = 0xFFFFFFFFu});
 }
 
 // Moving up the wall: whether there's wall 6 either side of the hit point raised by 0.15 of the upward speed (along
@@ -140,8 +141,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         bool pressed = bike && thaw_bmx::wallplant_by_square(this);
         for (uint32_t i = 0; !pressed && i < tricks->extent(); ++i) {
             script::Struct* trick = tricks->struct_at(i);
-            if (static_cast<objects::MoveExecutor*>(trick_)->check_trigger(trick, 0,
-                                                                           0, true)) {
+            if (static_cast<objects::MoveExecutor*>(trick_)->check_trigger(trick, {.mark_flags_ = 0, .mask = 0}, true)) {
                 pressed = true;
                 break;
             }

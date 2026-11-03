@@ -124,7 +124,12 @@ public:
     // local skater moved there and reset.
     uint32_t warp_to_restart(uint32_t skater_id);
     void teleport_to_spawn(objects::Rider* skater, uint32_t node, uint32_t walking);
-    void reset_skaters(uint32_t node, uint32_t walking);
+    // Where the skaters restart: the node, and whether walking.
+    struct SpawnChoice {
+        uint32_t node{};
+        uint32_t walking{};
+    };
+    void reset_skaters(SpawnChoice spawn_choice);
     // 0x00566BE0: the skaters' collisions (in the games that have them) and king of the hill's crown taken.
     void test_rider_contacts();
     // 0x00567580: whether every skater's run is over (each one still going told to end; HORSE: only the skater

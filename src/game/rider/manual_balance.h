@@ -26,12 +26,19 @@ public:
     // 0x005798A0: reset_balance_indicator (if the script integer 0x5D07E2BE is set); the lean, its speed, the
     // times cleared; not on a rail (-1).
     void get_reset();
+    // A balance's buttons (left, right) and its trick.
+    struct BalanceKickoff {
+        uint32_t left_button_{};
+        uint32_t right_button_{};
+        uint32_t trick{};
+    };
+
     // 0x00579A00: started with the two buttons that push the lean left / right and the trick (+0x4C), and two
     // flags: on a grind or slide, time added or taken off by the rail (and a robot rail's nudge on a rail run
     // shorter than half a second); the last lean speed repeated harder (at least Repeat_Min; a new manual: random
     // side, a nose manual's to the back); the lean repeated (Lean_Repeat_Multiplier, plus the cheese); kept within
     // Lean_Bail_Angle; the cheese, the start time.
-    void kickoff(uint32_t left_button, uint32_t right_button, uint32_t trick, bool flipped, bool flip);
+    void kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip);
     // 0x00579CC0: one frame (while started): the cheese wears off; the score's trick time (0x00564270); the time
     // goes on; the lean speeds up (its physics: 0x06851748, 0xA9FEF5AB, 0xB6A634F3); the buttons push it back
     // (Lean_Push - not before the "no input" time 0x07DA1621 has passed or a button was let go); with no button,

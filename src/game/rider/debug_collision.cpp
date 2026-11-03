@@ -213,8 +213,10 @@ void log_hit(const void* feeler, uint32_t caller)
 } // namespace
 
 // Called by render::ProbeRay::get_hit_shape (0x004172F0) after each query.
-void note_feeler_query(const void* feeler, int hit, uint32_t caller)
+void note_feeler_query(const void* feeler, FeelerResult feeler_result)
 {
+    const auto hit = feeler_result.hit;
+    const auto caller = feeler_result.caller;
     if (get_mode() == 0)
         return;
     if (hit)

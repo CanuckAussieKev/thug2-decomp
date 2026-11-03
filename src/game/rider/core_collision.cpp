@@ -190,7 +190,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
                 objects::GameEntity* skater = object_of(this);
                 auto speed = static_cast<float>(length_of(skater->vel()));
                 const float fraction = speed / core::down_cast<objects::Rider>(skater)->get_scaled_physics(kSpeedCapStat);
-                static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk(fraction, terrain);
+                static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk({.speed = fraction, .terrain = terrain});
             } else {
                 script::launch_script(kVehicleLandSound, nullptr, static_cast<objects::Entity*>(object_of(this)), false,
                                       nullptr);
@@ -243,8 +243,10 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
 }
 
 // 0x0050A2C0
-bool SkaterPhysicsModule::check_side_collision(float side, float length)
+bool SkaterPhysicsModule::check_side_collision(SideProbe side_probe)
 {
+    const auto side = side_probe.side;
+    const auto length = side_probe.length;
     if (state_of(this) == kWallRide)
         return false;
     const objects::GameEntity* object = object_of(this);
@@ -339,10 +341,10 @@ void SkaterPhysicsModule::test_lateral_hits()
     const maths::Vec4 saved = entity()->at_point();
     const float length = script::fetch_float(kSideLength);
     bool both = false;
-    if (check_side_collision(-1.0f, length))
-        both = check_side_collision(1.0f, length);
+    if (check_side_collision({.side = -1.0f, .length = length}))
+        both = check_side_collision({.side = 1.0f, .length = length});
     else
-        both = check_side_collision(1.0f, length) && check_side_collision(-1.0f, length);
+        both = check_side_collision({.side = 1.0f, .length = length}) && check_side_collision({.side = -1.0f, .length = length});
     if (both)
         entity()->at_point() = saved;
 }

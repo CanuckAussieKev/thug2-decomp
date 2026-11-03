@@ -28,6 +28,7 @@
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
 #include "engine/core/cursor.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -218,8 +219,9 @@ TrickEvent* MoveExecutor::append_incident(int type)
 }
 
 // 0x0051F610
-void MoveExecutor::expire_button(uint32_t button, uint32_t ms)
+void MoveExecutor::expire_button(checksums::Name button_name, uint32_t ms)
 {
+    const uint32_t button = button_name.value();
     for_each_event(this, [&](int, TrickEvent& e) {
         if (e.button == button) {
             const uint32_t time = e.time;
@@ -231,8 +233,11 @@ void MoveExecutor::expire_button(uint32_t button, uint32_t ms)
 }
 
 // 0x0051F6B0
-bool MoveExecutor::find_press(uint32_t button, uint32_t ms, uint32_t mask)
+bool MoveExecutor::find_press(checksums::Name button_name, PressWindow press_window)
 {
+    const auto ms = press_window.ms;
+    const auto mask = press_window.mask;
+    const uint32_t button = button_name.value();
     bool found = false;
     for_each_event(this, [&](int, TrickEvent& e) {
         const uint32_t time = e.time;
@@ -249,8 +254,10 @@ bool MoveExecutor::find_press(uint32_t button, uint32_t ms, uint32_t mask)
 }
 
 // 0x0051F7A0
-bool MoveExecutor::find_press_both(uint32_t first, uint32_t second, uint32_t ms, uint32_t mask)
+bool MoveExecutor::find_press_both(uint32_t first, uint32_t second, MoveExecutor::PressWindow press_window)
 {
+    const auto ms = press_window.ms;
+    const auto mask = press_window.mask;
     bool got_first = false, got_second = false, any = false, found = false;
     for_each_event(this, [&](int, TrickEvent& e) {
         const uint32_t time = e.time;
@@ -459,8 +466,9 @@ void MoveExecutor::clear_queue()
 }
 
 // 0x0051ED20
-void MoveExecutor::queue_trick(uint32_t list, int index, bool flag)
+void MoveExecutor::queue_trick(checksums::Name list_name, int index, bool flag)
 {
+    const uint32_t list = list_name.value();
     int slot = 0;
     if (queue_first_ == -1 && queue_last_ == -1) {
         slot = 0;
@@ -644,8 +652,10 @@ struct Step {
 // The steps matched in order from the newest event back, one step per event (each marked used); events with any of
 // `mask`'s flags skipped; older than `ms`: stopped.
 template <size_t N>
-Scan match_steps(MoveExecutor* trick, const std::array<Step, N>& steps, const std::array<uint32_t, 3>& buttons, uint32_t ms, uint32_t mask)
+Scan match_steps(MoveExecutor* trick, const std::array<Step, N>& steps, const std::array<uint32_t, 3>& buttons, MoveExecutor::PressWindow press_window)
 {
+    const auto ms = press_window.ms;
+    const auto mask = press_window.mask;
     size_t state = 0;
     Scan result = Scan::kIsOver;
     for_each_event(trick, [&](int, TrickEvent& e) {
@@ -668,8 +678,11 @@ Scan match_steps(MoveExecutor* trick, const std::array<Step, N>& steps, const st
 }
 
 // The newest event of `type` of `button` (no flag of `mask`) within `ms`, unmarked.
-Scan find_event(MoveExecutor* trick, int type, uint32_t button, uint32_t ms, uint32_t mask, TrickEvent*& found)
+Scan find_event(MoveExecutor* trick, int type, checksums::Name button_name, MoveExecutor::PressWindow press_window, TrickEvent*& found)
 {
+    const auto ms = press_window.ms;
+    const auto mask = press_window.mask;
+    const uint32_t button = button_name.value();
     Scan result = Scan::kIsOver;
     for_each_event(trick, [&](int, TrickEvent& e) {
         const uint32_t time = e.time;
@@ -696,8 +709,10 @@ bool is_straight_direction(uint32_t button)
 } // namespace
 
 // 0x0051FDA0
-bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, uint32_t mask, bool scaled)
+bool MoveExecutor::check_trigger(script::Struct* trigger, TriggerMasks trigger_masks, bool scaled)
 {
+    const auto mark_flags = trigger_masks.mark_flags_;
+    const auto mask = trigger_masks.mask;
     if (!trigger || input_->disabled() || input_->net_disabled())
         return false;
     const script::Component* kind = trigger->step_to_entry(nullptr);
@@ -726,7 +741,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
         }
         TrickEvent* e = nullptr;
-        const Scan scan = find_event(this, 1, core::at(buttons, 0), ms, mask, e);
+        const Scan scan = find_event(this, 1, checksums::Name{core::at(buttons, 0)}, {.ms = ms, .mask = mask}, e);
         if (scan != Scan::kFound)
             return scan == Scan::kStopped ? false : fail();
         e->flags |= mark_flags;
@@ -746,7 +761,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
         }
         TrickEvent* e = nullptr;
-        const Scan scan = find_event(this, 1, core::at(buttons, 0), ms, mask, e);
+        const Scan scan = find_event(this, 1, checksums::Name{core::at(buttons, 0)}, {.ms = ms, .mask = mask}, e);
         if (scan != Scan::kFound)
             return scan == Scan::kStopped ? false : fail();
         e->flags |= mark_flags;
@@ -759,7 +774,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
     case 0x61B8FCE2: { // Release: the button released (as Press)
         const uint32_t ms = read_trigger(node, 1, buttons);
         TrickEvent* e = nullptr;
-        const Scan scan = find_event(this, 2, core::at(buttons, 0), ms, mask, e);
+        const Scan scan = find_event(this, 2, checksums::Name{core::at(buttons, 0)}, {.ms = ms, .mask = mask}, e);
         if (scan != Scan::kFound)
             return scan == Scan::kStopped ? false : fail();
         e->flags |= mark_flags;
@@ -768,7 +783,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
     }
     case 0x7FA5CDBB: { // Tap: the button pressed, then released (the button map left alone)
         static const auto kSteps = std::to_array<Step>({{.type = 2, .button = 0}, {.type = 1, .button = 0}});
-        const Scan scan = match_steps(this, kSteps, buttons, read_trigger(node, 1, buttons), mask);
+        const Scan scan = match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 1, buttons), .mask = mask});
         if (scan != Scan::kFound)
             return scan == Scan::kStopped ? false : fail();
         flag_spent(mark_flags);
@@ -776,23 +791,23 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
     }
     case 0x7D482318: { // InOrder: the first pressed, then the second
         static const auto kSteps = std::to_array<Step>({{.type = 1, .button = 1}, {.type = 1, .button = 0}});
-        return finish(match_steps(this, kSteps, buttons, read_trigger(node, 2, buttons), mask));
+        return finish(match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 2, buttons), .mask = mask}));
     }
     case 0xFFB718BD: { // PressAndRelease: the first pressed, then the second released
         static const auto kSteps = std::to_array<Step>({{.type = 2, .button = 1}, {.type = 1, .button = 0}});
-        return finish(match_steps(this, kSteps, buttons, read_trigger(node, 2, buttons), mask));
+        return finish(match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 2, buttons), .mask = mask}));
     }
     case 0x2C434C90: { // TapTwiceRelease: the first pressed twice, then the second released
         static const auto kSteps = std::to_array<Step>({{.type = 2, .button = 1}, {.type = 1, .button = 0}, {.type = 1, .button = 0}});
-        return finish(match_steps(this, kSteps, buttons, read_trigger(node, 2, buttons), mask));
+        return finish(match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 2, buttons), .mask = mask}));
     }
     case 0xC1AD35C0: { // TripleInOrderSloppy: the first, second and third pressed in turn
         static const auto kSteps = std::to_array<Step>({{.type = 1, .button = 2}, {.type = 1, .button = 1}, {.type = 1, .button = 0}});
-        return finish(match_steps(this, kSteps, buttons, read_trigger(node, 3, buttons), mask));
+        return finish(match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 3, buttons), .mask = mask}));
     }
     case 0x3FE7C311: { // TripleInOrderStrict: the first tapped, the second tapped, then the third pressed
         static const auto kSteps = std::to_array<Step>({{.type = 1, .button = 2}, {.type = 2, .button = 1}, {.type = 1, .button = 1}, {.type = 2, .button = 0}, {.type = 1, .button = 0}});
-        return finish(match_steps(this, kSteps, buttons, read_trigger(node, 3, buttons), mask));
+        return finish(match_steps(this, kSteps, buttons, {.ms = read_trigger(node, 3, buttons), .mask = mask}));
     }
     case 0xA2E042D7: { // TripleInOrder: the first tapped, then the second and third pressed (in either order)
         uint32_t ms = read_trigger(node, 3, buttons);
@@ -994,15 +1009,15 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
                 }
                 return true;
             });
-            return find_press(core::at(buttons, 0), ms, mask) ? succeed() : fail();
+            return find_press(checksums::Name{core::at(buttons, 0)}, {.ms = ms, .mask = mask}) ? succeed() : fail();
         }
-        return find_press_both(core::at(buttons, 0), core::at(buttons, 1), ms, mask) ? succeed() : fail();
+        return find_press_both(core::at(buttons, 0), core::at(buttons, 1), {.ms = ms, .mask = mask}) ? succeed() : fail();
     }
     case 0x3C3028F4: { // PressTwo: both held, and both pressed
         const uint32_t ms = read_trigger(node, 2, buttons);
         if (!is_key_held(core::at(buttons, 0)) || !is_key_held(core::at(buttons, 1)))
             return fail();
-        return find_press_both(core::at(buttons, 0), core::at(buttons, 1), ms, mask) ? succeed() : fail();
+        return find_press_both(core::at(buttons, 0), core::at(buttons, 1), {.ms = ms, .mask = mask}) ? succeed() : fail();
     }
     case 0xA8123ECF: { // HoldThree: the three (as named, not mapped) held; nothing marked
         const script::Component* second = node->next;
@@ -1097,8 +1112,8 @@ void MoveExecutor::queue_done_tricks(uint32_t list, bool flag, uint32_t used)
         script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alternate = nullptr;
         trick->read_sub_struct(0x68B74085u, &alternate, 0);
-        if (check_trigger(trigger, 1, mask, false) || check_trigger(alternate, 1, mask, false))
-            queue_trick(list, i, flag);
+        if (check_trigger(trigger, {.mark_flags_ = 1, .mask = mask}, false) || check_trigger(alternate, {.mark_flags_ = 1, .mask = mask}, false))
+            queue_trick(checksums::Name{list}, i, flag);
     }
 }
 
@@ -1112,8 +1127,10 @@ void MoveExecutor::queue_all_done_tricks()
 }
 
 // 0x00521A80
-void MoveExecutor::set_pending_trick(uint32_t list, uint32_t mask, bool flag)
+void MoveExecutor::set_pending_trick(PendingList pending_list, bool flag)
 {
+    const auto list = pending_list.list;
+    const auto mask = pending_list.mask;
     script::Array* tricks = script::fetch_list(list);
     if (!tricks)
         return;
@@ -1125,7 +1142,7 @@ void MoveExecutor::set_pending_trick(uint32_t list, uint32_t mask, bool flag)
         script::Struct* trigger = skater::platform_structure(trick);
         script::Struct* alternate = nullptr;
         trick->read_sub_struct(0x68B74085u, &alternate, 0);
-        if (!check_trigger(trigger, 4, mask, false) && !check_trigger(alternate, 4, mask, false))
+        if (!check_trigger(trigger, {.mark_flags_ = 4, .mask = mask}, false) && !check_trigger(alternate, {.mark_flags_ = 4, .mask = mask}, false))
             continue;
         manual_.array_ = list;
         manual_.index_ = i;

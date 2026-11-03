@@ -66,10 +66,16 @@ public:
     void change_phase(const WalkCameraState* state);
     // 0x004F9970 (not a Ghidra function): one frame (1/60 s) of the behind / above distances' lerps.
     void update_lerps();
+    // A camera mode and the time taken to change to it.
+    struct CameraRegime {
+        int mode{};
+        float time{};
+    };
+
     // 0x004F9AE0: camera mode `mode` (Skater_Camera_Array, or the 2P split screen's arrays): its values read; the
     // behind / above distances (feet) lerped over `time` seconds (none: at once); the field of view (half with a
     // vertical split); the lookaround's heading by the mode (5/6 behind, 7/8 a quarter turn, 11/12 the other, else 0).
-    void change_regime(int mode, float time);
+    void change_regime(CameraRegime camera_regime);
     // 0x004FA7C0 / 0x004FA7D0: the current camera mode set again / the next one (1 to 4, round again; nothing from 5
     // up) - change_regime with a blend of 1.
     void restore_default_state();

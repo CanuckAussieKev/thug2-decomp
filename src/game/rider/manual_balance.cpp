@@ -27,6 +27,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
 #include "engine/net/net_game_state.h"
+#include "engine/core/checksums.h"
 
 namespace objects {
 
@@ -160,8 +161,11 @@ void Balance::halt()
 }
 
 // 0x00579A00
-void Balance::kickoff(uint32_t left_button, uint32_t right_button, uint32_t trick, bool flipped, bool flip)
+void Balance::kickoff(BalanceKickoff balance_kickoff, bool flipped, bool flip)
 {
+    const auto left_button = balance_kickoff.left_button_;
+    const auto right_button = balance_kickoff.right_button_;
+    const auto trick = balance_kickoff.trick;
     left_button_ = left_button;
     right_press_ = right_button;
     trick_ = trick;
@@ -253,7 +257,7 @@ void Balance::tick_frame()
     clock_ = static_cast<float>(static_cast<double>(frame) + clock_);
     on_rail_seconds_ = static_cast<float>(static_cast<double>(frame) + on_rail_seconds_);
     ObjectModule* stats = skater_->fetch_module(kStatsManager);
-    core::down_cast<AttributeTracker>(stats)->check_balance_time(get_trick_type(balance_trick_), clock_, 0);
+    core::down_cast<AttributeTracker>(stats)->check_balance_time(checksums::Name{get_trick_type(balance_trick_)}, clock_, 0);
     // The lean speeds up.
     auto gravity = static_cast<float>(get_physics(balance_trick_, kLeanGravityStat));
     auto instable_rate = static_cast<float>(get_physics(balance_trick_, kInstableRate));

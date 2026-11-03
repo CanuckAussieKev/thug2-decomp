@@ -140,9 +140,15 @@ bool half_stick_key();
 // disgust state instead) none - 0, the skater not sent; from anywhere else (a chasing ped's catch, a blocker's bump)
 // the bike's own, bike_PedKnockDown (the bike's bail), when the overlay has it. `caller` the calling script (or null).
 uint32_t skater_script(const objects::Rider* skater, uint32_t name, const script::Script* caller);
+// The script run and the one calling it.
+struct ScriptNames {
+    uint32_t name{};
+    uint32_t caller_name_{};
+};
+
 // Its choice: `caller_name` the calling script's top-level name (0: none), `bike_script_loaded` whether the overlay has
 // bike_PedKnockDown.
-uint32_t bike_skater_script(uint32_t name, uint32_t caller_name, bool bike_script_loaded);
+uint32_t bike_skater_script(ScriptNames script_names, bool bike_script_loaded);
 // The physics structure while on the bike (thaw_bicycle_physics; null off the bike or when the overlay hasn't it).
 script::Struct* physics_structure(const SkaterPhysicsModule* core);
 // A bike member function on `core` (1 / 0 its result), or 2: not one of ours.

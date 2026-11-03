@@ -99,7 +99,7 @@ bool get_clear(Point a, Point b)
 Kickoff find_start_spot(Point pos, float heading)
 {
     std::array<Point, 4> candidates{};
-    start_spot_candidates(pos, heading, kStartSpotDistance, candidates);
+    start_spot_candidates(pos, {.heading = heading, .distance = kStartSpotDistance}, candidates);
     for (const Point& c : candidates) {
         Point ground{};
         if (!get_hit({.x = c.x, .y = pos.y + kGroundAbove, .z = c.z}, {.x = c.x, .y = pos.y - kGroundBelow, .z = c.z}, &ground))
@@ -203,7 +203,7 @@ bool cfunc_walk_to_bike(script::Struct* params, script::Script*)
     }
     // (turned towards it first, then walked)
     float turned = heading;
-    if (!turn_toward(heading, get_heading_of(to.x - from.x, to.z - from.z), kWalkTurnDegrees, &turned))
+    if (!turn_toward({.heading = heading, .target = get_heading_of(to.x - from.x, to.z - from.z), .max_step_ = kWalkTurnDegrees}, &turned))
         next = from;
     place_skater(skater, next, turned);
     return false;
@@ -240,8 +240,11 @@ bool step_toward(Point from, Point to, float step, Point* out)
     return false;
 }
 
-bool turn_toward(float heading, float target, float max_step, float* out)
+bool turn_toward(HeadingTurn heading_turn, float* out)
 {
+    const auto heading = heading_turn.heading;
+    const auto target = heading_turn.target;
+    const auto max_step = heading_turn.max_step_;
     auto wrap = [](float a) {
         a = std::fmod(a + 180.0f, 360.0f);
         if (a < 0.0f)
@@ -264,8 +267,10 @@ float get_heading_of(float x, float z)
     return static_cast<float>(std::atan2(static_cast<double>(x), static_cast<double>(z)) * 180.0 / kPi);
 }
 
-void start_spot_candidates(Point pos, float heading, float distance, std::span<Point, 4> out)
+void start_spot_candidates(Point pos, HeadingReach heading_reach, std::span<Point, 4> out)
 {
+    const auto heading = heading_reach.heading;
+    const auto distance = heading_reach.distance;
     const double h = static_cast<double>(heading) * kPi / 180.0;
     auto ax = static_cast<float>(std::sin(h)), az = static_cast<float>(std::cos(h));  // (at)
     const float rx = az;
