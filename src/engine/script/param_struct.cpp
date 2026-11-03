@@ -542,9 +542,10 @@ namespace {
 constexpr int kScriptStringSlots = 16;
 // NOT ORIGINAL grouping - the script strings' slots and the empty one (the original's globals). Made on first use,
 // never destroyed (script_strings()).
+constexpr size_t kNoScriptStringSize = 128;
 struct ScriptStrings {
     std::array<std::array<char, 128>, kScriptStringSlots> script_strings_{};
-    std::array<char, 128> no_script_string_{};
+    std::array<char, kNoScriptStringSize> no_script_string_{};
 };
 
 ScriptStrings& script_strings()

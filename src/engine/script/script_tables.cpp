@@ -80,6 +80,7 @@
 #include "game/rider/trick_component.h"
 #include "engine/sys/system_cfuncs.h"
 #include <array>
+#include <cstddef>
 
 namespace script {
 
@@ -94,7 +95,8 @@ bool command_music_is_paused(Struct* /*params*/, Script* /*script*/) { return au
 
 std::array<NativeCommand, 1254>& cfunction_table()
 {
-    static std::array<NativeCommand, 1254> cfunction_table{{
+    constexpr size_t kCfunctionTableSize = 1254;
+    static std::array<NativeCommand, kCfunctionTableSize> cfunction_table{{
         {.name = "Wait", .function = &commands::cfunc_wait},
         {.name = "WaitForEvent", .function = &objects::cfunc_wait_for_event},
         {.name = "Block", .function = &commands::cfunc_block},
@@ -1360,7 +1362,8 @@ std::array<NativeCommand, 1254>& cfunction_table()
 
 std::array<const char*, 250>& member_function_names()
 {
-    static std::array<const char*, 250> member_function_names{{"AnimLoaded",
+    constexpr size_t kMemberFunctionNamesSize = 250;
+    static std::array<const char*, kMemberFunctionNamesSize> member_function_names{{"AnimLoaded",
                                              "AssetLoaded",
                                              "ChangeCameraFOV",
                                              "SetTargetObject",

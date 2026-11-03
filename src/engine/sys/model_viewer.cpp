@@ -55,6 +55,17 @@ namespace modules {
 
 namespace {
 
+// The model viewer's pad dead zone (the raw stick's +-50) and the speeds it starts with, the camera's default offset
+// above the viewed object, and the seconds in a millisecond.
+constexpr float kDeadZone = 50.0f;
+constexpr double kDeadZoneDouble = 50.0;
+constexpr double kDefaultViewHeight = 35.0;
+constexpr float kDefaultViewHeightF = 35.0f;
+constexpr float kMillisecondsToSeconds = 0.001f;
+constexpr float kStartMovementVelocity = 400.0f;
+constexpr float kStartRotateVelocity = 120.0f;
+constexpr int kShiftHandlerPriority = 1000;
+
 // Names.
 constexpr uint32_t kViewerButtonsEnabled = 0x89BEF647; // viewer_buttons_enabled (a script global)
 constexpr uint32_t kSelectShift = 0xF3E055E1;          // select_shift (a script global)
@@ -111,10 +122,10 @@ void append_vertex(tasks::PileUp& list, tasks::SchedulerTask* node) { list.queue
 float dead_zone(float value)
 {
     constexpr float kScale = 0.012820513f; // 0x0064EBEC (1 / 78)
-    if (value > 50.0f)
-        return static_cast<float>((static_cast<double>(value) - 50.0) * kScale);
-    if (value < -50.0f)
-        return static_cast<float>((static_cast<double>(value) + 50.0) * kScale);
+    if (value > kDeadZone)
+        return static_cast<float>((static_cast<double>(value) - kDeadZoneDouble) * kScale);
+    if (value < -kDeadZone)
+        return static_cast<float>((static_cast<double>(value) + kDeadZoneDouble) * kScale);
     return 0.0f;
 }
 
@@ -204,7 +215,7 @@ void handle_viewer_shift(ViewerInputHandler* handler)
     Viewer* viewer = handler->content();
     viewer->shift_makes() = 0;
     const pad_input::Payload* data = handler->control_data();
-    if (!(data->buttons() & 0x100)) // select
+    if (!(data->buttons() & pad_input::kMaskSelect)) // select
         return;
     viewer->shift_makes() |= data->makes();
     if (script::fetch_int_value(kSelectShift)) {
@@ -220,7 +231,7 @@ void handle_viewer_input(ViewerInputHandler* handler)
     if (!objects::view_mode())
         return;
     auto stick = [handler](int event) {
-        return static_cast<float>(static_cast<int>(core::at(handler->control_data()->incident(), event)) - 0x80);
+        return static_cast<float>(static_cast<int>(core::at(handler->control_data()->incident(), event)) - pad_input::Payload::kStickCentre);
     };
     viewer->pad_rx() = stick(pad_input::Payload::kRawRightX);
     viewer->pad_ry() = stick(pad_input::Payload::kRawRightY);
@@ -233,52 +244,52 @@ void handle_viewer_input(ViewerInputHandler* handler)
         return;
     auto held = [handler]() { return handler->control_data()->buttons(); };
     auto made = [handler]() { return handler->control_data()->makes(); };
-    if (held() & 0x8) {
-        if (!(made() & 0x2) && !(held() & 0x2))
-            viewer->actions() |= 0x2;
-    } else if (held() & 0x2) {
-        viewer->actions() |= 0x4;
+    if (held() & pad_input::kMaskR1) {
+        if (!(made() & pad_input::kMaskR2) && !(held() & pad_input::kMaskR2))
+            viewer->actions() |= Viewer::kCommandShoulderA;
+    } else if (held() & pad_input::kMaskR2) {
+        viewer->actions() |= Viewer::kCommandShoulderB;
     }
-    if (made() & 0x800)
-        viewer->actions() |= 0x800;
+    if (made() & pad_input::kMaskStart)
+        viewer->actions() |= Viewer::kCommandStart;
     if (viewer->mode_sel() == 0) {
-        if (made() & 0x10)
-            viewer->actions() |= 0x400;
-        if (made() & 0x80)
-            viewer->actions() |= 0x100;
-        if (made() & 0x20)
-            viewer->actions() |= 0x200;
-        if (made() & 0x40)
-            viewer->actions() |= 0x80;
+        if (made() & pad_input::kMaskTriangle)
+            viewer->actions() |= Viewer::kCommandTriangle;
+        if (made() & pad_input::kMaskSquare)
+            viewer->actions() |= Viewer::kCommandSquare;
+        if (made() & pad_input::kMaskCircle)
+            viewer->actions() |= Viewer::kCommandCircle;
+        if (made() & pad_input::kMaskCross)
+            viewer->actions() |= Viewer::kCommandCross;
     } else if (viewer->mode_sel() == 1) {
-        if (made() & 0x40)
-            viewer->actions() |= 0x8000;
+        if (made() & pad_input::kMaskCross)
+            viewer->actions() |= Viewer::kCommandCrossInSpinMode;
     }
-    if ((held() & 0x1000) && (made() & 0x1000))
-        viewer->actions() |= 0x10;
-    if ((held() & 0x4000) && (made() & 0x4000))
-        viewer->actions() |= 0x8;
-    if (held() & 0x2000)
-        viewer->actions() |= 0x40;
-    if (held() & 0x8000)
-        viewer->actions() |= 0x20;
-    if (made() & 0x200)
-        viewer->actions() |= 0x4000;
+    if ((held() & pad_input::kMaskUp) && (made() & pad_input::kMaskUp))
+        viewer->actions() |= Viewer::kCommandUp;
+    if ((held() & pad_input::kMaskDown) && (made() & pad_input::kMaskDown))
+        viewer->actions() |= Viewer::kCommandDown;
+    if (held() & pad_input::kMaskRight)
+        viewer->actions() |= Viewer::kCommandRight;
+    if (held() & pad_input::kMaskLeft)
+        viewer->actions() |= Viewer::kCommandLeft;
+    if (made() & pad_input::kMaskLeftStickClick)
+        viewer->actions() |= Viewer::kCommandToggleMode;
     if (held() & 0x4) {
         if (!(held() & 0x1))
-            viewer->actions() |= 0x10000;
+            viewer->actions() |= Viewer::kCommandRollLeft;
     } else if (held() & 0x1) {
-        viewer->actions() |= 0x20000;
+        viewer->actions() |= Viewer::kCommandRollRight;
     }
-    if (held() & 0x100) // (select: the shift handler's)
+    if (held() & pad_input::kMaskSelect) // (select: the shift handler's)
         return;
-    if (made() & 0x80)
+    if (made() & pad_input::kMaskSquare)
         launch_script(kUserViewerSquare);
-    if (made() & 0x20)
+    if (made() & pad_input::kMaskCircle)
         launch_script(kUserViewerCircle);
-    if (made() & 0x10)
+    if (made() & pad_input::kMaskTriangle)
         launch_script(kUserViewerTriangle);
-    if (made() & 0x40)
+    if (made() & pad_input::kMaskCross)
         launch_script(kUserViewerX);
 }
 
@@ -336,9 +347,9 @@ void select_combo_task(ViewerTask* task)
     };
     static const auto kCombos = std::to_array<SelectCombo>({
         {.button = 0x10, .script = 0xCBB91022},   // UserSelectTriangle
-        {.button = 0x80, .script = 0xE69691FA},   // UserSelectSquare
+        {.button = pad_input::kMaskSquare, .script = 0xE69691FA},   // UserSelectSquare
         {.button = 0x20, .script = 0xFFC29C2A},   // UserSelectCircle
-        {.button = 0x800, .script = 0x51B0E413},  // UserSelectStart
+        {.button = pad_input::kMaskStart, .script = 0x51B0E413},  // UserSelectStart
         {.button = 0x40, .script = 0x746D2598},   // UserSelectX
         {.button = 0x4, .script = 0x81D0A13C},    // UserSelectL1
         {.button = 0x1, .script = 0x18D9F086},    // UserSelectL2
@@ -346,7 +357,7 @@ void select_combo_task(ViewerTask* task)
         {.button = 0x2, .script = 0xCC98CF59},    // UserSelectR2
         {.button = 0x1000, .script = 0x1B0B7922}, // UserSelectUp
         {.button = 0x4000, .script = 0xBBC0E36A}, // UserSelectDown
-        {.button = 0x8000, .script = 0xDD589439}, // UserSelectLeft
+        {.button = pad_input::kMaskLeft, .script = 0xDD589439}, // UserSelectLeft
         {.button = 0x2000, .script = 0x7A03C488}, // UserSelectRight
     });
     const uint32_t makes = viewer->shift_makes();
@@ -364,7 +375,7 @@ int handle_add_to_scene(net::InboundMsgCtx* context)
     const char* message = net::wire::text_of(context->body());
     script::StructPtr params = script::make_struct();
     params->append_word(kScene, script::kQbvalString, message);
-    params->append_word(kAdd, script::kQbvalString, net::wire::text_at(context->body(), 0x80));
+    params->append_word(kAdd, script::kQbvalString, net::wire::text_at(context->body(), viewer_message::kSecondTextOffset));
     script::launch_script(kAddToScene, params.get(), nullptr, false, nullptr);
     params.reset();
     return 1;
@@ -378,7 +389,7 @@ int handle_create_viewer_object(net::InboundMsgCtx* context)
     auto* viewer = static_cast<Viewer*>(context->content());
     script::StructPtr params = script::make_struct();
     params->append_word(kModelName, net::wire::text_of(context->body()));
-    params->put_name_key(checksums::Name{kSkeletonName}, net::wire::value_at<uint32_t>(context->body(), 0x84));
+    params->put_name_key(checksums::Name{kSkeletonName}, net::wire::value_at<uint32_t>(context->body(), viewer_message::kSkeletonNameOffset));
     viewer->create_viewer_object(params.get());
     params.reset();
     return 1;
@@ -416,11 +427,11 @@ bool Viewer::place_camera(script::Struct* params)
     float x = 0.0f, y = 0.0f, z = 0.0f;
     if (params->fetch_vec("ViewerObjPos", &at, 0)) {
         x = at.x;
-        y = static_cast<float>(static_cast<double>(at.y) + 35.0);
+        y = static_cast<float>(static_cast<double>(at.y) + kDefaultViewHeight);
         z = static_cast<float>(static_cast<double>(at.z) + 100.0);
     } else {
         x = 0.0f;
-        y = 35.0f;
+        y = kDefaultViewHeightF;
         z = 100.0f;
     }
     camera->at_point().y = y;
@@ -437,8 +448,8 @@ void free_camera_task(ViewerTask* task)
     const uint32_t last = last_time();
     const uint32_t elapsed = frame_clock::get_time() - last;
     last_time() += elapsed;
-    auto seconds = static_cast<float>(static_cast<double>(static_cast<int>(elapsed)) * 0.001f);
-    if (viewer->actions() & 0x4000)
+    auto seconds = static_cast<float>(static_cast<double>(static_cast<int>(elapsed)) * kMillisecondsToSeconds);
+    if (viewer->actions() & Viewer::kCommandToggleMode)
         viewer->set_mode_sel(viewer->entity() && viewer->mode_sel() == 0 ? 1 : 0);
     viewer->pad_ry() = dead_zone(viewer->pad_ry());
     viewer->pad_rx() = dead_zone(viewer->pad_rx());
@@ -489,13 +500,13 @@ void free_camera_task(ViewerTask* task)
     }
     if (!script::fetch_int_value(kNoRoll)) {
         constexpr float kHalfDegrees = 0.008726646f; // 0x00648800 (pi / 360)
-        if (viewer->actions() & 0x10000)
+        if (viewer->actions() & Viewer::kCommandRollLeft)
             get_roll(camera, static_cast<float>(static_cast<double>(rotate_velocity()) * seconds * -kHalfDegrees));
-        if (viewer->actions() & 0x20000)
+        if (viewer->actions() & Viewer::kCommandRollRight)
             get_roll(camera, static_cast<float>(static_cast<double>(rotate_velocity()) * seconds * kHalfDegrees));
     }
     camera->composite_flags() &= ~objects::kCompositeFlagPaused;
-    if (viewer->actions() & 0x1000) {
+    if (viewer->actions() & Viewer::kCommandNextLayout) {
         const int next = (render::get_view_layout() + 1) % 6;
         render::set_screen_mode(next);
     }
@@ -520,15 +531,15 @@ void Viewer::start_callback()
     manager->enter_heap_scope(manager->front_end_heap());
     if (!debug_checks()) {
         net::Router& dispatcher = net_handler_->dispatcher();
-        dispatcher.append_listener(0x20, &handle_reload_scene, 3, nullptr, 0x80);
-        dispatcher.append_listener(0x21, &online::handle_nothing, 3, nullptr, 0x80);
-        dispatcher.append_listener(0x22, &reload_script_file, 3, nullptr,
-                                   0x80);
-        dispatcher.append_listener(0x2A, &handle_add_to_scene, 3, nullptr, 0x80);
-        dispatcher.append_listener(0x23, &handle_create_viewer_object, 3, this, 0x80);
-        dispatcher.append_listener(0x24, &handle_remove_viewer_object, 3, this,
-                                   0x80);
-        dispatcher.append_listener(0x2B, &on_remote_script_msg, 3, this, 0x80);
+        dispatcher.append_listener(viewer_message::kReloadScene, &handle_reload_scene, 3, nullptr, viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kNothing, &online::handle_nothing, 3, nullptr, viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kReloadScript, &reload_script_file, 3, nullptr,
+                                   viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kAddToScene, &handle_add_to_scene, 3, nullptr, viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kCreateViewerObject, &handle_create_viewer_object, 3, this, viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kRemoveViewerObject, &handle_remove_viewer_object, 3, this,
+                                   viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kRemoteScript, &on_remote_script_msg, 3, this, viewer_message::kListenerPriority);
     }
     append_vertex(main_loop_manager()->logic_tasks(), task_1c_.get());
     add_input_handler(pad_listener_.get());
@@ -547,17 +558,17 @@ Viewer::Viewer()
         static_cast<void>(inet_addr(net->fetch_own_address())); // (unused)
         stubs::return_true();                // (0x005B9760 on the net manager: a check compiled to "true")
         const int address = static_cast<int>(inet_addr(net->fetch_own_address()));
-        net_handler_ = memory::take_unique<net::AppHost>(net->make_server_app(0, "THUG2 Viewer", 4, 10000, {.address = address, .flags = 0x10}));
+        net_handler_ = memory::take_unique<net::AppHost>(net->make_server_app(0, "THUG2 Viewer", 4, viewer_message::kViewerPort, {.address = address, .flags = viewer_message::kServerAppFlags}));
     }
     const int controller = script::fetch_int_value(kViewerPadKey);
 
     task_1c_ = std::make_unique<ViewerTask>(&free_camera_task, this, 0);
     pad_listener_ = std::make_unique<ViewerInputHandler>(&handle_viewer_input, this, 0, controller);
-    set_movement_velocity(400.0f);
-    set_rotate_velocity(120.0f);
+    set_movement_velocity(kStartMovementVelocity);
+    set_rotate_velocity(kStartRotateVelocity);
     debug::printf("Creating shift input handlers\n)");
     task20_ = std::make_unique<ViewerTask>(&select_combo_task, this, 0);
-    shift_handler_ = std::make_unique<ViewerInputHandler>(&handle_viewer_shift, this, 1000, controller);
+    shift_handler_ = std::make_unique<ViewerInputHandler>(&handle_viewer_shift, this, kShiftHandlerPriority, controller);
     sole() = this;
 }
 

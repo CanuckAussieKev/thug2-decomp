@@ -29,6 +29,8 @@ namespace online {
 // The top-score lists' items are their own list nodes (data = the item); the original's offsets were 4 more after
 // each node (its table word).
 
+constexpr size_t kTopEntryBytes = 0x38;
+constexpr size_t kTopEntrySkillPointsOffset = 0x30;
 // A line of a top-score list (0x3C bytes in the original): lists::Elem<TopEntry>.
 struct TopEntry {
     // The fields other code reads and sets.
@@ -55,10 +57,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(TopEntry) == 0x38 && offsetof(TopEntry, skill_points_) == 0x30);
+        static_assert(sizeof(TopEntry) == kTopEntryBytes && offsetof(TopEntry, skill_points_) == kTopEntrySkillPointsOffset);
     }
 };
 
+constexpr size_t kLevelScoresBytes = 0x24;
+constexpr size_t kLevelScoresEntriesOffset = 0x14;
 // A level's part of a top-score list (0x2C bytes in the original): lists::Elem<LevelScores> and its entries.
 struct LevelScores {
     // The fields other code reads and sets.
@@ -84,10 +88,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(LevelScores) == 0x24 && offsetof(LevelScores, entries_) == 0x14);
+        static_assert(sizeof(LevelScores) == kLevelScoresBytes && offsetof(LevelScores, entries_) == kLevelScoresEntriesOffset);
     }
 };
 
+constexpr size_t kTopListBytes = 0x40;
+constexpr size_t kTopListTitleOffset = 0x20;
 // One of the five top-score lists (0x48 bytes in the original): the levels' scores (high scores / combos, all time /
 // monthly) or, for the ratings list, the entries themselves.
 struct TopList {
@@ -124,10 +130,11 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(TopList) == 0x40 && offsetof(TopList, title_) == 0x20);
+        static_assert(sizeof(TopList) == kTopListBytes && offsetof(TopList, title_) == kTopListTitleOffset);
     }
 };
 
+constexpr size_t kSortEntryBytes = 0x3C;
 // A sorted line for the menus (0x40 bytes in the original, on a local list): lists::Elem<SortEntry>, its priority
 // the score.
 struct SortEntry {
@@ -155,11 +162,12 @@ public:
     // 0x0054D780 (the scalar deleting destructor; the node's 0x0054EA20 / 0x0054D740)
     SortEntry* teardown(unsigned int flags);
 };
-static_assert(sizeof(SortEntry) == 0x3C);
+static_assert(sizeof(SortEntry) == kSortEntryBytes);
 
 // (lists::Hunt<SortEntry>'s, <TopEntry>'s and <LevelScores>'s vtables - 0x0064D580 / 0x0064D584 / 0x0064D588 - hold
 // only destructors that reset them: 0x0054CA90 / 0x0054D370, 0x0054CAA0 / 0x0054D3A0, 0x0054CAB0 / 0x0054D3D0.)
 
+constexpr size_t kPersonalStatsBytes = 0x7C;
 // The player's own stats from persistent storage (RankingsManager +0x14).
 struct PersonalStats {
     int skill_points_;    // +0x00
@@ -171,7 +179,7 @@ struct PersonalStats {
 // 0x0054DDB0: the levels' high scores (the level checksums at 0x0067F260), best first, into the menu (script
 // 0xA6111F30: score, level name; its parameters are never freed - kept).
 void get_fill(PersonalStats& stats);
-static_assert(sizeof(PersonalStats) == 0x7C, "layout must match the original");
+static_assert(sizeof(PersonalStats) == kPersonalStatsBytes, "layout must match the original");
 
 class RankingsManager {
 public:

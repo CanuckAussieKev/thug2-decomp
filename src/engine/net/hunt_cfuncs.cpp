@@ -3,6 +3,7 @@
 
 #include "engine/net/hunt_cfuncs.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -196,7 +197,8 @@ bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
 // true.
 bool cfunc_lobby_check_keyboard(script::Struct*, script::Script*)
 {
-    std::array<char, 256> typed{};
+    constexpr size_t kTypedSize = 256;
+    std::array<char, kTypedSize> typed{};
     if (sio::get_keyboard_chars(typed) > 0 && core::at(typed, 0) == ' ') {
         const script::StructPtr check = script::make_struct();
         check->put_name_key(checksums::Name{kId}, kKeyboardAnchor);

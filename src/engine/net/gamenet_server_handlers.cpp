@@ -2,6 +2,7 @@
 // game's data for a joining player, the end of a game, team changes, goal attack, leaving, cheating. See
 // gamenet_handlers.h.
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -376,7 +377,8 @@ int handle_drop_carried(net::InboundMsgCtx* context)
             return kContinue;
         desc = net::NetMessageInfo();
         const int team = player->get_flag_team();
-        std::array<char, 64> name{};
+        constexpr size_t kNameSize = 64;
+        std::array<char, kNameSize> name{};
         team_name_key(name, team);
         script::StructPtr params = script::make_struct();
         params->put_int(checksums::Name{kTeam}, team);

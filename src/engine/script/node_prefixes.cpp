@@ -32,8 +32,9 @@ using script::Array;
 namespace {
 // NOT ORIGINAL grouping - node_prefixes.cpp's state (the original's globals). Made on first use, never destroyed
 // (node_prefixes_state()).
+constexpr size_t kNodeNamesSize = 1000;
 struct NodePrefixesState {
-    std::array<uint32_t, 1000> node_names_{};
+    std::array<uint32_t, kNodeNamesSize> node_names_{};
     PrefixTables* node_prefixes_{};
 };
 
@@ -162,7 +163,8 @@ void PrefixTables::add_node_array(uint32_t name)
         // The name is copied as it is read (the copy isn't terminated until a prefix is cut off): at each '_', the
         // part before it is a prefix (unless it's "TRG"), and both it and it with the '_' become known names; a
         // name ending in digits has the part before them as a prefix too.
-        std::array<char, 1000> buffer{};
+        constexpr size_t kBufferSize = 1000;
+        std::array<char, kBufferSize> buffer{};
         std::size_t digits = buffer.size(); // (where the trailing digits start; the size: none)
         std::size_t place = 0;
         for (core::CStringCursor p(text); *p; ++p, ++place) {
@@ -260,7 +262,8 @@ std::span<const uint32_t> collect_nodes_by_prefix(uint32_t prefix)
 // 0x0045BFB0
 std::span<const uint32_t> collect_nodes_by_prefix(const char* prefix)
 {
-    std::array<char, 100> buffer{};
+    constexpr size_t kBufferSize = 100;
+    std::array<char, kBufferSize> buffer{};
     const std::string_view prefix_text(prefix);
     const size_t length = prefix_text.size();
     if (length && core::at(prefix_text, length - 1) == '_') {

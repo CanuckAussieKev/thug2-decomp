@@ -26,6 +26,7 @@ namespace sys {
 
 namespace {
 
+constexpr uint32_t kNoMember = 0xFFFFFFFFu; // the last word of a null member function pointer: no adjustment
 // 16 bytes nothing reads, set to a null (virtual-inheritance) member function pointer by 0x006408A0.
 std::array<uint32_t, 4>& null_member_function()
 {
@@ -39,7 +40,7 @@ void set_null_member_function()
     core::at(null_member_function(), 0) = 0;
     core::at(null_member_function(), 1) = 0;
     core::at(null_member_function(), 2) = 0;
-    core::at(null_member_function(), 3) = 0xFFFFFFFFu;
+    core::at(null_member_function(), 3) = kNoMember;
 }
 
 } // namespace

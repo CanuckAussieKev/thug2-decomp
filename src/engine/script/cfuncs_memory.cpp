@@ -3,6 +3,7 @@
 
 #include "engine/script/cfuncs_engine.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -173,7 +174,8 @@ bool cfunc_print_mem_info(Struct* params, Script*)
     if (params)
         params->read_hash_value(0u, &name, 0);
     hub()->get_memory_pool(name);
-    std::array<char, 64> heap_name{};
+    constexpr size_t kHeapNameSize = 64;
+    std::array<char, kHeapNameSize> heap_name{};
     text::format_to(heap_name, "%s",
                     hub()->get_zone_label(name)); // (the original's copy is unbounded)
     print_mem_info(heap_name.data());

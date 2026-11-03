@@ -29,6 +29,13 @@
 #include <gsl/pointers>
 #include <span>
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kBlaa = 0x480A2607u; // blaa
+
+} // namespace
+
 namespace commands {
 
 namespace {
@@ -111,7 +118,7 @@ bool cfunc_test(script::Struct*, script::Script*)
     script::construct_component(&component);
     component.type_and_flag_ = 0x57;
     component.unknown2 = 1000;
-    component.name = 0x480A2607;
+    component.name = kBlaa;
     component.value.set_word(0x01020304);
     debug::printf("CComponent:\n");
     print_bytes(&component, sizeof(component));

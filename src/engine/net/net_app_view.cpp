@@ -143,7 +143,8 @@ bool AppHost::decrypt(std::span<const uint8_t> packet, std::span<uint8_t> out)
 // 0x00456A90
 void AppHost::raise_fault()
 {
-    std::array<char, 0x400> message{};
+    constexpr size_t kMessageSize = 0x400;
+    std::array<char, kMessageSize> message{};
     text::format_to(message, "%s: Error %d\n", label_.data(), WSAGetLastError());
     OutputDebugStringA(message.data());
 }

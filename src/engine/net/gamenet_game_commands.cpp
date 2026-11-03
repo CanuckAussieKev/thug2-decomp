@@ -241,7 +241,8 @@ bool cfunc_start_network_game(Struct*, Script*)
     }
     if (manager->in_net_game() && manager->get_game_type_preference() == kNetGoalAttack) {
         // The selected goals: a byte 1, then each selected goal's id (each told first - its slot 29), then 0.
-        std::array<uint8_t, 0x1000> buffer{};
+        constexpr size_t kBufferSize = 0x1000;
+        std::array<uint8_t, kBufferSize> buffer{};
         net::NetMessageInfo desc;
         auto* goals = objective_board();
         net::AppHost* server = manager->host();

@@ -29,6 +29,42 @@
 
 namespace {
 
+// The reference constants the checks compare with: the game's own values (a quarter turn, 1 / 1000, the 8 added to a
+// texture coordinate and its 16 wrap, 180 / pi, the 60 Hz frame rate, the x87 status-word masks) and the ranges the random
+// inputs are drawn from.
+constexpr float kQuarterTurnRadians = 1.5707963705062866f;
+constexpr int kBitsPerByte = 8;
+constexpr float kMillisecondsToSeconds = 0.001f;
+constexpr double kWibbleLift = 8.0;
+constexpr float kWibbleLiftF = 8.0f;
+constexpr float kTwoPow32 = 4294967296.0f;
+constexpr int kX87AboveMask = 0x4100;
+constexpr int kX87LessThanMask = 0x0500;
+constexpr int kX87LessThanBit = 0x0100;
+constexpr uint64_t kLowSixtyThreeBits = 0x7FFFFFFFFFFFFFFFull;
+constexpr uint64_t kTopBit = 0x8000000000000000ull;
+constexpr size_t kDoubleBytes = 8;
+constexpr double kAngleSpanFactor = 4.0;
+constexpr double kPi15 = 3.14159265358979;
+constexpr double kWideRange = 1.0e4;
+constexpr double kPositiveMin = 1.0e-6;
+constexpr double kPositiveMax = 1.0e6;
+constexpr float kCoordinateRange = 5000.0f;
+constexpr float kSmallRange = 2.0f;
+constexpr float kFovMin = 20.0f;
+constexpr float kFovMax = 120.0f;
+constexpr int kByteMax = 255;
+constexpr int kKeyTimeMax = 100000;
+constexpr int kVblankHeadroomBits = 20;
+constexpr float kNegAsinCosLimit = 0.005f;
+constexpr double kTextureWrap = 16.0;
+constexpr int kFrameRate = 60;
+constexpr float kRadiansToDegrees = 57.29578f;
+constexpr float kWeightBias = 0.5f;
+constexpr float kSmallScaleA = 20.0f;
+constexpr float kSmallScaleB = 50.0f;
+constexpr int kRandomSeed = 20261101;
+
 // --- the new C++ (as in the game's files) ----------------------------------------------------------------------
 
 // The checked functions' arguments and results, as records (their arguments are runs of values of one kind).
@@ -154,7 +190,7 @@ bool sin_at_least(AngleValue in) { return !(std::sin(in.angle) < in.value); }
 float tan_times(AngleValue in) { return static_cast<float>(std::tan(in.angle) * in.value); }
 float atan2_less_quarter_turn(YxFloat in)
 {
-    return static_cast<float>(std::atan2(static_cast<double>(in.y), static_cast<double>(in.x)) - 1.5707963705062866f);
+    return static_cast<float>(std::atan2(static_cast<double>(in.y), static_cast<double>(in.x)) - kQuarterTurnRadians);
 }
 // pc_material.cpp
 uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::span<const uint8_t, 4> to)
@@ -165,20 +201,20 @@ uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::
     uint32_t color = 0;
     for (int k = 0; k < 4; ++k) {
         const auto value = static_cast<uint32_t>(maths::truncate_to_i64(core::at(to, core::at(kOrder, k)) * f + core::at(from, core::at(kOrder, k)) * rest));
-        color = k ? (color << 8 | value) : value;
+        color = k ? (color << kBitsPerByte | value) : value;
     }
     return color;
 }
-float wibble_time(uint32_t milliseconds) { return static_cast<float>(static_cast<double>(milliseconds) * 0.001f); }
+float wibble_time(uint32_t milliseconds) { return static_cast<float>(static_cast<double>(milliseconds) * kMillisecondsToSeconds); }
 float wibble_offset(const Wibble& w, bool store_first)
 {
     double value = std::sin(static_cast<double>(w.t) * w.frequency + w.phase) * w.amplitude +
-                   static_cast<double>(w.t) * w.velocity + 8.0;
+                   static_cast<double>(w.t) * w.velocity + kWibbleLift;
     const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0u);
     value -= whole;
     if (store_first)
         value = static_cast<float>(value);
-    return static_cast<float>(value < 0.0 ? value + 8.0 : value - 8.0);
+    return static_cast<float>(value < 0.0 ? value + kWibbleLift : value - kWibbleLift);
 }
 // cutscene_play.cpp / cutscene_update.cpp
 float vblank_seconds(VBlanks in) { return static_cast<float>(static_cast<double>(in.count) / in.rate); }
@@ -578,7 +614,7 @@ float acos_f(maths::AngleLimit in, bool* above_limit)
         fst result
         fcomp limit
         fnstsw status }
-    *above_limit = (status & 0x4100) == 0;
+    *above_limit = (status & kX87AboveMask) == 0;
     return result;
 }
 float neg_asin_cos(maths::AngleLimit in, bool* above, maths::Inverses* inverses)
@@ -608,7 +644,7 @@ float neg_asin_cos(maths::AngleLimit in, bool* above, maths::Inverses* inverses)
         fstp neg_inv
         fstp st(0)
     }
-    *above = (status & 0x4100) == 0;
+    *above = (status & kX87AboveMask) == 0;
     inverses->inverse = inv;
     inverses->negative = neg_inv;
     return angle;
@@ -646,7 +682,7 @@ bool cos_above(AngleValue in)
         fcos
         fcomp value
         fnstsw status }
-    return (status & 0x4100) == 0;
+    return (status & kX87AboveMask) == 0;
 }
 bool sin_at_least(AngleValue in)
 {
@@ -657,7 +693,7 @@ bool sin_at_least(AngleValue in)
         fsin
         fcomp value
         fnstsw status }
-    return (status & 0x0500) != 0x0100;
+    return (status & kX87LessThanMask) != kX87LessThanBit;
 }
 float tan_times(AngleValue in)
 {
@@ -711,7 +747,7 @@ uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::
             faddp st(1), st(0)
             fisttp value
         }
-        color = k ? (color << 8 | static_cast<uint32_t>(value)) : static_cast<uint32_t>(value);
+        color = k ? (color << kBitsPerByte | static_cast<uint32_t>(value)) : static_cast<uint32_t>(value);
     }
     __asm {
         fstp scratch
@@ -722,8 +758,8 @@ uint32_t blend_key_colors(Fraction step, std::span<const uint8_t, 4> from, std::
 float wibble_time(uint32_t milliseconds)
 {
     float result = 0.0f;
-    float scale = 0.001f;
-    float wrap = 4294967296.0f;
+    float scale = kMillisecondsToSeconds;
+    float wrap = kTwoPow32;
     __asm {
         fild milliseconds
         test milliseconds, 0x80000000
@@ -743,7 +779,7 @@ float wibble_offset(const Wibble& w, bool store_first)
     const float amplitude = w.amplitude;
     const float velocity = w.velocity;
     float result = 0.0f;
-    float eight = 8.0f;
+    float eight = kWibbleLiftF;
     float zero = 0.0f;
     int64_t whole = 0;
     int truncated = 0;
@@ -786,8 +822,8 @@ float vblank_seconds(VBlanks in)
 {
     const uint64_t vblanks = in.count;
     const int rate = in.rate;
-    std::array<uint64_t, 1> low_part = {{vblanks & 0x7FFFFFFFFFFFFFFFull}};
-    std::array<uint64_t, 1> high_part = {{vblanks & 0x8000000000000000ull}};
+    std::array<uint64_t, 1> low_part = {{vblanks & kLowSixtyThreeBits}};
+    std::array<uint64_t, 1> high_part = {{vblanks & kTopBit}};
     float result = 0.0f;
     __asm {
         fild qword ptr [low_part]
@@ -1337,8 +1373,8 @@ uint64_t ulps(double a, double b)
     if (std::isnan(a) || std::isnan(b))
         return std::isnan(a) && std::isnan(b) ? 0 : UINT64_MAX;
     int64_t ia = 0, ib = 0;
-    std::memcpy(&ia, &a, 8);
-    std::memcpy(&ib, &b, 8);
+    std::memcpy(&ia, &a, kDoubleBytes);
+    std::memcpy(&ib, &b, kDoubleBytes);
     if (ia < 0)
         ia = INT64_MIN - ia;
     if (ib < 0)
@@ -1417,18 +1453,18 @@ void compare_bool(Tally& tally, bool a, bool b, double input)
 
 void run(int count, std::mt19937_64& random)
 {
-    std::uniform_real_distribution<double> angle(-4.0 * 3.14159265358979, 4.0 * 3.14159265358979);
-    std::uniform_real_distribution<double> wide(-1.0e4, 1.0e4);
+    std::uniform_real_distribution<double> angle(-kAngleSpanFactor * kPi15, kAngleSpanFactor * kPi15);
+    std::uniform_real_distribution<double> wide(-kWideRange, kWideRange);
     std::uniform_real_distribution<double> unit(-1.0, 1.0);
-    std::uniform_real_distribution<double> positive(1.0e-6, 1.0e6);
-    std::uniform_real_distribution<float> coordinate(-5000.0f, 5000.0f);
-    std::uniform_real_distribution<float> small(-2.0f, 2.0f);
+    std::uniform_real_distribution<double> positive(kPositiveMin, kPositiveMax);
+    std::uniform_real_distribution<float> coordinate(-kCoordinateRange, kCoordinateRange);
+    std::uniform_real_distribution<float> small(-kSmallRange, kSmallRange);
     std::uniform_real_distribution<float> weight(0.0f, 1.0f);
-    std::uniform_real_distribution<float> fov(20.0f, 120.0f);
-    std::uniform_int_distribution<int> byte(0, 255);
-    std::uniform_int_distribution<int> key_time(0, 100000);
+    std::uniform_real_distribution<float> fov(kFovMin, kFovMax);
+    std::uniform_int_distribution<int> byte(0, kByteMax);
+    std::uniform_int_distribution<int> key_time(0, kKeyTimeMax);
     std::uniform_int_distribution<uint32_t> milliseconds(0, UINT32_MAX);
-    std::uniform_int_distribution<uint64_t> vblanks(0, UINT64_MAX >> 20);
+    std::uniform_int_distribution<uint64_t> vblanks(0, UINT64_MAX >> kVblankHeadroomBits);
 
     Tally t_sin("sin", 'd'), t_cos("cos", 'd'), t_tan("tan", 'd'), t_atan("atan", 'd'), t_atan2("atan2", 'd'),
         t_sqrt("sqrt", 'd'), t_log10("log10", 'd'), t_ln("ln", 'd'), t_asin("asin (C runtime)", 'd'),
@@ -1475,8 +1511,8 @@ void run(int count, std::mt19937_64& random)
         maths::Inverses inv_fresh{.inverse = 0.0, .negative = 0.0};
         maths::Inverses inv_ref{.inverse = 0.0, .negative = 0.0};
         const double s = static_cast<float>(u);
-        compare(t_nac, fresh::neg_asin_cos({.value = s, .limit = 0.005f}, &above_fresh, &inv_fresh),
-                ref::neg_asin_cos({.value = s, .limit = 0.005f}, &above_ref, &inv_ref), s);
+        compare(t_nac, fresh::neg_asin_cos({.value = s, .limit = kNegAsinCosLimit}, &above_fresh, &inv_fresh),
+                ref::neg_asin_cos({.value = s, .limit = kNegAsinCosLimit}, &above_ref, &inv_ref), s);
         compare_bool(t_nac_above, above_fresh, above_ref, s);
         compare(t_nac_inv, inv_fresh.inverse, inv_ref.inverse, s);
         compare(t_nac_inv, inv_fresh.negative, inv_ref.negative, s);
@@ -1522,12 +1558,12 @@ void run(int count, std::mt19937_64& random)
         {
             // (the offset is a texture coordinate that wraps every 16: the difference modulo 16)
             const float w_fresh = fresh::wibble_offset(wibble, store_first), w_ref = ref::wibble_offset(wibble, store_first);
-            double d = std::fmod(std::fabs(static_cast<double>(w_fresh) - w_ref), 16.0);
-            d = std::min(d, 16.0 - d);
+            double d = std::fmod(std::fabs(static_cast<double>(w_fresh) - w_ref), kTextureWrap);
+            d = std::min(d, kTextureWrap - d);
             t_wibble_wrap.add({.distance = d != 0.0, .difference = d, .input = t});
         }
         const uint64_t vb = vblanks(random);
-        compare(t_vblank, fresh::vblank_seconds({.count = vb, .rate = 60}), ref::vblank_seconds({.count = vb, .rate = 60}), static_cast<double>(vb));
+        compare(t_vblank, fresh::vblank_seconds({.count = vb, .rate = kFrameRate}), ref::vblank_seconds({.count = vb, .rate = kFrameRate}), static_cast<double>(vb));
         const int index = i % 64;
         const Probe probe{.index = index, .x = x, .z = y, .step = 0.09817477f, .reach = 12.0f};
         const ProbeTip tip_fresh = fresh::probe_tip(probe);
@@ -1554,10 +1590,10 @@ void run(int count, std::mt19937_64& random)
         const Xz flat_ref = ref::turn_flat(a, {.x = x, .z = y});
         compare(t_flat, flat_fresh.x, flat_ref.x, a);
         compare(t_flat, flat_fresh.z, flat_ref.z, a);
-        compare(t_asin_deg, fresh::asin_degrees(u, store_first, 57.29578f),
-                ref::asin_degrees(u, store_first, 57.29578f), u);
+        compare(t_asin_deg, fresh::asin_degrees(u, store_first, kRadiansToDegrees),
+                ref::asin_degrees(u, store_first, kRadiansToDegrees), u);
         const auto fu = static_cast<float>(u);
-        compare(t_acos_deg, fresh::acos_degrees({.value = fu, .scale = 57.29578f}), ref::acos_degrees({.value = fu, .scale = 57.29578f}), fu);
+        compare(t_acos_deg, fresh::acos_degrees({.value = fu, .scale = kRadiansToDegrees}), ref::acos_degrees({.value = fu, .scale = kRadiansToDegrees}), fu);
         const float h_fov = fov(random), default_angle = fov(random), factor = weight(random) + 0.5f,
                     divisor = weight(random) + 0.5f;
         const FovIn fov_in{.angle = h_fov, .factor = factor, .divisor = divisor, .base = default_angle};
@@ -1575,15 +1611,15 @@ void run(int count, std::mt19937_64& random)
         compare(t_versine, vs_fresh, vs_ref, fa);
         fresh::Skin skin{};
         for (int k = 0; k < 4; ++k) {
-            core::at(skin.e0, k) = weight(random) + 0.5f;
-            core::at(skin.e1, k) = weight(random) + 0.5f;
-            core::at(skin.e2, k) = weight(random) + 0.5f;
-            core::at(skin.a, k) = small(random) * 20.0f;
-            core::at(skin.b, k) = small(random) * 20.0f;
-            core::at(skin.c, k) = small(random) * 20.0f;
-            core::at(skin.p, k) = small(random) * 50.0f;
-            core::at(skin.q, k) = small(random) * 50.0f;
-            core::at(skin.r, k) = small(random) * 50.0f;
+            core::at(skin.e0, k) = weight(random) + kWeightBias;
+            core::at(skin.e1, k) = weight(random) + kWeightBias;
+            core::at(skin.e2, k) = weight(random) + kWeightBias;
+            core::at(skin.a, k) = small(random) * kSmallScaleA;
+            core::at(skin.b, k) = small(random) * kSmallScaleA;
+            core::at(skin.c, k) = small(random) * kSmallScaleA;
+            core::at(skin.p, k) = small(random) * kSmallScaleB;
+            core::at(skin.q, k) = small(random) * kSmallScaleB;
+            core::at(skin.r, k) = small(random) * kSmallScaleB;
         }
         core::at(skin.s, 0) = weight(random);
         core::at(skin.s, 1) = weight(random) * (1.0f - core::at(skin.s, 0));
@@ -1628,7 +1664,7 @@ int main(int argc, char** argv)
     const std::span<char*> arguments(argv, static_cast<size_t>(argc));
     const int count = argc > 1 ? text::to_int(core::at(arguments, 1)) : 200000;
     // NOLINTNEXTLINE(bugprone-random-generator-seed): the original's seed / a test's fixed sequence
-    std::mt19937_64 random(20261101);
+    std::mt19937_64 random(kRandomSeed);
     text::print("x87 at 53 bits (the default control word)\n");
     run(count, random);
     unsigned int previous = 0;

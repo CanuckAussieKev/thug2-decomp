@@ -24,16 +24,30 @@
 #include "engine/core/format.h"
 #include "engine/core/no_destroy.h"
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kArray = 0x5EF31148u; // array
+constexpr uint32_t kChecksum = 0x21902065u; // checksum
+constexpr uint32_t kFloat = 0x365AA16Au; // float
+constexpr uint32_t kInt = 0xEBAE254Eu; // int
+constexpr uint32_t kInteger = 0xA5F054F4u; // Integer
+constexpr uint32_t kPair = 0xF6A5E196u; // pair
+constexpr uint32_t kVector = 0xE491B7A4u; // vector
+
+} // namespace
+
 namespace commands {
 
 namespace {
 constexpr float kScriptFrameMilliseconds{16.666666f};
 // NOT ORIGINAL grouping - script_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
 // (script_cfuncs_state()).
+constexpr size_t kFormatTextBufferSize = 1004;
 struct ScriptCfuncsState {
     bool script_printf_enabled_{true};
     bool first_time_not_called_{true};
-    std::array<char, 1004> format_text_buffer_{};
+    std::array<char, kFormatTextBufferSize> format_text_buffer_{};
     script::Component format_text_value_{};
     int script_warning_level_{};
 };
@@ -122,24 +136,24 @@ void wait_ms(script::Script* script, bool real_time, int ms)
 script::QbValueKind type_from_name(uint32_t name)
 {
     switch (name) {
-    case 0x90FEC815: // "Structure"
-    case 0x456D28D1: // "struct"
+    case kStructure: // "Structure"
+    case kStruct: // "struct"
         return script::kQbvalStruct;
-    case 0x21902065: // "checksum"
-    case 0xA1DC81F9: // "name"
+    case kChecksum: // "checksum"
+    case kName: // "name"
         return script::kQbvalName;
-    case 0x365AA16A: // "float"
+    case kFloat: // "float"
         return script::kQbvalFloat;
-    case 0x5EF31148: // "array"
+    case kArray: // "array"
         return script::kQbvalArray;
-    case 0x61414D56: // "string"
+    case kString: // "string"
         return script::kQbvalString;
-    case 0xE491B7A4: // "vector"
+    case kVector: // "vector"
         return script::kQbvalVector;
-    case 0xA5F054F4: // "Integer"
-    case 0xEBAE254E: // "int"
+    case kInteger: // "Integer"
+    case kInt: // "int"
         return script::kQbvalInteger;
-    case 0xF6A5E196: // "pair"
+    case kPair: // "pair"
         return script::kQbvalPair;
     default:
         return script::kQbvalNone;
@@ -181,7 +195,8 @@ int format_text(script::Struct& results, script::Struct* params)
             continue;
         }
         // a parameter: "%x" or "%%name"
-        std::array<char, 0x2C> name{};
+        constexpr size_t kNameSize = 0x2C;
+        std::array<char, kNameSize> name{};
         size_t n = 0;
         const char key = ch(p + 1);
         p += 2;
@@ -202,7 +217,8 @@ int format_text(script::Struct& results, script::Struct* params)
         value.type_and_flag_ = static_cast<uint8_t>((found->type_and_flag_ & ~1) | (value.type_and_flag_ & 1));
         value.value.set_word(found->value.word());
         script::evaluate_name_token(&value);
-        std::array<char, 100> text{}; // (the original's sprintf into it is unbounded)
+        constexpr size_t kTextSize = 100;
+        std::array<char, kTextSize> text{}; // (the original's sprintf into it is unbounded)
         switch (value_kind(value)) {
         case script::kQbvalInteger:
             if (params->has_bare_flag(kUseCommas)) {

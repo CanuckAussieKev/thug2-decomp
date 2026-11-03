@@ -45,6 +45,7 @@ enum QbValueKind : uint8_t {
     kEsymboltypeArraypointer = 21,
 };
 
+constexpr size_t kArrayBytes = 0xC;
 // A script array: `size` elements of one type. A single element is kept in place of the pointer.
 class Array {
 public:
@@ -104,7 +105,7 @@ private:
     // pooled 12-byte records, as the original's).
     Cell storage_;
 };
-static_assert(sizeof(Array) == 0xC, "layout must match the original");
+static_assert(sizeof(Array) == kArrayBytes, "layout must match the original");
 
 // Pair and vector values are separate objects; the coordinates start at +4.
 // Their constructors clear only byte 0 of the first word.
@@ -144,6 +145,7 @@ private:
 Pair* new_pair();
 Vector* alloc_script_vector();
 
+constexpr size_t kComponentBytes = 0x10;
 struct Component {
     uint8_t type_and_flag_{}; // the type in the top 7 bits
     uint8_t unknown1{};
@@ -160,7 +162,7 @@ struct Component {
 {
     return static_cast<QbValueKind>(component.type_and_flag_ >> 1);
 }
-static_assert(sizeof(Component) == 0x10, "layout must match the original");
+static_assert(sizeof(Component) == kComponentBytes, "layout must match the original");
 
 struct SymbolTableEntry {
     SymbolTableEntry();
@@ -289,6 +291,7 @@ Component* construct_component(Component* component);
 // A 4-component vector as scripts' vectors are returned (w = 1): the engine's vector.
 using VectorValue = maths::Vec4;
 
+constexpr size_t kStructBytes = 8;
 class Struct {
 public:
     Struct();
@@ -408,7 +411,7 @@ private:
     uint16_t unknown2_{};
     Component* head_{nullptr};
 };
-static_assert(sizeof(Struct) == 8, "layout must match the original");
+static_assert(sizeof(Struct) == kStructBytes, "layout must match the original");
 
 // The CStruct pool pair (script/struct.cpp).
 memory::PoolPair& struct_pools();

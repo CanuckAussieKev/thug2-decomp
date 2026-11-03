@@ -12,6 +12,28 @@ namespace game_config {
 // The command line: its words (the program name first).
 using Arguments = std::span<char* const>;
 
+// The language, territory, hardware and display numbers (the settings below hold one of each).
+constexpr int kLanguageJapanese = 1;
+constexpr int kLanguageEnglish = 2;
+constexpr int kLanguageFrench = 3;
+constexpr int kLanguageSpanish = 4;
+constexpr int kLanguageGerman = 5;
+constexpr int kLanguageItalian = 6;
+constexpr int kLanguageDutch = 7;
+constexpr int kLanguagePortuguese = 8;
+constexpr int kTerritoryEurope = 1;
+constexpr int kTerritoryUs = 2;
+constexpr int kTerritoryAsia = 3;
+constexpr int kHardwarePs2 = 1;
+constexpr int kHardwarePs2ProView = 2;
+constexpr int kHardwarePs2DevSystem = 3;
+constexpr int kHardwareXbox = 4;
+constexpr int kHardwareGameCube = 5;
+constexpr int kHardwareXenon = 6; // (only in fetch_platform_suffix's table)
+constexpr int kHardwareWin32 = 7;
+constexpr int kDisplayPal = 0;
+constexpr int kDisplayNtsc = 1;
+
 // The settings it keeps.
 int& get_language(); // 0x007CEFA0 (1 Japanese, 2 English, 3 French, 4 Spanish, 5 German, 6 Italian, 7 Dutch, 8 Portuguese)
 int& territory();    // 0x007CEFA4 (1 Europe, 2 US, 3 Asia)

@@ -24,6 +24,8 @@ namespace sys::debug_mode {
 
 namespace {
 
+constexpr float kStickFull = 127.0f; // a key held: the stick all the way over
+
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
 // The start-up scripts, which keep the disc build's CD: false there makes default_system_startup take the
@@ -169,7 +171,7 @@ bool keyboard_viewer(ViewerSticks sticks, uint32_t* commands)
     if (keys.empty())
         return false;
     auto axis = [keys](SDL_Scancode minus, SDL_Scancode plus) {
-        return (core::at(keys, plus) ? 127.0f : 0.0f) - (core::at(keys, minus) ? 127.0f : 0.0f);
+        return (core::at(keys, plus) ? kStickFull : 0.0f) - (core::at(keys, minus) ? kStickFull : 0.0f);
     };
     const float move_x = axis(SDL_SCANCODE_A, SDL_SCANCODE_D);
     const float move_z = axis(SDL_SCANCODE_W, SDL_SCANCODE_S);

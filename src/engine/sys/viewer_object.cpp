@@ -51,6 +51,20 @@ namespace objects {
 
 namespace {
 
+constexpr size_t kPathBytes = 256;          // a path to a sibling file (the original's buffer)
+constexpr size_t kMaxPathBytes = 260;       // MAX_PATH: the texts' keys and the animation view script's path
+constexpr uint32_t kNoSkeletonStart = 10;   // where the no-skeleton counter starts
+constexpr float kBlendTime = 0.3f;          // the idle animation's blend
+constexpr uint32_t kNoSkeletonCounterMask = 0x1F;
+constexpr double kFullTurnDegrees = 360.0;
+constexpr int kLastNonWheelBone = 5;        // a model with no more bones than these has no wheels to turn
+constexpr int kWheelBoneEnd = 6;            // the wheels are bones 2-5; every bone but the first goes under bone 0 up to here
+constexpr size_t kPanelLineBytes = 128;
+
+} // namespace
+
+namespace {
+
 constexpr uint32_t kKillViewerObjectPanel = 0x9E65A71E; // kill_viewer_object_panel
 constexpr uint32_t kCasArtist = 0x2A648514;             // cas_artist
 constexpr uint32_t kModelName = 0xB974F2FC;             // modelname
@@ -78,7 +92,7 @@ struct SiblingName {
 };
 
 // `path` without its .skin / .mdl part, with `extension` (".col" / ".tex") on the end (0x0048BFE0 cuts the path).
-void sibling_file(SiblingName sibling, std::array<char, 256>& out)
+void sibling_file(SiblingName sibling, std::array<char, kPathBytes>& out)
 {
     const auto path = sibling.path;
     const auto extension = sibling.extension;
@@ -101,7 +115,7 @@ void drop_cached_model(const char* name)
 {
     text::Chars path;
     set_model_path(path, name, ".skin");
-    std::array<char, 256> sibling{};
+    std::array<char, kPathBytes> sibling{};
     sibling_file({.path = path.c_str(), .extension = ".col"}, sibling);
     drop_cached_file(sibling.data());
     drop_cached_file(path.c_str());
@@ -160,7 +174,7 @@ gfx::Rig* skeleton_of(ObjectModule* component) { return core::down_cast<objects:
 // NOT ORIGINAL grouping - the viewer object's wheels and its repeat count. Made on first use, never destroyed
 // (viewer_object_state()).
 struct ViewerObjectState {
-    uint32_t no_skeleton_counter_{10};
+    uint32_t no_skeleton_counter_{kNoSkeletonStart};
     int repeat_count_{};
     uint32_t repeat_count_guard_{};
     float wheel_angle_{};
@@ -195,7 +209,7 @@ void PreviewEntity::play_animation(uint32_t anim)
         return;
     const float length = get_animation(this)->fetch_value(anim);
     get_animation(this)->play_animation_ex(anim, 0, 0, std::bit_cast<uint32_t>(length), 1,
-                                           std::bit_cast<uint32_t>(0.3f), std::bit_cast<uint32_t>(1.0f));
+                                           std::bit_cast<uint32_t>(kBlendTime), std::bit_cast<uint32_t>(1.0f));
 }
 
 // 0x00589860
@@ -228,7 +242,7 @@ void PreviewEntity::read_in(script::Struct* params)
                                                           : static_cast<memory::MemSource*>(memory->bottom_up_heap()));
     const char* name = nullptr;
     for (int i = 0; i < 4; ++i) {
-        std::array<char, 260> key{};
+        std::array<char, kMaxPathBytes> key{};
         text::format_to(key, "model%d", i);
         if (params->fetch_text(key.data(), &name, 0))
             drop_cached_model(name);
@@ -353,37 +367,37 @@ void PreviewEntity::spin_wheels()
     render::RenderModel* nx_model = model_of(model);
     const std::span<render::HierarchyNode> hierarchy = nx_model->asset_hierarchy_run();
     if (!fetch_module(kSkeleton)) {
-        no_skeleton_counter() = (no_skeleton_counter() + 1) & 0x1F;
+        no_skeleton_counter() = (no_skeleton_counter() + 1) & kNoSkeletonCounterMask;
         return;
     }
     const gfx::Rig* skeleton = skeleton_of(fetch_module(kSkeleton));
     // The angle kept in double precision through the wrap (the original's x87 register), stored as a float each time.
     double angle = static_cast<double>(script::fetch_float(kMaxWheelSpeed)) * speed_ + wheel_angle();
     wheel_angle() = static_cast<float>(angle);
-    if (angle > 360.0) {
-        angle -= 360.0;
-        while (angle > 360.0)
-            angle -= 360.0;
+    if (angle > kFullTurnDegrees) {
+        angle -= kFullTurnDegrees;
+        while (angle > kFullTurnDegrees)
+            angle -= kFullTurnDegrees;
         wheel_angle() = static_cast<float>(angle);
     }
     if (angle < 0.0) {
-        angle += 360.0;
+        angle += kFullTurnDegrees;
         while (angle < 0.0)
-            angle += 360.0;
+            angle += kFullTurnDegrees;
         wheel_angle() = static_cast<float>(angle);
     }
-    if (get_bone_count(nx_model) <= 5)
+    if (get_bone_count(nx_model) <= kLastNonWheelBone)
         return;
     // The bones from the model's hierarchy, the wheels (2-5) turned about x, and all but the first put under it.
     const std::span<maths::Mat4> bones = skeleton->matrices();
     for (int i = 0; i < get_bone_count(nx_model); ++i)
         core::at(bones, i) = core::at(hierarchy, i).matrix();
-    for (int wheel = 2; wheel < 6; ++wheel) {
+    for (int wheel = 2; wheel < kWheelBoneEnd; ++wheel) {
         maths::Mat4 spin{};
         const auto radians = static_cast<float>(static_cast<double>(wheel_angle()) * kRadiansPerDegree);
         multiply_matrix(&core::at(bones, wheel), &maths::make_pitch_matrix(spin, radians), &core::at(bones, wheel));
     }
-    for (int bone = 1; bone < 6; ++bone)
+    for (int bone = 1; bone < kWheelBoneEnd; ++bone)
         multiply_matrix(&core::at(bones, bone), &core::at(bones, bone), &core::at(bones, 0));
 }
 
@@ -394,10 +408,10 @@ void PreviewEntity::update_panel()
         const uint32_t anim = get_animation(this)->get_timeline30();
         if (get_animation(this)->has_value(anim)) {
             const script::StructPtr params = script::make_struct();
-            std::array<char, 128> line1{};
-            std::array<char, 128> line2{};
-            std::array<char, 128> line3{};
-            std::array<char, 128> text_row4{};
+            std::array<char, kPanelLineBytes> line1{};
+            std::array<char, kPanelLineBytes> line2{};
+            std::array<char, kPanelLineBytes> line3{};
+            std::array<char, kPanelLineBytes> text_row4{};
             text::format_to(line1, "name %s", "Unknown");
             params->append_word(kLine1, line1.data());
             text::format_to(line2, "speed %f", is_halted_ ? 0.0 : static_cast<double>(speed_));
@@ -473,7 +487,7 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
     } else {
         count = repeat_count();
     }
-    if (handler->control_data()->makes() & 0x10)
+    if (handler->control_data()->makes() & pad_input::kMaskTriangle)
         object->actions() |= PreviewEntity::kCommandTogglePanel;
     // A frame back / on when Left / Right is pressed, and while it's held: after `delay` frames, then every `rate`.
     const pad_input::Payload* data = handler->control_data();
@@ -498,10 +512,10 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
     } else {
         repeat_count() = delay;
     }
-    if (handler->control_data()->makes() & 0x200)
+    if (handler->control_data()->makes() & pad_input::kMaskLeftStickClick)
         object->actions() |= PreviewEntity::kCommandToggleMode;
     const uint32_t buttons = handler->control_data()->buttons();
-    if (buttons & 0x8) {
+    if (buttons & pad_input::kMaskR1) {
         if (!(buttons & 0x2))
             object->actions() |= PreviewEntity::kCommandCameraUp;
     } else if (buttons & 0x2) {
@@ -514,9 +528,9 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
         object->actions() |= PreviewEntity::kCommandSlower;
     if (!object->fetch_module(AnimBlenderComponent::kType)) {
         const uint32_t held = handler->control_data()->buttons();
-        if (held & 0x20)
+        if (held & pad_input::kMaskCircle)
             object->actions() |= PreviewEntity::kCommandRollLeft;
-        else if (held & 0x80)
+        else if (held & pad_input::kMaskSquare)
             object->actions() |= PreviewEntity::kCommandRollRight;
     }
 }
@@ -546,7 +560,7 @@ int handle_step_animation(net::InboundMsgCtx* context)
 int handle_reload_animation(net::InboundMsgCtx* context)
 {
     const char* message = net::wire::text_of(context->body());
-    object_of(context)->reload_animation(message, net::wire::value_at<uint32_t>(context->body(), 0x80));
+    object_of(context)->reload_animation(message, net::wire::value_at<uint32_t>(context->body(), viewer_message::kSecondTextOffset));
     return 1;
 }
 
@@ -556,7 +570,7 @@ int handle_reload_cam_animation(net::InboundMsgCtx* context)
     const char* message = net::wire::text_of(context->body());
     script::StructPtr params = script::make_struct();
     params->append_word(0u, message);
-    params->put_name_key(checksums::Name{0u}, net::wire::value_at<uint32_t>(context->body(), 0x80));
+    params->put_name_key(checksums::Name{0u}, net::wire::value_at<uint32_t>(context->body(), viewer_message::kSecondTextOffset));
     commands::cfunc_reload_skater_cam_anim(params.get(), nullptr);
     params.reset();
     return 1;
@@ -567,7 +581,7 @@ int handle_run_anim_view_script(net::InboundMsgCtx* context)
 {
     const char* message = net::wire::text_of(context->body());
     PreviewEntity* object = object_of(context);
-    std::array<char, 260> path{};
+    std::array<char, kMaxPathBytes> path{};
     text::format_to(path, "scripts\\animview\\%s.qb", message);
     script::load_qb(path.data(), 0, 0);
     script::Script* script = script::spawn_script(message, nullptr);
@@ -600,12 +614,12 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     if (app) {
         net::Router& dispatcher = app->dispatcher();
-        dispatcher.append_listener(0x25, &handle_play_animation, 3, this, 0x80);
-        dispatcher.append_listener(0x26, &on_clip_rate_msg, 3, this, 0x80);
-        dispatcher.append_listener(0x27, &handle_step_animation, 3, this, 0x80);
-        dispatcher.append_listener(0x28, &handle_reload_animation, 3, this, 0x80);
-        dispatcher.append_listener(0x29, &handle_reload_cam_animation, 3, this, 0x80);
-        dispatcher.append_listener(0x2C, &handle_run_anim_view_script, 3, this, 0x80);
+        dispatcher.append_listener(viewer_message::kPlayAnimation, &handle_play_animation, 3, this, viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kClipRate, &on_clip_rate_msg, 3, this, viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kStepAnimation, &handle_step_animation, 3, this, viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kReloadAnimation, &handle_reload_animation, 3, this, viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kReloadCamAnimation, &handle_reload_cam_animation, 3, this, viewer_message::kListenerPriority);
+        dispatcher.append_listener(viewer_message::kRunAnimViewScript, &handle_run_anim_view_script, 3, this, viewer_message::kListenerPriority);
     }
 }
 

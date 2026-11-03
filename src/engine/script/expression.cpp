@@ -91,7 +91,8 @@ bool join_strings(const char* a, const char* b, QbValueKind type)
     const size_t length_b = std::strlen(b);
     if (length_a + length_b + 1 > 200)
         return false;
-    std::array<char, 200> joined{};
+    constexpr size_t kJoinedSize = 200;
+    std::array<char, kJoinedSize> joined{};
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
     std::memcpy(joined.data(), a, length_a);
     std::memcpy(std::span<char>(joined).subspan(length_a).data(), b, length_b + 1);

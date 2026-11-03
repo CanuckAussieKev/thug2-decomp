@@ -53,6 +53,30 @@
 #include "engine/net/net_game_state.h"
 #include "engine/core/checksums.h"
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kBooleanTypes = 0x7FE33468u; // boolean_types
+constexpr uint32_t kCaptureOptions = 0x5D67D0BEu; // capture_options
+constexpr uint32_t kCtfGameType = 0x15421B73u; // ctf_game_type
+constexpr uint32_t kCtfType = 0x15EA4F9Eu; // ctf_type
+constexpr uint32_t kFireballDifficulty = 0xCE238F5Du; // fireball_difficulty
+constexpr uint32_t kFireballLevelInfo = 0xD7E42AF4u; // fireball_level_info
+constexpr uint32_t kFriendlyFire = 0xE959C43Au; // friendly_fire
+constexpr uint32_t kGameType = 0x9834C4FAu; // game_type
+constexpr uint32_t kGoals = 0x38DBE1D0u; // goals
+constexpr uint32_t kOnOffTypes = 0x8BA3F08Bu; // on_off_types
+constexpr uint32_t kPlayerCollision = 0x043EE978u; // player_collision
+constexpr uint32_t kScoreReset = 0x162E8C3Au; // score_reset
+constexpr uint32_t kSkillLevel = 0x403DA0D0u; // skill_level
+constexpr uint32_t kSkillLevelInfo = 0x48DAE9CBu; // skill_level_info
+constexpr uint32_t kTargetScoreOptions = 0x52CE135Du; // target_score_options
+constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7u; // team_graffiti_mode
+constexpr uint32_t kTimeLimit = 0xC51BF6E3u; // time_limit
+constexpr uint32_t kTimeLimitOptions = 0x834A7C01u; // time_limit_options
+
+} // namespace
+
 namespace online {
 
 using namespace detail;
@@ -248,35 +272,35 @@ int handle_host_options(net::InboundMsgCtx* context)
             params->add_component_of_type(kChecksum, script::kQbvalName, value);
             prefs->change_setting(preference, params.get());
         };
-        set({.preference = 0x9834C4FA, .list = 0x2F94C542, .value = request.game_type});            // game_type: net_game_type_info
-        set({.preference = 0x403DA0D0, .list = 0x48DAE9CB, .value = request.skill_level});          // skill_level: skill_level_info
-        set({.preference = 0xCE238F5D, .list = 0xD7E42AF4, .value = request.fireball_level, .fireball = true}); // fireball_difficulty: fireball_level_info
-        set({.preference = 0x043EE978, .list = 0x8BA3F08B, .value = request.player_collision});     // player_collision: on_off_types
-        set({.preference = 0xE959C43A, .list = 0x8BA3F08B, .value = request.friendly_fire});        // friendly_fire: on_off_types
-        set({.preference = 0x48E748B5, .list = 0x7FE33468, .value = request.stop_at_zero});         // stop_at_zero: boolean_types
-        set({.preference = 0x162E8C3A, .list = 0x7FE33468, .value = request.score_reset});          // score_reset: boolean_types
-        set({.preference = 0x15421B73, .list = 0x15EA4F9E, .value = request.ctf_game_type});        // ctf_game_type: ctf_type
-        set({.preference = 0x38DBE1D0, .list = 0x38DBE1D0, .value = request.goals});                // goals: goals
-        set({.preference = 0xA8774BF7, .list = 0xA8774BF7, .value = request.team_graffiti_mode});   // team_graffiti_mode
+        set({.preference = kGameType, .list = kNetGameTypeInfo, .value = request.game_type});            // game_type: net_game_type_info
+        set({.preference = kSkillLevel, .list = kSkillLevelInfo, .value = request.skill_level});          // skill_level: skill_level_info
+        set({.preference = kFireballDifficulty, .list = kFireballLevelInfo, .value = request.fireball_level, .fireball = true}); // fireball_difficulty: fireball_level_info
+        set({.preference = kPlayerCollision, .list = kOnOffTypes, .value = request.player_collision});     // player_collision: on_off_types
+        set({.preference = kFriendlyFire, .list = kOnOffTypes, .value = request.friendly_fire});        // friendly_fire: on_off_types
+        set({.preference = kStopAtZero, .list = kBooleanTypes, .value = request.stop_at_zero});         // stop_at_zero: boolean_types
+        set({.preference = kScoreReset, .list = kBooleanTypes, .value = request.score_reset});          // score_reset: boolean_types
+        set({.preference = kCtfGameType, .list = kCtfType, .value = request.ctf_game_type});        // ctf_game_type: ctf_type
+        set({.preference = kGoals, .list = kGoals, .value = request.goals});                // goals: goals
+        set({.preference = kTeamGraffitiMode, .list = kTeamGraffitiMode, .value = request.team_graffiti_mode});   // team_graffiti_mode
         {                                                          // time_limit: time_limit_options, with its time
             const script::StructPtr params = script::make_struct();
-            const char* text = option_text(0x834A7C01, request.time_limit);
+            const char* text = option_text(kTimeLimitOptions, request.time_limit);
             const int time = option_field(0x834A7C01, request.time_limit, kTime);
             params->append_word(kUiString, script::kQbvalString, text);
             params->add_component_of_type(kChecksum, script::kQbvalName, request.time_limit);
             params->add_component_of_type(kTime, script::kQbvalInteger, static_cast<uint32_t>(time));
-            prefs->change_setting(0xC51BF6E3, params.get());
+            prefs->change_setting(kTimeLimit, params.get());
         }
         { // target_score: target_score_options, else capture_options, else time_limit_options (its time, in ms)
             const script::StructPtr params = script::make_struct();
-            const char* text = option_text(0x52CE135D, request.target_score);
-            int score = option_field(0x52CE135D, request.target_score, kScore);
+            const char* text = option_text(kTargetScoreOptions, request.target_score);
+            int score = option_field(kTargetScoreOptions, request.target_score, kScore);
             if (!text) {
-                text = option_text(0x5D67D0BE, request.target_score);
-                score = option_field(0x5D67D0BE, request.target_score, kScore);
+                text = option_text(kCaptureOptions, request.target_score);
+                score = option_field(kCaptureOptions, request.target_score, kScore);
                 if (!text) {
-                    text = option_text(0x834A7C01, request.target_score);
-                    score = option_field(0x834A7C01, request.target_score, kTime) * 1000;
+                    text = option_text(kTimeLimitOptions, request.target_score);
+                    score = option_field(kTimeLimitOptions, request.target_score, kTime) * 1000;
                 }
             }
             params->append_word(kUiString, script::kQbvalString, text);
@@ -619,7 +643,8 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         if (is_observer(player) && get_game_type() == kNetGraffiti) {
             // An observer of graffiti: the trick objects' state.
             desc = net::NetMessageInfo();
-            static std::array<uint8_t, 0x1100> buffer; // (the original's is on its stack)
+            constexpr size_t kBufferSize = 0x1100;
+            static std::array<uint8_t, kBufferSize> buffer; // (the original's is on its stack)
             const int size = objects::trick_spot_hub()->write_graffiti_state(buffer);
             server->send_bulk_message(player_handle(player), {.msg_id_ = kMsgTrickObjects, .size = static_cast<uint16_t>(size)}, buffer.data(),
                                       "TrickObj Buffer", kGroupGame, true, false);
@@ -627,7 +652,8 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         // The goals chosen (goal attack): a byte, then the selected goals' names, then 0.
         desc = net::NetMessageInfo();
         auto* goals = objective_board();
-        static std::array<uint8_t, 0x1000> selected;
+        constexpr size_t kSelectedSize = 0x1000;
+        static std::array<uint8_t, kSelectedSize> selected;
         core::at(selected, 0) = 0;
         size_t out = 1;
         const int count = goals->goals().num(); // (its first word, read by the getter folded at 0x00469490)

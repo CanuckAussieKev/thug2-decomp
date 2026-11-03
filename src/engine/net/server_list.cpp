@@ -317,7 +317,8 @@ void Hub::update_hosting_status()
     if (presence_service_->authenticated()) { // (0x005480B0: logged in to presence)
         const char* server_name = nullptr;
         get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &server_name, 1);
-        std::array<char, 1024> location{};
+        constexpr size_t kLocationSize = 1024;
+        std::array<char, kLocationSize> location{};
         RoomManager* lobby = lobby_service_.get();
         if (lobby->remote()) {
             const uint32_t private_ip = game_spy::peer_get_private_ip(lobby->remote()); // (the peer's private address)
@@ -527,7 +528,8 @@ unsigned long __stdcall news_thread(void* argument)
     manager->set_request_started_at(frame_clock::get_time());
     auto& buffer = manager->news_buffer();
     std::memset(buffer.data(), 0, 0x1900 * 4);
-    std::array<char, 256> url{};
+    constexpr size_t kUrlSize = 256;
+    std::array<char, kUrlSize> url{};
     text::format_to(url, "%s",
                     commands::texture_flag_ce441() ? "http://www.thug2online.com/testmotd.dat"
                                                    : "http://www.thug2online.com/motd.dat");
@@ -589,7 +591,8 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
 // 0x00548040
 bool is_thug2_location(const char* location)
 {
-    std::array<char, 256> copy{};
+    constexpr size_t kCopySize = 256;
+    std::array<char, kCopySize> copy{};
     std::strcpy(copy.data(), location);
     return _stricmp(std::strtok(copy.data(), ":"), "10thug211") == 0;
 }

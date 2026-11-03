@@ -4,6 +4,7 @@
 #include "engine/net/buddy_status.h"
 #include "platform/gamespy.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -59,13 +60,15 @@ void FriendsManager::on_buddy_request(const BuddyRequest& request)
 
 std::array<char, 256>& command_line_email()
 {
-    static std::array<char, 256> command_line_email{};
+    constexpr size_t kCommandLineEmailSize = 256;
+    static std::array<char, kCommandLineEmailSize> command_line_email{};
     return command_line_email;
 }
 
 std::array<char, 16>& command_line_password()
 {
-    static std::array<char, 16> command_line_password{};
+    constexpr size_t kCommandLinePasswordSize = 16;
+    static std::array<char, kCommandLinePasswordSize> command_line_password{};
     return command_line_password;
 }
 
@@ -98,7 +101,8 @@ void FriendsManager::send_buddy_message(int profile, const char* text)
         ->get_online_settings()
         ->fetch_setting(checksums::hash_from_text("network_id"))
         ->fetch_text(kUiString, &nick, 1);
-    std::array<char, 128> message{};
+    constexpr size_t kMessageSize = 128;
+    std::array<char, kMessageSize> message{};
     text::format_to(message, "%s\n%s", nick, text);
     game_spy::gp_send_buddy_message(this, profile, message.data()); // (gpSendBuddyMessage)
 }

@@ -87,7 +87,8 @@ uint32_t emit_int(util::ByteWriter& out, checksums::Name name, int value)
     else if (value >= -0x8000 && value <= 0x7FFF)
         type = kSignedShort;
     // written in a scratch buffer first, then copied if it fits
-    std::array<uint8_t, 0x14> scratch{};
+    constexpr size_t kScratchSize = 0x14;
+    std::array<uint8_t, kScratchSize> scratch{};
     util::ByteWriter component(scratch.data(), sizeof(scratch));
     write_name_and_type(component, type, name);
     switch (type) {

@@ -38,6 +38,16 @@
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kCAT = 0x61A1BC57u; // CAT
+constexpr uint32_t kCreatedGoals = 0x62896EDFu; // CreatedGoals
+constexpr uint32_t kOptionsAndPros = 0xB010F357u; // OptionsAndPros
+constexpr uint32_t kPARK = 0x3BF882CCu; // PARK
+
+} // namespace
+
 namespace online {
 
 namespace {
@@ -181,7 +191,8 @@ char* prop(char** rest)
 }
 int number_field(char** rest)
 {
-    std::array<char, 128> number{};
+    constexpr size_t kNumberSize = 128;
+    std::array<char, kNumberSize> number{};
     text_tools::dup_from(number.data(), prop(rest));
     return text::to_int(number.data());
 }
@@ -316,7 +327,8 @@ void VaultMan::start_list(const char* url)
 // 0x0054B400
 void VaultMan::list_items(VaultCategory* category)
 {
-    std::array<char, 128> url{};
+    constexpr size_t kUrlSize = 128;
+    std::array<char, kUrlSize> url{};
     text::format_to(url, "http://www.thugonline.com/%s/%s/dir_list.txt", folder_.data(), category->label().data());
     transfer_ = kItems;
     outcome_val_ = 0;
@@ -327,7 +339,8 @@ void VaultMan::list_items(VaultCategory* category)
 void VaultMan::list_categories()
 {
     transfer_ = kCategories;
-    std::array<char, 128> url{};
+    constexpr size_t kUrlSize = 128;
+    std::array<char, kUrlSize> url{};
     text::format_to(url, "http://www.thugonline.com/%s/dir_list.txt", folder_.data());
     start_list(url.data());
     outcome_val_ = 0;
@@ -365,7 +378,8 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
     const int transfer = vault->transfer_;
     if (vault->progress_ < 100) {
         if (transfer == kDownload || transfer == kDownload6) {
-            std::array<char, 16> text{};
+            constexpr size_t kTextSize = 16;
+            std::array<char, kTextSize> text{};
             text::format_to(text, "%d%%", vault->progress_);
             const script::StructPtr params = script::make_struct();
             params->append_word(get_checksums("text"), script::kQbvalString, text.data());
@@ -442,7 +456,8 @@ void VaultMan::vault_task(tasks::Task<VaultMan>* task)
             VaultItem* item = memory ? memory::construct_in<VaultItem>(memory) : nullptr;
             prepend(&vault->category_->items(), &item->list_link());
             char* rest = line;
-            std::array<char, 1024> file{};
+            constexpr size_t kFileSize = 1024;
+            std::array<char, kFileSize> file{};
             text_tools::dup_from(file.data(), prop(&rest));
             // (the original makes the URL with sprintf: no limit - a longer one ran on into the label, written next)
             text::format_to(item->url(), "http://www.thugonline.com/%s/%s/%s", vault->folder_.data(),
@@ -615,7 +630,8 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
     vault->octets_ = buffer;
     vault->buffer_size_ = size;
     ghttp_post_add_file_from_memory(post, "filename", buffer, size, file_name.data(), nullptr);
-    std::array<char, 0x400> description{};
+    constexpr size_t kDescriptionSize = 0x400;
+    std::array<char, kDescriptionSize> description{};
     text::format_to(description, "%s", vault->summary_text_.data());
     ghttp_post_add_string(post, "description", description.data());
     ghttp_post_add_string(post, "uniqueid", game_spy_unique_id());
@@ -660,16 +676,16 @@ int VaultMan::on_file_downloaded(void*, int result, char* buffer, int64_t receiv
     uint32_t script = 0;
     switch (vault->kind_tag_) {
     case kVaultTricks:
-        script = 0x61A1BC57;
+        script = kCAT;
         break;
     case kVaultSkaters:
-        script = 0xB010F357;
+        script = kOptionsAndPros;
         break;
     case kVaultGoals:
-        script = 0x62896EDF;
+        script = kCreatedGoals;
         break;
     case kVaultParks:
-        script = 0x3BF882CC;
+        script = kPARK;
         break;
     default:
         break;
@@ -775,7 +791,8 @@ bool download_directory_list(script::Struct* params, script::Script*)
     vault->set_category(static_cast<VaultCategory*>(vault->search().head_element(&vault->categories())));
     vault->set_transfer(VaultMan::kUploads);
     vault->set_outcome_val(0);
-    std::array<char, 128> url{};
+    constexpr size_t kUrlSize = 128;
+    std::array<char, kUrlSize> url{};
     text::format_to(url, "http://www.thugonline.com/%s/uploads.txt", vault->folder().data());
     vault->start_list(url.data());
     get_logic_tasks()->queue_job(vault->task().get());

@@ -181,7 +181,8 @@ bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
 {
     const char* path = nullptr;
     params->fetch_text(kPath, &path, 1);
-    std::array<char, 32> name{};
+    constexpr size_t kNameSize = 32;
+    std::array<char, kNameSize> name{};
     const std::string_view full(path);
     const std::size_t slash = full.find_last_of("\\/");
     const std::string_view base = slash == std::string_view::npos ? full : full.substr(slash + 1);

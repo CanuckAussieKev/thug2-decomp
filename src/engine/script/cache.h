@@ -14,6 +14,7 @@ class KeyMap;
 
 namespace script {
 
+constexpr size_t kScriptCacheEntryBytes = 0x14;
 // The script cache (one instance, 0x006F3558, reference counted by 0x006F355C): the scripts' code, decompressed
 // and pre-processed, by script name. Scripts are stored compressed in the symbol table (see define_script_symbol);
 // a running script (and every script it has called and is waiting on) holds a use of its cached code, which
@@ -36,8 +37,13 @@ struct ScriptCacheEntry {
     ScriptCacheEntry* older; // the unused list
     ScriptCacheEntry* newer;
 };
-static_assert(sizeof(ScriptCacheEntry) == 0x14, "allocated as 0x14 bytes by the original");
+static_assert(sizeof(ScriptCacheEntry) == kScriptCacheEntryBytes, "allocated as 0x14 bytes by the original");
 
+constexpr size_t kScriptStoreEntriesOffset = 0x14;
+constexpr size_t kScriptStoreNewestUnusedOffset = 0x18;
+constexpr size_t kScriptStoreOldestUnusedOffset = 0x1C;
+constexpr size_t kScriptStoreDeleteUnusedOffset = 0x20;
+constexpr size_t kScriptStoreBytes = 0x24;
 // An engine module (vtable 0x00648468; registered and started with the module manager, but its start and stop do
 // nothing - the empty 0x005480A0).
 class ScriptStore final : public modules::PartUnit {
@@ -81,12 +87,12 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(offsetof(ScriptStore, entries_) == 0x14 && offsetof(ScriptStore, newest_unused_) == 0x18 &&
-                          offsetof(ScriptStore, oldest_unused_) == 0x1C && offsetof(ScriptStore, delete_unused_) == 0x20,
+        static_assert(offsetof(ScriptStore, entries_) == kScriptStoreEntriesOffset && offsetof(ScriptStore, newest_unused_) == kScriptStoreNewestUnusedOffset &&
+                          offsetof(ScriptStore, oldest_unused_) == kScriptStoreOldestUnusedOffset && offsetof(ScriptStore, delete_unused_) == kScriptStoreDeleteUnusedOffset,
                       "layout must match the original");
     }
 };
-static_assert(sizeof(ScriptStore) == 0x24, "allocated as 0x24 bytes by the original");
+static_assert(sizeof(ScriptStore) == kScriptStoreBytes, "allocated as 0x24 bytes by the original");
 
 // 0x00476040: with `create`, make the cache if there's none; either way take a reference. Returns the cache.
 ScriptStore* create_script_cache(bool create);

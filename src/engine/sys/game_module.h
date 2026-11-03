@@ -18,6 +18,11 @@ namespace modules {
 // overriding what starting and stopping do. Zeroed memory from the current heap, as memory::HeapObject gives (declared
 // here, not inherited: an empty base under a polymorphic class gives MSVC multiple-inheritance member pointers, and
 // the network code still calls the skate module's methods by address).
+// The original's layout, as checked inside the class.
+constexpr size_t kPartUnitBytes = 0x14;
+constexpr size_t kPartUnitLockedOffset = 0x0C;
+constexpr size_t kPartUnitListLinkOffset = 0x10;
+
 class PartUnit {
 public:
     static void* operator new(std::size_t size) noexcept { return memory::HeapObject::operator new(size); }
@@ -56,8 +61,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&
-                      offsetof(PartUnit, list_link_) == 0x10);
+        static_assert(sizeof(PartUnit) == kPartUnitBytes && offsetof(PartUnit, locked_) == kPartUnitLockedOffset &&
+                      offsetof(PartUnit, list_link_) == kPartUnitListLinkOffset);
     }
 };
 

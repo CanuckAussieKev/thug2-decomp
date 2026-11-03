@@ -46,7 +46,8 @@ const char*& gamestats_host()
 
 void set_up_online_hosts()
 {
-    std::array<char, 256> domain{};
+    constexpr size_t kDomainSize = 256;
+    std::array<char, kDomainSize> domain{};
     build_info::fetch_text(build_info::kMiscellaneous, "OnlineDomain", "openspy.net", domain.data(), sizeof(domain));
 
     // gamestats: also the game's own top stats request (NetLink::RetrieveTopStats reads gamestats_host)

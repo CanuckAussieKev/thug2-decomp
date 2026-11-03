@@ -29,6 +29,15 @@
 #include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kDebugHeap = 0x70CB0238u; // DebugHeap
+constexpr uint32_t kPIP = 0xB075EF6Fu; // PIP
+constexpr uint32_t kScriptHeap = 0x0FA33D9Bu; // ScriptHeap
+
+} // namespace
+
 namespace script {
 
 namespace {
@@ -205,11 +214,11 @@ void read_qb_file(const char* filename, std::span<const uint8_t> file, int /*unu
         case 0x45: { // a section marker
             const uint32_t marker = fetch_word32(p + 2);
             p += 6;
-            if (marker == 0x0FA33D9B) {
+            if (marker == kScriptHeap) {
                 // The end of a debug section.
                 memory::leave_heap_scope();
                 memory::enter_heap_scope(manager->script_heap());
-            } else if (marker == 0x70CB0238) {
+            } else if (marker == kDebugHeap) {
                 // A debug section: kept (on the debug heap) only while checksum names are.
                 if (checksum_names_enabled()) {
                     memory::leave_heap_scope();
@@ -259,7 +268,7 @@ void restart_changed_scripts()
 // 0x0046ED90
 void load_qb_data(const char* filename, std::span<uint8_t> data, int unused, int use_qb_names, int temporary)
 {
-    if (fetch_word32(Tokens(data)) == 0xB075EF6F)
+    if (fetch_word32(Tokens(data)) == kPIP)
         parse_precompiled_qb(filename, data, unused); // (relocated in place)
     else
         read_qb_file(filename, data, unused, use_qb_names, temporary);

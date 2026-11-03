@@ -11,6 +11,16 @@
 // Win32 files). One manager (reference counted) holds the one card.
 namespace save_cards {
 
+// The file open modes of SaveCard::unseal, the disk-full error and the card block (16 KiB) the free space is counted in.
+constexpr int kOpenReadWriteExisting = 3;
+constexpr int kOpenCreateNew = 4;
+constexpr int kOpenWriteAlways = 6;
+constexpr int kErrorDiskFull = 0x70;
+constexpr int kBlockShift = 14;
+constexpr int kHighPartBlockShift = 18; // (32 - kBlockShift: the high word of a size in blocks)
+constexpr size_t kLabelBytes = 0x28;
+constexpr size_t kUnknown4aBytes = 0x42;
+
 class SaveCard;
 
 // A save file (also an entry of a directory listing: name, date, size).
@@ -18,8 +28,8 @@ struct FileLoad {
     // The fields other code reads and sets.
     memory::ListNode& list_link() { return list_link_; }
     [[nodiscard]] const memory::ListNode& list_link() const { return list_link_; }
-    std::array<char, 0x28>& label() { return label_; }
-    [[nodiscard]] const std::array<char, 0x28>& label() const { return label_; }
+    std::array<char, kLabelBytes>& label() { return label_; }
+    [[nodiscard]] const std::array<char, kLabelBytes>& label() const { return label_; }
     [[nodiscard]] uint8_t second() const { return second_; }
     void set_second(uint8_t value) { second_ = value; }
     [[nodiscard]] uint8_t minute() const { return minute_; }
@@ -40,12 +50,12 @@ struct FileLoad {
 private:
     // The list node it starts with (lists::Elem<File>: the data is the file itself; the original's size).
     memory::ListNode list_link_;
-    std::array<char, 0x28> label_;
+    std::array<char, kLabelBytes> label_;
     uint8_t second_, minute_, hour_, day_, month_, unknown41_;
     uint16_t year_;
     uint32_t extent_;
     uint16_t unknown48_;
-    std::array<uint8_t, 0x42> unknown4a_;
+    std::array<uint8_t, kUnknown4aBytes> unknown4a_;
     HANDLE hdl_;
     SaveCard* save_device_;
 

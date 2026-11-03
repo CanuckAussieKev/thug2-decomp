@@ -41,6 +41,37 @@
 #include "engine/net/net_game_state.h"
 #include "engine/core/gathered_call.h"
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kAddStatHeaderMenuItem = 0x1AADEE21u; // add_stat_header_menu_item
+constexpr uint32_t kAddStatPersonalMenuItem = 0xA6111F30u; // add_stat_personal_menu_item
+constexpr uint32_t kAddStatPlayerMenuItem = 0x0AC09E3Bu; // add_stat_player_menu_item
+constexpr uint32_t kAddStatScoreMenuItem = 0x19F7BC28u; // add_stat_score_menu_item
+constexpr uint32_t kArray = 0x5EF31148u; // Array
+constexpr uint32_t kBestCombosArrayAllTime = 0x9FE64312u; // best_combos_array_all_time
+constexpr uint32_t kBestCombosArrayMonthly = 0x67F1AE8Au; // best_combos_array_monthly
+constexpr uint32_t kCategoryAllLevels = 0xC2283319u; // category_all_levels
+constexpr uint32_t kHighScoresArrayAllTime = 0xEF20D3A1u; // high_scores_array_all_time
+constexpr uint32_t kHighScoresArrayMonthly = 0xCB95928Fu; // high_scores_array_monthly
+constexpr uint32_t kLEVEL = 0x651533ECu; // LEVEL
+constexpr uint32_t kNAME = 0xA1DC81F9u; // NAME
+constexpr uint32_t kPersonalStatsArray = 0xFEF84FFFu; // personal_stats_array
+constexpr uint32_t kRANK = 0x7786171Au; // RANK
+constexpr uint32_t kRating = 0x2776D9DDu; // Rating
+constexpr uint32_t kSCORE = 0xCD66C8AEu; // SCORE
+constexpr uint32_t kServerName = 0x2A5CF019u; // server_name
+constexpr uint32_t kSkaterScore = 0xD262802Fu; // SkaterScore
+constexpr uint32_t kStatsLevelNames = 0xB8D3EEECu; // stats_level_names
+constexpr uint32_t kStatsLoggedIn = 0x6307C08Fu; // stats_logged_in
+constexpr uint32_t kStatsLoginFailedDialog = 0xCBA113AFu; // StatsLoginFailedDialog
+constexpr uint32_t kStatsRetrievalFailedDialog = 0xD1EA7744u; // StatsRetrievalFailedDialog
+constexpr uint32_t kTEXT = 0xC4745838u; // TEXT
+constexpr uint32_t kTopPlayersArray = 0x5299291Bu; // top_players_array
+constexpr uint32_t kUiString = 0x96875C0Fu; // ui_string
+
+} // namespace
+
 namespace online {
 
 namespace {
@@ -263,8 +294,8 @@ void TopList::fill_level_scores()
             break;
         if (total_of(&level->entries()) > 0) {
             const script::StructPtr params = script::make_struct();
-            params->append_word(0xC4745838, RankingsManager::get_level_name(level->level()));
-            get_run(0x1AADEE21, params.get());
+            params->append_word(kTEXT, RankingsManager::get_level_name(level->level()));
+            get_run(kAddStatHeaderMenuItem, params.get());
         }
         int shown = 0;
         for (memory::ListNode* line = get_next_node(&level->entries()); line && shown < kLevelBest;
@@ -273,20 +304,20 @@ void TopList::fill_level_scores()
             if (!entry)
                 break;
             script::StructPtr params = script::make_struct();
-            params->put_int(checksums::Name{0x2776D9DD}, entry->skill_points());
-            params->put_int(checksums::Name{0xCD66C8AE}, entry->points_held());
+            params->put_int(checksums::Name{kRating}, entry->skill_points());
+            params->put_int(checksums::Name{kSCORE}, entry->points_held());
             // (here the rating is read as unsigned)
-            params->put_int(checksums::Name{0x7786171A}, current_rank(static_cast<double>(static_cast<uint32_t>(entry->skill_points()))));
-            params->append_word(0xA1DC81F9, entry->label().data());
-            params->append_word(0x651533EC, RankingsManager::get_level_name(level->level()));
-            get_run(0x19F7BC28, params.get());
+            params->put_int(checksums::Name{kRANK}, current_rank(static_cast<double>(static_cast<uint32_t>(entry->skill_points()))));
+            params->append_word(kNAME, entry->label().data());
+            params->append_word(kLEVEL, RankingsManager::get_level_name(level->level()));
+            get_run(kAddStatScoreMenuItem, params.get());
             params.reset();
             ++shown;
         }
     }
     const script::StructPtr params = script::make_struct();
-    params->append_word(0xC4745838, script::fetch_text(0xC2283319u));
-    get_run(0x1AADEE21, params.get());
+    params->append_word(kTEXT, script::fetch_text(kCategoryAllLevels));
+    get_run(kAddStatHeaderMenuItem, params.get());
 }
 
 // 0x0054E4A0
@@ -330,15 +361,15 @@ void TopList::fill_sorted_scores(bool ratings)
         if (!line || line->points_held() == 0 || shown == kMaxSorted)
             break;
         script::StructPtr params = script::make_struct();
-        params->put_int(checksums::Name{0x2776D9DD}, line->skill_points());
-        params->put_int(checksums::Name{0xCD66C8AE}, line->points_held());
-        params->put_int(checksums::Name{0x7786171A}, current_rank(static_cast<double>(line->skill_points())));
-        params->append_word(0xA1DC81F9, line->label().data());
+        params->put_int(checksums::Name{kRating}, line->skill_points());
+        params->put_int(checksums::Name{kSCORE}, line->points_held());
+        params->put_int(checksums::Name{kRANK}, current_rank(static_cast<double>(line->skill_points())));
+        params->append_word(kNAME, line->label().data());
         if (ratings) {
-            get_run(0x0AC09E3B, params.get());
+            get_run(kAddStatPlayerMenuItem, params.get());
         } else {
-            params->append_word(0x651533EC, RankingsManager::get_level_name(line->level()));
-            get_run(0x19F7BC28, params.get());
+            params->append_word(kLEVEL, RankingsManager::get_level_name(line->level()));
+            get_run(kAddStatScoreMenuItem, params.get());
         }
         params.reset();
         ++shown;
@@ -372,9 +403,9 @@ void get_fill(PersonalStats& stats)
         if (!line)
             break;
         gsl::owner<script::Struct*> params = script::new_struct(); // (never freed - as in the original)
-        params->put_int(checksums::Name{0xCD66C8AE}, line->points_held());
-        params->append_word(0x651533EC, RankingsManager::get_level_name(line->level()));
-        get_run(0xA6111F30, params);
+        params->put_int(checksums::Name{kSCORE}, line->points_held());
+        params->append_word(kLEVEL, RankingsManager::get_level_name(line->level()));
+        get_run(kAddStatPersonalMenuItem, params);
     }
 }
 
@@ -442,7 +473,7 @@ void RankingsManager::on_logged_in()
 {
     push_top_down();
     authenticated_ = true;
-    get_run(0x6307C08F);
+    get_run(kStatsLoggedIn);
     pop_heap();
 }
 
@@ -457,7 +488,7 @@ void RankingsManager::start_game()
     auto* server = static_cast<net::AppHost*>(manager->host());
     prefs::Preferences* prefs = manager->get_online_settings();
     const char* host_name = nullptr;
-    prefs->fetch_setting(0x2A5CF019)->fetch_text(0x96875C0Fu, &host_name, 1);
+    prefs->fetch_setting(kServerName)->fetch_text(kUiString, &host_name, 1);
     const int time_limit = prefs->get_setting_value({.preference = 0xC51BF6E3, .field = 0x906B67BA});
     const int frag_limit = prefs->get_setting_value({.preference = 0x71CD53A2, .field = 0xCD66C8AE});
     set_game_string(game_, "hostname", host_name);
@@ -474,7 +505,8 @@ void RankingsManager::start_game()
         const int id = static_cast<int>(detail::get_skater_id(detail::player_skater(player)));
         const char* name = detail::player_name(player);
         new_player(game_, id, name);
-        std::array<char, 64> key{};
+        constexpr size_t kKeySize = 64;
+        std::array<char, kKeySize> key{};
         text::format_to(key, "%s", "player");
         set_player_string(game_, key.data(), name, id);
         text::format_to(key, "%s", "pid");
@@ -504,7 +536,7 @@ void RankingsManager::raise_tallies(bool final)
     for (const PlayerRecord* player = detail::start_roster_sweep(manager, &search, false); player;
          player = detail::step_roster_sweep(manager, &search, false)) {
         auto* skater = core::down_cast<objects::GameEntity>(detail::player_skater(player));
-        skater->fetch_module(0xD262802F); // (unused)
+        skater->fetch_module(kSkaterScore); // (unused)
         const int id = static_cast<int>(detail::get_skater_id(skater));
         set_player_int(game_, "score", manager->get_entrant_points(static_cast<uint32_t>(id)), id);
         set_player_int(game_, "combo", player->best_combo(), id);
@@ -532,7 +564,8 @@ void RankingsManager::remove_player(int id)
 // 0x0054CA30
 void RankingsManager::set_player_auth(int player, const char* auth)
 {
-    std::array<char, 64> key{};
+    constexpr size_t kKeySize = 64;
+    std::array<char, kKeySize> key{};
     text::format_to(key, "%s", "auth");
     set_player_string(game_, key.data(), auth, player);
 }
@@ -620,7 +653,7 @@ void RankingsManager::stats_task(tasks::Task<RankingsManager>* task)
         stats->on_logged_in();
         break;
     case kLoginFailed:
-        get_run(0xCBA113AF);
+        get_run(kStatsLoginFailedDialog);
         close_stats_connection();
         stats->task_->drop_out();
         stats->authenticated_ = false;
@@ -637,7 +670,7 @@ void RankingsManager::stats_task(tasks::Task<RankingsManager>* task)
         break;
     }
     if (failed) {
-        get_run(0xD1EA7744);
+        get_run(kStatsRetrievalFailedDialog);
         stats->log_off();
     }
     pop_heap();
@@ -743,16 +776,16 @@ int RankingsManager::on_top_stats(void*, int result, char* buffer, int64_t, void
 // 0x0054D2F0
 const char* RankingsManager::get_level_name(uint32_t level)
 {
-    script::Array* levels = script::fetch_list(0xB8D3EEECu);
+    script::Array* levels = script::fetch_list(kStatsLevelNames);
     // (the found level is read into one variable: an entry without one counts as the last one read - at first
     // the level asked for)
     uint32_t found = level;
     for (uint32_t i = 0; i < levels->extent(); ++i) {
         auto* entry = levels->struct_at(i);
-        entry->read_hash_value(0x651533ECu, &found, 0);
+        entry->read_hash_value(kLEVEL, &found, 0);
         if (found == level) {
             const char* name = nullptr;
-            entry->fetch_text(0xC4745838u, &name, 1);
+            entry->fetch_text(kTEXT, &name, 1);
             return name;
         }
     }
@@ -815,7 +848,7 @@ bool raise_tallies(script::Struct* params, script::Script*)
 // 0x0054D6A0: the rank (0..10) into the script's parameters (0x7786171A).
 bool get_rank(script::Struct*, script::Script* script)
 {
-    script->args()->put_int(checksums::Name{0x7786171A}, current_rank(static_cast<double>(get_attributes()->personal().skill_points_)));
+    script->args()->put_int(checksums::Name{kRANK}, current_rank(static_cast<double>(get_attributes()->personal().skill_points_)));
     return true;
 }
 
@@ -844,25 +877,25 @@ bool fill_stats_arrays(script::Struct* params, script::Script*)
 {
     RankingsManager* stats = get_attributes();
     uint32_t which = 0;
-    params->read_hash_value(0x5EF31148u, &which, 1);
+    params->read_hash_value(kArray, &which, 1);
     TopList* list = nullptr;
     switch (which) {
-    case 0xEF20D3A1:
+    case kHighScoresArrayAllTime:
         list = &core::at(stats->top_lists(), 0);
         break;
-    case 0x9FE64312:
+    case kBestCombosArrayAllTime:
         list = &core::at(stats->top_lists(), 1);
         break;
-    case 0xCB95928F:
+    case kHighScoresArrayMonthly:
         list = &core::at(stats->top_lists(), 2);
         break;
-    case 0x67F1AE8A:
+    case kBestCombosArrayMonthly:
         list = &core::at(stats->top_lists(), 3);
         break;
-    case 0x5299291B:
+    case kTopPlayersArray:
         core::at(stats->top_lists(), 4).fill_sorted_scores(true);
         return true;
-    case 0xFEF84FFF:
+    case kPersonalStatsArray:
         get_fill(stats->personal());
         return true;
     default:

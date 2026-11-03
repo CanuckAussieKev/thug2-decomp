@@ -6,6 +6,7 @@
 
 #include <windows.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -32,6 +33,23 @@
 #include "engine/net/stats_man.h"
 #include "engine/core/format.h"
 #include "engine/net/net_game_state.h"
+
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kAvailabilityCheckWait = 0x15EC44CFu; // availability_check_wait
+constexpr uint32_t kCreateFailedLobbyListDialog = 0x43D52414u; // CreateFailedLobbyListDialog
+constexpr uint32_t kCreateGettingLobbyListDialog = 0xF68F8A86u; // CreateGettingLobbyListDialog
+constexpr uint32_t kCreateMotdMenu = 0xF17B894Cu; // create_motd_menu
+constexpr uint32_t kCreateMotdRetryDialog = 0xC072AC4Eu; // CreateMotdRetryDialog
+constexpr uint32_t kLaunchMotdWaitDialog = 0xBDA86A12u; // launch_motd_wait_dialog
+constexpr uint32_t kNetStatusGamespyNoConnect = 0x4AF78404u; // net_status_gamespy_no_connect
+constexpr uint32_t kNetStatusRetryMotd = 0x78D25623u; // net_status_retry_motd
+constexpr uint32_t kRetrieveMotd = 0xA8D71FCCu; // retrieve_motd
+constexpr uint32_t kServiceNeverAvailable = 0xAA290EB3u; // service_never_available
+constexpr uint32_t kServiceNotAvailable = 0xCB856AF7u; // service_not_available
+
+} // namespace
 
 namespace net {
 
@@ -86,8 +104,8 @@ void start_thread(online::Hub* manager, LPTHREAD_START_ROUTINE thread)
 void show_no_servers()
 {
     const script::StructPtr params = script::make_struct();
-    params->append_word(kText, script::kQbvalString, script::fetch_text(0x4AF78404));
-    launch_script(0x43D52414, params.get());
+    params->append_word(kText, script::kQbvalString, script::fetch_text(kNetStatusGamespyNoConnect));
+    launch_script(kCreateFailedLobbyListDialog, params.get());
 }
 
 // Done: state 2, and this task stops.
@@ -110,7 +128,7 @@ void service_task(tasks::Task<online::Hub>* task)
         break;
     case 3: // start: a script, then the availability check a moment later
         push_internet_heap();
-        launch_script(0x15EC44CF);
+        launch_script(kAvailabilityCheckWait);
         manager->assign_service_state(0);
         manager->assign_next_service_state(4);
         manager->set_service_wake_at(100);
@@ -125,15 +143,15 @@ void service_task(tasks::Task<online::Hub>* task)
         switch (gsi_available_check_think()) {
         case 1: // available
             manager->set_services_available(true);
-            launch_script(0xA8D71FCC);
+            launch_script(kRetrieveMotd);
             break;
         case 2: // unavailable
-            launch_script(0xAA290EB3);
+            launch_script(kServiceNeverAvailable);
             get_finish(manager);
             manager->set_service_wake_at(0);
             break;
         case 3: // temporarily unavailable
-            launch_script(0xCB856AF7);
+            launch_script(kServiceNotAvailable);
             get_finish(manager);
             manager->set_service_wake_at(0);
             break;
@@ -147,13 +165,14 @@ void service_task(tasks::Task<online::Hub>* task)
         freeze_stream(1);
         const int count = static_cast<int>(online::net_game_state().news_message_count());
         if (count == 0) {
-            script::spawn_script(0xBDA86A12, nullptr);
+            script::spawn_script(kLaunchMotdWaitDialog, nullptr);
         } else {
             const script::StructPtr params = script::make_struct();
-            std::array<char, 256> text{};
-            text::format_to(text, "(%d) %s", count, script::fetch_text(0x78D25623));
+            constexpr size_t kTextSize = 256;
+            std::array<char, kTextSize> text{};
+            text::format_to(text, "(%d) %s", count, script::fetch_text(kNetStatusRetryMotd));
             params->append_word(kText, script::kQbvalString, text.data());
-            script::spawn_script(0xC072AC4E, params.get());
+            script::spawn_script(kCreateMotdRetryDialog, params.get());
         }
         manager->assign_service_state(0);
         manager->set_service_wake_at(0);
@@ -191,7 +210,7 @@ void service_task(tasks::Task<online::Hub>* task)
         ghttp_cleanup();
         script::StructPtr params = script::make_struct();
         params->append_word(kText, manager->motd_text());
-        launch_script(0xF17B894C, params.get());
+        launch_script(kCreateMotdMenu, params.get());
         params.reset();
         manager->assign_service_state(0);
         manager->set_service_wake_at(0);
@@ -206,7 +225,7 @@ void service_task(tasks::Task<online::Hub>* task)
         manager->set_service_wake_at(0);
         break;
     case 0xD:
-        launch_script(0xF68F8A86);
+        launch_script(kCreateGettingLobbyListDialog);
         manager->lobby_service().get()->clear_lobbies();
         manager->lobby_service().get()->start_listing_games();
         break;

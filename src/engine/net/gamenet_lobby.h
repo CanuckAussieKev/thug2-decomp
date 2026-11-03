@@ -388,6 +388,7 @@ bool cfunc_lobby_connect(script::Struct* params, script::Script* script);       
 // console only. True.
 bool cfunc_send_message(script::Struct* params, script::Script* script);
 
+constexpr size_t kQueuedPacketBytes = 0x1C;
 // The packets queued by RoomManager::queue_packet (0x007CCE50, 199 of 0x1C bytes; the count 0x007CE438).
 struct QueuedPacket {
     int type;   // 1 a qr2 query, 2 NAT negotiation
@@ -395,7 +396,7 @@ struct QueuedPacket {
     int length;
     std::array<uint8_t, 16> from; // the sender's sockaddr
 };
-static_assert(sizeof(QueuedPacket) == 0x1C);
+static_assert(sizeof(QueuedPacket) == kQueuedPacketBytes);
 
 // (Two list searches the lobby's code keeps on its stack have vtables, 0x0064CB6C / 0x0064CB70, holding only
 // destructors that put them back - 0x0053F8B0 / 0x005407E0, 0x0053F8C0 / 0x00540810 - not kept.)

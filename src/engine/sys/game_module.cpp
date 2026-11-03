@@ -45,10 +45,13 @@ PartUnit::~PartUnit()
 }
 
 // 0x0044F5E0
+namespace {
+constexpr int kTickPriority = 1000; // (the task runs first: a negative priority)
+} // namespace
 Hub::Hub()
 {
     modules_.make_head();
-    task_ = std::make_unique<tasks::Task<Hub>>(&tick_modules, this, -1000);
+    task_ = std::make_unique<tasks::Task<Hub>>(&tick_modules, this, -kTickPriority);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     command_pending_ = false;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)

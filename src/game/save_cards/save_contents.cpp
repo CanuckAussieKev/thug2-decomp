@@ -37,6 +37,20 @@
 #include "engine/core/checksums.h"
 #include <gsl/pointers>
 
+namespace {
+
+constexpr int kUpperHalfShift = 32; // a track mask's upper word
+constexpr uint32_t kNoSoundtrack = 0xFFFFFFFF;
+
+// Names (the checksums of their text).
+constexpr uint32_t kCASFileName = 0xF36C1878u; // CASFileName
+constexpr uint32_t kCareer = 0x4DA4937Bu; // career
+constexpr uint32_t kEditGraphicLayerInfos = 0x8EAD7D43u; // edit_graphic_layer_infos
+constexpr uint32_t kSetLoadedSoundtrack = 0xD44400C2u; // set_loaded_soundtrack
+constexpr uint32_t kTrackchecksum = 0x8C465905u; // trackchecksum
+
+} // namespace
+
 namespace save_cards {
 
 namespace {
@@ -112,9 +126,9 @@ void write_global_info(Struct* global)
     sound->push_float(checksums::Name{kMusicVolume}, script::fetch_float(kMusicVolOutsideBox));
     std::array<uint64_t, 2> tracks_off{};
     audio::get_tracks_off(&core::at(tracks_off, 0), &core::at(tracks_off, 1));
-    sound->put_int(checksums::Name{kForbiddenTracks1}, static_cast<int>(core::at(tracks_off, 0) >> 32));
+    sound->put_int(checksums::Name{kForbiddenTracks1}, static_cast<int>(core::at(tracks_off, 0) >> kUpperHalfShift));
     sound->put_int(checksums::Name{kForbiddenTracks2}, static_cast<int>(core::at(tracks_off, 0)));
-    sound->put_int(checksums::Name{kForbiddenTracks3}, static_cast<int>(core::at(tracks_off, 1) >> 32));
+    sound->put_int(checksums::Name{kForbiddenTracks3}, static_cast<int>(core::at(tracks_off, 1) >> kUpperHalfShift));
     sound->put_int(checksums::Name{kForbiddenTracks4}, static_cast<int>(core::at(tracks_off, 1)));
     if (os_layer() == 4)
         sound->put_name_key(checksums::Name{kCurrentSoundtrack}, script::get_symbol_value("current_soundtrack"));
@@ -186,13 +200,13 @@ void read_save_header(Struct* global, Script* script)
     }
     audio::set_random_mode(sound->has_bare_flag(kRandomMode) ? 1 : 0);
     if (os_layer() == 4) {
-        uint32_t soundtrack = 0xFFFFFFFF;
+        uint32_t soundtrack = kNoSoundtrack;
         sound->read_hash_value(kCurrentSoundtrack, &soundtrack, 0);
         if (script::SymbolTableEntry* symbol = script::find_symbol(kCurrentSoundtrack))
             symbol->value().set_word(soundtrack);
         const script::StructPtr change = script::make_struct();
-        change->put_name_key(checksums::Name{0x8C465905u}, soundtrack);                       // trackchecksum
-        script::launch_script(0xD44400C2u, change.get(), nullptr, false, nullptr); // set_loaded_soundtrack
+        change->put_name_key(checksums::Name{kTrackchecksum}, soundtrack);                       // trackchecksum
+        script::launch_script(kSetLoadedSoundtrack, change.get(), nullptr, false, nullptr); // set_loaded_soundtrack
     }
 
     Array* controllers = nullptr;
@@ -214,7 +228,7 @@ void read_save_header(Struct* global, Script* script)
 
     constexpr uint32_t kLastLevelLoadScript = 0xE3335D2F, kLastGameMode = 0x2CC06F5E;
     Struct* career = nullptr;
-    global->read_sub_struct(0x4DA4937Bu, &career, 0); // career
+    global->read_sub_struct(kCareer, &career, 0); // career
     uint32_t last_level = 0;
     uint32_t last_mode = 0;
     if (career) {
@@ -232,7 +246,7 @@ void read_save_header(Struct* global, Script* script)
     auto* profile = get_skate()->fetch_account(static_cast<Struct*>(nullptr));
     if (!profile->is_pro()) {
         const char* cas_file_name = "Unimplemented";        // "Unimplemented"
-        global->fetch_text(0xF36C1878u, &cas_file_name, 0); // CASFileName
+        global->fetch_text(kCASFileName, &cas_file_name, 0); // CASFileName
         profile->set_string_f_36c_1878(cas_file_name);
     }
 }
@@ -277,11 +291,11 @@ void write_save_contents(Struct* contents, uint32_t type)
         objects::profile_roster()->write_custom_skaters(custom_skater);
         contents->append_struct_ref(kCustomSkater, custom_skater);
         // (on into CreatedGraphic's layer_infos, as the original does)
-        contents->append_array_value(kLayerInfos, script::fetch_list(0x8EAD7D43u)); // edit_graphic_layer_infos
+        contents->append_array_value(kLayerInfos, script::fetch_list(kEditGraphicLayerInfos)); // edit_graphic_layer_infos
         return;
     }
     case kSaveCreatedGraphic:
-        contents->append_array_value(kLayerInfos, script::fetch_list(0x8EAD7D43u)); // edit_graphic_layer_infos
+        contents->append_array_value(kLayerInfos, script::fetch_list(kEditGraphicLayerInfos)); // edit_graphic_layer_infos
         return;
     default:
         return;
@@ -343,7 +357,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
             contents->read_sub_struct(kStory, &story, 1);
             apply_goal_manager_params(story);
         }
-        if (sections & 8) {
+        if (sections & kSectionCustomSkater) {
             debug::printf("APPLY_CUSTOM_SKATER\n"); // "APPLY_CUSTOM_SKATER\n"
             Struct* custom_skater = nullptr;
             contents->read_sub_struct(kCustomSkater, &custom_skater, 1);

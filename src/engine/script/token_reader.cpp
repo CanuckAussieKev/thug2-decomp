@@ -28,6 +28,13 @@
 #include "engine/script/script_state.h"
 #include <gsl/pointers>
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kAngles = 0x9D2D0915u; // Angles
+
+} // namespace
+
 namespace script {
 
 namespace {
@@ -471,7 +478,7 @@ Tokens add_parameter(Tokens token, uint32_t name, Struct* dest, Struct* args)
         const float z = get_as_float(fetch_word32(token + 9));
         // (a zero vector named 0x9D2D0915 isn't added)
         const float tolerance = render::kOnePercent;
-        if (name != 0x9D2D0915 || !(std::fabs(x) < tolerance) || !(std::fabs(y) < tolerance) ||
+        if (name != kAngles || !(std::fabs(x) < tolerance) || !(std::fabs(y) < tolerance) ||
             !(std::fabs(z) < tolerance))
             dest->put_vec3(checksums::Name{name}, {.x = x, .y = y, .z = z});
         return token + 13;

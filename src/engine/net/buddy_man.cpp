@@ -62,6 +62,18 @@
 #include "engine/net/net_game_state.h"
 #include "engine/core/gathered_call.h"
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kCookie = 0x751F4599u; // cookie
+constexpr uint32_t kFlashBuddyMessageIcon = 0x10C3647Cu; // flash_buddy_message_icon
+constexpr uint32_t kMsgBody = 0x59EDEC1Cu; // msg_body
+constexpr uint32_t kNetName = 0xD3A5478Au; // net_name
+constexpr uint32_t kNick = 0xD6F4D0C8u; // Nick
+constexpr uint32_t kPROFILE = 0x7EA855F0u; // PROFILE
+
+} // namespace
+
 namespace online {
 
 namespace {
@@ -140,14 +152,17 @@ void gp_connect_new_user(void* connection, const char* nick, const char* unique_
 }
 
 // GPBuddyStatus as gpGetBuddyStatus fills it (the end padded: the SDK's own size isn't known exactly).
+constexpr size_t kRestSize = 0x20;
+constexpr size_t kLocationStringSize = 256;
+constexpr size_t kStatusStringSize = 256;
 struct GpBuddyStatus {
     int profile;
     int status;
-    std::array<char, 256> status_string_;
-    std::array<char, 256> location_string_;
+    std::array<char, kStatusStringSize> status_string_;
+    std::array<char, kLocationStringSize> location_string_;
     uint32_t ip;
     int port;
-    std::array<uint8_t, 0x20> rest;
+    std::array<uint8_t, kRestSize> rest;
 };
 void gp_get_buddy_status(void* connection, int index, GpBuddyStatus* status)
 {
@@ -471,7 +486,8 @@ void FriendsManager::show_buddy(Buddy* buddy, bool allow_join, bool allow_remove
     push_top_down();
     script::StructPtr params = script::make_struct();
     // (the original uses the nick as sprintf's format: a '%' in a nick would be expanded)
-    std::array<char, 1024> nick{};
+    constexpr size_t kNickSize = 1024;
+    std::array<char, kNickSize> nick{};
     text::format_to(nick, "%s", buddy->nick().data());
     params->append_word("name", buddy->nick().data());
     params->append_word("status", buddy->status_text().data());
@@ -664,7 +680,7 @@ void FriendsManager::on_buddy_message(void*, const void* argument, FriendsManage
         text_tools::dup_from(message->nick().data(), text);
         text_tools::dup_from(message->text().data(), std::next(text, static_cast<std::ptrdiff_t>(std::strlen(text) + 1)));
     }
-    script::launch_script(0x10C3647Cu, nullptr, nullptr, false, nullptr);
+    script::launch_script(kFlashBuddyMessageIcon, nullptr, nullptr, false, nullptr);
     get_append(&man->messages_, &message->list_link());
     pop_heap();
 }
@@ -734,7 +750,8 @@ bool set_unique_id(script::Struct*, script::Script*)
     const uint32_t now = frame_clock::get_time();
     prefs::Preferences* prefs = net_game_state().online_hub()->get_online_settings();
     script::StructPtr params = script::make_struct();
-    std::array<char, 32> text{};
+    constexpr size_t kTextSize = 32;
+    std::array<char, kTextSize> text{};
     text::format_to(text, "%d", static_cast<int>(now));
     params->append_word("ui_string", text.data());
     prefs->change_setting(get_checksums("unique_id"), params.get());
@@ -755,7 +772,8 @@ bool join_buddy(script::Struct* params, script::Script*)
     params->fetch_int_value("join_ip", &ip, 1);
     params->fetch_int_value("join_private_ip", &private_ip, 1);
     params->fetch_int_value("join_port", &port, 1);
-    std::array<char, 1024> status{};
+    constexpr size_t kStatusSize = 1024;
+    std::array<char, kStatusSize> status{};
     text::format_to(status, "10thug211:%d:%d:%d:%s", ip, private_ip, port, location);
     bool same_address = false;
     if (static_cast<uint32_t>(ip) == peer_public_ip(lobby_peer(manager->lobby_service().get()))) {
@@ -783,7 +801,7 @@ bool join_buddy(script::Struct* params, script::Script*)
     join->add_component_of_type(0, script::kQbvalInteger, static_cast<uint32_t>(port));
     join->append_word(0, script::kQbvalString, dotted);
     if (!same_address)
-        join->add_component_of_type(0x751F4599, script::kQbvalName, static_cast<uint32_t>(maths::rnd(0xFFFF)));
+        join->add_component_of_type(kCookie, script::kQbvalName, static_cast<uint32_t>(maths::rnd(0xFFFF)));
     get_run("net_chosen_join_server", join.get());
     join.reset();
     return true;
@@ -852,10 +870,10 @@ bool show_next_buddy_message(script::Struct*, script::Script* script)
 {
     lists::Hunt<FriendNote> search;
     FriendNote* message = search.head_element(&get_buddies()->messages());
-    script->args()->append_word(0xD6F4D0C8, message->nick().data());
-    script->args()->append_word(0xD3A5478A, message->nick().data());
-    script->args()->append_word(0x59EDEC1C, message->text().data());
-    script->args()->put_int(checksums::Name{0x7EA855F0}, message->account());
+    script->args()->append_word(kNick, message->nick().data());
+    script->args()->append_word(kNetName, message->nick().data());
+    script->args()->append_word(kMsgBody, message->text().data());
+    script->args()->put_int(checksums::Name{kPROFILE}, message->account());
     unlink_list_node(message);
     // (the original then counts the messages left and ignores the count)
     return true;
@@ -865,7 +883,7 @@ bool show_next_buddy_message(script::Struct*, script::Script* script)
 bool is_already_my_buddy(script::Struct* params, script::Script*)
 {
     int profile = 0; // (left unset in the original when the parameter is missing)
-    params->fetch_int_value(0x7EA855F0, &profile, 0);
+    params->fetch_int_value(kPROFILE, &profile, 0);
     return get_buddies()->is_buddy(profile);
 }
 

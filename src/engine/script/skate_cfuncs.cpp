@@ -4,6 +4,7 @@
 
 #include "engine/core/str.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -28,14 +29,34 @@
 #include "engine/core/no_destroy.h"
 #include "engine/script/script_state.h"
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kBlack = 0x767A45D7u; // Black
+constexpr uint32_t kCIRCLE = 0x2B489A86u; // CIRCLE
+constexpr uint32_t kDOWN = 0xE3006FC4u; // DOWN
+constexpr uint32_t kDownLeft = 0xD8847EFAu; // DownLeft
+constexpr uint32_t kDownRight = 0x786B8B68u; // DownRight
+constexpr uint32_t kLEFT = 0x85981897u; // LEFT
+constexpr uint32_t kRIGHT = 0x4B358AEBu; // RIGHT
+constexpr uint32_t kSQUARE = 0x321C9756u; // SQUARE
+constexpr uint32_t kTRIANGLE = 0x20689278u; // TRIANGLE
+constexpr uint32_t kUpLeft = 0xB7231A95u; // UpLeft
+constexpr uint32_t kUpRight = 0xA50950C5u; // UpRight
+constexpr uint32_t kWhite = 0xBD30325Bu; // White
+
+} // namespace
+
 namespace commands {
 
 namespace {
 // NOT ORIGINAL grouping - skate_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
 // (skate_cfuncs_state()).
+constexpr size_t kDebounceTimesSize = 22;
+constexpr size_t kLevelNameSize = 64;
 struct SkateCfuncsState {
-    std::array<char, 64> level_name_{};
-    std::array<uint32_t, 22> debounce_times_{};
+    std::array<char, kLevelNameSize> level_name_{};
+    std::array<uint32_t, kDebounceTimesSize> debounce_times_{};
 };
 
 SkateCfuncsState& skate_cfuncs_state()
@@ -95,27 +116,27 @@ bool controller_pressed(const pad_input::InputHandler* controller, uint32_t butt
     switch (button) {
     case 0xBC6B118F:
         return input.up() != 0; // up
-    case 0xE3006FC4:
+    case kDOWN:
         return input.down() != 0; // down
-    case 0x85981897:
+    case kLEFT:
         return input.left() != 0; // left
-    case 0x4B358AEB:
+    case kRIGHT:
         return input.right() != 0; // right
-    case 0xB7231A95:
+    case kUpLeft:
         return input.up() && input.left(); // upleft
-    case 0xA50950C5:
+    case kUpRight:
         return input.up() && input.right(); // upright
-    case 0xD8847EFA:
+    case kDownLeft:
         return input.down() && input.left(); // downleft
-    case 0x786B8B68:
+    case kDownRight:
         return input.down() && input.right(); // downright
     case 0x7323E97C:
         return input.x() != 0; // x
-    case 0x20689278:
+    case kTRIANGLE:
         return input.triangle() != 0; // triangle
-    case 0x321C9756:
+    case kSQUARE:
         return input.square() != 0; // square
-    case 0x2B489A86:
+    case kCIRCLE:
         return input.circle() != 0; // circle
     case 0x26B0C991:
         return input.l1() != 0; // l1
@@ -125,9 +146,9 @@ bool controller_pressed(const pad_input::InputHandler* controller, uint32_t butt
         return input.r1() != 0; // r1
     case 0x6BF8A7F4:
         return input.r2() != 0; // r2
-    case 0x767A45D7:
+    case kBlack:
         return input.black() != 0; // black
-    case 0xBD30325B:
+    case kWhite:
         return input.white() != 0; // white
     case 0x9D2D8850:
         return input.z() != 0; // z

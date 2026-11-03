@@ -20,14 +20,47 @@ class InputPort;
 // recording (one PadFrameRecord per frame) or record what it reads.
 namespace pad_input {
 
+// The buttons' bits in Payload::buttons() / makes() / breaks() (PS2 order: the low byte L2, R2, L1, R1, triangle, circle,
+// cross, square; the next one select, the two sticks' clicks, start, up, right, down, left).
+constexpr uint32_t kMaskL2 = 0x1;
+constexpr uint32_t kMaskR2 = 0x2;
+constexpr uint32_t kMaskL1 = 0x4;
+constexpr uint32_t kMaskR1 = 0x8;
+constexpr uint32_t kMaskTriangle = 0x10;
+constexpr uint32_t kMaskCircle = 0x20;
+constexpr uint32_t kMaskCross = 0x40;
+constexpr uint32_t kMaskSquare = 0x80;
+constexpr uint32_t kMaskSelect = 0x100;
+constexpr uint32_t kMaskLeftStickClick = 0x200;
+constexpr uint32_t kMaskRightStickClick = 0x400;
+constexpr uint32_t kMaskStart = 0x800;
+constexpr uint32_t kMaskUp = 0x1000;
+constexpr uint32_t kMaskRight = 0x2000;
+constexpr uint32_t kMaskDown = 0x4000;
+constexpr uint32_t kMaskLeft = 0x8000;
+
+// The layout the original's records and objects have (checked beside each class).
+constexpr size_t kIncidentBytes = 25;
+constexpr size_t kPadFrameRecordBytes = 0x20;
+constexpr size_t kPadFrameButtonsOffset = 0x1C;
+constexpr size_t kPayloadBytes = 0x34;
+constexpr size_t kPayloadButtonsOffset = 0x1C;
+constexpr size_t kPayloadPreviousOffset = 0x30;
+constexpr size_t kResponderBytes = 0x2C;
+constexpr size_t kPad38Bytes = 0x08;
+constexpr size_t kHostEndBytes = 0x84;
+constexpr size_t kHostContentOffset = 0x40;
+constexpr size_t kHostOutBufLimitOffset = 0x80;
+constexpr size_t kHubBytes = 0x118;
+constexpr size_t kStickReplacesPadOffset = 0x10C;
 // One frame of a recording (0x20 bytes).
 struct PadFrameRecord {
     uint8_t is_usable_;
-    std::array<uint8_t, 25> incident_; // Payload::incident_
+    std::array<uint8_t, kIncidentBytes> incident_; // Payload::incident_
     std::array<uint8_t, 2> pad1a_;
     uint32_t buttons_;
 };
-static_assert(sizeof(PadFrameRecord) == 0x20 && offsetof(PadFrameRecord, buttons_) == 0x1C);
+static_assert(sizeof(PadFrameRecord) == kPadFrameRecordBytes && offsetof(PadFrameRecord, buttons_) == kPadFrameButtonsOffset);
 
 // What the handlers get (0x34 bytes): the analogue values and the button bits (PS2 order: bit 12 up, 13 right,
 // 14 down, 15 left ...; the device's extra byte above bit 16).
@@ -46,6 +79,7 @@ struct Payload {
     static constexpr int kRawRightY = 0x13;
     static constexpr int kRawLeftX = 0x14;
     static constexpr int kRawLeftY = 0x15;
+    static constexpr int kStickCentre = 0x80; // a stick at rest
     static constexpr int kQueueCapacity = 25;
     static constexpr uint32_t kReleaseEdge = 0x1000;
     static constexpr uint32_t kButtonRight = 0x2000;
@@ -96,7 +130,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(Payload) == 0x34 && offsetof(Payload, buttons_) == 0x1C && offsetof(Payload, previous_) == 0x30);
+        static_assert(sizeof(Payload) == kPayloadBytes && offsetof(Payload, buttons_) == kPayloadButtonsOffset && offsetof(Payload, previous_) == kPayloadPreviousOffset);
     }
 };
 
@@ -146,7 +180,7 @@ private:
     Code code_value_; // +0x24
     Owner* content_;  // +0x28
 };
-static_assert(sizeof(Responder<void>) == 0x2C, "the original's size");
+static_assert(sizeof(Responder<void>) == kResponderBytes, "the original's size");
 
 // A controller's server (0x84 bytes).
 struct HostEnd {
@@ -167,7 +201,7 @@ struct HostEnd {
 private:
     sio::InputPort* dev_{};
     tasks::PileUp handlers_;        // +0x04: the handler list (0x00406E80 makes it, 0x004070A0 runs it)
-    std::array<uint8_t, 0x08> pad38_{};         // +0x38: (the original list's two table words: the host keeps its 0x84 bytes)
+    std::array<uint8_t, kPad38Bytes> pad38_{};         // +0x38: (the original list's two table words: the host keeps its 0x84 bytes)
     Payload content_{};             // +0x40
     PadFrameRecord* data_in_{nullptr};       // +0x74: the recording played back (null: none)
     PadFrameRecord* in_buf_limit_{nullptr};  // +0x78
@@ -187,8 +221,8 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, handlers_) == 0x04 && offsetof(HostEnd, content_) == 0x40 &&
-                      offsetof(HostEnd, out_buf_limit_) == 0x80);
+        static_assert(sizeof(HostEnd) == kHostEndBytes && offsetof(HostEnd, handlers_) == 0x04 && offsetof(HostEnd, content_) == kHostContentOffset &&
+                      offsetof(HostEnd, out_buf_limit_) == kHostOutBufLimitOffset);
     }
 };
 
@@ -235,7 +269,7 @@ private:
     // The original's layout (checked inside the class: the members are private).
     static void check_layout()
     {
-        static_assert(sizeof(Hub) == 0x118 && offsetof(Hub, stick_replaces_pad_) == 0x10C);
+        static_assert(sizeof(Hub) == kHubBytes && offsetof(Hub, stick_replaces_pad_) == kStickReplacesPadOffset);
     }
 };
 

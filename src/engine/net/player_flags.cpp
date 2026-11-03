@@ -1,5 +1,6 @@
 // The network game's announcements about a player: fully in, capture the flag, king of the hill (see player_info.h).
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -147,7 +148,8 @@ void PlayerRecord::set_finished_joining()
 // 0x00543A90
 void PlayerRecord::score_flag_capture(int team)
 {
-    std::array<char, 64> key{};
+    constexpr size_t kKeySize = 64;
+    std::array<char, kKeySize> key{};
     get_team_key(key.data(), team);
     const PlayerRecord* local = find_own_player_record(net_game_state().online_hub());
     const script::StructPtr params = script::make_struct();
@@ -173,7 +175,8 @@ void PlayerRecord::score_flag_capture(int team)
 void PlayerRecord::note_flag_steal(int team)
 {
     Hub* manager = net_game_state().online_hub();
-    std::array<char, 64> key{};
+    constexpr size_t kKeySize = 64;
+    std::array<char, kKeySize> key{};
     get_team_key(key.data(), team);
     script::StructPtr params = script::make_struct();
     PlayerRecord* local = find_own_player_record(manager);
@@ -195,7 +198,8 @@ void PlayerRecord::note_flag_steal(int team)
 void PlayerRecord::note_flag_pickup(int team)
 {
     Hub* manager = net_game_state().online_hub();
-    std::array<char, 64> key{};
+    constexpr size_t kKeySize = 64;
+    std::array<char, kKeySize> key{};
     get_team_key(key.data(), team);
     script::StructPtr params = script::make_struct();
     const PlayerRecord* local = find_own_player_record(manager);
@@ -222,7 +226,8 @@ void PlayerRecord::note_flag_pickup(int team)
 void PlayerRecord::note_flag_returned()
 {
     Hub* manager = net_game_state().online_hub();
-    std::array<char, 64> key{};
+    constexpr size_t kKeySize = 64;
+    std::array<char, kKeySize> key{};
     get_team_key(key.data(), team_);
     gsl::owner<script::Struct*> params = script::new_struct();
     if (flag_bits_ & kPlayerLocal) {

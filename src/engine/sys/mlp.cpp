@@ -47,6 +47,9 @@ uint32_t& frames_run()
 }
 
 namespace {
+constexpr uint32_t kScreenSaverResetFrames = 200; // the screen-saver timeout is set again this often
+constexpr DWORD kInactiveSleepMilliseconds = 100;
+constexpr uint64_t kFarBehindFrames = 20;         // a frame this many frames late counts from the next one
 
 // Set for a frame that isn't drawn (running late, the window inactive, the device just reset): the scene isn't
 // begun or presented.
@@ -201,7 +204,7 @@ void Hub::get_main_loop()
     is_finished_ = false;
     for (bool repeat = true; repeat; repeat = !is_finished_) {
         ++frames_run(); // (not original - see frames_run)
-        if (screen_saver_timeout && frames_since_screen_saver++ >= 200) {
+        if (screen_saver_timeout && frames_since_screen_saver++ >= kScreenSaverResetFrames) {
             SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screen_saver_timeout, nullptr, 0);
             frames_since_screen_saver = 0;
         }
@@ -218,7 +221,7 @@ void Hub::get_main_loop()
             if (!text_entry()) {
                 // Inactive: idle until the window is active again (nothing else runs meanwhile).
                 for (bool again = true; again; again = !sys::app_active()) {
-                    Sleep(100);
+                    Sleep(kInactiveSleepMilliseconds);
                     os_layer::process_window_events();
                 }
                 continue;
@@ -241,7 +244,7 @@ void Hub::get_main_loop()
             now = static_cast<uint64_t>(counter.QuadPart);
         }
         uint64_t elapsed = now - frame_start;
-        if (elapsed > frame_ticks * 20) { // far behind (a pause): start counting again from one frame ago
+        if (elapsed > frame_ticks * kFarBehindFrames) { // far behind (a pause): start counting again from one frame ago
             frame_start = now - frame_ticks;
             elapsed = frame_ticks;
         }

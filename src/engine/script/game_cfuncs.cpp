@@ -76,15 +76,60 @@
 #include "engine/net/net_game_state.h"
 #include "engine/script/script_state.h"
 
+namespace {
+
+// Names (the checksums of their text).
+constexpr uint32_t kANIM = 0x98549BA4u; // ANIM
+constexpr uint32_t kBonks = 0xB426BF5Au; // Bonks
+constexpr uint32_t kCLEAR = 0x1A4E0EF9u; // CLEAR
+constexpr uint32_t kCentered = 0x2A434D05u; // centered
+constexpr uint32_t kClass = 0x12B4E660u; // class
+constexpr uint32_t kFileName = 0xC3F4169Au; // FileName
+constexpr uint32_t kGameObject = 0xEF59C100u; // GameObject
+constexpr uint32_t kGrinds = 0x14240297u; // Grinds
+constexpr uint32_t kINPUT = 0x27D7CD28u; // INPUT
+constexpr uint32_t kId = 0x40C698AFu; // id
+constexpr uint32_t kInitialScale = 0x1B9E8272u; // initial_scale
+constexpr uint32_t kLINES = 0xB0FE7369u; // LINES
+constexpr uint32_t kLevelGeometry = 0xBF4D3536u; // LevelGeometry
+constexpr uint32_t kLevelObject = 0xB7B3BD86u; // LevelObject
+constexpr uint32_t kMakeTextSubMenuItem = 0xBEED50B6u; // make_text_sub_menu_item
+constexpr uint32_t kMaxLength = 0x69E3A1C4u; // max_length
+constexpr uint32_t kName = 0xA1DC81F9u; // name
+constexpr uint32_t kNoBg = 0x9F67B2C8u; // no_bg
+constexpr uint32_t kNodeName = 0x66780C6Fu; // node_name
+constexpr uint32_t kNodeNameName = 0x9F92BA78u; // NodeName
+constexpr uint32_t kNodes = 0xE2C2FA03u; // Nodes
+constexpr uint32_t kObjID = 0x0830ECAFu; // ObjID
+constexpr uint32_t kPED = 0x061A741Eu; // PED
+constexpr uint32_t kPLAYER = 0x67E6859Au; // PLAYER
+constexpr uint32_t kPedestrian = 0xA0DFAC98u; // Pedestrian
+constexpr uint32_t kProximNode = 0x08470F2Eu; // ProximNode
+constexpr uint32_t kReferenceChecksum = 0x52A864B0u; // ReferenceChecksum
+constexpr uint32_t kRefreshSkaterModel = 0x808008EAu; // refresh_skater_model
+constexpr uint32_t kRestartName = 0xFCD206E1u; // RestartName
+constexpr uint32_t kScale = 0x13B9DA7Bu; // scale
+constexpr uint32_t kSkipToSelectedRestart = 0x506562D9u; // skip_to_selected_restart
+constexpr uint32_t kTRICK = 0x270F56E1u; // TRICK
+constexpr uint32_t kThemeMenuAddItem = 0xC16BF7BDu; // theme_menu_add_item
+constexpr uint32_t kTime = 0x906B67BAu; // time
+constexpr uint32_t kVehicle = 0xE47F1B79u; // Vehicle
+constexpr uint32_t kVerts = 0x969D3AF6u; // Verts
+constexpr uint32_t kViewport = 0x9FD29151u; // Viewport
+constexpr uint32_t kWarpSkater = 0x54523C62u; // WarpSkater
+
+} // namespace
+
 namespace commands {
 
 namespace {
 // NOT ORIGINAL grouping - game_cfuncs.cpp's state (the original's globals). Made on first use, never destroyed
 // (game_cfuncs_state()).
+constexpr size_t kPasswordStarsSize = 32;
 struct GameCfuncsState {
     std::unique_ptr<tasks::Task<void>> second_controller_check_{};
     int view_mode_cfunc_{};
-    std::array<char, 32> password_stars_{};
+    std::array<char, kPasswordStarsSize> password_stars_{};
 };
 
 GameCfuncsState& game_cfuncs_state()
@@ -505,7 +550,7 @@ bool cfunc_get_viewer_object_id(script::Struct*, script::Script* script)
 {
     if (modules::Viewer* viewer = modules::get_live_viewer()) {
         const objects::PreviewEntity* object = viewer_target(viewer);
-        script->args()->put_name_key(checksums::Name{0x0830ECAF}, object->ident());
+        script->args()->put_name_key(checksums::Name{kObjID}, object->ident());
         script->args()->put_name_key(checksums::Name{0x52280066}, object->ident());
     }
     return true;
@@ -517,11 +562,11 @@ bool cfunc_get_viewer_object_id(script::Struct*, script::Script* script)
 bool cfunc_reload_anim(script::Struct* params, script::Script*)
 {
     uint32_t anim = 0;
-    params->read_hash_value(0x52A864B0u, &anim, 0);
+    params->read_hash_value(kReferenceChecksum, &anim, 0);
     uint32_t base = 0;
-    params->read_hash_value(0x98549BA4u, &base, 0);
+    params->read_hash_value(kANIM, &base, 0);
     const char* file = ""; // ""
-    params->fetch_text(0xC3F4169Au, &file, 0);
+    params->fetch_text(kFileName, &file, 0);
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t name = checksums::hash_from_text(file);
     if (base)
@@ -551,17 +596,17 @@ bool cfunc_debounce(script::Struct* params, script::Script*)
     if (!button)
         return true;
     float time = 1.0f;
-    params->fetch_float(0x906B67BAu, &time, 0); // "time"
+    params->fetch_float(kTime, &time, 0); // "time"
     int release = 0;
-    params->fetch_int_value(0x1A4E0EF9u, &release, 0);
+    params->fetch_int_value(kCLEAR, &release, 0);
     auto* objects = objects::object_hub_slot().get();
-    for (objects::ObjectModule* input = objects->find_first_module_of_kind(0x27D7CD28); input;
+    for (objects::ObjectModule* input = objects->find_first_module_of_kind(kINPUT); input;
          input = input->next_of_type())
         core::down_cast<objects::PadInputModule>(input)->lock_button(checksums::Name{button}, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
     auto until = static_cast<float>(static_cast<double>(frame_clock::get_time()) +
                                     static_cast<double>(time) * static_cast<double>(gfx::kThousand));
-    for (objects::ObjectModule* trick = objects->find_first_module_of_kind(0x270F56E1); trick;
+    for (objects::ObjectModule* trick = objects->find_first_module_of_kind(kTRICK); trick;
          trick = trick->next_of_type())
         core::down_cast<objects::MoveExecutor>(trick)->hold_off_button(pad_input::glyph_for_button_tag(button), until);
     return true;
@@ -572,7 +617,7 @@ bool cfunc_start_keyboard_handler(script::Struct* params, script::Script*)
 {
     modules::FrontEnd* front_end = modules::front_end_instance().get();
     int device = 0; // (unset in the original when missing - an asserted parameter)
-    params->fetch_int_value(0x69E3A1C4u, &device, true);
+    params->fetch_int_value(kMaxLength, &device, true);
     front_end->register_key_listener(device);
     return true;
 }
@@ -642,7 +687,7 @@ inline void compiled_out_debug_call() {}
 bool cfunc_move_node(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
-    if (!params->read_hash_value(0xA1DC81F9u, &name, 0)) { // "name"
+    if (!params->read_hash_value(kName, &name, 0)) { // "name"
         debug::printf("Missing Name\n");                   // "Missing Name\n"
         return false;
     }
@@ -663,19 +708,19 @@ bool cfunc_move_node(script::Struct* params, script::Script*)
     if (objects::Entity* object = object_edit()->look_up_entity(name))
         std::memcpy(&core::down_cast<objects::GameEntity>(object)->at_point(), &position, sizeof(position));
     uint32_t node_class = 0;
-    node->read_hash_value(0x12B4E660u, &node_class, 0); // "class"
+    node->read_hash_value(kClass, &node_class, 0); // "class"
     switch (node_class) {
     case kClassClimbingNode:
     case kClassRailNode:
         modules::Skate::sole()->rail_manager()->move_node(name, &position);
         return true;
-    case 0xA0DFAC98: // Pedestrian
-    case 0x061A741E: // (name unknown)
-    case 0x08470F2E: // ProximNode
-    case 0xE47F1B79: // Vehicle
-    case 0xB7B3BD86: // LevelObject
-    case 0xBF4D3536: // LevelGeometry
-    case 0xEF59C100: // GameObject
+    case kPedestrian: // Pedestrian
+    case kPED: // (name unknown)
+    case kProximNode: // ProximNode
+    case kVehicle: // Vehicle
+    case kLevelObject: // LevelObject
+    case kLevelGeometry: // LevelGeometry
+    case kGameObject: // GameObject
         return true;
     default:
         return false;
@@ -687,9 +732,9 @@ bool cfunc_move_node(script::Struct* params, script::Script*)
 bool cfunc_set_active_camera(script::Struct* params, script::Script*)
 {
     uint32_t id = 0;
-    params->read_hash_value(0x40C698AFu, &id, 0); // "id"
+    params->read_hash_value(kId, &id, 0); // "id"
     int viewport = 0;
-    params->fetch_int_value(0x9FD29151u, &viewport, 0);
+    params->fetch_int_value(kViewport, &viewport, 0);
     const bool take_current_view = params->has_bare_flag(0x10C1C887u);
     return make_camera_active(checksums::Name{id}, viewport, take_current_view);
 }
@@ -704,10 +749,10 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
     compiled_out_debug_call();
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(static_cast<memory::MemSource*>(memory->debug_heap()));
-    bool show1 = params->has_bare_flag(0xB426BF5Au);
-    bool show2 = params->has_bare_flag(0x14240297u);
-    bool show3 = params->has_bare_flag(0x969D3AF6u);
-    bool show4 = params->has_bare_flag(0xB0FE7369u);
+    bool show1 = params->has_bare_flag(kBonks);
+    bool show2 = params->has_bare_flag(kGrinds);
+    bool show3 = params->has_bare_flag(kVerts);
+    bool show4 = params->has_bare_flag(kLINES);
     if (!show1 && !show2 && !show3 && !show4)
         show1 = show2 = show3 = show4 = true;
     const char* file = ""; // ""
@@ -742,7 +787,8 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
             continue;
         const int type = byte_at(at + 9) - '0';
         at += 11;
-        std::array<float, 6> values{};
+        constexpr size_t kValuesSize = 6;
+        std::array<float, kValuesSize> values{};
         for (float& value : values) {
             value = static_cast<float>(game_atof(std::next(data, static_cast<std::ptrdiff_t>(at))));
             while (byte_at(at) == '-' || byte_at(at) == '.' || (byte_at(at) >= '0' && byte_at(at) <= '9'))
@@ -801,7 +847,8 @@ bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
     gfx::FaceSkin* face = current_account()->appearance()->face_skin();
     const char* name = nullptr;             // (unset in the original when missing - an asserted parameter)
     params->fetch_text("string", &name, 1); // "string"
-    std::array<char, 0x80> path{};
+    constexpr size_t kPathSize = 0x80;
+    std::array<char, kPathSize> path{};
     THUG2_MSVC_WARNING(suppress : 4996)    // (unbounded: as in the original)
     text::format_to(path, "faces\\%s", name);               // "faces\%s"
     gsl::owner<void*> file = game_fopen(path.data(), "rb"); // "rb"
@@ -816,7 +863,7 @@ bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
     face->set_image({static_cast<const uint8_t*>(data), static_cast<std::size_t>(size)});
     game_free(data);
     face->mark_usable(true);
-    script::launch_script(0x808008EA, nullptr, nullptr, false, nullptr);
+    script::launch_script(kRefreshSkaterModel, nullptr, nullptr, false, nullptr);
     return true;
 }
 
@@ -824,7 +871,7 @@ bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
 bool cfunc_skater_is_custom(script::Struct* params, script::Script*)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
-    params->fetch_int_value(0x67E6859Au, &index, 1);
+    params->fetch_int_value(kPLAYER, &index, 1);
     return modules::Skate::sole()->fetch_account(index)->appearance()->face_skin() != nullptr; // (its face texture: +0x54)
 }
 
@@ -848,9 +895,9 @@ constexpr uint32_t kFirstRestartId = 123456; // the restart items' ids, from her
 // A restart menu item's fixed parts.
 void add_restart_item_flags(script::Struct* item)
 {
-    item->put_name_key(checksums::Name{0x9F67B2C8}, 0x9F67B2C8); // (flags, names unknown)
-    item->put_name_key(checksums::Name{0x2A434D05}, 0x2A434D05);
-    item->put_name_key(checksums::Name{kMenuScript}, 0x506562D9);
+    item->put_name_key(checksums::Name{kNoBg}, kNoBg); // (flags, names unknown)
+    item->put_name_key(checksums::Name{kCentered}, kCentered);
+    item->put_name_key(checksums::Name{kMenuScript}, kSkipToSelectedRestart);
 }
 
 } // namespace
@@ -872,12 +919,12 @@ bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
         item->put_name_key(checksums::Name{kMenuId}, kFirstRestartId + count);
         add_restart_item_flags(item.get());
         script::StructPtr choose = script::make_struct();
-        choose->put_name_key(checksums::Name{0x66780C6F}, restart);
+        choose->put_name_key(checksums::Name{kNodeName}, restart);
         item->put_sub_struct(kMenuParams, choose.get());
         float scale = 0.0f; // (unset in the original when missing - an asserted parameter)
-        params->fetch_float(0x1B9E8272u, &scale, true);
-        item->push_float(checksums::Name{0x13B9DA7B}, scale); // "scale"
-        script::launch_script(0xC16BF7BD, item.get(), nullptr, false, nullptr);
+        params->fetch_float(kInitialScale, &scale, true);
+        item->push_float(checksums::Name{kScale}, scale); // "scale"
+        script::launch_script(kThemeMenuAddItem, item.get(), nullptr, false, nullptr);
         item.reset();
         choose.reset();
         ++count;
@@ -887,7 +934,7 @@ bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
         item->append_word(kMenuText, "No restarts in level"); // "No restarts in level"
         item->put_name_key(checksums::Name{kMenuId}, kFirstRestartId);
         add_restart_item_flags(item.get());
-        script::launch_script(0xC16BF7BD, item.get(), nullptr, false, nullptr);
+        script::launch_script(kThemeMenuAddItem, item.get(), nullptr, false, nullptr);
     }
     return true;
 }
@@ -898,19 +945,19 @@ bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
 bool cfunc_add_warp_points_to_menu(script::Struct* params, script::Script*)
 {
     script::Array* nodes = nullptr;
-    params->fetch_list(0xE2C2FA03u, &nodes, 0);
+    params->fetch_list(kNodes, &nodes, 0);
     for (uint32_t i = 0; i < nodes->extent(); ++i) {
         const script::StructPtr item = script::make_struct();
         script::Struct* node = level_nodes::fetch_vertex(nodes->fetch_part(i), true);
         const char* name = nullptr;
-        if (!node->fetch_text(0xFCD206E1u, &name, 0))
+        if (!node->fetch_text(kRestartName, &name, 0))
             name = "Unnamed restart"; // "Unnamed restart"
         item->append_word(kMenuText, name);
-        item->put_name_key(checksums::Name{kMenuScript}, 0x54523C62);
+        item->put_name_key(checksums::Name{kMenuScript}, kWarpSkater);
         gsl::owner<script::Struct*> choose = script::new_struct();
-        choose->put_name_key(checksums::Name{0x9F92BA78}, nodes->fetch_part(i));
+        choose->put_name_key(checksums::Name{kNodeNameName}, nodes->fetch_part(i));
         item->put_sub_struct(kMenuParams, choose);
-        script::launch_script(0xBEED50B6, item.get(), nullptr, false, nullptr);
+        script::launch_script(kMakeTextSubMenuItem, item.get(), nullptr, false, nullptr);
     }
     return true;
 }
@@ -926,8 +973,10 @@ bool cfunc_add_faces_to_menu(script::Struct*, script::Script*)
     int count = 0;
     for (bool again = true; again; again = count < 11 && FindNextFileA(search, &found)) {
         if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && std::strlen(std::data(found.cFileName)) <= 90) {
-            std::array<char, 0x110> file{};
-            std::array<char, 0xC8> name{};
+            constexpr size_t kFileSize = 0x110;
+            std::array<char, kFileSize> file{};
+            constexpr size_t kNameSize = 0xC8;
+            std::array<char, kNameSize> name{};
             std::memcpy(file.data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
             std::memcpy(name.data(), std::data(found.cFileName), std::strlen(std::data(found.cFileName)) + 1);
             if (std::strlen(name.data()) > 4)

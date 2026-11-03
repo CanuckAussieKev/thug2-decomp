@@ -167,7 +167,8 @@ void update_rank(LobbyPlayer* player, const char* value)
 // "<nick> <text>" to the console, with the flag `kind` (by name).
 void console_message(const char* nick, uint32_t text_name, bool by_name)
 {
-    std::array<char, 1024> line{};
+    constexpr size_t kLineSize = 1024;
+    std::array<char, kLineSize> line{};
     text::format_to(line, "%s %s", nick, script::fetch_text(text_name));
     const script::StructPtr params = script::make_struct();
     if (by_name) {
@@ -512,8 +513,10 @@ void RoomManager::join_room_callback(const JoinRoomResult& joined)
     // Our status: chatting in the lobby (0x00548320).
     manager->presence_service()->change_standing(4, script::fetch_text("homie_status_chatting"), lobby->room_name_.data());
     // Our room key b_rating: the stats' rating (0x0054CA80 of the stats manager, read through its pointer).
-    std::array<char, 64> key{};
-    std::array<char, 64> value{};
+    constexpr size_t kKeySize = 64;
+    std::array<char, kKeySize> key{};
+    constexpr size_t kValueSize = 64;
+    std::array<char, kValueSize> value{};
     text::format_to(key, "b_rating");
     const int* rating = &manager->rating_service()->get_personal_stats()->skill_points_;
     text::format_to(value, "%d", *rating);

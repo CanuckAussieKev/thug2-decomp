@@ -4,6 +4,7 @@
 
 #include "engine/script/cfuncs_engine.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -150,7 +151,8 @@ bool cfunc_init_anim_compress_table(Struct* params, Script*)
     uint32_t type = 0;
     params->fetch_text(0u, &file, 1);
     params->read_hash_value(0u, &type, 1);
-    std::array<char, 256> name{};
+    constexpr size_t kNameSize = 256;
+    std::array<char, kNameSize> name{};
     text::format_to(name, "%s", file); // (the original's sprintf isn't bounded)
     if (type == kT48)
         gfx::load_trans_table(name.data());
