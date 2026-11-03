@@ -1,6 +1,7 @@
 // Cutscenes: starting and ending one (the details' configure_from_data / End), the data's assets from the loaded
 // bundle and its destructor (0x00466620-0x00467707). See cutscene.h.
 
+#include <cstddef>
 #include <memory>
 #include <span>
 #include <cstdint>
@@ -66,14 +67,18 @@ constexpr uint32_t kCutsceneUnhideObjects = 0x94D0D528; // cutscene_unhide_objec
 constexpr uint32_t kRestoreSkaterCamera = 0x15674315; // Restore_skater_camera
 constexpr uint32_t kCutsceneKillObjects = 0x7216D8DA; // CutsceneKillObjects
 constexpr uint32_t kIsMale = 0x3F813177; // is_male
-// NOT ORIGINAL grouping - the cutscene skin colours the package fills in (the original's globals). Made on first use,
-// never destroyed (skin_colour_tables()).
-struct SkinColourTables {
-    std::array<uint8_t, 80> skin_colour_table_{{0,   0,   0,   0,  0,   0,   0,   0,  0,   0,   0,   0,  0, 0, 128, 63,
+constexpr std::size_t kSkinColourTableBytes = 80;
+// The table: five rows of four floats, as little-endian bytes.
+constexpr std::array<uint8_t, kSkinColourTableBytes> kSkinColourTableInit{{0,   0,   0,   0,  0,   0,   0,   0,  0,   0,   0,   0,  0, 0, 128, 63,
                                 239, 226, 125, 59, 80,  171, 108, 64, 205, 4,   143, 63, 0, 0, 128, 63,
                                 239, 226, 125, 59, 180, 212, 5,   65, 87,  207, 247, 63, 0, 0, 128, 63,
                                 153, 71,  126, 59, 185, 169, 157, 64, 74,  151, 190, 64, 0, 0, 128, 63,
                                 153, 71,  126, 59, 46,  84,  117, 64, 72,  24,  102, 64, 0, 0, 128, 63}};
+
+// NOT ORIGINAL grouping - the cutscene skin colours the package fills in (the original's globals). Made on first use,
+// never destroyed (skin_colour_tables()).
+struct SkinColourTables {
+    std::array<uint8_t, kSkinColourTableBytes> skin_colour_table_{kSkinColourTableInit};
     std::array<float, 20> skin_colours_{{1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f,
                          1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f}};
 };

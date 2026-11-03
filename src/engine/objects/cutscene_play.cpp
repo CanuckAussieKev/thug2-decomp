@@ -35,6 +35,7 @@ namespace objects {
 namespace {
 constexpr std::size_t kDummyNameBytes = 6;         // "dummy" with its terminator
 constexpr std::size_t kStreamNameBytes = 256;
+constexpr std::size_t kShotNameBytes = 256;
 constexpr std::size_t kLineBytes = 128;
 constexpr int kFramesPerSecond = 30;               // a cutscene's frame rate
 constexpr int kSecondsPerMinute = 60;
@@ -54,9 +55,9 @@ constexpr uint32_t kInfoScript = 0xD9157174;
 
 // The frame counter while the time is fixed (one frame each update), and the screenshots' file name.
 
-std::array<char, 256>& shot_name()
+std::array<char, kShotNameBytes>& shot_name()
 {
-    static std::array<char, 256> cutscene_shot_name{};
+    static std::array<char, kShotNameBytes> cutscene_shot_name{};
     return cutscene_shot_name;
 }
 

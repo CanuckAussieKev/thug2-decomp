@@ -157,6 +157,7 @@ public:
     T* operator->() const { return get_pull(); }
     explicit operator bool() const { return target_ != nullptr; }
 };
-static_assert(sizeof(SharedRef<SharedBase>) == 12, "a smart pointer is 12 bytes");
+constexpr std::size_t kSharedRefBytes = 12;
+static_assert(sizeof(SharedRef<SharedBase>) == kSharedRefBytes, "a smart pointer is 12 bytes");
 
 } // namespace objects
